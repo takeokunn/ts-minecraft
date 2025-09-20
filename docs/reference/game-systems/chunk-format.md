@@ -1,13 +1,18 @@
 ---
-title: "チャンクフォーマット仕様 - バイナリデータ構造・圧縮"
-description: "16x16x384ブロックチャンクのバイナリフォーマット、圧縮アルゴリズム、パフォーマンス最適化の完全仕様。"
-category: "specification"
-difficulty: "advanced"
-tags: ["chunk-format", "binary-data", "compression", "data-serialization", "world-data", "performance-optimization"]
-prerequisites: ["effect-ts-fundamentals", "binary-data-handling", "compression-algorithms", "chunk-system"]
-estimated_reading_time: "15分"
-related_patterns: ["data-serialization-patterns", "compression-patterns", "optimization-patterns"]
-related_docs: ["../../explanations/game-mechanics/core-features/chunk-system.md", "./world-data-structure.md", "./save-file-format.md"]
+title: 'チャンクフォーマット仕様 - バイナリデータ構造・圧縮'
+description: '16x16x384ブロックチャンクのバイナリフォーマット、圧縮アルゴリズム、パフォーマンス最適化の完全仕様。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['chunk-format', 'binary-data', 'compression', 'data-serialization', 'world-data', 'performance-optimization']
+prerequisites: ['effect-ts-fundamentals', 'binary-data-handling', 'compression-algorithms', 'chunk-system']
+estimated_reading_time: '15分'
+related_patterns: ['data-serialization-patterns', 'compression-patterns', 'optimization-patterns']
+related_docs:
+  [
+    '../../explanations/game-mechanics/core-features/chunk-system.md',
+    './world-data-structure.md',
+    './save-file-format.md',
+  ]
 ---
 
 # チャンクフォーマット仕様
@@ -22,38 +27,36 @@ Minecraftチャンクの詳細なデータフォーマット仕様です。16x25
 
 ```typescript
 export const CHUNK_CONSTANTS = {
-  WIDTH: 16,           // X軸サイズ
-  HEIGHT: 256,         // Y軸サイズ（ワールド高さ）
-  DEPTH: 16,           // Z軸サイズ
-  SECTION_HEIGHT: 16,  // セクション高さ
-  SECTIONS: 16,        // セクション数 (256 / 16)
+  WIDTH: 16, // X軸サイズ
+  HEIGHT: 256, // Y軸サイズ（ワールド高さ）
+  DEPTH: 16, // Z軸サイズ
+  SECTION_HEIGHT: 16, // セクション高さ
+  SECTIONS: 16, // セクション数 (256 / 16)
   TOTAL_BLOCKS: 65536, // 16 * 256 * 16
-  SECTION_BLOCKS: 4096 // 16 * 16 * 16
+  SECTION_BLOCKS: 4096, // 16 * 16 * 16
 } as const
 ```
 
 ### チャンクスキーマ
 
 ```typescript
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 export const ChunkSchema = Schema.Struct({
   // チャンク座標
   position: Schema.Struct({
     x: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
 
   // バージョン情報
   version: Schema.Struct({
-    format: Schema.Number,      // フォーマットバージョン
-    gameVersion: Schema.String  // ゲームバージョン
+    format: Schema.Number, // フォーマットバージョン
+    gameVersion: Schema.String, // ゲームバージョン
   }),
 
   // セクションデータ（Y軸で分割）
-  sections: Schema.Array(ChunkSectionSchema).pipe(
-    Schema.itemsCount(16)
-  ),
+  sections: Schema.Array(ChunkSectionSchema).pipe(Schema.itemsCount(16)),
 
   // バイオームデータ
   biomes: BiomeDataSchema,
@@ -72,8 +75,8 @@ export const ChunkSchema = Schema.Struct({
     generatedAt: Schema.Number,
     lastModified: Schema.Number,
     inhabitedTime: Schema.Number,
-    status: ChunkStatusSchema
-  })
+    status: ChunkStatusSchema,
+  }),
 })
 ```
 
@@ -83,7 +86,8 @@ export const ChunkSchema = Schema.Struct({
 
 ```typescript
 export const ChunkSectionSchema = Schema.Struct({
-  y: Schema.Number.pipe(       // セクションY座標 (0-15)
+  y: Schema.Number.pipe(
+    // セクションY座標 (0-15)
     Schema.clamp(0, 15)
   ),
 
@@ -98,16 +102,16 @@ export const ChunkSectionSchema = Schema.Struct({
   blockLight: Schema.optional(NibbleArraySchema),
 
   // セクションが空かどうか
-  empty: Schema.Boolean
+  empty: Schema.Boolean,
 })
 
 // パレット化されたコンテナ
 export const PalettedContainerSchema = Schema.Struct({
   palette: Schema.Array(Schema.Number), // ブロックIDのパレット
-  data: BitStorageSchema,               // インデックスデータ
+  data: BitStorageSchema, // インデックスデータ
   bitsPerEntry: Schema.Number.pipe(
-    Schema.clamp(4, 14)                 // エントリあたりのビット数
-  )
+    Schema.clamp(4, 14) // エントリあたりのビット数
+  ),
 })
 ```
 
@@ -132,7 +136,7 @@ export const BitStorage = {
       data,
       bitsPerEntry,
       mask,
-      entriesPerLong
+      entriesPerLong,
     }
   },
 
@@ -148,13 +152,11 @@ export const BitStorage = {
     const bitIndex = (index % storage.entriesPerLong) * storage.bitsPerEntry
 
     const newData = new Uint32Array(storage.data)
-    newData[longIndex] =
-      (newData[longIndex] & ~(storage.mask << bitIndex)) |
-      ((value & storage.mask) << bitIndex)
+    newData[longIndex] = (newData[longIndex] & ~(storage.mask << bitIndex)) | ((value & storage.mask) << bitIndex)
 
     return {
       ...storage,
-      data: newData
+      data: newData,
     }
   },
 
@@ -178,7 +180,7 @@ export const BitStorage = {
 
   serialize: (storage: BitStorage): Uint8Array => {
     return new Uint8Array(storage.data.buffer)
-  }
+  },
 }
 ```
 
@@ -197,7 +199,7 @@ export const PalettedContainer = {
   create: (size: number = CHUNK_CONSTANTS.SECTION_BLOCKS): PalettedContainer => ({
     palette: [0], // Air block
     storage: BitStorage.create(4, size), // 初期4ビット
-    size
+    size,
   }),
 
   set: (container: PalettedContainer, index: number, blockState: number): PalettedContainer => {
@@ -209,10 +211,10 @@ export const PalettedContainer = {
       const newPalette = [...container.palette, blockState]
 
       // パレットサイズチェック
-      if (newPalette.length > (1 << container.storage.bitsPerEntry)) {
+      if (newPalette.length > 1 << container.storage.bitsPerEntry) {
         return PalettedContainer.resize({
           ...container,
-          palette: newPalette
+          palette: newPalette,
         })
       }
 
@@ -220,14 +222,14 @@ export const PalettedContainer = {
       return {
         ...container,
         palette: newPalette,
-        storage: newStorage
+        storage: newStorage,
       }
     }
 
     const newStorage = BitStorage.set(container.storage, index, paletteIndex)
     return {
       ...container,
-      storage: newStorage
+      storage: newStorage,
     }
   },
 
@@ -249,7 +251,7 @@ export const PalettedContainer = {
       const newStorage = BitStorage.resize(container.storage, newBits)
       return {
         ...container,
-        storage: newStorage
+        storage: newStorage,
       }
     }
   },
@@ -265,9 +267,9 @@ export const PalettedContainer = {
     return {
       ...container,
       storage: newStorage,
-      palette: [] // 直接モードではパレット不要
+      palette: [], // 直接モードではパレット不要
     }
-  }
+  },
 }
 ```
 
@@ -287,13 +289,13 @@ export const HeightMapSchema = Schema.Struct({
   OCEAN_FLOOR: CompactLongArraySchema,
 
   // ワールド生成用の高さマップ
-  WORLD_SURFACE: CompactLongArraySchema
+  WORLD_SURFACE: CompactLongArraySchema,
 })
 
 // 圧縮された高さデータ
 export const CompactLongArraySchema = Schema.Struct({
   data: Schema.Array(Schema.Number),
-  bitsPerValue: Schema.Number
+  bitsPerValue: Schema.Number,
 })
 ```
 
@@ -310,7 +312,7 @@ export interface HeightMap {
 export const HeightMap = {
   create: (type: HeightMapType): HeightMap => ({
     type,
-    data: new Uint16Array(256) // 16 * 16
+    data: new Uint16Array(256), // 16 * 16
   }),
 
   update: (heightMap: HeightMap, x: number, z: number, height: number): HeightMap => {
@@ -319,7 +321,7 @@ export const HeightMap = {
     newData[index] = height
     return {
       ...heightMap,
-      data: newData
+      data: newData,
     }
   },
 
@@ -360,7 +362,7 @@ export const HeightMap = {
       Match.when('WORLD_SURFACE', () => !block.isAir),
       Match.exhaustive
     )
-  }
+  },
 }
 ```
 
@@ -377,40 +379,34 @@ export const LightingSchema = Schema.Struct({
   blockLight: LightDataSchema,
 
   // ライティング完了フラグ
-  isLightCorrect: Schema.Boolean
+  isLightCorrect: Schema.Boolean,
 })
 
 export const LightDataSchema = Schema.Struct({
   // セクションごとのライトデータ
-  sections: Schema.Array(
-    Schema.nullable(NibbleArraySchema)
-  ).pipe(
+  sections: Schema.Array(Schema.nullable(NibbleArraySchema)).pipe(
     Schema.itemsCount(18) // 16セクション + 上下の境界
-  )
+  ),
 })
 
 // 4ビット配列（0-15の値を格納）
-export const NibbleArraySchema = Schema.transform(
-  Schema.Uint8Array,
-  Schema.Array(Schema.Number),
-  {
-    decode: (data) => {
-      const result: number[] = []
-      for (let i = 0; i < data.length; i++) {
-        result.push(data[i] & 0x0F)
-        result.push((data[i] >> 4) & 0x0F)
-      }
-      return result
-    },
-    encode: (values) => {
-      const data = new Uint8Array(Math.ceil(values.length / 2))
-      for (let i = 0; i < values.length; i += 2) {
-        data[i / 2] = (values[i] & 0x0F) | ((values[i + 1] & 0x0F) << 4)
-      }
-      return data
+export const NibbleArraySchema = Schema.transform(Schema.Uint8Array, Schema.Array(Schema.Number), {
+  decode: (data) => {
+    const result: number[] = []
+    for (let i = 0; i < data.length; i++) {
+      result.push(data[i] & 0x0f)
+      result.push((data[i] >> 4) & 0x0f)
     }
-  }
-)
+    return result
+  },
+  encode: (values) => {
+    const data = new Uint8Array(Math.ceil(values.length / 2))
+    for (let i = 0; i < values.length; i += 2) {
+      data[i / 2] = (values[i] & 0x0f) | ((values[i + 1] & 0x0f) << 4)
+    }
+    return data
+  },
+})
 ```
 
 ## ブロックエンティティ
@@ -421,21 +417,28 @@ export const BlockEntitySchema = Schema.Struct({
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
 
   // タイプ
   type: Schema.Literal(
-    'chest', 'furnace', 'sign', 'spawner',
-    'enchanting_table', 'brewing_stand',
-    'beacon', 'hopper', 'dropper', 'dispenser'
+    'chest',
+    'furnace',
+    'sign',
+    'spawner',
+    'enchanting_table',
+    'brewing_stand',
+    'beacon',
+    'hopper',
+    'dropper',
+    'dispenser'
   ),
 
   // NBTデータ
   data: NBTDataSchema,
 
   // カスタムデータ
-  customData: Schema.optional(Schema.Unknown)
+  customData: Schema.optional(Schema.Unknown),
 })
 ```
 
@@ -471,7 +474,7 @@ export const ChunkCompression = {
     const decompressed = await decompressZlib(compressed)
 
     return deserializeChunk(decompressed)
-  }
+  },
 }
 ```
 
@@ -485,8 +488,8 @@ export const RegionFileSchema = Schema.Struct({
   header: Schema.Struct({
     locations: Schema.Array(
       Schema.Struct({
-        offset: Schema.Number,  // 4KBセクタ単位
-        sectors: Schema.Number  // セクタ数
+        offset: Schema.Number, // 4KBセクタ単位
+        sectors: Schema.Number, // セクタ数
       })
     ).pipe(
       Schema.itemsCount(1024) // 32x32チャンク
@@ -494,23 +497,21 @@ export const RegionFileSchema = Schema.Struct({
 
     timestamps: Schema.Array(
       Schema.Number // Unix timestamp
-    ).pipe(
-      Schema.itemsCount(1024)
-    )
+    ).pipe(Schema.itemsCount(1024)),
   }),
 
   // チャンクデータ
   chunks: Schema.Map({
     key: Schema.String, // "x,z" format
-    value: CompressedChunkSchema
-  })
+    value: CompressedChunkSchema,
+  }),
 })
 
 export const CompressedChunkSchema = Schema.Struct({
   length: Schema.Number,
   compressionType: Schema.Literal('zlib', 'gzip', 'none'),
   data: Schema.Uint8Array,
-  checksum: Schema.Number // CRC32
+  checksum: Schema.Number, // CRC32
 })
 ```
 
@@ -579,28 +580,29 @@ export interface ChunkPool {
 export const ChunkPool = {
   create: (maxSize: number = 100): ChunkPool => ({
     pool: [],
-    maxSize
+    maxSize,
   }),
 
-  acquire: (pool: ChunkPool): Effect.Effect<[ChunkData, ChunkPool], never> => Effect.gen(function* () {
-    if (pool.pool.length > 0) {
-      const chunk = pool.pool[pool.pool.length - 1]
-      const newPool = {
-        ...pool,
-        pool: pool.pool.slice(0, -1)
+  acquire: (pool: ChunkPool): Effect.Effect<[ChunkData, ChunkPool], never> =>
+    Effect.gen(function* () {
+      if (pool.pool.length > 0) {
+        const chunk = pool.pool[pool.pool.length - 1]
+        const newPool = {
+          ...pool,
+          pool: pool.pool.slice(0, -1),
+        }
+        const resetChunk = yield* ChunkData.reset(chunk)
+        return [resetChunk, newPool]
       }
-      const resetChunk = yield* ChunkData.reset(chunk)
-      return [resetChunk, newPool]
-    }
-    const newChunk = yield* ChunkData.create()
-    return [newChunk, pool]
-  }),
+      const newChunk = yield* ChunkData.create()
+      return [newChunk, pool]
+    }),
 
   release: (pool: ChunkPool, chunk: ChunkData): ChunkPool => {
     if (pool.pool.length < pool.maxSize) {
       return {
         ...pool,
-        pool: [...pool.pool, chunk]
+        pool: [...pool.pool, chunk],
       }
     }
     return pool
@@ -610,10 +612,10 @@ export const ChunkPool = {
   getMemoryUsage: (pool: ChunkPool): number => {
     const chunkSize =
       16 * 256 * 16 * 2 + // ブロックデータ (Uint16)
-      16 * 256 * 16 / 2 + // ライトデータ (nibble)
-      1024                 // その他メタデータ
+      (16 * 256 * 16) / 2 + // ライトデータ (nibble)
+      1024 // その他メタデータ
 
     return pool.pool.length * chunkSize
-  }
+  },
 }
 ```

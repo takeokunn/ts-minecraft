@@ -1,12 +1,16 @@
 ---
-title: "Effect-TS 3.17+ クイックリファレンス"
-description: "TypeScript Minecraft開発で頻繁に使用するEffect-TSパターンの実践的リファレンス。コピー&ペーストで即利用可能。"
-category: "guide"
-difficulty: "intermediate"
-tags: ["effect-ts", "typescript", "patterns", "quick-reference", "cheat-sheet"]
-prerequisites: ["effect-ts-fundamentals", "typescript-basics"]
-estimated_reading_time: "15分"
-related_docs: ["../tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md", "../explanations/design-patterns/01-service-patterns.md"]
+title: 'Effect-TS 3.17+ クイックリファレンス'
+description: 'TypeScript Minecraft開発で頻繁に使用するEffect-TSパターンの実践的リファレンス。コピー&ペーストで即利用可能。'
+category: 'guide'
+difficulty: 'intermediate'
+tags: ['effect-ts', 'typescript', 'patterns', 'quick-reference', 'cheat-sheet']
+prerequisites: ['effect-ts-fundamentals', 'typescript-basics']
+estimated_reading_time: '15分'
+related_docs:
+  [
+    '../tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md',
+    '../explanations/design-patterns/01-service-patterns.md',
+  ]
 ---
 
 # Effect-TS 3.17+ クイックリファレンス
@@ -16,6 +20,7 @@ TypeScript Minecraft開発で頻繁に使用するEffect-TSパターンの実践
 ## 🎯 使用場面
 
 **✅ 以下の場面で活用してください：**
+
 - 新しい機能実装時の基本パターン確認
 - Effect-TS 3.17+の最新APIの正確な使用法
 - コードレビュー時のパターン照合
@@ -26,6 +31,7 @@ TypeScript Minecraft開発で頻繁に使用するEffect-TSパターンの実践
 ### 1. Context.GenericTag（サービス定義）
 
 **最新パターン（Effect-TS 3.17+）**
+
 ```typescript
 // ✅ 推奨：Context.GenericTag
 interface WorldServiceInterface {
@@ -33,7 +39,7 @@ interface WorldServiceInterface {
   readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, WorldError>
 }
 
-export const WorldService = Context.GenericTag<WorldServiceInterface>("@minecraft/WorldService")
+export const WorldService = Context.GenericTag<WorldServiceInterface>('@minecraft/WorldService')
 
 // 実装
 const makeWorldService = Effect.gen(function* () {
@@ -60,42 +66,42 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 ```
 
 **❌ 非推奨：旧パターン**
+
 ```typescript
 // 古いAPI（使用しない）
-export const WorldService = Context.Tag<WorldServiceInterface>("WorldService")
+export const WorldService = Context.Tag<WorldServiceInterface>('WorldService')
 ```
 
 ### 2. Schema.Struct（データ型定義）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Schema.Struct
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const Block = Schema.Struct({
-  id: pipe(Schema.String, Schema.brand("BlockId")),
-  type: Schema.Union(
-    Schema.Literal("stone"),
-    Schema.Literal("dirt"),
-    Schema.Literal("grass")
+  id: pipe(Schema.String, Schema.brand('BlockId')),
+  type: Schema.Union(Schema.Literal('stone'), Schema.Literal('dirt'), Schema.Literal('grass')),
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
   ),
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
 })
 
 // 使用例
-const createBlock = (type: "stone" | "dirt" | "grass") =>
+const createBlock = (type: 'stone' | 'dirt' | 'grass') =>
   Effect.gen(function* () {
     const blockData = {
-      id: `block_${Date.now()}` as Brand.Branded<string, "BlockId">,
+      id: `block_${Date.now()}` as Brand.Branded<string, 'BlockId'>,
       type,
-      metadata: { createdAt: new Date().toISOString() }
+      metadata: { createdAt: new Date().toISOString() },
     }
 
     return Schema.decodeSync(Block)(blockData)
@@ -103,15 +109,17 @@ const createBlock = (type: "stone" | "dirt" | "grass") =>
 ```
 
 **❌ 非推奨：旧パターン**
+
 ```typescript
 // 古いAPI（使用しない）
-import { Data } from "@effect/data"
+import { Data } from '@effect/data'
 // class使用は禁止 - 関数型パターンを使用
 ```
 
 ### 3. Effect.gen（非同期処理合成）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Effect.gen + yield*
 const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
@@ -126,18 +134,18 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
 
     // アクション処理
     const result = yield* Match.value(action).pipe(
-      Match.when({ _tag: "Move" }, ({ direction, distance }) =>
+      Match.when({ _tag: 'Move' }, ({ direction, distance }) =>
         Effect.gen(function* () {
           const newPosition = calculateNewPosition(player.position, direction, distance)
           yield* playerService.updatePlayerPosition(playerId, newPosition)
-          return { type: "position_updated", position: newPosition } as const
+          return { type: 'position_updated', position: newPosition } as const
         })
       ),
-      Match.when({ _tag: "PlaceBlock" }, ({ position, blockType }) =>
+      Match.when({ _tag: 'PlaceBlock' }, ({ position, blockType }) =>
         Effect.gen(function* () {
           const block = yield* createBlock(blockType)
           yield* worldService.setBlock(position, block)
-          return { type: "block_placed", block } as const
+          return { type: 'block_placed', block } as const
         })
       ),
       Match.orElse(() => Effect.fail(PlayerError.InvalidAction({ action })))
@@ -145,10 +153,10 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
 
     // イベント発火
     yield* eventBus.publish({
-      type: "player_action_processed",
+      type: 'player_action_processed',
       playerId,
       action,
-      result
+      result,
     })
 
     return result
@@ -158,41 +166,38 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
 ### 4. Match.value（安全なパターンマッチング）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Match.value
 const handleGameEvent = (event: GameEvent) =>
   Match.value(event).pipe(
-    Match.when({ type: "player_joined" }, ({ playerId, timestamp }) =>
+    Match.when({ type: 'player_joined' }, ({ playerId, timestamp }) =>
       Effect.gen(function* () {
         yield* PlayerService.initializePlayer(playerId)
         yield* NotificationService.broadcast(`プレイヤー ${playerId} が参加しました`)
         yield* Effect.logInfo(`Player joined: ${playerId}`)
       })
     ),
-    Match.when({ type: "block_broken" }, ({ position, playerId, blockType }) =>
+    Match.when({ type: 'block_broken' }, ({ position, playerId, blockType }) =>
       Effect.gen(function* () {
         yield* InventoryService.addItem(playerId, { type: blockType, count: 1 })
         yield* ParticleService.spawnBreakParticles(position, blockType)
-        yield* SoundService.playSound("block_break", position)
+        yield* SoundService.playSound('block_break', position)
       })
     ),
-    Match.when({ type: "chunk_loaded" }, ({ chunkCoord }) =>
+    Match.when({ type: 'chunk_loaded' }, ({ chunkCoord }) =>
       Effect.gen(function* () {
         yield* ChunkManager.activateChunk(chunkCoord)
         yield* MobSpawningService.scheduleSpawning(chunkCoord)
       })
     ),
-    Match.orElse(() =>
-      Effect.logWarning("Unknown game event type")
-    )
+    Match.orElse(() => Effect.logWarning('Unknown game event type'))
   )
 
 // エラーハンドリング付きパターン
 const processWithFallback = <T>(value: T, processors: ProcessorMap<T>) =>
   Match.value(value).pipe(
-    ...Object.entries(processors).map(([pattern, handler]) =>
-      Match.when(pattern as any, handler)
-    ),
+    ...Object.entries(processors).map(([pattern, handler]) => Match.when(pattern as any, handler)),
     Match.orElse((unmatched) =>
       Effect.gen(function* () {
         yield* Effect.logError(`Unhandled case: ${JSON.stringify(unmatched)}`)
@@ -205,24 +210,25 @@ const processWithFallback = <T>(value: T, processors: ProcessorMap<T>) =>
 ### 5. Schema.TaggedError（型安全エラーハンドリング）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Schema.TaggedError
-export const WorldError = Schema.TaggedError("WorldError")({
+export const WorldError = Schema.TaggedError('WorldError')({
   ChunkNotLoaded: Schema.Struct({
     chunkCoord: ChunkCoordinate,
-    requestedAt: Schema.DateTimeUtc
+    requestedAt: Schema.DateTimeUtc,
   }),
   BlockNotFound: Schema.Struct({
     position: Position,
-    expectedType: Schema.optional(Schema.String)
+    expectedType: Schema.optional(Schema.String),
   }),
   InvalidPosition: Schema.Struct({
     position: Position,
     bounds: Schema.Struct({
       min: Position,
-      max: Position
-    })
-  })
+      max: Position,
+    }),
+  }),
 })
 
 export type WorldError = Schema.Schema.Type<typeof WorldError>
@@ -233,10 +239,12 @@ const safeGetBlock = (position: Position) =>
     // バウンズチェック
     const isValid = yield* validatePosition(position)
     if (!isValid) {
-      return yield* Effect.fail(WorldError.InvalidPosition({
-        position,
-        bounds: { min: { x: -64, y: 0, z: -64 }, max: { x: 64, y: 256, z: 64 } }
-      }))
+      return yield* Effect.fail(
+        WorldError.InvalidPosition({
+          position,
+          bounds: { min: { x: -64, y: 0, z: -64 }, max: { x: 64, y: 256, z: 64 } },
+        })
+      )
     }
 
     // チャンクロード確認
@@ -245,10 +253,12 @@ const safeGetBlock = (position: Position) =>
     const isLoaded = yield* chunkManager.isChunkLoaded(chunkCoord)
 
     if (!isLoaded) {
-      return yield* Effect.fail(WorldError.ChunkNotLoaded({
-        chunkCoord,
-        requestedAt: new Date()
-      }))
+      return yield* Effect.fail(
+        WorldError.ChunkNotLoaded({
+          chunkCoord,
+          requestedAt: new Date(),
+        })
+      )
     }
 
     // ブロック取得
@@ -267,11 +277,12 @@ const safeGetBlock = (position: Position) =>
 ### 6. Brand型（型安全性の強化）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Brand型の活用
-export type PlayerId = Brand.Branded<string, "PlayerId">
-export type ChunkCoordinate = Brand.Branded<string, "ChunkCoordinate">
-export type ItemStackCount = Brand.Branded<number, "ItemStackCount">
+export type PlayerId = Brand.Branded<string, 'PlayerId'>
+export type ChunkCoordinate = Brand.Branded<string, 'ChunkCoordinate'>
+export type ItemStackCount = Brand.Branded<number, 'ItemStackCount'>
 
 // Brand型作成ヘルパー
 export const PlayerId = Brand.nominal<PlayerId>()
@@ -281,13 +292,13 @@ export const ItemStackCount = Brand.refined<ItemStackCount>(
 )
 
 // Schema定義
-export const PlayerIdSchema = pipe(Schema.String, Schema.brand("PlayerId"))
-export const ChunkCoordinateSchema = pipe(Schema.String, Schema.brand("ChunkCoordinate"))
+export const PlayerIdSchema = pipe(Schema.String, Schema.brand('PlayerId'))
+export const ChunkCoordinateSchema = pipe(Schema.String, Schema.brand('ChunkCoordinate'))
 export const ItemStackCountSchema = pipe(
   Schema.Number,
   Schema.int(),
   Schema.between(0, 64),
-  Schema.brand("ItemStackCount")
+  Schema.brand('ItemStackCount')
 )
 
 // 使用例
@@ -302,8 +313,8 @@ const createPlayer = (name: string, startPosition: Position) =>
       health: ItemStackCount(20),
       inventory: {
         slots: Array.from({ length: 36 }, () => null),
-        selectedSlot: 0
-      }
+        selectedSlot: 0,
+      },
     }
 
     return Schema.decodeSync(Player)(playerData)
@@ -313,6 +324,7 @@ const createPlayer = (name: string, startPosition: Position) =>
 ### 7. Layer（依存注入）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Layer合成パターン
 export const MainLayer = Layer.mergeAll(
@@ -333,35 +345,23 @@ export const MainLayer = Layer.mergeAll(
 ).pipe(
   Layer.provide(
     // 外部依存
-    Layer.mergeAll(
-      DatabaseLive,
-      FileSystemLive,
-      RendererLive
-    )
+    Layer.mergeAll(DatabaseLive, FileSystemLive, RendererLive)
   )
 )
 
 // 環境別Layer
-export const DevelopmentLayer = MainLayer.pipe(
-  Layer.provide(DebugServiceLive),
-  Layer.provide(MockDataLive)
-)
+export const DevelopmentLayer = MainLayer.pipe(Layer.provide(DebugServiceLive), Layer.provide(MockDataLive))
 
-export const ProductionLayer = MainLayer.pipe(
-  Layer.provide(LoggingServiceLive),
-  Layer.provide(MetricsServiceLive)
-)
+export const ProductionLayer = MainLayer.pipe(Layer.provide(LoggingServiceLive), Layer.provide(MetricsServiceLive))
 
 // テスト用Layer
-export const TestLayer = MainLayer.pipe(
-  Layer.provide(InMemoryDatabaseLive),
-  Layer.provide(MockRendererLive)
-)
+export const TestLayer = MainLayer.pipe(Layer.provide(InMemoryDatabaseLive), Layer.provide(MockRendererLive))
 ```
 
 ### 8. Ref（状態管理）
 
 **最新パターン**
+
 ```typescript
 // ✅ 推奨：Ref + STM による状態管理
 const makeGameStateManager = Effect.gen(function* () {
@@ -373,48 +373,46 @@ const makeGameStateManager = Effect.gen(function* () {
     world: {
       loadedChunks: new Set<ChunkCoordinate>(),
       time: 0,
-      weather: "clear" as const
-    }
+      weather: 'clear' as const,
+    },
   })
 
   // 複数状態の同期更新
   const updateGameState = (updates: Partial<GameState>) =>
-    Ref.update(gameStateRef, current => ({
+    Ref.update(gameStateRef, (current) => ({
       ...current,
       ...updates,
-      tickCount: current.tickCount + 1
+      tickCount: current.tickCount + 1,
     }))
 
   // プレイヤー追加（原子性保証）
   const addPlayer = (player: PlayerState) =>
-    Ref.update(gameStateRef, state => ({
+    Ref.update(gameStateRef, (state) => ({
       ...state,
-      players: new Map(state.players).set(player.id, player)
+      players: new Map(state.players).set(player.id, player),
     }))
 
   // チャンクロード状態管理
   const loadChunk = (chunkCoord: ChunkCoordinate) =>
-    Ref.update(gameStateRef, state => ({
+    Ref.update(gameStateRef, (state) => ({
       ...state,
       world: {
         ...state.world,
-        loadedChunks: new Set([...state.world.loadedChunks, chunkCoord])
-      }
+        loadedChunks: new Set([...state.world.loadedChunks, chunkCoord]),
+      },
     }))
 
   // 状態読取り
   const getCurrentState = Ref.get(gameStateRef)
 
-  const getPlayerCount = Ref.get(gameStateRef).pipe(
-    Effect.map(state => state.players.size)
-  )
+  const getPlayerCount = Ref.get(gameStateRef).pipe(Effect.map((state) => state.players.size))
 
   return {
     updateGameState,
     addPlayer,
     loadChunk,
     getCurrentState,
-    getPlayerCount
+    getPlayerCount,
   }
 })
 ```
@@ -450,16 +448,16 @@ const placeBlock = (playerId: PlayerId, position: Position, blockType: BlockType
     yield* inventoryService.removeItem(playerId, blockType, 1)
 
     // サウンド再生
-    yield* soundService.playSound("block_place", position)
+    yield* soundService.playSound('block_place', position)
 
     // イベント発火
     const eventBus = yield* EventBus
     yield* eventBus.publish({
-      type: "block_placed",
+      type: 'block_placed',
       playerId,
       position,
       blockType,
-      timestamp: new Date()
+      timestamp: new Date(),
     })
 
     yield* Effect.logInfo(`Player ${playerId} placed ${blockType} at ${JSON.stringify(position)}`)
@@ -476,9 +474,7 @@ const placeBlock = (playerId: PlayerId, position: Position, blockType: BlockType
 const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
   Effect.gen(function* () {
     // チャンク別にグループ化
-    const updatesByChunk = Map.groupBy(updates, update =>
-      positionToChunkCoord(update.position)
-    )
+    const updatesByChunk = Map.groupBy(updates, (update) => positionToChunkCoord(update.position))
 
     // 並列処理で各チャンクを更新
     const results = yield* Effect.forEach(
@@ -496,7 +492,7 @@ const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
 
           return { chunkCoord, updatedBlocks: chunkUpdates.length }
         }),
-      { concurrency: "unbounded" }
+      { concurrency: 'unbounded' }
     )
 
     const totalUpdated = results.reduce((sum, result) => sum + result.updatedBlocks, 0)
@@ -511,11 +507,13 @@ const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
 ## 💡 補足情報
 
 ### デバッグのヒント
+
 - `Effect.tap(() => Effect.logInfo("デバッグメッセージ"))` でデバッグログを挿入
 - `Effect.catchAll` でエラーハンドリングの詳細化
 - `Effect.timed` で実行時間測定
 
 ### よくあるミス
+
 - `yield*` の忘れ（`yield Effect...` ではなく `yield* Effect...`）
 - 古いAPIの使用（`Context.Tag` や `Data.Class`）
 - Brand型の不適切な使用（実行時チェックなしの使用）

@@ -1,41 +1,42 @@
 ---
-title: "Phase 2: アプリケーションサービス実装"
-description: "Effect-TS Context・LayerパターンによるWorldService、PlayerServiceの実装。型安全な依存性注入とエラーハンドリングによる堅牢なアプリケーション層の構築方法。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["effect-ts-context", "effect-ts-layer", "application-services", "dependency-injection", "error-handling"]
-prerequisites: ["02-domain-layer-architecture", "effect-ts-services"]
-estimated_reading_time: "30分"
-estimated_implementation_time: "75分"
+title: 'Phase 2: アプリケーションサービス実装'
+description: 'Effect-TS Context・LayerパターンによるWorldService、PlayerServiceの実装。型安全な依存性注入とエラーハンドリングによる堅牢なアプリケーション層の構築方法。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['effect-ts-context', 'effect-ts-layer', 'application-services', 'dependency-injection', 'error-handling']
+prerequisites: ['02-domain-layer-architecture', 'effect-ts-services']
+estimated_reading_time: '30分'
+estimated_implementation_time: '75分'
 ai_context:
-  primary_concepts: ["effect-ts-context", "effect-ts-layer", "dependency-injection", "service-patterns"]
-  prerequisite_knowledge: ["domain-entities", "effect-ts-advanced", "service-design-patterns"]
-  estimated_completion_time: "105分"
-  learning_outcomes: ["Context・Layer実装", "依存性注入パターン", "エラーハンドリング戦略", "サービス間連携"]
+  primary_concepts: ['effect-ts-context', 'effect-ts-layer', 'dependency-injection', 'service-patterns']
+  prerequisite_knowledge: ['domain-entities', 'effect-ts-advanced', 'service-design-patterns']
+  estimated_completion_time: '105分'
+  learning_outcomes: ['Context・Layer実装', '依存性注入パターン', 'エラーハンドリング戦略', 'サービス間連携']
   complexity_level: 6.0
-  learning_path: "intermediate-to-advanced"
+  learning_path: 'intermediate-to-advanced'
 tutorial_structure:
-  format: "hands-on-implementation"
+  format: 'hands-on-implementation'
   interactive_examples: true
   practice_exercises: 3
-  difficulty_progression: "gradual"
-  success_criteria: ["動作するサービス層", "型安全な依存性注入", "包括的エラーハンドリング"]
+  difficulty_progression: 'gradual'
+  success_criteria: ['動作するサービス層', '型安全な依存性注入', '包括的エラーハンドリング']
 code_examples:
   executable: true
-  language: "typescript"
-  framework: "effect-ts-3.17"
+  language: 'typescript'
+  framework: 'effect-ts-3.17'
   complexity_score: 6.0
   includes_exercises: true
 related_resources:
-  internal_links: ["../effect-ts-fundamentals/effect-ts-services.md", "../../explanations/design-patterns/service-patterns.md"]
-  external_refs: ["https://effect.website/docs/context/", "https://effect.website/docs/layer/"]
+  internal_links:
+    ['../effect-ts-fundamentals/effect-ts-services.md', '../../explanations/design-patterns/service-patterns.md']
+  external_refs: ['https://effect.website/docs/context/', 'https://effect.website/docs/layer/']
 machine_readable:
-  topics: ["effect-ts-context", "service-layer", "dependency-injection", "error-handling"]
-  skill_level: "intermediate-to-advanced"
+  topics: ['effect-ts-context', 'service-layer', 'dependency-injection', 'error-handling']
+  skill_level: 'intermediate-to-advanced'
   implementation_time: 105
   confidence_score: 0.95
-  use_cases: ["service-architecture", "dependency-management", "error-handling-patterns"]
-  tutorial_type: "hands-on-implementation"
+  use_cases: ['service-architecture', 'dependency-management', 'error-handling-patterns']
+  tutorial_type: 'hands-on-implementation'
 ---
 
 # 🏛️ Phase 2: アプリケーションサービス実装
@@ -50,6 +51,7 @@ machine_readable:
 ## 📋 Phase 2 実装チェックリスト
 
 ### 🎯 学習目標
+
 - [ ] Context.GenericTag によるサービス定義の習得
 - [ ] Layer.effect による依存性注入パターンの実装
 - [ ] Effect.gen を活用したサービス間連携の構築
@@ -57,6 +59,7 @@ machine_readable:
 - [ ] TestLayer による単体・統合テストの作成
 
 ### 🛠️ 実装目標
+
 - [ ] WorldService の完全実装（チャンク管理・ブロック操作）
 - [ ] PlayerService の完全実装（プレイヤー状態管理・移動処理）
 - [ ] InventoryService の完全実装（アイテム管理・クラフトシステム）
@@ -64,6 +67,7 @@ machine_readable:
 - [ ] エラーハンドリングと例外安全性の確保
 
 ### 📊 成功基準
+
 - [ ] 全サービスが型安全に動作する
 - [ ] 依存関係が適切に注入される
 - [ ] 包括的なテストカバレッジ（100%）を達成
@@ -73,6 +77,7 @@ machine_readable:
 ---
 
 ### ✅ 完成目標
+
 - [ ] **WorldService** - チャンク生成・管理・永続化サービス
 - [ ] **PlayerService** - プレイヤー状態管理・物理演算サービス
 - [ ] **Context・Layer定義** - 依存性注入とテスタビリティの実現
@@ -123,23 +128,23 @@ graph TB
 
 ```typescript
 // src/application/services/WorldService.ts
-import { Context, Effect, Layer, Schema } from "effect"
-import { Chunk, ChunkCoordinate, ChunkOperations } from "../../domain/world/entities/Chunk.js"
-import { Block, BlockType } from "../../domain/world/entities/Block.js"
+import { Context, Effect, Layer, Schema } from 'effect'
+import { Chunk, ChunkCoordinate, ChunkOperations } from '../../domain/world/entities/Chunk.js'
+import { Block, BlockType } from '../../domain/world/entities/Block.js'
 
 // エラー型定義 - Schema.TaggedErrorによる型安全なエラー
-export const WorldError = Schema.TaggedError("WorldError")({
+export const WorldError = Schema.TaggedError('WorldError')({
   cause: Schema.Union(
-    Schema.Literal("ChunkNotFound"),
-    Schema.Literal("ChunkGenerationFailed"),
-    Schema.Literal("ChunkSaveFailed"),
-    Schema.Literal("ChunkLoadFailed"),
-    Schema.Literal("BlockOperationFailed"),
-    Schema.Literal("InvalidCoordinate")
+    Schema.Literal('ChunkNotFound'),
+    Schema.Literal('ChunkGenerationFailed'),
+    Schema.Literal('ChunkSaveFailed'),
+    Schema.Literal('ChunkLoadFailed'),
+    Schema.Literal('BlockOperationFailed'),
+    Schema.Literal('InvalidCoordinate')
   ),
   coordinate: Schema.optional(ChunkCoordinate),
   message: Schema.optional(Schema.String),
-  originalError: Schema.optional(Schema.Unknown)
+  originalError: Schema.optional(Schema.Unknown),
 })
 
 // 学習用簡略化インターフェース（実際のAPI仕様は参照セクションで確認）
@@ -158,7 +163,7 @@ export interface WorldService {
 }
 
 // Context Tag - Effect-TS 3.17+ Context.GenericTag使用
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>('WorldService')
 ```
 
 ### 地形生成アルゴリム
@@ -168,7 +173,9 @@ export const WorldService = Context.GenericTag<WorldService>("WorldService")
 interface PerlinNoiseService {
   readonly noise3D: (x: number, y: number, z: number) => number
   readonly fractalNoise3D: (
-    x: number, y: number, z: number,
+    x: number,
+    y: number,
+    z: number,
     octaves?: number,
     persistence?: number,
     scale?: number
@@ -197,7 +204,7 @@ const createPerlinNoise = (seed: number = 0): PerlinNoiseService => {
   const grad = (hash: number, x: number, y: number, z: number): number => {
     const h = hash & 15
     const u = h < 8 ? x : y
-    const v = h < 4 ? y : (h === 12 || h === 14 ? x : z)
+    const v = h < 4 ? y : h === 12 || h === 14 ? x : z
     return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v)
   }
 
@@ -226,22 +233,25 @@ const createPerlinNoise = (seed: number = 0): PerlinNoiseService => {
     const BB = permutation[B + 1] + Z
 
     // 線形補間による最終値計算
-    return lerp(w,
-      lerp(v,
-        lerp(u, grad(permutation[AA], x, y, z),
-                grad(permutation[BA], x - 1, y, z)),
-        lerp(u, grad(permutation[AB], x, y - 1, z),
-                grad(permutation[BB], x - 1, y - 1, z))),
-      lerp(v,
-        lerp(u, grad(permutation[AA + 1], x, y, z - 1),
-                grad(permutation[BA + 1], x - 1, y, z - 1)),
-        lerp(u, grad(permutation[AB + 1], x, y - 1, z - 1),
-                grad(permutation[BB + 1], x - 1, y - 1, z - 1)))
+    return lerp(
+      w,
+      lerp(
+        v,
+        lerp(u, grad(permutation[AA], x, y, z), grad(permutation[BA], x - 1, y, z)),
+        lerp(u, grad(permutation[AB], x, y - 1, z), grad(permutation[BB], x - 1, y - 1, z))
+      ),
+      lerp(
+        v,
+        lerp(u, grad(permutation[AA + 1], x, y, z - 1), grad(permutation[BA + 1], x - 1, y, z - 1)),
+        lerp(u, grad(permutation[AB + 1], x, y - 1, z - 1), grad(permutation[BB + 1], x - 1, y - 1, z - 1))
+      )
     )
   }
 
   const fractalNoise3D = (
-    x: number, y: number, z: number,
+    x: number,
+    y: number,
+    z: number,
     octaves: number = 4,
     persistence: number = 0.5,
     scale: number = 0.01
@@ -278,9 +288,13 @@ const TerrainGenerator = {
 
   // メインの地形生成関数
   generateTerrain: (chunkX: number, chunkZ: number): Block[][][] => {
-    const blocks: Block[][][] = Array(16).fill(null).map(() =>
-      Array(16).fill(null).map(() => Array(256).fill(null))
-    )
+    const blocks: Block[][][] = Array(16)
+      .fill(null)
+      .map(() =>
+        Array(16)
+          .fill(null)
+          .map(() => Array(256).fill(null))
+      )
 
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
@@ -295,7 +309,7 @@ const TerrainGenerator = {
 
           blocks[x][z][y] = {
             type: blockType,
-            position: { x: worldX, y, z: worldZ }
+            position: { x: worldX, y, z: worldZ },
           }
         }
       }
@@ -308,33 +322,33 @@ const TerrainGenerator = {
   calculateBaseHeight: (x: number, z: number): number => {
     // 複数オクターブによる地形生成
     const continentalness = TerrainGenerator.noise.fractalNoise3D(x, 0, z, 1, 0.5, 0.001) // 大陸規模
-    const erosion = TerrainGenerator.noise.fractalNoise3D(x, 1000, z, 3, 0.6, 0.003)      // 浸食
-    const ridges = TerrainGenerator.noise.fractalNoise3D(x, 2000, z, 2, 0.7, 0.008)       // 山脈
+    const erosion = TerrainGenerator.noise.fractalNoise3D(x, 1000, z, 3, 0.6, 0.003) // 浸食
+    const ridges = TerrainGenerator.noise.fractalNoise3D(x, 2000, z, 2, 0.7, 0.008) // 山脈
 
     // 高度計算（Minecraft風）
     let height = TerrainGenerator.SEA_LEVEL
-    height += continentalness * 40  // 大陸の基本高度
-    height += erosion * 20          // 浸食による起伏
-    height += ridges * 30           // 山脈の形成
+    height += continentalness * 40 // 大陸の基本高度
+    height += erosion * 20 // 浸食による起伏
+    height += ridges * 30 // 山脈の形成
 
     return Math.floor(Math.max(1, Math.min(200, height)))
   },
 
   // ブロックタイプの決定 - Effect-TS Match.valueによる高度なマッチング
   determineBlockType: (x: number, y: number, z: number, surfaceHeight: number): BlockType => {
-    import { Match } from "effect"
+    import { Match } from 'effect'
 
     // 空気ブロック判定
     return Match.value({ y, surfaceHeight, x, z }).pipe(
       // 地表より上の場合
       Match.when(
         ({ y, surfaceHeight }) => y > surfaceHeight,
-        ({ y }) => y <= TerrainGenerator.SEA_LEVEL ? "water" : "air"
+        ({ y }) => (y <= TerrainGenerator.SEA_LEVEL ? 'water' : 'air')
       ),
       // 洞窟生成の場合
       Match.when(
         ({ x, y, z }) => TerrainGenerator.isCave(x, y, z),
-        ({ y }) => y <= TerrainGenerator.SEA_LEVEL ? "water" : "air"
+        ({ y }) => (y <= TerrainGenerator.SEA_LEVEL ? 'water' : 'air')
       ),
       // 地層生成パターンマッチング
       Match.orElse(({ y, surfaceHeight }) => {
@@ -342,16 +356,14 @@ const TerrainGenerator = {
 
         return Match.value(depthFromSurface).pipe(
           // 表面ブロック
-          Match.when(0, () =>
-            y > TerrainGenerator.SEA_LEVEL + 5 ? "grass" : "sand"
-          ),
+          Match.when(0, () => (y > TerrainGenerator.SEA_LEVEL + 5 ? 'grass' : 'sand')),
           // 表土層（1-3の深さ）
           Match.when(
             (depth) => depth >= 1 && depth <= 3,
-            () => y > TerrainGenerator.SEA_LEVEL ? "dirt" : "sand"
+            () => (y > TerrainGenerator.SEA_LEVEL ? 'dirt' : 'sand')
           ),
           // 基盤岩層（デフォルト）
-          Match.orElse(() => "stone")
+          Match.orElse(() => 'stone')
         )
       })
     )
@@ -359,7 +371,7 @@ const TerrainGenerator = {
 
   // 洞窟生成判定 - Effect-TS Match.valueによる早期リターンパターン
   isCave: (x: number, y: number, z: number): boolean => {
-    import { Match } from "effect"
+    import { Match } from 'effect'
 
     return Match.value(y).pipe(
       // 洞窟生成範囲外の場合は早期リターン
@@ -369,10 +381,7 @@ const TerrainGenerator = {
       ),
       // 洞窟生成範囲内の場合はノイズ値による判定
       Match.orElse(() => {
-        const caveNoise = TerrainGenerator.noise.fractalNoise3D(
-          x, y, z,
-          3, 0.5, TerrainGenerator.CAVE_SCALE
-        )
+        const caveNoise = TerrainGenerator.noise.fractalNoise3D(x, y, z, 3, 0.5, TerrainGenerator.CAVE_SCALE)
 
         return Match.value(Math.abs(caveNoise)).pipe(
           Match.when(
@@ -383,7 +392,7 @@ const TerrainGenerator = {
         )
       })
     )
-  }
+  },
 }
 ```
 
@@ -425,7 +434,7 @@ const makeWorldService = Effect.gen(function* () {
             blocks,
             generated: true,
             modified: false,
-            lastAccessed: new Date()
+            lastAccessed: new Date(),
           }
 
           const key = getChunkKey(coordinate)
@@ -436,10 +445,10 @@ const makeWorldService = Effect.gen(function* () {
         } catch (error) {
           return yield* Effect.fail(
             new WorldError({
-              cause: "ChunkGenerationFailed",
+              cause: 'ChunkGenerationFailed',
               coordinate,
               message: `Failed to generate chunk at ${coordinate.x},${coordinate.z}`,
-              originalError: error
+              originalError: error,
             })
           )
         }
@@ -470,21 +479,20 @@ const makeWorldService = Effect.gen(function* () {
           const savedChunk = {
             ...chunk,
             modified: false,
-            lastAccessed: new Date()
+            lastAccessed: new Date(),
           }
 
           chunkCache.set(key, savedChunk)
 
           // 実際のプロジェクトではここでファイルシステムやDBに保存
           console.log(`Saved chunk ${key} to persistent storage`)
-
         } catch (error) {
           return yield* Effect.fail(
             new WorldError({
-              cause: "ChunkSaveFailed",
+              cause: 'ChunkSaveFailed',
               coordinate: chunk.coordinate,
               message: `Failed to save chunk`,
-              originalError: error
+              originalError: error,
             })
           )
         }
@@ -509,9 +517,9 @@ const makeWorldService = Effect.gen(function* () {
         } catch (error) {
           return yield* Effect.fail(
             new WorldError({
-              cause: "BlockOperationFailed",
+              cause: 'BlockOperationFailed',
               message: `Failed to get block at ${x},${y},${z}`,
-              originalError: error
+              originalError: error,
             })
           )
         }
@@ -525,17 +533,15 @@ const makeWorldService = Effect.gen(function* () {
           const chunk = yield* WorldService.loadChunk(chunkCoord)
           const local = ChunkOperations.worldToLocal(x, y, z)
 
-          const updatedChunk = yield* ChunkOperations.setBlockAt(
-            chunk, local.x, local.y, local.z, block
-          )
+          const updatedChunk = yield* ChunkOperations.setBlockAt(chunk, local.x, local.y, local.z, block)
 
           yield* WorldService.saveChunk(updatedChunk)
         } catch (error) {
           return yield* Effect.fail(
             new WorldError({
-              cause: "BlockOperationFailed",
+              cause: 'BlockOperationFailed',
               message: `Failed to set block at ${x},${y},${z}`,
-              originalError: error
+              originalError: error,
             })
           )
         }
@@ -546,14 +552,14 @@ const makeWorldService = Effect.gen(function* () {
       Effect.gen(function* () {
         const currentBlock = yield* WorldService.getBlock(x, y, z)
 
-        if (!currentBlock || currentBlock.type === "air") {
+        if (!currentBlock || currentBlock.type === 'air') {
           return null
         }
 
         // エアブロックに置き換え
         const airBlock: Block = {
-          type: "air",
-          position: { x, y, z }
+          type: 'air',
+          position: { x, y, z },
         }
 
         yield* WorldService.setBlock(x, y, z, airBlock)
@@ -563,17 +569,15 @@ const makeWorldService = Effect.gen(function* () {
     // 管理機能
     getLoadedChunks: () =>
       Effect.sync(() =>
-        Array.from(chunkCache.keys()).map(key => {
+        Array.from(chunkCache.keys()).map((key) => {
           const [x, z] = key.split(',').map(Number)
           return { x, z }
         })
       ),
 
-    isChunkLoaded: (coordinate) =>
-      Effect.sync(() => chunkCache.has(getChunkKey(coordinate))),
+    isChunkLoaded: (coordinate) => Effect.sync(() => chunkCache.has(getChunkKey(coordinate))),
 
-    getChunkCount: () =>
-      Effect.sync(() => chunkCache.size)
+    getChunkCount: () => Effect.sync(() => chunkCache.size),
   })
 })
 
@@ -587,22 +591,22 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 
 ```typescript
 // src/application/services/PlayerService.ts
-import { Context, Effect, Layer, Schema } from "effect"
-import { Player, PlayerOperations, Position } from "../../domain/player/entities/Player.js"
-import { WorldService } from "./WorldService.js"
+import { Context, Effect, Layer, Schema } from 'effect'
+import { Player, PlayerOperations, Position } from '../../domain/player/entities/Player.js'
+import { WorldService } from './WorldService.js'
 
 // エラー型定義
-export const PlayerError = Schema.TaggedError("PlayerError")({
+export const PlayerError = Schema.TaggedError('PlayerError')({
   cause: Schema.Union(
-    Schema.Literal("PlayerNotFound"),
-    Schema.Literal("InvalidInput"),
-    Schema.Literal("PhysicsError"),
-    Schema.Literal("CollisionError"),
-    Schema.Literal("StateUpdateFailed")
+    Schema.Literal('PlayerNotFound'),
+    Schema.Literal('InvalidInput'),
+    Schema.Literal('PhysicsError'),
+    Schema.Literal('CollisionError'),
+    Schema.Literal('StateUpdateFailed')
   ),
   playerId: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
-  originalError: Schema.optional(Schema.Unknown)
+  originalError: Schema.optional(Schema.Unknown),
 })
 
 // 入力状態定義
@@ -614,19 +618,19 @@ export const InputState = Schema.Struct({
     right: Schema.Boolean,
     jump: Schema.Boolean,
     sprint: Schema.Boolean,
-    crouch: Schema.Boolean
+    crouch: Schema.Boolean,
   }),
   mouse: Schema.Struct({
     deltaX: Schema.Number,
     deltaY: Schema.Number,
     leftClick: Schema.Boolean,
-    rightClick: Schema.Boolean
+    rightClick: Schema.Boolean,
   }),
   keys: Schema.Struct({
     inventory: Schema.Boolean,
     drop: Schema.Boolean,
-    chat: Schema.Boolean
-  })
+    chat: Schema.Boolean,
+  }),
 })
 
 export type InputState = Schema.Schema.Type<typeof InputState>
@@ -640,17 +644,10 @@ export interface PlayerService {
   readonly removePlayer: (id: string) => Effect.Effect<void, PlayerError>
 
   // 入力処理
-  readonly handleInput: (
-    playerId: string,
-    input: InputState,
-    deltaTime: number
-  ) => Effect.Effect<Player, PlayerError>
+  readonly handleInput: (playerId: string, input: InputState, deltaTime: number) => Effect.Effect<Player, PlayerError>
 
   // 物理演算
-  readonly applyPhysics: (
-    playerId: string,
-    deltaTime: number
-  ) => Effect.Effect<Player, PlayerError>
+  readonly applyPhysics: (playerId: string, deltaTime: number) => Effect.Effect<Player, PlayerError>
 
   // 衝突判定
   readonly checkCollisions: (player: Player) => Effect.Effect<Player, PlayerError>
@@ -660,7 +657,7 @@ export interface PlayerService {
   readonly getPlayerCount: () => Effect.Effect<number, never>
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>("PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('PlayerService')
 ```
 
 ### PlayerService実装
@@ -687,7 +684,7 @@ const makePlayerService = Effect.gen(function* () {
       const checkZ = Math.floor(position.z + offset.z)
 
       const block = yield* worldService.getBlock(checkX, checkY, checkZ)
-      return block && block.type !== "air" && block.type !== "water"
+      return block && block.type !== 'air' && block.type !== 'water'
     })
 
   return PlayerService.of({
@@ -704,8 +701,8 @@ const makePlayerService = Effect.gen(function* () {
             rotation: { yaw: 0, pitch: 0 },
             onGround: false,
             health: 20 as any,
-            gameMode: "survival",
-            selectedSlot: 0
+            gameMode: 'survival',
+            selectedSlot: 0,
           }
 
           players.set(id, player)
@@ -713,18 +710,17 @@ const makePlayerService = Effect.gen(function* () {
         } catch (error) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "StateUpdateFailed",
+              cause: 'StateUpdateFailed',
               playerId: id,
-              message: "Failed to create player",
-              originalError: error
+              message: 'Failed to create player',
+              originalError: error,
             })
           )
         }
       }),
 
     // プレイヤー取得
-    getPlayer: (id) =>
-      Effect.sync(() => players.get(id) || null),
+    getPlayer: (id) => Effect.sync(() => players.get(id) || null),
 
     // プレイヤー更新
     updatePlayer: (player) =>
@@ -746,9 +742,9 @@ const makePlayerService = Effect.gen(function* () {
         if (!player) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "PlayerNotFound",
+              cause: 'PlayerNotFound',
               playerId,
-              message: "Player not found"
+              message: 'Player not found',
             })
           )
         }
@@ -768,7 +764,7 @@ const makePlayerService = Effect.gen(function* () {
 
           // 移動入力処理
           let moveSpeed = 1.0
-          if (input.movement.sprint && player.gameMode !== "creative") {
+          if (input.movement.sprint && player.gameMode !== 'creative') {
             moveSpeed = 1.3 // スプリント倍率
           }
           if (input.movement.crouch) {
@@ -779,14 +775,10 @@ const makePlayerService = Effect.gen(function* () {
             forward: input.movement.forward,
             backward: input.movement.backward,
             left: input.movement.left,
-            right: input.movement.right
+            right: input.movement.right,
           }
 
-          updatedPlayer = PlayerOperations.handleMovementInput(
-            updatedPlayer,
-            movement,
-            deltaTime
-          )
+          updatedPlayer = PlayerOperations.handleMovementInput(updatedPlayer, movement, deltaTime)
 
           // 速度調整
           updatedPlayer = {
@@ -794,17 +786,17 @@ const makePlayerService = Effect.gen(function* () {
             velocity: {
               x: updatedPlayer.velocity.x * moveSpeed,
               y: updatedPlayer.velocity.y,
-              z: updatedPlayer.velocity.z * moveSpeed
-            }
+              z: updatedPlayer.velocity.z * moveSpeed,
+            },
           }
 
           // ジャンプ処理
           if (input.movement.jump) {
-            if (updatedPlayer.gameMode === "creative") {
+            if (updatedPlayer.gameMode === 'creative') {
               // クリエイティブ飛行
               updatedPlayer = {
                 ...updatedPlayer,
-                velocity: { ...updatedPlayer.velocity, y: 10 }
+                velocity: { ...updatedPlayer.velocity, y: 10 },
               }
             } else {
               // 通常ジャンプ
@@ -814,14 +806,13 @@ const makePlayerService = Effect.gen(function* () {
 
           players.set(playerId, updatedPlayer)
           return updatedPlayer
-
         } catch (error) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "InvalidInput",
+              cause: 'InvalidInput',
               playerId,
-              message: "Failed to process input",
-              originalError: error
+              message: 'Failed to process input',
+              originalError: error,
             })
           )
         }
@@ -834,9 +825,9 @@ const makePlayerService = Effect.gen(function* () {
         if (!player) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "PlayerNotFound",
+              cause: 'PlayerNotFound',
               playerId,
-              message: "Player not found"
+              message: 'Player not found',
             })
           )
         }
@@ -845,7 +836,7 @@ const makePlayerService = Effect.gen(function* () {
           let updatedPlayer = player
 
           // クリエイティブモードでは物理演算をスキップ
-          if (player.gameMode === "creative") {
+          if (player.gameMode === 'creative') {
             updatedPlayer = PlayerOperations.applyMovement(updatedPlayer, deltaTime)
           } else {
             // 重力適用
@@ -860,14 +851,13 @@ const makePlayerService = Effect.gen(function* () {
 
           players.set(playerId, updatedPlayer)
           return updatedPlayer
-
         } catch (error) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "PhysicsError",
+              cause: 'PhysicsError',
               playerId,
-              message: "Physics calculation failed",
-              originalError: error
+              message: 'Physics calculation failed',
+              originalError: error,
             })
           )
         }
@@ -882,20 +872,20 @@ const makePlayerService = Effect.gen(function* () {
 
           // 水平方向の衝突判定
           const horizontalCollisions = yield* Effect.all([
-            checkBlockCollision(pos, { x: PLAYER_WIDTH/2, y: 0, z: 0 }),     // 右
-            checkBlockCollision(pos, { x: -PLAYER_WIDTH/2, y: 0, z: 0 }),    // 左
-            checkBlockCollision(pos, { x: 0, y: 0, z: PLAYER_WIDTH/2 }),     // 前
-            checkBlockCollision(pos, { x: 0, y: 0, z: -PLAYER_WIDTH/2 }),    // 後
-            checkBlockCollision(pos, { x: PLAYER_WIDTH/2, y: 0, z: PLAYER_WIDTH/2 }),   // 右前
-            checkBlockCollision(pos, { x: -PLAYER_WIDTH/2, y: 0, z: PLAYER_WIDTH/2 }),  // 左前
-            checkBlockCollision(pos, { x: PLAYER_WIDTH/2, y: 0, z: -PLAYER_WIDTH/2 }),  // 右後
-            checkBlockCollision(pos, { x: -PLAYER_WIDTH/2, y: 0, z: -PLAYER_WIDTH/2 }), // 左後
+            checkBlockCollision(pos, { x: PLAYER_WIDTH / 2, y: 0, z: 0 }), // 右
+            checkBlockCollision(pos, { x: -PLAYER_WIDTH / 2, y: 0, z: 0 }), // 左
+            checkBlockCollision(pos, { x: 0, y: 0, z: PLAYER_WIDTH / 2 }), // 前
+            checkBlockCollision(pos, { x: 0, y: 0, z: -PLAYER_WIDTH / 2 }), // 後
+            checkBlockCollision(pos, { x: PLAYER_WIDTH / 2, y: 0, z: PLAYER_WIDTH / 2 }), // 右前
+            checkBlockCollision(pos, { x: -PLAYER_WIDTH / 2, y: 0, z: PLAYER_WIDTH / 2 }), // 左前
+            checkBlockCollision(pos, { x: PLAYER_WIDTH / 2, y: 0, z: -PLAYER_WIDTH / 2 }), // 右後
+            checkBlockCollision(pos, { x: -PLAYER_WIDTH / 2, y: 0, z: -PLAYER_WIDTH / 2 }), // 左後
           ])
 
           if (horizontalCollisions.some(Boolean)) {
             correctedPlayer = {
               ...correctedPlayer,
-              velocity: { ...correctedPlayer.velocity, x: 0, z: 0 }
+              velocity: { ...correctedPlayer.velocity, x: 0, z: 0 },
             }
           }
 
@@ -908,7 +898,7 @@ const makePlayerService = Effect.gen(function* () {
               ...correctedPlayer,
               position: { ...correctedPlayer.position, y: Math.ceil(pos.y) },
               velocity: { ...correctedPlayer.velocity, y: 0 },
-              onGround: true
+              onGround: true,
             }
           } else {
             correctedPlayer = { ...correctedPlayer, onGround: false }
@@ -917,19 +907,18 @@ const makePlayerService = Effect.gen(function* () {
           if (ceilingCollision && correctedPlayer.velocity.y > 0) {
             correctedPlayer = {
               ...correctedPlayer,
-              velocity: { ...correctedPlayer.velocity, y: 0 }
+              velocity: { ...correctedPlayer.velocity, y: 0 },
             }
           }
 
           return correctedPlayer
-
         } catch (error) {
           return yield* Effect.fail(
             new PlayerError({
-              cause: "CollisionError",
+              cause: 'CollisionError',
               playerId: player.id,
-              message: "Collision detection failed",
-              originalError: error
+              message: 'Collision detection failed',
+              originalError: error,
             })
           )
         }
@@ -937,15 +926,12 @@ const makePlayerService = Effect.gen(function* () {
 
     // 管理機能
     getAllPlayers: () => Effect.sync(() => Array.from(players.values())),
-    getPlayerCount: () => Effect.sync(() => players.size)
+    getPlayerCount: () => Effect.sync(() => players.size),
   })
 })
 
 // Layer定義 - WorldServiceに依存
-export const PlayerServiceLive = Layer.effect(
-  PlayerService,
-  makePlayerService
-).pipe(Layer.provide(WorldService))
+export const PlayerServiceLive = Layer.effect(PlayerService, makePlayerService).pipe(Layer.provide(WorldService))
 ```
 
 ## 🔧 Service Integration & Testing
@@ -954,21 +940,21 @@ export const PlayerServiceLive = Layer.effect(
 
 ```typescript
 // src/application/__tests__/ServiceIntegration.test.ts
-import { describe, it, expect } from "vitest"
-import { Effect, Layer } from "effect"
-import { WorldService, WorldServiceLive } from "../services/WorldService.js"
-import { PlayerService, PlayerServiceLive } from "../services/PlayerService.js"
+import { describe, it, expect } from 'vitest'
+import { Effect, Layer } from 'effect'
+import { WorldService, WorldServiceLive } from '../services/WorldService.js'
+import { PlayerService, PlayerServiceLive } from '../services/PlayerService.js'
 
-describe("Service Integration", () => {
+describe('Service Integration', () => {
   const TestLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive)
 
-  it("プレイヤー作成とワールドとの連携", async () => {
+  it('プレイヤー作成とワールドとの連携', async () => {
     const program = Effect.gen(function* () {
       const worldService = yield* WorldService
       const playerService = yield* PlayerService
 
       // プレイヤー作成
-      const player = yield* playerService.createPlayer("test-player")
+      const player = yield* playerService.createPlayer('test-player')
 
       // 初期チャンク生成
       const chunk = yield* worldService.generateChunk({ x: 0, z: 0 })
@@ -981,22 +967,22 @@ describe("Service Integration", () => {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
 
-    expect(result.player.id).toBe("test-player")
+    expect(result.player.id).toBe('test-player')
     expect(result.chunk.generated).toBe(true)
     expect(result.block).toBeTruthy()
   })
 
-  it("物理演算と衝突判定の統合", async () => {
+  it('物理演算と衝突判定の統合', async () => {
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
 
       // 地面より高い位置にプレイヤー作成
-      const player = yield* playerService.createPlayer("physics-test", { x: 0, y: 100, z: 0 })
+      const player = yield* playerService.createPlayer('physics-test', { x: 0, y: 100, z: 0 })
 
       // 重力適用
       let updatedPlayer = player
       for (let i = 0; i < 10; i++) {
-        updatedPlayer = yield* playerService.applyPhysics("physics-test", 0.1)
+        updatedPlayer = yield* playerService.applyPhysics('physics-test', 0.1)
       }
 
       return { initialY: player.position.y, finalY: updatedPlayer.position.y }
@@ -1015,33 +1001,35 @@ describe("Service Integration", () => {
 
 ```typescript
 // src/examples/ServiceDemo.ts
-import { Effect } from "effect"
-import { WorldService, WorldServiceLive } from "../application/services/WorldService.js"
-import { PlayerService, PlayerServiceLive } from "../application/services/PlayerService.js"
+import { Effect } from 'effect'
+import { WorldService, WorldServiceLive } from '../application/services/WorldService.js'
+import { PlayerService, PlayerServiceLive } from '../application/services/PlayerService.js'
 
 const serviceDemo = Effect.gen(function* () {
   const worldService = yield* WorldService
   const playerService = yield* PlayerService
 
-  console.log("🌍 WorldService & PlayerService Demo")
+  console.log('🌍 WorldService & PlayerService Demo')
 
   // ワールド操作
   const chunk = yield* worldService.generateChunk({ x: 0, z: 0 })
   console.log(`✅ Generated chunk at 0,0 with ${chunk.generated ? 'success' : 'failure'}`)
 
   // プレイヤー操作
-  const player = yield* playerService.createPlayer("demo-player")
-  console.log(`✅ Created player: ${player.id} at position (${player.position.x}, ${player.position.y}, ${player.position.z})`)
+  const player = yield* playerService.createPlayer('demo-player')
+  console.log(
+    `✅ Created player: ${player.id} at position (${player.position.x}, ${player.position.y}, ${player.position.z})`
+  )
 
   // ブロック操作
   const block = yield* worldService.getBlock(0, 64, 0)
   console.log(`✅ Block at (0,64,0): ${block?.type || 'null'}`)
 
   // 物理演算
-  const physicsPlayer = yield* playerService.applyPhysics("demo-player", 0.016)
+  const physicsPlayer = yield* playerService.applyPhysics('demo-player', 0.016)
   console.log(`✅ Physics applied, player Y: ${physicsPlayer.position.y}`)
 
-  return "Demo completed successfully!"
+  return 'Demo completed successfully!'
 })
 
 // 実行
@@ -1069,6 +1057,6 @@ Phase 2のアプリケーションサービス実装が完了しました！次�
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **[基本ゲーム開発](README.md)** → **Phase 2: アプリケーションサービス**
+_📍 現在のドキュメント階層_: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **[基本ゲーム開発](README.md)** → **Phase 2: アプリケーションサービス**
 
-*🔗 関連リソース*: [Domain Layer](domain-layer-architecture.md) • [Effect-TS Services](../effect-ts-fundamentals/effect-ts-services.md) • [Service Patterns](../../explanations/design-patterns/service-patterns.md)
+_🔗 関連リソース_: [Domain Layer](domain-layer-architecture.md) • [Effect-TS Services](../effect-ts-fundamentals/effect-ts-services.md) • [Service Patterns](../../explanations/design-patterns/service-patterns.md)

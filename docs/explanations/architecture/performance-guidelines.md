@@ -1,17 +1,22 @@
 ---
-title: "パフォーマンスガイドライン - 高性能ゲーム最適化戦略"
-description: "TypeScript Minecraft Cloneの包括的パフォーマンス最適化ガイド。Effect-TS、WebGL、ECSアーキテクチャを活用した高性能ゲーム開発のベストプラクティスと実測データ。"
-category: "specification"
-difficulty: "advanced"
-tags: ["performance", "optimization", "effect-ts", "webgl", "ecs", "profiling", "memory-management", "rendering"]
-prerequisites: ["effect-ts-fundamentals", "webgl-basics", "ecs-architecture", "performance-profiling"]
-estimated_reading_time: "30分"
-related_patterns: ["optimization-patterns", "ecs-patterns", "rendering-patterns"]
-related_docs: ["../explanations/design-patterns/06-optimization-patterns.md", "../explanations/architecture/05-ecs-integration.md", "../game-mechanics/core-features/chunk-system.md"]
+title: 'パフォーマンスガイドライン - 高性能ゲーム最適化戦略'
+description: 'TypeScript Minecraft Cloneの包括的パフォーマンス最適化ガイド。Effect-TS、WebGL、ECSアーキテクチャを活用した高性能ゲーム開発のベストプラクティスと実測データ。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['performance', 'optimization', 'effect-ts', 'webgl', 'ecs', 'profiling', 'memory-management', 'rendering']
+prerequisites: ['effect-ts-fundamentals', 'webgl-basics', 'ecs-architecture', 'performance-profiling']
+estimated_reading_time: '30分'
+related_patterns: ['optimization-patterns', 'ecs-patterns', 'rendering-patterns']
+related_docs:
+  [
+    '../explanations/design-patterns/06-optimization-patterns.md',
+    '../explanations/architecture/05-ecs-integration.md',
+    '../game-mechanics/core-features/chunk-system.md',
+  ]
 search_keywords:
-  primary: ["performance-optimization", "game-performance", "webgl-optimization", "ecs-performance"]
-  secondary: ["memory-management", "rendering-optimization", "profiling-techniques"]
-  context: ["typescript-games", "browser-performance", "3d-rendering"]
+  primary: ['performance-optimization', 'game-performance', 'webgl-optimization', 'ecs-performance']
+  secondary: ['memory-management', 'rendering-optimization', 'profiling-techniques']
+  context: ['typescript-games', 'browser-performance', '3d-rendering']
 ---
 
 # Performance Guidelines
@@ -27,21 +32,21 @@ TypeScript Minecraftのパフォーマンス最適化に関する包括的なガ
 ```typescript
 interface PerformanceTargets {
   readonly fps: {
-    readonly minimum: 30        // 最低FPS
-    readonly target: 60         // 目標FPS
+    readonly minimum: 30 // 最低FPS
+    readonly target: 60 // 目標FPS
     readonly vsyncEnabled: true // V-Sync有効
   }
   readonly memory: {
-    readonly heapLimit: 512     // MB
-    readonly gcPauseMax: 16     // ms
+    readonly heapLimit: 512 // MB
+    readonly gcPauseMax: 16 // ms
   }
   readonly network: {
-    readonly latencyMax: 100    // ms
-    readonly bandwidthMax: 1     // Mbps
+    readonly latencyMax: 100 // ms
+    readonly bandwidthMax: 1 // Mbps
   }
   readonly worldSize: {
-    readonly renderDistance: 16  // chunks
-    readonly entityLimit: 200    // 同時エンティティ数
+    readonly renderDistance: 16 // chunks
+    readonly entityLimit: 200 // 同時エンティティ数
     readonly particleLimit: 1000 // パーティクル上限
   }
 }
@@ -52,36 +57,30 @@ interface PerformanceTargets {
 ### 1.1 チャンクカリング
 
 ```typescript
-import { Schema, Effect, pipe } from "effect"
-import { Vec3, Frustum } from "@app/Math"
+import { Schema, Effect, pipe } from 'effect'
+import { Vec3, Frustum } from '@app/Math'
 
 // ビューフラスタムカリング
 export const FrustumCulling = {
   // チャンク可視判定
-  isChunkVisible: (
-    chunk: Chunk,
-    frustum: Frustum
-  ): Effect.Effect<boolean> =>
+  isChunkVisible: (chunk: Chunk, frustum: Frustum): Effect.Effect<boolean> =>
     Effect.gen(function* () {
       const bounds = yield* ChunkBounds.fromChunk(chunk)
       return Frustum.intersectsBox(frustum, bounds)
     }),
 
   // 効率的なチャンクフィルタリング
-  filterVisibleChunks: (
-    chunks: ReadonlyArray<Chunk>,
-    frustum: Frustum
-  ): Effect.Effect<ReadonlyArray<Chunk>> =>
+  filterVisibleChunks: (chunks: ReadonlyArray<Chunk>, frustum: Frustum): Effect.Effect<ReadonlyArray<Chunk>> =>
     pipe(
       chunks,
-      Effect.forEach(chunk =>
+      Effect.forEach((chunk) =>
         pipe(
           FrustumCulling.isChunkVisible(chunk, frustum),
-          Effect.map(visible => visible ? Option.some(chunk) : Option.none())
+          Effect.map((visible) => (visible ? Option.some(chunk) : Option.none()))
         )
       ),
       Effect.map(Array.getSomes)
-    )
+    ),
 }
 ```
 
@@ -91,34 +90,32 @@ export const FrustumCulling = {
 // 距離ベースのLOD選択
 export const LODSelection = {
   selectMeshLOD: (distance: number): LODLevel =>
-    distance < 16 ? "high" :
-    distance < 32 ? "medium" :
-    distance < 64 ? "low" :
-    "billboard",
+    distance < 16 ? 'high' : distance < 32 ? 'medium' : distance < 64 ? 'low' : 'billboard',
 
   // メッシュ簡略化設定
-  getLODConfig: (level: LODLevel): LODConfig => ({
-    high: {
-      vertices: 1.0,      // 100%
-      textures: "full",   // 2048x2048
-      shadows: true
-    },
-    medium: {
-      vertices: 0.5,      // 50%
-      textures: "half",   // 1024x1024
-      shadows: true
-    },
-    low: {
-      vertices: 0.25,     // 25%
-      textures: "quarter", // 512x512
-      shadows: false
-    },
-    billboard: {
-      vertices: 0.01,     // スプライト
-      textures: "atlas",  // テクスチャアトラス
-      shadows: false
-    }
-  }[level])
+  getLODConfig: (level: LODLevel): LODConfig =>
+    ({
+      high: {
+        vertices: 1.0, // 100%
+        textures: 'full', // 2048x2048
+        shadows: true,
+      },
+      medium: {
+        vertices: 0.5, // 50%
+        textures: 'half', // 1024x1024
+        shadows: true,
+      },
+      low: {
+        vertices: 0.25, // 25%
+        textures: 'quarter', // 512x512
+        shadows: false,
+      },
+      billboard: {
+        vertices: 0.01, // スプライト
+        textures: 'atlas', // テクスチャアトラス
+        shadows: false,
+      },
+    })[level],
 }
 ```
 
@@ -128,20 +125,13 @@ export const LODSelection = {
 // インスタンス化メッシュによるバッチ描画
 export const BatchRenderer = {
   // ブロックタイプごとにインスタンス化
-  createInstancedMesh: (
-    blockType: BlockType,
-    positions: ReadonlyArray<Vec3>
-  ): Effect.Effect<InstancedMesh> =>
+  createInstancedMesh: (blockType: BlockType, positions: ReadonlyArray<Vec3>): Effect.Effect<InstancedMesh> =>
     Effect.gen(function* () {
       const geometry = yield* BlockGeometry.get(blockType)
       const material = yield* BlockMaterial.get(blockType)
 
       // Three.jsのインスタンス化メッシュ
-      const mesh = new InstancedMesh(
-        geometry,
-        material,
-        positions.length
-      )
+      const mesh = new InstancedMesh(geometry, material, positions.length)
 
       // 位置行列の設定
       positions.forEach((pos, i) => {
@@ -153,14 +143,12 @@ export const BatchRenderer = {
     }),
 
   // 動的バッチング
-  mergeMeshes: (
-    meshes: ReadonlyArray<Mesh>
-  ): Effect.Effect<Mesh> =>
+  mergeMeshes: (meshes: ReadonlyArray<Mesh>): Effect.Effect<Mesh> =>
     Effect.gen(function* () {
-      const geometries = meshes.map(m => m.geometry)
+      const geometries = meshes.map((m) => m.geometry)
       const merged = BufferGeometryUtils.mergeGeometries(geometries)
       return new Mesh(merged, meshes[0].material)
-    })
+    }),
 }
 ```
 
@@ -228,7 +216,7 @@ export const ChunkData = {
     // 照明データ（4bit * 2 = skylight + blocklight）
     lighting: new Uint8Array(size * size * size),
     // 生体群系データ
-    biomes: new Uint8Array(size * size)
+    biomes: new Uint8Array(size * size),
   }),
 
   // ビット演算による効率的なアクセス
@@ -237,19 +225,14 @@ export const ChunkData = {
     const value = storage.blocks[index]
     return {
       type: (value >> 4) as BlockType,
-      metadata: (value & 0x0F) as number
+      metadata: (value & 0x0f) as number,
     }
   },
 
-  setBlock: (
-    storage: ChunkStorage,
-    x: number, y: number, z: number,
-    type: BlockType,
-    metadata: number
-  ) => {
+  setBlock: (storage: ChunkStorage, x: number, y: number, z: number, type: BlockType, metadata: number) => {
     const index = x + z * 16 + y * 256
-    storage.blocks[index] = (type << 4) | (metadata & 0x0F)
-  }
+    storage.blocks[index] = (type << 4) | (metadata & 0x0f)
+  },
 }
 ```
 
@@ -259,19 +242,12 @@ export const ChunkData = {
 // GC圧力を軽減するイミュータブル更新
 export const ImmutableUpdate = {
   // 構造的共有による効率的な更新
-  updateChunk: (
-    chunk: Chunk,
-    updates: ReadonlyArray<BlockUpdate>
-  ): Chunk => {
+  updateChunk: (chunk: Chunk, updates: ReadonlyArray<BlockUpdate>): Chunk => {
     // 変更があるセクションのみコピー
     const sections = chunk.sections.map((section, i) => {
-      const sectionUpdates = updates.filter(u =>
-        Math.floor(u.y / 16) === i
-      )
+      const sectionUpdates = updates.filter((u) => Math.floor(u.y / 16) === i)
 
-      return sectionUpdates.length > 0
-        ? { ...section, blocks: applyUpdates(section.blocks, sectionUpdates) }
-        : section // 変更なしの場合は参照を保持
+      return sectionUpdates.length > 0 ? { ...section, blocks: applyUpdates(section.blocks, sectionUpdates) } : section // 変更なしの場合は参照を保持
     })
 
     return { ...chunk, sections }
@@ -288,7 +264,7 @@ export const ImmutableUpdate = {
       ImmutableUpdate.vec3Pool.set(key, vec)
     }
     return vec
-  }
+  },
 }
 ```
 
@@ -302,15 +278,11 @@ export const WorkerPool = {
   // ワーカープール管理
   create: (workerCount: number = navigator.hardwareConcurrency) =>
     Effect.gen(function* () {
-      const workers = Array.from({ length: workerCount }, () =>
-        new Worker('/workers/compute.worker.js')
-      )
+      const workers = Array.from({ length: workerCount }, () => new Worker('/workers/compute.worker.js'))
 
       return {
         // タスク分散実行
-        execute: <T>(
-          tasks: ReadonlyArray<ComputeTask>
-        ): Effect.Effect<ReadonlyArray<T>> =>
+        execute: <T>(tasks: ReadonlyArray<ComputeTask>): Effect.Effect<ReadonlyArray<T>> =>
           pipe(
             tasks,
             Array.chunksOf(Math.ceil(tasks.length / workerCount)),
@@ -324,19 +296,20 @@ export const WorkerPool = {
           ),
 
         // クリーンアップ
-        terminate: () =>
-          Effect.sync(() => workers.forEach(w => w.terminate()))
+        terminate: () => Effect.sync(() => workers.forEach((w) => w.terminate())),
       }
-    })
+    }),
 }
 
 // 地形生成をWorkerで実行
 export const TerrainWorker = {
   generateChunk: (x: number, z: number) =>
-    WorkerPool.execute([{
-      type: 'generate_terrain',
-      params: { x, z, seed: world.seed }
-    }])
+    WorkerPool.execute([
+      {
+        type: 'generate_terrain',
+        params: { x, z, seed: world.seed },
+      },
+    ]),
 }
 ```
 
@@ -346,54 +319,38 @@ export const TerrainWorker = {
 // 空間インデックスによる高速検索
 export const SpatialIndex = {
   // Octreeによる空間分割
-  createOctree: <T extends HasPosition>(
-    items: ReadonlyArray<T>,
-    bounds: BoundingBox
-  ): Octree<T> => {
+  createOctree: <T extends HasPosition>(items: ReadonlyArray<T>, bounds: BoundingBox): Octree<T> => {
     const tree = new Octree<T>(bounds, { maxDepth: 8 })
-    items.forEach(item => tree.insert(item))
+    items.forEach((item) => tree.insert(item))
     return tree
   },
 
   // 範囲クエリ
-  queryRange: <T>(
-    tree: Octree<T>,
-    range: BoundingBox
-  ): ReadonlyArray<T> =>
-    tree.query(range),
+  queryRange: <T>(tree: Octree<T>, range: BoundingBox): ReadonlyArray<T> => tree.query(range),
 
   // 最近傍探索
-  findNearest: <T>(
-    tree: Octree<T>,
-    point: Vec3,
-    maxDistance: number
-  ): Option.Option<T> =>
-    tree.findNearest(point, maxDistance)
+  findNearest: <T>(tree: Octree<T>, point: Vec3, maxDistance: number): Option.Option<T> =>
+    tree.findNearest(point, maxDistance),
 }
 
 // パス探索の最適化（A* with JPS）
 export const Pathfinding = {
   // Jump Point Search による高速化
-  findPath: (
-    start: Vec3,
-    goal: Vec3,
-    world: World
-  ): Effect.Effect<Option.Option<Path>> =>
+  findPath: (start: Vec3, goal: Vec3, world: World): Effect.Effect<Option.Option<Path>> =>
     Effect.gen(function* () {
       const graph = yield* WorldGraph.fromWorld(world)
 
       // ヒューリスティック関数
-      const h = (a: Vec3, b: Vec3) =>
-        Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z)
+      const h = (a: Vec3, b: Vec3) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z)
 
       // JPS最適化
       const jps = new JumpPointSearch(graph, {
         heuristic: h,
-        maxIterations: 1000
+        maxIterations: 1000,
       })
 
       return jps.findPath(start, goal)
-    })
+    }),
 }
 ```
 
@@ -405,20 +362,17 @@ export const Pathfinding = {
 // プロトコルバッファによる効率的なシリアライゼーション
 export const NetworkProtocol = {
   // デルタ圧縮
-  encodeEntityUpdate: (
-    previous: EntityState,
-    current: EntityState
-  ): Uint8Array => {
+  encodeEntityUpdate: (previous: EntityState, current: EntityState): Uint8Array => {
     const delta = {
       id: current.id,
-      changes: {} as Partial<EntityState>
+      changes: {} as Partial<EntityState>,
     }
 
     // 変更されたフィールドのみ送信
     const changes = pipe(
       Record.keys(current),
-      Array.filter(key => current[key] !== previous[key]),
-      Array.map(key => [key, current[key]] as const),
+      Array.filter((key) => current[key] !== previous[key]),
+      Array.map((key) => [key, current[key]] as const),
       Record.fromEntries
     )
     delta.changes = changes
@@ -429,13 +383,13 @@ export const NetworkProtocol = {
   // ビットパッキング
   packPosition: (pos: Vec3): number => {
     // 座標を固定小数点に変換（精度0.01）
-    const x = Math.floor(pos.x * 100) & 0x3FFFFF // 22 bits
-    const y = Math.floor(pos.y * 100) & 0x1FF    // 9 bits
-    const z = Math.floor(pos.z * 100) & 0x3FFFFF // 22 bits
+    const x = Math.floor(pos.x * 100) & 0x3fffff // 22 bits
+    const y = Math.floor(pos.y * 100) & 0x1ff // 9 bits
+    const z = Math.floor(pos.z * 100) & 0x3fffff // 22 bits
 
     // 53ビットに圧縮
     return (x << 31) | (y << 22) | z
-  }
+  },
 }
 ```
 
@@ -444,10 +398,7 @@ export const NetworkProtocol = {
 ```typescript
 // 距離ベースの更新優先度
 export const UpdatePriority = {
-  calculatePriority: (
-    entity: Entity,
-    viewer: Player
-  ): number => {
+  calculatePriority: (entity: Entity, viewer: Player): number => {
     const distance = Vec3.distance(entity.position, viewer.position)
     const importance = entity.importance // 0-1
 
@@ -460,8 +411,7 @@ export const UpdatePriority = {
     const queue = new PriorityQueue<EntityUpdate>()
 
     return {
-      enqueue: (update: EntityUpdate, priority: number) =>
-        queue.enqueue(update, priority),
+      enqueue: (update: EntityUpdate, priority: number) => queue.enqueue(update, priority),
 
       processBatch: (maxBytes: number) => {
         const batch: EntityUpdate[] = []
@@ -474,9 +424,9 @@ export const UpdatePriority = {
         }
 
         return batch
-      }
+      },
     }
-  }
+  },
 }
 ```
 
@@ -496,11 +446,11 @@ export const FiberOptimization = {
     pipe(
       items,
       Effect.forEach(f, { concurrency }),
-      Effect.withSpan("batch_processing", {
+      Effect.withSpan('batch_processing', {
         attributes: {
           itemCount: items.length,
-          concurrency
-        }
+          concurrency,
+        },
       })
     ),
 
@@ -514,14 +464,10 @@ export const FiberOptimization = {
       const memoryPressure = yield* MemoryMonitor.getPressure()
 
       // メモリ圧力に応じて並行数を調整
-      const concurrency = memoryPressure > 0.8
-        ? Math.max(1, cpuCount / 2)
-        : cpuCount
+      const concurrency = memoryPressure > 0.8 ? Math.max(1, cpuCount / 2) : cpuCount
 
-      return yield* FiberOptimization.processConcurrently(
-        items, f, concurrency
-      )
-    })
+      return yield* FiberOptimization.processConcurrently(items, f, concurrency)
+    }),
 }
 ```
 
@@ -535,31 +481,17 @@ export const StreamOptimization = {
     stream: Stream.Stream<A>,
     f: (chunk: Chunk<A>) => Effect.Effect<Chunk<B>>,
     chunkSize: number = 100
-  ): Stream.Stream<B> =>
-    pipe(
-      stream,
-      Stream.rechunk(chunkSize),
-      Stream.mapChunksEffect(f),
-      Stream.flattenChunks
-    ),
+  ): Stream.Stream<B> => pipe(stream, Stream.rechunk(chunkSize), Stream.mapChunksEffect(f), Stream.flattenChunks),
 
   // バックプレッシャー制御
-  withBackpressure: <A>(
-    stream: Stream.Stream<A>,
-    bufferSize: number = 1000
-  ): Stream.Stream<A> =>
+  withBackpressure: <A>(stream: Stream.Stream<A>, bufferSize: number = 1000): Stream.Stream<A> =>
     pipe(
       stream,
       Stream.buffer({ capacity: bufferSize }),
       Stream.tapSink(
-        Sink.forEach((item: A) =>
-          Effect.whenEffect(
-            MemoryMonitor.isHighPressure(),
-            Effect.sleep(Duration.millis(10))
-          )
-        )
+        Sink.forEach((item: A) => Effect.whenEffect(MemoryMonitor.isHighPressure(), Effect.sleep(Duration.millis(10))))
       )
-    )
+    ),
 }
 ```
 
@@ -569,43 +501,40 @@ export const StreamOptimization = {
 
 ```typescript
 // リアルタイムメトリクス収集
-export const PerformanceMonitor = Layer.succeed(
-  PerformanceMonitorService,
-  {
-    fps: Ref.unsafeMake(60),
-    frameTime: Ref.unsafeMake(16.67),
-    drawCalls: Ref.unsafeMake(0),
-    triangles: Ref.unsafeMake(0),
-    memoryUsage: Ref.unsafeMake(0),
+export const PerformanceMonitor = Layer.succeed(PerformanceMonitorService, {
+  fps: Ref.unsafeMake(60),
+  frameTime: Ref.unsafeMake(16.67),
+  drawCalls: Ref.unsafeMake(0),
+  triangles: Ref.unsafeMake(0),
+  memoryUsage: Ref.unsafeMake(0),
 
-    update: Effect.gen(function* () {
-      const stats = yield* RenderStats.get()
-      yield* Ref.set(this.fps, stats.fps)
-      yield* Ref.set(this.frameTime, stats.frameTime)
-      yield* Ref.set(this.drawCalls, stats.drawCalls)
+  update: Effect.gen(function* () {
+    const stats = yield* RenderStats.get()
+    yield* Ref.set(this.fps, stats.fps)
+    yield* Ref.set(this.frameTime, stats.frameTime)
+    yield* Ref.set(this.drawCalls, stats.drawCalls)
 
-      // パフォーマンス警告
-      if (stats.fps < 30) {
-        yield* Logger.warn("Low FPS detected", { fps: stats.fps })
-      }
-      if (stats.frameTime > 33) {
-        yield* Logger.warn("High frame time", { ms: stats.frameTime })
+    // パフォーマンス警告
+    if (stats.fps < 30) {
+      yield* Logger.warn('Low FPS detected', { fps: stats.fps })
+    }
+    if (stats.frameTime > 33) {
+      yield* Logger.warn('High frame time', { ms: stats.frameTime })
+    }
+  }),
+
+  // メトリクスエクスポート
+  export: () =>
+    Effect.gen(function* () {
+      return {
+        fps: yield* Ref.get(this.fps),
+        frameTime: yield* Ref.get(this.frameTime),
+        drawCalls: yield* Ref.get(this.drawCalls),
+        triangles: yield* Ref.get(this.triangles),
+        memory: yield* Ref.get(this.memoryUsage),
       }
     }),
-
-    // メトリクスエクスポート
-    export: () =>
-      Effect.gen(function* () {
-        return {
-          fps: yield* Ref.get(this.fps),
-          frameTime: yield* Ref.get(this.frameTime),
-          drawCalls: yield* Ref.get(this.drawCalls),
-          triangles: yield* Ref.get(this.triangles),
-          memory: yield* Ref.get(this.memoryUsage)
-        }
-      })
-  }
-)
+})
 ```
 
 ### 6.2 開発時プロファイリング
@@ -614,24 +543,16 @@ export const PerformanceMonitor = Layer.succeed(
 // 開発環境でのプロファイリングツール
 export const DevProfiler = {
   // 関数実行時間計測
-  measure: <A>(
-    name: string,
-    effect: Effect.Effect<A>
-  ): Effect.Effect<A> =>
-    Effect.if(
-      Config.isDevelopment,
-      {
-        onTrue: pipe(
-          effect,
-          Effect.timed,
-          Effect.tap(([duration]) =>
-            Logger.debug(`${name} took ${duration.millis}ms`)
-          ),
-          Effect.map(([_, result]) => result)
-        ),
-        onFalse: effect
-      }
-    ),
+  measure: <A>(name: string, effect: Effect.Effect<A>): Effect.Effect<A> =>
+    Effect.if(Config.isDevelopment, {
+      onTrue: pipe(
+        effect,
+        Effect.timed,
+        Effect.tap(([duration]) => Logger.debug(`${name} took ${duration.millis}ms`)),
+        Effect.map(([_, result]) => result)
+      ),
+      onFalse: effect,
+    }),
 
   // メモリスナップショット
   memorySnapshot: () =>
@@ -640,11 +561,11 @@ export const DevProfiler = {
         return {
           used: performance.memory.usedJSHeapSize / 1048576,
           total: performance.memory.totalJSHeapSize / 1048576,
-          limit: performance.memory.jsHeapSizeLimit / 1048576
+          limit: performance.memory.jsHeapSizeLimit / 1048576,
         }
       }
       return null
-    })
+    }),
 }
 ```
 
@@ -694,15 +615,14 @@ const badPatterns = {
   },
 
   // 無制限の並行処理
-  unlimited: (items: Array<Item>) =>
-    Effect.forEach(items, processItem), // ❌ 並行数制限なし
+  unlimited: (items: Array<Item>) => Effect.forEach(items, processItem), // ❌ 並行数制限なし
 
   // 同期的な重い計算
   blocking: () => {
     for (let i = 0; i < 1000000; i++) {
       // ❌ メインスレッドブロック
     }
-  }
+  },
 }
 
 // ✅ 推奨パターン
@@ -717,7 +637,7 @@ const goodPatterns = {
   // 制限付き並行処理
   limited: (items: Array<Item>) =>
     Effect.forEach(items, processItem, {
-      concurrency: 10 // ✅ 並行数制限
+      concurrency: 10, // ✅ 並行数制限
     }),
 
   // 非同期・段階的処理
@@ -728,7 +648,7 @@ const goodPatterns = {
           yield* Effect.yieldNow() // ✅ 定期的にyield
         }
       }
-    })
+    }),
 }
 ```
 

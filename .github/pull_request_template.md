@@ -10,6 +10,7 @@ Closes #xxx
 ## 🎯 実装内容
 
 <!-- 実装した機能・変更内容を簡潔に説明 -->
+
 - [メイン機能]:
 - [主な変更点]:
 - [影響範囲]:
@@ -17,6 +18,7 @@ Closes #xxx
 ## 🧪 品質確認・動作確認
 
 ### 品質チェック結果
+
 - [ ] pnpm typecheck - TypeScript型チェック
 - [ ] pnpm lint - ESLintチェック
 - [ ] pnpm test - テスト実行
@@ -50,6 +52,7 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ### テストシナリオ
 
 <!-- 動作確認で使用するテストシナリオを記載 -->
+
 ```
 例：
 1. XXX画面を開く
@@ -61,17 +64,20 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ## 🔄 実装アプローチ
 
 ### 使用した主要技術・パターン
+
 - [ ] Effect-TS (Service/Layer/Schema)
 - [ ] Three.js (3Dグラフィックス)
 - [ ] Vitest (テスティング)
 - [ ] 既存パターン踏襲
 
 ### アーキテクチャ変更
+
 <!-- 大きなアーキテクチャ変更があれば記載 -->
 
 ## 📝 レビューポイント・備考
 
 <!-- レビュアーへの注意点・確認してほしい箇所 -->
+
 - [重要な変更点]:
 - [注意すべき箇所]:
 - [今後の拡張予定]:

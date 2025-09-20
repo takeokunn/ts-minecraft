@@ -1,13 +1,13 @@
 ---
-title: "ゲームメカニクス - 設計思想と実装解説"
-description: "TypeScript Minecraftにおけるゲームメカニクスの設計思想、実装パターン、およびMinecraftらしさの追求"
-category: "architecture"
-difficulty: "intermediate"
-tags: ["game-mechanics", "minecraft", "game-systems", "design-patterns"]
-prerequisites: ["minecraft-knowledge", "game-development-basics"]
-estimated_reading_time: "8分"
-related_patterns: ["ecs-patterns", "data-modeling-patterns"]
-related_docs: ["../architecture/overview.md", "../design-patterns/domain-integration-patterns.md"]
+title: 'ゲームメカニクス - 設計思想と実装解説'
+description: 'TypeScript Minecraftにおけるゲームメカニクスの設計思想、実装パターン、およびMinecraftらしさの追求'
+category: 'architecture'
+difficulty: 'intermediate'
+tags: ['game-mechanics', 'minecraft', 'game-systems', 'design-patterns']
+prerequisites: ['minecraft-knowledge', 'game-development-basics']
+estimated_reading_time: '8分'
+related_patterns: ['ecs-patterns', 'data-modeling-patterns']
+related_docs: ['../architecture/overview.md', '../design-patterns/domain-integration-patterns.md']
 ---
 
 # 🎮 ゲームメカニクス - 設計思想と実装解説
@@ -24,6 +24,7 @@ related_docs: ["../architecture/overview.md", "../design-patterns/domain-integra
 ## 🧠 設計哲学とアプローチ
 
 ### [設計哲学](./design-philosophy.md)
+
 **Minecraft体験の再現と革新**
 
 なぜMinecraft特有のゲームメカニクスが重要なのか、その設計思想と実装における配慮事項：
@@ -37,33 +38,39 @@ related_docs: ["../architecture/overview.md", "../design-patterns/domain-integra
 ## 🏗 システム別解説
 
 ### 📦 [コア機能](./core-features/README.md)
+
 **ゲームの基盤となる必須システム群**
 
 Minecraftの基本体験を支える中核的なシステム：
 
 #### 基礎システム
+
 - **[アーキテクチャ原則](./core-features/architecture-principles.md)** - システム設計の基本方針
 - **[実装パターン](./core-features/implementation-patterns.md)** - 共通実装パターンの解説
 - **[PBTテスト戦略](./core-features/pbt-testing-strategy.md)** - Property-Based Testing による品質保証
 
 #### プレイヤー中心システム
+
 - **[プレイヤーシステム](./core-features/player-system.md)** - プレイヤー状態管理と能力システム
 - **[インベントリシステム](./core-features/inventory-system.md)** - アイテム管理とUI設計
 - **[ヘルス・ハンガーシステム](./core-features/health-hunger-system.md)** - 生存要素のバランス設計
 - **[入力制御](./core-features/input-controls.md)** - 直感的な操作体系
 
 #### ワールドシステム
+
 - **[ワールド管理システム](./core-features/world-management-system.md)** - 大規模世界の効率的管理
 - **[チャンクシステム](./core-features/chunk-system.md)** - 動的ローディングと最適化
 - **[ブロックシステム](./core-features/block-system.md)** - ブロック配置と物理法則
 - **[エンティティシステム](./core-features/entity-system.md)** - 動的オブジェクト管理
 
 #### ゲームプレイシステム
+
 - **[クラフトシステム](./core-features/crafting-system.md)** - レシピ管理と作成メカニクス
 - **[戦闘システム](./core-features/combat-system.md)** - ダメージ計算と戦闘バランス
 - **[MOBスポーンシステム](./core-features/mob-spawning-system.md)** - 敵キャラクター生成ロジック
 
 #### インフラシステム
+
 - **[ゲームループシステム](./core-features/game-loop-system.md)** - 60FPS維持のための設計
 - **[シーン管理システム](./core-features/scene-management-system.md)** - 画面遷移とステート管理
 - **[レンダリングシステム](./core-features/rendering-system.md)** - 効率的な描画パイプライン
@@ -71,44 +78,52 @@ Minecraftの基本体験を支える中核的なシステム：
 - **[サウンド・音楽システム](./core-features/sound-music-system.md)** - 没入感を高める音響設計
 
 #### 生活・環境システム
+
 - **[食料・農業システム](./core-features/food-agriculture-system.md)** - 持続可能な生存戦略
 - **[ベッド・睡眠システム](./core-features/bed-sleep-system.md)** - 時間管理と安全地帯
 - **[看板・本システム](./core-features/sign-book-system.md)** - 情報共有とストーリーテリング
 - **[マテリアルシステム](./core-features/material-system.md)** - ブロック・アイテムの特性管理
 
 ### ⚡ [拡張機能](./enhanced-features/README.md)
+
 **ゲーム体験を豊かにする高度なシステム群**
 
 Minecraftの魅力を拡張する追加機能：
 
 #### 環境・世界システム
+
 - **[概要](./enhanced-features/overview.md)** - 拡張機能の全体設計
 - **[天候システム](./enhanced-features/weather-system.md)** - 動的気象変化とゲーム影響
 - **[昼夜サイクル](./enhanced-features/day-night-cycle.md)** - 時間経過とゲームプレイの変化
 - **[拡張バイオームシステム](./enhanced-features/extended-biome-system.md)** - 多様な環境の実現
 
 #### 次元・構造システム
+
 - **[ネザーポータル](./enhanced-features/nether-portals.md)** - 次元間移動メカニクス
 - **[エンドディメンション](./enhanced-features/the-end-dimension.md)** - 最終目標となる世界
 - **[構造生成](./enhanced-features/structure-generation.md)** - 自然・人工構造物の配置
 - **[海洋・水中システム](./enhanced-features/ocean-underwater-system.md)** - 水中探索の魅力
 
 #### ゲームプレイ拡張
+
 - **[レッドストーンシステム](./enhanced-features/redstone-system.md)** - 自動化と回路設計
 - **[エンチャントシステム](./enhanced-features/enchantment-system.md)** - アイテム強化メカニクス
 - **[ポーション効果](./enhanced-features/potion-effects.md)** - 一時的能力変化システム
 - **[村人取引](./enhanced-features/villager-trading.md)** - NPCとの経済活動
 
 #### AI・知能システム
+
 - **[MOB AIシステム](./enhanced-features/mob-ai-system.md)** - 高度な敵キャラクター行動
 - **[パーティクルシステム](./enhanced-features/particle-system.md)** - 視覚効果による没入感向上
 
 #### 統合システム
+
 - **[システム統合テスト](../design-patterns/test-patterns.md)** - 品質保証と統合検証
 
 ## 🎨 横断的システム
 
 ### [高度なゲームシステム](./advanced-game-systems.md)
+
 **複数機能にまたがる統合システム**
 
 個別機能を超えた、包括的なゲーム体験の設計：
@@ -119,6 +134,7 @@ Minecraftの魅力を拡張する追加機能：
 - **拡張性担保** - 新機能追加時の影響最小化
 
 ### [アセット・リソース管理](./asset-sources.md)
+
 **ゲーム素材の管理と最適化**
 
 テクスチャ、サウンド、モデルなどの効率的管理：
@@ -192,16 +208,19 @@ graph TB
 ## 🎓 学習パス
 
 ### 初学者向け
+
 1. [設計哲学](./design-philosophy.md) - 全体的な考え方を理解
 2. [プレイヤーシステム](./core-features/player-system.md) - 中心となる概念
 3. [ブロックシステム](./core-features/block-system.md) - Minecraftの基本要素
 
 ### 中級者向け
+
 1. [チャンクシステム](./core-features/chunk-system.md) - パフォーマンス最適化の理解
 2. [レンダリングシステム](./core-features/rendering-system.md) - 技術的深度の学習
 3. [高度なゲームシステム](./advanced-game-systems.md) - 統合的視点の獲得
 
 ### 上級者向け
+
 1. [Effect-TSアーキテクチャ](../design-patterns/service-patterns.md) - 関数型設計パターン
 2. [MOB AIシステム](./enhanced-features/mob-ai-system.md) - 高度なアルゴリズム実装
 3. 全システムの相互作用理解 - 包括的アーキテクチャ把握

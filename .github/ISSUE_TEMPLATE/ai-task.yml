@@ -1,8 +1,8 @@
 name: AI エージェントタスク
 description: Claude Agent自動実行用 構造化実装タスク
-title: "[TASK-ID] タスク名"
-labels: ["ai-agent", "task", "execution-plan", "auto-executable", "japanese"]
-assignees: ["@me"]
+title: '[TASK-ID] タスク名'
+labels: ['ai-agent', 'task', 'execution-plan', 'auto-executable', 'japanese']
+assignees: ['@me']
 body:
   - type: markdown
     attributes:
@@ -32,16 +32,16 @@ body:
       label: 実装複雑度
       description: AI Agentが判断する技術的複雑度
       options:
-        - "1 - Very Simple (設定変更レベル)"
-        - "2 - Simple (単純な関数実装)"
-        - "3 - Easy (基本的な機能実装)"
-        - "4 - Medium-Easy (複数ファイル実装)"
-        - "5 - Medium (標準的な機能実装)"
-        - "6 - Medium-Hard (複雑なロジック)"
-        - "7 - Hard (アーキテクチャ変更)"
-        - "8 - Very Hard (大規模リファクタリング)"
-        - "9 - Expert (新技術・パターン導入)"
-        - "10 - Extreme (フルスタック実装)"
+        - '1 - Very Simple (設定変更レベル)'
+        - '2 - Simple (単純な関数実装)'
+        - '3 - Easy (基本的な機能実装)'
+        - '4 - Medium-Easy (複数ファイル実装)'
+        - '5 - Medium (標準的な機能実装)'
+        - '6 - Medium-Hard (複雑なロジック)'
+        - '7 - Hard (アーキテクチャ変更)'
+        - '8 - Very Hard (大規模リファクタリング)'
+        - '9 - Expert (新技術・パターン導入)'
+        - '10 - Extreme (フルスタック実装)'
     validations:
       required: true
 
@@ -51,10 +51,10 @@ body:
       label: 実装ガイダンスレベル
       description: Claude Agentが必要とする指示の詳細度
       options:
-        - "Minimal - 基本要件のみ"
-        - "Standard - 通常レベルの指示"
-        - "Detailed - 詳細な実装指示"
-        - "Expert - 高度な技術指示と制約"
+        - 'Minimal - 基本要件のみ'
+        - 'Standard - 通常レベルの指示'
+        - 'Detailed - 詳細な実装指示'
+        - 'Expert - 高度な技術指示と制約'
     validations:
       required: true
 
@@ -75,13 +75,13 @@ body:
       label: 主要ライブラリ
       description: 実装で使用する主要ライブラリ（Context7で最新仕様確認）
       options:
-        - "Effect-TS (@effect/schema, @effect/platform など)"
-        - "Three.js (3D graphics)"
-        - "Vite (build tool)"
-        - "Vitest (testing)"
-        - "TypeScript (latest features)"
-        - "その他（実行ステップで明記）"
-        - "ライブラリ使用なし"
+        - 'Effect-TS (@effect/schema, @effect/platform など)'
+        - 'Three.js (3D graphics)'
+        - 'Vite (build tool)'
+        - 'Vitest (testing)'
+        - 'TypeScript (latest features)'
+        - 'その他（実行ステップで明記）'
+        - 'ライブラリ使用なし'
     validations:
       required: true
 
@@ -210,8 +210,8 @@ body:
       label: PR自動作成設定
       description: Issue実装完了後のPull Request自動作成設定
       options:
-        - "自動作成する - Issue完了後すぐにPR作成"
-        - "手動作成 - 実装完了通知のみ"
+        - '自動作成する - Issue完了後すぐにPR作成'
+        - '手動作成 - 実装完了通知のみ'
       default: 0
     validations:
       required: true
@@ -275,5 +275,3 @@ body:
         ```
     validations:
       required: false
-
-

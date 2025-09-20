@@ -1,13 +1,13 @@
 ---
-title: "ドメイン・アプリケーションAPI仕様 - DDDビジネスロジック層"
-description: "DDDパターン、集約ルート、ドメインサービスの完全仕様。Effect-TS 3.17+での関数型ビジネスロジック実装。"
-category: "specification"
-difficulty: "advanced"
-tags: ["domain-api", "application-api", "ddd-patterns", "aggregate-root", "domain-services", "functional-programming"]
-prerequisites: ["effect-ts-fundamentals", "ddd-concepts", "aggregate-patterns", "functional-composition"]
-estimated_reading_time: "30分"
-related_patterns: ["service-patterns", "domain-modeling-patterns", "aggregate-patterns"]
-related_docs: ["./infrastructure-architecture.md", "../explanations/architecture/02-ddd-strategic-design.md"]
+title: 'ドメイン・アプリケーションAPI仕様 - DDDビジネスロジック層'
+description: 'DDDパターン、集約ルート、ドメインサービスの完全仕様。Effect-TS 3.17+での関数型ビジネスロジック実装。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['domain-api', 'application-api', 'ddd-patterns', 'aggregate-root', 'domain-services', 'functional-programming']
+prerequisites: ['effect-ts-fundamentals', 'ddd-concepts', 'aggregate-patterns', 'functional-composition']
+estimated_reading_time: '30分'
+related_patterns: ['service-patterns', 'domain-modeling-patterns', 'aggregate-patterns']
+related_docs: ['./infrastructure-architecture.md', '../explanations/architecture/02-ddd-strategic-design.md']
 ---
 
 # Domain & Application Layer API仕様
@@ -31,19 +31,19 @@ Domain層とApplication層のAPI設計仕様です。Effect-TS 3.17+の最新パ
 
 ```typescript
 // Brand型定義 - 実行時安全性を保証
-export type PlayerId = string & Brand.Brand<"PlayerId">
+export type PlayerId = string & Brand.Brand<'PlayerId'>
 export const PlayerId = Brand.nominal<PlayerId>()
 
-export type BlockType = string & Brand.Brand<"BlockType">
+export type BlockType = string & Brand.Brand<'BlockType'>
 export const BlockType = Brand.nominal<BlockType>()
 
-export type ChunkId = string & Brand.Brand<"ChunkId">
+export type ChunkId = string & Brand.Brand<'ChunkId'>
 export const ChunkId = Brand.nominal<ChunkId>()
 
-export type InventoryId = string & Brand.Brand<"InventoryId">
+export type InventoryId = string & Brand.Brand<'InventoryId'>
 export const InventoryId = Brand.nominal<InventoryId>()
 
-export type WorldId = string & Brand.Brand<"WorldId">
+export type WorldId = string & Brand.Brand<'WorldId'>
 export const WorldId = Brand.nominal<WorldId>()
 
 // Position型のBrand化
@@ -51,7 +51,7 @@ export type Position = {
   readonly x: number
   readonly y: number
   readonly z: number
-} & Brand.Brand<"Position">
+} & Brand.Brand<'Position'>
 
 export const Position = (coords: { x: number; y: number; z: number }): Position =>
   Brand.nominal<Position>()(coords as Position)
@@ -595,191 +595,192 @@ export interface ChunkService {
   readonly _: unique symbol
 }
 
-export const ChunkService = Context.GenericTag<ChunkService>()("@app/ChunkService")
+export const ChunkService = Context.GenericTag<ChunkService>()('@app/ChunkService')
 
 // Schema定義
 export const GenerateChunkParams = Schema.Struct({
   x: Schema.Number,
   z: Schema.Number,
-  seed: Schema.Number
+  seed: Schema.Number,
 })
 
 export const GetBlockAtParams = Schema.Struct({
   chunk: ChunkPositionSchema,
-  localPosition: LocalPositionSchema
+  localPosition: LocalPositionSchema,
 })
 
 // Service実装
 export const ChunkServiceLive = Layer.succeed(ChunkService, {
-  generate: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(GenerateChunkParams)(params)
+  generate: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(GenerateChunkParams)(params)
 
-    // ノイズジェネレーターでハイトマップ生成
-    const heightMap = yield* TerrainGenerator.pipe(
-      Effect.flatMap(gen =>
-        gen.generateHeightMap({
-          x: validatedParams.x,
-          z: validatedParams.z,
-          seed: validatedParams.seed
-        })
-      )
-    )
-
-    // バイオーム決定
-    const biome = yield* BiomeGenerator.pipe(
-      Effect.flatMap(gen =>
-        gen.determineBiome({
-          x: validatedParams.x,
-          z: validatedParams.z,
-          temperature: calculateTemperature(validatedParams.x, validatedParams.z),
-          humidity: calculateHumidity(validatedParams.x, validatedParams.z)
-        })
-      )
-    )
-
-    // ブロック配置生成
-    const blocks = yield* Effect.gen(function* () {
-      const blocksMap = new Map<string, Block>()
-
-      yield* Effect.forEach(
-        Array.from({ length: CHUNK_SIZE }, (_, x) => x),
-        (x) => Effect.forEach(
-          Array.from({ length: CHUNK_SIZE }, (_, z) => z),
-          (z) => Effect.gen(function* () {
-            const height = heightMap[x * CHUNK_SIZE + z]
-
-            yield* Effect.forEach(
-              Array.from({ length: height + 1 }, (_, y) => y),
-              (y) => Effect.sync(() => {
-                const blockType = determineBlockType(y, height, biome)
-                const worldPos = {
-                  x: validatedParams.x * CHUNK_SIZE + x,
-                  y,
-                  z: validatedParams.z * CHUNK_SIZE + z
-                }
-                blocksMap.set(positionToKey(worldPos), Block({
-                  type: blockType,
-                  position: worldPos,
-                  metadata: getDefaultMetadata(blockType)
-                }))
-              })
-            )
+      // ノイズジェネレーターでハイトマップ生成
+      const heightMap = yield* TerrainGenerator.pipe(
+        Effect.flatMap((gen) =>
+          gen.generateHeightMap({
+            x: validatedParams.x,
+            z: validatedParams.z,
+            seed: validatedParams.seed,
           })
         )
       )
 
-      return blocksMap
-    })
-
-    // 構造物生成
-    const structures = yield* StructureGenerator.pipe(
-      Effect.flatMap(gen =>
-        gen.generateStructures({
-          chunkX: validatedParams.x,
-          chunkZ: validatedParams.z,
-          biome,
-          seed: validatedParams.seed
-        })
+      // バイオーム決定
+      const biome = yield* BiomeGenerator.pipe(
+        Effect.flatMap((gen) =>
+          gen.determineBiome({
+            x: validatedParams.x,
+            z: validatedParams.z,
+            temperature: calculateTemperature(validatedParams.x, validatedParams.z),
+            humidity: calculateHumidity(validatedParams.x, validatedParams.z),
+          })
+        )
       )
-    )
 
-    // 構造物ブロックをマージ
-    for (const structure of structures) {
-      for (const [pos, block] of structure.blocks) {
-        blocks.set(pos, block)
+      // ブロック配置生成
+      const blocks = yield* Effect.gen(function* () {
+        const blocksMap = new Map<string, Block>()
+
+        yield* Effect.forEach(
+          Array.from({ length: CHUNK_SIZE }, (_, x) => x),
+          (x) =>
+            Effect.forEach(
+              Array.from({ length: CHUNK_SIZE }, (_, z) => z),
+              (z) =>
+                Effect.gen(function* () {
+                  const height = heightMap[x * CHUNK_SIZE + z]
+
+                  yield* Effect.forEach(
+                    Array.from({ length: height + 1 }, (_, y) => y),
+                    (y) =>
+                      Effect.sync(() => {
+                        const blockType = determineBlockType(y, height, biome)
+                        const worldPos = {
+                          x: validatedParams.x * CHUNK_SIZE + x,
+                          y,
+                          z: validatedParams.z * CHUNK_SIZE + z,
+                        }
+                        blocksMap.set(
+                          positionToKey(worldPos),
+                          Block({
+                            type: blockType,
+                            position: worldPos,
+                            metadata: getDefaultMetadata(blockType),
+                          })
+                        )
+                      })
+                  )
+                })
+            )
+        )
+
+        return blocksMap
+      })
+
+      // 構造物生成
+      const structures = yield* StructureGenerator.pipe(
+        Effect.flatMap((gen) =>
+          gen.generateStructures({
+            chunkX: validatedParams.x,
+            chunkZ: validatedParams.z,
+            biome,
+            seed: validatedParams.seed,
+          })
+        )
+      )
+
+      // 構造物ブロックをマージ
+      for (const structure of structures) {
+        for (const [pos, block] of structure.blocks) {
+          blocks.set(pos, block)
+        }
       }
-    }
 
-    const chunk = Chunk({
-      position: { x: validatedParams.x, z: validatedParams.z },
-      blocks: Array.from(blocks.values()),
-      biome,
-      structures,
-      generated: true
-    })
+      const chunk = Chunk({
+        position: { x: validatedParams.x, z: validatedParams.z },
+        blocks: Array.from(blocks.values()),
+        biome,
+        structures,
+        generated: true,
+      })
 
-    return chunk
-  }),
+      return chunk
+    }),
 
-  load: (position) => Effect.gen(function* () {
-    const validatedPosition = yield* Schema.decodeUnknownSync(ChunkPositionSchema)(position)
+  load: (position) =>
+    Effect.gen(function* () {
+      const validatedPosition = yield* Schema.decodeUnknownSync(ChunkPositionSchema)(position)
 
-    // ストレージからロード試行
-    const stored = yield* ChunkStorageAdapter.pipe(
-      Effect.flatMap(adapter =>
-        adapter.loadChunk({
-          worldId: getCurrentWorldId(),
-          position: validatedPosition
-        })
+      // ストレージからロード試行
+      const stored = yield* ChunkStorageAdapter.pipe(
+        Effect.flatMap((adapter) =>
+          adapter.loadChunk({
+            worldId: getCurrentWorldId(),
+            position: validatedPosition,
+          })
+        )
       )
-    )
 
-    return Match.value(stored).pipe(
-      Match.when(Option.isSome, ({ value }) => Effect.succeed(value)),
-      Match.orElse(() =>
-        // 存在しない場合は生成
-        ChunkService.pipe(
-          Effect.flatMap(service =>
-            service.generate({
-              x: validatedPosition.x,
-              z: validatedPosition.z,
-              seed: getCurrentWorldSeed()
-            })
+      return Match.value(stored).pipe(
+        Match.when(Option.isSome, ({ value }) => Effect.succeed(value)),
+        Match.orElse(() =>
+          // 存在しない場合は生成
+          ChunkService.pipe(
+            Effect.flatMap((service) =>
+              service.generate({
+                x: validatedPosition.x,
+                z: validatedPosition.z,
+                seed: getCurrentWorldSeed(),
+              })
+            )
           )
         )
       )
-    )
-  }),
+    }),
 
-  save: (chunk) => Effect.gen(function* () {
-    const validatedChunk = yield* Schema.decodeUnknownSync(ChunkSchema)(chunk)
+  save: (chunk) =>
+    Effect.gen(function* () {
+      const validatedChunk = yield* Schema.decodeUnknownSync(ChunkSchema)(chunk)
 
-    yield* ChunkStorageAdapter.pipe(
-      Effect.flatMap(adapter =>
-        adapter.saveChunk({
-          worldId: getCurrentWorldId(),
-          chunk: validatedChunk
-        })
+      yield* ChunkStorageAdapter.pipe(
+        Effect.flatMap((adapter) =>
+          adapter.saveChunk({
+            worldId: getCurrentWorldId(),
+            chunk: validatedChunk,
+          })
+        )
       )
-    )
 
-    // キャッシュ更新
-    yield* ChunkCache.pipe(
-      Effect.flatMap(cache =>
-        cache.set(validatedChunk.position, validatedChunk)
+      // キャッシュ更新
+      yield* ChunkCache.pipe(Effect.flatMap((cache) => cache.set(validatedChunk.position, validatedChunk)))
+    }),
+
+  getBlockAt: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(GetBlockAtParams)(params)
+
+      const chunk = yield* ChunkService.pipe(Effect.flatMap((service) => service.load(validatedParams.chunk)))
+
+      const worldPos = {
+        x: validatedParams.chunk.x * CHUNK_SIZE + validatedParams.localPosition.x,
+        y: validatedParams.localPosition.y,
+        z: validatedParams.chunk.z * CHUNK_SIZE + validatedParams.localPosition.z,
+      }
+
+      const block = chunk.blocks.find(
+        (b) => b.position.x === worldPos.x && b.position.y === worldPos.y && b.position.z === worldPos.z
       )
-    )
-  }),
 
-  getBlockAt: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(GetBlockAtParams)(params)
+      return Option.fromNullable(block)
+    }),
 
-    const chunk = yield* ChunkService.pipe(
-      Effect.flatMap(service => service.load(validatedParams.chunk))
-    )
-
-    const worldPos = {
-      x: validatedParams.chunk.x * CHUNK_SIZE + validatedParams.localPosition.x,
-      y: validatedParams.localPosition.y,
-      z: validatedParams.chunk.z * CHUNK_SIZE + validatedParams.localPosition.z
-    }
-
-    const block = chunk.blocks.find(b =>
-      b.position.x === worldPos.x &&
-      b.position.y === worldPos.y &&
-      b.position.z === worldPos.z
-    )
-
-    return Option.fromNullable(block)
-  }),
-
-  markDirty: (position) => Effect.gen(function* () {
-    yield* DirtyChunksRef.pipe(
-      Effect.flatMap(ref =>
-        Ref.update(ref, chunks => new Set([...chunks, positionToKey(position)]))
+  markDirty: (position) =>
+    Effect.gen(function* () {
+      yield* DirtyChunksRef.pipe(
+        Effect.flatMap((ref) => Ref.update(ref, (chunks) => new Set([...chunks, positionToKey(position)])))
       )
-    )
-  })
+    }),
 })
 ```
 
@@ -793,26 +794,22 @@ export const PositionAPI = {
   add: (a: Position, b: Position): Position => ({
     x: a.x + b.x,
     y: a.y + b.y,
-    z: a.z + b.z
+    z: a.z + b.z,
   }),
 
   distance: (a: Position, b: Position): number =>
-    Math.sqrt(
-      Math.pow(b.x - a.x, 2) +
-      Math.pow(b.y - a.y, 2) +
-      Math.pow(b.z - a.z, 2)
-    ),
+    Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2) + Math.pow(b.z - a.z, 2)),
 
   toChunkPosition: (pos: Position): ChunkPosition => ({
     x: Math.floor(pos.x / CHUNK_SIZE),
-    z: Math.floor(pos.z / CHUNK_SIZE)
+    z: Math.floor(pos.z / CHUNK_SIZE),
   }),
 
   toLocalPosition: (pos: Position): LocalPosition => ({
     x: ((pos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
     y: pos.y,
-    z: ((pos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-  })
+    z: ((pos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
+  }),
 }
 ```
 
@@ -827,155 +824,141 @@ export interface WorldManagementService {
   readonly _: unique symbol
 }
 
-export const WorldManagementService = Context.GenericTag<WorldManagementService>()("@app/WorldManagementService")
+export const WorldManagementService = Context.GenericTag<WorldManagementService>()('@app/WorldManagementService')
 
 // Schema定義
 export const CreateWorldParams = Schema.Struct({
   name: Schema.String,
   seed: Schema.Number,
   gameMode: GameModeSchema,
-  difficulty: DifficultySchema
+  difficulty: DifficultySchema,
 })
 
 export const GenerateTerrainParams = Schema.Struct({
   center: ChunkPositionSchema,
-  radius: Schema.Number.pipe(Schema.int(), Schema.positive())
+  radius: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 
 // Service実装
 export const WorldManagementServiceLive = Layer.succeed(WorldManagementService, {
-  createWorld: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(CreateWorldParams)(params)
+  createWorld: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(CreateWorldParams)(params)
 
-    // ワールド名重複チェック
-    const existing = yield* WorldRepository.pipe(
-      Effect.flatMap(repo => repo.findByName(validatedParams.name)),
-      Effect.option
-    )
-
-    if (Option.isSome(existing)) {
-      return yield* Effect.fail(WorldCreationError({
-        message: "World name already exists",
-        worldName: validatedParams.name
-      }))
-    }
-
-    const worldId = generateId()
-    const world = World({
-      id: worldId,
-      name: validatedParams.name,
-      seed: validatedParams.seed,
-      gameMode: validatedParams.gameMode,
-      difficulty: validatedParams.difficulty,
-      spawnPoint: { x: 0, y: 64, z: 0 },
-      time: 0,
-      weather: "clear",
-      loadedChunks: new Map(),
-      players: new Map()
-    })
-
-    // 初期チャンク生成（スポーン周辺）
-    const spawnChunks = yield* WorldManagementService.pipe(
-      Effect.flatMap(service =>
-        service.generateTerrain({
-          center: PositionAPI.toChunkPosition(world.spawnPoint),
-          radius: 2
-        })
+      // ワールド名重複チェック
+      const existing = yield* WorldRepository.pipe(
+        Effect.flatMap((repo) => repo.findByName(validatedParams.name)),
+        Effect.option
       )
-    )
 
-    world.loadedChunks = new Map(
-      spawnChunks.map(chunk => [positionToKey(chunk.position), chunk])
-    )
-
-    yield* WorldRepository.pipe(
-      Effect.flatMap(repo => repo.save(world))
-    )
-
-    // 世界作成イベント発行
-    yield* EventBusService.pipe(
-      Effect.flatMap(bus =>
-        bus.publish({
-          _tag: "WorldCreated",
-          worldId,
-          name: validatedParams.name
-        })
-      )
-    )
-
-    return world
-  }),
-
-  loadWorld: (worldId) => Effect.gen(function* () {
-    const world = yield* WorldRepository.pipe(
-      Effect.flatMap(repo => repo.findById(worldId))
-    )
-
-    // チャンクの遅延ロード設定
-    yield* CurrentWorldRef.pipe(
-      Effect.flatMap(ref => Ref.set(ref, Option.some(world)))
-    )
-
-    return world
-  }),
-
-  saveWorld: (worldId) => Effect.gen(function* () {
-    const world = yield* WorldRepository.pipe(
-      Effect.flatMap(repo => repo.findById(worldId))
-    )
-
-    // 全チャンクの保存
-    yield* Effect.all(
-      Array.from(world.loadedChunks.values()).map(chunk =>
-        ChunkService.pipe(
-          Effect.flatMap(service => service.save(chunk))
+      if (Option.isSome(existing)) {
+        return yield* Effect.fail(
+          WorldCreationError({
+            message: 'World name already exists',
+            worldName: validatedParams.name,
+          })
         )
-      ),
-      { concurrency: 4 }
-    )
-
-    // ワールドメタデータの保存
-    yield* WorldRepository.pipe(
-      Effect.flatMap(repo => repo.save(world))
-    )
-
-    // プレイヤーデータの保存
-    yield* Effect.all(
-      Array.from(world.players.values()).map(player =>
-        PlayerRepository.pipe(
-          Effect.flatMap(repo => repo.save(player))
-        )
-      ),
-      { concurrency: 2 }
-    )
-  }),
-
-  generateTerrain: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(GenerateTerrainParams)(params)
-
-    // 生成範囲内のチャンク座標計算
-    const positions: ChunkPosition[] = []
-    for (let x = -validatedParams.radius; x <= validatedParams.radius; x++) {
-      for (let z = -validatedParams.radius; z <= validatedParams.radius; z++) {
-        positions.push({
-          x: validatedParams.center.x + x,
-          z: validatedParams.center.z + z
-        })
       }
-    }
 
-    // 並列生成（バッチサイズ制限）
-    const chunks = yield* Effect.all(
-      positions.map(pos =>
-        ChunkService.pipe(
-          Effect.flatMap(service => service.load(pos))
+      const worldId = generateId()
+      const world = World({
+        id: worldId,
+        name: validatedParams.name,
+        seed: validatedParams.seed,
+        gameMode: validatedParams.gameMode,
+        difficulty: validatedParams.difficulty,
+        spawnPoint: { x: 0, y: 64, z: 0 },
+        time: 0,
+        weather: 'clear',
+        loadedChunks: new Map(),
+        players: new Map(),
+      })
+
+      // 初期チャンク生成（スポーン周辺）
+      const spawnChunks = yield* WorldManagementService.pipe(
+        Effect.flatMap((service) =>
+          service.generateTerrain({
+            center: PositionAPI.toChunkPosition(world.spawnPoint),
+            radius: 2,
+          })
         )
-      ),
-      { concurrency: 4, batching: true }
-    )
+      )
 
-    return chunks
-  })
+      world.loadedChunks = new Map(spawnChunks.map((chunk) => [positionToKey(chunk.position), chunk]))
+
+      yield* WorldRepository.pipe(Effect.flatMap((repo) => repo.save(world)))
+
+      // 世界作成イベント発行
+      yield* EventBusService.pipe(
+        Effect.flatMap((bus) =>
+          bus.publish({
+            _tag: 'WorldCreated',
+            worldId,
+            name: validatedParams.name,
+          })
+        )
+      )
+
+      return world
+    }),
+
+  loadWorld: (worldId) =>
+    Effect.gen(function* () {
+      const world = yield* WorldRepository.pipe(Effect.flatMap((repo) => repo.findById(worldId)))
+
+      // チャンクの遅延ロード設定
+      yield* CurrentWorldRef.pipe(Effect.flatMap((ref) => Ref.set(ref, Option.some(world))))
+
+      return world
+    }),
+
+  saveWorld: (worldId) =>
+    Effect.gen(function* () {
+      const world = yield* WorldRepository.pipe(Effect.flatMap((repo) => repo.findById(worldId)))
+
+      // 全チャンクの保存
+      yield* Effect.all(
+        Array.from(world.loadedChunks.values()).map((chunk) =>
+          ChunkService.pipe(Effect.flatMap((service) => service.save(chunk)))
+        ),
+        { concurrency: 4 }
+      )
+
+      // ワールドメタデータの保存
+      yield* WorldRepository.pipe(Effect.flatMap((repo) => repo.save(world)))
+
+      // プレイヤーデータの保存
+      yield* Effect.all(
+        Array.from(world.players.values()).map((player) =>
+          PlayerRepository.pipe(Effect.flatMap((repo) => repo.save(player)))
+        ),
+        { concurrency: 2 }
+      )
+    }),
+
+  generateTerrain: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(GenerateTerrainParams)(params)
+
+      // 生成範囲内のチャンク座標計算
+      const positions: ChunkPosition[] = []
+      for (let x = -validatedParams.radius; x <= validatedParams.radius; x++) {
+        for (let z = -validatedParams.radius; z <= validatedParams.radius; z++) {
+          positions.push({
+            x: validatedParams.center.x + x,
+            z: validatedParams.center.z + z,
+          })
+        }
+      }
+
+      // 並列生成（バッチサイズ制限）
+      const chunks = yield* Effect.all(
+        positions.map((pos) => ChunkService.pipe(Effect.flatMap((service) => service.load(pos)))),
+        { concurrency: 4, batching: true }
+      )
+
+      return chunks
+    }),
 })
 ```
 
@@ -986,247 +969,257 @@ export interface InventoryService {
   readonly _: unique symbol
 }
 
-export const InventoryService = Context.GenericTag<InventoryService>()("@app/InventoryService")
+export const InventoryService = Context.GenericTag<InventoryService>()('@app/InventoryService')
 
 // Schema定義
 export const AddItemParams = Schema.Struct({
   inventoryId: Schema.String,
-  item: ItemStackSchema
+  item: ItemStackSchema,
 })
 
 export const RemoveItemParams = Schema.Struct({
   inventoryId: Schema.String,
   slot: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
-  amount: Schema.Optional(Schema.Number.pipe(Schema.int(), Schema.positive()))
+  amount: Schema.Optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
 })
 
 export const MoveItemParams = Schema.Struct({
   from: Schema.Struct({
     inventoryId: Schema.String,
-    slot: Schema.Number.pipe(Schema.int(), Schema.nonnegative())
+    slot: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
   }),
   to: Schema.Struct({
     inventoryId: Schema.String,
-    slot: Schema.Number.pipe(Schema.int(), Schema.nonnegative())
+    slot: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
   }),
-  amount: Schema.Optional(Schema.Number.pipe(Schema.int(), Schema.positive()))
+  amount: Schema.Optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
 })
 
 export const CraftItemParams = Schema.Struct({
   inventoryId: Schema.String,
-  recipe: RecipeSchema
+  recipe: RecipeSchema,
 })
 
 // Service実装
 export const InventoryServiceLive = Layer.succeed(InventoryService, {
-  addItem: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(AddItemParams)(params)
+  addItem: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(AddItemParams)(params)
 
-    const inventory = yield* InventoryRepository.pipe(
-      Effect.flatMap(repo => repo.findById(validatedParams.inventoryId))
-    )
+      const inventory = yield* InventoryRepository.pipe(
+        Effect.flatMap((repo) => repo.findById(validatedParams.inventoryId))
+      )
 
-    // スタッキング可能なアイテムを探す
-    const stackableSlot = findStackableSlot(inventory, validatedParams.item)
+      // スタッキング可能なアイテムを探す
+      const stackableSlot = findStackableSlot(inventory, validatedParams.item)
 
-    return yield* Match.value(stackableSlot).pipe(
-      Match.when(Option.isSome, ({ value: slot }) => Effect.gen(function* () {
-        // 既存スタックに追加
-        const existingStack = inventory.slots[slot.index]
-        const maxStack = getMaxStackSize(validatedParams.item.type)
-        const canAdd = Math.min(validatedParams.item.amount, maxStack - existingStack.amount)
+      return yield* Match.value(stackableSlot).pipe(
+        Match.when(Option.isSome, ({ value: slot }) =>
+          Effect.gen(function* () {
+            // 既存スタックに追加
+            const existingStack = inventory.slots[slot.index]
+            const maxStack = getMaxStackSize(validatedParams.item.type)
+            const canAdd = Math.min(validatedParams.item.amount, maxStack - existingStack.amount)
 
-        if (canAdd === 0) {
-          return yield* Effect.fail(InventoryFullError({
-            message: "No space in inventory",
-            inventoryId: validatedParams.inventoryId
-          }))
-        }
+            if (canAdd === 0) {
+              return yield* Effect.fail(
+                InventoryFullError({
+                  message: 'No space in inventory',
+                  inventoryId: validatedParams.inventoryId,
+                })
+              )
+            }
 
-        const updatedStack = { ...existingStack, amount: existingStack.amount + canAdd }
+            const updatedStack = { ...existingStack, amount: existingStack.amount + canAdd }
+            const updatedSlots = [...inventory.slots]
+            updatedSlots[slot.index] = updatedStack
+
+            const updatedInventory = { ...inventory, slots: updatedSlots }
+
+            yield* InventoryRepository.pipe(Effect.flatMap((repo) => repo.update(updatedInventory)))
+
+            // 残りアイテムがあれば新しいスロットに配置
+            if (canAdd < validatedParams.item.amount) {
+              const remainingItem = { ...validatedParams.item, amount: validatedParams.item.amount - canAdd }
+              return yield* InventoryService.pipe(
+                Effect.flatMap((service) =>
+                  service.addItem({ inventoryId: validatedParams.inventoryId, item: remainingItem })
+                )
+              )
+            }
+
+            return updatedInventory
+          })
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            // 空きスロットを探す
+            const emptySlot = findEmptySlot(inventory)
+
+            if (Option.isNone(emptySlot)) {
+              return yield* Effect.fail(
+                InventoryFullError({
+                  message: 'No space in inventory',
+                  inventoryId: validatedParams.inventoryId,
+                })
+              )
+            }
+
+            const updatedSlots = [...inventory.slots]
+            updatedSlots[emptySlot.value] = validatedParams.item
+
+            const updatedInventory = { ...inventory, slots: updatedSlots }
+
+            yield* InventoryRepository.pipe(Effect.flatMap((repo) => repo.update(updatedInventory)))
+
+            return updatedInventory
+          })
+        )
+      )
+    }),
+
+  removeItem: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(RemoveItemParams)(params)
+
+      const inventory = yield* InventoryRepository.pipe(
+        Effect.flatMap((repo) => repo.findById(validatedParams.inventoryId))
+      )
+
+      if (validatedParams.slot >= inventory.slots.length) {
+        return yield* Effect.fail(
+          InventoryError({
+            message: 'Invalid slot index',
+            inventoryId: validatedParams.inventoryId,
+          })
+        )
+      }
+
+      const slot = inventory.slots[validatedParams.slot]
+      if (!slot) {
+        return Option.none()
+      }
+
+      const removeAmount = validatedParams.amount ?? slot.amount
+
+      if (removeAmount >= slot.amount) {
+        // スロットを空にする
         const updatedSlots = [...inventory.slots]
-        updatedSlots[slot.index] = updatedStack
+        updatedSlots[validatedParams.slot] = null
 
         const updatedInventory = { ...inventory, slots: updatedSlots }
 
-        yield* InventoryRepository.pipe(
-          Effect.flatMap(repo => repo.update(updatedInventory))
-        )
+        yield* InventoryRepository.pipe(Effect.flatMap((repo) => repo.update(updatedInventory)))
 
-        // 残りアイテムがあれば新しいスロットに配置
-        if (canAdd < validatedParams.item.amount) {
-          const remainingItem = { ...validatedParams.item, amount: validatedParams.item.amount - canAdd }
-          return yield* InventoryService.pipe(
-            Effect.flatMap(service =>
-              service.addItem({ inventoryId: validatedParams.inventoryId, item: remainingItem })
-            )
+        return Option.some(slot)
+      } else {
+        // 部分削除
+        const removedItem = { ...slot, amount: removeAmount }
+        const remainingItem = { ...slot, amount: slot.amount - removeAmount }
+
+        const updatedSlots = [...inventory.slots]
+        updatedSlots[validatedParams.slot] = remainingItem
+
+        const updatedInventory = { ...inventory, slots: updatedSlots }
+
+        yield* InventoryRepository.pipe(Effect.flatMap((repo) => repo.update(updatedInventory)))
+
+        return Option.some(removedItem)
+      }
+    }),
+
+  moveItem: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(MoveItemParams)(params)
+
+      // アイテム取得
+      const item = yield* InventoryService.pipe(
+        Effect.flatMap((service) =>
+          service.removeItem({
+            inventoryId: validatedParams.from.inventoryId,
+            slot: validatedParams.from.slot,
+            amount: validatedParams.amount,
+          })
+        )
+      )
+
+      if (Option.isNone(item)) {
+        return yield* Effect.fail(
+          InventoryError({
+            message: 'No item to move',
+            inventoryId: validatedParams.from.inventoryId,
+          })
+        )
+      }
+
+      // 移動先に配置
+      yield* InventoryService.pipe(
+        Effect.flatMap((service) =>
+          service.addItem({
+            inventoryId: validatedParams.to.inventoryId,
+            item: item.value,
+          })
+        ),
+        Effect.catchAll((error) => {
+          // 配置失敗時は元に戻す
+          return InventoryService.pipe(
+            Effect.flatMap((service) =>
+              service.addItem({
+                inventoryId: validatedParams.from.inventoryId,
+                item: item.value,
+              })
+            ),
+            Effect.flatMap(() => Effect.fail(error))
           )
-        }
-
-        return updatedInventory
-      })),
-      Match.orElse(() => Effect.gen(function* () {
-        // 空きスロットを探す
-        const emptySlot = findEmptySlot(inventory)
-
-        if (Option.isNone(emptySlot)) {
-          return yield* Effect.fail(InventoryFullError({
-            message: "No space in inventory",
-            inventoryId: validatedParams.inventoryId
-          }))
-        }
-
-        const updatedSlots = [...inventory.slots]
-        updatedSlots[emptySlot.value] = validatedParams.item
-
-        const updatedInventory = { ...inventory, slots: updatedSlots }
-
-        yield* InventoryRepository.pipe(
-          Effect.flatMap(repo => repo.update(updatedInventory))
-        )
-
-        return updatedInventory
-      }))
-    )
-  }),
-
-  removeItem: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(RemoveItemParams)(params)
-
-    const inventory = yield* InventoryRepository.pipe(
-      Effect.flatMap(repo => repo.findById(validatedParams.inventoryId))
-    )
-
-    if (validatedParams.slot >= inventory.slots.length) {
-      return yield* Effect.fail(InventoryError({
-        message: "Invalid slot index",
-        inventoryId: validatedParams.inventoryId
-      }))
-    }
-
-    const slot = inventory.slots[validatedParams.slot]
-    if (!slot) {
-      return Option.none()
-    }
-
-    const removeAmount = validatedParams.amount ?? slot.amount
-
-    if (removeAmount >= slot.amount) {
-      // スロットを空にする
-      const updatedSlots = [...inventory.slots]
-      updatedSlots[validatedParams.slot] = null
-
-      const updatedInventory = { ...inventory, slots: updatedSlots }
-
-      yield* InventoryRepository.pipe(
-        Effect.flatMap(repo => repo.update(updatedInventory))
-      )
-
-      return Option.some(slot)
-    } else {
-      // 部分削除
-      const removedItem = { ...slot, amount: removeAmount }
-      const remainingItem = { ...slot, amount: slot.amount - removeAmount }
-
-      const updatedSlots = [...inventory.slots]
-      updatedSlots[validatedParams.slot] = remainingItem
-
-      const updatedInventory = { ...inventory, slots: updatedSlots }
-
-      yield* InventoryRepository.pipe(
-        Effect.flatMap(repo => repo.update(updatedInventory))
-      )
-
-      return Option.some(removedItem)
-    }
-  }),
-
-  moveItem: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(MoveItemParams)(params)
-
-    // アイテム取得
-    const item = yield* InventoryService.pipe(
-      Effect.flatMap(service =>
-        service.removeItem({
-          inventoryId: validatedParams.from.inventoryId,
-          slot: validatedParams.from.slot,
-          amount: validatedParams.amount
         })
       )
-    )
+    }),
 
-    if (Option.isNone(item)) {
-      return yield* Effect.fail(InventoryError({
-        message: "No item to move",
-        inventoryId: validatedParams.from.inventoryId
-      }))
-    }
+  craft: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(CraftItemParams)(params)
 
-    // 移動先に配置
-    yield* InventoryService.pipe(
-      Effect.flatMap(service =>
-        service.addItem({
-          inventoryId: validatedParams.to.inventoryId,
-          item: item.value
-        })
-      ),
-      Effect.catchAll(error => {
-        // 配置失敗時は元に戻す
-        return InventoryService.pipe(
-          Effect.flatMap(service =>
-            service.addItem({
-              inventoryId: validatedParams.from.inventoryId,
-              item: item.value
-            })
-          ),
-          Effect.flatMap(() => Effect.fail(error))
+      const inventory = yield* InventoryRepository.pipe(
+        Effect.flatMap((repo) => repo.findById(validatedParams.inventoryId))
+      )
+
+      // 必要材料チェック
+      const hasIngredients = checkIngredients(inventory, validatedParams.recipe.ingredients)
+
+      if (!hasIngredients) {
+        return yield* Effect.fail(
+          CraftingError({
+            message: 'Insufficient ingredients',
+            recipe: validatedParams.recipe.id,
+          })
         )
+      }
+
+      // 材料消費
+      for (const ingredient of validatedParams.recipe.ingredients) {
+        yield* consumeIngredient(inventory, ingredient)
+      }
+
+      // アイテム生成
+      const craftedItem = ItemStack({
+        type: validatedParams.recipe.output.type,
+        amount: validatedParams.recipe.output.amount,
+        durability: getMaxDurability(validatedParams.recipe.output.type),
+        enchantments: [],
       })
-    )
-  }),
 
-  craft: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(CraftItemParams)(params)
-
-    const inventory = yield* InventoryRepository.pipe(
-      Effect.flatMap(repo => repo.findById(validatedParams.inventoryId))
-    )
-
-    // 必要材料チェック
-    const hasIngredients = checkIngredients(inventory, validatedParams.recipe.ingredients)
-
-    if (!hasIngredients) {
-      return yield* Effect.fail(CraftingError({
-        message: "Insufficient ingredients",
-        recipe: validatedParams.recipe.id
-      }))
-    }
-
-    // 材料消費
-    for (const ingredient of validatedParams.recipe.ingredients) {
-      yield* consumeIngredient(inventory, ingredient)
-    }
-
-    // アイテム生成
-    const craftedItem = ItemStack({
-      type: validatedParams.recipe.output.type,
-      amount: validatedParams.recipe.output.amount,
-      durability: getMaxDurability(validatedParams.recipe.output.type),
-      enchantments: []
-    })
-
-    // インベントリに追加
-    yield* InventoryService.pipe(
-      Effect.flatMap(service =>
-        service.addItem({
-          inventoryId: validatedParams.inventoryId,
-          item: craftedItem
-        })
+      // インベントリに追加
+      yield* InventoryService.pipe(
+        Effect.flatMap((service) =>
+          service.addItem({
+            inventoryId: validatedParams.inventoryId,
+            item: craftedItem,
+          })
+        )
       )
-    )
 
-    return craftedItem
-  })
+      return craftedItem
+    }),
 })
 ```
 
@@ -1252,10 +1245,8 @@ export const EntityQueryService = Context.GenericTag<{
     maxDistance?: number
   }) => Effect.Effect<Option.Option<Entity>, QueryError>
 
-  getEntitiesInChunk: (
-    chunkPosition: ChunkPosition
-  ) => Effect.Effect<ReadonlyArray<Entity>, QueryError>
-}>()("EntityQueryService")
+  getEntitiesInChunk: (chunkPosition: ChunkPosition) => Effect.Effect<ReadonlyArray<Entity>, QueryError>
+}>()('EntityQueryService')
 ```
 
 #### Block Query API
@@ -1284,7 +1275,7 @@ export const BlockQueryService = Context.GenericTag<{
     blockType: BlockType
     maxBlocks?: number
   }) => Effect.Effect<ReadonlyArray<Position>, QueryError>
-}>()("BlockQueryService")
+}>()('BlockQueryService')
 ```
 
 ### Command APIs
@@ -1297,10 +1288,8 @@ export interface PlayerCommandService {
 }
 
 export const PlayerCommandService = Context.GenericTag<{
-  execute: (
-    command: PlayerCommand
-  ) => Effect.Effect<CommandResult, CommandError>
-}>()("PlayerCommandService")
+  execute: (command: PlayerCommand) => Effect.Effect<CommandResult, CommandError>
+}>()('PlayerCommandService')
 
 // Command Types (Tagged Union)
 export type PlayerCommand =
@@ -1322,50 +1311,50 @@ export type PlayerCommand =
 // Player System Errors
 // =============================================================================
 export namespace PlayerSystem {
-  export const PlayerNotFoundError = Schema.TaggedError("PlayerSystem.PlayerNotFoundError", {
+  export const PlayerNotFoundError = Schema.TaggedError('PlayerSystem.PlayerNotFoundError', {
     playerId: Schema.String,
     searchContext: Schema.String,
     timestamp: Schema.Number,
-    requestedBy: Schema.optional(Schema.String)
+    requestedBy: Schema.optional(Schema.String),
   })
 
-  export const InvalidMovementError = Schema.TaggedError("PlayerSystem.InvalidMovementError", {
+  export const InvalidMovementError = Schema.TaggedError('PlayerSystem.InvalidMovementError', {
     playerId: Schema.String,
     currentPosition: Position.schema,
     targetPosition: Position.schema,
     reason: Schema.String,
     maxAllowedDistance: Schema.Number,
     actualDistance: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const InvalidDamageError = Schema.TaggedError("PlayerSystem.InvalidDamageError", {
+  export const InvalidDamageError = Schema.TaggedError('PlayerSystem.InvalidDamageError', {
     playerId: Schema.String,
     damageAmount: Schema.Number,
     damageSource: Schema.String,
     currentHealth: Schema.Number,
     maxHealth: Schema.Number,
     reason: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const PlayerInventoryFullError = Schema.TaggedError("PlayerSystem.PlayerInventoryFullError", {
+  export const PlayerInventoryFullError = Schema.TaggedError('PlayerSystem.PlayerInventoryFullError', {
     playerId: Schema.String,
     inventoryId: Schema.String,
     attemptedItem: Schema.String,
     attemptedAmount: Schema.Number,
     availableSlots: Schema.Number,
     maxSlots: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const PlayerPermissionDeniedError = Schema.TaggedError("PlayerSystem.PlayerPermissionDeniedError", {
+  export const PlayerPermissionDeniedError = Schema.TaggedError('PlayerSystem.PlayerPermissionDeniedError', {
     playerId: Schema.String,
     action: Schema.String,
     requiredPermission: Schema.String,
     currentPermissions: Schema.Array(Schema.String),
     context: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 }
 
@@ -1380,24 +1369,24 @@ export type PlayerError =
 // Block System Errors
 // =============================================================================
 export namespace BlockSystem {
-  export const BlockNotFoundError = Schema.TaggedError("BlockSystem.BlockNotFoundError", {
+  export const BlockNotFoundError = Schema.TaggedError('BlockSystem.BlockNotFoundError', {
     position: Position.schema,
     chunkPosition: ChunkPosition.schema,
     searchContext: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const BlockPlacementError = Schema.TaggedError("BlockSystem.BlockPlacementError", {
+  export const BlockPlacementError = Schema.TaggedError('BlockSystem.BlockPlacementError', {
     position: Position.schema,
     blockType: Schema.String,
     existingBlockType: Schema.optional(Schema.String),
     reason: Schema.String,
     canReplace: Schema.Boolean,
     placedBy: Schema.optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const BlockBreakError = Schema.TaggedError("BlockSystem.BlockBreakError", {
+  export const BlockBreakError = Schema.TaggedError('BlockSystem.BlockBreakError', {
     position: Position.schema,
     blockType: Schema.String,
     tool: Schema.optional(Schema.String),
@@ -1405,26 +1394,26 @@ export namespace BlockSystem {
     hardness: Schema.Number,
     requiredTool: Schema.optional(Schema.String),
     brokenBy: Schema.optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const BlockUpdateError = Schema.TaggedError("BlockSystem.BlockUpdateError", {
+  export const BlockUpdateError = Schema.TaggedError('BlockSystem.BlockUpdateError', {
     position: Position.schema,
     blockType: Schema.String,
     updateType: Schema.String,
     oldMetadata: Schema.Unknown,
     newMetadata: Schema.Unknown,
     reason: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 
-  export const BlockValidationError = Schema.TaggedError("BlockSystem.BlockValidationError", {
+  export const BlockValidationError = Schema.TaggedError('BlockSystem.BlockValidationError', {
     position: Position.schema,
     blockType: Schema.String,
     validationRule: Schema.String,
     actualValue: Schema.Unknown,
     expectedValue: Schema.Unknown,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 }
 
@@ -1439,7 +1428,7 @@ export type BlockError =
 // Chunk System Errors
 // =============================================================================
 export namespace ChunkSystem {
-  export const ChunkGenerationError = Schema.TaggedError("ChunkSystem.ChunkGenerationError")<{
+  export const ChunkGenerationError = Schema.TaggedError('ChunkSystem.ChunkGenerationError')<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly biome: string
@@ -1454,29 +1443,29 @@ export namespace ChunkSystem {
     readonly timestamp: number
   }>
 
-  export const ChunkLoadError = Schema.TaggedError("ChunkSystem.ChunkLoadError")<{
+  export const ChunkLoadError = Schema.TaggedError('ChunkSystem.ChunkLoadError')<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
-    readonly source: "disk" | "network" | "cache"
+    readonly source: 'disk' | 'network' | 'cache'
     readonly reason: string
     readonly underlyingError?: unknown
     readonly retryCount: number
     readonly timestamp: number
   }>
 
-  export const ChunkSaveError = Schema.TaggedError("ChunkSystem.ChunkSaveError")<{
+  export const ChunkSaveError = Schema.TaggedError('ChunkSystem.ChunkSaveError')<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
-    readonly destination: "disk" | "network" | "cache"
+    readonly destination: 'disk' | 'network' | 'cache'
     readonly reason: string
     readonly dataSize: number
     readonly underlyingError?: unknown
     readonly timestamp: number
   }>
 
-  export const ChunkCorruptionError = Schema.TaggedError("ChunkSystem.ChunkCorruptionError")<{
+  export const ChunkCorruptionError = Schema.TaggedError('ChunkSystem.ChunkCorruptionError')<{
     readonly chunkX: number
     readonly chunkZ: number
     readonly worldId: string
@@ -1498,7 +1487,7 @@ export type ChunkError =
 // World System Errors
 // =============================================================================
 export namespace WorldSystem {
-  export const WorldCreationError = Schema.TaggedError("WorldSystem.WorldCreationError")<{
+  export const WorldCreationError = Schema.TaggedError('WorldSystem.WorldCreationError')<{
     readonly worldName: string
     readonly worldId?: string
     readonly reason: string
@@ -1509,7 +1498,7 @@ export namespace WorldSystem {
     readonly timestamp: number
   }>
 
-  export const WorldLoadError = Schema.TaggedError("WorldSystem.WorldLoadError")<{
+  export const WorldLoadError = Schema.TaggedError('WorldSystem.WorldLoadError')<{
     readonly worldId: string
     readonly worldName?: string
     readonly reason: string
@@ -1520,7 +1509,7 @@ export namespace WorldSystem {
     readonly timestamp: number
   }>
 
-  export const WorldSaveError = Schema.TaggedError("WorldSystem.WorldSaveError")<{
+  export const WorldSaveError = Schema.TaggedError('WorldSystem.WorldSaveError')<{
     readonly worldId: string
     readonly worldName: string
     readonly reason: string
@@ -1531,7 +1520,7 @@ export namespace WorldSystem {
     readonly timestamp: number
   }>
 
-  export const WorldCorruptionError = Schema.TaggedError("WorldSystem.WorldCorruptionError")<{
+  export const WorldCorruptionError = Schema.TaggedError('WorldSystem.WorldCorruptionError')<{
     readonly worldId: string
     readonly worldName: string
     readonly corruptionType: string
@@ -1542,7 +1531,7 @@ export namespace WorldSystem {
     readonly timestamp: number
   }>
 
-  export const TerrainGenerationError = Schema.TaggedError("WorldSystem.TerrainGenerationError")<{
+  export const TerrainGenerationError = Schema.TaggedError('WorldSystem.TerrainGenerationError')<{
     readonly center: ChunkPosition
     readonly radius: number
     readonly generationType: string
@@ -1566,7 +1555,7 @@ export type WorldError =
 // Inventory System Errors
 // =============================================================================
 export namespace InventorySystem {
-  export const InventoryNotFoundError = Schema.TaggedError("InventorySystem.InventoryNotFoundError")<{
+  export const InventoryNotFoundError = Schema.TaggedError('InventorySystem.InventoryNotFoundError')<{
     readonly inventoryId: string
     readonly ownerId?: string
     readonly inventoryType: string
@@ -1574,7 +1563,7 @@ export namespace InventorySystem {
     readonly timestamp: number
   }>
 
-  export const InventoryFullError = Schema.TaggedError("InventorySystem.InventoryFullError")<{
+  export const InventoryFullError = Schema.TaggedError('InventorySystem.InventoryFullError')<{
     readonly inventoryId: string
     readonly ownerId?: string
     readonly itemType: string
@@ -1585,7 +1574,7 @@ export namespace InventorySystem {
     readonly timestamp: number
   }>
 
-  export const InvalidItemError = Schema.TaggedError("InventorySystem.InvalidItemError")<{
+  export const InvalidItemError = Schema.TaggedError('InventorySystem.InvalidItemError')<{
     readonly itemType: string
     readonly itemId?: string
     readonly reason: string
@@ -1596,7 +1585,7 @@ export namespace InventorySystem {
     readonly timestamp: number
   }>
 
-  export const ItemTransferError = Schema.TaggedError("InventorySystem.ItemTransferError")<{
+  export const ItemTransferError = Schema.TaggedError('InventorySystem.ItemTransferError')<{
     readonly sourceInventoryId: string
     readonly targetInventoryId: string
     readonly itemType: string
@@ -1607,7 +1596,7 @@ export namespace InventorySystem {
     readonly timestamp: number
   }>
 
-  export const ItemDurabilityError = Schema.TaggedError("InventorySystem.ItemDurabilityError")<{
+  export const ItemDurabilityError = Schema.TaggedError('InventorySystem.ItemDurabilityError')<{
     readonly itemType: string
     readonly itemId: string
     readonly currentDurability: number
@@ -1630,7 +1619,7 @@ export type InventoryError =
 // Crafting System Errors
 // =============================================================================
 export namespace CraftingSystem {
-  export const RecipeNotFoundError = Schema.TaggedError("CraftingSystem.RecipeNotFoundError")<{
+  export const RecipeNotFoundError = Schema.TaggedError('CraftingSystem.RecipeNotFoundError')<{
     readonly recipeId: string
     readonly recipePattern?: ReadonlyArray<ReadonlyArray<string>>
     readonly availableRecipes: ReadonlyArray<string>
@@ -1638,7 +1627,7 @@ export namespace CraftingSystem {
     readonly timestamp: number
   }>
 
-  export const InsufficientIngredientsError = Schema.TaggedError("CraftingSystem.InsufficientIngredientsError")<{
+  export const InsufficientIngredientsError = Schema.TaggedError('CraftingSystem.InsufficientIngredientsError')<{
     readonly recipeId: string
     readonly missingIngredients: ReadonlyArray<{
       readonly item: string
@@ -1650,7 +1639,7 @@ export namespace CraftingSystem {
     readonly timestamp: number
   }>
 
-  export const CraftingPermissionError = Schema.TaggedError("CraftingSystem.CraftingPermissionError")<{
+  export const CraftingPermissionError = Schema.TaggedError('CraftingSystem.CraftingPermissionError')<{
     readonly recipeId: string
     readonly playerId: string
     readonly requiredPermission: string
@@ -1660,7 +1649,7 @@ export namespace CraftingSystem {
     readonly timestamp: number
   }>
 
-  export const CraftingTableError = Schema.TaggedError("CraftingSystem.CraftingTableError")<{
+  export const CraftingTableError = Schema.TaggedError('CraftingSystem.CraftingTableError')<{
     readonly tablePosition: Position
     readonly tableType: string
     readonly reason: string
@@ -1680,7 +1669,7 @@ export type CraftingError =
 // Command System Errors
 // =============================================================================
 export namespace CommandSystem {
-  export const CommandNotFoundError = Schema.TaggedError("CommandSystem.CommandNotFoundError")<{
+  export const CommandNotFoundError = Schema.TaggedError('CommandSystem.CommandNotFoundError')<{
     readonly command: string
     readonly availableCommands: ReadonlyArray<string>
     readonly similarity: ReadonlyArray<{
@@ -1691,7 +1680,7 @@ export namespace CommandSystem {
     readonly timestamp: number
   }>
 
-  export const InvalidArgumentsError = Schema.TaggedError("CommandSystem.InvalidArgumentsError")<{
+  export const InvalidArgumentsError = Schema.TaggedError('CommandSystem.InvalidArgumentsError')<{
     readonly command: string
     readonly providedArgs: ReadonlyArray<string>
     readonly expectedArgs: ReadonlyArray<{
@@ -1704,7 +1693,7 @@ export namespace CommandSystem {
     readonly timestamp: number
   }>
 
-  export const CommandPermissionError = Schema.TaggedError("CommandSystem.CommandPermissionError")<{
+  export const CommandPermissionError = Schema.TaggedError('CommandSystem.CommandPermissionError')<{
     readonly command: string
     readonly executor: string
     readonly requiredPermission: string
@@ -1714,7 +1703,7 @@ export namespace CommandSystem {
     readonly timestamp: number
   }>
 
-  export const CommandExecutionError = Schema.TaggedError("CommandSystem.CommandExecutionError")<{
+  export const CommandExecutionError = Schema.TaggedError('CommandSystem.CommandExecutionError')<{
     readonly command: string
     readonly args: ReadonlyArray<string>
     readonly executor: string
@@ -1735,7 +1724,7 @@ export type CommandError =
 // Query System Errors
 // =============================================================================
 export namespace QuerySystem {
-  export const InvalidQueryError = Schema.TaggedError("QuerySystem.InvalidQueryError")<{
+  export const InvalidQueryError = Schema.TaggedError('QuerySystem.InvalidQueryError')<{
     readonly query: string
     readonly queryType: string
     readonly reason: string
@@ -1744,7 +1733,7 @@ export namespace QuerySystem {
     readonly timestamp: number
   }>
 
-  export const QueryTimeoutError = Schema.TaggedError("QuerySystem.QueryTimeoutError")<{
+  export const QueryTimeoutError = Schema.TaggedError('QuerySystem.QueryTimeoutError')<{
     readonly query: string
     readonly timeoutMs: number
     readonly elapsedMs: number
@@ -1754,7 +1743,7 @@ export namespace QuerySystem {
     readonly timestamp: number
   }>
 
-  export const QueryResultLimitError = Schema.TaggedError("QuerySystem.QueryResultLimitError")<{
+  export const QueryResultLimitError = Schema.TaggedError('QuerySystem.QueryResultLimitError')<{
     readonly query: string
     readonly requestedLimit: number
     readonly maxAllowedLimit: number
@@ -1763,7 +1752,7 @@ export namespace QuerySystem {
     readonly timestamp: number
   }>
 
-  export const IndexNotFoundError = Schema.TaggedError("QuerySystem.IndexNotFoundError")<{
+  export const IndexNotFoundError = Schema.TaggedError('QuerySystem.IndexNotFoundError')<{
     readonly indexName: string
     readonly requiredForQuery: string
     readonly availableIndexes: ReadonlyArray<string>
@@ -1783,7 +1772,7 @@ export type QueryError =
 // Rendering System Errors
 // =============================================================================
 export namespace RenderingSystem {
-  export const MeshGenerationError = Schema.TaggedError("RenderingSystem.MeshGenerationError")<{
+  export const MeshGenerationError = Schema.TaggedError('RenderingSystem.MeshGenerationError')<{
     readonly chunkPosition: ChunkPosition
     readonly meshType: string
     readonly vertexCount: number
@@ -1794,8 +1783,8 @@ export namespace RenderingSystem {
     readonly timestamp: number
   }>
 
-  export const ShaderCompilationError = Schema.TaggedError("RenderingSystem.ShaderCompilationError")<{
-    readonly shaderType: "vertex" | "fragment" | "geometry" | "compute"
+  export const ShaderCompilationError = Schema.TaggedError('RenderingSystem.ShaderCompilationError')<{
+    readonly shaderType: 'vertex' | 'fragment' | 'geometry' | 'compute'
     readonly shaderName: string
     readonly compilationErrors: ReadonlyArray<string>
     readonly line?: number
@@ -1804,7 +1793,7 @@ export namespace RenderingSystem {
     readonly timestamp: number
   }>
 
-  export const TextureLoadError = Schema.TaggedError("RenderingSystem.TextureLoadError")<{
+  export const TextureLoadError = Schema.TaggedError('RenderingSystem.TextureLoadError')<{
     readonly texturePath: string
     readonly textureFormat: string
     readonly dimensions: {
@@ -1817,8 +1806,8 @@ export namespace RenderingSystem {
     readonly timestamp: number
   }>
 
-  export const RenderContextError = Schema.TaggedError("RenderingSystem.RenderContextError")<{
-    readonly contextType: "WebGL" | "WebGPU" | "Canvas2D"
+  export const RenderContextError = Schema.TaggedError('RenderingSystem.RenderContextError')<{
+    readonly contextType: 'WebGL' | 'WebGPU' | 'Canvas2D'
     readonly reason: string
     readonly capabilities: Record<string, boolean>
     readonly extensions: ReadonlyArray<string>
@@ -1856,60 +1845,60 @@ export type MinecraftSystemError =
 // Player System Schema
 export const PlayerSystemErrorSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("PlayerSystem.PlayerNotFoundError"),
+    _tag: Schema.Literal('PlayerSystem.PlayerNotFoundError'),
     playerId: Schema.String,
     searchContext: Schema.String,
     timestamp: Schema.Number,
-    requestedBy: Schema.Optional(Schema.String)
+    requestedBy: Schema.Optional(Schema.String),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("PlayerSystem.InvalidMovementError"),
+    _tag: Schema.Literal('PlayerSystem.InvalidMovementError'),
     playerId: Schema.String,
     currentPosition: PositionSchema,
     targetPosition: PositionSchema,
     reason: Schema.String,
     maxAllowedDistance: Schema.Number,
     actualDistance: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("PlayerSystem.InvalidDamageError"),
+    _tag: Schema.Literal('PlayerSystem.InvalidDamageError'),
     playerId: Schema.String,
     damageAmount: Schema.Number,
     damageSource: Schema.String,
     currentHealth: Schema.Number,
     maxHealth: Schema.Number,
     reason: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 ).pipe(
   Schema.annotations({
-    identifier: "PlayerSystemErrorSchema",
-    description: "プレイヤーシステム関連エラーのバリデーション"
+    identifier: 'PlayerSystemErrorSchema',
+    description: 'プレイヤーシステム関連エラーのバリデーション',
   })
 )
 
 // Block System Schema
 export const BlockSystemErrorSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("BlockSystem.BlockNotFoundError"),
+    _tag: Schema.Literal('BlockSystem.BlockNotFoundError'),
     position: PositionSchema,
     chunkPosition: ChunkPositionSchema,
     searchContext: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("BlockSystem.BlockPlacementError"),
+    _tag: Schema.Literal('BlockSystem.BlockPlacementError'),
     position: PositionSchema,
     blockType: Schema.String,
     existingBlockType: Schema.Optional(Schema.String),
     reason: Schema.String,
     canReplace: Schema.Boolean,
     placedBy: Schema.Optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("BlockSystem.BlockBreakError"),
+    _tag: Schema.Literal('BlockSystem.BlockBreakError'),
     position: PositionSchema,
     blockType: Schema.String,
     tool: Schema.Optional(Schema.String),
@@ -1917,19 +1906,19 @@ export const BlockSystemErrorSchema = Schema.Union(
     hardness: Schema.Number,
     requiredTool: Schema.Optional(Schema.String),
     brokenBy: Schema.Optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 ).pipe(
   Schema.annotations({
-    identifier: "BlockSystemErrorSchema",
-    description: "ブロックシステム関連エラーのバリデーション"
+    identifier: 'BlockSystemErrorSchema',
+    description: 'ブロックシステム関連エラーのバリデーション',
   })
 )
 
 // Chunk System Schema
 export const ChunkSystemErrorSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("ChunkSystem.ChunkGenerationError"),
+    _tag: Schema.Literal('ChunkSystem.ChunkGenerationError'),
     chunkX: Schema.Number,
     chunkZ: Schema.Number,
     biome: Schema.String,
@@ -1939,89 +1928,89 @@ export const ChunkSystemErrorSchema = Schema.Union(
     performance: Schema.Struct({
       startTime: Schema.Number,
       duration: Schema.Number,
-      memoryUsed: Schema.Number
+      memoryUsed: Schema.Number,
     }),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("ChunkSystem.ChunkLoadError"),
+    _tag: Schema.Literal('ChunkSystem.ChunkLoadError'),
     chunkX: Schema.Number,
     chunkZ: Schema.Number,
     worldId: Schema.String,
-    source: Schema.Union(
-      Schema.Literal("disk"),
-      Schema.Literal("network"),
-      Schema.Literal("cache")
-    ),
+    source: Schema.Union(Schema.Literal('disk'), Schema.Literal('network'), Schema.Literal('cache')),
     reason: Schema.String,
     underlyingError: Schema.Optional(Schema.Unknown),
     retryCount: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 ).pipe(
   Schema.annotations({
-    identifier: "ChunkSystemErrorSchema",
-    description: "チャンクシステム関連エラーのバリデーション"
+    identifier: 'ChunkSystemErrorSchema',
+    description: 'チャンクシステム関連エラーのバリデーション',
   })
 )
 
 // Command System Schema
 export const CommandSystemErrorSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("CommandSystem.CommandNotFoundError"),
+    _tag: Schema.Literal('CommandSystem.CommandNotFoundError'),
     command: Schema.String,
     availableCommands: Schema.Array(Schema.String),
-    similarity: Schema.Array(Schema.Struct({
-      command: Schema.String,
-      score: Schema.Number
-    })),
+    similarity: Schema.Array(
+      Schema.Struct({
+        command: Schema.String,
+        score: Schema.Number,
+      })
+    ),
     executor: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("CommandSystem.InvalidArgumentsError"),
+    _tag: Schema.Literal('CommandSystem.InvalidArgumentsError'),
     command: Schema.String,
     providedArgs: Schema.Array(Schema.String),
-    expectedArgs: Schema.Array(Schema.Struct({
-      name: Schema.String,
-      type: Schema.String,
-      required: Schema.Boolean
-    })),
+    expectedArgs: Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        type: Schema.String,
+        required: Schema.Boolean,
+      })
+    ),
     invalidArg: Schema.String,
     reason: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("CommandSystem.CommandPermissionError"),
+    _tag: Schema.Literal('CommandSystem.CommandPermissionError'),
     command: Schema.String,
     executor: Schema.String,
     requiredPermission: Schema.String,
     currentPermissions: Schema.Array(Schema.String),
     requiredLevel: Schema.Number,
     currentLevel: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("CommandSystem.CommandExecutionError"),
+    _tag: Schema.Literal('CommandSystem.CommandExecutionError'),
     command: Schema.String,
     args: Schema.Array(Schema.String),
     executor: Schema.String,
     executionStage: Schema.String,
     underlyingError: Schema.Optional(Schema.Unknown),
     partialSuccess: Schema.Boolean,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 ).pipe(
   Schema.annotations({
-    identifier: "CommandSystemErrorSchema",
-    description: "コマンドシステム関連エラーのバリデーション"
+    identifier: 'CommandSystemErrorSchema',
+    description: 'コマンドシステム関連エラーのバリデーション',
   })
 )
 
 // Rendering System Schema
 export const RenderingSystemErrorSchema = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("RenderingSystem.MeshGenerationError"),
+    _tag: Schema.Literal('RenderingSystem.MeshGenerationError'),
     chunkPosition: ChunkPositionSchema,
     meshType: Schema.String,
     vertexCount: Schema.Number,
@@ -2029,27 +2018,27 @@ export const RenderingSystemErrorSchema = Schema.Union(
     generationTime: Schema.Number,
     reason: Schema.String,
     underlyingError: Schema.Optional(Schema.Unknown),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("RenderingSystem.ShaderCompilationError"),
+    _tag: Schema.Literal('RenderingSystem.ShaderCompilationError'),
     shaderType: Schema.Union(
-      Schema.Literal("vertex"),
-      Schema.Literal("fragment"),
-      Schema.Literal("geometry"),
-      Schema.Literal("compute")
+      Schema.Literal('vertex'),
+      Schema.Literal('fragment'),
+      Schema.Literal('geometry'),
+      Schema.Literal('compute')
     ),
     shaderName: Schema.String,
     compilationErrors: Schema.Array(Schema.String),
     line: Schema.Optional(Schema.Number),
     column: Schema.Optional(Schema.Number),
     shaderSource: Schema.Optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
 ).pipe(
   Schema.annotations({
-    identifier: "RenderingSystemErrorSchema",
-    description: "レンダリングシステム関連エラーのバリデーション"
+    identifier: 'RenderingSystemErrorSchema',
+    description: 'レンダリングシステム関連エラーのバリデーション',
   })
 )
 
@@ -2062,8 +2051,8 @@ export const MinecraftSystemErrorSchema = Schema.Union(
   RenderingSystemErrorSchema
 ).pipe(
   Schema.annotations({
-    identifier: "MinecraftSystemErrorSchema",
-    description: "全Minecraftシステムエラーの統合バリデーション"
+    identifier: 'MinecraftSystemErrorSchema',
+    description: '全Minecraftシステムエラーの統合バリデーション',
   })
 )
 
@@ -2076,10 +2065,11 @@ export const createPlayerNotFoundError = (params: {
   readonly playerId: string
   readonly searchContext: string
   readonly requestedBy?: string
-}) => new PlayerSystem.PlayerNotFoundError({
-  ...params,
-  timestamp: Date.now()
-})
+}) =>
+  new PlayerSystem.PlayerNotFoundError({
+    ...params,
+    timestamp: Date.now(),
+  })
 
 export const createBlockPlacementError = (params: {
   readonly position: Position
@@ -2088,10 +2078,11 @@ export const createBlockPlacementError = (params: {
   readonly reason: string
   readonly canReplace: boolean
   readonly placedBy?: string
-}) => new BlockSystem.BlockPlacementError({
-  ...params,
-  timestamp: Date.now()
-})
+}) =>
+  new BlockSystem.BlockPlacementError({
+    ...params,
+    timestamp: Date.now(),
+  })
 
 export const createChunkGenerationError = (params: {
   readonly chunkX: number
@@ -2105,10 +2096,11 @@ export const createChunkGenerationError = (params: {
     readonly duration: number
     readonly memoryUsed: number
   }
-}) => new ChunkSystem.ChunkGenerationError({
-  ...params,
-  timestamp: Date.now()
-})
+}) =>
+  new ChunkSystem.ChunkGenerationError({
+    ...params,
+    timestamp: Date.now(),
+  })
 
 export const createCommandNotFoundError = (params: {
   readonly command: string
@@ -2118,10 +2110,11 @@ export const createCommandNotFoundError = (params: {
     readonly score: number
   }>
   readonly executor: string
-}) => new CommandSystem.CommandNotFoundError({
-  ...params,
-  timestamp: Date.now()
-})
+}) =>
+  new CommandSystem.CommandNotFoundError({
+    ...params,
+    timestamp: Date.now(),
+  })
 
 export const createMeshGenerationError = (params: {
   readonly chunkPosition: ChunkPosition
@@ -2131,10 +2124,11 @@ export const createMeshGenerationError = (params: {
   readonly generationTime: number
   readonly reason: string
   readonly underlyingError?: unknown
-}) => new RenderingSystem.MeshGenerationError({
-  ...params,
-  timestamp: Date.now()
-})
+}) =>
+  new RenderingSystem.MeshGenerationError({
+    ...params,
+    timestamp: Date.now(),
+  })
 ```
 
 ## API組み合わせパターン
@@ -2146,80 +2140,81 @@ export const createMeshGenerationError = (params: {
 export const PlaceBlockWithValidationParams = Schema.Struct({
   playerId: Schema.String,
   blockType: BlockTypeSchema,
-  position: PositionSchema
+  position: PositionSchema,
 })
 
 // 複数のAPIを組み合わせた処理
-export const placeBlockWithValidation = (params: {
-  playerId: string
-  blockType: BlockType
-  position: Position
-}) => Effect.gen(function* () {
-  // パラメータバリデーション
-  const validatedParams = yield* Schema.decodeUnknownSync(PlaceBlockWithValidationParams)(params)
+export const placeBlockWithValidation = (params: { playerId: string; blockType: BlockType; position: Position }) =>
+  Effect.gen(function* () {
+    // パラメータバリデーション
+    const validatedParams = yield* Schema.decodeUnknownSync(PlaceBlockWithValidationParams)(params)
 
-  const playerService = yield* PlayerService
-  const blockService = yield* BlockService
-  const queryService = yield* BlockQueryService
+    const playerService = yield* PlayerService
+    const blockService = yield* BlockService
+    const queryService = yield* BlockQueryService
 
-  // プレイヤーの位置確認
-  const player = yield* PlayerRepository.pipe(
-    Effect.flatMap(repo => repo.findById(validatedParams.playerId))
-  )
+    // プレイヤーの位置確認
+    const player = yield* PlayerRepository.pipe(Effect.flatMap((repo) => repo.findById(validatedParams.playerId)))
 
-  const distance = PositionAPI.distance(player.position, validatedParams.position)
+    const distance = PositionAPI.distance(player.position, validatedParams.position)
 
-  // 距離チェック（早期リターン）
-  if (distance > MAX_PLACE_DISTANCE) {
-    return yield* Effect.fail(InvalidMovementError({
-      message: "Block placement too far from player",
-      playerId: validatedParams.playerId
-    }))
-  }
+    // 距離チェック（早期リターン）
+    if (distance > MAX_PLACE_DISTANCE) {
+      return yield* Effect.fail(
+        InvalidMovementError({
+          message: 'Block placement too far from player',
+          playerId: validatedParams.playerId,
+        })
+      )
+    }
 
-  // 既存ブロックチェック
-  const existing = yield* BlockRepository.pipe(
-    Effect.flatMap(repo => repo.getAt(validatedParams.position)),
-    Effect.option
-  )
-
-  if (Option.isSome(existing) && !existing.value.replaceable) {
-    return yield* Effect.fail(BlockPlacementError({
-      message: "Position already occupied by non-replaceable block",
-      position: validatedParams.position
-    }))
-  }
-
-  // 配置権限チェック
-  const canPlace = yield* checkPlacePermission(player, validatedParams.position)
-  if (!canPlace) {
-    return yield* Effect.fail(CommandError({
-      message: "No permission to place block",
-      command: "place_block",
-      reason: "PermissionDenied"
-    }))
-  }
-
-  // ブロック配置実行
-  const block = yield* blockService.place({
-    blockType: validatedParams.blockType,
-    position: validatedParams.position
-  })
-
-  // イベント発行
-  yield* EventBusService.pipe(
-    Effect.flatMap(bus =>
-      bus.publish({
-        _tag: "BlockPlaced",
-        position: validatedParams.position,
-        blockType: validatedParams.blockType,
-        placedBy: validatedParams.playerId
-      })
+    // 既存ブロックチェック
+    const existing = yield* BlockRepository.pipe(
+      Effect.flatMap((repo) => repo.getAt(validatedParams.position)),
+      Effect.option
     )
-  )
 
-  return block
-})
+    if (Option.isSome(existing) && !existing.value.replaceable) {
+      return yield* Effect.fail(
+        BlockPlacementError({
+          message: 'Position already occupied by non-replaceable block',
+          position: validatedParams.position,
+        })
+      )
+    }
+
+    // 配置権限チェック
+    const canPlace = yield* checkPlacePermission(player, validatedParams.position)
+    if (!canPlace) {
+      return yield* Effect.fail(
+        CommandError({
+          message: 'No permission to place block',
+          command: 'place_block',
+          reason: 'PermissionDenied',
+        })
+      )
+    }
+
+    // ブロック配置実行
+    const block = yield* blockService.place({
+      blockType: validatedParams.blockType,
+      position: validatedParams.position,
+    })
+
+    // イベント発行
+    yield* EventBusService.pipe(
+      Effect.flatMap((bus) =>
+        bus.publish({
+          _tag: 'BlockPlaced',
+          position: validatedParams.position,
+          blockType: validatedParams.blockType,
+          placedBy: validatedParams.playerId,
+        })
+      )
+    )
+
+    return block
+  })
 ```
 
 ### Pipeline Pattern
@@ -2233,76 +2228,90 @@ export const processPlayerAction = (action: PlayerAction) =>
 
     // アクション種別による分岐処理
     return yield* Match.value(validatedAction).pipe(
-      Match.when({ _tag: "MovePlayer" }, (moveAction) => Effect.gen(function* () {
-        // 移動権限チェック
-        const hasPermission = yield* checkMovePermission(moveAction.playerId)
-        if (!hasPermission) {
-          return { success: false, reason: "No movement permission" }
-        }
+      Match.when({ _tag: 'MovePlayer' }, (moveAction) =>
+        Effect.gen(function* () {
+          // 移動権限チェック
+          const hasPermission = yield* checkMovePermission(moveAction.playerId)
+          if (!hasPermission) {
+            return { success: false, reason: 'No movement permission' }
+          }
 
-        // 移動実行
-        const newPosition = yield* PlayerService.pipe(
-          Effect.flatMap(service => service.move({
-            playerId: moveAction.playerId,
-            direction: calculateDirection(moveAction.position),
-            distance: calculateDistance(moveAction.position)
-          }))
-        )
+          // 移動実行
+          const newPosition = yield* PlayerService.pipe(
+            Effect.flatMap((service) =>
+              service.move({
+                playerId: moveAction.playerId,
+                direction: calculateDirection(moveAction.position),
+                distance: calculateDistance(moveAction.position),
+              })
+            )
+          )
 
-        // ログ記録
-        yield* Effect.logInfo(`Player ${moveAction.playerId} moved to ${JSON.stringify(newPosition)}`)
+          // ログ記録
+          yield* Effect.logInfo(`Player ${moveAction.playerId} moved to ${JSON.stringify(newPosition)}`)
 
-        return { success: true, result: newPosition }
-      })),
-      Match.when({ _tag: "UseItem" }, (useAction) => Effect.gen(function* () {
-        // アイテム使用権限チェック
-        const hasPermission = yield* checkItemUsePermission(useAction.playerId, useAction.item)
-        if (!hasPermission) {
-          return { success: false, reason: "No item use permission" }
-        }
+          return { success: true, result: newPosition }
+        })
+      ),
+      Match.when({ _tag: 'UseItem' }, (useAction) =>
+        Effect.gen(function* () {
+          // アイテム使用権限チェック
+          const hasPermission = yield* checkItemUsePermission(useAction.playerId, useAction.item)
+          if (!hasPermission) {
+            return { success: false, reason: 'No item use permission' }
+          }
 
-        // アイテム使用実行
-        const result = yield* ItemService.pipe(
-          Effect.flatMap(service => service.use({
-            playerId: useAction.playerId,
-            item: useAction.item,
-            target: useAction.target
-          }))
-        )
+          // アイテム使用実行
+          const result = yield* ItemService.pipe(
+            Effect.flatMap((service) =>
+              service.use({
+                playerId: useAction.playerId,
+                item: useAction.item,
+                target: useAction.target,
+              })
+            )
+          )
 
-        // ログ記録
-        yield* Effect.logInfo(`Player ${useAction.playerId} used item ${useAction.item.type}`)
+          // ログ記録
+          yield* Effect.logInfo(`Player ${useAction.playerId} used item ${useAction.item.type}`)
 
-        return { success: true, result }
-      })),
-      Match.when({ _tag: "InteractWithBlock" }, (interactAction) => Effect.gen(function* () {
-        // ブロック操作権限チェック
-        const hasPermission = yield* checkBlockInteractPermission(interactAction.playerId, interactAction.position)
-        if (!hasPermission) {
-          return { success: false, reason: "No block interaction permission" }
-        }
+          return { success: true, result }
+        })
+      ),
+      Match.when({ _tag: 'InteractWithBlock' }, (interactAction) =>
+        Effect.gen(function* () {
+          // ブロック操作権限チェック
+          const hasPermission = yield* checkBlockInteractPermission(interactAction.playerId, interactAction.position)
+          if (!hasPermission) {
+            return { success: false, reason: 'No block interaction permission' }
+          }
 
-        // ブロック操作実行
-        const result = yield* BlockService.pipe(
-          Effect.flatMap(service => service.interact({
-            playerId: interactAction.playerId,
-            position: interactAction.position
-          }))
-        )
+          // ブロック操作実行
+          const result = yield* BlockService.pipe(
+            Effect.flatMap((service) =>
+              service.interact({
+                playerId: interactAction.playerId,
+                position: interactAction.position,
+              })
+            )
+          )
 
-        // ログ記録
-        yield* Effect.logInfo(`Player ${interactAction.playerId} interacted with block at ${JSON.stringify(interactAction.position)}`)
+          // ログ記録
+          yield* Effect.logInfo(
+            `Player ${interactAction.playerId} interacted with block at ${JSON.stringify(interactAction.position)}`
+          )
 
-        return { success: true, result }
-      })),
-      Match.orElse(() => Effect.succeed({ success: false, reason: "Unknown action type" }))
+          return { success: true, result }
+        })
+      ),
+      Match.orElse(() => Effect.succeed({ success: false, reason: 'Unknown action type' }))
     )
   }).pipe(
     Effect.catchTags({
-      "InvalidMovementError": (error) => Effect.succeed({ success: false, reason: error.message }),
-      "BlockPlacementError": (error) => Effect.succeed({ success: false, reason: error.message }),
-      "InventoryError": (error) => Effect.succeed({ success: false, reason: error.message }),
-      "CommandError": (error) => Effect.succeed({ success: false, reason: error.message })
+      InvalidMovementError: (error) => Effect.succeed({ success: false, reason: error.message }),
+      BlockPlacementError: (error) => Effect.succeed({ success: false, reason: error.message }),
+      InventoryError: (error) => Effect.succeed({ success: false, reason: error.message }),
+      CommandError: (error) => Effect.succeed({ success: false, reason: error.message }),
     })
   )
 ```
@@ -2311,12 +2320,7 @@ export const processPlayerAction = (action: PlayerAction) =>
 
 ```typescript
 // Layer定義
-export const DomainLayer = Layer.mergeAll(
-  PlayerServiceLive,
-  BlockServiceLive,
-  ChunkServiceLive,
-  EntityServiceLive
-)
+export const DomainLayer = Layer.mergeAll(PlayerServiceLive, BlockServiceLive, ChunkServiceLive, EntityServiceLive)
 
 export const ApplicationLayer = Layer.mergeAll(
   WorldManagementServiceLive,
@@ -2324,14 +2328,13 @@ export const ApplicationLayer = Layer.mergeAll(
   EntityQueryServiceLive,
   BlockQueryServiceLive,
   PlayerCommandServiceLive
-).pipe(
-  Layer.provide(DomainLayer)
-)
+).pipe(Layer.provide(DomainLayer))
 ```
 
 ## Related Documents
 
 **Core System Integration**:
+
 - [World Management System](../game-mechanics/core-features/world-management-system.md) - ワールド管理API実装
 - [Player System](../game-mechanics/core-features/player-system.md) - プレイヤードメインAPI
 - [Block System](../game-mechanics/core-features/block-system.md) - ブロック操作API
@@ -2339,11 +2342,13 @@ export const ApplicationLayer = Layer.mergeAll(
 - [Inventory System](../game-mechanics/core-features/inventory-system.md) - インベントリ操作API
 
 **API Specifications**:
+
 - [Infrastructure APIs](./infrastructure-architecture.md) - インフラ層API定義
 - [Event Bus Specification](./event-bus-specification.md) - イベント駆動API
 - [Data Flow Diagram](./data-flow-diagram.md) - データフロー設計
 
 **Architecture**:
+
 - [Architecture Overview](./architecture-overview.md) - レイヤー構成
 - [Design Patterns](../design-patterns/README.md) - APIパターン実装
 
@@ -2360,67 +2365,74 @@ export const ApplicationLayer = Layer.mergeAll(
 
 // PlayerService用のTestLayer
 export const PlayerServiceTest = Layer.succeed(PlayerService, {
-  create: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(CreatePlayerParams)(params)
+  create: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(CreatePlayerParams)(params)
 
-    // テスト用のモックプレイヤー作成
-    const mockPlayer = {
-      id: validatedParams.id,
-      name: validatedParams.name,
-      position: validatedParams.position,
-      health: { value: 100, max: 100 },
-      status: "active" as const,
-      // テスト用の追加プロパティ
-      _isTestEntity: true,
-      _createdAt: Date.now()
-    }
+      // テスト用のモックプレイヤー作成
+      const mockPlayer = {
+        id: validatedParams.id,
+        name: validatedParams.name,
+        position: validatedParams.position,
+        health: { value: 100, max: 100 },
+        status: 'active' as const,
+        // テスト用の追加プロパティ
+        _isTestEntity: true,
+        _createdAt: Date.now(),
+      }
 
-    return mockPlayer
-  }),
+      return mockPlayer
+    }),
 
-  move: (params) => Effect.gen(function* () {
-    const validatedParams = yield* Schema.decodeUnknownSync(MovePlayerParams)(params)
+  move: (params) =>
+    Effect.gen(function* () {
+      const validatedParams = yield* Schema.decodeUnknownSync(MovePlayerParams)(params)
 
-    // テスト用の簡略化された移動処理
-    const newPosition = Position({
-      x: validatedParams.direction === "east" ? 10 : validatedParams.direction === "west" ? -10 : 0,
-      y: validatedParams.direction === "up" ? 10 : validatedParams.direction === "down" ? -10 : 0,
-      z: validatedParams.direction === "north" ? 10 : validatedParams.direction === "south" ? -10 : 0
-    })
+      // テスト用の簡略化された移動処理
+      const newPosition = Position({
+        x: validatedParams.direction === 'east' ? 10 : validatedParams.direction === 'west' ? -10 : 0,
+        y: validatedParams.direction === 'up' ? 10 : validatedParams.direction === 'down' ? -10 : 0,
+        z: validatedParams.direction === 'north' ? 10 : validatedParams.direction === 'south' ? -10 : 0,
+      })
 
-    return newPosition
-  }),
+      return newPosition
+    }),
 
   damage: (params) => Effect.succeed({ value: 80, max: 100 }),
-  heal: (params) => Effect.succeed({ value: 100, max: 100 })
+  heal: (params) => Effect.succeed({ value: 100, max: 100 }),
 })
 
 // Repository用のInMemoryテスト実装
 export const PlayerRepositoryTest = Layer.succeed(PlayerRepository, {
-  findById: (id) => Effect.gen(function* () {
-    const testPlayers = yield* TestData.getPlayers()
-    const player = testPlayers.get(id)
+  findById: (id) =>
+    Effect.gen(function* () {
+      const testPlayers = yield* TestData.getPlayers()
+      const player = testPlayers.get(id)
 
-    if (!player) {
-      yield* Effect.fail(new PlayerSystem.PlayerNotFoundError({
-        playerId: id,
-        searchContext: "test-repository",
-        timestamp: Date.now()
-      }))
-    }
+      if (!player) {
+        yield* Effect.fail(
+          new PlayerSystem.PlayerNotFoundError({
+            playerId: id,
+            searchContext: 'test-repository',
+            timestamp: Date.now(),
+          })
+        )
+      }
 
-    return player
-  }),
+      return player
+    }),
 
-  save: (player) => Effect.gen(function* () {
-    const testPlayers = yield* TestData.getPlayers()
-    yield* TestData.setPlayers(testPlayers.set(player.id, player))
-  }),
+  save: (player) =>
+    Effect.gen(function* () {
+      const testPlayers = yield* TestData.getPlayers()
+      yield* TestData.setPlayers(testPlayers.set(player.id, player))
+    }),
 
-  update: (player) => Effect.gen(function* () {
-    const testPlayers = yield* TestData.getPlayers()
-    yield* TestData.setPlayers(testPlayers.set(player.id, player))
-  })
+  update: (player) =>
+    Effect.gen(function* () {
+      const testPlayers = yield* TestData.getPlayers()
+      yield* TestData.setPlayers(testPlayers.set(player.id, player))
+    }),
 })
 
 // TestData管理用のContext
@@ -2430,7 +2442,7 @@ export const TestData = Context.GenericTag<{
   readonly getBlocks: () => Effect.Effect<Map<string, Block>>
   readonly setBlocks: (blocks: Map<string, Block>) => Effect.Effect<void>
   readonly reset: () => Effect.Effect<void>
-}>()("TestData")
+}>()('TestData')
 
 export const TestDataLive = Layer.effect(
   TestData,
@@ -2443,10 +2455,7 @@ export const TestDataLive = Layer.effect(
       setPlayers: (players) => Ref.set(playersRef, players),
       getBlocks: () => Ref.get(blocksRef),
       setBlocks: (blocks) => Ref.set(blocksRef, blocks),
-      reset: () => Effect.all([
-        Ref.set(playersRef, new Map()),
-        Ref.set(blocksRef, new Map())
-      ])
+      reset: () => Effect.all([Ref.set(playersRef, new Map()), Ref.set(blocksRef, new Map())]),
     }
   })
 )
@@ -2459,7 +2468,7 @@ export const TestDataLive = Layer.effect(
 // 統合テストの例
 // =============================================================================
 
-describe("PlayerService Integration Tests", () => {
+describe('PlayerService Integration Tests', () => {
   const TestLayer = Layer.mergeAll(
     PlayerServiceTest,
     PlayerRepositoryTest,
@@ -2468,7 +2477,7 @@ describe("PlayerService Integration Tests", () => {
     WorldServiceTest
   )
 
-  test("プレイヤー作成と移動のフロー", async () => {
+  test('プレイヤー作成と移動のフロー', async () => {
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2478,29 +2487,29 @@ describe("PlayerService Integration Tests", () => {
 
       // プレイヤー作成
       const player = yield* playerService.create({
-        id: "test-player-1",
-        name: "TestPlayer",
-        position: { x: 0, y: 64, z: 0 }
+        id: 'test-player-1',
+        name: 'TestPlayer',
+        position: { x: 0, y: 64, z: 0 },
       })
 
-      expect(player.id).toBe("test-player-1")
-      expect(player.name).toBe("TestPlayer")
+      expect(player.id).toBe('test-player-1')
+      expect(player.name).toBe('TestPlayer')
       expect(player.position).toEqual({ x: 0, y: 64, z: 0 })
 
       // プレイヤー移動
       const newPosition = yield* playerService.move({
-        playerId: "test-player-1",
-        direction: "east",
-        distance: 5
+        playerId: 'test-player-1',
+        direction: 'east',
+        distance: 5,
       })
 
       expect(newPosition.x).toBe(10) // テストモックの簡略化された移動
 
       // ダメージ処理
       const healthAfterDamage = yield* playerService.damage({
-        playerId: "test-player-1",
+        playerId: 'test-player-1',
         amount: 20,
-        source: "fall"
+        source: 'fall',
       })
 
       expect(healthAfterDamage.value).toBe(80)
@@ -2508,14 +2517,12 @@ describe("PlayerService Integration Tests", () => {
       return { player, newPosition, healthAfterDamage }
     })
 
-    const result = await Effect.runPromise(program.pipe(
-      Effect.provide(TestLayer)
-    ))
+    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
 
-    expect(result.player.name).toBe("TestPlayer")
+    expect(result.player.name).toBe('TestPlayer')
   })
 
-  test("エラーハンドリングのテスト", async () => {
+  test('エラーハンドリングのテスト', async () => {
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2524,26 +2531,21 @@ describe("PlayerService Integration Tests", () => {
 
       // 存在しないプレイヤーの移動を試行
       return yield* playerService.move({
-        playerId: "non-existent-player",
-        direction: "north",
-        distance: 1
+        playerId: 'non-existent-player',
+        direction: 'north',
+        distance: 1,
       })
     })
 
-    const result = await Effect.runPromise(
-      program.pipe(
-        Effect.provide(TestLayer),
-        Effect.either
-      )
-    )
+    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer), Effect.either))
 
     expect(Either.isLeft(result)).toBe(true)
     if (Either.isLeft(result)) {
-      expect(result.left._tag).toBe("PlayerSystem.PlayerNotFoundError")
+      expect(result.left._tag).toBe('PlayerSystem.PlayerNotFoundError')
     }
   })
 
-  test("並行処理のテスト", async () => {
+  test('並行処理のテスト', async () => {
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2551,33 +2553,34 @@ describe("PlayerService Integration Tests", () => {
       yield* testData.reset()
 
       // 複数プレイヤーの並行作成
-      const players = yield* Effect.all([
-        playerService.create({
-          id: "player-1",
-          name: "Player1",
-          position: { x: 0, y: 64, z: 0 }
-        }),
-        playerService.create({
-          id: "player-2",
-          name: "Player2",
-          position: { x: 10, y: 64, z: 10 }
-        }),
-        playerService.create({
-          id: "player-3",
-          name: "Player3",
-          position: { x: -10, y: 64, z: -10 }
-        })
-      ], { concurrency: 3 })
+      const players = yield* Effect.all(
+        [
+          playerService.create({
+            id: 'player-1',
+            name: 'Player1',
+            position: { x: 0, y: 64, z: 0 },
+          }),
+          playerService.create({
+            id: 'player-2',
+            name: 'Player2',
+            position: { x: 10, y: 64, z: 10 },
+          }),
+          playerService.create({
+            id: 'player-3',
+            name: 'Player3',
+            position: { x: -10, y: 64, z: -10 },
+          }),
+        ],
+        { concurrency: 3 }
+      )
 
       expect(players).toHaveLength(3)
-      expect(players.map(p => p.name)).toEqual(["Player1", "Player2", "Player3"])
+      expect(players.map((p) => p.name)).toEqual(['Player1', 'Player2', 'Player3'])
 
       return players
     })
 
-    const result = await Effect.runPromise(program.pipe(
-      Effect.provide(TestLayer)
-    ))
+    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
 
     expect(result).toHaveLength(3)
   })
@@ -2591,91 +2594,84 @@ describe("PlayerService Integration Tests", () => {
 // Property-Based Testing (fast-check使用)
 // =============================================================================
 
-import * as fc from "fast-check"
+import * as fc from 'fast-check'
 
-describe("PlayerService Property Tests", () => {
-  const TestLayer = Layer.mergeAll(
-    PlayerServiceTest,
-    PlayerRepositoryTest,
-    TestDataLive
-  )
+describe('PlayerService Property Tests', () => {
+  const TestLayer = Layer.mergeAll(PlayerServiceTest, PlayerRepositoryTest, TestDataLive)
 
-  test("プレイヤー作成の不変条件", async () => {
-    await fc.assert(fc.asyncProperty(
-      fc.record({
-        id: fc.string({ minLength: 1, maxLength: 36 }),
-        name: fc.string({ minLength: 1, maxLength: 16 }),
-        position: fc.record({
-          x: fc.integer({ min: -30000000, max: 30000000 }),
-          y: fc.integer({ min: -256, max: 320 }),
-          z: fc.integer({ min: -30000000, max: 30000000 })
-        })
-      }),
-      async (params) => {
-        const program = Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const testData = yield* TestData
+  test('プレイヤー作成の不変条件', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.record({
+          id: fc.string({ minLength: 1, maxLength: 36 }),
+          name: fc.string({ minLength: 1, maxLength: 16 }),
+          position: fc.record({
+            x: fc.integer({ min: -30000000, max: 30000000 }),
+            y: fc.integer({ min: -256, max: 320 }),
+            z: fc.integer({ min: -30000000, max: 30000000 }),
+          }),
+        }),
+        async (params) => {
+          const program = Effect.gen(function* () {
+            const playerService = yield* PlayerService
+            const testData = yield* TestData
 
-          yield* testData.reset()
+            yield* testData.reset()
 
-          const player = yield* playerService.create(params)
+            const player = yield* playerService.create(params)
 
-          // 不変条件の検証
-          expect(player.id).toBe(params.id)
-          expect(player.name).toBe(params.name)
-          expect(player.position).toEqual(params.position)
-          expect(player.health.value).toBe(100)
-          expect(player.health.max).toBe(100)
-          expect(player.status).toBe("active")
-        })
+            // 不変条件の検証
+            expect(player.id).toBe(params.id)
+            expect(player.name).toBe(params.name)
+            expect(player.position).toEqual(params.position)
+            expect(player.health.value).toBe(100)
+            expect(player.health.max).toBe(100)
+            expect(player.status).toBe('active')
+          })
 
-        await Effect.runPromise(program.pipe(
-          Effect.provide(TestLayer)
-        ))
-      }
-    ))
+          await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+        }
+      )
+    )
   })
 
-  test("移動処理の正当性", async () => {
-    await fc.assert(fc.asyncProperty(
-      fc.tuple(
-        fc.constantFrom("north", "south", "east", "west", "up", "down"),
-        fc.integer({ min: 1, max: 10 })
-      ),
-      async ([direction, distance]) => {
-        const program = Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const testData = yield* TestData
+  test('移動処理の正当性', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.tuple(fc.constantFrom('north', 'south', 'east', 'west', 'up', 'down'), fc.integer({ min: 1, max: 10 })),
+        async ([direction, distance]) => {
+          const program = Effect.gen(function* () {
+            const playerService = yield* PlayerService
+            const testData = yield* TestData
 
-          yield* testData.reset()
+            yield* testData.reset()
 
-          // プレイヤー作成
-          yield* playerService.create({
-            id: "test-player",
-            name: "TestPlayer",
-            position: { x: 0, y: 64, z: 0 }
+            // プレイヤー作成
+            yield* playerService.create({
+              id: 'test-player',
+              name: 'TestPlayer',
+              position: { x: 0, y: 64, z: 0 },
+            })
+
+            const newPosition = yield* playerService.move({
+              playerId: 'test-player',
+              direction,
+              distance,
+            })
+
+            // 移動の妥当性検証
+            expect(typeof newPosition.x).toBe('number')
+            expect(typeof newPosition.y).toBe('number')
+            expect(typeof newPosition.z).toBe('number')
+            expect(Number.isFinite(newPosition.x)).toBe(true)
+            expect(Number.isFinite(newPosition.y)).toBe(true)
+            expect(Number.isFinite(newPosition.z)).toBe(true)
           })
 
-          const newPosition = yield* playerService.move({
-            playerId: "test-player",
-            direction,
-            distance
-          })
-
-          // 移動の妥当性検証
-          expect(typeof newPosition.x).toBe("number")
-          expect(typeof newPosition.y).toBe("number")
-          expect(typeof newPosition.z).toBe("number")
-          expect(Number.isFinite(newPosition.x)).toBe(true)
-          expect(Number.isFinite(newPosition.y)).toBe(true)
-          expect(Number.isFinite(newPosition.z)).toBe(true)
-        })
-
-        await Effect.runPromise(program.pipe(
-          Effect.provide(TestLayer)
-        ))
-      }
-    ))
+          await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+        }
+      )
+    )
   })
 })
 ```
@@ -2701,7 +2697,7 @@ export const ChunkGenerationPool = Context.GenericTag<{
     positions: ReadonlyArray<ChunkPosition>
     seed: number
   }) => Effect.Effect<ReadonlyArray<Chunk>, ChunkGenerationError>
-}>()("ChunkGenerationPool")
+}>()('ChunkGenerationPool')
 
 export const ChunkGenerationPoolLive = Layer.scoped(
   ChunkGenerationPool,
@@ -2711,10 +2707,13 @@ export const ChunkGenerationPoolLive = Layer.scoped(
       Effect.gen(function* () {
         const workers = yield* Effect.all(
           Array.from({ length: navigator.hardwareConcurrency || 4 }, () =>
-            Effect.promise(() => new Promise<Worker>((resolve) => {
-              const worker = new Worker('/chunk-generator-worker.js')
-              worker.onmessage = () => resolve(worker)
-            }))
+            Effect.promise(
+              () =>
+                new Promise<Worker>((resolve) => {
+                  const worker = new Worker('/chunk-generator-worker.js')
+                  worker.onmessage = () => resolve(worker)
+                })
+            )
           )
         )
 
@@ -2725,90 +2724,100 @@ export const ChunkGenerationPoolLive = Layer.scoped(
             const worker = workers[this.currentIndex]
             this.currentIndex = (this.currentIndex + 1) % workers.length
             return worker
-          }
+          },
         }
       }),
-      (pool) => Effect.promise(() => Promise.all(
-        pool.workers.map(worker => {
-          worker.terminate()
-          return Promise.resolve()
-        })
-      ))
+      (pool) =>
+        Effect.promise(() =>
+          Promise.all(
+            pool.workers.map((worker) => {
+              worker.terminate()
+              return Promise.resolve()
+            })
+          )
+        )
     )
 
     return {
-      generateChunk: (params) => Effect.gen(function* () {
-        const worker = workerPool.getWorker()
+      generateChunk: (params) =>
+        Effect.gen(function* () {
+          const worker = workerPool.getWorker()
 
-        const result = yield* Effect.promise(() =>
-          new Promise<Chunk>((resolve, reject) => {
-            const messageId = Math.random().toString(36)
+          const result = yield* Effect.promise(
+            () =>
+              new Promise<Chunk>((resolve, reject) => {
+                const messageId = Math.random().toString(36)
 
-            const handler = (event: MessageEvent) => {
-              if (event.data.id === messageId) {
-                worker.removeEventListener('message', handler)
-                worker.removeEventListener('error', errorHandler)
+                const handler = (event: MessageEvent) => {
+                  if (event.data.id === messageId) {
+                    worker.removeEventListener('message', handler)
+                    worker.removeEventListener('error', errorHandler)
 
-                if (event.data.error) {
-                  reject(new ChunkSystem.ChunkGenerationError({
-                    chunkX: params.position.x,
-                    chunkZ: params.position.z,
-                    biome: params.biome,
-                    generationStep: "worker-generation",
-                    seed: params.seed,
-                    performance: {
-                      startTime: Date.now(),
-                      duration: 0,
-                      memoryUsed: 0
-                    },
-                    timestamp: Date.now()
-                  }))
-                } else {
-                  resolve(event.data.chunk)
+                    if (event.data.error) {
+                      reject(
+                        new ChunkSystem.ChunkGenerationError({
+                          chunkX: params.position.x,
+                          chunkZ: params.position.z,
+                          biome: params.biome,
+                          generationStep: 'worker-generation',
+                          seed: params.seed,
+                          performance: {
+                            startTime: Date.now(),
+                            duration: 0,
+                            memoryUsed: 0,
+                          },
+                          timestamp: Date.now(),
+                        })
+                      )
+                    } else {
+                      resolve(event.data.chunk)
+                    }
+                  }
                 }
-              }
+
+                const errorHandler = (error: ErrorEvent) => {
+                  worker.removeEventListener('message', handler)
+                  worker.removeEventListener('error', errorHandler)
+                  reject(error)
+                }
+
+                worker.addEventListener('message', handler)
+                worker.addEventListener('error', errorHandler)
+
+                worker.postMessage({
+                  id: messageId,
+                  type: 'generateChunk',
+                  params,
+                })
+              })
+          )
+
+          return result
+        }),
+
+      generateBatch: (params) =>
+        Effect.gen(function* () {
+          // バッチ処理用の最適化された並列生成
+          const chunks = yield* Effect.all(
+            params.positions.map((position) =>
+              ChunkGenerationPool.pipe(
+                Effect.flatMap((pool) =>
+                  pool.generateChunk({
+                    position,
+                    seed: params.seed,
+                    biome: 'plains', // 簡略化
+                  })
+                )
+              )
+            ),
+            {
+              concurrency: workerPool.workers.length,
+              batching: true,
             }
+          )
 
-            const errorHandler = (error: ErrorEvent) => {
-              worker.removeEventListener('message', handler)
-              worker.removeEventListener('error', errorHandler)
-              reject(error)
-            }
-
-            worker.addEventListener('message', handler)
-            worker.addEventListener('error', errorHandler)
-
-            worker.postMessage({
-              id: messageId,
-              type: 'generateChunk',
-              params
-            })
-          })
-        )
-
-        return result
-      }),
-
-      generateBatch: (params) => Effect.gen(function* () {
-        // バッチ処理用の最適化された並列生成
-        const chunks = yield* Effect.all(
-          params.positions.map(position =>
-            ChunkGenerationPool.pipe(
-              Effect.flatMap(pool => pool.generateChunk({
-                position,
-                seed: params.seed,
-                biome: "plains" // 簡略化
-              }))
-            )
-          ),
-          {
-            concurrency: workerPool.workers.length,
-            batching: true
-          }
-        )
-
-        return chunks
-      })
+          return chunks
+        }),
     }
   })
 )
@@ -2822,85 +2831,80 @@ export const ChunkGenerationPoolLive = Layer.scoped(
 // =============================================================================
 
 // LRU Cache with TTL
-export const LRUCache = <K, V>(params: {
-  maxSize: number
-  ttl: Duration.Duration
-}) => {
+export const LRUCache = <K, V>(params: { maxSize: number; ttl: Duration.Duration }) => {
   return Effect.gen(function* () {
     const cache = yield* Ref.make(new Map<K, { value: V; timestamp: number }>())
     const accessOrder = yield* Ref.make<K[]>([])
 
     return {
-      get: (key: K) => Effect.gen(function* () {
-        const cacheData = yield* Ref.get(cache)
-        const entry = cacheData.get(key)
+      get: (key: K) =>
+        Effect.gen(function* () {
+          const cacheData = yield* Ref.get(cache)
+          const entry = cacheData.get(key)
 
-        if (!entry) {
-          return Option.none<V>()
-        }
+          if (!entry) {
+            return Option.none<V>()
+          }
 
-        // TTL チェック
-        const now = Date.now()
-        const ttlMs = Duration.toMillis(params.ttl)
+          // TTL チェック
+          const now = Date.now()
+          const ttlMs = Duration.toMillis(params.ttl)
 
-        if (now - entry.timestamp > ttlMs) {
-          // 期限切れエントリを削除
-          yield* Ref.update(cache, c => {
+          if (now - entry.timestamp > ttlMs) {
+            // 期限切れエントリを削除
+            yield* Ref.update(cache, (c) => {
+              const newCache = new Map(c)
+              newCache.delete(key)
+              return newCache
+            })
+
+            yield* Ref.update(accessOrder, (order) => order.filter((k) => k !== key))
+
+            return Option.none<V>()
+          }
+
+          // アクセス順序を更新
+          yield* Ref.update(accessOrder, (order) => {
+            const newOrder = order.filter((k) => k !== key)
+            newOrder.push(key)
+            return newOrder
+          })
+
+          return Option.some(entry.value)
+        }),
+
+      set: (key: K, value: V) =>
+        Effect.gen(function* () {
+          const now = Date.now()
+
+          yield* Ref.update(cache, (c) => {
             const newCache = new Map(c)
-            newCache.delete(key)
+            newCache.set(key, { value, timestamp: now })
             return newCache
           })
 
-          yield* Ref.update(accessOrder, order =>
-            order.filter(k => k !== key)
-          )
+          yield* Ref.update(accessOrder, (order) => {
+            let newOrder = order.filter((k) => k !== key)
+            newOrder.push(key)
 
-          return Option.none<V>()
-        }
-
-        // アクセス順序を更新
-        yield* Ref.update(accessOrder, order => {
-          const newOrder = order.filter(k => k !== key)
-          newOrder.push(key)
-          return newOrder
-        })
-
-        return Option.some(entry.value)
-      }),
-
-      set: (key: K, value: V) => Effect.gen(function* () {
-        const now = Date.now()
-
-        yield* Ref.update(cache, c => {
-          const newCache = new Map(c)
-          newCache.set(key, { value, timestamp: now })
-          return newCache
-        })
-
-        yield* Ref.update(accessOrder, order => {
-          let newOrder = order.filter(k => k !== key)
-          newOrder.push(key)
-
-          // サイズ制限チェック
-          if (newOrder.length > params.maxSize) {
-            const toRemove = newOrder.shift()
-            if (toRemove) {
-              yield* Ref.update(cache, c => {
-                const newCache = new Map(c)
-                newCache.delete(toRemove)
-                return newCache
-              })
+            // サイズ制限チェック
+            if (newOrder.length > params.maxSize) {
+              const toRemove = newOrder.shift()
+              if (toRemove) {
+                yield *
+                  Ref.update(cache, (c) => {
+                    const newCache = new Map(c)
+                    newCache.delete(toRemove)
+                    return newCache
+                  })
+              }
             }
-          }
 
-          return newOrder
-        })
-      }),
+            return newOrder
+          })
+        }),
 
-      clear: () => Effect.all([
-        Ref.set(cache, new Map()),
-        Ref.set(accessOrder, [])
-      ])
+      clear: () => Effect.all([Ref.set(cache, new Map()), Ref.set(accessOrder, [])]),
     }
   })
 }
@@ -2911,52 +2915,55 @@ export const ChunkCacheService = Context.GenericTag<{
   readonly set: (position: ChunkPosition, chunk: Chunk) => Effect.Effect<void>
   readonly invalidate: (position: ChunkPosition) => Effect.Effect<void>
   readonly getStats: () => Effect.Effect<CacheStats>
-}>()("ChunkCacheService")
+}>()('ChunkCacheService')
 
 export const ChunkCacheServiceLive = Layer.scoped(
   ChunkCacheService,
   Effect.gen(function* () {
     const cache = yield* LRUCache<string, Chunk>({
       maxSize: 1000,
-      ttl: Duration.minutes(10)
+      ttl: Duration.minutes(10),
     })
 
     const stats = yield* Ref.make({
       hits: 0,
       misses: 0,
       sets: 0,
-      evictions: 0
+      evictions: 0,
     })
 
     const positionToKey = (pos: ChunkPosition) => `${pos.x},${pos.z}`
 
     return {
-      get: (position) => Effect.gen(function* () {
-        const key = positionToKey(position)
-        const cached = yield* cache.get(key)
+      get: (position) =>
+        Effect.gen(function* () {
+          const key = positionToKey(position)
+          const cached = yield* cache.get(key)
 
-        if (Option.isSome(cached)) {
-          yield* Ref.update(stats, s => ({ ...s, hits: s.hits + 1 }))
-          return cached
-        } else {
-          yield* Ref.update(stats, s => ({ ...s, misses: s.misses + 1 }))
-          return Option.none()
-        }
-      }),
+          if (Option.isSome(cached)) {
+            yield* Ref.update(stats, (s) => ({ ...s, hits: s.hits + 1 }))
+            return cached
+          } else {
+            yield* Ref.update(stats, (s) => ({ ...s, misses: s.misses + 1 }))
+            return Option.none()
+          }
+        }),
 
-      set: (position, chunk) => Effect.gen(function* () {
-        const key = positionToKey(position)
-        yield* cache.set(key, chunk)
-        yield* Ref.update(stats, s => ({ ...s, sets: s.sets + 1 }))
-      }),
+      set: (position, chunk) =>
+        Effect.gen(function* () {
+          const key = positionToKey(position)
+          yield* cache.set(key, chunk)
+          yield* Ref.update(stats, (s) => ({ ...s, sets: s.sets + 1 }))
+        }),
 
-      invalidate: (position) => Effect.gen(function* () {
-        const key = positionToKey(position)
-        // LRU Cacheから削除（実装は簡略化）
-        yield* cache.clear() // 実際はinvalidateメソッドを実装する
-      }),
+      invalidate: (position) =>
+        Effect.gen(function* () {
+          const key = positionToKey(position)
+          // LRU Cacheから削除（実装は簡略化）
+          yield* cache.clear() // 実際はinvalidateメソッドを実装する
+        }),
 
-      getStats: () => Ref.get(stats)
+      getStats: () => Ref.get(stats),
     }
   })
 )
@@ -2971,62 +2978,46 @@ export const ChunkCacheServiceLive = Layer.scoped(
 
 // チャンクのバッチロード
 export const ChunkBatchLoader = Context.GenericTag<{
-  readonly loadChunksBatch: (
-    positions: ReadonlyArray<ChunkPosition>
-  ) => Stream.Stream<Chunk, ChunkLoadError>
+  readonly loadChunksBatch: (positions: ReadonlyArray<ChunkPosition>) => Stream.Stream<Chunk, ChunkLoadError>
 
-  readonly preloadArea: (params: {
-    center: ChunkPosition
-    radius: number
-  }) => Effect.Effect<void, ChunkLoadError>
-}>()("ChunkBatchLoader")
+  readonly preloadArea: (params: { center: ChunkPosition; radius: number }) => Effect.Effect<void, ChunkLoadError>
+}>()('ChunkBatchLoader')
 
-export const ChunkBatchLoaderLive = Layer.succeed(
-  ChunkBatchLoader,
-  {
-    loadChunksBatch: (positions) =>
-      Stream.gen(function* () {
-        const chunkService = yield* ChunkService
-        const cache = yield* ChunkCacheService
+export const ChunkBatchLoaderLive = Layer.succeed(ChunkBatchLoader, {
+  loadChunksBatch: (positions) =>
+    Stream.gen(function* () {
+      const chunkService = yield* ChunkService
+      const cache = yield* ChunkCacheService
 
-        // キャッシュから利用可能なチャンクをチェック
-        const cachedChunks = yield* Effect.all(
-          positions.map(pos =>
-            cache.get(pos).pipe(
-              Effect.map(cached => ({ position: pos, chunk: cached }))
-            )
-          )
+      // キャッシュから利用可能なチャンクをチェック
+      const cachedChunks = yield* Effect.all(
+        positions.map((pos) => cache.get(pos).pipe(Effect.map((cached) => ({ position: pos, chunk: cached }))))
+      )
+
+      const uncachedPositions = cachedChunks.filter(({ chunk }) => Option.isNone(chunk)).map(({ position }) => position)
+
+      // キャッシュされたチャンクを先に返す
+      for (const { chunk } of cachedChunks) {
+        if (Option.isSome(chunk)) {
+          yield* Stream.succeed(chunk.value)
+        }
+      }
+
+      // 未キャッシュのチャンクをバッチロード
+      if (uncachedPositions.length > 0) {
+        const loadedChunks = yield* Effect.all(
+          uncachedPositions.map((pos) => chunkService.load(pos).pipe(Effect.tap((chunk) => cache.set(pos, chunk)))),
+          { concurrency: 8, batching: true }
         )
 
-        const uncachedPositions = cachedChunks
-          .filter(({ chunk }) => Option.isNone(chunk))
-          .map(({ position }) => position)
-
-        // キャッシュされたチャンクを先に返す
-        for (const { chunk } of cachedChunks) {
-          if (Option.isSome(chunk)) {
-            yield* Stream.succeed(chunk.value)
-          }
+        for (const chunk of loadedChunks) {
+          yield* Stream.succeed(chunk)
         }
+      }
+    }),
 
-        // 未キャッシュのチャンクをバッチロード
-        if (uncachedPositions.length > 0) {
-          const loadedChunks = yield* Effect.all(
-            uncachedPositions.map(pos =>
-              chunkService.load(pos).pipe(
-                Effect.tap(chunk => cache.set(pos, chunk))
-              )
-            ),
-            { concurrency: 8, batching: true }
-          )
-
-          for (const chunk of loadedChunks) {
-            yield* Stream.succeed(chunk)
-          }
-        }
-      }),
-
-    preloadArea: (params) => Effect.gen(function* () {
+  preloadArea: (params) =>
+    Effect.gen(function* () {
       const positions: ChunkPosition[] = []
 
       // 範囲内のチャンク座標を生成
@@ -3034,23 +3025,17 @@ export const ChunkBatchLoaderLive = Layer.succeed(
         for (let z = -params.radius; z <= params.radius; z++) {
           positions.push({
             x: params.center.x + x,
-            z: params.center.z + z
+            z: params.center.z + z,
           })
         }
       }
 
       // バッチロードをストリームで実行
       yield* ChunkBatchLoader.pipe(
-        Effect.flatMap(loader =>
-          loader.loadChunksBatch(positions).pipe(
-            Stream.runCollect,
-            Effect.asVoid
-          )
-        )
+        Effect.flatMap((loader) => loader.loadChunksBatch(positions).pipe(Stream.runCollect, Effect.asVoid))
       )
-    })
-  }
-)
+    }),
+})
 
 // イベント処理のバッファリング
 export const BufferedEventProcessor = <E extends GameEvent>(params: {
@@ -3066,26 +3051,21 @@ export const BufferedEventProcessor = <E extends GameEvent>(params: {
     yield* Effect.forkDaemon(
       Stream.fromQueue(buffer).pipe(
         Stream.groupedWithin(params.bufferSize, params.flushInterval),
-        Stream.mapEffect(events =>
-          params.processor(Array.fromIterable(events))
-        ),
-        Stream.takeWhile(() => Effect.flatMap(Ref.get(isRunning), running =>
-          Effect.succeed(running)
-        )),
+        Stream.mapEffect((events) => params.processor(Array.fromIterable(events))),
+        Stream.takeWhile(() => Effect.flatMap(Ref.get(isRunning), (running) => Effect.succeed(running))),
         Stream.runDrain
       )
     )
 
     return {
       add: (event: E) => Queue.offer(buffer, event),
-      flush: () => Queue.takeAll(buffer).pipe(
-        Effect.flatMap(events =>
-          Array.fromIterable(events).length > 0
-            ? params.processor(Array.fromIterable(events))
-            : Effect.void
-        )
-      ),
-      stop: () => Ref.set(isRunning, false)
+      flush: () =>
+        Queue.takeAll(buffer).pipe(
+          Effect.flatMap((events) =>
+            Array.fromIterable(events).length > 0 ? params.processor(Array.fromIterable(events)) : Effect.void
+          )
+        ),
+      stop: () => Ref.set(isRunning, false),
     }
   })
 }

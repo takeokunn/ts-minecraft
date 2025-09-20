@@ -1,13 +1,13 @@
 ---
-title: "エントリーポイント・起動フロー実践ガイド"
-description: "TypeScript Minecraftプロジェクトの各エントリーポイントと起動シーケンスの詳細解説。Effect-TS 3.17+パターンによる型安全な初期化プロセス"
-category: "guide"
-difficulty: "intermediate"
-tags: ["entry-points", "startup", "effect-ts", "architecture", "web-workers", "initialization"]
-prerequisites: ["basic-typescript", "effect-ts-fundamentals", "development-conventions"]
-estimated_reading_time: "15分"
-related_patterns: ["service-patterns-catalog", "error-handling-patterns"]
-related_docs: ["./00-development-conventions.md", "../explanations/architecture/00-overall-design.md"]
+title: 'エントリーポイント・起動フロー実践ガイド'
+description: 'TypeScript Minecraftプロジェクトの各エントリーポイントと起動シーケンスの詳細解説。Effect-TS 3.17+パターンによる型安全な初期化プロセス'
+category: 'guide'
+difficulty: 'intermediate'
+tags: ['entry-points', 'startup', 'effect-ts', 'architecture', 'web-workers', 'initialization']
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals', 'development-conventions']
+estimated_reading_time: '15分'
+related_patterns: ['service-patterns-catalog', 'error-handling-patterns']
+related_docs: ['./00-development-conventions.md', '../explanations/architecture/00-overall-design.md']
 ---
 
 # エントリーポイント・起動フロー実践ガイド
@@ -55,21 +55,16 @@ Effect-TS 3.17+とLayerパターンにより、以下を実現：
 const AppConfigSchema = Schema.Struct({
   world: Schema.Struct({
     seed: Schema.Number.pipe(Schema.int()),
-    renderDistance: Schema.Number.pipe(Schema.between(4, 32))
+    renderDistance: Schema.Number.pipe(Schema.between(4, 32)),
   }),
   performance: Schema.Struct({
     targetFPS: Schema.Number.pipe(Schema.between(30, 144)),
-    enableWorkers: Schema.Boolean
-  })
+    enableWorkers: Schema.Boolean,
+  }),
 })
 
 // 2. Layer-based初期化
-const MainAppLive = Layer.mergeAll(
-  ConfigServiceLive,
-  WorldServiceLive,
-  RendererLive,
-  InputServiceLive
-)
+const MainAppLive = Layer.mergeAll(ConfigServiceLive, WorldServiceLive, RendererLive, InputServiceLive)
 
 // 3. 型安全な起動プロセス
 const startApplication = Effect.gen(function* () {
@@ -77,7 +72,7 @@ const startApplication = Effect.gen(function* () {
   const world = yield* WorldService
 
   yield* world.initialize(config.world)
-  yield* Effect.logInfo("Application started successfully")
+  yield* Effect.logInfo('Application started successfully')
 }).pipe(Effect.provide(MainAppLive))
 ```
 
@@ -331,14 +326,14 @@ export const startWebApplication = Effect.gen(function* () {
 #### メッシュ生成Worker (`src/workers/mesh-generation.worker.ts`)
 
 ```typescript
-import { Effect, Schema } from "effect"
+import { Effect, Schema } from 'effect'
 
 // 1. Worker入力データのスキーマ
 const ChunkDataSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
   blocks: Schema.Array(Schema.Array(Schema.Array(Schema.Number))),
-  neighborData: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  neighborData: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 const MeshGenerationTaskSchema = Schema.Struct({
@@ -347,8 +342,8 @@ const MeshGenerationTaskSchema = Schema.Struct({
   options: Schema.Struct({
     enableGreedyMeshing: Schema.Boolean,
     enableAO: Schema.Boolean, // Ambient Occlusion
-    lodLevel: Schema.Number.pipe(Schema.int(), Schema.between(0, 3))
-  })
+    lodLevel: Schema.Number.pipe(Schema.int(), Schema.between(0, 3)),
+  }),
 })
 
 export type MeshGenerationTask = Schema.Schema.Type<typeof MeshGenerationTaskSchema>
@@ -359,7 +354,7 @@ const VertexDataSchema = Schema.Struct({
   normals: Schema.Array(Schema.Number),
   uvs: Schema.Array(Schema.Number),
   indices: Schema.Array(Schema.Number),
-  vertexCount: Schema.Number.pipe(Schema.int())
+  vertexCount: Schema.Number.pipe(Schema.int()),
 })
 
 const MeshGenerationResultSchema = Schema.Struct({
@@ -367,7 +362,7 @@ const MeshGenerationResultSchema = Schema.Struct({
   success: Schema.Boolean,
   vertexData: Schema.optional(VertexDataSchema),
   error: Schema.optional(Schema.String),
-  processingTime: Schema.Number
+  processingTime: Schema.Number,
 })
 
 export type MeshGenerationResult = Schema.Schema.Type<typeof MeshGenerationResultSchema>
@@ -383,9 +378,7 @@ const generateChunkMesh = (task: MeshGenerationTask): Effect.Effect<VertexDataSc
     const faces = yield* generateBlockFaces(task.chunkData)
 
     // Greedy Meshingによる最適化
-    const optimizedFaces = task.options.enableGreedyMeshing
-      ? yield* applyGreedyMeshing(faces)
-      : faces
+    const optimizedFaces = task.options.enableGreedyMeshing ? yield* applyGreedyMeshing(faces) : faces
 
     // 頂点データの構築
     const vertexData = yield* buildVertexData(optimizedFaces)
@@ -403,28 +396,33 @@ const generateChunkMesh = (task: MeshGenerationTask): Effect.Effect<VertexDataSc
 
 // 4. Workerメインループ
 const workerMain = Effect.gen(function* () {
-  yield* Effect.logInfo("Mesh generation worker started")
+  yield* Effect.logInfo('Mesh generation worker started')
 
   // メッセージリスナーの設定
   self.addEventListener('message', (event) => {
     const processMessage = Effect.gen(function* () {
       const task = yield* Schema.decodeUnknown(MeshGenerationTaskSchema)(event.data).pipe(
-        Effect.mapError(error => `Invalid task data: ${error.message}`)
+        Effect.mapError((error) => `Invalid task data: ${error.message}`)
       )
 
       const result = yield* generateChunkMesh(task).pipe(
-        Effect.map(vertexData => ({
-          id: task.id,
-          success: true,
-          vertexData,
-          processingTime: Date.now()
-        } as MeshGenerationResult)),
-        Effect.catchAll(error => Effect.succeed({
-          id: task.id,
-          success: false,
-          error: typeof error === 'string' ? error : 'Unknown error',
-          processingTime: Date.now()
-        } as MeshGenerationResult))
+        Effect.map(
+          (vertexData) =>
+            ({
+              id: task.id,
+              success: true,
+              vertexData,
+              processingTime: Date.now(),
+            }) as MeshGenerationResult
+        ),
+        Effect.catchAll((error) =>
+          Effect.succeed({
+            id: task.id,
+            success: false,
+            error: typeof error === 'string' ? error : 'Unknown error',
+            processingTime: Date.now(),
+          } as MeshGenerationResult)
+        )
       )
 
       self.postMessage(result)
@@ -457,68 +455,64 @@ const ApplicationLive = Layer.mergeAll(
 
 // 2. 段階的初期化フローの実装
 const initializeApplication = Effect.gen(function* () {
-  yield* Effect.logInfo("🚀 Starting TypeScript Minecraft...")
+  yield* Effect.logInfo('🚀 Starting TypeScript Minecraft...')
 
   // Phase 1: 基本設定の読み込みと検証
-  yield* Effect.logInfo("📋 Phase 1: Configuration validation")
+  yield* Effect.logInfo('📋 Phase 1: Configuration validation')
   const config = yield* ConfigService.getConfig
 
   // Phase 2: 重要なサービスの初期化
-  yield* Effect.logInfo("🔧 Phase 2: Core services initialization")
+  yield* Effect.logInfo('🔧 Phase 2: Core services initialization')
   const world = yield* WorldService
   const player = yield* PlayerService
 
   // Phase 3: レンダリング環境のセットアップ
-  yield* Effect.logInfo("🎨 Phase 3: Rendering system setup")
+  yield* Effect.logInfo('🎨 Phase 3: Rendering system setup')
   const renderer = yield* RenderService
   yield* renderer.initialize()
 
   // Phase 4: Worker プールの起動
-  yield* Effect.logInfo("👷 Phase 4: Worker pool initialization")
+  yield* Effect.logInfo('👷 Phase 4: Worker pool initialization')
   const workerPool = yield* WorkerPoolService
   yield* workerPool.initializeAll()
 
   // Phase 5: ゲームワールドの初期化
-  yield* Effect.logInfo("🌍 Phase 5: World initialization")
+  yield* Effect.logInfo('🌍 Phase 5: World initialization')
   yield* world.initialize(config.world)
   yield* player.spawn(config.player)
 
   // Phase 6: ゲームループの開始
-  yield* Effect.logInfo("🎮 Phase 6: Game loop startup")
+  yield* Effect.logInfo('🎮 Phase 6: Game loop startup')
   yield* startGameLoop(config.performance)
 
-  yield* Effect.logInfo("✅ Application started successfully!")
+  yield* Effect.logInfo('✅ Application started successfully!')
 })
 
 // 3. エラー回復を含む起動プロセス
 export const startApplication = initializeApplication.pipe(
   Effect.catchTags({
-    "ConfigValidationError": (error) =>
+    ConfigValidationError: (error) =>
       Effect.gen(function* () {
         yield* Effect.logError(`Configuration error: ${error.message}`)
-        yield* Effect.logInfo("🔧 Attempting to use default configuration...")
+        yield* Effect.logInfo('🔧 Attempting to use default configuration...')
         return yield* initializeWithDefaults()
       }),
 
-    "AppInitError": (error) =>
+    AppInitError: (error) =>
       Effect.gen(function* () {
         yield* Effect.logError(`Initialization failed at ${error.stage}: ${error.message}`)
-        yield* Effect.logInfo("🔄 Attempting recovery...")
+        yield* Effect.logInfo('🔄 Attempting recovery...')
 
-        if (error.stage === "worker_initialization") {
+        if (error.stage === 'worker_initialization') {
           // Workerなしでの起動を試行
           return yield* initializeWithoutWorkers()
         }
 
         return yield* Effect.fail(error)
-      })
+      }),
   }),
   Effect.provide(ApplicationLive),
-  Effect.retry(
-    Schedule.exponential("1 second").pipe(
-      Schedule.intersect(Schedule.recurs(3))
-    )
-  )
+  Effect.retry(Schedule.exponential('1 second').pipe(Schedule.intersect(Schedule.recurs(3))))
 )
 ```
 
@@ -595,11 +589,10 @@ const handleWorkerError = (worker: Worker, type: WorkerType) =>
 ```typescript
 // ✅ 並列初期化の活用
 const parallelInitialization = Effect.gen(function* () {
-  const [config, capabilities, userPrefs] = yield* Effect.all([
-    loadConfig(),
-    detectCapabilities(),
-    loadUserPreferences()
-  ], { concurrency: "unbounded" })
+  const [config, capabilities, userPrefs] = yield* Effect.all(
+    [loadConfig(), detectCapabilities(), loadUserPreferences()],
+    { concurrency: 'unbounded' }
+  )
 
   return { config, capabilities, userPrefs }
 })
@@ -608,7 +601,7 @@ const parallelInitialization = Effect.gen(function* () {
 const lazyInitialization = {
   audioEngine: lazy(() => createAudioEngine()),
   particleSystem: lazy(() => createParticleSystem()),
-  networkManager: lazy(() => createNetworkManager())
+  networkManager: lazy(() => createNetworkManager()),
 }
 ```
 
@@ -620,7 +613,7 @@ const lazyInitialization = {
 // ❌ 依存関係を無視した初期化
 const badInitialization = Effect.gen(function* () {
   const renderer = yield* initializeRenderer() // Configが必要
-  const config = yield* loadConfig()           // 順序が逆
+  const config = yield* loadConfig() // 順序が逆
 })
 
 // ✅ 正しい依存関係順序
@@ -705,7 +698,7 @@ const experimentalInitialization = Effect.gen(function* () {
   const userId = yield* getUserId()
   const experiments = yield* getActiveExperiments(userId)
 
-  if (experiments.includes("new-renderer")) {
+  if (experiments.includes('new-renderer')) {
     yield* initializeExperimentalRenderer()
   } else {
     yield* initializeStableRenderer()

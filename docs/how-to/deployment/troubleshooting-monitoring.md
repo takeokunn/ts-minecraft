@@ -1,13 +1,13 @@
 ---
-title: "トラブルシューティング・モニタリング - 本番環境問題解決ガイド"
-description: "TypeScript Minecraft本番環境でのトラブルシューティング手法とモニタリング設定。ログ分析、パフォーマンス監視、障害対応の実践的ガイド。"
-category: "how-to"
-difficulty: "intermediate"
-tags: ["troubleshooting", "monitoring", "production", "logging", "performance"]
-prerequisites: ["performance-optimization"]
-estimated_reading_time: "25分"
-related_patterns: ["ci-cd-deployment"]
-related_docs: ["./performance-optimization.md", "./ci-cd-deployment.md"]
+title: 'トラブルシューティング・モニタリング - 本番環境問題解決ガイド'
+description: 'TypeScript Minecraft本番環境でのトラブルシューティング手法とモニタリング設定。ログ分析、パフォーマンス監視、障害対応の実践的ガイド。'
+category: 'how-to'
+difficulty: 'intermediate'
+tags: ['troubleshooting', 'monitoring', 'production', 'logging', 'performance']
+prerequisites: ['performance-optimization']
+estimated_reading_time: '25分'
+related_patterns: ['ci-cd-deployment']
+related_docs: ['./performance-optimization.md', './ci-cd-deployment.md']
 ---
 
 # トラブルシューティング・モニタリング
@@ -22,14 +22,14 @@ TypeScript Minecraft本番環境での問題発見、原因特定、解決まで
 
 ```typescript
 // src/shared/infrastructure/logger/structured-logger.ts
-import { Effect, Logger, LogLevel, pipe } from "effect";
+import { Effect, Logger, LogLevel, pipe } from 'effect'
 
 export interface LogContext {
-  readonly userId?: string;
-  readonly sessionId?: string;
-  readonly requestId?: string;
-  readonly component?: string;
-  readonly action?: string;
+  readonly userId?: string
+  readonly sessionId?: string
+  readonly requestId?: string
+  readonly component?: string
+  readonly action?: string
 }
 
 export const createStructuredLogger = (context: LogContext) =>
@@ -39,54 +39,50 @@ export const createStructuredLogger = (context: LogContext) =>
       level: LogLevel.literal(level),
       message,
       context,
-      spans: spans.map(span => ({
+      spans: spans.map((span) => ({
         label: span.label,
-        timing: span.timing
+        timing: span.timing,
       })),
       environment: process.env.NODE_ENV,
-      service: "ts-minecraft",
-      version: process.env.npm_package_version
-    };
+      service: 'ts-minecraft',
+      version: process.env.npm_package_version,
+    }
 
     // 本番環境では JSON形式、開発環境では読みやすい形式
     if (process.env.NODE_ENV === 'production') {
-      console.log(JSON.stringify(logEntry));
+      console.log(JSON.stringify(logEntry))
     } else {
-      console.log(`[${logEntry.level}] ${logEntry.message}`, logEntry);
+      console.log(`[${logEntry.level}] ${logEntry.message}`, logEntry)
     }
-  });
+  })
 
 // 使用例
-export const logPlayerAction = (
-  playerId: string,
-  action: string,
-  details: Record<string, unknown>
-) =>
+export const logPlayerAction = (playerId: string, action: string, details: Record<string, unknown>) =>
   Effect.gen(function* (_) {
-    const logger = yield* _(Effect.log);
+    const logger = yield* _(Effect.log)
     yield* _(
       Logger.logInfo(`Player action: ${action}`, {
         playerId,
         action,
         details,
-        component: "player-system"
+        component: 'player-system',
       })
-    );
-  });
+    )
+  })
 ```
 
 ### パフォーマンスメトリクス収集
 
 ```typescript
 // src/shared/infrastructure/metrics/performance-collector.ts
-import { Effect, Ref } from "effect";
+import { Effect, Ref } from 'effect'
 
 export interface PerformanceMetric {
-  readonly name: string;
-  readonly value: number;
-  readonly unit: string;
-  readonly timestamp: number;
-  readonly tags: Record<string, string>;
+  readonly name: string
+  readonly value: number
+  readonly unit: string
+  readonly timestamp: number
+  readonly tags: Record<string, string>
 }
 
 interface PerformanceCollectorInterface {
@@ -97,12 +93,10 @@ interface PerformanceCollectorInterface {
   readonly exportPrometheus: Effect.Effect<string>
 }
 
-export const PerformanceCollector = Context.GenericTag<PerformanceCollectorInterface>(
-  "@minecraft/PerformanceCollector"
-)
+export const PerformanceCollector = Context.GenericTag<PerformanceCollectorInterface>('@minecraft/PerformanceCollector')
 
 export const makePerformanceCollector = Effect.gen(function* (_) {
-  const metrics = yield* _(Ref.make<PerformanceMetric[]>([]));
+  const metrics = yield* _(Ref.make<PerformanceMetric[]>([]))
 
   return PerformanceCollector.of({
     recordTiming: (name: string, duration: number, tags: Record<string, string> = {}) =>
@@ -110,11 +104,11 @@ export const makePerformanceCollector = Effect.gen(function* (_) {
         const metric: PerformanceMetric = {
           name,
           value: duration,
-          unit: "ms",
+          unit: 'ms',
           timestamp: Date.now(),
-          tags: { type: "timing", ...tags }
-        };
-        yield* _(Ref.update(metrics, m => [...m, metric]));
+          tags: { type: 'timing', ...tags },
+        }
+        yield* _(Ref.update(metrics, (m) => [...m, metric]))
       }),
 
     recordCounter: (name: string, value: number = 1, tags: Record<string, string> = {}) =>
@@ -122,11 +116,11 @@ export const makePerformanceCollector = Effect.gen(function* (_) {
         const metric: PerformanceMetric = {
           name,
           value,
-          unit: "count",
+          unit: 'count',
           timestamp: Date.now(),
-          tags: { type: "counter", ...tags }
-        };
-        yield* _(Ref.update(metrics, m => [...m, metric]));
+          tags: { type: 'counter', ...tags },
+        }
+        yield* _(Ref.update(metrics, (m) => [...m, metric]))
       }),
 
     recordGauge: (name: string, value: number, tags: Record<string, string> = {}) =>
@@ -134,28 +128,28 @@ export const makePerformanceCollector = Effect.gen(function* (_) {
         const metric: PerformanceMetric = {
           name,
           value,
-          unit: "gauge",
+          unit: 'gauge',
           timestamp: Date.now(),
-          tags: { type: "gauge", ...tags }
-        };
-        yield* _(Ref.update(metrics, m => [...m, metric]));
+          tags: { type: 'gauge', ...tags },
+        }
+        yield* _(Ref.update(metrics, (m) => [...m, metric]))
       }),
 
     getMetrics: Ref.get(metrics),
 
     exportPrometheus: Effect.gen(function* (_) {
-      const metricList = yield* _(Ref.get(metrics));
+      const metricList = yield* _(Ref.get(metrics))
       return metricList
-        .map(metric => {
+        .map((metric) => {
           const tagString = Object.entries(metric.tags)
             .map(([key, value]) => `${key}="${value}"`)
-            .join(',');
-          return `${metric.name}{${tagString}} ${metric.value} ${metric.timestamp}`;
+            .join(',')
+          return `${metric.name}{${tagString}} ${metric.value} ${metric.timestamp}`
         })
-        .join('\n');
-    })
-  });
-});
+        .join('\n')
+    }),
+  })
+})
 
 export const PerformanceCollectorLive = Layer.effect(PerformanceCollector, makePerformanceCollector)
 ```
@@ -164,75 +158,69 @@ export const PerformanceCollectorLive = Layer.effect(PerformanceCollector, makeP
 
 ```typescript
 // src/shared/infrastructure/error-tracking/error-handler.ts
-import { Effect, Logger, pipe } from "effect";
+import { Effect, Logger, pipe } from 'effect'
 
 export interface ErrorContext {
-  readonly userId?: string;
-  readonly sessionId?: string;
-  readonly component: string;
-  readonly action?: string;
-  readonly metadata?: Record<string, unknown>;
+  readonly userId?: string
+  readonly sessionId?: string
+  readonly component: string
+  readonly action?: string
+  readonly metadata?: Record<string, unknown>
 }
 
 interface ErrorTrackerInterface {
   readonly reportError: (
     error: unknown,
     context: ErrorContext,
-    severity?: "low" | "medium" | "high" | "critical"
+    severity?: 'low' | 'medium' | 'high' | 'critical'
   ) => Effect.Effect<void>
-  readonly captureException: (component: string) =>
-    <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<A, E>
+  readonly captureException: (component: string) => <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<A, E>
 }
 
-export const ErrorTracker = Context.GenericTag<ErrorTrackerInterface>(
-  "@minecraft/ErrorTracker"
-)
+export const ErrorTracker = Context.GenericTag<ErrorTrackerInterface>('@minecraft/ErrorTracker')
 
 export const makeErrorTracker = Effect.succeed(
   ErrorTracker.of({
-    reportError: (
-      error: unknown,
-      context: ErrorContext,
-      severity: "low" | "medium" | "high" | "critical" = "medium"
-    ) =>
+    reportError: (error: unknown, context: ErrorContext, severity: 'low' | 'medium' | 'high' | 'critical' = 'medium') =>
       Effect.gen(function* (_) {
         const errorInfo = {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
-          name: error instanceof Error ? error.name : "Unknown",
+          name: error instanceof Error ? error.name : 'Unknown',
           context,
           severity,
           timestamp: new Date().toISOString(),
-          environment: process.env.NODE_ENV
-        };
+          environment: process.env.NODE_ENV,
+        }
 
         // ローカルログ出力
-        yield* _(Logger.logError("Application Error", errorInfo));
+        yield* _(Logger.logError('Application Error', errorInfo))
 
         // 外部エラートラッキングサービス送信（本番環境のみ）
         if (process.env.NODE_ENV === 'production') {
-          yield* _(sendToErrorService(errorInfo));
+          yield* _(sendToErrorService(errorInfo))
         }
 
         // 重要度が高い場合はアラート送信
-        if (severity === "critical") {
-          yield* _(sendCriticalAlert(errorInfo));
+        if (severity === 'critical') {
+          yield* _(sendCriticalAlert(errorInfo))
         }
       }),
 
-    captureException: (component: string) =>
+    captureException:
+      (component: string) =>
       <A, E>(effect: Effect.Effect<A, E>) =>
         pipe(
           effect,
-          Effect.catchAll(error =>
+          Effect.catchAll((error) =>
             pipe(
               ErrorTracker.reportError(error, { component }),
               Effect.andThen(() => Effect.fail(error))
             )
           )
-        )
+        ),
   })
-);
+)
 
 export const ErrorTrackerLive = Layer.succeed(ErrorTracker, makeErrorTracker)
 
@@ -243,11 +231,11 @@ const sendToErrorService = (errorInfo: any) =>
       await fetch(process.env.ERROR_TRACKING_ENDPOINT!, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorInfo)
-      });
+        body: JSON.stringify(errorInfo),
+      })
     },
-    catch: () => new Error("Failed to send error to tracking service")
-  });
+    catch: () => new Error('Failed to send error to tracking service'),
+  })
 
 const sendCriticalAlert = (errorInfo: any) =>
   Effect.tryPromise({
@@ -258,19 +246,21 @@ const sendCriticalAlert = (errorInfo: any) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: `🚨 CRITICAL ERROR: ${errorInfo.message}`,
-          attachments: [{
-            color: "danger",
-            fields: [
-              { title: "Component", value: errorInfo.context.component, short: true },
-              { title: "Environment", value: errorInfo.environment, short: true },
-              { title: "Timestamp", value: errorInfo.timestamp, short: true }
-            ]
-          }]
-        })
-      });
+          attachments: [
+            {
+              color: 'danger',
+              fields: [
+                { title: 'Component', value: errorInfo.context.component, short: true },
+                { title: 'Environment', value: errorInfo.environment, short: true },
+                { title: 'Timestamp', value: errorInfo.timestamp, short: true },
+              ],
+            },
+          ],
+        }),
+      })
     },
-    catch: () => new Error("Failed to send critical alert")
-  });
+    catch: () => new Error('Failed to send critical alert'),
+  })
 ```
 
 ## ヘルスチェックとモニタリング
@@ -652,6 +642,7 @@ node --prof-process isolate-*.log > profile.txt
 ```
 
 **対処法**:
+
 - メモリリーク調査: `node --inspect` でデバッガー接続
 - CPU プロファイリング: Chrome DevTools または clinic.js使用
 - データベースクエリ最適化確認
@@ -674,6 +665,7 @@ docker exec ts-minecraft-app openssl s_client -connect domain.com:443
 ```
 
 **対処法**:
+
 - ファイアウォール設定確認
 - LoadBalancer/Proxy設定検証
 - SSL証明書の有効期限確認
@@ -693,6 +685,7 @@ docker exec ts-minecraft-db psql -U postgres -c "SELECT pg_size_pretty(pg_databa
 ```
 
 **対処法**:
+
 - インデックス最適化
 - クエリ実行計画の確認（EXPLAIN ANALYZE）
 - 接続プール設定調整
@@ -765,8 +758,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage detected"
-          description: "Memory usage is above 90% for more than 5 minutes"
+          summary: 'High memory usage detected'
+          description: 'Memory usage is above 90% for more than 5 minutes'
 
       - alert: HighErrorRate
         expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
@@ -774,8 +767,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "High error rate detected"
-          description: "Error rate is above 10% for more than 2 minutes"
+          summary: 'High error rate detected'
+          description: 'Error rate is above 10% for more than 2 minutes'
 
       - alert: DatabaseConnectionFailed
         expr: up{job="minecraft-db"} == 0
@@ -783,8 +776,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Database connection failed"
-          description: "Cannot connect to database"
+          summary: 'Database connection failed'
+          description: 'Cannot connect to database'
 
       - alert: DiskSpaceHigh
         expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes > 0.85
@@ -792,8 +785,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Disk space usage high"
-          description: "Disk usage is above 85%"
+          summary: 'Disk space usage high'
+          description: 'Disk usage is above 85%'
 ```
 
 ## デバッグとログ解析
@@ -810,7 +803,7 @@ services:
       - ./fluentd.conf:/fluentd/etc/fluent.conf
       - ./logs:/var/log
     ports:
-      - "24224:24224"
+      - '24224:24224'
     environment:
       - FLUENTD_CONF=fluent.conf
 
@@ -818,16 +811,16 @@ services:
     image: elasticsearch:7.17.0
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - 'ES_JAVA_OPTS=-Xms1g -Xmx1g'
     ports:
-      - "9200:9200"
+      - '9200:9200'
 
   kibana:
     image: kibana:7.17.0
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
-      - "5601:5601"
+      - '5601:5601'
     depends_on:
       - elasticsearch
 ```
@@ -837,48 +830,42 @@ services:
 ```javascript
 // Elasticsearch クエリ例
 const errorAnalysisQuery = {
-  "query": {
-    "bool": {
-      "must": [
-        { "match": { "level": "ERROR" } },
-        { "range": { "@timestamp": { "gte": "now-1h" } } }
-      ]
-    }
-  },
-  "aggs": {
-    "error_by_component": {
-      "terms": { "field": "context.component.keyword" }
+  query: {
+    bool: {
+      must: [{ match: { level: 'ERROR' } }, { range: { '@timestamp': { gte: 'now-1h' } } }],
     },
-    "error_timeline": {
-      "date_histogram": {
-        "field": "@timestamp",
-        "interval": "5m"
-      }
-    }
-  }
-};
+  },
+  aggs: {
+    error_by_component: {
+      terms: { field: 'context.component.keyword' },
+    },
+    error_timeline: {
+      date_histogram: {
+        field: '@timestamp',
+        interval: '5m',
+      },
+    },
+  },
+}
 
 // パフォーマンス分析クエリ
 const performanceAnalysisQuery = {
-  "query": {
-    "bool": {
-      "must": [
-        { "exists": { "field": "response_time" } },
-        { "range": { "response_time": { "gte": 1000 } } }
-      ]
-    }
+  query: {
+    bool: {
+      must: [{ exists: { field: 'response_time' } }, { range: { response_time: { gte: 1000 } } }],
+    },
   },
-  "aggs": {
-    "slow_endpoints": {
-      "terms": { "field": "endpoint.keyword" },
-      "aggs": {
-        "avg_response_time": {
-          "avg": { "field": "response_time" }
-        }
-      }
-    }
-  }
-};
+  aggs: {
+    slow_endpoints: {
+      terms: { field: 'endpoint.keyword' },
+      aggs: {
+        avg_response_time: {
+          avg: { field: 'response_time' },
+        },
+      },
+    },
+  },
+}
 ```
 
 ## 運用チェックリスト

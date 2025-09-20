@@ -1,17 +1,17 @@
 ---
-title: "Mob AIシステム仕様 - 知的行動制御・パスファインディング・群体行動"
-description: "Minecraft Cloneにおけるモブ（生物）の人工知能システム。行動ツリー、パスファインディング、知覚システム、群体行動制御の完全仕様とEffect-TS実装パターン。"
-category: "specification"
-difficulty: "advanced"
-tags: ["mob-ai", "behavior-tree", "pathfinding", "entity-system", "artificial-intelligence", "ecs", "game-ai"]
-prerequisites: ["effect-ts-fundamentals", "ecs-architecture", "pathfinding-algorithms", "behavior-tree-concepts"]
-estimated_reading_time: "25分"
-related_patterns: ["entity-component-patterns", "behavior-tree-patterns", "ai-decision-patterns"]
-related_docs: ["./overview.md", "../core-features/entity-system.md", "../core-features/physics-system.md"]
+title: 'Mob AIシステム仕様 - 知的行動制御・パスファインディング・群体行動'
+description: 'Minecraft Cloneにおけるモブ（生物）の人工知能システム。行動ツリー、パスファインディング、知覚システム、群体行動制御の完全仕様とEffect-TS実装パターン。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['mob-ai', 'behavior-tree', 'pathfinding', 'entity-system', 'artificial-intelligence', 'ecs', 'game-ai']
+prerequisites: ['effect-ts-fundamentals', 'ecs-architecture', 'pathfinding-algorithms', 'behavior-tree-concepts']
+estimated_reading_time: '25分'
+related_patterns: ['entity-component-patterns', 'behavior-tree-patterns', 'ai-decision-patterns']
+related_docs: ['./overview.md', '../core-features/entity-system.md', '../core-features/physics-system.md']
 search_keywords:
-  primary: ["mob-ai", "behavior-tree", "pathfinding", "game-ai"]
-  secondary: ["entity-behavior", "artificial-intelligence", "npc-control"]
-  context: ["minecraft-mobs", "game-development", "ai-programming"]
+  primary: ['mob-ai', 'behavior-tree', 'pathfinding', 'game-ai']
+  secondary: ['entity-behavior', 'artificial-intelligence', 'npc-control']
+  context: ['minecraft-mobs', 'game-development', 'ai-programming']
 ---
 
 # Mob AI System
@@ -21,6 +21,7 @@ search_keywords:
 Mob AI System は、Minecraft クローンにおけるモブ（生物）の知的な行動を管理するエンハンス機能です。Entity System と Physics System の上に構築され、複雑な AI 行動をパフォーマンス効率的に実現します。
 
 ### 責務
+
 - モブの知的行動制御（移動、攻撃、繁殖等）
 - パスファインディングによる最適経路計算
 - 知覚システムによる環境認識
@@ -30,6 +31,7 @@ Mob AI System は、Minecraft クローンにおけるモブ（生物）の知�
 ## アーキテクチャ設計
 
 ### Core Architecture Pattern
+
 ```typescript
 // ✅ AIシステムのメインインターフェース
 interface MobAIServiceInterface {
@@ -39,89 +41,84 @@ interface MobAIServiceInterface {
   readonly setBehaviorGoal: (entityId: EntityId, goal: BehaviorGoal) => Effect.Effect<void, AIError>
 }
 
-const MobAIService = Context.GenericTag<MobAIServiceInterface>("@app/MobAIService")
+const MobAIService = Context.GenericTag<MobAIServiceInterface>('@app/MobAIService')
 ```
 
 ### 行動ツリー (Behavior Tree) 実装
+
 ```typescript
 // ✅ 行動ノードの定義
-const BehaviorNode = Schema.TaggedUnion("type", {
+const BehaviorNode = Schema.TaggedUnion('type', {
   Sequence: Schema.Struct({
-    type: Schema.Literal("Sequence"),
-    children: Schema.Array(Schema.suspend(() => BehaviorNode))
+    type: Schema.Literal('Sequence'),
+    children: Schema.Array(Schema.suspend(() => BehaviorNode)),
   }),
   Selector: Schema.Struct({
-    type: Schema.Literal("Selector"),
-    children: Schema.Array(Schema.suspend(() => BehaviorNode))
+    type: Schema.Literal('Selector'),
+    children: Schema.Array(Schema.suspend(() => BehaviorNode)),
   }),
   Action: Schema.Struct({
-    type: Schema.Literal("Action"),
+    type: Schema.Literal('Action'),
     actionType: Schema.String,
-    parameters: Schema.Record(Schema.String, Schema.Unknown)
+    parameters: Schema.Record(Schema.String, Schema.Unknown),
   }),
   Condition: Schema.Struct({
-    type: Schema.Literal("Condition"),
+    type: Schema.Literal('Condition'),
     conditionType: Schema.String,
-    parameters: Schema.Record(Schema.String, Schema.Unknown)
-  })
+    parameters: Schema.Record(Schema.String, Schema.Unknown),
+  }),
 })
 
 type BehaviorNode = Schema.Schema.Type<typeof BehaviorNode>
 
 // ✅ 行動実行結果
-type BehaviorResult = "SUCCESS" | "FAILURE" | "RUNNING"
+type BehaviorResult = 'SUCCESS' | 'FAILURE' | 'RUNNING'
 
 // ✅ 行動ツリー実行エンジン
-const executeBehaviorNode = (
-  node: BehaviorNode,
-  context: BehaviorContext
-): Effect.Effect<BehaviorResult, AIError> =>
+const executeBehaviorNode = (node: BehaviorNode, context: BehaviorContext): Effect.Effect<BehaviorResult, AIError> =>
   Match.value(node).pipe(
-    Match.tag("Sequence", ({ children }) => executeSequence(children, context)),
-    Match.tag("Selector", ({ children }) => executeSelector(children, context)),
-    Match.tag("Action", ({ actionType, parameters }) =>
-      executeAction(actionType, parameters, context)
-    ),
-    Match.tag("Condition", ({ conditionType, parameters }) =>
-      evaluateCondition(conditionType, parameters, context)
-    ),
+    Match.tag('Sequence', ({ children }) => executeSequence(children, context)),
+    Match.tag('Selector', ({ children }) => executeSelector(children, context)),
+    Match.tag('Action', ({ actionType, parameters }) => executeAction(actionType, parameters, context)),
+    Match.tag('Condition', ({ conditionType, parameters }) => evaluateCondition(conditionType, parameters, context)),
     Match.exhaustive
   )
 ```
 
 ### ゴール指向 AI (Goal-Oriented Behavior)
+
 ```typescript
 // ✅ AIゴールの定義
-const BehaviorGoal = Schema.TaggedUnion("type", {
+const BehaviorGoal = Schema.TaggedUnion('type', {
   Idle: Schema.Struct({
-    type: Schema.Literal("Idle"),
-    wanderRadius: Schema.Number.pipe(Schema.default(() => 8))
+    type: Schema.Literal('Idle'),
+    wanderRadius: Schema.Number.pipe(Schema.default(() => 8)),
   }),
   Seek: Schema.Struct({
-    type: Schema.Literal("Seek"),
+    type: Schema.Literal('Seek'),
     targetPosition: PositionSchema,
-    acceptanceRadius: Schema.Number.pipe(Schema.default(() => 1))
+    acceptanceRadius: Schema.Number.pipe(Schema.default(() => 1)),
   }),
   Follow: Schema.Struct({
-    type: Schema.Literal("Follow"),
+    type: Schema.Literal('Follow'),
     targetEntityId: EntityIdSchema,
-    followDistance: Schema.Number.pipe(Schema.default(() => 3))
+    followDistance: Schema.Number.pipe(Schema.default(() => 3)),
   }),
   Attack: Schema.Struct({
-    type: Schema.Literal("Attack"),
+    type: Schema.Literal('Attack'),
     targetEntityId: EntityIdSchema,
-    attackRange: Schema.Number.pipe(Schema.default(() => 2))
+    attackRange: Schema.Number.pipe(Schema.default(() => 2)),
   }),
   Flee: Schema.Struct({
-    type: Schema.Literal("Flee"),
+    type: Schema.Literal('Flee'),
     dangerPosition: PositionSchema,
-    fleeDistance: Schema.Number.pipe(Schema.default(() => 10))
+    fleeDistance: Schema.Number.pipe(Schema.default(() => 10)),
   }),
   Reproduce: Schema.Struct({
-    type: Schema.Literal("Reproduce"),
+    type: Schema.Literal('Reproduce'),
     partnerEntityId: Schema.optional(EntityIdSchema),
-    breedingCooldown: Schema.Number.pipe(Schema.default(() => 300))
-  })
+    breedingCooldown: Schema.Number.pipe(Schema.default(() => 300)),
+  }),
 })
 
 type BehaviorGoal = Schema.Schema.Type<typeof BehaviorGoal>
@@ -130,33 +127,34 @@ type BehaviorGoal = Schema.Schema.Type<typeof BehaviorGoal>
 ## モブ種別システム
 
 ### モブタイプ分類
+
 ```typescript
 // ✅ モブの分類と特性定義
-const MobType = Schema.TaggedUnion("category", {
+const MobType = Schema.TaggedUnion('category', {
   Passive: Schema.Struct({
-    category: Schema.Literal("Passive"),
-    type: Schema.Literal("cow" | "sheep" | "pig" | "chicken"),
+    category: Schema.Literal('Passive'),
+    type: Schema.Literal('cow' | 'sheep' | 'pig' | 'chicken'),
     fleeOnDamage: Schema.Boolean.pipe(Schema.default(() => true)),
-    breedable: Schema.Boolean.pipe(Schema.default(() => true))
+    breedable: Schema.Boolean.pipe(Schema.default(() => true)),
   }),
   Neutral: Schema.Struct({
-    category: Schema.Literal("Neutral"),
-    type: Schema.Literal("wolf" | "bee" | "iron_golem" | "enderman"),
+    category: Schema.Literal('Neutral'),
+    type: Schema.Literal('wolf' | 'bee' | 'iron_golem' | 'enderman'),
     aggroOnDamage: Schema.Boolean.pipe(Schema.default(() => true)),
-    aggroRadius: Schema.Number.pipe(Schema.default(() => 6))
+    aggroRadius: Schema.Number.pipe(Schema.default(() => 6)),
   }),
   Hostile: Schema.Struct({
-    category: Schema.Literal("Hostile"),
-    type: Schema.Literal("zombie" | "skeleton" | "spider" | "creeper"),
+    category: Schema.Literal('Hostile'),
+    type: Schema.Literal('zombie' | 'skeleton' | 'spider' | 'creeper'),
     attackRadius: Schema.Number.pipe(Schema.default(() => 8)),
-    wanderAtNight: Schema.Boolean.pipe(Schema.default(() => true))
+    wanderAtNight: Schema.Boolean.pipe(Schema.default(() => true)),
   }),
   Boss: Schema.Struct({
-    category: Schema.Literal("Boss"),
-    type: Schema.Literal("ender_dragon" | "wither"),
+    category: Schema.Literal('Boss'),
+    type: Schema.Literal('ender_dragon' | 'wither'),
     phases: Schema.Array(BossPhaseSchema),
-    immuneToDamageTypes: Schema.Array(Schema.String)
-  })
+    immuneToDamageTypes: Schema.Array(Schema.String),
+  }),
 })
 
 type MobType = Schema.Schema.Type<typeof MobType>
@@ -168,30 +166,27 @@ const MobConfig = Schema.Struct({
   speed: Schema.Number.pipe(Schema.positive()),
   attackDamage: Schema.Number.pipe(Schema.nonnegative()),
   perceptionRange: Schema.Number.pipe(Schema.positive()),
-  aiUpdateFrequency: Schema.Number.pipe(Schema.default(() => 50)) // ms
+  aiUpdateFrequency: Schema.Number.pipe(Schema.default(() => 50)), // ms
 })
 
 type MobConfig = Schema.Schema.Type<typeof MobConfig>
 ```
 
 ### モブ特性システム
+
 ```typescript
 // ✅ 行動特性の実行
-const executeMobBehavior = (
-  mobType: MobType,
-  context: BehaviorContext
-): Effect.Effect<BehaviorResult, AIError> =>
+const executeMobBehavior = (mobType: MobType, context: BehaviorContext): Effect.Effect<BehaviorResult, AIError> =>
   Match.value(mobType).pipe(
-    Match.tag("Passive", ({ type, fleeOnDamage }) =>
+    Match.tag('Passive', ({ type, fleeOnDamage }) =>
       Effect.gen(function* () {
-        if (context.lastDamageTime && fleeOnDamage &&
-            context.currentTime - context.lastDamageTime < 5000) {
+        if (context.lastDamageTime && fleeOnDamage && context.currentTime - context.lastDamageTime < 5000) {
           return yield* executeFleeBehavior(context)
         }
         return yield* executePassiveBehavior(type, context)
       })
     ),
-    Match.tag("Neutral", ({ aggroOnDamage, aggroRadius }) =>
+    Match.tag('Neutral', ({ aggroOnDamage, aggroRadius }) =>
       Effect.gen(function* () {
         const nearbyThreats = yield* findNearbyThreats(context.position, aggroRadius)
         if (nearbyThreats.length > 0) {
@@ -200,7 +195,7 @@ const executeMobBehavior = (
         return yield* executeNeutralBehavior(context)
       })
     ),
-    Match.tag("Hostile", ({ attackRadius }) =>
+    Match.tag('Hostile', ({ attackRadius }) =>
       Effect.gen(function* () {
         const nearbyTargets = yield* findNearbyTargets(context.position, attackRadius)
         if (nearbyTargets.length > 0) {
@@ -209,9 +204,7 @@ const executeMobBehavior = (
         return yield* executePatrolBehavior(context)
       })
     ),
-    Match.tag("Boss", ({ phases, immuneToDamageTypes }) =>
-      executeBossBehavior(phases, context)
-    ),
+    Match.tag('Boss', ({ phases, immuneToDamageTypes }) => executeBossBehavior(phases, context)),
     Match.exhaustive
   )
 ```
@@ -219,27 +212,28 @@ const executeMobBehavior = (
 ## 基本行動システム
 
 ### 移動行動の実装
+
 ```typescript
 // ✅ 移動コマンドの定義
-const MovementCommand = Schema.TaggedUnion("type", {
+const MovementCommand = Schema.TaggedUnion('type', {
   MoveTo: Schema.Struct({
-    type: Schema.Literal("MoveTo"),
+    type: Schema.Literal('MoveTo'),
     destination: PositionSchema,
-    speed: Schema.Number
+    speed: Schema.Number,
   }),
   Wander: Schema.Struct({
-    type: Schema.Literal("Wander"),
+    type: Schema.Literal('Wander'),
     centerPoint: PositionSchema,
-    radius: Schema.Number
+    radius: Schema.Number,
   }),
   Follow: Schema.Struct({
-    type: Schema.Literal("Follow"),
+    type: Schema.Literal('Follow'),
     targetId: EntityIdSchema,
-    distance: Schema.Number
+    distance: Schema.Number,
   }),
   Stop: Schema.Struct({
-    type: Schema.Literal("Stop")
-  })
+    type: Schema.Literal('Stop'),
+  }),
 })
 
 type MovementCommand = Schema.Schema.Type<typeof MovementCommand>
@@ -251,12 +245,11 @@ const executeMovementCommand = (
   deltaTime: number
 ): Effect.Effect<void, AIError> =>
   Match.value(command).pipe(
-    Match.tag("MoveTo", ({ destination, speed }) =>
+    Match.tag('MoveTo', ({ destination, speed }) =>
       Effect.gen(function* () {
         const currentPos = yield* getEntityPosition(entityId)
         const direction = calculateDirection(currentPos, destination)
-        const distance = Math.min(speed * deltaTime / 1000,
-                                  calculateDistance(currentPos, destination))
+        const distance = Math.min((speed * deltaTime) / 1000, calculateDistance(currentPos, destination))
 
         if (distance < 0.1) {
           return // 到達済み
@@ -267,7 +260,7 @@ const executeMovementCommand = (
         yield* updateEntityPosition(entityId, newPosition)
       })
     ),
-    Match.tag("Wander", ({ centerPoint, radius }) =>
+    Match.tag('Wander', ({ centerPoint, radius }) =>
       Effect.gen(function* () {
         const currentPos = yield* getEntityPosition(entityId)
         const distanceFromCenter = calculateDistance(currentPos, centerPoint)
@@ -281,7 +274,7 @@ const executeMovementCommand = (
         return yield* executeDirectionalMovement(entityId, randomDirection, deltaTime)
       })
     ),
-    Match.tag("Follow", ({ targetId, distance }) =>
+    Match.tag('Follow', ({ targetId, distance }) =>
       Effect.gen(function* () {
         const targetPos = yield* getEntityPosition(targetId)
         const currentPos = yield* getEntityPosition(entityId)
@@ -293,20 +286,21 @@ const executeMovementCommand = (
         }
       })
     ),
-    Match.tag("Stop", () => Effect.succeed(undefined)),
+    Match.tag('Stop', () => Effect.succeed(undefined)),
     Match.exhaustive
   )
 ```
 
 ### 攻撃・戦闘行動
+
 ```typescript
 // ✅ 攻撃行動の定義
 const AttackBehavior = Schema.Struct({
   targetId: EntityIdSchema,
-  attackType: Schema.Literal("melee" | "ranged" | "special"),
+  attackType: Schema.Literal('melee' | 'ranged' | 'special'),
   damage: Schema.Number.pipe(Schema.positive()),
   cooldown: Schema.Number.pipe(Schema.positive()),
-  range: Schema.Number.pipe(Schema.positive())
+  range: Schema.Number.pipe(Schema.positive()),
 })
 
 type AttackBehavior = Schema.Schema.Type<typeof AttackBehavior>
@@ -324,18 +318,22 @@ const executeAttackBehavior = (
 
     // 範囲外の場合は移動
     if (distance > behavior.range) {
-      yield* executeMovementCommand({
-        type: "MoveTo",
-        destination: targetPos,
-        speed: context.baseSpeed
-      }, attackerId, context.deltaTime)
-      return "RUNNING"
+      yield* executeMovementCommand(
+        {
+          type: 'MoveTo',
+          destination: targetPos,
+          speed: context.baseSpeed,
+        },
+        attackerId,
+        context.deltaTime
+      )
+      return 'RUNNING'
     }
 
     // クールダウン確認
     const lastAttackTime = yield* getLastAttackTime(attackerId)
     if (context.currentTime - lastAttackTime < behavior.cooldown) {
-      return "RUNNING"
+      return 'RUNNING'
     }
 
     // 攻撃実行
@@ -343,33 +341,34 @@ const executeAttackBehavior = (
       attackerId,
       targetId: behavior.targetId,
       damage: behavior.damage,
-      damageType: behavior.attackType
+      damageType: behavior.attackType,
     })
 
     yield* setLastAttackTime(attackerId, context.currentTime)
-    return "SUCCESS"
+    return 'SUCCESS'
   })
 ```
 
 ### 繁殖・食事・睡眠行動
+
 ```typescript
 // ✅ 生活行動の定義
-const LifeBehavior = Schema.TaggedUnion("type", {
+const LifeBehavior = Schema.TaggedUnion('type', {
   Feed: Schema.Struct({
-    type: Schema.Literal("Feed"),
+    type: Schema.Literal('Feed'),
     foodType: Schema.String,
-    hungerThreshold: Schema.Number.pipe(Schema.default(() => 30))
+    hungerThreshold: Schema.Number.pipe(Schema.default(() => 30)),
   }),
   Sleep: Schema.Struct({
-    type: Schema.Literal("Sleep"),
+    type: Schema.Literal('Sleep'),
     bedPosition: Schema.optional(PositionSchema),
-    sleepDuration: Schema.Number.pipe(Schema.default(() => 8000))
+    sleepDuration: Schema.Number.pipe(Schema.default(() => 8000)),
   }),
   Breed: Schema.Struct({
-    type: Schema.Literal("Breed"),
+    type: Schema.Literal('Breed'),
     partnerId: Schema.optional(EntityIdSchema),
-    breedingItem: Schema.optional(Schema.String)
-  })
+    breedingItem: Schema.optional(Schema.String),
+  }),
 })
 
 type LifeBehavior = Schema.Schema.Type<typeof LifeBehavior>
@@ -380,83 +379,95 @@ const executeLifeBehavior = (
   context: BehaviorContext
 ): Effect.Effect<BehaviorResult, AIError> =>
   Match.value(behavior).pipe(
-    Match.tag("Feed", ({ foodType, hungerThreshold }) =>
+    Match.tag('Feed', ({ foodType, hungerThreshold }) =>
       Effect.gen(function* () {
         const hunger = yield* getHungerLevel(entityId)
         if (hunger > hungerThreshold) {
-          return "SUCCESS" // 満腹
+          return 'SUCCESS' // 満腹
         }
 
         const nearbyFood = yield* findNearbyFood(context.position, foodType, 8)
         if (nearbyFood.length === 0) {
-          return "FAILURE" // 食べ物が見つからない
+          return 'FAILURE' // 食べ物が見つからない
         }
 
         const closestFood = nearbyFood[0]
-        yield* executeMovementCommand({
-          type: "MoveTo",
-          destination: closestFood.position,
-          speed: context.baseSpeed
-        }, entityId, context.deltaTime)
+        yield* executeMovementCommand(
+          {
+            type: 'MoveTo',
+            destination: closestFood.position,
+            speed: context.baseSpeed,
+          },
+          entityId,
+          context.deltaTime
+        )
 
         const distance = calculateDistance(context.position, closestFood.position)
         if (distance < 1) {
           yield* consumeFood(entityId, closestFood.id)
-          return "SUCCESS"
+          return 'SUCCESS'
         }
 
-        return "RUNNING"
+        return 'RUNNING'
       })
     ),
-    Match.tag("Sleep", ({ bedPosition, sleepDuration }) =>
+    Match.tag('Sleep', ({ bedPosition, sleepDuration }) =>
       Effect.gen(function* () {
         const sleepStart = yield* getSleepStartTime(entityId)
         if (sleepStart === null) {
           // 就寝開始
           const bedPos = bedPosition ?? context.position
           yield* setSleepStartTime(entityId, context.currentTime)
-          yield* executeMovementCommand({
-            type: "MoveTo",
-            destination: bedPos,
-            speed: context.baseSpeed * 0.5
-          }, entityId, context.deltaTime)
-          return "RUNNING"
+          yield* executeMovementCommand(
+            {
+              type: 'MoveTo',
+              destination: bedPos,
+              speed: context.baseSpeed * 0.5,
+            },
+            entityId,
+            context.deltaTime
+          )
+          return 'RUNNING'
         }
 
         if (context.currentTime - sleepStart >= sleepDuration) {
           yield* setSleepStartTime(entityId, null)
-          return "SUCCESS"
+          return 'SUCCESS'
         }
 
-        return "RUNNING"
+        return 'RUNNING'
       })
     ),
-    Match.tag("Breed", ({ partnerId, breedingItem }) =>
+    Match.tag('Breed', ({ partnerId, breedingItem }) =>
       Effect.gen(function* () {
         const partner = partnerId ?? (yield* findBreedingPartner(entityId, context.position, 5))
         if (!partner) {
-          return "FAILURE"
+          return 'FAILURE'
         }
 
         if (breedingItem) {
           const hasItem = yield* hasBreedingItem(entityId, breedingItem)
           if (!hasItem) {
-            return "FAILURE"
+            return 'FAILURE'
           }
         }
 
         const distance = calculateDistance(context.position, yield* getEntityPosition(partner))
         if (distance > 2) {
-          yield* executeMovementCommand({
-            type: "MoveTo",
-            destination: yield* getEntityPosition(partner),
-            speed: context.baseSpeed
-          }, entityId, context.deltaTime)
-          return "RUNNING"
+          yield* executeMovementCommand(
+            {
+              type: 'MoveTo',
+              destination: yield* getEntityPosition(partner),
+              speed: context.baseSpeed,
+            },
+            entityId,
+            context.deltaTime
+          )
+          return 'RUNNING'
         }
 
         yield* spawnOffspring(entityId, partner, context.position)
-        return "SUCCESS"
+        return 'SUCCESS'
       })
     ),
     Match.exhaustive
@@ -465,7 +476,8 @@ const executeLifeBehavior = (
 
 ## パスファインディング
 
-### A* アルゴリズム実装
+### A\* アルゴリズム実装
+
 ```typescript
 // ✅ A* パスファインディング
 const AStarNode = Schema.Struct({
@@ -473,7 +485,7 @@ const AStarNode = Schema.Struct({
   gCost: Schema.Number, // スタートからのコスト
   hCost: Schema.Number, // ゴールまでの推定コスト
   fCost: Schema.Number, // gCost + hCost
-  parent: Schema.optional(Schema.suspend(() => AStarNode))
+  parent: Schema.optional(Schema.suspend(() => AStarNode)),
 })
 
 type AStarNode = Schema.Schema.Type<typeof AStarNode>
@@ -487,7 +499,7 @@ const findPath = (
   Effect.gen(function* () {
     // 早期リターン: 開始位置と目標位置の検証
     if (!isValidPosition(start, worldBounds) || !isValidPosition(goal, worldBounds)) {
-      return yield* Effect.fail(createPathfindingError("Invalid start or goal position"))
+      return yield* Effect.fail(createPathfindingError('Invalid start or goal position'))
     }
 
     const openSet = new MinHeap<AStarNode>((a, b) => a.fCost - b.fCost)
@@ -497,7 +509,7 @@ const findPath = (
       gCost: 0,
       hCost: calculateHeuristic(start, goal),
       fCost: calculateHeuristic(start, goal),
-      parent: undefined
+      parent: undefined,
     }
 
     openSet.insert(startNode)
@@ -527,14 +539,14 @@ const findPath = (
           gCost,
           hCost,
           fCost: gCost + hCost,
-          parent: current
+          parent: current,
         }
 
         openSet.insert(neighbor)
       }
     }
 
-    return yield* Effect.fail(createPathfindingError("No path found"))
+    return yield* Effect.fail(createPathfindingError('No path found'))
   })
 
 // ✅ ヒューリスティック関数（マンハッタン距離）
@@ -556,6 +568,7 @@ const reconstructPath = (node: AStarNode): Position[] => {
 ```
 
 ### JPS (Jump Point Search) 最適化
+
 ```typescript
 // ✅ Jump Point Search実装
 const jumpPointSearch = (
@@ -574,7 +587,7 @@ const jumpPointSearch = (
       hCost: calculateHeuristic(start, goal),
       fCost: calculateHeuristic(start, goal),
       parent: undefined,
-      direction: undefined
+      direction: undefined,
     }
 
     openSet.insert(startNode)
@@ -600,7 +613,7 @@ const jumpPointSearch = (
       }
     }
 
-    return yield* Effect.fail(createPathfindingError("No path found with JPS"))
+    return yield* Effect.fail(createPathfindingError('No path found with JPS'))
   })
 
 // ✅ ジャンプポイント発見
@@ -642,13 +655,14 @@ const jump = (
 ```
 
 ### 群衆回避システム
+
 ```typescript
 // ✅ 群衆回避 (Crowd Avoidance)
 const CrowdAvoidanceConfig = Schema.Struct({
   separationRadius: Schema.Number.pipe(Schema.default(() => 2)),
   separationStrength: Schema.Number.pipe(Schema.default(() => 1.5)),
   avoidanceRadius: Schema.Number.pipe(Schema.default(() => 3)),
-  maxAvoidanceForce: Schema.Number.pipe(Schema.default(() => 2))
+  maxAvoidanceForce: Schema.Number.pipe(Schema.default(() => 2)),
 })
 
 type CrowdAvoidanceConfig = Schema.Schema.Type<typeof CrowdAvoidanceConfig>
@@ -675,13 +689,7 @@ const applyCrowdAvoidance = (
     )
 
     // RVO (Reciprocal Velocity Obstacles) による衝突回避
-    const avoidanceForce = yield* calculateRVOForce(
-      entityId,
-      position,
-      desiredVelocity,
-      nearbyEntities,
-      config
-    )
+    const avoidanceForce = yield* calculateRVOForce(entityId, position, desiredVelocity, nearbyEntities, config)
 
     const combinedForce = addVectors(separationForce, avoidanceForce)
     const clampedForce = clampVector(combinedForce, config.maxAvoidanceForce)
@@ -719,14 +727,9 @@ const calculateRVOForce = (
       )
 
       if (timeToCollision > 0 && timeToCollision < 2) {
-        const avoidanceDirection = normalizeVector(
-          crossProduct(relativePosition, createVector(0, 1, 0))
-        )
+        const avoidanceDirection = normalizeVector(crossProduct(relativePosition, createVector(0, 1, 0)))
         const forceMagnitude = (2 - timeToCollision) / timeToCollision
-        avoidanceForce = addVectors(
-          avoidanceForce,
-          scaleVector(avoidanceDirection, forceMagnitude)
-        )
+        avoidanceForce = addVectors(avoidanceForce, scaleVector(avoidanceDirection, forceMagnitude))
       }
     }
 
@@ -737,25 +740,26 @@ const calculateRVOForce = (
 ## 知覚システム
 
 ### 視界・聴覚・匂いシステム
+
 ```typescript
 // ✅ 知覚システムの定義
-const PerceptionType = Schema.TaggedUnion("type", {
+const PerceptionType = Schema.TaggedUnion('type', {
   Vision: Schema.Struct({
-    type: Schema.Literal("Vision"),
+    type: Schema.Literal('Vision'),
     range: Schema.Number.pipe(Schema.positive()),
     fieldOfView: Schema.Number.pipe(Schema.default(() => 120)), // 度
-    requiresLineOfSight: Schema.Boolean.pipe(Schema.default(() => true))
+    requiresLineOfSight: Schema.Boolean.pipe(Schema.default(() => true)),
   }),
   Hearing: Schema.Struct({
-    type: Schema.Literal("Hearing"),
+    type: Schema.Literal('Hearing'),
     range: Schema.Number.pipe(Schema.positive()),
-    sensitivityThreshold: Schema.Number.pipe(Schema.default(() => 0.3))
+    sensitivityThreshold: Schema.Number.pipe(Schema.default(() => 0.3)),
   }),
   Smell: Schema.Struct({
-    type: Schema.Literal("Smell"),
+    type: Schema.Literal('Smell'),
     range: Schema.Number.pipe(Schema.positive()),
-    scentsTracked: Schema.Array(Schema.String)
-  })
+    scentsTracked: Schema.Array(Schema.String),
+  }),
 })
 
 type PerceptionType = Schema.Schema.Type<typeof PerceptionType>
@@ -766,7 +770,7 @@ const PerceptionData = Schema.Struct({
   position: PositionSchema,
   perceptionType: PerceptionType,
   strength: Schema.Number.pipe(Schema.between(0, 1)),
-  timestamp: Schema.Number
+  timestamp: Schema.Number,
 })
 
 type PerceptionData = Schema.Schema.Type<typeof PerceptionData>
@@ -781,15 +785,15 @@ const updatePerception = (
     const facing = yield* getEntityFacing(entityId)
 
     const perceptions = yield* Effect.all(
-      perceptionTypes.map(perception =>
+      perceptionTypes.map((perception) =>
         Match.value(perception).pipe(
-          Match.tag("Vision", ({ range, fieldOfView, requiresLineOfSight }) =>
+          Match.tag('Vision', ({ range, fieldOfView, requiresLineOfSight }) =>
             detectVisionTargets(entityId, position, facing, range, fieldOfView, requiresLineOfSight)
           ),
-          Match.tag("Hearing", ({ range, sensitivityThreshold }) =>
+          Match.tag('Hearing', ({ range, sensitivityThreshold }) =>
             detectAudioTargets(entityId, position, range, sensitivityThreshold)
           ),
-          Match.tag("Smell", ({ range, scentsTracked }) =>
+          Match.tag('Smell', ({ range, scentsTracked }) =>
             detectScentTargets(entityId, position, range, scentsTracked)
           ),
           Match.exhaustive
@@ -830,18 +834,18 @@ const detectVisionTargets = (
         if (!hasLineOfSight) continue
       }
 
-      const strength = 1 - (distance / range) // 距離に基づく強度
+      const strength = 1 - distance / range // 距離に基づく強度
       detectedTargets.push({
         entityId: entity.id,
         position: entity.position,
         perceptionType: {
-          type: "Vision",
+          type: 'Vision',
           range,
           fieldOfView,
-          requiresLineOfSight
+          requiresLineOfSight,
         },
         strength,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     }
 
@@ -870,12 +874,12 @@ const detectAudioTargets = (
           entityId: source.sourceId,
           position: source.position,
           perceptionType: {
-            type: "Hearing",
+            type: 'Hearing',
             range,
-            sensitivityThreshold: threshold
+            sensitivityThreshold: threshold,
           },
           strength: attenuatedVolume,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
       }
     }
@@ -887,6 +891,7 @@ const detectAudioTargets = (
 ## 群体行動システム
 
 ### フロッキング (Boids) アルゴリズム
+
 ```typescript
 // ✅ フロッキング行動の定義
 const FlockingConfig = Schema.Struct({
@@ -897,7 +902,7 @@ const FlockingConfig = Schema.Struct({
   alignmentWeight: Schema.Number.pipe(Schema.default(() => 1.0)),
   cohesionWeight: Schema.Number.pipe(Schema.default(() => 1.0)),
   maxSpeed: Schema.Number.pipe(Schema.default(() => 5)),
-  maxForce: Schema.Number.pipe(Schema.default(() => 2))
+  maxForce: Schema.Number.pipe(Schema.default(() => 2)),
 })
 
 type FlockingConfig = Schema.Schema.Type<typeof FlockingConfig>
@@ -939,11 +944,7 @@ const calculateFlockingBehavior = (
   })
 
 // ✅ 分離力の計算
-const calculateSeparation = (
-  position: Position,
-  neighbors: EntityInfo[],
-  separationRadius: number
-): Vector3 => {
+const calculateSeparation = (position: Position, neighbors: EntityInfo[], separationRadius: number): Vector3 => {
   let separationForce = createZeroVector()
   let count = 0
 
@@ -967,10 +968,7 @@ const calculateSeparation = (
 }
 
 // ✅ 整列力の計算
-const calculateAlignment = (
-  neighbors: EntityInfo[],
-  alignmentRadius: number
-): Effect.Effect<Vector3, AIError> =>
+const calculateAlignment = (neighbors: EntityInfo[], alignmentRadius: number): Effect.Effect<Vector3, AIError> =>
   Effect.gen(function* () {
     let averageVelocity = createZeroVector()
     let count = 0
@@ -990,11 +988,7 @@ const calculateAlignment = (
   })
 
 // ✅ 結束力の計算
-const calculateCohesion = (
-  position: Position,
-  neighbors: EntityInfo[],
-  cohesionRadius: number
-): Vector3 => {
+const calculateCohesion = (position: Position, neighbors: EntityInfo[], cohesionRadius: number): Vector3 => {
   let centerOfMass = createZeroVector()
   let count = 0
 
@@ -1017,6 +1011,7 @@ const calculateCohesion = (
 ```
 
 ### リーダー追従システム
+
 ```typescript
 // ✅ リーダー追従設定
 const LeaderFollowConfig = Schema.Struct({
@@ -1025,7 +1020,7 @@ const LeaderFollowConfig = Schema.Struct({
   maxFollowDistance: Schema.Number.pipe(Schema.default(() => 10)),
   leaderPredictionTime: Schema.Number.pipe(Schema.default(() => 1)), // 秒
   arrivalRadius: Schema.Number.pipe(Schema.default(() => 2)),
-  separationFromOthers: Schema.Boolean.pipe(Schema.default(() => true))
+  separationFromOthers: Schema.Boolean.pipe(Schema.default(() => true)),
 })
 
 type LeaderFollowConfig = Schema.Schema.Type<typeof LeaderFollowConfig>
@@ -1042,17 +1037,11 @@ const calculateLeaderFollowing = (
     const leaderVel = yield* getEntityVelocity(config.leaderId)
 
     // リーダーの未来位置を予測
-    const predictedPos = addVectors(
-      leaderPos,
-      scaleVector(leaderVel, config.leaderPredictionTime)
-    )
+    const predictedPos = addVectors(leaderPos, scaleVector(leaderVel, config.leaderPredictionTime))
 
     // リーダーの後方位置を計算
     const leaderDirection = normalizeVector(leaderVel)
-    const behindLeader = addVectors(
-      predictedPos,
-      scaleVector(leaderDirection, -config.followDistance)
-    )
+    const behindLeader = addVectors(predictedPos, scaleVector(leaderDirection, -config.followDistance))
 
     // 現在位置との距離
     const distanceToLeader = calculateDistance(position, leaderPos)
@@ -1064,12 +1053,7 @@ const calculateLeaderFollowing = (
     }
 
     // 到着行動: 後方位置への移動
-    const arrivalForce = calculateArrival(
-      position,
-      behindLeader,
-      velocity,
-      config.arrivalRadius
-    )
+    const arrivalForce = calculateArrival(position, behindLeader, velocity, config.arrivalRadius)
 
     // 他のフォロワーとの分離
     let separationForce = createZeroVector()
@@ -1083,12 +1067,7 @@ const calculateLeaderFollowing = (
   })
 
 // ✅ 到着行動
-const calculateArrival = (
-  position: Position,
-  target: Position,
-  velocity: Vector3,
-  arrivalRadius: number
-): Vector3 => {
+const calculateArrival = (position: Position, target: Position, velocity: Vector3, arrivalRadius: number): Vector3 => {
   const desired = subtractVectors(target, position)
   const distance = vectorMagnitude(desired)
 
@@ -1112,23 +1091,22 @@ const calculateArrival = (
 ## ダメージ・戦闘システム統合
 
 ### 戦闘インタラクション
+
 ```typescript
 // ✅ 戦闘システム統合
 const CombatIntegration = Schema.Struct({
   attacker: EntityIdSchema,
   target: EntityIdSchema,
   damageAmount: Schema.Number.pipe(Schema.positive()),
-  damageType: Schema.Literal("melee" | "ranged" | "magic" | "environmental"),
+  damageType: Schema.Literal('melee' | 'ranged' | 'magic' | 'environmental'),
   knockback: Schema.optional(Vector3Schema),
-  statusEffects: Schema.Array(StatusEffectSchema)
+  statusEffects: Schema.Array(StatusEffectSchema),
 })
 
 type CombatIntegration = Schema.Schema.Type<typeof CombatIntegration>
 
 // ✅ 戦闘処理とAI反応
-const processCombatInteraction = (
-  combatData: CombatIntegration
-): Effect.Effect<void, CombatError> =>
+const processCombatInteraction = (combatData: CombatIntegration): Effect.Effect<void, CombatError> =>
   Effect.gen(function* () {
     // ダメージ適用
     yield* applyDamage(combatData.target, combatData.damageAmount, combatData.damageType)
@@ -1144,18 +1122,15 @@ const processCombatInteraction = (
     }
 
     // AI反応の発動
-    yield* triggerAIReaction(combatData.target, combatData.attacker, "attacked")
-    yield* triggerAIReaction(combatData.attacker, combatData.target, "attacked_entity")
+    yield* triggerAIReaction(combatData.target, combatData.attacker, 'attacked')
+    yield* triggerAIReaction(combatData.attacker, combatData.target, 'attacked_entity')
 
     // 近くのモブへの影響
-    const nearbyMobs = yield* findNearbyMobs(
-      yield* getEntityPosition(combatData.target),
-      8
-    )
+    const nearbyMobs = yield* findNearbyMobs(yield* getEntityPosition(combatData.target), 8)
 
     for (const mob of nearbyMobs) {
       if (mob.id !== combatData.target && mob.id !== combatData.attacker) {
-        yield* triggerAIReaction(mob.id, combatData.attacker, "witnessed_combat")
+        yield* triggerAIReaction(mob.id, combatData.attacker, 'witnessed_combat')
       }
     }
   })
@@ -1170,19 +1145,19 @@ const triggerAIReaction = (
     const mobType = yield* getMobType(entityId)
 
     yield* Match.value(reactionType).pipe(
-      Match.when("attacked", () =>
+      Match.when('attacked', () =>
         Effect.gen(function* () {
           // 攻撃されたときの反応
           yield* Match.value(mobType.category).pipe(
-            Match.tag("Passive", () =>
+            Match.tag('Passive', () =>
               // 逃走行動を追加
               setBehaviorGoal(entityId, {
-                type: "Flee",
+                type: 'Flee',
                 dangerPosition: yield* getEntityPosition(triggerEntity),
-                fleeDistance: 15
+                fleeDistance: 15,
               })
             ),
-            Match.tag("Neutral", () =>
+            Match.tag('Neutral', () =>
               // 反撃または逃走
               Effect.gen(function* () {
                 const health = yield* getEntityHealth(entityId)
@@ -1191,45 +1166,45 @@ const triggerAIReaction = (
                 if (health / maxHealth < 0.3) {
                   // 体力が低い場合は逃走
                   yield* setBehaviorGoal(entityId, {
-                    type: "Flee",
+                    type: 'Flee',
                     dangerPosition: yield* getEntityPosition(triggerEntity),
-                    fleeDistance: 20
+                    fleeDistance: 20,
                   })
                 } else {
                   // 反撃
                   yield* setBehaviorGoal(entityId, {
-                    type: "Attack",
+                    type: 'Attack',
                     targetEntityId: triggerEntity,
-                    attackRange: 2
+                    attackRange: 2,
                   })
                 }
               })
             ),
-            Match.tag("Hostile", () =>
+            Match.tag('Hostile', () =>
               // 積極的に攻撃
               setBehaviorGoal(entityId, {
-                type: "Attack",
+                type: 'Attack',
                 targetEntityId: triggerEntity,
-                attackRange: 3
+                attackRange: 3,
               })
             ),
             Match.orElse(() => Effect.succeed(undefined))
           )
         })
       ),
-      Match.when("witnessed_combat", () =>
+      Match.when('witnessed_combat', () =>
         // 戦闘を目撃した場合の反応
         Effect.gen(function* () {
           const relationship = yield* getEntityRelationship(entityId, triggerEntity)
 
-          if (relationship === "hostile") {
+          if (relationship === 'hostile') {
             // 敵対的な場合は参戦
             yield* setBehaviorGoal(entityId, {
-              type: "Attack",
+              type: 'Attack',
               targetEntityId: triggerEntity,
-              attackRange: 3
+              attackRange: 3,
             })
-          } else if (relationship === "neutral") {
+          } else if (relationship === 'neutral') {
             // 中立的な場合は警戒
             yield* increaseAlertLevel(entityId, 0.3)
           }
@@ -1241,6 +1216,7 @@ const triggerAIReaction = (
 ```
 
 ### ヘルスシステム統合
+
 ```typescript
 // ✅ ヘルス管理とAI状態連動
 const HealthAIIntegration = Schema.Struct({
@@ -1248,15 +1224,13 @@ const HealthAIIntegration = Schema.Struct({
   currentHealth: Schema.Number.pipe(Schema.nonnegative()),
   maxHealth: Schema.Number.pipe(Schema.positive()),
   regenerationRate: Schema.Number.pipe(Schema.nonnegative()),
-  lastDamageTime: Schema.optional(Schema.Number)
+  lastDamageTime: Schema.optional(Schema.Number),
 })
 
 type HealthAIIntegration = Schema.Schema.Type<typeof HealthAIIntegration>
 
 // ✅ ヘルス変化に基づくAI調整
-const adjustAIBasedOnHealth = (
-  healthData: HealthAIIntegration
-): Effect.Effect<void, AIError> =>
+const adjustAIBasedOnHealth = (healthData: HealthAIIntegration): Effect.Effect<void, AIError> =>
   Effect.gen(function* () {
     const healthPercentage = healthData.currentHealth / healthData.maxHealth
 
@@ -1264,25 +1238,25 @@ const adjustAIBasedOnHealth = (
     if (healthPercentage < 0.2) {
       // 緊急逃走モード
       yield* setBehaviorGoal(healthData.entityId, {
-        type: "Flee",
+        type: 'Flee',
         dangerPosition: yield* getEntityPosition(healthData.entityId),
-        fleeDistance: 25
+        fleeDistance: 25,
       })
-      yield* increaseEmotionalState(healthData.entityId, "fear", 0.8)
+      yield* increaseEmotionalState(healthData.entityId, 'fear', 0.8)
     } else if (healthPercentage < 0.5) {
       // 防御的行動
-      yield* increaseEmotionalState(healthData.entityId, "fear", 0.3)
-      yield* decreaseEmotionalState(healthData.entityId, "aggression", 0.2)
+      yield* increaseEmotionalState(healthData.entityId, 'fear', 0.3)
+      yield* decreaseEmotionalState(healthData.entityId, 'aggression', 0.2)
     } else if (healthPercentage > 0.8) {
       // 積極的行動
-      yield* increaseEmotionalState(healthData.entityId, "aggression", 0.1)
+      yield* increaseEmotionalState(healthData.entityId, 'aggression', 0.1)
     }
 
     // 再生中は休息行動を優先
     if (healthData.regenerationRate > 0 && healthPercentage < 1.0) {
       yield* setBehaviorGoal(healthData.entityId, {
-        type: "Idle",
-        wanderRadius: 2 // 移動を制限
+        type: 'Idle',
+        wanderRadius: 2, // 移動を制限
       })
     }
   })
@@ -1291,6 +1265,7 @@ const adjustAIBasedOnHealth = (
 ## パフォーマンス最適化
 
 ### LOD (Level of Detail) システム
+
 ```typescript
 // ✅ AI LOD設定
 const AILODConfig = Schema.Struct({
@@ -1301,40 +1276,30 @@ const AILODConfig = Schema.Struct({
     high: Schema.Number.pipe(Schema.default(() => 50)), // ms
     medium: Schema.Number.pipe(Schema.default(() => 100)),
     low: Schema.Number.pipe(Schema.default(() => 500)),
-    inactive: Schema.Number.pipe(Schema.default(() => 2000))
-  })
+    inactive: Schema.Number.pipe(Schema.default(() => 2000)),
+  }),
 })
 
 type AILODConfig = Schema.Schema.Type<typeof AILODConfig>
 
-type AILODLevel = "HIGH" | "MEDIUM" | "LOW" | "INACTIVE"
+type AILODLevel = 'HIGH' | 'MEDIUM' | 'LOW' | 'INACTIVE'
 
 // ✅ LOD計算
-const calculateAILOD = (
-  mobPosition: Position,
-  playerPositions: Position[],
-  config: AILODConfig
-): AILODLevel => {
+const calculateAILOD = (mobPosition: Position, playerPositions: Position[], config: AILODConfig): AILODLevel => {
   const nearestPlayerDistance = Math.min(
-    ...playerPositions.map(playerPos =>
-      calculateDistance(mobPosition, playerPos)
-    )
+    ...playerPositions.map((playerPos) => calculateDistance(mobPosition, playerPos))
   )
 
-  if (nearestPlayerDistance <= config.highDetailDistance) return "HIGH"
-  if (nearestPlayerDistance <= config.mediumDetailDistance) return "MEDIUM"
-  if (nearestPlayerDistance <= config.lowDetailDistance) return "LOW"
-  return "INACTIVE"
+  if (nearestPlayerDistance <= config.highDetailDistance) return 'HIGH'
+  if (nearestPlayerDistance <= config.mediumDetailDistance) return 'MEDIUM'
+  if (nearestPlayerDistance <= config.lowDetailDistance) return 'LOW'
+  return 'INACTIVE'
 }
 
 // ✅ LODベースAI更新
-const updateAIWithLOD = (
-  entityId: EntityId,
-  lodLevel: AILODLevel,
-  deltaTime: number
-): Effect.Effect<void, AIError> =>
+const updateAIWithLOD = (entityId: EntityId, lodLevel: AILODLevel, deltaTime: number): Effect.Effect<void, AIError> =>
   Match.value(lodLevel).pipe(
-    Match.when("HIGH", () =>
+    Match.when('HIGH', () =>
       Effect.gen(function* () {
         // フル AI処理
         yield* updateFullBehaviorTree(entityId, deltaTime)
@@ -1343,7 +1308,7 @@ const updateAIWithLOD = (
         yield* updateFlockingBehavior(entityId)
       })
     ),
-    Match.when("MEDIUM", () =>
+    Match.when('MEDIUM', () =>
       Effect.gen(function* () {
         // 簡素化AI処理
         yield* updateSimplifiedBehavior(entityId, deltaTime)
@@ -1351,14 +1316,14 @@ const updateAIWithLOD = (
         yield* updateSimpleMovement(entityId)
       })
     ),
-    Match.when("LOW", () =>
+    Match.when('LOW', () =>
       Effect.gen(function* () {
         // 最小限AI処理
         yield* updateMinimalBehavior(entityId, deltaTime)
         yield* updateOccasionalMovement(entityId)
       })
     ),
-    Match.when("INACTIVE", () =>
+    Match.when('INACTIVE', () =>
       Effect.gen(function* () {
         // AI停止、状態保存のみ
         yield* saveAIState(entityId)
@@ -1369,6 +1334,7 @@ const updateAIWithLOD = (
 ```
 
 ### CPU分散処理
+
 ```typescript
 // ✅ AI更新の分散処理
 const AIUpdateScheduler = Schema.Struct({
@@ -1377,8 +1343,8 @@ const AIUpdateScheduler = Schema.Struct({
   priorityWeights: Schema.Struct({
     playerDistance: Schema.Number.pipe(Schema.default(() => 0.4)),
     behaviorComplexity: Schema.Number.pipe(Schema.default(() => 0.3)),
-    lastUpdateTime: Schema.Number.pipe(Schema.default(() => 0.3))
-  })
+    lastUpdateTime: Schema.Number.pipe(Schema.default(() => 0.3)),
+  }),
 })
 
 type AIUpdateScheduler = Schema.Schema.Type<typeof AIUpdateScheduler>
@@ -1414,21 +1380,21 @@ const updateAIEntitiesDistributed = (
 // ✅ 優先度計算
 const prioritizeEntitiesForUpdate = (
   entities: EntityId[],
-  weights: AIUpdateScheduler["priorityWeights"]
+  weights: AIUpdateScheduler['priorityWeights']
 ): Effect.Effect<EntityId[], AIError> =>
   Effect.gen(function* () {
     const playerPositions = yield* getAllPlayerPositions()
     const currentTime = Date.now()
 
     const prioritizedEntities = yield* Effect.all(
-      entities.map(entityId =>
+      entities.map((entityId) =>
         Effect.gen(function* () {
           const position = yield* getEntityPosition(entityId)
           const lastUpdate = yield* getLastUpdateTime(entityId)
           const behaviorComplexity = yield* getBehaviorComplexity(entityId)
 
           const nearestPlayerDistance = Math.min(
-            ...playerPositions.map(playerPos => calculateDistance(position, playerPos))
+            ...playerPositions.map((playerPos) => calculateDistance(position, playerPos))
           )
 
           // 正規化されたスコア計算
@@ -1446,136 +1412,136 @@ const prioritizeEntitiesForUpdate = (
       )
     )
 
-    return prioritizedEntities
-      .sort((a, b) => b.priority - a.priority)
-      .map(item => item.entityId)
+    return prioritizedEntities.sort((a, b) => b.priority - a.priority).map((item) => item.entityId)
   })
 ```
 
 ## 実装例
 
 ### 基本的なゾンビAI
+
 ```typescript
 // ✅ ゾンビAI実装例
 const createZombieAI = (): Effect.Effect<BehaviorNode, never> =>
   Effect.succeed({
-    type: "Selector",
+    type: 'Selector',
     children: [
       // 攻撃行動
       {
-        type: "Sequence",
+        type: 'Sequence',
         children: [
           {
-            type: "Condition",
-            conditionType: "hasTarget",
-            parameters: { range: 8 }
+            type: 'Condition',
+            conditionType: 'hasTarget',
+            parameters: { range: 8 },
           },
           {
-            type: "Action",
-            actionType: "attack",
-            parameters: { damage: 4, range: 2, cooldown: 1000 }
-          }
-        ]
+            type: 'Action',
+            actionType: 'attack',
+            parameters: { damage: 4, range: 2, cooldown: 1000 },
+          },
+        ],
       },
       // 探索行動
       {
-        type: "Sequence",
+        type: 'Sequence',
         children: [
           {
-            type: "Condition",
-            conditionType: "noTarget",
-            parameters: {}
+            type: 'Condition',
+            conditionType: 'noTarget',
+            parameters: {},
           },
           {
-            type: "Action",
-            actionType: "seekPlayer",
-            parameters: { searchRadius: 16, speed: 2 }
-          }
-        ]
+            type: 'Action',
+            actionType: 'seekPlayer',
+            parameters: { searchRadius: 16, speed: 2 },
+          },
+        ],
       },
       // デフォルト: 徘徊
       {
-        type: "Action",
-        actionType: "wander",
-        parameters: { radius: 5, speed: 1 }
-      }
-    ]
+        type: 'Action',
+        actionType: 'wander',
+        parameters: { radius: 5, speed: 1 },
+      },
+    ],
   })
 
 // ✅ 牛AIの実装例
 const createCowAI = (): Effect.Effect<BehaviorNode, never> =>
   Effect.succeed({
-    type: "Selector",
+    type: 'Selector',
     children: [
       // 逃走行動（ダメージを受けた場合）
       {
-        type: "Sequence",
+        type: 'Sequence',
         children: [
           {
-            type: "Condition",
-            conditionType: "recentlyDamaged",
-            parameters: { timeThreshold: 5000 }
+            type: 'Condition',
+            conditionType: 'recentlyDamaged',
+            parameters: { timeThreshold: 5000 },
           },
           {
-            type: "Action",
-            actionType: "flee",
-            parameters: { fleeDistance: 10, speed: 4 }
-          }
-        ]
+            type: 'Action',
+            actionType: 'flee',
+            parameters: { fleeDistance: 10, speed: 4 },
+          },
+        ],
       },
       // 繁殖行動
       {
-        type: "Sequence",
+        type: 'Sequence',
         children: [
           {
-            type: "Condition",
-            conditionType: "canBreed",
-            parameters: { cooldown: 300000, item: "wheat" }
+            type: 'Condition',
+            conditionType: 'canBreed',
+            parameters: { cooldown: 300000, item: 'wheat' },
           },
           {
-            type: "Condition",
-            conditionType: "nearbyPartner",
-            parameters: { range: 5 }
+            type: 'Condition',
+            conditionType: 'nearbyPartner',
+            parameters: { range: 5 },
           },
           {
-            type: "Action",
-            actionType: "breed",
-            parameters: { approachDistance: 2 }
-          }
-        ]
+            type: 'Action',
+            actionType: 'breed',
+            parameters: { approachDistance: 2 },
+          },
+        ],
       },
       // 食事行動
       {
-        type: "Sequence",
+        type: 'Sequence',
         children: [
           {
-            type: "Condition",
-            conditionType: "hungry",
-            parameters: { threshold: 50 }
+            type: 'Condition',
+            conditionType: 'hungry',
+            parameters: { threshold: 50 },
           },
           {
-            type: "Condition",
-            conditionType: "nearbyGrass",
-            parameters: { range: 8 }
+            type: 'Condition',
+            conditionType: 'nearbyGrass',
+            parameters: { range: 8 },
           },
           {
-            type: "Action",
-            actionType: "eatGrass",
-            parameters: { approachDistance: 1 }
-          }
-        ]
+            type: 'Action',
+            actionType: 'eatGrass',
+            parameters: { approachDistance: 1 },
+          },
+        ],
       },
       // デフォルト: 徘徊
       {
-        type: "Action",
-        actionType: "wander",
-        parameters: { radius: 8, speed: 1.2 }
-      }
-    ]
+        type: 'Action',
+        actionType: 'wander',
+        parameters: { radius: 8, speed: 1.2 },
+      },
+    ],
   })
 ```
 
 ### サービス実装例
+
 ```typescript
 // ✅ MobAIService実装
 const makeMobAIServiceLive = Effect.gen(function* () {
@@ -1600,8 +1566,8 @@ const makeMobAIServiceLive = Effect.gen(function* () {
             priorityWeights: {
               playerDistance: 0.4,
               behaviorComplexity: 0.3,
-              lastUpdateTime: 0.3
-            }
+              lastUpdateTime: 0.3,
+            },
           },
           deltaTime
         )
@@ -1612,38 +1578,38 @@ const makeMobAIServiceLive = Effect.gen(function* () {
         const entityId = yield* entitySystem.createEntity()
 
         // AIコンポーネント追加
-        yield* entitySystem.addComponent(entityId, "AI", {
+        yield* entitySystem.addComponent(entityId, 'AI', {
           mobType: mobConfig.mobType,
           behaviorTree: yield* createBehaviorTreeForMobType(mobConfig.mobType),
           lastUpdate: Date.now(),
-          currentGoal: { type: "Idle", wanderRadius: 8 }
+          currentGoal: { type: 'Idle', wanderRadius: 8 },
         })
 
         // 物理コンポーネント追加
-        yield* entitySystem.addComponent(entityId, "Physics", {
+        yield* entitySystem.addComponent(entityId, 'Physics', {
           velocity: createZeroVector(),
           acceleration: createZeroVector(),
-          maxSpeed: mobConfig.speed
+          maxSpeed: mobConfig.speed,
         })
 
         // 知覚コンポーネント追加
-        yield* entitySystem.addComponent(entityId, "Perception", {
+        yield* entitySystem.addComponent(entityId, 'Perception', {
           perceptionTypes: [
             {
-              type: "Vision",
+              type: 'Vision',
               range: mobConfig.perceptionRange,
               fieldOfView: 120,
-              requiresLineOfSight: true
-            }
+              requiresLineOfSight: true,
+            },
           ],
-          lastPerceptions: []
+          lastPerceptions: [],
         })
 
         activeMobs.set(entityId, {
           entityId,
           mobConfig,
           lastUpdateTime: Date.now(),
-          behaviorState: "RUNNING"
+          behaviorState: 'RUNNING',
         })
 
         return entityId
@@ -1659,13 +1625,13 @@ const makeMobAIServiceLive = Effect.gen(function* () {
       Effect.gen(function* () {
         const aiState = activeMobs.get(entityId)
         if (!aiState) {
-          return yield* Effect.fail(createAIError("Entity not found"))
+          return yield* Effect.fail(createAIError('Entity not found'))
         }
 
-        yield* entitySystem.updateComponent(entityId, "AI", {
-          currentGoal: goal
+        yield* entitySystem.updateComponent(entityId, 'AI', {
+          currentGoal: goal,
         })
-      })
+      }),
   })
 })
 
@@ -1677,19 +1643,22 @@ const MobAIServiceLive = Layer.effect(MobAIService, makeMobAIServiceLive)
 Mob AI System は以下の特徴を持つ高度なシステムです：
 
 ### 主要機能
+
 - **階層的行動制御**: 行動ツリーとゴール指向AIの組み合わせ
-- **高性能パスファインディング**: A*とJPSによる最適経路計算
+- **高性能パスファインディング**: A\*とJPSによる最適経路計算
 - **包括的知覚システム**: 視界・聴覚・嗅覚による環境認識
 - **群体行動**: フロッキングとリーダー追従による自然な集団行動
 - **適応的LODシステム**: プレイヤー距離に基づく処理負荷調整
 
 ### パフォーマンス特性
+
 - **Structure of Arrays**: キャッシュ効率の良いデータレイアウト
 - **分散処理**: フレーム予算内でのAI更新分散
 - **LOD最適化**: 距離に応じた処理詳細度調整
 - **メモリ効率**: TypedArraysによる高速データアクセス
 
 ### 拡張性
+
 - **モジュラー設計**: 行動・知覚・移動の独立したコンポーネント
 - **型安全**: Effect-TSとSchemaによる堅牢な実装
 - **テスト可能**: 純粋関数による決定的なテスト

@@ -1,14 +1,19 @@
 ---
-title: "スケーラブルアーキテクチャ設計 - 企業レベルGame Engine構築"
-description: "Effect-TS 3.17+とClean Architectureを活用したスケーラブルなゲームエンジン設計。Netflix、Spotify級の大規模システム設計原則をMinecraft Clone開発に適用した実践ガイド。"
-category: "architecture"
-difficulty: "advanced"
-tags: ["scalable-architecture", "clean-architecture", "effect-ts", "enterprise-patterns", "system-design", "game-engine"]
-prerequisites: ["clean-architecture-concepts", "effect-ts-advanced", "system-design-fundamentals"]
-estimated_reading_time: "30分"
-related_docs: ["./architecture-overview.md", "../design-patterns/service-patterns.md", "../../tutorials/effect-ts-fundamentals/effect-ts-advanced.md"]
+title: 'スケーラブルアーキテクチャ設計 - 企業レベルGame Engine構築'
+description: 'Effect-TS 3.17+とClean Architectureを活用したスケーラブルなゲームエンジン設計。Netflix、Spotify級の大規模システム設計原則をMinecraft Clone開発に適用した実践ガイド。'
+category: 'architecture'
+difficulty: 'advanced'
+tags:
+  ['scalable-architecture', 'clean-architecture', 'effect-ts', 'enterprise-patterns', 'system-design', 'game-engine']
+prerequisites: ['clean-architecture-concepts', 'effect-ts-advanced', 'system-design-fundamentals']
+estimated_reading_time: '30分'
+related_docs:
+  [
+    './architecture-overview.md',
+    '../design-patterns/service-patterns.md',
+    '../../tutorials/effect-ts-fundamentals/effect-ts-advanced.md',
+  ]
 ---
-
 
 # 🏗️ スケーラブルアーキテクチャ設計
 
@@ -82,25 +87,25 @@ graph TB
 // 企業レベルの設計原則をEffect-TSで実装
 interface EnterpriseArchitecturePrinciples {
   // 1. 単一責任原則 (Single Responsibility)
-  readonly singleResponsibility: "各サービスは一つの明確な責務のみを持つ"
+  readonly singleResponsibility: '各サービスは一つの明確な責務のみを持つ'
 
   // 2. 開放閉鎖原則 (Open/Closed)
-  readonly openClosed: "拡張に対して開いており、変更に対して閉じている"
+  readonly openClosed: '拡張に対して開いており、変更に対して閉じている'
 
   // 3. 依存性逆転原則 (Dependency Inversion)
-  readonly dependencyInversion: "抽象に依存し、具象に依存しない"
+  readonly dependencyInversion: '抽象に依存し、具象に依存しない'
 
   // 4. 界面分離原則 (Interface Segregation)
-  readonly interfaceSegregation: "クライアントが使用しないインターフェースに依存しない"
+  readonly interfaceSegregation: 'クライアントが使用しないインターフェースに依存しない'
 
   // 5. 関心の分離 (Separation of Concerns)
-  readonly separationOfConcerns: "異なる関心事は異なるモジュールで処理"
+  readonly separationOfConcerns: '異なる関心事は異なるモジュールで処理'
 
   // 6. 無故障設計 (Fault Tolerance)
-  readonly faultTolerance: "部分的な障害が全体に影響しない設計"
+  readonly faultTolerance: '部分的な障害が全体に影響しない設計'
 
   // 7. 可観測性 (Observability)
-  readonly observability: "システムの状態が常に監視・デバッグ可能"
+  readonly observability: 'システムの状態が常に監視・デバッグ可能'
 }
 ```
 
@@ -181,21 +186,21 @@ graph TB
 export namespace Domain {
   // Entity: アイデンティティを持つオブジェクト
   export const Player = Schema.Struct({
-    id: Schema.String.pipe(Schema.brand("PlayerId")),
+    id: Schema.String.pipe(Schema.brand('PlayerId')),
     name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
     position: Position,
-    health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand("Health")),
-    gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
-    experience: Schema.Number.pipe(Schema.nonNegative(), Schema.brand("Experience")),
+    health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Health')),
+    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
+    experience: Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience')),
     // ビジネスルール: プレイヤーは常に有効な状態を保つ
-    lastActivity: Schema.Date
+    lastActivity: Schema.Date,
   })
 
   // Value Object: アイデンティティを持たないオブジェクト
   export const Position = Schema.Struct({
     x: Schema.Number.pipe(Schema.between(-30_000_000, 30_000_000)),
     y: Schema.Number.pipe(Schema.between(-64, 320)),
-    z: Schema.Number.pipe(Schema.between(-30_000_000, 30_000_000))
+    z: Schema.Number.pipe(Schema.between(-30_000_000, 30_000_000)),
   })
 
   // Domain Service: 複数のEntityにまたがるビジネスロジック
@@ -206,9 +211,7 @@ export namespace Domain {
       blockType: BlockType
     ) => Effect.Effect<boolean, ValidationError, WorldRepository>
 
-    readonly calculatePlayerReachDistance: (
-      player: Player
-    ) => Effect.Effect<number, never, never>
+    readonly calculatePlayerReachDistance: (player: Player) => Effect.Effect<number, never, never>
 
     readonly validatePlayerMovement: (
       from: Position,
@@ -219,19 +222,19 @@ export namespace Domain {
 
   // Domain Events: ビジネス上の重要な出来事
   export const PlayerCreatedEvent = Schema.Struct({
-    _tag: Schema.Literal("PlayerCreatedEvent"),
-    playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+    _tag: Schema.Literal('PlayerCreatedEvent'),
+    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
     timestamp: Schema.Date,
     initialPosition: Position,
-    gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
   })
 
   export const BlockPlacedEvent = Schema.Struct({
-    _tag: Schema.Literal("BlockPlacedEvent"),
-    playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+    _tag: Schema.Literal('BlockPlacedEvent'),
+    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
     position: Position,
     blockType: BlockType,
-    timestamp: Schema.Date
+    timestamp: Schema.Date,
   })
 
   // Repository Interface: データアクセス抽象化
@@ -247,7 +250,9 @@ export namespace Domain {
 export namespace Application {
   // Use Case: 具体的なビジネス要求の実現
   export interface CreatePlayerUseCase {
-    readonly execute: (command: CreatePlayerCommand) => Effect.Effect<Player, CreatePlayerError, PlayerService | WorldService>
+    readonly execute: (
+      command: CreatePlayerCommand
+    ) => Effect.Effect<Player, CreatePlayerError, PlayerService | WorldService>
   }
 
   export const makeCreatePlayerUseCase = (
@@ -258,14 +263,14 @@ export namespace Application {
     execute: (command: CreatePlayerCommand) =>
       Effect.gen(function* () {
         // 1. ビジネスルール検証
-        const existingPlayer = yield* playerRepo.findByName(command.name).pipe(
-          Effect.catchTag("PlayerNotFoundError", () => Effect.succeed(null))
-        )
+        const existingPlayer = yield* playerRepo
+          .findByName(command.name)
+          .pipe(Effect.catchTag('PlayerNotFoundError', () => Effect.succeed(null)))
 
         if (existingPlayer) {
           return yield* Effect.fail({
-            _tag: "PlayerAlreadyExistsError" as const,
-            name: command.name
+            _tag: 'PlayerAlreadyExistsError' as const,
+            name: command.name,
           })
         }
 
@@ -276,9 +281,9 @@ export namespace Application {
           name: command.name,
           position: spawnPosition,
           health: 20 as Health,
-          gameMode: command.gameMode ?? "survival",
+          gameMode: command.gameMode ?? 'survival',
           experience: 0 as Experience,
-          lastActivity: new Date()
+          lastActivity: new Date(),
         })
 
         // 3. 永続化
@@ -287,23 +292,25 @@ export namespace Application {
         // 4. イベント発行
         yield* eventPublisher.publish(
           Schema.make(Domain.PlayerCreatedEvent)({
-            _tag: "PlayerCreatedEvent",
+            _tag: 'PlayerCreatedEvent',
             playerId: player.id,
             timestamp: new Date(),
             initialPosition: player.position,
-            gameMode: player.gameMode
+            gameMode: player.gameMode,
           })
         )
 
         return player
-      })
+      }),
   })
 
   // Application Service: 複数ユースケースの調整
   export interface PlayerApplicationService {
     readonly createPlayer: (command: CreatePlayerCommand) => Effect.Effect<PlayerDTO, CreatePlayerError, Dependencies>
     readonly movePlayer: (command: MovePlayerCommand) => Effect.Effect<PlayerDTO, MovePlayerError, Dependencies>
-    readonly updatePlayerHealth: (command: UpdateHealthCommand) => Effect.Effect<PlayerDTO, UpdateHealthError, Dependencies>
+    readonly updatePlayerHealth: (
+      command: UpdateHealthCommand
+    ) => Effect.Effect<PlayerDTO, UpdateHealthError, Dependencies>
   }
 }
 ```
@@ -319,78 +326,68 @@ export namespace Application {
 export namespace Services {
   // World Service: ワールド状態管理に特化
   export interface WorldService {
-    readonly name: "WorldService"
-    readonly responsibilities: [
-      "チャンク生成・管理",
-      "ブロック配置・破壊",
-      "地形生成",
-      "ワールド永続化"
-    ]
-    readonly dependencies: ["FileSystemService", "CacheService"]
+    readonly name: 'WorldService'
+    readonly responsibilities: ['チャンク生成・管理', 'ブロック配置・破壊', '地形生成', 'ワールド永続化']
+    readonly dependencies: ['FileSystemService', 'CacheService']
     readonly apis: {
       readonly getChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError, ChunkRepository>
       readonly generateTerrain: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError, TerrainGenerator>
       readonly saveWorld: () => Effect.Effect<void, SaveError, FileSystemService>
     }
-    readonly events: ["ChunkLoaded", "ChunkUnloaded", "BlockChanged", "TerrainGenerated"]
-    readonly metrics: ["chunksLoaded", "blocksPlaced", "generationTime", "memoryUsage"]
+    readonly events: ['ChunkLoaded', 'ChunkUnloaded', 'BlockChanged', 'TerrainGenerated']
+    readonly metrics: ['chunksLoaded', 'blocksPlaced', 'generationTime', 'memoryUsage']
   }
 
   // Player Service: プレイヤー状態管理に特化
   export interface PlayerService {
-    readonly name: "PlayerService"
-    readonly responsibilities: [
-      "プレイヤー状態管理",
-      "移動・物理計算",
-      "インベントリ管理",
-      "権限管理"
-    ]
-    readonly dependencies: ["WorldService", "PhysicsService", "AuthenticationService"]
+    readonly name: 'PlayerService'
+    readonly responsibilities: ['プレイヤー状態管理', '移動・物理計算', 'インベントリ管理', '権限管理']
+    readonly dependencies: ['WorldService', 'PhysicsService', 'AuthenticationService']
     readonly apis: {
       readonly createPlayer: (id: PlayerId) => Effect.Effect<Player, PlayerCreationError, PlayerRepository>
       readonly movePlayer: (id: PlayerId, movement: Movement) => Effect.Effect<Player, MovementError, PhysicsService>
-      readonly updateInventory: (id: PlayerId, changes: InventoryChanges) => Effect.Effect<Inventory, InventoryError, InventoryService>
+      readonly updateInventory: (
+        id: PlayerId,
+        changes: InventoryChanges
+      ) => Effect.Effect<Inventory, InventoryError, InventoryService>
     }
-    readonly events: ["PlayerJoined", "PlayerLeft", "PlayerMoved", "PlayerInventoryChanged"]
-    readonly metrics: ["activePlayers", "movementsPerSecond", "inventoryOperations"]
+    readonly events: ['PlayerJoined', 'PlayerLeft', 'PlayerMoved', 'PlayerInventoryChanged']
+    readonly metrics: ['activePlayers', 'movementsPerSecond', 'inventoryOperations']
   }
 
   // Physics Service: 物理計算に特化
   export interface PhysicsService {
-    readonly name: "PhysicsService"
-    readonly responsibilities: [
-      "衝突検出",
-      "物理シミュレーション",
-      "レイキャスト",
-      "パフォーマンス最適化"
-    ]
-    readonly dependencies: ["WorldService"]
+    readonly name: 'PhysicsService'
+    readonly responsibilities: ['衝突検出', '物理シミュレーション', 'レイキャスト', 'パフォーマンス最適化']
+    readonly dependencies: ['WorldService']
     readonly apis: {
       readonly stepSimulation: (deltaTime: number) => Effect.Effect<void, PhysicsError, never>
-      readonly checkCollision: (body: PhysicsBody, movement: Vector3) => Effect.Effect<CollisionResult, CollisionError, never>
-      readonly raycast: (origin: Vector3, direction: Vector3, maxDistance: number) => Effect.Effect<RaycastResult[], RaycastError, never>
+      readonly checkCollision: (
+        body: PhysicsBody,
+        movement: Vector3
+      ) => Effect.Effect<CollisionResult, CollisionError, never>
+      readonly raycast: (
+        origin: Vector3,
+        direction: Vector3,
+        maxDistance: number
+      ) => Effect.Effect<RaycastResult[], RaycastError, never>
     }
-    readonly events: ["CollisionDetected", "ObjectMoved", "ForceApplied"]
-    readonly metrics: ["collisionChecks", "simulationTime", "objectCount"]
+    readonly events: ['CollisionDetected', 'ObjectMoved', 'ForceApplied']
+    readonly metrics: ['collisionChecks', 'simulationTime', 'objectCount']
   }
 
   // Rendering Service: レンダリングに特化
   export interface RenderingService {
-    readonly name: "RenderingService"
-    readonly responsibilities: [
-      "3Dレンダリング",
-      "メッシュ管理",
-      "テクスチャ管理",
-      "GPU最適化"
-    ]
-    readonly dependencies: ["WorldService", "PlayerService"]
+    readonly name: 'RenderingService'
+    readonly responsibilities: ['3Dレンダリング', 'メッシュ管理', 'テクスチャ管理', 'GPU最適化']
+    readonly dependencies: ['WorldService', 'PlayerService']
     readonly apis: {
       readonly render: (scene: Scene) => Effect.Effect<void, RenderError, never>
       readonly createMesh: (chunk: Chunk) => Effect.Effect<Mesh, MeshCreationError, never>
       readonly updateCamera: (player: Player) => Effect.Effect<void, CameraError, never>
     }
-    readonly events: ["FrameRendered", "MeshCreated", "MeshDestroyed", "TextureLoaded"]
-    readonly metrics: ["fps", "drawCalls", "triangles", "textureMemory"]
+    readonly events: ['FrameRendered', 'MeshCreated', 'MeshDestroyed', 'TextureLoaded']
+    readonly metrics: ['fps', 'drawCalls', 'triangles', 'textureMemory']
   }
 }
 
@@ -400,7 +397,7 @@ export namespace Communication {
   export interface EventBus {
     readonly publish: <E extends DomainEvent>(event: E) => Effect.Effect<void, PublishError, never>
     readonly subscribe: <E extends DomainEvent>(
-      eventType: E["_tag"],
+      eventType: E['_tag'],
       handler: (event: E) => Effect.Effect<void, HandlerError, never>
     ) => Effect.Effect<Subscription, SubscriptionError, never>
   }
@@ -416,9 +413,7 @@ export namespace Communication {
 
   // Saga Pattern: 分散トランザクション
   export interface SagaOrchestrator {
-    readonly executeTransaction: <T>(
-      saga: SagaDefinition<T>
-    ) => Effect.Effect<T, SagaError, never>
+    readonly executeTransaction: <T>(saga: SagaDefinition<T>) => Effect.Effect<T, SagaError, never>
 
     readonly compensate: <T>(
       sagaId: SagaId,
@@ -439,16 +434,14 @@ export interface CircuitBreakerConfig {
 }
 
 export interface CircuitBreaker<A, E> {
-  readonly execute: <R>(
-    operation: Effect.Effect<A, E, R>
-  ) => Effect.Effect<A, E | CircuitBreakerError, R>
+  readonly execute: <R>(operation: Effect.Effect<A, E, R>) => Effect.Effect<A, E | CircuitBreakerError, R>
 }
 
 export const makeCircuitBreaker = <A, E>(
   config: CircuitBreakerConfig
 ): Effect.Effect<CircuitBreaker<A, E>, never, never> =>
   Effect.gen(function* () {
-    const state = yield* Ref.make<CircuitBreakerState>("Closed")
+    const state = yield* Ref.make<CircuitBreakerState>('Closed')
     const failureCount = yield* Ref.make(0)
     const lastFailureTime = yield* Ref.make<Option.Option<Date>>(Option.none())
 
@@ -456,39 +449,28 @@ export const makeCircuitBreaker = <A, E>(
       Effect.zipLeft(Ref.set(lastFailureTime, Option.some(new Date()))),
       Effect.flatMap(() =>
         Ref.get(failureCount).pipe(
-          Effect.flatMap((count) =>
-            count >= config.failureThreshold
-              ? Ref.set(state, "Open")
-              : Effect.void
-          )
+          Effect.flatMap((count) => (count >= config.failureThreshold ? Ref.set(state, 'Open') : Effect.void))
         )
       )
     )
 
-    const recordSuccess = Effect.all([
-      Ref.set(failureCount, 0),
-      Ref.set(state, "Closed")
-    ])
+    const recordSuccess = Effect.all([Ref.set(failureCount, 0), Ref.set(state, 'Closed')])
 
-    const executeInClosedState = <R>(
-      operation: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E | CircuitBreakerError, R> =>
+    const executeInClosedState = <R>(operation: Effect.Effect<A, E, R>): Effect.Effect<A, E | CircuitBreakerError, R> =>
       operation.pipe(
         Effect.timeout(config.requestTimeout),
         Effect.tapError(() => recordFailure),
         Effect.tapSuccess(() => recordSuccess)
       )
 
-    const execute = <R>(
-      operation: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E | CircuitBreakerError, R> =>
+    const execute = <R>(operation: Effect.Effect<A, E, R>): Effect.Effect<A, E | CircuitBreakerError, R> =>
       Effect.gen(function* () {
         const currentState = yield* Ref.get(state)
 
         return yield* Match.value(currentState).pipe(
-          Match.tag("Closed", () => executeInClosedState(operation)),
-          Match.tag("Open", () => Effect.fail({ _tag: "CircuitBreakerOpenError" as const })),
-          Match.tag("HalfOpen", () => executeInClosedState(operation)),
+          Match.tag('Closed', () => executeInClosedState(operation)),
+          Match.tag('Open', () => Effect.fail({ _tag: 'CircuitBreakerOpenError' as const })),
+          Match.tag('HalfOpen', () => executeInClosedState(operation)),
           Match.exhaustive
         )
       })
@@ -510,24 +492,18 @@ export const retryWithBackoff = <A, E, R>(
     Effect.retry(
       Schedule.exponential(config.initialDelay, config.backoffFactor).pipe(
         Schedule.either(Schedule.recurs(config.maxRetries)),
-        Schedule.whileOutput(delay => delay <= config.maxDelay)
+        Schedule.whileOutput((delay) => delay <= config.maxDelay)
       )
     )
   )
 
 // Service Discovery Pattern
 export interface ServiceRegistry {
-  readonly register: (
-    service: ServiceDefinition
-  ) => Effect.Effect<void, RegistrationError, never>
+  readonly register: (service: ServiceDefinition) => Effect.Effect<void, RegistrationError, never>
 
-  readonly discover: (
-    serviceName: string
-  ) => Effect.Effect<ServiceInstance[], DiscoveryError, never>
+  readonly discover: (serviceName: string) => Effect.Effect<ServiceInstance[], DiscoveryError, never>
 
-  readonly healthCheck: (
-    instance: ServiceInstance
-  ) => Effect.Effect<HealthStatus, HealthCheckError, never>
+  readonly healthCheck: (instance: ServiceInstance) => Effect.Effect<HealthStatus, HealthCheckError, never>
 }
 ```
 
@@ -699,18 +675,12 @@ export namespace Security {
       action: Action
     ) => Effect.Effect<boolean, AuthorizationError, never>
 
-    readonly checkPermission: (
-      principal: UserPrincipal,
-      permission: Permission
-    ) => Effect.Effect<boolean, never, never>
+    readonly checkPermission: (principal: UserPrincipal, permission: Permission) => Effect.Effect<boolean, never, never>
   }
 
   // Rate Limiting: レート制限
   export interface RateLimitService {
-    readonly checkLimit: (
-      key: string,
-      limit: RateLimit
-    ) => Effect.Effect<RateLimitResult, never, never>
+    readonly checkLimit: (key: string, limit: RateLimit) => Effect.Effect<RateLimitResult, never, never>
 
     readonly incrementCounter: (key: string) => Effect.Effect<void, never, never>
   }
@@ -743,53 +713,42 @@ export const makeSecurePlayerService = (
   validator: ValidationService,
   executePlayerMovement: (playerId: PlayerId, movement: MovementInput) => Effect.Effect<Player, PlayerMoveError, never>
 ): SecurePlayerService => ({
-  movePlayer: (
-    authToken: AuthToken,
-    playerId: PlayerId,
-    movement: MovementInput
-  ) =>
+  movePlayer: (authToken: AuthToken, playerId: PlayerId, movement: MovementInput) =>
     Effect.gen(function* () {
       // 1. 認証
       const principal = yield* auth.validateToken(authToken)
 
       // 2. レート制限
-      const rateLimitResult = yield* rateLimit.checkLimit(
-        `player_move:${principal.id}`,
-        { requests: 60, window: "1minute" }
-      )
+      const rateLimitResult = yield* rateLimit.checkLimit(`player_move:${principal.id}`, {
+        requests: 60,
+        window: '1minute',
+      })
 
       if (rateLimitResult.exceeded) {
         return yield* Effect.fail({
-          _tag: "RateLimitExceededError" as const,
-          limit: rateLimitResult.limit
+          _tag: 'RateLimitExceededError' as const,
+          limit: rateLimitResult.limit,
         })
       }
 
       // 3. 認可
-      const canMove = yield* authz.authorize(
-        principal,
-        { type: "player", id: playerId },
-        "move"
-      )
+      const canMove = yield* authz.authorize(principal, { type: 'player', id: playerId }, 'move')
 
       if (!canMove) {
         return yield* Effect.fail({
-          _tag: "UnauthorizedError" as const,
-          action: "move",
-          resource: playerId
+          _tag: 'UnauthorizedError' as const,
+          action: 'move',
+          resource: playerId,
         })
       }
 
       // 4. 入力検証
-      const validMovement = yield* validator.validateInput(
-        movement,
-        MovementInputSchema
-      )
+      const validMovement = yield* validator.validateInput(movement, MovementInputSchema)
 
       // 5. ビジネスロジック実行
       yield* rateLimit.incrementCounter(`player_move:${principal.id}`)
       return yield* executePlayerMovement(playerId, validMovement)
-    })
+    }),
 })
 ```
 
@@ -862,12 +821,15 @@ export const makeAdaptivePerformanceManager = (
       const strategy = determineOptimizationStrategy(currentMetrics)
 
       // 並列最適化実行
-      const results = yield* Effect.all([
-        optimizeCPU(strategy.cpu),
-        optimizeMemory(strategy.memory),
-        optimizeGPU(strategy.gpu),
-        optimizeNetwork(strategy.network)
-      ], { concurrency: 4 })
+      const results = yield* Effect.all(
+        [
+          optimizeCPU(strategy.cpu),
+          optimizeMemory(strategy.memory),
+          optimizeGPU(strategy.gpu),
+          optimizeNetwork(strategy.network),
+        ],
+        { concurrency: 4 }
+      )
 
       // 結果測定
       const improvedMetrics = yield* collectMetrics()
@@ -875,9 +837,9 @@ export const makeAdaptivePerformanceManager = (
       return {
         before: currentMetrics,
         after: improvedMetrics,
-        improvements: calculateImprovements(currentMetrics, improvedMetrics)
+        improvements: calculateImprovements(currentMetrics, improvedMetrics),
       }
-    })
+    }),
 })
 ```
 
@@ -890,39 +852,39 @@ export const makeAdaptivePerformanceManager = (
 ```typescript
 interface ArchitectureQualityAttributes {
   readonly scalability: {
-    readonly horizontalScaling: "マイクロサービスによる水平スケーリング対応"
-    readonly verticalScaling: "リソース効率的な垂直スケーリング"
-    readonly elasticScaling: "負荷に応じた自動スケーリング"
+    readonly horizontalScaling: 'マイクロサービスによる水平スケーリング対応'
+    readonly verticalScaling: 'リソース効率的な垂直スケーリング'
+    readonly elasticScaling: '負荷に応じた自動スケーリング'
   }
 
   readonly reliability: {
-    readonly faultTolerance: "部分的障害への耐性"
-    readonly gracefulDegradation: "段階的な機能低下"
-    readonly automaticRecovery: "自動復旧機能"
+    readonly faultTolerance: '部分的障害への耐性'
+    readonly gracefulDegradation: '段階的な機能低下'
+    readonly automaticRecovery: '自動復旧機能'
   }
 
   readonly maintainability: {
-    readonly modularity: "明確に分離されたモジュール"
-    readonly testability: "包括的なテスト可能性"
-    readonly evolvability: "将来の拡張・変更への対応"
+    readonly modularity: '明確に分離されたモジュール'
+    readonly testability: '包括的なテスト可能性'
+    readonly evolvability: '将来の拡張・変更への対応'
   }
 
   readonly security: {
-    readonly authentication: "堅牢な認証システム"
-    readonly authorization: "細粒度の認可制御"
-    readonly dataProtection: "データ保護・暗号化"
+    readonly authentication: '堅牢な認証システム'
+    readonly authorization: '細粒度の認可制御'
+    readonly dataProtection: 'データ保護・暗号化'
   }
 
   readonly performance: {
-    readonly responsiveness: "低レイテンシ・高レスポンス"
-    readonly throughput: "高スループット処理"
-    readonly resourceEfficiency: "効率的なリソース利用"
+    readonly responsiveness: '低レイテンシ・高レスポンス'
+    readonly throughput: '高スループット処理'
+    readonly resourceEfficiency: '効率的なリソース利用'
   }
 
   readonly observability: {
-    readonly monitoring: "包括的な監視"
-    readonly debugging: "効率的なデバッグ支援"
-    readonly analytics: "詳細な分析・洞察"
+    readonly monitoring: '包括的な監視'
+    readonly debugging: '効率的なデバッグ支援'
+    readonly analytics: '詳細な分析・洞察'
   }
 }
 ```

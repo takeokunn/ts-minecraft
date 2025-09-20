@@ -1,13 +1,13 @@
 ---
-title: "物理システム仕様 - 衝突検出・重力・流体シミュレーション"
-description: "AABB衝突検出、重力システム、流体力学、爆発物理の完全仕様。Effect-TSによる並行処理とStructure of Arrays最適化。"
-category: "specification"
-difficulty: "advanced"
-tags: ["physics-system", "collision-detection", "aabb", "gravity", "fluid-dynamics", "optimization"]
-prerequisites: ["effect-ts-fundamentals", "physics-concepts", "spatial-data-structures"]
-estimated_reading_time: "18分"
-related_patterns: ["optimization-patterns", "service-patterns", "stream-patterns"]
-related_docs: ["./02-player-system.md", "./04-entity-system.md", "./03-block-system.md"]
+title: '物理システム仕様 - 衝突検出・重力・流体シミュレーション'
+description: 'AABB衝突検出、重力システム、流体力学、爆発物理の完全仕様。Effect-TSによる並行処理とStructure of Arrays最適化。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['physics-system', 'collision-detection', 'aabb', 'gravity', 'fluid-dynamics', 'optimization']
+prerequisites: ['effect-ts-fundamentals', 'physics-concepts', 'spatial-data-structures']
+estimated_reading_time: '18分'
+related_patterns: ['optimization-patterns', 'service-patterns', 'stream-patterns']
+related_docs: ['./02-player-system.md', './04-entity-system.md', './03-block-system.md']
 ---
 
 # 物理システム仕様
@@ -78,14 +78,14 @@ graph TD
 ### 値オブジェクト
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match, Option, Stream, Brand } from "effect"
+import { Effect, Layer, Context, Schema, pipe, Match, Option, Stream, Brand } from 'effect'
 
 // Vector3D型（Branded型による型安全性強化）
 export type Vector3D = {
   readonly x: number
   readonly y: number
   readonly z: number
-} & Brand.Brand<"Vector3D">
+} & Brand.Brand<'Vector3D'>
 
 export const Vector3D = Brand.nominal<Vector3D>()
 
@@ -93,12 +93,12 @@ export const Vector3D = Brand.nominal<Vector3D>()
 export const Vector3DSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 }).pipe(
   Schema.fromBrand(Vector3D),
   Schema.annotations({
-    identifier: "Vector3D",
-    description: "3次元ベクトル（物理計算用Branded型）"
+    identifier: 'Vector3D',
+    description: '3次元ベクトル（物理計算用Branded型）',
   })
 )
 
@@ -108,22 +108,18 @@ export const Vector3DUtils = {
   make: (x: number, y: number, z: number): Effect.Effect<Vector3D, never> =>
     Effect.succeed(Vector3D({ x, y, z } as Vector3D)),
 
-  zero: (): Effect.Effect<Vector3D, never> =>
-    Effect.succeed(Vector3D({ x: 0, y: 0, z: 0 } as Vector3D)),
+  zero: (): Effect.Effect<Vector3D, never> => Effect.succeed(Vector3D({ x: 0, y: 0, z: 0 } as Vector3D)),
 
   // ベクトル演算（純粋関数）
-  add: (a: Vector3D, b: Vector3D): Vector3D =>
-    Vector3D({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z } as Vector3D),
+  add: (a: Vector3D, b: Vector3D): Vector3D => Vector3D({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z } as Vector3D),
 
-  subtract: (a: Vector3D, b: Vector3D): Vector3D =>
-    Vector3D({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z } as Vector3D),
+  subtract: (a: Vector3D, b: Vector3D): Vector3D => Vector3D({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z } as Vector3D),
 
   scale: (v: Vector3D, scalar: number): Vector3D =>
     Vector3D({ x: v.x * scalar, y: v.y * scalar, z: v.z * scalar } as Vector3D),
 
   // 長さ計算（純粋関数・高速化）
-  length: (v: Vector3D): number =>
-    Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
+  length: (v: Vector3D): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
 
   // 正規化（Effect統合・エラーハンドリング）
   normalize: (v: Vector3D): Effect.Effect<Vector3D, Error> =>
@@ -131,83 +127,78 @@ export const Vector3DUtils = {
       const len = Vector3DUtils.length(v)
       // 早期リターン：ゼロベクトル検出
       if (len < Number.EPSILON) {
-        return yield* Effect.fail(new Error("Cannot normalize zero vector"))
+        return yield* Effect.fail(new Error('Cannot normalize zero vector'))
       }
       const invLen = 1 / len
       return Vector3DUtils.scale(v, invLen)
     }),
 
   // 内積計算（物理計算用）
-  dot: (a: Vector3D, b: Vector3D): number =>
-    a.x * b.x + a.y * b.y + a.z * b.z,
+  dot: (a: Vector3D, b: Vector3D): number => a.x * b.x + a.y * b.y + a.z * b.z,
 
   // 外積計算（物理計算用）
   cross: (a: Vector3D, b: Vector3D): Vector3D =>
     Vector3D({
       x: a.y * b.z - a.z * b.y,
       y: a.z * b.x - a.x * b.z,
-      z: a.x * b.y - a.y * b.x
-    } as Vector3D)
+      z: a.x * b.y - a.y * b.x,
+    } as Vector3D),
 }
 
 // 物理値用Branded型（型安全性強化・Effect統合）
-export type PhysicsValue = number & Brand.Brand<"PhysicsValue">
+export type PhysicsValue = number & Brand.Brand<'PhysicsValue'>
 export const PhysicsValue = Brand.refined<PhysicsValue>(
-  (n): n is number & Brand.Brand<"PhysicsValue"> => typeof n === "number" && isFinite(n)
+  (n): n is number & Brand.Brand<'PhysicsValue'> => typeof n === 'number' && isFinite(n)
 )
 
-export type Mass = number & Brand.Brand<"Mass">
-export const Mass = Brand.refined<Mass>(
-  (n): n is number & Brand.Brand<"Mass"> => typeof n === "number" && n > 0
-)
+export type Mass = number & Brand.Brand<'Mass'>
+export const Mass = Brand.refined<Mass>((n): n is number & Brand.Brand<'Mass'> => typeof n === 'number' && n > 0)
 
-export type Distance = number & Brand.Brand<"Distance">
+export type Distance = number & Brand.Brand<'Distance'>
 export const Distance = Brand.refined<Distance>(
-  (n): n is number & Brand.Brand<"Distance"> => typeof n === "number" && n >= 0
+  (n): n is number & Brand.Brand<'Distance'> => typeof n === 'number' && n >= 0
 )
 
-export type Velocity = number & Brand.Brand<"Velocity">
+export type Velocity = number & Brand.Brand<'Velocity'>
 export const Velocity = Brand.refined<Velocity>(
-  (n): n is number & Brand.Brand<"Velocity"> => typeof n === "number" && isFinite(n)
+  (n): n is number & Brand.Brand<'Velocity'> => typeof n === 'number' && isFinite(n)
 )
 
-export type Acceleration = number & Brand.Brand<"Acceleration">
+export type Acceleration = number & Brand.Brand<'Acceleration'>
 export const Acceleration = Brand.refined<Acceleration>(
-  (n): n is number & Brand.Brand<"Acceleration"> => typeof n === "number" && isFinite(n)
+  (n): n is number & Brand.Brand<'Acceleration'> => typeof n === 'number' && isFinite(n)
 )
 
 // AABB (Axis-Aligned Bounding Box) Branded型定義
 export type AABB = {
-  readonly _tag: "AABB"
+  readonly _tag: 'AABB'
   readonly min: Vector3D
   readonly max: Vector3D
-} & Brand.Brand<"AABB">
+} & Brand.Brand<'AABB'>
 
 export const AABB = Brand.refined<AABB>(
   (value): value is AABB =>
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    "_tag" in value &&
-    value._tag === "AABB" &&
-    "min" in value &&
-    "max" in value
+    '_tag' in value &&
+    value._tag === 'AABB' &&
+    'min' in value &&
+    'max' in value
 )
 
 export const AABBSchema = Schema.Struct({
-  _tag: Schema.Literal("AABB"),
+  _tag: Schema.Literal('AABB'),
   min: Vector3DSchema,
-  max: Vector3DSchema
+  max: Vector3DSchema,
 }).pipe(
   Schema.fromBrand(AABB),
   Schema.filter((aabb) => {
     // 境界ボックスの妥当性検証
-    return aabb.min.x <= aabb.max.x &&
-           aabb.min.y <= aabb.max.y &&
-           aabb.min.z <= aabb.max.z
+    return aabb.min.x <= aabb.max.x && aabb.min.y <= aabb.max.y && aabb.min.z <= aabb.max.z
   }),
   Schema.annotations({
-    identifier: "AABB",
-    description: "軸平行境界ボックス（衝突検知用・検証付きBranded型）"
+    identifier: 'AABB',
+    description: '軸平行境界ボックス（衝突検知用・検証付きBranded型）',
   })
 )
 
@@ -218,9 +209,9 @@ export const AABBUtils = {
     Effect.gen(function* () {
       // 境界ボックス妥当性検証
       if (min.x > max.x || min.y > max.y || min.z > max.z) {
-        return yield* Effect.fail(new Error("Invalid AABB bounds: min must be <= max"))
+        return yield* Effect.fail(new Error('Invalid AABB bounds: min must be <= max'))
       }
-      return AABB({ _tag: "AABB" as const, min, max } as AABB)
+      return AABB({ _tag: 'AABB' as const, min, max } as AABB)
     }),
 
   // 中心とサイズからAABB生成（Effect統合）
@@ -243,9 +234,12 @@ export const AABBUtils = {
 
   // 点包含判定（純粋関数）
   contains: (aabb: AABB, point: Vector3D): boolean =>
-    point.x >= aabb.min.x && point.x <= aabb.max.x &&
-    point.y >= aabb.min.y && point.y <= aabb.max.y &&
-    point.z >= aabb.min.z && point.z <= aabb.max.z,
+    point.x >= aabb.min.x &&
+    point.x <= aabb.max.x &&
+    point.y >= aabb.min.y &&
+    point.y <= aabb.max.y &&
+    point.z >= aabb.min.z &&
+    point.z <= aabb.max.z,
 
   // AABB拡張（Effect統合）
   expand: (aabb: AABB, amount: Distance): Effect.Effect<AABB, Error> =>
@@ -257,78 +251,55 @@ export const AABBUtils = {
     }),
 
   // AABB中心取得（純粋関数）
-  getCenter: (aabb: AABB): Vector3D =>
-    Vector3DUtils.scale(
-      Vector3DUtils.add(aabb.min, aabb.max),
-      0.5
-    ),
+  getCenter: (aabb: AABB): Vector3D => Vector3DUtils.scale(Vector3DUtils.add(aabb.min, aabb.max), 0.5),
 
   // AABBサイズ取得（純粋関数）
-  getSize: (aabb: AABB): Vector3D =>
-    Vector3DUtils.subtract(aabb.max, aabb.min),
+  getSize: (aabb: AABB): Vector3D => Vector3DUtils.subtract(aabb.max, aabb.min),
 
   // AABB体積計算（純粋関数）
   getVolume: (aabb: AABB): number => {
     const size = AABBUtils.getSize(aabb)
     return size.x * size.y * size.z
-  }
+  },
 }
 
 // 物理定数（Branded型・Effect統合・検証強化）
 export const PhysicsConstantsSchema = Schema.Struct({
-  gravity: Schema.Number.pipe(
-    Schema.between(-50, 0),
-    Schema.fromBrand(PhysicsValue)
-  ),
-  terminalVelocity: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.fromBrand(Velocity)
-  ),
-  friction: Schema.Number.pipe(
-    Schema.between(0, 1),
-    Schema.fromBrand(PhysicsValue)
-  ),
-  airResistance: Schema.Number.pipe(
-    Schema.between(0, 1),
-    Schema.fromBrand(PhysicsValue)
-  ),
-  bounciness: Schema.Number.pipe(
-    Schema.between(0, 1),
-    Schema.fromBrand(PhysicsValue)
-  ),
-  timeStep: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.fromBrand(PhysicsValue)
-  )
+  gravity: Schema.Number.pipe(Schema.between(-50, 0), Schema.fromBrand(PhysicsValue)),
+  terminalVelocity: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Velocity)),
+  friction: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
+  airResistance: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
+  bounciness: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
+  timeStep: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(PhysicsValue)),
 }).pipe(
   Schema.annotations({
-    identifier: "PhysicsConstants",
-    description: "物理演算定数（検証付きBranded型）"
+    identifier: 'PhysicsConstants',
+    description: '物理演算定数（検証付きBranded型）',
   })
 )
 
 export type PhysicsConstants = Schema.Schema.Type<typeof PhysicsConstantsSchema>
 
 // デフォルト物理定数（Effect統合）
-export const DefaultPhysicsConstants: Effect.Effect<PhysicsConstants, Schema.ParseError> =
-  Schema.decode(PhysicsConstantsSchema)({
-    gravity: -9.81,
-    terminalVelocity: 50.0,
-    friction: 0.6,
-    airResistance: 0.01,
-    bounciness: 0.0,
-    timeStep: 1 / 60
-  })
+export const DefaultPhysicsConstants: Effect.Effect<PhysicsConstants, Schema.ParseError> = Schema.decode(
+  PhysicsConstantsSchema
+)({
+  gravity: -9.81,
+  terminalVelocity: 50.0,
+  friction: 0.6,
+  airResistance: 0.01,
+  bounciness: 0.0,
+  timeStep: 1 / 60,
+})
 ```
 
 ### エンティティ
 
 ```typescript
 // エンティティID（Branded型・検証強化）
-export type EntityId = string & Brand.Brand<"EntityId">
+export type EntityId = string & Brand.Brand<'EntityId'>
 export const EntityId = Brand.refined<EntityId>(
-  (id): id is string & Brand.Brand<"EntityId"> =>
-    typeof id === "string" && id.length > 0 && /^[a-zA-Z0-9_-]+$/.test(id)
+  (id): id is string & Brand.Brand<'EntityId'> => typeof id === 'string' && id.length > 0 && /^[a-zA-Z0-9_-]+$/.test(id)
 )
 
 export const EntityIdSchema = Schema.String.pipe(
@@ -336,21 +307,21 @@ export const EntityIdSchema = Schema.String.pipe(
   Schema.pattern(/^[a-zA-Z0-9_-]+$/),
   Schema.fromBrand(EntityId),
   Schema.annotations({
-    identifier: "EntityId",
-    description: "エンティティ識別子（英数字・アンダースコア・ハイフン）"
+    identifier: 'EntityId',
+    description: 'エンティティ識別子（英数字・アンダースコア・ハイフン）',
   })
 )
 
 // 物理体タイプ（パターンマッチング用）
 export type PhysicsBodyType =
-  | { readonly _tag: "Static" }
-  | { readonly _tag: "Dynamic"; readonly mass: Mass }
-  | { readonly _tag: "Kinematic" }
+  | { readonly _tag: 'Static' }
+  | { readonly _tag: 'Dynamic'; readonly mass: Mass }
+  | { readonly _tag: 'Kinematic' }
 
 export const PhysicsBodyType = {
-  Static: { _tag: "Static" as const },
-  Dynamic: (mass: Mass) => ({ _tag: "Dynamic" as const, mass }),
-  Kinematic: { _tag: "Kinematic" as const }
+  Static: { _tag: 'Static' as const },
+  Dynamic: (mass: Mass) => ({ _tag: 'Dynamic' as const, mass }),
+  Kinematic: { _tag: 'Kinematic' as const },
 }
 
 // 剛体エンティティ（Effect統合・Branded型・Stream対応）
@@ -360,12 +331,12 @@ export const RigidBodySchema = Schema.Struct({
   velocity: Vector3DSchema,
   acceleration: Vector3DSchema,
   bodyType: Schema.Union(
-    Schema.Struct({ _tag: Schema.Literal("Static") }),
+    Schema.Struct({ _tag: Schema.Literal('Static') }),
     Schema.Struct({
-      _tag: Schema.Literal("Dynamic"),
-      mass: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Mass))
+      _tag: Schema.Literal('Dynamic'),
+      mass: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Mass)),
     }),
-    Schema.Struct({ _tag: Schema.Literal("Kinematic") })
+    Schema.Struct({ _tag: Schema.Literal('Kinematic') })
   ),
   bounds: AABBSchema,
   friction: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
@@ -373,11 +344,11 @@ export const RigidBodySchema = Schema.Struct({
   onGround: Schema.Boolean,
   inWater: Schema.Boolean,
   inLava: Schema.Boolean,
-  lastUpdate: Schema.DateFromSelf
+  lastUpdate: Schema.DateFromSelf,
 }).pipe(
   Schema.annotations({
-    identifier: "RigidBody",
-    description: "物理演算対象の剛体エンティティ（Effect統合・Stream対応）"
+    identifier: 'RigidBody',
+    description: '物理演算対象の剛体エンティティ（Effect統合・Stream対応）',
   })
 )
 
@@ -392,10 +363,7 @@ export const RigidBodyFactory = {
   ): Effect.Effect<RigidBody, Schema.ParseError> =>
     Effect.gen(function* () {
       const zero = yield* Vector3DUtils.zero()
-      const bounds = yield* AABBUtils.fromCenterSize(
-        position,
-        yield* Vector3DUtils.make(1, 1, 1)
-      )
+      const bounds = yield* AABBUtils.fromCenterSize(position, yield* Vector3DUtils.make(1, 1, 1))
 
       return yield* Schema.decode(RigidBodySchema)({
         entityId,
@@ -409,21 +377,21 @@ export const RigidBodyFactory = {
         onGround: false,
         inWater: false,
         inLava: false,
-        lastUpdate: new Date()
+        lastUpdate: new Date(),
       })
-    })
+    }),
 }
 
 // 衝突タイプ（パターンマッチング強化）
 export type CollisionType =
-  | { readonly _tag: "Enter"; readonly contactPoint: Vector3D }
-  | { readonly _tag: "Stay"; readonly contactPoint: Vector3D; readonly duration: number }
-  | { readonly _tag: "Exit"; readonly lastContactPoint: Vector3D }
+  | { readonly _tag: 'Enter'; readonly contactPoint: Vector3D }
+  | { readonly _tag: 'Stay'; readonly contactPoint: Vector3D; readonly duration: number }
+  | { readonly _tag: 'Exit'; readonly lastContactPoint: Vector3D }
 
 export const CollisionType = {
-  Enter: (contactPoint: Vector3D) => ({ _tag: "Enter" as const, contactPoint }),
-  Stay: (contactPoint: Vector3D, duration: number) => ({ _tag: "Stay" as const, contactPoint, duration }),
-  Exit: (lastContactPoint: Vector3D) => ({ _tag: "Exit" as const, lastContactPoint })
+  Enter: (contactPoint: Vector3D) => ({ _tag: 'Enter' as const, contactPoint }),
+  Stay: (contactPoint: Vector3D, duration: number) => ({ _tag: 'Stay' as const, contactPoint, duration }),
+  Exit: (lastContactPoint: Vector3D) => ({ _tag: 'Exit' as const, lastContactPoint }),
 }
 
 // 衝突情報（Effect統合・パターンマッチング対応）
@@ -432,27 +400,27 @@ export const CollisionInfoSchema = Schema.Struct({
   entityB: EntityIdSchema,
   collisionType: Schema.Union(
     Schema.Struct({
-      _tag: Schema.Literal("Enter"),
-      contactPoint: Vector3DSchema
-    }),
-    Schema.Struct({
-      _tag: Schema.Literal("Stay"),
+      _tag: Schema.Literal('Enter'),
       contactPoint: Vector3DSchema,
-      duration: Schema.Number.pipe(Schema.nonnegative())
     }),
     Schema.Struct({
-      _tag: Schema.Literal("Exit"),
-      lastContactPoint: Vector3DSchema
+      _tag: Schema.Literal('Stay'),
+      contactPoint: Vector3DSchema,
+      duration: Schema.Number.pipe(Schema.nonnegative()),
+    }),
+    Schema.Struct({
+      _tag: Schema.Literal('Exit'),
+      lastContactPoint: Vector3DSchema,
     })
   ),
   normal: Vector3DSchema,
   penetration: Schema.Number.pipe(Schema.nonnegative(), Schema.fromBrand(Distance)),
   impulse: Schema.Number.pipe(Schema.fromBrand(PhysicsValue)),
-  timestamp: Schema.DateFromSelf
+  timestamp: Schema.DateFromSelf,
 }).pipe(
   Schema.annotations({
-    identifier: "CollisionInfo",
-    description: "衝突検出結果情報（Effect統合・パターンマッチング対応）"
+    identifier: 'CollisionInfo',
+    description: '衝突検出結果情報（Effect統合・パターンマッチング対応）',
   })
 )
 
@@ -474,7 +442,7 @@ export const CollisionInfoFactory = {
       normal,
       penetration,
       impulse: PhysicsValue(0),
-      timestamp: new Date()
+      timestamp: new Date(),
     }),
 
   // Stream用バッチ生成
@@ -491,7 +459,7 @@ export const CollisionInfoFactory = {
       Stream.mapEffect(({ entityA, entityB, contactPoint, normal, penetration }) =>
         CollisionInfoFactory.create(entityA, entityB, contactPoint, normal, penetration)
       )
-    )
+    ),
 }
 ```
 
@@ -502,12 +470,12 @@ export const CollisionInfoFactory = {
 ```typescript
 // 衝突検知結果（パターンマッチング強化）
 export type CollisionResult =
-  | { readonly _tag: "NoCollision" }
-  | { readonly _tag: "Collision"; readonly info: CollisionInfo }
+  | { readonly _tag: 'NoCollision' }
+  | { readonly _tag: 'Collision'; readonly info: CollisionInfo }
 
 export const CollisionResult = {
-  NoCollision: { _tag: "NoCollision" as const },
-  Collision: (info: CollisionInfo) => ({ _tag: "Collision" as const, info })
+  NoCollision: { _tag: 'NoCollision' as const },
+  Collision: (info: CollisionInfo) => ({ _tag: 'Collision' as const, info }),
 }
 
 // AABB衝突検知システム（Effect統合・Stream対応・パフォーマンス最適化）
@@ -559,19 +527,11 @@ export const AABBCollisionSystem = {
       const penetration = Distance(Math.max(0, Math.min(overlapX, overlapY, overlapZ)))
 
       // 衝突情報生成（Schema検証付き）
-      return yield* CollisionInfoFactory.create(
-        entityA,
-        entityB,
-        contactPoint,
-        normal,
-        penetration
-      )
+      return yield* CollisionInfoFactory.create(entityA, entityB, contactPoint, normal, penetration)
     }),
 
   // バッチ衝突検知（Stream並列処理・パフォーマンス最適化）
-  detectCollisionsBatch: (
-    entities: ReadonlyArray<{ id: EntityId; aabb: AABB }>
-  ): Stream.Stream<CollisionInfo, Error> =>
+  detectCollisionsBatch: (entities: ReadonlyArray<{ id: EntityId; aabb: AABB }>): Stream.Stream<CollisionInfo, Error> =>
     Stream.fromIterable(entities).pipe(
       Stream.cross(Stream.fromIterable(entities)),
       // 重複排除と自分自身の衝突除外
@@ -579,15 +539,12 @@ export const AABBCollisionSystem = {
       // 早期フィルタリング（基本衝突判定）
       Stream.filter(([a, b]) => AABBCollisionSystem.detectCollision(a.aabb, b.aabb)),
       // 詳細衝突情報計算（並列処理）
-      Stream.mapEffect(([a, b]) =>
-        AABBCollisionSystem.calculateCollisionInfo(a.id, b.id, a.aabb, b.aabb),
-        { concurrency: "unbounded" }
-      ),
+      Stream.mapEffect(([a, b]) => AABBCollisionSystem.calculateCollisionInfo(a.id, b.id, a.aabb, b.aabb), {
+        concurrency: 'unbounded',
+      }),
       // エラーハンドリング（ログ出力付き）
       Stream.catchAll((error) =>
-        Effect.logWarning(`Collision detection error: ${error.message}`).pipe(
-          Effect.as(Stream.empty)
-        )
+        Effect.logWarning(`Collision detection error: ${error.message}`).pipe(Effect.as(Stream.empty))
       )
     ),
 
@@ -601,44 +558,39 @@ export const AABBCollisionSystem = {
       let spatialGrid = yield* SpatialGridSystem.createGrid(gridCellSize)
 
       // エンティティをグリッドに登録
-      spatialGrid = yield* Effect.reduce(
-        entities,
-        spatialGrid,
-        (grid, entity) => SpatialGridSystem.insertEntity(
-          grid,
-          entity.id,
-          entity.aabb
-        )
+      spatialGrid = yield* Effect.reduce(entities, spatialGrid, (grid, entity) =>
+        SpatialGridSystem.insertEntity(grid, entity.id, entity.aabb)
       )
 
       // 各エンティティに対して近働エンティティのみと衝突判定
       const collisionStream = Stream.fromIterable(entities).pipe(
         Stream.mapEffect((entity) =>
           SpatialGridSystem.queryRange(spatialGrid, entity.aabb).pipe(
-            Stream.filter(nearbyEntityId => nearbyEntityId !== entity.id),
-            Stream.mapEffect(nearbyEntityId =>
+            Stream.filter((nearbyEntityId) => nearbyEntityId !== entity.id),
+            Stream.mapEffect((nearbyEntityId) =>
               pipe(
-                entities.find(e => e.id === nearbyEntityId),
+                entities.find((e) => e.id === nearbyEntityId),
                 Option.fromNullable,
                 Option.match({
-                  onNone: () => Effect.fail(new Error("Entity not found")),
-                  onSome: (nearbyEntity) => AABBCollisionSystem.calculateCollisionInfo(
-                    entity.id,
-                    nearbyEntityId,
-                    entity.aabb,
-                    nearbyEntity.aabb
-                  )
+                  onNone: () => Effect.fail(new Error('Entity not found')),
+                  onSome: (nearbyEntity) =>
+                    AABBCollisionSystem.calculateCollisionInfo(
+                      entity.id,
+                      nearbyEntityId,
+                      entity.aabb,
+                      nearbyEntity.aabb
+                    ),
                 })
               )
             ),
             Stream.runCollect
           )
         ),
-        Stream.flatMap(collisionChunk => Stream.fromIterable(collisionChunk))
+        Stream.flatMap((collisionChunk) => Stream.fromIterable(collisionChunk))
       )
 
       return collisionStream
-    }).pipe(Stream.fromEffect, Stream.flatten)
+    }).pipe(Stream.fromEffect, Stream.flatten),
 }
 
 // AABB操作拡張ユーティリティ（性能最適化・Effect統合）
@@ -660,11 +612,7 @@ export const AABBUtilsExtended = {
     }),
 
   // 継続衝突検知用スイープAABB（Effect統合・数値安定性向上）
-  sweep: (
-    aabb: AABB,
-    velocity: Vector3D,
-    deltaTime: PhysicsValue
-  ): Effect.Effect<AABB, Error> =>
+  sweep: (aabb: AABB, velocity: Vector3D, deltaTime: PhysicsValue): Effect.Effect<AABB, Error> =>
     Effect.gen(function* () {
       // 早期リターン：速度が無い場合
       const speed = Vector3DUtils.length(velocity)
@@ -694,24 +642,16 @@ export const AABBUtilsExtended = {
     }),
 
   // AABBストリーム処理（複数AABBの一括結合）
-  mergeStream: (
-    aabbs: Stream.Stream<AABB, Error>
-  ): Effect.Effect<Option.Option<AABB>, Error> =>
+  mergeStream: (aabbs: Stream.Stream<AABB, Error>): Effect.Effect<Option.Option<AABB>, Error> =>
     aabbs.pipe(
-      Stream.runFold(
-        Option.none<AABB>(),
-        (acc, aabb) =>
-          Match.value(acc).pipe(
-            Match.when(Option.isNone, () => Effect.succeed(Option.some(aabb))),
-            Match.when(Option.isSome, (some) =>
-              AABBUtilsExtended.merge(some.value, aabb).pipe(
-                Effect.map(Option.some)
-              )
-            ),
-            Match.exhaustive
-          )
+      Stream.runFold(Option.none<AABB>(), (acc, aabb) =>
+        Match.value(acc).pipe(
+          Match.when(Option.isNone, () => Effect.succeed(Option.some(aabb))),
+          Match.when(Option.isSome, (some) => AABBUtilsExtended.merge(some.value, aabb).pipe(Effect.map(Option.some))),
+          Match.exhaustive
+        )
       )
-    )
+    ),
 }
 ```
 
@@ -722,17 +662,17 @@ export const AABBUtilsExtended = {
 ```typescript
 // 速度コンポーネント（Effect統合・Branded型・物理計算最適化）
 export const VelocityComponentSchema = Schema.Struct({
-  _tag: Schema.Literal("VelocityComponent"),
+  _tag: Schema.Literal('VelocityComponent'),
   velocity: Vector3DSchema,
   maxSpeed: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Velocity)),
   damping: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
   // 物理計算用拡張フィールド
   lastVelocity: Vector3DSchema.pipe(Schema.optional()),
-  acceleration: Vector3DSchema.pipe(Schema.optional())
+  acceleration: Vector3DSchema.pipe(Schema.optional()),
 }).pipe(
   Schema.annotations({
-    identifier: "VelocityComponent",
-    description: "エンティティ速度コンポーネント（Effect統合・物理計算最適化）"
+    identifier: 'VelocityComponent',
+    description: 'エンティティ速度コンポーネント（Effect統合・物理計算最適化）',
   })
 )
 
@@ -740,18 +680,24 @@ export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponentSchem
 
 // 重力コンポーネント（Effect統合・物理法則準拠）
 export const GravityComponentSchema = Schema.Struct({
-  _tag: Schema.Literal("GravityComponent"),
+  _tag: Schema.Literal('GravityComponent'),
   acceleration: Schema.Number.pipe(Schema.fromBrand(Acceleration)),
   terminalVelocity: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Velocity)),
   enabled: Schema.Boolean,
   // 物理法則準拠フィールド
   gravityScale: Schema.Number.pipe(Schema.default(() => 1.0)),
-  fallMultiplier: Schema.Number.pipe(Schema.positive(), Schema.default(() => 2.5)),
-  lowJumpMultiplier: Schema.Number.pipe(Schema.positive(), Schema.default(() => 2.0))
+  fallMultiplier: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.default(() => 2.5)
+  ),
+  lowJumpMultiplier: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.default(() => 2.0)
+  ),
 }).pipe(
   Schema.annotations({
-    identifier: "GravityComponent",
-    description: "重力システムコンポーネント（Effect統合・物理法則準拠）"
+    identifier: 'GravityComponent',
+    description: '重力システムコンポーネント（Effect統合・物理法則準拠）',
   })
 )
 
@@ -759,21 +705,27 @@ export type GravityComponent = Schema.Schema.Type<typeof GravityComponentSchema>
 
 // 衝突コンポーネント（Effect統合・高度な衝突検知）
 export const ColliderComponentSchema = Schema.Struct({
-  _tag: Schema.Literal("ColliderComponent"),
+  _tag: Schema.Literal('ColliderComponent'),
   aabb: AABBSchema,
   isSolid: Schema.Boolean,
   friction: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
   bounciness: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
   // 高度な衝突検知機能
   isTrigger: Schema.Boolean.pipe(Schema.default(() => false)),
-  layer: Schema.Number.pipe(Schema.int(), Schema.default(() => 0)),
-  mask: Schema.Number.pipe(Schema.int(), Schema.default(() => -1)),
+  layer: Schema.Number.pipe(
+    Schema.int(),
+    Schema.default(() => 0)
+  ),
+  mask: Schema.Number.pipe(
+    Schema.int(),
+    Schema.default(() => -1)
+  ),
   // 継続衝突検知用
-  continuousCollisionDetection: Schema.Boolean.pipe(Schema.default(() => false))
+  continuousCollisionDetection: Schema.Boolean.pipe(Schema.default(() => false)),
 }).pipe(
   Schema.annotations({
-    identifier: "ColliderComponent",
-    description: "衝突検知コンポーネント（Effect統合・高度な衝突検知）"
+    identifier: 'ColliderComponent',
+    description: '衝突検知コンポーネント（Effect統合・高度な衝突検知）',
   })
 )
 
@@ -781,43 +733,55 @@ export type ColliderComponent = Schema.Schema.Type<typeof ColliderComponentSchem
 
 // 物理状態（パターンマッチング対応）
 export type PhysicsState =
-  | { readonly _tag: "Resting"; readonly onSurface: EntityId | null }
-  | { readonly _tag: "Falling"; readonly fallTime: number }
-  | { readonly _tag: "Moving"; readonly velocity: Vector3D }
-  | { readonly _tag: "Colliding"; readonly collisions: ReadonlyArray<CollisionInfo> }
+  | { readonly _tag: 'Resting'; readonly onSurface: EntityId | null }
+  | { readonly _tag: 'Falling'; readonly fallTime: number }
+  | { readonly _tag: 'Moving'; readonly velocity: Vector3D }
+  | { readonly _tag: 'Colliding'; readonly collisions: ReadonlyArray<CollisionInfo> }
 
 export const PhysicsState = {
-  Resting: (onSurface: EntityId | null = null) => ({ _tag: "Resting" as const, onSurface }),
-  Falling: (fallTime: number) => ({ _tag: "Falling" as const, fallTime }),
-  Moving: (velocity: Vector3D) => ({ _tag: "Moving" as const, velocity }),
-  Colliding: (collisions: ReadonlyArray<CollisionInfo>) => ({ _tag: "Colliding" as const, collisions })
+  Resting: (onSurface: EntityId | null = null) => ({ _tag: 'Resting' as const, onSurface }),
+  Falling: (fallTime: number) => ({ _tag: 'Falling' as const, fallTime }),
+  Moving: (velocity: Vector3D) => ({ _tag: 'Moving' as const, velocity }),
+  Colliding: (collisions: ReadonlyArray<CollisionInfo>) => ({ _tag: 'Colliding' as const, collisions }),
 }
 
 // 物理マテリアルコンポーネント（Effect統合・パフォーマンス最適化）
 export const PhysicsCombineType = Schema.Union(
-  Schema.Literal("average"),
-  Schema.Literal("multiply"),
-  Schema.Literal("minimum"),
-  Schema.Literal("maximum")
+  Schema.Literal('average'),
+  Schema.Literal('multiply'),
+  Schema.Literal('minimum'),
+  Schema.Literal('maximum')
 )
 
 export type PhysicsCombineType = Schema.Schema.Type<typeof PhysicsCombineType>
 
 export const PhysicsMaterialComponentSchema = Schema.Struct({
-  _tag: Schema.Literal("PhysicsMaterialComponent"),
+  _tag: Schema.Literal('PhysicsMaterialComponent'),
   staticFriction: Schema.Number.pipe(Schema.between(0, 2), Schema.fromBrand(PhysicsValue)),
   dynamicFriction: Schema.Number.pipe(Schema.between(0, 2), Schema.fromBrand(PhysicsValue)),
   bounciness: Schema.Number.pipe(Schema.between(0, 1), Schema.fromBrand(PhysicsValue)),
-  frictionCombine: PhysicsCombineType.pipe(Schema.default(() => "average" as const)),
-  bounceCombine: PhysicsCombineType.pipe(Schema.default(() => "average" as const)),
+  frictionCombine: PhysicsCombineType.pipe(Schema.default(() => 'average' as const)),
+  bounceCombine: PhysicsCombineType.pipe(Schema.default(() => 'average' as const)),
   // 拡張物理マテリアルプロパティ
-  density: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Mass), Schema.default(() => Mass(1.0))),
-  drag: Schema.Number.pipe(Schema.nonnegative(), Schema.fromBrand(PhysicsValue), Schema.default(() => PhysicsValue(0.0))),
-  angularDrag: Schema.Number.pipe(Schema.nonnegative(), Schema.fromBrand(PhysicsValue), Schema.default(() => PhysicsValue(0.05)))
+  density: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.fromBrand(Mass),
+    Schema.default(() => Mass(1.0))
+  ),
+  drag: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.fromBrand(PhysicsValue),
+    Schema.default(() => PhysicsValue(0.0))
+  ),
+  angularDrag: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.fromBrand(PhysicsValue),
+    Schema.default(() => PhysicsValue(0.05))
+  ),
 }).pipe(
   Schema.annotations({
-    identifier: "PhysicsMaterialComponent",
-    description: "物理マテリアルコンポーネント（Effect統合・性能最適化）"
+    identifier: 'PhysicsMaterialComponent',
+    description: '物理マテリアルコンポーネント（Effect統合・性能最適化）',
   })
 )
 
@@ -825,12 +789,20 @@ export type PhysicsMaterialComponent = Schema.Schema.Type<typeof PhysicsMaterial
 
 // リジッドボディコンポーネント（Effect統合・物理法則強化）
 export const RigidBodyComponentSchema = Schema.Struct({
-  _tag: Schema.Literal("RigidBodyComponent"),
+  _tag: Schema.Literal('RigidBodyComponent'),
   mass: Schema.Number.pipe(Schema.positive(), Schema.fromBrand(Mass)),
   isKinematic: Schema.Boolean.pipe(Schema.default(() => false)),
   useGravity: Schema.Boolean.pipe(Schema.default(() => true)),
-  drag: Schema.Number.pipe(Schema.nonnegative(), Schema.fromBrand(PhysicsValue), Schema.default(() => PhysicsValue(0.0))),
-  angularDrag: Schema.Number.pipe(Schema.nonnegative(), Schema.fromBrand(PhysicsValue), Schema.default(() => PhysicsValue(0.05))),
+  drag: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.fromBrand(PhysicsValue),
+    Schema.default(() => PhysicsValue(0.0))
+  ),
+  angularDrag: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.fromBrand(PhysicsValue),
+    Schema.default(() => PhysicsValue(0.05))
+  ),
   // 物理法則強化フィールド
   centerOfMass: Vector3DSchema.pipe(Schema.optional()),
   inertiaTensor: Vector3DSchema.pipe(Schema.optional()),
@@ -838,12 +810,12 @@ export const RigidBodyComponentSchema = Schema.Struct({
   freezePosition: Schema.Struct({
     x: Schema.Boolean,
     y: Schema.Boolean,
-    z: Schema.Boolean
-  }).pipe(Schema.default(() => ({ x: false, y: false, z: false })))
+    z: Schema.Boolean,
+  }).pipe(Schema.default(() => ({ x: false, y: false, z: false }))),
 }).pipe(
   Schema.annotations({
-    identifier: "RigidBodyComponent",
-    description: "剛体物理コンポーネント（Effect統合・物理法則強化）"
+    identifier: 'RigidBodyComponent',
+    description: '剛体物理コンポーネント（Effect統合・物理法則強化）',
   })
 )
 
@@ -872,52 +844,38 @@ export const PhysicsSystem = {
     }),
 
   // 物理状態による更新（Match.value使用）
-  updateByState: (
-    entity: RigidBody,
-    state: PhysicsState,
-    deltaTime: PhysicsValue
-  ): Effect.Effect<RigidBody, Error> =>
+  updateByState: (entity: RigidBody, state: PhysicsState, deltaTime: PhysicsValue): Effect.Effect<RigidBody, Error> =>
     Match.value(state).pipe(
-      Match.when({ _tag: "Resting" }, ({ onSurface }) =>
+      Match.when({ _tag: 'Resting' }, ({ onSurface }) =>
         Effect.succeed({
           ...entity,
           velocity: Vector3DUtils.zero(),
-          acceleration: Vector3DUtils.zero()
+          acceleration: Vector3DUtils.zero(),
         })
       ),
-      Match.when({ _tag: "Falling" }, ({ fallTime }) =>
+      Match.when({ _tag: 'Falling' }, ({ fallTime }) =>
         Effect.gen(function* () {
           const gravity = {
-            _tag: "GravityComponent" as const,
+            _tag: 'GravityComponent' as const,
             acceleration: PhysicsValue(-9.81),
             terminalVelocity: Velocity(50),
-            enabled: true
+            enabled: true,
           }
-          const newVelocity = yield* PhysicsSystem.applyGravity(
-            entity.velocity,
-            gravity,
-            deltaTime
-          )
+          const newVelocity = yield* PhysicsSystem.applyGravity(entity.velocity, gravity, deltaTime)
           return { ...entity, velocity: newVelocity }
         })
       ),
-      Match.when({ _tag: "Moving" }, ({ velocity }) =>
+      Match.when({ _tag: 'Moving' }, ({ velocity }) =>
         Effect.succeed({
           ...entity,
           velocity,
-          position: Vector3DUtils.add(
-            entity.position,
-            Vector3DUtils.scale(velocity, deltaTime)
-          )
+          position: Vector3DUtils.add(entity.position, Vector3DUtils.scale(velocity, deltaTime)),
         })
       ),
-      Match.when({ _tag: "Colliding" }, ({ collisions }) =>
+      Match.when({ _tag: 'Colliding' }, ({ collisions }) =>
         Effect.gen(function* () {
           // 衝突解決処理
-          const resolvedVelocity = yield* PhysicsSystem.resolveCollisions(
-            entity.velocity,
-            collisions
-          )
+          const resolvedVelocity = yield* PhysicsSystem.resolveCollisions(entity.velocity, collisions)
           return { ...entity, velocity: resolvedVelocity }
         })
       ),
@@ -925,24 +883,19 @@ export const PhysicsSystem = {
     ),
 
   // 衝突解決（パターンマッチング）
-  resolveCollisions: (
-    velocity: Vector3D,
-    collisions: ReadonlyArray<CollisionInfo>
-  ): Effect.Effect<Vector3D, Error> =>
+  resolveCollisions: (velocity: Vector3D, collisions: ReadonlyArray<CollisionInfo>): Effect.Effect<Vector3D, Error> =>
     Effect.gen(function* () {
       let resolvedVelocity = velocity
 
       for (const collision of collisions) {
         resolvedVelocity = yield* Match.value(collision.collisionType).pipe(
-          Match.when({ _tag: "Enter" }, ({ contactPoint }) =>
+          Match.when({ _tag: 'Enter' }, ({ contactPoint }) =>
             PhysicsSystem.applyCollisionImpulse(resolvedVelocity, collision.normal, collision.impulse)
           ),
-          Match.when({ _tag: "Stay" }, ({ contactPoint, duration }) =>
+          Match.when({ _tag: 'Stay' }, ({ contactPoint, duration }) =>
             PhysicsSystem.applyContinuousContact(resolvedVelocity, collision.normal, duration)
           ),
-          Match.when({ _tag: "Exit" }, () =>
-            Effect.succeed(resolvedVelocity)
-          ),
+          Match.when({ _tag: 'Exit' }, () => Effect.succeed(resolvedVelocity)),
           Match.exhaustive
         )
       }
@@ -963,11 +916,7 @@ export const PhysicsSystem = {
     }),
 
   // 継続接触処理
-  applyContinuousContact: (
-    velocity: Vector3D,
-    normal: Vector3D,
-    duration: number
-  ): Effect.Effect<Vector3D, Error> =>
+  applyContinuousContact: (velocity: Vector3D, normal: Vector3D, duration: number): Effect.Effect<Vector3D, Error> =>
     Effect.gen(function* () {
       const normalizedNormal = yield* Vector3DUtils.normalize(normal)
       const velocityDotNormal = Vector3DUtils.dot(velocity, normalizedNormal)
@@ -993,40 +942,27 @@ export const PhysicsSystem = {
     }),
 
   // 減衰適用（Branded型対応）
-  applyDamping: (
-    velocity: Vector3D,
-    damping: PhysicsValue,
-    deltaTime: PhysicsValue
-  ): Vector3D => {
+  applyDamping: (velocity: Vector3D, damping: PhysicsValue, deltaTime: PhysicsValue): Vector3D => {
     const dampingFactor = Math.pow(1 - damping, deltaTime)
     return Vector3DUtils.scale(velocity, dampingFactor)
-  }
+  },
 }
 
 // Vector3D操作拡張（内積計算追加）
 export const Vector3DUtils = {
   ...Vector3DUtils,
 
-  dot: (a: Vector3D, b: Vector3D): number =>
-    a.x * b.x + a.y * b.y + a.z * b.z,
+  dot: (a: Vector3D, b: Vector3D): number => a.x * b.x + a.y * b.y + a.z * b.z,
 
   cross: (a: Vector3D, b: Vector3D): Vector3D =>
-    Vector3DUtils.make(
-      a.y * b.z - a.z * b.y,
-      a.z * b.x - a.x * b.z,
-      a.x * b.y - a.y * b.x
-    ),
+    Vector3DUtils.make(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x),
 
-  distance: (a: Vector3D, b: Vector3D): number =>
-    Vector3DUtils.length(Vector3DUtils.subtract(a, b)),
+  distance: (a: Vector3D, b: Vector3D): number => Vector3DUtils.length(Vector3DUtils.subtract(a, b)),
 
   lerp: (a: Vector3D, b: Vector3D, t: number): Vector3D => {
     const clampedT = Math.max(0, Math.min(1, t))
-    return Vector3DUtils.add(
-      Vector3DUtils.scale(a, 1 - clampedT),
-      Vector3DUtils.scale(b, clampedT)
-    )
-  }
+    return Vector3DUtils.add(Vector3DUtils.scale(a, 1 - clampedT), Vector3DUtils.scale(b, clampedT))
+  },
 }
 ```
 
@@ -1039,26 +975,26 @@ export const Vector3DUtils = {
 export type Ray = {
   readonly origin: Vector3D
   readonly direction: Vector3D
-} & Brand.Brand<"Ray">
+} & Brand.Brand<'Ray'>
 
 export const Ray = Brand.nominal<Ray>()
 
 export const RaySchema = Schema.Struct({
   origin: Vector3DSchema,
-  direction: Vector3DSchema
+  direction: Vector3DSchema,
 }).pipe(
   Schema.brand(Ray),
   Schema.annotations({
-    identifier: "Ray",
-    description: "レイキャスト用レイ定義（Branded型）"
+    identifier: 'Ray',
+    description: 'レイキャスト用レイ定義（Branded型）',
   })
 )
 
 // レイキャスト結果（Option・パターンマッチング対応）
 export type RaycastHit =
-  | { readonly _tag: "Miss" }
+  | { readonly _tag: 'Miss' }
   | {
-      readonly _tag: "Hit"
+      readonly _tag: 'Hit'
       readonly point: Vector3D
       readonly distance: Distance
       readonly normal: Vector3D
@@ -1066,34 +1002,29 @@ export type RaycastHit =
     }
 
 export const RaycastHit = {
-  Miss: { _tag: "Miss" as const },
-  Hit: (
-    point: Vector3D,
-    distance: Distance,
-    normal: Vector3D,
-    entity: Option.Option<EntityId> = Option.none()
-  ) => ({
-    _tag: "Hit" as const,
+  Miss: { _tag: 'Miss' as const },
+  Hit: (point: Vector3D, distance: Distance, normal: Vector3D, entity: Option.Option<EntityId> = Option.none()) => ({
+    _tag: 'Hit' as const,
     point,
     distance,
     normal,
-    entity
-  })
+    entity,
+  }),
 }
 
 export const RaycastHitSchema = Schema.Union(
-  Schema.Struct({ _tag: Schema.Literal("Miss") }),
+  Schema.Struct({ _tag: Schema.Literal('Miss') }),
   Schema.Struct({
-    _tag: Schema.Literal("Hit"),
+    _tag: Schema.Literal('Hit'),
     point: Vector3DSchema,
     distance: Schema.Number.pipe(Schema.nonnegative(), Schema.brand(Distance)),
     normal: Vector3DSchema,
-    entity: Schema.OptionFromNullishOr(EntityIdSchema, null)
+    entity: Schema.OptionFromNullishOr(EntityIdSchema, null),
   })
 ).pipe(
   Schema.annotations({
-    identifier: "RaycastHit",
-    description: "レイキャスト結果（Option・パターンマッチング対応）"
+    identifier: 'RaycastHit',
+    description: 'レイキャスト結果（Option・パターンマッチング対応）',
   })
 )
 
@@ -1106,19 +1037,12 @@ export const RayUtils = {
     }),
 
   at: (ray: Ray, distance: Distance): Vector3D =>
-    Vector3DUtils.add(
-      ray.origin,
-      Vector3DUtils.scale(ray.direction, distance)
-    ),
+    Vector3DUtils.add(ray.origin, Vector3DUtils.scale(ray.direction, distance)),
 
   // AABBとの交差テスト（Effect対応）
   intersectAABB: (ray: Ray, aabb: AABB): Effect.Effect<RaycastHit, never> =>
     Effect.gen(function* () {
-      const invDir = Vector3DUtils.make(
-        1 / ray.direction.x,
-        1 / ray.direction.y,
-        1 / ray.direction.z
-      )
+      const invDir = Vector3DUtils.make(1 / ray.direction.x, 1 / ray.direction.y, 1 / ray.direction.z)
 
       const t1 = (aabb.min.x - ray.origin.x) * invDir.x
       const t2 = (aabb.max.x - ray.origin.x) * invDir.x
@@ -1127,14 +1051,8 @@ export const RayUtils = {
       const t5 = (aabb.min.z - ray.origin.z) * invDir.z
       const t6 = (aabb.max.z - ray.origin.z) * invDir.z
 
-      const tMin = Math.max(
-        Math.max(Math.min(t1, t2), Math.min(t3, t4)),
-        Math.min(t5, t6)
-      )
-      const tMax = Math.min(
-        Math.min(Math.max(t1, t2), Math.max(t3, t4)),
-        Math.max(t5, t6)
-      )
+      const tMin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6))
+      const tMax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6))
 
       // 早期リターン：交差なし
       if (tMax < 0 || tMin > tMax) {
@@ -1167,7 +1085,7 @@ export const RayUtils = {
     } else {
       return Vector3DUtils.make(0, 0, relativePos.z > 0 ? 1 : -1)
     }
-  }
+  },
 }
 ```
 
@@ -1178,17 +1096,19 @@ export const RayUtils = {
 interface RaycastSystemServiceInterface {
   readonly castRay: (ray: Ray, maxDistance: Distance) => Effect.Effect<RaycastHit, Error>
   readonly castRayMultiple: (ray: Ray, maxDistance: Distance) => Stream.Stream<RaycastHit, Error>
-  readonly castRayToEntities: (ray: Ray, entities: ReadonlyArray<EntityId>) => Effect.Effect<ReadonlyArray<RaycastHit>, Error>
+  readonly castRayToEntities: (
+    ray: Ray,
+    entities: ReadonlyArray<EntityId>
+  ) => Effect.Effect<ReadonlyArray<RaycastHit>, Error>
   readonly castRayToBlocks: (ray: Ray, maxDistance: Distance) => Effect.Effect<RaycastHit, Error>
 }
 
-export const RaycastSystemService = Context.GenericTag<RaycastSystemServiceInterface>("@minecraft/RaycastSystemService")
+export const RaycastSystemService = Context.GenericTag<RaycastSystemServiceInterface>('@minecraft/RaycastSystemService')
 
 // レイキャスティングシステム実装（Effect・Stream対応）
 export const RaycastSystem = {
   // 基本レイキャスト（AABBとの交差）
-  rayIntersectsAABB: (ray: Ray, aabb: AABB): Effect.Effect<RaycastHit, never> =>
-    RayUtils.intersectAABB(ray, aabb),
+  rayIntersectsAABB: (ray: Ray, aabb: AABB): Effect.Effect<RaycastHit, never> => RayUtils.intersectAABB(ray, aabb),
 
   // エンティティに対するレイキャスト（Stream対応）
   raycastToEntities: (
@@ -1200,15 +1120,15 @@ export const RaycastSystem = {
         Effect.gen(function* () {
           const hit = yield* RayUtils.intersectAABB(ray, aabb)
           return Match.value(hit).pipe(
-            Match.when({ _tag: "Hit" }, (hitData) =>
+            Match.when({ _tag: 'Hit' }, (hitData) =>
               RaycastHit.Hit(hitData.point, hitData.distance, hitData.normal, Option.some(id))
             ),
-            Match.when({ _tag: "Miss" }, () => hit),
+            Match.when({ _tag: 'Miss' }, () => hit),
             Match.exhaustive
           )
         })
       ),
-      Stream.filter((hit) => hit._tag === "Hit"),
+      Stream.filter((hit) => hit._tag === 'Hit'),
       Stream.take(10) // 最大10件の衝突を処理
     ),
 
@@ -1230,11 +1150,7 @@ export const RaycastSystem = {
 
         // ブロック存在チェック（WorldRepositoryから取得）
         const worldRepository = yield* WorldRepository
-        const block = yield* worldRepository.getBlock(
-          blockPos.x,
-          blockPos.y,
-          blockPos.z
-        )
+        const block = yield* worldRepository.getBlock(blockPos.x, blockPos.y, blockPos.z)
 
         // Option型パターンマッチング
         const hitResult = yield* Match.value(block).pipe(
@@ -1257,7 +1173,7 @@ export const RaycastSystem = {
           Match.exhaustive
         )
 
-        if (hitResult._tag === "Hit") {
+        if (hitResult._tag === 'Hit') {
           return hitResult
         }
 
@@ -1280,22 +1196,18 @@ export const RaycastSystem = {
         })
       ),
       Stream.buffer(8), // バッファリング
-      Stream.filter(({ hit }) => hit._tag === "Hit")
+      Stream.filter(({ hit }) => hit._tag === 'Hit')
     ),
 
   // 球状レイキャスト（放射状・Stream対応）
-  raycastSphere: (
-    origin: Vector3D,
-    radius: Distance,
-    rayCount: number = 32
-  ): Stream.Stream<RaycastHit, Error> =>
+  raycastSphere: (origin: Vector3D, radius: Distance, rayCount: number = 32): Stream.Stream<RaycastHit, Error> =>
     Effect.gen(function* () {
       const rays: Array<Ray> = []
 
       // 球面上の点を生成（フィボナッチ螺旋）
       for (let i = 0; i < rayCount; i++) {
-        const theta = 2 * Math.PI * i / ((1 + Math.sqrt(5)) / 2)
-        const phi = Math.acos(1 - 2 * (i + 0.5) / rayCount)
+        const theta = (2 * Math.PI * i) / ((1 + Math.sqrt(5)) / 2)
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / rayCount)
 
         const direction = Vector3DUtils.make(
           Math.sin(phi) * Math.cos(theta),
@@ -1312,15 +1224,11 @@ export const RaycastSystem = {
       Stream.fromEffect,
       Stream.flatMap((rays) => Stream.fromIterable(rays)),
       Stream.mapEffect((ray) => RaycastSystem.raycastBlocks(ray, radius)),
-      Stream.filter((hit) => hit._tag === "Hit")
+      Stream.filter((hit) => hit._tag === 'Hit')
     ),
 
   // 連続衝突検知用レイキャスト（スイープテスト）
-  sweepTest: (
-    aabb: AABB,
-    velocity: Vector3D,
-    deltaTime: PhysicsValue
-  ): Effect.Effect<RaycastHit, Error> =>
+  sweepTest: (aabb: AABB, velocity: Vector3D, deltaTime: PhysicsValue): Effect.Effect<RaycastHit, Error> =>
     Effect.gen(function* () {
       const center = AABBUtils.getCenter(aabb)
       const displacement = Vector3DUtils.scale(velocity, deltaTime)
@@ -1335,7 +1243,7 @@ export const RaycastSystem = {
       const ray = yield* RayUtils.make(center, direction)
 
       return yield* RaycastSystem.raycastBlocks(ray, distance)
-    })
+    }),
 }
 
 // WorldRepository依存関係（例）
@@ -1343,7 +1251,7 @@ interface WorldRepositoryInterface {
   readonly getBlock: (x: number, y: number, z: number) => Effect.Effect<Option.Option<{ isSolid: boolean }>, Error>
 }
 
-export const WorldRepository = Context.GenericTag<WorldRepositoryInterface>("@minecraft/WorldRepository")
+export const WorldRepository = Context.GenericTag<WorldRepositoryInterface>('@minecraft/WorldRepository')
 ```
 
 ## Service層定義（最新Context.GenericTag）
@@ -1352,28 +1260,38 @@ export const WorldRepository = Context.GenericTag<WorldRepositoryInterface>("@mi
 
 ```typescript
 // 物理エラー定義（Schema.TaggedError対応）
-export const PhysicsError = Schema.TaggedError("PhysicsError")({
+export const PhysicsError = Schema.TaggedError('PhysicsError')({
   message: Schema.String,
   entityId: Schema.optional(EntityId),
-  timestamp: Schema.DateFromSelf
+  timestamp: Schema.DateFromSelf,
 })
 
-export const CollisionError = Schema.TaggedError("CollisionError")({
+export const CollisionError = Schema.TaggedError('CollisionError')({
   message: Schema.String,
   entities: Schema.Array(EntityId),
-  timestamp: Schema.DateFromSelf
+  timestamp: Schema.DateFromSelf,
 })
 
 // PhysicsDomainService（Stream・Effect強化）
 interface PhysicsDomainServiceInterface {
-  readonly updatePhysics: (entities: ReadonlyArray<EntityId>, deltaTime: PhysicsValue) => Effect.Effect<void, PhysicsError>
-  readonly performCollisionDetection: (entities: ReadonlyArray<EntityId>) => Stream.Stream<CollisionInfo, CollisionError>
-  readonly resolveCollisions: (collisions: Stream.Stream<CollisionInfo, CollisionError>) => Effect.Effect<void, CollisionError>
-  readonly simulatePhysics: (entities: ReadonlyArray<EntityId>, steps: number) => Stream.Stream<PhysicsSimulationFrame, PhysicsError>
+  readonly updatePhysics: (
+    entities: ReadonlyArray<EntityId>,
+    deltaTime: PhysicsValue
+  ) => Effect.Effect<void, PhysicsError>
+  readonly performCollisionDetection: (
+    entities: ReadonlyArray<EntityId>
+  ) => Stream.Stream<CollisionInfo, CollisionError>
+  readonly resolveCollisions: (
+    collisions: Stream.Stream<CollisionInfo, CollisionError>
+  ) => Effect.Effect<void, CollisionError>
+  readonly simulatePhysics: (
+    entities: ReadonlyArray<EntityId>,
+    steps: number
+  ) => Stream.Stream<PhysicsSimulationFrame, PhysicsError>
   readonly getPhysicsState: (entityId: EntityId) => Effect.Effect<PhysicsState, PhysicsError>
 }
 
-export const PhysicsDomainService = Context.GenericTag<PhysicsDomainServiceInterface>("@minecraft/PhysicsDomainService")
+export const PhysicsDomainService = Context.GenericTag<PhysicsDomainServiceInterface>('@minecraft/PhysicsDomainService')
 
 // 物理シミュレーションフレーム
 export type PhysicsSimulationFrame = {
@@ -1394,7 +1312,9 @@ interface SpatialGridSystemServiceInterface {
   readonly getStatistics: () => Effect.Effect<SpatialGridStats, never>
 }
 
-export const SpatialGridSystemService = Context.GenericTag<SpatialGridSystemServiceInterface>("@minecraft/SpatialGridSystemService")
+export const SpatialGridSystemService = Context.GenericTag<SpatialGridSystemServiceInterface>(
+  '@minecraft/SpatialGridSystemService'
+)
 
 // 空間グリッド統計
 export type SpatialGridStats = {
@@ -1407,34 +1327,43 @@ export type SpatialGridStats = {
 
 // CollisionSystemService（Stream・パターンマッチング対応）
 interface CollisionSystemServiceInterface {
-  readonly broadPhaseDetection: (entities: ReadonlyArray<EntityId>) => Stream.Stream<[EntityId, EntityId], CollisionError>
-  readonly narrowPhaseDetection: (entityPairs: Stream.Stream<[EntityId, EntityId], CollisionError>) => Stream.Stream<CollisionInfo, CollisionError>
+  readonly broadPhaseDetection: (
+    entities: ReadonlyArray<EntityId>
+  ) => Stream.Stream<[EntityId, EntityId], CollisionError>
+  readonly narrowPhaseDetection: (
+    entityPairs: Stream.Stream<[EntityId, EntityId], CollisionError>
+  ) => Stream.Stream<CollisionInfo, CollisionError>
   readonly resolveCollision: (collision: CollisionInfo) => Effect.Effect<CollisionResolutionResult, CollisionError>
-  readonly continuousCollisionDetection: (entity: EntityId, deltaTime: PhysicsValue) => Effect.Effect<ReadonlyArray<CollisionInfo>, CollisionError>
+  readonly continuousCollisionDetection: (
+    entity: EntityId,
+    deltaTime: PhysicsValue
+  ) => Effect.Effect<ReadonlyArray<CollisionInfo>, CollisionError>
 }
 
-export const CollisionSystemService = Context.GenericTag<CollisionSystemServiceInterface>("@minecraft/CollisionSystemService")
+export const CollisionSystemService = Context.GenericTag<CollisionSystemServiceInterface>(
+  '@minecraft/CollisionSystemService'
+)
 
 // 衝突解決結果（パターンマッチング対応）
 export type CollisionResolutionResult =
-  | { readonly _tag: "Resolved"; readonly impulse: PhysicsValue; readonly separation: Vector3D }
-  | { readonly _tag: "Penetrating"; readonly penetrationDepth: Distance }
-  | { readonly _tag: "NoResolution"; readonly reason: string }
+  | { readonly _tag: 'Resolved'; readonly impulse: PhysicsValue; readonly separation: Vector3D }
+  | { readonly _tag: 'Penetrating'; readonly penetrationDepth: Distance }
+  | { readonly _tag: 'NoResolution'; readonly reason: string }
 
 export const CollisionResolutionResult = {
   Resolved: (impulse: PhysicsValue, separation: Vector3D) => ({
-    _tag: "Resolved" as const,
+    _tag: 'Resolved' as const,
     impulse,
-    separation
+    separation,
   }),
   Penetrating: (penetrationDepth: Distance) => ({
-    _tag: "Penetrating" as const,
-    penetrationDepth
+    _tag: 'Penetrating' as const,
+    penetrationDepth,
   }),
   NoResolution: (reason: string) => ({
-    _tag: "NoResolution" as const,
-    reason
-  })
+    _tag: 'NoResolution' as const,
+    reason,
+  }),
 }
 ```
 
@@ -1447,7 +1376,7 @@ export type SpatialCell = {
   readonly bounds: AABB
   lastUpdate: Schema.DateFromSelf
   entityCount: Schema.Number
-} & Brand.Brand<"SpatialCell">
+} & Brand.Brand<'SpatialCell'>
 
 export const SpatialCell = Brand.nominal<SpatialCell>()
 
@@ -1456,7 +1385,7 @@ export type GridCoordinate = {
   x: Schema.Number
   y: Schema.Number
   z: Schema.Number
-} & Brand.Brand<"GridCoordinate">
+} & Brand.Brand<'GridCoordinate'>
 
 export const GridCoordinate = Brand.nominal<GridCoordinate>()
 
@@ -1466,36 +1395,33 @@ export type SpatialGrid = {
   readonly cells: ReadonlyMap<string, SpatialCell>
   readonly bounds: AABB
   readonly statistics: SpatialGridStats
-} & Brand.Brand<"SpatialGrid">
+} & Brand.Brand<'SpatialGrid'>
 
 export const SpatialGrid = Brand.nominal<SpatialGrid>()
 
 // 空間グリッド操作システム（Effect・Stream対応）
 export const SpatialGridSystem = {
   // エンティティ挿入（Stream対応）
-  insertEntity: (
-    grid: SpatialGrid,
-    entityId: EntityId,
-    aabb: AABB
-  ): Effect.Effect<SpatialGrid, never> =>
+  insertEntity: (grid: SpatialGrid, entityId: EntityId, aabb: AABB): Effect.Effect<SpatialGrid, never> =>
     Effect.gen(function* () {
       const cellKeys = SpatialGridSystem.getCellKeys(aabb, grid.cellSize)
       const newCells = new Map(grid.cells)
 
       for (const cellKey of cellKeys) {
         const existingCell = newCells.get(cellKey)
-        const entities = existingCell
-          ? new Set(existingCell.entities).add(entityId)
-          : new Set([entityId])
+        const entities = existingCell ? new Set(existingCell.entities).add(entityId) : new Set([entityId])
 
         const cellAABB = SpatialGridSystem.getCellAABB(cellKey, grid.cellSize)
 
-        newCells.set(cellKey, SpatialCell({
-          entities,
-          bounds: cellAABB,
-          lastUpdate: new Date(),
-          entityCount: entities.size
-        } as SpatialCell))
+        newCells.set(
+          cellKey,
+          SpatialCell({
+            entities,
+            bounds: cellAABB,
+            lastUpdate: new Date(),
+            entityCount: entities.size,
+          } as SpatialCell)
+        )
       }
 
       const newStats = yield* SpatialGridSystem.calculateStats(newCells)
@@ -1503,15 +1429,12 @@ export const SpatialGridSystem = {
       return SpatialGrid({
         ...grid,
         cells: newCells,
-        statistics: newStats
+        statistics: newStats,
       } as SpatialGrid)
     }),
 
   // 範囲クエリ（Stream出力）
-  queryRange: (
-    grid: SpatialGrid,
-    queryAABB: AABB
-  ): Stream.Stream<EntityId, never> =>
+  queryRange: (grid: SpatialGrid, queryAABB: AABB): Stream.Stream<EntityId, never> =>
     Stream.gen(function* () {
       const cellKeys = SpatialGridSystem.getCellKeys(queryAABB, grid.cellSize)
 
@@ -1532,13 +1455,10 @@ export const SpatialGridSystem = {
     radius: Distance
   ): Stream.Stream<{ entityId: EntityId; distance: Distance }, never> =>
     Stream.gen(function* () {
-      const queryAABB = AABBUtils.fromCenterSize(
-        center,
-        Vector3DUtils.make(radius * 2, radius * 2, radius * 2)
-      )
+      const queryAABB = AABBUtils.fromCenterSize(center, Vector3DUtils.make(radius * 2, radius * 2, radius * 2))
 
       yield* SpatialGridSystem.queryRange(grid, queryAABB).pipe(
-        Stream.map(entityId => ({ entityId, center })),
+        Stream.map((entityId) => ({ entityId, center })),
         Stream.mapEffect(({ entityId, center }) =>
           Effect.gen(function* () {
             // エンティティの位置を取得（仮実装）
@@ -1550,7 +1470,7 @@ export const SpatialGridSystem = {
         Stream.filter(({ distance }) => distance <= radius),
         Stream.runCollect,
         Stream.fromEffect,
-        Stream.flatMap(chunk => Stream.fromIterable(chunk))
+        Stream.flatMap((chunk) => Stream.fromIterable(chunk))
       )
     }),
 
@@ -1577,7 +1497,7 @@ export const SpatialGridSystem = {
     GridCoordinate({
       x: Math.floor(worldPos.x / cellSize),
       y: Math.floor(worldPos.y / cellSize),
-      z: Math.floor(worldPos.z / cellSize)
+      z: Math.floor(worldPos.z / cellSize),
     } as GridCoordinate),
 
   gridToWorld: (gridPos: GridCoordinate, cellSize: Distance): Vector3D =>
@@ -1591,18 +1511,13 @@ export const SpatialGridSystem = {
     const [x, y, z] = cellKey.split(',').map(Number)
     const gridPos = GridCoordinate({ x, y, z } as GridCoordinate)
     const center = SpatialGridSystem.gridToWorld(gridPos, cellSize)
-    return AABBUtils.fromCenterSize(
-      center,
-      Vector3DUtils.make(cellSize, cellSize, cellSize)
-    )
+    return AABBUtils.fromCenterSize(center, Vector3DUtils.make(cellSize, cellSize, cellSize))
   },
 
   // 統計計算（Effect対応）
-  calculateStats: (
-    cells: ReadonlyMap<string, SpatialCell>
-  ): Effect.Effect<SpatialGridStats, never> =>
+  calculateStats: (cells: ReadonlyMap<string, SpatialCell>): Effect.Effect<SpatialGridStats, never> =>
     Effect.gen(function* () {
-      const activeCells = Array.from(cells.values()).filter(cell => cell.entityCount > 0)
+      const activeCells = Array.from(cells.values()).filter((cell) => cell.entityCount > 0)
       const totalEntities = activeCells.reduce((sum, cell) => sum + cell.entityCount, 0)
 
       return {
@@ -1610,9 +1525,9 @@ export const SpatialGridSystem = {
         activeCells: activeCells.length,
         totalEntities,
         averageEntitiesPerCell: activeCells.length > 0 ? totalEntities / activeCells.length : 0,
-        memoryUsage: cells.size * 64 // 概算メモリ使用量（バイト）
+        memoryUsage: cells.size * 64, // 概算メモリ使用量（バイト）
       }
-    })
+    }),
 }
 ```
 
@@ -1623,11 +1538,11 @@ export const SpatialGridSystem = {
 ```typescript
 export const SpatialCell = Schema.Struct({
   entities: Schema.Set(EntityId),
-  lastUpdate: Schema.DateTimeUtc
+  lastUpdate: Schema.DateTimeUtc,
 }).pipe(
   Schema.annotations({
-    identifier: "SpatialCell",
-    description: "空間分割セル"
+    identifier: 'SpatialCell',
+    description: '空間分割セル',
   })
 )
 
@@ -1636,11 +1551,11 @@ export type SpatialCell = Schema.Schema.Type<typeof SpatialCell>
 export const SpatialGrid = Schema.Struct({
   cellSize: Schema.Number,
   cells: Schema.Map(Schema.String, SpatialCell),
-  bounds: AABB
+  bounds: AABB,
 }).pipe(
   Schema.annotations({
-    identifier: "SpatialGrid",
-    description: "空間分割グリッド構造"
+    identifier: 'SpatialGrid',
+    description: '空間分割グリッド構造',
   })
 )
 
@@ -1668,7 +1583,7 @@ export const SpatialGridSystem = {
           const cellKey = `${x},${y},${z}`
           const existingCell = newCells.get(cellKey) || {
             entities: new Set(),
-            lastUpdate: new Date()
+            lastUpdate: new Date(),
           }
 
           const updatedEntities = new Set(existingCell.entities)
@@ -1676,7 +1591,7 @@ export const SpatialGridSystem = {
 
           newCells.set(cellKey, {
             entities: updatedEntities,
-            lastUpdate: new Date()
+            lastUpdate: new Date(),
           })
         }
       }
@@ -1702,14 +1617,14 @@ export const SpatialGridSystem = {
           const cellKey = `${x},${y},${z}`
           const cell = grid.cells.get(cellKey)
           if (cell) {
-            cell.entities.forEach(id => entities.add(id as string))
+            cell.entities.forEach((id) => entities.add(id as string))
           }
         }
       }
     }
 
     return entities
-  }
+  },
 }
 ```
 
@@ -1730,60 +1645,52 @@ const makePhysicsDomainService = Effect.gen(function* () {
     steps: number
   ): Stream.Stream<PhysicsSimulationFrame, PhysicsError> =>
     Stream.range(0, steps).pipe(
-      Stream.mapAccumEffect(
-        { entities: new Map<EntityId, RigidBody>(), frameNumber: 0 },
-        (state, step) =>
-          Effect.gen(function* () {
-            const deltaTime = PhysicsValue(1 / 60) // 60 FPS
-            const frameNumber = state.frameNumber + 1
+      Stream.mapAccumEffect({ entities: new Map<EntityId, RigidBody>(), frameNumber: 0 }, (state, step) =>
+        Effect.gen(function* () {
+          const deltaTime = PhysicsValue(1 / 60) // 60 FPS
+          const frameNumber = state.frameNumber + 1
 
-            // 1. 物理状態更新（並行処理）
-            const updatedEntities = yield* Effect.forEach(
-              entities,
-              (entityId) =>
-                Effect.gen(function* () {
-                  const entity = state.entities.get(entityId)
-                  if (!entity) return null
+          // 1. 物理状態更新（並行処理）
+          const updatedEntities = yield* Effect.forEach(
+            entities,
+            (entityId) =>
+              Effect.gen(function* () {
+                const entity = state.entities.get(entityId)
+                if (!entity) return null
 
-                  const currentState = yield* getPhysicsState(entityId)
-                  const updatedEntity = yield* PhysicsSystem.updateByState(
-                    entity,
-                    currentState,
-                    deltaTime
-                  )
+                const currentState = yield* getPhysicsState(entityId)
+                const updatedEntity = yield* PhysicsSystem.updateByState(entity, currentState, deltaTime)
 
-                  return [entityId, updatedEntity] as const
-                }),
-              { concurrency: "unbounded" }
-            ).pipe(
-              Effect.map(results => results.filter((r): r is [EntityId, RigidBody] => r !== null))
-            )
+                return [entityId, updatedEntity] as const
+              }),
+            { concurrency: 'unbounded' }
+          ).pipe(Effect.map((results) => results.filter((r): r is [EntityId, RigidBody] => r !== null)))
 
-            // 2. 衝突検知（Stream処理）
-            const collisionStream = yield* performCollisionDetection(entities)
-            const collisions = yield* Stream.runCollect(collisionStream)
+          // 2. 衝突検知（Stream処理）
+          const collisionStream = yield* performCollisionDetection(entities)
+          const collisions = yield* Stream.runCollect(collisionStream)
 
-            // 3. 衝突解決（パターンマッチング）
-            yield* resolveCollisions(Stream.fromIterable(collisions))
+          // 3. 衝突解決（パターンマッチング）
+          yield* resolveCollisions(Stream.fromIterable(collisions))
 
-            const newState = {
-              entities: new Map(updatedEntities),
-              frameNumber
-            }
+          const newState = {
+            entities: new Map(updatedEntities),
+            frameNumber,
+          }
 
-            const frame: PhysicsSimulationFrame = {
-              frameNumber,
-              deltaTime,
-              entities: newState.entities,
-              collisions: Array.from(collisions),
-              timestamp: new Date()
-            }
+          const frame: PhysicsSimulationFrame = {
+            frameNumber,
+            deltaTime,
+            entities: newState.entities,
+            collisions: Array.from(collisions),
+            timestamp: new Date(),
+          }
 
-            return [newState, frame]
-          })
+          return [newState, frame]
+        })
       ),
       Stream.map(([, frame]) => frame)
-    ),
+    )
 
   // 物理更新（Effect統合）
   const updatePhysics = (entities: ReadonlyArray<EntityId>, deltaTime: PhysicsValue) =>
@@ -1798,16 +1705,13 @@ const makePhysicsDomainService = Effect.gen(function* () {
 
             // パターンマッチングによる状態別処理
             const updatedEntity = yield* Match.value(state).pipe(
-              Match.when({ _tag: "Resting" }, () =>
-                Effect.succeed(entity) // 静止中は更新不要
+              Match.when(
+                { _tag: 'Resting' },
+                () => Effect.succeed(entity) // 静止中は更新不要
               ),
-              Match.when({ _tag: "Falling" }, ({ fallTime }) =>
-                PhysicsSystem.updateByState(entity, state, deltaTime)
-              ),
-              Match.when({ _tag: "Moving" }, ({ velocity }) =>
-                PhysicsSystem.updateByState(entity, state, deltaTime)
-              ),
-              Match.when({ _tag: "Colliding" }, ({ collisions }) =>
+              Match.when({ _tag: 'Falling' }, ({ fallTime }) => PhysicsSystem.updateByState(entity, state, deltaTime)),
+              Match.when({ _tag: 'Moving' }, ({ velocity }) => PhysicsSystem.updateByState(entity, state, deltaTime)),
+              Match.when({ _tag: 'Colliding' }, ({ collisions }) =>
                 PhysicsSystem.updateByState(entity, state, deltaTime)
               ),
               Match.exhaustive
@@ -1815,12 +1719,12 @@ const makePhysicsDomainService = Effect.gen(function* () {
 
             yield* updateEntity(entityId, updatedEntity)
           }),
-        { concurrency: "unbounded", discard: true }
+        { concurrency: 'unbounded', discard: true }
       )
 
       // 2. 空間グリッド更新
       yield* updateSpatialGrid(entities)
-    }),
+    })
 
   // 衝突検知（Stream・パターンマッチング統合）
   const performCollisionDetection = (
@@ -1828,24 +1732,20 @@ const makePhysicsDomainService = Effect.gen(function* () {
   ): Effect.Effect<Stream.Stream<CollisionInfo, CollisionError>, CollisionError> =>
     Effect.gen(function* () {
       // Broad Phase: 空間グリッド使用
-      const entityPairStream = yield* Effect.succeed(
-        collisionSystem.broadPhaseDetection(entities)
-      )
+      const entityPairStream = yield* Effect.succeed(collisionSystem.broadPhaseDetection(entities))
 
       // Narrow Phase: 詳細衝突判定
       const collisionStream = collisionSystem.narrowPhaseDetection(entityPairStream)
 
       // 連続衝突検知統合
       const continuousCollisions = Stream.fromIterable(entities).pipe(
-        Stream.mapEffect((entityId) =>
-          collisionSystem.continuousCollisionDetection(entityId, PhysicsValue(1/60))
-        ),
-        Stream.flatMap(collisions => Stream.fromIterable(collisions))
+        Stream.mapEffect((entityId) => collisionSystem.continuousCollisionDetection(entityId, PhysicsValue(1 / 60))),
+        Stream.flatMap((collisions) => Stream.fromIterable(collisions))
       )
 
       // 両方の結果をマージ
       return Stream.merge(collisionStream, continuousCollisions)
-    }),
+    })
 
   // 衝突解決（Stream・パターンマッチング）
   const resolveCollisions = (
@@ -1858,7 +1758,7 @@ const makePhysicsDomainService = Effect.gen(function* () {
 
           // 解決結果による後処理
           yield* Match.value(result).pipe(
-            Match.when({ _tag: "Resolved" }, ({ impulse, separation }) =>
+            Match.when({ _tag: 'Resolved' }, ({ impulse, separation }) =>
               Effect.gen(function* () {
                 // インパルス適用
                 yield* applyImpulse(collision.entityA, impulse, collision.normal)
@@ -1868,13 +1768,13 @@ const makePhysicsDomainService = Effect.gen(function* () {
                 yield* separateEntities(collision.entityA, collision.entityB, separation)
               })
             ),
-            Match.when({ _tag: "Penetrating" }, ({ penetrationDepth }) =>
+            Match.when({ _tag: 'Penetrating' }, ({ penetrationDepth }) =>
               Effect.gen(function* () {
                 // 貫通解決（位置補正）
                 yield* correctPenetration(collision, penetrationDepth)
               })
             ),
-            Match.when({ _tag: "NoResolution" }, ({ reason }) =>
+            Match.when({ _tag: 'NoResolution' }, ({ reason }) =>
               Effect.logWarning(`Collision resolution failed: ${reason}`)
             ),
             Match.exhaustive
@@ -1882,7 +1782,7 @@ const makePhysicsDomainService = Effect.gen(function* () {
         })
       ),
       Stream.runDrain
-    ),
+    )
 
   // 物理状態取得（パターンマッチング）
   const getPhysicsState = (entityId: EntityId): Effect.Effect<PhysicsState, PhysicsError> =>
@@ -1919,7 +1819,7 @@ const makePhysicsDomainService = Effect.gen(function* () {
     performCollisionDetection,
     resolveCollisions,
     simulatePhysics,
-    getPhysicsState
+    getPhysicsState,
   })
 })
 
@@ -1927,28 +1827,27 @@ export const PhysicsDomainServiceLive = Layer.effect(PhysicsDomainService, makeP
 
 // ヘルパー関数（仮実装）
 const getEntity = (entityId: EntityId): Effect.Effect<RigidBody, PhysicsError> =>
-  Effect.fail(new PhysicsError({ message: "Not implemented", entityId }))
+  Effect.fail(new PhysicsError({ message: 'Not implemented', entityId }))
 
-const updateEntity = (entityId: EntityId, entity: RigidBody): Effect.Effect<void, PhysicsError> =>
-  Effect.unit
+const updateEntity = (entityId: EntityId, entity: RigidBody): Effect.Effect<void, PhysicsError> => Effect.unit
 
-const updateSpatialGrid = (entities: ReadonlyArray<EntityId>): Effect.Effect<void, PhysicsError> =>
-  Effect.unit
+const updateSpatialGrid = (entities: ReadonlyArray<EntityId>): Effect.Effect<void, PhysicsError> => Effect.unit
 
 const applyImpulse = (entityId: EntityId, impulse: PhysicsValue, normal: Vector3D): Effect.Effect<void, PhysicsError> =>
   Effect.unit
 
-const separateEntities = (entityA: EntityId, entityB: EntityId, separation: Vector3D): Effect.Effect<void, PhysicsError> =>
-  Effect.unit
+const separateEntities = (
+  entityA: EntityId,
+  entityB: EntityId,
+  separation: Vector3D
+): Effect.Effect<void, PhysicsError> => Effect.unit
 
-const correctPenetration = (collision: CollisionInfo, depth: Distance): Effect.Effect<void, PhysicsError> =>
-  Effect.unit
+const correctPenetration = (collision: CollisionInfo, depth: Distance): Effect.Effect<void, PhysicsError> => Effect.unit
 
 const checkGroundContact = (entityId: EntityId): Effect.Effect<Option.Option<EntityId>, PhysicsError> =>
   Effect.succeed(Option.none())
 
-const getFallTime = (entityId: EntityId): Effect.Effect<number, PhysicsError> =>
-  Effect.succeed(0)
+const getFallTime = (entityId: EntityId): Effect.Effect<number, PhysicsError> => Effect.succeed(0)
 
 const getActiveCollisions = (entityId: EntityId): Effect.Effect<ReadonlyArray<CollisionInfo>, PhysicsError> =>
   Effect.succeed([])
@@ -1973,7 +1872,7 @@ export const RaycastSystem = {
         const currentPoint = {
           x: ray.origin.x + ray.direction.x * currentDistance,
           y: ray.origin.y + ray.direction.y * currentDistance,
-          z: ray.origin.z + ray.direction.z * currentDistance
+          z: ray.origin.z + ray.direction.z * currentDistance,
         }
 
         // ブロック座標に変換
@@ -1987,13 +1886,15 @@ export const RaycastSystem = {
         // Match.valueでOption型を安全に処理
         const hitResult = Match.value(block).pipe(
           Match.when(Option.isSome, (some) =>
-            some.value.isSolid ? Option.some({
-              hit: true,
-              point: currentPoint,
-              distance: currentDistance,
-              normal: calculateNormal(currentPoint, { x: blockX, y: blockY, z: blockZ }),
-              entity: null
-            }) : Option.none()
+            some.value.isSolid
+              ? Option.some({
+                  hit: true,
+                  point: currentPoint,
+                  distance: currentDistance,
+                  normal: calculateNormal(currentPoint, { x: blockX, y: blockY, z: blockZ }),
+                  entity: null,
+                })
+              : Option.none()
           ),
           Match.when(Option.isNone, () => Option.none()),
           Match.exhaustive
@@ -2007,7 +1908,7 @@ export const RaycastSystem = {
       }
 
       return { hit: false, point: null, distance: null, normal: null, entity: null }
-    })
+    }),
 }
 
 // 法線ベクトル計算（純粋関数）
@@ -2015,7 +1916,7 @@ const calculateNormal = (hitPoint: Vector3D, blockPos: Vector3D): Vector3D => {
   const relativePos = {
     x: hitPoint.x - blockPos.x,
     y: hitPoint.y - blockPos.y,
-    z: hitPoint.z - blockPos.z
+    z: hitPoint.z - blockPos.z,
   }
 
   // 最も近い面を特定
@@ -2047,8 +1948,8 @@ export const PhysicsArrays = Schema.Struct({
   // ... 他のプロパティ
 }).pipe(
   Schema.annotations({
-    identifier: "PhysicsArrays",
-    description: "SIMD最適化用のStructure of Arrays"
+    identifier: 'PhysicsArrays',
+    description: 'SIMD最適化用のStructure of Arrays',
   })
 )
 
@@ -2064,10 +1965,10 @@ export const SIMDPhysicsSystem = {
       ...arrays,
       velocities: arrays.velocities.map((vel, i) => ({
         ...vel,
-        y: vel.y - 9.81 * deltaTime
-      }))
+        y: vel.y - 9.81 * deltaTime,
+      })),
     }
-  }
+  },
 }
 ```
 
@@ -2076,7 +1977,7 @@ export const SIMDPhysicsSystem = {
 ```typescript
 export const PhysicsConfig = Schema.Struct({
   spatialGridCellSize: Schema.Number.pipe(Schema.default(() => 4.0)),
-  fixedTimeStep: Schema.Number.pipe(Schema.default(() => 1/60)),
+  fixedTimeStep: Schema.Number.pipe(Schema.default(() => 1 / 60)),
   maxSubSteps: Schema.Number.pipe(Schema.default(() => 3)),
   collisionMargin: Schema.Number.pipe(Schema.default(() => 0.01)),
   maxCollisionIterations: Schema.Number.pipe(Schema.default(() => 10)),
@@ -2086,11 +1987,11 @@ export const PhysicsConfig = Schema.Struct({
   broadPhaseEnabled: Schema.Boolean.pipe(Schema.default(() => true)),
   narrowPhaseEnabled: Schema.Boolean.pipe(Schema.default(() => true)),
   enableSIMD: Schema.Boolean.pipe(Schema.default(() => true)),
-  maxEntitiesPerCell: Schema.Number.pipe(Schema.default(() => 16))
+  maxEntitiesPerCell: Schema.Number.pipe(Schema.default(() => 16)),
 }).pipe(
   Schema.annotations({
-    identifier: "PhysicsConfig",
-    description: "物理エンジン設定"
+    identifier: 'PhysicsConfig',
+    description: '物理エンジン設定',
   })
 )
 
@@ -2108,11 +2009,11 @@ export const PhysicsStats = Schema.Struct({
   broadPhaseTime: Schema.Number,
   narrowPhaseTime: Schema.Number,
   integrationTime: Schema.Number,
-  sleepingEntities: Schema.Number
+  sleepingEntities: Schema.Number,
 }).pipe(
   Schema.annotations({
-    identifier: "PhysicsStats",
-    description: "物理エンジン統計情報"
+    identifier: 'PhysicsStats',
+    description: '物理エンジン統計情報',
   })
 )
 
@@ -2123,61 +2024,63 @@ export type PhysicsStats = Schema.Schema.Type<typeof PhysicsStats>
 
 ```typescript
 export const PhysicsComponentFactories = {
-  createRigidBody: (options: Partial<Omit<RigidBody, 'entityId'>> = {}) => (entityId: string): RigidBody =>
-    Schema.decodeUnknownSync(RigidBody)({
-      entityId,
-      position: options.position ?? { x: 0, y: 0, z: 0 },
-      velocity: options.velocity ?? { x: 0, y: 0, z: 0 },
-      acceleration: options.acceleration ?? { x: 0, y: 0, z: 0 },
-      mass: options.mass ?? 1.0,
-      bounds: options.bounds ?? createAABB({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }),
-      isStatic: options.isStatic ?? false,
-      hasGravity: options.hasGravity ?? true,
-      friction: options.friction ?? 0.6,
-      bounciness: options.bounciness ?? 0.0,
-      onGround: options.onGround ?? false,
-      inWater: options.inWater ?? false,
-      inLava: options.inLava ?? false,
-      lastUpdate: new Date()
-    }),
+  createRigidBody:
+    (options: Partial<Omit<RigidBody, 'entityId'>> = {}) =>
+    (entityId: string): RigidBody =>
+      Schema.decodeUnknownSync(RigidBody)({
+        entityId,
+        position: options.position ?? { x: 0, y: 0, z: 0 },
+        velocity: options.velocity ?? { x: 0, y: 0, z: 0 },
+        acceleration: options.acceleration ?? { x: 0, y: 0, z: 0 },
+        mass: options.mass ?? 1.0,
+        bounds: options.bounds ?? createAABB({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }),
+        isStatic: options.isStatic ?? false,
+        hasGravity: options.hasGravity ?? true,
+        friction: options.friction ?? 0.6,
+        bounciness: options.bounciness ?? 0.0,
+        onGround: options.onGround ?? false,
+        inWater: options.inWater ?? false,
+        inLava: options.inLava ?? false,
+        lastUpdate: new Date(),
+      }),
 
   createVelocity: (initialVelocity: Vector3D = { x: 0, y: 0, z: 0 }): VelocityComponent =>
     Schema.decodeUnknownSync(VelocityComponent)({
-      _tag: "VelocityComponent",
+      _tag: 'VelocityComponent',
       velocity: initialVelocity,
       maxSpeed: 50.0,
-      damping: 0.99
+      damping: 0.99,
     }),
 
   createCollider: (size: Vector3D): ColliderComponent =>
     Schema.decodeUnknownSync(ColliderComponent)({
-      _tag: "ColliderComponent",
+      _tag: 'ColliderComponent',
       aabb: createAABB({ x: 0, y: 0, z: 0 }, size),
       isSolid: true,
       friction: 0.6,
-      bounciness: 0.0
+      bounciness: 0.0,
     }),
 
   // physics-engine.mdから統合された新しいファクトリ
   createRigidBodyComponent: (options: Partial<Omit<RigidBodyComponent, '_tag'>> = {}): RigidBodyComponent =>
     Schema.decodeUnknownSync(RigidBodyComponent)({
-      _tag: "RigidBodyComponent",
+      _tag: 'RigidBodyComponent',
       mass: options.mass ?? 1.0,
       isKinematic: options.isKinematic ?? false,
       useGravity: options.useGravity ?? true,
       drag: options.drag ?? 0.0,
-      angularDrag: options.angularDrag ?? 0.05
+      angularDrag: options.angularDrag ?? 0.05,
     }),
 
   createPhysicsMaterial: (options: Partial<Omit<PhysicsMaterialComponent, '_tag'>> = {}): PhysicsMaterialComponent =>
     Schema.decodeUnknownSync(PhysicsMaterialComponent)({
-      _tag: "PhysicsMaterialComponent",
+      _tag: 'PhysicsMaterialComponent',
       staticFriction: options.staticFriction ?? 0.6,
       dynamicFriction: options.dynamicFriction ?? 0.6,
       bounciness: options.bounciness ?? 0.0,
-      frictionCombine: options.frictionCombine ?? "average",
-      bounceCombine: options.bounceCombine ?? "average"
-    })
+      frictionCombine: options.frictionCombine ?? 'average',
+      bounceCombine: options.bounceCombine ?? 'average',
+    }),
 }
 ```
 
@@ -2188,31 +2091,37 @@ export const PhysicsComponentFactories = {
 ### 適用された最新Effect-TSパターン
 
 #### 1. Branded Types（型安全性強化）
+
 - `Vector3D`, `AABB`, `EntityId`, `Mass`, `Distance`, `Velocity` 等のBranded型実装
 - `Brand.nominal<T>()` による型安全なドメインモデル構築
 - コンパイル時型チェックによる誤用防止
 
 #### 2. Schema統合（検証・変換）
+
 - `Schema.Struct`, `Schema.Union`, `Schema.brand()` による実行時検証
 - `Schema.annotations()` によるメタデータ付与
 - `Schema.TaggedError` による構造化エラーハンドリング
 
 #### 3. Stream Processing（連続データ処理）
+
 - `Stream.fromIterable()`, `Stream.mapEffect()`, `Stream.filter()` による物理シミュレーション
 - `Stream.cross()`, `Stream.merge()` を用いた衝突検知パイプライン
 - `Stream.gen()` による宣言的データフロー記述
 
 #### 4. Pattern Matching（分岐処理）
+
 - `Match.value()`, `Match.when()`, `Match.exhaustive` による型安全な条件分岐
 - 物理状態、衝突タイプ、解決結果の構造化パターンマッチング
 - コンパイル時網羅性チェック確保
 
 #### 5. Effect Integration（副作用管理）
+
 - `Effect.gen()` による宣言的非同期処理
 - `Effect.forEach()` の並行処理オプション活用
 - `Context.GenericTag` によるDI設計
 
 #### 6. Early Return Optimization（性能最適化）
+
 - 条件分岐での不要計算回避パターン
 - Option型による安全なnull処理
 - 早期失敗による処理効率向上
@@ -2220,24 +2129,28 @@ export const PhysicsComponentFactories = {
 ### 技術実装の詳細統合
 
 #### 1. AABB衝突検知システム
+
 - **Branded型対応**: `AABB`, `Vector3D` の型安全操作
 - **Effect統合**: 非同期衝突計算とエラーハンドリング
 - **Stream処理**: バッチ衝突検知による高スループット実現
 - **パターンマッチング**: 衝突タイプ別処理の構造化
 
 #### 2. レイキャスティングシステム
+
 - **Option型活用**: Hit/Miss結果の安全な処理
 - **Stream対応**: 複数レイの並行処理
 - **Effect統合**: ブロック/エンティティレイキャスト統合
 - **早期リターン**: 不要計算の効率的スキップ
 
 #### 3. 空間グリッド最適化
+
 - **Branded座標**: `GridCoordinate` による型安全な空間操作
 - **Stream出力**: 範囲クエリの遅延評価
 - **統計計算**: リアルタイムパフォーマンス監視
 - **メモリ効率**: 動的セル管理による最適化
 
 #### 4. 物理更新ループ
+
 - **Stream simulation**: フレームベース物理シミュレーション
 - **並行処理**: エンティティ更新の効率的並列実行
 - **状態管理**: パターンマッチングによる物理状態分岐
@@ -2260,10 +2173,7 @@ export const VerletIntegration = {
 
       // Verlet積分: x(t+dt) = 2*x(t) - x(t-dt) + a*dt²
       const newPos = Vector3DUtils.add(
-        Vector3DUtils.subtract(
-          Vector3DUtils.scale(currentPos, 2),
-          prevPosition
-        ),
+        Vector3DUtils.subtract(Vector3DUtils.scale(currentPos, 2), prevPosition),
         Vector3DUtils.scale(acceleration, deltaTime * deltaTime)
       )
 
@@ -2284,10 +2194,10 @@ export const VerletIntegration = {
 
         for (const constraint of constraints) {
           const result = yield* Match.value(constraint).pipe(
-            Match.when({ _tag: "DistanceConstraint" }, (dist) =>
+            Match.when({ _tag: 'DistanceConstraint' }, (dist) =>
               VerletIntegration.solveDistanceConstraint(constrainedEntities, dist)
             ),
-            Match.when({ _tag: "FixedConstraint" }, (fixed) =>
+            Match.when({ _tag: 'FixedConstraint' }, (fixed) =>
               VerletIntegration.solveFixedConstraint(constrainedEntities, fixed)
             ),
             Match.exhaustive
@@ -2303,18 +2213,24 @@ export const VerletIntegration = {
       }
 
       return constrainedEntities
-    })
+    }),
 }
 
 // 制約タイプ定義
 export type PhysicsConstraint =
-  | { readonly _tag: "DistanceConstraint"; readonly entityA: EntityId; readonly entityB: EntityId; readonly distance: Distance }
-  | { readonly _tag: "FixedConstraint"; readonly entityId: EntityId; readonly position: Vector3D }
+  | {
+      readonly _tag: 'DistanceConstraint'
+      readonly entityA: EntityId
+      readonly entityB: EntityId
+      readonly distance: Distance
+    }
+  | { readonly _tag: 'FixedConstraint'; readonly entityId: EntityId; readonly position: Vector3D }
 ```
 
 ### パフォーマンス最適化（統合完成版）
 
 #### 1. SIMD対応Structure of Arrays
+
 ```typescript
 // WebAssembly + SIMD最適化実装
 export const SIMDPhysicsSystem = {
@@ -2338,11 +2254,12 @@ export const SIMDPhysicsSystem = {
 
         velocities.set([vx, vy, vz, vw], i)
       }
-    })
+    }),
 }
 ```
 
 #### 2. GPU並列処理（Compute Shader連携）
+
 ```typescript
 // GPU計算との連携インターフェース
 interface GPUPhysicsInterface {
@@ -2350,7 +2267,7 @@ interface GPUPhysicsInterface {
   readonly integratePhysics: (entityData: Float32Array, deltaTime: number) => Effect.Effect<Float32Array, Error>
 }
 
-export const GPUPhysicsService = Context.GenericTag<GPUPhysicsInterface>("@minecraft/GPUPhysicsService")
+export const GPUPhysicsService = Context.GenericTag<GPUPhysicsInterface>('@minecraft/GPUPhysicsService')
 ```
 
 ### Property-Based Testing対応
@@ -2378,7 +2295,7 @@ export const PhysicsPropertyTests = {
   // エネルギー保存則テスト（弾性衝突）
   energyConservation: Effect.gen(function* () {
     // 同様の実装...
-  })
+  }),
 }
 ```
 
@@ -2387,21 +2304,25 @@ export const PhysicsPropertyTests = {
 このrefactorされた物理システムは、**Effect-TS 3.x+の全機能を活用した最新アーキテクチャ**として以下を実現しています：
 
 ### 🎯 型安全性の完全確保
+
 - Branded型による実行時型安全性
 - パターンマッチングによる網羅的分岐処理
 - Option型による安全なnull処理
 
 ### ⚡ 高性能物理演算
+
 - Stream処理による効率的データフロー
 - 早期リターン最適化による計算削減
 - SIMD/GPU並列処理対応
 
 ### 🔧 保守性と拡張性
+
 - Context-based DI による疎結合設計
 - Effect統合による宣言的副作用管理
 - Property-based testingによる堅牢性保証
 
 ### 🚀 プロダクション対応
+
 - 構造化エラーハンドリング
 - リアルタイムパフォーマンス監視
 - メモリ効率的な空間分割

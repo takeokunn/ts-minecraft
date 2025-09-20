@@ -1,17 +1,17 @@
 ---
-title: "Effect-TS 3.17+ 基礎マスター - 実践的コアパターン習得"
-description: "Effect.gen、Schema.Struct、Context.GenericTagを使った実践的パターン学習。リアルタイム実行環境で即座に理解できるハンズオン形式のEffect-TS入門。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["effect-ts", "fundamentals", "schema-struct", "effect-gen", "context-generic-tag", "hands-on"]
-prerequisites: ["typescript-intermediate", "functional-programming-basics"]
-estimated_reading_time: "20分"
+title: 'Effect-TS 3.17+ 基礎マスター - 実践的コアパターン習得'
+description: 'Effect.gen、Schema.Struct、Context.GenericTagを使った実践的パターン学習。リアルタイム実行環境で即座に理解できるハンズオン形式のEffect-TS入門。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['effect-ts', 'fundamentals', 'schema-struct', 'effect-gen', 'context-generic-tag', 'hands-on']
+prerequisites: ['typescript-intermediate', 'functional-programming-basics']
+estimated_reading_time: '20分'
 ---
-
 
 # Effect-TS 基本概念
 
 > 📚 **最新ライブラリドキュメント**: Effect-TSの最新APIドキュメントとコード例はContext7で参照可能です。
+>
 > ```bash
 > # Context7で最新のEffect-TSドキュメントを参照
 > # Library ID: /effect/effect
@@ -26,6 +26,7 @@ estimated_reading_time: "20分"
 このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** の実践的なハンズオン学習を提供します。即座に実行・編集できる実例を通じて、コアパターンを体験的に習得できます。
 
 > 📖 **関連ドキュメント**:
+>
 > - **理論的背景**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md)
 > - **次のステップ**: [Effect-TS サービスパターン](./effect-ts-services.md) | [Effect-TS エラーハンドリング](./effect-ts-error-handling.md)
 > - **最新APIリファレンス**: Context7で `/effect/effect` を参照
@@ -38,7 +39,7 @@ estimated_reading_time: "20分"
 
 以下のコードは即座に実行・編集できます。TypeScript Minecraftプロジェクトで実際に使用されているパターンです。
 
-```typescript
+````typescript
 // [LIVE_EXAMPLE: effect-basics]
 // 🌟 LIVE CODE - このコードは即座に実行・編集可能です
 // CodeSandbox: https://codesandbox.io/s/effect-ts-basics
@@ -173,7 +174,7 @@ graph TB
     class ContextTag,LayerSystem,ServiceComposition serviceStyle
     class MatchValue,TaggedUnions patternStyle
     class PureFunctions,ImmutableData,EarlyReturn functionalStyle
-```
+````
 
 ### 1.2 Effect-TSデータフロー
 
@@ -218,31 +219,33 @@ sequenceDiagram
 ```typescript
 // [LIVE_EXAMPLE: complex-operations]
 // 🔄 Advanced Effect Composition - CodeSandbox Ready
-import { Effect, Schema, Context, Stream, Match } from "effect";
+import { Effect, Schema, Context, Stream, Match } from 'effect'
 
 // ✅ 最新パターン（Effect.gen + yield* + Schema統合）
 const complexOperation = Effect.gen(function* () {
-  const config = yield* getConfig();
+  const config = yield* getConfig()
 
   // ✅ Schema検証付きデータ取得（最新API使用）
   const data = yield* fetchData(config.apiUrl).pipe(
-    Effect.flatMap(raw => Effect.try({
-      try: () => Schema.decodeUnknownSync(DataSchema)(raw),
-      catch: (error) => new ValidationError({ cause: error, input: raw })
-    }))
-  );
+    Effect.flatMap((raw) =>
+      Effect.try({
+        try: () => Schema.decodeUnknownSync(DataSchema)(raw),
+        catch: (error) => new ValidationError({ cause: error, input: raw }),
+      })
+    )
+  )
 
-  const processed = yield* processData(data);
-  yield* saveResult(processed);
-  return processed;
-});
+  const processed = yield* processData(data)
+  yield* saveResult(processed)
+  return processed
+})
 // [/LIVE_EXAMPLE]
 
 // ✅ 早期リターンパターンと包括的エラーハンドリング
-import { Match, pipe } from "effect"
+import { Match, pipe } from 'effect'
 
 const operationWithErrorHandling = Effect.gen(function* () {
-  const config = yield* getConfig();
+  const config = yield* getConfig()
 
   // ✅ Match.when による設定検証 - if文の完全な代替
   yield* pipe(
@@ -250,8 +253,8 @@ const operationWithErrorHandling = Effect.gen(function* () {
     Match.when(false, () =>
       Effect.fail(
         Schema.encodeSync(ConfigError)({
-          _tag: "ConfigDisabledError",
-          message: "設定が無効です"
+          _tag: 'ConfigDisabledError',
+          message: '設定が無効です',
         })
       )
     ),
@@ -263,64 +266,58 @@ const operationWithErrorHandling = Effect.gen(function* () {
     Effect.catchTags({
       NetworkError: (error) =>
         Effect.gen(function* () {
-          yield* Effect.log(`ネットワークエラー: ${error.message}, デフォルトデータを使用`);
-          return defaultData;
+          yield* Effect.log(`ネットワークエラー: ${error.message}, デフォルトデータを使用`)
+          return defaultData
         }),
       TimeoutError: () =>
         Effect.gen(function* () {
-          yield* Effect.log("タイムアウト: キャッシュデータを試行");
-          return yield* getCachedData().pipe(
-            Effect.orElse(() => Effect.succeed(defaultData))
-          );
-        })
+          yield* Effect.log('タイムアウト: キャッシュデータを試行')
+          return yield* getCachedData().pipe(Effect.orElse(() => Effect.succeed(defaultData)))
+        }),
     })
-  );
+  )
 
-  return yield* processData(data);
-});
+  return yield* processData(data)
+})
 
 // ✅ 高度な並列処理とバッチング
 const parallelOperation = Effect.gen(function* () {
   // ✅ bindAllで並列実行とエラー処理
   const result = yield* Effect.Do.pipe(
-    Effect.bind("timestamp", () => Effect.sync(() => Date.now())),
+    Effect.bind('timestamp', () => Effect.sync(() => Date.now())),
     Effect.bindAll(
       ({ timestamp }) => ({
         userData: fetchUserData().pipe(
-          Effect.timeout("5 seconds"),
-          Effect.retry(Schedule.exponential("100 millis", 2).pipe(
-            Schedule.compose(Schedule.recurs(3))
-          ))
+          Effect.timeout('5 seconds'),
+          Effect.retry(Schedule.exponential('100 millis', 2).pipe(Schedule.compose(Schedule.recurs(3))))
         ),
         configData: fetchConfigData(),
-        settingsData: fetchSettingsData()
+        settingsData: fetchSettingsData(),
       }),
-      { concurrency: "unbounded", mode: "either" }
+      { concurrency: 'unbounded', mode: 'either' }
     ),
-    Effect.tap(({ timestamp }) =>
-      Effect.log(`並列操作完了: ${Date.now() - timestamp}ms`)
-    )
-  );
+    Effect.tap(({ timestamp }) => Effect.log(`並列操作完了: ${Date.now() - timestamp}ms`))
+  )
 
   // ✅ エラー結果の処理
   const userData = yield* Match.value(result.userData).pipe(
-    Match.tag("Right", ({ right }) => Effect.succeed(right)),
-    Match.tag("Left", ({ left }) =>
+    Match.tag('Right', ({ right }) => Effect.succeed(right)),
+    Match.tag('Left', ({ left }) =>
       Effect.gen(function* () {
-        yield* Effect.log(`ユーザーデータ取得失敗: ${left}`);
-        return yield* getDefaultUserData();
+        yield* Effect.log(`ユーザーデータ取得失敗: ${left}`)
+        return yield* getDefaultUserData()
       })
     ),
     Match.exhaustive
-  );
+  )
 
   return {
     userData,
     configData: result.configData,
     settingsData: result.settingsData,
-    timestamp: result.timestamp
-  };
-});
+    timestamp: result.timestamp,
+  }
+})
 ```
 
 ### 2.2. `Schema` による学習アプローチ
@@ -332,43 +329,43 @@ const parallelOperation = Effect.gen(function* () {
 ```typescript
 // [LIVE_EXAMPLE: schema-learning]
 // 📋 Schema Learning Path - Interactive Tutorial
-import { Schema, Brand, Effect } from "effect";
+import { Schema, Brand, Effect } from 'effect'
 
 // 🎯 学習ステップ1: 基本的なSchema構造の理解
 const LearningPositionSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
-});
+  z: Schema.Number,
+})
 
 // 🎯 学習ステップ2: バリデーション追加の体験
 const ValidatedPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320)),
-  z: Schema.Number.pipe(Schema.int())
-});
+  z: Schema.Number.pipe(Schema.int()),
+})
 
 // 🎯 学習ステップ3: Brand型による型安全性の理解
-const LearningPlayerId = Schema.String.pipe(Schema.brand("PlayerId"));
-type LearningPlayerId = Schema.Schema.Type<typeof LearningPlayerId>;
+const LearningPlayerId = Schema.String.pipe(Schema.brand('PlayerId'))
+type LearningPlayerId = Schema.Schema.Type<typeof LearningPlayerId>
 
 // 🎯 学習ステップ4: 実行時バリデーションの体験
 const validateAndCreatePosition = (input: unknown) =>
   Effect.gen(function* () {
     // バリデーション失敗を体験できる
-    const position = yield* Schema.decodeUnknown(ValidatedPositionSchema)(input);
+    const position = yield* Schema.decodeUnknown(ValidatedPositionSchema)(input)
 
-    yield* Effect.log(`Valid position created: ${JSON.stringify(position)}`);
-    return position;
-  });
+    yield* Effect.log(`Valid position created: ${JSON.stringify(position)}`)
+    return position
+  })
 
 // 💡 学習練習: 次のデータでバリデーションを試してみよう
 const testInputs = [
-  { x: 10, y: 64, z: -50 },      // ✅ 正常
-  { x: 10.5, y: 64, z: -50 },    // ❌ 整数以外
-  { x: 10, y: -100, z: -50 },    // ❌ Y座標範囲外
-  { x: "10", y: 64, z: -50 }     // ❌ 文字列
-];
+  { x: 10, y: 64, z: -50 }, // ✅ 正常
+  { x: 10.5, y: 64, z: -50 }, // ❌ 整数以外
+  { x: 10, y: -100, z: -50 }, // ❌ Y座標範囲外
+  { x: '10', y: 64, z: -50 }, // ❌ 文字列
+]
 
 // 実際のプロジェクトではStandardPlayerSchemaを使用します
 // （詳細は上記リファレンス参照）
@@ -376,29 +373,30 @@ const testInputs = [
 
 // ✅ カスタムSchema変換
 const Vector3 = Schema.transform(
-  Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
-  }),
-  Position,
-  {
-    // decode: Vector3 -> Position
-    decode: (vector) => ({
-      x: Math.round(vector.x),
-      y: Math.round(vector.y),
-      z: Math.round(vector.z)
-    }),
-    // encode: Position -> Vector3
-    encode: (position) => ({
-      x: position.x,
-      y: position.y,
-      z: position.z
-    })
-  }
+Schema.Struct({
+x: Schema.Number,
+y: Schema.Number,
+z: Schema.Number
+}),
+Position,
+{
+// decode: Vector3 -> Position
+decode: (vector) => ({
+x: Math.round(vector.x),
+y: Math.round(vector.y),
+z: Math.round(vector.z)
+}),
+// encode: Position -> Vector3
+encode: (position) => ({
+x: position.x,
+y: position.y,
+z: position.z
+})
+}
 );
 // [/LIVE_EXAMPLE]
-```
+
+````
 
 ### 2.3. `Match.value` によるパターンマッチング
 
@@ -457,28 +455,28 @@ const processGameInput = (input: GameInput) =>
     ),
     Match.exhaustive
   );
-```
+````
 
 ### 2.4. 不変データ構造
 
 すべてのデータ構造は不変（immutable）として扱います。Effect-TSの提供するデータ構造を活用します。
 
 ```typescript
-import { HashMap, Array as Arr, Record, Schema } from "effect";
+import { HashMap, Array as Arr, Record, Schema } from 'effect'
 
 // ✅ 不変コレクションの使用
 const GameState = Schema.Struct({
   players: Schema.ReadonlyMap({
-    key: Schema.String.pipe(Schema.brand("PlayerId")),
-    value: PlayerSchema
+    key: Schema.String.pipe(Schema.brand('PlayerId')),
+    value: PlayerSchema,
   }),
   blocks: Schema.ReadonlyMap({
-    key: Schema.String.pipe(Schema.brand("BlockId")),
-    value: BlockSchema
+    key: Schema.String.pipe(Schema.brand('BlockId')),
+    value: BlockSchema,
   }),
-  chunks: Schema.ReadonlyArray(ChunkSchema)
-});
-type GameState = Schema.Schema.Type<typeof GameState>;
+  chunks: Schema.ReadonlyArray(ChunkSchema),
+})
+type GameState = Schema.Schema.Type<typeof GameState>
 
 // ✅ 不変更新パターン
 const updatePlayerPosition = (
@@ -487,7 +485,7 @@ const updatePlayerPosition = (
   newPosition: Position
 ): Effect.Effect<GameState, PlayerNotFoundError> =>
   Effect.gen(function* () {
-    const currentPlayer = state.players.get(playerId);
+    const currentPlayer = state.players.get(playerId)
 
     // ✅ Option.match による型安全なパターンマッチング - if文不要
     yield* pipe(
@@ -495,38 +493,38 @@ const updatePlayerPosition = (
       Option.match({
         onNone: () =>
           Effect.fail({
-            _tag: "PlayerNotFoundError" as const,
+            _tag: 'PlayerNotFoundError' as const,
             playerId,
-            message: `プレイヤー ${playerId} が見つかりません`
+            message: `プレイヤー ${playerId} が見つかりません`,
           }),
-        onSome: () => Effect.succeed(undefined)
+        onSome: () => Effect.succeed(undefined),
       })
     )
 
     const updatedPlayer = {
       ...currentPlayer.value,
       position: newPosition,
-      lastUpdated: new Date().toISOString()
-    };
+      lastUpdated: new Date().toISOString(),
+    }
 
     return {
       ...state,
-      players: state.players.set(playerId, updatedPlayer)
-    };
-  });
+      players: state.players.set(playerId, updatedPlayer),
+    }
+  })
 
 // ✅ 配列操作の不変パターン
 const addBlockToChunk = (chunk: Chunk, block: Block): Chunk => ({
   ...chunk,
   blocks: Arr.append(chunk.blocks, block),
-  lastModified: new Date().toISOString()
-});
+  lastModified: new Date().toISOString(),
+})
 
 const removeBlockFromChunk = (chunk: Chunk, blockId: BlockId): Chunk => ({
   ...chunk,
   blocks: Arr.filter(chunk.blocks, (block) => block.id !== blockId),
-  lastModified: new Date().toISOString()
-});
+  lastModified: new Date().toISOString(),
+})
 ```
 
 ### 2.5. 純粋関数の分離と早期リターンパターン
@@ -536,66 +534,62 @@ const removeBlockFromChunk = (chunk: Chunk, blockId: BlockId): Chunk => ({
 ```typescript
 // ✅ 純粋関数: 副作用なし
 const calculateDistance = (pos1: Position, pos2: Position): number =>
-  Math.sqrt(
-    Math.pow(pos2.x - pos1.x, 2) +
-    Math.pow(pos2.y - pos1.y, 2) +
-    Math.pow(pos2.z - pos1.z, 2)
-  );
+  Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2) + Math.pow(pos2.z - pos1.z, 2))
 
 const isWithinRange = (pos1: Position, pos2: Position, maxDistance: number): boolean =>
-  calculateDistance(pos1, pos2) <= maxDistance;
+  calculateDistance(pos1, pos2) <= maxDistance
 
 const getChunkCoordinate = (position: Position): ChunkCoordinate => ({
   x: Math.floor(position.x / 16),
-  z: Math.floor(position.z / 16)
-});
+  z: Math.floor(position.z / 16),
+})
 
 // ✅ Effect関数: 副作用あり + Match パターン
-import { Match, pipe, Option } from "effect"
+import { Match, pipe, Option } from 'effect'
 
 const movePlayer = (
   playerId: PlayerId,
   newPosition: Position
 ): Effect.Effect<Player, PlayerMoveError, GameStateService> =>
   Effect.gen(function* () {
-    const gameState = yield* GameStateService;
+    const gameState = yield* GameStateService
 
     // ✅ 早期リターン: プレイヤー存在チェック
     const currentPlayer = yield* gameState.getPlayer(playerId).pipe(
       Effect.mapError(() => ({
-        _tag: "PlayerNotFoundError" as const,
+        _tag: 'PlayerNotFoundError' as const,
         playerId,
-        message: "プレイヤーが見つかりません"
+        message: 'プレイヤーが見つかりません',
       }))
-    );
+    )
 
     // ✅ Match.when による位置バリデーション - if文を排除
-    const isValidPosition = yield* validateWorldPosition(newPosition);
+    const isValidPosition = yield* validateWorldPosition(newPosition)
     yield* pipe(
       Match.value(isValidPosition),
       Match.when(false, () =>
         Effect.fail({
-          _tag: "InvalidPositionError" as const,
+          _tag: 'InvalidPositionError' as const,
           position: newPosition,
-          message: "無効な位置です"
+          message: '無効な位置です',
         })
       ),
       Match.orElse(() => Effect.succeed(undefined))
     )
 
     // ✅ Match.when による移動距離チェック - if文の代替
-    const distance = calculateDistance(currentPlayer.position, newPosition);
+    const distance = calculateDistance(currentPlayer.position, newPosition)
     yield* pipe(
       Match.value(distance),
       Match.when(
         (d) => d > MAX_MOVE_DISTANCE,
         () =>
           Effect.fail({
-            _tag: "TooFarMoveError" as const,
+            _tag: 'TooFarMoveError' as const,
             from: currentPlayer.position,
             to: newPosition,
             distance,
-            maxDistance: MAX_MOVE_DISTANCE
+            maxDistance: MAX_MOVE_DISTANCE,
           })
       ),
       Match.orElse(() => Effect.succeed(undefined))
@@ -605,14 +599,14 @@ const movePlayer = (
     const updatedPlayer = {
       ...currentPlayer,
       position: newPosition,
-      lastMoved: new Date().toISOString()
-    };
+      lastMoved: new Date().toISOString(),
+    }
 
-    yield* gameState.updatePlayer(playerId, updatedPlayer);
-    yield* logPlayerMove(playerId, currentPlayer.position, newPosition);
+    yield* gameState.updatePlayer(playerId, updatedPlayer)
+    yield* logPlayerMove(playerId, currentPlayer.position, newPosition)
 
-    return updatedPlayer;
-  });
+    return updatedPlayer
+  })
 ```
 
 ## 3. Effect型シグネチャの読み方
@@ -622,23 +616,23 @@ Effect-TSの型シグネチャを正しく読み理解することは重要で�
 ```typescript
 // Effect<Success, Error, Requirements>の構造
 type MyEffect = Effect.Effect<
-  string,           // Success: 成功時の戻り値型
-  NetworkError,     // Error: 失敗時のエラー型
-  DatabaseService   // Requirements: 必要な依存関係
->;
+  string, // Success: 成功時の戻り値型
+  NetworkError, // Error: 失敗時のエラー型
+  DatabaseService // Requirements: 必要な依存関係
+>
 
 // ✅ 複数のエラー型
 type MultiErrorEffect = Effect.Effect<
   User,
   UserNotFoundError | ValidationError | DatabaseError,
   DatabaseService | LoggingService
->;
+>
 
 // ✅ エラーなしのEffect
-type SafeEffect = Effect.Effect<string, never, ConfigService>;
+type SafeEffect = Effect.Effect<string, never, ConfigService>
 
 // ✅ 依存関係なしのEffect
-type IndependentEffect = Effect.Effect<number, ParseError, never>;
+type IndependentEffect = Effect.Effect<number, ParseError, never>
 
 // ✅ Context要件の明示的管理
 interface AppServices extends WorldService, PlayerService, ChunkService {}
@@ -649,7 +643,8 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 このドキュメントで解説した基本パターンは、すべてのEffect-TSコードの基礎となります：
 
 ### 必須パターン（Effect-TS 3.17+）
-1. **Effect.gen + yield*** による線形な合成
+
+1. **Effect.gen + yield\*** による線形な合成
 2. **Schema.Struct** による型安全なデータ定義（Data.struct使用禁止）
 3. **Context.GenericTag** による依存性注入
 4. **Match.value + Match.tags** による網羅的パターンマッチング
@@ -660,6 +655,7 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 9. **PBTフレンドリー** な単一責任関数設計
 
 ### 禁止パターン（Effect-TS 3.17+）
+
 1. **class** ベースの設計（Context.GenericTagを使用）
 2. **Data.struct** の使用（Schema.Structを使用）
 3. **if/else/switch** の多用（Match.value + Match.tagsを使用）
@@ -675,15 +671,18 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 ## 関連ドキュメント
 
 ### 理論的背景
+
 - **設計哲学**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) - なぜEffect-TSを選ぶのか
 - **アーキテクチャ**: [スケーラブルアーキテクチャ設計](../../explanations/architecture/scalable-architecture-design.md) - 大規模プロジェクトでの設計原則
 
 ### 次のステップ
+
 - **サービス設計**: [Effect-TS サービス](./effect-ts-services.md) - Context.GenericTagとLayer管理
 - **エラーハンドリング**: [Effect-TS エラーハンドリング](./effect-ts-error-handling.md) - 型安全なエラー処理戦略
 - **実践パターン**: [Effect-TS パターン集](./effect-ts-patterns.md) - 高度な応用パターン
 
 ### 実践的な適用
+
 - **移行作業**: [Effect-TS移行ガイド](../../how-to/development/effect-ts-migration-guide.md) - 既存コードからの段階的移行
 - **テスト戦略**: [Effect-TSテスト](./effect-ts-testing.md) - 効果的なテスト手法
 
@@ -692,15 +691,18 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 ## 🚀 Next Steps - Staged Learning Path
 
 ### ✅ Completed Learning Outcomes
+
 - [x] Effect-TS基本概念の理解
 - [x] Schema.Structによる型安全なデータモデリング
-- [x] Effect.gen + yield*パターンの習得
+- [x] Effect.gen + yield\*パターンの習得
 - [x] Match.valueパターンマッチング
 
 ### 🎯 Next Module: Services & Dependency Injection (15分)
+
 → **[サービスパターン](./effect-ts-services.md)** - Context.GenericTag、Layer、依存性注入
 
 ### 🗺️ Full Learning Path
+
 1. **✅ Effect-TS Basics** (現在のモジュール)
 2. **→ [Services & DI](./effect-ts-services.md)** - 15分
 3. **→ [Error Handling](./effect-ts-error-handling.md)** - 10分

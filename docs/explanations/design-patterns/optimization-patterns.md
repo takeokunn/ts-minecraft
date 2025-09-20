@@ -1,13 +1,13 @@
 ---
-title: "パフォーマンス最適化パターン - 高性能ゲーム開発"
-description: "Effect-TS環境での性能最適化技法。遅延評価、メモリ最適化、パイプライン処理の実装パターン。実測データ付きの詳細解説。"
-category: "patterns"
-difficulty: "advanced"
-tags: ["performance", "optimization", "memory", "lazy-evaluation", "pipeline", "caching", "benchmarks"]
-prerequisites: ["effect-ts-intermediate", "performance-fundamentals"]
-estimated_reading_time: "35分"
-dependencies: ["./asynchronous-patterns.md"]
-status: "complete"
+title: 'パフォーマンス最適化パターン - 高性能ゲーム開発'
+description: 'Effect-TS環境での性能最適化技法。遅延評価、メモリ最適化、パイプライン処理の実装パターン。実測データ付きの詳細解説。'
+category: 'patterns'
+difficulty: 'advanced'
+tags: ['performance', 'optimization', 'memory', 'lazy-evaluation', 'pipeline', 'caching', 'benchmarks']
+prerequisites: ['effect-ts-intermediate', 'performance-fundamentals']
+estimated_reading_time: '35分'
+dependencies: ['./asynchronous-patterns.md']
+status: 'complete'
 ---
 
 # Performance Optimization Patterns
@@ -19,20 +19,23 @@ status: "complete"
 TypeScript Minecraft Clone開発で実際に適用した最適化手法とその結果を詳細に解説します。
 
 ### 📈 Real Performance Gains
-| 最適化手法 | Before | After | 改善率 | 実世界インパクト |
-|------------|--------|--------|--------|----------------|
-| **Chunk Loading** | 450ms | 89ms | 80% faster | シームレスワールド探索 |
-| **Memory Usage** | 180MB | 65MB | 64% reduction | モバイルデバイスでの安定動作 |
-| **Entity Updates** | 25ms | 8ms | 68% faster | 滑らかな60FPS実現 |
-| **Rendering Pipeline** | 16.8ms | 11.2ms | 33% faster | VSync下での安定フレームレート |
-| **Concurrent Operations** | 2.3s | 0.8s | 65% faster | マルチプレイヤーサポート |
+
+| 最適化手法                | Before | After  | 改善率        | 実世界インパクト              |
+| ------------------------- | ------ | ------ | ------------- | ----------------------------- |
+| **Chunk Loading**         | 450ms  | 89ms   | 80% faster    | シームレスワールド探索        |
+| **Memory Usage**          | 180MB  | 65MB   | 64% reduction | モバイルデバイスでの安定動作  |
+| **Entity Updates**        | 25ms   | 8ms    | 68% faster    | 滑らかな60FPS実現             |
+| **Rendering Pipeline**    | 16.8ms | 11.2ms | 33% faster    | VSync下での安定フレームレート |
+| **Concurrent Operations** | 2.3s   | 0.8s   | 65% faster    | マルチプレイヤーサポート      |
 
 ## 💾 Memory Optimization Patterns
 
 ### Pattern 1: Lazy Evaluation with Effect.cached
+
 **改善率**: メモリ使用量 64% 減少、キャッシュヒット率 95%
 
 #### ❌ Before: Naive Caching
+
 ```typescript
 // 非効率なキャッシュ実装
 interface OldChunkCache {
@@ -72,6 +75,7 @@ interface OldChunkCache {
 ```
 
 #### ✅ After: Effect.cached + HashMap
+
 ```typescript
 import { Effect, Context, HashMap, Schema, Duration, Layer } from "effect"
 
@@ -242,6 +246,7 @@ const LazyChunkLoaderLive = Layer.effect(
 ### 📊 Measured Performance Results
 
 #### キャッシュなし vs キャッシュあり
+
 ```
 テスト条件: 100チャンクの連続読み込み
 
@@ -260,9 +265,11 @@ const LazyChunkLoaderLive = Layer.effect(
 ## ⚡ Concurrency Optimization Patterns
 
 ### Pattern 2: Adaptive Concurrency Control
+
 **改善率**: 並行処理効率 65% 向上、CPU使用率 40% 改善
 
 #### ❌ Before: Fixed Concurrency
+
 ```typescript
 // 固定並行数の問題
 interface OldEntityProcessor {
@@ -283,8 +290,9 @@ interface OldEntityProcessor {
 ```
 
 #### ✅ After: Adaptive Concurrency
+
 ```typescript
-import { Metric, Queue, Semaphore, FiberRef } from "effect"
+import { Metric, Queue, Semaphore, FiberRef } from 'effect'
 
 interface EntityProcessor {
   readonly processEntities: (entities: Entity[]) => Effect.Effect<void, ProcessingError>
@@ -292,7 +300,7 @@ interface EntityProcessor {
   readonly adjustConcurrency: () => Effect.Effect<void, never>
 }
 
-const EntityProcessor = Context.GenericTag<EntityProcessor>("@minecraft/EntityProcessor")
+const EntityProcessor = Context.GenericTag<EntityProcessor>('@minecraft/EntityProcessor')
 
 const EntityProcessorLive = Layer.effect(
   EntityProcessor,
@@ -302,9 +310,9 @@ const EntityProcessorLive = Layer.effect(
     const semaphore = yield* Semaphore.make(maxConcurrency)
 
     // メトリクス収集
-    const processedCount = yield* Metric.counter("entities_processed")
-    const processingTime = yield* Metric.histogram("processing_time_ms")
-    const concurrencyGauge = yield* Metric.gauge("current_concurrency")
+    const processedCount = yield* Metric.counter('entities_processed')
+    const processingTime = yield* Metric.histogram('processing_time_ms')
+    const concurrencyGauge = yield* Metric.gauge('current_concurrency')
 
     // 適応的並行数管理
     let currentConcurrency = Math.max(1, Math.floor(maxConcurrency / 2))
@@ -324,14 +332,20 @@ const EntityProcessorLive = Layer.effect(
       const memoryPressure = yield* getMemoryPressure()
 
       // 適応的調整アルゴリズム - Effect-TS Matchパターンで整理
-      const adjustment = Match.value({ cpuUsage, memoryPressure, throughput, lastThroughput, consecutiveAdjustments }).pipe(
+      const adjustment = Match.value({
+        cpuUsage,
+        memoryPressure,
+        throughput,
+        lastThroughput,
+        consecutiveAdjustments,
+      }).pipe(
         Match.when(
           ({ cpuUsage, memoryPressure, throughput, lastThroughput }) =>
             cpuUsage < 70 && memoryPressure < 0.8 && throughput > lastThroughput,
           () => ({
             concurrency: Math.min(maxConcurrency, currentConcurrency + 1),
             adjustments: consecutiveAdjustments + 1,
-            reason: "resource_available_performance_improved"
+            reason: 'resource_available_performance_improved',
           })
         ),
         Match.when(
@@ -339,7 +353,7 @@ const EntityProcessorLive = Layer.effect(
           () => ({
             concurrency: Math.max(1, currentConcurrency - 1),
             adjustments: 0,
-            reason: "resource_shortage"
+            reason: 'resource_shortage',
           })
         ),
         Match.when(
@@ -347,13 +361,13 @@ const EntityProcessorLive = Layer.effect(
           () => ({
             concurrency: currentConcurrency,
             adjustments: 0,
-            reason: "avoid_excessive_adjustments"
+            reason: 'avoid_excessive_adjustments',
           })
         ),
         Match.orElse(() => ({
           concurrency: currentConcurrency,
           adjustments: consecutiveAdjustments,
-          reason: "no_change"
+          reason: 'no_change',
         }))
       )
 
@@ -374,24 +388,24 @@ const EntityProcessorLive = Layer.effect(
           const startTime = performance.now()
 
           // エンティティタイプ別のグルーピング
-          const groupedEntities = entities.reduce((acc, entity) => {
-            const type = entity.type
-            if (!acc[type]) acc[type] = []
-            acc[type].push(entity)
-            return acc
-          }, {} as Record<string, Entity[]>)
+          const groupedEntities = entities.reduce(
+            (acc, entity) => {
+              const type = entity.type
+              if (!acc[type]) acc[type] = []
+              acc[type].push(entity)
+              return acc
+            },
+            {} as Record<string, Entity[]>
+          )
 
           // タイプ別に最適化された処理
-          yield* Effect.forEach(
-            Object.entries(groupedEntities),
-            ([type, typeEntities]) => Effect.gen(function* () {
+          yield* Effect.forEach(Object.entries(groupedEntities), ([type, typeEntities]) =>
+            Effect.gen(function* () {
               const processingStrategy = getProcessingStrategy(type)
 
               yield* Effect.forEach(
                 typeEntities,
-                (entity) => Semaphore.withPermit(semaphore,
-                  processEntityByType(entity, processingStrategy)
-                ),
+                (entity) => Semaphore.withPermit(semaphore, processEntityByType(entity, processingStrategy)),
                 { concurrency: currentConcurrency }
               )
             })
@@ -419,40 +433,38 @@ const EntityProcessorLive = Layer.effect(
             totalProcessed: processed,
             averageProcessingTime: avgTime,
             currentConcurrency: concurrency,
-            estimatedThroughput: processed / (Date.now() / 1000)
+            estimatedThroughput: processed / (Date.now() / 1000),
           }
         }),
 
-      adjustConcurrency
+      adjustConcurrency,
     })
   })
 )
 
 // エンティティタイプ別の最適化戦略
-import { Match, pipe } from "effect"
+import { Match, pipe } from 'effect'
 
-const EntityType = Schema.Literal("player", "mob", "item").pipe(
-  Schema.brand("EntityType")
-)
+const EntityType = Schema.Literal('player', 'mob', 'item').pipe(Schema.brand('EntityType'))
 type EntityType = Schema.Schema.Type<typeof EntityType>
 
 const getProcessingStrategy = (entityType: EntityType): ProcessingStrategy =>
   pipe(
     Match.value(entityType),
-    Match.when("player", () => ({
-      batchSize: 1,        // プレイヤーは即座に処理
-      priority: "high" as const,
-      memoryWeight: 2
+    Match.when('player', () => ({
+      batchSize: 1, // プレイヤーは即座に処理
+      priority: 'high' as const,
+      memoryWeight: 2,
     })),
-    Match.when("mob", () => ({
-      batchSize: 10,       // Mobはバッチ処理
-      priority: "medium" as const,
-      memoryWeight: 1
+    Match.when('mob', () => ({
+      batchSize: 10, // Mobはバッチ処理
+      priority: 'medium' as const,
+      memoryWeight: 1,
     })),
-    Match.when("item", () => ({
-      batchSize: 50,       // アイテムは大きなバッチ
-      priority: "low" as const,
-      memoryWeight: 0.5
+    Match.when('item', () => ({
+      batchSize: 50, // アイテムは大きなバッチ
+      priority: 'low' as const,
+      memoryWeight: 0.5,
     })),
     Match.exhaustive
   )
@@ -465,8 +477,7 @@ const getCpuUsage = (): Effect.Effect<number, never> =>
       const start = performance.now()
 
       // 軽量な計算負荷で測定
-      const sum = Array.from({ length: 1000 }, () => Math.random())
-        .reduce((acc, val) => acc + val, 0)
+      const sum = Array.from({ length: 1000 }, () => Math.random()).reduce((acc, val) => acc + val, 0)
 
       const end = performance.now()
       const executionTime = end - start
@@ -491,6 +502,7 @@ const getMemoryPressure = (): Effect.Effect<number, never> =>
 ### 🚀 Benchmark Results: Concurrency Control
 
 #### 固定並行数 vs 適応的並行数
+
 ```
 テスト条件: 1000エンティティの物理更新
 
@@ -510,9 +522,11 @@ const getMemoryPressure = (): Effect.Effect<number, never> =>
 ## 🔄 Stream Processing Patterns
 
 ### Pattern 3: Batched Stream Processing
+
 **改善率**: スループット 300% 向上、レイテンシー 80% 改善
 
 #### ❌ Before: Item-by-Item Processing
+
 ```typescript
 // 非効率な逐次処理
 interface OldBlockUpdater {
@@ -535,15 +549,16 @@ interface OldBlockUpdater {
 ```
 
 #### ✅ After: Stream-based Batch Processing
+
 ```typescript
-import { Stream, Chunk, Schedule } from "effect"
+import { Stream, Chunk, Schedule } from 'effect'
 
 interface BlockUpdateProcessor {
   readonly processUpdates: (updates: BlockUpdate[]) => Effect.Effect<void, ProcessingError>
   readonly getStats: () => Effect.Effect<ProcessingStats, never>
 }
 
-const BlockUpdateProcessor = Context.GenericTag<BlockUpdateProcessor>("@minecraft/BlockUpdateProcessor")
+const BlockUpdateProcessor = Context.GenericTag<BlockUpdateProcessor>('@minecraft/BlockUpdateProcessor')
 
 const BlockUpdateProcessorLive = Layer.effect(
   BlockUpdateProcessor,
@@ -624,8 +639,8 @@ const BlockUpdateProcessorLive = Layer.effect(
           totalProcessed,
           totalBatches,
           averageProcessingTime: totalBatches > 0 ? totalTime / totalBatches : 0,
-          throughput: totalProcessed / (totalTime / 1000)
-        })
+          throughput: totalProcessed / (totalTime / 1000),
+        }),
     })
 
     // バッチ処理の実装
@@ -634,14 +649,12 @@ const BlockUpdateProcessorLive = Layer.effect(
         if (updates.length === 0) return
 
         // バッチレベルの最適化
-        const uniquePositions = new Set(updates.map(u => `${u.position.x},${u.position.y},${u.position.z}`))
+        const uniquePositions = new Set(updates.map((u) => `${u.position.x},${u.position.y},${u.position.z}`))
 
         // 1. ブロック更新のバッチ処理
-        yield* Effect.forEach(
-          updates,
-          (update) => applyBlockUpdate(update),
-          { concurrency: Math.min(updates.length, 20) }
-        )
+        yield* Effect.forEach(updates, (update) => applyBlockUpdate(update), {
+          concurrency: Math.min(updates.length, 20),
+        })
 
         // 2. 隣接通知のバッチ処理
         const neighborPositions = pipe(
@@ -665,15 +678,15 @@ const BlockUpdateProcessorLive = Layer.effect(
         )
 
         // 3. ライティング更新のバッチ処理
-        const lightingUpdates = updates.filter(u => affectsLighting(u.blockType))
+        const lightingUpdates = updates.filter((u) => affectsLighting(u.blockType))
         if (lightingUpdates.length > 0) {
-          yield* updateLightingBatch(lightingUpdates.map(u => u.position))
+          yield* updateLightingBatch(lightingUpdates.map((u) => u.position))
         }
 
         // 4. 物理更新のバッチ処理
-        const physicsUpdates = updates.filter(u => affectsPhysics(u.blockType))
+        const physicsUpdates = updates.filter((u) => affectsPhysics(u.blockType))
         if (physicsUpdates.length > 0) {
-          yield* updatePhysicsBatch(physicsUpdates.map(u => u.position))
+          yield* updatePhysicsBatch(physicsUpdates.map((u) => u.position))
         }
       })
     }
@@ -693,7 +706,7 @@ const getNeighborPositions = (pos: Position): Position[] => [
   { x: pos.x, y: pos.y + 1, z: pos.z },
   { x: pos.x, y: pos.y - 1, z: pos.z },
   { x: pos.x, y: pos.y, z: pos.z + 1 },
-  { x: pos.x, y: pos.y, z: pos.z - 1 }
+  { x: pos.x, y: pos.y, z: pos.z - 1 },
 ]
 
 const updateLightingBatch = (positions: Position[]): Effect.Effect<void, never> =>
@@ -708,6 +721,7 @@ const updateLightingBatch = (positions: Position[]): Effect.Effect<void, never> 
 ### 📊 Stream Processing Benchmark
 
 #### 逐次処理 vs バッチStream処理
+
 ```
 テスト条件: 1000ブロック更新
 
@@ -727,6 +741,7 @@ const updateLightingBatch = (positions: Position[]): Effect.Effect<void, never> 
 ## 🎯 Real-World Application Example
 
 ### MinecraftのワールドロードCombined Pattern
+
 ```typescript
 // 実際のゲームでの統合例
 const GameWorldManager = Layer.effect(
@@ -745,21 +760,17 @@ const GameWorldManager = Layer.effect(
           const requiredChunks = getChunksInRadius(playerPosition, renderDistance)
 
           // 2. 段階的ローディング（近い順）
-          const sortedChunks = requiredChunks.sort((a, b) =>
-            distance(a, playerPosition) - distance(b, playerPosition)
-          )
+          const sortedChunks = requiredChunks.sort((a, b) => distance(a, playerPosition) - distance(b, playerPosition))
 
           // 3. 优先度付きロード（内側から外側へ）
-          const innerChunks = sortedChunks.slice(0, 9)  // 3x3 immediate
-          const outerChunks = sortedChunks.slice(9)     // surrounding
+          const innerChunks = sortedChunks.slice(0, 9) // 3x3 immediate
+          const outerChunks = sortedChunks.slice(9) // surrounding
 
           // 即座読み込み（高優先度）
           yield* chunkLoader.preloadChunks(innerChunks)
 
           // バックグラウンド読み込み（低優先度）
-          yield* Effect.fork(
-            chunkLoader.preloadChunks(outerChunks)
-          )
+          yield* Effect.fork(chunkLoader.preloadChunks(outerChunks))
 
           const loadTime = performance.now() - startTime
 
@@ -771,20 +782,23 @@ const GameWorldManager = Layer.effect(
           return {
             loadedChunks: requiredChunks.length,
             loadTime,
-            memoryUsage: yield* getMemoryUsage()
+            memoryUsage: yield* getMemoryUsage(),
           }
         }),
 
       updateGameTick: () =>
         Effect.gen(function* () {
           // 並列ゲームティック処理
-          yield* Effect.all([
-            entityProcessor.processEntities(getAllEntities()),
-            blockProcessor.processUpdates(getPendingBlockUpdates()),
-            updateWorldPhysics(),
-            updateWorldTime()
-          ], { concurrency: 4 })
-        })
+          yield* Effect.all(
+            [
+              entityProcessor.processEntities(getAllEntities()),
+              blockProcessor.processUpdates(getPendingBlockUpdates()),
+              updateWorldPhysics(),
+              updateWorldTime(),
+            ],
+            { concurrency: 4 }
+          )
+        }),
     })
   })
 )
@@ -793,6 +807,7 @@ const GameWorldManager = Layer.effect(
 ## 📚 Best Practices Summary
 
 ### ✅ Do's
+
 1. **Profile First**: 実測してからボトルネックを特定
 2. **Batch Operations**: 可能な限りバッチ処理を使用
 3. **Cache Strategically**: アクセスパターンに基づいたキャッシュ戦略
@@ -800,6 +815,7 @@ const GameWorldManager = Layer.effect(
 5. **Adaptive Algorithms**: 動的負荷調整による効率化
 
 ### ❌ Don'ts
+
 1. **Premature Optimization**: 測定せずに最適化しない
 2. **Over-Caching**: 無闇なキャッシュはメモリリーク源
 3. **Fixed Concurrency**: 固定並行数は非効率
@@ -807,6 +823,7 @@ const GameWorldManager = Layer.effect(
 5. **Memory Leaks**: Scopeの適切な管理を怠らない
 
 ### 🔧 Monitoring & Debugging Tools
+
 ```typescript
 // パフォーマンス監視ダッシュボード
 const PerformanceDashboard = Effect.gen(function* () {
@@ -823,18 +840,18 @@ const PerformanceDashboard = Effect.gen(function* () {
     chunks: {
       hitRate: `${(chunkStats.hitRate * 100).toFixed(1)}%`,
       cacheSize: chunkStats.cacheSize,
-      memoryMB: chunkStats.memoryUsageMB.toFixed(1)
+      memoryMB: chunkStats.memoryUsageMB.toFixed(1),
     },
     entities: {
       throughput: `${entityStats.estimatedThroughput.toFixed(0)}/sec`,
       concurrency: entityStats.currentConcurrency,
-      avgTime: `${entityStats.averageProcessingTime.toFixed(2)}ms`
+      avgTime: `${entityStats.averageProcessingTime.toFixed(2)}ms`,
     },
     blocks: {
       throughput: `${blockStats.throughput.toFixed(0)}/sec`,
       totalProcessed: blockStats.totalProcessed,
-      avgBatchTime: `${blockStats.averageProcessingTime.toFixed(2)}ms`
-    }
+      avgBatchTime: `${blockStats.averageProcessingTime.toFixed(2)}ms`,
+    },
   }
 
   console.table(dashboard)
@@ -843,10 +860,7 @@ const PerformanceDashboard = Effect.gen(function* () {
 
 // 定期実行
 const startPerformanceMonitoring = Effect.gen(function* () {
-  yield* Effect.repeat(
-    PerformanceDashboard,
-    Schedule.fixed("10 seconds")
-  )
+  yield* Effect.repeat(PerformanceDashboard, Schedule.fixed('10 seconds'))
 }).pipe(Effect.fork)
 ```
 

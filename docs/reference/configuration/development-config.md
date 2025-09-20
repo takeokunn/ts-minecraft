@@ -1,13 +1,13 @@
 ---
-title: "開発環境設定 - 統合開発環境ガイド"
-description: "TypeScript Minecraft開発環境の完全設定。Vite開発サーバー、デバッグ環境、エディター統合、ホットリロード。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["development", "vite", "debugging", "hot-reload", "editor-integration"]
-prerequisites: ["basic-typescript", "vite-basics"]
-estimated_reading_time: "15分"
-dependencies: ["./vite-config.md"]
-status: "complete"
+title: '開発環境設定 - 統合開発環境ガイド'
+description: 'TypeScript Minecraft開発環境の完全設定。Vite開発サーバー、デバッグ環境、エディター統合、ホットリロード。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['development', 'vite', 'debugging', 'hot-reload', 'editor-integration']
+prerequisites: ['basic-typescript', 'vite-basics']
+estimated_reading_time: '15分'
+dependencies: ['./vite-config.md']
+status: 'complete'
 ---
 
 # Development Configuration
@@ -48,34 +48,33 @@ export default defineConfig(({ mode }): UserConfig => {
       open: {
         target: '/docs/index.html',
         app: {
-          name: env.BROWSER || 'default'
-        }
+          name: env.BROWSER || 'default',
+        },
       },
 
       // HTTPS設定（本格的な開発環境）
-      https: env.HTTPS_ENABLED === 'true' ? {
-        key: resolve(__dirname, 'certs/key.pem'),
-        cert: resolve(__dirname, 'certs/cert.pem')
-      } : false,
+      https:
+        env.HTTPS_ENABLED === 'true'
+          ? {
+              key: resolve(__dirname, 'certs/key.pem'),
+              cert: resolve(__dirname, 'certs/cert.pem'),
+            }
+          : false,
 
       // ホットモジュールリプレースメント（HMR）
       hmr: {
         port: Number(env.VITE_HMR_PORT) || 3001,
         host: 'localhost',
         overlay: true, // エラーオーバーレイ表示
-        clientPort: Number(env.VITE_HMR_CLIENT_PORT) || 3001
+        clientPort: Number(env.VITE_HMR_CLIENT_PORT) || 3001,
       },
 
       // CORS設定（API統合）
       cors: {
-        origin: [
-          'http://localhost:3000',
-          'http://127.0.0.1:3000',
-          'https://localhost:3000'
-        ],
+        origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://localhost:3000'],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        credentials: true
+        credentials: true,
       },
 
       // プロキシ設定（高度な設定）
@@ -98,7 +97,7 @@ export default defineConfig(({ mode }): UserConfig => {
             proxy.on('proxyRes', (proxyRes, req, res) => {
               console.log(`Proxy response: ${proxyRes.statusCode} ${req.url}`)
             })
-          }
+          },
         },
 
         // WebSocket プロキシ（リアルタイム通信）
@@ -106,43 +105,32 @@ export default defineConfig(({ mode }): UserConfig => {
           target: env.WS_BASE_URL || 'ws://localhost:3002',
           ws: true,
           changeOrigin: true,
-          rewriteWsOrigin: true
+          rewriteWsOrigin: true,
         },
 
         // GraphQL プロキシ
         '/graphql': {
           target: env.GRAPHQL_BASE_URL || 'http://localhost:4000',
-          changeOrigin: true
+          changeOrigin: true,
         },
 
         // 開発用モック API
         '/mock-api': {
           target: 'http://localhost:3003',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/mock-api/, '')
-        }
+          rewrite: (path) => path.replace(/^\/mock-api/, ''),
+        },
       },
 
       // ファイル監視設定
       watch: {
         // 監視対象
-        include: [
-          'src/**/*',
-          'public/**/*',
-          'docs/**/*',
-          '*.config.*',
-          'package.json'
-        ],
+        include: ['src/**/*', 'public/**/*', 'docs/**/*', '*.config.*', 'package.json'],
         // 監視除外
-        exclude: [
-          'node_modules/**',
-          'dist/**',
-          '.git/**',
-          'coverage/**'
-        ],
+        exclude: ['node_modules/**', 'dist/**', '.git/**', 'coverage/**'],
         // ポーリング設定（Docker環境）
         usePolling: env.USE_POLLING === 'true',
-        interval: 1000
+        interval: 1000,
       },
 
       // ファイルシステムアクセス設定
@@ -150,15 +138,9 @@ export default defineConfig(({ mode }): UserConfig => {
         // プロジェクト外ファイルアクセス許可
         allow: ['..'],
         // 機密ファイルアクセス拒否
-        deny: [
-          '.env*',
-          '**/node_modules/**',
-          '**/dist/**',
-          '**/.git/**',
-          '**/coverage/**'
-        ],
+        deny: ['.env*', '**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**'],
         // 厳格モード
-        strict: false // 開発環境では柔軟に
+        strict: false, // 開発環境では柔軟に
       },
 
       // パフォーマンス最適化
@@ -169,9 +151,9 @@ export default defineConfig(({ mode }): UserConfig => {
           './src/App.vue',
           './src/components/**/*.vue',
           './src/utils/**/*.ts',
-          './src/stores/**/*.ts'
-        ]
-      }
+          './src/stores/**/*.ts',
+        ],
+      },
     },
 
     // 開発時の最適化設定
@@ -196,14 +178,11 @@ export default defineConfig(({ mode }): UserConfig => {
         'lodash-es',
         'date-fns',
         'uuid',
-        'alea'
+        'alea',
       ],
 
       // バンドル除外（開発時の柔軟性）
-      exclude: [
-        '@vite/client',
-        '@vite/env'
-      ],
+      exclude: ['@vite/client', '@vite/env'],
 
       // ESBuild設定（開発時）
       esbuildOptions: {
@@ -212,13 +191,13 @@ export default defineConfig(({ mode }): UserConfig => {
         sourcemap: 'inline',
         define: {
           __DEV__: 'true',
-          __PROD__: 'false'
-        }
+          __PROD__: 'false',
+        },
       },
 
       // 強制リビルド設定
-      force: env.FORCE_OPTIMIZE === 'true'
-    }
+      force: env.FORCE_OPTIMIZE === 'true',
+    },
   }
 })
 ```
@@ -238,28 +217,18 @@ export default defineConfig(({ mode }): UserConfig => {
       "request": "launch",
       "program": "${workspaceFolder}/src/main.ts",
       "args": [],
-      "runtimeArgs": [
-        "--loader", "tsx/esm"
-      ],
+      "runtimeArgs": ["--loader", "tsx/esm"],
       "cwd": "${workspaceFolder}",
       "env": {
         "NODE_ENV": "development",
         "DEBUG": "*"
       },
       "sourceMaps": true,
-      "outFiles": [
-        "${workspaceFolder}/dist/**/*.js"
-      ],
-      "skipFiles": [
-        "<node_internals>/**",
-        "node_modules/**"
-      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "resolveSourceMapLocations": [
-        "${workspaceFolder}/**",
-        "!**/node_modules/**"
-      ]
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
     },
     {
       "name": "Vite Dev Server Debug",
@@ -317,7 +286,7 @@ export const createDebugConfig = (): DebugConfig => ({
   enablePerformanceMonitoring: true,
   enableNetworkLogging: import.meta.env.VITE_DEBUG_NETWORK === 'true',
   enableThreeJSStats: import.meta.env.VITE_DEBUG_THREEJS === 'true',
-  enableEffectTracing: import.meta.env.VITE_DEBUG_EFFECT === 'true'
+  enableEffectTracing: import.meta.env.VITE_DEBUG_EFFECT === 'true',
 })
 
 // ブラウザデバッグヘルパー
@@ -329,7 +298,8 @@ export const setupBrowserDebug = (config: DebugConfig) => {
     const perfObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries()
       entries.forEach((entry) => {
-        if (entry.duration > 100) { // 100ms以上の操作を警告
+        if (entry.duration > 100) {
+          // 100ms以上の操作を警告
           console.warn(`Slow operation detected: ${entry.name} (${entry.duration.toFixed(2)}ms)`)
         }
       })
@@ -367,7 +337,7 @@ export const setupBrowserDebug = (config: DebugConfig) => {
 
   // グローバルデバッグヘルパー
   if (typeof window !== 'undefined') {
-    (window as any).__DEBUG__ = {
+    ;(window as any).__DEBUG__ = {
       config,
       clearCache: () => {
         localStorage.clear()
@@ -378,7 +348,7 @@ export const setupBrowserDebug = (config: DebugConfig) => {
         localStorage.setItem('debug', '*')
         console.log('🔍 Verbose logging enabled')
       },
-      performance: () => performance.getEntriesByType('navigation')[0]
+      performance: () => performance.getEntriesByType('navigation')[0],
     }
   }
 }
@@ -457,14 +427,14 @@ export const localDevelopmentConfig = {
     port: 3000,
     host: '0.0.0.0',
     open: true,
-    https: false
+    https: false,
   },
 
   // ホットリロード
   hmr: {
     enabled: true,
     overlay: true,
-    clientPort: 3001
+    clientPort: 3001,
   },
 
   // デバッグ
@@ -472,14 +442,14 @@ export const localDevelopmentConfig = {
     sourceMap: 'eval-cheap-module-source-map',
     enableConsole: true,
     enableDebugger: true,
-    verboseLogging: true
+    verboseLogging: true,
   },
 
   // パフォーマンス
   performance: {
     bundleAnalyzer: false,
     enableProfiling: true,
-    optimizeChunks: false // 開発速度優先
+    optimizeChunks: false, // 開発速度優先
   },
 
   // Three.js開発設定
@@ -489,7 +459,7 @@ export const localDevelopmentConfig = {
     enableGridHelper: true,
     shadowMapType: 'BasicShadowMap', // 軽量版
     enableWireframe: true,
-    enableOrbitControls: true
+    enableOrbitControls: true,
   },
 
   // Effect-TS開発設定
@@ -497,7 +467,7 @@ export const localDevelopmentConfig = {
     enableTracing: true,
     logLevel: 'Debug',
     enableFiberDump: true,
-    enableMetrics: true
+    enableMetrics: true,
   },
 
   // Mock設定
@@ -505,15 +475,15 @@ export const localDevelopmentConfig = {
     enabled: true,
     apiDelay: 100, // 100ms遅延
     errorRate: 0.05, // 5%エラー率
-    cacheEnabled: false
+    cacheEnabled: false,
   },
 
   // 自動再読み込み設定
   autoReload: {
     enabled: true,
     watchFiles: ['src/**/*', 'public/**/*'],
-    ignoreFiles: ['**/*.test.*', '**/node_modules/**']
-  }
+    ignoreFiles: ['**/*.test.*', '**/node_modules/**'],
+  },
 }
 ```
 
@@ -528,22 +498,22 @@ export const dockerDevelopmentConfig = {
     watch: {
       usePolling: true, // Docker Volume対応
       interval: 1000,
-      binaryInterval: 3000
-    }
+      binaryInterval: 3000,
+    },
   },
 
   // Docker特有の設定
   docker: {
     volumeMount: '/app',
     nodeModulesCache: '/app/node_modules',
-    enableLayerCaching: true
+    enableLayerCaching: true,
   },
 
   // ネットワーク設定
   network: {
     containerPort: 3000,
     hostPort: 3000,
-    hmrPort: 3001
+    hmrPort: 3001,
   },
 
   // パフォーマンス最適化
@@ -551,8 +521,8 @@ export const dockerDevelopmentConfig = {
     // Docker環境でのメモリ制限対応
     maxMemory: '2g',
     enableCaching: true,
-    parallelism: 2 // Docker環境では控えめに
-  }
+    parallelism: 2, // Docker環境では控えめに
+  },
 }
 ```
 
@@ -567,8 +537,8 @@ export const remoteDevelopmentConfig = {
     // リモート環境での最適化
     hmr: {
       port: 3001,
-      host: '0.0.0.0'
-    }
+      host: '0.0.0.0',
+    },
   },
 
   // リモート開発最適化
@@ -583,15 +553,15 @@ export const remoteDevelopmentConfig = {
 
     // セキュリティ設定
     enableHttps: true,
-    corsOrigins: ['*.github.dev', '*.codespaces.new']
+    corsOrigins: ['*.github.dev', '*.codespaces.new'],
   },
 
   // 同期設定
   sync: {
     ignorePatterns: ['node_modules', 'dist', '.git'],
     enableBackup: true,
-    backupInterval: 300000 // 5分
-  }
+    backupInterval: 300000, // 5分
+  },
 }
 ```
 
@@ -921,6 +891,7 @@ if (import.meta.env.DEV) {
 **症状**: ファイル変更がブラウザに反映されない
 
 **解決策**:
+
 ```bash
 # 1. Viteキャッシュクリア
 rm -rf node_modules/.vite
@@ -941,18 +912,19 @@ USE_POLLING=true pnpm dev
 **症状**: サーバー起動やページ読み込みが遅い
 
 **解決策**:
+
 ```typescript
 // vite.config.dev.ts最適化
 export default defineConfig({
   server: {
     warmup: {
-      clientFiles: ['./src/main.ts', './src/App.vue']
-    }
+      clientFiles: ['./src/main.ts', './src/App.vue'],
+    },
   },
   optimizeDeps: {
     include: ['effect', 'three'],
-    force: true // 初回のみ
-  }
+    force: true, // 初回のみ
+  },
 })
 ```
 
@@ -961,6 +933,7 @@ export default defineConfig({
 **症状**: 開発環境で型エラーが発生し続ける
 
 **解決策**:
+
 ```bash
 # TypeScriptサーバー再起動（VSCode）
 # Ctrl+Shift+P → "TypeScript: Restart TS Server"
@@ -976,6 +949,7 @@ pnpm typecheck
 **症状**: Docker環境でのファイル監視やHMRが遅い
 
 **解決策**:
+
 ```yaml
 # docker-compose.dev.yml
 version: '3.8'
@@ -1013,7 +987,7 @@ export default defineConfig(({ mode }) => {
       hmr: {
         port: 24678, // devenv.nixで予約されたポート
         host: 'localhost',
-        overlay: true
+        overlay: true,
       },
 
       // Nix store内ファイルアクセス許可
@@ -1022,9 +996,9 @@ export default defineConfig(({ mode }) => {
           '..', // プロジェクトルート
           nixProfile || '~/.nix-profile', // Nix profile
           '/nix/store', // Nix store（読み取り専用）
-          devenvRoot || process.cwd() // devenv root
+          devenvRoot || process.cwd(), // devenv root
         ],
-        strict: false // Nix環境では柔軟に
+        strict: false, // Nix環境では柔軟に
       },
 
       // Nix環境でのファイル監視最適化
@@ -1036,21 +1010,15 @@ export default defineConfig(({ mode }) => {
           '**/node_modules/**',
           '**/result', // Nix buildの結果
           '**/.devenv/**', // devenvキャッシュ
-          '/nix/store/**' // Nix store
-        ]
-      }
+          '/nix/store/**', // Nix store
+        ],
+      },
     },
 
     // Nix環境での依存関係最適化
     optimizeDeps: {
       // Nix storeのパッケージを強制インクルード
-      include: [
-        'effect',
-        'effect/Schema',
-        'effect/Context',
-        'three',
-        'three/examples/jsm/controls/OrbitControls'
-      ],
+      include: ['effect', 'effect/Schema', 'effect/Context', 'three', 'three/examples/jsm/controls/OrbitControls'],
 
       // esbuild設定（Node.js 22対応）
       esbuildOptions: {
@@ -1060,9 +1028,9 @@ export default defineConfig(({ mode }) => {
         define: {
           __NIX_PROFILE__: JSON.stringify(nixProfile),
           __DEVENV_ROOT__: JSON.stringify(devenvRoot),
-          __DEVENV_STATE__: JSON.stringify(devenvState)
-        }
-      }
+          __DEVENV_STATE__: JSON.stringify(devenvState),
+        },
+      },
     },
 
     // Nixパッケージ解決
@@ -1071,19 +1039,15 @@ export default defineConfig(({ mode }) => {
         '@': resolve(process.cwd(), 'src'),
 
         // Nix storeからの直接解決
-        'effect': nixProfile ?
-          `${nixProfile}/lib/node_modules/effect` :
-          'effect',
-        'three': nixProfile ?
-          `${nixProfile}/lib/node_modules/three` :
-          'three'
+        effect: nixProfile ? `${nixProfile}/lib/node_modules/effect` : 'effect',
+        three: nixProfile ? `${nixProfile}/lib/node_modules/three` : 'three',
       },
 
       // pnpmシンボリックリンクの正しい解決
       preserveSymlinks: false,
 
       // Nix環境でのモジュール条件
-      conditions: ['development', 'browser', 'module', 'import']
+      conditions: ['development', 'browser', 'module', 'import'],
     },
 
     // Nix専用環境変数定義
@@ -1094,8 +1058,8 @@ export default defineConfig(({ mode }) => {
 
       // devenv環境情報
       'import.meta.env.DEVENV_ROOT': JSON.stringify(devenvRoot),
-      'import.meta.env.NIX_PROFILE': JSON.stringify(nixProfile)
-    }
+      'import.meta.env.NIX_PROFILE': JSON.stringify(nixProfile),
+    },
   }
 })
 ```
@@ -1400,6 +1364,7 @@ if (import.meta.env.DEV && process.env.DEVENV_ROOT) {
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
+
 - [Vite設定](./vite-config.md) - Vite開発・ビルド設定詳細
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Project設定](./project-config.md) - プロジェクト全体設定
@@ -1407,12 +1372,14 @@ if (import.meta.env.DEV && process.env.DEVENV_ROOT) {
 - [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
+
 - [Vite Dev Server](https://vitejs.dev/config/server-options.html)
 - [VSCode TypeScript](https://code.visualstudio.com/docs/languages/typescript)
 - [Chrome DevTools](https://developers.google.com/web/tools/chrome-devtools)
 - [Node.js Inspector](https://nodejs.org/en/docs/guides/debugging-getting-started/)
 
 ### プロジェクト固有
+
 - [デバッグガイド](../troubleshooting/debugging-guide.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)
 - [開発ガイド](../../how-to/development/README.md)

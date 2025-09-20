@@ -27,12 +27,14 @@
 ## 🚀 使用方法
 
 ### よく使うワンライナー
+
 ```bash
 # 自然言語からIssue作成→実装→PR作成まで一気に
 claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成して"
 ```
 
 ### 個別実行
+
 ```bash
 # Issue作成
 claude "/issue/create editorconfig lintを導入したい"

@@ -1,13 +1,13 @@
 ---
-title: "エンティティシステム仕様 - ECS・AI・スポーン管理"
-description: "Structure of Arrays ECSによる高性能エンティティ管理、AIステートマシン、動的スポーンシステムの完全仕様。"
-category: "specification"
-difficulty: "advanced"
-tags: ["entity-system", "ecs-architecture", "ai-behavior", "spawn-system", "structure-of-arrays", "performance"]
-prerequisites: ["effect-ts-fundamentals", "ecs-concepts", "performance-optimization"]
-estimated_reading_time: "20分"
-related_patterns: ["optimization-patterns", "state-machine-patterns", "ecs-patterns"]
-related_docs: ["./02-player-system.md", "./06-physics-system.md", "../explanations/architecture/05-ecs-integration.md"]
+title: 'エンティティシステム仕様 - ECS・AI・スポーン管理'
+description: 'Structure of Arrays ECSによる高性能エンティティ管理、AIステートマシン、動的スポーンシステムの完全仕様。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['entity-system', 'ecs-architecture', 'ai-behavior', 'spawn-system', 'structure-of-arrays', 'performance']
+prerequisites: ['effect-ts-fundamentals', 'ecs-concepts', 'performance-optimization']
+estimated_reading_time: '20分'
+related_patterns: ['optimization-patterns', 'state-machine-patterns', 'ecs-patterns']
+related_docs: ['./02-player-system.md', './06-physics-system.md', '../explanations/architecture/05-ecs-integration.md']
 ---
 
 # エンティティシステム - エンティティ管理システム
@@ -17,6 +17,7 @@ related_docs: ["./02-player-system.md", "./06-physics-system.md", "../explanatio
 エンティティシステムは、TypeScript Minecraftクローンにおける全ての動的オブジェクト（プレイヤー以外）を管理する高性能システムです。Structure of Arrays (SoA) ECSアーキテクチャとEffect-TS 3.17+の最新パターンを活用し、数千のエンティティを効率的に処理しながら、純粋関数型プログラミングの原則を維持します。
 
 本システムは以下の機能を提供します：
+
 - **モブ管理**: 動物・モンスター・NPCの統合管理（100+種類対応）
 - **AI実装**: ステートマシンベースの複雑な行動制御
 - **スポーンシステム**: バイオーム・時間・難易度に基づく動的出現
@@ -122,47 +123,47 @@ export const ComponentStore = Context.GenericTag<ComponentStoreInterface>("@mine
 export const Vector3 = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
-}).pipe(Schema.brand("Vector3"))
+  z: Schema.Number,
+}).pipe(Schema.brand('Vector3'))
 export type Vector3 = Schema.Schema.Type<typeof Vector3>
 
 // ChunkPosition型（ブランド型）
 export const ChunkPosition = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
-}).pipe(Schema.brand("ChunkPosition"))
+  z: Schema.Number.pipe(Schema.int()),
+}).pipe(Schema.brand('ChunkPosition'))
 export type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>
 
 // Positionコンポーネント（TaggedStructパターン）
-export const PositionComponent = Schema.TaggedStruct("Position", {
+export const PositionComponent = Schema.TaggedStruct('Position', {
   position: Vector3,
-  chunk: ChunkPosition
+  chunk: ChunkPosition,
 })
 export type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
 
 // Velocityコンポーネント
-export const VelocityComponent = Schema.TaggedStruct("Velocity", {
+export const VelocityComponent = Schema.TaggedStruct('Velocity', {
   velocity: Vector3,
-  acceleration: Schema.optional(Vector3)
+  acceleration: Schema.optional(Vector3),
 })
 export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
 
 // Rotationコンポーネント（制約付きスキーマ）
-export const RotationComponent = Schema.TaggedStruct("Rotation", {
+export const RotationComponent = Schema.TaggedStruct('Rotation', {
   yaw: Schema.Number.pipe(Schema.between(-180, 180)),
   pitch: Schema.Number.pipe(Schema.between(-90, 90)),
-  roll: Schema.optional(Schema.Number.pipe(Schema.between(-180, 180)))
+  roll: Schema.optional(Schema.Number.pipe(Schema.between(-180, 180))),
 })
 export type RotationComponent = Schema.Schema.Type<typeof RotationComponent>
 
 // BoundingBoxコンポーネント
-export const BoundingBoxComponent = Schema.TaggedStruct("BoundingBox", {
+export const BoundingBoxComponent = Schema.TaggedStruct('BoundingBox', {
   size: Schema.Struct({
     width: Schema.Number.pipe(Schema.positive()),
     height: Schema.Number.pipe(Schema.positive()),
-    depth: Schema.Number.pipe(Schema.positive())
+    depth: Schema.Number.pipe(Schema.positive()),
   }),
-  offset: Schema.optional(Vector3)
+  offset: Schema.optional(Vector3),
 })
 export type BoundingBoxComponent = Schema.Schema.Type<typeof BoundingBoxComponent>
 ```
@@ -171,56 +172,52 @@ export type BoundingBoxComponent = Schema.Schema.Type<typeof BoundingBoxComponen
 
 ```typescript
 // Health値（ブランド型）
-export const Health = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("Health")
-)
+export const Health = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Health'))
 export type Health = Schema.Schema.Type<typeof Health>
 
 // Damage値（ブランド型）
-export const Damage = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("Damage")
-)
+export const Damage = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Damage'))
 export type Damage = Schema.Schema.Type<typeof Damage>
 
 // Healthコンポーネント（最新パターン）
-export const HealthComponent = Schema.TaggedStruct("Health", {
+export const HealthComponent = Schema.TaggedStruct('Health', {
   current: Health,
   max: Health,
   regeneration: Schema.Number,
   invulnerableUntil: Schema.optional(Schema.DateFromSelf),
-  lastDamageTime: Schema.optional(Schema.DateFromSelf)
+  lastDamageTime: Schema.optional(Schema.DateFromSelf),
 })
 export type HealthComponent = Schema.Schema.Type<typeof HealthComponent>
 
 // Combatコンポーネント
-export const CombatComponent = Schema.TaggedStruct("Combat", {
+export const CombatComponent = Schema.TaggedStruct('Combat', {
   damage: Damage,
   attackSpeed: Schema.Number.pipe(Schema.positive()),
   knockback: Schema.Number.pipe(Schema.nonNegative()),
   range: Schema.Number.pipe(Schema.positive()),
   lastAttack: Schema.optional(Schema.DateFromSelf),
-  target: Schema.optional(EntityId)
+  target: Schema.optional(EntityId),
 })
 export type CombatComponent = Schema.Schema.Type<typeof CombatComponent>
 
 // Enchantment定義
 export const Enchantment = Schema.Struct({
   type: Schema.String,
-  level: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(10))
+  level: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(10)),
 })
 export type Enchantment = Schema.Schema.Type<typeof Enchantment>
 
 // Armorコンポーネント
-export const ArmorComponent = Schema.TaggedStruct("Armor", {
+export const ArmorComponent = Schema.TaggedStruct('Armor', {
   defense: Schema.Number.pipe(Schema.nonNegative()),
   toughness: Schema.Number.pipe(Schema.nonNegative()),
   enchantments: Schema.Array(Enchantment),
-  durability: Schema.optional(Schema.Struct({
-    current: Schema.Number.pipe(Schema.nonNegative()),
-    max: Schema.Number.pipe(Schema.positive())
-  }))
+  durability: Schema.optional(
+    Schema.Struct({
+      current: Schema.Number.pipe(Schema.nonNegative()),
+      max: Schema.Number.pipe(Schema.positive()),
+    })
+  ),
 })
 export type ArmorComponent = Schema.Schema.Type<typeof ArmorComponent>
 ```
@@ -230,24 +227,34 @@ export type ArmorComponent = Schema.Schema.Type<typeof ArmorComponent>
 ```typescript
 // AI動作タイプ（ブランド型）
 export const AIBehavior = Schema.Literal(
-  "idle", "wander", "follow", "flee", "attack", "patrol",
-  "guard", "breed", "sleep", "eat", "swim", "pathfind"
-).pipe(Schema.brand("AIBehavior"))
+  'idle',
+  'wander',
+  'follow',
+  'flee',
+  'attack',
+  'patrol',
+  'guard',
+  'breed',
+  'sleep',
+  'eat',
+  'swim',
+  'pathfind'
+).pipe(Schema.brand('AIBehavior'))
 export type AIBehavior = Schema.Schema.Type<typeof AIBehavior>
 
 // AI状態（ブランド型）
-export const AIState = Schema.String.pipe(Schema.brand("AIState"))
+export const AIState = Schema.String.pipe(Schema.brand('AIState'))
 export type AIState = Schema.Schema.Type<typeof AIState>
 
 // Pathポイント
 export const PathPoint = Schema.Struct({
   position: Vector3,
-  timestamp: Schema.DateFromSelf
+  timestamp: Schema.DateFromSelf,
 })
 export type PathPoint = Schema.Schema.Type<typeof PathPoint>
 
 // AIコンポーネント（最新パターン）
-export const AIComponent = Schema.TaggedStruct("AI", {
+export const AIComponent = Schema.TaggedStruct('AI', {
   enabled: Schema.Boolean,
   behaviors: Schema.Array(AIBehavior),
   currentState: AIState,
@@ -255,7 +262,7 @@ export const AIComponent = Schema.TaggedStruct("AI", {
   path: Schema.optional(Schema.Array(PathPoint)),
   memory: Schema.Record(Schema.String, Schema.Unknown),
   lastStateChange: Schema.DateFromSelf,
-  stateTimeout: Schema.optional(Schema.Number.pipe(Schema.positive()))
+  stateTimeout: Schema.optional(Schema.Number.pipe(Schema.positive())),
 })
 export type AIComponent = Schema.Schema.Type<typeof AIComponent>
 
@@ -264,7 +271,7 @@ export const SensorData = Schema.Struct({
   type: Schema.String,
   range: Schema.Number.pipe(Schema.positive()),
   lastUpdate: Schema.DateFromSelf,
-  detectedEntities: Schema.Array(EntityId)
+  detectedEntities: Schema.Array(EntityId),
 })
 export type SensorData = Schema.Schema.Type<typeof SensorData>
 
@@ -272,18 +279,18 @@ export type SensorData = Schema.Schema.Type<typeof SensorData>
 export const ActivitySchedule = Schema.Struct({
   time: Schema.Number.pipe(Schema.between(0, 24000)), // Minecraftの1日は24000tick
   activity: Schema.String,
-  priority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10))
+  priority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
 })
 export type ActivitySchedule = Schema.Schema.Type<typeof ActivitySchedule>
 
 // Brainコンポーネント（高度なAI）
-export const BrainComponent = Schema.TaggedStruct("Brain", {
+export const BrainComponent = Schema.TaggedStruct('Brain', {
   memories: Schema.Record(Schema.String, Schema.Unknown),
   sensors: Schema.Array(SensorData),
   activities: Schema.Array(Schema.String),
   schedule: Schema.optional(Schema.Array(ActivitySchedule)),
   learningRate: Schema.Number.pipe(Schema.between(0, 1)),
-  decisionTree: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  decisionTree: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 export type BrainComponent = Schema.Schema.Type<typeof BrainComponent>
 ```
@@ -300,13 +307,9 @@ export interface EntityManagerInterface {
     components: ReadonlyArray<Component>
   ) => Effect.Effect<EntityId, CreateEntityError, never>
 
-  readonly destroyEntity: (
-    id: EntityId
-  ) => Effect.Effect<void, EntityNotFoundError, never>
+  readonly destroyEntity: (id: EntityId) => Effect.Effect<void, EntityNotFoundError, never>
 
-  readonly getEntity: (
-    id: EntityId
-  ) => Effect.Effect<Entity, EntityNotFoundError, never>
+  readonly getEntity: (id: EntityId) => Effect.Effect<Entity, EntityNotFoundError, never>
 
   readonly addComponent: <T extends Component>(
     entityId: EntityId,
@@ -323,9 +326,7 @@ export interface EntityManagerInterface {
     componentType: string
   ) => Effect.Effect<T, ComponentNotFoundError, never>
 
-  readonly query: (
-    ...componentTypes: string[]
-  ) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
+  readonly query: (...componentTypes: string[]) => Effect.Effect<ReadonlyArray<EntityId>, never, never>
 
   readonly queryWithComponents: <T extends Component[]>(
     ...componentTypes: string[]
@@ -348,30 +349,30 @@ export interface EntityManagerInterface {
 
 // エンティティイベント定義
 export const EntityEvent = Schema.Union(
-  Schema.TaggedStruct("EntityCreated", {
+  Schema.TaggedStruct('EntityCreated', {
     entityId: EntityId,
     entityType: EntityType,
-    timestamp: Schema.DateFromSelf
+    timestamp: Schema.DateFromSelf,
   }),
-  Schema.TaggedStruct("EntityDestroyed", {
+  Schema.TaggedStruct('EntityDestroyed', {
     entityId: EntityId,
-    timestamp: Schema.DateFromSelf
+    timestamp: Schema.DateFromSelf,
   }),
-  Schema.TaggedStruct("ComponentAdded", {
-    entityId: EntityId,
-    componentType: Schema.String,
-    timestamp: Schema.DateFromSelf
-  }),
-  Schema.TaggedStruct("ComponentRemoved", {
+  Schema.TaggedStruct('ComponentAdded', {
     entityId: EntityId,
     componentType: Schema.String,
-    timestamp: Schema.DateFromSelf
+    timestamp: Schema.DateFromSelf,
+  }),
+  Schema.TaggedStruct('ComponentRemoved', {
+    entityId: EntityId,
+    componentType: Schema.String,
+    timestamp: Schema.DateFromSelf,
   })
 )
 export type EntityEvent = Schema.Schema.Type<typeof EntityEvent>
 
 // Context Tag（最新パターン）
-export const EntityManager = Context.GenericTag<EntityManagerInterface>("@minecraft/EntityManager")
+export const EntityManager = Context.GenericTag<EntityManagerInterface>('@minecraft/EntityManager')
 
 // Live実装作成関数（最新Effect-TSパターン）
 const makeEntityManager = Effect.gen(function* () {
@@ -387,10 +388,8 @@ const makeEntityManager = Effect.gen(function* () {
   // アーキタイプ管理
   const archetypeManager = yield* createArchetypeManager(archetypes)
 
-    const createEntity = (
-      type: EntityType,
-      components: ReadonlyArray<Component>
-    ) => Effect.gen(function* () {
+  const createEntity = (type: EntityType, components: ReadonlyArray<Component>) =>
+    Effect.gen(function* () {
       // Entity ID生成（UUIDブランド型）
       const id = yield* Effect.sync(() => Schema.decodeSync(EntityId)(crypto.randomUUID()))
       const now = new Date()
@@ -401,7 +400,7 @@ const makeEntityManager = Effect.gen(function* () {
           type,
           active: true,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         })
       )
 
@@ -419,22 +418,22 @@ const makeEntityManager = Effect.gen(function* () {
           )
 
           // アーキタイプ更新
-          const componentTypes = components.map(c => c._tag)
+          const componentTypes = components.map((c) => c._tag)
           yield* archetypeManager.addEntity(id, componentTypes)
         })
       )
 
       // イベント発行（非同期）
       const event = {
-        _tag: "EntityCreated" as const,
+        _tag: 'EntityCreated' as const,
         entityId: id,
         entityType: type,
-        timestamp: now
+        timestamp: now,
       }
       yield* Queue.offer(eventQueue, event)
 
       // 空間インデックス登録（Positionコンポーネントがある場合）
-      const positionComponent = components.find(c => c._tag === "Position") as PositionComponent | undefined
+      const positionComponent = components.find((c) => c._tag === 'Position') as PositionComponent | undefined
       if (positionComponent) {
         yield* spatialIndex.insert(id, positionComponent.position)
       }
@@ -442,84 +441,80 @@ const makeEntityManager = Effect.gen(function* () {
       return id
     })
 
-    const destroyEntity = (id: EntityId) =>
-      Effect.gen(function* () {
-        // 早期リターン: エンティティ存在確認
-        const entitiesMap = yield* Ref.get(entities)
-        const entity = entitiesMap.get(id)
-        if (!entity) {
-          return yield* Effect.fail(new EntityNotFoundError({ entityId: id }))
-        }
+  const destroyEntity = (id: EntityId) =>
+    Effect.gen(function* () {
+      // 早期リターン: エンティティ存在確認
+      const entitiesMap = yield* Ref.get(entities)
+      const entity = entitiesMap.get(id)
+      if (!entity) {
+        return yield* Effect.fail(new EntityNotFoundError({ entityId: id }))
+      }
 
-        // STMトランザクションで原子的削除
-        yield* STM.commit(
-          STM.gen(function* () {
-            // エンティティ削除
-            yield* STM.update(entities, (map) => {
-              const newMap = new Map(map)
-              newMap.delete(id)
-              return newMap
-            })
-
-            // コンポーネント全削除
-            const componentTypes = ["Position", "Velocity", "Health", "AI", "Combat", "Armor"]
-            yield* pipe(
-              componentTypes,
-              Array.map((componentType) =>
-                STM.commit(componentStore.remove(id, componentType).pipe(
-                  Effect.ignore // コンポーネントがない場合は無視
-                ))
-              ),
-              STM.all
-            )
-
-            // アーキタイプから削除
-            yield* archetypeManager.removeEntity(id)
+      // STMトランザクションで原子的削除
+      yield* STM.commit(
+        STM.gen(function* () {
+          // エンティティ削除
+          yield* STM.update(entities, (map) => {
+            const newMap = new Map(map)
+            newMap.delete(id)
+            return newMap
           })
-        )
 
-        // 空間インデックスから削除
-        yield* spatialIndex.remove(id)
-
-        // イベント発行
-        const event = {
-          _tag: "EntityDestroyed" as const,
-          entityId: id,
-          timestamp: new Date()
-        }
-        yield* Queue.offer(eventQueue, event)
-      })
-
-    const query = (...componentTypes: string[]) =>
-      Effect.gen(function* () {
-        // アーキタイプベースの高速クエリ
-        return yield* archetypeManager.query(componentTypes)
-      })
-
-    const watchEntities = (...componentTypes: string[]) =>
-      Stream.fromQueue(eventQueue).pipe(
-        Stream.filter((event) =>
-          event._tag === "EntityCreated" ||
-          event._tag === "ComponentAdded"
-        ),
-        Stream.mapEffect((event) =>
-          query(...componentTypes).pipe(
-            Effect.map(entityIds =>
-              entityIds.map(id => [id, []] as [EntityId, ReadonlyArray<Component>])
-            )
+          // コンポーネント全削除
+          const componentTypes = ['Position', 'Velocity', 'Health', 'AI', 'Combat', 'Armor']
+          yield* pipe(
+            componentTypes,
+            Array.map((componentType) =>
+              STM.commit(
+                componentStore.remove(id, componentType).pipe(
+                  Effect.ignore // コンポーネントがない場合は無視
+                )
+              )
+            ),
+            STM.all
           )
-        ),
-        Stream.flatten
+
+          // アーキタイプから削除
+          yield* archetypeManager.removeEntity(id)
+        })
       )
 
-    const batchUpdate = <T>(
-      entityIds: ReadonlyArray<EntityId>,
-      updater: (entityId: EntityId) => Effect.Effect<T, never, never>
-    ) => Effect.forEach(entityIds, updater, { concurrency: "unbounded", batching: true })
+      // 空間インデックスから削除
+      yield* spatialIndex.remove(id)
 
-    const queryWithComponents = <T extends Component[]>(
-      ...componentTypes: string[]
-    ) => Effect.gen(function* () {
+      // イベント発行
+      const event = {
+        _tag: 'EntityDestroyed' as const,
+        entityId: id,
+        timestamp: new Date(),
+      }
+      yield* Queue.offer(eventQueue, event)
+    })
+
+  const query = (...componentTypes: string[]) =>
+    Effect.gen(function* () {
+      // アーキタイプベースの高速クエリ
+      return yield* archetypeManager.query(componentTypes)
+    })
+
+  const watchEntities = (...componentTypes: string[]) =>
+    Stream.fromQueue(eventQueue).pipe(
+      Stream.filter((event) => event._tag === 'EntityCreated' || event._tag === 'ComponentAdded'),
+      Stream.mapEffect((event) =>
+        query(...componentTypes).pipe(
+          Effect.map((entityIds) => entityIds.map((id) => [id, []] as [EntityId, ReadonlyArray<Component>]))
+        )
+      ),
+      Stream.flatten
+    )
+
+  const batchUpdate = <T>(
+    entityIds: ReadonlyArray<EntityId>,
+    updater: (entityId: EntityId) => Effect.Effect<T, never, never>
+  ) => Effect.forEach(entityIds, updater, { concurrency: 'unbounded', batching: true })
+
+  const queryWithComponents = <T extends Component[]>(...componentTypes: string[]) =>
+    Effect.gen(function* () {
       const entityIds = yield* query(...componentTypes)
       const results: [EntityId, T][] = []
 
@@ -534,10 +529,7 @@ const makeEntityManager = Effect.gen(function* () {
             )
 
             return Match.value(components.every(Option.isSome)).pipe(
-              Match.when(true, () => Option.some([
-                id,
-                components.map(Option.getOrThrow) as T
-              ] as [EntityId, T])),
+              Match.when(true, () => Option.some([id, components.map(Option.getOrThrow) as T] as [EntityId, T])),
               Match.when(false, () => Option.none()),
               Match.exhaustive
             )
@@ -550,76 +542,71 @@ const makeEntityManager = Effect.gen(function* () {
       return results
     })
 
-    return EntityManager.of({
-      createEntity,
-      destroyEntity,
-      getEntity: (id) => Effect.gen(function* () {
+  return EntityManager.of({
+    createEntity,
+    destroyEntity,
+    getEntity: (id) =>
+      Effect.gen(function* () {
         const entitiesMap = yield* Ref.get(entities)
         const entity = entitiesMap.get(id)
 
-        return entity
-          ? Effect.succeed(entity)
-          : Effect.fail(new EntityNotFoundError({ entityId: id }))
+        return entity ? Effect.succeed(entity) : Effect.fail(new EntityNotFoundError({ entityId: id }))
       }).pipe(Effect.flatten),
 
-      addComponent: (entityId, component) =>
-        Effect.gen(function* () {
-          // 早期リターン: エンティティ存在確認
-          yield* getEntity(entityId)
+    addComponent: (entityId, component) =>
+      Effect.gen(function* () {
+        // 早期リターン: エンティティ存在確認
+        yield* getEntity(entityId)
 
-          // STMでアトミックにコンポーネント追加
-          yield* STM.commit(
-            STM.gen(function* () {
-              yield* STM.commit(componentStore.set(entityId, component))
-              yield* archetypeManager.addComponent(entityId, component._tag)
-            })
-          )
+        // STMでアトミックにコンポーネント追加
+        yield* STM.commit(
+          STM.gen(function* () {
+            yield* STM.commit(componentStore.set(entityId, component))
+            yield* archetypeManager.addComponent(entityId, component._tag)
+          })
+        )
 
-          // イベント発行
-          const event = {
-            _tag: "ComponentAdded" as const,
-            entityId,
-            componentType: component._tag,
-            timestamp: new Date()
-          }
-          yield* Queue.offer(eventQueue, event)
-        }),
+        // イベント発行
+        const event = {
+          _tag: 'ComponentAdded' as const,
+          entityId,
+          componentType: component._tag,
+          timestamp: new Date(),
+        }
+        yield* Queue.offer(eventQueue, event)
+      }),
 
-      removeComponent: (entityId, componentType) =>
-        Effect.gen(function* () {
-          yield* STM.commit(
-            STM.gen(function* () {
-              yield* STM.commit(componentStore.remove(entityId, componentType))
-              yield* archetypeManager.removeComponent(entityId, componentType)
-            })
-          )
+    removeComponent: (entityId, componentType) =>
+      Effect.gen(function* () {
+        yield* STM.commit(
+          STM.gen(function* () {
+            yield* STM.commit(componentStore.remove(entityId, componentType))
+            yield* archetypeManager.removeComponent(entityId, componentType)
+          })
+        )
 
-          // イベント発行
-          const event = {
-            _tag: "ComponentRemoved" as const,
-            entityId,
-            componentType,
-            timestamp: new Date()
-          }
-          yield* Queue.offer(eventQueue, event)
-        }),
+        // イベント発行
+        const event = {
+          _tag: 'ComponentRemoved' as const,
+          entityId,
+          componentType,
+          timestamp: new Date(),
+        }
+        yield* Queue.offer(eventQueue, event)
+      }),
 
-      getComponent: (entityId, componentType) =>
-        componentStore.get(entityId, componentType),
+    getComponent: (entityId, componentType) => componentStore.get(entityId, componentType),
 
-      query,
-      queryWithComponents,
-      watchEntities,
-      entityEvents: Stream.fromQueue(eventQueue),
-      batchUpdate
-    })
+    query,
+    queryWithComponents,
+    watchEntities,
+    entityEvents: Stream.fromQueue(eventQueue),
+    batchUpdate,
   })
+})
 
 // Live Layer（依存関係あり）
-export const EntityManagerLive = Layer.effect(
-  EntityManager,
-  makeEntityManager
-).pipe(
+export const EntityManagerLive = Layer.effect(EntityManager, makeEntityManager).pipe(
   Layer.provide(ComponentStoreLive),
   Layer.provide(SpatialIndexLive)
 )
@@ -1431,31 +1418,31 @@ export const AISystemLive = Layer.effect(
 ```typescript
 // エンティティアーキタイプ定義（Schemaベース）
 export const PlayerArchetype = Schema.Struct({
-  _tag: Schema.Literal("PlayerArchetype"),
+  _tag: Schema.Literal('PlayerArchetype'),
   name: Schema.String,
   level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   experience: Schema.Number.pipe(Schema.nonNegative()),
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator")
+  gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
 })
 export type PlayerArchetype = Schema.Schema.Type<typeof PlayerArchetype>
 
 export const MobArchetype = Schema.Struct({
-  _tag: Schema.Literal("MobArchetype"),
+  _tag: Schema.Literal('MobArchetype'),
   mobType: EntityType,
   health: Health,
   damage: Damage,
   speed: Schema.Number.pipe(Schema.positive()),
   behaviors: Schema.Array(AIBehavior),
-  hostileToPlayer: Schema.Boolean
+  hostileToPlayer: Schema.Boolean,
 })
 export type MobArchetype = Schema.Schema.Type<typeof MobArchetype>
 
 export const ItemArchetype = Schema.Struct({
-  _tag: Schema.Literal("ItemArchetype"),
+  _tag: Schema.Literal('ItemArchetype'),
   itemId: Schema.String,
   stackSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
   pickupDelay: Schema.Number.pipe(Schema.nonNegative()),
-  despawnTime: Schema.Number.pipe(Schema.positive())
+  despawnTime: Schema.Number.pipe(Schema.positive()),
 })
 export type ItemArchetype = Schema.Schema.Type<typeof ItemArchetype>
 
@@ -1466,10 +1453,7 @@ export interface EntityFactoryInterface {
     position: Vector3
   ) => Effect.Effect<EntityId, CreateEntityError, never>
 
-  readonly createMob: (
-    archetype: MobArchetype,
-    position: Vector3
-  ) => Effect.Effect<EntityId, CreateEntityError, never>
+  readonly createMob: (archetype: MobArchetype, position: Vector3) => Effect.Effect<EntityId, CreateEntityError, never>
 
   readonly createItem: (
     archetype: ItemArchetype,
@@ -1494,13 +1478,11 @@ export interface EntityFactoryInterface {
   ) => Effect.Effect<ReadonlyArray<EntityId>, CreateEntityError, never>
 
   // アーキタイプファクトリ
-  readonly getArchetypeFactory: <T>(
-    type: EntityType
-  ) => Effect.Effect<(config: unknown) => T, CreateEntityError, never>
+  readonly getArchetypeFactory: <T>(type: EntityType) => Effect.Effect<(config: unknown) => T, CreateEntityError, never>
 }
 
 // Context Tag（最新パターン）
-export const EntityFactory = Context.GenericTag<EntityFactoryInterface>("@minecraft/EntityFactory")
+export const EntityFactory = Context.GenericTag<EntityFactoryInterface>('@minecraft/EntityFactory')
 
 // Live実装作成関数（Schemaベースアーキタイプ）
 const makeEntityFactory = Effect.gen(function* () {
@@ -1509,253 +1491,238 @@ const makeEntityFactory = Effect.gen(function* () {
   // アーキタイプファクトリマップ
   const archetypeFactories = new Map<EntityType, (config: unknown) => unknown>()
 
-    const createPlayer = (archetype: PlayerArchetype, position: Vector3) =>
-      Effect.gen(function* () {
-        // プレイヤーコンポーネント群をSchemaで定義
-        const components: Component[] = [
-          {
-            _tag: "Position",
-            position,
-            chunk: {
-              x: Math.floor(position.x / 16),
-              z: Math.floor(position.z / 16)
-            }
-          } as PositionComponent,
-          {
-            _tag: "Velocity",
-            velocity: { x: 0, y: 0, z: 0 }
-          } as VelocityComponent,
-          {
-            _tag: "Rotation",
-            yaw: 0,
-            pitch: 0
-          } as RotationComponent,
-          {
-            _tag: "BoundingBox",
-            size: { width: 0.6, height: 1.8, depth: 0.6 }
-          } as BoundingBoxComponent,
-          {
-            _tag: "Health",
-            current: 20 as Health,
-            max: 20 as Health,
-            regeneration: 0.1
-          } as HealthComponent,
-          {
-            _tag: "PlayerData",
-            ...archetype
-          } as any // PlayerDataコンポーネントは別途定義が必要
-        ]
-
-        return yield* entityManager.createEntity(
-          "player" as EntityType,
-          components
-        )
-      })
-
-    const createMob = (archetype: MobArchetype, position: Vector3) =>
-      Effect.gen(function* () {
-        // Mobサイズ定義（タイプごと）
-        const sizeConfig = getMobSizeConfig(archetype.mobType)
-
-        const components: Component[] = [
-          {
-            _tag: "Position",
-            position,
-            chunk: {
-              x: Math.floor(position.x / 16),
-              z: Math.floor(position.z / 16)
-            }
-          } as PositionComponent,
-          {
-            _tag: "Velocity",
-            velocity: { x: 0, y: 0, z: 0 }
-          } as VelocityComponent,
-          {
-            _tag: "Rotation",
-            yaw: Math.random() * 360 - 180,
-            pitch: 0
-          } as RotationComponent,
-          {
-            _tag: "BoundingBox",
-            size: sizeConfig
-          } as BoundingBoxComponent,
-          {
-            _tag: "Health",
-            current: archetype.health,
-            max: archetype.health,
-            regeneration: 0
-          } as HealthComponent,
-          {
-            _tag: "AI",
-            enabled: true,
-            behaviors: archetype.behaviors,
-            currentState: "idle" as AIState,
-            target: undefined,
-            path: undefined,
-            memory: {},
-            lastStateChange: new Date()
-          } as AIComponent,
-          {
-            _tag: "Combat",
-            damage: archetype.damage,
-            attackSpeed: archetype.speed,
-            knockback: 0.4,
-            range: 2.0
-          } as CombatComponent
-        ]
-
-        return yield* entityManager.createEntity(
-          archetype.mobType,
-          components
-        )
-      })
-
-    const createItem = (
-      archetype: ItemArchetype,
-      position: Vector3,
-      velocity: Vector3 = { x: 0, y: 0, z: 0 }
-    ) => Effect.gen(function* () {
+  const createPlayer = (archetype: PlayerArchetype, position: Vector3) =>
+    Effect.gen(function* () {
+      // プレイヤーコンポーネント群をSchemaで定義
       const components: Component[] = [
         {
-          _tag: "Position",
+          _tag: 'Position',
           position,
           chunk: {
             x: Math.floor(position.x / 16),
-            z: Math.floor(position.z / 16)
-          }
+            z: Math.floor(position.z / 16),
+          },
         } as PositionComponent,
         {
-          _tag: "Velocity",
-          velocity
+          _tag: 'Velocity',
+          velocity: { x: 0, y: 0, z: 0 },
         } as VelocityComponent,
         {
-          _tag: "BoundingBox",
-          size: { width: 0.25, height: 0.25, depth: 0.25 }
+          _tag: 'Rotation',
+          yaw: 0,
+          pitch: 0,
+        } as RotationComponent,
+        {
+          _tag: 'BoundingBox',
+          size: { width: 0.6, height: 1.8, depth: 0.6 },
         } as BoundingBoxComponent,
         {
-          _tag: "ItemData",
-          ...archetype
-        } as any, // ItemDataコンポーネントは別途定義が必要
+          _tag: 'Health',
+          current: 20 as Health,
+          max: 20 as Health,
+          regeneration: 0.1,
+        } as HealthComponent,
         {
-          _tag: "Pickup",
-          delay: archetype.pickupDelay,
-          canPickup: true,
-          despawnTime: Date.now() + archetype.despawnTime * 1000
-        } as any // Pickupコンポーネントは別途定義が必要
+          _tag: 'PlayerData',
+          ...archetype,
+        } as any, // PlayerDataコンポーネントは別途定義が必要
       ]
 
-      return yield* entityManager.createEntity(
-        "item" as EntityType,
-        components
-      )
+      return yield* entityManager.createEntity('player' as EntityType, components)
     })
 
-    const createProjectile = (
-      projectileType: EntityType,
-      position: Vector3,
-      velocity: Vector3,
-      owner: EntityId
-    ) => Effect.gen(function* () {
+  const createMob = (archetype: MobArchetype, position: Vector3) =>
+    Effect.gen(function* () {
+      // Mobサイズ定義（タイプごと）
+      const sizeConfig = getMobSizeConfig(archetype.mobType)
+
       const components: Component[] = [
         {
-          _tag: "Position",
+          _tag: 'Position',
           position,
           chunk: {
             x: Math.floor(position.x / 16),
-            z: Math.floor(position.z / 16)
-          }
+            z: Math.floor(position.z / 16),
+          },
         } as PositionComponent,
         {
-          _tag: "Velocity",
-          velocity
+          _tag: 'Velocity',
+          velocity: { x: 0, y: 0, z: 0 },
         } as VelocityComponent,
         {
-          _tag: "BoundingBox",
-          size: { width: 0.25, height: 0.25, depth: 0.25 }
+          _tag: 'Rotation',
+          yaw: Math.random() * 360 - 180,
+          pitch: 0,
+        } as RotationComponent,
+        {
+          _tag: 'BoundingBox',
+          size: sizeConfig,
         } as BoundingBoxComponent,
         {
-          _tag: "Projectile",
+          _tag: 'Health',
+          current: archetype.health,
+          max: archetype.health,
+          regeneration: 0,
+        } as HealthComponent,
+        {
+          _tag: 'AI',
+          enabled: true,
+          behaviors: archetype.behaviors,
+          currentState: 'idle' as AIState,
+          target: undefined,
+          path: undefined,
+          memory: {},
+          lastStateChange: new Date(),
+        } as AIComponent,
+        {
+          _tag: 'Combat',
+          damage: archetype.damage,
+          attackSpeed: archetype.speed,
+          knockback: 0.4,
+          range: 2.0,
+        } as CombatComponent,
+      ]
+
+      return yield* entityManager.createEntity(archetype.mobType, components)
+    })
+
+  const createItem = (archetype: ItemArchetype, position: Vector3, velocity: Vector3 = { x: 0, y: 0, z: 0 }) =>
+    Effect.gen(function* () {
+      const components: Component[] = [
+        {
+          _tag: 'Position',
+          position,
+          chunk: {
+            x: Math.floor(position.x / 16),
+            z: Math.floor(position.z / 16),
+          },
+        } as PositionComponent,
+        {
+          _tag: 'Velocity',
+          velocity,
+        } as VelocityComponent,
+        {
+          _tag: 'BoundingBox',
+          size: { width: 0.25, height: 0.25, depth: 0.25 },
+        } as BoundingBoxComponent,
+        {
+          _tag: 'ItemData',
+          ...archetype,
+        } as any, // ItemDataコンポーネントは別途定義が必要
+        {
+          _tag: 'Pickup',
+          delay: archetype.pickupDelay,
+          canPickup: true,
+          despawnTime: Date.now() + archetype.despawnTime * 1000,
+        } as any, // Pickupコンポーネントは別途定義が必要
+      ]
+
+      return yield* entityManager.createEntity('item' as EntityType, components)
+    })
+
+  const createProjectile = (projectileType: EntityType, position: Vector3, velocity: Vector3, owner: EntityId) =>
+    Effect.gen(function* () {
+      const components: Component[] = [
+        {
+          _tag: 'Position',
+          position,
+          chunk: {
+            x: Math.floor(position.x / 16),
+            z: Math.floor(position.z / 16),
+          },
+        } as PositionComponent,
+        {
+          _tag: 'Velocity',
+          velocity,
+        } as VelocityComponent,
+        {
+          _tag: 'BoundingBox',
+          size: { width: 0.25, height: 0.25, depth: 0.25 },
+        } as BoundingBoxComponent,
+        {
+          _tag: 'Projectile',
           owner,
           damage: 4 as Damage,
           lifespan: 1200, // 60秒
-          createdAt: new Date()
-        } as any // Projectileコンポーネントは別途定義が必要
+          createdAt: new Date(),
+        } as any, // Projectileコンポーネントは別途定義が必要
       ]
 
-      return yield* entityManager.createEntity(
-        projectileType,
-        components
-      )
+      return yield* entityManager.createEntity(projectileType, components)
     })
 
-    const batchCreate = (
-      requests: ReadonlyArray<{
-        type: EntityType
-        archetype: unknown
-        position: Vector3
-      }>
-    ) => Effect.gen(function* () {
+  const batchCreate = (
+    requests: ReadonlyArray<{
+      type: EntityType
+      archetype: unknown
+      position: Vector3
+    }>
+  ) =>
+    Effect.gen(function* () {
       return yield* Effect.forEach(
         requests,
         (request) => {
           // タイプごとのファクトリ関数を呼び出し
           return Match.value(request.type).pipe(
-            Match.when("player", () => createPlayer(request.archetype as PlayerArchetype, request.position)),
-            Match.when("zombie", "skeleton", "creeper", () => createMob(request.archetype as MobArchetype, request.position)),
-            Match.when("item", () => createItem(request.archetype as ItemArchetype, request.position)),
-            Match.orElse(() => Effect.fail(new CreateEntityError({
-              entityType: request.type,
-              reason: `Unknown entity type: ${request.type}`
-            })))
+            Match.when('player', () => createPlayer(request.archetype as PlayerArchetype, request.position)),
+            Match.when('zombie', 'skeleton', 'creeper', () =>
+              createMob(request.archetype as MobArchetype, request.position)
+            ),
+            Match.when('item', () => createItem(request.archetype as ItemArchetype, request.position)),
+            Match.orElse(() =>
+              Effect.fail(
+                new CreateEntityError({
+                  entityType: request.type,
+                  reason: `Unknown entity type: ${request.type}`,
+                })
+              )
+            )
           )
         },
         {
-          concurrency: "unbounded",
-          batching: true
+          concurrency: 'unbounded',
+          batching: true,
         }
       )
     })
 
-    const getArchetypeFactory = <T>(type: EntityType) =>
-      Effect.gen(function* () {
-        const factory = archetypeFactories.get(type)
-        if (!factory) {
-          return yield* Effect.fail(new CreateEntityError({
+  const getArchetypeFactory = <T>(type: EntityType) =>
+    Effect.gen(function* () {
+      const factory = archetypeFactories.get(type)
+      if (!factory) {
+        return yield* Effect.fail(
+          new CreateEntityError({
             entityType: type,
-            reason: `No archetype factory found for type: ${type}`
-          }))
-        }
-        return factory as (config: unknown) => T
-      })
-
-    // サイズ設定ヘルパー
-    const getMobSizeConfig = (mobType: EntityType) => {
-      return Match.value(mobType).pipe(
-        Match.when("zombie", "skeleton", () => ({ width: 0.6, height: 1.8, depth: 0.6 })),
-        Match.when("creeper", () => ({ width: 0.6, height: 1.7, depth: 0.6 })),
-        Match.when("cow", "pig", () => ({ width: 0.9, height: 1.4, depth: 0.9 })),
-        Match.when("sheep", () => ({ width: 0.9, height: 1.3, depth: 0.9 })),
-        Match.orElse(() => ({ width: 0.6, height: 1.8, depth: 0.6 }))
-      )
-    }
-
-    return EntityFactory.of({
-      createPlayer,
-      createMob,
-      createItem,
-      createProjectile,
-      batchCreate,
-      getArchetypeFactory
+            reason: `No archetype factory found for type: ${type}`,
+          })
+        )
+      }
+      return factory as (config: unknown) => T
     })
+
+  // サイズ設定ヘルパー
+  const getMobSizeConfig = (mobType: EntityType) => {
+    return Match.value(mobType).pipe(
+      Match.when('zombie', 'skeleton', () => ({ width: 0.6, height: 1.8, depth: 0.6 })),
+      Match.when('creeper', () => ({ width: 0.6, height: 1.7, depth: 0.6 })),
+      Match.when('cow', 'pig', () => ({ width: 0.9, height: 1.4, depth: 0.9 })),
+      Match.when('sheep', () => ({ width: 0.9, height: 1.3, depth: 0.9 })),
+      Match.orElse(() => ({ width: 0.6, height: 1.8, depth: 0.6 }))
+    )
+  }
+
+  return EntityFactory.of({
+    createPlayer,
+    createMob,
+    createItem,
+    createProjectile,
+    batchCreate,
+    getArchetypeFactory,
   })
+})
 
 // Live Layer（依存関係あり）
-export const EntityFactoryLive = Layer.effect(
-  EntityFactory,
-  makeEntityFactory
-).pipe(
-  Layer.provide(EntityManagerLive)
-)
+export const EntityFactoryLive = Layer.effect(EntityFactory, makeEntityFactory).pipe(Layer.provide(EntityManagerLive))
 ```
 
 ## Structure of Arrays (SoA) ECS実装
@@ -1769,17 +1736,9 @@ Structure of Arrays (SoA) パターンは、コンポーネントデータを型
 interface SoAComponentStorage {
   readonly allocate: (count: number) => Effect.Effect<void, AllocationError>
   readonly compact: () => Effect.Effect<void, never>
-  readonly getComponentArray: <T extends Component>(
-    componentType: string
-  ) => Option.Option<TypedArray>
-  readonly setComponent: <T extends Component>(
-    entityIndex: number,
-    component: T
-  ) => Effect.Effect<void, never>
-  readonly getComponent: <T extends Component>(
-    entityIndex: number,
-    componentType: string
-  ) => Option.Option<T>
+  readonly getComponentArray: <T extends Component>(componentType: string) => Option.Option<TypedArray>
+  readonly setComponent: <T extends Component>(entityIndex: number, component: T) => Effect.Effect<void, never>
+  readonly getComponent: <T extends Component>(entityIndex: number, componentType: string) => Option.Option<T>
 }
 
 // SoA Position Component Implementation
@@ -1806,14 +1765,14 @@ const createPositionStorage = (capacity: number) =>
     const getPosition = (index: number): Option.Option<PositionComponent> =>
       activeSlots.has(index)
         ? Option.some({
-            _tag: "Position" as const,
+            _tag: 'Position' as const,
             x: xArray[index],
             y: yArray[index],
             z: zArray[index],
             chunk: {
               x: chunkXArray[index],
-              z: chunkZArray[index]
-            }
+              z: chunkZArray[index],
+            },
           })
         : Option.none()
 
@@ -1823,26 +1782,27 @@ const createPositionStorage = (capacity: number) =>
       deltaX: Float32Array,
       deltaY: Float32Array,
       deltaZ: Float32Array
-    ) => Effect.sync(() => {
-      pipe(
-        indices,
-        Array.forEachWithIndex((i, idx) => {
-          Match.value(activeSlots.has(idx)).pipe(
-            Match.when(true, () => {
-              xArray[idx] += deltaX[i]
-              yArray[idx] += deltaY[i]
-              zArray[idx] += deltaZ[i]
+    ) =>
+      Effect.sync(() => {
+        pipe(
+          indices,
+          Array.forEachWithIndex((i, idx) => {
+            Match.value(activeSlots.has(idx)).pipe(
+              Match.when(true, () => {
+                xArray[idx] += deltaX[i]
+                yArray[idx] += deltaY[i]
+                zArray[idx] += deltaZ[i]
 
-              // チャンク位置更新
-              chunkXArray[idx] = Math.floor(xArray[idx] / 16)
-              chunkZArray[idx] = Math.floor(zArray[idx] / 16)
-            }),
-            Match.when(false, () => void 0),
-            Match.exhaustive
-          )
-        })
-      )
-    })
+                // チャンク位置更新
+                chunkXArray[idx] = Math.floor(xArray[idx] / 16)
+                chunkZArray[idx] = Math.floor(zArray[idx] / 16)
+              }),
+              Match.when(false, () => void 0),
+              Match.exhaustive
+            )
+          })
+        )
+      })
 
     return { setPosition, getPosition, updatePositionsBatch, activeSlots }
   })
@@ -1860,22 +1820,13 @@ interface Archetype {
 }
 
 interface ArchetypeManager {
-  readonly createArchetype: (
-    componentTypes: ReadonlyArray<string>
-  ) => Effect.Effect<Archetype, never>
+  readonly createArchetype: (componentTypes: ReadonlyArray<string>) => Effect.Effect<Archetype, never>
 
-  readonly addEntityToArchetype: (
-    entityId: EntityId,
-    archetype: Archetype
-  ) => Effect.Effect<void, never>
+  readonly addEntityToArchetype: (entityId: EntityId, archetype: Archetype) => Effect.Effect<void, never>
 
-  readonly queryArchetypes: (
-    componentTypes: ReadonlyArray<string>
-  ) => Effect.Effect<ReadonlyArray<Archetype>, never>
+  readonly queryArchetypes: (componentTypes: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<Archetype>, never>
 
-  readonly fastQuery: (
-    componentTypes: ReadonlyArray<string>
-  ) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  readonly fastQuery: (componentTypes: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<EntityId>, never>
 }
 
 // アーキタイプマネージャー実装
@@ -1883,8 +1834,7 @@ const makeArchetypeManager = Effect.gen(function* () {
   const archetypes = yield* Ref.make(new Map<string, Archetype>())
   const entityArchetypeMap = yield* Ref.make(new Map<EntityId, string>())
 
-  const createArchetypeId = (componentTypes: ReadonlyArray<string>): string =>
-    componentTypes.slice().sort().join('|')
+  const createArchetypeId = (componentTypes: ReadonlyArray<string>): string => componentTypes.slice().sort().join('|')
 
   const createArchetype = (componentTypes: ReadonlyArray<string>) =>
     Effect.gen(function* () {
@@ -1899,10 +1849,10 @@ const makeArchetypeManager = Effect.gen(function* () {
         id,
         componentTypes: new Set(componentTypes),
         entities: new Set(),
-        entityIndexMap: new Map()
+        entityIndexMap: new Map(),
       }
 
-      yield* Ref.update(archetypes, map => new Map(map).set(id, newArchetype))
+      yield* Ref.update(archetypes, (map) => new Map(map).set(id, newArchetype))
 
       return newArchetype
     })
@@ -1915,11 +1865,7 @@ const makeArchetypeManager = Effect.gen(function* () {
 
       const matchingEntities = pipe(
         Array.from(allArchetypes.values()),
-        Array.filter((archetype) =>
-          componentTypes.every(type =>
-            archetype.componentTypes.has(type)
-          )
-        ),
+        Array.filter((archetype) => componentTypes.every((type) => archetype.componentTypes.has(type))),
         Array.flatMap((archetype) => Array.from(archetype.entities))
       )
 
@@ -1948,7 +1894,7 @@ const PoolStats = Schema.Struct({
   allocatedCount: Schema.Number,
   freeCount: Schema.Number,
   fragmentationRatio: Schema.Number,
-  averageLifetime: Schema.Number
+  averageLifetime: Schema.Number,
 })
 type PoolStats = Schema.Schema.Type<typeof PoolStats>
 
@@ -1970,12 +1916,13 @@ const makeEntityMemoryPool = (initialCapacity: number = 10000) =>
     const allocateEntity = (): Effect.Effect<EntityId, AllocationError> =>
       Effect.gen(function* () {
         if (freeIndices.size === 0 && nextIndex >= initialCapacity) {
-          return yield* Effect.fail(new AllocationError("プールが枯渇しました"))
+          return yield* Effect.fail(new AllocationError('プールが枯渇しました'))
         }
 
-        const index = freeIndices.size > 0
-          ? Array.from(freeIndices)[0] // 再利用
-          : nextIndex++ // 新規割り当て
+        const index =
+          freeIndices.size > 0
+            ? Array.from(freeIndices)[0] // 再利用
+            : nextIndex++ // 新規割り当て
 
         if (freeIndices.has(index)) {
           freeIndices.delete(index)
@@ -2005,14 +1952,13 @@ const makeEntityMemoryPool = (initialCapacity: number = 10000) =>
         allocatedCount: entities.size,
         freeCount: freeIndices.size,
         fragmentationRatio: freeIndices.size / Math.max(nextIndex, 1),
-        averageLifetime: calculateAverageLifetime(allocationTimes)
+        averageLifetime: calculateAverageLifetime(allocationTimes),
       } as PoolStats)
 
     const compact = () =>
       Effect.gen(function* () {
         // ガベージコレクション - フラグメンテーション解消
-        const sortedEntities = Array.from(entities.entries())
-          .sort((a, b) => a[1] - b[1])
+        const sortedEntities = Array.from(entities.entries()).sort((a, b) => a[1] - b[1])
 
         entities.clear()
         freeIndices.clear()
@@ -2380,7 +2326,7 @@ const makeBatchProcessor = Effect.gen(function* () {
 
         // CPU負荷分散のため少し待機
         if (i + batchSize < items.length) {
-          yield* Effect.sleep("1 millis")
+          yield* Effect.sleep('1 millis')
         }
       }
     })
@@ -2392,7 +2338,7 @@ const makeBatchProcessor = Effect.gen(function* () {
   ): Effect.Effect<void, never> =>
     Effect.forEach(items, processor, {
       concurrency: concurrency,
-      batching: true
+      batching: true,
     }).pipe(Effect.asVoid)
 
   return { processBatch, processParallel }
@@ -2405,18 +2351,16 @@ const updateAllSystems = (deltaTime: number) =>
     const entityManager = yield* EntityManager
 
     // 物理システム - バッチ処理で最適化
-    const physicsEntities = yield* entityManager.queryWithComponents(
-      "Position", "Velocity", "BoundingBox"
-    )
+    const physicsEntities = yield* entityManager.queryWithComponents('Position', 'Velocity', 'BoundingBox')
 
     yield* batchProcessor.processBatch(
       physicsEntities,
-      batch => updatePhysicsBatch(batch, deltaTime),
+      (batch) => updatePhysicsBatch(batch, deltaTime),
       500 // 500エンティティずつ処理
     )
 
     // AIシステム - 並列処理で最適化
-    const aiEntities = yield* entityManager.queryWithComponents("AI", "Position")
+    const aiEntities = yield* entityManager.queryWithComponents('AI', 'Position')
 
     yield* batchProcessor.processParallel(
       aiEntities,
@@ -2430,10 +2374,7 @@ const updateAllSystems = (deltaTime: number) =>
 
 ```typescript
 // Mine・Attack・Useなどの複雑なエンティティ相互作用の例
-const handleBlockBreaking = (
-  playerId: EntityId,
-  blockPosition: Vector3
-): Effect.Effect<void, BlockBreakError> =>
+const handleBlockBreaking = (playerId: EntityId, blockPosition: Vector3): Effect.Effect<void, BlockBreakError> =>
   Effect.gen(function* () {
     const entityManager = yield* EntityManager
     const worldService = yield* WorldService
@@ -2442,20 +2383,18 @@ const handleBlockBreaking = (
 
     // 早期リターン: プレイヤー存在確認
     const player = yield* entityManager.getEntity(playerId)
-    const playerPos = yield* entityManager.getComponent<PositionComponent>(
-      playerId, "Position"
-    )
+    const playerPos = yield* entityManager.getComponent<PositionComponent>(playerId, 'Position')
 
     // 早期リターン: 距離チェック
     const distance = calculateDistance(playerPos, blockPosition)
     if (distance > 5) {
-      return yield* Effect.fail(new BlockBreakError("ブロックを壊すには遠すぎます"))
+      return yield* Effect.fail(new BlockBreakError('ブロックを壊すには遠すぎます'))
     }
 
     // 早期リターン: ブロック存在確認
     const block = yield* worldService.getBlock(blockPosition)
-    if (!block || block.type === "air") {
-      return yield* Effect.fail(new BlockBreakError("壊すブロックがありません"))
+    if (!block || block.type === 'air') {
+      return yield* Effect.fail(new BlockBreakError('壊すブロックがありません'))
     }
 
     // ブロック破壊エフェクト生成
@@ -2464,22 +2403,18 @@ const handleBlockBreaking = (
     // ドロップアイテム生成
     const dropItems = getBlockDrops(block.type)
     for (const item of dropItems) {
-      const itemEntity = yield* EntityFactory.createItem(
-        item,
-        blockPosition,
-        {
-          x: (Math.random() - 0.5) * 2,
-          y: Math.random() * 3 + 1,
-          z: (Math.random() - 0.5) * 2
-        }
-      )
+      const itemEntity = yield* EntityFactory.createItem(item, blockPosition, {
+        x: (Math.random() - 0.5) * 2,
+        y: Math.random() * 3 + 1,
+        z: (Math.random() - 0.5) * 2,
+      })
 
       // アイテムを物理システムに登録
       yield* addToPhysicsWorld(itemEntity)
     }
 
     // ブロック削除
-    yield* worldService.setBlock(blockPosition, { type: "air" })
+    yield* worldService.setBlock(blockPosition, { type: 'air' })
 
     // 周囲のエンティティに影響を与える（光源更新等）
     yield* updateNearbyEntities(blockPosition)
@@ -2492,9 +2427,7 @@ const processEntityInteractions = (deltaTime: number) =>
     const spatialIndex = yield* SpatialIndex
 
     // 近接しているエンティティペアを取得
-    const allPositions = yield* entityManager.queryWithComponents<
-      [PositionComponent]
-    >("Position")
+    const allPositions = yield* entityManager.queryWithComponents<[PositionComponent]>('Position')
 
     const interactions: [EntityId, EntityId][] = []
 
@@ -2509,11 +2442,9 @@ const processEntityInteractions = (deltaTime: number) =>
     }
 
     // 相互作用処理
-    yield* Effect.forEach(
-      interactions,
-      ([entityA, entityB]) => processInteraction(entityA, entityB),
-      { concurrency: 8 }
-    )
+    yield* Effect.forEach(interactions, ([entityA, entityB]) => processInteraction(entityA, entityB), {
+      concurrency: 8,
+    })
   })
 
 const processInteraction = (entityA: EntityId, entityB: EntityId) =>
@@ -2522,15 +2453,15 @@ const processInteraction = (entityA: EntityId, entityB: EntityId) =>
 
     const [entityAData, entityBData] = yield* Effect.all([
       entityManager.getEntity(entityA),
-      entityManager.getEntity(entityB)
+      entityManager.getEntity(entityB),
     ])
 
     // Match.value パターンで相互作用を処理
     yield* Match.value([entityAData.type, entityBData.type]).pipe(
-      Match.when(["player", "item"], () => handlePlayerItemPickup(entityA, entityB)),
-      Match.when(["mob", "player"], () => handleMobPlayerInteraction(entityA, entityB)),
-      Match.when(["projectile", "mob"], () => handleProjectileHit(entityA, entityB)),
-      Match.when(["tnt", "fire"], () => handleTntIgnition(entityA, entityB)),
+      Match.when(['player', 'item'], () => handlePlayerItemPickup(entityA, entityB)),
+      Match.when(['mob', 'player'], () => handleMobPlayerInteraction(entityA, entityB)),
+      Match.when(['projectile', 'mob'], () => handleProjectileHit(entityA, entityB)),
+      Match.when(['tnt', 'fire'], () => handleTntIgnition(entityA, entityB)),
       Match.orElse(() => Effect.void) // 相互作用なし
     )
   })
@@ -2542,7 +2473,11 @@ const processInteraction = (entityA: EntityId, entityB: EntityId) =>
 // コンポーネントストアLive実装
 const makeComponentStore = Effect.gen(function* () {
   const storage = yield* Ref.make(new Map<string, Map<EntityId, Component>>())
-  const eventQueue = yield* Queue.unbounded<{ entityId: EntityId; componentType: string; operation: "add" | "remove" }>()
+  const eventQueue = yield* Queue.unbounded<{
+    entityId: EntityId
+    componentType: string
+    operation: 'add' | 'remove'
+  }>()
 
   const get = <T extends Component>(entityId: EntityId, componentType: string) =>
     Effect.gen(function* () {
@@ -2571,7 +2506,7 @@ const makeComponentStore = Effect.gen(function* () {
       yield* Queue.offer(eventQueue, {
         entityId,
         componentType: component._tag,
-        operation: "add"
+        operation: 'add',
       })
     })
 
@@ -2595,7 +2530,7 @@ const makeComponentStore = Effect.gen(function* () {
       yield* Queue.offer(eventQueue, {
         entityId,
         componentType,
-        operation: "remove"
+        operation: 'remove',
       })
     })
 
@@ -2603,9 +2538,7 @@ const makeComponentStore = Effect.gen(function* () {
     Effect.gen(function* () {
       const store = yield* Ref.get(storage)
       const componentMap = store.get(componentType)
-      return componentMap
-        ? Array.from(componentMap.entries()) as ReadonlyArray<[EntityId, T]>
-        : []
+      return componentMap ? (Array.from(componentMap.entries()) as ReadonlyArray<[EntityId, T]>) : []
     })
 
   const hasComponent = (entityId: EntityId, componentType: string) =>
@@ -2616,10 +2549,10 @@ const makeComponentStore = Effect.gen(function* () {
 
   const stream = <T extends Component>(componentType: string) =>
     Stream.fromQueue(eventQueue).pipe(
-      Stream.filter(event => event.componentType === componentType),
-      Stream.mapEffect(event =>
+      Stream.filter((event) => event.componentType === componentType),
+      Stream.mapEffect((event) =>
         get<T>(event.entityId, componentType).pipe(
-          Effect.map(component => [event.entityId, component] as [EntityId, T]),
+          Effect.map((component) => [event.entityId, component] as [EntityId, T]),
           Effect.orElse(() => Effect.succeed(null))
         )
       ),
@@ -2632,14 +2565,11 @@ const makeComponentStore = Effect.gen(function* () {
     remove,
     getAll,
     hasComponent,
-    stream
+    stream,
   })
 })
 
-export const ComponentStoreLive = Layer.effect(
-  ComponentStore,
-  makeComponentStore
-)
+export const ComponentStoreLive = Layer.effect(ComponentStore, makeComponentStore)
 
 // 統合エンティティシステムレイヤー（最新パターン）
 export const EntitySystemLayer = Layer.mergeAll(
@@ -2663,12 +2593,9 @@ const updateEntitySystems = (deltaTime: number) =>
     const movementSystem = yield* MovementSystem
     const aiSystem = yield* AISystem
 
-    yield* Effect.all([
-      movementSystem.update(deltaTime),
-      aiSystem.update(deltaTime)
-    ], {
+    yield* Effect.all([movementSystem.update(deltaTime), aiSystem.update(deltaTime)], {
       concurrency: 2,
-      batching: false
+      batching: false,
     })
   })
 
@@ -2683,7 +2610,7 @@ const collectSystemMetrics = Effect.gen(function* () {
   return {
     ai: aiMetrics,
     spatial: spatialMetrics,
-    timestamp: new Date()
+    timestamp: new Date(),
   }
 })
 
@@ -2692,14 +2619,14 @@ const performSystemHealthCheck = Effect.gen(function* () {
   const entityManager = yield* EntityManager
 
   // 全エンティティ数取得
-  const allPositions = yield* entityManager.query("Position")
-  const allAI = yield* entityManager.query("AI")
+  const allPositions = yield* entityManager.query('Position')
+  const allAI = yield* entityManager.query('AI')
 
   return {
     totalEntities: allPositions.length,
     activeAI: allAI.length,
     healthy: allPositions.length > 0,
-    lastCheck: new Date()
+    lastCheck: new Date(),
   }
 })
 
@@ -2707,7 +2634,7 @@ const performSystemHealthCheck = Effect.gen(function* () {
 export const EntitySystemUtils = {
   updateEntitySystems,
   collectSystemMetrics,
-  performSystemHealthCheck
+  performSystemHealthCheck,
 }
 ```
 
@@ -2724,65 +2651,66 @@ const createEntityEventPipeline = Effect.gen(function* () {
 
   // エンティティ作成イベントストリーム
   const entityCreationStream = entityManager.entityEvents.pipe(
-    Stream.filter(event => event._tag === "EntityCreated"),
-    Stream.mapEffect((event) => Effect.gen(function* () {
-      console.log(`Entity created: ${event.entityId}`)
-      // 初期化処理
-      return event
-    }))
+    Stream.filter((event) => event._tag === 'EntityCreated'),
+    Stream.mapEffect((event) =>
+      Effect.gen(function* () {
+        console.log(`Entity created: ${event.entityId}`)
+        // 初期化処理
+        return event
+      })
+    )
   )
 
   // AI状態変更ストリーム
   const aiStateStream = aiSystem.aiEvents.pipe(
-    Stream.filter(event => event._tag === "AIStateChanged"),
-    Stream.mapEffect((event) => Effect.gen(function* () {
-      console.log(`AI state changed: ${event.entityId} ${event.fromState} -> ${event.toState}`)
-      return event
-    }))
+    Stream.filter((event) => event._tag === 'AIStateChanged'),
+    Stream.mapEffect((event) =>
+      Effect.gen(function* () {
+        console.log(`AI state changed: ${event.entityId} ${event.fromState} -> ${event.toState}`)
+        return event
+      })
+    )
   )
 
   // 移動イベントストリーム
   const movementStream = movementSystem.movementEvents.pipe(
-    Stream.filter(event => event._tag === "EntityMoved"),
-    Stream.bufferChunks({ n: 100, duration: "10 millis" }), // バッファリング
-    Stream.mapEffect((events) => Effect.gen(function* () {
-      console.log(`Batch processed ${events.length} movement events`)
-      return events
-    }))
+    Stream.filter((event) => event._tag === 'EntityMoved'),
+    Stream.bufferChunks({ n: 100, duration: '10 millis' }), // バッファリング
+    Stream.mapEffect((events) =>
+      Effect.gen(function* () {
+        console.log(`Batch processed ${events.length} movement events`)
+        return events
+      })
+    )
   )
 
   // ストリーム結合
-  const combinedEventStream = Stream.merge(
-    entityCreationStream,
-    aiStateStream,
-    movementStream
-  )
+  const combinedEventStream = Stream.merge(entityCreationStream, aiStateStream, movementStream)
 
   return combinedEventStream
 })
 
 // パフォーマンスモニタリング
 const createPerformanceMonitor = Effect.gen(function* () {
-  const metricsStream = Stream.repeatEffect(
-    collectSystemMetrics.pipe(
-      Effect.delay("1 seconds")
-    )
-  )
+  const metricsStream = Stream.repeatEffect(collectSystemMetrics.pipe(Effect.delay('1 seconds')))
 
   const alertStream = metricsStream.pipe(
-    Stream.filter(metrics =>
-      metrics.ai.averageUpdateTime > 16 || // 16ms以上の場合アラート
-      metrics.spatial.averageQueryTime > 5
+    Stream.filter(
+      (metrics) =>
+        metrics.ai.averageUpdateTime > 16 || // 16ms以上の場合アラート
+        metrics.spatial.averageQueryTime > 5
     ),
-    Stream.mapEffect(metrics => Effect.gen(function* () {
-      console.warn("パフォーマンスアラート:", metrics)
-      return metrics
-    }))
+    Stream.mapEffect((metrics) =>
+      Effect.gen(function* () {
+        console.warn('パフォーマンスアラート:', metrics)
+        return metrics
+      })
+    )
   )
 
   return {
     metricsStream,
-    alertStream
+    alertStream,
   }
 })
 ```
@@ -2805,10 +2733,11 @@ const createEntityObjectPool = <T>(factory: () => T, resetFn: (obj: T) => void) 
       )
     })
 
-    const release = (obj: T) => Effect.gen(function* () {
-      resetFn(obj)
-      yield* Queue.offer(pool, obj)
-    })
+    const release = (obj: T) =>
+      Effect.gen(function* () {
+        resetFn(obj)
+        yield* Queue.offer(pool, obj)
+      })
 
     return { acquire, release }
   })
@@ -2822,14 +2751,14 @@ const createTypedArrayComponentStorage = (capacity: number) =>
       y: new Float32Array(capacity),
       z: new Float32Array(capacity),
       chunkX: new Int32Array(capacity),
-      chunkZ: new Int32Array(capacity)
+      chunkZ: new Int32Array(capacity),
     }
 
     // Velocityコンポーネント用TypedArray
     const velocityArrays = {
       x: new Float32Array(capacity),
       y: new Float32Array(capacity),
-      z: new Float32Array(capacity)
+      z: new Float32Array(capacity),
     }
 
     const entityIndexMap = yield* Ref.make(new Map<EntityId, number>())
@@ -2838,7 +2767,7 @@ const createTypedArrayComponentStorage = (capacity: number) =>
     const allocateIndex = Effect.gen(function* () {
       const free = yield* Ref.get(freeIndices)
       if (free.size === 0) {
-        return yield* Effect.fail(new Error("インデックスプールが枯渇しました"))
+        return yield* Effect.fail(new Error('インデックスプールが枯渇しました'))
       }
 
       const index = free.values().next().value
@@ -2861,39 +2790,41 @@ const createTypedArrayComponentStorage = (capacity: number) =>
       })
 
     const getPositionComponent = (index: number): PositionComponent => ({
-      _tag: "Position",
+      _tag: 'Position',
       position: {
         x: positionArrays.x[index],
         y: positionArrays.y[index],
-        z: positionArrays.z[index]
+        z: positionArrays.z[index],
       },
       chunk: {
         x: positionArrays.chunkX[index],
-        z: positionArrays.chunkZ[index]
-      }
+        z: positionArrays.chunkZ[index],
+      },
     })
 
     // SIMD最適化対応のバッチ更新
     const updatePositionsBatch = (
       indices: ReadonlyArray<number>,
       deltaPositions: { x: Float32Array; y: Float32Array; z: Float32Array }
-    ) => Effect.sync(() => {
-      for (let i = 0; i < indices.length; i++) {
-        const idx = indices[i]
-        positionArrays.x[idx] += deltaPositions.x[i]
-        positionArrays.y[idx] += deltaPositions.y[i]
-        positionArrays.z[idx] += deltaPositions.z[i]
+    ) =>
+      Effect.sync(() => {
+        for (let i = 0; i < indices.length; i++) {
+          const idx = indices[i]
+          positionArrays.x[idx] += deltaPositions.x[i]
+          positionArrays.y[idx] += deltaPositions.y[i]
+          positionArrays.z[idx] += deltaPositions.z[i]
 
-        // チャンク位置更新
-        positionArrays.chunkX[idx] = Math.floor(positionArrays.x[idx] / 16)
-        positionArrays.chunkZ[idx] = Math.floor(positionArrays.z[idx] / 16)
-      }
-    })
+          // チャンク位置更新
+          positionArrays.chunkX[idx] = Math.floor(positionArrays.x[idx] / 16)
+          positionArrays.chunkZ[idx] = Math.floor(positionArrays.z[idx] / 16)
+        }
+      })
 
     return {
       allocateIndex,
       setPositionComponent,
       getPositionComponent,
-      updatePositionsBatch
+      updatePositionsBatch,
     }
   })
+```

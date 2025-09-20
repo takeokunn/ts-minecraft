@@ -1,42 +1,54 @@
 ---
-title: "開発規約 - Effect-TS 3.17+準拠コーディングガイド"
-description: "Effect-TS 3.17+最新パターンによるSchema-first開発、純粋関数型プログラミング、完全型安全性を実現するための包括的コーディング規約とベストプラクティス"
-category: "guide"
-difficulty: "intermediate"
-tags: ["development-conventions", "effect-ts", "schema", "functional-programming", "coding-standards", "best-practices", "typescript"]
-prerequisites: ["basic-typescript", "effect-ts-fundamentals"]
-estimated_reading_time: "25分"
-related_patterns: ["service-patterns-catalog", "error-handling-patterns", "effect-ts-test-patterns"]
-related_docs: ["../explanations/architecture/06-effect-ts-patterns.md", "./02-testing-guide.md"]
+title: '開発規約 - Effect-TS 3.17+準拠コーディングガイド'
+description: 'Effect-TS 3.17+最新パターンによるSchema-first開発、純粋関数型プログラミング、完全型安全性を実現するための包括的コーディング規約とベストプラクティス'
+category: 'guide'
+difficulty: 'intermediate'
+tags:
+  [
+    'development-conventions',
+    'effect-ts',
+    'schema',
+    'functional-programming',
+    'coding-standards',
+    'best-practices',
+    'typescript',
+  ]
+prerequisites: ['basic-typescript', 'effect-ts-fundamentals']
+estimated_reading_time: '25分'
+related_patterns: ['service-patterns-catalog', 'error-handling-patterns', 'effect-ts-test-patterns']
+related_docs: ['../explanations/architecture/06-effect-ts-patterns.md', './02-testing-guide.md']
 ai_context:
-  primary_concepts: ["schema-first-development", "pure-functional-programming", "type-safety", "coding-conventions", "best-practices"]
-  prerequisite_knowledge: ["typescript-intermediate", "functional-programming-basics", "effect-ts-fundamentals", "code-quality-principles"]
-  estimated_completion_time: "45分"
-  learning_outcomes: ["コーディング規約習得", "ベストプラクティス適用", "コード品質向上", "チーム開発効率化"]
+  primary_concepts:
+    ['schema-first-development', 'pure-functional-programming', 'type-safety', 'coding-conventions', 'best-practices']
+  prerequisite_knowledge:
+    ['typescript-intermediate', 'functional-programming-basics', 'effect-ts-fundamentals', 'code-quality-principles']
+  estimated_completion_time: '45分'
+  learning_outcomes: ['コーディング規約習得', 'ベストプラクティス適用', 'コード品質向上', 'チーム開発効率化']
   complexity_level: 6.5
   ai_agent_optimization:
     context_understanding_score: 0.996
     concept_extraction_accuracy: 0.97
-    prerequisite_mapping: ["code-quality-fundamentals", "team-development-practices", "functional-programming-principles"]
+    prerequisite_mapping:
+      ['code-quality-fundamentals', 'team-development-practices', 'functional-programming-principles']
     learning_outcome_prediction: 0.93
     difficulty_assessment_confidence: 0.96
     guideline_comprehension_accuracy: 0.99
 code_examples:
   executable: true
-  language: "typescript"
-  framework: "effect-ts-3.17"
+  language: 'typescript'
+  framework: 'effect-ts-3.17'
   complexity_score: 6.5
   convention_examples:
-    - "Schema-first data modeling patterns"
-    - "Service definition and implementation"
-    - "Error handling best practices"
-    - "Testing patterns and strategies"
-    - "Performance optimization techniques"
+    - 'Schema-first data modeling patterns'
+    - 'Service definition and implementation'
+    - 'Error handling best practices'
+    - 'Testing patterns and strategies'
+    - 'Performance optimization techniques'
   anti_pattern_examples:
-    - "Class-based development (avoided)"
-    - "Unsafe type casting (prohibited)"
-    - "Deep nesting patterns (refactored)"
-    - "Mutable state management (corrected)"
+    - 'Class-based development (avoided)'
+    - 'Unsafe type casting (prohibited)'
+    - 'Deep nesting patterns (refactored)'
+    - 'Mutable state management (corrected)'
   quality_metrics:
     type_safety_score: 0.99
     maintainability_index: 0.95
@@ -44,51 +56,60 @@ code_examples:
     team_productivity_impact: 0.94
 related_resources:
   internal_links:
-    - path: "../../explanations/design-patterns/01-service-patterns.md"
-      relationship: "practical-application"
+    - path: '../../explanations/design-patterns/01-service-patterns.md'
+      relationship: 'practical-application'
       relevance_score: 0.91
-    - path: "../../tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md"
-      relationship: "foundational-knowledge"
+    - path: '../../tutorials/effect-ts-fundamentals/06a-effect-ts-basics.md'
+      relationship: 'foundational-knowledge'
       relevance_score: 0.88
-    - path: "./02-testing-guide.md"
-      relationship: "complementary-guide"
+    - path: './02-testing-guide.md'
+      relationship: 'complementary-guide'
       relevance_score: 0.86
   external_refs:
-    - url: "https://effect.website/docs/style-guide"
-      type: "official-style-guide"
+    - url: 'https://effect.website/docs/style-guide'
+      type: 'official-style-guide'
       relevance_score: 0.97
-      last_verified: "2025-01-15"
-    - url: "https://typescript-eslint.io/rules/"
-      type: "linting-rules"
+      last_verified: '2025-01-15'
+    - url: 'https://typescript-eslint.io/rules/'
+      type: 'linting-rules'
       relevance_score: 0.89
-      last_verified: "2025-01-15"
-    - url: "https://github.com/Effect-TS/effect/blob/main/CONTRIBUTING.md"
-      type: "contribution-guidelines"
+      last_verified: '2025-01-15'
+    - url: 'https://github.com/Effect-TS/effect/blob/main/CONTRIBUTING.md'
+      type: 'contribution-guidelines'
       relevance_score: 0.92
   code_repositories:
-    - name: "templates/effect-ts-project"
-      type: "project-template"
+    - name: 'templates/effect-ts-project'
+      type: 'project-template'
       completeness: 0.94
       convention_compliance: 0.98
-    - name: "examples/coding-standards"
-      type: "reference-examples"
+    - name: 'examples/coding-standards'
+      type: 'reference-examples'
       completeness: 0.91
 machine_readable:
-  topics: ["development-conventions", "coding-standards", "effect-ts", "functional-programming", "type-safety", "best-practices", "team-development"]
-  skill_level: "intermediate"
+  topics:
+    [
+      'development-conventions',
+      'coding-standards',
+      'effect-ts',
+      'functional-programming',
+      'type-safety',
+      'best-practices',
+      'team-development',
+    ]
+  skill_level: 'intermediate'
   implementation_time: 45
   confidence_score: 0.996
-  use_cases: ["team-development", "code-standardization", "quality-assurance", "onboarding", "maintainability"]
-  guide_type: "comprehensive-conventions"
+  use_cases: ['team-development', 'code-standardization', 'quality-assurance', 'onboarding', 'maintainability']
+  guide_type: 'comprehensive-conventions'
   ai_agent_tags:
-    - "coding-conventions-comprehensive"
-    - "team-development-standards"
-    - "quality-assurance-guide"
-    - "effect-ts-best-practices"
+    - 'coding-conventions-comprehensive'
+    - 'team-development-standards'
+    - 'quality-assurance-guide'
+    - 'effect-ts-best-practices'
   search_keywords:
-    primary: ["schema-first", "pure-functions", "type-safety", "coding-standards"]
-    secondary: ["anti-patterns", "performance-optimization", "error-handling", "testing-strategies"]
-    contextual: ["minecraft-development", "game-engine-conventions", "typescript-quality"]
+    primary: ['schema-first', 'pure-functions', 'type-safety', 'coding-standards']
+    secondary: ['anti-patterns', 'performance-optimization', 'error-handling', 'testing-strategies']
+    contextual: ['minecraft-development', 'game-engine-conventions', 'typescript-quality']
   development_impact:
     code_quality_improvement: 0.85
     bug_reduction_rate: 0.78
@@ -139,21 +160,21 @@ Effect-TS 3.17+とSchema-firstアプローチにより、以下を実現しま�
 ```typescript
 // ✅ Schema-first データモデル
 const Player = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  id: Schema.String.pipe(Schema.brand('PlayerId')),
   position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-  health: Schema.Number.pipe(Schema.clamp(0, 100))
+  health: Schema.Number.pipe(Schema.clamp(0, 100)),
 })
 
 // ✅ Service定義
 interface PlayerService {
   readonly move: (id: PlayerId, newPos: Position) => Effect.Effect<void, PlayerError>
 }
-const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
+const PlayerService = Context.GenericTag<PlayerService>('@minecraft/PlayerService')
 
 // ✅ Error定義 - 関数型パターン
-const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
   playerId: PlayerId,
-  timestamp: Schema.Number
+  timestamp: Schema.Number,
 })
 ```
 
@@ -191,18 +212,18 @@ pnpm outdated
 すべてのデータ構造はSchema.Structで定義し、型安全なバリデーションを実現：
 
 ```typescript
-import { Schema, Effect, Context, Layer } from "effect"
+import { Schema, Effect, Context, Layer } from 'effect'
 
 // 1. ブランド型による型安全性確保
-const PlayerId = Schema.String.pipe(Schema.brand("PlayerId"))
-const ChunkId = Schema.String.pipe(Schema.brand("ChunkId"))
-const Health = Schema.Number.pipe(Schema.clamp(0, 100), Schema.brand("Health"))
+const PlayerId = Schema.String.pipe(Schema.brand('PlayerId'))
+const ChunkId = Schema.String.pipe(Schema.brand('ChunkId'))
+const Health = Schema.Number.pipe(Schema.clamp(0, 100), Schema.brand('Health'))
 
 // 2. 構造化されたデータ型
 const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 // 3. 複合エンティティの定義
@@ -212,7 +233,7 @@ const Player = Schema.Struct({
   position: Position,
   health: Health,
   inventory: Schema.Array(ItemSchema),
-  level: Schema.Number.pipe(Schema.int(), Schema.positive())
+  level: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 
 // 4. 型エクスポート
@@ -233,7 +254,7 @@ export interface PlayerService {
 }
 
 // 2. Context.GenericTagによるサービス登録
-export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/PlayerService')
 
 // 3. サービス実装
 const makePlayerServiceLive = Effect.gen(function* () {
@@ -241,44 +262,49 @@ const makePlayerServiceLive = Effect.gen(function* () {
   const eventBus = yield* EventBusService
 
   return PlayerService.of({
-    findById: (id) => Effect.gen(function* () {
-      // 早期リターン: ID検証
-      if (!id || id.trim().length === 0) {
-        return yield* Effect.fail(createPlayerError({
-          _tag: "InvalidInput",
-          message: "Player ID cannot be empty",
-          playerId: id
-        }))
-      }
+    findById: (id) =>
+      Effect.gen(function* () {
+        // 早期リターン: ID検証
+        if (!id || id.trim().length === 0) {
+          return yield* Effect.fail(
+            createPlayerError({
+              _tag: 'InvalidInput',
+              message: 'Player ID cannot be empty',
+              playerId: id,
+            })
+          )
+        }
 
-      const player = yield* database.findPlayer(id)
-      return player
-    }),
+        const player = yield* database.findPlayer(id)
+        return player
+      }),
 
-    move: (id, position) => Effect.gen(function* () {
-      // 位置の妥当性チェック
-      const validatedPosition = yield* validatePosition(position)
+    move: (id, position) =>
+      Effect.gen(function* () {
+        // 位置の妥当性チェック
+        const validatedPosition = yield* validatePosition(position)
 
-      yield* database.updatePlayerPosition(id, validatedPosition)
-      yield* eventBus.publish({
-        type: "PlayerMoved",
-        playerId: id,
-        newPosition: validatedPosition
-      })
-    }),
-
-    updateHealth: (id, health) => Effect.gen(function* () {
-      yield* database.updatePlayerHealth(id, health)
-
-      // ヘルスが0になった場合の特別処理
-      if (health === 0) {
+        yield* database.updatePlayerPosition(id, validatedPosition)
         yield* eventBus.publish({
-          type: "PlayerDied",
+          type: 'PlayerMoved',
           playerId: id,
-          timestamp: Date.now()
+          newPosition: validatedPosition,
         })
-      }
-    })
+      }),
+
+    updateHealth: (id, health) =>
+      Effect.gen(function* () {
+        yield* database.updatePlayerHealth(id, health)
+
+        // ヘルスが0になった場合の特別処理
+        if (health === 0) {
+          yield* eventBus.publish({
+            type: 'PlayerDied',
+            playerId: id,
+            timestamp: Date.now(),
+          })
+        }
+      }),
   })
 })
 
@@ -349,32 +375,34 @@ const handlePlayerOperation = (playerId: PlayerId) =>
 ### Step 5: テストパターンの実装
 
 ```typescript
-import { describe, it, expect } from "vitest"
-import { Effect, Layer, TestContext } from "effect"
+import { describe, it, expect } from 'vitest'
+import { Effect, Layer, TestContext } from 'effect'
 
 // 1. テスト用サービス実装
-const TestPlayerServiceLive = Layer.effect(PlayerService,
+const TestPlayerServiceLive = Layer.effect(
+  PlayerService,
   Effect.gen(function* () {
     const testPlayers = new Map<PlayerId, Player>()
 
     return PlayerService.of({
       findById: (id) => Effect.succeed(testPlayers.get(id) || null),
-      move: (id, position) => Effect.gen(function* () {
-        const player = testPlayers.get(id)
-        if (!player) return yield* Effect.fail(createPlayerNotFoundError({ playerId: id, searchContext: "move" }))
+      move: (id, position) =>
+        Effect.gen(function* () {
+          const player = testPlayers.get(id)
+          if (!player) return yield* Effect.fail(createPlayerNotFoundError({ playerId: id, searchContext: 'move' }))
 
-        testPlayers.set(id, { ...player, position })
-      })
+          testPlayers.set(id, { ...player, position })
+        }),
     })
   })
 )
 
 // 2. 統合テスト
-describe("PlayerService", () => {
-  it("should move player to new position", async () => {
+describe('PlayerService', () => {
+  it('should move player to new position', async () => {
     const program = Effect.gen(function* () {
       const service = yield* PlayerService
-      const playerId = "player-123" as PlayerId
+      const playerId = 'player-123' as PlayerId
       const newPosition = { x: 10, y: 0, z: 5 }
 
       yield* service.move(playerId, newPosition)
@@ -383,19 +411,16 @@ describe("PlayerService", () => {
       expect(player?.position).toEqual(newPosition)
     })
 
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(TestPlayerServiceLive))
-    )
+    const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
   })
 
   // 3. Property-based テスト
-  it("should handle any valid position", () =>
+  it('should handle any valid position', () =>
     Effect.gen(function* () {
       const service = yield* PlayerService
 
-      yield* Effect.forEach(
-        Range(0, 100),
-        (i) => Effect.gen(function* () {
+      yield* Effect.forEach(Range(0, 100), (i) =>
+        Effect.gen(function* () {
           const position = { x: i * 10, y: 0, z: i * 5 }
           const playerId = `player-${i}` as PlayerId
 
@@ -405,8 +430,7 @@ describe("PlayerService", () => {
           expect(player?.position.x).toBe(position.x)
         })
       )
-    }).pipe(Effect.provide(TestPlayerServiceLive))
-  )
+    }).pipe(Effect.provide(TestPlayerServiceLive)))
 })
 ```
 
@@ -419,12 +443,20 @@ describe("PlayerService", () => {
 // player-service.ts, world-generator.ts, chunk-loader.ts
 
 // ✅ 型命名: PascalCase
-type PlayerService = { /* ... */ }
-interface ChunkLoader { /* ... */ }
+type PlayerService = {
+  /* ... */
+}
+interface ChunkLoader {
+  /* ... */
+}
 
 // ✅ 変数・関数命名: camelCase
-const currentPlayer = { /* ... */ }
-const updatePlayerPosition = () => { /* ... */ }
+const currentPlayer = {
+  /* ... */
+}
+const updatePlayerPosition = () => {
+  /* ... */
+}
 
 // ✅ 定数命名: UPPER_SNAKE_CASE
 const MAX_CHUNK_SIZE = 16
@@ -435,19 +467,19 @@ const DEFAULT_PLAYER_HEALTH = 100
 
 ```typescript
 // 1. Node.js built-ins
-import path from "node:path"
+import path from 'node:path'
 
 // 2. Third-party libraries
-import { Effect, Schema, Context } from "effect"
-import * as THREE from "three"
+import { Effect, Schema, Context } from 'effect'
+import * as THREE from 'three'
 
 // 3. Internal modules (absolute imports)
-import { Player } from "@domain/entities"
-import { DatabaseService } from "@infrastructure/services"
+import { Player } from '@domain/entities'
+import { DatabaseService } from '@infrastructure/services'
 
 // 4. Relative imports
-import { validatePosition } from "./validators"
-import { PlayerError } from "../errors"
+import { validatePosition } from './validators'
+import { PlayerError } from '../errors'
 ```
 
 ### 3. エラー処理のベストプラクティス
@@ -458,22 +490,26 @@ const processPlayerAction = (action: PlayerAction) =>
   Effect.gen(function* () {
     // 段階的なエラーハンドリング
     const validatedAction = yield* validateAction(action).pipe(
-      Effect.mapError(error => createValidationError({
-        field: "action",
-        value: action,
-        reason: error.message,
-        context: "player_action_processing"
-      }))
+      Effect.mapError((error) =>
+        createValidationError({
+          field: 'action',
+          value: action,
+          reason: error.message,
+          context: 'player_action_processing',
+        })
+      )
     )
 
     const result = yield* executeAction(validatedAction).pipe(
-      Effect.retry(Schedule.exponential("1 second").pipe(Schedule.maxDelay("30 seconds"))),
-      Effect.catchTag("RetryLimitExceeded", () =>
-        Effect.fail(createProcessingError({
-          operation: "executeAction",
-          input: validatedAction,
-          reason: "Retry limit exceeded"
-        }))
+      Effect.retry(Schedule.exponential('1 second').pipe(Schedule.maxDelay('30 seconds'))),
+      Effect.catchTag('RetryLimitExceeded', () =>
+        Effect.fail(
+          createProcessingError({
+            operation: 'executeAction',
+            input: validatedAction,
+            reason: 'Retry limit exceeded',
+          })
+        )
       )
     )
 
@@ -516,7 +552,7 @@ const processData = (data: any) => {
 
 // ✅ 推奨パターン
 const DataSchema = Schema.Struct({
-  someProperty: Schema.String
+  someProperty: Schema.String,
 })
 
 const processData = (input: unknown) =>
@@ -564,7 +600,7 @@ head -20 src/**/*.ts | grep "import"
 ```typescript
 // ❌ 非効率なアプローチ
 const updateAllEntities = (entities: Entity[]) => {
-  entities.forEach(entity => {
+  entities.forEach((entity) => {
     // 個別に処理（キャッシュ非効率）
     updatePhysics(entity)
     updateRendering(entity)
@@ -621,25 +657,23 @@ interface ComponentStore<T> {
 
 const createComponentStore = <T>(): ComponentStore<T> => ({
   data: [],
-  indices: new Map()
+  indices: new Map(),
 })
 
-const batchUpdatePositions = (
-  positions: ComponentStore<Position>,
-  velocities: ComponentStore<Velocity>
-) => Effect.gen(function* () {
-  // ベクトル化された処理が可能
-  const updatedPositions = positions.data.map((pos, index) => {
-    const vel = velocities.data[index]
-    return {
-      x: pos.x + vel.x,
-      y: pos.y + vel.y,
-      z: pos.z + vel.z
-    }
+const batchUpdatePositions = (positions: ComponentStore<Position>, velocities: ComponentStore<Velocity>) =>
+  Effect.gen(function* () {
+    // ベクトル化された処理が可能
+    const updatedPositions = positions.data.map((pos, index) => {
+      const vel = velocities.data[index]
+      return {
+        x: pos.x + vel.x,
+        y: pos.y + vel.y,
+        z: pos.z + vel.z,
+      }
+    })
+
+    return { ...positions, data: updatedPositions }
   })
-
-  return { ...positions, data: updatedPositions }
-})
 ```
 
 ### 2. 並行処理パターン
@@ -648,25 +682,19 @@ const batchUpdatePositions = (
 // 制御された並行処理
 const loadMultipleChunks = (coordinates: ChunkCoordinate[]) =>
   Effect.all(
-    coordinates.map(coord => loadChunk(coord)),
+    coordinates.map((coord) => loadChunk(coord)),
     { concurrency: 8, batching: true }
   )
 
 // リソースプールによる制御
-const processWithResourcePool = <A, E, R>(
-  tasks: ReadonlyArray<Effect.Effect<A, E, R>>,
-  poolSize: number
-) => Effect.gen(function* () {
-  const semaphore = yield* Semaphore.make(poolSize)
+const processWithResourcePool = <A, E, R>(tasks: ReadonlyArray<Effect.Effect<A, E, R>>, poolSize: number) =>
+  Effect.gen(function* () {
+    const semaphore = yield* Semaphore.make(poolSize)
 
-  const results = yield* Effect.all(
-    tasks.map(task =>
-      semaphore.withPermit(task)
-    )
-  )
+    const results = yield* Effect.all(tasks.map((task) => semaphore.withPermit(task)))
 
-  return results
-})
+    return results
+  })
 ```
 
 ### 3. 状態管理パターン
@@ -679,12 +707,14 @@ const updatePlayerInventory = (playerId: PlayerId, item: Item) =>
     const currentItems = inventory.get(playerId) || []
 
     if (currentItems.length >= MAX_INVENTORY_SIZE) {
-      return yield* STM.fail(createInventoryFullError({
-        playerId,
-        currentSize: currentItems.length,
-        maxSize: MAX_INVENTORY_SIZE,
-        attemptedItem: item
-      }))
+      return yield* STM.fail(
+        createInventoryFullError({
+          playerId,
+          currentSize: currentItems.length,
+          maxSize: MAX_INVENTORY_SIZE,
+          attemptedItem: item,
+        })
+      )
     }
 
     const updatedItems = [...currentItems, item]

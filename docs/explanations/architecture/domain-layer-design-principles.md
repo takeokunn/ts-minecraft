@@ -1,12 +1,12 @@
 ---
-title: "Domain Layer Design Principles - アーキテクチャ設計思想"
-description: "DDDとEffect-TSによるドメイン層のアーキテクチャ設計思想。API仕様ではなく、設計原則と判断基準に焦点を当てた解説。"
-category: "explanation"
-difficulty: "advanced"
-tags: ["architecture", "ddd", "design-principles", "effect-ts-patterns"]
-prerequisites: ["ddd-basics", "effect-ts-fundamentals"]
-estimated_reading_time: "25分"
-related_docs: ["../../reference/api/domain-apis.md", "./architecture-overview.md"]
+title: 'Domain Layer Design Principles - アーキテクチャ設計思想'
+description: 'DDDとEffect-TSによるドメイン層のアーキテクチャ設計思想。API仕様ではなく、設計原則と判断基準に焦点を当てた解説。'
+category: 'explanation'
+difficulty: 'advanced'
+tags: ['architecture', 'ddd', 'design-principles', 'effect-ts-patterns']
+prerequisites: ['ddd-basics', 'effect-ts-fundamentals']
+estimated_reading_time: '25分'
+related_docs: ['../../reference/api/domain-apis.md', './architecture-overview.md']
 ---
 
 # Domain Layer Design Principles
@@ -26,16 +26,18 @@ related_docs: ["../../reference/api/domain-apis.md", "./architecture-overview.md
 **決定**: ドメインサービスにEffect-TSパターンを全面採用
 
 **理由**:
+
 - 副作用の明示的管理により予測可能なコード
 - 型安全なエラーハンドリング
 - 依存性注入によるテスタビリティ向上
 - 並行処理の安全な制御
 
 **影響**:
+
 ```typescript
 // ✅ 採用パターン - Effect-TS統合
-const worldService = yield* WorldService
-const result = yield* worldService.loadChunk(coordinate)
+const worldService = yield * WorldService
+const result = yield * worldService.loadChunk(coordinate)
 
 // ❌ 非採用パターン - 従来のPromise/async
 const result = await worldService.loadChunk(coordinate)
@@ -46,17 +48,19 @@ const result = await worldService.loadChunk(coordinate)
 **決定**: 全てのAPI境界でSchemaバリデーションを実装
 
 **理由**:
+
 - 実行時型安全性の保証
 - API契約の明確化
 - 自動的なデータ変換
 - デバッグ効率の向上
 
 **影響**:
+
 ```typescript
 // API境界での必須パターン
 export const CreatePlayerParams = Schema.Struct({
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
-  position: PositionSchema
+  position: PositionSchema,
 })
 ```
 
@@ -65,6 +69,7 @@ export const CreatePlayerParams = Schema.Struct({
 **決定**: IDやドメイン概念にBrand型を活用
 
 **理由**:
+
 - 異なる種類のIDの誤用防止
 - ドメイン概念の明確化
 - リファクタリング時の安全性
@@ -82,10 +87,12 @@ const movePlayer = (playerId: PlayerId, chunkId: ChunkId) => { ... }
 ### サービス責任分離の原則
 
 #### WorldService責任境界
+
 - **含む**: チャンク管理、ワールド生成、ブロック操作
 - **含まない**: プレイヤー操作、UI表示、ネットワーク通信
 
 #### PlayerService責任境界
+
 - **含む**: プレイヤー状態、移動、インベントリ
 - **含まない**: ワールド変更、レンダリング、入力処理
 
@@ -116,6 +123,7 @@ graph TD
 ```
 
 **設計原則**:
+
 - ドメインサービス同士は疎結合
 - インフラストラクチャへの依存は最小限
 - サービス間通信は明示的なインターフェース経由
@@ -125,18 +133,19 @@ graph TD
 ### エラー型設計アプローチ
 
 **階層化エラー設計**:
+
 ```typescript
 // ドメイン固有エラー
-export const PlayerError = Schema.TaggedError("PlayerError")({
-  cause: Schema.Literal("NotFound", "InvalidMovement", "InsufficientHealth"),
+export const PlayerError = Schema.TaggedError('PlayerError')({
+  cause: Schema.Literal('NotFound', 'InvalidMovement', 'InsufficientHealth'),
   playerId: PlayerId,
-  context: Schema.optional(Schema.Unknown)
+  context: Schema.optional(Schema.Unknown),
 })
 
 // システムエラー
-export const SystemError = Schema.TaggedError("SystemError")({
-  cause: Schema.Literal("NetworkFailure", "StorageError", "MemoryExhausted"),
-  originalError: Schema.Unknown
+export const SystemError = Schema.TaggedError('SystemError')({
+  cause: Schema.Literal('NetworkFailure', 'StorageError', 'MemoryExhausted'),
+  originalError: Schema.Unknown,
 })
 ```
 
@@ -151,15 +160,18 @@ export const SystemError = Schema.TaggedError("SystemError")({
 ### 頻度別API設計戦略
 
 #### 高頻度API (60FPS)
+
 - **最小割り当て**: オブジェクト生成の最小化
 - **キャッシュ活用**: 計算結果の再利用
 - **非同期最適化**: Effect.genによる効率的な制御フロー
 
 #### 中頻度API (1-10Hz)
+
 - **バッチ処理**: 複数操作の一括実行
 - **レイジーローディング**: 必要時読み込み
 
 #### 低頻度API (イベント駆動)
+
 - **完全性重視**: データ整合性の確保
 - **詳細ログ**: デバッグ情報の充実
 
@@ -182,6 +194,7 @@ const processChunk = Effect.acquireUseRelease(
 ### モック化戦略
 
 **Layer-based依存性注入**:
+
 ```typescript
 // 本番環境
 export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
@@ -196,6 +209,7 @@ const program = Effect.provide(gameLogic, WorldServiceLive) // or WorldServiceTe
 ### 契約テストパターン
 
 各サービスインターフェースに対する契約テスト実装:
+
 - 正常系の動作確認
 - エラーケースの適切な処理
 - パフォーマンス特性の検証
@@ -217,14 +231,16 @@ const program = Effect.provide(gameLogic, WorldServiceLive) // or WorldServiceTe
 ## 🔗 関連リソース
 
 ### API仕様参照
+
 - **[Domain APIs Complete Reference](../../reference/api/domain-apis.md)** - 完全API仕様
 - **[Core APIs](../../reference/api/core-apis.md)** - Effect-TS基盤API
 - **[Game Systems](../../reference/game-systems/README.md)** - ゲームシステム仕様
 
 ### 実装ガイド
+
 - **[Service Implementation Tutorial](../../tutorials/basic-game-development/application-services.md)** - 実装チュートリアル
 - **[Testing Patterns](../../how-to/testing/effect-ts-testing-patterns.md)** - テスト実装パターン
 
 ---
 
-*このドキュメントは設計思想と判断基準を説明します。具体的なAPI仕様は[Domain APIs Reference](../../reference/api/domain-apis.md)をご参照ください。*
+_このドキュメントは設計思想と判断基準を説明します。具体的なAPI仕様は[Domain APIs Reference](../../reference/api/domain-apis.md)をご参照ください。_

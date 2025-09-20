@@ -1,13 +1,12 @@
 ---
-title: "16 Mob Spawning System"
-description: "16 Mob Spawning Systemに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "25分"
+title: '16 Mob Spawning System'
+description: '16 Mob Spawning Systemに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '25分'
 ---
-
 
 # Mob Spawning System（モブスポーンシステム）
 
@@ -20,87 +19,94 @@ estimated_reading_time: "25分"
 ### Schema定義
 
 ```typescript
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // スポーン条件
 export const SpawnCondition = Schema.Struct({
   biome: Schema.Array(Schema.String), // 許可バイオーム
   lightLevel: Schema.Struct({
     min: Schema.Number.pipe(Schema.min(0), Schema.max(15)),
-    max: Schema.Number.pipe(Schema.min(0), Schema.max(15))
+    max: Schema.Number.pipe(Schema.min(0), Schema.max(15)),
   }),
-  timeOfDay: Schema.optional(Schema.Struct({
-    start: Schema.Number.pipe(Schema.min(0), Schema.max(24000)), // ticks
-    end: Schema.Number.pipe(Schema.min(0), Schema.max(24000))
-  })),
-  altitude: Schema.optional(Schema.Struct({
-    min: Schema.Number.pipe(Schema.min(-64), Schema.max(320)),
-    max: Schema.Number.pipe(Schema.min(-64), Schema.max(320))
-  })),
-  moonPhase: Schema.optional(Schema.Union(
-    Schema.Literal("new_moon"),
-    Schema.Literal("waxing_crescent"),
-    Schema.Literal("first_quarter"),
-    Schema.Literal("waxing_gibbous"),
-    Schema.Literal("full_moon"),
-    Schema.Literal("waning_gibbous"),
-    Schema.Literal("third_quarter"),
-    Schema.Literal("waning_crescent")
-  )),
-  difficulty: Schema.Array(Schema.Union(
-    Schema.Literal("peaceful"),
-    Schema.Literal("easy"),
-    Schema.Literal("normal"),
-    Schema.Literal("hard")
-  )),
-  blockRequirement: Schema.optional(Schema.Struct({
-    blockType: Schema.String,
-    range: Schema.Number.pipe(Schema.positive())
-  })),
-  playerDistance: Schema.optional(Schema.Struct({
-    min: Schema.Number.pipe(Schema.min(0)),
-    max: Schema.Number.pipe(Schema.min(0))
-  }))
+  timeOfDay: Schema.optional(
+    Schema.Struct({
+      start: Schema.Number.pipe(Schema.min(0), Schema.max(24000)), // ticks
+      end: Schema.Number.pipe(Schema.min(0), Schema.max(24000)),
+    })
+  ),
+  altitude: Schema.optional(
+    Schema.Struct({
+      min: Schema.Number.pipe(Schema.min(-64), Schema.max(320)),
+      max: Schema.Number.pipe(Schema.min(-64), Schema.max(320)),
+    })
+  ),
+  moonPhase: Schema.optional(
+    Schema.Union(
+      Schema.Literal('new_moon'),
+      Schema.Literal('waxing_crescent'),
+      Schema.Literal('first_quarter'),
+      Schema.Literal('waxing_gibbous'),
+      Schema.Literal('full_moon'),
+      Schema.Literal('waning_gibbous'),
+      Schema.Literal('third_quarter'),
+      Schema.Literal('waning_crescent')
+    )
+  ),
+  difficulty: Schema.Array(
+    Schema.Union(Schema.Literal('peaceful'), Schema.Literal('easy'), Schema.Literal('normal'), Schema.Literal('hard'))
+  ),
+  blockRequirement: Schema.optional(
+    Schema.Struct({
+      blockType: Schema.String,
+      range: Schema.Number.pipe(Schema.positive()),
+    })
+  ),
+  playerDistance: Schema.optional(
+    Schema.Struct({
+      min: Schema.Number.pipe(Schema.min(0)),
+      max: Schema.Number.pipe(Schema.min(0)),
+    })
+  ),
 })
 
 export type SpawnCondition = Schema.Schema.Type<typeof SpawnCondition>
 
 // モブスポーン定義
 export const MobSpawnEntry = Schema.Struct({
-  mobType: Schema.String.pipe(Schema.brand("MobType")),
+  mobType: Schema.String.pipe(Schema.brand('MobType')),
   weight: Schema.Number.pipe(Schema.positive()), // スポーン重み
   minGroupSize: Schema.Number.pipe(Schema.int(), Schema.min(1)),
   maxGroupSize: Schema.Number.pipe(Schema.int(), Schema.min(1)),
   spawnConditions: SpawnCondition,
   maxCount: Schema.Number.pipe(Schema.int(), Schema.min(1)), // チャンクあたりの最大数
   rarity: Schema.Union(
-    Schema.Literal("common"),    // 10+%
-    Schema.Literal("uncommon"),  // 1-10%
-    Schema.Literal("rare"),      // 0.1-1%
-    Schema.Literal("epic"),      // 0.01-0.1%
-    Schema.Literal("legendary")  // <0.01%
+    Schema.Literal('common'), // 10+%
+    Schema.Literal('uncommon'), // 1-10%
+    Schema.Literal('rare'), // 0.1-1%
+    Schema.Literal('epic'), // 0.01-0.1%
+    Schema.Literal('legendary') // <0.01%
   ),
   cooldown: Schema.Number.pipe(Schema.min(0)), // スポーン間隔（ミリ秒）
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 export type MobSpawnEntry = Schema.Schema.Type<typeof MobSpawnEntry>
 
 // スポーンイベント
 export const MobSpawnEvent = Schema.Struct({
-  _tag: Schema.Literal("MobSpawnEvent"),
-  mobType: Schema.String.pipe(Schema.brand("MobType")),
-  entityId: Schema.String.pipe(Schema.brand("EntityId")),
+  _tag: Schema.Literal('MobSpawnEvent'),
+  mobType: Schema.String.pipe(Schema.brand('MobType')),
+  entityId: Schema.String.pipe(Schema.brand('EntityId')),
   position: Position,
   chunk: ChunkCoordinate,
   spawnReason: Schema.Union(
-    Schema.Literal("natural"),        // 自然スポーン
-    Schema.Literal("spawner"),        // スポナーブロック
-    Schema.Literal("structure"),      // 構造物生成
-    Schema.Literal("event"),          // イベントスポーン
-    Schema.Literal("command"),        // コマンド生成
-    Schema.Literal("breeding"),       // 繁殖
-    Schema.Literal("conversion")      // 変身（ゾンビ→ドラウンド等）
+    Schema.Literal('natural'), // 自然スポーン
+    Schema.Literal('spawner'), // スポナーブロック
+    Schema.Literal('structure'), // 構造物生成
+    Schema.Literal('event'), // イベントスポーン
+    Schema.Literal('command'), // コマンド生成
+    Schema.Literal('breeding'), // 繁殖
+    Schema.Literal('conversion') // 変身（ゾンビ→ドラウンド等）
   ),
   groupSize: Schema.Number.pipe(Schema.int(), Schema.min(1)),
   timestamp: Schema.DateTimeUtc,
@@ -108,8 +114,8 @@ export const MobSpawnEvent = Schema.Struct({
     lightLevel: Schema.Number,
     timeOfDay: Schema.Number,
     difficulty: Schema.String,
-    biome: Schema.String
-  })
+    biome: Schema.String,
+  }),
 })
 
 export type MobSpawnEvent = Schema.Schema.Type<typeof MobSpawnEvent>
@@ -117,18 +123,20 @@ export type MobSpawnEvent = Schema.Schema.Type<typeof MobSpawnEvent>
 // スポーン管理データ
 export const SpawnManager = Schema.Struct({
   chunkCoord: ChunkCoordinate,
-  activeSpawns: Schema.Array(Schema.Struct({
-    entityId: Schema.String.pipe(Schema.brand("EntityId")),
-    mobType: Schema.String.pipe(Schema.brand("MobType")),
-    spawnTime: Schema.DateTimeUtc,
-    lastActivity: Schema.DateTimeUtc
-  })),
+  activeSpawns: Schema.Array(
+    Schema.Struct({
+      entityId: Schema.String.pipe(Schema.brand('EntityId')),
+      mobType: Schema.String.pipe(Schema.brand('MobType')),
+      spawnTime: Schema.DateTimeUtc,
+      lastActivity: Schema.DateTimeUtc,
+    })
+  ),
   spawnCooldowns: Schema.Record(
-    Schema.String.pipe(Schema.brand("MobType")),
+    Schema.String.pipe(Schema.brand('MobType')),
     Schema.Number // 次回スポーン可能時間
   ),
   lastSpawnAttempt: Schema.DateTimeUtc,
-  spawnCapReached: Schema.Boolean.pipe(Schema.default(() => false))
+  spawnCapReached: Schema.Boolean.pipe(Schema.default(() => false)),
 })
 
 export type SpawnManager = Schema.Schema.Type<typeof SpawnManager>
@@ -140,7 +148,7 @@ export const SpawnStatistics = Schema.Struct({
   spawnsByType: Schema.Record(Schema.String, Schema.Number),
   averageSpawnRate: Schema.Number.pipe(Schema.min(0)), // spawns per minute
   peakSpawnTime: Schema.Number.pipe(Schema.min(0), Schema.max(24000)),
-  lastReset: Schema.DateTimeUtc
+  lastReset: Schema.DateTimeUtc,
 })
 
 export type SpawnStatistics = Schema.Schema.Type<typeof SpawnStatistics>
@@ -150,52 +158,52 @@ export type SpawnStatistics = Schema.Schema.Type<typeof SpawnStatistics>
 
 ```typescript
 // エラー定義（TaggedError使用）
-export const SpawnError = Schema.TaggedError("SpawnError")({
+export const SpawnError = Schema.TaggedError('SpawnError')({
   reason: Schema.String,
   mobType: Schema.optional(MobType),
   position: Schema.optional(Position),
-  conditions: Schema.optional(Schema.Unknown)
+  conditions: Schema.optional(Schema.Unknown),
 })
 
-export const PopulationLimitError = Schema.TaggedError("PopulationLimitError")({
+export const PopulationLimitError = Schema.TaggedError('PopulationLimitError')({
   chunkCoord: ChunkCoordinate,
   currentCount: Population,
   maxCount: Population,
-  mobType: MobType
+  mobType: MobType,
 })
 
-export const InvalidSpawnConditionError = Schema.TaggedError("InvalidSpawnConditionError")({
+export const InvalidSpawnConditionError = Schema.TaggedError('InvalidSpawnConditionError')({
   position: Position,
   failedConditions: Schema.Array(Schema.String),
-  mobType: MobType
+  mobType: MobType,
 })
 
 // 環境条件（パターンマッチング対応）
-export const EnvironmentConditions = Schema.TaggedUnion("type", {
+export const EnvironmentConditions = Schema.TaggedUnion('type', {
   surface: Schema.Struct({
-    type: Schema.Literal("surface"),
+    type: Schema.Literal('surface'),
     biome: Biome,
     lightLevel: Schema.Int.pipe(Schema.between(0, 15)),
     timeOfDay: Schema.Int.pipe(Schema.between(0, 24000)),
     difficulty: Difficulty,
     moonPhase: MoonPhase,
-    nearbyBlocks: Schema.Array(Schema.String)
+    nearbyBlocks: Schema.Array(Schema.String),
   }),
   underground: Schema.Struct({
-    type: Schema.Literal("underground"),
+    type: Schema.Literal('underground'),
     biome: Biome,
     lightLevel: Schema.Int.pipe(Schema.between(0, 15)),
     depth: Schema.Int.pipe(Schema.min(1)),
     caveType: Schema.String,
-    difficulty: Difficulty
+    difficulty: Difficulty,
   }),
   structure: Schema.Struct({
-    type: Schema.Literal("structure"),
+    type: Schema.Literal('structure'),
     structureType: Schema.String,
     roomType: Schema.String,
     lightLevel: Schema.Int.pipe(Schema.between(0, 15)),
-    difficulty: Difficulty
-  })
+    difficulty: Difficulty,
+  }),
 })
 export type EnvironmentConditions = Schema.Schema.Type<typeof EnvironmentConditions>
 
@@ -238,10 +246,7 @@ export interface MobSpawningServiceInterface {
   ) => Effect.Effect<SpawnRate, never>
 
   // STMベースの人口管理
-  readonly getPopulationCount: (
-    chunkCoord: ChunkCoordinate,
-    mobType: MobType
-  ) => STM.STM<Population, never, never>
+  readonly getPopulationCount: (chunkCoord: ChunkCoordinate, mobType: MobType) => STM.STM<Population, never, never>
 
   readonly updatePopulation: (
     chunkCoord: ChunkCoordinate,
@@ -249,38 +254,24 @@ export interface MobSpawningServiceInterface {
     delta: number
   ) => STM.STM<Population, PopulationLimitError, never>
 
-  readonly cleanupDespawnedMobs: (
-    chunkCoord: ChunkCoordinate
-  ) => Effect.Effect<Population, never>
+  readonly cleanupDespawnedMobs: (chunkCoord: ChunkCoordinate) => Effect.Effect<Population, never>
 
   // 設定管理（Random使用）
-  readonly setDifficultyMultiplier: (
-    difficulty: Difficulty,
-    multiplier: SpawnRate
-  ) => Effect.Effect<void, never>
+  readonly setDifficultyMultiplier: (difficulty: Difficulty, multiplier: SpawnRate) => Effect.Effect<void, never>
 
   readonly setSpawnRate: (globalMultiplier: SpawnRate) => Effect.Effect<void, never>
 
-  readonly enableMobCategory: (
-    category: MobCategory,
-    enabled: boolean
-  ) => Effect.Effect<void, never>
+  readonly enableMobCategory: (category: MobCategory, enabled: boolean) => Effect.Effect<void, never>
 
   // 統計・デバッグ
-  readonly getSpawnStatistics: (
-    chunkCoord: ChunkCoordinate
-  ) => Effect.Effect<SpawnStatistics, never>
+  readonly getSpawnStatistics: (chunkCoord: ChunkCoordinate) => Effect.Effect<SpawnStatistics, never>
 
   readonly getGlobalSpawnRate: () => Effect.Effect<SpawnRate, never>
 
-  readonly debugSpawnInfo: (
-    position: Position
-  ) => Effect.Effect<SpawnDebugInfo, never>
+  readonly debugSpawnInfo: (position: Position) => Effect.Effect<SpawnDebugInfo, never>
 }
 
-export const MobSpawningService = Context.GenericTag<MobSpawningServiceInterface>(
-  "@minecraft/MobSpawningService"
-)
+export const MobSpawningService = Context.GenericTag<MobSpawningServiceInterface>('@minecraft/MobSpawningService')
 
 // デバッグ情報（ブランド型使用）
 export const SpawnDebugInfo = Schema.Struct({
@@ -292,7 +283,7 @@ export const SpawnDebugInfo = Schema.Struct({
   spawnChances: Schema.Record(MobType, SpawnRate),
   nearbyMobCount: Population,
   chunkSpawnCap: Population,
-  environmentType: EnvironmentConditions
+  environmentType: EnvironmentConditions,
 })
 export type SpawnDebugInfo = Schema.Schema.Type<typeof SpawnDebugInfo>
 ```
@@ -317,12 +308,12 @@ export const MobSpawningServiceLive = Layer.effect(
     const globalSettings = yield* Ref.make({
       spawnRate: SpawnRate.make(1.0),
       difficultyMultipliers: new Map([
-        ["peaceful", SpawnRate.make(0.0)],
-        ["easy", SpawnRate.make(0.5)],
-        ["normal", SpawnRate.make(1.0)],
-        ["hard", SpawnRate.make(1.5)]
+        ['peaceful', SpawnRate.make(0.0)],
+        ['easy', SpawnRate.make(0.5)],
+        ['normal', SpawnRate.make(1.0)],
+        ['hard', SpawnRate.make(1.5)],
       ]),
-      enabledCategories: new Set<string>(["hostile", "passive", "neutral"])
+      enabledCategories: new Set<string>(['hostile', 'passive', 'neutral']),
     })
 
     const gameTime = yield* GameTimeService
@@ -339,23 +330,17 @@ export const MobSpawningServiceLive = Layer.effect(
           Effect.gen(function* () {
             // パターンマッチングで環境タイプを判定
             const spawnStrategy = yield* Match.value(conditions).pipe(
-              Match.when({ type: "surface" }, (surface) =>
-                Effect.succeed(createSurfaceSpawnStrategy(surface))
-              ),
-              Match.when({ type: "underground" }, (underground) =>
+              Match.when({ type: 'surface' }, (surface) => Effect.succeed(createSurfaceSpawnStrategy(surface))),
+              Match.when({ type: 'underground' }, (underground) =>
                 Effect.succeed(createUndergroundSpawnStrategy(underground))
               ),
-              Match.when({ type: "structure" }, (structure) =>
-                Effect.succeed(createStructureSpawnStrategy(structure))
-              ),
+              Match.when({ type: 'structure' }, (structure) => Effect.succeed(createStructureSpawnStrategy(structure))),
               Match.exhaustive
             )
 
             return yield* spawnStrategy.execute(chunkCoord)
           })
-        ).pipe(
-          Stream.flatMap((spawnEvents) => Stream.fromIterable(spawnEvents))
-        ),
+        ).pipe(Stream.flatMap((spawnEvents) => Stream.fromIterable(spawnEvents))),
 
       spawnMob: (mobType, position, spawnReason) =>
         Effect.gen(function* () {
@@ -364,12 +349,10 @@ export const MobSpawningServiceLive = Layer.effect(
           const chunkCoord = worldToChunkCoordinate(position)
 
           // STMによる人口更新
-          yield* STM.commit(
-            MobSpawningService.updatePopulation(chunkCoord, mobType, 1)
-          )
+          yield* STM.commit(MobSpawningService.updatePopulation(chunkCoord, mobType, 1))
 
           const spawnEvent = MobSpawnEvent.make({
-            _tag: "MobSpawnEvent",
+            _tag: 'MobSpawnEvent',
             mobType,
             entityId,
             position,
@@ -377,7 +360,7 @@ export const MobSpawningServiceLive = Layer.effect(
             spawnReason,
             groupSize: 1,
             timestamp: new Date(),
-            conditions: yield* getEnvironmentConditions(position)
+            conditions: yield* getEnvironmentConditions(position),
           })
 
           yield* eventBus.publish(spawnEvent)
@@ -388,9 +371,7 @@ export const MobSpawningServiceLive = Layer.effect(
         Stream.fromEffect(
           Random.next.pipe(
             Effect.flatMap((seed) =>
-              Random.setSeed(seed).pipe(
-                Effect.flatMap(() => generateGroupPositions(centerPosition, groupSize))
-              )
+              Random.setSeed(seed).pipe(Effect.flatMap(() => generateGroupPositions(centerPosition, groupSize)))
             )
           )
         ).pipe(
@@ -403,8 +384,8 @@ export const MobSpawningServiceLive = Layer.effect(
                   SpawnReason.natural({
                     naturalConditions: {
                       lightLevel: 0,
-                      surfaceLevel: true
-                    }
+                      surfaceLevel: true,
+                    },
                   })
                 )
               )
@@ -419,13 +400,11 @@ export const MobSpawningServiceLive = Layer.effect(
           if (!mobEntry) return false
 
           return yield* Match.value(conditions).pipe(
-            Match.when({ type: "surface" }, (surface) =>
-              checkSurfaceSpawnConditions(mobEntry, surface, position)
-            ),
-            Match.when({ type: "underground" }, (underground) =>
+            Match.when({ type: 'surface' }, (surface) => checkSurfaceSpawnConditions(mobEntry, surface, position)),
+            Match.when({ type: 'underground' }, (underground) =>
               checkUndergroundSpawnConditions(mobEntry, underground, position)
             ),
-            Match.when({ type: "structure" }, (structure) =>
+            Match.when({ type: 'structure' }, (structure) =>
               checkStructureSpawnConditions(mobEntry, structure, position)
             ),
             Match.exhaustive
@@ -435,9 +414,7 @@ export const MobSpawningServiceLive = Layer.effect(
       // Random使用での位置探索
       findValidSpawnPositions: (chunkCoord, mobType, maxCount) =>
         Effect.gen(function* () {
-          const positions = yield* Random.shuffle(
-            generateChunkPositions(chunkCoord)
-          ).pipe(
+          const positions = yield* Random.shuffle(generateChunkPositions(chunkCoord)).pipe(
             Effect.flatMap((shuffled) =>
               Effect.forEach(
                 shuffled.slice(0, maxCount * 3), // 3倍の候補から選択
@@ -454,74 +431,58 @@ export const MobSpawningServiceLive = Layer.effect(
         Effect.gen(function* () {
           const settings = yield* Ref.get(globalSettings)
 
-          const baseChance = yield* calculateBaseSpawnChance(
-            mobEntry.weight,
-            mobEntry.rarity
-          )
+          const baseChance = yield* calculateBaseSpawnChance(mobEntry.weight, mobEntry.rarity)
 
           const modifiedChance = yield* Match.value(conditions).pipe(
-            Match.when({ type: "surface" }, (surface) =>
-              applySurfaceModifiers(baseChance, surface, mobEntry)
-            ),
-            Match.when({ type: "underground" }, (underground) =>
+            Match.when({ type: 'surface' }, (surface) => applySurfaceModifiers(baseChance, surface, mobEntry)),
+            Match.when({ type: 'underground' }, (underground) =>
               applyUndergroundModifiers(baseChance, underground, mobEntry)
             ),
-            Match.when({ type: "structure" }, (structure) =>
-              applyStructureModifiers(baseChance, structure, mobEntry)
-            ),
+            Match.when({ type: 'structure' }, (structure) => applyStructureModifiers(baseChance, structure, mobEntry)),
             Match.exhaustive
           )
 
-          return SpawnRate.make(
-            Math.min(1.0, modifiedChance * settings.spawnRate)
-          )
+          return SpawnRate.make(Math.min(1.0, modifiedChance * settings.spawnRate))
         }),
 
       // STMベースの人口管理
       getPopulationCount: (chunkCoord, mobType) =>
         STM.gen(function* () {
           const chunkKey = `${chunkCoord.x},${chunkCoord.z}`
-          const counters = yield* STM.map.get(
-            stmState.populationCounters,
-            chunkKey
-          )
+          const counters = yield* STM.map.get(stmState.populationCounters, chunkKey)
 
           if (!counters) return Population.make(0)
 
-          return yield* STM.map.get(counters, mobType).pipe(
-            STM.orElse(() => STM.succeed(Population.make(0)))
-          )
+          return yield* STM.map.get(counters, mobType).pipe(STM.orElse(() => STM.succeed(Population.make(0))))
         }),
 
       updatePopulation: (chunkCoord, mobType, delta) =>
         STM.gen(function* () {
           const chunkKey = `${chunkCoord.x},${chunkCoord.z}`
-          const counters = yield* STM.map.get(
-            stmState.populationCounters,
-            chunkKey
-          ).pipe(
-            STM.orElse(() =>
-              STM.map.empty<MobType, Population>().pipe(
-                STM.tap((newCounters) =>
-                  STM.map.set(stmState.populationCounters, chunkKey, newCounters)
-                )
+          const counters = yield* STM.map
+            .get(stmState.populationCounters, chunkKey)
+            .pipe(
+              STM.orElse(() =>
+                STM.map
+                  .empty<MobType, Population>()
+                  .pipe(STM.tap((newCounters) => STM.map.set(stmState.populationCounters, chunkKey, newCounters)))
               )
             )
-          )
 
-          const currentCount = yield* STM.map.get(counters, mobType).pipe(
-            STM.orElse(() => STM.succeed(Population.make(0)))
-          )
+          const currentCount = yield* STM.map
+            .get(counters, mobType)
+            .pipe(STM.orElse(() => STM.succeed(Population.make(0))))
 
           const newCount = Population.make(currentCount + delta)
 
-          if (newCount > Population.make(20)) { // 最大20体まで
+          if (newCount > Population.make(20)) {
+            // 最大20体まで
             return yield* STM.fail(
               new PopulationLimitError({
                 chunkCoord,
                 currentCount,
                 maxCount: Population.make(20),
-                mobType
+                mobType,
               })
             )
           }
@@ -533,7 +494,7 @@ export const MobSpawningServiceLive = Layer.effect(
       cleanupDespawnedMobs: (chunkCoord) =>
         Effect.gen(function* () {
           const activeEntities = yield* entityService.getChunkEntities(chunkCoord)
-          const entityIds = new Set(activeEntities.map(e => e.id))
+          const entityIds = new Set(activeEntities.map((e) => e.id))
 
           yield* STM.commit(
             STM.gen(function* () {
@@ -541,9 +502,7 @@ export const MobSpawningServiceLive = Layer.effect(
               const manager = yield* STM.map.get(stmState.spawnManagers, chunkKey)
               if (!manager) return
 
-              const activeSpawns = manager.activeSpawns.filter(
-                spawn => entityIds.has(spawn.entityId)
-              )
+              const activeSpawns = manager.activeSpawns.filter((spawn) => entityIds.has(spawn.entityId))
 
               const updatedManager = { ...manager, activeSpawns }
               yield* STM.map.set(stmState.spawnManagers, chunkKey, updatedManager)
@@ -554,22 +513,19 @@ export const MobSpawningServiceLive = Layer.effect(
         }),
 
       setDifficultyMultiplier: (difficulty, multiplier) =>
-        Ref.update(globalSettings, settings => ({
+        Ref.update(globalSettings, (settings) => ({
           ...settings,
-          difficultyMultipliers: settings.difficultyMultipliers.set(
-            difficulty.level,
-            multiplier
-          )
+          difficultyMultipliers: settings.difficultyMultipliers.set(difficulty.level, multiplier),
         })),
 
       setSpawnRate: (globalMultiplier) =>
-        Ref.update(globalSettings, settings => ({
+        Ref.update(globalSettings, (settings) => ({
           ...settings,
-          spawnRate: globalMultiplier
+          spawnRate: globalMultiplier,
         })),
 
       enableMobCategory: (category, enabled) =>
-        Ref.update(globalSettings, settings => {
+        Ref.update(globalSettings, (settings) => {
           const categories = new Set(settings.enabledCategories)
           if (enabled) {
             categories.add(category.category)
@@ -584,23 +540,22 @@ export const MobSpawningServiceLive = Layer.effect(
           const stats = yield* Ref.get(spawnStatistics)
           const chunkKey = `${chunkCoord.x},${chunkCoord.z}`
 
-          return stats.get(chunkKey) || {
-            chunkCoord,
-            totalSpawns: Population.make(0),
-            spawnsByType: new Map(),
-            spawnsByCategory: new Map(),
-            averageSpawnRate: SpawnRate.make(0),
-            peakSpawnTime: 12000,
-            successfulSpawns: Population.make(0),
-            failedSpawns: Population.make(0),
-            lastReset: new Date()
-          }
+          return (
+            stats.get(chunkKey) || {
+              chunkCoord,
+              totalSpawns: Population.make(0),
+              spawnsByType: new Map(),
+              spawnsByCategory: new Map(),
+              averageSpawnRate: SpawnRate.make(0),
+              peakSpawnTime: 12000,
+              successfulSpawns: Population.make(0),
+              failedSpawns: Population.make(0),
+              lastReset: new Date(),
+            }
+          )
         }),
 
-      getGlobalSpawnRate: () =>
-        Ref.get(globalSettings).pipe(
-          Effect.map(settings => settings.spawnRate)
-        ),
+      getGlobalSpawnRate: () => Ref.get(globalSettings).pipe(Effect.map((settings) => settings.spawnRate)),
 
       debugSpawnInfo: (position) =>
         Effect.gen(function* () {
@@ -617,95 +572,99 @@ export const MobSpawningServiceLive = Layer.effect(
             spawnChances: new Map(),
             nearbyMobCount: Population.make(0),
             chunkSpawnCap: Population.make(20),
-            environmentType: conditions
+            environmentType: conditions,
           })
-        })
+        }),
     })
   })
 )
 
 // ヘルパー関数群（浅いネスティングパターン）
 const createHostileCategory = (attackDamage: number) => ({
-  category: "hostile" as const,
+  category: 'hostile' as const,
   despawnDistance: 32,
-  attackDamage
+  attackDamage,
 })
 
 const createPassiveCategory = (breedingCooldown: number, maxHerdSize: number) => ({
-  category: "passive" as const,
+  category: 'passive' as const,
   breedingCooldown,
-  maxHerdSize
+  maxHerdSize,
 })
 
 const createCommonRarity = () => ({
-  level: "common" as const,
-  spawnChance: 0.15
+  level: 'common' as const,
+  spawnChance: 0.15,
 })
 
 const createUncommonRarity = () => ({
-  level: "uncommon" as const,
-  spawnChance: 0.05
+  level: 'uncommon' as const,
+  spawnChance: 0.05,
 })
 
 // スポーンテーブル（TaggedUnion使用）
-export const MobSpawnTable = Schema.TaggedUnion("biomeType", {
+export const MobSpawnTable = Schema.TaggedUnion('biomeType', {
   overworld_surface: Schema.Struct({
-    biomeType: Schema.Literal("overworld_surface"),
-    entries: Schema.Array(Schema.Struct({
-      mobType: MobType,
-      weight: SpawnRate,
-      category: MobCategory,
-      conditions: Schema.Struct({
-        lightLevel: Schema.Struct({ min: Schema.Int, max: Schema.Int }),
-        timeOfDay: Schema.optional(Schema.Struct({ start: Schema.Int, end: Schema.Int })),
-        difficulty: Schema.Array(Difficulty)
+    biomeType: Schema.Literal('overworld_surface'),
+    entries: Schema.Array(
+      Schema.Struct({
+        mobType: MobType,
+        weight: SpawnRate,
+        category: MobCategory,
+        conditions: Schema.Struct({
+          lightLevel: Schema.Struct({ min: Schema.Int, max: Schema.Int }),
+          timeOfDay: Schema.optional(Schema.Struct({ start: Schema.Int, end: Schema.Int })),
+          difficulty: Schema.Array(Difficulty),
+        }),
       })
-    }))
+    ),
   }),
 
   overworld_underground: Schema.Struct({
-    biomeType: Schema.Literal("overworld_underground"),
-    entries: Schema.Array(Schema.Struct({
-      mobType: MobType,
-      weight: SpawnRate,
-      category: MobCategory,
-      conditions: Schema.Struct({
-        lightLevel: Schema.Struct({ min: Schema.Int, max: Schema.Int }),
-        depth: Schema.Int.pipe(Schema.min(10)),
-        caveType: Schema.String
+    biomeType: Schema.Literal('overworld_underground'),
+    entries: Schema.Array(
+      Schema.Struct({
+        mobType: MobType,
+        weight: SpawnRate,
+        category: MobCategory,
+        conditions: Schema.Struct({
+          lightLevel: Schema.Struct({ min: Schema.Int, max: Schema.Int }),
+          depth: Schema.Int.pipe(Schema.min(10)),
+          caveType: Schema.String,
+        }),
       })
-    }))
+    ),
   }),
 
   nether: Schema.Struct({
-    biomeType: Schema.Literal("nether"),
-    entries: Schema.Array(Schema.Struct({
-      mobType: MobType,
-      weight: SpawnRate,
-      category: MobCategory,
-      conditions: Schema.Struct({
-        nearLava: Schema.Boolean,
-        fortressProximity: Schema.optional(Schema.Number)
+    biomeType: Schema.Literal('nether'),
+    entries: Schema.Array(
+      Schema.Struct({
+        mobType: MobType,
+        weight: SpawnRate,
+        category: MobCategory,
+        conditions: Schema.Struct({
+          nearLava: Schema.Boolean,
+          fortressProximity: Schema.optional(Schema.Number),
+        }),
       })
-    }))
+    ),
   }),
 
   end: Schema.Struct({
-    biomeType: Schema.Literal("end"),
-    entries: Schema.Array(Schema.Struct({
-      mobType: MobType,
-      weight: SpawnRate,
-      category: MobCategory,
-      conditions: Schema.Struct({
-        islandType: Schema.Union(
-          Schema.Literal("main"),
-          Schema.Literal("outer"),
-          Schema.Literal("void")
-        ),
-        endStoneProximity: Schema.Number
+    biomeType: Schema.Literal('end'),
+    entries: Schema.Array(
+      Schema.Struct({
+        mobType: MobType,
+        weight: SpawnRate,
+        category: MobCategory,
+        conditions: Schema.Struct({
+          islandType: Schema.Union(Schema.Literal('main'), Schema.Literal('outer'), Schema.Literal('void')),
+          endStoneProximity: Schema.Number,
+        }),
       })
-    }))
-  })
+    ),
+  }),
 })
 
 export type MobSpawnTable = Schema.Schema.Type<typeof MobSpawnTable>
@@ -713,103 +672,112 @@ export type MobSpawnTable = Schema.Schema.Type<typeof MobSpawnTable>
 // バイオーム固有スポーン設定（パターンマッチング使用）
 export const BiomeSpawnConfigurations = new Map<Biome, MobSpawnTable>([
   // 平原バイオーム
-  [Biome.make("plains"), {
-    biomeType: "overworld_surface",
-    entries: [
-      {
-        mobType: MobType.make("zombie"),
-        weight: SpawnRate.make(0.95),
-        category: createHostileCategory(4),
-        conditions: {
-          lightLevel: { min: 0, max: 7 },
-          timeOfDay: { start: 13000, end: 23000 },
-          difficulty: [
-            { level: "easy", spawnMultiplier: 0.5 },
-            { level: "normal", spawnMultiplier: 1.0 },
-            { level: "hard", spawnMultiplier: 1.5 }
-          ]
-        }
-      },
-      {
-        mobType: MobType.make("cow"),
-        weight: SpawnRate.make(0.08),
-        category: createPassiveCategory(300000, 4),
-        conditions: {
-          lightLevel: { min: 8, max: 15 },
-          difficulty: [
-            { level: "peaceful", spawnMultiplier: 1.0 },
-            { level: "easy", spawnMultiplier: 1.0 },
-            { level: "normal", spawnMultiplier: 1.0 },
-            { level: "hard", spawnMultiplier: 1.0 }
-          ]
-        }
-      }
-    ]
-  }],
+  [
+    Biome.make('plains'),
+    {
+      biomeType: 'overworld_surface',
+      entries: [
+        {
+          mobType: MobType.make('zombie'),
+          weight: SpawnRate.make(0.95),
+          category: createHostileCategory(4),
+          conditions: {
+            lightLevel: { min: 0, max: 7 },
+            timeOfDay: { start: 13000, end: 23000 },
+            difficulty: [
+              { level: 'easy', spawnMultiplier: 0.5 },
+              { level: 'normal', spawnMultiplier: 1.0 },
+              { level: 'hard', spawnMultiplier: 1.5 },
+            ],
+          },
+        },
+        {
+          mobType: MobType.make('cow'),
+          weight: SpawnRate.make(0.08),
+          category: createPassiveCategory(300000, 4),
+          conditions: {
+            lightLevel: { min: 8, max: 15 },
+            difficulty: [
+              { level: 'peaceful', spawnMultiplier: 1.0 },
+              { level: 'easy', spawnMultiplier: 1.0 },
+              { level: 'normal', spawnMultiplier: 1.0 },
+              { level: 'hard', spawnMultiplier: 1.0 },
+            ],
+          },
+        },
+      ],
+    },
+  ],
 
   // 森林バイオーム
-  [Biome.make("forest"), {
-    biomeType: "overworld_surface",
-    entries: [
-      {
-        mobType: MobType.make("skeleton"),
-        weight: SpawnRate.make(0.80),
-        category: createHostileCategory(3),
-        conditions: {
-          lightLevel: { min: 0, max: 7 },
-          timeOfDay: { start: 13000, end: 23000 },
-          difficulty: [
-            { level: "easy", spawnMultiplier: 0.5 },
-            { level: "normal", spawnMultiplier: 1.0 },
-            { level: "hard", spawnMultiplier: 1.5 }
-          ]
-        }
-      }
-    ]
-  }],
+  [
+    Biome.make('forest'),
+    {
+      biomeType: 'overworld_surface',
+      entries: [
+        {
+          mobType: MobType.make('skeleton'),
+          weight: SpawnRate.make(0.8),
+          category: createHostileCategory(3),
+          conditions: {
+            lightLevel: { min: 0, max: 7 },
+            timeOfDay: { start: 13000, end: 23000 },
+            difficulty: [
+              { level: 'easy', spawnMultiplier: 0.5 },
+              { level: 'normal', spawnMultiplier: 1.0 },
+              { level: 'hard', spawnMultiplier: 1.5 },
+            ],
+          },
+        },
+      ],
+    },
+  ],
 
   // ネザーバイオーム
-  [Biome.make("nether_wastes"), {
-    biomeType: "nether",
-    entries: [
-      {
-        mobType: MobType.make("zombie_pigman"),
-        weight: SpawnRate.make(1.0),
-        category: {
-          category: "neutral",
-          aggressionTriggers: ["attack_player", "attack_ally"],
-          calmDuration: 60000
+  [
+    Biome.make('nether_wastes'),
+    {
+      biomeType: 'nether',
+      entries: [
+        {
+          mobType: MobType.make('zombie_pigman'),
+          weight: SpawnRate.make(1.0),
+          category: {
+            category: 'neutral',
+            aggressionTriggers: ['attack_player', 'attack_ally'],
+            calmDuration: 60000,
+          },
+          conditions: {
+            nearLava: true,
+          },
         },
-        conditions: {
-          nearLava: true
-        }
-      }
-    ]
-  }]
+      ],
+    },
+  ],
 ])
 
 // スポーン戦略パターン（Tagged Union使用）
-export const SpawnStrategy = Schema.TaggedUnion("strategyType", {
+export const SpawnStrategy = Schema.TaggedUnion('strategyType', {
   natural_spawn: Schema.Struct({
-    strategyType: Schema.Literal("natural_spawn"),
+    strategyType: Schema.Literal('natural_spawn'),
     biomeTable: MobSpawnTable,
     populationLimit: Population,
-    spawnRadius: Schema.Number
+    spawnRadius: Schema.Number,
   }),
 
   structure_spawn: Schema.Struct({
-    strategyType: Schema.Literal("structure_spawn"),
+    strategyType: Schema.Literal('structure_spawn'),
     structureType: Schema.String,
     spawnRooms: Schema.Array(Schema.String),
-    guardiansOnly: Schema.Boolean
+    guardiansOnly: Schema.Boolean,
   }),
 
   event_spawn: Schema.Struct({
-    strategyType: Schema.Literal("event_spawn"),
+    strategyType: Schema.Literal('event_spawn'),
     eventTrigger: Schema.String,
     spawnBurst: Schema.Boolean,
-    temporarySpawn: Schema.Boolean
-  })
+    temporarySpawn: Schema.Boolean,
+  }),
 })
 
 export type SpawnStrategy = Schema.Schema.Type<typeof SpawnStrategy>
@@ -826,7 +794,7 @@ const calculateMaxMobsForChunk = (difficulty: string): number => {
     peaceful: 0,
     easy: 10,
     normal: 15,
-    hard: 20
+    hard: 20,
   }
 
   return baseCaps[difficulty] || 15
@@ -843,7 +811,7 @@ const updateSpawnManager = (chunkCoord: ChunkCoordinate, spawnEvent: MobSpawnEve
       activeSpawns: [],
       spawnCooldowns: {},
       lastSpawnAttempt: new Date(),
-      spawnCapReached: false
+      spawnCapReached: false,
     }
 
     // 新しいスポーンを追加
@@ -851,7 +819,7 @@ const updateSpawnManager = (chunkCoord: ChunkCoordinate, spawnEvent: MobSpawnEve
       entityId: spawnEvent.entityId,
       mobType: spawnEvent.mobType,
       spawnTime: spawnEvent.timestamp,
-      lastActivity: spawnEvent.timestamp
+      lastActivity: spawnEvent.timestamp,
     })
 
     // クールダウンを設定
@@ -862,7 +830,7 @@ const updateSpawnManager = (chunkCoord: ChunkCoordinate, spawnEvent: MobSpawnEve
     }
 
     // マップを更新
-    yield* Ref.update(spawnManagers, map => map.set(chunkKey, manager))
+    yield* Ref.update(spawnManagers, (map) => map.set(chunkKey, manager))
   })
 ```
 
@@ -884,7 +852,7 @@ export const BiomeSpecificSpawning = {
         // 深度チェック
         const depth = yield* worldService.getWaterDepth(position)
         return depth >= 3 // 最低3ブロックの深さ
-      })
+      }),
   },
 
   // ネザーバイオーム：ブレイズ・ガスト・ゾンビピッグマン
@@ -892,14 +860,14 @@ export const BiomeSpecificSpawning = {
     netherSpawning: (position: Position) =>
       Effect.gen(function* () {
         const dimension = yield* worldService.getDimension(position)
-        if (dimension !== "nether") {
+        if (dimension !== 'nether') {
           return false
         }
 
         // 溶岩湖の近くかチェック
-        const nearLava = yield* worldService.hasBlockInRange(position, "lava", 8)
+        const nearLava = yield* worldService.hasBlockInRange(position, 'lava', 8)
         return nearLava
-      })
+      }),
   },
 
   // エンドバイオーム：エンダーマン・シュルカー
@@ -907,9 +875,9 @@ export const BiomeSpecificSpawning = {
     endSpawning: (position: Position) =>
       Effect.gen(function* () {
         const dimension = yield* worldService.getDimension(position)
-        return dimension === "end"
-      })
-  }
+        return dimension === 'end'
+      }),
+  },
 }
 
 // 構造物限定スポーン
@@ -927,7 +895,7 @@ export const StructureSpawning = {
         // スポナー周囲の明度チェック
         const lightLevel = yield* worldService.getLightLevel(spawnerPosition)
         return lightLevel <= 11
-      })
+      }),
   },
 
   // 要塞：シルバーフィッシュ
@@ -935,9 +903,9 @@ export const StructureSpawning = {
     silverfishInfestation: (position: Position) =>
       Effect.gen(function* () {
         const structure = yield* worldService.getStructureAt(position)
-        return structure?.type === "stronghold"
-      })
-  }
+        return structure?.type === 'stronghold'
+      }),
+  },
 }
 ```
 
@@ -952,10 +920,10 @@ export const EventDrivenSpawning = {
       const nearbyEntities = yield* entityService.getEntitiesInRange(position, 5)
 
       for (const entity of nearbyEntities) {
-        if (entity.type === "pig") {
+        if (entity.type === 'pig') {
           // 豚をゾンビピッグマンに変身
           yield* entityService.removeEntity(entity.id)
-          yield* MobSpawningService.spawnMob("zombie_pigman", entity.position, "conversion")
+          yield* MobSpawningService.spawnMob('zombie_pigman', entity.position, 'conversion')
         }
       }
     }),
@@ -966,15 +934,16 @@ export const EventDrivenSpawning = {
       const difficulty = yield* worldService.getDifficulty()
 
       // 難易度による感染確率
-      const infectionChance = {
-        easy: 0,      // 感染なし
-        normal: 0.5,  // 50%
-        hard: 1.0     // 100%
-      }[difficulty] || 0
+      const infectionChance =
+        {
+          easy: 0, // 感染なし
+          normal: 0.5, // 50%
+          hard: 1.0, // 100%
+        }[difficulty] || 0
 
       const random = yield* Random.next
       if (random < infectionChance) {
-        yield* MobSpawningService.spawnMob("zombie_villager", villagerPosition, "conversion")
+        yield* MobSpawningService.spawnMob('zombie_villager', villagerPosition, 'conversion')
         return true
       }
 
@@ -998,15 +967,15 @@ export const EventDrivenSpawning = {
         const spawnPosition = {
           x: playerPosition.x + (Math.random() - 0.5) * spawnRadius,
           y: playerPosition.y,
-          z: playerPosition.z + (Math.random() - 0.5) * spawnRadius
+          z: playerPosition.z + (Math.random() - 0.5) * spawnRadius,
         }
 
         const surfaceY = yield* worldService.findSurfaceLevel(spawnPosition.x, spawnPosition.z)
         if (surfaceY) {
-          yield* MobSpawningService.spawnMob("pillager", { ...spawnPosition, y: surfaceY + 1 }, "event")
+          yield* MobSpawningService.spawnMob('pillager', { ...spawnPosition, y: surfaceY + 1 }, 'event')
         }
       }
-    })
+    }),
 }
 ```
 
@@ -1049,17 +1018,13 @@ export const AdaptiveSpawnRate = {
 
       // プレイヤーからの距離でソート
       const prioritizedChunks = allChunks.sort((a, b) => {
-        const distanceA = Math.min(...playerPositions.map(pos =>
-          Vector3.distance(chunkToWorldPosition(a), pos)
-        ))
-        const distanceB = Math.min(...playerPositions.map(pos =>
-          Vector3.distance(chunkToWorldPosition(b), pos)
-        ))
+        const distanceA = Math.min(...playerPositions.map((pos) => Vector3.distance(chunkToWorldPosition(a), pos)))
+        const distanceB = Math.min(...playerPositions.map((pos) => Vector3.distance(chunkToWorldPosition(b), pos)))
         return distanceA - distanceB
       })
 
       return prioritizedChunks.slice(0, 20) // 近い20チャンクのみスポーン処理
-    })
+    }),
 }
 
 // バッチスポーン処理
@@ -1071,11 +1036,7 @@ export const batchSpawnProcessing = (chunks: ReadonlyArray<ChunkCoordinate>) =>
       const batch = chunks.slice(i, i + batchSize)
 
       // バッチを並行処理
-      yield* Effect.forEach(
-        batch,
-        (chunk) => processChunkSpawning(chunk),
-        { concurrency: batchSize }
-      )
+      yield* Effect.forEach(batch, (chunk) => processChunkSpawning(chunk), { concurrency: batchSize })
 
       // フレーム制御（60FPSを維持）
       yield* Effect.sleep(16)
@@ -1113,10 +1074,10 @@ export const SpawnDebugCommands = {
         const offsetPosition = {
           x: position.x + (Math.random() - 0.5) * 4,
           y: position.y,
-          z: position.z + (Math.random() - 0.5) * 4
+          z: position.z + (Math.random() - 0.5) * 4,
         }
 
-        yield* MobSpawningService.spawnMob(mobType, offsetPosition, "command")
+        yield* MobSpawningService.spawnMob(mobType, offsetPosition, 'command')
       }
     }),
 
@@ -1125,21 +1086,21 @@ export const SpawnDebugCommands = {
     Effect.gen(function* () {
       if (chunkCoord) {
         const chunkKey = `${chunkCoord.x},${chunkCoord.z}`
-        yield* Ref.update(spawnStatistics, map => {
+        yield* Ref.update(spawnStatistics, (map) => {
           map.delete(chunkKey)
           return map
         })
       } else {
         yield* Ref.set(spawnStatistics, new Map())
       }
-    })
+    }),
 }
 ```
 
 ## テスト戦略
 
 ```typescript
-describe("Mob Spawning System", () => {
+describe('Mob Spawning System', () => {
   const TestLayer = Layer.mergeAll(
     MobSpawningServiceLive,
     TestWorldServiceLayer,
@@ -1147,7 +1108,7 @@ describe("Mob Spawning System", () => {
     TestBiomeServiceLayer
   )
 
-  test("夜間に敵対モブがスポーンする", () =>
+  test('夜間に敵対モブがスポーンする', () =>
     Effect.gen(function* () {
       const spawningService = yield* MobSpawningService
 
@@ -1156,17 +1117,17 @@ describe("Mob Spawning System", () => {
       yield* WorldService.setLightLevel({ x: 0, y: 64, z: 0 }, 0) // 暗闇
 
       const conditions = {
-        biome: "plains",
+        biome: 'plains',
         lightLevel: 0,
         timeOfDay: 18000,
-        difficulty: "normal"
+        difficulty: 'normal',
       }
 
-      const canSpawnZombie = yield* spawningService.canSpawnAt("zombie", { x: 0, y: 64, z: 0 }, conditions)
+      const canSpawnZombie = yield* spawningService.canSpawnAt('zombie', { x: 0, y: 64, z: 0 }, conditions)
       expect(canSpawnZombie).toBe(true)
     }).pipe(Effect.provide(TestLayer)))
 
-  test("昼間は敵対モブがスポーンしない", () =>
+  test('昼間は敵対モブがスポーンしない', () =>
     Effect.gen(function* () {
       const spawningService = yield* MobSpawningService
 
@@ -1175,24 +1136,24 @@ describe("Mob Spawning System", () => {
       yield* WorldService.setLightLevel({ x: 0, y: 64, z: 0 }, 15) // 明るい
 
       const conditions = {
-        biome: "plains",
+        biome: 'plains',
         lightLevel: 15,
         timeOfDay: 6000,
-        difficulty: "normal"
+        difficulty: 'normal',
       }
 
-      const canSpawnZombie = yield* spawningService.canSpawnAt("zombie", { x: 0, y: 64, z: 0 }, conditions)
+      const canSpawnZombie = yield* spawningService.canSpawnAt('zombie', { x: 0, y: 64, z: 0 }, conditions)
       expect(canSpawnZombie).toBe(false)
     }))
 
-  test("スポーンキャップが機能する", () =>
+  test('スポーンキャップが機能する', () =>
     Effect.gen(function* () {
       const spawningService = yield* MobSpawningService
       const chunkCoord = { x: 0, z: 0 }
 
       // スポーンキャップまでモブを生成
       for (let i = 0; i < 20; i++) {
-        yield* spawningService.spawnMob("zombie", { x: i, y: 64, z: 0 }, "command")
+        yield* spawningService.spawnMob('zombie', { x: i, y: 64, z: 0 }, 'command')
       }
 
       // キャップ更新
@@ -1201,10 +1162,10 @@ describe("Mob Spawning System", () => {
 
       // スポーン試行（キャップに達しているので失敗するはず）
       const spawnEvents = yield* spawningService.attemptSpawn(chunkCoord, {
-        biome: "plains",
+        biome: 'plains',
         lightLevel: 0,
         timeOfDay: 18000,
-        difficulty: "normal"
+        difficulty: 'normal',
       })
 
       expect(spawnEvents.length).toBe(0)
@@ -1217,61 +1178,57 @@ describe("Mob Spawning System", () => {
 ### Fast-Check統合パターン
 
 ```typescript
-import { Arbitrary, fc } from "fast-check"
-import { Effect, TestClock, TestRandom, Layer } from "effect"
-import { describe, test, expect } from "@effect/vitest"
+import { Arbitrary, fc } from 'fast-check'
+import { Effect, TestClock, TestRandom, Layer } from 'effect'
+import { describe, test, expect } from '@effect/vitest'
 
 // Schema-based Arbitraryの生成
 const MobTypeArbitrary: Arbitrary<MobType> = fc
   .string({ minLength: 3, maxLength: 20 })
-  .filter(s => /^[a-z_]+$/.test(s))
+  .filter((s) => /^[a-z_]+$/.test(s))
   .map(MobType.make)
 
 const BiomeArbitrary: Arbitrary<Biome> = fc
-  .constantFrom("plains", "forest", "desert", "ocean", "nether_wastes", "end")
+  .constantFrom('plains', 'forest', 'desert', 'ocean', 'nether_wastes', 'end')
   .map(Biome.make)
 
-const PopulationArbitrary: Arbitrary<Population> = fc
-  .nat({ max: 50 })
-  .map(Population.make)
+const PopulationArbitrary: Arbitrary<Population> = fc.nat({ max: 50 }).map(Population.make)
 
-const SpawnRateArbitrary: Arbitrary<SpawnRate> = fc
-  .float({ min: 0, max: 2 })
-  .map(SpawnRate.make)
+const SpawnRateArbitrary: Arbitrary<SpawnRate> = fc.float({ min: 0, max: 2 }).map(SpawnRate.make)
 
 const PositionArbitrary: Arbitrary<Position> = fc.record({
   x: fc.integer({ min: -1000, max: 1000 }),
   y: fc.integer({ min: -64, max: 320 }),
-  z: fc.integer({ min: -1000, max: 1000 })
+  z: fc.integer({ min: -1000, max: 1000 }),
 })
 
 // 環境条件のArbitrary
 const EnvironmentConditionsArbitrary: Arbitrary<EnvironmentConditions> = fc.oneof(
   fc.record({
-    type: fc.constant("surface" as const),
+    type: fc.constant('surface' as const),
     biome: BiomeArbitrary,
     lightLevel: fc.integer({ min: 0, max: 15 }),
     timeOfDay: fc.integer({ min: 0, max: 24000 }),
     difficulty: fc.record({
-      level: fc.constantFrom("easy", "normal", "hard"),
-      spawnMultiplier: fc.float({ min: 0.5, max: 2.0 })
+      level: fc.constantFrom('easy', 'normal', 'hard'),
+      spawnMultiplier: fc.float({ min: 0.5, max: 2.0 }),
     }),
     moonPhase: fc.record({
-      phase: fc.constantFrom("new_moon", "full_moon", "first_quarter"),
-      modifier: fc.float({ min: 0.5, max: 1.5 })
+      phase: fc.constantFrom('new_moon', 'full_moon', 'first_quarter'),
+      modifier: fc.float({ min: 0.5, max: 1.5 }),
     }),
-    nearbyBlocks: fc.array(fc.string(), { maxLength: 5 })
+    nearbyBlocks: fc.array(fc.string(), { maxLength: 5 }),
   }),
   fc.record({
-    type: fc.constant("underground" as const),
+    type: fc.constant('underground' as const),
     biome: BiomeArbitrary,
     lightLevel: fc.integer({ min: 0, max: 7 }),
     depth: fc.integer({ min: 1, max: 100 }),
-    caveType: fc.constantFrom("cave", "ravine", "mineshaft"),
+    caveType: fc.constantFrom('cave', 'ravine', 'mineshaft'),
     difficulty: fc.record({
-      level: fc.constantFrom("easy", "normal", "hard"),
-      spawnMultiplier: fc.float({ min: 0.5, max: 2.0 })
-    })
+      level: fc.constantFrom('easy', 'normal', 'hard'),
+      spawnMultiplier: fc.float({ min: 0.5, max: 2.0 }),
+    }),
   })
 )
 
@@ -1289,18 +1246,18 @@ const TestMobSpawningServiceLive = Layer.effect(
             yield* TestRandom.nextIntBetween(0, 3)
             return [
               MobSpawnEvent.make({
-                _tag: "MobSpawnEvent",
-                mobType: MobType.make("test_mob"),
-                entityId: "test_entity_123" as any,
+                _tag: 'MobSpawnEvent',
+                mobType: MobType.make('test_mob'),
+                entityId: 'test_entity_123' as any,
                 position: { x: 0, y: 64, z: 0 },
                 chunk: chunkCoord,
                 spawnReason: SpawnReason.natural({
-                  naturalConditions: { lightLevel: 0, surfaceLevel: true }
+                  naturalConditions: { lightLevel: 0, surfaceLevel: true },
                 }),
                 groupSize: 1,
                 timestamp: new Date(),
-                conditions
-              })
+                conditions,
+              }),
             ]
           })
         ),
@@ -1308,9 +1265,9 @@ const TestMobSpawningServiceLive = Layer.effect(
       spawnMob: (mobType, position, spawnReason) =>
         Effect.succeed(
           MobSpawnEvent.make({
-            _tag: "MobSpawnEvent",
+            _tag: 'MobSpawnEvent',
             mobType,
-            entityId: "test_entity" as any,
+            entityId: 'test_entity' as any,
             position,
             chunk: { x: 0, z: 0 },
             spawnReason,
@@ -1319,9 +1276,9 @@ const TestMobSpawningServiceLive = Layer.effect(
             conditions: {
               lightLevel: 0,
               timeOfDay: 0,
-              difficulty: { level: "normal", spawnMultiplier: 1.0 },
-              biome: Biome.make("plains")
-            }
+              difficulty: { level: 'normal', spawnMultiplier: 1.0 },
+              biome: Biome.make('plains'),
+            },
           })
         ),
 
@@ -1329,38 +1286,29 @@ const TestMobSpawningServiceLive = Layer.effect(
         Effect.gen(function* () {
           // パターンマッチングテスト
           return yield* Match.value(conditions).pipe(
-            Match.when({ type: "surface" }, () => Effect.succeed(true)),
-            Match.when({ type: "underground" }, () => Effect.succeed(false)),
-            Match.when({ type: "structure" }, () => Effect.succeed(true)),
+            Match.when({ type: 'surface' }, () => Effect.succeed(true)),
+            Match.when({ type: 'underground' }, () => Effect.succeed(false)),
+            Match.when({ type: 'structure' }, () => Effect.succeed(true)),
             Match.exhaustive
           )
         }),
 
       findValidSpawnPositions: (chunkCoord, mobType, maxCount) =>
-        Effect.succeed([
-          { x: chunkCoord.x * 16, y: 64, z: chunkCoord.z * 16 }
-        ]),
+        Effect.succeed([{ x: chunkCoord.x * 16, y: 64, z: chunkCoord.z * 16 }]),
 
-      calculateSpawnChance: (mobEntry, conditions) =>
-        Effect.succeed(SpawnRate.make(0.1)),
+      calculateSpawnChance: (mobEntry, conditions) => Effect.succeed(SpawnRate.make(0.1)),
 
-      getPopulationCount: (chunkCoord, mobType) =>
-        STM.succeed(Population.make(5)),
+      getPopulationCount: (chunkCoord, mobType) => STM.succeed(Population.make(5)),
 
-      updatePopulation: (chunkCoord, mobType, delta) =>
-        STM.succeed(Population.make(Math.max(0, 5 + delta))),
+      updatePopulation: (chunkCoord, mobType, delta) => STM.succeed(Population.make(Math.max(0, 5 + delta))),
 
-      cleanupDespawnedMobs: (chunkCoord) =>
-        Effect.succeed(Population.make(0)),
+      cleanupDespawnedMobs: (chunkCoord) => Effect.succeed(Population.make(0)),
 
-      setDifficultyMultiplier: (difficulty, multiplier) =>
-        Effect.unit,
+      setDifficultyMultiplier: (difficulty, multiplier) => Effect.unit,
 
-      setSpawnRate: (globalMultiplier) =>
-        Effect.unit,
+      setSpawnRate: (globalMultiplier) => Effect.unit,
 
-      enableMobCategory: (category, enabled) =>
-        Effect.unit,
+      enableMobCategory: (category, enabled) => Effect.unit,
 
       getSpawnStatistics: (chunkCoord) =>
         Effect.succeed({
@@ -1372,69 +1320,58 @@ const TestMobSpawningServiceLive = Layer.effect(
           peakSpawnTime: 18000,
           successfulSpawns: Population.make(8),
           failedSpawns: Population.make(2),
-          lastReset: new Date()
+          lastReset: new Date(),
         }),
 
-      getGlobalSpawnRate: () =>
-        Effect.succeed(SpawnRate.make(1.0)),
+      getGlobalSpawnRate: () => Effect.succeed(SpawnRate.make(1.0)),
 
       debugSpawnInfo: (position) =>
         Effect.succeed({
           position,
           lightLevel: 0,
-          biome: Biome.make("plains"),
-          blockType: "stone",
+          biome: Biome.make('plains'),
+          blockType: 'stone',
           canSpawn: new Map(),
           spawnChances: new Map(),
           nearbyMobCount: Population.make(3),
           chunkSpawnCap: Population.make(20),
           environmentType: {
-            type: "surface",
-            biome: Biome.make("plains"),
+            type: 'surface',
+            biome: Biome.make('plains'),
             lightLevel: 0,
             timeOfDay: 0,
-            difficulty: { level: "normal", spawnMultiplier: 1.0 },
-            moonPhase: { phase: "new_moon", modifier: 1.0 },
-            nearbyBlocks: []
-          }
-        })
+            difficulty: { level: 'normal', spawnMultiplier: 1.0 },
+            moonPhase: { phase: 'new_moon', modifier: 1.0 },
+            nearbyBlocks: [],
+          },
+        }),
     })
   })
 )
 
-describe("Mob Spawning System - Property Based Tests", () => {
-  const TestLayer = Layer.mergeAll(
-    TestMobSpawningServiceLive,
-    TestClock.live,
-    TestRandom.deterministic
-  )
+describe('Mob Spawning System - Property Based Tests', () => {
+  const TestLayer = Layer.mergeAll(TestMobSpawningServiceLive, TestClock.live, TestRandom.deterministic)
 
-  describe("スポーン条件の不変性テスト", () => {
+  describe('スポーン条件の不変性テスト', () => {
     test.prop([EnvironmentConditionsArbitrary, MobTypeArbitrary, PositionArbitrary])(
-      "有効な環境では必ずスポーン判定が実行される",
+      '有効な環境では必ずスポーン判定が実行される',
       (conditions, mobType, position) =>
         Effect.gen(function* () {
           const spawningService = yield* MobSpawningService
 
-          const canSpawn = yield* spawningService.canSpawnAt(
-            mobType,
-            position,
-            conditions
-          )
+          const canSpawn = yield* spawningService.canSpawnAt(mobType, position, conditions)
 
           // 不変性: 結果はboolean型である
-          expect(typeof canSpawn).toBe("boolean")
+          expect(typeof canSpawn).toBe('boolean')
 
           // パターンマッチングの網羅性テスト
-          const hasValidType = ["surface", "underground", "structure"].includes(
-            conditions.type
-          )
+          const hasValidType = ['surface', 'underground', 'structure'].includes(conditions.type)
           expect(hasValidType).toBe(true)
         }).pipe(Effect.provide(TestLayer))
     )
 
     test.prop([PopulationArbitrary, SpawnRateArbitrary])(
-      "人口制限は常に非負の値を保持する",
+      '人口制限は常に非負の値を保持する',
       (initialPopulation, spawnRate) =>
         Effect.gen(function* () {
           const result = yield* STM.commit(
@@ -1452,9 +1389,9 @@ describe("Mob Spawning System - Property Based Tests", () => {
     )
   })
 
-  describe("スポーン戦略のパフォーマンステスト", () => {
+  describe('スポーン戦略のパフォーマンステスト', () => {
     test.prop([fc.array(PositionArbitrary, { minLength: 1, maxLength: 100 })])(
-      "大量位置でのスポーン処理が適切な時間内に完了する",
+      '大量位置でのスポーン処理が適切な時間内に完了する',
       (positions) =>
         Effect.gen(function* () {
           const spawningService = yield* MobSpawningService
@@ -1465,13 +1402,14 @@ describe("Mob Spawning System - Property Based Tests", () => {
           // 並行スポーン処理
           const results = yield* Effect.forEach(
             positions,
-            (position) => spawningService.spawnMob(
-              MobType.make("test_mob"),
-              position,
-              SpawnReason.natural({
-                naturalConditions: { lightLevel: 0, surfaceLevel: true }
-              })
-            ),
+            (position) =>
+              spawningService.spawnMob(
+                MobType.make('test_mob'),
+                position,
+                SpawnReason.natural({
+                  naturalConditions: { lightLevel: 0, surfaceLevel: true },
+                })
+              ),
             { concurrency: 4 }
           )
 
@@ -1483,17 +1421,17 @@ describe("Mob Spawning System - Property Based Tests", () => {
           expect(results).toHaveLength(positions.length)
 
           // 各結果がMobSpawnEventスキーマに準拠
-          results.forEach(event => {
-            expect(event._tag).toBe("MobSpawnEvent")
+          results.forEach((event) => {
+            expect(event._tag).toBe('MobSpawnEvent')
             expect(event.mobType).toBeTruthy()
           })
         }).pipe(Effect.provide(TestLayer))
     )
   })
 
-  describe("STM並行性テスト", () => {
+  describe('STM並行性テスト', () => {
     test.prop([fc.array(MobTypeArbitrary, { minLength: 2, maxLength: 10 })])(
-      "複数モブタイプの並行人口更新が競合状態を起こさない",
+      '複数モブタイプの並行人口更新が競合状態を起こさない',
       (mobTypes) =>
         Effect.gen(function* () {
           const chunkCoord = { x: 0, z: 0 }
@@ -1505,11 +1443,7 @@ describe("Mob Spawning System - Property Based Tests", () => {
               STM.commit(
                 STM.gen(function* () {
                   const spawningService = yield* MobSpawningService
-                  return yield* spawningService.updatePopulation(
-                    chunkCoord,
-                    mobType,
-                    index + 1
-                  )
+                  return yield* spawningService.updatePopulation(chunkCoord, mobType, index + 1)
                 })
               ),
             { concurrency: mobTypes.length }
@@ -1524,37 +1458,32 @@ describe("Mob Spawning System - Property Based Tests", () => {
     )
   })
 
-  describe("Streamベーススポーンテスト", () => {
-    test.prop([fc.integer({ min: 1, max: 20 })])(
-      "Stream実装が指定された数のイベントを生成する",
-      (expectedCount) =>
-        Effect.gen(function* () {
-          const spawningService = yield* MobSpawningService
-          const chunkCoord = { x: 0, z: 0 }
-          const conditions: EnvironmentConditions = {
-            type: "surface",
-            biome: Biome.make("plains"),
-            lightLevel: 0,
-            timeOfDay: 18000,
-            difficulty: { level: "normal", spawnMultiplier: 1.0 },
-            moonPhase: { phase: "full_moon", modifier: 1.2 },
-            nearbyBlocks: []
-          }
+  describe('Streamベーススポーンテスト', () => {
+    test.prop([fc.integer({ min: 1, max: 20 })])('Stream実装が指定された数のイベントを生成する', (expectedCount) =>
+      Effect.gen(function* () {
+        const spawningService = yield* MobSpawningService
+        const chunkCoord = { x: 0, z: 0 }
+        const conditions: EnvironmentConditions = {
+          type: 'surface',
+          biome: Biome.make('plains'),
+          lightLevel: 0,
+          timeOfDay: 18000,
+          difficulty: { level: 'normal', spawnMultiplier: 1.0 },
+          moonPhase: { phase: 'full_moon', modifier: 1.2 },
+          nearbyBlocks: [],
+        }
 
-          const events = yield* spawningService
-            .attemptSpawn(chunkCoord, conditions)
-            .pipe(
-              Stream.take(expectedCount),
-              Stream.runCollect
-            )
+        const events = yield* spawningService
+          .attemptSpawn(chunkCoord, conditions)
+          .pipe(Stream.take(expectedCount), Stream.runCollect)
 
-          // Stream不変性: 要求された数のイベントが生成される
-          expect(events).toHaveLength(Math.min(expectedCount, 1)) // テスト実装では1つのみ
-          events.forEach(event => {
-            expect(event._tag).toBe("MobSpawnEvent")
-            expect(event.conditions).toEqual(conditions)
-          })
-        }).pipe(Effect.provide(TestLayer))
+        // Stream不変性: 要求された数のイベントが生成される
+        expect(events).toHaveLength(Math.min(expectedCount, 1)) // テスト実装では1つのみ
+        events.forEach((event) => {
+          expect(event._tag).toBe('MobSpawnEvent')
+          expect(event.conditions).toEqual(conditions)
+        })
+      }).pipe(Effect.provide(TestLayer))
     )
   })
 })
@@ -1563,7 +1492,7 @@ describe("Mob Spawning System - Property Based Tests", () => {
 ## インテグレーションテスト
 
 ```typescript
-describe("Mob Spawning Integration Tests", () => {
+describe('Mob Spawning Integration Tests', () => {
   const IntegrationTestLayer = Layer.mergeAll(
     MobSpawningServiceLive,
     TestWorldServiceLive,
@@ -1573,7 +1502,7 @@ describe("Mob Spawning Integration Tests", () => {
     TestEventBusServiceLive
   )
 
-  test("完全なスポーンライフサイクル", () =>
+  test('完全なスポーンライフサイクル', () =>
     Effect.gen(function* () {
       const spawningService = yield* MobSpawningService
       const worldService = yield* WorldService
@@ -1585,39 +1514,35 @@ describe("Mob Spawning Integration Tests", () => {
 
       const chunkCoord = { x: 0, z: 0 }
       const conditions: EnvironmentConditions = {
-        type: "surface",
-        biome: Biome.make("plains"),
+        type: 'surface',
+        biome: Biome.make('plains'),
         lightLevel: 0,
         timeOfDay: 18000,
-        difficulty: { level: "normal", spawnMultiplier: 1.0 },
-        moonPhase: { phase: "full_moon", modifier: 1.2 },
-        nearbyBlocks: []
+        difficulty: { level: 'normal', spawnMultiplier: 1.0 },
+        moonPhase: { phase: 'full_moon', modifier: 1.2 },
+        nearbyBlocks: [],
       }
 
       // スポーン実行
-      const spawnEvents = yield* spawningService
-        .attemptSpawn(chunkCoord, conditions)
-        .pipe(Stream.runCollect)
+      const spawnEvents = yield* spawningService.attemptSpawn(chunkCoord, conditions).pipe(Stream.runCollect)
 
       expect(spawnEvents.length).toBeGreaterThan(0)
 
       // 人口カウント確認
-      const population = yield* STM.commit(
-        spawningService.getPopulationCount(chunkCoord, spawnEvents[0].mobType)
-      )
+      const population = yield* STM.commit(spawningService.getPopulationCount(chunkCoord, spawnEvents[0].mobType))
       expect(population).toBeGreaterThan(0)
 
       // クリーンアップ
       const cleaned = yield* spawningService.cleanupDespawnedMobs(chunkCoord)
       expect(cleaned).toBeGreaterThanOrEqual(0)
-    }).pipe(Effect.provide(IntegrationTestLayer))
-  )
+    }).pipe(Effect.provide(IntegrationTestLayer)))
 })
 ```
 
 ## 次のステップ
 
 このシステムは以下との統合が必要です：
+
 - **Entity System**: スポーンされたモブの管理・AI
 - **World System**: 地形・バイオーム・構造物との連携
 - **Time System**: 昼夜サイクル・月相との同期

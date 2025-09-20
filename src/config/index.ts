@@ -6,12 +6,11 @@ import * as Schema from 'effect/Schema'
 export const defaultConfig: Config = {
   debug: false,
   fps: 60,
-  memoryLimit: 2048
+  memoryLimit: 2048,
 }
 
 // 設定のバリデーション
-export const validateConfig = (input: unknown) =>
-  Schema.decodeUnknown(Config)(input)
+export const validateConfig = (input: unknown) => Schema.decodeUnknown(Config)(input)
 
 // 設定の読み込み
 export const loadConfig = Effect.gen(function* () {

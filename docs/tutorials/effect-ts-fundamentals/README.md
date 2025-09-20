@@ -17,28 +17,35 @@ Effect-TSの基礎から応用までの関数型プログラミングパター�
 ### 基礎編
 
 #### 🏁 [Effect-TS Basics](./effect-ts-basics.md)
+
 Effect-TSの基本概念、Effect型、プログラム構築の基礎
 
 #### 🛠 [Effect-TS Services](./effect-ts-services.md)
+
 Context、Service、Layerを使った依存性注入とアーキテクチャ設計
 
 #### ⚠️ [Error Handling](./effect-ts-error-handling.md)
+
 Effect-TSにおける型安全なエラーハンドリングパターン
 
 ### 応用編
 
 #### 🎯 [Effect-TS Patterns](./effect-ts-patterns.md)
+
 実用的なEffect-TSパターンとイディオム
 
 #### 🔀 [Match Patterns](./effect-ts-match-patterns.md)
+
 パターンマッチングと条件分岐の効果的な活用
 
 #### ⚡ [Advanced Techniques](./effect-ts-advanced.md)
+
 高度なEffect-TSテクニックとパフォーマンス最適化
 
 ### テスト編
 
 #### 🧪 [Effect-TS Testing](./effect-ts-testing.md)
+
 Effect-TSアプリケーションのテスト戦略と実装手法
 
 ## 🚀 学習の進め方

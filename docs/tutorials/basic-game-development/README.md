@@ -1,12 +1,12 @@
 ---
-title: "基本ゲーム開発 - 実践的Minecraft Clone構築"
-description: "Effect-TS 3.17+とThree.jsを使用したMinecraft Cloneの基本機能実装。DDD、ECS、関数型プログラミングによる実践的ゲーム開発の完全ガイド。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["game-development", "effect-ts", "three.js", "ddd", "ecs", "functional-programming", "minecraft"]
-prerequisites: ["effect-ts-fundamentals", "basic-typescript", "getting-started"]
-estimated_reading_time: "90分"
-related_docs: ["../effect-ts-fundamentals/", "../getting-started/", "../../how-to/development/"]
+title: '基本ゲーム開発 - 実践的Minecraft Clone構築'
+description: 'Effect-TS 3.17+とThree.jsを使用したMinecraft Cloneの基本機能実装。DDD、ECS、関数型プログラミングによる実践的ゲーム開発の完全ガイド。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['game-development', 'effect-ts', 'three.js', 'ddd', 'ecs', 'functional-programming', 'minecraft']
+prerequisites: ['effect-ts-fundamentals', 'basic-typescript', 'getting-started']
+estimated_reading_time: '90分'
+related_docs: ['../effect-ts-fundamentals/', '../getting-started/', '../../how-to/development/']
 ---
 
 # 🎮 基本ゲーム開発 - 実践的Minecraft Clone構築
@@ -21,6 +21,7 @@ related_docs: ["../effect-ts-fundamentals/", "../getting-started/", "../../how-t
 ### 📋 学習前状況チェック
 
 **✅ 必須スキル（すべて必要）**:
+
 - [ ] [Getting Started](../getting-started/README.md)チュートリアル完了
 - [ ] [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md)の基本編修了
 - [ ] TypeScript中級レベル（Interface、Generic、Union Type）
@@ -28,12 +29,14 @@ related_docs: ["../effect-ts-fundamentals/", "../getting-started/", "../../how-t
 - [ ] ゲームループ・フレームレートの理解
 
 **🟡 推奨スキル（あると加速）**:
+
 - [ ] Clean Architectureの基本知識
 - [ ] DDD（ドメイン駆動設計）経験
 - [ ] WebGLプログラミング経験
 - [ ] ゲームエンジン使用経験
 
 **🚨 不安な項目がある場合**:
+
 1. **Effect-TS基礎**: [Effect-TS Basics](../effect-ts-fundamentals/effect-ts-basics.md)で復習
 2. **TypeScript基礎**: [開発規約](../../how-to/development/development-conventions.md)で確認
 3. **Three.js基礎**: [公式チュートリアル](https://threejs.org/docs/)で学習
@@ -116,6 +119,7 @@ flowchart TD
 ## 📋 実装チェックリスト
 
 ### Phase 1: 基礎アーキテクチャ (30分)
+
 - [ ] **Effect-TSプロジェクト初期化** - 最新3.17+パターンでの環境構築
 - [ ] **Domain Layer** - DDD Aggregate、Entity、Value Object定義
 - [ ] **Application Layer** - UseCase、Service、Repository Interface
@@ -123,24 +127,28 @@ flowchart TD
 - [ ] **Presentation Layer** - UI、Input Handler、Renderer統合
 
 ### Phase 2: ワールドシステム (60分)
+
 - [ ] **チャンクシステム** - 16×16×256ブロックチャンク管理
 - [ ] **地形生成** - パーリンノイズによるリアルな地形
 - [ ] **ブロック配置・破壊** - リアルタイムワールド編集
 - [ ] **永続化システム** - チャンクデータ保存・読み込み
 
 ### Phase 3: プレイヤーシステム (45分)
+
 - [ ] **プレイヤー Entity** - 位置、速度、状態管理
 - [ ] **移動システム** - WASD、ジャンプ、重力物理
 - [ ] **衝突判定** - ブロックとの物理的相互作用
 - [ ] **カメラ制御** - First Person View実装
 
 ### Phase 4: レンダリング (45分)
+
 - [ ] **Three.js統合** - Scene、Renderer、Camera構成
 - [ ] **チャンクメッシュ生成** - 効率的なジオメトリ構築
 - [ ] **テクスチャシステム** - ブロック種類別テクスチャ管理
 - [ ] **視錐台カリング** - パフォーマンス最適化
 
 ### Phase 5: 統合・最適化 (30分)
+
 - [ ] **ゲームループ** - 60FPS安定動作
 - [ ] **メモリ管理** - チャンク読み込み・解放最適化
 - [ ] **エラーハンドリング** - 堅牢なエラー処理
@@ -189,11 +197,9 @@ Effect-TS 3.17+パターンに基づくクリーンアーキテクチャを構�
 
 ```typescript
 // src/domain/world/entities/Block.ts
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export const BlockType = Schema.Literal(
-  "air", "stone", "grass", "dirt", "wood", "leaves", "sand", "water"
-)
+export const BlockType = Schema.Literal('air', 'stone', 'grass', 'dirt', 'wood', 'leaves', 'sand', 'water')
 
 export type BlockType = Schema.Schema.Type<typeof BlockType>
 
@@ -202,47 +208,44 @@ export const Block = Schema.Struct({
   position: Schema.Struct({
     x: Schema.Number.pipe(Schema.int()),
     y: Schema.Number.pipe(Schema.int(), Schema.between(0, 255)),
-    z: Schema.Number.pipe(Schema.int())
+    z: Schema.Number.pipe(Schema.int()),
   }),
-  metadata: Schema.optional(
-    Schema.Record(Schema.String, Schema.Unknown)
-  )
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 export type Block = Schema.Schema.Type<typeof Block>
 
 // ブロック操作のドメインロジック
 export const BlockOperations = {
-  isBreakable: (block: Block): boolean =>
-    block.type !== "air",
+  isBreakable: (block: Block): boolean => block.type !== 'air',
 
   canPlaceOn: (targetBlock: Block, newBlockType: BlockType): boolean =>
-    targetBlock.type === "air" || targetBlock.type === "water",
+    targetBlock.type === 'air' || targetBlock.type === 'water',
 
   getHardness: (blockType: BlockType): number => {
     const hardnessMap: Record<BlockType, number> = {
-      "air": 0,
-      "stone": 1.5,
-      "grass": 0.6,
-      "dirt": 0.5,
-      "wood": 2.0,
-      "leaves": 0.2,
-      "sand": 0.5,
-      "water": 0
+      air: 0,
+      stone: 1.5,
+      grass: 0.6,
+      dirt: 0.5,
+      wood: 2.0,
+      leaves: 0.2,
+      sand: 0.5,
+      water: 0,
     }
     return hardnessMap[blockType]
-  }
+  },
 }
 ```
 
 ```typescript
 // src/domain/world/entities/Chunk.ts
-import { Schema, Effect } from "effect"
-import { Block } from "./Block.js"
+import { Schema, Effect } from 'effect'
+import { Block } from './Block.js'
 
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 
 export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
@@ -252,7 +255,7 @@ export const Chunk = Schema.Struct({
   blocks: Schema.Array(Schema.Array(Schema.Array(Block))), // [x][z][y]
   generated: Schema.Boolean,
   modified: Schema.Boolean,
-  lastAccessed: Schema.Date
+  lastAccessed: Schema.Date,
 })
 
 export type Chunk = Schema.Schema.Type<typeof Chunk>
@@ -262,14 +265,14 @@ export const ChunkOperations = {
   // ワールド座標からチャンク座標への変換
   worldToChunk: (worldX: number, worldZ: number): ChunkCoordinate => ({
     x: Math.floor(worldX / 16),
-    z: Math.floor(worldZ / 16)
+    z: Math.floor(worldZ / 16),
   }),
 
   // ワールド座標からチャンク内座標への変換
   worldToLocal: (worldX: number, worldY: number, worldZ: number) => ({
     x: ((worldX % 16) + 16) % 16,
     y: worldY,
-    z: ((worldZ % 16) + 16) % 16
+    z: ((worldZ % 16) + 16) % 16,
   }),
 
   // 指定座標のブロックを取得
@@ -296,11 +299,7 @@ export const ChunkOperations = {
       const newBlocks = chunk.blocks.map((xBlocks, x) =>
         x === localX
           ? xBlocks.map((zBlocks, z) =>
-              z === localZ
-                ? zBlocks.map((existingBlock, y) =>
-                    y === localY ? block : existingBlock
-                  )
-                : zBlocks
+              z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
             )
           : xBlocks
       )
@@ -309,40 +308,40 @@ export const ChunkOperations = {
         ...chunk,
         blocks: newBlocks,
         modified: true,
-        lastAccessed: new Date()
+        lastAccessed: new Date(),
       }
-    })
+    }),
 }
 ```
 
 ```typescript
 // src/domain/player/entities/Player.ts
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number.pipe(Schema.between(-64, 320)),
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const Velocity = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const Player = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  id: Schema.String.pipe(Schema.brand('PlayerId')),
   position: Position,
   velocity: Velocity,
   rotation: Schema.Struct({
-    yaw: Schema.Number,   // 左右回転
-    pitch: Schema.Number  // 上下回転
+    yaw: Schema.Number, // 左右回転
+    pitch: Schema.Number, // 上下回転
   }),
   onGround: Schema.Boolean,
-  health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand("Health")),
-  gameMode: Schema.Literal("survival", "creative", "spectator"),
-  selectedSlot: Schema.Number.pipe(Schema.between(0, 8))
+  health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Health')),
+  gameMode: Schema.Literal('survival', 'creative', 'spectator'),
+  selectedSlot: Schema.Number.pipe(Schema.between(0, 8)),
 })
 
 export type Player = Schema.Schema.Type<typeof Player>
@@ -359,8 +358,8 @@ export const PlayerOperations = {
       ...player,
       velocity: {
         ...player.velocity,
-        y: Math.max(player.velocity.y - 9.81 * deltaTime, -50) // 最大落下速度制限
-      }
+        y: Math.max(player.velocity.y - 9.81 * deltaTime, -50), // 最大落下速度制限
+      },
     }
   },
 
@@ -370,8 +369,8 @@ export const PlayerOperations = {
     position: {
       x: player.position.x + player.velocity.x * deltaTime,
       y: player.position.y + player.velocity.y * deltaTime,
-      z: player.position.z + player.velocity.z * deltaTime
-    }
+      z: player.position.z + player.velocity.z * deltaTime,
+    },
   }),
 
   // ジャンプ
@@ -382,9 +381,9 @@ export const PlayerOperations = {
       ...player,
       velocity: {
         ...player.velocity,
-        y: 8.0 // ジャンプ力
+        y: 8.0, // ジャンプ力
       },
-      onGround: false
+      onGround: false,
     }
   },
 
@@ -394,7 +393,7 @@ export const PlayerOperations = {
     input: { forward: boolean; backward: boolean; left: boolean; right: boolean },
     deltaTime: number
   ): Player => {
-    const speed = player.gameMode === "creative" ? 10.0 : 4.3 // m/s
+    const speed = player.gameMode === 'creative' ? 10.0 : 4.3 // m/s
     let forwardMovement = 0
     let sidewaysMovement = 0
 
@@ -420,10 +419,10 @@ export const PlayerOperations = {
       velocity: {
         x: moveX * speed,
         y: player.velocity.y, // Y軸速度は別途管理
-        z: moveZ * speed
-      }
+        z: moveZ * speed,
+      },
     }
-  }
+  },
 }
 ```
 
@@ -431,9 +430,9 @@ export const PlayerOperations = {
 
 ```typescript
 // src/application/services/WorldService.ts
-import { Context, Effect, Layer } from "effect"
-import { Chunk, ChunkCoordinate } from "../../domain/world/entities/Chunk.js"
-import { Block } from "../../domain/world/entities/Block.js"
+import { Context, Effect, Layer } from 'effect'
+import { Chunk, ChunkCoordinate } from '../../domain/world/entities/Chunk.js'
+import { Block } from '../../domain/world/entities/Block.js'
 
 // サービスインターフェース定義
 export interface WorldService {
@@ -445,27 +444,31 @@ export interface WorldService {
 }
 
 // エラー定義 - Effect-TS 関数型パターン
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
-export const WorldError = Schema.TaggedError("WorldError")({
+export const WorldError = Schema.TaggedError('WorldError')({
   cause: Schema.Union(
-    Schema.Literal("ChunkNotFound"),
-    Schema.Literal("GenerationFailed"),
-    Schema.Literal("SaveFailed"),
-    Schema.Literal("LoadFailed")
+    Schema.Literal('ChunkNotFound'),
+    Schema.Literal('GenerationFailed'),
+    Schema.Literal('SaveFailed'),
+    Schema.Literal('LoadFailed')
   ),
   coordinate: Schema.optional(ChunkCoordinate),
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
 // Context Tag
-export const WorldService = Context.GenericTag<WorldService>("WorldService")
+export const WorldService = Context.GenericTag<WorldService>('WorldService')
 
 // 地形生成ロジック
 const generateTerrain = (chunkX: number, chunkZ: number): Block[][][] => {
-  const blocks: Block[][][] = Array(16).fill(null).map(() =>
-    Array(16).fill(null).map(() => Array(256).fill(null))
-  )
+  const blocks: Block[][][] = Array(16)
+    .fill(null)
+    .map(() =>
+      Array(16)
+        .fill(null)
+        .map(() => Array(256).fill(null))
+    )
 
   for (let x = 0; x < 16; x++) {
     for (let z = 0; z < 16; z++) {
@@ -478,23 +481,23 @@ const generateTerrain = (chunkX: number, chunkZ: number): Block[][][] => {
       for (let y = 0; y < 256; y++) {
         if (y < height - 3) {
           blocks[x][z][y] = {
-            type: "stone",
-            position: { x: worldX, y, z: worldZ }
+            type: 'stone',
+            position: { x: worldX, y, z: worldZ },
           }
         } else if (y < height - 1) {
           blocks[x][z][y] = {
-            type: "dirt",
-            position: { x: worldX, y, z: worldZ }
+            type: 'dirt',
+            position: { x: worldX, y, z: worldZ },
           }
         } else if (y < height) {
           blocks[x][z][y] = {
-            type: "grass",
-            position: { x: worldX, y, z: worldZ }
+            type: 'grass',
+            position: { x: worldX, y, z: worldZ },
           }
         } else {
           blocks[x][z][y] = {
-            type: "air",
-            position: { x: worldX, y, z: worldZ }
+            type: 'air',
+            position: { x: worldX, y, z: worldZ },
           }
         }
       }
@@ -519,7 +522,7 @@ const makeWorldService = Effect.gen(function* () {
             blocks,
             generated: true,
             modified: false,
-            lastAccessed: new Date()
+            lastAccessed: new Date(),
           }
 
           const key = `${coordinate.x},${coordinate.z}`
@@ -528,7 +531,7 @@ const makeWorldService = Effect.gen(function* () {
           return chunk
         } catch (error) {
           return yield* Effect.fail(
-            new WorldError("GenerationFailed", coordinate, `Failed to generate chunk: ${error}`)
+            new WorldError('GenerationFailed', coordinate, `Failed to generate chunk: ${error}`)
           )
         }
       }),
@@ -541,7 +544,7 @@ const makeWorldService = Effect.gen(function* () {
         if (cached) {
           return {
             ...cached,
-            lastAccessed: new Date()
+            lastAccessed: new Date(),
           }
         }
 
@@ -555,7 +558,7 @@ const makeWorldService = Effect.gen(function* () {
         chunkCache.set(key, {
           ...chunk,
           modified: false,
-          lastAccessed: new Date()
+          lastAccessed: new Date(),
         })
       }),
 
@@ -563,7 +566,7 @@ const makeWorldService = Effect.gen(function* () {
       Effect.gen(function* () {
         const chunkCoord = {
           x: Math.floor(x / 16),
-          z: Math.floor(z / 16)
+          z: Math.floor(z / 16),
         }
 
         const chunk = yield* WorldService.loadChunk(chunkCoord)
@@ -577,7 +580,7 @@ const makeWorldService = Effect.gen(function* () {
       Effect.gen(function* () {
         const chunkCoord = {
           x: Math.floor(x / 16),
-          z: Math.floor(z / 16)
+          z: Math.floor(z / 16),
         }
 
         const chunk = yield* WorldService.loadChunk(chunkCoord)
@@ -587,11 +590,7 @@ const makeWorldService = Effect.gen(function* () {
         const updatedBlocks = chunk.blocks.map((xBlocks, xi) =>
           xi === localX
             ? xBlocks.map((zBlocks, zi) =>
-                zi === localZ
-                  ? zBlocks.map((existingBlock, yi) =>
-                      yi === y ? block : existingBlock
-                    )
-                  : zBlocks
+                zi === localZ ? zBlocks.map((existingBlock, yi) => (yi === y ? block : existingBlock)) : zBlocks
               )
             : xBlocks
         )
@@ -600,11 +599,11 @@ const makeWorldService = Effect.gen(function* () {
           ...chunk,
           blocks: updatedBlocks,
           modified: true,
-          lastAccessed: new Date()
+          lastAccessed: new Date(),
         }
 
         yield* WorldService.saveChunk(updatedChunk)
-      })
+      }),
   })
 })
 
@@ -613,17 +612,13 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 
 ```typescript
 // src/application/services/PlayerService.ts
-import { Context, Effect, Layer } from "effect"
-import { Player, PlayerOperations } from "../../domain/player/entities/Player.js"
+import { Context, Effect, Layer } from 'effect'
+import { Player, PlayerOperations } from '../../domain/player/entities/Player.js'
 
 export interface PlayerService {
   readonly createPlayer: (id: string) => Effect.Effect<Player, PlayerError>
   readonly updatePlayer: (player: Player) => Effect.Effect<Player, PlayerError>
-  readonly handleInput: (
-    player: Player,
-    input: InputState,
-    deltaTime: number
-  ) => Effect.Effect<Player, PlayerError>
+  readonly handleInput: (player: Player, input: InputState, deltaTime: number) => Effect.Effect<Player, PlayerError>
   readonly applyPhysics: (player: Player, deltaTime: number) => Effect.Effect<Player, PlayerError>
 }
 
@@ -641,16 +636,12 @@ export interface InputState {
   }
 }
 
-export const PlayerError = Schema.TaggedError("PlayerError")({
-  cause: Schema.Union(
-    Schema.Literal("CreateFailed"),
-    Schema.Literal("UpdateFailed"),
-    Schema.Literal("PhysicsFailed")
-  ),
-  message: Schema.optional(Schema.String)
+export const PlayerError = Schema.TaggedError('PlayerError')({
+  cause: Schema.Union(Schema.Literal('CreateFailed'), Schema.Literal('UpdateFailed'), Schema.Literal('PhysicsFailed')),
+  message: Schema.optional(Schema.String),
 })
 
-export const PlayerService = Context.GenericTag<PlayerService>("PlayerService")
+export const PlayerService = Context.GenericTag<PlayerService>('PlayerService')
 
 const makePlayerService = Effect.gen(function* () {
   const players = new Map<string, Player>()
@@ -665,8 +656,8 @@ const makePlayerService = Effect.gen(function* () {
           rotation: { yaw: 0, pitch: 0 },
           onGround: false,
           health: 20 as any, // Brand型の簡易実装
-          gameMode: "survival",
-          selectedSlot: 0
+          gameMode: 'survival',
+          selectedSlot: 0,
         }
 
         players.set(id, player)
@@ -691,16 +682,12 @@ const makePlayerService = Effect.gen(function* () {
             pitch: Math.max(
               -Math.PI / 2,
               Math.min(Math.PI / 2, updatedPlayer.rotation.pitch + input.mouse.deltaY * 0.001)
-            )
-          }
+            ),
+          },
         }
 
         // 移動入力処理
-        updatedPlayer = PlayerOperations.handleMovementInput(
-          updatedPlayer,
-          input.movement,
-          deltaTime
-        )
+        updatedPlayer = PlayerOperations.handleMovementInput(updatedPlayer, input.movement, deltaTime)
 
         // ジャンプ処理
         if (input.movement.jump) {
@@ -726,17 +713,17 @@ const makePlayerService = Effect.gen(function* () {
             ...updatedPlayer,
             position: { ...updatedPlayer.position, y: 64 },
             velocity: { ...updatedPlayer.velocity, y: 0 },
-            onGround: true
+            onGround: true,
           }
         } else {
           updatedPlayer = {
             ...updatedPlayer,
-            onGround: false
+            onGround: false,
           }
         }
 
         return updatedPlayer
-      })
+      }),
   })
 })
 
@@ -749,10 +736,10 @@ export const PlayerServiceLive = Layer.effect(PlayerService, makePlayerService)
 
 ```typescript
 // src/infrastructure/rendering/ThreeJSRenderer.ts
-import { Context, Effect, Layer } from "effect"
-import * as THREE from "three"
-import { Chunk } from "../../domain/world/entities/Chunk.js"
-import { Player } from "../../domain/player/entities/Player.js"
+import { Context, Effect, Layer } from 'effect'
+import * as THREE from 'three'
+import { Chunk } from '../../domain/world/entities/Chunk.js'
+import { Player } from '../../domain/player/entities/Player.js'
 
 export interface RenderService {
   readonly initialize: (canvas: HTMLCanvasElement) => Effect.Effect<void, RenderError>
@@ -762,16 +749,16 @@ export interface RenderService {
   readonly dispose: () => Effect.Effect<void, never>
 }
 
-export const RenderError = Schema.TaggedError("RenderError")({
+export const RenderError = Schema.TaggedError('RenderError')({
   cause: Schema.Union(
-    Schema.Literal("InitializationFailed"),
-    Schema.Literal("RenderFailed"),
-    Schema.Literal("ChunkRenderFailed")
+    Schema.Literal('InitializationFailed'),
+    Schema.Literal('RenderFailed'),
+    Schema.Literal('ChunkRenderFailed')
   ),
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
-export const RenderService = Context.GenericTag<RenderService>("RenderService")
+export const RenderService = Context.GenericTag<RenderService>('RenderService')
 
 const makeRenderService = Effect.gen(function* () {
   let renderer: THREE.WebGLRenderer | null = null
@@ -796,12 +783,12 @@ const makeRenderService = Effect.gen(function* () {
       return new THREE.CanvasTexture(canvas)
     }
 
-    blockTextures.set("stone", createColorTexture("#808080"))
-    blockTextures.set("grass", createColorTexture("#00FF00"))
-    blockTextures.set("dirt", createColorTexture("#8B4513"))
-    blockTextures.set("wood", createColorTexture("#DEB887"))
-    blockTextures.set("leaves", createColorTexture("#228B22"))
-    blockTextures.set("sand", createColorTexture("#F4A460"))
+    blockTextures.set('stone', createColorTexture('#808080'))
+    blockTextures.set('grass', createColorTexture('#00FF00'))
+    blockTextures.set('dirt', createColorTexture('#8B4513'))
+    blockTextures.set('wood', createColorTexture('#DEB887'))
+    blockTextures.set('leaves', createColorTexture('#228B22'))
+    blockTextures.set('sand', createColorTexture('#F4A460'))
   }
 
   // チャンクメッシュ生成
@@ -821,14 +808,14 @@ const makeRenderService = Effect.gen(function* () {
         for (let y = 0; y < 256; y++) {
           const block = chunk.blocks[x][z][y]
 
-          if (!block || block.type === "air") continue
+          if (!block || block.type === 'air') continue
 
           // マテリアル作成/取得
           if (!materialMap.has(block.type)) {
             const texture = blockTextures.get(block.type)
             const material = new THREE.MeshLambertMaterial({
               map: texture,
-              transparent: block.type === "leaves"
+              transparent: block.type === 'leaves',
             })
             materials.push(material)
             materialMap.set(block.type, materialIndex++)
@@ -836,19 +823,67 @@ const makeRenderService = Effect.gen(function* () {
 
           // 各面の可視性チェック（最適化のため）
           const faces = [
-            { normal: [0, 1, 0], vertices: [[0,1,0], [1,1,0], [1,1,1], [0,1,1]] }, // top
-            { normal: [0, -1, 0], vertices: [[0,0,1], [1,0,1], [1,0,0], [0,0,0]] }, // bottom
-            { normal: [0, 0, 1], vertices: [[0,0,1], [0,1,1], [1,1,1], [1,0,1]] }, // front
-            { normal: [0, 0, -1], vertices: [[1,0,0], [1,1,0], [0,1,0], [0,0,0]] }, // back
-            { normal: [1, 0, 0], vertices: [[1,0,1], [1,1,1], [1,1,0], [1,0,0]] }, // right
-            { normal: [-1, 0, 0], vertices: [[0,0,0], [0,1,0], [0,1,1], [0,0,1]] }  // left
+            {
+              normal: [0, 1, 0],
+              vertices: [
+                [0, 1, 0],
+                [1, 1, 0],
+                [1, 1, 1],
+                [0, 1, 1],
+              ],
+            }, // top
+            {
+              normal: [0, -1, 0],
+              vertices: [
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 0, 0],
+                [0, 0, 0],
+              ],
+            }, // bottom
+            {
+              normal: [0, 0, 1],
+              vertices: [
+                [0, 0, 1],
+                [0, 1, 1],
+                [1, 1, 1],
+                [1, 0, 1],
+              ],
+            }, // front
+            {
+              normal: [0, 0, -1],
+              vertices: [
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 0],
+              ],
+            }, // back
+            {
+              normal: [1, 0, 0],
+              vertices: [
+                [1, 0, 1],
+                [1, 1, 1],
+                [1, 1, 0],
+                [1, 0, 0],
+              ],
+            }, // right
+            {
+              normal: [-1, 0, 0],
+              vertices: [
+                [0, 0, 0],
+                [0, 1, 0],
+                [0, 1, 1],
+                [0, 0, 1],
+              ],
+            }, // left
           ]
 
-          faces.forEach(face => {
+          faces.forEach((face) => {
             // 面の頂点データ追加
             const baseIndex = vertices.length / 3
 
-            face.vertices.forEach(vertex => {
+            face.vertices.forEach((vertex) => {
               vertices.push(x + vertex[0], y + vertex[1], z + vertex[2])
               normals.push(...face.normal)
               uvs.push(vertex[0], vertex[1])
@@ -879,7 +914,7 @@ const makeRenderService = Effect.gen(function* () {
           renderer = new THREE.WebGLRenderer({
             canvas,
             antialias: true,
-            alpha: false
+            alpha: false,
           })
           renderer.setSize(canvas.clientWidth, canvas.clientHeight)
           renderer.setPixelRatio(window.devicePixelRatio)
@@ -888,16 +923,11 @@ const makeRenderService = Effect.gen(function* () {
 
           // シーン初期化
           scene = new THREE.Scene()
-          scene.background = new THREE.Color(0x87CEEB) // スカイブルー
-          scene.fog = new THREE.Fog(0x87CEEB, 50, 1000)
+          scene.background = new THREE.Color(0x87ceeb) // スカイブルー
+          scene.fog = new THREE.Fog(0x87ceeb, 50, 1000)
 
           // カメラ初期化
-          camera = new THREE.PerspectiveCamera(
-            75,
-            canvas.clientWidth / canvas.clientHeight,
-            0.1,
-            1000
-          )
+          camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000)
 
           // ライティング
           const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
@@ -910,37 +940,28 @@ const makeRenderService = Effect.gen(function* () {
 
           // テクスチャ初期化
           initializeTextures()
-
         } catch (error) {
-          return yield* Effect.fail(
-            new RenderError("InitializationFailed", `Failed to initialize renderer: ${error}`)
-          )
+          return yield* Effect.fail(new RenderError('InitializationFailed', `Failed to initialize renderer: ${error}`))
         }
       }),
 
     render: () =>
       Effect.gen(function* () {
         if (!renderer || !scene || !camera) {
-          return yield* Effect.fail(
-            new RenderError("RenderFailed", "Renderer not initialized")
-          )
+          return yield* Effect.fail(new RenderError('RenderFailed', 'Renderer not initialized'))
         }
 
         try {
           renderer.render(scene, camera)
         } catch (error) {
-          return yield* Effect.fail(
-            new RenderError("RenderFailed", `Render failed: ${error}`)
-          )
+          return yield* Effect.fail(new RenderError('RenderFailed', `Render failed: ${error}`))
         }
       }),
 
     renderChunk: (chunk) =>
       Effect.gen(function* () {
         if (!scene) {
-          return yield* Effect.fail(
-            new RenderError("ChunkRenderFailed", "Scene not initialized")
-          )
+          return yield* Effect.fail(new RenderError('ChunkRenderFailed', 'Scene not initialized'))
         }
 
         try {
@@ -952,7 +973,7 @@ const makeRenderService = Effect.gen(function* () {
             scene.remove(existingMesh)
             existingMesh.geometry.dispose()
             if (Array.isArray(existingMesh.material)) {
-              existingMesh.material.forEach(mat => mat.dispose())
+              existingMesh.material.forEach((mat) => mat.dispose())
             } else {
               existingMesh.material.dispose()
             }
@@ -964,20 +985,15 @@ const makeRenderService = Effect.gen(function* () {
 
           scene.add(mesh)
           chunkMeshes.set(key, mesh)
-
         } catch (error) {
-          return yield* Effect.fail(
-            new RenderError("ChunkRenderFailed", `Failed to render chunk: ${error}`)
-          )
+          return yield* Effect.fail(new RenderError('ChunkRenderFailed', `Failed to render chunk: ${error}`))
         }
       }),
 
     updateCamera: (player) =>
       Effect.gen(function* () {
         if (!camera) {
-          return yield* Effect.fail(
-            new RenderError("RenderFailed", "Camera not initialized")
-          )
+          return yield* Effect.fail(new RenderError('RenderFailed', 'Camera not initialized'))
         }
 
         // プレイヤーの位置と回転に基づいてカメラ更新
@@ -989,27 +1005,19 @@ const makeRenderService = Effect.gen(function* () {
 
         // 回転行列を使用して視線方向計算
         const direction = new THREE.Vector3()
-        direction.setFromSphericalCoords(
-          1,
-          Math.PI / 2 - player.rotation.pitch,
-          player.rotation.yaw
-        )
+        direction.setFromSphericalCoords(1, Math.PI / 2 - player.rotation.pitch, player.rotation.yaw)
 
-        camera.lookAt(
-          camera.position.x + direction.x,
-          camera.position.y + direction.y,
-          camera.position.z + direction.z
-        )
+        camera.lookAt(camera.position.x + direction.x, camera.position.y + direction.y, camera.position.z + direction.z)
       }),
 
     dispose: () =>
       Effect.sync(() => {
         // メッシュクリーンアップ
-        chunkMeshes.forEach(mesh => {
+        chunkMeshes.forEach((mesh) => {
           if (scene) scene.remove(mesh)
           mesh.geometry.dispose()
           if (Array.isArray(mesh.material)) {
-            mesh.material.forEach(mat => mat.dispose())
+            mesh.material.forEach((mat) => mat.dispose())
           } else {
             mesh.material.dispose()
           }
@@ -1017,7 +1025,7 @@ const makeRenderService = Effect.gen(function* () {
         chunkMeshes.clear()
 
         // テクスチャクリーンアップ
-        blockTextures.forEach(texture => texture.dispose())
+        blockTextures.forEach((texture) => texture.dispose())
         blockTextures.clear()
 
         // レンダラークリーンアップ
@@ -1028,7 +1036,7 @@ const makeRenderService = Effect.gen(function* () {
 
         scene = null
         camera = null
-      })
+      }),
   })
 })
 
@@ -1041,10 +1049,10 @@ export const RenderServiceLive = Layer.effect(RenderService, makeRenderService)
 
 ```typescript
 // src/application/GameApplication.ts
-import { Context, Effect, Layer, Schedule } from "effect"
-import { WorldService } from "./services/WorldService.js"
-import { PlayerService, InputState } from "./services/PlayerService.js"
-import { RenderService } from "../infrastructure/rendering/ThreeJSRenderer.js"
+import { Context, Effect, Layer, Schedule } from 'effect'
+import { WorldService } from './services/WorldService.js'
+import { PlayerService, InputState } from './services/PlayerService.js'
+import { RenderService } from '../infrastructure/rendering/ThreeJSRenderer.js'
 
 export interface GameApplication {
   readonly initialize: (canvas: HTMLCanvasElement) => Effect.Effect<void, GameError>
@@ -1053,16 +1061,16 @@ export interface GameApplication {
   readonly handleInput: (input: InputState) => Effect.Effect<void, GameError>
 }
 
-export const GameError = Schema.TaggedError("GameError")({
+export const GameError = Schema.TaggedError('GameError')({
   cause: Schema.Union(
-    Schema.Literal("InitializationFailed"),
-    Schema.Literal("GameLoopFailed"),
-    Schema.Literal("InputFailed")
+    Schema.Literal('InitializationFailed'),
+    Schema.Literal('GameLoopFailed'),
+    Schema.Literal('InputFailed')
   ),
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
-export const GameApplication = Context.GenericTag<GameApplication>("GameApplication")
+export const GameApplication = Context.GenericTag<GameApplication>('GameApplication')
 
 const makeGameApplication = Effect.gen(function* () {
   const worldService = yield* WorldService
@@ -1079,7 +1087,8 @@ const makeGameApplication = Effect.gen(function* () {
       const deltaTime = (currentTime - lastTime) / 1000 // 秒単位
       lastTime = currentTime
 
-      if (!currentPlayer || !isRunning || deltaTime > 0.1) { // 最大100ms制限
+      if (!currentPlayer || !isRunning || deltaTime > 0.1) {
+        // 最大100ms制限
         return
       }
 
@@ -1111,24 +1120,27 @@ const makeGameApplication = Effect.gen(function* () {
           yield* renderService.initialize(canvas)
 
           // プレイヤー作成
-          currentPlayer = yield* playerService.createPlayer("main-player")
+          currentPlayer = yield* playerService.createPlayer('main-player')
 
           // 初期チャンク生成とレンダリング
           const initialChunks = [
-            { x: 0, z: 0 }, { x: 1, z: 0 }, { x: -1, z: 0 },
-            { x: 0, z: 1 }, { x: 0, z: -1 }, { x: 1, z: 1 },
-            { x: -1, z: -1 }, { x: 1, z: -1 }, { x: -1, z: 1 }
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: -1, z: 0 },
+            { x: 0, z: 1 },
+            { x: 0, z: -1 },
+            { x: 1, z: 1 },
+            { x: -1, z: -1 },
+            { x: 1, z: -1 },
+            { x: -1, z: 1 },
           ]
 
           for (const coord of initialChunks) {
             const chunk = yield* worldService.generateChunk(coord)
             yield* renderService.renderChunk(chunk)
           }
-
         } catch (error) {
-          return yield* Effect.fail(
-            new GameError("InitializationFailed", `Game initialization failed: ${error}`)
-          )
+          return yield* Effect.fail(new GameError('InitializationFailed', `Game initialization failed: ${error}`))
         }
       }),
 
@@ -1155,27 +1167,20 @@ const makeGameApplication = Effect.gen(function* () {
         if (!currentPlayer) return
 
         try {
-          const deltaTime = 1/60 // 固定デルタタイム（簡略化）
+          const deltaTime = 1 / 60 // 固定デルタタイム（簡略化）
           const updatedPlayer = yield* playerService.handleInput(currentPlayer, input, deltaTime)
           currentPlayer = yield* playerService.updatePlayer(updatedPlayer)
         } catch (error) {
-          return yield* Effect.fail(
-            new GameError("InputFailed", `Input handling failed: ${error}`)
-          )
+          return yield* Effect.fail(new GameError('InputFailed', `Input handling failed: ${error}`))
         }
-      })
+      }),
   })
 })
 
 export const GameApplicationLive = Layer.effect(GameApplication, makeGameApplication)
 
 // メインアプリケーションレイヤー
-export const AppLayer = Layer.mergeAll(
-  WorldServiceLive,
-  PlayerServiceLive,
-  RenderServiceLive,
-  GameApplicationLive
-)
+export const AppLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, RenderServiceLive, GameApplicationLive)
 ```
 
 ### 🎯 HTMLエントリーポイント
@@ -1184,103 +1189,103 @@ export const AppLayer = Layer.mergeAll(
 <!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minecraft Clone - Basic Implementation</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #000;
-      font-family: Arial, sans-serif;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minecraft Clone - Basic Implementation</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #000;
+        font-family: Arial, sans-serif;
+      }
 
-    #gameCanvas {
-      display: block;
-      cursor: none;
-    }
+      #gameCanvas {
+        display: block;
+        cursor: none;
+      }
 
-    #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      z-index: 100;
-      font-size: 14px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    }
+      #ui {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        z-index: 100;
+        font-size: 14px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      }
 
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 20px;
-      height: 20px;
-      margin: -10px 0 0 -10px;
-      z-index: 100;
-      pointer-events: none;
-    }
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        z-index: 100;
+        pointer-events: none;
+      }
 
-    #crosshair::before,
-    #crosshair::after {
-      content: '';
-      position: absolute;
-      background: white;
-    }
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: white;
+      }
 
-    #crosshair::before {
-      width: 2px;
-      height: 20px;
-      left: 9px;
-      top: 0;
-    }
+      #crosshair::before {
+        width: 2px;
+        height: 20px;
+        left: 9px;
+        top: 0;
+      }
 
-    #crosshair::after {
-      width: 20px;
-      height: 2px;
-      left: 0;
-      top: 9px;
-    }
+      #crosshair::after {
+        width: 20px;
+        height: 2px;
+        left: 0;
+        top: 9px;
+      }
 
-    #instructions {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      color: white;
-      z-index: 100;
-      font-size: 12px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    }
-  </style>
-</head>
-<body>
-  <canvas id="gameCanvas"></canvas>
+      #instructions {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        z-index: 100;
+        font-size: 12px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
 
-  <div id="ui">
-    <div>FPS: <span id="fps">0</span></div>
-    <div>位置: <span id="position">0, 0, 0</span></div>
-    <div>向き: <span id="rotation">0°, 0°</span></div>
-  </div>
+    <div id="ui">
+      <div>FPS: <span id="fps">0</span></div>
+      <div>位置: <span id="position">0, 0, 0</span></div>
+      <div>向き: <span id="rotation">0°, 0°</span></div>
+    </div>
 
-  <div id="crosshair"></div>
+    <div id="crosshair"></div>
 
-  <div id="instructions">
-    <div>WASD: 移動 | Space: ジャンプ | Mouse: 視点変更</div>
-    <div>Escape: ポインターロック解除</div>
-  </div>
+    <div id="instructions">
+      <div>WASD: 移動 | Space: ジャンプ | Mouse: 視点変更</div>
+      <div>Escape: ポインターロック解除</div>
+    </div>
 
-  <script type="module" src="/src/main.ts"></script>
-</body>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
 ```
 
 ```typescript
 // src/main.ts
-import { Effect } from "effect"
-import { GameApplication, AppLayer, GameError } from "./application/GameApplication.js"
-import { InputState } from "./application/services/PlayerService.js"
+import { Effect } from 'effect'
+import { GameApplication, AppLayer, GameError } from './application/GameApplication.js'
+import { InputState } from './application/services/PlayerService.js'
 
 // 入力状態管理
 interface InputManagerInterface {
@@ -1332,12 +1337,12 @@ const makeInputManager = (canvas: HTMLCanvasElement): InputManagerInterface => {
           backward: keys.has('KeyS'),
           left: keys.has('KeyA'),
           right: keys.has('KeyD'),
-          jump: keys.has('Space')
+          jump: keys.has('Space'),
         },
         mouse: {
           deltaX: mouseMovement.x,
-          deltaY: mouseMovement.y
-        }
+          deltaY: mouseMovement.y,
+        },
       }
 
       // マウス移動量をリセット
@@ -1345,7 +1350,7 @@ const makeInputManager = (canvas: HTMLCanvasElement): InputManagerInterface => {
       mouseMovement.y = 0
 
       return input
-    }
+    },
   }
 }
 
@@ -1372,7 +1377,7 @@ const makePerformanceMonitor = (): PerformanceMonitorInterface => {
   return {
     recordFrame: () => {
       frameCount++
-    }
+    },
   }
 }
 
@@ -1407,11 +1412,9 @@ const main = Effect.gen(function* () {
     const input = inputManager.getInputState()
 
     Effect.runSync(
-      gameApp.handleInput(input).pipe(
-        Effect.catchAll((error: GameError) =>
-          Effect.sync(() => console.error('Input error:', error))
-        )
-      )
+      gameApp
+        .handleInput(input)
+        .pipe(Effect.catchAll((error: GameError) => Effect.sync(() => console.error('Input error:', error))))
     )
 
     perfMonitor.recordFrame()
@@ -1426,9 +1429,7 @@ const main = Effect.gen(function* () {
 })
 
 // アプリケーション実行
-Effect.runPromise(
-  main.pipe(Effect.provide(AppLayer))
-).catch((error) => {
+Effect.runPromise(main.pipe(Effect.provide(AppLayer))).catch((error) => {
   console.error('Application failed:', error)
   document.body.innerHTML = `
     <div style="color: white; text-align: center; margin-top: 50px;">
@@ -1530,18 +1531,21 @@ interface AdvancedFeatures {
 `─────────────────────────────────────────────────`
 
 **✅ 技術スキル**
+
 - Effect-TS 3.17+による型安全な関数型プログラミング
 - DDDアーキテクチャパターンの実装
 - Three.js/WebGLを使用したハイパフォーマンス3Dレンダリング
 - リアルタイムアプリケーションの設計と実装
 
 **✅ アーキテクチャスキル**
+
 - レイヤードアーキテクチャの設計
 - 依存性注入とInversion of Control
 - エラーハンドリングと例外安全性
 - パフォーマンスを考慮した設計パターン
 
 **✅ 実践的開発スキル**
+
 - 大規模プロジェクトの構造化
 - モジュール分離とコード再利用
 - デバッグとパフォーマンス分析
@@ -1563,6 +1567,6 @@ interface AdvancedFeatures {
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **基本ゲーム開発**
+_📍 現在のドキュメント階層_: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **基本ゲーム開発**
 
-*🔗 関連リソース*: [Getting Started](../getting-started/README.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [Development Guide](../../how-to/development/README.md) • [Architecture](../../explanations/architecture/README.md)
+_🔗 関連リソース_: [Getting Started](../getting-started/README.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [Development Guide](../../how-to/development/README.md) • [Architecture](../../explanations/architecture/README.md)

@@ -1,14 +1,14 @@
 ---
-title: "ビルド問題トラブルシューティング - ビルドシステム完全マスター"
-description: "TypeScript Minecraftプロジェクトの45のビルド問題パターンと最適化戦略。Vite設定デバッグ、TypeScript最適化、依存関係管理。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["build-problems", "troubleshooting", "vite", "typescript", "optimization", "ci-cd", "bundling"]
-prerequisites: ["build-systems", "typescript-advanced", "vite-configuration"]
-estimated_reading_time: "35分"
-related_patterns: ["optimization-patterns-latest", "development-conventions"]
-related_docs: ["../configuration/build-config.md", "./common-errors.md", "../configuration/vite-config.md"]
-status: "complete"
+title: 'ビルド問題トラブルシューティング - ビルドシステム完全マスター'
+description: 'TypeScript Minecraftプロジェクトの45のビルド問題パターンと最適化戦略。Vite設定デバッグ、TypeScript最適化、依存関係管理。'
+category: 'troubleshooting'
+difficulty: 'advanced'
+tags: ['build-problems', 'troubleshooting', 'vite', 'typescript', 'optimization', 'ci-cd', 'bundling']
+prerequisites: ['build-systems', 'typescript-advanced', 'vite-configuration']
+estimated_reading_time: '35分'
+related_patterns: ['optimization-patterns-latest', 'development-conventions']
+related_docs: ['../configuration/build-config.md', './common-errors.md', '../configuration/vite-config.md']
+status: 'complete'
 ---
 
 # ビルド問題のトラブルシューティング
@@ -22,6 +22,7 @@ TypeScript Minecraft プロジェクトにおけるビルドとコンパイル�
 ### 開発サーバーが起動しない
 
 #### 症状
+
 ```bash
 Error: listen EADDRINUSE :::5173
 Error: Cannot find module 'vite'
@@ -29,11 +30,13 @@ Error: [vite] Internal server error
 ```
 
 #### 原因
+
 - ポート競合
 - 依存関係の不整合
 - 設定ファイルの問題
 
 #### 解決方法
+
 ```bash
 # 1. ポート競合の解決
 lsof -ti:5173
@@ -53,10 +56,12 @@ npx vite --debug
 ### HMR (Hot Module Replacement) が動作しない
 
 #### 症状
+
 - ファイル変更がブラウザに反映されない
 - コンソールに HMR エラーメッセージ
 
 #### 原因と解決方法
+
 ```typescript
 // vite.config.ts - HMR設定の最適化
 import { defineConfig } from 'vitest/config'
@@ -67,73 +72,75 @@ export default defineConfig({
   server: {
     hmr: {
       overlay: true,
-      port: 24678
+      port: 24678,
     },
     // Docker環境での問題解決
     host: true,
     watch: {
       usePolling: true,
-      interval: 100
-    }
+      interval: 100,
+    },
   },
   // ファイル監視の設定
   optimizeDeps: {
-    exclude: ['effect', '@effect/schema']
-  }
+    exclude: ['effect', '@effect/schema'],
+  },
 })
 ```
 
 ### 依存関係プリバンドルエラー
 
 #### 症状
+
 ```bash
 Error: The following dependencies are imported but could not be resolved:
   effect (imported by src/domain/player.ts)
 ```
 
 #### 原因
+
 - ES Module と CommonJS の混在
 - 依存関係の解決順序問題
 
 #### 解決方法
+
 ```typescript
 // vite.config.ts - 依存関係の最適化
 export default defineConfig({
   optimizeDeps: {
-    include: [
-      'effect',
-      '@effect/schema',
-      '@effect/platform'
-    ],
+    include: ['effect', '@effect/schema', '@effect/platform'],
     exclude: [
       // ESMのみのパッケージは除外
-      'three'
-    ]
+      'three',
+    ],
   },
   ssr: {
-    noExternal: ['effect', '@effect/schema']
+    noExternal: ['effect', '@effect/schema'],
   },
   build: {
     commonjsOptions: {
-      include: [/node_modules/]
-    }
-  }
+      include: [/node_modules/],
+    },
+  },
 })
 ```
 
 ### アセット読み込みエラー
 
 #### 症状
+
 ```bash
 Failed to resolve import "./assets/textures/stone.png"
 Error: Could not resolve "./public/models/player.glb"
 ```
 
 #### 原因
+
 - 相対パス解決の問題
 - アセットディレクトリ設定の不備
 
 #### 解決方法
+
 ```typescript
 // vite.config.ts - アセット設定
 export default defineConfig({
@@ -154,10 +161,10 @@ export default defineConfig({
             return `models/[name]-[hash][extname]`
           }
           return `assets/[name]-[hash][extname]`
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 })
 
 // アセット読み込みの型定義追加
@@ -180,15 +187,18 @@ declare module '*.png' {
 ### Path エイリアス解決エラー
 
 #### 症状
+
 ```bash
 error TS2307: Cannot find module '@domain/player' or its corresponding type declarations.
 ```
 
 #### 原因
+
 - tsconfig.json と vite.config.ts の設定不整合
 - baseUrl や paths の設定ミス
 
 #### 解決方法
+
 ```json
 // tsconfig.json - パス設定の確認
 {
@@ -204,11 +214,7 @@ error TS2307: Cannot find module '@domain/player' or its corresponding type decl
       "@test/*": ["test/*"]
     }
   },
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "vite.config.ts"
-  ]
+  "include": ["src/**/*", "test/**/*", "vite.config.ts"]
 }
 ```
 
@@ -220,28 +226,30 @@ export default defineConfig({
   plugins: [
     tsconfigPaths({
       root: './',
-      projects: ['./tsconfig.json']
-    })
+      projects: ['./tsconfig.json'],
+    }),
   ],
   resolve: {
     alias: {
       '@domain': path.resolve(__dirname, 'src/domain'),
       '@application': path.resolve(__dirname, 'src/application'),
-      '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
-    }
-  }
+      '@infrastructure': path.resolve(__dirname, 'src/infrastructure'),
+    },
+  },
 })
 ```
 
 ### 型定義ファイルの問題
 
 #### 症状
+
 ```bash
 error TS7016: Could not find a declaration file for module 'three'
 error TS2688: Cannot find type definition file for 'webgl2'
 ```
 
 #### 解決方法
+
 ```bash
 # 型定義の明示的インストール
 pnpm add -D @types/three @webgpu/types
@@ -261,15 +269,8 @@ pnpm add -D @types/three @webgpu/types
 // tsconfig.json - 型定義の設定
 {
   "compilerOptions": {
-    "types": [
-      "vite/client",
-      "@webgpu/types",
-      "three"
-    ],
-    "typeRoots": [
-      "./node_modules/@types",
-      "./src/types"
-    ]
+    "types": ["vite/client", "@webgpu/types", "three"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   }
 }
 ```
@@ -277,12 +278,14 @@ pnpm add -D @types/three @webgpu/types
 ### 厳密な型チェックエラー
 
 #### 症状
+
 ```bash
 error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'Position'
 error TS2322: Type 'string | undefined' is not assignable to type 'string'
 ```
 
 #### 解決方法
+
 ```typescript
 // 厳密な null チェックへの対応
 // ❌ 問題のあるコード
@@ -293,7 +296,7 @@ const processPosition = (pos: Position | undefined) => {
 // ✅ 修正後
 const processPosition = (pos: Position | undefined): Effect.Effect<number, PositionError> => {
   if (!pos) {
-    return Effect.fail(new PositionError({ reason: "Position is undefined" }))
+    return Effect.fail(new PositionError({ reason: 'Position is undefined' }))
   }
 
   return Effect.succeed(pos.x + pos.y + pos.z)
@@ -303,19 +306,21 @@ const processPosition = (pos: Position | undefined): Effect.Effect<number, Posit
 const processPositionWithSchema = (unknown: unknown): Effect.Effect<number, ParseError> =>
   pipe(
     Schema.decodeUnknown(PositionSchema)(unknown),
-    Effect.map(pos => pos.x + pos.y + pos.z)
+    Effect.map((pos) => pos.x + pos.y + pos.z)
   )
 ```
 
 ### モジュール解決問題
 
 #### 症状
+
 ```bash
 error TS2691: An import path cannot end with a '.ts' extension
 error TS1259: Module '"effect"' can only be default-imported using the 'allowSyntheticDefaultImports' flag
 ```
 
 #### 解決方法
+
 ```json
 // tsconfig.json - モジュール解決設定
 {
@@ -339,8 +344,8 @@ import { Player } from './player.ts'
 import { Player } from './player'
 
 // ✅ Effect-TS の適切なインポート
-import * as Effect from "effect/Effect"
-import * as Schema from "@effect/schema/Schema"
+import * as Effect from 'effect/Effect'
+import * as Schema from '@effect/schema/Schema'
 ```
 
 ## ビルド最適化問題
@@ -348,10 +353,12 @@ import * as Schema from "@effect/schema/Schema"
 ### バンドルサイズが大きい
 
 #### 症状
+
 - 本番ビルドサイズが異常に大きい
 - ロード時間の遅延
 
 #### 分析と対策
+
 ```bash
 # バンドル分析
 pnpm build
@@ -370,43 +377,38 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Effect-TS を分離
-          'effect': ['effect', '@effect/schema', '@effect/platform'],
+          effect: ['effect', '@effect/schema', '@effect/platform'],
           // Three.js を分離
-          'three': ['three'],
+          three: ['three'],
           // ユーティリティを分離
-          'utils': ['uuid', 'alea', 'simplex-noise'],
+          utils: ['uuid', 'alea', 'simplex-noise'],
           // ドメインロジック
-          'domain': ['./src/domain/index.ts'],
+          domain: ['./src/domain/index.ts'],
           // インフラストラクチャ
-          'infrastructure': ['./src/infrastructure/index.ts']
-        }
-      }
+          infrastructure: ['./src/infrastructure/index.ts'],
+        },
+      },
     },
-    chunkSizeWarningLimit: 1000
-  }
+    chunkSizeWarningLimit: 1000,
+  },
 })
 ```
 
 ### Tree Shaking が効かない
 
 #### 症状
+
 - 未使用コードがバンドルに含まれる
 - バンドルサイズの肥大化
 
 #### 解決方法
+
 ```typescript
 // ❌ Tree Shaking を阻害するインポート
 import * as THREE from 'three'
 
 // ✅ 名前付きインポートによる最適化
-import {
-  WebGLRenderer,
-  Scene,
-  PerspectiveCamera,
-  BoxGeometry,
-  MeshBasicMaterial,
-  Mesh
-} from 'three'
+import { WebGLRenderer, Scene, PerspectiveCamera, BoxGeometry, MeshBasicMaterial, Mesh } from 'three'
 
 // ❌ 副作用のあるインポート
 import './global-setup.ts'
@@ -432,10 +434,12 @@ setupGlobalEffects()
 ### ビルド時間が長い
 
 #### 症状
+
 - `pnpm build` の実行時間が異常に長い
 - 開発時の HMR が遅い
 
 #### 最適化手法
+
 ```typescript
 // vite.config.ts - ビルド高速化
 export default defineConfig({
@@ -444,21 +448,21 @@ export default defineConfig({
     terserOptions: {
       compress: {
         drop_console: true,
-        drop_debugger: true
-      }
-    }
+        drop_debugger: true,
+      },
+    },
   },
   optimizeDeps: {
     // キャッシュの活用
     force: false,
     // 依存関係の事前バンドル
-    include: ['effect', '@effect/schema', 'three']
+    include: ['effect', '@effect/schema', 'three'],
   },
   esbuild: {
     // ESBuild による高速トランスパイル
     target: 'es2022',
-    logOverride: { 'this-is-undefined-in-esm': 'silent' }
-  }
+    logOverride: { 'this-is-undefined-in-esm': 'silent' },
+  },
 })
 ```
 
@@ -477,12 +481,14 @@ pnpm build
 ### Vitest 設定エラー
 
 #### 症状
+
 ```bash
 Error: Cannot resolve './src/test-setup' from test/setup.ts
 Error: [vitest] Cannot use import statement outside a module
 ```
 
 #### 解決方法
+
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config'
@@ -497,55 +503,45 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/**',
-        'test/**',
-        '**/*.d.ts',
-        'vite.config.ts'
-      ]
+      exclude: ['node_modules/**', 'test/**', '**/*.d.ts', 'vite.config.ts'],
     },
     // TypeScriptファイルの直接実行
     transformMode: {
       web: [/\.[jt]sx?$/],
-      ssr: [/\.[jt]sx?$/]
-    }
-  }
+      ssr: [/\.[jt]sx?$/],
+    },
+  },
 })
 ```
 
 ### Effect-TS テストでの型エラー
 
 #### 症状
+
 ```bash
 Type 'Effect<unknown, never, unknown>' is not assignable to type 'Effect<Player, PlayerError, PlayerService>'
 ```
 
 #### 解決方法
+
 ```typescript
 // test/setup.ts - Effect-TS テスト設定
-import { Effect, Layer, TestContext } from "effect"
-import { beforeEach } from "vitest"
+import { Effect, Layer, TestContext } from 'effect'
+import { beforeEach } from 'vitest'
 
 // テスト用レイヤーの設定
 beforeEach(() => {
-  const testLayer = Layer.mergeAll(
-    TestContext.TestContext,
-    TestPlayerServiceLive,
-    TestWorldServiceLive
-  )
+  const testLayer = Layer.mergeAll(TestContext.TestContext, TestPlayerServiceLive, TestWorldServiceLive)
 
   // グローバルランタイムの設定
   Effect.runSync(Effect.provide(Effect.unit, testLayer))
 })
 
 // テスト用のEffect実行関数
-export const runTest = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runSync(Effect.provide(effect, testLayer))
+export const runTest = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(Effect.provide(effect, testLayer))
 
 // 型安全なテストユーティリティ
-export const expectEffect = <A, E>(
-  effect: Effect.Effect<A, E>
-): Promise<A> => Effect.runPromise(effect)
+export const expectEffect = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect)
 ```
 
 ## CI/CD ビルド問題
@@ -553,11 +549,13 @@ export const expectEffect = <A, E>(
 ### GitHub Actions でのビルド失敗
 
 #### 症状
+
 - ローカルでは成功するが CI で失敗
 - 依存関係の解決エラー
 - メモリ不足エラー
 
 #### 解決方法
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI
@@ -602,10 +600,12 @@ jobs:
 ### Docker ビルドでの問題
 
 #### 症状
+
 - Node.js バージョン不整合
 - 依存関係インストールの失敗
 
 #### 解決方法
+
 ```dockerfile
 # Dockerfile
 FROM node:20-alpine
@@ -635,6 +635,7 @@ COPY --from=0 /app/dist /usr/share/nginx/html
 ## 診断ツールとコマンド
 
 ### 問題診断用コマンド集
+
 ```bash
 # 1. 基本的な健康診断
 pnpm doctor
@@ -662,11 +663,12 @@ pnpm store prune
 ```
 
 ### 自動診断スクリプト
+
 ```typescript
 // scripts/diagnose.ts - プロジェクト診断スクリプト
-import { Effect, pipe } from "effect"
-import { execSync } from "child_process"
-import * as fs from "fs"
+import { Effect, pipe } from 'effect'
+import { execSync } from 'child_process'
+import * as fs from 'fs'
 
 const checkDependencies = Effect.gen(function* () {
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'))
@@ -689,15 +691,15 @@ const checkDependencies = Effect.gen(function* () {
 })
 
 const runDiagnosis = Effect.gen(function* () {
-  console.log("🔍 Running project diagnosis...")
+  console.log('🔍 Running project diagnosis...')
 
   const dependencyIssues = yield* checkDependencies
 
   if (dependencyIssues.length > 0) {
-    console.log("❌ Issues found:")
-    dependencyIssues.forEach(issue => console.log(`  - ${issue}`))
+    console.log('❌ Issues found:')
+    dependencyIssues.forEach((issue) => console.log(`  - ${issue}`))
   } else {
-    console.log("✅ No issues found")
+    console.log('✅ No issues found')
   }
 })
 
@@ -707,6 +709,7 @@ Effect.runPromise(runDiagnosis).catch(console.error)
 ## 予防策とベストプラクティス
 
 ### 1. 設定ファイルの同期
+
 ```json
 // エディタ設定ファイルの例 - プロジェクト統一設定
 {
@@ -721,6 +724,7 @@ Effect.runPromise(runDiagnosis).catch(console.error)
 ```
 
 ### 2. Pre-commit フックによる品質保証
+
 ```json
 // package.json - Git フック設定
 {
@@ -736,6 +740,7 @@ Effect.runPromise(runDiagnosis).catch(console.error)
 ```
 
 ### 3. 設定ファイルの検証
+
 ```typescript
 // scripts/validate-config.ts - 設定検証スクリプト
 const validateConfigurations = Effect.gen(function* () {
@@ -743,24 +748,26 @@ const validateConfigurations = Effect.gen(function* () {
   const tsConfig = yield* readJsonFile('tsconfig.json')
   const requiredOptions = ['strict', 'noImplicitAny', 'strictNullChecks']
 
-  const missingOptions = requiredOptions.filter(
-    option => !tsConfig.compilerOptions[option]
-  )
+  const missingOptions = requiredOptions.filter((option) => !tsConfig.compilerOptions[option])
 
   if (missingOptions.length > 0) {
-    yield* Effect.fail(new ConfigValidationError({
-      file: 'tsconfig.json',
-      missingOptions
-    }))
+    yield* Effect.fail(
+      new ConfigValidationError({
+        file: 'tsconfig.json',
+        missingOptions,
+      })
+    )
   }
 
   // vite.config.ts の検証
   const viteConfigExists = yield* fileExists('vite.config.ts')
   if (!viteConfigExists) {
-    yield* Effect.fail(new ConfigValidationError({
-      file: 'vite.config.ts',
-      message: 'Configuration file missing'
-    }))
+    yield* Effect.fail(
+      new ConfigValidationError({
+        file: 'vite.config.ts',
+        message: 'Configuration file missing',
+      })
+    )
   }
 })
 ```

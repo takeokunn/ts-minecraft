@@ -1,13 +1,12 @@
 ---
-title: "09 Structure Generation"
-description: "09 Structure Generationに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "10分"
+title: '09 Structure Generation'
+description: '09 Structure Generationに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '10分'
 ---
-
 
 # Structure Generation（構造物生成）
 
@@ -20,11 +19,13 @@ estimated_reading_time: "10分"
 ### 構造物分類
 
 #### 自然構造物
+
 - **洞窟系**: 自然洞窟・地下河川・鍾乳洞・峡谷
 - **鉱脈**: 各種鉱石の集中帯・希少鉱物の特殊配置
 - **地形特徴**: 自然の橋・巨大な木・特殊岩石構造
 
 #### 人工構造物
+
 - **村**: 住民が住む建物群・農地・道路
 - **要塞**: 地下の石レンガ構造・エンドポータル
 - **神殿**: ジャングル神殿・砂漠神殿・海底神殿
@@ -36,20 +37,20 @@ estimated_reading_time: "10分"
 // 構造物スキーマ
 export const Structure = Schema.Struct({
   type: Schema.Union(
-    Schema.Literal("village"),
-    Schema.Literal("dungeon"),
-    Schema.Literal("stronghold"),
-    Schema.Literal("temple"),
-    Schema.Literal("mansion"),
-    Schema.Literal("monument"),
-    Schema.Literal("ruins"),
-    Schema.Literal("cave_system")
+    Schema.Literal('village'),
+    Schema.Literal('dungeon'),
+    Schema.Literal('stronghold'),
+    Schema.Literal('temple'),
+    Schema.Literal('mansion'),
+    Schema.Literal('monument'),
+    Schema.Literal('ruins'),
+    Schema.Literal('cave_system')
   ),
   position: Position,
   size: Schema.Struct({
     width: Schema.Number,
     height: Schema.Number,
-    depth: Schema.Number
+    depth: Schema.Number,
   }),
   orientation: Schema.Number, // 回転角度
   integrity: pipe(Schema.Number, Schema.between(0, 1)), // 破損度
@@ -57,23 +58,30 @@ export const Structure = Schema.Struct({
   biome: Schema.String,
   generatedAt: Schema.DateTimeUtc,
   lootTables: Schema.Array(Schema.String),
-  spawners: Schema.Array(Schema.Struct({
-    position: Position,
-    mobType: Schema.String,
-    spawnRate: Schema.Number
-  }))
+  spawners: Schema.Array(
+    Schema.Struct({
+      position: Position,
+      mobType: Schema.String,
+      spawnRate: Schema.Number,
+    })
+  ),
 })
 
 // 構造物生成マネージャー（最新Context.GenericTagパターン）
 interface StructureGenerationManagerInterface {
   readonly generateStructuresForChunk: (chunkPos: ChunkPosition) => Effect.Effect<Structure[], StructureGenerationError>
   readonly checkStructureGeneration: (chunkPos: ChunkPosition, structureType: StructureType) => Effect.Effect<boolean>
-  readonly generateStructure: (chunkPos: ChunkPosition, structureType: StructureType) => Effect.Effect<Structure, StructureGenerationError>
+  readonly generateStructure: (
+    chunkPos: ChunkPosition,
+    structureType: StructureType
+  ) => Effect.Effect<Structure, StructureGenerationError>
   readonly placeStructure: (structure: Structure) => Effect.Effect<void, StructurePlacementError>
   readonly getStructureTypes: () => StructureType[]
 }
 
-export const StructureGenerationManager = Context.GenericTag<StructureGenerationManagerInterface>("@minecraft/StructureGenerationManager")
+export const StructureGenerationManager = Context.GenericTag<StructureGenerationManagerInterface>(
+  '@minecraft/StructureGenerationManager'
+)
 
 const makeStructureGenerationManager = Effect.gen(function* () {
   const worldService = yield* WorldService
@@ -86,10 +94,7 @@ const makeStructureGenerationManager = Effect.gen(function* () {
 
       // 各構造物タイプの生成判定
       for (const structureType of getStructureTypes()) {
-        const shouldGenerate = yield* checkStructureGeneration(
-          chunkPos,
-          structureType
-        )
+        const shouldGenerate = yield* checkStructureGeneration(chunkPos, structureType)
 
         if (shouldGenerate) {
           const structure = yield* generateStructure(chunkPos, structureType)
@@ -136,9 +141,7 @@ const makeStructureGenerationManager = Effect.gen(function* () {
   const generateStructure = (chunkPos: ChunkPosition, structureType: StructureType) =>
     Effect.gen(function* () {
       // シードベースの決定的生成
-      const seed = yield* Effect.sync(() =>
-        hashCoordinates(chunkPos.x, chunkPos.z) ^ hashString(structureType)
-      )
+      const seed = yield* Effect.sync(() => hashCoordinates(chunkPos.x, chunkPos.z) ^ hashString(structureType))
       const rng = createSeededRandom(seed)
 
       // 構造物の基本パラメータを決定
@@ -151,10 +154,10 @@ const makeStructureGenerationManager = Effect.gen(function* () {
 
       // 構造物の詳細生成
       const structure = yield* Match.value(structureType).pipe(
-        Match.when("village", () => generateVillageStructure(adjustedPosition, size, seed, rng)),
-        Match.when("dungeon", () => generateDungeonStructure(adjustedPosition, size, seed, rng)),
-        Match.when("stronghold", () => generateStrongholdStructure(adjustedPosition, size, seed, rng)),
-        Match.when("temple", () => generateTempleStructure(adjustedPosition, size, seed, rng)),
+        Match.when('village', () => generateVillageStructure(adjustedPosition, size, seed, rng)),
+        Match.when('dungeon', () => generateDungeonStructure(adjustedPosition, size, seed, rng)),
+        Match.when('stronghold', () => generateStrongholdStructure(adjustedPosition, size, seed, rng)),
+        Match.when('temple', () => generateTempleStructure(adjustedPosition, size, seed, rng)),
         Match.orElse(() => Effect.fail(StructureGenerationError.UnsupportedType({ type: structureType })))
       )
 
@@ -165,7 +168,7 @@ const makeStructureGenerationManager = Effect.gen(function* () {
         ...structure,
         biome: biome.name,
         generatedAt: new Date(),
-        integrity: 1.0 // 新生成時は完全な状態
+        integrity: 1.0, // 新生成時は完全な状態
       })
     })
 
@@ -180,15 +183,12 @@ const makeStructureGenerationManager = Effect.gen(function* () {
       for (const block of blocks) {
         yield* worldService.setBlock(block.position, block.blockType, {
           metadata: block.metadata,
-          updateNeighbors: false // 一括更新後に実行
+          updateNeighbors: false, // 一括更新後に実行
         })
       }
 
       // 近隣ブロックの更新を一括実行
-      yield* worldService.updateNeighborsInArea(
-        structure.position,
-        structure.size
-      )
+      yield* worldService.updateNeighborsInArea(structure.position, structure.size)
 
       // エンティティの配置（村人、スポナーなど）
       for (const spawner of structure.spawners) {
@@ -196,7 +196,7 @@ const makeStructureGenerationManager = Effect.gen(function* () {
           mobType: spawner.mobType,
           spawnRate: spawner.spawnRate,
           maxNearbyEntities: 6,
-          requiredPlayerRange: 16
+          requiredPlayerRange: 16,
         })
       }
 
@@ -209,19 +209,21 @@ const makeStructureGenerationManager = Effect.gen(function* () {
       // 構造物データベースに登録
       yield* worldService.registerStructure(structure)
 
-      yield* Effect.logInfo(`構造物配置完了: ${structure.type} at (${structure.position.x}, ${structure.position.y}, ${structure.position.z})`)
+      yield* Effect.logInfo(
+        `構造物配置完了: ${structure.type} at (${structure.position.x}, ${structure.position.y}, ${structure.position.z})`
+      )
     })
 
   const getStructureTypes = (): StructureType[] => {
     return [
-      "village",      // 村：平原・砂漠・サバンナに生成
-      "dungeon",      // ダンジョン：地下に小規模生成
-      "stronghold",   // 要塞：地下の大規模構造物
-      "temple",       // 神殿：ジャングル・砂漠・海底に生成
-      "mansion",      // 邸宅：暗い森に生成される大規模建築
-      "monument",     // 海底神殿：海洋バイオームの海底
-      "ruins",        // 遺跡：海洋・陸地に小規模散在
-      "cave_system"   // 洞窟システム：自然洞窟の拡張構造
+      'village', // 村：平原・砂漠・サバンナに生成
+      'dungeon', // ダンジョン：地下に小規模生成
+      'stronghold', // 要塞：地下の大規模構造物
+      'temple', // 神殿：ジャングル・砂漠・海底に生成
+      'mansion', // 邸宅：暗い森に生成される大規模建築
+      'monument', // 海底神殿：海洋バイオームの海底
+      'ruins', // 遺跡：海洋・陸地に小規模散在
+      'cave_system', // 洞窟システム：自然洞窟の拡張構造
     ]
   }
 
@@ -230,7 +232,7 @@ const makeStructureGenerationManager = Effect.gen(function* () {
     checkStructureGeneration,
     generateStructure,
     placeStructure,
-    getStructureTypes
+    getStructureTypes,
   }
 })
 
@@ -240,30 +242,30 @@ export const StructureGenerationManagerLive = Layer.effect(StructureGenerationMa
 const checkBiomeCompatibility = (structureType: StructureType, biome: Biome) =>
   Effect.gen(function* () {
     const compatibilityMap: Record<StructureType, readonly string[]> = {
-      village: ["plains", "desert", "savanna", "taiga"],
-      dungeon: ["*"], // すべてのバイオームで生成可能
-      stronghold: ["*"],
-      temple: ["jungle", "desert", "ocean"],
-      mansion: ["dark_forest"],
-      monument: ["ocean", "deep_ocean"],
-      ruins: ["ocean", "beach", "plains"],
-      cave_system: ["mountains", "hills", "*"]
+      village: ['plains', 'desert', 'savanna', 'taiga'],
+      dungeon: ['*'], // すべてのバイオームで生成可能
+      stronghold: ['*'],
+      temple: ['jungle', 'desert', 'ocean'],
+      mansion: ['dark_forest'],
+      monument: ['ocean', 'deep_ocean'],
+      ruins: ['ocean', 'beach', 'plains'],
+      cave_system: ['mountains', 'hills', '*'],
     } as const
 
     const compatibleBiomes = compatibilityMap[structureType]
-    return compatibleBiomes.includes("*") || compatibleBiomes.includes(biome.name)
+    return compatibleBiomes.includes('*') || compatibleBiomes.includes(biome.name)
   })
 
 const getMinDistanceForStructure = (structureType: StructureType): number => {
   const distanceMap: Record<StructureType, number> = {
-    village: 8,        // 8チャンク離す
-    dungeon: 2,        // 2チャンク離す
-    stronghold: 32,    // 32チャンク離す（非常に希少）
-    temple: 16,        // 16チャンク離す
-    mansion: 64,       // 64チャンク離す（極めて希少）
-    monument: 24,      // 24チャンク離す
-    ruins: 4,          // 4チャンク離す
-    cave_system: 6     // 6チャンク離す
+    village: 8, // 8チャンク離す
+    dungeon: 2, // 2チャンク離す
+    stronghold: 32, // 32チャンク離す（非常に希少）
+    temple: 16, // 16チャンク離す
+    mansion: 64, // 64チャンク離す（極めて希少）
+    monument: 24, // 24チャンク離す
+    ruins: 4, // 4チャンク離す
+    cave_system: 6, // 6チャンク離す
   }
   return distanceMap[structureType]
 }
@@ -271,14 +273,14 @@ const getMinDistanceForStructure = (structureType: StructureType): number => {
 const calculateGenerationChance = (structureType: StructureType, chunkPos: ChunkPosition) =>
   Effect.gen(function* () {
     const baseChances: Record<StructureType, number> = {
-      village: 0.002,      // 0.2%
-      dungeon: 0.01,       // 1%
-      stronghold: 0.0001,  // 0.01%（非常に希少）
-      temple: 0.001,       // 0.1%
-      mansion: 0.00005,    // 0.005%（極めて希少）
-      monument: 0.0005,    // 0.05%
-      ruins: 0.005,        // 0.5%
-      cave_system: 0.003   // 0.3%
+      village: 0.002, // 0.2%
+      dungeon: 0.01, // 1%
+      stronghold: 0.0001, // 0.01%（非常に希少）
+      temple: 0.001, // 0.1%
+      mansion: 0.00005, // 0.005%（極めて希少）
+      monument: 0.0005, // 0.05%
+      ruins: 0.005, // 0.5%
+      cave_system: 0.003, // 0.3%
     }
 
     // ノイズベースの生成確率調整
@@ -292,6 +294,7 @@ const calculateGenerationChance = (structureType: StructureType, chunkPos: Chunk
 ### 村生成システム
 
 #### 村の構成要素
+
 - **建物**: 住宅・作業場・農場・図書館・教会
 - **道路**: 建物間を結ぶ道路網
 - **農地**: 作物栽培エリア・井戸
@@ -300,6 +303,7 @@ const calculateGenerationChance = (structureType: StructureType, chunkPos: Chunk
 ### ダンジョン生成システム
 
 #### ダンジョンの特徴
+
 - **部屋構造**: 複数の小部屋が廊下で接続
 - **トラップ**: 圧力板・ディスペンサー・溶岩の罠
 - **宝箱**: レア装備・貴重アイテムの配置
@@ -308,6 +312,7 @@ const calculateGenerationChance = (structureType: StructureType, chunkPos: Chunk
 ## パフォーマンス最適化
 
 ### 生成効率化
+
 - **チャンク単位生成**: チャンクロード時の段階的構造物生成
 - **LOD システム**: 距離に応じた構造物詳細度調整
 - **キャッシュ機能**: 生成済み構造物データの保存
@@ -316,12 +321,14 @@ const calculateGenerationChance = (structureType: StructureType, chunkPos: Chunk
 ## テストケース
 
 ### 基本生成機能
+
 - [ ] 各構造物タイプの正常生成
 - [ ] バイオーム適合性の確認
 - [ ] 距離制限の動作確認
 - [ ] 確率分布の妥当性検証
 
 ### 構造物品質
+
 - [ ] 建物の構造的整合性
 - [ ] 道路ネットワークの接続性
 - [ ] 宝箱配置の適切性
@@ -330,6 +337,7 @@ const calculateGenerationChance = (structureType: StructureType, chunkPos: Chunk
 ## 今後の拡張
 
 ### プランされた機能
+
 - **プレイヤー建築**: プレイヤー作成建物のテンプレート化
 - **動的進化**: 時間経過による村の成長・変化
 - **戦争システム**: 村間の争い・同盟関係

@@ -1,14 +1,19 @@
 ---
-title: "Game Engine API - TypeScript Minecraft Complete Reference"
-description: "TypeScript Minecraft Game Engine完全APIリファレンス。WorldSystem、PlayerSystem、RenderingEngine、PhysicsSystemの詳細仕様。プロダクションレベルのゲーム開発API設計。"
-category: "reference"
-difficulty: "advanced"
-tags: ["game-engine", "world-system", "player-system", "rendering-engine", "physics-system", "api-reference", "typescript"]
-prerequisites: ["effect-ts-advanced", "game-development", "three.js-basics"]
-estimated_reading_time: "45分"
-related_docs: ["../game-systems/overview.md", "../../explanations/architecture/architecture-overview.md", "../configuration/game-config.md"]
+title: 'Game Engine API - TypeScript Minecraft Complete Reference'
+description: 'TypeScript Minecraft Game Engine完全APIリファレンス。WorldSystem、PlayerSystem、RenderingEngine、PhysicsSystemの詳細仕様。プロダクションレベルのゲーム開発API設計。'
+category: 'reference'
+difficulty: 'advanced'
+tags:
+  ['game-engine', 'world-system', 'player-system', 'rendering-engine', 'physics-system', 'api-reference', 'typescript']
+prerequisites: ['effect-ts-advanced', 'game-development', 'three.js-basics']
+estimated_reading_time: '45分'
+related_docs:
+  [
+    '../game-systems/overview.md',
+    '../../explanations/architecture/architecture-overview.md',
+    '../configuration/game-config.md',
+  ]
 ---
-
 
 # 🎮 Game Engine API Complete Reference
 
@@ -58,12 +63,19 @@ export interface WorldSystemAPI {
   readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError, WorldService>
   readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError, WorldService>
   readonly breakBlock: (pos: Position) => Effect.Effect<Block | null, BlockBreakError, WorldService>
-  readonly placeBlock: (pos: Position, blockType: BlockType, metadata?: BlockMetadata) => Effect.Effect<Block, BlockPlaceError, WorldService>
+  readonly placeBlock: (
+    pos: Position,
+    blockType: BlockType,
+    metadata?: BlockMetadata
+  ) => Effect.Effect<Block, BlockPlaceError, WorldService>
 
   // World Queries
   readonly isBlockSolid: (pos: Position) => Effect.Effect<boolean, never, WorldService>
   readonly isPositionValid: (pos: Position) => Effect.Effect<boolean, never, never>
-  readonly getBlocksInRadius: (center: Position, radius: number) => Effect.Effect<ReadonlyArray<Block>, QueryError, WorldService>
+  readonly getBlocksInRadius: (
+    center: Position,
+    radius: number
+  ) => Effect.Effect<ReadonlyArray<Block>, QueryError, WorldService>
 
   // Light System
   readonly calculateLightLevel: (pos: Position) => Effect.Effect<LightLevel, LightCalculationError, LightingService>
@@ -82,15 +94,27 @@ export interface WorldSystemAPI {
 ```typescript
 // Block Type Definitions
 export const BlockType = Schema.Literal(
-  "air", "stone", "grass", "dirt", "wood", "leaves",
-  "sand", "gravel", "water", "lava", "bedrock",
-  "diamond_ore", "iron_ore", "coal_ore", "gold_ore"
+  'air',
+  'stone',
+  'grass',
+  'dirt',
+  'wood',
+  'leaves',
+  'sand',
+  'gravel',
+  'water',
+  'lava',
+  'bedrock',
+  'diamond_ore',
+  'iron_ore',
+  'coal_ore',
+  'gold_ore'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockType>
 
 // Block Schema with Complete Properties
 export const Block = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("BlockId")),
+  id: Schema.String.pipe(Schema.brand('BlockId')),
   type: BlockType,
   position: Position,
   metadata: Schema.optional(BlockMetadata),
@@ -101,18 +125,13 @@ export const Block = Schema.Struct({
   flammable: Schema.Boolean,
   breakTime: Schema.Number.pipe(Schema.nonNegative()),
   dropItems: Schema.Array(ItemStack),
-  soundEffects: BlockSoundEffects
+  soundEffects: BlockSoundEffects,
 })
 
 // Block Metadata for Complex Blocks
 export const BlockMetadata = Schema.Record({
   key: Schema.String,
-  value: Schema.Union(
-    Schema.String,
-    Schema.Number,
-    Schema.Boolean,
-    Schema.Array(Schema.Unknown)
-  )
+  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Array(Schema.Unknown)),
 })
 
 // Light System
@@ -120,7 +139,7 @@ export const LightLevel = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(15),
-  Schema.brand("LightLevel")
+  Schema.brand('LightLevel')
 )
 
 // Usage Examples
@@ -129,11 +148,7 @@ const blockOperations = {
   getBlockSafe: (pos: Position) =>
     Effect.gen(function* () {
       const world = yield* WorldSystemAPI
-      return yield* world.getBlock(pos).pipe(
-        Effect.catchTag("BlockNotFoundError", () =>
-          Effect.succeed(null)
-        )
-      )
+      return yield* world.getBlock(pos).pipe(Effect.catchTag('BlockNotFoundError', () => Effect.succeed(null)))
     }),
 
   // Place block with validation
@@ -145,24 +160,24 @@ const blockOperations = {
       const isValid = yield* world.isPositionValid(pos)
       if (!isValid) {
         return yield* Effect.fail({
-          _tag: "InvalidPositionError" as const,
-          position: pos
+          _tag: 'InvalidPositionError' as const,
+          position: pos,
         })
       }
 
       // Check if position is free
       const existingBlock = yield* world.getBlock(pos)
-      if (existingBlock.type !== "air") {
+      if (existingBlock.type !== 'air') {
         return yield* Effect.fail({
-          _tag: "BlockOccupiedError" as const,
+          _tag: 'BlockOccupiedError' as const,
           position: pos,
-          existingBlock: existingBlock.type
+          existingBlock: existingBlock.type,
         })
       }
 
       // Place the block
       return yield* world.placeBlock(pos, blockType)
-    })
+    }),
 }
 ```
 
@@ -172,7 +187,7 @@ const blockOperations = {
 // Chunk System Types
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 
 export const Chunk = Schema.Struct({
@@ -183,7 +198,7 @@ export const Chunk = Schema.Struct({
   modified: Schema.Boolean,
   lightCalculated: Schema.Boolean,
   lastAccessed: Schema.Date,
-  version: Schema.Number.pipe(Schema.int(), Schema.brand("ChunkVersion"))
+  version: Schema.Number.pipe(Schema.int(), Schema.brand('ChunkVersion')),
 })
 
 // Chunk Operations
@@ -191,22 +206,27 @@ export const ChunkOperations = {
   // Convert world position to chunk coordinate
   worldToChunk: (worldX: number, worldZ: number): ChunkCoordinate => ({
     x: Math.floor(worldX / 16),
-    z: Math.floor(worldZ / 16)
+    z: Math.floor(worldZ / 16),
   }),
 
   // Convert world position to local chunk position
   worldToLocal: (worldX: number, worldY: number, worldZ: number) => ({
     x: ((worldX % 16) + 16) % 16,
     y: worldY,
-    z: ((worldZ % 16) + 16) % 16
+    z: ((worldZ % 16) + 16) % 16,
   }),
 
   // Get neighboring chunks
   getNeighbors: (coord: ChunkCoordinate): ReadonlyArray<ChunkCoordinate> => [
-    { x: coord.x - 1, z: coord.z - 1 }, { x: coord.x, z: coord.z - 1 }, { x: coord.x + 1, z: coord.z - 1 },
-    { x: coord.x - 1, z: coord.z },     /* center */                     { x: coord.x + 1, z: coord.z },
-    { x: coord.x - 1, z: coord.z + 1 }, { x: coord.x, z: coord.z + 1 }, { x: coord.x + 1, z: coord.z + 1 }
-  ]
+    { x: coord.x - 1, z: coord.z - 1 },
+    { x: coord.x, z: coord.z - 1 },
+    { x: coord.x + 1, z: coord.z - 1 },
+    { x: coord.x - 1, z: coord.z },
+    /* center */ { x: coord.x + 1, z: coord.z },
+    { x: coord.x - 1, z: coord.z + 1 },
+    { x: coord.x, z: coord.z + 1 },
+    { x: coord.x + 1, z: coord.z + 1 },
+  ],
 }
 
 // Advanced chunk operations
@@ -221,10 +241,12 @@ const chunkManager = {
 
       // Load neighboring chunks for seamless experience
       const neighbors = ChunkOperations.getNeighbors(coord)
-      yield* Effect.forEach(neighbors, neighbor =>
-        world.loadChunk(neighbor).pipe(
-          Effect.catchAll(() => Effect.void) // Ignore neighbor load failures
-        ),
+      yield* Effect.forEach(
+        neighbors,
+        (neighbor) =>
+          world.loadChunk(neighbor).pipe(
+            Effect.catchAll(() => Effect.void) // Ignore neighbor load failures
+          ),
         { concurrency: 4 }
       )
 
@@ -244,16 +266,13 @@ const chunkManager = {
       const loadedChunks = yield* world.getLoadedChunks()
 
       // Unload chunks beyond max distance
-      const chunksToUnload = loadedChunks.filter(coord => {
+      const chunksToUnload = loadedChunks.filter((coord) => {
         const distance = Math.abs(coord.x - playerChunk.x) + Math.abs(coord.z - playerChunk.z)
         return distance > maxDistance
       })
 
-      yield* Effect.forEach(chunksToUnload, coord =>
-        world.unloadChunk(coord),
-        { concurrency: 2 }
-      )
-    })
+      yield* Effect.forEach(chunksToUnload, (coord) => world.unloadChunk(coord), { concurrency: 2 })
+    }),
 }
 ```
 
@@ -266,29 +285,51 @@ const chunkManager = {
 ```typescript
 export interface PlayerSystemAPI {
   // Player Management
-  readonly createPlayer: (id: PlayerId, config?: PlayerConfig) => Effect.Effect<Player, PlayerCreationError, PlayerService>
+  readonly createPlayer: (
+    id: PlayerId,
+    config?: PlayerConfig
+  ) => Effect.Effect<Player, PlayerCreationError, PlayerService>
   readonly getPlayer: (id: PlayerId) => Effect.Effect<Player, PlayerNotFoundError, PlayerService>
   readonly updatePlayer: (player: Player) => Effect.Effect<Player, PlayerUpdateError, PlayerService>
   readonly removePlayer: (id: PlayerId) => Effect.Effect<void, PlayerRemovalError, PlayerService>
 
   // Movement & Physics
-  readonly movePlayer: (id: PlayerId, movement: MovementInput, deltaTime: number) => Effect.Effect<Player, MovementError, PlayerService | PhysicsService>
+  readonly movePlayer: (
+    id: PlayerId,
+    movement: MovementInput,
+    deltaTime: number
+  ) => Effect.Effect<Player, MovementError, PlayerService | PhysicsService>
   readonly teleportPlayer: (id: PlayerId, position: Position) => Effect.Effect<Player, TeleportError, PlayerService>
   readonly applyPhysics: (id: PlayerId, deltaTime: number) => Effect.Effect<Player, PhysicsError, PhysicsService>
 
   // Interaction
-  readonly handleInteraction: (id: PlayerId, interaction: InteractionType, target: Position) => Effect.Effect<InteractionResult, InteractionError, PlayerService | WorldService>
-  readonly useItem: (id: PlayerId, slotIndex: number) => Effect.Effect<ItemUseResult, ItemUseError, PlayerService | InventoryService>
+  readonly handleInteraction: (
+    id: PlayerId,
+    interaction: InteractionType,
+    target: Position
+  ) => Effect.Effect<InteractionResult, InteractionError, PlayerService | WorldService>
+  readonly useItem: (
+    id: PlayerId,
+    slotIndex: number
+  ) => Effect.Effect<ItemUseResult, ItemUseError, PlayerService | InventoryService>
 
   // Inventory
   readonly getInventory: (id: PlayerId) => Effect.Effect<Inventory, InventoryError, InventoryService>
   readonly addItem: (id: PlayerId, item: ItemStack) => Effect.Effect<AddItemResult, InventoryError, InventoryService>
-  readonly removeItem: (id: PlayerId, slotIndex: number, amount?: number) => Effect.Effect<RemoveItemResult, InventoryError, InventoryService>
+  readonly removeItem: (
+    id: PlayerId,
+    slotIndex: number,
+    amount?: number
+  ) => Effect.Effect<RemoveItemResult, InventoryError, InventoryService>
 
   // Status & Health
   readonly getHealth: (id: PlayerId) => Effect.Effect<Health, PlayerNotFoundError, PlayerService>
   readonly setHealth: (id: PlayerId, health: Health) => Effect.Effect<void, HealthError, PlayerService>
-  readonly damagePlayer: (id: PlayerId, damage: DamageAmount, source?: DamageSource) => Effect.Effect<DamageResult, DamageError, PlayerService>
+  readonly damagePlayer: (
+    id: PlayerId,
+    damage: DamageAmount,
+    source?: DamageSource
+  ) => Effect.Effect<DamageResult, DamageError, PlayerService>
   readonly healPlayer: (id: PlayerId, healAmount: HealAmount) => Effect.Effect<void, HealError, PlayerService>
 
   // Game Mode
@@ -301,7 +342,7 @@ export interface PlayerSystemAPI {
 
 ```typescript
 // Player Core Types
-export const PlayerId = Schema.String.pipe(Schema.uuid(), Schema.brand("PlayerId"))
+export const PlayerId = Schema.String.pipe(Schema.uuid(), Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerId>
 
 export const Player = Schema.Struct({
@@ -319,19 +360,19 @@ export const Player = Schema.Struct({
   onGround: Schema.Boolean,
   inWater: Schema.Boolean,
   lastActive: Schema.Date,
-  permissions: PlayerPermissions
+  permissions: PlayerPermissions,
 })
 
 // Movement & Physics
 export const Velocity = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const Rotation = Schema.Struct({
   yaw: Schema.Number.pipe(Schema.greaterThanOrEqualTo(-Math.PI), Schema.lessThanOrEqualTo(Math.PI)),
-  pitch: Schema.Number.pipe(Schema.greaterThanOrEqualTo(-Math.PI/2), Schema.lessThanOrEqualTo(Math.PI/2))
+  pitch: Schema.Number.pipe(Schema.greaterThanOrEqualTo(-Math.PI / 2), Schema.lessThanOrEqualTo(Math.PI / 2)),
 })
 
 export const MovementInput = Schema.Struct({
@@ -341,24 +382,24 @@ export const MovementInput = Schema.Struct({
   right: Schema.Boolean,
   jump: Schema.Boolean,
   sprint: Schema.Boolean,
-  sneak: Schema.Boolean
+  sneak: Schema.Boolean,
 })
 
 // Health & Status
 export const Health = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("Health")
+  Schema.brand('Health')
 )
 
 export const HungerLevel = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("HungerLevel")
+  Schema.brand('HungerLevel')
 )
 
-export const GameMode = Schema.Literal("survival", "creative", "adventure", "spectator")
+export const GameMode = Schema.Literal('survival', 'creative', 'adventure', 'spectator')
 
 // Player Operations Examples
 const playerOperations = {
@@ -382,7 +423,7 @@ const playerOperations = {
     }),
 
   // Complex interaction handling
-  handleBlockInteraction: (playerId: PlayerId, pos: Position, interactionType: "break" | "place", item?: ItemStack) =>
+  handleBlockInteraction: (playerId: PlayerId, pos: Position, interactionType: 'break' | 'place', item?: ItemStack) =>
     Effect.gen(function* () {
       const playerAPI = yield* PlayerSystemAPI
       const worldAPI = yield* WorldSystemAPI
@@ -393,45 +434,43 @@ const playerOperations = {
       const distance = calculateDistance(player.position, pos)
       if (distance > MAX_REACH_DISTANCE) {
         return yield* Effect.fail({
-          _tag: "InteractionTooFarError" as const,
+          _tag: 'InteractionTooFarError' as const,
           distance,
-          maxDistance: MAX_REACH_DISTANCE
+          maxDistance: MAX_REACH_DISTANCE,
         })
       }
 
       // Handle different interaction types
       return yield* Match.value(interactionType).pipe(
-        Match.when("break", () =>
+        Match.when('break', () =>
           Effect.gen(function* () {
             const block = yield* worldAPI.breakBlock(pos)
 
             if (block) {
               // Add drops to inventory
-              yield* Effect.forEach(block.dropItems, drop =>
-                playerAPI.addItem(playerId, drop)
-              )
+              yield* Effect.forEach(block.dropItems, (drop) => playerAPI.addItem(playerId, drop))
             }
 
-            return { action: "break", block, drops: block?.dropItems ?? [] }
+            return { action: 'break', block, drops: block?.dropItems ?? [] }
           })
         ),
-        Match.when("place", () =>
+        Match.when('place', () =>
           Effect.gen(function* () {
             if (!item) {
               return yield* Effect.fail({
-                _tag: "NoItemToPlaceError" as const
+                _tag: 'NoItemToPlaceError' as const,
               })
             }
 
             const placedBlock = yield* worldAPI.placeBlock(pos, item.type as BlockType, item.metadata)
             yield* playerAPI.removeItem(playerId, player.selectedSlot, 1)
 
-            return { action: "place", block: placedBlock }
+            return { action: 'place', block: placedBlock }
           })
         ),
         Match.exhaustive
       )
-    })
+    }),
 }
 ```
 
@@ -451,7 +490,10 @@ export interface RenderingEngineAPI {
 
   // Scene Management
   readonly createScene: (config?: SceneConfig) => Effect.Effect<GameScene, SceneCreationError, RenderingService>
-  readonly updateScene: (scene: GameScene, updates: SceneUpdate[]) => Effect.Effect<GameScene, SceneUpdateError, RenderingService>
+  readonly updateScene: (
+    scene: GameScene,
+    updates: SceneUpdate[]
+  ) => Effect.Effect<GameScene, SceneUpdateError, RenderingService>
 
   // Mesh Management
   readonly createChunkMesh: (chunk: Chunk) => Effect.Effect<ChunkMesh, MeshCreationError, MeshService>
@@ -470,7 +512,9 @@ export interface RenderingEngineAPI {
 
   // Lighting & Effects
   readonly updateLighting: (lightingData: LightingData) => Effect.Effect<void, LightingUpdateError, LightingService>
-  readonly addParticleEffect: (effect: ParticleEffect) => Effect.Effect<ParticleEffectId, ParticleError, ParticleService>
+  readonly addParticleEffect: (
+    effect: ParticleEffect
+  ) => Effect.Effect<ParticleEffectId, ParticleError, ParticleService>
   readonly removeParticleEffect: (id: ParticleEffectId) => Effect.Effect<void, never, ParticleService>
 }
 ```
@@ -479,20 +523,20 @@ export interface RenderingEngineAPI {
 
 ```typescript
 // Core Rendering Types
-export const MeshId = Schema.String.pipe(Schema.uuid(), Schema.brand("MeshId"))
+export const MeshId = Schema.String.pipe(Schema.uuid(), Schema.brand('MeshId'))
 export type MeshId = Schema.Schema.Type<typeof MeshId>
 
 export const GameScene = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("SceneId")),
+  id: Schema.String.pipe(Schema.brand('SceneId')),
   chunks: Schema.Map({
     key: Schema.String, // ChunkCoordinate serialized
-    value: ChunkMesh
+    value: ChunkMesh,
   }),
   entities: Schema.Array(EntityMesh),
   particleEffects: Schema.Array(ParticleEffect),
   lighting: LightingData,
   fog: FogConfig,
-  skybox: SkyboxConfig
+  skybox: SkyboxConfig,
 })
 
 export const ChunkMesh = Schema.Struct({
@@ -502,7 +546,7 @@ export const ChunkMesh = Schema.Struct({
   material: MaterialReference,
   visible: Schema.Boolean,
   lodLevel: LevelOfDetail,
-  lastUpdated: Schema.Date
+  lastUpdated: Schema.Date,
 })
 
 export const CameraConfig = Schema.Struct({
@@ -511,12 +555,12 @@ export const CameraConfig = Schema.Struct({
   up: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   fov: Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThan(180)),
   near: Schema.Number.pipe(Schema.positive()),
   far: Schema.Number.pipe(Schema.positive()),
-  aspect: Schema.Number.pipe(Schema.positive())
+  aspect: Schema.Number.pipe(Schema.positive()),
 })
 
 export const FrameStats = Schema.Struct({
@@ -526,7 +570,7 @@ export const FrameStats = Schema.Struct({
   triangles: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   memoryUsage: Schema.Number.pipe(Schema.nonNegative()),
   chunksRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  entitiesRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+  entitiesRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 })
 
 // Rendering Operations
@@ -540,20 +584,21 @@ const renderingOperations = {
       const chunksToRender = calculateVisibleChunks(playerPos, renderDistance)
 
       // Apply Level of Detail based on distance
-      const lodChunks = chunksToRender.map(chunk => {
+      const lodChunks = chunksToRender.map((chunk) => {
         const distance = calculateDistance(playerPos, chunkCenterPosition(chunk.coordinate))
         return {
           ...chunk,
-          lodLevel: distance < renderDistance * 0.3 ? "high" as const :
-                   distance < renderDistance * 0.6 ? "medium" as const : "low" as const
+          lodLevel:
+            distance < renderDistance * 0.3
+              ? ('high' as const)
+              : distance < renderDistance * 0.6
+                ? ('medium' as const)
+                : ('low' as const),
         }
       })
 
       // Update scene with LOD chunks
-      yield* Effect.forEach(lodChunks, chunk =>
-        rendering.updateChunkMesh(chunk.mesh, chunk.data),
-        { concurrency: 4 }
-      )
+      yield* Effect.forEach(lodChunks, (chunk) => rendering.updateChunkMesh(chunk.mesh, chunk.data), { concurrency: 4 })
     }),
 
   // Dynamic lighting update
@@ -569,11 +614,10 @@ const renderingOperations = {
 
       // Update affected chunks
       const affectedChunks = findChunksInLightRadius(lightSources)
-      yield* Effect.forEach(affectedChunks, chunk =>
-        rendering.updateChunkMesh(chunk.mesh, chunk.data),
-        { concurrency: 2 }
-      )
-    })
+      yield* Effect.forEach(affectedChunks, (chunk) => rendering.updateChunkMesh(chunk.mesh, chunk.data), {
+        concurrency: 2,
+      })
+    }),
 }
 ```
 
@@ -589,30 +633,52 @@ export interface PhysicsSystemAPI {
   readonly step: (deltaTime: number) => Effect.Effect<void, PhysicsStepError, PhysicsService>
   readonly addBody: (body: PhysicsBody) => Effect.Effect<PhysicsBodyId, PhysicsError, PhysicsService>
   readonly removeBody: (id: PhysicsBodyId) => Effect.Effect<void, never, PhysicsService>
-  readonly updateBody: (id: PhysicsBodyId, updates: PhysicsBodyUpdate) => Effect.Effect<PhysicsBody, PhysicsUpdateError, PhysicsService>
+  readonly updateBody: (
+    id: PhysicsBodyId,
+    updates: PhysicsBodyUpdate
+  ) => Effect.Effect<PhysicsBody, PhysicsUpdateError, PhysicsService>
 
   // Collision Detection
-  readonly checkCollision: (pos: Position, movement: Velocity) => Effect.Effect<CollisionResult, CollisionError, CollisionService>
-  readonly raycast: (origin: Position, direction: Vector3, maxDistance: number) => Effect.Effect<RaycastResult[], RaycastError, CollisionService>
-  readonly sphereCast: (center: Position, radius: number) => Effect.Effect<SphereCastResult[], CollisionError, CollisionService>
+  readonly checkCollision: (
+    pos: Position,
+    movement: Velocity
+  ) => Effect.Effect<CollisionResult, CollisionError, CollisionService>
+  readonly raycast: (
+    origin: Position,
+    direction: Vector3,
+    maxDistance: number
+  ) => Effect.Effect<RaycastResult[], RaycastError, CollisionService>
+  readonly sphereCast: (
+    center: Position,
+    radius: number
+  ) => Effect.Effect<SphereCastResult[], CollisionError, CollisionService>
 
   // Movement & Forces
   readonly applyForce: (bodyId: PhysicsBodyId, force: Vector3) => Effect.Effect<void, ForceError, PhysicsService>
   readonly applyImpulse: (bodyId: PhysicsBodyId, impulse: Vector3) => Effect.Effect<void, ImpulseError, PhysicsService>
-  readonly setVelocity: (bodyId: PhysicsBodyId, velocity: Velocity) => Effect.Effect<void, VelocityError, PhysicsService>
+  readonly setVelocity: (
+    bodyId: PhysicsBodyId,
+    velocity: Velocity
+  ) => Effect.Effect<void, VelocityError, PhysicsService>
   readonly getVelocity: (bodyId: PhysicsBodyId) => Effect.Effect<Velocity, PhysicsBodyNotFoundError, PhysicsService>
 
   // World Interaction
   readonly checkGrounded: (bodyId: PhysicsBodyId) => Effect.Effect<boolean, PhysicsBodyNotFoundError, PhysicsService>
-  readonly checkInWater: (bodyId: PhysicsBodyId) => Effect.Effect<boolean, PhysicsBodyNotFoundError, PhysicsService | WorldService>
-  readonly calculateMovement: (body: PhysicsBody, input: MovementInput, deltaTime: number) => Effect.Effect<Vector3, MovementCalculationError, never>
+  readonly checkInWater: (
+    bodyId: PhysicsBodyId
+  ) => Effect.Effect<boolean, PhysicsBodyNotFoundError, PhysicsService | WorldService>
+  readonly calculateMovement: (
+    body: PhysicsBody,
+    input: MovementInput,
+    deltaTime: number
+  ) => Effect.Effect<Vector3, MovementCalculationError, never>
 }
 ```
 
 ### Physics Types
 
 ```typescript
-export const PhysicsBodyId = Schema.String.pipe(Schema.uuid(), Schema.brand("PhysicsBodyId"))
+export const PhysicsBodyId = Schema.String.pipe(Schema.uuid(), Schema.brand('PhysicsBodyId'))
 export type PhysicsBodyId = Schema.Schema.Type<typeof PhysicsBodyId>
 
 export const PhysicsBody = Schema.Struct({
@@ -626,7 +692,7 @@ export const PhysicsBody = Schema.Struct({
   shape: CollisionShape,
   kinematic: Schema.Boolean,
   static: Schema.Boolean,
-  gravity: Schema.Boolean
+  gravity: Schema.Boolean,
 })
 
 export const CollisionResult = Schema.Struct({
@@ -634,7 +700,7 @@ export const CollisionResult = Schema.Struct({
   adjustedMovement: Vector3,
   collisionNormal: Schema.optional(Vector3),
   collisionPoint: Schema.optional(Position),
-  collisionObject: Schema.optional(CollisionObject)
+  collisionObject: Schema.optional(CollisionObject),
 })
 
 export const RaycastResult = Schema.Struct({
@@ -642,7 +708,7 @@ export const RaycastResult = Schema.Struct({
   distance: Schema.Number.pipe(Schema.nonNegative()),
   point: Position,
   normal: Vector3,
-  object: CollisionObject
+  object: CollisionObject,
 })
 
 // Physics Operations
@@ -689,7 +755,7 @@ const physicsOperations = {
       }
 
       return collision
-    })
+    }),
 }
 ```
 
@@ -707,21 +773,38 @@ export interface AudioSystemAPI {
   readonly getMasterVolume: () => Effect.Effect<Volume, never, AudioService>
 
   // Sound Effects
-  readonly playSound: (soundId: SoundId, config?: SoundPlayConfig) => Effect.Effect<SoundInstanceId, SoundPlayError, SoundService>
+  readonly playSound: (
+    soundId: SoundId,
+    config?: SoundPlayConfig
+  ) => Effect.Effect<SoundInstanceId, SoundPlayError, SoundService>
   readonly stopSound: (instanceId: SoundInstanceId) => Effect.Effect<void, never, SoundService>
   readonly pauseSound: (instanceId: SoundInstanceId) => Effect.Effect<void, never, SoundService>
   readonly resumeSound: (instanceId: SoundInstanceId) => Effect.Effect<void, never, SoundService>
 
   // 3D Positional Audio
-  readonly playPositionalSound: (soundId: SoundId, position: Position, config?: PositionalSoundConfig) => Effect.Effect<SoundInstanceId, SoundPlayError, SoundService>
-  readonly updateSoundPosition: (instanceId: SoundInstanceId, position: Position) => Effect.Effect<void, SoundUpdateError, SoundService>
+  readonly playPositionalSound: (
+    soundId: SoundId,
+    position: Position,
+    config?: PositionalSoundConfig
+  ) => Effect.Effect<SoundInstanceId, SoundPlayError, SoundService>
+  readonly updateSoundPosition: (
+    instanceId: SoundInstanceId,
+    position: Position
+  ) => Effect.Effect<void, SoundUpdateError, SoundService>
   readonly setListener: (position: Position, orientation: AudioOrientation) => Effect.Effect<void, never, SoundService>
 
   // Music & Ambient
-  readonly playMusic: (musicId: MusicId, config?: MusicPlayConfig) => Effect.Effect<MusicInstanceId, MusicPlayError, MusicService>
+  readonly playMusic: (
+    musicId: MusicId,
+    config?: MusicPlayConfig
+  ) => Effect.Effect<MusicInstanceId, MusicPlayError, MusicService>
   readonly stopMusic: (instanceId?: MusicInstanceId) => Effect.Effect<void, never, MusicService>
   readonly setMusicVolume: (volume: Volume) => Effect.Effect<void, never, MusicService>
-  readonly crossfadeMusic: (fromId: MusicInstanceId, toId: MusicId, duration: Duration) => Effect.Effect<MusicInstanceId, MusicCrossfadeError, MusicService>
+  readonly crossfadeMusic: (
+    fromId: MusicInstanceId,
+    toId: MusicId,
+    duration: Duration
+  ) => Effect.Effect<MusicInstanceId, MusicCrossfadeError, MusicService>
 
   // Resource Management
   readonly preloadSound: (soundId: SoundId) => Effect.Effect<void, SoundLoadError, SoundService>
@@ -771,7 +854,7 @@ const performanceOptimizations = {
         // Increase quality
         yield* rendering.setRenderDistance(Math.min(16, renderDistance + 1))
       }
-    })
+    }),
 }
 ```
 
@@ -783,49 +866,45 @@ const performanceOptimizations = {
 
 ```typescript
 // System Errors - Effect-TS関数型パターン
-export const InitError = Schema.TaggedError("InitError")({
+export const InitError = Schema.TaggedError('InitError')({
   system: Schema.String,
   cause: Schema.Unknown,
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
 // World System Errors - Effect-TS関数型パターン
-export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+export const ChunkLoadError = Schema.TaggedError('ChunkLoadError')({
   coordinate: ChunkCoordinate,
-  cause: Schema.Union(
-    Schema.Literal("NotFound"),
-    Schema.Literal("GenerationFailed"),
-    Schema.Literal("IOError")
-  ),
-  message: Schema.optional(Schema.String)
+  cause: Schema.Union(Schema.Literal('NotFound'), Schema.Literal('GenerationFailed'), Schema.Literal('IOError')),
+  message: Schema.optional(Schema.String),
 })
 
 // Player System Errors - Effect-TS関数型パターン
-export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
   playerId: PlayerId,
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
 // Physics Errors - Effect-TS関数型パターン
-export const CollisionError = Schema.TaggedError("CollisionError")({
+export const CollisionError = Schema.TaggedError('CollisionError')({
   cause: Schema.Union(
-    Schema.Literal("InvalidPosition"),
-    Schema.Literal("NoCollisionShape"),
-    Schema.Literal("ComputationFailed")
+    Schema.Literal('InvalidPosition'),
+    Schema.Literal('NoCollisionShape'),
+    Schema.Literal('ComputationFailed')
   ),
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 
 // Rendering Errors - Effect-TS関数型パターン
-export const RenderError = Schema.TaggedError("RenderError")({
+export const RenderError = Schema.TaggedError('RenderError')({
   cause: Schema.Union(
-    Schema.Literal("ShaderCompileError"),
-    Schema.Literal("TextureLoadError"),
-    Schema.Literal("MeshCreateError"),
-    Schema.Literal("WebGLError")
+    Schema.Literal('ShaderCompileError'),
+    Schema.Literal('TextureLoadError'),
+    Schema.Literal('MeshCreateError'),
+    Schema.Literal('WebGLError')
   ),
   details: Schema.optional(Schema.Unknown),
-  message: Schema.optional(Schema.String)
+  message: Schema.optional(Schema.String),
 })
 ```
 
@@ -850,11 +929,11 @@ const gameLoop = Effect.gen(function* () {
     Effect.gen(function* () {
       if (!running) return
 
-      const deltaTime = Math.min((currentTime - lastTime) / 1000, 1/30) // Cap at 30 FPS
+      const deltaTime = Math.min((currentTime - lastTime) / 1000, 1 / 30) // Cap at 30 FPS
       lastTime = currentTime
 
       // Profile the frame
-      const profileId = yield* performance.startProfile("frame")
+      const profileId = yield* performance.startProfile('frame')
 
       // Update all systems
       yield* engine.update(deltaTime)

@@ -1,13 +1,13 @@
 ---
-title: "src/ ディレクトリ構造設計"
-description: "Effect-TS + DDD + ECS統合アーキテクチャに基づく理想的なソースコード構造"
-category: "architecture"
-priority: "critical"
+title: 'src/ ディレクトリ構造設計'
+description: 'Effect-TS + DDD + ECS統合アーキテクチャに基づく理想的なソースコード構造'
+category: 'architecture'
+priority: 'critical'
 related_docs:
-  - "docs/explanations/architecture/architecture-overview.md"
-  - "docs/how-to/development/development-conventions.md"
-  - "docs/tutorials/basic-game-development/domain-layer-architecture.md"
-tags: ["architecture", "ddd", "ecs", "effect-ts", "directory-structure"]
+  - 'docs/explanations/architecture/architecture-overview.md'
+  - 'docs/how-to/development/development-conventions.md'
+  - 'docs/tutorials/basic-game-development/domain-layer-architecture.md'
+tags: ['architecture', 'ddd', 'ecs', 'effect-ts', 'directory-structure']
 ---
 
 # src/ ディレクトリ構造設計
@@ -184,16 +184,17 @@ src/domain/
 #### Domain層の具体的な実装例
 
 **`src/domain/world/entities/Block.ts`** - ブロックエンティティ
+
 ```typescript
-import { Schema } from "@effect/schema"
-import { BlockType, BlockState, Position } from "../values"
+import { Schema } from '@effect/schema'
+import { BlockType, BlockState, Position } from '../values'
 
 export const Block = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("BlockId")),
+  id: Schema.String.pipe(Schema.brand('BlockId')),
   type: BlockType,
   state: BlockState,
   position: Position,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 export type Block = Schema.Schema.Type<typeof Block>
@@ -202,81 +203,69 @@ export type Block = Schema.Schema.Type<typeof Block>
 export const createBlock = (
   type: Schema.Schema.Type<typeof BlockType>,
   position: Schema.Schema.Type<typeof Position>
-) => Effect.gen(function* () {
-  const id = yield* generateBlockId()
-  return Block.make({
-    id,
-    type,
-    state: BlockState.default(),
-    position
+) =>
+  Effect.gen(function* () {
+    const id = yield* generateBlockId()
+    return Block.make({
+      id,
+      type,
+      state: BlockState.default(),
+      position,
+    })
   })
-})
 
-export const isAir = (block: Block): boolean =>
-  block.type === "AIR"
+export const isAir = (block: Block): boolean => block.type === 'AIR'
 
-export const isSolid = (block: Block): boolean =>
-  !["AIR", "WATER", "LAVA"].includes(block.type)
+export const isSolid = (block: Block): boolean => !['AIR', 'WATER', 'LAVA'].includes(block.type)
 ```
 
 **`src/domain/world/values/Position.ts`** - 座標値オブジェクト
+
 ```typescript
-import { Schema } from "@effect/schema"
-import { pipe } from "effect"
+import { Schema } from '@effect/schema'
+import { pipe } from 'effect'
 
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number.pipe(Schema.between(-64, 320)), // Minecraftの高度制限
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export type Position = Schema.Schema.Type<typeof Position>
 
 // 座標計算関数
 export const distance = (pos1: Position, pos2: Position): number =>
-  Math.sqrt(
-    Math.pow(pos1.x - pos2.x, 2) +
-    Math.pow(pos1.y - pos2.y, 2) +
-    Math.pow(pos1.z - pos2.z, 2)
-  )
+  Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2) + Math.pow(pos1.z - pos2.z, 2))
 
 export const add = (pos1: Position, pos2: Position): Position => ({
   x: pos1.x + pos2.x,
   y: pos1.y + pos2.y,
-  z: pos1.z + pos2.z
+  z: pos1.z + pos2.z,
 })
 
 export const toChunkCoordinate = (position: Position): ChunkCoordinate => ({
   chunkX: Math.floor(position.x / 16),
-  chunkZ: Math.floor(position.z / 16)
+  chunkZ: Math.floor(position.z / 16),
 })
 ```
 
 **`src/domain/player/services/PlayerMovement.ts`** - プレイヤー移動サービス
+
 ```typescript
-import { Context, Effect, Schema } from "@effect/platform"
-import { Player } from "../entities"
-import { Velocity, Position } from "../values"
-import { MovementError } from "../errors"
+import { Context, Effect, Schema } from '@effect/platform'
+import { Player } from '../entities'
+import { Velocity, Position } from '../values'
+import { MovementError } from '../errors'
 
 export interface PlayerMovement {
-  readonly move: (
-    player: Player,
-    velocity: Velocity,
-    deltaTime: number
-  ) => Effect.Effect<Player, MovementError>
+  readonly move: (player: Player, velocity: Velocity, deltaTime: number) => Effect.Effect<Player, MovementError>
 
-  readonly jump: (
-    player: Player
-  ) => Effect.Effect<Player, MovementError>
+  readonly jump: (player: Player) => Effect.Effect<Player, MovementError>
 
-  readonly validateMovement: (
-    from: Position,
-    to: Position
-  ) => Effect.Effect<boolean, MovementError>
+  readonly validateMovement: (from: Position, to: Position) => Effect.Effect<boolean, MovementError>
 }
 
-export const PlayerMovement = Context.GenericTag<PlayerMovement>("PlayerMovement")
+export const PlayerMovement = Context.GenericTag<PlayerMovement>('PlayerMovement')
 
 // 実装例
 export const PlayerMovementLive = Layer.effect(
@@ -285,21 +274,12 @@ export const PlayerMovementLive = Layer.effect(
     return PlayerMovement.of({
       move: (player, velocity, deltaTime) =>
         Effect.gen(function* () {
-          const newPosition = calculateNewPosition(
-            player.position,
-            velocity,
-            deltaTime
-          )
+          const newPosition = calculateNewPosition(player.position, velocity, deltaTime)
 
-          const isValidMove = yield* PlayerMovement.validateMovement(
-            player.position,
-            newPosition
-          )
+          const isValidMove = yield* PlayerMovement.validateMovement(player.position, newPosition)
 
           if (!isValidMove) {
-            return yield* Effect.fail(
-              new MovementError("Invalid movement")
-            )
+            return yield* Effect.fail(new MovementError('Invalid movement'))
           }
 
           return { ...player, position: newPosition }
@@ -308,14 +288,12 @@ export const PlayerMovementLive = Layer.effect(
       jump: (player) =>
         Effect.gen(function* () {
           if (player.velocity.y > 0) {
-            return yield* Effect.fail(
-              new MovementError("Already jumping")
-            )
+            return yield* Effect.fail(new MovementError('Already jumping'))
           }
 
           return {
             ...player,
-            velocity: { ...player.velocity, y: 0.42 } // Minecraftのジャンプ速度
+            velocity: { ...player.velocity, y: 0.42 }, // Minecraftのジャンプ速度
           }
         }),
 
@@ -323,7 +301,7 @@ export const PlayerMovementLive = Layer.effect(
         Effect.succeed(
           // 実際の衝突判定ロジック
           isValidMovement(from, to)
-        )
+        ),
     })
   })
 )
@@ -550,13 +528,13 @@ TypeScript設定（`tsconfig.json`）でのパスエイリアス：
 export interface WorldGenerator {
   readonly generateChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
 }
-export const WorldGenerator = Context.GenericTag<WorldGenerator>("WorldGenerator")
+export const WorldGenerator = Context.GenericTag<WorldGenerator>('WorldGenerator')
 
 // src/infrastructure/ecs/World.ts
 export interface ECSWorld {
   readonly addEntity: (entity: Entity) => Effect.Effect<EntityId, ECSError>
 }
-export const ECSWorld = Context.GenericTag<ECSWorld>("ECSWorld")
+export const ECSWorld = Context.GenericTag<ECSWorld>('ECSWorld')
 ```
 
 ### Schema.Struct使用例
@@ -566,7 +544,7 @@ export const ECSWorld = Context.GenericTag<ECSWorld>("ECSWorld")
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 export type Position = Schema.Schema.Type<typeof Position>
 
@@ -575,7 +553,7 @@ export const Player = Schema.Struct({
   id: Schema.String,
   position: Position,
   health: Schema.Number,
-  inventory: Schema.Array(ItemStack)
+  inventory: Schema.Array(ItemStack),
 })
 export type Player = Schema.Schema.Type<typeof Player>
 ```
@@ -584,19 +562,17 @@ export type Player = Schema.Schema.Type<typeof Player>
 
 ```typescript
 // src/domain/world/errors/ChunkError.ts
-export const ChunkNotFoundError = Schema.TaggedError("ChunkNotFoundError")({
+export const ChunkNotFoundError = Schema.TaggedError('ChunkNotFoundError')({
   coordinate: ChunkCoordinate,
-  detail: Schema.String
+  detail: Schema.String,
 })
 
-export const ChunkGenerationError = Schema.TaggedError("ChunkGenerationError")({
+export const ChunkGenerationError = Schema.TaggedError('ChunkGenerationError')({
   coordinate: ChunkCoordinate,
-  reason: Schema.String
+  reason: Schema.String,
 })
 
-export type ChunkError =
-  | Schema.Schema.Type<typeof ChunkNotFoundError>
-  | Schema.Schema.Type<typeof ChunkGenerationError>
+export type ChunkError = Schema.Schema.Type<typeof ChunkNotFoundError> | Schema.Schema.Type<typeof ChunkGenerationError>
 ```
 
 ## 実装優先順位

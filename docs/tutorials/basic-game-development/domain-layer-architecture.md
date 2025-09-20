@@ -1,41 +1,42 @@
 ---
-title: "Phase 1: ドメインレイヤーアーキテクチャ構築"
-description: "Effect-TS 3.17+とDDDパターンによるMinecraft Cloneのドメインレイヤー設計と実装。型安全なEntity、Value Object、Domain Serviceの構築方法を学習。"
-category: "tutorial"
-difficulty: "intermediate"
-tags: ["domain-driven-design", "effect-ts", "architecture", "typescript", "ddd-entities"]
-prerequisites: ["01-environment-setup", "effect-ts-basics"]
-estimated_reading_time: "25分"
-estimated_implementation_time: "60分"
+title: 'Phase 1: ドメインレイヤーアーキテクチャ構築'
+description: 'Effect-TS 3.17+とDDDパターンによるMinecraft Cloneのドメインレイヤー設計と実装。型安全なEntity、Value Object、Domain Serviceの構築方法を学習。'
+category: 'tutorial'
+difficulty: 'intermediate'
+tags: ['domain-driven-design', 'effect-ts', 'architecture', 'typescript', 'ddd-entities']
+prerequisites: ['01-environment-setup', 'effect-ts-basics']
+estimated_reading_time: '25分'
+estimated_implementation_time: '60分'
 ai_context:
-  primary_concepts: ["domain-entities", "value-objects", "domain-services", "effect-ts-schema"]
-  prerequisite_knowledge: ["effect-ts-fundamentals", "ddd-concepts", "typescript-advanced"]
-  estimated_completion_time: "90分"
-  learning_outcomes: ["ドメインエンティティ設計", "型安全なスキーマ定義", "ドメインロジック実装", "関数型DDD実践"]
+  primary_concepts: ['domain-entities', 'value-objects', 'domain-services', 'effect-ts-schema']
+  prerequisite_knowledge: ['effect-ts-fundamentals', 'ddd-concepts', 'typescript-advanced']
+  estimated_completion_time: '90分'
+  learning_outcomes: ['ドメインエンティティ設計', '型安全なスキーマ定義', 'ドメインロジック実装', '関数型DDD実践']
   complexity_level: 5.5
-  learning_path: "intermediate"
+  learning_path: 'intermediate'
 tutorial_structure:
-  format: "hands-on-implementation"
+  format: 'hands-on-implementation'
   interactive_examples: true
   practice_exercises: 4
-  difficulty_progression: "gradual"
-  success_criteria: ["動作するドメインモデル", "型安全性保証", "テスト通過"]
+  difficulty_progression: 'gradual'
+  success_criteria: ['動作するドメインモデル', '型安全性保証', 'テスト通過']
 code_examples:
   executable: true
-  language: "typescript"
-  framework: "effect-ts-3.17"
+  language: 'typescript'
+  framework: 'effect-ts-3.17'
   complexity_score: 5.5
   includes_exercises: true
 related_resources:
-  internal_links: ["../effect-ts-fundamentals/effect-ts-basics.md", "../../explanations/architecture/domain-application-apis.md"]
-  external_refs: ["https://effect.website/docs/schema/", "https://martinfowler.com/bliki/DomainDrivenDesign.html"]
+  internal_links:
+    ['../effect-ts-fundamentals/effect-ts-basics.md', '../../explanations/architecture/domain-application-apis.md']
+  external_refs: ['https://effect.website/docs/schema/', 'https://martinfowler.com/bliki/DomainDrivenDesign.html']
 machine_readable:
-  topics: ["domain-driven-design", "effect-ts-schema", "typescript-entities", "functional-programming"]
-  skill_level: "intermediate"
+  topics: ['domain-driven-design', 'effect-ts-schema', 'typescript-entities', 'functional-programming']
+  skill_level: 'intermediate'
   implementation_time: 90
   confidence_score: 0.95
-  use_cases: ["game-development", "domain-modeling", "type-safe-architecture"]
-  tutorial_type: "hands-on-implementation"
+  use_cases: ['game-development', 'domain-modeling', 'type-safe-architecture']
+  tutorial_type: 'hands-on-implementation'
 ---
 
 # 🏗️ Phase 1: ドメインレイヤーアーキテクチャ構築
@@ -50,6 +51,7 @@ machine_readable:
 ## 📋 Phase 1 実装チェックリスト
 
 ### ✅ 完成目標
+
 - [ ] **Block Entity** - ブロックのドメインモデルとビジネスロジック
 - [ ] **Chunk Entity** - チャンク管理とワールド座標変換
 - [ ] **Player Entity** - プレイヤー状態と物理演算ロジック
@@ -100,12 +102,10 @@ classDiagram
 
 ```typescript
 // src/domain/world/entities/Block.ts
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // ブロックタイプの定義 - リテラル型で型安全性を確保
-export const BlockType = Schema.Literal(
-  "air", "stone", "grass", "dirt", "wood", "leaves", "sand", "water"
-)
+export const BlockType = Schema.Literal('air', 'stone', 'grass', 'dirt', 'wood', 'leaves', 'sand', 'water')
 
 export type BlockType = Schema.Schema.Type<typeof BlockType>
 
@@ -113,7 +113,7 @@ export type BlockType = Schema.Schema.Type<typeof BlockType>
 export const Position = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   y: Schema.Number.pipe(Schema.int(), Schema.between(0, 255)), // Y軸は0-255に制限
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 
 export type Position = Schema.Schema.Type<typeof Position>
@@ -124,7 +124,7 @@ export const Block = Schema.Struct({
   position: Position,
   metadata: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown) // 拡張可能なメタデータ
-  )
+  ),
 })
 
 export type Block = Schema.Schema.Type<typeof Block>
@@ -137,11 +137,11 @@ export type Block = Schema.Schema.Type<typeof Block>
 export const BlockOperations = {
   // ブロック破壊可能性の判定 - Effect-TS Match.valueによるTagged Union パターンマッチング
   isBreakable: (block: Block): boolean => {
-    import { Match } from "effect"
+    import { Match } from 'effect'
 
     return Match.value(block.type).pipe(
-      Match.when("air", () => false),
-      Match.when("water", () => false),
+      Match.when('air', () => false),
+      Match.when('water', () => false),
       Match.orElse(() => true)
     )
   },
@@ -149,20 +149,20 @@ export const BlockOperations = {
   // 設置可能性の判定
   canPlaceOn: (targetBlock: Block, newBlockType: BlockType): boolean => {
     // エアブロックまたは液体ブロックにのみ設置可能
-    return targetBlock.type === "air" || targetBlock.type === "water"
+    return targetBlock.type === 'air' || targetBlock.type === 'water'
   },
 
   // ブロックの硬度取得 - 破壊時間の計算に使用
   getHardness: (blockType: BlockType): number => {
     const hardnessMap: Record<BlockType, number> = {
-      "air": 0,        // 瞬時破壊
-      "stone": 1.5,    // 石 - 硬い
-      "grass": 0.6,    // 草ブロック - 中程度
-      "dirt": 0.5,     // 土 - 柔らかい
-      "wood": 2.0,     // 木材 - 非常に硬い
-      "leaves": 0.2,   // 葉 - 非常に柔らかい
-      "sand": 0.5,     // 砂 - 柔らかい
-      "water": 0       // 破壊不可
+      air: 0, // 瞬時破壊
+      stone: 1.5, // 石 - 硬い
+      grass: 0.6, // 草ブロック - 中程度
+      dirt: 0.5, // 土 - 柔らかい
+      wood: 2.0, // 木材 - 非常に硬い
+      leaves: 0.2, // 葉 - 非常に柔らかい
+      sand: 0.5, // 砂 - 柔らかい
+      water: 0, // 破壊不可
     }
     return hardnessMap[blockType]
   },
@@ -180,14 +180,14 @@ export const BlockOperations = {
   validatePlacement: (
     targetBlock: Block,
     newBlockType: BlockType,
-    playerGameMode: "survival" | "creative"
+    playerGameMode: 'survival' | 'creative'
   ): boolean => {
     // クリエイティブモードでは制約なし
-    if (playerGameMode === "creative") return true
+    if (playerGameMode === 'creative') return true
 
     // サバイバルモードでは設置可能性をチェック
     return BlockOperations.canPlaceOn(targetBlock, newBlockType)
-  }
+  },
 }
 ```
 
@@ -197,13 +197,13 @@ export const BlockOperations = {
 
 ```typescript
 // src/domain/world/entities/Chunk.ts
-import { Schema, Effect } from "effect"
-import { Block, Position } from "./Block.js"
+import { Schema, Effect } from 'effect'
+import { Block, Position } from './Block.js'
 
 // チャンク座標の定義 - 16×16ブロックの領域
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 
 export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
@@ -212,9 +212,9 @@ export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 export const Chunk = Schema.Struct({
   coordinate: ChunkCoordinate,
   blocks: Schema.Array(Schema.Array(Schema.Array(Block))), // [x][z][y] の3次元配列
-  generated: Schema.Boolean,    // 地形生成済みフラグ
-  modified: Schema.Boolean,     // 変更済みフラグ（保存が必要）
-  lastAccessed: Schema.Date     // 最終アクセス時刻（メモリ管理用）
+  generated: Schema.Boolean, // 地形生成済みフラグ
+  modified: Schema.Boolean, // 変更済みフラグ（保存が必要）
+  lastAccessed: Schema.Date, // 最終アクセス時刻（メモリ管理用）
 })
 
 export type Chunk = Schema.Schema.Type<typeof Chunk>
@@ -228,7 +228,7 @@ export const ChunkOperations = {
   // ワールド座標からチャンク座標への変換
   worldToChunk: (worldX: number, worldZ: number): ChunkCoordinate => ({
     x: Math.floor(worldX / ChunkOperations.CHUNK_SIZE),
-    z: Math.floor(worldZ / ChunkOperations.CHUNK_SIZE)
+    z: Math.floor(worldZ / ChunkOperations.CHUNK_SIZE),
   }),
 
   // ワールド座標からチャンク内ローカル座標への変換
@@ -239,7 +239,7 @@ export const ChunkOperations = {
     return {
       x: localX,
       y: worldY, // Y座標はそのまま
-      z: localZ
+      z: localZ,
     }
   },
 
@@ -247,7 +247,7 @@ export const ChunkOperations = {
   localToWorld: (chunk: Chunk, localX: number, localY: number, localZ: number): Position => ({
     x: chunk.coordinate.x * ChunkOperations.CHUNK_SIZE + localX,
     y: localY,
-    z: chunk.coordinate.z * ChunkOperations.CHUNK_SIZE + localZ
+    z: chunk.coordinate.z * ChunkOperations.CHUNK_SIZE + localZ,
   }),
 
   // 指定ローカル座標のブロックを取得
@@ -262,9 +262,14 @@ export const ChunkOperations = {
 
   // ローカル座標の有効性チェック
   isValidLocalCoordinate: (x: number, y: number, z: number): boolean => {
-    return x >= 0 && x < ChunkOperations.CHUNK_SIZE &&
-           y >= 0 && y < ChunkOperations.CHUNK_HEIGHT &&
-           z >= 0 && z < ChunkOperations.CHUNK_SIZE
+    return (
+      x >= 0 &&
+      x < ChunkOperations.CHUNK_SIZE &&
+      y >= 0 &&
+      y < ChunkOperations.CHUNK_HEIGHT &&
+      z >= 0 &&
+      z < ChunkOperations.CHUNK_SIZE
+    )
   },
 
   // ブロックを指定位置に設置 - Effect型で副作用を表現
@@ -285,11 +290,7 @@ export const ChunkOperations = {
       const newBlocks = chunk.blocks.map((xBlocks, x) =>
         x === localX
           ? xBlocks.map((zBlocks, z) =>
-              z === localZ
-                ? zBlocks.map((existingBlock, y) =>
-                    y === localY ? block : existingBlock
-                  )
-                : zBlocks
+              z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
             )
           : xBlocks
       )
@@ -298,8 +299,8 @@ export const ChunkOperations = {
       return {
         ...chunk,
         blocks: newBlocks,
-        modified: true,                // 変更フラグをセット
-        lastAccessed: new Date()       // アクセス時刻を更新
+        modified: true, // 変更フラグをセット
+        lastAccessed: new Date(), // アクセス時刻を更新
       }
     }),
 
@@ -309,7 +310,7 @@ export const ChunkOperations = {
       for (let z = 0; z < ChunkOperations.CHUNK_SIZE; z++) {
         for (let y = 0; y < ChunkOperations.CHUNK_HEIGHT; y++) {
           const block = chunk.blocks[x]?.[z]?.[y]
-          if (block && block.type !== "air") {
+          if (block && block.type !== 'air') {
             return false
           }
         }
@@ -325,8 +326,8 @@ export const ChunkOperations = {
     maxX: (chunk.coordinate.x + 1) * ChunkOperations.CHUNK_SIZE - 1,
     maxZ: (chunk.coordinate.z + 1) * ChunkOperations.CHUNK_SIZE - 1,
     minY: 0,
-    maxY: ChunkOperations.CHUNK_HEIGHT - 1
-  })
+    maxY: ChunkOperations.CHUNK_HEIGHT - 1,
+  }),
 }
 ```
 
@@ -336,41 +337,41 @@ export const ChunkOperations = {
 
 ```typescript
 // src/domain/player/entities/Player.ts
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // Position Value Object（再利用）
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number.pipe(Schema.between(-64, 320)), // 建築制限高度
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 // Velocity Value Object - 速度ベクトル
 export const Velocity = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 // Rotation Value Object - プレイヤーの向き
 export const Rotation = Schema.Struct({
-  yaw: Schema.Number,   // 水平方向の回転（左右）
-  pitch: Schema.Number  // 垂直方向の回転（上下）
+  yaw: Schema.Number, // 水平方向の回転（左右）
+  pitch: Schema.Number, // 垂直方向の回転（上下）
 })
 
 // Player Entity - ゲームの中心的エンティティ
 export const Player = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")), // Brand型でID型安全性を保証
+  id: Schema.String.pipe(Schema.brand('PlayerId')), // Brand型でID型安全性を保証
   position: Position,
   velocity: Velocity,
   rotation: Rotation,
-  onGround: Schema.Boolean,        // 地面接触フラグ
+  onGround: Schema.Boolean, // 地面接触フラグ
   health: Schema.Number.pipe(
     Schema.between(0, 20),
-    Schema.brand("Health")         // Health Brand型
+    Schema.brand('Health') // Health Brand型
   ),
-  gameMode: Schema.Literal("survival", "creative", "spectator"),
-  selectedSlot: Schema.Number.pipe(Schema.between(0, 8)) // ホットバー選択スロット
+  gameMode: Schema.Literal('survival', 'creative', 'spectator'),
+  selectedSlot: Schema.Number.pipe(Schema.between(0, 8)), // ホットバー選択スロット
 })
 
 export type Player = Schema.Schema.Type<typeof Player>
@@ -381,11 +382,11 @@ export type Rotation = Schema.Schema.Type<typeof Rotation>
 // Player Domain Operations - 物理演算とゲームロジック
 export const PlayerOperations = {
   // 物理定数
-  GRAVITY: 9.81,           // 重力加速度 (m/s²)
-  TERMINAL_VELOCITY: -50,  // 最大落下速度 (m/s)
-  JUMP_VELOCITY: 8.0,      // ジャンプ初速度 (m/s)
-  WALK_SPEED: 4.317,       // 歩行速度 (m/s) - Minecraftの実際の値
-  CREATIVE_SPEED: 10.0,    // クリエイティブ飛行速度 (m/s)
+  GRAVITY: 9.81, // 重力加速度 (m/s²)
+  TERMINAL_VELOCITY: -50, // 最大落下速度 (m/s)
+  JUMP_VELOCITY: 8.0, // ジャンプ初速度 (m/s)
+  WALK_SPEED: 4.317, // 歩行速度 (m/s) - Minecraftの実際の値
+  CREATIVE_SPEED: 10.0, // クリエイティブ飛行速度 (m/s)
 
   // 重力の適用 - 物理演算の核となる関数
   applyGravity: (player: Player, deltaTime: number): Player => {
@@ -393,7 +394,7 @@ export const PlayerOperations = {
     if (player.onGround && player.velocity.y <= 0) {
       return {
         ...player,
-        velocity: { ...player.velocity, y: 0 }
+        velocity: { ...player.velocity, y: 0 },
       }
     }
 
@@ -406,7 +407,7 @@ export const PlayerOperations = {
     return {
       ...player,
       velocity: { ...player.velocity, y: newVelocityY },
-      onGround: false // 重力が適用されている = 空中にいる
+      onGround: false, // 重力が適用されている = 空中にいる
     }
   },
 
@@ -416,8 +417,8 @@ export const PlayerOperations = {
     position: {
       x: player.position.x + player.velocity.x * deltaTime,
       y: player.position.y + player.velocity.y * deltaTime,
-      z: player.position.z + player.velocity.z * deltaTime
-    }
+      z: player.position.z + player.velocity.z * deltaTime,
+    },
   }),
 
   // ジャンプ処理 - 地面にいる時のみ実行可能
@@ -428,9 +429,9 @@ export const PlayerOperations = {
       ...player,
       velocity: {
         ...player.velocity,
-        y: PlayerOperations.JUMP_VELOCITY
+        y: PlayerOperations.JUMP_VELOCITY,
       },
-      onGround: false
+      onGround: false,
     }
   },
 
@@ -446,9 +447,7 @@ export const PlayerOperations = {
     deltaTime: number
   ): Player => {
     // ゲームモードに応じた移動速度の決定
-    const speed = player.gameMode === "creative"
-      ? PlayerOperations.CREATIVE_SPEED
-      : PlayerOperations.WALK_SPEED
+    const speed = player.gameMode === 'creative' ? PlayerOperations.CREATIVE_SPEED : PlayerOperations.WALK_SPEED
 
     // 入力方向の計算
     let forwardMovement = 0
@@ -476,29 +475,24 @@ export const PlayerOperations = {
       velocity: {
         x: moveX * speed,
         y: player.velocity.y, // Y軸速度は重力・ジャンプで個別管理
-        z: moveZ * speed
-      }
+        z: moveZ * speed,
+      },
     }
   },
 
   // 視点回転の処理
-  updateRotation: (
-    player: Player,
-    deltaYaw: number,
-    deltaPitch: number,
-    sensitivity: number = 0.001
-  ): Player => ({
+  updateRotation: (player: Player, deltaYaw: number, deltaPitch: number, sensitivity: number = 0.001): Player => ({
     ...player,
     rotation: {
       yaw: player.rotation.yaw + deltaYaw * sensitivity,
       pitch: Math.max(
-        -Math.PI / 2,  // 真下を見る限界
+        -Math.PI / 2, // 真下を見る限界
         Math.min(
           Math.PI / 2, // 真上を見る限界
           player.rotation.pitch + deltaPitch * sensitivity
         )
-      )
-    }
+      ),
+    },
   }),
 
   // ヘルス管理
@@ -507,7 +501,7 @@ export const PlayerOperations = {
 
     return {
       ...player,
-      health: newHealth
+      health: newHealth,
     }
   },
 
@@ -516,7 +510,7 @@ export const PlayerOperations = {
 
     return {
       ...player,
-      health: newHealth
+      health: newHealth,
     }
   },
 
@@ -530,11 +524,11 @@ export const PlayerOperations = {
   getDebugInfo: (player: Player) => ({
     position: `${player.position.x.toFixed(2)}, ${player.position.y.toFixed(2)}, ${player.position.z.toFixed(2)}`,
     velocity: `${player.velocity.x.toFixed(2)}, ${player.velocity.y.toFixed(2)}, ${player.velocity.z.toFixed(2)}`,
-    rotation: `Yaw: ${(player.rotation.yaw * 180 / Math.PI).toFixed(1)}°, Pitch: ${(player.rotation.pitch * 180 / Math.PI).toFixed(1)}°`,
+    rotation: `Yaw: ${((player.rotation.yaw * 180) / Math.PI).toFixed(1)}°, Pitch: ${((player.rotation.pitch * 180) / Math.PI).toFixed(1)}°`,
     onGround: player.onGround,
     health: player.health,
-    gameMode: player.gameMode
-  })
+    gameMode: player.gameMode,
+  }),
 }
 ```
 
@@ -544,24 +538,24 @@ export const PlayerOperations = {
 
 ```typescript
 // src/domain/__tests__/PlayerOperations.test.ts
-import { describe, it, expect } from "vitest"
-import { Player, PlayerOperations } from "../player/entities/Player.js"
+import { describe, it, expect } from 'vitest'
+import { Player, PlayerOperations } from '../player/entities/Player.js'
 
-describe("PlayerOperations", () => {
+describe('PlayerOperations', () => {
   // テスト用のモックプレイヤー
   const createTestPlayer = (): Player => ({
-    id: "test-player" as any,
+    id: 'test-player' as any,
     position: { x: 0, y: 64, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
     rotation: { yaw: 0, pitch: 0 },
     onGround: true,
     health: 20 as any,
-    gameMode: "survival",
-    selectedSlot: 0
+    gameMode: 'survival',
+    selectedSlot: 0,
   })
 
-  describe("重力システム", () => {
-    it("地面にいるプレイヤーには重力を適用しない", () => {
+  describe('重力システム', () => {
+    it('地面にいるプレイヤーには重力を適用しない', () => {
       const player = createTestPlayer()
       const result = PlayerOperations.applyGravity(player, 1.0)
 
@@ -569,7 +563,7 @@ describe("PlayerOperations", () => {
       expect(result.onGround).toBe(true)
     })
 
-    it("空中のプレイヤーに重力を適用", () => {
+    it('空中のプレイヤーに重力を適用', () => {
       const player = { ...createTestPlayer(), onGround: false, velocity: { x: 0, y: 5, z: 0 } }
       const result = PlayerOperations.applyGravity(player, 1.0)
 
@@ -577,7 +571,7 @@ describe("PlayerOperations", () => {
       expect(result.onGround).toBe(false)
     })
 
-    it("最大落下速度を超えない", () => {
+    it('最大落下速度を超えない', () => {
       const player = { ...createTestPlayer(), onGround: false, velocity: { x: 0, y: -60, z: 0 } }
       const result = PlayerOperations.applyGravity(player, 1.0)
 
@@ -585,8 +579,8 @@ describe("PlayerOperations", () => {
     })
   })
 
-  describe("ジャンプシステム", () => {
-    it("地面にいる時のみジャンプ可能", () => {
+  describe('ジャンプシステム', () => {
+    it('地面にいる時のみジャンプ可能', () => {
       const player = createTestPlayer()
       const result = PlayerOperations.jump(player)
 
@@ -594,7 +588,7 @@ describe("PlayerOperations", () => {
       expect(result.onGround).toBe(false)
     })
 
-    it("空中ではジャンプできない", () => {
+    it('空中ではジャンプできない', () => {
       const player = { ...createTestPlayer(), onGround: false }
       const result = PlayerOperations.jump(player)
 
@@ -603,8 +597,8 @@ describe("PlayerOperations", () => {
     })
   })
 
-  describe("移動システム", () => {
-    it("前進入力で正しい方向に移動", () => {
+  describe('移動システム', () => {
+    it('前進入力で正しい方向に移動', () => {
       const player = createTestPlayer()
       const result = PlayerOperations.handleMovementInput(
         player,
@@ -616,7 +610,7 @@ describe("PlayerOperations", () => {
       expect(result.velocity.z).toBeCloseTo(PlayerOperations.WALK_SPEED, 5)
     })
 
-    it("斜め移動で速度が正規化される", () => {
+    it('斜め移動で速度が正規化される', () => {
       const player = createTestPlayer()
       const result = PlayerOperations.handleMovementInput(
         player,
@@ -673,6 +667,6 @@ Phase 1のドメインレイヤー実装が完了しました！次は以下に�
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **[基本ゲーム開発](README.md)** → **Phase 1: ドメインレイヤー**
+_📍 現在のドキュメント階層_: **[Home](../../README.md)** → **[Tutorials](../README.md)** → **[基本ゲーム開発](README.md)** → **Phase 1: ドメインレイヤー**
 
-*🔗 関連リソース*: [Environment Setup](environment-setup.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [DDD Architecture](../../explanations/architecture/domain-application-apis.md)
+_🔗 関連リソース_: [Environment Setup](environment-setup.md) • [Effect-TS Fundamentals](../effect-ts-fundamentals/README.md) • [DDD Architecture](../../explanations/architecture/domain-application-apis.md)

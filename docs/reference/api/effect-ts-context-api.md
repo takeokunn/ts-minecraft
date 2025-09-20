@@ -1,13 +1,12 @@
 ---
-title: "Effect-TS Context API リファレンス"
-description: "Context.GenericTagとLayerを使用した依存性注入のAPIリファレンス"
-category: "reference"
-difficulty: "advanced"
-tags: ["effect-ts", "context", "dependency-injection", "api-reference", "layer"]
-prerequisites: ["effect-ts-patterns", "typescript-advanced"]
-estimated_reading_time: "15分"
+title: 'Effect-TS Context API リファレンス'
+description: 'Context.GenericTagとLayerを使用した依存性注入のAPIリファレンス'
+category: 'reference'
+difficulty: 'advanced'
+tags: ['effect-ts', 'context', 'dependency-injection', 'api-reference', 'layer']
+prerequisites: ['effect-ts-patterns', 'typescript-advanced']
+estimated_reading_time: '15分'
 ---
-
 
 # Effect-TS Context API リファレンス
 
@@ -22,6 +21,7 @@ estimated_reading_time: "15分"
 > **📚 前提知識**: Effect-TSパターン、TypeScript型システム
 
 ### 📋 関連ドキュメント
+
 - **概念説明**: [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md)
 - **実装ガイド**: [サービス設計](../explanations/architecture/06b-effect-ts-services.md)
 - **Schema API**: [Schema API](./effect-ts-schema-api.md)
@@ -33,10 +33,10 @@ estimated_reading_time: "15分"
 ### 1.1 基本定義
 
 ```typescript
-import { Context } from "effect"
+import { Context } from 'effect'
 
 // TypeScript Minecraft標準: @app/ServiceNameネームスペース (関数型パターン)
-const ServiceName = Context.GenericTag<ServiceInterface>("@app/ServiceName")
+const ServiceName = Context.GenericTag<ServiceInterface>('@app/ServiceName')
 
 // サービスインターフェース定義
 interface ServiceInterface {
@@ -48,10 +48,10 @@ interface ServiceInterface {
 
 ### 1.2 型パラメータ
 
-| パラメータ | 説明 | 必須 |
-|----------|------|------|
-| `Self` | サービスタグ自身の型 | ✅ |
-| `Service` | サービスが提供するインターフェース | ✅ |
+| パラメータ | 説明                               | 必須 |
+| ---------- | ---------------------------------- | ---- |
+| `Self`     | サービスタグ自身の型               | ✅   |
+| `Service`  | サービスが提供するインターフェース | ✅   |
 
 ### 1.3 使用例
 
@@ -63,7 +63,7 @@ interface WorldServiceInterface {
   readonly save: () => Effect.Effect<void, SaveError>
 }
 
-const WorldService = Context.GenericTag<WorldServiceInterface>("@app/WorldService")
+const WorldService = Context.GenericTag<WorldServiceInterface>('@app/WorldService')
 
 // インベントリサービス (関数型パターン)
 interface InventoryServiceInterface {
@@ -72,7 +72,7 @@ interface InventoryServiceInterface {
   readonly getItems: () => Effect.Effect<ReadonlyArray<Item>>
 }
 
-const InventoryService = Context.GenericTag<InventoryServiceInterface>("@app/InventoryService")
+const InventoryService = Context.GenericTag<InventoryServiceInterface>('@app/InventoryService')
 ```
 
 ## 2. Layer API
@@ -80,13 +80,10 @@ const InventoryService = Context.GenericTag<InventoryServiceInterface>("@app/Inv
 ### 2.1 Layer生成メソッド
 
 ```typescript
-import { Layer, Effect } from "effect"
+import { Layer, Effect } from 'effect'
 
 // Layer.succeed - 同期的な値でサービスを提供
-const ServiceLive = Layer.succeed(
-  ServiceTag,
-  serviceImplementation
-)
+const ServiceLive = Layer.succeed(ServiceTag, serviceImplementation)
 
 // Layer.effect - Effectから非同期にサービスを生成
 const ServiceLive = Layer.effect(
@@ -121,19 +118,10 @@ const AppLayer = Layer.provide(
 )
 
 // 水平合成 - 複数サービスの提供
-const CombinedLayer = Layer.merge(
-  ServiceALayer,
-  ServiceBLayer
-)
+const CombinedLayer = Layer.merge(ServiceALayer, ServiceBLayer)
 
 // 複数の依存関係
-const AppLayer = Layer.provideMerge(
-  MainServiceLayer,
-  Layer.merge(
-    DependencyALayer,
-    DependencyBLayer
-  )
-)
+const AppLayer = Layer.provideMerge(MainServiceLayer, Layer.merge(DependencyALayer, DependencyBLayer))
 ```
 
 ### 2.3 実装例
@@ -147,7 +135,7 @@ const DatabaseLive = Layer.effect(
     const connection = await connectDB(config.dbUrl)
     return {
       query: (sql) => Effect.tryPromise(() => connection.query(sql)),
-      close: () => Effect.tryPromise(() => connection.close())
+      close: () => Effect.tryPromise(() => connection.close()),
     }
   })
 )
@@ -165,31 +153,28 @@ const WorldServiceLive = Layer.effect(
           Effect.orElse(() =>
             pipe(
               db.query(`SELECT * FROM chunks WHERE x = ? AND z = ?`, [x, z]),
-              Effect.tap(chunk => cache.set(`chunk_${x}_${z}`, chunk))
+              Effect.tap((chunk) => cache.set(`chunk_${x}_${z}`, chunk))
             )
           )
         ),
       setBlock: (pos, block) =>
         pipe(
           Effect.Do,
-          Effect.bind("chunk", () => getChunk(pos.chunkX, pos.chunkZ)),
+          Effect.bind('chunk', () => getChunk(pos.chunkX, pos.chunkZ)),
           Effect.tap(({ chunk }) => chunk.setBlock(pos, block)),
           Effect.tap(() => cache.invalidate(`chunk_${pos.chunkX}_${pos.chunkZ}`))
         ),
       save: () =>
         pipe(
           cache.flush(),
-          Effect.flatMap(() => db.query("COMMIT"))
-        )
+          Effect.flatMap(() => db.query('COMMIT'))
+        ),
     }
   })
 )
 
 // 完全なアプリケーションレイヤー
-const AppLive = Layer.provide(
-  WorldServiceLive,
-  Layer.merge(DatabaseLive, CacheServiceLive)
-)
+const AppLive = Layer.provide(WorldServiceLive, Layer.merge(DatabaseLive, CacheServiceLive))
 ```
 
 ## 3. サービスアクセスパターン
@@ -213,8 +198,8 @@ const program = Effect.gen(function* () {
 ```typescript
 const program = pipe(
   WorldService,
-  Effect.flatMap(world => world.getChunk(0, 0)),
-  Effect.flatMap(chunk => processChunk(chunk))
+  Effect.flatMap((world) => world.getChunk(0, 0)),
+  Effect.flatMap((chunk) => processChunk(chunk))
 )
 ```
 
@@ -222,16 +207,10 @@ const program = pipe(
 
 ```typescript
 // サービスメソッドの抽出
-const getChunk = Effect.serviceFunctionEffect(
-  WorldService,
-  (service) => service.getChunk
-)
+const getChunk = Effect.serviceFunctionEffect(WorldService, (service) => service.getChunk)
 
 // 使用
-const program = pipe(
-  getChunk(0, 0),
-  Effect.map(processChunk)
-)
+const program = pipe(getChunk(0, 0), Effect.map(processChunk))
 ```
 
 ## 4. 高度なパターン
@@ -244,18 +223,15 @@ interface ServiceFactoryInterface {
   readonly create: <T>(config: Config<T>) => Effect.Effect<T>
 }
 
-const ServiceFactory = Context.GenericTag<ServiceFactoryInterface>("@app/ServiceFactory")
+const ServiceFactory = Context.GenericTag<ServiceFactoryInterface>('@app/ServiceFactory')
 
-const ServiceFactoryLive = Layer.succeed(
-  ServiceFactory,
-  {
-    create: (config) =>
-      Effect.gen(function* () {
-        const dependencies = yield* resolveDependencies(config)
-        return createServiceInstance(config, dependencies)
-      })
-  }
-)
+const ServiceFactoryLive = Layer.succeed(ServiceFactory, {
+  create: (config) =>
+    Effect.gen(function* () {
+      const dependencies = yield* resolveDependencies(config)
+      return createServiceInstance(config, dependencies)
+    }),
+})
 ```
 
 ### 4.2 条件付きサービス提供
@@ -277,14 +253,12 @@ const ConditionalServiceLayer = Layer.unwrapEffect(
 ### 4.3 サービスデコレーター
 
 ```typescript
-const withLogging = <R, E, A>(
-  layer: Layer.Layer<A, E, R>
-): Layer.Layer<A, E, R> =>
+const withLogging = <R, E, A>(layer: Layer.Layer<A, E, R>): Layer.Layer<A, E, R> =>
   Layer.tap(layer, (service) =>
     Effect.gen(function* () {
       yield* Effect.log(`Service ${service.constructor.name} initialized`)
       // メソッドをラップしてログを追加
-      Object.keys(service).forEach(key => {
+      Object.keys(service).forEach((key) => {
         const original = service[key]
         if (typeof original === 'function') {
           service[key] = (...args: any[]) =>
@@ -319,8 +293,8 @@ interface GenericTag<Identifier extends string, Service> {
 
 ```typescript
 interface Layer<ROut, E = never, RIn = never> {
-  readonly _RIn: RIn   // 入力依存
-  readonly _E: E       // エラー型
+  readonly _RIn: RIn // 入力依存
+  readonly _E: E // エラー型
   readonly _ROut: ROut // 出力サービス
 }
 ```
