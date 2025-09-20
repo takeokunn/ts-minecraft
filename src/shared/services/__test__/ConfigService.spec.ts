@@ -17,9 +17,7 @@ describe('ConfigService', () => {
         const service = yield* ConfigService
 
         // 無効なconfig keyでupdateConfigを呼び出す
-        const result = yield* Effect.either(
-          service.updateConfig('invalidKey' as any, {} as any)
-        )
+        const result = yield* Effect.either(service.updateConfig('invalidKey' as any, {} as any))
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
@@ -190,60 +188,65 @@ describe('ConfigService', () => {
     })
 
     // Helper function to create ConfigService layer with current environment variables
-    const createConfigServiceLayer = () => Layer.sync(ConfigService, () => {
-      const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
-        const envValue = process.env[envKey]
-        return envValue
-          ? (() => {
-              try {
-                const parsed = JSON.parse(envValue)
-                return Schema.decodeSync(schema)(parsed)
-              } catch {
-                return defaultValue
-              }
-            })()
-          : defaultValue
-      }
+    const createConfigServiceLayer = () =>
+      Layer.sync(ConfigService, () => {
+        const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
+          const envValue = process.env[envKey]
+          return envValue
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(envValue)
+                  return Schema.decodeSync(schema)(parsed)
+                } catch {
+                  return defaultValue
+                }
+              })()
+            : defaultValue
+        }
 
-      const gameConfig = loadFromEnv('GAME_CONFIG', {
-        fps: 60,
-        tickRate: 20,
-        renderDistance: 8,
-        chunkSize: 16,
-        gravity: -9.81,
-        playerSpeed: 4.317,
-        jumpHeight: 1.25,
-      }, GameConfig)
+        const gameConfig = loadFromEnv(
+          'GAME_CONFIG',
+          {
+            fps: 60,
+            tickRate: 20,
+            renderDistance: 8,
+            chunkSize: 16,
+            gravity: -9.81,
+            playerSpeed: 4.317,
+            jumpHeight: 1.25,
+          },
+          GameConfig
+        )
 
-      return ConfigService.of({
-        gameConfig,
-        renderConfig: {
-          resolution: { width: 1920, height: 1080 },
-          quality: 'high',
-          shadows: true,
-          antialiasing: true,
-          viewDistance: 8,
-          fov: 75,
-          vsync: true,
-        },
-        debugConfig: {
-          enabled: false,
-          showFps: false,
-          showChunkBorders: false,
-          showHitboxes: false,
-          showCoordinates: false,
-          wireframeMode: false,
-          logLevel: 'info',
-        },
-        getConfig: (key) => Effect.succeed(key === 'gameConfig' ? gameConfig : {} as any),
-        updateConfig: () => Effect.succeed(undefined),
+        return ConfigService.of({
+          gameConfig,
+          renderConfig: {
+            resolution: { width: 1920, height: 1080 },
+            quality: 'high',
+            shadows: true,
+            antialiasing: true,
+            viewDistance: 8,
+            fov: 75,
+            vsync: true,
+          },
+          debugConfig: {
+            enabled: false,
+            showFps: false,
+            showChunkBorders: false,
+            showHitboxes: false,
+            showCoordinates: false,
+            wireframeMode: false,
+            logLevel: 'info',
+          },
+          getConfig: (key) => Effect.succeed(key === 'gameConfig' ? gameConfig : ({} as any)),
+          updateConfig: () => Effect.succeed(undefined),
+        })
       })
-    })
 
     it.effect('should load valid config from environment variables', () =>
       Effect.gen(function* () {
         // 有効なJSON設定を環境変数に設定
-        process.env['GAME_CONFIG'] =JSON.stringify({
+        process.env['GAME_CONFIG'] = JSON.stringify({
           fps: 120,
           tickRate: 30,
           renderDistance: 16,
@@ -268,7 +271,7 @@ describe('ConfigService', () => {
     it.effect('should fall back to default when environment variable has invalid JSON', () =>
       Effect.gen(function* () {
         // 無効なJSONを環境変数に設定
-        process.env['GAME_CONFIG'] ='invalid-json'
+        process.env['GAME_CONFIG'] = 'invalid-json'
 
         const service = yield* ConfigService
         const gameConfig = service.gameConfig
@@ -282,7 +285,7 @@ describe('ConfigService', () => {
     it.effect('should fall back to default when environment variable has invalid schema', () =>
       Effect.gen(function* () {
         // スキーマに適合しないJSONを環境変数に設定
-        process.env['GAME_CONFIG'] =JSON.stringify({
+        process.env['GAME_CONFIG'] = JSON.stringify({
           fps: 'invalid-number',
           tickRate: 20,
         })

@@ -144,19 +144,18 @@ describe('SceneManagerLive', () => {
 
         for (let i = 0; i < 10; i++) {
           const results = yield* Effect.all(
-            [
-              Effect.either(manager.transitionTo('Game')),
-              Effect.either(manager.pushScene('Loading')),
-            ],
+            [Effect.either(manager.transitionTo('Game')), Effect.either(manager.pushScene('Loading'))],
             { concurrency: 'unbounded' }
           )
 
           const [transitionResult, pushResult] = results
 
           // pushSceneでエラーが発生した場合
-          if (pushResult._tag === 'Left' &&
-              pushResult.left._tag === 'SceneTransitionError' &&
-              pushResult.left.message.includes('Cannot push scene during transition')) {
+          if (
+            pushResult._tag === 'Left' &&
+            pushResult.left._tag === 'SceneTransitionError' &&
+            pushResult.left.message.includes('Cannot push scene during transition')
+          ) {
             transitionErrorFound = true
             break
           }
@@ -188,10 +187,7 @@ describe('SceneManagerLive', () => {
 
         for (let i = 0; i < 10; i++) {
           const results = yield* Effect.all(
-            [
-              Effect.either(manager.transitionTo('Game')),
-              Effect.either(manager.transitionTo('Loading')),
-            ],
+            [Effect.either(manager.transitionTo('Game')), Effect.either(manager.transitionTo('Loading'))],
             { concurrency: 'unbounded' }
           )
 
@@ -200,11 +196,11 @@ describe('SceneManagerLive', () => {
           // 遷移中エラーが発生した場合
           const hasTransitionError =
             (firstResult._tag === 'Left' &&
-             firstResult.left._tag === 'SceneTransitionError' &&
-             firstResult.left.message.includes('transition already in progress')) ||
+              firstResult.left._tag === 'SceneTransitionError' &&
+              firstResult.left.message.includes('transition already in progress')) ||
             (secondResult._tag === 'Left' &&
-             secondResult.left._tag === 'SceneTransitionError' &&
-             secondResult.left.message.includes('transition already in progress'))
+              secondResult.left._tag === 'SceneTransitionError' &&
+              secondResult.left.message.includes('transition already in progress'))
 
           if (hasTransitionError) {
             transitionErrorFound = true
@@ -238,13 +234,9 @@ describe('SceneManagerLive', () => {
         let errorFound = false
 
         for (let i = 0; i < 5; i++) {
-          const popResults = yield* Effect.all(
-            [
-              Effect.either(manager.popScene()),
-              Effect.either(manager.popScene()),
-            ],
-            { concurrency: 'unbounded' }
-          )
+          const popResults = yield* Effect.all([Effect.either(manager.popScene()), Effect.either(manager.popScene())], {
+            concurrency: 'unbounded',
+          })
 
           const [firstPop, secondPop] = popResults
 
@@ -299,16 +291,16 @@ describe('SceneManagerLive', () => {
           ])
 
           // すべての結果を収集
-          const results = yield* Effect.all(
-            fibers.map(fiber => Effect.either(Fiber.join(fiber)))
-          )
+          const results = yield* Effect.all(fibers.map((fiber) => Effect.either(Fiber.join(fiber))))
 
           // 遷移中エラーが発生したかチェック
           for (const result of results) {
-            if (result._tag === 'Left' &&
-                result.left._tag === 'SceneTransitionError' &&
-                (result.left.message.includes('Cannot push scene during transition') ||
-                 result.left.message.includes('transition already in progress'))) {
+            if (
+              result._tag === 'Left' &&
+              result.left._tag === 'SceneTransitionError' &&
+              (result.left.message.includes('Cannot push scene during transition') ||
+                result.left.message.includes('transition already in progress'))
+            ) {
               transitionErrorCaught = true
               break
             }
@@ -348,15 +340,15 @@ describe('SceneManagerLive', () => {
           ])
 
           // 結果を収集
-          const popResults = yield* Effect.all(
-            popFibers.map(fiber => Effect.either(Fiber.join(fiber)))
-          )
+          const popResults = yield* Effect.all(popFibers.map((fiber) => Effect.either(Fiber.join(fiber))))
 
           // undefined previousScene エラーを探す
           for (const result of popResults) {
-            if (result._tag === 'Left' &&
-                result.left._tag === 'SceneTransitionError' &&
-                result.left.message.includes('Previous scene is undefined')) {
+            if (
+              result._tag === 'Left' &&
+              result.left._tag === 'SceneTransitionError' &&
+              result.left.message.includes('Previous scene is undefined')
+            ) {
               undefinedPreviousSceneErrorCaught = true
               break
             }
@@ -373,14 +365,14 @@ describe('SceneManagerLive', () => {
               Effect.fork(manager.pushScene('Loading')),
             ])
 
-            const mixedResults = yield* Effect.all(
-              mixedFibers.map(fiber => Effect.either(Fiber.join(fiber)))
-            )
+            const mixedResults = yield* Effect.all(mixedFibers.map((fiber) => Effect.either(Fiber.join(fiber))))
 
             for (const result of mixedResults) {
-              if (result._tag === 'Left' &&
-                  result.left._tag === 'SceneTransitionError' &&
-                  result.left.message.includes('Previous scene is undefined')) {
+              if (
+                result._tag === 'Left' &&
+                result.left._tag === 'SceneTransitionError' &&
+                result.left.message.includes('Previous scene is undefined')
+              ) {
                 undefinedPreviousSceneErrorCaught = true
                 break
               }
@@ -429,16 +421,18 @@ describe('SceneManagerLive', () => {
 
           // より積極的なアプローチ: 非常に短い間隔で複数回実行
           for (let i = 0; i < 100; i++) {
-            const results = yield* Effect.all([
-              Effect.either(manager.transitionTo('Game')),
-              Effect.either(manager.pushScene('Loading')),
-            ], { concurrency: 'unbounded', batching: false })
+            const results = yield* Effect.all(
+              [Effect.either(manager.transitionTo('Game')), Effect.either(manager.pushScene('Loading'))],
+              { concurrency: 'unbounded', batching: false }
+            )
 
             const [transitionResult, pushResult] = results
 
-            if (pushResult._tag === 'Left' &&
-                pushResult.left._tag === 'SceneTransitionError' &&
-                pushResult.left.message.includes('Cannot push scene during transition')) {
+            if (
+              pushResult._tag === 'Left' &&
+              pushResult.left._tag === 'SceneTransitionError' &&
+              pushResult.left.message.includes('Cannot push scene during transition')
+            ) {
               errorCaught = true
               break
             }
@@ -536,9 +530,7 @@ describe('SceneManagerLive', () => {
             Effect.fork(manager.pushScene('Game')),
           ])
 
-          const results = yield* Effect.all(
-            operations.map(fiber => Effect.either(Fiber.join(fiber)))
-          )
+          const results = yield* Effect.all(operations.map((fiber) => Effect.either(Fiber.join(fiber))))
 
           // エラーをチェック
           for (const result of results) {
@@ -546,8 +538,10 @@ describe('SceneManagerLive', () => {
               if (result.left.message.includes('Cannot push scene during transition')) {
                 pushSceneErrorFound = true
               }
-              if (result.left.message.includes('Previous scene is undefined') ||
-                  result.left.message.includes('No scene in stack')) {
+              if (
+                result.left.message.includes('Previous scene is undefined') ||
+                result.left.message.includes('No scene in stack')
+              ) {
                 popSceneErrorFound = true
               }
             }
