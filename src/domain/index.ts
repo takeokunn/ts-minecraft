@@ -8,3 +8,6 @@
 
 // Scene Management Domain
 export * from './scene'
+
+// Input System Domain
+export * from './input'
