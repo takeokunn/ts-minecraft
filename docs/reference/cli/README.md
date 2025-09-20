@@ -96,8 +96,8 @@ npm test
 | エラー・問題             | 推奨コマンド         | 詳細                     |
 | ------------------------ | -------------------- | ------------------------ | ---------------- |
 | 型エラーが発生           | `npm run type-check` | 型エラーの詳細確認       |
-| リントエラー             | `npm run lint`       | ESLintエラーの確認       |
-| フォーマットが乱れている | `npm run format`     | Prettierによる自動整形   |
+| リントエラー             | `npm run lint`       | Biomeエラーの確認       |
+| フォーマットが乱れている | `npm run format`     | Biomeによる自動整形   |
 | テストが失敗             | `pnpm test:watch`    | ウォッチモードでのテスト |
 | ビルドが失敗             | `pnpm build 2>&1     | tee build.log`           | ビルドログの保存 |
 

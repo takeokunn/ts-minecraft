@@ -77,8 +77,7 @@ pnpm add -D \
   vite@latest \
   vitest@latest \
   @types/node@latest \
-  oxlint@latest \
-  prettier@latest
+  @biomejs/biome@latest
 ```
 
 ### ステップ3: 設定ファイル作成（2分）
@@ -134,27 +133,39 @@ export default defineConfig({
 })
 EOF
 
-# Oxlint設定（高速リンター）
-cat > oxlintrc.json << 'EOF'
+# Biome設定（リンター + フォーマッター）
+cat > biome.json << 'EOF'
 {
-  "rules": {
-    "no-var": "error",
-    "prefer-const": "error",
-    "no-unused-vars": "error",
-    "no-console": "off"
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "noVar": "error",
+        "useConst": "error"
+      },
+      "suspicious": {
+        "noUnusedVariables": "error"
+      },
+      "nursery": {
+        "noConsoleLog": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "single",
+      "trailingCommas": "es5",
+      "arrowParentheses": "always"
+    }
   }
-}
-EOF
-
-# Prettier設定（コードフォーマッター）
-cat > .prettierrc << 'EOF'
-{
-  "semi": false,
-  "singleQuote": true,
-  "tabWidth": 2,
-  "trailingComma": "es5",
-  "printWidth": 80,
-  "arrowParens": "always"
 }
 EOF
 ```
@@ -269,9 +280,10 @@ cat > package.json << 'EOF'
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "lint": "oxlint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write .",
+    "format:check": "biome check",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -286,8 +298,7 @@ cat > package.json << 'EOF'
     "vite": "latest",
     "vitest": "latest",
     "@types/node": "latest",
-    "oxlint": "latest",
-    "prettier": "latest"
+    "@biomejs/biome": "latest"
   }
 }
 EOF
@@ -331,8 +342,7 @@ npm run dev
 
 ### 開発環境（推奨）
 
-- [x] Oxlint 高速リンター設定済み
-- [x] Prettier コードフォーマッター設定済み
+- [x] Biome リンター + フォーマッター設定済み
 - [x] TypeScript 型チェック動作
 - [x] Vitest テスト実行可能
 - [x] ホットリロード機能動作

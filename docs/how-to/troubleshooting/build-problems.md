@@ -715,7 +715,7 @@ Effect.runPromise(runDiagnosis).catch(console.error)
 {
   "typescript.preferences.importModuleSpecifier": "relative",
   "editor.codeActionsOnSave": {
-    "source.fixAll.oxlint": true
+    "source.fixAll.biome": true
   },
   "files.associations": {
     "*.ts": "typescript"

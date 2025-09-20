@@ -22,9 +22,9 @@ status: 'complete'
 | `pnpm build`     | プロダクションビルド | 30-60秒  | 最適化されたビルドの生成             |
 | `pnpm preview`   | ビルド結果プレビュー | 1-3秒    | ビルドしたアプリのプレビュー         |
 | `pnpm clean`     | キャッシュクリア     | 1-2秒    | ビルドキャッシュの削除               |
-| `pnpm lint`      | ESLintチェック       | 3-8秒    | コード品質のチェック                 |
-| `pnpm lint:fix`  | ESLint自動修正       | 5-12秒   | 修正可能なリントエラーの自動修正     |
-| `pnpm format`    | コード整形           | 2-5秒    | Prettierによるコード整形             |
+| `pnpm lint`      | Biomeチェック        | 2-5秒    | リントとフォーマットの一括チェック   |
+| `pnpm lint:fix`  | Biome自動修正        | 3-8秒    | リントエラーとフォーマットの自動修正 |
+| `pnpm format`    | コード整形           | 2-5秒    | Biomeによるコード整形                |
 | `pnpm typecheck` | 型チェック           | 5-15秒   | TypeScriptの型チェック               |
 | `pnpm check`     | 全品質チェック       | 10-30秒  | lint + format + type-checkの一括実行 |
 
@@ -155,7 +155,7 @@ pnpm clean
 
 ### lint
 
-ESLintによるコード品質チェックを実行します。
+Biomeによるコード品質チェックとフォーマットチェックを実行します。
 
 ```bash
 pnpm lint
@@ -166,9 +166,10 @@ pnpm lint
 - Effect-TSコーディング規約
 - 関数型プログラミングパターン
 - TypeScript型安全性
-- パフォーマンス最適化
+- コードフォーマット準拠
+- Node.jsプロトコル使用推奨
 
-**設定ファイル**: `.eslintrc.json`
+**設定ファイル**: `biome.json`
 
 **オプション**:
 
@@ -185,7 +186,7 @@ pnpm lint -- --max-warnings 0
 
 ### lint:fix
 
-修正可能なESLintエラーを自動修正します。
+修正可能なリントエラーとフォーマットを自動修正します。
 
 ```bash
 pnpm lint:fix
@@ -194,12 +195,13 @@ pnpm lint:fix
 **自動修正対象**:
 
 - インデント、セミコロン等の形式的エラー
-- import文の順序
+- import文の順序と整理
 - 未使用変数の削除（安全な場合のみ）
+- Node.jsプロトコルの追加
 
 ### format
 
-Prettierによるコード整形を実行します。
+Biomeによるコード整形を実行します。
 
 ```bash
 pnpm format
@@ -208,10 +210,10 @@ pnpm format
 **整形対象**:
 
 - TypeScript (`.ts`, `.tsx`)
+- JavaScript (`.js`, `.jsx`)
 - JSON (`.json`)
-- Markdown (`.md`)
 
-**設定ファイル**: `.prettierrc`
+**設定ファイル**: `biome.json`
 
 **オプション**:
 
@@ -284,30 +286,35 @@ export default defineConfig({
 })
 ```
 
-### ESLint設定拡張
+### Biome設定拡張
 
-`.eslintrc.json`での設定例:
+`biome.json`での設定例:
 
 ```json
 {
-  "extends": ["@effect/eslint-config"],
-  "rules": {
-    "@typescript-eslint/no-unused-vars": "error",
-    "functional/no-classes": "error"
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "suspicious": {
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "noVar": "error"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "single",
+      "trailingCommas": "es5"
+    }
   }
-}
-```
-
-### Prettier設定調整
-
-`.prettierrc`での設定例:
-
-```json
-{
-  "semi": false,
-  "singleQuote": true,
-  "tabWidth": 2,
-  "trailingComma": "es5"
 }
 ```
 
@@ -336,10 +343,10 @@ NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 pnpm typecheck -- --incremental
 ```
 
-#### ESLintキャッシュ問題
+#### Biomeキャッシュ問題
 
 ```bash
-# ESLintキャッシュをクリア
+# Biomeキャッシュをクリア
 pnpm lint -- --no-cache
 ```
 

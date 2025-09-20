@@ -166,7 +166,7 @@ mindmap
 | ---------------------------- | -------------------------- | -------------------------------- |
 | [HMRが動かない](#hmr-issues) | ファイル変更が反映されない | Vite設定・ブラウザキャッシュ確認 |
 | [テスト失敗](#test-failures) | `pnpm test` でエラー       | テスト環境・モック確認           |
-| [リントエラー](#lint-errors) | コード品質チェック失敗     | ESLint設定・ルール調整           |
+| [リントエラー](#lint-errors) | コード品質チェック失敗     | Biome設定・ルール調整           |
 
 ### 🔧 低緊急度（最適化・改善）
 
@@ -452,14 +452,20 @@ warning: 'console.log' is not allowed in production
 
 #### 解決手順
 
-1. **OXLint設定調整**
+1. **Biome設定調整**
 
    ```json
-   // .oxlintrc.json
+   // biome.json
    {
-     "rules": {
-       "no-any": "warn",
-       "no-console": ["error", { "allow": ["warn", "error"] }]
+     "linter": {
+       "rules": {
+         "suspicious": {
+           "noExplicitAny": "warn"
+         },
+         "nursery": {
+           "noConsoleLog": "error"
+         }
+       }
      }
    }
    ```
@@ -481,7 +487,7 @@ warning: 'console.log' is not allowed in production
    # 自動修正実行
    pnpm lint:fix
 
-   # Prettierとの統合修正
+   # Biomeフォーマット修正
    pnpm format
    ```
 
@@ -605,7 +611,7 @@ export default defineConfig({
    {
      "typescript.preferences.importModuleSpecifier": "relative",
      "editor.codeActionsOnSave": {
-       "source.fixAll.oxlint": true
+       "source.fixAll.biome": true
      }
    }
    ```

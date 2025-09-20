@@ -387,20 +387,18 @@ npx commitlint --edit "$1"
 # .lintstagedrc.json（段階的品質チェック）
 {
   "*.{ts,tsx}": [
-    "oxlint --fix",
-    "prettier --write",
+    "biome check --write",
     "pnpm typecheck:file"
   ],
   "*.{js,jsx}": [
-    "oxlint --fix",
-    "prettier --write"
+    "biome check --write"
   ],
   "*.{css,scss,sass}": [
-    "prettier --write",
+    "biome format --write",
     "stylelint --fix"
   ],
   "*.{json,md,yml,yaml}": [
-    "prettier --write"
+    "biome format --write"
   ],
   "package.json": [
     "sort-package-json"

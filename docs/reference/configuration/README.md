@@ -22,8 +22,7 @@ mindmap
     ビルド設定
       [Vite]
       [TypeScript]
-      [ESLint]
-      [Prettier]
+      [Biome]
     テスト設定
       [Vitest]
       [Playwright]
@@ -43,8 +42,7 @@ mindmap
 | [**tsconfig.json**](./typescript-config.md)        | TypeScript設定   | ★★★    | 型チェック・コンパイル設定       |
 | [**vite.config.ts**](./vite-config.md)             | ビルド設定       | ★★★    | バンドル・開発サーバー設定       |
 | [**vitest.config.ts**](./vitest-config.md)         | テスト設定       | ★★☆    | テスト実行・カバレッジ設定       |
-| [**.eslintrc.json**](./eslint-config.md)           | リント設定       | ★★☆    | コード品質・スタイル設定         |
-| [**.prettierrc**](./prettier-config.md)            | フォーマット設定 | ★☆☆    | コード整形設定                   |
+| [**biome.json**](./biome-config.md)                | リント+フォーマット設定 | ★★☆ | コード品質・スタイル統一         |
 | [**playwright.config.ts**](./playwright-config.md) | E2Eテスト設定    | ★☆☆    | ブラウザテスト設定               |
 
 ## ⚡ クイック設定ガイド
@@ -84,7 +82,7 @@ npm run build
 | ---------------------- | ----------------------------------------------------- | ------------------------ |
 | ポート変更             | [vite.config.ts](./vite-config.md#server-port)        | `server.port`            |
 | TypeScript厳密性調整   | [tsconfig.json](./typescript-config.md#strict-mode)   | `compilerOptions.strict` |
-| ESLintルール追加       | [.eslintrc.json](./eslint-config.md#rules)            | `rules`                  |
+| Biomeルール追加       | [biome.json](./biome-config.md#rules)            | `linter.rules`                  |
 | テストタイムアウト設定 | [vitest.config.ts](./vitest-config.md#timeout)        | `test.testTimeout`       |
 | 依存関係追加           | [package.json](./package-json.md#dependencies)        | `dependencies`           |
 | ビルド最適化           | [vite.config.ts](./vite-config.md#build-optimization) | `build.rollupOptions`    |
@@ -96,8 +94,7 @@ npm run build
 | ビルドが遅い     | [vite.config.ts](./vite-config.md#performance)          | チャンク分割・キャッシュ設定 |
 | 型エラーが多い   | [tsconfig.json](./typescript-config.md#strict-settings) | 厳密性段階的緩和             |
 | テストが不安定   | [vitest.config.ts](./vitest-config.md#stability)        | タイムアウト・リトライ設定   |
-| リントエラー     | [.eslintrc.json](./eslint-config.md#troubleshooting)    | ルール調整・除外設定         |
-| フォーマット競合 | [.prettierrc](./prettier-config.md#conflicts)           | ESLintとの連携設定           |
+| リント・フォーマットエラー | [biome.json](./biome-config.md#troubleshooting) | ルール調整・除外設定         |
 
 ## 🎯 環境別設定
 
@@ -171,14 +168,20 @@ export default defineConfig({
 }
 ```
 
-**ESLint設定**:
+**Biome設定**:
 
 ```json
 {
-  "extends": ["@effect/eslint-config"],
-  "rules": {
-    "functional/no-classes": "error",
-    "functional/immutable-data": "error"
+  "linter": {
+    "rules": {
+      "style": {
+        "noVar": "error",
+        "useConst": "error"
+      },
+      "suspicious": {
+        "noUnusedVariables": "error"
+      }
+    }
   }
 }
 ```
@@ -215,7 +218,7 @@ export default defineConfig({
 
 ### 品質指標
 
-| 設定項目 | ESLintエラー | 型エラー | テスト実行時間 |
+| 設定項目 | Biomeエラー | 型エラー | テスト実行時間 |
 | -------- | ------------ | -------- | -------------- |
 | 基本設定 | 15個         | 8個      | 12秒           |
 | 厳密設定 | 0個          | 0個      | 15秒           |
@@ -265,7 +268,7 @@ cp -r templates/config-minimal/* .
 | プリセット | 用途     | 含まれる設定                       |
 | ---------- | -------- | ---------------------------------- |
 | `minimal`  | 最小構成 | TypeScript + Vite基本設定          |
-| `standard` | 標準構成 | ESLint + Prettier + テスト設定含む |
+| `standard` | 標準構成 | Biome + テスト設定含む |
 | `full`     | 完全構成 | 全設定ファイル + CI/CD設定         |
 
 ## 🚨 設定変更時の注意事項
@@ -276,7 +279,7 @@ cp -r templates/config-minimal/* .
    - 既存コードで型エラーが発生する可能性
    - 段階的な移行が推奨
 
-2. **ESLintルールの変更**
+2. **Biomeルールの変更**
    - 大量のリントエラーが発生する可能性
    - 自動修正可能なものから順次対応
 
@@ -306,14 +309,14 @@ cp -r templates/config-minimal/* .
    npx tsc --showConfig
    ```
 
-2. **ESLint設定競合**
+2. **Biome設定確認**
 
    ```bash
-   # ESLint設定確認
-   npx eslint --print-config src/index.ts
+   # Biome設定確認
+   npx biome check --verbose src/index.ts
 
-   # Prettier競合確認
-   npx eslint-config-prettier src/index.ts
+   # 設定ファイル確認
+   npx biome start
    ```
 
 3. **Vite設定問題**

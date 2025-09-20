@@ -386,7 +386,7 @@ const PlayerService = {
 - [ ] **基盤設定**
   - [ ] Effect-TS依存関係インストール
   - [ ] TSConfig.json更新（strict mode有効化）
-  - [ ] ESLintルール追加（Effect-TS推奨設定）
+  - [ ] Biomeルール設定（Effect-TS推奨設定）
 
 - [ ] **型定義移行**
   - [ ] 重要なinterface → Schema変換

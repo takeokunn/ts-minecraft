@@ -581,7 +581,7 @@ export const remoteDevelopmentConfig = {
   // コード整形設定
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.oxlint": true,
+    "source.fixAll.biome": true,
     "source.organizeImports": true,
     "source.addMissingImports": true
   },
@@ -632,8 +632,7 @@ export const remoteDevelopmentConfig = {
     "antfu.vite",
 
     // リント・フォーマット
-    "oxc-project.oxc-vscode",
-    "esbenp.prettier-vscode",
+    "biomejs.biome",
 
     // Three.js
     "slevesque.shader",
@@ -765,7 +764,7 @@ fi
     "debug:chrome": "node --inspect=0.0.0.0:9229 ./node_modules/vite/bin/vite.js dev",
 
     "type-check:watch": "tsc --noEmit --watch",
-    "lint:watch": "nodemon --watch src --ext ts,tsx --exec 'oxlint src'",
+    "lint:watch": "nodemon --watch src --ext ts,tsx --exec 'biome check src'",
 
     "test:dev": "vitest --config vitest.config.dev.ts",
     "test:watch": "vitest --watch",
@@ -1245,7 +1244,7 @@ exec pnpm exec vite dev --config vite.config.nix-dev.ts
   "typescript.updateImportsOnFileMove.enabled": "always",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.oxlint": true,
+    "source.fixAll.biome": true,
     "source.organizeImports": true
   }
 }

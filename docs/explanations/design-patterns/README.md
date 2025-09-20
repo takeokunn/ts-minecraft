@@ -600,7 +600,7 @@ graph TD
 
 - **TypeScript Compiler**: 型レベル検証・コンパイル時エラー検出
 - **Effect-TS Inspector**: ランタイム実行可視化・デバッグ支援
-- **Oxlint + Prettier**: コード品質・スタイル統一
+- **Biome**: コード品質・スタイル統一
 - **Vitest**: 高速テスト実行・Property-basedテスト
 
 ## 🎊 Pattern Catalog習得完了

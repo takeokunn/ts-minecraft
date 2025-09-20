@@ -103,7 +103,7 @@ pnpm preview    # ビルドプレビュー
 
 ```bash
 pnpm typecheck  # 型チェック
-pnpm lint       # Oxlintによる静的解析
+pnpm lint       # Biomeによる静的解析とフォーマットチェック
 pnpm test       # Vitestによるテスト実行
 pnpm coverage   # カバレッジレポート生成
 ```

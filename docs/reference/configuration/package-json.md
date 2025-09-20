@@ -81,10 +81,10 @@ npm test -- --coverage
 
 | スクリプト     | コマンド                                                      | 説明                             |
 | -------------- | ------------------------------------------------------------- | -------------------------------- |
-| `lint`         | `oxlint --deny-warnings --allow no-restricted-globals`        | OXLint による高速リント          |
-| `lint:fix`     | `oxlint --fix`                                                | 自動修正可能なリントエラーを修正 |
-| `format`       | `prettier --write . --ignore-path .gitignore && oxlint --fix` | コード整形 + リント修正          |
-| `format:check` | `prettier --check . --ignore-path .gitignore`                 | 整形チェック（修正なし）         |
+| `lint`         | `biome check`                                                  | Biome による高速リント          |
+| `lint:fix`     | `biome check --write`                                         | 自動修正可能なリントエラーを修正 |
+| `format`       | `biome format --write .`                                      | コード整形                       |
+| `format:check` | `biome check`                                                 | 整形・リントチェック（修正なし） |
 
 **使用例**:
 
@@ -197,16 +197,14 @@ npm run format:check
 
 ```json
 {
-  "oxlint": "^1.15.0",
-  "prettier": "^3.6.2",
+  "@biomejs/biome": "^1.9.4",
   "madge": "^8.0.0"
 }
 ```
 
 | パッケージ | バージョン | 用途                 |
 | ---------- | ---------- | -------------------- |
-| `oxlint`   | `^1.15.0`  | Rust製高速リンター   |
-| `prettier` | `^3.6.2`   | コードフォーマッター |
+| `@biomejs/biome` | `^1.9.4` | Rust製高速リンター + フォーマッター |
 | `madge`    | `^8.0.0`   | 依存関係分析ツール   |
 
 #### 型定義

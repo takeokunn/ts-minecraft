@@ -600,4 +600,4 @@ export type ChunkError = Schema.Schema.Type<typeof ChunkNotFoundError> | Schema.
 - [ ] TypeScript厳密設定準拠100%
 - [ ] 循環依存0件
 - [ ] テストカバレッジ100%
-- [ ] ESLint警告0件
+- [ ] Biome警告0件

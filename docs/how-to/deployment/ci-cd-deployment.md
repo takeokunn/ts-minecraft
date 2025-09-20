@@ -21,8 +21,8 @@ graph LR
     A[Push/PR] --> B[Node.js Setup]
     B --> C[Dependencies Install]
     C --> D[TypeScript Check]
-    D --> E[ESLint/oxlint]
-    E --> F[Prettier Format]
+    D --> E[Biome Check]
+    E --> F[Biome Format]
     F --> G[Vitest Tests]
     G --> H[Build Verification]
     H --> I{All Pass?}
@@ -198,10 +198,10 @@ jobs:
     "build": "tsc && vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write .",
+    "format:check": "biome check",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "clean": "rm -rf dist node_modules/.vite"
@@ -353,8 +353,7 @@ permissions:
 ### ✅ **CI 品質基準**
 
 - **TypeScript**: 型エラー 0件
-- **ESLint/oxlint**: 警告 0件
-- **Prettier**: フォーマット準拠
+- **Biome**: リント・フォーマット準拠
 - **Vitest**: テストカバレッジ ≥90%
 - **Build**: 成功必須
 

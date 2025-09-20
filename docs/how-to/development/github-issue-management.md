@@ -274,7 +274,7 @@ assignees: ''
 
 ## ⚙️ Configuration Target
 
-[設定対象：TypeScript/Vite/ESLint等]
+[設定対象：TypeScript/Vite/Biome等]
 
 ## 📋 Configuration Items
 
