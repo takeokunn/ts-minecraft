@@ -39,6 +39,29 @@ AUTO_PR="${2:-false}"
 
 echo "📋 Issue #$ISSUE_NUMBER の実装を開始します"
 
+# 0. 作業環境の準備
+echo "0️⃣ 作業環境を準備中..."
+# 現在の変更を確認
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "⚠️  未コミットの変更があります"
+    echo "変更を一時退避またはコミットしてから再実行してください"
+    exit 1
+fi
+
+# デフォルトブランチに切り替え
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+echo "  デフォルトブランチ($DEFAULT_BRANCH)に切り替え中..."
+git checkout "$DEFAULT_BRANCH"
+
+# 最新の状態に更新
+echo "  最新の状態に更新中..."
+git pull origin "$DEFAULT_BRANCH"
+
+# 新しいブランチを作成
+BRANCH_NAME="feat/issue-${ISSUE_NUMBER}"
+echo "  新しいブランチ($BRANCH_NAME)を作成中..."
+git checkout -b "$BRANCH_NAME"
+
 # 1. Issue情報取得
 echo "1️⃣ Issue情報を取得中..."
 gh issue view "$ISSUE_NUMBER" --json title,body,labels
@@ -97,24 +120,55 @@ echo "✅ 実装完了！"
 
 ## 実装プロセス
 
-1. **Issue解析**
+1. **作業環境準備**
+   - 未コミット変更の確認
+   - デフォルトブランチへの切り替え
+   - 最新コードの取得（pull）
+   - 専用ブランチの作成
+
+2. **Issue解析**
    - Task ID抽出
    - 実装要件確認
    - 関連ドキュメント参照
 
-2. **タスク管理**
+3. **タスク管理**
    - TodoWriteで進捗追跡
    - 並列実行可能なタスクの特定
 
-3. **実装**
+4. **実装**
    - Effect-TSパターン準拠
    - 既存コードとの統合
 
-4. **検証**
+5. **検証**
    - TypeCheck
    - Lint
    - Build
    - Test（存在する場合）
+
+## 注意事項
+
+### 作業前の確認事項
+- **未コミットの変更**: 作業開始前に全ての変更をコミットまたはstashしてください
+- **ブランチの状態**: デタッチ状態やマージ途中でないことを確認してください
+- **リモートとの同期**: リモートリポジトリと同期が取れていることを確認してください
+
+### エラー時の対処法
+```bash
+# 未コミット変更がある場合
+git stash  # 一時退避
+# または
+git commit -am "WIP: 作業中の変更"  # コミット
+
+# ブランチがすでに存在する場合
+git branch -D "feat/issue-${ISSUE_NUMBER}"  # 既存ブランチを削除
+# または
+git checkout -b "feat/issue-${ISSUE_NUMBER}-v2"  # 別名で作成
+
+# プルでコンフリクトが発生した場合
+git stash  # 変更を退避
+git pull origin main --rebase  # リベースでプル
+git stash pop  # 変更を復元
+```
 
 ## 関連コマンド
 

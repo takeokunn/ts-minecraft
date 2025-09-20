@@ -1,24 +1,25 @@
 # Domain Layer
 
 ## 概要
-
-Domain Layerは、Minecraftクローンのビジネスロジックとドメインモデルを定義します。このレイヤーは技術的な実装詳細から完全に独立しており、純粋な関数型プログラミングパターンで実装されています。
+Domain Layerは、アプリケーションのビジネスロジックとドメインモデルを含む層です。
+この層は技術的な詳細から独立しており、純粋なビジネスルールを表現します。
 
 ## 責務
+- エンティティ（Entities）の定義
+- 値オブジェクト（Value Objects）の定義
+- ドメインイベント（Domain Events）の管理
+- ドメインサービス（Domain Services）の実装
+- ビジネスルールの実装
 
-- **エンティティ**: プレイヤー、ブロック、アイテムなどのゲーム内オブジェクト
-- **値オブジェクト**: 座標、ベクトル、色などの不変な値
-- **ドメインイベント**: ゲーム内で発生するイベントの定義
-- **ドメインサービス**: エンティティ間の複雑な相互作用のビジネスロジック
-
-## Effect-TSパターン
+## 実装例
 
 ```typescript
-// Schema定義
-export const Position = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
+// Entity定義
+export const Block = Schema.Struct({
+  id: Schema.String,
+  type: BlockType,
+  position: Position,
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 
 // Service定義
@@ -30,20 +31,21 @@ export interface BlockService {
 export const BlockService = Context.GenericTag<BlockService>('@domain/BlockService')
 ```
 
-## ディレクトリ構造（実装予定）
-
+## ディレクトリ構造（予定）
 ```
 domain/
-├── entities/     # エンティティ定義
-├── values/       # 値オブジェクト
-├── events/       # ドメインイベント
-├── services/     # ドメインサービス
-└── index.ts      # 公開API
+├── entities/       # エンティティ
+├── value-objects/  # 値オブジェクト
+├── events/        # ドメインイベント
+├── services/      # ドメインサービス
+└── repositories/  # リポジトリインターフェース
 ```
 
 ## 設計原則
-
-1. **Pure Functions**: すべての関数は副作用を持たない
-2. **Immutability**: すべてのデータ構造は不変
-3. **Type Safety**: Schema.Struct による型安全性の保証
-4. **No Dependencies**: 他のレイヤーへの依存なし
+- **Pure Functions**: すべての関数は副作用を持たない
+- **Immutability**: すべてのデータ構造は不変
+- **Type Safety**: Schema.Struct による型安全性の保証
+- **No Dependencies**: 他のレイヤーへの依存なし
+- **技術的な詳細からの独立**
+- **ビジネスルールの集約**
+- **Effect-TSを活用した型安全性の確保**
