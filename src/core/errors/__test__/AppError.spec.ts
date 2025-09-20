@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
-import { InitError, ConfigError } from '../AppError'
+import { describe, expect, it } from 'vitest'
+import { ConfigError, InitError } from '../AppError'
 
 describe('AppError Module', () => {
   describe('InitError', () => {

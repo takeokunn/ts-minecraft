@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 describe('Index Integration', () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('Index Integration', () => {
 
   it('should execute index.ts module', async () => {
     // This will actually execute the index.ts code
-    await import('../index.ts?v=' + Date.now()) // force fresh import
+    await import(`../index.ts?v=${Date.now()}`) // force fresh import
 
     const app = document.querySelector('#app')
     expect(app?.innerHTML).toContain('TypeScript Minecraft Clone')

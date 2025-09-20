@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock DOM and CSS imports
 vi.mock('../style.css', () => ({}))
@@ -24,7 +24,12 @@ describe('Index Module', () => {
 
   it('should find app element and set innerHTML', () => {
     // Simulate what the index.ts module does
-    const app = document.querySelector<HTMLDivElement>('#app')!
+    const app = document.querySelector<HTMLDivElement>('#app')
+    expect(app).toBeTruthy()
+    if (!app) {
+      return
+    }
+
     app.innerHTML = `
   <div>
     <h1>TypeScript Minecraft Clone</h1>
@@ -38,7 +43,12 @@ describe('Index Module', () => {
 
   it('should create proper HTML structure', () => {
     // Simulate what the index.ts module does
-    const app = document.querySelector<HTMLDivElement>('#app')!
+    const app = document.querySelector<HTMLDivElement>('#app')
+    expect(app).toBeTruthy()
+    if (!app) {
+      return
+    }
+
     app.innerHTML = `
   <div>
     <h1>TypeScript Minecraft Clone</h1>
@@ -58,7 +68,12 @@ describe('Index Module', () => {
     mockApp.innerHTML = '<p>Initial content</p>'
 
     // Simulate replacing content like index.ts does
-    const app = document.querySelector<HTMLDivElement>('#app')!
+    const app = document.querySelector<HTMLDivElement>('#app')
+    expect(app).toBeTruthy()
+    if (!app) {
+      return
+    }
+
     app.innerHTML = `
   <div>
     <h1>TypeScript Minecraft Clone</h1>
@@ -78,12 +93,17 @@ describe('Index Module', () => {
     }).not.toThrow()
   })
 
-  it('should use non-null assertion safely', () => {
+  it('should use null check safely', () => {
     // Test that the code works when app element exists
     expect(mockApp).toBeTruthy()
 
-    // Simulate what index.ts does with non-null assertion
-    const app = document.querySelector<HTMLDivElement>('#app')!
+    // Simulate what index.ts does with null check
+    const app = document.querySelector<HTMLDivElement>('#app')
+    expect(app).toBeTruthy()
+    if (!app) {
+      return
+    }
+
     app.innerHTML = `
   <div>
     <h1>TypeScript Minecraft Clone</h1>
@@ -96,7 +116,12 @@ describe('Index Module', () => {
 
   it('should create complete HTML template', () => {
     // Simulate what index.ts does
-    const app = document.querySelector<HTMLDivElement>('#app')!
+    const app = document.querySelector<HTMLDivElement>('#app')
+    expect(app).toBeTruthy()
+    if (!app) {
+      return
+    }
+
     app.innerHTML = `
   <div>
     <h1>TypeScript Minecraft Clone</h1>

@@ -1,6 +1,6 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import { AppService, AppServiceLive } from '../AppService'
 
 describe('AppService', () => {

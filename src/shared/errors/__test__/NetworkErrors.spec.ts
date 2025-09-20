@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest'
 import { Effect, Exit } from 'effect'
+import { describe, expect, it } from 'vitest'
 import {
-  NetworkError,
-  ConnectionError,
-  TimeoutError,
-  ProtocolError,
   AuthenticationError,
+  ConnectionError,
+  NetworkError,
+  P2PError,
+  PacketError,
+  ProtocolError,
+  RateLimitError,
+  ServerError,
   SessionError,
   SyncError,
-  RateLimitError,
+  TimeoutError,
   WebSocketError,
-  PacketError,
-  ServerError,
-  P2PError,
 } from '../NetworkErrors'
 
 describe('NetworkErrors', () => {

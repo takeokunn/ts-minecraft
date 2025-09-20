@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { Effect, Exit, Duration } from 'effect'
-import { ErrorRecovery, ErrorHandlers, ErrorReporter } from '../index'
+import { Duration, Effect, Exit } from 'effect'
+import { describe, expect, it, vi } from 'vitest'
+import { ErrorHandlers, ErrorRecovery, ErrorReporter } from '../index'
 import { NetworkError } from '../NetworkErrors'
 
 describe('ErrorRecovery', () => {
@@ -148,7 +148,7 @@ describe('ErrorHandlers', () => {
 
   describe('partial', () => {
     it('should allow partial success', async () => {
-      const effects: Array<Effect.Effect<number, Error, never>> = [
+      const effects: Effect.Effect<number, Error, never>[] = [
         Effect.succeed(1),
         Effect.fail(new Error('Failed')),
         Effect.succeed(3),
@@ -161,7 +161,7 @@ describe('ErrorHandlers', () => {
     })
 
     it('should fail if minimum not met', async () => {
-      const effects: Array<Effect.Effect<number, Error, never>> = [
+      const effects: Effect.Effect<number, Error, never>[] = [
         Effect.fail(new Error('Failed 1')),
         Effect.fail(new Error('Failed 2')),
         Effect.succeed(3),

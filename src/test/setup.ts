@@ -3,22 +3,21 @@
  * テスト環境の初期化設定
  */
 
-// Vitest globals
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
-
 // Effect-TS imports
-import { Effect, ConfigProvider } from 'effect'
+import { ConfigProvider, Effect } from 'effect'
+// Vitest globals
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 
 /**
  * テスト実行前の初期設定
  */
 beforeAll(async () => {
   // テスト用環境変数の設定
-  process.env['NODE_ENV'] = 'test'
-  process.env['VITEST'] = 'true'
+  process.env.NODE_ENV = 'test'
+  process.env.VITEST = 'true'
 
   // コンソールログレベルの設定
-  if (!process.env['DEBUG']) {
+  if (!process.env.DEBUG) {
     console.log = () => {} // テスト中のログ出力を抑制
   }
 })

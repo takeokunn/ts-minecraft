@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import type { NumberValue, StringValue, BooleanValue } from '../index'
+import { describe, expect, it } from 'vitest'
+import type { BooleanValue, NumberValue, StringValue } from '../index'
 import * as ExportedFromIndex from '../index'
 
 describe('Shared Types Index', () => {
@@ -9,7 +9,7 @@ describe('Shared Types Index', () => {
       expect(typeof num).toBe('number')
 
       // Test various number values
-      const values: NumberValue[] = [0, -1, 1.5, Infinity, -Infinity, NaN]
+      const values: NumberValue[] = [0, -1, 1.5, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NaN]
       values.forEach((val) => {
         expect(typeof val).toBe('number')
       })

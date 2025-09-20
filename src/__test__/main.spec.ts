@@ -1,6 +1,6 @@
-import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest'
 
 // Mock console methods
 const mockConsoleLog = vi.fn()

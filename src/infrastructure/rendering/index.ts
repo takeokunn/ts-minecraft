@@ -5,6 +5,6 @@
  * レンダリングエンジンの抽象化とリソース管理を担当
  */
 
-export * from './types'
 export * from './RendererService'
 export * from './RendererServiceLive'
+export * from './types'

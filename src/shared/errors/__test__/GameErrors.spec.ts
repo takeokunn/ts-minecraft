@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest'
 import { Effect, Exit, Schema } from 'effect'
+import { describe, expect, it } from 'vitest'
 import {
+  ConfigError,
+  EntityError,
   GameError,
   GameErrorSchema,
   InvalidStateError,
+  PerformanceError,
+  PhysicsError,
+  RenderError,
   ResourceNotFoundError,
   ValidationError,
-  PerformanceError,
-  ConfigError,
-  RenderError,
   WorldGenerationError,
-  EntityError,
-  PhysicsError,
 } from '../GameErrors'
 
 describe('GameErrors', () => {

@@ -1,9 +1,10 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
 import { Effect } from 'effect'
 import * as THREE from 'three'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RendererService, RendererServiceLive } from '../index'
 
 // Canvas要素のモック

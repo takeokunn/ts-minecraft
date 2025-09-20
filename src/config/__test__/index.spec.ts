@@ -1,7 +1,7 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { defaultConfig, validateConfig, loadConfig } from '../index'
+import { describe, expect } from 'vitest'
+import { defaultConfig, loadConfig, validateConfig } from '../index'
 
 describe('Config Module', () => {
   describe('defaultConfig', () => {

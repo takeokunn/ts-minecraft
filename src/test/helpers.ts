@@ -3,8 +3,8 @@
  * @effect/vitestを使ったテスト用のヘルパー関数とユーティリティ
  */
 
-import { Effect, Context, Layer, Schema, Match, Either, Option, Ref, Duration } from 'effect'
 import { it } from '@effect/vitest'
+import { type Context, Duration, Effect, Either, Layer, Match, Option, Ref, Schema } from 'effect'
 import { expect } from 'vitest'
 
 /**
@@ -41,7 +41,7 @@ export const EffectTestHelpers = {
   /**
    * タイムアウト付きEffect実行
    */
-  runEffectWithTimeout: <E, A>(effect: Effect.Effect<A, E>, timeoutMs: number = 10000) =>
+  runEffectWithTimeout: <E, A>(effect: Effect.Effect<A, E>, timeoutMs = 10000) =>
     Effect.runPromise(Effect.timeout(effect, Duration.millis(timeoutMs))),
 
   /**
@@ -134,7 +134,7 @@ export const TestDataFactory = {
   /**
    * ランダムな文字列の生成
    */
-  randomString: (length: number = 8): string =>
+  randomString: (length = 8): string =>
     Math.random()
       .toString(36)
       .substring(2, 2 + length),
@@ -142,12 +142,12 @@ export const TestDataFactory = {
   /**
    * ランダムな整数の生成
    */
-  randomInt: (min: number = 0, max: number = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
+  randomInt: (min = 0, max = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
 
   /**
    * 遅延のあるEffect（テスト用）
    */
-  delayedSuccess: <A>(value: A, delayMs: number = 100) =>
+  delayedSuccess: <A>(value: A, delayMs = 100) =>
     Effect.gen(function* () {
       yield* Effect.sleep(Duration.millis(delayMs))
       return value
@@ -156,7 +156,7 @@ export const TestDataFactory = {
   /**
    * 遅延のあるFailure（テスト用）
    */
-  delayedFailure: <E>(error: E, delayMs: number = 100) =>
+  delayedFailure: <E>(error: E, delayMs = 100) =>
     Effect.gen(function* () {
       yield* Effect.sleep(Duration.millis(delayMs))
       return yield* Effect.fail(error)
@@ -270,7 +270,7 @@ export const TestEnvironment = {
   setup: () =>
     Effect.sync(() => {
       // テスト用環境変数設定
-      process.env['NODE_ENV'] = 'test'
+      process.env.NODE_ENV = 'test'
 
       return {
         testStartTime: Date.now(),
@@ -298,7 +298,7 @@ export const PropertyTestHelpers = {
   /**
    * ランダム文字列生成
    */
-  randomString: (minLength: number = 1, maxLength: number = 10): string => {
+  randomString: (minLength = 1, maxLength = 10): string => {
     const length = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength
     const generated = Math.random()
       .toString(36)
@@ -309,7 +309,7 @@ export const PropertyTestHelpers = {
   /**
    * ランダム整数生成
    */
-  randomInt: (min: number = 0, max: number = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
+  randomInt: (min = 0, max = 100): number => Math.floor(Math.random() * (max - min + 1)) + min,
 
   /**
    * ゲーム用座標生成
@@ -337,7 +337,7 @@ export const PropertyTestHelpers = {
   /**
    * 複数の値をテストするヘルパー
    */
-  testMultipleValues: <T>(generator: () => T, predicate: (value: T) => boolean, iterations: number = 100): boolean => {
+  testMultipleValues: <T>(generator: () => T, predicate: (value: T) => boolean, iterations = 100): boolean => {
     for (let i = 0; i < iterations; i++) {
       const value = generator()
       if (!predicate(value)) {
@@ -391,7 +391,7 @@ export const PerformanceTestHelpers = {
   /**
    * it.effectでのパフォーマンステスト
    */
-  performanceTest: <E, A>(description: string, effect: Effect.Effect<A, E>, maxTimeMs: number = 1000) =>
+  performanceTest: <E, A>(description: string, effect: Effect.Effect<A, E>, maxTimeMs = 1000) =>
     it.effect(description, () =>
       Effect.gen(function* () {
         const measured = yield* PerformanceTestHelpers.measureTime(effect)

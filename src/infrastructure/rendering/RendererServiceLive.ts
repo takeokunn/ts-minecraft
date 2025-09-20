@@ -2,7 +2,7 @@ import { Effect, Layer, Ref } from 'effect'
 import * as THREE from 'three'
 import type { RendererService } from './RendererService'
 import { RendererService as RendererServiceTag } from './RendererService'
-import { RenderInitError, RenderExecutionError, ContextLostError, type RenderError } from './types'
+import { ContextLostError, type RenderError, RenderExecutionError, RenderInitError } from './types'
 
 /**
  * WebGLコンテキストロストのハンドリング
@@ -91,7 +91,7 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
 
       try {
         // WebGLコンテキストの状態確認
-        const gl = renderer!.getContext()
+        const gl = renderer?.getContext()
         if (gl.isContextLost()) {
           yield* Effect.fail(
             ContextLostError({
@@ -103,7 +103,7 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
         }
 
         // レンダリング実行
-        renderer!.render(scene, camera)
+        renderer?.render(scene, camera)
       } catch (error) {
         yield* Effect.fail(
           RenderExecutionError({

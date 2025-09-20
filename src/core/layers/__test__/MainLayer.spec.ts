@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { Layer } from 'effect'
-import { MainLayer } from '../MainLayer'
+import { describe, expect, it } from 'vitest'
 import { AppServiceLive } from '../../services/AppService'
+import { MainLayer } from '../MainLayer'
 
 describe('MainLayer', () => {
   it('should export AppServiceLive as MainLayer', () => {

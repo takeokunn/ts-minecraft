@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest'
-import { Schema, Effect } from 'effect'
-import { GameErrorSchema, createGameError, EffectConfig } from '../effect'
+import { Effect, Schema } from 'effect'
+import { describe, expect, it } from 'vitest'
 import {
+  BlockTypeIdSchema,
   BrandedTypes,
+  ChunkIdSchema,
   PlayerIdSchema,
   WorldCoordinateSchema,
-  ChunkIdSchema,
-  BlockTypeIdSchema,
 } from '../../types/branded'
+import { createGameError, EffectConfig, GameErrorSchema } from '../effect'
 
 describe('Effect-TS Configuration', () => {
   describe('GameError', () => {

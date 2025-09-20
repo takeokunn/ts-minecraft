@@ -3,9 +3,9 @@
  * プロジェクト全体で使用される型定義の単一エントリーポイント
  */
 
-export * from './branded'
 // GameError系は errors/ から提供されるため、config/effect からは EffectConfig のみをエクスポート
-export { EffectConfig, createGameError, type GameResult } from '../config/effect'
+export { createGameError, EffectConfig, type GameResult } from '../config/effect'
+export * from './branded'
 
 /**
  * 基本的な数値型

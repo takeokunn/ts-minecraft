@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
+import { describe, expect, it } from 'vitest'
 import { Config } from '../Config'
 
 describe('Config Schema', () => {

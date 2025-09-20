@@ -5,6 +5,6 @@
  * 特定の層に属さない汎用的な機能を含みます。
  */
 
-export * from './types'
 export * from './config/index'
 export * from './errors'
+export * from './types'

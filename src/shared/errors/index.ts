@@ -1,4 +1,4 @@
-import { Effect, Schedule, Duration } from 'effect'
+import { Duration, Effect, Schedule } from 'effect'
 
 // ゲームエラー
 export * from './GameErrors'
@@ -21,7 +21,7 @@ export const ErrorRecovery = {
    * 指数バックオフによるリトライ
    * ネットワークエラーや一時的な失敗に対して使用
    */
-  exponentialBackoff: (maxRetries: number = 3, baseDelay: Duration.DurationInput = Duration.seconds(1)) => {
+  exponentialBackoff: (maxRetries = 3, baseDelay: Duration.DurationInput = Duration.seconds(1)) => {
     const exponential = Schedule.exponential(baseDelay)
     const jittered = Schedule.jittered(exponential)
     const capped = Schedule.whileOutput(jittered, Duration.lessThanOrEqualTo(Duration.seconds(30)))
@@ -32,14 +32,14 @@ export const ErrorRecovery = {
    * 線形リトライ
    * 均等な間隔でのリトライが必要な場合
    */
-  linearRetry: (maxRetries: number = 3, delay: Duration.DurationInput = Duration.seconds(1)) =>
+  linearRetry: (maxRetries = 3, delay: Duration.DurationInput = Duration.seconds(1)) =>
     Schedule.intersect(Schedule.spaced(delay), Schedule.recurs(maxRetries)),
 
   /**
    * 即座にリトライ
    * 軽微なエラーに対して使用
    */
-  immediateRetry: (maxRetries: number = 1) => Schedule.recurs(maxRetries),
+  immediateRetry: (maxRetries = 1) => Schedule.recurs(maxRetries),
 
   /**
    * 条件付きリトライ
@@ -52,7 +52,7 @@ export const ErrorRecovery = {
    * サーキットブレーカーパターン
    * 連続した失敗後に一定期間リクエストを遮断
    */
-  circuitBreaker: (failureThreshold: number = 5, resetDelay: Duration.DurationInput = Duration.seconds(60)) => {
+  circuitBreaker: (failureThreshold = 5, resetDelay: Duration.DurationInput = Duration.seconds(60)) => {
     let failureCount = 0
     let lastFailureTime: number | null = null
     let circuitOpen = false
@@ -125,7 +125,7 @@ export const ErrorHandlers = {
   /**
    * 部分的な成功を許可
    */
-  partial: <R, E, A>(effects: Array<Effect.Effect<A, E, R>>, minSuccess: number = 1) =>
+  partial: <R, E, A>(effects: Effect.Effect<A, E, R>[], minSuccess = 1) =>
     Effect.gen(function* (_) {
       const results = yield* _(
         Effect.all(

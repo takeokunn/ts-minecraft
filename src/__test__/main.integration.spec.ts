@@ -1,5 +1,5 @@
-import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest'
 
 // Mock console to avoid noise
 const mockConsoleLog = vi.fn()
@@ -22,7 +22,7 @@ describe('Main Integration', () => {
   it('should import main.ts module', async () => {
     // This will actually import and execute main.ts
     // Use a cache-busting parameter to ensure fresh import
-    const mainModule = await import('../main.ts?v=' + Date.now())
+    const mainModule = await import(`../main.ts?v=${Date.now()}`)
 
     // Since main.ts runs asynchronously, we need to wait a bit
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -37,7 +37,7 @@ describe('Main Integration', () => {
   it('should verify main.ts can be imported without critical errors', async () => {
     // Simple test to ensure the module structure is valid
     expect(async () => {
-      await import('../main.ts?v=' + Date.now())
+      await import(`../main.ts?v=${Date.now()}`)
       // Allow some time for async operations to settle
       await new Promise((resolve) => setTimeout(resolve, 50))
     }).not.toThrow()

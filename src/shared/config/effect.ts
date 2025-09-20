@@ -1,4 +1,4 @@
-import { Schema, Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 
 /**
  * ゲームエラーの構造を定義
@@ -18,7 +18,7 @@ export type GameError = Schema.Schema.Type<typeof GameErrorSchema>
 /**
  * GameErrorを作成するファクトリー関数
  */
-export const createGameError = (message: string, code: string = 'UNKNOWN_ERROR'): GameError => ({
+export const createGameError = (message: string, code = 'UNKNOWN_ERROR'): GameError => ({
   _tag: 'GameError' as const,
   message,
   code,

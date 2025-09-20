@@ -93,7 +93,9 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
   // 環境変数から設定を読み込む（実際のプロダクションでは環境変数やconfigファイルから読み込む）
   const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
     const envValue = process.env[envKey]
-    if (!envValue) return defaultValue
+    if (!envValue) {
+      return defaultValue
+    }
 
     try {
       const parsed = JSON.parse(envValue)

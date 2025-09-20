@@ -1,5 +1,5 @@
-import { Context, Effect } from 'effect'
-import * as THREE from 'three'
+import { Context, type Effect } from 'effect'
+import type * as THREE from 'three'
 import type { RenderError } from './types'
 
 /**
