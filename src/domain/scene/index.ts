@@ -6,11 +6,11 @@
  */
 
 // Core Scene definitions
-export * from './Scene.js'
-export * from './SceneManager.js'
-export * from './SceneManagerLive.js'
+export * from './Scene'
+export * from './SceneManager'
+export * from './SceneManagerLive'
 
 // Scene implementations
-export { MainMenuScene } from './scenes/MainMenuScene.js'
-export { GameScene } from './scenes/GameScene.js'
-export { LoadingScene } from './scenes/LoadingScene.js'
+export { MainMenuScene } from './scenes/MainMenuScene'
+export { GameScene } from './scenes/GameScene'
+export { LoadingScene } from './scenes/LoadingScene'

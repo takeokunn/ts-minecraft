@@ -1,8 +1,8 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
-import { SceneManager } from '../SceneManager.js'
-import { SceneManagerLive } from '../SceneManagerLive.js'
+import { SceneManager } from '../SceneManager'
+import { SceneManagerLive } from '../SceneManagerLive'
 
 describe('SceneManager', () => {
   describe('SceneManagerLive', () => {

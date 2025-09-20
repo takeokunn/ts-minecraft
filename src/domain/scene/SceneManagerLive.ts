@@ -1,6 +1,6 @@
 import { Effect, Layer, Ref } from 'effect'
-import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene.js'
-import { SceneManager, SceneManagerState, processSceneType } from './SceneManager.js'
+import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
+import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
 
 // SceneManagerLive実装
 export const SceneManagerLive = Layer.effect(

@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect'
-import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene.js'
+import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 
 // シーンスタック管理用のスキーマ
 export const SceneStack = Schema.Array(SceneData)

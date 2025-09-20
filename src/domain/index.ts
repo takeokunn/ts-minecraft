@@ -7,4 +7,4 @@
  */
 
 // Scene Management Domain
-export * from './scene/index.js'
+export * from './scene'
