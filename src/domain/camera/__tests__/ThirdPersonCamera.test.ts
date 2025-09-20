@@ -644,4 +644,103 @@ describe('ThirdPersonCamera', () => {
       expect(Exit.isFailure(result)).toBe(true)
     })
   })
+
+  describe('追加のエッジケーステスト', () => {
+    it('極端な角度の正規化が正しく動作する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person' as const,
+        })
+
+        // 大きな水平回転
+        yield* service.rotate(20000, 0)
+        const state1 = yield* service.getState()
+
+        // リセット
+        yield* service.reset()
+
+        // 大きな負の水平回転
+        yield* service.rotate(-20000, 0)
+        const state2 = yield* service.getState()
+
+        return { state1, state2 }
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+
+      if (Exit.isSuccess(result)) {
+        const { state1, state2 } = result.value
+        // ヨー角が正規化される
+        expect(state1.rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
+        expect(state1.rotation.yaw).toBeLessThanOrEqual(Math.PI)
+        expect(state2.rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
+        expect(state2.rotation.yaw).toBeLessThanOrEqual(Math.PI)
+      }
+    })
+
+    it('極小のデルタタイムでの更新が正しく動作する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person' as const,
+          smoothing: 0.0001,
+        })
+
+        // 極小のデルタタイムで複数回更新
+        for (let i = 0; i < 5; i++) {
+          yield* service.update(0.0001, { x: 50, y: 10, z: 50 })
+        }
+
+        const state = yield* service.getState()
+        return state
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+
+      if (Exit.isSuccess(result)) {
+        const state = result.value
+        // ターゲットが徐々に更新されている
+        expect(state.target.x).not.toBe(0)
+        expect(state.target.z).not.toBe(0)
+      }
+    })
+
+    it('境界値での球面座標変換が正しく動作する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person' as const,
+        })
+
+        // φを最小値近くまで回転（上向き）
+        yield* service.rotate(0, -5000)
+        const stateUp = yield* service.getState()
+
+        // リセット
+        yield* service.reset()
+
+        // φを最大値近くまで回転（下向き）
+        yield* service.rotate(0, 5000)
+        const stateDown = yield* service.getState()
+
+        return { stateUp, stateDown }
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+
+      if (Exit.isSuccess(result)) {
+        const { stateUp, stateDown } = result.value
+        // ピッチ角が範囲内に収まる
+        expect(stateUp.rotation.pitch).toBeGreaterThan(-Math.PI / 2 - 0.2)
+        expect(stateDown.rotation.pitch).toBeLessThan(Math.PI / 2 + 0.2)
+      }
+    })
+  })
 })
