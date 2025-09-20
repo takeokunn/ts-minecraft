@@ -272,9 +272,9 @@ describe('LoggerService', () => {
         return yield* logger.measurePerformance('failingOperation', failingOperation)
       })
 
-      await expect(
-        Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-      ).rejects.toThrow('Operation failed')
+      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
+        'Operation failed'
+      )
     })
 
     it('should log error objects with proper structure', async () => {

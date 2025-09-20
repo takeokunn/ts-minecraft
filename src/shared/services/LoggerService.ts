@@ -36,10 +36,7 @@ export interface LoggerService {
   readonly info: (message: string, context?: any) => Effect.Effect<void>
   readonly warn: (message: string, context?: any) => Effect.Effect<void>
   readonly error: (message: string, error?: Error) => Effect.Effect<void>
-  readonly measurePerformance: <A>(
-    functionName: string,
-    operation: Effect.Effect<A>
-  ) => Effect.Effect<A>
+  readonly measurePerformance: <A>(functionName: string, operation: Effect.Effect<A>) => Effect.Effect<A>
 }
 
 // Context タグ
