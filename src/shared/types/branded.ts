@@ -16,7 +16,7 @@ export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
  * ワールド座標用のブランド型
  * 数値だが座標値として明確に区別される
  */
-export const WorldCoordinateSchema = Schema.Number.pipe(Schema.brand('WorldCoordinate'))
+export const WorldCoordinateSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate'))
 export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
 
 /**
