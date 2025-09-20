@@ -43,6 +43,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: EditorConfig check
+        run: pnpm editorconfig
+
       - name: Build check
         run: pnpm build
 
@@ -87,6 +90,7 @@ jobs:
             - ✅ Unit tests execution
             - ✅ Linting validation
             - ✅ Code formatting check
+            - ✅ EditorConfig compliance check
             - ✅ Build verification
 
             ${coverageText}

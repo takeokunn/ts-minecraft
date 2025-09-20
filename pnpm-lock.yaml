@@ -35,6 +35,9 @@ importers:
       '@vitest/ui':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4)
+      editorconfig-checker:
+        specifier: ^6.1.0
+        version: 6.1.0
       happy-dom:
         specifier: ^18.0.1
         version: 18.0.1
@@ -723,6 +726,12 @@ packages:
   eastasianwidth@0.2.0:
     resolution:
       { integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA== }
+
+  editorconfig-checker@6.1.0:
+    resolution:
+      { integrity: sha512-i25NwXlcWhadiO62AFUauucFPi9LwasoMRqoM8KkG3rJp6bx09mL/fDQpNMz2f6Nx/7EPVIZHK5/tIdztWzflA== }
+    engines: { node: '>=20.11.0' }
+    hasBin: true
 
   effect@3.17.13:
     resolution:
@@ -1630,6 +1639,8 @@ snapshots:
     optional: true
 
   eastasianwidth@0.2.0: {}
+
+  editorconfig-checker@6.1.0: {}
 
   effect@3.17.13:
     dependencies:

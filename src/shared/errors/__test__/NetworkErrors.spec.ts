@@ -1,30 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Exit, Schema } from 'effect'
+import { Effect, Exit } from 'effect'
 import {
   NetworkError,
-  NetworkErrorSchema,
   ConnectionError,
-  ConnectionErrorSchema,
   TimeoutError,
-  TimeoutErrorSchema,
   ProtocolError,
-  ProtocolErrorSchema,
   AuthenticationError,
-  AuthenticationErrorSchema,
   SessionError,
-  SessionErrorSchema,
   SyncError,
-  SyncErrorSchema,
   RateLimitError,
-  RateLimitErrorSchema,
   WebSocketError,
-  WebSocketErrorSchema,
   PacketError,
-  PacketErrorSchema,
   ServerError,
-  ServerErrorSchema,
   P2PError,
-  P2PErrorSchema,
 } from '../NetworkErrors'
 
 describe('NetworkErrors', () => {
