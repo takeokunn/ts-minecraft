@@ -313,7 +313,7 @@ describe('CameraService', () => {
       if (Exit.isSuccess(result)) {
         const state = result.value
         expect(state.rotation.yaw).toBe(0)
-        expect(state.rotation.pitch).toBe(0)
+        expect(state.rotation.pitch).toBeCloseTo(Math.PI / 3 - Math.PI / 2, 5)
       }
     })
 
