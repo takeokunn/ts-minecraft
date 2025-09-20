@@ -6,7 +6,7 @@ export type SceneType = Schema.Schema.Type<typeof SceneType>
 
 // シーンの基本構造
 export const SceneData = Schema.Struct({
-  id: Schema.String,
+  id: Schema.String.pipe(Schema.nonEmptyString()),
   type: SceneType,
   isActive: Schema.Boolean,
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),

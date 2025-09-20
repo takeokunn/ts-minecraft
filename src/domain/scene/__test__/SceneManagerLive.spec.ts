@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, Either } from 'effect'
+import { Effect, Layer, Either, Fiber } from 'effect'
 import { SceneManager } from '../SceneManager.js'
 import { SceneManagerLive } from '../SceneManagerLive.js'
 import { Scene, SceneTransitionError } from '../Scene.js'
@@ -140,13 +140,13 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
 
         // 最初の遷移を開始（非同期）
-        const firstTransition = Effect.fork(manager.transitionTo('MainMenu'))
+        const firstTransition = yield* Effect.fork(manager.transitionTo('MainMenu'))
 
         // 2番目の遷移を即座に試行
         const secondResult = yield* Effect.either(manager.transitionTo('Game'))
 
         // 最初の遷移を完了
-        yield* Effect.join(yield* firstTransition)
+        yield* Fiber.join(firstTransition)
 
         // 2番目の遷移は失敗するはず
         if (Either.isLeft(secondResult)) {
@@ -167,7 +167,7 @@ describe('SceneManagerLive', () => {
         const pushResult = yield* Effect.either(manager.pushScene('Game'))
 
         // 遷移を完了
-        yield* Effect.join(transitionFiber)
+        yield* Fiber.join(transitionFiber)
 
         // pushSceneは失敗するはず
         if (Either.isLeft(pushResult)) {
