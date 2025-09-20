@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { NumberValue, StringValue, BooleanValue } from '../index'
 import * as ExportedFromIndex from '../index'
+import { createGameError, EffectConfig } from '../../config/effect'
 
 describe('Shared Types Index', () => {
   describe('Type exports', () => {
@@ -47,9 +48,9 @@ describe('Shared Types Index', () => {
       expect(ExportedFromIndex.BlockTypeIdSchema).toBeDefined()
     })
 
-    it('should re-export effect config', () => {
-      expect(ExportedFromIndex.createGameError).toBeDefined()
-      expect(ExportedFromIndex.EffectConfig).toBeDefined()
+    it('should have effect config available', () => {
+      expect(createGameError).toBeDefined()
+      expect(EffectConfig).toBeDefined()
     })
 
     it('should have all expected basic type exports', () => {
@@ -110,8 +111,8 @@ describe('Shared Types Index', () => {
       expect(blockTypeId).toBe(5)
     })
 
-    it('should work with effect config from re-exports', () => {
-      const effect = ExportedFromIndex.EffectConfig.succeed('test')
+    it('should work with effect config', () => {
+      const effect = EffectConfig.succeed('test')
       expect(effect).toBeDefined()
     })
   })

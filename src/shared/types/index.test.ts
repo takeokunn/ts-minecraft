@@ -13,7 +13,6 @@ import {
 } from '../errors'
 import type { AllErrors } from '../errors'
 import type {
-  Result,
   Option,
   NonEmptyArray,
   Predicate,
@@ -21,6 +20,9 @@ import type {
   DeepReadonly,
   DeepPartial
 } from './index'
+
+// Effect-TSのResult型を直接定義
+type Result<A, E = Error> = Effect.Effect<A, E>
 
 describe('Types', () => {
   describe('GameError', () => {

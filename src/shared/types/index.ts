@@ -1,64 +1,12 @@
 /**
  * 共通型定義のエクスポート
- * プロジェクト全体で使用される型定義の単一エントリーポイント
+ * 同一または下層ディレクトリからのみエクスポート
  */
 
 import { Effect } from 'effect'
 
+// 同一ディレクトリからのエクスポート
 export * from './branded'
-// Effect-TS関連のユーティリティ（GameError以外）
-export {
-  Effect,
-  Context,
-  Layer,
-  pipe,
-  Runtime,
-  Schema,
-  Config,
-  runtime,
-  tap,
-  map,
-  flatMap,
-  catchAll,
-  catchTag,
-  succeed,
-  fail,
-  sync,
-  promise,
-  tryPromise,
-  gen,
-  all,
-  forEach,
-  parse,
-  parseSync,
-  encode,
-  encodeSync,
-  layerFrom,
-  layerEffect,
-  layerScoped,
-  layerFail,
-  layerMerge,
-  layerProvide,
-  service,
-  mapError,
-  orElse,
-  runSync,
-  runPromise,
-  taggedError,
-  makeService,
-  withRetry,
-  logInfo,
-  logError,
-  logDebug,
-  timed,
-  validate,
-  batch,
-  EffectConfig,
-  createGameError
-} from '../config/effect'
-export type { Schedule, GameResult } from '../config/effect'
-// エラー関連は errors/ モジュールから統一してエクスポート
-export * from '../errors'
 
 /**
  * 基本的な数値型
