@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene.js'
+import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // MainMenuScene実装
 export const MainMenuScene = Layer.effect(

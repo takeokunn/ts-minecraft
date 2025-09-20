@@ -11,7 +11,7 @@ import {
   SceneInitializationErrorSchema,
   SceneCleanupError,
   SceneCleanupErrorSchema,
-} from '../Scene.js'
+} from '../Scene'
 
 describe('Scene', () => {
   describe('SceneType', () => {

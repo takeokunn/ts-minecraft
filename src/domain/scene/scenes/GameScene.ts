@@ -1,5 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene.js'
+import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // ゲーム状態の定義
 interface GameState {

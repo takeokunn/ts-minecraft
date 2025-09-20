@@ -1,9 +1,9 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, Either } from 'effect'
-import { SceneManager } from '../SceneManager.js'
-import { SceneManagerLive } from '../SceneManagerLive.js'
-import { Scene, SceneData, SceneTransitionError } from '../Scene.js'
+import { SceneManager } from '../SceneManager'
+import { SceneManagerLive } from '../SceneManagerLive'
+import { Scene, SceneData, SceneTransitionError } from '../Scene'
 
 // テスト用のモックシーン
 const createMockScene = (sceneType: 'MainMenu' | 'Game' | 'Loading'): Layer.Layer<Scene> =>
