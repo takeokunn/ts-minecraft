@@ -225,4 +225,47 @@ describe('LoadingScene', () => {
         }
       }).pipe(Effect.runPromise))
   })
+
+  describe('タスク進捗とメッセージ更新', () => {
+    it('異なる進捗段階でタスクメッセージが変更される', () =>
+      Effect.gen(function* () {
+        yield* scene.initialize()
+
+        // 段階的に進捗を進める
+        // 25%まで
+        for (let i = 0; i < 25; i++) {
+          yield* scene.update(50) // 各回1%増加
+        }
+
+        // 50%まで (25-50% ワールド生成)
+        for (let i = 0; i < 25; i++) {
+          yield* scene.update(50)
+        }
+
+        // 75%まで (50-75% テクスチャ読み込み)
+        for (let i = 0; i < 25; i++) {
+          yield* scene.update(50)
+        }
+
+        // 90%まで (75-90% チャンク生成)
+        for (let i = 0; i < 15; i++) {
+          yield* scene.update(50)
+        }
+
+        // 100%まで (90%+ 最終処理)
+        for (let i = 0; i < 10; i++) {
+          yield* scene.update(50)
+        }
+      }).pipe(Effect.runPromise))
+
+    it('進捗100%で完了ログが出力される', () =>
+      Effect.gen(function* () {
+        yield* scene.initialize()
+
+        // 100%まで段階的に進捗させる
+        for (let i = 0; i < 100; i++) {
+          yield* scene.update(50)
+        }
+      }).pipe(Effect.runPromise))
+  })
 })

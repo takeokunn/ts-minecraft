@@ -47,7 +47,7 @@ export const ContextLostErrorSchema = Schema.Struct({
   _tag: Schema.Literal('ContextLostError'),
   message: Schema.String,
   canRestore: Schema.Boolean,
-  lostTime: Schema.Number,
+  lostTime: Schema.Number.pipe(Schema.finite()),
   cause: Schema.optional(Schema.Unknown),
 })
 
@@ -66,8 +66,8 @@ export const RenderTargetErrorSchema = Schema.Struct({
   _tag: Schema.Literal('RenderTargetError'),
   message: Schema.String,
   targetType: Schema.String,
-  width: Schema.Number,
-  height: Schema.Number,
+  width: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  height: Schema.Number.pipe(Schema.int(), Schema.positive()),
   format: Schema.optional(Schema.String),
   cause: Schema.optional(Schema.Unknown),
 })

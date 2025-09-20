@@ -1,7 +1,7 @@
-import { describe, expect } from 'vitest'
+import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
-import { SceneManager } from '../SceneManager'
+import { SceneManager, processSceneType } from '../SceneManager'
 import { SceneManagerLive } from '../SceneManagerLive'
 
 describe('SceneManager', () => {
@@ -255,6 +255,36 @@ describe('SceneManager', () => {
 
         const loadingScene = yield* manager.createScene('Loading')
         expect(loadingScene.data.type).toBe('Loading')
+      }).pipe(Effect.provide(SceneManagerLive))
+    )
+  })
+
+  describe('Edge cases', () => {
+    vitestIt('should handle unknown scene type in processSceneType', () => {
+      // Force test the exhaustive check by using an invalid scene type
+      expect(() => {
+        const invalidSceneType = 'InvalidScene' as any
+        processSceneType(invalidSceneType, {
+          MainMenu: () => 'mainmenu',
+          Game: () => 'game',
+          Loading: () => 'loading',
+          Pause: () => 'pause',
+          Settings: () => 'settings',
+        })
+      }).toThrow('Unknown scene type: InvalidScene')
+    })
+
+    it.effect('should fail to pop scene when stack is empty', () =>
+      Effect.gen(function* () {
+        const manager = yield* SceneManager
+
+        // Try to pop without any scene in stack should fail
+        const result = yield* Effect.either(manager.popScene())
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left.message).toBe('No scene in stack to pop')
+        }
       }).pipe(Effect.provide(SceneManagerLive))
     )
   })

@@ -29,12 +29,16 @@ export const LoggerServiceLive = Layer.sync(LoggerService, () => {
 
   const log = (level: LogLevel, message: string, context?: any, error?: Error) =>
     Effect.sync(() => {
-      if (!shouldLog(level, currentLogLevel)) {
-        return
-      }
+      // ログレベルチェック
+      const canLog = shouldLog(level, currentLogLevel)
 
-      const entry = createLogEntry(level, message, context, error)
-      outputToConsole(entry)
+      // ログ出力の実行
+      return canLog
+        ? (() => {
+            const entry = createLogEntry(level, message, context, error)
+            outputToConsole(entry)
+          })()
+        : undefined
     })
 
   return LoggerService.of({
