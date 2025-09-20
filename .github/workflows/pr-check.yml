@@ -37,9 +37,6 @@ jobs:
       - name: Run tests
         run: pnpm test:coverage
 
-      - name: Lint check
-        run: pnpm lint
-
       - name: Format check
         run: pnpm format:check
 

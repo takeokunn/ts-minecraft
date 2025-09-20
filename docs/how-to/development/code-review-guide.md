@@ -171,7 +171,6 @@ const processUserInput = (input: unknown) =>
 # レビュアーは手動確認不要
 
 ✅ TypeScript型チェック:    pnpm typecheck
-✅ リント（oxlint）:        pnpm lint
 ✅ フォーマット:            pnpm format:check
 ✅ ユニットテスト:          pnpm test
 ✅ ビルド:                  pnpm build

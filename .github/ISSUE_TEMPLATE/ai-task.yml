@@ -189,7 +189,7 @@ body:
         ### 品質チェック（並列実行）
         ```bash
         pnpm typecheck  # TypeScript型チェック
-        pnpm lint       # ESLint チェック
+        pnpm format:check # フォーマットチェック
         pnpm test       # テスト実行
         pnpm build      # ビルド確認
         ```
@@ -234,7 +234,7 @@ body:
 
         ## 🧪 品質確認
         - [x] pnpm typecheck - TypeScript型チェック完了
-        - [x] pnpm lint - ESLintチェック完了
+        - [x] pnpm format:check - フォーマットチェック完了
         - [x] pnpm test - テスト実行完了
         - [x] pnpm build - ビルド確認完了
 
@@ -260,7 +260,7 @@ body:
 
         ## 🧪 品質確認
         - [x] pnpm typecheck - TypeScript型チェック完了
-        - [x] pnpm lint - ESLintチェック完了
+        - [x] pnpm format:check - フォーマットチェック完了
         - [x] pnpm test - テスト実行完了
         - [x] pnpm build - ビルド確認完了
 

@@ -452,14 +452,15 @@ warning: 'console.log' is not allowed in production
 
 #### 解決手順
 
-1. **OXLint設定調整**
+1. **TypeScript設定調整**
 
    ```json
-   // .oxlintrc.json
+   // tsconfig.json
    {
-     "rules": {
-       "no-any": "warn",
-       "no-console": ["error", { "allow": ["warn", "error"] }]
+     "compilerOptions": {
+       "strict": true,
+       "noImplicitAny": true,
+       "noConsole": true
      }
    }
    ```
@@ -605,7 +606,7 @@ export default defineConfig({
    {
      "typescript.preferences.importModuleSpecifier": "relative",
      "editor.codeActionsOnSave": {
-       "source.fixAll.oxlint": true
+       "source.organizeImports": true
      }
    }
    ```
