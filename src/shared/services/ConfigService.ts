@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Schema } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -114,35 +114,24 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     debugConfig: currentDebugConfig,
 
     getConfig: (key) => {
-      switch (key) {
-        case 'gameConfig':
-          return Effect.succeed(currentGameConfig) as any
-        case 'renderConfig':
-          return Effect.succeed(currentRenderConfig) as any
-        case 'debugConfig':
-          return Effect.succeed(currentDebugConfig) as any
-        default:
-          return Effect.die(new Error(`Unknown config key: ${key}`))
-      }
+      if (key === 'gameConfig') return Effect.succeed(currentGameConfig) as any
+      if (key === 'renderConfig') return Effect.succeed(currentRenderConfig) as any
+      if (key === 'debugConfig') return Effect.succeed(currentDebugConfig) as any
+      return Effect.die(new Error(`Unknown config key: ${key}`))
     },
 
-    updateConfig: (key, value) => {
-      return Effect.sync(() => {
-        switch (key) {
-          case 'gameConfig':
-            currentGameConfig = value as GameConfig
-            break
-          case 'renderConfig':
-            currentRenderConfig = value as RenderConfig
-            break
-          case 'debugConfig':
-            currentDebugConfig = value as DebugConfig
-            break
-          default:
-            throw new Error(`Unknown config key: ${key}`)
+    updateConfig: (key, value) =>
+      Effect.sync(() => {
+        if (key === 'gameConfig') {
+          currentGameConfig = value as GameConfig
+        } else if (key === 'renderConfig') {
+          currentRenderConfig = value as RenderConfig
+        } else if (key === 'debugConfig') {
+          currentDebugConfig = value as DebugConfig
+        } else {
+          throw new Error(`Unknown config key: ${key}`)
         }
-      })
-    },
+      }),
   })
 })
 

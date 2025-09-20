@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect, Match, Schema } from 'effect'
 import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 
 // シーンスタック管理用のスキーマ
@@ -43,20 +43,12 @@ export const processSceneType = <A>(
     readonly Pause: () => A
     readonly Settings: () => A
   }
-): A => {
-  switch (sceneType) {
-    case 'MainMenu':
-      return handlers.MainMenu()
-    case 'Game':
-      return handlers.Game()
-    case 'Loading':
-      return handlers.Loading()
-    case 'Pause':
-      return handlers.Pause()
-    case 'Settings':
-      return handlers.Settings()
-    default:
-      const _exhaustive: never = sceneType
-      throw new Error(`Unknown scene type: ${_exhaustive}`)
-  }
-}
+): A =>
+  Match.value(sceneType).pipe(
+    Match.when('MainMenu', () => handlers.MainMenu()),
+    Match.when('Game', () => handlers.Game()),
+    Match.when('Loading', () => handlers.Loading()),
+    Match.when('Pause', () => handlers.Pause()),
+    Match.when('Settings', () => handlers.Settings()),
+    Match.exhaustive
+  ) as A
