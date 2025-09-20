@@ -153,19 +153,19 @@ describe('MainMenuScene', () => {
 
   describe('メニュー固有の機能', () => {
     it('ゲームタイトルが正しく設定される', () => {
-      expect(scene.data.metadata?.title).toBe('TypeScript Minecraft Clone')
+      expect(scene.data.metadata?.['title']).toBe('TypeScript Minecraft Clone')
     })
 
     it('バージョン情報が設定される', () => {
-      expect(scene.data.metadata?.version).toBe('1.0.0')
+      expect(scene.data.metadata?.['version']).toBe('1.0.0')
     })
 
     it('メニューアイテムが設定される', () => {
-      expect(scene.data.metadata?.menuItems).toEqual(['新しいゲーム', '設定', '終了'])
+      expect(scene.data.metadata?.['menuItems']).toEqual(['新しいゲーム', '設定', '終了'])
     })
 
     it('メニューアイテムが3つ存在する', () => {
-      const menuItems = scene.data.metadata?.menuItems as string[]
+      const menuItems = scene.data.metadata?.['menuItems'] as string[]
       expect(menuItems).toHaveLength(3)
     })
 
