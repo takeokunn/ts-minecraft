@@ -3,20 +3,21 @@
  * プロジェクト全体で使用される型定義の単一エントリーポイント
  */
 
-export * from "./branded";
-export * from "../config/effect";
+export * from './branded'
+// GameError系は errors/ から提供されるため、config/effect からは EffectConfig のみをエクスポート
+export { EffectConfig, createGameError, type GameResult } from '../config/effect'
 
 /**
  * 基本的な数値型
  */
-export type NumberValue = number;
+export type NumberValue = number
 
 /**
  * 基本的な文字列型
  */
-export type StringValue = string;
+export type StringValue = string
 
 /**
  * 基本的なブール型
  */
-export type BooleanValue = boolean;
+export type BooleanValue = boolean

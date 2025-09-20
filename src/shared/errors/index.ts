@@ -1,14 +1,14 @@
-import { Effect, Schedule, Duration, pipe } from "effect"
+import { Effect, Schedule, Duration, pipe } from 'effect'
 
 // ゲームエラー
-export * from "./GameErrors"
+export * from './GameErrors'
 
 // ネットワークエラー
-export * from "./NetworkErrors"
+export * from './NetworkErrors'
 
 // 全エラータイプのインポート
-import type { AnyGameError } from "./GameErrors"
-import type { AnyNetworkError } from "./NetworkErrors"
+import type { AnyGameError } from './GameErrors'
+import type { AnyNetworkError } from './NetworkErrors'
 
 // 全エラータイプのユニオン型
 export type AllErrors = AnyGameError | AnyNetworkError
@@ -21,10 +21,7 @@ export const ErrorRecovery = {
    * 指数バックオフによるリトライ
    * ネットワークエラーや一時的な失敗に対して使用
    */
-  exponentialBackoff: <R, E, A>(
-    maxRetries: number = 3,
-    baseDelay: Duration.DurationInput = Duration.seconds(1)
-  ) => {
+  exponentialBackoff: (maxRetries: number = 3, baseDelay: Duration.DurationInput = Duration.seconds(1)) => {
     const exponential = Schedule.exponential(baseDelay)
     const jittered = Schedule.jittered(exponential)
     const capped = Schedule.whileOutput(jittered, Duration.lessThanOrEqualTo(Duration.seconds(30)))
@@ -35,31 +32,21 @@ export const ErrorRecovery = {
    * 線形リトライ
    * 均等な間隔でのリトライが必要な場合
    */
-  linearRetry: <R, E, A>(
-    maxRetries: number = 3,
-    delay: Duration.DurationInput = Duration.seconds(1)
-  ) =>
+  linearRetry: (maxRetries: number = 3, delay: Duration.DurationInput = Duration.seconds(1)) =>
     Schedule.intersect(Schedule.spaced(delay), Schedule.recurs(maxRetries)),
 
   /**
    * 即座にリトライ
    * 軽微なエラーに対して使用
    */
-  immediateRetry: <R, E, A>(maxRetries: number = 1) =>
-    Schedule.recurs(maxRetries),
+  immediateRetry: (maxRetries: number = 1) => Schedule.recurs(maxRetries),
 
   /**
    * 条件付きリトライ
    * 特定のエラータイプのみリトライ
    */
-  conditionalRetry: <E>(
-    shouldRetry: (error: E) => boolean,
-    schedule: Schedule.Schedule<any, any, any>
-  ) =>
-    Schedule.intersect(
-      Schedule.whileInput(schedule, shouldRetry),
-      schedule
-    ),
+  conditionalRetry: <Out, In, R>(shouldRetry: (error: In) => boolean, schedule: Schedule.Schedule<Out, In, R>) =>
+    Schedule.whileInput(schedule, shouldRetry),
 
   /**
    * サーキットブレーカーパターン
@@ -84,7 +71,7 @@ export const ErrorRecovery = {
             circuitOpen = false
             failureCount = 0
           } else {
-            return yield* _(Effect.fail(new Error("Circuit breaker is open") as any))
+            return yield* _(Effect.fail(new Error('Circuit breaker is open') as any))
           }
         }
 
@@ -109,7 +96,7 @@ export const ErrorRecovery = {
           )
         )
       })
-  }
+  },
 }
 
 /**
@@ -119,65 +106,58 @@ export const ErrorHandlers = {
   /**
    * エラーをログに記録してフォールバック値を返す
    */
-  logAndFallback: <E, A>(
-    fallbackValue: A,
-    logger?: (error: E) => void
-  ) => (error: E) => {
-    if (logger) {
-      logger(error)
-    } else {
-      console.error("Error occurred:", error)
-    }
-    return Effect.succeed(fallbackValue)
-  },
+  logAndFallback:
+    <E, A>(fallbackValue: A, logger?: (error: E) => void) =>
+    (error: E) => {
+      if (logger) {
+        logger(error)
+      } else {
+        console.error('Error occurred:', error)
+      }
+      return Effect.succeed(fallbackValue)
+    },
 
   /**
    * エラーを変換
    */
-  mapError: <E1, E2>(
-    mapper: (error: E1) => E2
-  ) => (error: E1) =>
-    Effect.fail(mapper(error)),
+  mapError:
+    <E1, E2>(mapper: (error: E1) => E2) =>
+    (error: E1) =>
+      Effect.fail(mapper(error)),
 
   /**
    * 部分的な成功を許可
    */
-  partial: <R, E, A>(
-    effects: Array<Effect.Effect<A, E, R>>,
-    minSuccess: number = 1
-  ) =>
+  partial: <R, E, A>(effects: Array<Effect.Effect<A, E, R>>, minSuccess: number = 1) =>
     Effect.gen(function* (_) {
       const results = yield* _(
         Effect.all(
-          effects.map(e =>
-            Effect.either(e)
-          ),
-          { concurrency: "unbounded" }
+          effects.map((e) => Effect.either(e)),
+          { concurrency: 'unbounded' }
         )
       )
 
-      const successes = results.filter(r => r._tag === "Right")
+      const successes = results.filter((r) => r._tag === 'Right')
 
       if (successes.length >= minSuccess) {
-        return successes.map(r => (r as any).right)
+        return successes.map((r) => (r as any).right)
       } else {
-        return yield* _(Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`) as any))
+        return yield* _(
+          Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`) as any)
+        )
       }
     }),
 
   /**
    * タイムアウト付き実行
    */
-  withTimeout: <R, E, A>(
-    duration: Duration.DurationInput,
-    onTimeout: () => E
-  ) => (effect: Effect.Effect<A, E, R>) =>
-    Effect.race(
-      effect,
-      Effect.sleep(duration).pipe(
-        Effect.flatMap(() => Effect.fail(onTimeout()))
-      )
-    )
+  withTimeout: <TimeoutError>(duration: Duration.DurationInput, onTimeout: () => TimeoutError) => {
+    return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | TimeoutError, R> =>
+      Effect.timeoutFail({
+        duration,
+        onTimeout,
+      })(effect)
+  },
 }
 
 /**
@@ -188,14 +168,18 @@ export const ErrorReporter = {
    * エラーを構造化された形式でフォーマット
    */
   format: (error: unknown): string => {
-    if (error && typeof error === "object" && "_tag" in error) {
+    if (error && typeof error === 'object' && '_tag' in error) {
       const e = error as any
-      return JSON.stringify({
-        type: e._tag,
-        message: e.message,
-        details: e,
-        timestamp: new Date().toISOString()
-      }, null, 2)
+      return JSON.stringify(
+        {
+          type: e._tag,
+          message: e.message,
+          details: e,
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      )
     }
     return String(error)
   },
@@ -207,7 +191,7 @@ export const ErrorReporter = {
     if (error instanceof Error) {
       return error.stack
     }
-    if (error && typeof error === "object" && "stack" in error) {
+    if (error && typeof error === 'object' && 'stack' in error) {
       return String(error.stack)
     }
     return undefined
@@ -220,7 +204,7 @@ export const ErrorReporter = {
     const chain: unknown[] = [error]
     let current = error
 
-    while (current && typeof current === "object" && "cause" in current) {
+    while (current && typeof current === 'object' && 'cause' in current) {
       current = (current as any).cause
       if (current) {
         chain.push(current)
@@ -228,7 +212,7 @@ export const ErrorReporter = {
     }
 
     return chain
-  }
+  },
 }
 
 /**
@@ -237,52 +221,47 @@ export const ErrorReporter = {
 export const ErrorGuards = {
   isGameError: (error: unknown): error is AnyGameError =>
     error !== null &&
-    typeof error === "object" &&
-    "_tag" in error &&
+    typeof error === 'object' &&
+    '_tag' in error &&
     [
-      "GameError",
-      "InvalidStateError",
-      "ResourceNotFoundError",
-      "ValidationError",
-      "PerformanceError",
-      "ConfigError",
-      "RenderError",
-      "WorldGenerationError",
-      "EntityError",
-      "PhysicsError"
+      'GameError',
+      'InvalidStateError',
+      'ResourceNotFoundError',
+      'ValidationError',
+      'PerformanceError',
+      'ConfigError',
+      'RenderError',
+      'WorldGenerationError',
+      'EntityError',
+      'PhysicsError',
     ].includes((error as any)._tag),
 
   isNetworkError: (error: unknown): error is AnyNetworkError =>
     error !== null &&
-    typeof error === "object" &&
-    "_tag" in error &&
+    typeof error === 'object' &&
+    '_tag' in error &&
     [
-      "NetworkError",
-      "ConnectionError",
-      "TimeoutError",
-      "ProtocolError",
-      "AuthenticationError",
-      "SessionError",
-      "SyncError",
-      "RateLimitError",
-      "WebSocketError",
-      "PacketError",
-      "ServerError",
-      "P2PError"
+      'NetworkError',
+      'ConnectionError',
+      'TimeoutError',
+      'ProtocolError',
+      'AuthenticationError',
+      'SessionError',
+      'SyncError',
+      'RateLimitError',
+      'WebSocketError',
+      'PacketError',
+      'ServerError',
+      'P2PError',
     ].includes((error as any)._tag),
 
   isRetryableError: (error: unknown): boolean => {
-    if (!error || typeof error !== "object" || !("_tag" in error)) {
+    if (!error || typeof error !== 'object' || !('_tag' in error)) {
       return false
     }
 
-    const retryableTags = [
-      "NetworkError",
-      "ConnectionError",
-      "TimeoutError",
-      "ServerError"
-    ]
+    const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
 
     return retryableTags.includes((error as any)._tag)
-  }
+  },
 }

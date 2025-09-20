@@ -1,25 +1,25 @@
 ---
-title: "World Management System Specification"
-category: "Core Systems"
-complexity: "high"
+title: 'World Management System Specification'
+category: 'Core Systems'
+complexity: 'high'
 dependencies:
-  - "@effect/schema"
-  - "@effect/platform"
-  - "noise-js"
+  - '@effect/schema'
+  - '@effect/platform'
+  - 'noise-js'
 related_systems:
-  - "chunk-system"
-  - "terrain-generation"
-  - "block-system"
-  - "physics"
+  - 'chunk-system'
+  - 'terrain-generation'
+  - 'block-system'
+  - 'physics'
 ai_tags:
-  - "performance-critical"
-  - "procedural-generation"
-  - "memory-intensive"
-  - "world-streaming"
-implementation_time: "3-4 days"
-skill_level: "expert"
-testing_coverage: "92%"
-last_pattern_update: "2025-09-14"
+  - 'performance-critical'
+  - 'procedural-generation'
+  - 'memory-intensive'
+  - 'world-streaming'
+implementation_time: '3-4 days'
+skill_level: 'expert'
+testing_coverage: '92%'
+last_pattern_update: '2025-09-14'
 ---
 
 # ワールド管理システム
@@ -31,6 +31,7 @@ last_pattern_update: "2025-09-14"
 > **🔗 完全なAPI仕様**: ワールド管理システムの詳細な型定義、インターフェース、実装パターンは [Game World API Reference](../../../reference/game-systems/game-world-api.md) を参照してください。
 
 ### 主要機能
+
 - **プロシージャル生成**: シードベースの決定論的な無限世界生成
 - **チャンク管理**: 16x16x384サイズのチャンク単位での効率的な世界分割
 - **ブロック操作**: 高速なブロック配置・破壊・更新システム
@@ -39,6 +40,7 @@ last_pattern_update: "2025-09-14"
 - **世界永続化**: NBT形式による効率的なセーブ・ロード
 
 ### アーキテクチャ概要
+
 ```mermaid
 graph TD
     Presentation[プレゼンテーション層<br/>UI]
@@ -57,45 +59,46 @@ graph TD
 ### 2.1 ドメイン層
 
 #### ワールドアグリゲート (DDD)
+
 ```typescript
-import { Schema, pipe, Brand } from "effect"
+import { Schema, pipe, Brand } from 'effect'
 
 // 値オブジェクト
 export const ChunkCoordinate = Schema.Struct({
-  _tag: Schema.Literal("ChunkCoordinate"),
-  x: pipe(Schema.Number, Schema.int(), Schema.brand("ChunkX")),
-  z: pipe(Schema.Number, Schema.int(), Schema.brand("ChunkZ"))
+  _tag: Schema.Literal('ChunkCoordinate'),
+  x: pipe(Schema.Number, Schema.int(), Schema.brand('ChunkX')),
+  z: pipe(Schema.Number, Schema.int(), Schema.brand('ChunkZ')),
 })
 
 export const WorldPosition = Schema.Struct({
-  _tag: Schema.Literal("WorldPosition"),
+  _tag: Schema.Literal('WorldPosition'),
   x: Schema.Number,
   y: pipe(Schema.Number, Schema.int(), Schema.between(0, 383)),
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const BlockPosition = Schema.Struct({
-  _tag: Schema.Literal("BlockPosition"),
+  _tag: Schema.Literal('BlockPosition'),
   x: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
   y: pipe(Schema.Number, Schema.int(), Schema.between(0, 383)),
-  z: pipe(Schema.Number, Schema.int(), Schema.between(0, 15))
+  z: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
 })
 
 // チャンクエンティティ
 export const Chunk = Schema.Struct({
-  _tag: Schema.Literal("Chunk"),
+  _tag: Schema.Literal('Chunk'),
   coordinate: ChunkCoordinate,
   blocks: Schema.Array(pipe(Schema.Number, Schema.int(), Schema.between(0, 65535))),
   biome: Schema.Union(
-    Schema.Literal("plains"),
-    Schema.Literal("forest"),
-    Schema.Literal("desert"),
-    Schema.Literal("ocean"),
-    Schema.Literal("mountains"),
-    Schema.Literal("tundra"),
-    Schema.Literal("jungle"),
-    Schema.Literal("swamp"),
-    Schema.Literal("taiga")
+    Schema.Literal('plains'),
+    Schema.Literal('forest'),
+    Schema.Literal('desert'),
+    Schema.Literal('ocean'),
+    Schema.Literal('mountains'),
+    Schema.Literal('tundra'),
+    Schema.Literal('jungle'),
+    Schema.Literal('swamp'),
+    Schema.Literal('taiga')
   ),
   heightMap: Schema.Array(Schema.Number),
   lightMap: Schema.Array(Schema.Number),
@@ -103,57 +106,58 @@ export const Chunk = Schema.Struct({
   lastModified: Schema.DateTimeUtc,
   metadata: Schema.Struct({
     generatedAt: Schema.DateTimeUtc,
-    version: Schema.Number
-  })
+    version: Schema.Number,
+  }),
 })
 
 export type Chunk = Schema.Schema.Type<typeof Chunk>
 
 // ワールドアグリゲートルート
 export const World = Schema.Struct({
-  _tag: Schema.Literal("World"),
+  _tag: Schema.Literal('World'),
   id: Schema.UUID,
-  seed: pipe(Schema.Number, Schema.brand("WorldSeed")),
+  seed: pipe(Schema.Number, Schema.brand('WorldSeed')),
   chunks: Schema.Map(Schema.String, Chunk),
   spawnPoint: WorldPosition,
   worldBorder: Schema.Struct({
     center: Schema.Struct({ x: Schema.Number, z: Schema.Number }),
-    radius: pipe(Schema.Number, Schema.positive())
+    radius: pipe(Schema.Number, Schema.positive()),
   }),
   gameRules: Schema.Struct({
     doDaylightCycle: Schema.Boolean,
     doWeatherCycle: Schema.Boolean,
     keepInventory: Schema.Boolean,
     mobGriefing: Schema.Boolean,
-    naturalRegeneration: Schema.Boolean
-  })
+    naturalRegeneration: Schema.Boolean,
+  }),
 })
 
 export type World = Schema.Schema.Type<typeof World>
 
 // ブロック値オブジェクト
 export const BlockType = Schema.Union(
-  Schema.Literal("air"),
-  Schema.Literal("stone"),
-  Schema.Literal("grass"),
-  Schema.Literal("dirt"),
-  Schema.Literal("sand"),
-  Schema.Literal("water"),
-  Schema.Literal("wood"),
-  Schema.Literal("leaves"),
-  Schema.Literal("coal_ore"),
-  Schema.Literal("iron_ore"),
-  Schema.Literal("gold_ore"),
-  Schema.Literal("diamond_ore")
+  Schema.Literal('air'),
+  Schema.Literal('stone'),
+  Schema.Literal('grass'),
+  Schema.Literal('dirt'),
+  Schema.Literal('sand'),
+  Schema.Literal('water'),
+  Schema.Literal('wood'),
+  Schema.Literal('leaves'),
+  Schema.Literal('coal_ore'),
+  Schema.Literal('iron_ore'),
+  Schema.Literal('gold_ore'),
+  Schema.Literal('diamond_ore')
 )
 
 export type BlockType = Schema.Schema.Type<typeof BlockType>
 ```
 
 #### バイオーム値オブジェクト
+
 ```typescript
 export const BiomeDefinition = Schema.Struct({
-  _tag: Schema.Literal("BiomeDefinition"),
+  _tag: Schema.Literal('BiomeDefinition'),
   id: Schema.String,
   name: Schema.String,
   temperature: pipe(Schema.Number, Schema.between(-1, 1)),
@@ -162,19 +166,19 @@ export const BiomeDefinition = Schema.Struct({
   colors: Schema.Struct({
     grass: Schema.Number,
     foliage: Schema.Number,
-    water: Schema.Number
+    water: Schema.Number,
   }),
   blocks: Schema.Struct({
     surface: BlockType,
     subsurface: BlockType,
-    stone: BlockType
+    stone: BlockType,
   }),
   features: Schema.Array(Schema.String),
   spawnRules: Schema.Struct({
     passive: Schema.Array(Schema.String),
     hostile: Schema.Array(Schema.String),
-    spawnRate: pipe(Schema.Number, Schema.between(0, 1))
-  })
+    spawnRate: pipe(Schema.Number, Schema.between(0, 1)),
+  }),
 })
 
 export type BiomeDefinition = Schema.Schema.Type<typeof BiomeDefinition>
@@ -183,8 +187,9 @@ export type BiomeDefinition = Schema.Schema.Type<typeof BiomeDefinition>
 ### 2.2 インフラストラクチャ層
 
 #### ノイズ生成サービス
+
 ```typescript
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer } from 'effect'
 
 export interface NoiseGeneratorServiceInterface {
   readonly noise2D: (x: number, y: number, seed: number) => Effect.Effect<number, never>
@@ -200,7 +205,9 @@ export interface NoiseGeneratorServiceInterface {
   readonly ridgedNoise: (x: number, y: number, seed: number, octaves: number) => Effect.Effect<number, never>
 }
 
-export const NoiseGeneratorService = Context.GenericTag<NoiseGeneratorServiceInterface>("@minecraft/NoiseGeneratorService")
+export const NoiseGeneratorService = Context.GenericTag<NoiseGeneratorServiceInterface>(
+  '@minecraft/NoiseGeneratorService'
+)
 
 const makeNoiseGeneratorService = Effect.gen(function* () {
   const permutation = generatePermutationTable()
@@ -233,10 +240,10 @@ const makeNoiseGeneratorService = Effect.gen(function* () {
       const BB = permutation[B + 1]
 
       return lerp(
-        lerp(grad(permutation[AA], x, y),
-             grad(permutation[BA], x - 1, y), u),
-        lerp(grad(permutation[AB], x, y - 1),
-             grad(permutation[BB], x - 1, y - 1), u), v)
+        lerp(grad(permutation[AA], x, y), grad(permutation[BA], x - 1, y), u),
+        lerp(grad(permutation[AB], x, y - 1), grad(permutation[BB], x - 1, y - 1), u),
+        v
+      )
     })
 
   const octaveNoise = (x: number, y: number, seed: number, octaves: number, persistence: number, lacunarity: number) =>
@@ -248,18 +255,16 @@ const makeNoiseGeneratorService = Effect.gen(function* () {
 
       yield* pipe(
         Array.range(0, octaves),
-        Array.reduce(
-          { total: 0, maxValue: 0, amplitude: 1, frequency: 1 },
-          (acc, i) =>
-            Effect.gen(function* () {
-              const noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
-              return {
-                total: acc.total + noiseValue * acc.amplitude,
-                maxValue: acc.maxValue + acc.amplitude,
-                amplitude: acc.amplitude * persistence,
-                frequency: acc.frequency * lacunarity
-              }
-            })
+        Array.reduce({ total: 0, maxValue: 0, amplitude: 1, frequency: 1 }, (acc, i) =>
+          Effect.gen(function* () {
+            const noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
+            return {
+              total: acc.total + noiseValue * acc.amplitude,
+              maxValue: acc.maxValue + acc.amplitude,
+              amplitude: acc.amplitude * persistence,
+              frequency: acc.frequency * lacunarity,
+            }
+          })
         ),
         Effect.map(({ total, maxValue }) => total / maxValue)
       )
@@ -280,36 +285,31 @@ const makeNoiseGeneratorService = Effect.gen(function* () {
 
         const result = yield* pipe(
           Array.range(0, octaves),
-          Array.reduce(
-            { total: 0, amplitude: 1, frequency: 1, weight: 1 },
-            (acc, i) =>
-              Effect.gen(function* () {
-                let noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
-                noiseValue = 1.0 - Math.abs(noiseValue)
-                noiseValue *= noiseValue
-                noiseValue *= acc.weight
-                const newWeight = Math.max(0, Math.min(1, noiseValue * 2))
+          Array.reduce({ total: 0, amplitude: 1, frequency: 1, weight: 1 }, (acc, i) =>
+            Effect.gen(function* () {
+              let noiseValue = yield* noise2D(x * acc.frequency, y * acc.frequency, seed + i)
+              noiseValue = 1.0 - Math.abs(noiseValue)
+              noiseValue *= noiseValue
+              noiseValue *= acc.weight
+              const newWeight = Math.max(0, Math.min(1, noiseValue * 2))
 
-                return {
-                  total: acc.total + noiseValue * acc.amplitude,
-                  amplitude: acc.amplitude * 0.5,
-                  frequency: acc.frequency * 2,
-                  weight: newWeight
-                }
-              })
+              return {
+                total: acc.total + noiseValue * acc.amplitude,
+                amplitude: acc.amplitude * 0.5,
+                frequency: acc.frequency * 2,
+                weight: newWeight,
+              }
+            })
           )
         )
         total = result.total
 
         return total
-      })
+      }),
   })
 })
 
-export const NoiseGeneratorServiceLive = Layer.effect(
-  NoiseGeneratorService,
-  makeNoiseGeneratorService
-)
+export const NoiseGeneratorServiceLive = Layer.effect(NoiseGeneratorService, makeNoiseGeneratorService)
 
 const generatePermutationTable = (): ReadonlyArray<number> => {
   const perm = Array.from({ length: 256 }, (_, i) => i)
@@ -328,6 +328,7 @@ const generatePermutationTable = (): ReadonlyArray<number> => {
 ```
 
 #### チャンクストレージサービス
+
 ```typescript
 export interface ChunkStorageServiceInterface {
   readonly save: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
@@ -400,6 +401,7 @@ export const ChunkStorageServiceLive = Layer.effect(
 ```
 
 #### ワールド永続化サービス
+
 ```typescript
 export interface WorldPersistenceServiceInterface {
   readonly saveWorld: (world: World) => Effect.Effect<void, WorldSaveError>
@@ -408,27 +410,29 @@ export interface WorldPersistenceServiceInterface {
   readonly listWorlds: () => Effect.Effect<ReadonlyArray<WorldMetadata>, never>
 }
 
-export const WorldPersistenceService = Context.GenericTag<WorldPersistenceServiceInterface>("@minecraft/WorldPersistenceService")
+export const WorldPersistenceService = Context.GenericTag<WorldPersistenceServiceInterface>(
+  '@minecraft/WorldPersistenceService'
+)
 
 export const WorldSaveError = Schema.Struct({
-  _tag: Schema.Literal("WorldSaveError"),
+  _tag: Schema.Literal('WorldSaveError'),
   message: Schema.String,
-  worldId: Schema.String
+  worldId: Schema.String,
 })
 
 export const WorldLoadError = Schema.Struct({
-  _tag: Schema.Literal("WorldLoadError"),
+  _tag: Schema.Literal('WorldLoadError'),
   message: Schema.String,
-  worldId: Schema.String
+  worldId: Schema.String,
 })
 
 export const WorldMetadata = Schema.Struct({
-  _tag: Schema.Literal("WorldMetadata"),
+  _tag: Schema.Literal('WorldMetadata'),
   id: Schema.String,
   name: Schema.String,
   createdAt: Schema.DateTimeUtc,
   lastPlayed: Schema.DateTimeUtc,
-  seed: Schema.Number
+  seed: Schema.Number,
 })
 
 export type WorldSaveError = Schema.Schema.Type<typeof WorldSaveError>
@@ -447,12 +451,14 @@ export interface TerrainGenerationServiceInterface {
   readonly determineBiome: (coordinate: ChunkCoordinate, seed: number) => Effect.Effect<BiomeDefinition, never>
 }
 
-export const TerrainGenerationService = Context.GenericTag<TerrainGenerationServiceInterface>("@minecraft/TerrainGenerationService")
+export const TerrainGenerationService = Context.GenericTag<TerrainGenerationServiceInterface>(
+  '@minecraft/TerrainGenerationService'
+)
 
 export const GenerationError = Schema.Struct({
-  _tag: Schema.Literal("GenerationError"),
+  _tag: Schema.Literal('GenerationError'),
   message: Schema.String,
-  coordinate: ChunkCoordinate
+  coordinate: ChunkCoordinate,
 })
 
 export type GenerationError = Schema.Schema.Type<typeof GenerationError>
@@ -463,10 +469,10 @@ const makeTerrainGenerationService = Effect.gen(function* () {
   // 純粋関数: 座標生成
   const generateLocalCoordinates = (chunkSize: number): ReadonlyArray<BlockPosition> =>
     Array.from({ length: chunkSize * chunkSize }, (_, index) => ({
-      _tag: "BlockPosition" as const,
+      _tag: 'BlockPosition' as const,
       x: Math.floor(index / chunkSize),
       y: 0,
-      z: index % chunkSize
+      z: index % chunkSize,
     }))
 
   // 純粋関数: 座標変換
@@ -475,12 +481,11 @@ const makeTerrainGenerationService = Effect.gen(function* () {
     localCoord: BlockPosition
   ): { x: number; z: number } => ({
     x: chunkCoord.x * CHUNK_SIZE + localCoord.x,
-    z: chunkCoord.z * CHUNK_SIZE + localCoord.z
+    z: chunkCoord.z * CHUNK_SIZE + localCoord.z,
   })
 
   // 純粋関数: 高さ計算
-  const calculateHeight = (elevation: number): number =>
-    Math.floor(elevation * 64 + 64)
+  const calculateHeight = (elevation: number): number => Math.floor(elevation * 64 + 64)
 
   // バイオーム判定ロジック
   const determineBiomeFromClimate = (temperature: number, humidity: number): BiomeDefinition =>
@@ -509,7 +514,7 @@ const makeTerrainGenerationService = Effect.gen(function* () {
   const generateHeightMap = (coordinate: ChunkCoordinate, seed: number) =>
     pipe(
       generateLocalCoordinates(CHUNK_SIZE),
-      Effect.forEach(localCoord => {
+      Effect.forEach((localCoord) => {
         const worldCoord = calculateWorldCoordinate(coordinate, localCoord)
         return pipe(
           noiseGenerator.octaveNoise(
@@ -527,32 +532,24 @@ const makeTerrainGenerationService = Effect.gen(function* () {
 
   const determineBiome = (coordinate: ChunkCoordinate, seed: number) =>
     Effect.gen(function* () {
-      const temperature = yield* noiseGenerator.noise2D(
-        coordinate.x * 0.05,
-        coordinate.z * 0.05,
-        seed + 1000
-      )
-      const humidity = yield* noiseGenerator.noise2D(
-        coordinate.x * 0.05,
-        coordinate.z * 0.05,
-        seed + 2000
-      )
+      const temperature = yield* noiseGenerator.noise2D(coordinate.x * 0.05, coordinate.z * 0.05, seed + 1000)
+      const humidity = yield* noiseGenerator.noise2D(coordinate.x * 0.05, coordinate.z * 0.05, seed + 2000)
 
       return determineBiomeFromClimate(temperature, humidity)
     })
 
   const generateChunk = (coordinate: ChunkCoordinate, seed: number) =>
     Effect.gen(function* () {
-      const [heightMap, biome] = yield* Effect.all([
-        generateHeightMap(coordinate, seed),
-        determineBiome(coordinate, seed)
-      ], { concurrency: 2 })
+      const [heightMap, biome] = yield* Effect.all(
+        [generateHeightMap(coordinate, seed), determineBiome(coordinate, seed)],
+        { concurrency: 2 }
+      )
 
       const blocks = yield* generateBlocks(heightMap, biome)
       const lightMap = new Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE).fill(15)
 
       return {
-        _tag: "Chunk" as const,
+        _tag: 'Chunk' as const,
         coordinate,
         blocks,
         biome: biome.id,
@@ -562,22 +559,21 @@ const makeTerrainGenerationService = Effect.gen(function* () {
         lastModified: new Date(),
         metadata: {
           generatedAt: new Date(),
-          version: CHUNK_FORMAT_VERSION
-        }
+          version: CHUNK_FORMAT_VERSION,
+        },
       }
     })
 
   return TerrainGenerationService.of({
     generateChunk,
     generateHeightMap,
-    determineBiome
+    determineBiome,
   })
 })
 
-export const TerrainGenerationServiceLive = Layer.effect(
-  TerrainGenerationService,
-  makeTerrainGenerationService
-).pipe(Layer.provide(NoiseGeneratorServiceLive))
+export const TerrainGenerationServiceLive = Layer.effect(TerrainGenerationService, makeTerrainGenerationService).pipe(
+  Layer.provide(NoiseGeneratorServiceLive)
+)
 
 const CHUNK_SIZE = 16
 const CHUNK_HEIGHT = 384
@@ -590,106 +586,106 @@ const CHUNK_FORMAT_VERSION = 1
 // バイオーム定義
 export const BiomeDefinitions = {
   Plains: {
-    _tag: "BiomeDefinition" as const,
-    id: "plains",
-    name: "平原",
+    _tag: 'BiomeDefinition' as const,
+    id: 'plains',
+    name: '平原',
     temperature: 0.3,
     humidity: 0.4,
     elevation: 0.2,
     colors: { grass: 0x91bd59, foliage: 0x77ab2f, water: 0x3f76e4 },
-    blocks: { surface: "grass" as const, subsurface: "dirt" as const, stone: "stone" as const },
-    features: ["tallGrass", "flowers", "trees_sparse"],
+    blocks: { surface: 'grass' as const, subsurface: 'dirt' as const, stone: 'stone' as const },
+    features: ['tallGrass', 'flowers', 'trees_sparse'],
     spawnRules: {
-      passive: ["sheep", "cow", "pig", "chicken"],
-      hostile: ["zombie", "skeleton", "creeper"],
-      spawnRate: 0.7
-    }
+      passive: ['sheep', 'cow', 'pig', 'chicken'],
+      hostile: ['zombie', 'skeleton', 'creeper'],
+      spawnRate: 0.7,
+    },
   },
 
   Desert: {
-    _tag: "BiomeDefinition" as const,
-    id: "desert",
-    name: "砂漠",
+    _tag: 'BiomeDefinition' as const,
+    id: 'desert',
+    name: '砂漠',
     temperature: 0.95,
     humidity: 0.0,
     elevation: 0.25,
     colors: { grass: 0xbfb755, foliage: 0xaea42a, water: 0x3f76e4 },
-    blocks: { surface: "sand" as const, subsurface: "sand" as const, stone: "stone" as const },
-    features: ["cactus", "deadBush", "desertWell"],
+    blocks: { surface: 'sand' as const, subsurface: 'sand' as const, stone: 'stone' as const },
+    features: ['cactus', 'deadBush', 'desertWell'],
     spawnRules: {
-      passive: ["rabbit"],
-      hostile: ["husk", "spider"],
-      spawnRate: 0.5
-    }
+      passive: ['rabbit'],
+      hostile: ['husk', 'spider'],
+      spawnRate: 0.5,
+    },
   },
 
   Forest: {
-    _tag: "BiomeDefinition" as const,
-    id: "forest",
-    name: "森林",
+    _tag: 'BiomeDefinition' as const,
+    id: 'forest',
+    name: '森林',
     temperature: 0.2,
     humidity: 0.6,
     elevation: 0.3,
     colors: { grass: 0x79c05a, foliage: 0x59ae30, water: 0x3f76e4 },
-    blocks: { surface: "grass" as const, subsurface: "dirt" as const, stone: "stone" as const },
-    features: ["oak_trees", "birch_trees", "flowers", "ferns"],
+    blocks: { surface: 'grass' as const, subsurface: 'dirt' as const, stone: 'stone' as const },
+    features: ['oak_trees', 'birch_trees', 'flowers', 'ferns'],
     spawnRules: {
-      passive: ["sheep", "cow", "pig", "chicken", "wolf"],
-      hostile: ["zombie", "skeleton", "creeper", "spider"],
-      spawnRate: 0.8
-    }
+      passive: ['sheep', 'cow', 'pig', 'chicken', 'wolf'],
+      hostile: ['zombie', 'skeleton', 'creeper', 'spider'],
+      spawnRate: 0.8,
+    },
   },
 
   Mountains: {
-    _tag: "BiomeDefinition" as const,
-    id: "mountains",
-    name: "山岳",
+    _tag: 'BiomeDefinition' as const,
+    id: 'mountains',
+    name: '山岳',
     temperature: -0.3,
     humidity: 0.2,
     elevation: 0.7,
     colors: { grass: 0x8ab689, foliage: 0x6da36b, water: 0x3f76e4 },
-    blocks: { surface: "stone" as const, subsurface: "stone" as const, stone: "stone" as const },
-    features: ["pine_trees", "snow"],
+    blocks: { surface: 'stone' as const, subsurface: 'stone' as const, stone: 'stone' as const },
+    features: ['pine_trees', 'snow'],
     spawnRules: {
-      passive: ["sheep", "goat"],
-      hostile: ["zombie", "skeleton", "creeper"],
-      spawnRate: 0.4
-    }
+      passive: ['sheep', 'goat'],
+      hostile: ['zombie', 'skeleton', 'creeper'],
+      spawnRate: 0.4,
+    },
   },
 
   Jungle: {
-    _tag: "BiomeDefinition" as const,
-    id: "jungle",
-    name: "ジャングル",
+    _tag: 'BiomeDefinition' as const,
+    id: 'jungle',
+    name: 'ジャングル',
     temperature: 0.9,
     humidity: 0.9,
     elevation: 0.1,
     colors: { grass: 0x59c93c, foliage: 0x30bb0b, water: 0x3f76e4 },
-    blocks: { surface: "grass" as const, subsurface: "dirt" as const, stone: "stone" as const },
-    features: ["jungle_trees", "vines", "cocoa"],
+    blocks: { surface: 'grass' as const, subsurface: 'dirt' as const, stone: 'stone' as const },
+    features: ['jungle_trees', 'vines', 'cocoa'],
     spawnRules: {
-      passive: ["parrot", "ocelot"],
-      hostile: ["zombie", "skeleton", "creeper", "spider"],
-      spawnRate: 0.9
-    }
+      passive: ['parrot', 'ocelot'],
+      hostile: ['zombie', 'skeleton', 'creeper', 'spider'],
+      spawnRate: 0.9,
+    },
   },
 
   Tundra: {
-    _tag: "BiomeDefinition" as const,
-    id: "tundra",
-    name: "ツンドラ",
+    _tag: 'BiomeDefinition' as const,
+    id: 'tundra',
+    name: 'ツンドラ',
     temperature: -0.8,
     humidity: 0.1,
     elevation: 0.2,
     colors: { grass: 0x80b497, foliage: 0x60a17b, water: 0x3f76e4 },
-    blocks: { surface: "grass" as const, subsurface: "dirt" as const, stone: "stone" as const },
-    features: ["spruce_trees", "snow"],
+    blocks: { surface: 'grass' as const, subsurface: 'dirt' as const, stone: 'stone' as const },
+    features: ['spruce_trees', 'snow'],
     spawnRules: {
-      passive: ["polar_bear", "rabbit"],
-      hostile: ["stray", "skeleton"],
-      spawnRate: 0.3
-    }
-  }
+      passive: ['polar_bear', 'rabbit'],
+      hostile: ['stray', 'skeleton'],
+      spawnRate: 0.3,
+    },
+  },
 } as const
 ```
 
@@ -704,9 +700,9 @@ export const TerrainPatterns = {
       persistence: 0.5,
       lacunarity: 2.0,
       scale: 200,
-      offset: { x: 0, y: 0, z: 0 }
+      offset: { x: 0, y: 0, z: 0 },
     },
-    modifier: (noise: number) => Math.pow(noise, 2.0) * 128 + 64
+    modifier: (noise: number) => Math.pow(noise, 2.0) * 128 + 64,
   },
 
   // 平原
@@ -716,9 +712,9 @@ export const TerrainPatterns = {
       persistence: 0.3,
       lacunarity: 2.0,
       scale: 100,
-      offset: { x: 1000, y: 0, z: 0 }
+      offset: { x: 1000, y: 0, z: 0 },
     },
-    modifier: (noise: number) => noise * 10 + 64
+    modifier: (noise: number) => noise * 10 + 64,
   },
 
   // 海洋
@@ -728,9 +724,9 @@ export const TerrainPatterns = {
       persistence: 0.2,
       lacunarity: 2.0,
       scale: 150,
-      offset: { x: 2000, y: 0, z: 0 }
+      offset: { x: 2000, y: 0, z: 0 },
     },
-    modifier: (noise: number) => noise * 5 + 30
+    modifier: (noise: number) => noise * 5 + 30,
   },
 
   // 洞窟
@@ -740,9 +736,9 @@ export const TerrainPatterns = {
       persistence: 0.6,
       lacunarity: 2.0,
       scale: 50,
-      threshold: 0.15
-    }
-  }
+      threshold: 0.15,
+    },
+  },
 } as const
 ```
 
@@ -762,17 +758,17 @@ export interface ChunkManagerInterface {
   ) => Effect.Effect<void, ChunkNotLoadedError>
 }
 
-export const ChunkManager = Context.GenericTag<ChunkManagerInterface>("@minecraft/ChunkManager")
+export const ChunkManager = Context.GenericTag<ChunkManagerInterface>('@minecraft/ChunkManager')
 
 export const ChunkLoadError = Schema.Struct({
-  _tag: Schema.Literal("ChunkLoadError"),
+  _tag: Schema.Literal('ChunkLoadError'),
   message: Schema.String,
-  coordinate: ChunkCoordinate
+  coordinate: ChunkCoordinate,
 })
 
 export const ChunkNotLoadedError = Schema.Struct({
-  _tag: Schema.Literal("ChunkNotLoadedError"),
-  coordinate: ChunkCoordinate
+  _tag: Schema.Literal('ChunkNotLoadedError'),
+  coordinate: ChunkCoordinate,
 })
 
 export type ChunkLoadError = Schema.Schema.Type<typeof ChunkLoadError>
@@ -794,11 +790,9 @@ const makeChunkManager = Effect.gen(function* () {
       if (cached) return cached
 
       // ストレージから読み込み、なければ生成
-      const chunk = yield* storage.load(coord).pipe(
-        Effect.catchTag("ChunkNotFoundError", () =>
-          generator.generateChunk(coord, worldSeed)
-        )
-      )
+      const chunk = yield* storage
+        .load(coord)
+        .pipe(Effect.catchTag('ChunkNotFoundError', () => generator.generateChunk(coord, worldSeed)))
 
       cache.set(key, chunk)
       return chunk
@@ -825,8 +819,8 @@ const makeChunkManager = Effect.gen(function* () {
       // 早期リターン: チャンクが存在しない場合はエラー
       if (!chunk) {
         return yield* Effect.fail({
-          _tag: "ChunkNotLoadedError" as const,
-          coordinate: coord
+          _tag: 'ChunkNotLoadedError' as const,
+          coordinate: coord,
         })
       }
 
@@ -839,14 +833,11 @@ const makeChunkManager = Effect.gen(function* () {
     unloadChunk,
     saveChunk: storage.save,
     getLoadedChunks: () => Effect.succeed(Array.from(cache.values())),
-    updateChunk
+    updateChunk,
   })
 })
 
-export const ChunkManagerLive = Layer.effect(
-  ChunkManager,
-  makeChunkManager
-).pipe(
+export const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager).pipe(
   Layer.provide(ChunkStorageServiceLive),
   Layer.provide(TerrainGenerationServiceLive)
 )
@@ -1031,45 +1022,32 @@ export const ChunkLoadingStrategyLive = Layer.effect(
 
 ```typescript
 export interface BlockOperationsInterface {
-  readonly getBlock: (
-    world: World,
-    position: WorldPosition
-  ) => Effect.Effect<BlockType, BlockNotFoundError>
+  readonly getBlock: (world: World, position: WorldPosition) => Effect.Effect<BlockType, BlockNotFoundError>
 
-  readonly setBlock: (
-    world: World,
-    position: WorldPosition,
-    block: BlockType
-  ) => Effect.Effect<World, BlockPlaceError>
+  readonly setBlock: (world: World, position: WorldPosition, block: BlockType) => Effect.Effect<World, BlockPlaceError>
 
-  readonly breakBlock: (
-    world: World,
-    position: WorldPosition
-  ) => Effect.Effect<World, BlockBreakError>
+  readonly breakBlock: (world: World, position: WorldPosition) => Effect.Effect<World, BlockBreakError>
 
-  readonly getAdjacentBlocks: (
-    world: World,
-    position: WorldPosition
-  ) => Effect.Effect<ReadonlyArray<BlockType>, never>
+  readonly getAdjacentBlocks: (world: World, position: WorldPosition) => Effect.Effect<ReadonlyArray<BlockType>, never>
 }
 
-export const BlockOperations = Context.GenericTag<BlockOperationsInterface>("@minecraft/BlockOperations")
+export const BlockOperations = Context.GenericTag<BlockOperationsInterface>('@minecraft/BlockOperations')
 
 export const BlockNotFoundError = Schema.Struct({
-  _tag: Schema.Literal("BlockNotFoundError"),
-  position: WorldPosition
+  _tag: Schema.Literal('BlockNotFoundError'),
+  position: WorldPosition,
 })
 
 export const BlockPlaceError = Schema.Struct({
-  _tag: Schema.Literal("BlockPlaceError"),
+  _tag: Schema.Literal('BlockPlaceError'),
   message: Schema.String,
-  position: WorldPosition
+  position: WorldPosition,
 })
 
 export const BlockBreakError = Schema.Struct({
-  _tag: Schema.Literal("BlockBreakError"),
+  _tag: Schema.Literal('BlockBreakError'),
   message: Schema.String,
-  position: WorldPosition
+  position: WorldPosition,
 })
 
 export type BlockNotFoundError = Schema.Schema.Type<typeof BlockNotFoundError>
@@ -1081,16 +1059,16 @@ const makeBlockOperations = Effect.gen(function* () {
 
   // 純粋関数: 座標変換
   const worldToChunkCoord = (pos: WorldPosition): ChunkCoordinate => ({
-    _tag: "ChunkCoordinate" as const,
+    _tag: 'ChunkCoordinate' as const,
     x: Math.floor(pos.x / CHUNK_SIZE),
-    z: Math.floor(pos.z / CHUNK_SIZE)
+    z: Math.floor(pos.z / CHUNK_SIZE),
   })
 
   const worldToLocalCoord = (pos: WorldPosition): BlockPosition => ({
-    _tag: "BlockPosition" as const,
+    _tag: 'BlockPosition' as const,
     x: ((pos.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
     y: Math.floor(pos.y),
-    z: ((pos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    z: ((pos.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
   })
 
   const getBlockIndex = (local: BlockPosition): number =>
@@ -1104,7 +1082,7 @@ const makeBlockOperations = Effect.gen(function* () {
       const index = getBlockIndex(localCoord)
 
       const blockId = chunk.blocks[index] ?? 0
-      return blockId === 0 ? "air" as const : "stone" as const // 簡単な実装
+      return blockId === 0 ? ('air' as const) : ('stone' as const) // 簡単な実装
     })
 
   const setBlock = (world: World, position: WorldPosition, block: BlockType) =>
@@ -1116,38 +1094,36 @@ const makeBlockOperations = Effect.gen(function* () {
 
       yield* chunkManager.updateChunk(chunkCoord, (chunk) => ({
         ...chunk,
-        blocks: chunk.blocks.map((b, i) => i === index ? blockId : b),
+        blocks: chunk.blocks.map((b, i) => (i === index ? blockId : b)),
         isDirty: true,
-        lastModified: new Date()
+        lastModified: new Date(),
       }))
 
       return world
     })
 
-  const breakBlock = (world: World, position: WorldPosition) =>
-    setBlock(world, position, "air")
+  const breakBlock = (world: World, position: WorldPosition) => setBlock(world, position, 'air')
 
   const getAdjacentBlocks = (world: World, position: WorldPosition) =>
     Effect.gen(function* () {
       const directions = [
-        { x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 },
-        { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 },
-        { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 }
+        { x: 1, y: 0, z: 0 },
+        { x: -1, y: 0, z: 0 },
+        { x: 0, y: 1, z: 0 },
+        { x: 0, y: -1, z: 0 },
+        { x: 0, y: 0, z: 1 },
+        { x: 0, y: 0, z: -1 },
       ]
 
-      const adjacentPositions = directions.map(dir => ({
-        _tag: "WorldPosition" as const,
+      const adjacentPositions = directions.map((dir) => ({
+        _tag: 'WorldPosition' as const,
         x: position.x + dir.x,
         y: position.y + dir.y,
-        z: position.z + dir.z
+        z: position.z + dir.z,
       }))
 
       return yield* Effect.all(
-        adjacentPositions.map(pos =>
-          getBlock(world, pos).pipe(
-            Effect.catchAll(() => Effect.succeed("air" as const))
-          )
-        )
+        adjacentPositions.map((pos) => getBlock(world, pos).pipe(Effect.catchAll(() => Effect.succeed('air' as const))))
       )
     })
 
@@ -1155,14 +1131,13 @@ const makeBlockOperations = Effect.gen(function* () {
     getBlock,
     setBlock,
     breakBlock,
-    getAdjacentBlocks
+    getAdjacentBlocks,
   })
 })
 
-export const BlockOperationsLive = Layer.effect(
-  BlockOperations,
-  makeBlockOperations
-).pipe(Layer.provide(ChunkManagerLive))
+export const BlockOperationsLive = Layer.effect(BlockOperations, makeBlockOperations).pipe(
+  Layer.provide(ChunkManagerLive)
+)
 
 // ヘルパー関数
 const getBlockId = (block: BlockType): number => {
@@ -1178,7 +1153,7 @@ const getBlockId = (block: BlockType): number => {
     coal_ore: 16,
     iron_ore: 15,
     gold_ore: 14,
-    diamond_ore: 56
+    diamond_ore: 56,
   } as const
 
   return blockIds[block] ?? 0
@@ -1191,11 +1166,11 @@ const getBlockId = (block: BlockType): number => {
 
 ```typescript
 export enum LODLevel {
-  Full = "full",
-  High = "high",
-  Medium = "medium",
-  Low = "low",
-  Minimal = "minimal"
+  Full = 'full',
+  High = 'high',
+  Medium = 'medium',
+  Low = 'low',
+  Minimal = 'minimal',
 }
 
 export interface LODSystemInterface {
@@ -1207,7 +1182,7 @@ export interface LODSystemInterface {
   ) => Effect.Effect<Chunk, GenerationError>
 }
 
-export const LODSystem = Context.GenericTag<LODSystemInterface>("@minecraft/LODSystem")
+export const LODSystem = Context.GenericTag<LODSystemInterface>('@minecraft/LODSystem')
 
 const makeLODSystem = Effect.gen(function* () {
   const generator = yield* TerrainGenerationService
@@ -1216,10 +1191,22 @@ const makeLODSystem = Effect.gen(function* () {
   const selectLOD = (distance: number) =>
     Effect.succeed(
       Match.value(distance).pipe(
-        Match.when((d) => d < 50, () => LODLevel.Full),
-        Match.when((d) => d < 100, () => LODLevel.High),
-        Match.when((d) => d < 200, () => LODLevel.Medium),
-        Match.when((d) => d < 400, () => LODLevel.Low),
+        Match.when(
+          (d) => d < 50,
+          () => LODLevel.Full
+        ),
+        Match.when(
+          (d) => d < 100,
+          () => LODLevel.High
+        ),
+        Match.when(
+          (d) => d < 200,
+          () => LODLevel.Medium
+        ),
+        Match.when(
+          (d) => d < 400,
+          () => LODLevel.Low
+        ),
         Match.orElse(() => LODLevel.Minimal)
       )
     )
@@ -1236,14 +1223,11 @@ const makeLODSystem = Effect.gen(function* () {
 
   return LODSystem.of({
     selectLOD,
-    generateWithLOD
+    generateWithLOD,
   })
 })
 
-export const LODSystemLive = Layer.effect(
-  LODSystem,
-  makeLODSystem
-).pipe(Layer.provide(TerrainGenerationServiceLive))
+export const LODSystemLive = Layer.effect(LODSystem, makeLODSystem).pipe(Layer.provide(TerrainGenerationServiceLive))
 
 // LOD別生成関数（実装は省略）
 const generateHighDetail = (coordinate: ChunkCoordinate, seed: number): Effect.Effect<Chunk, GenerationError> =>
@@ -1262,7 +1246,7 @@ const generateMinimalDetail = (coordinate: ChunkCoordinate, seed: number): Effec
 ### 6.2 非同期生成とキャッシング
 
 ```typescript
-import { Queue, WorkerPool } from "effect"
+import { Queue, WorkerPool } from 'effect'
 
 export interface AsyncWorldGenerationInterface {
   readonly enqueueGeneration: (request: GenerationRequest) => Effect.Effect<void, never>
@@ -1270,14 +1254,14 @@ export interface AsyncWorldGenerationInterface {
   readonly getCachedChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Option.Option<Chunk>, never>
 }
 
-export const AsyncWorldGeneration = Context.GenericTag<AsyncWorldGenerationInterface>("@minecraft/AsyncWorldGeneration")
+export const AsyncWorldGeneration = Context.GenericTag<AsyncWorldGenerationInterface>('@minecraft/AsyncWorldGeneration')
 
 export const GenerationRequest = Schema.Struct({
-  _tag: Schema.Literal("GenerationRequest"),
+  _tag: Schema.Literal('GenerationRequest'),
   coordinate: ChunkCoordinate,
   priority: Schema.Number,
   seed: Schema.Number,
-  lod: Schema.String
+  lod: Schema.String,
 })
 
 export type GenerationRequest = Schema.Schema.Type<typeof GenerationRequest>
@@ -1289,8 +1273,7 @@ const makeAsyncWorldGeneration = Effect.gen(function* () {
 
   const chunkKey = (coord: ChunkCoordinate) => `${coord.x},${coord.z}`
 
-  const enqueueGeneration = (request: GenerationRequest) =>
-    Queue.offer(generationQueue, request)
+  const enqueueGeneration = (request: GenerationRequest) => Queue.offer(generationQueue, request)
 
   const processQueue = () =>
     Effect.gen(function* () {
@@ -1319,14 +1302,13 @@ const makeAsyncWorldGeneration = Effect.gen(function* () {
   return AsyncWorldGeneration.of({
     enqueueGeneration,
     processQueue,
-    getCachedChunk
+    getCachedChunk,
   })
 })
 
-export const AsyncWorldGenerationLive = Layer.effect(
-  AsyncWorldGeneration,
-  makeAsyncWorldGeneration
-).pipe(Layer.provide(TerrainGenerationServiceLive))
+export const AsyncWorldGenerationLive = Layer.effect(AsyncWorldGeneration, makeAsyncWorldGeneration).pipe(
+  Layer.provide(TerrainGenerationServiceLive)
+)
 ```
 
 ## 7. Effect-TS 統合
@@ -1339,7 +1321,7 @@ export interface ServiceInterface {
   readonly method: (param: ParamType) => Effect.Effect<ReturnType, ErrorType>
 }
 
-export const Service = Context.GenericTag<ServiceInterface>("@minecraft/Service")
+export const Service = Context.GenericTag<ServiceInterface>('@minecraft/Service')
 
 const makeService = Effect.gen(function* () {
   const dependency = yield* DependencyService
@@ -1352,9 +1334,7 @@ const makeService = Effect.gen(function* () {
   return Service.of({ method })
 })
 
-export const ServiceLive = Layer.effect(Service, makeService).pipe(
-  Layer.provide(DependencyServiceLive)
-)
+export const ServiceLive = Layer.effect(Service, makeService).pipe(Layer.provide(DependencyServiceLive))
 ```
 
 ### 7.2 エラーハンドリングパターン
@@ -1374,23 +1354,15 @@ export type WorldSystemError = Schema.Schema.Type<typeof WorldSystemError>
 // エラーハンドリングの共通パターン
 const handleWorldError = <A>(effect: Effect.Effect<A, WorldSystemError>) =>
   effect.pipe(
-    Effect.mapError(error =>
+    Effect.mapError((error) =>
       Match.value(error).pipe(
-        Match.tag("GenerationError", (err) =>
-          new Error(`生成失敗: ${err.message}`)
-        ),
-        Match.tag("ChunkLoadError", (err) =>
-          new Error(`チャンクロード失敗: ${err.message}`)
-        ),
-        Match.tag("ChunkSaveError", (err) =>
-          new Error(`チャンク保存失敗: ${err.message}`)
-        ),
+        Match.tag('GenerationError', (err) => new Error(`生成失敗: ${err.message}`)),
+        Match.tag('ChunkLoadError', (err) => new Error(`チャンクロード失敗: ${err.message}`)),
+        Match.tag('ChunkSaveError', (err) => new Error(`チャンク保存失敗: ${err.message}`)),
         Match.orElse((err) => new Error(`不明なエラー: ${JSON.stringify(err)}`))
       )
     ),
-    Effect.retry(Schedule.exponential("100 millis").pipe(
-      Schedule.intersect(Schedule.recurs(3))
-    ))
+    Effect.retry(Schedule.exponential('100 millis').pipe(Schedule.intersect(Schedule.recurs(3))))
   )
 ```
 
@@ -1420,10 +1392,7 @@ export const WorldApp = Effect.gen(function* () {
 })
 
 // 実行時
-const runWorldApp = WorldApp.pipe(
-  Effect.provide(WorldSystemLive),
-  Effect.runPromise
-)
+const runWorldApp = WorldApp.pipe(Effect.provide(WorldSystemLive), Effect.runPromise)
 ```
 
 ## 関連ドキュメント
@@ -1448,9 +1417,11 @@ const runWorldApp = WorldApp.pipe(
 ## 🤖 AI Implementation Guidelines
 
 ### For AI Coding Agents
+
 このシステムを実装する際は、以下の順序で進めてください：
 
 1. **Service Interface First**
+
    ```typescript
    // 必ずインターフェース定義から開始
    export interface WorldManagementService {
@@ -1461,6 +1432,7 @@ const runWorldApp = WorldApp.pipe(
    ```
 
 2. **Error Types Second**
+
    ```typescript
    // 実装前にエラーを定義
    export const WorldGenerationError = Schema.TaggedError("WorldGenerationError")({
@@ -1471,18 +1443,20 @@ const runWorldApp = WorldApp.pipe(
    ```
 
 3. **Schema Validation Third**
+
    ```typescript
    // すべてのデータに対して検証スキーマを作成
    export const WorldConfigSchema = Schema.Struct({
      seed: Schema.Number,
      size: Schema.Struct({
        width: Schema.Number.pipe(Schema.positive()),
-       height: Schema.Number.pipe(Schema.positive())
-     })
+       height: Schema.Number.pipe(Schema.positive()),
+     }),
    })
    ```
 
 4. **Implementation Fourth**
+
    ```typescript
    // すべての非同期操作にはEffect.genを使用
    const makeWorldManagementService = Effect.gen(function* () {
@@ -1490,9 +1464,10 @@ const runWorldApp = WorldApp.pipe(
      const storage = yield* WorldStorage
 
      return WorldManagementService.of({
-       generateWorld: (config) => Effect.gen(function* () {
-         // 実装ロジック
-       })
+       generateWorld: (config) =>
+         Effect.gen(function* () {
+           // 実装ロジック
+         }),
      })
    })
    ```
@@ -1500,25 +1475,25 @@ const runWorldApp = WorldApp.pipe(
 5. **Layer Creation Fifth**
    ```typescript
    // 依存性注入のために必ずLayerを提供
-   export const WorldManagementServiceLive = Layer.effect(
-     WorldManagementService,
-     makeWorldManagementService
-   )
+   export const WorldManagementServiceLive = Layer.effect(WorldManagementService, makeWorldManagementService)
    ```
 
 ### Critical Patterns to Remember
+
 - **通常のclassキーワードは絶対使用禁止**
 - **サービスには必ずContext.GenericTagを使用**
 - **Effect.failで早期リターン**
 - **Schema.decodeUnknownSyncで入力検証**
 
 ### Performance Optimization Hints
+
 - 高価な計算には`Effect.cached`を使用
 - 可変状態には`Ref`を使用
 - 大量データ処理には`Stream`を使用
 - シングルトンサービスには`Layer.memoize`を使用
 
 ### World Generation Specific Patterns
+
 - ノイズ関数には`Effect.cached`で結果をキャッシュ
 - チャンク生成は`Effect.all`で並列処理
 - バイオーム遵移は`Effect.gen`で連続処理

@@ -1,14 +1,14 @@
 ---
-title: "ランタイムエラートラブルシューティング - 実行時エラー完全ガイド"
-description: "TypeScript Minecraftプロジェクトのランタイムエラー40パターン。Effect-TS Fiber、WebGL/Three.js、Promise拒否、ネットワークエラー対処法。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["runtime-errors", "troubleshooting", "effect-ts", "webgl", "three.js", "debugging", "fiber-management"]
-prerequisites: ["typescript-advanced", "effect-ts-intermediate", "webgl-basics"]
-estimated_reading_time: "35分"
-related_patterns: ["error-handling-patterns", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./effect-ts-troubleshooting.md", "./performance-issues.md"]
-status: "complete"
+title: 'ランタイムエラートラブルシューティング - 実行時エラー完全ガイド'
+description: 'TypeScript Minecraftプロジェクトのランタイムエラー40パターン。Effect-TS Fiber、WebGL/Three.js、Promise拒否、ネットワークエラー対処法。'
+category: 'troubleshooting'
+difficulty: 'advanced'
+tags: ['runtime-errors', 'troubleshooting', 'effect-ts', 'webgl', 'three.js', 'debugging', 'fiber-management']
+prerequisites: ['typescript-advanced', 'effect-ts-intermediate', 'webgl-basics']
+estimated_reading_time: '35分'
+related_patterns: ['error-handling-patterns', 'service-patterns']
+related_docs: ['./debugging-guide.md', './effect-ts-troubleshooting.md', './performance-issues.md']
+status: 'complete'
 ---
 
 # ランタイムエラーのトラブルシューティング
@@ -24,22 +24,25 @@ TypeScript Minecraft プロジェクトにおけるランタイムエラーの�
 #### Fiber Interruption エラー
 
 ##### 症状
+
 ```bash
 FiberFailure: Interrupted
 Error: Effect was interrupted
 ```
 
 ##### 原因
+
 - Fiber の不適切な中断
 - タイムアウト設定の問題
 - リソースの競合状態
 
 ##### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード - 不適切なFiber管理
 const problematicProcessing = Effect.gen(function* () {
   const fiber = yield* Effect.fork(longRunningTask)
-  yield* Effect.sleep("1 second")
+  yield* Effect.sleep('1 second')
   yield* Fiber.interrupt(fiber) // 強制中断
   return yield* Fiber.join(fiber) // エラー発生
 })
@@ -48,15 +51,17 @@ const problematicProcessing = Effect.gen(function* () {
 const properProcessing = Effect.gen(function* () {
   return yield* Effect.scoped(
     Effect.gen(function* () {
-      const fiber = yield* Effect.forkScoped(longRunningTask.pipe(
-        Effect.interruptible,
-        Effect.onInterrupt(() => Effect.log("Task was gracefully interrupted"))
-      ))
+      const fiber = yield* Effect.forkScoped(
+        longRunningTask.pipe(
+          Effect.interruptible,
+          Effect.onInterrupt(() => Effect.log('Task was gracefully interrupted'))
+        )
+      )
 
       const result = yield* Effect.race(
         Fiber.join(fiber),
         Effect.gen(function* () {
-          yield* Effect.sleep("10 seconds") // タイムアウト
+          yield* Effect.sleep('10 seconds') // タイムアウト
           return yield* Effect.fail(new ProcessingTimeoutError())
         })
       )
@@ -83,27 +88,30 @@ const interruptibleLongRunningTask = Effect.gen(function* () {
 #### Context Missing エラー
 
 ##### 症状
+
 ```bash
 MissingService: Service not found: WorldService
 ```
 
 ##### 原因
+
 - Layer の提供忘れ
 - Context タグの不一致
 - スコープ問題
 
 ##### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード - Contextが提供されていない
 const problematicService = Effect.gen(function* () {
   const worldService = yield* WorldService // エラー
-  return yield* worldService.loadWorld("test")
+  return yield* worldService.loadWorld('test')
 })
 
 // ✅ 修正後 - 適切なLayer提供
 const properService = Effect.gen(function* () {
   const worldService = yield* WorldService
-  return yield* worldService.loadWorld("test")
+  return yield* worldService.loadWorld('test')
 })
 
 const program = pipe(
@@ -112,29 +120,27 @@ const program = pipe(
 )
 
 // ✅ テスト用のデフォルトLayer設定
-const TestLayer = Layer.mergeAll(
-  WorldServiceLive,
-  PlayerServiceLive,
-  ChunkServiceLive
-)
+const TestLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, ChunkServiceLive)
 
-export const runTest = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.provide(effect, TestLayer)
+export const runTest = <A, E>(effect: Effect.Effect<A, E>) => Effect.provide(effect, TestLayer)
 ```
 
 #### Schedule/Timer エラー
 
 ##### 症状
+
 ```bash
 Error: Schedule exceeded maximum duration
 Error: Timer was cancelled
 ```
 
 ##### 原因
+
 - 無制限リトライ設定
 - Timer リソースの不適切な管理
 
 ##### 解決方法
+
 ```typescript
 // ❌ 問題のあるコード - 無制限リトライ
 const problematicRetry = someOperation.pipe(
@@ -144,26 +150,24 @@ const problematicRetry = someOperation.pipe(
 // ✅ 修正後 - 適切な制限設定
 const safeRetry = someOperation.pipe(
   Effect.retry(
-    Schedule.exponential("100 millis").pipe(
+    Schedule.exponential('100 millis').pipe(
       Schedule.compose(Schedule.recurs(5)), // 最大5回
-      Schedule.compose(Schedule.upTo("30 seconds")), // 最大30秒
+      Schedule.compose(Schedule.upTo('30 seconds')), // 最大30秒
       Schedule.jittered // ジッター付き
     )
   ),
-  Effect.timeout("60 seconds"), // 全体のタイムアウト
-  Effect.onError((cause) =>
-    Effect.logError("Operation failed after retries", { cause })
-  )
+  Effect.timeout('60 seconds'), // 全体のタイムアウト
+  Effect.onError((cause) => Effect.logError('Operation failed after retries', { cause }))
 )
 
 // ✅ 適切なスケジュール管理
 const scheduledTask = Effect.repeat(
   Effect.gen(function* () {
     const result = yield* performTask
-    yield* Effect.logInfo("Task completed", { result })
+    yield* Effect.logInfo('Task completed', { result })
     return result
   }),
-  Schedule.fixed("5 seconds").pipe(
+  Schedule.fixed('5 seconds').pipe(
     Schedule.compose(Schedule.recurs(100)) // 最大100回実行
   )
 )
@@ -174,66 +178,67 @@ const scheduledTask = Effect.repeat(
 #### Stream バックプレッシャーエラー
 
 ##### 症状
+
 ```bash
 Error: Stream buffer overflow
 Error: Downstream consumer too slow
 ```
 
 ##### 解決方法
+
 ```typescript
 // ✅ バックプレッシャー対応のStream処理
-const handleHighVolumeStream = <A, E>(
-  source: Stream.Stream<A, E>
-): Stream.Stream<A, E> =>
+const handleHighVolumeStream = <A, E>(source: Stream.Stream<A, E>): Stream.Stream<A, E> =>
   source.pipe(
     Stream.buffer({
       capacity: 1000,
-      strategy: "dropping" // または "sliding"
+      strategy: 'dropping', // または "sliding"
     }),
-    Stream.groupedWithin(100, "1 second"), // バッチ処理
-    Stream.mapEffect((batch) =>
-      Effect.gen(function* () {
-        yield* Effect.logDebug(`Processing batch of ${batch.length} items`)
-        return yield* processBatch(batch)
-      }),
+    Stream.groupedWithin(100, '1 second'), // バッチ処理
+    Stream.mapEffect(
+      (batch) =>
+        Effect.gen(function* () {
+          yield* Effect.logDebug(`Processing batch of ${batch.length} items`)
+          return yield* processBatch(batch)
+        }),
       { concurrency: 5 }
     ),
     Stream.flattenChunks
   )
 
 // ✅ 適応的なバックプレッシャー制御
-const adaptiveStream = <A, E>(
-  source: Stream.Stream<A, E>,
-  processor: (item: A) => Effect.Effect<void, E>
-) =>
+const adaptiveStream = <A, E>(source: Stream.Stream<A, E>, processor: (item: A) => Effect.Effect<void, E>) =>
   Effect.gen(function* () {
     const processingRate = yield* Ref.make(1)
     const errorCount = yield* Ref.make(0)
 
     return source.pipe(
       Stream.throttleShape(
-        () => Effect.gen(function* () {
-          const rate = yield* Ref.get(processingRate)
-          return Duration.millis(1000 / rate)
-        }),
+        () =>
+          Effect.gen(function* () {
+            const rate = yield* Ref.get(processingRate)
+            return Duration.millis(1000 / rate)
+          }),
         1
       ),
-      Stream.mapEffect((item) =>
-        processor(item).pipe(
-          Effect.tapBoth({
-            onFailure: () => Ref.update(errorCount, n => n + 1),
-            onSuccess: () => Effect.gen(function* () {
-              const errors = yield* Ref.get(errorCount)
-              if (errors > 10) {
-                yield* Ref.update(processingRate, rate => Math.max(1, rate * 0.8))
-                yield* Ref.set(errorCount, 0)
-              } else {
-                yield* Ref.update(processingRate, rate => Math.min(100, rate * 1.1))
-              }
+      Stream.mapEffect(
+        (item) =>
+          processor(item).pipe(
+            Effect.tapBoth({
+              onFailure: () => Ref.update(errorCount, (n) => n + 1),
+              onSuccess: () =>
+                Effect.gen(function* () {
+                  const errors = yield* Ref.get(errorCount)
+                  if (errors > 10) {
+                    yield* Ref.update(processingRate, (rate) => Math.max(1, rate * 0.8))
+                    yield* Ref.set(errorCount, 0)
+                  } else {
+                    yield* Ref.update(processingRate, (rate) => Math.min(100, rate * 1.1))
+                  }
+                }),
             })
-          })
-        ),
-        { concurrency: "unbounded" }
+          ),
+        { concurrency: 'unbounded' }
       )
     )
   })
@@ -244,11 +249,13 @@ const adaptiveStream = <A, E>(
 ### Unhandled Promise Rejection
 
 #### 症状
+
 ```bash
 UnhandledPromiseRejectionWarning: Error: Async operation failed
 ```
 
 #### 原因と解決方法
+
 ```typescript
 // ❌ 問題のあるコード - Promise の適切でない処理
 const problematicAsync = async () => {
@@ -265,15 +272,11 @@ const safeAsync = Effect.gen(function* () {
     chunks.map((chunk) =>
       processChunkEffect(chunk).pipe(
         Effect.either, // Left/Right で結果を包む
-        Effect.timeout("30 seconds"),
-        Effect.retry(
-          Schedule.exponential("100 millis").pipe(
-            Schedule.compose(Schedule.recurs(3))
-          )
-        ),
+        Effect.timeout('30 seconds'),
+        Effect.retry(Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
-            yield* Effect.logError("Chunk processing failed", { chunk, error })
+            yield* Effect.logError('Chunk processing failed', { chunk, error })
             return Either.left(error)
           })
         )
@@ -282,12 +285,12 @@ const safeAsync = Effect.gen(function* () {
     { concurrency: 10 }
   )
 
-  const successes = results.filter(Either.isRight).map(e => e.right)
-  const failures = results.filter(Either.isLeft).map(e => e.left)
+  const successes = results.filter(Either.isRight).map((e) => e.right)
+  const failures = results.filter(Either.isLeft).map((e) => e.left)
 
-  yield* Effect.logInfo("Batch processing completed", {
+  yield* Effect.logInfo('Batch processing completed', {
     successes: successes.length,
-    failures: failures.length
+    failures: failures.length,
   })
 
   return { successes, failures }
@@ -296,9 +299,7 @@ const safeAsync = Effect.gen(function* () {
 // ✅ Promise から Effect への変換
 const promiseToEffect = <A>(promise: Promise<A>): Effect.Effect<A, unknown> =>
   Effect.async<A, unknown>((resume) => {
-    promise
-      .then((value) => resume(Effect.succeed(value)))
-      .catch((error) => resume(Effect.fail(error)))
+    promise.then((value) => resume(Effect.succeed(value))).catch((error) => resume(Effect.fail(error)))
   })
 
 // ✅ グローバル Promise エラーハンドラー
@@ -310,9 +311,9 @@ const setupGlobalErrorHandling = () => {
 
       // Effect ログシステムに統合
       Effect.runPromise(
-        Effect.logError("Unhandled Promise Rejection", {
+        Effect.logError('Unhandled Promise Rejection', {
           reason: event.reason,
-          stack: event.reason?.stack
+          stack: event.reason?.stack,
         })
       ).catch(console.error)
 
@@ -326,9 +327,9 @@ const setupGlobalErrorHandling = () => {
       console.error('Unhandled Rejection at:', promise, 'reason:', reason)
 
       Effect.runPromise(
-        Effect.logError("Unhandled Promise Rejection", {
+        Effect.logError('Unhandled Promise Rejection', {
           reason: String(reason),
-          stack: (reason as Error)?.stack
+          stack: (reason as Error)?.stack,
         })
       ).catch(console.error)
     })
@@ -341,20 +342,20 @@ const setupGlobalErrorHandling = () => {
 ### WebGL Context Lost
 
 #### 症状
+
 ```bash
 WebGLRenderingContext: GL_CONTEXT_LOST_WEBGL
 ```
 
 #### 原因と対策
+
 ```typescript
 // WebGL コンテキスト復旧の Effect パターン
 const WebGLContextService = Context.GenericTag<{
-  readonly setupContextRecovery: (
-    renderer: THREE.WebGLRenderer
-  ) => Effect.Effect<void, WebGLError>
+  readonly setupContextRecovery: (renderer: THREE.WebGLRenderer) => Effect.Effect<void, WebGLError>
   readonly checkContextHealth: () => Effect.Effect<boolean, never>
   readonly recreateContext: () => Effect.Effect<THREE.WebGLRenderer, WebGLError>
-}>("@minecraft/WebGLContextService")
+}>('@minecraft/WebGLContextService')
 
 const makeWebGLContextService = Effect.gen(function* () {
   const contextLostRef = yield* Ref.make(false)
@@ -370,7 +371,7 @@ const makeWebGLContextService = Effect.gen(function* () {
           Effect.runPromise(
             Effect.gen(function* () {
               yield* Ref.set(contextLostRef, true)
-              yield* Effect.logWarn("WebGL context lost, preparing for recovery")
+              yield* Effect.logWarn('WebGL context lost, preparing for recovery')
             })
           )
         }
@@ -380,7 +381,7 @@ const makeWebGLContextService = Effect.gen(function* () {
           Effect.runPromise(
             Effect.gen(function* () {
               yield* Ref.set(contextLostRef, false)
-              yield* Effect.logInfo("WebGL context restored")
+              yield* Effect.logInfo('WebGL context restored')
 
               // リソースの再初期化
               yield* reinitializeRenderer(renderer)
@@ -421,12 +422,12 @@ const makeWebGLContextService = Effect.gen(function* () {
         const newRenderer = new THREE.WebGLRenderer({
           canvas,
           antialias: true,
-          alpha: false
+          alpha: false,
         })
 
-        yield* Effect.logInfo("WebGL context recreated successfully")
+        yield* Effect.logInfo('WebGL context recreated successfully')
         return newRenderer
-      })
+      }),
   })
 })
 
@@ -441,22 +442,22 @@ const monitorWebGLErrors = (gl: WebGLRenderingContext) =>
           const errorName = pipe(
             error,
             Match.value,
-            Match.when(gl.INVALID_ENUM, () => "INVALID_ENUM"),
-            Match.when(gl.INVALID_VALUE, () => "INVALID_VALUE"),
-            Match.when(gl.INVALID_OPERATION, () => "INVALID_OPERATION"),
-            Match.when(gl.INVALID_FRAMEBUFFER_OPERATION, () => "INVALID_FRAMEBUFFER_OPERATION"),
-            Match.when(gl.OUT_OF_MEMORY, () => "OUT_OF_MEMORY"),
-            Match.when(gl.CONTEXT_LOST_WEBGL, () => "CONTEXT_LOST_WEBGL"),
+            Match.when(gl.INVALID_ENUM, () => 'INVALID_ENUM'),
+            Match.when(gl.INVALID_VALUE, () => 'INVALID_VALUE'),
+            Match.when(gl.INVALID_OPERATION, () => 'INVALID_OPERATION'),
+            Match.when(gl.INVALID_FRAMEBUFFER_OPERATION, () => 'INVALID_FRAMEBUFFER_OPERATION'),
+            Match.when(gl.OUT_OF_MEMORY, () => 'OUT_OF_MEMORY'),
+            Match.when(gl.CONTEXT_LOST_WEBGL, () => 'CONTEXT_LOST_WEBGL'),
             Match.orElse(() => `UNKNOWN_ERROR_${error}`)
           )
 
-          yield* Effect.logError("WebGL Error Detected", {
+          yield* Effect.logError('WebGL Error Detected', {
             errorCode: error,
-            errorName
+            errorName,
           })
         }
       }),
-      Schedule.fixed("1 second")
+      Schedule.fixed('1 second')
     )
   })
 ```
@@ -464,12 +465,14 @@ const monitorWebGLErrors = (gl: WebGLRenderingContext) =>
 ### Texture Loading エラー
 
 #### 症状
+
 ```bash
 THREE.WebGLRenderer: Texture marked for update but image is incomplete
 Error: Failed to load texture from URL
 ```
 
 #### 解決方法
+
 ```typescript
 // テクスチャの安全なロード
 const createSafeTextureLoader = () =>
@@ -497,31 +500,27 @@ const createSafeTextureLoader = () =>
               },
               // onProgress
               (progress) => {
-                console.log(`Loading texture ${url}: ${(progress.loaded / progress.total * 100)}%`)
+                console.log(`Loading texture ${url}: ${(progress.loaded / progress.total) * 100}%`)
               },
               // onError
               (error) => {
-                resume(Effect.fail(new TextureLoadError({
-                  url,
-                  message: error?.message || 'Unknown texture loading error'
-                })))
+                resume(
+                  Effect.fail(
+                    new TextureLoadError({
+                      url,
+                      message: error?.message || 'Unknown texture loading error',
+                    })
+                  )
+                )
               }
             )
           }).pipe(
-            Effect.timeout("30 seconds"),
-            Effect.retry(
-              Schedule.exponential("1 second").pipe(
-                Schedule.compose(Schedule.recurs(3))
-              )
-            ),
-            Effect.tap((texture) =>
-              Ref.update(loadedTextures, map => new Map(map.set(url, texture)))
-            ),
-            Effect.tapError((error) =>
-              Effect.logError("Texture loading failed", { url, error })
-            ),
+            Effect.timeout('30 seconds'),
+            Effect.retry(Schedule.exponential('1 second').pipe(Schedule.compose(Schedule.recurs(3)))),
+            Effect.tap((texture) => Ref.update(loadedTextures, (map) => new Map(map.set(url, texture)))),
+            Effect.tapError((error) => Effect.logError('Texture loading failed', { url, error })),
             Effect.ensuring(
-              Ref.update(loadingCache, map => {
+              Ref.update(loadingCache, (map) => {
                 const newMap = new Map(map)
                 newMap.delete(url)
                 return newMap
@@ -529,20 +528,20 @@ const createSafeTextureLoader = () =>
             )
           )
 
-          yield* Ref.update(loadingCache, map => new Map(map.set(url, loadEffect)))
+          yield* Ref.update(loadingCache, (map) => new Map(map.set(url, loadEffect)))
 
           return yield* loadEffect
         }),
 
       preloadTextures: (urls: string[]) =>
         Effect.all(
-          urls.map(url =>
+          urls.map((url) =>
             loadTexture(url).pipe(
               Effect.either,
               Effect.tap((result) =>
                 Either.match(result, {
                   onLeft: (error) => Effect.logWarn(`Failed to preload texture: ${url}`, { error }),
-                  onRight: () => Effect.logDebug(`Preloaded texture: ${url}`)
+                  onRight: () => Effect.logDebug(`Preloaded texture: ${url}`),
                 })
               )
             )
@@ -557,7 +556,7 @@ const createSafeTextureLoader = () =>
 
           if (texture) {
             texture.dispose()
-            yield* Ref.update(loadedTextures, map => {
+            yield* Ref.update(loadedTextures, (map) => {
               const newMap = new Map(map)
               newMap.delete(url)
               return newMap
@@ -576,7 +575,7 @@ const createSafeTextureLoader = () =>
 
           yield* Ref.set(loadedTextures, new Map())
           yield* Effect.logInfo(`Disposed ${textures.size} textures`)
-        })
+        }),
     }
   })
 ```
@@ -586,21 +585,21 @@ const createSafeTextureLoader = () =>
 ### HTTP Request 失敗
 
 #### 症状
+
 ```bash
 Network Error: Failed to fetch
 Error: Request timeout
 ```
 
 #### 解決方法
+
 ```typescript
 // HTTP クライアントの Effect ラッパー
 const createHttpClient = Effect.gen(function* () {
   const requestQueue = yield* Queue.bounded<HttpRequest>(100)
   const rateLimiter = yield* Semaphore.make(10) // 最大10並列リクエスト
 
-  const makeRequest = <A>(
-    request: HttpRequest
-  ): Effect.Effect<A, HttpError> =>
+  const makeRequest = <A>(request: HttpRequest): Effect.Effect<A, HttpError> =>
     Effect.gen(function* () {
       yield* Semaphore.take(rateLimiter)
 
@@ -616,18 +615,22 @@ const createHttpClient = Effect.gen(function* () {
           method: request.method,
           headers: request.headers,
           body: request.body,
-          signal: controller.signal
+          signal: controller.signal,
         })
           .then((response) => {
             clearTimeout(timeoutId)
             if (response.ok) {
               resume(Effect.succeed(response))
             } else {
-              resume(Effect.fail(new HttpStatusError({
-                status: response.status,
-                statusText: response.statusText,
-                url: request.url
-              })))
+              resume(
+                Effect.fail(
+                  new HttpStatusError({
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: request.url,
+                  })
+                )
+              )
             }
           })
           .catch((error) => {
@@ -635,22 +638,23 @@ const createHttpClient = Effect.gen(function* () {
             if (error.name === 'AbortError') {
               resume(Effect.fail(new HttpTimeoutError({ url: request.url })))
             } else {
-              resume(Effect.fail(new HttpNetworkError({
-                message: error.message,
-                url: request.url
-              })))
+              resume(
+                Effect.fail(
+                  new HttpNetworkError({
+                    message: error.message,
+                    url: request.url,
+                  })
+                )
+              )
             }
           })
-      }).pipe(
-        Effect.ensuring(Semaphore.release(rateLimiter))
-      )
+      }).pipe(Effect.ensuring(Semaphore.release(rateLimiter)))
 
       return yield* parseResponse<A>(response, request.responseType)
     })
 
   return {
-    get: <A>(url: string, options?: RequestOptions) =>
-      makeRequest<A>({ ...options, method: 'GET', url }),
+    get: <A>(url: string, options?: RequestOptions) => makeRequest<A>({ ...options, method: 'GET', url }),
 
     post: <A>(url: string, body: unknown, options?: RequestOptions) =>
       makeRequest<A>({
@@ -660,16 +664,13 @@ const createHttpClient = Effect.gen(function* () {
         body: JSON.stringify(body),
         headers: {
           'Content-Type': 'application/json',
-          ...options?.headers
-        }
+          ...options?.headers,
+        },
       }),
 
     // バッチリクエスト処理
     batch: <A>(requests: HttpRequest[]) =>
-      Stream.fromIterable(requests).pipe(
-        Stream.mapEffect(makeRequest, { concurrency: 5 }),
-        Stream.runCollect
-      )
+      Stream.fromIterable(requests).pipe(Stream.mapEffect(makeRequest, { concurrency: 5 }), Stream.runCollect),
   }
 })
 
@@ -679,37 +680,36 @@ const createResilientHttpClient = Effect.gen(function* () {
     state: 'CLOSED' as 'CLOSED' | 'OPEN' | 'HALF_OPEN',
     failureCount: 0,
     lastFailureTime: 0,
-    successCount: 0
+    successCount: 0,
   })
 
   const httpClient = yield* createHttpClient
 
-  const makeResilientRequest = <A>(
-    request: HttpRequest
-  ): Effect.Effect<A, HttpError> =>
+  const makeResilientRequest = <A>(request: HttpRequest): Effect.Effect<A, HttpError> =>
     Effect.gen(function* () {
       const breakerState = yield* Ref.get(circuitBreaker)
 
       // 回路ブレーカーの状態チェック
       if (breakerState.state === 'OPEN') {
         const timeSinceFailure = Date.now() - breakerState.lastFailureTime
-        if (timeSinceFailure < 60000) { // 60秒間は OPEN を維持
+        if (timeSinceFailure < 60000) {
+          // 60秒間は OPEN を維持
           return yield* Effect.fail(new CircuitBreakerOpenError())
         } else {
-          yield* Ref.update(circuitBreaker, state => ({
+          yield* Ref.update(circuitBreaker, (state) => ({
             ...state,
-            state: 'HALF_OPEN'
+            state: 'HALF_OPEN',
           }))
         }
       }
 
       const result = yield* httpClient.get<A>(request.url, request).pipe(
         Effect.retry(
-          Schedule.exponential("500 millis").pipe(
+          Schedule.exponential('500 millis').pipe(
             Schedule.compose(Schedule.recurs(3)),
-            Schedule.whileInput((error: HttpError) =>
-              error._tag === 'HttpNetworkError' ||
-              (error._tag === 'HttpStatusError' && error.status >= 500)
+            Schedule.whileInput(
+              (error: HttpError) =>
+                error._tag === 'HttpNetworkError' || (error._tag === 'HttpStatusError' && error.status >= 500)
             )
           )
         ),
@@ -719,26 +719,26 @@ const createResilientHttpClient = Effect.gen(function* () {
       return yield* Either.match(result, {
         onLeft: (error) =>
           Effect.gen(function* () {
-            yield* Ref.update(circuitBreaker, state => ({
+            yield* Ref.update(circuitBreaker, (state) => ({
               state: state.failureCount >= 5 ? 'OPEN' : 'CLOSED',
               failureCount: state.failureCount + 1,
               lastFailureTime: Date.now(),
-              successCount: 0
+              successCount: 0,
             }))
 
             return yield* Effect.fail(error)
           }),
         onRight: (value) =>
           Effect.gen(function* () {
-            yield* Ref.update(circuitBreaker, state => ({
+            yield* Ref.update(circuitBreaker, (state) => ({
               state: 'CLOSED',
               failureCount: 0,
               lastFailureTime: 0,
-              successCount: state.successCount + 1
+              successCount: state.successCount + 1,
             }))
 
             return value
-          })
+          }),
       })
     })
 
@@ -749,6 +749,7 @@ const createResilientHttpClient = Effect.gen(function* () {
 ## デバッグとロギング
 
 ### 構造化エラーロギング
+
 ```typescript
 // 統合エラーロギングシステム
 const createErrorLogger = Effect.gen(function* () {
@@ -758,12 +759,13 @@ const createErrorLogger = Effect.gen(function* () {
   const processErrorLogs = Effect.fork(
     Stream.fromQueue(errorBuffer).pipe(
       Stream.grouped(10),
-      Stream.mapEffect((batch) =>
-        Effect.gen(function* () {
-          // バッチでログを外部システムに送信
-          yield* sendErrorBatch(batch)
-          yield* Effect.logDebug(`Sent error batch: ${batch.length} entries`)
-        }),
+      Stream.mapEffect(
+        (batch) =>
+          Effect.gen(function* () {
+            // バッチでログを外部システムに送信
+            yield* sendErrorBatch(batch)
+            yield* Effect.logDebug(`Sent error batch: ${batch.length} entries`)
+          }),
         { concurrency: 1 }
       ),
       Stream.runDrain
@@ -779,7 +781,7 @@ const createErrorLogger = Effect.gen(function* () {
           stack: error instanceof Error ? error.stack : undefined,
           context: context || {},
           level: 'error',
-          service: 'ts-minecraft'
+          service: 'ts-minecraft',
         }
 
         yield* Queue.offer(errorBuffer, errorEntry)
@@ -793,7 +795,7 @@ const createErrorLogger = Effect.gen(function* () {
           message,
           context: context || {},
           level: 'warning',
-          service: 'ts-minecraft'
+          service: 'ts-minecraft',
         }
 
         yield* Queue.offer(errorBuffer, warningEntry)
@@ -804,7 +806,7 @@ const createErrorLogger = Effect.gen(function* () {
       Effect.gen(function* () {
         yield* Fiber.interrupt(processErrorLogs)
         yield* Queue.shutdown(errorBuffer)
-      })
+      }),
   }
 })
 
@@ -817,7 +819,7 @@ const setupGlobalErrorHandling = Effect.gen(function* () {
     Effect.runPromise(
       errorLogger.logError(error, {
         ...context,
-        source: 'effect-runtime'
+        source: 'effect-runtime',
       })
     ).catch(console.error)
 
@@ -828,13 +830,13 @@ const setupGlobalErrorHandling = Effect.gen(function* () {
         filename: event.filename,
         lineno: event.lineno,
         colno: event.colno,
-        source: 'global-error'
+        source: 'global-error',
       })
     })
 
     window.addEventListener('unhandledrejection', (event) => {
       logEffectError(event.reason, {
-        source: 'unhandled-promise'
+        source: 'unhandled-promise',
       })
       event.preventDefault()
     })

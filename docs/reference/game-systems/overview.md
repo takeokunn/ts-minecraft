@@ -1,17 +1,17 @@
 ---
-title: "データモデル設計概要 - Effect-TS Schema・DDD集約・型安全性"
-description: "TypeScript Minecraft Cloneの包括的データモデル設計。Effect-TS Schema、DDD集約パターン、ブランド型による完全型安全性とドメイン整合性の実現。"
-category: "specification"
-difficulty: "advanced"
-tags: ["data-modeling", "effect-ts-schema", "ddd-aggregates", "brand-types", "domain-modeling", "type-safety"]
-prerequisites: ["effect-ts-schema-advanced", "ddd-tactical-design", "typescript-advanced-types", "domain-modeling"]
-estimated_reading_time: "30分"
-related_patterns: ["data-modeling-patterns", "validation-patterns", "ddd-patterns"]
-related_docs: ["./chunk-format.md", "./save-file-format.md", "../explanations/architecture/02-aggregates.md"]
+title: 'データモデル設計概要 - Effect-TS Schema・DDD集約・型安全性'
+description: 'TypeScript Minecraft Cloneの包括的データモデル設計。Effect-TS Schema、DDD集約パターン、ブランド型による完全型安全性とドメイン整合性の実現。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['data-modeling', 'effect-ts-schema', 'ddd-aggregates', 'brand-types', 'domain-modeling', 'type-safety']
+prerequisites: ['effect-ts-schema-advanced', 'ddd-tactical-design', 'typescript-advanced-types', 'domain-modeling']
+estimated_reading_time: '30分'
+related_patterns: ['data-modeling-patterns', 'validation-patterns', 'ddd-patterns']
+related_docs: ['./chunk-format.md', './save-file-format.md', '../explanations/architecture/02-aggregates.md']
 search_keywords:
-  primary: ["data-modeling", "effect-ts-schema", "domain-models", "type-safety"]
-  secondary: ["ddd-aggregates", "brand-types", "validation", "data-integrity"]
-  context: ["domain-driven-design", "functional-programming", "type-systems"]
+  primary: ['data-modeling', 'effect-ts-schema', 'domain-models', 'type-safety']
+  secondary: ['ddd-aggregates', 'brand-types', 'validation', 'data-integrity']
+  context: ['domain-driven-design', 'functional-programming', 'type-systems']
 ---
 
 # データモデル概要
@@ -32,7 +32,7 @@ TypeScript Minecraftにおけるデータモデルの設計方針と実装パタ
 ### 1. スキーマファースト設計
 
 ```typescript
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // スキーマから型を導出
 export const PlayerSchema = Schema.Struct({
@@ -41,13 +41,11 @@ export const PlayerSchema = Schema.Struct({
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
-  health: Schema.Number.pipe(
-    Schema.between(0, 20)
-  ),
+  health: Schema.Number.pipe(Schema.between(0, 20)),
   createdAt: Schema.Date,
-  lastSeen: Schema.Date
+  lastSeen: Schema.Date,
 })
 
 // 型を自動導出
@@ -69,13 +67,10 @@ export interface WorldData {
 }
 
 // 更新は新しいオブジェクト生成で実行
-export const updateWorldData = (
-  world: WorldData,
-  update: Partial<Omit<WorldData, 'id' | 'createdAt'>>
-): WorldData => ({
+export const updateWorldData = (world: WorldData, update: Partial<Omit<WorldData, 'id' | 'createdAt'>>): WorldData => ({
   ...world,
   ...update,
-  lastModified: new Date()
+  lastModified: new Date(),
 })
 ```
 
@@ -83,9 +78,9 @@ export const updateWorldData = (
 
 ```typescript
 // Brand型による厳密な型チェック
-export type PlayerId = string & Brand.Brand<"PlayerId">
-export type ChunkId = string & Brand.Brand<"ChunkId">
-export type BlockId = string & Brand.Brand<"BlockId">
+export type PlayerId = string & Brand.Brand<'PlayerId'>
+export type ChunkId = string & Brand.Brand<'ChunkId'>
+export type BlockId = string & Brand.Brand<'BlockId'>
 
 export const PlayerId = Brand.nominal<PlayerId>()
 export const ChunkId = Brand.nominal<ChunkId>()
@@ -101,12 +96,12 @@ export const BlockId = Brand.nominal<BlockId>()
 export const Vector3Schema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export const ChunkCoordinateSchema = Schema.Struct({
   x: Schema.Int.pipe(Schema.between(-30000000, 30000000)),
-  z: Schema.Int.pipe(Schema.between(-30000000, 30000000))
+  z: Schema.Int.pipe(Schema.between(-30000000, 30000000)),
 })
 
 // ブロック位置の詳細スキーマ
@@ -116,8 +111,8 @@ export const BlockPositionSchema = Schema.Struct({
   local: Schema.Struct({
     x: Schema.Int.pipe(Schema.between(0, 15)),
     y: Schema.Int.pipe(Schema.between(0, 255)),
-    z: Schema.Int.pipe(Schema.between(0, 15))
-  })
+    z: Schema.Int.pipe(Schema.between(0, 15)),
+  }),
 })
 ```
 
@@ -131,31 +126,30 @@ export const EntityBaseSchema = Schema.Struct({
   position: Vector3Schema,
   rotation: Schema.Struct({
     yaw: Schema.Number.pipe(Schema.between(0, 360)),
-    pitch: Schema.Number.pipe(Schema.between(-90, 90))
+    pitch: Schema.Number.pipe(Schema.between(-90, 90)),
   }),
   velocity: Vector3Schema,
   health: Schema.Number.pipe(Schema.between(0, 20)),
   maxHealth: Schema.Number.pipe(Schema.between(1, 20)),
   createdAt: Schema.Date,
-  updatedAt: Schema.Date
+  updatedAt: Schema.Date,
 })
 
 // プレイヤー固有の拡張
-export const PlayerSchema = Schema.extend(EntityBaseSchema, Schema.Struct({
-  name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
-  experience: Schema.Struct({
-    level: Schema.Int.pipe(Schema.between(0, 21863)),
-    points: Schema.Int.pipe(Schema.between(0, 1000000)),
-    totalPoints: Schema.Int.pipe(Schema.between(0, 1000000))
-  }),
-  inventory: Schema.Array(Schema.optional(ItemStackSchema)),
-  enderChest: Schema.Array(Schema.optional(ItemStackSchema))
-}))
+export const PlayerSchema = Schema.extend(
+  EntityBaseSchema,
+  Schema.Struct({
+    name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
+    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
+    experience: Schema.Struct({
+      level: Schema.Int.pipe(Schema.between(0, 21863)),
+      points: Schema.Int.pipe(Schema.between(0, 1000000)),
+      totalPoints: Schema.Int.pipe(Schema.between(0, 1000000)),
+    }),
+    inventory: Schema.Array(Schema.optional(ItemStackSchema)),
+    enderChest: Schema.Array(Schema.optional(ItemStackSchema)),
+  })
+)
 ```
 
 ### バリデーション強化スキーマ
@@ -167,38 +161,35 @@ export const ItemStackSchema = Schema.Struct({
   count: Schema.Int.pipe(
     Schema.between(1, 64),
     Schema.annotations({
-      title: "アイテム個数",
-      description: "1-64の範囲で指定"
+      title: 'アイテム個数',
+      description: '1-64の範囲で指定',
     })
   ),
-  durability: Schema.optional(
-    Schema.Int.pipe(Schema.between(0, 1000))
-  ),
+  durability: Schema.optional(Schema.Int.pipe(Schema.between(0, 1000))),
   enchantments: Schema.optional(
-    Schema.Array(Schema.Struct({
-      id: Schema.String,
-      level: Schema.Int.pipe(Schema.between(1, 10))
-    }))
+    Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        level: Schema.Int.pipe(Schema.between(1, 10)),
+      })
+    )
   ),
-  nbt: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  nbt: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 // インベントリスキーマ
 export const InventorySchema = Schema.Struct({
   id: Schema.UUID,
-  type: Schema.Literal("player", "chest", "furnace", "crafting"),
+  type: Schema.Literal('player', 'chest', 'furnace', 'crafting'),
   size: Schema.Int.pipe(Schema.between(1, 54)),
   items: Schema.Array(Schema.optional(ItemStackSchema)),
-  owner: Schema.optional(Schema.UUID)
-}).pipe(
-  Schema.filter(inv =>
-    inv.items.length === inv.size,
-    { message: "アイテム配列サイズが一致しません" }
-  )
-)
+  owner: Schema.optional(Schema.UUID),
+}).pipe(Schema.filter((inv) => inv.items.length === inv.size, { message: 'アイテム配列サイズが一致しません' }))
 ```
 
 ## 永続化戦略
@@ -217,10 +208,7 @@ export const PersistenceLayer = Layer.effectContext(
       saveWorld: (world: WorldData): Effect.Effect<void, PersistenceError> =>
         Effect.gen(function* () {
           const serialized = yield* Schema.encode(WorldDataSchema)(world)
-          yield* FileSystem.writeFile(
-            `${config.savePath}/world_${world.id}.json`,
-            JSON.stringify(serialized, null, 2)
-          )
+          yield* FileSystem.writeFile(`${config.savePath}/world_${world.id}.json`, JSON.stringify(serialized, null, 2))
         }),
 
       // プレイヤーデータ永続化
@@ -241,7 +229,7 @@ export const PersistenceLayer = Layer.effectContext(
             `${config.savePath}/chunks/${chunk.coordinate.x}_${chunk.coordinate.z}.dat`,
             compressed
           )
-        })
+        }),
     }
   })
 )
@@ -257,7 +245,7 @@ export const CacheLayer = Layer.effectContext(
     // L1: インメモリキャッシュ（高速アクセス用）
     const l1Cache = yield* Cache.make({
       capacity: 1000,
-      timeToLive: Duration.minutes(5)
+      timeToLive: Duration.minutes(5),
     })
 
     // L2: 永続化キャッシュ（再起動耐性）
@@ -268,20 +256,15 @@ export const CacheLayer = Layer.effectContext(
         pipe(
           l1Cache.get(key),
           Effect.orElse(() => l2Cache.get(key)),
-          Effect.flatMap(data => Schema.decode(schema)(data)),
-          Effect.tap(value => l1Cache.set(key, value))
+          Effect.flatMap((data) => Schema.decode(schema)(data)),
+          Effect.tap((value) => l1Cache.set(key, value))
         ),
 
       set: <T>(key: string, value: T, schema: Schema.Schema<T>) =>
         pipe(
           Schema.encode(schema)(value),
-          Effect.flatMap(encoded =>
-            Effect.all([
-              l1Cache.set(key, encoded),
-              l2Cache.set(key, encoded)
-            ])
-          )
-        )
+          Effect.flatMap((encoded) => Effect.all([l1Cache.set(key, encoded), l2Cache.set(key, encoded)]))
+        ),
     }
   })
 )
@@ -297,38 +280,39 @@ export const VersionedSchema = <T>(
   currentVersion: number,
   currentSchema: Schema.Schema<T>,
   migrations: Record<number, Schema.Schema<unknown>>
-) => Schema.struct({
-  version: Schema.literal(currentVersion),
-  data: currentSchema
-}).pipe(
-  Schema.transformOrFail(
-    Schema.struct({
-      version: Schema.number,
-      data: Schema.unknown
-    }),
-    {
-      decode: (input) => {
-        if (input.version === currentVersion) {
-          return Effect.succeed(input as any)
-        }
+) =>
+  Schema.struct({
+    version: Schema.literal(currentVersion),
+    data: currentSchema,
+  }).pipe(
+    Schema.transformOrFail(
+      Schema.struct({
+        version: Schema.number,
+        data: Schema.unknown,
+      }),
+      {
+        decode: (input) => {
+          if (input.version === currentVersion) {
+            return Effect.succeed(input as any)
+          }
 
-        // マイグレーション実行
-        return pipe(
-          migrations[input.version] || Effect.fail("未対応バージョン"),
-          Schema.decode,
-          Effect.flatMap(migration => migration(input.data)),
-          Effect.map(migrated => ({ version: currentVersion, data: migrated }))
-        )
-      },
-      encode: Effect.succeed
-    }
+          // マイグレーション実行
+          return pipe(
+            migrations[input.version] || Effect.fail('未対応バージョン'),
+            Schema.decode,
+            Effect.flatMap((migration) => migration(input.data)),
+            Effect.map((migrated) => ({ version: currentVersion, data: migrated }))
+          )
+        },
+        encode: Effect.succeed,
+      }
+    )
   )
-)
 
 // 使用例
 export const PlayerDataV3 = VersionedSchema(3, PlayerSchema, {
   1: PlayerDataV1ToV2Migration,
-  2: PlayerDataV2ToV3Migration
+  2: PlayerDataV2ToV3Migration,
 })
 ```
 
@@ -343,7 +327,7 @@ export const PlayerDataV1ToV2Migration = Schema.transformOrFail(
     name: Schema.string,
     x: Schema.number,
     y: Schema.number,
-    z: Schema.number
+    z: Schema.number,
   }),
   // V2スキーマ
   Schema.struct({
@@ -351,23 +335,25 @@ export const PlayerDataV1ToV2Migration = Schema.transformOrFail(
     name: Schema.string,
     position: Vector3Schema,
     health: Schema.number,
-    createdAt: Schema.date
+    createdAt: Schema.date,
   }),
   {
-    decode: (v1Data) => Effect.succeed({
-      id: v1Data.id,
-      name: v1Data.name,
-      position: { x: v1Data.x, y: v1Data.y, z: v1Data.z },
-      health: 20, // デフォルト値
-      createdAt: new Date()
-    }),
-    encode: (v2Data) => Effect.succeed({
-      id: v2Data.id,
-      name: v2Data.name,
-      x: v2Data.position.x,
-      y: v2Data.position.y,
-      z: v2Data.position.z
-    })
+    decode: (v1Data) =>
+      Effect.succeed({
+        id: v1Data.id,
+        name: v1Data.name,
+        position: { x: v1Data.x, y: v1Data.y, z: v1Data.z },
+        health: 20, // デフォルト値
+        createdAt: new Date(),
+      }),
+    encode: (v2Data) =>
+      Effect.succeed({
+        id: v2Data.id,
+        name: v2Data.name,
+        x: v2Data.position.x,
+        y: v2Data.position.y,
+        z: v2Data.position.z,
+      }),
   }
 )
 ```
@@ -388,9 +374,7 @@ export const LazyChunkLoader = {
       }
 
       // ディスクから読み込み
-      const data = yield* FileSystem.readFile(
-        chunkPath(coordinate)
-      )
+      const data = yield* FileSystem.readFile(chunkPath(coordinate))
       const chunk = yield* Schema.decode(ChunkDataSchema)(JSON.parse(data))
 
       // キャッシュに保存
@@ -400,15 +384,12 @@ export const LazyChunkLoader = {
     }),
 
   // プリロード戦略
-  preloadNearbyChunks: (
-    center: ChunkCoordinate,
-    radius: number
-  ): Effect.Effect<void> =>
+  preloadNearbyChunks: (center: ChunkCoordinate, radius: number): Effect.Effect<void> =>
     pipe(
       generateChunkCoordinatesInRadius(center, radius),
-      Effect.forEach(coord => LazyChunkLoader.loadChunk(coord)),
+      Effect.forEach((coord) => LazyChunkLoader.loadChunk(coord)),
       Effect.asVoid
-    )
+    ),
 }
 ```
 
@@ -417,18 +398,14 @@ export const LazyChunkLoader = {
 ```typescript
 // 大容量データのストリーミング読み込み
 export const StreamingDataLoader = {
-  streamChunks: (
-    world: WorldId
-  ): Stream.Stream<ChunkData, LoadError> =>
+  streamChunks: (world: WorldId): Stream.Stream<ChunkData, LoadError> =>
     pipe(
       FileSystem.listFiles(`${world}/chunks/`),
       Stream.fromIterable,
-      Stream.mapEffect(filePath =>
+      Stream.mapEffect((filePath) =>
         pipe(
           FileSystem.readFile(filePath),
-          Effect.flatMap(content =>
-            Schema.decode(ChunkDataSchema)(JSON.parse(content))
-          )
+          Effect.flatMap((content) => Schema.decode(ChunkDataSchema)(JSON.parse(content)))
         )
       ),
       Stream.buffer(100) // バッファリング
@@ -439,13 +416,7 @@ export const StreamingDataLoader = {
     stream: Stream.Stream<A>,
     processor: (batch: ReadonlyArray<A>) => Effect.Effect<ReadonlyArray<B>>,
     batchSize: number = 100
-  ): Stream.Stream<B> =>
-    pipe(
-      stream,
-      Stream.grouped(batchSize),
-      Stream.mapEffect(processor),
-      Stream.flattenIterables
-    )
+  ): Stream.Stream<B> => pipe(stream, Stream.grouped(batchSize), Stream.mapEffect(processor), Stream.flattenIterables),
 }
 ```
 
@@ -453,18 +424,18 @@ export const StreamingDataLoader = {
 
 ### コアデータモデル
 
-| モデル | ファイル | 説明 | スキーマ複雑度 |
-|--------|----------|------|----------------|
-| **WorldData** | `world-data-structure.md` | ワールドの基本構造 | ⭐⭐⭐ |
-| **ChunkData** | `01-chunk-format.md` | チャンクデータ形式 | ⭐⭐⭐⭐ |
-| **SaveFormat** | `02-save-file-format.md` | セーブファイル形式 | ⭐⭐⭐⭐⭐ |
+| モデル         | ファイル                  | 説明               | スキーマ複雑度 |
+| -------------- | ------------------------- | ------------------ | -------------- |
+| **WorldData**  | `world-data-structure.md` | ワールドの基本構造 | ⭐⭐⭐         |
+| **ChunkData**  | `01-chunk-format.md`      | チャンクデータ形式 | ⭐⭐⭐⭐       |
+| **SaveFormat** | `02-save-file-format.md`  | セーブファイル形式 | ⭐⭐⭐⭐⭐     |
 
 ### エンティティモデル
 
 ```typescript
 // プレイヤーエンティティ
 export interface PlayerEntity extends BaseEntity {
-  readonly type: "player"
+  readonly type: 'player'
   readonly name: string
   readonly gameMode: GameMode
   readonly inventory: ReadonlyArray<ItemStack | null>
@@ -474,7 +445,7 @@ export interface PlayerEntity extends BaseEntity {
 
 // Mobエンティティ
 export interface MobEntity extends BaseEntity {
-  readonly type: "mob"
+  readonly type: 'mob'
   readonly mobType: MobType
   readonly ai: AIBehaviorData
   readonly drops: ReadonlyArray<DropEntry>
@@ -483,7 +454,7 @@ export interface MobEntity extends BaseEntity {
 
 // ブロックエンティティ
 export interface BlockEntity extends BaseEntity {
-  readonly type: "block_entity"
+  readonly type: 'block_entity'
   readonly blockType: BlockType
   readonly inventory?: ReadonlyArray<ItemStack | null>
   readonly data: Record<string, unknown>

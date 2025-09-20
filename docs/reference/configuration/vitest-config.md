@@ -1,13 +1,13 @@
 ---
-title: "Vitest設定 - テスト環境完全ガイド"
-description: "Vitest 2.xでのTypeScript Minecraftテスト環境設定。Effect-TS最適化、高速テスト実行、包括的カバレッジ。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["vitest", "testing", "configuration", "effect-ts", "coverage", "performance"]
-prerequisites: ["basic-typescript", "testing-fundamentals"]
-estimated_reading_time: "12分"
-dependencies: ["./typescript-config.md"]
-status: "complete"
+title: 'Vitest設定 - テスト環境完全ガイド'
+description: 'Vitest 2.xでのTypeScript Minecraftテスト環境設定。Effect-TS最適化、高速テスト実行、包括的カバレッジ。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['vitest', 'testing', 'configuration', 'effect-ts', 'coverage', 'performance']
+prerequisites: ['basic-typescript', 'testing-fundamentals']
+estimated_reading_time: '12分'
+dependencies: ['./typescript-config.md']
+status: 'complete'
 ---
 
 # Vitest Configuration
@@ -50,33 +50,21 @@ export default defineConfig({
         maxForks: '50%', // CPU使用率最適化
         minForks: 1,
         isolate: true, // テスト間の分離
-        singleFork: false // 単一プロセス使用無効
-      }
+        singleFork: false, // 単一プロセス使用無効
+      },
     },
 
     // ファイル探索設定
-    include: [
-      '**/*.{test,spec}.?(c|m)[jt]s?(x)',
-      '**/test/**/*.?(c|m)[jt]s?(x)'
-    ],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.git/**',
-      '**/coverage/**',
-      '**/.next/**'
-    ],
+    include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '**/test/**/*.?(c|m)[jt]s?(x)'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/.next/**'],
 
     // セットアップファイル
-    setupFiles: [
-      './test/setup.ts',
-      './test/effect-setup.ts'
-    ],
+    setupFiles: ['./test/setup.ts', './test/effect-setup.ts'],
 
     // コード変換設定
     transformMode: {
       web: [/\.[jt]sx?$/], // web環境での変換対象
-      ssr: [/\.ts$/] // SSR環境での変換対象
+      ssr: [/\.ts$/], // SSR環境での変換対象
     },
 
     // カバレッジ設定（詳細レポート）
@@ -85,10 +73,7 @@ export default defineConfig({
       enabled: false, // デフォルト無効（--coverage で有効化）
 
       // 対象ファイル
-      include: [
-        'src/**/*.{ts,tsx}',
-        '!src/**/*.d.ts'
-      ],
+      include: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
       exclude: [
         'coverage/**',
         'dist/**',
@@ -97,7 +82,7 @@ export default defineConfig({
         '**/*.config.{js,ts}',
         '**/test/**',
         '**/*.test.{js,ts}',
-        '**/*.spec.{js,ts}'
+        '**/*.spec.{js,ts}',
       ],
 
       // レポート設定
@@ -110,9 +95,9 @@ export default defineConfig({
           branches: 80,
           functions: 80,
           lines: 80,
-          statements: 80
+          statements: 80,
         },
-        perFile: true // ファイル単位でチェック
+        perFile: true, // ファイル単位でチェック
       },
 
       // クリーンアップ
@@ -126,7 +111,7 @@ export default defineConfig({
       skipFull: false,
 
       // プロジェクト外ファイルも対象
-      allowExternal: false
+      allowExternal: false,
     },
 
     // テストの並び順制御
@@ -134,7 +119,7 @@ export default defineConfig({
       shuffle: false, // ランダム実行無効
       concurrent: false, // 並行実行無効（安定性重視）
       seed: Date.now(), // シード値
-      hooks: 'stack' // フック実行順序
+      hooks: 'stack', // フック実行順序
     },
 
     // 最大同時実行数（メモリ使用量制御）
@@ -153,21 +138,21 @@ export default defineConfig({
     // レポート設定
     reporters: ['default', 'junit'],
     outputFile: {
-      junit: './test-results/junit.xml'
+      junit: './test-results/junit.xml',
     },
 
     // Chai設定（アサーション調整）
     chaiConfig: {
       includeStack: false, // スタックトレース簡略化
       showDiff: true, // 差分表示有効
-      truncateThreshold: 100 // 切り詰め閾値
+      truncateThreshold: 100, // 切り詰め閾値
     },
 
     // 差分表示設定
     diff: {
       aIndicator: '--',
       bIndicator: '++',
-      omitAnnotationLines: true
+      omitAnnotationLines: true,
     },
 
     // CSS処理設定
@@ -175,8 +160,8 @@ export default defineConfig({
       include: [], // CSS処理対象
       exclude: [], // CSS処理除外
       modules: {
-        classNameStrategy: 'stable' // クラス名戦略
-      }
+        classNameStrategy: 'stable', // クラス名戦略
+      },
     },
 
     // 依存関係最適化
@@ -184,21 +169,13 @@ export default defineConfig({
       optimizer: {
         ssr: {
           enabled: true,
-          include: [
-            'effect',
-            'three'
-          ]
-        }
+          include: ['effect', 'three'],
+        },
       },
       // 外部化設定
-      external: [
-        /node_modules/
-      ],
+      external: [/node_modules/],
       // インライン化設定
-      inline: [
-        'effect',
-        'three'
-      ]
+      inline: ['effect', 'three'],
     },
 
     // サーバー設定（Nix環境最適化）
@@ -206,16 +183,16 @@ export default defineConfig({
       sourcemap: 'inline', // ソースマップ
       debug: {
         dumpModules: false,
-        loadDumppedModules: false
+        loadDumppedModules: false,
       },
       // Nix環境での最適化
       hmr: {
-        port: 24678 // devenv固有ポート
+        port: 24678, // devenv固有ポート
       },
       fs: {
         // Nix storeへのアクセス許可
-        allow: ['..', process.env.HOME + '/.nix-profile']
-      }
+        allow: ['..', process.env.HOME + '/.nix-profile'],
+      },
     },
 
     // 型チェック設定
@@ -227,16 +204,16 @@ export default defineConfig({
       exclude: ['**/node_modules/**'],
       allowJs: false,
       ignoreSourceErrors: false,
-      tsconfig: './tsconfig.json'
-    }
+      tsconfig: './tsconfig.json',
+    },
   },
 
   // パス解決設定（テスト用）
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      '@test': resolve(__dirname, 'test')
-    }
+      '@test': resolve(__dirname, 'test'),
+    },
   },
 
   // プラグイン設定
@@ -249,15 +226,15 @@ export default defineConfig({
     __TEST__: true,
     __DEV__: true,
     __NIX_ENV__: true,
-    __NODE_VERSION__: JSON.stringify(process.version)
+    __NODE_VERSION__: JSON.stringify(process.version),
   },
 
   // Nix環境用esbuild設定
   esbuild: {
     target: 'node22', // devenv.nixのNode.js 22に対応
     format: 'esm',
-    platform: 'node'
-  }
+    platform: 'node',
+  },
 })
 ```
 
@@ -282,8 +259,8 @@ export default defineConfig({
         maxThreads: '100%', // 全CPU使用
         minThreads: 2,
         isolate: false, // 分離無効で高速化
-        singleThread: false
-      }
+        singleThread: false,
+      },
     },
 
     // タイムアウト短縮（開発効率化）
@@ -298,20 +275,17 @@ export default defineConfig({
 
     // カバレッジ無効（高速化）
     coverage: {
-      enabled: false
+      enabled: false,
     },
 
     // 並行実行有効
     sequence: {
-      concurrent: true
+      concurrent: true,
     },
 
     // ファイル変更時の再実行範囲制限
-    forceRerunTriggers: [
-      '**/test/**',
-      '**/*.config.*'
-    ]
-  }
+    forceRerunTriggers: ['**/test/**', '**/*.config.*'],
+  },
 })
 ```
 
@@ -330,8 +304,8 @@ export default defineConfig({
         maxForks: 4, // CI環境のリソース制限
         minForks: 1,
         isolate: true, // 完全分離
-        singleFork: false
-      }
+        singleFork: false,
+      },
     },
 
     // 長めのタイムアウト（安定性確保）
@@ -351,19 +325,19 @@ export default defineConfig({
           branches: 90,
           functions: 90,
           lines: 90,
-          statements: 90
+          statements: 90,
         },
-        perFile: true
+        perFile: true,
       },
 
       // 失敗時もレポート
-      reportOnFailure: true
+      reportOnFailure: true,
     },
 
     // 順次実行（安定性重視）
     sequence: {
       concurrent: false,
-      shuffle: false
+      shuffle: false,
     },
 
     // リトライ設定
@@ -372,7 +346,7 @@ export default defineConfig({
     // レポート設定（CI用）
     reporters: ['default', 'junit', 'github-actions'],
     outputFile: {
-      junit: './test-results/junit.xml'
+      junit: './test-results/junit.xml',
     },
 
     // ログ詳細化
@@ -381,9 +355,9 @@ export default defineConfig({
     // 環境変数
     env: {
       NODE_ENV: 'test',
-      CI: 'true'
-    }
-  }
+      CI: 'true',
+    },
+  },
 })
 ```
 
@@ -399,9 +373,7 @@ export default defineConfig({
     environment: 'node',
 
     // Effect-TS用セットアップ
-    setupFiles: [
-      './test/effect-setup.ts'
-    ],
+    setupFiles: ['./test/effect-setup.ts'],
 
     // 依存関係最適化（Effect-TS特化）
     deps: {
@@ -425,21 +397,18 @@ export default defineConfig({
             '@effect/platform',
             '@effect/platform/HttpClient',
             '@effect/platform/FileSystem',
-            '@effect/schema'
-          ]
-        }
+            '@effect/schema',
+          ],
+        },
       },
 
       // Effect-TSインライン化
-      inline: [
-        /^effect/,
-        /^@effect/
-      ]
+      inline: [/^effect/, /^@effect/],
     },
 
     // Effect-TS用変換設定
     transformMode: {
-      ssr: [/\.ts$/, /\.tsx$/]
+      ssr: [/\.ts$/, /\.tsx$/],
     },
 
     // タイムアウト調整（Effect実行時間考慮）
@@ -449,21 +418,21 @@ export default defineConfig({
     typecheck: {
       enabled: true,
       checker: 'tsc',
-      tsconfig: './tsconfig.test.json'
-    }
+      tsconfig: './tsconfig.test.json',
+    },
   },
 
   // Effect-TS用エイリアス
   resolve: {
     alias: {
-      '@effect-test': resolve(__dirname, 'test/effect-helpers')
-    }
+      '@effect-test': resolve(__dirname, 'test/effect-helpers'),
+    },
   },
 
   // Effect-TS用定義
   define: {
-    __EFFECT_DEBUG__: true
-  }
+    __EFFECT_DEBUG__: true,
+  },
 })
 ```
 
@@ -482,14 +451,14 @@ export default defineConfig({
         maxThreads: '100%',
         minThreads: 4,
         isolate: false, // 分離無効で最速
-        singleThread: false
-      }
+        singleThread: false,
+      },
     },
 
     // 並行実行最大化
     sequence: {
       concurrent: true,
-      shuffle: false
+      shuffle: false,
     },
 
     fileParallelism: true,
@@ -501,7 +470,7 @@ export default defineConfig({
 
     // カバレッジ無効
     coverage: {
-      enabled: false
+      enabled: false,
     },
 
     // レポート最小化
@@ -509,7 +478,7 @@ export default defineConfig({
 
     // キャッシュ最適化
     cache: {
-      dir: 'node_modules/.vitest'
+      dir: 'node_modules/.vitest',
     },
 
     // 依存関係最適化
@@ -517,11 +486,11 @@ export default defineConfig({
       optimizer: {
         ssr: {
           enabled: true,
-          include: ['effect', 'three']
-        }
-      }
-    }
-  }
+          include: ['effect', 'three'],
+        },
+      },
+    },
+  },
 })
 ```
 
@@ -537,8 +506,8 @@ export default defineConfig({
       forks: {
         maxForks: 2, // プロセス数制限
         minForks: 1,
-        isolate: true
-      }
+        isolate: true,
+      },
     },
 
     // 同時実行数制限
@@ -552,9 +521,9 @@ export default defineConfig({
 
     // ガベージコレクション強制実行
     sequence: {
-      hooks: 'list' // メモリ効率的なフック実行
-    }
-  }
+      hooks: 'list', // メモリ効率的なフック実行
+    },
+  },
 })
 ```
 
@@ -567,6 +536,7 @@ export default defineConfig({
 **問題**: テスト実行が遅い、タイムアウトエラーが発生
 
 **解決策**:
+
 ```typescript
 export default defineConfig({
   test: {
@@ -576,7 +546,7 @@ export default defineConfig({
 
     // 並行実行無効（安定性重視）
     sequence: {
-      concurrent: false
+      concurrent: false,
     },
 
     // プール設定最適化
@@ -584,14 +554,14 @@ export default defineConfig({
     poolOptions: {
       forks: {
         maxForks: 1, // 単一プロセス
-        isolate: true
-      }
+        isolate: true,
+      },
     },
 
     // デバッグ用詳細ログ
     reporters: ['verbose'],
-    logHeapUsage: true
-  }
+    logHeapUsage: true,
+  },
 })
 ```
 
@@ -600,6 +570,7 @@ export default defineConfig({
 **問題**: Effect types not resolved, runtime errors
 
 **解決策**:
+
 ```typescript
 export default defineConfig({
   test: {
@@ -608,24 +579,20 @@ export default defineConfig({
 
     // 依存関係の明示的インライン化
     deps: {
-      inline: [
-        'effect',
-        '@effect/platform',
-        '@effect/schema'
-      ]
+      inline: ['effect', '@effect/platform', '@effect/schema'],
     },
 
     // 変換モード調整
     transformMode: {
-      ssr: [/\.ts$/]
+      ssr: [/\.ts$/],
     },
 
     // 型チェック有効化
     typecheck: {
       enabled: true,
-      allowJs: false
-    }
-  }
+      allowJs: false,
+    },
+  },
 })
 ```
 
@@ -634,6 +601,7 @@ export default defineConfig({
 **問題**: Coverage reports are inaccurate or missing
 
 **解決策**:
+
 ```typescript
 export default defineConfig({
   test: {
@@ -650,7 +618,7 @@ export default defineConfig({
         '**/test/**',
         // 具体的なパターン追加
         '**/src/types/**',
-        '**/src/**/*.config.ts'
+        '**/src/**/*.config.ts',
       ],
 
       // ソースマップ対応
@@ -660,9 +628,9 @@ export default defineConfig({
       all: true,
 
       // 外部ファイル許可
-      allowExternal: true
-    }
-  }
+      allowExternal: true,
+    },
+  },
 })
 ```
 
@@ -671,6 +639,7 @@ export default defineConfig({
 **問題**: JavaScript heap out of memory
 
 **解決策**:
+
 ```typescript
 // package.json
 {
@@ -717,18 +686,18 @@ export default defineConfig({
         {
           browser: 'chromium',
           headless: process.env.CI ? true : false,
-          setupFile: './test/browser-setup.ts'
+          setupFile: './test/browser-setup.ts',
         },
         {
           browser: 'firefox',
-          headless: true
-        }
+          headless: true,
+        },
       ],
 
       // ビューポート設定
       viewport: {
         width: 1280,
-        height: 720
+        height: 720,
       },
 
       // スクリーンショット設定
@@ -741,10 +710,10 @@ export default defineConfig({
       // API設定
       api: {
         port: 63315,
-        host: '0.0.0.0'
-      }
-    }
-  }
+        host: '0.0.0.0',
+      },
+    },
+  },
 })
 ```
 
@@ -759,8 +728,8 @@ export default defineConfig({
         name: 'unit',
         test: {
           include: ['src/**/*.test.ts'],
-          environment: 'node'
-        }
+          environment: 'node',
+        },
       },
 
       // 統合テスト
@@ -769,8 +738,8 @@ export default defineConfig({
         test: {
           include: ['tests/integration/**/*.test.ts'],
           environment: 'node',
-          timeout: 30000
-        }
+          timeout: 30000,
+        },
       },
 
       // ブラウザテスト
@@ -780,9 +749,9 @@ export default defineConfig({
           include: ['tests/browser/**/*.test.ts'],
           browser: {
             enabled: true,
-            provider: 'playwright'
-          }
-        }
+            provider: 'playwright',
+          },
+        },
       },
 
       // E2Eテスト
@@ -791,11 +760,11 @@ export default defineConfig({
         test: {
           include: ['tests/e2e/**/*.test.ts'],
           testTimeout: 60000,
-          retry: 2
-        }
-      }
-    ]
-  }
+          retry: 2,
+        },
+      },
+    ],
+  },
 })
 ```
 
@@ -821,7 +790,7 @@ export default defineConfig({
       PNPM_HOME: process.env.PNPM_HOME,
 
       // TypeScriptパス
-      TS_NODE_PROJECT: './tsconfig.test.json'
+      TS_NODE_PROJECT: './tsconfig.test.json',
     },
 
     // Nix store内のモジュール解決
@@ -837,23 +806,23 @@ export default defineConfig({
       '**/dist/**',
       '**/result/**', // Nix build result
       '**/.devenv/**', // devenv cache
-      '**/nix/store/**' // Nix store
-    ]
+      '**/nix/store/**', // Nix store
+    ],
   },
 
   // Nix環境でのパッケージ解決
   resolve: {
     alias: {
       '@': resolve(process.cwd(), 'src'),
-      '@test': resolve(process.cwd(), 'test')
+      '@test': resolve(process.cwd(), 'test'),
     },
 
     // Nixパッケージディレクトリの追加
     dedupe: ['effect', 'three'], // 重複回避
 
     // pnpm特有の設定
-    preserveSymlinks: false // pnpmのシンボリックリンクを正しく解決
-  }
+    preserveSymlinks: false, // pnpmのシンボリックリンクを正しく解決
+  },
 })
 ```
 
@@ -890,7 +859,7 @@ export default defineConfig({
     // パフォーマンス計測有効化
     benchmark: {
       reporters: ['verbose', 'json'],
-      outputFile: './perf-results/benchmark.json'
+      outputFile: './perf-results/benchmark.json',
     },
 
     // CPU使用率監視
@@ -899,8 +868,8 @@ export default defineConfig({
       forks: {
         // Nix環境での最適なワーカー数
         maxForks: Math.min(4, Math.floor(require('os').cpus().length * 0.75)),
-        isolate: true
-      }
+        isolate: true,
+      },
     },
 
     // メモリ使用量監視
@@ -909,7 +878,7 @@ export default defineConfig({
     // レポート詳細化
     reporters: ['verbose', 'json'],
     outputFile: {
-      json: './test-results/results.json'
+      json: './test-results/results.json',
     },
 
     // Nix環境での実行時間最適化
@@ -919,15 +888,16 @@ export default defineConfig({
     // 環境別設定
     env: {
       FORCE_COLOR: '1', // Nix環境でのカラー出力
-      NODE_ENV: 'test'
-    }
-  }
+      NODE_ENV: 'test',
+    },
+  },
 })
 ```
 
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
+
 - [Vite設定](./vite-config.md) - ベースとなるVite設定
 - [TypeScript設定](./typescript-config.md) - 型定義とコンパイル設定
 - [開発設定](./development-config.md) - 開発効率化ツール
@@ -935,12 +905,14 @@ export default defineConfig({
 - [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
+
 - [Vitest公式ドキュメント](https://vitest.dev/)
 - [Coverage設定](https://vitest.dev/config/#coverage)
 - [Browser Testing](https://vitest.dev/guide/browser.html)
 - [Playwright Integration](https://playwright.dev/docs/test-runners)
 
 ### プロジェクト固有
+
 - [Effect-TSテストパターン](../../how-to/testing/effect-ts-testing-patterns.md)
 - [テスト戦略ガイド](../../how-to/testing/testing-guide.md)
 - [パフォーマンステスト](../troubleshooting/performance-issues.md)

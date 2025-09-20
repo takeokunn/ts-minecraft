@@ -1,17 +1,18 @@
 ---
-title: "Game Inventory API Reference"
-description: "TypeScript Minecraft Clone インベントリ管理システムの完全APIリファレンス。Effect-TS 3.17+による型安全なアイテム管理の実装者向けガイド。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["api-reference", "inventory-management", "effect-ts", "domain-api", "game-inventory"]
-prerequisites: ["effect-ts-basics", "schema-fundamentals", "typescript-advanced"]
-estimated_reading_time: "20分"
-related_patterns: ["service-patterns", "data-modeling-patterns", "validation-patterns"]
-related_docs: ["../../explanations/game-mechanics/core-features/inventory-system.md", "./game-player-api.md", "./core-apis.md"]
+title: 'Game Inventory API Reference'
+description: 'TypeScript Minecraft Clone インベントリ管理システムの完全APIリファレンス。Effect-TS 3.17+による型安全なアイテム管理の実装者向けガイド。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['api-reference', 'inventory-management', 'effect-ts', 'domain-api', 'game-inventory']
+prerequisites: ['effect-ts-basics', 'schema-fundamentals', 'typescript-advanced']
+estimated_reading_time: '20分'
+related_patterns: ['service-patterns', 'data-modeling-patterns', 'validation-patterns']
+related_docs:
+  ['../../explanations/game-mechanics/core-features/inventory-system.md', './game-player-api.md', './core-apis.md']
 search_keywords:
-  primary: ["inventory-api", "minecraft-inventory", "item-management", "game-api"]
-  secondary: ["item-stack", "slot-management", "inventory-operations"]
-  context: ["minecraft-development", "game-programming", "api-reference"]
+  primary: ['inventory-api', 'minecraft-inventory', 'item-management', 'game-api']
+  secondary: ['item-stack', 'slot-management', 'inventory-operations']
+  context: ['minecraft-development', 'game-programming', 'api-reference']
 ---
 
 # Game Inventory API Reference
@@ -34,21 +35,25 @@ TypeScript Minecraft Clone インベントリ管理システムの完全APIリ�
 ### InventoryService - コアインベントリ操作
 
 ```typescript
-import { Effect, Context, Schema } from "effect"
+import { Effect, Context, Schema } from 'effect'
 
 export interface InventoryService {
   readonly addItem: (params: Schema.Schema.Type<typeof AddItemParams>) => Effect.Effect<boolean, InventoryError>
-  readonly removeItem: (params: Schema.Schema.Type<typeof RemoveItemParams>) => Effect.Effect<ItemStack | null, InventoryError>
+  readonly removeItem: (
+    params: Schema.Schema.Type<typeof RemoveItemParams>
+  ) => Effect.Effect<ItemStack | null, InventoryError>
   readonly moveItem: (params: Schema.Schema.Type<typeof MoveItemParams>) => Effect.Effect<void, InventoryError>
   readonly swapItems: (params: Schema.Schema.Type<typeof SwapItemsParams>) => Effect.Effect<void, InventoryError>
   readonly mergeStacks: (params: Schema.Schema.Type<typeof MergeStacksParams>) => Effect.Effect<boolean, InventoryError>
   readonly splitStack: (params: Schema.Schema.Type<typeof SplitStackParams>) => Effect.Effect<ItemStack, InventoryError>
   readonly clearSlot: (params: Schema.Schema.Type<typeof ClearSlotParams>) => Effect.Effect<ItemStack | null, never>
-  readonly getSlotItem: (params: Schema.Schema.Type<typeof GetSlotParams>) => Effect.Effect<ItemStack | null, InventoryNotFoundError>
+  readonly getSlotItem: (
+    params: Schema.Schema.Type<typeof GetSlotParams>
+  ) => Effect.Effect<ItemStack | null, InventoryNotFoundError>
   readonly validateInventory: (inventory: Inventory) => Effect.Effect<boolean, ValidationError>
 }
 
-export const InventoryService = Context.GenericTag<InventoryService>("@app/InventoryService")
+export const InventoryService = Context.GenericTag<InventoryService>('@app/InventoryService')
 ```
 
 ### EquipmentService - 装備管理
@@ -56,14 +61,20 @@ export const InventoryService = Context.GenericTag<InventoryService>("@app/Inven
 ```typescript
 export interface EquipmentService {
   readonly equipItem: (params: Schema.Schema.Type<typeof EquipItemParams>) => Effect.Effect<Equipment, EquipmentError>
-  readonly unequipItem: (params: Schema.Schema.Type<typeof UnequipItemParams>) => Effect.Effect<Equipment, EquipmentError>
-  readonly getEquippedItem: (params: Schema.Schema.Type<typeof GetEquippedParams>) => Effect.Effect<ItemStack | null, never>
+  readonly unequipItem: (
+    params: Schema.Schema.Type<typeof UnequipItemParams>
+  ) => Effect.Effect<Equipment, EquipmentError>
+  readonly getEquippedItem: (
+    params: Schema.Schema.Type<typeof GetEquippedParams>
+  ) => Effect.Effect<ItemStack | null, never>
   readonly calculateArmorValue: (equipment: Equipment) => Effect.Effect<number, never>
-  readonly calculateDamageReduction: (params: Schema.Schema.Type<typeof DamageReductionParams>) => Effect.Effect<number, never>
+  readonly calculateDamageReduction: (
+    params: Schema.Schema.Type<typeof DamageReductionParams>
+  ) => Effect.Effect<number, never>
   readonly applyEquipmentEffects: (equipment: Equipment) => Effect.Effect<ReadonlyArray<StatusEffect>, never>
 }
 
-export const EquipmentService = Context.GenericTag<EquipmentService>("@app/EquipmentService")
+export const EquipmentService = Context.GenericTag<EquipmentService>('@app/EquipmentService')
 ```
 
 ## 📊 データ構造
@@ -72,31 +83,20 @@ export const EquipmentService = Context.GenericTag<EquipmentService>("@app/Equip
 
 ```typescript
 // ブランド型定義（型安全性確保）
-export const ItemId = Schema.String.pipe(
-  Schema.pattern(/^[a-z]+:[a-z_]+$/),
-  Schema.brand("ItemId")
-)
+export const ItemId = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('ItemId'))
 export type ItemId = Schema.Schema.Type<typeof ItemId>
 
 export const SlotIndex = Schema.Number.pipe(
   Schema.int(),
   Schema.between(0, 44), // 45スロット（36メイン + 9ホットバー）
-  Schema.brand("SlotIndex")
+  Schema.brand('SlotIndex')
 )
 export type SlotIndex = Schema.Schema.Type<typeof SlotIndex>
 
-export const ItemQuantity = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(1, 64),
-  Schema.brand("ItemQuantity")
-)
+export const ItemQuantity = Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemQuantity'))
 export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantity>
 
-export const DurabilityValue = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand("DurabilityValue")
-)
+export const DurabilityValue = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('DurabilityValue'))
 export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValue>
 ```
 
@@ -108,26 +108,25 @@ export const ItemStack = Schema.Struct({
   quantity: ItemQuantity,
   durability: Schema.optional(DurabilityValue),
   enchantments: Schema.optional(Schema.Array(Enchantment)),
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  })),
-  nbt: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
+  nbt: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotations({
-  identifier: "ItemStack",
-  description: "アイテムスタック - アイテムの基本単位"
+  identifier: 'ItemStack',
+  description: 'アイテムスタック - アイテムの基本単位',
 })
 export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 
 // エンチャント定義
 export const Enchantment = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("EnchantmentId")),
-  level: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 10)
-  )
+  id: Schema.String.pipe(Schema.brand('EnchantmentId')),
+  level: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
 }).annotations({
-  identifier: "Enchantment"
+  identifier: 'Enchantment',
 })
 export type Enchantment = Schema.Schema.Type<typeof Enchantment>
 ```
@@ -137,30 +136,22 @@ export type Enchantment = Schema.Schema.Type<typeof Enchantment>
 ```typescript
 export const Inventory = Schema.Struct({
   // メインインベントリ（27スロット）
-  main: Schema.Array(Schema.NullOr(ItemStack)).pipe(
-    Schema.itemsCount(27)
-  ),
+  main: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(27)),
 
   // ホットバー（9スロット）
-  hotbar: Schema.Array(Schema.NullOr(ItemStack)).pipe(
-    Schema.itemsCount(9)
-  ),
+  hotbar: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(9)),
 
   // 選択中スロット（ホットバー内）
-  selectedSlot: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(0, 8),
-    Schema.brand("HotbarSlot")
-  ),
+  selectedSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot')),
 
   // 装備スロット
   armor: Equipment,
 
   // オフハンド
-  offhand: Schema.NullOr(ItemStack)
+  offhand: Schema.NullOr(ItemStack),
 }).annotations({
-  identifier: "Inventory",
-  description: "プレイヤーインベントリ - 45スロット構成"
+  identifier: 'Inventory',
+  description: 'プレイヤーインベントリ - 45スロット構成',
 })
 export type Inventory = Schema.Schema.Type<typeof Inventory>
 ```
@@ -174,10 +165,10 @@ export const Equipment = Schema.Struct({
   leggings: Schema.NullOr(ItemStack),
   boots: Schema.NullOr(ItemStack),
   mainhand: Schema.NullOr(ItemStack),
-  offhand: Schema.NullOr(ItemStack)
+  offhand: Schema.NullOr(ItemStack),
 }).annotations({
-  identifier: "Equipment",
-  description: "プレイヤー装備 - 6部位管理"
+  identifier: 'Equipment',
+  description: 'プレイヤー装備 - 6部位管理',
 })
 export type Equipment = Schema.Schema.Type<typeof Equipment>
 ```
@@ -189,40 +180,40 @@ export type Equipment = Schema.Schema.Type<typeof Equipment>
 ```typescript
 // アイテム追加
 export const AddItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   item: ItemStack,
   preferredSlot: Schema.optional(SlotIndex),
-  allowPartialAdd: Schema.Boolean.pipe(Schema.withDefault(() => true))
+  allowPartialAdd: Schema.Boolean.pipe(Schema.withDefault(() => true)),
 }).annotations({
-  identifier: "AddItemParams"
+  identifier: 'AddItemParams',
 })
 
 // アイテム削除
 export const RemoveItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   slot: SlotIndex,
-  quantity: Schema.optional(ItemQuantity)
+  quantity: Schema.optional(ItemQuantity),
 }).annotations({
-  identifier: "RemoveItemParams"
+  identifier: 'RemoveItemParams',
 })
 
 // アイテム移動
 export const MoveItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   fromSlot: SlotIndex,
   toSlot: SlotIndex,
-  quantity: Schema.optional(ItemQuantity)
+  quantity: Schema.optional(ItemQuantity),
 }).annotations({
-  identifier: "MoveItemParams"
+  identifier: 'MoveItemParams',
 })
 
 // アイテム交換
 export const SwapItemsParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   slot1: SlotIndex,
-  slot2: SlotIndex
+  slot2: SlotIndex,
 }).annotations({
-  identifier: "SwapItemsParams"
+  identifier: 'SwapItemsParams',
 })
 ```
 
@@ -231,24 +222,20 @@ export const SwapItemsParams = Schema.Struct({
 ```typescript
 // 装備着用
 export const EquipItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   slot: SlotIndex,
-  equipmentSlot: Schema.Literal(
-    "helmet", "chestplate", "leggings", "boots", "mainhand", "offhand"
-  )
+  equipmentSlot: Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainhand', 'offhand'),
 }).annotations({
-  identifier: "EquipItemParams"
+  identifier: 'EquipItemParams',
 })
 
 // ダメージ軽減計算
 export const DamageReductionParams = Schema.Struct({
   equipment: Equipment,
   damageAmount: Schema.Number.pipe(Schema.nonNegative()),
-  damageType: Schema.Literal(
-    "physical", "fire", "explosion", "projectile", "magic", "fall"
-  )
+  damageType: Schema.Literal('physical', 'fire', 'explosion', 'projectile', 'magic', 'fall'),
 }).annotations({
-  identifier: "DamageReductionParams"
+  identifier: 'DamageReductionParams',
 })
 ```
 
@@ -256,57 +243,57 @@ export const DamageReductionParams = Schema.Struct({
 
 ```typescript
 // インベントリエラー
-export const InventoryError = Schema.TaggedUnion("_tag", {
+export const InventoryError = Schema.TaggedUnion('_tag', {
   InventoryFull: Schema.Struct({
-    _tag: Schema.Literal("InventoryFull"),
+    _tag: Schema.Literal('InventoryFull'),
     availableSpace: Schema.Number,
-    requiredSpace: Schema.Number
+    requiredSpace: Schema.Number,
   }),
 
   InvalidSlot: Schema.Struct({
-    _tag: Schema.Literal("InvalidSlot"),
+    _tag: Schema.Literal('InvalidSlot'),
     slot: Schema.Number,
-    maxSlot: Schema.Number
+    maxSlot: Schema.Number,
   }),
 
   InsufficientItems: Schema.Struct({
-    _tag: Schema.Literal("InsufficientItems"),
+    _tag: Schema.Literal('InsufficientItems'),
     requested: Schema.Number,
-    available: Schema.Number
+    available: Schema.Number,
   }),
 
   ItemNotStackable: Schema.Struct({
-    _tag: Schema.Literal("ItemNotStackable"),
-    itemId: ItemId
+    _tag: Schema.Literal('ItemNotStackable'),
+    itemId: ItemId,
   }),
 
   StackSizeExceeded: Schema.Struct({
-    _tag: Schema.Literal("StackSizeExceeded"),
+    _tag: Schema.Literal('StackSizeExceeded'),
     current: Schema.Number,
-    maximum: Schema.Number
-  })
+    maximum: Schema.Number,
+  }),
 })
 export type InventoryError = Schema.Schema.Type<typeof InventoryError>
 
 // 装備エラー
-export const EquipmentError = Schema.TaggedUnion("_tag", {
+export const EquipmentError = Schema.TaggedUnion('_tag', {
   InvalidEquipmentSlot: Schema.Struct({
-    _tag: Schema.Literal("InvalidEquipmentSlot"),
+    _tag: Schema.Literal('InvalidEquipmentSlot'),
     itemType: Schema.String,
-    attemptedSlot: Schema.String
+    attemptedSlot: Schema.String,
   }),
 
   EquipmentSlotOccupied: Schema.Struct({
-    _tag: Schema.Literal("EquipmentSlotOccupied"),
+    _tag: Schema.Literal('EquipmentSlotOccupied'),
     slot: Schema.String,
-    occupiedBy: ItemId
+    occupiedBy: ItemId,
   }),
 
   DurabilityTooLow: Schema.Struct({
-    _tag: Schema.Literal("DurabilityTooLow"),
+    _tag: Schema.Literal('DurabilityTooLow'),
     current: Schema.Number,
-    required: Schema.Number
-  })
+    required: Schema.Number,
+  }),
 })
 export type EquipmentError = Schema.Schema.Type<typeof EquipmentError>
 ```
@@ -328,17 +315,10 @@ export const InventoryServiceLive = Layer.effect(
         const player = yield* playerService.findById(validated.playerId)
 
         // 既存スタックへの追加を試みる
-        const existingSlotResult = yield* findMatchingStack(
-          player.inventory,
-          validated.item
-        )
+        const existingSlotResult = yield* findMatchingStack(player.inventory, validated.item)
 
         if (Option.isSome(existingSlotResult)) {
-          return yield* addToExistingStack(
-            player,
-            existingSlotResult.value,
-            validated.item
-          )
+          return yield* addToExistingStack(player, existingSlotResult.value, validated.item)
         }
 
         // 空きスロットに新規配置
@@ -351,7 +331,7 @@ export const InventoryServiceLive = Layer.effect(
         return yield* Effect.fail(
           InventoryError.InventoryFull({
             availableSpace: 0,
-            requiredSpace: validated.item.quantity
+            requiredSpace: validated.item.quantity,
           })
         )
       })
@@ -371,7 +351,7 @@ export const InventoryServiceLive = Layer.effect(
           return yield* Effect.fail(
             InventoryError.InsufficientItems({
               requested: removeQuantity,
-              available: slot.quantity
+              available: slot.quantity,
             })
           )
         }
@@ -398,7 +378,7 @@ export const InventoryServiceLive = Layer.effect(
       splitStack: implementSplitStack,
       clearSlot: implementClearSlot,
       getSlotItem: implementGetSlotItem,
-      validateInventory: implementValidateInventory
+      validateInventory: implementValidateInventory,
     })
   })
 )
@@ -423,22 +403,19 @@ export const EquipmentServiceLive = Layer.effect(
           return yield* Effect.fail(
             InventoryError.InvalidSlot({
               slot: validated.slot,
-              maxSlot: 44
+              maxSlot: 44,
             })
           )
         }
 
         // アイテムタイプが装備スロットと適合するかチェック
-        const isValidForSlot = yield* itemRegistry.canEquipToSlot(
-          item.itemId,
-          validated.equipmentSlot
-        )
+        const isValidForSlot = yield* itemRegistry.canEquipToSlot(item.itemId, validated.equipmentSlot)
 
         if (!isValidForSlot) {
           return yield* Effect.fail(
             EquipmentError.InvalidEquipmentSlot({
               itemType: item.itemId,
-              attemptedSlot: validated.equipmentSlot
+              attemptedSlot: validated.equipmentSlot,
             })
           )
         }
@@ -449,20 +426,20 @@ export const EquipmentServiceLive = Layer.effect(
           yield* inventoryService.addItem({
             playerId: validated.playerId,
             item: currentEquipment,
-            allowPartialAdd: false
+            allowPartialAdd: false,
           })
         }
 
         // 新しい装備を着用
         const updatedEquipment = {
           ...player.equipment,
-          [validated.equipmentSlot]: item
+          [validated.equipmentSlot]: item,
         }
 
         // インベントリから削除
         yield* inventoryService.clearSlot({
           playerId: validated.playerId,
-          slot: validated.slot
+          slot: validated.slot,
         })
 
         yield* playerService.updateEquipment(validated.playerId, updatedEquipment)
@@ -474,12 +451,7 @@ export const EquipmentServiceLive = Layer.effect(
       Effect.gen(function* () {
         let totalArmor = 0
 
-        const armorPieces = [
-          equipment.helmet,
-          equipment.chestplate,
-          equipment.leggings,
-          equipment.boots
-        ]
+        const armorPieces = [equipment.helmet, equipment.chestplate, equipment.leggings, equipment.boots]
 
         for (const piece of armorPieces) {
           if (piece) {
@@ -497,7 +469,7 @@ export const EquipmentServiceLive = Layer.effect(
       getEquippedItem: implementGetEquippedItem,
       calculateArmorValue,
       calculateDamageReduction: implementDamageReduction,
-      applyEquipmentEffects: implementEquipmentEffects
+      applyEquipmentEffects: implementEquipmentEffects,
     })
   })
 )
@@ -508,32 +480,32 @@ export const EquipmentServiceLive = Layer.effect(
 ### 基本的なインベントリ操作
 
 ```typescript
-import { Effect } from "effect"
+import { Effect } from 'effect'
 
 // アイテム追加例
 const addDiamondSword = Effect.gen(function* () {
   const inventoryService = yield* InventoryService
 
   const diamondSword: ItemStack = {
-    itemId: "minecraft:diamond_sword" as ItemId,
+    itemId: 'minecraft:diamond_sword' as ItemId,
     quantity: 1 as ItemQuantity,
     durability: 1561 as DurabilityValue,
     enchantments: [
-      { id: "minecraft:sharpness" as EnchantmentId, level: 5 },
-      { id: "minecraft:unbreaking" as EnchantmentId, level: 3 }
-    ]
+      { id: 'minecraft:sharpness' as EnchantmentId, level: 5 },
+      { id: 'minecraft:unbreaking' as EnchantmentId, level: 3 },
+    ],
   }
 
   const success = yield* inventoryService.addItem({
-    playerId: "player-123" as PlayerId,
+    playerId: 'player-123' as PlayerId,
     item: diamondSword,
-    allowPartialAdd: false
+    allowPartialAdd: false,
   })
 
   if (success) {
-    console.log("Diamond sword added to inventory")
+    console.log('Diamond sword added to inventory')
   } else {
-    console.log("Inventory full, could not add diamond sword")
+    console.log('Inventory full, could not add diamond sword')
   }
 })
 
@@ -543,9 +515,9 @@ const equipArmor = Effect.gen(function* () {
 
   // ダイヤモンドヘルメットをスロット10から装備
   const newEquipment = yield* equipmentService.equipItem({
-    playerId: "player-123" as PlayerId,
+    playerId: 'player-123' as PlayerId,
     slot: 10 as SlotIndex,
-    equipmentSlot: "helmet"
+    equipmentSlot: 'helmet',
   })
 
   // 防御力計算
@@ -557,24 +529,26 @@ const equipArmor = Effect.gen(function* () {
 const safeInventoryOperation = Effect.gen(function* () {
   const inventoryService = yield* InventoryService
 
-  return yield* inventoryService.addItem({
-    playerId: "player-123" as PlayerId,
-    item: someItem,
-    allowPartialAdd: true
-  }).pipe(
-    Effect.catchTag("InventoryFull", (error) =>
-      Effect.sync(() => {
-        console.log(`Inventory full: need ${error.requiredSpace}, have ${error.availableSpace}`)
-        return false
-      })
-    ),
-    Effect.catchTag("InvalidSlot", (error) =>
-      Effect.sync(() => {
-        console.log(`Invalid slot ${error.slot}, max is ${error.maxSlot}`)
-        return false
-      })
+  return yield* inventoryService
+    .addItem({
+      playerId: 'player-123' as PlayerId,
+      item: someItem,
+      allowPartialAdd: true,
+    })
+    .pipe(
+      Effect.catchTag('InventoryFull', (error) =>
+        Effect.sync(() => {
+          console.log(`Inventory full: need ${error.requiredSpace}, have ${error.availableSpace}`)
+          return false
+        })
+      ),
+      Effect.catchTag('InvalidSlot', (error) =>
+        Effect.sync(() => {
+          console.log(`Invalid slot ${error.slot}, max is ${error.maxSlot}`)
+          return false
+        })
+      )
     )
-  )
 })
 ```
 
@@ -589,11 +563,12 @@ const batchProcessItems = Effect.gen(function* () {
   // 並列処理でアイテム追加
   const results = yield* Effect.forEach(
     items,
-    (item) => inventoryService.addItem({
-      playerId: "player-123" as PlayerId,
-      item,
-      allowPartialAdd: true
-    }),
+    (item) =>
+      inventoryService.addItem({
+        playerId: 'player-123' as PlayerId,
+        item,
+        allowPartialAdd: true,
+      }),
     { concurrency: 5 }
   )
 
@@ -608,12 +583,13 @@ const equipArmorSet = (armorPieces: ReadonlyArray<{ slot: SlotIndex; equipmentSl
 
     return yield* Effect.forEach(
       armorPieces,
-      ({ slot, equipmentSlot }) => equipmentService.equipItem({
-        playerId: "player-123" as PlayerId,
-        slot,
-        equipmentSlot
-      }),
-      { concurrency: "unbounded" }
+      ({ slot, equipmentSlot }) =>
+        equipmentService.equipItem({
+          playerId: 'player-123' as PlayerId,
+          slot,
+          equipmentSlot,
+        }),
+      { concurrency: 'unbounded' }
     )
   })
 ```
@@ -621,14 +597,17 @@ const equipArmorSet = (armorPieces: ReadonlyArray<{ slot: SlotIndex; equipmentSl
 ## 🔗 関連リソース
 
 ### 概念的理解
+
 - **[インベントリシステム設計](../../explanations/game-mechanics/core-features/inventory-system.md)** - システムの設計思想と概念
 - **[プレイヤーシステム統合](../../explanations/game-mechanics/core-features/player-system.md)** - プレイヤーとの連携パターン
 
 ### 実装ガイド
+
 - **[基本ゲーム開発チュートリアル](../../tutorials/basic-game-development/README.md)** - 段階的実装手順
 - **[Effect-TS活用パターン](../../how-to/development/effect-ts-migration-guide.md)** - Effect-TSの効果的な使い方
 
 ### API統合
+
 - **[プレイヤーAPI](./game-player-api.md)** - プレイヤーシステムとの連携
 - **[コアAPI](../api/core-apis.md)** - 基盤システムとの統合
 - **[ドメインAPI](../api/domain-apis.md)** - ドメイン横断的な機能
@@ -636,6 +615,7 @@ const equipArmorSet = (armorPieces: ReadonlyArray<{ slot: SlotIndex; equipmentSl
 ## 🎯 実装チェックリスト
 
 ### 基本機能
+
 - [ ] ItemStack型定義と検証
 - [ ] Inventory構造実装
 - [ ] Equipment管理システム
@@ -643,6 +623,7 @@ const equipArmorSet = (armorPieces: ReadonlyArray<{ slot: SlotIndex; equipmentSl
 - [ ] エラーハンドリング
 
 ### 高度な機能
+
 - [ ] アイテム結合・分割ロジック
 - [ ] 装備効果計算
 - [ ] バッチ処理最適化
@@ -650,6 +631,7 @@ const equipArmorSet = (armorPieces: ReadonlyArray<{ slot: SlotIndex; equipmentSl
 - [ ] キャッシュ戦略
 
 ### 品質保証
+
 - [ ] Property-based testing
 - [ ] パフォーマンステスト
 - [ ] メモリリーク検証

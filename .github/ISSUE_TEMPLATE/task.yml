@@ -1,7 +1,7 @@
 name: タスク実装
 description: ROADMAP タスク実装用 Issue
-title: "[Task ID] タスク名"
-labels: ["task", "japanese"]
+title: '[Task ID] タスク名'
+labels: ['task', 'japanese']
 body:
   - type: input
     id: task-id

@@ -1,13 +1,12 @@
 ---
-title: "Effect-TS エラーハンドリング実装ガイド"
-description: "Effect-TS 3.17+でのエラー処理の実装方法とベストプラクティス"
-category: "guide"
-difficulty: "intermediate"
-tags: ["effect-ts", "error-handling", "implementation", "best-practices"]
-prerequisites: ["effect-ts-basics", "typescript-types"]
-estimated_reading_time: "20分"
+title: 'Effect-TS エラーハンドリング実装ガイド'
+description: 'Effect-TS 3.17+でのエラー処理の実装方法とベストプラクティス'
+category: 'guide'
+difficulty: 'intermediate'
+tags: ['effect-ts', 'error-handling', 'implementation', 'best-practices']
+prerequisites: ['effect-ts-basics', 'typescript-types']
+estimated_reading_time: '20分'
 ---
-
 
 # Effect-TS エラーハンドリング実装ガイド
 
@@ -22,6 +21,7 @@ estimated_reading_time: "20分"
 > **📚 前提知識**: [Effect-TSパターン](./06-effect-ts-patterns.md) → [基本実装](./06a-effect-ts-basics.md)
 
 ### 📋 関連ドキュメント
+
 - **概念説明**: [Effect-TSパターン](./06-effect-ts-patterns.md)
 - **APIリファレンス**: [Effect-TS Schema API](../reference/effect-ts-schema-api.md)
 - **実践例**: [エラーハンドリング例](../examples/02-advanced-patterns/01-effect-composition.md)
@@ -33,53 +33,48 @@ estimated_reading_time: "20分"
 ### 1.1 基本的なエラー定義
 
 ```typescript
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // ドメインエラーの定義 - 関数型パターン
-const BlockNotFoundError = Schema.TaggedError("BlockNotFoundError")({
+const BlockNotFoundError = Schema.TaggedError('BlockNotFoundError')({
   position: Position,
-  reason: Schema.optional(Schema.String)
+  reason: Schema.optional(Schema.String),
 })
 
-const InvalidBlockError = Schema.TaggedError("InvalidBlockError")({
+const InvalidBlockError = Schema.TaggedError('InvalidBlockError')({
   blockType: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 })
 
 // エラーユニオン型の定義
-type BlockError =
-  | typeof BlockNotFoundError.Type
-  | typeof InvalidBlockError.Type
+type BlockError = typeof BlockNotFoundError.Type | typeof InvalidBlockError.Type
 ```
 
 ### 1.2 階層的エラー構造
 
 ```typescript
 // 基底エラー型の定義 - 関数型パターン
-const GameError = Schema.TaggedError("GameError")({
+const GameError = Schema.TaggedError('GameError')({
   timestamp: Schema.DateTimeUtc,
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 // 具体的なエラー実装 - Match.value で処理
-const NetworkError = Schema.TaggedError("NetworkError")({
+const NetworkError = Schema.TaggedError('NetworkError')({
   statusCode: Schema.Number,
   endpoint: Schema.String,
   timestamp: Schema.DateTimeUtc,
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 
 // エラーファクトリー関数
-const createNetworkError = (
-  statusCode: number,
-  endpoint: string,
-  context?: Record<string, unknown>
-) => NetworkError({
-  statusCode,
-  endpoint,
-  timestamp: new Date().toISOString(),
-  context
-})
+const createNetworkError = (statusCode: number, endpoint: string, context?: Record<string, unknown>) =>
+  NetworkError({
+    statusCode,
+    endpoint,
+    timestamp: new Date().toISOString(),
+    context,
+  })
 ```
 
 ## 2. エラーハンドリングパターン
@@ -87,32 +82,33 @@ const createNetworkError = (
 ### 2.1 Effect.genでのエラー処理
 
 ```typescript
-import { Effect, pipe } from "effect"
+import { Effect, pipe } from 'effect'
 
-const placeBlock = (
-  position: Position,
-  blockType: BlockType
-): Effect.Effect<Block, BlockError> =>
+const placeBlock = (position: Position, blockType: BlockType): Effect.Effect<Block, BlockError> =>
   Effect.gen(function* () {
     // 位置の検証
     const chunk = yield* getChunk(position).pipe(
-      Effect.catchTag("ChunkNotLoadedError", () =>
-        Effect.fail(new BlockNotFoundError({
-          position,
-          reason: "Chunk not loaded"
-        }))
+      Effect.catchTag('ChunkNotLoadedError', () =>
+        Effect.fail(
+          new BlockNotFoundError({
+            position,
+            reason: 'Chunk not loaded',
+          })
+        )
       )
     )
 
     // ブロックタイプの検証（Match.valueパターン）
     yield* pipe(
       Match.value(isValidBlockType(blockType)),
-      Match.when(false, () => Effect.fail(
-        new InvalidBlockError({
-          blockType,
-          message: "Unknown block type"
-        })
-      )),
+      Match.when(false, () =>
+        Effect.fail(
+          new InvalidBlockError({
+            blockType,
+            message: 'Unknown block type',
+          })
+        )
+      ),
       Match.orElse(() => Effect.unit)
     )
 
@@ -124,16 +120,12 @@ const placeBlock = (
 ### 2.2 Match.valueによるエラー分岐
 
 ```typescript
-import { Match } from "effect"
+import { Match } from 'effect'
 
 const handleBlockError = (error: BlockError): string =>
   Match.value(error).pipe(
-    Match.tag("BlockNotFoundError", (e) =>
-      `Block not found at ${e.position}: ${e.reason ?? "Unknown reason"}`
-    ),
-    Match.tag("InvalidBlockError", (e) =>
-      `Invalid block ${e.blockType}: ${e.message}`
-    ),
+    Match.tag('BlockNotFoundError', (e) => `Block not found at ${e.position}: ${e.reason ?? 'Unknown reason'}`),
+    Match.tag('InvalidBlockError', (e) => `Invalid block ${e.blockType}: ${e.message}`),
     Match.exhaustive
   )
 
@@ -143,7 +135,7 @@ const processBlock = pipe(
   Effect.catchAll((error) =>
     Effect.succeed({
       success: false,
-      message: handleBlockError(error)
+      message: handleBlockError(error),
     })
   )
 )
@@ -155,15 +147,15 @@ const processBlock = pipe(
 
 ```typescript
 // インフラ層のエラー - 関数型パターン
-const DatabaseError = Schema.TaggedError("DatabaseError")({
+const DatabaseError = Schema.TaggedError('DatabaseError')({
   query: Schema.String,
-  code: Schema.String
+  code: Schema.String,
 })
 
 // ドメイン層のエラー - 関数型パターン
-const SaveError = Schema.TaggedError("SaveError")({
+const SaveError = Schema.TaggedError('SaveError')({
   entityId: Schema.String,
-  reason: Schema.String
+  reason: Schema.String,
 })
 
 // エラー変換 - Match.value パターン使用
@@ -173,7 +165,7 @@ const savePlayer = (player: Player) =>
     Effect.mapError((dbError: typeof DatabaseError.Type) =>
       SaveError({
         entityId: player.id,
-        reason: `Database error: ${dbError.code}`
+        reason: `Database error: ${dbError.code}`,
       })
     )
   )
@@ -182,23 +174,19 @@ const savePlayer = (player: Player) =>
 ### 3.2 エラーの集約
 
 ```typescript
-import { Effect, Cause } from "effect"
+import { Effect, Cause } from 'effect'
 
 // 複数のエラーを集約
 const validateWorld = (world: World) =>
-  Effect.all([
-    validateChunks(world.chunks),
-    validateEntities(world.entities),
-    validateMetadata(world.metadata)
-  ], {
-    concurrency: "unbounded",
-    mode: "either" // すべてのエラーを収集
+  Effect.all([validateChunks(world.chunks), validateEntities(world.entities), validateMetadata(world.metadata)], {
+    concurrency: 'unbounded',
+    mode: 'either', // すべてのエラーを収集
   }).pipe(
     Effect.catchAll((cause) => {
       const errors = Cause.failures(cause)
       return Effect.fail(
         new ValidationError({
-          errors: errors.map(e => e.message)
+          errors: errors.map((e) => e.message),
         })
       )
     })
@@ -210,20 +198,18 @@ const validateWorld = (world: World) =>
 ### 4.1 エラー時のリトライ戦略
 
 ```typescript
-import { Schedule, Effect } from "effect"
+import { Schedule, Effect } from 'effect'
 
 const fetchChunk = (position: ChunkPosition) =>
   pipe(
     networkFetchChunk(position),
     Effect.retry(
-      Schedule.exponential("100 millis").pipe(
+      Schedule.exponential('100 millis').pipe(
         Schedule.intersect(Schedule.recurs(3)),
-        Schedule.tapInput((error) =>
-          Effect.log(`Retry due to: ${error}`)
-        )
+        Schedule.tapInput((error) => Effect.log(`Retry due to: ${error}`))
       )
     ),
-    Effect.catchTag("NetworkError", () =>
+    Effect.catchTag('NetworkError', () =>
       // フォールバック: ローカルキャッシュから取得
       loadChunkFromCache(position)
     )
@@ -314,38 +300,31 @@ interface CircuitBreaker {
 ### 5.1 構造化エラーロギング
 
 ```typescript
-import { Effect, Logger } from "effect"
+import { Effect, Logger } from 'effect'
 
 const logError = <E>(error: E) =>
-  Effect.logError("Operation failed").pipe(
+  Effect.logError('Operation failed').pipe(
     Effect.annotateLogs({
       error_type: (error as any)._tag,
       error_details: JSON.stringify(error),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   )
 
 // カスタムロガーレイヤー
 const ErrorLoggerLive = Logger.replace(
   Logger.defaultLogger,
-  Logger.make(({
-    level,
-    message,
-    cause,
-    context,
-    spans,
-    annotations
-  }) => {
+  Logger.make(({ level, message, cause, context, spans, annotations }) => {
     // Match.when によるログレベル判定 - if文の代替
     pipe(
       Match.value(level),
-      Match.when("Error", () => {
+      Match.when('Error', () => {
         // エラーを外部サービスに送信
         sendToMonitoring({
           level,
           message,
           annotations,
-          stackTrace: cause ? Cause.pretty(cause) : undefined
+          stackTrace: cause ? Cause.pretty(cause) : undefined,
         })
       }),
       Match.orElse(() => undefined)

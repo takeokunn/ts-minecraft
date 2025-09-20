@@ -1,4 +1,5 @@
 # 開発ワークフロー - Issue実装中心
+
 ## 基本フロー
 
 ```mermaid
@@ -12,6 +13,7 @@ flowchart LR
 ```
 
 ## Issue作成
+
 ### 方法1: 自然言語からの自動作成【NEW】
 
 ```bash
@@ -42,6 +44,7 @@ DRY_RUN=true ./scripts/create-phase-issues.sh 0
 GitHub Issues > New issue > **AI Agent Task** を選択
 
 **テンプレート構成:**
+
 1. **段階的実行ステップ（8段階）**
    - Step 1: 事前調査・分析
    - Step 2: ディレクトリ構造作成
@@ -59,11 +62,13 @@ GitHub Issues > New issue > **AI Agent Task** を選択
    - パフォーマンステスト
 
 **特徴:**
+
 - 段階的な完全機能実装が可能
 - Effect-TSベストプラクティス準拠
 - 自動検証・自動修正機能
 
 ## Issue実装コマンド
+
 ### 基本
 
 ```bash
@@ -76,6 +81,7 @@ claude "editorconfig lintを導入したい Issue を作って実装してPRま�
 ```
 
 **自動実行内容:**
+
 1. **Pre-Step実装前確認**: `list_memories`・`@docs/`設計方針・実装方針確認・Context7ライブラリ仕様確認
 2. **GitHub Issue実行計画解析**: Step 1-8の段階的実行
 3. **各ステップ順次実行**: 指定された参照ドキュメント使用
@@ -92,7 +98,9 @@ claude "editorconfig lintを導入したい Issue を作って実装してPRま�
 - ビルド・パフォーマンステスト
 
 ## 完了フロー
+
 ### 実装完了後
+
 ```
 ✅ Issue #123: 実行計画完了
 📋 実行済み: Step 1✅ Step 2✅ Step 3✅ Step 4✅
@@ -115,6 +123,7 @@ claude "/pr/create 123"
 ```
 
 **自動実行内容:**
+
 - 品質チェック（TypeCheck/Lint/Build）並列実行
 - ブランチ作成・コミット・プッシュ
 - PRテンプレート自動生成

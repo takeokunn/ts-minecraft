@@ -1,17 +1,17 @@
 ---
-title: "デバッグ実践ガイド - Effect-TS・ゲームループ・パフォーマンス診断"
-description: "TypeScript Minecraft Cloneの包括的デバッグガイド。Effect-TSエラー追跡、ゲームループデバッグ、メモリリーク検出、パフォーマンス分析の実践的テクニック。"
-category: "guide"
-difficulty: "intermediate"
-tags: ["debugging", "troubleshooting", "performance", "effect-ts-debugging", "game-debugging", "profiling"]
-prerequisites: ["effect-ts-fundamentals", "browser-devtools", "performance-analysis", "debugging-techniques"]
-estimated_reading_time: "30分"
-related_patterns: ["error-handling-patterns", "debugging-patterns", "monitoring-patterns"]
-related_docs: ["./04-error-resolution.md", "./03-performance-optimization.md", "../reference/troubleshooting/README.md"]
+title: 'デバッグ実践ガイド - Effect-TS・ゲームループ・パフォーマンス診断'
+description: 'TypeScript Minecraft Cloneの包括的デバッグガイド。Effect-TSエラー追跡、ゲームループデバッグ、メモリリーク検出、パフォーマンス分析の実践的テクニック。'
+category: 'guide'
+difficulty: 'intermediate'
+tags: ['debugging', 'troubleshooting', 'performance', 'effect-ts-debugging', 'game-debugging', 'profiling']
+prerequisites: ['effect-ts-fundamentals', 'browser-devtools', 'performance-analysis', 'debugging-techniques']
+estimated_reading_time: '30分'
+related_patterns: ['error-handling-patterns', 'debugging-patterns', 'monitoring-patterns']
+related_docs: ['./04-error-resolution.md', './03-performance-optimization.md', '../reference/troubleshooting/README.md']
 search_keywords:
-  primary: ["debugging", "troubleshooting", "error-tracking", "performance-debugging"]
-  secondary: ["game-debugging", "effect-ts-debugging", "memory-profiling"]
-  context: ["development-workflow", "problem-solving", "performance-optimization"]
+  primary: ['debugging', 'troubleshooting', 'error-tracking', 'performance-debugging']
+  secondary: ['game-debugging', 'effect-ts-debugging', 'memory-profiling']
+  context: ['development-workflow', 'problem-solving', 'performance-optimization']
 ---
 
 # デバッグガイド
@@ -30,31 +30,22 @@ import { Effect, Runtime, Cause, Logger } from 'effect'
 
 // デバッグ用ランタイム
 export const DebugRuntime = Runtime.defaultRuntime.pipe(
-  Runtime.updateLogger(Logger.stringLogger.pipe(
-    Logger.map(message =>
-      console.log(`[${new Date().toISOString()}] ${message}`)
-    )
-  )),
+  Runtime.updateLogger(
+    Logger.stringLogger.pipe(Logger.map((message) => console.log(`[${new Date().toISOString()}] ${message}`)))
+  ),
   Runtime.enableTracing
 )
 
 // Effect実行のデバッグ（最新パターン）
-export const debugEffect = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  label: string
-) =>
+export const debugEffect = <A, E, R>(effect: Effect.Effect<A, E, R>, label: string) =>
   effect.pipe(
-    Effect.tap((value) =>
-      Effect.logInfo(`${label}: Success`, { value })
-    ),
-    Effect.tapError((error) =>
-      Effect.logError(`${label}: Error`, { error })
-    ),
+    Effect.tap((value) => Effect.logInfo(`${label}: Success`, { value })),
+    Effect.tapError((error) => Effect.logError(`${label}: Error`, { error })),
     Effect.withSpan(label, {
       attributes: {
         component: 'minecraft',
-        layer: 'debug'
-      }
+        layer: 'debug',
+      },
     })
   )
 ```
@@ -76,24 +67,23 @@ export const traceError = <E>(error: E): string => {
 }
 
 // Effect実行結果の詳細ログ（最新パターン）
-export const runWithDetailedLog = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  name: string
-) =>
+export const runWithDetailedLog = <A, E, R>(effect: Effect.Effect<A, E, R>, name: string) =>
   Effect.gen(function* () {
     const startTime = Date.now()
 
     const result = yield* Effect.either(effect).pipe(
-      Effect.tap((either) => Effect.sync(() => {
-        const duration = Date.now() - startTime
+      Effect.tap((either) =>
+        Effect.sync(() => {
+          const duration = Date.now() - startTime
 
-        if (Either.isRight(either)) {
-          console.log(`✅ ${name} succeeded in ${duration}ms`)
-        } else {
-          console.error(`❌ ${name} failed in ${duration}ms:`)
-          console.error(traceError(either.left))
-        }
-      }))
+          if (Either.isRight(either)) {
+            console.log(`✅ ${name} succeeded in ${duration}ms`)
+          } else {
+            console.error(`❌ ${name} failed in ${duration}ms:`)
+            console.error(traceError(either.left))
+          }
+        })
+      )
     )
 
     return yield* Effect.fromEither(result)
@@ -104,38 +94,38 @@ export const runWithDetailedLog = <A, E, R>(
 
 ```typescript
 // レイヤー依存関係の可視化（最新API）
-export const debugLayer = <A, E, R>(
-  layer: Layer.Layer<A, E, R>
-) => {
+export const debugLayer = <A, E, R>(layer: Layer.Layer<A, E, R>) => {
   console.log('Layer Dependencies:')
   // Layer.graphは実装状況を要確認
 
   return layer.pipe(
-    Layer.tapContext((context) => Effect.sync(() => {
-      console.log('Layer Context:', context)
-    })),
+    Layer.tapContext((context) =>
+      Effect.sync(() => {
+        console.log('Layer Context:', context)
+      })
+    ),
     Layer.orDie // 開発時はエラーで停止
   )
 }
 
 // サービス呼び出しのインターセプト（最新パターン）
-export const interceptService = <S>(
-  tag: Context.Tag<S, S>,
-  methods: (keyof S)[]
-) =>
-  Layer.succeed(tag, new Proxy({} as S, {
-    get(target, prop) {
-      if (methods.includes(prop as keyof S)) {
-        return (...args: any[]) => {
-          console.log(`📞 ${tag.key}.${String(prop)}`, args)
-          const result = target[prop as keyof S](...args)
-          console.log(`📞 ${tag.key}.${String(prop)} →`, result)
-          return result
+export const interceptService = <S>(tag: Context.Tag<S, S>, methods: (keyof S)[]) =>
+  Layer.succeed(
+    tag,
+    new Proxy({} as S, {
+      get(target, prop) {
+        if (methods.includes(prop as keyof S)) {
+          return (...args: any[]) => {
+            console.log(`📞 ${tag.key}.${String(prop)}`, args)
+            const result = target[prop as keyof S](...args)
+            console.log(`📞 ${tag.key}.${String(prop)} →`, result)
+            return result
+          }
         }
-      }
-      return target[prop as keyof S]
-    }
-  }))
+        return target[prop as keyof S]
+      },
+    })
+  )
 ```
 
 ## パフォーマンスプロファイリング
@@ -484,7 +474,7 @@ export const LeakDetector = Context.GenericTag<{
   readonly forceCheck: () => Effect.Effect<LeakDetectionResult, never>
   readonly getTrackedCount: () => Effect.Effect<number, never>
   readonly setThreshold: (threshold: number) => Effect.Effect<void, never>
-}>("@minecraft/LeakDetector")
+}>('@minecraft/LeakDetector')
 
 // 実装
 const makeLeakDetector = Effect.gen(function* () {
@@ -497,7 +487,7 @@ const makeLeakDetector = Effect.gen(function* () {
   const forceGC = Effect.sync(() => {
     // ガベージコレクション強制（開発環境のみ）
     if (typeof global !== 'undefined' && (global as any).gc) {
-      (global as any).gc()
+      ;(global as any).gc()
     }
   })
 
@@ -512,7 +502,7 @@ const makeLeakDetector = Effect.gen(function* () {
     const result: LeakDetectionResult = {
       totalTracked: count,
       potentialLeaks: [], // WeakMapから取得できないため空配列
-      checkTimestamp: Date.now()
+      checkTimestamp: Date.now(),
     }
 
     if (count > threshold) {
@@ -530,64 +520,68 @@ const makeLeakDetector = Effect.gen(function* () {
   })
 
   return LeakDetector.of({
-    track: (obj, label) => Effect.gen(function* () {
-      const tracked = yield* Ref.get(trackedMapRef)
-      const trackedObject: TrackedObject = {
-        label,
-        timestamp: Date.now(),
-        stackTrace: new Error().stack || ''
-      }
+    track: (obj, label) =>
+      Effect.gen(function* () {
+        const tracked = yield* Ref.get(trackedMapRef)
+        const trackedObject: TrackedObject = {
+          label,
+          timestamp: Date.now(),
+          stackTrace: new Error().stack || '',
+        }
 
-      tracked.set(obj, trackedObject)
-      yield* Ref.update(counterRef, n => n + 1)
+        tracked.set(obj, trackedObject)
+        yield* Ref.update(counterRef, (n) => n + 1)
 
-      yield* Effect.log(`Object tracked: ${label} (total: ${yield* Ref.get(counterRef)})`)
-    }),
+        yield* Effect.log(`Object tracked: ${label} (total: ${yield* Ref.get(counterRef)})`)
+      }),
 
-    startMonitoring: (intervalMs = 5000) => Effect.gen(function* () {
-      const isMonitoring = yield* Ref.get(monitoringRef)
+    startMonitoring: (intervalMs = 5000) =>
+      Effect.gen(function* () {
+        const isMonitoring = yield* Ref.get(monitoringRef)
 
-      if (isMonitoring) {
-        yield* Effect.logWarning("Monitoring already started")
-        return
-      }
+        if (isMonitoring) {
+          yield* Effect.logWarning('Monitoring already started')
+          return
+        }
 
-      yield* Ref.set(monitoringRef, true)
+        yield* Ref.set(monitoringRef, true)
 
-      const monitoringFiber = yield* Effect.fork(
-        Effect.gen(function* () {
-          while (yield* Ref.get(monitoringRef)) {
-            yield* performLeakCheck
-            yield* Effect.sleep(intervalMs)
-          }
+        const monitoringFiber = yield* Effect.fork(
+          Effect.gen(function* () {
+            while (yield* Ref.get(monitoringRef)) {
+              yield* performLeakCheck
+              yield* Effect.sleep(intervalMs)
+            }
+          })
+        )
+
+        yield* Ref.set(fiberRef, Option.some(monitoringFiber))
+        yield* Effect.log(`Leak monitoring started with ${intervalMs}ms interval`)
+      }),
+
+    stopMonitoring: () =>
+      Effect.gen(function* () {
+        yield* Ref.set(monitoringRef, false)
+
+        const maybeFiber = yield* Ref.get(fiberRef)
+        yield* Option.match(maybeFiber, {
+          onNone: () => Effect.unit,
+          onSome: (fiber) => Fiber.interrupt(fiber),
         })
-      )
 
-      yield* Ref.set(fiberRef, Option.some(monitoringFiber))
-      yield* Effect.log(`Leak monitoring started with ${intervalMs}ms interval`)
-    }),
-
-    stopMonitoring: () => Effect.gen(function* () {
-      yield* Ref.set(monitoringRef, false)
-
-      const maybeFiber = yield* Ref.get(fiberRef)
-      yield* Option.match(maybeFiber, {
-        onNone: () => Effect.unit,
-        onSome: fiber => Fiber.interrupt(fiber)
-      })
-
-      yield* Ref.set(fiberRef, Option.none())
-      yield* Effect.log("Leak monitoring stopped")
-    }),
+        yield* Ref.set(fiberRef, Option.none())
+        yield* Effect.log('Leak monitoring stopped')
+      }),
 
     forceCheck: () => performLeakCheck,
 
     getTrackedCount: () => Ref.get(counterRef),
 
-    setThreshold: (threshold) => Effect.gen(function* () {
-      yield* Ref.set(thresholdRef, threshold)
-      yield* Effect.log(`Leak detection threshold set to ${threshold}`)
-    })
+    setThreshold: (threshold) =>
+      Effect.gen(function* () {
+        yield* Ref.set(thresholdRef, threshold)
+        yield* Effect.log(`Leak detection threshold set to ${threshold}`)
+      }),
   })
 })
 
@@ -595,10 +589,7 @@ const makeLeakDetector = Effect.gen(function* () {
 export const LeakDetectorLive = Layer.effect(LeakDetector, makeLeakDetector)
 
 // Effectリソース管理
-export const trackResource = <R, E, A>(
-  effect: Effect.Effect<A, E, R>,
-  label: string
-) =>
+export const trackResource = <R, E, A>(effect: Effect.Effect<A, E, R>, label: string) =>
   Effect.acquireUseRelease(
     Effect.sync(() => {
       const resource = { label, created: Date.now() }
@@ -863,10 +854,7 @@ export const ChunkMemoryMonitorLive = (maxMemoryMB: number = 500) =>
 
 ```typescript
 // User Timing API統合
-export const measureUserTiming = <R, E, A>(
-  effect: Effect.Effect<A, E, R>,
-  name: string
-) =>
+export const measureUserTiming = <R, E, A>(effect: Effect.Effect<A, E, R>, name: string) =>
   Effect.gen(function* () {
     performance.mark(`${name}-start`)
 
@@ -875,21 +863,13 @@ export const measureUserTiming = <R, E, A>(
         onFailure: () =>
           Effect.sync(() => {
             performance.mark(`${name}-error`)
-            performance.measure(
-              `${name} (failed)`,
-              `${name}-start`,
-              `${name}-error`
-            )
+            performance.measure(`${name} (failed)`, `${name}-start`, `${name}-error`)
           }),
         onSuccess: () =>
           Effect.sync(() => {
             performance.mark(`${name}-end`)
-            performance.measure(
-              name,
-              `${name}-start`,
-              `${name}-end`
-            )
-          })
+            performance.measure(name, `${name}-start`, `${name}-end`)
+          }),
       })
     )
 
@@ -942,8 +922,8 @@ export const setupDevToolsExtension = () => {
         skip: false,
         reorder: false,
         dispatch: true,
-        test: false
-      }
+        test: false,
+      },
     })
 
     // 状態変更を送信
@@ -962,7 +942,7 @@ export const diagnoseEffectError = <E>(error: E): DiagnosisResult => {
   const diagnosis: DiagnosisResult = {
     type: 'unknown',
     message: '',
-    suggestions: []
+    suggestions: [],
   }
 
   if (Cause.isFailure(error)) {
@@ -970,29 +950,20 @@ export const diagnoseEffectError = <E>(error: E): DiagnosisResult => {
     if (Option.isSome(defect)) {
       diagnosis.type = 'failure'
       diagnosis.message = String(defect.value)
-      diagnosis.suggestions.push(
-        'Check error handling in Effect chain',
-        'Ensure all errors are properly typed'
-      )
+      diagnosis.suggestions.push('Check error handling in Effect chain', 'Ensure all errors are properly typed')
     }
   }
 
   if (Cause.isDie(error)) {
     diagnosis.type = 'defect'
     diagnosis.message = 'Unexpected error (Die)'
-    diagnosis.suggestions.push(
-      'Check for unhandled exceptions',
-      'Review Effect.die usage'
-    )
+    diagnosis.suggestions.push('Check for unhandled exceptions', 'Review Effect.die usage')
   }
 
   if (Cause.isInterrupted(error)) {
     diagnosis.type = 'interrupted'
     diagnosis.message = 'Effect was interrupted'
-    diagnosis.suggestions.push(
-      'Check fiber cancellation logic',
-      'Review timeout configurations'
-    )
+    diagnosis.suggestions.push('Check fiber cancellation logic', 'Review timeout configurations')
   }
 
   return diagnosis
@@ -1003,7 +974,7 @@ export const diagnosePerformance = async (): Promise<PerformanceDiagnosis> => {
   const diagnosis: PerformanceDiagnosis = {
     fps: 0,
     memory: {},
-    suggestions: []
+    suggestions: [],
   }
 
   // FPS計測
@@ -1021,11 +992,7 @@ export const diagnosePerformance = async (): Promise<PerformanceDiagnosis> => {
     }
 
     if (diagnosis.fps < 30) {
-      diagnosis.suggestions.push(
-        'Reduce render distance',
-        'Optimize chunk meshing',
-        'Enable frustum culling'
-      )
+      diagnosis.suggestions.push('Reduce render distance', 'Optimize chunk meshing', 'Enable frustum culling')
     }
   }
 
@@ -1035,16 +1002,12 @@ export const diagnosePerformance = async (): Promise<PerformanceDiagnosis> => {
     diagnosis.memory = {
       used: memory.usedJSHeapSize,
       total: memory.totalJSHeapSize,
-      limit: memory.jsHeapSizeLimit
+      limit: memory.jsHeapSizeLimit,
     }
 
     const usage = memory.usedJSHeapSize / memory.jsHeapSizeLimit
     if (usage > 0.8) {
-      diagnosis.suggestions.push(
-        'Unload distant chunks',
-        'Reduce texture resolution',
-        'Clear unused caches'
-      )
+      diagnosis.suggestions.push('Unload distant chunks', 'Reduce texture resolution', 'Clear unused caches')
     }
   }
 

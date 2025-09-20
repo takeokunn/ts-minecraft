@@ -83,6 +83,7 @@ echo "✅ PR作成完了！"
 ## PRテンプレート
 
 自動的に以下の情報が含まれます：
+
 - Task ID
 - 変更サイズ（XS/S/M/L/XL）
 - PR Type（feat/fix/docs/test）

@@ -9,11 +9,13 @@
 **TypeScript Minecraft Clone**: Effect-TS + DDD + ECS による完全関数型Minecraftクローン
 
 ### コア目標
+
 - **パフォーマンス**: 60FPS / <2GB メモリ
 - **品質**: 80%+ カバレッジ
 - **アーキテクチャ**: 完全関数型・イベント駆動・DDD/ECS
 
 ### 技術的制約
+
 - クラス禁止 (Effect-TS Service/Layerパターン使用)
 - var,let,any,async禁止
 - Effect.gen/Schema.Struct必須
@@ -21,26 +23,34 @@
 ## ドキュメント構造
 
 ### 📚 [チュートリアル](./tutorials/README.md)
+
 はじめるためのステップバイステップガイド
+
 - [入門ガイド](./tutorials/getting-started/README.md)
 - [Effect-TS基礎](./tutorials/effect-ts-fundamentals/README.md)
 - [基本ゲーム開発](./tutorials/basic-game-development/README.md)
 
 ### 🔧 [How-Toガイド](./how-to/README.md)
+
 特定のタスクのための実践的ガイド
+
 - [開発ワークフロー](./how-to/development/README.md)
 - [テスト戦略](./how-to/testing/README.md)
 - [トラブルシューティング](./how-to/troubleshooting/README.md)
 - [デプロイメント](./how-to/deployment/README.md)
 
 ### 💡 [解説](./explanations/README.md)
+
 概念の理解と設計上の決定
+
 - [アーキテクチャ概要](./explanations/architecture/README.md)
 - [デザインパターン](./explanations/design-patterns/README.md)
 - [ゲームメカニクス](./explanations/game-mechanics/README.md)
 
 ### 📖 [リファレンス](./reference/README.md)
+
 技術仕様とAPIドキュメント
+
 - [APIリファレンス](./reference/api/README.md)
 - [設定](./reference/configuration/README.md)
 - [ゲームシステム](./reference/game-systems/README.md)
@@ -49,12 +59,14 @@
 ## クイックリンク
 
 ### 開発者向け
+
 1. **環境構築**: [環境セットアップ](./tutorials/basic-game-development/environment-setup.md)
 2. **開発規約**: [開発規約](./how-to/development/development-conventions.md)
 3. **Effect-TSパターン**: [Effect-TSパターン](./tutorials/effect-ts-fundamentals/effect-ts-patterns.md)
 4. **テスト戦略**: [テストガイド](./how-to/testing/testing-guide.md)
 
 ### AIエージェント向け
+
 1. **Issue実装フロー**: [GitHub Issue管理](./how-to/development/github-issue-management.md)
 2. **エントリーポイント**: [エントリーポイント](./how-to/development/entry-points.md)
 3. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
@@ -63,6 +75,7 @@
 ## Issue駆動開発
 
 ### AIタスク実装フロー
+
 1. **Issue確認**: `.github/ISSUE_TEMPLATE/ai-task.yml`形式のIssue
 2. **実装計画**: 8段階実行ステップ (Step 1-8)
 3. **コード生成**: Effect-TS Service/Layer/Schemaパターン
@@ -70,6 +83,7 @@
 5. **エラー修正**: トラブルシューティング手順に従う
 
 ### 参照優先順位
+
 1. **GitHub Issue**: 具体的実装手順・完了条件
 2. **docs/**: 詳細仕様・実装パターン
 3. **src/shared/**: 実装済みパターン例
@@ -78,6 +92,7 @@
 ## コマンドリファレンス
 
 ### 開発
+
 ```bash
 pnpm dev        # 開発サーバー起動
 pnpm build      # プロダクションビルド
@@ -85,6 +100,7 @@ pnpm preview    # ビルドプレビュー
 ```
 
 ### 品質保証
+
 ```bash
 pnpm typecheck  # 型チェック
 pnpm lint       # Oxlintによる静的解析
@@ -93,6 +109,7 @@ pnpm coverage   # カバレッジレポート生成
 ```
 
 ### ドキュメント
+
 ```bash
 # ドキュメント参照
 cat docs/INDEX.md                 # このインデックス

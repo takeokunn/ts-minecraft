@@ -1,14 +1,14 @@
 ---
-title: "パフォーマンス問題トラブルシューティング - 包括的パフォーマンス最適化"
-description: "TypeScript Minecraftプロジェクトのパフォーマンス問題35技術。Effect-TS Fiber、Three.jsレンダリング、WebGL GPUメモリ管理。"
-category: "troubleshooting"
-difficulty: "advanced"
-tags: ["performance", "troubleshooting", "optimization", "memory-management", "webgl", "three.js", "effect-ts"]
-prerequisites: ["performance-fundamentals", "webgl-basics", "effect-ts-intermediate"]
-estimated_reading_time: "40分"
-related_patterns: ["optimization-patterns-latest", "service-patterns"]
-related_docs: ["./debugging-guide.md", "./runtime-errors.md", "../testing/comprehensive-testing-strategy.md"]
-status: "complete"
+title: 'パフォーマンス問題トラブルシューティング - 包括的パフォーマンス最適化'
+description: 'TypeScript Minecraftプロジェクトのパフォーマンス問題35技術。Effect-TS Fiber、Three.jsレンダリング、WebGL GPUメモリ管理。'
+category: 'troubleshooting'
+difficulty: 'advanced'
+tags: ['performance', 'troubleshooting', 'optimization', 'memory-management', 'webgl', 'three.js', 'effect-ts']
+prerequisites: ['performance-fundamentals', 'webgl-basics', 'effect-ts-intermediate']
+estimated_reading_time: '40分'
+related_patterns: ['optimization-patterns-latest', 'service-patterns']
+related_docs: ['./debugging-guide.md', './runtime-errors.md', '../testing/comprehensive-testing-strategy.md']
+status: 'complete'
 ---
 
 # パフォーマンス問題のトラブルシューティング
@@ -22,11 +22,13 @@ TypeScript Minecraft プロジェクトにおけるパフォーマンス問題�
 ### メモリリークの症状と検出
 
 #### 症状
+
 - ブラウザタブのメモリ使用量が徐々に増加
 - ガベージコレクションが頻繁に発生
 - FPSの低下とアプリケーション応答性の悪化
 
 #### Chrome DevTools を使用した検出
+
 ```typescript
 // メモリ使用量の監視
 const monitorMemoryUsage = Effect.schedule(
@@ -35,18 +37,18 @@ const monitorMemoryUsage = Effect.schedule(
       const memInfo = {
         used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
         total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
-        limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+        limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024),
       }
 
-      yield* Effect.logInfo("Memory Usage", memInfo)
+      yield* Effect.logInfo('Memory Usage', memInfo)
 
       // メモリ使用量が閾値を超えた場合の警告
       if (memInfo.used > memInfo.limit * 0.8) {
-        yield* Effect.logWarn("Memory usage is high", { percentage: (memInfo.used / memInfo.limit) * 100 })
+        yield* Effect.logWarn('Memory usage is high', { percentage: (memInfo.used / memInfo.limit) * 100 })
       }
     }
   }),
-  Schedule.fixed("30 seconds")
+  Schedule.fixed('30 seconds')
 )
 
 // ヒープスナップショットのトリガー
@@ -54,7 +56,7 @@ const createHeapSnapshot = (label: string) =>
   Effect.sync(() => {
     if (typeof window !== 'undefined' && 'gc' in window) {
       // Force garbage collection (Chrome --enable-precise-memory-info)
-      (window as any).gc()
+      ;(window as any).gc()
     }
     console.log(`📊 Heap snapshot: ${label}`)
     performance.mark(`heap-${label}`)
@@ -64,6 +66,7 @@ const createHeapSnapshot = (label: string) =>
 ### 一般的なメモリリーク原因と対策
 
 #### 1. DOM要素の参照保持
+
 ```typescript
 // ❌ 問題のあるコード - DOM要素への直接参照
 interface RenderManager {
@@ -103,6 +106,7 @@ const createRenderManager = (canvasId: string) =>
 ```
 
 #### 2. イベントリスナーの適切な削除
+
 ```typescript
 // Effect による適切なイベントリスナー管理
 const setupKeyboardHandling = (element: HTMLElement) =>
@@ -115,10 +119,11 @@ const setupKeyboardHandling = (element: HTMLElement) =>
       element.addEventListener('keydown', handleKeyDown)
       return { element, handleKeyDown }
     }),
-    ({ element, handleKeyDown }) => Effect.sync(() => {
-      element.removeEventListener('keydown', handleKeyDown)
-      console.log("🧹 Event listener removed")
-    })
+    ({ element, handleKeyDown }) =>
+      Effect.sync(() => {
+        element.removeEventListener('keydown', handleKeyDown)
+        console.log('🧹 Event listener removed')
+      })
   )
 
 // 使用例
@@ -134,6 +139,7 @@ const keyboardManager = Effect.scoped(
 ```
 
 #### 3. Three.js リソースの適切な破棄
+
 ```typescript
 // テクスチャとジオメトリのメモリ管理
 const createManagedTexture = (url: string) =>
@@ -148,33 +154,28 @@ const createManagedTexture = (url: string) =>
         (error) => resume(Effect.fail(new TextureLoadError({ url, error })))
       )
     }),
-    (texture) => Effect.sync(() => {
-      texture.dispose()
-      console.log(`🧹 Texture disposed: ${texture.name}`)
-    })
+    (texture) =>
+      Effect.sync(() => {
+        texture.dispose()
+        console.log(`🧹 Texture disposed: ${texture.name}`)
+      })
   )
 
 // ジオメトリの管理
-const createManagedGeometry = <T extends THREE.BufferGeometry>(
-  geometryFactory: () => T
-) =>
-  Effect.acquireRelease(
-    Effect.sync(geometryFactory),
-    (geometry) => Effect.sync(() => {
+const createManagedGeometry = <T extends THREE.BufferGeometry>(geometryFactory: () => T) =>
+  Effect.acquireRelease(Effect.sync(geometryFactory), (geometry) =>
+    Effect.sync(() => {
       geometry.dispose()
-      console.log("🧹 Geometry disposed")
+      console.log('🧹 Geometry disposed')
     })
   )
 
 // マテリアルの管理
-const createManagedMaterial = <T extends THREE.Material>(
-  materialFactory: () => T
-) =>
-  Effect.acquireRelease(
-    Effect.sync(materialFactory),
-    (material) => Effect.sync(() => {
+const createManagedMaterial = <T extends THREE.Material>(materialFactory: () => T) =>
+  Effect.acquireRelease(Effect.sync(materialFactory), (material) =>
+    Effect.sync(() => {
       material.dispose()
-      console.log("🧹 Material disposed")
+      console.log('🧹 Material disposed')
     })
   )
 ```
@@ -182,6 +183,7 @@ const createManagedMaterial = <T extends THREE.Material>(
 ### Effect Fiber のメモリリーク対策
 
 #### Fork されたFiber の適切な管理
+
 ```typescript
 // ❌ 問題のあるコード - Fiber のリークリスク
 const startBackgroundTasks = Effect.gen(function* () {
@@ -199,13 +201,13 @@ const managedBackgroundTasks = Effect.scoped(
     // Fiberの監視
     yield* Effect.fork(
       Effect.gen(function* () {
-        yield* Effect.sleep("1 minute")
+        yield* Effect.sleep('1 minute')
         const bgStatus = yield* Fiber.status(backgroundFiber)
         const periodicStatus = yield* Fiber.status(periodicFiber)
 
-        yield* Effect.logDebug("Fiber Status", {
+        yield* Effect.logDebug('Fiber Status', {
           background: bgStatus._tag,
-          periodic: periodicStatus._tag
+          periodic: periodicStatus._tag,
         })
       })
     )
@@ -216,20 +218,15 @@ const managedBackgroundTasks = Effect.scoped(
 ```
 
 #### FiberRefs によるメモリ効率の改善
+
 ```typescript
-import * as FiberRef from "effect/FiberRef"
+import * as FiberRef from 'effect/FiberRef'
 
 // 適切なFiberRef使用
 const playerContextRef = FiberRef.unsafeMake<Option.Option<Player>>(Option.none())
 
-const withPlayerContext = <A, E>(
-  player: Player,
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
-  pipe(
-    effect,
-    Effect.locally(playerContextRef, Option.some(player))
-  )
+const withPlayerContext = <A, E>(player: Player, effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  pipe(effect, Effect.locally(playerContextRef, Option.some(player)))
 
 // 使用後の自動クリーンアップ
 const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
@@ -240,9 +237,7 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
       return yield* pipe(
         handlePlayerAction(action),
         withPlayerContext(player),
-        Effect.ensuring(
-          FiberRef.update(playerContextRef, () => Option.none())
-        )
+        Effect.ensuring(FiberRef.update(playerContextRef, () => Option.none()))
       )
     })
   )
@@ -253,8 +248,9 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
 ### フレームレート監視と分析
 
 #### Performance API による詳細測定
+
 ```typescript
-import * as Stats from "stats.js"
+import * as Stats from 'stats.js'
 
 // パフォーマンス監視の設定
 const setupPerformanceMonitoring = Effect.gen(function* () {
@@ -271,9 +267,10 @@ const setupPerformanceMonitoring = Effect.gen(function* () {
     return stats
   })
 
-  const endFrameMonitoring = (stats: Stats) => Effect.sync(() => {
-    stats.end()
-  })
+  const endFrameMonitoring = (stats: Stats) =>
+    Effect.sync(() => {
+      stats.end()
+    })
 
   return { monitorFrame, endFrameMonitoring, stats }
 })
@@ -299,6 +296,7 @@ const optimizedRenderLoop = Effect.gen(function* () {
 ```
 
 #### GPU パフォーマンスの監視
+
 ```typescript
 // WebGL パフォーマンス拡張の使用
 const setupGPUMonitoring = (renderer: THREE.WebGLRenderer) =>
@@ -307,26 +305,29 @@ const setupGPUMonitoring = (renderer: THREE.WebGLRenderer) =>
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2')
 
     if (!ext) {
-      yield* Effect.logWarn("GPU timing extension not available")
+      yield* Effect.logWarn('GPU timing extension not available')
       return Option.none()
     }
 
     return Option.some({
       createQuery: () => Effect.sync(() => gl.createQuery()),
-      beginQuery: (query: WebGLQuery) => Effect.sync(() => {
-        gl.beginQuery(ext.TIME_ELAPSED_EXT, query)
-      }),
-      endQuery: () => Effect.sync(() => {
-        gl.endQuery(ext.TIME_ELAPSED_EXT)
-      }),
-      getResult: (query: WebGLQuery) => Effect.sync(() => {
-        const available = gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)
-        if (available) {
-          const result = gl.getQueryParameter(query, gl.QUERY_RESULT)
-          return Option.some(result / 1000000) // ナノ秒をミリ秒に変換
-        }
-        return Option.none()
-      })
+      beginQuery: (query: WebGLQuery) =>
+        Effect.sync(() => {
+          gl.beginQuery(ext.TIME_ELAPSED_EXT, query)
+        }),
+      endQuery: () =>
+        Effect.sync(() => {
+          gl.endQuery(ext.TIME_ELAPSED_EXT)
+        }),
+      getResult: (query: WebGLQuery) =>
+        Effect.sync(() => {
+          const available = gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)
+          if (available) {
+            const result = gl.getQueryParameter(query, gl.QUERY_RESULT)
+            return Option.some(result / 1000000) // ナノ秒をミリ秒に変換
+          }
+          return Option.none()
+        }),
     })
   })
 ```
@@ -334,13 +335,10 @@ const setupGPUMonitoring = (renderer: THREE.WebGLRenderer) =>
 ### フラストラムカリングの最適化
 
 #### 効率的な可視性判定
+
 ```typescript
 // チャンクの可視性計算
-const isChunkVisible = (
-  chunk: Chunk,
-  camera: THREE.Camera,
-  frustum: THREE.Frustum
-): boolean => {
+const isChunkVisible = (chunk: Chunk, camera: THREE.Camera, frustum: THREE.Frustum): boolean => {
   const boundingBox = new THREE.Box3(
     new THREE.Vector3(chunk.x * 16, 0, chunk.z * 16),
     new THREE.Vector3((chunk.x + 1) * 16, 256, (chunk.z + 1) * 16)
@@ -350,29 +348,21 @@ const isChunkVisible = (
 }
 
 // 最適化されたレンダリング
-const renderVisibleChunks = (
-  chunks: Array<Chunk>,
-  camera: THREE.Camera
-) =>
+const renderVisibleChunks = (chunks: Array<Chunk>, camera: THREE.Camera) =>
   Effect.gen(function* () {
     const frustum = yield* Effect.sync(() => {
       const frustum = new THREE.Frustum()
-      const matrix = new THREE.Matrix4().multiplyMatrices(
-        camera.projectionMatrix,
-        camera.matrixWorldInverse
-      )
+      const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
       frustum.setFromProjectionMatrix(matrix)
       return frustum
     })
 
-    const visibleChunks = yield* Effect.sync(() =>
-      chunks.filter(chunk => isChunkVisible(chunk, camera, frustum))
-    )
+    const visibleChunks = yield* Effect.sync(() => chunks.filter((chunk) => isChunkVisible(chunk, camera, frustum)))
 
-    yield* Effect.logDebug("Rendering chunks", {
+    yield* Effect.logDebug('Rendering chunks', {
       total: chunks.length,
       visible: visibleChunks.length,
-      culled: chunks.length - visibleChunks.length
+      culled: chunks.length - visibleChunks.length,
     })
 
     yield* Effect.forEach(visibleChunks, renderChunk)
@@ -382,9 +372,10 @@ const renderVisibleChunks = (
 ### Level of Detail (LOD) システム
 
 #### 距離に応じた詳細レベル調整
+
 ```typescript
 // LOD レベルの定義
-const LodLevelSchema = Schema.Literal("high", "medium", "low", "hidden")
+const LodLevelSchema = Schema.Literal('high', 'medium', 'low', 'hidden')
 type LodLevel = Schema.Schema.Type<typeof LodLevelSchema>
 
 // 距離に基づくLOD計算
@@ -395,40 +386,36 @@ const calculateLodLevel = (
 ): LodLevel => {
   const distance = entityPosition.distanceTo(cameraPosition)
 
-  if (distance > lodDistances.hidden) return "hidden"
-  if (distance > lodDistances.low) return "low"
-  if (distance > lodDistances.medium) return "medium"
-  return "high"
+  if (distance > lodDistances.hidden) return 'hidden'
+  if (distance > lodDistances.low) return 'low'
+  if (distance > lodDistances.medium) return 'medium'
+  return 'high'
 }
 
 // LOD対応レンダリング
 const renderWithLod = (entity: Entity, camera: THREE.Camera) =>
   Effect.gen(function* () {
-    const lodLevel = calculateLodLevel(
-      entity.position,
-      camera.position,
-      { medium: 50, low: 100, hidden: 200 }
-    )
+    const lodLevel = calculateLodLevel(entity.position, camera.position, { medium: 50, low: 100, hidden: 200 })
 
     switch (lodLevel) {
-      case "high":
+      case 'high':
         yield* renderHighDetail(entity)
         break
-      case "medium":
+      case 'medium':
         yield* renderMediumDetail(entity)
         break
-      case "low":
+      case 'low':
         yield* renderLowDetail(entity)
         break
-      case "hidden":
+      case 'hidden':
         // レンダリングしない
         break
     }
 
-    yield* Effect.logTrace("Entity rendered", {
+    yield* Effect.logTrace('Entity rendered', {
       entityId: entity.id,
       lodLevel,
-      distance: entity.position.distanceTo(camera.position)
+      distance: entity.position.distanceTo(camera.position),
     })
   })
 ```
@@ -438,47 +425,39 @@ const renderWithLod = (entity: Entity, camera: THREE.Camera) =>
 ### 非同期チャンク生成の改善
 
 #### バックグラウンド生成とストリーミング
+
 ```typescript
-import * as Stream from "effect/Stream"
-import * as Queue from "effect/Queue"
+import * as Stream from 'effect/Stream'
+import * as Queue from 'effect/Queue'
 
 // チャンク生成のストリーミング処理
-const createChunkGenerationStream = (
-  center: ChunkCoordinate,
-  radius: number
-) =>
+const createChunkGenerationStream = (center: ChunkCoordinate, radius: number) =>
   Stream.fromIterable(generateChunkCoordinatesInRadius(center, radius)).pipe(
-    Stream.mapEffect((coord) =>
-      Effect.gen(function* () {
-        // メモリ使用量チェック
-        const memUsage = yield* getMemoryUsage
+    Stream.mapEffect(
+      (coord) =>
+        Effect.gen(function* () {
+          // メモリ使用量チェック
+          const memUsage = yield* getMemoryUsage
 
-        if (memUsage.percentage > 0.8) {
-          yield* Effect.logWarn("High memory usage, throttling chunk generation")
-          yield* Effect.sleep("100 millis")
-        }
+          if (memUsage.percentage > 0.8) {
+            yield* Effect.logWarn('High memory usage, throttling chunk generation')
+            yield* Effect.sleep('100 millis')
+          }
 
-        const chunk = yield* generateChunk(coord).pipe(
-          Effect.timeout("5 seconds"),
-          Effect.retry(
-            Schedule.exponential("100 millis").pipe(
-              Schedule.compose(Schedule.recurs(2))
-            )
+          const chunk = yield* generateChunk(coord).pipe(
+            Effect.timeout('5 seconds'),
+            Effect.retry(Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(2))))
           )
-        )
 
-        return { coordinate: coord, chunk }
-      }),
+          return { coordinate: coord, chunk }
+        }),
       { concurrency: 4 } // 並行生成数を制限
     ),
     Stream.buffer({ capacity: 8 }) // バッファリング
   )
 
 // プリロード戦略
-const preloadChunks = (
-  player: Player,
-  preloadRadius: number
-) =>
+const preloadChunks = (player: Player, preloadRadius: number) =>
   Effect.gen(function* () {
     const currentChunk = worldPositionToChunk(player.position)
     const queue = yield* Queue.bounded<ChunkCoordinate>(64)
@@ -496,13 +475,13 @@ const preloadChunks = (
         if (!isLoaded) {
           yield* generateChunk(coord).pipe(
             Effect.tapBoth({
-              onFailure: (error) => Effect.logError("Chunk generation failed", { coord, error }),
-              onSuccess: () => Effect.logDebug("Chunk preloaded", { coord })
+              onFailure: (error) => Effect.logError('Chunk generation failed', { coord, error }),
+              onSuccess: () => Effect.logDebug('Chunk preloaded', { coord }),
             })
           )
         }
 
-        yield* Effect.sleep("50 millis") // レート制限
+        yield* Effect.sleep('50 millis') // レート制限
       })
     )
 
@@ -513,6 +492,7 @@ const preloadChunks = (
 ### メモリ効率的なチャンク管理
 
 #### LRU キャッシュによるチャンク管理
+
 ```typescript
 // LRU キャッシュの実装
 interface LRUChunkCache {
@@ -592,9 +572,10 @@ const ChunkCacheServiceLive = Layer.succeed(
 ### Fiber リークの検出
 
 #### アクティブ Fiber の監視
+
 ```typescript
-import * as FiberRefs from "effect/FiberRefs"
-import * as Supervisor from "effect/Supervisor"
+import * as FiberRefs from 'effect/FiberRefs'
+import * as Supervisor from 'effect/Supervisor'
 
 // Fiber 監視の設定
 const createFiberSupervisor = Effect.gen(function* () {
@@ -606,15 +587,15 @@ const createFiberSupervisor = Effect.gen(function* () {
         const fiberSet = new Set(fibers)
         yield* Ref.set(activeFibers, fiberSet)
 
-        yield* Effect.logDebug("Active Fibers", {
+        yield* Effect.logDebug('Active Fibers', {
           count: fiberSet.size,
-          fibers: Array.from(fiberSet).map(f => f.id())
+          fibers: Array.from(fiberSet).map((f) => f.id()),
         })
 
         // Fiber リークの警告
         if (fiberSet.size > 50) {
-          yield* Effect.logWarn("High number of active fibers detected", {
-            count: fiberSet.size
+          yield* Effect.logWarn('High number of active fibers detected', {
+            count: fiberSet.size,
           })
         }
       })
@@ -636,16 +617,16 @@ const monitorFibers = Effect.gen(function* () {
       for (const fiber of fibers) {
         const status = yield* Fiber.status(fiber)
 
-        if (status._tag === "Suspended" && fiber.id().startsWith("long-running")) {
+        if (status._tag === 'Suspended' && fiber.id().startsWith('long-running')) {
           stuckFibers.push(fiber.id())
         }
       }
 
       if (stuckFibers.length > 0) {
-        yield* Effect.logWarn("Potentially stuck fibers detected", { stuckFibers })
+        yield* Effect.logWarn('Potentially stuck fibers detected', { stuckFibers })
       }
     }),
-    Schedule.fixed("30 seconds")
+    Schedule.fixed('30 seconds')
   )
 })
 ```
@@ -653,6 +634,7 @@ const monitorFibers = Effect.gen(function* () {
 ### Fiber プール最適化
 
 #### 効率的な並行処理管理
+
 ```typescript
 // セマフォによる Fiber 数制限
 const createManagedFiberPool = (maxConcurrency: number) =>
@@ -660,17 +642,15 @@ const createManagedFiberPool = (maxConcurrency: number) =>
     const semaphore = yield* Semaphore.make(maxConcurrency)
     const activeTasks = yield* Ref.make(0)
 
-    const executeWithPool = <A, E>(
-      task: Effect.Effect<A, E>
-    ): Effect.Effect<A, E> =>
+    const executeWithPool = <A, E>(task: Effect.Effect<A, E>): Effect.Effect<A, E> =>
       Effect.gen(function* () {
         yield* Semaphore.take(semaphore)
-        yield* Ref.update(activeTasks, n => n + 1)
+        yield* Ref.update(activeTasks, (n) => n + 1)
 
         const result = yield* task.pipe(
           Effect.ensuring(
             Effect.gen(function* () {
-              yield* Ref.update(activeTasks, n => n - 1)
+              yield* Ref.update(activeTasks, (n) => n - 1)
               yield* Semaphore.release(semaphore)
             })
           )
@@ -687,7 +667,7 @@ const createManagedFiberPool = (maxConcurrency: number) =>
         active,
         available,
         maxConcurrency,
-        utilization: (active / maxConcurrency) * 100
+        utilization: (active / maxConcurrency) * 100,
       }
     })
 
@@ -702,16 +682,14 @@ const optimizedChunkGeneration = Effect.gen(function* () {
     Effect.gen(function* () {
       const coordinates = generateChunkCoordinatesInRadius(center, radius)
 
-      const results = yield* Effect.forEach(
-        coordinates,
-        (coord) => executeWithPool(generateChunk(coord)),
-        { batching: true }
-      )
+      const results = yield* Effect.forEach(coordinates, (coord) => executeWithPool(generateChunk(coord)), {
+        batching: true,
+      })
 
       const status = yield* getPoolStatus
-      yield* Effect.logInfo("Chunk generation completed", {
+      yield* Effect.logInfo('Chunk generation completed', {
         generated: results.length,
-        poolUtilization: status.utilization
+        poolUtilization: status.utilization,
       })
 
       return results
@@ -726,13 +704,10 @@ const optimizedChunkGeneration = Effect.gen(function* () {
 ### 自動化されたパフォーマンステスト
 
 #### ベンチマーク スイートの作成
+
 ```typescript
 // ベンチマーク フレームワーク
-const benchmark = <A>(
-  name: string,
-  operation: Effect.Effect<A>,
-  iterations: number = 1000
-) =>
+const benchmark = <A>(name: string, operation: Effect.Effect<A>, iterations: number = 1000) =>
   Effect.gen(function* () {
     const times: number[] = []
 
@@ -759,7 +734,7 @@ const benchmark = <A>(
       median: `${median.toFixed(2)}ms`,
       p95: `${p95.toFixed(2)}ms`,
       min: `${sorted[0].toFixed(2)}ms`,
-      max: `${sorted[sorted.length - 1].toFixed(2)}ms`
+      max: `${sorted[sorted.length - 1].toFixed(2)}ms`,
     })
 
     return { name, mean, median, p95, min: sorted[0], max: sorted[sorted.length - 1] }
@@ -768,19 +743,19 @@ const benchmark = <A>(
 // パフォーマンス回帰テスト
 const runPerformanceTests = Effect.gen(function* () {
   const results = yield* Effect.all([
-    benchmark("Chunk Generation", generateRandomChunk()),
-    benchmark("Block Placement", placeRandomBlock()),
-    benchmark("Player Movement", simulatePlayerMovement()),
-    benchmark("Entity Update", updateRandomEntity())
+    benchmark('Chunk Generation', generateRandomChunk()),
+    benchmark('Block Placement', placeRandomBlock()),
+    benchmark('Player Movement', simulatePlayerMovement()),
+    benchmark('Entity Update', updateRandomEntity()),
   ])
 
   // 結果の分析
-  const regressions = results.filter(result => result.mean > PERFORMANCE_THRESHOLDS[result.name])
+  const regressions = results.filter((result) => result.mean > PERFORMANCE_THRESHOLDS[result.name])
 
   if (regressions.length > 0) {
-    yield* Effect.logError("Performance regressions detected", { regressions })
+    yield* Effect.logError('Performance regressions detected', { regressions })
   } else {
-    yield* Effect.logInfo("All performance tests passed", { results })
+    yield* Effect.logInfo('All performance tests passed', { results })
   }
 
   return results
@@ -790,6 +765,7 @@ const runPerformanceTests = Effect.gen(function* () {
 ### メモリ使用量の分析
 
 #### ヒープ分析とリーク検出
+
 ```typescript
 // メモリ分析ツール
 const analyzeMemoryUsage = Effect.gen(function* () {
@@ -805,10 +781,10 @@ const analyzeMemoryUsage = Effect.gen(function* () {
   const memoryStats = {
     beforeGC: initialMemory,
     afterGC: afterGCMemory,
-    potentialLeak: (initialMemory.used - afterGCMemory.used) < (initialMemory.used * 0.1)
+    potentialLeak: initialMemory.used - afterGCMemory.used < initialMemory.used * 0.1,
   }
 
-  yield* Effect.logInfo("Memory Analysis", memoryStats)
+  yield* Effect.logInfo('Memory Analysis', memoryStats)
 
   return memoryStats
 })
@@ -837,7 +813,7 @@ const createMemoryTracker = <T extends object>() => {
         }
       }
       return aliveCount
-    }
+    },
   }
 }
 ```
@@ -845,6 +821,7 @@ const createMemoryTracker = <T extends object>() => {
 ## 最適化のベストプラクティス
 
 ### 1. Effect の適切な合成
+
 ```typescript
 // ❌ 非効率的な処理
 const inefficientProcessing = Effect.gen(function* () {
@@ -863,15 +840,12 @@ const inefficientProcessing = Effect.gen(function* () {
 const efficientProcessing = Effect.gen(function* () {
   const chunks = yield* loadAllChunks
 
-  return yield* Effect.forEach(
-    chunks,
-    processChunk,
-    { concurrency: 4, batching: true }
-  )
+  return yield* Effect.forEach(chunks, processChunk, { concurrency: 4, batching: true })
 })
 ```
 
 ### 2. 適切なリソース管理
+
 ```typescript
 // リソースの自動管理
 const managedResourceProcessing = Effect.scoped(
@@ -889,12 +863,13 @@ const managedResourceProcessing = Effect.scoped(
 ```
 
 ### 3. キャッシュとメモ化
+
 ```typescript
 // 計算結果のキャッシュ
 const memoizedChunkGeneration = Cache.make({
   capacity: 100,
   timeToLive: Duration.minutes(5),
-  lookup: (coordinate: ChunkCoordinate) => generateChunk(coordinate)
+  lookup: (coordinate: ChunkCoordinate) => generateChunk(coordinate),
 })
 
 const getCachedChunk = (coordinate: ChunkCoordinate) =>

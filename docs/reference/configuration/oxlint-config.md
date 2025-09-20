@@ -1,13 +1,13 @@
 ---
-title: "Oxlint設定 - Rust製高速リンター設定ガイド"
-description: "超高速Rust製リンターOxlintの設定・ルール・パフォーマンス最適化。ESLintの50-100倍高速なコード品質管理。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["oxlint", "linter", "rust", "configuration", "performance", "code-quality"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "10分"
+title: 'Oxlint設定 - Rust製高速リンター設定ガイド'
+description: '超高速Rust製リンターOxlintの設定・ルール・パフォーマンス最適化。ESLintの50-100倍高速なコード品質管理。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['oxlint', 'linter', 'rust', 'configuration', 'performance', 'code-quality']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '10分'
 dependencies: []
-status: "complete"
+status: 'complete'
 ---
 
 # oxlint Configuration
@@ -44,13 +44,7 @@ TypeScript Minecraftプロジェクトのoxlint設定について解説します
     "no-sparse-arrays": "error",
     "no-constant-binary-expression": "error"
   },
-  "ignore": [
-    "node_modules",
-    "dist",
-    "coverage",
-    "*.config.js",
-    "*.config.ts"
-  ],
+  "ignore": ["node_modules", "dist", "coverage", "*.config.js", "*.config.ts"],
   "env": {
     "browser": true,
     "node": true
@@ -62,15 +56,16 @@ TypeScript Minecraftプロジェクトのoxlint設定について解説します
 
 ### パフォーマンス比較
 
-| メトリクス | ESLint | oxlint | 改善率 |
-|-----------|--------|--------|--------|
-| 実行時間（1000ファイル） | 30秒 | 0.3秒 | 100倍 |
-| メモリ使用量 | 500MB | 50MB | 10倍 |
-| CI/CDパイプライン時間 | 5分 | 30秒 | 10倍 |
+| メトリクス               | ESLint | oxlint | 改善率 |
+| ------------------------ | ------ | ------ | ------ |
+| 実行時間（1000ファイル） | 30秒   | 0.3秒  | 100倍  |
+| メモリ使用量             | 500MB  | 50MB   | 10倍   |
+| CI/CDパイプライン時間    | 5分    | 30秒   | 10倍   |
 
 ### 移行手順
 
 1. **oxlintのインストール**
+
 ```bash
 npm install --save-dev oxlint
 # または
@@ -78,12 +73,14 @@ pnpm add -D oxlint
 ```
 
 2. **設定ファイルの作成**
+
 ```bash
 # ESLint設定から自動変換
 npx oxlint init --from-eslint .eslintrc.json
 ```
 
 3. **package.jsonのスクリプト更新**
+
 ```json
 {
   "scripts": {
@@ -206,6 +203,7 @@ jobs:
 ### よくある問題と解決策
 
 #### 1. TypeScriptパス解決エラー
+
 ```json
 {
   "settings": {
@@ -219,11 +217,10 @@ jobs:
 ```
 
 #### 2. モノレポでの設定
+
 ```json
 {
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "rules": {
     // 共通ルール
   }
@@ -231,6 +228,7 @@ jobs:
 ```
 
 #### 3. パフォーマンスチューニング
+
 ```json
 {
   "parallel": true,
@@ -259,9 +257,9 @@ jobs:
 module.exports = {
   rules: {
     'ddd/aggregate-immutability': 'error',
-    'ddd/value-object-equality': 'error'
-  }
-};
+    'ddd/value-object-equality': 'error',
+  },
+}
 ```
 
 ### 3. pre-commitフックの設定
@@ -323,11 +321,13 @@ oxlint . --cache --cache-location node_modules/.cache/oxlint
 ## ⚡ パフォーマンス影響
 
 ### ビルドへの影響
+
 - **開発時**: リント時間 0.3秒（1000ファイル）
 - **CI/CD**: パイプライン時間30秒短縮
 - **メモリ使用量**: ESLintの1/10（50MB程度）
 
 ### 開発効率への影響
+
 - **即座のフィードバック**: ファイル保存時にリアルタイム検証
 - **低CPU使用率**: バックグラウンド実行でも開発環境に影響なし
 - **高速修正**: `--fix`オプションで瞬時にコード修正

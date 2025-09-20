@@ -1,17 +1,18 @@
 ---
-title: "入力制御システム仕様 - キーボード・マウス・ゲームパッド統合"
-description: "Minecraft Cloneの包括的入力制御システム。キーボード、マウス、ゲームパッド対応のレスポンシブ入力処理。カスタムキーバインド、マクロ機能、アクセシビリティ対応。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["input-system", "controls", "keyboard", "mouse", "gamepad", "accessibility", "user-interface"]
-prerequisites: ["dom-events", "game-input-patterns", "accessibility-standards"]
-estimated_reading_time: "15分"
-related_patterns: ["event-handling-patterns", "ui-patterns", "accessibility-patterns"]
-related_docs: ["./02-player-system.md", "./11-scene-management-system.md", "../../../how-to/development/development-conventions.md"]
+title: '入力制御システム仕様 - キーボード・マウス・ゲームパッド統合'
+description: 'Minecraft Cloneの包括的入力制御システム。キーボード、マウス、ゲームパッド対応のレスポンシブ入力処理。カスタムキーバインド、マクロ機能、アクセシビリティ対応。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['input-system', 'controls', 'keyboard', 'mouse', 'gamepad', 'accessibility', 'user-interface']
+prerequisites: ['dom-events', 'game-input-patterns', 'accessibility-standards']
+estimated_reading_time: '15分'
+related_patterns: ['event-handling-patterns', 'ui-patterns', 'accessibility-patterns']
+related_docs:
+  ['./02-player-system.md', './11-scene-management-system.md', '../../../how-to/development/development-conventions.md']
 search_keywords:
-  primary: ["input-controls", "keyboard-input", "mouse-controls", "gamepad-support"]
-  secondary: ["control-mapping", "accessibility", "user-input"]
-  context: ["game-controls", "user-interface", "player-interaction"]
+  primary: ['input-controls', 'keyboard-input', 'mouse-controls', 'gamepad-support']
+  secondary: ['control-mapping', 'accessibility', 'user-input']
+  context: ['game-controls', 'user-interface', 'player-interaction']
 ---
 
 # 入力制御システム
@@ -22,122 +23,113 @@ TypeScript Minecraftのキーボード・マウス・ゲームパッド操作を
 
 ### 基本移動操作
 
-| 操作 | キーボード | ゲームパッド | 説明 |
-|------|------------|--------------|------|
-| 前進 | W | 左スティック↑ | プレイヤーを前方に移動 |
-| 後退 | S | 左スティック↓ | プレイヤーを後方に移動 |
-| 左移動 | A | 左スティック← | プレイヤーを左に移動 |
-| 右移動 | D | 左スティック→ | プレイヤーを右に移動 |
-| ジャンプ | Space | Aボタン | プレイヤーをジャンプさせる |
-| しゃがみ | Shift (左) | Bボタン | プレイヤーをしゃがませる |
-| 走る | Ctrl (左) | 左スティック押込み | 通常より高速で移動 |
+| 操作     | キーボード | ゲームパッド       | 説明                       |
+| -------- | ---------- | ------------------ | -------------------------- |
+| 前進     | W          | 左スティック↑      | プレイヤーを前方に移動     |
+| 後退     | S          | 左スティック↓      | プレイヤーを後方に移動     |
+| 左移動   | A          | 左スティック←      | プレイヤーを左に移動       |
+| 右移動   | D          | 左スティック→      | プレイヤーを右に移動       |
+| ジャンプ | Space      | Aボタン            | プレイヤーをジャンプさせる |
+| しゃがみ | Shift (左) | Bボタン            | プレイヤーをしゃがませる   |
+| 走る     | Ctrl (左)  | 左スティック押込み | 通常より高速で移動         |
 
 ### カメラ操作
 
-| 操作 | マウス | ゲームパッド | 説明 |
-|------|--------|--------------|------|
+| 操作     | マウス     | ゲームパッド | 説明               |
+| -------- | ---------- | ------------ | ------------------ |
 | 視点移動 | マウス移動 | 右スティック | カメラの向きを変更 |
-| 感度調整 | 設定で変更 | 設定で変更 | カメラの回転感度 |
+| 感度調整 | 設定で変更 | 設定で変更   | カメラの回転感度   |
 
 ### ブロック操作
 
-| 操作 | マウス | ゲームパッド | 説明 |
-|------|--------|--------------|------|
-| ブロック破壊 | 左クリック | 右トリガー | ターゲットしたブロックを破壊 |
-| ブロック配置 | 右クリック | 左トリガー | 選択中のブロックを配置 |
-| ブロック選択 | 中クリック | 右スティック押込み | ターゲットブロックを選択 |
+| 操作         | マウス     | ゲームパッド       | 説明                         |
+| ------------ | ---------- | ------------------ | ---------------------------- |
+| ブロック破壊 | 左クリック | 右トリガー         | ターゲットしたブロックを破壊 |
+| ブロック配置 | 右クリック | 左トリガー         | 選択中のブロックを配置       |
+| ブロック選択 | 中クリック | 右スティック押込み | ターゲットブロックを選択     |
 
 ### インベントリ操作
 
-| 操作 | キーボード | ゲームパッド | 説明 |
-|------|------------|--------------|------|
-| インベントリ開閉 | E | Yボタン | インベントリ画面の表示/非表示 |
-| ホットバー選択 | 1-9キー | 十字キー | ホットバースロットを選択 |
-| ホットバースクロール | マウスホイール | LB/RBボタン | ホットバーを順次選択 |
+| 操作                 | キーボード     | ゲームパッド | 説明                          |
+| -------------------- | -------------- | ------------ | ----------------------------- |
+| インベントリ開閉     | E              | Yボタン      | インベントリ画面の表示/非表示 |
+| ホットバー選択       | 1-9キー        | 十字キー     | ホットバースロットを選択      |
+| ホットバースクロール | マウスホイール | LB/RBボタン  | ホットバーを順次選択          |
 
 ## 入力マッピングカスタマイズ
 
 ### 設定ファイル形式
 
 ```typescript
-import { Schema, Effect, Context, Match, Layer, Config } from "effect"
+import { Schema, Effect, Context, Match, Layer, Config } from 'effect'
 
 // デバイスタイプスキーマ
-const DeviceTypeSchema = Schema.TaggedUnion("_tag", [
+const DeviceTypeSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("Keyboard"),
-    layout: Schema.Union(
-      Schema.Literal("QWERTY"),
-      Schema.Literal("AZERTY"),
-      Schema.Literal("Dvorak")
-    )
+    _tag: Schema.Literal('Keyboard'),
+    layout: Schema.Union(Schema.Literal('QWERTY'), Schema.Literal('AZERTY'), Schema.Literal('Dvorak')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Mouse"),
+    _tag: Schema.Literal('Mouse'),
     buttonCount: Schema.Number,
-    hasWheel: Schema.Boolean
+    hasWheel: Schema.Boolean,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Gamepad"),
+    _tag: Schema.Literal('Gamepad'),
     type: Schema.Union(
-      Schema.Literal("Xbox"),
-      Schema.Literal("PlayStation"),
-      Schema.Literal("Switch"),
-      Schema.Literal("Generic")
+      Schema.Literal('Xbox'),
+      Schema.Literal('PlayStation'),
+      Schema.Literal('Switch'),
+      Schema.Literal('Generic')
     ),
     buttonCount: Schema.Number,
-    axisCount: Schema.Number
+    axisCount: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("TouchScreen"),
+    _tag: Schema.Literal('TouchScreen'),
     multiTouch: Schema.Boolean,
-    maxTouchPoints: Schema.Number
-  })
+    maxTouchPoints: Schema.Number,
+  }),
 ])
 
 type DeviceType = Schema.Schema.Type<typeof DeviceTypeSchema>
 
 // 入力マッピングスキーマ
 const InputMappingSchema = Schema.Struct({
-  _tag: Schema.Literal("InputMapping"),
+  _tag: Schema.Literal('InputMapping'),
   actionName: Schema.String,
-  keys: Schema.Array(Schema.String.pipe(Schema.brand("KeyCode"))),
-  gamepadButtons: Schema.Array(Schema.Number.pipe(Schema.brand("ButtonId"))),
-  gamepadAxes: Schema.Array(Schema.Struct({
-    axis: Schema.Number,
-    direction: Schema.Union(
-      Schema.Literal("positive"),
-      Schema.Literal("negative")
-    ),
-    threshold: Schema.Number.pipe(Schema.between(0, 1))
-  })),
-  mouseButtons: Schema.Array(Schema.Union(
-    Schema.Literal("left"),
-    Schema.Literal("right"),
-    Schema.Literal("middle")
-  )),
-  touchGestures: Schema.Array(GestureSchema)
+  keys: Schema.Array(Schema.String.pipe(Schema.brand('KeyCode'))),
+  gamepadButtons: Schema.Array(Schema.Number.pipe(Schema.brand('ButtonId'))),
+  gamepadAxes: Schema.Array(
+    Schema.Struct({
+      axis: Schema.Number,
+      direction: Schema.Union(Schema.Literal('positive'), Schema.Literal('negative')),
+      threshold: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ),
+  mouseButtons: Schema.Array(Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle'))),
+  touchGestures: Schema.Array(GestureSchema),
 })
 
 type InputMapping = Schema.Schema.Type<typeof InputMappingSchema>
 
 // コントロールスキームスキーマ
 const ControlSchemeSchema = Schema.Struct({
-  _tag: Schema.Literal("ControlScheme"),
+  _tag: Schema.Literal('ControlScheme'),
   name: Schema.String,
   description: Schema.String,
   targetDevices: Schema.Array(DeviceTypeSchema),
   mappings: Schema.Record(Schema.String, InputMappingSchema),
   sensitivity: Schema.Struct({
-    mouse: Schema.Number.pipe(Schema.brand("MouseSensitivity")),
-    gamepad: Schema.Number.pipe(Schema.brand("GamepadSensitivity"))
+    mouse: Schema.Number.pipe(Schema.brand('MouseSensitivity')),
+    gamepad: Schema.Number.pipe(Schema.brand('GamepadSensitivity')),
   }),
   deadzone: Schema.Struct({
-    leftStick: Schema.Number.pipe(Schema.brand("DeadzoneValue")),
-    rightStick: Schema.Number.pipe(Schema.brand("DeadzoneValue")),
-    triggers: Schema.Number.pipe(Schema.brand("DeadzoneValue"))
+    leftStick: Schema.Number.pipe(Schema.brand('DeadzoneValue')),
+    rightStick: Schema.Number.pipe(Schema.brand('DeadzoneValue')),
+    triggers: Schema.Number.pipe(Schema.brand('DeadzoneValue')),
   }),
-  accessibility: AccessibilitySettingsSchema
+  accessibility: AccessibilitySettingsSchema,
 })
 
 type ControlScheme = Schema.Schema.Type<typeof ControlSchemeSchema>
@@ -148,30 +140,24 @@ interface InputMappingServiceInterface {
   readonly saveControlScheme: (scheme: ControlScheme) => Effect.Effect<void, never, never>
   readonly getDefaultScheme: (deviceType: DeviceType) => Effect.Effect<ControlScheme, never, never>
   readonly validateMapping: (mapping: InputMapping) => Effect.Effect<boolean, never, never>
-  readonly resolveInputAction: (
-    event: InputEvent,
-    scheme: ControlScheme
-  ) => Effect.Effect<Array<string>, never, never>
+  readonly resolveInputAction: (event: InputEvent, scheme: ControlScheme) => Effect.Effect<Array<string>, never, never>
 }
 
-const InputMappingService = Context.GenericTag<InputMappingServiceInterface>("@input/InputMappingService")
+const InputMappingService = Context.GenericTag<InputMappingServiceInterface>('@input/InputMappingService')
 
 export const InputMappingServiceHelpers = {
   // デフォルトスキーム生成
   createDefaultScheme: (deviceType: DeviceType): Effect.Effect<ControlScheme, never, never> =>
     Match.value(deviceType).pipe(
-      Match.when({ _tag: "Keyboard" }, () => createKeyboardScheme()),
-      Match.when({ _tag: "Gamepad" }, (gamepad) => createGamepadScheme(gamepad.type)),
-      Match.when({ _tag: "TouchScreen" }, () => createTouchScheme()),
+      Match.when({ _tag: 'Keyboard' }, () => createKeyboardScheme()),
+      Match.when({ _tag: 'Gamepad' }, (gamepad) => createGamepadScheme(gamepad.type)),
+      Match.when({ _tag: 'TouchScreen' }, () => createTouchScheme()),
       Match.orElse(() => createGenericScheme()),
       Match.exhaustive
     ),
 
   // 入力アクション解決
-  resolveInputAction: (
-    event: InputEvent,
-    scheme: ControlScheme
-  ): Effect.Effect<Array<string>, never, never> =>
+  resolveInputAction: (event: InputEvent, scheme: ControlScheme): Effect.Effect<Array<string>, never, never> =>
     Effect.gen(function* () {
       const actions: Array<string> = []
 
@@ -183,91 +169,83 @@ export const InputMappingServiceHelpers = {
       }
 
       return actions
-    })
+    }),
 }
 
 // キーボードスキーム生成
 const createKeyboardScheme = (): Effect.Effect<ControlScheme, never, never> =>
   Effect.succeed({
-    _tag: "ControlScheme",
-    name: "Default Keyboard",
-    description: "標準キーボードコントロール",
-    targetDevices: [{ _tag: "Keyboard", layout: "QWERTY" }],
+    _tag: 'ControlScheme',
+    name: 'Default Keyboard',
+    description: '標準キーボードコントロール',
+    targetDevices: [{ _tag: 'Keyboard', layout: 'QWERTY' }],
     mappings: {
       moveForward: {
-        _tag: "InputMapping",
-        actionName: "moveForward",
-        keys: ["KeyW" as KeyCode],
+        _tag: 'InputMapping',
+        actionName: 'moveForward',
+        keys: ['KeyW' as KeyCode],
         gamepadButtons: [],
         gamepadAxes: [],
         mouseButtons: [],
-        touchGestures: []
+        touchGestures: [],
       },
       jump: {
-        _tag: "InputMapping",
-        actionName: "jump",
-        keys: ["Space" as KeyCode],
+        _tag: 'InputMapping',
+        actionName: 'jump',
+        keys: ['Space' as KeyCode],
         gamepadButtons: [],
         gamepadAxes: [],
         mouseButtons: [],
-        touchGestures: []
-      }
+        touchGestures: [],
+      },
       // ... 他のマッピング
     },
     sensitivity: {
       mouse: 0.002 as MouseSensitivity,
-      gamepad: 0.05 as GamepadSensitivity
+      gamepad: 0.05 as GamepadSensitivity,
     },
     deadzone: {
       leftStick: 0.15 as DeadzoneValue,
       rightStick: 0.15 as DeadzoneValue,
-      triggers: 0.1 as DeadzoneValue
+      triggers: 0.1 as DeadzoneValue,
     },
     accessibility: {
-      _tag: "AccessibilitySettings",
+      _tag: 'AccessibilitySettings',
       holdToSprint: false,
       toggleCrouch: false,
       autoJump: false,
       mouseKeyNavigation: false,
-      colorBlindSupport: false
-    }
+      colorBlindSupport: false,
+    },
   })
 
 // ゲームパッドスキーム生成
 const createGamepadScheme = (
-  gamepadType: "Xbox" | "PlayStation" | "Switch" | "Generic"
+  gamepadType: 'Xbox' | 'PlayStation' | 'Switch' | 'Generic'
 ): Effect.Effect<ControlScheme, never, never> =>
   Match.value(gamepadType).pipe(
-    Match.when("Xbox", () => createXboxControlScheme()),
-    Match.when("PlayStation", () => createPlayStationControlScheme()),
-    Match.when("Switch", () => createSwitchControlScheme()),
+    Match.when('Xbox', () => createXboxControlScheme()),
+    Match.when('PlayStation', () => createPlayStationControlScheme()),
+    Match.when('Switch', () => createSwitchControlScheme()),
     Match.orElse(() => createGenericGamepadScheme()),
     Match.exhaustive
   )
 
 // マッピングマッチング
-const checkMappingMatch = (
-  event: InputEvent,
-  mapping: InputMapping
-): Effect.Effect<boolean, never, never> =>
+const checkMappingMatch = (event: InputEvent, mapping: InputMapping): Effect.Effect<boolean, never, never> =>
   Match.value(event).pipe(
-    Match.when({ _tag: "KeyPressed" }, ({ keyCode }) =>
-      Effect.succeed(mapping.keys.includes(keyCode))
-    ),
-    Match.when({ _tag: "MouseButtonPressed" }, ({ button }) =>
-      Effect.succeed(mapping.mouseButtons.includes(button))
-    ),
-    Match.when({ _tag: "GamepadButtonPressed" }, ({ buttonId }) =>
+    Match.when({ _tag: 'KeyPressed' }, ({ keyCode }) => Effect.succeed(mapping.keys.includes(keyCode))),
+    Match.when({ _tag: 'MouseButtonPressed' }, ({ button }) => Effect.succeed(mapping.mouseButtons.includes(button))),
+    Match.when({ _tag: 'GamepadButtonPressed' }, ({ buttonId }) =>
       Effect.succeed(mapping.gamepadButtons.includes(buttonId))
     ),
-    Match.when({ _tag: "GamepadAxisMove" }, ({ axisId, value }) =>
+    Match.when({ _tag: 'GamepadAxisMove' }, ({ axisId, value }) =>
       Effect.gen(function* () {
-        return mapping.gamepadAxes.some(axis => {
+        return mapping.gamepadAxes.some((axis) => {
           if (axis.axis !== axisId) return false
           const meetsThreshold = Math.abs(value) >= axis.threshold
           const correctDirection =
-            (axis.direction === "positive" && value > 0) ||
-            (axis.direction === "negative" && value < 0)
+            (axis.direction === 'positive' && value > 0) || (axis.direction === 'negative' && value < 0)
           return meetsThreshold && correctDirection
         })
       })
@@ -281,95 +259,95 @@ const checkMappingMatch = (
 
 #### よく使用されるキー
 
-| 物理キー | キーコード | 説明 |
-|----------|------------|------|
-| W | KeyW | 英字キー |
-| A | KeyA | 英字キー |
-| S | KeyS | 英字キー |
-| D | KeyD | 英字キー |
-| Space | Space | スペースキー |
-| Shift (左) | ShiftLeft | 左シフトキー |
-| Shift (右) | ShiftRight | 右シフトキー |
-| Ctrl (左) | ControlLeft | 左コントロールキー |
-| Ctrl (右) | ControlRight | 右コントロールキー |
-| E | KeyE | インベントリキー |
-| Escape | Escape | エスケープキー |
+| 物理キー   | キーコード   | 説明               |
+| ---------- | ------------ | ------------------ |
+| W          | KeyW         | 英字キー           |
+| A          | KeyA         | 英字キー           |
+| S          | KeyS         | 英字キー           |
+| D          | KeyD         | 英字キー           |
+| Space      | Space        | スペースキー       |
+| Shift (左) | ShiftLeft    | 左シフトキー       |
+| Shift (右) | ShiftRight   | 右シフトキー       |
+| Ctrl (左)  | ControlLeft  | 左コントロールキー |
+| Ctrl (右)  | ControlRight | 右コントロールキー |
+| E          | KeyE         | インベントリキー   |
+| Escape     | Escape       | エスケープキー     |
 
 #### 数字キー (ホットバー)
 
 | 物理キー | キーコード |
-|----------|------------|
-| 1 | Digit1 |
-| 2 | Digit2 |
-| 3 | Digit3 |
-| 4 | Digit4 |
-| 5 | Digit5 |
-| 6 | Digit6 |
-| 7 | Digit7 |
-| 8 | Digit8 |
-| 9 | Digit9 |
+| -------- | ---------- |
+| 1        | Digit1     |
+| 2        | Digit2     |
+| 3        | Digit3     |
+| 4        | Digit4     |
+| 5        | Digit5     |
+| 6        | Digit6     |
+| 7        | Digit7     |
+| 8        | Digit8     |
+| 9        | Digit9     |
 
 ### ゲームパッドボタン対応表
 
 Xbox Controllerを基準とした標準マッピング:
 
-| ボタン | インデックス | Xbox名称 |
-|--------|--------------|----------|
-| 0 | A | Aボタン |
-| 1 | B | Bボタン |
-| 2 | X | Xボタン |
-| 3 | Y | Yボタン |
-| 4 | LB | 左バンパー |
-| 5 | RB | 右バンパー |
-| 6 | LT | 左トリガー |
-| 7 | RT | 右トリガー |
-| 8 | Back | Backボタン |
-| 9 | Start | Startボタン |
-| 10 | LS | 左スティック押込み |
-| 11 | RS | 右スティック押込み |
-| 12 | ↑ | 十字キー上 |
-| 13 | ↓ | 十字キー下 |
-| 14 | ← | 十字キー左 |
-| 15 | → | 十字キー右 |
+| ボタン | インデックス | Xbox名称           |
+| ------ | ------------ | ------------------ |
+| 0      | A            | Aボタン            |
+| 1      | B            | Bボタン            |
+| 2      | X            | Xボタン            |
+| 3      | Y            | Yボタン            |
+| 4      | LB           | 左バンパー         |
+| 5      | RB           | 右バンパー         |
+| 6      | LT           | 左トリガー         |
+| 7      | RT           | 右トリガー         |
+| 8      | Back         | Backボタン         |
+| 9      | Start        | Startボタン        |
+| 10     | LS           | 左スティック押込み |
+| 11     | RS           | 右スティック押込み |
+| 12     | ↑            | 十字キー上         |
+| 13     | ↓            | 十字キー下         |
+| 14     | ←            | 十字キー左         |
+| 15     | →            | 十字キー右         |
 
 ### ゲームパッド軸対応表
 
-| 軸インデックス | 説明 | 範囲 |
-|----------------|------|------|
-| 0 | 左スティック X軸 | -1.0 ～ 1.0 |
-| 1 | 左スティック Y軸 | -1.0 ～ 1.0 |
-| 2 | 右スティック X軸 | -1.0 ～ 1.0 |
-| 3 | 右スティック Y軸 | -1.0 ～ 1.0 |
+| 軸インデックス | 説明             | 範囲        |
+| -------------- | ---------------- | ----------- |
+| 0              | 左スティック X軸 | -1.0 ～ 1.0 |
+| 1              | 左スティック Y軸 | -1.0 ～ 1.0 |
+| 2              | 右スティック X軸 | -1.0 ～ 1.0 |
+| 3              | 右スティック Y軸 | -1.0 ～ 1.0 |
 
 ## 操作の詳細設定
 
 ### マウス感度調整
 
 ```typescript
-import { Schema, Brand, Effect, Context } from "effect"
+import { Schema, Brand, Effect, Context } from 'effect'
 
 // ブランド型定義
-type MouseSensitivity = number & Brand.Brand<"MouseSensitivity">
-type MouseAcceleration = number & Brand.Brand<"MouseAcceleration">
+type MouseSensitivity = number & Brand.Brand<'MouseSensitivity'>
+type MouseAcceleration = number & Brand.Brand<'MouseAcceleration'>
 
 // MouseSettings スキーマ定義
 const MouseSettingsSchema = Schema.Struct({
-  _tag: Schema.Literal("MouseSettings"),
+  _tag: Schema.Literal('MouseSettings'),
   sensitivity: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.001),
     Schema.lessThanOrEqualTo(0.01),
-    Schema.brand("MouseSensitivity")
+    Schema.brand('MouseSensitivity')
   ),
   invertX: Schema.Boolean,
   invertY: Schema.Boolean,
   acceleration: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.0),
     Schema.lessThanOrEqualTo(2.0),
-    Schema.brand("MouseAcceleration")
-  )
+    Schema.brand('MouseAcceleration')
+  ),
 }).annotations({
-  identifier: "MouseSettings",
-  description: "マウス操作設定"
+  identifier: 'MouseSettings',
+  description: 'マウス操作設定',
 })
 
 type MouseSettings = Schema.Schema.Type<typeof MouseSettingsSchema>
@@ -381,52 +359,52 @@ interface MouseSettingsServiceInterface {
   readonly validateSettings: (settings: unknown) => Effect.Effect<MouseSettings, Schema.ParseError, never>
 }
 
-const MouseSettingsService = Context.GenericTag<MouseSettingsServiceInterface>("@input/MouseSettingsService")
+const MouseSettingsService = Context.GenericTag<MouseSettingsServiceInterface>('@input/MouseSettingsService')
 ```
 
 ### ゲームパッド設定
 
 ```typescript
-import { Schema, Brand, Effect, Context } from "effect"
+import { Schema, Brand, Effect, Context } from 'effect'
 
 // ブランド型定義
-type GamepadSensitivity = number & Brand.Brand<"GamepadSensitivity">
-type DeadzoneValue = number & Brand.Brand<"DeadzoneValue">
+type GamepadSensitivity = number & Brand.Brand<'GamepadSensitivity'>
+type DeadzoneValue = number & Brand.Brand<'DeadzoneValue'>
 
 // Deadzone設定スキーマ
 const DeadzoneSchema = Schema.Struct({
   leftStick: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.0),
     Schema.lessThanOrEqualTo(0.3),
-    Schema.brand("DeadzoneValue")
+    Schema.brand('DeadzoneValue')
   ),
   rightStick: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.0),
     Schema.lessThanOrEqualTo(0.3),
-    Schema.brand("DeadzoneValue")
+    Schema.brand('DeadzoneValue')
   ),
   triggers: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.0),
     Schema.lessThanOrEqualTo(0.3),
-    Schema.brand("DeadzoneValue")
-  )
+    Schema.brand('DeadzoneValue')
+  ),
 })
 
 // GamepadSettings スキーマ定義
 const GamepadSettingsSchema = Schema.Struct({
-  _tag: Schema.Literal("GamepadSettings"),
+  _tag: Schema.Literal('GamepadSettings'),
   sensitivity: Schema.Number.pipe(
     Schema.greaterThanOrEqualTo(0.01),
     Schema.lessThanOrEqualTo(0.1),
-    Schema.brand("GamepadSensitivity")
+    Schema.brand('GamepadSensitivity')
   ),
   invertX: Schema.Boolean,
   invertY: Schema.Boolean,
   deadzone: DeadzoneSchema,
-  vibration: Schema.Boolean
+  vibration: Schema.Boolean,
 }).annotations({
-  identifier: "GamepadSettings",
-  description: "ゲームパッド操作設定"
+  identifier: 'GamepadSettings',
+  description: 'ゲームパッド操作設定',
 })
 
 type GamepadSettings = Schema.Schema.Type<typeof GamepadSettingsSchema>
@@ -439,36 +417,36 @@ interface GamepadSettingsServiceInterface {
   readonly applyDeadzone: (value: number, threshold: DeadzoneValue) => Effect.Effect<number, never, never>
 }
 
-const GamepadSettingsService = Context.GenericTag<GamepadSettingsServiceInterface>("@input/GamepadSettingsService")
+const GamepadSettingsService = Context.GenericTag<GamepadSettingsServiceInterface>('@input/GamepadSettingsService')
 ```
 
 ### アクセシビリティ設定
 
 ```typescript
-import { Schema, Effect, Context, Match } from "effect"
+import { Schema, Effect, Context, Match } from 'effect'
 
 // アクセシビリティ機能の列挙型
 const AccessibilityFeatureSchema = Schema.Union(
-  Schema.Literal("HoldToSprint"),
-  Schema.Literal("ToggleCrouch"),
-  Schema.Literal("AutoJump"),
-  Schema.Literal("MouseKeyNavigation"),
-  Schema.Literal("ColorBlindSupport")
+  Schema.Literal('HoldToSprint'),
+  Schema.Literal('ToggleCrouch'),
+  Schema.Literal('AutoJump'),
+  Schema.Literal('MouseKeyNavigation'),
+  Schema.Literal('ColorBlindSupport')
 )
 
 type AccessibilityFeature = Schema.Schema.Type<typeof AccessibilityFeatureSchema>
 
 // アクセシビリティ設定スキーマ
 const AccessibilitySettingsSchema = Schema.Struct({
-  _tag: Schema.Literal("AccessibilitySettings"),
+  _tag: Schema.Literal('AccessibilitySettings'),
   holdToSprint: Schema.Boolean,
   toggleCrouch: Schema.Boolean,
   autoJump: Schema.Boolean,
   mouseKeyNavigation: Schema.Boolean,
-  colorBlindSupport: Schema.Boolean
+  colorBlindSupport: Schema.Boolean,
 }).annotations({
-  identifier: "AccessibilitySettings",
-  description: "アクセシビリティ設定"
+  identifier: 'AccessibilitySettings',
+  description: 'アクセシビリティ設定',
 })
 
 type AccessibilitySettings = Schema.Schema.Type<typeof AccessibilitySettingsSchema>
@@ -481,18 +459,18 @@ interface AccessibilityServiceInterface {
   readonly processInput: (feature: AccessibilityFeature, input: unknown) => Effect.Effect<unknown, never, never>
 }
 
-const AccessibilityService = Context.GenericTag<AccessibilityServiceInterface>("@input/AccessibilityService")
+const AccessibilityService = Context.GenericTag<AccessibilityServiceInterface>('@input/AccessibilityService')
 
 export const AccessibilityServiceHelpers = {
   processFeature: (feature: AccessibilityFeature, enabled: boolean) =>
     Match.value(feature).pipe(
-      Match.when("HoldToSprint", () => enabled ? "hold-mode" : "toggle-mode"),
-      Match.when("ToggleCrouch", () => enabled ? "toggle-mode" : "hold-mode"),
-      Match.when("AutoJump", () => enabled ? "auto" : "manual"),
-      Match.when("MouseKeyNavigation", () => enabled ? "mouse-keys" : "standard"),
-      Match.when("ColorBlindSupport", () => enabled ? "colorblind-friendly" : "standard"),
+      Match.when('HoldToSprint', () => (enabled ? 'hold-mode' : 'toggle-mode')),
+      Match.when('ToggleCrouch', () => (enabled ? 'toggle-mode' : 'hold-mode')),
+      Match.when('AutoJump', () => (enabled ? 'auto' : 'manual')),
+      Match.when('MouseKeyNavigation', () => (enabled ? 'mouse-keys' : 'standard')),
+      Match.when('ColorBlindSupport', () => (enabled ? 'colorblind-friendly' : 'standard')),
       Match.exhaustive
-    )
+    ),
 }
 ```
 
@@ -501,50 +479,50 @@ export const AccessibilityServiceHelpers = {
 ### 基本入力チェック
 
 ```typescript
-import { Schema, Effect, Stream, Queue, Context, Match, Brand } from "effect"
+import { Schema, Effect, Stream, Queue, Context, Match, Brand } from 'effect'
 
 // ブランド型定義
-type KeyCode = string & Brand.Brand<"KeyCode">
-type ButtonId = number & Brand.Brand<"ButtonId">
-type InputTimestamp = number & Brand.Brand<"InputTimestamp">
+type KeyCode = string & Brand.Brand<'KeyCode'>
+type ButtonId = number & Brand.Brand<'ButtonId'>
+type InputTimestamp = number & Brand.Brand<'InputTimestamp'>
 
 // 入力イベントのスキーマ定義
-const InputEventSchema = Schema.TaggedUnion("_tag", [
+const InputEventSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("KeyPressed"),
-    keyCode: Schema.String.pipe(Schema.brand("KeyCode")),
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+    _tag: Schema.Literal('KeyPressed'),
+    keyCode: Schema.String.pipe(Schema.brand('KeyCode')),
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("KeyReleased"),
-    keyCode: Schema.String.pipe(Schema.brand("KeyCode")),
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+    _tag: Schema.Literal('KeyReleased'),
+    keyCode: Schema.String.pipe(Schema.brand('KeyCode')),
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("MouseButtonPressed"),
-    button: Schema.Literal("left", "right", "middle"),
+    _tag: Schema.Literal('MouseButtonPressed'),
+    button: Schema.Literal('left', 'right', 'middle'),
     x: Schema.Number,
     y: Schema.Number,
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("MouseButtonReleased"),
-    button: Schema.Literal("left", "right", "middle"),
+    _tag: Schema.Literal('MouseButtonReleased'),
+    button: Schema.Literal('left', 'right', 'middle'),
     x: Schema.Number,
     y: Schema.Number,
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("GamepadButtonPressed"),
-    buttonId: Schema.Number.pipe(Schema.brand("ButtonId")),
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+    _tag: Schema.Literal('GamepadButtonPressed'),
+    buttonId: Schema.Number.pipe(Schema.brand('ButtonId')),
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("GamepadAxisMove"),
+    _tag: Schema.Literal('GamepadAxisMove'),
     axisId: Schema.Number,
     value: Schema.Number.pipe(Schema.between(-1, 1)),
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
-  })
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
+  }),
 ])
 
 type InputEvent = Schema.Schema.Type<typeof InputEventSchema>
@@ -556,20 +534,20 @@ interface InputStateServiceInterface {
   readonly processInputEvent: (event: InputEvent) => Effect.Effect<void, never, never>
 }
 
-const InputStateService = Context.GenericTag<InputStateServiceInterface>("@input/InputStateService")
+const InputStateService = Context.GenericTag<InputStateServiceInterface>('@input/InputStateService')
 
 export const InputStateServiceHelpers = {
   checkForwardPressed: Effect.gen(function* () {
-    const keyPressed = yield* checkKeyPressed("KeyW" as KeyCode)
-    const gamepadAxis = yield* checkGamepadAxis(1, "negative")
+    const keyPressed = yield* checkKeyPressed('KeyW' as KeyCode)
+    const gamepadAxis = yield* checkGamepadAxis(1, 'negative')
     return keyPressed || gamepadAxis
   }),
 
   checkLeftClickPressed: Effect.gen(function* () {
-    const mousePressed = yield* checkMouseButton("left")
+    const mousePressed = yield* checkMouseButton('left')
     const gamepadPressed = yield* checkGamepadButton(7 as ButtonId) // 右トリガー
     return mousePressed || gamepadPressed
-  })
+  }),
 }
 
 // 入力確認ユーティリティ
@@ -579,46 +557,41 @@ const checkKeyPressed = (keyCode: KeyCode): Effect.Effect<boolean, never, never>
     return yield* inputState.checkForwardPressed
   })
 
-const checkGamepadAxis = (
-  axisId: number,
-  direction: "positive" | "negative"
-): Effect.Effect<boolean, never, never> =>
+const checkGamepadAxis = (axisId: number, direction: 'positive' | 'negative'): Effect.Effect<boolean, never, never> =>
   Effect.gen(function* () {
     const threshold = 0.5
     const axisValue = yield* getGamepadAxisValue(axisId)
 
     return Match.value(direction).pipe(
-      Match.when("positive", () => axisValue > threshold),
-      Match.when("negative", () => axisValue < -threshold),
+      Match.when('positive', () => axisValue > threshold),
+      Match.when('negative', () => axisValue < -threshold),
       Match.exhaustive
     )
   })
 
-const getGamepadAxisValue = (axisId: number): Effect.Effect<number, never, never> =>
-  Effect.succeed(0) // 実装は実際のゲームパッドAPIから取得
+const getGamepadAxisValue = (axisId: number): Effect.Effect<number, never, never> => Effect.succeed(0) // 実装は実際のゲームパッドAPIから取得
 
-const checkMouseButton = (button: "left" | "right" | "middle"): Effect.Effect<boolean, never, never> =>
+const checkMouseButton = (button: 'left' | 'right' | 'middle'): Effect.Effect<boolean, never, never> =>
   Effect.succeed(false) // 実装は実際のマウスAPIから取得
 
-const checkGamepadButton = (buttonId: ButtonId): Effect.Effect<boolean, never, never> =>
-  Effect.succeed(false) // 実装は実際のゲームパッドAPIから取得
+const checkGamepadButton = (buttonId: ButtonId): Effect.Effect<boolean, never, never> => Effect.succeed(false) // 実装は実際のゲームパッドAPIから取得
 ```
 
 ### 連続入力と単発入力の区別
 
 ```typescript
-import { Schema, Effect, Stream, Ref, Context, Match } from "effect"
+import { Schema, Effect, Stream, Ref, Context, Match } from 'effect'
 
 // 入力状態トラッカースキーマ
 const InputTrackerSchema = Schema.Struct({
-  _tag: Schema.Literal("InputTracker"),
+  _tag: Schema.Literal('InputTracker'),
   wasPressed: Schema.Boolean,
   isPressed: Schema.Boolean,
   justPressed: Schema.Boolean,
-  justReleased: Schema.Boolean
+  justReleased: Schema.Boolean,
 }).annotations({
-  identifier: "InputTracker",
-  description: "入力状態追跡情報"
+  identifier: 'InputTracker',
+  description: '入力状態追跡情報',
 })
 
 type InputTracker = Schema.Schema.Type<typeof InputTrackerSchema>
@@ -630,7 +603,7 @@ interface InputTrackerServiceInterface {
   readonly resetTracker: Effect.Effect<void, never, never>
 }
 
-const InputTrackerService = Context.GenericTag<InputTrackerServiceInterface>("@input/InputTrackerService")
+const InputTrackerService = Context.GenericTag<InputTrackerServiceInterface>('@input/InputTrackerService')
 
 // 入力トラッカー更新関数
 const updateInputTracker = (
@@ -638,11 +611,11 @@ const updateInputTracker = (
   currentState: boolean
 ): Effect.Effect<InputTracker, never, never> =>
   Effect.succeed({
-    _tag: "InputTracker" as const,
+    _tag: 'InputTracker' as const,
     wasPressed: previousTracker.isPressed,
     isPressed: currentState,
     justPressed: !previousTracker.isPressed && currentState,
-    justReleased: previousTracker.isPressed && !currentState
+    justReleased: previousTracker.isPressed && !currentState,
   })
 
 // ストリームベースの入力状態管理
@@ -651,11 +624,11 @@ const createInputTrackerStream = (
 ): Effect.Effect<Stream.Stream<InputTracker, never, never>, never, never> =>
   Effect.gen(function* () {
     const initialTracker: InputTracker = {
-      _tag: "InputTracker",
+      _tag: 'InputTracker',
       wasPressed: false,
       isPressed: false,
       justPressed: false,
-      justReleased: false
+      justReleased: false,
     }
 
     const trackerRef = yield* Ref.make(initialTracker)
@@ -683,38 +656,38 @@ const createDebouncedInputStream = (
 ### 複合入力の処理
 
 ```typescript
-import { Schema, Effect, Context, Match, Stream } from "effect"
+import { Schema, Effect, Context, Match, Stream } from 'effect'
 
 // ゲームアクションスキーマ
-const GameActionSchema = Schema.TaggedUnion("_tag", [
+const GameActionSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("MovementAction"),
+    _tag: Schema.Literal('MovementAction'),
     direction: Schema.Union(
-      Schema.Literal("forward"),
-      Schema.Literal("backward"),
-      Schema.Literal("left"),
-      Schema.Literal("right")
+      Schema.Literal('forward'),
+      Schema.Literal('backward'),
+      Schema.Literal('left'),
+      Schema.Literal('right')
     ),
-    intensity: Schema.Number.pipe(Schema.between(0, 1))
+    intensity: Schema.Number.pipe(Schema.between(0, 1)),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("JumpAction"),
-    intensity: Schema.Number.pipe(Schema.between(0, 1))
+    _tag: Schema.Literal('JumpAction'),
+    intensity: Schema.Number.pipe(Schema.between(0, 1)),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("RunAction"),
-    active: Schema.Boolean
+    _tag: Schema.Literal('RunAction'),
+    active: Schema.Boolean,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("SneakAction"),
-    active: Schema.Boolean
+    _tag: Schema.Literal('SneakAction'),
+    active: Schema.Boolean,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("ComboAction"),
+    _tag: Schema.Literal('ComboAction'),
     primary: Schema.String,
     secondary: Schema.String,
-    timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
-  })
+    timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
+  }),
 ])
 
 type GameAction = Schema.Schema.Type<typeof GameActionSchema>
@@ -730,39 +703,30 @@ interface ComboDetectionServiceInterface {
     sneakActive: boolean,
     movementActions: Array<GameAction>
   ) => Effect.Effect<boolean, never, never>
-  readonly processComboActions: (
-    actions: Array<GameAction>
-  ) => Effect.Effect<Array<GameAction>, never, never>
+  readonly processComboActions: (actions: Array<GameAction>) => Effect.Effect<Array<GameAction>, never, never>
 }
 
-const ComboDetectionService = Context.GenericTag<ComboDetectionServiceInterface>("@input/ComboDetectionService")
+const ComboDetectionService = Context.GenericTag<ComboDetectionServiceInterface>('@input/ComboDetectionService')
 
 export const ComboDetectionServiceHelpers = {
   // 高ジャンプ検出
-  detectHighJump: (
-    runActive: boolean,
-    jumpPressed: boolean,
-    onGround: boolean
-  ): Effect.Effect<boolean, never, never> =>
+  detectHighJump: (runActive: boolean, jumpPressed: boolean, onGround: boolean): Effect.Effect<boolean, never, never> =>
     Effect.succeed(runActive && jumpPressed && onGround),
 
   // 忍び歩き検出
-  detectSneaking: (
-    sneakActive: boolean,
-    movementActions: Array<GameAction>
-  ): Effect.Effect<boolean, never, never> =>
+  detectSneaking: (sneakActive: boolean, movementActions: Array<GameAction>): Effect.Effect<boolean, never, never> =>
     Effect.gen(function* () {
       if (!sneakActive) return false
 
-      const hasMovement = movementActions.some(action =>
+      const hasMovement = movementActions.some((action) =>
         Match.value(action).pipe(
-          Match.when({ _tag: "MovementAction" }, ({ intensity }) => intensity > 0),
+          Match.when({ _tag: 'MovementAction' }, ({ intensity }) => intensity > 0),
           Match.orElse(() => false)
         )
       )
 
       return hasMovement
-    })
+    }),
 }
 
 // コンボ検出ストリーム
@@ -770,8 +734,8 @@ const createComboDetectionStream = (
   actionStream: Stream.Stream<GameAction, never, never>
 ): Effect.Effect<Stream.Stream<GameAction, never, never>, never, never> =>
   Effect.gen(function* () {
-    return Stream.groupedWithin(actionStream, 10, "100ms").pipe(
-      Stream.mapEffect(actions =>
+    return Stream.groupedWithin(actionStream, 10, '100ms').pipe(
+      Stream.mapEffect((actions) =>
         Effect.gen(function* () {
           const comboService = yield* ComboDetectionService
           return yield* comboService.processComboActions(actions.toArray())
@@ -782,14 +746,12 @@ const createComboDetectionStream = (
   })
 
 // アンチチート検証
-const validateInputSequence = (
-  actions: Array<GameAction>
-): Effect.Effect<boolean, never, never> =>
+const validateInputSequence = (actions: Array<GameAction>): Effect.Effect<boolean, never, never> =>
   Effect.gen(function* () {
     // 不正な連続入力のチェック
-    const timeGaps = actions.map(action =>
+    const timeGaps = actions.map((action) =>
       Match.value(action).pipe(
-        Match.when({ _tag: "ComboAction" }, ({ timestamp }) => timestamp),
+        Match.when({ _tag: 'ComboAction' }, ({ timestamp }) => timestamp),
         Match.orElse(() => 0 as InputTimestamp)
       )
     )
@@ -812,44 +774,40 @@ const validateInputSequence = (
 開発モード時の入力状態確認:
 
 ```typescript
-import { Schema, Effect, Queue, Context, Stream, Console, Array as EffectArray } from "effect"
+import { Schema, Effect, Queue, Context, Stream, Console, Array as EffectArray } from 'effect'
 
 // デバッグ情報スキーマ
 const InputDebugInfoSchema = Schema.Struct({
-  _tag: Schema.Literal("InputDebugInfo"),
-  activeKeys: Schema.Array(Schema.String.pipe(Schema.brand("KeyCode"))),
+  _tag: Schema.Literal('InputDebugInfo'),
+  activeKeys: Schema.Array(Schema.String.pipe(Schema.brand('KeyCode'))),
   mouseState: Schema.Struct({
     position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
     delta: Schema.Struct({ deltaX: Schema.Number, deltaY: Schema.Number }),
-    activeButtons: Schema.Array(Schema.Union(
-      Schema.Literal("left"),
-      Schema.Literal("right"),
-      Schema.Literal("middle")
-    ))
+    activeButtons: Schema.Array(
+      Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle'))
+    ),
   }),
   gamepadState: Schema.Union(
     Schema.Struct({
-      _tag: Schema.Literal("Connected"),
+      _tag: Schema.Literal('Connected'),
       axes: Schema.Array(Schema.Number),
-      activeButtons: Schema.Array(Schema.Number.pipe(Schema.brand("ButtonId")))
+      activeButtons: Schema.Array(Schema.Number.pipe(Schema.brand('ButtonId'))),
     }),
     Schema.Struct({
-      _tag: Schema.Literal("Disconnected")
+      _tag: Schema.Literal('Disconnected'),
     })
   ),
-  timestamp: Schema.Number.pipe(Schema.brand("InputTimestamp"))
+  timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
 }).annotations({
-  identifier: "InputDebugInfo",
-  description: "入力デバッグ情報"
+  identifier: 'InputDebugInfo',
+  description: '入力デバッグ情報',
 })
 
 type InputDebugInfo = Schema.Schema.Type<typeof InputDebugInfoSchema>
 
 // 入力バッファリングサービス
 interface InputBufferServiceInterface {
-  readonly createInputQueue: (
-    capacity?: number
-  ) => Effect.Effect<Queue.Queue<InputEvent>, never, never>
+  readonly createInputQueue: (capacity?: number) => Effect.Effect<Queue.Queue<InputEvent>, never, never>
   readonly bufferInputEvents: (
     queue: Queue.Queue<InputEvent>,
     events: Array<InputEvent>
@@ -862,12 +820,12 @@ interface InputBufferServiceInterface {
   ) => Effect.Effect<Array<InputEvent>, InputValidationError, never>
 }
 
-const InputBufferService = Context.GenericTag<InputBufferServiceInterface>("@input/InputBufferService")
+const InputBufferService = Context.GenericTag<InputBufferServiceInterface>('@input/InputBufferService')
 
 // 入力検証エラー
-const InputValidationErrorSchema = Schema.TaggedError("InputValidationError", {
+const InputValidationErrorSchema = Schema.TaggedError('InputValidationError', {
   message: Schema.String,
-  invalidEvents: Schema.Array(InputEventSchema)
+  invalidEvents: Schema.Array(InputEventSchema),
 })
 
 const InputValidationError = Schema.TaggedError(InputValidationErrorSchema)
@@ -882,17 +840,15 @@ interface InputDebugServiceInterface {
   readonly disableDebugMode: Effect.Effect<void, never, never>
 }
 
-const InputDebugService = Context.GenericTag<InputDebugServiceInterface>("@input/InputDebugService")
+const InputDebugService = Context.GenericTag<InputDebugServiceInterface>('@input/InputDebugService')
 
 export const InputDebugServiceHelpers = {
   logInputState: (debugInfo: InputDebugInfo): Effect.Effect<void, never, never> =>
-    Console.log(`Input Debug: ${JSON.stringify(debugInfo, null, 2)}`)
+    Console.log(`Input Debug: ${JSON.stringify(debugInfo, null, 2)}`),
 }
 
 // 入力バッファ管理
-const createInputBuffer = (
-  capacity = 100
-): Effect.Effect<Queue.Queue<InputEvent>, never, never> =>
+const createInputBuffer = (capacity = 100): Effect.Effect<Queue.Queue<InputEvent>, never, never> =>
   Queue.bounded<InputEvent>(capacity)
 
 // 入力イベントのバッファリング
@@ -907,8 +863,7 @@ const bufferInputEvents = (
 // バッファされた入力の処理
 const processBufferedInputs = (
   queue: Queue.Queue<InputEvent>
-): Effect.Effect<Stream.Stream<InputEvent, never, never>, never, never> =>
-  Effect.succeed(Stream.fromQueue(queue))
+): Effect.Effect<Stream.Stream<InputEvent, never, never>, never, never> => Effect.succeed(Stream.fromQueue(queue))
 
 // 入力遅延処理 (デバウンス)
 const createDebouncedInputProcessor = (
@@ -920,38 +875,38 @@ const createDebouncedInputProcessor = (
   })
 
 // ジェスチャー認識システム
-const GestureSchema = Schema.TaggedUnion("_tag", [
+const GestureSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("Tap"),
+    _tag: Schema.Literal('Tap'),
     position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
-    duration: Schema.Number
+    duration: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Swipe"),
+    _tag: Schema.Literal('Swipe'),
     startPosition: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
     endPosition: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
-    velocity: Schema.Number
+    velocity: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Hold"),
+    _tag: Schema.Literal('Hold'),
     position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
-    duration: Schema.Number
-  })
+    duration: Schema.Number,
+  }),
 ])
 
 type Gesture = Schema.Schema.Type<typeof GestureSchema>
 
 // ジェスチャー認識サービス
 interface GestureRecognitionServiceInterface {
-  readonly recognizeGesture: (
-    events: Array<InputEvent>
-  ) => Effect.Effect<Array<Gesture>, never, never>
+  readonly recognizeGesture: (events: Array<InputEvent>) => Effect.Effect<Array<Gesture>, never, never>
   readonly createGestureStream: (
     inputStream: Stream.Stream<InputEvent, never, never>
   ) => Effect.Effect<Stream.Stream<Gesture, never, never>, never, never>
 }
 
-const GestureRecognitionService = Context.GenericTag<GestureRecognitionServiceInterface>("@input/GestureRecognitionService")
+const GestureRecognitionService = Context.GenericTag<GestureRecognitionServiceInterface>(
+  '@input/GestureRecognitionService'
+)
 ```
 
 ### よくある問題と解決方法
@@ -966,7 +921,7 @@ interface GamepadDetectionServiceInterface {
   readonly activateGamepad: (gamepadIndex: number) => Effect.Effect<boolean, never, never>
 }
 
-const GamepadDetectionService = Context.GenericTag<GamepadDetectionServiceInterface>("@input/GamepadDetectionService")
+const GamepadDetectionService = Context.GenericTag<GamepadDetectionServiceInterface>('@input/GamepadDetectionService')
 
 export const GamepadDetectionServiceHelpers = {
   detectGamepads: Effect.gen(function* () {
@@ -982,34 +937,32 @@ export const GamepadDetectionServiceHelpers = {
     }
 
     return detectedGamepads
-  })
+  }),
 }
 
-const identifyGamepadType = (
-  gamepad: Gamepad
-): Effect.Effect<DeviceType, never, never> =>
+const identifyGamepadType = (gamepad: Gamepad): Effect.Effect<DeviceType, never, never> =>
   Effect.gen(function* () {
     const gamepadType = Match.value(gamepad.id.toLowerCase()).pipe(
       Match.when(
-        id => id.includes("xbox"),
-        () => "Xbox" as const
+        (id) => id.includes('xbox'),
+        () => 'Xbox' as const
       ),
       Match.when(
-        id => id.includes("playstation") || id.includes("dualshock"),
-        () => "PlayStation" as const
+        (id) => id.includes('playstation') || id.includes('dualshock'),
+        () => 'PlayStation' as const
       ),
       Match.when(
-        id => id.includes("switch"),
-        () => "Switch" as const
+        (id) => id.includes('switch'),
+        () => 'Switch' as const
       ),
-      Match.orElse(() => "Generic" as const)
+      Match.orElse(() => 'Generic' as const)
     )
 
     return {
-      _tag: "Gamepad",
+      _tag: 'Gamepad',
       type: gamepadType,
       buttonCount: gamepad.buttons.length,
-      axisCount: gamepad.axes.length
+      axisCount: gamepad.axes.length,
     }
   })
 ```
@@ -1024,7 +977,7 @@ interface MouseCalibrationServiceInterface {
   readonly checkPointerLock: Effect.Effect<boolean, never, never>
 }
 
-const MouseCalibrationService = Context.GenericTag<MouseCalibrationServiceInterface>("@input/MouseCalibrationService")
+const MouseCalibrationService = Context.GenericTag<MouseCalibrationServiceInterface>('@input/MouseCalibrationService')
 
 export const MouseCalibrationServiceHelpers = {
   autoCalibrateSensitivity: Effect.gen(function* () {
@@ -1033,7 +986,7 @@ export const MouseCalibrationServiceHelpers = {
     const recommendedSensitivity = yield* calculateOptimalSensitivity(osSettings, browserSettings)
 
     return recommendedSensitivity
-  })
+  }),
 }
 
 const getOSMouseSettings = (): Effect.Effect<{ dpi: number; sensitivity: number }, never, never> =>
@@ -1057,7 +1010,7 @@ const calculateOptimalSensitivity = (
 
 #### キー入力が反応しない
 
-```typescript
+````typescript
 // キーボードデバッグサービス
 interface KeyboardDebugServiceInterface {
   readonly validateKeyCode: (keyCode: string) => Effect.Effect<boolean, never, never>
@@ -1185,4 +1138,4 @@ const createMainInputProcessingStream = Effect.gen(function* () {
 このドキュメントは、Effect-TSの最新パターンを使用して、型安全でスケーラブルな入力制御システムを実現します。Schema.TaggedUnion、Stream処理、Contextサービス、パターンマッチング、ブランド型、Queueベースのバッファリング、ジェスチャー認識、アンチチート検証、アクセシビリティ機能を統合した包括的なソリューションです。
 
 技術的な実装詳細は `docs/features/player-controls.md` を参照し、パフォーマンス最適化については `docs/guides/performance-optimization.md` を参照してください。
-```
+````

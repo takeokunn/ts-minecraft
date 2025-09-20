@@ -1,13 +1,13 @@
 ---
-title: "ビルド設定 - 本番環境最適化ガイド"
-description: "TypeScript Minecraft本番ビルド設定。Vite 5.x最適化、Three.js統合、Effect-TS最適化、CI/CD連携。"
-category: "reference"
-difficulty: "advanced"
-tags: ["build", "production", "vite", "optimization", "three.js", "effect-ts"]
-prerequisites: ["vite-basics", "typescript-config"]
-estimated_reading_time: "20分"
-dependencies: ["./vite-config.md", "./typescript-config.md"]
-status: "complete"
+title: 'ビルド設定 - 本番環境最適化ガイド'
+description: 'TypeScript Minecraft本番ビルド設定。Vite 5.x最適化、Three.js統合、Effect-TS最適化、CI/CD連携。'
+category: 'reference'
+difficulty: 'advanced'
+tags: ['build', 'production', 'vite', 'optimization', 'three.js', 'effect-ts']
+prerequisites: ['vite-basics', 'typescript-config']
+estimated_reading_time: '20分'
+dependencies: ['./vite-config.md', './typescript-config.md']
+status: 'complete'
 ---
 
 # Build Configuration
@@ -66,14 +66,9 @@ export default defineConfig(({ mode }): UserConfig => {
           unused: true,
 
           // 純粋関数呼び出し除去
-          pure_funcs: isProd ? [
-            'console.log',
-            'console.info',
-            'console.warn',
-            'console.error',
-            'console.debug',
-            'console.trace'
-          ] : [],
+          pure_funcs: isProd
+            ? ['console.log', 'console.info', 'console.warn', 'console.error', 'console.debug', 'console.trace']
+            : [],
 
           // Effect-TS最適化
           pure_getters: true,
@@ -86,22 +81,22 @@ export default defineConfig(({ mode }): UserConfig => {
           unsafe_methods: false,
           unsafe_proto: false,
           unsafe_regexp: false,
-          unsafe_undefined: false
+          unsafe_undefined: false,
         },
         mangle: {
           // 変数名短縮化
           safari10: true,
           properties: {
             // プライベートプロパティのみ短縮化
-            regex: /^_/
-          }
+            regex: /^_/,
+          },
         },
         format: {
           // コメント削除
           comments: false,
           // ASCII文字のみ使用
-          ascii_only: true
-        }
+          ascii_only: true,
+        },
       },
 
       // CSS最適化
@@ -119,7 +114,7 @@ export default defineConfig(({ mode }): UserConfig => {
           main: resolve(__dirname, 'index.html'),
           // Web Workers
           chunkWorker: resolve(__dirname, 'src/workers/chunk-worker.ts'),
-          physicsWorker: resolve(__dirname, 'src/workers/physics-worker.ts')
+          physicsWorker: resolve(__dirname, 'src/workers/physics-worker.ts'),
         },
 
         // 外部依存関係（CDN利用時）
@@ -202,16 +197,16 @@ export default defineConfig(({ mode }): UserConfig => {
           ...(isAnalyze && {
             sourcemapPathTransform: (relativePath) => {
               return `webpack:///${relativePath}`
-            }
-          })
+            },
+          }),
         },
 
         // Tree shaking最適化
         treeshake: {
           moduleSideEffects: false,
           propertyReadSideEffects: false,
-          tryCatchDeoptimization: false
-        }
+          tryCatchDeoptimization: false,
+        },
       },
 
       // モジュールプリロード設定
@@ -219,12 +214,10 @@ export default defineConfig(({ mode }): UserConfig => {
         polyfill: true,
         resolveDependencies: (filename, deps, { hostId, hostType }) => {
           // 重要なチャンクのみプリロード
-          return deps.filter(dep =>
-            dep.includes('effect-core') ||
-            dep.includes('three-core') ||
-            dep.includes('domain-core')
+          return deps.filter(
+            (dep) => dep.includes('effect-core') || dep.includes('three-core') || dep.includes('domain-core')
           )
-        }
+        },
       },
 
       // 実験的機能
@@ -235,39 +228,42 @@ export default defineConfig(({ mode }): UserConfig => {
             return `https://cdn.minecraft-ts.example.com/${filename}`
           }
           return { relative: true }
-        }
-      }
+        },
+      },
     },
 
     // プラグイン設定（ビルド専用）
     plugins: [
       // バンドルサイズ分析
-      isAnalyze && visualizer({
-        filename: 'dist/stats.html',
-        open: true,
-        gzipSize: true,
-        brotliSize: true,
-        template: 'treemap' // または 'sunburst', 'network'
-      }),
+      isAnalyze &&
+        visualizer({
+          filename: 'dist/stats.html',
+          open: true,
+          gzipSize: true,
+          brotliSize: true,
+          template: 'treemap', // または 'sunburst', 'network'
+        }),
 
       // Gzip圧縮
-      isProd && compression({
-        algorithm: 'gzip',
-        ext: '.gz',
-        deleteOriginFile: false,
-        threshold: 1024,
-        filter: /\.(js|css|html|svg|json|xml|woff|woff2)$/i
-      }),
+      isProd &&
+        compression({
+          algorithm: 'gzip',
+          ext: '.gz',
+          deleteOriginFile: false,
+          threshold: 1024,
+          filter: /\.(js|css|html|svg|json|xml|woff|woff2)$/i,
+        }),
 
       // Brotli圧縮（より効率的）
-      isProd && compression({
-        algorithm: 'brotliCompress',
-        ext: '.br',
-        deleteOriginFile: false,
-        threshold: 1024,
-        filter: /\.(js|css|html|svg|json|xml|woff|woff2)$/i
-      })
-    ].filter(Boolean)
+      isProd &&
+        compression({
+          algorithm: 'brotliCompress',
+          ext: '.br',
+          deleteOriginFile: false,
+          threshold: 1024,
+          filter: /\.(js|css|html|svg|json|xml|woff|woff2)$/i,
+        }),
+    ].filter(Boolean),
   }
 })
 ```
@@ -296,20 +292,20 @@ export const developmentBuildConfig = {
         // 単純なチャンク分割
         manualChunks: {
           vendor: ['three', 'effect'],
-          utils: ['lodash-es', 'date-fns']
-        }
+          utils: ['lodash-es', 'date-fns'],
+        },
       },
 
       // Tree shaking無効（ビルド速度優先）
-      treeshake: false
+      treeshake: false,
     },
 
     // Watch設定
     watch: {
       include: 'src/**',
-      exclude: ['node_modules/**', 'dist/**']
-    }
-  }
+      exclude: ['node_modules/**', 'dist/**'],
+    },
+  },
 }
 ```
 
@@ -328,8 +324,8 @@ export const stagingBuildConfig = {
       compress: {
         drop_console: false, // ステージングではconsole.log保持
         drop_debugger: true,
-        dead_code: true
-      }
+        dead_code: true,
+      },
     },
 
     rollupOptions: {
@@ -339,10 +335,10 @@ export const stagingBuildConfig = {
           if (id.includes('three')) return 'three'
           if (id.includes('node_modules')) return 'vendor'
           if (id.includes('@/')) return 'app'
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 }
 ```
 
@@ -364,23 +360,17 @@ export const productionBuildConfig = {
         drop_debugger: true,
         dead_code: true,
         unused: true,
-        pure_funcs: [
-          'console.log',
-          'console.info',
-          'console.warn',
-          'console.error',
-          'console.debug'
-        ],
+        pure_funcs: ['console.log', 'console.info', 'console.warn', 'console.error', 'console.debug'],
         // Effect-TS最適化
         pure_getters: true,
-        passes: 2 // 2回最適化実行
+        passes: 2, // 2回最適化実行
       },
       mangle: {
         safari10: true,
         properties: {
-          regex: /^_/
-        }
-      }
+          regex: /^_/,
+        },
+      },
     },
 
     // 極限バンドル最適化
@@ -390,20 +380,20 @@ export const productionBuildConfig = {
           // 詳細なチャンク分割
           const chunks = analyzeModuleForChunking(id)
           return chunks
-        }
+        },
       },
 
       treeshake: {
         moduleSideEffects: false,
         propertyReadSideEffects: false,
-        tryCatchDeoptimization: false
-      }
+        tryCatchDeoptimization: false,
+      },
     },
 
     // アセット最適化
     assetsInlineLimit: 1024, // より小さいファイルもインライン化
-    chunkSizeWarningLimit: 800 // 警告閾値を厳格化
-  }
+    chunkSizeWarningLimit: 800, // 警告閾値を厳格化
+  },
 }
 
 function analyzeModuleForChunking(id: string): string {
@@ -453,7 +443,7 @@ export const bundleOptimizationConfig = {
   deduplication: {
     enabled: true,
     strategy: 'exact-match', // または 'similar'
-    threshold: 0.8
+    threshold: 0.8,
   },
 
   // Tree shaking強化
@@ -466,16 +456,11 @@ export const bundleOptimizationConfig = {
       'Effect.async',
       'Schema.struct',
       'Schema.string',
-      'Schema.number'
+      'Schema.number',
     ],
 
     // 副作用なしモジュール
-    sideEffectFreeModules: [
-      '@/domain/**/*',
-      '@/utils/**/*',
-      'effect/Schema',
-      'effect/Match'
-    ]
+    sideEffectFreeModules: ['@/domain/**/*', '@/utils/**/*', 'effect/Schema', 'effect/Match'],
   },
 
   // コード分割戦略
@@ -484,14 +469,14 @@ export const bundleOptimizationConfig = {
     features: {
       inventory: ['@/features/inventory/**/*'],
       crafting: ['@/features/crafting/**/*'],
-      world: ['@/features/world/**/*']
+      world: ['@/features/world/**/*'],
     },
 
     // 動的インポート閾値
     dynamicImportThreshold: 50000, // 50KB以上で分割
 
     // プリロード戦略
-    preloadStrategy: 'critical-path' // または 'all', 'none'
+    preloadStrategy: 'critical-path', // または 'all', 'none'
   },
 
   // アセット最適化
@@ -500,22 +485,22 @@ export const bundleOptimizationConfig = {
       // WebP変換
       convertToWebP: true,
       quality: 85,
-      progressive: true
+      progressive: true,
     },
 
     models: {
       // Three.js モデル最適化
       compressGeometry: true,
       optimizeMaterials: true,
-      removeUnusedMaterials: true
+      removeUnusedMaterials: true,
     },
 
     fonts: {
       // フォントサブセット化
       subsetFonts: true,
-      fontDisplay: 'swap'
-    }
-  }
+      fontDisplay: 'swap',
+    },
+  },
 }
 ```
 
@@ -533,7 +518,7 @@ export const runtimeOptimizationConfig = {
       alpha: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false,
-      failIfMajorPerformanceCaveat: false
+      failIfMajorPerformanceCaveat: false,
     },
 
     // メモリ管理
@@ -541,15 +526,15 @@ export const runtimeOptimizationConfig = {
       disposeUnusedTextures: true,
       disposeUnusedGeometry: true,
       maxTextureSize: 2048,
-      textureCompression: 'DXT'
+      textureCompression: 'DXT',
     },
 
     // LOD (Level of Detail) 設定
     lod: {
       enabled: true,
       distances: [10, 50, 100, 500],
-      hysteresis: 0.025
-    }
+      hysteresis: 0.025,
+    },
   },
 
   // Effect-TS最適化
@@ -557,20 +542,20 @@ export const runtimeOptimizationConfig = {
     // Fiber管理
     fiber: {
       cleanupInterval: 60000,
-      maxFiberAge: 300000
+      maxFiberAge: 300000,
     },
 
     // Context管理
     context: {
       poolSize: 20,
-      enableContextPooling: true
+      enableContextPooling: true,
     },
 
     // トレーシング設定
     tracing: {
       enabled: false, // 本番では無効
-      sampleRate: 0.01
-    }
+      sampleRate: 0.01,
+    },
   },
 
   // Web Workers最適化
@@ -581,14 +566,14 @@ export const runtimeOptimizationConfig = {
     // ワーカー設定
     chunkWorker: {
       enabled: true,
-      transferables: ['ArrayBuffer', 'ImageData']
+      transferables: ['ArrayBuffer', 'ImageData'],
     },
 
     physicsWorker: {
       enabled: true,
-      updateRate: 60 // FPS
-    }
-  }
+      updateRate: 60, // FPS
+    },
+  },
 }
 ```
 
@@ -603,33 +588,33 @@ export const buildQualityConfig = {
   sizeConstraints: {
     // 各チャンクの最大サイズ
     chunks: {
-      'effect-core': 150_000,      // 150KB
-      'three-core': 500_000,       // 500KB
-      'app-core': 200_000,         // 200KB
-      'vendor': 300_000            // 300KB
+      'effect-core': 150_000, // 150KB
+      'three-core': 500_000, // 500KB
+      'app-core': 200_000, // 200KB
+      vendor: 300_000, // 300KB
     },
 
     // 合計サイズ制限
     total: {
-      js: 2_000_000,               // 2MB
-      css: 200_000,                // 200KB
-      assets: 10_000_000           // 10MB
-    }
+      js: 2_000_000, // 2MB
+      css: 200_000, // 200KB
+      assets: 10_000_000, // 10MB
+    },
   },
 
   // パフォーマンス指標
   performance: {
     // First Contentful Paint
-    fcp: 1500,                     // 1.5秒以内
+    fcp: 1500, // 1.5秒以内
 
     // Largest Contentful Paint
-    lcp: 2500,                     // 2.5秒以内
+    lcp: 2500, // 2.5秒以内
 
     // Time to Interactive
-    tti: 3000,                     // 3秒以内
+    tti: 3000, // 3秒以内
 
     // Total Blocking Time
-    tbt: 200                       // 200ms以内
+    tbt: 200, // 200ms以内
   },
 
   // セキュリティ検証
@@ -641,8 +626,8 @@ export const buildQualityConfig = {
     vulnerabilityThreshold: 'medium',
 
     // 機密情報チェック
-    secretsPattern: /(?:api[_-]?key|password|secret|token)/gi
-  }
+    secretsPattern: /(?:api[_-]?key|password|secret|token)/gi,
+  },
 }
 ```
 
@@ -684,7 +669,7 @@ export async function validateBuild(): Promise<BuildStats> {
     totalSize: 0,
     totalGzipSize: 0,
     totalBrotliSize: 0,
-    chunkAnalysis: []
+    chunkAnalysis: [],
   }
 
   // ファイル統計収集
@@ -706,7 +691,7 @@ export async function validateBuild(): Promise<BuildStats> {
           size: content.length,
           gzipSize,
           brotliSize,
-          type: getFileType(file.name)
+          type: getFileType(file.name),
         }
 
         stats.files.push(fileStats)
@@ -738,8 +723,8 @@ function getFileType(filename: string): 'js' | 'css' | 'asset' {
 }
 
 function validateSizeConstraints(stats: BuildStats): void {
-  const jsFiles = stats.files.filter(f => f.type === 'js')
-  const cssFiles = stats.files.filter(f => f.type === 'css')
+  const jsFiles = stats.files.filter((f) => f.type === 'js')
+  const cssFiles = stats.files.filter((f) => f.type === 'css')
 
   const totalJsSize = jsFiles.reduce((sum, f) => sum + f.size, 0)
   const totalCssSize = cssFiles.reduce((sum, f) => sum + f.size, 0)
@@ -762,7 +747,7 @@ async function analyzeDuplicateCode(stats: BuildStats): Promise<void> {
 
 function estimatePerformanceMetrics(stats: BuildStats): void {
   // パフォーマンス指標推定
-  const mainJsSize = stats.files.find(f => f.name.includes('main'))?.gzipSize || 0
+  const mainJsSize = stats.files.find((f) => f.name.includes('main'))?.gzipSize || 0
   const estimatedFCP = Math.max(800, mainJsSize / 1000) // 簡易推定
 
   console.log(`Estimated FCP: ${estimatedFCP}ms`)
@@ -791,59 +776,59 @@ jobs:
         node-version: [20.x]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'pnpm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
 
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-    - name: Type check
-      run: pnpm typecheck
+      - name: Type check
+        run: pnpm typecheck
 
-    - name: Lint
-      run: pnpm lint
+      - name: Lint
+        run: pnpm lint
 
-    - name: Test
-      run: pnpm test:coverage
+      - name: Test
+        run: pnpm test:coverage
 
-    - name: Build (Development)
-      if: github.ref != 'refs/heads/main'
-      run: pnpm build:dev
+      - name: Build (Development)
+        if: github.ref != 'refs/heads/main'
+        run: pnpm build:dev
 
-    - name: Build (Production)
-      if: github.ref == 'refs/heads/main'
-      run: pnpm build:prod
-      env:
-        NODE_OPTIONS: '--max-old-space-size=4096'
+      - name: Build (Production)
+        if: github.ref == 'refs/heads/main'
+        run: pnpm build:prod
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
-    - name: Build Analysis
-      if: github.ref == 'refs/heads/main'
-      run: pnpm build:analyze
+      - name: Build Analysis
+        if: github.ref == 'refs/heads/main'
+        run: pnpm build:analyze
 
-    - name: Validate Build
-      run: pnpm validate:build
+      - name: Validate Build
+        run: pnpm validate:build
 
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-${{ github.sha }}
-        path: |
-          dist/
-          stats.html
-        retention-days: 30
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            dist/
+            stats.html
+          retention-days: 30
 
-    - name: Performance Audit
-      if: github.ref == 'refs/heads/main'
-      uses: treosh/lighthouse-ci-action@v10
-      with:
-        configPath: './lighthouserc.js'
-        uploadArtifacts: true
-        temporaryPublicStorage: true
+      - name: Performance Audit
+        if: github.ref == 'refs/heads/main'
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: './lighthouserc.js'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
 ```
 
 ### package.json ビルドスクリプト
@@ -891,6 +876,7 @@ jobs:
 **症状**: ビルド成果物のサイズが想定より大きい
 
 **解決策**:
+
 ```bash
 # バンドル分析実行
 ANALYZE=true pnpm build
@@ -904,6 +890,7 @@ pnpm why package-name
 ```
 
 **最適化手順**:
+
 ```typescript
 // 1. 動的インポートに変換
 const LazyComponent = lazy(() => import('./heavy-component'))
@@ -922,6 +909,7 @@ if (isDevelopment) {
 **症状**: ビルド時間が長く、CI/CDでタイムアウトする
 
 **解決策**:
+
 ```bash
 # Node.jsメモリ制限増加
 NODE_OPTIONS="--max-old-space-size=8192" pnpm build
@@ -934,6 +922,7 @@ pnpm store status
 ```
 
 **最適化設定**:
+
 ```typescript
 // vite.config.ts
 export default defineConfig({
@@ -947,10 +936,10 @@ export default defineConfig({
 
       // 最適化レベル調整
       treeshake: {
-        preset: 'smallest' // または 'safest'
-      }
-    }
-  }
+        preset: 'smallest', // または 'safest'
+      },
+    },
+  },
 })
 ```
 
@@ -959,24 +948,21 @@ export default defineConfig({
 **症状**: Three.jsモジュールのimportでエラーが発生
 
 **解決策**:
+
 ```typescript
 // vite.config.ts
 export default defineConfig({
   optimizeDeps: {
-    include: [
-      'three',
-      'three/examples/jsm/controls/OrbitControls',
-      'three/examples/jsm/loaders/GLTFLoader'
-    ]
+    include: ['three', 'three/examples/jsm/controls/OrbitControls', 'three/examples/jsm/loaders/GLTFLoader'],
   },
   build: {
     rollupOptions: {
       external: [], // Three.jsを外部化しない
       output: {
-        globals: {} // グローバル変数不要
-      }
-    }
-  }
+        globals: {}, // グローバル変数不要
+      },
+    },
+  },
 })
 ```
 
@@ -985,6 +971,7 @@ export default defineConfig({
 **症状**: Effect-TSコードが期待通りに最適化されない
 
 **解決策**:
+
 ```typescript
 // 1. Pure注釈の追加
 /*#__PURE__*/ Effect.succeed(value)
@@ -996,18 +983,18 @@ export default defineConfig({
     rollupOptions: {
       treeshake: {
         annotations: true,
-        moduleSideEffects: false
-      }
-    }
-  }
+        moduleSideEffects: false,
+      },
+    },
+  },
 })
 
 // 3. Effect-TS専用最適化
 export default defineConfig({
   define: {
     __DEV__: JSON.stringify(false), // 開発用コード除去
-    'process.env.NODE_ENV': JSON.stringify('production')
-  }
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
 })
 ```
 
@@ -1050,7 +1037,7 @@ export async function collectBuildMetrics(): Promise<BuildMetrics> {
     bundleSize: await analyzeBundleSize(),
     chunkSizes: await analyzeChunkSizes(),
     dependencies: await analyzeDependencies(),
-    performance: await estimatePerformance()
+    performance: await estimatePerformance(),
   }
 
   // メトリクス保存
@@ -1107,7 +1094,7 @@ export default defineConfig(({ mode }) => {
 
         // Nixビルド成果物の除外
         input: {
-          main: resolve(process.cwd(), 'index.html')
+          main: resolve(process.cwd(), 'index.html'),
         },
 
         output: {
@@ -1125,8 +1112,8 @@ export default defineConfig(({ mode }) => {
 
           // Nix環境変数を活用したチャンク命名
           entryFileNames: `assets/js/[name]-${process.env.DEVENV_STATE?.split('/').pop() || 'dev'}-[hash].js`,
-          chunkFileNames: `assets/js/[name]-${process.env.DEVENV_STATE?.split('/').pop() || 'dev'}-[hash].js`
-        }
+          chunkFileNames: `assets/js/[name]-${process.env.DEVENV_STATE?.split('/').pop() || 'dev'}-[hash].js`,
+        },
       },
 
       // Nix環境での最適化設定
@@ -1141,15 +1128,9 @@ export default defineConfig(({ mode }) => {
           keep_fargs: false,
 
           // pnpmによる重複排除を考慮
-          pure_funcs: [
-            'console.log',
-            'console.info',
-            'console.warn',
-            'Effect.logInfo',
-            'Effect.logDebug'
-          ]
-        }
-      }
+          pure_funcs: ['console.log', 'console.info', 'console.warn', 'Effect.logInfo', 'Effect.logDebug'],
+        },
+      },
     },
 
     // Nix環境でのesbuild設定
@@ -1165,8 +1146,8 @@ export default defineConfig(({ mode }) => {
       define: {
         __NIX_PROFILE__: JSON.stringify(nixProfile),
         __DEVENV_ROOT__: JSON.stringify(devenvRoot),
-        __NODE_VERSION__: JSON.stringify(process.version)
-      }
+        __NODE_VERSION__: JSON.stringify(process.version),
+      },
     },
 
     // Nix環境でのパッケージ解決
@@ -1175,16 +1156,16 @@ export default defineConfig(({ mode }) => {
         '@': resolve(process.cwd(), 'src'),
 
         // pnpm store内のパッケージ解決
-        'effect': nixProfile ? `${nixProfile}/lib/node_modules/effect` : 'effect',
-        'three': nixProfile ? `${nixProfile}/lib/node_modules/three` : 'three'
+        effect: nixProfile ? `${nixProfile}/lib/node_modules/effect` : 'effect',
+        three: nixProfile ? `${nixProfile}/lib/node_modules/three` : 'three',
       },
 
       // pnpmシンボリックリンクの正しい解決
       preserveSymlinks: false,
 
       // Nix store内のモジュール探索
-      conditions: ['browser', 'module', 'import']
-    }
+      conditions: ['browser', 'module', 'import'],
+    },
   }
 })
 ```
@@ -1306,52 +1287,38 @@ CMD ["nginx", "-g", "daemon off;"]
 export const nixOptimizedDependencies = {
   // Node.js 22 + pnpm最適化された依存関係
   core: [
-    'effect@3.17.0',        // Nixでビルドされたeffect
-    'three@0.170.0',        // WebGL最適化版
-    '@types/three@0.170.0'
+    'effect@3.17.0', // Nixでビルドされたeffect
+    'three@0.170.0', // WebGL最適化版
+    '@types/three@0.170.0',
   ],
 
   // Nix store内で事前コンパイルされたパッケージ
   precompiled: [
-    'typescript',           // devenv.nixで提供
-    'typescript-language-server'
+    'typescript', // devenv.nixで提供
+    'typescript-language-server',
   ],
 
   // pnpmでの重複排除対象
-  dedupe: [
-    'effect',
-    'three',
-    '@types/node',
-    'tslib'
-  ],
+  dedupe: ['effect', 'three', '@types/node', 'tslib'],
 
   // Nix環境でのビルド時間最適化
   buildOptimization: {
     // キャッシュ可能な依存関係
-    cacheable: [
-      'effect/*',
-      'three/*',
-      '@types/*'
-    ],
+    cacheable: ['effect/*', 'three/*', '@types/*'],
 
     // 事前コンパイル対象
-    precompile: [
-      '@/domain/**/*',
-      '@/utils/**/*'
-    ],
+    precompile: ['@/domain/**/*', '@/utils/**/*'],
 
     // 動的読み込み対象
-    dynamic: [
-      '@/features/**/*',
-      '@/presentation/pages/**/*'
-    ]
-  }
+    dynamic: ['@/features/**/*', '@/presentation/pages/**/*'],
+  },
 }
 ```
 
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
+
 - [Vite設定](./vite-config.md) - Vite開発・ビルド設定詳細
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Project設定](./project-config.md) - プロジェクト全体設定
@@ -1359,12 +1326,14 @@ export const nixOptimizedDependencies = {
 - [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
+
 - [Vite Build Options](https://vitejs.dev/config/build-options.html)
 - [Rollup Configuration](https://rollupjs.org/configuration-options/)
 - [Terser Options](https://terser.org/docs/api-reference)
 - [Web Vitals](https://web.dev/vitals/)
 
 ### プロジェクト固有
+
 - [デプロイガイド](../../how-to/deployment/README.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)
 - [Three.js統合ガイド](../../how-to/development/performance-optimization.md)

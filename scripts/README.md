@@ -25,6 +25,7 @@ scripts/
 ## 🚀 クイックリファレンス
 
 ### Claude経由（推奨）
+
 ```bash
 # コマンド体系を使用
 claude "/issue/create 要望文"
@@ -33,6 +34,7 @@ claude "/pr/create 123"
 ```
 
 ### 直接実行
+
 ```bash
 ./scripts/create-issue.sh "要望文"
 ./scripts/create-pr.sh 123
@@ -42,6 +44,7 @@ claude "/pr/create 123"
 ## 📖 詳細ドキュメント
 
 各スクリプトの詳細な仕様と使用方法：
+
 - [Issue作成コマンド](../.claude/commands/issue/create.md)
 - [Issue実装コマンド](../.claude/commands/issue/implement.md)
 - [PR作成コマンド](../.claude/commands/pr/create.md)
@@ -49,6 +52,7 @@ claude "/pr/create 123"
 ## 🛠️ 主要スクリプト
 
 ### create-issue.sh
+
 自然言語の要望文から構造化されたGitHub Issueを自動生成します。
 
 ```bash
@@ -60,12 +64,14 @@ claude "/pr/create 123"
 ```
 
 **機能:**
+
 - Task ID自動採番（P0-001形式）
 - 複雑度とAIガイダンスの自動推定
 - 関連ドキュメント自動リンク
 - DRY RUNモード対応
 
 ### create-pr.sh
+
 GitHub IssueからPull Requestを自動作成します。
 
 ```bash
@@ -77,6 +83,7 @@ GitHub IssueからPull Requestを自動作成します。
 ```
 
 **機能:**
+
 - Issue情報の自動取得
 - ブランチ自動作成・管理
 - 品質チェック（TypeCheck/Lint/Build）
@@ -84,6 +91,7 @@ GitHub IssueからPull Requestを自動作成します。
 - DRAFTモード対応
 
 ### create-phase-issues.sh
+
 ROADMAP.mdからPhase単位でIssueを一括作成します。
 
 ```bash
@@ -95,6 +103,7 @@ DRY_RUN=true ./scripts/create-phase-issues.sh 0
 ```
 
 ### test-all.sh
+
 すべてのスクリプトの動作を検証します。
 
 ```bash

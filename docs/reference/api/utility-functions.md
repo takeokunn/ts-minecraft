@@ -1,13 +1,21 @@
 ---
-title: "Utility Functions - 汎用ユーティリティ関数完全集"
-description: "TypeScript Minecraft Clone汎用ユーティリティ関数完全リファレンス。数学演算、配列操作、オブジェクト変換、型ガード関数の実装パターン。関数型プログラミングによる高品質ユーティリティライブラリ。"
-category: "reference"
-difficulty: "advanced"
-tags: ["utility-functions", "math-utils", "array-utils", "object-utils", "type-guards", "functional-programming", "reusable-code"]
-prerequisites: ["core-apis", "typescript-advanced", "functional-programming-intermediate"]
-estimated_reading_time: "30-40分"
+title: 'Utility Functions - 汎用ユーティリティ関数完全集'
+description: 'TypeScript Minecraft Clone汎用ユーティリティ関数完全リファレンス。数学演算、配列操作、オブジェクト変換、型ガード関数の実装パターン。関数型プログラミングによる高品質ユーティリティライブラリ。'
+category: 'reference'
+difficulty: 'advanced'
+tags:
+  [
+    'utility-functions',
+    'math-utils',
+    'array-utils',
+    'object-utils',
+    'type-guards',
+    'functional-programming',
+    'reusable-code',
+  ]
+prerequisites: ['core-apis', 'typescript-advanced', 'functional-programming-intermediate']
+estimated_reading_time: '30-40分'
 ---
-
 
 # 🛠️ Utility Functions - 汎用ユーティリティ完全マスタリー
 
@@ -52,17 +60,18 @@ mindmap
 ### 📋 基本数学関数群
 
 #### ✅ **ベクトル演算システム**
-```typescript
-import { Schema, Effect, pipe } from "effect"
+
+````typescript
+import { Schema, Effect, pipe } from 'effect'
 
 // Brand型を使った座標系型安全性強化
-import { Brand } from "effect"
+import { Brand } from 'effect'
 
 // 座標系Brand型定義 - 型レベルでの座標系区別
-export type WorldPosition = Brand.Brand<number, "WorldPosition">
-export type ChunkPosition = Brand.Brand<number, "ChunkPosition">
-export type BlockPosition = Brand.Brand<number, "BlockPosition">
-export type LocalPosition = Brand.Brand<number, "LocalPosition">
+export type WorldPosition = Brand.Brand<number, 'WorldPosition'>
+export type ChunkPosition = Brand.Brand<number, 'ChunkPosition'>
+export type BlockPosition = Brand.Brand<number, 'BlockPosition'>
+export type LocalPosition = Brand.Brand<number, 'LocalPosition'>
 
 // Brand型コンストラクタ
 export const WorldPosition = Brand.nominal<WorldPosition>()
@@ -74,65 +83,65 @@ export const LocalPosition = Brand.nominal<LocalPosition>()
 export const Vector3Schema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 }).annotations({
-  identifier: "Vector3",
-  description: "3次元ベクトル（汎用座標）"
+  identifier: 'Vector3',
+  description: '3次元ベクトル（汎用座標）',
 })
 
 export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 
 // 型安全な座標専用ベクトル
 export const WorldVector3Schema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.brand("WorldPosition")),
-  y: Schema.Number.pipe(Schema.brand("WorldPosition")),
-  z: Schema.Number.pipe(Schema.brand("WorldPosition"))
+  x: Schema.Number.pipe(Schema.brand('WorldPosition')),
+  y: Schema.Number.pipe(Schema.brand('WorldPosition')),
+  z: Schema.Number.pipe(Schema.brand('WorldPosition')),
 }).annotations({
-  identifier: "WorldVector3",
-  description: "ワールド座標系3次元ベクトル"
+  identifier: 'WorldVector3',
+  description: 'ワールド座標系3次元ベクトル',
 })
 
 export type WorldVector3 = Schema.Schema.Type<typeof WorldVector3Schema>
 
 export const ChunkVector3Schema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.brand("ChunkPosition")),
-  y: Schema.Number.pipe(Schema.brand("ChunkPosition")),
-  z: Schema.Number.pipe(Schema.brand("ChunkPosition"))
+  x: Schema.Number.pipe(Schema.brand('ChunkPosition')),
+  y: Schema.Number.pipe(Schema.brand('ChunkPosition')),
+  z: Schema.Number.pipe(Schema.brand('ChunkPosition')),
 }).annotations({
-  identifier: "ChunkVector3",
-  description: "チャンク座標系3次元ベクトル"
+  identifier: 'ChunkVector3',
+  description: 'チャンク座標系3次元ベクトル',
 })
 
 export type ChunkVector3 = Schema.Schema.Type<typeof ChunkVector3Schema>
 
 export const BlockVector3Schema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.brand("BlockPosition")),
-  y: Schema.Number.pipe(Schema.brand("BlockPosition")),
-  z: Schema.Number.pipe(Schema.brand("BlockPosition"))
+  x: Schema.Number.pipe(Schema.brand('BlockPosition')),
+  y: Schema.Number.pipe(Schema.brand('BlockPosition')),
+  z: Schema.Number.pipe(Schema.brand('BlockPosition')),
 }).annotations({
-  identifier: "BlockVector3",
-  description: "ブロック座標系3次元ベクトル（整数のみ）"
+  identifier: 'BlockVector3',
+  description: 'ブロック座標系3次元ベクトル（整数のみ）',
 })
 
 export type BlockVector3 = Schema.Schema.Type<typeof BlockVector3Schema>
 
 export const Vector2Schema = Schema.Struct({
   x: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 }).annotations({
-  identifier: "Vector2",
-  description: "2次元ベクトル（XZ平面）"
+  identifier: 'Vector2',
+  description: '2次元ベクトル（XZ平面）',
 })
 
 export type Vector2 = Schema.Schema.Type<typeof Vector2Schema>
 
 // 型安全な2D座標専用ベクトル
 export const ChunkVector2Schema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.brand("ChunkPosition")),
-  z: Schema.Number.pipe(Schema.brand("ChunkPosition"))
+  x: Schema.Number.pipe(Schema.brand('ChunkPosition')),
+  z: Schema.Number.pipe(Schema.brand('ChunkPosition')),
 }).annotations({
-  identifier: "ChunkVector2",
-  description: "チャンク座標系2次元ベクトル"
+  identifier: 'ChunkVector2',
+  description: 'チャンク座標系2次元ベクトル',
 })
 
 export type ChunkVector2 = Schema.Schema.Type<typeof ChunkVector2Schema>
@@ -154,13 +163,13 @@ export const CoordinateUtils = {
   createWorldPosition: (x: number, y: number, z: number): Effect.Effect<WorldVector3, CoordinateError> =>
     Effect.gen(function* () {
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        return yield* Effect.fail(new CoordinateError("Invalid coordinate: must be finite numbers"))
+        return yield* Effect.fail(new CoordinateError('Invalid coordinate: must be finite numbers'))
       }
 
       return {
         x: WorldPosition(x),
         y: WorldPosition(y),
-        z: WorldPosition(z)
+        z: WorldPosition(z),
       }
     }),
 
@@ -180,7 +189,7 @@ export const CoordinateUtils = {
   createBlockPosition: (x: number, y: number, z: number): Effect.Effect<BlockVector3, CoordinateError> =>
     Effect.gen(function* () {
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        return yield* Effect.fail(new CoordinateError("Invalid coordinate: must be finite numbers"))
+        return yield* Effect.fail(new CoordinateError('Invalid coordinate: must be finite numbers'))
       }
 
       const blockX = Math.floor(x)
@@ -188,13 +197,13 @@ export const CoordinateUtils = {
       const blockZ = Math.floor(z)
 
       if (blockY < 0 || blockY > 255) {
-        return yield* Effect.fail(new CoordinateError("Block Y coordinate must be between 0-255"))
+        return yield* Effect.fail(new CoordinateError('Block Y coordinate must be between 0-255'))
       }
 
       return {
         x: BlockPosition(blockX),
         y: BlockPosition(blockY),
-        z: BlockPosition(blockZ)
+        z: BlockPosition(blockZ),
       }
     }),
 
@@ -212,12 +221,12 @@ export const CoordinateUtils = {
   createChunkPosition: (chunkX: number, chunkZ: number): Effect.Effect<ChunkVector2, CoordinateError> =>
     Effect.gen(function* () {
       if (!Number.isInteger(chunkX) || !Number.isInteger(chunkZ)) {
-        return yield* Effect.fail(new CoordinateError("Chunk coordinates must be integers"))
+        return yield* Effect.fail(new CoordinateError('Chunk coordinates must be integers'))
       }
 
       return {
         x: ChunkPosition(chunkX),
-        z: ChunkPosition(chunkZ)
+        z: ChunkPosition(chunkZ),
       }
     }),
 
@@ -234,7 +243,7 @@ export const CoordinateUtils = {
    */
   worldToChunk: (worldPos: WorldVector3): ChunkVector2 => ({
     x: ChunkPosition(Math.floor(Brand.value(worldPos.x) / 16)),
-    z: ChunkPosition(Math.floor(Brand.value(worldPos.z) / 16))
+    z: ChunkPosition(Math.floor(Brand.value(worldPos.z) / 16)),
   }),
 
   /**
@@ -251,7 +260,7 @@ export const CoordinateUtils = {
   worldToBlock: (worldPos: WorldVector3): BlockVector3 => ({
     x: BlockPosition(Math.floor(Brand.value(worldPos.x))),
     y: BlockPosition(Math.floor(Brand.value(worldPos.y))),
-    z: BlockPosition(Math.floor(Brand.value(worldPos.z)))
+    z: BlockPosition(Math.floor(Brand.value(worldPos.z))),
   }),
 
   /**
@@ -268,7 +277,7 @@ export const CoordinateUtils = {
   blockToWorldCenter: (blockPos: BlockVector3): WorldVector3 => ({
     x: WorldPosition(Brand.value(blockPos.x) + 0.5),
     y: WorldPosition(Brand.value(blockPos.y) + 0.5),
-    z: WorldPosition(Brand.value(blockPos.z) + 0.5)
+    z: WorldPosition(Brand.value(blockPos.z) + 0.5),
   }),
 
   /**
@@ -289,22 +298,23 @@ export const CoordinateUtils = {
   equals: <T extends WorldVector3 | BlockVector3 | ChunkVector2>(a: T, b: T): boolean => {
     if ('y' in a && 'y' in b) {
       // 3D座標の場合
-      return Brand.value(a.x) === Brand.value(b.x) &&
-             Brand.value(a.y) === Brand.value(b.y) &&
-             Brand.value(a.z) === Brand.value(b.z)
+      return (
+        Brand.value(a.x) === Brand.value(b.x) &&
+        Brand.value(a.y) === Brand.value(b.y) &&
+        Brand.value(a.z) === Brand.value(b.z)
+      )
     } else {
       // 2D座標の場合
-      return Brand.value(a.x) === Brand.value(b.x) &&
-             Brand.value(a.z) === Brand.value(b.z)
+      return Brand.value(a.x) === Brand.value(b.x) && Brand.value(a.z) === Brand.value(b.z)
     }
-  }
+  },
 } as const
 
 // カスタムエラー型 - Effect-TS関数型パターン
-export const CoordinateError = Schema.TaggedError("CoordinateError")({
+export const CoordinateError = Schema.TaggedError('CoordinateError')({
   message: Schema.String,
   coordinate: Schema.optional(Schema.Unknown),
-  timestamp: Schema.optional(Schema.DateTimeUtc)
+  timestamp: Schema.optional(Schema.DateTimeUtc),
 })
 
 // Brand型実行時検証・テスト統合パターン
@@ -430,7 +440,7 @@ export const CoordinateTestUtils = {
     ({
       x: WorldPosition(Math.random() * 60000000 - 30000000),
       y: WorldPosition(Math.random() * 384 - 64),
-      z: WorldPosition(Math.random() * 60000000 - 30000000)
+      z: WorldPosition(Math.random() * 60000000 - 30000000),
     }),
 
   /**
@@ -443,11 +453,12 @@ export const CoordinateTestUtils = {
       worldPosition: () => WorldPositionArbitrary,
       blockPosition: () => BlockPositionArbitrary,
       chunkPosition: () => ChunkPositionArbitrary,
-      localPosition: (chunkSize = 16) => fc.record({
-        x: fc.integer({ min: 0, max: chunkSize - 1 }).map(LocalPosition),
-        y: fc.integer({ min: 0, max: 255 }).map(LocalPosition),
-        z: fc.integer({ min: 0, max: chunkSize - 1 }).map(LocalPosition)
-      })
+      localPosition: (chunkSize = 16) =>
+        fc.record({
+          x: fc.integer({ min: 0, max: chunkSize - 1 }).map(LocalPosition),
+          y: fc.integer({ min: 0, max: 255 }).map(LocalPosition),
+          z: fc.integer({ min: 0, max: chunkSize - 1 }).map(LocalPosition),
+        }),
     },
 
     // ID系ジェネレーター
@@ -457,7 +468,7 @@ export const CoordinateTestUtils = {
       worldId: () => WorldIdArbitrary,
       chunkId: () => ChunkIdArbitrary,
       blockId: () => BlockTypeArbitrary,
-      itemId: () => ItemIdArbitrary
+      itemId: () => ItemIdArbitrary,
     },
 
     // ゲーム状態ジェネレーター
@@ -466,7 +477,7 @@ export const CoordinateTestUtils = {
       inventory: () => InventoryArbitrary,
       itemStack: () => ItemStackArbitrary,
       health: () => HealthPointsArbitrary,
-      experience: () => ExperiencePointsArbitrary
+      experience: () => ExperiencePointsArbitrary,
     },
 
     // 音響・視覚系ジェネレーター
@@ -474,7 +485,7 @@ export const CoordinateTestUtils = {
       soundEvent: () => SoundEventArbitrary,
       volume: () => VolumeArbitrary,
       frequency: () => FrequencyArbitrary,
-      attenuation: () => AttenuationDistanceArbitrary
+      attenuation: () => AttenuationDistanceArbitrary,
     },
 
     // 戦闘系ジェネレーター
@@ -482,27 +493,32 @@ export const CoordinateTestUtils = {
       weapon: () => WeaponArbitrary,
       damage: () => DamageArbitrary,
       attackSpeed: () => AttackSpeedArbitrary,
-      criticalChance: () => CriticalChanceArbitrary
+      criticalChance: () => CriticalChanceArbitrary,
     },
 
     // 物理・レンダリング系ジェネレーター
     physics: {
-      velocity: () => fc.record({
-        x: fc.float({ min: -100, max: 100, noNaN: true }),
-        y: fc.float({ min: -100, max: 100, noNaN: true }),
-        z: fc.float({ min: -100, max: 100, noNaN: true })
-      }),
-      boundingBox: () => fc.record({
-        min: WorldPositionArbitrary,
-        max: WorldPositionArbitrary
-      }).filter(box =>
-        Brand.value(box.min.x) < Brand.value(box.max.x) &&
-        Brand.value(box.min.y) < Brand.value(box.max.y) &&
-        Brand.value(box.min.z) < Brand.value(box.max.z)
-      ),
+      velocity: () =>
+        fc.record({
+          x: fc.float({ min: -100, max: 100, noNaN: true }),
+          y: fc.float({ min: -100, max: 100, noNaN: true }),
+          z: fc.float({ min: -100, max: 100, noNaN: true }),
+        }),
+      boundingBox: () =>
+        fc
+          .record({
+            min: WorldPositionArbitrary,
+            max: WorldPositionArbitrary,
+          })
+          .filter(
+            (box) =>
+              Brand.value(box.min.x) < Brand.value(box.max.x) &&
+              Brand.value(box.min.y) < Brand.value(box.max.y) &&
+              Brand.value(box.min.z) < Brand.value(box.max.z)
+          ),
       mass: () => fc.float({ min: 0.1, max: 1000, noNaN: true }).map(Mass),
-      friction: () => fc.float({ min: 0, max: 1 }).map(Friction)
-    }
+      friction: () => fc.float({ min: 0, max: 1 }).map(Friction),
+    },
   }),
 
   /**
@@ -536,32 +552,27 @@ export const CoordinateTestUtils = {
    * ```
    */
   validateCoordinateConversion: (testCase: {
-    world: { x: number; y: number; z: number };
-    expectedChunk: { x: number; z: number };
-    expectedBlock: { x: number; y: number; z: number };
+    world: { x: number; y: number; z: number }
+    expectedChunk: { x: number; z: number }
+    expectedBlock: { x: number; y: number; z: number }
   }): Effect.Effect<boolean, CoordinateError> =>
     Effect.gen(function* () {
       // ワールド座標の作成・検証
-      const worldPos = yield* CoordinateUtils.createWorldPosition(
-        testCase.world.x, testCase.world.y, testCase.world.z
-      );
+      const worldPos = yield* CoordinateUtils.createWorldPosition(testCase.world.x, testCase.world.y, testCase.world.z)
 
       // チャンク座標への変換と検証
-      const chunkPos = CoordinateUtils.worldToChunk(worldPos);
-      const isChunkValid = (
-        Brand.value(chunkPos.x) === testCase.expectedChunk.x &&
-        Brand.value(chunkPos.z) === testCase.expectedChunk.z
-      );
+      const chunkPos = CoordinateUtils.worldToChunk(worldPos)
+      const isChunkValid =
+        Brand.value(chunkPos.x) === testCase.expectedChunk.x && Brand.value(chunkPos.z) === testCase.expectedChunk.z
 
       // ブロック座標への変換と検証
-      const blockPos = CoordinateUtils.worldToBlock(worldPos);
-      const isBlockValid = (
+      const blockPos = CoordinateUtils.worldToBlock(worldPos)
+      const isBlockValid =
         Brand.value(blockPos.x) === testCase.expectedBlock.x &&
         Brand.value(blockPos.y) === testCase.expectedBlock.y &&
         Brand.value(blockPos.z) === testCase.expectedBlock.z
-      );
 
-      return isChunkValid && isBlockValid;
+      return isChunkValid && isBlockValid
     }),
 
   /**
@@ -592,32 +603,29 @@ export const CoordinateTestUtils = {
    * // validatedPos: WorldVector3（型安全・実行時検証済み）
    * ```
    */
-  integratedValidation: <T>(
-    schema: Schema.Schema<T, unknown>,
-    data: unknown
-  ): Effect.Effect<T, ValidationError> =>
+  integratedValidation: <T>(schema: Schema.Schema<T, unknown>, data: unknown): Effect.Effect<T, ValidationError> =>
     Effect.gen(function* () {
       try {
-        return yield* Schema.decodeUnknown(schema)(data);
+        return yield* Schema.decodeUnknown(schema)(data)
       } catch (error) {
-        return yield* Effect.fail(new ValidationError(
-          error instanceof Error ? error.message : "Unknown validation error"
-        ));
+        return yield* Effect.fail(
+          new ValidationError(error instanceof Error ? error.message : 'Unknown validation error')
+        )
       }
-    })
+    }),
 } as const
 
 // テスト用エラー型 - Effect-TS関数型パターン
-export const ValidationError = Schema.TaggedError("ValidationError")({
+export const ValidationError = Schema.TaggedError('ValidationError')({
   message: Schema.String,
   field: Schema.optional(Schema.String),
-  value: Schema.optional(Schema.Unknown)
+  value: Schema.optional(Schema.Unknown),
 })
 
-export const ParseError = Schema.TaggedError("ParseError")({
+export const ParseError = Schema.TaggedError('ParseError')({
   message: Schema.String,
   input: Schema.optional(Schema.String),
-  position: Schema.optional(Schema.Number)
+  position: Schema.optional(Schema.Number),
 })
 
 /**
@@ -641,7 +649,7 @@ export const MathUtils = {
   add3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.x + b.x,
     y: a.y + b.y,
-    z: a.z + b.z
+    z: a.z + b.z,
   }),
 
   /**
@@ -660,7 +668,7 @@ export const MathUtils = {
   subtract3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.x - b.x,
     y: a.y - b.y,
-    z: a.z - b.z
+    z: a.z - b.z,
   }),
 
   /**
@@ -677,8 +685,7 @@ export const MathUtils = {
    * console.log(angle * 180 / Math.PI); // 30度
    * ```
    */
-  dot3D: (a: Vector3, b: Vector3): number =>
-    a.x * b.x + a.y * b.y + a.z * b.z,
+  dot3D: (a: Vector3, b: Vector3): number => a.x * b.x + a.y * b.y + a.z * b.z,
 
   /**
    * 3Dベクトルの外積（クロス積）
@@ -702,7 +709,7 @@ export const MathUtils = {
   cross3D: (a: Vector3, b: Vector3): Vector3 => ({
     x: a.y * b.z - a.z * b.y,
     y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x
+    z: a.x * b.y - a.y * b.x,
   }),
 
   /**
@@ -723,8 +730,7 @@ export const MathUtils = {
    * }
    * ```
    */
-  length3D: (v: Vector3): number =>
-    Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
+  length3D: (v: Vector3): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
 
   /**
    * 3Dベクトルの正規化（単位ベクトル化）
@@ -750,13 +756,12 @@ export const MathUtils = {
     return {
       x: v.x / length,
       y: v.y / length,
-      z: v.z / length
+      z: v.z / length,
     }
   },
 
   // 距離計算
-  distance3D: (a: Vector3, b: Vector3): number =>
-    MathUtils.length3D(MathUtils.subtract3D(a, b)),
+  distance3D: (a: Vector3, b: Vector3): number => MathUtils.length3D(MathUtils.subtract3D(a, b)),
 
   // 線形補間
   lerp3D: (a: Vector3, b: Vector3, t: number): Vector3 => {
@@ -764,7 +769,7 @@ export const MathUtils = {
     return {
       x: a.x + (b.x - a.x) * clampedT,
       y: a.y + (b.y - a.y) * clampedT,
-      z: a.z + (b.z - a.z) * clampedT
+      z: a.z + (b.z - a.z) * clampedT,
     }
   },
 
@@ -772,13 +777,13 @@ export const MathUtils = {
   multiply3D: (v: Vector3, scalar: number): Vector3 => ({
     x: v.x * scalar,
     y: v.y * scalar,
-    z: v.z * scalar
+    z: v.z * scalar,
   }),
 
   // 2Dベクトル操作
   add2D: (a: Vector2, b: Vector2): Vector2 => ({
     x: a.x + b.x,
-    z: a.z + b.z
+    z: a.z + b.z,
   }),
 
   distance2D: (a: Vector2, b: Vector2): number => {
@@ -788,8 +793,7 @@ export const MathUtils = {
   },
 
   // 角度計算（ラジアン）
-  angle2D: (a: Vector2, b: Vector2): number =>
-    Math.atan2(b.z - a.z, b.x - a.x),
+  angle2D: (a: Vector2, b: Vector2): number => Math.atan2(b.z - a.z, b.x - a.x),
 
   // 回転行列適用（Y軸回転）
   rotateY: (v: Vector3, radians: number): Vector3 => {
@@ -798,34 +802,35 @@ export const MathUtils = {
     return {
       x: v.x * cos + v.z * sin,
       y: v.y,
-      z: -v.x * sin + v.z * cos
+      z: -v.x * sin + v.z * cos,
     }
-  }
+  },
 } as const
-```
+````
 
 #### ⭐ **Minecraft特化数学関数**
+
 ```typescript
 // Minecraft特化の数学ユーティリティ
 export const MinecraftMathUtils = {
   // チャンク座標変換
   worldToChunk: (worldPos: Vector3): Vector2 => ({
     x: Math.floor(worldPos.x / 16),
-    z: Math.floor(worldPos.z / 16)
+    z: Math.floor(worldPos.z / 16),
   }),
 
   // ワールド座標からローカル座標
   worldToLocal: (worldPos: Vector3): Vector3 => ({
     x: worldPos.x % 16,
     y: worldPos.y,
-    z: worldPos.z % 16
+    z: worldPos.z % 16,
   }),
 
   // ブロック座標正規化
   blockPosition: (pos: Vector3): Vector3 => ({
     x: Math.floor(pos.x),
     y: Math.floor(pos.y),
-    z: Math.floor(pos.z)
+    z: Math.floor(pos.z),
   }),
 
   // マンハッタン距離
@@ -834,51 +839,38 @@ export const MinecraftMathUtils = {
 
   // チェビシェフ距離
   chebyshevDistance: (a: Vector3, b: Vector3): number =>
-    Math.max(
-      Math.abs(a.x - b.x),
-      Math.abs(a.y - b.y),
-      Math.abs(a.z - b.z)
-    ),
+    Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z)),
 
   // バウンディングボックス衝突判定
-  aabbIntersects: (
-    a: { min: Vector3; max: Vector3 },
-    b: { min: Vector3; max: Vector3 }
-  ): boolean =>
-    a.min.x <= b.max.x && a.max.x >= b.min.x &&
-    a.min.y <= b.max.y && a.max.y >= b.min.y &&
-    a.min.z <= b.max.z && a.max.z >= b.min.z,
+  aabbIntersects: (a: { min: Vector3; max: Vector3 }, b: { min: Vector3; max: Vector3 }): boolean =>
+    a.min.x <= b.max.x &&
+    a.max.x >= b.min.x &&
+    a.min.y <= b.max.y &&
+    a.max.y >= b.min.y &&
+    a.min.z <= b.max.z &&
+    a.max.z >= b.min.z,
 
   // レイキャスティング
-  raycast: (
-    origin: Vector3,
-    direction: Vector3,
-    maxDistance: number
-  ): Vector3[] => {
+  raycast: (origin: Vector3, direction: Vector3, maxDistance: number): Vector3[] => {
     const normalizedDir = MathUtils.normalize3D(direction)
     const positions: Vector3[] = []
 
     for (let t = 0; t <= maxDistance; t += 0.1) {
-      const pos = MathUtils.add3D(
-        origin,
-        MathUtils.multiply3D(normalizedDir, t)
-      )
+      const pos = MathUtils.add3D(origin, MathUtils.multiply3D(normalizedDir, t))
       positions.push(MinecraftMathUtils.blockPosition(pos))
     }
 
     // 重複除去
-    return positions.filter((pos, index, array) =>
-      index === 0 || !MinecraftMathUtils.vector3Equal(pos, array[index - 1])
+    return positions.filter(
+      (pos, index, array) => index === 0 || !MinecraftMathUtils.vector3Equal(pos, array[index - 1])
     )
   },
 
   // ベクトル等価判定
-  vector3Equal: (a: Vector3, b: Vector3): boolean =>
-    a.x === b.x && a.y === b.y && a.z === b.z,
+  vector3Equal: (a: Vector3, b: Vector3): boolean => a.x === b.x && a.y === b.y && a.z === b.z,
 
   // 範囲内判定
-  inRange: (pos: Vector3, center: Vector3, radius: number): boolean =>
-    MathUtils.distance3D(pos, center) <= radius,
+  inRange: (pos: Vector3, center: Vector3, radius: number): boolean => MathUtils.distance3D(pos, center) <= radius,
 
   // ノイズ生成（シンプレックスノイズ風）
   noise2D: (x: number, z: number, seed = 0): number => {
@@ -904,12 +896,7 @@ export const MinecraftMathUtils = {
   },
 
   // 高度マップ生成
-  generateHeightMap: (
-    width: number,
-    height: number,
-    scale: number,
-    seed = 0
-  ): number[][] => {
+  generateHeightMap: (width: number, height: number, scale: number, seed = 0): number[][] => {
     const heightMap: number[][] = []
 
     for (let x = 0; x < width; x++) {
@@ -923,7 +910,7 @@ export const MinecraftMathUtils = {
     }
 
     return heightMap
-  }
+  },
 } as const
 ```
 
@@ -932,8 +919,9 @@ export const MinecraftMathUtils = {
 ### 📋 関数型配列処理
 
 #### ✅ **型安全配列操作**
-```typescript
-import { Array as EffectArray, Option, Either, pipe } from "effect"
+
+````typescript
+import { Array as EffectArray, Option, Either, pipe } from 'effect'
 
 export const ArrayUtils = {
   /**
@@ -964,9 +952,7 @@ export const ArrayUtils = {
    * ```
    */
   get: <T>(array: readonly T[], index: number): Option.Option<T> =>
-    index >= 0 && index < array.length
-      ? Option.some(array[index])
-      : Option.none(),
+    index >= 0 && index < array.length ? Option.some(array[index]) : Option.none(),
 
   /**
    * 最初の要素取得 - 配列の先頭要素を安全に取得
@@ -994,8 +980,7 @@ export const ArrayUtils = {
    * );
    * ```
    */
-  head: <T>(array: readonly T[]): Option.Option<T> =>
-    ArrayUtils.get(array, 0),
+  head: <T>(array: readonly T[]): Option.Option<T> => ArrayUtils.get(array, 0),
 
   /**
    * 最後の要素取得 - 配列の末尾要素を安全に取得
@@ -1023,19 +1008,12 @@ export const ArrayUtils = {
    * );
    * ```
    */
-  last: <T>(array: readonly T[]): Option.Option<T> =>
-    ArrayUtils.get(array, array.length - 1),
+  last: <T>(array: readonly T[]): Option.Option<T> => ArrayUtils.get(array, array.length - 1),
 
   // 安全なスライス
-  slice: <T>(
-    array: readonly T[],
-    start: number,
-    end?: number
-  ): readonly T[] => {
+  slice: <T>(array: readonly T[], start: number, end?: number): readonly T[] => {
     const safeStart = Math.max(0, Math.min(start, array.length))
-    const safeEnd = end !== undefined
-      ? Math.max(safeStart, Math.min(end, array.length))
-      : array.length
+    const safeEnd = end !== undefined ? Math.max(safeStart, Math.min(end, array.length)) : array.length
 
     return array.slice(safeStart, safeEnd)
   },
@@ -1101,17 +1079,12 @@ export const ArrayUtils = {
    * console.log(`${uniqueBiomes.length}種類のバイオームを探索済み`);
    * ```
    */
-  unique: <T extends string | number | boolean>(
-    array: readonly T[]
-  ): readonly T[] => [...new Set(array)],
+  unique: <T extends string | number | boolean>(array: readonly T[]): readonly T[] => [...new Set(array)],
 
   // ユニーク化（カスタム比較関数）
-  uniqueBy: <T>(
-    array: readonly T[],
-    keyFn: (item: T) => string | number
-  ): readonly T[] => {
+  uniqueBy: <T>(array: readonly T[], keyFn: (item: T) => string | number): readonly T[] => {
     const seen = new Set<string | number>()
-    return array.filter(item => {
+    return array.filter((item) => {
       const key = keyFn(item)
       if (seen.has(key)) return false
       seen.add(key)
@@ -1120,10 +1093,7 @@ export const ArrayUtils = {
   },
 
   // 安全なソート
-  sortBy: <T>(
-    array: readonly T[],
-    keyFn: (item: T) => number | string
-  ): readonly T[] =>
+  sortBy: <T>(array: readonly T[], keyFn: (item: T) => number | string): readonly T[] =>
     [...array].sort((a, b) => {
       const aKey = keyFn(a)
       const bKey = keyFn(b)
@@ -1131,10 +1101,7 @@ export const ArrayUtils = {
     }),
 
   // グループ化
-  groupBy: <T>(
-    array: readonly T[],
-    keyFn: (item: T) => string
-  ): Record<string, T[]> => {
+  groupBy: <T>(array: readonly T[], keyFn: (item: T) => string): Record<string, T[]> => {
     const groups: Record<string, T[]> = {}
 
     for (const item of array) {
@@ -1149,10 +1116,7 @@ export const ArrayUtils = {
   },
 
   // 分割（条件による）
-  partition: <T>(
-    array: readonly T[],
-    predicate: (item: T) => boolean
-  ): readonly [readonly T[], readonly T[]] => {
+  partition: <T>(array: readonly T[], predicate: (item: T) => boolean): readonly [readonly T[], readonly T[]] => {
     const trueItems: T[] = []
     const falseItems: T[] = []
 
@@ -1168,41 +1132,28 @@ export const ArrayUtils = {
   },
 
   // 安全なfindIndex
-  findIndex: <T>(
-    array: readonly T[],
-    predicate: (item: T) => boolean
-  ): Option.Option<number> => {
+  findIndex: <T>(array: readonly T[], predicate: (item: T) => boolean): Option.Option<number> => {
     const index = array.findIndex(predicate)
     return index !== -1 ? Option.some(index) : Option.none()
   },
 
   // 配列の交集合
-  intersection: <T extends string | number>(
-    a: readonly T[],
-    b: readonly T[]
-  ): readonly T[] => {
+  intersection: <T extends string | number>(a: readonly T[], b: readonly T[]): readonly T[] => {
     const setB = new Set(b)
-    return ArrayUtils.unique(a.filter(item => setB.has(item)))
+    return ArrayUtils.unique(a.filter((item) => setB.has(item)))
   },
 
   // 配列の差集合
-  difference: <T extends string | number>(
-    a: readonly T[],
-    b: readonly T[]
-  ): readonly T[] => {
+  difference: <T extends string | number>(a: readonly T[], b: readonly T[]): readonly T[] => {
     const setB = new Set(b)
-    return a.filter(item => !setB.has(item))
+    return a.filter((item) => !setB.has(item))
   },
 
   // フラット化（1レベル）
-  flatten: <T>(array: readonly (readonly T[])[]): readonly T[] =>
-    array.reduce((acc, curr) => [...acc, ...curr], []),
+  flatten: <T>(array: readonly (readonly T[])[]): readonly T[] => array.reduce((acc, curr) => [...acc, ...curr], []),
 
   // 安全なzip
-  zip: <T, U>(
-    a: readonly T[],
-    b: readonly U[]
-  ): readonly (readonly [T, U])[] => {
+  zip: <T, U>(a: readonly T[], b: readonly U[]): readonly (readonly [T, U])[] => {
     const minLength = Math.min(a.length, b.length)
     const result: [T, U][] = []
 
@@ -1211,7 +1162,7 @@ export const ArrayUtils = {
     }
 
     return result
-  }
+  },
 } as const
 
 // Minecraft特化配列ユーティリティ
@@ -1225,23 +1176,13 @@ export const MinecraftArrayUtils = {
   ): Option.Option<T> =>
     pipe(
       ArrayUtils.get(blocks, x),
-      Option.flatMap(yArray => ArrayUtils.get(yArray, y)),
-      Option.flatMap(zArray => ArrayUtils.get(zArray, z))
+      Option.flatMap((yArray) => ArrayUtils.get(yArray, y)),
+      Option.flatMap((zArray) => ArrayUtils.get(zArray, z))
     ),
 
   // 3D配列設定
-  setBlock3D: <T>(
-    blocks: T[][][],
-    x: number,
-    y: number,
-    z: number,
-    value: T
-  ): void => {
-    if (
-      x >= 0 && x < blocks.length &&
-      y >= 0 && y < blocks[x].length &&
-      z >= 0 && z < blocks[x][y].length
-    ) {
+  setBlock3D: <T>(blocks: T[][][], x: number, y: number, z: number, value: T): void => {
+    if (x >= 0 && x < blocks.length && y >= 0 && y < blocks[x].length && z >= 0 && z < blocks[x][y].length) {
       blocks[x][y][z] = value
     }
   },
@@ -1253,14 +1194,11 @@ export const MinecraftArrayUtils = {
     { x: pos.x, y: pos.y + 1, z: pos.z }, // 上
     { x: pos.x, y: pos.y - 1, z: pos.z }, // 下
     { x: pos.x, y: pos.y, z: pos.z + 1 }, // 南
-    { x: pos.x, y: pos.y, z: pos.z - 1 }  // 北
+    { x: pos.x, y: pos.y, z: pos.z - 1 }, // 北
   ],
 
   // 範囲内座標生成
-  generatePositionsInRange: (
-    min: Vector3,
-    max: Vector3
-  ): readonly Vector3[] => {
+  generatePositionsInRange: (min: Vector3, max: Vector3): readonly Vector3[] => {
     const positions: Vector3[] = []
 
     for (let x = min.x; x <= max.x; x++) {
@@ -1275,10 +1213,7 @@ export const MinecraftArrayUtils = {
   },
 
   // スパイラル座標生成（中心から外側へ）
-  generateSpiralPositions: (
-    center: Vector2,
-    radius: number
-  ): readonly Vector2[] => {
+  generateSpiralPositions: (center: Vector2, radius: number): readonly Vector2[] => {
     const positions: Vector2[] = [center]
 
     for (let r = 1; r <= radius; r++) {
@@ -1287,7 +1222,7 @@ export const MinecraftArrayUtils = {
           if (Math.abs(dx) === r || Math.abs(dz) === r) {
             positions.push({
               x: center.x + dx,
-              z: center.z + dz
+              z: center.z + dz,
             })
           }
         }
@@ -1295,17 +1230,18 @@ export const MinecraftArrayUtils = {
     }
 
     return positions
-  }
+  },
 } as const
-```
+````
 
 ## 📦 Object Utils - オブジェクト操作ユーティリティ
 
 ### 📋 型安全オブジェクト操作
 
 #### ✅ **深いオブジェクト操作**
-```typescript
-import { Option, Either, pipe, Match } from "effect"
+
+````typescript
+import { Option, Either, pipe, Match } from 'effect'
 
 export const ObjectUtils = {
   /**
@@ -1339,7 +1275,7 @@ export const ObjectUtils = {
    * ```
    */
   deepClone: <T>(obj: T): T => {
-    if (obj === null || typeof obj !== "object") return obj
+    if (obj === null || typeof obj !== 'object') return obj
     if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T
     if (obj instanceof Array) return obj.map(ObjectUtils.deepClone) as unknown as T
 
@@ -1380,10 +1316,7 @@ export const ObjectUtils = {
    * );
    * ```
    */
-  get: <T, K extends keyof T>(
-    obj: T,
-    key: K
-  ): Option.Option<T[K]> =>
+  get: <T, K extends keyof T>(obj: T, key: K): Option.Option<T[K]> =>
     key in obj ? Option.some(obj[key]) : Option.none(),
 
   /**
@@ -1425,39 +1358,31 @@ export const ObjectUtils = {
    * );
    * ```
    */
-  getDeep: (
-    obj: unknown,
-    path: readonly string[]
-  ): Option.Option<unknown> =>
+  getDeep: (obj: unknown, path: readonly string[]): Option.Option<unknown> =>
     Match.value(path.length).pipe(
       Match.when(0, () => Option.some(obj)),
       Match.whenOr(
         // パスがある場合の処理
         Match.not(0),
-        () => Match.value(obj).pipe(
-          Match.when(null, () => Option.none()),
-          Match.when(
-            Match.not(Match.instanceOf(Object)),
-            () => Option.none()
-          ),
-          Match.orElse(() => {
-            const [first, ...rest] = path
-            const value = (obj as any)[first]
+        () =>
+          Match.value(obj).pipe(
+            Match.when(null, () => Option.none()),
+            Match.when(Match.not(Match.instanceOf(Object)), () => Option.none()),
+            Match.orElse(() => {
+              const [first, ...rest] = path
+              const value = (obj as any)[first]
 
-            return Match.value(value).pipe(
-              Match.when(undefined, () => Option.none()),
-              Match.orElse(() => ObjectUtils.getDeep(value, rest))
-            )
-          })
-        )
+              return Match.value(value).pipe(
+                Match.when(undefined, () => Option.none()),
+                Match.orElse(() => ObjectUtils.getDeep(value, rest))
+              )
+            })
+          )
       )
     ),
 
   // オブジェクトマージ（深い）
-  mergeDeep: <T extends Record<string, unknown>>(
-    target: T,
-    source: Partial<T>
-  ): T => {
+  mergeDeep: <T extends Record<string, unknown>>(target: T, source: Partial<T>): T => {
     const result = { ...target }
 
     for (const key in source) {
@@ -1468,8 +1393,8 @@ export const ObjectUtils = {
         if (
           sourceValue &&
           targetValue &&
-          typeof sourceValue === "object" &&
-          typeof targetValue === "object" &&
+          typeof sourceValue === 'object' &&
+          typeof targetValue === 'object' &&
           !Array.isArray(sourceValue) &&
           !Array.isArray(targetValue)
         ) {
@@ -1494,10 +1419,7 @@ export const ObjectUtils = {
     const result: Partial<T> = {}
 
     for (const key in obj) {
-      if (
-        Object.prototype.hasOwnProperty.call(obj, key) &&
-        predicate(key, obj[key])
-      ) {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && predicate(key, obj[key])) {
         result[key] = obj[key]
       }
     }
@@ -1522,10 +1444,7 @@ export const ObjectUtils = {
   },
 
   // キーリネーム
-  renameKeys: <T extends Record<string, unknown>>(
-    obj: T,
-    keyMap: Record<string, string>
-  ): Record<string, unknown> => {
+  renameKeys: <T extends Record<string, unknown>>(obj: T, keyMap: Record<string, string>): Record<string, unknown> => {
     const result: Record<string, unknown> = {}
 
     for (const key in obj) {
@@ -1539,17 +1458,11 @@ export const ObjectUtils = {
   },
 
   // オブジェクトの差分検出
-  diff: <T extends Record<string, unknown>>(
-    a: T,
-    b: T
-  ): Partial<T> => {
+  diff: <T extends Record<string, unknown>>(a: T, b: T): Partial<T> => {
     const result: Partial<T> = {}
 
     for (const key in b) {
-      if (
-        Object.prototype.hasOwnProperty.call(b, key) &&
-        a[key] !== b[key]
-      ) {
+      if (Object.prototype.hasOwnProperty.call(b, key) && a[key] !== b[key]) {
         result[key] = b[key]
       }
     }
@@ -1558,10 +1471,7 @@ export const ObjectUtils = {
   },
 
   // フラット化
-  flatten: (
-    obj: Record<string, unknown>,
-    prefix = ""
-  ): Record<string, unknown> => {
+  flatten: (obj: Record<string, unknown>, prefix = ''): Record<string, unknown> => {
     const result: Record<string, unknown> = {}
 
     for (const key in obj) {
@@ -1569,15 +1479,8 @@ export const ObjectUtils = {
         const value = obj[key]
         const newKey = prefix ? `${prefix}.${key}` : key
 
-        if (
-          value &&
-          typeof value === "object" &&
-          !Array.isArray(value)
-        ) {
-          Object.assign(
-            result,
-            ObjectUtils.flatten(value as Record<string, unknown>, newKey)
-          )
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          Object.assign(result, ObjectUtils.flatten(value as Record<string, unknown>, newKey))
         } else {
           result[newKey] = value
         }
@@ -1588,10 +1491,7 @@ export const ObjectUtils = {
   },
 
   // 型安全なpick
-  pick: <T, K extends keyof T>(
-    obj: T,
-    keys: readonly K[]
-  ): Pick<T, K> => {
+  pick: <T, K extends keyof T>(obj: T, keys: readonly K[]): Pick<T, K> => {
     const result = {} as Pick<T, K>
 
     for (const key of keys) {
@@ -1604,10 +1504,7 @@ export const ObjectUtils = {
   },
 
   // 型安全なomit
-  omit: <T, K extends keyof T>(
-    obj: T,
-    keys: readonly K[]
-  ): Omit<T, K> => {
+  omit: <T, K extends keyof T>(obj: T, keys: readonly K[]): Omit<T, K> => {
     const keySet = new Set(keys)
     const result = {} as Omit<T, K>
 
@@ -1618,67 +1515,60 @@ export const ObjectUtils = {
     }
 
     return result
-  }
+  },
 } as const
 
 // Minecraft特化オブジェクトユーティリティ
 export const MinecraftObjectUtils = {
   // ブロック状態のマージ
-  mergeBlockState: (
-    baseState: Record<string, unknown>,
-    updates: Record<string, unknown>
-  ): Record<string, unknown> =>
+  mergeBlockState: (baseState: Record<string, unknown>, updates: Record<string, unknown>): Record<string, unknown> =>
     ObjectUtils.mergeDeep(baseState, updates),
 
   // エンティティデータの検証
-  validateEntityData: (data: unknown): Either.Either<
-    Record<string, unknown>,
-    string
-  > => {
-    if (!data || typeof data !== "object") {
-      return Either.left("Entity data must be an object")
+  validateEntityData: (data: unknown): Either.Either<Record<string, unknown>, string> => {
+    if (!data || typeof data !== 'object') {
+      return Either.left('Entity data must be an object')
     }
 
     const obj = data as Record<string, unknown>
 
-    if (!obj.id || typeof obj.id !== "string") {
-      return Either.left("Entity must have string id")
+    if (!obj.id || typeof obj.id !== 'string') {
+      return Either.left('Entity must have string id')
     }
 
-    if (!obj.type || typeof obj.type !== "string") {
-      return Either.left("Entity must have string type")
+    if (!obj.type || typeof obj.type !== 'string') {
+      return Either.left('Entity must have string type')
     }
 
     return Either.right(obj)
   },
 
   // 座標の正規化
-  normalizeCoordinates: (
-    obj: Record<string, unknown>
-  ): Record<string, unknown> => {
+  normalizeCoordinates: (obj: Record<string, unknown>): Record<string, unknown> => {
     const normalized = { ...obj }
 
-    if (typeof normalized.x === "number") {
+    if (typeof normalized.x === 'number') {
       normalized.x = Math.floor(normalized.x)
     }
-    if (typeof normalized.y === "number") {
+    if (typeof normalized.y === 'number') {
       normalized.y = Math.floor(normalized.y)
     }
-    if (typeof normalized.z === "number") {
+    if (typeof normalized.z === 'number') {
       normalized.z = Math.floor(normalized.z)
     }
 
     return normalized
-  }
+  },
 } as const
-```
+````
 
 ## 🔍 Type Guards - 型ガードユーティリティ
 
 ### 📋 実行時型検証
 
 #### ✅ **基本型ガード**
-```typescript
+
+````typescript
 export const TypeGuards = {
   /**
    * 文字列型ガード - 値が文字列かどうかをチェック
@@ -1705,8 +1595,7 @@ export const TypeGuards = {
    * };
    * ```
    */
-  isString: (value: unknown): value is string =>
-    typeof value === "string",
+  isString: (value: unknown): value is string => typeof value === 'string',
 
   /**
    * 数値型ガード - 値が有効な数値かどうかをチェック
@@ -1730,8 +1619,7 @@ export const TypeGuards = {
    * };
    * ```
    */
-  isNumber: (value: unknown): value is number =>
-    typeof value === "number" && !isNaN(value),
+  isNumber: (value: unknown): value is number => typeof value === 'number' && !isNaN(value),
 
   /**
    * 真偽値型ガード - 値がbooleanかどうかをチェック
@@ -1754,8 +1642,7 @@ export const TypeGuards = {
    *   : gameSettings.mobSpawning === "true"; // 文字列からの変換
    * ```
    */
-  isBoolean: (value: unknown): value is boolean =>
-    typeof value === "boolean",
+  isBoolean: (value: unknown): value is boolean => typeof value === 'boolean',
 
   /**
    * null型ガード - 値がnullかどうかをチェック
@@ -1772,8 +1659,7 @@ export const TypeGuards = {
    * }
    * ```
    */
-  isNull: (value: unknown): value is null =>
-    value === null,
+  isNull: (value: unknown): value is null => value === null,
 
   /**
    * undefined型ガード - 値がundefinedかどうかをチェック
@@ -1788,8 +1674,7 @@ export const TypeGuards = {
    *   : optionalConfig.renderDistance;
    * ```
    */
-  isUndefined: (value: unknown): value is undefined =>
-    value === undefined,
+  isUndefined: (value: unknown): value is undefined => value === undefined,
 
   /**
    * null/undefined型ガード - 値がnullまたはundefinedかどうかをチェック
@@ -1807,8 +1692,7 @@ export const TypeGuards = {
    * };
    * ```
    */
-  isNullish: (value: unknown): value is null | undefined =>
-    value === null || value === undefined,
+  isNullish: (value: unknown): value is null | undefined => value === null || value === undefined,
 
   /**
    * 配列型ガード - 値が配列かどうかをチェック（要素の型チェックも可能）
@@ -1844,10 +1728,7 @@ export const TypeGuards = {
    *   TypeGuards.isArray(coords, MinecraftTypeGuards.isVector3);
    * ```
    */
-  isArray: <T>(
-    value: unknown,
-    itemGuard?: (item: unknown) => item is T
-  ): value is T[] => {
+  isArray: <T>(value: unknown, itemGuard?: (item: unknown) => item is T): value is T[] => {
     if (!Array.isArray(value)) return false
     if (!itemGuard) return true
     return value.every(itemGuard)
@@ -1855,35 +1736,33 @@ export const TypeGuards = {
 
   // オブジェクト型ガード
   isObject: (value: unknown): value is Record<string, unknown> =>
-    value !== null && typeof value === "object" && !Array.isArray(value),
+    value !== null && typeof value === 'object' && !Array.isArray(value),
 
   // 関数型ガード
-  isFunction: (value: unknown): value is Function =>
-    typeof value === "function",
+  isFunction: (value: unknown): value is Function => typeof value === 'function',
 
   // 数値範囲ガード
-  isNumberInRange: (
-    min: number,
-    max: number
-  ) => (value: unknown): value is number =>
-    TypeGuards.isNumber(value) && value >= min && value <= max,
+  isNumberInRange:
+    (min: number, max: number) =>
+    (value: unknown): value is number =>
+      TypeGuards.isNumber(value) && value >= min && value <= max,
 
   // 文字列パターンガード
-  matchesPattern: (
-    pattern: RegExp
-  ) => (value: unknown): value is string =>
-    TypeGuards.isString(value) && pattern.test(value),
+  matchesPattern:
+    (pattern: RegExp) =>
+    (value: unknown): value is string =>
+      TypeGuards.isString(value) && pattern.test(value),
 
   // 複合型ガード
-  hasProperty: <K extends string>(
-    key: K
-  ) => <T>(obj: T): obj is T & Record<K, unknown> =>
-    TypeGuards.isObject(obj) && key in obj,
+  hasProperty:
+    <K extends string>(key: K) =>
+    <T>(obj: T): obj is T & Record<K, unknown> =>
+      TypeGuards.isObject(obj) && key in obj,
 
-  hasProperties: <K extends string>(
-    keys: readonly K[]
-  ) => <T>(obj: T): obj is T & Record<K, unknown> =>
-    TypeGuards.isObject(obj) && keys.every(key => key in obj)
+  hasProperties:
+    <K extends string>(keys: readonly K[]) =>
+    <T>(obj: T): obj is T & Record<K, unknown> =>
+      TypeGuards.isObject(obj) && keys.every((key) => key in obj),
 } as const
 
 // Minecraft特化型ガード
@@ -1897,52 +1776,41 @@ export const MinecraftTypeGuards = {
 
   // Vector2型ガード
   isVector2: (value: unknown): value is Vector2 =>
-    TypeGuards.isObject(value) &&
-    TypeGuards.isNumber(value.x) &&
-    TypeGuards.isNumber(value.z),
+    TypeGuards.isObject(value) && TypeGuards.isNumber(value.x) && TypeGuards.isNumber(value.z),
 
   // ブロックID型ガード
-  isBlockId: (value: unknown): value is string =>
-    TypeGuards.isString(value) &&
-    /^[a-z_]+:[a-z_]+$/.test(value),
+  isBlockId: (value: unknown): value is string => TypeGuards.isString(value) && /^[a-z_]+:[a-z_]+$/.test(value),
 
   // チャンク座標型ガード
   isChunkCoordinate: (value: unknown): value is Vector2 =>
-    MinecraftTypeGuards.isVector2(value) &&
-    Number.isInteger(value.x) &&
-    Number.isInteger(value.z),
+    MinecraftTypeGuards.isVector2(value) && Number.isInteger(value.x) && Number.isInteger(value.z),
 
   // エンティティID型ガード
   isEntityId: (value: unknown): value is string =>
-    TypeGuards.isString(value) &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+    TypeGuards.isString(value) && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
 
   // バウンディングボックス型ガード
   isBoundingBox: (value: unknown): value is { min: Vector3; max: Vector3 } =>
-    TypeGuards.isObject(value) &&
-    MinecraftTypeGuards.isVector3(value.min) &&
-    MinecraftTypeGuards.isVector3(value.max),
+    TypeGuards.isObject(value) && MinecraftTypeGuards.isVector3(value.min) && MinecraftTypeGuards.isVector3(value.max),
 
   // 方向型ガード
-  isDirection: (value: unknown): value is "north" | "south" | "east" | "west" | "up" | "down" =>
-    TypeGuards.isString(value) &&
-    ["north", "south", "east", "west", "up", "down"].includes(value),
+  isDirection: (value: unknown): value is 'north' | 'south' | 'east' | 'west' | 'up' | 'down' =>
+    TypeGuards.isString(value) && ['north', 'south', 'east', 'west', 'up', 'down'].includes(value),
 
   // ゲームモード型ガード
-  isGameMode: (value: unknown): value is "survival" | "creative" | "spectator" =>
-    TypeGuards.isString(value) &&
-    ["survival", "creative", "spectator"].includes(value),
+  isGameMode: (value: unknown): value is 'survival' | 'creative' | 'spectator' =>
+    TypeGuards.isString(value) && ['survival', 'creative', 'spectator'].includes(value),
 
   // 難易度型ガード
-  isDifficulty: (value: unknown): value is "peaceful" | "easy" | "normal" | "hard" =>
-    TypeGuards.isString(value) &&
-    ["peaceful", "easy", "normal", "hard"].includes(value)
+  isDifficulty: (value: unknown): value is 'peaceful' | 'easy' | 'normal' | 'hard' =>
+    TypeGuards.isString(value) && ['peaceful', 'easy', 'normal', 'hard'].includes(value),
 } as const
 
 // Schema統合型ガード
 export const SchemaTypeGuards = {
   // Schema検証ベース型ガード
-  createSchemaGuard: <A, I>(schema: Schema.Schema<A, I>) =>
+  createSchemaGuard:
+    <A, I>(schema: Schema.Schema<A, I>) =>
     (value: unknown): value is A => {
       try {
         Schema.decodeUnknownSync(schema)(value)
@@ -1953,9 +1821,7 @@ export const SchemaTypeGuards = {
     },
 
   // Schema型ガードファクトリ
-  guardFactory: <T extends Record<string, Schema.Schema<any, any>>>(
-    schemas: T
-  ) => {
+  guardFactory: <T extends Record<string, Schema.Schema<any, any>>>(schemas: T) => {
     const guards = {} as {
       [K in keyof T]: (value: unknown) => value is Schema.Schema.Type<T[K]>
     }
@@ -1965,14 +1831,15 @@ export const SchemaTypeGuards = {
     }
 
     return guards
-  }
+  },
 } as const
-```
+````
 
 ## 🎯 実用的統合パターン
 
 ### 🚀 **ユーティリティ統合使用例**
-```typescript
+
+````typescript
 // 統合ユーティリティサービス
 export const UtilityService = Context.GenericTag<{
   readonly math: typeof MathUtils & typeof MinecraftMathUtils
@@ -2367,7 +2234,7 @@ export const TypeSafetyDemonstration = {
    */
   propertyBasedTesting: "Mathematical properties + Brand types + Infinite test coverage"
 } as const
-```
+````
 
 ---
 
@@ -2376,8 +2243,8 @@ export const TypeSafetyDemonstration = {
 ### 🧪 **Effect-TSとProperty-Based Testingの完全統合実装**
 
 ```typescript
-import * as fc from "fast-check"
-import { Effect, Layer, TestContext, TestClock, TestRandom } from "effect"
+import * as fc from 'fast-check'
+import { Effect, Layer, TestContext, TestClock, TestRandom } from 'effect'
 
 // 🎯 パターン1: Effect.gen + Property-Based Testing統合
 export const EffectPBTPatterns = {
@@ -2392,27 +2259,34 @@ export const EffectPBTPatterns = {
       readonly placeBlock: (pos: WorldVector3, block: Block) => Effect.Effect<void, WorldError>
     }
 
-    const TestWorldService = Layer.succeed(WorldService, WorldService.of({
-      getBlock: (pos) => Effect.gen(function* () {
-        // Property-Based Testingで無限のケースをテスト
-        const validation = yield* CoordinateUtils.createWorldPosition(
-          Brand.value(pos.x), Brand.value(pos.y), Brand.value(pos.z)
-        )
+    const TestWorldService = Layer.succeed(
+      WorldService,
+      WorldService.of({
+        getBlock: (pos) =>
+          Effect.gen(function* () {
+            // Property-Based Testingで無限のケースをテスト
+            const validation = yield* CoordinateUtils.createWorldPosition(
+              Brand.value(pos.x),
+              Brand.value(pos.y),
+              Brand.value(pos.z)
+            )
 
-        return Option.some({
-          type: "minecraft:stone",
-          position: validation,
-          metadata: {}
-        })
-      }),
-      placeBlock: (pos, block) => Effect.gen(function* () {
-        // エラーケースもPBTで網羅的にテスト
-        if (Brand.value(pos.y) < 0 || Brand.value(pos.y) > 255) {
-          return yield* Effect.fail(new WorldError("Invalid Y coordinate"))
-        }
-        return yield* Effect.succeed(undefined)
+            return Option.some({
+              type: 'minecraft:stone',
+              position: validation,
+              metadata: {},
+            })
+          }),
+        placeBlock: (pos, block) =>
+          Effect.gen(function* () {
+            // エラーケースもPBTで網羅的にテスト
+            if (Brand.value(pos.y) < 0 || Brand.value(pos.y) > 255) {
+              return yield* Effect.fail(new WorldError('Invalid Y coordinate'))
+            }
+            return yield* Effect.succeed(undefined)
+          }),
       })
-    }))
+    )
 
     // Property-Based Testing実行
     return fc.property(
@@ -2427,17 +2301,16 @@ export const EffectPBTPatterns = {
             yield* worldService.placeBlock(position, block)
             const retrieved = yield* worldService.getBlock(position)
 
-            return Option.isSome(retrieved) &&
-                   retrieved.value.type === block.type &&
-                   CoordinateUtils.equals(retrieved.value.position, position)
-          }).pipe(
-            Effect.provide(TestWorldService),
-            Effect.either
-          )
+            return (
+              Option.isSome(retrieved) &&
+              retrieved.value.type === block.type &&
+              CoordinateUtils.equals(retrieved.value.position, position)
+            )
+          }).pipe(Effect.provide(TestWorldService), Effect.either)
         ).pipe(
           Either.match({
             onLeft: () => true, // エラーも有効な結果
-            onRight: (result) => result
+            onRight: (result) => result,
           })
         )
     )
@@ -2451,33 +2324,30 @@ export const EffectPBTPatterns = {
     const TimeBasedService = Effect.gen(function* () {
       const currentTime = yield* Effect.clock.currentTimeMillis
       return {
-        processWithDelay: (delayMs: number) => Effect.gen(function* () {
-          yield* Effect.sleep(delayMs + "millis")
-          const newTime = yield* Effect.clock.currentTimeMillis
-          return newTime - currentTime
-        })
+        processWithDelay: (delayMs: number) =>
+          Effect.gen(function* () {
+            yield* Effect.sleep(delayMs + 'millis')
+            const newTime = yield* Effect.clock.currentTimeMillis
+            return newTime - currentTime
+          }),
       }
     })
 
-    return fc.property(
-      fc.integer({ min: 100, max: 5000 }),
-      (delay) =>
-        Effect.runSync(
-          Effect.gen(function* () {
-            const service = yield* TimeBasedService
-            const testClock = yield* TestClock.TestClock
+    return fc.property(fc.integer({ min: 100, max: 5000 }), (delay) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* TimeBasedService
+          const testClock = yield* TestClock.TestClock
 
-            // 時間進行を制御してテスト
-            const resultPromise = service.processWithDelay(delay)
-            yield* testClock.adjust(delay + "millis")
-            const actualDelay = yield* resultPromise
+          // 時間進行を制御してテスト
+          const resultPromise = service.processWithDelay(delay)
+          yield* testClock.adjust(delay + 'millis')
+          const actualDelay = yield* resultPromise
 
-            // Property: 実際の経過時間は指定時間と一致する
-            return Math.abs(actualDelay - delay) <= 10 // 10ms許容誤差
-          }).pipe(
-            Effect.provide(TestContext.TestContext)
-          )
-        )
+          // Property: 実際の経過時間は指定時間と一致する
+          return Math.abs(actualDelay - delay) <= 10 // 10ms許容誤差
+        }).pipe(Effect.provide(TestContext.TestContext))
+      )
     )
   },
 
@@ -2496,14 +2366,17 @@ export const EffectPBTPatterns = {
             const inventory = yield* TRef.make<ItemStack[]>([])
 
             // 並行でアイテムを処理
-            const effects = items.map(count =>
+            const effects = items.map((count) =>
               STM.gen(function* () {
                 const currentCount = yield* TRef.get(counter)
-                yield* TRef.update(counter, c => c + count)
-                yield* TRef.update(inventory, inv => [...inv, {
-                  itemId: "minecraft:stone",
-                  quantity: count
-                }])
+                yield* TRef.update(counter, (c) => c + count)
+                yield* TRef.update(inventory, (inv) => [
+                  ...inv,
+                  {
+                    itemId: 'minecraft:stone',
+                    quantity: count,
+                  },
+                ])
               }).pipe(STM.commit)
             )
 
@@ -2516,9 +2389,9 @@ export const EffectPBTPatterns = {
             const expectedTotal = items.reduce((sum, item) => sum + item, 0)
             const inventoryTotal = finalInventory.reduce((sum, item) => sum + item.quantity, 0)
 
-            return finalCount === expectedTotal &&
-                   inventoryTotal === expectedTotal &&
-                   finalInventory.length === items.length
+            return (
+              finalCount === expectedTotal && inventoryTotal === expectedTotal && finalInventory.length === items.length
+            )
           })
         )
     )
@@ -2535,37 +2408,36 @@ export const EffectPBTPatterns = {
     const TestResource = Resource.make(
       Effect.gen(function* () {
         allocatedResources++
-        return { id: `resource_${allocatedResources}`, data: "test" }
+        return { id: `resource_${allocatedResources}`, data: 'test' }
       }),
-      (resource) => Effect.gen(function* () {
-        releasedResources++
-        return yield* Effect.succeed(undefined)
-      })
+      (resource) =>
+        Effect.gen(function* () {
+          releasedResources++
+          return yield* Effect.succeed(undefined)
+        })
     )
 
-    return fc.property(
-      fc.array(fc.string(), { minLength: 1, maxLength: 20 }),
-      (operations) =>
-        Effect.runSync(
-          Effect.gen(function* () {
-            const results: string[] = []
+    return fc.property(fc.array(fc.string(), { minLength: 1, maxLength: 20 }), (operations) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const results: string[] = []
 
-            yield* Effect.scoped(
-              Effect.gen(function* () {
-                const resource = yield* TestResource
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const resource = yield* TestResource
 
-                for (const operation of operations) {
-                  results.push(`${resource.id}_${operation}`)
-                }
+              for (const operation of operations) {
+                results.push(`${resource.id}_${operation}`)
+              }
 
-                return results
-              })
-            )
+              return results
+            })
+          )
 
-            // Property: リソースは必ず解放される
-            return releasedResources === allocatedResources
-          })
-        )
+          // Property: リソースは必ず解放される
+          return releasedResources === allocatedResources
+        })
+      )
     )
   },
 
@@ -2575,14 +2447,14 @@ export const EffectPBTPatterns = {
    */
   schemaValidationPropertyTesting: () => {
     const PlayerSchema = Schema.Struct({
-      id: Schema.String.pipe(Schema.brand("PlayerId")),
+      id: Schema.String.pipe(Schema.brand('PlayerId')),
       name: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(16)),
       position: Schema.Struct({
-        x: Schema.Number.pipe(Schema.brand("WorldPosition")),
-        y: Schema.Number.pipe(Schema.brand("WorldPosition")),
-        z: Schema.Number.pipe(Schema.brand("WorldPosition"))
+        x: Schema.Number.pipe(Schema.brand('WorldPosition')),
+        y: Schema.Number.pipe(Schema.brand('WorldPosition')),
+        z: Schema.Number.pipe(Schema.brand('WorldPosition')),
       }),
-      health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand("HealthPoints"))
+      health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('HealthPoints')),
     })
 
     return fc.property(
@@ -2594,30 +2466,32 @@ export const EffectPBTPatterns = {
           position: fc.record({
             x: fc.float({ min: -1000, max: 1000 }),
             y: fc.float({ min: -64, max: 320 }),
-            z: fc.float({ min: -1000, max: 1000 })
+            z: fc.float({ min: -1000, max: 1000 }),
           }),
-          health: fc.float({ min: 0, max: 20 })
+          health: fc.float({ min: 0, max: 20 }),
         }),
         // 無効なデータ
         fc.record({
           id: fc.oneof(fc.constant(null), fc.integer()),
           name: fc.string({ maxLength: 2 }),
           position: fc.string(),
-          health: fc.float({ min: -10, max: -1 })
+          health: fc.float({ min: -10, max: -1 }),
         })
       ),
       (playerData) =>
         Effect.runSync(
           Schema.decodeUnknown(PlayerSchema)(playerData).pipe(
             Effect.either,
-            Effect.map(Either.match({
-              onLeft: () => "validation_failed",
-              onRight: () => "validation_success"
-            }))
+            Effect.map(
+              Either.match({
+                onLeft: () => 'validation_failed',
+                onRight: () => 'validation_success',
+              })
+            )
           )
         )
     )
-  }
+  },
 } as const
 
 // 🔧 パターン6-20: 追加の統合パターン実装
@@ -2625,130 +2499,121 @@ export const AdvancedEffectPBTPatterns = {
   /**
    * パターン6: Fiber並行処理のProperty-Based Testing
    */
-  fiberConcurrencyTesting: () => fc.property(
-    fc.array(fc.integer({ min: 1, max: 1000 }), { minLength: 5, maxLength: 50 }),
-    (tasks) => Effect.runSync(
-      Effect.gen(function* () {
-        const fibers = yield* Effect.all(
-          tasks.map(delay =>
-            Effect.sleep(delay + "millis").pipe(
-              Effect.map(() => delay),
-              Effect.fork
+  fiberConcurrencyTesting: () =>
+    fc.property(fc.array(fc.integer({ min: 1, max: 1000 }), { minLength: 5, maxLength: 50 }), (tasks) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const fibers = yield* Effect.all(
+            tasks.map((delay) =>
+              Effect.sleep(delay + 'millis').pipe(
+                Effect.map(() => delay),
+                Effect.fork
+              )
             )
           )
-        )
 
-        const results = yield* Effect.all(
-          fibers.map(fiber => Fiber.join(fiber))
-        )
+          const results = yield* Effect.all(fibers.map((fiber) => Fiber.join(fiber)))
 
-        return results.every((result, index) => result === tasks[index])
-      })
-    )
-  ),
+          return results.every((result, index) => result === tasks[index])
+        })
+      )
+    ),
 
   /**
    * パターン7: Queue操作のProperty-Based Testing
    */
-  queueOperationsTesting: () => fc.property(
-    fc.array(fc.string(), { minLength: 1, maxLength: 100 }),
-    (items) => Effect.runSync(
-      Effect.gen(function* () {
-        const queue = yield* Queue.unbounded<string>()
+  queueOperationsTesting: () =>
+    fc.property(fc.array(fc.string(), { minLength: 1, maxLength: 100 }), (items) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const queue = yield* Queue.unbounded<string>()
 
-        // アイテムをキューに追加
-        yield* Effect.all(
-          items.map(item => Queue.offer(queue, item)),
-          { concurrency: "unbounded" }
-        )
+          // アイテムをキューに追加
+          yield* Effect.all(
+            items.map((item) => Queue.offer(queue, item)),
+            { concurrency: 'unbounded' }
+          )
 
-        // アイテムをキューから取得
-        const results: string[] = []
-        for (let i = 0; i < items.length; i++) {
-          const item = yield* Queue.take(queue)
-          results.push(item)
-        }
+          // アイテムをキューから取得
+          const results: string[] = []
+          for (let i = 0; i < items.length; i++) {
+            const item = yield* Queue.take(queue)
+            results.push(item)
+          }
 
-        return results.length === items.length
-      })
-    )
-  ),
+          return results.length === items.length
+        })
+      )
+    ),
 
   /**
    * パターン8: Effect.raceとProperty-Based Testing
    */
-  effectRaceTesting: () => fc.property(
-    fc.integer({ min: 10, max: 1000 }),
-    fc.integer({ min: 10, max: 1000 }),
-    (delay1, delay2) => Effect.runSync(
-      Effect.gen(function* () {
-        const result = yield* Effect.race(
-          Effect.sleep(delay1 + "millis").pipe(Effect.map(() => "first")),
-          Effect.sleep(delay2 + "millis").pipe(Effect.map(() => "second"))
-        )
+  effectRaceTesting: () =>
+    fc.property(fc.integer({ min: 10, max: 1000 }), fc.integer({ min: 10, max: 1000 }), (delay1, delay2) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const result = yield* Effect.race(
+            Effect.sleep(delay1 + 'millis').pipe(Effect.map(() => 'first')),
+            Effect.sleep(delay2 + 'millis').pipe(Effect.map(() => 'second'))
+          )
 
-        const expectedWinner = delay1 < delay2 ? "first" : "second"
-        return result === expectedWinner
-      }).pipe(
-        Effect.provide(TestContext.TestContext)
+          const expectedWinner = delay1 < delay2 ? 'first' : 'second'
+          return result === expectedWinner
+        }).pipe(Effect.provide(TestContext.TestContext))
       )
-    )
-  ),
+    ),
 
   /**
    * パターン9: Effect.retryとProperty-Based Testing
    */
-  effectRetryTesting: () => fc.property(
-    fc.integer({ min: 1, max: 5 }),
-    fc.integer({ min: 0, max: 10 }),
-    (maxRetries, failureCount) => Effect.runSync(
-      Effect.gen(function* () {
-        let attempts = 0
+  effectRetryTesting: () =>
+    fc.property(fc.integer({ min: 1, max: 5 }), fc.integer({ min: 0, max: 10 }), (maxRetries, failureCount) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          let attempts = 0
 
-        const flakyOperation = Effect.gen(function* () {
-          attempts++
-          if (attempts <= failureCount) {
-            return yield* Effect.fail(new Error(`Attempt ${attempts} failed`))
-          }
-          return yield* Effect.succeed(`Success after ${attempts} attempts`)
+          const flakyOperation = Effect.gen(function* () {
+            attempts++
+            if (attempts <= failureCount) {
+              return yield* Effect.fail(new Error(`Attempt ${attempts} failed`))
+            }
+            return yield* Effect.succeed(`Success after ${attempts} attempts`)
+          })
+
+          const result = yield* flakyOperation.pipe(Effect.retry(Schedule.recurs(maxRetries)), Effect.either)
+
+          const shouldSucceed = failureCount <= maxRetries
+          return Either.isRight(result) === shouldSucceed
         })
-
-        const result = yield* flakyOperation.pipe(
-          Effect.retry(Schedule.recurs(maxRetries)),
-          Effect.either
-        )
-
-        const shouldSucceed = failureCount <= maxRetries
-        return Either.isRight(result) === shouldSucceed
-      })
-    )
-  ),
+      )
+    ),
 
   /**
    * パターン10: Stream処理のProperty-Based Testing
    */
-  streamProcessingTesting: () => fc.property(
-    fc.array(fc.integer(), { minLength: 1, maxLength: 1000 }),
-    (numbers) => Effect.runSync(
-      Effect.gen(function* () {
-        const stream = Stream.fromIterable(numbers)
+  streamProcessingTesting: () =>
+    fc.property(fc.array(fc.integer(), { minLength: 1, maxLength: 1000 }), (numbers) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const stream = Stream.fromIterable(numbers)
 
-        const results = yield* stream.pipe(
-          Stream.map(n => n * 2),
-          Stream.filter(n => n > 0),
-          Stream.take(100),
-          Stream.runCollect
-        )
+          const results = yield* stream.pipe(
+            Stream.map((n) => n * 2),
+            Stream.filter((n) => n > 0),
+            Stream.take(100),
+            Stream.runCollect
+          )
 
-        const expected = numbers
-          .map(n => n * 2)
-          .filter(n => n > 0)
-          .slice(0, 100)
+          const expected = numbers
+            .map((n) => n * 2)
+            .filter((n) => n > 0)
+            .slice(0, 100)
 
-        return Chunk.toReadonlyArray(results).length <= expected.length
-      })
-    )
-  )
+          return Chunk.toReadonlyArray(results).length <= expected.length
+        })
+      )
+    ),
 } as const
 ```
 
@@ -2758,8 +2623,8 @@ export const AdvancedEffectPBTPatterns = {
 
 ```typescript
 // 💥 従来テストでは発見困難: 特定の座標でのみ発生する微小誤差
-import { pipe } from "effect"
-import * as fc from "fast-check"
+import { pipe } from 'effect'
+import * as fc from 'fast-check'
 
 export const CoordinateTransformationBugExamples = {
   /**
@@ -2806,7 +2671,7 @@ export const CoordinateTransformationBugExamples = {
     (worldX, worldZ) => {
       // バグのある実装（負の座標で誤った計算）
       const buggyWorldToChunk = (x: number, z: number): [number, number] => {
-        return [x / 16 | 0, z / 16 | 0] // ビット演算による切り捨て（負の数で問題）
+        return [(x / 16) | 0, (z / 16) | 0] // ビット演算による切り捨て（負の数で問題）
       }
 
       // 正しい実装
@@ -2827,7 +2692,7 @@ export const CoordinateTransformationBugExamples = {
    */
   chunkBoundaryBug: fc.property(
     fc.integer({ min: -32, max: 32 }), // チャンク番号
-    fc.integer({ min: 0, max: 15 }),   // チャンク内座標
+    fc.integer({ min: 0, max: 15 }), // チャンク内座標
     (chunkCoord, localCoord) => {
       const worldX = chunkCoord * 16 + localCoord
 
@@ -2846,7 +2711,7 @@ export const CoordinateTransformationBugExamples = {
 
       return buggyResult === correctResult
     }
-  )
+  ),
 } as const
 ```
 
@@ -2861,74 +2726,75 @@ export const InventoryRaceConditionBugExamples = {
    * PBTテスト: 並行操作シミュレーション → 競合バグ発見
    */
   itemTransferAtomicityBug: fc.property(
-    fc.array(fc.record({
-      from: fc.integer({ min: 0, max: 35 }),
-      to: fc.integer({ min: 0, max: 35 }),
-      quantity: fc.integer({ min: 1, max: 64 })
-    }), { minLength: 2, maxLength: 10 }),
-    (transfers) => Effect.runSync(
-      Effect.gen(function* () {
-        // 初期インベントリ状態
-        const inventory = yield* Ref.make(
-          Array.from({ length: 36 }, (_, i) => ({
-            slot: i,
-            item: i < 18 ? Some({ id: ItemId.make("dirt"), quantity: 64 }) : None()
-          }))
-        )
+    fc.array(
+      fc.record({
+        from: fc.integer({ min: 0, max: 35 }),
+        to: fc.integer({ min: 0, max: 35 }),
+        quantity: fc.integer({ min: 1, max: 64 }),
+      }),
+      { minLength: 2, maxLength: 10 }
+    ),
+    (transfers) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          // 初期インベントリ状態
+          const inventory = yield* Ref.make(
+            Array.from({ length: 36 }, (_, i) => ({
+              slot: i,
+              item: i < 18 ? Some({ id: ItemId.make('dirt'), quantity: 64 }) : None(),
+            }))
+          )
 
-        // バグのある実装（非原子的な操作）
-        const buggyTransferItem = (from: number, to: number, quantity: number) =>
-          Effect.gen(function* () {
-            const current = yield* Ref.get(inventory)
-            const fromSlot = current[from]
-            const toSlot = current[to]
+          // バグのある実装（非原子的な操作）
+          const buggyTransferItem = (from: number, to: number, quantity: number) =>
+            Effect.gen(function* () {
+              const current = yield* Ref.get(inventory)
+              const fromSlot = current[from]
+              const toSlot = current[to]
 
-            // 競合状態: ここで他の操作が割り込み可能
-            yield* Effect.sleep("1 millis") // 他の操作が入り込む隙間
+              // 競合状態: ここで他の操作が割り込み可能
+              yield* Effect.sleep('1 millis') // 他の操作が入り込む隙間
 
-            if (Option.isSome(fromSlot.item) && fromSlot.item.value.quantity >= quantity) {
-              const newFromItem = {
-                ...fromSlot.item.value,
-                quantity: fromSlot.item.value.quantity - quantity
+              if (Option.isSome(fromSlot.item) && fromSlot.item.value.quantity >= quantity) {
+                const newFromItem = {
+                  ...fromSlot.item.value,
+                  quantity: fromSlot.item.value.quantity - quantity,
+                }
+                const newToQuantity = Option.isSome(toSlot.item) ? toSlot.item.value.quantity + quantity : quantity
+
+                const newInventory = [...current]
+                newInventory[from] = {
+                  ...fromSlot,
+                  item: newFromItem.quantity > 0 ? Some(newFromItem) : None(),
+                }
+                newInventory[to] = {
+                  ...toSlot,
+                  item: Some({ id: ItemId.make('dirt'), quantity: newToQuantity }),
+                }
+
+                yield* Ref.set(inventory, newInventory)
               }
-              const newToQuantity = Option.isSome(toSlot.item)
-                ? toSlot.item.value.quantity + quantity
-                : quantity
+            })
 
-              const newInventory = [...current]
-              newInventory[from] = {
-                ...fromSlot,
-                item: newFromItem.quantity > 0 ? Some(newFromItem) : None()
-              }
-              newInventory[to] = {
-                ...toSlot,
-                item: Some({ id: ItemId.make("dirt"), quantity: newToQuantity })
-              }
+          // 並行してアイテム移動実行
+          yield* Effect.all(
+            transfers.map((transfer) => buggyTransferItem(transfer.from, transfer.to, transfer.quantity)),
+            { concurrency: 'unbounded' }
+          )
 
-              yield* Ref.set(inventory, newInventory)
-            }
-          })
+          // 検証: アイテムの総数が保存されているか
+          const finalInventory = yield* Ref.get(inventory)
+          const totalItems = finalInventory.reduce(
+            (sum, slot) => sum + (Option.isSome(slot.item) ? slot.item.value.quantity : 0),
+            0
+          )
 
-        // 並行してアイテム移動実行
-        yield* Effect.all(
-          transfers.map(transfer =>
-            buggyTransferItem(transfer.from, transfer.to, transfer.quantity)
-          ),
-          { concurrency: "unbounded" }
-        )
+          const initialTotal = 18 * 64 // 初期状態の総アイテム数
 
-        // 検証: アイテムの総数が保存されているか
-        const finalInventory = yield* Ref.get(inventory)
-        const totalItems = finalInventory.reduce((sum, slot) =>
-          sum + (Option.isSome(slot.item) ? slot.item.value.quantity : 0), 0
-        )
-
-        const initialTotal = 18 * 64 // 初期状態の総アイテム数
-
-        // PBTで発見: 並行操作でアイテムが重複・消失する
-        return totalItems === initialTotal
-      })
-    )
+          // PBTで発見: 並行操作でアイテムが重複・消失する
+          return totalItems === initialTotal
+        })
+      )
   ),
 
   /**
@@ -2963,7 +2829,7 @@ export const InventoryRaceConditionBugExamples = {
 
       return buggyTotal === originalStack && correctTotal === originalStack
     }
-  )
+  ),
 } as const
 ```
 
@@ -2983,9 +2849,9 @@ export const BlockPlacementPhysicsBugExamples = {
         position: fc.record({
           x: fc.integer({ min: 0, max: 15 }),
           y: fc.integer({ min: 1, max: 255 }),
-          z: fc.integer({ min: 0, max: 15 })
+          z: fc.integer({ min: 0, max: 15 }),
         }),
-        blockType: fc.constantFrom("sand", "gravel", "concrete_powder")
+        blockType: fc.constantFrom('sand', 'gravel', 'concrete_powder'),
       }),
       { minLength: 5, maxLength: 50 }
     ),
@@ -2995,10 +2861,10 @@ export const BlockPlacementPhysicsBugExamples = {
       // バグのある実装（重力チェック不完全）
       const buggyPlaceBlock = (x: number, y: number, z: number, blockType: string) => {
         const key = `${x},${y},${z}`
-        const supportKey = `${x},${y-1},${z}`
+        const supportKey = `${x},${y - 1},${z}`
 
         // バグ: 重力ブロックの支持チェックが不十分
-        if (["sand", "gravel", "concrete_powder"].includes(blockType)) {
+        if (['sand', 'gravel', 'concrete_powder'].includes(blockType)) {
           // 直下にブロックがあるかしかチェックしない
           if (y > 0 && world.has(supportKey)) {
             world.set(key, { blockType })
@@ -3012,23 +2878,18 @@ export const BlockPlacementPhysicsBugExamples = {
       }
 
       // ブロック配置実行
-      blockPlacements.forEach(placement => {
-        buggyPlaceBlock(
-          placement.position.x,
-          placement.position.y,
-          placement.position.z,
-          placement.blockType
-        )
+      blockPlacements.forEach((placement) => {
+        buggyPlaceBlock(placement.position.x, placement.position.y, placement.position.z, placement.blockType)
       })
 
       // 検証: 重力ブロックが適切に支持されているか
       let hasFloatingGravityBlocks = false
 
       for (const [key, block] of world.entries()) {
-        if (["sand", "gravel", "concrete_powder"].includes(block.blockType)) {
+        if (['sand', 'gravel', 'concrete_powder'].includes(block.blockType)) {
           const [x, y, z] = key.split(',').map(Number)
           if (y > 0) {
-            const supportKey = `${x},${y-1},${z}`
+            const supportKey = `${x},${y - 1},${z}`
             if (!world.has(supportKey)) {
               hasFloatingGravityBlocks = true
               break
@@ -3051,7 +2912,7 @@ export const BlockPlacementPhysicsBugExamples = {
         x: fc.integer({ min: 0, max: 10 }),
         y: fc.integer({ min: 0, max: 5 }),
         z: fc.integer({ min: 0, max: 10 }),
-        blockType: fc.constantFrom("water", "stone", "air")
+        blockType: fc.constantFrom('water', 'stone', 'air'),
       }),
       { minLength: 10, maxLength: 100 }
     ),
@@ -3060,10 +2921,10 @@ export const BlockPlacementPhysicsBugExamples = {
       const waterFlow = new Set<string>()
 
       // 初期配置
-      blockSetup.forEach(block => {
+      blockSetup.forEach((block) => {
         const key = `${block.x},${block.y},${block.z}`
         world.set(key, block.blockType)
-        if (block.blockType === "water") {
+        if (block.blockType === 'water') {
           waterFlow.add(key)
         }
       })
@@ -3085,15 +2946,17 @@ export const BlockPlacementPhysicsBugExamples = {
 
           // 隣接ブロックチェック（バグ: 循環参照防止が不完全）
           const neighbors = [
-            `${x+1},${y},${z}`, `${x-1},${y},${z}`,
-            `${x},${y},${z+1}`, `${x},${y},${z-1}`,
-            `${x},${y-1},${z}` // 下方向
+            `${x + 1},${y},${z}`,
+            `${x - 1},${y},${z}`,
+            `${x},${y},${z + 1}`,
+            `${x},${y},${z - 1}`,
+            `${x},${y - 1},${z}`, // 下方向
           ]
 
-          neighbors.forEach(neighborKey => {
+          neighbors.forEach((neighborKey) => {
             const neighborBlock = world.get(neighborKey)
-            if (neighborBlock === "air") {
-              world.set(neighborKey, "water")
+            if (neighborBlock === 'air') {
+              world.set(neighborKey, 'water')
               waterFlow.add(neighborKey)
               // バグ: 再帰処理で循環参照チェック不足
               processWaterBlock(neighborKey)
@@ -3102,7 +2965,7 @@ export const BlockPlacementPhysicsBugExamples = {
         }
 
         // 全ての水ブロックを処理
-        waterFlow.forEach(waterKey => processWaterBlock(waterKey))
+        waterFlow.forEach((waterKey) => processWaterBlock(waterKey))
 
         return iterations < maxIterations // タイムアウトしなかった場合のみ true
       }
@@ -3121,10 +2984,10 @@ export const BlockPlacementPhysicsBugExamples = {
         position: fc.record({
           x: fc.integer({ min: 0, max: 20 }),
           y: fc.integer({ min: 0, max: 5 }),
-          z: fc.integer({ min: 0, max: 20 })
+          z: fc.integer({ min: 0, max: 20 }),
         }),
-        type: fc.constantFrom("redstone_wire", "redstone_torch", "stone", "air"),
-        powered: fc.boolean()
+        type: fc.constantFrom('redstone_wire', 'redstone_torch', 'stone', 'air'),
+        powered: fc.boolean(),
       }),
       { minLength: 5, maxLength: 50 }
     ),
@@ -3132,12 +2995,12 @@ export const BlockPlacementPhysicsBugExamples = {
       const circuit = new Map<string, { type: string; powered: boolean; signal: number }>()
 
       // 初期配置
-      redstoneSetup.forEach(component => {
+      redstoneSetup.forEach((component) => {
         const key = `${component.position.x},${component.position.y},${component.position.z}`
         circuit.set(key, {
           type: component.type,
           powered: component.powered,
-          signal: component.powered && component.type === "redstone_torch" ? 15 : 0
+          signal: component.powered && component.type === 'redstone_torch' ? 15 : 0,
         })
       })
 
@@ -3152,23 +3015,20 @@ export const BlockPlacementPhysicsBugExamples = {
 
           // バグ: Map の iteration 中に変更を加える
           for (const [key, component] of circuit.entries()) {
-            if (component.type === "redstone_wire" && component.signal > 0) {
+            if (component.type === 'redstone_wire' && component.signal > 0) {
               const [x, y, z] = key.split(',').map(Number)
-              const neighbors = [
-                `${x+1},${y},${z}`, `${x-1},${y},${z}`,
-                `${x},${y},${z+1}`, `${x},${y},${z-1}`
-              ]
+              const neighbors = [`${x + 1},${y},${z}`, `${x - 1},${y},${z}`, `${x},${y},${z + 1}`, `${x},${y},${z - 1}`]
 
-              neighbors.forEach(neighborKey => {
+              neighbors.forEach((neighborKey) => {
                 const neighbor = circuit.get(neighborKey)
-                if (neighbor && neighbor.type === "redstone_wire") {
+                if (neighbor && neighbor.type === 'redstone_wire') {
                   const newSignal = Math.max(0, component.signal - 1)
                   if (neighbor.signal < newSignal) {
                     // バグ: iteration 中の変更でスキップされる更新がある
                     circuit.set(neighborKey, {
                       ...neighbor,
                       signal: newSignal,
-                      powered: newSignal > 0
+                      powered: newSignal > 0,
                     })
                     changed = true
                   }
@@ -3184,7 +3044,7 @@ export const BlockPlacementPhysicsBugExamples = {
       // PBTで発見: 信号伝播の不整合
       return buggyPropagateSignal()
     }
-  )
+  ),
 } as const
 ```
 
@@ -3201,75 +3061,76 @@ export const ResourceManagementBugExamples = {
       fc.record({
         chunkX: fc.integer({ min: -10, max: 10 }),
         chunkZ: fc.integer({ min: -10, max: 10 }),
-        loadTime: fc.integer({ min: 1, max: 1000 })
+        loadTime: fc.integer({ min: 1, max: 1000 }),
       }),
       { minLength: 20, maxLength: 100 }
     ),
-    (chunkOperations) => Effect.runSync(
-      Effect.gen(function* () {
-        const chunkCache = yield* Ref.make(new Map<string, { data: number[]; lastAccess: number }>())
-        let memoryUsage = 0
+    (chunkOperations) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const chunkCache = yield* Ref.make(new Map<string, { data: number[]; lastAccess: number }>())
+          let memoryUsage = 0
 
-        // バグのある実装（キャッシュクリーンアップ忘れ）
-        const buggyLoadChunk = (x: number, z: number, time: number) =>
-          Effect.gen(function* () {
-            const key = `${x},${z}`
-            const cache = yield* Ref.get(chunkCache)
+          // バグのある実装（キャッシュクリーンアップ忘れ）
+          const buggyLoadChunk = (x: number, z: number, time: number) =>
+            Effect.gen(function* () {
+              const key = `${x},${z}`
+              const cache = yield* Ref.get(chunkCache)
 
-            if (!cache.has(key)) {
-              // 新しいチャンクデータ作成（大きなメモリ使用）
-              const chunkData = Array.from({ length: 16 * 256 * 16 }, (_, i) => i % 256)
-              memoryUsage += chunkData.length
+              if (!cache.has(key)) {
+                // 新しいチャンクデータ作成（大きなメモリ使用）
+                const chunkData = Array.from({ length: 16 * 256 * 16 }, (_, i) => i % 256)
+                memoryUsage += chunkData.length
 
-              cache.set(key, {
-                data: chunkData,
-                lastAccess: time
-              })
+                cache.set(key, {
+                  data: chunkData,
+                  lastAccess: time,
+                })
 
-              // バグ: 古いチャンクの削除ロジックが不完全
-              if (cache.size > 50) {
-                // 最も古いものを1つだけ削除（不十分）
-                let oldestKey = ""
-                let oldestTime = Infinity
+                // バグ: 古いチャンクの削除ロジックが不完全
+                if (cache.size > 50) {
+                  // 最も古いものを1つだけ削除（不十分）
+                  let oldestKey = ''
+                  let oldestTime = Infinity
 
-                for (const [chunkKey, chunk] of cache.entries()) {
-                  if (chunk.lastAccess < oldestTime) {
-                    oldestTime = chunk.lastAccess
-                    oldestKey = chunkKey
+                  for (const [chunkKey, chunk] of cache.entries()) {
+                    if (chunk.lastAccess < oldestTime) {
+                      oldestTime = chunk.lastAccess
+                      oldestKey = chunkKey
+                    }
+                  }
+
+                  if (oldestKey) {
+                    const removedChunk = cache.get(oldestKey)
+                    if (removedChunk) {
+                      memoryUsage -= removedChunk.data.length
+                      cache.delete(oldestKey)
+                    }
                   }
                 }
 
-                if (oldestKey) {
-                  const removedChunk = cache.get(oldestKey)
-                  if (removedChunk) {
-                    memoryUsage -= removedChunk.data.length
-                    cache.delete(oldestKey)
-                  }
-                }
+                yield* Ref.set(chunkCache, cache)
+              } else {
+                // アクセス時間更新
+                const chunk = cache.get(key)!
+                cache.set(key, { ...chunk, lastAccess: time })
+                yield* Ref.set(chunkCache, cache)
               }
+            })
 
-              yield* Ref.set(chunkCache, cache)
-            } else {
-              // アクセス時間更新
-              const chunk = cache.get(key)!
-              cache.set(key, { ...chunk, lastAccess: time })
-              yield* Ref.set(chunkCache, cache)
-            }
-          })
+          // チャンク操作実行
+          for (const operation of chunkOperations) {
+            yield* buggyLoadChunk(operation.chunkX, operation.chunkZ, operation.loadTime)
+          }
 
-        // チャンク操作実行
-        for (const operation of chunkOperations) {
-          yield* buggyLoadChunk(operation.chunkX, operation.chunkZ, operation.loadTime)
-        }
+          // メモリ使用量チェック
+          const finalCache = yield* Ref.get(chunkCache)
+          const expectedMaxMemory = 50 * 16 * 256 * 16 // 最大50チャンク
 
-        // メモリ使用量チェック
-        const finalCache = yield* Ref.get(chunkCache)
-        const expectedMaxMemory = 50 * 16 * 256 * 16 // 最大50チャンク
-
-        // PBTで発見: メモリ使用量が制限を超過
-        return memoryUsage <= expectedMaxMemory
-      })
-    )
+          // PBTで発見: メモリ使用量が制限を超過
+          return memoryUsage <= expectedMaxMemory
+        })
+      )
   ),
 
   /**
@@ -3278,9 +3139,9 @@ export const ResourceManagementBugExamples = {
   eventListenerLeakBug: fc.property(
     fc.array(
       fc.record({
-        action: fc.constantFrom("register", "unregister", "trigger"),
-        eventType: fc.constantFrom("click", "keydown", "move", "attack"),
-        listenerId: fc.integer({ min: 1, max: 20 })
+        action: fc.constantFrom('register', 'unregister', 'trigger'),
+        eventType: fc.constantFrom('click', 'keydown', 'move', 'attack'),
+        listenerId: fc.integer({ min: 1, max: 20 }),
       }),
       { minLength: 30, maxLength: 200 }
     ),
@@ -3310,19 +3171,19 @@ export const ResourceManagementBugExamples = {
         trigger: (eventType: string) => {
           const listeners = eventListeners.get(eventType)
           return listeners ? listeners.size : 0
-        }
+        },
       }
 
       // イベント操作実行
-      eventOperations.forEach(operation => {
+      eventOperations.forEach((operation) => {
         switch (operation.action) {
-          case "register":
+          case 'register':
             buggyEventManager.register(operation.eventType, operation.listenerId)
             break
-          case "unregister":
+          case 'unregister':
             buggyEventManager.unregister(operation.eventType, operation.listenerId)
             break
-          case "trigger":
+          case 'trigger':
             buggyEventManager.trigger(operation.eventType)
             break
         }
@@ -3339,7 +3200,7 @@ export const ResourceManagementBugExamples = {
       // PBTで発見: 不要なイベントリスナー参照が残存
       return emptyListenerSets === 0
     }
-  )
+  ),
 } as const
 ```
 
@@ -3354,9 +3215,9 @@ export const DataStructureConsistencyBugExamples = {
   bidirectionalLinkConsistencyBug: fc.property(
     fc.array(
       fc.record({
-        operation: fc.constantFrom("add", "remove", "connect", "disconnect"),
+        operation: fc.constantFrom('add', 'remove', 'connect', 'disconnect'),
         nodeA: fc.integer({ min: 1, max: 20 }),
-        nodeB: fc.integer({ min: 1, max: 20 })
+        nodeB: fc.integer({ min: 1, max: 20 }),
       }),
       { minLength: 10, maxLength: 100 }
     ),
@@ -3403,24 +3264,24 @@ export const DataStructureConsistencyBugExamples = {
 
           if (connectionsA) connectionsA.delete(nodeB)
           if (connectionsB) connectionsB.delete(nodeA)
-        }
+        },
       }
 
       // グラフ操作実行
-      graphOperations.forEach(operation => {
+      graphOperations.forEach((operation) => {
         switch (operation.operation) {
-          case "add":
+          case 'add':
             buggyGraphManager.addNode(operation.nodeA)
             break
-          case "remove":
+          case 'remove':
             buggyGraphManager.removeNode(operation.nodeA)
             break
-          case "connect":
+          case 'connect':
             if (operation.nodeA !== operation.nodeB) {
               buggyGraphManager.connect(operation.nodeA, operation.nodeB)
             }
             break
-          case "disconnect":
+          case 'disconnect':
             buggyGraphManager.disconnect(operation.nodeA, operation.nodeB)
             break
         }
@@ -3447,10 +3308,10 @@ export const DataStructureConsistencyBugExamples = {
   indexDataSyncBug: fc.property(
     fc.array(
       fc.record({
-        operation: fc.constantFrom("insert", "update", "delete"),
+        operation: fc.constantFrom('insert', 'update', 'delete'),
         key: fc.string({ minLength: 1, maxLength: 10 }),
         value: fc.string({ minLength: 0, maxLength: 100 }),
-        category: fc.constantFrom("blocks", "items", "entities")
+        category: fc.constantFrom('blocks', 'items', 'entities'),
       }),
       { minLength: 20, maxLength: 150 }
     ),
@@ -3508,19 +3369,19 @@ export const DataStructureConsistencyBugExamples = {
               // }
             }
           }
-        }
+        },
       }
 
       // データ操作実行
-      dataOperations.forEach(operation => {
+      dataOperations.forEach((operation) => {
         switch (operation.operation) {
-          case "insert":
+          case 'insert':
             buggyDataManager.insert(operation.key, operation.value, operation.category)
             break
-          case "update":
+          case 'update':
             buggyDataManager.update(operation.key, operation.value, operation.category)
             break
-          case "delete":
+          case 'delete':
             buggyDataManager.delete(operation.key)
             break
         }
@@ -3548,19 +3409,21 @@ export const DataStructureConsistencyBugExamples = {
 
       return true
     }
-  )
+  ),
 } as const
 ```
 
 ### 🎯 **教育的価値の総括**
 
 #### 🔍 **従来テストの限界**
+
 - **決定論的テストケース**: 開発者の想像範囲内のケースのみ
 - **境界値テスト**: 既知の境界のみテスト
 - **単体テスト**: 個別機能は正常だが連携時にバグ
 - **統合テスト**: 特定シナリオのみカバー
 
 #### 🚀 **Property-Based Testing の威力**
+
 - **ランダムデータ生成**: 開発者が想定しない入力パターン
 - **数学的性質検証**: 不変条件・保存則の自動チェック
 - **エッジケース自動発見**: 人間では見落とす境界条件
@@ -3569,6 +3432,7 @@ export const DataStructureConsistencyBugExamples = {
 #### 📊 **Phase 6 PBT実装の完全成果**
 
 **✅ PBT対応関数数**: **50+** (目標達成)
+
 - 座標変換系: 15関数
 - インベントリ操作系: 12関数
 - ブロック配置系: 10関数
@@ -3576,6 +3440,7 @@ export const DataStructureConsistencyBugExamples = {
 - データ構造系: 5関数
 
 **✅ 数学的性質定義数**: **100+** (目標達成)
+
 - 可逆性: 25性質
 - 単調性: 20性質
 - 結合法則: 18性質
@@ -3584,11 +3449,13 @@ export const DataStructureConsistencyBugExamples = {
 - 保存則: 10性質
 
 **✅ fast-check統合パターン**: **20+** (目標達成)
+
 - Brand型統合: 8パターン
 - Effect-TS統合: 7パターン
 - Schema検証統合: 5パターン
 
 **✅ 教育的PBTテスト例**: **30+** (目標達成)
+
 - 座標変換バグ: 8例
 - 並行処理バグ: 7例
 - 物理制約バグ: 6例
@@ -3598,18 +3465,21 @@ export const DataStructureConsistencyBugExamples = {
 ### 🏆 **Phase 6 PBT最適化完全実装の成果**
 
 **✨ Brand型システムによる達成効果**:
+
 - **座標系混同ゼロ**: WorldPosition, ChunkPosition, BlockPosition の型レベル区別
 - **ID系統一管理**: CanvasId, ShaderId, TextureId, MaterialId の系統的分類
 - **制約付き数値型**: SlotIndex, HealthPoints, ItemQuantity の実行時検証統合
 - **コンパイル時安全性**: TypeScript型チェックによる設計意図の強制
 
 **🔄 Match.value パターンによる関数型進化**:
+
 - **条件分岐の宣言的記述**: if-elseからパターンマッチングへの完全移行
 - **可読性向上**: 複雑な分岐ロジックの構造化・明確化
 - **保守性強化**: 条件追加・変更時の影響範囲の最小化
 - **関数型パラダイム**: Effect-TS エコシステムとの完全統合
 
 **🧪 実行時検証・テスト統合の教育価値**:
+
 - **Property-Based Testing**: Brand型との完全統合パターン実装
 - **Schema + Brand統合**: 外部データの安全な取り込み機構
 - **エラーハンドリング**: 型安全なエラー伝播とハンドリング
@@ -3626,4 +3496,4 @@ export const DataStructureConsistencyBugExamples = {
 
 ---
 
-*📍 現在のドキュメント階層*: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Utility Functions**
+_📍 現在のドキュメント階層_: **[Home](../../../README.md)** → **[Reference](../README.md)** → **[API Reference](./README.md)** → **Utility Functions**

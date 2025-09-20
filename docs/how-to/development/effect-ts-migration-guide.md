@@ -1,20 +1,31 @@
 ---
-title: "モダンJavaScript開発者向けEffect-TS移行ガイド"
-description: "従来のTypeScript/JavaScript開発者がEffect-TSエコシステムに移行するための実践的ステップバイステップガイド"
-category: "development"
-difficulty: "intermediate"
-tags: ["effect-ts", "migration", "functional-programming", "typescript", "best-practices"]
-prerequisites: ["typescript-basics", "async-await", "promise-basics", "node-ecosystem"]
-estimated_reading_time: "25分"
-related_docs: ["../testing/effect-ts-testing-patterns.md", "../../tutorials/effect-ts-fundamentals/effect-ts-basics.md", "../../explanations/design-patterns/functional-programming-philosophy.md"]
+title: 'モダンJavaScript開発者向けEffect-TS移行ガイド'
+description: '従来のTypeScript/JavaScript開発者がEffect-TSエコシステムに移行するための実践的ステップバイステップガイド'
+category: 'development'
+difficulty: 'intermediate'
+tags: ['effect-ts', 'migration', 'functional-programming', 'typescript', 'best-practices']
+prerequisites: ['typescript-basics', 'async-await', 'promise-basics', 'node-ecosystem']
+estimated_reading_time: '25分'
+related_docs:
+  [
+    '../testing/effect-ts-testing-patterns.md',
+    '../../tutorials/effect-ts-fundamentals/effect-ts-basics.md',
+    '../../explanations/design-patterns/functional-programming-philosophy.md',
+  ]
 ai_context:
-  primary_concepts: ["effect-migration", "functional-programming-transition", "error-handling-evolution", "async-patterns-modernization"]
+  primary_concepts:
+    [
+      'effect-migration',
+      'functional-programming-transition',
+      'error-handling-evolution',
+      'async-patterns-modernization',
+    ]
   complexity_level: 3
-  learning_outcomes: ["従来コード→Effect-TS変換", "エラーハンドリング改善", "型安全性向上", "テスタビリティ強化"]
+  learning_outcomes: ['従来コード→Effect-TS変換', 'エラーハンドリング改善', '型安全性向上', 'テスタビリティ強化']
 machine_readable:
   confidence_score: 0.95
-  api_maturity: "stable"
-  execution_time: "medium"
+  api_maturity: 'stable'
+  execution_time: 'medium'
 ---
 
 # モダンJavaScript開発者向けEffect-TS移行ガイド
@@ -30,6 +41,7 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 ## 1. 移行判断とプロジェクト評価
 
 > 📖 **必須の事前学習**:
+>
 > - **設計哲学**: [関数型プログラミング哲学](../../explanations/design-patterns/functional-programming-philosophy.md) - なぜEffect-TSなのか
 > - **基礎学習**: [Effect-TS基礎チュートリアル](../../tutorials/effect-ts-fundamentals/effect-ts-basics.md) - ハンズオン実践
 > - **APIリファレンス**: [Schema API](../../reference/api/effect-ts-schema-api.md) - 完全な型定義と使用例
@@ -37,6 +49,7 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 ### 1.1 移行対象の評価
 
 **移行に適したプロジェクト:**
+
 ```bash
 # プロジェクト評価チェックリスト
 □ TypeScript使用（TypeScript 4.9+）
@@ -47,6 +60,7 @@ React/Node.js/Express.jsなど従来のJavaScript/TypeScriptエコシステム�
 ```
 
 **移行前の準備:**
+
 ```bash
 # 依存関係の確認
 pnpm audit
@@ -106,51 +120,55 @@ EOF
 // Before: Promise ベース
 async function loadPlayerData(id: string): Promise<Player | null> {
   try {
-    const response = await fetch(`/api/players/${id}`);
+    const response = await fetch(`/api/players/${id}`)
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}`)
     }
-    return await response.json();
+    return await response.json()
   } catch (error) {
-    console.error("Failed to load player:", error);
-    return null; // エラー情報が失われる
+    console.error('Failed to load player:', error)
+    return null // エラー情報が失われる
   }
 }
 
 // After: Effect ベース（移行特化パターン）
 const loadPlayerData = (id: string) =>
   Effect.gen(function* () {
-    const url = `/api/players/${id}`;
+    const url = `/api/players/${id}`
 
     // 標準エラー定義を使用（詳細は上記リファレンス参照）
     const response = yield* Effect.tryPromise({
       try: () => fetch(url),
-      catch: (error) => StandardErrors.NetworkError({ status: 0, url, cause: error })
-    });
+      catch: (error) => StandardErrors.NetworkError({ status: 0, url, cause: error }),
+    })
 
     // HTTPエラーハンドリング
     if (!response.ok) {
       if (response.status === 404) {
-        return yield* _(Effect.fail(new PlayerNotFoundError({ id })));
+        return yield* _(Effect.fail(new PlayerNotFoundError({ id })))
       }
-      return yield* _(Effect.fail(new NetworkError({
-        status: response.status,
-        url
-      })));
+      return yield* _(
+        Effect.fail(
+          new NetworkError({
+            status: response.status,
+            url,
+          })
+        )
+      )
     }
 
     // レスポンス解析＋バリデーション
     const rawData = yield* _(
       Effect.tryPromise({
         try: () => response.json(),
-        catch: () => new NetworkError({ status: response.status, url })
+        catch: () => new NetworkError({ status: response.status, url }),
       })
-    );
+    )
 
-    const player = yield* _(Schema.decodeUnknown(PlayerSchema)(rawData));
+    const player = yield* _(Schema.decodeUnknown(PlayerSchema)(rawData))
 
-    return player;
-  });
+    return player
+  })
 
 // 型: Effect<Player, NetworkError | PlayerNotFoundError | ParseError, never>
 ```
@@ -166,48 +184,45 @@ interface GameServiceInterface {
 const makeGameService = (database: DatabaseConnection, logger: Console): GameServiceInterface => ({
   async saveGame(gameState: GameState) {
     try {
-      await database.save(gameState);
-      logger.log("Game saved");
+      await database.save(gameState)
+      logger.log('Game saved')
     } catch (error) {
-      logger.error("Save failed:", error);
-      throw error;
+      logger.error('Save failed:', error)
+      throw error
     }
-  }
+  },
 })
 
 // After: Context による依存性注入
 interface DatabaseService {
-  readonly save: (state: GameState) => Effect.Effect<void, DatabaseError>;
+  readonly save: (state: GameState) => Effect.Effect<void, DatabaseError>
 }
-const DatabaseService = Context.GenericTag<DatabaseService>("DatabaseService");
+const DatabaseService = Context.GenericTag<DatabaseService>('DatabaseService')
 
 interface LoggerService {
-  readonly log: (message: string) => Effect.Effect<void>;
-  readonly error: (message: string, error: unknown) => Effect.Effect<void>;
+  readonly log: (message: string) => Effect.Effect<void>
+  readonly error: (message: string, error: unknown) => Effect.Effect<void>
 }
-const LoggerService = Context.GenericTag<LoggerService>("LoggerService");
+const LoggerService = Context.GenericTag<LoggerService>('LoggerService')
 
 const saveGame = (gameState: GameState) =>
   Effect.gen(function* (_) {
-    const database = yield* _(DatabaseService);
-    const logger = yield* _(LoggerService);
+    const database = yield* _(DatabaseService)
+    const logger = yield* _(LoggerService)
 
     yield* _(
       database.save(gameState),
-      Effect.tap(() => logger.log("Game saved")),
-      Effect.tapError((error) => logger.error("Save failed", error))
-    );
-  });
+      Effect.tap(() => logger.log('Game saved')),
+      Effect.tapError((error) => logger.error('Save failed', error))
+    )
+  })
 
 // テスト用のモック実装が容易
 const MockDatabaseService = {
-  save: () => Effect.succeed(void 0)
-};
+  save: () => Effect.succeed(void 0),
+}
 
-const testRuntime = Effect.provide(
-  saveGame(mockGameState),
-  Layer.succeed(DatabaseService, MockDatabaseService)
-);
+const testRuntime = Effect.provide(saveGame(mockGameState), Layer.succeed(DatabaseService, MockDatabaseService))
 ```
 
 ## 3. よくある移行パターン
@@ -217,37 +232,33 @@ const testRuntime = Effect.provide(
 ```typescript
 // Before: 命令型スタイル
 async function processPlayers(players: Player[]): Promise<ProcessedPlayer[]> {
-  const results: ProcessedPlayer[] = [];
+  const results: ProcessedPlayer[] = []
 
   for (const player of players) {
     try {
-      const processed = await processPlayer(player);
-      results.push(processed);
+      const processed = await processPlayer(player)
+      results.push(processed)
     } catch (error) {
-      console.error(`Failed to process ${player.id}:`, error);
+      console.error(`Failed to process ${player.id}:`, error)
       // エラーを無視して続行（データ損失のリスク）
     }
   }
 
-  return results;
+  return results
 }
 
 // After: Effect.forEach を使った関数型スタイル
 const processPlayers = (players: readonly Player[]) =>
   Effect.forEach(players, (player) =>
-    processPlayer(player)
-      .pipe(
-        Effect.mapError((error) => ({ playerId: player.id, error })),
-        // 個別エラーは収集して後で処理
-        Effect.option
-      )
-  ).pipe(
-    Effect.map((results) => results.filter(Option.isSome).map(Option.value))
-  );
+    processPlayer(player).pipe(
+      Effect.mapError((error) => ({ playerId: player.id, error })),
+      // 個別エラーは収集して後で処理
+      Effect.option
+    )
+  ).pipe(Effect.map((results) => results.filter(Option.isSome).map(Option.value)))
 
 // または全てのエラーを保持したい場合
-const processPlayersWithErrors = (players: readonly Player[]) =>
-  Effect.partition(players, processPlayer);
+const processPlayersWithErrors = (players: readonly Player[]) => Effect.partition(players, processPlayer)
 // Effect<[failures: ProcessPlayerError[], successes: ProcessedPlayer[]], never, PlayerService>
 ```
 
@@ -256,29 +267,29 @@ const processPlayersWithErrors = (players: readonly Player[]) =>
 ```typescript
 // Before: 環境変数の直接使用
 const config = {
-  dbUrl: process.env.DATABASE_URL || "sqlite://default.db",
-  port: parseInt(process.env.PORT || "3000"),
-  debug: process.env.NODE_ENV === "development"
-};
+  dbUrl: process.env.DATABASE_URL || 'sqlite://default.db',
+  port: parseInt(process.env.PORT || '3000'),
+  debug: process.env.NODE_ENV === 'development',
+}
 
 // After: Schema による型安全な設定
 const ConfigSchema = Schema.Struct({
   dbUrl: Schema.String.pipe(Schema.nonEmpty()),
   port: Schema.Number.pipe(Schema.between(1, 65535)),
-  debug: Schema.Boolean
-});
+  debug: Schema.Boolean,
+})
 
 const loadConfig = Effect.gen(function* (_) {
   const rawConfig = {
-    dbUrl: process.env.DATABASE_URL || "sqlite://default.db",
-    port: parseInt(process.env.PORT || "3000"),
-    debug: process.env.NODE_ENV === "development"
-  };
+    dbUrl: process.env.DATABASE_URL || 'sqlite://default.db',
+    port: parseInt(process.env.PORT || '3000'),
+    debug: process.env.NODE_ENV === 'development',
+  }
 
-  const config = yield* _(Schema.decodeUnknown(ConfigSchema)(rawConfig));
+  const config = yield* _(Schema.decodeUnknown(ConfigSchema)(rawConfig))
 
-  return config;
-});
+  return config
+})
 
 // 設定エラーは起動時に即座に検出される
 ```
@@ -289,15 +300,15 @@ const loadConfig = Effect.gen(function* (_) {
 // Before: 異なるエラーハンドリングパターン
 function handleRequest(req: Request, res: Response) {
   try {
-    const result = processRequest(req.body);
-    res.json({ success: true, data: result });
+    const result = processRequest(req.body)
+    res.json({ success: true, data: result })
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message })
     } else if (error instanceof DatabaseError) {
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: 'Internal server error' })
     } else {
-      res.status(500).json({ error: "Unknown error" });
+      res.status(500).json({ error: 'Unknown error' })
     }
   }
 }
@@ -308,20 +319,17 @@ const handleRequest = (requestData: unknown) =>
     Effect.matchEffect({
       onFailure: (error) =>
         Match.value(error).pipe(
-          Match.when(Match.tag("ValidationError"), (err) =>
+          Match.when(Match.tag('ValidationError'), (err) =>
             Effect.succeed({ status: 400, body: { error: err.message } })
           ),
-          Match.when(Match.tag("DatabaseError"), (err) =>
-            Effect.succeed({ status: 500, body: { error: "Internal server error" } })
+          Match.when(Match.tag('DatabaseError'), (err) =>
+            Effect.succeed({ status: 500, body: { error: 'Internal server error' } })
           ),
-          Match.orElse(() =>
-            Effect.succeed({ status: 500, body: { error: "Unknown error" } })
-          )
+          Match.orElse(() => Effect.succeed({ status: 500, body: { error: 'Unknown error' } }))
         ),
-      onSuccess: (data) =>
-        Effect.succeed({ status: 200, body: { success: true, data } })
+      onSuccess: (data) => Effect.succeed({ status: 200, body: { success: true, data } }),
     })
-  );
+  )
 ```
 
 ## 4. 実践的な移行手順
@@ -329,6 +337,7 @@ const handleRequest = (requestData: unknown) =>
 ### 4.1 週次移行計画
 
 **Week 1: 基盤導入**
+
 ```bash
 # Effect-TS 依存関係追加
 pnpm add effect @effect/schema @effect/platform
@@ -338,30 +347,35 @@ mkdir src/shared/errors src/shared/schemas
 ```
 
 **Week 2: 重要なドメインモデル移行**
+
 ```typescript
 // 最も使用頻度の高いエンティティから開始
 // src/shared/schemas/player.ts
-export const PlayerSchema = Schema.Struct({ /* ... */ });
+export const PlayerSchema = Schema.Struct({
+  /* ... */
+})
 
 // src/shared/errors/player-errors.ts
-export const PlayerNotFoundError = Schema.TaggedError("PlayerNotFoundError")({
+export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
   playerId: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 })
 ```
 
 **Week 3: サービス層の段階的移行**
+
 ```typescript
 // 既存のクラス → 関数型サービスへ変換
 // 一つのサービスずつ移行
 const PlayerService = {
   create: createPlayer,
   findById: findPlayerById,
-  update: updatePlayer
-};
+  update: updatePlayer,
+}
 ```
 
 **Week 4: API層とテスト整備**
+
 ```typescript
 // Effect-TS統合テストとAPIハンドラー整備
 // テストカバレッジを維持しながら移行完了
@@ -398,20 +412,18 @@ const PlayerService = {
 
 ```typescript
 // ✅ DO: 段階的移行のための互換レイヤー
-const legacyToEffect = <A, E>(
-  legacyPromise: () => Promise<A>
-): Effect.Effect<A, E> =>
+const legacyToEffect = <A, E>(legacyPromise: () => Promise<A>): Effect.Effect<A, E> =>
   Effect.tryPromise({
     try: legacyPromise,
-    catch: (error) => error as E
-  });
+    catch: (error) => error as E,
+  })
 
 // 既存コードとの共存期間中
 const hybridFunction = (id: string) =>
   pipe(
     legacyToEffect(() => oldPlayerService.findById(id)),
     Effect.flatMap((player) => newPlayerValidation(player))
-  );
+  )
 ```
 
 ```typescript
@@ -420,13 +432,12 @@ const processUserInput = (input: unknown) =>
   pipe(
     input,
     Schema.decodeUnknown(InputSchema), // まずバリデーション
-    Effect.flatMap(processValidInput),   // バリデーション後の処理
-    Effect.mapError(ensureTaggedError)   // エラー型統一
-  );
+    Effect.flatMap(processValidInput), // バリデーション後の処理
+    Effect.mapError(ensureTaggedError) // エラー型統一
+  )
 
 // ❌ DON'T: any や as の多用
-const unsafeProcess = (input: any) =>
-  Effect.succeed(input as ProcessedData);
+const unsafeProcess = (input: any) => Effect.succeed(input as ProcessedData)
 ```
 
 ## 5. トラブルシューティング
@@ -434,52 +445,56 @@ const unsafeProcess = (input: any) =>
 ### 5.1 よくある移行問題
 
 **問題1: 型エラーの大量発生**
+
 ```typescript
 // エラー: Type '(x: unknown) => Effect<A, E>' is not assignable...
 const fixedFunction = <A>(input: unknown): Effect.Effect<A, ValidationError> =>
   pipe(
     input,
     Schema.decodeUnknown(SomeSchema), // 適切なスキーマ定義が重要
-    Effect.mapError(() => new ValidationError({ message: "Invalid input" }))
-  );
+    Effect.mapError(() => new ValidationError({ message: 'Invalid input' }))
+  )
 ```
 
 **問題2: パフォーマンス低下**
+
 ```typescript
 // ❌ 非効率: ネストしたEffect.genの過度な使用
 const inefficient = (items: Item[]) =>
   Effect.gen(function* (_) {
-    const results = [];
+    const results = []
     for (const item of items) {
-      const result = yield* _(Effect.gen(function* (_) {
-        // 重いネストは避ける
-      }));
-      results.push(result);
+      const result = yield* _(
+        Effect.gen(function* (_) {
+          // 重いネストは避ける
+        })
+      )
+      results.push(result)
     }
-    return results;
-  });
+    return results
+  })
 
 // ✅ 効率的: 適切なコンビネーター使用
-const efficient = (items: Item[]) =>
-  Effect.all(items.map(processItem));
+const efficient = (items: Item[]) => Effect.all(items.map(processItem))
 ```
 
 **問題3: メモリリーク**
+
 ```typescript
 // ❌ Fiber が適切に終了しない
 const memoryleak = Effect.forever(
   Effect.gen(function* (_) {
     // 終了条件なしの無限ループ
   })
-);
+)
 
 // ✅ 適切な終了条件とリソース管理
 const properCleanup = Effect.scoped(
   Effect.gen(function* (_) {
-    const resource = yield* _(acquireResource);
+    const resource = yield* _(acquireResource)
     // scopedにより自動的にリソース解放
   })
-);
+)
 ```
 
 ### 5.2 デバッグ技術
@@ -488,15 +503,11 @@ const properCleanup = Effect.scoped(
 // Effect-TS でのデバッグ
 const debuggedEffect = pipe(
   processData(input),
-  Effect.tap((result) =>
-    Effect.sync(() => console.log("Intermediate result:", result))
-  ),
-  Effect.tapError((error) =>
-    Effect.sync(() => console.error("Error occurred:", error))
-  ),
+  Effect.tap((result) => Effect.sync(() => console.log('Intermediate result:', result))),
+  Effect.tapError((error) => Effect.sync(() => console.error('Error occurred:', error))),
   // トレーシング有効化
-  Effect.withSpan("processData", { attributes: { input: String(input) } })
-);
+  Effect.withSpan('processData', { attributes: { input: String(input) } })
+)
 ```
 
 ## 6. 成功指標と効果測定
@@ -543,6 +554,7 @@ const debuggedEffect = pipe(
 
 `★ Insight ─────────────────────────────────────`
 Effect-TS移行は段階的なアプローチが成功の鍵：
+
 1. **スキーマ優先**: 型安全性から始めることで後続の移行が楽になる
 2. **エラーファースト**: タグ付きエラーによる明確な問題特定
 3. **テスト駆動**: 既存テストを保持しながら安全な移行を実現

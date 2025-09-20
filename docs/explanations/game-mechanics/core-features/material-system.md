@@ -1,13 +1,12 @@
 ---
-title: "10 Material System"
-description: "10 Material Systemに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "30分"
+title: '10 Material System'
+description: '10 Material Systemに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '30分'
 ---
-
 
 # マテリアルシステム - マテリアル・素材システム
 
@@ -16,6 +15,7 @@ estimated_reading_time: "30分"
 マテリアルシステムは、TypeScript Minecraftクローンの物理的特性とゲームプレイの基盤を担うシステムです。ブロック・アイテム・エンティティの物理的性質、相互作用、レンダリング、音響効果を定義し、リアルで没入感のあるゲーム体験を提供します。
 
 本システムは以下の機能を提供します：
+
 - **マテリアル定義**: 700+種類の物理的特性定義
 - **パフォーマンス最適化**: 構造体配列と効率的なキャッシング
 - **物理シミュレーション**: リアルタイムな相互作用計算
@@ -29,23 +29,20 @@ estimated_reading_time: "30分"
 ### マテリアルスキーマ
 
 ```typescript
-import { Effect, Layer, Context, Schema, pipe, Match, Brand } from "effect"
-import { Option, ReadonlyArray } from "effect"
+import { Effect, Layer, Context, Schema, pipe, Match, Brand } from 'effect'
+import { Option, ReadonlyArray } from 'effect'
 
 // ブランド型の定義（最新パターン）
-export const MaterialId = Schema.String.pipe(
-  Schema.pattern(/^[a-z]+:[a-z_]+$/),
-  Schema.brand("MaterialId")
-)
+export const MaterialId = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('MaterialId'))
 export type MaterialId = Schema.Schema.Type<typeof MaterialId>
 
-export const Hardness = pipe(Schema.Number, Schema.between(0, 10), Schema.brand("Hardness"))
+export const Hardness = pipe(Schema.Number, Schema.between(0, 10), Schema.brand('Hardness'))
 export type Hardness = Schema.Schema.Type<typeof Hardness>
 
-export const BlastResistance = pipe(Schema.Number, Schema.nonNegative(), Schema.brand("BlastResistance"))
+export const BlastResistance = pipe(Schema.Number, Schema.nonNegative(), Schema.brand('BlastResistance'))
 export type BlastResistance = Schema.Schema.Type<typeof BlastResistance>
 
-export const Density = pipe(Schema.Number, Schema.positive(), Schema.brand("Density"))
+export const Density = pipe(Schema.Number, Schema.positive(), Schema.brand('Density'))
 export type Density = Schema.Schema.Type<typeof Density>
 
 // 物理的特性（型安全性の向上）
@@ -57,10 +54,10 @@ export const PhysicalProperties = Schema.Struct({
   viscosity: pipe(Schema.Number, Schema.nonNegative()), // 粘度（流体用）
   conductivity: Schema.Struct({
     thermal: pipe(Schema.Number, Schema.nonNegative()), // 熱伝導率
-    electrical: pipe(Schema.Number, Schema.nonNegative()) // 電気伝導率
+    electrical: pipe(Schema.Number, Schema.nonNegative()), // 電気伝導率
   }),
   magnetism: pipe(Schema.Number, Schema.between(-1, 1)), // 磁性（-1=反磁性、0=非磁性、1=強磁性）
-  radioactivity: pipe(Schema.Number, Schema.nonNegative()) // 放射線レベル
+  radioactivity: pipe(Schema.Number, Schema.nonNegative()), // 放射線レベル
 })
 
 // 視覚的特性
@@ -68,25 +65,37 @@ export const VisualProperties = Schema.Struct({
   color: Schema.Struct({
     primary: Schema.String.pipe(Schema.pattern(/^#[0-9a-fA-F]{6}$/)),
     secondary: Schema.Optional(Schema.String.pipe(Schema.pattern(/^#[0-9a-fA-F]{6}$/))),
-    emissive: Schema.Optional(Schema.String.pipe(Schema.pattern(/^#[0-9a-fA-F]{6}$/)))
+    emissive: Schema.Optional(Schema.String.pipe(Schema.pattern(/^#[0-9a-fA-F]{6}$/))),
   }),
   opacity: pipe(Schema.Number, Schema.between(0, 1)),
   reflectivity: pipe(Schema.Number, Schema.between(0, 1)),
   roughness: pipe(Schema.Number, Schema.between(0, 1)),
   metallic: pipe(Schema.Number, Schema.between(0, 1)),
   luminance: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
-  transparency: Schema.Literal("opaque", "cutout", "translucent", "transparent"),
-  renderLayer: Schema.Literal("solid", "cutout_mipped", "cutout", "translucent"),
+  transparency: Schema.Literal('opaque', 'cutout', 'translucent', 'transparent'),
+  renderLayer: Schema.Literal('solid', 'cutout_mipped', 'cutout', 'translucent'),
   cullFace: Schema.Boolean, // 面のカリング有効
   backfaceCulling: Schema.Boolean,
-  ambientOcclusion: Schema.Boolean
+  ambientOcclusion: Schema.Boolean,
 })
 
 // 音響特性
 export const AcousticProperties = Schema.Struct({
   soundType: Schema.Literal(
-    "stone", "wood", "gravel", "grass", "metal", "glass", "wool",
-    "sand", "snow", "liquid", "fire", "organic", "crystal", "ceramic"
+    'stone',
+    'wood',
+    'gravel',
+    'grass',
+    'metal',
+    'glass',
+    'wool',
+    'sand',
+    'snow',
+    'liquid',
+    'fire',
+    'organic',
+    'crystal',
+    'ceramic'
   ),
   footstepSounds: Schema.Array(Schema.String),
   breakSounds: Schema.Array(Schema.String),
@@ -97,7 +106,7 @@ export const AcousticProperties = Schema.Struct({
   pitch: pipe(Schema.Number, Schema.between(0.5, 2.0)),
   reverb: Schema.Optional(Schema.Number),
   echo: Schema.Optional(Schema.Number),
-  dampening: pipe(Schema.Number, Schema.between(0, 1)) // 音の吸収率
+  dampening: pipe(Schema.Number, Schema.between(0, 1)), // 音の吸収率
 })
 
 // 環境的特性
@@ -106,39 +115,41 @@ export const EnvironmentalProperties = Schema.Struct({
     melting: Schema.Optional(Schema.Number), // 融点（℃）
     boiling: Schema.Optional(Schema.Number), // 沸点（℃）
     combustion: Schema.Optional(Schema.Number), // 発火点（℃）
-    ambient: pipe(Schema.Number, Schema.between(-273, 5000)) // 通常温度
+    ambient: pipe(Schema.Number, Schema.between(-273, 5000)), // 通常温度
   }),
   weatherResistance: Schema.Struct({
     rain: pipe(Schema.Number, Schema.between(0, 1)),
     snow: pipe(Schema.Number, Schema.between(0, 1)),
     wind: pipe(Schema.Number, Schema.between(0, 1)),
-    uv: pipe(Schema.Number, Schema.between(0, 1)) // 紫外線耐性
+    uv: pipe(Schema.Number, Schema.between(0, 1)), // 紫外線耐性
   }),
   biomeAdaptation: Schema.Record(
     Schema.String, // バイオームID
     Schema.Struct({
       colorVariation: Schema.Optional(Schema.String),
       textureVariation: Schema.Optional(Schema.String),
-      propertyModifiers: Schema.Optional(Schema.Record(Schema.String, Schema.Number))
+      propertyModifiers: Schema.Optional(Schema.Record(Schema.String, Schema.Number)),
     })
   ),
-  ageingEffects: Schema.Optional(Schema.Struct({
-    weathering: Schema.Boolean,
-    patina: Schema.Boolean,
-    decay: Schema.Boolean,
-    growth: Schema.Boolean // 苔、錆など
-  }))
+  ageingEffects: Schema.Optional(
+    Schema.Struct({
+      weathering: Schema.Boolean,
+      patina: Schema.Boolean,
+      decay: Schema.Boolean,
+      growth: Schema.Boolean, // 苔、錆など
+    })
+  ),
 })
 
 // ツールタイプ（判別共用体）
-export const ToolType = Schema.Literal("hand", "pickaxe", "axe", "shovel", "hoe", "shears", "sword")
+export const ToolType = Schema.Literal('hand', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword')
 export type ToolType = Schema.Schema.Type<typeof ToolType>
 
 // ツール効果性（ブランド型）
-export const Efficiency = pipe(Schema.Number, Schema.between(0, 10), Schema.brand("Efficiency"))
+export const Efficiency = pipe(Schema.Number, Schema.between(0, 10), Schema.brand('Efficiency'))
 export type Efficiency = Schema.Schema.Type<typeof Efficiency>
 
-export const DurabilityDamage = pipe(Schema.Number, Schema.between(0, 5), Schema.brand("DurabilityDamage"))
+export const DurabilityDamage = pipe(Schema.Number, Schema.between(0, 5), Schema.brand('DurabilityDamage'))
 export type DurabilityDamage = Schema.Schema.Type<typeof DurabilityDamage>
 
 // インタラクション特性（型安全性の向上）
@@ -147,50 +158,67 @@ export const InteractionProperties = Schema.Struct({
     ToolType,
     Schema.Struct({
       efficiency: Efficiency,
-      durabilityDamage: DurabilityDamage
+      durabilityDamage: DurabilityDamage,
     })
   ),
   enchantmentAffinity: Schema.Record(
     Schema.String, // エンチャント名
     pipe(Schema.Number, Schema.between(0, 2)) // 効果倍率
   ),
-  chemicalReactions: Schema.Array(Schema.Struct({
-    reactant: MaterialId,
-    catalyst: Schema.Optional(MaterialId),
-    products: Schema.Array(Schema.Struct({
-      material: MaterialId,
-      probability: pipe(Schema.Number, Schema.between(0, 1))
-    })),
-    conditions: Schema.Optional(Schema.Struct({
-      temperature: Schema.Optional(Schema.Struct({
-        min: Schema.Number,
-        max: Schema.Number
-      })),
-      pressure: Schema.Optional(Schema.Number),
-      time: Schema.Optional(Schema.Number)
-    }))
-  })),
+  chemicalReactions: Schema.Array(
+    Schema.Struct({
+      reactant: MaterialId,
+      catalyst: Schema.Optional(MaterialId),
+      products: Schema.Array(
+        Schema.Struct({
+          material: MaterialId,
+          probability: pipe(Schema.Number, Schema.between(0, 1)),
+        })
+      ),
+      conditions: Schema.Optional(
+        Schema.Struct({
+          temperature: Schema.Optional(
+            Schema.Struct({
+              min: Schema.Number,
+              max: Schema.Number,
+            })
+          ),
+          pressure: Schema.Optional(Schema.Number),
+          time: Schema.Optional(Schema.Number),
+        })
+      ),
+    })
+  ),
   explosionResistance: BlastResistance,
   fireSpread: Schema.Struct({
     igniteChance: pipe(Schema.Number, Schema.between(0, 1)),
     burnTime: Schema.Optional(pipe(Schema.Number, Schema.positive())),
-    spreadChance: pipe(Schema.Number, Schema.between(0, 1))
-  })
+    spreadChance: pipe(Schema.Number, Schema.between(0, 1)),
+  }),
 })
 
 // マテリアルカテゴリ（判別共用体）
 export const MaterialCategory = Schema.Literal(
-  "stone", "metal", "organic", "liquid", "gas", "composite",
-  "magical", "synthetic", "crystal", "ceramic", "glass"
+  'stone',
+  'metal',
+  'organic',
+  'liquid',
+  'gas',
+  'composite',
+  'magical',
+  'synthetic',
+  'crystal',
+  'ceramic',
+  'glass'
 )
 export type MaterialCategory = Schema.Schema.Type<typeof MaterialCategory>
 
 // マテリアル状態（判別共用体）
-export const MaterialState = Schema.Literal("solid", "liquid", "gas", "plasma")
+export const MaterialState = Schema.Literal('solid', 'liquid', 'gas', 'plasma')
 export type MaterialState = Schema.Schema.Type<typeof MaterialState>
 
 // レアリティ（判別共用体）
-export const MaterialRarity = Schema.Literal("common", "uncommon", "rare", "epic", "legendary")
+export const MaterialRarity = Schema.Literal('common', 'uncommon', 'rare', 'epic', 'legendary')
 export type MaterialRarity = Schema.Schema.Type<typeof MaterialRarity>
 
 // メインマテリアル定義（早期リターン・浅いネストの原則に従った構造）
@@ -209,22 +237,22 @@ export const MaterialDefinition = Schema.Struct({
   rarity: MaterialRarity,
   version: pipe(Schema.Number, Schema.int(), Schema.positive()),
   created: Schema.DateTimeUtc,
-  lastModified: Schema.DateTimeUtc
+  lastModified: Schema.DateTimeUtc,
 })
 
 export type MaterialDefinition = Schema.Schema.Type<typeof MaterialDefinition>
 
 // カスタムエラー型（TaggedError パターン）
-export const MaterialNotFoundError = Schema.TaggedError("MaterialNotFoundError")({
-  materialId: MaterialId
+export const MaterialNotFoundError = Schema.TaggedError('MaterialNotFoundError')({
+  materialId: MaterialId,
 })
 
-export const RegistrationError = Schema.TaggedError("RegistrationError")({
-  message: Schema.String
+export const RegistrationError = Schema.TaggedError('RegistrationError')({
+  message: Schema.String,
 })
 
-export const UpdateError = Schema.TaggedError("UpdateError")({
-  message: Schema.String
+export const UpdateError = Schema.TaggedError('UpdateError')({
+  message: Schema.String,
 })
 ```
 
@@ -239,14 +267,17 @@ interface MaterialRegistryInterface {
   readonly get: (id: MaterialId) => Effect.Effect<MaterialDefinition, MaterialNotFoundError>
   readonly getByCategory: (category: MaterialCategory) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
   readonly getByTags: (tags: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
-  readonly findSimilar: (material: MaterialDefinition, threshold: number) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
+  readonly findSimilar: (
+    material: MaterialDefinition,
+    threshold: number
+  ) => Effect.Effect<ReadonlyArray<MaterialDefinition>, never>
   readonly updateMaterial: (id: MaterialId, updates: Partial<MaterialDefinition>) => Effect.Effect<void, UpdateError>
   readonly preloadForRegion: (region: WorldRegion) => Effect.Effect<void, never>
   readonly getStats: () => Effect.Effect<RegistryStats, never>
 }
 
 // Context Tag（最新の GenericTag パターン）
-export const MaterialRegistry = Context.GenericTag<MaterialRegistryInterface>("@minecraft/MaterialRegistry")
+export const MaterialRegistry = Context.GenericTag<MaterialRegistryInterface>('@minecraft/MaterialRegistry')
 
 // ワールド地域型（判別共用体）
 export const WorldRegion = Schema.Struct({
@@ -255,13 +286,13 @@ export const WorldRegion = Schema.Struct({
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   size: Schema.Struct({
     width: Schema.Number,
     height: Schema.Number,
-    depth: Schema.Number
-  })
+    depth: Schema.Number,
+  }),
 })
 export type WorldRegion = Schema.Schema.Type<typeof WorldRegion>
 
@@ -274,7 +305,7 @@ export const RegistryStats = Schema.Struct({
   memoryUsage: Schema.Number,
   indexSize: Schema.Number,
   cacheSize: Schema.Number,
-  hitRate: Schema.Number
+  hitRate: Schema.Number,
 })
 export type RegistryStats = Schema.Schema.Type<typeof RegistryStats>
 
@@ -304,14 +335,14 @@ const makeMaterialRegistry = Effect.gen(function* () {
     cacheMisses: 0,
     lastCleanup: Date.now(),
     memoryUsage: 0,
-    indexSize: 0
+    indexSize: 0,
   })
 
   const register = (material: MaterialDefinition) =>
     Effect.gen(function* () {
       // バリデーション（早期リターン）
       const validatedMaterial = yield* Schema.decodeUnknown(MaterialDefinition)(material).pipe(
-        Effect.mapError(() => new RegistrationError({ message: "無効なマテリアル定義" }))
+        Effect.mapError(() => new RegistrationError({ message: '無効なマテリアル定義' }))
       )
 
       const currentIds = yield* Ref.get(materialIds)
@@ -327,20 +358,23 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const newIndex = currentIds.length
 
       // 構造体配列への追加（並列処理）
-      yield* Effect.all([
-        Ref.update(materialIds, ids => [...ids, validatedMaterial.id]),
-        Ref.update(physicalProps, props => [...props, validatedMaterial.physical]),
-        Ref.update(visualProps, props => [...props, validatedMaterial.visual]),
-        Ref.update(acousticProps, props => [...props, validatedMaterial.acoustic]),
-        Ref.update(environmentalProps, props => [...props, validatedMaterial.environmental]),
-        Ref.update(interactionProps, props => [...props, validatedMaterial.interaction])
-      ], { concurrency: 6 })
+      yield* Effect.all(
+        [
+          Ref.update(materialIds, (ids) => [...ids, validatedMaterial.id]),
+          Ref.update(physicalProps, (props) => [...props, validatedMaterial.physical]),
+          Ref.update(visualProps, (props) => [...props, validatedMaterial.visual]),
+          Ref.update(acousticProps, (props) => [...props, validatedMaterial.acoustic]),
+          Ref.update(environmentalProps, (props) => [...props, validatedMaterial.environmental]),
+          Ref.update(interactionProps, (props) => [...props, validatedMaterial.interaction]),
+        ],
+        { concurrency: 6 }
+      )
 
       // インデックス更新
-      yield* Ref.update(idToIndex, index => new Map(index).set(validatedMaterial.id, newIndex))
+      yield* Ref.update(idToIndex, (index) => new Map(index).set(validatedMaterial.id, newIndex))
 
       // カテゴリインデックス更新（型安全）
-      yield* Ref.update(categoryIndex, index => {
+      yield* Ref.update(categoryIndex, (index) => {
         const newIndexMap = new Map(index)
         const categorySet = newIndexMap.get(validatedMaterial.category) || new Set()
         categorySet.add(newIndex)
@@ -351,21 +385,25 @@ const makeMaterialRegistry = Effect.gen(function* () {
       // タグインデックス更新
       yield* Effect.forEach(
         validatedMaterial.tags,
-        tag => Ref.update(tagIndex, index => {
-          const newTagIndex = new Map(index)
-          const tagSet = newTagIndex.get(tag) || new Set()
-          tagSet.add(newIndex)
-          newTagIndex.set(tag, tagSet)
-          return newTagIndex
-        }),
+        (tag) =>
+          Ref.update(tagIndex, (index) => {
+            const newTagIndex = new Map(index)
+            const tagSet = newTagIndex.get(tag) || new Set()
+            tagSet.add(newIndex)
+            newTagIndex.set(tag, tagSet)
+            return newTagIndex
+          }),
         { concurrency: 4 }
       )
 
       // キャッシュと統計の更新（並列処理）
-      yield* Effect.all([
-        Ref.update(materialCache, cache => new Map(cache).set(validatedMaterial.id, validatedMaterial)),
-        Ref.update(stats, s => ({ ...s, totalMaterials: s.totalMaterials + 1 }))
-      ], { concurrency: 2 })
+      yield* Effect.all(
+        [
+          Ref.update(materialCache, (cache) => new Map(cache).set(validatedMaterial.id, validatedMaterial)),
+          Ref.update(stats, (s) => ({ ...s, totalMaterials: s.totalMaterials + 1 })),
+        ],
+        { concurrency: 2 }
+      )
     })
 
   const get = (id: MaterialId) =>
@@ -380,11 +418,11 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const cached = cache.get(validatedId)
 
       if (cached) {
-        yield* Ref.update(stats, s => ({ ...s, cacheHits: s.cacheHits + 1 }))
+        yield* Ref.update(stats, (s) => ({ ...s, cacheHits: s.cacheHits + 1 }))
         return cached
       }
 
-      yield* Ref.update(stats, s => ({ ...s, cacheMisses: s.cacheMisses + 1 }))
+      yield* Ref.update(stats, (s) => ({ ...s, cacheMisses: s.cacheMisses + 1 }))
 
       // インデックスから取得（早期リターン）
       const indexMap = yield* Ref.get(idToIndex)
@@ -398,7 +436,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const material = yield* reconstructMaterial(index)
 
       // キャッシュに保存
-      yield* Ref.update(materialCache, cache => new Map(cache).set(validatedId, material))
+      yield* Ref.update(materialCache, (cache) => new Map(cache).set(validatedId, material))
 
       return material
     })
@@ -412,11 +450,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const indices = categoryIdx.get(validatedCategory) || new Set()
 
       // 並列処理で材質を再構築
-      return yield* Effect.forEach(
-        Array.from(indices),
-        index => reconstructMaterial(index),
-        { concurrency: 8 }
-      )
+      return yield* Effect.forEach(Array.from(indices), (index) => reconstructMaterial(index), { concurrency: 8 })
     })
 
   const getByTags = (tags: ReadonlyArray<string>) =>
@@ -426,25 +460,17 @@ const makeMaterialRegistry = Effect.gen(function* () {
       // 共通のインデックスを見つける
       const commonIndices = yield* pipe(
         tags,
-        Array.reduce(
-          Option.none<Set<number>>(),
-          (acc, tag) => {
-            const tagIndices = tagIdx.get(tag) || new Set()
-            return Option.match(acc, {
-              onNone: () => Option.some(new Set(tagIndices)),
-              onSome: (current) => Option.some(
-                new Set([...current].filter(x => tagIndices.has(x)))
-              )
-            })
-          }
-        ),
+        Array.reduce(Option.none<Set<number>>(), (acc, tag) => {
+          const tagIndices = tagIdx.get(tag) || new Set()
+          return Option.match(acc, {
+            onNone: () => Option.some(new Set(tagIndices)),
+            onSome: (current) => Option.some(new Set([...current].filter((x) => tagIndices.has(x)))),
+          })
+        }),
         Option.getOrElse(() => new Set<number>())
       )
 
-      return yield* Effect.forEach(
-        Array.fromIterable(commonIndices),
-        (index) => reconstructMaterial(index)
-      )
+      return yield* Effect.forEach(Array.fromIterable(commonIndices), (index) => reconstructMaterial(index))
     })
 
   const findSimilar = (material: MaterialDefinition, threshold: number) =>
@@ -478,7 +504,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
       })
 
       // キャッシュに保存
-      yield* Ref.update(similarityCache, cache => new Map(cache).set(cacheKey, similar))
+      yield* Ref.update(similarityCache, (cache) => new Map(cache).set(cacheKey, similar))
 
       return similar
     })
@@ -494,7 +520,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
 
       // 部分更新の適用
       if (updates.physical) {
-        yield* Ref.update(physicalProps, props => {
+        yield* Ref.update(physicalProps, (props) => {
           const newProps = [...props]
           newProps[index] = updates.physical!
           return newProps
@@ -502,7 +528,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
       }
 
       if (updates.visual) {
-        yield* Ref.update(visualProps, props => {
+        yield* Ref.update(visualProps, (props) => {
           const newProps = [...props]
           newProps[index] = updates.visual!
           return newProps
@@ -510,7 +536,7 @@ const makeMaterialRegistry = Effect.gen(function* () {
       }
 
       // キャッシュを無効化
-      yield* Ref.update(materialCache, cache => {
+      yield* Ref.update(materialCache, (cache) => {
         const newCache = new Map(cache)
         newCache.delete(id)
         return newCache
@@ -528,24 +554,18 @@ const makeMaterialRegistry = Effect.gen(function* () {
       // 地域に関連するマテリアルを事前ロード
       const regionMaterials = yield* getRegionMaterials(validatedRegion)
 
-      yield* Effect.forEach(
-        regionMaterials,
-        materialId => get(materialId),
-        { concurrency: 8 }
-      )
+      yield* Effect.forEach(regionMaterials, (materialId) => get(materialId), { concurrency: 8 })
     })
 
   const getStats = () =>
     Effect.gen(function* () {
       const currentStats = yield* Ref.get(stats)
-      const cacheSize = yield* Ref.get(materialCache).pipe(
-        Effect.map(cache => cache.size)
-      )
+      const cacheSize = yield* Ref.get(materialCache).pipe(Effect.map((cache) => cache.size))
 
       return {
         ...currentStats,
         cacheSize,
-        hitRate: currentStats.cacheHits / (currentStats.cacheHits + currentStats.cacheMisses)
+        hitRate: currentStats.cacheHits / (currentStats.cacheHits + currentStats.cacheMisses),
       } as RegistryStats
     })
 
@@ -568,13 +588,13 @@ const makeMaterialRegistry = Effect.gen(function* () {
         interaction: interaction[index],
         // その他の静的プロパティ
         name: `Material_${ids[index]}`,
-        category: "stone",
-        state: "solid",
+        category: 'stone',
+        state: 'solid',
         tags: [],
-        rarity: "common",
+        rarity: 'common',
         version: 1,
         created: new Date(),
-        lastModified: new Date()
+        lastModified: new Date(),
       } as MaterialDefinition
     })
 
@@ -628,30 +648,30 @@ const makeMaterialRegistry = Effect.gen(function* () {
       const biome = region.biome
 
       return Match.value(biome).pipe(
-        Match.when("plains", () => [
-          "minecraft:grass" as MaterialId,
-          "minecraft:dirt" as MaterialId,
-          "minecraft:stone" as MaterialId
+        Match.when('plains', () => [
+          'minecraft:grass' as MaterialId,
+          'minecraft:dirt' as MaterialId,
+          'minecraft:stone' as MaterialId,
         ]),
-        Match.when("desert", () => [
-          "minecraft:sand" as MaterialId,
-          "minecraft:sandstone" as MaterialId,
-          "minecraft:cactus" as MaterialId
+        Match.when('desert', () => [
+          'minecraft:sand' as MaterialId,
+          'minecraft:sandstone' as MaterialId,
+          'minecraft:cactus' as MaterialId,
         ]),
-        Match.when("forest", () => [
-          "minecraft:wood" as MaterialId,
-          "minecraft:leaves" as MaterialId,
-          "minecraft:moss" as MaterialId
+        Match.when('forest', () => [
+          'minecraft:wood' as MaterialId,
+          'minecraft:leaves' as MaterialId,
+          'minecraft:moss' as MaterialId,
         ]),
-        Match.when("mountains", () => [
-          "minecraft:stone" as MaterialId,
-          "minecraft:granite" as MaterialId,
-          "minecraft:iron_ore" as MaterialId
+        Match.when('mountains', () => [
+          'minecraft:stone' as MaterialId,
+          'minecraft:granite' as MaterialId,
+          'minecraft:iron_ore' as MaterialId,
         ]),
-        Match.when("ocean", () => [
-          "minecraft:water" as MaterialId,
-          "minecraft:sand" as MaterialId,
-          "minecraft:kelp" as MaterialId
+        Match.when('ocean', () => [
+          'minecraft:water' as MaterialId,
+          'minecraft:sand' as MaterialId,
+          'minecraft:kelp' as MaterialId,
         ]),
         Match.exhaustive
       )
@@ -665,15 +685,12 @@ const makeMaterialRegistry = Effect.gen(function* () {
     findSimilar,
     updateMaterial,
     preloadForRegion,
-    getStats
+    getStats,
   })
 })
 
 // Live Layer
-export const MaterialRegistryLive = Layer.effect(
-  MaterialRegistry,
-  makeMaterialRegistry
-)
+export const MaterialRegistryLive = Layer.effect(MaterialRegistry, makeMaterialRegistry)
 ```
 
 ## マテリアル物理システム
@@ -685,25 +702,25 @@ export const MaterialRegistryLive = Layer.effect(
 export const Vector3D = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 export type Vector3D = Schema.Schema.Type<typeof Vector3D>
 
 // 物理エラー型（TaggedError）
-export const PhysicsError = Schema.TaggedError("PhysicsError")({
-  message: Schema.String
+export const PhysicsError = Schema.TaggedError('PhysicsError')({
+  message: Schema.String,
 })
 
-export const FluidError = Schema.TaggedError("FluidError")({
-  message: Schema.String
+export const FluidError = Schema.TaggedError('FluidError')({
+  message: Schema.String,
 })
 
-export const ThermalError = Schema.TaggedError("ThermalError")({
-  message: Schema.String
+export const ThermalError = Schema.TaggedError('ThermalError')({
+  message: Schema.String,
 })
 
-export const ChemicalError = Schema.TaggedError("ChemicalError")({
-  message: Schema.String
+export const ChemicalError = Schema.TaggedError('ChemicalError')({
+  message: Schema.String,
 })
 
 // 結果型の定義
@@ -713,53 +730,57 @@ export const CollisionResult = Schema.Struct({
   soundEffect: Schema.Struct({
     type: Schema.String,
     volume: Schema.Number,
-    pitch: Schema.Number
+    pitch: Schema.Number,
   }),
   particleEffect: Schema.Struct({
     count: Schema.Number,
     material: MaterialId,
-    duration: Schema.Number
+    duration: Schema.Number,
   }),
-  damage: Schema.Number
+  damage: Schema.Number,
 })
 export type CollisionResult = Schema.Schema.Type<typeof CollisionResult>
 
 export const FluidState = Schema.Struct({
-  particles: Schema.Array(Schema.Struct({
-    position: Vector3D,
-    velocity: Vector3D,
-    density: Schema.Number,
-    pressure: Schema.Number
-  })),
+  particles: Schema.Array(
+    Schema.Struct({
+      position: Vector3D,
+      velocity: Vector3D,
+      density: Schema.Number,
+      pressure: Schema.Number,
+    })
+  ),
   flowRate: Schema.Number,
   turbulence: Schema.Number,
-  surface: Schema.Array(Vector3D)
+  surface: Schema.Array(Vector3D),
 })
 export type FluidState = Schema.Schema.Type<typeof FluidState>
 
 export const MaterialReactant = Schema.Struct({
   materialId: MaterialId,
-  amount: Schema.Number
+  amount: Schema.Number,
 })
 export type MaterialReactant = Schema.Schema.Type<typeof MaterialReactant>
 
 export const ReactionConditions = Schema.Struct({
   temperature: Schema.Number,
   pressure: Schema.Number,
-  time: Schema.Number
+  time: Schema.Number,
 })
 export type ReactionConditions = Schema.Schema.Type<typeof ReactionConditions>
 
 export const ReactionResult = Schema.Struct({
-  products: Schema.Array(Schema.Struct({
-    materialId: MaterialId,
-    amount: Schema.Number,
-    energy: Schema.Number
-  })),
+  products: Schema.Array(
+    Schema.Struct({
+      materialId: MaterialId,
+      amount: Schema.Number,
+      energy: Schema.Number,
+    })
+  ),
   energyReleased: Schema.Number,
   reactionRate: Schema.Number,
   byproducts: Schema.Array(Schema.Any),
-  duration: Schema.Number
+  duration: Schema.Number,
 })
 export type ReactionResult = Schema.Schema.Type<typeof ReactionResult>
 
@@ -768,17 +789,19 @@ export const MaterialStateUpdate = Schema.Struct({
   textureChange: Schema.NullOr(Schema.String),
   propertyChanges: Schema.Record(Schema.String, Schema.Number),
   newState: MaterialState,
-  durabilityLoss: Schema.Number
+  durabilityLoss: Schema.Number,
 })
 export type MaterialStateUpdate = Schema.Schema.Type<typeof MaterialStateUpdate>
 
 export const EnvironmentalConditions = Schema.Struct({
   temperature: Schema.Number,
   biome: Schema.Optional(Schema.String),
-  weather: Schema.Optional(Schema.Struct({
-    type: Schema.Literal("rain", "snow", "wind", "uv"),
-    intensity: Schema.Number
-  }))
+  weather: Schema.Optional(
+    Schema.Struct({
+      type: Schema.Literal('rain', 'snow', 'wind', 'uv'),
+      intensity: Schema.Number,
+    })
+  ),
 })
 export type EnvironmentalConditions = Schema.Schema.Type<typeof EnvironmentalConditions>
 
@@ -823,7 +846,9 @@ interface MaterialPhysicsServiceInterface {
 }
 
 // Context Tag（最新の GenericTag パターン）
-export const MaterialPhysicsService = Context.GenericTag<MaterialPhysicsServiceInterface>("@minecraft/MaterialPhysicsService")
+export const MaterialPhysicsService = Context.GenericTag<MaterialPhysicsServiceInterface>(
+  '@minecraft/MaterialPhysicsService'
+)
 
 // 高性能物理システム実装
 const makeMaterialPhysicsService = Effect.gen(function* () {
@@ -837,12 +862,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
   // 並列処理プール
   const physicsWorkerPool = yield* Effect.sync(() => createWorkerPool(4))
 
-  const calculateCollision = (
-    materialA: MaterialId,
-    materialB: MaterialId,
-    velocity: Vector3D,
-    normal: Vector3D
-  ) =>
+  const calculateCollision = (materialA: MaterialId, materialB: MaterialId, velocity: Vector3D, normal: Vector3D) =>
     Effect.gen(function* () {
       const cacheKey = `${materialA}:${materialB}:${velocity.x},${velocity.y},${velocity.z}:${normal.x},${normal.y},${normal.z}`
       const cache = yield* Ref.get(collisionCache)
@@ -863,21 +883,22 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       const normalizedVelocity = {
         x: velocity.x / velocityMagnitude,
         y: velocity.y / velocityMagnitude,
-        z: velocity.z / velocityMagnitude
+        z: velocity.z / velocityMagnitude,
       }
 
-      const dotProduct = normalizedVelocity.x * normal.x + normalizedVelocity.y * normal.y + normalizedVelocity.z * normal.z
+      const dotProduct =
+        normalizedVelocity.x * normal.x + normalizedVelocity.y * normal.y + normalizedVelocity.z * normal.z
 
       const reflectedVelocity = {
         x: normalizedVelocity.x - 2 * dotProduct * normal.x,
         y: normalizedVelocity.y - 2 * dotProduct * normal.y,
-        z: normalizedVelocity.z - 2 * dotProduct * normal.z
+        z: normalizedVelocity.z - 2 * dotProduct * normal.z,
       }
 
       const finalVelocity = {
         x: reflectedVelocity.x * velocityMagnitude * restitution,
         y: reflectedVelocity.y * velocityMagnitude * restitution,
-        z: reflectedVelocity.z * velocityMagnitude * restitution
+        z: reflectedVelocity.z * velocityMagnitude * restitution,
       }
 
       // 音響効果計算
@@ -890,27 +911,23 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         soundEffect: {
           type: matA.acoustic.soundType,
           volume: soundIntensity * matA.acoustic.volume,
-          pitch: matA.acoustic.pitch + (Math.random() - 0.5) * 0.2
+          pitch: matA.acoustic.pitch + (Math.random() - 0.5) * 0.2,
         },
         particleEffect: {
           count: Math.floor(impactForce / 100),
           material: materialA,
-          duration: 1000 + impactForce * 10
+          duration: 1000 + impactForce * 10,
         },
-        damage: calculateImpactDamage(matA, matB, velocityMagnitude)
+        damage: calculateImpactDamage(matA, matB, velocityMagnitude),
       }
 
       // キャッシュに保存
-      yield* Ref.update(collisionCache, cache => new Map(cache).set(cacheKey, result))
+      yield* Ref.update(collisionCache, (cache) => new Map(cache).set(cacheKey, result))
 
       return result
     })
 
-  const simulateFluidFlow = (
-    material: MaterialId,
-    positions: ReadonlyArray<Vector3D>,
-    deltaTime: number
-  ) =>
+  const simulateFluidFlow = (material: MaterialId, positions: ReadonlyArray<Vector3D>, deltaTime: number) =>
     Effect.gen(function* () {
       // バリデーション（早期リターン）
       const validatedMaterial = yield* Schema.decodeUnknown(MaterialId)(material)
@@ -920,13 +937,13 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       const fluidMaterial = yield* materialRegistry.get(validatedMaterial)
 
       // 液体チェック（早期リターン）
-      if (fluidMaterial.state !== "liquid") {
-        return yield* Effect.fail(new FluidError({ message: "マテリアルは液体ではありません" }))
+      if (fluidMaterial.state !== 'liquid') {
+        return yield* Effect.fail(new FluidError({ message: 'マテリアルは液体ではありません' }))
       }
 
       // 無効な時間差チェック（早期リターン）
       if (validatedDeltaTime <= 0) {
-        return yield* Effect.fail(new FluidError({ message: "無効な時間差です" }))
+        return yield* Effect.fail(new FluidError({ message: '無効な時間差です' }))
       }
 
       const { viscosity, density } = fluidMaterial.physical
@@ -937,7 +954,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         position: pos,
         velocity: { x: 0, y: -9.81 * validatedDeltaTime, z: 0 }, // 重力
         density,
-        pressure: 0
+        pressure: 0,
       }))
 
       // 密度と圧力の計算
@@ -945,7 +962,8 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         let density = 0
         for (let j = 0; j < particles.length; j++) {
           const distance = calculateDistance3D(particles[i].position, particles[j].position)
-          if (distance < 2.0) { // カーネル半径
+          if (distance < 2.0) {
+            // カーネル半径
             density += fluidMaterial.physical.density * sphKernel(distance, 2.0)
           }
         }
@@ -975,10 +993,10 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
             const velocityDiff = {
               x: particles[j].velocity.x - particles[i].velocity.x,
               y: particles[j].velocity.y - particles[i].velocity.y,
-              z: particles[j].velocity.z - particles[i].velocity.z
+              z: particles[j].velocity.z - particles[i].velocity.z,
             }
 
-            const viscosityMagnitude = viscosity * sphLaplacian(distance, 2.0) / particles[j].density
+            const viscosityMagnitude = (viscosity * sphLaplacian(distance, 2.0)) / particles[j].density
             viscosityForce.x += viscosityMagnitude * velocityDiff.x
             viscosityForce.y += viscosityMagnitude * velocityDiff.y
             viscosityForce.z += viscosityMagnitude * velocityDiff.z
@@ -997,15 +1015,15 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       }
 
       return {
-        particles: particles.map(p => ({
+        particles: particles.map((p) => ({
           position: p.position,
           velocity: p.velocity,
           density: p.density,
-          pressure: p.pressure
+          pressure: p.pressure,
         })),
         flowRate: calculateFlowRate(particles),
         turbulence: calculateTurbulence(particles),
-        surface: calculateSurface(particles)
+        surface: calculateSurface(particles),
       } as FluidState
     })
 
@@ -1029,11 +1047,11 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
           const neighborMaterial = yield* materialRegistry.get(neighbor.material)
           const distance = calculateDistance3D(current.position, neighbor.position)
 
-          if (distance < 2.0) { // 熱交換範囲
+          if (distance < 2.0) {
+            // 熱交換範囲
             const temperatureDiff = neighbor.temperature - current.temperature
             const conductivity = Math.sqrt(
-              currentMaterial.physical.conductivity.thermal *
-              neighborMaterial.physical.conductivity.thermal
+              currentMaterial.physical.conductivity.thermal * neighborMaterial.physical.conductivity.thermal
             )
 
             // フーリエの法則による熱伝導
@@ -1048,8 +1066,12 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         const emissivity = 0.9 // 材質に応じた放射率
 
         // ステファン・ボルツマン法則による放射
-        const radiativeHeatLoss = emissivity * 5.67e-8 * surfaceArea *
-          (Math.pow(current.temperature + 273.15, 4) - Math.pow(ambientTemp + 273.15, 4)) * deltaTime
+        const radiativeHeatLoss =
+          emissivity *
+          5.67e-8 *
+          surfaceArea *
+          (Math.pow(current.temperature + 273.15, 4) - Math.pow(ambientTemp + 273.15, 4)) *
+          deltaTime
 
         const newTemp = current.temperature + totalHeatFlow - radiativeHeatLoss / 1000
 
@@ -1061,12 +1083,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       return newTemperatures
     })
 
-  const calculateFriction = (
-    materialA: MaterialId,
-    materialB: MaterialId,
-    normalForce: number,
-    velocity: Vector3D
-  ) =>
+  const calculateFriction = (materialA: MaterialId, materialB: MaterialId, normalForce: number, velocity: Vector3D) =>
     Effect.gen(function* () {
       const cacheKey = `${materialA}:${materialB}:${normalForce}`
       const cache = yield* Ref.get(frictionCache)
@@ -1087,22 +1104,19 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       const frictionDirection = {
         x: -velocity.x / velocityMagnitude,
         y: -velocity.y / velocityMagnitude,
-        z: -velocity.z / velocityMagnitude
+        z: -velocity.z / velocityMagnitude,
       }
 
       const frictionVector = {
         x: frictionDirection.x * frictionForce,
         y: frictionDirection.y * frictionForce,
-        z: frictionDirection.z * frictionForce
+        z: frictionDirection.z * frictionForce,
       }
 
       return frictionVector
     })
 
-  const simulateChemicalReaction = (
-    reactants: ReadonlyArray<MaterialReactant>,
-    conditions: ReactionConditions
-  ) =>
+  const simulateChemicalReaction = (reactants: ReadonlyArray<MaterialReactant>, conditions: ReactionConditions) =>
     Effect.gen(function* () {
       const products: MaterialProduct[] = []
       let energyReleased = 0
@@ -1117,8 +1131,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
           if (reaction.conditions) {
             const { temperature, pressure, time } = reaction.conditions
 
-            if (temperature &&
-                (conditions.temperature < temperature.min || conditions.temperature > temperature.max)) {
+            if (temperature && (conditions.temperature < temperature.min || conditions.temperature > temperature.max)) {
               continue
             }
 
@@ -1133,7 +1146,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
 
           // 触媒の存在チェック
           if (reaction.catalyst) {
-            const hasCatalyst = reactants.some(r => r.materialId === reaction.catalyst)
+            const hasCatalyst = reactants.some((r) => r.materialId === reaction.catalyst)
             if (!hasCatalyst) continue
           }
 
@@ -1150,7 +1163,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
             products.push({
               materialId: product.material,
               amount,
-              energy: amount * 1000 // 簡略化されたエネルギー
+              energy: amount * 1000, // 簡略化されたエネルギー
             })
             energyReleased += amount * 1000
           }
@@ -1162,7 +1175,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         energyReleased,
         reactionRate,
         byproducts: [],
-        duration: 1000 / Math.max(reactionRate, 0.001)
+        duration: 1000 / Math.max(reactionRate, 0.001),
       } as ReactionResult
     })
 
@@ -1179,7 +1192,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         textureChange: null,
         propertyChanges: {},
         newState: materialDef.state,
-        durabilityLoss: 0
+        durabilityLoss: 0,
       }
 
       // 気象による変化（早期リターンとパターンマッチング）
@@ -1188,45 +1201,53 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
         const weather = conditions.weather
 
         yield* Match.value(weather.type).pipe(
-          Match.when("rain", () => Effect.gen(function* () {
-            if (resistance.rain >= weather.intensity) return
+          Match.when('rain', () =>
+            Effect.gen(function* () {
+              if (resistance.rain >= weather.intensity) return
 
-            updates.durabilityLoss += (weather.intensity - resistance.rain) * deltaTime * 0.01
+              updates.durabilityLoss += (weather.intensity - resistance.rain) * deltaTime * 0.01
 
-            // 金属の錆（確率的処理）
-            if (materialDef.category === "metal" && Math.random() < 0.001) {
-              updates.colorChange = adjustColorForRust(materialDef.visual.color.primary)
-            }
-          })),
-          Match.when("snow", () => Effect.gen(function* () {
-            if (resistance.snow >= weather.intensity) return
+              // 金属の錆（確率的処理）
+              if (materialDef.category === 'metal' && Math.random() < 0.001) {
+                updates.colorChange = adjustColorForRust(materialDef.visual.color.primary)
+              }
+            })
+          ),
+          Match.when('snow', () =>
+            Effect.gen(function* () {
+              if (resistance.snow >= weather.intensity) return
 
-            updates.durabilityLoss += (weather.intensity - resistance.snow) * deltaTime * 0.005
+              updates.durabilityLoss += (weather.intensity - resistance.snow) * deltaTime * 0.005
 
-            // 凍結効果
-            if (materialDef.state === "liquid" && weather.intensity > 0.8) {
-              updates.newState = "solid"
-              updates.propertyChanges["viscosity"] = materialDef.physical.viscosity * 1000
-            }
-          })),
-          Match.when("wind", () => Effect.gen(function* () {
-            if (resistance.wind >= weather.intensity) return
+              // 凍結効果
+              if (materialDef.state === 'liquid' && weather.intensity > 0.8) {
+                updates.newState = 'solid'
+                updates.propertyChanges['viscosity'] = materialDef.physical.viscosity * 1000
+              }
+            })
+          ),
+          Match.when('wind', () =>
+            Effect.gen(function* () {
+              if (resistance.wind >= weather.intensity) return
 
-            // 風による侵食
-            if (materialDef.physical.density < 100) {
-              updates.durabilityLoss += weather.intensity * deltaTime * 0.02
-            }
-          })),
-          Match.when("uv", () => Effect.gen(function* () {
-            if (resistance.uv >= weather.intensity) return
+              // 風による侵食
+              if (materialDef.physical.density < 100) {
+                updates.durabilityLoss += weather.intensity * deltaTime * 0.02
+              }
+            })
+          ),
+          Match.when('uv', () =>
+            Effect.gen(function* () {
+              if (resistance.uv >= weather.intensity) return
 
-            updates.durabilityLoss += (weather.intensity - resistance.uv) * deltaTime * 0.005
+              updates.durabilityLoss += (weather.intensity - resistance.uv) * deltaTime * 0.005
 
-            // 紫外線による色褪せ
-            if (Math.random() < 0.0001) {
-              updates.colorChange = fadeColor(materialDef.visual.color.primary)
-            }
-          })),
+              // 紫外線による色褪せ
+              if (Math.random() < 0.0001) {
+                updates.colorChange = fadeColor(materialDef.visual.color.primary)
+              }
+            })
+          ),
           Match.exhaustive
         )
       }
@@ -1235,22 +1256,26 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       if (conditions.temperature !== materialDef.environmental.temperature.ambient) {
         const tempDiff = Math.abs(conditions.temperature - materialDef.environmental.temperature.ambient)
 
-        if (materialDef.environmental.temperature.melting &&
-            conditions.temperature > materialDef.environmental.temperature.melting) {
-          updates.newState = "liquid"
-          updates.propertyChanges["viscosity"] = materialDef.physical.viscosity * 0.1
+        if (
+          materialDef.environmental.temperature.melting &&
+          conditions.temperature > materialDef.environmental.temperature.melting
+        ) {
+          updates.newState = 'liquid'
+          updates.propertyChanges['viscosity'] = materialDef.physical.viscosity * 0.1
         }
 
-        if (materialDef.environmental.temperature.boiling &&
-            conditions.temperature > materialDef.environmental.temperature.boiling) {
-          updates.newState = "gas"
-          updates.propertyChanges["density"] = materialDef.physical.density * 0.001
+        if (
+          materialDef.environmental.temperature.boiling &&
+          conditions.temperature > materialDef.environmental.temperature.boiling
+        ) {
+          updates.newState = 'gas'
+          updates.propertyChanges['density'] = materialDef.physical.density * 0.001
         }
 
         // 熱膨張
         const expansionRate = 0.00001 // 線膨張係数（簡略化）
         const expansionFactor = 1 + expansionRate * tempDiff
-        updates.propertyChanges["density"] = materialDef.physical.density / (expansionFactor ** 3)
+        updates.propertyChanges['density'] = materialDef.physical.density / expansionFactor ** 3
       }
 
       // バイオーム適応
@@ -1288,11 +1313,7 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
       return temperature
     })
 
-  const calculateImpactDamage = (
-    matA: MaterialDefinition,
-    matB: MaterialDefinition,
-    velocity: number
-  ): number => {
+  const calculateImpactDamage = (matA: MaterialDefinition, matB: MaterialDefinition, velocity: number): number => {
     const hardnessDiff = Math.abs(matA.physical.hardness - matB.physical.hardness)
     const impactEnergy = 0.5 * matA.physical.density * velocity * velocity
     return (impactEnergy * hardnessDiff) / 1000000 // 正規化
@@ -1304,15 +1325,12 @@ const makeMaterialPhysicsService = Effect.gen(function* () {
     processTemperatureExchange,
     calculateFriction,
     simulateChemicalReaction,
-    updateMaterialState
+    updateMaterialState,
   })
 })
 
 // Live Layer
-export const MaterialPhysicsServiceLive = Layer.effect(
-  MaterialPhysicsService,
-  makeMaterialPhysicsService
-).pipe(
+export const MaterialPhysicsServiceLive = Layer.effect(MaterialPhysicsService, makeMaterialPhysicsService).pipe(
   Layer.provide(MaterialRegistryLive)
 )
 ```
@@ -1323,20 +1341,20 @@ export const MaterialPhysicsServiceLive = Layer.effect(
 
 ```typescript
 // レンダリング関連の型定義（Schema）
-export const ShaderError = Schema.TaggedError("ShaderError")({
-  message: Schema.String
+export const ShaderError = Schema.TaggedError('ShaderError')({
+  message: Schema.String,
 })
 
-export const TextureError = Schema.TaggedError("TextureError")({
-  message: Schema.String
+export const TextureError = Schema.TaggedError('TextureError')({
+  message: Schema.String,
 })
 
-export const AtlasError = Schema.TaggedError("AtlasError")({
-  message: Schema.String
+export const AtlasError = Schema.TaggedError('AtlasError')({
+  message: Schema.String,
 })
 
-export const RenderError = Schema.TaggedError("RenderError")({
-  message: Schema.String
+export const RenderError = Schema.TaggedError('RenderError')({
+  message: Schema.String,
 })
 
 export const ShaderProgram = Schema.Struct({
@@ -1344,7 +1362,7 @@ export const ShaderProgram = Schema.Struct({
   vertexSource: Schema.String,
   fragmentSource: Schema.String,
   uniforms: Schema.Record(Schema.String, Schema.Any),
-  compiled: Schema.Boolean
+  compiled: Schema.Boolean,
 })
 export type ShaderProgram = Schema.Schema.Type<typeof ShaderProgram>
 
@@ -1352,7 +1370,7 @@ export const Texture = Schema.Struct({
   width: Schema.Number,
   height: Schema.Number,
   data: Schema.Any, // Uint8Array
-  format: Schema.String
+  format: Schema.String,
 })
 export type Texture = Schema.Schema.Type<typeof Texture>
 
@@ -1361,9 +1379,9 @@ export const LightSource = Schema.Struct({
   color: Schema.Struct({
     r: Schema.Number,
     g: Schema.Number,
-    b: Schema.Number
+    b: Schema.Number,
   }),
-  intensity: Schema.Number
+  intensity: Schema.Number,
 })
 export type LightSource = Schema.Schema.Type<typeof LightSource>
 
@@ -1371,19 +1389,19 @@ export const LightingResult = Schema.Struct({
   diffuse: Schema.Struct({
     r: Schema.Number,
     g: Schema.Number,
-    b: Schema.Number
+    b: Schema.Number,
   }),
   specular: Schema.Struct({
     r: Schema.Number,
     g: Schema.Number,
-    b: Schema.Number
+    b: Schema.Number,
   }),
   ambient: Schema.Struct({
     r: Schema.Number,
     g: Schema.Number,
-    b: Schema.Number
+    b: Schema.Number,
   }),
-  shadow: Schema.Number
+  shadow: Schema.Number,
 })
 export type LightingResult = Schema.Schema.Type<typeof LightingResult>
 
@@ -1391,7 +1409,7 @@ export const NormalMap = Schema.Struct({
   width: Schema.Number,
   height: Schema.Number,
   data: Schema.Any, // Uint8Array
-  format: Schema.String
+  format: Schema.String,
 })
 export type NormalMap = Schema.Schema.Type<typeof NormalMap>
 
@@ -1399,7 +1417,7 @@ export const TextureCoords = Schema.Struct({
   u: Schema.Number,
   v: Schema.Number,
   width: Schema.Number,
-  height: Schema.Number
+  height: Schema.Number,
 })
 export type TextureCoords = Schema.Schema.Type<typeof TextureCoords>
 
@@ -1408,20 +1426,23 @@ export const TextureAtlas = Schema.Struct({
   height: Schema.Number,
   data: Schema.Any, // Uint8Array
   textureCoords: Schema.Record(MaterialId, TextureCoords),
-  format: Schema.String
+  format: Schema.String,
 })
 export type TextureAtlas = Schema.Schema.Type<typeof TextureAtlas>
 
-export const LODMaterial = Schema.extend(MaterialDefinition, Schema.Struct({
-  lodLevel: Schema.Number
-}))
+export const LODMaterial = Schema.extend(
+  MaterialDefinition,
+  Schema.Struct({
+    lodLevel: Schema.Number,
+  })
+)
 export type LODMaterial = Schema.Schema.Type<typeof LODMaterial>
 
 export const RenderInstance = Schema.Struct({
   materialId: MaterialId,
   position: Vector3D,
   rotation: Vector3D,
-  scale: Vector3D
+  scale: Vector3D,
 })
 export type RenderInstance = Schema.Schema.Type<typeof RenderInstance>
 
@@ -1429,7 +1450,7 @@ export const RenderResult = Schema.Struct({
   drawCalls: Schema.Number,
   triangles: Schema.Number,
   materialGroups: Schema.Number,
-  renderTime: Schema.Number
+  renderTime: Schema.Number,
 })
 export type RenderResult = Schema.Schema.Type<typeof RenderResult>
 
@@ -1444,13 +1465,17 @@ interface MaterialRenderingServiceInterface {
     normal: Vector3D
   ) => Effect.Effect<LightingResult, never>
   readonly generateNormalMap: (material: MaterialDefinition) => Effect.Effect<NormalMap, never>
-  readonly createMaterialAtlas: (materials: ReadonlyArray<MaterialDefinition>) => Effect.Effect<TextureAtlas, AtlasError>
+  readonly createMaterialAtlas: (
+    materials: ReadonlyArray<MaterialDefinition>
+  ) => Effect.Effect<TextureAtlas, AtlasError>
   readonly optimizeForLOD: (material: MaterialDefinition, distance: number) => Effect.Effect<LODMaterial, never>
   readonly batchRender: (materials: ReadonlyArray<RenderInstance>) => Effect.Effect<RenderResult, RenderError>
 }
 
 // Context Tag（最新の GenericTag パターン）
-export const MaterialRenderingService = Context.GenericTag<MaterialRenderingServiceInterface>("@minecraft/MaterialRenderingService")
+export const MaterialRenderingService = Context.GenericTag<MaterialRenderingServiceInterface>(
+  '@minecraft/MaterialRenderingService'
+)
 
 // 高性能レンダリングシステム実装
 const makeMaterialRenderingService = Effect.gen(function* () {
@@ -1467,7 +1492,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
     texturesCreated: 0,
     drawCalls: 0,
     triangles: 0,
-    cacheHits: 0
+    cacheHits: 0,
   })
 
   const generateShader = (material: MaterialDefinition) =>
@@ -1475,7 +1500,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
       const cache = yield* Ref.get(shaderCache)
 
       if (cache.has(material.id)) {
-        yield* Ref.update(renderStats, s => ({ ...s, cacheHits: s.cacheHits + 1 }))
+        yield* Ref.update(renderStats, (s) => ({ ...s, cacheHits: s.cacheHits + 1 }))
         return cache.get(material.id)!
       }
 
@@ -1611,14 +1636,14 @@ const makeMaterialRenderingService = Effect.gen(function* () {
       `
 
       // 材質固有の効果を追加
-      if (material.visual.transparency !== "opaque") {
+      if (material.visual.transparency !== 'opaque') {
         fragmentShader += `
           // 透明度処理
           if(alpha < 0.1) discard;
         `
       }
 
-      if (material.category === "liquid") {
+      if (material.category === 'liquid') {
         fragmentShader += `
           // 液体の屈折効果
           vec2 distortedCoord = TexCoord + sin(FragPos.y * 10.0 + gl_FragCoord.x * 0.1) * 0.01;
@@ -1650,11 +1675,11 @@ const makeMaterialRenderingService = Effect.gen(function* () {
         vertexSource: vertexShader,
         fragmentSource: fragmentShader,
         uniforms: extractUniforms(material),
-        compiled: false
+        compiled: false,
       }
 
-      yield* Ref.update(shaderCache, cache => new Map(cache).set(material.id, shader))
-      yield* Ref.update(renderStats, s => ({ ...s, shadersGenerated: s.shadersGenerated + 1 }))
+      yield* Ref.update(shaderCache, (cache) => new Map(cache).set(material.id, shader))
+      yield* Ref.update(renderStats, (s) => ({ ...s, shadersGenerated: s.shadersGenerated + 1 }))
 
       return shader
     })
@@ -1671,8 +1696,8 @@ const makeMaterialRenderingService = Effect.gen(function* () {
       // プロシージャルテクスチャ生成
       const texture = yield* generateProceduralTexture(material, resolution)
 
-      yield* Ref.update(textureCache, cache => new Map(cache).set(cacheKey, texture))
-      yield* Ref.update(renderStats, s => ({ ...s, texturesCreated: s.texturesCreated + 1 }))
+      yield* Ref.update(textureCache, (cache) => new Map(cache).set(cacheKey, texture))
+      yield* Ref.update(renderStats, (s) => ({ ...s, texturesCreated: s.texturesCreated + 1 }))
 
       return texture
     })
@@ -1712,7 +1737,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
         const halfVector = normalizeVector3D({
           x: (lightDir.x + viewDirection.x) / 2,
           y: (lightDir.y + viewDirection.y) / 2,
-          z: (lightDir.z + viewDirection.z) / 2
+          z: (lightDir.z + viewDirection.z) / 2,
         })
 
         const NdotH = Math.max(dot(normal, halfVector), 0)
@@ -1730,7 +1755,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
 
         // 幾何減衰関数
         const NdotV = Math.max(dot(normal, viewDirection), 0)
-        const k = (roughness + 1) * (roughness + 1) / 8
+        const k = ((roughness + 1) * (roughness + 1)) / 8
         const G1L = NdotL / (NdotL * (1 - k) + k)
         const G1V = NdotV / (NdotV * (1 - k) + k)
         const G = G1L * G1V
@@ -1752,27 +1777,27 @@ const makeMaterialRenderingService = Effect.gen(function* () {
       // 発光の追加
       if (material.visual.color.emissive) {
         const emissive = hexToRgb(material.visual.color.emissive)
-        diffuse.r += emissive.r * material.visual.luminance / 15
-        diffuse.g += emissive.g * material.visual.luminance / 15
-        diffuse.b += emissive.b * material.visual.luminance / 15
+        diffuse.r += (emissive.r * material.visual.luminance) / 15
+        diffuse.g += (emissive.g * material.visual.luminance) / 15
+        diffuse.b += (emissive.b * material.visual.luminance) / 15
       }
 
       const result: LightingResult = {
         diffuse: {
           r: Math.min(diffuse.r, 1),
           g: Math.min(diffuse.g, 1),
-          b: Math.min(diffuse.b, 1)
+          b: Math.min(diffuse.b, 1),
         },
         specular: {
           r: Math.min(specular.r, 1),
           g: Math.min(specular.g, 1),
-          b: Math.min(specular.b, 1)
+          b: Math.min(specular.b, 1),
         },
         ambient: { r: ambient, g: ambient, b: ambient },
-        shadow: calculateShadow(material, lightSources, normal)
+        shadow: calculateShadow(material, lightSources, normal),
       }
 
-      yield* Ref.update(lightingCache, cache => new Map(cache).set(cacheKey, result))
+      yield* Ref.update(lightingCache, (cache) => new Map(cache).set(cacheKey, result))
       return result
     })
 
@@ -1790,65 +1815,37 @@ const makeMaterialRenderingService = Effect.gen(function* () {
 
           // 材質カテゴリに応じたパターン生成（パターンマッチング）
           normal = Match.value(material.category).pipe(
-            Match.when("stone", () => generateStoneNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.roughness
-            )),
-            Match.when("metal", () => generateMetalNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.hardness
-            )),
-            Match.when("organic", () => generateOrganicNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.density
-            )),
-            Match.when("liquid", () => generateLiquidNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.viscosity
-            )),
-            Match.when("gas", () => ({ x: 0, y: 0, z: 1 })), // ガスは平坦
-            Match.when("composite", () => generateCompositeNormal(
-              x / resolution,
-              y / resolution,
-              material.physical
-            )),
-            Match.when("magical", () => generateMagicalNormal(
-              x / resolution,
-              y / resolution,
-              material.visual.luminance
-            )),
-            Match.when("synthetic", () => generateSyntheticNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.hardness
-            )),
-            Match.when("crystal", () => generateCrystalNormal(
-              x / resolution,
-              y / resolution,
-              material.visual.reflectivity
-            )),
-            Match.when("ceramic", () => generateCeramicNormal(
-              x / resolution,
-              y / resolution,
-              material.physical.roughness
-            )),
-            Match.when("glass", () => generateGlassNormal(
-              x / resolution,
-              y / resolution,
-              material.visual.opacity
-            )),
+            Match.when('stone', () => generateStoneNormal(x / resolution, y / resolution, material.physical.roughness)),
+            Match.when('metal', () => generateMetalNormal(x / resolution, y / resolution, material.physical.hardness)),
+            Match.when('organic', () =>
+              generateOrganicNormal(x / resolution, y / resolution, material.physical.density)
+            ),
+            Match.when('liquid', () =>
+              generateLiquidNormal(x / resolution, y / resolution, material.physical.viscosity)
+            ),
+            Match.when('gas', () => ({ x: 0, y: 0, z: 1 })), // ガスは平坦
+            Match.when('composite', () => generateCompositeNormal(x / resolution, y / resolution, material.physical)),
+            Match.when('magical', () =>
+              generateMagicalNormal(x / resolution, y / resolution, material.visual.luminance)
+            ),
+            Match.when('synthetic', () =>
+              generateSyntheticNormal(x / resolution, y / resolution, material.physical.hardness)
+            ),
+            Match.when('crystal', () =>
+              generateCrystalNormal(x / resolution, y / resolution, material.visual.reflectivity)
+            ),
+            Match.when('ceramic', () =>
+              generateCeramicNormal(x / resolution, y / resolution, material.physical.roughness)
+            ),
+            Match.when('glass', () => generateGlassNormal(x / resolution, y / resolution, material.visual.opacity)),
             Match.exhaustive
           )
 
           // 法線を[0,1]範囲に正規化
-          normalData[index] = Math.floor((normal.x + 1) * 127.5)     // R
+          normalData[index] = Math.floor((normal.x + 1) * 127.5) // R
           normalData[index + 1] = Math.floor((normal.y + 1) * 127.5) // G
           normalData[index + 2] = Math.floor((normal.z + 1) * 127.5) // B
-          normalData[index + 3] = 255                                 // A
+          normalData[index + 3] = 255 // A
         }
       }
 
@@ -1856,7 +1853,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
         width: resolution,
         height: resolution,
         data: normalData,
-        format: "RGBA8"
+        format: 'RGBA8',
       } as NormalMap
     })
 
@@ -1893,7 +1890,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
           u: currentX / atlasSize,
           v: currentY / atlasSize,
           width: tileSize / atlasSize,
-          height: tileSize / atlasSize
+          height: tileSize / atlasSize,
         }
 
         currentX += tileSize
@@ -1908,7 +1905,7 @@ const makeMaterialRenderingService = Effect.gen(function* () {
         height: atlasSize,
         data: atlasData,
         textureCoords,
-        format: "RGBA8"
+        format: 'RGBA8',
       } as TextureAtlas
     })
 
@@ -1926,15 +1923,15 @@ const makeMaterialRenderingService = Effect.gen(function* () {
           // 詳細効果を無効化
           ambientOcclusion: lodLevel < 2 ? material.visual.ambientOcclusion : false,
           // シンプルなシェーダーに切り替え
-          shaderComplexity: Math.max(1, 4 - lodLevel)
+          shaderComplexity: Math.max(1, 4 - lodLevel),
         },
         // 物理演算の簡略化
         physical: {
           ...material.physical,
           // 遠距離では詳細な物理計算を省略
-          detailedPhysics: lodLevel < 2
+          detailedPhysics: lodLevel < 2,
         },
-        lodLevel
+        lodLevel,
       }
 
       return lodMaterial
@@ -1967,24 +1964,24 @@ const makeMaterialRenderingService = Effect.gen(function* () {
           shader: shader.id,
           instances: instances.length,
           triangles: instances.length * 12, // キューブの場合
-          instanceBuffer: instanceData
+          instanceBuffer: instanceData,
         }
 
         totalDrawCalls++
         totalTriangles += drawCall.triangles
       }
 
-      yield* Ref.update(renderStats, s => ({
+      yield* Ref.update(renderStats, (s) => ({
         ...s,
         drawCalls: s.drawCalls + totalDrawCalls,
-        triangles: s.triangles + totalTriangles
+        triangles: s.triangles + totalTriangles,
       }))
 
       return {
         drawCalls: totalDrawCalls,
         triangles: totalTriangles,
         materialGroups: materialGroups.size,
-        renderTime: performance.now()
+        renderTime: performance.now(),
       } as RenderResult
     })
 
@@ -1995,15 +1992,12 @@ const makeMaterialRenderingService = Effect.gen(function* () {
     generateNormalMap,
     createMaterialAtlas,
     optimizeForLOD,
-    batchRender
+    batchRender,
   })
 })
 
 // Live Layer
-export const MaterialRenderingServiceLive = Layer.effect(
-  MaterialRenderingService,
-  makeMaterialRenderingService
-).pipe(
+export const MaterialRenderingServiceLive = Layer.effect(MaterialRenderingService, makeMaterialRenderingService).pipe(
   Layer.provide(MaterialRegistryLive)
 )
 ```
@@ -2014,11 +2008,11 @@ export const MaterialRenderingServiceLive = Layer.effect(
 
 ```typescript
 // 音響関連の型定義（Schema）
-export const AudioError = Schema.TaggedError("AudioError")({
-  message: Schema.String
+export const AudioError = Schema.TaggedError('AudioError')({
+  message: Schema.String,
 })
 
-export const MaterialSoundType = Schema.Literal("footstep", "break", "place", "hit", "ambient")
+export const MaterialSoundType = Schema.Literal('footstep', 'break', 'place', 'hit', 'ambient')
 export type MaterialSoundType = Schema.Schema.Type<typeof MaterialSoundType>
 
 export const SoundInstance = Schema.Struct({
@@ -2029,7 +2023,7 @@ export const SoundInstance = Schema.Struct({
   pitch: Schema.Number,
   reverb: Schema.Number,
   echo: Schema.Number,
-  dampening: Schema.Number
+  dampening: Schema.Number,
 })
 export type SoundInstance = Schema.Schema.Type<typeof SoundInstance>
 
@@ -2039,7 +2033,7 @@ export const Room = Schema.Struct({
   height: Schema.Number,
   depth: Schema.Number,
   humidity: Schema.Number,
-  temperature: Schema.Number
+  temperature: Schema.Number,
 })
 export type Room = Schema.Schema.Type<typeof Room>
 
@@ -2049,10 +2043,12 @@ export const AcousticProperties = Schema.Struct({
   reflections: Schema.Array(Schema.Any),
   directPath: Schema.Number,
   totalDelay: Schema.Number,
-  frequency_response: Schema.Array(Schema.Struct({
-    frequency: Schema.Number,
-    attenuation: Schema.Number
-  }))
+  frequency_response: Schema.Array(
+    Schema.Struct({
+      frequency: Schema.Number,
+      attenuation: Schema.Number,
+    })
+  ),
 })
 export type AcousticProperties = Schema.Schema.Type<typeof AcousticProperties>
 
@@ -2061,17 +2057,21 @@ export const AmbientSound = Schema.Struct({
   position: Vector3D,
   volume: Schema.Number,
   frequency: Schema.Number,
-  duration: Schema.Number
+  duration: Schema.Number,
 })
 export type AmbientSound = Schema.Schema.Type<typeof AmbientSound>
 
 export const WeatherConditions = Schema.Struct({
-  rain: Schema.Optional(Schema.Struct({
-    intensity: Schema.Number
-  })),
-  wind: Schema.Optional(Schema.Struct({
-    speed: Schema.Number
-  }))
+  rain: Schema.Optional(
+    Schema.Struct({
+      intensity: Schema.Number,
+    })
+  ),
+  wind: Schema.Optional(
+    Schema.Struct({
+      speed: Schema.Number,
+    })
+  ),
 })
 export type WeatherConditions = Schema.Schema.Type<typeof WeatherConditions>
 
@@ -2080,7 +2080,7 @@ export const AcousticEnvironment = Schema.Struct({
   volume: Schema.Number,
   surfaceArea: Schema.Number,
   materials: Schema.Array(MaterialDefinition),
-  complexity: Schema.Number
+  complexity: Schema.Number,
 })
 export type AcousticEnvironment = Schema.Schema.Type<typeof AcousticEnvironment>
 
@@ -2090,11 +2090,13 @@ export const ReverbParameters = Schema.Struct({
   lateReverberation: Schema.Number,
   density: Schema.Number,
   diffusion: Schema.Number,
-  frequencyResponse: Schema.Array(Schema.Struct({
-    frequency: Schema.Number,
-    absorption: Schema.Number
-  })),
-  predelay: Schema.Number
+  frequencyResponse: Schema.Array(
+    Schema.Struct({
+      frequency: Schema.Number,
+      absorption: Schema.Number,
+    })
+  ),
+  predelay: Schema.Number,
 })
 export type ReverbParameters = Schema.Schema.Type<typeof ReverbParameters>
 
@@ -2102,7 +2104,7 @@ export const EchoPoint = Schema.Struct({
   position: Vector3D,
   delay: Schema.Number,
   intensity: Schema.Number,
-  frequency_shift: Schema.Number
+  frequency_shift: Schema.Number,
 })
 export type EchoPoint = Schema.Schema.Type<typeof EchoPoint>
 
@@ -2110,16 +2112,16 @@ export const EchoEffect = Schema.Struct({
   totalDelay: Schema.Number,
   echoPoints: Schema.Array(EchoPoint),
   finalIntensity: Schema.Number,
-  path: Schema.Array(Vector3D)
+  path: Schema.Array(Vector3D),
 })
 export type EchoEffect = Schema.Schema.Type<typeof EchoEffect>
 
 export const AudioEngine = Context.GenericTag<{
   readonly playSound: (params: SoundInstance) => Effect.Effect<SoundInstance, AudioError>
-}>("@minecraft/AudioEngine")
+}>('@minecraft/AudioEngine')
 
 export const AudioEngineLive = Layer.succeed(AudioEngine, {
-  playSound: (params) => Effect.succeed(params)
+  playSound: (params) => Effect.succeed(params),
 })
 
 // MaterialSoundServiceインターフェース（最新のEffect-TSパターン）
@@ -2155,7 +2157,7 @@ interface MaterialSoundServiceInterface {
 }
 
 // Context Tag（最新の GenericTag パターン）
-export const MaterialSoundService = Context.GenericTag<MaterialSoundServiceInterface>("@minecraft/MaterialSoundService")
+export const MaterialSoundService = Context.GenericTag<MaterialSoundServiceInterface>('@minecraft/MaterialSoundService')
 
 // 高度な音響処理実装
 const makeMaterialSoundService = Effect.gen(function* () {
@@ -2183,19 +2185,21 @@ const makeMaterialSoundService = Effect.gen(function* () {
 
       // 音響ファイルの選択（パターンマッチング）
       const soundFiles = Match.value(validatedSoundType).pipe(
-        Match.when("footstep", () => acoustic.footstepSounds),
-        Match.when("break", () => acoustic.breakSounds),
-        Match.when("place", () => acoustic.placeSounds),
-        Match.when("hit", () => acoustic.hitSounds),
-        Match.when("ambient", () => acoustic.ambientSounds || []),
+        Match.when('footstep', () => acoustic.footstepSounds),
+        Match.when('break', () => acoustic.breakSounds),
+        Match.when('place', () => acoustic.placeSounds),
+        Match.when('hit', () => acoustic.hitSounds),
+        Match.when('ambient', () => acoustic.ambientSounds || []),
         Match.exhaustive
       )
 
       // 早期リターン（音響ファイルが存在しない場合）
       if (soundFiles.length === 0) {
-        return yield* Effect.fail(new AudioError({
-          message: `マテリアル ${validatedMaterialId} に ${validatedSoundType} 音響ファイルがありません`
-        }))
+        return yield* Effect.fail(
+          new AudioError({
+            message: `マテリアル ${validatedMaterialId} に ${validatedSoundType} 音響ファイルがありません`,
+          })
+        )
       }
 
       // ランダムに音響ファイルを選択
@@ -2221,7 +2225,7 @@ const makeMaterialSoundService = Effect.gen(function* () {
         pitch: Math.max(0.5, Math.min(adjustedPitch, 2.0)),
         reverb: acoustic.reverb || 0,
         echo: acoustic.echo || 0,
-        dampening: acoustic.dampening
+        dampening: acoustic.dampening,
       })
 
       return soundInstance
@@ -2262,7 +2266,7 @@ const makeMaterialSoundService = Effect.gen(function* () {
 
       // 材質による吸収
       const materialAbsorption = material.acoustic.dampening
-      attenuation *= (1 - materialAbsorption)
+      attenuation *= 1 - materialAbsorption
 
       const acoustics: AcousticProperties = {
         attenuation,
@@ -2270,10 +2274,10 @@ const makeMaterialSoundService = Effect.gen(function* () {
         reflections,
         directPath: directPath.length,
         totalDelay: directPath.length / 343, // 音速 343 m/s
-        frequency_response: calculateFrequencyResponse(material, distance)
+        frequency_response: calculateFrequencyResponse(material, distance),
       }
 
-      yield* Ref.update(acousticCache, cache => new Map(cache).set(cacheKey, acoustics))
+      yield* Ref.update(acousticCache, (cache) => new Map(cache).set(cacheKey, acoustics))
       return acoustics
     })
 
@@ -2294,57 +2298,57 @@ const makeMaterialSoundService = Effect.gen(function* () {
           // 熱膨張による音響効果
           if (tempDiff > 20) {
             ambientSounds.push({
-              type: "thermal_expansion",
+              type: 'thermal_expansion',
               position,
               volume: Math.min(tempDiff / 100, 0.3),
               frequency: 100 + tempDiff,
-              duration: 2000 + Math.random() * 3000
+              duration: 2000 + Math.random() * 3000,
             })
           }
         }
 
         // 金属の冷却音
-        if (material.category === "metal" && temperature > material.environmental.temperature.ambient + 50) {
+        if (material.category === 'metal' && temperature > material.environmental.temperature.ambient + 50) {
           ambientSounds.push({
-            type: "cooling",
+            type: 'cooling',
             position,
             volume: 0.2,
             frequency: 400 + Math.random() * 200,
-            duration: 5000 + Math.random() * 5000
+            duration: 5000 + Math.random() * 5000,
           })
         }
 
         // 液体の流動音
-        if (material.state === "liquid" && material.physical.viscosity < 0.01) {
+        if (material.state === 'liquid' && material.physical.viscosity < 0.01) {
           ambientSounds.push({
-            type: "flow",
+            type: 'flow',
             position,
             volume: 0.1,
             frequency: 200 + material.physical.viscosity * 1000,
-            duration: -1 // 継続音
+            duration: -1, // 継続音
           })
         }
 
         // 気象による音響効果
-        if (weather.rain && material.acoustic.soundType === "metal") {
+        if (weather.rain && material.acoustic.soundType === 'metal') {
           // 雨滴の音
           ambientSounds.push({
-            type: "rain_drops",
+            type: 'rain_drops',
             position,
             volume: weather.rain.intensity * 0.3,
             frequency: 800 + Math.random() * 400,
-            duration: 200 + Math.random() * 300
+            duration: 200 + Math.random() * 300,
           })
         }
 
         if (weather.wind && material.physical.density < 500) {
           // 風による振動音
           ambientSounds.push({
-            type: "wind_vibration",
+            type: 'wind_vibration',
             position,
             volume: weather.wind.speed * 0.05,
             frequency: 50 + weather.wind.speed * 2,
-            duration: 1000 + Math.random() * 2000
+            duration: 1000 + Math.random() * 2000,
           })
         }
       }
@@ -2364,8 +2368,8 @@ const makeMaterialSoundService = Effect.gen(function* () {
       // 残響パラメータの計算
       const roomSize = environment.volume
       const surfaceArea = environment.surfaceArea
-      const averageAbsorption = environment.materials.reduce((sum, mat) =>
-        sum + mat.acoustic.dampening, 0) / environment.materials.length
+      const averageAbsorption =
+        environment.materials.reduce((sum, mat) => sum + mat.acoustic.dampening, 0) / environment.materials.length
 
       // Sabineの公式による残響時間
       const rt60 = (0.161 * roomSize) / (surfaceArea * averageAbsorption)
@@ -2374,10 +2378,9 @@ const makeMaterialSoundService = Effect.gen(function* () {
       const earlyReflections = calculateEarlyReflections(sound.position, environment)
 
       // 残響の周波数特性
-      const frequencyResponse = environment.materials.map(mat => ({
-        frequency: mat.acoustic.soundType === "metal" ? 2000 :
-                   mat.acoustic.soundType === "wood" ? 1000 : 500,
-        absorption: mat.acoustic.dampening
+      const frequencyResponse = environment.materials.map((mat) => ({
+        frequency: mat.acoustic.soundType === 'metal' ? 2000 : mat.acoustic.soundType === 'wood' ? 1000 : 500,
+        absorption: mat.acoustic.dampening,
       }))
 
       const reverbParams: ReverbParameters = {
@@ -2387,10 +2390,10 @@ const makeMaterialSoundService = Effect.gen(function* () {
         density: Math.min(environment.complexity, 1),
         diffusion: averageAbsorption,
         frequencyResponse,
-        predelay: calculatePredelay(sound.position, environment)
+        predelay: calculatePredelay(sound.position, environment),
       }
 
-      yield* Ref.update(reverbCache, cache => new Map(cache).set(cacheKey, reverbParams))
+      yield* Ref.update(reverbCache, (cache) => new Map(cache).set(cacheKey, reverbParams))
       return reverbParams
     })
 
@@ -2412,12 +2415,13 @@ const makeMaterialSoundService = Effect.gen(function* () {
         const reflectivity = 1 - material.acoustic.dampening
         echoIntensity *= Math.pow(reflectivity, i + 1)
 
-        if (echoIntensity > 0.1) { // 聞こえるレベル以上
+        if (echoIntensity > 0.1) {
+          // 聞こえるレベル以上
           echoPoints.push({
             position: soundPath[i + 1],
             delay: totalDelay * 1000, // ms
             intensity: echoIntensity,
-            frequency_shift: calculateDopplerShift(soundPath[i], soundPath[i + 1])
+            frequency_shift: calculateDopplerShift(soundPath[i], soundPath[i + 1]),
           })
         }
       }
@@ -2426,7 +2430,7 @@ const makeMaterialSoundService = Effect.gen(function* () {
         totalDelay: totalDelay * 1000,
         echoPoints,
         finalIntensity: echoIntensity,
-        path: soundPath
+        path: soundPath,
       } as EchoEffect
     })
 
@@ -2442,7 +2446,7 @@ const makeMaterialSoundService = Effect.gen(function* () {
   const calculateAirAbsorption = (distance: number, humidity: number, temperature: number): number => {
     // 空気による高周波減衰 (簡略化)
     const absorptionCoeff = 0.1 + humidity * 0.05 + Math.abs(temperature - 20) * 0.001
-    return Math.exp(-absorptionCoeff * distance / 100)
+    return Math.exp((-absorptionCoeff * distance) / 100)
   }
 
   const calculateFrequencyResponse = (material: MaterialDefinition, distance: number) => {
@@ -2455,18 +2459,18 @@ const makeMaterialSoundService = Effect.gen(function* () {
       let attenuation = 1.0
 
       // 材質による周波数依存の減衰
-      if (material.category === "metal") {
+      if (material.category === 'metal') {
         attenuation = freq < 2000 ? 1.0 : 0.8 // 高周波減衰
-      } else if (material.category === "organic") {
+      } else if (material.category === 'organic') {
         attenuation = freq < 1000 ? 0.9 : 0.6 // 広帯域減衰
       }
 
       // 距離による高周波減衰
-      const distanceAttenuation = Math.exp(-freq * distance / 100000)
+      const distanceAttenuation = Math.exp((-freq * distance) / 100000)
 
       response.push({
         frequency: freq,
-        attenuation: attenuation * distanceAttenuation
+        attenuation: attenuation * distanceAttenuation,
       })
     }
 
@@ -2486,15 +2490,13 @@ const makeMaterialSoundService = Effect.gen(function* () {
     calculateAcoustics,
     generateAmbientSounds,
     processReverberation,
-    simulateEcho
+    simulateEcho,
   })
 })
 
 // Live Layer
-export const MaterialSoundServiceLive = Layer.effect(
-  MaterialSoundService,
-  makeMaterialSoundService
-).pipe(
+export const MaterialSoundServiceLive = Layer.effect(MaterialSoundService, makeMaterialSoundService).pipe(
   Layer.provide(MaterialRegistryLive),
   Layer.provide(AudioEngineLive)
 )
+```

@@ -1,17 +1,18 @@
 ---
-title: "クラフティングシステム仕様 - レシピ管理・アイテム合成・UI統合"
-description: "Minecraft Cloneのクラフティングシステム完全仕様。2x2・3x3クラフティンググリッド、レシピ検証、アイテム変換システムのEffect-TS実装とECS統合パターン。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["crafting-system", "recipe-management", "item-system", "inventory", "ui-system", "game-mechanics"]
-prerequisites: ["effect-ts-fundamentals", "schema-basics", "inventory-system-basics"]
-estimated_reading_time: "18分"
-related_patterns: ["data-modeling-patterns", "validation-patterns", "ui-integration-patterns"]
-related_docs: ["./01-inventory-system.md", "./10-material-system.md", "../explanations/architecture/05-ecs-integration.md"]
+title: 'クラフティングシステム仕様 - レシピ管理・アイテム合成・UI統合'
+description: 'Minecraft Cloneのクラフティングシステム完全仕様。2x2・3x3クラフティンググリッド、レシピ検証、アイテム変換システムのEffect-TS実装とECS統合パターン。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['crafting-system', 'recipe-management', 'item-system', 'inventory', 'ui-system', 'game-mechanics']
+prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'inventory-system-basics']
+estimated_reading_time: '18分'
+related_patterns: ['data-modeling-patterns', 'validation-patterns', 'ui-integration-patterns']
+related_docs:
+  ['./01-inventory-system.md', './10-material-system.md', '../explanations/architecture/05-ecs-integration.md']
 search_keywords:
-  primary: ["crafting-system", "recipe-management", "item-synthesis", "crafting-grid"]
-  secondary: ["minecraft-crafting", "game-mechanics", "item-combination"]
-  context: ["minecraft-gameplay", "item-management", "player-interaction"]
+  primary: ['crafting-system', 'recipe-management', 'item-synthesis', 'crafting-grid']
+  secondary: ['minecraft-crafting', 'game-mechanics', 'item-combination']
+  context: ['minecraft-gameplay', 'item-management', 'player-interaction']
 ---
 
 # クラフティングシステム
@@ -25,72 +26,68 @@ Minecraftクローンのクラフティングシステムは、アイテムの�
 ### 2.1 レシピ定義
 
 ```typescript
-import { Schema, Effect, ReadonlyArray, Option, Match, Context, Brand } from "effect"
+import { Schema, Effect, ReadonlyArray, Option, Match, Context, Brand } from 'effect'
 
 // ブランド型定義
-export type RecipeId = string & Brand.Brand<"RecipeId">
-export type ItemId = string & Brand.Brand<"ItemId">
-export type ItemStackCount = number & Brand.Brand<"ItemStackCount">
+export type RecipeId = string & Brand.Brand<'RecipeId'>
+export type ItemId = string & Brand.Brand<'ItemId'>
+export type ItemStackCount = number & Brand.Brand<'ItemStackCount'>
 
-export const RecipeId = Schema.String.pipe(Schema.brand("RecipeId"))
-export const ItemId = Schema.String.pipe(Schema.brand("ItemId"))
-export const ItemStackCount = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand("ItemStackCount")
-)
+export const RecipeId = Schema.String.pipe(Schema.brand('RecipeId'))
+export const ItemId = Schema.String.pipe(Schema.brand('ItemId'))
+export const ItemStackCount = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('ItemStackCount'))
 
 // ItemStack Schema
 export const ItemStack = Schema.Struct({
   itemId: ItemId,
   count: ItemStackCount,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 export interface ItemStack extends Schema.Schema.Type<typeof ItemStack> {}
 
 // アイテムマッチャー（Schema.TaggedUnionパターン）
-export const ItemMatcher = Schema.TaggedUnion("_tag", {
+export const ItemMatcher = Schema.TaggedUnion('_tag', {
   exact: Schema.Struct({
-    _tag: Schema.Literal("exact"),
-    itemId: ItemId
+    _tag: Schema.Literal('exact'),
+    itemId: ItemId,
   }),
   tag: Schema.Struct({
-    _tag: Schema.Literal("tag"),
-    tag: Schema.String  // "minecraft:planks", "minecraft:logs" など
+    _tag: Schema.Literal('tag'),
+    tag: Schema.String, // "minecraft:planks", "minecraft:logs" など
   }),
   custom: Schema.Struct({
-    _tag: Schema.Literal("custom"),
-    predicate: Schema.Function  // (item: ItemStack) => boolean
-  })
+    _tag: Schema.Literal('custom'),
+    predicate: Schema.Function, // (item: ItemStack) => boolean
+  }),
 })
 export interface ItemMatcher extends Schema.Schema.Type<typeof ItemMatcher> {}
 
 // レシピカテゴリ
-export const RecipeCategory = Schema.TaggedUnion("_tag", {
-  crafting: Schema.Struct({ _tag: Schema.Literal("crafting") }),
-  smelting: Schema.Struct({ _tag: Schema.Literal("smelting") }),
-  smithing: Schema.Struct({ _tag: Schema.Literal("smithing") }),
-  stonecutting: Schema.Struct({ _tag: Schema.Literal("stonecutting") })
+export const RecipeCategory = Schema.TaggedUnion('_tag', {
+  crafting: Schema.Struct({ _tag: Schema.Literal('crafting') }),
+  smelting: Schema.Struct({ _tag: Schema.Literal('smelting') }),
+  smithing: Schema.Struct({ _tag: Schema.Literal('smithing') }),
+  stonecutting: Schema.Struct({ _tag: Schema.Literal('stonecutting') }),
 })
 export interface RecipeCategory extends Schema.Schema.Type<typeof RecipeCategory> {}
 
 // クラフティングレシピ（Schema.TaggedUnionパターン）
-export const CraftingRecipe = Schema.TaggedUnion("_tag", {
+export const CraftingRecipe = Schema.TaggedUnion('_tag', {
   shaped: Schema.Struct({
-    _tag: Schema.Literal("shaped"),
+    _tag: Schema.Literal('shaped'),
     id: RecipeId,
     pattern: Schema.Array(Schema.Array(Schema.optional(Schema.String))),
     ingredients: Schema.Record(Schema.String, ItemMatcher),
     result: ItemStack,
-    category: RecipeCategory
+    category: RecipeCategory,
   }),
   shapeless: Schema.Struct({
-    _tag: Schema.Literal("shapeless"),
+    _tag: Schema.Literal('shapeless'),
     id: RecipeId,
     ingredients: Schema.Array(ItemMatcher),
     result: ItemStack,
-    category: RecipeCategory
-  })
+    category: RecipeCategory,
+  }),
 })
 export interface CraftingRecipe extends Schema.Schema.Type<typeof CraftingRecipe> {}
 ```
@@ -99,16 +96,16 @@ export interface CraftingRecipe extends Schema.Schema.Type<typeof CraftingRecipe
 
 ```typescript
 // レシピエラー定義
-export const DuplicateRecipeError = Schema.TaggedError("DuplicateRecipeError")<{
+export const DuplicateRecipeError = Schema.TaggedError('DuplicateRecipeError')<{
   recipeId: RecipeId
 }>
 
-export const InvalidRecipeError = Schema.TaggedError("InvalidRecipeError")<{
-  recipeId: RecipeId,
+export const InvalidRecipeError = Schema.TaggedError('InvalidRecipeError')<{
+  recipeId: RecipeId
   reason: Schema.String
 }>
 
-export const RecipeNotFoundError = Schema.TaggedError("RecipeNotFoundError")<{
+export const RecipeNotFoundError = Schema.TaggedError('RecipeNotFoundError')<{
   recipeId: RecipeId
 }>
 
@@ -117,26 +114,16 @@ export type MatchError = RecipeNotFoundError
 
 // レシピレジストリサービスインターフェース
 export interface RecipeRegistryService {
-  readonly register: (
-    recipe: CraftingRecipe
-  ) => Effect.Effect<void, RegistrationError>
+  readonly register: (recipe: CraftingRecipe) => Effect.Effect<void, RegistrationError>
 
-  readonly findMatchingRecipe: (
-    grid: CraftingGrid
-  ) => Effect.Effect<Option.Option<CraftingRecipe>, MatchError>
+  readonly findMatchingRecipe: (grid: CraftingGrid) => Effect.Effect<Option.Option<CraftingRecipe>, MatchError>
 
-  readonly getRecipeById: (
-    id: RecipeId
-  ) => Effect.Effect<CraftingRecipe, RecipeNotFoundError>
+  readonly getRecipeById: (id: RecipeId) => Effect.Effect<CraftingRecipe, RecipeNotFoundError>
 
-  readonly getRecipesByCategory: (
-    category: RecipeCategory
-  ) => Effect.Effect<ReadonlyArray<CraftingRecipe>>
+  readonly getRecipesByCategory: (category: RecipeCategory) => Effect.Effect<ReadonlyArray<CraftingRecipe>>
 }
 
-export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>(
-  "@minecraft/RecipeRegistryService"
-)
+export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>('@minecraft/RecipeRegistryService')
 
 // レシピレジストリ実装
 export const RecipeRegistryServiceLive = Layer.effect(
@@ -148,26 +135,28 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
     const validateRecipe = (recipe: CraftingRecipe): Effect.Effect<void, InvalidRecipeError> =>
       Match.value(recipe).pipe(
-        Match.tag("shaped", ({ pattern, ingredients }) => {
-          const patternKeys = new Set(
-            pattern.flat().filter(key => key !== undefined)
-          )
+        Match.tag('shaped', ({ pattern, ingredients }) => {
+          const patternKeys = new Set(pattern.flat().filter((key) => key !== undefined))
           const ingredientKeys = new Set(Object.keys(ingredients))
 
           return patternKeys.size === ingredientKeys.size
             ? Effect.void
-            : Effect.fail(InvalidRecipeError({
-                recipeId: recipe.id,
-                reason: "Pattern keys don't match ingredients"
-              }))
+            : Effect.fail(
+                InvalidRecipeError({
+                  recipeId: recipe.id,
+                  reason: "Pattern keys don't match ingredients",
+                })
+              )
         }),
-        Match.tag("shapeless", ({ ingredients }) =>
+        Match.tag('shapeless', ({ ingredients }) =>
           ingredients.length > 0
             ? Effect.void
-            : Effect.fail(InvalidRecipeError({
-                recipeId: recipe.id,
-                reason: "Shapeless recipe must have ingredients"
-              }))
+            : Effect.fail(
+                InvalidRecipeError({
+                  recipeId: recipe.id,
+                  reason: 'Shapeless recipe must have ingredients',
+                })
+              )
         ),
         Match.exhaustive
       )
@@ -193,27 +182,21 @@ export const RecipeRegistryServiceLive = Layer.effect(
         byCategory.set(categoryKey, [...categoryExisting, recipe])
       })
 
-    const findMatchingRecipe = (
-      grid: CraftingGrid
-    ): Effect.Effect<Option.Option<CraftingRecipe>, MatchError> =>
+    const findMatchingRecipe = (grid: CraftingGrid): Effect.Effect<Option.Option<CraftingRecipe>, MatchError> =>
       Effect.gen(function* () {
         const allRecipes = Array.from(recipes.values())
 
         // 並列検索でパフォーマンス最適化
-        const matches = yield* Effect.forEach(
-          allRecipes,
-          (recipe) => matchesRecipe(grid, recipe),
-          { concurrency: "unbounded" }
-        )
+        const matches = yield* Effect.forEach(allRecipes, (recipe) => matchesRecipe(grid, recipe), {
+          concurrency: 'unbounded',
+        })
 
-        return Option.fromNullable(matches.find(match => match !== null))
+        return Option.fromNullable(matches.find((match) => match !== null))
       })
 
     const getRecipeById = (id: RecipeId): Effect.Effect<CraftingRecipe, RecipeNotFoundError> => {
       const recipe = recipes.get(id)
-      return recipe
-        ? Effect.succeed(recipe)
-        : Effect.fail(RecipeNotFoundError({ recipeId: id }))
+      return recipe ? Effect.succeed(recipe) : Effect.fail(RecipeNotFoundError({ recipeId: id }))
     }
 
     const getRecipesByCategory = (category: RecipeCategory): Effect.Effect<ReadonlyArray<CraftingRecipe>> =>
@@ -223,7 +206,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
       register,
       findMatchingRecipe,
       getRecipeById,
-      getRecipesByCategory
+      getRecipesByCategory,
     }
   })
 )
@@ -236,88 +219,67 @@ export const RecipeRegistryServiceLive = Layer.effect(
 ```typescript
 // クラフティンググリッドSchema定義
 export const CraftingGrid = Schema.Struct({
-  _tag: Schema.Literal("CraftingGrid"),
+  _tag: Schema.Literal('CraftingGrid'),
   width: Schema.Number.pipe(Schema.int(), Schema.positive()),
   height: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  slots: Schema.Array(
-    Schema.Array(Schema.optional(ItemStack))
-  )
+  slots: Schema.Array(Schema.Array(Schema.optional(ItemStack))),
 })
 export interface CraftingGrid extends Schema.Schema.Type<typeof CraftingGrid> {}
 
 // 正規化されたグリッド
 export const NormalizedGrid = Schema.Struct({
-  _tag: Schema.Literal("NormalizedGrid"),
+  _tag: Schema.Literal('NormalizedGrid'),
   width: Schema.Number.pipe(Schema.int(), Schema.positive()),
   height: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  slots: Schema.Array(Schema.Array(Schema.optional(ItemStack)))
+  slots: Schema.Array(Schema.Array(Schema.optional(ItemStack))),
 })
 export interface NormalizedGrid extends Schema.Schema.Type<typeof NormalizedGrid> {}
 
 // グリッドサービスインターフェース
 export interface CraftingGridService {
   readonly normalize: (grid: CraftingGrid) => Effect.Effect<NormalizedGrid>
-  readonly matchesRecipe: (
-    grid: CraftingGrid,
-    recipe: CraftingRecipe
-  ) => Effect.Effect<boolean>
+  readonly matchesRecipe: (grid: CraftingGrid, recipe: CraftingRecipe) => Effect.Effect<boolean>
   readonly extractItems: (grid: CraftingGrid) => Effect.Effect<ReadonlyArray<ItemStack>>
 }
 
-export const CraftingGridService = Context.GenericTag<CraftingGridService>(
-  "@minecraft/CraftingGridService"
-)
+export const CraftingGridService = Context.GenericTag<CraftingGridService>('@minecraft/CraftingGridService')
 
 // グリッドサービス実装
-export const CraftingGridServiceLive = Layer.succeed(
-  CraftingGridService,
-  {
-    normalize: (grid: CraftingGrid): Effect.Effect<NormalizedGrid> =>
-      Effect.gen(function* () {
-        const bounds = findContentBounds(grid)
+export const CraftingGridServiceLive = Layer.succeed(CraftingGridService, {
+  normalize: (grid: CraftingGrid): Effect.Effect<NormalizedGrid> =>
+    Effect.gen(function* () {
+      const bounds = findContentBounds(grid)
 
-        return bounds
-          ? extractSubGrid(grid, bounds)
-          : {
-              _tag: "NormalizedGrid" as const,
-              width: 0,
-              height: 0,
-              slots: []
-            }
-      }),
+      return bounds
+        ? extractSubGrid(grid, bounds)
+        : {
+            _tag: 'NormalizedGrid' as const,
+            width: 0,
+            height: 0,
+            slots: [],
+          }
+    }),
 
-    matchesRecipe: (
-      grid: CraftingGrid,
-      recipe: CraftingRecipe
-    ): Effect.Effect<boolean> =>
-      Match.value(recipe).pipe(
-        Match.tag("shaped", (shapedRecipe) => matchesShapedRecipe(grid, shapedRecipe)),
-        Match.tag("shapeless", (shapelessRecipe) => matchesShapelessRecipe(grid, shapelessRecipe)),
-        Match.exhaustive
-      ),
+  matchesRecipe: (grid: CraftingGrid, recipe: CraftingRecipe): Effect.Effect<boolean> =>
+    Match.value(recipe).pipe(
+      Match.tag('shaped', (shapedRecipe) => matchesShapedRecipe(grid, shapedRecipe)),
+      Match.tag('shapeless', (shapelessRecipe) => matchesShapelessRecipe(grid, shapelessRecipe)),
+      Match.exhaustive
+    ),
 
-    extractItems: (grid: CraftingGrid): Effect.Effect<ReadonlyArray<ItemStack>> =>
-      Effect.succeed(
-        grid.slots
-          .flat()
-          .filter((item): item is ItemStack => item !== undefined)
-      )
-  }
-)
+  extractItems: (grid: CraftingGrid): Effect.Effect<ReadonlyArray<ItemStack>> =>
+    Effect.succeed(grid.slots.flat().filter((item): item is ItemStack => item !== undefined)),
+})
 
 // 形状付きレシピマッチング
-const matchesShapedRecipe = (
-  grid: CraftingGrid,
-  recipe: CraftingRecipe & { _tag: "shaped" }
-): Effect.Effect<boolean> =>
+const matchesShapedRecipe = (grid: CraftingGrid, recipe: CraftingRecipe & { _tag: 'shaped' }): Effect.Effect<boolean> =>
   Effect.gen(function* () {
     const gridService = yield* CraftingGridService
     const normalizedGrid = yield* gridService.normalize(grid)
     const normalizedPattern = normalizePattern(recipe.pattern)
 
     // 早期リターン: サイズチェック
-    if (normalizedGrid.width !== normalizedPattern.width ||
-        normalizedGrid.height !== normalizedPattern.height) {
+    if (normalizedGrid.width !== normalizedPattern.width || normalizedGrid.height !== normalizedPattern.height) {
       return false
     }
 
@@ -328,7 +290,7 @@ const matchesShapedRecipe = (
       rotate180,
       rotate270,
       flipHorizontal,
-      flipVertical
+      flipVertical,
     ]
 
     const result = yield* pipe(
@@ -336,11 +298,7 @@ const matchesShapedRecipe = (
       Array.findFirst((transform) =>
         Effect.gen(function* () {
           const transformedPattern = transform(normalizedPattern)
-          return yield* checkPatternMatch(
-            normalizedGrid,
-            transformedPattern,
-            recipe.ingredients
-          )
+          return yield* checkPatternMatch(normalizedGrid, transformedPattern, recipe.ingredients)
         })
       )
     )
@@ -353,7 +311,7 @@ const matchesShapedRecipe = (
 // 形状なしレシピマッチング
 const matchesShapelessRecipe = (
   grid: CraftingGrid,
-  recipe: CraftingRecipe & { _tag: "shapeless" }
+  recipe: CraftingRecipe & { _tag: 'shapeless' }
 ): Effect.Effect<boolean> =>
   Effect.gen(function* () {
     const gridService = yield* CraftingGridService
@@ -407,16 +365,12 @@ const matchesIngredient = (
     if (!matcher) return false
 
     return yield* Match.value(matcher).pipe(
-      Match.tag("exact", ({ itemId }) =>
-        Effect.succeed(item.itemId === itemId)
-      ),
-      Match.tag("tag", ({ tag }) =>
-        checkItemTag(item, tag)
-      ),
-      Match.tag("custom", ({ predicate }) =>
+      Match.tag('exact', ({ itemId }) => Effect.succeed(item.itemId === itemId)),
+      Match.tag('tag', ({ tag }) => checkItemTag(item, tag)),
+      Match.tag('custom', ({ predicate }) =>
         Effect.try({
           try: () => predicate(item),
-          catch: () => false
+          catch: () => false,
         })
       ),
       Match.exhaustive
@@ -440,25 +394,20 @@ const checkShapelessMatch = (
     Array.every((requiredIngredient) => {
       const foundIndex = pipe(
         providedItems,
-        Array.findFirstIndex((item) =>
-          item.count > 0 && matchesIngredientSync(item, requiredIngredient)
-        )
+        Array.findFirstIndex((item) => item.count > 0 && matchesIngredientSync(item, requiredIngredient))
       )
 
       return Match.value(foundIndex).pipe(
-        Match.when(
-          Option.isSome,
-          (idx) => {
-            const i = Option.getOrThrow(idx)
-            const item = providedItems[i]
-            // アイテムを消費
-            providedItems[i] = {
-              ...item,
-              count: Brand.nominal<ItemStackCount>(item.count - 1)
-            }
-            return true
+        Match.when(Option.isSome, (idx) => {
+          const i = Option.getOrThrow(idx)
+          const item = providedItems[i]
+          // アイテムを消費
+          providedItems[i] = {
+            ...item,
+            count: Brand.nominal<ItemStackCount>(item.count - 1),
           }
-        ),
+          return true
+        }),
         Match.when(Option.isNone, () => false),
         Match.exhaustive
       )
@@ -468,18 +417,15 @@ const checkShapelessMatch = (
   if (!allFound) return false
 
   // 余剰アイテムがないことを確認
-  return providedItems.every(item => item.count === 0)
+  return providedItems.every((item) => item.count === 0)
 }
 
 // 同期バージョンの材料マッチング
-const matchesIngredientSync = (
-  item: ItemStack,
-  matcher: ItemMatcher
-): boolean => {
+const matchesIngredientSync = (item: ItemStack, matcher: ItemMatcher): boolean => {
   return Match.value(matcher).pipe(
-    Match.tag("exact", ({ itemId }) => item.itemId === itemId),
-    Match.tag("tag", ({ tag }) => checkItemTagSync(item, tag)),
-    Match.tag("custom", ({ predicate }) => {
+    Match.tag('exact', ({ itemId }) => item.itemId === itemId),
+    Match.tag('tag', ({ tag }) => checkItemTagSync(item, tag)),
+    Match.tag('custom', ({ predicate }) => {
       try {
         return predicate(item)
       } catch {
@@ -500,10 +446,10 @@ const checkItemTagSync = (item: ItemStack, tag: string): boolean => {
 // アイテムタグ取得（サンプル実装）
 const getItemTags = (itemId: ItemId): ReadonlyArray<string> => {
   const tagMap: Record<string, ReadonlyArray<string>> = {
-    "minecraft:oak_planks": ["minecraft:planks", "minecraft:wooden_items"],
-    "minecraft:birch_planks": ["minecraft:planks", "minecraft:wooden_items"],
-    "minecraft:oak_log": ["minecraft:logs", "minecraft:wooden_items"],
-    "minecraft:stone": ["minecraft:stone", "minecraft:building_blocks"]
+    'minecraft:oak_planks': ['minecraft:planks', 'minecraft:wooden_items'],
+    'minecraft:birch_planks': ['minecraft:planks', 'minecraft:wooden_items'],
+    'minecraft:oak_log': ['minecraft:logs', 'minecraft:wooden_items'],
+    'minecraft:stone': ['minecraft:stone', 'minecraft:building_blocks'],
   }
 
   return tagMap[itemId] ?? []
@@ -516,42 +462,39 @@ const getItemTags = (itemId: ItemId): ReadonlyArray<string> => {
 
 ```typescript
 // クラフティングエラー定義
-export const InsufficientPermissionsError = Schema.TaggedError("InsufficientPermissionsError", {
+export const InsufficientPermissionsError = Schema.TaggedError('InsufficientPermissionsError', {
   playerId: Schema.String,
   recipeId: RecipeId,
-  requiredPermission: Schema.String
+  requiredPermission: Schema.String,
 })
 
-export const ConsumptionError = Schema.TaggedError("ConsumptionError", {
+export const ConsumptionError = Schema.TaggedError('ConsumptionError', {
   recipeId: RecipeId,
-  reason: Schema.String
+  reason: Schema.String,
 })
 
-export const ResultGenerationError = Schema.TaggedError("ResultGenerationError", {
+export const ResultGenerationError = Schema.TaggedError('ResultGenerationError', {
   recipeId: RecipeId,
-  cause: Schema.String
+  cause: Schema.String,
 })
 
-export type CraftingError =
-  | InsufficientPermissionsError
-  | ConsumptionError
-  | ResultGenerationError
+export type CraftingError = InsufficientPermissionsError | ConsumptionError | ResultGenerationError
 
 // クラフティング結果
 export const CraftingResult = Schema.Struct({
-  _tag: Schema.Literal("CraftingResult"),
+  _tag: Schema.Literal('CraftingResult'),
   grid: CraftingGrid,
   result: ItemStack,
   recipe: CraftingRecipe,
-  timestamp: Schema.Number
+  timestamp: Schema.Number,
 })
 export interface CraftingResult extends Schema.Schema.Type<typeof CraftingResult> {}
 
 // プレイヤースキーマ（サンプル）
 export const Player = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("PlayerId")),
+  id: Schema.String.pipe(Schema.brand('PlayerId')),
   permissions: Schema.Array(Schema.String),
-  craftingStats: Schema.Record(RecipeId, Schema.Number)
+  craftingStats: Schema.Record(RecipeId, Schema.Number),
 })
 export interface Player extends Schema.Schema.Type<typeof Player> {}
 
@@ -575,9 +518,7 @@ export interface CraftingService {
   ) => Effect.Effect<CraftingGrid, ConsumptionError>
 }
 
-export const CraftingService = Context.GenericTag<CraftingService>(
-  "@minecraft/CraftingService"
-)
+export const CraftingService = Context.GenericTag<CraftingService>('@minecraft/CraftingService')
 
 // クラフティングサービス実装
 export const CraftingServiceLive = Layer.effect(
@@ -596,20 +537,24 @@ export const CraftingServiceLive = Layer.effect(
         // 早期リターン: 権限チェック
         const hasPermission = checkCraftingPermission(player, recipe)
         if (!hasPermission) {
-          return yield* Effect.fail(InsufficientPermissionsError({
-            playerId: player.id,
-            recipeId: recipe.id,
-            requiredPermission: getRequiredPermission(recipe)
-          }))
+          return yield* Effect.fail(
+            InsufficientPermissionsError({
+              playerId: player.id,
+              recipeId: recipe.id,
+              requiredPermission: getRequiredPermission(recipe),
+            })
+          )
         }
 
         // レシピマッチング検証
         const matches = yield* gridService.matchesRecipe(grid, recipe)
         if (!matches) {
-          return yield* Effect.fail(ConsumptionError({
-            recipeId: recipe.id,
-            reason: "Recipe pattern doesn't match grid"
-          }))
+          return yield* Effect.fail(
+            ConsumptionError({
+              recipeId: recipe.id,
+              reason: "Recipe pattern doesn't match grid",
+            })
+          )
         }
       })
 
@@ -618,8 +563,8 @@ export const CraftingServiceLive = Layer.effect(
       recipe: CraftingRecipe
     ): Effect.Effect<CraftingGrid, ConsumptionError> =>
       Match.value(recipe).pipe(
-        Match.tag("shaped", (shapedRecipe) => consumeShapedIngredients(grid, shapedRecipe)),
-        Match.tag("shapeless", (shapelessRecipe) => consumeShapelessIngredients(grid, shapelessRecipe)),
+        Match.tag('shaped', (shapedRecipe) => consumeShapedIngredients(grid, shapedRecipe)),
+        Match.tag('shapeless', (shapelessRecipe) => consumeShapelessIngredients(grid, shapelessRecipe)),
         Match.exhaustive
       )
 
@@ -639,26 +584,24 @@ export const CraftingServiceLive = Layer.effect(
         const result = generateCraftingResult(recipe)
 
         // 統計更新（非同期）
-        yield* Effect.fork(
-          statsService.updateCraftingStats(player.id, recipe.id)
-        )
+        yield* Effect.fork(statsService.updateCraftingStats(player.id, recipe.id))
 
         // イベント発行（非同期）
         const craftingEvent = {
-          _tag: "CraftingCompleted" as const,
+          _tag: 'CraftingCompleted' as const,
           playerId: player.id,
           recipeId: recipe.id,
           resultItemId: result.itemId,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }
         yield* Effect.fork(eventBus.publish(craftingEvent))
 
         return {
-          _tag: "CraftingResult" as const,
+          _tag: 'CraftingResult' as const,
           grid: consumedGrid,
           result,
           recipe,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }
       })
 
@@ -674,26 +617,26 @@ const checkCraftingPermission = (player: Player, recipe: CraftingRecipe): boolea
 
 const getRequiredPermission = (recipe: CraftingRecipe): string =>
   Match.value(recipe.category).pipe(
-    Match.tag("crafting", () => "minecraft.craft.basic"),
-    Match.tag("smelting", () => "minecraft.craft.smelting"),
-    Match.tag("smithing", () => "minecraft.craft.smithing"),
-    Match.tag("stonecutting", () => "minecraft.craft.stonecutting"),
+    Match.tag('crafting', () => 'minecraft.craft.basic'),
+    Match.tag('smelting', () => 'minecraft.craft.smelting'),
+    Match.tag('smithing', () => 'minecraft.craft.smithing'),
+    Match.tag('stonecutting', () => 'minecraft.craft.stonecutting'),
     Match.exhaustive
   )
 
 const generateCraftingResult = (recipe: CraftingRecipe): ItemStack => ({
   itemId: recipe.result.itemId,
   count: recipe.result.count,
-  metadata: recipe.result.metadata
+  metadata: recipe.result.metadata,
 })
 
 // 形状付きレシピの消費
 const consumeShapedIngredients = (
   grid: CraftingGrid,
-  recipe: CraftingRecipe & { _tag: "shaped" }
+  recipe: CraftingRecipe & { _tag: 'shaped' }
 ): Effect.Effect<CraftingGrid, ConsumptionError> =>
   Effect.gen(function* () {
-    const updatedSlots = grid.slots.map(row => [...row])
+    const updatedSlots = grid.slots.map((row) => [...row])
 
     // パターンに従って消費
     yield* pipe(
@@ -710,20 +653,21 @@ const consumeShapedIngredients = (
                   Effect.gen(function* () {
                     const gridSlot = updatedSlots[y]?.[x]
                     if (!gridSlot) {
-                      return yield* Effect.fail(ConsumptionError({
-                        recipeId: recipe.id,
-                        reason: `Missing ingredient at position ${x},${y}`
-                      }))
+                      return yield* Effect.fail(
+                        ConsumptionError({
+                          recipeId: recipe.id,
+                          reason: `Missing ingredient at position ${x},${y}`,
+                        })
+                      )
                     }
 
                     // 1個消費
                     const newCount = gridSlot.count - 1
-                    updatedSlots[y][x] = newCount > 0
-                      ? { ...gridSlot, count: Brand.nominal<ItemStackCount>(newCount) }
-                      : undefined
+                    updatedSlots[y][x] =
+                      newCount > 0 ? { ...gridSlot, count: Brand.nominal<ItemStackCount>(newCount) } : undefined
 
                     return Effect.succeed(undefined)
-                  })
+                  }),
               })
             )
           ),
@@ -736,57 +680,50 @@ const consumeShapedIngredients = (
 
     return {
       ...grid,
-      slots: updatedSlots
+      slots: updatedSlots,
     }
   })
 
 // 形状なしレシピの消費
 const consumeShapelessIngredients = (
   grid: CraftingGrid,
-  recipe: CraftingRecipe & { _tag: "shapeless" }
+  recipe: CraftingRecipe & { _tag: 'shapeless' }
 ): Effect.Effect<CraftingGrid, ConsumptionError> =>
   Effect.gen(function* () {
-    const updatedSlots = grid.slots.map(row => [...row])
+    const updatedSlots = grid.slots.map((row) => [...row])
     const flatSlots = updatedSlots.flat()
 
     // 各材料を消費
     yield* pipe(
       recipe.ingredients,
-      Effect.reduce(
-        flatSlots,
-        (currentSlots, requiredIngredient) =>
-          Effect.gen(function* () {
-            const slotIndex = yield* pipe(
-              currentSlots,
-              Array.findFirstIndex(slot =>
-                slot &&
-                slot.count > 0 &&
-                matchesIngredientSync(slot, requiredIngredient)
-              ),
-              Effect.fromOption(() => ConsumptionError({
+      Effect.reduce(flatSlots, (currentSlots, requiredIngredient) =>
+        Effect.gen(function* () {
+          const slotIndex = yield* pipe(
+            currentSlots,
+            Array.findFirstIndex((slot) => slot && slot.count > 0 && matchesIngredientSync(slot, requiredIngredient)),
+            Effect.fromOption(() =>
+              ConsumptionError({
                 recipeId: recipe.id,
-                reason: "Insufficient ingredients for shapeless recipe"
-              }))
+                reason: 'Insufficient ingredients for shapeless recipe',
+              })
             )
+          )
 
-            const slot = currentSlots[slotIndex]!
-            const newCount = slot.count - 1
-            const updatedSlots = [...currentSlots]
-            updatedSlots[slotIndex] = newCount > 0
-              ? { ...slot, count: Brand.nominal<ItemStackCount>(newCount) }
-              : undefined
+          const slot = currentSlots[slotIndex]!
+          const newCount = slot.count - 1
+          const updatedSlots = [...currentSlots]
+          updatedSlots[slotIndex] =
+            newCount > 0 ? { ...slot, count: Brand.nominal<ItemStackCount>(newCount) } : undefined
 
-            return updatedSlots
-          })
+          return updatedSlots
+        })
       ),
-      Effect.map(finalSlots => {
+      Effect.map((finalSlots) => {
         // グリッドに戻す
         let index = 0
-        return updatedSlots.map(row =>
-          row.map(() => finalSlots[index++])
-        )
+        return updatedSlots.map((row) => row.map(() => finalSlots[index++]))
       }),
-      Effect.map(reconstructedSlots => {
+      Effect.map((reconstructedSlots) => {
         // 元の flatSlots を更新 (関数型アプローチ)
         return reconstructedSlots.flat()
       }),
@@ -796,17 +733,17 @@ const consumeShapelessIngredients = (
     // グリッドに戻す
     const reconstructedSlots = pipe(
       Array.range(0, updatedSlots.length),
-      Array.map(y =>
+      Array.map((y) =>
         pipe(
           Array.range(0, updatedSlots[y].length),
-          Array.map(x => flatSlots[y * updatedSlots[y].length + x])
+          Array.map((x) => flatSlots[y * updatedSlots[y].length + x])
         )
       )
     )
 
     return {
       ...grid,
-      slots: reconstructedSlots
+      slots: reconstructedSlots,
     }
   })
 ```
@@ -818,78 +755,65 @@ const consumeShapelessIngredients = (
 ```typescript
 // 精錬レシピSchema
 export const FurnaceRecipe = Schema.Struct({
-  _tag: Schema.Literal("FurnaceRecipe"),
+  _tag: Schema.Literal('FurnaceRecipe'),
   id: RecipeId,
   input: ItemMatcher,
   output: ItemStack,
   experience: Schema.Number.pipe(Schema.nonNegative()),
   cookingTime: Schema.Number.pipe(Schema.positive()), // ミリ秒単位
-  category: Schema.Literal("smelting")
+  category: Schema.Literal('smelting'),
 })
 export interface FurnaceRecipe extends Schema.Schema.Type<typeof FurnaceRecipe> {}
 
 // 燃料アイテムSchema
 export const FuelItem = Schema.Struct({
-  _tag: Schema.Literal("FuelItem"),
+  _tag: Schema.Literal('FuelItem'),
   itemId: ItemId,
-  burnTime: Schema.Number.pipe(Schema.positive()) // ミリ秒単位
+  burnTime: Schema.Number.pipe(Schema.positive()), // ミリ秒単位
 })
 export interface FuelItem extends Schema.Schema.Type<typeof FuelItem> {}
 
 // かまど状態Schema
 export const FurnaceState = Schema.Struct({
-  _tag: Schema.Literal("FurnaceState"),
+  _tag: Schema.Literal('FurnaceState'),
   inputSlot: Schema.optional(ItemStack),
   fuelSlot: Schema.optional(ItemStack),
   outputSlot: Schema.optional(ItemStack),
   fuelRemaining: Schema.Number.pipe(Schema.nonNegative()),
   smeltProgress: Schema.Number.pipe(Schema.nonNegative()),
   experience: Schema.Number.pipe(Schema.nonNegative()),
-  isSmelting: Schema.Boolean
+  isSmelting: Schema.Boolean,
 })
 export interface FurnaceState extends Schema.Schema.Type<typeof FurnaceState> {}
 
 // 精錬エラー定義
-export const InsufficientFuelError = Schema.TaggedError("InsufficientFuelError", {
+export const InsufficientFuelError = Schema.TaggedError('InsufficientFuelError', {
   furnaceId: Schema.String,
-  requiredTime: Schema.Number
+  requiredTime: Schema.Number,
 })
 
-export const InvalidInputError = Schema.TaggedError("InvalidInputError", {
+export const InvalidInputError = Schema.TaggedError('InvalidInputError', {
   itemId: ItemId,
-  reason: Schema.String
+  reason: Schema.String,
 })
 
-export const OutputSlotFullError = Schema.TaggedError("OutputSlotFullError", {
+export const OutputSlotFullError = Schema.TaggedError('OutputSlotFullError', {
   furnaceId: Schema.String,
-  outputItem: ItemStack
+  outputItem: ItemStack,
 })
 
-export type SmeltingError =
-  | InsufficientFuelError
-  | InvalidInputError
-  | OutputSlotFullError
+export type SmeltingError = InsufficientFuelError | InvalidInputError | OutputSlotFullError
 
 // かまどサービスインターフェース
 export interface FurnaceService {
-  readonly smelt: (
-    furnaceState: FurnaceState,
-    deltaTime: number
-  ) => Effect.Effect<FurnaceState, SmeltingError>
+  readonly smelt: (furnaceState: FurnaceState, deltaTime: number) => Effect.Effect<FurnaceState, SmeltingError>
 
-  readonly addFuel: (
-    furnaceState: FurnaceState,
-    fuelItem: ItemStack
-  ) => Effect.Effect<FurnaceState, SmeltingError>
+  readonly addFuel: (furnaceState: FurnaceState, fuelItem: ItemStack) => Effect.Effect<FurnaceState, SmeltingError>
 
-  readonly getRecipeForInput: (
-    input: ItemStack
-  ) => Effect.Effect<Option.Option<FurnaceRecipe>>
+  readonly getRecipeForInput: (input: ItemStack) => Effect.Effect<Option.Option<FurnaceRecipe>>
 }
 
-export const FurnaceService = Context.GenericTag<FurnaceService>(
-  "@minecraft/FurnaceService"
-)
+export const FurnaceService = Context.GenericTag<FurnaceService>('@minecraft/FurnaceService')
 
 // かまどサービス実装
 export const FurnaceServiceLive = Layer.effect(
@@ -897,19 +821,17 @@ export const FurnaceServiceLive = Layer.effect(
   Effect.gen(function* () {
     const recipeRegistry = yield* RecipeRegistryService
 
-    const getRecipeForInput = (
-      input: ItemStack
-    ): Effect.Effect<Option.Option<FurnaceRecipe>> =>
+    const getRecipeForInput = (input: ItemStack): Effect.Effect<Option.Option<FurnaceRecipe>> =>
       Effect.gen(function* () {
         // 精錬レシピを検索
         const furnaceRecipes = yield* recipeRegistry.getRecipesByCategory({
-          _tag: "smelting"
+          _tag: 'smelting',
         })
 
-        const matchingRecipe = furnaceRecipes.find(recipe =>
+        const matchingRecipe = furnaceRecipes.find((recipe) =>
           Match.value(recipe).pipe(
             Match.when(
-              r => r._tag === "FurnaceRecipe",
+              (r) => r._tag === 'FurnaceRecipe',
               (r) => matchesIngredientSync(input, (r as any).input)
             ),
             Match.orElse(() => false)
@@ -919,41 +841,36 @@ export const FurnaceServiceLive = Layer.effect(
         return Option.fromNullable(matchingRecipe as FurnaceRecipe)
       })
 
-    const addFuel = (
-      furnaceState: FurnaceState,
-      fuelItem: ItemStack
-    ): Effect.Effect<FurnaceState, SmeltingError> =>
+    const addFuel = (furnaceState: FurnaceState, fuelItem: ItemStack): Effect.Effect<FurnaceState, SmeltingError> =>
       Effect.gen(function* () {
         const fuelValue = getFuelValue(fuelItem.itemId)
 
         // 早期リターン: 燃料でない場合
         if (fuelValue <= 0) {
-          return yield* Effect.fail(InvalidInputError({
-            itemId: fuelItem.itemId,
-            reason: "Item is not a valid fuel"
-          }))
+          return yield* Effect.fail(
+            InvalidInputError({
+              itemId: fuelItem.itemId,
+              reason: 'Item is not a valid fuel',
+            })
+          )
         }
 
         return {
           ...furnaceState,
-          fuelSlot: fuelItem.count > 1
-            ? { ...fuelItem, count: Brand.nominal<ItemStackCount>(fuelItem.count - 1) }
-            : undefined,
-          fuelRemaining: furnaceState.fuelRemaining + fuelValue
+          fuelSlot:
+            fuelItem.count > 1 ? { ...fuelItem, count: Brand.nominal<ItemStackCount>(fuelItem.count - 1) } : undefined,
+          fuelRemaining: furnaceState.fuelRemaining + fuelValue,
         }
       })
 
-    const smelt = (
-      furnaceState: FurnaceState,
-      deltaTime: number
-    ): Effect.Effect<FurnaceState, SmeltingError> =>
+    const smelt = (furnaceState: FurnaceState, deltaTime: number): Effect.Effect<FurnaceState, SmeltingError> =>
       Effect.gen(function* () {
         // 早期リターン: 入力スロットが空
         if (!furnaceState.inputSlot) {
           return {
             ...furnaceState,
             isSmelting: false,
-            smeltProgress: 0
+            smeltProgress: 0,
           }
         }
 
@@ -963,7 +880,7 @@ export const FurnaceServiceLive = Layer.effect(
           return {
             ...furnaceState,
             isSmelting: false,
-            smeltProgress: 0
+            smeltProgress: 0,
           }
         }
 
@@ -972,10 +889,12 @@ export const FurnaceServiceLive = Layer.effect(
         // 燃料チェック
         if (furnaceState.fuelRemaining <= 0) {
           if (!furnaceState.fuelSlot) {
-            return yield* Effect.fail(InsufficientFuelError({
-              furnaceId: "furnace_001", // TODO: 実際のIDを使用
-              requiredTime: recipe.cookingTime
-            }))
+            return yield* Effect.fail(
+              InsufficientFuelError({
+                furnaceId: 'furnace_001', // TODO: 実際のIDを使用
+                requiredTime: recipe.cookingTime,
+              })
+            )
           }
 
           // 自動燃料消費
@@ -990,25 +909,29 @@ export const FurnaceServiceLive = Layer.effect(
         // 精錬完了チェック
         if (newProgress >= recipe.cookingTime) {
           // 出力スロットチェック
-          if (furnaceState.outputSlot &&
-              (furnaceState.outputSlot.itemId !== recipe.output.itemId ||
-               furnaceState.outputSlot.count + recipe.output.count > 64)) {
-            return yield* Effect.fail(OutputSlotFullError({
-              furnaceId: "furnace_001",
-              outputItem: recipe.output
-            }))
+          if (
+            furnaceState.outputSlot &&
+            (furnaceState.outputSlot.itemId !== recipe.output.itemId ||
+              furnaceState.outputSlot.count + recipe.output.count > 64)
+          ) {
+            return yield* Effect.fail(
+              OutputSlotFullError({
+                furnaceId: 'furnace_001',
+                outputItem: recipe.output,
+              })
+            )
           }
 
           // 精錬完了処理
           const inputConsumed = {
             ...furnaceState.inputSlot,
-            count: Brand.nominal<ItemStackCount>(furnaceState.inputSlot.count - 1)
+            count: Brand.nominal<ItemStackCount>(furnaceState.inputSlot.count - 1),
           }
 
           const newOutputSlot = furnaceState.outputSlot
             ? {
                 ...furnaceState.outputSlot,
-                count: Brand.nominal<ItemStackCount>(furnaceState.outputSlot.count + recipe.output.count)
+                count: Brand.nominal<ItemStackCount>(furnaceState.outputSlot.count + recipe.output.count),
               }
             : recipe.output
 
@@ -1019,7 +942,7 @@ export const FurnaceServiceLive = Layer.effect(
             smeltProgress: 0,
             experience: furnaceState.experience + recipe.experience,
             fuelRemaining: newFuelRemaining,
-            isSmelting: !!furnaceState.inputSlot
+            isSmelting: !!furnaceState.inputSlot,
           }
         }
 
@@ -1027,7 +950,7 @@ export const FurnaceServiceLive = Layer.effect(
           ...furnaceState,
           smeltProgress: newProgress,
           fuelRemaining: newFuelRemaining,
-          isSmelting: true
+          isSmelting: true,
         }
       })
 
@@ -1038,12 +961,12 @@ export const FurnaceServiceLive = Layer.effect(
 // 燃料バリュー取得ユーティリティ
 const getFuelValue = (itemId: ItemId): number => {
   const fuelValues: Record<string, number> = {
-    "minecraft:coal": 80000,      // 80秒
-    "minecraft:charcoal": 80000,  // 80秒
-    "minecraft:wood": 15000,      // 15秒
-    "minecraft:stick": 5000,      // 5秒
-    "minecraft:lava_bucket": 1000000, // 1000秒
-    "minecraft:blaze_rod": 120000 // 120秒
+    'minecraft:coal': 80000, // 80秒
+    'minecraft:charcoal': 80000, // 80秒
+    'minecraft:wood': 15000, // 15秒
+    'minecraft:stick': 5000, // 5秒
+    'minecraft:lava_bucket': 1000000, // 1000秒
+    'minecraft:blaze_rod': 120000, // 120秒
   }
 
   return fuelValues[itemId] ?? 0
@@ -1054,60 +977,52 @@ const getFuelValue = (itemId: ItemId): number => {
 
 ```typescript
 // エンチャントSchema定義
-export type EnchantmentId = string & Brand.Brand<"EnchantmentId">
-export type EnchantmentLevel = number & Brand.Brand<"EnchantmentLevel">
-export type ExperienceLevel = number & Brand.Brand<"ExperienceLevel">
+export type EnchantmentId = string & Brand.Brand<'EnchantmentId'>
+export type EnchantmentLevel = number & Brand.Brand<'EnchantmentLevel'>
+export type ExperienceLevel = number & Brand.Brand<'ExperienceLevel'>
 
-export const EnchantmentId = Schema.String.pipe(Schema.brand("EnchantmentId"))
-export const EnchantmentLevel = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(1, 5),
-  Schema.brand("EnchantmentLevel")
-)
-export const ExperienceLevel = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand("ExperienceLevel")
-)
+export const EnchantmentId = Schema.String.pipe(Schema.brand('EnchantmentId'))
+export const EnchantmentLevel = Schema.Number.pipe(Schema.int(), Schema.between(1, 5), Schema.brand('EnchantmentLevel'))
+export const ExperienceLevel = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('ExperienceLevel'))
 
 // エンチャント情報
 export const Enchantment = Schema.Struct({
-  _tag: Schema.Literal("Enchantment"),
+  _tag: Schema.Literal('Enchantment'),
   id: EnchantmentId,
   level: EnchantmentLevel,
-  cost: ExperienceLevel
+  cost: ExperienceLevel,
 })
 export interface Enchantment extends Schema.Schema.Type<typeof Enchantment> {}
 
 // エンチャントテーブル状態
 export const EnchantingTableState = Schema.Struct({
-  _tag: Schema.Literal("EnchantingTableState"),
+  _tag: Schema.Literal('EnchantingTableState'),
   itemSlot: Schema.optional(ItemStack),
   lapisSlot: Schema.optional(ItemStack),
   bookshelfCount: Schema.Number.pipe(Schema.int(), Schema.between(0, 15)),
   availableEnchantments: Schema.Array(Enchantment),
-  seed: Schema.Number.pipe(Schema.int()) // ランダムシード
+  seed: Schema.Number.pipe(Schema.int()), // ランダムシード
 })
 export interface EnchantingTableState extends Schema.Schema.Type<typeof EnchantingTableState> {}
 
 // エンチャントエラー定義
-export const InsufficientExperienceError = Schema.TaggedError("InsufficientExperienceError", {
+export const InsufficientExperienceError = Schema.TaggedError('InsufficientExperienceError', {
   required: ExperienceLevel,
-  current: ExperienceLevel
+  current: ExperienceLevel,
 })
 
-export const InsufficientLapisError = Schema.TaggedError("InsufficientLapisError", {
+export const InsufficientLapisError = Schema.TaggedError('InsufficientLapisError', {
   required: Schema.Number,
-  available: Schema.Number
+  available: Schema.Number,
 })
 
-export const EnchantmentConflictError = Schema.TaggedError("EnchantmentConflictError", {
-  conflictingEnchantments: Schema.Array(EnchantmentId)
+export const EnchantmentConflictError = Schema.TaggedError('EnchantmentConflictError', {
+  conflictingEnchantments: Schema.Array(EnchantmentId),
 })
 
-export const ItemNotEnchantableError = Schema.TaggedError("ItemNotEnchantableError", {
+export const ItemNotEnchantableError = Schema.TaggedError('ItemNotEnchantableError', {
   itemId: ItemId,
-  reason: Schema.String
+  reason: Schema.String,
 })
 
 export type EnchantmentError =
@@ -1132,188 +1047,176 @@ export interface EnchantingService {
     lapisCount: number
   ) => Effect.Effect<ItemStack, EnchantmentError>
 
-  readonly checkEnchantmentCompatibility: (
-    item: ItemStack,
-    enchantment: Enchantment
-  ) => Effect.Effect<boolean>
+  readonly checkEnchantmentCompatibility: (item: ItemStack, enchantment: Enchantment) => Effect.Effect<boolean>
 }
 
-export const EnchantingService = Context.GenericTag<EnchantingService>(
-  "@minecraft/EnchantingService"
-)
+export const EnchantingService = Context.GenericTag<EnchantingService>('@minecraft/EnchantingService')
 
 // エンチャントサービス実装
-export const EnchantingServiceLive = Layer.succeed(
-  EnchantingService,
-  {
-    calculateAvailableEnchantments: (
-      item: ItemStack,
-      bookshelfCount: number,
-      playerLevel: ExperienceLevel,
-      seed: number
-    ): Effect.Effect<ReadonlyArray<Enchantment>> =>
-      Effect.gen(function* () {
-        // 早期リターン: アイテムがエンチャント可能かチェック
-        const enchantability = getItemEnchantability(item.itemId)
-        if (enchantability === 0) {
-          return []
-        }
+export const EnchantingServiceLive = Layer.succeed(EnchantingService, {
+  calculateAvailableEnchantments: (
+    item: ItemStack,
+    bookshelfCount: number,
+    playerLevel: ExperienceLevel,
+    seed: number
+  ): Effect.Effect<ReadonlyArray<Enchantment>> =>
+    Effect.gen(function* () {
+      // 早期リターン: アイテムがエンチャント可能かチェック
+      const enchantability = getItemEnchantability(item.itemId)
+      if (enchantability === 0) {
+        return []
+      }
 
-        const power = Math.min(bookshelfCount, 15)
-        const availableEnchantments = getEnchantmentsForItem(item.itemId)
+      const power = Math.min(bookshelfCount, 15)
+      const availableEnchantments = getEnchantmentsForItem(item.itemId)
 
-        // エンチャントランダム生成アルゴリズム
-        const random = createSeededRandom(seed)
+      // エンチャントランダム生成アルゴリズム
+      const random = createSeededRandom(seed)
 
-        const enchantmentOptions = yield* pipe(
-          Array.range(0, 3),
-          Effect.forEach((i) =>
-            Effect.gen(function* () {
-              const baseCost = (i + 1) * 3 + Math.floor(random() * 5)
-              const levelCost = Math.min(30, baseCost + power)
+      const enchantmentOptions = yield* pipe(
+        Array.range(0, 3),
+        Effect.forEach((i) =>
+          Effect.gen(function* () {
+            const baseCost = (i + 1) * 3 + Math.floor(random() * 5)
+            const levelCost = Math.min(30, baseCost + power)
 
-              return pipe(
-                levelCost <= playerLevel,
-                (canAfford) => canAfford ? Option.some(levelCost) : Option.none(),
-                Option.flatMap((cost) =>
-                  pipe(
-                    selectRandomEnchantment(
-                      availableEnchantments,
-                      enchantability,
-                      cost,
-                      random
-                    ),
-                    Option.fromNullable,
-                    Option.map(selectedEnchantment => ({
-                      _tag: "Enchantment" as const,
-                      id: selectedEnchantment.id,
-                      level: selectedEnchantment.level,
-                      cost: Brand.nominal<ExperienceLevel>(cost)
-                    }))
-                  )
+            return pipe(
+              levelCost <= playerLevel,
+              (canAfford) => (canAfford ? Option.some(levelCost) : Option.none()),
+              Option.flatMap((cost) =>
+                pipe(
+                  selectRandomEnchantment(availableEnchantments, enchantability, cost, random),
+                  Option.fromNullable,
+                  Option.map((selectedEnchantment) => ({
+                    _tag: 'Enchantment' as const,
+                    id: selectedEnchantment.id,
+                    level: selectedEnchantment.level,
+                    cost: Brand.nominal<ExperienceLevel>(cost),
+                  }))
                 )
               )
-            })
-          ),
-          Effect.map(Array.getSomes)
-        )
+            )
+          })
+        ),
+        Effect.map(Array.getSomes)
+      )
 
-        return enchantmentOptions
-      }),
+      return enchantmentOptions
+    }),
 
-    applyEnchantment: (
-      item: ItemStack,
-      enchantment: Enchantment,
-      playerLevel: ExperienceLevel,
-      lapisCount: number
-    ): Effect.Effect<ItemStack, EnchantmentError> =>
-      Effect.gen(function* () {
-        // 早期リターン: 経験値チェック
-        if (playerLevel < enchantment.cost) {
-          return yield* Effect.fail(InsufficientExperienceError({
+  applyEnchantment: (
+    item: ItemStack,
+    enchantment: Enchantment,
+    playerLevel: ExperienceLevel,
+    lapisCount: number
+  ): Effect.Effect<ItemStack, EnchantmentError> =>
+    Effect.gen(function* () {
+      // 早期リターン: 経験値チェック
+      if (playerLevel < enchantment.cost) {
+        return yield* Effect.fail(
+          InsufficientExperienceError({
             required: enchantment.cost,
-            current: playerLevel
-          }))
-        }
+            current: playerLevel,
+          })
+        )
+      }
 
-        // 早期リターン: ラピスラズリチェック
-        const requiredLapis = Math.max(1, Math.floor(enchantment.cost / 10))
-        if (lapisCount < requiredLapis) {
-          return yield* Effect.fail(InsufficientLapisError({
+      // 早期リターン: ラピスラズリチェック
+      const requiredLapis = Math.max(1, Math.floor(enchantment.cost / 10))
+      if (lapisCount < requiredLapis) {
+        return yield* Effect.fail(
+          InsufficientLapisError({
             required: requiredLapis,
-            available: lapisCount
-          }))
-        }
+            available: lapisCount,
+          })
+        )
+      }
 
-        // 競合チェック
-        const isCompatible = yield* checkEnchantmentCompatibility(item, enchantment)
-        if (!isCompatible) {
-          const existingEnchantments = getExistingEnchantments(item)
-          const conflicting = existingEnchantments.filter(existing =>
-            areEnchantmentsConflicting(existing.id, enchantment.id)
-          )
-
-          return yield* Effect.fail(EnchantmentConflictError({
-            conflictingEnchantments: conflicting.map(e => e.id)
-          }))
-        }
-
-        // エンチャント適用
+      // 競合チェック
+      const isCompatible = yield* checkEnchantmentCompatibility(item, enchantment)
+      if (!isCompatible) {
         const existingEnchantments = getExistingEnchantments(item)
-        const newEnchantments = [...existingEnchantments, enchantment]
-
-        return {
-          ...item,
-          metadata: {
-            ...item.metadata,
-            enchantments: newEnchantments.map(e => `${e.id}:${e.level}`)
-          }
-        }
-      }),
-
-    checkEnchantmentCompatibility: (
-      item: ItemStack,
-      enchantment: Enchantment
-    ): Effect.Effect<boolean> =>
-      Effect.gen(function* () {
-        // アイテムタイプチェック
-        if (!canApplyEnchantment(item.itemId, enchantment.id)) {
-          return false
-        }
-
-        // 既存エンチャントとの競合チェック
-        const existingEnchantments = getExistingEnchantments(item)
-        return !existingEnchantments.some(existing =>
+        const conflicting = existingEnchantments.filter((existing) =>
           areEnchantmentsConflicting(existing.id, enchantment.id)
         )
-      })
-  }
-)
+
+        return yield* Effect.fail(
+          EnchantmentConflictError({
+            conflictingEnchantments: conflicting.map((e) => e.id),
+          })
+        )
+      }
+
+      // エンチャント適用
+      const existingEnchantments = getExistingEnchantments(item)
+      const newEnchantments = [...existingEnchantments, enchantment]
+
+      return {
+        ...item,
+        metadata: {
+          ...item.metadata,
+          enchantments: newEnchantments.map((e) => `${e.id}:${e.level}`),
+        },
+      }
+    }),
+
+  checkEnchantmentCompatibility: (item: ItemStack, enchantment: Enchantment): Effect.Effect<boolean> =>
+    Effect.gen(function* () {
+      // アイテムタイプチェック
+      if (!canApplyEnchantment(item.itemId, enchantment.id)) {
+        return false
+      }
+
+      // 既存エンチャントとの競合チェック
+      const existingEnchantments = getExistingEnchantments(item)
+      return !existingEnchantments.some((existing) => areEnchantmentsConflicting(existing.id, enchantment.id))
+    }),
+})
 
 // ユーティリティ関数
 const getItemEnchantability = (itemId: ItemId): number => {
   const enchantabilityMap: Record<string, number> = {
-    "minecraft:wooden_sword": 15,
-    "minecraft:iron_sword": 14,
-    "minecraft:diamond_sword": 10,
-    "minecraft:netherite_sword": 15,
-    "minecraft:bow": 1,
-    "minecraft:book": 1
+    'minecraft:wooden_sword': 15,
+    'minecraft:iron_sword': 14,
+    'minecraft:diamond_sword': 10,
+    'minecraft:netherite_sword': 15,
+    'minecraft:bow': 1,
+    'minecraft:book': 1,
   }
   return enchantabilityMap[itemId] ?? 0
 }
 
 const getEnchantmentsForItem = (itemId: ItemId): ReadonlyArray<{ id: EnchantmentId; maxLevel: number }> => {
   // アイテムタイプごとのエンチャント一覧
-  if (itemId.includes("sword")) {
+  if (itemId.includes('sword')) {
     return [
-      { id: Brand.nominal<EnchantmentId>("minecraft:sharpness"), maxLevel: 5 },
-      { id: Brand.nominal<EnchantmentId>("minecraft:fire_aspect"), maxLevel: 2 },
-      { id: Brand.nominal<EnchantmentId>("minecraft:knockback"), maxLevel: 2 },
-      { id: Brand.nominal<EnchantmentId>("minecraft:looting"), maxLevel: 3 }
+      { id: Brand.nominal<EnchantmentId>('minecraft:sharpness'), maxLevel: 5 },
+      { id: Brand.nominal<EnchantmentId>('minecraft:fire_aspect'), maxLevel: 2 },
+      { id: Brand.nominal<EnchantmentId>('minecraft:knockback'), maxLevel: 2 },
+      { id: Brand.nominal<EnchantmentId>('minecraft:looting'), maxLevel: 3 },
     ]
   }
   return []
 }
 
 const getExistingEnchantments = (item: ItemStack): ReadonlyArray<Enchantment> => {
-  const enchantmentStrings = item.metadata?.enchantments as string[] ?? []
-  return enchantmentStrings.map(str => {
-    const [id, level] = str.split(":")
+  const enchantmentStrings = (item.metadata?.enchantments as string[]) ?? []
+  return enchantmentStrings.map((str) => {
+    const [id, level] = str.split(':')
     return {
-      _tag: "Enchantment" as const,
+      _tag: 'Enchantment' as const,
       id: Brand.nominal<EnchantmentId>(id),
       level: Brand.nominal<EnchantmentLevel>(parseInt(level)),
-      cost: Brand.nominal<ExperienceLevel>(0) // コストは既存エンチャントでは不要
+      cost: Brand.nominal<ExperienceLevel>(0), // コストは既存エンチャントでは不要
     }
   })
 }
 
 const areEnchantmentsConflicting = (enchant1: EnchantmentId, enchant2: EnchantmentId): boolean => {
   const conflicts: Record<string, ReadonlyArray<string>> = {
-    "minecraft:sharpness": ["minecraft:smite", "minecraft:bane_of_arthropods"],
-    "minecraft:protection": ["minecraft:blast_protection", "minecraft:fire_protection"],
-    "minecraft:infinity": ["minecraft:mending"]
+    'minecraft:sharpness': ['minecraft:smite', 'minecraft:bane_of_arthropods'],
+    'minecraft:protection': ['minecraft:blast_protection', 'minecraft:fire_protection'],
+    'minecraft:infinity': ['minecraft:mending'],
   }
 
   return conflicts[enchant1]?.includes(enchant2) ?? false
@@ -1321,7 +1224,7 @@ const areEnchantmentsConflicting = (enchant1: EnchantmentId, enchant2: Enchantme
 
 const canApplyEnchantment = (itemId: ItemId, enchantmentId: EnchantmentId): boolean => {
   const itemEnchantments = getEnchantmentsForItem(itemId)
-  return itemEnchantments.some(e => e.id === enchantmentId)
+  return itemEnchantments.some((e) => e.id === enchantmentId)
 }
 
 const createSeededRandom = (seed: number) => {
@@ -1346,7 +1249,7 @@ const selectRandomEnchantment = (
 
   return {
     id: selected.id,
-    level: Brand.nominal<EnchantmentLevel>(level)
+    level: Brand.nominal<EnchantmentLevel>(level),
   }
 }
 ```
@@ -1355,62 +1258,62 @@ const selectRandomEnchantment = (
 
 ```typescript
 // レシピ解放条件Schema
-export const UnlockCondition = Schema.TaggedUnion("_tag", {
+export const UnlockCondition = Schema.TaggedUnion('_tag', {
   item_obtained: Schema.Struct({
-    _tag: Schema.Literal("item_obtained"),
+    _tag: Schema.Literal('item_obtained'),
     itemId: ItemId,
-    count: ItemStackCount
+    count: ItemStackCount,
   }),
   advancement_completed: Schema.Struct({
-    _tag: Schema.Literal("advancement_completed"),
-    advancementId: Schema.String.pipe(Schema.brand("AdvancementId"))
+    _tag: Schema.Literal('advancement_completed'),
+    advancementId: Schema.String.pipe(Schema.brand('AdvancementId')),
   }),
   level_reached: Schema.Struct({
-    _tag: Schema.Literal("level_reached"),
-    level: ExperienceLevel
+    _tag: Schema.Literal('level_reached'),
+    level: ExperienceLevel,
   }),
   dimension_visited: Schema.Struct({
-    _tag: Schema.Literal("dimension_visited"),
-    dimensionId: Schema.String.pipe(Schema.brand("DimensionId"))
-  })
+    _tag: Schema.Literal('dimension_visited'),
+    dimensionId: Schema.String.pipe(Schema.brand('DimensionId')),
+  }),
 })
 export interface UnlockCondition extends Schema.Schema.Type<typeof UnlockCondition> {}
 
 // レシピ解放データ
 export const RecipeUnlockData = Schema.Struct({
-  _tag: Schema.Literal("RecipeUnlockData"),
+  _tag: Schema.Literal('RecipeUnlockData'),
   recipeId: RecipeId,
   conditions: Schema.Array(UnlockCondition),
   autoUnlock: Schema.Boolean, // 条件満たし時に自動解放するか
-  category: RecipeCategory
+  category: RecipeCategory,
 })
 export interface RecipeUnlockData extends Schema.Schema.Type<typeof RecipeUnlockData> {}
 
 // プレイヤー解放状態
 export const PlayerUnlockState = Schema.Struct({
-  _tag: Schema.Literal("PlayerUnlockState"),
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+  _tag: Schema.Literal('PlayerUnlockState'),
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   unlockedRecipes: Schema.Set(RecipeId),
   obtainedItems: Schema.Map({
     key: ItemId,
-    value: ItemStackCount
+    value: ItemStackCount,
   }),
-  completedAdvancements: Schema.Set(Schema.String.pipe(Schema.brand("AdvancementId"))),
+  completedAdvancements: Schema.Set(Schema.String.pipe(Schema.brand('AdvancementId'))),
   experienceLevel: ExperienceLevel,
-  visitedDimensions: Schema.Set(Schema.String.pipe(Schema.brand("DimensionId")))
+  visitedDimensions: Schema.Set(Schema.String.pipe(Schema.brand('DimensionId'))),
 })
 export interface PlayerUnlockState extends Schema.Schema.Type<typeof PlayerUnlockState> {}
 
 // 解放エラー定義
-export const ConditionNotMetError = Schema.TaggedError("ConditionNotMetError", {
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
+export const ConditionNotMetError = Schema.TaggedError('ConditionNotMetError', {
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   recipeId: RecipeId,
-  unmetConditions: Schema.Array(UnlockCondition)
+  unmetConditions: Schema.Array(UnlockCondition),
 })
 
-export const RecipeAlreadyUnlockedError = Schema.TaggedError("RecipeAlreadyUnlockedError", {
-  playerId: Schema.String.pipe(Schema.brand("PlayerId")),
-  recipeId: RecipeId
+export const RecipeAlreadyUnlockedError = Schema.TaggedError('RecipeAlreadyUnlockedError', {
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  recipeId: RecipeId,
 })
 
 export type UnlockError = ConditionNotMetError | RecipeAlreadyUnlockedError
@@ -1431,18 +1334,14 @@ export interface RecipeUnlockService {
     playerState: PlayerUnlockState,
     newItem: ItemStack
   ) => Effect.Effect<{
-    updatedState: PlayerUnlockState;
+    updatedState: PlayerUnlockState
     unlockedRecipes: ReadonlyArray<RecipeId>
   }>
 
-  readonly getAvailableRecipes: (
-    playerState: PlayerUnlockState
-  ) => Effect.Effect<ReadonlyArray<RecipeId>>
+  readonly getAvailableRecipes: (playerState: PlayerUnlockState) => Effect.Effect<ReadonlyArray<RecipeId>>
 }
 
-export const RecipeUnlockService = Context.GenericTag<RecipeUnlockService>(
-  "@minecraft/RecipeUnlockService"
-)
+export const RecipeUnlockService = Context.GenericTag<RecipeUnlockService>('@minecraft/RecipeUnlockService')
 
 // レシピ解放サービス実装
 export const RecipeUnlockServiceLive = Layer.effect(
@@ -1460,27 +1359,20 @@ export const RecipeUnlockServiceLive = Layer.effect(
     ): Effect.Effect<boolean> =>
       pipe(
         unlockData.conditions,
-        Effect.every(condition =>
-          evaluateCondition(playerState, condition)
-        )
+        Effect.every((condition) => evaluateCondition(playerState, condition))
       )
 
-    const evaluateCondition = (
-      playerState: PlayerUnlockState,
-      condition: UnlockCondition
-    ): Effect.Effect<boolean> =>
+    const evaluateCondition = (playerState: PlayerUnlockState, condition: UnlockCondition): Effect.Effect<boolean> =>
       Match.value(condition).pipe(
-        Match.tag("item_obtained", ({ itemId, count }) => {
+        Match.tag('item_obtained', ({ itemId, count }) => {
           const obtained = playerState.obtainedItems.get(itemId) ?? Brand.nominal<ItemStackCount>(0)
           return Effect.succeed(obtained >= count)
         }),
-        Match.tag("advancement_completed", ({ advancementId }) =>
+        Match.tag('advancement_completed', ({ advancementId }) =>
           Effect.succeed(playerState.completedAdvancements.has(advancementId))
         ),
-        Match.tag("level_reached", ({ level }) =>
-          Effect.succeed(playerState.experienceLevel >= level)
-        ),
-        Match.tag("dimension_visited", ({ dimensionId }) =>
+        Match.tag('level_reached', ({ level }) => Effect.succeed(playerState.experienceLevel >= level)),
+        Match.tag('dimension_visited', ({ dimensionId }) =>
           Effect.succeed(playerState.visitedDimensions.has(dimensionId))
         ),
         Match.exhaustive
@@ -1493,10 +1385,12 @@ export const RecipeUnlockServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 早期リターン: 既に解放済み
         if (playerState.unlockedRecipes.has(recipeId)) {
-          return yield* Effect.fail(RecipeAlreadyUnlockedError({
-            playerId: playerState.playerId,
-            recipeId
-          }))
+          return yield* Effect.fail(
+            RecipeAlreadyUnlockedError({
+              playerId: playerState.playerId,
+              recipeId,
+            })
+          )
         }
 
         const unlockData = unlockDataStore.get(recipeId)
@@ -1504,7 +1398,7 @@ export const RecipeUnlockServiceLive = Layer.effect(
           // デフォルトで解放（条件なし）
           return {
             ...playerState,
-            unlockedRecipes: new Set([...playerState.unlockedRecipes, recipeId])
+            unlockedRecipes: new Set([...playerState.unlockedRecipes, recipeId]),
           }
         }
 
@@ -1513,7 +1407,7 @@ export const RecipeUnlockServiceLive = Layer.effect(
         if (!conditionsMet) {
           const unmetConditions = yield* pipe(
             unlockData.conditions,
-            Effect.filterMap(condition =>
+            Effect.filterMap((condition) =>
               Effect.gen(function* () {
                 const met = yield* evaluateCondition(playerState, condition)
                 return met ? Option.none() : Option.some(condition)
@@ -1521,26 +1415,28 @@ export const RecipeUnlockServiceLive = Layer.effect(
             )
           )
 
-          return yield* Effect.fail(ConditionNotMetError({
-            playerId: playerState.playerId,
-            recipeId,
-            unmetConditions
-          }))
+          return yield* Effect.fail(
+            ConditionNotMetError({
+              playerId: playerState.playerId,
+              recipeId,
+              unmetConditions,
+            })
+          )
         }
 
         // 解放実行
         const updatedState = {
           ...playerState,
-          unlockedRecipes: new Set([...playerState.unlockedRecipes, recipeId])
+          unlockedRecipes: new Set([...playerState.unlockedRecipes, recipeId]),
         }
 
         // 解放イベント発行
         yield* Effect.fork(
           eventBus.publish({
-            _tag: "RecipeUnlocked" as const,
+            _tag: 'RecipeUnlocked' as const,
             playerId: playerState.playerId,
             recipeId,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
         )
 
@@ -1551,21 +1447,18 @@ export const RecipeUnlockServiceLive = Layer.effect(
       playerState: PlayerUnlockState,
       newItem: ItemStack
     ): Effect.Effect<{
-      updatedState: PlayerUnlockState;
+      updatedState: PlayerUnlockState
       unlockedRecipes: ReadonlyArray<RecipeId>
     }> =>
       Effect.gen(function* () {
         // アイテム取得状態更新
         const currentCount = playerState.obtainedItems.get(newItem.itemId) ?? Brand.nominal<ItemStackCount>(0)
         const updatedObtainedItems = new Map(playerState.obtainedItems)
-        updatedObtainedItems.set(
-          newItem.itemId,
-          Brand.nominal<ItemStackCount>(currentCount + newItem.count)
-        )
+        updatedObtainedItems.set(newItem.itemId, Brand.nominal<ItemStackCount>(currentCount + newItem.count))
 
         let currentState: PlayerUnlockState = {
           ...playerState,
-          obtainedItems: updatedObtainedItems
+          obtainedItems: updatedObtainedItems,
         }
         const unlockedRecipes: RecipeId[] = []
 
@@ -1596,8 +1489,8 @@ export const RecipeUnlockServiceLive = Layer.effect(
                     onNone: () => acc,
                     onSome: (newState) => ({
                       updatedState: newState,
-                      unlockedRecipes: [...acc.unlockedRecipes, recipeId]
-                    })
+                      unlockedRecipes: [...acc.unlockedRecipes, recipeId],
+                    }),
                   })
                 )
               })
@@ -1609,20 +1502,18 @@ export const RecipeUnlockServiceLive = Layer.effect(
 
         return {
           updatedState: currentState,
-          unlockedRecipes
+          unlockedRecipes,
         }
       })
 
-    const getAvailableRecipes = (
-      playerState: PlayerUnlockState
-    ): Effect.Effect<ReadonlyArray<RecipeId>> =>
+    const getAvailableRecipes = (playerState: PlayerUnlockState): Effect.Effect<ReadonlyArray<RecipeId>> =>
       Effect.succeed(Array.from(playerState.unlockedRecipes))
 
     return {
       checkUnlockConditions,
       unlockRecipe,
       autoUnlockRecipes,
-      getAvailableRecipes
+      getAvailableRecipes,
     }
   })
 )
@@ -1632,35 +1523,33 @@ const initializeUnlockData = (): Map<RecipeId, RecipeUnlockData> => {
   const unlockData = new Map<RecipeId, RecipeUnlockData>()
 
   // サンプルレシピ解放条件
-  unlockData.set(
-    Brand.nominal<RecipeId>("minecraft:wooden_pickaxe"),
-    {
-      _tag: "RecipeUnlockData" as const,
-      recipeId: Brand.nominal<RecipeId>("minecraft:wooden_pickaxe"),
-      conditions: [{
-        _tag: "item_obtained" as const,
-        itemId: Brand.nominal<ItemId>("minecraft:wood"),
-        count: Brand.nominal<ItemStackCount>(1)
-      }],
-      autoUnlock: true,
-      category: { _tag: "crafting" as const }
-    }
-  )
+  unlockData.set(Brand.nominal<RecipeId>('minecraft:wooden_pickaxe'), {
+    _tag: 'RecipeUnlockData' as const,
+    recipeId: Brand.nominal<RecipeId>('minecraft:wooden_pickaxe'),
+    conditions: [
+      {
+        _tag: 'item_obtained' as const,
+        itemId: Brand.nominal<ItemId>('minecraft:wood'),
+        count: Brand.nominal<ItemStackCount>(1),
+      },
+    ],
+    autoUnlock: true,
+    category: { _tag: 'crafting' as const },
+  })
 
-  unlockData.set(
-    Brand.nominal<RecipeId>("minecraft:iron_sword"),
-    {
-      _tag: "RecipeUnlockData" as const,
-      recipeId: Brand.nominal<RecipeId>("minecraft:iron_sword"),
-      conditions: [{
-        _tag: "item_obtained" as const,
-        itemId: Brand.nominal<ItemId>("minecraft:iron_ingot"),
-        count: Brand.nominal<ItemStackCount>(2)
-      }],
-      autoUnlock: true,
-      category: { _tag: "crafting" as const }
-    }
-  )
+  unlockData.set(Brand.nominal<RecipeId>('minecraft:iron_sword'), {
+    _tag: 'RecipeUnlockData' as const,
+    recipeId: Brand.nominal<RecipeId>('minecraft:iron_sword'),
+    conditions: [
+      {
+        _tag: 'item_obtained' as const,
+        itemId: Brand.nominal<ItemId>('minecraft:iron_ingot'),
+        count: Brand.nominal<ItemStackCount>(2),
+      },
+    ],
+    autoUnlock: true,
+    category: { _tag: 'crafting' as const },
+  })
 
   return unlockData
 }
@@ -1672,26 +1561,26 @@ const initializeUnlockData = (): Map<RecipeId, RecipeUnlockData> => {
 
 ```typescript
 // キャッシュキー型定義
-export type CacheKey = string & Brand.Brand<"CacheKey">
-export const CacheKey = Schema.String.pipe(Schema.brand("CacheKey"))
+export type CacheKey = string & Brand.Brand<'CacheKey'>
+export const CacheKey = Schema.String.pipe(Schema.brand('CacheKey'))
 
 // キャッシュエントリ
 export const CacheEntry = Schema.Struct({
-  _tag: Schema.Literal("CacheEntry"),
+  _tag: Schema.Literal('CacheEntry'),
   recipe: CraftingRecipe,
   timestamp: Schema.Number,
-  accessCount: Schema.Number.pipe(Schema.nonNegative())
+  accessCount: Schema.Number.pipe(Schema.nonNegative()),
 })
 export interface CacheEntry extends Schema.Schema.Type<typeof CacheEntry> {}
 
 // キャッシュ統計情報
 export const CacheStats = Schema.Struct({
-  _tag: Schema.Literal("CacheStats"),
+  _tag: Schema.Literal('CacheStats'),
   hits: Schema.Number.pipe(Schema.nonNegative()),
   misses: Schema.Number.pipe(Schema.nonNegative()),
   evictions: Schema.Number.pipe(Schema.nonNegative()),
   size: Schema.Number.pipe(Schema.nonNegative()),
-  maxSize: Schema.Number.pipe(Schema.positive())
+  maxSize: Schema.Number.pipe(Schema.positive()),
 })
 export interface CacheStats extends Schema.Schema.Type<typeof CacheStats> {}
 
@@ -1704,25 +1593,21 @@ export interface RecipeCacheService {
   readonly getStats: () => Effect.Effect<CacheStats>
 }
 
-export const RecipeCacheService = Context.GenericTag<RecipeCacheService>(
-  "@minecraft/RecipeCacheService"
-)
+export const RecipeCacheService = Context.GenericTag<RecipeCacheService>('@minecraft/RecipeCacheService')
 
 // LRUキャッシュ実装
 export const RecipeCacheServiceLive = Layer.scoped(
   RecipeCacheService,
   Effect.gen(function* () {
     const maxSize = 1000
-    const cache = yield* SynchronizedRef.make(
-      new Map<CacheKey, CacheEntry>()
-    )
+    const cache = yield* SynchronizedRef.make(new Map<CacheKey, CacheEntry>())
     const stats = yield* SynchronizedRef.make<CacheStats>({
-      _tag: "CacheStats" as const,
+      _tag: 'CacheStats' as const,
       hits: 0,
       misses: 0,
       evictions: 0,
       size: 0,
-      maxSize
+      maxSize,
     })
 
     // 定期クリーンアップタスク
@@ -1732,7 +1617,7 @@ export const RecipeCacheServiceLive = Layer.scoped(
           const now = Date.now()
           const maxAge = 30 * 60 * 1000 // 30分
 
-          yield* SynchronizedRef.updateEffect(cache, cacheMap =>
+          yield* SynchronizedRef.updateEffect(cache, (cacheMap) =>
             Effect.gen(function* () {
               const newMap = new Map(cacheMap)
               let evictedCount = 0
@@ -1745,10 +1630,10 @@ export const RecipeCacheServiceLive = Layer.scoped(
               }
 
               if (evictedCount > 0) {
-                yield* SynchronizedRef.update(stats, s => ({
+                yield* SynchronizedRef.update(stats, (s) => ({
                   ...s,
                   evictions: s.evictions + evictedCount,
-                  size: newMap.size
+                  size: newMap.size,
                 }))
                 yield* Effect.log(`Cache cleanup: evicted ${evictedCount} entries`)
               }
@@ -1757,7 +1642,7 @@ export const RecipeCacheServiceLive = Layer.scoped(
             })
           )
         }),
-        Schedule.fixed("5 minutes")
+        Schedule.fixed('5 minutes')
       )
     )
 
@@ -1791,34 +1676,34 @@ export const RecipeCacheServiceLive = Layer.scoped(
 
         if (entry) {
           // キャッシュヒット: アクセス回数とタイムスタンプ更新
-          yield* SynchronizedRef.update(cache, map => {
+          yield* SynchronizedRef.update(cache, (map) => {
             const newMap = new Map(map)
             newMap.set(key, {
               ...entry,
               timestamp: Date.now(),
-              accessCount: entry.accessCount + 1
+              accessCount: entry.accessCount + 1,
             })
             return newMap
           })
 
-          yield* SynchronizedRef.update(stats, s => ({ ...s, hits: s.hits + 1 }))
+          yield* SynchronizedRef.update(stats, (s) => ({ ...s, hits: s.hits + 1 }))
           return Option.some(entry.recipe)
         }
 
-        yield* SynchronizedRef.update(stats, s => ({ ...s, misses: s.misses + 1 }))
+        yield* SynchronizedRef.update(stats, (s) => ({ ...s, misses: s.misses + 1 }))
         return Option.none()
       })
 
     const set = (key: CacheKey, recipe: CraftingRecipe): Effect.Effect<void> =>
       Effect.gen(function* () {
         const entry: CacheEntry = {
-          _tag: "CacheEntry" as const,
+          _tag: 'CacheEntry' as const,
           recipe,
           timestamp: Date.now(),
-          accessCount: 1
+          accessCount: 1,
         }
 
-        yield* SynchronizedRef.updateEffect(cache, cacheMap =>
+        yield* SynchronizedRef.updateEffect(cache, (cacheMap) =>
           Effect.gen(function* () {
             let newMap = new Map(cacheMap)
             newMap.set(key, entry)
@@ -1826,15 +1711,15 @@ export const RecipeCacheServiceLive = Layer.scoped(
             // サイズ制限チェック
             if (newMap.size > maxSize) {
               newMap = evictLRU(newMap)
-              yield* SynchronizedRef.update(stats, s => ({
+              yield* SynchronizedRef.update(stats, (s) => ({
                 ...s,
-                evictions: s.evictions + 1
+                evictions: s.evictions + 1,
               }))
             }
 
-            yield* SynchronizedRef.update(stats, s => ({
+            yield* SynchronizedRef.update(stats, (s) => ({
               ...s,
-              size: newMap.size
+              size: newMap.size,
             }))
 
             return newMap
@@ -1843,11 +1728,11 @@ export const RecipeCacheServiceLive = Layer.scoped(
       })
 
     const invalidate = (key: CacheKey): Effect.Effect<void> =>
-      SynchronizedRef.update(cache, map => {
+      SynchronizedRef.update(cache, (map) => {
         const newMap = new Map(map)
         const deleted = newMap.delete(key)
         if (deleted) {
-          SynchronizedRef.update(stats, s => ({ ...s, size: newMap.size }))
+          SynchronizedRef.update(stats, (s) => ({ ...s, size: newMap.size }))
         }
         return newMap
       })
@@ -1855,11 +1740,10 @@ export const RecipeCacheServiceLive = Layer.scoped(
     const clear = (): Effect.Effect<void> =>
       Effect.gen(function* () {
         yield* SynchronizedRef.set(cache, new Map())
-        yield* SynchronizedRef.update(stats, s => ({ ...s, size: 0 }))
+        yield* SynchronizedRef.update(stats, (s) => ({ ...s, size: 0 }))
       })
 
-    const getStats = (): Effect.Effect<CacheStats> =>
-      SynchronizedRef.get(stats)
+    const getStats = (): Effect.Effect<CacheStats> => SynchronizedRef.get(stats)
 
     return { get, set, invalidate, clear, getStats }
   })
@@ -1868,12 +1752,8 @@ export const RecipeCacheServiceLive = Layer.scoped(
 // グリッドキー生成ユーティリティ
 const gridToCacheKey = (grid: CraftingGrid): CacheKey => {
   const normalizedSlots = grid.slots
-    .map(row =>
-      row.map(slot =>
-        slot ? `${slot.itemId}:${slot.count}` : "_"
-      ).join("|")
-    )
-    .join("#")
+    .map((row) => row.map((slot) => (slot ? `${slot.itemId}:${slot.count}` : '_')).join('|'))
+    .join('#')
 
   return Brand.nominal<CacheKey>(`${grid.width}x${grid.height}:${normalizedSlots}`)
 }
@@ -1884,28 +1764,24 @@ const gridToCacheKey = (grid: CraftingGrid): CacheKey => {
 ```typescript
 // パフォーマンス最適化サービスインターフェース
 export interface RecipeSearchOptimizationService {
-  readonly quickMatch: (
-    grid: CraftingGrid
-  ) => Effect.Effect<Option.Option<CraftingRecipe>>
+  readonly quickMatch: (grid: CraftingGrid) => Effect.Effect<Option.Option<CraftingRecipe>>
 
-  readonly preloadPatterns: (
-    recipes: ReadonlyArray<CraftingRecipe>
-  ) => Effect.Effect<void>
+  readonly preloadPatterns: (recipes: ReadonlyArray<CraftingRecipe>) => Effect.Effect<void>
 
   readonly getSearchMetrics: () => Effect.Effect<SearchMetrics>
 }
 
 export const RecipeSearchOptimizationService = Context.GenericTag<RecipeSearchOptimizationService>(
-  "@minecraft/RecipeSearchOptimizationService"
+  '@minecraft/RecipeSearchOptimizationService'
 )
 
 // 検索メトリクス
 export const SearchMetrics = Schema.Struct({
-  _tag: Schema.Literal("SearchMetrics"),
+  _tag: Schema.Literal('SearchMetrics'),
   totalSearches: Schema.Number.pipe(Schema.nonNegative()),
   cacheHits: Schema.Number.pipe(Schema.nonNegative()),
   bloomFilterRejects: Schema.Number.pipe(Schema.nonNegative()),
-  averageSearchTime: Schema.Number.pipe(Schema.nonNegative())
+  averageSearchTime: Schema.Number.pipe(Schema.nonNegative()),
 })
 export interface SearchMetrics extends Schema.Schema.Type<typeof SearchMetrics> {}
 
@@ -1918,22 +1794,18 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
 
     // ブルームフィルタ初期化（メモ化）
     const bloomFilter = yield* createOptimizedBloomFilter(10000, 0.01) // 1%の偏偏率
-    const memoizedBloomCheck = yield* Effect.cachedFunction(
-      (itemId: ItemId) => bloomFilter.mightContain(itemId)
-    )
+    const memoizedBloomCheck = yield* Effect.cachedFunction((itemId: ItemId) => bloomFilter.mightContain(itemId))
 
     // パターンインデックス（非同期初期化）
-    const patternIndex = yield* SynchronizedRef.make(
-      new Map<string, ReadonlyArray<CraftingRecipe>>()
-    )
+    const patternIndex = yield* SynchronizedRef.make(new Map<string, ReadonlyArray<CraftingRecipe>>())
 
     // 検索メトリクス
     const metrics = yield* SynchronizedRef.make<SearchMetrics>({
-      _tag: "SearchMetrics" as const,
+      _tag: 'SearchMetrics' as const,
       totalSearches: 0,
       cacheHits: 0,
       bloomFilterRejects: 0,
-      averageSearchTime: 0
+      averageSearchTime: 0,
     })
 
     // パフォーマンス監視ファイバー
@@ -1945,15 +1817,13 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
             yield* Effect.log(`Recipe search metrics: ${JSON.stringify(currentMetrics)}`)
           }
         }),
-        Schedule.fixed("30 seconds")
+        Schedule.fixed('30 seconds')
       )
     )
 
     yield* Effect.addFinalizer(() => Fiber.interrupt(monitoringFiber))
 
-    const preloadPatterns = (
-      recipes: ReadonlyArray<CraftingRecipe>
-    ): Effect.Effect<void> =>
+    const preloadPatterns = (recipes: ReadonlyArray<CraftingRecipe>): Effect.Effect<void> =>
       Effect.gen(function* () {
         yield* Effect.log(`Preloading ${recipes.length} recipe patterns...`)
         const startTime = Date.now()
@@ -1980,18 +1850,16 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
         yield* Effect.log(`Recipe patterns preloaded in ${duration}ms`)
       })
 
-    const quickMatch = (
-      grid: CraftingGrid
-    ): Effect.Effect<Option.Option<CraftingRecipe>> =>
+    const quickMatch = (grid: CraftingGrid): Effect.Effect<Option.Option<CraftingRecipe>> =>
       Effect.gen(function* () {
         const startTime = Date.now()
-        yield* SynchronizedRef.update(metrics, m => ({ ...m, totalSearches: m.totalSearches + 1 }))
+        yield* SynchronizedRef.update(metrics, (m) => ({ ...m, totalSearches: m.totalSearches + 1 }))
 
         // Step 1: キャッシュチェック（早期リターン）
         const cacheKey = gridToCacheKey(grid)
         const cached = yield* cacheService.get(cacheKey)
         if (Option.isSome(cached)) {
-          yield* SynchronizedRef.update(metrics, m => ({ ...m, cacheHits: m.cacheHits + 1 }))
+          yield* SynchronizedRef.update(metrics, (m) => ({ ...m, cacheHits: m.cacheHits + 1 }))
           yield* updateSearchTime(startTime)
           return cached
         }
@@ -2010,7 +1878,7 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
         })
 
         if (!hasViableItems) {
-          yield* SynchronizedRef.update(metrics, m => ({ ...m, bloomFilterRejects: m.bloomFilterRejects + 1 }))
+          yield* SynchronizedRef.update(metrics, (m) => ({ ...m, bloomFilterRejects: m.bloomFilterRejects + 1 }))
           yield* updateSearchTime(startTime)
           return Option.none()
         }
@@ -2040,19 +1908,18 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
     const updateSearchTime = (startTime: number): Effect.Effect<void> =>
       Effect.gen(function* () {
         const duration = Date.now() - startTime
-        yield* SynchronizedRef.update(metrics, m => {
+        yield* SynchronizedRef.update(metrics, (m) => {
           const newAverage = (m.averageSearchTime * (m.totalSearches - 1) + duration) / m.totalSearches
           return { ...m, averageSearchTime: newAverage }
         })
       })
 
-    const getSearchMetrics = (): Effect.Effect<SearchMetrics> =>
-      SynchronizedRef.get(metrics)
+    const getSearchMetrics = (): Effect.Effect<SearchMetrics> => SynchronizedRef.get(metrics)
 
     return {
       quickMatch,
       preloadPatterns,
-      getSearchMetrics
+      getSearchMetrics,
     }
   })
 )
@@ -2060,13 +1927,11 @@ export const RecipeSearchOptimizationServiceLive = Layer.scoped(
 // ユーティリティ関数
 const extractRecipeIngredients = (recipe: CraftingRecipe): ReadonlyArray<ItemId> => {
   return Match.value(recipe).pipe(
-    Match.tag("shaped", ({ ingredients }) => {
-      return Object.values(ingredients)
-        .flatMap(matcher => extractMatcherItemIds(matcher))
+    Match.tag('shaped', ({ ingredients }) => {
+      return Object.values(ingredients).flatMap((matcher) => extractMatcherItemIds(matcher))
     }),
-    Match.tag("shapeless", ({ ingredients }) => {
-      return ingredients
-        .flatMap(matcher => extractMatcherItemIds(matcher))
+    Match.tag('shapeless', ({ ingredients }) => {
+      return ingredients.flatMap((matcher) => extractMatcherItemIds(matcher))
     }),
     Match.exhaustive
   )
@@ -2074,9 +1939,9 @@ const extractRecipeIngredients = (recipe: CraftingRecipe): ReadonlyArray<ItemId>
 
 const extractMatcherItemIds = (matcher: ItemMatcher): ReadonlyArray<ItemId> => {
   return Match.value(matcher).pipe(
-    Match.tag("exact", ({ itemId }) => [itemId]),
-    Match.tag("tag", ({ tag }) => getItemIdsByTag(tag)),
-    Match.tag("custom", () => []), // カスタムマッチャーはスキップ
+    Match.tag('exact', ({ itemId }) => [itemId]),
+    Match.tag('tag', ({ tag }) => getItemIdsByTag(tag)),
+    Match.tag('custom', () => []), // カスタムマッチャーはスキップ
     Match.exhaustive
   )
 }
@@ -2084,27 +1949,25 @@ const extractMatcherItemIds = (matcher: ItemMatcher): ReadonlyArray<ItemId> => {
 const getItemIdsByTag = (tag: string): ReadonlyArray<ItemId> => {
   // タグからアイテムIDを解決するロジック
   const tagMap: Record<string, ReadonlyArray<string>> = {
-    "minecraft:planks": ["minecraft:oak_planks", "minecraft:birch_planks", "minecraft:spruce_planks"],
-    "minecraft:logs": ["minecraft:oak_log", "minecraft:birch_log", "minecraft:spruce_log"]
+    'minecraft:planks': ['minecraft:oak_planks', 'minecraft:birch_planks', 'minecraft:spruce_planks'],
+    'minecraft:logs': ['minecraft:oak_log', 'minecraft:birch_log', 'minecraft:spruce_log'],
   }
 
-  return (tagMap[tag] ?? []).map(id => Brand.nominal<ItemId>(id))
+  return (tagMap[tag] ?? []).map((id) => Brand.nominal<ItemId>(id))
 }
 
 const generatePatternKey = (recipe: CraftingRecipe): string => {
   return Match.value(recipe).pipe(
-    Match.tag("shaped", ({ pattern, ingredients }) => {
-      const normalizedPattern = pattern
-        .map(row => row.map(cell => cell ?? "_").join("|")
-        ).join("#")
-      const ingredientKeys = Object.keys(ingredients).sort().join(",")
+    Match.tag('shaped', ({ pattern, ingredients }) => {
+      const normalizedPattern = pattern.map((row) => row.map((cell) => cell ?? '_').join('|')).join('#')
+      const ingredientKeys = Object.keys(ingredients).sort().join(',')
       return `shaped:${normalizedPattern}:${ingredientKeys}`
     }),
-    Match.tag("shapeless", ({ ingredients }) => {
+    Match.tag('shapeless', ({ ingredients }) => {
       const ingredientPattern = ingredients
-        .map(ingredient => ingredient._tag)
+        .map((ingredient) => ingredient._tag)
         .sort()
-        .join(",")
+        .join(',')
       return `shapeless:${ingredientPattern}`
     }),
     Match.exhaustive
@@ -2113,13 +1976,13 @@ const generatePatternKey = (recipe: CraftingRecipe): string => {
 
 const gridToPatternKey = (grid: CraftingGrid): string => {
   // グリッドをパターンキーに変換（簡略化）
-  const hasItems = grid.slots.some(row => row.some(slot => slot !== undefined))
-  const itemCount = grid.slots.flat().filter(slot => slot !== undefined).length
+  const hasItems = grid.slots.some((row) => row.some((slot) => slot !== undefined))
+  const itemCount = grid.slots.flat().filter((slot) => slot !== undefined).length
 
-  if (!hasItems) return "empty"
-  if (itemCount === 1) return "single"
-  if (itemCount <= 4) return "small"
-  return "complex"
+  if (!hasItems) return 'empty'
+  if (itemCount === 1) return 'single'
+  if (itemCount <= 4) return 'small'
+  return 'complex'
 }
 
 // ブルームフィルター実装（シンプル版）
@@ -2131,9 +1994,7 @@ const createOptimizedBloomFilter = (
   mightContain: (item: ItemId) => boolean
 }> =>
   Effect.gen(function* () {
-    const bitArraySize = Math.ceil(
-      (-expectedElements * Math.log(falsePositiveRate)) / (Math.log(2) ** 2)
-    )
+    const bitArraySize = Math.ceil((-expectedElements * Math.log(falsePositiveRate)) / Math.log(2) ** 2)
     const numHashFunctions = Math.ceil((bitArraySize / expectedElements) * Math.log(2))
     const bitArray = new Uint8Array(Math.ceil(bitArraySize / 8))
 
@@ -2148,7 +2009,7 @@ const createOptimizedBloomFilter = (
     const setBit = (index: number): void => {
       const byteIndex = Math.floor(index / 8)
       const bitIndex = index % 8
-      bitArray[byteIndex] |= (1 << bitIndex)
+      bitArray[byteIndex] |= 1 << bitIndex
     }
 
     const getBit = (index: number): boolean => {
@@ -2172,7 +2033,7 @@ const createOptimizedBloomFilter = (
           if (!getBit(index)) return false
         }
         return true
-      }
+      },
     }
   })
 ```
@@ -2182,29 +2043,34 @@ const createOptimizedBloomFilter = (
 クラフティングシステムは、Effect-TS 3.17+の最新パターンを活用して、以下の特徴を実現しています：
 
 ### アーキテクチャの特徴
+
 - **Schema.TaggedUnion**: レシピやアイテムマッチャーの型安全な表現
 - **Branded Types**: RecipeId、ItemId、ItemStackCount等の型レベルセキュリティ
 - **Context Pattern**: サービスの依存性注入とテスト容易性
 - **Match.value**: パターンマッチングによる安全な分岐処理
 
 ### 機能的特徴
+
 - **柔軟性**: 形状付き/形状なし、精錬、エンチャント等の多様なクラフティングに対応
 - **拡張性**: カスタムマッチャー、解放条件、エンチャント系統等
 - **パフォーマンス**: LRUキャッシュ、ブルームフィルター、パターンインデックスによる高速化
 
 ### Effect-TSベストプラクティス
+
 - **早期リターン**: 条件チェックでのパフォーマンス最適化
 - **浅いネスト**: 最大3レベルのネスト制限で可読性向上
 - **Schema.TaggedError**: 構造化されたエラーハンドリング
 - **Property-based Testing**: Fast-Checkとの統合で堅牢なテスト
 
 ### 統合性と保守性
+
 - **ECSアーキテクチャ**: コンポーネントベース設計とのシームレス連携
 - **インベントリシステム**: アイテム管理との自然な統合
 - **イベントドリブン**: クラフティングイベントの非同期発行と処理
 - **レイヤードアーキテクチャ**: サービス層の明確な分離
 
 ### 実装品質
+
 - **型安全**: コンパイル時エラー検出とランタイムセーフティ
 - **メモリ効率**: SynchronizedRef、メモ化、リソース管理
 - **同期/非同期**: Fiberと Effectによる適切な並行性制御

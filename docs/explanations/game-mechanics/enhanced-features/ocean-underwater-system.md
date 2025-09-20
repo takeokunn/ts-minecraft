@@ -1,13 +1,12 @@
 ---
-title: "11 Ocean Underwater System"
-description: "11 Ocean Underwater Systemに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "15分"
+title: '11 Ocean Underwater System'
+description: '11 Ocean Underwater Systemに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '15分'
 ---
-
 
 # Ocean & Underwater System（海洋・水中システム）設計書
 
@@ -16,6 +15,7 @@ estimated_reading_time: "15分"
 Ocean & Underwater Systemは、Minecraftの海洋環境と水中探索体験を実現するシステムです。多様な海洋バイオーム、複雑な水中物理、豊富な海洋生物、そして海洋探索の楽しさを提供します。
 
 ### 主要機能
+
 - 海洋バイオーム生成（深海・暖海・冷海・珊瑚礁）
 - 水中探索メカニズム（呼吸・視界・移動制限）
 - 海洋構造物（海底遺跡・沈没船・海底神殿）
@@ -26,6 +26,7 @@ Ocean & Underwater Systemは、Minecraftの海洋環境と水中探索体験を�
 - 海洋探索報酬システム
 
 ### 技術仕様
+
 - Effect-TS 3.17+ パターン適用
 - Schema-based型安全性保証
 - 関数型プログラミング設計
@@ -40,11 +41,11 @@ Ocean & Underwater Systemは、Minecraftの海洋環境と水中探索体験を�
 
 ```typescript
 // 海洋バイオーム定義
-const OceanBiomeType = Schema.Literal("deep_ocean", "warm_ocean", "cold_ocean", "coral_reef", "frozen_ocean")
+const OceanBiomeType = Schema.Literal('deep_ocean', 'warm_ocean', 'cold_ocean', 'coral_reef', 'frozen_ocean')
 type OceanBiomeType = Schema.Schema.Type<typeof OceanBiomeType>
 
 const OceanBiome = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("BiomeId")),
+  id: Schema.String.pipe(Schema.brand('BiomeId')),
   type: OceanBiomeType,
   temperature: Schema.Number,
   depth: Schema.Number,
@@ -52,7 +53,7 @@ const OceanBiome = Schema.Struct({
   currentStrength: Schema.Number,
   marineLife: Schema.Array(Schema.String),
   structures: Schema.Array(Schema.String),
-  properties: Schema.Record(Schema.String, Schema.Unknown)
+  properties: Schema.Record(Schema.String, Schema.Unknown),
 })
 
 // 水中物理状態
@@ -64,30 +65,30 @@ const UnderwaterPhysics = Schema.Struct({
   currentForce: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
-  temperature: Schema.Number
+  temperature: Schema.Number,
 })
 
 // 海洋構造物
-const OceanStructureType = Schema.Literal("shipwreck", "ocean_ruin", "monument", "coral_formation", "underwater_cave")
+const OceanStructureType = Schema.Literal('shipwreck', 'ocean_ruin', 'monument', 'coral_formation', 'underwater_cave')
 
 const OceanStructure = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("StructureId")),
+  id: Schema.String.pipe(Schema.brand('StructureId')),
   type: OceanStructureType,
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   size: Schema.Struct({
     width: Schema.Number,
     height: Schema.Number,
-    depth: Schema.Number
+    depth: Schema.Number,
   }),
   loot: Schema.Array(Schema.String),
   spawners: Schema.Array(Schema.String),
-  condition: Schema.Number // 0-1: 破損度
+  condition: Schema.Number, // 0-1: 破損度
 })
 ```
 
@@ -95,39 +96,39 @@ const OceanStructure = Schema.Struct({
 
 ```typescript
 // 海洋生物基底
-const MarineLifeType = Schema.Literal("fish", "squid", "guardian", "dolphin", "turtle", "pufferfish")
+const MarineLifeType = Schema.Literal('fish', 'squid', 'guardian', 'dolphin', 'turtle', 'pufferfish')
 
 const MarineLife = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("MarineLifeId")),
+  id: Schema.String.pipe(Schema.brand('MarineLifeId')),
   type: MarineLifeType,
   position: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
-  behavior: Schema.Literal("schooling", "solitary", "territorial", "migratory"),
+  behavior: Schema.Literal('schooling', 'solitary', 'territorial', 'migratory'),
   swimSpeed: Schema.Number,
   preferredDepth: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }),
-  hostility: Schema.Literal("passive", "neutral", "hostile"),
-  properties: Schema.Record(Schema.String, Schema.Unknown)
+  hostility: Schema.Literal('passive', 'neutral', 'hostile'),
+  properties: Schema.Record(Schema.String, Schema.Unknown),
 })
 
 // 魚群システム
 const FishSchool = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand("SchoolId")),
+  id: Schema.String.pipe(Schema.brand('SchoolId')),
   species: Schema.String,
   centerPosition: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   members: Schema.Array(Schema.String), // MarineLifeId[]
-  formation: Schema.Literal("sphere", "cylinder", "stream"),
-  movementPattern: Schema.Literal("circular", "linear", "random"),
-  cohesionStrength: Schema.Number
+  formation: Schema.Literal('sphere', 'cylinder', 'stream'),
+  movementPattern: Schema.Literal('circular', 'linear', 'random'),
+  cohesionStrength: Schema.Number,
 })
 ```
 
@@ -143,7 +144,7 @@ interface OceanGenerationServiceInterface {
   readonly calculateWaterFlow: (region: Region) => Effect.Effect<FlowField, FlowCalculationError>
 }
 
-const OceanGenerationService = Context.GenericTag<OceanGenerationServiceInterface>("@app/OceanGenerationService")
+const OceanGenerationService = Context.GenericTag<OceanGenerationServiceInterface>('@app/OceanGenerationService')
 
 // 海洋生成の実装
 const makeOceanGenerationServiceLive = Effect.gen(function* () {
@@ -151,50 +152,52 @@ const makeOceanGenerationServiceLive = Effect.gen(function* () {
   const biomeConfig = yield* BiomeConfigService
 
   return OceanGenerationService.of({
-    generateOceanBiome: (config) => Effect.gen(function* () {
-      // 早期リターン: 設定検証
-      if (config.seaLevel <= 0) {
-        return yield* Effect.fail(createOceanGenerationError("Invalid sea level"))
-      }
+    generateOceanBiome: (config) =>
+      Effect.gen(function* () {
+        // 早期リターン: 設定検証
+        if (config.seaLevel <= 0) {
+          return yield* Effect.fail(createOceanGenerationError('Invalid sea level'))
+        }
 
-      // 地形生成
-      const heightMap = yield* generateOceanFloor(config, noiseGenerator)
-      const biomeType = yield* determineBiomeType(config, heightMap)
-      const structures = yield* generateOceanStructures(biomeType, heightMap)
+        // 地形生成
+        const heightMap = yield* generateOceanFloor(config, noiseGenerator)
+        const biomeType = yield* determineBiomeType(config, heightMap)
+        const structures = yield* generateOceanStructures(biomeType, heightMap)
 
-      return createOceanBiome(biomeType, heightMap, structures, config)
-    }),
+        return createOceanBiome(biomeType, heightMap, structures, config)
+      }),
 
-    placeStructures: (biome) => Effect.gen(function* () {
-      const placementRules = yield* getStructurePlacementRules(biome.type)
+    placeStructures: (biome) =>
+      Effect.gen(function* () {
+        const placementRules = yield* getStructurePlacementRules(biome.type)
 
-      const structures = yield* Effect.forEach(placementRules, (rule) =>
-        Match.value(rule.type).pipe(
-          Match.tag("shipwreck", () => generateShipwreck(rule, biome)),
-          Match.tag("ocean_ruin", () => generateOceanRuin(rule, biome)),
-          Match.tag("monument", () => generateMonument(rule, biome)),
-          Match.exhaustive
+        const structures = yield* Effect.forEach(placementRules, (rule) =>
+          Match.value(rule.type).pipe(
+            Match.tag('shipwreck', () => generateShipwreck(rule, biome)),
+            Match.tag('ocean_ruin', () => generateOceanRuin(rule, biome)),
+            Match.tag('monument', () => generateMonument(rule, biome)),
+            Match.exhaustive
+          )
         )
-      )
 
-      return structures.flat()
-    }),
+        return structures.flat()
+      }),
 
-    populateMarineLife: (biome) => Effect.gen(function* () {
-      const spawnRules = yield* getMarineLifeSpawnRules(biome.type)
+    populateMarineLife: (biome) =>
+      Effect.gen(function* () {
+        const spawnRules = yield* getMarineLifeSpawnRules(biome.type)
 
-      return yield* Effect.forEach(spawnRules, (rule) =>
-        spawnMarineLifeByRule(rule, biome)
-      )
-    }),
+        return yield* Effect.forEach(spawnRules, (rule) => spawnMarineLifeByRule(rule, biome))
+      }),
 
-    calculateWaterFlow: (region) => Effect.gen(function* () {
-      const heightField = yield* getHeightField(region)
-      const pressureField = calculatePressureField(heightField)
-      const velocityField = calculateVelocityField(pressureField)
+    calculateWaterFlow: (region) =>
+      Effect.gen(function* () {
+        const heightField = yield* getHeightField(region)
+        const pressureField = calculatePressureField(heightField)
+        const velocityField = calculateVelocityField(pressureField)
 
-      return createFlowField(velocityField, pressureField)
-    })
+        return createFlowField(velocityField, pressureField)
+      }),
   })
 })
 ```
@@ -209,7 +212,9 @@ interface UnderwaterExplorationServiceInterface {
   readonly checkDrowning: (playerId: string) => Effect.Effect<HealthEffect, HealthError>
 }
 
-const UnderwaterExplorationService = Context.GenericTag<UnderwaterExplorationServiceInterface>("@app/UnderwaterExplorationService")
+const UnderwaterExplorationService = Context.GenericTag<UnderwaterExplorationServiceInterface>(
+  '@app/UnderwaterExplorationService'
+)
 
 const makeUnderwaterExplorationServiceLive = Effect.gen(function* () {
   const playerService = yield* PlayerService
@@ -217,57 +222,61 @@ const makeUnderwaterExplorationServiceLive = Effect.gen(function* () {
   const physicsService = yield* PhysicsService
 
   return UnderwaterExplorationService.of({
-    updateBreathing: (playerId) => Effect.gen(function* () {
-      const player = yield* playerService.getPlayer(playerId)
-      const position = player.position
+    updateBreathing: (playerId) =>
+      Effect.gen(function* () {
+        const player = yield* playerService.getPlayer(playerId)
+        const position = player.position
 
-      // 水中判定
-      if (yield* isUnderwater(position)) {
-        const equipment = yield* playerService.getEquipment(playerId)
-        const hasRespiration = yield* hasRespirationEnchantment(equipment)
+        // 水中判定
+        if (yield* isUnderwater(position)) {
+          const equipment = yield* playerService.getEquipment(playerId)
+          const hasRespiration = yield* hasRespirationEnchantment(equipment)
 
-        return yield* Match.value(hasRespiration).pipe(
-          Match.when(true, () => maintainBreath(playerId)),
-          Match.when(false, () => decreaseBreath(playerId)),
+          return yield* Match.value(hasRespiration).pipe(
+            Match.when(true, () => maintainBreath(playerId)),
+            Match.when(false, () => decreaseBreath(playerId)),
+            Match.exhaustive
+          )
+        }
+
+        // 水面復活
+        return yield* restoreBreath(playerId)
+      }),
+
+    calculateVisibility: (position, depth) =>
+      Effect.gen(function* () {
+        const baseVisibility = yield* getBaseVisibility(position)
+        const depthPenalty = calculateDepthPenalty(depth)
+        const weather = yield* getWeatherConditions(position)
+
+        return Math.max(0, baseVisibility - depthPenalty - weather.penalty)
+      }),
+
+    applyWaterResistance: (entity, movement) =>
+      Effect.gen(function* () {
+        const underwater = yield* isUnderwater(entity.position)
+
+        return yield* Match.value(underwater).pipe(
+          Match.when(true, () => applyUnderwaterResistance(movement)),
+          Match.when(false, () => Effect.succeed(movement)),
           Match.exhaustive
         )
-      }
+      }),
 
-      // 水面復活
-      return yield* restoreBreath(playerId)
-    }),
+    checkDrowning: (playerId) =>
+      Effect.gen(function* () {
+        const player = yield* playerService.getPlayer(playerId)
+        const breath = player.breath
 
-    calculateVisibility: (position, depth) => Effect.gen(function* () {
-      const baseVisibility = yield* getBaseVisibility(position)
-      const depthPenalty = calculateDepthPenalty(depth)
-      const weather = yield* getWeatherConditions(position)
+        // 早期リターン: 息がある場合
+        if (breath > 0) {
+          return yield* Effect.succeed(createHealthEffect('none'))
+        }
 
-      return Math.max(0, baseVisibility - depthPenalty - weather.penalty)
-    }),
-
-    applyWaterResistance: (entity, movement) => Effect.gen(function* () {
-      const underwater = yield* isUnderwater(entity.position)
-
-      return yield* Match.value(underwater).pipe(
-        Match.when(true, () => applyUnderwaterResistance(movement)),
-        Match.when(false, () => Effect.succeed(movement)),
-        Match.exhaustive
-      )
-    }),
-
-    checkDrowning: (playerId) => Effect.gen(function* () {
-      const player = yield* playerService.getPlayer(playerId)
-      const breath = player.breath
-
-      // 早期リターン: 息がある場合
-      if (breath > 0) {
-        return yield* Effect.succeed(createHealthEffect("none"))
-      }
-
-      // 溺死ダメージ処理
-      const damage = calculateDrowningDamage(player)
-      return yield* createHealthEffect("damage", damage)
-    })
+        // 溺死ダメージ処理
+        const damage = calculateDrowningDamage(player)
+        return yield* createHealthEffect('damage', damage)
+      }),
   })
 })
 ```
@@ -284,46 +293,48 @@ interface FluidPhysicsEngineInterface {
   readonly processCurrents: (entities: Entity[]) => Effect.Effect<Entity[], CurrentError>
 }
 
-const FluidPhysicsEngine = Context.GenericTag<FluidPhysicsEngineInterface>("@app/FluidPhysicsEngine")
+const FluidPhysicsEngine = Context.GenericTag<FluidPhysicsEngineInterface>('@app/FluidPhysicsEngine')
 
 const makeFluidPhysicsEngineLive = Effect.gen(function* () {
   const webWorker = yield* WebWorkerService
 
   return FluidPhysicsEngine.of({
-    simulateWaterFlow: (region) => Effect.gen(function* () {
-      // WebWorkerで高性能計算
-      const flowData = yield* webWorker.execute("calculateFlow", {
-        heightMap: region.heightMap,
-        obstacles: region.obstacles,
-        deltaTime: region.deltaTime
-      })
+    simulateWaterFlow: (region) =>
+      Effect.gen(function* () {
+        // WebWorkerで高性能計算
+        const flowData = yield* webWorker.execute('calculateFlow', {
+          heightMap: region.heightMap,
+          obstacles: region.obstacles,
+          deltaTime: region.deltaTime,
+        })
 
-      return yield* parseFlowField(flowData)
-    }),
+        return yield* parseFlowField(flowData)
+      }),
 
-    calculateBuoyancy: (entity) => Effect.gen(function* () {
-      const volume = calculateEntityVolume(entity)
-      const density = getEntityDensity(entity.type)
-      const waterDensity = 1000 // kg/m³
+    calculateBuoyancy: (entity) =>
+      Effect.gen(function* () {
+        const volume = calculateEntityVolume(entity)
+        const density = getEntityDensity(entity.type)
+        const waterDensity = 1000 // kg/m³
 
-      return (waterDensity - density) * volume * 9.81 // 浮力 = (ρ₁ - ρ₂) * V * g
-    }),
+        return (waterDensity - density) * volume * 9.81 // 浮力 = (ρ₁ - ρ₂) * V * g
+      }),
 
-    updateTides: (time) => Effect.gen(function* () {
-      // 潮汐計算（簡化した調和解析）
-      const primaryTide = Math.sin(time * 0.0001) * 2 // 主潮汐
-      const secondaryTide = Math.sin(time * 0.00015) * 0.5 // 副潮汐
+    updateTides: (time) =>
+      Effect.gen(function* () {
+        // 潮汐計算（簡化した調和解析）
+        const primaryTide = Math.sin(time * 0.0001) * 2 // 主潮汐
+        const secondaryTide = Math.sin(time * 0.00015) * 0.5 // 副潮汐
 
-      return createTideState(primaryTide + secondaryTide)
-    }),
+        return createTideState(primaryTide + secondaryTide)
+      }),
 
-    processCurrents: (entities) => Effect.gen(function* () {
-      const currentField = yield* getCurrentField()
+    processCurrents: (entities) =>
+      Effect.gen(function* () {
+        const currentField = yield* getCurrentField()
 
-      return yield* Effect.forEach(entities, (entity) =>
-        applyCurrentForce(entity, currentField)
-      )
-    })
+        return yield* Effect.forEach(entities, (entity) => applyCurrentForce(entity, currentField))
+      }),
   })
 })
 ```
@@ -338,50 +349,52 @@ interface OceanRenderingEngineInterface {
   readonly renderMarineLife: (entities: MarineLife[]) => Effect.Effect<void, RenderingError>
 }
 
-const OceanRenderingEngine = Context.GenericTag<OceanRenderingEngineInterface>("@app/OceanRenderingEngine")
+const OceanRenderingEngine = Context.GenericTag<OceanRenderingEngineInterface>('@app/OceanRenderingEngine')
 
 const makeOceanRenderingEngineLive = Effect.gen(function* () {
   const gl = yield* WebGLContext
   const shaderService = yield* ShaderService
 
   return OceanRenderingEngine.of({
-    renderWaterSurface: (camera) => Effect.gen(function* () {
-      const waterShader = yield* shaderService.getShader("water_surface")
+    renderWaterSurface: (camera) =>
+      Effect.gen(function* () {
+        const waterShader = yield* shaderService.getShader('water_surface')
 
-      yield* waterShader.bind()
-      yield* waterShader.setUniform("u_cameraPosition", camera.position)
-      yield* waterShader.setUniform("u_time", performance.now())
-      yield* waterShader.setUniform("u_waveHeight", 0.5)
+        yield* waterShader.bind()
+        yield* waterShader.setUniform('u_cameraPosition', camera.position)
+        yield* waterShader.setUniform('u_time', performance.now())
+        yield* waterShader.setUniform('u_waveHeight', 0.5)
 
-      yield* renderWaterMesh()
-    }),
+        yield* renderWaterMesh()
+      }),
 
-    renderUnderwater: (player, visibility) => Effect.gen(function* () {
-      const underwaterShader = yield* shaderService.getShader("underwater")
+    renderUnderwater: (player, visibility) =>
+      Effect.gen(function* () {
+        const underwaterShader = yield* shaderService.getShader('underwater')
 
-      yield* underwaterShader.bind()
-      yield* underwaterShader.setUniform("u_playerPosition", player.position)
-      yield* underwaterShader.setUniform("u_visibility", visibility)
-      yield* underwaterShader.setUniform("u_depth", player.position.y)
+        yield* underwaterShader.bind()
+        yield* underwaterShader.setUniform('u_playerPosition', player.position)
+        yield* underwaterShader.setUniform('u_visibility', visibility)
+        yield* underwaterShader.setUniform('u_depth', player.position.y)
 
-      yield* applyUnderwaterFog()
-      yield* renderUnderwaterParticles()
-    }),
+        yield* applyUnderwaterFog()
+        yield* renderUnderwaterParticles()
+      }),
 
-    updateCaustics: (lightPosition) => Effect.gen(function* () {
-      const causticsTexture = yield* generateCausticsTexture(lightPosition)
-      yield* bindCausticsTexture(causticsTexture)
-    }),
+    updateCaustics: (lightPosition) =>
+      Effect.gen(function* () {
+        const causticsTexture = yield* generateCausticsTexture(lightPosition)
+        yield* bindCausticsTexture(causticsTexture)
+      }),
 
-    renderMarineLife: (entities) => Effect.gen(function* () {
-      const marineShader = yield* shaderService.getShader("marine_life")
+    renderMarineLife: (entities) =>
+      Effect.gen(function* () {
+        const marineShader = yield* shaderService.getShader('marine_life')
 
-      yield* marineShader.bind()
+        yield* marineShader.bind()
 
-      return yield* Effect.forEach(entities, (entity) =>
-        renderMarineEntity(entity, marineShader)
-      )
-    })
+        return yield* Effect.forEach(entities, (entity) => renderMarineEntity(entity, marineShader))
+      }),
   })
 })
 ```
@@ -399,7 +412,7 @@ const DeepOceanConfig = Schema.Struct({
   structureDensity: Schema.Number.pipe(Schema.default(() => 0.1)),
   marineLifeDensity: Schema.Number.pipe(Schema.default(() => 0.3)),
   visibility: Schema.Number.pipe(Schema.default(() => 8)),
-  monumentChance: Schema.Number.pipe(Schema.default(() => 0.05))
+  monumentChance: Schema.Number.pipe(Schema.default(() => 0.05)),
 })
 
 const WarmOceanConfig = Schema.Struct({
@@ -407,7 +420,7 @@ const WarmOceanConfig = Schema.Struct({
   coralCoverage: Schema.Number.pipe(Schema.default(() => 0.6)),
   marineLifeDensity: Schema.Number.pipe(Schema.default(() => 0.8)),
   visibility: Schema.Number.pipe(Schema.default(() => 12)),
-  tropicalFishVariety: Schema.Number.pipe(Schema.default(() => 8))
+  tropicalFishVariety: Schema.Number.pipe(Schema.default(() => 8)),
 })
 
 // バイオーム生成ロジック
@@ -417,11 +430,11 @@ const generateOceanBiome = (
   config: OceanBiomeConfig
 ): Effect.Effect<OceanBiome, BiomeGenerationError> =>
   Match.value(biomeType).pipe(
-    Match.tag("deep_ocean", () => generateDeepOcean(region, config.deepOcean)),
-    Match.tag("warm_ocean", () => generateWarmOcean(region, config.warmOcean)),
-    Match.tag("cold_ocean", () => generateColdOcean(region, config.coldOcean)),
-    Match.tag("coral_reef", () => generateCoralReef(region, config.coralReef)),
-    Match.tag("frozen_ocean", () => generateFrozenOcean(region, config.frozenOcean)),
+    Match.tag('deep_ocean', () => generateDeepOcean(region, config.deepOcean)),
+    Match.tag('warm_ocean', () => generateWarmOcean(region, config.warmOcean)),
+    Match.tag('cold_ocean', () => generateColdOcean(region, config.coldOcean)),
+    Match.tag('coral_reef', () => generateCoralReef(region, config.coralReef)),
+    Match.tag('frozen_ocean', () => generateFrozenOcean(region, config.frozenOcean)),
     Match.exhaustive
   )
 ```
@@ -457,7 +470,7 @@ const generateMonument = (
   Effect.gen(function* () {
     // 早期リターン: 深度チェック
     if (biome.depth < 20) {
-      return yield* Effect.fail(createStructureError("Insufficient depth for monument"))
+      return yield* Effect.fail(createStructureError('Insufficient depth for monument'))
     }
 
     const rooms = yield* generateMonumentRooms()
@@ -487,11 +500,7 @@ const generateShipwreck = (
 
 ```typescript
 // 水中移動制限
-const calculateUnderwaterMovement = (
-  player: Player,
-  input: MovementInput,
-  physics: UnderwaterPhysics
-): Movement => {
+const calculateUnderwaterMovement = (player: Player, input: MovementInput, physics: UnderwaterPhysics): Movement => {
   const baseSpeed = input.speed
 
   // 水中抵抗計算
@@ -503,16 +512,12 @@ const calculateUnderwaterMovement = (
 
   return {
     horizontal: modifiedSpeed,
-    vertical: modifiedSpeed * verticalModifier
+    vertical: modifiedSpeed * verticalModifier,
   }
 }
 
 // 水中視界計算
-const calculateUnderwaterVisibility = (
-  depth: number,
-  weather: WeatherCondition,
-  equipment: Equipment
-): number => {
+const calculateUnderwaterVisibility = (depth: number, weather: WeatherCondition, equipment: Equipment): number => {
   const baseVisibility = 16
   const depthPenalty = Math.min(depth * 0.5, 12)
   const weatherPenalty = getWeatherVisibilityPenalty(weather)
@@ -533,7 +538,7 @@ const BreathingSystem = Schema.Struct({
   currentBreath: Schema.Number,
   breathDecreaseRate: Schema.Number.pipe(Schema.default(() => 1)),
   drowningDamage: Schema.Number.pipe(Schema.default(() => 2)),
-  respirationLevel: Schema.Number.pipe(Schema.default(() => 0))
+  respirationLevel: Schema.Number.pipe(Schema.default(() => 0)),
 })
 
 const updatePlayerBreathing = (
@@ -563,9 +568,9 @@ const updatePlayerBreathing = (
   })
 
 // 水中呼吸エンチャント効果
-const calculateRespirationEffect = (level: number): { decreaseRate: number, maxBreath: number } => ({
-  decreaseRate: Math.max(0.1, 1 - (level * 0.2)),
-  maxBreath: 300 + (level * 150) // レベル毎に7.5秒延長
+const calculateRespirationEffect = (level: number): { decreaseRate: number; maxBreath: number } => ({
+  decreaseRate: Math.max(0.1, 1 - level * 0.2),
+  maxBreath: 300 + level * 150, // レベル毎に7.5秒延長
 })
 ```
 
@@ -574,29 +579,31 @@ const calculateRespirationEffect = (level: number): { decreaseRate: number, maxB
 ```typescript
 // 潜水装備
 const DivingEquipment = Schema.Struct({
-  helmet: Schema.optional(Schema.Struct({
-    type: Schema.Literal("turtle_shell", "respiration_helmet"),
-    respirationLevel: Schema.Number,
-    durability: Schema.Number
-  })),
-  boots: Schema.optional(Schema.Struct({
-    type: Schema.Literal("depth_strider_boots"),
-    depthStriderLevel: Schema.Number,
-    durability: Schema.Number
-  })),
-  tools: Schema.Array(Schema.Struct({
-    type: Schema.String,
-    aquaAffinityLevel: Schema.Number,
-    efficiency: Schema.Number
-  }))
+  helmet: Schema.optional(
+    Schema.Struct({
+      type: Schema.Literal('turtle_shell', 'respiration_helmet'),
+      respirationLevel: Schema.Number,
+      durability: Schema.Number,
+    })
+  ),
+  boots: Schema.optional(
+    Schema.Struct({
+      type: Schema.Literal('depth_strider_boots'),
+      depthStriderLevel: Schema.Number,
+      durability: Schema.Number,
+    })
+  ),
+  tools: Schema.Array(
+    Schema.Struct({
+      type: Schema.String,
+      aquaAffinityLevel: Schema.Number,
+      efficiency: Schema.Number,
+    })
+  ),
 })
 
 // 水中作業効率計算
-const calculateUnderwaterWorkSpeed = (
-  tool: Tool,
-  block: Block,
-  isUnderwater: boolean
-): number => {
+const calculateUnderwaterWorkSpeed = (tool: Tool, block: Block, isUnderwater: boolean): number => {
   const baseSpeed = getToolSpeed(tool, block)
 
   if (!isUnderwater) return baseSpeed
@@ -675,20 +682,17 @@ const MarineLifeSpawnRules = Schema.Struct({
   maxPopulation: Schema.Number,
   depthRange: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }),
   temperatureRange: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }),
   schooling: Schema.Boolean,
-  hostileToPlayer: Schema.Boolean
+  hostileToPlayer: Schema.Boolean,
 })
 
-const spawnMarineLife = (
-  biome: OceanBiome,
-  rules: MarineLifeSpawnRules
-): Effect.Effect<MarineLife[], SpawnError> =>
+const spawnMarineLife = (biome: OceanBiome, rules: MarineLifeSpawnRules): Effect.Effect<MarineLife[], SpawnError> =>
   Effect.gen(function* () {
     const currentPopulation = yield* getCurrentPopulation(biome.id, rules.species)
 
@@ -720,9 +724,9 @@ const spawnMarineLife = (
 const OceanLOD = Schema.Struct({
   distance: Schema.Number,
   meshResolution: Schema.Number,
-  animationQuality: Schema.Literal("high", "medium", "low"),
+  animationQuality: Schema.Literal('high', 'medium', 'low'),
   particleCount: Schema.Number,
-  causticsEnabled: Schema.Boolean
+  causticsEnabled: Schema.Boolean,
 })
 
 const calculateOceanLOD = (distance: number): OceanLOD => {
@@ -730,25 +734,25 @@ const calculateOceanLOD = (distance: number): OceanLOD => {
     return {
       distance,
       meshResolution: 1.0,
-      animationQuality: "high",
+      animationQuality: 'high',
       particleCount: 1000,
-      causticsEnabled: true
+      causticsEnabled: true,
     }
   } else if (distance < 150) {
     return {
       distance,
       meshResolution: 0.5,
-      animationQuality: "medium",
+      animationQuality: 'medium',
       particleCount: 300,
-      causticsEnabled: true
+      causticsEnabled: true,
     }
   } else {
     return {
       distance,
       meshResolution: 0.2,
-      animationQuality: "low",
+      animationQuality: 'low',
       particleCount: 50,
-      causticsEnabled: false
+      causticsEnabled: false,
     }
   }
 }
@@ -759,18 +763,20 @@ const OptimizedFluidSimulation = Effect.gen(function* () {
 
   // バックグラウンドで流体計算
   const simulateFluidChunk = (chunk: FluidChunk): Effect.Effect<FluidChunk, SimulationError> =>
-    webWorker.execute("simulateFluid", {
-      velocityField: chunk.velocityField,
-      pressureField: chunk.pressureField,
-      deltaTime: 0.016,
-      viscosity: 0.001
-    }).pipe(
-      Effect.map(result => updateFluidChunk(chunk, result)),
-      retryWithBackoff(3)
-    )
+    webWorker
+      .execute('simulateFluid', {
+        velocityField: chunk.velocityField,
+        pressureField: chunk.pressureField,
+        deltaTime: 0.016,
+        viscosity: 0.001,
+      })
+      .pipe(
+        Effect.map((result) => updateFluidChunk(chunk, result)),
+        retryWithBackoff(3)
+      )
 
   return {
-    simulateFluidChunk
+    simulateFluidChunk,
   }
 })
 ```
@@ -779,12 +785,8 @@ const OptimizedFluidSimulation = Effect.gen(function* () {
 
 ```typescript
 // 海洋生物カリング
-const cullMarineLife = (
-  entities: MarineLife[],
-  camera: Camera,
-  frustum: Frustum
-): MarineLife[] => {
-  return entities.filter(entity => {
+const cullMarineLife = (entities: MarineLife[], camera: Camera, frustum: Frustum): MarineLife[] => {
+  return entities.filter((entity) => {
     // 距離カリング
     const distance = calculateDistance(entity.position, camera.position)
     if (distance > MAX_MARINE_LIFE_RENDER_DISTANCE) return false
@@ -802,13 +804,10 @@ const cullMarineLife = (
 }
 
 // インスタンスレンダリング
-const renderMarineLifeInstanced = (
-  entities: MarineLife[],
-  renderer: Renderer
-): Effect.Effect<void, RenderingError> =>
+const renderMarineLifeInstanced = (entities: MarineLife[], renderer: Renderer): Effect.Effect<void, RenderingError> =>
   Effect.gen(function* () {
     // 種類別にグループ化
-    const groupedEntities = groupBy(entities, entity => entity.type)
+    const groupedEntities = groupBy(entities, (entity) => entity.type)
 
     yield* Effect.forEach(Object.entries(groupedEntities), ([type, group]) =>
       Effect.gen(function* () {
@@ -825,29 +824,33 @@ const renderMarineLifeInstanced = (
 
 ```typescript
 // Property-Based Testing for Ocean Generation
-import * as fc from "fast-check"
+import * as fc from 'fast-check'
 
 const oceanGenerationArbitrary = fc.record({
   seed: fc.integer(),
   seaLevel: fc.integer({ min: 50, max: 100 }),
-  biomeType: fc.constantFrom("deep_ocean", "warm_ocean", "cold_ocean", "coral_reef"),
+  biomeType: fc.constantFrom('deep_ocean', 'warm_ocean', 'cold_ocean', 'coral_reef'),
   size: fc.record({
     width: fc.integer({ min: 100, max: 1000 }),
-    height: fc.integer({ min: 100, max: 1000 })
-  })
+    height: fc.integer({ min: 100, max: 1000 }),
+  }),
 })
 
 const testOceanGeneration = Effect.gen(function* () {
   yield* Effect.sync(() => {
-    fc.assert(fc.property(oceanGenerationArbitrary, (config) => {
-      const result = Effect.runSync(generateOceanBiome(config))
+    fc.assert(
+      fc.property(oceanGenerationArbitrary, (config) => {
+        const result = Effect.runSync(generateOceanBiome(config))
 
-      // プロパティ検証
-      return result.seaLevel === config.seaLevel &&
-             result.type === config.biomeType &&
-             result.structures.length >= 0 &&
-             result.marineLife.length >= 0
-    }))
+        // プロパティ検証
+        return (
+          result.seaLevel === config.seaLevel &&
+          result.type === config.biomeType &&
+          result.structures.length >= 0 &&
+          result.marineLife.length >= 0
+        )
+      })
+    )
   })
 })
 
@@ -896,7 +899,7 @@ const testMarineLifeSpawning = Effect.gen(function* () {
   const entities = yield* spawnMarineLife(biome, spawnRules)
 
   // スポーン位置検証
-  entities.forEach(entity => {
+  entities.forEach((entity) => {
     expect(isValidSpawnPosition(entity.position, biome)).toBe(true)
     expect(entity.position.y).toBeLessThan(biome.seaLevel)
   })
@@ -911,11 +914,7 @@ const testMarineLifeSpawning = Effect.gen(function* () {
 ```typescript
 // 水中探索統合テスト
 const testUnderwaterExploration = Effect.gen(function* () {
-  const testLayer = Layer.mergeAll(
-    MockOceanGenerationService,
-    MockFluidPhysicsEngine,
-    MockUnderwaterExplorationService
-  )
+  const testLayer = Layer.mergeAll(MockOceanGenerationService, MockFluidPhysicsEngine, MockUnderwaterExplorationService)
 
   yield* Effect.provide(
     Effect.gen(function* () {

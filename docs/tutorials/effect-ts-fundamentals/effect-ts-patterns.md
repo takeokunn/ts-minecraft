@@ -1,13 +1,12 @@
 ---
-title: "Effect-TS 利用パターン - コアパターン集"
-description: "Effect-TS 3.17+の最新パターンとベストプラクティス。Layer構成、Service設計、エラーハンドリングの実践的パターン。"
-category: "architecture"
-difficulty: "intermediate"
-tags: ["effect-ts", "patterns", "functional-programming", "layer", "service"]
-prerequisites: ["effect-ts-fundamentals"]
-estimated_reading_time: "15分"
+title: 'Effect-TS 利用パターン - コアパターン集'
+description: 'Effect-TS 3.17+の最新パターンとベストプラクティス。Layer構成、Service設計、エラーハンドリングの実践的パターン。'
+category: 'architecture'
+difficulty: 'intermediate'
+tags: ['effect-ts', 'patterns', 'functional-programming', 'layer', 'service']
+prerequisites: ['effect-ts-fundamentals']
+estimated_reading_time: '15分'
 ---
-
 
 # Effect-TS利用パターン
 
@@ -18,6 +17,7 @@ estimated_reading_time: "15分"
 > 📚 **学習前提**: このドキュメントは [Effect-TS 基礎](./effect-ts-basics.md) と [Effect-TS サービス](./effect-ts-services.md) の内容を理解していることを前提としています。
 
 ### 学習の流れ
+
 1. **基礎概念** → [Effect-TS 基礎](./effect-ts-basics.md)
 2. **サービス層** → [Effect-TS サービス](./effect-ts-services.md)
 3. **実践パターン** → **このドキュメント**
@@ -31,12 +31,12 @@ estimated_reading_time: "15分"
 ### 1.1 複雑なLayer依存関係の管理
 
 ```typescript
-import { Effect, Layer, Context } from "effect"
+import { Effect, Layer, Context } from 'effect'
 
 // 複数の依存関係を持つ高度なサービス
 export const AdvancedGameService = Context.GenericTag<{
   readonly processComplexGameLogic: (input: GameInput) => Effect.Effect<GameResult, GameError>
-}>("@minecraft/AdvancedGameService")
+}>('@minecraft/AdvancedGameService')
 
 // 複数Layer合成による高度な依存性注入
 export const AdvancedGameServiceLive = Layer.effect(
@@ -49,7 +49,7 @@ export const AdvancedGameServiceLive = Layer.effect(
     const eventBus = yield* EventBus
 
     // 初期化ロジック
-    yield* Effect.log("Advanced Game Service を初期化中...")
+    yield* Effect.log('Advanced Game Service を初期化中...')
 
     return AdvancedGameService.of({
       processComplexGameLogic: (input) =>
@@ -59,21 +59,16 @@ export const AdvancedGameServiceLive = Layer.effect(
           const playerActions = yield* playerService.processInput(input)
           const physicsUpdate = yield* physicsEngine.simulate(worldState, playerActions)
 
-          yield* eventBus.publish({ type: "GameStateUpdated", data: physicsUpdate })
+          yield* eventBus.publish({ type: 'GameStateUpdated', data: physicsUpdate })
 
           return { success: true, newState: physicsUpdate }
-        })
+        }),
     })
   })
 )
 
 // 環境固有のLayer構成
-const TestEnvironmentLayers = Layer.mergeAll(
-  MockWorldService,
-  MockPlayerService,
-  MockPhysicsEngine,
-  InMemoryEventBus
-)
+const TestEnvironmentLayers = Layer.mergeAll(MockWorldService, MockPlayerService, MockPhysicsEngine, InMemoryEventBus)
 
 const ProductionEnvironmentLayers = Layer.mergeAll(
   LiveWorldService,
@@ -93,15 +88,13 @@ const ProductionEnvironmentLayers = Layer.mergeAll(
 
 ```typescript
 // より高度な回復戦略の組み合わせ
-const resilientGameOperation = <A>(
-  operation: Effect.Effect<A, GameError>
-): Effect.Effect<A, GameError> =>
+const resilientGameOperation = <A>(operation: Effect.Effect<A, GameError>): Effect.Effect<A, GameError> =>
   pipe(
     operation,
     // 1. 一次回復: 短時間リトライ
-    Effect.retry(Schedule.exponential("50 millis").pipe(Schedule.recurs(2))),
+    Effect.retry(Schedule.exponential('50 millis').pipe(Schedule.recurs(2))),
     // 2. 二次回復: キャッシュフォールバック
-    Effect.catchTag("NetworkError", () => loadFromCache()),
+    Effect.catchTag('NetworkError', () => loadFromCache()),
     // 3. 三次回復: デグレード機能
     Effect.catchAll(() => provideDegradedService())
   )
@@ -126,9 +119,7 @@ const withCircuitBreaker = <A, E>(
                 pipe(
                   Ref.update(failures, (n) => n + 1),
                   Effect.flatMap(() => Ref.get(failures)),
-                  Effect.flatMap((count) =>
-                    count >= threshold ? Ref.set(isOpen, true) : Effect.unit
-                  )
+                  Effect.flatMap((count) => (count >= threshold ? Ref.set(isOpen, true) : Effect.unit))
                 )
               ),
               Effect.tap(() => Ref.set(failures, 0))
@@ -143,13 +134,13 @@ const withCircuitBreaker = <A, E>(
 ### 3.1 バリデーション統合
 
 ```typescript
-import { Schema } from "@effect/schema"
+import { Schema } from '@effect/schema'
 
 // APIリクエストのスキーマ
 const CreateUserRequest = Schema.Struct({
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(100)),
   email: Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
-  age: Schema.Number.pipe(Schema.int(), Schema.between(0, 150))
+  age: Schema.Number.pipe(Schema.int(), Schema.between(0, 150)),
 })
 
 // バリデーション付きAPI処理
@@ -179,7 +170,7 @@ const normalizeUserData = (user: RawUser): Effect.Effect<NormalizedUser, Normali
   Effect.succeed({
     ...user,
     name: user.name.trim().toLowerCase(),
-    email: user.email.toLowerCase()
+    email: user.email.toLowerCase(),
   })
 ```
 
@@ -191,11 +182,10 @@ const normalizeUserData = (user: RawUser): Effect.Effect<NormalizedUser, Normali
 // 複数の非同期操作を並列実行
 const loadUserDashboard = (userId: string) =>
   Effect.gen(function* () {
-    const [user, posts, notifications] = yield* Effect.all([
-      userService.getById(userId),
-      postService.getByUserId(userId),
-      notificationService.getByUserId(userId)
-    ], { concurrency: "inherit" })
+    const [user, posts, notifications] = yield* Effect.all(
+      [userService.getById(userId), postService.getByUserId(userId), notificationService.getByUserId(userId)],
+      { concurrency: 'inherit' }
+    )
 
     return { user, posts, notifications }
   })
@@ -215,24 +205,13 @@ const processItemsBatch = (items: Item[]) =>
 const withFileHandle = <A, E>(
   filename: string,
   use: (handle: FileHandle) => Effect.Effect<A, E>
-): Effect.Effect<A, E | FileError> =>
-  Effect.acquireUseRelease(
-    openFile(filename),
-    use,
-    (handle) => closeFile(handle)
-  )
+): Effect.Effect<A, E | FileError> => Effect.acquireUseRelease(openFile(filename), use, (handle) => closeFile(handle))
 
 // スコープ付きリソース管理
 const processWithResources = Effect.gen(function* () {
-  const connection = yield* Effect.acquireRelease(
-    createConnection(),
-    (conn) => closeConnection(conn)
-  )
+  const connection = yield* Effect.acquireRelease(createConnection(), (conn) => closeConnection(conn))
 
-  const transaction = yield* Effect.acquireRelease(
-    beginTransaction(connection),
-    (tx) => commitTransaction(tx)
-  )
+  const transaction = yield* Effect.acquireRelease(beginTransaction(connection), (tx) => commitTransaction(tx))
 
   return yield* processInTransaction(transaction)
 })
@@ -248,23 +227,23 @@ export const MockUserService = Layer.succeed(
   UserService,
   UserService.of({
     getById: (id: string) =>
-      id === "existing"
-        ? Effect.succeed({ id, name: "Test User" })
-        : Effect.fail(new NotFoundError({ resource: "User", id })),
+      id === 'existing'
+        ? Effect.succeed({ id, name: 'Test User' })
+        : Effect.fail(new NotFoundError({ resource: 'User', id })),
 
     create: (data: CreateUserData) =>
       Effect.succeed({
-        id: "generated-id",
+        id: 'generated-id',
         ...data,
-        createdAt: new Date()
-      })
+        createdAt: new Date(),
+      }),
   })
 )
 
 // テスト実行
 const testUserCreation = Effect.gen(function* () {
-  const user = yield* createUser({ name: "John", email: "john@example.com" })
-  expect(user.name).toBe("John")
+  const user = yield* createUser({ name: 'John', email: 'john@example.com' })
+  expect(user.name).toBe('John')
 }).pipe(Effect.provide(MockUserService))
 ```
 
@@ -272,25 +251,14 @@ const testUserCreation = Effect.gen(function* () {
 
 ```typescript
 // 本番環境のLayer
-const ProdLayer = Layer.mergeAll(
-  DatabaseServiceLive,
-  EmailServiceLive,
-  CacheServiceLive
-)
+const ProdLayer = Layer.mergeAll(DatabaseServiceLive, EmailServiceLive, CacheServiceLive)
 
 // テスト環境のLayer
-const TestLayer = Layer.mergeAll(
-  MockDatabaseService,
-  MockEmailService,
-  InMemoryCacheService
-)
+const TestLayer = Layer.mergeAll(MockDatabaseService, MockEmailService, InMemoryCacheService)
 
 // 環境に応じた実行
-const runWithEnvironment = <A, E>(
-  effect: Effect.Effect<A, E>,
-  env: "prod" | "test" = "prod"
-) => {
-  const layer = env === "prod" ? ProdLayer : TestLayer
+const runWithEnvironment = <A, E>(effect: Effect.Effect<A, E>, env: 'prod' | 'test' = 'prod') => {
+  const layer = env === 'prod' ? ProdLayer : TestLayer
   return Effect.provide(effect, layer)
 }
 ```
@@ -304,20 +272,20 @@ const runWithEnvironment = <A, E>(
 const cachedUserGet = (id: string) =>
   pipe(
     Cache.get(userCache, id, () => userService.getById(id)),
-    Effect.withSpan("cached-user-get", { attributes: { userId: id } })
+    Effect.withSpan('cached-user-get', { attributes: { userId: id } })
   )
 
 // TTL付きキャッシュ
 const userCache = Cache.make({
   capacity: 1000,
-  timeToLive: Duration.minutes(5)
+  timeToLive: Duration.minutes(5),
 })
 ```
 
 ### 6.2 ストリーミング処理
 
 ```typescript
-import { Stream } from "effect"
+import { Stream } from 'effect'
 
 // 大量データの効率処理
 const processLargeDataset = (items: Stream.Stream<Item>) =>
@@ -359,11 +327,13 @@ const eventProcessor = pipe(
 ## 関連ドキュメント
 
 **専門分野**:
+
 - [Effect-TSテスト](./effect-ts-testing.md) - テスト統合戦略
 - [エラーハンドリング](./effect-ts-error-handling.md) - エラー処理詳細
 - [高度なパターン](./effect-ts-advanced.md) - アドバンスドパターン
 - [マッチングパターン](./effect-ts-match-patterns.md) - Match API利用
 
 **実装関連**:
+
 - [アーキテクチャ原則](../../explanations/architecture/README.md) - 設計思想
 - [実装パターン集](../../explanations/design-patterns/README.md) - パターンカタログ

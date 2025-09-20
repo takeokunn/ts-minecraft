@@ -1,13 +1,13 @@
 ---
-title: "トラブルシューティングガイド - 問題解決の完全マニュアル"
-description: "TypeScript Minecraft開発で発生する全問題パターンと解決策。ビルドエラー、型エラー、依存関係問題、パフォーマンス問題の即座解決ガイド。"
-category: "troubleshooting"
-difficulty: "intermediate"
-tags: ["troubleshooting", "debugging", "errors", "build-issues", "typescript", "effect-ts", "vite"]
-prerequisites: ["basic-typescript", "development-environment"]
-estimated_reading_time: "30分"
-related_patterns: ["error-handling-patterns"]
-related_docs: ["../development/README.md", "../../reference/configuration/README.md", "./error-resolution.md"]
+title: 'トラブルシューティングガイド - 問題解決の完全マニュアル'
+description: 'TypeScript Minecraft開発で発生する全問題パターンと解決策。ビルドエラー、型エラー、依存関係問題、パフォーマンス問題の即座解決ガイド。'
+category: 'troubleshooting'
+difficulty: 'intermediate'
+tags: ['troubleshooting', 'debugging', 'errors', 'build-issues', 'typescript', 'effect-ts', 'vite']
+prerequisites: ['basic-typescript', 'development-environment']
+estimated_reading_time: '30分'
+related_patterns: ['error-handling-patterns']
+related_docs: ['../development/README.md', '../../reference/configuration/README.md', './error-resolution.md']
 ---
 
 # トラブルシューティング
@@ -23,6 +23,7 @@ related_docs: ["../development/README.md", "../../reference/configuration/README
 > **📚 使用法**: 問題発生時の緊急参照・予防策確認
 
 ### 📋 緊急時クイックアクセス
+
 - **🔥 高緊急度**: [プロジェクト停止レベル](#high-priority-issues)
 - **⚡ 中緊急度**: [開発効率に影響](#medium-priority-issues)
 - **🔧 低緊急度**: [最適化・改善](#low-priority-issues)
@@ -32,6 +33,7 @@ related_docs: ["../development/README.md", "../../reference/configuration/README
 #### タグベース検索
 
 **プライマリカテゴリ**:
+
 - `effect-ts` - Effect-TS関連エラー
 - `typescript` - TypeScript型エラー
 - `vite` - ビルド・開発サーバー問題
@@ -41,12 +43,14 @@ related_docs: ["../development/README.md", "../../reference/configuration/README
 - `testing` - テスト関連
 
 **深刻度タグ**:
+
 - `critical` - システム停止レベル
 - `high` - 開発ブロック
 - `medium` - 効率低下
 - `low` - 最適化問題
 
 **頻度タグ**:
+
 - `very-common` - ほぼ必ず遇遇
 - `common` - よくある
 - `occasional` - 時々発生
@@ -75,6 +79,7 @@ TypeScript Minecraftプロジェクトで発生する可能性のある問題と
 ### 🔍 スマート検索システム
 
 #### エラーメッセージからの検索
+
 ```bash
 # エラーメッセージをコピーして検索する例
 
@@ -86,6 +91,7 @@ TypeScript Minecraftプロジェクトで発生する可能性のある問題と
 ```
 
 #### 情報収集コマンド
+
 ```bash
 # エラー情報の網羅的収集
 echo "=== COMPREHENSIVE ERROR INFO ==="
@@ -100,15 +106,15 @@ echo "\nTypeScript config:" && npx tsc --showConfig | head -20
 
 ### エラー発生頻度 (Phase 2.2 基準)
 
-| カテゴリ | 発生率 | 解決時間 | 深刻度 |
-|-----------|-------|----------|--------|
-| TypeScript型エラー | 73% | 5-15分 | High |
-| Effect-TS設定 | 45% | 10-30分 | Medium |
-| 依存関係問題 | 38% | 3-10分 | High |
-| Viteビルドエラー | 27% | 2-8分 | Medium |
-| Three.jsレンダリング | 19% | 20-60分 | Medium |
-| ネットワーク関連 | 12% | 15-45分 | Low |
-| テスト失敗 | 31% | 5-20分 | Medium |
+| カテゴリ             | 発生率 | 解決時間 | 深刻度 |
+| -------------------- | ------ | -------- | ------ |
+| TypeScript型エラー   | 73%    | 5-15分   | High   |
+| Effect-TS設定        | 45%    | 10-30分  | Medium |
+| 依存関係問題         | 38%    | 3-10分   | High   |
+| Viteビルドエラー     | 27%    | 2-8分    | Medium |
+| Three.jsレンダリング | 19%    | 20-60分  | Medium |
+| ネットワーク関連     | 12%    | 15-45分  | Low    |
+| テスト失敗           | 31%    | 5-20分   | Medium |
 
 ### 最適化ポテンシャル
 
@@ -147,28 +153,28 @@ mindmap
 
 ### 🔥 高緊急度（プロジェクト停止レベル）
 
-| 問題 | 症状 | 解決方法 |
-|-----|------|---------|
-| [TypeScript型エラー](#typescript-type-errors) | `pnpm build` 失敗 | 型定義確認・tsconfig調整 |
-| [依存関係エラー](#dependency-errors) | `pnpm install` 失敗 | キャッシュクリア・バージョン確認 |
-| [開発サーバー起動失敗](#dev-server-errors) | `pnpm dev` 失敗 | ポート・権限・設定確認 |
-| [初心者環境構築問題](./common-getting-started-issues.md) | 環境構築で進めない | ステップバイステップの解決策 |
+| 問題                                                     | 症状                | 解決方法                         |
+| -------------------------------------------------------- | ------------------- | -------------------------------- |
+| [TypeScript型エラー](#typescript-type-errors)            | `pnpm build` 失敗   | 型定義確認・tsconfig調整         |
+| [依存関係エラー](#dependency-errors)                     | `pnpm install` 失敗 | キャッシュクリア・バージョン確認 |
+| [開発サーバー起動失敗](#dev-server-errors)               | `pnpm dev` 失敗     | ポート・権限・設定確認           |
+| [初心者環境構築問題](./common-getting-started-issues.md) | 環境構築で進めない  | ステップバイステップの解決策     |
 
 ### ⚡ 中緊急度（開発効率に影響）
 
-| 問題 | 症状 | 解決方法 |
-|-----|------|---------|
+| 問題                         | 症状                       | 解決方法                         |
+| ---------------------------- | -------------------------- | -------------------------------- |
 | [HMRが動かない](#hmr-issues) | ファイル変更が反映されない | Vite設定・ブラウザキャッシュ確認 |
-| [テスト失敗](#test-failures) | `pnpm test` でエラー | テスト環境・モック確認 |
-| [リントエラー](#lint-errors) | コード品質チェック失敗 | ESLint設定・ルール調整 |
+| [テスト失敗](#test-failures) | `pnpm test` でエラー       | テスト環境・モック確認           |
+| [リントエラー](#lint-errors) | コード品質チェック失敗     | ESLint設定・ルール調整           |
 
 ### 🔧 低緊急度（最適化・改善）
 
-| 問題 | 症状 | 解決方法 |
-|-----|------|---------|
-| [ビルドが遅い](#build-performance) | ビルド時間が長い | Vite設定最適化・依存関係見直し |
-| [バンドルサイズが大きい](#bundle-size) | アプリケーションが重い | Tree-shaking・コード分割 |
-| [メモリ使用量が多い](#memory-usage) | 開発中にメモリ不足 | Node.js設定・プロセス管理 |
+| 問題                                   | 症状                   | 解決方法                       |
+| -------------------------------------- | ---------------------- | ------------------------------ |
+| [ビルドが遅い](#build-performance)     | ビルド時間が長い       | Vite設定最適化・依存関係見直し |
+| [バンドルサイズが大きい](#bundle-size) | アプリケーションが重い | Tree-shaking・コード分割       |
+| [メモリ使用量が多い](#memory-usage)    | 開発中にメモリ不足     | Node.js設定・プロセス管理      |
 
 ## 🔍 問題診断フロー
 
@@ -204,6 +210,7 @@ node -e "try { const E = require('effect'); console.log('Effect-TS OK:', typeof 
 ```
 
 ### 1. 🔧 基本診断コマンド
+
 ```bash
 # 全体的な健康状態チェック
 pnpm check
@@ -219,6 +226,7 @@ npx vite --debug
 ```
 
 ### 2. ログレベル設定
+
 ```bash
 # デバッグ情報を詳細表示
 DEBUG=* pnpm dev
@@ -235,6 +243,7 @@ LOG_LEVEL=error pnpm dev
 ### TypeScript型エラー {#typescript-type-errors}
 
 #### よくある症状
+
 ```
 error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'Position'
 error TS2322: Type 'string' is not assignable to type 'BlockType'
@@ -243,6 +252,7 @@ error TS2322: Type 'string' is not assignable to type 'BlockType'
 #### 解決手順
 
 1. **型定義の確認**
+
    ```bash
    # TypeScript設定確認
    npm run type-check
@@ -252,15 +262,17 @@ error TS2322: Type 'string' is not assignable to type 'BlockType'
    ```
 
 2. **Effect-TS Schema使用時の型エラー**
+
    ```typescript
    // ❌ 問題のあるコード
-   const position = { x: "1", y: 2, z: 3 }
+   const position = { x: '1', y: 2, z: 3 }
 
    // ✅ 修正後
    const position = Schema.decodeUnknownSync(PositionSchema)({ x: 1, y: 2, z: 3 })
    ```
 
 3. **Generic型の問題**
+
    ```typescript
    // ❌ 問題のあるコード
    const effect: Effect.Effect<unknown> = getPlayer()
@@ -272,6 +284,7 @@ error TS2322: Type 'string' is not assignable to type 'BlockType'
 ### 依存関係エラー {#dependency-errors}
 
 #### よくある症状
+
 ```
 npm ERR! peer dep missing: effect@^3.17.0, required by @effect/schema@^0.75.5
 npm ERR! Could not resolve dependency
@@ -280,6 +293,7 @@ npm ERR! Could not resolve dependency
 #### 解決手順
 
 1. **キャッシュクリア**
+
    ```bash
    # npm キャッシュクリア
    npm cache clean --force
@@ -290,6 +304,7 @@ npm ERR! Could not resolve dependency
    ```
 
 2. **バージョン競合解決**
+
    ```bash
    # 競合確認
    npm ls effect
@@ -309,6 +324,7 @@ npm ERR! Could not resolve dependency
 ### 開発サーバーエラー {#dev-server-errors}
 
 #### よくある症状
+
 ```
 Error: listen EADDRINUSE: address already in use :::5173
 Error: Permission denied
@@ -317,6 +333,7 @@ Error: Permission denied
 #### 解決手順
 
 1. **ポート競合**
+
    ```bash
    # 使用中のポート確認
    lsof -ti:5173
@@ -329,6 +346,7 @@ Error: Permission denied
    ```
 
 2. **権限問題**
+
    ```bash
    # Node.js権限確認
    ls -la $(which node)
@@ -340,25 +358,28 @@ Error: Permission denied
 ### HMR問題 {#hmr-issues}
 
 #### よくある症状
+
 - ファイル変更がブラウザに反映されない
 - Hot Module Replacementが動作しない
 
 #### 解決手順
 
 1. **Vite HMR設定確認**
+
    ```typescript
    // vite.config.ts
    export default defineConfig({
      server: {
        hmr: {
-         overlay: true,  // エラーオーバーレイ表示
-         port: 24678     // HMR専用ポート
-       }
-     }
+         overlay: true, // エラーオーバーレイ表示
+         port: 24678, // HMR専用ポート
+       },
+     },
    })
    ```
 
 2. **ブラウザキャッシュクリア**
+
    ```bash
    # 強制リロード
    # Ctrl+Shift+R (Windows/Linux)
@@ -368,6 +389,7 @@ Error: Permission denied
    ```
 
 3. **ファイルウォッチング問題**
+
    ```bash
    # ファイルウォッチャー制限確認 (Linux)
    cat /proc/sys/fs/inotify/max_user_watches
@@ -379,6 +401,7 @@ Error: Permission denied
 ### テスト失敗 {#test-failures}
 
 #### よくある症状
+
 ```
 TypeError: Cannot read properties of undefined
 ReferenceError: window is not defined
@@ -388,27 +411,25 @@ Error: Module not found
 #### 解決手順
 
 1. **テスト環境設定確認**
+
    ```typescript
    // vitest.config.ts
    export default defineConfig({
      test: {
-       environment: 'jsdom',  // ブラウザ環境シミュレーション
-       globals: true,         // global APIの有効化
-       setupFiles: ['./src/test/setup.ts']
-     }
+       environment: 'jsdom', // ブラウザ環境シミュレーション
+       globals: true, // global APIの有効化
+       setupFiles: ['./src/test/setup.ts'],
+     },
    })
    ```
 
 2. **Effect-TS テストでのContext問題**
+
    ```typescript
    // テスト用Context設定
-   const testLayer = Layer.mergeAll(
-     TestContext.TestContext,
-     MockWorldService
-   )
+   const testLayer = Layer.mergeAll(TestContext.TestContext, MockWorldService)
 
-   const runTest = (effect) =>
-     Effect.runSync(Effect.provide(effect, testLayer))
+   const runTest = (effect) => Effect.runSync(Effect.provide(effect, testLayer))
    ```
 
 3. **非同期テストのタイムアウト**
@@ -416,12 +437,13 @@ Error: Module not found
    // タイムアウト時間延長
    test('async operation', async () => {
      // テストコード
-   }, 10000)  // 10秒タイムアウト
+   }, 10000) // 10秒タイムアウト
    ```
 
 ### リントエラー {#lint-errors}
 
 #### よくある症状
+
 ```
 error: 'any' type is not allowed
 error: Unexpected use of 'class'
@@ -431,6 +453,7 @@ warning: 'console.log' is not allowed in production
 #### 解決手順
 
 1. **OXLint設定調整**
+
    ```json
    // .oxlintrc.json
    {
@@ -442,6 +465,7 @@ warning: 'console.log' is not allowed in production
    ```
 
 2. **Effect-TS規約違反**
+
    ```typescript
    // ❌ クラスの使用
    interface PlayerService {}
@@ -452,6 +476,7 @@ warning: 'console.log' is not allowed in production
    ```
 
 3. **自動修正可能なエラー**
+
    ```bash
    # 自動修正実行
    pnpm lint:fix
@@ -465,6 +490,7 @@ warning: 'console.log' is not allowed in production
 ### デバッグ技術
 
 #### 1. TypeScriptデバッグ
+
 ```bash
 # 型情報の詳細確認
 npx tsc --noEmit --listFiles
@@ -474,6 +500,7 @@ npx tsc --noEmit --traceResolution
 ```
 
 #### 2. Viteデバッグ
+
 ```bash
 # Vite内部ログ表示
 DEBUG=vite:* pnpm dev
@@ -483,6 +510,7 @@ rm -rf node_modules/.vite && DEBUG=vite:deps pnpm dev
 ```
 
 #### 3. テストデバッグ
+
 ```bash
 # テストデバッグモード
 pnpm test -- --inspect-brk
@@ -494,6 +522,7 @@ pnpm test -- --grep "PlayerService"
 ### パフォーマンス分析
 
 #### 1. ビルドパフォーマンス {#build-performance}
+
 ```bash
 # ビルド時間測定
 time pnpm build
@@ -506,6 +535,7 @@ npx madge --circular src/
 ```
 
 #### 2. メモリ使用量 {#memory-usage}
+
 ```bash
 # Node.jsメモリ制限増加
 NODE_OPTIONS="--max-old-space-size=4096" pnpm build
@@ -515,6 +545,7 @@ node --trace-gc script.js
 ```
 
 #### 3. バンドルサイズ {#bundle-size}
+
 ```typescript
 // vite.config.ts - コード分割
 export default defineConfig({
@@ -522,13 +553,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'effect': ['effect', '@effect/schema'],
-          'three': ['three'],
-          'utils': ['uuid', 'alea']
-        }
-      }
-    }
-  }
+          effect: ['effect', '@effect/schema'],
+          three: ['three'],
+          utils: ['uuid', 'alea'],
+        },
+      },
+    },
+  },
 })
 ```
 
@@ -536,28 +567,29 @@ export default defineConfig({
 
 ### 頻出問題ランキング
 
-| 順位 | 問題 | 発生頻度 | 解決時間 |
-|------|------|---------|---------|
-| 1 | TypeScript型エラー | 40% | 5-15分 |
-| 2 | 依存関係バージョン競合 | 25% | 10-30分 |
-| 3 | Vite設定問題 | 15% | 5-20分 |
-| 4 | テスト環境設定 | 10% | 10-40分 |
-| 5 | リント設定競合 | 10% | 5-10分 |
+| 順位 | 問題                   | 発生頻度 | 解決時間 |
+| ---- | ---------------------- | -------- | -------- |
+| 1    | TypeScript型エラー     | 40%      | 5-15分   |
+| 2    | 依存関係バージョン競合 | 25%      | 10-30分  |
+| 3    | Vite設定問題           | 15%      | 5-20分   |
+| 4    | テスト環境設定         | 10%      | 10-40分  |
+| 5    | リント設定競合         | 10%      | 5-10分   |
 
 ### 環境別問題
 
-| 環境 | よくある問題 | 対処法 |
-|------|-------------|--------|
-| Windows | パス区切り文字問題 | path.posix使用 |
-| macOS | Node.js権限問題 | nvm使用推奨 |
-| Linux | ファイルウォッチ制限 | inotify制限値増加 |
-| Docker | ボリュームマウント問題 | node_modules除外 |
+| 環境    | よくある問題           | 対処法            |
+| ------- | ---------------------- | ----------------- |
+| Windows | パス区切り文字問題     | path.posix使用    |
+| macOS   | Node.js権限問題        | nvm使用推奨       |
+| Linux   | ファイルウォッチ制限   | inotify制限値増加 |
+| Docker  | ボリュームマウント問題 | node_modules除外  |
 
 ## 🚨 予防策
 
 ### 開発環境セットアップ
 
 1. **推奨Node.jsバージョン**
+
    ```bash
    # .nvmrcファイル作成
    echo "20" > .nvmrc
@@ -567,6 +599,7 @@ export default defineConfig({
    ```
 
 2. **エディター設定**
+
    ```json
    // エディタ設定ファイルの例
    {
@@ -611,27 +644,34 @@ performanceObserver.observe({ entryTypes: ['function'] })
 
 ```markdown
 ## 問題の概要
+
 [問題の簡潔な説明]
 
 ## 環境情報
+
 - OS: [Windows/macOS/Linux]
 - Node.js: [バージョン]
 - npm: [バージョン]
 
 ## 再現手順
+
 1. [手順1]
 2. [手順2]
 3. [手順3]
 
 ## 期待される動作
+
 [期待していた結果]
 
 ## 実際の動作
+
 [実際に発生した結果]
 
 ## エラーメッセージ
 ```
+
 [エラーメッセージやスタックトレース]
+
 ```
 
 ## 試した解決策

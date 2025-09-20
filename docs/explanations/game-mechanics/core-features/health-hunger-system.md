@@ -1,13 +1,13 @@
 ---
-title: "体力・空腹システム仕様 - プレイヤーサバイバル管理"
-description: "プレイヤーの体力、空腹度、食事システムの完全仕様。サバイバルモードでのリソース管理とゲームバランス調整。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["health-system", "hunger-system", "food-mechanics", "player-stats", "survival-mode", "resource-management"]
-prerequisites: ["effect-ts-fundamentals", "player-system-basics", "game-balance"]
-estimated_reading_time: "5分"
-related_patterns: ["service-patterns", "state-machine-patterns", "event-driven-patterns"]
-related_docs: ["./02-player-system.md", "./19-food-agriculture-system.md", "./13-combat-system.md"]
+title: '体力・空腹システム仕様 - プレイヤーサバイバル管理'
+description: 'プレイヤーの体力、空腹度、食事システムの完全仕様。サバイバルモードでのリソース管理とゲームバランス調整。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['health-system', 'hunger-system', 'food-mechanics', 'player-stats', 'survival-mode', 'resource-management']
+prerequisites: ['effect-ts-fundamentals', 'player-system-basics', 'game-balance']
+estimated_reading_time: '5分'
+related_patterns: ['service-patterns', 'state-machine-patterns', 'event-driven-patterns']
+related_docs: ['./02-player-system.md', './19-food-agriculture-system.md', './13-combat-system.md']
 ---
 
 # Health & Hunger System (体力・飢餓システム)
@@ -19,122 +19,119 @@ related_docs: ["./02-player-system.md", "./19-food-agriculture-system.md", "./13
 ## ドメインモデル (Domain Model with Schema)
 
 ```typescript
-import { Schema, Effect, STM, Stream, Ref, Match, Context, Layer } from "effect"
+import { Schema, Effect, STM, Stream, Ref, Match, Context, Layer } from 'effect'
 
 // Branded types for type safety
-export type Health = number & Schema.Brand<"Health">
-export type Hunger = number & Schema.Brand<"Hunger">
-export type Saturation = number & Schema.Brand<"Saturation">
-export type FoodPoints = number & Schema.Brand<"FoodPoints">
+export type Health = number & Schema.Brand<'Health'>
+export type Hunger = number & Schema.Brand<'Hunger'>
+export type Saturation = number & Schema.Brand<'Saturation'>
+export type FoodPoints = number & Schema.Brand<'FoodPoints'>
 
 // Health schema with validation (0-20)
 export const HealthSchema = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("Health")
+  Schema.brand('Health')
 )
 
 // Hunger schema with validation (0-20)
 export const HungerSchema = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("Hunger")
+  Schema.brand('Hunger')
 )
 
 // Saturation schema with validation (0-20, cannot exceed hunger)
 export const SaturationSchema = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(20),
-  Schema.brand("Saturation")
+  Schema.brand('Saturation')
 )
 
 // Food points schema (nutritional value)
-export const FoodPointsSchema = Schema.Number.pipe(
-  Schema.greaterThan(0),
-  Schema.brand("FoodPoints")
-)
+export const FoodPointsSchema = Schema.Number.pipe(Schema.greaterThan(0), Schema.brand('FoodPoints'))
 
 // Player stats aggregate
 export const PlayerStatsSchema = Schema.Struct({
   health: HealthSchema,
   hunger: HungerSchema,
   saturation: SaturationSchema,
-  exhaustion: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0))
+  exhaustion: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
 }).annotations({
-  identifier: "PlayerStats"
+  identifier: 'PlayerStats',
 })
 export type PlayerStats = Schema.Schema.Type<typeof PlayerStatsSchema>
 
 // Status effects using TaggedUnion
-export const StatusEffectSchema = Schema.TaggedUnion("_tag", [
+export const StatusEffectSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("Regeneration"),
-    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("Poison"),
-    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("Wither"),
-    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("Absorption"),
+    _tag: Schema.Literal('Regeneration'),
     level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
     duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
     ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    heartsAbsorbed: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0))
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Hunger"),
+    _tag: Schema.Literal('Poison'),
     level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
     duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-  })
+    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Wither'),
+    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Absorption'),
+    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+    heartsAbsorbed: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('Hunger'),
+    level: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+    duration: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+    ticksRemaining: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  }),
 ]).annotations({
-  identifier: "StatusEffect"
+  identifier: 'StatusEffect',
 })
 export type StatusEffect = Schema.Schema.Type<typeof StatusEffectSchema>
 
 // Damage source types
-export const DamageSourceSchema = Schema.TaggedUnion("_tag", [
+export const DamageSourceSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
-    _tag: Schema.Literal("Fall"),
-    distance: Schema.Number.pipe(Schema.greaterThan(0))
+    _tag: Schema.Literal('Fall'),
+    distance: Schema.Number.pipe(Schema.greaterThan(0)),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Drowning")
+    _tag: Schema.Literal('Drowning'),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Fire"),
-    ticksOnFire: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+    _tag: Schema.Literal('Fire'),
+    ticksOnFire: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Lava")
+    _tag: Schema.Literal('Lava'),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Starvation")
+    _tag: Schema.Literal('Starvation'),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Suffocation")
+    _tag: Schema.Literal('Suffocation'),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("Void")
+    _tag: Schema.Literal('Void'),
   }),
   Schema.Struct({
-    _tag: Schema.Literal("EntityAttack"),
+    _tag: Schema.Literal('EntityAttack'),
     entityId: Schema.String,
-    weapon: Schema.optional(Schema.String)
-  })
+    weapon: Schema.optional(Schema.String),
+  }),
 ]).annotations({
-  identifier: "DamageSource"
+  identifier: 'DamageSource',
 })
 export type DamageSource = Schema.Schema.Type<typeof DamageSourceSchema>
 ```
@@ -153,7 +150,7 @@ export interface PlayerStatsService {
   readonly feed: (playerId: string, foodPoints: FoodPoints, saturationPoints: number) => Effect.Effect<PlayerStats>
 }
 
-export const PlayerStatsService = Context.GenericTag<PlayerStatsService>("@minecraft/PlayerStatsService")
+export const PlayerStatsService = Context.GenericTag<PlayerStatsService>('@minecraft/PlayerStatsService')
 
 // STM-based concurrent stat updates
 export const makePlayerStatsService = Effect.gen(function* () {
@@ -171,12 +168,9 @@ export const makePlayerStatsService = Effect.gen(function* () {
               health: 20 as Health,
               hunger: 20 as Hunger,
               saturation: 5 as Saturation,
-              exhaustion: 0
+              exhaustion: 0,
             }
-            return STM.flatMap(
-              STM.setTMap(statsMap, playerId, defaultStats),
-              () => STM.succeed(defaultStats)
-            )
+            return STM.flatMap(STM.setTMap(statsMap, playerId, defaultStats), () => STM.succeed(defaultStats))
           }),
           Match.exhaustive
         )
@@ -191,10 +185,7 @@ export const makePlayerStatsService = Effect.gen(function* () {
         Match.when(Option.some, (stats) => {
           const newHealth = Math.max(0, Math.min(20, stats.health + delta)) as Health
           const updatedStats = { ...stats, health: newHealth }
-          return STM.flatMap(
-            STM.setTMap(statsMap, playerId, updatedStats),
-            () => STM.succeed(newHealth)
-          )
+          return STM.flatMap(STM.setTMap(statsMap, playerId, updatedStats), () => STM.succeed(newHealth))
         }),
         Match.when(Option.none, () => STM.fail(new Error(`Player ${playerId} not found`))),
         Match.exhaustive
@@ -211,10 +202,7 @@ export const makePlayerStatsService = Effect.gen(function* () {
           // Saturation cannot exceed hunger level
           const newSaturation = Math.min(stats.saturation, newHunger) as Saturation
           const updatedStats = { ...stats, hunger: newHunger, saturation: newSaturation }
-          return STM.flatMap(
-            STM.setTMap(statsMap, playerId, updatedStats),
-            () => STM.succeed(newHunger)
-          )
+          return STM.flatMap(STM.setTMap(statsMap, playerId, updatedStats), () => STM.succeed(newHunger))
         }),
         Match.when(Option.none, () => STM.fail(new Error(`Player ${playerId} not found`))),
         Match.exhaustive
@@ -231,10 +219,7 @@ export const makePlayerStatsService = Effect.gen(function* () {
           const maxSaturation = Math.min(stats.hunger, 20)
           const newSaturation = Math.max(0, Math.min(maxSaturation, stats.saturation + delta)) as Saturation
           const updatedStats = { ...stats, saturation: newSaturation }
-          return STM.flatMap(
-            STM.setTMap(statsMap, playerId, updatedStats),
-            () => STM.succeed(newSaturation)
-          )
+          return STM.flatMap(STM.setTMap(statsMap, playerId, updatedStats), () => STM.succeed(newSaturation))
         }),
         Match.when(Option.none, () => STM.fail(new Error(`Player ${playerId} not found`))),
         Match.exhaustive
@@ -245,16 +230,14 @@ export const makePlayerStatsService = Effect.gen(function* () {
   const calculateDamage = (source: DamageSource, baseAmount: number): number =>
     source.pipe(
       Match.value,
-      Match.when({ _tag: "Fall" }, ({ distance }) =>
-        Math.max(0, Math.ceil(distance - 3))
-      ),
-      Match.when({ _tag: "Drowning" }, () => 2),
-      Match.when({ _tag: "Fire" }, () => 1),
-      Match.when({ _tag: "Lava" }, () => 4),
-      Match.when({ _tag: "Starvation" }, () => 1),
-      Match.when({ _tag: "Suffocation" }, () => 1),
-      Match.when({ _tag: "Void" }, () => 4),
-      Match.when({ _tag: "EntityAttack" }, () => baseAmount),
+      Match.when({ _tag: 'Fall' }, ({ distance }) => Math.max(0, Math.ceil(distance - 3))),
+      Match.when({ _tag: 'Drowning' }, () => 2),
+      Match.when({ _tag: 'Fire' }, () => 1),
+      Match.when({ _tag: 'Lava' }, () => 4),
+      Match.when({ _tag: 'Starvation' }, () => 1),
+      Match.when({ _tag: 'Suffocation' }, () => 1),
+      Match.when({ _tag: 'Void' }, () => 4),
+      Match.when({ _tag: 'EntityAttack' }, () => baseAmount),
       Match.exhaustive
     )
 
@@ -296,7 +279,7 @@ export const makePlayerStatsService = Effect.gen(function* () {
     updateSaturationSTM,
     applyDamage,
     applyHealing,
-    feed
+    feed,
   })
 })
 
@@ -309,7 +292,7 @@ export interface HealthUpdateService {
   readonly processStatusEffects: (playerId: string, effects: ReadonlyArray<StatusEffect>) => Effect.Effect<void>
 }
 
-export const HealthUpdateService = Context.GenericTag<HealthUpdateService>("@minecraft/HealthUpdateService")
+export const HealthUpdateService = Context.GenericTag<HealthUpdateService>('@minecraft/HealthUpdateService')
 
 export const makeHealthUpdateService = Effect.gen(function* () {
   const playerStatsService = yield* PlayerStatsService
@@ -356,9 +339,7 @@ export const makeHealthUpdateService = Effect.gen(function* () {
 
         return Effect.unit
       }).pipe(Effect.flatten)
-    ).pipe(
-      Stream.schedule(Schedule.fixed(Duration.seconds(4)))
-    )
+    ).pipe(Stream.schedule(Schedule.fixed(Duration.seconds(4))))
 
   // Hunger depletion stream - based on exhaustion levels
   const createHungerDepletionStream = (playerId: string) =>
@@ -395,9 +376,7 @@ export const makeHealthUpdateService = Effect.gen(function* () {
 
         return Effect.unit
       }).pipe(Effect.flatten)
-    ).pipe(
-      Stream.schedule(Schedule.fixed(Duration.seconds(1)))
-    )
+    ).pipe(Stream.schedule(Schedule.fixed(Duration.seconds(1))))
 
   // Starvation damage stream when hunger reaches 0
   const createStarvationStream = (playerId: string) =>
@@ -411,32 +390,22 @@ export const makeHealthUpdateService = Effect.gen(function* () {
         }
 
         // Apply starvation damage
-        const starvationSource: DamageSource = { _tag: "Starvation" }
+        const starvationSource: DamageSource = { _tag: 'Starvation' }
         yield* playerStatsService.applyDamage(playerId, starvationSource, 1)
 
         return Effect.unit
       }).pipe(Effect.flatten)
-    ).pipe(
-      Stream.schedule(Schedule.fixed(Duration.seconds(4)))
-    )
+    ).pipe(Stream.schedule(Schedule.fixed(Duration.seconds(4))))
 
   const startHealthRegeneration = (playerId: string): Effect.Effect<void> =>
-    createRegenerationStream(playerId).pipe(
-      Stream.runDrain,
-      Effect.fork,
-      Effect.asUnit
-    )
+    createRegenerationStream(playerId).pipe(Stream.runDrain, Effect.fork, Effect.asUnit)
 
   const startHungerDepletion = (playerId: string): Effect.Effect<void> =>
     Effect.gen(function* () {
       const hungerStream = createHungerDepletionStream(playerId)
       const starvationStream = createStarvationStream(playerId)
 
-      yield* Stream.merge(hungerStream, starvationStream).pipe(
-        Stream.runDrain,
-        Effect.fork,
-        Effect.asUnit
-      )
+      yield* Stream.merge(hungerStream, starvationStream).pipe(Stream.runDrain, Effect.fork, Effect.asUnit)
     })
 
   // Status effect processing with pattern matching
@@ -445,28 +414,28 @@ export const makeHealthUpdateService = Effect.gen(function* () {
       for (const effect of effects) {
         yield* effect.pipe(
           Match.value,
-          Match.when({ _tag: "Regeneration" }, ({ level, ticksRemaining }) => {
+          Match.when({ _tag: 'Regeneration' }, ({ level, ticksRemaining }) => {
             if (ticksRemaining % (50 / level) === 0) {
               return playerStatsService.applyHealing(playerId, 1).pipe(Effect.asUnit)
             }
             return Effect.unit
           }),
-          Match.when({ _tag: "Poison" }, ({ level, ticksRemaining }) => {
+          Match.when({ _tag: 'Poison' }, ({ level, ticksRemaining }) => {
             if (ticksRemaining % (25 / level) === 0) {
-              const poisonSource: DamageSource = { _tag: "EntityAttack", entityId: "poison", weapon: "poison" }
+              const poisonSource: DamageSource = { _tag: 'EntityAttack', entityId: 'poison', weapon: 'poison' }
               return playerStatsService.applyDamage(playerId, poisonSource, 1).pipe(Effect.asUnit)
             }
             return Effect.unit
           }),
-          Match.when({ _tag: "Wither" }, ({ level, ticksRemaining }) => {
+          Match.when({ _tag: 'Wither' }, ({ level, ticksRemaining }) => {
             if (ticksRemaining % (40 / level) === 0) {
-              const witherSource: DamageSource = { _tag: "EntityAttack", entityId: "wither", weapon: "wither" }
+              const witherSource: DamageSource = { _tag: 'EntityAttack', entityId: 'wither', weapon: 'wither' }
               return playerStatsService.applyDamage(playerId, witherSource, 1).pipe(Effect.asUnit)
             }
             return Effect.unit
           }),
-          Match.when({ _tag: "Absorption" }, () => Effect.unit), // Handled in damage calculation
-          Match.when({ _tag: "Hunger" }, ({ level, ticksRemaining }) => {
+          Match.when({ _tag: 'Absorption' }, () => Effect.unit), // Handled in damage calculation
+          Match.when({ _tag: 'Hunger' }, ({ level, ticksRemaining }) => {
             if (ticksRemaining % 80 === 0) {
               // Increase exhaustion based on hunger level
               return Effect.gen(function* () {
@@ -497,7 +466,7 @@ export const makeHealthUpdateService = Effect.gen(function* () {
   return HealthUpdateService.of({
     startHealthRegeneration,
     startHungerDepletion,
-    processStatusEffects
+    processStatusEffects,
   })
 })
 
@@ -510,7 +479,7 @@ export interface FoodService {
   readonly calculateSaturation: (foodPoints: number, saturationModifier: number) => Effect.Effect<number>
 }
 
-export const FoodService = Context.GenericTag<FoodService>("@minecraft/FoodService")
+export const FoodService = Context.GenericTag<FoodService>('@minecraft/FoodService')
 
 // Food statistics schema
 export const FoodStatsSchema = Schema.Struct({
@@ -518,9 +487,9 @@ export const FoodStatsSchema = Schema.Struct({
   nutrition: FoodPointsSchema,
   saturationModifier: Schema.Number.pipe(Schema.greaterThan(0)),
   canAlwaysEat: Schema.Boolean,
-  eatDurationTicks: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
+  eatDurationTicks: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
 }).annotations({
-  identifier: "FoodStats"
+  identifier: 'FoodStats',
 })
 export type FoodStats = Schema.Schema.Type<typeof FoodStatsSchema>
 
@@ -529,12 +498,66 @@ export const makeFoodService = Effect.gen(function* () {
 
   // Food database with saturation curves
   const foodDatabase = new Map<string, FoodStats>([
-    ["apple", { foodType: "apple", nutrition: 4 as FoodPoints, saturationModifier: 2.4, canAlwaysEat: false, eatDurationTicks: 32 }],
-    ["bread", { foodType: "bread", nutrition: 5 as FoodPoints, saturationModifier: 6.0, canAlwaysEat: false, eatDurationTicks: 32 }],
-    ["cooked_beef", { foodType: "cooked_beef", nutrition: 8 as FoodPoints, saturationModifier: 12.8, canAlwaysEat: false, eatDurationTicks: 32 }],
-    ["golden_apple", { foodType: "golden_apple", nutrition: 4 as FoodPoints, saturationModifier: 9.6, canAlwaysEat: true, eatDurationTicks: 32 }],
-    ["chorus_fruit", { foodType: "chorus_fruit", nutrition: 4 as FoodPoints, saturationModifier: 2.4, canAlwaysEat: true, eatDurationTicks: 32 }],
-    ["honey_bottle", { foodType: "honey_bottle", nutrition: 6 as FoodPoints, saturationModifier: 1.2, canAlwaysEat: true, eatDurationTicks: 40 }]
+    [
+      'apple',
+      {
+        foodType: 'apple',
+        nutrition: 4 as FoodPoints,
+        saturationModifier: 2.4,
+        canAlwaysEat: false,
+        eatDurationTicks: 32,
+      },
+    ],
+    [
+      'bread',
+      {
+        foodType: 'bread',
+        nutrition: 5 as FoodPoints,
+        saturationModifier: 6.0,
+        canAlwaysEat: false,
+        eatDurationTicks: 32,
+      },
+    ],
+    [
+      'cooked_beef',
+      {
+        foodType: 'cooked_beef',
+        nutrition: 8 as FoodPoints,
+        saturationModifier: 12.8,
+        canAlwaysEat: false,
+        eatDurationTicks: 32,
+      },
+    ],
+    [
+      'golden_apple',
+      {
+        foodType: 'golden_apple',
+        nutrition: 4 as FoodPoints,
+        saturationModifier: 9.6,
+        canAlwaysEat: true,
+        eatDurationTicks: 32,
+      },
+    ],
+    [
+      'chorus_fruit',
+      {
+        foodType: 'chorus_fruit',
+        nutrition: 4 as FoodPoints,
+        saturationModifier: 2.4,
+        canAlwaysEat: true,
+        eatDurationTicks: 32,
+      },
+    ],
+    [
+      'honey_bottle',
+      {
+        foodType: 'honey_bottle',
+        nutrition: 6 as FoodPoints,
+        saturationModifier: 1.2,
+        canAlwaysEat: true,
+        eatDurationTicks: 40,
+      },
+    ],
   ])
 
   const getFoodStats = (foodType: string): Effect.Effect<FoodStats> =>
@@ -557,7 +580,7 @@ export const makeFoodService = Effect.gen(function* () {
 
       // Check if player can eat (hunger not full or can always eat)
       if (currentStats.hunger >= 20 && !foodStats.canAlwaysEat) {
-        return yield* Effect.fail(new Error("Player is not hungry"))
+        return yield* Effect.fail(new Error('Player is not hungry'))
       }
 
       // Calculate saturation points to add
@@ -579,23 +602,23 @@ export const makeFoodService = Effect.gen(function* () {
       // Special food effects with pattern matching
       const foodEffects = foodType.pipe(
         Match.value,
-        Match.when("golden_apple", () =>
+        Match.when('golden_apple', () =>
           Effect.gen(function* () {
             // Golden apple gives absorption and regeneration
             // This would trigger status effect application
-            yield* Effect.log("Applied golden apple effects: Absorption II (2:00), Regeneration II (0:05)")
+            yield* Effect.log('Applied golden apple effects: Absorption II (2:00), Regeneration II (0:05)')
           })
         ),
-        Match.when("chorus_fruit", () =>
+        Match.when('chorus_fruit', () =>
           Effect.gen(function* () {
             // Chorus fruit teleports player randomly
-            yield* Effect.log("Chorus fruit consumed: Random teleportation triggered")
+            yield* Effect.log('Chorus fruit consumed: Random teleportation triggered')
           })
         ),
-        Match.when("honey_bottle", () =>
+        Match.when('honey_bottle', () =>
           Effect.gen(function* () {
             // Honey bottle removes poison effect
-            yield* Effect.log("Honey bottle consumed: Poison effect removed")
+            yield* Effect.log('Honey bottle consumed: Poison effect removed')
           })
         ),
         Match.orElse(() => Effect.unit)
@@ -609,7 +632,7 @@ export const makeFoodService = Effect.gen(function* () {
   return FoodService.of({
     getFoodStats,
     consumeFood,
-    calculateSaturation
+    calculateSaturation,
   })
 })
 
@@ -622,7 +645,7 @@ export interface DeathService {
   readonly isPlayerDead: (playerId: string) => Effect.Effect<boolean>
 }
 
-export const DeathService = Context.GenericTag<DeathService>("@minecraft/DeathService")
+export const DeathService = Context.GenericTag<DeathService>('@minecraft/DeathService')
 
 export const makeDeathService = Effect.gen(function* () {
   const playerStatsService = yield* PlayerStatsService
@@ -644,31 +667,20 @@ export const makeDeathService = Effect.gen(function* () {
       // Generate death message using pattern matching
       const deathMessage = cause.pipe(
         Match.value,
-        Match.when({ _tag: "Fall" }, ({ distance }) =>
-          `Player ${playerId} fell from a high place (${Math.floor(distance)} blocks)`
+        Match.when(
+          { _tag: 'Fall' },
+          ({ distance }) => `Player ${playerId} fell from a high place (${Math.floor(distance)} blocks)`
         ),
-        Match.when({ _tag: "Drowning" }, () =>
-          `Player ${playerId} drowned`
-        ),
-        Match.when({ _tag: "Fire" }, () =>
-          `Player ${playerId} went up in flames`
-        ),
-        Match.when({ _tag: "Lava" }, () =>
-          `Player ${playerId} tried to swim in lava`
-        ),
-        Match.when({ _tag: "Starvation" }, () =>
-          `Player ${playerId} starved to death`
-        ),
-        Match.when({ _tag: "Suffocation" }, () =>
-          `Player ${playerId} suffocated in a wall`
-        ),
-        Match.when({ _tag: "Void" }, () =>
-          `Player ${playerId} fell out of the world`
-        ),
-        Match.when({ _tag: "EntityAttack" }, ({ entityId, weapon }) =>
-          weapon ?
-            `Player ${playerId} was slain by ${entityId} using ${weapon}` :
-            `Player ${playerId} was slain by ${entityId}`
+        Match.when({ _tag: 'Drowning' }, () => `Player ${playerId} drowned`),
+        Match.when({ _tag: 'Fire' }, () => `Player ${playerId} went up in flames`),
+        Match.when({ _tag: 'Lava' }, () => `Player ${playerId} tried to swim in lava`),
+        Match.when({ _tag: 'Starvation' }, () => `Player ${playerId} starved to death`),
+        Match.when({ _tag: 'Suffocation' }, () => `Player ${playerId} suffocated in a wall`),
+        Match.when({ _tag: 'Void' }, () => `Player ${playerId} fell out of the world`),
+        Match.when({ _tag: 'EntityAttack' }, ({ entityId, weapon }) =>
+          weapon
+            ? `Player ${playerId} was slain by ${entityId} using ${weapon}`
+            : `Player ${playerId} was slain by ${entityId}`
         ),
         Match.exhaustive
       )
@@ -702,14 +714,12 @@ export const makeDeathService = Effect.gen(function* () {
     })
 
   const isPlayerDead = (playerId: string): Effect.Effect<boolean> =>
-    Ref.get(deadPlayersRef).pipe(
-      Effect.map((deadPlayers) => deadPlayers.has(playerId))
-    )
+    Ref.get(deadPlayersRef).pipe(Effect.map((deadPlayers) => deadPlayers.has(playerId)))
 
   return DeathService.of({
     handlePlayerDeath,
     respawnPlayer,
-    isPlayerDead
+    isPlayerDead,
   })
 })
 
@@ -724,9 +734,9 @@ export const HealthComponentSchema = Schema.Struct({
   current: HealthSchema,
   maximum: HealthSchema,
   lastDamageTime: Schema.Number.pipe(Schema.int()),
-  invulnerabilityTicks: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+  invulnerabilityTicks: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
 }).annotations({
-  identifier: "HealthComponent"
+  identifier: 'HealthComponent',
 })
 export type HealthComponent = Schema.Schema.Type<typeof HealthComponentSchema>
 
@@ -734,17 +744,17 @@ export const HungerComponentSchema = Schema.Struct({
   hunger: HungerSchema,
   saturation: SaturationSchema,
   exhaustion: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
-  lastFoodTime: Schema.Number.pipe(Schema.int())
+  lastFoodTime: Schema.Number.pipe(Schema.int()),
 }).annotations({
-  identifier: "HungerComponent"
+  identifier: 'HungerComponent',
 })
 export type HungerComponent = Schema.Schema.Type<typeof HungerComponentSchema>
 
 export const StatusEffectsComponentSchema = Schema.Struct({
   effects: Schema.Array(StatusEffectSchema),
-  lastUpdateTime: Schema.Number.pipe(Schema.int())
+  lastUpdateTime: Schema.Number.pipe(Schema.int()),
 }).annotations({
-  identifier: "StatusEffectsComponent"
+  identifier: 'StatusEffectsComponent',
 })
 export type StatusEffectsComponent = Schema.Schema.Type<typeof StatusEffectsComponentSchema>
 
@@ -780,9 +790,9 @@ export const HealthHungerUISchema = Schema.Struct({
   saturation: SaturationSchema,
   statusEffects: Schema.Array(StatusEffectSchema),
   isRegenerated: Schema.Boolean,
-  damageFlash: Schema.Boolean
+  damageFlash: Schema.Boolean,
 }).annotations({
-  identifier: "HealthHungerUIState"
+  identifier: 'HealthHungerUIState',
 })
 export type HealthHungerUIState = Schema.Schema.Type<typeof HealthHungerUISchema>
 
@@ -800,7 +810,7 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
         saturation: stats.saturation,
         statusEffects: [], // Would be populated from status effects service
         isRegenerated: stats.health > 18 && stats.hunger > 17,
-        damageFlash: false // Would be set temporarily after damage
+        damageFlash: false, // Would be set temporarily after damage
       }
 
       yield* Ref.update(uiStateRef, (stateMap) => new Map(stateMap).set(playerId, uiState))
@@ -819,11 +829,7 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
       const halfHeart = health % 2 === 1
       const emptyHearts = 10 - fullHearts - (halfHeart ? 1 : 0)
 
-      const hearts = [
-        "♥".repeat(fullHearts),
-        halfHeart ? "♡" : "",
-        "♤".repeat(emptyHearts)
-      ].join("")
+      const hearts = ['♥'.repeat(fullHearts), halfHeart ? '♡' : '', '♤'.repeat(emptyHearts)].join('')
 
       return `Health: ${hearts} (${health}/20)`
     })
@@ -834,11 +840,7 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
       const halfDrumstick = hunger % 2 === 1
       const emptyDrumsticks = 10 - fullDrumsticks - (halfDrumstick ? 1 : 0)
 
-      const drumsticks = [
-        "🍗".repeat(fullDrumsticks),
-        halfDrumstick ? "🦴" : "",
-        "⬜".repeat(emptyDrumsticks)
-      ].join("")
+      const drumsticks = ['🍗'.repeat(fullDrumsticks), halfDrumstick ? '🦴' : '', '⬜'.repeat(emptyDrumsticks)].join('')
 
       return `Hunger: ${drumsticks} (${hunger}/20) Sat: ${saturation.toFixed(1)}`
     })
@@ -847,7 +849,7 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
     getUIState,
     subscribeToUpdates,
     formatHealthBar,
-    formatHungerBar
+    formatHungerBar,
   }
 })
 ```
@@ -855,31 +857,31 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
 ## テスト (Property-Based Testing Compatible)
 
 ```typescript
-import { Schema, Effect, Gen, TestClock, it } from "effect"
-import { fc } from "fast-check"
+import { Schema, Effect, Gen, TestClock, it } from 'effect'
+import { fc } from 'fast-check'
 
 // Property-based test generators
-const genHealth = fc.integer({ min: 0, max: 20 }).map(n => n as Health)
-const genHunger = fc.integer({ min: 0, max: 20 }).map(n => n as Hunger)
-const genSaturation = fc.float({ min: 0, max: 20 }).map(n => n as Saturation)
+const genHealth = fc.integer({ min: 0, max: 20 }).map((n) => n as Health)
+const genHunger = fc.integer({ min: 0, max: 20 }).map((n) => n as Hunger)
+const genSaturation = fc.float({ min: 0, max: 20 }).map((n) => n as Saturation)
 
 const genPlayerStats = fc.record({
   health: genHealth,
   hunger: genHunger,
   saturation: genSaturation,
-  exhaustion: fc.float({ min: 0, max: 10 })
+  exhaustion: fc.float({ min: 0, max: 10 }),
 })
 
 const genDamageSource = fc.oneof(
-  fc.record({ _tag: fc.constant("Fall"), distance: fc.float({ min: 1, max: 100 }) }),
-  fc.record({ _tag: fc.constant("Drowning") }),
-  fc.record({ _tag: fc.constant("Fire"), ticksOnFire: fc.integer({ min: 0, max: 100 }) }),
-  fc.record({ _tag: fc.constant("Starvation") })
+  fc.record({ _tag: fc.constant('Fall'), distance: fc.float({ min: 1, max: 100 }) }),
+  fc.record({ _tag: fc.constant('Drowning') }),
+  fc.record({ _tag: fc.constant('Fire'), ticksOnFire: fc.integer({ min: 0, max: 100 }) }),
+  fc.record({ _tag: fc.constant('Starvation') })
 )
 
 // Property-based tests
-describe("Health/Hunger System Properties", () => {
-  it.effect("health never exceeds maximum", () =>
+describe('Health/Hunger System Properties', () => {
+  it.effect('health never exceeds maximum', () =>
     Effect.gen(function* () {
       const testLive = PlayerStatsServiceLive.pipe(Layer.provide(TestContext.TestContext))
 
@@ -890,7 +892,7 @@ describe("Health/Hunger System Properties", () => {
         yield* fc.assert(
           fc.asyncProperty(genPlayerStats, fc.integer({ min: 1, max: 100 }), (stats, healing) =>
             Effect.gen(function* () {
-              const playerId = "test-player"
+              const playerId = 'test-player'
               // Set initial stats
               yield* STM.atomically(service.updateHealthSTM(playerId, stats.health - 20))
 
@@ -907,7 +909,7 @@ describe("Health/Hunger System Properties", () => {
     })
   )
 
-  it.effect("hunger depletion respects saturation priority", () =>
+  it.effect('hunger depletion respects saturation priority', () =>
     Effect.gen(function* () {
       const testLive = PlayerStatsServiceLive.pipe(Layer.provide(TestContext.TestContext))
 
@@ -918,7 +920,7 @@ describe("Health/Hunger System Properties", () => {
         yield* fc.assert(
           fc.asyncProperty(genPlayerStats, (initialStats) =>
             Effect.gen(function* () {
-              const playerId = "test-player"
+              const playerId = 'test-player'
 
               // Simulate hunger depletion over time
               if (initialStats.saturation > 0) {
@@ -937,7 +939,7 @@ describe("Health/Hunger System Properties", () => {
     })
   )
 
-  it.effect("damage calculation is deterministic", () =>
+  it.effect('damage calculation is deterministic', () =>
     Effect.gen(function* () {
       const testLive = PlayerStatsServiceLive.pipe(Layer.provide(TestContext.TestContext))
 
@@ -948,8 +950,8 @@ describe("Health/Hunger System Properties", () => {
         yield* fc.assert(
           fc.asyncProperty(genDamageSource, fc.integer({ min: 1, max: 20 }), (source, baseAmount) =>
             Effect.gen(function* () {
-              const playerId1 = "test-player-1"
-              const playerId2 = "test-player-2"
+              const playerId1 = 'test-player-1'
+              const playerId2 = 'test-player-2'
 
               // Set same initial health for both players
               yield* STM.atomically(
@@ -977,14 +979,14 @@ describe("Health/Hunger System Properties", () => {
 })
 
 // Unit tests for specific scenarios
-describe("Health/Hunger System Unit Tests", () => {
-  it.effect("regeneration only works when hunger > 17", () =>
+describe('Health/Hunger System Unit Tests', () => {
+  it.effect('regeneration only works when hunger > 17', () =>
     Effect.gen(function* () {
       const testLive = PlayerStatsServiceLive.pipe(Layer.provide(TestContext.TestContext))
 
       yield* Effect.gen(function* () {
         const service = yield* PlayerStatsService
-        const playerId = "test-player"
+        const playerId = 'test-player'
 
         // Set low hunger (16)
         yield* STM.atomically(
@@ -1003,11 +1005,14 @@ describe("Health/Hunger System Unit Tests", () => {
 
         // Health should not have regenerated
         return finalStats.health === initialStats.health && finalStats.health === 15
-      }).pipe(Effect.provide(testLive), Effect.map(result => expect(result).toBe(true)))
+      }).pipe(
+        Effect.provide(testLive),
+        Effect.map((result) => expect(result).toBe(true))
+      )
     })
   )
 
-  it.effect("golden apple provides special effects", () =>
+  it.effect('golden apple provides special effects', () =>
     Effect.gen(function* () {
       const testLive = FoodServiceLive.pipe(
         Layer.provide(PlayerStatsServiceLive),
@@ -1016,14 +1021,17 @@ describe("Health/Hunger System Unit Tests", () => {
 
       yield* Effect.gen(function* () {
         const foodService = yield* FoodService
-        const playerId = "test-player"
+        const playerId = 'test-player'
 
         // Consume golden apple
-        const result = yield* foodService.consumeFood(playerId, "golden_apple")
+        const result = yield* foodService.consumeFood(playerId, 'golden_apple')
 
         // Should succeed even when hunger is full (canAlwaysEat: true)
         return result.hunger <= 20 && result.saturation <= result.hunger
-      }).pipe(Effect.provide(testLive), Effect.map(result => expect(result).toBe(true)))
+      }).pipe(
+        Effect.provide(testLive),
+        Effect.map((result) => expect(result).toBe(true))
+      )
     })
   )
 })
@@ -1035,7 +1043,9 @@ describe("Health/Hunger System Unit Tests", () => {
 // Performance optimized batch operations
 export interface BatchHealthUpdateService {
   readonly batchUpdateHealth: (updates: ReadonlyArray<{ playerId: string; delta: number }>) => Effect.Effect<void>
-  readonly batchProcessStatusEffects: (playerEffects: ReadonlyArray<{ playerId: string; effects: ReadonlyArray<StatusEffect> }>) => Effect.Effect<void>
+  readonly batchProcessStatusEffects: (
+    playerEffects: ReadonlyArray<{ playerId: string; effects: ReadonlyArray<StatusEffect> }>
+  ) => Effect.Effect<void>
 }
 
 export const makeBatchHealthUpdateService = Effect.gen(function* () {
@@ -1062,14 +1072,14 @@ export const makeBatchHealthUpdateService = Effect.gen(function* () {
     })
 
   // Batch process status effects for multiple players
-  const batchProcessStatusEffects = (playerEffects: ReadonlyArray<{ playerId: string; effects: ReadonlyArray<StatusEffect> }>): Effect.Effect<void> =>
+  const batchProcessStatusEffects = (
+    playerEffects: ReadonlyArray<{ playerId: string; effects: ReadonlyArray<StatusEffect> }>
+  ): Effect.Effect<void> =>
     Effect.gen(function* () {
       // Process effects in parallel for better performance
       yield* Effect.all(
-        playerEffects.map(({ playerId, effects }) =>
-          processStatusEffectsOptimized(playerId, effects)
-        ),
-        { concurrency: "unbounded" }
+        playerEffects.map(({ playerId, effects }) => processStatusEffectsOptimized(playerId, effects)),
+        { concurrency: 'unbounded' }
       )
     })
 
@@ -1080,18 +1090,21 @@ export const makeBatchHealthUpdateService = Effect.gen(function* () {
       if (effects.length === 0) return
 
       // Group effects by type for batch processing
-      const effectGroups = effects.reduce((acc, effect) => {
-        if (!acc[effect._tag]) acc[effect._tag] = []
-        acc[effect._tag].push(effect)
-        return acc
-      }, {} as Record<string, StatusEffect[]>)
+      const effectGroups = effects.reduce(
+        (acc, effect) => {
+          if (!acc[effect._tag]) acc[effect._tag] = []
+          acc[effect._tag].push(effect)
+          return acc
+        },
+        {} as Record<string, StatusEffect[]>
+      )
 
       // Process each effect type in batch
       for (const [effectType, effectList] of Object.entries(effectGroups)) {
         yield* effectType.pipe(
           Match.value,
-          Match.when("Regeneration", () => processBatchRegeneration(playerId, effectList)),
-          Match.when("Poison", () => processBatchPoison(playerId, effectList)),
+          Match.when('Regeneration', () => processBatchRegeneration(playerId, effectList)),
+          Match.when('Poison', () => processBatchPoison(playerId, effectList)),
           Match.orElse(() => Effect.unit)
         )
       }
@@ -1101,7 +1114,7 @@ export const makeBatchHealthUpdateService = Effect.gen(function* () {
     Effect.gen(function* () {
       // Sum all regeneration effects
       const totalHealing = effects.reduce((total, effect) => {
-        if (effect._tag === "Regeneration" && effect.ticksRemaining % (50 / effect.level) === 0) {
+        if (effect._tag === 'Regeneration' && effect.ticksRemaining % (50 / effect.level) === 0) {
           return total + 1
         }
         return total
@@ -1116,21 +1129,21 @@ export const makeBatchHealthUpdateService = Effect.gen(function* () {
     Effect.gen(function* () {
       // Sum all poison damage
       const totalDamage = effects.reduce((total, effect) => {
-        if (effect._tag === "Poison" && effect.ticksRemaining % (25 / effect.level) === 0) {
+        if (effect._tag === 'Poison' && effect.ticksRemaining % (25 / effect.level) === 0) {
           return total + 1
         }
         return total
       }, 0)
 
       if (totalDamage > 0) {
-        const poisonSource: DamageSource = { _tag: "EntityAttack", entityId: "poison", weapon: "poison" }
+        const poisonSource: DamageSource = { _tag: 'EntityAttack', entityId: 'poison', weapon: 'poison' }
         yield* playerStatsService.applyDamage(playerId, poisonSource, totalDamage).pipe(Effect.asUnit)
       }
     })
 
   return {
     batchUpdateHealth,
-    batchProcessStatusEffects
+    batchProcessStatusEffects,
   }
 })
 
@@ -1139,9 +1152,9 @@ export const HealthSystemMetrics = Schema.Struct({
   playersTracked: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   updatesPerSecond: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
   averageProcessingTimeMs: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
-  memoryUsageMB: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0))
+  memoryUsageMB: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
 }).annotations({
-  identifier: "HealthSystemMetrics"
+  identifier: 'HealthSystemMetrics',
 })
 export type HealthSystemMetrics = Schema.Schema.Type<typeof HealthSystemMetrics>
 

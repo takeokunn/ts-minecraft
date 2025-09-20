@@ -65,6 +65,7 @@ pnpm lint
    - IssueにはROADMAP.mdのタスク番号を記載
 
 2. **ブランチ作成**
+
    ```bash
    # Issue番号を含むブランチ名
    git checkout -b feat/issue-123-player-movement
@@ -119,7 +120,7 @@ export const PlayerService = Context.GenericTag<PlayerService>('PlayerService')
 export const PlayerState = Schema.Struct({
   position: Vector3Schema,
   velocity: Vector3Schema,
-  health: Schema.Number.pipe(Schema.between(0, 100))
+  health: Schema.Number.pipe(Schema.between(0, 100)),
 })
 ```
 
@@ -137,7 +138,8 @@ function move() {
 }
 
 // ❌ 悪い例: async/await禁止
-async function loadWorld() { // async/await禁止、Effect使用
+async function loadWorld() {
+  // async/await禁止、Effect使用
   await fetchData()
 }
 ```
@@ -211,21 +213,26 @@ Closes #123
 
 ```markdown
 ## 概要
+
 Issue #xxx の実装
 
 ## 変更内容
+
 - [ ] PlayerServiceの実装
 - [ ] テストの追加
 - [ ] ドキュメントの更新
 
 ## テスト結果
+
 - カバレッジ: 85%
 - 全テスト合格
 
 ## スクリーンショット
+
 （該当する場合）
 
 ## チェックリスト
+
 - [ ] 型チェック合格
 - [ ] Lint合格
 - [ ] テスト合格
@@ -253,15 +260,14 @@ Issue #xxx の実装
 ### テスト種別
 
 1. **単体テスト**
+
    ```typescript
    import { describe, it, expect } from 'vitest'
    import { Effect, TestClock } from 'effect'
 
    describe('PlayerService', () => {
      it('should move player correctly', () => {
-       const result = Effect.runSync(
-         PlayerService.move({ x: 1, y: 0, z: 0 })
-       )
+       const result = Effect.runSync(PlayerService.move({ x: 1, y: 0, z: 0 }))
        expect(result).toBeDefined()
      })
    })

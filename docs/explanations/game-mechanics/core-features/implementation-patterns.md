@@ -1,13 +1,13 @@
 ---
-title: "実装パターン - Effect-TS 3.17+具体的実装"
-description: "Effect-TS 3.17+の最新APIを使用したコア機能の具体的実装パターンとコード例。"
-category: "specification"
-difficulty: "advanced"
-tags: ["implementation", "effect-ts", "patterns", "code-examples"]
-prerequisites: ["effect-ts-fundamentals", "architecture-principles"]
-estimated_reading_time: "20分"
-related_patterns: ["service-patterns", "error-handling-patterns"]
-related_docs: ["./00-architecture-principles.md", "../explanations/architecture/06-effect-ts-patterns.md"]
+title: '実装パターン - Effect-TS 3.17+具体的実装'
+description: 'Effect-TS 3.17+の最新APIを使用したコア機能の具体的実装パターンとコード例。'
+category: 'specification'
+difficulty: 'advanced'
+tags: ['implementation', 'effect-ts', 'patterns', 'code-examples']
+prerequisites: ['effect-ts-fundamentals', 'architecture-principles']
+estimated_reading_time: '20分'
+related_patterns: ['service-patterns', 'error-handling-patterns']
+related_docs: ['./00-architecture-principles.md', '../explanations/architecture/06-effect-ts-patterns.md']
 ---
 
 # 実装パターン
@@ -19,24 +19,20 @@ related_docs: ["./00-architecture-principles.md", "../explanations/architecture/
 ## 1. Service定義パターン（最新）
 
 ### @app/ネームスペース統一パターン
+
 ```typescript
 // ❌ 古いパターン - classベース (廃止)
 // export interface WorldServiceInterface extends ... {}
-const WorldService = Context.GenericTag<WorldServiceInterface>("WorldService")
+const WorldService = Context.GenericTag<WorldServiceInterface>('WorldService')
 
 // ✅ 新しいパターン - @app/ネームスペース
 export const WorldService = Context.GenericTag<{
-  readonly generateChunk: (coord: ChunkCoordinate) =>
-    Effect.Effect<Chunk, ChunkGenerationError>
-  readonly loadChunk: (coord: ChunkCoordinate) =>
-    Effect.Effect<Chunk, ChunkLoadError>
-  readonly unloadChunk: (coord: ChunkCoordinate) =>
-    Effect.Effect<void, never>
-  readonly getBlockAt: (pos: Position) =>
-    Effect.Effect<Option.Option<Block>, never>
-  readonly setBlockAt: (pos: Position, block: Block) =>
-    Effect.Effect<void, WorldUpdateError>
-}>("@app/WorldService")
+  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkGenerationError>
+  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
+  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
+  readonly getBlockAt: (pos: Position) => Effect.Effect<Option.Option<Block>, never>
+  readonly setBlockAt: (pos: Position, block: Block) => Effect.Effect<void, WorldUpdateError>
+}>('@app/WorldService')
 
 // レイヤー実装
 export const WorldServiceLive = Layer.succeed(
@@ -46,7 +42,7 @@ export const WorldServiceLive = Layer.succeed(
     loadChunk: (coord) => loadChunkImpl(coord),
     unloadChunk: (coord) => unloadChunkImpl(coord),
     getBlockAt: (pos) => getBlockAtImpl(pos),
-    setBlockAt: (pos, block) => setBlockAtImpl(pos, block)
+    setBlockAt: (pos, block) => setBlockAtImpl(pos, block),
   })
 )
 ```
@@ -54,37 +50,39 @@ export const WorldServiceLive = Layer.succeed(
 ## 2. Schema定義パターン（最新）
 
 ### 基本スキーマ構築
+
 ```typescript
 // 基本座標系
 export const Position = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 export type Position = Schema.Schema.Type<typeof Position>
 
 // チャンク座標（整数制約付き）
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int())
+  z: Schema.Number.pipe(Schema.int()),
 })
 export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 
 // ブロック定義
-export const BlockType = Schema.Literal("air", "stone", "dirt", "wood", "leaves")
+export const BlockType = Schema.Literal('air', 'stone', 'dirt', 'wood', 'leaves')
 export const Block = Schema.Struct({
   type: BlockType,
   properties: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  metadata: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.min(0), Schema.max(15)))
+  metadata: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.min(0), Schema.max(15))),
 })
 export type Block = Schema.Schema.Type<typeof Block>
 ```
 
 ### 統合エラー定義システム
+
 ```typescript
 // エラー定義 - Effect-TS 3.x標準化パターン
 export namespace CoreSystemErrors {
-  export const ChunkGenerationError = Schema.TaggedError("CoreSystemErrors.ChunkGenerationError", {
+  export const ChunkGenerationError = Schema.TaggedError('CoreSystemErrors.ChunkGenerationError', {
     chunkX: Schema.Number,
     chunkZ: Schema.Number,
     biome: Schema.String,
@@ -94,13 +92,13 @@ export namespace CoreSystemErrors {
     performance: Schema.Struct({
       startTime: Schema.Number,
       duration: Schema.Number,
-      memoryUsed: Schema.Number
+      memoryUsed: Schema.Number,
     }),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface ChunkGenerationError extends Schema.Schema.Type<typeof ChunkGenerationError> {}
 
-  export const WorldUpdateError = Schema.TaggedError("CoreSystemErrors.WorldUpdateError", {
+  export const WorldUpdateError = Schema.TaggedError('CoreSystemErrors.WorldUpdateError', {
     position: Position,
     updateType: Schema.String,
     reason: Schema.String,
@@ -108,27 +106,29 @@ export namespace CoreSystemErrors {
     newValue: Schema.optional(Schema.Unknown),
     affectedEntities: Schema.Array(Schema.String),
     rollbackPossible: Schema.Boolean,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface WorldUpdateError extends Schema.Schema.Type<typeof WorldUpdateError> {}
 
-  export const PlayerMovementError = Schema.TaggedError("CoreSystemErrors.PlayerMovementError", {
+  export const PlayerMovementError = Schema.TaggedError('CoreSystemErrors.PlayerMovementError', {
     playerId: Schema.String,
     currentPosition: Position,
     targetPosition: Position,
     movementType: Schema.String,
     reason: Schema.String,
-    collisionDetails: Schema.optional(Schema.Struct({
-      collisionType: Schema.String,
-      obstaclePosition: Position,
-      obstacleType: Schema.String
-    })),
+    collisionDetails: Schema.optional(
+      Schema.Struct({
+        collisionType: Schema.String,
+        obstaclePosition: Position,
+        obstacleType: Schema.String,
+      })
+    ),
     validationFailures: Schema.Array(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface PlayerMovementError extends Schema.Schema.Type<typeof PlayerMovementError> {}
 
-  export const SystemPerformanceError = Schema.TaggedError("CoreSystemErrors.SystemPerformanceError", {
+  export const SystemPerformanceError = Schema.TaggedError('CoreSystemErrors.SystemPerformanceError', {
     systemName: Schema.String,
     frameTime: Schema.Number,
     maxAllowedTime: Schema.Number,
@@ -137,11 +137,11 @@ export namespace CoreSystemErrors {
     entityCount: Schema.Number,
     chunkCount: Schema.Number,
     performanceMetrics: Schema.Record(Schema.String, Schema.Number),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface SystemPerformanceError extends Schema.Schema.Type<typeof SystemPerformanceError> {}
 
-  export const ECSSystemError = Schema.TaggedError("CoreSystemErrors.ECSSystemError", {
+  export const ECSSystemError = Schema.TaggedError('CoreSystemErrors.ECSSystemError', {
     systemName: Schema.String,
     componentTypes: Schema.Array(Schema.String),
     entityCount: Schema.Number,
@@ -149,11 +149,11 @@ export namespace CoreSystemErrors {
     reason: Schema.String,
     failedEntityId: Schema.optional(Schema.String),
     recoveryAction: Schema.optional(Schema.String),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface ECSSystemError extends Schema.Schema.Type<typeof ECSSystemError> {}
 
-  export const SoAOptimizationError = Schema.TaggedError("CoreSystemErrors.SoAOptimizationError", {
+  export const SoAOptimizationError = Schema.TaggedError('CoreSystemErrors.SoAOptimizationError', {
     arrayType: Schema.String,
     arraySize: Schema.Number,
     expectedSize: Schema.Number,
@@ -161,7 +161,7 @@ export namespace CoreSystemErrors {
     alignmentIssue: Schema.Boolean,
     performanceImpact: Schema.Number,
     suggestedFix: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   })
   export interface SoAOptimizationError extends Schema.Schema.Type<typeof SoAOptimizationError> {}
 }
@@ -178,13 +178,14 @@ export type CoreSystemError =
 ## 3. 早期リターンパターン
 
 ### バリデーション主導の実装
+
 ```typescript
 // バリデーション付き処理関数 - Effect-TS 3.x最新パターン
 const processPlayerMovement = (
   playerId: string,
   currentPosition: Position,
   targetPosition: unknown,
-  movementType: string = "walk"
+  movementType: string = 'walk'
 ): Effect.Effect<Position, CoreSystemErrors.PlayerMovementError> =>
   Effect.gen(function* () {
     // 早期リターン: プレイヤーID検証
@@ -195,30 +196,31 @@ const processPlayerMovement = (
           currentPosition,
           targetPosition: { x: 0, y: 0, z: 0 }, // デフォルト値
           movementType,
-          reason: "無効なプレイヤーID - 空文字列は許可されません",
-          validationFailures: ["playerId.empty"],
-          timestamp: Date.now()
+          reason: '無効なプレイヤーID - 空文字列は許可されません',
+          validationFailures: ['playerId.empty'],
+          timestamp: Date.now(),
         })
       )
     }
 
     // Schema バリデーション - 最新API使用
     const validPosition = yield* Schema.decodeUnknown(Position)(targetPosition).pipe(
-      Effect.mapError((error) =>
-        new CoreSystemErrors.PlayerMovementError({
-          playerId,
-          currentPosition,
-          targetPosition: { x: 0, y: 0, z: 0 },
-          movementType,
-          reason: `座標バリデーション失敗: ${error.message}`,
-          validationFailures: [
-            `schema.validation.failed`,
-            `field: ${error.path?.join('.') || 'unknown'}`,
-            `expected: Position`,
-            `actual: ${typeof targetPosition}`
-          ],
-          timestamp: Date.now()
-        })
+      Effect.mapError(
+        (error) =>
+          new CoreSystemErrors.PlayerMovementError({
+            playerId,
+            currentPosition,
+            targetPosition: { x: 0, y: 0, z: 0 },
+            movementType,
+            reason: `座標バリデーション失敗: ${error.message}`,
+            validationFailures: [
+              `schema.validation.failed`,
+              `field: ${error.path?.join('.') || 'unknown'}`,
+              `expected: Position`,
+              `actual: ${typeof targetPosition}`,
+            ],
+            timestamp: Date.now(),
+          })
       )
     )
 
@@ -238,9 +240,9 @@ const processPlayerMovement = (
             `movement.distance.exceeded`,
             `distance: ${distance}`,
             `max_allowed: ${maxDistance}`,
-            `movement_type: ${movementType}`
+            `movement_type: ${movementType}`,
           ],
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
       )
     }
@@ -259,14 +261,14 @@ const processPlayerMovement = (
           collisionDetails: {
             collisionType: collision.type,
             obstaclePosition: collision.position,
-            obstacleType: collision.obstacleType
+            obstacleType: collision.obstacleType,
           },
           validationFailures: [
             `movement.collision.detected`,
             `obstacle_type: ${collision.obstacleType}`,
-            `collision_position: ${JSON.stringify(collision.position)}`
+            `collision_position: ${JSON.stringify(collision.position)}`,
           ],
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
       )
     }
@@ -280,6 +282,7 @@ const processPlayerMovement = (
 ## 4. パフォーマンス最適化実装
 
 ### SIMD最適化ベクトル計算
+
 ```typescript
 // 純粋関数による距離計算 - SIMD最適化対応
 const calculateDistance = (from: Position, to: Position): number => {
@@ -311,22 +314,29 @@ const VectorMath = {
 
   normalize: (vec: Position): Position => {
     const length = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
-    return length > 0 ? {
-      x: vec.x / length,
-      y: vec.y / length,
-      z: vec.z / length
-    } : { x: 0, y: 0, z: 0 }
-  }
+    return length > 0
+      ? {
+          x: vec.x / length,
+          y: vec.y / length,
+          z: vec.z / length,
+        }
+      : { x: 0, y: 0, z: 0 }
+  },
 }
 
 // 移動タイプ別の最大距離取得
 const getMaxMovementDistance = (movementType: string): number => {
   switch (movementType) {
-    case "walk": return 4.3
-    case "sprint": return 5.6
-    case "fly": return 11.0
-    case "teleport": return 1000.0
-    default: return 4.3
+    case 'walk':
+      return 4.3
+    case 'sprint':
+      return 5.6
+    case 'fly':
+      return 11.0
+    case 'teleport':
+      return 1000.0
+    default:
+      return 4.3
   }
 }
 
@@ -341,15 +351,16 @@ interface CollisionResult {
 const checkCollision = (from: Position, to: Position): Effect.Effect<CollisionResult, never> =>
   Effect.succeed({
     detected: false,
-    type: "none",
+    type: 'none',
     position: from,
-    obstacleType: "none"
+    obstacleType: 'none',
   }) // 簡略実装
 ```
 
 ## 5. Layer構成パターン
 
 ### 階層的依存関係管理
+
 ```typescript
 // コア機能の統合Layer
 export const CoreFeaturesLayer = Layer.mergeAll(
@@ -363,11 +374,7 @@ export const CoreFeaturesLayer = Layer.mergeAll(
   InventorySystemLayer,
   CraftingSystemLayer,
   SceneSystemLayer
-).pipe(
-  Layer.provide(ConfigLayer),
-  Layer.provide(LoggingLayer),
-  Layer.provide(MetricsLayer)
-)
+).pipe(Layer.provide(ConfigLayer), Layer.provide(LoggingLayer), Layer.provide(MetricsLayer))
 
 // 開発・テスト用の軽量Layer
 export const CoreFeaturesTestLayer = Layer.mergeAll(
@@ -375,20 +382,19 @@ export const CoreFeaturesTestLayer = Layer.mergeAll(
   TestPlayerSystemLayer,
   TestPhysicsSystemLayer,
   TestSceneSystemLayer
-).pipe(
-  Layer.provide(TestConfigLayer)
-)
+).pipe(Layer.provide(TestConfigLayer))
 ```
 
 ## 6. テスト実装パターン
 
 ### 単体テスト（純粋関数）
-```typescript
-import { Effect, TestContext, TestClock } from "effect"
-import { describe, test, expect } from "@effect/vitest"
 
-export const WorldSystemTests = describe("WorldSystem", () => {
-  test("チャンク生成の純粋性", () =>
+```typescript
+import { Effect, TestContext, TestClock } from 'effect'
+import { describe, test, expect } from '@effect/vitest'
+
+export const WorldSystemTests = describe('WorldSystem', () => {
+  test('チャンク生成の純粋性', () =>
     Effect.gen(function* () {
       const coord = { x: 0, z: 0 }
 
@@ -397,19 +403,14 @@ export const WorldSystemTests = describe("WorldSystem", () => {
       const chunk2 = yield* generateChunk(coord)
 
       expect(chunk1).toEqual(chunk2)
-    }).pipe(
-      Effect.provide(TestWorldServiceLayer),
-      Effect.provide(TestContext.TestContext)
-    ))
+    }).pipe(Effect.provide(TestWorldServiceLayer), Effect.provide(TestContext.TestContext)))
 
-  test("ブロック配置のバリデーション", () =>
+  test('ブロック配置のバリデーション', () =>
     Effect.gen(function* () {
       const invalidPos = { x: -1, y: -64, z: 999999 }
 
       // 無効座標でのブロック配置は失敗する
-      const result = yield* setBlockAt(invalidPos, { type: "stone" }).pipe(
-        Effect.either
-      )
+      const result = yield* setBlockAt(invalidPos, { type: 'stone' }).pipe(Effect.either)
 
       expect(Either.isLeft(result)).toBe(true)
     }))
@@ -417,18 +418,19 @@ export const WorldSystemTests = describe("WorldSystem", () => {
 ```
 
 ### 統合テスト（システム間連携）
+
 ```typescript
-export const SystemIntegrationTests = describe("System統合", () => {
-  test("プレイヤー移動→チャンクロード→レンダリング連携", () =>
+export const SystemIntegrationTests = describe('System統合', () => {
+  test('プレイヤー移動→チャンクロード→レンダリング連携', () =>
     Effect.gen(function* () {
       const testClock = yield* TestClock.TestClock
 
       // プレイヤーを新しいチャンクに移動
       const playerService = yield* PlayerService
-      yield* playerService.movePlayer("test-player", { x: 256, y: 64, z: 256 })
+      yield* playerService.movePlayer('test-player', { x: 256, y: 64, z: 256 })
 
       // 非同期チャンクロードの完了を待機
-      yield* TestClock.adjust("5 seconds")
+      yield* TestClock.adjust('5 seconds')
 
       // チャンクがロードされていることを確認
       const chunkService = yield* ChunkService
@@ -444,13 +446,14 @@ export const SystemIntegrationTests = describe("System統合", () => {
 ```
 
 ### パフォーマンステスト（最新パターン）
-```typescript
-import { Effect, TestClock, TestContext, Clock, Duration, Either, pipe } from "effect"
-import { describe, test, expect } from "@effect/vitest"
-import * as fc from "fast-check"
 
-export const PerformanceTests = describe("パフォーマンス", () => {
-  test("1000エンティティの物理計算", () =>
+```typescript
+import { Effect, TestClock, TestContext, Clock, Duration, Either, pipe } from 'effect'
+import { describe, test, expect } from '@effect/vitest'
+import * as fc from 'fast-check'
+
+export const PerformanceTests = describe('パフォーマンス', () => {
+  test('1000エンティティの物理計算', () =>
     Effect.gen(function* () {
       // テスト用エンティティ生成（Property-Based Testing統合）
       const entityArbitrary = fc.record({
@@ -458,18 +461,16 @@ export const PerformanceTests = describe("パフォーマンス", () => {
         position: fc.record({
           x: fc.float({ min: -1000, max: 1000 }),
           y: fc.float({ min: -64, max: 320 }),
-          z: fc.float({ min: -1000, max: 1000 })
+          z: fc.float({ min: -1000, max: 1000 }),
         }),
         velocity: fc.record({
           x: fc.float({ min: -10, max: 10 }),
           y: fc.float({ min: -10, max: 10 }),
-          z: fc.float({ min: -10, max: 10 })
-        })
+          z: fc.float({ min: -10, max: 10 }),
+        }),
       })
 
-      const entities = yield* Effect.sync(() =>
-        Array.from({ length: 1000 }, () => fc.sample(entityArbitrary, 1)[0])
-      )
+      const entities = yield* Effect.sync(() => Array.from({ length: 1000 }, () => fc.sample(entityArbitrary, 1)[0]))
 
       const startTime = yield* Clock.currentTimeMillis
 
@@ -477,15 +478,15 @@ export const PerformanceTests = describe("パフォーマンス", () => {
       const physicsSystem = yield* PhysicsSystem
       yield* physicsSystem.updateBatch(entities, {
         concurrency: navigator.hardwareConcurrency || 4,
-        batchSize: 100
+        batchSize: 100,
       })
 
       const endTime = yield* Clock.currentTimeMillis
       const duration = endTime - startTime
 
       // パフォーマンスメトリクス記録
-      yield* Metrics.histogram("physics_update_duration").update(duration, {
-        entityCount: entities.length.toString()
+      yield* Metrics.histogram('physics_update_duration').update(duration, {
+        entityCount: entities.length.toString(),
       })
 
       // 16msフレーム内での完了を確認（余裕をもって14ms以下）
@@ -494,27 +495,20 @@ export const PerformanceTests = describe("パフォーマンス", () => {
       // メモリ使用量チェック
       const memoryUsage = yield* MemoryMonitor.getCurrentUsage()
       expect(memoryUsage.heapUsed).toBeLessThan(100 * 1024 * 1024) // 100MB以下
-    }).pipe(
-      Effect.provide(TestPhysicsSystemLayer),
-      Effect.provide(TestContext.TestContext)
-    ))
+    }).pipe(Effect.provide(TestPhysicsSystemLayer), Effect.provide(TestContext.TestContext)))
 
-  test("チャンク生成のスケーラビリティテスト", () =>
+  test('チャンク生成のスケーラビリティテスト', () =>
     Effect.gen(function* () {
       const testClock = yield* TestClock.TestClock
       const chunkCoords = Array.from({ length: 100 }, (_, i) => ({
         x: Math.floor(i / 10),
-        z: i % 10
+        z: i % 10,
       }))
 
       const startTime = yield* TestClock.currentTimeMillis(testClock)
 
       // 並列チャンク生成
-      yield* Effect.forEach(
-        chunkCoords,
-        coord => WorldService.generateChunk(coord),
-        { concurrency: 8 }
-      )
+      yield* Effect.forEach(chunkCoords, (coord) => WorldService.generateChunk(coord), { concurrency: 8 })
 
       const endTime = yield* TestClock.currentTimeMillis(testClock)
       const totalDuration = endTime - startTime
@@ -532,14 +526,14 @@ export const PerformanceTests = describe("パフォーマンス", () => {
       Effect.provide(TestClock.TestClock)
     ))
 
-  test("Property-based パフォーマンス特性検証", () =>
+  test('Property-based パフォーマンス特性検証', () =>
     Effect.promise(() =>
       fc.assert(
         fc.property(
           fc.array(
             fc.record({
               x: fc.integer({ min: -50, max: 50 }),
-              z: fc.integer({ min: -50, max: 50 })
+              z: fc.integer({ min: -50, max: 50 }),
             }),
             { minLength: 1, maxLength: 200 }
           ),
@@ -559,6 +553,7 @@ export const PerformanceTests = describe("パフォーマンス", () => {
 ## 7. 実装ベストプラクティス
 
 ### Schema活用パターン
+
 ```typescript
 // 制約付きスキーマ定義
 export const MinecraftCoordinate = Schema.Number.pipe(
@@ -566,8 +561,8 @@ export const MinecraftCoordinate = Schema.Number.pipe(
   Schema.min(-30000000),
   Schema.max(30000000),
   Schema.annotations({
-    title: "Minecraft座標",
-    description: "Minecraftワールドの有効座標範囲内の整数"
+    title: 'Minecraft座標',
+    description: 'Minecraftワールドの有効座標範囲内の整数',
   })
 )
 
@@ -578,28 +573,27 @@ export const ChunkData = Schema.Struct({
     Schema.minItems(4096),
     Schema.maxItems(4096),
     Schema.annotations({
-      description: "16x16x16ブロックの配列"
+      description: '16x16x16ブロックの配列',
     })
   ),
   lightData: Schema.optional(Schema.Array(Schema.Number.pipe(Schema.min(0), Schema.max(15)))),
-  metadata: Schema.Record(Schema.String, Schema.Unknown)
+  metadata: Schema.Record(Schema.String, Schema.Unknown),
 })
 ```
 
 ### エラーハンドリングパターン
+
 ```typescript
 // 統合エラーハンドリング
 const handleSystemError = (error: CoreSystemError) =>
   Match.value(error).pipe(
-    Match.tag("CoreSystemErrors.ChunkGenerationError", (err) =>
+    Match.tag('CoreSystemErrors.ChunkGenerationError', (err) =>
       Effect.logWarning(`チャンク生成失敗: ${err.chunkX},${err.chunkZ} - ${err.reason}`)
     ),
-    Match.tag("CoreSystemErrors.SystemPerformanceError", (err) =>
+    Match.tag('CoreSystemErrors.SystemPerformanceError', (err) =>
       Effect.logError(`パフォーマンス警告: ${err.systemName} ${err.frameTime}ms`)
     ),
-    Match.tag("CoreSystemErrors.PlayerMovementError", (err) =>
-      Effect.logInfo(`移動制限: ${err.reason}`)
-    ),
+    Match.tag('CoreSystemErrors.PlayerMovementError', (err) => Effect.logInfo(`移動制限: ${err.reason}`)),
     Match.exhaustive
   )
 ```
@@ -607,9 +601,11 @@ const handleSystemError = (error: CoreSystemError) =>
 ## 関連ドキュメント
 
 **設計関連**:
+
 - [アーキテクチャ原則](./00-architecture-principles.md) - 設計思想と原則
 - [PBTテスト戦略](./00-pbt-testing-strategy.md) - テスト戦略
 
 **パターン集**:
+
 - [Effect-TSパターン](../explanations/architecture/06-effect-ts-patterns.md) - 関数型パターン
 - [サービスパターン](../../explanations/design-patterns/01-service-patterns.md) - サービス実装パターン

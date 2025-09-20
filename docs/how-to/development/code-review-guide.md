@@ -1,20 +1,27 @@
 ---
-title: "TypeScript Minecraft Clone コードレビューガイド"
-description: "Effect-TS・関数型プログラミングを採用したプロジェクトでの効果的なコードレビュー実践ガイド"
-category: "development"
-difficulty: "intermediate"
-tags: ["code-review", "effect-ts", "functional-programming", "quality-assurance", "collaboration"]
-prerequisites: ["typescript-intermediate", "effect-ts-basics", "git-basics", "development-conventions"]
-estimated_reading_time: "20分"
-related_docs: ["./development-conventions.md", "./effect-ts-migration-guide.md", "../testing/effect-ts-testing-patterns.md", "../../explanations/design-patterns/functional-programming-philosophy.md"]
+title: 'TypeScript Minecraft Clone コードレビューガイド'
+description: 'Effect-TS・関数型プログラミングを採用したプロジェクトでの効果的なコードレビュー実践ガイド'
+category: 'development'
+difficulty: 'intermediate'
+tags: ['code-review', 'effect-ts', 'functional-programming', 'quality-assurance', 'collaboration']
+prerequisites: ['typescript-intermediate', 'effect-ts-basics', 'git-basics', 'development-conventions']
+estimated_reading_time: '20分'
+related_docs:
+  [
+    './development-conventions.md',
+    './effect-ts-migration-guide.md',
+    '../testing/effect-ts-testing-patterns.md',
+    '../../explanations/design-patterns/functional-programming-philosophy.md',
+  ]
 ai_context:
-  primary_concepts: ["code-review-best-practices", "effect-ts-review-patterns", "functional-code-quality", "collaborative-development"]
+  primary_concepts:
+    ['code-review-best-practices', 'effect-ts-review-patterns', 'functional-code-quality', 'collaborative-development']
   complexity_level: 3
-  learning_outcomes: ["効果的なレビュー技術", "Effect-TS特有の確認点", "建設的フィードバック", "品質向上手法"]
+  learning_outcomes: ['効果的なレビュー技術', 'Effect-TS特有の確認点', '建設的フィードバック', '品質向上手法']
 machine_readable:
   confidence_score: 0.94
-  api_maturity: "stable"
-  execution_time: "medium"
+  api_maturity: 'stable'
+  execution_time: 'medium'
 ---
 
 # TypeScript Minecraft Clone コードレビューガイド
@@ -36,23 +43,23 @@ Effect-TSと関数型プログラミングを採用した本プロジェクト�
 const createPlayer = (name: string) =>
   Effect.gen(function* (_) {
     // Schema による型安全なバリデーション
-    const validatedName = yield* _(
-      Schema.decodeUnknown(PlayerNameSchema)(name)
-    );
+    const validatedName = yield* _(Schema.decodeUnknown(PlayerNameSchema)(name))
 
     // Context を使った依存性注入
-    const playerService = yield* _(PlayerService);
-    const idGenerator = yield* _(IdGeneratorService);
+    const playerService = yield* _(PlayerService)
+    const idGenerator = yield* _(IdGeneratorService)
 
-    const id = yield* _(idGenerator.generateId());
+    const id = yield* _(idGenerator.generateId())
 
-    return yield* _(playerService.create({
-      id,
-      name: validatedName,
-      position: DEFAULT_SPAWN_POSITION,
-      health: 20
-    }));
-  });
+    return yield* _(
+      playerService.create({
+        id,
+        name: validatedName,
+        position: DEFAULT_SPAWN_POSITION,
+        health: 20,
+      })
+    )
+  })
 
 // 🔍 レビューポイント:
 // - Effect.gen の適切な使用
@@ -62,6 +69,7 @@ const createPlayer = (name: string) =>
 ```
 
 **レビューでの確認事項:**
+
 - [ ] `Schema.Struct` を使用（`Data.struct` は非推奨）
 - [ ] `Context.GenericTag` での依存性注入
 - [ ] `Match.value` を使用（`Match.type` は非推奨）
@@ -76,14 +84,14 @@ interface BlockManagerInterface {
 }
 
 const makeBlockManager = (): BlockManagerInterface => {
-  const blocks: Map<string, Block> = new Map();
+  const blocks: Map<string, Block> = new Map()
 
   return {
     addBlock: (position: Position, blockType: BlockType): void => {
-      const key = `${position.x},${position.y},${position.z}`;
-      blocks.set(key, { type: blockType, position }); // 副作用
-      console.log(`Block placed at ${key}`); // 副作用
-    }
+      const key = `${position.x},${position.y},${position.z}`
+      blocks.set(key, { type: blockType, position }) // 副作用
+      console.log(`Block placed at ${key}`) // 副作用
+    },
   }
 }
 
@@ -95,19 +103,19 @@ const BlockOps = {
     blockType: BlockType
   ): Effect.Effect<ReadonlyMap<string, Block>, never, LoggerService> =>
     Effect.gen(function* (_) {
-      const logger = yield* _(LoggerService);
-      const key = PositionOps.toKey(position);
+      const logger = yield* _(LoggerService)
+      const key = PositionOps.toKey(position)
 
       const newBlocks = new Map(blocks).set(key, {
         type: blockType,
-        position
-      });
+        position,
+      })
 
-      yield* _(logger.log(`Block placed at ${key}`));
+      yield* _(logger.log(`Block placed at ${key}`))
 
-      return newBlocks;
-    })
-};
+      return newBlocks
+    }),
+}
 
 // 🔍 レビューポイント:
 // - 純粋関数（同じ入力→同じ出力）
@@ -121,21 +129,17 @@ const BlockOps = {
 ```typescript
 // ❌ Bad: any, unknown の不適切な使用
 function processUserInput(input: any): any {
-  return input.data.player; // 危険
+  return input.data.player // 危険
 }
 
 // ❌ Bad: as assertion の多用
-const player = userInput as Player; // 型安全性の破綻
+const player = userInput as Player // 型安全性の破綻
 
 // ✅ Good: Schema による段階的バリデーション
 const UserInputSchema = Schema.Struct({
-  action: Schema.Literal("move", "place", "break"),
-  data: Schema.Union(
-    MoveDataSchema,
-    PlaceDataSchema,
-    BreakDataSchema
-  )
-});
+  action: Schema.Literal('move', 'place', 'break'),
+  data: Schema.Union(MoveDataSchema, PlaceDataSchema, BreakDataSchema),
+})
 
 const processUserInput = (input: unknown) =>
   pipe(
@@ -143,13 +147,13 @@ const processUserInput = (input: unknown) =>
     Schema.decodeUnknown(UserInputSchema),
     Effect.flatMap((validInput) =>
       Match.value(validInput).pipe(
-        Match.when({ action: "move" }, handleMove),
-        Match.when({ action: "place" }, handlePlace),
-        Match.when({ action: "break" }, handleBreak),
+        Match.when({ action: 'move' }, handleMove),
+        Match.when({ action: 'place' }, handlePlace),
+        Match.when({ action: 'break' }, handleBreak),
         Match.exhaustive
       )
     )
-  );
+  )
 
 // 🔍 レビューポイント:
 // - any, unknown の使用理由が明確か
@@ -239,21 +243,21 @@ const addItemWithEvent = (item: Item) =>
 const placeBlock = (world: World, position: Position, blockType: BlockType) =>
   Effect.gen(function* (_) {
     // 100行以上の複雑なロジック...
-  });
+  })
 
 // ✅ 改善提案:
 const placeBlock = (world: World, position: Position, blockType: BlockType) =>
   Effect.gen(function* (_) {
     // 責任を分離
-    yield* _(validatePlacement(world, position, blockType));
-    yield* _(checkCollisions(world, position));
+    yield* _(validatePlacement(world, position, blockType))
+    yield* _(checkCollisions(world, position))
 
-    const updatedWorld = yield* _(WorldOps.setBlock(world, position, blockType));
+    const updatedWorld = yield* _(WorldOps.setBlock(world, position, blockType))
 
-    yield* _(notifyBlockPlaced(position, blockType));
+    yield* _(notifyBlockPlaced(position, blockType))
 
-    return updatedWorld;
-  });
+    return updatedWorld
+  })
 
 // 🔍 レビューポイント:
 // - 単一責任の原則
@@ -266,8 +270,9 @@ const placeBlock = (world: World, position: Position, blockType: BlockType) =>
 
 ### 3.1 効果的なコメントの書き方
 
-```markdown
+````markdown
 # ❌ 改善の余地があるコメント
+
 "このコードは良くない"
 "バグがありそう"
 "パフォーマンスが悪い"
@@ -275,31 +280,36 @@ const placeBlock = (world: World, position: Position, blockType: BlockType) =>
 # ✅ 建設的なコメント例
 
 ## 💡 提案: エラーハンドリングの改善
+
 現在のコードは一般的な `Error` を投げていますが、Effect-TSのパターンに沿って
 `TaggedError` を使用することで、呼び出し側での型安全なエラー処理が可能になります。
 
 ```typescript
 // 提案する改善例
-const BlockPlacementError = Data.TaggedError("BlockPlacementError")<{
-  readonly position: Position;
-  readonly reason: "collision" | "invalid_position" | "permission_denied";
+const BlockPlacementError = Data.TaggedError('BlockPlacementError')<{
+  readonly position: Position
+  readonly reason: 'collision' | 'invalid_position' | 'permission_denied'
 }>
 ```
+````
 
 ## 🔍 質問: 設計意図の確認
+
 このアプローチを選択された理由について教えてください。
 別の選択肢として X や Y も考えられますが、どのような考慮があったのでしょうか？
 
 ## ⚡ パフォーマンス: 最適化提案
+
 ネストした `Array.forEach` が O(n²) の計算量になっています。
 `Set` を使用することで O(n) に改善できそうです：
 
 ```typescript
 // 改善提案
-const activePlayerIds = new Set(activePlayers.map(p => p.id));
-const filteredItems = items.filter(item => activePlayerIds.has(item.ownerId));
+const activePlayerIds = new Set(activePlayers.map((p) => p.id))
+const filteredItems = items.filter((item) => activePlayerIds.has(item.ownerId))
 ```
-```
+
+````
 
 ### 3.2 プラスとマイナスの原則
 
@@ -320,7 +330,7 @@ const filteredItems = items.filter(item => activePlayerIds.has(item.ownerId));
 - 設計判断の理由を理解しようとする姿勢
 - 代替案を提案しながらの議論
 - 将来の拡張性に関する考慮
-```
+````
 
 ### 3.3 重要度レベルの明示
 
@@ -354,13 +364,13 @@ const filteredItems = items.filter(item => activePlayerIds.has(item.ownerId));
 const processGameUpdate = (update: GameUpdate) =>
   pipe(
     update,
-    validateUpdate,           // Effect<ValidatedUpdate, ValidationError>
-    Effect.flatMap(applyUpdate),    // Effect<GameState, ApplyError>
-    Effect.flatMap(saveState),      // Effect<void, SaveError>
-    Effect.tap(notifyClients),      // 副作用を明示
-    Effect.catchAll(handleError),   // エラー処理
+    validateUpdate, // Effect<ValidatedUpdate, ValidationError>
+    Effect.flatMap(applyUpdate), // Effect<GameState, ApplyError>
+    Effect.flatMap(saveState), // Effect<void, SaveError>
+    Effect.tap(notifyClients), // 副作用を明示
+    Effect.catchAll(handleError), // エラー処理
     Effect.provide(gameServiceLayer) // 依存性注入
-  );
+  )
 
 // ✅ レビュー観点:
 // - pipe の適切な使用
@@ -376,19 +386,19 @@ const processGameUpdate = (update: GameUpdate) =>
 // ❌ 直列処理（非効率）
 const loadPlayerData = (playerIds: string[]) =>
   Effect.gen(function* (_) {
-    const players = [];
+    const players = []
     for (const id of playerIds) {
-      const player = yield* _(loadPlayer(id));
-      players.push(player);
+      const player = yield* _(loadPlayer(id))
+      players.push(player)
     }
-    return players;
-  });
+    return players
+  })
 
 // ✅ 並行処理（効率的）
 const loadPlayerData = (playerIds: string[]) =>
   Effect.all(playerIds.map(loadPlayer), {
-    concurrency: "unbounded" // または適切な数値
-  });
+    concurrency: 'unbounded', // または適切な数値
+  })
 
 // 🔍 レビューでの確認:
 // - 並行処理の機会を逃していないか
@@ -403,11 +413,11 @@ const loadPlayerData = (playerIds: string[]) =>
 const processWithDatabase = (query: string) =>
   Effect.scoped(
     Effect.gen(function* (_) {
-      const connection = yield* _(acquireConnection); // 自動的に解放される
-      const result = yield* _(executeQuery(connection, query));
-      return result;
+      const connection = yield* _(acquireConnection) // 自動的に解放される
+      const result = yield* _(executeQuery(connection, query))
+      return result
     })
-  );
+  )
 
 // 🔍 レビュー観点:
 // - scoped によるリソース解放保証
@@ -420,6 +430,7 @@ const processWithDatabase = (query: string) =>
 ### 5.1 プルリクエスト作成者の責務
 
 **PR作成前チェックリスト:**
+
 - [ ] セルフレビュー実施（自分のコードを客観視）
 - [ ] 関連ドキュメント更新
 - [ ] テストカバレッジ確保
@@ -429,24 +440,29 @@ const processWithDatabase = (query: string) =>
 ## PR Template 例
 
 ### 🎯 変更内容
+
 - PlayerService にインベントリ機能を追加
 - アイテムスタック制限ロジックの実装
 
 ### 🤔 設計判断
+
 - ContainerService インターフェースを導入した理由：
   将来的にChest、Shulker Boxなどの拡張を見越して抽象化
 - EventBus パターンを採用した理由：
   UI更新と保存処理の疎結合化のため
 
 ### 🧪 テスト戦略
+
 - ユニットテスト: PlayerService の全メソッド
 - 統合テスト: インベントリUI連携
 - エッジケース: アイテムスタック上限、不正入力
 
 ### 📸 スクリーンショット・デモ
+
 （UI変更がある場合）
 
 ### 🔗 関連Issue
+
 Closes #123
 ```
 
@@ -456,26 +472,31 @@ Closes #123
 ## レビューの手順（推奨）
 
 ### 1️⃣ 概要把握（5分）
+
 - [ ] PR説明を読んで変更意図を理解
 - [ ] 変更ファイル一覧を確認
 - [ ] 自動チェック（CI）の結果確認
 
 ### 2️⃣ 設計レビュー（10分）
+
 - [ ] アーキテクチャへの影響確認
 - [ ] 既存コードとの整合性
 - [ ] 拡張性・保守性の評価
 
 ### 3️⃣ 実装レビュー（10分）
+
 - [ ] Effect-TS パターンの適切な使用
 - [ ] エラーハンドリングの妥当性
 - [ ] パフォーマンスの考慮
 
 ### 4️⃣ テストレビュー（5分）
+
 - [ ] テストケースの網羅性
 - [ ] エッジケースのカバレッジ
 - [ ] テストの可読性
 
 ### 5️⃣ ドキュメント確認（5分）
+
 - [ ] コメントの適切性
 - [ ] README、API ドキュメントの更新
 ```
@@ -486,6 +507,7 @@ Closes #123
 ## レビュー完了の判断基準
 
 ### ✅ APPROVE する条件
+
 - コードが機能要件を満たしている
 - セキュリティ・パフォーマンス問題がない
 - プロジェクト規約に準拠している
@@ -493,12 +515,14 @@ Closes #123
 - ドキュメントが更新されている
 
 ### 🔄 REQUEST CHANGES する条件
+
 - 重要なバグや設計上の問題がある
 - セキュリティリスクが存在する
 - テストが不十分
 - プロジェクト規約違反
 
 ### 💬 COMMENT する条件
+
 - 軽微な改善提案
 - 学習目的の情報共有
 - 将来の改善案の提示
@@ -512,11 +536,13 @@ Closes #123
 ## チーム学習の促進
 
 ### 📚 週次レビュー勉強会
+
 - 良いコード例の共有
 - 発見された問題パターンの討議
 - Effect-TS 新機能・パターンの紹介
 
 ### 📖 ドキュメント更新
+
 - よくある指摘 → 開発規約への追加
 - 新しいパターン → サンプルコード作成
 - トラブルシューティング → FAQ更新
@@ -527,25 +553,25 @@ Closes #123
 ```typescript
 // レビュー品質の定量的測定例
 interface ReviewMetrics {
-  readonly averageReviewTime: Duration; // 目標: 1-2時間以内
-  readonly approvalRate: Percentage;     // 目標: 85%+
-  readonly reworkRate: Percentage;       // 目標: 15%以下
-  readonly criticalIssueRate: Percentage; // 目標: 5%以下
+  readonly averageReviewTime: Duration // 目標: 1-2時間以内
+  readonly approvalRate: Percentage // 目標: 85%+
+  readonly reworkRate: Percentage // 目標: 15%以下
+  readonly criticalIssueRate: Percentage // 目標: 5%以下
 }
 
 // 継続改善のための分析
 const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
   Effect.gen(function* (_) {
     if (metrics.reworkRate > 0.2) {
-      yield* _(recommendPreReviewChecklist);
+      yield* _(recommendPreReviewChecklist)
     }
 
     if (metrics.averageReviewTime > Duration.hours(3)) {
-      yield* _(recommendReviewTraining);
+      yield* _(recommendReviewTraining)
     }
 
-    return improvementSuggestions;
-  });
+    return improvementSuggestions
+  })
 ```
 
 ## 7. よくある問題と対処法
@@ -556,18 +582,20 @@ const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
 ## 設計方針での意見対立
 
 ### 🤝 建設的な議論のガイドライン
+
 1. **事実に基づく議論**: 感情ではなく、具体的な利点・欠点を整理
 2. **選択肢の明示**: A案、B案の比較表を作成
 3. **実験的実装**: 小規模で両方を試して比較
 4. **チーム決定**: 最終的にはチームの合意で決定
 
 ### 例: エラーハンドリング方式の対立
-| 観点 | TaggedError案 | Union Type案 |
-|------|---------------|---------------|
-| 型安全性 | ✅ 完全 | ✅ 完全 |
-| 可読性 | ✅ 明確 | ⚠️ 複雑 |
-| 保守性 | ✅ 拡張容易 | ❌ 困難 |
-| パフォーマンス | ✅ 良好 | ✅ 良好 |
+
+| 観点           | TaggedError案 | Union Type案 |
+| -------------- | ------------- | ------------ |
+| 型安全性       | ✅ 完全       | ✅ 完全      |
+| 可読性         | ✅ 明確       | ⚠️ 複雑      |
+| 保守性         | ✅ 拡張容易   | ❌ 困難      |
+| パフォーマンス | ✅ 良好       | ✅ 良好      |
 
 **結論**: TaggedError を採用（プロジェクト規約として決定）
 ```
@@ -578,11 +606,13 @@ const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
 ## 持続可能なレビュー文化
 
 ### ⚖️ バランスの取れたレビュー
+
 - 完璧主義の回避: 80%の品質で ship し、継続改善
 - 重要度の優先: CRITICAL > IMPORTANT > SUGGESTION の順
 - ポジティブフィードバック: 良い部分の積極的評価
 
 ### 🔄 レビューローテーション
+
 - 特定の人に負荷集中を防ぐ
 - 知識の分散とチーム成長
 - 新しい視点の導入
@@ -594,6 +624,7 @@ const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
 
 `★ Insight ─────────────────────────────────────`
 優れたコードレビューの3要素：
+
 1. **技術的品質**: Effect-TSパターン、型安全性、パフォーマンス
 2. **協調的姿勢**: 学習機会の提供、建設的な議論、相互尊重
 3. **継続改善**: メトリクス監視、プロセス改善、知識共有
@@ -604,6 +635,7 @@ const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
 ### 8.2 チェックリスト総まとめ
 
 **レビュアー用チェックリスト:**
+
 - [ ] Effect-TS パターンの適切な使用
 - [ ] 型安全性の確保（any、as の最小化）
 - [ ] エラーハンドリング（TaggedError の使用）
@@ -614,6 +646,7 @@ const analyzeReviewEffectiveness = (metrics: ReviewMetrics) =>
 - [ ] セキュリティの確認
 
 **PR作成者用チェックリスト:**
+
 - [ ] セルフレビューの実施
 - [ ] 自動チェック（CI）の通過
 - [ ] テストの追加・更新

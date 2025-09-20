@@ -11,15 +11,26 @@
 ## 🚀 クイックスタート
 
 ```bash
-# よく使うワンライナー
-claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成して"
+# よく使うワンライナー（CI確認付き）
+claude "editorconfig lintを導入したい Issue を作って実装してPRまで作成してCIが通ることを確認して"
 
 # Issue実装のみ
 claude "Issue #124 を実装して"
 
-# PR作成のみ
-claude "現在の変更でPRを作成して"
+# PR作成後のCI確認
+claude "現在の変更でPRを作成してCIが通ることを確認して"
+
+# CI失敗時の自動修正
+claude "CIを修正して"
 ```
+
+### 🔄 CI確認フロー
+
+Issue実装後は**必ずCI結果を確認**します：
+
+1. **自動確認**: PR作成時に自動でCI状態をチェック
+2. **失敗時対応**: 自動修正可能な問題は即座に修正
+3. **成功確認**: 全チェック項目のPASSを確認してから完了報告
 
 詳細なコマンドリファレンスは [`commands/index.md`](commands/index.md) を参照してください。
 
@@ -32,6 +43,7 @@ claude "現在の変更でPRを作成して"
 5. **src/shared/**: 実装済みコードパターン例
 
 Claude AgentはGitHub Issueから以下を自動実行：
+
 - **Pre-Step実装前確認**: `list_memories`・`@docs/`設計方針確認・Context7ライブラリ仕様確認
 - **8段階実行ステップ**: 段階的な完全実装（Step 1-8）
 - **詳細な実装コード**: Effect-TS Service/Layer/Schemaパターン

@@ -1,13 +1,12 @@
 ---
-title: "03 Data Flow Diagram"
-description: "03 Data Flow Diagramに関する詳細な説明とガイド。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "specification"]
-prerequisites: ["basic-typescript"]
-estimated_reading_time: "10分"
+title: '03 Data Flow Diagram'
+description: '03 Data Flow Diagramに関する詳細な説明とガイド。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['typescript', 'minecraft', 'specification']
+prerequisites: ['basic-typescript']
+estimated_reading_time: '10分'
 ---
-
 
 # データフロー図
 
@@ -142,7 +141,7 @@ export const BlockPlacementFlow = {
   input: (event: MouseEvent) => ({
     button: event.button,
     position: { x: event.clientX, y: event.clientY },
-    timestamp: Date.now()
+    timestamp: Date.now(),
   }),
 
   // 2. Presentation to Application
@@ -150,65 +149,68 @@ export const BlockPlacementFlow = {
     _tag: 'PlaceBlock',
     playerId: getCurrentPlayerId(),
     screenPosition: input.position,
-    timestamp: input.timestamp
+    timestamp: input.timestamp,
   }),
 
   // 3. Application Processing
-  processCommand: (cmd: PlaceBlockCommand) => Effect.gen(function* () {
-    // 座標変換
-    const worldPos = yield* screenToWorld(cmd.screenPosition)
+  processCommand: (cmd: PlaceBlockCommand) =>
+    Effect.gen(function* () {
+      // 座標変換
+      const worldPos = yield* screenToWorld(cmd.screenPosition)
 
-    // バリデーション
-    yield* validatePlacement(worldPos)
+      // バリデーション
+      yield* validatePlacement(worldPos)
 
-    // ドメインロジック実行
-    const block = yield* BlockService.pipe(
-      Effect.flatMap(service =>
-        service.place({
-          blockType: getSelectedBlock(),
-          position: worldPos
-        })
+      // ドメインロジック実行
+      const block = yield* BlockService.pipe(
+        Effect.flatMap((service) =>
+          service.place({
+            blockType: getSelectedBlock(),
+            position: worldPos,
+          })
+        )
       )
-    )
 
-    // イベント発行
-    yield* EventBusService.pipe(
-      Effect.flatMap(bus =>
-        bus.publish({
-          _tag: 'BlockPlaced',
-          position: worldPos,
-          blockType: block.type,
-          placedBy: cmd.playerId
-        })
+      // イベント発行
+      yield* EventBusService.pipe(
+        Effect.flatMap((bus) =>
+          bus.publish({
+            _tag: 'BlockPlaced',
+            position: worldPos,
+            blockType: block.type,
+            placedBy: cmd.playerId,
+          })
+        )
       )
-    )
 
-    return block
-  }),
+      return block
+    }),
 
   // 4. Domain to Infrastructure
-  persistBlock: (block: Block) => Effect.gen(function* () {
-    const storage = yield* ChunkStorageAdapter
-    const chunk = toChunkPosition(block.position)
+  persistBlock: (block: Block) =>
+    Effect.gen(function* () {
+      const storage = yield* ChunkStorageAdapter
+      const chunk = toChunkPosition(block.position)
 
-    yield* storage.updateChunk({
-      position: chunk,
-      updates: [block]
-    })
-  }),
+      yield* storage.updateChunk({
+        position: chunk,
+        updates: [block],
+      })
+    }),
 
   // 5. Rendering Update
-  updateVisuals: (block: Block) => Effect.gen(function* () {
-    const renderer = yield* WebGLRendererAdapter
+  updateVisuals: (block: Block) =>
+    Effect.gen(function* () {
+      const renderer = yield* WebGLRendererAdapter
 
-    yield* renderer.updateMesh({
-      meshId: getMeshId(block.position),
-      updates: {
-        geometry: createBlockGeometry(block.type),
-        material: getBlockMaterial(block.type)
-      }
-    })
-  })
+      yield* renderer.updateMesh({
+        meshId: getMeshId(block.position),
+        updates: {
+          geometry: createBlockGeometry(block.type),
+          material: getBlockMaterial(block.type),
+        },
+      })
+    }),
 }
 ```
 
@@ -286,11 +288,7 @@ export const ChunkLoadingFlow = {
       const required = getChunksInRadius(centerChunk, renderDistance)
       const loaded = yield* getLoadedChunks()
 
-      return Array.differenceWith(
-        required,
-        loaded,
-        (a, b) => a.x === b.x && a.z === b.z
-      )
+      return Array.differenceWith(required, loaded, (a, b) => a.x === b.x && a.z === b.z)
     }),
 
   // ロードパイプライン
@@ -298,10 +296,10 @@ export const ChunkLoadingFlow = {
     pipe(
       // ストレージチェック
       ChunkStorageAdapter.pipe(
-        Effect.flatMap(storage =>
+        Effect.flatMap((storage) =>
           storage.loadChunk({
             worldId: getCurrentWorldId(),
-            position
+            position,
           })
         )
       ),
@@ -309,32 +307,32 @@ export const ChunkLoadingFlow = {
       // 存在しない場合は生成
       Effect.catchTag('NotFoundError', () =>
         ChunkService.pipe(
-          Effect.flatMap(service =>
+          Effect.flatMap((service) =>
             service.generate({
               x: position.x,
               z: position.z,
-              seed: getWorldSeed()
+              seed: getWorldSeed(),
             })
           )
         )
       ),
 
       // メッシュ構築
-      Effect.flatMap(chunk =>
+      Effect.flatMap((chunk) =>
         Effect.all({
           chunk: Effect.succeed(chunk),
           mesh: buildChunkMesh(chunk),
-          entities: extractEntities(chunk)
+          entities: extractEntities(chunk),
         })
       ),
 
       // レンダラー更新
       Effect.tap(({ mesh }) =>
         WebGLRendererAdapter.pipe(
-          Effect.flatMap(renderer =>
+          Effect.flatMap((renderer) =>
             renderer.createMesh({
               geometry: mesh.geometry,
-              material: mesh.material
+              material: mesh.material,
             })
           )
         )
@@ -342,25 +340,17 @@ export const ChunkLoadingFlow = {
 
       // ECS更新
       Effect.tap(({ entities }) =>
-        Effect.all(
-          entities.map(entity =>
-            EntityService.pipe(
-              Effect.flatMap(service =>
-                service.spawn(entity)
-              )
-            )
-          )
-        )
+        Effect.all(entities.map((entity) => EntityService.pipe(Effect.flatMap((service) => service.spawn(entity)))))
       ),
 
       // イベント発行
       Effect.tap(() =>
         EventBusService.pipe(
-          Effect.flatMap(bus =>
+          Effect.flatMap((bus) =>
             bus.publish({
               _tag: 'ChunkLoaded',
               chunkPosition: position,
-              entities: 0
+              entities: 0,
             })
           )
         )
@@ -369,10 +359,7 @@ export const ChunkLoadingFlow = {
 
   // バッチロード最適化
   batchLoadChunks: (positions: ReadonlyArray<ChunkPosition>) =>
-    Effect.all(
-      positions.map(loadChunkPipeline),
-      { concurrency: 4, batching: true }
-    )
+    Effect.all(positions.map(loadChunkPipeline), { concurrency: 4, batching: true }),
 }
 ```
 
@@ -390,42 +377,38 @@ export const InventoryDataFlow = {
       Effect.flatMap(() =>
         Effect.all({
           fromSlot: getSlotContent(from),
-          toSlot: getSlotContent(to)
+          toSlot: getSlotContent(to),
         })
       ),
 
       // 3. ビジネスルール適用
-      Effect.flatMap(({ fromSlot, toSlot }) =>
-        applyStackingRules(fromSlot, toSlot)
-      ),
+      Effect.flatMap(({ fromSlot, toSlot }) => applyStackingRules(fromSlot, toSlot)),
 
       // 4. 状態更新
-      Effect.flatMap(transaction =>
+      Effect.flatMap((transaction) =>
         InventoryService.pipe(
-          Effect.flatMap(service =>
+          Effect.flatMap((service) =>
             service.moveItem({
               from,
               to,
-              amount: transaction.amount
+              amount: transaction.amount,
             })
           )
         )
       ),
 
       // 5. UI更新
-      Effect.tap(result =>
-        updateInventoryUI(result)
-      ),
+      Effect.tap((result) => updateInventoryUI(result)),
 
       // 6. イベント通知
-      Effect.tap(result =>
+      Effect.tap((result) =>
         EventBusService.pipe(
-          Effect.flatMap(bus =>
+          Effect.flatMap((bus) =>
             bus.publish({
               _tag: 'ItemMoved',
               from,
               to,
-              item: result.item
+              item: result.item,
             })
           )
         )
@@ -439,25 +422,17 @@ export const InventoryDataFlow = {
       checkIngredients(recipe),
 
       // 材料消費
-      Effect.flatMap(ingredients =>
-        consumeIngredients(ingredients)
-      ),
+      Effect.flatMap((ingredients) => consumeIngredients(ingredients)),
 
       // アイテム生成
-      Effect.flatMap(() =>
-        createCraftedItem(recipe.output)
-      ),
+      Effect.flatMap(() => createCraftedItem(recipe.output)),
 
       // インベントリ追加
-      Effect.flatMap(item =>
-        addToInventory(item)
-      ),
+      Effect.flatMap((item) => addToInventory(item)),
 
       // 実績チェック
-      Effect.tap(item =>
-        checkCraftingAchievements(item, recipe)
-      )
-    )
+      Effect.tap((item) => checkCraftingAchievements(item, recipe))
+    ),
 }
 ```
 
@@ -570,7 +545,7 @@ export const RenderingPipeline = {
       chunks: getVisibleChunks(),
       entities: getVisibleEntities(),
       particles: getActiveParticles(),
-      lighting: getLightingData()
+      lighting: getLightingData(),
     }),
 
   // フラスタムカリング
@@ -579,15 +554,11 @@ export const RenderingPipeline = {
       const frustum = createFrustum(data.camera)
 
       return {
-        chunks: data.chunks.filter(chunk =>
-          frustum.intersectsBox(getChunkBounds(chunk))
-        ),
-        entities: data.entities.filter(entity =>
-          frustum.containsPoint(entity.position)
-        ),
-        particles: data.particles // パーティクルは常に表示
+        chunks: data.chunks.filter((chunk) => frustum.intersectsBox(getChunkBounds(chunk))),
+        entities: data.entities.filter((entity) => frustum.containsPoint(entity.position)),
+        particles: data.particles, // パーティクルは常に表示
       }
-    })
+    }),
 }
 ```
 
@@ -602,32 +573,31 @@ export const NetworkSyncFlow = {
 
       // 受信ストリーム
       const incoming = ws.receive('game-connection').pipe(
-        Stream.map(msg => parseNetworkMessage(msg)),
+        Stream.map((msg) => parseNetworkMessage(msg)),
         Stream.filter(isValidMessage)
       )
 
       // 送信ストリーム
       const outgoing = yield* EventBusService.pipe(
-        Effect.map(bus =>
-          bus.subscribe({
-            filter: isNetworkRelevant
-          }).pipe(
-            Stream.map(serializeEvent),
-            Stream.tap(data =>
-              ws.send({
-                connectionId: 'game-connection',
-                data
-              })
+        Effect.map((bus) =>
+          bus
+            .subscribe({
+              filter: isNetworkRelevant,
+            })
+            .pipe(
+              Stream.map(serializeEvent),
+              Stream.tap((data) =>
+                ws.send({
+                  connectionId: 'game-connection',
+                  data,
+                })
+              )
             )
-          )
         )
       )
 
       // 双方向同期
-      return Stream.merge(
-        incoming.pipe(Stream.map(applyRemoteState)),
-        outgoing.pipe(Stream.map(confirmLocalState))
-      )
+      return Stream.merge(incoming.pipe(Stream.map(applyRemoteState)), outgoing.pipe(Stream.map(confirmLocalState)))
     }),
 
   // 予測と調整
@@ -647,7 +617,7 @@ export const NetworkSyncFlow = {
       if (!statesMatch(predicted, confirmed)) {
         yield* reconcileState(predicted, confirmed)
       }
-    })
+    }),
 }
 ```
 
@@ -671,10 +641,7 @@ export const OptimizationFlow = {
             const toUnload = sorted.slice(Math.floor(sorted.length * 0.3))
 
             // アンロード実行
-            yield* Effect.all(
-              toUnload.map(unloadChunk),
-              { concurrency: 2 }
-            )
+            yield* Effect.all(toUnload.map(unloadChunk), { concurrency: 2 })
 
             // ガベージコレクション強制
             yield* forceGC()
@@ -685,22 +652,13 @@ export const OptimizationFlow = {
   }),
 
   // バッチ処理最適化
-  batchOptimization: <T>(
-    items: ReadonlyArray<T>,
-    process: (item: T) => Effect.Effect<void, Error>
-  ) =>
+  batchOptimization: <T>(items: ReadonlyArray<T>, process: (item: T) => Effect.Effect<void, Error>) =>
     pipe(
       Chunk.fromIterable(items),
       Chunk.chunksOf(100),
       Stream.fromIterable,
-      Stream.mapEffect(
-        batch => Effect.all(
-          Array.from(batch).map(process),
-          { concurrency: 4 }
-        ),
-        { concurrency: 2 }
-      ),
+      Stream.mapEffect((batch) => Effect.all(Array.from(batch).map(process), { concurrency: 4 }), { concurrency: 2 }),
       Stream.runDrain
-    )
+    ),
 }
 ```

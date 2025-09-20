@@ -1,17 +1,27 @@
 ---
-title: "TypeScript Minecraft Clone - DDD & Effect-TS による高性能ゲーム実装"
-description: "ドメイン駆動設計とEffect-TSを活用したエンタープライズグレードのMinecraft実装。完全な型安全性と関数型プログラミングパターンによる高品質ゲーム開発のリファレンス実装。"
-category: "quickstart"
-difficulty: "intermediate"
-tags: ["typescript", "minecraft", "ddd", "effect-ts", "ecs", "functional-programming", "game-development", "architecture-showcase"]
-prerequisites: ["basic-typescript", "nodejs-18+", "pnpm"]
-estimated_reading_time: "10分"
-related_patterns: ["service-patterns", "ddd-patterns", "ecs-patterns"]
-related_docs: ["./docs/INDEX.md", "./docs/tutorials/README.md", "./docs/reference/README.md"]
+title: 'TypeScript Minecraft Clone - DDD & Effect-TS による高性能ゲーム実装'
+description: 'ドメイン駆動設計とEffect-TSを活用したエンタープライズグレードのMinecraft実装。完全な型安全性と関数型プログラミングパターンによる高品質ゲーム開発のリファレンス実装。'
+category: 'quickstart'
+difficulty: 'intermediate'
+tags:
+  [
+    'typescript',
+    'minecraft',
+    'ddd',
+    'effect-ts',
+    'ecs',
+    'functional-programming',
+    'game-development',
+    'architecture-showcase',
+  ]
+prerequisites: ['basic-typescript', 'nodejs-18+', 'pnpm']
+estimated_reading_time: '10分'
+related_patterns: ['service-patterns', 'ddd-patterns', 'ecs-patterns']
+related_docs: ['./docs/INDEX.md', './docs/tutorials/README.md', './docs/reference/README.md']
 search_keywords:
-  primary: ["typescript-minecraft", "ddd-game", "effect-ts-showcase", "functional-game-dev"]
-  secondary: ["enterprise-game-architecture", "type-safe-gaming", "minecraft-clone"]
-  context: ["game-development", "architectural-patterns", "educational-resource"]
+  primary: ['typescript-minecraft', 'ddd-game', 'effect-ts-showcase', 'functional-game-dev']
+  secondary: ['enterprise-game-architecture', 'type-safe-gaming', 'minecraft-clone']
+  context: ['game-development', 'architectural-patterns', 'educational-resource']
 ---
 
 # TypeScript Minecraft
@@ -26,6 +36,7 @@ search_keywords:
 ## 🎮 ゲーム機能
 
 ### コアゲームプレイ
+
 - **🌍 無限ワールド生成**: バイオーム、洞窟、構造物を含む手続き型地形生成
 - **⛏️ 採掘と建築**: 完全なボクセルベースのブロック配置と破壊
 - **🎒 インベントリシステム**: クラフティング機能付きドラッグ&ドロップ式インベントリ管理
@@ -36,6 +47,7 @@ search_keywords:
 - **🍖 食料システム**: 満腹度メカニクス付き消費可能アイテム
 
 ### 高度な機能
+
 - **🔴 レッドストーン回路**: 論理ゲート、リピーター、ピストン
 - **🌤️ 天候システム**: 雨、雷、雪を含む動的な天候
 - **🌙 昼夜サイクル**: 月の満ち欠けを含むリアルタイム照明
@@ -50,6 +62,7 @@ search_keywords:
 - **🌐 マルチプレイヤー対応**: ネットワークプロトコル実装（計画中）
 
 ### 技術的特徴
+
 - **⚡ 高性能**: 最適なキャッシュ使用のためのStructure of Arrays (SoA) ECS
 - **🔄 ホットモジュールリプレースメント**: 開発中の即座のコード更新
 - **🎯 型安全性**: ブランド型を含む100% Effect-TS型カバレッジ
@@ -139,6 +152,6 @@ pnpm test:coverage   # カバレッジレポート付きテストの実行
 - **Three.jsコミュニティ** - 強力な3Dレンダリングエンジンの提供
 - **Minecraft** - インスピレーションとゲームデザインの提供
 
-----
+---
 
 **注記**: これは高度なTypeScriptパターンと関数型プログラミングの概念を実証する教育プロジェクトです。MojangやMicrosoftとは関係ありません。

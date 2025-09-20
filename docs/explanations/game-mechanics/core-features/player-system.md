@@ -1,13 +1,14 @@
 ---
-title: "プレイヤーシステム仕様 - エンティティ管理・状態制御・物理演算"
-description: "プレイヤーエンティティの移動、状態管理、インベントリ統合の完全仕様。Effect-TSによるアグリゲートパターンと純粋関数型実装。"
-category: "specification"
-difficulty: "intermediate"
-tags: ["player-system", "entity-management", "state-management", "physics", "inventory-integration", "ddd-aggregate"]
-prerequisites: ["effect-ts-fundamentals", "schema-basics", "ddd-concepts"]
-estimated_reading_time: "15分"
-related_patterns: ["data-modeling-patterns", "service-patterns", "error-handling-patterns"]
-related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanations/architecture/05-ecs-integration.md"]
+title: 'プレイヤーシステム仕様 - エンティティ管理・状態制御・物理演算'
+description: 'プレイヤーエンティティの移動、状態管理、インベントリ統合の完全仕様。Effect-TSによるアグリゲートパターンと純粋関数型実装。'
+category: 'specification'
+difficulty: 'intermediate'
+tags: ['player-system', 'entity-management', 'state-management', 'physics', 'inventory-integration', 'ddd-aggregate']
+prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'ddd-concepts']
+estimated_reading_time: '15分'
+related_patterns: ['data-modeling-patterns', 'service-patterns', 'error-handling-patterns']
+related_docs:
+  ['./01-inventory-system.md', './04-entity-system.md', '../explanations/architecture/05-ecs-integration.md']
 ---
 
 # プレイヤーシステム - プレイヤー管理システム
@@ -19,6 +20,7 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanat
 ### 責務と機能範囲
 
 **主要責務**:
+
 - **エンティティ管理**: プレイヤーエンティティの作成・更新・削除
 - **状態管理**: 位置、体力、インベントリ、装備の統合管理
 - **物理演算**: 移動、ジャンプ、衝突検出の処理
@@ -26,6 +28,7 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanat
 - **権限制御**: ゲームモード別の能力制限
 
 **提供機能**:
+
 - **3D移動システム**: 物理法則準拠の移動・ジャンプ・飛行
 - **インベントリ管理**: 45スロット（36+9）の完全管理
 - **装備システム**: 6部位の装備管理と効果適用
@@ -53,6 +56,7 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanat
 
 **アグリゲートルート**:
 プレイヤーエンティティは以下の要素を統合管理します：
+
 - **基本情報**: ID、名前、作成日時、メタデータ
 - **物理状態**: 位置、回転、速度、物理演算パラメータ
 - **ゲーム統計**: 体力、空腹度、経験値、レベル、防御力
@@ -61,6 +65,7 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanat
 - **ゲーム状態**: ゲームモード、特殊能力、権限設定
 
 **値オブジェクトパターン**:
+
 - **Position3D**: 3次元空間での位置（X, Y, Z座標）
 - **Rotation**: プレイヤーの向き（ヨー・ピッチ角度）
 - **PlayerStats**: 体力や空腹度などの統計値
@@ -68,6 +73,7 @@ related_docs: ["./01-inventory-system.md", "./04-entity-system.md", "../explanat
 
 **ブランド型による型安全性**:
 Effect-TSのブランド型を使用して、IDやインデックスの混同を防ぎます：
+
 ```typescript
 // 例: PlayerId, PlayerName, Experience, Health など
 // 詳細な定義は API リファレンスを参照
@@ -80,18 +86,21 @@ Effect-TSのブランド型を使用して、IDやインデックスの混同を
 プレイヤー移動システムは、リアルタイム性能と物理的な一貫性を両立する高度なシステムです。以下の原則に基づいて設計されています：
 
 **物理シミュレーション**:
+
 - **重力システム**: Minecraft準拠の重力加速度（現実の約2倍）
 - **空気抵抗**: 水平方向の移動に摩擦係数を適用
 - **衝突検出**: ワールドジオメトリとの正確な衝突判定
 - **落下ダメージ**: 落下距離に応じたダメージ計算
 
 **ゲームモード別の動作**:
+
 - **サバイバル**: 物理法則準拠、空腹度消費あり
 - **クリエイティブ**: 飛行可能、物理制約なし
 - **スペクテイター**: 壁抜け可能、衝突なし
 - **アドベンチャー**: サバイバル同様だが、ブロック操作制限
 
 **パフォーマンス最適化**:
+
 - **早期リターン**: 不要な計算を避ける条件分岐
 - **バッチ処理**: 複数プレイヤーの一括処理
 - **予測システム**: クライアント側での遅延補償
@@ -101,18 +110,21 @@ Effect-TSのブランド型を使用して、IDやインデックスの混同を
 ### 主要な機能
 
 **基本移動**:
+
 - 前後左右の8方向移動
 - スプリント時の速度増加（1.3倍）
 - しゃがみ時の速度減少
 - 空腹度による移動制限
 
 **ジャンプシステム**:
+
 - 地面判定による制御
 - ジャンプブーストエフェクト対応
 - エアジャンプ防止
 - 空腹度消費
 
 **物理演算統合**:
+
 - フレーム単位での位置更新
 - 速度ベクトルの計算
 - 衝突解決アルゴリズム
@@ -129,12 +141,14 @@ Effect-TSのブランド型を使用して、IDやインデックスの混同を
 ### 統合設計の要点
 
 **プレイヤー・インベントリ連携**:
+
 - プレイヤーアクションからのアイテム操作
 - 装備変更の自動反映
 - ゲームモード制約の適用
 - 権限チェックの統合
 
 **リアルタイム同期**:
+
 - UI表示との即座同期
 - マルチプレイヤー環境での状態共有
 - クライアント予測と回復処理
@@ -142,36 +156,19 @@ Effect-TSのブランド型を使用して、IDやインデックスの混同を
 ```typescript
 // インベントリサービスインターフェース
 interface InventoryServiceInterface {
-  readonly addItem: (
-    player: Player,
-    item: ItemStack
-  ) => Effect.Effect<Player, InventoryFullError>
+  readonly addItem: (player: Player, item: ItemStack) => Effect.Effect<Player, InventoryFullError>
 
-  readonly removeItem: (
-    player: Player,
-    slotIndex: number,
-    count: number
-  ) => Effect.Effect<Player, ItemNotFoundError>
+  readonly removeItem: (player: Player, slotIndex: number, count: number) => Effect.Effect<Player, ItemNotFoundError>
 
-  readonly moveItem: (
-    player: Player,
-    fromSlot: number,
-    toSlot: number
-  ) => Effect.Effect<Player, InvalidSlotError>
+  readonly moveItem: (player: Player, fromSlot: number, toSlot: number) => Effect.Effect<Player, InvalidSlotError>
 
-  readonly equipItem: (
-    player: Player,
-    slotIndex: number
-  ) => Effect.Effect<Player, EquipError>
+  readonly equipItem: (player: Player, slotIndex: number) => Effect.Effect<Player, EquipError>
 
-  readonly craftItem: (
-    player: Player,
-    recipe: CraftingRecipe
-  ) => Effect.Effect<Player, CraftingError>
+  readonly craftItem: (player: Player, recipe: CraftingRecipe) => Effect.Effect<Player, CraftingError>
 }
 
 // Context Tag（最新パターン）
-const InventoryService = Context.GenericTag<InventoryServiceInterface>("@app/InventoryService")
+const InventoryService = Context.GenericTag<InventoryServiceInterface>('@app/InventoryService')
 
 // Live実装
 export const InventoryServiceLive = Layer.succeed(
@@ -198,31 +195,26 @@ export const InventoryServiceLive = Layer.succeed(
 
           const updatedInventory = {
             ...inventory,
-            slots: inventory.slots.map((s, idx) => idx === i ? newSlot : s)
+            slots: inventory.slots.map((s, idx) => (idx === i ? newSlot : s)),
           }
 
           // 残りがあれば再帰的に追加
           if (remainingCount > 0) {
-            return yield* addItem(
-              { ...player, inventory: updatedInventory },
-              { ...item, count: remainingCount }
-            )
+            return yield* addItem({ ...player, inventory: updatedInventory }, { ...item, count: remainingCount })
           }
 
           return { ...player, inventory: updatedInventory }
         }
 
         // 早期リターン: 空きスロットチェック
-        const emptySlotIndex = inventory.slots.findIndex(s => s === null)
+        const emptySlotIndex = inventory.slots.findIndex((s) => s === null)
         if (emptySlotIndex === -1) {
           return yield* Effect.fail(new InventoryFullError())
         }
 
         const updatedInventory = {
           ...inventory,
-          slots: inventory.slots.map((s, idx) =>
-            idx === emptySlotIndex ? item : s
-          )
+          slots: inventory.slots.map((s, idx) => (idx === emptySlotIndex ? item : s)),
         }
 
         return { ...player, inventory: updatedInventory }
@@ -239,9 +231,7 @@ export const InventoryServiceLive = Layer.succeed(
 
         // 早期リターン: アイテム数不足の場合
         if (slot.count < count) {
-          return yield* Effect.fail(
-            new InsufficientItemsError(slot.count, count)
-          )
+          return yield* Effect.fail(new InsufficientItemsError(slot.count, count))
         }
 
         const newCount = slot.count - count
@@ -251,10 +241,8 @@ export const InventoryServiceLive = Layer.succeed(
           ...player,
           inventory: {
             ...player.inventory,
-            slots: player.inventory.slots.map((s, idx) =>
-              idx === slotIndex ? updatedSlot : s
-            )
-          }
+            slots: player.inventory.slots.map((s, idx) => (idx === slotIndex ? updatedSlot : s)),
+          },
         }
       }),
 
@@ -281,43 +269,35 @@ export const InventoryServiceLive = Layer.succeed(
           ...player,
           inventory: {
             ...player.inventory,
-            slots: player.inventory.slots.map((s, idx) =>
-              idx === slotIndex ? currentEquipment : s
-            )
+            slots: player.inventory.slots.map((s, idx) => (idx === slotIndex ? currentEquipment : s)),
           },
           equipment: {
             ...player.equipment,
-            [equipmentSlot]: item
-          }
+            [equipmentSlot]: item,
+          },
         }
       }),
 
     craftItem: (player, recipe) =>
       Effect.gen(function* () {
         // レシピ材料チェック
-        const hasIngredients = yield* checkIngredients(
-          player.inventory,
-          recipe.ingredients
-        )
+        const hasIngredients = yield* checkIngredients(player.inventory, recipe.ingredients)
 
         if (!hasIngredients) {
           return yield* Effect.fail(new MissingIngredientsError())
         }
 
         // 材料消費
-        const inventoryAfterConsume = yield* consumeIngredients(
-          player.inventory,
-          recipe.ingredients
-        )
+        const inventoryAfterConsume = yield* consumeIngredients(player.inventory, recipe.ingredients)
 
         // 結果アイテム追加
         const playerWithConsumed = {
           ...player,
-          inventory: inventoryAfterConsume
+          inventory: inventoryAfterConsume,
         }
 
         return yield* addItem(playerWithConsumed, recipe.result)
-      })
+      }),
   })
 )
 ```
@@ -329,25 +309,22 @@ export const InventoryServiceLive = Layer.succeed(
 ```typescript
 // PlayerActionをtagged unionで定義
 export type PlayerAction =
-  | { readonly _tag: "Move"; readonly direction: Direction }
-  | { readonly _tag: "Jump" }
-  | { readonly _tag: "Attack"; readonly target: EntityId }
-  | { readonly _tag: "UseItem"; readonly item: ItemStack; readonly target?: Position }
-  | { readonly _tag: "PlaceBlock"; readonly position: Position; readonly face: BlockFace }
-  | { readonly _tag: "BreakBlock"; readonly position: Position }
-  | { readonly _tag: "OpenContainer"; readonly position: Position }
-  | { readonly _tag: "DropItem"; readonly slotIndex: number; readonly count: number }
+  | { readonly _tag: 'Move'; readonly direction: Direction }
+  | { readonly _tag: 'Jump' }
+  | { readonly _tag: 'Attack'; readonly target: EntityId }
+  | { readonly _tag: 'UseItem'; readonly item: ItemStack; readonly target?: Position }
+  | { readonly _tag: 'PlaceBlock'; readonly position: Position; readonly face: BlockFace }
+  | { readonly _tag: 'BreakBlock'; readonly position: Position }
+  | { readonly _tag: 'OpenContainer'; readonly position: Position }
+  | { readonly _tag: 'DropItem'; readonly slotIndex: number; readonly count: number }
 
 // PlayerActionProcessorインターフェース
 interface PlayerActionProcessorInterface {
-  readonly process: (
-    player: Player,
-    action: PlayerAction
-  ) => Effect.Effect<Player, ActionError>
+  readonly process: (player: Player, action: PlayerAction) => Effect.Effect<Player, ActionError>
 }
 
 // Context Tag（最新パターン）
-const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessorInterface>("@app/PlayerActionProcessor")
+const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessorInterface>('@app/PlayerActionProcessor')
 
 // Live実装作成関数
 const makePlayerActionProcessor = Effect.gen(function* () {
@@ -356,177 +333,149 @@ const makePlayerActionProcessor = Effect.gen(function* () {
   const world = yield* WorldService
   const combat = yield* CombatService
 
-    const process = (player: Player, action: PlayerAction) =>
-      Match.value(action).pipe(
-        Match.tag("Move", ({ direction }) =>
-          Effect.gen(function* () {
-            // 権限チェック
-            const canMove = yield* checkMovePermission(player, direction)
-            if (!canMove) {
-              return yield* Effect.fail(new PermissionDeniedError("Movement not allowed"))
+  const process = (player: Player, action: PlayerAction) =>
+    Match.value(action).pipe(
+      Match.tag('Move', ({ direction }) =>
+        Effect.gen(function* () {
+          // 権限チェック
+          const canMove = yield* checkMovePermission(player, direction)
+          if (!canMove) {
+            return yield* Effect.fail(new PermissionDeniedError('Movement not allowed'))
+          }
+          return yield* movement.move(player, direction, 0.05)
+        })
+      ),
+      Match.tag('Jump', () =>
+        Effect.gen(function* () {
+          // 権限チェック
+          const canJump = yield* checkJumpPermission(player)
+          if (!canJump) {
+            return yield* Effect.fail(new PermissionDeniedError('Jump not allowed'))
+          }
+          return yield* movement.jump(player)
+        })
+      ),
+      Match.tag('Attack', ({ target }) =>
+        Effect.gen(function* () {
+          // 権限チェック
+          const canAttack = yield* checkAttackPermission(player, target)
+          if (!canAttack) {
+            return yield* Effect.fail(new PermissionDeniedError('Attack not allowed'))
+          }
+
+          const damage = yield* calculateAttackDamage(player)
+          yield* combat.dealDamage(target, damage, player.id)
+          return player
+        })
+      ),
+      Match.tag('PlaceBlock', ({ position, face }) =>
+        Effect.gen(function* () {
+          // 早期リターン: 権限チェック
+          const canPlace = yield* checkPlaceBlockPermission(player, position)
+          if (!canPlace) {
+            return yield* Effect.fail(new PermissionDeniedError('Block placement not allowed'))
+          }
+
+          // レイキャスト判定
+          const canReach = yield* checkReach(player.position, position, player.gameMode === 'creative' ? 5 : 4.5)
+
+          if (!canReach) {
+            return yield* Effect.fail(new OutOfReachError())
+          }
+
+          // ブロック設置
+          const blockItem = player.inventory.hotbar[player.inventory.selectedSlot]
+          if (!blockItem || !isBlockItem(blockItem.itemId)) {
+            return yield* Effect.fail(new InvalidBlockError())
+          }
+
+          yield* world.setBlock(position, blockItem.itemId)
+
+          // サバイバルモードでアイテム消費
+          if (player.gameMode === 'survival') {
+            return yield* inventory.removeItem(player, player.inventory.selectedSlot, 1)
+          }
+
+          return player
+        })
+      ),
+      Match.tag('BreakBlock', ({ position }) =>
+        Effect.gen(function* () {
+          // 早期リターン: 権限チェック
+          const canBreak = yield* checkBreakBlockPermission(player, position)
+          if (!canBreak) {
+            return yield* Effect.fail(new PermissionDeniedError('Block breaking not allowed'))
+          }
+
+          const canReach = yield* checkReach(player.position, position, player.gameMode === 'creative' ? 5 : 4.5)
+
+          if (!canReach) {
+            return yield* Effect.fail(new OutOfReachError())
+          }
+
+          // ブロック破壊
+          const block = yield* world.getBlock(position)
+          yield* world.breakBlock(position)
+
+          // アイテムドロップ（サバイバルモード）
+          if (player.gameMode === 'survival') {
+            const drops = yield* calculateBlockDrops(block, player.equipment.mainHand)
+            for (const drop of drops) {
+              yield* spawnItemEntity(position, drop)
             }
-            return yield* movement.move(player, direction, 0.05)
-          })
-        ),
-        Match.tag("Jump", () =>
-          Effect.gen(function* () {
-            // 権限チェック
-            const canJump = yield* checkJumpPermission(player)
-            if (!canJump) {
-              return yield* Effect.fail(new PermissionDeniedError("Jump not allowed"))
-            }
-            return yield* movement.jump(player)
-          })
-        ),
-        Match.tag("Attack", ({ target }) =>
-          Effect.gen(function* () {
-            // 権限チェック
-            const canAttack = yield* checkAttackPermission(player, target)
-            if (!canAttack) {
-              return yield* Effect.fail(new PermissionDeniedError("Attack not allowed"))
-            }
+          }
 
-            const damage = yield* calculateAttackDamage(player)
-            yield* combat.dealDamage(target, damage, player.id)
-            return player
-          })
-        ),
-        Match.tag("PlaceBlock", ({ position, face }) =>
-          Effect.gen(function* () {
-            // 早期リターン: 権限チェック
-            const canPlace = yield* checkPlaceBlockPermission(player, position)
-            if (!canPlace) {
-              return yield* Effect.fail(new PermissionDeniedError("Block placement not allowed"))
-            }
+          return player
+        })
+      ),
+      Match.tag('UseItem', ({ item, target }) =>
+        Effect.gen(function* () {
+          // 早期リターン: 権限チェック
+          const canUseItem = yield* checkUseItemPermission(player, item)
+          if (!canUseItem) {
+            return yield* Effect.fail(new PermissionDeniedError('Item use not allowed'))
+          }
 
-            // レイキャスト判定
-            const canReach = yield* checkReach(
-              player.position,
-              position,
-              player.gameMode === "creative" ? 5 : 4.5
-            )
+          const currentItem = player.inventory.hotbar[player.inventory.selectedSlot]
+          if (!currentItem) {
+            return yield* Effect.fail(new NoItemError())
+          }
 
-            if (!canReach) {
-              return yield* Effect.fail(new OutOfReachError())
-            }
+          const useResult = yield* useItem(currentItem, player, target)
 
-            // ブロック設置
-            const blockItem = player.inventory.hotbar[player.inventory.selectedSlot]
-            if (!blockItem || !isBlockItem(blockItem.itemId)) {
-              return yield* Effect.fail(new InvalidBlockError())
-            }
+          if (useResult.consumed && player.gameMode === 'survival') {
+            return yield* inventory.removeItem(player, player.inventory.selectedSlot, 1)
+          }
 
-            yield* world.setBlock(position, blockItem.itemId)
+          return useResult.player
+        })
+      ),
+      Match.orElse(() => Effect.succeed(player))
+    )
 
-            // サバイバルモードでアイテム消費
-            if (player.gameMode === "survival") {
-              return yield* inventory.removeItem(
-                player,
-                player.inventory.selectedSlot,
-                1
-              )
-            }
+  // 権限チェック関数群の実装
+  const checkAttackPermission = (player: Player, target: EntityId) =>
+    Effect.succeed(player.gameMode !== 'spectator' && player.abilities.canBreakBlocks)
 
-            return player
-          })
-        ),
-        Match.tag("BreakBlock", ({ position }) =>
-          Effect.gen(function* () {
-            // 早期リターン: 権限チェック
-            const canBreak = yield* checkBreakBlockPermission(player, position)
-            if (!canBreak) {
-              return yield* Effect.fail(new PermissionDeniedError("Block breaking not allowed"))
-            }
+  const checkPlaceBlockPermission = (player: Player, position: Position3D) =>
+    Effect.succeed(player.gameMode !== 'spectator' && player.abilities.canPlaceBlocks)
 
-            const canReach = yield* checkReach(
-              player.position,
-              position,
-              player.gameMode === "creative" ? 5 : 4.5
-            )
+  const checkBreakBlockPermission = (player: Player, position: Position3D) =>
+    Effect.succeed(player.gameMode !== 'spectator' && player.abilities.canBreakBlocks)
 
-            if (!canReach) {
-              return yield* Effect.fail(new OutOfReachError())
-            }
+  const checkUseItemPermission = (player: Player, item: ItemStack) => Effect.succeed(player.gameMode !== 'spectator')
 
-            // ブロック破壊
-            const block = yield* world.getBlock(position)
-            yield* world.breakBlock(position)
-
-            // アイテムドロップ（サバイバルモード）
-            if (player.gameMode === "survival") {
-              const drops = yield* calculateBlockDrops(block, player.equipment.mainHand)
-              for (const drop of drops) {
-                yield* spawnItemEntity(position, drop)
-              }
-            }
-
-            return player
-          })
-        ),
-        Match.tag("UseItem", ({ item, target }) =>
-          Effect.gen(function* () {
-            // 早期リターン: 権限チェック
-            const canUseItem = yield* checkUseItemPermission(player, item)
-            if (!canUseItem) {
-              return yield* Effect.fail(new PermissionDeniedError("Item use not allowed"))
-            }
-
-            const currentItem = player.inventory.hotbar[player.inventory.selectedSlot]
-            if (!currentItem) {
-              return yield* Effect.fail(new NoItemError())
-            }
-
-            const useResult = yield* useItem(currentItem, player, target)
-
-            if (useResult.consumed && player.gameMode === "survival") {
-              return yield* inventory.removeItem(
-                player,
-                player.inventory.selectedSlot,
-                1
-              )
-            }
-
-            return useResult.player
-          })
-        ),
-        Match.orElse(() => Effect.succeed(player))
-      )
-
-    // 権限チェック関数群の実装
-    const checkAttackPermission = (player: Player, target: EntityId) =>
-      Effect.succeed(
-        player.gameMode !== "spectator" && player.abilities.canBreakBlocks
-      )
-
-    const checkPlaceBlockPermission = (player: Player, position: Position3D) =>
-      Effect.succeed(
-        player.gameMode !== "spectator" && player.abilities.canPlaceBlocks
-      )
-
-    const checkBreakBlockPermission = (player: Player, position: Position3D) =>
-      Effect.succeed(
-        player.gameMode !== "spectator" && player.abilities.canBreakBlocks
-      )
-
-    const checkUseItemPermission = (player: Player, item: ItemStack) =>
-      Effect.succeed(
-        player.gameMode !== "spectator"
-      )
-
-    return PlayerActionProcessor.of({
-      process,
-      checkAttackPermission,
-      checkPlaceBlockPermission,
-      checkBreakBlockPermission,
-      checkUseItemPermission
-    })
+  return PlayerActionProcessor.of({
+    process,
+    checkAttackPermission,
+    checkPlaceBlockPermission,
+    checkBreakBlockPermission,
+    checkUseItemPermission,
   })
+})
 
 // Live Layer
-export const PlayerActionProcessorLive = Layer.effect(
-  PlayerActionProcessor,
-  makePlayerActionProcessor
-)
+export const PlayerActionProcessorLive = Layer.effect(PlayerActionProcessor, makePlayerActionProcessor)
 ```
 
 ## 体力 & 空腹システム
@@ -536,30 +485,17 @@ export const PlayerActionProcessorLive = Layer.effect(
 ```typescript
 // HealthSystemインターフェース
 interface HealthSystemInterface {
-  readonly damage: (
-    player: Player,
-    amount: number,
-    source: DamageSource
-  ) => Effect.Effect<Player, PlayerDeathError>
+  readonly damage: (player: Player, amount: number, source: DamageSource) => Effect.Effect<Player, PlayerDeathError>
 
-  readonly heal: (
-    player: Player,
-    amount: number
-  ) => Effect.Effect<Player, never>
+  readonly heal: (player: Player, amount: number) => Effect.Effect<Player, never>
 
-  readonly updateHunger: (
-    player: Player,
-    deltaTime: number
-  ) => Effect.Effect<Player, never>
+  readonly updateHunger: (player: Player, deltaTime: number) => Effect.Effect<Player, never>
 
-  readonly regenerate: (
-    player: Player,
-    deltaTime: number
-  ) => Effect.Effect<Player, never>
+  readonly regenerate: (player: Player, deltaTime: number) => Effect.Effect<Player, never>
 }
 
 // Context Tag（最新パターン）
-const HealthSystem = Context.GenericTag<HealthSystemInterface>("@app/HealthSystem")
+const HealthSystem = Context.GenericTag<HealthSystemInterface>('@app/HealthSystem')
 
 export const HealthSystemLive = Layer.succeed(
   HealthSystem,
@@ -571,11 +507,7 @@ export const HealthSystemLive = Layer.succeed(
         }
 
         // アーマー計算
-        const finalDamage = calculateDamageWithArmor(
-          amount,
-          player.stats.armor,
-          source
-        )
+        const finalDamage = calculateDamageWithArmor(amount, player.stats.armor, source)
 
         const newHealth = Math.max(0, player.stats.health - finalDamage)
 
@@ -586,7 +518,7 @@ export const HealthSystemLive = Layer.succeed(
 
         return {
           ...player,
-          stats: { ...player.stats, health: newHealth }
+          stats: { ...player.stats, health: newHealth },
         }
       }),
 
@@ -595,13 +527,13 @@ export const HealthSystemLive = Layer.succeed(
         ...player,
         stats: {
           ...player.stats,
-          health: Math.min(20, player.stats.health + amount)
-        }
+          health: Math.min(20, player.stats.health + amount),
+        },
       }),
 
     updateHunger: (player, deltaTime) =>
       Effect.gen(function* () {
-        if (player.gameMode === "creative") {
+        if (player.gameMode === 'creative') {
           return player
         }
 
@@ -611,18 +543,15 @@ export const HealthSystemLive = Layer.succeed(
 
         // 飽和度減少
         const saturationDecrease = newHunger < 20 ? 0.01 * deltaTime : 0
-        const newSaturation = Math.max(
-          0,
-          player.stats.saturation - saturationDecrease
-        )
+        const newSaturation = Math.max(0, player.stats.saturation - saturationDecrease)
 
         return {
           ...player,
           stats: {
             ...player.stats,
             hunger: newHunger,
-            saturation: newSaturation
-          }
+            saturation: newSaturation,
+          },
         }
       }),
 
@@ -635,23 +564,20 @@ export const HealthSystemLive = Layer.succeed(
 
           // 飽和度消費
           const saturationCost = 0.6 * deltaTime
-          const newSaturation = Math.max(
-            0,
-            player.stats.saturation - saturationCost
-          )
+          const newSaturation = Math.max(0, player.stats.saturation - saturationCost)
 
           return {
             ...player,
             stats: {
               ...player.stats,
               health: newHealth,
-              saturation: newSaturation
-            }
+              saturation: newSaturation,
+            },
           }
         }
 
         return player
-      })
+      }),
   })
 )
 ```
@@ -687,7 +613,7 @@ export const PlayerSystemLayer = Layer.mergeAll(
 // ECSコンポーネント定義
 export const PlayerComponent = Schema.Struct({
   id: PlayerId,
-  name: PlayerName
+  name: PlayerName,
 })
 
 export const TransformComponent = Schema.Struct({
@@ -696,8 +622,8 @@ export const TransformComponent = Schema.Struct({
   scale: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number
-  })
+    z: Schema.Number,
+  }),
 })
 
 export const PhysicsComponent = Schema.Struct({
@@ -709,14 +635,14 @@ export const PhysicsComponent = Schema.Struct({
   isOnGround: Schema.Boolean,
   isCollidingX: Schema.Boolean,
   isCollidingY: Schema.Boolean,
-  isCollidingZ: Schema.Boolean
+  isCollidingZ: Schema.Boolean,
 })
 
 export const StatsComponent = Schema.Struct({
   ...PlayerStats.fields,
   lastDamageTime: Schema.Number,
   lastHealTime: Schema.Number,
-  lastHungerUpdate: Schema.Number
+  lastHungerUpdate: Schema.Number,
 })
 
 // ECS World定義
@@ -734,19 +660,11 @@ export interface PlayerWorld {
 
 // ECS System Interface
 interface PlayerECSSystemInterface {
-  readonly createPlayerEntity: (
-    player: Player
-  ) => Effect.Effect<EntityId, EntityCreationError>
+  readonly createPlayerEntity: (player: Player) => Effect.Effect<EntityId, EntityCreationError>
 
-  readonly updatePlayerMovement: (
-    world: PlayerWorld,
-    deltaTime: number
-  ) => Effect.Effect<PlayerWorld, never>
+  readonly updatePlayerMovement: (world: PlayerWorld, deltaTime: number) => Effect.Effect<PlayerWorld, never>
 
-  readonly updatePlayerStats: (
-    world: PlayerWorld,
-    deltaTime: number
-  ) => Effect.Effect<PlayerWorld, never>
+  readonly updatePlayerStats: (world: PlayerWorld, deltaTime: number) => Effect.Effect<PlayerWorld, never>
 
   readonly queryPlayersByPosition: (
     world: PlayerWorld,
@@ -756,7 +674,7 @@ interface PlayerECSSystemInterface {
 }
 
 // Context Tag（最新パターン）
-const PlayerECSSystem = Context.GenericTag<PlayerECSSystemInterface>("@app/PlayerECSSystem")
+const PlayerECSSystem = Context.GenericTag<PlayerECSSystemInterface>('@app/PlayerECSSystem')
 
 // アーキタイプベースクエリ
 const makePlayerECSSystem = Effect.gen(function* () {
@@ -771,13 +689,13 @@ const makePlayerECSSystem = Effect.gen(function* () {
       // コンポーネント追加
       world.components.player.set(entityId, {
         id: player.id,
-        name: player.name
+        name: player.name,
       })
 
       world.components.transform.set(entityId, {
         position: player.position,
         rotation: player.rotation,
-        scale: { x: 1, y: 1, z: 1 }
+        scale: { x: 1, y: 1, z: 1 },
       })
 
       world.components.physics.set(entityId, {
@@ -789,7 +707,7 @@ const makePlayerECSSystem = Effect.gen(function* () {
         isOnGround: false,
         isCollidingX: false,
         isCollidingY: false,
-        isCollidingZ: false
+        isCollidingZ: false,
       })
 
       // アーキタイプ登録
@@ -828,19 +746,20 @@ const makePlayerECSSystem = Effect.gen(function* () {
       // バッチ物理計算（WebWorkerで並列化可能）
       yield* Effect.forEach(
         movingEntities,
-        (entityId, index) => Effect.gen(function* () {
-          const newX = positions[index * 3] + velocities[index * 3] * deltaTime
-          const newY = positions[index * 3 + 1] + velocities[index * 3 + 1] * deltaTime
-          const newZ = positions[index * 3 + 2] + velocities[index * 3 + 2] * deltaTime
+        (entityId, index) =>
+          Effect.gen(function* () {
+            const newX = positions[index * 3] + velocities[index * 3] * deltaTime
+            const newY = positions[index * 3 + 1] + velocities[index * 3 + 1] * deltaTime
+            const newZ = positions[index * 3 + 2] + velocities[index * 3 + 2] * deltaTime
 
-          // コンポーネント更新
-          const transform = world.components.transform.get(entityId)!
-          world.components.transform.set(entityId, {
-            ...transform,
-            position: { x: newX, y: newY, z: newZ }
-          })
-        }),
-        { concurrency: "unbounded" } // 並列実行
+            // コンポーネント更新
+            const transform = world.components.transform.get(entityId)!
+            world.components.transform.set(entityId, {
+              ...transform,
+              position: { x: newX, y: newY, z: newZ },
+            })
+          }),
+        { concurrency: 'unbounded' } // 並列実行
       )
 
       return world
@@ -850,7 +769,7 @@ const makePlayerECSSystem = Effect.gen(function* () {
     createPlayerEntity,
     updatePlayerMovement,
     updatePlayerStats: updatePlayerStatsSystem,
-    queryPlayersByPosition: spatialQuery
+    queryPlayersByPosition: spatialQuery,
   })
 })
 
@@ -865,38 +784,30 @@ export const PlayerECSSystemLive = Layer.effect(PlayerECSSystem, makePlayerECSSy
 // 入力イベントのSchema定義
 export const InputEvent = Schema.Union(
   Schema.Struct({
-    _tag: Schema.Literal("KeyDown"),
+    _tag: Schema.Literal('KeyDown'),
     key: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("KeyUp"),
+    _tag: Schema.Literal('KeyUp'),
     key: Schema.String,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("MouseMove"),
+    _tag: Schema.Literal('MouseMove'),
     deltaX: Schema.Number,
     deltaY: Schema.Number,
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("MouseDown"),
-    button: Schema.Union(
-      Schema.Literal("left"),
-      Schema.Literal("right"),
-      Schema.Literal("middle")
-    ),
-    timestamp: Schema.Number
+    _tag: Schema.Literal('MouseDown'),
+    button: Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle')),
+    timestamp: Schema.Number,
   }),
   Schema.Struct({
-    _tag: Schema.Literal("MouseUp"),
-    button: Schema.Union(
-      Schema.Literal("left"),
-      Schema.Literal("right"),
-      Schema.Literal("middle")
-    ),
-    timestamp: Schema.Number
+    _tag: Schema.Literal('MouseUp'),
+    button: Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle')),
+    timestamp: Schema.Number,
   })
 )
 export type InputEvent = Schema.Schema.Type<typeof InputEvent>
@@ -907,24 +818,20 @@ export const InputState = Schema.Struct({
   mouseButtons: Schema.Struct({
     left: Schema.Boolean,
     right: Schema.Boolean,
-    middle: Schema.Boolean
+    middle: Schema.Boolean,
   }),
   mouseDelta: Schema.Struct({
     x: Schema.Number,
-    y: Schema.Number
+    y: Schema.Number,
   }),
-  lastUpdateTime: Schema.Number
+  lastUpdateTime: Schema.Number,
 })
 export type InputState = Schema.Schema.Type<typeof InputState>
 
 interface InputServiceInterface {
-  readonly processInput: (
-    events: ReadonlyArray<InputEvent>
-  ) => Effect.Effect<InputState, never>
+  readonly processInput: (events: ReadonlyArray<InputEvent>) => Effect.Effect<InputState, never>
 
-  readonly getMovementDirection: (
-    state: InputState
-  ) => Effect.Effect<Direction, never>
+  readonly getMovementDirection: (state: InputState) => Effect.Effect<Direction, never>
 
   readonly getMouseLook: (
     state: InputState,
@@ -933,14 +840,14 @@ interface InputServiceInterface {
 }
 
 // Context Tag（最新パターン）
-const InputService = Context.GenericTag<InputServiceInterface>("@app/InputService")
+const InputService = Context.GenericTag<InputServiceInterface>('@app/InputService')
 
 const makeInputService = Effect.gen(function* () {
   const inputState = yield* Ref.make<InputState>({
     keys: {},
     mouseButtons: { left: false, right: false, middle: false },
     mouseDelta: { x: 0, y: 0 },
-    lastUpdateTime: Date.now()
+    lastUpdateTime: Date.now(),
   })
 
   // Streamによる入力イベントハンドリング
@@ -959,27 +866,27 @@ const makeInputService = Effect.gen(function* () {
 
           // Streamを使った効率的なイベント処理
           const processedEvents = yield* Stream.fromIterable(events).pipe(
-            Stream.map(event =>
+            Stream.map((event) =>
               Match.value(event).pipe(
-                Match.tag("KeyDown", ({ key }) => ({
+                Match.tag('KeyDown', ({ key }) => ({
                   ...newState,
-                  keys: { ...newState.keys, [key]: true }
+                  keys: { ...newState.keys, [key]: true },
                 })),
-                Match.tag("KeyUp", ({ key }) => ({
+                Match.tag('KeyUp', ({ key }) => ({
                   ...newState,
-                  keys: { ...newState.keys, [key]: false }
+                  keys: { ...newState.keys, [key]: false },
                 })),
-                Match.tag("MouseMove", ({ deltaX, deltaY }) => ({
+                Match.tag('MouseMove', ({ deltaX, deltaY }) => ({
                   ...newState,
-                  mouseDelta: { x: deltaX, y: deltaY }
+                  mouseDelta: { x: deltaX, y: deltaY },
                 })),
-                Match.tag("MouseDown", ({ button }) => ({
+                Match.tag('MouseDown', ({ button }) => ({
                   ...newState,
-                  mouseButtons: { ...newState.mouseButtons, [button]: true }
+                  mouseButtons: { ...newState.mouseButtons, [button]: true },
                 })),
-                Match.tag("MouseUp", ({ button }) => ({
+                Match.tag('MouseUp', ({ button }) => ({
                   ...newState,
-                  mouseButtons: { ...newState.mouseButtons, [button]: false }
+                  mouseButtons: { ...newState.mouseButtons, [button]: false },
                 }))
               )
             ),
@@ -988,7 +895,7 @@ const makeInputService = Effect.gen(function* () {
 
           const finalState = {
             ...processedEvents.pipe(Option.getOrElse(() => newState)),
-            lastUpdateTime: Date.now()
+            lastUpdateTime: Date.now(),
           }
 
           yield* STM.updateRef(inputState, () => finalState)
@@ -999,25 +906,25 @@ const makeInputService = Effect.gen(function* () {
 
   const getMovementDirection = (state: InputState) =>
     Effect.succeed({
-      forward: state.keys["KeyW"] || state.keys["ArrowUp"] || false,
-      backward: state.keys["KeyS"] || state.keys["ArrowDown"] || false,
-      left: state.keys["KeyA"] || state.keys["ArrowLeft"] || false,
-      right: state.keys["KeyD"] || state.keys["ArrowRight"] || false,
-      jump: state.keys["Space"] || false,
-      sneak: state.keys["ShiftLeft"] || false,
-      sprint: state.keys["ControlLeft"] || false
+      forward: state.keys['KeyW'] || state.keys['ArrowUp'] || false,
+      backward: state.keys['KeyS'] || state.keys['ArrowDown'] || false,
+      left: state.keys['KeyA'] || state.keys['ArrowLeft'] || false,
+      right: state.keys['KeyD'] || state.keys['ArrowRight'] || false,
+      jump: state.keys['Space'] || false,
+      sneak: state.keys['ShiftLeft'] || false,
+      sprint: state.keys['ControlLeft'] || false,
     })
 
   const getMouseLook = (state: InputState, sensitivity: number) =>
     Effect.succeed({
       deltaYaw: state.mouseDelta.x * sensitivity * 0.1,
-      deltaPitch: -state.mouseDelta.y * sensitivity * 0.1 // Y軸反転
+      deltaPitch: -state.mouseDelta.y * sensitivity * 0.1, // Y軸反転
     })
 
   return InputService.of({
     processInput,
     getMovementDirection,
-    getMouseLook
+    getMouseLook,
   })
 })
 
@@ -1037,41 +944,32 @@ export const PlayerSyncData = Schema.Struct({
   velocity: Velocity3D,
   animationState: Schema.String,
   timestamp: Schema.Number,
-  sequenceNumber: Schema.Number
+  sequenceNumber: Schema.Number,
 })
 export type PlayerSyncData = Schema.Schema.Type<typeof PlayerSyncData>
 
 export const PlayerSnapshot = Schema.Struct({
   players: Schema.Array(PlayerSyncData),
   serverTime: Schema.Number,
-  tickNumber: Schema.Number
+  tickNumber: Schema.Number,
 })
 export type PlayerSnapshot = Schema.Schema.Type<typeof PlayerSnapshot>
 
 interface PlayerSyncServiceInterface {
-  readonly sendPlayerUpdate: (
-    player: Player
-  ) => Effect.Effect<void, NetworkError>
+  readonly sendPlayerUpdate: (player: Player) => Effect.Effect<void, NetworkError>
 
-  readonly receivePlayerUpdates: () => Effect.Effect<
-    ReadonlyArray<PlayerSyncData>,
-    NetworkError
-  >
+  readonly receivePlayerUpdates: () => Effect.Effect<ReadonlyArray<PlayerSyncData>, NetworkError>
 
   readonly interpolatePlayerPosition: (
     playerId: PlayerId,
     currentTime: number
   ) => Effect.Effect<Option.Option<Position3D>, never>
 
-  readonly predictPlayerMovement: (
-    player: Player,
-    input: InputState,
-    deltaTime: number
-  ) => Effect.Effect<Player, never>
+  readonly predictPlayerMovement: (player: Player, input: InputState, deltaTime: number) => Effect.Effect<Player, never>
 }
 
 // Context Tag（最新パターン）
-const PlayerSyncService = Context.GenericTag<PlayerSyncServiceInterface>("@app/PlayerSyncService")
+const PlayerSyncService = Context.GenericTag<PlayerSyncServiceInterface>('@app/PlayerSyncService')
 
 const makePlayerSyncService = Effect.gen(function* () {
   const networkService = yield* NetworkService
@@ -1086,27 +984,25 @@ const makePlayerSyncService = Effect.gen(function* () {
         velocity: player.velocity,
         animationState: determineAnimationState(player),
         timestamp: Date.now(),
-        sequenceNumber: yield* getNextSequenceNumber()
+        sequenceNumber: yield* getNextSequenceNumber(),
       }
 
-      yield* networkService.send("player_update", syncData)
+      yield* networkService.send('player_update', syncData)
     })
 
   const receivePlayerUpdates = () =>
     Effect.gen(function* () {
-      const updates = yield* networkService.receive<PlayerSyncData[]>("player_updates")
+      const updates = yield* networkService.receive<PlayerSyncData[]>('player_updates')
 
       // 補間バッファに追加
-      yield* Ref.update(interpolationBuffer, buffer => {
-        updates.forEach(update => {
+      yield* Ref.update(interpolationBuffer, (buffer) => {
+        updates.forEach((update) => {
           const playerBuffer = buffer.get(update.playerId) || []
           playerBuffer.push(update)
 
           // 古いデータを削除（1秒以上古い）
           const cutoffTime = Date.now() - 1000
-          const filteredBuffer = playerBuffer.filter(
-            data => data.timestamp > cutoffTime
-          ).slice(-10) // 最新10個のみ保持
+          const filteredBuffer = playerBuffer.filter((data) => data.timestamp > cutoffTime).slice(-10) // 最新10個のみ保持
 
           buffer.set(update.playerId, filteredBuffer)
         })
@@ -1134,13 +1030,12 @@ const makePlayerSyncService = Effect.gen(function* () {
         const next = sorted[i + 1]
 
         if (currentTime >= current.timestamp && currentTime <= next.timestamp) {
-          const t = (currentTime - current.timestamp) /
-                   (next.timestamp - current.timestamp)
+          const t = (currentTime - current.timestamp) / (next.timestamp - current.timestamp)
 
           return Option.some({
             x: current.position.x + (next.position.x - current.position.x) * t,
             y: current.position.y + (next.position.y - current.position.y) * t,
-            z: current.position.z + (next.position.z - current.position.z) * t
+            z: current.position.z + (next.position.z - current.position.z) * t,
           })
         }
       }
@@ -1152,9 +1047,7 @@ const makePlayerSyncService = Effect.gen(function* () {
   const predictPlayerMovement = (player: Player, input: InputState, deltaTime: number) =>
     Effect.gen(function* () {
       const movementService = yield* PlayerMovementService
-      const direction = yield* InputService.pipe(
-        Effect.flatMap(service => service.getMovementDirection(input))
-      )
+      const direction = yield* InputService.pipe(Effect.flatMap((service) => service.getMovementDirection(input)))
 
       // ローカル予測実行
       const predictedPlayer = yield* movementService.move(player, direction, deltaTime)
@@ -1166,7 +1059,7 @@ const makePlayerSyncService = Effect.gen(function* () {
     sendPlayerUpdate,
     receivePlayerUpdates,
     interpolatePlayerPosition,
-    predictPlayerMovement
+    predictPlayerMovement,
   })
 })
 
@@ -1178,44 +1071,52 @@ export const PlayerSyncServiceLive = Layer.effect(PlayerSyncService, makePlayerS
 ### Property-Based Testing
 
 ```typescript
-import * as fc from "fast-check"
-import { Schema } from "effect"
+import * as fc from 'fast-check'
+import { Schema } from 'effect'
 
 // プロパティベーステストの設定
-describe("プレイヤーシステムのプロパティテスト", () => {
+describe('プレイヤーシステムのプロパティテスト', () => {
   // 位置計算の性質テスト
-  test("移動は決定的であるべき", () => {
-    fc.assert(fc.property(
-      fc.record({
-        x: fc.float({ min: -1000, max: 1000 }),
-        y: fc.float({ min: -1000, max: 1000 }),
-        z: fc.float({ min: -1000, max: 1000 })
-      }),
-      fc.record({
-        x: fc.float({ min: -10, max: 10 }),
-        y: fc.float({ min: -10, max: 10 }),
-        z: fc.float({ min: -10, max: 10 })
-      }),
-      fc.float({ min: 0.001, max: 0.1 }),
-      (position, velocity, deltaTime) => {
-        const player = createTestPlayer({ position, velocity })
-        const direction = { forward: true, backward: false, left: false, right: false, jump: false, sneak: false, sprint: false }
+  test('移動は決定的であるべき', () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          x: fc.float({ min: -1000, max: 1000 }),
+          y: fc.float({ min: -1000, max: 1000 }),
+          z: fc.float({ min: -1000, max: 1000 }),
+        }),
+        fc.record({
+          x: fc.float({ min: -10, max: 10 }),
+          y: fc.float({ min: -10, max: 10 }),
+          z: fc.float({ min: -10, max: 10 }),
+        }),
+        fc.float({ min: 0.001, max: 0.1 }),
+        (position, velocity, deltaTime) => {
+          const player = createTestPlayer({ position, velocity })
+          const direction = {
+            forward: true,
+            backward: false,
+            left: false,
+            right: false,
+            jump: false,
+            sneak: false,
+            sprint: false,
+          }
 
-        // 同じ入力は同じ結果を生成する
-        const result1 = runMovement(player, direction, deltaTime)
-        const result2 = runMovement(player, direction, deltaTime)
+          // 同じ入力は同じ結果を生成する
+          const result1 = runMovement(player, direction, deltaTime)
+          const result2 = runMovement(player, direction, deltaTime)
 
-        expect(result1.position).toEqual(result2.position)
-      }
-    ))
+          expect(result1.position).toEqual(result2.position)
+        }
+      )
+    )
   })
 
   // インベントリ整合性テスト
-  test("インベントリ操作は一貫性を保つべき", () => {
-    fc.assert(fc.property(
-      generateValidPlayer(),
-      generateValidItemStack(),
-      (player, item) => {
+  test('インベントリ操作は一貫性を保つべき', () => {
+    fc.assert(
+      fc.property(generateValidPlayer(), generateValidItemStack(), (player, item) => {
         const result = addItemToInventory(player, item)
 
         // アイテム追加後、総アイテム数は増加するか同じ
@@ -1223,14 +1124,14 @@ describe("プレイヤーシステムのプロパティテスト", () => {
         const newCount = countTotalItems(result.inventory)
 
         expect(newCount).toBeGreaterThanOrEqual(originalCount)
-      }
-    ))
+      })
+    )
   })
 })
 
 // パフォーマンステスト
-describe("パフォーマンステスト", () => {
-  test("1000人のプレイヤーを効率的に処理すべき", () => {
+describe('パフォーマンステスト', () => {
+  test('1000人のプレイヤーを効率的に処理すべき', () => {
     const players = Array.from({ length: 1000 }, () => createTestPlayer())
 
     const startTime = performance.now()
@@ -1245,7 +1146,7 @@ describe("パフォーマンステスト", () => {
     expect(duration).toBeLessThan(16)
   })
 
-  test("ECSクエリのパフォーマンス", () => {
+  test('ECSクエリのパフォーマンス', () => {
     const world = createTestWorld(10000) // 10k entities
 
     const startTime = performance.now()
@@ -1266,8 +1167,8 @@ describe("パフォーマンステスト", () => {
 })
 
 // メモリ使用量テスト
-describe("メモリ使用量テスト", () => {
-  test("継続的なプレイ中にメモリリークしないべき", () => {
+describe('メモリ使用量テスト', () => {
+  test('継続的なプレイ中にメモリリークしないべき', () => {
     const initialMemory = getMemoryUsage()
 
     // 1000フレーム分のシミュレーション
@@ -1299,10 +1200,7 @@ export const PlayerSystemTestLayer = Layer.mergeAll(
 
 // テスト用ヘルパー関数
 export const runPlayerSystemTest = <A, E>(effect: Effect.Effect<A, E, PlayerSystemTestLayer>) =>
-  effect.pipe(
-    Effect.provide(PlayerSystemTestLayer),
-    Effect.runPromise
-  )
+  effect.pipe(Effect.provide(PlayerSystemTestLayer), Effect.runPromise)
 ```
 
 ### パフォーマンス最適化戦略
@@ -1310,7 +1208,9 @@ export const runPlayerSystemTest = <A, E>(effect: Effect.Effect<A, E, PlayerSyst
 ```typescript
 // WebWorkerベース並列処理
 interface PlayerWorkerPoolInterface {
-  readonly processPlayerPhysics: (playerData: ReadonlyArray<PlayerPhysicsData>) => Effect.Effect<ReadonlyArray<PlayerPhysicsData>, WorkerError>
+  readonly processPlayerPhysics: (
+    playerData: ReadonlyArray<PlayerPhysicsData>
+  ) => Effect.Effect<ReadonlyArray<PlayerPhysicsData>, WorkerError>
   readonly terminate: () => Effect.Effect<void, never>
 }
 
@@ -1320,12 +1220,12 @@ interface WorkerTask {
 }
 
 // Context Tag（最新パターン）
-const PlayerWorkerPool = Context.GenericTag<PlayerWorkerPoolInterface>("@app/PlayerWorkerPool")
+const PlayerWorkerPool = Context.GenericTag<PlayerWorkerPoolInterface>('@app/PlayerWorkerPool')
 
 // PlayerWorkerPool実装の作成関数
 const makePlayerWorkerPool = (poolSize?: number): Effect.Effect<PlayerWorkerPoolInterface, never, never> =>
   Effect.gen(function* () {
-    const effectivePoolSize = poolSize ?? (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4) || 4
+    const effectivePoolSize = poolSize ?? ((typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4) || 4)
     const workers = new Array<Worker>()
     const taskQueue = new Array<WorkerTask>()
 
@@ -1362,11 +1262,11 @@ const makePlayerWorkerPool = (poolSize?: number): Effect.Effect<PlayerWorkerPool
         taskQueue.push(task)
 
         // 利用可能なWorkerを見つけて処理を投げる
-        const availableWorker = workers.find(w => w.onmessage !== null)
+        const availableWorker = workers.find((w) => w.onmessage !== null)
         if (availableWorker) {
           availableWorker.postMessage({
             type: 'PROCESS_PHYSICS',
-            data: playerData
+            data: playerData,
           })
         }
 
@@ -1374,14 +1274,14 @@ const makePlayerWorkerPool = (poolSize?: number): Effect.Effect<PlayerWorkerPool
       })
 
     const terminate = Effect.sync(() => {
-      workers.forEach(worker => worker.terminate())
+      workers.forEach((worker) => worker.terminate())
       workers.length = 0
       taskQueue.length = 0
     })
 
     return {
       processPlayerPhysics,
-      terminate
+      terminate,
     }
   })
 
@@ -1398,7 +1298,7 @@ interface PlayerObjectPoolInterface {
 }
 
 // Context Tag（最新パターン）
-const PlayerObjectPool = Context.GenericTag<PlayerObjectPoolInterface>("@app/PlayerObjectPool")
+const PlayerObjectPool = Context.GenericTag<PlayerObjectPoolInterface>('@app/PlayerObjectPool')
 
 // PlayerObjectPool実装の作成関数
 const makePlayerObjectPool = Effect.gen(function* () {
@@ -1406,9 +1306,7 @@ const makePlayerObjectPool = Effect.gen(function* () {
   const positionPool = new Array<Position3D>()
   const velocityPool = new Array<Velocity3D>()
 
-  const getPlayer = Effect.sync(() =>
-    playerPool.pop() ?? createEmptyPlayer()
-  )
+  const getPlayer = Effect.sync(() => playerPool.pop() ?? createEmptyPlayer())
 
   const returnPlayer = (player: Player) =>
     Effect.sync(() => {
@@ -1416,9 +1314,7 @@ const makePlayerObjectPool = Effect.gen(function* () {
       playerPool.push(player)
     })
 
-  const getPosition = Effect.sync(() =>
-    positionPool.pop() ?? { x: 0, y: 0, z: 0 }
-  )
+  const getPosition = Effect.sync(() => positionPool.pop() ?? { x: 0, y: 0, z: 0 })
 
   const returnPosition = (position: Position3D) =>
     Effect.sync(() => {
@@ -1428,9 +1324,7 @@ const makePlayerObjectPool = Effect.gen(function* () {
       positionPool.push(position)
     })
 
-  const getVelocity = Effect.sync(() =>
-    velocityPool.pop() ?? { x: 0, y: 0, z: 0 }
-  )
+  const getVelocity = Effect.sync(() => velocityPool.pop() ?? { x: 0, y: 0, z: 0 })
 
   const returnVelocity = (velocity: Velocity3D) =>
     Effect.sync(() => {
@@ -1446,7 +1340,7 @@ const makePlayerObjectPool = Effect.gen(function* () {
     getPosition,
     returnPosition,
     getVelocity,
-    returnVelocity
+    returnVelocity,
   }
 })
 
@@ -1456,14 +1350,14 @@ export const PlayerObjectPoolLive = Layer.effect(PlayerObjectPool, makePlayerObj
 export const PlayerCache = Effect.gen(function* () {
   const cache = yield* Cache.make({
     capacity: 1000,
-    timeToLive: "5 minutes",
-    lookup: (playerId: PlayerId) => loadPlayerFromStorage(playerId)
+    timeToLive: '5 minutes',
+    lookup: (playerId: PlayerId) => loadPlayerFromStorage(playerId),
   })
 
   return {
     getPlayer: (playerId: PlayerId) => Cache.get(cache, playerId),
     invalidatePlayer: (playerId: PlayerId) => Cache.invalidate(cache, playerId),
-    refreshPlayer: (playerId: PlayerId) => Cache.refresh(cache, playerId)
+    refreshPlayer: (playerId: PlayerId) => Cache.refresh(cache, playerId),
   }
 })
 ```

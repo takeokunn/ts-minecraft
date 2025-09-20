@@ -1,13 +1,13 @@
 ---
-title: "Vite設定 - ビルドツール完全ガイド"
-description: "Vite 7.1+でのTypeScript Minecraftプロジェクト設定。Nix環境対応、Effect-TS最適化、パフォーマンス調整。"
-category: "reference"
-difficulty: "intermediate"
-tags: ["vite", "build-tools", "nix", "effect-ts", "configuration", "performance", "pnpm"]
-prerequisites: ["basic-typescript", "build-tools-basics"]
-estimated_reading_time: "20分"
-dependencies: ["./typescript-config.md"]
-status: "complete"
+title: 'Vite設定 - ビルドツール完全ガイド'
+description: 'Vite 7.1+でのTypeScript Minecraftプロジェクト設定。Nix環境対応、Effect-TS最適化、パフォーマンス調整。'
+category: 'reference'
+difficulty: 'intermediate'
+tags: ['vite', 'build-tools', 'nix', 'effect-ts', 'configuration', 'performance', 'pnpm']
+prerequisites: ['basic-typescript', 'build-tools-basics']
+estimated_reading_time: '20分'
+dependencies: ['./typescript-config.md']
+status: 'complete'
 ---
 
 # Vite Configuration
@@ -19,6 +19,7 @@ status: "complete"
 TypeScript MinecraftプロジェクトのVite 7.1+設定について詳しく解説します。Nix開発環境での統合、pnpmパッケージマネージャー、Effect-TS最適化、パフォーマンス調整など、実用的な設定例を豊富に提供します。
 
 **プロジェクト技術スタック**:
+
 - **開発環境**: Nix + devenv
 - **パッケージマネージャー**: pnpm
 - **ランタイム**: Node.js 22
@@ -58,47 +59,51 @@ export default defineConfig(({ command, mode }) => {
       open: isDev,
       cors: {
         origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-        credentials: true
+        credentials: true,
       },
 
       // HMR設定（Nix環境最適化）
       hmr: {
         port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5174,
         overlay: true, // エラーオーバーレイ表示
-        clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5174
+        clientPort: env.VITE_HMR_CLIENT_PORT ? Number(env.VITE_HMR_CLIENT_PORT) : 5174,
       },
 
       // プロキシ設定（API統合用）
-      proxy: isDev ? {
-        '/api': {
-          target: env.API_URL || 'http://localhost:8080',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
-          configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, _res) => {
-              console.log('プロキシエラー:', err)
-            })
+      proxy: isDev
+        ? {
+            '/api': {
+              target: env.API_URL || 'http://localhost:8080',
+              changeOrigin: true,
+              rewrite: (path) => path.replace(/^\/api/, ''),
+              configure: (proxy, _options) => {
+                proxy.on('error', (err, _req, _res) => {
+                  console.log('プロキシエラー:', err)
+                })
+              },
+            },
+            // WebSocket プロキシ（マルチプレイヤー用）
+            '/socket.io': {
+              target: 'ws://localhost:3002',
+              ws: true,
+              rewriteWsOrigin: true,
+            },
           }
-        },
-        // WebSocket プロキシ（マルチプレイヤー用）
-        '/socket.io': {
-          target: 'ws://localhost:3002',
-          ws: true,
-          rewriteWsOrigin: true
-        }
-      } : undefined,
+        : undefined,
 
       // パフォーマンス向上：事前ウォームアップ（Effect-TS最適化）
-      warmup: isDev ? {
-        clientFiles: [
-          './src/domain/**/*.ts',         // ドメインモデル
-          './src/application/**/*.ts',    // アプリケーションサービス
-          './src/infrastructure/**/*.ts', // インフラストラクチャ
-          './src/presentation/**/*.ts',   // プレゼンテーション層
-          './src/shared/**/*.ts'          // 共有コンポーネント
-        ],
-        ssrFiles: [] // SSRは使用しない
-      } : undefined
+      warmup: isDev
+        ? {
+            clientFiles: [
+              './src/domain/**/*.ts', // ドメインモデル
+              './src/application/**/*.ts', // アプリケーションサービス
+              './src/infrastructure/**/*.ts', // インフラストラクチャ
+              './src/presentation/**/*.ts', // プレゼンテーション層
+              './src/shared/**/*.ts', // 共有コンポーネント
+            ],
+            ssrFiles: [], // SSRは使用しない
+          }
+        : undefined,
     },
 
     // ビルド設定（Node.js 22対応）
@@ -111,29 +116,31 @@ export default defineConfig(({ command, mode }) => {
       reportCompressedSize: false, // Nixビルドでの高速化
 
       // Terser設定（本番最適化）
-      terserOptions: isProd ? {
-        compress: {
-          drop_console: true,
-          drop_debugger: true,
-          pure_funcs: ['console.log', 'console.warn', 'console.info'],
-          passes: 2 // 2パス最適化
-        },
-        mangle: {
-          safari10: true,
-          properties: {
-            regex: /^_/ // プライベートメンバー短縮化
+      terserOptions: isProd
+        ? {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+              pure_funcs: ['console.log', 'console.warn', 'console.info'],
+              passes: 2, // 2パス最適化
+            },
+            mangle: {
+              safari10: true,
+              properties: {
+                regex: /^_/, // プライベートメンバー短縮化
+              },
+            },
+            format: {
+              comments: false, // コメント除去
+            },
           }
-        },
-        format: {
-          comments: false // コメント除去
-        }
-      } : undefined,
+        : undefined,
 
       // チャンク分割（効率的なキャッシュ）
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
-          worker: resolve(__dirname, 'src/workers/chunk-worker.ts')
+          worker: resolve(__dirname, 'src/workers/chunk-worker.ts'),
         },
         output: {
           // ファイル名設定（キャッシュ最適化）
@@ -164,8 +171,8 @@ export default defineConfig(({ command, mode }) => {
             if (id.includes('/infrastructure/')) return 'infrastructure'
             if (id.includes('/presentation/')) return 'presentation'
             if (id.includes('/shared/')) return 'shared'
-          }
-        }
+          },
+        },
       },
 
       // リソース管理
@@ -177,12 +184,9 @@ export default defineConfig(({ command, mode }) => {
         polyfill: true,
         resolveDependencies: (filename, deps, { hostId, hostType }) => {
           // 重要なチャンクのみプリロード
-          return deps.filter(dep =>
-            dep.includes('vendor-core') ||
-            dep.includes('game-core')
-          )
-        }
-      }
+          return deps.filter((dep) => dep.includes('vendor-core') || dep.includes('game-core'))
+        },
+      },
     },
 
     // パス解決設定（DDD構造対応）
@@ -194,7 +198,7 @@ export default defineConfig(({ command, mode }) => {
         '@/infrastructure': resolve(process.cwd(), 'src/infrastructure'),
         '@/presentation': resolve(process.cwd(), 'src/presentation'),
         '@/shared': resolve(process.cwd(), 'src/shared'),
-        '@/test': resolve(process.cwd(), 'test')
+        '@/test': resolve(process.cwd(), 'test'),
       },
       extensions: ['.ts', '.tsx', '.js', '.mjs', '.json'],
 
@@ -204,7 +208,7 @@ export default defineConfig(({ command, mode }) => {
         : ['production', 'module', 'import', 'default'],
 
       // Nixでのシンボリックリンク対応
-      preserveSymlinks: true
+      preserveSymlinks: true,
     },
 
     // プラグイン設定
@@ -226,26 +230,23 @@ export default defineConfig(({ command, mode }) => {
         'effect > effect/Option',
         'effect > effect/Either',
         'effect > effect/Array',
-        'effect > effect/Record'
+        'effect > effect/Record',
       ],
       // 除外対象
-      exclude: [
-        '@vite/client',
-        '@vite/env'
-      ],
+      exclude: ['@vite/client', '@vite/env'],
       // ESBuild設定（Node.js 22最適化）
       esbuildOptions: {
         target: 'es2022',
         supported: {
           'top-level-await': true,
-          'import-meta': true
+          'import-meta': true,
         },
         define: {
-          global: 'globalThis' // Node.js互換性
-        }
+          global: 'globalThis', // Node.js互換性
+        },
       },
       // 強制最適化（Nix環境での安定性）
-      force: false
+      force: false,
     },
 
     // CSS設定（ゲーム向け最適化）
@@ -253,18 +254,16 @@ export default defineConfig(({ command, mode }) => {
       devSourcemap: isDev,
       modules: {
         localsConvention: 'camelCase',
-        generateScopedName: isDev
-          ? '[name]__[local]___[hash:base64:5]'
-          : '[hash:base64:8]'
+        generateScopedName: isDev ? '[name]__[local]___[hash:base64:5]' : '[hash:base64:8]',
       },
       transformer: 'lightningcss', // 高速CSS処理
       lightningcss: {
         targets: {
           chrome: 90,
           firefox: 88,
-          safari: 14
-        }
-      }
+          safari: 14,
+        },
+      },
     },
 
     // 環境変数設定（ゲーム用定数）
@@ -275,20 +274,20 @@ export default defineConfig(({ command, mode }) => {
       __GAME_DEBUG__: isDev,
       __NIX_ENV__: true,
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'import.meta.env.SSR': false // クライアントサイドのみ
+      'import.meta.env.SSR': false, // クライアントサイドのみ
     },
 
     // 静的アセット設定（ゲームリソース）
     assetsInclude: [
-      '**/*.gltf',        // 3Dモデル
-      '**/*.glb',         // バイナリ3Dモデル
-      '**/*.obj',         // OBJモデル
-      '**/*.mtl',         // マテリアル定義
-      '**/*.png',         // テクスチャ
-      '**/*.jpg',         // テクスチャ
-      '**/*.ogg',         // 音声ファイル
-      '**/*.wav',         // 音声ファイル
-      '**/*.json'         // データファイル
+      '**/*.gltf', // 3Dモデル
+      '**/*.glb', // バイナリ3Dモデル
+      '**/*.obj', // OBJモデル
+      '**/*.mtl', // マテリアル定義
+      '**/*.png', // テクスチャ
+      '**/*.jpg', // テクスチャ
+      '**/*.ogg', // 音声ファイル
+      '**/*.wav', // 音声ファイル
+      '**/*.json', // データファイル
     ],
 
     // プレビューサーバー設定（本番ビルドテスト用）
@@ -296,12 +295,12 @@ export default defineConfig(({ command, mode }) => {
       port: env.VITE_PREVIEW_PORT ? Number(env.VITE_PREVIEW_PORT) : 4173,
       host: '0.0.0.0',
       strictPort: false,
-      cors: true
+      cors: true,
     },
 
     // Nix環境専用設定
     clearScreen: false, // Nix環境でのログ表示維持
-    logLevel: isDev ? 'info' : 'warn'
+    logLevel: isDev ? 'info' : 'warn',
   }
 })
 ```
@@ -325,26 +324,26 @@ export default defineConfig({
     hmr: {
       port: 5174,
       overlay: true, // エラー画面オーバーレイ
-      clientPort: 5174 // WebSocketポート明示
+      clientPort: 5174, // WebSocketポート明示
     },
 
     // CORS設定（Nix環境用）
     cors: {
       origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://0.0.0.0:5173'],
-      credentials: true
+      credentials: true,
     },
 
     // ファイル監視設定（Nix最適化）
     watch: {
       usePolling: false, // Nix inotifyサポート
-      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**']
+      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
     },
 
     // Nix store対応
     fs: {
       allow: ['..', '/nix/store'], // Nix store アクセス許可
-      deny: ['.env.local', '.env.*.local']
-    }
+      deny: ['.env.local', '.env.*.local'],
+    },
   },
 
   // 開発時のソースマップ（Effect-TS最適化）
@@ -352,9 +351,9 @@ export default defineConfig({
     sourcemap: true, // Effect-TSデバッグ用
     rollupOptions: {
       output: {
-        sourcemapExcludeSources: false // Effect-TSソース表示
-      }
-    }
+        sourcemapExcludeSources: false, // Effect-TSソース表示
+      },
+    },
   },
 
   // Effect-TS開発最適化
@@ -364,15 +363,15 @@ export default defineConfig({
       'effect > effect/Schema',
       'effect > effect/Context',
       'effect > effect/Match',
-      'effect > effect/Data'
+      'effect > effect/Data',
     ],
     // Nix環境での安定性重視
-    force: false
+    force: false,
   },
 
   // Nix環境専用設定
   clearScreen: false,
-  logLevel: 'info'
+  logLevel: 'info',
 })
 ```
 
@@ -402,27 +401,20 @@ export default defineConfig({
         passes: 2, // 2パス最適化
 
         // Effect-TS最適化
-        pure_funcs: [
-          'console.log',
-          'console.info',
-          'console.warn',
-          'console.error',
-          'console.debug',
-          '__DEV__'
-        ]
+        pure_funcs: ['console.log', 'console.info', 'console.warn', 'console.error', 'console.debug', '__DEV__'],
       },
       mangle: {
         // プライベートメンバー短縮化
         properties: {
-          regex: /^_/
+          regex: /^_/,
         },
         // Safari対応
-        safari10: true
+        safari10: true,
       },
       format: {
         comments: false, // 全コメント除去
-        ecma: 2022 // 最新ECMAScript対応
-      }
+        ecma: 2022, // 最新ECMAScript対応
+      },
     },
 
     // ゲーム用バンドル最適化
@@ -431,7 +423,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         'chunk-worker': 'src/workers/chunk-worker.ts',
-        'physics-worker': 'src/workers/physics-worker.ts'
+        'physics-worker': 'src/workers/physics-worker.ts',
       },
 
       output: {
@@ -465,8 +457,8 @@ export default defineConfig({
 
           // 外部ライブラリ
           if (id.includes('node_modules')) return 'vendor'
-        }
-      }
+        },
+      },
     },
 
     // ゲームアセット最適化
@@ -477,8 +469,8 @@ export default defineConfig({
     rollupOptions: {
       ...rollupOptions,
       external: [],
-      plugins: []
-    }
+      plugins: [],
+    },
   },
 
   // Lightning CSS設定（ゲーム用高速化）
@@ -488,21 +480,21 @@ export default defineConfig({
       targets: {
         chrome: 90,
         firefox: 88,
-        safari: 14
+        safari: 14,
       },
       minify: true,
       drafts: {
-        customMedia: true
-      }
-    }
+        customMedia: true,
+      },
+    },
   },
 
   // 本番環境専用定義
   define: {
     __GAME_DEBUG__: false,
     __PERFORMANCE_MONITORING__: true,
-    __GAME_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0')
-  }
+    __GAME_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
+  },
 })
 ```
 
@@ -518,12 +510,13 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default defineConfig({
   plugins: [
     // バンドル分析（Nix環境対応）
-    process.env.ANALYZE && visualizer({
-      filename: 'dist/stats.html',
-      open: false, // Nix環境では自動起動無効
-      gzipSize: true,
-      brotliSize: true
-    })
+    process.env.ANALYZE &&
+      visualizer({
+        filename: 'dist/stats.html',
+        open: false, // Nix環境では自動起動無効
+        gzipSize: true,
+        brotliSize: true,
+      }),
   ].filter(Boolean),
 
   build: {
@@ -545,10 +538,14 @@ export default defineConfig({
 
         // Effect-TS特化最適化
         pure_funcs: [
-          'console.log', 'console.info', 'console.warn',
+          'console.log',
+          'console.info',
+          'console.warn',
           // Effect-TS pure functions
-          'Effect.log', 'Effect.logInfo', 'Effect.logWarning',
-          'Schema.decodeUnknown'
+          'Effect.log',
+          'Effect.logInfo',
+          'Effect.logWarning',
+          'Schema.decodeUnknown',
           // Note: 'Data.struct' は廃止パターンのため除外
         ],
         pure_getters: true,
@@ -556,15 +553,15 @@ export default defineConfig({
         // パフォーマンス最適化
         passes: 2,
         unsafe_arrows: true,
-        unsafe_methods: true
+        unsafe_methods: true,
       },
       mangle: {
         safari10: true,
         properties: {
           // Effect-TSプライベートメンバー短縮
-          regex: /^_[a-zA-Z]/
-        }
-      }
+          regex: /^_[a-zA-Z]/,
+        },
+      },
     },
 
     // Effect-TS + ゲーム専用チャンク戦略
@@ -631,8 +628,8 @@ export default defineConfig({
             return `assets/models/[name]-[hash][extname]`
           }
           return `assets/[name]-[hash][extname]`
-        }
-      }
+        },
+      },
     },
 
     // ゲーム用最適化設定
@@ -646,9 +643,9 @@ export default defineConfig({
         main: 'index.html',
         'worker-chunk': 'src/workers/chunk-worker.ts',
         'worker-physics': 'src/workers/physics-worker.ts',
-        'worker-pathfinding': 'src/workers/pathfinding-worker.ts'
-      }
-    }
+        'worker-pathfinding': 'src/workers/pathfinding-worker.ts',
+      },
+    },
   },
 
   // Nix環境用最適化
@@ -657,8 +654,8 @@ export default defineConfig({
     legalComments: 'none',
     minifyIdentifiers: true,
     minifySyntax: true,
-    minifyWhitespace: true
-  }
+    minifyWhitespace: true,
+  },
 })
 ```
 
@@ -671,6 +668,7 @@ export default defineConfig({
 **問題**: バンドルサイズが大きくて読み込みが遅い
 
 **解決策**:
+
 ```typescript
 // バンドルアナライザーで原因調査
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -681,8 +679,8 @@ export default defineConfig({
       filename: 'dist/stats.html',
       open: true,
       gzipSize: true,
-      brotliSize: true
-    })
+      brotliSize: true,
+    }),
   ],
 
   build: {
@@ -694,10 +692,10 @@ export default defineConfig({
           if (id.includes('unused-heavy-lib')) {
             return 'unused' // 別チャンクに分離
           }
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 })
 ```
 
@@ -706,29 +704,27 @@ export default defineConfig({
 **問題**: HMRが遅い、ページ読み込みに時間がかかる
 
 **解決策**:
+
 ```typescript
 export default defineConfig({
   server: {
     // ファイル監視最適化
     watch: {
-      ignored: ['**/node_modules/**', '**/dist/**']
+      ignored: ['**/node_modules/**', '**/dist/**'],
     },
 
     // 事前ウォームアップ
     warmup: {
-      clientFiles: ['./src/main.ts', './src/App.vue']
-    }
+      clientFiles: ['./src/main.ts', './src/App.vue'],
+    },
   },
 
   optimizeDeps: {
     // 依存関係の事前バンドル強化
-    include: [
-      'effect > effect/Schema',
-      'three > three/examples/jsm/controls/OrbitControls'
-    ],
+    include: ['effect > effect/Schema', 'three > three/examples/jsm/controls/OrbitControls'],
     // 強制再最適化
-    force: true
-  }
+    force: true,
+  },
 })
 ```
 
@@ -737,35 +733,33 @@ export default defineConfig({
 **問題**: Three.js modules not found, import errors
 
 **解決策**:
+
 ```typescript
 export default defineConfig({
   resolve: {
     alias: {
       // Three.jsパス解決
       'three/examples/jsm': 'three/examples/jsm',
-      'three': 'three'
-    }
+      three: 'three',
+    },
   },
 
   optimizeDeps: {
-    include: [
-      'three',
-      'three/examples/jsm/controls/OrbitControls',
-      'three/examples/jsm/loaders/GLTFLoader'
-    ],
+    include: ['three', 'three/examples/jsm/controls/OrbitControls', 'three/examples/jsm/loaders/GLTFLoader'],
     // Three.js ESM対応
     esbuildOptions: {
       supported: {
-        'dynamic-import': true
-      }
-    }
-  }
+        'dynamic-import': true,
+      },
+    },
+  },
 })
 ```
 
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
+
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Vitest設定](./vitest-config.md) - テスト実行環境
 - [開発設定](./development-config.md) - 開発効率化
@@ -773,12 +767,14 @@ export default defineConfig({
 - [Project設定](./project-config.md) - プロジェクト全体設定
 
 ### 外部リファレンス
+
 - [Vite公式ドキュメント](https://vitejs.dev/)
 - [Rollup設定オプション](https://rollupjs.org/configuration-options/)
 - [Terser圧縮オプション](https://terser.org/docs/api-reference)
 - [Lightning CSS設定](https://lightningcss.dev/)
 
 ### プロジェクト固有
+
 - [Three.js統合ガイド](../../how-to/development/performance-optimization.md)
 - [Effect-TS最適化](../../how-to/development/effect-ts-migration-guide.md)
 - [パフォーマンス最適化](../troubleshooting/performance-issues.md)

@@ -1,12 +1,12 @@
 ---
-title: "デプロイメント パフォーマンス最適化完全ガイド"
-description: "TypeScript Minecraft Clone の本番環境パフォーマンス最適化。バンドル最適化、CDN、キャッシュ戦略、スケーリング、モニタリングの包括的実装"
-category: "deployment"
-difficulty: "advanced"
-tags: ["performance", "optimization", "scaling", "cdn", "caching", "monitoring", "production"]
-prerequisites: ["deployment-basics", "performance-debugging"]
-estimated_reading_time: "35分"
-related_docs: ["./ci-cd-deployment.md", "../troubleshooting/performance-issues.md"]
+title: 'デプロイメント パフォーマンス最適化完全ガイド'
+description: 'TypeScript Minecraft Clone の本番環境パフォーマンス最適化。バンドル最適化、CDN、キャッシュ戦略、スケーリング、モニタリングの包括的実装'
+category: 'deployment'
+difficulty: 'advanced'
+tags: ['performance', 'optimization', 'scaling', 'cdn', 'caching', 'monitoring', 'production']
+prerequisites: ['deployment-basics', 'performance-debugging']
+estimated_reading_time: '35分'
+related_docs: ['./ci-cd-deployment.md', '../troubleshooting/performance-issues.md']
 ---
 
 # デプロイメント パフォーマンス最適化完全ガイド
@@ -16,6 +16,7 @@ related_docs: ["./ci-cd-deployment.md", "../troubleshooting/performance-issues.m
 ## 📊 パフォーマンス最適化戦略
 
 ### 🎮 **ゲームパフォーマンス目標**
+
 ```mermaid
 graph TD
     A[パフォーマンス目標] --> B[フレームレート]
@@ -41,13 +42,14 @@ graph TD
 ```
 
 ### 📈 **最適化レイヤー**
-| レイヤー | 最適化対象 | 期待効果 | 実装難易度 |
-|----------|-----------|----------|------------|
-| **ビルド最適化** | バンドルサイズ・Tree Shaking | 50% サイズ削減 | ⭐⭐ |
-| **アセット最適化** | 画像・音声・3Dモデル圧縮 | 70% 転送量削減 | ⭐⭐⭐ |
-| **キャッシュ戦略** | ブラウザ・CDN・サーバー | 80% ロード時間短縮 | ⭐⭐ |
-| **コード最適化** | 実行時パフォーマンス | 30% 処理速度向上 | ⭐⭐⭐⭐ |
-| **インフラ最適化** | サーバー・ネットワーク | 60% レスポンス改善 | ⭐⭐⭐ |
+
+| レイヤー           | 最適化対象                   | 期待効果           | 実装難易度 |
+| ------------------ | ---------------------------- | ------------------ | ---------- |
+| **ビルド最適化**   | バンドルサイズ・Tree Shaking | 50% サイズ削減     | ⭐⭐       |
+| **アセット最適化** | 画像・音声・3Dモデル圧縮     | 70% 転送量削減     | ⭐⭐⭐     |
+| **キャッシュ戦略** | ブラウザ・CDN・サーバー      | 80% ロード時間短縮 | ⭐⭐       |
+| **コード最適化**   | 実行時パフォーマンス         | 30% 処理速度向上   | ⭐⭐⭐⭐   |
+| **インフラ最適化** | サーバー・ネットワーク       | 60% レスポンス改善 | ⭐⭐⭐     |
 
 ---
 
@@ -81,7 +83,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        worker: resolve(__dirname, 'src/workers/game-worker.ts')
+        worker: resolve(__dirname, 'src/workers/game-worker.ts'),
       },
 
       output: {
@@ -93,19 +95,9 @@ export default defineConfig({
           'vendor-ui': ['react', 'react-dom'],
 
           // ゲーム機能別チャンク
-          'game-core': [
-            './src/domain/world/world.ts',
-            './src/domain/player/player.ts',
-            './src/domain/block/block.ts'
-          ],
-          'game-rendering': [
-            './src/presentation/rendering/renderer.ts',
-            './src/presentation/rendering/shaders.ts'
-          ],
-          'game-physics': [
-            './src/domain/physics/physics.ts',
-            './src/domain/collision/collision.ts'
-          ]
+          'game-core': ['./src/domain/world/world.ts', './src/domain/player/player.ts', './src/domain/block/block.ts'],
+          'game-rendering': ['./src/presentation/rendering/renderer.ts', './src/presentation/rendering/shaders.ts'],
+          'game-physics': ['./src/domain/physics/physics.ts', './src/domain/collision/collision.ts'],
         },
 
         // GitHub Pages互換ファイル名パターン
@@ -129,14 +121,14 @@ export default defineConfig({
           }
 
           return 'assets/[ext]/[name]-[hash][extname]'
-        }
+        },
       },
 
       // CDN外部化（Three.js等）
       external: (id) => {
         // CDNから読み込む大きなライブラリ
         const cdnLibraries = ['three']
-        return cdnLibraries.some(lib => id.includes(lib))
+        return cdnLibraries.some((lib) => id.includes(lib))
       },
 
       plugins: [
@@ -151,12 +143,12 @@ export default defineConfig({
           },
           mangle: {
             properties: {
-              regex: /^_/
-            }
+              regex: /^_/,
+            },
           },
           format: {
-            comments: false // コメント完全削除
-          }
+            comments: false, // コメント完全削除
+          },
         }),
 
         // バンドル分析
@@ -164,9 +156,9 @@ export default defineConfig({
           filename: 'dist/bundle-analysis.html',
           open: false,
           gzipSize: true,
-          brotliSize: true
-        })
-      ]
+          brotliSize: true,
+        }),
+      ],
     },
 
     // GitHub Pages向け実験的最適化
@@ -177,23 +169,19 @@ export default defineConfig({
           return `${process.env.VITE_CDN_BASE_URL}/${filename}`
         }
         return `/ts-minecraft/${filename}`
-      }
-    }
+      },
+    },
   },
 
   // 依存関係最適化
   optimizeDeps: {
-    include: [
-      'effect',
-      '@effect/platform',
-      '@effect/schema'
-    ],
+    include: ['effect', '@effect/platform', '@effect/schema'],
     exclude: [
       // CDNから読み込むライブラリ
       'three',
       'three/examples/jsm/loaders/GLTFLoader',
-      'three/examples/jsm/controls/OrbitControls'
-    ]
+      'three/examples/jsm/controls/OrbitControls',
+    ],
   },
 
   // GitHub Pages向けプリロード設定
@@ -201,13 +189,13 @@ export default defineConfig({
     headers: {
       // 開発時のCORSヘッダー
       'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin'
-    }
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
   },
 
   plugins: [
     // プラグイン設定...
-  ]
+  ],
 })
 ```
 
@@ -221,14 +209,7 @@ import * as THREE from 'three'
 import * as Effect from 'effect'
 
 // ✅ 必要な機能のみインポート（Tree Shaking 対応）
-import {
-  Scene,
-  WebGLRenderer,
-  PerspectiveCamera,
-  BoxGeometry,
-  MeshBasicMaterial,
-  Mesh
-} from 'three'
+import { Scene, WebGLRenderer, PerspectiveCamera, BoxGeometry, MeshBasicMaterial, Mesh } from 'three'
 
 import { Effect as EffectType, pipe, Either } from 'effect'
 
@@ -277,18 +258,12 @@ export const createGameWorker = async () => {
 
 // 大きなライブラリの遅延ロード
 export const loadThreeJSExtensions = async () => {
-  const [
-    { GLTFLoader },
-    { DRACOLoader },
-    { EffectComposer },
-    { RenderPass },
-    { UnrealBloomPass }
-  ] = await Promise.all([
+  const [{ GLTFLoader }, { DRACOLoader }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }] = await Promise.all([
     import('three/examples/jsm/loaders/GLTFLoader'),
     import('three/examples/jsm/loaders/DRACOLoader'),
     import('three/examples/jsm/postprocessing/EffectComposer'),
     import('three/examples/jsm/postprocessing/RenderPass'),
-    import('three/examples/jsm/postprocessing/UnrealBloomPass')
+    import('three/examples/jsm/postprocessing/UnrealBloomPass'),
   ])
 
   return {
@@ -296,7 +271,7 @@ export const loadThreeJSExtensions = async () => {
     DRACOLoader,
     EffectComposer,
     RenderPass,
-    UnrealBloomPass
+    UnrealBloomPass,
   }
 }
 
@@ -314,7 +289,7 @@ export const preloadCriticalAssets = async () => {
     import('../assets/sounds/block-break.ogg'),
 
     // 基本3Dモデル
-    import('../assets/models/player.gltf')
+    import('../assets/models/player.gltf'),
   ]
 
   await Promise.allSettled(preloadPromises)
@@ -342,191 +317,191 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'pnpm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          webp \
-          jpegoptim \
-          pngquant \
-          ffmpeg \
-          imagemagick
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            webp \
+            jpegoptim \
+            pngquant \
+            ffmpeg \
+            imagemagick
 
-    - name: Install AVIF encoder
-      run: |
-        wget https://github.com/AOMediaCodec/libavif/releases/download/v1.0.3/avifenc-linux-x64
-        chmod +x avifenc-linux-x64
-        sudo mv avifenc-linux-x64 /usr/local/bin/avifenc
+      - name: Install AVIF encoder
+        run: |
+          wget https://github.com/AOMediaCodec/libavif/releases/download/v1.0.3/avifenc-linux-x64
+          chmod +x avifenc-linux-x64
+          sudo mv avifenc-linux-x64 /usr/local/bin/avifenc
 
-    - name: Install JavaScript dependencies
-      run: |
-        pnpm install --frozen-lockfile
-        npm install -g gltf-pipeline
+      - name: Install JavaScript dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          npm install -g gltf-pipeline
 
-    - name: Optimize images
-      run: |
-        echo "🖼️ Optimizing images..."
+      - name: Optimize images
+        run: |
+          echo "🖼️ Optimizing images..."
 
-        find src/assets/images -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | while read img; do
-          if [ -f "$img" ]; then
-            base_name=$(basename "$img" | sed 's/\.[^.]*$//')
-            dir_name=$(dirname "$img")
-            original_size=$(stat -c%s "$img")
+          find src/assets/images -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | while read img; do
+            if [ -f "$img" ]; then
+              base_name=$(basename "$img" | sed 's/\.[^.]*$//')
+              dir_name=$(dirname "$img")
+              original_size=$(stat -c%s "$img")
 
-            echo "Processing: $img"
+              echo "Processing: $img"
 
-            # WebP変換（品質85）
-            cwebp -q 85 "$img" -o "$dir_name/$base_name.webp"
+              # WebP変換（品質85）
+              cwebp -q 85 "$img" -o "$dir_name/$base_name.webp"
 
-            # AVIF変換（高圧縮）
-            avifenc --min 20 --max 40 --speed 6 "$img" "$dir_name/$base_name.avif"
+              # AVIF変換（高圧縮）
+              avifenc --min 20 --max 40 --speed 6 "$img" "$dir_name/$base_name.avif"
 
-            # 元画像の最適化
-            if [[ "$img" == *.png ]]; then
-              pngquant --quality=65-85 --ext .png --force "$img" 2>/dev/null || true
-            else
-              jpegoptim --max=85 --strip-all "$img" 2>/dev/null || true
+              # 元画像の最適化
+              if [[ "$img" == *.png ]]; then
+                pngquant --quality=65-85 --ext .png --force "$img" 2>/dev/null || true
+              else
+                jpegoptim --max=85 --strip-all "$img" 2>/dev/null || true
+              fi
+
+              new_size=$(stat -c%s "$img")
+              if [ "$original_size" -gt 0 ]; then
+                reduction=$(( (original_size - new_size) * 100 / original_size ))
+                echo "  ✅ $base_name: ${reduction}% reduction"
+              fi
             fi
+          done
 
-            new_size=$(stat -c%s "$img")
-            if [ "$original_size" -gt 0 ]; then
-              reduction=$(( (original_size - new_size) * 100 / original_size ))
-              echo "  ✅ $base_name: ${reduction}% reduction"
+      - name: Optimize audio files
+        run: |
+          echo "🎵 Optimizing audio..."
+
+          find src/assets/sounds -name "*.wav" -o -name "*.mp3" -o -name "*.m4a" | while read audio; do
+            if [ -f "$audio" ]; then
+              base_name=$(basename "$audio" | sed 's/\.[^.]*$//')
+              dir_name=$(dirname "$audio")
+
+              echo "Processing: $audio"
+
+              # OGG Vorbis変換（高品質・小サイズ）
+              ffmpeg -i "$audio" -c:a libvorbis -q:a 5 "$dir_name/$base_name.ogg" -y -loglevel error
+
+              # WebM Audio変換（最新ブラウザ用）
+              ffmpeg -i "$audio" -c:a libopus -b:a 128k "$dir_name/$base_name.webm" -y -loglevel error
+
+              echo "  ✅ $base_name converted to OGG/WebM"
             fi
-          fi
-        done
+          done
 
-    - name: Optimize audio files
-      run: |
-        echo "🎵 Optimizing audio..."
+      - name: Optimize 3D models
+        run: |
+          echo "🎮 Optimizing 3D models..."
 
-        find src/assets/sounds -name "*.wav" -o -name "*.mp3" -o -name "*.m4a" | while read audio; do
-          if [ -f "$audio" ]; then
-            base_name=$(basename "$audio" | sed 's/\.[^.]*$//')
-            dir_name=$(dirname "$audio")
+          find src/assets/models -name "*.gltf" | while read model; do
+            if [ -f "$model" ]; then
+              base_name=$(basename "$model" .gltf)
+              dir_name=$(dirname "$model")
 
-            echo "Processing: $audio"
+              echo "Processing: $model"
 
-            # OGG Vorbis変換（高品質・小サイズ）
-            ffmpeg -i "$audio" -c:a libvorbis -q:a 5 "$dir_name/$base_name.ogg" -y -loglevel error
+              # DRACO圧縮でGLTF最適化
+              gltf-pipeline -i "$model" -o "$dir_name/$base_name-optimized.gltf" \
+                --draco.compressionLevel 7 \
+                --draco.quantizePositionBits 11 \
+                --draco.quantizeNormalBits 8 \
+                --draco.quantizeTexcoordBits 10 \
+                --keepUnusedElements false
 
-            # WebM Audio変換（最新ブラウザ用）
-            ffmpeg -i "$audio" -c:a libopus -b:a 128k "$dir_name/$base_name.webm" -y -loglevel error
+              # GLB形式でバイナリ化
+              gltf-pipeline -i "$dir_name/$base_name-optimized.gltf" \
+                -o "$dir_name/$base_name.glb" \
+                --binary
 
-            echo "  ✅ $base_name converted to OGG/WebM"
-          fi
-        done
+              echo "  ✅ $base_name optimized with DRACO compression"
+            fi
+          done
 
-    - name: Optimize 3D models
-      run: |
-        echo "🎮 Optimizing 3D models..."
+      - name: Generate asset manifest
+        run: |
+          echo "📊 Generating asset manifest..."
 
-        find src/assets/models -name "*.gltf" | while read model; do
-          if [ -f "$model" ]; then
-            base_name=$(basename "$model" .gltf)
-            dir_name=$(dirname "$model")
-
-            echo "Processing: $model"
-
-            # DRACO圧縮でGLTF最適化
-            gltf-pipeline -i "$model" -o "$dir_name/$base_name-optimized.gltf" \
-              --draco.compressionLevel 7 \
-              --draco.quantizePositionBits 11 \
-              --draco.quantizeNormalBits 8 \
-              --draco.quantizeTexcoordBits 10 \
-              --keepUnusedElements false
-
-            # GLB形式でバイナリ化
-            gltf-pipeline -i "$dir_name/$base_name-optimized.gltf" \
-              -o "$dir_name/$base_name.glb" \
-              --binary
-
-            echo "  ✅ $base_name optimized with DRACO compression"
-          fi
-        done
-
-    - name: Generate asset manifest
-      run: |
-        echo "📊 Generating asset manifest..."
-
-        cat > src/assets/manifest.json << 'EOF'
-        {
-          "version": "${{ github.sha }}",
-          "generated": "${{ github.event.head_commit.timestamp }}",
-          "images": {
-            "formats": ["avif", "webp", "png", "jpg"],
-            "optimization": {
-              "webp_quality": 85,
-              "avif_quality": "20-40",
-              "png_quality": "65-85",
-              "jpg_quality": 85
-            }
-          },
-          "audio": {
-            "formats": ["webm", "ogg", "mp3"],
-            "optimization": {
-              "ogg_quality": 5,
-              "webm_bitrate": "128k"
-            }
-          },
-          "models": {
-            "compression": "draco",
-            "format": "glb",
-            "draco_settings": {
-              "compression_level": 7,
-              "position_bits": 11,
-              "normal_bits": 8,
-              "texcoord_bits": 10
+          cat > src/assets/manifest.json << 'EOF'
+          {
+            "version": "${{ github.sha }}",
+            "generated": "${{ github.event.head_commit.timestamp }}",
+            "images": {
+              "formats": ["avif", "webp", "png", "jpg"],
+              "optimization": {
+                "webp_quality": 85,
+                "avif_quality": "20-40",
+                "png_quality": "65-85",
+                "jpg_quality": 85
+              }
+            },
+            "audio": {
+              "formats": ["webm", "ogg", "mp3"],
+              "optimization": {
+                "ogg_quality": 5,
+                "webm_bitrate": "128k"
+              }
+            },
+            "models": {
+              "compression": "draco",
+              "format": "glb",
+              "draco_settings": {
+                "compression_level": 7,
+                "position_bits": 11,
+                "normal_bits": 8,
+                "texcoord_bits": 10
+              }
             }
           }
-        }
-        EOF
+          EOF
 
-    - name: Calculate optimization stats
-      run: |
-        echo "📈 Calculating optimization statistics..."
+      - name: Calculate optimization stats
+        run: |
+          echo "📈 Calculating optimization statistics..."
 
-        total_original=0
-        total_optimized=0
+          total_original=0
+          total_optimized=0
 
-        # 画像統計
-        for format in png jpg jpeg webp avif; do
-          size=$(find src/assets/images -name "*.$format" -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
-          echo "$format files: $(numfmt --to=iec $size)"
-          total_optimized=$((total_optimized + size))
-        done
+          # 画像統計
+          for format in png jpg jpeg webp avif; do
+            size=$(find src/assets/images -name "*.$format" -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END {print s+0}')
+            echo "$format files: $(numfmt --to=iec $size)"
+            total_optimized=$((total_optimized + size))
+          done
 
-        echo "💾 Total optimized asset size: $(numfmt --to=iec $total_optimized)"
+          echo "💾 Total optimized asset size: $(numfmt --to=iec $total_optimized)"
 
-    - name: Commit optimized assets
-      if: github.ref == 'refs/heads/main'
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+      - name: Commit optimized assets
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
 
-        git add src/assets/
+          git add src/assets/
 
-        if ! git diff --staged --quiet; then
-          git commit -m "🎨 Optimize assets [skip ci]
+          if ! git diff --staged --quiet; then
+            git commit -m "🎨 Optimize assets [skip ci]
 
-          - Generated WebP and AVIF formats
-          - Optimized audio to OGG/WebM
-          - Compressed 3D models with DRACO
-          - Updated asset manifest"
+            - Generated WebP and AVIF formats
+            - Optimized audio to OGG/WebM
+            - Compressed 3D models with DRACO
+            - Updated asset manifest"
 
-          git push
-        else
-          echo "No asset changes to commit"
-        fi
+            git push
+          else
+            echo "No asset changes to commit"
+          fi
 ```
 
 ### 🎨 **プログレッシブ画像読み込み**
@@ -597,9 +572,7 @@ export const createProgressiveImage = (
     // ロード完了を待つ
     yield* Effect.async<void, Error>((resume) => {
       img.onload = () => resume(Effect.void)
-      img.onerror = (error) => resume(Effect.fail(
-        new Error(`Failed to load image: ${error}`)
-      ))
+      img.onerror = (error) => resume(Effect.fail(new Error(`Failed to load image: ${error}`)))
     })
 
     return img
@@ -607,18 +580,21 @@ export const createProgressiveImage = (
 
 // 使用例
 export const loadGameTextures = Effect.gen(function* () {
-  const textures = yield* Effect.all([
-    createProgressiveImage('/assets/textures/grass', {
-      avif: '.avif',
-      webp: '.webp',
-      png: '.png'
-    }),
-    createProgressiveImage('/assets/textures/stone', {
-      avif: '.avif',
-      webp: '.webp',
-      png: '.png'
-    })
-  ], { concurrency: 4 })
+  const textures = yield* Effect.all(
+    [
+      createProgressiveImage('/assets/textures/grass', {
+        avif: '.avif',
+        webp: '.webp',
+        png: '.png',
+      }),
+      createProgressiveImage('/assets/textures/stone', {
+        avif: '.avif',
+        webp: '.webp',
+        png: '.png',
+      }),
+    ],
+    { concurrency: 4 }
+  )
 
   return textures
 })
@@ -654,19 +630,21 @@ const createCacheStrategy = Effect.gen(function* () {
   const serviceWorkerCache = yield* Cache.make({
     capacity: 100,
     timeToLive: Duration.hours(24),
-    lookup: (url: string) => Effect.tryPromise({
-      try: () => fetch(url),
-      catch: (error) => new Error(`Failed to fetch ${url}: ${error}`)
-    })
+    lookup: (url: string) =>
+      Effect.tryPromise({
+        try: () => fetch(url),
+        catch: (error) => new Error(`Failed to fetch ${url}: ${error}`),
+      }),
   })
 
   // メモリキャッシュ（ゲーム状態用）
   const memoryCache = yield* Cache.make({
     capacity: 1000,
     timeToLive: Duration.minutes(30),
-    lookup: (key: string) => Effect.sync(() => {
-      throw new Error(`No fallback for memory cache key: ${key}`)
-    })
+    lookup: (key: string) =>
+      Effect.sync(() => {
+        throw new Error(`No fallback for memory cache key: ${key}`)
+      }),
   })
 
   // 永続キャッシュ（大きなアセット用）
@@ -688,14 +666,14 @@ const createCacheStrategy = Effect.gen(function* () {
 
           return result.data
         },
-        catch: (error) => new Error(`Persistent cache error: ${error}`)
-      })
+        catch: (error) => new Error(`Persistent cache error: ${error}`),
+      }),
   })
 
   return {
     serviceWorkerCache,
     memoryCache,
-    persistentCache
+    persistentCache,
   } satisfies Omit<CacheStrategy, 'serverCache'>
 })
 
@@ -717,24 +695,20 @@ export const getCachedAsset = <T>(
 ): Effect.Effect<T, Error> =>
   Effect.gen(function* () {
     // 1. メモリキャッシュから試行
-    const memoryResult = yield* Effect.either(
-      cacheStrategy.memoryCache.get(key)
-    )
+    const memoryResult = yield* Effect.either(cacheStrategy.memoryCache.get(key))
 
     if (Either.isRight(memoryResult)) {
       return memoryResult.right as T
     }
 
     // 2. Service Worker キャッシュから試行
-    const swResult = yield* Effect.either(
-      cacheStrategy.serviceWorkerCache.get(key)
-    )
+    const swResult = yield* Effect.either(cacheStrategy.serviceWorkerCache.get(key))
 
     if (Either.isRight(swResult)) {
       const response = swResult.right
       const data = yield* Effect.tryPromise({
         try: () => response.json(),
-        catch: (error) => new Error(`Failed to parse cached response: ${error}`)
+        catch: (error) => new Error(`Failed to parse cached response: ${error}`),
       })
 
       // メモリキャッシュにも保存
@@ -743,9 +717,7 @@ export const getCachedAsset = <T>(
     }
 
     // 3. 永続キャッシュから試行
-    const persistentResult = yield* Effect.either(
-      cacheStrategy.persistentCache.get(key)
-    )
+    const persistentResult = yield* Effect.either(cacheStrategy.persistentCache.get(key))
 
     if (Either.isRight(persistentResult)) {
       // バイナリデータをデシリアライズ
@@ -764,7 +736,7 @@ export const getCachedAsset = <T>(
     // 全レイヤーに保存
     yield* Effect.all([
       cacheStrategy.memoryCache.set(key, freshData),
-      cacheStrategy.persistentCache.set(key, yield* serializeCachedData(freshData))
+      cacheStrategy.persistentCache.set(key, yield* serializeCachedData(freshData)),
     ])
 
     return freshData
@@ -785,25 +757,13 @@ const BASE_PATH = '/ts-minecraft'
 // GitHub Pages特化キャッシュ戦略
 const CACHE_STRATEGIES = {
   // 静的アセット: Cache First（長期キャッシュ）
-  static: [
-    /\.(?:js|css|png|jpg|jpeg|webp|avif|svg|gif|woff2?|ttf)$/,
-    /\/assets\//,
-    new RegExp(`${BASE_PATH}/assets/`)
-  ],
+  static: [/\.(?:js|css|png|jpg|jpeg|webp|avif|svg|gif|woff2?|ttf)$/, /\/assets\//, new RegExp(`${BASE_PATH}/assets/`)],
 
   // JSONデータ: Stale While Revalidate
-  data: [
-    /\.json$/,
-    /\/data\//,
-    new RegExp(`${BASE_PATH}/data/`)
-  ],
+  data: [/\.json$/, /\/data\//, new RegExp(`${BASE_PATH}/data/`)],
 
   // 3Dモデル・音声: Cache First（大きなファイル）
-  media: [
-    /\.(?:glb|gltf|ogg|webm|mp3)$/,
-    /\/models\//,
-    /\/sounds\//
-  ]
+  media: [/\.(?:glb|gltf|ogg|webm|mp3)$/, /\/models\//, /\/sounds\//],
 }
 
 // インストールイベント - GitHub Pages対応
@@ -818,7 +778,7 @@ self.addEventListener('install', (event) => {
         `${BASE_PATH}/assets/images/icon-192.png`,
         `${BASE_PATH}/assets/images/icon-512.png`,
         // オフライン用フォールバック
-        `${BASE_PATH}/offline.html`
+        `${BASE_PATH}/offline.html`,
       ])
     })
   )
@@ -833,8 +793,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName.startsWith('minecraft-') &&
-              !cacheName.includes(CACHE_VERSION)) {
+          if (cacheName.startsWith('minecraft-') && !cacheName.includes(CACHE_VERSION)) {
             return caches.delete(cacheName)
           }
         })
@@ -883,16 +842,18 @@ async function cacheFirst(request, cacheName) {
 
     if (cachedResponse) {
       // バックグラウンドで更新
-      fetch(request).then(response => {
-        if (response.ok) {
-          const responseClone = response.clone()
-          caches.open(cacheName).then(cache => {
-            cache.put(request, responseClone)
-          })
-        }
-      }).catch(() => {
-        // ネットワークエラーは無視
-      })
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone()
+            caches.open(cacheName).then((cache) => {
+              cache.put(request, responseClone)
+            })
+          }
+        })
+        .catch(() => {
+          // ネットワークエラーは無視
+        })
 
       return cachedResponse
     }
@@ -906,12 +867,10 @@ async function cacheFirst(request, cacheName) {
     }
 
     return networkResponse
-
   } catch (error) {
     // GitHub Pages用フォールバック対応
     if (request.destination === 'document') {
-      return caches.match(`${BASE_PATH}/offline.html`) ||
-             caches.match(`${BASE_PATH}/index.html`)
+      return caches.match(`${BASE_PATH}/offline.html`) || caches.match(`${BASE_PATH}/index.html`)
     }
 
     // アセットのフォールバック
@@ -933,7 +892,6 @@ async function networkFirst(request, cacheName) {
     }
 
     return networkResponse
-
   } catch (error) {
     const cachedResponse = await caches.match(request)
 
@@ -948,10 +906,10 @@ async function networkFirst(request, cacheName) {
 async function staleWhileRevalidate(request, cacheName) {
   const cachedResponse = await caches.match(request)
 
-  const fetchPromise = fetch(request).then(response => {
+  const fetchPromise = fetch(request).then((response) => {
     if (response.ok) {
       const cache = caches.open(cacheName)
-      cache.then(c => c.put(request, response.clone()))
+      cache.then((c) => c.put(request, response.clone()))
     }
     return response
   })
@@ -960,7 +918,7 @@ async function staleWhileRevalidate(request, cacheName) {
 }
 
 function matchesStrategy(strategy, pathname) {
-  return CACHE_STRATEGIES[strategy].some(pattern => {
+  return CACHE_STRATEGIES[strategy].some((pattern) => {
     if (pattern instanceof RegExp) {
       return pattern.test(pathname)
     }
@@ -984,7 +942,7 @@ async function syncGameData() {
       await fetch('/api/sync', {
         method: 'POST',
         body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       })
 
       await removeFromIndexedDB('pending-sync', data.id)
@@ -1007,66 +965,66 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'pnpm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
 
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-    - name: Optimize assets
-      run: |
-        # WebP/AVIF 変換
-        find src/assets/images -name "*.png" -o -name "*.jpg" | while read img; do
-          base_name=$(basename "$img" | sed 's/\.[^.]*$//')
-          dir_name=$(dirname "$img")
+      - name: Optimize assets
+        run: |
+          # WebP/AVIF 変換
+          find src/assets/images -name "*.png" -o -name "*.jpg" | while read img; do
+            base_name=$(basename "$img" | sed 's/\.[^.]*$//')
+            dir_name=$(dirname "$img")
 
-          # WebP変換（品質85）
-          cwebp -q 85 "$img" -o "$dir_name/$base_name.webp"
+            # WebP変換（品質85）
+            cwebp -q 85 "$img" -o "$dir_name/$base_name.webp"
 
-          # AVIF変換（最新ブラウザ用）
-          if command -v avifenc >/dev/null 2>&1; then
-            avifenc --min 20 --max 40 "$img" "$dir_name/$base_name.avif"
-          fi
-        done
+            # AVIF変換（最新ブラウザ用）
+            if command -v avifenc >/dev/null 2>&1; then
+              avifenc --min 20 --max 40 "$img" "$dir_name/$base_name.avif"
+            fi
+          done
 
-        # 音声ファイル最適化
-        find src/assets/sounds -name "*.wav" -o -name "*.mp3" | while read audio; do
-          base_name=$(basename "$audio" | sed 's/\.[^.]*$//')
-          dir_name=$(dirname "$audio")
+          # 音声ファイル最適化
+          find src/assets/sounds -name "*.wav" -o -name "*.mp3" | while read audio; do
+            base_name=$(basename "$audio" | sed 's/\.[^.]*$//')
+            dir_name=$(dirname "$audio")
 
-          # OGG Vorbis変換
-          ffmpeg -i "$audio" -c:a libvorbis -q:a 5 "$dir_name/$base_name.ogg" -y
-        done
+            # OGG Vorbis変換
+            ffmpeg -i "$audio" -c:a libvorbis -q:a 5 "$dir_name/$base_name.ogg" -y
+          done
 
-    - name: Build production
-      run: pnpm build
-      env:
-        NODE_ENV: production
-        VITE_BASE_URL: '/ts-minecraft/'
+      - name: Build production
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          VITE_BASE_URL: '/ts-minecraft/'
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist
-        # CNAME file for custom domain
-        cname: minecraft.yourdomain.com  # 必要に応じて設定
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          # CNAME file for custom domain
+          cname: minecraft.yourdomain.com # 必要に応じて設定
 ```
 
 ### ⚡ **CDN 活用戦略**
@@ -1079,20 +1037,20 @@ export const CDN_CONFIG = {
   // jsDelivr - GitHub リポジトリから直接配信
   jsdelivr: {
     baseUrl: 'https://cdn.jsdelivr.net/gh/username/ts-minecraft@main',
-    supports: ['js', 'css', 'json', 'images']
+    supports: ['js', 'css', 'json', 'images'],
   },
 
   // UNPKG - npm パッケージ用
   unpkg: {
     baseUrl: 'https://unpkg.com',
-    supports: ['three', 'effect']
+    supports: ['three', 'effect'],
   },
 
   // Cloudflare CDN - 汎用
   cloudflare: {
     baseUrl: 'https://cdnjs.cloudflare.com/ajax/libs',
-    supports: ['popular-libraries']
-  }
+    supports: ['popular-libraries'],
+  },
 }
 
 // CDN フォールバック機能付きローダー
@@ -1100,7 +1058,7 @@ export const loadFromCDN = async (resource: string, fallbackPath: string) => {
   const cdnUrls = [
     `${CDN_CONFIG.jsdelivr.baseUrl}/${resource}`,
     `${CDN_CONFIG.unpkg.baseUrl}/${resource}`,
-    fallbackPath // ローカルフォールバック
+    fallbackPath, // ローカルフォールバック
   ]
 
   for (const url of cdnUrls) {
@@ -1143,9 +1101,9 @@ import { Effect } from 'effect'
 
 interface PerformanceMetrics {
   // Core Web Vitals
-  LCP: number  // Largest Contentful Paint
-  FID: number  // First Input Delay
-  CLS: number  // Cumulative Layout Shift
+  LCP: number // Largest Contentful Paint
+  FID: number // First Input Delay
+  CLS: number // Cumulative Layout Shift
 
   // ゲーム固有メトリクス
   frameRate: number
@@ -1181,8 +1139,8 @@ class PerformanceMonitor {
           'paint',
           'largest-contentful-paint',
           'first-input',
-          'layout-shift'
-        ]
+          'layout-shift',
+        ],
       })
 
       // ゲーム固有メトリクスの監視開始
@@ -1225,7 +1183,8 @@ class PerformanceMonitor {
     }
 
     // 大きなアセットのローディング時間
-    if (entry.transferSize > 1024 * 1024) { // 1MB以上
+    if (entry.transferSize > 1024 * 1024) {
+      // 1MB以上
       console.log(`Large asset loaded: ${url.pathname} (${entry.duration}ms)`)
     }
   }
@@ -1241,7 +1200,8 @@ class PerformanceMonitor {
 
         frameCount++
 
-        if (frameCount >= 60) { // 60フレームごとに計算
+        if (frameCount >= 60) {
+          // 60フレームごとに計算
           this.metrics.frameRate = 1000 / (deltaTime / frameCount)
           frameCount = 0
           lastTime = currentTime
@@ -1277,7 +1237,7 @@ class PerformanceMonitor {
       url: window.location.href,
       userAgent: navigator.userAgent,
       connectionType: (navigator as any).connection?.effectiveType,
-      metrics
+      metrics,
     }
 
     // Beacon API を使用（ページ離脱時も確実に送信）
@@ -1287,15 +1247,12 @@ class PerformanceMonitor {
       fetch('/api/metrics', {
         method: 'POST',
         body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       }).catch(console.error)
     }
   }
 
-  private throttle = <T extends (...args: any[]) => void>(
-    func: T,
-    delay: number
-  ): T => {
+  private throttle = <T extends (...args: any[]) => void>(func: T, delay: number): T => {
     let timeoutId: NodeJS.Timeout | null = null
 
     return ((...args: any[]) => {
@@ -1342,11 +1299,7 @@ class GamePerformanceProfiler {
   private profiles: Map<string, PerformanceProfile> = new Map()
   private isEnabled: boolean = process.env.NODE_ENV === 'development'
 
-  profile = <T>(
-    name: string,
-    operation: () => T,
-    options: { threshold?: number, sampleRate?: number } = {}
-  ): T => {
+  profile = <T>(name: string, operation: () => T, options: { threshold?: number; sampleRate?: number } = {}): T => {
     if (!this.isEnabled) {
       return operation()
     }
@@ -1382,7 +1335,7 @@ class GamePerformanceProfiler {
         maxTime: 0,
         minTime: Infinity,
         memoryDelta: 0,
-        samples: []
+        samples: [],
       }
 
       profile.count++
@@ -1396,7 +1349,7 @@ class GamePerformanceProfiler {
       profile.samples.push({
         duration,
         memory: profile.memoryDelta,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
 
       if (profile.samples.length > 10) {
@@ -1417,7 +1370,7 @@ class GamePerformanceProfiler {
   profileAsync = async <T>(
     name: string,
     operation: () => Promise<T>,
-    options: { threshold?: number, sampleRate?: number } = {}
+    options: { threshold?: number; sampleRate?: number } = {}
   ): Promise<T> => {
     if (!this.isEnabled) {
       return await operation()
@@ -1440,7 +1393,6 @@ class GamePerformanceProfiler {
       }
 
       return result
-
     } catch (error) {
       const duration = performance.now() - startTime
       this.recordAsyncProfile(name, duration, 'error')
@@ -1448,11 +1400,7 @@ class GamePerformanceProfiler {
     }
   }
 
-  private recordAsyncProfile = (
-    name: string,
-    duration: number,
-    status: 'success' | 'error'
-  ) => {
+  private recordAsyncProfile = (name: string, duration: number, status: 'success' | 'error') => {
     const profile = this.profiles.get(`${name}-async`) || {
       name: `${name}-async`,
       count: 0,
@@ -1462,7 +1410,7 @@ class GamePerformanceProfiler {
       minTime: Infinity,
       successRate: 0,
       errorCount: 0,
-      samples: []
+      samples: [],
     }
 
     profile.count++
@@ -1481,54 +1429,43 @@ class GamePerformanceProfiler {
   }
 
   getReport = (): PerformanceReport => {
-    const profiles = Array.from(this.profiles.values())
-      .sort((a, b) => b.averageTime - a.averageTime)
+    const profiles = Array.from(this.profiles.values()).sort((a, b) => b.averageTime - a.averageTime)
 
-    const slowProfiles = profiles.filter(p => p.averageTime > 10)
+    const slowProfiles = profiles.filter((p) => p.averageTime > 10)
     const memoryIntensiveProfiles = profiles
-      .filter(p => p.memoryDelta && p.memoryDelta > 1024 * 1024) // 1MB以上
+      .filter((p) => p.memoryDelta && p.memoryDelta > 1024 * 1024) // 1MB以上
       .sort((a, b) => (b.memoryDelta || 0) - (a.memoryDelta || 0))
 
     return {
       totalProfiles: profiles.length,
       slowProfiles,
       memoryIntensiveProfiles,
-      recommendations: this.generateRecommendations(profiles)
+      recommendations: this.generateRecommendations(profiles),
     }
   }
 
-  private generateRecommendations = (
-    profiles: PerformanceProfile[]
-  ): string[] => {
+  private generateRecommendations = (profiles: PerformanceProfile[]): string[] => {
     const recommendations: string[] = []
 
     // 遅いプロファイルに対する推奨事項
-    const slowProfiles = profiles.filter(p => p.averageTime > 16) // 60FPS基準
+    const slowProfiles = profiles.filter((p) => p.averageTime > 16) // 60FPS基準
     if (slowProfiles.length > 0) {
-      recommendations.push(
-        `🐌 ${slowProfiles.length} operations are slower than 16ms (60 FPS threshold)`
-      )
+      recommendations.push(`🐌 ${slowProfiles.length} operations are slower than 16ms (60 FPS threshold)`)
     }
 
     // メモリ使用量の多いプロファイル
-    const memoryProfiles = profiles.filter(p =>
-      p.memoryDelta && p.memoryDelta > 5 * 1024 * 1024 // 5MB
+    const memoryProfiles = profiles.filter(
+      (p) => p.memoryDelta && p.memoryDelta > 5 * 1024 * 1024 // 5MB
     )
     if (memoryProfiles.length > 0) {
-      recommendations.push(
-        `🧠 ${memoryProfiles.length} operations use >5MB memory`
-      )
+      recommendations.push(`🧠 ${memoryProfiles.length} operations use >5MB memory`)
     }
 
     // 非同期操作の成功率
-    const asyncProfiles = profiles.filter(p => p.name.includes('-async'))
-    const lowSuccessRateProfiles = asyncProfiles.filter(p =>
-      p.successRate !== undefined && p.successRate < 95
-    )
+    const asyncProfiles = profiles.filter((p) => p.name.includes('-async'))
+    const lowSuccessRateProfiles = asyncProfiles.filter((p) => p.successRate !== undefined && p.successRate < 95)
     if (lowSuccessRateProfiles.length > 0) {
-      recommendations.push(
-        `⚠️ ${lowSuccessRateProfiles.length} async operations have <95% success rate`
-      )
+      recommendations.push(`⚠️ ${lowSuccessRateProfiles.length} async operations have <95% success rate`)
     }
 
     return recommendations
@@ -1573,7 +1510,7 @@ export const gameProfiler = new GamePerformanceProfiler()
 
 // デバッグ用のグローバル露出
 if (process.env.NODE_ENV === 'development') {
-  (window as any).gameProfiler = gameProfiler
+  ;(window as any).gameProfiler = gameProfiler
 }
 ```
 
@@ -1618,53 +1555,58 @@ git push origin main
 <!-- public/offline.html -->
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>オフライン - TypeScript Minecraft</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-        .offline-container {
-            max-width: 500px;
-        }
-        h1 { margin-bottom: 1rem; }
-        p { opacity: 0.9; margin-bottom: 2rem; }
-        .retry-button {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .retry-button:hover {
-            background: rgba(255,255,255,0.3);
-        }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        padding: 2rem;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .offline-container {
+        max-width: 500px;
+      }
+      h1 {
+        margin-bottom: 1rem;
+      }
+      p {
+        opacity: 0.9;
+        margin-bottom: 2rem;
+      }
+      .retry-button {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .retry-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="offline-container">
-        <h1>🎮 オフラインです</h1>
-        <p>インターネット接続を確認して、もう一度お試しください。<br>
-           キャッシュされたコンテンツは引き続き利用できます。</p>
-        <button class="retry-button" onclick="location.reload()">
-            🔄 再読み込み
-        </button>
+      <h1>🎮 オフラインです</h1>
+      <p>
+        インターネット接続を確認して、もう一度お試しください。<br />
+        キャッシュされたコンテンツは引き続き利用できます。
+      </p>
+      <button class="retry-button" onclick="location.reload()">🔄 再読み込み</button>
     </div>
-</body>
+  </body>
 </html>
 ```
 
@@ -1697,14 +1639,14 @@ git push origin main
 
 ### ⚡ **GitHub Pages最適化の期待効果**
 
-| 最適化カテゴリ | 実装前 | 実装後 | 改善率 |
-|----------------|--------|--------|--------|
-| **初期ロード時間** | 8.5秒 | 2.8秒 | 67%向上 |
-| **バンドルサイズ** | 3.2MB | 1.3MB | 59%削減 |
-| **画像転送量** | 15MB | 4.2MB | 72%削減 |
-| **Service Workerキャッシュ** | なし | 95% | - |
-| **CDN活用率** | 0% | 80% | - |
-| **Lighthouse Score** | 65点 | 90+点 | 38%向上 |
+| 最適化カテゴリ               | 実装前 | 実装後 | 改善率  |
+| ---------------------------- | ------ | ------ | ------- |
+| **初期ロード時間**           | 8.5秒  | 2.8秒  | 67%向上 |
+| **バンドルサイズ**           | 3.2MB  | 1.3MB  | 59%削減 |
+| **画像転送量**               | 15MB   | 4.2MB  | 72%削減 |
+| **Service Workerキャッシュ** | なし   | 95%    | -       |
+| **CDN活用率**                | 0%     | 80%    | -       |
+| **Lighthouse Score**         | 65点   | 90+点  | 38%向上 |
 
 ### 📊 **GitHub Pages特有の利点**
 
@@ -1718,11 +1660,13 @@ git push origin main
 
 ```markdown
 ✅ Core Web Vitals
+
 - LCP (Largest Contentful Paint): < 2.5秒
 - FID (First Input Delay): < 100ms
 - CLS (Cumulative Layout Shift): < 0.1
 
 ✅ ゲーム固有メトリクス
+
 - 初回起動時間: < 3秒
 - フレームレート: 安定60FPS
 - メモリ使用量: < 2GB
