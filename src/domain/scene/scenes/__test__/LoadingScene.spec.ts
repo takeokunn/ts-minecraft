@@ -1,7 +1,7 @@
-import { Effect, Ref } from 'effect'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { Effect } from 'effect'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { LoadingScene } from '../LoadingScene'
-import { Scene, SceneInitializationError, SceneCleanupError } from '../../Scene'
+import { Scene } from '../../Scene'
 
 describe('LoadingScene', () => {
   let scene: Scene
@@ -170,15 +170,15 @@ describe('LoadingScene', () => {
 
   describe('ローディング固有の機能', () => {
     it('ローディングタイプがWorldGenerationで初期化される', () => {
-      expect(scene.data.metadata?.loadingType).toBe('WorldGeneration')
+      expect(scene.data.metadata?.['loadingType']).toBe('WorldGeneration')
     })
 
     it('ヒント表示が有効で初期化される', () => {
-      expect(scene.data.metadata?.showTips).toBe(true)
+      expect(scene.data.metadata?.['showTips']).toBe(true)
     })
 
     it('アニメーションタイプがspinnerで初期化される', () => {
-      expect(scene.data.metadata?.animationType).toBe('spinner')
+      expect(scene.data.metadata?.['animationType']).toBe('spinner')
     })
 
     it('タスクの進捗を追跡する', () =>
@@ -186,8 +186,8 @@ describe('LoadingScene', () => {
         yield* scene.initialize()
 
         // ローディングタスクのシミュレート
-        const tasks = ['リソース読み込み', 'ワールド生成', 'エンティティ配置']
-        for (const task of tasks) {
+        // ローディングタスクのシミュレート
+        for (let i = 0; i < 3; i++) {
           yield* scene.update(100)
         }
       }).pipe(Effect.runPromise))
@@ -197,7 +197,6 @@ describe('LoadingScene', () => {
         yield* scene.initialize()
 
         // 時間経過のシミュレート
-        const startTime = Date.now()
         yield* scene.update(500)
 
         // 実装では estimatedTimeRemaining が更新される

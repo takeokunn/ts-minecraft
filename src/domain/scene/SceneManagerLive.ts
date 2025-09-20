@@ -1,9 +1,6 @@
 import { Effect, Layer, Ref } from 'effect'
 import {
   Scene,
-  SceneCleanupError,
-  SceneData,
-  SceneInitializationError,
   SceneTransition,
   SceneTransitionError,
   SceneType,

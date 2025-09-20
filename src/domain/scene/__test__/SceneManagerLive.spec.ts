@@ -1,24 +1,10 @@
-import { Effect, Layer, Ref } from 'effect'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Effect } from 'effect'
+import { describe, it, expect } from 'vitest'
 import { SceneManagerLive } from '../SceneManagerLive'
 import { SceneManager } from '../SceneManager'
-import { Scene, SceneData, SceneInitializationError, SceneCleanupError } from '../Scene'
+import { Scene } from '../Scene'
 
 describe('SceneManagerLive', () => {
-  const mockScene: Scene = {
-    data: {
-      id: 'test-scene',
-      type: 'MainMenu',
-      isActive: true,
-    },
-    initialize: () => Effect.succeed(undefined),
-    update: () => Effect.succeed(undefined),
-    render: () => Effect.succeed(undefined),
-    cleanup: () => Effect.succeed(undefined),
-    onEnter: () => Effect.succeed(undefined),
-    onExit: () => Effect.succeed(undefined),
-  }
-
   describe('初期化', () => {
     it('SceneManagerサービスを提供する', () =>
       Effect.gen(function* () {
@@ -98,9 +84,6 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
         const state = yield* manager.getState()
 
-        // 遷移中状態を直接設定（実際のテストでは適切なモックが必要）
-        const stateRef = Ref.unsafeMake({ ...state, isTransitioning: true })
-
         // 注: 実際のテストではSceneManagerLiveの内部実装に応じた適切なモックが必要
         // ここでは概念的な実装例として記載
       }).pipe(Effect.provide(SceneManagerLive), Effect.runPromise))
@@ -120,7 +103,7 @@ describe('SceneManagerLive', () => {
         const state = yield* manager.getState()
         expect(state.currentScene?.type).toBe('Game')
         expect(state.sceneStack.length).toBe(1)
-        expect(state.sceneStack[0].type).toBe('MainMenu')
+        expect(state.sceneStack[0]?.type).toBe('MainMenu')
       }).pipe(Effect.provide(SceneManagerLive), Effect.runPromise))
 
     it('popSceneで前のシーンに戻れる', () =>

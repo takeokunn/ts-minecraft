@@ -15,7 +15,7 @@ import {
 describe('Scene', () => {
   describe('SceneType Schema', () => {
     it('有効なシーンタイプを受け入れる', () => {
-      const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings']
+      const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings'] as const
 
       validTypes.forEach(type => {
         const result = Schema.decodeSync(SceneType)(type)
@@ -24,7 +24,8 @@ describe('Scene', () => {
     })
 
     it('無効なシーンタイプを拒否する', () => {
-      expect(() => Schema.decodeSync(SceneType)('InvalidScene')).toThrow()
+      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneType)('InvalidScene')))
+      expect(result._tag).toBe('Left')
     })
   })
 
@@ -59,7 +60,8 @@ describe('Scene', () => {
         isActive: true,
       }
 
-      expect(() => Schema.decodeSync(SceneData)(invalidSceneData)).toThrow()
+      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneData)(invalidSceneData)))
+      expect(result._tag).toBe('Left')
     })
   })
 
@@ -96,11 +98,12 @@ describe('Scene', () => {
 
     it('無効なフェードタイプを拒否する', () => {
       const invalidTransition = {
-        to: 'Game' as const,
+        to: 'Game',
         fadeType: 'invalid',
       }
 
-      expect(() => Schema.decodeSync(SceneTransition)(invalidTransition)).toThrow()
+      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneTransition)(invalidTransition)))
+      expect(result._tag).toBe('Left')
     })
   })
 

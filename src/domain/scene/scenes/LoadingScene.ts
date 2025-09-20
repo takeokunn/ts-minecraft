@@ -39,7 +39,6 @@ export const LoadingScene = Layer.effect(
 
     // 内部状態
     let isInitialized = false
-    let loadingTips: string[] = []
 
     return Scene.of({
       data: sceneData,
@@ -58,13 +57,7 @@ export const LoadingScene = Layer.effect(
           yield* Effect.logInfo('LoadingSceneを初期化中...')
 
           // ローディング画面用のリソース読み込み
-          loadingTips = [
-            'ヒント: ブロックを破壊するには左クリックしましょう',
-            'ヒント: ブロックを設置するには右クリックしましょう',
-            'ヒント: インベントリを開くにはEキーを押しましょう',
-            'ヒント: クリエイティブモードでは無限にブロックを使用できます',
-            'ヒント: スペースキーでジャンプできます',
-          ]
+          // ヒントテキストの設定など
 
           // 初期ローディング状態
           yield* Ref.update(loadingStateRef, (state) => ({
@@ -172,7 +165,6 @@ export const LoadingScene = Layer.effect(
           // - アニメーションタイマーの停止
           // - メモリの解放
 
-          loadingTips = []
           isInitialized = false
 
           yield* Effect.logInfo('LoadingSceneクリーンアップ完了')

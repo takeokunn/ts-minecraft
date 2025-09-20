@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MainMenuScene } from '../MainMenuScene'
-import { Scene, SceneInitializationError, SceneCleanupError } from '../../Scene'
+import { Scene } from '../../Scene'
 
 describe('MainMenuScene', () => {
   let scene: Scene
@@ -153,15 +153,15 @@ describe('MainMenuScene', () => {
 
   describe('メニュー固有の機能', () => {
     it('ゲームタイトルが正しく設定される', () => {
-      expect(scene.data.metadata?.title).toBe('TypeScript Minecraft Clone')
+      expect(scene.data.metadata?.['title']).toBe('TypeScript Minecraft Clone')
     })
 
     it('バージョン情報が設定される', () => {
-      expect(scene.data.metadata?.version).toBe('1.0.0')
+      expect(scene.data.metadata?.['version']).toBe('1.0.0')
     })
 
     it('メニューアイテムが設定される', () => {
-      expect(scene.data.metadata?.menuItems).toEqual([
+      expect(scene.data.metadata?.['menuItems']).toEqual([
         '新しいゲーム',
         '設定',
         '終了',
@@ -169,7 +169,7 @@ describe('MainMenuScene', () => {
     })
 
     it('メニューアイテムが3つ存在する', () => {
-      const menuItems = scene.data.metadata?.menuItems as string[]
+      const menuItems = scene.data.metadata?.['menuItems'] as string[]
       expect(menuItems).toHaveLength(3)
     })
 

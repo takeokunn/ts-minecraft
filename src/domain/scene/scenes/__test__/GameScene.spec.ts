@@ -1,7 +1,7 @@
-import { Effect, Ref } from 'effect'
+import { Effect } from 'effect'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { GameScene } from '../GameScene'
-import { Scene, SceneInitializationError, SceneCleanupError } from '../../Scene'
+import { Scene } from '../../Scene'
 
 describe('GameScene', () => {
   let scene: Scene
@@ -158,15 +158,15 @@ describe('GameScene', () => {
 
   describe('ゲーム固有の機能', () => {
     it('ゲームモードがCreativeで初期化される', () => {
-      expect(scene.data.metadata?.gameMode).toBe('Creative')
+      expect(scene.data.metadata?.['gameMode']).toBe('Creative')
     })
 
     it('ワールド名が設定される', () => {
-      expect(scene.data.metadata?.worldName).toBe('New World')
+      expect(scene.data.metadata?.['worldName']).toBe('New World')
     })
 
     it('難易度がNormalで初期化される', () => {
-      expect(scene.data.metadata?.difficulty).toBe('Normal')
+      expect(scene.data.metadata?.['difficulty']).toBe('Normal')
     })
 
     it('プレイヤーの初期位置が設定される', () =>

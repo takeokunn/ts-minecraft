@@ -1,29 +1,8 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, Either } from 'effect'
+import { Effect, Either } from 'effect'
 import { SceneManager } from '../SceneManager.js'
 import { SceneManagerLive } from '../SceneManagerLive.js'
-import { Scene, SceneData, SceneTransitionError } from '../Scene.js'
-
-// テスト用のモックシーン
-const createMockScene = (sceneType: 'MainMenu' | 'Game' | 'Loading'): Layer.Layer<Scene> =>
-  Layer.succeed(
-    Scene,
-    Scene.of({
-      data: {
-        id: `mock-${sceneType.toLowerCase()}-001`,
-        type: sceneType,
-        isActive: false,
-        metadata: { test: true },
-      },
-      initialize: () => Effect.logInfo(`Mock ${sceneType} initialized`),
-      update: () => Effect.logDebug(`Mock ${sceneType} updated`),
-      render: () => Effect.logDebug(`Mock ${sceneType} rendered`),
-      cleanup: () => Effect.logInfo(`Mock ${sceneType} cleaned up`),
-      onEnter: () => Effect.logInfo(`Mock ${sceneType} entered`),
-      onExit: () => Effect.logInfo(`Mock ${sceneType} exited`),
-    })
-  )
 
 describe('SceneManager', () => {
   describe('SceneManagerLive', () => {
@@ -190,7 +169,7 @@ describe('SceneManager', () => {
         const transition1Promise = Effect.runPromise(Effect.provide(manager.transitionTo('MainMenu'), SceneManagerLive))
 
         // 同時に別の遷移を試行
-        const result2 = yield* Effect.either(manager.transitionTo('Game'))
+        yield* Effect.either(manager.transitionTo('Game'))
 
         // 最初の遷移を完了を待つ
         yield* Effect.promise(() => transition1Promise)
