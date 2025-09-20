@@ -137,7 +137,7 @@ export const ErrorHandlers = {
       const successes = results.filter((r) => r._tag === 'Right')
 
       if (successes.length >= minSuccess) {
-        return successes.map((r) => Either.isRight(r) ? r.right : undefined).filter((v): v is A => v !== undefined)
+        return successes.map((r) => (Either.isRight(r) ? r.right : undefined)).filter((v): v is A => v !== undefined)
       } else {
         return yield* _(
           Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`))

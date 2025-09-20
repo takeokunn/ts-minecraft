@@ -1,10 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import {
-  Scene,
-  SceneTransition,
-  SceneTransitionError,
-  SceneType,
-} from './Scene'
+import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
 
 // SceneManagerLive実装
