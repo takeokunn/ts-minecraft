@@ -164,6 +164,7 @@ API、設定、仕様の包括的・体系的情報を辞書形式で提供。�
 1. [How-to](./how-to/README.md) → [Development](./how-to/development/README.md)
 2. 問題解決: [Troubleshooting](./how-to/troubleshooting/README.md)
 3. 仕様確認: [Reference](./reference/README.md)
+4. 貢献方法: [CONTRIBUTING](../CONTRIBUTING.md)
 
 ### 設計者
 1. [Explanations](./explanations/README.md) → [Architecture](./explanations/architecture/README.md)
