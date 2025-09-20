@@ -18,7 +18,7 @@ describe('Scene', () => {
     it('should validate valid scene types', () => {
       const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings']
 
-      validTypes.forEach(type => {
+      validTypes.forEach((type) => {
         const result = Schema.decodeUnknownSync(SceneType)(type)
         expect(result).toBe(type)
       })
@@ -27,7 +27,7 @@ describe('Scene', () => {
     it('should reject invalid scene types', () => {
       const invalidTypes = ['Invalid', 'Unknown', '', null, undefined, 123]
 
-      invalidTypes.forEach(type => {
+      invalidTypes.forEach((type) => {
         expect(() => Schema.decodeUnknownSync(SceneType)(type)).toThrow()
       })
     })
@@ -39,7 +39,7 @@ describe('Scene', () => {
         id: 'test-scene-001',
         type: 'MainMenu' as const,
         isActive: true,
-        metadata: { level: '1', difficulty: 'easy' }
+        metadata: { level: '1', difficulty: 'easy' },
       }
 
       const result = Schema.decodeUnknownSync(SceneData)(validData)
@@ -50,7 +50,7 @@ describe('Scene', () => {
       const validData = {
         id: 'test-scene-002',
         type: 'Game' as const,
-        isActive: false
+        isActive: false,
       }
 
       const result = Schema.decodeUnknownSync(SceneData)(validData)
@@ -67,7 +67,7 @@ describe('Scene', () => {
         { id: 'test', type: 'MainMenu', isActive: 'true' }, // invalid isActive type
       ]
 
-      invalidDataList.forEach(data => {
+      invalidDataList.forEach((data) => {
         expect(() => Schema.decodeUnknownSync(SceneData)(data)).toThrow()
       })
     })
@@ -79,7 +79,7 @@ describe('Scene', () => {
         from: 'MainMenu' as const,
         to: 'Game' as const,
         duration: 1000,
-        fadeType: 'fade' as const
+        fadeType: 'fade' as const,
       }
 
       const result = Schema.decodeUnknownSync(SceneTransition)(validTransition)
@@ -88,7 +88,7 @@ describe('Scene', () => {
 
     it('should validate scene transition with only required fields', () => {
       const minimalTransition = {
-        to: 'Loading' as const
+        to: 'Loading' as const,
       }
 
       const result = Schema.decodeUnknownSync(SceneTransition)(minimalTransition)
@@ -98,7 +98,7 @@ describe('Scene', () => {
     it('should reject negative duration', () => {
       const invalidTransition = {
         to: 'Game' as const,
-        duration: -100
+        duration: -100,
       }
 
       expect(() => Schema.decodeUnknownSync(SceneTransition)(invalidTransition)).toThrow()
@@ -107,7 +107,7 @@ describe('Scene', () => {
     it('should reject invalid fadeType', () => {
       const invalidTransition = {
         to: 'Game' as const,
-        fadeType: 'invalid'
+        fadeType: 'invalid',
       }
 
       expect(() => Schema.decodeUnknownSync(SceneTransition)(invalidTransition)).toThrow()
@@ -119,7 +119,7 @@ describe('Scene', () => {
       const error = SceneTransitionError({
         message: 'Failed to transition',
         currentScene: 'MainMenu',
-        targetScene: 'Game'
+        targetScene: 'Game',
       })
 
       expect(error._tag).toBe('SceneTransitionError')
@@ -133,7 +133,7 @@ describe('Scene', () => {
         _tag: 'SceneTransitionError' as const,
         message: 'Transition failed',
         currentScene: 'MainMenu' as const,
-        targetScene: 'Game' as const
+        targetScene: 'Game' as const,
       }
 
       const result = Schema.decodeUnknownSync(SceneTransitionErrorSchema)(errorData)
@@ -143,7 +143,7 @@ describe('Scene', () => {
     it('should create scene transition error without current scene', () => {
       const error = SceneTransitionError({
         message: 'No current scene',
-        targetScene: 'MainMenu'
+        targetScene: 'MainMenu',
       })
 
       expect(error._tag).toBe('SceneTransitionError')
@@ -157,7 +157,7 @@ describe('Scene', () => {
     it('should create scene initialization error correctly', () => {
       const error = SceneInitializationError({
         message: 'Failed to initialize scene',
-        sceneType: 'Game'
+        sceneType: 'Game',
       })
 
       expect(error._tag).toBe('SceneInitializationError')
@@ -169,7 +169,7 @@ describe('Scene', () => {
       const errorData = {
         _tag: 'SceneInitializationError' as const,
         message: 'Initialization failed',
-        sceneType: 'Loading' as const
+        sceneType: 'Loading' as const,
       }
 
       const result = Schema.decodeUnknownSync(SceneInitializationErrorSchema)(errorData)
@@ -181,7 +181,7 @@ describe('Scene', () => {
     it('should create scene cleanup error correctly', () => {
       const error = SceneCleanupError({
         message: 'Failed to cleanup scene',
-        sceneType: 'MainMenu'
+        sceneType: 'MainMenu',
       })
 
       expect(error._tag).toBe('SceneCleanupError')
@@ -193,7 +193,7 @@ describe('Scene', () => {
       const errorData = {
         _tag: 'SceneCleanupError' as const,
         message: 'Cleanup failed',
-        sceneType: 'Settings' as const
+        sceneType: 'Settings' as const,
       }
 
       const result = Schema.decodeUnknownSync(SceneCleanupErrorSchema)(errorData)

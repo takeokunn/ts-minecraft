@@ -26,7 +26,10 @@ const createMockScene = (sceneType: 'MainMenu' | 'Game' | 'Loading'): Layer.Laye
   )
 
 // エラーが発生するモックシーン
-const createFailingMockScene = (sceneType: 'MainMenu' | 'Game' | 'Loading', errorType: 'initialize' | 'cleanup'): Layer.Layer<Scene> =>
+const createFailingMockScene = (
+  sceneType: 'MainMenu' | 'Game' | 'Loading',
+  errorType: 'initialize' | 'cleanup'
+): Layer.Layer<Scene> =>
   Layer.succeed(
     Scene,
     Scene.of({
@@ -341,7 +344,7 @@ describe('SceneManagerLive', () => {
           from: undefined,
           to: 'Game',
           duration: 2000,
-          fadeType: 'slide'
+          fadeType: 'slide',
         })
 
         const state = yield* manager.getState()
