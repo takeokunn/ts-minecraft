@@ -6,3 +6,4 @@
  */
 
 export * from './rendering'
+export * from './ecs'
