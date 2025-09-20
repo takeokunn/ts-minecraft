@@ -187,10 +187,10 @@ run_quality_checks() {
     fi
 
     # Lint
-    if has_npm_script "lint"; then
-        info "Lint実行中..."
-        if pnpm lint &>/dev/null; then
-            results+=("✅ Lint: Pass")
+    if has_npm_script "check"; then
+        info "総合品質チェック実行中..."
+        if pnpm check &>/dev/null; then
+            results+=("✅ 品質チェック: Pass")
         else
             results+=("❌ Lint: Failed")
             has_errors=true

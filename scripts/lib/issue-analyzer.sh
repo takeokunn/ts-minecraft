@@ -237,7 +237,7 @@ EOF
 ## Phase 3: 検証
 1. 静的解析の実行
    - \`pnpm typecheck\`: TypeScript型チェック
-   - \`pnpm lint\`: Lintチェック
+   - \`pnpm check\`: 総合品質チェック
 2. ビルド確認
    - \`pnpm build\`: 本番ビルド
 3. テスト実行
@@ -257,7 +257,7 @@ generate_success_criteria() {
     cat << EOF
 ## 必須条件
 - [ ] すべての型チェックがパス（\`pnpm typecheck\`）
-- [ ] Lintエラーなし（\`pnpm lint\`）
+- [ ] コード品質チェックパス（\`pnpm check\`）
 - [ ] ビルド成功（\`pnpm build\`）
 - [ ] 既存テストが全てパス
 
