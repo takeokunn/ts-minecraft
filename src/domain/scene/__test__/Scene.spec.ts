@@ -1,114 +1,121 @@
-import { Effect, Schema } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Schema } from 'effect'
 import {
   SceneType,
   SceneData,
   SceneTransition,
   SceneTransitionError,
-  SceneInitializationError,
-  SceneCleanupError,
   SceneTransitionErrorSchema,
+  SceneInitializationError,
   SceneInitializationErrorSchema,
+  SceneCleanupError,
   SceneCleanupErrorSchema,
 } from '../Scene'
 
 describe('Scene', () => {
-  describe('SceneType Schema', () => {
-    it('有効なシーンタイプを受け入れる', () => {
-      const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings'] as const
+  describe('SceneType', () => {
+    it('should validate valid scene types', () => {
+      const validTypes = ['MainMenu', 'Game', 'Loading', 'Pause', 'Settings']
 
       validTypes.forEach((type) => {
-        const result = Schema.decodeSync(SceneType)(type)
+        const result = Schema.decodeUnknownSync(SceneType)(type)
         expect(result).toBe(type)
       })
     })
 
-    it('無効なシーンタイプを拒否する', () => {
-      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneType)('InvalidScene')))
-      expect(result._tag).toBe('Left')
+    it('should reject invalid scene types', () => {
+      const invalidTypes = ['Invalid', 'Unknown', '', null, undefined, 123]
+
+      invalidTypes.forEach((type) => {
+        expect(() => Schema.decodeUnknownSync(SceneType)(type)).toThrow()
+      })
     })
   })
 
-  describe('SceneData Schema', () => {
-    it('有効なシーンデータを検証する', () => {
-      const validSceneData = {
-        id: 'scene-1',
+  describe('SceneData', () => {
+    it('should validate valid scene data', () => {
+      const validData = {
+        id: 'test-scene-001',
         type: 'MainMenu' as const,
         isActive: true,
-        metadata: { key: 'theme', value: 'dark' },
+        metadata: { level: '1', difficulty: 'easy' },
       }
 
-      const result = Schema.decodeSync(SceneData)(validSceneData)
-      expect(result).toEqual(validSceneData)
+      const result = Schema.decodeUnknownSync(SceneData)(validData)
+      expect(result).toEqual(validData)
     })
 
-    it('metadata無しのシーンデータを検証する', () => {
-      const sceneDataWithoutMetadata = {
-        id: 'scene-2',
+    it('should validate scene data without optional metadata', () => {
+      const validData = {
+        id: 'test-scene-002',
         type: 'Game' as const,
         isActive: false,
       }
 
-      const result = Schema.decodeSync(SceneData)(sceneDataWithoutMetadata)
-      expect(result).toEqual(sceneDataWithoutMetadata)
+      const result = Schema.decodeUnknownSync(SceneData)(validData)
+      expect(result).toEqual(validData)
     })
 
-    it('不正なシーンデータを拒否する', () => {
-      const invalidSceneData = {
-        id: 123, // 文字列であるべき
-        type: 'MainMenu',
-        isActive: true,
-      }
+    it('should reject invalid scene data', () => {
+      const invalidDataList = [
+        { type: 'MainMenu', isActive: true }, // missing id
+        { id: 'test', isActive: true }, // missing type
+        { id: 'test', type: 'MainMenu' }, // missing isActive
+        { id: '', type: 'MainMenu', isActive: true }, // empty id
+        { id: 'test', type: 'Invalid', isActive: true }, // invalid type
+        { id: 'test', type: 'MainMenu', isActive: 'true' }, // invalid isActive type
+      ]
 
-      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneData)(invalidSceneData)))
-      expect(result._tag).toBe('Left')
+      invalidDataList.forEach((data) => {
+        expect(() => Schema.decodeUnknownSync(SceneData)(data)).toThrow()
+      })
     })
   })
 
-  describe('SceneTransition Schema', () => {
-    it('完全な遷移データを検証する', () => {
-      const fullTransition = {
+  describe('SceneTransition', () => {
+    it('should validate valid scene transition with all fields', () => {
+      const validTransition = {
         from: 'MainMenu' as const,
         to: 'Game' as const,
-        duration: 500,
+        duration: 1000,
         fadeType: 'fade' as const,
       }
 
-      const result = Schema.decodeSync(SceneTransition)(fullTransition)
-      expect(result).toEqual(fullTransition)
+      const result = Schema.decodeUnknownSync(SceneTransition)(validTransition)
+      expect(result).toEqual(validTransition)
     })
 
-    it('最小限の遷移データを検証する', () => {
+    it('should validate scene transition with only required fields', () => {
       const minimalTransition = {
         to: 'Loading' as const,
       }
 
-      const result = Schema.decodeSync(SceneTransition)(minimalTransition)
+      const result = Schema.decodeUnknownSync(SceneTransition)(minimalTransition)
       expect(result).toEqual(minimalTransition)
     })
 
-    it('負の期間を拒否する', () => {
+    it('should reject negative duration', () => {
       const invalidTransition = {
         to: 'Game' as const,
         duration: -100,
       }
 
-      expect(() => Schema.decodeSync(SceneTransition)(invalidTransition)).toThrow()
+      expect(() => Schema.decodeUnknownSync(SceneTransition)(invalidTransition)).toThrow()
     })
 
-    it('無効なフェードタイプを拒否する', () => {
+    it('should reject invalid fadeType', () => {
       const invalidTransition = {
-        to: 'Game',
+        to: 'Game' as const,
         fadeType: 'invalid',
       }
 
-      const result = Effect.runSync(Effect.either(Schema.decodeUnknown(SceneTransition)(invalidTransition)))
-      expect(result._tag).toBe('Left')
+      expect(() => Schema.decodeUnknownSync(SceneTransition)(invalidTransition)).toThrow()
     })
   })
 
   describe('SceneTransitionError', () => {
-    it('完全なエラーオブジェクトを作成する', () => {
+    it('should create scene transition error correctly', () => {
       const error = SceneTransitionError({
         message: 'Failed to transition',
         currentScene: 'MainMenu',
@@ -121,30 +128,33 @@ describe('Scene', () => {
       expect(error.targetScene).toBe('Game')
     })
 
-    it('currentScene無しのエラーオブジェクトを作成する', () => {
+    it('should validate scene transition error schema', () => {
+      const errorData = {
+        _tag: 'SceneTransitionError' as const,
+        message: 'Transition failed',
+        currentScene: 'MainMenu' as const,
+        targetScene: 'Game' as const,
+      }
+
+      const result = Schema.decodeUnknownSync(SceneTransitionErrorSchema)(errorData)
+      expect(result).toEqual(errorData)
+    })
+
+    it('should create scene transition error without current scene', () => {
       const error = SceneTransitionError({
-        message: 'Initial transition failed',
+        message: 'No current scene',
         targetScene: 'MainMenu',
       })
 
       expect(error._tag).toBe('SceneTransitionError')
+      expect(error.message).toBe('No current scene')
       expect(error.currentScene).toBeUndefined()
       expect(error.targetScene).toBe('MainMenu')
-    })
-
-    it('Schemaで検証できる', () => {
-      const error = SceneTransitionError({
-        message: 'Transition failed',
-        targetScene: 'Game',
-      })
-
-      const result = Schema.decodeSync(SceneTransitionErrorSchema)(error)
-      expect(result).toEqual(error)
     })
   })
 
   describe('SceneInitializationError', () => {
-    it('エラーオブジェクトを作成する', () => {
+    it('should create scene initialization error correctly', () => {
       const error = SceneInitializationError({
         message: 'Failed to initialize scene',
         sceneType: 'Game',
@@ -155,37 +165,39 @@ describe('Scene', () => {
       expect(error.sceneType).toBe('Game')
     })
 
-    it('Schemaで検証できる', () => {
-      const error = SceneInitializationError({
+    it('should validate scene initialization error schema', () => {
+      const errorData = {
+        _tag: 'SceneInitializationError' as const,
         message: 'Initialization failed',
-        sceneType: 'Loading',
-      })
+        sceneType: 'Loading' as const,
+      }
 
-      const result = Schema.decodeSync(SceneInitializationErrorSchema)(error)
-      expect(result).toEqual(error)
+      const result = Schema.decodeUnknownSync(SceneInitializationErrorSchema)(errorData)
+      expect(result).toEqual(errorData)
     })
   })
 
   describe('SceneCleanupError', () => {
-    it('エラーオブジェクトを作成する', () => {
+    it('should create scene cleanup error correctly', () => {
       const error = SceneCleanupError({
-        message: 'Failed to cleanup resources',
-        sceneType: 'Game',
-      })
-
-      expect(error._tag).toBe('SceneCleanupError')
-      expect(error.message).toBe('Failed to cleanup resources')
-      expect(error.sceneType).toBe('Game')
-    })
-
-    it('Schemaで検証できる', () => {
-      const error = SceneCleanupError({
-        message: 'Cleanup failed',
+        message: 'Failed to cleanup scene',
         sceneType: 'MainMenu',
       })
 
-      const result = Schema.decodeSync(SceneCleanupErrorSchema)(error)
-      expect(result).toEqual(error)
+      expect(error._tag).toBe('SceneCleanupError')
+      expect(error.message).toBe('Failed to cleanup scene')
+      expect(error.sceneType).toBe('MainMenu')
+    })
+
+    it('should validate scene cleanup error schema', () => {
+      const errorData = {
+        _tag: 'SceneCleanupError' as const,
+        message: 'Cleanup failed',
+        sceneType: 'Settings' as const,
+      }
+
+      const result = Schema.decodeUnknownSync(SceneCleanupErrorSchema)(errorData)
+      expect(result).toEqual(errorData)
     })
   })
 })

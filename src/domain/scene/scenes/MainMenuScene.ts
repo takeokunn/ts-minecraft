@@ -1,11 +1,10 @@
-import { Layer } from 'effect'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // MainMenuScene実装
 export const MainMenuScene = Layer.effect(
   Scene,
-  Effect.gen(function* () {
+  Effect.sync(() => {
     // シーンデータ
     const sceneData: SceneData = {
       id: 'main-menu-001',

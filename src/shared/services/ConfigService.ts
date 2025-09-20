@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Schema } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -50,6 +50,9 @@ export interface ConfigService {
     value: Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
   ) => Effect.Effect<void>
 }
+
+// Config Key タイプ定義
+export type ConfigKey = keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>
 
 // Context定義
 export const ConfigService = Context.GenericTag<ConfigService>('@app/services/ConfigService')

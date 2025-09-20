@@ -1,4 +1,4 @@
-import { Context, Effect, Match, Schema } from 'effect'
+import { Context, Effect, Schema } from 'effect'
 import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 
 // シーンスタック管理用のスキーマ
