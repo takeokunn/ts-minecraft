@@ -188,11 +188,9 @@ describe('Branded Types', () => {
   })
 
   describe('Version', () => {
-    const versionArbitrary = fc.tuple(
-      fc.integer({ min: 0, max: 99 }),
-      fc.integer({ min: 0, max: 99 }),
-      fc.integer({ min: 0, max: 99 })
-    ).map(([major, minor, patch]) => `${major}.${minor}.${patch}`)
+    const versionArbitrary = fc
+      .tuple(fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }))
+      .map(([major, minor, patch]) => `${major}.${minor}.${patch}`)
 
     it('validates semantic version format', () => {
       fc.assert(
@@ -206,12 +204,12 @@ describe('Branded Types', () => {
 
     it('rejects invalid version formats', () => {
       const invalidVersions = [
-        '1.0',           // missing patch
-        '1.0.0.0',       // too many parts
-        'v1.0.0',        // prefix
-        '1.0.0-alpha',   // suffix
-        '1.a.0',         // non-numeric
-        '',              // empty
+        '1.0', // missing patch
+        '1.0.0.0', // too many parts
+        'v1.0.0', // prefix
+        '1.0.0-alpha', // suffix
+        '1.a.0', // non-numeric
+        '', // empty
       ]
 
       invalidVersions.forEach((invalid) => {
@@ -247,11 +245,11 @@ describe('Branded Types', () => {
 
     it('rejects invalid UUID formats', () => {
       const invalidUuids = [
-        '550e8400-e29b-41d4-a716',           // too short
+        '550e8400-e29b-41d4-a716', // too short
         '550e8400-e29b-41d4-a716-446655440000-extra', // too long
         '550e8400-e29b-41d4-a716-44665544000g', // invalid character
-        '550e8400e29b41d4a716446655440000',   // missing hyphens
-        '',                                   // empty
+        '550e8400e29b41d4a716446655440000', // missing hyphens
+        '', // empty
       ]
 
       invalidUuids.forEach((invalid) => {

@@ -413,11 +413,7 @@ describe('RendererServiceLive', () => {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
 
-        const resizeOperations = [
-          service.resize(800, 600),
-          service.resize(1024, 768),
-          service.resize(1920, 1080),
-        ]
+        const resizeOperations = [service.resize(800, 600), service.resize(1024, 768), service.resize(1920, 1080)]
 
         yield* Effect.all(resizeOperations, { concurrency: 'unbounded' })
 

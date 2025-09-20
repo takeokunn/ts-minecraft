@@ -300,8 +300,9 @@ describe('Rendering Types', () => {
           expect(result._tag).toBe('Right')
 
           if (result._tag === 'Right') {
-            expect(['RenderInitError', 'RenderExecutionError', 'ContextLostError', 'RenderTargetError'])
-              .toContain(result.right._tag)
+            expect(['RenderInitError', 'RenderExecutionError', 'ContextLostError', 'RenderTargetError']).toContain(
+              result.right._tag
+            )
           }
         }),
         { numRuns: 100 }
@@ -334,7 +335,7 @@ describe('Rendering Types', () => {
         message: 'Target error',
         targetType: 'WebGLRenderTarget',
         width: 1024,
-        height: 768
+        height: 768,
       })
 
       const errors = [initError, execError, contextError, targetError]
@@ -356,7 +357,7 @@ describe('Rendering Types', () => {
           message: 'Target error',
           targetType: 'WebGLRenderTarget',
           width: 1024,
-          height: 768
+          height: 768,
         }),
       ]
 
@@ -400,7 +401,7 @@ describe('Rendering Types', () => {
 
       // TypeScript would prevent these, but testing runtime behavior
       expect(() => {
-        (error as any).message = 'Modified'
+        ;(error as any).message = 'Modified'
       }).not.toThrow()
 
       // In JavaScript, objects are mutable by default, so modification will occur
@@ -437,7 +438,7 @@ describe('Rendering Types', () => {
           targetType: 'WebGLRenderTarget',
           width: 512,
           height: 512,
-          format: 'RGBA'
+          format: 'RGBA',
         }),
       ]
 

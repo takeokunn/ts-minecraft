@@ -228,14 +228,10 @@ describe('Test Helpers', () => {
     })
 
     it('creates stateful services with Ref', async () => {
-      const layer = TestServiceFactory.createStatefulService(
-        MockServiceTag,
-        'initial-state',
-        (ref) => ({
-          getValue: () => 'stateful-value',
-          setValue: vi.fn(),
-        })
-      )
+      const layer = TestServiceFactory.createStatefulService(MockServiceTag, 'initial-state', (ref) => ({
+        getValue: () => 'stateful-value',
+        setValue: vi.fn(),
+      }))
 
       expect(layer).toBeDefined()
     })
@@ -264,16 +260,12 @@ describe('Test Helpers', () => {
     describe('randomInt', () => {
       it('generates integers within specified range', () => {
         fc.assert(
-          fc.property(
-            fc.integer({ min: 0, max: 100 }),
-            fc.integer({ min: 101, max: 200 }),
-            (min, max) => {
-              const result = TestDataFactory.randomInt(min, max)
-              expect(result).toBeGreaterThanOrEqual(min)
-              expect(result).toBeLessThanOrEqual(max)
-              expect(Number.isInteger(result)).toBe(true)
-            }
-          ),
+          fc.property(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 101, max: 200 }), (min, max) => {
+            const result = TestDataFactory.randomInt(min, max)
+            expect(result).toBeGreaterThanOrEqual(min)
+            expect(result).toBeLessThanOrEqual(max)
+            expect(Number.isInteger(result)).toBe(true)
+          }),
           { numRuns: 50 }
         )
       })
@@ -322,9 +314,7 @@ describe('Test Helpers', () => {
         const fixedTime = 1234567890000
         const testEffect = Effect.sync(() => Date.now())
 
-        const result = await Effect.runPromise(
-          DeterministicTestHelpers.withFixedTime(fixedTime, testEffect)
-        )
+        const result = await Effect.runPromise(DeterministicTestHelpers.withFixedTime(fixedTime, testEffect))
 
         expect(result).toBe(fixedTime)
       })
@@ -334,9 +324,7 @@ describe('Test Helpers', () => {
         const fixedTime = 1234567890000
         const testEffect = Effect.succeed('test')
 
-        await Effect.runPromise(
-          DeterministicTestHelpers.withFixedTime(fixedTime, testEffect)
-        )
+        await Effect.runPromise(DeterministicTestHelpers.withFixedTime(fixedTime, testEffect))
 
         expect(Date.now).toBe(originalNow)
       })
@@ -347,9 +335,7 @@ describe('Test Helpers', () => {
         const fixedValue = 0.5
         const testEffect = Effect.sync(() => Math.random())
 
-        const result = await Effect.runPromise(
-          DeterministicTestHelpers.withFixedRandom(fixedValue, testEffect)
-        )
+        const result = await Effect.runPromise(DeterministicTestHelpers.withFixedRandom(fixedValue, testEffect))
 
         expect(result).toBe(fixedValue)
       })
@@ -359,9 +345,7 @@ describe('Test Helpers', () => {
         const fixedValue = 0.7
         const testEffect = Effect.succeed('test')
 
-        await Effect.runPromise(
-          DeterministicTestHelpers.withFixedRandom(fixedValue, testEffect)
-        )
+        await Effect.runPromise(DeterministicTestHelpers.withFixedRandom(fixedValue, testEffect))
 
         expect(Math.random).toBe(originalRandom)
       })
@@ -370,17 +354,13 @@ describe('Test Helpers', () => {
     describe('time manipulation', () => {
       it('advances time correctly', async () => {
         const duration = 1000
-        const result = await Effect.runPromise(
-          DeterministicTestHelpers.advanceTime(duration)
-        )
+        const result = await Effect.runPromise(DeterministicTestHelpers.advanceTime(duration))
 
         expect(result).toBe(duration)
       })
 
       it('gets current time', async () => {
-        const currentTime = await Effect.runPromise(
-          DeterministicTestHelpers.getCurrentTime()
-        )
+        const currentTime = await Effect.runPromise(DeterministicTestHelpers.getCurrentTime())
 
         expect(typeof currentTime).toBe('number')
         expect(currentTime).toBeGreaterThan(0)
@@ -460,16 +440,12 @@ describe('Test Helpers', () => {
     describe('randomString', () => {
       it('generates strings within length bounds', () => {
         fc.assert(
-          fc.property(
-            fc.integer({ min: 1, max: 5 }),
-            fc.integer({ min: 6, max: 15 }),
-            (minLength, maxLength) => {
-              const result = PropertyTestHelpers.randomString(minLength, maxLength)
-              expect(result.length).toBeGreaterThanOrEqual(minLength)
-              expect(result.length).toBeLessThanOrEqual(maxLength)
-              expect(typeof result).toBe('string')
-            }
-          ),
+          fc.property(fc.integer({ min: 1, max: 5 }), fc.integer({ min: 6, max: 15 }), (minLength, maxLength) => {
+            const result = PropertyTestHelpers.randomString(minLength, maxLength)
+            expect(result.length).toBeGreaterThanOrEqual(minLength)
+            expect(result.length).toBeLessThanOrEqual(maxLength)
+            expect(typeof result).toBe('string')
+          }),
           { numRuns: 50 }
         )
       })
@@ -552,9 +528,7 @@ describe('Test Helpers', () => {
           return 'completed'
         })
 
-        const result = await Effect.runPromise(
-          PerformanceTestHelpers.measureTime(effect)
-        )
+        const result = await Effect.runPromise(PerformanceTestHelpers.measureTime(effect))
 
         expect(result.result).toBe('completed')
         expect(result.duration).toBeGreaterThan(0)
@@ -571,9 +545,7 @@ describe('Test Helpers', () => {
           return largeArray.length
         })
 
-        const result = await Effect.runPromise(
-          PerformanceTestHelpers.measureMemory(effect)
-        )
+        const result = await Effect.runPromise(PerformanceTestHelpers.measureMemory(effect))
 
         expect(result.result).toBe(1000)
         expect(result.memoryDelta).toBeDefined()
@@ -618,9 +590,7 @@ describe('Test Helpers', () => {
         }
       })
 
-      const result = await Effect.runPromise(
-        DeterministicTestHelpers.withFixedTime(fixedTime, complexTest)
-      )
+      const result = await Effect.runPromise(DeterministicTestHelpers.withFixedTime(fixedTime, complexTest))
 
       expect(result.originalData.message).toBe(testValue)
       expect(result.validatedResult._tag).toBe('TestError')

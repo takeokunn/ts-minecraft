@@ -84,7 +84,7 @@ describe('LoggerServiceTest', () => {
     })
 
     it('logs error messages', async () => {
-      const errorArbitrary = fc.string().map(msg => new Error(msg))
+      const errorArbitrary = fc.string().map((msg) => new Error(msg))
 
       await fc.assert(
         fc.asyncProperty(messageArbitrary, errorArbitrary, async (message, error) => {
@@ -108,23 +108,19 @@ describe('LoggerServiceTest', () => {
       const valueArbitrary = fc.integer({ min: 1, max: 1000 })
 
       await fc.assert(
-        fc.asyncProperty(
-          functionNameArbitrary,
-          valueArbitrary,
-          async (functionName, value) => {
-            const program = Effect.gen(function* () {
-              const logger = yield* LoggerService
+        fc.asyncProperty(functionNameArbitrary, valueArbitrary, async (functionName, value) => {
+          const program = Effect.gen(function* () {
+            const logger = yield* LoggerService
 
-              const operation = Effect.sync(() => value * 2)
-              const result = yield* logger.measurePerformance(functionName, operation)
+            const operation = Effect.sync(() => value * 2)
+            const result = yield* logger.measurePerformance(functionName, operation)
 
-              return result
-            })
+            return result
+          })
 
-            const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-            expect(result).toBe(value * 2)
-          }
-        ),
+          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          expect(result).toBe(value * 2)
+        }),
         { numRuns: 50 }
       )
     })
@@ -230,7 +226,7 @@ describe('LoggerServiceTest', () => {
     it('maintains consistent log entry format', () => {
       const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
 
-      levels.forEach(level => {
+      levels.forEach((level) => {
         const entry = createLogEntry(level, 'test message', { key: 'value' })
 
         expect(entry.level).toBe(level)
@@ -250,7 +246,7 @@ describe('LoggerServiceTest', () => {
       expect(entry.error).toEqual({
         name: 'Error',
         message: 'test error',
-        stack: error.stack
+        stack: error.stack,
       })
       expect(entry.context).toBeUndefined()
     })
@@ -277,9 +273,7 @@ describe('LoggerServiceTest', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
-        const operations = Array.from({ length: 10 }, (_, i) =>
-          logger.info(`Concurrent message ${i}`)
-        )
+        const operations = Array.from({ length: 10 }, (_, i) => logger.info(`Concurrent message ${i}`))
 
         yield* Effect.all(operations, { concurrency: 'unbounded' })
 

@@ -264,13 +264,11 @@ describe('Test Setup Configuration', () => {
       )
 
       const startTime = Date.now()
-      const results = await Promise.all(
-        concurrentEffects.map(effect => TestUtils.runEffect(effect))
-      )
+      const results = await Promise.all(concurrentEffects.map((effect) => TestUtils.runEffect(effect)))
       const endTime = Date.now()
 
       expect(results).toHaveLength(10)
-      expect(results.every(result => result.startsWith('effect-'))).toBe(true)
+      expect(results.every((result) => result.startsWith('effect-'))).toBe(true)
       // Should complete faster than sequential execution
       expect(endTime - startTime).toBeLessThan(200) // Much less than 10 * 10ms + overhead
     })
@@ -331,7 +329,7 @@ describe('Test Setup Configuration', () => {
     it('handles config with special characters', () => {
       const configWithSpecialChars = {
         'key-with-dashes': 'value1',
-        'key_with_underscores': 'value2',
+        key_with_underscores: 'value2',
         'key.with.dots': 'value3',
         'key with spaces': 'value4',
         'key@with@symbols': 'value5',
@@ -343,9 +341,9 @@ describe('Test Setup Configuration', () => {
 
     it('handles config with unicode characters', () => {
       const unicodeConfig = {
-        '키': '값', // Korean
-        'клавиша': 'значение', // Russian
-        'キー': '値', // Japanese
+        키: '값', // Korean
+        клавиша: 'значение', // Russian
+        キー: '値', // Japanese
         '🔑': '🎯', // Emojis
       }
 
@@ -382,7 +380,7 @@ describe('Test Setup Configuration', () => {
       const firstResult = await TestUtils.runEffect(firstEffect)
 
       // Small delay to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 5))
+      await new Promise((resolve) => setTimeout(resolve, 5))
 
       // Second test run
       const secondEffect = Effect.gen(function* () {
