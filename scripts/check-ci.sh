@@ -93,10 +93,7 @@ case "$ALL_PASSED" in
             echo "  1. コードフォーマット修正..."
             pnpm format 2>/dev/null || true
 
-            echo "  2. Lint修正..."
-            pnpm lint:fix 2>/dev/null || true
-
-            echo "  3. 型エラー確認..."
+            echo "  2. 型エラー確認..."
             pnpm typecheck 2>/dev/null || true
 
             # 変更があれば自動コミット
@@ -124,7 +121,7 @@ case "$ALL_PASSED" in
             echo ""
             echo -e "${YELLOW}💡 ヒント:${NC}"
             echo "  • 自動修正を試すには: ./scripts/check-ci.sh $PR_NUMBER --fix"
-            echo "  • ローカルで検証: pnpm typecheck && pnpm lint && pnpm build"
+            echo "  • ローカルで検証: pnpm typecheck && pnpm check && pnpm build"
             echo "  • 詳細ログ確認: gh run view"
         fi
         exit 1

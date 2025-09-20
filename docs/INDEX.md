@@ -79,7 +79,7 @@
 1. **Issue確認**: `.github/ISSUE_TEMPLATE/ai-task.yml`形式のIssue
 2. **実装計画**: 8段階実行ステップ (Step 1-8)
 3. **コード生成**: Effect-TS Service/Layer/Schemaパターン
-4. **自動検証**: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+4. **自動検証**: `pnpm typecheck && pnpm check && pnpm test && pnpm build`
 5. **エラー修正**: トラブルシューティング手順に従う
 
 ### 参照優先順位
@@ -103,7 +103,7 @@ pnpm preview    # ビルドプレビュー
 
 ```bash
 pnpm typecheck  # 型チェック
-pnpm lint       # Oxlintによる静的解析
+pnpm check      # 総合的なコード品質チェック
 pnpm test       # Vitestによるテスト実行
 pnpm coverage   # カバレッジレポート生成
 ```
