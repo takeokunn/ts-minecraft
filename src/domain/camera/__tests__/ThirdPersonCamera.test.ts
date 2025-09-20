@@ -286,6 +286,49 @@ describe('ThirdPersonCamera', () => {
   })
 
   describe('設定変更', () => {
+    it('三人称視点から三人称視点への切り替えは何もしない', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person' as const,
+        })
+        const beforeState = yield* service.getState()
+        yield* service.switchMode('third-person')
+        const afterState = yield* service.getState()
+        return { beforeState, afterState }
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value.beforeState).toEqual(result.value.afterState)
+      }
+    })
+
+    it('一人称視点への切り替えはモードを変更しない', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person' as const,
+        })
+        const initialConfig = yield* service.getConfig()
+        yield* service.switchMode('first-person')
+        const updatedConfig = yield* service.getConfig()
+        return { initialConfig, updatedConfig }
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        const { initialConfig, updatedConfig } = result.value
+        expect(initialConfig.mode).toBe('third-person')
+        // ThirdPersonCameraLive は一人称モードへの切り替えを行わない
+        expect(updatedConfig.mode).toBe('third-person')
+      }
+    })
+
     it('三人称視点の距離を変更できる', async () => {
       const program = Effect.gen(function* () {
         const service = yield* CameraService
@@ -501,6 +544,51 @@ describe('ThirdPersonCamera', () => {
 
       const result = await Effect.runPromiseExit(program)
       expect(Exit.isFailure(result)).toBe(true)
+    })
+
+    it('初期化前の距離設定も成功する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setThirdPersonDistance(10)
+        const config = yield* service.getConfig()
+        return config.thirdPersonDistance
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(10)
+      }
+    })
+
+    it('初期化前の感度設定は成功する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setSensitivity(3.0)
+        const config = yield* service.getConfig()
+        return config.sensitivity
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(3.0)
+      }
+    })
+
+    it('初期化前のスムージング設定は成功する', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.setSmoothing(0.8)
+        const config = yield* service.getConfig()
+        return config.smoothing
+      }).pipe(Effect.provide(ThirdPersonCameraLive))
+
+      const result = await Effect.runPromiseExit(program)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toBe(0.8)
+      }
     })
 
     it('無効なカメラモードの切り替えはエラーを返す', async () => {
