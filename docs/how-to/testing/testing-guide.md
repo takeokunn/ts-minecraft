@@ -96,9 +96,12 @@ npm run test:coverage
 #### 2.1 テストファイルの構造
 
 ```typescript
-// 📁 src/domain/position.test.ts
+// 📁 src/domain/__test__/position.spec.ts
 import { describe, it, expect } from 'vitest'
-import { Position, PositionOps } from './position'
+import * as fc from 'fast-check'
+import { Schema } from '@effect/schema'
+import { Effect } from 'effect'
+import { Position, PositionOps } from '../position'
 
 // 🏗️ テストスイート（関連するテストをグループ化）
 describe('Position', () => {
@@ -277,7 +280,7 @@ npm install -D @fast-check/vitest
 ### Schema-first テストパターン
 
 ```typescript
-// 1. Schema.Struct による最新バリデーションテスト
+// 1. Schema.Struct による最新バリデーションテスト（as anyを使わない厳密な型定義）
 const PlayerSchema = Schema.Struct({
   _tag: Schema.Literal('Player'),
   id: Schema.String.pipe(Schema.brand('PlayerId'), Schema.pattern(/^player_[a-f0-9-]{36}$/)),
@@ -517,13 +520,23 @@ describe('複数パターンのテスト', () => {
 src/
 ├── domain/
 │   ├── position.ts
-│   ├── position.test.ts    # ✅ 同じディレクトリに配置
+│   ├── __test__/
+│   │   └── position.spec.ts    # ✅ 専用の__test__ディレクトリに配置
 │   ├── block.ts
-│   ├── block.test.ts
+│   ├── __test__/
+│   │   └── block.spec.ts      # ✅ .spec.ts拡張子で統一
 │   └── player/
 │       ├── player.ts
-│       └── player.test.ts  # ✅ サブディレクトリでも同じ構造
+│       └── __test__/
+│           └── player.spec.ts  # ✅ サブディレクトリでも同じ構造
 ```
+
+#### テストファイル配置の厳密なルール
+
+1. **必須配置**: 全てのテストは `src/**/__test__/*.spec.ts` に配置
+2. **1対1対応**: 実装ファイルに対して必ず対応するテストファイルを作成
+3. **命名規則**: `{実装ファイル名}.spec.ts` 形式で統一
+4. **テストカバレッジ**: 100%を目標とし、PBTを積極的に活用
 
 #### テスト命名規則
 

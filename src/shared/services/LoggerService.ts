@@ -47,11 +47,14 @@ export const LoggerService = Context.GenericTag<LoggerService>('@app/services/Lo
 // ログレベル設定の取得
 export const getCurrentLogLevel = (): LogLevel => {
   const envLevel = process.env['LOG_LEVEL']?.toUpperCase() as LogLevel | undefined
-  if (envLevel && Object.keys(LOG_LEVEL_PRIORITY).includes(envLevel)) {
-    return envLevel
-  }
-  // 開発環境ではDEBUG、本番環境ではINFOをデフォルトに
-  return process.env['NODE_ENV'] === 'production' ? 'INFO' : 'DEBUG'
+
+  // 環境変数が有効なログレベルの場合はそれを返す
+  return envLevel && Object.keys(LOG_LEVEL_PRIORITY).includes(envLevel)
+    ? envLevel
+    : // 開発環境ではDEBUG、本番環境ではINFOをデフォルトに
+      process.env['NODE_ENV'] === 'production'
+      ? 'INFO'
+      : 'DEBUG'
 }
 
 // ログ出力の可否判定

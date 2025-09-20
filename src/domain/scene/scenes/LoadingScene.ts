@@ -37,41 +37,52 @@ export const LoadingScene = Layer.effect(
       startTime: Date.now(),
     })
 
-    // 内部状態
-    let isInitialized = false
+    // 内部状態をRefで管理
+    const isInitializedRef = yield* Ref.make(false)
+    const loadingTipsRef = yield* Ref.make<readonly string[]>([])
 
     return Scene.of({
       data: sceneData,
 
       initialize: () =>
         Effect.gen(function* () {
-          if (isInitialized) {
-            return yield* Effect.fail(
-              SceneInitializationError({
-                message: 'LoadingScene is already initialized',
-                sceneType: 'Loading',
+          const isInitialized = yield* Ref.get(isInitializedRef)
+
+          return yield* isInitialized
+            ? Effect.fail(
+                SceneInitializationError({
+                  message: 'LoadingScene is already initialized',
+                  sceneType: 'Loading',
+                })
+              )
+            : Effect.gen(function* () {
+                yield* Effect.logInfo('LoadingSceneを初期化中...')
+
+                // ローディング画面用のリソース読み込み
+                yield* Ref.set(loadingTipsRef, [
+                  'ヒント: ブロックを破壊するには左クリックしましょう',
+                  'ヒント: ブロックを設置するには右クリックしましょう',
+                  'ヒント: インベントリを開くにはEキーを押しましょう',
+                  'ヒント: クリエイティブモードでは無限にブロックを使用できます',
+                  'ヒント: スペースキーでジャンプできます',
+                ])
+
+                // 初期ローディング状態
+                yield* Ref.update(loadingStateRef, (state) => ({
+                  ...state,
+                  currentTask: 'リソースを読み込み中...',
+                  startTime: Date.now(),
+                }))
+
+                yield* Ref.set(isInitializedRef, true)
+                yield* Effect.logInfo('LoadingScene初期化完了')
               })
-            )
-          }
-
-          yield* Effect.logInfo('LoadingSceneを初期化中...')
-
-          // ローディング画面用のリソース読み込み
-          // ヒントテキストの設定など
-
-          // 初期ローディング状態
-          yield* Ref.update(loadingStateRef, (state) => ({
-            ...state,
-            currentTask: 'リソースを読み込み中...',
-            startTime: Date.now(),
-          }))
-
-          isInitialized = true
-          yield* Effect.logInfo('LoadingScene初期化完了')
         }),
 
       update: (deltaTime) =>
         Effect.gen(function* () {
+          const isInitialized = yield* Ref.get(isInitializedRef)
+
           if (!isInitialized) return
 
           const loadingState = yield* Ref.get(loadingStateRef)
@@ -81,7 +92,7 @@ export const LoadingScene = Layer.effect(
 
           // 擬似的なローディング進行の更新
           if (loadingState.progress < 100) {
-            const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress) // 5秒で完了する計算
+            const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
 
             yield* Ref.update(loadingStateRef, (state) => {
               const newProgress = Math.min(state.progress + progressIncrement, 100)
@@ -90,16 +101,16 @@ export const LoadingScene = Layer.effect(
               const estimatedRemaining = Math.max(0, estimatedTotal - elapsed)
 
               // タスクの更新
-              let currentTask = state.currentTask
-              if (newProgress > 25 && newProgress <= 50) {
-                currentTask = 'ワールドを生成中...'
-              } else if (newProgress > 50 && newProgress <= 75) {
-                currentTask = 'テクスチャを読み込み中...'
-              } else if (newProgress > 75 && newProgress <= 90) {
-                currentTask = 'チャンクを生成中...'
-              } else if (newProgress > 90) {
-                currentTask = '最終処理中...'
-              }
+              const currentTask =
+                newProgress <= 25
+                  ? state.currentTask
+                  : newProgress <= 50
+                    ? 'ワールドを生成中...'
+                    : newProgress <= 75
+                      ? 'テクスチャを読み込み中...'
+                      : newProgress <= 90
+                        ? 'チャンクを生成中...'
+                        : '最終処理中...'
 
               return {
                 ...state,
@@ -118,84 +129,66 @@ export const LoadingScene = Layer.effect(
 
       render: () =>
         Effect.gen(function* () {
+          const isInitialized = yield* Ref.get(isInitializedRef)
+
           if (!isInitialized) return
 
           const loadingState = yield* Ref.get(loadingStateRef)
 
           yield* Effect.logDebug(
-            `LoadingSceneレンダリング中... (progress: ${Math.round(loadingState.progress)}%, task: ${loadingState.currentTask})`
+            `LoadingSceneレンダリング中... (progress: ${Math.round(loadingState.progress)}%, task: ${
+              loadingState.currentTask
+            })`
           )
-
-          // ローディング画面のレンダリング処理
-          // 実装例：
-          // - プログレスバーの描画
-          // - 現在のタスクテキストの表示
-          // - ローディングアニメーション
-          // - ランダムなヒントテキストの表示
-          // - 背景画像/動画の表示
-          // - 推定残り時間の表示
         }),
 
       cleanup: () =>
         Effect.gen(function* () {
-          if (!isInitialized) {
-            return yield* Effect.fail(
-              SceneCleanupError({
-                message: 'LoadingScene is not initialized, cannot cleanup',
-                sceneType: 'Loading',
-              })
-            )
-          }
+          const isInitialized = yield* Ref.get(isInitializedRef)
 
-          yield* Effect.logInfo('LoadingSceneクリーンアップ中...')
+          return yield* isInitialized
+            ? Effect.gen(function* () {
+                yield* Effect.logInfo('LoadingSceneクリーンアップ中...')
 
-          // ローディング状態のリセット
-          yield* Ref.update(loadingStateRef, () => ({
-            progress: 0,
-            currentTask: '初期化中...',
-            totalTasks: 0,
-            completedTasks: 0,
-            estimatedTimeRemaining: 0,
-            startTime: Date.now(),
-          }))
+                // ローディング状態のリセット
+                yield* Ref.update(loadingStateRef, () => ({
+                  progress: 0,
+                  currentTask: '初期化中...',
+                  totalTasks: 0,
+                  completedTasks: 0,
+                  estimatedTimeRemaining: 0,
+                  startTime: Date.now(),
+                }))
 
-          // リソースのクリーンアップ
-          // 実装例：
-          // - ローディング画面用テクスチャの解放
-          // - アニメーションタイマーの停止
-          // - メモリの解放
+                // リソースのクリーンアップ
+                yield* Ref.set(loadingTipsRef, [])
 
-          isInitialized = false
+                yield* Ref.set(isInitializedRef, false)
 
-          yield* Effect.logInfo('LoadingSceneクリーンアップ完了')
+                yield* Effect.logInfo('LoadingSceneクリーンアップ完了')
+            : Effect.fail(
+                SceneCleanupError({
+                  message: 'LoadingScene is not initialized, cannot cleanup',
+                  sceneType: 'Loading',
+                })
+              )
         }),
 
       onEnter: () =>
         Effect.gen(function* () {
           yield* Effect.logInfo('LoadingSceneに入場しました')
 
-          // ローディング画面入場時の処理
-          // 実装例：
-          // - ローディング音楽の再生
-          // - プログレスバーのアニメーション開始
-          // - ヒントテキストのローテーション開始
-
           yield* Ref.update(loadingStateRef, (state) => ({
             ...state,
-            startTime: Date.now(),
             progress: 0,
+            startTime: Date.now(),
+            currentTask: 'ローディング開始...',
           }))
         }),
 
       onExit: () =>
         Effect.gen(function* () {
           yield* Effect.logInfo('LoadingSceneから退場しました')
-
-          // ローディング画面退場時の処理
-          // 実装例：
-          // - ローディング音楽の停止
-          // - アニメーションの停止
-          // - 一時的なリソースの解放
         }),
     })
   })

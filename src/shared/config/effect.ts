@@ -89,10 +89,9 @@ export const orElse =
 // Utility to run an effect synchronously (for testing)
 export const runSync = <A, E>(effect: Effect.Effect<A, E>): A => {
   const result = Effect.runSyncExit(effect)
-  if (Exit.isFailure(result)) {
-    throw Cause.squash(result.cause)
-  }
-  return result.value
+
+  // Exit型のパターンマッチング
+  return Exit.isFailure(result) ? (() => { throw Cause.squash(result.cause) })() : result.value
 }
 
 // Utility to run an effect as a promise
