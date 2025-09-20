@@ -168,7 +168,7 @@ jobs:
           echo "📦 Bundle Size Report"
           echo "===================="
           if [ -d "dist" ]; then
-            find dist -type f -name "*.js" -o -name "*.css" | while read file; do
+            find dist -type f -name "*.js" -o -name "*.css" | while read -r file; do
               size=$(du -h "$file" | cut -f1)
               echo "$file: $size"
             done
