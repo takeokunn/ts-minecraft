@@ -68,7 +68,7 @@ describe("Effect-TS Configuration", () => {
       const result = await Effect.runPromise(validEffect);
       expect(result).toBe("valid string");
 
-      const invalidEffect = validator(123); // 数値を渡して型エラーを発生させる
+      const invalidEffect = validator(123 as unknown as string); // 数値を渡して型エラーを発生させる
       const invalidResult = await Effect.runPromise(Effect.either(invalidEffect));
 
       expect(invalidResult._tag).toBe("Left");

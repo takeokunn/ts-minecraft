@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
+import type {
   NumberValue,
   StringValue,
   BooleanValue
@@ -58,14 +58,14 @@ describe("Shared Types Index", () => {
     });
 
     it("should have all expected basic type exports", () => {
-      // Test that the types exist at runtime by checking their names
-      const testNum: typeof ExportedFromIndex.NumberValue extends number ? true : false = true;
-      const testStr: typeof ExportedFromIndex.StringValue extends string ? true : false = true;
-      const testBool: typeof ExportedFromIndex.BooleanValue extends boolean ? true : false = true;
+      // Types exist at compile time, checking type compatibility
+      const testNum: NumberValue = 123;
+      const testStr: StringValue = "test";
+      const testBool: BooleanValue = true;
 
-      expect(testNum).toBe(true);
-      expect(testStr).toBe(true);
-      expect(testBool).toBe(true);
+      expect(typeof testNum).toBe("number");
+      expect(typeof testStr).toBe("string");
+      expect(typeof testBool).toBe("boolean");
     });
   });
 
