@@ -13,11 +13,11 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
  */
 beforeAll(async () => {
   // テスト用環境変数の設定
-  process.env.NODE_ENV = 'test'
-  process.env.VITEST = 'true'
+  process.env['NODE_ENV'] = 'test'
+  process.env['VITEST'] = 'true'
 
   // コンソールログレベルの設定
-  if (!process.env.DEBUG) {
+  if (!process.env['DEBUG']) {
     console.log = () => {} // テスト中のログ出力を抑制
   }
 })

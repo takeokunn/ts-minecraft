@@ -92,7 +92,7 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
       try {
         // WebGLコンテキストの状態確認
         const gl = renderer?.getContext()
-        if (gl.isContextLost()) {
+        if (gl && gl.isContextLost()) {
           yield* Effect.fail(
             ContextLostError({
               message: 'WebGLコンテキストが失われています',

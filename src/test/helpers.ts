@@ -270,7 +270,7 @@ export const TestEnvironment = {
   setup: () =>
     Effect.sync(() => {
       // テスト用環境変数設定
-      process.env.NODE_ENV = 'test'
+      process.env['NODE_ENV'] = 'test'
 
       return {
         testStartTime: Date.now(),
