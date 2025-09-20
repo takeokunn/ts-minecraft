@@ -386,6 +386,27 @@ describe('SystemRegistry', () => {
         })
       )
     })
+
+    it('非SystemErrorのエラーが適切に記録される', async () => {
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* SystemRegistryService
+
+          const systemWithGenericError = createSystem('GenericErrorSystem', () =>
+            Effect.fail('Generic string error')
+          )
+
+          yield* registry.register(systemWithGenericError)
+
+          // エラーを無視して実行
+          yield* registry.update({} as World, 16).pipe(Effect.ignore)
+
+          const stats = yield* registry.getStats('GenericErrorSystem')
+          expect(stats.errors).toHaveLength(1)
+          expect(stats.errors[0]).toBe('Generic string error')
+        })
+      )
+    })
   })
 
   describe('レジストリクリア', () => {

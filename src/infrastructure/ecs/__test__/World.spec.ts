@@ -202,6 +202,33 @@ describe('World', () => {
       )
     })
 
+    it('空のコンポーネント配列での検索で空配列を返す', async () => {
+      await runWithWorld(
+        Effect.gen(function* () {
+          const world = yield* World
+
+          const entities = yield* world.getEntitiesWithComponents([])
+
+          expect(entities).toEqual([])
+        })
+      )
+    })
+
+    it('存在しないコンポーネント型での複数検索で空配列を返す', async () => {
+      await runWithWorld(
+        Effect.gen(function* () {
+          const world = yield* World
+
+          const entity = yield* world.createEntity()
+          yield* world.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
+
+          const entities = yield* world.getEntitiesWithComponents(['Position', 'NonExistent'])
+
+          expect(entities).toEqual([])
+        })
+      )
+    })
+
     it('タグでエンティティを検索できる', async () => {
       await runWithWorld(
         Effect.gen(function* () {
@@ -369,6 +396,19 @@ describe('World', () => {
           expect(positions.size).toBe(1)
           expect(positions.has(activeEntity)).toBe(true)
           expect(positions.has(inactiveEntity)).toBe(false)
+        })
+      )
+    })
+
+    it('存在しないコンポーネント型の一括取得で空のMapを返す', async () => {
+      await runWithWorld(
+        Effect.gen(function* () {
+          const world = yield* World
+
+          const positions = yield* world.batchGetComponents<PositionComponent>('NonExistentComponent')
+
+          expect(positions.size).toBe(0)
+          expect(positions).toBeInstanceOf(Map)
         })
       )
     })
