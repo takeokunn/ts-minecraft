@@ -3,13 +3,17 @@ import { Effect, pipe } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   GameError,
+  GameErrorSchema,
   NetworkError,
+  NetworkErrorSchema,
   ValidationError,
-  ResourceNotFoundError
-} from './index'
+  ValidationErrorSchema,
+  ResourceNotFoundError,
+  ResourceNotFoundErrorSchema
+} from '../errors'
+import type { AllErrors } from '../errors'
 import type {
   Result,
-  CommonError,
   Option,
   NonEmptyArray,
   Predicate,
@@ -21,32 +25,39 @@ import type {
 describe('Types', () => {
   describe('GameError', () => {
     it('should create and validate GameError', () => {
-      const errorData = {
-        _tag: 'GameError' as const,
+      const error = GameError({
         message: 'Test error'
-      }
-      const error = Schema.decodeSync(GameError)(errorData)
+      })
 
       expect(error._tag).toBe('GameError')
       expect(error.message).toBe('Test error')
     })
 
     it('should handle optional fields', () => {
-      const errorData = {
-        _tag: 'GameError' as const,
+      const error = GameError({
         message: 'Test error',
         code: 'TEST_001',
-        details: { foo: 'bar' }
-      }
-      const error = Schema.decodeSync(GameError)(errorData)
+        cause: { foo: 'bar' }
+      })
 
       expect(error.code).toBe('TEST_001')
-      expect(error.details).toEqual({ foo: 'bar' })
+      expect(error.cause).toEqual({ foo: 'bar' })
+    })
+
+    it('should validate with schema', () => {
+      const errorData = {
+        _tag: 'GameError' as const,
+        message: 'Test error'
+      }
+      const error = Schema.decodeSync(GameErrorSchema)(errorData)
+
+      expect(error._tag).toBe('GameError')
+      expect(error.message).toBe('Test error')
     })
 
     it('should fail validation for invalid data', () => {
       expect(() =>
-        Schema.decodeSync(GameError)({
+        Schema.decodeSync(GameErrorSchema)({
           _tag: 'GameError'
           // missing required message
         } as any)
@@ -56,29 +67,25 @@ describe('Types', () => {
 
   describe('NetworkError', () => {
     it('should create NetworkError', () => {
-      const errorData = {
-        _tag: 'NetworkError' as const,
+      const error = NetworkError({
         message: 'Network failure',
         statusCode: 500,
-        url: 'http://example.com'
-      }
-      const error = Schema.decodeSync(NetworkError)(errorData)
+        code: 'NETWORK_500'
+      })
 
       expect(error._tag).toBe('NetworkError')
       expect(error.statusCode).toBe(500)
-      expect(error.url).toBe('http://example.com')
+      expect(error.code).toBe('NETWORK_500')
     })
   })
 
   describe('ValidationError', () => {
     it('should create ValidationError', () => {
-      const errorData = {
-        _tag: 'ValidationError' as const,
+      const error = ValidationError({
         message: 'Invalid input',
         field: 'email',
         value: 'not-an-email'
-      }
-      const error = Schema.decodeSync(ValidationError)(errorData)
+      })
 
       expect(error._tag).toBe('ValidationError')
       expect(error.field).toBe('email')
@@ -88,13 +95,11 @@ describe('Types', () => {
 
   describe('ResourceNotFoundError', () => {
     it('should create ResourceNotFoundError', () => {
-      const errorData = {
-        _tag: 'ResourceNotFoundError' as const,
+      const error = ResourceNotFoundError({
         message: 'Resource not found',
         resourceType: 'Player',
         resourceId: 'player-123'
-      }
-      const error = Schema.decodeSync(ResourceNotFoundError)(errorData)
+      })
 
       expect(error._tag).toBe('ResourceNotFoundError')
       expect(error.resourceType).toBe('Player')
@@ -103,7 +108,7 @@ describe('Types', () => {
 
     it('should require all fields', () => {
       expect(() =>
-        Schema.decodeSync(ResourceNotFoundError)({
+        Schema.decodeSync(ResourceNotFoundErrorSchema)({
           _tag: 'ResourceNotFoundError',
           message: 'Not found'
           // missing resourceType and resourceId
@@ -122,19 +127,18 @@ describe('Types', () => {
     })
   })
 
-  describe('CommonError union type', () => {
+  describe('AllErrors union type', () => {
     it('should accept any error type from the union', () => {
-      const gameError = Schema.decodeSync(GameError)({ _tag: 'GameError' as const, message: 'game error' })
-      const networkError = Schema.decodeSync(NetworkError)({ _tag: 'NetworkError' as const, message: 'network error' })
-      const validationError = Schema.decodeSync(ValidationError)({ _tag: 'ValidationError' as const, message: 'validation error' })
-      const notFoundError = Schema.decodeSync(ResourceNotFoundError)({
-        _tag: 'ResourceNotFoundError' as const,
+      const gameError = GameError({ message: 'game error' })
+      const networkError = NetworkError({ message: 'network error' })
+      const validationError = ValidationError({ message: 'validation error', field: 'test', value: 'invalid' })
+      const notFoundError = ResourceNotFoundError({
         message: 'not found',
         resourceType: 'Item',
         resourceId: '123'
       })
 
-      const errors: CommonError[] = [gameError, networkError, validationError, notFoundError]
+      const errors: AllErrors[] = [gameError, networkError, validationError, notFoundError]
 
       errors.forEach(error => {
         expect(error._tag).toBeTruthy()
