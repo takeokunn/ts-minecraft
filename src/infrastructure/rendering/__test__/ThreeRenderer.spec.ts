@@ -450,6 +450,61 @@ describe('ThreeRenderer', () => {
       const runnable = Effect.provide(program, ThreeRendererLive)
       await expect(Effect.runPromise(runnable)).rejects.toThrow()
     })
+
+    it('レンダリング中に一般的なエラーが発生した場合のエラーハンドリング', async () => {
+      // Three.js WebGLRendererのrenderメソッドでエラーを発生させる
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
+        () =>
+          ({
+            setPixelRatio: vi.fn(),
+            setSize: vi.fn(),
+            setClearColor: vi.fn(),
+            setViewport: vi.fn(),
+            render: vi.fn().mockImplementation(() => {
+              throw new Error('Rendering failed')
+            }),
+            dispose: vi.fn(),
+            getContext: vi.fn().mockReturnValue({
+              isContextLost: vi.fn().mockReturnValue(false),
+            }),
+            domElement: createMockCanvas(),
+            shadowMap: {
+              enabled: false,
+              type: THREE.PCFShadowMap,
+              autoUpdate: true,
+              needsUpdate: false,
+              render: vi.fn(),
+              cullFace: THREE.CullFaceBack,
+            },
+            info: {
+              memory: { geometries: 0, textures: 0 },
+              render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
+              autoReset: true,
+              programs: null,
+              update: vi.fn(),
+              reset: vi.fn(),
+            },
+            outputColorSpace: THREE.SRGBColorSpace,
+            toneMapping: THREE.NoToneMapping,
+            toneMappingExposure: 1.0,
+            sortObjects: true,
+            extensions: {
+              get: vi.fn(),
+              has: vi.fn(),
+              init: vi.fn(),
+            },
+          }) as unknown as THREE.WebGLRenderer
+      )
+
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+        yield* renderer.render(scene, camera)
+      })
+
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+    })
   })
 
   describe('レンダラー状態管理', () => {
