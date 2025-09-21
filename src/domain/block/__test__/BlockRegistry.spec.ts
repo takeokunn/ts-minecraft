@@ -11,6 +11,8 @@ import {
   searchBlocks,
   getBlocksByCategory,
   getBlocksByTag,
+  getBlock,
+  getAllBlocks,
 } from '../BlockRegistry'
 import type { BlockType } from '../BlockType'
 // テストヘルパー関数
@@ -566,6 +568,78 @@ describe('BlockRegistry', () => {
         expect(tag1Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
         expect(tag2Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
         expect(tag3Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
+  })
+
+  describe('エクスポートされた関数のカバレッジ改善', () => {
+    it.effect('エクスポートされた getBlock 関数が正しく動作する（行168-171）', () =>
+      Effect.gen(function* () {
+        // モジュールレベルのgetBlock関数を使用
+        const stoneBlock = yield* getBlock('stone')
+        expect(stoneBlock).toBeDefined()
+        expect(stoneBlock.id).toBe('stone')
+        expect(stoneBlock.name).toBe('Stone')
+
+        // エラー系：存在しないブロックの取得
+        const result = yield* Effect.either(getBlock('nonexistent_export_test'))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(BlockNotFoundError)
+        }
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
+
+    it.effect('エクスポートされた getAllBlocks 関数が正しく動作する（行175-178）', () =>
+      Effect.gen(function* () {
+        // モジュールレベルのgetAllBlocks関数を使用
+        const blocks = yield* getAllBlocks()
+
+        // 基本的な検証
+        expect(Array.isArray(blocks)).toBe(true)
+        expect(blocks.length).toBe(53) // 53種類のブロック
+
+        // 主要なブロックが含まれていることを確認
+        const blockIds = blocks.map((b) => b.id)
+        expect(blockIds).toContain('stone')
+        expect(blockIds).toContain('dirt')
+        expect(blockIds).toContain('grass_block')
+        expect(blockIds).toContain('oak_log')
+
+        // 各ブロックが正しい構造を持っていることを確認
+        blocks.forEach((block) => {
+          expect(block.id).toBeDefined()
+          expect(block.name).toBeDefined()
+          expect(block.category).toBeDefined()
+          expect(block.physics).toBeDefined()
+        })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
+
+    it.effect('エクスポートされた getBlocksByCategory 関数の完全なテスト（行181-185）', () =>
+      Effect.gen(function* () {
+        // モジュールレベルのgetBlocksByCategory関数を使用
+        const buildingBlocks = yield* getBlocksByCategory('building')
+        const decorationBlocks = yield* getBlocksByCategory('decoration')
+        const naturalBlocks = yield* getBlocksByCategory('natural')
+
+        // 各カテゴリーにブロックが存在することを確認
+        expect(buildingBlocks.length).toBeGreaterThan(0)
+        expect(decorationBlocks.length).toBeGreaterThan(0)
+        expect(naturalBlocks.length).toBeGreaterThan(0)
+
+        // カテゴリーが正しく設定されていることを確認
+        buildingBlocks.forEach((block) => {
+          expect(block.category).toBe('building')
+        })
+
+        decorationBlocks.forEach((block) => {
+          expect(block.category).toBe('decoration')
+        })
+
+        naturalBlocks.forEach((block) => {
+          expect(block.category).toBe('natural')
+        })
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
