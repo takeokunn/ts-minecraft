@@ -15,9 +15,11 @@ export {
   EntityPool,
   type EntityPoolStats,
   EntityPoolLive,
-  ComponentStorage,
+  createComponentStorage,
+  type ComponentStorage,
   type Archetype,
-  ArchetypeManager
+  createArchetypeManager,
+  type ArchetypeManager
 } from './Entity'
 export * from './EntityManager'
 export * from './System'

@@ -44,94 +44,87 @@ export interface ComponentArray<T> {
   size: number // mutable for performance
 }
 
-export class ComponentStorage<T> {
-  private array: ComponentArray<T> = {
+export const createComponentStorage = <T>() => {
+  const array: ComponentArray<T> = {
     data: [],
     entityToIndex: new Map(),
     indexToEntity: [],
     size: 0
   }
 
-  insert(entity: EntityId, component: T): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      if (this.array.entityToIndex.has(entity)) {
+  const insert = (entity: EntityId, component: T): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      if (array.entityToIndex.has(entity)) {
         // 既存のコンポーネントを更新
-        const index = this.array.entityToIndex.get(entity)!
-        this.array.data[index] = component
+        const index = array.entityToIndex.get(entity)!
+        array.data[index] = component
       } else {
         // 新しいコンポーネントを追加
-        const newIndex = this.array.size
-        this.array.data[newIndex] = component
-        this.array.entityToIndex.set(entity, newIndex)
-        this.array.indexToEntity[newIndex] = entity
-        this.array.size++
+        const newIndex = array.size
+        array.data[newIndex] = component
+        array.entityToIndex.set(entity, newIndex)
+        array.indexToEntity[newIndex] = entity
+        array.size++
       }
     })
-  }
 
-  remove(entity: EntityId): Effect.Effect<boolean, never> {
-    return Effect.sync(() => {
-      const index = this.array.entityToIndex.get(entity)
+  const remove = (entity: EntityId): Effect.Effect<boolean, never> =>
+    Effect.sync(() => {
+      const index = array.entityToIndex.get(entity)
       if (index === undefined) return false
 
-      const lastIndex = this.array.size - 1
+      const lastIndex = array.size - 1
 
       if (index !== lastIndex) {
         // 最後の要素で削除された要素を上書き（配列の穴を防ぐ）
-        const lastEntity = this.array.indexToEntity[lastIndex]
-        const lastData = this.array.data[lastIndex]
+        const lastEntity = array.indexToEntity[lastIndex]
+        const lastData = array.data[lastIndex]
         if (lastEntity !== undefined && lastData !== undefined) {
-          this.array.data[index] = lastData
-          this.array.indexToEntity[index] = lastEntity
-          this.array.entityToIndex.set(lastEntity, index)
+          array.data[index] = lastData
+          array.indexToEntity[index] = lastEntity
+          array.entityToIndex.set(lastEntity, index)
         }
       }
 
       // 最後の要素を削除
-      this.array.data.length--
-      this.array.indexToEntity.length--
-      this.array.entityToIndex.delete(entity)
-      this.array.size--
+      array.data.length--
+      array.indexToEntity.length--
+      array.entityToIndex.delete(entity)
+      array.size--
 
       return true
     })
-  }
 
-  get(entity: EntityId): Effect.Effect<Option.Option<T>, never> {
-    return Effect.sync(() => {
-      const index = this.array.entityToIndex.get(entity)
-      if (index !== undefined && index < this.array.size) {
-        const value = this.array.data[index]
+  const get = (entity: EntityId): Effect.Effect<Option.Option<T>, never> =>
+    Effect.sync(() => {
+      const index = array.entityToIndex.get(entity)
+      if (index !== undefined && index < array.size) {
+        const value = array.data[index]
         return value !== undefined ? Option.some(value) : Option.none()
       }
       return Option.none()
     })
-  }
 
-  has(entity: EntityId): Effect.Effect<boolean, never> {
-    return Effect.sync(() => this.array.entityToIndex.has(entity))
-  }
+  const has = (entity: EntityId): Effect.Effect<boolean, never> =>
+    Effect.sync(() => array.entityToIndex.has(entity))
 
-  clear(): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      this.array = {
-        data: [],
-        entityToIndex: new Map(),
-        indexToEntity: [],
-        size: 0
-      }
+  const clear = (): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      array.data.length = 0
+      array.entityToIndex.clear()
+      array.indexToEntity.length = 0
+      array.size = 0
     })
-  }
 
   // 高速イテレーション用
-  iterate<R, E>(
+  const iterate = <R, E>(
     f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
-  ): Effect.Effect<void, E, R> {
-    return Effect.forEach(
-      Array.from({ length: this.array.size }, (_, i) => i),
+  ): Effect.Effect<void, E, R> =>
+    Effect.forEach(
+      Array.from({ length: array.size }, (_, i) => i),
       (index) => {
-        const entity = this.array.indexToEntity[index]
-        const component = this.array.data[index]
+        const entity = array.indexToEntity[index]
+        const component = array.data[index]
         if (entity !== undefined && component !== undefined) {
           return f(entity, component)
         }
@@ -139,37 +132,57 @@ export class ComponentStorage<T> {
       },
       { discard: true }
     ) as Effect.Effect<void, E, R>
-  }
 
   // バッチ取得（高速）
-  getAll(): Effect.Effect<ReadonlyArray<[EntityId, T]>, never> {
-    return Effect.sync(() => {
+  const getAll = (): Effect.Effect<ReadonlyArray<[EntityId, T]>, never> =>
+    Effect.sync(() => {
       const result: [EntityId, T][] = []
-      for (let i = 0; i < this.array.size; i++) {
-        const entity = this.array.indexToEntity[i]
-        const data = this.array.data[i]
+      for (let i = 0; i < array.size; i++) {
+        const entity = array.indexToEntity[i]
+        const data = array.data[i]
         if (entity !== undefined && data !== undefined) {
           result.push([entity, data])
         }
       }
       return result
     })
-  }
 
   // データ配列への直接アクセス（最高速だが注意が必要）
-  getRawData(): Effect.Effect<{ readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> }, never> {
-    return Effect.sync(() => ({
-      data: this.array.data.slice(0, this.array.size),
-      entities: this.array.indexToEntity.slice(0, this.array.size)
+  const getRawData = (): Effect.Effect<{ readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> }, never> =>
+    Effect.sync(() => ({
+      data: array.data.slice(0, array.size),
+      entities: array.indexToEntity.slice(0, array.size)
     }))
-  }
 
-  getStats(): Effect.Effect<{ size: number; capacity: number }, never> {
-    return Effect.sync(() => ({
-      size: this.array.size,
-      capacity: this.array.data.length
+  const getStats = (): Effect.Effect<{ size: number; capacity: number }, never> =>
+    Effect.sync(() => ({
+      size: array.size,
+      capacity: array.data.length
     }))
+
+  return {
+    insert,
+    remove,
+    get,
+    has,
+    clear,
+    iterate,
+    getAll,
+    getRawData,
+    getStats
   }
+}
+
+export interface ComponentStorage<T> {
+  readonly insert: (entity: EntityId, component: T) => Effect.Effect<void, never>
+  readonly remove: (entity: EntityId) => Effect.Effect<boolean, never>
+  readonly get: (entity: EntityId) => Effect.Effect<Option.Option<T>, never>
+  readonly has: (entity: EntityId) => Effect.Effect<boolean, never>
+  readonly clear: () => Effect.Effect<void, never>
+  readonly iterate: <R, E>(f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>) => Effect.Effect<void, E, R>
+  readonly getAll: () => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
+  readonly getRawData: () => Effect.Effect<{ readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> }, never>
+  readonly getStats: () => Effect.Effect<{ size: number; capacity: number }, never>
 }
 
 // =====================================
@@ -264,75 +277,85 @@ export interface Archetype {
   readonly entities: Set<EntityId>
 }
 
-export class ArchetypeManager {
-  private archetypes = new Map<string, Archetype>()
-  private entityToArchetype = new Map<EntityId, Archetype>()
-  private nextArchetypeId = 0
+export const createArchetypeManager = () => {
+  const archetypes = new Map<string, Archetype>()
+  const entityToArchetype = new Map<EntityId, Archetype>()
+  let nextArchetypeId = 0
 
-  private getArchetypeKey(componentTypes: ReadonlySet<string>): string {
+  const getArchetypeKey = (componentTypes: ReadonlySet<string>): string => {
     return Array.from(componentTypes).sort().join('|')
   }
 
-  getOrCreateArchetype(componentTypes: ReadonlySet<string>): Effect.Effect<Archetype, never> {
-    return Effect.sync(() => {
-      const key = this.getArchetypeKey(componentTypes)
-      let archetype = this.archetypes.get(key)
+  const getOrCreateArchetype = (componentTypes: ReadonlySet<string>): Effect.Effect<Archetype, never> =>
+    Effect.sync(() => {
+      const key = getArchetypeKey(componentTypes)
+      let archetype = archetypes.get(key)
 
       if (!archetype) {
         archetype = {
-          id: this.nextArchetypeId++,
+          id: nextArchetypeId++,
           componentTypes,
           entities: new Set()
         }
-        this.archetypes.set(key, archetype)
+        archetypes.set(key, archetype)
       }
 
       return archetype
     })
-  }
 
-  moveEntity(
+  const moveEntity = (
     entity: EntityId,
     newComponentTypes: ReadonlySet<string>
-  ): Effect.Effect<void, never> {
-    const self = this
-    return Effect.gen(function* () {
+  ): Effect.Effect<void, never> =>
+    Effect.gen(function* () {
       // 古いアーキタイプから削除
-      const oldArchetype = self.entityToArchetype.get(entity)
+      const oldArchetype = entityToArchetype.get(entity)
       if (oldArchetype) {
         oldArchetype.entities.delete(entity)
       }
 
       // 新しいアーキタイプに追加
-      const newArchetype = yield* self.getOrCreateArchetype(newComponentTypes)
+      const newArchetype = yield* getOrCreateArchetype(newComponentTypes)
       newArchetype.entities.add(entity)
-      self.entityToArchetype.set(entity, newArchetype)
+      entityToArchetype.set(entity, newArchetype)
     })
-  }
 
-  removeEntity(entity: EntityId): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      const archetype = this.entityToArchetype.get(entity)
+  const removeEntity = (entity: EntityId): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      const archetype = entityToArchetype.get(entity)
       if (archetype) {
         archetype.entities.delete(entity)
-        this.entityToArchetype.delete(entity)
+        entityToArchetype.delete(entity)
       }
     })
-  }
 
-  getEntitiesWithArchetype(componentTypes: ReadonlySet<string>): Effect.Effect<ReadonlySet<EntityId>, never> {
-    return Effect.sync(() => {
-      const key = this.getArchetypeKey(componentTypes)
-      const archetype = this.archetypes.get(key)
+  const getEntitiesWithArchetype = (componentTypes: ReadonlySet<string>): Effect.Effect<ReadonlySet<EntityId>, never> =>
+    Effect.sync(() => {
+      const key = getArchetypeKey(componentTypes)
+      const archetype = archetypes.get(key)
       return archetype ? new Set(archetype.entities) : new Set()
     })
-  }
 
-  clear(): Effect.Effect<void, never> {
-    return Effect.sync(() => {
-      this.archetypes.clear()
-      this.entityToArchetype.clear()
-      this.nextArchetypeId = 0
+  const clear = (): Effect.Effect<void, never> =>
+    Effect.sync(() => {
+      archetypes.clear()
+      entityToArchetype.clear()
+      nextArchetypeId = 0
     })
+
+  return {
+    getOrCreateArchetype,
+    moveEntity,
+    removeEntity,
+    getEntitiesWithArchetype,
+    clear
   }
+}
+
+export interface ArchetypeManager {
+  readonly getOrCreateArchetype: (componentTypes: ReadonlySet<string>) => Effect.Effect<Archetype, never>
+  readonly moveEntity: (entity: EntityId, newComponentTypes: ReadonlySet<string>) => Effect.Effect<void, never>
+  readonly removeEntity: (entity: EntityId) => Effect.Effect<void, never>
+  readonly getEntitiesWithArchetype: (componentTypes: ReadonlySet<string>) => Effect.Effect<ReadonlySet<EntityId>, never>
+  readonly clear: () => Effect.Effect<void, never>
 }

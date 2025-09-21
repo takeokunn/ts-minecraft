@@ -6,8 +6,10 @@ import {
   type EntityMetadata,
   EntityPool,
   type EntityPoolError,
-  ComponentStorage,
-  ArchetypeManager
+  createComponentStorage,
+  type ComponentStorage,
+  createArchetypeManager,
+  type ArchetypeManager
 } from './Entity.js'
 
 // =====================================
@@ -108,7 +110,7 @@ export const EntityManagerLive = Effect.gen(function* () {
   const entities = new Map<EntityId, EntityMetadata>()
   const componentStorages = new Map<string, ComponentStorage<unknown>>()
   const entityComponents = new Map<EntityId, Set<string>>()
-  const archetypeManager = new ArchetypeManager()
+  const archetypeManager = createArchetypeManager()
   const tagIndex = new Map<string, Set<EntityId>>()
 
   let entityGeneration = 0
@@ -117,7 +119,7 @@ export const EntityManagerLive = Effect.gen(function* () {
   const getOrCreateStorage = (componentType: string): ComponentStorage<unknown> => {
     let storage = componentStorages.get(componentType)
     if (!storage) {
-      storage = new ComponentStorage<unknown>()
+      storage = createComponentStorage<unknown>()
       componentStorages.set(componentType, storage)
     }
     return storage
@@ -314,11 +316,16 @@ export const EntityManagerLive = Effect.gen(function* () {
       if (componentTypes.length === 0) return []
 
       // 最初のコンポーネントを持つエンティティから開始
-      let result = yield* getEntitiesWithComponent(componentTypes[0])
+      const firstComponent = componentTypes[0]
+      if (!firstComponent) return []
+
+      let result = yield* getEntitiesWithComponent(firstComponent)
 
       // 残りのコンポーネントでフィルタ
       for (let i = 1; i < componentTypes.length; i++) {
         const componentType = componentTypes[i]
+        if (!componentType) continue
+
         const filtered: EntityId[] = []
 
         for (const entityId of result) {
