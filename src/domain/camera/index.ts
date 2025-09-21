@@ -25,4 +25,3 @@ import { FirstPersonCameraLive } from './FirstPersonCamera'
 import { ThirdPersonCameraLive } from './ThirdPersonCamera'
 
 export const CameraSystemLive = Layer.mergeAll(FirstPersonCameraLive, ThirdPersonCameraLive)
-
