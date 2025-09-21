@@ -112,7 +112,9 @@ describe('ChunkData', () => {
       ]
 
       invalidCases.forEach(([x, y, z]) => {
-        expect(() => getBlockIndex(x, y, z)).toThrow()
+        if (x !== undefined && y !== undefined && z !== undefined) {
+          expect(() => getBlockIndex(x, y, z)).toThrow()
+        }
       })
     })
 
@@ -313,7 +315,9 @@ describe('ChunkData', () => {
       ]
 
       invalidCases.forEach(([x, z]) => {
-        expect(() => getHeight(testChunk, x, z)).toThrow()
+        if (x !== undefined && z !== undefined) {
+          expect(() => getHeight(testChunk, x, z)).toThrow()
+        }
       })
     })
   })
@@ -423,12 +427,19 @@ describe('ChunkData', () => {
         }
 
         const end = performance.now()
-        times.push((end - start) / size)
+        const timePerOperation = (end - start) / size
+        if (timePerOperation !== undefined) {
+          times.push(timePerOperation)
+        }
       }
 
       // Time per operation should not increase significantly with size
-      const ratioLastToFirst = times[times.length - 1] / times[0]
-      expect(ratioLastToFirst).toBeLessThan(2.0) // Allow some variance but should be roughly constant
+      const lastTime = times[times.length - 1]
+      const firstTime = times[0]
+      if (lastTime !== undefined && firstTime !== undefined) {
+        const ratioLastToFirst = lastTime / firstTime
+        expect(ratioLastToFirst).toBeLessThan(2.0) // Allow some variance but should be roughly constant
+      }
     })
 
     it('should handle full chunk population efficiently', () => {
