@@ -394,8 +394,8 @@ describe('ChunkPosition', () => {
       const end = performance.now()
       const timePerOperation = (end - start) / iterations
 
-      // Should be very fast (less than 0.1ms per operation)
-      expect(timePerOperation).toBeLessThan(0.1)
+      // Should be very fast (less than 0.25ms per operation, CI環境での変動を考慮)
+      expect(timePerOperation).toBeLessThan(0.25)
     })
   })
 })

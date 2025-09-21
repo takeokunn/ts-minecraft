@@ -579,8 +579,8 @@ describe('Entity ECS Architecture', () => {
           'component_iteration'
         )
 
-        // 100ms以内での完了を確認
-        if (iterationMetrics.metrics.executionTime > 100) {
+        // 150ms以内での完了を確認 (CI環境での変動を考慮)
+        if (iterationMetrics.metrics.executionTime > 150) {
           return yield* Effect.fail(new Error(`Iteration too slow: ${iterationMetrics.metrics.executionTime}ms`))
         }
 

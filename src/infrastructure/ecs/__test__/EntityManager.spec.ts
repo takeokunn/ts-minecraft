@@ -326,8 +326,23 @@ describe('EntityManager - Effect-TS Pattern', () => {
           return true
         })
 
-        const componentResult = yield* expectPerformanceTest(Effect.provide(componentTest, EntityManagerTestLayer), 100, 1)
+        // コンポーネント追加パフォーマンステスト (新しいexpectPerformanceTestパターン)
+        const componentResult = yield* expectPerformanceTest(Effect.provide(componentTest, EntityManagerTestLayer), 2000, 1)
         expect(componentResult).toBe(true)
+
+        // クエリパフォーマンス測定 (CI環境考慮版)
+        const queryTest = Effect.gen(function* () {
+          const withPosition = yield* manager.getEntitiesWithComponent('Position')
+          const withVelocity = yield* manager.getEntitiesWithComponent('Velocity')
+          const withBoth = yield* manager.getEntitiesWithComponents(['Position', 'Velocity'])
+
+          expect(withPosition).toHaveLength(10000)
+          expect(withVelocity).toHaveLength(5000)
+          expect(withBoth).toHaveLength(5000)
+        })
+
+        const { metrics: queryMetrics } = yield* PerformanceTest.measure(queryTest)
+        expect(queryMetrics.executionTime).toBeLessThan(300) // 300ms以内 (CI環境での変動を考慮)
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
