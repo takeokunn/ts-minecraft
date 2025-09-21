@@ -1,7 +1,7 @@
 name: 🤖 AI実行計画書 - 詳細実装Issue
 description: ROADMAP由来の詳細実装計画書（AI Agent単独実装可能レベル）
-title: "[EXECUTION] "
-labels: ["type: feature", "ai-ready", "execution-plan"]
+title: '[EXECUTION] '
+labels: ['type: feature', 'ai-ready', 'execution-plan']
 assignees: []
 
 body:
@@ -21,42 +21,42 @@ body:
   - type: input
     id: roadmap_task_id
     attributes:
-      label: "📍 ROADMAP タスクID"
-      description: "ROADMAPの対応タスクID（例: P1-005）"
-      placeholder: "P1-005"
+      label: '📍 ROADMAP タスクID'
+      description: 'ROADMAPの対応タスクID（例: P1-005）'
+      placeholder: 'P1-005'
     validations:
       required: true
 
   - type: dropdown
     id: implementation_size
     attributes:
-      label: "📏 実装サイズ"
+      label: '📏 実装サイズ'
       options:
-        - "XS (30分-1時間)"
-        - "S (2-3時間)"
-        - "M (4-5時間)"
-        - "L (6-8時間)"
+        - 'XS (30分-1時間)'
+        - 'S (2-3時間)'
+        - 'M (4-5時間)'
+        - 'L (6-8時間)'
     validations:
       required: true
 
   - type: dropdown
     id: architecture_layer
     attributes:
-      label: "🏗️ アーキテクチャ層"
+      label: '🏗️ アーキテクチャ層'
       options:
-        - "Domain (ビジネスロジック)"
-        - "Application (ユースケース)"
-        - "Infrastructure (技術実装)"
-        - "Presentation (UI)"
-        - "Shared (共通基盤)"
+        - 'Domain (ビジネスロジック)'
+        - 'Application (ユースケース)'
+        - 'Infrastructure (技術実装)'
+        - 'Presentation (UI)'
+        - 'Shared (共通基盤)'
     validations:
       required: true
 
   - type: textarea
     id: feature_overview
     attributes:
-      label: "🎯 機能概要"
-      description: "実装する機能の詳細な説明"
+      label: '🎯 機能概要'
+      description: '実装する機能の詳細な説明'
       placeholder: |
         ## 機能概要
         ゲームワールドの基本ブロックシステムを実装します。
@@ -71,8 +71,8 @@ body:
   - type: textarea
     id: pre_step_analysis
     attributes:
-      label: "🔍 Pre-Step: 実装前必須確認"
-      description: "実装開始前に必ず実行する調査・確認項目"
+      label: '🔍 Pre-Step: 実装前必須確認'
+      description: '実装開始前に必ず実行する調査・確認項目'
       value: |
         ## Pre-Step: 実装前必須確認
 
@@ -107,8 +107,8 @@ body:
   - type: textarea
     id: step_1_investigation
     attributes:
-      label: "🔍 Step 1: 事前調査・分析"
-      description: "実装前の詳細調査ステップ"
+      label: '🔍 Step 1: 事前調査・分析'
+      description: '実装前の詳細調査ステップ'
       value: |
         ## Step 1: 事前調査・分析
 
@@ -143,8 +143,8 @@ body:
   - type: textarea
     id: step_2_structure
     attributes:
-      label: "📁 Step 2: ディレクトリ構造作成"
-      description: "必要なディレクトリとファイル骨格の作成"
+      label: '📁 Step 2: ディレクトリ構造作成'
+      description: '必要なディレクトリとファイル骨格の作成'
       value: |
         ## Step 2: ディレクトリ構造作成
 
@@ -172,8 +172,8 @@ body:
   - type: textarea
     id: step_3_types_schemas
     attributes:
-      label: "📝 Step 3: 型定義・データ構造"
-      description: "Schema.StructとBranded型による型安全な実装"
+      label: '📝 Step 3: 型定義・データ構造'
+      description: 'Schema.StructとBranded型による型安全な実装'
       value: |
         ## Step 3: 型定義・データ構造
 
@@ -230,8 +230,8 @@ body:
   - type: textarea
     id: step_4_service
     attributes:
-      label: "⚙️ Step 4: Service実装"
-      description: "Effect-TS ServiceとLayerパターンの実装"
+      label: '⚙️ Step 4: Service実装'
+      description: 'Effect-TS ServiceとLayerパターンの実装'
       value: |
         ## Step 4: Service実装
 
@@ -323,8 +323,8 @@ body:
   - type: textarea
     id: step_5_ecs_integration
     attributes:
-      label: "🎮 Step 5: ECSシステム統合"
-      description: "Entity Component Systemとの統合実装"
+      label: '🎮 Step 5: ECSシステム統合'
+      description: 'Entity Component Systemとの統合実装'
       value: |
         ## Step 5: ECSシステム統合
 
@@ -402,8 +402,8 @@ body:
   - type: textarea
     id: step_6_testing
     attributes:
-      label: "🧪 Step 6: テスト実装"
-      description: "カバレッジ80%+を目指すテスト実装"
+      label: '🧪 Step 6: テスト実装'
+      description: 'カバレッジ80%+を目指すテスト実装'
       value: |
         ## Step 6: テスト実装
 
@@ -515,8 +515,8 @@ body:
   - type: textarea
     id: step_7_integration
     attributes:
-      label: "🔗 Step 7: 統合・エクスポート"
-      description: "モジュール統合とエクスポート設定"
+      label: '🔗 Step 7: 統合・エクスポート'
+      description: 'モジュール統合とエクスポート設定'
       value: |
         ## Step 7: 統合・エクスポート
 
@@ -587,8 +587,8 @@ body:
   - type: textarea
     id: step_8_quality
     attributes:
-      label: "✅ Step 8: 品質確認・最適化"
-      description: "最終的な品質確認と最適化"
+      label: '✅ Step 8: 品質確認・最適化'
+      description: '最終的な品質確認と最適化'
       value: |
         ## Step 8: 品質確認・最適化
 
@@ -670,8 +670,8 @@ body:
   - type: textarea
     id: post_step_completion
     attributes:
-      label: "🎉 Post-Step: 完了後処理"
-      description: "実装完了後の必須処理"
+      label: '🎉 Post-Step: 完了後処理'
+      description: '実装完了後の必須処理'
       value: |
         ## Post-Step: 完了後処理
 
@@ -711,8 +711,8 @@ body:
   - type: textarea
     id: acceptance_criteria
     attributes:
-      label: "✅ Acceptance Criteria（完了条件）"
-      description: "このIssueの明確な完了条件"
+      label: '✅ Acceptance Criteria（完了条件）'
+      description: 'このIssueの明確な完了条件'
       placeholder: |
         ## 完了条件
 
@@ -736,8 +736,8 @@ body:
   - type: textarea
     id: dependencies
     attributes:
-      label: "🔗 依存関係"
-      description: "このIssueの前提条件と影響関係"
+      label: '🔗 依存関係'
+      description: 'このIssueの前提条件と影響関係'
       placeholder: |
         ## 依存関係
 
@@ -758,8 +758,8 @@ body:
   - type: textarea
     id: implementation_details
     attributes:
-      label: "🛠️ 実装詳細・特記事項"
-      description: "技術的詳細、制約、注意点など"
+      label: '🛠️ 実装詳細・特記事項'
+      description: '技術的詳細、制約、注意点など'
       placeholder: |
         ## 実装詳細
 
@@ -785,8 +785,8 @@ body:
   - type: textarea
     id: testing_strategy
     attributes:
-      label: "🧪 テスト戦略"
-      description: "詳細なテスト実装計画"
+      label: '🧪 テスト戦略'
+      description: '詳細なテスト実装計画'
       placeholder: |
         ## テスト戦略
 
@@ -815,8 +815,8 @@ body:
   - type: textarea
     id: troubleshooting
     attributes:
-      label: "🔧 トラブルシューティング"
-      description: "想定される問題と解決手順"
+      label: '🔧 トラブルシューティング'
+      description: '想定される問題と解決手順'
       value: |
         ## トラブルシューティング
 
@@ -870,41 +870,41 @@ body:
   - type: dropdown
     id: priority
     attributes:
-      label: "🚨 優先度"
+      label: '🚨 優先度'
       options:
-        - "Critical (ブロッキング・プロジェクト進行停止)"
-        - "High (Phase目標達成に必須)"
-        - "Medium (重要だが少し遅延可能)"
-        - "Low (改善・最適化系)"
+        - 'Critical (ブロッキング・プロジェクト進行停止)'
+        - 'High (Phase目標達成に必須)'
+        - 'Medium (重要だが少し遅延可能)'
+        - 'Low (改善・最適化系)'
     validations:
       required: true
 
   - type: input
     id: estimated_hours
     attributes:
-      label: "⏱️ 見積もり時間"
-      description: "実装完了までの予想時間（時間単位）"
-      placeholder: "3.5"
+      label: '⏱️ 見積もり時間'
+      description: '実装完了までの予想時間（時間単位）'
+      placeholder: '3.5'
     validations:
       required: true
 
   - type: checkboxes
     id: verification_checklist
     attributes:
-      label: "🔍 最終検証チェックリスト"
-      description: "Issue完了時に必ず確認する項目"
+      label: '🔍 最終検証チェックリスト'
+      description: 'Issue完了時に必ず確認する項目'
       options:
-        - label: "🎯 全Acceptance Criteria達成"
+        - label: '🎯 全Acceptance Criteria達成'
           required: true
-        - label: "✅ TypeScript型エラー0件"
+        - label: '✅ TypeScript型エラー0件'
           required: true
-        - label: "🧪 テストカバレッジ80%以上"
+        - label: '🧪 テストカバレッジ80%以上'
           required: true
-        - label: "🚀 CI/CDパイプライン成功"
+        - label: '🚀 CI/CDパイプライン成功'
           required: true
-        - label: "📚 関連ドキュメント更新"
+        - label: '📚 関連ドキュメント更新'
           required: true
-        - label: "🧠 実装パターンのメモリ保存"
+        - label: '🧠 実装パターンのメモリ保存'
           required: false
-        - label: "🔗 依存Issue状態更新"
+        - label: '🔗 依存Issue状態更新'
           required: false

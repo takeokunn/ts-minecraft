@@ -24,6 +24,7 @@
 Minecraftのゲームワールドにおける基本ブロックシステムを実装します。
 
 ### 技術的要件
+
 - Effect-TS Service/Layerパターン使用
 - Schema.Struct による型安全性確保
 - DDD/ECS統合アーキテクチャ
@@ -31,6 +32,7 @@ Minecraftのゲームワールドにおける基本ブロックシステムを�
 - テクスチャ管理との連携
 
 ### 対象ブロック種類
+
 - Air (空気)
 - Stone (石)
 - Dirt (土)
@@ -44,22 +46,26 @@ Minecraftのゲームワールドにおける基本ブロックシステムを�
 ### ✅ 完了済み確認項目
 
 #### 📚 ドキュメント確認
+
 - [x] `@docs/INDEX.md` - プロジェクト全体方針確認
 - [x] `@docs/tutorials/effect-ts-fundamentals/` - Effect-TSパターン確認
 - [x] `@docs/explanations/design-patterns/` - 設計パターン確認
 - [x] `@docs/how-to/development/development-conventions.md` - 開発規約確認
 
 #### 🧠 メモリ確認
+
 - [x] `list_memories` 実行 - 過去の実装パターン確認
 - [x] `read_memory effect-ts-scene-patterns` - シーン管理パターン確認
 - [x] `read_memory service-patterns-catalog` - Service実装パターン確認
 
 #### 📦 ライブラリ仕様確認
+
 - [x] Context7 MCP - Effect-TS 3.17+ 最新仕様確認
 - [x] Context7 MCP - @effect/schema 最新API確認
 - [x] Context7 MCP - Three.js BoxGeometry/MeshBasicMaterial API確認
 
 #### 🔗 依存関係確認
+
 - [x] ConfigService実装完了確認 (#P0-009)
 - [x] Three.js統合完了確認 (#P0-003)
 - [x] 基本ECS基盤確認 (#P1-008)
@@ -69,6 +75,7 @@ Minecraftのゲームワールドにおける基本ブロックシステムを�
 ## 🔍 Step 1: 事前調査・分析
 
 ### ✅ 実装対象の詳細分析
+
 - [x] ブロック識別システム（BlockType enum）
 - [x] ブロック配置座標系（World座標 → Chunk座標変換）
 - [x] ブロック状態管理（placed/air状態）
@@ -96,15 +103,16 @@ const BlockServiceLayer = Layer.effect(BlockService, ...)
 
 ```typescript
 // 作成予定ファイル
-- src/domain/blocks/BlockService.ts
-- src/domain/blocks/schemas/BlockSchema.ts
-- src/domain/blocks/types/BlockTypes.ts
-- src/domain/blocks/BlockService.test.ts
-- src/domain/blocks/systems/BlockRenderSystem.ts
-- src/infrastructure/blocks/BlockLayer.ts
+;-src / domain / blocks / BlockService.ts -
+  src / domain / blocks / schemas / BlockSchema.ts -
+  src / domain / blocks / types / BlockTypes.ts -
+  src / domain / blocks / BlockService.test.ts -
+  src / domain / blocks / systems / BlockRenderSystem.ts -
+  src / infrastructure / blocks / BlockLayer.ts
 ```
 
 ### ✅ ECS統合設計
+
 - BlockComponent: ブロック種類・位置情報
 - BlockRenderSystem: ブロック描画・メッシュ生成
 - BlockInteractionSystem: プレイヤー相互作用（今後Phase）
@@ -378,12 +386,7 @@ import { Effect, TestContext, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 
-const testLayer = Layer.mergeAll(
-  BlockServiceLayer,
-  TestLoggerLayer,
-  TestConfigLayer,
-  TestWorldStorageLayer
-)
+const testLayer = Layer.mergeAll(BlockServiceLayer, TestLoggerLayer, TestConfigLayer, TestWorldStorageLayer)
 ```
 
 ### ✅ 単体テスト
@@ -479,6 +482,7 @@ describe('BlockService Property Tests', () => {
 ```
 
 ### ✅ カバレッジ確認結果
+
 - ステートメントカバレッジ: 87%
 - ブランチカバレッジ: 82%
 - 関数カバレッジ: 100%
@@ -566,6 +570,7 @@ export const placeBlockUseCase = (type: BlockType, position: Vector3) =>
 
 ```markdown
 # 更新完了ドキュメント
+
 ✅ docs/reference/api/BlockAPI.md - API仕様書
 ✅ docs/explanations/design-patterns/BlockPattern.md - 実装パターン
 ✅ docs/how-to/blocks/placing-blocks.md - 使用方法
@@ -631,6 +636,7 @@ content: |
 ## ✅ Acceptance Criteria（達成確認）
 
 ### ✅ 機能要件
+
 - [x] ブロック配置機能（5種類対応: air, stone, dirt, grass, wood）
 - [x] ブロック削除機能
 - [x] ブロック取得機能（位置指定）
@@ -638,12 +644,14 @@ content: |
 - [x] 位置バリデーション機能
 
 ### ✅ 技術要件
+
 - [x] TypeScript型エラー0件
 - [x] テストカバレッジ ≥80% (実績: 87%)
 - [x] CI/CDパイプライン成功
 - [x] BlockService API完全ドキュメント化
 
 ### ✅ 品質要件
+
 - [x] パフォーマンス目標達成（60FPS維持）
 - [x] メモリ使用量 ≤2GB（実績: +15MB）
 - [x] コードレビュー準備完了
@@ -653,16 +661,19 @@ content: |
 ## 🔗 依存関係（最終状態）
 
 ### ✅ 事前完了済み（Completed Dependencies）
+
 - [x] #P0-009 - ConfigService実装
 - [x] #P0-003 - Three.js統合
 - [x] #P1-008 - ECS基盤実装
 
 ### 🟢 このIssue完了により Ready となる Issues
+
 - [x] #P1-013 - チャンクシステム実装
 - [x] #P1-014 - ワールド生成システム
 - [x] #P1-015 - プレイヤーブロック相互作用
 
 ### 🔵 関連完了Issue
+
 - [x] #P1-010 - RendererService（連携確認済み）
 - [x] #P1-011 - TextureManagerService（連携確認済み）
 
@@ -683,12 +694,14 @@ content: |
 ## 🎯 成果・学習事項
 
 ### ✅ 成果
+
 1. **完全な型安全性**: Schema.Struct + Branded型による堅牢な実装
 2. **高いテスタビリティ**: Property-based testing含む包括的テスト
 3. **優れたパフォーマンス**: 1000ブロック @ 60FPS達成
 4. **保守性**: Effect-TS Pattern + DDD構造による明確な責務分離
 
 ### ✅ 今後の改善点
+
 1. **バッチ処理最適化**: 複数ブロック同時操作のさらなる高速化
 2. **キャッシュ戦略**: 頻繁アクセス位置のメモリキャッシュ導入
 3. **LOD対応**: 距離別の詳細度調整システム
