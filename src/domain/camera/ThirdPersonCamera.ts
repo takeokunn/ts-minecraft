@@ -159,37 +159,40 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       return camera
     }),
 
-  switchMode: (mode: CameraMode): Effect.Effect<void, CameraError> =>
+  switchMode: (mode: CameraMode): Effect.Effect<void, CameraError, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
 
-      yield* pipe(
+      return yield* pipe(
         mode,
         Match.value,
-        Match.when('third-person', () =>
-          pipe(
-            state.config.mode,
-            Match.value,
-            Match.when('third-person', () => Effect.succeed(undefined)),
-            Match.orElse(() => {
-              const newConfig = { ...state.config, mode }
-              const newState: ThirdPersonState = {
-                ...state,
-                config: newConfig,
-              }
-              return Ref.set(stateRef, newState)
-            })
-          )
+        Match.when(
+          'third-person',
+          (): Effect.Effect<void, CameraError> =>
+            pipe(
+              state.config.mode,
+              Match.value,
+              Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)),
+              Match.orElse((): Effect.Effect<void, CameraError> => {
+                const newConfig = { ...state.config, mode }
+                const newState: ThirdPersonState = {
+                  ...state,
+                  config: newConfig,
+                }
+                return Ref.set(stateRef, newState)
+              })
+            )
         ),
-        Match.when('first-person', () => Effect.succeed(undefined)), // 三人称カメラでは一人称モードを無視
-        Match.orElse((m) =>
-          Effect.fail(
-            new CameraError({
-              message: `無効なカメラモード: ${m}`,
-            })
-          )
+        Match.when('first-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)), // 三人称カメラでは一人称モードを無視
+        Match.orElse(
+          (m): Effect.Effect<void, CameraError> =>
+            Effect.fail(
+              new CameraError({
+                message: `無効なカメラモード: ${m}`,
+              })
+            )
         )
-      )
+      ) as Effect.Effect<void, CameraError, never>
     }),
 
   update: (deltaTime: number, targetPosition: { x: number; y: number; z: number }): Effect.Effect<void, CameraError> =>

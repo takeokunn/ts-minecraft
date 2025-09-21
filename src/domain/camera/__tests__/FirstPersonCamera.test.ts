@@ -30,7 +30,9 @@ describe('FirstPersonCamera', () => {
       sensitivity: 1.5,
       smoothing: 0.8,
       mode: 'first-person' as const,
-      distance: 5,
+      thirdPersonDistance: 5,
+      thirdPersonHeight: 2,
+      thirdPersonAngle: 0,
     }
 
     const config = await runCameraEffect((service) =>
@@ -51,7 +53,9 @@ describe('FirstPersonCamera', () => {
       sensitivity: 2.0,
       smoothing: 0.5,
       mode: 'first-person' as const,
-      distance: 10,
+      thirdPersonDistance: 10,
+      thirdPersonHeight: 2,
+      thirdPersonAngle: 0,
     }
 
     const resultConfig = await runCameraEffect((service) =>
@@ -72,14 +76,14 @@ describe('FirstPersonCamera', () => {
           const targetPosition = { x: 10, y: 5, z: -5 }
           yield* service.update(0.016, targetPosition)
           const state = yield* service.getState()
-          return state.position
+          return state?.position
         })
       )
 
       // スムージングで徐々に目標位置に近づくことを確認
-      expect(position.x).toBeGreaterThan(0) // x方向に移動している
-      expect(position.y).toBeGreaterThan(1.7) // y方向に移動している
-      expect(position.z).toBeLessThan(0) // z方向に移動している
+      expect(position?.x).toBeGreaterThan(0) // x方向に移動している
+      expect(position?.y).toBeGreaterThan(1.7) // y方向に移動している
+      expect(position?.z).toBeLessThan(0) // z方向に移動している
     })
 
     it('スムージングが適用される', async () => {
@@ -96,12 +100,12 @@ describe('FirstPersonCamera', () => {
           yield* service.update(0.016, targetPosition)
           const state2 = yield* service.getState()
 
-          return [state1.position, state2.position]
+          return [state1?.position, state2?.position]
         })
       )
 
       // スムージングにより、2番目の位置は最初より目標に近づく
-      expect(Math.abs(positions[1].x - 10)).toBeLessThan(Math.abs(positions[0].x - 10))
+      expect(Math.abs((positions[1]?.x ?? 0) - 10)).toBeLessThan(Math.abs((positions[0]?.x ?? 0) - 10))
     })
 
     it('任意の位置とスムージング値で更新が正常に動作する', async () => {
@@ -116,7 +120,7 @@ describe('FirstPersonCamera', () => {
         })
       )
 
-      expect(result.position).toMatchObject({
+      expect(result?.position).toMatchObject({
         x: expect.any(Number),
         y: expect.any(Number),
         z: expect.any(Number),
@@ -131,12 +135,12 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize(DEFAULT_CAMERA_CONFIG)
           yield* service.rotate(100, 0) // 100px横移動
           const state = yield* service.getState()
-          return state.rotation
+          return state?.rotation
         })
       )
 
-      expect(rotation.yaw).not.toBe(0)
-      expect(rotation.pitch).toBe(0)
+      expect(rotation?.yaw).not.toBe(0)
+      expect(rotation?.pitch).toBe(0)
     })
 
     it('マウス入力でピッチ角が変更される', async () => {
@@ -145,12 +149,12 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize(DEFAULT_CAMERA_CONFIG)
           yield* service.rotate(0, 50) // 50px縦移動
           const state = yield* service.getState()
-          return state.rotation
+          return state?.rotation
         })
       )
 
-      expect(rotation.pitch).not.toBe(0)
-      expect(rotation.yaw).toBe(0)
+      expect(rotation?.pitch).not.toBe(0)
+      expect(rotation?.yaw).toBe(0)
     })
 
     it('ピッチ角が制限範囲内に収まる', async () => {
@@ -159,12 +163,12 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize(DEFAULT_CAMERA_CONFIG)
           yield* service.rotate(0, 10000) // 極端な縦移動
           const state = yield* service.getState()
-          return state.rotation
+          return state?.rotation
         })
       )
 
-      expect(rotation.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
-      expect(rotation.pitch).toBeLessThanOrEqual(Math.PI / 2)
+      expect(rotation?.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
+      expect(rotation?.pitch).toBeLessThanOrEqual(Math.PI / 2)
     })
 
     it('感度設定が回転速度に影響する', async () => {
@@ -180,13 +184,13 @@ describe('FirstPersonCamera', () => {
           yield* service.rotate(100, 100)
           const state2 = yield* service.getState()
 
-          return [state1.rotation, state2.rotation]
+          return [state1?.rotation, state2?.rotation]
         })
       )
 
       // 高感度の方が大きく回転する
-      const yawDiff1 = Math.abs(rotations[0].yaw)
-      const yawDiff2 = Math.abs(rotations[1].yaw - rotations[0].yaw)
+      const yawDiff1 = Math.abs(rotations[0]?.yaw ?? 0)
+      const yawDiff2 = Math.abs((rotations[1]?.yaw ?? 0) - (rotations[0]?.yaw ?? 0))
       expect(yawDiff2).toBeGreaterThan(yawDiff1)
     })
 
@@ -202,9 +206,9 @@ describe('FirstPersonCamera', () => {
         })
       )
 
-      expect(rotation.rotation.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
-      expect(rotation.rotation.pitch).toBeLessThanOrEqual(Math.PI / 2)
-      expect(typeof rotation.rotation.yaw).toBe('number')
+      expect(rotation?.rotation.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
+      expect(rotation?.rotation.pitch).toBeLessThanOrEqual(Math.PI / 2)
+      expect(typeof rotation?.rotation.yaw).toBe('number')
     })
   })
 
@@ -316,8 +320,8 @@ describe('FirstPersonCamera', () => {
         })
       )
 
-      expect(states[1].rotation).toEqual(states[0].rotation)
-      expect(states[1].position).toEqual(states[0].position)
+      expect(states[1]?.rotation).toEqual(states[0]?.rotation)
+      expect(states[1]?.position).toEqual(states[0]?.position)
     })
 
     it('リソースを破棄するとカメラがnullになる', async () => {
@@ -438,12 +442,12 @@ describe('FirstPersonCamera', () => {
           // 複数回転
           yield* service.rotate(100000, 0)
           const state = yield* service.getState()
-          return state.rotation
+          return state?.rotation
         })
       )
 
-      expect(rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
-      expect(rotation.yaw).toBeLessThanOrEqual(Math.PI)
+      expect(rotation?.yaw).toBeGreaterThanOrEqual(-Math.PI)
+      expect(rotation?.yaw).toBeLessThanOrEqual(Math.PI)
     })
 
     it('極小値でのスムージング計算が正しく動作する', async () => {
@@ -452,11 +456,11 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize({ ...DEFAULT_CAMERA_CONFIG, smoothing: 0.001 })
           yield* service.update(0.016, { x: 100, y: 0, z: 0 })
           const state = yield* service.getState()
-          return state.position
+          return state?.position
         })
       )
 
-      expect(position.x).toBeCloseTo(0.1, 0) // 極小スムージングでもわずかに動く
+      expect(position?.x).toBeCloseTo(0.1, 0) // 極小スムージングでもわずかに動く
     })
 
     it('アスペクト比更新が正しく動作する', async () => {
@@ -481,14 +485,14 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize(DEFAULT_CAMERA_CONFIG)
           yield* service.rotate(deltaX, deltaY)
           const state = yield* service.getState()
-          return state.rotation
+          return state?.rotation
         })
       )
 
-      expect(rotation.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
-      expect(rotation.pitch).toBeLessThanOrEqual(Math.PI / 2)
-      expect(rotation.yaw).toBeGreaterThanOrEqual(-Math.PI)
-      expect(rotation.yaw).toBeLessThanOrEqual(Math.PI)
+      expect(rotation?.pitch).toBeGreaterThanOrEqual(-Math.PI / 2)
+      expect(rotation?.pitch).toBeLessThanOrEqual(Math.PI / 2)
+      expect(rotation?.yaw).toBeGreaterThanOrEqual(-Math.PI)
+      expect(rotation?.yaw).toBeLessThanOrEqual(Math.PI)
     })
   })
 
@@ -517,12 +521,12 @@ describe('FirstPersonCamera', () => {
           yield* service.initialize(DEFAULT_CAMERA_CONFIG)
           yield* service.setThirdPersonDistance(15)
           const config = yield* service.getConfig()
-          return config.distance
+          return config.thirdPersonDistance
         })
       )
 
       // 一人称では距離設定が無効なので、初期値のまま
-      expect(result).toBe(DEFAULT_CAMERA_CONFIG.distance)
+      expect(result).toBe(DEFAULT_CAMERA_CONFIG.thirdPersonDistance)
     })
 
     it('初期化前のsetThirdPersonDistanceは成功する', async () => {
@@ -530,12 +534,12 @@ describe('FirstPersonCamera', () => {
         Effect.gen(function* () {
           yield* service.setThirdPersonDistance(20)
           const config = yield* service.getConfig()
-          return config.distance
+          return config.thirdPersonDistance
         })
       )
 
       // 一人称では初期化前でも距離設定は単に無視される
-      expect(result).toBe(DEFAULT_CAMERA_CONFIG.distance)
+      expect(result).toBe(DEFAULT_CAMERA_CONFIG.thirdPersonDistance)
     })
   })
 })

@@ -377,18 +377,21 @@ describe('Rendering Types', () => {
             }
           }),
           Match.when('RenderExecutionError', () => {
-            expect(error.operation).toBeDefined()
-            expect(typeof error.operation).toBe('string')
+            const execError = error as any
+            expect(execError.operation).toBeDefined()
+            expect(typeof execError.operation).toBe('string')
           }),
           Match.when('ContextLostError', () => {
-            expect(typeof error.canRestore).toBe('boolean')
-            expect(typeof error.lostTime).toBe('number')
+            const contextError = error as any
+            expect(typeof contextError.canRestore).toBe('boolean')
+            expect(typeof contextError.lostTime).toBe('number')
           }),
           Match.when('RenderTargetError', () => {
-            expect(typeof error.width).toBe('number')
-            expect(typeof error.height).toBe('number')
-            expect(error.width).toBeGreaterThan(0)
-            expect(error.height).toBeGreaterThan(0)
+            const targetError = error as any
+            expect(typeof targetError.width).toBe('number')
+            expect(typeof targetError.height).toBe('number')
+            expect(targetError.width).toBeGreaterThan(0)
+            expect(targetError.height).toBeGreaterThan(0)
           }),
           Match.exhaustive
         )

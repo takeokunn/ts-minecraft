@@ -429,19 +429,19 @@ describe('ConfigService', () => {
   describe('Environment variable parsing (loadFromEnv)', () => {
     beforeEach(() => {
       // 環境変数をクリア
-      delete process.env.TEST_GAME_CONFIG
-      delete process.env.TEST_INVALID_JSON
+      delete process.env['TEST_GAME_CONFIG']
+      delete process.env['TEST_INVALID_JSON']
     })
 
     afterEach(() => {
       // テスト後にクリア
-      delete process.env.TEST_GAME_CONFIG
-      delete process.env.TEST_INVALID_JSON
+      delete process.env['TEST_GAME_CONFIG']
+      delete process.env['TEST_INVALID_JSON']
     })
 
     it('should handle invalid JSON in environment variables', () => {
       // 無効なJSONを環境変数に設定
-      process.env.TEST_INVALID_JSON = '{ invalid json }'
+      process.env['TEST_INVALID_JSON'] = '{ invalid json }'
 
       // ConfigServiceの内部でloadFromEnvが使用されている部分をテスト
       // loadFromEnv関数は直接エクスポートされていないため、
@@ -471,7 +471,7 @@ describe('ConfigService', () => {
         playerSpeed: 5.0,
         jumpHeight: 2.0,
       }
-      process.env.GAME_CONFIG = JSON.stringify(customConfig)
+      process.env['GAME_CONFIG'] = JSON.stringify(customConfig)
 
       const result = Effect.runSync(
         Effect.gen(function* () {
@@ -487,7 +487,7 @@ describe('ConfigService', () => {
 
     it('should fallback to default when environment variable is empty', () => {
       // 空の環境変数
-      process.env.GAME_CONFIG = ''
+      process.env['GAME_CONFIG'] = ''
 
       const result = Effect.runSync(
         Effect.gen(function* () {
@@ -503,7 +503,7 @@ describe('ConfigService', () => {
 
     it('should handle malformed JSON gracefully', () => {
       // 構文エラーのあるJSONを設定
-      process.env.GAME_CONFIG = '{"fps": 120, "tickRate": }'
+      process.env['GAME_CONFIG'] = '{"fps": 120, "tickRate": }'
 
       const result = Effect.runSync(
         Effect.gen(function* () {
@@ -519,7 +519,7 @@ describe('ConfigService', () => {
 
     it('should handle non-JSON string values', () => {
       // JSON以外の文字列を設定
-      process.env.GAME_CONFIG = 'not a json string'
+      process.env['GAME_CONFIG'] = 'not a json string'
 
       const result = Effect.runSync(
         Effect.gen(function* () {

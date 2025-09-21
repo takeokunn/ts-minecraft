@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Layer, Option, pipe } from 'effect'
 import { EntityManager, EntityManagerLive, EntityManagerError } from '../EntityManager.js'
-import { EntityPool, EntityPoolLive, type EntityId, EntityPoolError } from '../Entity.js'
+import { EntityPool, EntityPoolLive, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity.js'
 import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry.js'
 import { TestRunner, EffectAssert } from '../../../test/effect-test-utils.js'
 
@@ -541,7 +541,7 @@ describe('EntityManager', () => {
       await runTest((manager) =>
         Effect.gen(function* () {
           // 存在しないEntityIDを使用
-          const nonExistentId = 'non-existent-entity-id' as EntityId
+          const nonExistentId = EntityIdBrand(99999)
 
           // setEntityActiveがエラーを返すことを確認
           const result = yield* Effect.either(manager.setEntityActive(nonExistentId, true))
@@ -560,7 +560,7 @@ describe('EntityManager', () => {
     it('should handle multiple setEntityActive calls for non-existent entities', async () => {
       await runTest((manager) =>
         Effect.gen(function* () {
-          const nonExistentIds = ['id1', 'id2', 'id3'] as EntityId[]
+          const nonExistentIds = [99991, 99992, 99993].map((id) => EntityIdBrand(id))
 
           for (const id of nonExistentIds) {
             const result = yield* Effect.either(manager.setEntityActive(id, false))
@@ -961,7 +961,7 @@ describe('EntityManager', () => {
               .filter(([_, tags]) => tags.includes(tag))
               .map(([entityId]) => entityId)
 
-            expect(entitiesWithTag.sort()).toEqual(expectedEntities.sort())
+            expect([...entitiesWithTag].sort()).toEqual(expectedEntities.sort())
           }
         })
       )

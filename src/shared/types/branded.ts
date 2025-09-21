@@ -116,4 +116,9 @@ export const BrandedTypes = {
    * 安全なBlockTypeId作成
    */
   createBlockTypeId: (id: number): BlockTypeId => Schema.decodeSync(BlockTypeIdSchema)(id),
+
+  /**
+   * 安全なEntityId作成
+   */
+  createEntityId: (id: string): EntityId => Schema.decodeSync(EntityId)(id),
 } as const

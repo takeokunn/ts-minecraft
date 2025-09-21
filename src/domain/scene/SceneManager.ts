@@ -43,7 +43,7 @@ export const processSceneType = <A>(
     readonly Pause: () => A
     readonly Settings: () => A
   }
-): A =>
+) =>
   pipe(
     sceneType,
     Match.value,

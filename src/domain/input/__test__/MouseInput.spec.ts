@@ -23,7 +23,8 @@ describe('MouseInput', () => {
     // グローバル変数を設定
     global.document = document as any
     global.window = window as any
-    global.MouseEvent = window.MouseEvent as any
+    global.MouseEvent = (dom.window as any).MouseEvent
+    global.Event = (dom.window as any).Event
   })
 
   afterEach(() => {
@@ -31,6 +32,7 @@ describe('MouseInput', () => {
     delete (global as any).document
     delete (global as any).window
     delete (global as any).MouseEvent
+    delete (global as any).Event
   })
 
   describe('MouseInputLive Implementation', () => {
@@ -40,7 +42,7 @@ describe('MouseInput', () => {
           const mouseInput = yield* MouseInput
 
           // マウス移動イベントを発火
-          const moveEvent = new window.MouseEvent('mousemove', {
+          const moveEvent = new MouseEvent('mousemove', {
             clientX: 150,
             clientY: 250,
             movementX: 10,
@@ -66,7 +68,7 @@ describe('MouseInput', () => {
           const mouseInput = yield* MouseInput
 
           // マウスダウンイベント
-          const downEvent = new window.MouseEvent('mousedown', {
+          const downEvent = new MouseEvent('mousedown', {
             button: 0,
           })
           document.dispatchEvent(downEvent)
@@ -77,7 +79,7 @@ describe('MouseInput', () => {
           expect(isPressed).toBe(true)
 
           // マウスアップイベント
-          const upEvent = new window.MouseEvent('mouseup', {
+          const upEvent = new MouseEvent('mouseup', {
             button: 0,
           })
           document.dispatchEvent(upEvent)
@@ -101,7 +103,7 @@ describe('MouseInput', () => {
           })
 
           // ポインターロック変更イベント
-          const lockEvent = new window.Event('pointerlockchange')
+          const lockEvent = new Event('pointerlockchange')
           document.dispatchEvent(lockEvent)
 
           yield* TestClock.adjust(10)
@@ -194,8 +196,8 @@ describe('MouseInput', () => {
           const mouseInput = yield* MouseInput
 
           // 複数のボタンを押す
-          const leftDown = new window.MouseEvent('mousedown', { button: 0 })
-          const rightDown = new window.MouseEvent('mousedown', { button: 2 })
+          const leftDown = new MouseEvent('mousedown', { button: 0 })
+          const rightDown = new MouseEvent('mousedown', { button: 2 })
 
           document.dispatchEvent(leftDown)
           document.dispatchEvent(rightDown)
@@ -219,7 +221,7 @@ describe('MouseInput', () => {
           const mouseInput = yield* MouseInput
 
           // マウスを動かす
-          const moveEvent = new window.MouseEvent('mousemove', {
+          const moveEvent = new MouseEvent('mousemove', {
             movementX: 50,
             movementY: 30,
           })

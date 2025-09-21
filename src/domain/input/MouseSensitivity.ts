@@ -144,7 +144,7 @@ export const MouseSensitivityLive = Layer.effect(
               pipe(
                 points.length === 0,
                 Match.value,
-                Match.when(true, () => Option.none<number>()),
+                Match.when(true, () => Option.none<number[]>()),
                 Match.orElse(() => Option.some(points))
               )
             ),

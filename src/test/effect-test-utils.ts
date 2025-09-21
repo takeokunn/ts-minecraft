@@ -93,7 +93,7 @@ export const TestRunner = {
    * TestClockを使った決定論的テスト
    */
   runWithTestClock: <A, E>(effect: Effect.Effect<A, E>) =>
-    pipe(effect, Effect.provide(TestContext.TestContext), TestClock.run, Effect.runPromise),
+    pipe(effect, Effect.provide(TestContext.TestContext), Effect.runPromise),
 }
 
 // ================================================================================
@@ -127,15 +127,15 @@ export const EffectAssert = {
     if (failures.length === 0) {
       throw new Error('Effect died or was interrupted')
     }
-    return failures[0]
+    return Array.from(failures)[0] as E
   },
 
   /**
    * Effectがタイムアウトすることを検証
    */
   timesOut: async <A, E>(effect: Effect.Effect<A, E>, duration: Duration.DurationInput) => {
-    const result = await pipe(effect, Effect.timeout(duration), Effect.map(Option.isSome), Effect.runPromise)
-    if (result) {
+    const result = (await pipe(effect, Effect.timeout(duration), Effect.runPromise)) as Option.Option<A>
+    if (Option.isSome(result)) {
       throw new Error('Expected timeout but effect completed')
     }
   },
@@ -357,7 +357,7 @@ export const ConcurrentTest = {
   /**
    * レースコンディションのテスト
    */
-  raceTest: <A, E>(effects: Effect.Effect<A, E>[]) => Effect.race(...effects),
+  raceTest: <A, E>(effects: Effect.Effect<A, E>[]) => Effect.raceAll(effects),
 
   /**
    * Fiberのテスト
@@ -416,10 +416,11 @@ export const PerformanceTest = {
    * メモリ使用量を測定
    */
   measureMemory: async <A, E>(effect: Effect.Effect<A, E>) => {
-    if (typeof performance.measureUserAgentSpecificMemory === 'function') {
-      const before = await performance.measureUserAgentSpecificMemory()
+    const performanceAny = performance as any
+    if (typeof performanceAny.measureUserAgentSpecificMemory === 'function') {
+      const before = await performanceAny.measureUserAgentSpecificMemory()
       const result = await Effect.runPromise(effect)
-      const after = await performance.measureUserAgentSpecificMemory()
+      const after = await performanceAny.measureUserAgentSpecificMemory()
       return {
         result,
         memoryUsed: after.bytes - before.bytes,

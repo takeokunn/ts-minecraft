@@ -57,7 +57,10 @@ export const MouseInputLive = Layer.effect(
     const pointerLockState = yield* Ref.make<PointerLockState>({ isLocked: false })
 
     // ブラウザAPI利用の安全なwrapper
-    const safeDocumentAccess = <T>(operation: () => T, errorMessage: string): Effect.Effect<T, MouseInputError> =>
+    const safeDocumentAccess = <T>(
+      operation: () => T,
+      errorMessage: string
+    ): Effect.Effect<T, MouseInputError, never> =>
       Effect.try({
         try: () => {
           return pipe(
@@ -67,7 +70,7 @@ export const MouseInputLive = Layer.effect(
               throw new Error('Document is not available')
             }),
             Match.orElse(() => operation())
-          )
+          ) as T
         },
         catch: (error) =>
           MouseInputError({
@@ -83,14 +86,20 @@ export const MouseInputLive = Layer.effect(
         const currentPosition = yield* Ref.get(position)
 
         // デルタ計算（movementX/Yの存在チェック）
-        const deltaX = 'movementX' in event ? event.movementX : event.clientX - currentPosition.x
+        const deltaX =
+          'movementX' in event && typeof event.movementX === 'number'
+            ? event.movementX
+            : (event as MouseEvent).clientX - currentPosition.x
 
-        const deltaY = 'movementY' in event ? event.movementY : event.clientY - currentPosition.y
+        const deltaY =
+          'movementY' in event && typeof event.movementY === 'number'
+            ? event.movementY
+            : (event as MouseEvent).clientY - currentPosition.y
 
         // 状態更新
         yield* Ref.set(position, {
-          x: event.clientX,
-          y: event.clientY,
+          x: (event as MouseEvent).clientX,
+          y: (event as MouseEvent).clientY,
           timestamp: currentTime,
         })
 

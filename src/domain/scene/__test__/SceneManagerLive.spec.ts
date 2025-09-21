@@ -1,4 +1,4 @@
-import { Effect, Fiber, TestContext, TestClock } from 'effect'
+import { Effect, Fiber, TestContext, TestClock, Either, Option } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { SceneManagerLive } from '../SceneManagerLive'
 import { SceneManager } from '../SceneManager'
@@ -59,8 +59,8 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
         const result = yield* Effect.either(manager.transitionTo('Pause'))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('not implemented')
         }
@@ -71,8 +71,8 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
         const result = yield* Effect.either(manager.transitionTo('Settings'))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('not implemented')
         }
@@ -124,8 +124,8 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
         const result = yield* Effect.either(manager.popScene())
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('No scene in stack')
         }
@@ -150,7 +150,7 @@ describe('SceneManagerLive', () => {
 
         // 遷移中の場合はエラーになることを確認
         // （タイミングによっては正常に完了する可能性もある）
-        if (pushResult._tag === 'Left') {
+        if (Either.isLeft(pushResult)) {
           expect(pushResult.left._tag).toBe('SceneTransitionError')
           expect(pushResult.left.message).toContain('Cannot push scene during transition')
         }
@@ -169,15 +169,21 @@ describe('SceneManagerLive', () => {
         const [firstResult, secondResult] = results
 
         // 少なくとも1つは成功し、もう1つはエラーになるべき
-        const hasError = firstResult._tag === 'Left' || secondResult._tag === 'Left'
-        const hasSuccess = firstResult._tag === 'Right' || secondResult._tag === 'Right'
+        const hasError = Either.isLeft(firstResult) || Either.isLeft(secondResult)
+        const hasSuccess = Either.isRight(firstResult) || Either.isRight(secondResult)
 
         expect(hasSuccess).toBe(true)
 
         if (hasError) {
-          const error = firstResult._tag === 'Left' ? firstResult.left : secondResult.left
-          expect(error._tag).toBe('SceneTransitionError')
-          expect(error.message).toContain('transition')
+          const leftOption1 = Either.isLeft(firstResult) ? Either.getLeft(firstResult) : Option.none()
+          const leftOption2 = Either.isLeft(secondResult) ? Either.getLeft(secondResult) : Option.none()
+
+          const errorOption = Option.isSome(leftOption1) ? leftOption1 : leftOption2
+          if (Option.isSome(errorOption)) {
+            const error = errorOption.value
+            expect(error._tag).toBe('SceneTransitionError')
+            expect(error.message).toContain('transition')
+          }
         }
       }).pipe(Effect.provide(SceneManagerLive), Effect.runPromise))
 
@@ -194,7 +200,7 @@ describe('SceneManagerLive', () => {
         const popResult = yield* Effect.either(manager.popScene())
 
         // 基本的に成功するが、内部状態によってはエラーになる可能性もある
-        if (popResult._tag === 'Left') {
+        if (Either.isLeft(popResult)) {
           expect(popResult.left._tag).toBe('SceneTransitionError')
           expect(popResult.left.message).toContain('Previous scene is undefined')
         } else {
@@ -218,7 +224,7 @@ describe('SceneManagerLive', () => {
         yield* Fiber.join(firstTransition)
 
         // 2番目の遷移がエラーになるか、または成功する
-        if (secondResult._tag === 'Left') {
+        if (Either.isLeft(secondResult)) {
           expect(secondResult.left._tag).toBe('SceneTransitionError')
           expect(secondResult.left.message).toContain('transition')
         }
@@ -242,8 +248,8 @@ describe('SceneManagerLive', () => {
           const [firstPop, secondPop] = popResults
 
           // 一つは成功し、もう一つはエラーになることを確認
-          const hasSuccess = firstPop._tag === 'Right' || secondPop._tag === 'Right'
-          const hasError = firstPop._tag === 'Left' || secondPop._tag === 'Left'
+          const hasSuccess = Either.isRight(firstPop) || Either.isRight(secondPop)
+          const hasError = Either.isLeft(firstPop) || Either.isLeft(secondPop)
 
           if (hasSuccess && hasError) {
             errorFound = true
@@ -297,7 +303,7 @@ describe('SceneManagerLive', () => {
           // 遷移中エラーが発生したかチェック
           for (const result of results) {
             if (
-              result._tag === 'Left' &&
+              Either.isLeft(result) &&
               result.left._tag === 'SceneTransitionError' &&
               (result.left.message.includes('Cannot push scene during transition') ||
                 result.left.message.includes('transition already in progress'))
@@ -346,7 +352,7 @@ describe('SceneManagerLive', () => {
           // undefined previousScene エラーを探す
           for (const result of popResults) {
             if (
-              result._tag === 'Left' &&
+              Either.isLeft(result) &&
               result.left._tag === 'SceneTransitionError' &&
               result.left.message.includes('Previous scene is undefined')
             ) {
@@ -370,7 +376,7 @@ describe('SceneManagerLive', () => {
 
             for (const result of mixedResults) {
               if (
-                result._tag === 'Left' &&
+                Either.isLeft(result) &&
                 result.left._tag === 'SceneTransitionError' &&
                 result.left.message.includes('Previous scene is undefined')
               ) {
@@ -475,7 +481,7 @@ describe('SceneManagerLive', () => {
         yield* Fiber.join(transitionFiber)
 
         // pushSceneエラーまたは正常完了を確認
-        if (pushResult._tag === 'Left') {
+        if (Either.isLeft(pushResult)) {
           expect(pushResult.left._tag).toBe('SceneTransitionError')
           expect(pushResult.left.message).toContain('Cannot push scene during transition')
         }
@@ -499,7 +505,7 @@ describe('SceneManagerLive', () => {
         const popResult = yield* Effect.either(manager.popScene())
 
         expect(popResult._tag).toBe('Left')
-        if (popResult._tag === 'Left') {
+        if (Either.isLeft(popResult)) {
           expect(popResult.left._tag).toBe('SceneTransitionError')
           // どちらのエラーメッセージでも受け入れる
           const isExpectedError =
@@ -535,7 +541,7 @@ describe('SceneManagerLive', () => {
 
           // エラーをチェック
           for (const result of results) {
-            if (result._tag === 'Left' && result.left._tag === 'SceneTransitionError') {
+            if (Either.isLeft(result) && result.left._tag === 'SceneTransitionError') {
               if (result.left.message.includes('Cannot push scene during transition')) {
                 pushSceneErrorFound = true
               }
@@ -696,8 +702,8 @@ describe('SceneManagerLive', () => {
         // Pauseシーンは実装されておらず、遷移時にエラーが発生する
         const result = yield* Effect.either(manager.transitionTo('Pause'))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('not implemented')
         }
@@ -715,8 +721,8 @@ describe('SceneManagerLive', () => {
         // Settingsシーンも実装されておらず、エラーが発生する
         const result = yield* Effect.either(manager.transitionTo('Settings'))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('Settings scene not implemented')
         }
@@ -738,7 +744,7 @@ describe('SceneManagerLive', () => {
         // 2回目のpopSceneはスタックが空なのでエラー
         const secondResult = yield* Effect.either(manager.popScene())
         expect(secondResult._tag).toBe('Left')
-        if (secondResult._tag === 'Left') {
+        if (Either.isLeft(secondResult)) {
           expect(secondResult.left._tag).toBe('SceneTransitionError')
           expect(secondResult.left.message).toContain('No scene in stack')
         }
@@ -751,9 +757,9 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
 
         const result = yield* Effect.either(manager.transitionTo('Pause'))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
 
-        if (result._tag === 'Left') {
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('Pause scene not implemented yet')
           expect(result.left.targetScene).toBe('Pause')
@@ -765,9 +771,9 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
 
         const result = yield* Effect.either(manager.transitionTo('Settings'))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
 
-        if (result._tag === 'Left') {
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('Settings scene not implemented yet')
           expect(result.left.targetScene).toBe('Settings')
@@ -780,9 +786,9 @@ describe('SceneManagerLive', () => {
         yield* manager.transitionTo('MainMenu')
 
         const result = yield* Effect.either(manager.pushScene('Pause'))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
 
-        if (result._tag === 'Left') {
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('Pause scene not implemented yet')
         }
@@ -794,9 +800,9 @@ describe('SceneManagerLive', () => {
         yield* manager.transitionTo('MainMenu')
 
         const result = yield* Effect.either(manager.pushScene('Settings'))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
 
-        if (result._tag === 'Left') {
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('Settings scene not implemented yet')
         }
