@@ -57,10 +57,7 @@ export const MouseInputLive = Layer.effect(
     const pointerLockState = yield* Ref.make<PointerLockState>({ isLocked: false })
 
     // ブラウザAPI利用の安全なwrapper
-    const safeDocumentAccess = <T>(
-      operation: () => T,
-      errorMessage: string
-    ): Effect.Effect<T, MouseInputError> =>
+    const safeDocumentAccess = <T>(operation: () => T, errorMessage: string): Effect.Effect<T, MouseInputError> =>
       Effect.try({
         try: operation,
         catch: (error) =>
@@ -110,7 +107,7 @@ export const MouseInputLive = Layer.effect(
     const handlePointerLockChange = () =>
       Effect.gen(function* () {
         const isLocked = typeof document !== 'undefined' && document.pointerLockElement !== null
-        const element = typeof document !== 'undefined' && document.pointerLockElement?.id || undefined
+        const element = (typeof document !== 'undefined' && document.pointerLockElement?.id) || undefined
 
         yield* Ref.set(pointerLockState, {
           isLocked,

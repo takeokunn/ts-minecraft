@@ -46,9 +46,7 @@ export const MouseSensitivityErrorSchema = Schema.Struct({
 
 export type MouseSensitivityError = Schema.Schema.Type<typeof MouseSensitivityErrorSchema>
 
-export const MouseSensitivityError = (
-  params: Omit<MouseSensitivityError, '_tag'>
-): MouseSensitivityError => ({
+export const MouseSensitivityError = (params: Omit<MouseSensitivityError, '_tag'>): MouseSensitivityError => ({
   _tag: 'MouseSensitivityError' as const,
   ...params,
 })
@@ -59,10 +57,7 @@ export interface MouseSensitivity {
   readonly setConfig: (config: MouseSensitivityConfig) => Effect.Effect<void, MouseSensitivityError>
   readonly applySensitivity: (delta: MouseDelta) => Effect.Effect<AdjustedMouseDelta, MouseSensitivityError>
   readonly setPreset: (preset: SensitivityPreset) => Effect.Effect<void, MouseSensitivityError>
-  readonly setSensitivity: (
-    x: number,
-    y: number
-  ) => Effect.Effect<void, MouseSensitivityError>
+  readonly setSensitivity: (x: number, y: number) => Effect.Effect<void, MouseSensitivityError>
   readonly setGlobalMultiplier: (multiplier: number) => Effect.Effect<void, MouseSensitivityError>
   readonly invertAxis: (x: boolean, y: boolean) => Effect.Effect<void, MouseSensitivityError>
   readonly setCurve: (curve: SensitivityCurve) => Effect.Effect<void, MouseSensitivityError>
@@ -254,8 +249,16 @@ export const MouseSensitivityLive = Layer.effect(
           yield* Ref.set(smoothingBuffer, newBuffer)
 
           // 感度カーブ適用
-          const curvedDeltaX = applyCurve(smoothedDelta.deltaX, currentConfig.curve, currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined)
-          const curvedDeltaY = applyCurve(smoothedDelta.deltaY, currentConfig.curve, currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined)
+          const curvedDeltaX = applyCurve(
+            smoothedDelta.deltaX,
+            currentConfig.curve,
+            currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined
+          )
+          const curvedDeltaY = applyCurve(
+            smoothedDelta.deltaY,
+            currentConfig.curve,
+            currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined
+          )
 
           // 感度とグローバル倍率適用
           let adjustedDeltaX = curvedDeltaX * currentConfig.xSensitivity * currentConfig.globalMultiplier
