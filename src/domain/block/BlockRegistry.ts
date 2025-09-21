@@ -1,21 +1,15 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe } from 'effect'
+import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 
-// エラー定義
-export class BlockNotFoundError extends Error {
-  readonly _tag = 'BlockNotFoundError'
-  constructor(readonly blockId: string) {
-    super(`Block not found: ${blockId}`)
-  }
-}
+// エラー定義（Data.TaggedErrorを使用）
+export class BlockNotFoundError extends Data.TaggedError('BlockNotFoundError')<{
+  readonly blockId: string
+}> {}
 
-export class BlockAlreadyRegisteredError extends Error {
-  readonly _tag = 'BlockAlreadyRegisteredError'
-  constructor(readonly blockId: string) {
-    super(`Block already registered: ${blockId}`)
-  }
-}
+export class BlockAlreadyRegisteredError extends Data.TaggedError('BlockAlreadyRegisteredError')<{
+  readonly blockId: string
+}> {}
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {
@@ -69,13 +63,13 @@ export const BlockRegistryLive = Effect.gen(function* () {
 
   return {
     getBlock: (id: string) =>
-      Effect.gen(function* () {
-        const block = HashMap.get(blockMap, id)
-        if (Option.isNone(block)) {
-          return yield* Effect.fail(new BlockNotFoundError(id))
-        }
-        return block.value
-      }),
+      pipe(
+        HashMap.get(blockMap, id),
+        Option.match({
+          onNone: () => Effect.fail(new BlockNotFoundError({ blockId: id })),
+          onSome: (block) => Effect.succeed(block)
+        })
+      ),
 
     getBlockOption: (id: string) => Effect.succeed(HashMap.get(blockMap, id)),
 
@@ -131,10 +125,11 @@ export const BlockRegistryLive = Effect.gen(function* () {
 
     registerBlock: (block: BlockType) =>
       Effect.gen(function* () {
-        if (HashMap.has(blockMap, block.id)) {
-          return yield* Effect.fail(new BlockAlreadyRegisteredError(block.id))
+        const exists = HashMap.has(blockMap, block.id)
+        if (exists) {
+          return yield* Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))
         }
-
+        
         // ブロックマップに追加
         blockMap = HashMap.set(blockMap, block.id, block)
 

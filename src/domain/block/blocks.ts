@@ -1,6 +1,7 @@
 import { pipe } from 'effect'
 import type { BlockType } from './BlockType'
 import {
+  defaultBlockProperties,
   stoneProperties,
   dirtProperties,
   woodProperties,
@@ -572,6 +573,56 @@ export const stainedGlassBlock: BlockType = {
 }
 
 // 全ブロックのエクスポート
+// 追加ブロック
+export const sandstoneBlock: BlockType = {
+  id: 'sandstone',
+  name: 'Sandstone',
+  category: 'building',
+  stackSize: 64,
+  ...pipe(
+    defaultBlockProperties,
+    withHardness(0.8),
+    withResistance(0.8),
+    withTool('pickaxe', 0),
+    withTexture('sandstone')
+  ),
+  tags: ['building', 'decorative'],
+}
+
+export const cobwebBlock: BlockType = {
+  id: 'cobweb',
+  name: 'Cobweb',
+  category: 'natural',
+  stackSize: 64,
+  ...pipe(
+    defaultBlockProperties,
+    withHardness(4.0),
+    withResistance(4.0),
+    withTool('sword', 0),
+    withTexture('cobweb')
+  ),
+  tags: ['natural', 'decorative'],
+  physics: {
+    ...defaultBlockProperties.physics,
+    solid: false,
+    opacity: 1,
+  },
+}
+
+export const mossStoneBlock: BlockType = {
+  id: 'moss_stone',
+  name: 'Moss Stone',
+  category: 'building',
+  stackSize: 64,
+  ...pipe(
+    defaultBlockProperties,
+    withHardness(2.0),
+    withResistance(6.0),
+    withTool('pickaxe', 0),
+    withTexture('moss_stone')
+  ),
+  tags: ['building', 'decorative', 'dungeon'],
+}
 export const allBlocks: BlockType[] = [
   // 自然ブロック
   stoneBlock,
@@ -589,6 +640,7 @@ export const allBlocks: BlockType[] = [
   soulSandBlock,
   endStoneBlock,
   farmlandBlock,
+  cobwebBlock,
 
   // 木材ブロック
   oakLogBlock,
@@ -618,6 +670,8 @@ export const allBlocks: BlockType[] = [
   netherBrickBlock,
   purpurBlock,
   stainedGlassBlock,
+  sandstoneBlock,
+  mossStoneBlock,
 
   // 装飾ブロック
   torchBlock,
