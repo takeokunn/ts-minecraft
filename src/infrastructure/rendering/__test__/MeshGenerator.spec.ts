@@ -24,11 +24,12 @@ const MeshDataSchema = Schema.Struct({
   indices: Schema.Array(Schema.Number),
 })
 
-export class MeshGenerationError extends Schema.TaggedError<MeshGenerationError>()('MeshGenerationError', {
+export const MeshGenerationError = Schema.TaggedError<'MeshGenerationError'>()('MeshGenerationError', {
   reason: Schema.String,
   chunkPosition: ChunkPositionSchema,
   timestamp: Schema.Number,
-}) {}
+})
+export type MeshGenerationError = typeof MeshGenerationError.Type
 
 // Type exports
 export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>

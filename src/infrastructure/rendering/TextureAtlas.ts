@@ -62,11 +62,12 @@ export const BlockTextureSchema = Schema.Struct({
 // Error Definitions
 // ========================================
 
-export class TextureAtlasError extends Schema.TaggedError<TextureAtlasError>()('TextureAtlasError', {
+export const TextureAtlasError = Schema.TaggedError<'TextureAtlasError'>()('TextureAtlasError', {
   reason: Schema.String,
   context: Schema.String,
   timestamp: Schema.Number,
-}) {}
+})
+export type TextureAtlasError = typeof TextureAtlasError.Type
 
 // ========================================
 // Service Interface

@@ -49,18 +49,20 @@ export type MeshConfig = Schema.Schema.Type<typeof MeshConfigSchema>
 // Error Definitions (following project pattern)
 // ========================================
 
-export class MeshGenerationError extends Schema.TaggedError<MeshGenerationError>()('MeshGenerationError', {
+export const MeshGenerationError = Schema.TaggedError<'MeshGenerationError'>()('MeshGenerationError', {
   reason: Schema.String,
   chunkPosition: ChunkPositionSchema,
   timestamp: Schema.Number,
   context: Schema.optional(Schema.String),
-}) {}
+})
+export type MeshGenerationError = typeof MeshGenerationError.Type
 
-export class InvalidChunkError extends Schema.TaggedError<InvalidChunkError>()('InvalidChunkError', {
+export const InvalidChunkError = Schema.TaggedError<'InvalidChunkError'>()('InvalidChunkError', {
   reason: Schema.String,
   chunkData: Schema.Unknown,
   timestamp: Schema.Number,
-}) {}
+})
+export type InvalidChunkError = typeof InvalidChunkError.Type
 
 // ========================================
 // Service Interface

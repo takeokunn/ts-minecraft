@@ -28,11 +28,12 @@ export interface AOConfig {
 // Error Definitions
 // ========================================
 
-export class AmbientOcclusionError extends Schema.TaggedError<AmbientOcclusionError>()('AmbientOcclusionError', {
+export const AmbientOcclusionError = Schema.TaggedError<'AmbientOcclusionError'>()('AmbientOcclusionError', {
   reason: Schema.String,
   context: Schema.String,
   timestamp: Schema.Number,
-}) {}
+})
+export type AmbientOcclusionError = typeof AmbientOcclusionError.Type
 
 // ========================================
 // Service Interface
@@ -181,30 +182,40 @@ const calculateFaceAOPure = (
 
 // Smooth AO values across neighboring vertices
 const smoothAOValues = (aoVertices: AOVertex[]): AOVertex[] => {
-  // Create a map of vertex positions to AO values
-  const aoMap = new Map<string, number[]>()
-
-  for (const vertex of aoVertices) {
-    const key = `${vertex.x},${vertex.y},${vertex.z}`
-    if (!aoMap.has(key)) {
-      aoMap.set(key, [])
-    }
-    aoMap.get(key)!.push(vertex.ao)
-  }
-
-  // Average AO values for each vertex position
-  const smoothed: AOVertex[] = []
-
-  for (const vertex of aoVertices) {
-    const key = `${vertex.x},${vertex.y},${vertex.z}`
-    const values = aoMap.get(key)!
-    const avgAO = values.reduce((sum, val) => sum + val, 0) / values.length
-
-    smoothed.push({
-      ...vertex,
-      ao: avgAO,
+  // Create a map of vertex positions to AO values using Effect-TS patterns
+  const aoMap = pipe(
+    aoVertices,
+    A.reduce(new Map<string, number[]>(), (map, vertex) => {
+      const key = `${vertex.x},${vertex.y},${vertex.z}`
+      pipe(
+        Option.fromNullable(map.get(key)),
+        Option.match({
+          onNone: () => map.set(key, [vertex.ao]),
+          onSome: (values) => map.set(key, [...values, vertex.ao])
+        })
+      )
+      return map
     })
-  }
+  )
+
+  // Average AO values for each vertex position using Effect-TS patterns
+  const smoothed = pipe(
+    aoVertices,
+    A.map(vertex => {
+      const key = `${vertex.x},${vertex.y},${vertex.z}`
+      const values = aoMap.get(key)!
+      const avgAO = pipe(
+        values,
+        A.reduce(0, N.sum),
+        total => total / values.length
+      )
+
+      return {
+        ...vertex,
+        ao: avgAO,
+      }
+    })
+  )
 
   return smoothed
 }
@@ -259,37 +270,50 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
           return []
         }
 
-        const aoVertices: AOVertex[] = []
+        // Calculate AO for all solid block vertices using Effect-TS patterns
+        const aoVertices = pipe(
+          A.range(0, chunkData.size - 1),
+          A.flatMap(x =>
+            pipe(
+              A.range(0, chunkData.size - 1),
+              A.flatMap(y =>
+                pipe(
+                  A.range(0, chunkData.size - 1),
+                  A.flatMap(z => {
+                    const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
 
-        // Calculate AO for all solid block vertices
-        for (let x = 0; x < chunkData.size; x++) {
-          for (let y = 0; y < chunkData.size; y++) {
-            for (let z = 0; z < chunkData.size; z++) {
-              const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
+                    return pipe(
+                      blockType === 0,
+                      Match.value,
+                      Match.when(true, () => []),
+                      Match.when(false, () => {
+                        const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> =
+                          ['top', 'bottom', 'front', 'back', 'left', 'right']
 
-              // Skip air blocks
-              if (blockType === 0) continue
-
-              // Calculate AO for each face of the block
-              const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> =
-                ['top', 'bottom', 'front', 'back', 'left', 'right']
-
-              for (const face of faces) {
-                const aoFace = calculateFaceAOPure(
-                  chunkData.blocks,
-                  x,
-                  y,
-                  z,
-                  face,
-                  chunkData.size,
-                  config
+                        return pipe(
+                          faces,
+                          A.flatMap(face => {
+                            const aoFace = calculateFaceAOPure(
+                              chunkData.blocks,
+                              x,
+                              y,
+                              z,
+                              face,
+                              chunkData.size,
+                              config
+                            )
+                            return Array.from(aoFace.vertices)
+                          })
+                        )
+                      }),
+                      Match.exhaustive
+                    )
+                  })
                 )
-
-                aoVertices.push(...aoFace.vertices)
-              }
-            }
-          }
-        }
+              )
+            )
+          )
+        )
 
         // Apply smoothing if enabled
         const finalVertices = config.smoothing

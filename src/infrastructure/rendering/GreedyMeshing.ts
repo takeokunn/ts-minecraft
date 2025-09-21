@@ -26,11 +26,12 @@ export interface GreedyMeshingConfig {
 // Error Definitions
 // ========================================
 
-export class GreedyMeshingError extends Schema.TaggedError<GreedyMeshingError>()('GreedyMeshingError', {
+export const GreedyMeshingError = Schema.TaggedError<'GreedyMeshingError'>()('GreedyMeshingError', {
   reason: Schema.String,
   context: Schema.String,
   timestamp: Schema.Number,
-}) {}
+})
+export type GreedyMeshingError = typeof GreedyMeshingError.Type
 
 // ========================================
 // Service Interface

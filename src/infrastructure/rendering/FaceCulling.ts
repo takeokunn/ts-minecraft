@@ -24,11 +24,12 @@ export interface CullingConfig {
 // Error Definitions
 // ========================================
 
-export class FaceCullingError extends Schema.TaggedError<FaceCullingError>()('FaceCullingError', {
+export const FaceCullingError = Schema.TaggedError<'FaceCullingError'>()('FaceCullingError', {
   reason: Schema.String,
   context: Schema.String,
   timestamp: Schema.Number,
-}) {}
+})
+export type FaceCullingError = typeof FaceCullingError.Type
 
 // ========================================
 // Service Interface
