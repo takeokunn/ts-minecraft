@@ -9,7 +9,7 @@ import {
   createComponentStorage,
   type ComponentStorage,
   createArchetypeManager,
-  type ArchetypeManager
+  type ArchetypeManager,
 } from './Entity.js'
 
 // =====================================
@@ -38,7 +38,7 @@ export const EntityManagerStats = Schema.Struct({
   totalComponents: Schema.Number,
   componentTypes: Schema.Number,
   archetypeCount: Schema.Number,
-  memoryUsage: Schema.optional(Schema.Number)
+  memoryUsage: Schema.optional(Schema.Number),
 })
 
 export type EntityManagerStats = Schema.Schema.Type<typeof EntityManagerStats>
@@ -59,7 +59,10 @@ interface ComponentTypeInfo {
 
 export interface EntityManager {
   // エンティティ管理
-  readonly createEntity: (name?: string, tags?: readonly string[]) => Effect.Effect<EntityId, EntityManagerError | EntityPoolError>
+  readonly createEntity: (
+    name?: string,
+    tags?: readonly string[]
+  ) => Effect.Effect<EntityId, EntityManagerError | EntityPoolError>
   readonly destroyEntity: (id: EntityId) => Effect.Effect<void, EntityManagerError | EntityPoolError>
   readonly isEntityAlive: (id: EntityId) => Effect.Effect<boolean, never>
   readonly getEntityMetadata: (id: EntityId) => Effect.Effect<Option.Option<EntityMetadata>, never>
@@ -78,7 +81,9 @@ export interface EntityManager {
 
   // クエリ
   readonly getEntitiesWithComponent: (componentType: string) => Effect.Effect<ReadonlyArray<EntityId>, never>
-  readonly getEntitiesWithComponents: (componentTypes: readonly string[]) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  readonly getEntitiesWithComponents: (
+    componentTypes: readonly string[]
+  ) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getEntitiesByTag: (tag: string) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>, never>
 
@@ -136,7 +141,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         tags: [...tags],
         active: true,
         createdAt: Date.now(),
-        generation: entityGeneration++
+        generation: entityGeneration++,
       }
 
       entities.set(id, metadata)
@@ -165,7 +170,7 @@ export const EntityManagerLive = Effect.gen(function* () {
           new EntityManagerError({
             reason: 'entity_not_found',
             message: `Entity ${id} not found`,
-            entityId: id
+            entityId: id,
           })
         )
       }
@@ -204,7 +209,7 @@ export const EntityManagerLive = Effect.gen(function* () {
             reason: 'entity_not_found',
             message: `Entity ${entityId} not found`,
             entityId,
-            componentType
+            componentType,
           })
         )
       }
@@ -235,7 +240,7 @@ export const EntityManagerLive = Effect.gen(function* () {
             reason: 'entity_not_found',
             message: `Entity ${entityId} not found`,
             entityId,
-            componentType
+            componentType,
           })
         )
       }
@@ -247,7 +252,7 @@ export const EntityManagerLive = Effect.gen(function* () {
             reason: 'component_not_found',
             message: `Component type ${componentType} not found`,
             entityId,
-            componentType
+            componentType,
           })
         )
       }
@@ -348,8 +353,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // すべてのエンティティ取得
-  const getAllEntities = () =>
-    Effect.sync(() => Array.from(entities.keys()))
+  const getAllEntities = () => Effect.sync(() => Array.from(entities.keys()))
 
   // バッチコンポーネント取得（高速）
   const batchGetComponents = <T>(componentType: string) =>
@@ -390,10 +394,10 @@ export const EntityManagerLive = Effect.gen(function* () {
 
       return {
         totalEntities: entities.size,
-        activeEntities: Array.from(entities.values()).filter(e => e.active).length,
+        activeEntities: Array.from(entities.values()).filter((e) => e.active).length,
         totalComponents,
         componentTypes: componentStorages.size,
-        archetypeCount: 0 // TODO: archetypeManager.getArchetypeCount()
+        archetypeCount: 0, // TODO: archetypeManager.getArchetypeCount()
       }
     })
 
@@ -418,11 +422,9 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // その他のヘルパー関数
-  const isEntityAlive = (id: EntityId) =>
-    Effect.sync(() => entities.has(id))
+  const isEntityAlive = (id: EntityId) => Effect.sync(() => entities.has(id))
 
-  const getEntityMetadata = (id: EntityId) =>
-    Effect.sync(() => Option.fromNullable(entities.get(id)))
+  const getEntityMetadata = (id: EntityId) => Effect.sync(() => Option.fromNullable(entities.get(id)))
 
   const setEntityActive = (id: EntityId, active: boolean) =>
     Effect.gen(function* () {
@@ -432,7 +434,7 @@ export const EntityManagerLive = Effect.gen(function* () {
           new EntityManagerError({
             reason: 'entity_not_found',
             message: `Entity ${id} not found`,
-            entityId: id
+            entityId: id,
           })
         )
       }
@@ -460,7 +462,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     iterateComponents,
     update,
     getStats,
-    clear
+    clear,
   } satisfies EntityManager
 })
 

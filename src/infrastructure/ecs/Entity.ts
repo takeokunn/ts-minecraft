@@ -28,7 +28,7 @@ export const EntityPoolStats = Schema.Struct({
   totalCapacity: Schema.Number,
   allocatedCount: Schema.Number,
   freeCount: Schema.Number,
-  recycledCount: Schema.Number
+  recycledCount: Schema.Number,
 })
 
 export type EntityPoolStats = Schema.Schema.Type<typeof EntityPoolStats>
@@ -49,7 +49,7 @@ export const createComponentStorage = <T>() => {
     data: [],
     entityToIndex: new Map(),
     indexToEntity: [],
-    size: 0
+    size: 0,
   }
 
   const insert = (entity: EntityId, component: T): Effect.Effect<void, never> =>
@@ -105,8 +105,7 @@ export const createComponentStorage = <T>() => {
       return Option.none()
     })
 
-  const has = (entity: EntityId): Effect.Effect<boolean, never> =>
-    Effect.sync(() => array.entityToIndex.has(entity))
+  const has = (entity: EntityId): Effect.Effect<boolean, never> => Effect.sync(() => array.entityToIndex.has(entity))
 
   const clear = (): Effect.Effect<void, never> =>
     Effect.sync(() => {
@@ -117,9 +116,7 @@ export const createComponentStorage = <T>() => {
     })
 
   // 高速イテレーション用
-  const iterate = <R, E>(
-    f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
-  ): Effect.Effect<void, E, R> =>
+  const iterate = <R, E>(f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>): Effect.Effect<void, E, R> =>
     Effect.forEach(
       Array.from({ length: array.size }, (_, i) => i),
       (index) => {
@@ -148,16 +145,19 @@ export const createComponentStorage = <T>() => {
     })
 
   // データ配列への直接アクセス（最高速だが注意が必要）
-  const getRawData = (): Effect.Effect<{ readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> }, never> =>
+  const getRawData = (): Effect.Effect<
+    { readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> },
+    never
+  > =>
     Effect.sync(() => ({
       data: array.data.slice(0, array.size),
-      entities: array.indexToEntity.slice(0, array.size)
+      entities: array.indexToEntity.slice(0, array.size),
     }))
 
   const getStats = (): Effect.Effect<{ size: number; capacity: number }, never> =>
     Effect.sync(() => ({
       size: array.size,
-      capacity: array.data.length
+      capacity: array.data.length,
     }))
 
   return {
@@ -169,7 +169,7 @@ export const createComponentStorage = <T>() => {
     iterate,
     getAll,
     getRawData,
-    getStats
+    getStats,
   }
 }
 
@@ -179,9 +179,14 @@ export interface ComponentStorage<T> {
   readonly get: (entity: EntityId) => Effect.Effect<Option.Option<T>, never>
   readonly has: (entity: EntityId) => Effect.Effect<boolean, never>
   readonly clear: () => Effect.Effect<void, never>
-  readonly iterate: <R, E>(f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>) => Effect.Effect<void, E, R>
+  readonly iterate: <R, E>(
+    f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
+  ) => Effect.Effect<void, E, R>
   readonly getAll: () => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
-  readonly getRawData: () => Effect.Effect<{ readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> }, never>
+  readonly getRawData: () => Effect.Effect<
+    { readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> },
+    never
+  >
   readonly getStats: () => Effect.Effect<{ size: number; capacity: number }, never>
 }
 
@@ -195,7 +200,7 @@ export const EntityMetadata = Schema.Struct({
   tags: Schema.Array(Schema.String),
   active: Schema.Boolean,
   createdAt: Schema.Number,
-  generation: Schema.Number // リサイクル世代番号
+  generation: Schema.Number, // リサイクル世代番号
 })
 
 export type EntityMetadata = Schema.Schema.Type<typeof EntityMetadata>
@@ -212,56 +217,66 @@ export const EntityPoolLive = Effect.gen(function* () {
     freeList: Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i)),
     allocated: new Set<EntityId>(),
     recycledCount: 0,
-    nextId: MAX_ENTITIES
+    nextId: MAX_ENTITIES,
   }))
 
-  const allocate = () => Effect.gen(function* () {
-    if (state.freeList.length === 0) {
-      return yield* Effect.fail(new EntityPoolError({
-        reason: 'pool_exhausted',
-        message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`
-      }))
-    }
+  const allocate = () =>
+    Effect.gen(function* () {
+      if (state.freeList.length === 0) {
+        return yield* Effect.fail(
+          new EntityPoolError({
+            reason: 'pool_exhausted',
+            message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
+          })
+        )
+      }
 
-    const id = state.freeList.pop()!
-    state.allocated.add(id)
-    return id
-  })
+      const id = state.freeList.pop()!
+      state.allocated.add(id)
+      return id
+    })
 
-  const deallocate = (id: EntityId) => Effect.gen(function* () {
-    if (!state.allocated.has(id)) {
-      return yield* Effect.fail(new EntityPoolError({
-        reason: 'entity_not_allocated',
-        message: `Entity ${id} is not allocated`
-      }))
-    }
+  const deallocate = (id: EntityId) =>
+    Effect.gen(function* () {
+      if (!state.allocated.has(id)) {
+        return yield* Effect.fail(
+          new EntityPoolError({
+            reason: 'entity_not_allocated',
+            message: `Entity ${id} is not allocated`,
+          })
+        )
+      }
 
-    state.allocated.delete(id)
-    state.freeList.push(id)
-    state.recycledCount++
-  })
+      state.allocated.delete(id)
+      state.freeList.push(id)
+      state.recycledCount++
+    })
 
   const isAllocated = (id: EntityId) => Effect.sync(() => state.allocated.has(id))
 
-  const reset = () => Effect.sync(() => {
-    state.freeList = Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i))
-    state.allocated.clear()
-    state.recycledCount = 0
-  })
+  const reset = () =>
+    Effect.sync(() => {
+      state.freeList = Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i))
+      state.allocated.clear()
+      state.recycledCount = 0
+    })
 
-  const getStats = () => Effect.sync((): EntityPoolStats => ({
-    totalCapacity: MAX_ENTITIES,
-    allocatedCount: state.allocated.size,
-    freeCount: state.freeList.length,
-    recycledCount: state.recycledCount
-  }))
+  const getStats = () =>
+    Effect.sync(
+      (): EntityPoolStats => ({
+        totalCapacity: MAX_ENTITIES,
+        allocatedCount: state.allocated.size,
+        freeCount: state.freeList.length,
+        recycledCount: state.recycledCount,
+      })
+    )
 
   return {
     allocate,
     deallocate,
     isAllocated,
     reset,
-    getStats
+    getStats,
   } satisfies EntityPool
 })
 
@@ -295,7 +310,7 @@ export const createArchetypeManager = () => {
         archetype = {
           id: nextArchetypeId++,
           componentTypes,
-          entities: new Set()
+          entities: new Set(),
         }
         archetypes.set(key, archetype)
       }
@@ -303,10 +318,7 @@ export const createArchetypeManager = () => {
       return archetype
     })
 
-  const moveEntity = (
-    entity: EntityId,
-    newComponentTypes: ReadonlySet<string>
-  ): Effect.Effect<void, never> =>
+  const moveEntity = (entity: EntityId, newComponentTypes: ReadonlySet<string>): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       // 古いアーキタイプから削除
       const oldArchetype = entityToArchetype.get(entity)
@@ -348,7 +360,7 @@ export const createArchetypeManager = () => {
     moveEntity,
     removeEntity,
     getEntitiesWithArchetype,
-    clear
+    clear,
   }
 }
 
@@ -356,6 +368,8 @@ export interface ArchetypeManager {
   readonly getOrCreateArchetype: (componentTypes: ReadonlySet<string>) => Effect.Effect<Archetype, never>
   readonly moveEntity: (entity: EntityId, newComponentTypes: ReadonlySet<string>) => Effect.Effect<void, never>
   readonly removeEntity: (entity: EntityId) => Effect.Effect<void, never>
-  readonly getEntitiesWithArchetype: (componentTypes: ReadonlySet<string>) => Effect.Effect<ReadonlySet<EntityId>, never>
+  readonly getEntitiesWithArchetype: (
+    componentTypes: ReadonlySet<string>
+  ) => Effect.Effect<ReadonlySet<EntityId>, never>
   readonly clear: () => Effect.Effect<void, never>
 }

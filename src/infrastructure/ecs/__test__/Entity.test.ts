@@ -7,7 +7,7 @@ import {
   type EntityPool,
   createComponentStorage,
   createArchetypeManager,
-  type EntityMetadata
+  type EntityMetadata,
 } from '../Entity.js'
 
 describe('Entity', () => {
@@ -69,7 +69,7 @@ describe('Entity', () => {
       const ids = await Promise.all([
         Effect.runPromise(pool.allocate()),
         Effect.runPromise(pool.allocate()),
-        Effect.runPromise(pool.allocate())
+        Effect.runPromise(pool.allocate()),
       ])
 
       // リセット
@@ -182,7 +182,7 @@ describe('Entity', () => {
       const components: [EntityId, TestComponent][] = [
         [EntityId(1), { x: 1, y: 1, z: 1 }],
         [EntityId(2), { x: 2, y: 2, z: 2 }],
-        [EntityId(3), { x: 3, y: 3, z: 3 }]
+        [EntityId(3), { x: 3, y: 3, z: 3 }],
       ]
 
       // 複数のコンポーネントを追加
@@ -206,9 +206,7 @@ describe('Entity', () => {
 
       // 100個のコンポーネントを追加
       for (let i = 0; i < 100; i++) {
-        await Effect.runPromise(
-          storage.insert(EntityId(i), { x: i, y: i * 2, z: i * 3 })
-        )
+        await Effect.runPromise(storage.insert(EntityId(i), { x: i, y: i * 2, z: i * 3 }))
       }
 
       // イテレーション
@@ -232,9 +230,7 @@ describe('Entity', () => {
       const numEntities = 10
 
       for (let i = 0; i < numEntities; i++) {
-        await Effect.runPromise(
-          storage.insert(EntityId(i), { x: i, y: 0, z: 0 })
-        )
+        await Effect.runPromise(storage.insert(EntityId(i), { x: i, y: 0, z: 0 }))
       }
 
       const raw = await Effect.runPromise(storage.getRawData())
@@ -275,13 +271,9 @@ describe('Entity', () => {
       const manager = createArchetypeManager()
 
       const components1 = new Set(['Position', 'Velocity'])
-      const archetype1 = await Effect.runPromise(
-        manager.getOrCreateArchetype(components1)
-      )
+      const archetype1 = await Effect.runPromise(manager.getOrCreateArchetype(components1))
 
-      const archetype2 = await Effect.runPromise(
-        manager.getOrCreateArchetype(components1)
-      )
+      const archetype2 = await Effect.runPromise(manager.getOrCreateArchetype(components1))
 
       // 同じコンポーネントセットに対しては同じアーキタイプが返される
       expect(archetype1.id).toBe(archetype2.id)
@@ -295,15 +287,9 @@ describe('Entity', () => {
       const components2 = new Set(['Position', 'Velocity'])
       const components3 = new Set(['Velocity', 'Position']) // 順序が異なっても同じとして扱う
 
-      const archetype1 = await Effect.runPromise(
-        manager.getOrCreateArchetype(components1)
-      )
-      const archetype2 = await Effect.runPromise(
-        manager.getOrCreateArchetype(components2)
-      )
-      const archetype3 = await Effect.runPromise(
-        manager.getOrCreateArchetype(components3)
-      )
+      const archetype1 = await Effect.runPromise(manager.getOrCreateArchetype(components1))
+      const archetype2 = await Effect.runPromise(manager.getOrCreateArchetype(components2))
+      const archetype3 = await Effect.runPromise(manager.getOrCreateArchetype(components3))
 
       expect(archetype1.id).not.toBe(archetype2.id)
       expect(archetype2.id).toBe(archetype3.id) // 順序に関わらず同じ
@@ -319,20 +305,14 @@ describe('Entity', () => {
       // 最初のアーキタイプにエンティティを追加
       await Effect.runPromise(manager.moveEntity(entityId, components1))
 
-      const entities1 = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components1)
-      )
+      const entities1 = await Effect.runPromise(manager.getEntitiesWithArchetype(components1))
       expect(Array.from(entities1)).toContain(entityId)
 
       // 別のアーキタイプに移動
       await Effect.runPromise(manager.moveEntity(entityId, components2))
 
-      const entities1After = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components1)
-      )
-      const entities2After = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components2)
-      )
+      const entities1After = await Effect.runPromise(manager.getEntitiesWithArchetype(components1))
+      const entities2After = await Effect.runPromise(manager.getEntitiesWithArchetype(components2))
 
       expect(Array.from(entities1After)).not.toContain(entityId)
       expect(Array.from(entities2After)).toContain(entityId)
@@ -346,9 +326,7 @@ describe('Entity', () => {
       await Effect.runPromise(manager.moveEntity(entityId, components))
       await Effect.runPromise(manager.removeEntity(entityId))
 
-      const entities = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components)
-      )
+      const entities = await Effect.runPromise(manager.getEntitiesWithArchetype(components))
       expect(Array.from(entities)).not.toContain(entityId)
     })
 
@@ -362,9 +340,7 @@ describe('Entity', () => {
         await Effect.runPromise(manager.moveEntity(entity, components))
       }
 
-      const retrieved = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components)
-      )
+      const retrieved = await Effect.runPromise(manager.getEntitiesWithArchetype(components))
 
       expect(retrieved.size).toBe(3)
       for (const entity of entities) {
@@ -383,12 +359,8 @@ describe('Entity', () => {
 
       await Effect.runPromise(manager.clear())
 
-      const entities1 = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components1)
-      )
-      const entities2 = await Effect.runPromise(
-        manager.getEntitiesWithArchetype(components2)
-      )
+      const entities1 = await Effect.runPromise(manager.getEntitiesWithArchetype(components1))
+      const entities2 = await Effect.runPromise(manager.getEntitiesWithArchetype(components2))
 
       expect(entities1.size).toBe(0)
       expect(entities2.size).toBe(0)
@@ -402,9 +374,7 @@ describe('Entity', () => {
 
       // 10000個のコンポーネントを追加
       for (let i = 0; i < 10000; i++) {
-        await Effect.runPromise(
-          storage.insert(EntityId(i), { value: i })
-        )
+        await Effect.runPromise(storage.insert(EntityId(i), { value: i }))
       }
 
       const insertTime = performance.now() - startTime
@@ -438,9 +408,7 @@ describe('Entity', () => {
 
       // 大量のコンポーネントを追加
       for (let i = 0; i < 5000; i++) {
-        await Effect.runPromise(
-          storage.insert(EntityId(i), { x: i, y: i, z: i, w: i })
-        )
+        await Effect.runPromise(storage.insert(EntityId(i), { x: i, y: i, z: i, w: i }))
       }
 
       const stats = await Effect.runPromise(storage.getStats())

@@ -1,16 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Layer, Option, pipe } from 'effect'
-import {
-  EntityManager,
-  EntityManagerLive,
-  EntityManagerError
-} from '../EntityManager.js'
-import {
-  EntityPool,
-  EntityPoolLive,
-  type EntityId,
-  EntityPoolError
-} from '../Entity.js'
+import { EntityManager, EntityManagerLive, EntityManagerError } from '../EntityManager.js'
+import { EntityPool, EntityPoolLive, type EntityId, EntityPoolError } from '../Entity.js'
 import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry.js'
 
 // テスト用コンポーネント
@@ -33,15 +24,9 @@ interface HealthComponent {
 
 describe('EntityManager', () => {
   // Create a test layer that provides all dependencies
-  const TestDependencies = Layer.mergeAll(
-    Layer.effect(EntityPool, EntityPoolLive),
-    SystemRegistryServiceLive
-  )
+  const TestDependencies = Layer.mergeAll(Layer.effect(EntityPool, EntityPoolLive), SystemRegistryServiceLive)
 
-  const EntityManagerTestLayer = Layer.effect(
-    EntityManager,
-    pipe(EntityManagerLive, Effect.provide(TestDependencies))
-  )
+  const EntityManagerTestLayer = Layer.effect(EntityManager, pipe(EntityManagerLive, Effect.provide(TestDependencies)))
 
   const runTest = <A>(test: (manager: EntityManager) => Effect.Effect<A, any>) =>
     pipe(
@@ -55,8 +40,8 @@ describe('EntityManager', () => {
 
   describe('Entity Creation and Destruction', () => {
     it('should create an entity with metadata', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity('TestEntity', ['player', 'hero'])
 
           const metadata = yield* manager.getEntityMetadata(entityId)
@@ -74,9 +59,8 @@ describe('EntityManager', () => {
     })
 
     it('should destroy an entity and release its ID', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
-
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
           yield* manager.destroyEntity(entityId)
 
@@ -90,8 +74,8 @@ describe('EntityManager', () => {
     })
 
     it('should handle entity pool recycling', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const createdIds: EntityId[] = []
 
           // 100個のエンティティを作成して削除
@@ -114,8 +98,8 @@ describe('EntityManager', () => {
 
   describe('Component Management', () => {
     it('should add and retrieve components', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
 
           const position: PositionComponent = { x: 10, y: 20, z: 30 }
@@ -134,8 +118,8 @@ describe('EntityManager', () => {
     })
 
     it('should update existing components', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
 
           yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
@@ -151,8 +135,8 @@ describe('EntityManager', () => {
     })
 
     it('should remove components', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
 
           yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
@@ -168,8 +152,8 @@ describe('EntityManager', () => {
     })
 
     it('should get all components of an entity', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
 
           yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
@@ -188,9 +172,8 @@ describe('EntityManager', () => {
 
   describe('Query Operations', () => {
     it('should query entities by single component', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
-
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entity1 = yield* manager.createEntity()
           const entity2 = yield* manager.createEntity()
           const entity3 = yield* manager.createEntity()
@@ -209,9 +192,8 @@ describe('EntityManager', () => {
     })
 
     it('should query entities by multiple components (AND)', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
-
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entity1 = yield* manager.createEntity()
           const entity2 = yield* manager.createEntity()
           const entity3 = yield* manager.createEntity()
@@ -234,9 +216,8 @@ describe('EntityManager', () => {
     })
 
     it('should query entities by tag', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
-
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const player1 = yield* manager.createEntity('Player1', ['player', 'hero'])
           const player2 = yield* manager.createEntity('Player2', ['player'])
           const enemy = yield* manager.createEntity('Enemy', ['enemy', 'npc'])
@@ -257,8 +238,8 @@ describe('EntityManager', () => {
 
   describe('Batch Operations', () => {
     it('should batch get components efficiently', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entities: EntityId[] = []
 
           // 100個のエンティティを作成
@@ -282,8 +263,8 @@ describe('EntityManager', () => {
     })
 
     it('should iterate components efficiently', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           let totalX = 0
 
           // エンティティを作成
@@ -295,9 +276,10 @@ describe('EntityManager', () => {
           // コンポーネントをイテレート
           yield* manager.iterateComponents<PositionComponent, never, EntityManagerError>(
             'Position',
-            (_entity, component) => Effect.sync(() => {
-              totalX += component.x
-            })
+            (_entity, component) =>
+              Effect.sync(() => {
+                totalX += component.x
+              })
           )
 
           expect(totalX).toBe(55) // 1+2+3+...+10 = 55
@@ -308,8 +290,8 @@ describe('EntityManager', () => {
 
   describe('Performance Test - 10000 Entities', () => {
     it('should handle 10000 entities efficiently', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const startTime = performance.now()
           const entities: EntityId[] = []
 
@@ -329,21 +311,21 @@ describe('EntityManager', () => {
             yield* manager.addComponent(entities[i]!, 'Position', {
               x: Math.random() * 1000,
               y: Math.random() * 1000,
-              z: Math.random() * 1000
+              z: Math.random() * 1000,
             })
 
             if (i % 2 === 0) {
               yield* manager.addComponent(entities[i]!, 'Velocity', {
                 vx: Math.random() * 10,
                 vy: Math.random() * 10,
-                vz: Math.random() * 10
+                vz: Math.random() * 10,
               })
             }
 
             if (i % 5 === 0) {
               yield* manager.addComponent(entities[i]!, 'Health', {
                 current: 100,
-                max: 100
+                max: 100,
               })
             }
           }
@@ -385,7 +367,10 @@ describe('EntityManager', () => {
           let count = 0
           yield* manager.iterateComponents<PositionComponent, never, EntityManagerError>(
             'Position',
-            (_entity, _component) => Effect.sync(() => { count++ })
+            (_entity, _component) =>
+              Effect.sync(() => {
+                count++
+              })
           )
           expect(count).toBe(10000)
 
@@ -405,18 +390,19 @@ describe('EntityManager', () => {
           // 1フレーム分の処理をシミュレート
           yield* manager.iterateComponents<PositionComponent, never, EntityManagerError>(
             'Position',
-            (entity, position) => Effect.gen(function* () {
-              const velocity = yield* manager.getComponent<VelocityComponent>(entity, 'Velocity')
-              if (Option.isSome(velocity)) {
-                // 位置を更新
-                const newPosition = {
-                  x: position.x + velocity.value.vx * 0.016,
-                  y: position.y + velocity.value.vy * 0.016,
-                  z: position.z + velocity.value.vz * 0.016
+            (entity, position) =>
+              Effect.gen(function* () {
+                const velocity = yield* manager.getComponent<VelocityComponent>(entity, 'Velocity')
+                if (Option.isSome(velocity)) {
+                  // 位置を更新
+                  const newPosition = {
+                    x: position.x + velocity.value.vx * 0.016,
+                    y: position.y + velocity.value.vy * 0.016,
+                    z: position.z + velocity.value.vz * 0.016,
+                  }
+                  yield* manager.addComponent(entity, 'Position', newPosition)
                 }
-                yield* manager.addComponent(entity, 'Position', newPosition)
-              }
-            })
+              })
           )
 
           const frameTime = performance.now() - frameStartTime
@@ -440,8 +426,8 @@ describe('EntityManager', () => {
 
   describe('Error Handling', () => {
     it('should handle entity not found errors', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const invalidId = 99999 as EntityId
 
           const result = yield* Effect.either(manager.destroyEntity(invalidId))
@@ -455,18 +441,14 @@ describe('EntityManager', () => {
     })
 
     it('should handle component operations on non-existent entities', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const invalidId = 99999 as EntityId
 
-          const addResult = yield* Effect.either(
-            manager.addComponent(invalidId, 'Position', { x: 0, y: 0, z: 0 })
-          )
+          const addResult = yield* Effect.either(manager.addComponent(invalidId, 'Position', { x: 0, y: 0, z: 0 }))
           expect(addResult._tag).toBe('Left')
 
-          const removeResult = yield* Effect.either(
-            manager.removeComponent(invalidId, 'Position')
-          )
+          const removeResult = yield* Effect.either(manager.removeComponent(invalidId, 'Position'))
           expect(removeResult._tag).toBe('Left')
         })
       )
@@ -475,8 +457,8 @@ describe('EntityManager', () => {
 
   describe('Entity State Management', () => {
     it('should toggle entity active state', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
+      await runTest((manager) =>
+        Effect.gen(function* () {
           const entityId = yield* manager.createEntity()
 
           yield* manager.setEntityActive(entityId, false)
@@ -491,9 +473,8 @@ describe('EntityManager', () => {
     })
 
     it('should clear all entities and reset state', async () => {
-      await runTest(
-        (manager) => Effect.gen(function* () {
-
+      await runTest((manager) =>
+        Effect.gen(function* () {
           // エンティティを作成
           for (let i = 0; i < 100; i++) {
             const id = yield* manager.createEntity()

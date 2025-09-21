@@ -19,15 +19,10 @@ export {
   type ComponentStorage,
   type Archetype,
   createArchetypeManager,
-  type ArchetypeManager
+  type ArchetypeManager,
 } from './Entity'
 export * from './EntityManager'
 export * from './System'
 export * from './SystemRegistry'
 // World.tsからのエクスポート（EntityIdとEntityMetadataは除外）
-export {
-  World,
-  WorldError,
-  WorldLive,
-  type WorldStats
-} from './World'
+export { World, WorldError, WorldLive, type WorldStats } from './World'
