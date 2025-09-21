@@ -90,9 +90,9 @@ describe('ChunkData', () => {
         [0, -64, 0, 0], // min Y at origin
         [0, 319, 0, 383], // max Y at origin
         [0, 0, 0, 64], // Y=0 at origin
-        [1, 0, 0, 64 + (0 * 384) + (1 * 384 * 16)], // X=1
-        [0, 0, 1, 64 + (1 * 384)], // Z=1
-        [15, 319, 15, 383 + (15 * 384) + (15 * 384 * 16)], // max coordinates
+        [1, 0, 0, 64 + 0 * 384 + 1 * 384 * 16], // X=1
+        [0, 0, 1, 64 + 1 * 384], // Z=1
+        [15, 319, 15, 383 + 15 * 384 + 15 * 384 * 16], // max coordinates
       ]
 
       testCases.forEach(([x, y, z, expectedIndex]) => {
@@ -250,7 +250,7 @@ describe('ChunkData', () => {
 
     it('should mark chunk as dirty and modified', async () => {
       // Add small delay to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 1))
+      await new Promise((resolve) => setTimeout(resolve, 1))
       const newChunk = setBlock(testChunk, 0, 0, 0, 1)
 
       expect(newChunk.isDirty).toBe(true)
@@ -274,7 +274,7 @@ describe('ChunkData', () => {
   describe('updateHeightMap', () => {
     it('should update height at specified coordinates', async () => {
       // Add small delay to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 1))
+      await new Promise((resolve) => setTimeout(resolve, 1))
       const newChunk = updateHeightMap(testChunk, 5, 10, 128)
 
       expect(getHeight(newChunk, 5, 10)).toBe(128)

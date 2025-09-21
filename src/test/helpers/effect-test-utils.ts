@@ -26,10 +26,7 @@ export const runEffectTest = async <A, E>(
 
   const fiber = Runtime.runFork(runtime)(effect)
   const result = await Runtime.runPromise(runtime)(
-    Effect.race(
-      Fiber.await(fiber),
-      Effect.delay(Effect.fail(new Error(`Test timeout after ${timeout}ms`)), timeout)
-    )
+    Effect.race(Fiber.await(fiber), Effect.delay(Effect.fail(new Error(`Test timeout after ${timeout}ms`)), timeout))
   )
 
   const duration = performance.now() - startTime
@@ -44,10 +41,7 @@ export const runEffectTest = async <A, E>(
 /**
  * Effect成功の型安全なアサーション
  */
-export const expectEffectSuccess = async <A, E>(
-  effect: Effect.Effect<A, E, never>,
-  timeout?: number
-): Promise<A> => {
+export const expectEffectSuccess = async <A, E>(effect: Effect.Effect<A, E, never>, timeout?: number): Promise<A> => {
   const testResult = await runEffectTest(effect, timeout)
 
   expect(Exit.isSuccess(testResult.result)).toBe(true)
@@ -62,10 +56,7 @@ export const expectEffectSuccess = async <A, E>(
 /**
  * Effect失敗の型安全なアサーション
  */
-export const expectEffectFailure = async <A, E>(
-  effect: Effect.Effect<A, E, never>,
-  timeout?: number
-): Promise<E> => {
+export const expectEffectFailure = async <A, E>(effect: Effect.Effect<A, E, never>, timeout?: number): Promise<E> => {
   const testResult = await runEffectTest(effect, timeout)
 
   expect(Exit.isFailure(testResult.result)).toBe(true)
@@ -120,9 +111,7 @@ export const expectEffectConcurrent = async <A, E>(
 ): Promise<ReadonlyArray<A>> => {
   const startTime = performance.now()
 
-  const results = await Promise.all(
-    effects.map(effect => expectEffectSuccess(effect, timeout))
-  )
+  const results = await Promise.all(effects.map((effect) => expectEffectSuccess(effect, timeout)))
 
   const duration = performance.now() - startTime
 
@@ -141,9 +130,7 @@ export const expectMatchPattern = <T, R>(
   patterns: Record<string, (val: T) => boolean>,
   expectedPattern: string
 ): void => {
-  const matchedPattern = Object.entries(patterns).find(([_, predicate]) =>
-    predicate(value)
-  )?.[0]
+  const matchedPattern = Object.entries(patterns).find(([_, predicate]) => predicate(value))?.[0]
 
   expect(matchedPattern).toBe(expectedPattern)
 }
@@ -166,10 +153,7 @@ export const expectNone = <A>(option: Option.Option<A>): void => {
 /**
  * Effect-TSエラーの型安全なテストヘルパー
  */
-export const expectErrorType = <E extends Error>(
-  error: unknown,
-  errorClass: new (...args: any[]) => E
-): E => {
+export const expectErrorType = <E extends Error>(error: unknown, errorClass: new (...args: any[]) => E): E => {
   expect(error).toBeInstanceOf(errorClass)
   return error as E
 }
@@ -181,9 +165,7 @@ export const expectResourceCleanup = async <A, E>(
   effect: Effect.Effect<A, E, Scope.Scope>,
   timeout?: number
 ): Promise<A> => {
-  return await Effect.runPromise(
-    Effect.scoped(effect)
-  )
+  return await Effect.runPromise(Effect.scoped(effect))
 }
 
 /**

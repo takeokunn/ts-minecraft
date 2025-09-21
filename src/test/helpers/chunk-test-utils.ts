@@ -5,7 +5,14 @@
 import { Effect } from 'effect'
 import { expect } from 'vitest'
 import { expectEffectSuccess, expectEffectFailure, testAllBranches } from './effect-test-utils.js'
-import { createChunkData, type ChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from '../../domain/chunk/ChunkData.js'
+import {
+  createChunkData,
+  type ChunkData,
+  CHUNK_SIZE,
+  CHUNK_HEIGHT,
+  CHUNK_MIN_Y,
+  CHUNK_MAX_Y,
+} from '../../domain/chunk/ChunkData.js'
 import { createChunk, type Chunk, ChunkBoundsError, ChunkSerializationError } from '../../domain/chunk/Chunk.js'
 import { type ChunkPosition } from '../../domain/chunk/ChunkPosition.js'
 
@@ -20,12 +27,7 @@ export interface ChunkTestDataOptions {
 }
 
 export const createTestChunkData = (options: ChunkTestDataOptions = {}): ChunkData => {
-  const {
-    position = { x: 0, z: 0 },
-    fillPattern = 'empty',
-    blockId = 1,
-    seed = 12345
-  } = options
+  const { position = { x: 0, z: 0 }, fillPattern = 'empty', blockId = 1, seed = 12345 } = options
 
   const chunkData = createChunkData(position)
 
@@ -100,10 +102,9 @@ export const testChunkOperationBoundaries = async (
         await expectEffectSuccess(chunk.setBlock(testCase.x, testCase.y, testCase.z, 1))
         break
       case 'fillRegion':
-        await expectEffectSuccess(chunk.fillRegion(
-          testCase.x, testCase.y, testCase.z,
-          testCase.x, testCase.y, testCase.z, 1
-        ))
+        await expectEffectSuccess(
+          chunk.fillRegion(testCase.x, testCase.y, testCase.z, testCase.x, testCase.y, testCase.z, 1)
+        )
         break
     }
   }
@@ -117,10 +118,9 @@ export const testChunkOperationBoundaries = async (
         await expectEffectFailure(chunk.setBlock(testCase.x, testCase.y, testCase.z, 1))
         break
       case 'fillRegion':
-        await expectEffectFailure(chunk.fillRegion(
-          testCase.x, testCase.y, testCase.z,
-          testCase.x, testCase.y, testCase.z, 1
-        ))
+        await expectEffectFailure(
+          chunk.fillRegion(testCase.x, testCase.y, testCase.z, testCase.x, testCase.y, testCase.z, 1)
+        )
         break
     }
   }
@@ -209,42 +209,62 @@ export const testFillRegionComprehensive = async (chunk: Chunk): Promise<void> =
   const testCases = [
     {
       name: 'single block',
-      startX: 0, startY: 0, startZ: 0,
-      endX: 0, endY: 0, endZ: 0,
+      startX: 0,
+      startY: 0,
+      startZ: 0,
+      endX: 0,
+      endY: 0,
+      endZ: 0,
       blockId: 5,
-      expectedResult: 'success' as const
+      expectedResult: 'success' as const,
     },
     {
       name: 'small region',
-      startX: 0, startY: 0, startZ: 0,
-      endX: 2, endY: 2, endZ: 2,
+      startX: 0,
+      startY: 0,
+      startZ: 0,
+      endX: 2,
+      endY: 2,
+      endZ: 2,
       blockId: 10,
-      expectedResult: 'success' as const
+      expectedResult: 'success' as const,
     },
     {
       name: 'invalid start coordinates',
-      startX: -1, startY: 0, startZ: 0,
-      endX: 5, endY: 5, endZ: 5,
+      startX: -1,
+      startY: 0,
+      startZ: 0,
+      endX: 5,
+      endY: 5,
+      endZ: 5,
       blockId: 1,
       expectedResult: 'failure' as const,
-      errorType: ChunkBoundsError
+      errorType: ChunkBoundsError,
     },
     {
       name: 'invalid end coordinates',
-      startX: 0, startY: 0, startZ: 0,
-      endX: CHUNK_SIZE, endY: 5, endZ: 5,
+      startX: 0,
+      startY: 0,
+      startZ: 0,
+      endX: CHUNK_SIZE,
+      endY: 5,
+      endZ: 5,
       blockId: 1,
       expectedResult: 'failure' as const,
-      errorType: ChunkBoundsError
-    }
+      errorType: ChunkBoundsError,
+    },
   ]
 
   for (const testCase of testCases) {
     if (testCase.expectedResult === 'success') {
       const result = await expectEffectSuccess(
         chunk.fillRegion(
-          testCase.startX, testCase.startY, testCase.startZ,
-          testCase.endX, testCase.endY, testCase.endZ,
+          testCase.startX,
+          testCase.startY,
+          testCase.startZ,
+          testCase.endX,
+          testCase.endY,
+          testCase.endZ,
           testCase.blockId
         )
       )
@@ -252,8 +272,12 @@ export const testFillRegionComprehensive = async (chunk: Chunk): Promise<void> =
     } else {
       const error = await expectEffectFailure(
         chunk.fillRegion(
-          testCase.startX, testCase.startY, testCase.startZ,
-          testCase.endX, testCase.endY, testCase.endZ,
+          testCase.startX,
+          testCase.startY,
+          testCase.startZ,
+          testCase.endX,
+          testCase.endY,
+          testCase.endZ,
           testCase.blockId
         )
       )
@@ -270,8 +294,8 @@ export const testFillRegionComprehensive = async (chunk: Chunk): Promise<void> =
 function seededRandom(seed: number): () => number {
   let current = seed
   return () => {
-    current = (current * 1664525 + 1013904223) % 2**32
-    return current / 2**32
+    current = (current * 1664525 + 1013904223) % 2 ** 32
+    return current / 2 ** 32
   }
 }
 

@@ -39,10 +39,7 @@ export const chunkPositionToId = (pos: ChunkPosition): string => `chunk_${pos.x}
 export const chunkIdToPosition = (id: string): Option.Option<ChunkPosition> =>
   Option.fromNullable(id.match(/^chunk_(-?\d+)_(-?\d+)$/)).pipe(
     Option.flatMap((match) =>
-      Option.all([
-        Option.fromNullable(match[1]),
-        Option.fromNullable(match[2])
-      ]).pipe(
+      Option.all([Option.fromNullable(match[1]), Option.fromNullable(match[2])]).pipe(
         Option.map(([xStr, zStr]) => ({
           x: parseInt(xStr, 10),
           z: parseInt(zStr, 10),

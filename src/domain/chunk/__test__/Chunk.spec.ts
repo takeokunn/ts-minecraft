@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect } from 'effect'
-import {
-  ChunkBoundsError,
-  ChunkSerializationError,
-  type Chunk,
-  createChunk,
-  createEmptyChunk,
-} from '../Chunk.js'
+import { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from '../Chunk.js'
 import { createChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from '../ChunkData.js'
 import type { ChunkPosition } from '../ChunkPosition.js'
 import {
@@ -14,7 +8,7 @@ import {
   expectEffectFailure,
   expectEffectFailureWith,
   testAllBranches,
-  expectErrorType
+  expectErrorType,
 } from '../../../test/helpers/effect-test-utils.js'
 import {
   createTestChunk,
@@ -26,7 +20,7 @@ import {
   testChunkClone,
   testFillRegionComprehensive,
   runComprehensiveChunkTests,
-  generateBoundaryTestCases
+  generateBoundaryTestCases,
 } from '../../../test/helpers/chunk-test-utils.js'
 
 describe('Chunk - 100% Coverage with Effect-TS', () => {
@@ -126,7 +120,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       for (let x = 0; x <= 2; x++) {
         for (let y = 0; y <= 2; y++) {
           for (let z = 0; z <= 2; z++) {
-            blockChecks.push(expectEffectSuccess(newChunk.getBlock(x, y, z)).then(id => expect(id).toBe(5)))
+            blockChecks.push(expectEffectSuccess(newChunk.getBlock(x, y, z)).then((id) => expect(id).toBe(5)))
           }
         }
       }
@@ -162,7 +156,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const testCases = [
         { buffer: new ArrayBuffer(0), name: 'empty buffer' },
         { buffer: new ArrayBuffer(10), name: 'too small buffer' },
-        { buffer: new ArrayBuffer(32), name: 'insufficient header size' }
+        { buffer: new ArrayBuffer(32), name: 'insufficient header size' },
       ]
 
       for (const testCase of testCases) {
@@ -236,7 +230,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const testCases = [
         { buffer: new ArrayBuffer(0), name: 'empty compressed data' },
         { buffer: new ArrayBuffer(3), name: 'incomplete RLE pair' },
-        { buffer: new ArrayBuffer(1), name: 'odd-sized buffer' }
+        { buffer: new ArrayBuffer(1), name: 'odd-sized buffer' },
       ]
 
       for (const testCase of testCases) {
@@ -265,7 +259,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const testCases = [
         { description: 'all zeros', chunk: createTestChunk({ fillPattern: 'empty' }) },
         { description: 'alternating pattern', chunk: createTestChunk({ fillPattern: 'pattern' }) },
-        { description: 'single non-zero block', chunk: createTestChunk({ fillPattern: 'empty' }) }
+        { description: 'single non-zero block', chunk: createTestChunk({ fillPattern: 'empty' }) },
       ]
 
       for (const testCase of testCases) {
@@ -327,7 +321,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
 
       // さまざまなパターンでのメモリ使用量テスト
       const patterns = ['empty', 'solid', 'random', 'pattern'] as const
-      patterns.forEach(pattern => {
+      patterns.forEach((pattern) => {
         const chunk = createTestChunk({ fillPattern: pattern, blockId: 5 })
         testChunkMemoryUsage(chunk)
       })
@@ -345,7 +339,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const chunk = createTestChunk({
         fillPattern: 'solid',
         blockId: 42,
-        position: { x: 10, z: -5 }
+        position: { x: 10, z: -5 },
       })
 
       const cloned = chunk.clone()
@@ -393,13 +387,13 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
         {
           name: 'deserialize invalid buffer',
           operation: () => testChunk.deserialize(new ArrayBuffer(5)),
-          errorType: ChunkSerializationError
+          errorType: ChunkSerializationError,
         },
         {
           name: 'decompress invalid data',
           operation: () => testChunk.decompress(new ArrayBuffer(3)),
-          errorType: ChunkSerializationError
-        }
+          errorType: ChunkSerializationError,
+        },
       ]
 
       for (const testCase of serializationTestCases) {
@@ -414,9 +408,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       expect(coordinateError.message).toContain('(-1, -2, -3)')
 
       // fillRegion の範囲エラーメッセージのテスト
-      const regionError = await expectEffectFailure(
-        testChunk.fillRegion(0, 0, 0, CHUNK_SIZE + 1, 0, 0, 1)
-      )
+      const regionError = await expectEffectFailure(testChunk.fillRegion(0, 0, 0, CHUNK_SIZE + 1, 0, 0, 1))
       expect(regionError.message).toContain('(0,0,0) to (17,0,0)')
     })
 
@@ -425,7 +417,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const extremeCoordinates = [
         [-1000, -1000, -1000],
         [1000, 1000, 1000],
-        [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]
+        [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
       ]
 
       for (const [x, y, z] of extremeCoordinates) {
@@ -449,10 +441,10 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
 
       // 並列での検証
       const verifications = await Promise.all([
-        expectEffectSuccess(chunk.getBlock(0, 0, 0)).then(id => expect(id).toBe(1)),
-        expectEffectSuccess(chunk.getBlock(1, 1, 1)).then(id => expect(id).toBe(2)),
-        expectEffectSuccess(chunk.getBlock(2, 2, 2)).then(id => expect(id).toBe(3)),
-        expectEffectSuccess(chunk.getBlock(6, 6, 6)).then(id => expect(id).toBe(9))
+        expectEffectSuccess(chunk.getBlock(0, 0, 0)).then((id) => expect(id).toBe(1)),
+        expectEffectSuccess(chunk.getBlock(1, 1, 1)).then((id) => expect(id).toBe(2)),
+        expectEffectSuccess(chunk.getBlock(2, 2, 2)).then((id) => expect(id).toBe(3)),
+        expectEffectSuccess(chunk.getBlock(6, 6, 6)).then((id) => expect(id).toBe(9)),
       ])
 
       // シリアライゼーション・ラウンドトリップテスト
@@ -460,8 +452,8 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       const deserialized = await expectEffectSuccess(chunk.deserialize(serialized))
 
       await Promise.all([
-        expectEffectSuccess(deserialized.getBlock(0, 0, 0)).then(id => expect(id).toBe(1)),
-        expectEffectSuccess(deserialized.getBlock(6, 6, 6)).then(id => expect(id).toBe(9))
+        expectEffectSuccess(deserialized.getBlock(0, 0, 0)).then((id) => expect(id).toBe(1)),
+        expectEffectSuccess(deserialized.getBlock(6, 6, 6)).then((id) => expect(id).toBe(9)),
       ])
     })
 
@@ -486,7 +478,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
         const x = i % CHUNK_SIZE
         const y = (i % 100) + CHUNK_MIN_Y // CHUNK_HEIGHT/10の代わり
         const z = (i * 2) % CHUNK_SIZE
-        chunk = await expectEffectSuccess(chunk.setBlock(x, y, z, i % 10 + 1))
+        chunk = await expectEffectSuccess(chunk.setBlock(x, y, z, (i % 10) + 1))
       }
 
       const end = performance.now()
@@ -502,11 +494,9 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
         testChunk.fillRegion(10, 10, 10, 12, 12, 12, 5),
       ]
 
-      const results = await Promise.all(
-        operations.map(op => expectEffectSuccess(op))
-      )
+      const results = await Promise.all(operations.map((op) => expectEffectSuccess(op)))
       expect(results).toHaveLength(4)
-      results.forEach(chunk => {
+      results.forEach((chunk) => {
         expect(chunk).toBeDefined()
         expect(chunk.isDirty).toBe(true)
       })
@@ -516,7 +506,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       // 最終的な100%カバレッジ確認
       const edgeCaseChunk = createTestChunk({
         fillPattern: 'pattern',
-        position: { x: -100, z: 200 }
+        position: { x: -100, z: 200 },
       })
 
       // 全メソッドの全分岐をテスト
@@ -559,7 +549,7 @@ describe('Chunk - 100% Coverage with Effect-TS', () => {
       expect(emptyChunk.position).toEqual(position)
       expect(emptyChunk.isEmpty()).toBe(true)
       expect(emptyChunk.isDirty).toBe(false)
-      expect(emptyChunk.blocks.every(block => block === 0)).toBe(true)
+      expect(emptyChunk.blocks.every((block) => block === 0)).toBe(true)
     })
 
     it('should create chunk that can be modified normally', async () => {

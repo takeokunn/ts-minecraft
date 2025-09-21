@@ -36,15 +36,17 @@ export interface ChunkData {
 /**
  * 座標検証のための境界チェック
  */
-const validateCoordinates = (x: number, y: number, z: number): Effect.Effect<{ x: number; y: number; z: number; normalizedY: number }, Error> => {
+const validateCoordinates = (
+  x: number,
+  y: number,
+  z: number
+): Effect.Effect<{ x: number; y: number; z: number; normalizedY: number }, Error> => {
   const normalizedY = y + 64
 
   return Match.value([x, z, normalizedY]).pipe(
     Match.when(
       ([x, z, normalizedY]) =>
-        x >= 0 && x < CHUNK_SIZE &&
-        z >= 0 && z < CHUNK_SIZE &&
-        normalizedY >= 0 && normalizedY < CHUNK_HEIGHT,
+        x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE && normalizedY >= 0 && normalizedY < CHUNK_HEIGHT,
       ([x, z, normalizedY]) => Effect.succeed({ x, y, z, normalizedY })
     ),
     Match.orElse(() => Effect.fail(new Error(`Invalid coordinates: (${x}, ${y}, ${z})`)))
@@ -59,9 +61,7 @@ const validateCoordinates = (x: number, y: number, z: number): Effect.Effect<{ x
 export const getBlockIndex = (x: number, y: number, z: number): number => {
   return Effect.runSync(
     validateCoordinates(x, y, z).pipe(
-      Effect.map(({ normalizedY }) =>
-        normalizedY + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
-      )
+      Effect.map(({ normalizedY }) => normalizedY + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
     )
   )
 }

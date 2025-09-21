@@ -58,11 +58,26 @@ describe('ChunkPosition', () => {
   describe('chunkToBlockCoords', () => {
     it('should convert chunk coordinates to block coordinates correctly', () => {
       const testCases: Array<[ChunkPosition, { startX: number; startZ: number }]> = [
-        [{ x: 0, z: 0 }, { startX: 0, startZ: 0 }],
-        [{ x: 1, z: 1 }, { startX: 16, startZ: 16 }],
-        [{ x: -1, z: -1 }, { startX: -16, startZ: -16 }],
-        [{ x: 10, z: -5 }, { startX: 160, startZ: -80 }],
-        [{ x: -100, z: 200 }, { startX: -1600, startZ: 3200 }],
+        [
+          { x: 0, z: 0 },
+          { startX: 0, startZ: 0 },
+        ],
+        [
+          { x: 1, z: 1 },
+          { startX: 16, startZ: 16 },
+        ],
+        [
+          { x: -1, z: -1 },
+          { startX: -16, startZ: -16 },
+        ],
+        [
+          { x: 10, z: -5 },
+          { startX: 160, startZ: -80 },
+        ],
+        [
+          { x: -100, z: 200 },
+          { startX: -1600, startZ: 3200 },
+        ],
       ]
 
       testCases.forEach(([chunkPos, expected]) => {
@@ -73,8 +88,14 @@ describe('ChunkPosition', () => {
 
     it('should handle edge cases', () => {
       const edgeCases: Array<[ChunkPosition, { startX: number; startZ: number }]> = [
-        [{ x: Number.MAX_SAFE_INTEGER, z: 0 }, { startX: Number.MAX_SAFE_INTEGER * 16, startZ: 0 }],
-        [{ x: Number.MIN_SAFE_INTEGER, z: 0 }, { startX: Number.MIN_SAFE_INTEGER * 16, startZ: 0 }],
+        [
+          { x: Number.MAX_SAFE_INTEGER, z: 0 },
+          { startX: Number.MAX_SAFE_INTEGER * 16, startZ: 0 },
+        ],
+        [
+          { x: Number.MIN_SAFE_INTEGER, z: 0 },
+          { startX: Number.MIN_SAFE_INTEGER * 16, startZ: 0 },
+        ],
       ]
 
       edgeCases.forEach(([chunkPos, expected]) => {
@@ -216,9 +237,18 @@ describe('ChunkPosition', () => {
   describe('chunkPositionEquals', () => {
     it('should return true for equal positions', () => {
       const testCases: Array<[ChunkPosition, ChunkPosition]> = [
-        [{ x: 0, z: 0 }, { x: 0, z: 0 }],
-        [{ x: 5, z: -3 }, { x: 5, z: -3 }],
-        [{ x: -100, z: 200 }, { x: -100, z: 200 }],
+        [
+          { x: 0, z: 0 },
+          { x: 0, z: 0 },
+        ],
+        [
+          { x: 5, z: -3 },
+          { x: 5, z: -3 },
+        ],
+        [
+          { x: -100, z: 200 },
+          { x: -100, z: 200 },
+        ],
       ]
 
       testCases.forEach(([pos1, pos2]) => {
@@ -229,10 +259,22 @@ describe('ChunkPosition', () => {
 
     it('should return false for different positions', () => {
       const testCases: Array<[ChunkPosition, ChunkPosition]> = [
-        [{ x: 0, z: 0 }, { x: 0, z: 1 }],
-        [{ x: 0, z: 0 }, { x: 1, z: 0 }],
-        [{ x: 5, z: -3 }, { x: -5, z: 3 }],
-        [{ x: 100, z: 200 }, { x: 200, z: 100 }],
+        [
+          { x: 0, z: 0 },
+          { x: 0, z: 1 },
+        ],
+        [
+          { x: 0, z: 0 },
+          { x: 1, z: 0 },
+        ],
+        [
+          { x: 5, z: -3 },
+          { x: -5, z: 3 },
+        ],
+        [
+          { x: 100, z: 200 },
+          { x: 200, z: 100 },
+        ],
       ]
 
       testCases.forEach(([pos1, pos2]) => {
@@ -274,9 +316,18 @@ describe('ChunkPosition', () => {
 
     it('should be commutative', () => {
       const testCases: Array<[ChunkPosition, ChunkPosition]> = [
-        [{ x: 0, z: 0 }, { x: 5, z: 3 }],
-        [{ x: -10, z: 15 }, { x: 20, z: -5 }],
-        [{ x: 100, z: -200 }, { x: -300, z: 400 }],
+        [
+          { x: 0, z: 0 },
+          { x: 5, z: 3 },
+        ],
+        [
+          { x: -10, z: 15 },
+          { x: 20, z: -5 },
+        ],
+        [
+          { x: 100, z: -200 },
+          { x: -300, z: 400 },
+        ],
       ]
 
       testCases.forEach(([pos1, pos2]) => {
@@ -300,9 +351,18 @@ describe('ChunkPosition', () => {
 
     it('should always return non-negative values', () => {
       const testCases: Array<[ChunkPosition, ChunkPosition]> = [
-        [{ x: 0, z: 0 }, { x: -5, z: -3 }],
-        [{ x: -10, z: -15 }, { x: 20, z: 5 }],
-        [{ x: 100, z: -200 }, { x: -300, z: 400 }],
+        [
+          { x: 0, z: 0 },
+          { x: -5, z: -3 },
+        ],
+        [
+          { x: -10, z: -15 },
+          { x: 20, z: 5 },
+        ],
+        [
+          { x: 100, z: -200 },
+          { x: -300, z: 400 },
+        ],
       ]
 
       testCases.forEach(([pos1, pos2]) => {
