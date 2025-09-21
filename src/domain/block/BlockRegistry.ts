@@ -78,31 +78,37 @@ export const BlockRegistryLive = Effect.gen(function* () {
     getBlocksByCategory: (category: BlockCategory) =>
       Effect.gen(function* () {
         const blockIds = categoryIndex.get(category) ?? new Set()
-        const blocks: BlockType[] = []
-
-        for (const id of blockIds) {
-          const block = HashMap.get(blockMap, id)
-          if (Option.isSome(block)) {
-            blocks.push(block.value)
-          }
-        }
-
-        return EffectArray.fromIterable(blocks)
+        
+        return pipe(
+          EffectArray.fromIterable(Array.from(blockIds)),
+          EffectArray.filterMap((id) =>
+            pipe(
+              HashMap.get(blockMap, id),
+              Option.match({
+                onNone: () => Option.none(),
+                onSome: (block) => Option.some(block)
+              })
+            )
+          )
+        )
       }),
 
     getBlocksByTag: (tag: string) =>
       Effect.gen(function* () {
         const blockIds = tagIndex.get(tag) ?? new Set()
-        const blocks: BlockType[] = []
-
-        for (const id of blockIds) {
-          const block = HashMap.get(blockMap, id)
-          if (Option.isSome(block)) {
-            blocks.push(block.value)
-          }
-        }
-
-        return EffectArray.fromIterable(blocks)
+        
+        return pipe(
+          EffectArray.fromIterable(Array.from(blockIds)),
+          EffectArray.filterMap((id) =>
+            pipe(
+              HashMap.get(blockMap, id),
+              Option.match({
+                onNone: () => Option.none(),
+                onSome: (block) => Option.some(block)
+              })
+            )
+          )
+        )
       }),
 
     searchBlocks: (query: string) =>

@@ -37,7 +37,7 @@ describe('BlockType', () => {
 
   describe('ToolTypeSchema', () => {
     it('有効なツールタイプを検証できる', () => {
-      const validTools = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword']
+      const validTools = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
 
       validTools.forEach(tool => {
         const result = Schema.decodeEither(ToolTypeSchema)(tool)
@@ -49,7 +49,7 @@ describe('BlockType', () => {
     })
 
     it('無効なツールタイプを拒否する', () => {
-      const result = Schema.decodeEither(ToolTypeSchema)('invalid_tool')
+      const result = Schema.decodeEither(ToolTypeSchema)('invalid_tool' as any)
       expect(Either.isLeft(result)).toBe(true)
     })
   })

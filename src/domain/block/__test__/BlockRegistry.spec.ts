@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect, Option, Either, pipe, Match, Exit } from 'effect'
+import { Effect, Option, pipe, Match } from 'effect'
 import {
   BlockNotFoundError,
   BlockAlreadyRegisteredError,
@@ -7,41 +7,19 @@ import {
   type BlockRegistry,
 } from '../BlockRegistry'
 import type { BlockType } from '../BlockType'
-import { createDefaultPhysics, createDefaultSound } from '../BlockType'
+import {
+  runSuccessful,
+  expectSuccess,
+  expectFailure,
+  createTestBlock,
+  assertBlockExists,
+  assertBlockCount,
+  expectBlockToMatch
+} from './test-helpers'
 
-// Effect-TS用のテストヘルパー
-const runEffect = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(Effect.either(effect))
-
-const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(effect)
-
-const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
-  const result = await runEffect(effect)
-  expect(Either.isRight(result)).toBe(true)
-  return Either.isRight(result) ? result.right : undefined
-}
-
-const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
-  const result = await runEffect(effect)
-  expect(Either.isLeft(result)).toBe(true)
-  return Either.isLeft(result) ? result.left : undefined
-}
-
-// 共通テストデータ
-const createTestBlock = (id: string, category: BlockType['category'], tags: string[] = []): BlockType => ({
-  id,
-  name: `Test ${id}`,
-  category,
-  texture: id,
-  physics: createDefaultPhysics(),
-  tool: 'none',
-  minToolLevel: 0,
-  drops: [],
-  sound: createDefaultSound(),
-  stackSize: 64,
-  tags,
-})
+// Effect-TS パターンでのテストデータ生成
+const createBlockWithDefaults = (overrides: Partial<BlockType>) =>
+  Effect.succeed(createTestBlock(overrides))
 
 describe('BlockRegistry', () => {
   let registry: BlockRegistry
