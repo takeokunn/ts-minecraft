@@ -34,3 +34,55 @@ export {
 
 // チャンクインターフェース関連
 export { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from './Chunk.js'
+
+// チャンクマネージャー関連
+export {
+  ChunkManager,
+  ChunkManagerLive,
+  createChunkManager,
+  defaultChunkManagerConfig,
+  type ChunkManagerConfig,
+  type ChunkManagerState,
+  type LRUCacheState,
+  createLRUCache,
+  lruGet,
+  lruPut,
+  chunkPositionToKey,
+  worldToChunkPosition,
+  chunkDistance,
+  generateLoadOrder,
+} from './ChunkManager.js'
+
+// チャンクローダー関連
+export {
+  ChunkLoader,
+  ChunkLoaderLive,
+  createChunkLoader,
+  defaultChunkLoaderConfig,
+  type ChunkLoaderConfig,
+  type ChunkLoadRequest,
+  type ChunkLoadPriority,
+  type ChunkLoadState,
+  calculatePriorityScore,
+  sortRequestsByPriority,
+  createChunkLoadRequest,
+  chunkLoadRequestToKey,
+  isLoadExpired,
+} from './ChunkLoader.js'
+
+// 描画距離管理関連
+export {
+  ViewDistance,
+  ViewDistanceLive,
+  createViewDistance,
+  defaultViewDistanceConfig,
+  type ViewDistanceConfig,
+  type PerformanceMetrics,
+  type ViewDistanceEvent,
+  type ViewDistanceAdjustmentReason,
+  calculateAverageMetrics,
+  analyzePerformanceTrend,
+  calculateOptimalViewDistance,
+  getVisibleChunkPositions,
+  calculateChunkPriority,
+} from './ViewDistance.js'
