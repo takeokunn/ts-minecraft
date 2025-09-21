@@ -445,6 +445,53 @@ describe('ThirdPersonCamera', () => {
         return true
       }).pipe(Effect.provide(TestLayer))
     )
+
+    it.effect('should preserve third-person mode when switching from first-person (lines 207-212)', () =>
+      Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person',
+        })
+
+        // Verify initial mode
+        const initialConfig = yield* service.getConfig()
+        if (initialConfig.mode !== 'third-person') {
+          return yield* Effect.fail(new Error('Initial mode should be third-person'))
+        }
+
+        // Update settings while in third-person mode
+        yield* service.setFOV(70)
+        yield* service.setSensitivity(3.0)
+        yield* service.setThirdPersonDistance(8.0)
+
+        // Try to switch to first-person - this should be ignored by third-person camera
+        yield* service.switchMode('first-person')
+
+        // Get updated config
+        const updatedConfig = yield* service.getConfig()
+
+        // Third-person mode should be preserved (matches behavior in lines 207-212)
+        if (updatedConfig.mode !== 'third-person') {
+          return yield* Effect.fail(new Error('Third-person camera should preserve third-person mode even when first-person is requested'))
+        }
+
+        // Other settings should be updated
+        if (updatedConfig.fov !== 70) {
+          return yield* Effect.fail(new Error(`Expected FOV 70, got ${updatedConfig.fov}`))
+        }
+
+        if (updatedConfig.sensitivity !== 3.0) {
+          return yield* Effect.fail(new Error(`Expected sensitivity 3.0, got ${updatedConfig.sensitivity}`))
+        }
+
+        if (updatedConfig.thirdPersonDistance !== 8.0) {
+          return yield* Effect.fail(new Error(`Expected third-person distance 8.0, got ${updatedConfig.thirdPersonDistance}`))
+        }
+
+        return true
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Camera Reset and Disposal', () => {

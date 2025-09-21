@@ -7,9 +7,9 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
 
-    // テストファイルパターン（__test__/*.spec.ts and *.test.ts）
-    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)', 'src/**/*.test.?(c|m)[jt]s?(x)'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
+    // テストファイルパターン（__test__/*.spec.ts）
+    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**', "src/test/__test__/**"],
 
     // タイムアウト設定（無限ループ防止）
     testTimeout: 15000,

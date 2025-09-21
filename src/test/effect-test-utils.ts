@@ -1,10 +1,13 @@
 /**
- * Effect-TS 最新テストユーティリティ v3 - Context7準拠理想系パターン
+ * Effect-TS 最新テストユーティリティ v4 - @effect/vitest v0.25.1準拠理想系パターン
  *
- * @effect/vitestとEffect 3.17+の最新機能を完全活用
+ * Context7最新パターンに基づく@effect/vitestとEffect 3.17+の完全活用
+ * it.effect, it.live, it.scoped, it.flakyTestの統合サポート
  * 100%カバレッジ達成とProperty-basedテスト統合
  */
 
+// @effect/vitest統合 - Context7準拠
+import { it, expect } from '@effect/vitest'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as TestClock from 'effect/TestClock'
@@ -28,6 +31,9 @@ import * as Arbitrary from '@effect/schema/Arbitrary'
 import * as FastCheck from '@effect/schema/FastCheck'
 import { pipe } from 'effect/Function'
 import * as fc from 'fast-check'
+
+// @effect/vitestエクスポート - 直接it.effect使用推奨
+export { it, expect } from '@effect/vitest'
 
 // ================================================================================
 // Type Definitions - Schema-First Approach
@@ -70,56 +76,69 @@ export const PerformanceMetricsSchema = Schema.Struct({
 export type PerformanceMetrics = typeof PerformanceMetricsSchema.Type
 
 // ================================================================================
-// Core Test Runners - @effect/vitest Integration
+// Core Test Runners - @effect/vitest v0.25.1 Integration
 // ================================================================================
 
 /**
- * 最新Effect-TSテストランナー - @effect/vitest統合
+ * @effect/vitest最新テストランナー - Context7準拠
+ *
+ * 推奨使用パターン:
+ * 1. it.effect - 標準テスト（TestContext環境）
+ * 2. it.live - ライブ環境テスト
+ * 3. it.scoped - Scope管理テスト
+ * 4. it.flakyTest - フレイキーテスト対応
  */
 export const EffectTestRunner = {
   /**
-   * 基本的なEffect実行 - it.effect互換
+   * it.effect - 標準Effect実行パターン
+   * TestContext環境で決定論的実行
+   */
+  effect: <A, E>(effect: Effect.Effect<A, E>) => effect,
+
+  /**
+   * it.live - ライブ環境実行パターン
+   * 実際のSystem Clock/Random使用
+   */
+  live: <A, E>(effect: Effect.Effect<A, E>) => effect,
+
+  /**
+   * it.scoped - スコープ管理実行パターン
+   * リソース自動管理
+   */
+  scoped: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) => effect,
+
+  /**
+   * it.flakyTest - フレイキーテスト対応
+   * 指定タイムアウトまでリトライ
+   */
+  flakyTest: <A, E, R>(effect: Effect.Effect<A, E, R>, timeout: Duration.DurationInput = '5 seconds') =>
+    it.flakyTest(effect, timeout),
+
+  /**
+   * レガシー対応: 従来のrunPromise実行
    */
   run: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
 
   /**
-   * 同期的なEffect実行
+   * レガシー対応: 同期実行
    */
   runSync: <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(effect),
 
   /**
-   * Exit値を取得 - it.effect内でExitテスト用
+   * Exit値テスト - it.effect内で使用
    */
-  runExit: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect),
+  runExit: <A, E>(effect: Effect.Effect<A, E>) => Effect.exit(effect),
 
   /**
-   * TestContext環境での実行 - it.effect内でTestClock/TestRandom使用
+   * TestContext明示的提供 - it.effect内で使用
    */
   runWithTestContext: <A, E>(effect: Effect.Effect<A, E>) =>
-    pipe(effect, Effect.provide(TestContext.TestContext), Effect.runPromise),
+    pipe(effect, Effect.provide(TestContext.TestContext)),
 
   /**
-   * Scoped環境での実行 - it.scoped互換
+   * ライブ環境明示的実行 - it.live内で使用
    */
-  runScoped: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) => pipe(effect, Effect.scoped, Effect.runPromise),
-
-  /**
-   * フレイキーテスト対応 - @effect/vitestのit.flakyTest統合
-   */
-  runFlaky: <A, E, R>(effect: Effect.Effect<A, E, R>, timeout: Duration.DurationInput = '5 seconds') => {
-    const schedule = Schedule.exponential('100 millis')
-    const retryEffect = pipe(
-      effect,
-      Effect.retry(pipe(schedule, Schedule.upTo(Duration.decode(timeout)))),
-      Effect.provide(TestContext.TestContext)
-    ) as Effect.Effect<A, E, never>
-    return Effect.runPromise(retryEffect)
-  },
-
-  /**
-   * ライブ環境での実行 - it.live互換
-   */
-  runLive: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
+  runLive: <A, E>(effect: Effect.Effect<A, E>) => effect,
 }
 
 // ================================================================================

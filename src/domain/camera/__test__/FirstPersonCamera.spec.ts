@@ -456,6 +456,50 @@ describe('FirstPersonCamera', () => {
         return true
       }).pipe(Effect.provide(TestLayer))
     )
+
+    it.effect('should preserve first-person mode when individually updating settings (lines 155-160)', () =>
+      Effect.gen(function* () {
+        const service = yield* CameraService
+        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+
+        // Verify initial mode
+        const initialConfig = yield* service.getConfig()
+        if (initialConfig.mode !== 'first-person') {
+          return yield* Effect.fail(new Error('Initial mode should be first-person'))
+        }
+
+        // Update individual settings - these should work
+        yield* service.setFOV(85)
+        yield* service.setSensitivity(2.5)
+        yield* service.setSmoothing(0.8)
+
+        // Try to switch to third-person - this should be ignored
+        yield* service.switchMode('third-person')
+
+        // Get updated config
+        const updatedConfig = yield* service.getConfig()
+
+        // First-person mode should be preserved (matches behavior in lines 155-160)
+        if (updatedConfig.mode !== 'first-person') {
+          return yield* Effect.fail(new Error('First-person camera should preserve first-person mode even when third-person is requested'))
+        }
+
+        // Other settings should be updated
+        if (updatedConfig.fov !== 85) {
+          return yield* Effect.fail(new Error(`Expected FOV 85, got ${updatedConfig.fov}`))
+        }
+
+        if (updatedConfig.sensitivity !== 2.5) {
+          return yield* Effect.fail(new Error(`Expected sensitivity 2.5, got ${updatedConfig.sensitivity}`))
+        }
+
+        if (updatedConfig.smoothing !== 0.8) {
+          return yield* Effect.fail(new Error(`Expected smoothing 0.8, got ${updatedConfig.smoothing}`))
+        }
+
+        return true
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Camera Reset and Disposal', () => {

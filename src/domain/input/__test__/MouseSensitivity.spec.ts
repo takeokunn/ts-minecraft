@@ -898,5 +898,138 @@ describe('MouseSensitivity', () => {
         appliedSensitivity: 1.2,
       })
     })
+
+    // ========================================
+    // Phase 2: カーブ補間エッジケースカバレッジテスト
+    // ========================================
+
+    describe('Curve Interpolation Edge Cases (Phase 2)', () => {
+      it.effect('最後のセグメントに到達したときの処理をテスト (lines 164-170)', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          // カーブ補間の最後のセグメントに達するテストケース
+          const configWithCurve: MouseSensitivityConfig = {
+            xSensitivity: 2.0,
+            ySensitivity: 2.0,
+            globalMultiplier: 1.0,
+            accelerationCurve: [0.1, 0.5, 1.0], // 3ポイントのカーブ
+            enableAcceleration: true,
+          }
+
+          yield* mouseSensitivity.setConfig(configWithCurve)
+
+          // 最大入力値（1.0）でテスト - これによりsegmentIndex >= points.length - 1がトリガーされる
+          const maxDelta: MouseDelta = {
+            deltaX: 100, // 大きな値で正規化後に1.0になるように
+            deltaY: 100,
+            timestamp: Date.now(),
+          }
+
+          const result = yield* mouseSensitivity.applySensitivity(maxDelta)
+
+          // 最後のポイント (1.0) が使用されることを確認
+          expect(result.deltaX).toBeGreaterThan(maxDelta.deltaX)
+          expect(result.deltaY).toBeGreaterThan(maxDelta.deltaY)
+          expect(result.originalDeltaX).toBe(maxDelta.deltaX)
+          expect(result.originalDeltaY).toBe(maxDelta.deltaY)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('カーブポイントが null の場合のフォールバック処理をテスト', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          // 最後のポイントが undefined/null になりうるエッジケース
+          const edgeCaseConfig: MouseSensitivityConfig = {
+            xSensitivity: 1.5,
+            ySensitivity: 1.5,
+            globalMultiplier: 1.0,
+            accelerationCurve: [0.2, 0.8], // 2ポイントのカーブ（より最後のセグメントに到達しやすい）
+            enableAcceleration: true,
+          }
+
+          yield* mouseSensitivity.setConfig(edgeCaseConfig)
+
+          // 境界値テスト - 最後のセグメントの計算
+          const boundaryDelta: MouseDelta = {
+            deltaX: 50, // 中程度の値
+            deltaY: -50,
+            timestamp: Date.now(),
+          }
+
+          const result = yield* mouseSensitivity.applySensitivity(boundaryDelta)
+
+          // Option.fromNullable(points[points.length - 1]) の処理確認
+          expect(result.deltaX).not.toBe(0)
+          expect(result.deltaY).not.toBe(0)
+          expect(result.originalDeltaX).toBe(boundaryDelta.deltaX)
+          expect(result.originalDeltaY).toBe(boundaryDelta.deltaY)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('segmentIndex境界条件での onNone/onSome パス検証', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          // 単一ポイントカーブで Option.match の onNone/onSome を確実にテスト
+          const singlePointConfig: MouseSensitivityConfig = {
+            xSensitivity: 3.0,
+            ySensitivity: 3.0,
+            globalMultiplier: 1.0,
+            accelerationCurve: [1.0], // 単一ポイント
+            enableAcceleration: true,
+          }
+
+          yield* mouseSensitivity.setConfig(singlePointConfig)
+
+          // 単一ポイントカーブでの処理確認
+          const testDelta: MouseDelta = {
+            deltaX: 25,
+            deltaY: -25,
+            timestamp: Date.now(),
+          }
+
+          const result = yield* mouseSensitivity.applySensitivity(testDelta)
+
+          // onSome パス: sign * lastPoint が適用される
+          expect(result.deltaX).toBe(testDelta.deltaX * 3.0 * 1.0) // deltaX * xSensitivity * lastPoint
+          expect(result.deltaY).toBe(testDelta.deltaY * 3.0 * 1.0) // deltaY * ySensitivity * lastPoint
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('正規化された入力値=1.0での最終セグメント処理', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          // 複数ポイントカーブでの境界値テスト
+          const multiPointConfig: MouseSensitivityConfig = {
+            xSensitivity: 1.0,
+            ySensitivity: 1.0,
+            globalMultiplier: 2.0,
+            accelerationCurve: [0.25, 0.5, 0.75, 1.0], // 4ポイントカーブ
+            enableAcceleration: true,
+          }
+
+          yield* mouseSensitivity.setConfig(multiPointConfig)
+
+          // 完全に最大化された入力（normalizedInput = 1.0）
+          const maximalDelta: MouseDelta = {
+            deltaX: 200, // 十分大きな値
+            deltaY: 200,
+            timestamp: Date.now(),
+          }
+
+          const result = yield* mouseSensitivity.applySensitivity(maximalDelta)
+
+          // segmentIndex >= points.length - 1 の条件に達し、最後のポイント(1.0)が適用される
+          expect(result.deltaX).toBe(maximalDelta.deltaX * 1.0 * 2.0 * 1.0)
+          expect(result.deltaY).toBe(maximalDelta.deltaY * 1.0 * 2.0 * 1.0)
+
+          // lines 164-170 のパスが実行されたことを間接的に確認
+          expect(result.appliedSensitivity).toBe(2.0) // globalMultiplier
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
   })
 })

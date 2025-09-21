@@ -1,15 +1,18 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { defaultConfig, validateConfig, loadConfig } from '../index'
+import { expectEffectSuccess, expectSchemaSuccess, expectPerformanceTest } from '../../test/helpers/effect-test-utils.js'
 
 describe('Config Module', () => {
   describe('defaultConfig', () => {
-    it('should have correct default values', () => {
-      expect(defaultConfig.debug).toBe(false)
-      expect(defaultConfig.fps).toBe(60)
-      expect(defaultConfig.memoryLimit).toBe(2048)
-    })
+    it.effect('should have correct default values', () =>
+      Effect.gen(function* () {
+        expect(defaultConfig.debug).toBe(false)
+        expect(defaultConfig.fps).toBe(60)
+        expect(defaultConfig.memoryLimit).toBe(2048)
+      })
+    )
   })
 
   describe('validateConfig', () => {
@@ -112,6 +115,37 @@ describe('Config Module', () => {
 
         expect(result.configLoaded).toBe(true)
         expect(result.fps).toBe(60)
+      })
+    )
+
+    it.effect('should maintain performance <50ms for config loading', () =>
+      Effect.gen(function* () {
+        const start = performance.now()
+        const config = yield* loadConfig
+        const duration = performance.now() - start
+
+        expect(config.fps).toBe(60)
+        expect(config.debug).toBe(false)
+        expect(duration).toBeLessThan(50) // <50ms requirement
+      })
+    )
+  })
+
+  describe('Phase 3: Config Schema Validation', () => {
+    const ConfigSchema = Schema.Struct({
+      debug: Schema.Boolean,
+      fps: Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThanOrEqualTo(120)),
+      memoryLimit: Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThanOrEqualTo(2048)),
+    })
+
+    it.effect('should validate config with schema-based testing', () =>
+      Effect.gen(function* () {
+        const config = yield* loadConfig
+        const validatedConfig = expectSchemaSuccess(ConfigSchema, config)
+
+        expect(validatedConfig.debug).toBe(false)
+        expect(validatedConfig.fps).toBe(60)
+        expect(validatedConfig.memoryLimit).toBe(2048)
       })
     )
   })

@@ -385,50 +385,45 @@ describe('BlockRegistry', () => {
     )
   })
 
-  describe('外部API関数（行200-203, 207-210直接テスト）', () => {
-    it.effect('外部API関数テスト - 統合シナリオで行200-203, 207-210をカバー', () =>
+  describe('外部API関数（行202-206, 209-213直接テスト）', () => {
+    it.effect('外部API関数テスト - registerBlock（行202-206）とisBlockRegistered（行209-213）', () =>
       Effect.gen(function* () {
-        const registry = yield* BlockRegistry
         /*
-         * このテストケースは以下の未カバー行をテストします：
+         * このテストケースは以下の未カバー関数をテストします：
          *
-         * 行200-203: registerBlock外部API関数
+         * 行202-206: registerBlock外部API関数
          * export const registerBlock = (block: BlockType) =>
          *   Effect.gen(function* () {
          *     const registry = yield* BlockRegistry
          *     return yield* registry.registerBlock(block)
          *   })
          *
-         * 行207-210: isBlockRegistered外部API関数
+         * 行209-213: isBlockRegistered外部API関数
          * export const isBlockRegistered = (id: string) =>
          *   Effect.gen(function* () {
          *     const registry = yield* BlockRegistry
          *     return yield* registry.isBlockRegistered(id)
          *   })
-         *
-         * 注意: これらの外部API関数は内部でregistry.registerBlockとregistry.isBlockRegisteredを
-         * 呼び出すため、既存のテストで間接的にカバーされる可能性がありますが、
-         * このテストにより外部API関数自体が直接実行されることを保証します。
          */
 
-        const testBlock = createTestBlock({ id: 'coverage_test', category: 'natural' })
+        const testBlock = createTestBlock({ id: 'api_coverage_test', category: 'natural' })
 
-        // registerBlock外部API関数（行200-203）をテスト
-        yield* registry.registerBlock(testBlock)
+        // registerBlock外部API関数（行202-206）を直接テスト
+        yield* registerBlock(testBlock)
 
-        // isBlockRegistered外部API関数（行207-210）をテスト
-        const isRegistered = yield* registry.isBlockRegistered('coverage_test')
+        // isBlockRegistered外部API関数（行209-213）を直接テスト
+        const isRegistered = yield* isBlockRegistered('api_coverage_test')
         expect(isRegistered).toBe(true)
 
         // 追加で別のブロックでも確認
-        const testBlock2 = createTestBlock({ id: 'coverage_test_2', category: 'building' })
-        yield* registry.registerBlock(testBlock2)
+        const testBlock2 = createTestBlock({ id: 'api_coverage_test_2', category: 'building' })
+        yield* registerBlock(testBlock2)
 
-        const isRegistered2 = yield* registry.isBlockRegistered('coverage_test_2')
+        const isRegistered2 = yield* isBlockRegistered('api_coverage_test_2')
         expect(isRegistered2).toBe(true)
 
         // 存在しないブロックの確認
-        const doesNotExist = yield* registry.isBlockRegistered('non_existent_coverage_test')
+        const doesNotExist = yield* isBlockRegistered('non_existent_api_coverage_test')
         expect(doesNotExist).toBe(false)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -568,6 +563,71 @@ describe('BlockRegistry', () => {
         expect(tag1Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
         expect(tag2Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
         expect(tag3Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
+  })
+
+  describe('新しいカテゴリー登録のカバレッジ改善（行146-147）', () => {
+    it.effect('完全に新しいカテゴリーでブロックを登録できる', () =>
+      Effect.gen(function* () {
+        const registry = yield* BlockRegistry
+
+        // 新しいカテゴリー「experiment」でブロックを作成
+        const experimentalBlock = createTestBlock({
+          id: 'experimental_block',
+          category: 'experiment' as any, // 新しいカテゴリー
+          tags: ['experimental', 'new_category']
+        })
+
+        // registerBlock内でcategoryIndex.set()が呼ばれる（行146-147）
+        yield* registry.registerBlock(experimentalBlock)
+
+        // 新しいカテゴリーで検索できることを確認
+        const experimentBlocks = yield* registry.getBlocksByCategory('experiment' as any)
+        expect(experimentBlocks.length).toBe(1)
+        expect(experimentBlocks[0]?.id).toBe('experimental_block')
+
+        // 登録されたブロックの詳細確認
+        const registeredBlock = yield* registry.getBlock('experimental_block')
+        expect(registeredBlock.category).toBe('experiment')
+        expect(registeredBlock.tags).toContain('experimental')
+        expect(registeredBlock.tags).toContain('new_category')
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
+
+    it.effect('複数の新しいカテゴリーでブロックを登録できる', () =>
+      Effect.gen(function* () {
+        const registry = yield* BlockRegistry
+
+        // 複数の新カテゴリーでブロックを作成
+        const techBlock = createTestBlock({
+          id: 'tech_block',
+          category: 'technology' as any
+        })
+
+        const magicBlock = createTestBlock({
+          id: 'magic_block',
+          category: 'magic' as any,
+          tags: ['magical', 'rare']
+        })
+
+        // 各ブロックの登録（新しいカテゴリーインデックス作成）
+        yield* registry.registerBlock(techBlock)
+        yield* registry.registerBlock(magicBlock)
+
+        // 各カテゴリーで検索できることを確認
+        const techBlocks = yield* registry.getBlocksByCategory('technology' as any)
+        expect(techBlocks.length).toBe(1)
+        expect(techBlocks[0]?.id).toBe('tech_block')
+
+        const magicBlocks = yield* registry.getBlocksByCategory('magic' as any)
+        expect(magicBlocks.length).toBe(1)
+        expect(magicBlocks[0]?.id).toBe('magic_block')
+
+        // タグ検索も正しく動作することを確認
+        const magicalBlocks = yield* registry.getBlocksByTag('magical')
+        expect(magicalBlocks.length).toBe(1)
+        expect(magicalBlocks[0]?.id).toBe('magic_block')
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
