@@ -1,0 +1,910 @@
+name: 🤖 AI実行計画書 - 詳細実装Issue
+description: ROADMAP由来の詳細実装計画書（AI Agent単独実装可能レベル）
+title: "[EXECUTION] "
+labels: ["type: feature", "ai-ready", "execution-plan"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎯 AI Agent実行計画書
+
+        > **💡 このテンプレートは、ROADMAPから詳細実装計画書として作成され、AI Agentが単独で完全実装可能な形式です**
+
+        ### 📋 実行前必須チェック
+        - [ ] `@docs/` ディレクトリの設計方針を確認済み
+        - [ ] `list_memories` で過去パターンを確認済み
+        - [ ] Context7でライブラリ最新仕様を確認済み
+        - [ ] 依存Issueの完了確認済み
+
+  - type: input
+    id: roadmap_task_id
+    attributes:
+      label: "📍 ROADMAP タスクID"
+      description: "ROADMAPの対応タスクID（例: P1-005）"
+      placeholder: "P1-005"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: implementation_size
+    attributes:
+      label: "📏 実装サイズ"
+      options:
+        - "XS (30分-1時間)"
+        - "S (2-3時間)"
+        - "M (4-5時間)"
+        - "L (6-8時間)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture_layer
+    attributes:
+      label: "🏗️ アーキテクチャ層"
+      options:
+        - "Domain (ビジネスロジック)"
+        - "Application (ユースケース)"
+        - "Infrastructure (技術実装)"
+        - "Presentation (UI)"
+        - "Shared (共通基盤)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature_overview
+    attributes:
+      label: "🎯 機能概要"
+      description: "実装する機能の詳細な説明"
+      placeholder: |
+        ## 機能概要
+        ゲームワールドの基本ブロックシステムを実装します。
+
+        ## 技術的要件
+        - Effect-TS Service/Layerパターン使用
+        - Schema.Struct による型安全性確保
+        - DDD/ECS統合アーキテクチャ
+    validations:
+      required: true
+
+  - type: textarea
+    id: pre_step_analysis
+    attributes:
+      label: "🔍 Pre-Step: 実装前必須確認"
+      description: "実装開始前に必ず実行する調査・確認項目"
+      value: |
+        ## Pre-Step: 実装前必須確認
+
+        ### 📚 ドキュメント確認
+        - [ ] `@docs/INDEX.md` - プロジェクト全体方針確認
+        - [ ] `@docs/tutorials/effect-ts-fundamentals/` - Effect-TSパターン確認
+        - [ ] `@docs/explanations/design-patterns/` - 設計パターン確認
+        - [ ] `@docs/how-to/development/development-conventions.md` - 開発規約確認
+
+        ### 🧠 メモリ確認
+        - [ ] `list_memories` 実行 - 過去の実装パターン確認
+        - [ ] 関連メモリの `read_memory` 実行（該当するもののみ）
+        - [ ] 既存の実装パターンとの整合性確認
+
+        ### 📦 ライブラリ仕様確認
+        - [ ] Context7 MCP - Effect-TS 3.17+ 最新仕様確認
+        - [ ] Context7 MCP - @effect/schema 最新API確認
+        - [ ] Context7 MCP - Three.js（必要時）最新API確認
+
+        ### 🔗 依存関係確認
+        - [ ] 前提となるService/Layer実装確認
+        - [ ] 必要なSchema定義の存在確認
+        - [ ] インポート可能なモジュール確認
+
+        ### 📁 ファイル構造確認
+        - [ ] `src/` ディレクトリ構造の把握
+        - [ ] 実装対象ファイルの配置確認
+        - [ ] 既存ファイルとの命名規則確認
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_1_investigation
+    attributes:
+      label: "🔍 Step 1: 事前調査・分析"
+      description: "実装前の詳細調査ステップ"
+      value: |
+        ## Step 1: 事前調査・分析
+
+        ### 🎯 実装対象の詳細分析
+        - [ ] 機能要件の具体化
+        - [ ] 非機能要件の確認（パフォーマンス・メモリ使用量）
+        - [ ] 既存システムとの連携ポイント特定
+
+        ### 🏗️ アーキテクチャ設計
+        - [ ] Effect-TS Service設計（Context.GenericTag定義）
+        - [ ] Schema定義設計（Schema.Struct/Branded型）
+        - [ ] Layer構成設計（依存関係整理）
+        - [ ] ECSシステム統合点の特定
+
+        ### 📋 実装ファイル一覧作成
+        ```typescript
+        // 作成予定ファイル例
+        - src/domain/[feature]/[FeatureName]Service.ts
+        - src/domain/[feature]/schemas/[FeatureName]Schema.ts
+        - src/domain/[feature]/types/[FeatureName]Types.ts
+        - src/domain/[feature]/[FeatureName]Service.test.ts
+        - src/infrastructure/[feature]/[FeatureName]Layer.ts
+        ```
+
+        ### 🧪 テスト戦略設計
+        - [ ] 単体テスト対象の特定
+        - [ ] fast-check Property-based testing適用箇所
+        - [ ] カバレッジ目標の設定（80%+）
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_2_structure
+    attributes:
+      label: "📁 Step 2: ディレクトリ構造作成"
+      description: "必要なディレクトリとファイル骨格の作成"
+      value: |
+        ## Step 2: ディレクトリ構造作成
+
+        ### 📂 ディレクトリ作成
+        ```bash
+        # 実行コマンド例
+        mkdir -p src/domain/[feature]/{services,schemas,types}
+        mkdir -p src/infrastructure/[feature]
+        mkdir -p src/application/[feature]
+        ```
+
+        ### 📄 ファイル骨格作成
+        - [ ] インデックスファイル作成（`index.ts`）
+        - [ ] 基本的なエクスポート定義
+        - [ ] TypeScriptコンパイルエラーの解消
+        - [ ] import/export依存関係の整理
+
+        ### 🔗 モジュール統合
+        - [ ] 上位ディレクトリの `index.ts` 更新
+        - [ ] パスエイリアス確認（`@/` prefix）
+        - [ ] 循環参照の回避確認
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_3_types_schemas
+    attributes:
+      label: "📝 Step 3: 型定義・データ構造"
+      description: "Schema.StructとBranded型による型安全な実装"
+      value: |
+        ## Step 3: 型定義・データ構造
+
+        ### 🏷️ Branded型定義
+        ```typescript
+        // 実装例
+        import { Schema } from '@effect/schema'
+
+        // Branded型定義
+        type FeatureId = string & { readonly _brand: 'FeatureId' }
+        type FeatureName = string & { readonly _brand: 'FeatureName' }
+
+        // Schema定義
+        const FeatureIdSchema = Schema.String.pipe(Schema.brand('FeatureId'))
+        const FeatureNameSchema = Schema.String.pipe(Schema.brand('FeatureName'))
+        ```
+
+        ### 🏗️ Core Schema定義
+        ```typescript
+        // メインエンティティSchema
+        const FeatureSchema = Schema.Struct({
+          _tag: Schema.Literal('Feature'),
+          id: FeatureIdSchema,
+          name: FeatureNameSchema,
+          config: FeatureConfigSchema,
+          metadata: FeatureMetadataSchema,
+        }).annotations({
+          identifier: 'Feature',
+          description: '[機能の説明]',
+        })
+
+        type Feature = Schema.Schema.Type<typeof FeatureSchema>
+        ```
+
+        ### ⚙️ 設定・パラメータSchema
+        ```typescript
+        // 設定オブジェクト
+        const FeatureConfigSchema = Schema.Struct({
+          enabled: Schema.Boolean,
+          parameters: Schema.Record({
+            key: Schema.String,
+            value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
+          }),
+        })
+        ```
+
+        ### ✅ バリデーション関数
+        - [ ] Schema.parseによる入力検証
+        - [ ] Either型による安全なデシリアライゼーション
+        - [ ] エラーハンドリングパターンの実装
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_4_service
+    attributes:
+      label: "⚙️ Step 4: Service実装"
+      description: "Effect-TS ServiceとLayerパターンの実装"
+      value: |
+        ## Step 4: Service実装
+
+        ### 🏷️ Context.GenericTag定義
+        ```typescript
+        import { Context, Effect, Layer } from 'effect'
+        import type { Feature, FeatureId, FeatureConfig } from './types'
+
+        // Service Tag定義
+        export const FeatureService = Context.GenericTag<FeatureService>('@minecraft/FeatureService')
+
+        // Service Interface
+        export interface FeatureService {
+          readonly create: (config: FeatureConfig) => Effect.Effect<Feature, FeatureError>
+          readonly get: (id: FeatureId) => Effect.Effect<Feature, FeatureError>
+          readonly update: (id: FeatureId, config: Partial<FeatureConfig>) => Effect.Effect<Feature, FeatureError>
+          readonly delete: (id: FeatureId) => Effect.Effect<void, FeatureError>
+          readonly list: () => Effect.Effect<ReadonlyArray<Feature>, FeatureError>
+        }
+        ```
+
+        ### 🛠️ Service実装
+        ```typescript
+        // 実装クラス（内部実装、外部非公開）
+        class FeatureServiceImpl implements FeatureService {
+          readonly create = (config: FeatureConfig) =>
+            Effect.gen(function* () {
+              // 1. バリデーション
+              const validatedConfig = yield* Schema.parse(FeatureConfigSchema)(config)
+
+              // 2. ビジネスロジック実行
+              const feature = yield* createFeatureLogic(validatedConfig)
+
+              // 3. 永続化（必要時）
+              yield* persistFeature(feature)
+
+              return feature
+            })
+
+          readonly get = (id: FeatureId) =>
+            Effect.gen(function* () {
+              const feature = yield* findFeatureById(id)
+              return feature
+            })
+
+          // 他のメソッド実装...
+        }
+        ```
+
+        ### 🔗 Layer実装
+        ```typescript
+        // Layer定義
+        export const FeatureServiceLayer = Layer.effect(
+          FeatureService,
+          Effect.gen(function* () {
+            // 依存サービス取得
+            const logger = yield* LoggerService
+            const config = yield* ConfigService
+
+            // 初期化処理
+            yield* logger.info('FeatureService initializing...')
+
+            return new FeatureServiceImpl()
+          })
+        )
+
+        // 必要な依存関係を含むLayer
+        export const FeatureServiceLive = FeatureServiceLayer.pipe(
+          Layer.provide(LoggerServiceLayer),
+          Layer.provide(ConfigServiceLayer)
+        )
+        ```
+
+        ### ⚠️ エラーハンドリング
+        ```typescript
+        // 機能固有エラー定義
+        export class FeatureError extends Data.TaggedError('FeatureError')<{
+          readonly cause: unknown
+          readonly message: string
+        }> {}
+
+        export class FeatureNotFoundError extends Data.TaggedError('FeatureNotFoundError')<{
+          readonly featureId: FeatureId
+        }> {}
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_5_ecs_integration
+    attributes:
+      label: "🎮 Step 5: ECSシステム統合"
+      description: "Entity Component Systemとの統合実装"
+      value: |
+        ## Step 5: ECSシステム統合
+
+        ### 🧩 Component定義
+        ```typescript
+        // ECS Component
+        const FeatureComponent = Schema.Struct({
+          _tag: Schema.Literal('FeatureComponent'),
+          featureId: FeatureIdSchema,
+          state: FeatureStateSchema,
+          lastUpdated: Schema.Number, // Timestamp
+        }).annotations({
+          identifier: 'FeatureComponent',
+        })
+
+        type FeatureComponent = Schema.Schema.Type<typeof FeatureComponent>
+        ```
+
+        ### ⚙️ System実装
+        ```typescript
+        // ECS System
+        export const FeatureSystem = System.create('FeatureSystem', {
+          components: [FeatureComponent, TransformComponent] as const,
+          update: (entities, deltaTime) =>
+            Effect.gen(function* () {
+              const featureService = yield* FeatureService
+
+              // エンティティごとの処理
+              for (const entity of entities) {
+                const feature = entity.get(FeatureComponent)
+                const transform = entity.get(TransformComponent)
+
+                // 機能固有のアップデート処理
+                yield* updateFeatureLogic(feature, transform, deltaTime)
+              }
+            }),
+        })
+        ```
+
+        ### 🔄 システム登録
+        ```typescript
+        // システム管理への登録
+        export const registerFeatureSystem = Effect.gen(function* () {
+          const systemManager = yield* SystemManager
+          yield* systemManager.registerSystem(FeatureSystem)
+        })
+        ```
+
+        ### 🎯 Entity操作ヘルパー
+        ```typescript
+        // Entity作成・操作ヘルパー
+        export const createFeatureEntity = (feature: Feature, position: Vector3) =>
+          Effect.gen(function* () {
+            const entityManager = yield* EntityManager
+
+            const entity = yield* entityManager.createEntity()
+            yield* entity.addComponent(FeatureComponent, {
+              _tag: 'FeatureComponent',
+              featureId: feature.id,
+              state: feature.initialState,
+              lastUpdated: Date.now(),
+            })
+            yield* entity.addComponent(TransformComponent, {
+              position,
+              rotation: Vector3.zero,
+              scale: Vector3.one,
+            })
+
+            return entity
+          })
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_6_testing
+    attributes:
+      label: "🧪 Step 6: テスト実装"
+      description: "カバレッジ80%+を目指すテスト実装"
+      value: |
+        ## Step 6: テスト実装
+
+        ### 🔧 テスト設定
+        ```typescript
+        // テストファイル: FeatureService.test.ts
+        import { Effect, TestContext, Layer } from 'effect'
+        import { describe, it, expect } from 'vitest'
+        import * as fc from 'fast-check'
+
+        const testLayer = Layer.mergeAll(
+          FeatureServiceLayer,
+          TestLoggerLayer,
+          TestConfigLayer
+        )
+        ```
+
+        ### 🧪 単体テスト
+        ```typescript
+        describe('FeatureService', () => {
+          it('should create feature with valid config', async () => {
+            const program = Effect.gen(function* () {
+              const service = yield* FeatureService
+              const feature = yield* service.create(mockConfig)
+
+              expect(feature.id).toBeDefined()
+              expect(feature.name).toBe(mockConfig.name)
+            })
+
+            await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
+          })
+
+          it('should fail with invalid config', async () => {
+            const program = Effect.gen(function* () {
+              const service = yield* FeatureService
+              const result = yield* service.create(invalidConfig).pipe(
+                Effect.flip,
+                Effect.match({
+                  onFailure: (error) => error,
+                  onSuccess: () => new Error('Should have failed'),
+                })
+              )
+
+              expect(result).toBeInstanceOf(FeatureError)
+            })
+
+            await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
+          })
+        })
+        ```
+
+        ### 🎲 Property-based Testing
+        ```typescript
+        describe('FeatureService Property Tests', () => {
+          it('create then get should return same feature', async () => {
+            await fc.assert(
+              fc.asyncProperty(
+                fc.record({
+                  name: fc.string({ minLength: 1 }),
+                  enabled: fc.boolean(),
+                }),
+                async (config) => {
+                  const program = Effect.gen(function* () {
+                    const service = yield* FeatureService
+                    const created = yield* service.create(config)
+                    const retrieved = yield* service.get(created.id)
+
+                    expect(retrieved.name).toBe(created.name)
+                    expect(retrieved.config.enabled).toBe(created.config.enabled)
+                  })
+
+                  await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
+                }
+              )
+            )
+          })
+        })
+        ```
+
+        ### 📊 カバレッジ確認
+        - [ ] ステートメントカバレッジ 80%+
+        - [ ] ブランチカバレッジ 80%+
+        - [ ] 関数カバレッジ 100%
+        - [ ] エラーケースのテスト網羅
+
+        ### 🔍 統合テスト
+        ```typescript
+        // ECSシステム統合テスト
+        describe('Feature ECS Integration', () => {
+          it('should process entities with FeatureComponent', async () => {
+            const program = Effect.gen(function* () {
+              // テスト用ECS環境構築
+              const world = yield* createTestWorld()
+              const entity = yield* createFeatureEntity(mockFeature, Vector3.zero)
+
+              // システム実行
+              yield* FeatureSystem.update([entity], 16) // 16ms delta
+
+              // 結果検証
+              const component = yield* entity.get(FeatureComponent)
+              expect(component.lastUpdated).toBeGreaterThan(0)
+            })
+          })
+        })
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_7_integration
+    attributes:
+      label: "🔗 Step 7: 統合・エクスポート"
+      description: "モジュール統合とエクスポート設定"
+      value: |
+        ## Step 7: 統合・エクスポート
+
+        ### 📦 モジュールエクスポート
+        ```typescript
+        // src/domain/[feature]/index.ts
+        export * from './services/FeatureService'
+        export * from './schemas/FeatureSchema'
+        export * from './types/FeatureTypes'
+        export * from './FeatureSystem'
+
+        // 型のみエクスポート
+        export type { Feature, FeatureConfig, FeatureId } from './types'
+
+        // Layer統合エクスポート
+        export { FeatureServiceLive as FeatureLayer } from './services/FeatureService'
+        ```
+
+        ### 🏗️ 上位モジュール統合
+        ```typescript
+        // src/domain/index.ts に追加
+        export * from './[feature]'
+
+        // src/index.ts に追加
+        export * from './domain/[feature]'
+        ```
+
+        ### 📋 依存関係整理
+        ```typescript
+        // 必要な依存関係のLayer構成
+        export const FeatureDomainLayer = Layer.mergeAll(
+          FeatureServiceLayer,
+          // 他の関連Layer...
+        ).pipe(
+          Layer.provide(InfrastructureLayer)
+        )
+        ```
+
+        ### 🎯 アプリケーション統合
+        ```typescript
+        // src/application/[UseCase].ts での使用例
+        export const useFeature = Effect.gen(function* () {
+          const featureService = yield* FeatureService
+          const feature = yield* featureService.create(defaultConfig)
+          return feature
+        })
+        ```
+
+        ### 📂 ディレクトリ最終確認
+        ```
+        src/domain/[feature]/
+        ├── index.ts                 # エクスポート統合
+        ├── services/
+        │   ├── FeatureService.ts    # Service実装
+        │   └── FeatureService.test.ts
+        ├── schemas/
+        │   ├── FeatureSchema.ts     # Schema定義
+        │   └── FeatureSchema.test.ts
+        ├── types/
+        │   └── FeatureTypes.ts      # 型定義
+        └── systems/
+            ├── FeatureSystem.ts     # ECSシステム
+            └── FeatureSystem.test.ts
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: step_8_quality
+    attributes:
+      label: "✅ Step 8: 品質確認・最適化"
+      description: "最終的な品質確認と最適化"
+      value: |
+        ## Step 8: 品質確認・最適化
+
+        ### 🔍 コード品質チェック
+        ```bash
+        # 型チェック
+        pnpm typecheck
+        # → TypeScriptエラー0件確認
+
+        # Lint・フォーマット
+        pnpm check
+        # → oxlint, Prettierエラー0件確認
+
+        # テスト実行
+        pnpm test
+        # → 全テストPASS、カバレッジ80%+確認
+
+        # ビルド確認
+        pnpm build
+        # → ビルド成功確認
+        ```
+
+        ### 📊 パフォーマンス確認
+        - [ ] メモリリーク検査（開発ツール使用）
+        - [ ] 大量データでの動作確認
+        - [ ] FPS影響度測定（60FPS維持確認）
+        - [ ] Bundle sizeへの影響確認
+
+        ### 📝 ドキュメント更新
+        ```markdown
+        # 更新対象ドキュメント
+        - docs/reference/api/[Feature]API.md
+        - docs/explanations/design-patterns/[Feature]Pattern.md
+        - docs/how-to/[feature]/using-[feature].md
+        - CHANGELOG.md (機能追加記録)
+        ```
+
+        ### 🧠 メモリ保存
+        ```typescript
+        // write_memory での実装パターン保存
+        memory_name: "[feature]-implementation-patterns"
+        content: |
+          # [Feature] 実装パターン
+
+          ## Service/Layer構成
+          - Context.GenericTag: @minecraft/FeatureService
+          - Schema.Struct: FeatureSchema, FeatureConfigSchema
+          - Layer.effect: 依存注入パターン
+
+          ## ECS統合
+          - Component: FeatureComponent
+          - System: FeatureSystem (update pattern)
+
+          ## テストパターン
+          - Property-based testing: fast-check使用
+          - カバレッジ: 85%達成
+
+          ## 学習事項
+          - [実装中に学んだポイント]
+          - [今後の改善点]
+        ```
+
+        ### 🔄 CI/CD確認
+        - [ ] GitHub Actions実行成功
+        - [ ] PRビルド成功確認
+        - [ ] 依存関係の脆弱性チェックPASS
+        - [ ] パフォーマンス回帰テスト実行
+
+        ### 📋 完了チェックリスト
+        - [ ] すべてのAcceptance Criteria満足
+        - [ ] 機能テスト完了
+        - [ ] コードレビュー準備完了
+        - [ ] ドキュメント更新完了
+        - [ ] CI/CD全項目PASS
+        - [ ] 次フェーズ準備（依存Issue状態更新）
+    validations:
+      required: false
+
+  - type: textarea
+    id: post_step_completion
+    attributes:
+      label: "🎉 Post-Step: 完了後処理"
+      description: "実装完了後の必須処理"
+      value: |
+        ## Post-Step: 完了後処理
+
+        ### 📋 Issue完了確認
+        - [ ] 全Acceptance Criteria達成確認
+        - [ ] 全Stepの実行完了確認
+        - [ ] 品質ゲート（CI/CD）完全PASS確認
+
+        ### 🔗 依存関係更新
+        - [ ] このIssueをブロックしていた他Issueの状態更新
+        - [ ] 関連Issueへのリンク更新
+        - [ ] 次フェーズIssueの"ready"状態への移行
+
+        ### 📚 ドキュメント同期
+        - [ ] `@docs/` ディレクトリ内関連ドキュメント更新
+        - [ ] API Reference更新（必要時）
+        - [ ] How-toガイド更新（必要時）
+
+        ### 🧠 ナレッジ保存
+        - [ ] `write_memory` による実装パターン保存
+        - [ ] トラブルシューティング記録保存（エラー発生時）
+        - [ ] 改善点・学習事項の記録
+
+        ### 🚀 PR作成・CI確認
+        - [ ] 機能ブランチからのPR作成
+        - [ ] PR説明文の記載（実装内容・テスト結果）
+        - [ ] GitHub ActionsによるCI実行確認
+        - [ ] 全品質ゲートのPASS確認
+
+        ### 🔄 次ステップ準備
+        - [ ] ROADMAP進捗状況の更新
+        - [ ] 次優先Issueの特定・準備
+        - [ ] チーム・ステークホルダーへの完了報告
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: "✅ Acceptance Criteria（完了条件）"
+      description: "このIssueの明確な完了条件"
+      placeholder: |
+        ## 完了条件
+
+        ### 機能要件
+        - [ ] [具体的な機能動作条件1]
+        - [ ] [具体的な機能動作条件2]
+
+        ### 技術要件
+        - [ ] TypeScript型エラー0件
+        - [ ] テストカバレッジ ≥80%
+        - [ ] CI/CDパイプライン成功
+        - [ ] 新規API/関数のドキュメント化
+
+        ### 品質要件
+        - [ ] パフォーマンス目標達成（60FPS維持）
+        - [ ] メモリ使用量 ≤2GB
+        - [ ] コードレビュー合格
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: "🔗 依存関係"
+      description: "このIssueの前提条件と影響関係"
+      placeholder: |
+        ## 依存関係
+
+        ### 🔴 事前完了必須（Depends on）
+        - [ ] #XXX - [依存タスク名]
+
+        ### 🟠 このIssueがブロック（Blocks）
+        - [ ] #YYY - [ブロック対象タスク名]
+
+        ### 🔵 関連Issue（Related）
+        - [ ] #ZZZ - [関連タスク名]
+
+        ### 🟢 並列実行可能（Parallel-safe）
+        - [ ] #AAA - [同時進行可能タスク名]
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation_details
+    attributes:
+      label: "🛠️ 実装詳細・特記事項"
+      description: "技術的詳細、制約、注意点など"
+      placeholder: |
+        ## 実装詳細
+
+        ### 技術制約
+        - Effect-TS 3.17+ 使用必須
+        - クラス定義禁止（Service/Layerパターン使用）
+        - var/let/any/async使用禁止
+
+        ### パフォーマンス要件
+        - レンダリング: 60FPS維持
+        - メモリ使用量: 基準値+10%以内
+
+        ### セキュリティ考慮事項
+        - 入力値のSchema.parse必須
+        - 機密情報のログ出力禁止
+
+        ### ブラウザ対応
+        - Chrome/Firefox/Safari最新版
+        - WebGL 2.0対応必須
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing_strategy
+    attributes:
+      label: "🧪 テスト戦略"
+      description: "詳細なテスト実装計画"
+      placeholder: |
+        ## テスト戦略
+
+        ### 単体テスト
+        - [ ] Service関数の正常系
+        - [ ] Service関数の異常系
+        - [ ] Schema検証の境界値テスト
+        - [ ] エラーハンドリング完全性
+
+        ### 統合テスト
+        - [ ] ECSシステム統合動作
+        - [ ] 他サービスとの連携
+        - [ ] Layer依存関係解決
+
+        ### Property-based Testing
+        - [ ] fast-checkによる不変条件検証
+        - [ ] ランダム入力での堅牢性確認
+
+        ### パフォーマンステスト
+        - [ ] 大量データ処理時間測定
+        - [ ] メモリ使用量ベンチマーク
+        - [ ] レンダリング影響度測定
+    validations:
+      required: false
+
+  - type: textarea
+    id: troubleshooting
+    attributes:
+      label: "🔧 トラブルシューティング"
+      description: "想定される問題と解決手順"
+      value: |
+        ## トラブルシューティング
+
+        ### よくあるエラーと解決法
+
+        #### TypeScript型エラー
+        ```bash
+        # 問題: Effect型の推論エラー
+        # 解決: Effect.gen内でのyield*の正しい使用確認
+        yield* Effect.succeed(value) // ✅ 正しい
+        yield Effect.succeed(value)  // ❌ 間違い
+        ```
+
+        #### Schema parse エラー
+        ```bash
+        # 問題: Schema.parse実行時のランタイムエラー
+        # 解決: Schema定義の見直しとテストケース追加
+        ```
+
+        #### ECS統合エラー
+        ```bash
+        # 問題: Component追加時のエラー
+        # 解決: Component Schemaの型安全性確認
+        ```
+
+        #### CI/CD失敗時
+        ```bash
+        # 型チェック失敗
+        pnpm typecheck --verbose
+
+        # テスト失敗
+        pnpm test --reporter=verbose
+
+        # Lint失敗
+        pnpm check --fix
+        ```
+
+        ### パフォーマンス問題
+        - FPS低下: デバッガーでのプロファイリング実行
+        - メモリリーク: Chrome DevToolsでのヒープ分析
+        - バンドルサイズ増加: webpack-bundle-analyzerでの分析
+
+        ### 実装が進まない場合
+        1. `@docs/` のパターン例再確認
+        2. `list_memories` で類似実装確認
+        3. Context7 MCPでライブラリ最新仕様確認
+        4. シンプルな動作例から段階的実装
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "🚨 優先度"
+      options:
+        - "Critical (ブロッキング・プロジェクト進行停止)"
+        - "High (Phase目標達成に必須)"
+        - "Medium (重要だが少し遅延可能)"
+        - "Low (改善・最適化系)"
+    validations:
+      required: true
+
+  - type: input
+    id: estimated_hours
+    attributes:
+      label: "⏱️ 見積もり時間"
+      description: "実装完了までの予想時間（時間単位）"
+      placeholder: "3.5"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verification_checklist
+    attributes:
+      label: "🔍 最終検証チェックリスト"
+      description: "Issue完了時に必ず確認する項目"
+      options:
+        - label: "🎯 全Acceptance Criteria達成"
+          required: true
+        - label: "✅ TypeScript型エラー0件"
+          required: true
+        - label: "🧪 テストカバレッジ80%以上"
+          required: true
+        - label: "🚀 CI/CDパイプライン成功"
+          required: true
+        - label: "📚 関連ドキュメント更新"
+          required: true
+        - label: "🧠 実装パターンのメモリ保存"
+          required: false
+        - label: "🔗 依存Issue状態更新"
+          required: false

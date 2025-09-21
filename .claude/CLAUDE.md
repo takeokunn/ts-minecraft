@@ -22,6 +22,9 @@ claude "現在の変更でPRを作成してCIが通ることを確認して"
 
 # CI失敗時の自動修正
 claude "CIを修正して"
+
+# テンプレート活用（Issue実行計画書）
+claude "Issue実行計画書テンプレートを使ってP1-012のIssueを作成して実装して"
 ```
 
 ### 🔄 CI確認フロー
@@ -32,7 +35,23 @@ Issue実装後は**必ずCI結果を確認**します：
 2. **失敗時対応**: 自動修正可能な問題は即座に修正
 3. **成功確認**: 全チェック項目のPASSを確認してから完了報告
 
-詳細なコマンドリファレンスは [`commands/index.md`](commands/index.md) を参照してください。
+### 📋 AI実行計画書テンプレート活用
+
+**テンプレート場所**: GitHub Issues → New Issue → "AI実行計画書 - 詳細実装Issue"
+
+**活用パターン**:
+```bash
+# ROADMAPタスクからIssue作成+実装
+claude "P1-012のAI実行計画書Issueを作成して実装して"
+
+# 既存Issue実装（Step 1-8自動実行）
+claude "Issue #123 を実装して"
+
+# 複数Issue並列実行
+claude "Issue #123 と #124 を並列で実装して"
+```
+
+**詳細活用ガイド**: [`docs/how-to/development/github-issue-management.md`](../docs/how-to/development/github-issue-management.md#-ai実行計画書テンプレート活用ガイド)
 
 ## ⚠️ Issue実装時の必須確認事項
 

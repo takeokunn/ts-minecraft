@@ -50,6 +50,228 @@ claude "Issue #123 を実装して"
   - vitest テストケース（100%カバレッジ）
   - 自動エラー修正・トラブルシューティング
 
+---
+
+## 🎯 AI実行計画書テンプレート活用ガイド
+
+### 📋 テンプレート活用のベストプラクティス
+
+#### **1. ROADMAPからのIssue作成フロー**
+
+```bash
+# GitHub Issues画面でのテンプレート選択
+1. GitHub Issues → New Issue
+2. "AI実行計画書 - 詳細実装Issue" テンプレート選択
+3. ROADMAPタスクに基づいて各フィールド入力
+4. Claude Agent実行可能レベルまで詳細化
+```
+
+#### **2. 入力フィールド活用法**
+
+```markdown
+## 📋 必須入力項目の記載方法
+
+### ROADMAPタスクID
+- 形式: P{Phase}-{番号} (例: P1-012)
+- トレーサビリティ確保のため必須
+
+### 実装サイズ選択基準
+- XS (30分): 設定ファイル修正、簡単なタイプ追加
+- S (1-2時間): 小さなユーティリティ関数、Schema定義
+- M (4-5時間): Service/Layer実装、基本機能
+- L (6-8時間): システム間統合、複雑なロジック
+
+### アーキテクチャ層選択
+- Domain: ビジネスロジック、Entity、Service
+- Application: ユースケース、アプリケーション層サービス
+- Infrastructure: データアクセス、外部システム連携
+- Presentation: UI、コントローラー
+- Shared: 共通ユーティリティ、型定義
+
+### 見積もり時間記載
+- 数値のみ入力（単位: 時間）
+- 実装 + テスト + 統合の総時間
+- バッファ含む現実的な見積もり
+```
+
+#### **3. Acceptance Criteria定義のコツ**
+
+```markdown
+## ✅ 効果的なAcceptance Criteria
+
+### 具体的で測定可能
+❌ "ブロックシステムを実装する"
+✅ "石、土、草ブロックの配置・削除・取得ができる"
+
+### 技術要件も含める
+✅ "Schema.Structでブロック型を定義済み"
+✅ "vitestでカバレッジ80%以上のテスト完了"
+✅ "TypeScript型エラー0件"
+
+### 統合確認を含める
+✅ "ECSシステムにBlockComponentが統合済み"
+✅ "WorldServiceからブロック操作が可能"
+```
+
+#### **4. 依存関係記載のベストプラクティス**
+
+```markdown
+## 🔗 依存関係の正しい記載法
+
+### Depends on (事前完了必須)
+```
+**⚠️ Depends on** (事前完了必須):
+- #004 - Effect-TS基盤構築
+- #006 - ECSシステム基盤
+```
+
+### Blocks (完了まで他を待機)
+```
+**🟠 Blocks** (このIssue完了まで待機):
+- #013 - レンダリングサービス統合
+- #015 - チャンクシステム実装
+```
+
+### 並列実行可能の明記
+```
+**🟢 Can work in parallel** (並列実行可能):
+- #007 - プレイヤーシステム
+- #009 - インベントリシステム
+```
+```
+
+### 📊 実行時間見積もりガイド
+
+#### **時間見積もりの参考指標**
+
+```markdown
+## ⏱️ 実装時間の目安
+
+### Effect-TS Service/Layer実装
+- 基本Service: 1-2時間
+- 複雑なService: 3-4時間
+- Layer統合: 0.5-1時間
+
+### Schema定義・型実装
+- 基本Schema: 0.5-1時間
+- 複雑なSchema: 1-2時間
+- Branded型: 0.5時間
+
+### テスト実装
+- 単体テスト: 実装時間の50%
+- Property-based Testing: 実装時間の30%
+- 統合テスト: 実装時間の70%
+
+### ECS統合
+- Component定義: 0.5時間
+- System実装: 1-2時間
+- Entity操作: 0.5-1時間
+```
+
+### 🎮 実行例とコマンド
+
+#### **Claude Agent実行パターン**
+
+```bash
+# 基本実行（Issue単体完了）
+claude "Issue #123 を実装して"
+
+# CI確認付き実行（推奨）
+claude "Issue #123 を実装してPRを作成してCIが通ることを確認して"
+
+# 複数Issue並列実行
+claude "Issue #123 と #124 を並列で実装して"
+
+# トラブルシューティング付き実行
+claude "Issue #123 を実装してエラーが出たら自動修正して"
+```
+
+#### **実行結果の期待値**
+
+```markdown
+## 🎯 Claude Agent実行後の成果物
+
+### 1. 実装コード
+- Effect-TS Service/Layerパターン完全準拠
+- Schema.Struct型定義
+- エラーハンドリング（TaggedError）
+- 完全型安全性（any/unknown禁止）
+
+### 2. テストコード
+- 単体テスト（vitest）
+- Property-based Testing（fast-check）
+- カバレッジ80%以上
+
+### 3. 統合・エクスポート
+- モジュールエクスポート設定
+- 上位レイヤーとの統合
+- アプリケーション統合
+
+### 4. 品質確認
+- TypeScript型エラー0件
+- oxlint警告0件
+- CI/CDパイプライン成功
+```
+
+### ⚡ トラブルシューティング
+
+#### **よくある問題と解決法**
+
+```typescript
+// ❌ よくあるエラー
+const MyService = Context.Tag<MyServiceInterface>()  // 古いパターン
+
+// ✅ 正しいパターン
+const MyService = Context.GenericTag<MyServiceInterface>('MyService')
+
+// ❌ Schema定義エラー
+const BlockSchema = Data.struct({  // Data.struct使用禁止
+  type: S.string,
+})
+
+// ✅ 正しいSchema定義
+const BlockSchema = Schema.Struct({  // Schema.Struct使用
+  type: Schema.String,
+})
+
+// ❌ Match.value使用エラー
+Match.value(input)
+  .pipe(Match.when(...))  // pipe使用は非推奨
+
+// ✅ 正しいMatch.value使用
+pipe(
+  input,
+  Match.value,
+  Match.when(...),
+  Match.orElse(...)
+)
+```
+
+### 📈 成功パターンの共有
+
+#### **実績のある実装パターン**
+
+参考: [`docs/examples/sample-execution-plan-issue.md`](../../examples/sample-execution-plan-issue.md)
+
+```markdown
+## 🏆 成功事例: P1-012基本ブロックシステム
+
+### 実装統計
+- **見積もり時間**: 4.5時間
+- **実際の実装時間**: 4.2時間
+- **作成ファイル数**: 12ファイル
+- **総行数**: 847行（実装 + テスト）
+- **テストカバレッジ**: 87%
+- **型エラー**: 0件
+- **CI/CD結果**: 完全PASS
+
+### 実装構成
+1. `src/domain/block/` - Domain層実装
+2. `src/shared/schemas/` - Schema定義
+3. `src/application/services/` - Service層
+4. `__tests__/` - テストスイート
+```
+
 ## 📋 Issue分類体系
 
 ### 🏷️ **ラベル体系（完全版）**
