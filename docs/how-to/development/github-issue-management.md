@@ -25,6 +25,7 @@ claude "ROADMAP Phase 0 のIssueを作成して"
 # 2. Issue実装（Claude Agent自動実行）
 claude "Issue #123 を実装して"
 # → GitHub Issue内の8段階実行計画を自動実行
+# → Step 5のテスト実装が必須実行される
 
 # 3. 品質確認（GitHub Actions自動実行）
 # PR作成時に自動的に品質ゲートが実行されます
@@ -39,15 +40,16 @@ claude "Issue #123 を実装して"
   - Step 2: ディレクトリ構造作成
   - Step 3: 型定義・データ構造
   - Step 4: Service実装
-  - Step 5: ECSシステム統合
-  - Step 6: テスト実装
+  - Step 5: テスト実装（**必須**）
+  - Step 6: ECSシステム統合
   - Step 7: 統合・エクスポート
   - Step 8: 品質確認・最適化
 
 - **自動実行機能**
   - Effect-TS Service/Layerパターン実装
   - Schema.Struct型定義
-  - vitest テストケース（100%カバレッジ）
+  - **必須テスト実装**: vitest + Property-based Testing
+  - **品質基準**: カバレッジ80%以上、型エラー0件
   - 自動エラー修正・トラブルシューティング
 
 ---
@@ -176,11 +178,12 @@ claude "Issue #123 を実装して"
 - 複雑なSchema: 1-2時間
 - Branded型: 0.5時間
 
-### テスト実装
+### テスト実装（必須）
 
-- 単体テスト: 実装時間の50%
-- Property-based Testing: 実装時間の30%
-- 統合テスト: 実装時間の70%
+- **単体テスト**: 実装時間の50%（全公開APIカバー）
+- **Property-based Testing**: 実装時間の30%（ビジネスロジック）
+- **統合テスト**: 実装時間の70%（Service/Layer統合）
+- **エラーケーステスト**: 実装時間の20%（TaggedError検証）
 
 ### ECS統合
 
@@ -199,6 +202,7 @@ claude "Issue #123 を実装して"
 
 # CI確認付き実行（推奨）
 claude "Issue #123 を実装してPRを作成してCIが通ることを確認して"
+# → テスト実装 → 品質確認 → PR作成の完全フロー
 
 # 複数Issue並列実行
 claude "Issue #123 と #124 を並列で実装して"
@@ -219,11 +223,13 @@ claude "Issue #123 を実装してエラーが出たら自動修正して"
 - エラーハンドリング（TaggedError）
 - 完全型安全性（any/unknown禁止）
 
-### 2. テストコード
+### 2. テストコード（必須）
 
-- 単体テスト（vitest）
-- Property-based Testing（fast-check）
-- カバレッジ80%以上
+- **単体テスト（vitest）**: 全公開関数・メソッドをカバー
+- **Property-based Testing（fast-check）**: ビジネスロジックの不変条件検証
+- **統合テスト**: Service/Layer間の相互作用検証
+- **エラーケーステスト**: TaggedErrorの正しい伝播確認
+- **カバレッジ80%以上**: 実装品質の客観的指標
 
 ### 3. 統合・エクスポート
 
@@ -270,6 +276,88 @@ pipe(
   Match.when(...),
   Match.orElse(...)
 )
+```
+
+### 🧪 **テスト実装ガイドライン**
+
+#### **必須テストパターン**
+
+```typescript
+// ✅ 単体テスト例
+import { describe, it, expect } from 'vitest'
+import { Effect } from 'effect'
+import { MyService, MyServiceLive } from '../MyService'
+
+describe('MyService', () => {
+  describe('正常系', () => {
+    it.effect('基本機能が正常に動作する', () =>
+      Effect.gen(function* () {
+        const service = yield* MyService
+        const result = yield* service.someMethod('test')
+        expect(result).toBe('expected')
+      }).pipe(Effect.provide(MyServiceLive))
+    )
+  })
+
+  describe('異常系', () => {
+    it.effect('無効な入力でエラーが発生する', () =>
+      Effect.gen(function* () {
+        const service = yield* MyService
+        const result = yield* Effect.either(service.someMethod('invalid'))
+        expect(result._tag).toBe('Left')
+      }).pipe(Effect.provide(MyServiceLive))
+    )
+  })
+})
+
+// ✅ Property-based Testing例
+import { fc } from 'fast-check'
+
+describe('Property-based Tests', () => {
+  it.effect('invariant condition always holds', () =>
+    Effect.gen(function* () {
+      yield* fc.asyncProperty(
+        fc.string(),
+        (input) => Effect.gen(function* () {
+          const service = yield* MyService
+          const result = yield* service.process(input)
+          // 不変条件の検証
+          expect(result.length).toBeGreaterThanOrEqual(0)
+        }).pipe(Effect.provide(MyServiceLive))
+      )
+    })
+  )
+})
+
+// ✅ 統合テスト例
+describe('Service Integration', () => {
+  it.effect('Layer組み合わせが正常に動作する', () =>
+    Effect.gen(function* () {
+      const serviceA = yield* ServiceA
+      const serviceB = yield* ServiceB
+
+      const resultA = yield* serviceA.getData()
+      const resultB = yield* serviceB.process(resultA)
+
+      expect(resultB).toBeDefined()
+    }).pipe(
+      Effect.provide(Layer.mergeAll(ServiceALive, ServiceBLive))
+    )
+  )
+})
+```
+
+#### **カバレッジ確保のポイント**
+
+```bash
+# カバレッジレポート生成
+pnpm test:coverage
+
+# 必須カバレッジ項目
+✅ Statements: ≥80%
+✅ Branches: ≥80%
+✅ Functions: ≥90%
+✅ Lines: ≥80%
 ```
 
 ### 📈 成功パターンの共有
@@ -450,11 +538,32 @@ assignees: ''
 - [関連仕様書]
 - [参考資料]
 
-## 🧪 Test Plan
+## 🧪 Test Plan（必須）
 
-- [ ] 単体テスト
-- [ ] 統合テスト
-- [ ] E2Eテスト（必要時）
+### **単体テスト（必須）**
+- [ ] 全公開関数・メソッドのテスト
+- [ ] 正常系・異常系のカバー
+- [ ] Edge caseの検証
+
+### **Property-based Testing（推奨）**
+- [ ] ビジネスロジックの不変条件検証
+- [ ] fast-checkによる大量データテスト
+- [ ] Schema validationのテスト
+
+### **統合テスト（必須）**
+- [ ] Service/Layer間の相互作用
+- [ ] Effect.provide系の正常動作
+- [ ] 依存関係解決の検証
+
+### **エラーケーステスト（必須）**
+- [ ] TaggedErrorの正しい伝播
+- [ ] Effect.failの適切な処理
+- [ ] エラー境界での動作確認
+
+### **品質基準**
+- [ ] **カバレッジ ≥80%**: コード品質の客観的指標
+- [ ] **TypeScript型エラー0件**: 型安全性の確保
+- [ ] **vitestテスト全て通過**: 回帰防止
 ```
 
 ### 🐛 **Bug Issue Template**

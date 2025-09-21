@@ -127,13 +127,17 @@ body:
         - サービス層・ビジネスロジック実装
         - 参照: docs/reference/patterns/service-layer-patterns.md
 
-        ### Step 5: ECSシステム統合
+        ### Step 5: テスト実装（**必須**）
+        - **単体テスト**: 全公開関数・メソッドをカバー
+        - **Property-based Testing**: ビジネスロジックの不変条件検証
+        - **統合テスト**: Service/Layer間の相互作用検証
+        - **エラーケーステスト**: TaggedErrorの正しい伝播確認
+        - **品質基準**: カバレッジ80%以上、型エラー0件
+        - 参照: docs/how-to/testing/vitest-patterns.md
+
+        ### Step 6: ECSシステム統合
         - Entity Component System統合
         - 参照: docs/reference/architecture/ecs-integration.md
-
-        ### Step 6: テスト実装
-        - 単体テスト・統合テスト作成
-        - 参照: docs/how-to/testing/vitest-patterns.md
 
         ### Step 7: 統合・エクスポート
         - モジュール統合・公開API整備
@@ -164,11 +168,12 @@ body:
         - [ ] 既存機能に影響を与えない
         - [ ] パフォーマンスの劣化がない
 
-        ### 品質要件
-        - [ ] TypeScript: エラー0件
-        - [ ] ESLint: 警告0件
-        - [ ] テストカバレッジ: 80%以上
-        - [ ] ビルド: 正常に完了
+        ### 品質要件（必須）
+        - [ ] **TypeScript**: エラー0件
+        - [ ] **ESLint**: 警告0件
+        - [ ] **テストカバレッジ**: 80%以上（Statements, Branches, Functions, Lines）
+        - [ ] **テスト実装**: 単体・統合・Property-based Testing
+        - [ ] **ビルド**: 正常に完了
 
         ### ドキュメント要件
         - [ ] 新パターンのdocs/記録完了
@@ -188,10 +193,11 @@ body:
 
         ### 品質チェック（並列実行）
         ```bash
-        pnpm typecheck  # TypeScript型チェック
-        pnpm format:check # フォーマットチェック
-        pnpm test       # テスト実行
-        pnpm build      # ビルド確認
+        pnpm typecheck      # TypeScript型チェック
+        pnpm format:check   # フォーマットチェック
+        pnpm test           # テスト実行（必須）
+        pnpm test:coverage  # カバレッジ確認（80%以上必須）
+        pnpm build          # ビルド確認
         ```
 
         ### 個別確認（必要に応じて）
@@ -233,10 +239,11 @@ body:
         - [アーキテクチャ変更点（あれば）]
 
         ## 🧪 品質確認
-        - [x] pnpm typecheck - TypeScript型チェック完了
-        - [x] pnpm format:check - フォーマットチェック完了
-        - [x] pnpm test - テスト実行完了
-        - [x] pnpm build - ビルド確認完了
+        - [x] **pnpm typecheck** - TypeScript型チェック完了
+        - [x] **pnpm format:check** - フォーマットチェック完了
+        - [x] **pnpm test** - テスト実行完了（単体・統合・Property-based）
+        - [x] **pnpm test:coverage** - カバレッジ80%以上確認
+        - [x] **pnpm build** - ビルド確認完了
 
         ## 📝 ドキュメント更新
         - [x] @docs/ 新パターン記録完了
@@ -259,10 +266,11 @@ body:
         - [アーキテクチャ変更点（あれば）]
 
         ## 🧪 品質確認
-        - [x] pnpm typecheck - TypeScript型チェック完了
-        - [x] pnpm format:check - フォーマットチェック完了
-        - [x] pnpm test - テスト実行完了
-        - [x] pnpm build - ビルド確認完了
+        - [x] **pnpm typecheck** - TypeScript型チェック完了
+        - [x] **pnpm format:check** - フォーマットチェック完了
+        - [x] **pnpm test** - テスト実行完了（単体・統合・Property-based）
+        - [x] **pnpm test:coverage** - カバレッジ80%以上確認
+        - [x] **pnpm build** - ビルド確認完了
 
         ## 📝 ドキュメント更新
         - [x] @docs/ 新パターン記録完了

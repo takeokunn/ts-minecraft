@@ -93,8 +93,9 @@ pnpm build
 # 1. Issue作成（ROADMAPから自動生成）
 claude "ROADMAP Phase 0 のIssueを作成して"
 
-# 2. Issue実装（Claude Agent自動実行）
+# 2. Issue実装（Claude Agent自動実行 + テスト必須）
 claude "Issue #123 を実装して"
+# → Step 5でテスト実装（単体・統合・Property-based）が必須実行される
 
 # 3. 品質確認（GitHub Actions自動実行）
 # PR作成時に自動的に品質ゲートが実行されます
