@@ -107,8 +107,12 @@ describe('BlockRegistry', () => {
     })
 
     it('新しいブロックを登録した後、タグで検索できる', async () => {
-      const testBlock1 = createTestBlock('test_stone', 'natural', ['mineable', 'stone'])
-      const testBlock2 = createTestBlock('test_wood', 'building', ['mineable', 'wood', 'flammable'])
+      const testBlock1 = createTestBlock({ id: 'test_stone', category: 'natural', tags: ['mineable', 'stone'] })
+      const testBlock2 = createTestBlock({
+        id: 'test_wood',
+        category: 'building',
+        tags: ['mineable', 'wood', 'flammable'],
+      })
 
       await runSuccessful(registry.registerBlock(testBlock1))
       await runSuccessful(registry.registerBlock(testBlock2))
@@ -160,7 +164,7 @@ describe('BlockRegistry', () => {
 
   describe('registerBlock', () => {
     it('新しいブロックを登録できる', async () => {
-      const testBlock = createTestBlock('test_new', 'natural')
+      const testBlock = createTestBlock({ id: 'test_new', category: 'natural' })
 
       await expectSuccess(registry.registerBlock(testBlock))
       const block = await expectSuccess(registry.getBlock('test_new'))
@@ -168,7 +172,7 @@ describe('BlockRegistry', () => {
     })
 
     it('同じIDのブロックを登録しようとするとエラーを返す', async () => {
-      const testBlock = createTestBlock('test_duplicate', 'natural')
+      const testBlock = createTestBlock({ id: 'test_duplicate', category: 'natural' })
 
       await expectSuccess(registry.registerBlock(testBlock))
       const error = await expectFailure(registry.registerBlock(testBlock))
@@ -186,13 +190,13 @@ describe('BlockRegistry', () => {
     })
 
     it('既存のブロックと同じIDは拒否する', async () => {
-      const duplicateStone = createTestBlock('stone', 'natural')
+      const duplicateStone = createTestBlock({ id: 'stone', category: 'natural' })
       const error = await expectFailure(registry.registerBlock(duplicateStone))
       expect(error?._tag).toBe('BlockAlreadyRegisteredError')
     })
 
     it('登録後はカテゴリーインデックスに反映される', async () => {
-      const testBlock = createTestBlock('test_category', 'natural')
+      const testBlock = createTestBlock({ id: 'test_category', category: 'natural' })
       await runSuccessful(registry.registerBlock(testBlock))
 
       const naturalBlocks = await runSuccessful(registry.getBlocksByCategory('natural'))
@@ -200,7 +204,7 @@ describe('BlockRegistry', () => {
     })
 
     it('登録後はタグインデックスに反映される', async () => {
-      const testBlock = createTestBlock('test_tags', 'natural', ['custom', 'test'])
+      const testBlock = createTestBlock({ id: 'test_tags', category: 'natural', tags: ['custom', 'test'] })
       await runSuccessful(registry.registerBlock(testBlock))
 
       const customBlocks = await runSuccessful(registry.getBlocksByTag('custom'))
@@ -223,7 +227,7 @@ describe('BlockRegistry', () => {
     })
 
     it('新規登録後はtrueを返す', async () => {
-      const testBlock = createTestBlock('test_registered', 'natural')
+      const testBlock = createTestBlock({ id: 'test_registered', category: 'natural' })
 
       const before = await runSuccessful(registry.isBlockRegistered('test_registered'))
       expect(before).toBe(false)
@@ -310,7 +314,7 @@ describe('BlockRegistry', () => {
     })
 
     it('複数のタグを持つブロックが各タグで検索可能', async () => {
-      const multiTagBlock = createTestBlock('multi_tag', 'natural', ['tag1', 'tag2', 'tag3'])
+      const multiTagBlock = createTestBlock({ id: 'multi_tag', category: 'natural', tags: ['tag1', 'tag2', 'tag3'] })
       await runSuccessful(registry.registerBlock(multiTagBlock))
 
       const tag1Blocks = await runSuccessful(registry.getBlocksByTag('tag1'))

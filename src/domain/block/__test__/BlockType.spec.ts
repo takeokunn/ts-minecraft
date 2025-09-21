@@ -76,10 +76,10 @@ describe('BlockType', () => {
       const incompleteTexture = {
         top: 'top_texture',
         bottom: 'bottom_texture',
-        // 他の面が欠落
+        // north, south, east, west are missing
       }
 
-      const result = Schema.decodeEither(TextureFacesSchema)(incompleteTexture)
+      const result = Schema.decodeEither(TextureFacesSchema)(incompleteTexture as any)
       expect(Either.isLeft(result)).toBe(true)
     })
   })
@@ -207,7 +207,7 @@ describe('BlockType', () => {
         'food',
         'tools',
         'combat',
-      ]
+      ] as const
 
       validCategories.forEach((category) => {
         const result = Schema.decodeEither(BlockCategorySchema)(category)
@@ -219,7 +219,7 @@ describe('BlockType', () => {
     })
 
     it('無効なカテゴリーを拒否する', () => {
-      const result = Schema.decodeEither(BlockCategorySchema)('invalid_category')
+      const result = Schema.decodeEither(BlockCategorySchema)('invalid_category' as any)
       expect(Either.isLeft(result)).toBe(true)
     })
   })
@@ -261,7 +261,7 @@ describe('BlockType', () => {
         // category以降が欠落
       }
 
-      const result = Schema.decodeEither(BlockTypeSchema)(incompleteBlock)
+      const result = Schema.decodeEither(BlockTypeSchema)(incompleteBlock as any)
       expect(Either.isLeft(result)).toBe(true)
     })
   })

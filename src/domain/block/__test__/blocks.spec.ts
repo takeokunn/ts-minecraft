@@ -89,7 +89,10 @@ describe('blocks', () => {
           () => expect.fail('草ブロックは面別テクスチャを持つべき')
         ),
         Match.when(
-          (texture): texture is object => typeof texture === 'object',
+          (
+            texture
+          ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
+            typeof texture === 'object' && texture !== null && 'top' in texture,
           (texture) => {
             expect(texture.top).toBe('grass_block_top')
             expect(texture.bottom).toBe('dirt')
@@ -118,7 +121,10 @@ describe('blocks', () => {
         oakLogBlock.texture,
         Match.value,
         Match.when(
-          (texture): texture is object => typeof texture === 'object',
+          (
+            texture
+          ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
+            typeof texture === 'object' && texture !== null && 'top' in texture,
           (texture) => {
             expect(texture.top).toBe('oak_log_top')
             expect(texture.bottom).toBe('oak_log_top')
@@ -230,7 +236,10 @@ describe('blocks', () => {
         furnaceBlock.texture,
         Match.value,
         Match.when(
-          (texture): texture is object => typeof texture === 'object',
+          (
+            texture
+          ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
+            typeof texture === 'object' && texture !== null && 'top' in texture,
           (texture) => {
             expect(texture.north).toBe('furnace_front')
             expect(texture.south).toBe('furnace_side')
@@ -358,7 +367,10 @@ describe('blocks', () => {
               (texture) => expect(texture).not.toBe('')
             ),
             Match.when(
-              (texture): texture is object => typeof texture === 'object',
+              (
+                texture
+              ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
+                typeof texture === 'object' && texture !== null && 'top' in texture,
               (texture) => {
                 expect(texture.top).toBeDefined()
                 expect(texture.bottom).toBeDefined()
