@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import { NoiseGenerator } from './NoiseGenerator'
 import type { BiomeType } from './types'
@@ -35,12 +35,12 @@ export interface BiomeGenerator {
   /**
    * 指定座標のバイオームを取得
    */
-  readonly getBiome: (position: Vector3) => Effect.Effect<BiomeType, never>
+  readonly getBiome: (position: Vector3) => Effect.Effect<BiomeType, never, NoiseGenerator>
 
   /**
    * 指定座標の気候データを取得
    */
-  readonly getClimateData: (x: number, z: number) => Effect.Effect<ClimateData, never>
+  readonly getClimateData: (x: number, z: number) => Effect.Effect<ClimateData, never, NoiseGenerator>
 
   /**
    * 温度と湿度からバイオームを決定
@@ -50,7 +50,7 @@ export interface BiomeGenerator {
   /**
    * 地域のバイオーム分布マップを生成（16x16チャンク用）
    */
-  readonly generateBiomeMap: (chunkX: number, chunkZ: number) => Effect.Effect<BiomeType[][], never>
+  readonly generateBiomeMap: (chunkX: number, chunkZ: number) => Effect.Effect<BiomeType[][], never, NoiseGenerator>
 
   /**
    * 設定を取得
@@ -111,51 +111,92 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
       const { temperature, humidity, elevation } = climate
 
       // 特殊バイオーム判定（高度ベース）
-      if (elevation > config.mountainThreshold) {
-        return temperature < -0.5 ? 'snowy_tundra' : 'mountains'
-      }
-
-      if (elevation < -config.oceanDepth) {
-        return 'ocean'
-      }
-
-      // 基本バイオーム判定（温度・湿度マトリクス）
-      if (temperature < -0.6) {
+      return pipe(
+        Match.value({ elevation, temperature, humidity }),
+        // 高山地帯
+        Match.when(
+          ({ elevation }) => elevation > config.mountainThreshold,
+          ({ temperature }) => pipe(
+            Match.value(temperature < -0.5),
+            Match.when(true, () => 'snowy_tundra' as BiomeType),
+            Match.orElse(() => 'mountains' as BiomeType)
+          )
+        ),
+        // 海洋
+        Match.when(
+          ({ elevation }) => elevation < -config.oceanDepth,
+          () => 'ocean' as BiomeType
+        ),
         // 極寒地帯
-        return humidity > 0.2 ? 'snowy_tundra' : 'snowy_tundra'
-      } else if (temperature < -0.2) {
+        Match.when(
+          ({ temperature }) => temperature < -0.6,
+          ({ humidity }) => pipe(
+            Match.value(humidity > 0.2),
+            Match.when(true, () => 'snowy_tundra' as BiomeType),
+            Match.orElse(() => 'snowy_tundra' as BiomeType)
+          )
+        ),
         // 寒冷地帯
-        return humidity > 0.3 ? 'taiga' : 'taiga'
-      } else if (temperature > 0.6) {
+        Match.when(
+          ({ temperature }) => temperature < -0.2,
+          ({ humidity }) => pipe(
+            Match.value(humidity > 0.3),
+            Match.when(true, () => 'taiga' as BiomeType),
+            Match.orElse(() => 'taiga' as BiomeType)
+          )
+        ),
         // 暑い地帯
-        if (humidity < -0.4) {
-          return 'desert'
-        } else if (humidity > 0.4) {
-          return 'jungle'
-        } else {
-          return 'savanna'
-        }
-      } else if (temperature > 0.2) {
+        Match.when(
+          ({ temperature }) => temperature > 0.6,
+          ({ humidity }) => pipe(
+            Match.value(humidity),
+            Match.when(
+              (h) => h < -0.4,
+              () => 'desert' as BiomeType
+            ),
+            Match.when(
+              (h) => h > 0.4,
+              () => 'jungle' as BiomeType
+            ),
+            Match.orElse(() => 'savanna' as BiomeType)
+          )
+        ),
         // 暖かい地帯
-        if (humidity < -0.2) {
-          return 'savanna'
-        } else if (humidity > 0.5) {
-          return 'jungle'
-        } else {
-          return 'forest'
-        }
-      } else {
-        // 温帯
-        if (humidity < -0.3) {
-          return 'plains'
-        } else if (humidity > 0.6) {
-          return 'swamp'
-        } else if (humidity > 0.2) {
-          return 'forest'
-        } else {
-          return 'plains'
-        }
-      }
+        Match.when(
+          ({ temperature }) => temperature > 0.2,
+          ({ humidity }) => pipe(
+            Match.value(humidity),
+            Match.when(
+              (h) => h < -0.2,
+              () => 'savanna' as BiomeType
+            ),
+            Match.when(
+              (h) => h > 0.5,
+              () => 'jungle' as BiomeType
+            ),
+            Match.orElse(() => 'forest' as BiomeType)
+          )
+        ),
+        // 温帯（デフォルト）
+        Match.orElse(({ humidity }) =>
+          pipe(
+            Match.value(humidity),
+            Match.when(
+              (h) => h < -0.3,
+              () => 'plains' as BiomeType
+            ),
+            Match.when(
+              (h) => h > 0.6,
+              () => 'swamp' as BiomeType
+            ),
+            Match.when(
+              (h) => h > 0.2,
+              () => 'forest' as BiomeType
+            ),
+            Match.orElse(() => 'plains' as BiomeType)
+          )
+        )
+      )
     },
 
     generateBiomeMap: (chunkX: number, chunkZ: number) =>

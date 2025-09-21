@@ -18,13 +18,14 @@ import {
   type ChunkLoadPriority,
 } from '../ChunkLoader.js'
 import type { ChunkPosition } from '../ChunkPosition.js'
-import type { WorldGenerator } from '../../world/index.js'
+import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index.js'
+import { WorldGenerator } from '../ChunkLoader.js'
 
 // =============================================================================
 // Mock WorldGenerator
 // =============================================================================
 
-const createMockWorldGenerator = (): WorldGenerator => ({
+const createMockWorldGenerator = (): WorldGeneratorInterface => ({
   generateChunk: (position) =>
     Effect.succeed({
       chunk: {
@@ -49,6 +50,9 @@ const createMockWorldGenerator = (): WorldGenerator => ({
         getMemoryUsage: () => 196608,
         clone: () => ({} as any),
       },
+      biomes: [],
+      structures: [],
+      heightMap: [],
       metadata: {
         generationTime: 100,
         structureCount: 0,
@@ -74,7 +78,7 @@ const MockWorldGeneratorLive = Layer.succeed(
 // Test Utilities
 // =============================================================================
 
-const runChunkLoaderTest = <E, A>(effect: Effect.Effect<A, E>) =>
+const runChunkLoaderTest = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.runSync(
     Effect.provide(
       effect,

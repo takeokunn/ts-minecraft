@@ -5,7 +5,7 @@ import * as fc from 'fast-check'
 import {
   expectEffectSuccess,
   expectEffectDuration,
-} from '../../../test/helpers/effect-test-utils'
+} from '../../../test/unified-test-helpers'
 import {
   TerrainGenerator,
   TerrainGeneratorLive,
@@ -14,15 +14,15 @@ import {
   type TerrainConfig,
   type HeightMap,
 } from '../TerrainGenerator'
-import { NoiseGeneratorLiveDefault } from '../NoiseGenerator'
+import { NoiseGenerator, NoiseGeneratorLiveDefault } from '../NoiseGenerator'
 
 /**
  * TerrainGenerator専用のテストヘルパー
  */
 const runWithTestTerrain = <A>(
   config: TerrainConfig,
-  operation: (tg: TerrainGenerator) => Effect.Effect<A, never, never>
-) =>
+  operation: (tg: TerrainGenerator) => Effect.Effect<A, never, NoiseGenerator>
+): Effect.Effect<A, never, never> =>
   Effect.gen(function* () {
     const tg = yield* TerrainGenerator
     return yield* operation(tg)
@@ -33,7 +33,7 @@ const runWithTestTerrain = <A>(
         TerrainGeneratorLive(config)
       )
     )
-  )
+  ) as Effect.Effect<A, never, never>
 
 describe('TerrainGenerator', () => {
   const testConfig: TerrainConfig = {

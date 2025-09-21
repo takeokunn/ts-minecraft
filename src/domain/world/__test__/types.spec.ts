@@ -636,7 +636,7 @@ describe('World Generation Types', () => {
         elevation: 0.1,
       }
 
-      // @ts-expect-error - biomeInfoはVector3ではない
+      // biomeInfoはVector3ではないため、型エラーとなる
       expect(() => Schema.decodeUnknownSync(Vector3Schema)(biomeInfo)).toThrow()
 
       // 正しい型の場合は成功

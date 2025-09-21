@@ -185,7 +185,7 @@ const createThreeRendererService = (
       }
 
       // WebGLコンテキストの状態確認とレンダリング実行
-      yield* Effect.try({
+      const renderResult = yield* Effect.try({
         try: () => {
           // WebGLコンテキストの状態確認
           const gl = renderer!.getContext()
@@ -217,34 +217,31 @@ const createThreeRendererService = (
             cause: error,
           })
         },
-      }).pipe(
-        Effect.flatMap(({ frameStart, frameEnd }) =>
-          Effect.gen(function* () {
-            // パフォーマンス統計更新
-            const frameTime = frameEnd - frameStart
-            const newStats: PerformanceStats = {
-              ...stats,
-              frameTime,
-              frameCount: stats.frameCount + 1,
-              lastFrameTime: frameEnd,
-            }
+      })
 
-            // FPS計算（1秒ごと）
-            if (frameEnd - stats.lastStatsUpdate >= 1000) {
-              newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
-              newStats.frameCount = 0
-              newStats.lastStatsUpdate = frameEnd
-            }
+      // パフォーマンス統計更新
+      const { frameStart, frameEnd } = renderResult
+      const frameTime = frameEnd - frameStart
+      const newStats: PerformanceStats = {
+        ...stats,
+        frameTime,
+        frameCount: stats.frameCount + 1,
+        lastFrameTime: frameEnd,
+      }
 
-            yield* Ref.set(statsRef, newStats)
+      // FPS計算（1秒ごと）
+      if (frameEnd - stats.lastStatsUpdate >= 1000) {
+        newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
+        newStats.frameCount = 0
+        newStats.lastStatsUpdate = frameEnd
+      }
 
-            // 60FPS目標のパフォーマンス警告
-            if (frameTime > 16.67) {
-              console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
-            }
-          })
-        )
-      )
+      yield* Ref.set(statsRef, newStats)
+
+      // 60FPS目標のパフォーマンス警告
+      if (frameTime > 16.67) {
+        console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
+      }
     }),
 
   resize: (width: number, height: number): Effect.Effect<void, never> =>

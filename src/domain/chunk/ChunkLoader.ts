@@ -174,7 +174,7 @@ export interface ChunkLoader {
 export const ChunkLoader = Context.GenericTag<ChunkLoader>('ChunkLoader')
 
 // WorldGeneratorのContext Tag（既存のものを参照）
-const WorldGeneratorTag = Context.GenericTag<WorldGenerator>('WorldGenerator')
+export const WorldGenerator = Context.GenericTag<WorldGenerator>('WorldGenerator')
 
 // =============================================================================
 // Utilities
@@ -220,25 +220,49 @@ export const createChunkLoader = (
         const key = chunkLoadRequestToKey(position)
 
         // 既にロード済みまたは進行中の場合はスキップ
-        const existing = currentState.loadStates.get(key)
-        if (existing && (existing.status === 'loading' || existing.status === 'completed')) {
-          return
-        }
+        const existing = yield* pipe(
+          Option.fromNullable(currentState.loadStates.get(key)),
+          Option.match({
+            onNone: () => Effect.succeed(null),
+            onSome: (state) => Effect.succeed(state),
+          })
+        )
+
+        yield* pipe(
+          Option.fromNullable(existing),
+          Option.match({
+            onNone: () => Effect.succeed(undefined),
+            onSome: (existingState) =>
+              pipe(
+                existingState.status === 'loading' || existingState.status === 'completed',
+                Match.value,
+                Match.when(true, () => Effect.succeed('skip')),
+                Match.orElse(() => Effect.succeed(undefined))
+              ),
+          })
+        )
 
         const request = createChunkLoadRequest(position, priority, playerDistance)
 
         // キューに追加を試行
         const added = yield* Queue.offer(currentState.loadQueue, request)
-        if (added) {
-          // ロード状態を更新
-          yield* Ref.update(state, currentState => ({
-            ...currentState,
-            loadStates: new Map(currentState.loadStates).set(key, {
-              position,
-              status: 'queued' as const,
-            }),
-          }))
-        }
+        yield* pipe(
+          added,
+          Match.value,
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              // ロード状態を更新
+              yield* Ref.update(state, currentState => ({
+                ...currentState,
+                loadStates: new Map(currentState.loadStates).set(key, {
+                  position,
+                  status: 'queued' as const,
+                }),
+              }))
+            })
+          ),
+          Match.orElse(() => Effect.succeed(undefined))
+        )
       })
 
     const queueChunkLoadBatch = (
@@ -264,10 +288,17 @@ export const createChunkLoader = (
 
         while (true) {
           // 現在のアクティブロード数をチェック
-          if (currentState.activeLoads.size >= currentState.config.maxConcurrentLoads) {
-            yield* Effect.sleep('100 millis')
-            continue
-          }
+          yield* pipe(
+            currentState.activeLoads.size >= currentState.config.maxConcurrentLoads,
+            Match.value,
+            Match.when(true, () =>
+              Effect.gen(function* () {
+                yield* Effect.sleep('100 millis')
+                continue
+              })
+            ),
+            Match.orElse(() => Effect.succeed(undefined))
+          )
 
           // キューからリクエストを取得
           const request = yield* Queue.take(currentState.loadQueue)
@@ -316,29 +347,39 @@ export const createChunkLoader = (
                 const newLoadStates = new Map(currentState.loadStates)
                 const currentLoadState = newLoadStates.get(key)
 
-                if (Exit.isSuccess(result)) {
-                  newLoadStates.set(key, {
-                    position: request.position,
-                    status: 'completed' as const,
-                    startTime: currentLoadState?.startTime ?? Date.now(),
-                    completedTime: Date.now(),
-                    chunk: result.value,
-                  })
-                } else {
-                  newLoadStates.set(key, {
-                    position: request.position,
-                    status: 'failed' as const,
-                    startTime: currentLoadState?.startTime ?? Date.now(),
-                    completedTime: Date.now(),
-                    error: Exit.isFailure(result) ? result.cause._tag === 'Fail' ? result.cause.error : undefined : undefined,
-                  })
-                }
-
-                return {
-                  ...currentState,
-                  activeLoads: newActiveLoads,
-                  loadStates: newLoadStates,
-                }
+                return pipe(
+                  Exit.isSuccess(result),
+                  Match.value,
+                  Match.when(true, () => {
+                    newLoadStates.set(key, {
+                      position: request.position,
+                      status: 'completed' as const,
+                      startTime: currentLoadState?.startTime ?? Date.now(),
+                      completedTime: Date.now(),
+                      chunk: result.value,
+                    })
+                    return {
+                      ...currentState,
+                      activeLoads: newActiveLoads,
+                      loadStates: newLoadStates,
+                    }
+                  }),
+                  Match.orElse(() => {
+                    newLoadStates.set(key, {
+                      position: request.position,
+                      status: 'failed' as const,
+                      startTime: currentLoadState?.startTime ?? Date.now(),
+                      completedTime: Date.now(),
+                      error: Exit.isFailure(result) ? result.cause._tag === 'Fail' ? result.cause.error : undefined : undefined,
+                    })
+                    return {
+                      ...currentState,
+                      activeLoads: newActiveLoads,
+                      loadStates: newLoadStates,
+                    }
+                  }),
+                  Match.exhaustive
+                )
               })
             })
           )
@@ -348,29 +389,50 @@ export const createChunkLoader = (
     const startLoadProcessing = (): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
       Effect.gen(function* () {
         const currentFiber = yield* Ref.get(processingFiber)
-        if (currentFiber) {
-          return currentFiber
-        }
-
-        const newFiber = yield* Effect.fork(processLoadQueue())
-        yield* Ref.set(processingFiber, newFiber)
-        return newFiber
+        
+        return yield* pipe(
+          Option.fromNullable(currentFiber),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const newFiber = yield* Effect.fork(processLoadQueue())
+                yield* Ref.set(processingFiber, newFiber)
+                return newFiber
+              }),
+            onSome: (fiber) => Effect.succeed(fiber),
+          })
+        )
       })
 
     const stopLoadProcessing = (): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const currentFiber = yield* Ref.get(processingFiber)
-        if (currentFiber) {
-          yield* Fiber.interrupt(currentFiber)
-          yield* Ref.set(processingFiber, null)
-        }
+        
+        yield* pipe(
+          Option.fromNullable(currentFiber),
+          Option.match({
+            onNone: () => Effect.succeed(undefined),
+            onSome: (fiber) =>
+              Effect.gen(function* () {
+                yield* Fiber.interrupt(fiber)
+                yield* Ref.set(processingFiber, null)
+              }),
+          })
+        )
       })
 
     const getLoadState = (position: ChunkPosition): Effect.Effect<ChunkLoadState | null, never> =>
       Effect.gen(function* () {
         const currentState = yield* Ref.get(state)
         const key = chunkLoadRequestToKey(position)
-        return currentState.loadStates.get(key) ?? null
+        
+        return yield* pipe(
+          Option.fromNullable(currentState.loadStates.get(key)),
+          Option.match({
+            onNone: () => Effect.succeed(null),
+            onSome: (state) => Effect.succeed(state),
+          })
+        )
       })
 
     const getActiveLoadCount = (): Effect.Effect<number, never> =>
@@ -391,25 +453,30 @@ export const createChunkLoader = (
         const key = chunkLoadRequestToKey(position)
         const activeFiber = currentState.activeLoads.get(key)
 
-        if (activeFiber) {
-          yield* Fiber.interrupt(activeFiber)
-          yield* Ref.update(state, currentState => {
-            const newActiveLoads = new Map(currentState.activeLoads)
-            newActiveLoads.delete(key)
+        return yield* pipe(
+          Option.fromNullable(activeFiber),
+          Option.match({
+            onNone: () => Effect.succeed(false),
+            onSome: (fiber) =>
+              Effect.gen(function* () {
+                yield* Fiber.interrupt(fiber)
+                yield* Ref.update(state, currentState => {
+                  const newActiveLoads = new Map(currentState.activeLoads)
+                  newActiveLoads.delete(key)
 
-            const newLoadStates = new Map(currentState.loadStates)
-            newLoadStates.delete(key)
+                  const newLoadStates = new Map(currentState.loadStates)
+                  newLoadStates.delete(key)
 
-            return {
-              ...currentState,
-              activeLoads: newActiveLoads,
-              loadStates: newLoadStates,
-            }
+                  return {
+                    ...currentState,
+                    activeLoads: newActiveLoads,
+                    loadStates: newLoadStates,
+                  }
+                })
+                return true
+              }),
           })
-          return true
-        }
-
-        return false
+        )
       })
 
     const cancelAllLoads = (): Effect.Effect<void, never> =>
@@ -456,7 +523,7 @@ const loadChunkWithTimeout = (
   timeoutMs: number
 ): Effect.Effect<Chunk, GenerationError, WorldGenerator> =>
   Effect.gen(function* () {
-    const worldGenerator = yield* WorldGeneratorTag
+    const worldGenerator = yield* WorldGenerator
 
     // タイムアウト付きでチャンク生成
     const chunkGeneration = Effect.gen(function* () {

@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import type { ChunkPosition } from './ChunkPosition.js'
 import type { ChunkData, ChunkMetadata } from './ChunkData.js'
-import { getBlockIndex, getBlockCoords } from './ChunkData.js'
+import { getBlockIndex, getBlockCoords, createChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from './ChunkData.js'
 
 /**
  * チャンク操作のエラー型
@@ -70,37 +70,36 @@ export const createChunk = (data: ChunkData): Chunk => {
     isDirty: data.isDirty,
 
     getBlock(x: number, y: number, z: number): Effect.Effect<number, ChunkBoundsError> {
-      return Effect.try({
-        try: () => {
-          const index = getBlockIndex(x, y, z)
-          const block = chunk.blocks[index]
-          return block ?? 0 // デフォルトでAir(0)を返す
-        },
-        catch: (error) => new ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z}): ${error}`),
+      return Effect.gen(function* () {
+        if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
+          yield* Effect.fail(new ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`))
+        }
+        const index = getBlockIndex(x, y, z)
+        return chunk.blocks[index] ?? 0
       })
     },
 
     setBlock(x: number, y: number, z: number, blockId: number): Effect.Effect<Chunk, ChunkBoundsError> {
-      return Effect.try({
-        try: () => {
-          const index = getBlockIndex(x, y, z)
-          const newBlocks = new Uint16Array(chunk.blocks)
-          newBlocks[index] = blockId
+      return Effect.gen(function* () {
+        if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
+          yield* Effect.fail(new ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))
+        }
+        const index = getBlockIndex(x, y, z)
+        const newBlocks = new Uint16Array(chunk.blocks)
+        newBlocks[index] = blockId
 
-          const newData: ChunkData = {
-            position: chunk.position,
-            blocks: newBlocks,
-            metadata: {
-              ...chunk.metadata,
-              isModified: true,
-              lastUpdate: Date.now(),
-            },
-            isDirty: true,
-          }
+        const newData: ChunkData = {
+          position: chunk.position,
+          blocks: newBlocks,
+          metadata: {
+            ...chunk.metadata,
+            isModified: true,
+            lastUpdate: Date.now(),
+          },
+          isDirty: true,
+        }
 
-          return createChunk(newData)
-        },
-        catch: (error) => new ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z}): ${error}`),
+        return createChunk(newData)
       })
     },
 
@@ -113,51 +112,75 @@ export const createChunk = (data: ChunkData): Chunk => {
       endZ: number,
       blockId: number
     ): Effect.Effect<Chunk, ChunkBoundsError> {
-      return Effect.try({
-        try: () => {
-          const newBlocks = new Uint16Array(chunk.blocks)
+      return Effect.gen(function* () {
+        // 境界チェック
+        const minX = Math.max(0, Math.min(startX, endX))
+        const maxX = Math.min(CHUNK_SIZE - 1, Math.max(startX, endX))
+        const minY = Math.max(CHUNK_MIN_Y, Math.min(startY, endY))
+        const maxY = Math.min(CHUNK_MAX_Y - 1, Math.max(startY, endY))
+        const minZ = Math.max(0, Math.min(startZ, endZ))
+        const maxZ = Math.min(CHUNK_SIZE - 1, Math.max(startZ, endZ))
 
-          for (let x = startX; x <= endX; x++) {
-            for (let y = startY; y <= endY; y++) {
-              for (let z = startZ; z <= endZ; z++) {
-                const index = getBlockIndex(x, y, z)
-                newBlocks[index] = blockId
-              }
+        if (
+          minX > maxX ||
+          minY > maxY ||
+          minZ > maxZ ||
+          startX < 0 ||
+          startX >= CHUNK_SIZE ||
+          endX < 0 ||
+          endX >= CHUNK_SIZE ||
+          startY < CHUNK_MIN_Y ||
+          startY >= CHUNK_MAX_Y ||
+          endY < CHUNK_MIN_Y ||
+          endY >= CHUNK_MAX_Y ||
+          startZ < 0 ||
+          startZ >= CHUNK_SIZE ||
+          endZ < 0 ||
+          endZ >= CHUNK_SIZE
+        ) {
+          yield* Effect.fail(
+            new ChunkBoundsError(`Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`)
+          )
+        }
+
+        const newBlocks = new Uint16Array(chunk.blocks)
+
+        for (let x = minX; x <= maxX; x++) {
+          for (let y = minY; y <= maxY; y++) {
+            for (let z = minZ; z <= maxZ; z++) {
+              const index = getBlockIndex(x, y, z)
+              newBlocks[index] = blockId
             }
           }
+        }
 
-          const newData: ChunkData = {
-            position: chunk.position,
-            blocks: newBlocks,
-            metadata: {
-              ...chunk.metadata,
-              isModified: true,
-              lastUpdate: Date.now(),
-            },
-            isDirty: true,
-          }
+        const newData: ChunkData = {
+          position: chunk.position,
+          blocks: newBlocks,
+          metadata: {
+            ...chunk.metadata,
+            isModified: true,
+            lastUpdate: Date.now(),
+          },
+          isDirty: true,
+        }
 
-          return createChunk(newData)
-        },
-        catch: (error) =>
-          new ChunkBoundsError(
-            `Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ}): ${error}`
-          ),
+        return createChunk(newData)
       })
     },
 
     serialize(): Effect.Effect<ArrayBuffer, ChunkSerializationError> {
-      return Effect.try({
-        try: () => {
-          const headerSize = 64 // メタデータ用
+      return Effect.gen(function* () {
+        try {
+          const headerSize = 64
           const blocksSize = chunk.blocks.byteLength
-          const heightMapSize = chunk.metadata.heightMap.length * 4 // number[] -> 4 bytes each
+          const heightMapSize = chunk.metadata.heightMap.length * 4
 
           const buffer = new ArrayBuffer(headerSize + blocksSize + heightMapSize)
           const view = new DataView(buffer)
           let offset = 0
 
-          // ヘッダー: バージョン、サイズ情報
+          // ヘッダー
           view.setUint32(offset, 1, true) // version
           offset += 4
           view.setUint32(offset, blocksSize, true)
@@ -177,22 +200,26 @@ export const createChunk = (data: ChunkData): Chunk => {
           heightMapView.set(chunk.metadata.heightMap)
 
           return buffer
-        },
-        catch: (error) => new ChunkSerializationError(`Failed to serialize chunk: ${error}`),
+        } catch (error) {
+          yield* Effect.fail(new ChunkSerializationError(`Failed to serialize chunk: ${error}`))
+        }
       })
     },
 
     deserialize(data: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
-      return Effect.try({
-        try: () => {
+      return Effect.gen(function* () {
+        try {
+          if (data.byteLength < 64) {
+            yield* Effect.fail(new ChunkSerializationError('Buffer too small'))
+          }
+
           const view = new DataView(data)
           let offset = 0
 
-          // ヘッダー読み込み
           const version = view.getUint32(offset, true)
           offset += 4
           if (version !== 1) {
-            throw new Error(`Unsupported version: ${version}`)
+            yield* Effect.fail(new ChunkSerializationError(`Unsupported version: ${version}`))
           }
 
           const blocksSize = view.getUint32(offset, true)
@@ -202,12 +229,14 @@ export const createChunk = (data: ChunkData): Chunk => {
           const lastUpdate = view.getFloat64(offset, true)
           offset += 8
 
-          // ブロックデータ読み込み
+          if (data.byteLength < offset + blocksSize + heightMapSize) {
+            yield* Effect.fail(new ChunkSerializationError('Invalid buffer size'))
+          }
+
           const blocksView = new Uint16Array(data, offset, blocksSize / 2)
           const blocks = new Uint16Array(blocksView)
           offset += blocksSize
 
-          // 高さマップ読み込み
           const heightMapView = new Float32Array(data, offset, heightMapSize / 4)
           const heightMap = Array.from(heightMapView)
 
@@ -223,73 +252,72 @@ export const createChunk = (data: ChunkData): Chunk => {
           }
 
           return createChunk(newData)
-        },
-        catch: (error) => new ChunkSerializationError(`Failed to deserialize chunk: ${error}`),
+        } catch (error) {
+          yield* Effect.fail(new ChunkSerializationError(`Failed to deserialize chunk: ${error}`))
+        }
       })
     },
 
     compress(): Effect.Effect<ArrayBuffer, ChunkSerializationError> {
       return Effect.gen(function* () {
         const serialized = yield* chunk.serialize()
-
-        // Run-Length Encoding の簡単な実装
-        return yield* Effect.try({
-          try: () => {
-            const input = new Uint16Array(serialized)
-            const compressed: number[] = []
-
-            let i = 0
-            while (i < input.length) {
-              const value = input[i] ?? 0
-              let count = 1
-
-              // 連続する同じ値をカウント
-              while (i + count < input.length && (input[i + count] ?? 0) === value && count < 255) {
-                count++
-              }
-
-              // 値と回数を記録
-              compressed.push(value, count)
-              i += count
+        
+        try {
+          const input = new Uint16Array(serialized)
+          const compressed: number[] = []
+          
+          let i = 0
+          while (i < input.length) {
+            const value = input[i] ?? 0
+            let count = 1
+            
+            while (i + count < input.length && (input[i + count] ?? 0) === value && count < 255) {
+              count++
             }
-
-            // ArrayBufferに変換
-            const result = new ArrayBuffer(compressed.length * 2)
-            const resultView = new Uint16Array(result)
-            resultView.set(compressed)
-
-            return result
-          },
-          catch: (error) => new ChunkSerializationError(`Failed to compress chunk: ${error}`),
-        })
+            
+            compressed.push(value, count)
+            i += count
+          }
+          
+          const result = new ArrayBuffer(compressed.length * 2)
+          const resultView = new Uint16Array(result)
+          resultView.set(compressed)
+          
+          return result
+        } catch (error) {
+          yield* Effect.fail(new ChunkSerializationError(`Failed to compress chunk: ${error}`))
+        }
       })
     },
 
     decompress(compressedData: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
-      return Effect.try({
-        try: () => {
+      return Effect.gen(function* () {
+        try {
+          if (compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0) {
+            yield* Effect.fail(new ChunkSerializationError('Invalid compressed data'))
+          }
+
           const input = new Uint16Array(compressedData)
           const decompressed: number[] = []
 
-          // Run-Length Decoding
           for (let i = 0; i < input.length; i += 2) {
             const value = input[i] ?? 0
             const count = input[i + 1] ?? 0
-
+            
             for (let j = 0; j < count; j++) {
               decompressed.push(value)
             }
           }
 
-          // ArrayBufferに変換
           const result = new ArrayBuffer(decompressed.length * 2)
           const resultView = new Uint16Array(result)
           resultView.set(decompressed)
 
-          return chunk.deserialize(result)
-        },
-        catch: (error) => new ChunkSerializationError(`Failed to decompress chunk: ${error}`),
-      }).pipe(Effect.flatten)
+          return yield* chunk.deserialize(result)
+        } catch (error) {
+          yield* Effect.fail(new ChunkSerializationError(`Failed to decompress chunk: ${error}`))
+        }
+      })
     },
 
     isEmpty(): boolean {
@@ -302,9 +330,7 @@ export const createChunk = (data: ChunkData): Chunk => {
     },
 
     getMemoryUsage(): number {
-      return (
-        chunk.blocks.byteLength + chunk.metadata.heightMap.length * 8 + 256 // その他メタデータ
-      )
+      return chunk.blocks.byteLength + chunk.metadata.heightMap.length * 8 + 256
     },
 
     clone(): Chunk {
@@ -330,13 +356,13 @@ export const createChunk = (data: ChunkData): Chunk => {
 export const createEmptyChunk = (position: ChunkPosition): Chunk => {
   const data: ChunkData = {
     position,
-    blocks: new Uint16Array(98304), // 16*16*384
+    blocks: new Uint16Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
     metadata: {
       biome: 'plains',
       lightLevel: 15,
       isModified: false,
       lastUpdate: Date.now(),
-      heightMap: new Array(256).fill(0), // 16*16
+      heightMap: new Array(CHUNK_SIZE * CHUNK_SIZE).fill(0),
     },
     isDirty: false,
   }

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import { NoiseGenerator } from './NoiseGenerator'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
@@ -30,17 +30,17 @@ export interface TerrainGenerator {
   /**
    * チャンクの高度マップを生成
    */
-  readonly generateHeightMap: (position: ChunkPosition) => Effect.Effect<HeightMap, never>
+  readonly generateHeightMap: (position: ChunkPosition) => Effect.Effect<HeightMap, never, NoiseGenerator>
 
   /**
    * 指定座標の地形高度を取得
    */
-  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never>
+  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never, NoiseGenerator>
 
   /**
    * チャンクに基本地形ブロックを配置
    */
-  readonly generateBaseTerrain: (chunkData: ChunkData, heightMap: HeightMap) => Effect.Effect<ChunkData, never>
+  readonly generateBaseTerrain: (chunkData: ChunkData, heightMap: HeightMap) => Effect.Effect<ChunkData, never, never>
 
   /**
    * 指定高度でのブロックタイプを決定
@@ -158,35 +158,46 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
               const index = getBlockIndex(x, y, z)
               let blockId = blockIds.air
 
-              if (y === -64) {
+              blockId = pipe(
+                Match.value({ y, surfaceHeight, seaLevel: config.seaLevel }),
                 // 最下層は岩盤
-                blockId = blockIds.bedrock
-              } else if (y < surfaceHeight - 3) {
+                Match.when(
+                  ({ y }) => y === -64,
+                  () => blockIds.bedrock
+                ),
                 // 地下4ブロック以下は石
-                blockId = blockIds.stone
-              } else if (y < surfaceHeight) {
+                Match.when(
+                  ({ y, surfaceHeight }) => y < surfaceHeight - 3,
+                  () => blockIds.stone
+                ),
                 // 表面の1-3ブロック下は土
-                blockId = blockIds.dirt
-              } else if (y === surfaceHeight) {
+                Match.when(
+                  ({ y, surfaceHeight }) => y < surfaceHeight,
+                  () => blockIds.dirt
+                ),
                 // 表面ブロック
-                const surfaceBlock = getSurfaceBlockType(worldX, worldZ, surfaceHeight, config.seaLevel)
-                switch (surfaceBlock) {
-                  case 'grass_block':
-                    blockId = blockIds.grass_block
-                    break
-                  case 'sand':
-                    blockId = blockIds.sand
-                    break
-                  case 'dirt':
-                    blockId = blockIds.dirt
-                    break
-                  default:
-                    blockId = blockIds.grass_block
-                }
-              } else if (y <= config.seaLevel && y > surfaceHeight) {
+                Match.when(
+                  ({ y, surfaceHeight }) => y === surfaceHeight,
+                  ({ surfaceHeight }) => {
+                    const surfaceBlock = getSurfaceBlockType(worldX, worldZ, surfaceHeight, config.seaLevel)
+                    return pipe(
+                      Match.value(surfaceBlock),
+                      Match.when('grass_block', () => blockIds.grass_block),
+                      Match.when('sand', () => blockIds.sand),
+                      Match.when('dirt', () => blockIds.dirt),
+                      Match.when('stone', () => blockIds.stone),
+                      Match.orElse(() => blockIds.grass_block)
+                    )
+                  }
+                ),
                 // 海面以下で地形より上の部分は水
-                blockId = blockIds.water
-              }
+                Match.when(
+                  ({ y, surfaceHeight, seaLevel }) => y <= seaLevel && y > surfaceHeight,
+                  () => blockIds.water
+                ),
+                // その他は空気
+                Match.orElse(() => blockIds.air)
+              )
 
               newBlocks[index] = blockId
             }
@@ -207,16 +218,18 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
 
     getBlockTypeAtHeight: (worldX: number, worldZ: number, y: number, surfaceHeight: number) => {
       // 高度と位置に基づいてブロックタイプを決定
-      if (surfaceHeight <= config.seaLevel + 2) {
-        // 海面近くは砂
-        return 'sand'
-      } else if (surfaceHeight > config.seaLevel + 50) {
-        // 高山地帯は石
-        return 'stone'
-      } else {
-        // 通常の平原は草ブロック
-        return 'grass_block'
-      }
+      return pipe(
+        Match.value(surfaceHeight),
+        Match.when(
+          (h) => h <= config.seaLevel + 2,
+          () => 'sand'
+        ),
+        Match.when(
+          (h) => h > config.seaLevel + 50,
+          () => 'stone'
+        ),
+        Match.orElse(() => 'grass_block')
+      )
     },
 
     getConfig: () => config,
@@ -234,18 +247,19 @@ const getBlockIndex = (x: number, y: number, z: number): number => {
 /**
  * 高度と位置に基づいて表面ブロックタイプを決定
  */
-const getSurfaceBlockType = (worldX: number, worldZ: number, surfaceHeight: number, seaLevel: number): string => {
-  if (surfaceHeight <= seaLevel + 2) {
-    // 海面近くは砂
-    return 'sand'
-  } else if (surfaceHeight > seaLevel + 50) {
-    // 高山地帯は石
-    return 'stone'
-  } else {
-    // 通常の平原は草ブロック
-    return 'grass_block'
-  }
-}
+const getSurfaceBlockType = (worldX: number, worldZ: number, surfaceHeight: number, seaLevel: number): string =>
+  pipe(
+    Match.value(surfaceHeight),
+    Match.when(
+      (h) => h <= seaLevel + 2,
+      () => 'sand'
+    ),
+    Match.when(
+      (h) => h > seaLevel + 50,
+      () => 'stone'
+    ),
+    Match.orElse(() => 'grass_block')
+  )
 
 /**
  * TerrainGeneratorのLayer

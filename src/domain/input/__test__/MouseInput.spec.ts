@@ -1,6 +1,6 @@
 import { describe, expect, it as vitestIt, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext, TestClock, Ref } from 'effect'
+import { Effect, Layer, TestContext, TestClock, Ref, Schema, TestServices } from 'effect'
 import { MouseInput, MouseInputError, MockMouseInput, MouseInputLive } from '../MouseInput'
 import type { MousePosition, PointerLockState } from '../MouseInput'
 import { MouseDelta } from '../types'
@@ -581,8 +581,8 @@ describe('MouseInput', () => {
               } as any
 
               // フォールバック計算のテスト (lines 92, 97)
-              const deltaX = mockEvent.clientX - currentPosition.x  // line 92 相当
-              const deltaY = mockEvent.clientY - currentPosition.y  // line 97 相当
+              const deltaX = mockEvent.clientX - currentPosition.x // line 92 相当
+              const deltaY = mockEvent.clientY - currentPosition.y // line 97 相当
 
               yield* Ref.set(position, {
                 x: clientX,
@@ -595,68 +595,78 @@ describe('MouseInput', () => {
 
           return {
             getPosition: () => Ref.get(position),
-            getDelta: () => Effect.gen(function* () {
-              const pos = yield* Ref.get(position)
-              return MouseDelta({
-                deltaX: 5,
-                deltaY: 3,
-                timestamp: pos.timestamp,
-              })
-            }),
-            getButtonState: (button: number) => Effect.gen(function* () {
-              const buttonMap = yield* Ref.get(buttons)
-              return {
-                button,
-                isPressed: buttonMap.has(button),
-                timestamp: Date.now(),
-              }
-            }),
-            isButtonPressed: (button: number) => Effect.gen(function* () {
-              const buttonMap = yield* Ref.get(buttons)
-              return buttonMap.has(button)
-            }),
-            requestPointerLock: (_elementId: string) => Effect.succeed({
-              isLocked: false
-            }),
-            exitPointerLock: () => Effect.succeed({
-              isLocked: false
-            }),
-            getPointerLockState: () => Effect.succeed({
-              isLocked: false
-            }),
-            resetButtonStates: () => Effect.gen(function* () {
-              yield* Ref.set(buttons, new Map())
-            }),
+            getDelta: () =>
+              Effect.gen(function* () {
+                const pos = yield* Ref.get(position)
+                return {
+                  deltaX: 5,
+                  deltaY: 3,
+                  timestamp: pos.timestamp || Date.now(),
+                }
+              }),
+            getButtonState: (button: number) =>
+              Effect.gen(function* () {
+                const buttonMap = yield* Ref.get(buttons)
+                return {
+                  button,
+                  isPressed: buttonMap.has(button),
+                  timestamp: Date.now(),
+                }
+              }),
+            isButtonPressed: (button: number) =>
+              Effect.gen(function* () {
+                const buttonMap = yield* Ref.get(buttons)
+                return buttonMap.has(button)
+              }),
+            requestPointerLock: (elementId?: string) =>
+              Effect.succeed({
+                isLocked: false,
+              }),
+            exitPointerLock: () =>
+              Effect.succeed({
+                isLocked: false,
+              }),
+            getPointerLockState: () =>
+              Effect.succeed({
+                isLocked: false,
+              }),
+            resetButtonStates: () =>
+              Effect.gen(function* () {
+                yield* Ref.set(buttons, new Map())
+              }),
+            resetDelta: () => Effect.succeed(void 0),
             // テスト用ヘルパー関数
             simulateLegacyMouseMove: handleMouseMove,
           }
         })
       )
 
-      it.effect('movementX/Y未対応ブラウザでのフォールバック処理をテスト', () =>
-        Effect.gen(function* () {
-          const mouseInput = yield* MouseInput
+      it.effect(
+        'movementX/Y未対応ブラウザでのフォールバック処理をテスト',
+        () =>
+          Effect.gen(function* () {
+            const mouseInput = yield* MouseInput
 
-          // 初期位置設定
-          const initialPosition = yield* mouseInput.getPosition()
-          expect(initialPosition.x).toBe(100)
-          expect(initialPosition.y).toBe(100)
+            // 初期位置設定
+            const initialPosition = yield* mouseInput.getPosition()
+            expect(initialPosition.x).toBe(100)
+            expect(initialPosition.y).toBe(100)
 
-          // レガシーマウス移動をシミュレート（movementX/Y なし）
-          const testService = mouseInput as any
-          if (testService.simulateLegacyMouseMove) {
-            const result = yield* testService.simulateLegacyMouseMove(150, 200)
+            // レガシーマウス移動をシミュレート（movementX/Y なし）
+            const testService = mouseInput as any
+            if (testService.simulateLegacyMouseMove) {
+              const result = yield* testService.simulateLegacyMouseMove(150, 200)
 
-            // フォールバック処理による計算結果の確認
-            expect(result.deltaX).toBe(50)  // 150 - 100 (line 92 フォールバック)
-            expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
-          }
+              // フォールバック処理による計算結果の確認
+              expect(result.deltaX).toBe(50) // 150 - 100 (line 92 フォールバック)
+              expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
+            }
 
-          // 位置更新の確認
-          const updatedPosition = yield* mouseInput.getPosition()
-          expect(updatedPosition.x).toBe(150)
-          expect(updatedPosition.y).toBe(200)
-        }).pipe(Effect.provide(LegacyTestLayer))
+            // 位置更新の確認
+            const updatedPosition = yield* mouseInput.getPosition()
+            expect(updatedPosition.x).toBe(150)
+            expect(updatedPosition.y).toBe(200)
+          }).pipe(Effect.provide(LegacyTestLayer)) as Effect.Effect<void, unknown, TestServices.TestServices>
       )
 
       it.effect('typeof チェックによるmovementプロパティ検証', () =>
@@ -676,22 +686,22 @@ describe('MouseInput', () => {
           }
 
           // movementX が存在し、number型の場合
-          const hasMovementX = 'movementX' in mockEventWithMovement &&
-                              typeof mockEventWithMovement.movementX === 'number'
+          const hasMovementX =
+            'movementX' in mockEventWithMovement && typeof mockEventWithMovement.movementX === 'number'
           expect(hasMovementX).toBe(true)
 
           // movementX が存在しない場合
-          const noMovementX = 'movementX' in mockEventWithoutMovement &&
-                             typeof (mockEventWithoutMovement as any).movementX === 'number'
+          const noMovementX =
+            'movementX' in mockEventWithoutMovement && typeof (mockEventWithoutMovement as any).movementX === 'number'
           expect(noMovementX).toBe(false)
 
           // movementY についても同様
-          const hasMovementY = 'movementY' in mockEventWithMovement &&
-                              typeof mockEventWithMovement.movementY === 'number'
+          const hasMovementY =
+            'movementY' in mockEventWithMovement && typeof mockEventWithMovement.movementY === 'number'
           expect(hasMovementY).toBe(true)
 
-          const noMovementY = 'movementY' in mockEventWithoutMovement &&
-                             typeof (mockEventWithoutMovement as any).movementY === 'number'
+          const noMovementY =
+            'movementY' in mockEventWithoutMovement && typeof (mockEventWithoutMovement as any).movementY === 'number'
           expect(noMovementY).toBe(false)
         })
       )

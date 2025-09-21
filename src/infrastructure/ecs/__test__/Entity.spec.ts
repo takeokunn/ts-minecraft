@@ -8,18 +8,25 @@ import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Layer from 'effect/Layer'
 import * as TestContext from 'effect/TestContext'
-import * as Schema from '@effect/schema/Schema'
+import { Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import {
   EntityId,
   EntityPoolError,
   EntityPoolLive,
-  type EntityPool,
+  EntityPoolLayer,
+  EntityPool,
   createComponentStorage,
   createArchetypeManager,
   type EntityMetadata,
 } from '../Entity.js'
-import TestUtils, { EffectAssert, PropertyTest, PerformanceTest } from '../../../test/effect-test-utils.js'
+import {
+  expectEffectSuccess,
+  expectEffectFailure,
+  expectSchemaSuccess,
+  expectPerformanceTest,
+  expectPerformanceTestEffect,
+} from '../../../test/unified-test-helpers'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -42,7 +49,7 @@ interface TestComponent {
 // Test Layers - Layer-based DI Pattern
 // ================================================================================
 
-const TestLayer = TestContext.TestContext
+const TestLayer = EntityPoolLayer
 
 // ================================================================================
 // EntityPool Tests - it.effect Pattern
@@ -52,16 +59,16 @@ describe('Entity ECS Architecture', () => {
   describe('EntityPool - ID Management', () => {
     it.effect('should allocate unique entity IDs', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         const id1 = yield* pool.allocate()
         const id2 = yield* pool.allocate()
         const id3 = yield* pool.allocate()
 
         // Schema validation for entity IDs
-        yield* EffectAssert.succeeds(EntityIdSchema)(Effect.succeed(id1))
-        yield* EffectAssert.succeeds(EntityIdSchema)(Effect.succeed(id2))
-        yield* EffectAssert.succeeds(EntityIdSchema)(Effect.succeed(id3))
+        expectSchemaSuccess(Schema.Number, id1)
+        expectSchemaSuccess(Schema.Number, id2)
+        expectSchemaSuccess(Schema.Number, id3)
 
         // Uniqueness verification
         if (id1 === id2 || id2 === id3 || id1 === id3) {
@@ -73,7 +80,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('should recycle deallocated IDs', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         const id1 = yield* pool.allocate()
         yield* pool.deallocate(id1)
@@ -89,7 +96,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('should track allocated status correctly', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         const id = yield* pool.allocate()
         const isAllocated1 = yield* pool.isAllocated(id)
@@ -110,7 +117,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('should fail when deallocating unallocated entity', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
         const invalidId = EntityId(99999)
 
         // EntityPoolErrorが発生することを確認
@@ -130,7 +137,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('should reset pool state correctly', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         // いくつかのエンティティを割り当て
         const ids = yield* Effect.all([pool.allocate(), pool.allocate(), pool.allocate()])
@@ -156,7 +163,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('should provide accurate statistics', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         const initialStats = yield* pool.getStats()
         if (initialStats.allocatedCount !== 0 || initialStats.recycledCount !== 0) {
@@ -202,7 +209,7 @@ describe('Entity ECS Architecture', () => {
         }
 
         // Schema validation
-        yield* EffectAssert.succeeds(ComponentDataSchema)(Effect.succeed(retrieved.value))
+        expectSchemaSuccess(ComponentDataSchema, retrieved.value)
 
         if (JSON.stringify(retrieved.value) !== JSON.stringify(component)) {
           return yield* Effect.fail(new Error('Component data mismatch'))
@@ -550,42 +557,38 @@ describe('Entity ECS Architecture', () => {
         const storage = createComponentStorage<{ value: number }>()
 
         // パフォーマンステスト - 10000個のコンポーネント挿入
-        const insertionMetrics = yield* PerformanceTest.measure(
-          Effect.gen(function* () {
-            for (let i = 0; i < 10000; i++) {
-              yield* storage.insert(EntityId(i), { value: i })
-            }
-            return 'insertion_complete'
-          }),
-          'component_insertion'
-        )
+        const insertionTest = Effect.gen(function* () {
+          for (let i = 0; i < 10000; i++) {
+            yield* storage.insert(EntityId(i), { value: i })
+          }
+          return 'insertion_complete'
+        })
 
-        // 500ms以内での完了を確認
-        if (insertionMetrics.metrics.executionTime > 500) {
-          return yield* Effect.fail(new Error(`Insertion too slow: ${insertionMetrics.metrics.executionTime}ms`))
-        }
+        const insertionResult = yield* expectPerformanceTestEffect(insertionTest, 500, 1) as Effect.Effect<
+          any,
+          never,
+          never
+        >
 
         // イテレーションのパフォーマンステスト
-        const iterationMetrics = yield* PerformanceTest.measure(
-          Effect.gen(function* () {
-            let sum = 0
-            yield* storage.iterate((_entity, component) =>
-              Effect.sync(() => {
-                sum += component.value
-              })
-            )
-            return sum
-          }),
-          'component_iteration'
-        )
+        const iterationTest = Effect.gen(function* () {
+          let sum = 0
+          yield* storage.iterate((_entity, component) =>
+            Effect.sync(() => {
+              sum += component.value
+            })
+          )
+          return sum
+        })
 
-        // 150ms以内での完了を確認 (CI環境での変動を考慮)
-        if (iterationMetrics.metrics.executionTime > 150) {
-          return yield* Effect.fail(new Error(`Iteration too slow: ${iterationMetrics.metrics.executionTime}ms`))
-        }
+        const iterationResult = yield* expectPerformanceTestEffect(iterationTest, 150, 1) as Effect.Effect<
+          any,
+          never,
+          never
+        >
 
         // 数学的検証: 0+1+2+...+9999 = 49995000
-        if (iterationMetrics.result !== 49995000) {
+        if (iterationResult !== 49995000) {
           return yield* Effect.fail(new Error('Iteration sum incorrect'))
         }
 
@@ -603,17 +606,17 @@ describe('Entity ECS Architecture', () => {
         }>()
 
         // メモリ効率テスト
-        const memoryMetrics = yield* PerformanceTest.memoryUsage(
-          Effect.gen(function* () {
-            for (let i = 0; i < 5000; i++) {
-              yield* storage.insert(EntityId(i), { x: i, y: i, z: i, w: i })
-            }
-            const stats = yield* storage.getStats()
-            return stats
-          })
-        )
+        const memoryTest = Effect.gen(function* () {
+          for (let i = 0; i < 5000; i++) {
+            yield* storage.insert(EntityId(i), { x: i, y: i, z: i, w: i })
+          }
+          const stats = yield* storage.getStats()
+          return stats
+        })
 
-        if (memoryMetrics.result.size !== 5000) {
+        const memoryResult = yield* expectPerformanceTestEffect(memoryTest, 200, 1) as Effect.Effect<any, never, never>
+
+        if (memoryResult.size !== 5000) {
           return yield* Effect.fail(new Error('Memory test data size incorrect'))
         }
 
@@ -631,14 +634,12 @@ describe('Entity ECS Architecture', () => {
   describe('EntityPool Exhaustion (Phase 2)', () => {
     // 小さなプールサイズでテスト用Layerを作成
     const SmallPoolLayer = Layer.effect(
-      EntityPoolLive,
+      EntityPool,
       Effect.gen(function* () {
         // より小さなサイズでプールを作成（テスト用）
         const SMALL_MAX_ENTITIES = 3
         const state = {
-          freeList: Array.from({ length: SMALL_MAX_ENTITIES }, (_, i) =>
-            EntityId(SMALL_MAX_ENTITIES - 1 - i)
-          ),
+          freeList: Array.from({ length: SMALL_MAX_ENTITIES }, (_, i) => EntityId(SMALL_MAX_ENTITIES - 1 - i)),
           allocated: new Set<EntityId>(),
           nextId: SMALL_MAX_ENTITIES,
         }
@@ -664,7 +665,7 @@ describe('Entity ECS Architecture', () => {
               if (!state.allocated.has(id)) {
                 return yield* Effect.fail(
                   new EntityPoolError({
-                    reason: 'invalid_entity',
+                    reason: 'invalid_entity_id',
                     message: `Entity ${id} is not allocated`,
                   })
                 )
@@ -678,7 +679,10 @@ describe('Entity ECS Architecture', () => {
               allocatedCount: state.allocated.size,
               recycledCount: state.freeList.length,
               totalCapacity: SMALL_MAX_ENTITIES,
+              freeCount: SMALL_MAX_ENTITIES - state.allocated.size,
             }),
+
+          isAllocated: (id: EntityId) => Effect.succeed(state.allocated.has(id)),
 
           reset: () =>
             Effect.gen(function* () {
@@ -694,7 +698,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('プール枯渇時にEntityPoolErrorが発生する (lines 280-285)', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         // 小さなプールのすべてのエンティティを割り当て
         const id1 = yield* pool.allocate()
@@ -739,7 +743,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('エンティティ解放後にプールが再利用可能になる', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         // プールを枯渇させる
         const id1 = yield* pool.allocate()
@@ -773,7 +777,7 @@ describe('Entity ECS Architecture', () => {
 
     it.effect('freeList.length === 0 条件の境界値テスト', () =>
       Effect.gen(function* () {
-        const pool = yield* EntityPoolLive
+        const pool = yield* EntityPool
 
         // 初期状態の確認
         const initialStats = yield* pool.getStats()

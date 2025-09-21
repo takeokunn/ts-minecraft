@@ -189,30 +189,51 @@ export const createChunkManager = (
         const key = chunkPositionToKey(position)
 
         // ロード済みチェック
-        const loaded = currentState.loadedChunks.get(key)
-        if (loaded) {
-          return loaded
-        }
+        const loaded = yield* pipe(
+          Option.fromNullable(currentState.loadedChunks.get(key)),
+          Option.match({
+            onNone: () => Effect.succeed(null),
+            onSome: (chunk) => Effect.succeed(chunk),
+          })
+        )
 
-        // キャッシュチェック
-        const [cached, newCache] = lruGet(currentState.cache, key)
-        if (cached) {
-          // キャッシュから復元してロード済みに移動
-          const newLoadedChunks = new Map(currentState.loadedChunks)
-          newLoadedChunks.set(key, cached)
+        return yield* pipe(
+          Option.fromNullable(loaded),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                // キャッシュチェック
+                const [cached, newCache] = lruGet(currentState.cache, key)
+                
+                return yield* pipe(
+                  Option.fromNullable(cached),
+                  Option.match({
+                    onNone: () =>
+                      Effect.gen(function* () {
+                        // ロードキューに追加
+                        yield* Queue.offer(currentState.loadQueue, position)
+                        return null
+                      }),
+                    onSome: (cachedChunk) =>
+                      Effect.gen(function* () {
+                        // キャッシュから復元してロード済みに移動
+                        const newLoadedChunks = new Map(currentState.loadedChunks)
+                        newLoadedChunks.set(key, cachedChunk)
 
-          yield* Ref.update(state, currentState => ({
-            ...currentState,
-            loadedChunks: newLoadedChunks,
-            cache: newCache,
-          }))
+                        yield* Ref.update(state, currentState => ({
+                          ...currentState,
+                          loadedChunks: newLoadedChunks,
+                          cache: newCache,
+                        }))
 
-          return cached
-        }
-
-        // ロードキューに追加
-        yield* Queue.offer(currentState.loadQueue, position)
-        return null
+                        return cachedChunk
+                      }),
+                  })
+                )
+              }),
+            onSome: (chunk) => Effect.succeed(chunk),
+          })
+        )
       })
 
     const loadChunksAroundPlayer = (playerPosition: Vector3): Effect.Effect<void, never> =>
@@ -240,32 +261,59 @@ export const createChunkManager = (
 
         currentState.loadedChunks.forEach((chunk, key) => {
           const distance = chunkDistance(chunk.position, centerChunk)
-          if (distance > currentState.config.viewDistance) {
-            toUnload.push(key)
-          }
+          yield* pipe(
+            distance > currentState.config.viewDistance,
+            Match.value,
+            Match.when(true, () => {
+              toUnload.push(key)
+              return Effect.succeed(undefined)
+            }),
+            Match.orElse(() => Effect.succeed(undefined))
+          )
         })
 
-        if (toUnload.length > 0) {
-          yield* Ref.update(state, currentState => {
-            const newLoadedChunks = new Map(currentState.loadedChunks)
-            let newCache = currentState.cache
+        yield* pipe(
+          toUnload.length > 0,
+          Match.value,
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              yield* Ref.update(state, currentState => {
+                const newLoadedChunks = new Map(currentState.loadedChunks)
+                let newCache = currentState.cache
 
-            toUnload.forEach(key => {
-              const chunk = newLoadedChunks.get(key)
-              if (chunk) {
-                // キャッシュに移動
-                newCache = lruPut(newCache, key, chunk)
-                newLoadedChunks.delete(key)
-              }
+                toUnload.forEach(key => {
+                  const chunk = yield* pipe(
+                    Option.fromNullable(newLoadedChunks.get(key)),
+                    Option.match({
+                      onNone: () => Effect.succeed(null),
+                      onSome: (chunk) => Effect.succeed(chunk),
+                    })
+                  )
+
+                  yield* pipe(
+                    Option.fromNullable(chunk),
+                    Option.match({
+                      onNone: () => Effect.succeed(undefined),
+                      onSome: (c) => {
+                        // キャッシュに移動
+                        newCache = lruPut(newCache, key, c)
+                        newLoadedChunks.delete(key)
+                        return Effect.succeed(undefined)
+                      },
+                    })
+                  )
+                })
+
+                return {
+                  ...currentState,
+                  loadedChunks: newLoadedChunks,
+                  cache: newCache,
+                }
+              })
             })
-
-            return {
-              ...currentState,
-              loadedChunks: newLoadedChunks,
-              cache: newCache,
-            }
-          })
-        }
+          ),
+          Match.orElse(() => Effect.succeed(undefined))
+        )
       })
 
     const getMemoryUsage = (): Effect.Effect<number, never> =>

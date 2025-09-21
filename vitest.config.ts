@@ -1,17 +1,28 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
+import { cpus } from 'os'
 
 export default defineConfig({
   test: {
-    // テスト環境設定
+    // テスト環境設定 - Effect-TS最適化
     globals: true,
     environment: 'happy-dom',
 
-    // テストファイルパターン（__test__/*.spec.ts）
-    include: ['src/**/__test__/*.spec.?(c|m)[jt]s?(x)'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**', "src/test/__test__/**"],
+    // テストファイルパターン（現代的パターン）
+    include: [
+      'src/**/__test__/*.{test,spec}.?(c|m)[jt]s?(x)',
+      'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+    ],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
+      '**/coverage/**',
+      '**/docs/**',
+      'src/test/**', // ヘルパーファイルは除外
+    ],
 
-    // タイムアウト設定（無限ループ防止）
+    // タイムアウト設定 - Effect-TS適合
     testTimeout: 15000,
     hookTimeout: 10000,
     teardownTimeout: 10000,
@@ -19,39 +30,46 @@ export default defineConfig({
     // セットアップファイル
     setupFiles: ['./src/test/setup.ts'],
 
-    // 並行実行制御（Effect-TSテスト最適化）
+    // 並行実行制御 - パフォーマンス最適化
     pool: 'threads',
     poolOptions: {
       threads: {
-        maxThreads: 4, // Effect-TSの並行性を活用
+        maxThreads: Math.min(4, cpus().length),
         minThreads: 1,
         isolate: true,
+        useAtomics: true,
       },
     },
 
-    // Effect-TS最適化設定
+    // Effect-TS deps 最適化
     deps: {
       optimizer: {
         ssr: {
           enabled: true,
-          include: ['effect', '@effect/platform', '@effect/schema', '@effect/vitest'],
+          include: [
+            'effect',
+            '@effect/platform',
+            '@effect/schema',
+            '@effect/vitest',
+          ],
         },
       },
     },
 
-    // Effect-TS用環境変数
+    // 環境変数 - Effect-TS専用
     env: {
       NODE_ENV: 'test',
-      EFFECT_LOG_LEVEL: 'Error', // テスト時はエラーレベルのみ
-      VITEST_ENVIRONMENT: 'effect',
+      EFFECT_LOG_LEVEL: 'Error',
+      VITEST: 'true',
     },
 
-    // カバレッジ設定 - 100%カバレッジ達成に最適化
+    // カバレッジ設定 - 100%目標
     coverage: {
-      enabled: false, // デフォルト無効（--coverageで有効化）
+      enabled: false, // CLI --coverage で有効化
       provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov', 'text-summary'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
+
       include: ['src/**/*.ts'],
       exclude: [
         'node_modules/**',
@@ -62,27 +80,26 @@ export default defineConfig({
         '*.config.js',
         '**/*.d.ts',
         'src/**/__test__/**',
-        'src/**/*.spec.ts',
-        'src/**/*.test.ts',
+        'src/**/*.{test,spec}.ts',
         'src/test/**',
-        'src/**/index.ts', // 単純なre-exportのみのindexファイル
+        'src/**/index.ts', // re-export only
       ],
 
-      // 100%カバレッジ目標設定
+      // 100%カバレッジ閾値
       thresholds: {
-        branches: 90,
-        functions: 90,
-        lines: 90,
-        statements: 90,
-        // perFile: true,
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
+        perFile: true,
       },
 
-      // カバレッジ品質設定
+      // 高品質カバレッジ設定
       watermarks: {
-        statements: [90, 100],
-        functions: [90, 100],
-        branches: [90, 100],
-        lines: [90, 100],
+        statements: [95, 100],
+        functions: [95, 100],
+        branches: [95, 100],
+        lines: [95, 100],
       },
 
       clean: true,
@@ -90,24 +107,38 @@ export default defineConfig({
       reportOnFailure: true,
       skipFull: false,
       allowExternal: false,
-      excludeAfterRemap: true, // ソースマップ後の除外を適用
-      ignoreEmptyLines: false,
+      excludeAfterRemap: true,
+      ignoreEmptyLines: true,
     },
 
     // レポート設定
-    reporters: ['default'],
+    reporters: [
+      'default',
+      ['html', { outputFile: './test-results/index.html' }],
+      ['json', { outputFile: './test-results/results.json' }],
+    ],
 
-    // 並列実行設定
+    // テスト実行制御 - 現代的設定
     sequence: {
-      concurrent: false,
-      shuffle: false,
+      concurrent: true,
+      shuffle: true,
+      hooks: 'parallel',
     },
 
-    // 最大同時実行数
-    maxConcurrency: 5,
+    // 並行性制御
+    maxConcurrency: Math.min(8, cpus().length),
+    minWorkers: 1,
+    maxWorkers: Math.min(4, cpus().length),
 
-    // 遅いテストの閾値
-    slowTestThreshold: 300,
+    // パフォーマンス設定
+    slowTestThreshold: 500,
+    logHeapUsage: process.env.NODE_ENV === 'development',
+
+    // Effect-TS it.effect() サポート強化
+    typecheck: {
+      enabled: true,
+      tsconfig: './tsconfig.json',
+    },
   },
 
   // パス解決
@@ -116,5 +147,10 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       '@test': resolve(__dirname, 'src/test'),
     },
+  },
+
+  // ビルド最適化
+  esbuild: {
+    target: 'node16',
   },
 })

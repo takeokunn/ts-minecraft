@@ -2,7 +2,11 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import { defaultConfig, validateConfig, loadConfig } from '../index'
-import { expectEffectSuccess, expectSchemaSuccess, expectPerformanceTest } from '../../test/helpers/effect-test-utils.js'
+import {
+  expectEffectSuccess,
+  expectSchemaSuccess,
+  expectPerformanceTest,
+} from '../../test/unified-test-helpers'
 
 describe('Config Module', () => {
   describe('defaultConfig', () => {

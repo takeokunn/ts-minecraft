@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({
@@ -98,16 +98,22 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     const envValue = process.env[envKey]
 
     // 環境変数が存在しない場合はデフォルト値を返す
-    return envValue
-      ? (() => {
-          try {
-            const parsed = JSON.parse(envValue)
-            return Schema.decodeSync(schema)(parsed)
-          } catch {
-            return defaultValue
-          }
-        })()
-      : defaultValue
+    return pipe(
+      Option.fromNullable(envValue),
+      Option.match({
+        onNone: () => defaultValue,
+        onSome: (value) =>
+          pipe(
+            Effect.try(() => JSON.parse(value)),
+            Effect.flatMap((parsed) => Schema.decodeUnknown(schema)(parsed)),
+            Effect.match({
+              onFailure: () => defaultValue,
+              onSuccess: (result) => result,
+            }),
+            Effect.runSync
+          ),
+      })
+    )
   }
 
   // ミュータブルな設定ストア（実際のアプリケーションでは、RefやMutableRefを使用することを推奨）
@@ -135,15 +141,21 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
 
     updateConfig: (key, value) =>
       Effect.gen(function* () {
-        if (key === 'gameConfig') {
-          currentGameConfig = value as GameConfig
-        } else if (key === 'renderConfig') {
-          currentRenderConfig = value as RenderConfig
-        } else if (key === 'debugConfig') {
-          currentDebugConfig = value as DebugConfig
-        } else {
-          return yield* Effect.fail(new Error(`Unknown config key: ${key}`))
-        }
+        return yield* Match.value(key).pipe(
+          Match.when('gameConfig', () => {
+            currentGameConfig = value as GameConfig
+            return Effect.succeed(undefined)
+          }),
+          Match.when('renderConfig', () => {
+            currentRenderConfig = value as RenderConfig
+            return Effect.succeed(undefined)
+          }),
+          Match.when('debugConfig', () => {
+            currentDebugConfig = value as DebugConfig
+            return Effect.succeed(undefined)
+          }),
+          Match.orElse(() => Effect.fail(new Error(`Unknown config key: ${key}`)))
+        )
       }) as Effect.Effect<void, never, never>,
   })
 })

@@ -5,7 +5,8 @@ import * as fc from 'fast-check'
 import {
   expectEffectSuccess,
   expectEffectDuration,
-} from '../../../test/helpers/effect-test-utils'
+  itEffectWithLayer,
+} from '../../../test/unified-test-helpers'
 import {
   BiomeGenerator,
   BiomeGeneratorLive,
@@ -15,16 +16,22 @@ import {
   type BiomeConfig,
   type ClimateData,
 } from '../BiomeGenerator'
-import { NoiseGeneratorLiveDefault } from '../NoiseGenerator'
+import { NoiseGenerator, NoiseGeneratorLiveDefault } from '../NoiseGenerator'
 import type { BiomeType, Vector3 } from '../types'
 
 /**
  * BiomeGenerator専用のテストヘルパー
+ * Context7準拠のLayer-basedテストパターン
  */
+const TestLayer = Layer.mergeAll(
+  NoiseGeneratorLiveDefault,
+  BiomeGeneratorLiveDefault
+)
+
 const runWithTestBiome = <A>(
   config: BiomeConfig,
-  operation: (bg: BiomeGenerator) => Effect.Effect<A, never, never>
-) =>
+  operation: (bg: BiomeGenerator) => Effect.Effect<A, never, NoiseGenerator>
+): Effect.Effect<A, never, never> =>
   Effect.gen(function* () {
     const bg = yield* BiomeGenerator
     return yield* operation(bg)
@@ -35,7 +42,33 @@ const runWithTestBiome = <A>(
         BiomeGeneratorLive(config)
       )
     )
-  )
+  ) as Effect.Effect<A, never, never>
+/**
+ * @effect/vitest統合用のBiomeGeneratorテストヘルパー
+ * Effect.genパターンによる決定論的テスト
+ */
+const testWithBiome = <A>(
+  name: string,
+  config: BiomeConfig,
+  operation: (bg: BiomeGenerator) => Effect.Effect<A, never, NoiseGenerator>,
+  timeout?: number
+) => {
+  it(name, async () => {
+    const testEffect = Effect.gen(function* () {
+      const bg = yield* BiomeGenerator
+      return yield* operation(bg)
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          NoiseGeneratorLiveDefault,
+          BiomeGeneratorLive(config)
+        )
+      )
+    ) as Effect.Effect<A, never, never>
+
+    await expectEffectSuccess(testEffect, timeout)
+  })
+}
 
 describe('BiomeGenerator', () => {
   const testConfig: BiomeConfig = {
@@ -359,7 +392,7 @@ describe('BiomeGenerator', () => {
               const biome = biomeMap[x]?.[z]
               expect(biome).toBeDefined()
               expect(typeof biome).toBe('string')
-              expect(biome.length).toBeGreaterThan(0)
+              expect(biome?.length).toBeGreaterThan(0)
             }
           }
 

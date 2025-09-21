@@ -5,7 +5,7 @@ import * as fc from 'fast-check'
 import {
   expectEffectSuccess,
   expectEffectDuration,
-} from '../../../test/helpers/effect-test-utils'
+} from '../../../test/unified-test-helpers'
 import {
   OreDistribution,
   OreDistributionLive,

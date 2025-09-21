@@ -25,9 +25,9 @@ const handleContextRestored = (): void => {
 const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>): RendererService => ({
   initialize: (canvas: HTMLCanvasElement): Effect.Effect<void, RenderError> =>
     Effect.gen(function* () {
-      try {
-        // WebGLRendererの作成
-        const renderer = new THREE.WebGLRenderer({
+      // WebGLRendererの作成
+      const renderer = yield* Effect.try({
+        try: () => new THREE.WebGLRenderer({
           canvas,
           antialias: true,
           alpha: true,
@@ -36,44 +36,64 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
           depth: true,
           premultipliedAlpha: true,
           preserveDrawingBuffer: false,
+        }),
+        catch: (error) => RenderInitError({
+          message: 'WebGLRendererの作成に失敗しました',
+          canvas,
+          cause: error,
         })
+      })
 
-        // 基本設定の適用
-        renderer.setPixelRatio(window.devicePixelRatio)
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight)
-        renderer.setClearColor(0x87ceeb, 1.0) // スカイブルー
-        renderer.shadowMap.enabled = true
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      // 基本設定の適用
+      yield* Effect.try({
+        try: () => {
+          renderer.setPixelRatio(window.devicePixelRatio)
+          renderer.setSize(canvas.clientWidth, canvas.clientHeight)
+          renderer.setClearColor(0x87ceeb, 1.0) // スカイブルー
+          renderer.shadowMap.enabled = true
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap
+        },
+        catch: (error) => RenderInitError({
+          message: 'レンダラー設定の適用に失敗しました',
+          canvas,
+          cause: error,
+        })
+      })
 
-        // WebGLコンテキストの検証
-        const gl = renderer.getContext()
-        if (!gl) {
-          yield* Effect.fail(
-            RenderInitError({
-              message: 'WebGLコンテキストの取得に失敗しました',
-              canvas,
-              context: 'WebGL context creation failed',
-            })
-          )
-        }
+      // WebGLコンテキストの検証
+      const gl = yield* Effect.try({
+        try: () => {
+          const context = renderer.getContext()
+          if (!context) {
+            throw new Error('WebGLコンテキストの取得に失敗しました')
+          }
+          return context
+        },
+        catch: (error) => RenderInitError({
+          message: 'WebGLコンテキストの取得に失敗しました',
+          canvas,
+          context: 'WebGL context creation failed',
+          cause: error,
+        })
+      })
 
-        // WebGLコンテキストロストのハンドリング
-        canvas.addEventListener('webglcontextlost', handleContextLost, false)
-        canvas.addEventListener('webglcontextrestored', handleContextRestored, false)
+      // WebGLコンテキストロストのハンドリング
+      yield* Effect.try({
+        try: () => {
+          canvas.addEventListener('webglcontextlost', handleContextLost, false)
+          canvas.addEventListener('webglcontextrestored', handleContextRestored, false)
+        },
+        catch: (error) => RenderInitError({
+          message: 'WebGLコンテキストイベントリスナーの設定に失敗しました',
+          canvas,
+          cause: error,
+        })
+      })
 
-        // レンダラーの保存
-        yield* Ref.set(rendererRef, renderer)
+      // レンダラーの保存
+      yield* Ref.set(rendererRef, renderer)
 
-        console.log('WebGLRenderer initialized successfully')
-      } catch (error) {
-        yield* Effect.fail(
-          RenderInitError({
-            message: 'レンダラーの初期化に失敗しました',
-            canvas,
-            cause: error,
-          })
-        )
-      }
+      console.log('WebGLRenderer initialized successfully')
     }),
 
   render: (scene: THREE.Scene, camera: THREE.Camera): Effect.Effect<void, RenderError> =>
@@ -89,32 +109,35 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
         )
       }
 
-      try {
-        // WebGLコンテキストの状態確認
-        const gl = renderer!.getContext()
-        if (gl.isContextLost()) {
-          yield* Effect.fail(
-            ContextLostError({
+      // WebGLコンテキストの状態確認とレンダリング実行
+      yield* Effect.try({
+        try: () => {
+          // WebGLコンテキストの状態確認
+          const gl = renderer!.getContext()
+          if (gl.isContextLost()) {
+            throw new Error('WebGLコンテキストが失われています')
+          }
+
+          // レンダリング実行
+          renderer!.render(scene, camera)
+        },
+        catch: (error) => {
+          if (error instanceof Error && error.message === 'WebGLコンテキストが失われています') {
+            return ContextLostError({
               message: 'WebGLコンテキストが失われています',
               canRestore: true,
               lostTime: Date.now(),
             })
-          )
-        }
-
-        // レンダリング実行
-        renderer!.render(scene, camera)
-      } catch (error) {
-        yield* Effect.fail(
-          RenderExecutionError({
+          }
+          return RenderExecutionError({
             message: 'レンダリング実行中にエラーが発生しました',
             operation: 'render',
             sceneId: scene.uuid,
             cameraType: camera.type,
             cause: error,
           })
-        )
-      }
+        }
+      })
     }),
 
   resize: (width: number, height: number): Effect.Effect<void, never> =>

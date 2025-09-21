@@ -5,7 +5,7 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
-import { Context, Data, Effect, Layer, Ref, Schema } from 'effect'
+import { Context, Data, Effect, Layer, Ref, Schema, Either, Match, pipe, Option } from 'effect'
 import type { System, SystemMetadata, SystemPriority } from './System.js'
 import { priorityToNumber, runSystems, SystemError, SystemExecutionState } from './System.js'
 import type { World } from './World.js'
@@ -116,11 +116,14 @@ const calculateExecutionOrder = (systems: Map<string, SystemEntry>): readonly st
     const aPriority = priorityToNumber(a.metadata.priority)
     const bPriority = priorityToNumber(b.metadata.priority)
 
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority
-    }
-
-    return a.metadata.order - b.metadata.order
+    // if文をMatch.valueパターンに置き換え
+    return pipe(
+      aPriority === bPriority,
+      Match.value,
+      Match.when(false, () => aPriority - bPriority),
+      Match.when(true, () => a.metadata.order - b.metadata.order),
+      Match.exhaustive
+    )
   })
 
   return entries.map(([name]) => name)
@@ -146,43 +149,47 @@ export const SystemRegistryServiceLive = Layer.effect(
      */
     const register = (system: System, priority: SystemPriority = 'normal', order = 500) =>
       Effect.gen(function* () {
-        yield* Ref.update(stateRef, (state) => {
-          if (state.systems.has(system.name)) {
-            return state
-          }
+        yield* Ref.update(stateRef, (state) =>
+          pipe(
+            state.systems.has(system.name),
+            Match.value,
+            Match.when(true, () => state),
+            Match.when(false, () => {
+              const metadata: SystemMetadata = {
+                name: system.name,
+                priority,
+                enabled: true,
+                order,
+              }
 
-          const metadata: SystemMetadata = {
-            name: system.name,
-            priority,
-            enabled: true,
-            order,
-          }
+              const executionState: SystemExecutionState = {
+                systemName: system.name,
+                executionCount: 0,
+                totalDuration: 0,
+                averageDuration: 0,
+                maxDuration: 0,
+                lastExecutionTime: 0,
+                errors: [],
+              }
 
-          const executionState: SystemExecutionState = {
-            systemName: system.name,
-            executionCount: 0,
-            totalDuration: 0,
-            averageDuration: 0,
-            maxDuration: 0,
-            lastExecutionTime: 0,
-            errors: [],
-          }
+              const entry: SystemEntry = {
+                system,
+                metadata,
+                executionState,
+              }
 
-          const entry: SystemEntry = {
-            system,
-            metadata,
-            executionState,
-          }
+              const newSystems = new Map(state.systems)
+              newSystems.set(system.name, entry)
 
-          const newSystems = new Map(state.systems)
-          newSystems.set(system.name, entry)
-
-          return {
-            ...state,
-            systems: newSystems,
-            executionOrder: calculateExecutionOrder(newSystems),
-          }
-        })
+              return {
+                ...state,
+                systems: newSystems,
+                executionOrder: calculateExecutionOrder(newSystems),
+              }
+            }),
+            Match.exhaustive
+          )
+        )
 
         yield* Effect.logInfo(`System registered: ${system.name} (priority: ${priority})`)
       })
@@ -194,14 +201,18 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.systems.has(name)) {
-          return yield* Effect.fail(
+        yield* pipe(
+          state.systems.has(name),
+          Match.value,
+          Match.when(false, () => Effect.fail(
             new SystemRegistryError({
               message: `System not found: ${name}`,
               systemName: name,
             })
-          )
-        }
+          )),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
         yield* Ref.update(stateRef, (s) => {
           const newSystems = new Map(s.systems)
@@ -293,9 +304,16 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.globalEnabled) {
-          return
-        }
+        // グローバル無効時は早期リターン
+        yield* pipe(
+          state.globalEnabled,
+          Match.value,
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
+
+        if (!state.globalEnabled) return
 
         const systems = yield* getOrderedSystems
 
@@ -306,64 +324,80 @@ export const SystemRegistryServiceLive = Layer.effect(
           const result = yield* Effect.either(system.update(world, deltaTime))
           const duration = Date.now() - startTime
 
-          if (result._tag === 'Right') {
-            // 成功時: 統計を更新
-            yield* Ref.update(stateRef, (s) => {
-              const entry = s.systems.get(system.name)
-              if (!entry) return s
+          yield* pipe(
+            result,
+            Either.match({
+              onLeft: (error) =>
+                Effect.gen(function* () {
+                  // エラー時: エラーを記録して再度スロー
+                  yield* Ref.update(stateRef, (s) => {
+                    const entry = s.systems.get(system.name)
+                    return pipe(
+                      Option.fromNullable(entry),
+                      Option.match({
+                        onNone: () => s,
+                        onSome: (entry) => {
+                          const errorMessage =
+                            error instanceof SystemError ? `${error.systemName}: ${error.message}` : String(error)
 
-              const newState = entry.executionState
-              const newCount = newState.executionCount + 1
-              const newTotal = newState.totalDuration + duration
+                          const newExecutionState: SystemExecutionState = {
+                            ...entry.executionState,
+                            errors: [...entry.executionState.errors, errorMessage].slice(-10), // 最新10件のエラーを保持
+                          }
 
-              const newExecutionState: SystemExecutionState = {
-                ...newState,
-                executionCount: newCount,
-                totalDuration: newTotal,
-                averageDuration: newTotal / newCount,
-                maxDuration: Math.max(newState.maxDuration, duration),
-                lastExecutionTime: Date.now(),
-              }
+                          const newEntry: SystemEntry = {
+                            ...entry,
+                            executionState: newExecutionState,
+                          }
 
-              const newEntry: SystemEntry = {
-                ...entry,
-                executionState: newExecutionState,
-              }
+                          const newSystems = new Map(s.systems)
+                          newSystems.set(system.name, newEntry)
 
-              const newSystems = new Map(s.systems)
-              newSystems.set(system.name, newEntry)
+                          return { ...s, systems: newSystems }
+                        },
+                      })
+                    )
+                  })
 
-              return { ...s, systems: newSystems }
+                  yield* Effect.fail(error)
+                }),
+              onRight: () =>
+                // 成功時: 統計を更新
+                Ref.update(stateRef, (s) => {
+                  const entry = s.systems.get(system.name)
+                  return pipe(
+                    Option.fromNullable(entry),
+                    Option.match({
+                      onNone: () => s,
+                      onSome: (entry) => {
+                        const newState = entry.executionState
+                        const newCount = newState.executionCount + 1
+                        const newTotal = newState.totalDuration + duration
+
+                        const newExecutionState: SystemExecutionState = {
+                          ...newState,
+                          executionCount: newCount,
+                          totalDuration: newTotal,
+                          averageDuration: newTotal / newCount,
+                          maxDuration: Math.max(newState.maxDuration, duration),
+                          lastExecutionTime: Date.now(),
+                        }
+
+                        const newEntry: SystemEntry = {
+                          ...entry,
+                          executionState: newExecutionState,
+                        }
+
+                        const newSystems = new Map(s.systems)
+                        newSystems.set(system.name, newEntry)
+
+                        return { ...s, systems: newSystems }
+                      },
+                    })
+                  )
+                }),
             })
-          } else {
-            // エラー時: エラーを記録して再度スロー
-            const error = result.left
-
-            yield* Ref.update(stateRef, (s) => {
-              const entry = s.systems.get(system.name)
-              if (!entry) return s
-
-              const errorMessage =
-                error instanceof SystemError ? `${error.systemName}: ${error.message}` : String(error)
-
-              const newExecutionState: SystemExecutionState = {
-                ...entry.executionState,
-                errors: [...entry.executionState.errors, errorMessage].slice(-10), // 最新10件のエラーを保持
-              }
-
-              const newEntry: SystemEntry = {
-                ...entry,
-                executionState: newExecutionState,
-              }
-
-              const newSystems = new Map(s.systems)
-              newSystems.set(system.name, newEntry)
-
-              return { ...s, systems: newSystems }
-            })
-
-            yield* Effect.fail(error)
-          }
+          )
         }
       })
 

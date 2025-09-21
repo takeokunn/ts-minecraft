@@ -6,7 +6,7 @@ import {
   expectEffectSuccess,
   expectEffectDuration,
   testAllBranches
-} from '../../../test/helpers/effect-test-utils'
+} from '../../../test/unified-test-helpers'
 import {
   NoiseGenerator,
   NoiseGeneratorLive,

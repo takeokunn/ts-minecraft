@@ -3,7 +3,7 @@
  * 描画距離の動的調整とパフォーマンス最適化（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Layer, Schema } from 'effect'
+import { Context, Effect, Ref, Layer, Schema, pipe, Match, Option } from 'effect'
 import type { ChunkPosition } from './index.js'
 import type { Vector3 } from '../world/index.js'
 
@@ -87,41 +87,47 @@ export const calculateAverageMetrics = (
   metricsHistory: PerformanceMetrics[],
   sampleCount: number = 30
 ): PerformanceMetrics | null => {
-  if (metricsHistory.length === 0) {
-    return null
-  }
+  return pipe(
+    metricsHistory.length === 0,
+    Match.value,
+    Match.when(true, () => null),
+    Match.orElse(() => {
+      const recentMetrics = metricsHistory.slice(-sampleCount)
+      const totalSamples = recentMetrics.length
 
-  const recentMetrics = metricsHistory.slice(-sampleCount)
-  const totalSamples = recentMetrics.length
+      return pipe(
+        totalSamples === 0,
+        Match.value,
+        Match.when(true, () => null),
+        Match.orElse(() => {
+          const sum = recentMetrics.reduce(
+            (acc, metrics) => ({
+              frameRate: acc.frameRate + metrics.frameRate,
+              memoryUsageMB: acc.memoryUsageMB + metrics.memoryUsageMB,
+              averageChunkLoadTimeMs: acc.averageChunkLoadTimeMs + metrics.averageChunkLoadTimeMs,
+              totalLoadedChunks: acc.totalLoadedChunks + metrics.totalLoadedChunks,
+              timestamp: Math.max(acc.timestamp, metrics.timestamp),
+            }),
+            {
+              frameRate: 0,
+              memoryUsageMB: 0,
+              averageChunkLoadTimeMs: 0,
+              totalLoadedChunks: 0,
+              timestamp: 0,
+            }
+          )
 
-  if (totalSamples === 0) {
-    return null
-  }
-
-  const sum = recentMetrics.reduce(
-    (acc, metrics) => ({
-      frameRate: acc.frameRate + metrics.frameRate,
-      memoryUsageMB: acc.memoryUsageMB + metrics.memoryUsageMB,
-      averageChunkLoadTimeMs: acc.averageChunkLoadTimeMs + metrics.averageChunkLoadTimeMs,
-      totalLoadedChunks: acc.totalLoadedChunks + metrics.totalLoadedChunks,
-      timestamp: Math.max(acc.timestamp, metrics.timestamp),
-    }),
-    {
-      frameRate: 0,
-      memoryUsageMB: 0,
-      averageChunkLoadTimeMs: 0,
-      totalLoadedChunks: 0,
-      timestamp: 0,
-    }
+          return {
+            frameRate: sum.frameRate / totalSamples,
+            memoryUsageMB: sum.memoryUsageMB / totalSamples,
+            averageChunkLoadTimeMs: sum.averageChunkLoadTimeMs / totalSamples,
+            totalLoadedChunks: sum.totalLoadedChunks / totalSamples,
+            timestamp: sum.timestamp,
+          }
+        })
+      )
+    })
   )
-
-  return {
-    frameRate: sum.frameRate / totalSamples,
-    memoryUsageMB: sum.memoryUsageMB / totalSamples,
-    averageChunkLoadTimeMs: sum.averageChunkLoadTimeMs / totalSamples,
-    totalLoadedChunks: sum.totalLoadedChunks / totalSamples,
-    timestamp: sum.timestamp,
-  }
 }
 
 export const analyzePerformanceTrend = (
@@ -132,45 +138,84 @@ export const analyzePerformanceTrend = (
   memoryTrend: 'improving' | 'stable' | 'degrading'
   loadTimeTrend: 'improving' | 'stable' | 'degrading'
 } => {
-  if (metricsHistory.length < 10) {
-    return {
-      frameRateTrend: 'stable',
-      memoryTrend: 'stable',
-      loadTimeTrend: 'stable',
-    }
-  }
+  return pipe(
+    metricsHistory.length < 10,
+    Match.value,
+    Match.when(true, () => ({
+      frameRateTrend: 'stable' as const,
+      memoryTrend: 'stable' as const,
+      loadTimeTrend: 'stable' as const,
+    })),
+    Match.orElse(() => {
+      const recent = metricsHistory.slice(-5)
+      const older = metricsHistory.slice(-15, -10)
 
-  const recent = metricsHistory.slice(-5)
-  const older = metricsHistory.slice(-15, -10)
+      const recentAvg = calculateAverageMetrics(recent, 5)
+      const olderAvg = calculateAverageMetrics(older, 5)
 
-  const recentAvg = calculateAverageMetrics(recent, 5)
-  const olderAvg = calculateAverageMetrics(older, 5)
+      return pipe(
+        !recentAvg || !olderAvg,
+        Match.value,
+        Match.when(true, () => ({
+          frameRateTrend: 'stable' as const,
+          memoryTrend: 'stable' as const,
+          loadTimeTrend: 'stable' as const,
+        })),
+        Match.orElse(() => {
+          const frameRateChange = (recentAvg.frameRate - olderAvg.frameRate) / olderAvg.frameRate
+          const memoryChange = (recentAvg.memoryUsageMB - olderAvg.memoryUsageMB) / olderAvg.memoryUsageMB
+          const loadTimeChange = (recentAvg.averageChunkLoadTimeMs - olderAvg.averageChunkLoadTimeMs) / olderAvg.averageChunkLoadTimeMs
 
-  if (!recentAvg || !olderAvg) {
-    return {
-      frameRateTrend: 'stable',
-      memoryTrend: 'stable',
-      loadTimeTrend: 'stable',
-    }
-  }
+          const threshold = config.adjustmentThreshold
 
-  const frameRateChange = (recentAvg.frameRate - olderAvg.frameRate) / olderAvg.frameRate
-  const memoryChange = (recentAvg.memoryUsageMB - olderAvg.memoryUsageMB) / olderAvg.memoryUsageMB
-  const loadTimeChange = (recentAvg.averageChunkLoadTimeMs - olderAvg.averageChunkLoadTimeMs) / olderAvg.averageChunkLoadTimeMs
-
-  const threshold = config.adjustmentThreshold
-
-  return {
-    frameRateTrend:
-      frameRateChange > threshold ? 'improving' :
-      frameRateChange < -threshold ? 'degrading' : 'stable',
-    memoryTrend:
-      memoryChange > threshold ? 'degrading' : // メモリ使用量増加は悪化
-      memoryChange < -threshold ? 'improving' : 'stable',
-    loadTimeTrend:
-      loadTimeChange > threshold ? 'degrading' : // ロード時間増加は悪化
-      loadTimeChange < -threshold ? 'improving' : 'stable',
-  }
+          return {
+            frameRateTrend: pipe(
+              frameRateChange > threshold,
+              Match.value,
+              Match.when(true, () => 'improving' as const),
+              Match.when(false, () =>
+                pipe(
+                  frameRateChange < -threshold,
+                  Match.value,
+                  Match.when(true, () => 'degrading' as const),
+                  Match.orElse(() => 'stable' as const)
+                )
+              ),
+              Match.exhaustive
+            ),
+            memoryTrend: pipe(
+              memoryChange > threshold,
+              Match.value,
+              Match.when(true, () => 'degrading' as const), // メモリ使用量増加は悪化
+              Match.when(false, () =>
+                pipe(
+                  memoryChange < -threshold,
+                  Match.value,
+                  Match.when(true, () => 'improving' as const),
+                  Match.orElse(() => 'stable' as const)
+                )
+              ),
+              Match.exhaustive
+            ),
+            loadTimeTrend: pipe(
+              loadTimeChange > threshold,
+              Match.value,
+              Match.when(true, () => 'degrading' as const), // ロード時間増加は悪化
+              Match.when(false, () =>
+                pipe(
+                  loadTimeChange < -threshold,
+                  Match.value,
+                  Match.when(true, () => 'improving' as const),
+                  Match.orElse(() => 'stable' as const)
+                )
+              ),
+              Match.exhaustive
+            ),
+          }
+        })
+      )
+    })
+  )
 }
 
 export const calculateOptimalViewDistance = (
@@ -193,56 +238,92 @@ export const calculateOptimalViewDistance = (
   const lowFrameRate = metrics.frameRate < targetFrameRate * 0.9 // 90%未満
   const highMemoryUsage = metrics.memoryUsageMB > maxMemoryUsageMB * 0.8 // 80%超過
   const highLoadTime = metrics.averageChunkLoadTimeMs > 200 // 200ms超過
-
-  let suggestedDistance = currentDistance
-  let reason: ViewDistanceAdjustmentReason = 'manual'
-  let confidence = 0.5
-
-  if (lowFrameRate) {
-    // フレームレート低下 → 描画距離を減らす
-    const reductionFactor = Math.max(0.7, metrics.frameRate / targetFrameRate)
-    suggestedDistance = Math.max(
-      minViewDistance,
-      Math.floor(currentDistance * reductionFactor)
-    )
-    reason = 'performance_low'
-    confidence = 0.8
-  } else if (highMemoryUsage) {
-    // メモリ使用量過多 → 描画距離を減らす
-    const reductionFactor = Math.max(0.8, maxMemoryUsageMB / metrics.memoryUsageMB)
-    suggestedDistance = Math.max(
-      minViewDistance,
-      Math.floor(currentDistance * reductionFactor)
-    )
-    reason = 'memory_high'
-    confidence = 0.9
-  } else if (highLoadTime) {
-    // ロード時間過長 → 描画距離を減らす
-    suggestedDistance = Math.max(
-      minViewDistance,
-      currentDistance - 2
-    )
-    reason = 'load_time_high'
-    confidence = 0.7
-  } else if (
+  const goodPerformance =
     metrics.frameRate > targetFrameRate * 1.1 && // 110%以上
     metrics.memoryUsageMB < maxMemoryUsageMB * 0.6 && // 60%未満
     metrics.averageChunkLoadTimeMs < 100 // 100ms未満
-  ) {
-    // 余裕がある → 描画距離を増やす
-    suggestedDistance = Math.min(
-      maxViewDistance,
-      currentDistance + 1
-    )
-    reason = 'performance_good'
-    confidence = 0.6
-  }
 
-  return {
-    suggestedDistance,
-    reason,
-    confidence,
-  }
+  return pipe(
+    lowFrameRate,
+    Match.value,
+    Match.when(true, () => {
+      // フレームレート低下 → 描画距離を減らす
+      const reductionFactor = Math.max(0.7, metrics.frameRate / targetFrameRate)
+      const suggestedDistance = Math.max(
+        minViewDistance,
+        Math.floor(currentDistance * reductionFactor)
+      )
+      return {
+        suggestedDistance,
+        reason: 'performance_low' as ViewDistanceAdjustmentReason,
+        confidence: 0.8,
+      }
+    }),
+    Match.when(false, () =>
+      pipe(
+        highMemoryUsage,
+        Match.value,
+        Match.when(true, () => {
+          // メモリ使用量過多 → 描画距離を減らす
+          const memoryRatio = metrics.memoryUsageMB / maxMemoryUsageMB
+          const reductionFactor = Math.max(0.6, 1.0 - (memoryRatio - 0.8) * 2) // 80%超過時に段階的に減少
+          const suggestedDistance = Math.max(
+            minViewDistance,
+            Math.floor(currentDistance * reductionFactor)
+          )
+          return {
+            suggestedDistance,
+            reason: 'memory_high' as ViewDistanceAdjustmentReason,
+            confidence: 0.9,
+          }
+        }),
+        Match.when(false, () =>
+          pipe(
+            highLoadTime,
+            Match.value,
+            Match.when(true, () => {
+              // ロード時間過長 → 描画距離を減らす
+              const suggestedDistance = Math.max(
+                minViewDistance,
+                currentDistance - 2
+              )
+              return {
+                suggestedDistance,
+                reason: 'load_time_high' as ViewDistanceAdjustmentReason,
+                confidence: 0.7,
+              }
+            }),
+            Match.when(false, () =>
+              pipe(
+                goodPerformance,
+                Match.value,
+                Match.when(true, () => {
+                  // 余裕がある → 描画距離を増やす
+                  const suggestedDistance = Math.min(
+                    maxViewDistance,
+                    currentDistance + 1
+                  )
+                  return {
+                    suggestedDistance,
+                    reason: 'performance_good' as ViewDistanceAdjustmentReason,
+                    confidence: 0.6,
+                  }
+                }),
+                Match.orElse(() => ({
+                  suggestedDistance: currentDistance,
+                  reason: 'manual' as ViewDistanceAdjustmentReason,
+                  confidence: 0.5,
+                }))
+              )
+            ),
+            Match.exhaustive
+          )
+        ),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 }
 
 export const getVisibleChunkPositions = (
@@ -391,14 +472,17 @@ export const createViewDistance = (
           return
         }
 
+        const hasMetricsHistory = currentState.metricsHistory.length > 0
+        const latestMetrics = hasMetricsHistory
+          ? currentState.metricsHistory[currentState.metricsHistory.length - 1]
+          : undefined
+
         const event: ViewDistanceEvent = {
           timestamp: Date.now(),
           oldDistance: currentState.currentViewDistance,
           newDistance: clampedDistance,
           reason,
-          metrics: currentState.metricsHistory.length > 0
-            ? currentState.metricsHistory[currentState.metricsHistory.length - 1]
-            : undefined,
+          metrics: latestMetrics,
         }
 
         yield* Ref.update(state, currentState => ({
@@ -428,16 +512,15 @@ export const createViewDistance = (
       Effect.gen(function* () {
         const currentState = yield* Ref.get(state)
 
+        // 早期リターンの条件チェック
         if (!currentState.config.adaptiveEnabled) {
           return null
         }
 
-        // 最低限のメトリクス履歴が必要
         if (currentState.metricsHistory.length < 10) {
           return null
         }
 
-        // 最後の調整から一定時間経過を確認（過度な調整を防ぐ）
         const timeSinceLastAdjustment = Date.now() - currentState.lastAdjustmentTime
         if (timeSinceLastAdjustment < 5000) { // 5秒間隔
           return null

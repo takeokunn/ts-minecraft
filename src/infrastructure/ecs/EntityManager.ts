@@ -1,4 +1,4 @@
-import { Context, Data, Effect, HashMap, Option, pipe, Schema, Match } from 'effect'
+import { Context, Data, Effect, HashMap, Layer, Option, pipe, Schema, Match } from 'effect'
 import type { SystemError } from './System.js'
 import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry.js'
 import {
@@ -234,7 +234,14 @@ export const EntityManagerLive = Effect.gen(function* () {
       )
 
       // すべてのコンポーネントを削除
-      const components = entityComponents.get(id) || new Set()
+      const components = yield* pipe(
+        Option.fromNullable(entityComponents.get(id)),
+        Option.match({
+          onNone: () => Effect.succeed(new Set<string>()),
+          onSome: (components) => Effect.succeed(components),
+        })
+      )
+
       for (const componentType of components) {
         yield* pipe(
           Option.fromNullable(componentStorages.get(componentType)),
@@ -247,7 +254,13 @@ export const EntityManagerLive = Effect.gen(function* () {
 
       // タグインデックスから削除
       for (const tag of metadata.tags) {
-        tagIndex.get(tag)?.delete(id)
+        pipe(
+          Option.fromNullable(tagIndex.get(tag)),
+          Option.match({
+            onNone: () => undefined,
+            onSome: (tagSet) => tagSet.delete(id),
+          })
+        )
       }
 
       // アーキタイプから削除
@@ -272,7 +285,13 @@ export const EntityManagerLive = Effect.gen(function* () {
       )
 
       const storage = getOrCreateStorage(componentType)
-      const components = entityComponents.get(entityId) || new Set()
+      const components = yield* pipe(
+        Option.fromNullable(entityComponents.get(entityId)),
+        Option.match({
+          onNone: () => Effect.succeed(new Set<string>()),
+          onSome: (components) => Effect.succeed(components),
+        })
+      )
 
       yield* pipe(
         components.has(componentType),
@@ -300,24 +319,50 @@ export const EntityManagerLive = Effect.gen(function* () {
   // コンポーネント削除
   const removeComponent = (entityId: EntityId, componentType: string) =>
     Effect.gen(function* () {
-      if (!entities.has(entityId)) {
-        return yield* Effect.fail(createEntityManagerError.entityNotFound(entityId, 'removeComponent'))
-      }
+      // エンティティの存在確認
+      yield* pipe(
+        entities.has(entityId),
+        (exists) =>
+          Match.value(exists).pipe(
+            Match.when(false, () =>
+              Effect.fail(createEntityManagerError.entityNotFound(entityId, 'removeComponent'))
+            ),
+            Match.when(true, () => Effect.succeed(undefined)),
+            Match.exhaustive
+          )
+      )
 
+      // コンポーネントストレージの取得と処理
       const storage = componentStorages.get(componentType)
-      if (!storage) {
-        return yield* Effect.fail(createEntityManagerError.componentNotFound(componentType, entityId))
-      }
-
-      const removed = yield* storage.remove(entityId)
-      if (removed) {
-        const components = entityComponents.get(entityId)
-        if (components) {
-          components.delete(componentType)
-          // アーキタイプを更新
-          yield* archetypeManager.moveEntity(entityId, components)
-        }
-      }
+      yield* pipe(
+        Option.fromNullable(storage),
+        Option.match({
+          onNone: () => Effect.fail(createEntityManagerError.componentNotFound(componentType, entityId)),
+          onSome: (s) =>
+            Effect.gen(function* () {
+              const removed = yield* s.remove(entityId)
+              yield* Match.value(removed).pipe(
+                Match.when(true, () =>
+                  Effect.gen(function* () {
+                    const components = yield* pipe(
+                      Option.fromNullable(entityComponents.get(entityId)),
+                      Option.match({
+                        onNone: () => Effect.succeed(new Set<string>()),
+                        onSome: (c) => Effect.succeed(c),
+                      })
+                    )
+                    
+                    components.delete(componentType)
+                    // アーキタイプを更新
+                    yield* archetypeManager.moveEntity(entityId, components)
+                  })
+                ),
+                Match.when(false, () => Effect.succeed(undefined)),
+                Match.exhaustive
+              )
+            }),
+        })
+      )
     })
 
   // コンポーネント取得
@@ -348,18 +393,37 @@ export const EntityManagerLive = Effect.gen(function* () {
   const getEntityComponents = (entityId: EntityId) =>
     Effect.gen(function* () {
       const result = new Map<string, unknown>()
-      const components = entityComponents.get(entityId)
+      const components = yield* pipe(
+        Option.fromNullable(entityComponents.get(entityId)),
+        Option.match({
+          onNone: () => Effect.succeed(new Set<string>()),
+          onSome: (components) => Effect.succeed(components),
+        })
+      )
 
-      if (components) {
-        for (const componentType of components) {
-          const storage = componentStorages.get(componentType)
-          if (storage) {
-            const component = yield* storage.get(entityId)
-            if (Option.isSome(component)) {
-              result.set(componentType, component.value)
-            }
-          }
-        }
+      for (const componentType of components) {
+        const storage = yield* pipe(
+          Option.fromNullable(componentStorages.get(componentType)),
+          Option.match({
+            onNone: () => Effect.succeed(Option.none()),
+            onSome: (storage) =>
+              Effect.gen(function* () {
+                const component = yield* storage.get(entityId)
+                return component
+              }),
+          })
+        )
+
+        yield* pipe(
+          storage,
+          Option.match({
+            onNone: () => Effect.succeed(undefined),
+            onSome: (component) => {
+              result.set(componentType, component)
+              return Effect.succeed(undefined)
+            },
+          })
+        )
       }
 
       return result as ReadonlyMap<string, unknown>
@@ -368,48 +432,92 @@ export const EntityManagerLive = Effect.gen(function* () {
   // クエリ：コンポーネントを持つエンティティ
   const getEntitiesWithComponent = (componentType: string) =>
     Effect.gen(function* () {
-      const storage = componentStorages.get(componentType)
-      if (!storage) return []
-
-      const all = yield* storage.getAll()
-      return all.map(([entity]) => entity)
+      return yield* pipe(
+        Option.fromNullable(componentStorages.get(componentType)),
+        Option.match({
+          onNone: () => Effect.succeed([]),
+          onSome: (storage) =>
+            Effect.gen(function* () {
+              const all = yield* storage.getAll()
+              return all.map(([entity]) => entity)
+            }),
+        })
+      )
     })
 
   // クエリ：複数コンポーネントを持つエンティティ（AND）
   const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
     Effect.gen(function* () {
-      if (componentTypes.length === 0) return []
+      return yield* pipe(
+        componentTypes.length === 0,
+        Match.value,
+        Match.when(true, () => Effect.succeed([])),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            // 最初のコンポーネントを持つエンティティから開始
+            const firstComponent = yield* pipe(
+              Option.fromNullable(componentTypes[0]),
+              Option.match({
+                onNone: () => Effect.succeed([]),
+                onSome: (componentType) => getEntitiesWithComponent(componentType),
+              })
+            )
 
-      // 最初のコンポーネントを持つエンティティから開始
-      const firstComponent = componentTypes[0]
-      if (!firstComponent) return []
+            let result = firstComponent
 
-      let result = yield* getEntitiesWithComponent(firstComponent)
+            // 残りのコンポーネントでフィルタ
+            for (let i = 1; i < componentTypes.length; i++) {
+              const componentType = yield* pipe(
+                Option.fromNullable(componentTypes[i]),
+                Option.match({
+                  onNone: () => Effect.succeed(null),
+                  onSome: (type) => Effect.succeed(type),
+                })
+              )
 
-      // 残りのコンポーネントでフィルタ
-      for (let i = 1; i < componentTypes.length; i++) {
-        const componentType = componentTypes[i]
-        if (!componentType) continue
+              yield* pipe(
+                Option.fromNullable(componentType),
+                Option.match({
+                  onNone: () => Effect.succeed(undefined),
+                  onSome: (type) =>
+                    Effect.gen(function* () {
+                      const filtered: EntityId[] = []
 
-        const filtered: EntityId[] = []
+                      for (const entityId of result) {
+                        const hasComp = yield* hasComponent(entityId, type)
+                        yield* pipe(
+                          hasComp,
+                          Match.value,
+                          Match.when(true, () => {
+                            filtered.push(entityId)
+                            return Effect.succeed(undefined)
+                          }),
+                          Match.orElse(() => Effect.succeed(undefined))
+                        )
+                      }
 
-        for (const entityId of result) {
-          if (yield* hasComponent(entityId, componentType)) {
-            filtered.push(entityId)
-          }
-        }
+                      result = filtered
+                    }),
+                })
+              )
+            }
 
-        result = filtered
-      }
-
-      return result
+            return result
+          })
+        )
+      )
     })
 
   // クエリ：タグによる検索
   const getEntitiesByTag = (tag: string) =>
     Effect.sync(() => {
-      const tagged = tagIndex.get(tag)
-      return tagged ? Array.from(tagged) : []
+      return pipe(
+        Option.fromNullable(tagIndex.get(tag)),
+        Option.match({
+          onNone: () => [],
+          onSome: (tagged) => Array.from(tagged),
+        })
+      )
     })
 
   // すべてのエンティティ取得
@@ -418,9 +526,17 @@ export const EntityManagerLive = Effect.gen(function* () {
   // バッチコンポーネント取得（高速）
   const batchGetComponents = <T>(componentType: string) =>
     Effect.gen(function* () {
-      const storage = componentStorages.get(componentType)
-      if (!storage) return []
-      return (yield* storage.getAll()) as ReadonlyArray<[EntityId, T]>
+      return yield* pipe(
+        Option.fromNullable(componentStorages.get(componentType)),
+        Option.match({
+          onNone: () => Effect.succeed([]),
+          onSome: (storage) =>
+            Effect.gen(function* () {
+              const all = yield* storage.getAll()
+              return all as ReadonlyArray<[EntityId, T]>
+            }),
+        })
+      )
     })
 
   // コンポーネントイテレーション（高速）
@@ -429,10 +545,13 @@ export const EntityManagerLive = Effect.gen(function* () {
     f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
   ): Effect.Effect<void, E, R> =>
     Effect.gen(function* () {
-      const storage = componentStorages.get(componentType)
-      if (!storage) return
-
-      yield* storage.iterate(f as any)
+      yield* pipe(
+        Option.fromNullable(componentStorages.get(componentType)),
+        Option.match({
+          onNone: () => Effect.succeed(undefined),
+          onSome: (storage) => storage.iterate(f as any),
+        })
+      )
     }) as Effect.Effect<void, E, R>
 
   // システム更新
@@ -488,13 +607,18 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   const setEntityActive = (id: EntityId, active: boolean) =>
     Effect.gen(function* () {
-      const metadata = entities.get(id)
-      if (!metadata) {
-        return yield* Effect.fail(createEntityManagerError.entityNotFound(id, 'setEntityActive'))
-      }
-      // Create new metadata object to maintain immutability
-      const updatedMetadata = { ...metadata, active }
-      entities.set(id, updatedMetadata)
+      yield* pipe(
+        Option.fromNullable(entities.get(id)),
+        Option.match({
+          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'setEntityActive')),
+          onSome: (meta) =>
+            Effect.sync(() => {
+              // Create new metadata object to maintain immutability
+              const updatedMetadata = { ...meta, active }
+              entities.set(id, updatedMetadata)
+            }),
+        })
+      )
     })
 
   return {
@@ -521,3 +645,6 @@ export const EntityManagerLive = Effect.gen(function* () {
 })
 
 export const EntityManager = Context.GenericTag<EntityManager>('@minecraft/ecs/EntityManager')
+
+// Convert EntityManager implementation to Layer
+export const EntityManagerLayer = Layer.effect(EntityManager, EntityManagerLive)

@@ -1,89 +1,43 @@
 /**
- * Vitest Test Setup
- * テスト環境の初期化設定
+ * Vitest テスト環境設定
+ *
+ * 最小限の設定で Effect-TS/vitest 統合を最適化
  */
 
-// Vitest globals
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
-
-// Effect-TS imports
-import { Effect, ConfigProvider } from 'effect'
+import { beforeAll, afterEach } from 'vitest'
 
 /**
- * テスト実行前の初期設定
+ * テスト環境の基本設定
  */
-beforeAll(async () => {
+beforeAll(() => {
   // テスト用環境変数の設定
   process.env['NODE_ENV'] = 'test'
   process.env['VITEST'] = 'true'
 
-  // コンソールログレベルの設定
+  // Effect-TS ログレベル設定（テスト中はエラーのみ）
+  process.env['EFFECT_LOG_LEVEL'] = 'Error'
+
+  // テスト中のコンソール出力制御
   if (!process.env['DEBUG']) {
-    console.log = () => {} // テスト中のログ出力を抑制
+    const originalConsole = console.log
+    console.log = (...args: any[]) => {
+      // DEBUGモードでない場合はログを抑制
+      if (process.env['VITEST_DEBUG']) {
+        originalConsole(...args)
+      }
+    }
   }
 })
 
 /**
- * 各テスト実行前の設定
- */
-beforeEach(() => {
-  // テスト用の追加設定（必要に応じて）
-})
-
-/**
- * 各テスト実行後のクリーンアップ
+ * テスト後のクリーンアップ
  */
 afterEach(() => {
-  // メモリリークを防ぐためのガベージコレクション強制実行
+  // メモリリーク防止（Node.js --expose-gc が必要）
   if (global.gc) {
     global.gc()
   }
-})
 
-/**
- * 全テスト終了後のクリーンアップ
- */
-afterAll(() => {
-  // プロセス終了処理
-  process.removeAllListeners()
-})
-
-/**
- * テスト用のEffect-TS設定
- */
-export const TestConfig = {
-  timeout: 10000,
-  maxRetries: 3,
-  logLevel: 'error' as const,
-}
-
-/**
- * テストユーティリティ
- */
-export const TestUtils = {
-  /**
-   * Effect実行用のヘルパー
-   */
-  runEffect: <E, A>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
-
-  /**
-   * タイムアウト付きEffect実行
-   */
-  runEffectWithTimeout: <E, A>(effect: Effect.Effect<A, E>, timeoutMs: number = TestConfig.timeout) =>
-    Effect.runPromise(Effect.timeout(effect, `${timeoutMs} millis`)),
-
-  /**
-   * テスト用のConfigProvider
-   */
-  createTestConfigProvider: (config: Record<string, string>) => ConfigProvider.fromMap(new Map(Object.entries(config))),
-}
-
-// グローバルエラーハンドラー
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
-})
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error)
-  process.exit(1)
+  // Effect-TS のグローバル状態をクリーンアップ
+  // （必要に応じて追加の cleanup logic を実装）
 })

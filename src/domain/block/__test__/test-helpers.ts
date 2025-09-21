@@ -1,12 +1,13 @@
 import { Effect, Exit, pipe } from 'effect'
 import { expect } from 'vitest'
 import type { BlockType } from '../BlockType'
-import { EffectTestRunner, EffectAssert } from '../../../test/effect-test-utils'
+import { DomainFactories, EffectHelpers } from '../../../test/unified-test-helpers'
 
 // Effect-TS用の共通テストヘルパー - 最新理想系パターン
-export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => EffectTestRunner.runExit(effect)
+export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect)
 
-export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => EffectTestRunner.run(effect)
+export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) =>
+  Effect.runPromise(effect)
 
 export const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
   const result = await runEffect(effect)
@@ -21,34 +22,9 @@ export const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
 }
 
 // ブロック関連の共通テストヘルパー
-export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType => ({
-  id: 'test_block',
-  name: 'Test Block',
-  category: 'natural',
-  stackSize: 64,
-  texture: 'test_texture',
-  physics: {
-    hardness: 1.0,
-    resistance: 1.0,
-    luminance: 0,
-    opacity: 15,
-    flammable: false,
-    gravity: false,
-    solid: true,
-    replaceable: false,
-    waterloggable: false,
-  },
-  tool: 'none',
-  minToolLevel: 0,
-  sound: {
-    break: 'block.stone.break',
-    place: 'block.stone.place',
-    step: 'block.stone.step',
-  },
-  drops: [],
-  tags: [],
-  ...overrides,
-})
+// DomainFactoriesのBlockFactoryを使用
+export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType =>
+  DomainFactories.Block.createType(overrides)
 
 // Effect-TS パターンでのアサーション関数
 export const assertBlockExists = (blocks: readonly BlockType[], id: string) =>

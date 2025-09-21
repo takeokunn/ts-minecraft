@@ -1,10 +1,5 @@
-import './style.css'
+// アプリケーションエントリーポイント
+import { initApp } from './app'
 
-const app = document.querySelector<HTMLDivElement>('#app')!
-
-app.innerHTML = `
-  <div>
-    <h1>TypeScript Minecraft Clone</h1>
-    <p>Vite + TypeScript project initialized successfully!</p>
-  </div>
-`
+// アプリケーションを初期化
+initApp()

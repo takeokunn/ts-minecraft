@@ -576,7 +576,7 @@ describe('BlockRegistry', () => {
         const experimentalBlock = createTestBlock({
           id: 'experimental_block',
           category: 'experiment' as any, // 新しいカテゴリー
-          tags: ['experimental', 'new_category']
+          tags: ['experimental', 'new_category'],
         })
 
         // registerBlock内でcategoryIndex.set()が呼ばれる（行146-147）
@@ -602,13 +602,13 @@ describe('BlockRegistry', () => {
         // 複数の新カテゴリーでブロックを作成
         const techBlock = createTestBlock({
           id: 'tech_block',
-          category: 'technology' as any
+          category: 'technology' as any,
         })
 
         const magicBlock = createTestBlock({
           id: 'magic_block',
           category: 'magic' as any,
-          tags: ['magical', 'rare']
+          tags: ['magical', 'rare'],
         })
 
         // 各ブロックの登録（新しいカテゴリーインデックス作成）

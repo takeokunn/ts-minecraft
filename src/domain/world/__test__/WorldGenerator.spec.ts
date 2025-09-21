@@ -9,7 +9,7 @@ import {
   expectEffectFailure,
   expectEffectFailureWith,
   testAllBranches,
-} from '../../../test/helpers/effect-test-utils.js'
+} from '../../../test/unified-test-helpers'
 import {
   createWorldGenerator,
   GenerationError,

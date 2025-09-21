@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Option } from 'effect'
 import { Schema } from '@effect/schema'
 import { NoiseGenerator } from './NoiseGenerator'
 import type { ChunkData } from '../chunk/ChunkData'
@@ -92,26 +92,44 @@ const createOreDistribution = (config: OreDistributionConfig, noiseGenerator: No
               const currentBlock = newBlocks[index] ?? 0
 
               // 石ブロックの場合のみ鉱石生成を検討
-              if (currentBlock === STONE_ID) {
-                const position = { x: worldX, y, z: worldZ }
+              yield* pipe(
+                Match.value(currentBlock),
+                Match.when(
+                  STONE_ID,
+                  () => Effect.gen(function* () {
+                    const position = { x: worldX, y, z: worldZ }
 
-                // 各鉱石タイプをチェック
-                for (const oreConfig of config.ores) {
-                  // 高度範囲チェック
-                  if (y < oreConfig.minY || y > oreConfig.maxY) {
-                    continue
-                  }
+                    // 各鉱石タイプをチェック
+                    for (const oreConfig of config.ores) {
+                      // 高度範囲チェック
+                      const isInRange = y >= oreConfig.minY && y <= oreConfig.maxY
 
-                  // 鉱石密度計算
-                  const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
+                      yield* pipe(
+                        Match.value(isInRange),
+                        Match.when(
+                          true,
+                          () => Effect.gen(function* () {
+                            // 鉱石密度計算
+                            const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
 
-                  // 生成判定
-                  if (density > oreConfig.rarity) {
-                    newBlocks[index] = oreConfig.blockId
-                    break // 1つの鉱石のみ配置
-                  }
-                }
-              }
+                            // 生成判定
+                            yield* pipe(
+                              Match.value(density > oreConfig.rarity),
+                              Match.when(true, () => {
+                                newBlocks[index] = oreConfig.blockId
+                                return Effect.succeed(true) // 配置完了
+                              }),
+                              Match.orElse(() => Effect.succeed(false))
+                            )
+                          })
+                        ),
+                        Match.orElse(() => Effect.succeed(false))
+                      )
+                    }
+                  })
+                ),
+                Match.orElse(() => Effect.succeed(undefined))
+              )
             }
           }
         }
@@ -131,17 +149,28 @@ const createOreDistribution = (config: OreDistributionConfig, noiseGenerator: No
     getOreAtPosition: (position: Vector3) =>
       Effect.gen(function* () {
         for (const oreConfig of config.ores) {
-          // 高度範囲チェック
-          if (position.y < oreConfig.minY || position.y > oreConfig.maxY) {
-            continue
-          }
+          // 高度範囲チェックと鉱石生成判定
+          const result = yield* pipe(
+            Match.value(position.y >= oreConfig.minY && position.y <= oreConfig.maxY),
+            Match.when(
+              true,
+              () => Effect.gen(function* () {
+                // 鉱石密度計算
+                const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
 
-          // 鉱石密度計算
-          const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
+                // 生成判定
+                return pipe(
+                  Match.value(density > oreConfig.rarity),
+                  Match.when(true, () => Option.some(oreConfig.type)),
+                  Match.orElse(() => Option.none())
+                )
+              })
+            ),
+            Match.orElse(() => Effect.succeed(Option.none()))
+          )
 
-          // 生成判定
-          if (density > oreConfig.rarity) {
-            return oreConfig.type
+          if (Option.isSome(result)) {
+            return result.value
           }
         }
 
@@ -151,9 +180,12 @@ const createOreDistribution = (config: OreDistributionConfig, noiseGenerator: No
     calculateOreDensity: (oreType: OreType, position: Vector3) =>
       Effect.gen(function* () {
         const oreConfig = config.ores.find(ore => ore.type === oreType)
-        if (!oreConfig) {
-          return 0
-        }
+
+        return yield* pipe(
+          Option.fromNullable(oreConfig),
+          Option.match({
+            onNone: () => Effect.succeed(0),
+            onSome: (config) => Effect.gen(function* () {
 
         // 基本ノイズ
         const baseNoise = yield* noiseGenerator.noise3D(
@@ -172,39 +204,27 @@ const createOreDistribution = (config: OreDistributionConfig, noiseGenerator: No
         // 高度補正（深いほど希少鉱石が生成されやすい）
         const depthFactor = Math.max(0, (64 - position.y) / 64)
 
-        // 鉱石タイプ別の調整
-        let typeMultiplier = 1
-        switch (oreType) {
-          case 'coal_ore':
-            typeMultiplier = 1.5 // 石炭は豊富
-            break
-          case 'iron_ore':
-            typeMultiplier = 1.2
-            break
-          case 'copper_ore':
-            typeMultiplier = 1.0
-            break
-          case 'gold_ore':
-            typeMultiplier = 0.6 * depthFactor
-            break
-          case 'redstone_ore':
-            typeMultiplier = 0.8 * depthFactor
-            break
-          case 'lapis_ore':
-            typeMultiplier = 0.4 * depthFactor
-            break
-          case 'diamond_ore':
-            typeMultiplier = 0.2 * depthFactor * depthFactor // 非常に稀
-            break
-          case 'emerald_ore':
-            typeMultiplier = 0.1 * depthFactor * depthFactor // 最も稀
-            break
-        }
+              // 鉱石タイプ別の調整
+              const typeMultiplier = pipe(
+                Match.value(oreType),
+                Match.when('coal_ore', () => 1.5), // 石炭は豊富
+                Match.when('iron_ore', () => 1.2),
+                Match.when('copper_ore', () => 1.0),
+                Match.when('gold_ore', () => 0.6 * depthFactor),
+                Match.when('redstone_ore', () => 0.8 * depthFactor),
+                Match.when('lapis_ore', () => 0.4 * depthFactor),
+                Match.when('diamond_ore', () => 0.2 * depthFactor * depthFactor), // 非常に稀
+                Match.when('emerald_ore', () => 0.1 * depthFactor * depthFactor), // 最も稀
+                Match.exhaustive
+              )
 
-        // 最終密度計算
-        const finalDensity = (baseNoise + clusterNoise * 0.5) * oreConfig.density * typeMultiplier
+              // 最終密度計算
+              const finalDensity = (baseNoise + clusterNoise * 0.5) * config.density * typeMultiplier
 
-        return Math.abs(finalDensity)
+              return Math.abs(finalDensity)
+            })
+          })
+        )
       }),
 
     getConfig: () => config,

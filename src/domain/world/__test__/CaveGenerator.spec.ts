@@ -5,7 +5,7 @@ import * as fc from 'fast-check'
 import {
   expectEffectSuccess,
   expectEffectDuration,
-} from '../../../test/helpers/effect-test-utils'
+} from '../../../test/unified-test-helpers'
 import {
   CaveGenerator,
   CaveGeneratorLive,
@@ -190,7 +190,7 @@ describe('CaveGenerator', () => {
 
       const effect = runWithTestCave(testConfig, (cg) =>
         Effect.gen(function* () {
-          const results = []
+          const results: boolean[] = []
           // 複数回同じ位置をチェック
           for (let i = 0; i < 10; i++) {
             const isCave = yield* cg.isCave(position)

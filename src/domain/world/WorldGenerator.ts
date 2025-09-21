@@ -59,7 +59,7 @@ export interface WorldGenerator {
   /**
    * チャンクを生成
    */
-  readonly generateChunk: (position: ChunkPosition) => Effect.Effect<ChunkGenerationResult, GenerationError>
+  readonly generateChunk: (position: ChunkPosition) => Effect.Effect<ChunkGenerationResult, GenerationError, never>
 
   /**
    * 構造物を生成
@@ -67,22 +67,22 @@ export interface WorldGenerator {
   readonly generateStructure: (
     type: StructureType,
     position: Vector3
-  ) => Effect.Effect<Structure, StructureGenerationError>
+  ) => Effect.Effect<Structure, StructureGenerationError, never>
 
   /**
    * スポーン地点を取得
    */
-  readonly getSpawnPoint: () => Effect.Effect<Vector3, never>
+  readonly getSpawnPoint: () => Effect.Effect<Vector3, never, never>
 
   /**
    * 指定座標のバイオームを取得
    */
-  readonly getBiome: (position: Vector3) => Effect.Effect<BiomeInfo, never>
+  readonly getBiome: (position: Vector3) => Effect.Effect<BiomeInfo, never, never>
 
   /**
    * 指定座標の地形高さを取得
    */
-  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never>
+  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never, never>
 
   /**
    * シード値を取得
@@ -97,7 +97,7 @@ export interface WorldGenerator {
   /**
    * 構造物の生成可能性をチェック
    */
-  readonly canGenerateStructure: (type: StructureType, position: Vector3) => Effect.Effect<boolean, never>
+  readonly canGenerateStructure: (type: StructureType, position: Vector3) => Effect.Effect<boolean, never, never>
 
   /**
    * 近くの構造物を検索
@@ -106,7 +106,7 @@ export interface WorldGenerator {
     type: StructureType,
     position: Vector3,
     searchRadius: number
-  ) => Effect.Effect<Structure | null, GenerationError>
+  ) => Effect.Effect<Structure | null, GenerationError, never>
 }
 
 /**

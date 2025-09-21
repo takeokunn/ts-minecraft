@@ -194,7 +194,9 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           structures,
           heightMap: heightMapFlat,
         }
-      }).pipe(Effect.provide(fullLayer)),
+      }).pipe(
+        Effect.provide(fullLayer)
+      ) as Effect.Effect<ChunkGenerationResult, GenerationError, never>,
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
@@ -228,13 +230,17 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           humidity: climateData.humidity,
           elevation: climateData.elevation + position.y,
         }
-      }).pipe(Effect.provide(biomeLayer)),
+      }).pipe(
+        Effect.provide(Layer.mergeAll(biomeLayer, noiseLayer))
+      ) as Effect.Effect<BiomeInfo, never, never>,
 
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
         const terrainGenerator = yield* TerrainGenerator
         return yield* terrainGenerator.getTerrainHeight(x, z)
-      }).pipe(Effect.provide(terrainLayer)),
+      }).pipe(
+        Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))
+      ) as Effect.Effect<number, never, never>,
 
     getSeed: () => state.seed,
 

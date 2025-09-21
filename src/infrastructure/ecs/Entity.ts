@@ -1,4 +1,4 @@
-import { Brand, Context, Data, Effect, Option, pipe, Schema, Match } from 'effect'
+import { Brand, Context, Data, Effect, Layer, Option, pipe, Schema, Match } from 'effect'
 
 // =====================================
 // Entity ID Type
@@ -346,6 +346,9 @@ export const EntityPoolLive = Effect.gen(function* () {
 })
 
 export const EntityPool = Context.GenericTag<EntityPool>('@minecraft/ecs/EntityPool')
+
+// Convert EntityPool implementation to Layer
+export const EntityPoolLayer = Layer.effect(EntityPool, EntityPoolLive)
 
 // =====================================
 // Entity Archetype (Component組み合わせ最適化)
