@@ -52,10 +52,7 @@ const CameraConfigSchema = Schema.Struct({
 // Test Layers - Layer-based DI Pattern
 // ================================================================================
 
-const TestLayer = Layer.mergeAll(
-  FirstPersonCameraLive,
-  TestContext.TestContext
-)
+const TestLayer = Layer.mergeAll(FirstPersonCameraLive, TestContext.TestContext)
 
 // ================================================================================
 // FirstPersonCamera Tests - it.effect Pattern
@@ -183,7 +180,7 @@ describe('FirstPersonCamera', () => {
         const service = yield* CameraService
         yield* service.initialize({
           ...DEFAULT_CAMERA_CONFIG,
-          smoothing: 0.1 // Strong smoothing
+          smoothing: 0.1, // Strong smoothing
         })
 
         const targetPosition = { x: 10, y: 0, z: 0 }
@@ -222,7 +219,7 @@ describe('FirstPersonCamera', () => {
               const targetPosition = {
                 x: Math.random() * 100,
                 y: Math.random() * 20,
-                z: Math.random() * 100
+                z: Math.random() * 100,
               }
               yield* service.update(0.016, targetPosition)
             }
@@ -342,28 +339,29 @@ describe('FirstPersonCamera', () => {
             deltaX: fc.integer({ min: -100000, max: 100000 }),
             deltaY: fc.integer({ min: -50000, max: 50000 }),
           }),
-          (input: any) => Effect.gen(function* () {
-            const { deltaX, deltaY } = input
-            const service = yield* CameraService
-            yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+          (input: any) =>
+            Effect.gen(function* () {
+              const { deltaX, deltaY } = input
+              const service = yield* CameraService
+              yield* service.initialize(DEFAULT_CAMERA_CONFIG)
 
-            yield* service.rotate(deltaX, deltaY)
-            const state = yield* service.getState()
+              yield* service.rotate(deltaX, deltaY)
+              const state = yield* service.getState()
 
-            yield* EffectAssert.succeeds(RotationSchema)(Effect.succeed(state.rotation))
+              yield* EffectAssert.succeeds(RotationSchema)(Effect.succeed(state.rotation))
 
-            // Verify yaw normalization
-            if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
-              return false
-            }
+              // Verify yaw normalization
+              if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
+                return false
+              }
 
-            // Verify pitch clamping
-            if (Math.abs(state.rotation.pitch) > Math.PI / 2) {
-              return false
-            }
+              // Verify pitch clamping
+              if (Math.abs(state.rotation.pitch) > Math.PI / 2) {
+                return false
+              }
 
-            return true
-          }) as Effect.Effect<boolean, any, never>
+              return true
+            }) as Effect.Effect<boolean, any, never>
         )
 
         return true
@@ -594,7 +592,7 @@ describe('FirstPersonCamera', () => {
         yield* service.updateAspectRatio(1920, 1080)
 
         // Verify aspect ratio was applied
-        if (Math.abs(camera.aspect - (1920 / 1080)) > 0.01) {
+        if (Math.abs(camera.aspect - 1920 / 1080) > 0.01) {
           return yield* Effect.fail(new Error('Aspect ratio should be applied correctly'))
         }
 
@@ -654,7 +652,7 @@ describe('FirstPersonCamera', () => {
             yield* service.update(0.016, {
               x: Math.random() * 100,
               y: Math.random() * 10,
-              z: Math.random() * 100
+              z: Math.random() * 100,
             })
             yield* service.setSensitivity(Math.random() * 5 + 0.5)
             return 'concurrent_operation_complete'
@@ -664,8 +662,11 @@ describe('FirstPersonCamera', () => {
 
         // Verify concurrent operations complete successfully
         for (const result of concurrentMetrics) {
-          if (result.duration > 500) { // Should complete within 500ms
-            return yield* Effect.fail(new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`))
+          if (result.duration > 500) {
+            // Should complete within 500ms
+            return yield* Effect.fail(
+              new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`)
+            )
           }
         }
 

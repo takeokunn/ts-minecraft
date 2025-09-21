@@ -42,32 +42,37 @@ export class EntityManagerError extends Schema.TaggedError<EntityManagerError>()
  * EntityManagerError作成ヘルパー
  */
 export const createEntityManagerError = {
-  entityNotFound: (entityId: EntityId, operation?: string) => new EntityManagerError({
-    message: `Entity ${entityId} not found${operation ? ` during ${operation}` : ''}`,
-    reason: 'ENTITY_NOT_FOUND',
-    entityId,
-  }),
-  componentNotFound: (componentType: string, entityId?: EntityId) => new EntityManagerError({
-    message: `Component type ${componentType} not found${entityId ? ` on entity ${entityId}` : ''}`,
-    reason: 'COMPONENT_NOT_FOUND',
-    ...(entityId !== undefined && { entityId }),
-    componentType,
-  }),
-  invalidComponentType: (componentType: string, details?: string) => new EntityManagerError({
-    message: `Invalid component type: ${componentType}${details ? ` - ${details}` : ''}`,
-    reason: 'INVALID_COMPONENT_TYPE',
-    componentType,
-  }),
-  entityLimitReached: (limit: number) => new EntityManagerError({
-    message: `Entity limit reached: ${limit}`,
-    reason: 'ENTITY_LIMIT_REACHED',
-  }),
-  componentAlreadyExists: (entityId: EntityId, componentType: string) => new EntityManagerError({
-    message: `Component ${componentType} already exists on entity ${entityId}`,
-    reason: 'COMPONENT_ALREADY_EXISTS',
-    entityId,
-    componentType,
-  }),
+  entityNotFound: (entityId: EntityId, operation?: string) =>
+    new EntityManagerError({
+      message: `Entity ${entityId} not found${operation ? ` during ${operation}` : ''}`,
+      reason: 'ENTITY_NOT_FOUND',
+      entityId,
+    }),
+  componentNotFound: (componentType: string, entityId?: EntityId) =>
+    new EntityManagerError({
+      message: `Component type ${componentType} not found${entityId ? ` on entity ${entityId}` : ''}`,
+      reason: 'COMPONENT_NOT_FOUND',
+      ...(entityId !== undefined && { entityId }),
+      componentType,
+    }),
+  invalidComponentType: (componentType: string, details?: string) =>
+    new EntityManagerError({
+      message: `Invalid component type: ${componentType}${details ? ` - ${details}` : ''}`,
+      reason: 'INVALID_COMPONENT_TYPE',
+      componentType,
+    }),
+  entityLimitReached: (limit: number) =>
+    new EntityManagerError({
+      message: `Entity limit reached: ${limit}`,
+      reason: 'ENTITY_LIMIT_REACHED',
+    }),
+  componentAlreadyExists: (entityId: EntityId, componentType: string) =>
+    new EntityManagerError({
+      message: `Component ${componentType} already exists on entity ${entityId}`,
+      reason: 'COMPONENT_ALREADY_EXISTS',
+      entityId,
+      componentType,
+    }),
 }
 
 // =====================================
@@ -223,8 +228,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const metadata = yield* pipe(
         Option.fromNullable(entities.get(id)),
         Option.match({
-          onNone: () =>
-            Effect.fail(createEntityManagerError.entityNotFound(id, 'destroy')),
+          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'destroy')),
           onSome: (metadata) => Effect.succeed(metadata),
         })
       )
@@ -263,9 +267,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       yield* pipe(
         entities.has(entityId),
         Match.value,
-        Match.when(false, () =>
-          Effect.fail(createEntityManagerError.entityNotFound(entityId, 'addComponent'))
-        ),
+        Match.when(false, () => Effect.fail(createEntityManagerError.entityNotFound(entityId, 'addComponent'))),
         Match.orElse(() => Effect.succeed(undefined))
       )
 

@@ -64,46 +64,55 @@ export class CameraError extends Schema.TaggedError<CameraError>()('CameraError'
   message: Schema.String,
   reason: CameraErrorReason,
   cause: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  context: Schema.optionalWith(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }), { exact: true }),
+  context: Schema.optionalWith(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    }),
+    { exact: true }
+  ),
 }) {}
 
 /**
  * カメラエラー作成ヘルパー
  */
 export const createCameraError = {
-  initializationFailed: (message: string, cause?: unknown) => new CameraError({
-    message,
-    reason: 'INITIALIZATION_FAILED',
-    cause,
-  }),
-  notInitialized: (operation: string) => new CameraError({
-    message: `カメラが初期化されていません: ${operation}`,
-    reason: 'CAMERA_NOT_INITIALIZED',
-    context: { operation },
-  }),
-  invalidConfiguration: (message: string, config?: unknown) => new CameraError({
-    message,
-    reason: 'INVALID_CONFIGURATION',
-    context: { config },
-  }),
-  invalidMode: (mode: string) => new CameraError({
-    message: `無効なカメラモード: ${mode}`,
-    reason: 'INVALID_MODE',
-    context: { mode },
-  }),
-  invalidParameter: (parameter: string, value: unknown, expected?: string) => new CameraError({
-    message: `無効なパラメータ: ${parameter}`,
-    reason: 'INVALID_PARAMETER',
-    context: { parameter, value, expected },
-  }),
-  resourceError: (message: string, cause?: unknown) => new CameraError({
-    message,
-    reason: 'RESOURCE_ERROR',
-    cause,
-  }),
+  initializationFailed: (message: string, cause?: unknown) =>
+    new CameraError({
+      message,
+      reason: 'INITIALIZATION_FAILED',
+      cause,
+    }),
+  notInitialized: (operation: string) =>
+    new CameraError({
+      message: `カメラが初期化されていません: ${operation}`,
+      reason: 'CAMERA_NOT_INITIALIZED',
+      context: { operation },
+    }),
+  invalidConfiguration: (message: string, config?: unknown) =>
+    new CameraError({
+      message,
+      reason: 'INVALID_CONFIGURATION',
+      context: { config },
+    }),
+  invalidMode: (mode: string) =>
+    new CameraError({
+      message: `無効なカメラモード: ${mode}`,
+      reason: 'INVALID_MODE',
+      context: { mode },
+    }),
+  invalidParameter: (parameter: string, value: unknown, expected?: string) =>
+    new CameraError({
+      message: `無効なパラメータ: ${parameter}`,
+      reason: 'INVALID_PARAMETER',
+      context: { parameter, value, expected },
+    }),
+  resourceError: (message: string, cause?: unknown) =>
+    new CameraError({
+      message,
+      reason: 'RESOURCE_ERROR',
+      cause,
+    }),
 }
 
 /**
@@ -157,10 +166,7 @@ export interface CameraService {
    * @param deltaTime - フレーム間の経過時間（秒）
    * @param targetPosition - プレイヤーの位置
    */
-  readonly update: (
-    deltaTime: unknown,
-    targetPosition: unknown
-  ) => Effect.Effect<void, CameraError>
+  readonly update: (deltaTime: unknown, targetPosition: unknown) => Effect.Effect<void, CameraError>
 
   /**
    * マウス入力による視点操作 - Schema検証付き
@@ -248,10 +254,7 @@ export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfi
   pipe(
     Schema.decodeUnknown(CameraConfig)(config),
     Effect.mapError((parseError) =>
-      createCameraError.invalidConfiguration(
-        `カメラ設定の検証に失敗しました: ${parseError.message}`,
-        config
-      )
+      createCameraError.invalidConfiguration(`カメラ設定の検証に失敗しました: ${parseError.message}`, config)
     )
   )
 
@@ -262,11 +265,7 @@ export const validateCameraState = (state: unknown): Effect.Effect<CameraState, 
   pipe(
     Schema.decodeUnknown(CameraState)(state),
     Effect.mapError((parseError) =>
-      createCameraError.invalidParameter(
-        'カメラ状態',
-        state,
-        `Valid CameraState: ${parseError.message}`
-      )
+      createCameraError.invalidParameter('カメラ状態', state, `Valid CameraState: ${parseError.message}`)
     )
   )
 

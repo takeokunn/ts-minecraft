@@ -59,7 +59,10 @@ const lerp = (start: number, end: number, factor: number): number => {
 /**
  * カメラの存在を検証するヘルパー - 型安全性強化
  */
-const ensureCameraExists = (state: FirstPersonState, operation?: string): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+const ensureCameraExists = (
+  state: FirstPersonState,
+  operation?: string
+): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
   pipe(
     Option.fromNullable(state.camera),
     Option.match({
@@ -71,10 +74,7 @@ const ensureCameraExists = (state: FirstPersonState, operation?: string): Effect
 /**
  * 数値パラメータ検証ヘルパー
  */
-const validateNumber = (
-  value: unknown,
-  parameterName: string
-): Effect.Effect<number, CameraError> =>
+const validateNumber = (value: unknown, parameterName: string): Effect.Effect<number, CameraError> =>
   pipe(
     Schema.decodeUnknown(Schema.Number)(value),
     Effect.mapError(() => createCameraError.invalidParameter(parameterName, value))
@@ -83,7 +83,10 @@ const validateNumber = (
 /**
  * Vector3位置情報の検証
  */
-const validateVector3 = (position: unknown, paramName: string = 'position'): Effect.Effect<Vector3, CameraError, never> =>
+const validateVector3 = (
+  position: unknown,
+  paramName: string = 'position'
+): Effect.Effect<Vector3, CameraError, never> =>
   Effect.gen(function* () {
     const decoded = yield* pipe(
       Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3>)(position),
@@ -159,10 +162,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
             )
         ),
         Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)), // 一人称カメラでは三人称モードを無視
-        Match.orElse(
-          (m): Effect.Effect<void, CameraError> =>
-            Effect.fail(createCameraError.invalidMode(String(m)))
-        )
+        Match.orElse((m): Effect.Effect<void, CameraError> => Effect.fail(createCameraError.invalidMode(String(m))))
       ) as Effect.Effect<void, CameraError, never>
     }),
 
@@ -222,10 +222,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
 
       // 新しいヨーとピッチを計算
       const newYaw = normalizeYaw(state.state.rotation.yaw - rotationX)
-      const newPitch = Math.max(
-        -Math.PI / 2,
-        Math.min(Math.PI / 2, state.state.rotation.pitch - rotationY)
-      )
+      const newPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.state.rotation.pitch - rotationY))
 
       // カメラの回転を更新
       camera.rotation.order = 'YXZ'

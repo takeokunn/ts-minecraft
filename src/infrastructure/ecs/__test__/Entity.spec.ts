@@ -29,7 +29,7 @@ const EntityIdSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative())
 const ComponentDataSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 interface TestComponent {
@@ -133,21 +133,15 @@ describe('Entity ECS Architecture', () => {
         const pool = yield* EntityPoolLive
 
         // いくつかのエンティティを割り当て
-        const ids = yield* Effect.all([
-          pool.allocate(),
-          pool.allocate(),
-          pool.allocate(),
-        ])
+        const ids = yield* Effect.all([pool.allocate(), pool.allocate(), pool.allocate()])
 
         // リセット
         yield* pool.reset()
 
         // リセット後、すべてのIDは未割り当てになるはず
-        const allocationChecks = yield* Effect.all(
-          ids.map(id => pool.isAllocated(id))
-        )
+        const allocationChecks = yield* Effect.all(ids.map((id) => pool.isAllocated(id)))
 
-        if (allocationChecks.some(allocated => allocated)) {
+        if (allocationChecks.some((allocated) => allocated)) {
           return yield* Effect.fail(new Error('Some entities still allocated after reset'))
         }
 
@@ -338,7 +332,8 @@ describe('Entity ECS Architecture', () => {
           return yield* Effect.fail(new Error('Iteration count mismatch'))
         }
 
-        if (sumX !== 4950) { // 0+1+2+...+99 = 99*100/2 = 4950
+        if (sumX !== 4950) {
+          // 0+1+2+...+99 = 99*100/2 = 4950
           return yield* Effect.fail(new Error('Iteration sum mismatch'))
         }
 
@@ -437,7 +432,8 @@ describe('Entity ECS Architecture', () => {
           return yield* Effect.fail(new Error('Different component sets should have different archetypes'))
         }
 
-        if (archetype2.id !== archetype3.id) { // 順序に関わらず同じ
+        if (archetype2.id !== archetype3.id) {
+          // 順序に関わらず同じ
           return yield* Effect.fail(new Error('Component set order should not matter'))
         }
 

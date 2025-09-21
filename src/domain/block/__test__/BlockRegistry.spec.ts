@@ -44,7 +44,6 @@ const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType => ({
 })
 
 describe('BlockRegistry', () => {
-
   describe('getBlock', () => {
     it.effect('登録されているブロックを取得できる', () =>
       Effect.gen(function* () {

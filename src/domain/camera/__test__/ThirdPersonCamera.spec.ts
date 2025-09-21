@@ -52,10 +52,7 @@ const CameraConfigSchema = Schema.Struct({
 // Test Layers - Layer-based DI Pattern
 // ================================================================================
 
-const TestLayer = Layer.mergeAll(
-  ThirdPersonCameraLive,
-  TestContext.TestContext
-)
+const TestLayer = Layer.mergeAll(ThirdPersonCameraLive, TestContext.TestContext)
 
 // ================================================================================
 // ThirdPersonCamera Tests - it.effect Pattern
@@ -228,7 +225,7 @@ describe('ThirdPersonCamera', () => {
               const targetPosition = {
                 x: Math.random() * 100,
                 y: Math.random() * 10,
-                z: Math.random() * 100
+                z: Math.random() * 100,
               }
               yield* service.update(0.016, targetPosition)
             }
@@ -334,30 +331,31 @@ describe('ThirdPersonCamera', () => {
             deltaX: fc.integer({ min: -50000, max: 50000 }),
             deltaY: fc.integer({ min: -25000, max: 25000 }),
           }),
-          (input: any) => Effect.gen(function* () {
-            const { deltaX, deltaY } = input
-            const service = yield* CameraService
-            yield* service.initialize({
-              ...DEFAULT_CAMERA_CONFIG,
-              mode: 'third-person',
-            })
+          (input: any) =>
+            Effect.gen(function* () {
+              const { deltaX, deltaY } = input
+              const service = yield* CameraService
+              yield* service.initialize({
+                ...DEFAULT_CAMERA_CONFIG,
+                mode: 'third-person',
+              })
 
-            yield* service.rotate(deltaX, deltaY)
-            const state = yield* service.getState()
+              yield* service.rotate(deltaX, deltaY)
+              const state = yield* service.getState()
 
-            yield* EffectAssert.succeeds(RotationSchema)(Effect.succeed(state.rotation))
+              yield* EffectAssert.succeeds(RotationSchema)(Effect.succeed(state.rotation))
 
-            // Verify rotation values are within expected ranges
-            if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
-              return false
-            }
+              // Verify rotation values are within expected ranges
+              if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
+                return false
+              }
 
-            if (Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.1) {
-              return false
-            }
+              if (Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.1) {
+                return false
+              }
 
-            return true
-          }) as Effect.Effect<boolean, any, never>
+              return true
+            }) as Effect.Effect<boolean, any, never>
         )
 
         return true
@@ -564,11 +562,11 @@ describe('ThirdPersonCamera', () => {
         yield* service.updateAspectRatio(1080, 1920)
         const tallAspect = camera.aspect
 
-        if (Math.abs(wideAspect - (1920 / 1080)) > 0.01) {
+        if (Math.abs(wideAspect - 1920 / 1080) > 0.01) {
           return yield* Effect.fail(new Error('Wide aspect ratio not set correctly'))
         }
 
-        if (Math.abs(tallAspect - (1080 / 1920)) > 0.01) {
+        if (Math.abs(tallAspect - 1080 / 1920) > 0.01) {
           return yield* Effect.fail(new Error('Tall aspect ratio not set correctly'))
         }
 
@@ -592,7 +590,7 @@ describe('ThirdPersonCamera', () => {
             yield* service.update(0.016, {
               x: Math.random() * 100,
               y: Math.random() * 10,
-              z: Math.random() * 100
+              z: Math.random() * 100,
             })
             yield* service.setThirdPersonDistance(Math.random() * 15 + 5)
             return 'concurrent_operation_complete'
@@ -602,8 +600,11 @@ describe('ThirdPersonCamera', () => {
 
         // Verify concurrent operations complete successfully
         for (const result of concurrentMetrics) {
-          if (result.duration > 1000) { // Should complete within 1 second
-            return yield* Effect.fail(new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`))
+          if (result.duration > 1000) {
+            // Should complete within 1 second
+            return yield* Effect.fail(
+              new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`)
+            )
           }
         }
 

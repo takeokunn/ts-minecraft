@@ -40,7 +40,7 @@ export class TestError extends Schema.TaggedError<TestError>()('TestError', {
   message: Schema.String,
   code: Schema.optionalWith(Schema.String, { exact: true }),
   cause: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  meta: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true })
+  meta: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true }),
 }) {}
 
 /**
@@ -101,23 +101,16 @@ export const EffectTestRunner = {
   /**
    * Scoped環境での実行 - it.scoped互換
    */
-  runScoped: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
-    pipe(effect, Effect.scoped, Effect.runPromise),
+  runScoped: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) => pipe(effect, Effect.scoped, Effect.runPromise),
 
   /**
    * フレイキーテスト対応 - @effect/vitestのit.flakyTest統合
    */
-  runFlaky: <A, E, R>(
-    effect: Effect.Effect<A, E, R>,
-    timeout: Duration.DurationInput = '5 seconds'
-  ) => {
+  runFlaky: <A, E, R>(effect: Effect.Effect<A, E, R>, timeout: Duration.DurationInput = '5 seconds') => {
     const schedule = Schedule.exponential('100 millis')
     const retryEffect = pipe(
       effect,
-      Effect.retry(pipe(
-        schedule,
-        Schedule.upTo(Duration.decode(timeout))
-      )),
+      Effect.retry(pipe(schedule, Schedule.upTo(Duration.decode(timeout)))),
       Effect.provide(TestContext.TestContext)
     ) as Effect.Effect<A, E, never>
     return Effect.runPromise(retryEffect)
@@ -140,7 +133,8 @@ export const EffectAssert = {
   /**
    * Effect成功の検証 - Schema付き
    */
-  succeeds: <A>(schema: Schema.Schema<A, any, any>) =>
+  succeeds:
+    <A>(schema: Schema.Schema<A, any, any>) =>
     <E>(effect: Effect.Effect<A, E>) =>
       Effect.gen(function* () {
         const result = yield* effect
@@ -151,9 +145,8 @@ export const EffectAssert = {
   /**
    * Effect失敗の検証 - TaggedError統合（Context7パターン）
    */
-  fails: <E>(
-    errorType: string
-  ) =>
+  fails:
+    <E>(errorType: string) =>
     <A>(effect: Effect.Effect<A, E>) =>
       Effect.gen(function* () {
         const exit = yield* Effect.exit(effect)
@@ -161,30 +154,35 @@ export const EffectAssert = {
           if (exit.cause._tag === 'Fail' && (exit.cause.error as any)._tag === errorType) {
             return true
           }
-          return yield* Effect.fail(new TestError({
-            message: `Expected ${errorType} but got different error`,
-            cause: exit.cause
-          }))
+          return yield* Effect.fail(
+            new TestError({
+              message: `Expected ${errorType} but got different error`,
+              cause: exit.cause,
+            })
+          )
         }
-        return yield* Effect.fail(new TestError({
-          message: `Expected failure but effect succeeded`
-        }))
+        return yield* Effect.fail(
+          new TestError({
+            message: `Expected failure but effect succeeded`,
+          })
+        )
       }),
 
   /**
    * Exit値の詳細検証
    */
-  exitMatches: <A, E>(
-    matcher: (exit: Exit.Exit<A, E>) => boolean
-  ) =>
+  exitMatches:
+    <A, E>(matcher: (exit: Exit.Exit<A, E>) => boolean) =>
     (effect: Effect.Effect<A, E>) =>
       Effect.gen(function* () {
         const exit = yield* Effect.exit(effect)
         if (!matcher(exit)) {
-          return yield* Effect.fail(new TestError({
-            message: 'Exit condition did not match expected pattern',
-            meta: { exit }
-          }))
+          return yield* Effect.fail(
+            new TestError({
+              message: 'Exit condition did not match expected pattern',
+              meta: { exit },
+            })
+          )
         }
         return exit
       }),
@@ -212,8 +210,7 @@ export const ClockHelpers = {
   /**
    * 時間進行のシミュレーション
    */
-  advance: (duration: Duration.DurationInput) =>
-    TestClock.adjust(duration),
+  advance: (duration: Duration.DurationInput) => TestClock.adjust(duration),
 
   /**
    * 現在時刻の取得
@@ -223,10 +220,7 @@ export const ClockHelpers = {
   /**
    * タイムアウトのシミュレーション
    */
-  timeout: <A, E>(
-    effect: Effect.Effect<A, E>,
-    timeoutDuration: Duration.DurationInput
-  ) =>
+  timeout: <A, E>(effect: Effect.Effect<A, E>, timeoutDuration: Duration.DurationInput) =>
     Effect.gen(function* () {
       const fiber = yield* Effect.fork(effect)
       yield* TestClock.adjust(timeoutDuration)
@@ -237,18 +231,10 @@ export const ClockHelpers = {
   /**
    * 遅延実行のテスト
    */
-  delayed: <A, E>(
-    effect: Effect.Effect<A, E>,
-    delay: Duration.DurationInput
-  ) =>
+  delayed: <A, E>(effect: Effect.Effect<A, E>, delay: Duration.DurationInput) =>
     Effect.gen(function* () {
       const deferred = yield* Deferred.make<A, E>()
-      yield* pipe(
-        Effect.sleep(delay),
-        Effect.andThen(effect),
-        Effect.intoDeferred(deferred),
-        Effect.fork
-      )
+      yield* pipe(Effect.sleep(delay), Effect.andThen(effect), Effect.intoDeferred(deferred), Effect.fork)
       yield* TestClock.adjust(delay)
       return yield* Deferred.await(deferred)
     }),
@@ -265,20 +251,17 @@ export const RandomHelpers = {
   /**
    * 固定値の生成
    */
-  fixed: <A>(value: A) =>
-    Effect.succeed(value),
+  fixed: <A>(value: A) => Effect.succeed(value),
 
   /**
    * 決定論的な範囲乱数 - TestContext環境で使用
    */
-  intBetween: (min: number, max: number) =>
-    Random.nextIntBetween(min, max),
+  intBetween: (min: number, max: number) => Random.nextIntBetween(min, max),
 
   /**
    * 決定論的なBoolean - TestContext環境で使用
    */
-  boolean: () =>
-    Random.nextBoolean,
+  boolean: () => Random.nextBoolean,
 
   /**
    * ランダムテストデータ生成
@@ -298,32 +281,29 @@ export const PropertyTest = {
   /**
    * プロパティテストの実行
    */
-  check: <A>(
-    arbitrary: fc.Arbitrary<A>,
-    property: (input: A) => Effect.Effect<boolean, any>
-  ) =>
+  check: <A>(arbitrary: fc.Arbitrary<A>, property: (input: A) => Effect.Effect<boolean, any>) =>
     Effect.gen(function* () {
       const samples = yield* RandomHelpers.generateTestData(arbitrary, 100)
       const results = yield* Effect.all(
-        samples.map(sample =>
+        samples.map((sample) =>
           pipe(
             property(sample),
             Effect.either,
-            Effect.map(either => ({ sample, result: either }))
+            Effect.map((either) => ({ sample, result: either }))
           )
         ),
         { concurrency: 'unbounded' }
       )
 
-      const failures = results.filter(r =>
-        Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right)
-      )
+      const failures = results.filter((r) => Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right))
 
       if (failures.length > 0) {
-        return yield* Effect.fail(new TestError({
-          message: `Property test failed`,
-          meta: { failures: failures.slice(0, 5) } // 最初の5つの失敗例
-        }))
+        return yield* Effect.fail(
+          new TestError({
+            message: `Property test failed`,
+            meta: { failures: failures.slice(0, 5) }, // 最初の5つの失敗例
+          })
+        )
       }
 
       return true
@@ -332,33 +312,30 @@ export const PropertyTest = {
   /**
    * Schema統合Property-basedテスト
    */
-  forSchema: <A, I, R>(
-    schema: Schema.Schema<A, I, R>,
-    property: (input: A) => Effect.Effect<boolean, any>
-  ) =>
+  forSchema: <A, I, R>(schema: Schema.Schema<A, I, R>, property: (input: A) => Effect.Effect<boolean, any>) =>
     Effect.gen(function* () {
       const arbitrary = Arbitrary.make(schema)
       const samples = fc.sample(arbitrary, 100)
       const results = yield* Effect.all(
-        samples.map(sample =>
+        samples.map((sample) =>
           pipe(
             property(sample),
             Effect.either,
-            Effect.map(either => ({ sample, result: either }))
+            Effect.map((either) => ({ sample, result: either }))
           )
         ),
         { concurrency: 'unbounded' }
       )
 
-      const failures = results.filter(r =>
-        Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right)
-      )
+      const failures = results.filter((r) => Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right))
 
       if (failures.length > 0) {
-        return yield* Effect.fail(new TestError({
-          message: `Schema property test failed`,
-          meta: { failures: failures.slice(0, 5) }
-        }))
+        return yield* Effect.fail(
+          new TestError({
+            message: `Schema property test failed`,
+            meta: { failures: failures.slice(0, 5) },
+          })
+        )
       }
 
       return true
@@ -367,28 +344,26 @@ export const PropertyTest = {
   /**
    * インバリアント検証
    */
-  invariant: <A>(
-    generator: Effect.Effect<A, any>,
-    invariantCheck: (value: A) => boolean,
-    iterations: number = 100
-  ) =>
+  invariant: <A>(generator: Effect.Effect<A, any>, invariantCheck: (value: A) => boolean, iterations: number = 100) =>
     Effect.gen(function* () {
       const results = yield* Effect.all(
         Array.from({ length: iterations }, () =>
           pipe(
             generator,
-            Effect.map(value => ({ value, valid: invariantCheck(value) }))
+            Effect.map((value) => ({ value, valid: invariantCheck(value) }))
           )
         ),
         { concurrency: 'unbounded' }
       )
 
-      const violations = results.filter(r => !r.valid)
+      const violations = results.filter((r) => !r.valid)
       if (violations.length > 0) {
-        return yield* Effect.fail(new TestError({
-          message: `Invariant violations detected`,
-          meta: { violations: violations.slice(0, 5) }
-        }))
+        return yield* Effect.fail(
+          new TestError({
+            message: `Invariant violations detected`,
+            meta: { violations: violations.slice(0, 5) },
+          })
+        )
       }
 
       return true
@@ -406,10 +381,7 @@ export const PerformanceTest = {
   /**
    * 実行時間の測定
    */
-  measure: <A, E>(
-    effect: Effect.Effect<A, E>,
-    label: string = 'execution'
-  ) =>
+  measure: <A, E>(effect: Effect.Effect<A, E>, label: string = 'execution') =>
     Effect.gen(function* () {
       const counter = Metric.counter(`${label}_count`)
       const gauge = Metric.gauge(`${label}_duration`)
@@ -431,18 +403,14 @@ export const PerformanceTest = {
           averageTime: duration,
           minTime: duration,
           maxTime: duration,
-        } satisfies PerformanceMetrics
+        } satisfies PerformanceMetrics,
       }
     }),
 
   /**
    * 反復パフォーマンステスト
    */
-  benchmark: <A, E>(
-    effect: Effect.Effect<A, E>,
-    iterations: number = 100,
-    label: string = 'benchmark'
-  ) =>
+  benchmark: <A, E>(effect: Effect.Effect<A, E>, iterations: number = 100, label: string = 'benchmark') =>
     Effect.gen(function* () {
       const times: number[] = []
 
@@ -480,20 +448,17 @@ export const PerformanceTest = {
 
       return {
         result,
-        memoryDelta: afterMemory - beforeMemory
+        memoryDelta: afterMemory - beforeMemory,
       }
     }),
 
   /**
    * 並行性スケーラビリティテスト
    */
-  concurrency: <A, E>(
-    effect: Effect.Effect<A, E>,
-    concurrencyLevels: number[] = [1, 2, 4, 8]
-  ) =>
+  concurrency: <A, E>(effect: Effect.Effect<A, E>, concurrencyLevels: number[] = [1, 2, 4, 8]) =>
     Effect.gen(function* () {
       const results = yield* Effect.all(
-        concurrencyLevels.map(level =>
+        concurrencyLevels.map((level) =>
           Effect.gen(function* () {
             const start = performance.now()
             yield* Effect.all(

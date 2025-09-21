@@ -18,7 +18,7 @@ import {
   DEFAULT_CAMERA_CONFIG,
   validateCameraConfig,
   validateCameraState,
-  validateCameraMode
+  validateCameraMode,
 } from '../CameraService.js'
 import { FirstPersonCameraLive } from '../FirstPersonCamera.js'
 import { ThirdPersonCameraLive } from '../ThirdPersonCamera.js'
@@ -59,32 +59,31 @@ const CameraServiceTestLayer = Layer.succeed(CameraService, {
   setSensitivity: (sensitivity: unknown) => Effect.succeed(void 0),
   setThirdPersonDistance: (distance: unknown) => Effect.succeed(void 0),
   setSmoothing: (smoothing: unknown) => Effect.succeed(void 0),
-  getState: () => Effect.succeed({
-    position: { x: 0, y: 0, z: 0 },
-    rotation: { pitch: 0, yaw: 0 },
-    target: { x: 0, y: 0, z: 0 }
-  }),
-  getConfig: () => Effect.succeed({
-    mode: 'first-person' as const,
-    fov: 75,
-    near: 0.1,
-    far: 1000,
-    sensitivity: 0.002,
-    smoothing: 0.1,
-    thirdPersonDistance: 5,
-    thirdPersonHeight: 2,
-    thirdPersonAngle: 0
-  }),
+  getState: () =>
+    Effect.succeed({
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { pitch: 0, yaw: 0 },
+      target: { x: 0, y: 0, z: 0 },
+    }),
+  getConfig: () =>
+    Effect.succeed({
+      mode: 'first-person' as const,
+      fov: 75,
+      near: 0.1,
+      far: 1000,
+      sensitivity: 0.002,
+      smoothing: 0.1,
+      thirdPersonDistance: 5,
+      thirdPersonHeight: 2,
+      thirdPersonAngle: 0,
+    }),
   getCamera: () => Effect.succeed(new THREE.PerspectiveCamera()),
   reset: () => Effect.succeed(void 0),
   updateAspectRatio: (width: unknown, height: unknown) => Effect.succeed(void 0),
   dispose: () => Effect.succeed(void 0),
 })
 
-const TestLayer = Layer.mergeAll(
-  CameraServiceTestLayer,
-  TestContext.TestContext
-)
+const TestLayer = Layer.mergeAll(CameraServiceTestLayer, TestContext.TestContext)
 
 // ================================================================================
 // CameraService Tests - it.effect Pattern
@@ -159,11 +158,12 @@ describe('CameraService', () => {
         // Property-based testing for FOV range
         yield* PropertyTest.check(
           fc.integer({ min: 30, max: 120 }),
-          (fov) => Effect.gen(function* () {
-            const config = { ...DEFAULT_CAMERA_CONFIG, fov: fov as number }
-            yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
-            return true
-          }) as Effect.Effect<boolean, any, never>
+          (fov) =>
+            Effect.gen(function* () {
+              const config = { ...DEFAULT_CAMERA_CONFIG, fov: fov as number }
+              yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
+              return true
+            }) as Effect.Effect<boolean, any, never>
         )
 
         return true
@@ -183,13 +183,14 @@ describe('CameraService', () => {
         // fc.float requires Math.fround for min/max values
         yield* PropertyTest.check(
           fc.float({ min: Math.fround(0.1), max: Math.fround(10), noNaN: true }),
-          (sensitivity) => Effect.gen(function* () {
-            // Clamp to ensure we stay within bounds after float operations
-            const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity as number))
-            const config = { ...DEFAULT_CAMERA_CONFIG, sensitivity: clampedSensitivity }
-            yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
-            return true
-          }) as Effect.Effect<boolean, any, never>
+          (sensitivity) =>
+            Effect.gen(function* () {
+              // Clamp to ensure we stay within bounds after float operations
+              const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity as number))
+              const config = { ...DEFAULT_CAMERA_CONFIG, sensitivity: clampedSensitivity }
+              yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
+              return true
+            }) as Effect.Effect<boolean, any, never>
         )
 
         return true
@@ -208,13 +209,14 @@ describe('CameraService', () => {
         // Property-based testing for smoothing range
         yield* PropertyTest.check(
           fc.float({ min: Math.fround(0), max: Math.fround(1), noNaN: true }),
-          (smoothing) => Effect.gen(function* () {
-            // Clamp to ensure we stay within bounds after float operations
-            const clampedSmoothing = Math.max(0, Math.min(1, smoothing as number))
-            const config = { ...DEFAULT_CAMERA_CONFIG, smoothing: clampedSmoothing }
-            yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
-            return true
-          }) as Effect.Effect<boolean, any, never>
+          (smoothing) =>
+            Effect.gen(function* () {
+              // Clamp to ensure we stay within bounds after float operations
+              const clampedSmoothing = Math.max(0, Math.min(1, smoothing as number))
+              const config = { ...DEFAULT_CAMERA_CONFIG, smoothing: clampedSmoothing }
+              yield* EffectAssert.succeeds(CameraConfigSchema)(Effect.succeed(config))
+              return true
+            }) as Effect.Effect<boolean, any, never>
         )
 
         return true
@@ -291,11 +293,13 @@ describe('CameraService', () => {
         yield* cameraService.update(0.016, { x: target.x, y: target.y, z: target.z })
 
         // Validate target structure
-        yield* EffectAssert.succeeds(Vector3Schema)(Effect.succeed({
-          x: target.x,
-          y: target.y,
-          z: target.z
-        }))
+        yield* EffectAssert.succeeds(Vector3Schema)(
+          Effect.succeed({
+            x: target.x,
+            y: target.y,
+            z: target.z,
+          })
+        )
 
         return true
       }).pipe(Effect.provide(TestLayer))
@@ -310,11 +314,13 @@ describe('CameraService', () => {
         yield* cameraService.update(0.016, { x: position.x, y: position.y, z: position.z })
 
         // Validate position structure
-        yield* EffectAssert.succeeds(Vector3Schema)(Effect.succeed({
-          x: position.x,
-          y: position.y,
-          z: position.z
-        }))
+        yield* EffectAssert.succeeds(Vector3Schema)(
+          Effect.succeed({
+            x: position.x,
+            y: position.y,
+            z: position.z,
+          })
+        )
 
         return true
       }).pipe(Effect.provide(TestLayer))
@@ -330,7 +336,7 @@ describe('CameraService', () => {
             for (let i = 0; i < 100; i++) {
               const position = new THREE.Vector3(i, i * 0.5, i * 2)
               // Position validation through update method
-        yield* cameraService.update(0.016, { x: position.x, y: position.y, z: position.z })
+              yield* cameraService.update(0.016, { x: position.x, y: position.y, z: position.z })
             }
             return 'position_updates_complete'
           }),
@@ -339,7 +345,9 @@ describe('CameraService', () => {
 
         // Should complete within reasonable time
         if (positionUpdateMetrics.metrics.executionTime > 100) {
-          return yield* Effect.fail(new Error(`Position updates too slow: ${positionUpdateMetrics.metrics.executionTime}ms`))
+          return yield* Effect.fail(
+            new Error(`Position updates too slow: ${positionUpdateMetrics.metrics.executionTime}ms`)
+          )
         }
 
         return true
@@ -403,9 +411,9 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         const cameraService = yield* CameraService
 
-        yield* cameraService.updateAspectRatio(1920, 1080)  // 16:9
-        yield* cameraService.updateAspectRatio(1024, 768)   // 4:3
-        yield* cameraService.updateAspectRatio(2560, 1080)  // 21:9
+        yield* cameraService.updateAspectRatio(1920, 1080) // 16:9
+        yield* cameraService.updateAspectRatio(1024, 768) // 4:3
+        yield* cameraService.updateAspectRatio(2560, 1080) // 21:9
 
         return true
       }).pipe(Effect.provide(TestLayer))
@@ -415,9 +423,8 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         const cameraService = yield* CameraService
 
-        yield* PropertyTest.check(
-          fc.float({ min: 0.5, max: 5.0 }),
-          (aspectRatio) => Effect.gen(function* () {
+        yield* PropertyTest.check(fc.float({ min: 0.5, max: 5.0 }), (aspectRatio) =>
+          Effect.gen(function* () {
             const width = 1920
             const height = Math.round(width / (aspectRatio as number))
             yield* cameraService.updateAspectRatio(width, height)
@@ -609,8 +616,11 @@ describe('CameraService', () => {
 
         // Verify concurrent operations complete successfully
         for (const result of concurrentMetrics) {
-          if (result.duration > 1000) { // Should complete within 1 second
-            return yield* Effect.fail(new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`))
+          if (result.duration > 1000) {
+            // Should complete within 1 second
+            return yield* Effect.fail(
+              new Error(`Concurrent operations too slow at level ${result.level}: ${result.duration}ms`)
+            )
           }
         }
 
