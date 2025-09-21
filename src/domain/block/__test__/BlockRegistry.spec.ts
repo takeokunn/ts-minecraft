@@ -13,10 +13,10 @@ import { createDefaultPhysics, createDefaultSound } from '../BlockType'
 const runEffect = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(Effect.either(effect))
 
-const runSuccessful = <A>(effect: Effect.Effect<A>) =>
+const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) =>
   Effect.runPromise(effect)
 
-const expectSuccess = async <A>(effect: Effect.Effect<A>) => {
+const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
   const result = await runEffect(effect)
   expect(Either.isRight(result)).toBe(true)
   return Either.isRight(result) ? result.right : undefined
@@ -143,7 +143,7 @@ describe('BlockRegistry', () => {
 
       const stoneBlocks = await runSuccessful(registry.getBlocksByTag('stone'))
       expect(stoneBlocks.length).toBe(1)
-      expect(stoneBlocks[0].id).toBe('test_stone')
+      expect(stoneBlocks[0]?.id).toBe('test_stone')
     })
   })
 

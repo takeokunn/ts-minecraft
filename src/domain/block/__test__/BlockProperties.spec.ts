@@ -214,8 +214,8 @@ describe('BlockProperties', () => {
       )
 
       expect(props.drops).toHaveLength(2)
-      expect(props.drops[0].itemId).toBe('wheat')
-      expect(props.drops[1].itemId).toBe('wheat_seeds')
+      expect(props.drops[0]?.itemId).toBe('wheat')
+      expect(props.drops[1]?.itemId).toBe('wheat_seeds')
     })
 
     it('withDropSelfで自身をドロップする設定ができる', () => {
