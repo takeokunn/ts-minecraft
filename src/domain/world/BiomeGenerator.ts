@@ -171,7 +171,10 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
             const climate = yield* biomeGenerator.getClimateData(worldX, worldZ)
             const biome = biomeGenerator.determineBiome(climate)
 
-            biomeMap[x][z] = biome
+            const row = biomeMap[x]
+            if (row) {
+              row[z] = biome
+            }
           }
         }
 

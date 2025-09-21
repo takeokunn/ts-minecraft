@@ -219,7 +219,15 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     getBiome: (position: Vector3) =>
       Effect.gen(function* () {
         const biomeGenerator = yield* BiomeGenerator
-        return yield* biomeGenerator.getBiome(position)
+        const biomeType = yield* biomeGenerator.getBiome(position)
+        const climateData = yield* biomeGenerator.getClimateData(position.x, position.z)
+
+        return {
+          type: biomeType,
+          temperature: climateData.temperature,
+          humidity: climateData.humidity,
+          elevation: climateData.elevation + position.y,
+        }
       }).pipe(Effect.provide(biomeLayer)),
 
     getTerrainHeight: (x: number, z: number) =>

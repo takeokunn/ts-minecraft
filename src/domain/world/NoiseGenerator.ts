@@ -202,6 +202,10 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
 
     octaveNoise2D: (x: number, y: number, octaves: number, persistence: number) =>
       Effect.gen(function* () {
+        if (octaves <= 0) {
+          return 0
+        }
+
         let total = 0
         let frequency = 1
         let amplitude = 1
@@ -215,11 +219,15 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
           frequency *= 2
         }
 
-        return total / maxValue
+        return maxValue > 0 ? total / maxValue : 0
       }),
 
     octaveNoise3D: (x: number, y: number, z: number, octaves: number, persistence: number) =>
       Effect.gen(function* () {
+        if (octaves <= 0) {
+          return 0
+        }
+
         let total = 0
         let frequency = 1
         let amplitude = 1
@@ -233,7 +241,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
           frequency *= 2
         }
 
-        return total / maxValue
+        return maxValue > 0 ? total / maxValue : 0
       }),
 
     getSeed: () => config.seed,

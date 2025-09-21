@@ -103,7 +103,10 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
             // 高度制限
             finalHeight = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
 
-            heightMap[x][z] = finalHeight
+            const row = heightMap[x]
+            if (row) {
+              row[z] = finalHeight
+            }
           }
         }
 
