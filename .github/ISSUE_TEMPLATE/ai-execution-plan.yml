@@ -129,8 +129,13 @@ body:
         - src/domain/[feature]/[FeatureName]Service.ts
         - src/domain/[feature]/schemas/[FeatureName]Schema.ts
         - src/domain/[feature]/types/[FeatureName]Types.ts
-        - src/domain/[feature]/[FeatureName]Service.test.ts
         - src/infrastructure/[feature]/[FeatureName]Layer.ts
+
+        // テストファイル（必須）__test__/*.spec.ts 形式
+        - src/domain/[feature]/__test__/[FeatureName]Service.spec.ts
+        - src/domain/[feature]/schemas/__test__/[FeatureName]Schema.spec.ts
+        - src/domain/[feature]/systems/__test__/[FeatureName]System.spec.ts
+        - src/infrastructure/[feature]/__test__/[FeatureName]Layer.spec.ts
         ```
 
         ### 🧪 テスト戦略設計
@@ -151,8 +156,12 @@ body:
         ### 📂 ディレクトリ作成
         ```bash
         # 実行コマンド例
-        mkdir -p src/domain/[feature]/{services,schemas,types}
+        mkdir -p src/domain/[feature]/{services,schemas,types,systems}
+        mkdir -p src/domain/[feature]/__test__
+        mkdir -p src/domain/[feature]/schemas/__test__
+        mkdir -p src/domain/[feature]/systems/__test__
         mkdir -p src/infrastructure/[feature]
+        mkdir -p src/infrastructure/[feature]/__test__
         mkdir -p src/application/[feature]
         ```
 
@@ -161,6 +170,8 @@ body:
         - [ ] 基本的なエクスポート定義
         - [ ] TypeScriptコンパイルエラーの解消
         - [ ] import/export依存関係の整理
+        - [ ] **テストファイル骨格作成（__test__/*.spec.ts）**
+        - [ ] vitest設定とfast-checkインポート確認
 
         ### 🔗 モジュール統合
         - [ ] 上位ディレクトリの `index.ts` 更新
@@ -407,9 +418,14 @@ body:
       value: |
         ## Step 6: テスト実装
 
+        ### ⚠️ **テストファイル作成必須**
+        - 実装ファイルと同数の __test__/*.spec.ts ファイル作成
+        - カバレッジ80%以上達成が完了条件
+        - ファイル配置: src/**/__test__/*.spec.ts 形式厳守
+
         ### 🔧 テスト設定
         ```typescript
-        // テストファイル: FeatureService.test.ts
+        // テストファイル: src/domain/[feature]/__test__/FeatureService.spec.ts
         import { Effect, TestContext, Layer } from 'effect'
         import { describe, it, expect } from 'vitest'
         import * as fc from 'fast-check'
@@ -491,7 +507,7 @@ body:
 
         ### 🔍 統合テスト
         ```typescript
-        // ECSシステム統合テスト
+        // ECSシステム統合テスト: src/domain/[feature]/systems/__test__/FeatureSystem.spec.ts
         describe('Feature ECS Integration', () => {
           it('should process entities with FeatureComponent', async () => {
             const program = Effect.gen(function* () {
@@ -569,17 +585,26 @@ body:
         ```
         src/domain/[feature]/
         ├── index.ts                 # エクスポート統合
+        ├── __test__/
+        │   └── FeatureService.spec.ts  # Service単体テスト
         ├── services/
-        │   ├── FeatureService.ts    # Service実装
-        │   └── FeatureService.test.ts
+        │   └── FeatureService.ts    # Service実装
         ├── schemas/
         │   ├── FeatureSchema.ts     # Schema定義
-        │   └── FeatureSchema.test.ts
+        │   └── __test__/
+        │       └── FeatureSchema.spec.ts   # Schema検証テスト
         ├── types/
         │   └── FeatureTypes.ts      # 型定義
         └── systems/
             ├── FeatureSystem.ts     # ECSシステム
-            └── FeatureSystem.test.ts
+            └── __test__/
+                └── FeatureSystem.spec.ts   # ECSシステム統合テスト
+
+        src/infrastructure/[feature]/
+        ├── index.ts                 # Infrastructure層エクスポート
+        ├── FeatureLayer.ts         # Layer実装
+        └── __test__/
+            └── FeatureLayer.spec.ts    # Layer統合テスト
         ```
     validations:
       required: false
@@ -767,6 +792,9 @@ body:
         - Effect-TS 3.17+ 使用必須
         - クラス定義禁止（Service/Layerパターン使用）
         - var/let/any/async使用禁止
+        - **テストファイル作成必須（__test__/*.spec.ts）**
+        - vitest + fast-check による Property-based Testing実装必須
+        - テスト配置: src/**/__test__/*.spec.ts 形式厳守
 
         ### パフォーマンス要件
         - レンダリング: 60FPS維持
