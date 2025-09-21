@@ -63,20 +63,20 @@ export default defineConfig({
         'src/**/index.ts', // 単純なre-exportのみのindexファイル
       ],
 
-      // カバレッジ基準を一時的に調整（カメラシステム実装中）
+      // 高品質カバレッジを維持（残り5-6%は防御的エラーハンドリング）
       thresholds: {
         branches: 90,
         functions: 90,
-        lines: 85,
-        statements: 85,
+        lines: 90,
+        statements: 90,
       },
 
       // カバレッジ未達成の閾値設定（警告レベル）
       watermarks: {
-        statements: [85, 100],
+        statements: [90, 100],
         functions: [90, 100],
         branches: [90, 100],
-        lines: [85, 100],
+        lines: [90, 100],
       },
 
       clean: true,

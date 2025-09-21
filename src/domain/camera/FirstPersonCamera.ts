@@ -1,190 +1,379 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect, Layer, pipe } from 'effect'
-import { CameraService, CameraState, CameraError } from './CameraService'
+import { Effect, Layer, Ref } from 'effect'
+import * as THREE from 'three'
+import {
+  CameraService,
+  CameraConfig,
+  CameraState,
+  CameraError,
+  CameraMode,
+  DEFAULT_CAMERA_CONFIG,
+} from './CameraService.js'
 
-// 一人称カメラの設定
-export const FirstPersonConfig = Schema.Struct({
-  eyeHeight: Schema.Number.pipe(
-    Schema.clamp(0.5, 2.5) // プレイヤーの目の高さ
-  ),
-  mouseSensitivity: Schema.Number.pipe(
-    Schema.clamp(0.1, 2.0) // マウス感度
-  ),
-  bobAmount: Schema.Number.pipe(
-    Schema.clamp(0, 0.5) // 歩行時の揺れ幅
-  ),
-  bobSpeed: Schema.Number.pipe(
-    Schema.clamp(0, 10) // 歩行時の揺れ速度
-  ),
-  sprintFOVMultiplier: Schema.Number.pipe(
-    Schema.clamp(1.0, 1.5) // ダッシュ時のFOV倍率
-  ),
-})
-export type FirstPersonConfig = typeof FirstPersonConfig.Type
-
-// プレイヤーの状態（カメラ計算用）
-export const PlayerState = Schema.Struct({
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  velocity: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  isWalking: Schema.Boolean,
-  isSprinting: Schema.Boolean,
-  isCrouching: Schema.Boolean,
-  isSwimming: Schema.Boolean,
-  walkTime: Schema.Number, // 歩行アニメーション時間
-})
-export type PlayerState = typeof PlayerState.Type
-
-// 一人称カメラサービス
-export const FirstPersonCamera = Context.GenericTag<{
-  readonly updateFromPlayer: (player: PlayerState, deltaTime: number) => Effect.Effect<CameraState, CameraError>
-  readonly handleMouseInput: (deltaX: number, deltaY: number) => Effect.Effect<void, CameraError>
-  readonly getConfig: () => Effect.Effect<FirstPersonConfig, never>
-  readonly setConfig: (config: Partial<FirstPersonConfig>) => Effect.Effect<void, never>
-}>('@minecraft/FirstPersonCamera')
-
-// デフォルト設定
-export const defaultFirstPersonConfig: FirstPersonConfig = {
-  eyeHeight: 1.7,
-  mouseSensitivity: 0.5,
-  bobAmount: 0.05,
-  bobSpeed: 6.0,
-  sprintFOVMultiplier: 1.15,
+/**
+ * 一人称カメラの内部状態
+ */
+interface FirstPersonState {
+  camera: THREE.PerspectiveCamera | null
+  config: CameraConfig
+  state: CameraState
+  targetPosition: { x: number; y: number; z: number }
+  smoothedPosition: { x: number; y: number; z: number }
 }
 
-// 一人称カメラのLive実装
+/**
+ * ヨー角を正規化（-π から π の範囲に収める）
+ */
+const normalizeYaw = (yaw: number): number => {
+  const twoPi = Math.PI * 2
+  const normalized = yaw % twoPi
+  if (normalized > Math.PI) return normalized - twoPi
+  if (normalized < -Math.PI) return normalized + twoPi
+  return normalized
+}
+
+/**
+ * 線形補間
+ */
+const lerp = (start: number, end: number, factor: number): number => {
+  return start + (end - start) * factor
+}
+
+/**
+ * FirstPersonCameraサービスの実装を作成
+ */
+const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): CameraService => ({
+  initialize: (config: CameraConfig): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+    Effect.gen(function* () {
+      const camera = yield* Effect.try({
+        try: () => {
+          const cam = new THREE.PerspectiveCamera(
+            config.fov,
+            window.innerWidth / window.innerHeight,
+            config.near,
+            config.far
+          )
+          // 初期位置設定
+          cam.position.set(0, 1.7, 0) // プレイヤーの目の高さ
+          cam.rotation.order = 'YXZ' // ヨー→ピッチの順で回転
+          return cam
+        },
+        catch: (error) =>
+          new CameraError({
+            message: 'カメラの初期化に失敗しました',
+            cause: error,
+          }),
+      })
+
+      const initialState: FirstPersonState = {
+        camera,
+        config,
+        state: {
+          position: { x: 0, y: 1.7, z: 0 },
+          rotation: { pitch: 0, yaw: 0 },
+          target: { x: 0, y: 1.7, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: { x: 0, y: 1.7, z: 0 },
+      }
+
+      yield* Ref.set(stateRef, initialState)
+      return camera
+    }),
+
+  switchMode: (mode: CameraMode): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (mode !== 'first-person' && mode !== 'third-person') {
+        yield* Effect.fail(
+          new CameraError({
+            message: `無効なカメラモード: ${mode}`,
+          })
+        )
+      }
+
+      // 一人称モードへの切り替え処理
+      if (mode === 'first-person' && state.config.mode !== 'first-person') {
+        const newConfig = { ...state.config, mode }
+        const newState: FirstPersonState = {
+          ...state,
+          config: newConfig,
+        }
+        yield* Ref.set(stateRef, newState)
+      }
+    }),
+
+  update: (deltaTime: number, targetPosition: { x: number; y: number; z: number }): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // スムージングファクターの計算
+      const smoothingFactor = 1.0 - Math.pow(1.0 - state.config.smoothing, deltaTime * 60)
+
+      // 位置のスムージング
+      state.smoothedPosition.x = lerp(state.smoothedPosition.x, targetPosition.x, smoothingFactor)
+      state.smoothedPosition.y = lerp(state.smoothedPosition.y, targetPosition.y + 1.7, smoothingFactor)
+      state.smoothedPosition.z = lerp(state.smoothedPosition.z, targetPosition.z, smoothingFactor)
+
+      // カメラ位置の更新
+      state.camera!.position.set(state.smoothedPosition.x, state.smoothedPosition.y, state.smoothedPosition.z)
+
+      // 状態の更新
+      const newState: FirstPersonState = {
+        ...state,
+        targetPosition,
+        state: {
+          ...state.state,
+          position: {
+            x: state.smoothedPosition.x,
+            y: state.smoothedPosition.y,
+            z: state.smoothedPosition.z,
+          },
+          target: {
+            x: targetPosition.x,
+            y: targetPosition.y + 1.7,
+            z: targetPosition.z,
+          },
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  rotate: (deltaX: number, deltaY: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // マウス感度を適用
+      const sensitivityFactor = state.config.sensitivity * 0.002
+      const yawDelta = -deltaX * sensitivityFactor
+      const pitchDelta = -deltaY * sensitivityFactor
+
+      // 新しい回転値を計算
+      const newYaw = normalizeYaw(state.state.rotation.yaw + yawDelta)
+      const newPitch = Math.max(
+        -Math.PI / 2 + 0.01,
+        Math.min(Math.PI / 2 - 0.01, state.state.rotation.pitch + pitchDelta)
+      )
+
+      // カメラの回転を更新
+      state.camera!.rotation.y = newYaw
+      state.camera!.rotation.x = newPitch
+
+      // 状態の更新
+      const newState: FirstPersonState = {
+        ...state,
+        state: {
+          ...state.state,
+          rotation: {
+            yaw: newYaw,
+            pitch: newPitch,
+          },
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setFOV: (fov: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // FOVの範囲チェック
+      const clampedFov = Math.max(30, Math.min(120, fov))
+
+      state.camera!.fov = clampedFov
+      state.camera!.updateProjectionMatrix()
+
+      const newState: FirstPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          fov: clampedFov,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setSensitivity: (sensitivity: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      // 感度の範囲チェック
+      const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity))
+
+      const newState: FirstPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          sensitivity: clampedSensitivity,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setThirdPersonDistance: (_distance: number): Effect.Effect<void, CameraError> =>
+    // 一人称視点では無効
+    Effect.succeed(undefined),
+
+  setSmoothing: (smoothing: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      // スムージングの範囲チェック
+      const clampedSmoothing = Math.max(0, Math.min(1, smoothing))
+
+      const newState: FirstPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          smoothing: clampedSmoothing,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  getState: (): Effect.Effect<CameraState, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.state
+    }),
+
+  getConfig: (): Effect.Effect<CameraConfig, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.config
+    }),
+
+  getCamera: (): Effect.Effect<THREE.PerspectiveCamera | null, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.camera
+    }),
+
+  reset: (): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // カメラを初期状態にリセット
+      state.camera!.position.set(0, 1.7, 0)
+      state.camera!.rotation.set(0, 0, 0)
+      state.camera!.rotation.order = 'YXZ'
+
+      const newState: FirstPersonState = {
+        ...state,
+        state: {
+          position: { x: 0, y: 1.7, z: 0 },
+          rotation: { pitch: 0, yaw: 0 },
+          target: { x: 0, y: 1.7, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: { x: 0, y: 1.7, z: 0 },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  updateAspectRatio: (width: number, height: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      state.camera!.aspect = width / height
+      state.camera!.updateProjectionMatrix()
+    }),
+
+  dispose: (): Effect.Effect<void, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (state.camera) {
+        // Three.jsカメラのリソースをクリア
+        state.camera.clear()
+      }
+
+      // 状態をリセット
+      const newState: FirstPersonState = {
+        camera: null,
+        config: DEFAULT_CAMERA_CONFIG,
+        state: {
+          position: { x: 0, y: 1.7, z: 0 },
+          rotation: { pitch: 0, yaw: 0 },
+          target: { x: 0, y: 0, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: { x: 0, y: 1.7, z: 0 },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+})
+
+/**
+ * FirstPersonCameraLive - 一人称視点カメラの実装
+ *
+ * Issue #130: P1-007 Camera System
+ * - 一人称視点の実装
+ * - スムーズな動作
+ * - FOV調整機能
+ */
 export const FirstPersonCameraLive = Layer.effect(
-  FirstPersonCamera,
+  CameraService,
   Effect.gen(function* () {
-    const cameraService = yield* CameraService
-
-    let config = defaultFirstPersonConfig
-    let currentRotation = { pitch: 0, yaw: 0 }
-
-    return FirstPersonCamera.of({
-      updateFromPlayer: (player, deltaTime) =>
-        Effect.gen(function* () {
-          // 現在のカメラ状態を取得
-          const currentState = yield* cameraService.getState()
-
-          // 基本的な目の位置を計算
-          let eyeY = player.position.y + config.eyeHeight
-
-          // しゃがみ時の高さ調整
-          if (player.isCrouching) {
-            eyeY -= config.eyeHeight * 0.3
-          }
-
-          // 歩行時の頭の揺れを計算
-          let bobOffsetX = 0
-          let bobOffsetY = 0
-
-          if (player.isWalking && !player.isSwimming) {
-            const bobPhase = player.walkTime * config.bobSpeed
-            bobOffsetX = Math.sin(bobPhase) * config.bobAmount
-            bobOffsetY = Math.abs(Math.cos(bobPhase * 2)) * config.bobAmount
-          }
-
-          // FOVの動的調整
-          let targetFOV = 75 // デフォルトFOV
-          if (player.isSprinting) {
-            targetFOV *= config.sprintFOVMultiplier
-          }
-          if (player.isCrouching) {
-            targetFOV *= 0.9 // しゃがみ時は少し狭める
-          }
-
-          // カメラ位置を更新
-          const targetPosition = {
-            x: player.position.x + bobOffsetX,
-            y: eyeY + bobOffsetY,
-            z: player.position.z,
-          }
-
-          // カメラ状態を更新
-          yield* cameraService.update({
-            deltaTime,
-            targetPosition,
-            targetRotation: currentRotation,
-            mode: 'first-person',
-            fov: targetFOV,
-          })
-
-          return yield* cameraService.getState()
-        }),
-
-      handleMouseInput: (deltaX, deltaY) =>
-        Effect.gen(function* () {
-          // マウス入力を回転に変換
-          const sensitivity = config.mouseSensitivity * 0.1
-
-          // Yaw（左右回転）の更新
-          currentRotation.yaw = (currentRotation.yaw - deltaX * sensitivity) % 360
-          if (currentRotation.yaw < 0) currentRotation.yaw += 360
-
-          // Pitch（上下回転）の更新（-90〜90度に制限）
-          currentRotation.pitch = Math.max(-90, Math.min(90, currentRotation.pitch - deltaY * sensitivity))
-
-          // 即座に適用（一人称は即座に反応すべき）
-          yield* cameraService.update({
-            deltaTime: 0.016, // 約60fps
-            targetRotation: currentRotation,
-            mode: 'first-person',
-          })
-        }),
-
-      getConfig: () => Effect.succeed(config),
-
-      setConfig: (newConfig) =>
-        Effect.sync(() => {
-          config = { ...config, ...newConfig }
-        }),
+    const stateRef = yield* Ref.make<FirstPersonState>({
+      camera: null,
+      config: DEFAULT_CAMERA_CONFIG,
+      state: {
+        position: { x: 0, y: 1.7, z: 0 },
+        rotation: { pitch: 0, yaw: 0 },
+        target: { x: 0, y: 0, z: 0 },
+      },
+      targetPosition: { x: 0, y: 0, z: 0 },
+      smoothedPosition: { x: 0, y: 1.7, z: 0 },
     })
+
+    return createFirstPersonCameraService(stateRef)
   })
 )
-
-// テスト用のMock実装
-export const FirstPersonCameraTest = Layer.sync(FirstPersonCamera, () => {
-  let config = defaultFirstPersonConfig
-  let rotation = { pitch: 0, yaw: 0 }
-
-  return FirstPersonCamera.of({
-    updateFromPlayer: (player) =>
-      Effect.succeed({
-        position: {
-          x:
-            player.position.x + (player.isWalking ? Math.sin(player.walkTime * config.bobSpeed) * config.bobAmount : 0),
-          y:
-            player.position.y +
-            config.eyeHeight * (player.isCrouching ? 0.7 : 1) +
-            (player.isWalking ? Math.abs(Math.cos(player.walkTime * config.bobSpeed * 2)) * config.bobAmount : 0),
-          z: player.position.z,
-        },
-        rotation: { ...rotation, roll: 0 },
-        mode: 'first-person' as const,
-        fov: player.isSprinting ? 75 * config.sprintFOVMultiplier : 75,
-        distance: 0,
-        smoothing: 0.15,
-      }),
-
-    handleMouseInput: (deltaX, deltaY) =>
-      Effect.sync(() => {
-        rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
-        rotation.pitch = Math.max(-90, Math.min(90, rotation.pitch - deltaY * config.mouseSensitivity * 0.1))
-      }),
-
-    getConfig: () => Effect.succeed(config),
-
-    setConfig: (newConfig) =>
-      Effect.sync(() => {
-        config = { ...config, ...newConfig }
-      }),
-  })
-})

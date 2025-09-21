@@ -329,7 +329,7 @@ generate_success_criteria() {
 
     criteria+="## 必須条件\n"
     criteria+="- [ ] すべての型チェックがパス（\`pnpm typecheck\`）\n"
-    criteria+="- [ ] Lintエラーなし（\`pnpm lint\`）\n"
+    criteria+="- [ ] コード品質チェックパス（\`pnpm check\`）\n"
     criteria+="- [ ] ビルド成功（\`pnpm build\`）\n\n"
 
     criteria+="## 機能要件\n"
@@ -362,7 +362,7 @@ generate_verification_commands() {
     cat << 'EOF'
 # 基本検証コマンドシーケンス
 pnpm typecheck    # TypeScript型チェック
-pnpm lint         # Lintチェック
+pnpm check        # 総合品質チェック
 pnpm build        # ビルド確認
 
 # テスト実行（存在する場合）

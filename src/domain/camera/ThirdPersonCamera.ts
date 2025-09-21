@@ -1,300 +1,489 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect, Layer, pipe } from 'effect'
-import { CameraService, CameraState, CameraError } from './CameraService'
+import { Effect, Layer, Ref } from 'effect'
+import * as THREE from 'three'
+import {
+  CameraService,
+  CameraConfig,
+  CameraState,
+  CameraError,
+  CameraMode,
+  DEFAULT_CAMERA_CONFIG,
+} from './CameraService.js'
 
-// 三人称カメラの設定
-export const ThirdPersonConfig = Schema.Struct({
-  minDistance: Schema.Number.pipe(
-    Schema.clamp(1, 10) // 最小距離
-  ),
-  maxDistance: Schema.Number.pipe(
-    Schema.clamp(5, 30) // 最大距離
-  ),
-  defaultDistance: Schema.Number.pipe(
-    Schema.clamp(2, 20) // デフォルト距離
-  ),
-  heightOffset: Schema.Number.pipe(
-    Schema.clamp(0, 5) // カメラの高さオフセット
-  ),
-  mouseSensitivity: Schema.Number.pipe(
-    Schema.clamp(0.1, 2.0) // マウス感度
-  ),
-  collisionPadding: Schema.Number.pipe(
-    Schema.clamp(0.1, 1.0) // 衝突判定用のパディング
-  ),
-  smoothFollowSpeed: Schema.Number.pipe(
-    Schema.clamp(0.01, 1.0) // 追従スムージング速度
-  ),
-  autoRotate: Schema.Boolean, // プレイヤーの向きに自動追従
-  allowZoom: Schema.Boolean, // ズームイン/アウトを許可
-})
-export type ThirdPersonConfig = typeof ThirdPersonConfig.Type
-
-// カメラの衝突情報
-export const CollisionInfo = Schema.Struct({
-  hasCollision: Schema.Boolean,
-  adjustedDistance: Schema.Number,
-  collisionPoint: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    })
-  ),
-})
-export type CollisionInfo = typeof CollisionInfo.Type
-
-// ターゲット（プレイヤー）の状態
-export const TargetState = Schema.Struct({
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  rotation: Schema.Struct({
-    pitch: Schema.Number,
-    yaw: Schema.Number,
-  }),
-  velocity: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  isMoving: Schema.Boolean,
-})
-export type TargetState = typeof TargetState.Type
-
-// 三人称カメラサービス
-export const ThirdPersonCamera = Context.GenericTag<{
-  readonly updateFromTarget: (target: TargetState, deltaTime: number) => Effect.Effect<CameraState, CameraError>
-  readonly handleMouseInput: (deltaX: number, deltaY: number) => Effect.Effect<void, CameraError>
-  readonly handleZoom: (delta: number) => Effect.Effect<void, CameraError>
-  readonly checkCollision: (
-    from: { x: number; y: number; z: number },
-    to: { x: number; y: number; z: number }
-  ) => Effect.Effect<CollisionInfo, never>
-  readonly getConfig: () => Effect.Effect<ThirdPersonConfig, never>
-  readonly setConfig: (config: Partial<ThirdPersonConfig>) => Effect.Effect<void, never>
-}>('@minecraft/ThirdPersonCamera')
-
-// デフォルト設定
-export const defaultThirdPersonConfig: ThirdPersonConfig = {
-  minDistance: 2,
-  maxDistance: 15,
-  defaultDistance: 5,
-  heightOffset: 1.5,
-  mouseSensitivity: 0.5,
-  collisionPadding: 0.3,
-  smoothFollowSpeed: 0.1,
-  autoRotate: false,
-  allowZoom: true,
+/**
+ * 三人称カメラの内部状態
+ */
+interface ThirdPersonState {
+  camera: THREE.PerspectiveCamera | null
+  config: CameraConfig
+  state: CameraState
+  targetPosition: { x: number; y: number; z: number }
+  smoothedPosition: { x: number; y: number; z: number }
+  smoothedTarget: { x: number; y: number; z: number }
+  spherical: {
+    radius: number
+    theta: number // 水平角度
+    phi: number // 垂直角度
+  }
 }
 
-// 三人称カメラのLive実装
-export const ThirdPersonCameraLive = Layer.effect(
-  ThirdPersonCamera,
-  Effect.gen(function* () {
-    const cameraService = yield* CameraService
+/**
+ * 角度を正規化（-π から π の範囲に収める）
+ */
+const normalizeAngle = (angle: number): number => {
+  const twoPi = Math.PI * 2
+  const normalized = angle % twoPi
+  if (normalized > Math.PI) return normalized - twoPi
+  if (normalized < -Math.PI) return normalized + twoPi
+  return normalized
+}
 
-    let config = defaultThirdPersonConfig
-    let currentDistance = config.defaultDistance
-    let currentRotation = { pitch: -20, yaw: 0 } // デフォルトで少し上から見下ろす
-    let smoothedTargetPosition = { x: 0, y: 0, z: 0 }
+/**
+ * 線形補間
+ */
+const lerp = (start: number, end: number, factor: number): number => {
+  return start + (end - start) * factor
+}
 
-    // 球面座標からデカルト座標への変換
-    const sphericalToCartesian = (
-      distance: number,
-      pitch: number,
-      yaw: number,
-      target: { x: number; y: number; z: number }
-    ): { x: number; y: number; z: number } => {
-      const pitchRad = (pitch * Math.PI) / 180
-      const yawRad = (yaw * Math.PI) / 180
+/**
+ * 3D線形補間
+ */
+const lerp3D = (
+  start: { x: number; y: number; z: number },
+  end: { x: number; y: number; z: number },
+  factor: number
+): { x: number; y: number; z: number } => ({
+  x: lerp(start.x, end.x, factor),
+  y: lerp(start.y, end.y, factor),
+  z: lerp(start.z, end.z, factor),
+})
 
-      const x = target.x - distance * Math.sin(yawRad) * Math.cos(pitchRad)
-      const y = target.y + distance * Math.sin(pitchRad) + config.heightOffset
-      const z = target.z - distance * Math.cos(yawRad) * Math.cos(pitchRad)
+/**
+ * 球面座標からデカルト座標への変換
+ */
+const sphericalToCartesian = (
+  spherical: { radius: number; theta: number; phi: number },
+  target: { x: number; y: number; z: number }
+): { x: number; y: number; z: number } => {
+  const sinPhiRadius = Math.sin(spherical.phi) * spherical.radius
+  return {
+    x: target.x + sinPhiRadius * Math.sin(spherical.theta),
+    y: target.y + Math.cos(spherical.phi) * spherical.radius,
+    z: target.z + sinPhiRadius * Math.cos(spherical.theta),
+  }
+}
 
-      return { x, y, z }
-    }
-
-    return ThirdPersonCamera.of({
-      updateFromTarget: (target, deltaTime): Effect.Effect<CameraState, CameraError> =>
-        Effect.gen(function* () {
-          // ターゲット位置のスムージング
-          const smoothSpeed = config.smoothFollowSpeed * deltaTime * 60 // 60FPS基準
-          smoothedTargetPosition = {
-            x: smoothedTargetPosition.x + (target.position.x - smoothedTargetPosition.x) * smoothSpeed,
-            y: smoothedTargetPosition.y + (target.position.y - smoothedTargetPosition.y) * smoothSpeed,
-            z: smoothedTargetPosition.z + (target.position.z - smoothedTargetPosition.z) * smoothSpeed,
-          }
-
-          // 自動回転が有効な場合、プレイヤーの向きに追従
-          if (config.autoRotate && target.isMoving) {
-            const targetYaw = target.rotation.yaw
-            const diff = targetYaw - currentRotation.yaw
-            const adjustedDiff = ((diff + 180) % 360) - 180
-            currentRotation.yaw += adjustedDiff * smoothSpeed * 0.5
-          }
-
-          // カメラ位置を計算
-          const idealPosition = sphericalToCartesian(
-            currentDistance,
-            currentRotation.pitch,
-            currentRotation.yaw,
-            smoothedTargetPosition
+/**
+ * ThirdPersonCameraサービスの実装を作成
+ */
+const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): CameraService => ({
+  initialize: (config: CameraConfig): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+    Effect.gen(function* () {
+      const camera = yield* Effect.try({
+        try: () => {
+          const cam = new THREE.PerspectiveCamera(
+            config.fov,
+            window.innerWidth / window.innerHeight,
+            config.near,
+            config.far
           )
-
-          // 衝突検出（簡易版 - 実際のゲームではレイキャストを使用）
-          // 衝突検出（簡易版 - 実際のゲームではレイキャストを使用）
-          const collision: CollisionInfo = {
-            hasCollision: false,
-            adjustedDistance: currentDistance,
-          }
-
-          let finalPosition = idealPosition
-          if (collision.hasCollision) {
-            // 衝突がある場合、距離を調整
-            const adjustedPosition = sphericalToCartesian(
-              collision.adjustedDistance,
-              currentRotation.pitch,
-              currentRotation.yaw,
-              smoothedTargetPosition
-            )
-            finalPosition = adjustedPosition
-          }
-
-          // カメラの向きをターゲットに向ける
-          const dx = smoothedTargetPosition.x - finalPosition.x
-          const dy = smoothedTargetPosition.y + config.heightOffset * 0.5 - finalPosition.y
-          const dz = smoothedTargetPosition.z - finalPosition.z
-
-          const distance = Math.sqrt(dx * dx + dz * dz)
-          const lookAtPitch = Math.atan2(dy, distance) * (180 / Math.PI)
-          const lookAtYaw = Math.atan2(dx, dz) * (180 / Math.PI)
-
-          // カメラ状態を更新
-          yield* cameraService.update({
-            deltaTime,
-            targetPosition: finalPosition,
-            targetRotation: {
-              pitch: lookAtPitch,
-              yaw: lookAtYaw,
+          // 初期位置設定（プレイヤーの後方上方）
+          const initialPos = sphericalToCartesian(
+            {
+              radius: config.thirdPersonDistance,
+              theta: config.thirdPersonAngle,
+              phi: Math.PI / 3, // 60度の見下ろし角
             },
-            mode: 'third-person',
-            distance: currentDistance,
+            { x: 0, y: config.thirdPersonHeight, z: 0 }
+          )
+          cam.position.set(initialPos.x, initialPos.y, initialPos.z)
+          cam.lookAt(0, config.thirdPersonHeight, 0)
+          return cam
+        },
+        catch: (error) =>
+          new CameraError({
+            message: 'カメラの初期化に失敗しました',
+            cause: error,
+          }),
+      })
+
+      const initialState: ThirdPersonState = {
+        camera,
+        config,
+        state: {
+          position: {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z,
+          },
+          rotation: { pitch: Math.PI / 3 - Math.PI / 2, yaw: config.thirdPersonAngle },
+          target: { x: 0, y: config.thirdPersonHeight, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+        },
+        smoothedTarget: { x: 0, y: config.thirdPersonHeight, z: 0 },
+        spherical: {
+          radius: config.thirdPersonDistance,
+          theta: config.thirdPersonAngle,
+          phi: Math.PI / 3,
+        },
+      }
+
+      yield* Ref.set(stateRef, initialState)
+      return camera
+    }),
+
+  switchMode: (mode: CameraMode): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (mode !== 'first-person' && mode !== 'third-person') {
+        yield* Effect.fail(
+          new CameraError({
+            message: `無効なカメラモード: ${mode}`,
           })
+        )
+      }
 
-          return yield* cameraService.getState()
-        }),
+      // 三人称モードへの切り替え処理
+      if (mode === 'third-person' && state.config.mode !== 'third-person') {
+        const newConfig = { ...state.config, mode }
+        const newState: ThirdPersonState = {
+          ...state,
+          config: newConfig,
+        }
+        yield* Ref.set(stateRef, newState)
+      }
+    }),
 
-      handleMouseInput: (deltaX, deltaY) =>
-        Effect.gen(function* () {
-          const sensitivity = config.mouseSensitivity * 0.1
+  update: (deltaTime: number, targetPosition: { x: number; y: number; z: number }): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
 
-          // Yaw（水平回転）の更新
-          currentRotation.yaw = (currentRotation.yaw - deltaX * sensitivity) % 360
-          if (currentRotation.yaw < 0) currentRotation.yaw += 360
-
-          // Pitch（垂直回転）の更新（-80〜80度に制限）
-          currentRotation.pitch = Math.max(-80, Math.min(80, currentRotation.pitch + deltaY * sensitivity))
-
-          // 回転を適用
-          yield* cameraService.update({
-            deltaTime: 0.016,
-            targetRotation: currentRotation,
-            mode: 'third-person',
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
           })
-        }),
+        )
+      }
 
-      handleZoom: (delta) =>
-        Effect.gen(function* () {
-          if (!config.allowZoom) return
+      // スムージングファクターの計算
+      const smoothingFactor = 1.0 - Math.pow(1.0 - state.config.smoothing, deltaTime * 60)
 
-          // ズーム処理（マウスホイール）
-          currentDistance = Math.max(config.minDistance, Math.min(config.maxDistance, currentDistance - delta * 0.5))
+      // ターゲット位置のスムージング
+      const targetWithHeight = {
+        x: targetPosition.x,
+        y: targetPosition.y + state.config.thirdPersonHeight,
+        z: targetPosition.z,
+      }
+      state.smoothedTarget = lerp3D(state.smoothedTarget, targetWithHeight, smoothingFactor)
 
-          yield* cameraService.update({
-            deltaTime: 0.016,
-            distance: currentDistance,
-            mode: 'third-person',
+      // カメラ位置の計算（球面座標を使用）
+      const desiredPosition = sphericalToCartesian(state.spherical, state.smoothedTarget)
+
+      // カメラ位置のスムージング
+      state.smoothedPosition = lerp3D(state.smoothedPosition, desiredPosition, smoothingFactor)
+
+      // カメラの更新
+      state.camera!.position.set(state.smoothedPosition.x, state.smoothedPosition.y, state.smoothedPosition.z)
+      state.camera!.lookAt(state.smoothedTarget.x, state.smoothedTarget.y, state.smoothedTarget.z)
+
+      // 状態の更新
+      const newState: ThirdPersonState = {
+        ...state,
+        targetPosition,
+        state: {
+          ...state.state,
+          position: {
+            x: state.smoothedPosition.x,
+            y: state.smoothedPosition.y,
+            z: state.smoothedPosition.z,
+          },
+          target: {
+            x: state.smoothedTarget.x,
+            y: state.smoothedTarget.y,
+            z: state.smoothedTarget.z,
+          },
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  rotate: (deltaX: number, deltaY: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
           })
-        }),
+        )
+      }
 
-      checkCollision: (from, to) =>
-        Effect.succeed({
-          hasCollision: false,
-          adjustedDistance: currentDistance,
-          // 実際のゲームではここでレイキャストを実行
-          // 簡易実装のため、常に衝突なしを返す
-        }),
+      // マウス感度を適用
+      const sensitivityFactor = state.config.sensitivity * 0.002
+      const thetaDelta = -deltaX * sensitivityFactor
+      const phiDelta = deltaY * sensitivityFactor
 
-      getConfig: () => Effect.succeed(config),
+      // 新しい球面座標を計算
+      const newTheta = normalizeAngle(state.spherical.theta + thetaDelta)
+      const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, state.spherical.phi + phiDelta))
 
-      setConfig: (newConfig) =>
-        Effect.sync(() => {
-          config = { ...config, ...newConfig }
-          // 距離の設定が変更された場合、現在の距離も更新
-          if (newConfig.defaultDistance !== undefined) {
-            currentDistance = newConfig.defaultDistance
-          }
-        }),
+      // 球面座標の更新
+      state.spherical.theta = newTheta
+      state.spherical.phi = newPhi
+
+      // 状態の更新
+      const newState: ThirdPersonState = {
+        ...state,
+        state: {
+          ...state.state,
+          rotation: {
+            yaw: newTheta,
+            pitch: newPhi - Math.PI / 2, // ピッチを-90度から90度の範囲に変換
+          },
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setFOV: (fov: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // FOVの範囲チェック
+      const clampedFov = Math.max(30, Math.min(120, fov))
+
+      state.camera!.fov = clampedFov
+      state.camera!.updateProjectionMatrix()
+
+      const newState: ThirdPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          fov: clampedFov,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setSensitivity: (sensitivity: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      // 感度の範囲チェック
+      const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity))
+
+      const newState: ThirdPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          sensitivity: clampedSensitivity,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setThirdPersonDistance: (distance: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      // 距離の範囲チェック
+      const clampedDistance = Math.max(1, Math.min(50, distance))
+
+      state.spherical.radius = clampedDistance
+
+      const newState: ThirdPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          thirdPersonDistance: clampedDistance,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  setSmoothing: (smoothing: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      // スムージングの範囲チェック
+      const clampedSmoothing = Math.max(0, Math.min(1, smoothing))
+
+      const newState: ThirdPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          smoothing: clampedSmoothing,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  getState: (): Effect.Effect<CameraState, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.state
+    }),
+
+  getConfig: (): Effect.Effect<CameraConfig, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.config
+    }),
+
+  getCamera: (): Effect.Effect<THREE.PerspectiveCamera | null, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+      return state.camera
+    }),
+
+  reset: (): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      // 球面座標をリセット
+      state.spherical = {
+        radius: state.config.thirdPersonDistance,
+        theta: state.config.thirdPersonAngle,
+        phi: Math.PI / 3,
+      }
+
+      // カメラを初期状態にリセット
+      const initialPos = sphericalToCartesian(state.spherical, { x: 0, y: state.config.thirdPersonHeight, z: 0 })
+      state.camera!.position.set(initialPos.x, initialPos.y, initialPos.z)
+      state.camera!.lookAt(0, state.config.thirdPersonHeight, 0)
+
+      const newState: ThirdPersonState = {
+        ...state,
+        state: {
+          position: {
+            x: initialPos.x,
+            y: initialPos.y,
+            z: initialPos.z,
+          },
+          rotation: { pitch: state.spherical.phi - Math.PI / 2, yaw: state.spherical.theta },
+          target: { x: 0, y: state.config.thirdPersonHeight, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: {
+          x: initialPos.x,
+          y: initialPos.y,
+          z: initialPos.z,
+        },
+        smoothedTarget: { x: 0, y: state.config.thirdPersonHeight, z: 0 },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+
+  updateAspectRatio: (width: number, height: number): Effect.Effect<void, CameraError> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (!state.camera) {
+        yield* Effect.fail(
+          new CameraError({
+            message: 'カメラが初期化されていません',
+          })
+        )
+      }
+
+      state.camera!.aspect = width / height
+      state.camera!.updateProjectionMatrix()
+    }),
+
+  dispose: (): Effect.Effect<void, never> =>
+    Effect.gen(function* () {
+      const state = yield* Ref.get(stateRef)
+
+      if (state.camera) {
+        // Three.jsカメラのリソースをクリア
+        state.camera.clear()
+      }
+
+      // 状態をリセット
+      const initialConfig = { ...DEFAULT_CAMERA_CONFIG, mode: 'third-person' as CameraMode }
+      const newState: ThirdPersonState = {
+        camera: null,
+        config: initialConfig,
+        state: {
+          position: { x: 0, y: 0, z: 0 },
+          rotation: { pitch: Math.PI / 3 - Math.PI / 2, yaw: initialConfig.thirdPersonAngle },
+          target: { x: 0, y: 0, z: 0 },
+        },
+        targetPosition: { x: 0, y: 0, z: 0 },
+        smoothedPosition: { x: 0, y: 0, z: 0 },
+        smoothedTarget: { x: 0, y: 0, z: 0 },
+        spherical: {
+          radius: initialConfig.thirdPersonDistance,
+          theta: initialConfig.thirdPersonAngle,
+          phi: Math.PI / 3,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
+    }),
+})
+
+/**
+ * ThirdPersonCameraLive - 三人称視点カメラの実装
+ *
+ * Issue #130: P1-007 Camera System
+ * - 三人称視点の実装
+ * - スムーズな動作
+ * - 距離調整機能
+ * - FOV調整機能
+ */
+export const ThirdPersonCameraLive = Layer.effect(
+  CameraService,
+  Effect.gen(function* () {
+    const initialConfig = { ...DEFAULT_CAMERA_CONFIG, mode: 'third-person' as CameraMode }
+    const stateRef = yield* Ref.make<ThirdPersonState>({
+      camera: null,
+      config: initialConfig,
+      state: {
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { pitch: 0, yaw: 0 },
+        target: { x: 0, y: 0, z: 0 },
+      },
+      targetPosition: { x: 0, y: 0, z: 0 },
+      smoothedPosition: { x: 0, y: 0, z: 0 },
+      smoothedTarget: { x: 0, y: 0, z: 0 },
+      spherical: {
+        radius: initialConfig.thirdPersonDistance,
+        theta: initialConfig.thirdPersonAngle,
+        phi: Math.PI / 3,
+      },
     })
+
+    return createThirdPersonCameraService(stateRef)
   })
 )
-
-// テスト用のMock実装
-export const ThirdPersonCameraTest = Layer.sync(ThirdPersonCamera, () => {
-  let config = defaultThirdPersonConfig
-  let distance = config.defaultDistance
-  let rotation = { pitch: -20, yaw: 0 }
-
-  return ThirdPersonCamera.of({
-    updateFromTarget: (target) =>
-      Effect.succeed({
-        position: {
-          x:
-            target.position.x -
-            distance * Math.sin((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
-          y: target.position.y + config.heightOffset + distance * Math.sin((rotation.pitch * Math.PI) / 180),
-          z:
-            target.position.z -
-            distance * Math.cos((rotation.yaw * Math.PI) / 180) * Math.cos((rotation.pitch * Math.PI) / 180),
-        },
-        rotation: { ...rotation, roll: 0 },
-        mode: 'third-person' as const,
-        fov: 75,
-        distance,
-        smoothing: 0.15,
-      }),
-
-    handleMouseInput: (deltaX, deltaY) =>
-      Effect.sync(() => {
-        rotation.yaw = (rotation.yaw - deltaX * config.mouseSensitivity * 0.1) % 360
-        rotation.pitch = Math.max(-80, Math.min(80, rotation.pitch + deltaY * config.mouseSensitivity * 0.1))
-      }),
-
-    handleZoom: (delta) =>
-      Effect.sync(() => {
-        if (config.allowZoom) {
-          distance = Math.max(config.minDistance, Math.min(config.maxDistance, distance - delta * 0.5))
-        }
-      }),
-
-    checkCollision: () =>
-      Effect.succeed({
-        hasCollision: false,
-        adjustedDistance: distance,
-      }),
-
-    getConfig: () => Effect.succeed(config),
-
-    setConfig: (newConfig) =>
-      Effect.sync(() => {
-        config = { ...config, ...newConfig }
-        if (newConfig.defaultDistance !== undefined) {
-          distance = newConfig.defaultDistance
-        }
-      }),
-  })
-})
