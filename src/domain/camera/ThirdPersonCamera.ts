@@ -1,4 +1,6 @@
 import { Effect, Layer, Ref, Match, Option, pipe } from 'effect'
+import * as Schema from '@effect/schema/Schema'
+import { ParseError } from '@effect/schema/ParseResult'
 import * as THREE from 'three'
 import {
   CameraService,
@@ -7,7 +9,13 @@ import {
   CameraError,
   CameraMode,
   DEFAULT_CAMERA_CONFIG,
+  createCameraError,
+  validateCameraConfig,
+  validateCameraMode,
+  Vector3Schema,
+  CameraParameterSchemas,
 } from './CameraService.js'
+import type { Vector3 } from './CameraService.js'
 
 /**
  * 三人称カメラの内部状態
@@ -83,74 +91,92 @@ const sphericalToCartesian = (
 }
 
 /**
- * カメラの存在を検証するヘルパー
+ * カメラの存在を検証するヘルパー - 型安全性強化
  */
-const ensureCameraExists = (state: ThirdPersonState): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+const ensureCameraExists = (state: ThirdPersonState, operation?: string): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
   pipe(
     Option.fromNullable(state.camera),
     Option.match({
-      onNone: () =>
-        Effect.fail(
-          new CameraError({
-            message: 'カメラが初期化されていません',
-          })
-        ),
+      onNone: () => Effect.fail(createCameraError.notInitialized(operation || 'camera operation')),
       onSome: (camera) => Effect.succeed(camera),
     })
   )
 
 /**
+ * 数値パラメータ検証ヘルパー
+ */
+const validateNumber = (
+  value: unknown,
+  parameterName: string
+): Effect.Effect<number, CameraError> =>
+  pipe(
+    Schema.decodeUnknown(Schema.Number)(value),
+    Effect.mapError(() => createCameraError.invalidParameter(parameterName, value))
+  )
+
+/**
+ * Vector3位置情報の検証
+ */
+const validateVector3 = (position: unknown, paramName: string = 'position'): Effect.Effect<Vector3, CameraError, never> =>
+  Effect.gen(function* () {
+    const decoded = yield* pipe(
+      Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3>)(position),
+      Effect.mapError(() => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates'))
+    )
+    return decoded as Vector3
+  })
+
+/**
  * ThirdPersonCameraサービスの実装を作成
  */
 const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): CameraService => ({
-  initialize: (config: CameraConfig): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+  initialize: (config: unknown): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
     Effect.gen(function* () {
+      // 設定の検証
+      const validatedConfig = yield* validateCameraConfig(config)
+
       const camera = yield* Effect.try({
         try: () => {
           const cam = new THREE.PerspectiveCamera(
-            config.fov,
+            validatedConfig.fov,
             window.innerWidth / window.innerHeight,
-            config.near,
-            config.far
+            validatedConfig.near,
+            validatedConfig.far
           )
           // 初期位置設定（プレイヤーの後方上方）
           const initialPos = sphericalToCartesian(
             {
-              radius: config.thirdPersonDistance,
-              theta: config.thirdPersonAngle,
+              radius: validatedConfig.thirdPersonDistance,
+              theta: validatedConfig.thirdPersonAngle,
               phi: Math.PI / 3, // 60度の見下ろし角
             },
-            { x: 0, y: config.thirdPersonHeight, z: 0 }
+            { x: 0, y: validatedConfig.thirdPersonHeight, z: 0 }
           )
           cam.position.set(initialPos.x, initialPos.y, initialPos.z)
-          cam.lookAt(0, config.thirdPersonHeight, 0)
+          cam.lookAt(0, validatedConfig.thirdPersonHeight, 0)
           return cam
         },
-        catch: (error) =>
-          new CameraError({
-            message: 'カメラの初期化に失敗しました',
-            cause: error,
-          }),
+        catch: (error) => createCameraError.initializationFailed('カメラの初期化に失敗しました', error),
       })
 
       const initialState: ThirdPersonState = {
         camera,
-        config: { ...config, mode: 'third-person' as CameraMode },
+        config: { ...validatedConfig, mode: 'third-person' as CameraMode },
         state: {
           position: {
             x: camera.position.x,
             y: camera.position.y,
             z: camera.position.z,
           },
-          rotation: { pitch: Math.PI / 3 - Math.PI / 2, yaw: config.thirdPersonAngle },
-          target: { x: 0, y: config.thirdPersonHeight, z: 0 },
+          rotation: { pitch: Math.PI / 3 - Math.PI / 2, yaw: validatedConfig.thirdPersonAngle },
+          target: { x: 0, y: validatedConfig.thirdPersonHeight, z: 0 },
         },
         targetPosition: { x: 0, y: 0, z: 0 },
         smoothedPosition: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-        smoothedTarget: { x: 0, y: config.thirdPersonHeight, z: 0 },
+        smoothedTarget: { x: 0, y: validatedConfig.thirdPersonHeight, z: 0 },
         spherical: {
-          radius: config.thirdPersonDistance,
-          theta: config.thirdPersonAngle,
+          radius: validatedConfig.thirdPersonDistance,
+          theta: validatedConfig.thirdPersonAngle,
           phi: Math.PI / 3,
         },
       }
@@ -159,12 +185,13 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       return camera
     }),
 
-  switchMode: (mode: CameraMode): Effect.Effect<void, CameraError, never> =>
+  switchMode: (mode: unknown): Effect.Effect<void, CameraError, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
+      const validatedMode = yield* validateCameraMode(mode)
 
       return yield* pipe(
-        mode,
+        validatedMode,
         Match.value,
         Match.when(
           'third-person',
@@ -174,7 +201,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
               Match.value,
               Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)),
               Match.orElse((): Effect.Effect<void, CameraError> => {
-                const newConfig = { ...state.config, mode }
+                const newConfig = { ...state.config, mode: validatedMode }
                 const newState: ThirdPersonState = {
                   ...state,
                   config: newConfig,
@@ -186,27 +213,26 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
         Match.when('first-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)), // 三人称カメラでは一人称モードを無視
         Match.orElse(
           (m): Effect.Effect<void, CameraError> =>
-            Effect.fail(
-              new CameraError({
-                message: `無効なカメラモード: ${m}`,
-              })
-            )
+            Effect.fail(createCameraError.invalidMode(String(m)))
         )
       ) as Effect.Effect<void, CameraError, never>
     }),
 
-  update: (deltaTime: number, targetPosition: { x: number; y: number; z: number }): Effect.Effect<void, CameraError> =>
+  update: (deltaTime: unknown, targetPosition: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validDeltaTime = yield* validateNumber(deltaTime, 'deltaTime')
+      const validTargetPosition = yield* validateVector3(targetPosition, 'targetPosition')
+
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state)
+      const camera = yield* ensureCameraExists(state, 'update')
 
       // スムージングファクターの計算
-      const smoothingFactor = 1.0 - Math.pow(1.0 - state.config.smoothing, deltaTime * 60)
+      const smoothingFactor = 1.0 - Math.pow(1.0 - state.config.smoothing, validDeltaTime * 60)
 
       // ターゲット位置のスムージング
       state.smoothedTarget = lerp3D(
         state.smoothedTarget,
-        { x: targetPosition.x, y: targetPosition.y + state.config.thirdPersonHeight, z: targetPosition.z },
+        { x: validTargetPosition.x, y: validTargetPosition.y + state.config.thirdPersonHeight, z: validTargetPosition.z },
         smoothingFactor
       )
 
@@ -223,7 +249,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       // 状態の更新
       const newState: ThirdPersonState = {
         ...state,
-        targetPosition,
+        targetPosition: validTargetPosition,
         state: {
           ...state.state,
           position: {
@@ -242,53 +268,50 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  rotate: (deltaX: number, deltaY: number): Effect.Effect<void, CameraError> =>
+  rotate: (deltaX: unknown, deltaY: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validDeltaX = yield* validateNumber(deltaX, 'deltaX')
+      const validDeltaY = yield* validateNumber(deltaY, 'deltaY')
+
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state)
+      const camera = yield* ensureCameraExists(state, 'rotate')
 
       // マウス感度を適用
       const sensitivityFactor = state.config.sensitivity * 0.002
-      const thetaDelta = -deltaX * sensitivityFactor
-      const phiDelta = deltaY * sensitivityFactor
+      const rotationX = validDeltaX * sensitivityFactor
+      const rotationY = validDeltaY * sensitivityFactor
 
-      // 新しい角度を計算
-      const newTheta = normalizeAngle(state.spherical.theta + thetaDelta)
-      const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, state.spherical.phi + phiDelta))
+      // 球面座標を更新（アジマス角と極角）
+      state.spherical.theta = normalizeAngle(state.spherical.theta - rotationX)
+      state.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, state.spherical.phi - rotationY))
 
-      // 球面座標の更新
-      state.spherical.theta = newTheta
-      state.spherical.phi = newPhi
-
-      // カメラ位置の再計算
-      const newPosition = sphericalToCartesian(state.spherical, state.smoothedTarget)
-      camera.position.set(newPosition.x, newPosition.y, newPosition.z)
-      camera.lookAt(state.smoothedTarget.x, state.smoothedTarget.y, state.smoothedTarget.z)
+      // 新しい回転値の計算
+      const yaw = state.spherical.theta
+      const pitch = state.spherical.phi - Math.PI / 2
 
       // 状態の更新
       const newState: ThirdPersonState = {
         ...state,
-        smoothedPosition: newPosition,
         state: {
           ...state.state,
           rotation: {
-            yaw: newTheta,
-            pitch: newPhi - Math.PI / 2,
+            yaw,
+            pitch,
           },
-          position: newPosition,
         },
       }
 
       yield* Ref.set(stateRef, newState)
     }),
 
-  setFOV: (fov: number): Effect.Effect<void, CameraError> =>
+  setFOV: (fov: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validFov = yield* validateNumber(fov, 'fov')
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state)
+      const camera = yield* ensureCameraExists(state, 'setFOV')
 
       // FOVの範囲チェック
-      const clampedFov = Math.max(30, Math.min(120, fov))
+      const clampedFov = Math.max(30, Math.min(120, validFov))
 
       camera.fov = clampedFov
       camera.updateProjectionMatrix()
@@ -304,12 +327,13 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setSensitivity: (sensitivity: number): Effect.Effect<void, CameraError> =>
+  setSensitivity: (sensitivity: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validSensitivity = yield* validateNumber(sensitivity, 'sensitivity')
       const state = yield* Ref.get(stateRef)
 
-      // 感度の範囲チェック
-      const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity))
+      // Clamp sensitivity to valid range [0.1, 10.0]
+      const clampedSensitivity = Math.max(0.1, Math.min(10.0, validSensitivity))
 
       const newState: ThirdPersonState = {
         ...state,
@@ -322,54 +346,32 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setThirdPersonDistance: (distance: number): Effect.Effect<void, CameraError> =>
+  setThirdPersonDistance: (distance: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validDistance = yield* validateNumber(distance, 'distance')
       const state = yield* Ref.get(stateRef)
-
-      // 距離の範囲チェック
-      const clampedDistance = Math.max(1, Math.min(20, distance))
-
-      state.spherical.radius = clampedDistance
-
-      // カメラが存在する場合のみ位置を更新
-      yield* pipe(
-        Option.fromNullable(state.camera),
-        Option.match({
-          onNone: () => Effect.succeed(undefined),
-          onSome: (camera) =>
-            Effect.sync(() => {
-              // カメラ位置の再計算
-              const newPosition = sphericalToCartesian(state.spherical, state.smoothedTarget)
-              camera.position.set(newPosition.x, newPosition.y, newPosition.z)
-              camera.lookAt(state.smoothedTarget.x, state.smoothedTarget.y, state.smoothedTarget.z)
-              state.smoothedPosition = newPosition
-            }),
-        })
-      )
 
       const newState: ThirdPersonState = {
         ...state,
         config: {
           ...state.config,
-          thirdPersonDistance: clampedDistance,
+          thirdPersonDistance: Math.max(1, Math.min(20, validDistance)),
         },
       }
 
       yield* Ref.set(stateRef, newState)
     }),
 
-  setSmoothing: (smoothing: number): Effect.Effect<void, CameraError> =>
+  setSmoothing: (smoothing: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validSmoothing = yield* validateNumber(smoothing, 'smoothing')
       const state = yield* Ref.get(stateRef)
-
-      // スムージングの範囲チェック
-      const clampedSmoothing = Math.max(0, Math.min(1, smoothing))
 
       const newState: ThirdPersonState = {
         ...state,
         config: {
           ...state.config,
-          smoothing: clampedSmoothing,
+          smoothing: Math.max(0, Math.min(1, validSmoothing)),
         },
       }
 
@@ -397,7 +399,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
   reset: (): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state)
+      const camera = yield* ensureCameraExists(state, 'reset')
 
       // デフォルトの球面座標
       const defaultSpherical = {
@@ -431,12 +433,13 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  updateAspectRatio: (width: number, height: number): Effect.Effect<void, CameraError> =>
+  updateAspectRatio: (width: unknown, height: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
+      const validWidth = yield* validateNumber(width, 'width')
+      const validHeight = yield* validateNumber(height, 'height')
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state)
-
-      camera.aspect = width / height
+      const camera = yield* ensureCameraExists(state, 'updateAspectRatio')
+      camera.aspect = validWidth / validHeight
       camera.updateProjectionMatrix()
     }),
 

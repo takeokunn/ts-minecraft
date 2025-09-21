@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, Option, pipe } from 'effect'
 import { EntityManager, EntityManagerLive, EntityManagerError } from '../EntityManager.js'
 import { EntityPool, EntityPoolLive, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity.js'
 import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry.js'
-import { TestRunner, EffectAssert } from '../../../test/effect-test-utils.js'
+import { EffectTestRunner, EffectAssert } from '../../../test/effect-test-utils.js'
 
 // テスト用コンポーネント
 interface PositionComponent {
@@ -29,34 +30,24 @@ describe('EntityManager', () => {
 
   const EntityManagerTestLayer = Layer.effect(EntityManager, pipe(EntityManagerLive, Effect.provide(TestDependencies)))
 
-  const runTest = <A>(test: (manager: EntityManager) => Effect.Effect<A, any>) =>
-    TestRunner.runWithLayer(
+  describe('Entity Creation and Destruction', () => {
+    it.effect('should create an entity with metadata', () =>
       Effect.gen(function* () {
         const manager = yield* EntityManager
-        return yield* test(manager)
-      }),
-      EntityManagerTestLayer
+        const entityId = yield* manager.createEntity('TestEntity', ['player', 'hero'])
+
+        const metadata = yield* manager.getEntityMetadata(entityId)
+        expect(Option.isSome(metadata)).toBe(true)
+        if (Option.isSome(metadata)) {
+          expect(metadata.value.name).toBe('TestEntity')
+          expect(metadata.value.tags).toEqual(['player', 'hero'])
+          expect(metadata.value.active).toBe(true)
+        }
+
+        const isAlive = yield* manager.isEntityAlive(entityId)
+        expect(isAlive).toBe(true)
+      }).pipe(Effect.provide(EntityManagerTestLayer))
     )
-
-  describe('Entity Creation and Destruction', () => {
-    it('should create an entity with metadata', async () => {
-      await runTest((manager) =>
-        Effect.gen(function* () {
-          const entityId = yield* manager.createEntity('TestEntity', ['player', 'hero'])
-
-          const metadata = yield* manager.getEntityMetadata(entityId)
-          expect(Option.isSome(metadata)).toBe(true)
-          if (Option.isSome(metadata)) {
-            expect(metadata.value.name).toBe('TestEntity')
-            expect(metadata.value.tags).toEqual(['player', 'hero'])
-            expect(metadata.value.active).toBe(true)
-          }
-
-          const isAlive = yield* manager.isEntityAlive(entityId)
-          expect(isAlive).toBe(true)
-        })
-      )
-    })
 
     it('should destroy an entity and release its ID', async () => {
       await runTest((manager) =>

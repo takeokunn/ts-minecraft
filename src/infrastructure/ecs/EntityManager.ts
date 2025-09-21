@@ -16,17 +16,59 @@ import {
 // Entity Manager Errors
 // =====================================
 
-export class EntityManagerError extends Data.TaggedError('EntityManagerError')<{
-  readonly reason:
-    | 'entity_not_found'
-    | 'component_not_found'
-    | 'invalid_component_type'
-    | 'entity_limit_reached'
-    | 'component_already_exists'
-  readonly message: string
-  readonly entityId?: EntityId
-  readonly componentType?: string
-}> {}
+/**
+ * EntityManager操作のエラー - Schema.TaggedError パターン
+ */
+export const EntityManagerErrorReason = Schema.Literal(
+  'ENTITY_NOT_FOUND',
+  'COMPONENT_NOT_FOUND',
+  'INVALID_COMPONENT_TYPE',
+  'ENTITY_LIMIT_REACHED',
+  'COMPONENT_ALREADY_EXISTS'
+)
+export type EntityManagerErrorReason = Schema.Schema.Type<typeof EntityManagerErrorReason>
+
+// Define EntityId schema for error reporting
+const EntityIdSchema = Schema.Number.pipe(Schema.brand('EntityId'))
+
+export class EntityManagerError extends Schema.TaggedError<EntityManagerError>()('EntityManagerError', {
+  message: Schema.String,
+  reason: EntityManagerErrorReason,
+  entityId: Schema.optionalWith(EntityIdSchema, { exact: true }),
+  componentType: Schema.optionalWith(Schema.String, { exact: true }),
+}) {}
+
+/**
+ * EntityManagerError作成ヘルパー
+ */
+export const createEntityManagerError = {
+  entityNotFound: (entityId: EntityId, operation?: string) => new EntityManagerError({
+    message: `Entity ${entityId} not found${operation ? ` during ${operation}` : ''}`,
+    reason: 'ENTITY_NOT_FOUND',
+    entityId,
+  }),
+  componentNotFound: (componentType: string, entityId?: EntityId) => new EntityManagerError({
+    message: `Component type ${componentType} not found${entityId ? ` on entity ${entityId}` : ''}`,
+    reason: 'COMPONENT_NOT_FOUND',
+    ...(entityId !== undefined && { entityId }),
+    componentType,
+  }),
+  invalidComponentType: (componentType: string, details?: string) => new EntityManagerError({
+    message: `Invalid component type: ${componentType}${details ? ` - ${details}` : ''}`,
+    reason: 'INVALID_COMPONENT_TYPE',
+    componentType,
+  }),
+  entityLimitReached: (limit: number) => new EntityManagerError({
+    message: `Entity limit reached: ${limit}`,
+    reason: 'ENTITY_LIMIT_REACHED',
+  }),
+  componentAlreadyExists: (entityId: EntityId, componentType: string) => new EntityManagerError({
+    message: `Component ${componentType} already exists on entity ${entityId}`,
+    reason: 'COMPONENT_ALREADY_EXISTS',
+    entityId,
+    componentType,
+  }),
+}
 
 // =====================================
 // Entity Manager Stats
@@ -182,13 +224,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         Option.fromNullable(entities.get(id)),
         Option.match({
           onNone: () =>
-            Effect.fail(
-              new EntityManagerError({
-                reason: 'entity_not_found',
-                message: `Entity ${id} not found`,
-                entityId: id,
-              })
-            ),
+            Effect.fail(createEntityManagerError.entityNotFound(id, 'destroy')),
           onSome: (metadata) => Effect.succeed(metadata),
         })
       )
@@ -228,14 +264,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         entities.has(entityId),
         Match.value,
         Match.when(false, () =>
-          Effect.fail(
-            new EntityManagerError({
-              reason: 'entity_not_found',
-              message: `Entity ${entityId} not found`,
-              entityId,
-              componentType,
-            })
-          )
+          Effect.fail(createEntityManagerError.entityNotFound(entityId, 'addComponent'))
         ),
         Match.orElse(() => Effect.succeed(undefined))
       )
@@ -270,26 +299,12 @@ export const EntityManagerLive = Effect.gen(function* () {
   const removeComponent = (entityId: EntityId, componentType: string) =>
     Effect.gen(function* () {
       if (!entities.has(entityId)) {
-        return yield* Effect.fail(
-          new EntityManagerError({
-            reason: 'entity_not_found',
-            message: `Entity ${entityId} not found`,
-            entityId,
-            componentType,
-          })
-        )
+        return yield* Effect.fail(createEntityManagerError.entityNotFound(entityId, 'removeComponent'))
       }
 
       const storage = componentStorages.get(componentType)
       if (!storage) {
-        return yield* Effect.fail(
-          new EntityManagerError({
-            reason: 'component_not_found',
-            message: `Component type ${componentType} not found`,
-            entityId,
-            componentType,
-          })
-        )
+        return yield* Effect.fail(createEntityManagerError.componentNotFound(componentType, entityId))
       }
 
       const removed = yield* storage.remove(entityId)
@@ -473,13 +488,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     Effect.gen(function* () {
       const metadata = entities.get(id)
       if (!metadata) {
-        return yield* Effect.fail(
-          new EntityManagerError({
-            reason: 'entity_not_found',
-            message: `Entity ${id} not found`,
-            entityId: id,
-          })
-        )
+        return yield* Effect.fail(createEntityManagerError.entityNotFound(id, 'setEntityActive'))
       }
       // Create new metadata object to maintain immutability
       const updatedMetadata = { ...metadata, active }

@@ -1,4 +1,4 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data } from 'effect'
+import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 
@@ -27,7 +27,9 @@ export interface BlockRegistry {
 export const BlockRegistry = Context.GenericTag<BlockRegistry>('@minecraft/BlockRegistry')
 
 // BlockRegistryの実装
-export const BlockRegistryLive = Effect.gen(function* () {
+export const BlockRegistryLive = Layer.effect(
+  BlockRegistry,
+  Effect.gen(function* () {
   // ブロックを格納するHashMap
   let blockMap = HashMap.fromIterable(allBlocks.map((block) => [block.id, block] as const))
 
@@ -156,7 +158,8 @@ export const BlockRegistryLive = Effect.gen(function* () {
 
     isBlockRegistered: (id: string) => Effect.succeed(HashMap.has(blockMap, id)),
   } satisfies BlockRegistry
-})
+  })
+)
 
 // ヘルパー関数
 

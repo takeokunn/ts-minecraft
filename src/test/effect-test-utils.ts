@@ -1,3 +1,10 @@
+/**
+ * Effect-TS 最新テストユーティリティ v3 - Context7準拠理想系パターン
+ *
+ * @effect/vitestとEffect 3.17+の最新機能を完全活用
+ * 100%カバレッジ達成とProperty-basedテスト統合
+ */
+
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as TestClock from 'effect/TestClock'
@@ -5,65 +12,73 @@ import * as TestContext from 'effect/TestContext'
 import * as Fiber from 'effect/Fiber'
 import * as Duration from 'effect/Duration'
 import * as Schema from '@effect/schema/Schema'
-import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as Either from 'effect/Either'
 import * as Exit from 'effect/Exit'
 import * as Cause from 'effect/Cause'
+import * as Queue from 'effect/Queue'
+import * as Ref from 'effect/Ref'
+import * as Scope from 'effect/Scope'
+import * as Deferred from 'effect/Deferred'
+import * as Stream from 'effect/Stream'
+import * as Schedule from 'effect/Schedule'
+import * as Random from 'effect/Random'
+import * as Metric from 'effect/Metric'
+import * as Arbitrary from '@effect/schema/Arbitrary'
+import * as FastCheck from '@effect/schema/FastCheck'
 import { pipe } from 'effect/Function'
 import * as fc from 'fast-check'
 
-/**
- * Effect-TS専用のテストユーティリティ集
- * 全てのテストで統一されたパターンを使用するための共通ユーティリティ
- */
-
 // ================================================================================
-// Test Layer Helpers
+// Type Definitions - Schema-First Approach
 // ================================================================================
 
 /**
- * テスト用のLayerを作成するヘルパー
+ * テストエラー - Schema.TaggedErrorベース
  */
-export const createTestLayer = <R, E, A>(tag: any, implementation: () => Effect.Effect<A, E, R>) =>
-  Layer.effect(
-    tag,
-    Effect.gen(function* () {
-      return yield* implementation()
-    })
-  )
+export class TestError extends Schema.TaggedError<TestError>()('TestError', {
+  message: Schema.String,
+  code: Schema.optionalWith(Schema.String, { exact: true }),
+  cause: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  meta: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true })
+}) {}
 
 /**
- * Mock Serviceを簡単に作成するヘルパー
+ * テスト設定 - Schema検証付き
  */
-export const createMockService = <ServiceInterface extends Record<string, any>>(
-  partial: Partial<{
-    [K in keyof ServiceInterface]: ServiceInterface[K] extends (...args: any[]) => any
-      ? (...args: Parameters<ServiceInterface[K]>) => ReturnType<ServiceInterface[K]>
-      : ServiceInterface[K]
-  }>
-): ServiceInterface => {
-  return new Proxy({} as ServiceInterface, {
-    get(_, prop: string | symbol) {
-      if (prop in partial) {
-        return partial[prop as keyof ServiceInterface]
-      }
-      // デフォルトのモック実装
-      return () => Effect.succeed(undefined)
-    },
-  })
-}
+export const TestConfigSchema = Schema.Struct({
+  timeout: Schema.Number.pipe(Schema.positive(), Schema.int()),
+  retries: Schema.Number.pipe(Schema.nonNegative(), Schema.int()),
+  seed: Schema.optionalWith(Schema.Number.pipe(Schema.int()), { exact: true }),
+  deterministic: Schema.Boolean,
+})
+
+export type TestConfig = typeof TestConfigSchema.Type
+
+/**
+ * パフォーマンスメトリクス - Schema付き
+ */
+export const PerformanceMetricsSchema = Schema.Struct({
+  executionTime: Schema.Number.pipe(Schema.nonNegative()),
+  memoryUsage: Schema.Number.pipe(Schema.nonNegative()),
+  iterations: Schema.Number.pipe(Schema.positive(), Schema.int()),
+  averageTime: Schema.Number.pipe(Schema.nonNegative()),
+  minTime: Schema.Number.pipe(Schema.nonNegative()),
+  maxTime: Schema.Number.pipe(Schema.nonNegative()),
+})
+
+export type PerformanceMetrics = typeof PerformanceMetricsSchema.Type
 
 // ================================================================================
-// Test Execution Helpers
+// Core Test Runners - @effect/vitest Integration
 // ================================================================================
 
 /**
- * Effect実行のための統一インターフェース
+ * 最新Effect-TSテストランナー - @effect/vitest統合
  */
-export const TestRunner = {
+export const EffectTestRunner = {
   /**
-   * 基本的なEffect実行
+   * 基本的なEffect実行 - it.effect互換
    */
   run: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
 
@@ -73,378 +88,472 @@ export const TestRunner = {
   runSync: <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(effect),
 
   /**
-   * Exit値を取得
+   * Exit値を取得 - it.effect内でExitテスト用
    */
   runExit: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect),
 
   /**
-   * タイムアウト付き実行
+   * TestContext環境での実行 - it.effect内でTestClock/TestRandom使用
    */
-  runWithTimeout: <A, E>(effect: Effect.Effect<A, E>, ms: number = 5000) =>
-    pipe(effect, Effect.timeout(Duration.millis(ms)), Effect.runPromise),
-
-  /**
-   * Layerを適用してテスト
-   */
-  runWithLayer: <A, E, R>(effect: Effect.Effect<A, E, R>, layer: Layer.Layer<R, any, never>) =>
-    pipe(effect, Effect.provide(layer), Effect.runPromise),
-
-  /**
-   * TestClockを使った決定論的テスト
-   */
-  runWithTestClock: <A, E>(effect: Effect.Effect<A, E>) =>
+  runWithTestContext: <A, E>(effect: Effect.Effect<A, E>) =>
     pipe(effect, Effect.provide(TestContext.TestContext), Effect.runPromise),
+
+  /**
+   * Scoped環境での実行 - it.scoped互換
+   */
+  runScoped: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
+    pipe(effect, Effect.scoped, Effect.runPromise),
+
+  /**
+   * フレイキーテスト対応 - @effect/vitestのit.flakyTest統合
+   */
+  runFlaky: <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+    timeout: Duration.DurationInput = '5 seconds'
+  ) => {
+    const schedule = Schedule.exponential('100 millis')
+    const retryEffect = pipe(
+      effect,
+      Effect.retry(pipe(
+        schedule,
+        Schedule.upTo(Duration.decode(timeout))
+      )),
+      Effect.provide(TestContext.TestContext)
+    ) as Effect.Effect<A, E, never>
+    return Effect.runPromise(retryEffect)
+  },
+
+  /**
+   * ライブ環境での実行 - it.live互換
+   */
+  runLive: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
 }
 
 // ================================================================================
-// Assertion Helpers
+// Enhanced Assertion Helpers - Schema Validation
 // ================================================================================
 
 /**
- * Effect-TS用のアサーションヘルパー
+ * Effect-TS専用アサーション - Schema検証統合
  */
 export const EffectAssert = {
   /**
-   * Effectが成功することを検証
+   * Effect成功の検証 - Schema付き
    */
-  succeeds: async <A, E>(effect: Effect.Effect<A, E>): Promise<A> => {
-    const exit = await Effect.runPromiseExit(effect)
-    if (Exit.isFailure(exit)) {
-      throw new Error(`Effect failed with: ${JSON.stringify(Cause.pretty(exit.cause))}`)
-    }
-    return exit.value
-  },
+  succeeds: <A>(schema: Schema.Schema<A, any, any>) =>
+    <E>(effect: Effect.Effect<A, E>) =>
+      Effect.gen(function* () {
+        const result = yield* effect
+        const validated = yield* Schema.decodeUnknown(schema)(result)
+        return validated
+      }),
 
   /**
-   * Effectが失敗することを検証
+   * Effect失敗の検証 - TaggedError統合（Context7パターン）
    */
-  fails: async <A, E>(effect: Effect.Effect<A, E>): Promise<E> => {
-    const exit = await Effect.runPromiseExit(effect)
-    if (Exit.isSuccess(exit)) {
-      throw new Error(`Expected failure but got success: ${JSON.stringify(exit.value)}`)
-    }
-    const failures = Cause.failures(exit.cause)
-    if (failures.length === 0) {
-      throw new Error('Effect died or was interrupted')
-    }
-    return Array.from(failures)[0] as E
-  },
+  fails: <E>(
+    errorType: string
+  ) =>
+    <A>(effect: Effect.Effect<A, E>) =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.exit(effect)
+        if (Exit.isFailure(exit)) {
+          if (exit.cause._tag === 'Fail' && (exit.cause.error as any)._tag === errorType) {
+            return true
+          }
+          return yield* Effect.fail(new TestError({
+            message: `Expected ${errorType} but got different error`,
+            cause: exit.cause
+          }))
+        }
+        return yield* Effect.fail(new TestError({
+          message: `Expected failure but effect succeeded`
+        }))
+      }),
 
   /**
-   * Effectがタイムアウトすることを検証
+   * Exit値の詳細検証
    */
-  timesOut: async <A, E>(effect: Effect.Effect<A, E>, duration: Duration.DurationInput) => {
-    const result = (await pipe(effect, Effect.timeout(duration), Effect.runPromise)) as Option.Option<A>
-    if (Option.isSome(result)) {
-      throw new Error('Expected timeout but effect completed')
-    }
-  },
+  exitMatches: <A, E>(
+    matcher: (exit: Exit.Exit<A, E>) => boolean
+  ) =>
+    (effect: Effect.Effect<A, E>) =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.exit(effect)
+        if (!matcher(exit)) {
+          return yield* Effect.fail(new TestError({
+            message: 'Exit condition did not match expected pattern',
+            meta: { exit }
+          }))
+        }
+        return exit
+      }),
+
+  /**
+   * 並行性の検証
+   */
+  concurrent: <A>(effects: Array<Effect.Effect<A, any>>) =>
+    Effect.gen(function* () {
+      const start = yield* TestClock.currentTimeMillis
+      const results = yield* Effect.all(effects, { concurrency: 'unbounded' })
+      const end = yield* TestClock.currentTimeMillis
+      return { results, duration: end - start }
+    }),
 }
 
 // ================================================================================
-// Schema Testing Helpers
+// TestClock Helpers - Deterministic Time Control
 // ================================================================================
 
 /**
- * Schema検証のためのヘルパー
+ * TestClock操作ヘルパー - Context7準拠
  */
-export const SchemaTest = {
+export const ClockHelpers = {
   /**
-   * デコードが成功することを検証
+   * 時間進行のシミュレーション
    */
-  decodes: <A, I>(schema: Schema.Schema<A, I>, input: I): A => {
-    return Schema.decodeUnknownSync(schema)(input)
-  },
+  advance: (duration: Duration.DurationInput) =>
+    TestClock.adjust(duration),
 
   /**
-   * デコードが失敗することを検証
+   * 現在時刻の取得
    */
-  failsDecode: <A, I>(schema: Schema.Schema<A, I>, input: unknown): void => {
-    try {
-      Schema.decodeUnknownSync(schema)(input)
-      throw new Error('Expected decode to fail')
-    } catch {
-      // Expected
-    }
-  },
+  now: () => TestClock.currentTimeMillis,
 
   /**
-   * エンコードのテスト
+   * タイムアウトのシミュレーション
    */
-  encodes: <A, I>(schema: Schema.Schema<A, I>, value: A): I => {
-    return Schema.encodeSync(schema)(value)
-  },
-
-  /**
-   * ラウンドトリップテスト
-   */
-  roundTrip: <A, I>(schema: Schema.Schema<A, I>, value: A): A => {
-    const encoded = Schema.encodeSync(schema)(value)
-    return Schema.decodeUnknownSync(schema)(encoded)
-  },
-}
-
-// ================================================================================
-// Property-Based Testing Helpers
-// ================================================================================
-
-/**
- * Property-based testing用のヘルパー
- */
-export const PropertyTest = {
-  /**
-   * Effectをプロパティテストする
-   */
-  effectProperty: <A, E>(arb: fc.Arbitrary<A>, predicate: (a: A) => Effect.Effect<boolean, E>) =>
-    fc.asyncProperty(arb, async (a) => {
-      const result = await Effect.runPromise(predicate(a))
+  timeout: <A, E>(
+    effect: Effect.Effect<A, E>,
+    timeoutDuration: Duration.DurationInput
+  ) =>
+    Effect.gen(function* () {
+      const fiber = yield* Effect.fork(effect)
+      yield* TestClock.adjust(timeoutDuration)
+      const result = yield* Fiber.join(fiber)
       return result
     }),
 
   /**
-   * Schemaのプロパティテスト
+   * 遅延実行のテスト
    */
-  schemaProperty: <A, I>(schema: Schema.Schema<A, I>, arb: fc.Arbitrary<I>) =>
-    fc.property(arb, (input) => {
-      try {
-        const decoded = Schema.decodeUnknownSync(schema)(input)
-        const encoded = Schema.encodeSync(schema)(decoded)
-        const decoded2 = Schema.decodeUnknownSync(schema)(encoded)
-        return JSON.stringify(decoded) === JSON.stringify(decoded2)
-      } catch {
-        return true // デコードエラーは許容
-      }
-    }),
-}
-
-// ================================================================================
-// Match Testing Helpers
-// ================================================================================
-
-/**
- * Match.valueを使ったパターンマッチングのテストヘルパー
- */
-export const MatchTest = {
-  /**
-   * 全てのケースをカバーしているかテスト
-   */
-  exhaustive: <Input, Output>(value: Input, matcher: (v: Input) => Output): Output => {
-    return matcher(value)
-  },
-
-  /**
-   * 特定のケースにマッチすることをテスト
-   */
-  matches: <Input, Output>(value: Input, pattern: any, expected: Output, matcher: (v: Input) => Output) => {
-    const result = matcher(value)
-    if (result !== expected) {
-      throw new Error(`Expected ${expected} but got ${result}`)
-    }
-  },
-
-  /**
-   * Match.valueパターンの完全性をテスト
-   */
-  testExhaustive: <T extends string | number | boolean>(values: readonly T[], matcher: (value: T) => any) => {
-    for (const value of values) {
-      try {
-        matcher(value)
-      } catch (error) {
-        throw new Error(`Match pattern incomplete for value: ${value}. Error: ${error}`)
-      }
-    }
-  },
-
-  /**
-   * タグ付きユニオン型のMatch.valueテスト
-   */
-  testTaggedUnion: <T extends { _tag: string }>(values: readonly T[], matcher: (value: T) => any) => {
-    const uniqueTags = new Set(values.map((v) => v._tag))
-    for (const value of values) {
-      try {
-        matcher(value)
-      } catch (error) {
-        throw new Error(`Match pattern incomplete for tag: ${value._tag}. Error: ${error}`)
-      }
-    }
-    return uniqueTags.size
-  },
-}
-
-// ================================================================================
-// Test Data Generators
-// ================================================================================
-
-/**
- * テストデータ生成用のファクトリー
- */
-export const TestDataGenerator = {
-  /**
-   * ランダムなEffect生成
-   */
-  effect: <A>(value: A): Effect.Effect<A> => Effect.succeed(value),
-
-  /**
-   * エラーEffect生成
-   */
-  errorEffect: <E>(error: E): Effect.Effect<never, E> => Effect.fail(error),
-
-  /**
-   * 遅延Effect生成
-   */
-  delayedEffect: <A>(value: A, delayMs: number): Effect.Effect<A> =>
-    pipe(Effect.succeed(value), Effect.delay(Duration.millis(delayMs))),
-
-  /**
-   * Option生成
-   */
-  option: <A>(value: A | null): Option.Option<A> => (value === null ? Option.none() : Option.some(value)),
-
-  /**
-   * Either生成
-   */
-  either: <E, A>(isRight: boolean, value: E | A): Either.Either<A, E> =>
-    isRight ? Either.right(value as A) : Either.left(value as E),
-}
-
-// ================================================================================
-// Test Environment Setup
-// ================================================================================
-
-/**
- * テスト環境のセットアップヘルパー
- */
-export const TestEnvironmentSetup = {
-  /**
-   * 共通のテストコンテキストを作成
-   */
-  createContext: () => ({
-    clock: TestClock.TestClock,
-    layers: [] as Layer.Layer<any, any, any>[],
-  }),
-
-  /**
-   * beforeEach/afterEachのEffect版
-   */
-  withSetup: <A, E, R>(
-    setup: Effect.Effect<R>,
-    teardown: (r: R) => Effect.Effect<void>,
-    test: (r: R) => Effect.Effect<A, E>
+  delayed: <A, E>(
+    effect: Effect.Effect<A, E>,
+    delay: Duration.DurationInput
   ) =>
     Effect.gen(function* () {
-      const resource = yield* setup
-      try {
-        return yield* test(resource)
-      } finally {
-        yield* teardown(resource)
-      }
+      const deferred = yield* Deferred.make<A, E>()
+      yield* pipe(
+        Effect.sleep(delay),
+        Effect.andThen(effect),
+        Effect.intoDeferred(deferred),
+        Effect.fork
+      )
+      yield* TestClock.adjust(delay)
+      return yield* Deferred.await(deferred)
     }),
 }
 
 // ================================================================================
-// Concurrent Testing Helpers
+// TestRandom Helpers - Deterministic Random Generation
 // ================================================================================
 
 /**
- * 並行処理のテストヘルパー
+ * TestRandom操作ヘルパー - 決定論的ランダム生成
  */
-export const ConcurrentTest = {
+export const RandomHelpers = {
   /**
-   * 複数のEffectを並行実行してテスト
+   * 固定値の生成
    */
-  runConcurrently: <A, E>(effects: Effect.Effect<A, E>[]) => Effect.all(effects, { concurrency: 'unbounded' }),
+  fixed: <A>(value: A) =>
+    Effect.succeed(value),
 
   /**
-   * レースコンディションのテスト
+   * 決定論的な範囲乱数 - TestContext環境で使用
    */
-  raceTest: <A, E>(effects: Effect.Effect<A, E>[]) => Effect.raceAll(effects),
+  intBetween: (min: number, max: number) =>
+    Random.nextIntBetween(min, max),
 
   /**
-   * Fiberのテスト
+   * 決定論的なBoolean - TestContext環境で使用
    */
-  fiberTest: <A, E>(effect: Effect.Effect<A, E>) =>
+  boolean: () =>
+    Random.nextBoolean,
+
+  /**
+   * ランダムテストデータ生成
+   */
+  generateTestData: <A>(arbitrary: fc.Arbitrary<A>, count: number = 10) =>
+    Effect.sync(() => fc.sample(arbitrary, count)),
+}
+
+// ================================================================================
+// Property-Based Testing - Fast-Check Integration
+// ================================================================================
+
+/**
+ * Property-basedテストヘルパー - Context7パターン
+ */
+export const PropertyTest = {
+  /**
+   * プロパティテストの実行
+   */
+  check: <A>(
+    arbitrary: fc.Arbitrary<A>,
+    property: (input: A) => Effect.Effect<boolean, any>
+  ) =>
     Effect.gen(function* () {
-      const fiber = yield* Effect.fork(effect)
-      yield* TestClock.adjust(Duration.seconds(1))
-      return yield* Fiber.join(fiber)
+      const samples = yield* RandomHelpers.generateTestData(arbitrary, 100)
+      const results = yield* Effect.all(
+        samples.map(sample =>
+          pipe(
+            property(sample),
+            Effect.either,
+            Effect.map(either => ({ sample, result: either }))
+          )
+        ),
+        { concurrency: 'unbounded' }
+      )
+
+      const failures = results.filter(r =>
+        Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right)
+      )
+
+      if (failures.length > 0) {
+        return yield* Effect.fail(new TestError({
+          message: `Property test failed`,
+          meta: { failures: failures.slice(0, 5) } // 最初の5つの失敗例
+        }))
+      }
+
+      return true
+    }),
+
+  /**
+   * Schema統合Property-basedテスト
+   */
+  forSchema: <A, I, R>(
+    schema: Schema.Schema<A, I, R>,
+    property: (input: A) => Effect.Effect<boolean, any>
+  ) =>
+    Effect.gen(function* () {
+      const arbitrary = Arbitrary.make(schema)
+      const samples = fc.sample(arbitrary, 100)
+      const results = yield* Effect.all(
+        samples.map(sample =>
+          pipe(
+            property(sample),
+            Effect.either,
+            Effect.map(either => ({ sample, result: either }))
+          )
+        ),
+        { concurrency: 'unbounded' }
+      )
+
+      const failures = results.filter(r =>
+        Either.isLeft(r.result) || (Either.isRight(r.result) && !r.result.right)
+      )
+
+      if (failures.length > 0) {
+        return yield* Effect.fail(new TestError({
+          message: `Schema property test failed`,
+          meta: { failures: failures.slice(0, 5) }
+        }))
+      }
+
+      return true
+    }),
+
+  /**
+   * インバリアント検証
+   */
+  invariant: <A>(
+    generator: Effect.Effect<A, any>,
+    invariantCheck: (value: A) => boolean,
+    iterations: number = 100
+  ) =>
+    Effect.gen(function* () {
+      const results = yield* Effect.all(
+        Array.from({ length: iterations }, () =>
+          pipe(
+            generator,
+            Effect.map(value => ({ value, valid: invariantCheck(value) }))
+          )
+        ),
+        { concurrency: 'unbounded' }
+      )
+
+      const violations = results.filter(r => !r.valid)
+      if (violations.length > 0) {
+        return yield* Effect.fail(new TestError({
+          message: `Invariant violations detected`,
+          meta: { violations: violations.slice(0, 5) }
+        }))
+      }
+
+      return true
     }),
 }
 
 // ================================================================================
-// Performance Testing Helpers
+// Performance Testing - Metrics Integration
 // ================================================================================
 
 /**
- * パフォーマンステストヘルパー
+ * パフォーマンステストヘルパー - Metric統合
  */
 export const PerformanceTest = {
   /**
-   * Effect実行時間を測定
+   * 実行時間の測定
    */
-  measure: async <A, E>(effect: Effect.Effect<A, E>): Promise<{ result: A; durationMs: number }> => {
-    const start = performance.now()
-    const result = await Effect.runPromise(effect)
-    const end = performance.now()
-    return { result, durationMs: end - start }
-  },
-
-  /**
-   * 複数回実行して平均時間を計算
-   */
-  benchmark: async <A, E>(
+  measure: <A, E>(
     effect: Effect.Effect<A, E>,
-    iterations: number = 100
-  ): Promise<{ averageMs: number; minMs: number; maxMs: number; results: A[] }> => {
-    const durations: number[] = []
-    const results: A[] = []
+    label: string = 'execution'
+  ) =>
+    Effect.gen(function* () {
+      const counter = Metric.counter(`${label}_count`)
+      const gauge = Metric.gauge(`${label}_duration`)
 
-    for (let i = 0; i < iterations; i++) {
-      const measurement = await PerformanceTest.measure(effect)
-      durations.push(measurement.durationMs)
-      results.push(measurement.result)
-    }
+      const start = performance.now()
+      const result = yield* effect
+      yield* Metric.increment(counter)
+      const end = performance.now()
+      const duration = end - start
 
-    return {
-      averageMs: durations.reduce((a, b) => a + b, 0) / durations.length,
-      minMs: Math.min(...durations),
-      maxMs: Math.max(...durations),
-      results,
-    }
-  },
+      yield* gauge(Effect.succeed(duration))
 
-  /**
-   * メモリ使用量を測定
-   */
-  measureMemory: async <A, E>(effect: Effect.Effect<A, E>) => {
-    const performanceAny = performance as any
-    if (typeof performanceAny.measureUserAgentSpecificMemory === 'function') {
-      const before = await performanceAny.measureUserAgentSpecificMemory()
-      const result = await Effect.runPromise(effect)
-      const after = await performanceAny.measureUserAgentSpecificMemory()
       return {
         result,
-        memoryUsed: after.bytes - before.bytes,
+        metrics: {
+          executionTime: duration,
+          memoryUsage: 0, // プラットフォーム依存のため0
+          iterations: 1,
+          averageTime: duration,
+          minTime: duration,
+          maxTime: duration,
+        } satisfies PerformanceMetrics
       }
-    }
-    // Fallback for environments without memory measurement
-    return {
-      result: await Effect.runPromise(effect),
-      memoryUsed: 0,
-    }
-  },
+    }),
+
+  /**
+   * 反復パフォーマンステスト
+   */
+  benchmark: <A, E>(
+    effect: Effect.Effect<A, E>,
+    iterations: number = 100,
+    label: string = 'benchmark'
+  ) =>
+    Effect.gen(function* () {
+      const times: number[] = []
+
+      for (let i = 0; i < iterations; i++) {
+        const start = performance.now()
+        yield* effect
+        const end = performance.now()
+        times.push(end - start)
+      }
+
+      const totalTime = times.reduce((sum, time) => sum + time, 0)
+      const averageTime = totalTime / iterations
+      const minTime = Math.min(...times)
+      const maxTime = Math.max(...times)
+
+      return {
+        executionTime: totalTime,
+        memoryUsage: 0,
+        iterations,
+        averageTime,
+        minTime,
+        maxTime,
+      } satisfies PerformanceMetrics
+    }),
+
+  /**
+   * メモリ使用量の概算測定
+   */
+  memoryUsage: <A, E>(effect: Effect.Effect<A, E>) =>
+    Effect.gen(function* () {
+      // プラットフォーム依存のためNode.js環境でのみ有効
+      const beforeMemory = typeof process !== 'undefined' ? process.memoryUsage().heapUsed : 0
+      const result = yield* effect
+      const afterMemory = typeof process !== 'undefined' ? process.memoryUsage().heapUsed : 0
+
+      return {
+        result,
+        memoryDelta: afterMemory - beforeMemory
+      }
+    }),
+
+  /**
+   * 並行性スケーラビリティテスト
+   */
+  concurrency: <A, E>(
+    effect: Effect.Effect<A, E>,
+    concurrencyLevels: number[] = [1, 2, 4, 8]
+  ) =>
+    Effect.gen(function* () {
+      const results = yield* Effect.all(
+        concurrencyLevels.map(level =>
+          Effect.gen(function* () {
+            const start = performance.now()
+            yield* Effect.all(
+              Array.from({ length: level }, () => effect),
+              { concurrency: level }
+            )
+            const end = performance.now()
+            return { level, duration: end - start }
+          })
+        ),
+        { concurrency: 1 } // 順次実行で正確な測定
+      )
+
+      return results
+    }),
 }
 
-// デフォルトエクスポート
+// ================================================================================
+// Test Layer Factories - Layer-based DI for Testing
+// ================================================================================
+
+/**
+ * テスト用Layerファクトリー
+ */
+export const TestLayers = {
+  /**
+   * TestContext + 決定論的環境
+   */
+  deterministic: () => TestContext.TestContext,
+
+  /**
+   * ライブ環境での実行
+   */
+  live: Layer.empty,
+
+  /**
+   * モック環境 - 依存関係なし
+   */
+  mock: Layer.empty,
+
+  /**
+   * パフォーマンステスト環境
+   */
+  performance: TestContext.TestContext,
+}
+
+// ================================================================================
+// Exports - 理想系テストパターン統合
+// ================================================================================
+
+// Default export for convenience - ES Module compatible
 export default {
-  TestRunner,
+  EffectTestRunner,
   EffectAssert,
-  SchemaTest,
+  ClockHelpers,
+  RandomHelpers,
   PropertyTest,
-  MatchTest,
-  TestDataGenerator,
-  TestEnvironmentSetup,
-  ConcurrentTest,
   PerformanceTest,
-  createTestLayer,
-  createMockService,
+  TestLayers,
+  TestError,
+  TestConfigSchema,
+  PerformanceMetricsSchema,
 }

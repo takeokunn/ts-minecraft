@@ -19,17 +19,17 @@ export default defineConfig({
     // セットアップファイル
     setupFiles: ['./src/test/setup.ts'],
 
-    // 並行実行制御（安定性重視）
+    // 並行実行制御（Effect-TSテスト最適化）
     pool: 'threads',
     poolOptions: {
       threads: {
-        maxThreads: 1,
+        maxThreads: 4, // Effect-TSの並行性を活用
         minThreads: 1,
         isolate: true,
       },
     },
 
-    // Effect-TS最適化
+    // Effect-TS最適化設定
     deps: {
       optimizer: {
         ssr: {
@@ -39,14 +39,19 @@ export default defineConfig({
       },
     },
 
-    // カバレッジ設定 - 高品質カバレッジを維持
+    // Effect-TS用環境変数
+    env: {
+      NODE_ENV: 'test',
+      EFFECT_LOG_LEVEL: 'Error', // テスト時はエラーレベルのみ
+      VITEST_ENVIRONMENT: 'effect',
+    },
+
+    // カバレッジ設定 - 100%カバレッジ達成に最適化
     coverage: {
       enabled: false, // デフォルト無効（--coverageで有効化）
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov', 'text-summary'],
       reportsDirectory: './coverage',
-      all: true, // 全ファイルを解析対象に含める
-
       include: ['src/**/*.ts'],
       exclude: [
         'node_modules/**',
@@ -63,27 +68,29 @@ export default defineConfig({
         'src/**/index.ts', // 単純なre-exportのみのindexファイル
       ],
 
-      // 高品質カバレッジを維持（残り5-6%は防御的エラーハンドリング）
+      // 100%カバレッジ目標設定
       thresholds: {
-        branches: 90,
-        functions: 90,
-        lines: 90,
-        statements: 90,
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
+        perFile: true, // ファイル毎に100%を要求
       },
 
-      // カバレッジ未達成の閾値設定（警告レベル）
+      // カバレッジ品質設定
       watermarks: {
-        statements: [90, 100],
-        functions: [90, 100],
-        branches: [90, 100],
-        lines: [90, 100],
+        statements: [95, 100],
+        functions: [95, 100],
+        branches: [95, 100],
+        lines: [95, 100],
       },
 
       clean: true,
+      cleanOnRerun: true,
       reportOnFailure: true,
-      skipFull: false, // 高カバレッジのファイルもレポートに含める
-
-      // istanbul ignore comments を無効化（高品質カバレッジ維持のため）
+      skipFull: false,
+      allowExternal: false,
+      excludeAfterRemap: true, // ソースマップ後の除外を適用
       ignoreEmptyLines: false,
     },
 

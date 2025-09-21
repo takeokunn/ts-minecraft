@@ -1,22 +1,23 @@
-import { Effect, Either, pipe } from 'effect'
+import { Effect, Exit, pipe } from 'effect'
 import { expect } from 'vitest'
 import type { BlockType } from '../BlockType'
+import { EffectTestRunner, EffectAssert } from '../../../test/effect-test-utils'
 
-// Effect-TS用の共通テストヘルパー
-export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.either(effect))
+// Effect-TS用の共通テストヘルパー - 最新理想系パターン
+export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => EffectTestRunner.runExit(effect)
 
-export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
+export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => EffectTestRunner.run(effect)
 
 export const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
   const result = await runEffect(effect)
-  expect(Either.isRight(result)).toBe(true)
-  return Either.isRight(result) ? result.right : undefined
+  expect(Exit.isSuccess(result)).toBe(true)
+  return Exit.isSuccess(result) ? result.value : undefined
 }
 
 export const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
   const result = await runEffect(effect)
-  expect(Either.isLeft(result)).toBe(true)
-  return Either.isLeft(result) ? result.left : undefined
+  expect(Exit.isFailure(result)).toBe(true)
+  return Exit.isFailure(result) ? result.cause : undefined
 }
 
 // ブロック関連の共通テストヘルパー

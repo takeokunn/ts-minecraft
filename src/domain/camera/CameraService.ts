@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect, Schema, Match, pipe } from 'effect'
 import * as THREE from 'three'
 
 /**
@@ -45,12 +45,89 @@ export const CameraState = Schema.Struct({
 export type CameraState = Schema.Schema.Type<typeof CameraState>
 
 /**
- * カメラエラー
+ * カメラエラーの詳細なカテゴリ分け
+ */
+export const CameraErrorReason = Schema.Literal(
+  'INITIALIZATION_FAILED',
+  'CAMERA_NOT_INITIALIZED',
+  'INVALID_CONFIGURATION',
+  'INVALID_MODE',
+  'INVALID_PARAMETER',
+  'RESOURCE_ERROR'
+)
+export type CameraErrorReason = Schema.Schema.Type<typeof CameraErrorReason>
+
+/**
+ * カメラエラー - Schema.TaggedError パターン
  */
 export class CameraError extends Schema.TaggedError<CameraError>()('CameraError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  reason: CameraErrorReason,
+  cause: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  context: Schema.optionalWith(Schema.Record({
+    key: Schema.String,
+    value: Schema.Unknown
+  }), { exact: true }),
 }) {}
+
+/**
+ * カメラエラー作成ヘルパー
+ */
+export const createCameraError = {
+  initializationFailed: (message: string, cause?: unknown) => new CameraError({
+    message,
+    reason: 'INITIALIZATION_FAILED',
+    cause,
+  }),
+  notInitialized: (operation: string) => new CameraError({
+    message: `カメラが初期化されていません: ${operation}`,
+    reason: 'CAMERA_NOT_INITIALIZED',
+    context: { operation },
+  }),
+  invalidConfiguration: (message: string, config?: unknown) => new CameraError({
+    message,
+    reason: 'INVALID_CONFIGURATION',
+    context: { config },
+  }),
+  invalidMode: (mode: string) => new CameraError({
+    message: `無効なカメラモード: ${mode}`,
+    reason: 'INVALID_MODE',
+    context: { mode },
+  }),
+  invalidParameter: (parameter: string, value: unknown, expected?: string) => new CameraError({
+    message: `無効なパラメータ: ${parameter}`,
+    reason: 'INVALID_PARAMETER',
+    context: { parameter, value, expected },
+  }),
+  resourceError: (message: string, cause?: unknown) => new CameraError({
+    message,
+    reason: 'RESOURCE_ERROR',
+    cause,
+  }),
+}
+
+/**
+ * Vector3 位置情報のスキーマ
+ */
+export const Vector3Schema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
+
+/**
+ * カメラパラメータのスキーマ定義
+ */
+export const CameraParameterSchemas = {
+  fov: Schema.Number.pipe(Schema.between(30, 120)),
+  sensitivity: Schema.Number.pipe(Schema.between(0.1, 10)),
+  smoothing: Schema.Number.pipe(Schema.between(0, 1)),
+  distance: Schema.Number.pipe(Schema.between(1, 50)),
+  aspectRatio: Schema.Number.pipe(Schema.positive()),
+  deltaTime: Schema.Number.pipe(Schema.nonNegative()),
+  mouseDelta: Schema.Number,
+}
 
 /**
  * CameraService - カメラ管理サービス
@@ -60,56 +137,58 @@ export class CameraError extends Schema.TaggedError<CameraError>()('CameraError'
  * - 三人称視点の実装
  * - スムーズな視点切り替え
  * - FOV調整機能
+ * - 型安全性の強化
+ * - Schema検証による実行時安全性
  */
 export interface CameraService {
   /**
-   * カメラの初期化
+   * カメラの初期化 - Schema検証付き
    */
-  readonly initialize: (config: CameraConfig) => Effect.Effect<THREE.PerspectiveCamera, CameraError>
+  readonly initialize: (config: unknown) => Effect.Effect<THREE.PerspectiveCamera, CameraError>
 
   /**
-   * カメラモードの切り替え
+   * カメラモードの切り替え - Schema検証付き
    */
-  readonly switchMode: (mode: CameraMode) => Effect.Effect<void, CameraError>
+  readonly switchMode: (mode: unknown) => Effect.Effect<void, CameraError>
 
   /**
-   * カメラの更新
+   * カメラの更新 - Schema検証付き
    *
    * @param deltaTime - フレーム間の経過時間（秒）
    * @param targetPosition - プレイヤーの位置
    */
   readonly update: (
-    deltaTime: number,
-    targetPosition: { x: number; y: number; z: number }
+    deltaTime: unknown,
+    targetPosition: unknown
   ) => Effect.Effect<void, CameraError>
 
   /**
-   * マウス入力による視点操作
+   * マウス入力による視点操作 - Schema検証付き
    *
    * @param deltaX - マウスX方向の移動量
    * @param deltaY - マウスY方向の移動量
    */
-  readonly rotate: (deltaX: number, deltaY: number) => Effect.Effect<void, CameraError>
+  readonly rotate: (deltaX: unknown, deltaY: unknown) => Effect.Effect<void, CameraError>
 
   /**
-   * FOV（視野角）の設定
+   * FOV（視野角）の設定 - Schema検証付き
    */
-  readonly setFOV: (fov: number) => Effect.Effect<void, CameraError>
+  readonly setFOV: (fov: unknown) => Effect.Effect<void, CameraError>
 
   /**
-   * カメラ感度の設定
+   * カメラ感度の設定 - Schema検証付き
    */
-  readonly setSensitivity: (sensitivity: number) => Effect.Effect<void, CameraError>
+  readonly setSensitivity: (sensitivity: unknown) => Effect.Effect<void, CameraError>
 
   /**
-   * 三人称視点の距離設定
+   * 三人称視点の距離設定 - Schema検証付き
    */
-  readonly setThirdPersonDistance: (distance: number) => Effect.Effect<void, CameraError>
+  readonly setThirdPersonDistance: (distance: unknown) => Effect.Effect<void, CameraError>
 
   /**
-   * カメラのスムージング設定
+   * カメラのスムージング設定 - Schema検証付き
    */
-  readonly setSmoothing: (smoothing: number) => Effect.Effect<void, CameraError>
+  readonly setSmoothing: (smoothing: unknown) => Effect.Effect<void, CameraError>
 
   /**
    * 現在のカメラ状態を取得
@@ -132,9 +211,9 @@ export interface CameraService {
   readonly reset: () => Effect.Effect<void, CameraError>
 
   /**
-   * カメラのアスペクト比更新
+   * カメラのアスペクト比更新 - Schema検証付き
    */
-  readonly updateAspectRatio: (width: number, height: number) => Effect.Effect<void, CameraError>
+  readonly updateAspectRatio: (width: unknown, height: unknown) => Effect.Effect<void, CameraError>
 
   /**
    * リソースの解放
@@ -148,7 +227,7 @@ export interface CameraService {
 export const CameraService = Context.GenericTag<CameraService>('@minecraft/domain/CameraService')
 
 /**
- * デフォルトのカメラ設定
+ * デフォルトのカメラ設定 - Schema検証済み
  */
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   mode: 'first-person',
@@ -161,3 +240,41 @@ export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   thirdPersonHeight: 2,
   thirdPersonAngle: 0,
 }
+
+/**
+ * カメラ設定の検証ヘルパー
+ */
+export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfig, CameraError> =>
+  pipe(
+    Schema.decodeUnknown(CameraConfig)(config),
+    Effect.mapError((parseError) =>
+      createCameraError.invalidConfiguration(
+        `カメラ設定の検証に失敗しました: ${parseError.message}`,
+        config
+      )
+    )
+  )
+
+/**
+ * カメラ状態の検証ヘルパー
+ */
+export const validateCameraState = (state: unknown): Effect.Effect<CameraState, CameraError> =>
+  pipe(
+    Schema.decodeUnknown(CameraState)(state),
+    Effect.mapError((parseError) =>
+      createCameraError.invalidParameter(
+        'カメラ状態',
+        state,
+        `Valid CameraState: ${parseError.message}`
+      )
+    )
+  )
+
+/**
+ * カメラモードの検証ヘルパー
+ */
+export const validateCameraMode = (mode: unknown): Effect.Effect<CameraMode, CameraError> =>
+  pipe(
+    Schema.decodeUnknown(CameraMode)(mode),
+    Effect.mapError(() => createCameraError.invalidMode(String(mode)))
+  )
