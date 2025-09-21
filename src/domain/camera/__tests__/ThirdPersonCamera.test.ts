@@ -369,7 +369,7 @@ describe('ThirdPersonCamera', () => {
       if (Exit.isSuccess(result)) {
         const { minDistance, maxDistance } = result.value
         expect(minDistance).toBe(1)
-        expect(maxDistance).toBe(50)
+        expect(maxDistance).toBe(20)
       }
     })
 

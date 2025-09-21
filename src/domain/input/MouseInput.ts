@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Option, Match, pipe } from 'effect'
 import { Schema } from 'effect'
 import { MouseDelta, MouseButtonState, InputSystemError } from './types'
 
@@ -59,7 +59,16 @@ export const MouseInputLive = Layer.effect(
     // ブラウザAPI利用の安全なwrapper
     const safeDocumentAccess = <T>(operation: () => T, errorMessage: string): Effect.Effect<T, MouseInputError> =>
       Effect.try({
-        try: operation,
+        try: () => {
+          return pipe(
+            typeof document === 'undefined',
+            Match.value,
+            Match.when(true, () => {
+              throw new Error('Document is not available')
+            }),
+            Match.orElse(() => operation())
+          )
+        },
         catch: (error) =>
           MouseInputError({
             message: errorMessage,
@@ -73,9 +82,10 @@ export const MouseInputLive = Layer.effect(
         const currentTime = Date.now()
         const currentPosition = yield* Ref.get(position)
 
-        // デルタ計算
-        const deltaX = event.movementX || event.clientX - currentPosition.x
-        const deltaY = event.movementY || event.clientY - currentPosition.y
+        // デルタ計算（movementX/Yの存在チェック）
+        const deltaX = 'movementX' in event ? event.movementX : event.clientX - currentPosition.x
+
+        const deltaY = 'movementY' in event ? event.movementY : event.clientY - currentPosition.y
 
         // 状態更新
         yield* Ref.set(position, {
@@ -106,8 +116,10 @@ export const MouseInputLive = Layer.effect(
     // ポインターロック状態変更リスナー
     const handlePointerLockChange = () =>
       Effect.gen(function* () {
-        const isLocked = typeof document !== 'undefined' && document.pointerLockElement !== null
-        const element = (typeof document !== 'undefined' && document.pointerLockElement?.id) || undefined
+        const documentExists = typeof document !== 'undefined'
+
+        const isLocked = documentExists && document.pointerLockElement !== null
+        const element = (documentExists && document.pointerLockElement?.id) || undefined
 
         yield* Ref.set(pointerLockState, {
           isLocked,
@@ -117,17 +129,20 @@ export const MouseInputLive = Layer.effect(
       }).pipe(Effect.runPromise)
 
     // イベントリスナーの設定
-    const setupEventListeners = safeDocumentAccess(() => {
-      if (typeof document !== 'undefined') {
-        document.addEventListener('mousemove', handleMouseMove)
-        document.addEventListener('mousedown', (e) => handleMouseButton(e, true))
-        document.addEventListener('mouseup', (e) => handleMouseButton(e, false))
-        document.addEventListener('pointerlockchange', handlePointerLockChange)
-      }
-      return undefined
-    }, 'イベントリスナーの設定に失敗しました')
-
-    yield* setupEventListeners
+    yield* pipe(
+      typeof document !== 'undefined',
+      Match.value,
+      Match.when(true, () =>
+        safeDocumentAccess(() => {
+          document.addEventListener('mousemove', handleMouseMove)
+          document.addEventListener('mousedown', (e) => handleMouseButton(e, true))
+          document.addEventListener('mouseup', (e) => handleMouseButton(e, false))
+          document.addEventListener('pointerlockchange', handlePointerLockChange)
+          return undefined
+        }, 'イベントリスナーの設定に失敗しました')
+      ),
+      Match.orElse(() => Effect.succeed(undefined))
+    )
 
     return MouseInput.of({
       getPosition: () => Ref.get(position),
@@ -139,15 +154,17 @@ export const MouseInputLive = Layer.effect(
           const states = yield* Ref.get(buttonStates)
           const state = states.get(button)
 
-          if (!state) {
-            return {
-              button,
-              isPressed: false,
-              timestamp: Date.now(),
-            }
-          }
-
-          return state
+          return yield* Option.fromNullable(state).pipe(
+            Option.match({
+              onNone: () => ({
+                button,
+                isPressed: false,
+                timestamp: Date.now(),
+              }),
+              onSome: (s) => s,
+            }),
+            Effect.succeed
+          )
         }),
 
       isButtonPressed: (button) =>
@@ -159,25 +176,23 @@ export const MouseInputLive = Layer.effect(
 
       requestPointerLock: (elementId) =>
         safeDocumentAccess(() => {
-          if (typeof document === 'undefined') {
-            throw new Error('Document is not available')
-          }
-
           const element = elementId ? document.getElementById(elementId) : document.body
 
-          if (!element) {
-            throw new Error(`Element with ID "${elementId}" not found`)
-          }
-
-          element.requestPointerLock()
+          pipe(
+            Option.fromNullable(element),
+            Option.match({
+              onNone: () => {
+                throw new Error(`Element with ID "${elementId}" not found`)
+              },
+              onSome: (el) => {
+                el.requestPointerLock()
+              },
+            })
+          )
         }, 'ポインターロックの要求に失敗しました'),
 
       exitPointerLock: () =>
         safeDocumentAccess(() => {
-          if (typeof document === 'undefined') {
-            throw new Error('Document is not available')
-          }
-
           document.exitPointerLock()
         }, 'ポインターロックの解除に失敗しました'),
 

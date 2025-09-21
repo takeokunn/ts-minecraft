@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Schema } from 'effect'
+import { Match, pipe, Schema } from 'effect'
 import * as fc from 'fast-check'
 import {
   RenderInitErrorSchema,
@@ -367,28 +367,31 @@ describe('Rendering Types', () => {
         expect(typeof error.message).toBe('string')
 
         // Type-specific validations
-        switch (error._tag) {
-          case 'RenderInitError':
+        pipe(
+          error._tag,
+          Match.value,
+          Match.when('RenderInitError', () => {
             // Optional fields should be undefined or defined
             if ('canvas' in error) {
               expect(error.canvas).toBeDefined()
             }
-            break
-          case 'RenderExecutionError':
+          }),
+          Match.when('RenderExecutionError', () => {
             expect(error.operation).toBeDefined()
             expect(typeof error.operation).toBe('string')
-            break
-          case 'ContextLostError':
+          }),
+          Match.when('ContextLostError', () => {
             expect(typeof error.canRestore).toBe('boolean')
             expect(typeof error.lostTime).toBe('number')
-            break
-          case 'RenderTargetError':
+          }),
+          Match.when('RenderTargetError', () => {
             expect(typeof error.width).toBe('number')
             expect(typeof error.height).toBe('number')
             expect(error.width).toBeGreaterThan(0)
             expect(error.height).toBeGreaterThan(0)
-            break
-        }
+          }),
+          Match.exhaustive
+        )
       })
     })
 

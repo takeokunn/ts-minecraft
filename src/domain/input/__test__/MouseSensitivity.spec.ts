@@ -4,12 +4,64 @@ import { Effect, Layer } from 'effect'
 import {
   MouseSensitivity,
   MouseSensitivityError,
+  MouseSensitivityLive,
   MockMouseSensitivity,
   defaultSensitivityConfig,
   sensitivityPresets,
 } from '../MouseSensitivity'
 import type { MouseSensitivityConfig, AdjustedMouseDelta } from '../MouseSensitivity'
 import { MouseDelta } from '../types'
+
+// テストヘルパー関数
+const createTestDelta = (deltaX: number, deltaY: number, timestamp?: number): MouseDelta => ({
+  deltaX,
+  deltaY,
+  timestamp: timestamp ?? Date.now(),
+})
+
+const expectDeltaEquals = (actual: AdjustedMouseDelta, expected: Partial<AdjustedMouseDelta>) => {
+  if (expected.deltaX !== undefined) {
+    expect(actual.deltaX).toBeCloseTo(expected.deltaX, 5)
+  }
+  if (expected.deltaY !== undefined) {
+    expect(actual.deltaY).toBeCloseTo(expected.deltaY, 5)
+  }
+  if (expected.originalDeltaX !== undefined) {
+    expect(actual.originalDeltaX).toBe(expected.originalDeltaX)
+  }
+  if (expected.originalDeltaY !== undefined) {
+    expect(actual.originalDeltaY).toBe(expected.originalDeltaY)
+  }
+  if (expected.appliedSensitivity !== undefined) {
+    expect(actual.appliedSensitivity).toBeCloseTo(expected.appliedSensitivity, 5)
+  }
+}
+
+const createMockLayer = (initialConfig?: Partial<MouseSensitivityConfig>) => {
+  const config = { ...defaultSensitivityConfig, ...initialConfig }
+  return Layer.succeed(
+    MouseSensitivity,
+    MouseSensitivity.of({
+      getConfig: () => Effect.succeed(config),
+      setConfig: () => Effect.succeed(undefined),
+      applySensitivity: (delta) =>
+        Effect.succeed({
+          deltaX: delta.deltaX * config.xSensitivity * config.globalMultiplier,
+          deltaY: delta.deltaY * config.ySensitivity * config.globalMultiplier,
+          originalDeltaX: delta.deltaX,
+          originalDeltaY: delta.deltaY,
+          appliedSensitivity: Math.sqrt(config.xSensitivity ** 2 + config.ySensitivity ** 2),
+          timestamp: delta.timestamp,
+        }),
+      setPreset: () => Effect.succeed(undefined),
+      setSensitivity: () => Effect.succeed(undefined),
+      setGlobalMultiplier: () => Effect.succeed(undefined),
+      invertAxis: () => Effect.succeed(undefined),
+      setCurve: () => Effect.succeed(undefined),
+      resetToDefault: () => Effect.succeed(undefined),
+    })
+  )
+}
 
 describe('MouseSensitivity', () => {
   describe('Interface Definition', () => {
@@ -355,6 +407,496 @@ describe('MouseSensitivity', () => {
       expect(error._tag).toBe('MouseSensitivityError')
       expect(error.message).toBe('Test error')
       expect(error.config).toBeUndefined()
+    })
+  })
+
+  describe('MouseSensitivityLive Implementation', () => {
+    const TestLayer = MouseSensitivityLive
+
+    describe('Configuration Management', () => {
+      it.effect('should get initial default configuration', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config).toEqual(defaultSensitivityConfig)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should set and retrieve custom configuration', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const customConfig: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            xSensitivity: 2.5,
+            ySensitivity: 1.8,
+            globalMultiplier: 1.2,
+            curve: 'accelerated',
+          }
+
+          yield* mouseSensitivity.setConfig(customConfig)
+          const retrievedConfig = yield* mouseSensitivity.getConfig()
+
+          expect(retrievedConfig).toEqual(customConfig)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should validate configuration and fail with invalid data', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const invalidConfig = {
+            ...defaultSensitivityConfig,
+            xSensitivity: -1, // invalid: should be positive
+          }
+
+          const result = yield* Effect.either(mouseSensitivity.setConfig(invalidConfig))
+
+          expect(result._tag).toBe('Left')
+          if (result._tag === 'Left') {
+            expect(result.left._tag).toBe('MouseSensitivityError')
+            expect(result.left.message).toBe('Invalid configuration provided')
+          }
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
+
+    describe('Preset Management', () => {
+      Object.entries(sensitivityPresets).forEach(([presetName, presetConfig]) => {
+        if (presetName !== 'custom') {
+          it.effect(`should apply ${presetName} preset correctly`, () =>
+            Effect.gen(function* () {
+              const mouseSensitivity = yield* MouseSensitivity
+
+              yield* mouseSensitivity.setPreset(presetName as any)
+              const config = yield* mouseSensitivity.getConfig()
+
+              expect(config.preset).toBe(presetName)
+              if (presetConfig.xSensitivity !== undefined) {
+                expect(config.xSensitivity).toBe(presetConfig.xSensitivity)
+              }
+              if (presetConfig.ySensitivity !== undefined) {
+                expect(config.ySensitivity).toBe(presetConfig.ySensitivity)
+              }
+              if (presetConfig.globalMultiplier !== undefined) {
+                expect(config.globalMultiplier).toBe(presetConfig.globalMultiplier)
+              }
+              if (presetConfig.curve !== undefined) {
+                expect(config.curve).toBe(presetConfig.curve)
+              }
+            }).pipe(Effect.provide(TestLayer))
+          )
+        }
+      })
+    })
+
+    describe('Individual Setting Updates', () => {
+      it.effect('should update individual sensitivity values', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.setSensitivity(2.5, 1.8)
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.xSensitivity).toBe(2.5)
+          expect(config.ySensitivity).toBe(1.8)
+          expect(config.preset).toBe('custom')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should enforce minimum sensitivity values', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.setSensitivity(-1, 0)
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.xSensitivity).toBe(0.01)
+          expect(config.ySensitivity).toBe(0.01)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should update global multiplier', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.setGlobalMultiplier(1.5)
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.globalMultiplier).toBe(1.5)
+          expect(config.preset).toBe('custom')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should enforce minimum global multiplier', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.setGlobalMultiplier(-0.5)
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.globalMultiplier).toBe(0.01)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should invert axes', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.invertAxis(true, false)
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.invertX).toBe(true)
+          expect(config.invertY).toBe(false)
+          expect(config.preset).toBe('custom')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should set sensitivity curve', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          yield* mouseSensitivity.setCurve('decelerated')
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config.curve).toBe('decelerated')
+          expect(config.preset).toBe('custom')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should reset to default configuration', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+
+          // First modify the configuration
+          yield* mouseSensitivity.setSensitivity(5.0, 3.0)
+          yield* mouseSensitivity.setGlobalMultiplier(2.0)
+
+          // Then reset
+          yield* mouseSensitivity.resetToDefault()
+          const config = yield* mouseSensitivity.getConfig()
+
+          expect(config).toEqual(defaultSensitivityConfig)
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
+
+    describe('Sensitivity Application - Curve Types', () => {
+      it.effect('should apply linear curve correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.setCurve('linear')
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // Linear curve should preserve the original values (with sensitivity applied)
+          expectDeltaEquals(result, {
+            deltaX: 10 * defaultSensitivityConfig.xSensitivity * defaultSensitivityConfig.globalMultiplier,
+            deltaY: -5 * defaultSensitivityConfig.ySensitivity * defaultSensitivityConfig.globalMultiplier,
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should apply accelerated curve correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.setCurve('accelerated')
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // Accelerated curve: sign * pow(abs(value), 1.2)
+          const expectedX = Math.sign(10) * Math.pow(Math.abs(10), 1.2)
+          const expectedY = Math.sign(-5) * Math.pow(Math.abs(-5), 1.2)
+
+          expectDeltaEquals(result, {
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+
+          // Values should be different from linear (higher for positive inputs)
+          expect(Math.abs(result.deltaX)).toBeGreaterThan(10)
+          expect(Math.abs(result.deltaY)).toBeGreaterThan(5)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should apply decelerated curve correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.setCurve('decelerated')
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          expectDeltaEquals(result, {
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+
+          // Values should be smaller than linear (decelerated)
+          expect(Math.abs(result.deltaX)).toBeLessThan(10)
+          expect(Math.abs(result.deltaY)).toBeLessThan(5)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should apply custom curve with points', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const customConfig: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            curve: 'custom',
+            customCurvePoints: [0, 0.5, 1.0, 1.5],
+          }
+          const delta = createTestDelta(0.5, -0.3)
+
+          yield* mouseSensitivity.setConfig(customConfig)
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          expectDeltaEquals(result, {
+            originalDeltaX: 0.5,
+            originalDeltaY: -0.3,
+          })
+
+          // Custom curve should interpolate between points
+          expect(typeof result.deltaX).toBe('number')
+          expect(typeof result.deltaY).toBe('number')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should fallback to linear when custom curve has no points', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const customConfig: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            curve: 'custom',
+            customCurvePoints: [],
+          }
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.setConfig(customConfig)
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // Should behave like linear curve when no custom points
+          expectDeltaEquals(result, {
+            deltaX: 10,
+            deltaY: -5,
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
+
+    describe('Sensitivity Application - Advanced Features', () => {
+      it.effect('should apply dead zone correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const smallDelta = createTestDelta(0.01, 0.01) // Very small movement
+          const configWithDeadZone: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            deadZone: 0.02, // Larger than the input
+          }
+
+          yield* mouseSensitivity.setConfig(configWithDeadZone)
+          const result = yield* mouseSensitivity.applySensitivity(smallDelta)
+
+          // Movement smaller than dead zone should result in zero
+          expectDeltaEquals(result, {
+            deltaX: 0,
+            deltaY: 0,
+            originalDeltaX: 0.01,
+            originalDeltaY: 0.01,
+            appliedSensitivity: 0,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should apply axis inversion correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.invertAxis(true, true)
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // Both axes should be inverted
+          expect(result.deltaX).toBeLessThan(0) // Original positive becomes negative
+          expect(result.deltaY).toBeGreaterThan(0) // Original negative becomes positive
+          expectDeltaEquals(result, {
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should apply smoothing correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const configWithSmoothing: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            smoothing: 0.3,
+          }
+
+          yield* mouseSensitivity.setConfig(configWithSmoothing)
+
+          // Apply several deltas to test smoothing buffer
+          const delta1 = createTestDelta(10, 0)
+          const delta2 = createTestDelta(0, 10)
+          const delta3 = createTestDelta(5, 5)
+
+          yield* mouseSensitivity.applySensitivity(delta1)
+          yield* mouseSensitivity.applySensitivity(delta2)
+          const result = yield* mouseSensitivity.applySensitivity(delta3)
+
+          // Final result should be influenced by smoothing (weighted average)
+          expectDeltaEquals(result, {
+            originalDeltaX: 5,
+            originalDeltaY: 5,
+          })
+
+          // Smoothed values should be different from original
+          expect(result.deltaX).not.toBe(5)
+          expect(result.deltaY).not.toBe(5)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should handle zero smoothing correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const configNoSmoothing: MouseSensitivityConfig = {
+            ...defaultSensitivityConfig,
+            smoothing: 0,
+          }
+          const delta = createTestDelta(10, -5)
+
+          yield* mouseSensitivity.setConfig(configNoSmoothing)
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // No smoothing should preserve values (with sensitivity applied)
+          expectDeltaEquals(result, {
+            deltaX: 10,
+            deltaY: -5,
+            originalDeltaX: 10,
+            originalDeltaY: -5,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
+
+    describe('Edge Cases and Error Conditions', () => {
+      it.effect('should handle zero delta correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const zeroDelta = createTestDelta(0, 0)
+
+          const result = yield* mouseSensitivity.applySensitivity(zeroDelta)
+
+          expectDeltaEquals(result, {
+            deltaX: 0,
+            deltaY: 0,
+            originalDeltaX: 0,
+            originalDeltaY: 0,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should handle very large delta values', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const largeDelta = createTestDelta(1000000, -1000000)
+
+          const result = yield* mouseSensitivity.applySensitivity(largeDelta)
+
+          expectDeltaEquals(result, {
+            originalDeltaX: 1000000,
+            originalDeltaY: -1000000,
+          })
+
+          expect(typeof result.deltaX).toBe('number')
+          expect(typeof result.deltaY).toBe('number')
+          expect(isFinite(result.deltaX)).toBe(true)
+          expect(isFinite(result.deltaY)).toBe(true)
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should handle very small delta values', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const smallDelta = createTestDelta(0.000001, -0.000001)
+
+          const result = yield* mouseSensitivity.applySensitivity(smallDelta)
+
+          expectDeltaEquals(result, {
+            originalDeltaX: 0.000001,
+            originalDeltaY: -0.000001,
+          })
+
+          expect(typeof result.deltaX).toBe('number')
+          expect(typeof result.deltaY).toBe('number')
+        }).pipe(Effect.provide(TestLayer))
+      )
+
+      it.effect('should handle high sensitivity values correctly', () =>
+        Effect.gen(function* () {
+          const mouseSensitivity = yield* MouseSensitivity
+          const delta = createTestDelta(1, 1)
+
+          yield* mouseSensitivity.setSensitivity(100, 100)
+          yield* mouseSensitivity.setGlobalMultiplier(10)
+          const result = yield* mouseSensitivity.applySensitivity(delta)
+
+          // High sensitivity should amplify the movement significantly
+          expect(Math.abs(result.deltaX)).toBeGreaterThan(100)
+          expect(Math.abs(result.deltaY)).toBeGreaterThan(100)
+          expectDeltaEquals(result, {
+            originalDeltaX: 1,
+            originalDeltaY: 1,
+          })
+        }).pipe(Effect.provide(TestLayer))
+      )
+    })
+  })
+
+  describe('Test Helpers Validation', () => {
+    it('should create test delta correctly', () => {
+      const delta = createTestDelta(5, -3, 12345)
+
+      expect(delta.deltaX).toBe(5)
+      expect(delta.deltaY).toBe(-3)
+      expect(delta.timestamp).toBe(12345)
+    })
+
+    it('should create test delta with auto timestamp', () => {
+      const before = Date.now()
+      const delta = createTestDelta(1, 2)
+      const after = Date.now()
+
+      expect(delta.deltaX).toBe(1)
+      expect(delta.deltaY).toBe(2)
+      expect(delta.timestamp).toBeGreaterThanOrEqual(before)
+      expect(delta.timestamp).toBeLessThanOrEqual(after)
+    })
+
+    it('should validate delta expectations correctly', () => {
+      const testDelta: AdjustedMouseDelta = {
+        deltaX: 1.5,
+        deltaY: -2.3,
+        originalDeltaX: 1,
+        originalDeltaY: -2,
+        appliedSensitivity: 1.2,
+        timestamp: 12345,
+      }
+
+      // This should not throw
+      expectDeltaEquals(testDelta, {
+        deltaX: 1.5,
+        deltaY: -2.3,
+        originalDeltaX: 1,
+        originalDeltaY: -2,
+        appliedSensitivity: 1.2,
+      })
     })
   })
 })

@@ -5,7 +5,7 @@
  * Effect-TSを使用した関数型でコンポジタブルな実装
  */
 
-import { Context, Data, Effect, Layer, Schema } from 'effect'
+import { Context, Data, Effect, Layer, Match, pipe, Schema } from 'effect'
 import type { World } from './World.js'
 
 /**
@@ -34,20 +34,17 @@ export type SystemPriority = Schema.Schema.Type<typeof SystemPriority>
 /**
  * 優先度を数値に変換
  */
-export const priorityToNumber = (priority: SystemPriority): number => {
-  switch (priority) {
-    case 'critical':
-      return 50
-    case 'high':
-      return 200
-    case 'normal':
-      return 500
-    case 'low':
-      return 800
-    case 'deferred':
-      return 950
-  }
-}
+export const priorityToNumber = (priority: SystemPriority): number =>
+  pipe(
+    priority,
+    Match.value,
+    Match.when('critical', () => 50),
+    Match.when('high', () => 200),
+    Match.when('normal', () => 500),
+    Match.when('low', () => 800),
+    Match.when('deferred', () => 950),
+    Match.exhaustive
+  )
 
 /**
  * システムメタデータ

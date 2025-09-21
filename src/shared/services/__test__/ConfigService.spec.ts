@@ -425,4 +425,112 @@ describe('ConfigService', () => {
       expect(() => Effect.runSync(invalidResult)).toThrow()
     })
   })
+
+  describe('Environment variable parsing (loadFromEnv)', () => {
+    beforeEach(() => {
+      // 環境変数をクリア
+      delete process.env.TEST_GAME_CONFIG
+      delete process.env.TEST_INVALID_JSON
+    })
+
+    afterEach(() => {
+      // テスト後にクリア
+      delete process.env.TEST_GAME_CONFIG
+      delete process.env.TEST_INVALID_JSON
+    })
+
+    it('should handle invalid JSON in environment variables', () => {
+      // 無効なJSONを環境変数に設定
+      process.env.TEST_INVALID_JSON = '{ invalid json }'
+
+      // ConfigServiceの内部でloadFromEnvが使用されている部分をテスト
+      // loadFromEnv関数は直接エクスポートされていないため、
+      // ConfigServiceLiveの初期化時の動作をテストする
+
+      // 無効なJSONが設定された場合、デフォルト値にフォールバックすることを確認
+      const result = Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* ConfigService
+          return service.gameConfig
+        }).pipe(Effect.provide(ConfigServiceLive))
+      )
+
+      // デフォルト値が返されることを確認
+      expect(result.fps).toBe(60)
+      expect(result.tickRate).toBe(20)
+    })
+
+    it('should handle valid JSON in environment variables', () => {
+      // 有効なJSONを環境変数に設定
+      const customConfig = {
+        fps: 120,
+        tickRate: 30,
+        renderDistance: 16,
+        chunkSize: 32,
+        gravity: -10.0,
+        playerSpeed: 5.0,
+        jumpHeight: 2.0,
+      }
+      process.env.GAME_CONFIG = JSON.stringify(customConfig)
+
+      const result = Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* ConfigService
+          return service.gameConfig
+        }).pipe(Effect.provide(ConfigServiceLive))
+      )
+
+      // カスタム設定が適用されることを確認
+      expect(result.fps).toBe(120)
+      expect(result.tickRate).toBe(30)
+    })
+
+    it('should fallback to default when environment variable is empty', () => {
+      // 空の環境変数
+      process.env.GAME_CONFIG = ''
+
+      const result = Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* ConfigService
+          return service.gameConfig
+        }).pipe(Effect.provide(ConfigServiceLive))
+      )
+
+      // デフォルト値が返されることを確認
+      expect(result.fps).toBe(60)
+      expect(result.renderDistance).toBe(8)
+    })
+
+    it('should handle malformed JSON gracefully', () => {
+      // 構文エラーのあるJSONを設定
+      process.env.GAME_CONFIG = '{"fps": 120, "tickRate": }'
+
+      const result = Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* ConfigService
+          return service.gameConfig
+        }).pipe(Effect.provide(ConfigServiceLive))
+      )
+
+      // JSONパースエラー時はデフォルト値にフォールバック
+      expect(result.fps).toBe(60)
+      expect(result.tickRate).toBe(20)
+    })
+
+    it('should handle non-JSON string values', () => {
+      // JSON以外の文字列を設定
+      process.env.GAME_CONFIG = 'not a json string'
+
+      const result = Effect.runSync(
+        Effect.gen(function* () {
+          const service = yield* ConfigService
+          return service.gameConfig
+        }).pipe(Effect.provide(ConfigServiceLive))
+      )
+
+      // デフォルト値が返されることを確認
+      expect(result.fps).toBe(60)
+      expect(result.tickRate).toBe(20)
+    })
+  })
 })

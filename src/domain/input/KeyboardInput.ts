@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Context, Effect, Layer, Ref, Schema, Match, Option, pipe } from 'effect'
 import { DefaultKeyMap, KeyAction, KeyMappingConfig, KeyMappingError } from './KeyMapping'
 import { KeyState } from './types'
 
@@ -110,14 +110,19 @@ export const KeyboardInputLive = Layer.effect(
 
     // イベントリスナーの設定
     const setupEventListeners = safeWindowAccess(() => {
-      if (typeof window !== 'undefined') {
-        window.addEventListener('keydown', handleKeyDown)
-        window.addEventListener('keyup', handleKeyUp)
-        window.addEventListener('blur', handleWindowBlur)
+      pipe(
+        typeof window !== 'undefined',
+        Match.value,
+        Match.when(true, () => {
+          window.addEventListener('keydown', handleKeyDown)
+          window.addEventListener('keyup', handleKeyUp)
+          window.addEventListener('blur', handleWindowBlur)
 
-        // コンテキストメニュー無効化（ゲーム操作時の誤動作防止）
-        window.addEventListener('contextmenu', (e) => e.preventDefault())
-      }
+          // コンテキストメニュー無効化（ゲーム操作時の誤動作防止）
+          window.addEventListener('contextmenu', (e) => e.preventDefault())
+        }),
+        Match.orElse(() => undefined)
+      )
       return undefined
     }, 'イベントリスナーの設定に失敗しました')
 
@@ -134,32 +139,35 @@ export const KeyboardInputLive = Layer.effect(
       getKeyState: (key) =>
         Effect.gen(function* () {
           const states = yield* Ref.get(keyStates)
-          const state = states.get(key)
-
-          if (!state) {
-            return {
-              key,
-              isPressed: false,
-              timestamp: Date.now(),
-            }
-          }
-
-          return state
+          return pipe(
+            Option.fromNullable(states.get(key)),
+            Option.match({
+              onNone: () => ({
+                key,
+                isPressed: false,
+                timestamp: Date.now(),
+              }),
+              onSome: (state) => state,
+            })
+          )
         }),
 
       isActionPressed: (action) =>
         Effect.gen(function* () {
           const mapping = yield* Ref.get(keyMapping)
-          const key = mapping[action]
-
-          if (!key) {
-            return yield* Effect.fail(
-              KeyMappingError({
-                message: `アクション「${action}」に対するキーマッピングが見つかりません`,
-                action,
-              })
-            )
-          }
+          const key = yield* pipe(
+            Option.fromNullable(mapping[action]),
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  KeyMappingError({
+                    message: `アクション「${action}」に対するキーマッピングが見つかりません`,
+                    action,
+                  })
+                ),
+              onSome: (key) => Effect.succeed(key),
+            })
+          )
 
           const states = yield* Ref.get(keyStates)
           const state = states.get(key)
@@ -172,9 +180,14 @@ export const KeyboardInputLive = Layer.effect(
           const pressedKeys: string[] = []
 
           states.forEach((state, key) => {
-            if (state.isPressed) {
-              pressedKeys.push(key)
-            }
+            pipe(
+              state.isPressed,
+              Match.value,
+              Match.when(true, () => {
+                pressedKeys.push(key)
+              }),
+              Match.orElse(() => undefined)
+            )
           })
 
           return pressedKeys
@@ -186,13 +199,18 @@ export const KeyboardInputLive = Layer.effect(
           const values = Object.values(mapping)
           const uniqueValues = new Set(values)
 
-          if (values.length !== uniqueValues.size) {
-            return yield* Effect.fail(
-              KeyMappingError({
-                message: 'キーマッピングに重複があります',
-              })
-            )
-          }
+          yield* pipe(
+            values.length !== uniqueValues.size,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
+                KeyMappingError({
+                  message: 'キーマッピングに重複があります',
+                })
+              )
+            ),
+            Match.orElse(() => Effect.succeed(undefined))
+          )
 
           yield* Ref.set(keyMapping, mapping)
           yield* updateActionCache(mapping)
@@ -204,13 +222,14 @@ export const KeyboardInputLive = Layer.effect(
         Effect.gen(function* () {
           const mapping = yield* Ref.get(keyMapping)
 
-          for (const [action, mappedKey] of Object.entries(mapping)) {
-            if (mappedKey === key) {
-              return action as KeyAction
-            }
-          }
-
-          return undefined
+          return pipe(
+            Object.entries(mapping).find(([action, mappedKey]) => mappedKey === key),
+            Option.fromNullable,
+            Option.match({
+              onNone: () => undefined,
+              onSome: ([action, _]) => action as KeyAction,
+            })
+          )
         }),
 
       resetKeyStates: () => Ref.set(keyStates, new Map()),

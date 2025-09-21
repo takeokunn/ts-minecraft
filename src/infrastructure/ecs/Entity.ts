@@ -1,4 +1,4 @@
-import { Brand, Context, Data, Effect, Option, pipe, Schema } from 'effect'
+import { Brand, Context, Data, Effect, Option, pipe, Schema, Match } from 'effect'
 
 // =====================================
 // Entity ID Type
@@ -54,56 +54,94 @@ export const createComponentStorage = <T>() => {
 
   const insert = (entity: EntityId, component: T): Effect.Effect<void, never> =>
     Effect.sync(() => {
-      if (array.entityToIndex.has(entity)) {
-        // 既存のコンポーネントを更新
-        const index = array.entityToIndex.get(entity)!
-        array.data[index] = component
-      } else {
-        // 新しいコンポーネントを追加
-        const newIndex = array.size
-        array.data[newIndex] = component
-        array.entityToIndex.set(entity, newIndex)
-        array.indexToEntity[newIndex] = entity
-        array.size++
-      }
+      pipe(
+        array.entityToIndex.has(entity),
+        Match.value,
+        Match.when(true, () => {
+          // 既存のコンポーネントを更新
+          const index = array.entityToIndex.get(entity)!
+          array.data[index] = component
+        }),
+        Match.orElse(() => {
+          // 新しいコンポーネントを追加
+          const newIndex = array.size
+          array.data[newIndex] = component
+          array.entityToIndex.set(entity, newIndex)
+          array.indexToEntity[newIndex] = entity
+          array.size++
+        })
+      )
     })
 
   const remove = (entity: EntityId): Effect.Effect<boolean, never> =>
-    Effect.sync(() => {
-      const index = array.entityToIndex.get(entity)
-      if (index === undefined) return false
+    Effect.sync(() =>
+      pipe(
+        Option.fromNullable(array.entityToIndex.get(entity)),
+        Option.match({
+          onNone: () => false,
+          onSome: (index) => {
+            const lastIndex = array.size - 1
 
-      const lastIndex = array.size - 1
+            pipe(
+              index !== lastIndex,
+              Match.value,
+              Match.when(true, () => {
+                // 最後の要素で削除された要素を上書き（配列の穴を防ぐ）
+                const lastEntity = array.indexToEntity[lastIndex]
+                const lastData = array.data[lastIndex]
 
-      if (index !== lastIndex) {
-        // 最後の要素で削除された要素を上書き（配列の穴を防ぐ）
-        const lastEntity = array.indexToEntity[lastIndex]
-        const lastData = array.data[lastIndex]
-        if (lastEntity !== undefined && lastData !== undefined) {
-          array.data[index] = lastData
-          array.indexToEntity[index] = lastEntity
-          array.entityToIndex.set(lastEntity, index)
-        }
-      }
+                pipe(
+                  Option.fromNullable(lastEntity),
+                  Option.flatMap((entity) =>
+                    Option.fromNullable(lastData).pipe(Option.map((data) => ({ entity, data })))
+                  ),
+                  Option.match({
+                    onNone: () => {},
+                    onSome: ({ entity: lastEntity, data: lastData }) => {
+                      array.data[index] = lastData
+                      array.indexToEntity[index] = lastEntity
+                      array.entityToIndex.set(lastEntity, index)
+                    },
+                  })
+                )
+              }),
+              Match.orElse(() => {})
+            )
 
-      // 最後の要素を削除
-      array.data.length--
-      array.indexToEntity.length--
-      array.entityToIndex.delete(entity)
-      array.size--
+            // 最後の要素を削除
+            array.data.length--
+            array.indexToEntity.length--
+            array.entityToIndex.delete(entity)
+            array.size--
 
-      return true
-    })
+            return true
+          },
+        })
+      )
+    )
 
   const get = (entity: EntityId): Effect.Effect<Option.Option<T>, never> =>
-    Effect.sync(() => {
-      const index = array.entityToIndex.get(entity)
-      if (index !== undefined && index < array.size) {
-        const value = array.data[index]
-        return value !== undefined ? Option.some(value) : Option.none()
-      }
-      return Option.none()
-    })
+    Effect.sync(() =>
+      pipe(
+        Option.fromNullable(array.entityToIndex.get(entity)),
+        Option.flatMap((index) =>
+          pipe(
+            index < array.size,
+            Match.value,
+            Match.when(true, () =>
+              pipe(
+                Option.fromNullable(array.data[index]),
+                Option.match({
+                  onNone: () => Option.none<T>(),
+                  onSome: (value) => Option.some(value),
+                })
+              )
+            ),
+            Match.orElse(() => Option.none<T>())
+          )
+        )
+      )
+    )
 
   const has = (entity: EntityId): Effect.Effect<boolean, never> => Effect.sync(() => array.entityToIndex.has(entity))
 
@@ -122,10 +160,15 @@ export const createComponentStorage = <T>() => {
       (index) => {
         const entity = array.indexToEntity[index]
         const component = array.data[index]
-        if (entity !== undefined && component !== undefined) {
-          return f(entity, component)
-        }
-        return Effect.void
+
+        return pipe(
+          Option.fromNullable(entity),
+          Option.flatMap((e) => Option.fromNullable(component).pipe(Option.map((c) => ({ entity: e, component: c })))),
+          Option.match({
+            onNone: () => Effect.void,
+            onSome: ({ entity, component }) => f(entity, component),
+          })
+        )
       },
       { discard: true }
     ) as Effect.Effect<void, E, R>
@@ -137,9 +180,17 @@ export const createComponentStorage = <T>() => {
       for (let i = 0; i < array.size; i++) {
         const entity = array.indexToEntity[i]
         const data = array.data[i]
-        if (entity !== undefined && data !== undefined) {
-          result.push([entity, data])
-        }
+
+        pipe(
+          Option.fromNullable(entity),
+          Option.flatMap((e) => Option.fromNullable(data).pipe(Option.map((d) => ({ entity: e, data: d })))),
+          Option.match({
+            onNone: () => {},
+            onSome: ({ entity, data }) => {
+              result.push([entity, data])
+            },
+          })
+        )
       }
       return result
     })
@@ -222,34 +273,48 @@ export const EntityPoolLive = Effect.gen(function* () {
 
   const allocate = () =>
     Effect.gen(function* () {
-      if (state.freeList.length === 0) {
-        return yield* Effect.fail(
-          new EntityPoolError({
-            reason: 'pool_exhausted',
-            message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
+      return yield* pipe(
+        state.freeList.length === 0,
+        Match.value,
+        Match.when(true, () =>
+          Effect.fail(
+            new EntityPoolError({
+              reason: 'pool_exhausted',
+              message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
+            })
+          )
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            const id = state.freeList.pop()!
+            state.allocated.add(id)
+            return id
           })
         )
-      }
-
-      const id = state.freeList.pop()!
-      state.allocated.add(id)
-      return id
+      )
     })
 
   const deallocate = (id: EntityId) =>
     Effect.gen(function* () {
-      if (!state.allocated.has(id)) {
-        return yield* Effect.fail(
-          new EntityPoolError({
-            reason: 'entity_not_allocated',
-            message: `Entity ${id} is not allocated`,
+      return yield* pipe(
+        !state.allocated.has(id),
+        Match.value,
+        Match.when(true, () =>
+          Effect.fail(
+            new EntityPoolError({
+              reason: 'entity_not_allocated',
+              message: `Entity ${id} is not allocated`,
+            })
+          )
+        ),
+        Match.orElse(() =>
+          Effect.sync(() => {
+            state.allocated.delete(id)
+            state.freeList.push(id)
+            state.recycledCount++
           })
         )
-      }
-
-      state.allocated.delete(id)
-      state.freeList.push(id)
-      state.recycledCount++
+      )
     })
 
   const isAllocated = (id: EntityId) => Effect.sync(() => state.allocated.has(id))
@@ -304,27 +369,36 @@ export const createArchetypeManager = () => {
   const getOrCreateArchetype = (componentTypes: ReadonlySet<string>): Effect.Effect<Archetype, never> =>
     Effect.sync(() => {
       const key = getArchetypeKey(componentTypes)
-      let archetype = archetypes.get(key)
 
-      if (!archetype) {
-        archetype = {
-          id: nextArchetypeId++,
-          componentTypes,
-          entities: new Set(),
-        }
-        archetypes.set(key, archetype)
-      }
-
-      return archetype
+      return pipe(
+        Option.fromNullable(archetypes.get(key)),
+        Option.match({
+          onNone: () => {
+            const archetype: Archetype = {
+              id: nextArchetypeId++,
+              componentTypes,
+              entities: new Set(),
+            }
+            archetypes.set(key, archetype)
+            return archetype
+          },
+          onSome: (archetype) => archetype,
+        })
+      )
     })
 
   const moveEntity = (entity: EntityId, newComponentTypes: ReadonlySet<string>): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       // 古いアーキタイプから削除
-      const oldArchetype = entityToArchetype.get(entity)
-      if (oldArchetype) {
-        oldArchetype.entities.delete(entity)
-      }
+      pipe(
+        Option.fromNullable(entityToArchetype.get(entity)),
+        Option.match({
+          onNone: () => {},
+          onSome: (oldArchetype) => {
+            oldArchetype.entities.delete(entity)
+          },
+        })
+      )
 
       // 新しいアーキタイプに追加
       const newArchetype = yield* getOrCreateArchetype(newComponentTypes)
@@ -334,18 +408,29 @@ export const createArchetypeManager = () => {
 
   const removeEntity = (entity: EntityId): Effect.Effect<void, never> =>
     Effect.sync(() => {
-      const archetype = entityToArchetype.get(entity)
-      if (archetype) {
-        archetype.entities.delete(entity)
-        entityToArchetype.delete(entity)
-      }
+      pipe(
+        Option.fromNullable(entityToArchetype.get(entity)),
+        Option.match({
+          onNone: () => {},
+          onSome: (archetype) => {
+            archetype.entities.delete(entity)
+            entityToArchetype.delete(entity)
+          },
+        })
+      )
     })
 
   const getEntitiesWithArchetype = (componentTypes: ReadonlySet<string>): Effect.Effect<ReadonlySet<EntityId>, never> =>
     Effect.sync(() => {
       const key = getArchetypeKey(componentTypes)
-      const archetype = archetypes.get(key)
-      return archetype ? new Set(archetype.entities) : new Set()
+
+      return pipe(
+        Option.fromNullable(archetypes.get(key)),
+        Option.match({
+          onNone: () => new Set<EntityId>(),
+          onSome: (archetype) => new Set(archetype.entities),
+        })
+      )
     })
 
   const clear = (): Effect.Effect<void, never> =>

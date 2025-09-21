@@ -1,6 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { Schema, Effect } from 'effect'
-import { GameErrorSchema, createGameError, EffectConfig } from '../effect'
+import { Schema, Effect, pipe } from 'effect'
+import {
+  GameErrorSchema,
+  createGameError,
+  EffectConfig,
+  runSync,
+  runPromise,
+  sync,
+  map,
+  flatMap,
+  catchAll,
+  mapError,
+  orElse,
+  promise,
+  tryPromise,
+  batch,
+  logInfo,
+  logDebug,
+  logError,
+  timed,
+  makeService,
+  Context,
+  layerFrom,
+  withRetry,
+} from '../effect'
 import {
   BrandedTypes,
   PlayerIdSchema,
@@ -35,12 +58,39 @@ describe('Effect-TS Configuration', () => {
     })
   })
 
-  describe('EffectConfig', () => {
+  describe('EffectConfig Basic Operations', () => {
     it('should create successful Effect', async () => {
       const effect = EffectConfig.succeed('test value')
       const result = await Effect.runPromise(effect)
 
       expect(result).toBe('test value')
+    })
+
+    it('should create and run simple effects', () => {
+      const effect = EffectConfig.succeed(42)
+      const result = runSync(effect)
+      expect(result).toBe(42)
+    })
+
+    it('should handle failures with fail', () => {
+      const effect = EffectConfig.fail('test error')
+      expect(() => runSync(effect)).toThrow('test error')
+    })
+
+    it('should handle sync operations', () => {
+      const effect = sync(() => 'hello world')
+      const result = runSync(effect)
+      expect(result).toBe('hello world')
+    })
+
+    it('should compose effects with pipe', () => {
+      const effect = pipe(
+        EffectConfig.succeed(5),
+        map((n) => n * 2),
+        flatMap((n) => EffectConfig.succeed(n + 3))
+      )
+      const result = runSync(effect)
+      expect(result).toBe(13)
     })
 
     it('should create failed Effect', async () => {
@@ -65,7 +115,57 @@ describe('Effect-TS Configuration', () => {
       expect(EffectConfig.isGameError(gameError)).toBe(true)
       expect(EffectConfig.isGameError(regularObject)).toBe(false)
     })
+  })
 
+  describe('Error handling', () => {
+    it('should catch errors with catchAll', () => {
+      const effect = pipe(
+        EffectConfig.fail('error'),
+        catchAll(() => EffectConfig.succeed('recovered'))
+      )
+      const result = runSync(effect)
+      expect(result).toBe('recovered')
+    })
+
+    it('should map errors', () => {
+      const effect = pipe(
+        EffectConfig.fail('original'),
+        mapError((e) => createGameError(`mapped: ${e.message}`, e.code))
+      )
+      expect(() => runSync(effect)).toThrow('mapped: original')
+    })
+
+    it('should handle orElse', () => {
+      const effect = pipe(EffectConfig.fail('first'), orElse(EffectConfig.succeed('fallback')))
+      const result = runSync(effect)
+      expect(result).toBe('fallback')
+    })
+  })
+
+  describe('Async operations', () => {
+    it('should handle promises', async () => {
+      const effect = promise(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        return 'async result'
+      })
+      const result = await runPromise(effect)
+      expect(result).toBe('async result')
+    })
+
+    it('should handle tryPromise', async () => {
+      const effect = tryPromise({
+        try: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10))
+          return 'success'
+        },
+        catch: (error) => new Error(String(error)),
+      })
+      const result = await runPromise(effect)
+      expect(result).toBe('success')
+    })
+  })
+
+  describe('Schema validation', () => {
     it('should validate using schema', async () => {
       const stringSchema = Schema.String
       const validator = EffectConfig.validate(stringSchema)
@@ -74,7 +174,7 @@ describe('Effect-TS Configuration', () => {
       const result = await Effect.runPromise(validEffect)
       expect(result).toBe('valid string')
 
-      const invalidEffect = validator(123 as unknown as string) // 数値を渡して型エラーを発生させる
+      const invalidEffect = validator(123 as unknown as string)
       const invalidResult = await Effect.runPromise(Effect.either(invalidEffect))
 
       expect(invalidResult._tag).toBe('Left')
@@ -85,38 +185,136 @@ describe('Effect-TS Configuration', () => {
         }
       }
     })
+
+    it('should validate data with schemas', () => {
+      const schema = Schema.Struct({
+        name: Schema.String,
+        age: Schema.Number,
+      })
+
+      const valid = { name: 'John', age: 30 }
+      const effect = EffectConfig.validate(schema)(valid)
+      const result = runSync(effect)
+      expect(result).toEqual(valid)
+    })
+
+    it('should fail validation for invalid data', () => {
+      const schema = Schema.Struct({
+        name: Schema.String,
+        age: Schema.Number,
+      })
+
+      const invalid = { name: 'John', age: 'thirty' } as any
+      const effect = EffectConfig.validate(schema)(invalid)
+      expect(() => runSync(effect)).toThrow()
+    })
+  })
+
+  describe('Batch processing', () => {
+    it('should process items in batch', async () => {
+      const items = [1, 2, 3, 4, 5]
+      const effect = batch(items, (n) => EffectConfig.succeed(n * 2), { concurrency: 2 })
+      const result = await runPromise(effect)
+      expect(result).toEqual([2, 4, 6, 8, 10])
+    })
+  })
+
+  describe('Logging utilities', () => {
+    it('should log messages', () => {
+      const effect = pipe(
+        logInfo('info message'),
+        Effect.flatMap(() => logDebug('debug message')),
+        Effect.flatMap(() => logError('error message'))
+      )
+      expect(() => runSync(effect)).not.toThrow()
+    })
+  })
+
+  describe('Performance measurement', () => {
+    it('should measure execution time', async () => {
+      const effect = timed(
+        'test-operation',
+        promise(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10))
+          return 'done'
+        })
+      )
+      const result = await runPromise(effect)
+      expect(result).toBe('done')
+    })
+  })
+
+  describe('Service creation', () => {
+    it('should create services with makeService', () => {
+      interface TestService {
+        getValue: () => string
+      }
+
+      const TestService = makeService<TestService>('TestService')
+
+      expect(TestService).toBeDefined()
+      expect(TestService.key).toBe('@app/TestService')
+    })
+  })
+
+  describe('Layer utilities', () => {
+    it('should create layers', () => {
+      interface Config {
+        apiUrl: string
+      }
+
+      const ConfigTag = Context.GenericTag<Config>('Config')
+
+      const configLayer = layerFrom(ConfigTag, {
+        apiUrl: 'http://localhost:3000',
+      })
+
+      expect(configLayer).toBeDefined()
+    })
+  })
+
+  describe('Retry mechanism', () => {
+    it('should retry failed effects', async () => {
+      let attempts = 0
+      const effect = withRetry(
+        Effect.suspend(() => {
+          attempts++
+          if (attempts < 3) {
+            return Effect.fail(new Error('not yet'))
+          }
+          return Effect.succeed('success')
+        }),
+        { times: 5, delay: 10 }
+      )
+
+      const result = await runPromise(effect)
+      expect(result).toBe('success')
+      expect(attempts).toBe(3)
+    })
   })
 
   describe('Branded Types', () => {
     it('should create PlayerId safely', () => {
       const playerId = BrandedTypes.createPlayerId('player_123')
       expect(playerId).toBe('player_123')
-
-      // Schema validation
       expect(Schema.is(PlayerIdSchema)(playerId)).toBe(true)
     })
 
     it('should create WorldCoordinate safely', () => {
       const coordinate = BrandedTypes.createWorldCoordinate(100.5)
       expect(coordinate).toBe(100.5)
-
-      // Schema validation
       expect(Schema.is(WorldCoordinateSchema)(coordinate)).toBe(true)
     })
 
     it('should create ChunkId safely', () => {
       const chunkId = BrandedTypes.createChunkId('chunk_1_2')
       expect(chunkId).toBe('chunk_1_2')
-
-      // Schema validation
       expect(Schema.is(ChunkIdSchema)(chunkId)).toBe(true)
     })
 
     it('should create BlockTypeId safely', () => {
       const blockTypeId = BrandedTypes.createBlockTypeId(1)
       expect(blockTypeId).toBe(1)
-
-      // Schema validation
       expect(Schema.is(BlockTypeIdSchema)(blockTypeId)).toBe(true)
     })
 
@@ -129,23 +327,19 @@ describe('Effect-TS Configuration', () => {
 
   describe('Tagged Error Utility', () => {
     it('should create tagged errors using taggedError utility', async () => {
-      // Import the taggedError function
       const { taggedError } = await import('../effect')
 
-      // Create a test error with the taggedError utility
       const TestError = taggedError('TestError')({
         message: Schema.String,
         code: Schema.Number,
       })
 
-      // The function should create a schema that can be used to create errors
       const errorInstance = {
         _tag: 'TestError',
         message: 'Test message',
         code: 123,
       }
 
-      // Verify the structure
       expect(errorInstance._tag).toBe('TestError')
       expect(errorInstance.message).toBe('Test message')
       expect(errorInstance.code).toBe(123)
@@ -154,7 +348,6 @@ describe('Effect-TS Configuration', () => {
     it('should create tagged errors with multiple fields', async () => {
       const { taggedError } = await import('../effect')
 
-      // Create a more complex tagged error
       const ComplexError = taggedError('ComplexError')({
         message: Schema.String,
         details: Schema.Object,
@@ -179,7 +372,6 @@ describe('Effect-TS Configuration', () => {
     it('should handle empty fields object', async () => {
       const { taggedError } = await import('../effect')
 
-      // Create a tagged error with no additional fields
       const SimpleError = taggedError('SimpleError')({})
 
       const errorInstance = {

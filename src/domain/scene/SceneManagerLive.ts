@@ -1,6 +1,63 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, pipe, Match, Option, Either } from 'effect'
 import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
+
+/**
+ * 遷移中かチェックするヘルパー
+ */
+const ensureNotTransitioning = (
+  state: SceneManagerState,
+  targetScene: SceneType
+): Effect.Effect<void, SceneTransitionError> =>
+  pipe(
+    state.isTransitioning,
+    Match.value,
+    Match.when(true, () =>
+      Effect.fail(
+        SceneTransitionError({
+          message: 'Scene transition already in progress',
+          currentScene: state.currentScene?.type,
+          targetScene,
+        })
+      )
+    ),
+    Match.orElse(() => Effect.succeed(undefined))
+  )
+
+/**
+ * スタックが空でないことを確認
+ */
+const ensureStackNotEmpty = (state: SceneManagerState): Effect.Effect<SceneType, SceneTransitionError> =>
+  pipe(
+    state.sceneStack.length,
+    Match.value,
+    Match.when(0, () =>
+      Effect.fail(
+        SceneTransitionError({
+          message: 'No scene in stack to pop',
+          currentScene: state.currentScene?.type,
+          targetScene: 'MainMenu',
+        })
+      )
+    ),
+    Match.orElse(() => {
+      const previousScene = state.sceneStack[state.sceneStack.length - 1]
+      return pipe(
+        Option.fromNullable(previousScene),
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              SceneTransitionError({
+                message: 'Previous scene is undefined',
+                currentScene: state.currentScene?.type,
+                targetScene: 'MainMenu',
+              })
+            ),
+          onSome: (scene) => Effect.succeed(scene.type),
+        })
+      )
+    })
+  )
 
 // SceneManagerLive実装
 export const SceneManagerLive = Layer.effect(
@@ -60,14 +117,21 @@ export const SceneManagerLive = Layer.effect(
       Effect.gen(function* () {
         const currentActiveScene = yield* Ref.get(activeSceneRef)
 
-        if (currentActiveScene) {
-          yield* Effect.logInfo('現在のシーンをクリーンアップ中...')
-          yield* currentActiveScene.onExit()
-          yield* Effect.catchAll(currentActiveScene.cleanup(), (error) =>
-            Effect.logError(`シーンクリーンアップエラー: ${error}`)
-          )
-          yield* Ref.set(activeSceneRef, undefined)
-        }
+        yield* pipe(
+          Option.fromNullable(currentActiveScene),
+          Option.match({
+            onNone: () => Effect.succeed(undefined),
+            onSome: (scene) =>
+              Effect.gen(function* () {
+                yield* Effect.logInfo('現在のシーンをクリーンアップ中...')
+                yield* scene.onExit()
+                yield* Effect.catchAll(scene.cleanup(), (error) =>
+                  Effect.logError(`シーンクリーンアップエラー: ${error}`)
+                )
+                yield* Ref.set(activeSceneRef, undefined)
+              }),
+          })
+        )
       })
 
     // シーン遷移処理
@@ -76,8 +140,6 @@ export const SceneManagerLive = Layer.effect(
       transition: SceneTransition
     ): Effect.Effect<void, SceneTransitionError> =>
       Effect.gen(function* () {
-        const state = yield* Ref.get(stateRef)
-
         // 遷移開始
         yield* Ref.update(stateRef, (s) => ({ ...s, isTransitioning: true, transitionProgress: 0 }))
 
@@ -94,30 +156,39 @@ export const SceneManagerLive = Layer.effect(
           })
         )
 
-        if (initializeResult._tag === 'Left') {
-          // エラー時の復旧処理
-          yield* Ref.update(stateRef, (s) => ({ ...s, isTransitioning: false, transitionProgress: 0 }))
-          yield* Effect.logError(`シーン遷移エラー: ${initializeResult.left}`)
+        yield* pipe(
+          initializeResult,
+          Either.match({
+            onLeft: (error) =>
+              Effect.gen(function* () {
+                // エラー時の復旧処理
+                yield* Ref.update(stateRef, (s) => ({ ...s, isTransitioning: false, transitionProgress: 0 }))
+                yield* Effect.logError(`シーン遷移エラー: ${error}`)
 
-          return yield* Effect.fail(
-            SceneTransitionError({
-              message: `Failed to transition to ${transition.to}: ${initializeResult.left.message || JSON.stringify(initializeResult.left)}`,
-              currentScene: state.currentScene?.type,
-              targetScene: transition.to,
-            })
-          )
-        }
+                const state = yield* Ref.get(stateRef)
+                return yield* Effect.fail(
+                  SceneTransitionError({
+                    message: `Failed to transition to ${transition.to}: ${error.message || JSON.stringify(error)}`,
+                    currentScene: state.currentScene?.type,
+                    targetScene: transition.to,
+                  })
+                )
+              }),
+            onRight: () =>
+              Effect.gen(function* () {
+                // 状態更新
+                yield* Ref.update(stateRef, (s) => ({
+                  ...s,
+                  currentScene: targetScene.data,
+                  isTransitioning: false,
+                  transitionProgress: 1,
+                }))
 
-        // 状態更新
-        yield* Ref.update(stateRef, (s) => ({
-          ...s,
-          currentScene: targetScene.data,
-          isTransitioning: false,
-          transitionProgress: 1,
-        }))
-
-        yield* Ref.set(activeSceneRef, targetScene)
-        yield* Effect.logInfo(`シーン遷移完了: ${transition.to}`)
+                yield* Ref.set(activeSceneRef, targetScene)
+                yield* Effect.logInfo(`シーン遷移完了: ${transition.to}`)
+              }),
+          })
+        )
       })
 
     return SceneManager.of({
@@ -133,15 +204,7 @@ export const SceneManagerLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
 
-          if (currentState.isTransitioning) {
-            return yield* Effect.fail(
-              SceneTransitionError({
-                message: 'Scene transition already in progress',
-                currentScene: currentState.currentScene?.type,
-                targetScene: sceneType,
-              })
-            )
-          }
+          yield* ensureNotTransitioning(currentState, sceneType)
 
           const transitionData: SceneTransition = {
             from: currentState.currentScene?.type,
@@ -158,23 +221,20 @@ export const SceneManagerLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
 
-          if (currentState.isTransitioning) {
-            return yield* Effect.fail(
-              SceneTransitionError({
-                message: 'Cannot push scene during transition',
-                currentScene: currentState.currentScene?.type,
-                targetScene: sceneType,
-              })
-            )
-          }
+          yield* ensureNotTransitioning(currentState, sceneType)
 
           // 現在のシーンをスタックにプッシュ
-          if (currentState.currentScene) {
-            yield* Ref.update(stateRef, (s) => ({
-              ...s,
-              sceneStack: [...s.sceneStack, s.currentScene!],
-            }))
-          }
+          yield* pipe(
+            Option.fromNullable(currentState.currentScene),
+            Option.match({
+              onNone: () => Effect.succeed(undefined),
+              onSome: () =>
+                Ref.update(stateRef, (s) => ({
+                  ...s,
+                  sceneStack: [...s.sceneStack, s.currentScene!],
+                })),
+            })
+          )
 
           // 新しいシーンに遷移
           const newScene = yield* createScene(sceneType)
@@ -184,28 +244,7 @@ export const SceneManagerLive = Layer.effect(
       popScene: () =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
-
-          if (currentState.sceneStack.length === 0) {
-            return yield* Effect.fail(
-              SceneTransitionError({
-                message: 'No scene in stack to pop',
-                currentScene: currentState.currentScene?.type,
-                targetScene: 'MainMenu', // デフォルトでMainMenuに戻る
-              })
-            )
-          }
-
-          const previousScene = currentState.sceneStack[currentState.sceneStack.length - 1]
-
-          if (!previousScene) {
-            return yield* Effect.fail(
-              SceneTransitionError({
-                message: 'Previous scene is undefined',
-                currentScene: currentState.currentScene?.type,
-                targetScene: 'MainMenu',
-              })
-            )
-          }
+          const previousSceneType = yield* ensureStackNotEmpty(currentState)
 
           // スタックから削除
           yield* Ref.update(stateRef, (s) => ({
@@ -214,10 +253,10 @@ export const SceneManagerLive = Layer.effect(
           }))
 
           // 前のシーンに遷移
-          const newScene = yield* createScene(previousScene.type)
+          const newScene = yield* createScene(previousSceneType)
           yield* performTransition(newScene, {
             from: currentState.currentScene?.type,
-            to: previousScene.type,
+            to: previousSceneType,
           })
         }),
 
@@ -226,17 +265,25 @@ export const SceneManagerLive = Layer.effect(
       update: (deltaTime) =>
         Effect.gen(function* () {
           const activeScene = yield* Ref.get(activeSceneRef)
-          if (activeScene) {
-            yield* activeScene.update(deltaTime)
-          }
+          yield* pipe(
+            Option.fromNullable(activeScene),
+            Option.match({
+              onNone: () => Effect.succeed(undefined),
+              onSome: (scene) => scene.update(deltaTime),
+            })
+          )
         }),
 
       render: () =>
         Effect.gen(function* () {
           const activeScene = yield* Ref.get(activeSceneRef)
-          if (activeScene) {
-            yield* activeScene.render()
-          }
+          yield* pipe(
+            Option.fromNullable(activeScene),
+            Option.match({
+              onNone: () => Effect.succeed(undefined),
+              onSome: (scene) => scene.render(),
+            })
+          )
         }),
 
       cleanup: () =>

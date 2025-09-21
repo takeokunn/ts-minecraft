@@ -271,7 +271,7 @@ describe('SceneManager', () => {
           Pause: () => 'pause',
           Settings: () => 'settings',
         })
-      }).toThrow('Unknown scene type: InvalidScene')
+      }).toThrow('effect/Match/exhaustive: absurd')
     })
 
     it.effect('should fail to pop scene when stack is empty', () =>

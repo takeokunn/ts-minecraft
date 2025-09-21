@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Match, pipe, Option } from 'effect'
 import { Schema } from 'effect'
 import { MouseDelta } from './types'
 
@@ -131,45 +131,69 @@ export const MouseSensitivityLive = Layer.effect(
       const absValue = Math.abs(value)
       const sign = Math.sign(value)
 
-      switch (curve) {
-        case 'linear':
-          return value
+      return pipe(
+        curve,
+        Match.value,
+        Match.when('linear', () => value),
+        Match.when('accelerated', () => sign * Math.pow(absValue, 1.2)),
+        Match.when('decelerated', () => sign * Math.pow(absValue, 0.8)),
+        Match.when('custom', () =>
+          pipe(
+            Option.fromNullable(customPoints),
+            Option.flatMap((points) =>
+              pipe(
+                points.length === 0,
+                Match.value,
+                Match.when(true, () => Option.none<number>()),
+                Match.orElse(() => Option.some(points))
+              )
+            ),
+            Option.match({
+              onNone: () => value,
+              onSome: (points: number[]) => {
+                // 簡単な線形補間による custom curve
+                const normalizedInput = Math.min(absValue, 1.0)
+                const segmentSize = 1.0 / (points.length - 1)
+                const segmentIndex = Math.floor(normalizedInput / segmentSize)
+                const segmentProgress = (normalizedInput % segmentSize) / segmentSize
 
-        case 'accelerated':
-          return sign * Math.pow(absValue, 1.2)
+                return pipe(
+                  segmentIndex >= points.length - 1,
+                  Match.value,
+                  Match.when(true, () =>
+                    pipe(
+                      Option.fromNullable(points[points.length - 1]),
+                      Option.match({
+                        onNone: () => value,
+                        onSome: (lastPoint) => sign * lastPoint,
+                      })
+                    )
+                  ),
+                  Match.orElse(() => {
+                    const currentPoint = points[segmentIndex]
+                    const nextPoint = points[segmentIndex + 1]
 
-        case 'decelerated':
-          return sign * Math.pow(absValue, 0.8)
-
-        case 'custom':
-          if (!customPoints || customPoints.length === 0) {
-            return value
-          }
-          // 簡単な線形補間による custom curve
-          const normalizedInput = Math.min(absValue, 1.0)
-          const segmentSize = 1.0 / (customPoints.length - 1)
-          const segmentIndex = Math.floor(normalizedInput / segmentSize)
-          const segmentProgress = (normalizedInput % segmentSize) / segmentSize
-
-          if (segmentIndex >= customPoints.length - 1) {
-            const lastPoint = customPoints[customPoints.length - 1]
-            return lastPoint ? sign * lastPoint : value
-          }
-
-          const currentPoint = customPoints[segmentIndex]
-          const nextPoint = customPoints[segmentIndex + 1]
-
-          if (currentPoint === undefined || nextPoint === undefined) {
-            return value
-          }
-
-          const interpolated = currentPoint + (nextPoint - currentPoint) * segmentProgress
-
-          return sign * interpolated
-
-        default:
-          return value
-      }
+                    return pipe(
+                      Option.fromNullable(currentPoint),
+                      Option.flatMap((current) =>
+                        Option.fromNullable(nextPoint).pipe(Option.map((next) => ({ current, next })))
+                      ),
+                      Option.match({
+                        onNone: () => value,
+                        onSome: ({ current, next }) => {
+                          const interpolated = current + (next - current) * segmentProgress
+                          return sign * interpolated
+                        },
+                      })
+                    )
+                  })
+                )
+              },
+            })
+          )
+        ),
+        Match.exhaustive
+      )
     }
 
     // スムージング適用
@@ -177,38 +201,43 @@ export const MouseSensitivityLive = Layer.effect(
       currentDelta: MouseDelta,
       smoothingAmount: number,
       buffer: MouseDelta[]
-    ): { smoothedDelta: MouseDelta; newBuffer: MouseDelta[] } => {
-      if (smoothingAmount <= 0) {
-        return { smoothedDelta: currentDelta, newBuffer: buffer }
-      }
+    ): { smoothedDelta: MouseDelta; newBuffer: MouseDelta[] } =>
+      pipe(
+        smoothingAmount <= 0,
+        Match.value,
+        Match.when(true, () => ({ smoothedDelta: currentDelta, newBuffer: buffer })),
+        Match.orElse(() => {
+          const bufferSize = Math.max(1, Math.floor(smoothingAmount * 10))
+          const newBuffer = [...buffer, currentDelta].slice(-bufferSize)
 
-      const bufferSize = Math.max(1, Math.floor(smoothingAmount * 10))
-      const newBuffer = [...buffer, currentDelta].slice(-bufferSize)
+          return pipe(
+            newBuffer.length === 1,
+            Match.value,
+            Match.when(true, () => ({ smoothedDelta: currentDelta, newBuffer })),
+            Match.orElse(() => {
+              // 加重平均
+              let totalWeight = 0
+              let weightedDeltaX = 0
+              let weightedDeltaY = 0
 
-      if (newBuffer.length === 1) {
-        return { smoothedDelta: currentDelta, newBuffer }
-      }
+              newBuffer.forEach((delta, index) => {
+                const weight = (index + 1) / newBuffer.length
+                totalWeight += weight
+                weightedDeltaX += delta.deltaX * weight
+                weightedDeltaY += delta.deltaY * weight
+              })
 
-      // 加重平均
-      let totalWeight = 0
-      let weightedDeltaX = 0
-      let weightedDeltaY = 0
+              const smoothedDelta: MouseDelta = {
+                deltaX: weightedDeltaX / totalWeight,
+                deltaY: weightedDeltaY / totalWeight,
+                timestamp: currentDelta.timestamp,
+              }
 
-      newBuffer.forEach((delta, index) => {
-        const weight = (index + 1) / newBuffer.length
-        totalWeight += weight
-        weightedDeltaX += delta.deltaX * weight
-        weightedDeltaY += delta.deltaY * weight
-      })
-
-      const smoothedDelta: MouseDelta = {
-        deltaX: weightedDeltaX / totalWeight,
-        deltaY: weightedDeltaY / totalWeight,
-        timestamp: currentDelta.timestamp,
-      }
-
-      return { smoothedDelta, newBuffer }
-    }
+              return { smoothedDelta, newBuffer }
+            })
+          )
+        })
+      )
 
     return MouseSensitivity.of({
       getConfig: () => Ref.get(config),
@@ -233,55 +262,72 @@ export const MouseSensitivityLive = Layer.effect(
 
           // デッドゾーン適用
           const deltaLength = Math.sqrt(delta.deltaX ** 2 + delta.deltaY ** 2)
-          if (deltaLength < currentConfig.deadZone) {
-            return {
-              deltaX: 0,
-              deltaY: 0,
-              originalDeltaX: delta.deltaX,
-              originalDeltaY: delta.deltaY,
-              appliedSensitivity: 0,
-              timestamp: delta.timestamp,
-            }
-          }
-
-          // スムージング適用
-          const { smoothedDelta, newBuffer } = applySmoothing(delta, currentConfig.smoothing, buffer)
-          yield* Ref.set(smoothingBuffer, newBuffer)
-
-          // 感度カーブ適用
-          const curvedDeltaX = applyCurve(
-            smoothedDelta.deltaX,
-            currentConfig.curve,
-            currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined
-          )
-          const curvedDeltaY = applyCurve(
-            smoothedDelta.deltaY,
-            currentConfig.curve,
-            currentConfig.customCurvePoints ? [...currentConfig.customCurvePoints] : undefined
+          const deadZoneResult = pipe(
+            deltaLength < currentConfig.deadZone,
+            Match.value,
+            Match.when(true, () =>
+              Option.some({
+                deltaX: 0,
+                deltaY: 0,
+                originalDeltaX: delta.deltaX,
+                originalDeltaY: delta.deltaY,
+                appliedSensitivity: 0,
+                timestamp: delta.timestamp,
+              })
+            ),
+            Match.orElse(() => Option.none<AdjustedMouseDelta>())
           )
 
-          // 感度とグローバル倍率適用
-          let adjustedDeltaX = curvedDeltaX * currentConfig.xSensitivity * currentConfig.globalMultiplier
-          let adjustedDeltaY = curvedDeltaY * currentConfig.ySensitivity * currentConfig.globalMultiplier
+          return yield* pipe(
+            deadZoneResult,
+            Option.match({
+              onSome: (result) => Effect.succeed(result),
+              onNone: () =>
+                Effect.gen(function* () {
+                  // スムージング適用
+                  const { smoothedDelta, newBuffer } = applySmoothing(delta, currentConfig.smoothing, buffer)
+                  yield* Ref.set(smoothingBuffer, newBuffer)
 
-          // 軸反転
-          if (currentConfig.invertX) {
-            adjustedDeltaX = -adjustedDeltaX
-          }
-          if (currentConfig.invertY) {
-            adjustedDeltaY = -adjustedDeltaY
-          }
+                  // 感度カーブ適用
+                  const customPoints = pipe(
+                    Option.fromNullable(currentConfig.customCurvePoints),
+                    Option.map((points) => [...points]),
+                    Option.getOrUndefined
+                  )
+                  const curvedDeltaX = applyCurve(smoothedDelta.deltaX, currentConfig.curve, customPoints)
+                  const curvedDeltaY = applyCurve(smoothedDelta.deltaY, currentConfig.curve, customPoints)
 
-          const appliedSensitivity = Math.sqrt(adjustedDeltaX ** 2 + adjustedDeltaY ** 2) / (deltaLength || 1)
+                  // 感度とグローバル倍率適用
+                  let adjustedDeltaX = curvedDeltaX * currentConfig.xSensitivity * currentConfig.globalMultiplier
+                  let adjustedDeltaY = curvedDeltaY * currentConfig.ySensitivity * currentConfig.globalMultiplier
 
-          return {
-            deltaX: adjustedDeltaX,
-            deltaY: adjustedDeltaY,
-            originalDeltaX: delta.deltaX,
-            originalDeltaY: delta.deltaY,
-            appliedSensitivity,
-            timestamp: delta.timestamp,
-          }
+                  // 軸反転
+                  adjustedDeltaX = pipe(
+                    currentConfig.invertX,
+                    Match.value,
+                    Match.when(true, () => -adjustedDeltaX),
+                    Match.orElse(() => adjustedDeltaX)
+                  )
+                  adjustedDeltaY = pipe(
+                    currentConfig.invertY,
+                    Match.value,
+                    Match.when(true, () => -adjustedDeltaY),
+                    Match.orElse(() => adjustedDeltaY)
+                  )
+
+                  const appliedSensitivity = Math.sqrt(adjustedDeltaX ** 2 + adjustedDeltaY ** 2) / (deltaLength || 1)
+
+                  return {
+                    deltaX: adjustedDeltaX,
+                    deltaY: adjustedDeltaY,
+                    originalDeltaX: delta.deltaX,
+                    originalDeltaY: delta.deltaY,
+                    appliedSensitivity,
+                    timestamp: delta.timestamp,
+                  }
+                }),
+            })
+          )
         }),
 
       setPreset: (preset) =>
