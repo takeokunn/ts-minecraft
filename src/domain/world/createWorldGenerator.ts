@@ -4,7 +4,7 @@
  * @module domain/world/createWorldGenerator
  */
 
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { createChunkData } from '../chunk/ChunkData.js'
 import type { ChunkData } from '../chunk/ChunkData.js'
 import type { ChunkPosition } from '../chunk/ChunkPosition.js'
@@ -13,6 +13,11 @@ import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGener
 import { StructureGenerationError } from './WorldGenerator.js'
 import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
 import { createGeneratorOptions } from './GeneratorOptions.js'
+import { NoiseGenerator, NoiseGeneratorLive } from './NoiseGenerator'
+import { TerrainGenerator, TerrainGeneratorLive } from './TerrainGenerator'
+import { BiomeGenerator, BiomeGeneratorLive } from './BiomeGenerator'
+import { CaveGenerator, CaveGeneratorLive } from './CaveGenerator'
+import { OreDistribution, OreDistributionLive, defaultOreConfigs } from './OreDistribution'
 
 /**
  * 空のチャンクを生成（仮実装）
@@ -95,24 +100,105 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     spawnPoint: { x: 0, y: 64, z: 0 } as Vector3,
   }
 
+  // 地形生成サービスのLayerを構築
+  const noiseLayer = NoiseGeneratorLive({
+    seed: generatorOptions.seed,
+    octaves: 6,
+    persistence: 0.5,
+    lacunarity: 2.0,
+  })
+
+  const terrainLayer = Layer.merge(
+    noiseLayer,
+    TerrainGeneratorLive({
+      seaLevel: generatorOptions.seaLevel,
+      maxHeight: 319,
+      minHeight: -64,
+      surfaceVariation: 32,
+      caveThreshold: 0.6,
+    })
+  )
+
+  const biomeLayer = Layer.merge(
+    noiseLayer,
+    BiomeGeneratorLive({
+      temperatureScale: 0.002,
+      humidityScale: 0.003,
+      mountainThreshold: 80,
+      oceanDepth: 10,
+      riverWidth: 8,
+    })
+  )
+
+  const caveLayer = Layer.merge(
+    noiseLayer,
+    CaveGeneratorLive({
+      caveThreshold: 0.2,
+      caveScale: 0.02,
+      lavaLevel: 10,
+      ravineThreshold: 0.05,
+      ravineScale: 0.005,
+    })
+  )
+
+  const oreLayer = Layer.merge(
+    noiseLayer,
+    OreDistributionLive({
+      ores: defaultOreConfigs,
+      noiseScale: 0.05,
+      clusterThreshold: 0.6,
+    })
+  )
+
+  const fullLayer = Layer.mergeAll(terrainLayer, biomeLayer, caveLayer, oreLayer)
+
   const generator: WorldGenerator = {
     generateChunk: (position: ChunkPosition) =>
       Effect.gen(function* () {
-        // TODO: 実際のチャンク生成ロジックを実装
-        // 現在は仮実装として空のチャンクを返す
-        const result = createEmptyChunk(position)
+        // 地形生成サービスを取得
+        const terrainGenerator = yield* TerrainGenerator
+        const biomeGenerator = yield* BiomeGenerator
+        const caveGenerator = yield* CaveGenerator
+        const oreDistribution = yield* OreDistribution
 
-        // チャンクをキャッシュに追加
+        // 1. 空のチャンクデータを作成
+        let chunkData = createChunkData(position)
+
+        // 2. 高度マップを生成
+        const heightMap = yield* terrainGenerator.generateHeightMap(position)
+
+        // 3. 基本地形を生成
+        chunkData = yield* terrainGenerator.generateBaseTerrain(chunkData, heightMap)
+
+        // 4. バイオームマップを生成
+        const biomeMap = yield* biomeGenerator.generateBiomeMap(position.x, position.z)
+
+        // 5. 洞窟を彫り込み
+        chunkData = yield* caveGenerator.carveChunk(chunkData)
+
+        // 6. 鉱石を配置
+        chunkData = yield* oreDistribution.placeOres(chunkData)
+
+        // 7. 結果をキャッシュに保存
         const chunkKey = `${position.x}_${position.z}`
-        state.generatedChunks.set(chunkKey, result.chunk)
+        state.generatedChunks.set(chunkKey, chunkData)
 
-        return result
-      }),
+        // 8. 結果を構築
+        const biomes = biomeMap.flat()
+        const heightMapFlat = heightMap.flat()
+        const structures: Structure[] = []
+
+        return {
+          chunk: chunkData,
+          biomes,
+          structures,
+          heightMap: heightMapFlat,
+        }
+      }).pipe(Effect.provide(fullLayer)),
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        // TODO: 実際の構造物生成ロジックを実装
-        // 現在は仮実装として簡単な構造物を返す
+        // 構造物生成が無効な場合はエラー
         if (!generatorOptions.generateStructures) {
           return yield* Effect.fail(
             new StructureGenerationError({
@@ -132,17 +218,23 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     getBiome: (position: Vector3) =>
       Effect.gen(function* () {
-        // TODO: 実際のバイオーム判定ロジックを実装
-        // 現在は仮実装として平原を返す
-        return getDefaultBiomeInfo('plains')
-      }),
+        const biomeGenerator = yield* BiomeGenerator
+        const biomeType = yield* biomeGenerator.getBiome(position)
+        const climateData = yield* biomeGenerator.getClimateData(position.x, position.z)
+
+        return {
+          type: biomeType,
+          temperature: climateData.temperature,
+          humidity: climateData.humidity,
+          elevation: climateData.elevation + position.y,
+        }
+      }).pipe(Effect.provide(biomeLayer)),
 
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
-        // TODO: 実際の地形高さ計算を実装
-        // 現在は仮実装として海面レベルを返す
-        return generatorOptions.seaLevel
-      }),
+        const terrainGenerator = yield* TerrainGenerator
+        return yield* terrainGenerator.getTerrainHeight(x, z)
+      }).pipe(Effect.provide(terrainLayer)),
 
     getSeed: () => state.seed,
 
@@ -150,7 +242,6 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     canGenerateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        // TODO: 構造物生成可能性の判定ロジックを実装
         if (!generatorOptions.generateStructures) {
           return false
         }
@@ -174,8 +265,6 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     findNearestStructure: (type: StructureType, position: Vector3, searchRadius: number) =>
       Effect.gen(function* () {
-        // TODO: 実際の構造物検索ロジックを実装
-        // 現在は仮実装としてnullを返す
         const nearbyStructures = state.structures.filter((s) => {
           if (s.type !== type) return false
 
