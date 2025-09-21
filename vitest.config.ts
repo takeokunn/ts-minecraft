@@ -65,7 +65,7 @@ export default defineConfig({
 
       // 高品質カバレッジを維持（残り5-6%は防御的エラーハンドリング）
       thresholds: {
-       branches: 90,
+        branches: 90,
         functions: 90,
         lines: 90,
         statements: 90,
@@ -73,7 +73,7 @@ export default defineConfig({
 
       // カバレッジ未達成の閾値設定（警告レベル）
       watermarks: {
-       statements: [90, 100],
+        statements: [90, 100],
         functions: [90, 100],
         branches: [90, 100],
         lines: [90, 100],
