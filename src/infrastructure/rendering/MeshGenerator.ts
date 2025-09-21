@@ -1,0 +1,415 @@
+import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Predicate } from 'effect'
+import * as THREE from 'three'
+import { GreedyMeshingService, GreedyMeshingLive } from './GreedyMeshing'
+import { FaceCullingService, FaceCullingLive } from './FaceCulling'
+import { AmbientOcclusionService, AmbientOcclusionLive } from './AmbientOcclusion'
+
+// ========================================
+// Schema Definitions
+// ========================================
+
+export const ChunkPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+
+export const BlockTypeSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 255))
+
+export const ChunkDataSchema = Schema.Struct({
+  position: ChunkPositionSchema,
+  blocks: Schema.Array(Schema.Array(Schema.Array(BlockTypeSchema))),
+  size: Schema.Number.pipe(Schema.int(), Schema.positive()),
+})
+
+export const MeshDataSchema = Schema.Struct({
+  vertices: Schema.Array(Schema.Number),
+  normals: Schema.Array(Schema.Number),
+  uvs: Schema.Array(Schema.Number),
+  indices: Schema.Array(Schema.Number),
+  colors: Schema.optional(Schema.Array(Schema.Number)),
+})
+
+export const MeshConfigSchema = Schema.Struct({
+  enableGreedyMeshing: Schema.Boolean,
+  enableFaceCulling: Schema.Boolean,
+  enableAO: Schema.Boolean,
+  chunkSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  maxCacheSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+})
+
+// Type exports
+export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
+export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
+export type ChunkData = Schema.Schema.Type<typeof ChunkDataSchema>
+export type MeshData = Schema.Schema.Type<typeof MeshDataSchema>
+export type MeshConfig = Schema.Schema.Type<typeof MeshConfigSchema>
+
+// ========================================
+// Error Definitions (following project pattern)
+// ========================================
+
+export class MeshGenerationError extends Schema.TaggedError<MeshGenerationError>()('MeshGenerationError', {
+  reason: Schema.String,
+  chunkPosition: ChunkPositionSchema,
+  timestamp: Schema.Number,
+  context: Schema.optional(Schema.String),
+}) {}
+
+export class InvalidChunkError extends Schema.TaggedError<InvalidChunkError>()('InvalidChunkError', {
+  reason: Schema.String,
+  chunkData: Schema.Unknown,
+  timestamp: Schema.Number,
+}) {}
+
+// ========================================
+// Service Interface
+// ========================================
+
+export interface MeshGeneratorService {
+  readonly generateMesh: (chunkData: ChunkData) => Effect.Effect<MeshData, MeshGenerationError>
+  readonly generateOptimizedMesh: (chunkData: ChunkData) => Effect.Effect<MeshData, MeshGenerationError>
+  readonly clearCache: () => Effect.Effect<void>
+  readonly getCacheStats: () => Effect.Effect<{ size: number; hits: number; misses: number }>
+}
+
+export const MeshGeneratorService = Context.GenericTag<MeshGeneratorService>('@minecraft/MeshGeneratorService')
+
+// ========================================
+// Cache State
+// ========================================
+
+interface CacheEntry {
+  readonly meshData: MeshData
+  readonly timestamp: number
+}
+
+interface MeshGeneratorState {
+  readonly cache: Map<string, CacheEntry>
+  readonly stats: { hits: number; misses: number }
+  readonly config: MeshConfig
+}
+
+// ========================================
+// Helper Functions (Pure Functions)
+// ========================================
+
+const createCacheKey = (position: ChunkPosition): string => `${position.x}_${position.y}_${position.z}`
+
+const isValidBlock = (blockType: number): boolean =>
+  pipe(
+    blockType,
+    Predicate.and(
+      (b: number) => b > 0,
+      (b: number) => b <= 255
+    )
+  )
+
+const generateBasicCube = (x: number, y: number, z: number): {
+  vertices: number[]
+  normals: number[]
+  uvs: number[]
+  indices: number[]
+} => {
+  const baseIndex = 0
+
+  // 8 vertices of the cube
+  const vertices = [
+    // Front face
+    x, y, z + 1,
+    x + 1, y, z + 1,
+    x + 1, y + 1, z + 1,
+    x, y + 1, z + 1,
+    // Back face
+    x, y, z,
+    x, y + 1, z,
+    x + 1, y + 1, z,
+    x + 1, y, z,
+    // Top face
+    x, y + 1, z + 1,
+    x + 1, y + 1, z + 1,
+    x + 1, y + 1, z,
+    x, y + 1, z,
+    // Bottom face
+    x, y, z,
+    x + 1, y, z,
+    x + 1, y, z + 1,
+    x, y, z + 1,
+    // Right face
+    x + 1, y, z + 1,
+    x + 1, y, z,
+    x + 1, y + 1, z,
+    x + 1, y + 1, z + 1,
+    // Left face
+    x, y, z,
+    x, y, z + 1,
+    x, y + 1, z + 1,
+    x, y + 1, z,
+  ]
+
+  // Normals for each face
+  const normals = [
+    // Front
+    0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+    // Back
+    0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+    // Top
+    0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+    // Bottom
+    0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
+    // Right
+    1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+    // Left
+    -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+  ]
+
+  // UV coordinates for texture mapping
+  const uvs = [
+    // Front
+    0, 0, 1, 0, 1, 1, 0, 1,
+    // Back
+    1, 0, 1, 1, 0, 1, 0, 0,
+    // Top
+    0, 1, 1, 1, 1, 0, 0, 0,
+    // Bottom
+    1, 1, 0, 1, 0, 0, 1, 0,
+    // Right
+    1, 0, 0, 0, 0, 1, 1, 1,
+    // Left
+    0, 0, 1, 0, 1, 1, 0, 1,
+  ]
+
+  // Indices for triangles
+  const indices = []
+  for (let i = 0; i < 6; i++) {
+    const offset = i * 4
+    indices.push(
+      offset, offset + 1, offset + 2,
+      offset, offset + 2, offset + 3
+    )
+  }
+
+  return { vertices, normals, uvs, indices }
+}
+
+// ========================================
+// Basic Mesh Generation (No Optimization)
+// ========================================
+
+const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGenerationError> =>
+  pipe(
+    // Validate input
+    Effect.try({
+      try: () => Schema.decodeUnknownSync(ChunkDataSchema)(chunkData),
+      catch: (error) => new MeshGenerationError({
+        reason: `Invalid chunk data: ${String(error)}`,
+        chunkPosition: chunkData.position || { x: 0, y: 0, z: 0 },
+        timestamp: Date.now(),
+      }),
+    }),
+    Effect.map(validatedChunk => {
+      const meshData = {
+        vertices: [] as number[],
+        normals: [] as number[],
+        uvs: [] as number[],
+        indices: [] as number[],
+      }
+
+      let vertexOffset = 0
+
+      // Generate mesh for each block
+      for (let x = 0; x < validatedChunk.size; x++) {
+        for (let y = 0; y < validatedChunk.size; y++) {
+          for (let z = 0; z < validatedChunk.size; z++) {
+            const blockType = pipe(
+              Option.fromNullable(validatedChunk.blocks[x]?.[y]?.[z]),
+              Option.getOrElse(() => 0)
+            )
+
+            pipe(
+              blockType,
+              Option.liftPredicate(isValidBlock),
+              Option.match({
+                onNone: () => {},
+                onSome: () => {
+                  const cube = generateBasicCube(x, y, z)
+
+                  // Add vertices
+                  meshData.vertices.push(...cube.vertices)
+                  meshData.normals.push(...cube.normals)
+                  meshData.uvs.push(...cube.uvs)
+
+                  // Add indices with offset
+                  meshData.indices.push(...cube.indices.map(i => i + vertexOffset))
+
+                  vertexOffset += cube.vertices.length / 3
+                }
+              })
+            )
+          }
+        }
+      }
+
+      return meshData
+    })
+  )
+
+// ========================================
+// Service Implementation
+// ========================================
+
+const makeService = (
+  config: MeshConfig,
+  greedyMeshing: GreedyMeshingService,
+  faceCulling: FaceCullingService,
+  ambientOcclusion: AmbientOcclusionService
+): Effect.Effect<MeshGeneratorService, never, never> =>
+  Effect.gen(function* () {
+    // Initialize state
+    const stateRef = yield* Ref.make<MeshGeneratorState>({
+      cache: new Map(),
+      stats: { hits: 0, misses: 0 },
+      config,
+    })
+
+    return MeshGeneratorService.of({
+      generateMesh: (chunkData: ChunkData) =>
+        pipe(
+          Ref.get(stateRef),
+          Effect.flatMap(state => {
+            const cacheKey = createCacheKey(chunkData.position)
+            const cached = Option.fromNullable(state.cache.get(cacheKey))
+
+            return pipe(
+              cached,
+              Option.filter(entry => Date.now() - entry.timestamp < 60000),
+              Option.match({
+                onNone: () =>
+                  // Generate new mesh
+                  pipe(
+                    Ref.update(stateRef, s => ({
+                      ...s,
+                      stats: { ...s.stats, misses: s.stats.misses + 1 },
+                    })),
+                    Effect.zipRight(generateBasicMesh(chunkData)),
+                    Effect.tap(meshData =>
+                      Ref.update(stateRef, s => ({
+                        ...s,
+                        cache: new Map(s.cache).set(cacheKey, {
+                          meshData,
+                          timestamp: Date.now(),
+                        }),
+                      }))
+                    ),
+                    Effect.tap(() =>
+                      pipe(
+                        Ref.get(stateRef),
+                        Effect.flatMap(currentState =>
+                          pipe(
+                            currentState.cache.size > config.maxCacheSize,
+                            Match.value,
+                            Match.when(true, () => {
+                              const entries = Array.from(currentState.cache.entries())
+                                .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                              const newCache = new Map(entries.slice(-config.maxCacheSize))
+                              return Ref.update(stateRef, s => ({ ...s, cache: newCache }))
+                            }),
+                            Match.orElse(() => Effect.void)
+                          )
+                        )
+                      )
+                    )
+                  ),
+                onSome: entry =>
+                  // Return cached mesh
+                  pipe(
+                    Ref.update(stateRef, s => ({
+                      ...s,
+                      stats: { ...s.stats, hits: s.stats.hits + 1 },
+                    })),
+                    Effect.as(entry.meshData)
+                  )
+              })
+            )
+          })
+        ),
+
+      generateOptimizedMesh: (chunkData: ChunkData) =>
+        pipe(
+          Effect.if(config.enableGreedyMeshing, {
+            onTrue: () => greedyMeshing.generateGreedyMesh(chunkData),
+            onFalse: () => generateBasicMesh(chunkData)
+          })
+        ),
+
+      clearCache: () =>
+        Effect.gen(function* () {
+          yield* Ref.update(stateRef, (s) => ({
+            ...s,
+            cache: new Map(),
+            stats: { hits: 0, misses: 0 },
+          }))
+        }),
+
+      getCacheStats: () =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRef)
+          return {
+            size: state.cache.size,
+            hits: state.stats.hits,
+            misses: state.stats.misses,
+          }
+        }),
+    })
+  })
+
+// ========================================
+// Layer Construction
+// ========================================
+
+export const MeshGeneratorLive = Layer.effect(
+  MeshGeneratorService,
+  Effect.gen(function* () {
+    const defaultConfig: MeshConfig = {
+      enableGreedyMeshing: true,
+      enableFaceCulling: true,
+      enableAO: true,
+      chunkSize: 16,
+      maxCacheSize: 100,
+    }
+
+    // Get service dependencies
+    const greedyMeshing = yield* GreedyMeshingService
+    const faceCulling = yield* FaceCullingService
+    const ambientOcclusion = yield* AmbientOcclusionService
+
+    return yield* makeService(defaultConfig, greedyMeshing, faceCulling, ambientOcclusion)
+  })
+).pipe(
+  Layer.provide(Layer.mergeAll(
+    GreedyMeshingLive,
+    FaceCullingLive,
+    AmbientOcclusionLive
+  ))
+)
+
+// ========================================
+// THREE.js Integration Helper
+// ========================================
+
+export const createBufferGeometry = (meshData: MeshData): THREE.BufferGeometry => {
+  const geometry = new THREE.BufferGeometry()
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(meshData.vertices, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(meshData.normals, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2))
+
+  if (meshData.colors) {
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(meshData.colors, 3))
+  }
+
+  geometry.setIndex(meshData.indices)
+  geometry.computeBoundingSphere()
+
+  return geometry
+}
