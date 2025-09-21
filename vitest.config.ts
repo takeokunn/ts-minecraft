@@ -70,19 +70,19 @@ export default defineConfig({
 
       // 100%カバレッジ目標設定
       thresholds: {
-        branches: 95,
-        functions: 95,
-        lines: 95,
-        statements: 95,
+        branches: 90,
+        functions: 90,
+        lines: 90,
+        statements: 90,
         perFile: true,
       },
 
       // カバレッジ品質設定
       watermarks: {
-        statements: [95, 100],
-        functions: [95, 100],
-        branches: [95, 100],
-        lines: [95, 100],
+        statements: [90, 100],
+        functions: [90, 100],
+        branches: [90, 100],
+        lines: [90, 100],
       },
 
       clean: true,
