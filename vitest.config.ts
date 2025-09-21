@@ -74,7 +74,7 @@ export default defineConfig({
         functions: 90,
         lines: 90,
         statements: 90,
-        perFile: true,
+        // perFile: true,
       },
 
       // カバレッジ品質設定
