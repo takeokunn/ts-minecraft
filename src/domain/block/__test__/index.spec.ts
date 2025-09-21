@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, pipe, Schema } from 'effect'
-import {
-  runTestEffect,
-  expectBlockToMatch,
-  assertBlockExists,
-  assertBlockCount
-} from './test-helpers'
+import { runTestEffect, expectBlockToMatch, assertBlockExists, assertBlockCount } from './test-helpers'
 
 // インデックスファイルからのインポートをテスト
 import * as BlockDomain from '../index'
@@ -18,16 +13,14 @@ describe('Block Domain Index', () => {
           // TypeScriptの型チェックにより確認される
           expect(typeof BlockDomain).toBe('object')
         })
-      )
-    )
+      ))
 
     it('BlockRegistry型がエクスポートされている', () =>
       runTestEffect(
         Effect.sync(() => {
           expect(typeof BlockDomain).toBe('object')
         })
-      )
-    )
+      ))
   })
 
   describe('スキーマエクスポートの確認', () => {
@@ -37,8 +30,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.BlockTypeSchema).toBeDefined()
           expect(typeof BlockDomain.BlockTypeSchema).toBe('function')
         })
-      )
-    )
+      ))
 
     it('ToolTypeSchemaが正しくエクスポートされている', () =>
       runTestEffect(
@@ -49,8 +41,7 @@ describe('Block Domain Index', () => {
           const validTool = Schema.decodeEither(BlockDomain.ToolTypeSchema)('pickaxe')
           expect(validTool._tag).toBe('Right')
         })
-      )
-    )
+      ))
   })
 
   describe('プロパティシステムエクスポートの確認', () => {
@@ -62,8 +53,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.defaultBlockProperties.physics).toBeDefined()
           expect(BlockDomain.defaultBlockProperties.sound).toBeDefined()
         })
-      )
-    )
+      ))
 
     it('プロパティヘルパー関数がエクスポートされている', () =>
       runTestEffect(
@@ -72,8 +62,7 @@ describe('Block Domain Index', () => {
           expect(typeof BlockDomain.withTexture).toBe('function')
           expect(typeof BlockDomain.withTool).toBe('function')
         })
-      )
-    )
+      ))
 
     it('事前定義プロパティがエクスポートされている', () =>
       runTestEffect(
@@ -82,8 +71,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.woodProperties).toBeDefined()
           expect(BlockDomain.oreProperties).toBeDefined()
         })
-      )
-    )
+      ))
   })
 
   describe('ブロック定義エクスポートの確認', () => {
@@ -95,8 +83,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.dirtBlock).toBeDefined()
           expect(BlockDomain.grassBlock).toBeDefined()
         })
-      )
-    )
+      ))
 
     it('全ブロックリストがエクスポートされている', () =>
       runTestEffect(
@@ -107,8 +94,7 @@ describe('Block Domain Index', () => {
             expect(BlockDomain.allBlocks.length).toBe(53)
           })
         )
-      )
-    )
+      ))
 
     it('カテゴリー別ブロックが適切に含まれている', () =>
       runTestEffect(
@@ -126,8 +112,7 @@ describe('Block Domain Index', () => {
           yield* assertBlockExists(BlockDomain.allBlocks, 'coal_ore')
           yield* assertBlockExists(BlockDomain.allBlocks, 'iron_ore')
         })
-      )
-    )
+      ))
   })
 
   describe('BlockRegistryサービスエクスポートの確認', () => {
@@ -137,8 +122,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.BlockRegistryTag).toBeDefined()
           expect(typeof BlockDomain.BlockRegistryTag).toBe('object')
         })
-      )
-    )
+      ))
 
     it('BlockRegistryLiveがエクスポートされている', () =>
       runTestEffect(
@@ -146,8 +130,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.BlockRegistryLive).toBeDefined()
           expect(typeof BlockDomain.BlockRegistryLive).toBe('object')
         })
-      )
-    )
+      ))
 
     it('エラークラスがエクスポートされている', () =>
       runTestEffect(
@@ -155,8 +138,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.BlockNotFoundError).toBeDefined()
           expect(BlockDomain.BlockAlreadyRegisteredError).toBeDefined()
         })
-      )
-    )
+      ))
 
     it('ヘルパー関数がエクスポートされている', () =>
       runTestEffect(
@@ -169,8 +151,7 @@ describe('Block Domain Index', () => {
           expect(typeof BlockDomain.registerBlock).toBe('function')
           expect(typeof BlockDomain.isBlockRegistered).toBe('function')
         })
-      )
-    )
+      ))
   })
 
   describe('Effect-TS パターンでの統合テスト', () => {
@@ -182,8 +163,7 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.stoneBlock.id).toBe('stone')
           expect(BlockDomain.stoneBlock.category).toBe('natural')
         })
-      )
-    )
+      ))
 
     it('ブロック定数が正しく定義されている', () =>
       runTestEffect(
@@ -194,10 +174,9 @@ describe('Block Domain Index', () => {
           expect(BlockDomain.grassBlock).toBeDefined()
 
           // カテゴリーの確認
-          const naturalBlocks = BlockDomain.allBlocks.filter(b => b.category === 'natural')
+          const naturalBlocks = BlockDomain.allBlocks.filter((b) => b.category === 'natural')
           expect(naturalBlocks.length).toBeGreaterThan(10)
         })
-      )
-    )
+      ))
   })
 })

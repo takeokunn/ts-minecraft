@@ -61,14 +61,7 @@ describe('blocks', () => {
   })
 
   describe('Natural blocks', () => {
-    const naturalBlocks = [
-      stoneBlock,
-      dirtBlock,
-      grassBlock,
-      sandBlock,
-      gravelBlock,
-      bedrockBlock,
-    ]
+    const naturalBlocks = [stoneBlock, dirtBlock, grassBlock, sandBlock, gravelBlock, bedrockBlock]
 
     it('自然ブロックが正しくカテゴリー分けされている', () => {
       pipe(
@@ -148,12 +141,7 @@ describe('blocks', () => {
   })
 
   describe('Ore blocks', () => {
-    const oreBlocks = [
-      coalOreBlock,
-      ironOreBlock,
-      goldOreBlock,
-      diamondOreBlock,
-    ]
+    const oreBlocks = [coalOreBlock, ironOreBlock, goldOreBlock, diamondOreBlock]
 
     it('鉱石ブロックが正しいツールレベルを持つ', () => {
       expect(coalOreBlock.minToolLevel).toBe(0) // 木のツルハシ
@@ -256,7 +244,7 @@ describe('blocks', () => {
   describe('Block categories distribution', () => {
     it('全てのカテゴリーにブロックが存在する', () => {
       const categoryCounts = new Map<string, number>()
-      allBlocks.forEach(block => {
+      allBlocks.forEach((block) => {
         categoryCounts.set(block.category, (categoryCounts.get(block.category) || 0) + 1)
       })
 

@@ -67,7 +67,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
         HashMap.get(blockMap, id),
         Option.match({
           onNone: () => Effect.fail(new BlockNotFoundError({ blockId: id })),
-          onSome: (block) => Effect.succeed(block)
+          onSome: (block) => Effect.succeed(block),
         })
       ),
 
@@ -78,7 +78,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
     getBlocksByCategory: (category: BlockCategory) =>
       Effect.gen(function* () {
         const blockIds = categoryIndex.get(category) ?? new Set()
-        
+
         return pipe(
           EffectArray.fromIterable(Array.from(blockIds)),
           EffectArray.filterMap((id) =>
@@ -86,7 +86,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
               HashMap.get(blockMap, id),
               Option.match({
                 onNone: () => Option.none(),
-                onSome: (block) => Option.some(block)
+                onSome: (block) => Option.some(block),
               })
             )
           )
@@ -96,7 +96,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
     getBlocksByTag: (tag: string) =>
       Effect.gen(function* () {
         const blockIds = tagIndex.get(tag) ?? new Set()
-        
+
         return pipe(
           EffectArray.fromIterable(Array.from(blockIds)),
           EffectArray.filterMap((id) =>
@@ -104,7 +104,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
               HashMap.get(blockMap, id),
               Option.match({
                 onNone: () => Option.none(),
-                onSome: (block) => Option.some(block)
+                onSome: (block) => Option.some(block),
               })
             )
           )
@@ -135,7 +135,7 @@ export const BlockRegistryLive = Effect.gen(function* () {
         if (exists) {
           return yield* Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))
         }
-        
+
         // ブロックマップに追加
         blockMap = HashMap.set(blockMap, block.id, block)
 

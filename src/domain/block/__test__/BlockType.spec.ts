@@ -39,7 +39,7 @@ describe('BlockType', () => {
     it('有効なツールタイプを検証できる', () => {
       const validTools = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
 
-      validTools.forEach(tool => {
+      validTools.forEach((tool) => {
         const result = Schema.decodeEither(ToolTypeSchema)(tool)
         expect(Either.isRight(result)).toBe(true)
         if (Either.isRight(result)) {
@@ -209,7 +209,7 @@ describe('BlockType', () => {
         'combat',
       ]
 
-      validCategories.forEach(category => {
+      validCategories.forEach((category) => {
         const result = Schema.decodeEither(BlockCategorySchema)(category)
         expect(Either.isRight(result)).toBe(true)
         if (Either.isRight(result)) {

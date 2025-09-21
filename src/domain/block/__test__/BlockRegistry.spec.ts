@@ -14,12 +14,11 @@ import {
   createTestBlock,
   assertBlockExists,
   assertBlockCount,
-  expectBlockToMatch
+  expectBlockToMatch,
 } from './test-helpers'
 
 // Effect-TS パターンでのテストデータ生成
-const createBlockWithDefaults = (overrides: Partial<BlockType>) =>
-  Effect.succeed(createTestBlock(overrides))
+const createBlockWithDefaults = (overrides: Partial<BlockType>) => Effect.succeed(createTestBlock(overrides))
 
 describe('BlockRegistry', () => {
   let registry: BlockRegistry
@@ -61,7 +60,7 @@ describe('BlockRegistry', () => {
           onNone: () => expect.fail('ブロックが見つかるべき'),
           onSome: (block) => {
             expect(block.id).toBe('stone')
-          }
+          },
         })
       )
     })
@@ -77,7 +76,7 @@ describe('BlockRegistry', () => {
       const blocks = await runSuccessful(registry.getAllBlocks())
       expect(blocks.length).toBe(53) // 53種類のブロック
 
-      const hasBlock = (id: string) => blocks.some(b => b.id === id)
+      const hasBlock = (id: string) => blocks.some((b) => b.id === id)
       expect(hasBlock('stone')).toBe(true)
       expect(hasBlock('dirt')).toBe(true)
       expect(hasBlock('grass_block')).toBe(true)
@@ -88,11 +87,11 @@ describe('BlockRegistry', () => {
     it('カテゴリーでブロックをフィルタリングできる', async () => {
       const naturalBlocks = await runSuccessful(registry.getBlocksByCategory('natural'))
       expect(naturalBlocks.length).toBeGreaterThan(0)
-      expect(naturalBlocks.every(b => b.category === 'natural')).toBe(true)
+      expect(naturalBlocks.every((b) => b.category === 'natural')).toBe(true)
 
       const buildingBlocks = await runSuccessful(registry.getBlocksByCategory('building'))
       expect(buildingBlocks.length).toBeGreaterThan(0)
-      expect(buildingBlocks.every(b => b.category === 'building')).toBe(true)
+      expect(buildingBlocks.every((b) => b.category === 'building')).toBe(true)
     })
 
     it('該当するブロックがない場合は空配列を返す', async () => {
@@ -116,8 +115,8 @@ describe('BlockRegistry', () => {
 
       const mineableBlocks = await runSuccessful(registry.getBlocksByTag('mineable'))
       expect(mineableBlocks.length).toBe(2)
-      expect(mineableBlocks.some(b => b.id === 'test_stone')).toBe(true)
-      expect(mineableBlocks.some(b => b.id === 'test_wood')).toBe(true)
+      expect(mineableBlocks.some((b) => b.id === 'test_stone')).toBe(true)
+      expect(mineableBlocks.some((b) => b.id === 'test_wood')).toBe(true)
 
       const stoneBlocks = await runSuccessful(registry.getBlocksByTag('stone'))
       expect(stoneBlocks.length).toBe(1)
@@ -128,20 +127,20 @@ describe('BlockRegistry', () => {
   describe('searchBlocks', () => {
     it('IDで検索できる', async () => {
       const blocks = await runSuccessful(registry.searchBlocks('stone'))
-      expect(blocks.some(b => b.id === 'stone')).toBe(true)
-      expect(blocks.some(b => b.id === 'cobblestone')).toBe(true)
-      expect(blocks.some(b => b.id === 'redstone_ore')).toBe(true)
+      expect(blocks.some((b) => b.id === 'stone')).toBe(true)
+      expect(blocks.some((b) => b.id === 'cobblestone')).toBe(true)
+      expect(blocks.some((b) => b.id === 'redstone_ore')).toBe(true)
     })
 
     it('名前で検索できる', async () => {
       const blocks = await runSuccessful(registry.searchBlocks('Oak'))
-      expect(blocks.some(b => b.name === 'Oak Log')).toBe(true)
-      expect(blocks.some(b => b.name === 'Oak Planks')).toBe(true)
+      expect(blocks.some((b) => b.name === 'Oak Log')).toBe(true)
+      expect(blocks.some((b) => b.name === 'Oak Planks')).toBe(true)
     })
 
     it('カテゴリーで検索できる', async () => {
       const blocks = await runSuccessful(registry.searchBlocks('decoration'))
-      expect(blocks.every(b => b.category === 'decoration')).toBe(true)
+      expect(blocks.every((b) => b.category === 'decoration')).toBe(true)
     })
 
     it('大文字小文字を区別しない', async () => {
@@ -197,7 +196,7 @@ describe('BlockRegistry', () => {
       await runSuccessful(registry.registerBlock(testBlock))
 
       const naturalBlocks = await runSuccessful(registry.getBlocksByCategory('natural'))
-      expect(naturalBlocks.some(b => b.id === 'test_category')).toBe(true)
+      expect(naturalBlocks.some((b) => b.id === 'test_category')).toBe(true)
     })
 
     it('登録後はタグインデックスに反映される', async () => {
@@ -205,10 +204,10 @@ describe('BlockRegistry', () => {
       await runSuccessful(registry.registerBlock(testBlock))
 
       const customBlocks = await runSuccessful(registry.getBlocksByTag('custom'))
-      expect(customBlocks.some(b => b.id === 'test_tags')).toBe(true)
+      expect(customBlocks.some((b) => b.id === 'test_tags')).toBe(true)
 
       const testBlocks = await runSuccessful(registry.getBlocksByTag('test'))
-      expect(testBlocks.some(b => b.id === 'test_tags')).toBe(true)
+      expect(testBlocks.some((b) => b.id === 'test_tags')).toBe(true)
     })
   })
 
@@ -244,19 +243,32 @@ describe('BlockRegistry', () => {
 
     it('主要なブロックが全て登録されている', async () => {
       const essentialBlocks = [
-        'stone', 'dirt', 'grass_block', 'cobblestone',
-        'sand', 'gravel', 'bedrock', 'oak_log',
-        'oak_planks', 'glass', 'iron_ore', 'diamond_ore',
-        'water', 'lava', 'torch', 'crafting_table',
-        'furnace', 'chest',
+        'stone',
+        'dirt',
+        'grass_block',
+        'cobblestone',
+        'sand',
+        'gravel',
+        'bedrock',
+        'oak_log',
+        'oak_planks',
+        'glass',
+        'iron_ore',
+        'diamond_ore',
+        'water',
+        'lava',
+        'torch',
+        'crafting_table',
+        'furnace',
+        'chest',
       ]
 
       await Effect.runPromise(
         Effect.all(
-          essentialBlocks.map(blockId =>
+          essentialBlocks.map((blockId) =>
             pipe(
               registry.isBlockRegistered(blockId),
-              Effect.map(registered => expect(registered).toBe(true))
+              Effect.map((registered) => expect(registered).toBe(true))
             )
           )
         )
@@ -268,10 +280,10 @@ describe('BlockRegistry', () => {
 
       await Effect.runPromise(
         Effect.all(
-          categories.map(category =>
+          categories.map((category) =>
             pipe(
               registry.getBlocksByCategory(category),
-              Effect.map(blocks => expect(blocks.length).toBeGreaterThanOrEqual(0))
+              Effect.map((blocks) => expect(blocks.length).toBeGreaterThanOrEqual(0))
             )
           )
         )
@@ -305,9 +317,9 @@ describe('BlockRegistry', () => {
       const tag2Blocks = await runSuccessful(registry.getBlocksByTag('tag2'))
       const tag3Blocks = await runSuccessful(registry.getBlocksByTag('tag3'))
 
-      expect(tag1Blocks.some(b => b.id === 'multi_tag')).toBe(true)
-      expect(tag2Blocks.some(b => b.id === 'multi_tag')).toBe(true)
-      expect(tag3Blocks.some(b => b.id === 'multi_tag')).toBe(true)
+      expect(tag1Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
+      expect(tag2Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
+      expect(tag3Blocks.some((b) => b.id === 'multi_tag')).toBe(true)
     })
   })
 })

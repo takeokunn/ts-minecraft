@@ -3,11 +3,9 @@ import { expect } from 'vitest'
 import type { BlockType } from '../BlockType'
 
 // Effect-TS用の共通テストヘルパー
-export const runEffect = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(Effect.either(effect))
+export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.either(effect))
 
-export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(effect)
+export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 
 export const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
   const result = await runEffect(effect)
@@ -56,10 +54,8 @@ export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType =
 // Effect-TS パターンでのアサーション関数
 export const assertBlockExists = (blocks: readonly BlockType[], id: string) =>
   pipe(
-    blocks.find(block => block.id === id),
-    (found) => found
-      ? Effect.succeed(found)
-      : Effect.fail(new Error(`Block with id '${id}' not found`))
+    blocks.find((block) => block.id === id),
+    (found) => (found ? Effect.succeed(found) : Effect.fail(new Error(`Block with id '${id}' not found`)))
   )
 
 export const assertBlockCount = (blocks: readonly BlockType[], expectedCount: number) =>
@@ -80,8 +76,6 @@ export const expectBlockToMatch = (actual: BlockType, expected: Partial<BlockTyp
 }
 
 // Effect-TS パターンでのテストランナー
-export const runTestEffect = <A>(effect: Effect.Effect<A>) =>
-  Effect.runPromise(effect)
+export const runTestEffect = <A>(effect: Effect.Effect<A>) => Effect.runPromise(effect)
 
-export const runTestSuite = (effects: Effect.Effect<unknown>[]) =>
-  Effect.runPromise(Effect.all(effects))
+export const runTestSuite = (effects: Effect.Effect<unknown>[]) => Effect.runPromise(Effect.all(effects))

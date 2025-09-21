@@ -594,13 +594,7 @@ export const cobwebBlock: BlockType = {
   name: 'Cobweb',
   category: 'natural',
   stackSize: 64,
-  ...pipe(
-    defaultBlockProperties,
-    withHardness(4.0),
-    withResistance(4.0),
-    withTool('sword', 0),
-    withTexture('cobweb')
-  ),
+  ...pipe(defaultBlockProperties, withHardness(4.0), withResistance(4.0), withTool('sword', 0), withTexture('cobweb')),
   tags: ['natural', 'decorative'],
   physics: {
     ...defaultBlockProperties.physics,

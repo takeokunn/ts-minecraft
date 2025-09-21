@@ -207,11 +207,7 @@ describe('BlockProperties', () => {
     })
 
     it('withDropで複数のドロップを追加できる', () => {
-      const props = pipe(
-        defaultBlockProperties,
-        withDrop('wheat', 1, 1, 1.0),
-        withDrop('wheat_seeds', 0, 3, 1.0)
-      )
+      const props = pipe(defaultBlockProperties, withDrop('wheat', 1, 1, 1.0), withDrop('wheat_seeds', 0, 3, 1.0))
 
       expect(props.drops).toHaveLength(2)
       expect(props.drops[0]?.itemId).toBe('wheat')
@@ -257,7 +253,7 @@ describe('BlockProperties', () => {
     it('withSoundGroupでサウンドグループを設定できる', () => {
       const groups = ['stone', 'wood', 'gravel', 'grass', 'metal', 'glass', 'wool', 'sand'] as const
 
-      groups.forEach(group => {
+      groups.forEach((group) => {
         const props = withSoundGroup(group)(defaultBlockProperties)
         expect(props.sound.break).toBe(`block.${group}.break`)
         expect(props.sound.place).toBe(`block.${group}.place`)
