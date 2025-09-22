@@ -69,7 +69,7 @@ export const ErrorRecovery = {
                   }
                 ),
                 Match.orElse(() => false)
-              )
+              ),
           })
         )
 

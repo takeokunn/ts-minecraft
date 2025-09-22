@@ -3,7 +3,7 @@
  * クラスを使わないEffect-TS Service/Layerパターン実装
  */
 
-import { Context, Effect, Ref, Queue, Layer, Schema } from 'effect'
+import { Context, Effect, Ref, Queue, Layer, Schema, Option, Match, pipe } from 'effect'
 import type { ChunkPosition, Chunk } from './index.js'
 import type { WorldGenerator, Vector3 } from '../world/index.js'
 
@@ -60,13 +60,16 @@ export const lruGet = <K, V>(cache: LRUCacheState<K, V>, key: K): [V | undefined
   }
 
   // アクセス順を更新（Immutableパターン）
-  const newAccessOrder = cache.accessOrder.filter(k => k !== key)
+  const newAccessOrder = cache.accessOrder.filter((k) => k !== key)
   newAccessOrder.push(key)
 
-  return [value, {
-    ...cache,
-    accessOrder: newAccessOrder,
-  }]
+  return [
+    value,
+    {
+      ...cache,
+      accessOrder: newAccessOrder,
+    },
+  ]
 }
 
 export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUCacheState<K, V> => {
@@ -75,7 +78,7 @@ export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUC
 
   // 既存キーの場合は順序のみ更新
   if (newCache.has(key)) {
-    newAccessOrder = newAccessOrder.filter(k => k !== key)
+    newAccessOrder = newAccessOrder.filter((k) => k !== key)
   } else if (newCache.size >= cache.maxSize) {
     // 容量超過の場合、最も古いエントリを削除
     const oldest = newAccessOrder.shift()
@@ -136,8 +139,7 @@ export const ChunkManager = Context.GenericTag<ChunkManager>('ChunkManager')
 // Utilities
 // =============================================================================
 
-export const chunkPositionToKey = (position: ChunkPosition): string =>
-  `${position.x},${position.z}`
+export const chunkPositionToKey = (position: ChunkPosition): string => `${position.x},${position.z}`
 
 export const worldToChunkPosition = (worldPos: Vector3): ChunkPosition => ({
   x: Math.floor(worldPos.x / 16),
@@ -204,7 +206,7 @@ export const createChunkManager = (
               Effect.gen(function* () {
                 // キャッシュチェック
                 const [cached, newCache] = lruGet(currentState.cache, key)
-                
+
                 return yield* pipe(
                   Option.fromNullable(cached),
                   Option.match({
@@ -220,7 +222,7 @@ export const createChunkManager = (
                         const newLoadedChunks = new Map(currentState.loadedChunks)
                         newLoadedChunks.set(key, cachedChunk)
 
-                        yield* Ref.update(state, currentState => ({
+                        yield* Ref.update(state, (currentState) => ({
                           ...currentState,
                           loadedChunks: newLoadedChunks,
                           cache: newCache,
@@ -243,11 +245,9 @@ export const createChunkManager = (
         const loadOrder = generateLoadOrder(playerChunk, currentState.config.viewDistance)
 
         // 並列ロード（最大並列数制限）
-        yield* Effect.forEach(
-          loadOrder,
-          (position) => loadChunkIfNeeded(position, state),
-          { concurrency: currentState.config.loadConcurrency }
-        )
+        yield* Effect.forEach(loadOrder, (position) => loadChunkIfNeeded(position, state), {
+          concurrency: currentState.config.loadConcurrency,
+        })
 
         // 遠いチャンクのアンロード
         yield* unloadDistantChunks(playerPosition)
@@ -261,59 +261,32 @@ export const createChunkManager = (
 
         currentState.loadedChunks.forEach((chunk, key) => {
           const distance = chunkDistance(chunk.position, centerChunk)
-          yield* pipe(
-            distance > currentState.config.viewDistance,
-            Match.value,
-            Match.when(true, () => {
-              toUnload.push(key)
-              return Effect.succeed(undefined)
-            }),
-            Match.orElse(() => Effect.succeed(undefined))
-          )
+          if (distance > currentState.config.viewDistance) {
+            toUnload.push(key)
+          }
         })
 
-        yield* pipe(
-          toUnload.length > 0,
-          Match.value,
-          Match.when(true, () =>
-            Effect.gen(function* () {
-              yield* Ref.update(state, currentState => {
-                const newLoadedChunks = new Map(currentState.loadedChunks)
-                let newCache = currentState.cache
+        if (toUnload.length > 0) {
+          yield* Ref.update(state, (currentState) => {
+            const newLoadedChunks = new Map(currentState.loadedChunks)
+            let newCache = currentState.cache
 
-                toUnload.forEach(key => {
-                  const chunk = yield* pipe(
-                    Option.fromNullable(newLoadedChunks.get(key)),
-                    Option.match({
-                      onNone: () => Effect.succeed(null),
-                      onSome: (chunk) => Effect.succeed(chunk),
-                    })
-                  )
-
-                  yield* pipe(
-                    Option.fromNullable(chunk),
-                    Option.match({
-                      onNone: () => Effect.succeed(undefined),
-                      onSome: (c) => {
-                        // キャッシュに移動
-                        newCache = lruPut(newCache, key, c)
-                        newLoadedChunks.delete(key)
-                        return Effect.succeed(undefined)
-                      },
-                    })
-                  )
-                })
-
-                return {
-                  ...currentState,
-                  loadedChunks: newLoadedChunks,
-                  cache: newCache,
-                }
-              })
+            toUnload.forEach((key) => {
+              const chunk = newLoadedChunks.get(key)
+              if (chunk) {
+                // キャッシュに移動
+                newCache = lruPut(newCache, key, chunk)
+                newLoadedChunks.delete(key)
+              }
             })
-          ),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
+
+            return {
+              ...currentState,
+              loadedChunks: newLoadedChunks,
+              cache: newCache,
+            }
+          })
+        }
       })
 
     const getMemoryUsage = (): Effect.Effect<number, never> =>
@@ -322,12 +295,12 @@ export const createChunkManager = (
         let totalMemory = 0
 
         // ロード済みチャンクのメモリ使用量
-        currentState.loadedChunks.forEach(chunk => {
+        currentState.loadedChunks.forEach((chunk) => {
           totalMemory += chunk.getMemoryUsage()
         })
 
         // キャッシュされたチャンクのメモリ使用量
-        currentState.cache.cache.forEach(chunk => {
+        currentState.cache.cache.forEach((chunk) => {
           totalMemory += chunk.getMemoryUsage()
         })
 
@@ -360,10 +333,7 @@ export const createChunkManager = (
 // Helper Functions
 // =============================================================================
 
-const loadChunkIfNeeded = (
-  position: ChunkPosition,
-  stateRef: Ref.Ref<ChunkManagerState>
-): Effect.Effect<void, never> =>
+const loadChunkIfNeeded = (position: ChunkPosition, stateRef: Ref.Ref<ChunkManagerState>): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const currentState = yield* Ref.get(stateRef)
     const key = chunkPositionToKey(position)
@@ -374,7 +344,7 @@ const loadChunkIfNeeded = (
     }
 
     // ロード中マークを追加
-    yield* Ref.update(stateRef, state => ({
+    yield* Ref.update(stateRef, (state) => ({
       ...state,
       loadingChunks: new Set([...state.loadingChunks, key]),
     }))
@@ -384,12 +354,11 @@ const loadChunkIfNeeded = (
       // const worldGenerator = yield* WorldGenerator
       // const chunkResult = yield* worldGenerator.generateChunk(position)
       // const chunk = chunkResult.chunk
-
       // 仮実装: 空のチャンクを作成
       // yield* Effect.logInfo(`Loading chunk at ${key}`)
     } finally {
       // ロード中マークを削除
-      yield* Ref.update(stateRef, state => {
+      yield* Ref.update(stateRef, (state) => {
         const newLoadingChunks = new Set(state.loadingChunks)
         newLoadingChunks.delete(key)
         return {
@@ -406,5 +375,4 @@ const loadChunkIfNeeded = (
 
 export const ChunkManagerLive = (
   config: ChunkManagerConfig = defaultChunkManagerConfig
-): Layer.Layer<ChunkManager, never, never> =>
-  Layer.effect(ChunkManager, createChunkManager(config))
+): Layer.Layer<ChunkManager, never, never> => Layer.effect(ChunkManager, createChunkManager(config))

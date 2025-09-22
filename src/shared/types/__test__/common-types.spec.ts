@@ -2,18 +2,18 @@ import { describe, it, expect } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as fc from 'fast-check'
 import {
-  NumberValue,
-  StringValue,
-  BooleanValue,
-  Result,
-  Option,
-  NonEmptyArray,
-  Predicate,
-  AsyncResult,
-  Callback,
-  AsyncCallback,
-  DeepReadonly,
-  DeepPartial
+  type NumberValue,
+  type StringValue,
+  type BooleanValue,
+  type Result,
+  type Option,
+  type NonEmptyArray,
+  type Predicate,
+  type AsyncResult,
+  type Callback,
+  type AsyncCallback,
+  type DeepReadonly,
+  type DeepPartial,
 } from '../common-types'
 
 describe('common-types', () => {
@@ -99,8 +99,7 @@ describe('common-types', () => {
     })
 
     it('複雑な条件も正しく表現する', () => {
-      const isValidEmail: Predicate<string> = (email) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      const isValidEmail: Predicate<string> = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
       expect(isValidEmail('test@example.com')).toBe(true)
       expect(isValidEmail('invalid-email')).toBe(false)
@@ -160,9 +159,9 @@ describe('common-types', () => {
         nested: {
           prop2: 42,
           deepNested: {
-            prop3: true
-          }
-        }
+            prop3: true,
+          },
+        },
       }
 
       // 型レベルでreadonly性を確認（コンパイル時チェック）
@@ -187,9 +186,9 @@ describe('common-types', () => {
       const partialObj: DeepPartial<TestType> = {
         nested: {
           deepNested: {
-            prop3: true
-          }
-        }
+            prop3: true,
+          },
+        },
       }
 
       expect(partialObj.nested?.deepNested?.prop3).toBe(true)
@@ -244,14 +243,15 @@ describe('common-types', () => {
 
     it('NonEmptyArray型のプロパティテスト', () => {
       fc.assert(
-        fc.property(
-          fc.array(fc.integer(), { minLength: 1 }),
-          (array) => {
-            const nonEmptyArr: NonEmptyArray<number> = array as NonEmptyArray<number>
-            expect(nonEmptyArr.length).toBeGreaterThan(0)
-            return true
+        fc.property(fc.array(fc.integer(), { minLength: 1 }), (array) => {
+          // 配列が空でないことを型安全に確認
+          if (array.length === 0) {
+            return true // 空配列は除外
           }
-        ),
+          const nonEmptyArr: NonEmptyArray<number> = array as unknown as NonEmptyArray<number>
+          expect(nonEmptyArr.length).toBeGreaterThan(0)
+          return true
+        }),
         { numRuns: 100 }
       )
     })
@@ -284,7 +284,7 @@ describe('common-types', () => {
         result: Effect.succeed('success'),
         optional: 42,
         items: ['item1', 'item2'],
-        validator: (s) => s.length > 0
+        validator: (s) => s.length > 0,
       }
 
       expect(complexValue.optional).toBe(42)

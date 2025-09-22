@@ -320,16 +320,12 @@ export const EntityManagerLive = Effect.gen(function* () {
   const removeComponent = (entityId: EntityId, componentType: string) =>
     Effect.gen(function* () {
       // エンティティの存在確認
-      yield* pipe(
-        entities.has(entityId),
-        (exists) =>
-          Match.value(exists).pipe(
-            Match.when(false, () =>
-              Effect.fail(createEntityManagerError.entityNotFound(entityId, 'removeComponent'))
-            ),
-            Match.when(true, () => Effect.succeed(undefined)),
-            Match.exhaustive
-          )
+      yield* pipe(entities.has(entityId), (exists) =>
+        Match.value(exists).pipe(
+          Match.when(false, () => Effect.fail(createEntityManagerError.entityNotFound(entityId, 'removeComponent'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       )
 
       // コンポーネントストレージの取得と処理
@@ -351,7 +347,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                         onSome: (c) => Effect.succeed(c),
                       })
                     )
-                    
+
                     components.delete(componentType)
                     // アーキタイプを更新
                     yield* archetypeManager.moveEntity(entityId, components)
@@ -415,7 +411,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         )
 
         yield* pipe(
-          storage,
+          Option.fromNullable(storage),
           Option.match({
             onNone: () => Effect.succeed(undefined),
             onSome: (component) => {

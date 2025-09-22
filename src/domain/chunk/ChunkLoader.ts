@@ -3,9 +3,11 @@
  * 非同期チャンクロード・優先度管理（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Queue, Fiber, Schema, Layer, Exit } from 'effect'
+import { Context, Effect, Ref, Queue, Fiber, Schema, Layer, Exit, Option, Match, pipe } from 'effect'
 import type { ChunkPosition, Chunk } from './index.js'
-import type { WorldGenerator, GenerationError } from '../world/index.js'
+import { createChunk } from './Chunk.js'
+import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index.js'
+import { WorldGeneratorTag } from '../world/index.js'
 
 // =============================================================================
 // Types & Schemas
@@ -76,10 +78,7 @@ export interface ChunkLoaderState {
 // Priority Queue Operations (純粋関数実装)
 // =============================================================================
 
-export const calculatePriorityScore = (
-  request: ChunkLoadRequest,
-  config: ChunkLoaderConfig
-): number => {
+export const calculatePriorityScore = (request: ChunkLoadRequest, config: ChunkLoaderConfig): number => {
   const baseScore = config.priorityWeights[request.priority]
   const distancePenalty = request.playerDistance * 0.1
   const agePenalty = (Date.now() - request.timestamp) * 0.001
@@ -87,12 +86,9 @@ export const calculatePriorityScore = (
   return baseScore - distancePenalty - agePenalty
 }
 
-export const sortRequestsByPriority = (
-  requests: ChunkLoadRequest[],
-  config: ChunkLoaderConfig
-): ChunkLoadRequest[] =>
+export const sortRequestsByPriority = (requests: ChunkLoadRequest[], config: ChunkLoaderConfig): ChunkLoadRequest[] =>
   requests
-    .map(request => ({
+    .map((request) => ({
       request,
       score: calculatePriorityScore(request, config),
     }))
@@ -173,22 +169,15 @@ export interface ChunkLoader {
 
 export const ChunkLoader = Context.GenericTag<ChunkLoader>('ChunkLoader')
 
-// WorldGeneratorのContext Tag（既存のものを参照）
-export const WorldGenerator = Context.GenericTag<WorldGenerator>('WorldGenerator')
-
 // =============================================================================
 // Utilities
 // =============================================================================
 
-export const chunkLoadRequestToKey = (position: ChunkPosition): string =>
-  `${position.x},${position.z}`
+export const chunkLoadRequestToKey = (position: ChunkPosition): string => `${position.x},${position.z}`
 
-export const isLoadExpired = (
-  state: ChunkLoadState,
-  timeoutMs: number
-): boolean => {
+export const isLoadExpired = (state: ChunkLoadState, timeoutMs: number): boolean => {
   if (!state.startTime) return false
-  return (Date.now() - state.startTime) > timeoutMs
+  return Date.now() - state.startTime > timeoutMs
 }
 
 // =============================================================================
@@ -252,7 +241,7 @@ export const createChunkLoader = (
           Match.when(true, () =>
             Effect.gen(function* () {
               // ロード状態を更新
-              yield* Ref.update(state, currentState => ({
+              yield* Ref.update(state, (currentState) => ({
                 ...currentState,
                 loadStates: new Map(currentState.loadStates).set(key, {
                   position,
@@ -276,29 +265,21 @@ export const createChunkLoader = (
         // バッチ処理で効率化
         yield* Effect.forEach(
           requests,
-          ({ position, priority, playerDistance }) =>
-            queueChunkLoad(position, priority, playerDistance),
+          ({ position, priority, playerDistance }) => queueChunkLoad(position, priority, playerDistance),
           { concurrency: 'unbounded' }
         )
       })
 
     const processLoadQueue = (): Effect.Effect<void, never> =>
       Effect.gen(function* () {
-        const currentState = yield* Ref.get(state)
-
         while (true) {
+          const currentState = yield* Ref.get(state)
+
           // 現在のアクティブロード数をチェック
-          yield* pipe(
-            currentState.activeLoads.size >= currentState.config.maxConcurrentLoads,
-            Match.value,
-            Match.when(true, () =>
-              Effect.gen(function* () {
-                yield* Effect.sleep('100 millis')
-                continue
-              })
-            ),
-            Match.orElse(() => Effect.succeed(undefined))
-          )
+          if (currentState.activeLoads.size >= currentState.config.maxConcurrentLoads) {
+            yield* Effect.sleep('100 millis')
+            continue
+          }
 
           // キューからリクエストを取得
           const request = yield* Queue.take(currentState.loadQueue)
@@ -309,23 +290,23 @@ export const createChunkLoader = (
             Effect.gen(function* () {
               yield* Effect.sleep('100 millis') // 仮のロード時間
               // TODO: 実際のChunkを生成する実装
-              return {
+              return createChunk({
                 position: request.position,
                 blocks: new Uint16Array(98304),
                 metadata: {
-                  version: 1,
+                  biome: 'plains',
+                  lightLevel: 15,
+                  isModified: false,
                   lastUpdate: Date.now(),
-                  isGenerated: true,
-                  biomeIds: new Uint8Array(256),
-                  heightMap: new Uint16Array(256),
+                  heightMap: Array.from(new Uint16Array(256)),
                 },
                 isDirty: false,
-              } as Chunk
+              })
             })
           )
 
           // アクティブロードに追加
-          yield* Ref.update(state, currentState => ({
+          yield* Ref.update(state, (currentState) => ({
             ...currentState,
             activeLoads: new Map(currentState.activeLoads).set(key, loadFiber),
             loadStates: new Map(currentState.loadStates).set(key, {
@@ -340,46 +321,47 @@ export const createChunkLoader = (
             Effect.gen(function* () {
               const result = yield* Fiber.await(loadFiber)
 
-              yield* Ref.update(state, currentState => {
+              yield* Ref.update(state, (currentState) => {
                 const newActiveLoads = new Map(currentState.activeLoads)
                 newActiveLoads.delete(key)
 
                 const newLoadStates = new Map(currentState.loadStates)
                 const currentLoadState = newLoadStates.get(key)
 
-                return pipe(
-                  Exit.isSuccess(result),
-                  Match.value,
-                  Match.when(true, () => {
+                return Exit.match(result, {
+                  onSuccess: (chunk) => {
                     newLoadStates.set(key, {
                       position: request.position,
                       status: 'completed' as const,
                       startTime: currentLoadState?.startTime ?? Date.now(),
                       completedTime: Date.now(),
-                      chunk: result.value,
+                      chunk,
                     })
                     return {
                       ...currentState,
                       activeLoads: newActiveLoads,
                       loadStates: newLoadStates,
                     }
-                  }),
-                  Match.orElse(() => {
+                  },
+                  onFailure: () => {
                     newLoadStates.set(key, {
                       position: request.position,
                       status: 'failed' as const,
                       startTime: currentLoadState?.startTime ?? Date.now(),
                       completedTime: Date.now(),
-                      error: Exit.isFailure(result) ? result.cause._tag === 'Fail' ? result.cause.error : undefined : undefined,
+                      error: Exit.isFailure(result)
+                        ? result.cause._tag === 'Fail'
+                          ? result.cause.error
+                          : undefined
+                        : undefined,
                     })
                     return {
                       ...currentState,
                       activeLoads: newActiveLoads,
                       loadStates: newLoadStates,
                     }
-                  }),
-                  Match.exhaustive
-                )
+                  },
+                })
               })
             })
           )
@@ -389,7 +371,7 @@ export const createChunkLoader = (
     const startLoadProcessing = (): Effect.Effect<Fiber.RuntimeFiber<void, never>, never> =>
       Effect.gen(function* () {
         const currentFiber = yield* Ref.get(processingFiber)
-        
+
         return yield* pipe(
           Option.fromNullable(currentFiber),
           Option.match({
@@ -407,7 +389,7 @@ export const createChunkLoader = (
     const stopLoadProcessing = (): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const currentFiber = yield* Ref.get(processingFiber)
-        
+
         yield* pipe(
           Option.fromNullable(currentFiber),
           Option.match({
@@ -425,7 +407,7 @@ export const createChunkLoader = (
       Effect.gen(function* () {
         const currentState = yield* Ref.get(state)
         const key = chunkLoadRequestToKey(position)
-        
+
         return yield* pipe(
           Option.fromNullable(currentState.loadStates.get(key)),
           Option.match({
@@ -460,7 +442,7 @@ export const createChunkLoader = (
             onSome: (fiber) =>
               Effect.gen(function* () {
                 yield* Fiber.interrupt(fiber)
-                yield* Ref.update(state, currentState => {
+                yield* Ref.update(state, (currentState) => {
                   const newActiveLoads = new Map(currentState.activeLoads)
                   newActiveLoads.delete(key)
 
@@ -484,14 +466,12 @@ export const createChunkLoader = (
         const currentState = yield* Ref.get(state)
 
         // 全てのアクティブロードをキャンセル
-        yield* Effect.forEach(
-          Array.from(currentState.activeLoads.values()),
-          fiber => Fiber.interrupt(fiber),
-          { concurrency: 'unbounded' }
-        )
+        yield* Effect.forEach(Array.from(currentState.activeLoads.values()), (fiber) => Fiber.interrupt(fiber), {
+          concurrency: 'unbounded',
+        })
 
         // 状態をクリア
-        yield* Ref.update(state, currentState => ({
+        yield* Ref.update(state, (currentState) => ({
           ...currentState,
           activeLoads: new Map(),
           loadStates: new Map(),
@@ -521,14 +501,18 @@ export const createChunkLoader = (
 const loadChunkWithTimeout = (
   request: ChunkLoadRequest,
   timeoutMs: number
-): Effect.Effect<Chunk, GenerationError, WorldGenerator> =>
+): Effect.Effect<
+  Chunk,
+  GenerationError | { _tag: 'GenerationError'; position: ChunkPosition; reason: string; context: string },
+  WorldGeneratorInterface
+> =>
   Effect.gen(function* () {
-    const worldGenerator = yield* WorldGenerator
+    const worldGenerator = yield* WorldGeneratorTag
 
     // タイムアウト付きでチャンク生成
     const chunkGeneration = Effect.gen(function* () {
       const result = yield* worldGenerator.generateChunk(request.position)
-      return result.chunk
+      return createChunk(result.chunk)
     })
 
     return yield* Effect.timeout(chunkGeneration, `${timeoutMs} millis`).pipe(
@@ -549,5 +533,4 @@ const loadChunkWithTimeout = (
 
 export const ChunkLoaderLive = (
   config: ChunkLoaderConfig = defaultChunkLoaderConfig
-): Layer.Layer<ChunkLoader, never, never> =>
-  Layer.effect(ChunkLoader, createChunkLoader(config))
+): Layer.Layer<ChunkLoader, never, never> => Layer.effect(ChunkLoader, createChunkLoader(config))

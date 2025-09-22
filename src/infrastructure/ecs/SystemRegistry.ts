@@ -204,12 +204,14 @@ export const SystemRegistryServiceLive = Layer.effect(
         yield* pipe(
           state.systems.has(name),
           Match.value,
-          Match.when(false, () => Effect.fail(
-            new SystemRegistryError({
-              message: `System not found: ${name}`,
-              systemName: name,
-            })
-          )),
+          Match.when(false, () =>
+            Effect.fail(
+              new SystemRegistryError({
+                message: `System not found: ${name}`,
+                systemName: name,
+              })
+            )
+          ),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )

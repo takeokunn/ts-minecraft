@@ -5,8 +5,8 @@ import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
 describe('KeyboardInput', () => {
   describe('KeyboardInputError', () => {
-    it.effect('エラーオブジェクトを正しく作成する', () =>
-      Effect.gen(function* () {
+    it('エラーオブジェクトを正しく作成する', () => {
+      const effect = Effect.gen(function* () {
         const error = KeyboardInputError({
           message: 'テストエラー',
           key: 'TestKey',
@@ -18,12 +18,14 @@ describe('KeyboardInput', () => {
         expect(error.key).toBe('TestKey')
         expect(error.cause).toBe('原因')
       })
-    )
+
+      Effect.runSync(effect)
+    })
   })
 
   describe('MockKeyboardInput', () => {
-    it.effect('モックサービスが正しく動作する', () =>
-      Effect.gen(function* () {
+    it('モックサービスが正しく動作する', () => {
+      const effect = Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
         const isPressed = yield* keyboard.isKeyPressed('W')
         const state = yield* keyboard.getKeyState('W')
@@ -41,41 +43,49 @@ describe('KeyboardInput', () => {
         expect(typeof mapping).toBe('object')
         expect(typeof isActionPressed).toBe('boolean')
       }).pipe(Effect.provide(MockKeyboardInput))
-    )
+
+      Effect.runSync(effect)
+    })
   })
 
   // DEPRECATED: Legacy KeyboardInputLive tests removed
   // Use unified test pattern with TestPattern.live for live environment testing
 
   describe('Unified Test Pattern Examples', () => {
-    it.effect('Schema検証テスト例', () =>
-      Effect.gen(function* () {
+    it('Schema検証テスト例', () => {
+      const effect = Effect.gen(function* () {
         const error = KeyboardInputError({
           message: 'Test error',
-          key: 'TestKey'
+          key: 'TestKey',
         })
 
         expect(error._tag).toBe('KeyboardInputError')
         expect(error.message).toBe('Test error')
       })
-    )
 
-    it.effect('Effect成功アサーション例', () =>
-      Effect.gen(function* () {
+      Effect.runSync(effect)
+    })
+
+    it('Effect成功アサーション例', () => {
+      const effect = Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
         const result = yield* keyboard.getPressedKeys()
         expect(Array.isArray(result)).toBe(true)
       }).pipe(Effect.provide(MockKeyboardInput))
-    )
 
-    it.effect('パフォーマンステスト例', () =>
-      Effect.gen(function* () {
+      Effect.runSync(effect)
+    })
+
+    it('パフォーマンステスト例', () => {
+      const effect = Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
         const start = Date.now()
         yield* keyboard.isKeyPressed('W')
         const duration = Date.now() - start
         expect(duration).toBeLessThan(50)
       }).pipe(Effect.provide(MockKeyboardInput))
-    )
+
+      Effect.runSync(effect)
+    })
   })
 })

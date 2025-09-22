@@ -316,9 +316,8 @@ import { fc } from 'fast-check'
 describe('Property-based Tests', () => {
   it.effect('invariant condition always holds', () =>
     Effect.gen(function* () {
-      yield* fc.asyncProperty(
-        fc.string(),
-        (input) => Effect.gen(function* () {
+      yield* fc.asyncProperty(fc.string(), (input) =>
+        Effect.gen(function* () {
           const service = yield* MyService
           const result = yield* service.process(input)
           // 不変条件の検証
@@ -340,9 +339,7 @@ describe('Service Integration', () => {
       const resultB = yield* serviceB.process(resultA)
 
       expect(resultB).toBeDefined()
-    }).pipe(
-      Effect.provide(Layer.mergeAll(ServiceALive, ServiceBLive))
-    )
+    }).pipe(Effect.provide(Layer.mergeAll(ServiceALive, ServiceBLive)))
   )
 })
 ```
@@ -541,26 +538,31 @@ assignees: ''
 ## 🧪 Test Plan（必須）
 
 ### **単体テスト（必須）**
+
 - [ ] 全公開関数・メソッドのテスト
 - [ ] 正常系・異常系のカバー
 - [ ] Edge caseの検証
 
 ### **Property-based Testing（推奨）**
+
 - [ ] ビジネスロジックの不変条件検証
 - [ ] fast-checkによる大量データテスト
 - [ ] Schema validationのテスト
 
 ### **統合テスト（必須）**
+
 - [ ] Service/Layer間の相互作用
 - [ ] Effect.provide系の正常動作
 - [ ] 依存関係解決の検証
 
 ### **エラーケーステスト（必須）**
+
 - [ ] TaggedErrorの正しい伝播
 - [ ] Effect.failの適切な処理
 - [ ] エラー境界での動作確認
 
 ### **品質基準**
+
 - [ ] **カバレッジ ≥80%**: コード品質の客観的指標
 - [ ] **TypeScript型エラー0件**: 型安全性の確保
 - [ ] **vitestテスト全て通過**: 回帰防止

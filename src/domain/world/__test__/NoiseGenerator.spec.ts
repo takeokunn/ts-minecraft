@@ -2,17 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
+import { expectEffectDuration, testAllBranches } from '../../../test/unified-test-helpers'
 import {
-  expectEffectSuccess,
-  expectEffectDuration,
-  testAllBranches
-} from '../../../test/unified-test-helpers'
-import {
-  NoiseGenerator,
   NoiseGeneratorLive,
   NoiseGeneratorLiveDefault,
+  NoiseGeneratorTag,
   NoiseConfigSchema,
-  type NoiseConfig
+  type NoiseGenerator,
+  type NoiseConfig,
 } from '../NoiseGenerator'
 
 /**
@@ -23,7 +20,7 @@ const runWithTestGenerator = <A>(
   operation: (ng: NoiseGenerator) => Effect.Effect<A, never, never>
 ) =>
   Effect.gen(function* () {
-    const ng = yield* NoiseGenerator
+    const ng = yield* NoiseGeneratorTag
     return yield* operation(ng)
   }).pipe(Effect.provide(NoiseGeneratorLive(config)))
 
@@ -70,17 +67,17 @@ describe('NoiseGenerator', () => {
   describe('Service Creation', () => {
     it('creates NoiseGenerator with custom config', async () => {
       const testEffect = Effect.gen(function* () {
-        const ng = yield* NoiseGenerator
+        const ng = yield* NoiseGeneratorTag
         expect(ng.getSeed()).toBe(testConfig.seed)
         expect(ng.getConfig()).toEqual(testConfig)
       })
 
-      await expectEffectSuccess(testEffect.pipe(Effect.provide(NoiseGeneratorLive(testConfig))))
+      await Effect.runPromise(testEffect.pipe(Effect.provide(NoiseGeneratorLive(testConfig))))
     })
 
     it('creates NoiseGenerator with default config', async () => {
       const testEffect = Effect.gen(function* () {
-        const ng = yield* NoiseGenerator
+        const ng = yield* NoiseGeneratorTag
         const config = ng.getConfig()
 
         expect(config.octaves).toBe(6)
@@ -89,9 +86,7 @@ describe('NoiseGenerator', () => {
         expect(typeof config.seed).toBe('number')
       })
 
-      await expectEffectSuccess(
-        testEffect.pipe(Effect.provide(NoiseGeneratorLiveDefault))
-      )
+      await Effect.runPromise(testEffect.pipe(Effect.provide(NoiseGeneratorLiveDefault)))
     })
   })
 
@@ -119,21 +114,15 @@ describe('NoiseGenerator', () => {
           })
         )
 
-        await expectEffectSuccess(effect)
+        await Effect.runPromise(effect)
       }
     })
 
     it('generates different values for different coordinates', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.tuple(
-            fc.float({ min: -100, max: 100 }),
-            fc.float({ min: -100, max: 100 })
-          ),
-          fc.tuple(
-            fc.float({ min: -100, max: 100 }),
-            fc.float({ min: -100, max: 100 })
-          ),
+          fc.tuple(fc.float({ min: -100, max: 100 }), fc.float({ min: -100, max: 100 })),
+          fc.tuple(fc.float({ min: -100, max: 100 }), fc.float({ min: -100, max: 100 })),
           async ([x1, y1], [x2, y2]) => {
             if (Math.abs(x1 - x2) < 0.01 && Math.abs(y1 - y2) < 0.01) {
               return // 座標が近すぎる場合はスキップ
@@ -149,7 +138,7 @@ describe('NoiseGenerator', () => {
               })
             )
 
-            const result = await expectEffectSuccess(effect)
+            const result: { value1: number; value2: number } = (await Effect.runPromise(effect)) as any
             // 100%異なることは保証されないが、大部分は異なるはず
             expect(typeof result.value1).toBe('number')
             expect(typeof result.value2).toBe('number')
@@ -181,7 +170,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      await expectEffectSuccess(effect)
+      await Effect.runPromise(effect)
     })
   })
 
@@ -208,7 +197,7 @@ describe('NoiseGenerator', () => {
           })
         )
 
-        await expectEffectSuccess(effect)
+        await Effect.runPromise(effect)
       }
     })
 
@@ -220,7 +209,7 @@ describe('NoiseGenerator', () => {
           fc.float({ min: -50, max: 50 }),
           async (x, y, z) => {
             const effect = runWithTestGenerator(testConfig, (ng) => ng.noise3D(x, y, z))
-            const value = await expectEffectSuccess(effect)
+            const value = await Effect.runPromise(effect)
 
             expect(value).toBeGreaterThanOrEqual(-1)
             expect(value).toBeLessThanOrEqual(1)
@@ -255,7 +244,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      await expectEffectSuccess(effect)
+      await Effect.runPromise(effect)
     })
 
     it('generates 3D octave noise with different persistence values', async () => {
@@ -285,7 +274,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      await expectEffectSuccess(effect)
+      await Effect.runPromise(effect)
     })
   })
 
@@ -319,10 +308,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      const [result1, result2] = await Promise.all([
-        expectEffectSuccess(effect1),
-        expectEffectSuccess(effect2),
-      ])
+      const [result1, result2] = await Promise.all([Effect.runPromise(effect1), Effect.runPromise(effect2)])
 
       expect(result1).toEqual(result2)
     })
@@ -338,10 +324,7 @@ describe('NoiseGenerator', () => {
       const effect1 = runWithTestGenerator(config1, (ng) => ng.noise2D(testCoords.x, testCoords.y))
       const effect2 = runWithTestGenerator(config2, (ng) => ng.noise2D(testCoords.x, testCoords.y))
 
-      const [result1, result2] = await Promise.all([
-        expectEffectSuccess(effect1),
-        expectEffectSuccess(effect2),
-      ])
+      const [result1, result2] = await Promise.all([Effect.runPromise(effect1), Effect.runPromise(effect2)])
 
       // 異なるシードでは高い確率で異なる値になる
       expect(result1).not.toBe(result2)
@@ -407,7 +390,7 @@ describe('NoiseGenerator', () => {
 
       for (const { x, y } of extremeCoords) {
         const effect = runWithTestGenerator(testConfig, (ng) => ng.noise2D(x, y))
-        const result = await expectEffectSuccess(effect)
+        const result = await Effect.runPromise(effect)
 
         expect(Number.isFinite(result)).toBe(true)
         expect(result).toBeGreaterThanOrEqual(-1)
@@ -428,7 +411,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      await expectEffectSuccess(effect)
+      await Effect.runPromise(effect)
     })
 
     it('handles extreme persistence values', async () => {
@@ -440,7 +423,7 @@ describe('NoiseGenerator', () => {
           ng.octaveNoise2D(testCoords.x, testCoords.y, 4, persistence)
         )
 
-        const result = await expectEffectSuccess(effect)
+        const result = await Effect.runPromise(effect)
         expect(Number.isFinite(result)).toBe(true)
         expect(result).toBeGreaterThanOrEqual(-1)
         expect(result).toBeLessThanOrEqual(1)
@@ -464,7 +447,7 @@ describe('NoiseGenerator', () => {
         })
       )
 
-      const values = await expectEffectSuccess(effect)
+      const values = await Effect.runPromise(effect)
 
       // 統計的検証
       const mean = values.reduce((sum, v) => sum + v, 0) / values.length

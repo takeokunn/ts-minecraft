@@ -1,13 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Exit, pipe } from 'effect'
-import {
-  Quad,
-  GreedyMeshingConfig,
-  GreedyMeshingError,
-  GreedyMeshingService,
-  GreedyMeshingLive,
-  calculateVertexReduction,
-} from '../GreedyMeshing'
+import { GreedyMeshingError, GreedyMeshingService, GreedyMeshingLive, calculateVertexReduction } from '../GreedyMeshing'
+import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
 
 // ========================================
@@ -15,43 +9,38 @@ import type { ChunkData, MeshData } from '../MeshGenerator'
 // ========================================
 
 const createTestChunk = (size: number, fillPattern: 'empty' | 'full' | 'checkerboard' | 'single'): ChunkData => {
-  const blocks: number[][][] = Array(size).fill(null).map(() =>
-    Array(size).fill(null).map(() =>
-      Array(size).fill(0)
-    )
+  const blocks: number[][][] = Array.from({ length: size }, () =>
+    Array.from({ length: size }, () => Array.from({ length: size }, () => 0))
   )
 
-  pipe(
-    fillPattern,
-    pattern => {
-      switch (pattern) {
-        case 'full':
-          for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-              for (let z = 0; z < size; z++) {
-                blocks[x][y][z] = 1
-              }
+  pipe(fillPattern, (pattern) => {
+    switch (pattern) {
+      case 'full':
+        for (let x = 0; x < size; x++) {
+          for (let y = 0; y < size; y++) {
+            for (let z = 0; z < size; z++) {
+              blocks[x]![y]![z] = 1
             }
           }
-          break
-        case 'checkerboard':
-          for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-              for (let z = 0; z < size; z++) {
-                blocks[x][y][z] = ((x + y + z) % 2) === 0 ? 1 : 0
-              }
+        }
+        break
+      case 'checkerboard':
+        for (let x = 0; x < size; x++) {
+          for (let y = 0; y < size; y++) {
+            for (let z = 0; z < size; z++) {
+              blocks[x]![y]![z] = (x + y + z) % 2 === 0 ? 1 : 0
             }
           }
-          break
-        case 'single':
-          blocks[0][0][0] = 1
-          break
-        case 'empty':
-        default:
-          break
-      }
+        }
+        break
+      case 'single':
+        blocks[0]![0]![0] = 1
+        break
+      case 'empty':
+      default:
+        break
     }
-  )
+  })
 
   return {
     position: { x: 0, y: 0, z: 0 },
@@ -60,8 +49,7 @@ const createTestChunk = (size: number, fillPattern: 'empty' | 'full' | 'checkerb
   }
 }
 
-const runEffect = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runSyncExit(effect)
+const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSyncExit(effect)
 
 // ========================================
 // Tests
@@ -106,7 +94,7 @@ describe('GreedyMeshing', () => {
     it('should handle all optimization levels', () => {
       const levels: GreedyMeshingConfig['optimizationLevel'][] = ['basic', 'balanced', 'aggressive']
 
-      levels.forEach(level => {
+      levels.forEach((level) => {
         const config: GreedyMeshingConfig = {
           chunkSize: 16,
           mergeThreshold: 0.95,
@@ -118,20 +106,12 @@ describe('GreedyMeshing', () => {
   })
 
   describe('GreedyMeshingService - generateGreedyMesh', () => {
-    const getService = () => Effect.gen(function* () {
-      return yield* GreedyMeshingService
-    }).pipe(
-      Effect.provide(GreedyMeshingLive),
-      Effect.runSync
-    )
+    const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
     it('should generate mesh for empty chunk', async () => {
       const chunk = createTestChunk(4, 'empty')
 
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
 
       expect(result.vertices).toHaveLength(0)
       expect(result.normals).toHaveLength(0)
@@ -142,10 +122,7 @@ describe('GreedyMeshing', () => {
     it('should generate optimized mesh for full chunk', async () => {
       const chunk = createTestChunk(4, 'full')
 
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
 
       // Full 4x4x4 chunk should be optimized to 6 large quads (one per face)
       expect(result.vertices.length).toBeGreaterThan(0)
@@ -162,10 +139,7 @@ describe('GreedyMeshing', () => {
     it('should handle checkerboard pattern efficiently', async () => {
       const chunk = createTestChunk(4, 'checkerboard')
 
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
 
       expect(result.vertices.length).toBeGreaterThan(0)
       expect(result.normals.length).toBe(result.vertices.length)
@@ -175,10 +149,7 @@ describe('GreedyMeshing', () => {
     it('should generate mesh for single block', async () => {
       const chunk = createTestChunk(4, 'single')
 
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
 
       // Single block should generate 6 faces
       expect(result.vertices.length).toBe(6 * 4 * 3) // 6 faces * 4 vertices * 3 coords
@@ -191,10 +162,7 @@ describe('GreedyMeshing', () => {
       const chunk = createTestChunk(16, 'full')
 
       const startTime = performance.now()
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
       const endTime = performance.now()
 
       // Should complete within reasonable time
@@ -223,20 +191,12 @@ describe('GreedyMeshing', () => {
   })
 
   describe('GreedyMeshingService - generateQuads', () => {
-    const getService = () => Effect.gen(function* () {
-      return yield* GreedyMeshingService
-    }).pipe(
-      Effect.provide(GreedyMeshingLive),
-      Effect.runSync
-    )
+    const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
     it('should generate quads for empty chunk', async () => {
       const chunk = createTestChunk(4, 'empty')
 
-      const quads = await pipe(
-        getService().generateQuads(chunk),
-        Effect.runPromise
-      )
+      const quads = await pipe(getService().generateQuads(chunk), Effect.runPromise)
 
       expect(quads).toHaveLength(0)
     })
@@ -244,14 +204,11 @@ describe('GreedyMeshing', () => {
     it('should generate quads with correct properties', async () => {
       const chunk = createTestChunk(4, 'single')
 
-      const quads = await pipe(
-        getService().generateQuads(chunk),
-        Effect.runPromise
-      )
+      const quads = await pipe(getService().generateQuads(chunk), Effect.runPromise)
 
       expect(quads.length).toBeGreaterThan(0)
 
-      quads.forEach(quad => {
+      quads.forEach((quad) => {
         expect(quad.x).toBeGreaterThanOrEqual(0)
         expect(quad.y).toBeGreaterThanOrEqual(0)
         expect(quad.z).toBeGreaterThanOrEqual(0)
@@ -267,28 +224,22 @@ describe('GreedyMeshing', () => {
     it('should generate optimized quads for full chunk', async () => {
       const chunk = createTestChunk(4, 'full')
 
-      const quads = await pipe(
-        getService().generateQuads(chunk),
-        Effect.runPromise
-      )
+      const quads = await pipe(getService().generateQuads(chunk), Effect.runPromise)
 
       // Should merge adjacent faces
       expect(quads.length).toBeLessThan(4 * 4 * 4 * 6) // Less than naive cube faces
 
       // Check that quads have proper normals
-      const normalDirections = new Set(quads.map(q => q.normal.join(',')))
+      const normalDirections = new Set(quads.map((q) => q.normal.join(',')))
       expect(normalDirections.size).toBeLessThanOrEqual(6) // At most 6 normal directions
     })
 
     it('should handle all three axes', async () => {
       const chunk = createTestChunk(4, 'full')
 
-      const quads = await pipe(
-        getService().generateQuads(chunk),
-        Effect.runPromise
-      )
+      const quads = await pipe(getService().generateQuads(chunk), Effect.runPromise)
 
-      const axes = new Set(quads.map(q => q.axis))
+      const axes = new Set(quads.map((q) => q.axis))
       expect(axes.size).toBe(3) // Should have quads for all 3 axes
       expect(axes.has(0)).toBe(true)
       expect(axes.has(1)).toBe(true)
@@ -316,12 +267,7 @@ describe('GreedyMeshing', () => {
   })
 
   describe('GreedyMeshingService - optimizeMesh', () => {
-    const getService = () => Effect.gen(function* () {
-      return yield* GreedyMeshingService
-    }).pipe(
-      Effect.provide(GreedyMeshingLive),
-      Effect.runSync
-    )
+    const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
     it('should optimize mesh data', async () => {
       const meshData: MeshData = {
@@ -331,10 +277,7 @@ describe('GreedyMeshing', () => {
         indices: [0, 1, 2, 0, 2, 3],
       }
 
-      const optimized = await pipe(
-        getService().optimizeMesh(meshData),
-        Effect.runPromise
-      )
+      const optimized = await pipe(getService().optimizeMesh(meshData), Effect.runPromise)
 
       // For now, optimization returns the same mesh
       expect(optimized.vertices).toEqual(meshData.vertices)
@@ -351,10 +294,7 @@ describe('GreedyMeshing', () => {
         indices: [],
       }
 
-      const optimized = await pipe(
-        getService().optimizeMesh(emptyMesh),
-        Effect.runPromise
-      )
+      const optimized = await pipe(getService().optimizeMesh(emptyMesh), Effect.runPromise)
 
       expect(optimized.vertices).toEqual([])
       expect(optimized.normals).toEqual([])
@@ -394,12 +334,7 @@ describe('GreedyMeshing', () => {
     })
 
     it('should handle errors in service methods', async () => {
-      const getService = () => Effect.gen(function* () {
-        return yield* GreedyMeshingService
-      }).pipe(
-        Effect.provide(GreedyMeshingLive),
-        Effect.runSync
-      )
+      const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
       // Test with undefined blocks
       const badChunk = {
@@ -415,22 +350,14 @@ describe('GreedyMeshing', () => {
 
   describe('Performance', () => {
     it('should achieve significant vertex reduction', async () => {
-      const getService = () => Effect.gen(function* () {
-        return yield* GreedyMeshingService
-      }).pipe(
-        Effect.provide(GreedyMeshingLive),
-        Effect.runSync
-      )
+      const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
       const chunk = createTestChunk(8, 'full')
 
       // Calculate naive vertex count (6 faces * 4 vertices * 3 coords per block)
       const naiveVertexCount = 8 * 8 * 8 * 6 * 4 * 3
 
-      const result = await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      const result = await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
 
       const optimizedVertexCount = result.vertices.length
       const reduction = calculateVertexReduction(naiveVertexCount, optimizedVertexCount)
@@ -440,20 +367,12 @@ describe('GreedyMeshing', () => {
     })
 
     it('should complete within performance budget', async () => {
-      const getService = () => Effect.gen(function* () {
-        return yield* GreedyMeshingService
-      }).pipe(
-        Effect.provide(GreedyMeshingLive),
-        Effect.runSync
-      )
+      const getService = () => pipe(GreedyMeshingService, Effect.provide(GreedyMeshingLive), Effect.runSync)
 
       const chunk = createTestChunk(16, 'checkerboard')
 
       const startTime = performance.now()
-      await pipe(
-        getService().generateGreedyMesh(chunk),
-        Effect.runPromise
-      )
+      await pipe(getService().generateGreedyMesh(chunk), Effect.runPromise)
       const endTime = performance.now()
 
       // Should complete within 100ms for 16x16x16 chunk
@@ -463,20 +382,18 @@ describe('GreedyMeshing', () => {
 
   describe('Layer Construction', () => {
     it('should provide GreedyMeshingLive layer', async () => {
-      const program = Effect.gen(function* () {
-        const service = yield* GreedyMeshingService
-        expect(service).toBeDefined()
-        expect(service.generateGreedyMesh).toBeDefined()
-        expect(service.generateQuads).toBeDefined()
-        expect(service.optimizeMesh).toBeDefined()
-        return true
-      })
-
-      const result = await pipe(
-        program,
-        Effect.provide(GreedyMeshingLive),
-        Effect.runPromise
+      const program = pipe(
+        GreedyMeshingService,
+        Effect.map((service) => {
+          expect(service).toBeDefined()
+          expect(service.generateGreedyMesh).toBeDefined()
+          expect(service.generateQuads).toBeDefined()
+          expect(service.optimizeMesh).toBeDefined()
+          return true
+        })
       )
+
+      const result = await pipe(program, Effect.provide(GreedyMeshingLive), Effect.runPromise)
 
       expect(result).toBe(true)
     })

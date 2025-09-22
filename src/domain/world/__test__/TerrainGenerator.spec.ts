@@ -2,19 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
+import { expectEffectSuccess, expectEffectDuration } from '../../../test/unified-test-helpers'
 import {
-  expectEffectSuccess,
-  expectEffectDuration,
-} from '../../../test/unified-test-helpers'
-import {
-  TerrainGenerator,
+  TerrainGeneratorTag,
   TerrainGeneratorLive,
   TerrainGeneratorLiveDefault,
   TerrainConfigSchema,
-  type TerrainConfig,
-  type HeightMap,
 } from '../TerrainGenerator'
-import { NoiseGenerator, NoiseGeneratorLiveDefault } from '../NoiseGenerator'
+import type { TerrainGenerator, TerrainConfig, HeightMap } from '../TerrainGenerator'
+import type { NoiseGenerator } from '../NoiseGenerator'
+import { NoiseGeneratorLiveDefault } from '../NoiseGenerator'
 
 /**
  * TerrainGenerator専用のテストヘルパー
@@ -24,16 +21,13 @@ const runWithTestTerrain = <A>(
   operation: (tg: TerrainGenerator) => Effect.Effect<A, never, NoiseGenerator>
 ): Effect.Effect<A, never, never> =>
   Effect.gen(function* () {
-    const tg = yield* TerrainGenerator
+    const tg = yield* TerrainGeneratorTag
     return yield* operation(tg)
-  }).pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        NoiseGeneratorLiveDefault,
-        TerrainGeneratorLive(config)
-      )
-    )
-  ) as Effect.Effect<A, never, never>
+  }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(config)))) as Effect.Effect<
+    A,
+    never,
+    never
+  >
 
 describe('TerrainGenerator', () => {
   const testConfig: TerrainConfig = {
@@ -80,25 +74,18 @@ describe('TerrainGenerator', () => {
   describe('Service Creation', () => {
     it('creates TerrainGenerator with custom config', async () => {
       const testEffect = Effect.gen(function* () {
-        const tg = yield* TerrainGenerator
+        const tg = yield* TerrainGeneratorTag
         expect(tg.getConfig()).toEqual(testConfig)
       })
 
       await expectEffectSuccess(
-        testEffect.pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              NoiseGeneratorLiveDefault,
-              TerrainGeneratorLive(testConfig)
-            )
-          )
-        )
+        testEffect.pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig))))
       )
     })
 
     it('creates TerrainGenerator with default config', async () => {
       const testEffect = Effect.gen(function* () {
-        const tg = yield* TerrainGenerator
+        const tg = yield* TerrainGeneratorTag
         const config = tg.getConfig()
 
         expect(config.seaLevel).toBe(64)
@@ -109,14 +96,7 @@ describe('TerrainGenerator', () => {
       })
 
       await expectEffectSuccess(
-        testEffect.pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              NoiseGeneratorLiveDefault,
-              TerrainGeneratorLiveDefault
-            )
-          )
-        )
+        testEffect.pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLiveDefault)))
       )
     })
   })
@@ -244,9 +224,11 @@ describe('TerrainGenerator', () => {
       blocks: new Uint16Array(16 * 16 * 384), // 16x16x384 chunks
       position,
       metadata: {
-        isGenerated: false,
+        biome: 'plains',
+        lightLevel: 15,
         isModified: false,
         lastUpdate: 0,
+        heightMap: new Array(16 * 16).fill(64),
       },
       isDirty: false,
     })
@@ -363,7 +345,7 @@ describe('TerrainGenerator', () => {
 
       for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i]
-        const result = results[i]
+        const result = Array.isArray(results) ? results[i] : undefined
         if (testCase && result) {
           expect(result.result).toBe(testCase.expected)
         }

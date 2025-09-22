@@ -22,7 +22,12 @@ export {
 
 // ワールドジェネレータインターフェース
 export type { ChunkGenerationResult, GeneratorMetadata, GeneratorState, WorldGenerator } from './WorldGenerator.js'
-export { GenerationError, GeneratorMetadataSchema, StructureGenerationError } from './WorldGenerator.js'
+export {
+  GenerationError,
+  GeneratorMetadataSchema,
+  StructureGenerationError,
+  WorldGeneratorTag,
+} from './WorldGenerator.js'
 
 // ファクトリ関数
 export { createWorldGenerator } from './createWorldGenerator.js'

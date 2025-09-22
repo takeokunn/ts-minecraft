@@ -1,7 +1,15 @@
 import { Effect } from 'effect'
 import type { ChunkPosition } from './ChunkPosition.js'
 import type { ChunkData, ChunkMetadata } from './ChunkData.js'
-import { getBlockIndex, getBlockCoords, createChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from './ChunkData.js'
+import {
+  getBlockIndex,
+  getBlockCoords,
+  createChunkData,
+  CHUNK_SIZE,
+  CHUNK_HEIGHT,
+  CHUNK_MIN_Y,
+  CHUNK_MAX_Y,
+} from './ChunkData.js'
 
 /**
  * チャンク操作のエラー型
@@ -170,8 +178,8 @@ export const createChunk = (data: ChunkData): Chunk => {
     },
 
     serialize(): Effect.Effect<ArrayBuffer, ChunkSerializationError> {
-      return Effect.gen(function* () {
-        try {
+      return Effect.try({
+        try: () => {
           const headerSize = 64
           const blocksSize = chunk.blocks.byteLength
           const heightMapSize = chunk.metadata.heightMap.length * 4
@@ -200,17 +208,16 @@ export const createChunk = (data: ChunkData): Chunk => {
           heightMapView.set(chunk.metadata.heightMap)
 
           return buffer
-        } catch (error) {
-          yield* Effect.fail(new ChunkSerializationError(`Failed to serialize chunk: ${error}`))
-        }
+        },
+        catch: (error) => new ChunkSerializationError(`Failed to serialize chunk: ${error}`),
       })
     },
 
     deserialize(data: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
-      return Effect.gen(function* () {
-        try {
+      return Effect.try({
+        try: () => {
           if (data.byteLength < 64) {
-            yield* Effect.fail(new ChunkSerializationError('Buffer too small'))
+            throw new ChunkSerializationError('Buffer too small')
           }
 
           const view = new DataView(data)
@@ -219,7 +226,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           const version = view.getUint32(offset, true)
           offset += 4
           if (version !== 1) {
-            yield* Effect.fail(new ChunkSerializationError(`Unsupported version: ${version}`))
+            throw new ChunkSerializationError(`Unsupported version: ${version}`)
           }
 
           const blocksSize = view.getUint32(offset, true)
@@ -230,7 +237,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           offset += 8
 
           if (data.byteLength < offset + blocksSize + heightMapSize) {
-            yield* Effect.fail(new ChunkSerializationError('Invalid buffer size'))
+            throw new ChunkSerializationError('Invalid buffer size')
           }
 
           const blocksView = new Uint16Array(data, offset, blocksSize / 2)
@@ -252,71 +259,80 @@ export const createChunk = (data: ChunkData): Chunk => {
           }
 
           return createChunk(newData)
-        } catch (error) {
-          yield* Effect.fail(new ChunkSerializationError(`Failed to deserialize chunk: ${error}`))
-        }
+        },
+        catch: (error) =>
+          error instanceof ChunkSerializationError
+            ? error
+            : new ChunkSerializationError(`Failed to deserialize chunk: ${error}`),
       })
     },
 
     compress(): Effect.Effect<ArrayBuffer, ChunkSerializationError> {
       return Effect.gen(function* () {
         const serialized = yield* chunk.serialize()
-        
-        try {
-          const input = new Uint16Array(serialized)
-          const compressed: number[] = []
-          
-          let i = 0
-          while (i < input.length) {
-            const value = input[i] ?? 0
-            let count = 1
-            
-            while (i + count < input.length && (input[i + count] ?? 0) === value && count < 255) {
-              count++
+
+        return yield* Effect.try({
+          try: () => {
+            const input = new Uint16Array(serialized)
+            const compressed: number[] = []
+
+            let i = 0
+            while (i < input.length) {
+              const value = input[i] ?? 0
+              let count = 1
+
+              while (i + count < input.length && (input[i + count] ?? 0) === value && count < 255) {
+                count++
+              }
+
+              compressed.push(value, count)
+              i += count
             }
-            
-            compressed.push(value, count)
-            i += count
-          }
-          
-          const result = new ArrayBuffer(compressed.length * 2)
-          const resultView = new Uint16Array(result)
-          resultView.set(compressed)
-          
-          return result
-        } catch (error) {
-          yield* Effect.fail(new ChunkSerializationError(`Failed to compress chunk: ${error}`))
-        }
+
+            const result = new ArrayBuffer(compressed.length * 2)
+            const resultView = new Uint16Array(result)
+            resultView.set(compressed)
+
+            return result
+          },
+          catch: (error) => new ChunkSerializationError(`Failed to compress chunk: ${error}`),
+        })
       })
     },
 
     decompress(compressedData: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
       return Effect.gen(function* () {
-        try {
-          if (compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0) {
-            yield* Effect.fail(new ChunkSerializationError('Invalid compressed data'))
-          }
-
-          const input = new Uint16Array(compressedData)
-          const decompressed: number[] = []
-
-          for (let i = 0; i < input.length; i += 2) {
-            const value = input[i] ?? 0
-            const count = input[i + 1] ?? 0
-            
-            for (let j = 0; j < count; j++) {
-              decompressed.push(value)
+        const decompressedBuffer = yield* Effect.try({
+          try: () => {
+            if (compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0) {
+              throw new ChunkSerializationError('Invalid compressed data')
             }
-          }
 
-          const result = new ArrayBuffer(decompressed.length * 2)
-          const resultView = new Uint16Array(result)
-          resultView.set(decompressed)
+            const input = new Uint16Array(compressedData)
+            const decompressed: number[] = []
 
-          return yield* chunk.deserialize(result)
-        } catch (error) {
-          yield* Effect.fail(new ChunkSerializationError(`Failed to decompress chunk: ${error}`))
-        }
+            for (let i = 0; i < input.length; i += 2) {
+              const value = input[i] ?? 0
+              const count = input[i + 1] ?? 0
+
+              for (let j = 0; j < count; j++) {
+                decompressed.push(value)
+              }
+            }
+
+            const result = new ArrayBuffer(decompressed.length * 2)
+            const resultView = new Uint16Array(result)
+            resultView.set(decompressed)
+
+            return result
+          },
+          catch: (error) =>
+            error instanceof ChunkSerializationError
+              ? error
+              : new ChunkSerializationError(`Failed to decompress chunk: ${error}`),
+        })
+
+        return yield* chunk.deserialize(decompressedBuffer)
       })
     },
 

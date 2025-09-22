@@ -11,15 +11,13 @@ describe('ErrorHandlers', () => {
       Effect.gen(function* () {
         const loggedErrors = yield* Ref.make<unknown[]>([])
         const logger = (error: unknown) => {
-          return Effect.runSync(Ref.update(loggedErrors, errors => [...errors, error]))
+          return Effect.runSync(Ref.update(loggedErrors, (errors) => [...errors, error]))
         }
 
         const error = NetworkError({ message: 'Test error' })
         const handler = ErrorHandlers.logAndFallback('fallback', logger)
 
-        const program: Effect.Effect<string, never, never> = Effect.fail(error).pipe(
-          Effect.catchAll(handler)
-        )
+        const program: Effect.Effect<string, never, never> = Effect.fail(error).pipe(Effect.catchAll(handler))
 
         const result = yield* program
         const logs = yield* Ref.get(loggedErrors)
@@ -35,9 +33,7 @@ describe('ErrorHandlers', () => {
         const error = NetworkError({ message: 'Test error without logger' })
         const handler = ErrorHandlers.logAndFallback('fallback')
 
-        const program: Effect.Effect<string, never, never> = Effect.fail(error).pipe(
-          Effect.catchAll(handler)
-        )
+        const program: Effect.Effect<string, never, never> = Effect.fail(error).pipe(Effect.catchAll(handler))
 
         const result = yield* program
         expect(result).toBe('fallback')
@@ -48,7 +44,7 @@ describe('ErrorHandlers', () => {
       Effect.gen(function* () {
         const loggedErrors = yield* Ref.make<unknown[]>([])
         const logger = (error: unknown) => {
-          return Effect.runSync(Ref.update(loggedErrors, errors => [...errors, error]))
+          return Effect.runSync(Ref.update(loggedErrors, (errors) => [...errors, error]))
         }
 
         const errors = [
@@ -104,7 +100,7 @@ describe('ErrorHandlers', () => {
         expect(Exit.isFailure(exit)).toBe(true)
 
         if (Exit.isFailure(exit)) {
-          const mappedError = Exit.unannotate(exit.cause) as Error
+          const mappedError = exit.cause as unknown as Error
           expect(mappedError.message).toBe('Mapped: Original error')
         }
       })
@@ -125,15 +121,13 @@ describe('ErrorHandlers', () => {
           severity: e.statusCode && e.statusCode >= 500 ? 'high' : 'medium',
         })
 
-        const program = Effect.fail(networkError).pipe(
-          Effect.catchAll(ErrorHandlers.mapError(mapper))
-        )
+        const program = Effect.fail(networkError).pipe(Effect.catchAll(ErrorHandlers.mapError(mapper)))
 
         const exit = yield* Effect.exit(program)
         expect(Exit.isFailure(exit)).toBe(true)
 
         if (Exit.isFailure(exit)) {
-          const transformedError = Exit.unannotate(exit.cause) as ReturnType<typeof mapper>
+          const transformedError = exit.cause as unknown as ReturnType<typeof mapper>
           expect(transformedError.type).toBe('CustomError')
           expect(transformedError.message).toBe('Transformed: Network timeout')
           expect(transformedError.originalCode).toBe('NET_TIMEOUT')
@@ -147,19 +141,21 @@ describe('ErrorHandlers', () => {
         const originalError = GameError({ message: 'Game error', code: 'GAME_001' })
 
         const program = Effect.fail(originalError).pipe(
-          Effect.catchAll(ErrorHandlers.mapError((e: typeof originalError) =>
-            NetworkError({ message: `Network: ${e.message}`, code: e.code })
-          )),
-          Effect.catchAll(ErrorHandlers.mapError((e: ReturnType<typeof NetworkError>) =>
-            new Error(`Final: ${e.message}`)
-          ))
+          Effect.catchAll(
+            ErrorHandlers.mapError((e: typeof originalError) =>
+              NetworkError({ message: `Network: ${e.message}`, code: e.code })
+            )
+          ),
+          Effect.catchAll(
+            ErrorHandlers.mapError((e: ReturnType<typeof NetworkError>) => new Error(`Final: ${e.message}`))
+          )
         )
 
         const exit = yield* Effect.exit(program)
         expect(Exit.isFailure(exit)).toBe(true)
 
         if (Exit.isFailure(exit)) {
-          const finalError = Exit.unannotate(exit.cause) as Error
+          const finalError = exit.cause as unknown as Error
           expect(finalError.message).toBe('Final: Network: Game error')
         }
       })
@@ -195,7 +191,7 @@ describe('ErrorHandlers', () => {
 
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
-          const error = Exit.unannotate(exit.cause) as Error
+          const error = exit.cause as unknown as Error
           expect(error.message).toContain('Minimum success requirement not met: 1/2')
         }
       })
@@ -229,7 +225,7 @@ describe('ErrorHandlers', () => {
 
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
-          const error = Exit.unannotate(exit.cause) as Error
+          const error = exit.cause as unknown as Error
           expect(error.message).toContain('Minimum success requirement not met: 0/1')
         }
       })
@@ -259,7 +255,7 @@ describe('ErrorHandlers', () => {
 
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
-          const error = Exit.unannotate(exit.cause) as Error
+          const error = exit.cause as unknown as Error
           expect(error.message).toContain('Minimum success requirement not met: 0/1')
         }
       })
@@ -281,167 +277,143 @@ describe('ErrorHandlers', () => {
   })
 
   describe('withTimeout', () => {
-    it.effect('エフェクトが時間内に完了する場合は成功', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const effect: Effect.Effect<string, never, never> = Effect.succeed('success')
+    it.scoped('エフェクトが時間内に完了する場合は成功', () =>
+      Effect.gen(function* () {
+        const effect: Effect.Effect<string, never, never> = Effect.succeed('success')
 
-          const program: Effect.Effect<string, Error, never> = ErrorHandlers.withTimeout(
-            Duration.seconds(1),
-            () => new Error('Timeout')
-          )(effect)
+        const program: Effect.Effect<string, Error, never> = ErrorHandlers.withTimeout(
+          Duration.seconds(1),
+          () => new Error('Timeout')
+        )(effect)
 
-          const result = yield* program
-          expect(result).toBe('success')
-        })
-      )
+        const result = yield* program
+        expect(result).toBe('success')
+      })
     )
 
-    it.effect('エフェクトがタイムアウトする場合は失敗', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const effect: Effect.Effect<string, never, never> = Effect.sleep(Duration.seconds(1)).pipe(
-            Effect.map(() => 'success')
-          )
+    it.scoped('エフェクトがタイムアウトする場合は失敗', () =>
+      Effect.gen(function* () {
+        const effect: Effect.Effect<string, never, never> = Effect.sleep(Duration.seconds(1)).pipe(
+          Effect.map(() => 'success')
+        )
 
-          const program: Effect.Effect<string, Error, never> = ErrorHandlers.withTimeout(
-            Duration.millis(10),
-            () => new Error('Timeout')
-          )(effect)
+        const program: Effect.Effect<string, Error, never> = ErrorHandlers.withTimeout(
+          Duration.millis(10),
+          () => new Error('Timeout')
+        )(effect)
 
-          const exit = yield* Effect.exit(program)
-          expect(Exit.isFailure(exit)).toBe(true)
+        const exit = yield* Effect.exit(program)
+        expect(Exit.isFailure(exit)).toBe(true)
 
-          if (Exit.isFailure(exit)) {
-            const error = Exit.unannotate(exit.cause) as Error
-            expect(error.message).toBe('Timeout')
-          }
-        })
-      )
+        if (Exit.isFailure(exit)) {
+          const error = exit.cause as unknown as Error
+          expect(error.message).toBe('Timeout')
+        }
+      })
     )
 
-    it.effect('カスタムタイムアウトエラー', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const effect: Effect.Effect<string, never, never> = Effect.sleep(Duration.seconds(1)).pipe(
-            Effect.map(() => 'success')
-          )
+    it.scoped('カスタムタイムアウトエラー', () =>
+      Effect.gen(function* () {
+        const effect: Effect.Effect<string, never, never> = Effect.sleep(Duration.seconds(1)).pipe(
+          Effect.map(() => 'success')
+        )
 
-          const customTimeoutError = {
-            type: 'CustomTimeout',
-            message: 'Operation timed out',
-            duration: Duration.millis(10),
-          }
+        const customTimeoutError = {
+          type: 'CustomTimeout',
+          message: 'Operation timed out',
+          duration: Duration.millis(10),
+        }
 
-          const program = ErrorHandlers.withTimeout(
-            Duration.millis(10),
-            () => customTimeoutError
-          )(effect)
+        const program = ErrorHandlers.withTimeout(Duration.millis(10), () => customTimeoutError)(effect)
 
-          const exit = yield* Effect.exit(program)
-          expect(Exit.isFailure(exit)).toBe(true)
+        const exit = yield* Effect.exit(program)
+        expect(Exit.isFailure(exit)).toBe(true)
 
-          if (Exit.isFailure(exit)) {
-            const error = Exit.unannotate(exit.cause) as typeof customTimeoutError
-            expect(error.type).toBe('CustomTimeout')
-            expect(error.message).toBe('Operation timed out')
-          }
-        })
-      )
+        if (Exit.isFailure(exit)) {
+          const error = exit.cause as unknown as typeof customTimeoutError
+          expect(error.type).toBe('CustomTimeout')
+          expect(error.message).toBe('Operation timed out')
+        }
+      })
     )
 
-    it.effect('エフェクトが既に失敗している場合はタイムアウトではなく元のエラー', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const originalError = new Error('Original error')
-          const effect: Effect.Effect<string, Error, never> = Effect.fail(originalError)
+    it.scoped('エフェクトが既に失敗している場合はタイムアウトではなく元のエラー', () =>
+      Effect.gen(function* () {
+        const originalError = new Error('Original error')
+        const effect: Effect.Effect<string, Error, never> = Effect.fail(originalError)
 
-          const program = ErrorHandlers.withTimeout(
-            Duration.seconds(1),
-            () => new Error('Timeout')
-          )(effect)
+        const program = ErrorHandlers.withTimeout(Duration.seconds(1), () => new Error('Timeout'))(effect)
 
-          const exit = yield* Effect.exit(program)
-          expect(Exit.isFailure(exit)).toBe(true)
+        const exit = yield* Effect.exit(program)
+        expect(Exit.isFailure(exit)).toBe(true)
 
-          if (Exit.isFailure(exit)) {
-            const error = Exit.unannotate(exit.cause) as Error
-            expect(error.message).toBe('Original error')
-          }
-        })
-      )
+        if (Exit.isFailure(exit)) {
+          const error = exit.cause as unknown as Error
+          expect(error.message).toBe('Original error')
+        }
+      })
     )
 
-    it.effect('長時間実行エフェクトのタイムアウト管理', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const startTime = yield* Effect.clockWith(clock => clock.currentTimeMillis)
+    it.scoped('長時間実行エフェクトのタイムアウト管理', () =>
+      Effect.gen(function* () {
+        const startTime = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
-          const longRunningEffect = Effect.gen(function* () {
-            yield* Effect.sleep(Duration.seconds(5))
-            return 'completed'
-          })
-
-          const program = ErrorHandlers.withTimeout(
-            Duration.seconds(1),
-            () => new Error('Timeout after 1 second')
-          )(longRunningEffect)
-
-          // タイムアウトまで時間を進める
-          yield* TestClock.adjust(Duration.seconds(1))
-
-          const exit = yield* Effect.exit(program)
-          const endTime = yield* Effect.clockWith(clock => clock.currentTimeMillis)
-
-          expect(Exit.isFailure(exit)).toBe(true)
-
-          if (Exit.isFailure(exit)) {
-            const error = Exit.unannotate(exit.cause) as Error
-            expect(error.message).toBe('Timeout after 1 second')
-          }
-
-          // 実際には1秒で終了している
-          expect(endTime - startTime).toBe(Duration.toMillis(Duration.seconds(1)))
+        const longRunningEffect = Effect.gen(function* () {
+          yield* Effect.sleep(Duration.seconds(5))
+          return 'completed'
         })
-      )
+
+        const program = ErrorHandlers.withTimeout(
+          Duration.seconds(1),
+          () => new Error('Timeout after 1 second')
+        )(longRunningEffect)
+
+        // タイムアウトまで時間を進める
+        yield* TestClock.adjust(Duration.seconds(1))
+
+        const exit = yield* Effect.exit(program)
+        const endTime = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
+
+        expect(Exit.isFailure(exit)).toBe(true)
+
+        if (Exit.isFailure(exit)) {
+          const error = exit.cause as unknown as Error
+          expect(error.message).toBe('Timeout after 1 second')
+        }
+
+        // 実際には1秒で終了している
+        expect(endTime - startTime).toBe(Duration.toMillis(Duration.seconds(1)))
+      })
     )
   })
 
   describe('Property-based testing', () => {
     it('logAndFallbackは任意のエラーと任意のフォールバック値で動作する', () => {
       fc.assert(
-        fc.asyncProperty(
-          fc.anything(),
-          fc.anything(),
-          async (error, fallback) => {
-            const handler = ErrorHandlers.logAndFallback(fallback)
-            const program = Effect.fail(error).pipe(Effect.catchAll(handler))
-            const result = await Effect.runPromise(program)
-            expect(result).toBe(fallback)
-          }
-        ),
+        fc.asyncProperty(fc.anything(), fc.anything(), async (error, fallback) => {
+          const handler = ErrorHandlers.logAndFallback(fallback)
+          const program = Effect.fail(error).pipe(Effect.catchAll(handler))
+          const result = await Effect.runPromise(program)
+          expect(result).toBe(fallback)
+        }),
         { numRuns: 100 }
       )
     })
 
     it('mapErrorは任意のエラーを変換できる', () => {
       fc.assert(
-        fc.asyncProperty(
-          fc.anything(),
-          fc.string(),
-          async (error, suffix) => {
-            const mapper = (e: unknown) => `mapped_${String(e)}_${suffix}`
-            const handler = ErrorHandlers.mapError(mapper)
-            const program = Effect.fail(error).pipe(Effect.catchAll(handler))
-            const exit = await Effect.runPromiseExit(program)
+        fc.asyncProperty(fc.anything(), fc.string(), async (error, suffix) => {
+          const mapper = (e: unknown) => `mapped_${String(e)}_${suffix}`
+          const handler = ErrorHandlers.mapError(mapper)
+          const program = Effect.fail(error).pipe(Effect.catchAll(handler))
+          const exit = await Effect.runPromiseExit(program)
 
-            expect(Exit.isFailure(exit)).toBe(true)
-            if (Exit.isFailure(exit)) {
-              const mappedError = Exit.unannotate(exit.cause) as string
-              expect(mappedError).toBe(`mapped_${String(error)}_${suffix}`)
-            }
+          expect(Exit.isFailure(exit)).toBe(true)
+          if (Exit.isFailure(exit)) {
+            const mappedError = exit.cause as unknown as string
+            expect(mappedError).toBe(`mapped_${String(error)}_${suffix}`)
           }
-        ),
+        }),
         { numRuns: 50 }
       )
     })
@@ -477,83 +449,66 @@ describe('ErrorHandlers', () => {
   })
 
   describe('統合テスト', () => {
-    it.effect('複数のエラーハンドラーを組み合わせて使用', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const loggedErrors = yield* Ref.make<unknown[]>([])
-          const logger = (error: unknown) => {
-            return Effect.runSync(Ref.update(loggedErrors, errors => [...errors, error]))
-          }
+    it.scoped('複数のエラーハンドラーを組み合わせて使用', () =>
+      Effect.gen(function* () {
+        const loggedErrors = yield* Ref.make<unknown[]>([])
+        const logger = (error: unknown) => {
+          return Effect.runSync(Ref.update(loggedErrors, (errors) => [...errors, error]))
+        }
 
-          const originalError = NetworkError({ message: 'Network failure' })
+        const originalError = NetworkError({ message: 'Network failure' })
 
-          const program = Effect.fail(originalError).pipe(
-            // 最初にエラーを変換
-            Effect.catchAll(ErrorHandlers.mapError((e: typeof originalError) =>
-              GameError({ message: `Converted: ${e.message}` })
-            )),
-            // 変換されたエラーをログに記録してフォールバック
-            Effect.catchAll(ErrorHandlers.logAndFallback('recovered', logger)),
-            // タイムアウト保護
-            effect => ErrorHandlers.withTimeout(
-              Duration.seconds(1),
-              () => new Error('Processing timeout')
-            )(effect)
-          )
+        const program = Effect.fail(originalError).pipe(
+          // 最初にエラーを変換
+          Effect.catchAll(
+            ErrorHandlers.mapError((e: typeof originalError) => GameError({ message: `Converted: ${e.message}` }))
+          ),
+          // 変換されたエラーをログに記録してフォールバック
+          Effect.catchAll(ErrorHandlers.logAndFallback('recovered', logger)),
+          // タイムアウト保護
+          (effect) => ErrorHandlers.withTimeout(Duration.seconds(1), () => new Error('Processing timeout'))(effect)
+        )
 
-          const result = yield* program
-          const logs = yield* Ref.get(loggedErrors)
+        const result = yield* program
+        const logs = yield* Ref.get(loggedErrors)
 
-          expect(result).toBe('recovered')
-          expect(logs).toHaveLength(1)
+        expect(result).toBe('recovered')
+        expect(logs).toHaveLength(1)
 
-          const loggedError = logs[0] as ReturnType<typeof GameError>
-          expect(loggedError._tag).toBe('GameError')
-          expect(loggedError.message).toBe('Converted: Network failure')
-        })
-      )
+        const loggedError = logs[0] as ReturnType<typeof GameError>
+        expect(loggedError._tag).toBe('GameError')
+        expect(loggedError.message).toBe('Converted: Network failure')
+      })
     )
 
-    it.effect('部分的成功とタイムアウトの組み合わせ', () =>
-      TestContext.scoped(
-        Effect.gen(function* () {
-          const effects = [
-            Effect.succeed(1),
-            Effect.sleep(Duration.seconds(2)).pipe(Effect.map(() => 2)), // タイムアウトする
-            Effect.succeed(3),
-            Effect.fail(new Error('Failed')),
-          ]
+    it.scoped('部分的成功とタイムアウトの組み合わせ', () =>
+      Effect.gen(function* () {
+        const effects = [
+          Effect.succeed(1),
+          Effect.sleep(Duration.seconds(2)).pipe(Effect.map(() => 2)), // タイムアウトする
+          Effect.succeed(3),
+          Effect.fail(new Error('Failed')),
+        ]
 
-          const withTimeouts = effects.map(effect =>
-            ErrorHandlers.withTimeout(
-              Duration.seconds(1),
-              () => new Error('Individual timeout')
-            )(effect)
-          )
+        const withTimeouts = effects.map((effect) =>
+          ErrorHandlers.withTimeout(Duration.seconds(1), () => new Error('Individual timeout'))(effect)
+        )
 
-          const program = ErrorHandlers.partial(withTimeouts, 2)
+        const program = ErrorHandlers.partial(withTimeouts, 2)
 
-          // タイムアウトを発生させるために時間を進める
-          yield* TestClock.adjust(Duration.seconds(1))
+        // タイムアウトを発生させるために時間を進める
+        yield* TestClock.adjust(Duration.seconds(1))
 
-          const result = yield* program
-          expect(result).toEqual([1, 3]) // 成功したもののみ
-        })
-      )
+        const result = yield* program
+        expect(result).toEqual([1, 3]) // 成功したもののみ
+      })
     )
   })
 
   describe('エラーハンドリングの不変条件', () => {
     it.effect('logAndFallbackは常にフォールバック値を返す', () =>
       Effect.gen(function* () {
-        const errors = [
-          NetworkError({ message: 'test' }),
-          new Error('test'),
-          'string error',
-          123,
-          null,
-          undefined,
-        ]
+        const errors = [NetworkError({ message: 'test' }), new Error('test'), 'string error', 123, null, undefined]
 
         for (const error of errors) {
           const handler = ErrorHandlers.logAndFallback('fallback')
@@ -566,11 +521,7 @@ describe('ErrorHandlers', () => {
 
     it.effect('mapErrorは常にEffect.failを返す', () =>
       Effect.gen(function* () {
-        const errors = [
-          NetworkError({ message: 'test' }),
-          new Error('test'),
-          'string error',
-        ]
+        const errors = [NetworkError({ message: 'test' }), new Error('test'), 'string error']
 
         for (const error of errors) {
           const handler = ErrorHandlers.mapError((e: unknown) => `mapped: ${e}`)

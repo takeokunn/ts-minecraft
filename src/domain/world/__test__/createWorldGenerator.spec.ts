@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
 import * as fc from 'fast-check'
-import {
-  expectEffectSuccess,
-  expectEffectDuration,
-} from '../../../test/unified-test-helpers'
+import { expectEffectSuccess, expectEffectDuration } from '../../../test/unified-test-helpers'
 import { createWorldGenerator } from '../createWorldGenerator'
 import type { GeneratorOptions, StructureType } from '../GeneratorOptions'
 import type { ChunkPosition } from '../../chunk/ChunkPosition'
@@ -16,11 +13,15 @@ describe('createWorldGenerator', () => {
     seaLevel: 64,
     generateStructures: true,
     features: {
+      caves: true,
+      ravines: true,
       villages: true,
       mineshafts: true,
       strongholds: true,
       temples: true,
       dungeons: true,
+      lakes: true,
+      lavaLakes: true,
     },
   }
 
@@ -52,11 +53,15 @@ describe('createWorldGenerator', () => {
         seaLevel: 80,
         generateStructures: false,
         features: {
+          caves: false,
+          ravines: false,
           villages: false,
           mineshafts: true,
           strongholds: false,
           temples: true,
           dungeons: false,
+          lakes: false,
+          lavaLakes: false,
         },
       }
 
@@ -361,7 +366,7 @@ describe('createWorldGenerator', () => {
 
       const effect = Effect.gen(function* () {
         const generator = yield* createWorldGenerator(defaultOptions)
-        const heights = []
+        const heights: number[] = []
 
         for (const { x, z } of coordinates) {
           const height = yield* generator.getTerrainHeight(x, z)
@@ -369,7 +374,7 @@ describe('createWorldGenerator', () => {
         }
 
         // すべて同じ高度ではないはず
-        const allSame = heights.every(h => h === heights[0])
+        const allSame = heights.every((h) => h === heights[0])
         expect(allSame).toBe(false)
 
         return heights
@@ -449,9 +454,10 @@ describe('createWorldGenerator', () => {
         }
 
         // バイオームの多様性をチェック
-        const biomeTypes = new Set(biomes.map(b => b.type))
-        const temperatureRange = Math.max(...biomes.map(b => b.temperature)) - Math.min(...biomes.map(b => b.temperature))
-        const humidityRange = Math.max(...biomes.map(b => b.humidity)) - Math.min(...biomes.map(b => b.humidity))
+        const biomeTypes = new Set(biomes.map((b) => b.type))
+        const temperatureRange =
+          Math.max(...biomes.map((b) => b.temperature)) - Math.min(...biomes.map((b) => b.temperature))
+        const humidityRange = Math.max(...biomes.map((b) => b.humidity)) - Math.min(...biomes.map((b) => b.humidity))
 
         expect(biomeTypes.size).toBeGreaterThan(0)
         expect(temperatureRange).toBeGreaterThanOrEqual(0)
@@ -485,7 +491,7 @@ describe('createWorldGenerator', () => {
             expect(structure.position).toEqual(position)
             expect(structure.boundingBox).toBeDefined()
             expect(structure.metadata).toBeDefined()
-            expect(typeof structure.metadata.generated).toBe('number')
+            expect(typeof structure.metadata['generated']).toBe('number')
           }
         }
 
@@ -526,11 +532,15 @@ describe('createWorldGenerator', () => {
         ...defaultOptions,
         generateStructures: true,
         features: {
+          caves: true,
+          ravines: false,
           villages: true,
           mineshafts: false,
           strongholds: true,
           temples: false,
           dungeons: true,
+          lakes: true,
+          lavaLakes: false,
         },
       }
 
@@ -591,7 +601,7 @@ describe('createWorldGenerator', () => {
           // 距離計算の確認
           const distance = Math.sqrt(
             Math.pow(nearestVillage.position.x - centerPosition.x, 2) +
-            Math.pow(nearestVillage.position.z - centerPosition.z, 2)
+              Math.pow(nearestVillage.position.z - centerPosition.z, 2)
           )
           expect(distance).toBeLessThanOrEqual(searchRadius)
         }
@@ -669,7 +679,7 @@ describe('createWorldGenerator', () => {
 
       const effect = Effect.gen(function* () {
         const generator = yield* createWorldGenerator(defaultOptions)
-        const heights = []
+        const heights: number[] = []
 
         for (const { x, z } of coordinates) {
           const height = yield* generator.getTerrainHeight(x, z)

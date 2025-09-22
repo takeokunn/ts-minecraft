@@ -54,7 +54,7 @@ export interface NoiseGenerator {
   readonly getConfig: () => NoiseConfig
 }
 
-export const NoiseGenerator = Context.GenericTag<NoiseGenerator>('domain/world/NoiseGenerator')
+export const NoiseGeneratorTag = Context.GenericTag<NoiseGenerator>('domain/world/NoiseGenerator')
 
 /**
  * Perlin Noise用の順列テーブル生成
@@ -138,11 +138,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
 
         // グラデーション計算と補間
         const x1 = lerp(grad2D(permutation[A] ?? 0, xf, yf), grad2D(permutation[B] ?? 0, xf - 1, yf), u)
-        const x2 = lerp(
-          grad2D(permutation[A + 1] ?? 0, xf, yf - 1),
-          grad2D(permutation[B + 1] ?? 0, xf - 1, yf - 1),
-          u
-        )
+        const x2 = lerp(grad2D(permutation[A + 1] ?? 0, xf, yf - 1), grad2D(permutation[B + 1] ?? 0, xf - 1, yf - 1), u)
 
         return lerp(x1, x2, v)
       }),
@@ -173,11 +169,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
         const BB = (permutation[B + 1] ?? 0) + Z
 
         // グラデーション計算と補間
-        const x1 = lerp(
-          grad3D(permutation[AA] ?? 0, xf, yf, zf),
-          grad3D(permutation[BA] ?? 0, xf - 1, yf, zf),
-          u
-        )
+        const x1 = lerp(grad3D(permutation[AA] ?? 0, xf, yf, zf), grad3D(permutation[BA] ?? 0, xf - 1, yf, zf), u)
         const x2 = lerp(
           grad3D(permutation[AB] ?? 0, xf, yf - 1, zf),
           grad3D(permutation[BB] ?? 0, xf - 1, yf - 1, zf),
@@ -255,7 +247,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
  * NoiseGeneratorのLayer
  */
 export const NoiseGeneratorLive = (config: NoiseConfig): Layer.Layer<NoiseGenerator, never, never> =>
-  Layer.succeed(NoiseGenerator, createNoiseGenerator(config))
+  Layer.succeed(NoiseGeneratorTag, createNoiseGenerator(config))
 
 /**
  * デフォルト設定でのLayer

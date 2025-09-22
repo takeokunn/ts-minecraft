@@ -27,14 +27,15 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
       Effect.gen(function* () {
         const chunkData = createChunkData(testPosition)
         chunkData.blocks[100] = 42
-        chunkData.isDirty = true
+        // isDirtyは読み取り専用プロパティのため、テスト用の変更可能なオブジェクトを作成
+        const modifiableChunkData = { ...chunkData, isDirty: true }
 
         const chunk = createChunk(chunkData)
         // インデックス100の座標を正しく計算
         // index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE なので逆算
-        const x = 100 % CHUNK_SIZE  // 4
-        const z = Math.floor((100 % (CHUNK_SIZE * CHUNK_SIZE)) / CHUNK_SIZE)  // 6
-        const y = Math.floor(100 / (CHUNK_SIZE * CHUNK_SIZE)) + CHUNK_MIN_Y  // -64
+        const x = 100 % CHUNK_SIZE // 4
+        const z = Math.floor((100 % (CHUNK_SIZE * CHUNK_SIZE)) / CHUNK_SIZE) // 6
+        const y = Math.floor(100 / (CHUNK_SIZE * CHUNK_SIZE)) + CHUNK_MIN_Y // -64
 
         const blockId = yield* chunk.getBlock(x, y, z)
 
@@ -495,48 +496,46 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
               x: fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
               y: fc.integer({ min: CHUNK_MIN_Y, max: CHUNK_MAX_Y - 1 }),
               z: fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
-              blockId: fc.integer({ min: 1, max: 100 })
+              blockId: fc.integer({ min: 1, max: 100 }),
             }),
             { minLength: 1, maxLength: 20 }
           ),
           async (operations) => {
             const effect = Effect.gen(function* () {
-          let chunk = createEmptyChunk(testPosition)
+              let chunk = createEmptyChunk(testPosition)
 
-          // ランダムな操作を適用
-          for (const { x, y, z, blockId } of operations) {
-            chunk = yield* chunk.setBlock(x, y, z, blockId)
-          }
+              // ランダムな操作を適用
+              for (const { x, y, z, blockId } of operations) {
+                chunk = yield* chunk.setBlock(x, y, z, blockId)
+              }
 
-          // シリアライズ・デシリアライズサイクル
-          const serialized = yield* chunk.serialize()
-          const deserialized = yield* chunk.deserialize(serialized)
+              // シリアライズ・デシリアライズサイクル
+              const serialized = yield* chunk.serialize()
+              const deserialized = yield* chunk.deserialize(serialized)
 
-          // 圧縮・解凍サイクル
-          const compressed = yield* chunk.compress()
-          const decompressed = yield* chunk.decompress(compressed)
+              // 圧縮・解凍サイクル
+              const compressed = yield* chunk.compress()
+              const decompressed = yield* chunk.decompress(compressed)
 
-          // クローン
-          const cloned = chunk.clone()
+              // クローン
+              const cloned = chunk.clone()
 
-          // すべての操作後、データが保持されていることを確認
-          for (const { x, y, z, blockId: expectedBlockId } of operations) {
-            const deserializedBlock = yield* deserialized.getBlock(x, y, z)
-            const decompressedBlock = yield* decompressed.getBlock(x, y, z)
-            const clonedBlock = yield* cloned.getBlock(x, y, z)
+              // すべての操作後、データが保持されていることを確認
+              for (const { x, y, z, blockId: expectedBlockId } of operations) {
+                const deserializedBlock = yield* deserialized.getBlock(x, y, z)
+                const decompressedBlock = yield* decompressed.getBlock(x, y, z)
+                const clonedBlock = yield* cloned.getBlock(x, y, z)
 
-            // 最後に設定された値が保持されている（同じ座標への複数の操作がある場合）
-            const lastValue = operations
-              .filter((op) => op.x === x && op.y === y && op.z === z)
-              .pop()?.blockId ?? 0
+                // 最後に設定された値が保持されている（同じ座標への複数の操作がある場合）
+                const lastValue = operations.filter((op) => op.x === x && op.y === y && op.z === z).pop()?.blockId ?? 0
 
-            expect(deserializedBlock).toBe(lastValue)
-            expect(decompressedBlock).toBe(lastValue)
-            expect(clonedBlock).toBe(lastValue)
-          }
-        })
+                expect(deserializedBlock).toBe(lastValue)
+                expect(decompressedBlock).toBe(lastValue)
+                expect(clonedBlock).toBe(lastValue)
+              }
+            })
 
-        await Effect.runPromise(effect)
+            await Effect.runPromise(effect)
           }
         )
       )

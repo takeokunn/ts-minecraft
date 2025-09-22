@@ -27,21 +27,23 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
     Effect.gen(function* () {
       // WebGLRendererの作成
       const renderer = yield* Effect.try({
-        try: () => new THREE.WebGLRenderer({
-          canvas,
-          antialias: true,
-          alpha: true,
-          powerPreference: 'high-performance',
-          stencil: false,
-          depth: true,
-          premultipliedAlpha: true,
-          preserveDrawingBuffer: false,
-        }),
-        catch: (error) => RenderInitError({
-          message: 'WebGLRendererの作成に失敗しました',
-          canvas,
-          cause: error,
-        })
+        try: () =>
+          new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            alpha: true,
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+          }),
+        catch: (error) =>
+          RenderInitError({
+            message: 'WebGLRendererの作成に失敗しました',
+            canvas,
+            cause: error,
+          }),
       })
 
       // 基本設定の適用
@@ -53,11 +55,12 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
           renderer.shadowMap.enabled = true
           renderer.shadowMap.type = THREE.PCFSoftShadowMap
         },
-        catch: (error) => RenderInitError({
-          message: 'レンダラー設定の適用に失敗しました',
-          canvas,
-          cause: error,
-        })
+        catch: (error) =>
+          RenderInitError({
+            message: 'レンダラー設定の適用に失敗しました',
+            canvas,
+            cause: error,
+          }),
       })
 
       // WebGLコンテキストの検証
@@ -69,12 +72,13 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
           }
           return context
         },
-        catch: (error) => RenderInitError({
-          message: 'WebGLコンテキストの取得に失敗しました',
-          canvas,
-          context: 'WebGL context creation failed',
-          cause: error,
-        })
+        catch: (error) =>
+          RenderInitError({
+            message: 'WebGLコンテキストの取得に失敗しました',
+            canvas,
+            context: 'WebGL context creation failed',
+            cause: error,
+          }),
       })
 
       // WebGLコンテキストロストのハンドリング
@@ -83,11 +87,12 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
           canvas.addEventListener('webglcontextlost', handleContextLost, false)
           canvas.addEventListener('webglcontextrestored', handleContextRestored, false)
         },
-        catch: (error) => RenderInitError({
-          message: 'WebGLコンテキストイベントリスナーの設定に失敗しました',
-          canvas,
-          cause: error,
-        })
+        catch: (error) =>
+          RenderInitError({
+            message: 'WebGLコンテキストイベントリスナーの設定に失敗しました',
+            canvas,
+            cause: error,
+          }),
       })
 
       // レンダラーの保存
@@ -136,7 +141,7 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
             cameraType: camera.type,
             cause: error,
           })
-        }
+        },
       })
     }),
 

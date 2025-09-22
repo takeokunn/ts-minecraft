@@ -7,43 +7,36 @@ export const ErrorReporter = {
   /**
    * エラーを構造化された形式でフォーマット
    */
-  format: (error: unknown): string =>
-    pipe(
-      Match.value(error),
-      Match.when(
-        (e): e is { _tag: string; message?: string; [key: string]: unknown } =>
-          e !== null && typeof e === 'object' && '_tag' in e,
-        (e) =>
-          JSON.stringify(
-            {
-              type: e._tag,
-              message: e.message,
-              details: e,
-              timestamp: new Date().toISOString(),
-            },
-            null,
-            2
-          )
-      ),
-      Match.orElse((e) => String(e))
-    ),
+  format: (error: unknown): string => {
+    if (error !== null && typeof error === 'object' && '_tag' in error) {
+      const taggedError = error as { _tag: string; message?: string; [key: string]: unknown }
+      return JSON.stringify(
+        {
+          type: taggedError._tag,
+          message: taggedError.message,
+          details: taggedError,
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      )
+    }
+    return String(error)
+  },
 
   /**
    * エラースタックトレースを取得
    */
-  getStackTrace: (error: unknown): string | undefined =>
-    pipe(
-      Match.value(error),
-      Match.when(
-        (e): e is Error => e instanceof Error,
-        (e) => e.stack
-      ),
-      Match.when(
-        (e): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
-        (e) => String(e.stack)
-      ),
-      Match.orElse(() => undefined)
-    ),
+  getStackTrace: (error: unknown): string | undefined => {
+    if (error instanceof Error) {
+      return error.stack
+    }
+    if (error !== null && typeof error === 'object' && 'stack' in error) {
+      const stackError = error as { stack: unknown }
+      return String(stackError.stack)
+    }
+    return undefined
+  },
 
   /**
    * エラーの原因チェーンを取得
@@ -59,7 +52,7 @@ export const ErrorReporter = {
         Option.fromNullable(current),
         Option.match({
           onNone: () => {},
-          onSome: (c) => chain.push(c)
+          onSome: (c: unknown) => chain.push(c),
         })
       )
     }

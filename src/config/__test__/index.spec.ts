@@ -2,11 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import { defaultConfig, validateConfig, loadConfig } from '../index'
-import {
-  expectEffectSuccess,
-  expectSchemaSuccess,
-  expectPerformanceTest,
-} from '../../test/unified-test-helpers'
+import { expectEffectSuccess, expectSchemaSuccess, expectPerformanceTest } from '../../test/unified-test-helpers'
 
 describe('Config Module', () => {
   describe('defaultConfig', () => {
@@ -142,15 +138,17 @@ describe('Config Module', () => {
       memoryLimit: Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThanOrEqualTo(2048)),
     })
 
-    it.effect('should validate config with schema-based testing', () =>
-      Effect.gen(function* () {
-        const config = yield* loadConfig
-        const validatedConfig = expectSchemaSuccess(ConfigSchema, config)
+    it.effect(
+      'should validate config with schema-based testing',
+      () =>
+        Effect.gen(function* () {
+          const config = yield* loadConfig
+          const validatedConfig = expectSchemaSuccess(ConfigSchema, config)
 
-        expect(validatedConfig.debug).toBe(false)
-        expect(validatedConfig.fps).toBe(60)
-        expect(validatedConfig.memoryLimit).toBe(2048)
-      })
+          expect((validatedConfig as any).debug).toBe(false)
+          expect((validatedConfig as any).fps).toBe(60)
+          expect((validatedConfig as any).memoryLimit).toBe(2048)
+        }) as Effect.Effect<void, unknown, never>
     )
   })
 })

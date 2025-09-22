@@ -4,12 +4,8 @@
  */
 
 import { it, expect } from '@effect/vitest'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import * as TestContext from 'effect/TestContext'
-import * as Schema from '@effect/schema/Schema'
-import * as Exit from 'effect/Exit'
-import { pipe } from 'effect/Function'
+import { Effect, Layer, Schema, Exit, pipe, TestContext } from 'effect'
+import { PropertyTest, fc } from '../../../test/unified-test-helpers'
 import * as THREE from 'three'
 import {
   CameraService,
@@ -170,8 +166,7 @@ describe('CameraService', () => {
         )
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext))
-    )
+      }).pipe(Effect.provide(TestContext.TestContext)))
 
     it.skip('should validate sensitivity range (0.1-10)', () =>
       Effect.gen(function* () {
@@ -199,8 +194,7 @@ describe('CameraService', () => {
         )
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext))
-    )
+      }).pipe(Effect.provide(TestContext.TestContext)))
 
     it.skip('should validate smoothing range (0-1)', () =>
       Effect.gen(function* () {
@@ -227,8 +221,7 @@ describe('CameraService', () => {
         )
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext))
-    )
+      }).pipe(Effect.provide(TestContext.TestContext)))
 
     it.effect('should reject invalid configurations', () =>
       Effect.gen(function* () {
@@ -434,8 +427,7 @@ describe('CameraService', () => {
         )
 
         return true
-      }).pipe(Effect.provide(TestLayer))
-    )
+      }).pipe(Effect.provide(TestLayer)))
   })
 
   describe('Mouse Look Control', () => {
@@ -715,5 +707,6 @@ describe('CameraService', () => {
   })
 })
 
-// Add property-based test factory pattern
-const fc = require('fast-check')
+// Property-based testingパターン
+// fast-checkは統合テストヘルパーから使用
+// Property-based testingが必要な場合は統合テストヘルパーのfcを使用

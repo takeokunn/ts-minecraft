@@ -4,7 +4,7 @@
  * @module domain/world/WorldGenerator
  */
 
-import { Effect } from 'effect'
+import { Effect, Context } from 'effect'
 import { Schema } from '@effect/schema'
 import type { Chunk, ChunkData } from '../chunk/index.js'
 import type { ChunkPosition } from '../chunk/ChunkPosition.js'
@@ -133,3 +133,8 @@ export const GeneratorMetadataSchema = Schema.Struct({
   totalStructures: Schema.Number,
 })
 export type GeneratorMetadata = Schema.Schema.Type<typeof GeneratorMetadataSchema>
+
+/**
+ * WorldGenerator Context Tag
+ */
+export const WorldGeneratorTag = Context.GenericTag<WorldGenerator>('domain/world/WorldGenerator')

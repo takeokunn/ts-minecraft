@@ -28,12 +28,11 @@ export interface AOConfig {
 // Error Definitions
 // ========================================
 
-export const AmbientOcclusionError = Schema.TaggedError<'AmbientOcclusionError'>()('AmbientOcclusionError', {
+export class AmbientOcclusionError extends Schema.TaggedError<AmbientOcclusionError>()('AmbientOcclusionError', {
   reason: Schema.String,
   context: Schema.String,
   timestamp: Schema.Number,
-})
-export type AmbientOcclusionError = typeof AmbientOcclusionError.Type
+}) {}
 
 // ========================================
 // Service Interface
@@ -46,7 +45,7 @@ export interface AmbientOcclusionService {
     y: number,
     z: number,
     size: number
-  ) => Effect.Effect<number, AmbientOcclusionError>
+  ) => Effect.Effect<number, AmbientOcclusionError, never>
 
   readonly calculateFaceAO: (
     blocks: number[][][],
@@ -55,11 +54,9 @@ export interface AmbientOcclusionService {
     z: number,
     face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right',
     size: number
-  ) => Effect.Effect<AOFace, AmbientOcclusionError>
+  ) => Effect.Effect<AOFace, AmbientOcclusionError, never>
 
-  readonly applyAOToChunk: (
-    chunkData: ChunkData
-  ) => Effect.Effect<readonly AOVertex[], AmbientOcclusionError>
+  readonly applyAOToChunk: (chunkData: ChunkData) => Effect.Effect<readonly AOVertex[], AmbientOcclusionError, never>
 }
 
 export const AmbientOcclusionService = Context.GenericTag<AmbientOcclusionService>('@minecraft/AmbientOcclusionService')
@@ -70,15 +67,12 @@ export const AmbientOcclusionService = Context.GenericTag<AmbientOcclusionServic
 
 const getBlock = (blocks: number[][][], x: number, y: number, z: number, size: number): BlockType =>
   pipe(
-    x >= 0 && x < size && y >= 0 && y < size && z >= 0 && z < size
-      ? Option.some(true)
-      : Option.none(),
+    x >= 0 && x < size && y >= 0 && y < size && z >= 0 && z < size ? Option.some(true) : Option.none(),
     Option.flatMap(() => Option.fromNullable(blocks[x]?.[y]?.[z])),
     Option.getOrElse(() => 0)
   )
 
-const isOccluding = (blockType: BlockType): boolean =>
-  blockType !== 0 // Non-air blocks occlude
+const isOccluding = (blockType: BlockType): boolean => blockType !== 0 // Non-air blocks occlude
 
 // Calculate AO for a vertex based on surrounding blocks
 // Uses the classic Minecraft-style AO algorithm
@@ -92,9 +86,9 @@ const calculateVertexAOPure = (
 ): number => {
   // Generate neighbor offsets (3x3x3 cube minus center)
   const offsets = pipe(
-    A.makeBy(27, i => {
+    A.makeBy(27, (i) => {
       const dx = (i % 3) - 1
-      const dy = Math.floor(i / 3) % 3 - 1
+      const dy = (Math.floor(i / 3) % 3) - 1
       const dz = Math.floor(i / 9) - 1
       return { dx, dy, dz }
     }),
@@ -104,29 +98,22 @@ const calculateVertexAOPure = (
   // Calculate occlusion
   const { occluders, samples } = pipe(
     offsets,
-    A.reduce(
-      { occluders: 0, samples: 0 },
-      (acc, { dx, dy, dz }) => {
-        const neighbor = getBlock(blocks, x + dx, y + dy, z + dz, size)
-        const weight = pipe(
-          Math.abs(dx) + Math.abs(dy) + Math.abs(dz),
-          Match.value,
-          Match.when(3, () => 0.5), // Corner blocks
-          Match.orElse(() => 1.0)   // Edge blocks
-        )
+    A.reduce({ occluders: 0, samples: 0 }, (acc, { dx, dy, dz }) => {
+      const neighbor = getBlock(blocks, x + dx, y + dy, z + dz, size)
+      const distance = Math.abs(dx) + Math.abs(dy) + Math.abs(dz)
+      const weight = distance === 3 ? 0.5 : 1.0 // Corner vs Edge blocks
 
-        return {
-          occluders: acc.occluders + (isOccluding(neighbor) ? weight : 0),
-          samples: acc.samples + 1
-        }
+      return {
+        occluders: acc.occluders + (isOccluding(neighbor) ? weight : 0),
+        samples: acc.samples + 1,
       }
-    )
+    })
   )
 
   // Calculate and clamp AO value
   return pipe(
-    1.0 - (occluders / samples),
-    aoRaw => 1.0 - ((1.0 - aoRaw) * config.strength),
+    1.0 - occluders / samples,
+    (aoRaw) => 1.0 - (1.0 - aoRaw) * config.strength,
     N.clamp({ minimum: 0.0, maximum: 1.0 })
   )
 }
@@ -142,17 +129,59 @@ const calculateFaceAOPure = (
   config: AOConfig
 ): AOFace => {
   // Define vertex offsets for each face
-  const getVertexOffsets = (face: string): readonly [number, number, number][] =>
-    pipe(
-      Match.value(face),
-      Match.when('top', () => [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]] as const),
-      Match.when('bottom', () => [[0, 0, 0], [0, 0, 1], [1, 0, 1], [1, 0, 0]] as const),
-      Match.when('front', () => [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] as const),
-      Match.when('back', () => [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] as const),
-      Match.when('left', () => [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]] as const),
-      Match.when('right', () => [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]] as const),
-      Match.exhaustive
-    )
+  const getVertexOffsets = (face: string): [number, number, number][] => {
+    switch (face) {
+      case 'top':
+        return [
+          [0, 1, 0],
+          [1, 1, 0],
+          [1, 1, 1],
+          [0, 1, 1],
+        ] as [number, number, number][]
+      case 'bottom':
+        return [
+          [0, 0, 0],
+          [0, 0, 1],
+          [1, 0, 1],
+          [1, 0, 0],
+        ] as [number, number, number][]
+      case 'front':
+        return [
+          [0, 0, 1],
+          [1, 0, 1],
+          [1, 1, 1],
+          [0, 1, 1],
+        ] as [number, number, number][]
+      case 'back':
+        return [
+          [1, 0, 0],
+          [0, 0, 0],
+          [0, 1, 0],
+          [1, 1, 0],
+        ] as [number, number, number][]
+      case 'left':
+        return [
+          [0, 0, 0],
+          [0, 0, 1],
+          [0, 1, 1],
+          [0, 1, 0],
+        ] as [number, number, number][]
+      case 'right':
+        return [
+          [1, 0, 1],
+          [1, 0, 0],
+          [1, 1, 0],
+          [1, 1, 1],
+        ] as [number, number, number][]
+      default:
+        return [
+          [0, 0, 0],
+          [1, 0, 0],
+          [1, 1, 0],
+          [0, 1, 0],
+        ] as [number, number, number][]
+    }
+  }
 
   const offsets = getVertexOffsets(face)
 
@@ -169,9 +198,9 @@ const calculateFaceAOPure = (
 
   const averageAO = pipe(
     vertices,
-    A.map(v => v.ao),
+    A.map((v) => v.ao),
     A.reduce(0, N.sum),
-    total => total / 4
+    (total) => total / 4
   )
 
   return {
@@ -191,7 +220,7 @@ const smoothAOValues = (aoVertices: AOVertex[]): AOVertex[] => {
         Option.fromNullable(map.get(key)),
         Option.match({
           onNone: () => map.set(key, [vertex.ao]),
-          onSome: (values) => map.set(key, [...values, vertex.ao])
+          onSome: (values) => map.set(key, [...values, vertex.ao]),
         })
       )
       return map
@@ -201,14 +230,10 @@ const smoothAOValues = (aoVertices: AOVertex[]): AOVertex[] => {
   // Average AO values for each vertex position using Effect-TS patterns
   const smoothed = pipe(
     aoVertices,
-    A.map(vertex => {
+    A.map((vertex) => {
       const key = `${vertex.x},${vertex.y},${vertex.z}`
       const values = aoMap.get(key)!
-      const avgAO = pipe(
-        values,
-        A.reduce(0, N.sum),
-        total => total / values.length
-      )
+      const avgAO = pipe(values, A.reduce(0, N.sum), (total) => total / values.length)
 
       return {
         ...vertex,
@@ -228,44 +253,49 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
   calculateVertexAO: (blocks, x, y, z, size) =>
     pipe(
       Effect.if(config.enabled, {
-        onTrue: () => Effect.try({
-          try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
-          catch: (error) => new AmbientOcclusionError({
-            reason: `Failed to calculate vertex AO: ${String(error)}`,
-            context: `calculateVertexAO(${x},${y},${z})`,
-            timestamp: Date.now(),
-          })
-        }),
-        onFalse: () => Effect.succeed(1.0)
+        onTrue: () =>
+          Effect.try({
+            try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
+            catch: (error) =>
+              new AmbientOcclusionError({
+                reason: `Failed to calculate vertex AO: ${String(error)}`,
+                context: `calculateVertexAO(${x},${y},${z})`,
+                timestamp: Date.now(),
+              }),
+          }),
+        onFalse: () => Effect.succeed(1.0),
       })
     ),
 
   calculateFaceAO: (blocks, x, y, z, face, size) =>
     pipe(
       Effect.if(config.enabled, {
-        onTrue: () => Effect.try({
-          try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
-          catch: (error) => new AmbientOcclusionError({
-            reason: `Failed to calculate face AO: ${String(error)}`,
-            context: `calculateFaceAO(${face})`,
-            timestamp: Date.now(),
-          })
-        }),
-        onFalse: () => Effect.succeed<AOFace>({
-          vertices: [
-            { x, y, z, ao: 1.0 },
-            { x: x + 1, y, z, ao: 1.0 },
-            { x: x + 1, y: y + 1, z, ao: 1.0 },
-            { x, y: y + 1, z, ao: 1.0 },
-          ],
-          averageAO: 1.0,
-        })
+        onTrue: () =>
+          Effect.try({
+            try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
+            catch: (error) =>
+              new AmbientOcclusionError({
+                reason: `Failed to calculate face AO: ${String(error)}`,
+                context: `calculateFaceAO(${face})`,
+                timestamp: Date.now(),
+              }),
+          }),
+        onFalse: () =>
+          Effect.succeed<AOFace>({
+            vertices: [
+              { x, y, z, ao: 1.0 },
+              { x: x + 1, y, z, ao: 1.0 },
+              { x: x + 1, y: y + 1, z, ao: 1.0 },
+              { x, y: y + 1, z, ao: 1.0 },
+            ],
+            averageAO: 1.0,
+          }),
       })
     ),
 
   applyAOToChunk: (chunkData) =>
-    Effect.gen(function* () {
-      try {
+    Effect.try({
+      try: () => {
         if (!config.enabled) {
           return []
         }
@@ -273,41 +303,43 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         // Calculate AO for all solid block vertices using Effect-TS patterns
         const aoVertices = pipe(
           A.range(0, chunkData.size - 1),
-          A.flatMap(x =>
+          A.flatMap((x) =>
             pipe(
               A.range(0, chunkData.size - 1),
-              A.flatMap(y =>
+              A.flatMap((y) =>
                 pipe(
                   A.range(0, chunkData.size - 1),
-                  A.flatMap(z => {
+                  A.flatMap((z) => {
                     const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
 
-                    return pipe(
-                      blockType === 0,
-                      Match.value,
-                      Match.when(true, () => []),
-                      Match.when(false, () => {
-                        const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> =
-                          ['top', 'bottom', 'front', 'back', 'left', 'right']
+                    if (blockType === 0) {
+                      return []
+                    } else {
+                      const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
+                        'top',
+                        'bottom',
+                        'front',
+                        'back',
+                        'left',
+                        'right',
+                      ]
 
-                        return pipe(
-                          faces,
-                          A.flatMap(face => {
-                            const aoFace = calculateFaceAOPure(
-                              chunkData.blocks,
-                              x,
-                              y,
-                              z,
-                              face,
-                              chunkData.size,
-                              config
-                            )
-                            return Array.from(aoFace.vertices)
-                          })
-                        )
-                      }),
-                      Match.exhaustive
-                    )
+                      return pipe(
+                        faces,
+                        A.flatMap((face) => {
+                          const aoFace = calculateFaceAOPure(
+                            chunkData.blocks.map((layer) => layer.map((row) => [...row])),
+                            x,
+                            y,
+                            z,
+                            face,
+                            chunkData.size,
+                            config
+                          )
+                          return Array.from(aoFace.vertices)
+                        })
+                      )
+                    }
                   })
                 )
               )
@@ -316,26 +348,16 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         )
 
         // Apply smoothing if enabled
-        const finalVertices = config.smoothing
-          ? smoothAOValues(aoVertices)
-          : aoVertices
-
-        // Log AO statistics
-        const avgAO = finalVertices.reduce((sum, v) => sum + v.ao, 0) / finalVertices.length
-        yield* Effect.log(
-          `AO calculation complete: ${finalVertices.length} vertices, average AO: ${avgAO.toFixed(3)}`
-        )
+        const finalVertices = config.smoothing ? smoothAOValues(aoVertices) : aoVertices
 
         return finalVertices
-      } catch (error) {
-        return yield* Effect.fail(
-          new AmbientOcclusionError({
-            reason: `Failed to apply AO to chunk: ${String(error)}`,
-            context: 'applyAOToChunk',
-            timestamp: Date.now(),
-          })
-        )
-      }
+      },
+      catch: (error) =>
+        new AmbientOcclusionError({
+          reason: `Failed to apply AO to chunk: ${String(error)}`,
+          context: 'applyAOToChunk',
+          timestamp: Date.now(),
+        }),
     }),
 })
 
@@ -357,26 +379,25 @@ export const AmbientOcclusionLive = Layer.succeed(
 // Utility Exports
 // ========================================
 
-export const blendAOColors = (
-  baseColor: [number, number, number],
-  aoValue: number
-): [number, number, number] => {
+export const blendAOColors = (baseColor: [number, number, number], aoValue: number): [number, number, number] => {
   // Darken the base color based on AO value
-  return [
-    baseColor[0] * aoValue,
-    baseColor[1] * aoValue,
-    baseColor[2] * aoValue,
-  ]
+  return [baseColor[0] * aoValue, baseColor[1] * aoValue, baseColor[2] * aoValue]
 }
 
-export const getAOQualitySettings = (quality: AOConfig['quality']): {
+export const getAOQualitySettings = (
+  quality: AOConfig['quality']
+): {
   sampleRadius: number
   sampleCount: number
-} =>
-  pipe(
-    Match.value(quality),
-    Match.when('low', () => ({ sampleRadius: 1, sampleCount: 6 })),
-    Match.when('medium', () => ({ sampleRadius: 1, sampleCount: 14 })),
-    Match.when('high', () => ({ sampleRadius: 2, sampleCount: 26 })),
-    Match.exhaustive
-  )
+} => {
+  switch (quality) {
+    case 'low':
+      return { sampleRadius: 1, sampleCount: 6 }
+    case 'medium':
+      return { sampleRadius: 1, sampleCount: 14 }
+    case 'high':
+      return { sampleRadius: 2, sampleCount: 26 }
+    default:
+      return { sampleRadius: 1, sampleCount: 14 }
+  }
+}

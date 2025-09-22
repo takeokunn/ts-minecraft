@@ -255,19 +255,14 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          state.entities.has(id),
-          Match.value,
-          Match.when(false, () =>
-            Effect.fail(
-              new WorldError({
-                message: `Entity not found: ${id}`,
-                entityId: id,
-              })
-            )
-          ),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
+        if (!state.entities.has(id)) {
+          yield* Effect.fail(
+            new WorldError({
+              message: `Entity not found: ${id}`,
+              entityId: id,
+            })
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           const newEntities = new Map(s.entities)
@@ -302,33 +297,24 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          state.entities.has(entityId),
-          Match.value,
-          Match.when(false, () =>
-            Effect.fail(
-              new WorldError({
-                message: `Entity not found: ${entityId}`,
-                entityId,
-              })
-            )
-          ),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
+        if (!state.entities.has(entityId)) {
+          yield* Effect.fail(
+            new WorldError({
+              message: `Entity not found: ${entityId}`,
+              entityId,
+            })
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           const newComponents = new Map(s.components)
-          let storage = yield* pipe(
-            Option.fromNullable(newComponents.get(componentType)),
-            Option.match({
-              onNone: () =>
-                Effect.succeed({
-                  type: componentType,
-                  data: new Map(),
-                }),
-              onSome: (storage) => Effect.succeed(storage),
-            })
-          )
+
+          // 既存のストレージを取得または新規作成
+          const existingStorage = newComponents.get(componentType)
+          const storage: ComponentStorage = existingStorage ?? {
+            type: componentType,
+            data: new Map(),
+          }
 
           const newData = new Map(storage.data)
           newData.set(entityId, component)
@@ -359,10 +345,10 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const storage = state.components.get(componentType)
-          
+
           return pipe(
             Option.fromNullable(storage),
-            Option.flatMap((storage) => 
+            Option.flatMap((storage) =>
               pipe(
                 storage.data.has(entityId),
                 Match.value,
@@ -377,34 +363,31 @@ export const WorldLive = Layer.effect(
                 newData.delete(entityId)
 
                 const newComponents = new Map(state.components)
-                return pipe(
-                  newData.size === 0,
-                  Match.value,
-                  Match.when(true, () => {
-                    newComponents.delete(componentType)
-                    return newComponents
-                  }),
-                  Match.orElse(() => {
-                    newComponents.set(componentType, { ...storage, data: newData })
-                    return newComponents
-                  }),
-                  (components) => {
-                    // コンポーネント総数を計算
-                    let totalComponents = 0
-                    for (const stor of components.values()) {
-                      totalComponents += stor.data.size
-                    }
+                const components =
+                  newData.size === 0
+                    ? (() => {
+                        newComponents.delete(componentType)
+                        return newComponents
+                      })()
+                    : (() => {
+                        newComponents.set(componentType, { ...storage, data: newData })
+                        return newComponents
+                      })()
 
-                    return {
-                      ...state,
-                      components,
-                      stats: {
-                        ...state.stats,
-                        componentCount: totalComponents,
-                      },
-                    }
-                  }
-                )
+                // コンポーネント総数を計算
+                let totalComponents = 0
+                for (const stor of components.values()) {
+                  totalComponents += stor.data.size
+                }
+
+                return {
+                  ...state,
+                  components,
+                  stats: {
+                    ...state.stats,
+                    componentCount: totalComponents,
+                  },
+                }
               },
             })
           )
@@ -417,16 +400,18 @@ export const WorldLive = Layer.effect(
     const getComponent = <T>(entityId: EntityId, componentType: string) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
-        return yield* pipe(
+
+        return pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
-            onNone: () => Effect.succeed(Option.none<T>()),
+            onNone: () => null,
             onSome: (storage) =>
               pipe(
                 Option.fromNullable(storage.data.get(entityId)),
-                Option.map((component) => component as T),
-                Effect.succeed
+                Option.match({
+                  onNone: () => null,
+                  onSome: (component) => component as T,
+                })
               ),
           })
         )
@@ -438,7 +423,7 @@ export const WorldLive = Layer.effect(
     const hasComponent = (entityId: EntityId, componentType: string) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         return yield* pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
@@ -454,7 +439,7 @@ export const WorldLive = Layer.effect(
     const getEntitiesWithComponent = (componentType: string) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         return yield* pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
@@ -475,75 +460,48 @@ export const WorldLive = Layer.effect(
      */
     const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
       Effect.gen(function* () {
-        return yield* pipe(
-          componentTypes.length === 0,
-          Match.value,
-          Match.when(true, () => Effect.succeed([])),
-          Match.orElse(() =>
-            Effect.gen(function* () {
-              const state = yield* Ref.get(stateRef)
+        // コンポーネントタイプがない場合は空配列を返す
+        if (componentTypes.length === 0) {
+          return []
+        }
 
-              // 最初のコンポーネントを持つエンティティから開始
-              const firstComponent = yield* pipe(
-                Option.fromNullable(componentTypes[0]),
-                Option.match({
-                  onNone: () => Effect.succeed([]),
-                  onSome: (componentType) =>
-                    pipe(
-                      Option.fromNullable(state.components.get(componentType)),
-                      Option.match({
-                        onNone: () => Effect.succeed([]),
-                        onSome: (storage) => Effect.succeed(Array.from(storage.data.keys())),
-                      })
-                    ),
-                })
-              )
+        const state = yield* Ref.get(stateRef)
 
-              let entities = firstComponent
+        // 最初のコンポーネントを持つエンティティから開始
+        const firstComponentType = componentTypes[0]
+        if (!firstComponentType) {
+          return []
+        }
 
-              // 残りのコンポーネントでフィルタリング
-              for (let i = 1; i < componentTypes.length; i++) {
-                const componentType = yield* pipe(
-                  Option.fromNullable(componentTypes[i]),
-                  Option.match({
-                    onNone: () => Effect.succeed(null),
-                    onSome: (type) => Effect.succeed(type),
-                  })
-                )
+        const firstStorage = state.components.get(firstComponentType)
+        if (!firstStorage) {
+          return []
+        }
 
-                yield* pipe(
-                  Option.fromNullable(componentType),
-                  Option.match({
-                    onNone: () => {
-                      entities = []
-                      return Effect.succeed(undefined)
-                    },
-                    onSome: (type) =>
-                      pipe(
-                        Option.fromNullable(state.components.get(type)),
-                        Option.match({
-                          onNone: () => {
-                            entities = []
-                            return Effect.succeed(undefined)
-                          },
-                          onSome: (storage) => {
-                            entities = entities.filter((id) => storage.data.has(id))
-                            return Effect.succeed(undefined)
-                          },
-                        })
-                      ),
-                  })
-                )
-              }
+        let entities = Array.from(firstStorage.data.keys())
 
-              // アクティブなエンティティのみを返す
-              return entities.filter((id) => {
-                const metadata = state.entities.get(id)
-                return metadata?.active ?? false
-              })
-            })
-          )
-        )
+        // 残りのコンポーネントでフィルタリング
+        for (let i = 1; i < componentTypes.length; i++) {
+          const componentType = componentTypes[i]
+          if (!componentType) {
+            entities = []
+            break
+          }
+
+          const storage = state.components.get(componentType)
+          if (!storage) {
+            entities = []
+            break
+          }
+
+          entities = entities.filter((id) => storage.data.has(id))
+        }
+
+        // アクティブなエンティティのみを返す
+        return entities.filter((id) => {
+          const metadata = state.entities.get(id)
+          return metadata?.active ?? false
+        })
       })
 
     /**
@@ -571,10 +529,7 @@ export const WorldLive = Layer.effect(
     const getEntityMetadata = (id: EntityId) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        return yield* pipe(
-          Option.fromNullable(state.entities.get(id)),
-          Effect.succeed
-        )
+        return pipe(Option.fromNullable(state.entities.get(id)), Option.getOrNull)
       })
 
     /**
@@ -683,7 +638,7 @@ export const WorldLive = Layer.effect(
     const batchGetComponents = <T>(componentType: string) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        
+
         return yield* pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
@@ -692,30 +647,11 @@ export const WorldLive = Layer.effect(
               // アクティブなエンティティのみをフィルタリング
               const activeComponents = new Map<EntityId, T>()
               for (const [id, component] of storage.data) {
-                const metadata = yield* pipe(
-                  Option.fromNullable(state.entities.get(id)),
-                  Option.match({
-                    onNone: () => Effect.succeed(null),
-                    onSome: (metadata) => Effect.succeed(metadata),
-                  })
-                )
-                
-                yield* pipe(
-                  Option.fromNullable(metadata),
-                  Option.match({
-                    onNone: () => Effect.succeed(undefined),
-                    onSome: (meta) =>
-                      pipe(
-                        meta.active,
-                        Match.value,
-                        Match.when(true, () => {
-                          activeComponents.set(id, component as T)
-                          return Effect.succeed(undefined)
-                        }),
-                        Match.orElse(() => Effect.succeed(undefined))
-                      ),
-                  })
-                )
+                const metadata = pipe(Option.fromNullable(state.entities.get(id)), Option.getOrNull)
+
+                if (metadata && metadata.active) {
+                  activeComponents.set(id, component as T)
+                }
               }
 
               return Effect.succeed(activeComponents)
@@ -731,19 +667,14 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          state.entities.has(id),
-          Match.value,
-          Match.when(false, () =>
-            Effect.fail(
-              new WorldError({
-                message: `Entity not found: ${id}`,
-                entityId: id,
-              })
-            )
-          ),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
+        if (!state.entities.has(id)) {
+          yield* Effect.fail(
+            new WorldError({
+              message: `Entity not found: ${id}`,
+              entityId: id,
+            })
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           return pipe(

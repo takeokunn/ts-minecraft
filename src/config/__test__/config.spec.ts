@@ -28,7 +28,7 @@ describe('config', () => {
         const validConfig = {
           debug: true,
           fps: 120,
-          memoryLimit: 1024
+          memoryLimit: 1024,
         }
 
         const result = yield* validateConfig(validConfig)
@@ -43,7 +43,7 @@ describe('config', () => {
         const invalidConfig = {
           debug: false,
           fps: 0, // 無効な値（正数である必要がある）
-          memoryLimit: 2048
+          memoryLimit: 2048,
         }
 
         const result = yield* Effect.either(validateConfig(invalidConfig))
@@ -56,7 +56,7 @@ describe('config', () => {
         const invalidConfig = {
           debug: false,
           fps: 121, // 無効な値（120以下である必要がある）
-          memoryLimit: 2048
+          memoryLimit: 2048,
         }
 
         const result = yield* Effect.either(validateConfig(invalidConfig))
@@ -69,7 +69,7 @@ describe('config', () => {
         const invalidConfig = {
           debug: false,
           fps: 60,
-          memoryLimit: -1 // 無効な値（正数である必要がある）
+          memoryLimit: -1, // 無効な値（正数である必要がある）
         }
 
         const result = yield* Effect.either(validateConfig(invalidConfig))
@@ -82,7 +82,7 @@ describe('config', () => {
         const invalidConfig = {
           debug: false,
           fps: 60,
-          memoryLimit: 2049 // 無効な値（2048以下である必要がある）
+          memoryLimit: 2049, // 無効な値（2048以下である必要がある）
         }
 
         const result = yield* Effect.either(validateConfig(invalidConfig))
@@ -94,7 +94,7 @@ describe('config', () => {
       Effect.gen(function* () {
         const incompleteConfig = {
           debug: true,
-          fps: 60
+          fps: 60,
           // memoryLimitが欠けている
         }
 
@@ -108,7 +108,7 @@ describe('config', () => {
         const wrongTypeConfig = {
           debug: 'not a boolean', // 型が間違っている
           fps: 60,
-          memoryLimit: 2048
+          memoryLimit: 2048,
         }
 
         const result = yield* Effect.either(validateConfig(wrongTypeConfig))
@@ -171,7 +171,7 @@ describe('config', () => {
         const config = {
           debug: false,
           fps: 1,
-          memoryLimit: 1024
+          memoryLimit: 1024,
         }
 
         const result = yield* validateConfig(config)
@@ -184,7 +184,7 @@ describe('config', () => {
         const config = {
           debug: false,
           fps: 120,
-          memoryLimit: 1024
+          memoryLimit: 1024,
         }
 
         const result = yield* validateConfig(config)
@@ -197,7 +197,7 @@ describe('config', () => {
         const config = {
           debug: false,
           fps: 60,
-          memoryLimit: 1
+          memoryLimit: 1,
         }
 
         const result = yield* validateConfig(config)
@@ -210,7 +210,7 @@ describe('config', () => {
         const config = {
           debug: false,
           fps: 60,
-          memoryLimit: 2048
+          memoryLimit: 2048,
         }
 
         const result = yield* validateConfig(config)
@@ -224,7 +224,7 @@ describe('config', () => {
       const validConfigArbitrary = fc.record({
         debug: fc.boolean(),
         fps: fc.integer({ min: 1, max: 120 }),
-        memoryLimit: fc.integer({ min: 1, max: 2048 })
+        memoryLimit: fc.integer({ min: 1, max: 2048 }),
       })
 
       fc.assert(
@@ -249,7 +249,7 @@ describe('config', () => {
           fc.integer({ max: 0 }), // 0以下
           fc.integer({ min: 121 }) // 121以上
         ),
-        memoryLimit: fc.integer({ min: 1, max: 2048 })
+        memoryLimit: fc.integer({ min: 1, max: 2048 }),
       })
 
       fc.assert(
@@ -268,7 +268,7 @@ describe('config', () => {
         memoryLimit: fc.oneof(
           fc.integer({ max: 0 }), // 0以下
           fc.integer({ min: 2049 }) // 2049以上
-        )
+        ),
       })
 
       fc.assert(

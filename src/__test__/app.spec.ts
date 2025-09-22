@@ -67,8 +67,8 @@ describe('app', () => {
       // h1とp要素が正しい順序で存在する
       const children = outerDiv!.children
       expect(children.length).toBe(2)
-      expect(children[0].tagName).toBe('H1')
-      expect(children[1].tagName).toBe('P')
+      expect(children[0]?.tagName).toBe('H1')
+      expect(children[1]?.tagName).toBe('P')
     })
 
     it('複数回呼び出しても安全', () => {
@@ -131,18 +131,18 @@ describe('app', () => {
 
       // 子要素が正確に1つのdivであることを確認
       expect(app.children.length).toBe(1)
-      expect(app.children[0].tagName).toBe('DIV')
+      expect(app.children[0]?.tagName).toBe('DIV')
 
       const mainDiv = app.children[0]
 
       // mainDivが正確に2つの子要素（h1とp）を持つことを確認
-      expect(mainDiv.children.length).toBe(2)
-      expect(mainDiv.children[0].tagName).toBe('H1')
-      expect(mainDiv.children[1].tagName).toBe('P')
+      expect(mainDiv?.children.length).toBe(2)
+      expect(mainDiv?.children[0]?.tagName).toBe('H1')
+      expect(mainDiv?.children[1]?.tagName).toBe('P')
 
       // テキストコンテンツが正確であることを確認
-      expect(mainDiv.children[0].textContent).toBe('TypeScript Minecraft Clone')
-      expect(mainDiv.children[1].textContent).toBe('Vite + TypeScript project initialized successfully!')
+      expect(mainDiv?.children[0]?.textContent).toBe('TypeScript Minecraft Clone')
+      expect(mainDiv?.children[1]?.textContent).toBe('Vite + TypeScript project initialized successfully!')
     })
 
     it('要素のアクセシビリティ', () => {

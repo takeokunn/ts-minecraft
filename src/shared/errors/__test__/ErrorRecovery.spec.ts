@@ -16,7 +16,7 @@ describe('ErrorRecovery', () => {
       Effect.gen(function* () {
         const attempts = yield* Ref.make(0)
         const effect = Effect.gen(function* () {
-          yield* Ref.update(attempts, n => n + 1)
+          yield* Ref.update(attempts, (n) => n + 1)
           return 'success' // 常に成功
         })
 
@@ -42,7 +42,7 @@ describe('ErrorRecovery', () => {
       Effect.gen(function* () {
         const attempts = yield* Ref.make(0)
         const effect = Effect.gen(function* () {
-          yield* Ref.update(attempts, n => n + 1)
+          yield* Ref.update(attempts, (n) => n + 1)
           return 'success'
         })
 
@@ -62,7 +62,7 @@ describe('ErrorRecovery', () => {
       Effect.gen(function* () {
         const attempts = yield* Ref.make(0)
         const effect = Effect.gen(function* () {
-          const currentAttempt = yield* Ref.updateAndGet(attempts, n => n + 1)
+          const currentAttempt = yield* Ref.updateAndGet(attempts, (n) => n + 1)
           if (currentAttempt === 1) {
             return yield* Effect.fail(NetworkError({ message: 'Network error' }))
           }
@@ -87,7 +87,7 @@ describe('ErrorRecovery', () => {
         type NetworkErrorType = ReturnType<typeof NetworkError>
 
         const effect: Effect.Effect<string, NetworkErrorType, never> = Effect.gen(function* () {
-          const currentAttempt = yield* Ref.updateAndGet(attempts, n => n + 1)
+          const currentAttempt = yield* Ref.updateAndGet(attempts, (n) => n + 1)
           if (currentAttempt === 1) {
             return yield* Effect.fail(NetworkError({ message: 'Network error' }))
           }
@@ -118,7 +118,7 @@ describe('ErrorRecovery', () => {
 
         const makeEffect = () =>
           Effect.gen(function* () {
-            yield* Ref.update(attempts, n => n + 1)
+            yield* Ref.update(attempts, (n) => n + 1)
             return yield* Effect.fail(NetworkError({ message: 'Network error' }))
           })
 
@@ -143,44 +143,33 @@ describe('ErrorRecovery', () => {
   describe('Property-based testing', () => {
     it('exponentialBackoffのパラメータ検証', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 0, max: 10 }),
-          fc.integer({ min: 1, max: 1000 }),
-          (maxRetries, delayMs) => {
-            const schedule = ErrorRecovery.exponentialBackoff(maxRetries, Duration.millis(delayMs))
-            expect(schedule).toBeDefined()
-            expect(typeof schedule).toBe('object')
-          }
-        ),
+        fc.property(fc.integer({ min: 0, max: 10 }), fc.integer({ min: 1, max: 1000 }), (maxRetries, delayMs) => {
+          const schedule = ErrorRecovery.exponentialBackoff(maxRetries, Duration.millis(delayMs))
+          expect(schedule).toBeDefined()
+          expect(typeof schedule).toBe('object')
+        }),
         { numRuns: 50 }
       )
     })
 
     it('linearRetryのパラメータ検証', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 0, max: 10 }),
-          fc.integer({ min: 1, max: 1000 }),
-          (maxRetries, delayMs) => {
-            const schedule = ErrorRecovery.linearRetry(maxRetries, Duration.millis(delayMs))
-            expect(schedule).toBeDefined()
-            expect(typeof schedule).toBe('object')
-          }
-        ),
+        fc.property(fc.integer({ min: 0, max: 10 }), fc.integer({ min: 1, max: 1000 }), (maxRetries, delayMs) => {
+          const schedule = ErrorRecovery.linearRetry(maxRetries, Duration.millis(delayMs))
+          expect(schedule).toBeDefined()
+          expect(typeof schedule).toBe('object')
+        }),
         { numRuns: 50 }
       )
     })
 
     it('immediateRetryのパラメータ検証', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 0, max: 10 }),
-          (maxRetries) => {
-            const schedule = ErrorRecovery.immediateRetry(maxRetries)
-            expect(schedule).toBeDefined()
-            expect(typeof schedule).toBe('object')
-          }
-        ),
+        fc.property(fc.integer({ min: 0, max: 10 }), (maxRetries) => {
+          const schedule = ErrorRecovery.immediateRetry(maxRetries)
+          expect(schedule).toBeDefined()
+          expect(typeof schedule).toBe('object')
+        }),
         { numRuns: 50 }
       )
     })

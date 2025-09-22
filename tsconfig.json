@@ -29,7 +29,8 @@
       "@config/*": ["src/config/*"],
       "@docs/*": ["docs/*"]
     },
-    "types": ["vitest/globals", "node"]
+    "types": ["vitest/globals", "node"],
+    "downlevelIteration": true
   },
   "include": ["src/**/*", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]

@@ -1,18 +1,8 @@
 import { describe, it, expect } from '@effect/vitest'
 import * as fc from 'fast-check'
 import type { AllErrors } from '../AllErrors'
-import {
-  GameError,
-  InvalidStateError,
-  ValidationError,
-  type AnyGameError,
-} from '../GameErrors'
-import {
-  NetworkError,
-  ConnectionError,
-  TimeoutError,
-  type AnyNetworkError,
-} from '../NetworkErrors'
+import { GameError, InvalidStateError, ValidationError, type AnyGameError } from '../GameErrors'
+import { NetworkError, ConnectionError, TimeoutError, type AnyNetworkError } from '../NetworkErrors'
 
 describe('AllErrors', () => {
   describe('型の包含関係', () => {

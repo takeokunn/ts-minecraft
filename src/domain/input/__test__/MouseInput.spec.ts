@@ -1,6 +1,8 @@
 import { describe, expect, it as vitestIt, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext, TestClock, Ref, Schema, TestServices } from 'effect'
+import { Effect, Layer, TestContext, TestClock, Ref, Schema } from 'effect'
+import type { TestServices, TestEffect } from '../../../test/unified-test-helpers'
+import { asTestEffect } from '../../../test/unified-test-helpers'
 import { MouseInput, MouseInputError, MockMouseInput, MouseInputLive } from '../MouseInput'
 import type { MousePosition, PointerLockState } from '../MouseInput'
 import { MouseDelta } from '../types'
@@ -60,7 +62,7 @@ describe('MouseInput', () => {
           expect(position.y).toBe(250)
           expect(delta.deltaX).toBe(10)
           expect(delta.deltaY).toBe(20)
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should handle mouse button events', () =>
@@ -88,7 +90,7 @@ describe('MouseInput', () => {
 
           const isReleased = yield* mouseInput.isButtonPressed(0)
           expect(isReleased).toBe(false)
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should handle pointer lock change events', () =>
@@ -111,7 +113,7 @@ describe('MouseInput', () => {
           const state = yield* mouseInput.getPointerLockState()
           expect(state.isLocked).toBe(true)
           expect(state.element).toBe('game-canvas')
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       // フォールバックテストはカバレッジに含まれているのでスキップ
@@ -130,7 +132,7 @@ describe('MouseInput', () => {
           yield* mouseInput.requestPointerLock()
 
           expect(requestPointerLock).toHaveBeenCalled()
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should request pointer lock on specific element', () =>
@@ -145,7 +147,7 @@ describe('MouseInput', () => {
           yield* mouseInput.requestPointerLock('game-canvas')
 
           expect(requestPointerLock).toHaveBeenCalled()
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should handle non-existent element error', () =>
@@ -160,7 +162,7 @@ describe('MouseInput', () => {
             expect(result.left.message).toBe('ポインターロックの要求に失敗しました')
             expect(result.left.cause).toContain('not found')
           }
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should exit pointer lock', () =>
@@ -174,7 +176,7 @@ describe('MouseInput', () => {
           yield* mouseInput.exitPointerLock()
 
           expect(exitPointerLock).toHaveBeenCalled()
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
     })
 
@@ -188,7 +190,7 @@ describe('MouseInput', () => {
           expect(state.button).toBe(2)
           expect(state.isPressed).toBe(false)
           expect(state.timestamp).toBeGreaterThan(0)
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should track multiple button states', () =>
@@ -211,7 +213,7 @@ describe('MouseInput', () => {
           expect(leftPressed).toBe(true)
           expect(rightPressed).toBe(true)
           expect(middlePressed).toBe(false)
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
     })
 
@@ -235,7 +237,7 @@ describe('MouseInput', () => {
           const delta = yield* mouseInput.getDelta()
           expect(delta.deltaX).toBe(0)
           expect(delta.deltaY).toBe(0)
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
     })
 
@@ -260,7 +262,7 @@ describe('MouseInput', () => {
           } finally {
             global.document = originalDocument as any
           }
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
       it.effect('should fail pointer lock without document', () =>
@@ -281,7 +283,7 @@ describe('MouseInput', () => {
           } finally {
             global.document = originalDocument as any
           }
-        }).pipe(Effect.provide(MouseInputLive), Effect.provide(TestContext.TestContext))
+        }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
     })
   })
@@ -562,83 +564,86 @@ describe('MouseInput', () => {
     // ========================================
 
     describe('Legacy Browser Compatibility (Phase 2)', () => {
-      const LegacyTestLayer = Layer.effect(
-        MouseInput,
-        Effect.gen(function* () {
-          const position = yield* Ref.make<MousePosition>({ x: 100, y: 100, timestamp: 0 })
-          const buttons = yield* Ref.make<Map<number, any>>(new Map())
+      const LegacyTestLayer = Layer.merge(
+        TestContext.TestContext,
+        Layer.effect(
+          MouseInput,
+          Effect.gen(function* () {
+            const position = yield* Ref.make<MousePosition>({ x: 100, y: 100, timestamp: 0 })
+            const buttons = yield* Ref.make<Map<number, any>>(new Map())
 
-          // mousemoveイベントハンドラーのモック（movementX/Yなし）
-          const handleMouseMove = (clientX: number, clientY: number) =>
-            Effect.gen(function* () {
-              const currentPosition = yield* Ref.get(position)
+            // mousemoveイベントハンドラーのモック（movementX/Yなし）
+            const handleMouseMove = (clientX: number, clientY: number) =>
+              Effect.gen(function* () {
+                const currentPosition = yield* Ref.get(position)
 
-              // movementX/Y なしのイベントオブジェクトをシミュレート
-              const mockEvent = {
-                clientX,
-                clientY,
-                // movementX/movementY プロパティを意図的に未定義にする
-              } as any
+                // movementX/Y なしのイベントオブジェクトをシミュレート
+                const mockEvent = {
+                  clientX,
+                  clientY,
+                  // movementX/movementY プロパティを意図的に未定義にする
+                } as any
 
-              // フォールバック計算のテスト (lines 92, 97)
-              const deltaX = mockEvent.clientX - currentPosition.x // line 92 相当
-              const deltaY = mockEvent.clientY - currentPosition.y // line 97 相当
+                // フォールバック計算のテスト (lines 92, 97)
+                const deltaX = mockEvent.clientX - currentPosition.x // line 92 相当
+                const deltaY = mockEvent.clientY - currentPosition.y // line 97 相当
 
-              yield* Ref.set(position, {
-                x: clientX,
-                y: clientY,
-                timestamp: Date.now(),
+                yield* Ref.set(position, {
+                  x: clientX,
+                  y: clientY,
+                  timestamp: Date.now(),
+                })
+
+                return { deltaX, deltaY }
               })
 
-              return { deltaX, deltaY }
-            })
-
-          return {
-            getPosition: () => Ref.get(position),
-            getDelta: () =>
-              Effect.gen(function* () {
-                const pos = yield* Ref.get(position)
-                return {
-                  deltaX: 5,
-                  deltaY: 3,
-                  timestamp: pos.timestamp || Date.now(),
-                }
-              }),
-            getButtonState: (button: number) =>
-              Effect.gen(function* () {
-                const buttonMap = yield* Ref.get(buttons)
-                return {
-                  button,
-                  isPressed: buttonMap.has(button),
-                  timestamp: Date.now(),
-                }
-              }),
-            isButtonPressed: (button: number) =>
-              Effect.gen(function* () {
-                const buttonMap = yield* Ref.get(buttons)
-                return buttonMap.has(button)
-              }),
-            requestPointerLock: (elementId?: string) =>
-              Effect.succeed({
-                isLocked: false,
-              }),
-            exitPointerLock: () =>
-              Effect.succeed({
-                isLocked: false,
-              }),
-            getPointerLockState: () =>
-              Effect.succeed({
-                isLocked: false,
-              }),
-            resetButtonStates: () =>
-              Effect.gen(function* () {
-                yield* Ref.set(buttons, new Map())
-              }),
-            resetDelta: () => Effect.succeed(void 0),
-            // テスト用ヘルパー関数
-            simulateLegacyMouseMove: handleMouseMove,
-          }
-        })
+            return {
+              getPosition: () => Ref.get(position),
+              getDelta: () =>
+                Effect.gen(function* () {
+                  const pos = yield* Ref.get(position)
+                  return {
+                    deltaX: 5,
+                    deltaY: 3,
+                    timestamp: pos.timestamp || Date.now(),
+                  }
+                }),
+              getButtonState: (button: number) =>
+                Effect.gen(function* () {
+                  const buttonMap = yield* Ref.get(buttons)
+                  return {
+                    button,
+                    isPressed: buttonMap.has(button),
+                    timestamp: Date.now(),
+                  }
+                }),
+              isButtonPressed: (button: number) =>
+                Effect.gen(function* () {
+                  const buttonMap = yield* Ref.get(buttons)
+                  return buttonMap.has(button)
+                }),
+              requestPointerLock: (elementId?: string) =>
+                Effect.succeed({
+                  isLocked: false,
+                }),
+              exitPointerLock: () =>
+                Effect.succeed({
+                  isLocked: false,
+                }),
+              getPointerLockState: () =>
+                Effect.succeed({
+                  isLocked: false,
+                }),
+              resetButtonStates: () =>
+                Effect.gen(function* () {
+                  yield* Ref.set(buttons, new Map())
+                }),
+              resetDelta: () => Effect.succeed(void 0),
+              // テスト用ヘルパー関数
+              simulateLegacyMouseMove: handleMouseMove,
+            }
+          })
+        )
       )
 
       it.effect(
@@ -666,7 +671,7 @@ describe('MouseInput', () => {
             const updatedPosition = yield* mouseInput.getPosition()
             expect(updatedPosition.x).toBe(150)
             expect(updatedPosition.y).toBe(200)
-          }).pipe(Effect.provide(LegacyTestLayer)) as Effect.Effect<void, unknown, TestServices.TestServices>
+          }).pipe(Effect.provide(LegacyTestLayer)) as any
       )
 
       it.effect('typeof チェックによるmovementプロパティ検証', () =>
@@ -703,7 +708,7 @@ describe('MouseInput', () => {
           const noMovementY =
             'movementY' in mockEventWithoutMovement && typeof (mockEventWithoutMovement as any).movementY === 'number'
           expect(noMovementY).toBe(false)
-        })
+        }).pipe(Effect.provide(TestContext.TestContext))
       )
     })
   })

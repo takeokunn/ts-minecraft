@@ -76,7 +76,7 @@ describe('World Generation Types', () => {
       const preciseVectors = [
         { x: 0.123456789, y: -0.987654321, z: 3.141592653589793 },
         { x: 1e-10, y: 1e10, z: -1e-10 },
-        { x: 2.2250738585072014e-308, y: 1.7976931348623157e+308, z: 0 },
+        { x: 2.2250738585072014e-308, y: 1.7976931348623157e308, z: 0 },
       ]
 
       for (const vector of preciseVectors) {
@@ -249,9 +249,23 @@ describe('World Generation Types', () => {
         fc.property(
           fc.record({
             type: fc.constantFrom(
-              'plains', 'desert', 'forest', 'jungle', 'swamp', 'taiga',
-              'snowy_tundra', 'mountains', 'ocean', 'river', 'beach',
-              'mushroom_fields', 'savanna', 'badlands', 'nether', 'end', 'void'
+              'plains',
+              'desert',
+              'forest',
+              'jungle',
+              'swamp',
+              'taiga',
+              'snowy_tundra',
+              'mountains',
+              'ocean',
+              'river',
+              'beach',
+              'mushroom_fields',
+              'savanna',
+              'badlands',
+              'nether',
+              'end',
+              'void'
             ),
             temperature: fc.float({ min: -10, max: 10, noNaN: true }),
             humidity: fc.float({ min: -5, max: 5, noNaN: true }),
@@ -522,12 +536,7 @@ describe('World Generation Types', () => {
             }),
             metadata: fc.dictionary(
               fc.string({ minLength: 1, maxLength: 20 }),
-              fc.oneof(
-                fc.string(),
-                fc.integer(),
-                fc.boolean(),
-                fc.constant(null)
-              )
+              fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null))
             ),
           }),
           (structure) => {

@@ -9,10 +9,7 @@ export default defineConfig({
     environment: 'happy-dom',
 
     // テストファイルパターン（現代的パターン）
-    include: [
-      'src/**/__test__/*.{test,spec}.?(c|m)[jt]s?(x)',
-      'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
-    ],
+    include: ['src/**/__test__/*.{test,spec}.?(c|m)[jt]s?(x)', 'src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
@@ -46,12 +43,7 @@ export default defineConfig({
       optimizer: {
         ssr: {
           enabled: true,
-          include: [
-            'effect',
-            '@effect/platform',
-            '@effect/schema',
-            '@effect/vitest',
-          ],
+          include: ['effect', '@effect/platform', '@effect/schema', '@effect/vitest'],
         },
       },
     },
@@ -132,7 +124,7 @@ export default defineConfig({
 
     // パフォーマンス設定
     slowTestThreshold: 500,
-    logHeapUsage: process.env.NODE_ENV === 'development',
+    logHeapUsage: process.env['NODE_ENV'] === 'development',
 
     // Effect-TS it.effect() サポート強化
     typecheck: {

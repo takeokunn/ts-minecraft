@@ -14,7 +14,7 @@ export const ErrorHandlers = {
         Option.fromNullable(logger),
         Option.match({
           onNone: () => console.error('Error occurred:', error),
-          onSome: (log) => log(error)
+          onSome: (log) => log(error),
         }),
         () => Effect.succeed(fallbackValue)
       ),

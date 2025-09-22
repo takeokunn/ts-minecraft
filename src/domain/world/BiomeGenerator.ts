@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { NoiseGenerator } from './NoiseGenerator'
+import type { NoiseGenerator } from './NoiseGenerator'
+import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { BiomeType } from './types'
 import type { Vector3 } from './types'
 
@@ -22,8 +23,8 @@ export type BiomeConfig = Schema.Schema.Type<typeof BiomeConfigSchema>
  */
 export const ClimateDataSchema = Schema.Struct({
   temperature: Schema.Number, // -1.0 to 1.0 (寒い←→暑い)
-  humidity: Schema.Number,    // -1.0 to 1.0 (乾燥←→湿潤)
-  elevation: Schema.Number,   // 海面からの相対高度
+  humidity: Schema.Number, // -1.0 to 1.0 (乾燥←→湿潤)
+  elevation: Schema.Number, // 海面からの相対高度
 })
 
 export type ClimateData = Schema.Schema.Type<typeof ClimateDataSchema>
@@ -58,12 +59,12 @@ export interface BiomeGenerator {
   readonly getConfig: () => BiomeConfig
 }
 
-export const BiomeGenerator = Context.GenericTag<BiomeGenerator>('domain/world/BiomeGenerator')
+export const BiomeGeneratorTag = Context.GenericTag<BiomeGenerator>('domain/world/BiomeGenerator')
 
 /**
  * BiomeGeneratorの実装
  */
-const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerator): BiomeGenerator => {
+const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
   const biomeGenerator: BiomeGenerator = {
     getBiome: (position: Vector3) =>
       Effect.gen(function* () {
@@ -76,6 +77,8 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
 
     getClimateData: (x: number, z: number) =>
       Effect.gen(function* () {
+        const noiseGenerator = yield* NoiseGeneratorTag
+
         // 温度ノイズ（大きなスケール）
         const temperatureNoise = yield* noiseGenerator.octaveNoise2D(
           x * config.temperatureScale,
@@ -93,12 +96,7 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
         )
 
         // 地形変動ノイズ（高度補正用）
-        const elevationNoise = yield* noiseGenerator.octaveNoise2D(
-          x * 0.001,
-          z * 0.001,
-          6,
-          0.5
-        )
+        const elevationNoise = yield* noiseGenerator.octaveNoise2D(x * 0.001, z * 0.001, 6, 0.5)
 
         return {
           temperature: temperatureNoise,
@@ -116,11 +114,12 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
         // 高山地帯
         Match.when(
           ({ elevation }) => elevation > config.mountainThreshold,
-          ({ temperature }) => pipe(
-            Match.value(temperature < -0.5),
-            Match.when(true, () => 'snowy_tundra' as BiomeType),
-            Match.orElse(() => 'mountains' as BiomeType)
-          )
+          ({ temperature }) =>
+            pipe(
+              Match.value(temperature < -0.5),
+              Match.when(true, () => 'snowy_tundra' as BiomeType),
+              Match.orElse(() => 'mountains' as BiomeType)
+            )
         ),
         // 海洋
         Match.when(
@@ -130,52 +129,56 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
         // 極寒地帯
         Match.when(
           ({ temperature }) => temperature < -0.6,
-          ({ humidity }) => pipe(
-            Match.value(humidity > 0.2),
-            Match.when(true, () => 'snowy_tundra' as BiomeType),
-            Match.orElse(() => 'snowy_tundra' as BiomeType)
-          )
+          ({ humidity }) =>
+            pipe(
+              Match.value(humidity > 0.2),
+              Match.when(true, () => 'snowy_tundra' as BiomeType),
+              Match.orElse(() => 'snowy_tundra' as BiomeType)
+            )
         ),
         // 寒冷地帯
         Match.when(
           ({ temperature }) => temperature < -0.2,
-          ({ humidity }) => pipe(
-            Match.value(humidity > 0.3),
-            Match.when(true, () => 'taiga' as BiomeType),
-            Match.orElse(() => 'taiga' as BiomeType)
-          )
+          ({ humidity }) =>
+            pipe(
+              Match.value(humidity > 0.3),
+              Match.when(true, () => 'taiga' as BiomeType),
+              Match.orElse(() => 'taiga' as BiomeType)
+            )
         ),
         // 暑い地帯
         Match.when(
           ({ temperature }) => temperature > 0.6,
-          ({ humidity }) => pipe(
-            Match.value(humidity),
-            Match.when(
-              (h) => h < -0.4,
-              () => 'desert' as BiomeType
-            ),
-            Match.when(
-              (h) => h > 0.4,
-              () => 'jungle' as BiomeType
-            ),
-            Match.orElse(() => 'savanna' as BiomeType)
-          )
+          ({ humidity }) =>
+            pipe(
+              Match.value(humidity),
+              Match.when(
+                (h) => h < -0.4,
+                () => 'desert' as BiomeType
+              ),
+              Match.when(
+                (h) => h > 0.4,
+                () => 'jungle' as BiomeType
+              ),
+              Match.orElse(() => 'savanna' as BiomeType)
+            )
         ),
         // 暖かい地帯
         Match.when(
           ({ temperature }) => temperature > 0.2,
-          ({ humidity }) => pipe(
-            Match.value(humidity),
-            Match.when(
-              (h) => h < -0.2,
-              () => 'savanna' as BiomeType
-            ),
-            Match.when(
-              (h) => h > 0.5,
-              () => 'jungle' as BiomeType
-            ),
-            Match.orElse(() => 'forest' as BiomeType)
-          )
+          ({ humidity }) =>
+            pipe(
+              Match.value(humidity),
+              Match.when(
+                (h) => h < -0.2,
+                () => 'savanna' as BiomeType
+              ),
+              Match.when(
+                (h) => h > 0.5,
+                () => 'jungle' as BiomeType
+              ),
+              Match.orElse(() => 'forest' as BiomeType)
+            )
         ),
         // 温帯（デフォルト）
         Match.orElse(({ humidity }) =>
@@ -233,10 +236,9 @@ const createBiomeGenerator = (config: BiomeConfig, noiseGenerator: NoiseGenerato
  */
 export const BiomeGeneratorLive = (config: BiomeConfig): Layer.Layer<BiomeGenerator, never, NoiseGenerator> =>
   Layer.effect(
-    BiomeGenerator,
+    BiomeGeneratorTag,
     Effect.gen(function* () {
-      const noiseGenerator = yield* NoiseGenerator
-      return createBiomeGenerator(config, noiseGenerator)
+      return createBiomeGenerator(config)
     })
   )
 
@@ -244,9 +246,9 @@ export const BiomeGeneratorLive = (config: BiomeConfig): Layer.Layer<BiomeGenera
  * デフォルト設定でのLayer
  */
 export const BiomeGeneratorLiveDefault = BiomeGeneratorLive({
-  temperatureScale: 0.002,  // 温度変化のスケール
-  humidityScale: 0.003,     // 湿度変化のスケール
-  mountainThreshold: 80,    // 山岳バイオームになる高度閾値
-  oceanDepth: 10,           // 海洋バイオームになる深度閾値
-  riverWidth: 8,            // 河川の幅
+  temperatureScale: 0.002, // 温度変化のスケール
+  humidityScale: 0.003, // 湿度変化のスケール
+  mountainThreshold: 80, // 山岳バイオームになる高度閾値
+  oceanDepth: 10, // 海洋バイオームになる深度閾値
+  riverWidth: 8, // 河川の幅
 })

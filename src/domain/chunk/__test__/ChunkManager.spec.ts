@@ -197,7 +197,7 @@ describe('Utility Functions', () => {
 
       // 最遠のチャンクも含まれている
       expect(order).toContainEqual({ x: 0, z: -3 }) // center + (-2, -2)
-      expect(order).toContainEqual({ x: 4, z: 1 })  // center + (2, 2)
+      expect(order).toContainEqual({ x: 4, z: 1 }) // center + (2, 2)
     })
   })
 })
@@ -207,8 +207,8 @@ describe('Utility Functions', () => {
 // =============================================================================
 
 describe('ChunkManager Service', () => {
-  const runTest = <E, A>(effect: Effect.Effect<A, E>) =>
-    Effect.runSync(Effect.provide(effect, ChunkManagerLive()))
+  const runTest = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.runSync(Effect.provide(effect, ChunkManagerLive()) as Effect.Effect<A, E, never>)
 
   describe('Configuration', () => {
     it('デフォルト設定でサービスを作成できる', () => {
@@ -238,7 +238,7 @@ describe('ChunkManager Service', () => {
         expect(memoryUsage).toBe(0) // 初期状態では0
       })
 
-      Effect.runSync(Effect.provide(test, ChunkManagerLive(customConfig)))
+      Effect.runSync(Effect.provide(test, ChunkManagerLive(customConfig)) as Effect.Effect<any, any, never>)
     })
   })
 

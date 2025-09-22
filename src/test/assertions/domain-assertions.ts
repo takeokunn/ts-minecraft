@@ -6,12 +6,13 @@
  */
 
 import { expect } from '@effect/vitest'
-import type { ChunkData, ChunkPosition } from '../../domain/chunk/ChunkData'
-import type { Chunk } from '../../domain/chunk/Chunk'
-import type { BiomeType } from '../../domain/world/BiomeTypes'
-import type { Vector3 } from '../../shared/types'
-import type { BlockType } from '../../domain/block/BlockType'
-import { CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from '../../domain/chunk/ChunkData'
+import type { ChunkData } from '../../domain/chunk/ChunkData.ts'
+import type { ChunkPosition } from '../../domain/chunk/ChunkPosition.ts'
+import type { Chunk } from '../../domain/chunk/Chunk.ts'
+import type { BiomeType } from '../../domain/world/types.ts'
+import type { Vector3 } from '../../domain/world/types.ts'
+import type { BlockType } from '../../domain/block/BlockType.ts'
+import { CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y } from '../../domain/chunk/ChunkData.ts'
 
 // ========================
 // Chunk アサーション
@@ -294,7 +295,19 @@ export const BlockAssertions = {
    * ブロックが有効なカテゴリを持つことを確認
    */
   hasValidCategory: (block: BlockType) => {
-    const validCategories = ['natural', 'building', 'decoration', 'redstone', 'transport', 'misc', 'food', 'tools', 'combat', 'fluid', 'air']
+    const validCategories = [
+      'natural',
+      'building',
+      'decoration',
+      'redstone',
+      'transport',
+      'misc',
+      'food',
+      'tools',
+      'combat',
+      'fluid',
+      'air',
+    ]
     expect(validCategories).toContain(block.category)
   },
 }
@@ -380,4 +393,5 @@ export const DomainAssertions = {
   Validation: ValidationAssertions,
 } as const
 
+// デフォルトエクスポート
 export default DomainAssertions

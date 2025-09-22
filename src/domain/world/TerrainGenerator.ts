@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { NoiseGenerator } from './NoiseGenerator'
+import type { NoiseGenerator } from './NoiseGenerator'
+import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
 import type { ChunkData } from '../chunk/ChunkData'
 
@@ -40,7 +41,10 @@ export interface TerrainGenerator {
   /**
    * チャンクに基本地形ブロックを配置
    */
-  readonly generateBaseTerrain: (chunkData: ChunkData, heightMap: HeightMap) => Effect.Effect<ChunkData, never, never>
+  readonly generateBaseTerrain: (
+    chunkData: ChunkData,
+    heightMap: HeightMap
+  ) => Effect.Effect<ChunkData, never, NoiseGenerator>
 
   /**
    * 指定高度でのブロックタイプを決定
@@ -53,12 +57,12 @@ export interface TerrainGenerator {
   readonly getConfig: () => TerrainConfig
 }
 
-export const TerrainGenerator = Context.GenericTag<TerrainGenerator>('domain/world/TerrainGenerator')
+export const TerrainGeneratorTag = Context.GenericTag<TerrainGenerator>('domain/world/TerrainGenerator')
 
 /**
  * TerrainGeneratorの実装
  */
-const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGenerator): TerrainGenerator => {
+const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
   return {
     generateHeightMap: (position: ChunkPosition) =>
       Effect.gen(function* () {
@@ -69,6 +73,8 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
           for (let z = 0; z < 16; z++) {
             const worldX = position.x * 16 + x
             const worldZ = position.z * 16 + z
+
+            const noiseGenerator = yield* NoiseGeneratorTag
 
             // 基本地形高度（大きなスケールのノイズ）
             const baseHeight = yield* noiseGenerator.octaveNoise2D(
@@ -87,12 +93,7 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
             )
 
             // 山岳地帯用の高周波ノイズ
-            const mountainHeight = yield* noiseGenerator.octaveNoise2D(
-              worldX * 0.001,
-              worldZ * 0.001,
-              6,
-              0.5
-            )
+            const mountainHeight = yield* noiseGenerator.octaveNoise2D(worldX * 0.001, worldZ * 0.001, 6, 0.5)
 
             // 高度計算（海面レベルを基準に調整）
             let finalHeight = config.seaLevel
@@ -115,6 +116,8 @@ const createTerrainGenerator = (config: TerrainConfig, noiseGenerator: NoiseGene
 
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
+        const noiseGenerator = yield* NoiseGeneratorTag
+
         // 基本地形高度
         const baseHeight = yield* noiseGenerator.octaveNoise2D(x * 0.005, z * 0.005, 4, 0.6)
 
@@ -266,10 +269,9 @@ const getSurfaceBlockType = (worldX: number, worldZ: number, surfaceHeight: numb
  */
 export const TerrainGeneratorLive = (config: TerrainConfig): Layer.Layer<TerrainGenerator, never, NoiseGenerator> =>
   Layer.effect(
-    TerrainGenerator,
+    TerrainGeneratorTag,
     Effect.gen(function* () {
-      const noiseGenerator = yield* NoiseGenerator
-      return createTerrainGenerator(config, noiseGenerator)
+      return createTerrainGenerator(config)
     })
   )
 

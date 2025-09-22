@@ -491,13 +491,35 @@ describe('ErrorGuards', () => {
           // _tagプロパティがない
         }),
         fc.record({
-          _tag: fc.string().filter(tag =>
-            !['GameError', 'InvalidStateError', 'ResourceNotFoundError', 'ValidationError',
-              'PerformanceError', 'ConfigError', 'RenderError', 'WorldGenerationError',
-              'EntityError', 'PhysicsError', 'NetworkError', 'ConnectionError', 'TimeoutError',
-              'ProtocolError', 'AuthenticationError', 'SessionError', 'SyncError',
-              'RateLimitError', 'WebSocketError', 'PacketError', 'ServerError', 'P2PError'].includes(tag)
-          ),
+          _tag: fc
+            .string()
+            .filter(
+              (tag) =>
+                ![
+                  'GameError',
+                  'InvalidStateError',
+                  'ResourceNotFoundError',
+                  'ValidationError',
+                  'PerformanceError',
+                  'ConfigError',
+                  'RenderError',
+                  'WorldGenerationError',
+                  'EntityError',
+                  'PhysicsError',
+                  'NetworkError',
+                  'ConnectionError',
+                  'TimeoutError',
+                  'ProtocolError',
+                  'AuthenticationError',
+                  'SessionError',
+                  'SyncError',
+                  'RateLimitError',
+                  'WebSocketError',
+                  'PacketError',
+                  'ServerError',
+                  'P2PError',
+                ].includes(tag)
+            ),
           message: fc.string(),
         })
       )
@@ -607,13 +629,13 @@ describe('ErrorGuards', () => {
       ]
 
       // すべてのゲームエラーがisGameError関数で正しく識別される
-      gameErrors.forEach(error => {
+      gameErrors.forEach((error) => {
         expect(ErrorGuards.isGameError(error)).toBe(true)
         expect(ErrorGuards.isNetworkError(error)).toBe(false)
       })
 
       // すべてのネットワークエラーがisNetworkError関数で正しく識別される
-      networkErrors.forEach(error => {
+      networkErrors.forEach((error) => {
         expect(ErrorGuards.isNetworkError(error)).toBe(true)
         expect(ErrorGuards.isGameError(error)).toBe(false)
       })

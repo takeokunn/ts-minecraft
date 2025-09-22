@@ -18,13 +18,7 @@ import {
 describe('GeneratorOptions', () => {
   describe('WorldType', () => {
     it('validates all supported world types', () => {
-      const validWorldTypes: WorldTypeT[] = [
-        'default',
-        'flat',
-        'amplified',
-        'large_biomes',
-        'custom',
-      ]
+      const validWorldTypes: WorldTypeT[] = ['default', 'flat', 'amplified', 'large_biomes', 'custom']
 
       expect(validWorldTypes).toHaveLength(5)
 
@@ -127,7 +121,16 @@ describe('GeneratorOptions', () => {
     })
 
     it('categorizes structures by biome compatibility', () => {
-      const overworldStructures = ['village', 'mineshaft', 'stronghold', 'temple', 'dungeon', 'monument', 'mansion', 'outpost']
+      const overworldStructures = [
+        'village',
+        'mineshaft',
+        'stronghold',
+        'temple',
+        'dungeon',
+        'monument',
+        'mansion',
+        'outpost',
+      ]
       const netherStructures = ['fortress']
       const specialStructures = ['portal']
 
@@ -195,11 +198,52 @@ describe('GeneratorOptions', () => {
         { villages: true }, // missing most properties
         {},
         // invalid property types
-        { caves: 'true', ravines: true, mineshafts: true, villages: true, strongholds: true, temples: true, dungeons: true, lakes: true, lavaLakes: true },
-        { caves: true, ravines: 1, mineshafts: true, villages: true, strongholds: true, temples: true, dungeons: true, lakes: true, lavaLakes: true },
-        { caves: true, ravines: true, mineshafts: true, villages: true, strongholds: true, temples: true, dungeons: true, lakes: true, lavaLakes: null },
+        {
+          caves: 'true',
+          ravines: true,
+          mineshafts: true,
+          villages: true,
+          strongholds: true,
+          temples: true,
+          dungeons: true,
+          lakes: true,
+          lavaLakes: true,
+        },
+        {
+          caves: true,
+          ravines: 1,
+          mineshafts: true,
+          villages: true,
+          strongholds: true,
+          temples: true,
+          dungeons: true,
+          lakes: true,
+          lavaLakes: true,
+        },
+        {
+          caves: true,
+          ravines: true,
+          mineshafts: true,
+          villages: true,
+          strongholds: true,
+          temples: true,
+          dungeons: true,
+          lakes: true,
+          lavaLakes: null,
+        },
         // extra properties
-        { caves: true, ravines: true, mineshafts: true, villages: true, strongholds: true, temples: true, dungeons: true, lakes: true, lavaLakes: true, extraProp: true },
+        {
+          caves: true,
+          ravines: true,
+          mineshafts: true,
+          villages: true,
+          strongholds: true,
+          temples: true,
+          dungeons: true,
+          lakes: true,
+          lavaLakes: true,
+          extraProp: true,
+        },
         null,
         undefined,
         'string',
@@ -572,8 +616,14 @@ describe('GeneratorOptions', () => {
         seed: 12345,
         features: {
           caves: false,
+          ravines: true,
+          mineshafts: true,
           villages: false,
-          // other features will use defaults
+          strongholds: true,
+          temples: true,
+          dungeons: true,
+          lakes: true,
+          lavaLakes: true,
         },
       }
 
@@ -653,7 +703,9 @@ describe('GeneratorOptions', () => {
         fc.property(
           fc.record({
             seed: fc.option(fc.integer({ min: -1000000, max: 1000000 }), { nil: undefined }),
-            worldType: fc.option(fc.constantFrom('default', 'flat', 'amplified', 'large_biomes', 'custom'), { nil: undefined }),
+            worldType: fc.option(fc.constantFrom('default', 'flat', 'amplified', 'large_biomes', 'custom'), {
+              nil: undefined,
+            }),
             generateStructures: fc.option(fc.boolean(), { nil: undefined }),
             bonusChest: fc.option(fc.boolean(), { nil: undefined }),
             biomeSize: fc.option(fc.integer({ min: 1, max: 10 }), { nil: undefined }),
@@ -717,7 +769,11 @@ describe('GeneratorOptions', () => {
       expect(defaultGeneratorOptions.generateStructures).toBe(originalOptions.generateStructures)
 
       // 新しいオプションは独立していることを確認
-      newOptions.features.caves = false
+      const modifiedOptions = createGeneratorOptions({
+        ...newOptions,
+        features: { ...newOptions.features, caves: false },
+      })
+      expect(modifiedOptions.features.caves).toBe(false)
       expect(defaultGenerationFeatures.caves).toBe(true)
     })
 
@@ -780,7 +836,7 @@ describe('GeneratorOptions', () => {
         const options = createGeneratorOptions({
           seed: i,
           biomeSize: (i % 10) + 1,
-          seaLevel: (i % 256),
+          seaLevel: i % 256,
           renderDistance: (i % 31) + 2,
           simulationDistance: (i % 31) + 2,
         })

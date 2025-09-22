@@ -6,8 +6,7 @@ import { DomainFactories, EffectHelpers } from '../../../test/unified-test-helpe
 // Effect-TS用の共通テストヘルパー - 最新理想系パターン
 export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect)
 
-export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(effect)
+export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 
 export const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
   const result = await runEffect(effect)
@@ -24,7 +23,7 @@ export const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
 // ブロック関連の共通テストヘルパー
 // DomainFactoriesのBlockFactoryを使用
 export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType =>
-  DomainFactories.Block.createType(overrides)
+  DomainFactories.Block.createType(1, 'test_block', 'natural', overrides)
 
 // Effect-TS パターンでのアサーション関数
 export const assertBlockExists = (blocks: readonly BlockType[], id: string) =>

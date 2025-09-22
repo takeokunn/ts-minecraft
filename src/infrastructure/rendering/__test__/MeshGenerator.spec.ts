@@ -42,6 +42,8 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
   Effect.gen(function* () {
     // Validate input
     const validatedChunk = yield* Schema.decodeUnknown(ChunkDataSchema)(chunkData)
+      .pipe(Effect.mapError(() => 'MeshGenerationError' as const))
+      .pipe(Effect.mapError(() => 'MeshGenerationError' as const))
 
     const vertices: number[] = []
     const normals: number[] = []
@@ -60,50 +62,62 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
             // Generate cube faces (basic implementation)
             const cubeVertices = [
               // Front face
-              x, y, z + 1,
-              x + 1, y, z + 1,
-              x + 1, y + 1, z + 1,
-              x, y + 1, z + 1,
+              x,
+              y,
+              z + 1,
+              x + 1,
+              y,
+              z + 1,
+              x + 1,
+              y + 1,
+              z + 1,
+              x,
+              y + 1,
+              z + 1,
               // Back face
-              x, y, z,
-              x, y + 1, z,
-              x + 1, y + 1, z,
-              x + 1, y, z,
+              x,
+              y,
+              z,
+              x,
+              y + 1,
+              z,
+              x + 1,
+              y + 1,
+              z,
+              x + 1,
+              y,
+              z,
             ]
 
             const cubeNormals = [
               // Front face normals
-              0, 0, 1,
-              0, 0, 1,
-              0, 0, 1,
-              0, 0, 1,
+              0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
               // Back face normals
-              0, 0, -1,
-              0, 0, -1,
-              0, 0, -1,
-              0, 0, -1,
+              0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
             ]
 
             const cubeUVs = [
               // Front face UVs
-              0, 0,
-              1, 0,
-              1, 1,
-              0, 1,
+              0, 0, 1, 0, 1, 1, 0, 1,
               // Back face UVs
-              1, 0,
-              1, 1,
-              0, 1,
-              0, 0,
+              1, 0, 1, 1, 0, 1, 0, 0,
             ]
 
             const cubeIndices = [
               // Front face
-              vertexIndex, vertexIndex + 1, vertexIndex + 2,
-              vertexIndex, vertexIndex + 2, vertexIndex + 3,
+              vertexIndex,
+              vertexIndex + 1,
+              vertexIndex + 2,
+              vertexIndex,
+              vertexIndex + 2,
+              vertexIndex + 3,
               // Back face
-              vertexIndex + 4, vertexIndex + 5, vertexIndex + 6,
-              vertexIndex + 4, vertexIndex + 6, vertexIndex + 7,
+              vertexIndex + 4,
+              vertexIndex + 5,
+              vertexIndex + 6,
+              vertexIndex + 4,
+              vertexIndex + 6,
+              vertexIndex + 7,
             ]
 
             vertices.push(...cubeVertices)
@@ -122,7 +136,7 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
       normals,
       uvs,
       indices,
-    }
+    } as MeshData
   })
 
 // ★ Face culling function (pure function approach)
@@ -143,7 +157,17 @@ const shouldRenderFace = (
     west: [x - 1, y, z],
   }
 
-  const [nx, ny, nz] = neighbors[faceDirection]
+  const neighborCoords = neighbors[faceDirection]
+  if (!neighborCoords) {
+    return true // No neighbor defined, render face
+  }
+
+  const [nx, ny, nz] = neighborCoords
+
+  // Additional type guard for safety
+  if (nx === undefined || ny === undefined || nz === undefined) {
+    return true // Safety fallback
+  }
 
   // Check bounds
   if (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkSize || nz < 0 || nz >= chunkSize) {
@@ -158,7 +182,9 @@ const shouldRenderFace = (
 // ★ Greedy meshing algorithm (functional approach)
 const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGenerationError> =>
   Effect.gen(function* () {
-    const validatedChunk = yield* Schema.decodeUnknown(ChunkDataSchema)(chunkData)
+    const validatedChunk = yield* Schema.decodeUnknown(ChunkDataSchema)(chunkData).pipe(
+      Effect.mapError(() => 'MeshGenerationError' as const)
+    )
 
     const vertices: number[] = []
     const normals: number[] = []
@@ -176,21 +202,27 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshG
       const mask = new Array(validatedChunk.size * validatedChunk.size).fill(0)
 
       // Sweep through each slice
-      for (dimensions[axis] = -1; dimensions[axis] < validatedChunk.size; ) {
+      for (dimensions[axis]! = -1; dimensions[axis]! < validatedChunk.size; ) {
         // Generate mask for current slice
         let n = 0
-        for (dimensions[v] = 0; dimensions[v] < validatedChunk.size; dimensions[v]++) {
-          for (dimensions[u] = 0; dimensions[u] < validatedChunk.size; dimensions[u]++) {
-            const currentBlock = dimensions[axis] >= 0 ?
-              validatedChunk.blocks[dimensions[0]]?.[dimensions[1]]?.[dimensions[2]] ?? 0 : 0
-            const nextBlock = dimensions[axis] < validatedChunk.size - 1 ?
-              validatedChunk.blocks[dimensions[0] + (axis === 0 ? 1 : 0)]?.[dimensions[1] + (axis === 1 ? 1 : 0)]?.[dimensions[2] + (axis === 2 ? 1 : 0)] ?? 0 : 0
+        for (dimensions[v]! = 0; dimensions[v]! < validatedChunk.size; dimensions[v]!++) {
+          for (dimensions[u]! = 0; dimensions[u]! < validatedChunk.size; dimensions[u]!++) {
+            const currentBlock =
+              dimensions[axis]! >= 0
+                ? (validatedChunk.blocks[dimensions[0]!]?.[dimensions[1]!]?.[dimensions[2]!] ?? 0)
+                : 0
+            const nextBlock =
+              dimensions[axis]! < validatedChunk.size - 1
+                ? (validatedChunk.blocks[dimensions[0]! + (axis === 0 ? 1 : 0)]?.[
+                    dimensions[1]! + (axis === 1 ? 1 : 0)
+                  ]?.[dimensions[2]! + (axis === 2 ? 1 : 0)] ?? 0)
+                : 0
 
             mask[n++] = currentBlock && !nextBlock ? currentBlock : 0
           }
         }
 
-        dimensions[axis]++
+        dimensions[axis]!++
 
         // Generate mesh from mask
         n = 0
@@ -221,29 +253,44 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshG
 
               // Add quad to mesh
               const quadVertices = [
-                i, j, dimensions[axis],
-                i + width, j, dimensions[axis],
-                i + width, j + height, dimensions[axis],
-                i, j + height, dimensions[axis],
+                i,
+                j,
+                dimensions[axis]!,
+                i + width,
+                j,
+                dimensions[axis]!,
+                i + width,
+                j + height,
+                dimensions[axis]!,
+                i,
+                j + height,
+                dimensions[axis]!,
               ]
 
               const quadNormals = [
-                axis === 0 ? 1 : 0, axis === 1 ? 1 : 0, axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0, axis === 1 ? 1 : 0, axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0, axis === 1 ? 1 : 0, axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0, axis === 1 ? 1 : 0, axis === 2 ? 1 : 0,
+                axis === 0 ? 1 : 0,
+                axis === 1 ? 1 : 0,
+                axis === 2 ? 1 : 0,
+                axis === 0 ? 1 : 0,
+                axis === 1 ? 1 : 0,
+                axis === 2 ? 1 : 0,
+                axis === 0 ? 1 : 0,
+                axis === 1 ? 1 : 0,
+                axis === 2 ? 1 : 0,
+                axis === 0 ? 1 : 0,
+                axis === 1 ? 1 : 0,
+                axis === 2 ? 1 : 0,
               ]
 
-              const quadUVs = [
-                0, 0,
-                width, 0,
-                width, height,
-                0, height,
-              ]
+              const quadUVs = [0, 0, width, 0, width, height, 0, height]
 
               const quadIndices = [
-                vertexIndex, vertexIndex + 1, vertexIndex + 2,
-                vertexIndex, vertexIndex + 2, vertexIndex + 3,
+                vertexIndex,
+                vertexIndex + 1,
+                vertexIndex + 2,
+                vertexIndex,
+                vertexIndex + 2,
+                vertexIndex + 3,
               ]
 
               vertices.push(...quadVertices)
@@ -276,7 +323,7 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshG
       normals,
       uvs,
       indices,
-    }
+    } as MeshData
   })
 
 // ★ Test helper functions (pure functions)
@@ -286,10 +333,10 @@ const createTestChunkData = (size: number = 4): ChunkData => {
   for (let x = 0; x < size; x++) {
     blocks[x] = []
     for (let y = 0; y < size; y++) {
-      blocks[x][y] = []
+      blocks[x]![y] = []
       for (let z = 0; z < size; z++) {
         // Create a simple pattern for testing
-        blocks[x][y][z] = (x + y + z) % 2 === 0 ? 1 : 0
+        blocks[x]![y]![z] = (x + y + z) % 2 === 0 ? 1 : 0
       }
     }
   }
@@ -303,9 +350,7 @@ const createTestChunkData = (size: number = 4): ChunkData => {
 
 const createSolidChunkData = (size: number = 4): ChunkData => {
   const blocks: number[][][] = Array.from({ length: size }, () =>
-    Array.from({ length: size }, () =>
-      Array.from({ length: size }, () => 1)
-    )
+    Array.from({ length: size }, () => Array.from({ length: size }, () => 1))
   )
 
   return {
@@ -317,9 +362,7 @@ const createSolidChunkData = (size: number = 4): ChunkData => {
 
 const createEmptyChunkData = (size: number = 4): ChunkData => {
   const blocks: number[][][] = Array.from({ length: size }, () =>
-    Array.from({ length: size }, () =>
-      Array.from({ length: size }, () => 0)
-    )
+    Array.from({ length: size }, () => Array.from({ length: size }, () => 0))
   )
 
   return {
@@ -342,7 +385,7 @@ const measurePerformance = <A, E>(
 
     yield* Effect.log(`${label}: ${duration.toFixed(2)}ms`)
 
-    return { result, duration }
+    return { result, duration } as { result: A; duration: number }
   })
 
 describe('MeshGenerator', () => {
@@ -435,27 +478,29 @@ describe('MeshGenerator', () => {
     it('should correctly identify faces to render', () => {
       // Create a 2x2x2 blocks array where blocks[x][y][z]
       const blocks = [
-        [ // x=0
+        [
+          // x=0
           [1, 0], // y=0: [z=0, z=1]
-          [0, 0]  // y=1: [z=0, z=1]
+          [0, 0], // y=1: [z=0, z=1]
         ],
-        [ // x=1
+        [
+          // x=1
           [0, 1], // y=0: [z=0, z=1]
-          [1, 1]  // y=1: [z=0, z=1]
-        ]
+          [1, 1], // y=1: [z=0, z=1]
+        ],
       ]
 
       // Test block at (0,0,0) = 1 (solid)
       // Face should be rendered when neighbor is air (0)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true)    // neighbor (0,1,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true)   // neighbor (1,0,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true)  // neighbor (0,0,1) = 0 (air)
+      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
+      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true) // neighbor (1,0,0) = 0 (air)
+      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true) // neighbor (0,0,1) = 0 (air)
 
       // Test block at (1,1,1) = 1 (solid)
       // blocks[1][1][0] = 1, so west neighbor blocks[0][1][0] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true)   // neighbor (0,1,0) = 0 (air)
+      expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
       // blocks[1][1][1] = 1, so west neighbor blocks[0][1][1] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true)   // neighbor (0,1,1) = 0 (air)
+      expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true) // neighbor (0,1,1) = 0 (air)
     })
 
     it('should render faces on chunk boundaries', () => {

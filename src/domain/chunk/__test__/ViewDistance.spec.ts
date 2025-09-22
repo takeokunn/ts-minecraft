@@ -23,8 +23,8 @@ import type { ChunkPosition } from '../ChunkPosition.js'
 // Test Utilities
 // =============================================================================
 
-const runViewDistanceTest = <E, A>(effect: Effect.Effect<A, E>) =>
-  Effect.runSync(Effect.provide(effect, ViewDistanceLive()))
+const runViewDistanceTest = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.runSync(Effect.provide(effect, ViewDistanceLive()) as Effect.Effect<A, E, never>)
 
 const createMockMetrics = (overrides: Partial<PerformanceMetrics> = {}): PerformanceMetrics => ({
   frameRate: 60,
@@ -68,9 +68,7 @@ describe('Performance Analysis Functions', () => {
     })
 
     it('サンプル数制限が正しく適用される', () => {
-      const metrics = Array.from({ length: 10 }, (_, i) =>
-        createMockMetrics({ frameRate: 60 + i })
-      )
+      const metrics = Array.from({ length: 10 }, (_, i) => createMockMetrics({ frameRate: 60 + i }))
 
       const average = calculateAverageMetrics(metrics, 3)
 
@@ -93,20 +91,12 @@ describe('Performance Analysis Functions', () => {
       const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
 
       // 古いメトリクス: 低いフレームレート
-      const olderMetrics = Array.from({ length: 5 }, () =>
-        createMockMetrics({ frameRate: 45 })
-      )
+      const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 45 }))
 
       // 新しいメトリクス: 高いフレームレート
-      const recentMetrics = Array.from({ length: 5 }, () =>
-        createMockMetrics({ frameRate: 60 })
-      )
+      const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 60 }))
 
-      const allMetrics = [
-        ...Array.from({ length: 5 }, () => createMockMetrics()),
-        ...olderMetrics,
-        ...recentMetrics,
-      ]
+      const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
 
       const trend = analyzePerformanceTrend(allMetrics, config)
       expect(trend.frameRateTrend).toBe('improving')
@@ -115,19 +105,11 @@ describe('Performance Analysis Functions', () => {
     it('メモリ使用量悪化を正しく検出する', () => {
       const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
 
-      const olderMetrics = Array.from({ length: 5 }, () =>
-        createMockMetrics({ memoryUsageMB: 800 })
-      )
+      const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 800 }))
 
-      const recentMetrics = Array.from({ length: 5 }, () =>
-        createMockMetrics({ memoryUsageMB: 1200 })
-      )
+      const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 1200 }))
 
-      const allMetrics = [
-        ...Array.from({ length: 5 }, () => createMockMetrics()),
-        ...olderMetrics,
-        ...recentMetrics,
-      ]
+      const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
 
       const trend = analyzePerformanceTrend(allMetrics, config)
       expect(trend.memoryTrend).toBe('degrading')
@@ -182,12 +164,16 @@ describe('Performance Analysis Functions', () => {
       const result = calculateOptimalViewDistance(4, metrics, config) // 既に最小
       expect(result.suggestedDistance).toBeGreaterThanOrEqual(config.minViewDistance)
 
-      const maxResult = calculateOptimalViewDistance(32, {
-        ...metrics,
-        frameRate: 90,
-        memoryUsageMB: 500,
-        averageChunkLoadTimeMs: 30,
-      }, config)
+      const maxResult = calculateOptimalViewDistance(
+        32,
+        {
+          ...metrics,
+          frameRate: 90,
+          memoryUsageMB: 500,
+          averageChunkLoadTimeMs: 30,
+        },
+        config
+      )
       expect(maxResult.suggestedDistance).toBeLessThanOrEqual(config.maxViewDistance)
     })
   })
@@ -305,7 +291,7 @@ describe('ViewDistance Service', () => {
         expect(currentDistance).toBe(8)
       })
 
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(customConfig)))
+      Effect.runSync(Effect.provide(test, ViewDistanceLive(customConfig)) as Effect.Effect<any, any, never>)
     })
   })
 
@@ -329,15 +315,11 @@ describe('ViewDistance Service', () => {
 
         // 最小値未満
         yield* viewDistance.setViewDistance(2, 'manual')
-        expect(yield* viewDistance.getCurrentViewDistance()).toBe(
-          defaultViewDistanceConfig.minViewDistance
-        )
+        expect(yield* viewDistance.getCurrentViewDistance()).toBe(defaultViewDistanceConfig.minViewDistance)
 
         // 最大値超過
         yield* viewDistance.setViewDistance(50, 'manual')
-        expect(yield* viewDistance.getCurrentViewDistance()).toBe(
-          defaultViewDistanceConfig.maxViewDistance
-        )
+        expect(yield* viewDistance.getCurrentViewDistance()).toBe(defaultViewDistanceConfig.maxViewDistance)
       })
 
       runViewDistanceTest(test)
@@ -414,7 +396,7 @@ describe('ViewDistance Service', () => {
         expect(stats.averageMetrics?.frameRate).toBe(63)
       })
 
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)))
+      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)) as Effect.Effect<any, any, never>)
     })
   })
 
@@ -437,7 +419,7 @@ describe('ViewDistance Service', () => {
         expect(adjustment).toBeNull()
       })
 
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)))
+      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)) as Effect.Effect<any, any, never>)
     })
 
     it('メトリクス履歴が不足している場合はnullを返す', () => {
@@ -508,15 +490,11 @@ describe('ViewDistance Service', () => {
 
         // 優先度順にソートされていることを確認
         for (let i = 0; i < chunksWithPriority.length - 1; i++) {
-          expect(chunksWithPriority[i]?.priority).toBeGreaterThanOrEqual(
-            chunksWithPriority[i + 1]?.priority ?? 0
-          )
+          expect(chunksWithPriority[i]?.priority).toBeGreaterThanOrEqual(chunksWithPriority[i + 1]?.priority ?? 0)
         }
 
         // 中心チャンクが最高優先度であることを確認
-        const centerChunk = chunksWithPriority.find(c =>
-          c.position.x === 0 && c.position.z === 0
-        )
+        const centerChunk = chunksWithPriority.find((c) => c.position.x === 0 && c.position.z === 0)
         expect(centerChunk?.priority).toBe(chunksWithPriority[0]?.priority)
       })
 
@@ -584,11 +562,13 @@ describe('Integration Tests', () => {
 
       // 低パフォーマンスメトリクスを複数回更新
       for (let i = 0; i < 15; i++) {
-        yield* viewDistance.updateMetrics(createMockMetrics({
-          frameRate: 25, // 低いフレームレート
-          memoryUsageMB: 1500,
-          averageChunkLoadTimeMs: 250,
-        }))
+        yield* viewDistance.updateMetrics(
+          createMockMetrics({
+            frameRate: 25, // 低いフレームレート
+            memoryUsageMB: 1500,
+            averageChunkLoadTimeMs: 250,
+          })
+        )
       }
 
       // 時間経過をシミュレート

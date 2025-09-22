@@ -13,11 +13,11 @@ import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGener
 import { StructureGenerationError } from './WorldGenerator.js'
 import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
 import { createGeneratorOptions } from './GeneratorOptions.js'
-import { NoiseGenerator, NoiseGeneratorLive } from './NoiseGenerator'
-import { TerrainGenerator, TerrainGeneratorLive } from './TerrainGenerator'
-import { BiomeGenerator, BiomeGeneratorLive } from './BiomeGenerator'
-import { CaveGenerator, CaveGeneratorLive } from './CaveGenerator'
-import { OreDistribution, OreDistributionLive, defaultOreConfigs } from './OreDistribution'
+import { NoiseGeneratorTag, NoiseGeneratorLive } from './NoiseGenerator'
+import { TerrainGeneratorTag, TerrainGeneratorLive } from './TerrainGenerator'
+import { BiomeGeneratorTag, BiomeGeneratorLive } from './BiomeGenerator'
+import { CaveGeneratorTag, CaveGeneratorLive } from './CaveGenerator'
+import { OreDistributionTag, OreDistributionLive, defaultOreConfigs } from './OreDistribution'
 
 /**
  * 空のチャンクを生成（仮実装）
@@ -156,10 +156,10 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     generateChunk: (position: ChunkPosition) =>
       Effect.gen(function* () {
         // 地形生成サービスを取得
-        const terrainGenerator = yield* TerrainGenerator
-        const biomeGenerator = yield* BiomeGenerator
-        const caveGenerator = yield* CaveGenerator
-        const oreDistribution = yield* OreDistribution
+        const terrainGenerator = yield* TerrainGeneratorTag
+        const biomeGenerator = yield* BiomeGeneratorTag
+        const caveGenerator = yield* CaveGeneratorTag
+        const oreDistribution = yield* OreDistributionTag
 
         // 1. 空のチャンクデータを作成
         let chunkData = createChunkData(position)
@@ -194,9 +194,7 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           structures,
           heightMap: heightMapFlat,
         }
-      }).pipe(
-        Effect.provide(fullLayer)
-      ) as Effect.Effect<ChunkGenerationResult, GenerationError, never>,
+      }).pipe(Effect.provide(fullLayer)) as unknown as Effect.Effect<ChunkGenerationResult, GenerationError, never>,
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
@@ -220,7 +218,7 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     getBiome: (position: Vector3) =>
       Effect.gen(function* () {
-        const biomeGenerator = yield* BiomeGenerator
+        const biomeGenerator = yield* BiomeGeneratorTag
         const biomeType = yield* biomeGenerator.getBiome(position)
         const climateData = yield* biomeGenerator.getClimateData(position.x, position.z)
 
@@ -230,17 +228,21 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           humidity: climateData.humidity,
           elevation: climateData.elevation + position.y,
         }
-      }).pipe(
-        Effect.provide(Layer.mergeAll(biomeLayer, noiseLayer))
-      ) as Effect.Effect<BiomeInfo, never, never>,
+      }).pipe(Effect.provide(Layer.mergeAll(biomeLayer, noiseLayer))) as unknown as Effect.Effect<
+        BiomeInfo,
+        never,
+        never
+      >,
 
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
-        const terrainGenerator = yield* TerrainGenerator
+        const terrainGenerator = yield* TerrainGeneratorTag
         return yield* terrainGenerator.getTerrainHeight(x, z)
-      }).pipe(
-        Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))
-      ) as Effect.Effect<number, never, never>,
+      }).pipe(Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))) as unknown as Effect.Effect<
+        number,
+        never,
+        never
+      >,
 
     getSeed: () => state.seed,
 

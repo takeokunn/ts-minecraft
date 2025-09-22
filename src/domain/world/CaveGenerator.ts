@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
-import { NoiseGenerator } from './NoiseGenerator'
+import type { NoiseGenerator } from './NoiseGenerator'
+import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkData } from '../chunk/ChunkData'
 import type { Vector3 } from './types'
 
@@ -8,11 +9,11 @@ import type { Vector3 } from './types'
  * 洞窟生成の設定
  */
 export const CaveConfigSchema = Schema.Struct({
-  caveThreshold: Schema.Number,     // 洞窟生成の閾値 (-1.0 to 1.0)
-  caveScale: Schema.Number,         // 洞窟のスケール
-  lavaLevel: Schema.Number,         // 溶岩生成レベル
-  ravineThreshold: Schema.Number,   // 峡谷生成の閾値
-  ravineScale: Schema.Number,       // 峡谷のスケール
+  caveThreshold: Schema.Number, // 洞窟生成の閾値 (-1.0 to 1.0)
+  caveScale: Schema.Number, // 洞窟のスケール
+  lavaLevel: Schema.Number, // 溶岩生成レベル
+  ravineThreshold: Schema.Number, // 峡谷生成の閾値
+  ravineScale: Schema.Number, // 峡谷のスケール
 })
 
 export type CaveConfig = Schema.Schema.Type<typeof CaveConfigSchema>
@@ -39,22 +40,22 @@ export interface CaveGenerator {
   /**
    * チャンクに洞窟を彫り込む
    */
-  readonly carveChunk: (chunkData: ChunkData) => Effect.Effect<ChunkData, never>
+  readonly carveChunk: (chunkData: ChunkData) => Effect.Effect<ChunkData, never, NoiseGenerator>
 
   /**
    * 指定座標が洞窟内かどうかを判定
    */
-  readonly isCave: (position: Vector3) => Effect.Effect<boolean, never>
+  readonly isCave: (position: Vector3) => Effect.Effect<boolean, never, NoiseGenerator>
 
   /**
    * 峡谷を生成
    */
-  readonly generateRavine: (chunkData: ChunkData) => Effect.Effect<ChunkData, never>
+  readonly generateRavine: (chunkData: ChunkData) => Effect.Effect<ChunkData, never, NoiseGenerator>
 
   /**
    * 溶岩湖を生成
    */
-  readonly generateLavaLakes: (chunkData: ChunkData) => Effect.Effect<ChunkData, never>
+  readonly generateLavaLakes: (chunkData: ChunkData) => Effect.Effect<ChunkData, never, NoiseGenerator>
 
   /**
    * 設定を取得
@@ -62,12 +63,12 @@ export interface CaveGenerator {
   readonly getConfig: () => CaveConfig
 }
 
-export const CaveGenerator = Context.GenericTag<CaveGenerator>('domain/world/CaveGenerator')
+export const CaveGeneratorTag = Context.GenericTag<CaveGenerator>('domain/world/CaveGenerator')
 
 /**
  * CaveGeneratorの実装
  */
-const createCaveGenerator = (config: CaveConfig, noiseGenerator: NoiseGenerator): CaveGenerator => {
+const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
   const caveGenerator: CaveGenerator = {
     carveChunk: (chunkData: ChunkData) =>
       Effect.gen(function* () {
@@ -76,13 +77,15 @@ const createCaveGenerator = (config: CaveConfig, noiseGenerator: NoiseGenerator)
         // ブロックIDの定義
         const AIR_ID = 0
         const LAVA_ID = 7
-        const WATER_ID = 7  // 簡略化のため溶岩と同じIDを使用
+        const WATER_ID = 7 // 簡略化のため溶岩と同じIDを使用
 
         for (let x = 0; x < 16; x++) {
           for (let z = 0; z < 16; z++) {
             for (let y = -64; y < 320; y++) {
               const worldX = chunkData.position.x * 16 + x
               const worldZ = chunkData.position.z * 16 + z
+
+              const noiseGenerator = yield* NoiseGeneratorTag
 
               // 3D洞窟ノイズ
               const caveNoise = yield* noiseGenerator.noise3D(
@@ -126,6 +129,7 @@ const createCaveGenerator = (config: CaveConfig, noiseGenerator: NoiseGenerator)
 
     isCave: (position: Vector3) =>
       Effect.gen(function* () {
+        const noiseGenerator = yield* NoiseGeneratorTag
         const caveNoise = yield* noiseGenerator.noise3D(
           position.x * config.caveScale,
           position.y * config.caveScale * 2,
@@ -145,11 +149,9 @@ const createCaveGenerator = (config: CaveConfig, noiseGenerator: NoiseGenerator)
             const worldX = chunkData.position.x * 16 + x
             const worldZ = chunkData.position.z * 16 + z
 
+            const noiseGenerator = yield* NoiseGeneratorTag
             // 峡谷ノイズ（2Dで地表から切り込む）
-            const ravineNoise = yield* noiseGenerator.noise2D(
-              worldX * config.ravineScale,
-              worldZ * config.ravineScale
-            )
+            const ravineNoise = yield* noiseGenerator.noise2D(worldX * config.ravineScale, worldZ * config.ravineScale)
 
             // 峡谷の深さを決定
             const isRavine = Math.abs(ravineNoise) < config.ravineThreshold
@@ -189,11 +191,9 @@ const createCaveGenerator = (config: CaveConfig, noiseGenerator: NoiseGenerator)
             const worldX = chunkData.position.x * 16 + x
             const worldZ = chunkData.position.z * 16 + z
 
+            const noiseGenerator = yield* NoiseGeneratorTag
             // 溶岩湖ノイズ
-            const lakeNoise = yield* noiseGenerator.noise2D(
-              worldX * 0.02,
-              worldZ * 0.02
-            )
+            const lakeNoise = yield* noiseGenerator.noise2D(worldX * 0.02, worldZ * 0.02)
 
             // 溶岩湖生成判定
             const isLavaLake = lakeNoise > 0.7
@@ -246,10 +246,9 @@ const getBlockIndex = (x: number, y: number, z: number): number => {
  */
 export const CaveGeneratorLive = (config: CaveConfig): Layer.Layer<CaveGenerator, never, NoiseGenerator> =>
   Layer.effect(
-    CaveGenerator,
+    CaveGeneratorTag,
     Effect.gen(function* () {
-      const noiseGenerator = yield* NoiseGenerator
-      return createCaveGenerator(config, noiseGenerator)
+      return createCaveGenerator(config)
     })
   )
 
@@ -257,9 +256,9 @@ export const CaveGeneratorLive = (config: CaveConfig): Layer.Layer<CaveGenerator
  * デフォルト設定でのLayer
  */
 export const CaveGeneratorLiveDefault = CaveGeneratorLive({
-  caveThreshold: 0.2,       // 洞窟生成の閾値
-  caveScale: 0.02,          // 洞窟のスケール
-  lavaLevel: 10,            // 溶岩生成レベル
-  ravineThreshold: 0.05,    // 峡谷生成の閾値（稀）
-  ravineScale: 0.005,       // 峡谷のスケール（大きな地形）
+  caveThreshold: 0.2, // 洞窟生成の閾値
+  caveScale: 0.02, // 洞窟のスケール
+  lavaLevel: 10, // 溶岩生成レベル
+  ravineThreshold: 0.05, // 峡谷生成の閾値（稀）
+  ravineScale: 0.005, // 峡谷のスケール（大きな地形）
 })

@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Array as A } from 'effect'
+import { Effect, Context, Layer, Schema, Ref, Option, pipe, Array as A } from 'effect'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
 
@@ -74,17 +74,17 @@ export type TextureAtlasError = typeof TextureAtlasError.Type
 // ========================================
 
 export interface TextureAtlasService {
-  readonly loadAtlas: (atlasPath: string) => Effect.Effect<AtlasMetadata, TextureAtlasError>
+  readonly loadAtlas: (atlasPath: string) => Effect.Effect<AtlasMetadata, TextureAtlasError, never>
   readonly getBlockUVs: (
     blockType: BlockType,
     face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
-  ) => Effect.Effect<TextureRegion, TextureAtlasError>
+  ) => Effect.Effect<TextureRegion, TextureAtlasError, never>
   readonly generateUVCoords: (
     blockType: BlockType,
     face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
-  ) => Effect.Effect<[number, number, number, number, number, number, number, number], TextureAtlasError>
-  readonly createTextureMaterial: () => Effect.Effect<THREE.Material, TextureAtlasError>
-  readonly registerBlockTexture: (blockTexture: BlockTexture) => Effect.Effect<void, TextureAtlasError>
+  ) => Effect.Effect<[number, number, number, number, number, number, number, number], TextureAtlasError, never>
+  readonly createTextureMaterial: () => Effect.Effect<THREE.Material, TextureAtlasError, never>
+  readonly registerBlockTexture: (blockTexture: BlockTexture) => Effect.Effect<void, TextureAtlasError, never>
 }
 
 export const TextureAtlasService = Context.GenericTag<TextureAtlasService>('@minecraft/TextureAtlasService')
@@ -93,17 +93,13 @@ export const TextureAtlasService = Context.GenericTag<TextureAtlasService>('@min
 // Helper Functions (Pure Functions)
 // ========================================
 
-const calculateTextureRegion = (
-  index: number,
-  textureSize: number,
-  atlasSize: number
-): TextureRegion => {
+const calculateTextureRegion = (index: number, textureSize: number, atlasSize: number): TextureRegion => {
   const texturesPerRow = Math.floor(atlasSize / textureSize)
   const row = Math.floor(index / texturesPerRow)
   const col = index % texturesPerRow
 
   const u = col * (textureSize / atlasSize)
-  const v = 1.0 - ((row + 1) * (textureSize / atlasSize)) // Flip V coordinate
+  const v = 1.0 - (row + 1) * (textureSize / atlasSize) // Flip V coordinate
   const width = textureSize / atlasSize
   const height = textureSize / atlasSize
 
@@ -125,14 +121,20 @@ const getDefaultBlockTexture = (blockType: BlockType, config: AtlasConfig): Bloc
   }
 }
 
-const generateUVCoordsFromRegion = (region: TextureRegion): [number, number, number, number, number, number, number, number] => {
+const generateUVCoordsFromRegion = (
+  region: TextureRegion
+): [number, number, number, number, number, number, number, number] => {
   // Generate UV coordinates for a quad (4 vertices, 2 coords each)
   // Order: bottom-left, bottom-right, top-right, top-left
   return [
-    region.u, region.v, // Bottom-left
-    region.u + region.width, region.v, // Bottom-right
-    region.u + region.width, region.v + region.height, // Top-right
-    region.u, region.v + region.height, // Top-left
+    region.u,
+    region.v, // Bottom-left
+    region.u + region.width,
+    region.v, // Bottom-right
+    region.u + region.width,
+    region.v + region.height, // Top-right
+    region.u,
+    region.v + region.height, // Top-left
   ]
 }
 
@@ -186,21 +188,21 @@ interface TextureAtlasState {
   readonly metadata: AtlasMetadata | null
   readonly config: AtlasConfig
   readonly texture: THREE.Texture | null
+  readonly material: THREE.Material | null
 }
 
-const makeService = (config: AtlasConfig): Effect.Effect<TextureAtlasService, never, never> =>
-  Effect.gen(function* () {
-    // Initialize state
-    const stateRef = yield* Ref.make<TextureAtlasState>({
+const makeService = (config: AtlasConfig) =>
+  pipe(
+    Ref.make<TextureAtlasState>({
       metadata: null,
       config,
       texture: null,
-    })
-
-    return TextureAtlasService.of({
+      material: null,
+    }),
+    Effect.map((stateRef) => ({
       loadAtlas: (atlasPath: string) =>
-        Effect.gen(function* () {
-          try {
+        Effect.try({
+          try: () => {
             // In a real implementation, this would load the texture from a file
             // For now, create a default atlas with predefined textures
             const blockTextures = createDefaultBlockTextures(config)
@@ -212,203 +214,174 @@ const makeService = (config: AtlasConfig): Effect.Effect<TextureAtlasService, ne
               textureCount: blockTextures.size,
             }
 
-            // Update state
-            yield* Ref.update(stateRef, (s) => ({
-              ...s,
-              metadata,
-            }))
-
-            yield* Effect.log(`Texture atlas loaded: ${metadata.textureCount} textures`)
-
             return metadata
-          } catch (error) {
-            return yield* Effect.fail(
-              new TextureAtlasError({
-                reason: `Failed to load texture atlas: ${String(error)}`,
-                context: `loadAtlas(${atlasPath})`,
-                timestamp: Date.now(),
-              })
-            )
-          }
-        }),
+          },
+          catch: (error) =>
+            new TextureAtlasError({
+              reason: `Failed to load texture atlas: ${String(error)}`,
+              context: `loadAtlas(${atlasPath})`,
+              timestamp: Date.now(),
+            }),
+        }).pipe(Effect.tap((metadata) => Ref.update(stateRef, (s) => ({ ...s, metadata })))),
 
-      getBlockUVs: (blockType, face) =>
+      getBlockUVs: (blockType: BlockType, face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') =>
         pipe(
           Ref.get(stateRef),
-          Effect.flatMap(state =>
+          Effect.flatMap((state) =>
             pipe(
               Option.fromNullable(state.metadata),
               Option.match({
-                onNone: () => Effect.fail(
-                  new TextureAtlasError({
-                    reason: 'Texture atlas not loaded',
-                    context: 'getBlockUVs',
-                    timestamp: Date.now(),
-                  })
-                ),
-                onSome: metadata =>
+                onNone: () =>
+                  Effect.fail(
+                    new TextureAtlasError({
+                      reason: 'Texture atlas not loaded',
+                      context: 'getBlockUVs',
+                      timestamp: Date.now(),
+                    })
+                  ),
+                onSome: (metadata) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
                     Option.match({
-                      onNone: () => Effect.succeed(
-                        calculateTextureRegion(0, config.textureSize, config.atlasSize)
-                      ),
-                      onSome: blockTexture =>
+                      onNone: () => Effect.succeed(calculateTextureRegion(0, config.textureSize, config.atlasSize)),
+                      onSome: (blockTexture) =>
                         Effect.succeed(
-                          pipe(
-                            Match.value(face),
-                            Match.when('top', () => blockTexture.top),
-                            Match.when('bottom', () => blockTexture.bottom),
-                            Match.when('front', () => blockTexture.front),
-                            Match.when('back', () => blockTexture.back),
-                            Match.when('left', () => blockTexture.left),
-                            Match.when('right', () => blockTexture.right),
-                            Match.exhaustive
-                          )
-                        )
+                          (() => {
+                            switch (face) {
+                              case 'top':
+                                return blockTexture.top
+                              case 'bottom':
+                                return blockTexture.bottom
+                              case 'front':
+                                return blockTexture.front
+                              case 'back':
+                                return blockTexture.back
+                              case 'left':
+                                return blockTexture.left
+                              case 'right':
+                                return blockTexture.right
+                              default:
+                                throw new Error(`Invalid face: ${face}`)
+                            }
+                          })()
+                        ),
                     })
-                  )
+                  ),
               })
             )
           )
         ),
 
-      generateUVCoords: (blockType, face) =>
-        Effect.gen(function* () {
-          const region = yield* TextureAtlasService.getBlockUVs(blockType, face)
-          return generateUVCoordsFromRegion(region)
-        }),
+      generateUVCoords: (blockType: BlockType, face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') =>
+        pipe(
+          Ref.get(stateRef),
+          Effect.flatMap((state) =>
+            pipe(
+              Option.fromNullable(state.metadata),
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    new TextureAtlasError({
+                      reason: 'Texture atlas not loaded',
+                      context: 'generateUVCoords',
+                      timestamp: Date.now(),
+                    })
+                  ),
+                onSome: (metadata) =>
+                  pipe(
+                    Option.fromNullable(metadata.blockTextures.get(blockType)),
+                    Option.match({
+                      onNone: () =>
+                        Effect.succeed(
+                          generateUVCoordsFromRegion(calculateTextureRegion(0, config.textureSize, config.atlasSize))
+                        ),
+                      onSome: (blockTexture) => {
+                        const region = (() => {
+                          switch (face) {
+                            case 'top':
+                              return blockTexture.top
+                            case 'bottom':
+                              return blockTexture.bottom
+                            case 'front':
+                              return blockTexture.front
+                            case 'back':
+                              return blockTexture.back
+                            case 'left':
+                              return blockTexture.left
+                            case 'right':
+                              return blockTexture.right
+                            default:
+                              throw new Error(`Invalid face: ${face}`)
+                          }
+                        })()
+                        return Effect.succeed(generateUVCoordsFromRegion(region))
+                      },
+                    })
+                  ),
+              })
+            )
+          )
+        ),
 
       createTextureMaterial: () =>
         pipe(
           Ref.get(stateRef),
-          Effect.flatMap(state =>
-            pipe(
-              Option.fromNullable(state.texture),
-              Option.match({
-                onNone: () => {
-                  // Create new texture
-                  const createTexture = () => {
-                    const canvas = Option.fromNullable(
-                      typeof document !== 'undefined' ? document.createElement('canvas') : null
-                    )
+          Effect.flatMap((state) => {
+            if (state.material) {
+              return Effect.succeed(state.material)
+            }
 
-                    return pipe(
-                      canvas,
-                      Option.match({
-                        onNone: () => new THREE.Texture(),
-                        onSome: canvas => {
-                          canvas.width = config.atlasSize
-                          canvas.height = config.atlasSize
-                          const ctx = canvas.getContext('2d')!
-
-                          // Draw checkerboard pattern
-                          const tileSize = config.textureSize
-                          A.makeBy(Math.ceil(config.atlasSize / tileSize), y =>
-                            A.makeBy(Math.ceil(config.atlasSize / tileSize), x => {
-                              const isEven = (x + y) % 2 === 0
-                              ctx.fillStyle = isEven ? '#808080' : '#606060'
-                              ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize)
-                            })
-                          )
-
-                          return new THREE.CanvasTexture(canvas)
-                        }
-                      })
-                    )
-                  }
-
-                  const texture = createTexture()
-
-                  // Configure texture
-                  texture.magFilter = pipe(
-                    Match.value(config.filtering),
-                    Match.when('nearest', () => THREE.NearestFilter),
-                    Match.when('linear', () => THREE.LinearFilter),
-                    Match.exhaustive
-                  )
-                  texture.minFilter = pipe(
-                    config.mipmapping,
-                    Match.value,
-                    Match.when(true, () => THREE.LinearMipmapLinearFilter),
-                    Match.when(false, () =>
-                      config.filtering === 'nearest' ? THREE.NearestFilter : THREE.LinearFilter
-                    ),
-                    Match.exhaustive
-                  )
-                  texture.needsUpdate = true
-
-                  return pipe(
-                    Ref.update(stateRef, s => ({ ...s, texture })),
-                    Effect.map(() => texture)
-                  )
-                },
-                onSome: texture => Effect.succeed(texture)
-              })
-            )
-          ),
-          Effect.map(texture =>
-            new THREE.MeshLambertMaterial({
-              map: texture,
-              side: THREE.FrontSide,
-              vertexColors: true,
-            })
-          ),
-          Effect.catchAll(error =>
-            Effect.fail(
-              new TextureAtlasError({
-                reason: `Failed to create texture material: ${String(error)}`,
-                context: 'createTextureMaterial',
-                timestamp: Date.now(),
-              })
-            )
-          )
+            return Effect.try({
+              try: () => {
+                const texture = new THREE.Texture()
+                const material = new THREE.MeshBasicMaterial({
+                  map: texture,
+                  color: 0xffffff,
+                  wireframe: false,
+                  side: THREE.FrontSide,
+                  vertexColors: true,
+                })
+                return material
+              },
+              catch: (error) =>
+                new TextureAtlasError({
+                  reason: `Failed to create texture material: ${String(error)}`,
+                  context: 'createTextureMaterial',
+                  timestamp: Date.now(),
+                }),
+            }).pipe(Effect.tap((material) => Ref.update(stateRef, (s) => ({ ...s, material }))))
+          })
         ),
 
-      registerBlockTexture: (blockTexture) =>
-        Effect.gen(function* () {
-          try {
-            const state = yield* Ref.get(stateRef)
-
+      registerBlockTexture: (blockTexture: BlockTexture) =>
+        Effect.try({
+          try: () => {
+            const state = Effect.runSync(Ref.get(stateRef))
             if (!state.metadata) {
-              return yield* Effect.fail(
-                new TextureAtlasError({
-                  reason: 'Cannot register texture: atlas not loaded',
-                  context: 'registerBlockTexture',
-                  timestamp: Date.now(),
-                })
-              )
+              throw new Error('Texture atlas not loaded')
             }
-
-            // Update block textures map
             const newBlockTextures = new Map(state.metadata.blockTextures)
             newBlockTextures.set(blockTexture.blockType, blockTexture)
-
-            // Update metadata
-            const newMetadata: AtlasMetadata = {
-              ...state.metadata,
-              blockTextures: newBlockTextures,
-              textureCount: newBlockTextures.size,
-            }
-
-            yield* Ref.update(stateRef, (s) => ({
-              ...s,
-              metadata: newMetadata,
-            }))
-
-            yield* Effect.log(`Registered texture for block type ${blockTexture.blockType}`)
-          } catch (error) {
-            return yield* Effect.fail(
-              new TextureAtlasError({
-                reason: `Failed to register block texture: ${String(error)}`,
-                context: 'registerBlockTexture',
-                timestamp: Date.now(),
-              })
+            Effect.runSync(
+              Ref.update(stateRef, (s) => ({
+                ...s,
+                metadata: {
+                  ...s.metadata!,
+                  blockTextures: newBlockTextures,
+                  textureCount: newBlockTextures.size,
+                },
+              }))
             )
-          }
+          },
+          catch: (error) =>
+            new TextureAtlasError({
+              reason: `Failed to register block texture: ${String(error)}`,
+              context: 'registerBlockTexture',
+              timestamp: Date.now(),
+            }),
         }),
-    })
-  })
+    }))
+  )
 
 // ========================================
 // Layer Construction
@@ -416,38 +389,36 @@ const makeService = (config: AtlasConfig): Effect.Effect<TextureAtlasService, ne
 
 export const TextureAtlasLive = Layer.effect(
   TextureAtlasService,
-  Effect.gen(function* () {
-    const defaultConfig: AtlasConfig = {
-      textureSize: 16,
-      atlasSize: 256,
-      mipmapping: true,
-      filtering: 'nearest',
-    }
-    return yield* makeService(defaultConfig)
-  })
+  makeService({
+    textureSize: 16,
+    atlasSize: 256,
+    mipmapping: true,
+    filtering: 'nearest',
+  }) as unknown as Effect.Effect<TextureAtlasService, never, never>
 )
 
 // ========================================
 // Utility Exports
 // ========================================
 
-export const calculateAtlasEfficiency = (
-  usedTextures: number,
-  atlasSize: number,
-  textureSize: number
-): number => {
+export const calculateAtlasEfficiency = (usedTextures: number, atlasSize: number, textureSize: number): number => {
+  if (atlasSize <= 0 || textureSize <= 0) {
+    return 0
+  }
+
   const totalSlots = (atlasSize / textureSize) ** 2
-  return (usedTextures / totalSlots) * 100
+  return totalSlots === 0 ? 0 : (usedTextures / totalSlots) * 100
 }
 
-export const getOptimalAtlasSize = (
-  textureCount: number,
-  textureSize: number
-): number => {
+export const getOptimalAtlasSize = (textureCount: number, textureSize: number): number => {
+  if (textureCount <= 0) {
+    return Math.max(1, textureSize) // 最小サイズを1に調整
+  }
+
   const slotsNeeded = textureCount
   const slotsPerRow = Math.ceil(Math.sqrt(slotsNeeded))
   const atlasSize = slotsPerRow * textureSize
 
   // Round up to nearest power of 2
-  return Math.pow(2, Math.ceil(Math.log2(atlasSize)))
+  return Math.pow(2, Math.ceil(Math.log2(Math.max(atlasSize, 1))))
 }

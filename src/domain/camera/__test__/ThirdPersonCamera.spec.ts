@@ -4,10 +4,8 @@
  */
 
 import { it, expect } from '@effect/vitest'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
-import * as TestContext from 'effect/TestContext'
-import * as Schema from '@effect/schema/Schema'
+import { Effect, Layer, Schema, TestContext } from 'effect'
+import { PropertyTest, fc } from '../../../test/unified-test-helpers'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
@@ -139,7 +137,7 @@ describe('ThirdPersonCamera', () => {
           }
 
           const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(config)
-        expect(validatedConfig).toEqual(config)
+          expect(validatedConfig).toEqual(config)
           const camera = yield* service.initialize(config)
 
           if (!(camera instanceof THREE.PerspectiveCamera)) {
@@ -366,8 +364,7 @@ describe('ThirdPersonCamera', () => {
         )
 
         return true
-      }).pipe(Effect.provide(TestLayer))
-    )
+      }).pipe(Effect.provide(TestLayer)))
   })
 
   describe('Camera Configuration Management', () => {
@@ -673,5 +670,5 @@ describe('ThirdPersonCamera', () => {
   })
 })
 
-// Add property-based test factory pattern
-const fc = require('fast-check')
+// Property-based testingパターン
+// fast-checkは統合テストヘルパーから使用

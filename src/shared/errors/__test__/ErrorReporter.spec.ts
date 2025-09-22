@@ -407,14 +407,7 @@ describe('ErrorReporter', () => {
     })
 
     it('原因チェーンは常に配列', () => {
-      const testCases = [
-        NetworkError({ message: 'test' }),
-        new Error('test'),
-        'string',
-        123,
-        null,
-        undefined,
-      ]
+      const testCases = [NetworkError({ message: 'test' }), new Error('test'), 'string', 123, null, undefined]
 
       testCases.forEach((testCase) => {
         const chain = ErrorReporter.getCauseChain(testCase)

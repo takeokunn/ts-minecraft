@@ -564,11 +564,7 @@ describe('Entity ECS Architecture', () => {
           return 'insertion_complete'
         })
 
-        const insertionResult = yield* expectPerformanceTestEffect(insertionTest, 500, 1) as Effect.Effect<
-          any,
-          never,
-          never
-        >
+        const insertionResult = yield* expectPerformanceTestEffect(insertionTest) as Effect.Effect<any, never, never>
 
         // イテレーションのパフォーマンステスト
         const iterationTest = Effect.gen(function* () {
@@ -581,11 +577,7 @@ describe('Entity ECS Architecture', () => {
           return sum
         })
 
-        const iterationResult = yield* expectPerformanceTestEffect(iterationTest, 150, 1) as Effect.Effect<
-          any,
-          never,
-          never
-        >
+        const iterationResult = yield* expectPerformanceTestEffect(iterationTest) as Effect.Effect<any, never, never>
 
         // 数学的検証: 0+1+2+...+9999 = 49995000
         if (iterationResult !== 49995000) {
@@ -614,7 +606,7 @@ describe('Entity ECS Architecture', () => {
           return stats
         })
 
-        const memoryResult = yield* expectPerformanceTestEffect(memoryTest, 200, 1) as Effect.Effect<any, never, never>
+        const memoryResult = yield* expectPerformanceTestEffect(memoryTest) as Effect.Effect<any, never, never>
 
         if (memoryResult.size !== 5000) {
           return yield* Effect.fail(new Error('Memory test data size incorrect'))

@@ -19,7 +19,7 @@ import {
 } from '../ChunkLoader.js'
 import type { ChunkPosition } from '../ChunkPosition.js'
 import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index.js'
-import { WorldGenerator } from '../ChunkLoader.js'
+import { WorldGeneratorTag } from '../../world/index.js'
 
 // =============================================================================
 // Mock WorldGenerator
@@ -32,11 +32,11 @@ const createMockWorldGenerator = (): WorldGeneratorInterface => ({
         position,
         blocks: new Uint16Array(98304), // 16x16x384
         metadata: {
-          version: 1,
+          biome: 'plains',
+          lightLevel: 15,
+          isModified: false,
           lastUpdate: Date.now(),
-          isGenerated: true,
-          biomeIds: new Uint8Array(256),
-          heightMap: new Uint16Array(256),
+          heightMap: Array.from({ length: 256 }, () => 64),
         },
         isDirty: false,
         getBlock: () => Effect.succeed(0),
@@ -48,7 +48,7 @@ const createMockWorldGenerator = (): WorldGeneratorInterface => ({
         decompress: () => Effect.succeed({} as any),
         isEmpty: () => false,
         getMemoryUsage: () => 196608,
-        clone: () => ({} as any),
+        clone: () => ({}) as any,
       },
       biomes: [],
       structures: [],
@@ -64,15 +64,12 @@ const createMockWorldGenerator = (): WorldGeneratorInterface => ({
   getBiome: () => Effect.succeed({} as any),
   getTerrainHeight: () => Effect.succeed(64),
   getSeed: () => 12345,
-  getOptions: () => ({} as any),
+  getOptions: () => ({}) as any,
   canGenerateStructure: () => Effect.succeed(false),
   findNearestStructure: () => Effect.succeed(null),
 })
 
-const MockWorldGeneratorLive = Layer.succeed(
-  WorldGenerator,
-  createMockWorldGenerator()
-)
+const MockWorldGeneratorLive = Layer.succeed(WorldGeneratorTag, createMockWorldGenerator())
 
 // =============================================================================
 // Test Utilities
@@ -80,10 +77,7 @@ const MockWorldGeneratorLive = Layer.succeed(
 
 const runChunkLoaderTest = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.runSync(
-    Effect.provide(
-      effect,
-      Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)
-    )
+    Effect.provide(effect, Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)) as Effect.Effect<A, E, never>
   )
 
 // =============================================================================
@@ -95,27 +89,15 @@ describe('Priority Functions', () => {
     const config = defaultChunkLoaderConfig
 
     it('immediate優先度が最も高いスコアを持つ', () => {
-      const request = createChunkLoadRequest(
-        { x: 0, z: 0 },
-        'immediate',
-        1.0
-      )
+      const request = createChunkLoadRequest({ x: 0, z: 0 }, 'immediate', 1.0)
 
       const score = calculatePriorityScore(request, config)
       expect(score).toBeGreaterThan(900) // 1000 - distance penalty - age penalty
     })
 
     it('距離が遠いほどスコアが低くなる', () => {
-      const nearRequest = createChunkLoadRequest(
-        { x: 0, z: 0 },
-        'high',
-        1.0
-      )
-      const farRequest = createChunkLoadRequest(
-        { x: 0, z: 0 },
-        'high',
-        10.0
-      )
+      const nearRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 1.0)
+      const farRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0)
 
       const nearScore = calculatePriorityScore(nearRequest, config)
       const farScore = calculatePriorityScore(farRequest, config)
@@ -132,11 +114,7 @@ describe('Priority Functions', () => {
         playerDistance: 1.0,
       }
 
-      const newRequest = createChunkLoadRequest(
-        { x: 0, z: 0 },
-        'normal',
-        1.0
-      )
+      const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
 
       const oldScore = calculatePriorityScore(oldRequest, config)
       const newScore = calculatePriorityScore(newRequest, config)
@@ -279,10 +257,11 @@ describe('ChunkLoader Service', () => {
       })
 
       Effect.runSync(
-        Effect.provide(
-          test,
-          Layer.provide(ChunkLoaderLive(customConfig), MockWorldGeneratorLive)
-        )
+        Effect.provide(test, Layer.provide(ChunkLoaderLive(customConfig), MockWorldGeneratorLive)) as Effect.Effect<
+          any,
+          any,
+          never
+        >
       )
     })
   })
@@ -489,7 +468,7 @@ describe('Performance Tests', () => {
         // 1000個のチャンクリクエストを作成
         const requests = Array.from({ length: 1000 }, (_, i) => ({
           position: { x: i % 50, z: Math.floor(i / 50) },
-          priority: (['immediate', 'high', 'normal', 'low'][i % 4]) as ChunkLoadPriority,
+          priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
           playerDistance: Math.random() * 20,
         }))
 
@@ -513,7 +492,7 @@ describe('Performance Tests', () => {
 
       const requests: ChunkLoadRequest[] = Array.from({ length: 10000 }, (_, i) => ({
         position: { x: i % 100, z: Math.floor(i / 100) },
-        priority: (['immediate', 'high', 'normal', 'low'][i % 4]) as ChunkLoadPriority,
+        priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
         timestamp: Date.now() - Math.random() * 10000,
         playerDistance: Math.random() * 50,
       }))
@@ -551,10 +530,11 @@ describe('Edge Cases', () => {
       })
 
       Effect.runSync(
-        Effect.provide(
-          test,
-          Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)
-        )
+        Effect.provide(test, Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)) as Effect.Effect<
+          any,
+          any,
+          never
+        >
       )
     })
 
@@ -574,10 +554,11 @@ describe('Edge Cases', () => {
       })
 
       Effect.runSync(
-        Effect.provide(
-          test,
-          Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)
-        )
+        Effect.provide(test, Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)) as Effect.Effect<
+          any,
+          any,
+          never
+        >
       )
     })
   })

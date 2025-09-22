@@ -42,16 +42,12 @@ export const ErrorGuards = {
       'P2PError',
     ].includes((error as { _tag: string })._tag),
 
-  isRetryableError: (error: unknown): boolean =>
-    pipe(
-      Match.value(error),
-      Match.when(
-        (e): e is { _tag: string } => e !== null && typeof e === 'object' && '_tag' in e,
-        (e) => {
-          const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
-          return retryableTags.includes(e._tag)
-        }
-      ),
-      Match.orElse(() => false)
-    ),
+  isRetryableError: (error: unknown): boolean => {
+    if (error !== null && typeof error === 'object' && '_tag' in error) {
+      const taggedError = error as { _tag: string }
+      const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
+      return retryableTags.includes(taggedError._tag)
+    }
+    return false
+  },
 }
