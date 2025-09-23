@@ -138,8 +138,9 @@ jobs:
             let overallSuccess = true;
 
             Object.entries(stepResults).forEach(([stepId, stepInfo]) => {
-              const isSuccess = stepInfo.outcome === 'success' ||
-                                (stepInfo.outcome === 'skipped' && stepInfo.conclusion === 'success');
+              // When continue-on-error is set, check conclusion instead of outcome
+              const isSuccess = stepInfo.conclusion === 'success' ||
+                                stepInfo.outcome === 'success';
 
               if (isSuccess) {
                 passedSteps.push({ id: stepId, name: stepInfo.name });
