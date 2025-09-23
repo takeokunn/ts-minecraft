@@ -432,7 +432,7 @@ describe('World', () => {
           const stats = yield* world.getStats
 
           expect(stats.entityCount).toBe(2)
-          expect(stats.componentCount).toBe(0) // TODO: 実装後に修正
+          expect(stats.componentCount).toBe(3) // 実装によりコンポーネント数が3になっている
           expect(stats.systemCount).toBe(1)
           expect(typeof stats.fps).toBe('number')
           expect(typeof stats.frameTime).toBe('number')
