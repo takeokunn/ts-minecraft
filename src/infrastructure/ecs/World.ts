@@ -15,7 +15,6 @@ import { type EntityId, EntityId as EntityIdBrand } from './Entity.js'
 // EntityIdを再エクスポート
 export { type EntityId } from './Entity.js'
 
-
 /**
  * ワールドエラー
  */
@@ -270,10 +269,12 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(id)),
           Match.when(false, () =>
-            Effect.fail(createWorldError({
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            }))
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${id}`,
+                entityId: id,
+              })
+            )
           ),
           Match.orElse(() => Effect.void)
         )
@@ -314,10 +315,12 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(entityId)),
           Match.when(false, () =>
-            Effect.fail(createWorldError({
-              message: `Entity not found: ${entityId}`,
-              entityId,
-            }))
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${entityId}`,
+                entityId,
+              })
+            )
           ),
           Match.orElse(() => Effect.void)
         )
@@ -707,10 +710,12 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(id)),
           Match.when(false, () =>
-            Effect.fail(createWorldError({
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            }))
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${id}`,
+                entityId: id,
+              })
+            )
           ),
           Match.orElse(() => Effect.void)
         )

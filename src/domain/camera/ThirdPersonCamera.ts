@@ -117,10 +117,7 @@ const validateNumber = (value: unknown, parameterName: string): Effect.Effect<nu
 /**
  * Vector3位置情報の検証
  */
-const validateVector3 = (
-  position: unknown,
-  paramName: string = 'position'
-): Effect.Effect<Vector3, CameraError> => {
+const validateVector3 = (position: unknown, paramName: string = 'position'): Effect.Effect<Vector3, CameraError> => {
   return pipe(
     position,
     Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3, unknown>),

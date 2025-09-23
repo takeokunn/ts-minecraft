@@ -66,7 +66,12 @@ export const shouldLog = (level: LogLevel, currentLevel: LogLevel): boolean => {
 export const createTimestamp = (): string => new Date().toISOString()
 
 // 構造化ログの生成
-export const createLogEntry = (level: LogLevel, message: string, context?: Record<string, unknown>, error?: Error): LogEntry => ({
+export const createLogEntry = (
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+  error?: Error
+): LogEntry => ({
   timestamp: createTimestamp(),
   level,
   message,

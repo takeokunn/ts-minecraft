@@ -11,8 +11,10 @@ export const ErrorReporter = {
     pipe(
       Option.fromNullable(error),
       Option.filter((e: unknown): e is object => typeof e === 'object'),
-      Option.filter((e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
-        e !== null && typeof e === 'object' && '_tag' in e),
+      Option.filter(
+        (e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
+          e !== null && typeof e === 'object' && '_tag' in e
+      ),
       Option.match({
         onNone: () => String(error),
         onSome: (taggedError) =>

@@ -8,10 +8,7 @@ import { EntityManager, EntityManagerLive } from '../EntityManager.js'
 import { SystemRegistryServiceLive } from '../SystemRegistry.js'
 
 describe('World', () => {
-  const TestLayer = Layer.provide(
-    WorldLive,
-    SystemRegistryServiceLive
-  )
+  const TestLayer = Layer.provide(WorldLive, SystemRegistryServiceLive)
 
   const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): Promise<A> =>
     Effect.runPromise(Effect.provide(effect, TestLayer))
