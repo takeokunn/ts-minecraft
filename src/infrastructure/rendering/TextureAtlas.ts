@@ -80,10 +80,7 @@ export const TextureAtlasError = (reason: string, context: string): TextureAtlas
 
 // Type guard function
 export const isTextureAtlasError = (error: unknown): error is TextureAtlasError =>
-  typeof error === 'object' &&
-  error !== null &&
-  '_tag' in error &&
-  error._tag === 'TextureAtlasError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TextureAtlasError'
 
 // ========================================
 // Service Interface
@@ -233,10 +230,7 @@ const makeService = (config: AtlasConfig) =>
             return metadata
           },
           catch: (error) =>
-            TextureAtlasError(
-              `Failed to load texture atlas: ${String(error)}`,
-              `loadAtlas(${atlasPath})`
-            ),
+            TextureAtlasError(`Failed to load texture atlas: ${String(error)}`, `loadAtlas(${atlasPath})`),
         }).pipe(Effect.tap((metadata) => Ref.update(stateRef, (s) => ({ ...s, metadata })))),
 
       getBlockUVs: (blockType: BlockType, face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') =>
@@ -246,13 +240,7 @@ const makeService = (config: AtlasConfig) =>
             pipe(
               Option.fromNullable(state.metadata),
               Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    TextureAtlasError(
-                      'Texture atlas not loaded',
-                      'getBlockUVs'
-                    )
-                  ),
+                onNone: () => Effect.fail(TextureAtlasError('Texture atlas not loaded', 'getBlockUVs')),
                 onSome: (metadata) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
@@ -293,13 +281,7 @@ const makeService = (config: AtlasConfig) =>
             pipe(
               Option.fromNullable(state.metadata),
               Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    TextureAtlasError(
-                      'Texture atlas not loaded',
-                      'generateUVCoords'
-                    )
-                  ),
+                onNone: () => Effect.fail(TextureAtlasError('Texture atlas not loaded', 'generateUVCoords')),
                 onSome: (metadata) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
@@ -357,10 +339,7 @@ const makeService = (config: AtlasConfig) =>
                 return material
               },
               catch: (error) =>
-                TextureAtlasError(
-                  `Failed to create texture material: ${String(error)}`,
-                  'createTextureMaterial'
-                ),
+                TextureAtlasError(`Failed to create texture material: ${String(error)}`, 'createTextureMaterial'),
             }).pipe(Effect.tap((material) => Ref.update(stateRef, (s) => ({ ...s, material }))))
           })
         ),
@@ -386,10 +365,7 @@ const makeService = (config: AtlasConfig) =>
             )
           },
           catch: (error) =>
-            TextureAtlasError(
-              `Failed to register block texture: ${String(error)}`,
-              'registerBlockTexture'
-            ),
+            TextureAtlasError(`Failed to register block texture: ${String(error)}`, 'registerBlockTexture'),
         }),
     }))
   )

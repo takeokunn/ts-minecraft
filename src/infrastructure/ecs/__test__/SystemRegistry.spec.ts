@@ -285,12 +285,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         const failingSystem = createSystem('FailingSystem', () =>
-          Effect.fail(
-            SystemError(
-              'FailingSystem',
-              'Test error'
-            )
-          )
+          Effect.fail(SystemError('FailingSystem', 'Test error'))
         )
 
         yield* registry.register(failingSystem)
@@ -372,12 +367,7 @@ describe('SystemRegistry ECS Architecture', () => {
           Effect.gen(function* () {
             failCount++
             if (failCount % 2 === 1) {
-              yield* Effect.fail(
-                SystemError(
-                  'UnreliableSystem',
-                  `Failure ${failCount}`
-                )
-              )
+              yield* Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))
             }
           })
         )

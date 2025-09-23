@@ -727,10 +727,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           componentType
         ),
       entityLimitReached: (limit: number) =>
-        EntityManagerError(
-          `Entity limit reached: ${limit}`,
-          'ENTITY_LIMIT_REACHED'
-        ),
+        EntityManagerError(`Entity limit reached: ${limit}`, 'ENTITY_LIMIT_REACHED'),
       componentAlreadyExists: (entityId: EntityId, componentType: string) =>
         EntityManagerError(
           `Component ${componentType} already exists on entity ${entityId}`,

@@ -325,7 +325,6 @@ describe('Effect-TS Configuration', () => {
     })
   })
 
-
   describe('Schema Integration', () => {
     it('should decode branded types using Schema', () => {
       const playerIdResult = Schema.decodeUnknownSync(PlayerIdSchema)('test_player')

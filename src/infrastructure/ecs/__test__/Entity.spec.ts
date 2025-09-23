@@ -653,10 +653,7 @@ describe('Entity ECS Architecture', () => {
             Effect.gen(function* () {
               if (state.freeList.length === 0) {
                 return yield* Effect.fail(
-                  EntityPoolError(
-                    'pool_exhausted',
-                    `Entity pool exhausted. Maximum capacity: ${SMALL_MAX_ENTITIES}`
-                  )
+                  EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${SMALL_MAX_ENTITIES}`)
                 )
               }
               const id = state.freeList.pop()!
@@ -667,12 +664,7 @@ describe('Entity ECS Architecture', () => {
           deallocate: (id: EntityId) =>
             Effect.gen(function* () {
               if (!state.allocated.has(id)) {
-                return yield* Effect.fail(
-                  EntityPoolError(
-                    'invalid_entity_id',
-                    `Entity ${id} is not allocated`
-                  )
-                )
+                return yield* Effect.fail(EntityPoolError('invalid_entity_id', `Entity ${id} is not allocated`))
               }
               state.allocated.delete(id)
               state.freeList.push(id)

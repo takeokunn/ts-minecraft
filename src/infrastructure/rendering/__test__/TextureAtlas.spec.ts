@@ -206,41 +206,11 @@ describe('TextureAtlas', () => {
     it('should handle errors during atlas loading', async () => {
       // Create a service that throws an error
       const errorService: TextureAtlasService = {
-        loadAtlas: () =>
-          Effect.fail(
-            TextureAtlasError(
-              'Failed to load',
-              'loadAtlas'
-            )
-          ) as any,
-        getBlockUVs: () =>
-          Effect.fail(
-            TextureAtlasError(
-              'Not implemented',
-              'getBlockUVs'
-            )
-          ) as any,
-        generateUVCoords: () =>
-          Effect.fail(
-            TextureAtlasError(
-              'Not implemented',
-              'generateUVCoords'
-            )
-          ) as any,
-        createTextureMaterial: () =>
-          Effect.fail(
-            TextureAtlasError(
-              'Not implemented',
-              'createTextureMaterial'
-            )
-          ) as any,
-        registerBlockTexture: () =>
-          Effect.fail(
-            TextureAtlasError(
-              'Not implemented',
-              'registerBlockTexture'
-            )
-          ) as any,
+        loadAtlas: () => Effect.fail(TextureAtlasError('Failed to load', 'loadAtlas')) as any,
+        getBlockUVs: () => Effect.fail(TextureAtlasError('Not implemented', 'getBlockUVs')) as any,
+        generateUVCoords: () => Effect.fail(TextureAtlasError('Not implemented', 'generateUVCoords')) as any,
+        createTextureMaterial: () => Effect.fail(TextureAtlasError('Not implemented', 'createTextureMaterial')) as any,
+        registerBlockTexture: () => Effect.fail(TextureAtlasError('Not implemented', 'registerBlockTexture')) as any,
       }
 
       const result = await pipe(errorService.loadAtlas('/path/to/atlas.png'), Effect.either, Effect.runPromise)
@@ -512,10 +482,7 @@ describe('TextureAtlas', () => {
 
   describe('Error Handling', () => {
     it('should create TextureAtlasError with correct properties', () => {
-      const error = TextureAtlasError(
-        'Test error',
-        'test'
-      )
+      const error = TextureAtlasError('Test error', 'test')
 
       expect(error._tag).toBe('TextureAtlasError')
       expect(error.reason).toBe('Test error')

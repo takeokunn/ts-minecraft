@@ -35,22 +35,15 @@ export interface AmbientOcclusionError {
   readonly timestamp: number
 }
 
-export const AmbientOcclusionError = (
-  reason: string,
-  context: string,
-  timestamp: number
-): AmbientOcclusionError => ({
+export const AmbientOcclusionError = (reason: string, context: string, timestamp: number): AmbientOcclusionError => ({
   _tag: 'AmbientOcclusionError',
   reason,
   context,
-  timestamp
+  timestamp,
 })
 
 export const isAmbientOcclusionError = (error: unknown): error is AmbientOcclusionError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'AmbientOcclusionError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'AmbientOcclusionError'
 
 // ========================================
 // Service Interface
@@ -371,11 +364,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         return finalVertices
       },
       catch: (error) =>
-        AmbientOcclusionError(
-          `Failed to apply AO to chunk: ${String(error)}`,
-          'applyAOToChunk',
-          Date.now()
-        ),
+        AmbientOcclusionError(`Failed to apply AO to chunk: ${String(error)}`, 'applyAOToChunk', Date.now()),
     }),
 })
 

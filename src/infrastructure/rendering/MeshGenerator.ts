@@ -94,14 +94,11 @@ export const MeshGenerationError = (
   reason,
   chunkPosition,
   timestamp,
-  ...(context !== undefined && { context })
+  ...(context !== undefined && { context }),
 })
 
 export const isMeshGenerationError = (error: unknown): error is MeshGenerationError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'MeshGenerationError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'MeshGenerationError'
 
 export interface InvalidChunkError {
   readonly _tag: 'InvalidChunkError'
@@ -110,22 +107,15 @@ export interface InvalidChunkError {
   readonly timestamp: number
 }
 
-export const InvalidChunkError = (
-  reason: string,
-  chunkData: unknown,
-  timestamp: number
-): InvalidChunkError => ({
+export const InvalidChunkError = (reason: string, chunkData: unknown, timestamp: number): InvalidChunkError => ({
   _tag: 'InvalidChunkError',
   reason,
   chunkData,
-  timestamp
+  timestamp,
 })
 
 export const isInvalidChunkError = (error: unknown): error is InvalidChunkError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'InvalidChunkError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'InvalidChunkError'
 
 // ========================================
 // Service Interface
@@ -316,11 +306,7 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
     Effect.try({
       try: () => Schema.decodeUnknownSync(ChunkDataSchema)(chunkData),
       catch: (error) =>
-        MeshGenerationError(
-          `Invalid chunk data: ${String(error)}`,
-          chunkData.position || { x: 0, z: 0 },
-          Date.now()
-        ),
+        MeshGenerationError(`Invalid chunk data: ${String(error)}`, chunkData.position || { x: 0, z: 0 }, Date.now()),
     }),
     Effect.map((validatedChunk) => {
       const meshData = {
@@ -347,10 +333,10 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
             const cubeData = generateBasicCube(x, y, z)
 
             // Add vertices with offset
-            cubeData.vertices.forEach(v => meshData.vertices.push(v))
-            cubeData.normals.forEach(n => meshData.normals.push(n))
-            cubeData.uvs.forEach(uv => meshData.uvs.push(uv))
-            cubeData.indices.forEach(i => meshData.indices.push(i + vertexOffset))
+            cubeData.vertices.forEach((v) => meshData.vertices.push(v))
+            cubeData.normals.forEach((n) => meshData.normals.push(n))
+            cubeData.uvs.forEach((uv) => meshData.uvs.push(uv))
+            cubeData.indices.forEach((i) => meshData.indices.push(i + vertexOffset))
 
             vertexOffset += cubeData.vertices.length / 3 // Number of vertices added
           }
@@ -399,14 +385,13 @@ const makeService = (
         config.enableGreedyMeshing
           ? pipe(
               greedyMeshing.generateGreedyMesh(chunkData),
-              Effect.mapError(
-                (greedyError) =>
-                  MeshGenerationError(
-                    `Greedy meshing failed: ${greedyError.reason}`,
-                    chunkData.position,
-                    Date.now(),
-                    greedyError.context
-                  )
+              Effect.mapError((greedyError) =>
+                MeshGenerationError(
+                  `Greedy meshing failed: ${greedyError.reason}`,
+                  chunkData.position,
+                  Date.now(),
+                  greedyError.context
+                )
               )
             )
           : pipe(

@@ -37,14 +37,11 @@ export const WorldError = (
   message,
   ...(entityId !== undefined && { entityId }),
   ...(componentType !== undefined && { componentType }),
-  ...(cause !== undefined && { cause })
+  ...(cause !== undefined && { cause }),
 })
 
 export const isWorldError = (error: unknown): error is WorldError =>
-  typeof error === 'object' &&
-  error !== null &&
-  '_tag' in error &&
-  error._tag === 'WorldError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'WorldError'
 
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
@@ -276,12 +273,7 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(id)) {
-          yield* Effect.fail(
-            WorldError(
-              `Entity not found: ${id}`,
-              id
-            )
-          )
+          yield* Effect.fail(WorldError(`Entity not found: ${id}`, id))
         }
 
         yield* Ref.update(stateRef, (s) => {
@@ -318,12 +310,7 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(entityId)) {
-          yield* Effect.fail(
-            WorldError(
-              `Entity not found: ${entityId}`,
-              entityId
-            )
-          )
+          yield* Effect.fail(WorldError(`Entity not found: ${entityId}`, entityId))
         }
 
         yield* Ref.update(stateRef, (s) => {
@@ -709,12 +696,7 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(id)) {
-          yield* Effect.fail(
-            WorldError(
-              `Entity not found: ${id}`,
-              id
-            )
-          )
+          yield* Effect.fail(WorldError(`Entity not found: ${id}`, id))
         }
 
         yield* Ref.update(stateRef, (s) => {

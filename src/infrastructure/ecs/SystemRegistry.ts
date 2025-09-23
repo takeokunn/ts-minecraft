@@ -20,22 +20,15 @@ export interface SystemRegistryError {
   readonly cause?: unknown
 }
 
-export const SystemRegistryError = (
-  message: string, 
-  systemName?: string, 
-  cause?: unknown
-): SystemRegistryError => ({
+export const SystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError => ({
   _tag: 'SystemRegistryError',
   message,
   ...(systemName !== undefined && { systemName }),
-  ...(cause !== undefined && { cause })
+  ...(cause !== undefined && { cause }),
 })
 
 export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'SystemRegistryError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'SystemRegistryError'
 
 /**
  * 登録されたシステムのエントリ
@@ -222,14 +215,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         yield* pipe(
           state.systems.has(name),
           Match.value,
-          Match.when(false, () =>
-            Effect.fail(
-              SystemRegistryError(
-                `System not found: ${name}`,
-                name
-              )
-            )
-          ),
+          Match.when(false, () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name))),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -430,12 +416,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         const entry = state.systems.get(name)
 
         if (!entry) {
-          return yield* Effect.fail(
-            SystemRegistryError(
-              `System not found: ${name}`,
-              name
-            )
-          )
+          return yield* Effect.fail(SystemRegistryError(`System not found: ${name}`, name))
         }
 
         return entry.executionState

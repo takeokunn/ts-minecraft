@@ -200,13 +200,7 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
       Effect.gen(function* () {
         // 構造物生成が無効な場合はエラー
         if (!generatorOptions.generateStructures) {
-          return yield* Effect.fail(
-            StructureGenerationError(
-              type,
-              position,
-              'Structure generation is disabled'
-            )
-          )
+          return yield* Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
         }
 
         const structure = createStructure(type, position)

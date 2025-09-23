@@ -61,14 +61,7 @@ describe('System', () => {
     it('システムエラーを適切に処理する', async () => {
       const system1 = createSystem('System1', () => Effect.void)
 
-      const system2 = createSystem('System2', () =>
-        Effect.fail(
-          SystemError(
-            'System2',
-            'Test error'
-          )
-        )
-      )
+      const system2 = createSystem('System2', () => Effect.fail(SystemError('System2', 'Test error')))
 
       const result = await Effect.runPromiseExit(runSystems([system1, system2], {} as World, 16))
 
@@ -173,10 +166,7 @@ describe('System', () => {
     })
 
     it('エラーを返すモックシステムを作成できる', async () => {
-      const error = SystemError(
-        'MockSystem',
-        'Mock error'
-      )
+      const error = SystemError('MockSystem', 'Mock error')
 
       const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 

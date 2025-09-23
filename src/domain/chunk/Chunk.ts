@@ -21,14 +21,11 @@ export interface ChunkBoundsError {
 
 export const ChunkBoundsError = (message: string): ChunkBoundsError => ({
   _tag: 'ChunkBoundsError',
-  message
+  message,
 })
 
 export const isChunkBoundsError = (error: unknown): error is ChunkBoundsError =>
-  typeof error === 'object' &&
-  error !== null &&
-  '_tag' in error &&
-  error._tag === 'ChunkBoundsError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkBoundsError'
 
 export interface ChunkSerializationError {
   readonly _tag: 'ChunkSerializationError'
@@ -37,14 +34,11 @@ export interface ChunkSerializationError {
 
 export const ChunkSerializationError = (message: string): ChunkSerializationError => ({
   _tag: 'ChunkSerializationError',
-  message
+  message,
 })
 
 export const isChunkSerializationError = (error: unknown): error is ChunkSerializationError =>
-  typeof error === 'object' &&
-  error !== null &&
-  '_tag' in error &&
-  error._tag === 'ChunkSerializationError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkSerializationError'
 
 /**
  * チャンクインターフェース
@@ -166,7 +160,6 @@ export const createChunk = (data: ChunkData): Chunk => {
         )
       }
       return Effect.gen(function* () {
-
         const newBlocks = new Uint16Array(chunk.blocks)
 
         for (let x = minX; x <= maxX; x++) {
@@ -277,9 +270,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           return createChunk(newData)
         },
         catch: (error) =>
-          isChunkSerializationError(error)
-            ? error
-            : ChunkSerializationError(`Failed to deserialize chunk: ${error}`),
+          isChunkSerializationError(error) ? error : ChunkSerializationError(`Failed to deserialize chunk: ${error}`),
       })
     },
 
@@ -343,9 +334,7 @@ export const createChunk = (data: ChunkData): Chunk => {
             return result
           },
           catch: (error) =>
-            isChunkSerializationError(error)
-              ? error
-              : ChunkSerializationError(`Failed to decompress chunk: ${error}`),
+            isChunkSerializationError(error) ? error : ChunkSerializationError(`Failed to decompress chunk: ${error}`),
         })
 
         return yield* chunk.deserialize(decompressedBuffer)

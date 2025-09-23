@@ -78,59 +78,25 @@ export const CameraError = (
   message,
   reason,
   ...(cause !== undefined && { cause }),
-  ...(context !== undefined && { context })
+  ...(context !== undefined && { context }),
 })
 
 export const isCameraError = (error: unknown): error is CameraError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'CameraError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'CameraError'
 
 /**
  * カメラエラー作成ヘルパー
  */
 export const createCameraError = {
-  initializationFailed: (message: string, cause?: unknown) =>
-    CameraError(
-      message,
-      'INITIALIZATION_FAILED',
-      cause
-    ),
+  initializationFailed: (message: string, cause?: unknown) => CameraError(message, 'INITIALIZATION_FAILED', cause),
   notInitialized: (operation: string) =>
-    CameraError(
-      `カメラが初期化されていません: ${operation}`,
-      'CAMERA_NOT_INITIALIZED',
-      undefined,
-      { operation }
-    ),
+    CameraError(`カメラが初期化されていません: ${operation}`, 'CAMERA_NOT_INITIALIZED', undefined, { operation }),
   invalidConfiguration: (message: string, config?: unknown) =>
-    CameraError(
-      message,
-      'INVALID_CONFIGURATION',
-      undefined,
-      { config }
-    ),
-  invalidMode: (mode: string) =>
-    CameraError(
-      `無効なカメラモード: ${mode}`,
-      'INVALID_MODE',
-      undefined,
-      { mode }
-    ),
+    CameraError(message, 'INVALID_CONFIGURATION', undefined, { config }),
+  invalidMode: (mode: string) => CameraError(`無効なカメラモード: ${mode}`, 'INVALID_MODE', undefined, { mode }),
   invalidParameter: (parameter: string, value: unknown, expected?: string) =>
-    CameraError(
-      `無効なパラメータ: ${parameter}`,
-      'INVALID_PARAMETER',
-      undefined,
-      { parameter, value, expected }
-    ),
-  resourceError: (message: string, cause?: unknown) =>
-    CameraError(
-      message,
-      'RESOURCE_ERROR',
-      cause
-    ),
+    CameraError(`無効なパラメータ: ${parameter}`, 'INVALID_PARAMETER', undefined, { parameter, value, expected }),
+  resourceError: (message: string, cause?: unknown) => CameraError(message, 'RESOURCE_ERROR', cause),
 }
 
 /**

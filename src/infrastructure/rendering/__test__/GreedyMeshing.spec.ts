@@ -321,11 +321,7 @@ describe('GreedyMeshing', () => {
 
   describe('Error Handling', () => {
     it('should create GreedyMeshingError with correct properties', () => {
-      const error = GreedyMeshingError(
-        'Test error',
-        'test',
-        Date.now()
-      )
+      const error = GreedyMeshingError('Test error', 'test', Date.now())
 
       expect(error).toBeInstanceOf(GreedyMeshingError)
       expect(error.reason).toBe('Test error')

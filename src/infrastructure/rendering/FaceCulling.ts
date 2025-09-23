@@ -31,22 +31,15 @@ export interface FaceCullingError {
   readonly timestamp: number
 }
 
-export const FaceCullingError = (
-  reason: string,
-  context: string,
-  timestamp: number
-): FaceCullingError => ({
+export const FaceCullingError = (reason: string, context: string, timestamp: number): FaceCullingError => ({
   _tag: 'FaceCullingError',
   reason,
   context,
-  timestamp
+  timestamp,
 })
 
 export const isFaceCullingError = (error: unknown): error is FaceCullingError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'FaceCullingError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'FaceCullingError'
 
 // ========================================
 // Service Interface
@@ -169,11 +162,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
       ),
       Effect.catchAll((error) =>
         Effect.fail(
-          FaceCullingError(
-            `Failed to determine face rendering: ${String(error)}`,
-            'shouldRenderFace',
-            Date.now()
-          )
+          FaceCullingError(`Failed to determine face rendering: ${String(error)}`, 'shouldRenderFace', Date.now())
         )
       )
     ),
@@ -212,11 +201,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
         return visibleBlocks
       },
       catch: (error) =>
-        FaceCullingError(
-          `Failed to cull hidden faces: ${String(error)}`,
-          'cullHiddenFaces',
-          Date.now()
-        ),
+        FaceCullingError(`Failed to cull hidden faces: ${String(error)}`, 'cullHiddenFaces', Date.now()),
     }),
 })
 

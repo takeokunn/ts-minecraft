@@ -49,14 +49,11 @@ export const EntityManagerError = (
   message,
   reason,
   ...(entityId !== undefined && { entityId }),
-  ...(componentType !== undefined && { componentType })
+  ...(componentType !== undefined && { componentType }),
 })
 
 export const isEntityManagerError = (error: unknown): error is EntityManagerError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'EntityManagerError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityManagerError'
 
 /**
  * EntityManagerError作成ヘルパー
@@ -82,11 +79,7 @@ export const createEntityManagerError = {
       undefined,
       componentType
     ),
-  entityLimitReached: (limit: number) =>
-    EntityManagerError(
-      `Entity limit reached: ${limit}`,
-      'ENTITY_LIMIT_REACHED'
-    ),
+  entityLimitReached: (limit: number) => EntityManagerError(`Entity limit reached: ${limit}`, 'ENTITY_LIMIT_REACHED'),
   componentAlreadyExists: (entityId: EntityId, componentType: string) =>
     EntityManagerError(
       `Component ${componentType} already exists on entity ${entityId}`,

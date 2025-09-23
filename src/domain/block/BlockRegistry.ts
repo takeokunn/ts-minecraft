@@ -10,14 +10,11 @@ export interface BlockNotFoundError {
 
 export const BlockNotFoundError = (blockId: string): BlockNotFoundError => ({
   _tag: 'BlockNotFoundError',
-  blockId
+  blockId,
 })
 
 export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'BlockNotFoundError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockNotFoundError'
 
 export interface BlockAlreadyRegisteredError {
   readonly _tag: 'BlockAlreadyRegisteredError'
@@ -26,14 +23,11 @@ export interface BlockAlreadyRegisteredError {
 
 export const BlockAlreadyRegisteredError = (blockId: string): BlockAlreadyRegisteredError => ({
   _tag: 'BlockAlreadyRegisteredError',
-  blockId
+  blockId,
 })
 
 export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlreadyRegisteredError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'BlockAlreadyRegisteredError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {

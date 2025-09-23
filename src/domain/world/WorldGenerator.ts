@@ -29,14 +29,11 @@ export const GenerationError = (
   _tag: 'GenerationError',
   reason,
   ...(position !== undefined && { position }),
-  ...(context !== undefined && { context })
+  ...(context !== undefined && { context }),
 })
 
 export const isGenerationError = (error: unknown): error is GenerationError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'GenerationError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GenerationError'
 
 /**
  * 構造物生成エラー
@@ -56,14 +53,11 @@ export const StructureGenerationError = (
   _tag: 'StructureGenerationError',
   structureType,
   position,
-  reason
+  reason,
 })
 
 export const isStructureGenerationError = (error: unknown): error is StructureGenerationError =>
-  typeof error === 'object' && 
-  error !== null && 
-  '_tag' in error && 
-  error._tag === 'StructureGenerationError'
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'StructureGenerationError'
 
 /**
  * チャンク生成結果
