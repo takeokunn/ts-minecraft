@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Ref, Schema, Match, Option, pipe } from 'effect'
+import { Context, Effect, Layer, Ref, Match, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import { DefaultKeyMap, KeyAction, KeyMappingConfig, KeyMappingError } from './KeyMapping'
 import { KeyState } from './types'
 

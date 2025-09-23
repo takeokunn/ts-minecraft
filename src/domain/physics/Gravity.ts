@@ -24,9 +24,7 @@ export const Gravity = {
       const newVelocityY = velocity.y - effectiveGravity * deltaTime
 
       // 終端速度の適用
-      const terminalVelocity = inFluid
-        ? PHYSICS_CONSTANTS.TERMINAL_VELOCITY * 0.4
-        : PHYSICS_CONSTANTS.TERMINAL_VELOCITY
+      const terminalVelocity = inFluid ? PHYSICS_CONSTANTS.TERMINAL_VELOCITY * 0.4 : PHYSICS_CONSTANTS.TERMINAL_VELOCITY
 
       // 下降速度を終端速度で制限
       const clampedVelocityY = Math.max(newVelocityY, -terminalVelocity)

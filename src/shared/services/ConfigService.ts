@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 
 // 設定スキーマ定義
 export const GameConfig = Schema.Struct({

@@ -5,7 +5,8 @@
  * Effect-TSを使用した関数型でコンポジタブルな実装
  */
 
-import { Context, Data, Effect, Layer, Match, pipe, Schema } from 'effect'
+import { Context, Data, Effect, Layer, Match, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import type { World } from './World'
 
 /**

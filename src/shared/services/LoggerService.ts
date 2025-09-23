@@ -1,4 +1,5 @@
-import { Context, Effect, Option, Schema, pipe } from 'effect'
+import { Context, Effect, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 
 // ログレベル定義
 export const LogLevel = Schema.Literal('DEBUG', 'INFO', 'WARN', 'ERROR')

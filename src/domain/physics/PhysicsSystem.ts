@@ -12,9 +12,7 @@ import { FluidPhysics } from './FluidPhysics'
  * 物理システム実装
  * 全ての物理コンポーネントを統合
  */
-export const makePhysicsSystem = (
-  getBlockAt: (pos: Vector3) => BlockTypeId | null
-): PhysicsService => ({
+export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | null): PhysicsService => ({
   applyGravity: (velocity: Vector3, deltaTime: number, inFluid: boolean) =>
     pipe(
       Gravity.apply(velocity, deltaTime, inFluid),

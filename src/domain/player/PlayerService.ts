@@ -1,4 +1,5 @@
-import { Context, Effect, Schema, pipe } from 'effect'
+import { Context, Effect, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager.js'
 import type { PlayerId } from '../../shared/types/branded.js'

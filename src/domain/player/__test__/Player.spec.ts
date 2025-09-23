@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Schema, Either, pipe } from 'effect'
+import { Effect, Either, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import {
   PlayerPosition,
   PlayerRotation,

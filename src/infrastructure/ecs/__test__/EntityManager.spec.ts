@@ -1,6 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, Option, Either, pipe, Schema } from 'effect'
+import { Effect, Layer, Option, Either, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import { EntityManager, EntityManagerLayer, EntityManagerError } from '../EntityManager'
 import { EntityPool, EntityPoolLayer, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity'
 import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry'

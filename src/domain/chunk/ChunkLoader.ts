@@ -3,7 +3,8 @@
  * 非同期チャンクロード・優先度管理（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Queue, Fiber, Schema, Layer, Exit, Option, Match, pipe } from 'effect'
+import { Context, Effect, Ref, Queue, Fiber, Layer, Exit, Option, Match, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import type { ChunkPosition, Chunk } from './index'
 import { createChunk } from './Chunk'
 import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index'

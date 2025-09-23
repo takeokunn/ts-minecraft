@@ -25,19 +25,20 @@ export const CollisionDetection = {
   /**
    * AABBを位置に基づいて移動
    */
-  translateAABB: (box: AABB, offset: Vector3): AABB => ({
-    _tag: 'AABB' as const,
-    min: {
-      x: box.min.x + offset.x,
-      y: box.min.y + offset.y,
-      z: box.min.z + offset.z,
-    },
-    max: {
-      x: box.max.x + offset.x,
-      y: box.max.y + offset.y,
-      z: box.max.z + offset.z,
-    },
-  } as AABB),
+  translateAABB: (box: AABB, offset: Vector3): AABB =>
+    ({
+      _tag: 'AABB' as const,
+      min: {
+        x: box.min.x + offset.x,
+        y: box.min.y + offset.y,
+        z: box.min.z + offset.z,
+      },
+      max: {
+        x: box.max.x + offset.x,
+        y: box.max.y + offset.y,
+        z: box.max.z + offset.z,
+      },
+    }) as AABB,
 
   /**
    * エンティティの周囲のブロックAABBを取得

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { ComponentRegistry, ComponentUnion } from '../ComponentRegistry'
 
 describe('ECS Component Registry', () => {

@@ -5,7 +5,7 @@
  * Schema.Structを使用した型安全でシリアライズ可能な実装
  */
 
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 /**
  * 位置コンポーネント - 3D空間内の座標

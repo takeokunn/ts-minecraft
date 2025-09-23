@@ -5,7 +5,8 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
-import { Context, Data, Effect, Layer, Ref, Schema, Either, Match, pipe, Option } from 'effect'
+import { Context, Data, Effect, Layer, Ref, Either, Match, pipe, Option } from 'effect'
+import { Schema } from '@effect/schema'
 import type { System, SystemMetadata, SystemPriority } from './System'
 import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System'
 import type { World } from './World'

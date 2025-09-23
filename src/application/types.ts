@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 /**
  * Application Layer Types - ゲームアプリケーション統合の型定義

@@ -22,11 +22,7 @@ export const Friction = {
    * @param isGrounded 接地しているか
    * @param groundBlockType 接地しているブロックタイプ
    */
-  applyGroundFriction: (
-    velocity: Vector3,
-    isGrounded: boolean,
-    groundBlockType: BlockTypeId
-  ): Effect.Effect<Vector3> =>
+  applyGroundFriction: (velocity: Vector3, isGrounded: boolean, groundBlockType: BlockTypeId): Effect.Effect<Vector3> =>
     Effect.gen(function* () {
       if (!isGrounded) {
         // 空中では摩擦を適用しない

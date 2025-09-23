@@ -1,4 +1,5 @@
-import { Effect, Context, Schema, pipe } from 'effect'
+import { Effect, Context, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { PlayerId } from '../../shared/types/branded.js'
 import type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService.js'

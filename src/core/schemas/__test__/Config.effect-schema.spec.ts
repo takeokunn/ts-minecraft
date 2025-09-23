@@ -1,6 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema } from 'effect'
+import { Effect } from 'effect'
+import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
 import { Config } from '../Config'
 

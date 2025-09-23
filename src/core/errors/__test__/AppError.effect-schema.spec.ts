@@ -1,6 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Option, Schema } from 'effect'
+import { Effect, Either, Option } from 'effect'
+import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
 import { InitError, ConfigError, isInitError, isConfigError } from '../AppError'
 

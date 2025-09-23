@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Ref, Option, Match, pipe } from 'effect'
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { MouseDelta, MouseButtonState, InputSystemError } from './types'
 
 // マウス位置

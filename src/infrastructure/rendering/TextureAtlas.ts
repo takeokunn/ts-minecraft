@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Array as A } from 'effect'
+import { Effect, Context, Layer, Ref, Option, Match, pipe, Array as A } from 'effect'
+import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
 import { UVCoordinate, BrandedTypes } from '../../shared/types/branded'

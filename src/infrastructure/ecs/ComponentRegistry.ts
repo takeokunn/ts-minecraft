@@ -5,7 +5,7 @@
  * シリアライズ・デシリアライズ機能付き
  */
 
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { PositionComponent, VelocityComponent } from './Component'
 
 /**

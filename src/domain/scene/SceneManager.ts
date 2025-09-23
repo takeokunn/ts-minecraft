@@ -1,4 +1,5 @@
-import { Context, Effect, Schema, pipe, Match } from 'effect'
+import { Context, Effect, pipe, Match } from 'effect'
+import { Schema } from '@effect/schema'
 import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 
 // シーンスタック管理用のスキーマ
