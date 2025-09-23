@@ -221,7 +221,7 @@ describe('AppError Module', () => {
             expect(error.message).toBe(message)
             expect(isInitError(error)).toBe(true)
             expect(isConfigError(error)).toBe(false)
-          }),
+          })
         )
       })
 
@@ -235,7 +235,7 @@ describe('AppError Module', () => {
               fc.integer(),
               fc.object(),
               fc.constant(new Error('test')),
-              fc.constant(null),
+              fc.constant(null)
             ),
             (message, cause) => {
               const error = InitError(message, cause)
@@ -251,8 +251,8 @@ describe('AppError Module', () => {
               }
 
               expect(isInitError(error)).toBe(true)
-            },
-          ),
+            }
+          )
         )
       })
     })
@@ -268,7 +268,7 @@ describe('AppError Module', () => {
             expect(error.path).toBe(path)
             expect(isConfigError(error)).toBe(true)
             expect(isInitError(error)).toBe(false)
-          }),
+          })
         )
       })
 
@@ -280,7 +280,7 @@ describe('AppError Module', () => {
           fc.constant('\t'),
           fc.constant('null'),
           fc.constant('undefined'),
-          fc.string({ minLength: 0, maxLength: 1000 }),
+          fc.string({ minLength: 0, maxLength: 1000 })
         )
 
         fc.assert(
@@ -292,7 +292,7 @@ describe('AppError Module', () => {
             expect(error.path).toBe(path)
             expect(typeof error.message).toBe('string')
             expect(typeof error.path).toBe('string')
-          }),
+          })
         )
       })
     })
@@ -306,7 +306,7 @@ describe('AppError Module', () => {
 
             expect(isInitError(validError)).toBe(true)
             expect(isInitError(manualError)).toBe(true)
-          }),
+          })
         )
       })
 
@@ -318,25 +318,29 @@ describe('AppError Module', () => {
 
             expect(isConfigError(validError)).toBe(true)
             expect(isConfigError(manualError)).toBe(true)
-          }),
+          })
         )
       })
 
       it('should never misidentify random objects as errors', () => {
         fc.assert(
           fc.property(
-            fc.anything().filter(
-              (val) =>
-                !(typeof val === 'object' &&
-                  val !== null &&
-                  '_tag' in val &&
-                  (val._tag === 'InitError' || val._tag === 'ConfigError'))
-            ),
+            fc
+              .anything()
+              .filter(
+                (val) =>
+                  !(
+                    typeof val === 'object' &&
+                    val !== null &&
+                    '_tag' in val &&
+                    (val._tag === 'InitError' || val._tag === 'ConfigError')
+                  )
+              ),
             (value) => {
               expect(isInitError(value)).toBe(false)
               expect(isConfigError(value)).toBe(false)
-            },
-          ),
+            }
+          )
         )
       })
     })

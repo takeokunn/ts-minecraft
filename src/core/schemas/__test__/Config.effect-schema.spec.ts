@@ -12,7 +12,7 @@ describe('Config Schema with Effect-TS integration', () => {
         const validConfigArb = fc.record({
           debug: fc.boolean(),
           fps: fc.integer({ min: 1, max: 120 }),
-          memoryLimit: fc.integer({ min: 1, max: 2048 })
+          memoryLimit: fc.integer({ min: 1, max: 2048 }),
         })
 
         const assertResult = yield* Effect.try(() =>
@@ -52,15 +52,13 @@ describe('Config Schema with Effect-TS integration', () => {
             fc.double({ min: -1000, max: -0.001, noNaN: true }),
             fc.double({ min: 120.001, max: 10000, noNaN: true })
           ),
-          memoryLimit: fc.integer({ min: 1, max: 2048 })
+          memoryLimit: fc.integer({ min: 1, max: 2048 }),
         })
 
         yield* Effect.try(() =>
           fc.assert(
             fc.property(invalidFpsArb, (config) => {
-              expect(() =>
-                Schema.decodeUnknownSync(Config)(config)
-              ).toThrow()
+              expect(() => Schema.decodeUnknownSync(Config)(config)).toThrow()
             })
           )
         )
@@ -80,15 +78,13 @@ describe('Config Schema with Effect-TS integration', () => {
             fc.constant(10000),
             fc.integer({ min: -1000, max: 0 }),
             fc.integer({ min: 2049, max: 100000 })
-          )
+          ),
         })
 
         yield* Effect.try(() =>
           fc.assert(
             fc.property(invalidMemoryArb, (config) => {
-              expect(() =>
-                Schema.decodeUnknownSync(Config)(config)
-              ).toThrow()
+              expect(() => Schema.decodeUnknownSync(Config)(config)).toThrow()
             })
           )
         )
@@ -100,7 +96,7 @@ describe('Config Schema with Effect-TS integration', () => {
         const configArb = fc.record({
           debug: fc.boolean(),
           fps: fc.integer({ min: 1, max: 120 }),
-          memoryLimit: fc.integer({ min: 1, max: 2048 })
+          memoryLimit: fc.integer({ min: 1, max: 2048 }),
         })
 
         yield* Effect.try(() =>
@@ -127,12 +123,10 @@ describe('Config Schema with Effect-TS integration', () => {
         const configs = [
           { debug: true, fps: 60, memoryLimit: 1024 },
           { debug: false, fps: 30, memoryLimit: 512 },
-          { debug: true, fps: 120, memoryLimit: 2048 }
+          { debug: true, fps: 120, memoryLimit: 2048 },
         ]
 
-        const results = yield* Effect.all(
-          configs.map(config => Schema.decode(Config)(config))
-        )
+        const results = yield* Effect.all(configs.map((config) => Schema.decode(Config)(config)))
 
         expect(results).toHaveLength(3)
         results.forEach((result, i) => {
@@ -150,9 +144,7 @@ describe('Config Schema with Effect-TS integration', () => {
       Effect.gen(function* () {
         const invalidConfig = { debug: true, fps: -10, memoryLimit: 1024 }
 
-        const result = yield* Schema.decode(Config)(invalidConfig).pipe(
-          Effect.either
-        )
+        const result = yield* Schema.decode(Config)(invalidConfig).pipe(Effect.either)
 
         expect(result._tag).toBe('Left')
       })
@@ -163,11 +155,11 @@ describe('Config Schema with Effect-TS integration', () => {
         const configs = Array.from({ length: 100 }, (_, i) => ({
           debug: i % 2 === 0,
           fps: Math.min(120, (i % 120) + 1),
-          memoryLimit: Math.min(2048, ((i % 20) + 1) * 100)
+          memoryLimit: Math.min(2048, ((i % 20) + 1) * 100),
         }))
 
         const results = yield* Effect.all(
-          configs.map(config => Schema.decode(Config)(config)),
+          configs.map((config) => Schema.decode(Config)(config)),
           { concurrency: 'unbounded' }
         )
 
@@ -188,9 +180,9 @@ describe('Config Schema with Effect-TS integration', () => {
     it.effect('should validate boundary values', () =>
       Effect.gen(function* () {
         const boundaryConfigs = [
-          { debug: true, fps: 1, memoryLimit: 1 },      // minimum values
-          { debug: false, fps: 120, memoryLimit: 2048 },    // maximum values
-          { debug: true, fps: 60, memoryLimit: 1024 },      // typical values
+          { debug: true, fps: 1, memoryLimit: 1 }, // minimum values
+          { debug: false, fps: 120, memoryLimit: 2048 }, // maximum values
+          { debug: true, fps: 60, memoryLimit: 1024 }, // typical values
         ]
 
         for (const config of boundaryConfigs) {
@@ -221,15 +213,18 @@ describe('Config Schema with Effect-TS integration', () => {
       Effect.gen(function* () {
         // Create a refined config that requires high fps with high memory
         const HighPerformanceConfig = Config.pipe(
-          Schema.filter((config) => {
-            // High fps (>60) requires at least 1024MB memory
-            if (config.fps > 60) {
-              return config.memoryLimit >= 1024
+          Schema.filter(
+            (config) => {
+              // High fps (>60) requires at least 1024MB memory
+              if (config.fps > 60) {
+                return config.memoryLimit >= 1024
+              }
+              return true
+            },
+            {
+              message: () => 'High FPS (>60) requires at least 1024MB memory',
             }
-            return true
-          }, {
-            message: () => "High FPS (>60) requires at least 1024MB memory"
-          })
+          )
         )
 
         // Valid high performance config
@@ -240,9 +235,7 @@ describe('Config Schema with Effect-TS integration', () => {
 
         // Invalid high performance config (high fps, low memory)
         const invalidHighPerf = { debug: true, fps: 90, memoryLimit: 512 }
-        const resultInvalid = yield* Schema.decode(HighPerformanceConfig)(invalidHighPerf).pipe(
-          Effect.either
-        )
+        const resultInvalid = yield* Schema.decode(HighPerformanceConfig)(invalidHighPerf).pipe(Effect.either)
         expect(resultInvalid._tag).toBe('Left')
       })
     )
@@ -253,14 +246,14 @@ describe('Config Schema with Effect-TS integration', () => {
       Effect.gen(function* () {
         const largeBatch = Array.from({ length: 1000 }, (_, i) => ({
           debug: i % 3 === 0,
-          fps: ((i % 120) + 1),
-          memoryLimit: ((i % 2048) + 1)
+          fps: (i % 120) + 1,
+          memoryLimit: (i % 2048) + 1,
         }))
 
         const start = Date.now()
 
         const results = yield* Effect.all(
-          largeBatch.map(config => Schema.decode(Config)(config)),
+          largeBatch.map((config) => Schema.decode(Config)(config)),
           { concurrency: 'unbounded', batching: true }
         )
 
@@ -280,10 +273,12 @@ describe('Config Schema with Effect-TS integration', () => {
 
         // Validate the same config multiple times
         const results = yield* Effect.all(
-          Array(100).fill(null).map(() => decode(sameConfig))
+          Array(100)
+            .fill(null)
+            .map(() => decode(sameConfig))
         )
 
-        results.forEach(result => {
+        results.forEach((result) => {
           expect(result.debug).toBe(true)
           expect(result.fps).toBe(60)
           expect(result.memoryLimit).toBe(1024)

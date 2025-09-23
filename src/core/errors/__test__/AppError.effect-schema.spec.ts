@@ -8,12 +8,7 @@ describe('AppError with Effect-TS patterns', () => {
   describe('Error creation and validation', () => {
     it.effect('should create and validate InitError', () =>
       Effect.gen(function* () {
-        const messages = [
-          'Initialization failed',
-          'Database connection error',
-          'Service startup failed',
-          ''
-        ]
+        const messages = ['Initialization failed', 'Database connection error', 'Service startup failed', '']
 
         for (const message of messages) {
           const error = InitError(message)
@@ -32,7 +27,7 @@ describe('AppError with Effect-TS patterns', () => {
           { message: 'Invalid value', path: 'server.port' },
           { message: 'Missing field', path: 'database.url' },
           { message: 'Type mismatch', path: 'cache.ttl' },
-          { message: '', path: '' }
+          { message: '', path: '' },
         ]
 
         for (const { message, path } of testCases) {
@@ -49,13 +44,7 @@ describe('AppError with Effect-TS patterns', () => {
 
     it.effect('should handle InitError with cause', () =>
       Effect.gen(function* () {
-        const causes = [
-          new Error('Root cause'),
-          'String cause',
-          { error: 'Object cause' },
-          null,
-          undefined
-        ]
+        const causes = [new Error('Root cause'), 'String cause', { error: 'Object cause' }, null, undefined]
 
         for (const cause of causes) {
           const error = InitError('Failed', cause)
@@ -82,18 +71,14 @@ describe('AppError with Effect-TS patterns', () => {
         const configError = ConfigError('Config invalid', 'test.path')
 
         // Test failing with InitError
-        const initResult = yield* Effect.fail(initError).pipe(
-          Effect.either
-        )
+        const initResult = yield* Effect.fail(initError).pipe(Effect.either)
         expect(initResult._tag).toBe('Left')
         if (initResult._tag === 'Left') {
           expect(isInitError(initResult.left)).toBe(true)
         }
 
         // Test failing with ConfigError
-        const configResult = yield* Effect.fail(configError).pipe(
-          Effect.either
-        )
+        const configResult = yield* Effect.fail(configError).pipe(Effect.either)
         expect(configResult._tag).toBe('Left')
         if (configResult._tag === 'Left') {
           expect(isConfigError(configResult.left)).toBe(true)
@@ -103,16 +88,12 @@ describe('AppError with Effect-TS patterns', () => {
 
     it.effect('should recover from specific error types', () =>
       Effect.gen(function* () {
-        const handleInitError = (error: InitError) =>
-          Effect.succeed(`Recovered from init: ${error.message}`)
+        const handleInitError = (error: InitError) => Effect.succeed(`Recovered from init: ${error.message}`)
 
-        const handleConfigError = (error: ConfigError) =>
-          Effect.succeed(`Recovered from config: ${error.path}`)
+        const handleConfigError = (error: ConfigError) => Effect.succeed(`Recovered from config: ${error.path}`)
 
         // Test InitError recovery
-        const initResult = yield* Effect.fail(InitError('Test')).pipe(
-          Effect.catchIf(isInitError, handleInitError)
-        )
+        const initResult = yield* Effect.fail(InitError('Test')).pipe(Effect.catchIf(isInitError, handleInitError))
         expect(initResult).toBe('Recovered from init: Test')
 
         // Test ConfigError recovery
@@ -161,13 +142,9 @@ describe('AppError with Effect-TS patterns', () => {
   describe('Error transformation patterns', () => {
     it.effect('should map between error types', () =>
       Effect.gen(function* () {
-        const initToConfig = (error: InitError): ConfigError =>
-          ConfigError(error.message, 'initialization')
+        const initToConfig = (error: InitError): ConfigError => ConfigError(error.message, 'initialization')
 
-        const result = yield* Effect.fail(InitError('Test')).pipe(
-          Effect.mapError(initToConfig),
-          Effect.either
-        )
+        const result = yield* Effect.fail(InitError('Test')).pipe(Effect.mapError(initToConfig), Effect.either)
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
@@ -183,7 +160,7 @@ describe('AppError with Effect-TS patterns', () => {
           Effect.fail(InitError('Error 1')),
           Effect.succeed('Success 1'),
           Effect.fail(ConfigError('Error 2', 'path')),
-          Effect.succeed('Success 2')
+          Effect.succeed('Success 2'),
         ]
 
         const results = yield* Effect.all(effects, { mode: 'either' })
@@ -220,7 +197,7 @@ describe('AppError with Effect-TS patterns', () => {
           const value = getConfigValue('existing')
           return Option.match(value, {
             onNone: () => Effect.fail(ConfigError('Not found', 'existing')),
-            onSome: (v) => Effect.succeed(v)
+            onSome: (v) => Effect.succeed(v),
           })
         }).pipe(Effect.flatten)
 
@@ -231,12 +208,9 @@ describe('AppError with Effect-TS patterns', () => {
           const value = getConfigValue('missing')
           return Option.match(value, {
             onNone: () => Effect.fail(ConfigError('Not found', 'missing')),
-            onSome: (v) => Effect.succeed(v)
+            onSome: (v) => Effect.succeed(v),
           })
-        }).pipe(
-          Effect.flatten,
-          Effect.either
-        )
+        }).pipe(Effect.flatten, Effect.either)
 
         expect(failureResult._tag).toBe('Left')
         if (failureResult._tag === 'Left') {
@@ -332,7 +306,7 @@ describe('AppError with Effect-TS patterns', () => {
           return 'success'
         }).pipe(
           Effect.retry({
-            times: maxAttempts
+            times: maxAttempts,
           })
         )
 
@@ -395,17 +369,20 @@ describe('AppError with Effect-TS patterns', () => {
         }
 
         const validateConfig = (config: Record<string, unknown>) =>
-          Effect.all({
-            username: validateField('username', config['username']),
-            password: validateField('password', config['password']),
-            email: validateField('email', config['email'])
-          }, { mode: 'either' })
+          Effect.all(
+            {
+              username: validateField('username', config['username']),
+              password: validateField('password', config['password']),
+              email: validateField('email', config['email']),
+            },
+            { mode: 'either' }
+          )
 
         // Test with invalid config
         const invalidConfig = {
           username: '',
           password: null,
-          email: 123
+          email: 123,
         }
 
         const result = yield* validateConfig(invalidConfig)
@@ -419,7 +396,7 @@ describe('AppError with Effect-TS patterns', () => {
         const validConfig = {
           username: 'user',
           password: 'pass',
-          email: 'user@example.com'
+          email: 'user@example.com',
         }
 
         const validResult = yield* validateConfig(validConfig)

@@ -81,10 +81,7 @@ describe('AppService', () => {
       Effect.gen(function* () {
         const service = yield* AppService
 
-        const [initResult, status] = yield* Effect.all([
-          service.initialize(),
-          service.getReadyStatus(),
-        ])
+        const [initResult, status] = yield* Effect.all([service.initialize(), service.getReadyStatus()])
 
         expect(initResult.success).toBe(true)
         expect(status.ready).toBe(true)
@@ -96,12 +93,10 @@ describe('AppService', () => {
         const service = yield* AppService
         const operations = [1, 2, 3]
 
-        const results = yield* Effect.forEach(operations, () =>
-          service.initialize()
-        )
+        const results = yield* Effect.forEach(operations, () => service.initialize())
 
         expect(results).toHaveLength(3)
-        results.forEach(result => {
+        results.forEach((result) => {
           expect(result.success).toBe(true)
         })
       }).pipe(Effect.provide(AppServiceLive))
@@ -111,9 +106,7 @@ describe('AppService', () => {
       Effect.gen(function* () {
         const service = yield* AppService
 
-        const result = yield* service.initialize().pipe(
-          Effect.retry({ times: 3 })
-        )
+        const result = yield* service.initialize().pipe(Effect.retry({ times: 3 }))
 
         expect(result.success).toBe(true)
       }).pipe(Effect.provide(AppServiceLive))
@@ -125,9 +118,7 @@ describe('AppService', () => {
       Effect.gen(function* () {
         const service = yield* AppService
 
-        const result = yield* service.initialize().pipe(
-          Effect.catchAll(() => Effect.succeed({ success: false }))
-        )
+        const result = yield* service.initialize().pipe(Effect.catchAll(() => Effect.succeed({ success: false })))
 
         expect(result.success).toBe(true)
       }).pipe(Effect.provide(AppServiceLive))
@@ -143,14 +134,14 @@ describe('AppService', () => {
           await fc.assert(
             fc.asyncProperty(fc.integer({ min: 1, max: 100 }), async (count) => {
               const results = await Promise.all(
-                Array(count).fill(null).map(() =>
-                  Effect.runPromise(service.initialize())
-                )
+                Array(count)
+                  .fill(null)
+                  .map(() => Effect.runPromise(service.initialize()))
               )
 
               // All results should be identical
               const firstResult = results[0]
-              results.forEach(result => {
+              results.forEach((result) => {
                 expect(result).toEqual(firstResult)
                 expect(result.success).toBe(true)
               })
@@ -168,14 +159,14 @@ describe('AppService', () => {
           await fc.assert(
             fc.asyncProperty(fc.integer({ min: 1, max: 100 }), async (count) => {
               const results = await Promise.all(
-                Array(count).fill(null).map(() =>
-                  Effect.runPromise(service.getReadyStatus())
-                )
+                Array(count)
+                  .fill(null)
+                  .map(() => Effect.runPromise(service.getReadyStatus()))
               )
 
               // All status results should be identical
               const firstStatus = results[0]
-              results.forEach(status => {
+              results.forEach((status) => {
                 expect(status).toEqual(firstStatus)
                 expect(status.ready).toBe(true)
               })
@@ -194,11 +185,7 @@ describe('AppService', () => {
               const service = yield* AppService
 
               const results = yield* Effect.all(
-                operations.map(op =>
-                  op === 'initialize'
-                    ? service.initialize()
-                    : service.getReadyStatus()
-                ),
+                operations.map((op) => (op === 'initialize' ? service.initialize() : service.getReadyStatus())),
                 { concurrency: 'unbounded' }
               )
 
@@ -264,14 +251,14 @@ describe('AppService', () => {
             expect(results).toHaveLength(initCount + statusCount)
 
             // Verify invariants
-            const initResults = results.filter(r => 'success' in r)
-            const statusResults = results.filter(r => 'ready' in r)
+            const initResults = results.filter((r) => 'success' in r)
+            const statusResults = results.filter((r) => 'ready' in r)
 
             expect(initResults).toHaveLength(initCount)
             expect(statusResults).toHaveLength(statusCount)
 
-            initResults.forEach(r => expect(r.success).toBe(true))
-            statusResults.forEach(r => expect(r.ready).toBe(true))
+            initResults.forEach((r) => expect(r.success).toBe(true))
+            statusResults.forEach((r) => expect(r.ready).toBe(true))
           }
         )
       )
@@ -305,9 +292,9 @@ describe('AppService', () => {
 
         const start = Date.now()
 
-        const operations = Array(batchSize).fill(null).map((_, i) =>
-          i % 2 === 0 ? service.initialize() : service.getReadyStatus()
-        )
+        const operations = Array(batchSize)
+          .fill(null)
+          .map((_, i) => (i % 2 === 0 ? service.initialize() : service.getReadyStatus()))
 
         const results = yield* Effect.all(operations, { concurrency: 'unbounded' })
 

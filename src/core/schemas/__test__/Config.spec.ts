@@ -211,8 +211,8 @@ describe('Config Schema', () => {
               expect(result.debug).toBe(debug)
               expect(result.fps).toBe(fps)
               expect(result.memoryLimit).toBe(memoryLimit)
-            },
-          ),
+            }
+          )
         )
       })
 
@@ -225,14 +225,14 @@ describe('Config Schema', () => {
               fc.integer({ min: 121, max: 10000 }), // Above maximum
               fc.constant(NaN),
               fc.constant(Infinity),
-              fc.constant(-Infinity),
+              fc.constant(-Infinity)
             ),
             fc.integer({ min: 1, max: 2048 }),
             (debug, fps, memoryLimit) => {
               const config = { debug, fps, memoryLimit }
               expect(() => Schema.decodeUnknownSync(Config)(config)).toThrow()
-            },
-          ),
+            }
+          )
         )
       })
 
@@ -243,13 +243,13 @@ describe('Config Schema', () => {
             fc.integer({ min: 1, max: 120 }),
             fc.oneof(
               fc.integer({ max: 0 }), // Zero or negative
-              fc.integer({ min: 2049 }), // Above maximum
+              fc.integer({ min: 2049 }) // Above maximum
             ),
             (debug, fps, memoryLimit) => {
               const config = { debug, fps, memoryLimit }
               expect(() => Schema.decodeUnknownSync(Config)(config)).toThrow()
-            },
-          ),
+            }
+          )
         )
       })
 
@@ -265,8 +265,8 @@ describe('Config Schema', () => {
 
               expect(typeof decoded.debug).toBe('boolean')
               expect(decoded.debug).toBe(debug)
-            },
-          ),
+            }
+          )
         )
       })
 
@@ -282,8 +282,8 @@ describe('Config Schema', () => {
               const encoded = Schema.encodeSync(Config)(decoded)
 
               expect(encoded).toEqual(original)
-            },
-          ),
+            }
+          )
         )
       })
 
@@ -303,8 +303,8 @@ describe('Config Schema', () => {
               expect(decoded.debug).toBe(debug)
               expect(decoded.fps).toBe(fps)
               expect(decoded.memoryLimit).toBe(memoryLimit)
-            },
-          ),
+            }
+          )
         )
       })
     })
@@ -313,12 +313,7 @@ describe('Config Schema', () => {
       it('should not coerce string numbers to numbers', () => {
         fc.assert(
           fc.property(
-            fc.oneof(
-              fc.constant('60'),
-              fc.constant('1024'),
-              fc.constant('true'),
-              fc.constant('false'),
-            ),
+            fc.oneof(fc.constant('60'), fc.constant('1024'), fc.constant('true'), fc.constant('false')),
             (stringValue) => {
               const configs = [
                 { debug: stringValue, fps: 60, memoryLimit: 1024 },
@@ -329,27 +324,29 @@ describe('Config Schema', () => {
               configs.forEach((config) => {
                 expect(() => Schema.decodeUnknownSync(Config)(config)).toThrow()
               })
-            },
-          ),
+            }
+          )
         )
       })
 
       it('should reject various invalid type combinations', () => {
         fc.assert(
           fc.property(
-            fc.anything().filter(
-              (val) =>
-                typeof val !== 'object' ||
-                val === null ||
-                Array.isArray(val) ||
-                !('debug' in val) ||
-                !('fps' in val) ||
-                !('memoryLimit' in val),
-            ),
+            fc
+              .anything()
+              .filter(
+                (val) =>
+                  typeof val !== 'object' ||
+                  val === null ||
+                  Array.isArray(val) ||
+                  !('debug' in val) ||
+                  !('fps' in val) ||
+                  !('memoryLimit' in val)
+              ),
             (invalidConfig) => {
               expect(() => Schema.decodeUnknownSync(Config)(invalidConfig)).toThrow()
-            },
-          ),
+            }
+          )
         )
       })
     })
@@ -363,9 +360,7 @@ describe('Config Schema', () => {
         memoryLimit: 1024,
       }
 
-      const program = Effect.succeed(validConfig).pipe(
-        Effect.map(Schema.decodeUnknownSync(Config)),
-      )
+      const program = Effect.succeed(validConfig).pipe(Effect.map(Schema.decodeUnknownSync(Config)))
 
       const result = Effect.runSync(program)
       expect(result).toEqual(validConfig)
@@ -379,9 +374,7 @@ describe('Config Schema', () => {
       }
 
       const program = Effect.succeed(invalidConfig).pipe(
-        Effect.flatMap((config) =>
-          Effect.try(() => Schema.decodeUnknownSync(Config)(config)),
-        ),
+        Effect.flatMap((config) => Effect.try(() => Schema.decodeUnknownSync(Config)(config)))
       )
 
       expect(() => Effect.runSync(program)).toThrow()
