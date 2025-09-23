@@ -77,9 +77,17 @@ describe('MainLayer', () => {
       expect(_typeTest).toBeDefined()
     })
 
-    it('should be assignable to AppServiceLive type', () => {
-      const _assignmentTest: typeof AppServiceLive = MainLayer
-      expect(_assignmentTest).toBe(AppServiceLive)
+    it('should provide the same service types as AppServiceLive', () => {
+      // MainLayer is now a composite layer, but should still provide AppService
+      expect(Layer.isLayer(MainLayer)).toBe(true)
+
+      // Test that it provides the AppService correctly
+      const program = Effect.gen(function* () {
+        const service = yield* AppService
+        return service
+      }).pipe(Effect.provide(MainLayer))
+
+      expect(() => Effect.runSync(program)).not.toThrow()
     })
   })
 
