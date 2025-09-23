@@ -61,37 +61,48 @@ const validateCoordinates = (
  * normalizedY + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  * CHUNK_HEIGHT=384, CHUNK_SIZE=16, so x * 384 * 16 = x * 6144
  */
-export const getBlockIndex = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): number => {
-  return Effect.runSync(
-    validateCoordinates(x, y, z).pipe(
-      Effect.map(({ normalizedY }) => normalizedY + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
-    )
+export const getBlockIndexEffect = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): Effect.Effect<number, Error> => {
+  return validateCoordinates(x, y, z).pipe(
+    Effect.map(({ normalizedY }) => normalizedY + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
   )
 }
 
 /**
- * 1Dインデックスから3D座標への変換
+ * 3D座標から1Dインデックスへの変換（同期版）
+ * 後方互換性のために残している
+ */
+export const getBlockIndex = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): number => {
+  return Effect.runSync(getBlockIndexEffect(x, y, z))
+}
+
+/**
+ * 1Dインデックスから3D座標への変換（Effect-TSパターン）
+ */
+export const getBlockCoordsEffect = (index: number): Effect.Effect<[WorldCoordinate, WorldCoordinate, WorldCoordinate], Error> => {
+  return Match.value(index).pipe(
+    Match.when(
+      (index) => index >= 0 && index < CHUNK_VOLUME,
+      (index) => {
+        const x = Math.floor(index / (CHUNK_HEIGHT * CHUNK_SIZE))
+        const z = Math.floor((index % (CHUNK_HEIGHT * CHUNK_SIZE)) / CHUNK_HEIGHT)
+        const normalizedY = index % CHUNK_HEIGHT
+        const y = normalizedY - 64 // 0-383範囲を-64～319に戻す
+        return Effect.succeed([
+          BrandedTypes.createWorldCoordinate(x),
+          BrandedTypes.createWorldCoordinate(y),
+          BrandedTypes.createWorldCoordinate(z),
+        ] as [WorldCoordinate, WorldCoordinate, WorldCoordinate])
+      }
+    ),
+    Match.orElse(() => Effect.fail(new Error(`Invalid index: ${index}`)))
+  )
+}
+
+/**
+ * 1Dインデックスから3D座標への変換（同期版）
  */
 export const getBlockCoords = (index: number): [WorldCoordinate, WorldCoordinate, WorldCoordinate] => {
-  return Effect.runSync(
-    Match.value(index).pipe(
-      Match.when(
-        (index) => index >= 0 && index < CHUNK_VOLUME,
-        (index) => {
-          const x = Math.floor(index / (CHUNK_HEIGHT * CHUNK_SIZE))
-          const z = Math.floor((index % (CHUNK_HEIGHT * CHUNK_SIZE)) / CHUNK_HEIGHT)
-          const normalizedY = index % CHUNK_HEIGHT
-          const y = normalizedY - 64 // 0-383範囲を-64～319に戻す
-          return Effect.succeed([
-            BrandedTypes.createWorldCoordinate(x),
-            BrandedTypes.createWorldCoordinate(y),
-            BrandedTypes.createWorldCoordinate(z),
-          ] as [WorldCoordinate, WorldCoordinate, WorldCoordinate])
-        }
-      ),
-      Match.orElse(() => Effect.fail(new Error(`Invalid index: ${index}`)))
-    )
-  )
+  return Effect.runSync(getBlockCoordsEffect(index))
 }
 
 /**
@@ -174,21 +185,26 @@ export const updateHeightMap = (
 }
 
 /**
- * チャンクの高さ取得
+ * チャンクの高さ取得（Effect-TSパターン）
+ */
+export const getHeightEffect = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate): Effect.Effect<number, Error> => {
+  return Match.value([x, z]).pipe(
+    Match.when(
+      ([x, z]) => x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE,
+      ([x, z]) => {
+        const heightMapIndex = x + z * CHUNK_SIZE
+        return Effect.succeed(chunk.metadata.heightMap[heightMapIndex] ?? 0)
+      }
+    ),
+    Match.orElse(() => Effect.fail(new Error(`Invalid coordinates: (${x}, ${z})`)))
+  )
+}
+
+/**
+ * チャンクの高さ取得（同期版）
  */
 export const getHeight = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate): number => {
-  return Effect.runSync(
-    Match.value([x, z]).pipe(
-      Match.when(
-        ([x, z]) => x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE,
-        ([x, z]) => {
-          const heightMapIndex = x + z * CHUNK_SIZE
-          return Effect.succeed(chunk.metadata.heightMap[heightMapIndex] ?? 0)
-        }
-      ),
-      Match.orElse(() => Effect.fail(new Error(`Invalid coordinates: (${x}, ${z})`)))
-    )
-  )
+  return Effect.runSync(getHeightEffect(chunk, x, z))
 }
 
 /**

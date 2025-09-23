@@ -12,7 +12,17 @@ const program = Effect.gen(function* () {
 
 const runtime = ManagedRuntime.make(MainLayer)
 
-runtime.runPromise(program).then(
-  (status) => console.log('Application ready:', status),
-  (error) => console.error('Application failed:', error)
+const main = Effect.gen(function* () {
+  const status = yield* program
+  console.log('Application ready:', status)
+  return status
+}).pipe(
+  Effect.catchAll((error) =>
+    Effect.gen(function* () {
+      console.error('Application failed:', error)
+      return yield* Effect.fail(error)
+    })
+  )
 )
+
+runtime.runFork(main)

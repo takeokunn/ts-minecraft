@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, pipe, Ref, Schedule, Stream, Match } from 'effect'
+import { Effect, Exit, Layer, Option, pipe, Ref, Schedule, Stream, Match } from 'effect'
 import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics } from './types'
 import type { GameLoopState } from './types'
@@ -102,7 +102,9 @@ export const GameLoopServiceLive = Layer.effect(
         // 次フレームのスケジューリング
         if (state.state === 'running') {
           const nextFrameId = requestAnimationFrame((ts) => {
-            Effect.runPromise(executeFrame(ts)).catch(console.error)
+            Effect.runPromiseExit(executeFrame(ts)).then(
+              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+            )
           })
 
           yield* Ref.update(internalState, (s) => ({
@@ -195,7 +197,9 @@ export const GameLoopServiceLive = Layer.effect(
 
           // 最初のフレームを開始
           const frameId = requestAnimationFrame((timestamp) => {
-            Effect.runPromise(executeFrame(timestamp)).catch(console.error)
+            Effect.runPromiseExit(executeFrame(timestamp)).then(
+              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+            )
           })
 
           yield* Ref.update(internalState, (s) => ({
@@ -280,7 +284,9 @@ export const GameLoopServiceLive = Layer.effect(
           }))
 
           const frameId = requestAnimationFrame((timestamp) => {
-            Effect.runPromise(executeFrame(timestamp)).catch(console.error)
+            Effect.runPromiseExit(executeFrame(timestamp)).then(
+              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+            )
           })
 
           yield* Ref.update(internalState, (s) => ({
@@ -320,12 +326,14 @@ export const GameLoopServiceLive = Layer.effect(
 
           // クリーンアップ関数を返す
           return () => {
-            Effect.runPromise(
+            Effect.runPromiseExit(
               Ref.update(internalState, (s) => ({
                 ...s,
                 frameCallbacks: s.frameCallbacks.filter((cb) => cb !== callback),
               }))
-            ).catch(console.error)
+            ).then(
+              exit => Exit.isFailure(exit) && console.error('Cleanup failed:', exit.cause)
+            )
           }
         }),
 
