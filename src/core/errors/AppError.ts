@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 export interface InitError {
   readonly _tag: 'InitError'

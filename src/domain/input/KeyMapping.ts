@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 // キーマッピングアクション
 export const KeyAction = Schema.Literal(

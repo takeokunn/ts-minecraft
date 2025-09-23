@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Predicate } from 'effect'
+import { Effect, Context, Layer, Ref, Option, Match, pipe, Predicate } from 'effect'
+import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import { GreedyMeshingService, GreedyMeshingLive } from './GreedyMeshing'
 import { FaceCullingService, FaceCullingLive } from './FaceCulling'

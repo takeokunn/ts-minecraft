@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R } from 'effect'
+import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R } from 'effect'
+import { Schema } from '@effect/schema'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
 import { MeshDimension, BrandedTypes } from '../../shared/types/branded.js'
 

@@ -1,6 +1,5 @@
 import { Effect, Context, Layer, pipe, Runtime } from 'effect'
-import * as Schema from 'effect/Schema'
-import * as ParseResult from 'effect/ParseResult'
+import { Schema, ParseResult } from '@effect/schema'
 import * as Config from 'effect/Config'
 import { Cause, Exit } from 'effect'
 import * as Schedule from 'effect/Schedule'
@@ -37,7 +36,8 @@ export const createGameError = (message: string, code: string = 'UNKNOWN_ERROR')
 export type GameResult<T, E = GameError> = Effect.Effect<T, E>
 
 // Re-export commonly used Effect utilities
-export { Effect, Context, Layer, pipe, Runtime, Schema, Config }
+export { Effect, Context, Layer, pipe, Runtime, Config }
+export { Schema }
 export type { Schedule }
 
 // Runtime configuration
@@ -140,8 +140,8 @@ export const timed = <A, E, R>(label: string, effect: Effect.Effect<A, E, R>): E
 
 // Validation utility
 export const validate =
-  <A, I>(schema: Schema.Schema<A, I>) =>
-  (input: I): Effect.Effect<A, ParseResult.ParseError> =>
+  <A, I, R>(schema: Schema.Schema<A, I, R>) =>
+  (input: I): Effect.Effect<A, ParseResult.ParseError, R> =>
     Schema.decodeUnknown(schema)(input)
 
 // Batch processing utility
@@ -177,10 +177,9 @@ export const EffectConfig = {
    * Schemaを使用したバリデーション
    */
   validate:
-    <A, I>(schema: Schema.Schema<A, I>) =>
-    (input: I): GameResult<A> =>
-      Effect.try({
-        try: () => Schema.decodeSync(schema)(input),
-        catch: (error) => createGameError(`Validation failed: ${String(error)}`, 'VALIDATION_ERROR'),
-      }),
+    <A, I, R>(schema: Schema.Schema<A, I, R>) =>
+    (input: I): Effect.Effect<A, GameError, R> =>
+      Effect.mapError(Schema.decodeUnknown(schema)(input), (error) =>
+        createGameError(`Validation failed: ${String(error)}`, 'VALIDATION_ERROR')
+      ),
 } as const

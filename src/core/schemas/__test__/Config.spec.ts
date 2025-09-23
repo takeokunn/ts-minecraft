@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Exit, Either, Schema } from 'effect'
+import { Effect, Exit, Either } from 'effect'
+import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
 import { Config } from '../Config'
 

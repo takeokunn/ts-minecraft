@@ -1,6 +1,7 @@
 import { describe, expect, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Schema, Layer, pipe } from 'effect'
+import { Effect, Either, Layer, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import {
   ConfigService,
   ConfigServiceLive,

@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 export const Config = Schema.Struct({
   debug: Schema.Boolean,
@@ -10,4 +10,4 @@ export const Config = Schema.Struct({
   ),
 })
 
-export type Config = typeof Config.Type
+export type Config = Schema.Schema.Type<typeof Config>

@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Either, ParseResult } from 'effect'
+import { Effect, Either } from 'effect'
+import { ParseResult } from '@effect/schema'
 import * as fc from 'fast-check'
 import { defaultConfig, validateConfig, loadConfig } from '../config'
 

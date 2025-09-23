@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 // マウスデルタ情報
 export const MouseDelta = Schema.Struct({

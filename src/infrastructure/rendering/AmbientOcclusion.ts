@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R, Number as N } from 'effect'
+import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Number as N } from 'effect'
+import { Schema } from '@effect/schema'
 import type { ChunkData, BlockType } from './MeshGenerator'
 import { AOValue, BrandedTypes } from '../../shared/types/branded'
 

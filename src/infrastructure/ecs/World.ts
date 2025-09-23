@@ -5,7 +5,8 @@
  * パフォーマンス最適化のためのStructure of Arrays (SoA)パターンを採用
  */
 
-import { Context, Data, Effect, Layer, Ref, Schema, Match, Option, pipe } from 'effect'
+import { Context, Data, Effect, Layer, Ref, Match, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import { EntityManager } from './EntityManager'
 import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry'
 import type { System, SystemPriority } from './System'

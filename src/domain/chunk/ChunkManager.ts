@@ -3,7 +3,8 @@
  * クラスを使わないEffect-TS Service/Layerパターン実装
  */
 
-import { Context, Effect, Ref, Queue, Layer, Schema, Option, Match, pipe } from 'effect'
+import { Context, Effect, Ref, Queue, Layer, Option, Match, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import type { ChunkPosition, Chunk } from './index'
 import type { WorldGenerator, Vector3 } from '../world/index'
 

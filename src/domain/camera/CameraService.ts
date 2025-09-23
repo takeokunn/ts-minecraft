@@ -1,4 +1,5 @@
-import { Context, Effect, Schema, Match, pipe } from 'effect'
+import { Context, Effect, Match, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 
 /**

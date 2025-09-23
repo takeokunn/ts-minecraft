@@ -4,7 +4,8 @@
  */
 
 import { it, expect } from '@effect/vitest'
-import { Effect, Layer, Schema, Exit, pipe, TestContext } from 'effect'
+import { Effect, Layer, Exit, pipe, TestContext } from 'effect'
+import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import {
   CameraService,

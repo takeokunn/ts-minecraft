@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import {
   KeyAction,
   KeyMappingConfig,

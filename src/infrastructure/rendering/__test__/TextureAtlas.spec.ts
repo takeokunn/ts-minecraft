@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Exit, pipe, Layer, Schema } from 'effect'
+import { Effect, Exit, pipe, Layer } from 'effect'
+import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import type { Material as ThreeMaterial } from 'three'
 import {

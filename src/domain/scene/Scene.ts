@@ -1,4 +1,5 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect } from 'effect'
+import { Schema } from '@effect/schema'
 
 // シーンタイプの定義
 export const SceneType = Schema.Literal('MainMenu', 'Game', 'Loading', 'Pause', 'Settings')

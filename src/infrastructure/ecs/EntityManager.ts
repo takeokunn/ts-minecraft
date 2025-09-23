@@ -1,4 +1,5 @@
-import { Context, Data, Effect, HashMap, Layer, Option, pipe, Schema, Match } from 'effect'
+import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
+import { Schema } from '@effect/schema'
 import type { SystemError } from './System'
 import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
 import {

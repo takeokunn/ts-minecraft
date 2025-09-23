@@ -8,7 +8,7 @@ import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Layer from 'effect/Layer'
 import * as TestContext from 'effect/TestContext'
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { pipe } from 'effect/Function'
 import {
   EntityId,
