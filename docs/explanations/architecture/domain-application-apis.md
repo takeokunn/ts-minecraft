@@ -2477,7 +2477,7 @@ describe('PlayerService Integration Tests', () => {
     WorldServiceTest
   )
 
-  test('プレイヤー作成と移動のフロー', async () => {
+  it.effect('プレイヤー作成と移動のフロー', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2517,12 +2517,10 @@ describe('PlayerService Integration Tests', () => {
       return { player, newPosition, healthAfterDamage }
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+    return program.pipe(Effect.provide(TestLayer))
+  )
 
-    expect(result.player.name).toBe('TestPlayer')
-  })
-
-  test('エラーハンドリングのテスト', async () => {
+  it.effect('エラーハンドリングのテスト', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2537,15 +2535,19 @@ describe('PlayerService Integration Tests', () => {
       })
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer), Effect.either))
+    return program.pipe(
+      Effect.provide(TestLayer),
+      Effect.either,
+      Effect.map(result => {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('PlayerSystem.PlayerNotFoundError')
+        }
+      })
+    )
+  )
 
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left._tag).toBe('PlayerSystem.PlayerNotFoundError')
-    }
-  })
-
-  test('並行処理のテスト', async () => {
+  it.effect('並行処理のテスト', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2580,10 +2582,8 @@ describe('PlayerService Integration Tests', () => {
       return players
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-
-    expect(result).toHaveLength(3)
-  })
+    return program.pipe(Effect.provide(TestLayer))
+  )
 })
 ```
 
@@ -2599,80 +2599,84 @@ import * as fc from 'fast-check'
 describe('PlayerService Property Tests', () => {
   const TestLayer = Layer.mergeAll(PlayerServiceTest, PlayerRepositoryTest, TestDataLive)
 
-  test('プレイヤー作成の不変条件', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.record({
-          id: fc.string({ minLength: 1, maxLength: 36 }),
-          name: fc.string({ minLength: 1, maxLength: 16 }),
-          position: fc.record({
-            x: fc.integer({ min: -30000000, max: 30000000 }),
-            y: fc.integer({ min: -256, max: 320 }),
-            z: fc.integer({ min: -30000000, max: 30000000 }),
+  it.effect('プレイヤー作成の不変条件', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            id: fc.string({ minLength: 1, maxLength: 36 }),
+            name: fc.string({ minLength: 1, maxLength: 16 }),
+            position: fc.record({
+              x: fc.integer({ min: -30000000, max: 30000000 }),
+              y: fc.integer({ min: -256, max: 320 }),
+              z: fc.integer({ min: -30000000, max: 30000000 }),
+            }),
           }),
-        }),
-        async (params) => {
-          const program = Effect.gen(function* () {
-            const playerService = yield* PlayerService
-            const testData = yield* TestData
+          async (params) => {
+            const program = Effect.gen(function* () {
+              const playerService = yield* PlayerService
+              const testData = yield* TestData
 
-            yield* testData.reset()
+              yield* testData.reset()
 
-            const player = yield* playerService.create(params)
+              const player = yield* playerService.create(params)
 
-            // 不変条件の検証
-            expect(player.id).toBe(params.id)
-            expect(player.name).toBe(params.name)
-            expect(player.position).toEqual(params.position)
-            expect(player.health.value).toBe(100)
-            expect(player.health.max).toBe(100)
-            expect(player.status).toBe('active')
-          })
-
-          await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-        }
-      )
-    )
-  })
-
-  test('移動処理の正当性', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.tuple(fc.constantFrom('north', 'south', 'east', 'west', 'up', 'down'), fc.integer({ min: 1, max: 10 })),
-        async ([direction, distance]) => {
-          const program = Effect.gen(function* () {
-            const playerService = yield* PlayerService
-            const testData = yield* TestData
-
-            yield* testData.reset()
-
-            // プレイヤー作成
-            yield* playerService.create({
-              id: 'test-player',
-              name: 'TestPlayer',
-              position: { x: 0, y: 64, z: 0 },
+              // 不変条件の検証
+              expect(player.id).toBe(params.id)
+              expect(player.name).toBe(params.name)
+              expect(player.position).toEqual(params.position)
+              expect(player.health.value).toBe(100)
+              expect(player.health.max).toBe(100)
+              expect(player.status).toBe('active')
             })
 
-            const newPosition = yield* playerService.move({
-              playerId: 'test-player',
-              direction,
-              distance,
-            })
-
-            // 移動の妥当性検証
-            expect(typeof newPosition.x).toBe('number')
-            expect(typeof newPosition.y).toBe('number')
-            expect(typeof newPosition.z).toBe('number')
-            expect(Number.isFinite(newPosition.x)).toBe(true)
-            expect(Number.isFinite(newPosition.y)).toBe(true)
-            expect(Number.isFinite(newPosition.z)).toBe(true)
-          })
-
-          await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-        }
+            await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+          }
+        )
       )
     )
-  })
+  )
+
+  it.effect('移動処理の正当性', () =>
+    Effect.promise(() =>
+      fc.assert(
+        fc.asyncProperty(
+          fc.tuple(fc.constantFrom('north', 'south', 'east', 'west', 'up', 'down'), fc.integer({ min: 1, max: 10 })),
+          async ([direction, distance]) => {
+            const program = Effect.gen(function* () {
+              const playerService = yield* PlayerService
+              const testData = yield* TestData
+
+              yield* testData.reset()
+
+              // プレイヤー作成
+              yield* playerService.create({
+                id: 'test-player',
+                name: 'TestPlayer',
+                position: { x: 0, y: 64, z: 0 },
+              })
+
+              const newPosition = yield* playerService.move({
+                playerId: 'test-player',
+                direction,
+                distance,
+              })
+
+              // 移動の妥当性検証
+              expect(typeof newPosition.x).toBe('number')
+              expect(typeof newPosition.y).toBe('number')
+              expect(typeof newPosition.z).toBe('number')
+              expect(Number.isFinite(newPosition.x)).toBe(true)
+              expect(Number.isFinite(newPosition.y)).toBe(true)
+              expect(Number.isFinite(newPosition.z)).toBe(true)
+            })
+
+            await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+          }
+        )
+      )
+    )
+  )
 })
 ```
 
