@@ -199,11 +199,10 @@ describe('InputServiceLive', () => {
         const inputService = yield* InputService
 
         // 並列でいくつかの操作を実行
-        const results = yield* Effect.all([
-          inputService.isKeyPressed('w'),
-          inputService.isMousePressed(0),
-          inputService.getMouseDelta(),
-        ], { concurrency: 'unbounded' })
+        const results = yield* Effect.all(
+          [inputService.isKeyPressed('w'), inputService.isMousePressed(0), inputService.getMouseDelta()],
+          { concurrency: 'unbounded' }
+        )
 
         expect(results[0]).toBe(false) // key press
         expect(results[1]).toBe(false) // mouse press
@@ -218,14 +217,12 @@ describe('InputServiceLive', () => {
         const inputService = yield* InputService
 
         // 短時間に大量の呼び出しを行う
-        const operations = Array.from({ length: 100 }, (_, i) =>
-          inputService.isKeyPressed(`key${i}`)
-        )
+        const operations = Array.from({ length: 100 }, (_, i) => inputService.isKeyPressed(`key${i}`))
 
         const results = yield* Effect.all(operations, { concurrency: 'unbounded' })
 
         // 全ての結果がfalseであることを確認
-        expect(results.every(result => result === false)).toBe(true)
+        expect(results.every((result) => result === false)).toBe(true)
       }).pipe(Effect.provide(InputServiceLive))
     )
 

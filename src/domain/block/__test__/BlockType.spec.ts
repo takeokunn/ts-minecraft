@@ -52,7 +52,6 @@ describe('BlockType', () => {
   })
 
   describe('ToolTypeSchema', () => {
-
     effectIt.scoped('有効なツールタイプを検証できる（Property-based）', () =>
       Effect.gen(function* () {
         const validTools = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
@@ -97,13 +96,19 @@ describe('BlockType', () => {
   })
 
   describe('TextureFacesSchema', () => {
-
     effectIt.scoped('6面のテクスチャを定義できる（Property-based）', () =>
       Effect.gen(function* () {
         const testCases = [
-          { top: 'grass_top', bottom: 'dirt', north: 'grass_side', south: 'grass_side', east: 'grass_side', west: 'grass_side' },
+          {
+            top: 'grass_top',
+            bottom: 'dirt',
+            north: 'grass_side',
+            south: 'grass_side',
+            east: 'grass_side',
+            west: 'grass_side',
+          },
           { top: 'stone', bottom: 'stone', north: 'stone', south: 'stone', east: 'stone', west: 'stone' },
-          { top: '', bottom: '', north: '', south: '', east: '', west: '' }
+          { top: '', bottom: '', north: '', south: '', east: '', west: '' },
         ]
 
         for (const { top, bottom, north, south, east, west } of testCases) {
@@ -135,7 +140,7 @@ describe('BlockType', () => {
         const incompleteTextures = [
           { top: 'grass' },
           { top: 'stone', bottom: 'stone' },
-          { top: 'dirt', bottom: 'dirt', north: 'dirt' }
+          { top: 'dirt', bottom: 'dirt', north: 'dirt' },
         ]
 
         for (const incompleteTexture of incompleteTextures) {
@@ -185,7 +190,7 @@ describe('BlockType', () => {
             south: 'stone',
             east: 'stone',
             west: 'stone',
-          }
+          },
         ]
 
         for (const textureFaces of testCases) {
@@ -213,7 +218,7 @@ describe('BlockType', () => {
           { itemId: 'diamond', minCount: 1, maxCount: 3, chance: 0.5 },
           { itemId: 'stone', minCount: 1, maxCount: 1, chance: 1.0 },
           { itemId: 'rare_item', minCount: 0, maxCount: 1, chance: 0.1 },
-          { itemId: '', minCount: 0, maxCount: 64, chance: 0.0 }
+          { itemId: '', minCount: 0, maxCount: 64, chance: 0.0 },
         ]
 
         for (const { itemId, minCount, maxCount, chance } of testCases) {
