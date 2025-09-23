@@ -24,11 +24,22 @@ export interface CullingConfig {
 // Error Definitions
 // ========================================
 
-export class FaceCullingError extends Schema.TaggedError<FaceCullingError>()('FaceCullingError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface FaceCullingError {
+  readonly _tag: 'FaceCullingError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const FaceCullingError = (reason: string, context: string, timestamp: number): FaceCullingError => ({
+  _tag: 'FaceCullingError',
+  reason,
+  context,
+  timestamp,
+})
+
+export const isFaceCullingError = (error: unknown): error is FaceCullingError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'FaceCullingError'
 
 // ========================================
 // Service Interface
@@ -132,11 +143,11 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
     Effect.try({
       try: () => checkFaceVisibilityPure(blocks, x, y, z, size, config.transparentBlocks),
       catch: (error) =>
-        new FaceCullingError({
-          reason: `Failed to check face visibility: ${String(error)}`,
-          context: `checkFaceVisibility(${x},${y},${z})`,
-          timestamp: Date.now(),
-        }),
+        FaceCullingError(
+          `Failed to check face visibility: ${String(error)}`,
+          `checkFaceVisibility(${x},${y},${z})`,
+          Date.now()
+        ),
     }),
 
   shouldRenderFace: (currentBlock, neighborBlock, transparentBlocks = config.transparentBlocks) =>
@@ -151,11 +162,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
       ),
       Effect.catchAll((error) =>
         Effect.fail(
-          new FaceCullingError({
-            reason: `Failed to determine face rendering: ${String(error)}`,
-            context: 'shouldRenderFace',
-            timestamp: Date.now(),
-          })
+          FaceCullingError(`Failed to determine face rendering: ${String(error)}`, 'shouldRenderFace', Date.now())
         )
       )
     ),
@@ -194,11 +201,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
         return visibleBlocks
       },
       catch: (error) =>
-        new FaceCullingError({
-          reason: `Failed to cull hidden faces: ${String(error)}`,
-          context: 'cullHiddenFaces',
-          timestamp: Date.now(),
-        }),
+        FaceCullingError(`Failed to cull hidden faces: ${String(error)}`, 'cullHiddenFaces', Date.now()),
     }),
 })
 

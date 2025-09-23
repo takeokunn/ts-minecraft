@@ -7,17 +7,28 @@
 
 import { Context, Data, Effect, Layer, Ref, Schema, Either, Match, pipe, Option } from 'effect'
 import type { System, SystemMetadata, SystemPriority } from './System.js'
-import { priorityToNumber, runSystems, SystemError, SystemExecutionState } from './System.js'
+import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System.js'
 import type { World } from './World.js'
 
 /**
  * システムレジストリエラー
  */
-export class SystemRegistryError extends Data.TaggedError('SystemRegistryError')<{
+export interface SystemRegistryError {
+  readonly _tag: 'SystemRegistryError'
   readonly message: string
   readonly systemName?: string
   readonly cause?: unknown
-}> {}
+}
+
+export const SystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError => ({
+  _tag: 'SystemRegistryError',
+  message,
+  ...(systemName !== undefined && { systemName }),
+  ...(cause !== undefined && { cause }),
+})
+
+export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'SystemRegistryError'
 
 /**
  * 登録されたシステムのエントリ
@@ -204,14 +215,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         yield* pipe(
           state.systems.has(name),
           Match.value,
-          Match.when(false, () =>
-            Effect.fail(
-              new SystemRegistryError({
-                message: `System not found: ${name}`,
-                systemName: name,
-              })
-            )
-          ),
+          Match.when(false, () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name))),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -339,8 +343,9 @@ export const SystemRegistryServiceLive = Layer.effect(
                       Option.match({
                         onNone: () => s,
                         onSome: (entry) => {
-                          const errorMessage =
-                            error instanceof SystemError ? `${error.systemName}: ${error.message}` : String(error)
+                          const errorMessage = isSystemError(error)
+                            ? `${error.systemName}: ${error.message}`
+                            : String(error)
 
                           const newExecutionState: SystemExecutionState = {
                             ...entry.executionState,
@@ -412,12 +417,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         const entry = state.systems.get(name)
 
         if (!entry) {
-          return yield* Effect.fail(
-            new SystemRegistryError({
-              message: `System not found: ${name}`,
-              systemName: name,
-            })
-          )
+          return yield* Effect.fail(SystemRegistryError(`System not found: ${name}`, name))
         }
 
         return entry.executionState

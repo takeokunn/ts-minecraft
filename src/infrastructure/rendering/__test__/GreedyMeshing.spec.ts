@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Exit, pipe } from 'effect'
-import { GreedyMeshingError, GreedyMeshingService, GreedyMeshingLive, calculateVertexReduction } from '../GreedyMeshing'
+import {
+  GreedyMeshingError,
+  isGreedyMeshingError,
+  GreedyMeshingService,
+  GreedyMeshingLive,
+  calculateVertexReduction,
+} from '../GreedyMeshing'
 import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
 
@@ -185,7 +191,7 @@ describe('GreedyMeshing', () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeInstanceOf(GreedyMeshingError)
+        expect(isGreedyMeshingError(error)).toBe(true)
       }
     })
   })
@@ -258,8 +264,8 @@ describe('GreedyMeshing', () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeInstanceOf(GreedyMeshingError)
-        if (error instanceof GreedyMeshingError) {
+        expect(isGreedyMeshingError(error)).toBe(true)
+        if (isGreedyMeshingError(error)) {
           expect(error.context).toBe('generateQuads')
         }
       }
@@ -321,13 +327,9 @@ describe('GreedyMeshing', () => {
 
   describe('Error Handling', () => {
     it('should create GreedyMeshingError with correct properties', () => {
-      const error = new GreedyMeshingError({
-        reason: 'Test error',
-        context: 'test',
-        timestamp: Date.now(),
-      })
+      const error = GreedyMeshingError('Test error', 'test', Date.now())
 
-      expect(error).toBeInstanceOf(GreedyMeshingError)
+      expect(isGreedyMeshingError(error)).toBe(true)
       expect(error.reason).toBe('Test error')
       expect(error.context).toBe('test')
       expect(error.timestamp).toBeGreaterThan(0)

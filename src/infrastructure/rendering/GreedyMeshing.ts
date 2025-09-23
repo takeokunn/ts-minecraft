@@ -26,11 +26,22 @@ export interface GreedyMeshingConfig {
 // Error Definitions
 // ========================================
 
-export class GreedyMeshingError extends Schema.TaggedError<GreedyMeshingError>()('GreedyMeshingError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface GreedyMeshingError {
+  readonly _tag: 'GreedyMeshingError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const GreedyMeshingError = (reason: string, context: string, timestamp: number): GreedyMeshingError => ({
+  _tag: 'GreedyMeshingError',
+  reason,
+  context,
+  timestamp,
+})
+
+export const isGreedyMeshingError = (error: unknown): error is GreedyMeshingError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GreedyMeshingError'
 
 // ========================================
 // Service Interface
@@ -284,11 +295,7 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, Greed
         return quadsToMeshData(allQuads)
       },
       catch: (error) =>
-        new GreedyMeshingError({
-          reason: `Failed to generate greedy mesh: ${String(error)}`,
-          context: 'generateGreedyMesh',
-          timestamp: Date.now(),
-        }),
+        GreedyMeshingError(`Failed to generate greedy mesh: ${String(error)}`, 'generateGreedyMesh', Date.now()),
     })
   )
 
@@ -318,12 +325,7 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
 
           return allQuads
         },
-        catch: (error) =>
-          new GreedyMeshingError({
-            reason: `Failed to generate quads: ${String(error)}`,
-            context: 'generateQuads',
-            timestamp: Date.now(),
-          }),
+        catch: (error) => GreedyMeshingError(`Failed to generate quads: ${String(error)}`, 'generateQuads', Date.now()),
       })
     ),
 

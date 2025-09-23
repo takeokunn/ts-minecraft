@@ -3,13 +3,31 @@ import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 
 // エラー定義（Data.TaggedErrorを使用）
-export class BlockNotFoundError extends Data.TaggedError('BlockNotFoundError')<{
+export interface BlockNotFoundError {
+  readonly _tag: 'BlockNotFoundError'
   readonly blockId: string
-}> {}
+}
 
-export class BlockAlreadyRegisteredError extends Data.TaggedError('BlockAlreadyRegisteredError')<{
+export const BlockNotFoundError = (blockId: string): BlockNotFoundError => ({
+  _tag: 'BlockNotFoundError',
+  blockId,
+})
+
+export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockNotFoundError'
+
+export interface BlockAlreadyRegisteredError {
+  readonly _tag: 'BlockAlreadyRegisteredError'
   readonly blockId: string
-}> {}
+}
+
+export const BlockAlreadyRegisteredError = (blockId: string): BlockAlreadyRegisteredError => ({
+  _tag: 'BlockAlreadyRegisteredError',
+  blockId,
+})
+
+export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlreadyRegisteredError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {
@@ -76,7 +94,7 @@ export const BlockRegistryLive = Layer.effect(
         pipe(
           HashMap.get(blockMap, id),
           Option.match({
-            onNone: () => Effect.fail(new BlockNotFoundError({ blockId: id })),
+            onNone: () => Effect.fail(BlockNotFoundError(id)),
             onSome: (block) => Effect.succeed(block),
           })
         ),
@@ -143,11 +161,9 @@ export const BlockRegistryLive = Layer.effect(
         Effect.gen(function* () {
           const exists = HashMap.has(blockMap, block.id)
 
-          yield* pipe(
-            Match.value(exists),
-            Match.when(true, () => Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))),
-            Match.orElse(() => Effect.void)
-          )
+          if (exists) {
+            return yield* Effect.fail(BlockAlreadyRegisteredError(block.id))
+          }
 
           // ブロックマップに追加
           blockMap = HashMap.set(blockMap, block.id, block)

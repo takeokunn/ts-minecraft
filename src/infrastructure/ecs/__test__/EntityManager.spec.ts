@@ -720,23 +720,21 @@ describe('EntityManager - Effect-TS Pattern', () => {
     // EntityManagerErrorヘルパー関数を再実装（テスト用）
     const createTestErrorHelpers = () => ({
       invalidComponentType: (componentType: string, details?: string) =>
-        new EntityManagerError({
-          message: `Invalid component type: ${componentType}${details && details.length > 0 ? ` - ${details}` : ''}`,
-          reason: 'INVALID_COMPONENT_TYPE',
-          componentType,
-        }),
+        EntityManagerError(
+          `Invalid component type: ${componentType}${details && details.length > 0 ? ` - ${details}` : ''}`,
+          'INVALID_COMPONENT_TYPE',
+          undefined,
+          componentType
+        ),
       entityLimitReached: (limit: number) =>
-        new EntityManagerError({
-          message: `Entity limit reached: ${limit}`,
-          reason: 'ENTITY_LIMIT_REACHED',
-        }),
+        EntityManagerError(`Entity limit reached: ${limit}`, 'ENTITY_LIMIT_REACHED'),
       componentAlreadyExists: (entityId: EntityId, componentType: string) =>
-        new EntityManagerError({
-          message: `Component ${componentType} already exists on entity ${entityId}`,
-          reason: 'COMPONENT_ALREADY_EXISTS',
+        EntityManagerError(
+          `Component ${componentType} already exists on entity ${entityId}`,
+          'COMPONENT_ALREADY_EXISTS',
           entityId,
-          componentType,
-        }),
+          componentType
+        ),
     })
 
     const { invalidComponentType, entityLimitReached, componentAlreadyExists } = createTestErrorHelpers()

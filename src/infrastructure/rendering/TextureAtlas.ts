@@ -62,12 +62,25 @@ export const BlockTextureSchema = Schema.Struct({
 // Error Definitions
 // ========================================
 
-export const TextureAtlasError = Schema.TaggedError<'TextureAtlasError'>()('TextureAtlasError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
+// Error interface (class-free pattern)
+export interface TextureAtlasError {
+  readonly _tag: 'TextureAtlasError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+// Error factory function
+export const TextureAtlasError = (reason: string, context: string): TextureAtlasError => ({
+  _tag: 'TextureAtlasError',
+  reason,
+  context,
+  timestamp: Date.now(),
 })
-export type TextureAtlasError = typeof TextureAtlasError.Type
+
+// Type guard function
+export const isTextureAtlasError = (error: unknown): error is TextureAtlasError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TextureAtlasError'
 
 // ========================================
 // Service Interface
@@ -217,11 +230,7 @@ const makeService = (config: AtlasConfig) =>
             return metadata
           },
           catch: (error) =>
-            new TextureAtlasError({
-              reason: `Failed to load texture atlas: ${String(error)}`,
-              context: `loadAtlas(${atlasPath})`,
-              timestamp: Date.now(),
-            }),
+            TextureAtlasError(`Failed to load texture atlas: ${String(error)}`, `loadAtlas(${atlasPath})`),
         }).pipe(Effect.tap((metadata) => Ref.update(stateRef, (s) => ({ ...s, metadata })))),
 
       getBlockUVs: (blockType: BlockType, face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') =>
@@ -231,14 +240,7 @@ const makeService = (config: AtlasConfig) =>
             pipe(
               Option.fromNullable(state.metadata),
               Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    new TextureAtlasError({
-                      reason: 'Texture atlas not loaded',
-                      context: 'getBlockUVs',
-                      timestamp: Date.now(),
-                    })
-                  ),
+                onNone: () => Effect.fail(TextureAtlasError('Texture atlas not loaded', 'getBlockUVs')),
                 onSome: (metadata) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
@@ -279,14 +281,7 @@ const makeService = (config: AtlasConfig) =>
             pipe(
               Option.fromNullable(state.metadata),
               Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    new TextureAtlasError({
-                      reason: 'Texture atlas not loaded',
-                      context: 'generateUVCoords',
-                      timestamp: Date.now(),
-                    })
-                  ),
+                onNone: () => Effect.fail(TextureAtlasError('Texture atlas not loaded', 'generateUVCoords')),
                 onSome: (metadata) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
@@ -344,11 +339,7 @@ const makeService = (config: AtlasConfig) =>
                 return material
               },
               catch: (error) =>
-                new TextureAtlasError({
-                  reason: `Failed to create texture material: ${String(error)}`,
-                  context: 'createTextureMaterial',
-                  timestamp: Date.now(),
-                }),
+                TextureAtlasError(`Failed to create texture material: ${String(error)}`, 'createTextureMaterial'),
             }).pipe(Effect.tap((material) => Ref.update(stateRef, (s) => ({ ...s, material }))))
           })
         ),
@@ -374,11 +365,7 @@ const makeService = (config: AtlasConfig) =>
             )
           },
           catch: (error) =>
-            new TextureAtlasError({
-              reason: `Failed to register block texture: ${String(error)}`,
-              context: 'registerBlockTexture',
-              timestamp: Date.now(),
-            }),
+            TextureAtlasError(`Failed to register block texture: ${String(error)}`, 'registerBlockTexture'),
         }),
     }))
   )

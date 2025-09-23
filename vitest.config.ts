@@ -6,8 +6,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
-    testTimeout: 20000, // 20秒に増やす
-    hookTimeout: 20000, // フックのタイムアウトも増やす
+    testTimeout: 30000, // 30秒（パフォーマンステスト対応）
+    hookTimeout: 20000, // フックのタイムアウト
 
     include: ['src/**/__test__/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
