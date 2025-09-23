@@ -92,7 +92,7 @@ export const LoadingScene = Layer.effect(
 
           // 擬似的なローディング進行の更新
           if (loadingState.progress < 100) {
-              const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
+            const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
 
             yield* Ref.update(loadingStateRef, (state) => {
               const newProgress = Math.min(state.progress + progressIncrement, 100)
