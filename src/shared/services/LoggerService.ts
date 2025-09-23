@@ -32,9 +32,9 @@ export type PerformanceMetrics = Schema.Schema.Type<typeof PerformanceMetrics>
 
 // LoggerService インターフェース
 export interface LoggerService {
-  readonly debug: (message: string, context?: any) => Effect.Effect<void>
-  readonly info: (message: string, context?: any) => Effect.Effect<void>
-  readonly warn: (message: string, context?: any) => Effect.Effect<void>
+  readonly debug: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
+  readonly info: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
+  readonly warn: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
   readonly error: (message: string, error?: Error) => Effect.Effect<void>
   readonly measurePerformance: <A>(functionName: string, operation: Effect.Effect<A>) => Effect.Effect<A>
 }
@@ -66,7 +66,12 @@ export const shouldLog = (level: LogLevel, currentLevel: LogLevel): boolean => {
 export const createTimestamp = (): string => new Date().toISOString()
 
 // 構造化ログの生成
-export const createLogEntry = (level: LogLevel, message: string, context?: any, error?: Error): LogEntry => ({
+export const createLogEntry = (
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+  error?: Error
+): LogEntry => ({
   timestamp: createTimestamp(),
   level,
   message,

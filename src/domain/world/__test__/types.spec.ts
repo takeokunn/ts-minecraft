@@ -539,7 +539,9 @@ describe('World Generation Types', () => {
               }),
             }),
             metadata: fc.dictionary(
-              fc.string({ minLength: 1, maxLength: 20 }),
+              fc
+                .string({ minLength: 1, maxLength: 20 })
+                .filter((key) => !['__proto__', 'constructor', 'prototype'].includes(key)),
               fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null))
             ),
           }),

@@ -559,7 +559,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
           onNone: () => Effect.succeed(undefined),
-          onSome: (storage) => storage.iterate(f as any),
+          onSome: (storage) => (storage as ComponentStorage<T>).iterate(f),
         })
       )
     }) as Effect.Effect<void, E, R>

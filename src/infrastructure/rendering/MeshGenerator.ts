@@ -40,11 +40,11 @@ export const MeshDataSchema = Schema.Struct({
     {
       strict: true,
       decode: (input) => ({
-        vertices: [...input.vertices] as readonly number[],
-        normals: [...input.normals] as readonly number[],
-        uvs: [...input.uvs] as readonly number[],
-        indices: [...input.indices] as readonly number[],
-        colors: input.colors ? ([...input.colors] as readonly number[]) : undefined,
+        vertices: [...input.vertices],
+        normals: [...input.normals],
+        uvs: [...input.uvs],
+        indices: [...input.indices],
+        colors: input.colors ? [...input.colors] : undefined,
       }),
       encode: (input) => ({
         vertices: [...input.vertices],

@@ -5,7 +5,7 @@ import { LoggerService, LogLevel, LogEntry, createLogEntry } from './LoggerServi
 export const LoggerServiceTest = Layer.sync(LoggerService, () => {
   const logs: LogEntry[] = []
 
-  const log = (level: LogLevel, message: string, context?: any, error?: Error) =>
+  const log = (level: LogLevel, message: string, context?: Record<string, unknown>, error?: Error) =>
     Effect.sync(() => {
       const entry = createLogEntry(level, message, context, error)
       logs.push(entry)
