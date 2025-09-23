@@ -280,12 +280,20 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const result = yield* Effect.either(manager.setEntityActive(nonExistentId, true))
         expect(result._tag).toBe('Left')
 
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('EntityManagerError')
-          expect(result.left.reason).toBe('ENTITY_NOT_FOUND')
-          expect(result.left.message).toContain(`Entity ${nonExistentId} not found`)
-          expect(result.left.entityId).toBe(nonExistentId)
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: (error) => {
+              expect(error._tag).toBe('EntityManagerError')
+              expect(error.reason).toBe('ENTITY_NOT_FOUND')
+              expect(error.message).toContain(`Entity ${nonExistentId} not found`)
+              expect(error.entityId).toBe(nonExistentId)
+            },
+            onRight: () => {
+              // 失敗ケースなので到達しない
+            },
+          })
+        )
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })

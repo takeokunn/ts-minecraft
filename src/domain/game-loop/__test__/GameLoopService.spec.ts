@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Effect, Layer, TestClock, TestContext } from 'effect'
+import { Effect, Either, Layer, TestClock, TestContext, pipe } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import type { FrameInfo, GameLoopConfig } from '../types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'

@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, Schedule, Stream } from 'effect'
+import { Effect, Layer, Ref, Schedule, Stream, Match, pipe } from 'effect'
 import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics } from './types'
 import type { GameLoopState } from './types'
@@ -39,7 +39,15 @@ export const GameLoopServiceLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(internalState)
 
-        if (state.state !== 'running') {
+        // Match.valueパターンを使用して状態チェック
+        const shouldContinue = pipe(
+          state.state,
+          Match.value,
+          Match.when('running', () => true),
+          Match.orElse(() => false)
+        )
+
+        if (!shouldContinue) {
           return
         }
 
@@ -109,12 +117,27 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state !== 'idle' && currentState.state !== 'stopped') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopInitError' as const,
-              message: 'GameLoop is already initialized',
-              reason: `Current state is ${currentState.state}`,
-            } satisfies GameLoopInitError)
+          // Match.valueパターンを使用して状態チェック
+          const initResult = pipe(
+            currentState.state,
+            Match.value,
+            Match.when('idle', () => ({ canInit: true }) as const),
+            Match.when('stopped', () => ({ canInit: true }) as const),
+            Match.orElse(
+              (state) =>
+                ({
+                  canInit: false,
+                  error: {
+                    _tag: 'GameLoopInitError' as const,
+                    message: 'GameLoop is already initialized',
+                    reason: `Current state is ${state}`,
+                  } satisfies GameLoopInitError,
+                }) as const
+            )
+          )
+
+          if (!initResult.canInit) {
+            return yield* Effect.fail((initResult as any).error)
           }
 
           const mergedConfig = { ...DEFAULT_GAME_LOOP_CONFIG, ...config }
@@ -135,17 +158,33 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state === 'running') {
-            return
+          // Match.valueパターンを使用して状態遷移チェック
+          const startResult = pipe(
+            currentState.state,
+            Match.value,
+            Match.when('running', () => ({ canStart: true, shouldSkip: true }) as const),
+            Match.when('idle', () => ({ canStart: true, shouldSkip: false }) as const),
+            Match.when('paused', () => ({ canStart: true, shouldSkip: false }) as const),
+            Match.orElse(
+              (state) =>
+                ({
+                  canStart: false,
+                  error: {
+                    _tag: 'GameLoopStateError' as const,
+                    message: 'Invalid state transition',
+                    currentState: state,
+                    attemptedTransition: 'start',
+                  } satisfies GameLoopStateError,
+                }) as const
+            )
+          )
+
+          if (!startResult.canStart) {
+            return yield* Effect.fail((startResult as any).error)
           }
 
-          if (currentState.state !== 'idle' && currentState.state !== 'paused') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Invalid state transition',
-              currentState: currentState.state,
-              attemptedTransition: 'start',
-            } satisfies GameLoopStateError)
+          if ('shouldSkip' in startResult && startResult.shouldSkip) {
+            return
           }
 
           yield* Ref.update(internalState, (s) => ({
@@ -169,13 +208,27 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state !== 'running') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Can only pause when running',
-              currentState: currentState.state,
-              attemptedTransition: 'pause',
-            } satisfies GameLoopStateError)
+          // Match.valueパターンを使用して状態チェック
+          const pauseResult = pipe(
+            currentState.state,
+            Match.value,
+            Match.when('running', () => ({ canPause: true }) as const),
+            Match.orElse(
+              (state) =>
+                ({
+                  canPause: false,
+                  error: {
+                    _tag: 'GameLoopStateError' as const,
+                    message: 'Can only pause when running',
+                    currentState: state,
+                    attemptedTransition: 'pause',
+                  } satisfies GameLoopStateError,
+                }) as const
+            )
+          )
+
+          if (!pauseResult.canPause) {
+            return yield* Effect.fail((pauseResult as any).error)
           }
 
           if (currentState.animationFrameId !== null) {
@@ -193,13 +246,27 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state !== 'paused') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Can only resume when paused',
-              currentState: currentState.state,
-              attemptedTransition: 'resume',
-            } satisfies GameLoopStateError)
+          // Match.valueパターンを使用して状態チェック
+          const resumeResult = pipe(
+            currentState.state,
+            Match.value,
+            Match.when('paused', () => ({ canResume: true }) as const),
+            Match.orElse(
+              (state) =>
+                ({
+                  canResume: false,
+                  error: {
+                    _tag: 'GameLoopStateError' as const,
+                    message: 'Can only resume when paused',
+                    currentState: state,
+                    attemptedTransition: 'resume',
+                  } satisfies GameLoopStateError,
+                }) as const
+            )
+          )
+
+          if (!resumeResult.canResume) {
+            return yield* Effect.fail((resumeResult as any).error)
           }
 
           yield* Ref.update(internalState, (s) => ({
@@ -264,14 +331,29 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const state = yield* Ref.get(internalState)
 
-          if (state.performanceBuffer.length === 0) {
-            return yield* Effect.fail({
-              _tag: 'GameLoopPerformanceError' as const,
-              message: 'No performance data available',
-              currentFps: 0,
-              targetFps: state.config.targetFps,
-              droppedFrames: 0,
-            } satisfies GameLoopPerformanceError)
+          // Match.valueパターンを使用してパフォーマンスデータチェック
+          const metricsResult = pipe(
+            state.performanceBuffer.length,
+            Match.value,
+            Match.when(
+              0,
+              () =>
+                ({
+                  hasData: false,
+                  error: {
+                    _tag: 'GameLoopPerformanceError' as const,
+                    message: 'No performance data available',
+                    currentFps: 0,
+                    targetFps: state.config.targetFps,
+                    droppedFrames: 0,
+                  } satisfies GameLoopPerformanceError,
+                }) as const
+            ),
+            Match.orElse(() => ({ hasData: true }) as const)
+          )
+
+          if (!metricsResult.hasData) {
+            return yield* Effect.fail((metricsResult as any).error)
           }
 
           const averageFps = state.performanceBuffer.reduce((sum, fps) => sum + fps, 0) / state.performanceBuffer.length
