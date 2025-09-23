@@ -307,51 +307,60 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
   applyAOToChunk: (chunkData) =>
     Effect.try({
       try: () => {
-        if (!config.enabled) {
-          return []
-        }
-
-        // Calculate AO for all solid block vertices using Effect-TS patterns
+        // Match.valueパターンを使用してAO有効性チェック
         const aoVertices = pipe(
-          A.range(0, chunkData.size - 1),
-          A.flatMap((x) =>
+          config.enabled,
+          Match.value,
+          Match.when(false, () => []),
+          Match.orElse(() =>
+            // Calculate AO for all solid block vertices using Effect-TS patterns
             pipe(
               A.range(0, chunkData.size - 1),
-              A.flatMap((y) =>
+              A.flatMap((x) =>
                 pipe(
                   A.range(0, chunkData.size - 1),
-                  A.flatMap((z) => {
-                    const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
+                  A.flatMap((y) =>
+                    pipe(
+                      A.range(0, chunkData.size - 1),
+                      A.flatMap((z) => {
+                        const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
 
-                    if (blockType === 0) {
-                      return []
-                    } else {
-                      const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
-                        'top',
-                        'bottom',
-                        'front',
-                        'back',
-                        'left',
-                        'right',
-                      ]
+                        // Match.valueパターンを使用してブロック種別チェック
+                        return pipe(
+                          blockType,
+                          Match.value,
+                          Match.when(0, () => []), // 空気ブロックの場合は空配列
+                          Match.orElse(() => {
+                            // ソリッドブロックの場合はAO計算
+                            const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
+                              'top',
+                              'bottom',
+                              'front',
+                              'back',
+                              'left',
+                              'right',
+                            ]
 
-                      return pipe(
-                        faces,
-                        A.flatMap((face) => {
-                          const aoFace = calculateFaceAOPure(
-                            chunkData.blocks.map((layer) => layer.map((row) => [...row])),
-                            x,
-                            y,
-                            z,
-                            face,
-                            chunkData.size,
-                            config
-                          )
-                          return Array.from(aoFace.vertices)
-                        })
-                      )
-                    }
-                  })
+                            return pipe(
+                              faces,
+                              A.flatMap((face) => {
+                                const aoFace = calculateFaceAOPure(
+                                  chunkData.blocks.map((layer) => layer.map((row) => [...row])),
+                                  x,
+                                  y,
+                                  z,
+                                  face,
+                                  chunkData.size,
+                                  config
+                                )
+                                return Array.from(aoFace.vertices)
+                              })
+                            )
+                          })
+                        )
+                      })
+                    )
+                  )
                 )
               )
             )

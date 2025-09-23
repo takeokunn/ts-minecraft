@@ -6,42 +6,42 @@
  */
 
 import { Context, Data, Effect, Layer, Ref, Schema, Match, Option, pipe } from 'effect'
+import { EntityManager } from './EntityManager.js'
 import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry.js'
 import type { System, SystemPriority } from './System.js'
 import { SystemError } from './System.js'
+import { type EntityId, EntityId as EntityIdBrand } from './Entity.js'
 
-/**
- * エンティティID - ブランド型で型安全性を確保
- */
-export const EntityId = Schema.String.pipe(Schema.brand('EntityId'))
-export type EntityId = Schema.Schema.Type<typeof EntityId>
+// EntityIdを再エクスポート
+export { type EntityId } from './Entity.js'
 
 /**
  * ワールドエラー
  */
-export interface WorldError {
-  readonly _tag: 'WorldError'
-  readonly message: string
-  readonly entityId?: EntityId
-  readonly componentType?: string
-  readonly cause?: unknown
-}
-
-export const WorldError = (
-  message: string,
-  entityId?: EntityId,
-  componentType?: string,
-  cause?: unknown
-): WorldError => ({
-  _tag: 'WorldError',
-  message,
-  ...(entityId !== undefined && { entityId }),
-  ...(componentType !== undefined && { componentType }),
-  ...(cause !== undefined && { cause }),
+export const WorldError = Schema.TaggedStruct('WorldError', {
+  message: Schema.String,
+  entityId: Schema.optional(Schema.Number.pipe(Schema.brand('EntityId'))),
+  componentType: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
 })
+
+export type WorldError = Schema.Schema.Type<typeof WorldError>
 
 export const isWorldError = (error: unknown): error is WorldError =>
   typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'WorldError'
+
+/**
+ * WorldErrorインスタンス作成ヘルパー
+ */
+const createWorldError = (data: {
+  message: string
+  entityId?: EntityId
+  componentType?: string
+  cause?: unknown
+}): WorldError => ({
+  _tag: 'WorldError' as const,
+  ...data,
+})
 
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
@@ -55,7 +55,7 @@ interface ComponentStorage {
  * エンティティメタデータ
  */
 export const EntityMetadata = Schema.Struct({
-  id: EntityId,
+  id: Schema.Number.pipe(Schema.brand('EntityId')),
   name: Schema.optional(Schema.String),
   tags: Schema.Array(Schema.String),
   createdAt: Schema.Number,
@@ -198,19 +198,16 @@ export const World = Context.GenericTag<World>('@minecraft/ecs/World')
 export const WorldLive = Layer.effect(
   World,
   Effect.gen(function* () {
-    const systemRegistry = yield* SystemRegistryService
-
-    // 初期状態
     const initialState: WorldState = {
+      entityIdCounter: 0,
       entities: new Map(),
       components: new Map(),
-      entityIdCounter: 0,
       stats: {
         entityCount: 0,
         componentCount: 0,
         systemCount: 0,
         frameTime: 0,
-        fps: 60,
+        fps: 0,
       },
     }
 
@@ -222,7 +219,7 @@ export const WorldLive = Layer.effect(
      */
     const generateEntityId = (): EntityId => {
       const state = Effect.runSync(Ref.get(stateRef))
-      const id = `entity_${state.entityIdCounter}` as EntityId
+      const id = EntityIdBrand(state.entityIdCounter)
       Effect.runSync(
         Ref.update(stateRef, (s) => ({
           ...s,
@@ -272,9 +269,18 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(id)) {
-          yield* Effect.fail(WorldError(`Entity not found: ${id}`, id))
-        }
+        yield* pipe(
+          Match.value(state.entities.has(id)),
+          Match.when(false, () =>
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${id}`,
+                entityId: id,
+              })
+            )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           const newEntities = new Map(s.entities)
@@ -309,9 +315,18 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(entityId)) {
-          yield* Effect.fail(WorldError(`Entity not found: ${entityId}`, entityId))
-        }
+        yield* pipe(
+          Match.value(state.entities.has(entityId)),
+          Match.when(false, () =>
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${entityId}`,
+                entityId,
+              })
+            )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           const newComponents = new Map(s.components)
@@ -496,28 +511,37 @@ export const WorldLive = Layer.effect(
 
         if (firstResult !== null) return firstResult
 
-        const firstStorage = state.components.get(componentTypes[0]!)
-        if (!firstStorage) {
-          return []
-        }
+        // 最初のストレージ取得をOption化
+        const firstStorageResult = yield* pipe(
+          Option.fromNullable(state.components.get(componentTypes[0]!)),
+          Option.match({
+            onNone: () => Effect.succeed([]),
+            onSome: (storage) => Effect.succeed(Array.from(storage.data.keys())),
+          })
+        )
 
-        let entities = Array.from(firstStorage.data.keys())
+        let entities = firstStorageResult
+        if (entities.length === 0) return entities
 
-        // 残りのコンポーネントでフィルタリング
+        // 残りのコンポーネントでフィルタリング（Optionパターン使用）
         for (let i = 1; i < componentTypes.length; i++) {
-          const componentType = componentTypes[i]
-          if (!componentType) {
-            entities = []
-            break
-          }
+          const result = yield* pipe(
+            Option.fromNullable(componentTypes[i]),
+            Option.match({
+              onNone: () => Effect.succeed([]),
+              onSome: (componentType) =>
+                pipe(
+                  Option.fromNullable(state.components.get(componentType)),
+                  Option.match({
+                    onNone: () => Effect.succeed([]),
+                    onSome: (storage) => Effect.succeed(entities.filter((id) => storage.data.has(id))),
+                  })
+                ),
+            })
+          )
 
-          const storage = state.components.get(componentType)
-          if (!storage) {
-            entities = []
-            break
-          }
-
-          entities = entities.filter((id) => storage.data.has(id))
+          entities = result
+          if (entities.length === 0) break
         }
 
         // アクティブなエンティティのみを返す
@@ -695,9 +719,18 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(id)) {
-          yield* Effect.fail(WorldError(`Entity not found: ${id}`, id))
-        }
+        yield* pipe(
+          Match.value(state.entities.has(id)),
+          Match.when(false, () =>
+            Effect.fail(
+              createWorldError({
+                message: `Entity not found: ${id}`,
+                entityId: id,
+              })
+            )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           return pipe(
@@ -718,6 +751,8 @@ export const WorldLive = Layer.effect(
           )
         })
       })
+
+    const systemRegistry = yield* SystemRegistryService
 
     return World.of({
       createEntity,
@@ -740,4 +775,4 @@ export const WorldLive = Layer.effect(
       setEntityActive,
     })
   })
-).pipe(Layer.provide(SystemRegistryServiceLive))
+)

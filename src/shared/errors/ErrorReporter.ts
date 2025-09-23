@@ -10,8 +10,11 @@ export const ErrorReporter = {
   format: (error: unknown): string =>
     pipe(
       Option.fromNullable(error),
-      Option.filter((e: any): e is object => typeof e === 'object'),
-      Option.filter((e: any): e is { _tag: string; message?: string; [key: string]: unknown } => '_tag' in e),
+      Option.filter((e: unknown): e is object => typeof e === 'object'),
+      Option.filter(
+        (e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
+          e !== null && typeof e === 'object' && '_tag' in e
+      ),
       Option.match({
         onNone: () => String(error),
         onSome: (taggedError) =>
@@ -35,12 +38,12 @@ export const ErrorReporter = {
     pipe(
       Match.value(error),
       Match.when(
-        (e: any): e is Error => e instanceof Error,
-        (e: any) => e.stack
+        (e: unknown): e is Error => e instanceof Error,
+        (e: Error) => e.stack
       ),
       Match.when(
-        (e: any): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
-        (e: any) => String(e.stack)
+        (e: unknown): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
+        (e: { stack: unknown }) => String(e.stack)
       ),
       Match.orElse(() => undefined)
     ),

@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect, Option, Schema, pipe } from 'effect'
 
 // ログレベル定義
 export const LogLevel = Schema.Literal('DEBUG', 'INFO', 'WARN', 'ERROR')
@@ -32,9 +32,9 @@ export type PerformanceMetrics = Schema.Schema.Type<typeof PerformanceMetrics>
 
 // LoggerService インターフェース
 export interface LoggerService {
-  readonly debug: (message: string, context?: any) => Effect.Effect<void>
-  readonly info: (message: string, context?: any) => Effect.Effect<void>
-  readonly warn: (message: string, context?: any) => Effect.Effect<void>
+  readonly debug: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
+  readonly info: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
+  readonly warn: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
   readonly error: (message: string, error?: Error) => Effect.Effect<void>
   readonly measurePerformance: <A>(functionName: string, operation: Effect.Effect<A>) => Effect.Effect<A>
 }
@@ -49,12 +49,16 @@ export const getCurrentLogLevel = (): LogLevel => {
   const envLevel = process.env['LOG_LEVEL']?.toUpperCase() as LogLevel | undefined
 
   // 環境変数が有効なログレベルの場合はそれを返す
-  return envLevel && Object.keys(LOG_LEVEL_PRIORITY).includes(envLevel)
-    ? envLevel
-    : // 開発環境ではDEBUG、本番環境ではINFOをデフォルトに
-      process.env['NODE_ENV'] === 'production'
-      ? 'INFO'
-      : 'DEBUG'
+  return pipe(
+    Option.fromNullable(envLevel),
+    Option.filter((level) => Object.keys(LOG_LEVEL_PRIORITY).includes(level)),
+    Option.match({
+      onNone: () =>
+        // 開発環境ではDEBUG、本番環境ではINFOをデフォルトに
+        process.env['NODE_ENV'] === 'production' ? 'INFO' : 'DEBUG',
+      onSome: (level) => level,
+    })
+  )
 }
 
 // ログ出力の可否判定
@@ -66,7 +70,12 @@ export const shouldLog = (level: LogLevel, currentLevel: LogLevel): boolean => {
 export const createTimestamp = (): string => new Date().toISOString()
 
 // 構造化ログの生成
-export const createLogEntry = (level: LogLevel, message: string, context?: any, error?: Error): LogEntry => ({
+export const createLogEntry = (
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+  error?: Error
+): LogEntry => ({
   timestamp: createTimestamp(),
   level,
   message,

@@ -176,8 +176,13 @@ export const ChunkLoader = Context.GenericTag<ChunkLoader>('ChunkLoader')
 export const chunkLoadRequestToKey = (position: ChunkPosition): string => `${position.x},${position.z}`
 
 export const isLoadExpired = (state: ChunkLoadState, timeoutMs: number): boolean => {
-  if (!state.startTime) return false
-  return Date.now() - state.startTime > timeoutMs
+  return pipe(
+    Option.fromNullable(state.startTime),
+    Option.match({
+      onNone: () => false,
+      onSome: (startTime) => Date.now() - startTime > timeoutMs,
+    })
+  )
 }
 
 // =============================================================================

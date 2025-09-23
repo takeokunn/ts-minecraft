@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
@@ -103,12 +103,20 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
 
                 // 既に空気でない場合のみ処理
                 if (currentBlock !== AIR_ID) {
-                  // 溶岩レベル以下は溶岩
-                  if (y <= config.lavaLevel) {
-                    newBlocks[index] = LAVA_ID
-                  } else {
-                    newBlocks[index] = AIR_ID
-                  }
+                  // Match.valueパターンを使用してy座標に基づく分岐
+                  pipe(
+                    y,
+                    Match.value,
+                    Match.when(
+                      (y) => y <= config.lavaLevel,
+                      () => {
+                        newBlocks[index] = LAVA_ID
+                      }
+                    ),
+                    Match.orElse(() => {
+                      newBlocks[index] = AIR_ID
+                    })
+                  )
                 }
               }
             }
@@ -205,10 +213,20 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
                   const index = getBlockIndex(x, y, z)
                   const currentBlock = newBlocks[index] ?? 0
 
-                  // 空気または石の場合は溶岩に置換
-                  if (currentBlock === 0 || currentBlock === 2) {
-                    newBlocks[index] = LAVA_ID
-                  }
+                  // Match.valueパターンを使用してブロック種別による分岐
+                  pipe(
+                    currentBlock,
+                    Match.value,
+                    Match.when(
+                      (block) => block === 0 || block === 2,
+                      () => {
+                        newBlocks[index] = LAVA_ID
+                      }
+                    ),
+                    Match.orElse(() => {
+                      // その他のブロックは変更しない
+                    })
+                  )
                 }
               }
             }
