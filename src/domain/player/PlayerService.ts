@@ -97,11 +97,7 @@ export const isPlayerError = (error: unknown): error is PlayerError =>
  */
 export const createPlayerError = {
   playerNotFound: (playerId: PlayerId, operation?: string) =>
-    PlayerError(
-      `Player ${playerId} not found${operation ? ` during ${operation}` : ''}`,
-      'PLAYER_NOT_FOUND',
-      playerId
-    ),
+    PlayerError(`Player ${playerId} not found${operation ? ` during ${operation}` : ''}`, 'PLAYER_NOT_FOUND', playerId),
   playerAlreadyExists: (playerId: PlayerId) =>
     PlayerError(`Player ${playerId} already exists`, 'PLAYER_ALREADY_EXISTS', playerId),
   invalidPosition: (position: unknown, playerId?: PlayerId) =>
@@ -121,13 +117,7 @@ export const createPlayerError = {
       rotation
     ),
   invalidHealth: (health: unknown, playerId?: PlayerId) =>
-    PlayerError(
-      `Invalid player health: ${health}`,
-      'INVALID_HEALTH',
-      playerId,
-      undefined,
-      health
-    ),
+    PlayerError(`Invalid player health: ${health}`, 'INVALID_HEALTH', playerId, undefined, health),
   entityCreationFailed: (playerId: PlayerId, cause?: unknown) =>
     PlayerError(`Failed to create entity for player ${playerId}`, 'ENTITY_CREATION_FAILED', playerId, undefined, cause),
   componentError: (playerId: PlayerId, componentType: string, cause?: unknown) =>

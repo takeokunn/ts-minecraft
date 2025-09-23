@@ -101,10 +101,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
   }
 
   // Helper: 衝突検出（簡易実装 - 実際のゲームではオクツリーやBVHを使用）
-  const checkCollisionsInternal = (
-    position: PlayerPosition,
-    velocity: VelocityVector
-  ): ReadonlyArray<string> => {
+  const checkCollisionsInternal = (position: PlayerPosition, velocity: VelocityVector): ReadonlyArray<string> => {
     const collisions: string[] = []
 
     // 境界チェック（例: ワールドの端）
@@ -155,11 +152,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
       )
 
       // ジャンプ処理
-      const velocityWithJump = InputUtils.processJumpInput(
-        validatedInput,
-        inputVelocity,
-        movementState.isGrounded
-      )
+      const velocityWithJump = InputUtils.processJumpInput(validatedInput, inputVelocity, movementState.isGrounded)
 
       // 重力適用
       const velocityWithGravity = PhysicsUtils.applyGravity(velocityWithJump, validatedInput.deltaTime)
@@ -323,8 +316,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
     Effect.succeed(checkCollisionsInternal(position, velocity))
 
   // 地面との接触判定
-  const checkGrounded = (position: PlayerPosition) =>
-    Effect.succeed(checkGroundedInternal(position))
+  const checkGrounded = (position: PlayerPosition) => Effect.succeed(checkGroundedInternal(position))
 
   // 速度制限の適用
   const applyVelocityLimits = (velocity: VelocityVector) =>
@@ -347,13 +339,13 @@ const makeMovementSystemLive = Effect.gen(function* () {
     Effect.gen(function* () {
       const stats = yield* Ref.get(performanceStatsRef)
 
-      const averageProcessingTime = stats.totalCalculations > 0
-        ? stats.totalProcessingTime / stats.totalCalculations
-        : 0
+      const averageProcessingTime =
+        stats.totalCalculations > 0 ? stats.totalProcessingTime / stats.totalCalculations : 0
 
-      const averageFrameRate = stats.frameRateHistory.length > 0
-        ? stats.frameRateHistory.reduce((sum, rate) => sum + rate, 0) / stats.frameRateHistory.length
-        : 0
+      const averageFrameRate =
+        stats.frameRateHistory.length > 0
+          ? stats.frameRateHistory.reduce((sum, rate) => sum + rate, 0) / stats.frameRateHistory.length
+          : 0
 
       return {
         averageProcessingTime,

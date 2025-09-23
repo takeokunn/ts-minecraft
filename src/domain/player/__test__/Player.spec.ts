@@ -17,11 +17,7 @@ import {
   validatePlayerUpdateData,
   DEFAULT_PLAYER_CONFIG,
 } from '../PlayerService.js'
-import type {
-  PlayerComponent,
-  PositionComponent,
-  RotationComponent,
-} from '../PlayerService.js'
+import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService.js'
 import { BrandedTypes } from '../../../shared/types/branded.js'
 
 /**
@@ -210,16 +206,24 @@ describe('Player Entity System - Component Tests', () => {
       const emptyPlayerIdResult = await Effect.runPromise(Effect.either(validatePlayerConfig({ playerId: '' })))
       // Note: empty string might be valid for some schemas, so we test but don't strictly require failure
 
-      const negativeHealthResult = await Effect.runPromise(Effect.either(validatePlayerConfig({
-        playerId: 'test',
-        health: -10
-      })))
+      const negativeHealthResult = await Effect.runPromise(
+        Effect.either(
+          validatePlayerConfig({
+            playerId: 'test',
+            health: -10,
+          })
+        )
+      )
       expect(negativeHealthResult._tag).toBe('Left')
 
-      const highHealthResult = await Effect.runPromise(Effect.either(validatePlayerConfig({
-        playerId: 'test',
-        health: 150
-      })))
+      const highHealthResult = await Effect.runPromise(
+        Effect.either(
+          validatePlayerConfig({
+            playerId: 'test',
+            health: 150,
+          })
+        )
+      )
       expect(highHealthResult._tag).toBe('Left')
     })
 
@@ -339,10 +343,15 @@ describe('Player Entity System - Component Tests', () => {
 
       for (const updateData of invalidUpdates) {
         const result = await Effect.runPromise(Effect.either(validatePlayerUpdateData(updateData)))
-        if (updateData === null || updateData === undefined || typeof updateData !== 'object' ||
-            (updateData.position && typeof updateData.position.x !== 'number') ||
-            (updateData.rotation && (updateData.rotation.pitch > Math.PI/2 || updateData.rotation.pitch < -Math.PI/2)) ||
-            (updateData.health !== undefined && (updateData.health < 0 || updateData.health > 100))) {
+        if (
+          updateData === null ||
+          updateData === undefined ||
+          typeof updateData !== 'object' ||
+          (updateData.position && typeof updateData.position.x !== 'number') ||
+          (updateData.rotation &&
+            (updateData.rotation.pitch > Math.PI / 2 || updateData.rotation.pitch < -Math.PI / 2)) ||
+          (updateData.health !== undefined && (updateData.health < 0 || updateData.health > 100))
+        ) {
           expect(result._tag).toBe('Left')
           if (result._tag === 'Left') {
             expect(isPlayerError(result.left)).toBe(true)
@@ -384,7 +393,18 @@ describe('Player Entity System - Component Tests', () => {
         expect(error._tag).toBe('PlayerError')
         expect(typeof error.message).toBe('string')
         expect(error.message.length).toBeGreaterThan(0)
-        expect(['PLAYER_NOT_FOUND', 'PLAYER_ALREADY_EXISTS', 'INVALID_POSITION', 'INVALID_ROTATION', 'INVALID_HEALTH', 'ENTITY_CREATION_FAILED', 'COMPONENT_ERROR', 'VALIDATION_ERROR'].includes(error.reason)).toBe(true)
+        expect(
+          [
+            'PLAYER_NOT_FOUND',
+            'PLAYER_ALREADY_EXISTS',
+            'INVALID_POSITION',
+            'INVALID_ROTATION',
+            'INVALID_HEALTH',
+            'ENTITY_CREATION_FAILED',
+            'COMPONENT_ERROR',
+            'VALIDATION_ERROR',
+          ].includes(error.reason)
+        ).toBe(true)
         expect(isPlayerError(error)).toBe(true)
       }
     })

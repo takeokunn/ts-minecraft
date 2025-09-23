@@ -90,18 +90,12 @@ export interface MovementSystem {
   /**
    * 移動入力の処理
    */
-  readonly processMovementInput: (
-    playerId: PlayerId,
-    input: unknown
-  ) => Effect.Effect<PhysicsResult, PlayerError>
+  readonly processMovementInput: (playerId: PlayerId, input: unknown) => Effect.Effect<PhysicsResult, PlayerError>
 
   /**
    * 物理計算の実行
    */
-  readonly updatePhysics: (
-    playerId: PlayerId,
-    deltaTime: number
-  ) => Effect.Effect<PhysicsResult, PlayerError>
+  readonly updatePhysics: (playerId: PlayerId, deltaTime: number) => Effect.Effect<PhysicsResult, PlayerError>
 
   /**
    * プレイヤーの移動状態取得
@@ -111,10 +105,7 @@ export interface MovementSystem {
   /**
    * プレイヤーの移動状態設定
    */
-  readonly setMovementState: (
-    playerId: PlayerId,
-    state: unknown
-  ) => Effect.Effect<void, PlayerError>
+  readonly setMovementState: (playerId: PlayerId, state: unknown) => Effect.Effect<void, PlayerError>
 
   /**
    * 衝突検出
@@ -146,12 +137,15 @@ export interface MovementSystem {
   /**
    * パフォーマンス統計の取得
    */
-  readonly getPerformanceStats: () => Effect.Effect<{
-    averageProcessingTime: number
-    maxProcessingTime: number
-    frameRate: number
-    totalCalculations: number
-  }, never>
+  readonly getPerformanceStats: () => Effect.Effect<
+    {
+      averageProcessingTime: number
+      maxProcessingTime: number
+      frameRate: number
+      totalCalculations: number
+    },
+    never
+  >
 }
 
 /**
@@ -324,11 +318,7 @@ export const InputUtils = {
   /**
    * ジャンプ入力の処理
    */
-  processJumpInput: (
-    input: MovementInput,
-    currentVelocity: VelocityVector,
-    isGrounded: boolean
-  ): VelocityVector => {
+  processJumpInput: (input: MovementInput, currentVelocity: VelocityVector, isGrounded: boolean): VelocityVector => {
     if (input.jump && isGrounded) {
       return {
         ...currentVelocity,

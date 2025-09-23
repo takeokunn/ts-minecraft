@@ -170,18 +170,28 @@ const makePlayerServiceLive = Effect.gen(function* () {
 
       // コンポーネントの追加
       yield* pipe(
-        entityManager.addComponent(entityId, PLAYER_COMPONENT, createPlayerComponent(validatedConfig.playerId as PlayerId, health)),
-        Effect.mapError((error) => createPlayerError.componentError(validatedConfig.playerId as PlayerId, PLAYER_COMPONENT, error))
+        entityManager.addComponent(
+          entityId,
+          PLAYER_COMPONENT,
+          createPlayerComponent(validatedConfig.playerId as PlayerId, health)
+        ),
+        Effect.mapError((error) =>
+          createPlayerError.componentError(validatedConfig.playerId as PlayerId, PLAYER_COMPONENT, error)
+        )
       )
 
       yield* pipe(
         entityManager.addComponent(entityId, POSITION_COMPONENT, createPositionComponent(position)),
-        Effect.mapError((error) => createPlayerError.componentError(validatedConfig.playerId as PlayerId, POSITION_COMPONENT, error))
+        Effect.mapError((error) =>
+          createPlayerError.componentError(validatedConfig.playerId as PlayerId, POSITION_COMPONENT, error)
+        )
       )
 
       yield* pipe(
         entityManager.addComponent(entityId, ROTATION_COMPONENT, createRotationComponent(rotation)),
-        Effect.mapError((error) => createPlayerError.componentError(validatedConfig.playerId as PlayerId, ROTATION_COMPONENT, error))
+        Effect.mapError((error) =>
+          createPlayerError.componentError(validatedConfig.playerId as PlayerId, ROTATION_COMPONENT, error)
+        )
       )
 
       // 内部状態の更新
@@ -192,7 +202,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
         lastUpdate: Date.now(),
       }
 
-      yield* Ref.update(playersRef, (players) => HashMap.set(players, validatedConfig.playerId as PlayerId, playerState))
+      yield* Ref.update(playersRef, (players) =>
+        HashMap.set(players, validatedConfig.playerId as PlayerId, playerState)
+      )
 
       yield* Effect.log(`Player created: ${validatedConfig.playerId}`, { entityId, position, rotation, health })
 
@@ -295,7 +307,11 @@ const makePlayerServiceLive = Effect.gen(function* () {
       const playerState = yield* getPlayerInternalState(playerId)
 
       yield* pipe(
-        entityManager.addComponent(playerState.entityId, POSITION_COMPONENT, createPositionComponent(validatedPosition)),
+        entityManager.addComponent(
+          playerState.entityId,
+          POSITION_COMPONENT,
+          createPositionComponent(validatedPosition)
+        ),
         Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
       )
 
@@ -309,7 +325,11 @@ const makePlayerServiceLive = Effect.gen(function* () {
       const playerState = yield* getPlayerInternalState(playerId)
 
       yield* pipe(
-        entityManager.addComponent(playerState.entityId, ROTATION_COMPONENT, createRotationComponent(validatedRotation)),
+        entityManager.addComponent(
+          playerState.entityId,
+          ROTATION_COMPONENT,
+          createRotationComponent(validatedRotation)
+        ),
         Effect.mapError((error) => createPlayerError.componentError(playerId, ROTATION_COMPONENT, error))
       )
 
@@ -407,9 +427,8 @@ const makePlayerServiceLive = Effect.gen(function* () {
     Effect.gen(function* () {
       const allPlayers = yield* getAllPlayers()
       const activePlayers = allPlayers.filter((player) => player.isActive)
-      const averageHealth = allPlayers.length > 0
-        ? allPlayers.reduce((sum, player) => sum + player.health, 0) / allPlayers.length
-        : 0
+      const averageHealth =
+        allPlayers.length > 0 ? allPlayers.reduce((sum, player) => sum + player.health, 0) / allPlayers.length : 0
 
       return {
         totalPlayers: allPlayers.length,

@@ -160,7 +160,15 @@ describe('MovementSystem Physics and Performance Tests', () => {
     effectIt.effect('should reject invalid movement input', () =>
       Effect.gen(function* () {
         const invalidInputs = [
-          { forward: 'invalid', backward: false, left: false, right: false, jump: false, sprint: false, deltaTime: 16.67 },
+          {
+            forward: 'invalid',
+            backward: false,
+            left: false,
+            right: false,
+            jump: false,
+            sprint: false,
+            deltaTime: 16.67,
+          },
           { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, deltaTime: -1 }, // 負のdeltaTime
           { forward: true, backward: false, left: false, right: false, jump: false, sprint: false }, // deltaTime欠損
           null,
@@ -227,447 +235,481 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Movement System Operations', () => {
-    effectIt.effect('should process basic movement input', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('movement-test-1')
+    effectIt.effect(
+      'should process basic movement input',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('movement-test-1')
 
-        const input = createMovementInput(true, false, false, false, false, false, 16.67)
-        const result = yield* movementSystem.processMovementInput(playerId, input)
-
-        expect(result.newPosition.z).toBeGreaterThan(0) // 前進
-        expect(result.newVelocity.z).toBeGreaterThan(0)
-        expect(result.newState.isGrounded).toBe(true)
-        expect(result.collisions).toEqual([])
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should handle jump mechanics', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('jump-test-1')
-
-        // ジャンプ入力
-        const jumpInput = createMovementInput(false, false, false, false, true, false, 16.67)
-        const jumpResult = yield* movementSystem.processMovementInput(playerId, jumpInput)
-
-        expect(jumpResult.newVelocity.y).toBeGreaterThan(0) // 上向きの速度
-        expect(jumpResult.newState.isJumping).toBe(true)
-        expect(jumpResult.newPosition.y).toBeGreaterThan(64 + 1.8) // 地面より高い
-
-        // 次のフレームで重力が適用される
-        const gravityInput = createMovementInput(false, false, false, false, false, false, 16.67)
-        const gravityResult = yield* movementSystem.processMovementInput(playerId, gravityInput)
-
-        expect(gravityResult.newVelocity.y).toBeLessThan(jumpResult.newVelocity.y) // 重力で減速
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should apply gravity and landing', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerService = yield* PlayerService
-        const playerId = yield* createTestPlayer('gravity-test-1')
-
-        // プレイヤーを空中に配置
-        yield* playerService.setPlayerPosition(playerId, { x: 0, y: 100, z: 0 })
-
-        // 重力による落下をシミュレート
-        let currentY = 100
-        for (let frame = 0; frame < 100; frame++) {
-          const input = createMovementInput(false, false, false, false, false, false, 16.67)
+          const input = createMovementInput(true, false, false, false, false, false, 16.67)
           const result = yield* movementSystem.processMovementInput(playerId, input)
 
-          if (result.newState.isGrounded) {
-            // 地面に着地
-            expect(result.newPosition.y).toBeCloseTo(64 + 1.8, 1)
-            expect(result.newVelocity.y).toBe(0)
-            expect(result.collisions).toContain('ground')
-            break
+          expect(result.newPosition.z).toBeGreaterThan(0) // 前進
+          expect(result.newVelocity.z).toBeGreaterThan(0)
+          expect(result.newState.isGrounded).toBe(true)
+          expect(result.collisions).toEqual([])
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should handle jump mechanics',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('jump-test-1')
+
+          // ジャンプ入力
+          const jumpInput = createMovementInput(false, false, false, false, true, false, 16.67)
+          const jumpResult = yield* movementSystem.processMovementInput(playerId, jumpInput)
+
+          expect(jumpResult.newVelocity.y).toBeGreaterThan(0) // 上向きの速度
+          expect(jumpResult.newState.isJumping).toBe(true)
+          expect(jumpResult.newPosition.y).toBeGreaterThan(64 + 1.8) // 地面より高い
+
+          // 次のフレームで重力が適用される
+          const gravityInput = createMovementInput(false, false, false, false, false, false, 16.67)
+          const gravityResult = yield* movementSystem.processMovementInput(playerId, gravityInput)
+
+          expect(gravityResult.newVelocity.y).toBeLessThan(jumpResult.newVelocity.y) // 重力で減速
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should apply gravity and landing',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerService = yield* PlayerService
+          const playerId = yield* createTestPlayer('gravity-test-1')
+
+          // プレイヤーを空中に配置
+          yield* playerService.setPlayerPosition(playerId, { x: 0, y: 100, z: 0 })
+
+          // 重力による落下をシミュレート
+          let currentY = 100
+          for (let frame = 0; frame < 100; frame++) {
+            const input = createMovementInput(false, false, false, false, false, false, 16.67)
+            const result = yield* movementSystem.processMovementInput(playerId, input)
+
+            if (result.newState.isGrounded) {
+              // 地面に着地
+              expect(result.newPosition.y).toBeCloseTo(64 + 1.8, 1)
+              expect(result.newVelocity.y).toBe(0)
+              expect(result.collisions).toContain('ground')
+              break
+            }
+
+            currentY = result.newPosition.y
+          }
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should handle sprint mechanics',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('sprint-test-1')
+
+          // 通常移動
+          const normalInput = createMovementInput(true, false, false, false, false, false, 16.67)
+          const normalResult = yield* movementSystem.processMovementInput(playerId, normalInput)
+
+          // スプリント移動
+          const sprintInput = createMovementInput(true, false, false, false, false, true, 16.67)
+          const sprintResult = yield* movementSystem.processMovementInput(playerId, sprintInput)
+
+          expect(sprintResult.newState.isSprinting).toBe(true)
+          // スプリント時の方が高速移動
+          const normalSpeed = Math.sqrt(normalResult.newVelocity.x ** 2 + normalResult.newVelocity.z ** 2)
+          const sprintSpeed = Math.sqrt(sprintResult.newVelocity.x ** 2 + sprintResult.newVelocity.z ** 2)
+          expect(sprintSpeed).toBeGreaterThan(normalSpeed)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should detect and handle collisions',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+
+          // 境界外への移動テスト
+          const outsidePosition: PlayerPosition = { x: 2000, y: 64, z: 0 } // ワールド境界外
+          const velocity: VelocityVector = { x: 1, y: 0, z: 0 }
+
+          const collisions = yield* movementSystem.checkCollisions(outsidePosition, velocity)
+          expect(collisions).toContain('world-boundary-x')
+
+          // 地面より下への移動テスト
+          const undergroundPosition: PlayerPosition = { x: 0, y: 50, z: 0 }
+          const undergroundCollisions = yield* movementSystem.checkCollisions(undergroundPosition, velocity)
+          expect(undergroundCollisions).toContain('ground')
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should maintain movement state correctly',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('state-test-1')
+
+          // カスタム移動状態を設定
+          const customState = {
+            velocity: { x: 5, y: 2, z: -3 },
+            isGrounded: false,
+            isJumping: true,
+            isSprinting: true,
+            lastUpdate: Date.now(),
           }
 
-          currentY = result.newPosition.y
-        }
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
+          yield* movementSystem.setMovementState(playerId, customState)
+          const retrievedState = yield* movementSystem.getMovementState(playerId)
 
-    effectIt.effect('should handle sprint mechanics', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('sprint-test-1')
-
-        // 通常移動
-        const normalInput = createMovementInput(true, false, false, false, false, false, 16.67)
-        const normalResult = yield* movementSystem.processMovementInput(playerId, normalInput)
-
-        // スプリント移動
-        const sprintInput = createMovementInput(true, false, false, false, false, true, 16.67)
-        const sprintResult = yield* movementSystem.processMovementInput(playerId, sprintInput)
-
-        expect(sprintResult.newState.isSprinting).toBe(true)
-        // スプリント時の方が高速移動
-        const normalSpeed = Math.sqrt(normalResult.newVelocity.x ** 2 + normalResult.newVelocity.z ** 2)
-        const sprintSpeed = Math.sqrt(sprintResult.newVelocity.x ** 2 + sprintResult.newVelocity.z ** 2)
-        expect(sprintSpeed).toBeGreaterThan(normalSpeed)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should detect and handle collisions', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-
-        // 境界外への移動テスト
-        const outsidePosition: PlayerPosition = { x: 2000, y: 64, z: 0 } // ワールド境界外
-        const velocity: VelocityVector = { x: 1, y: 0, z: 0 }
-
-        const collisions = yield* movementSystem.checkCollisions(outsidePosition, velocity)
-        expect(collisions).toContain('world-boundary-x')
-
-        // 地面より下への移動テスト
-        const undergroundPosition: PlayerPosition = { x: 0, y: 50, z: 0 }
-        const undergroundCollisions = yield* movementSystem.checkCollisions(undergroundPosition, velocity)
-        expect(undergroundCollisions).toContain('ground')
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should maintain movement state correctly', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('state-test-1')
-
-        // カスタム移動状態を設定
-        const customState = {
-          velocity: { x: 5, y: 2, z: -3 },
-          isGrounded: false,
-          isJumping: true,
-          isSprinting: true,
-          lastUpdate: Date.now(),
-        }
-
-        yield* movementSystem.setMovementState(playerId, customState)
-        const retrievedState = yield* movementSystem.getMovementState(playerId)
-
-        expect(retrievedState.velocity).toEqual(customState.velocity)
-        expect(retrievedState.isGrounded).toBe(customState.isGrounded)
-        expect(retrievedState.isJumping).toBe(customState.isJumping)
-        expect(retrievedState.isSprinting).toBe(customState.isSprinting)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          expect(retrievedState.velocity).toEqual(customState.velocity)
+          expect(retrievedState.isGrounded).toBe(customState.isGrounded)
+          expect(retrievedState.isJumping).toBe(customState.isJumping)
+          expect(retrievedState.isSprinting).toBe(customState.isSprinting)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
   })
 
   describe('Performance Benchmarks', () => {
-    effectIt.effect('should maintain 60FPS performance with single player', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('performance-single')
+    effectIt.effect(
+      'should maintain 60FPS performance with single player',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('performance-single')
 
-        const frameCount = 60 * 2 // 2秒分のフレーム
-        const targetFrameTime = 16.67 // 60FPS = 16.67ms
+          const frameCount = 60 * 2 // 2秒分のフレーム
+          const targetFrameTime = 16.67 // 60FPS = 16.67ms
 
-        const startTime = performance.now()
+          const startTime = performance.now()
 
-        // 60FPS で2秒間の移動シミュレーション
-        for (let frame = 0; frame < frameCount; frame++) {
-          const input = createMovementInput(
-            frame % 4 === 0, // 前進
-            frame % 4 === 1, // 後退
-            frame % 4 === 2, // 左
-            frame % 4 === 3, // 右
-            frame % 20 === 0, // 20フレームに1回ジャンプ
-            frame % 10 < 5, // スプリントの切り替え
-            targetFrameTime
-          )
-
-          yield* movementSystem.processMovementInput(playerId, input)
-        }
-
-        const endTime = performance.now()
-        const totalTime = endTime - startTime
-        const averageFrameTime = totalTime / frameCount
-
-        // パフォーマンス要件: 平均フレーム時間が16.67ms以下
-        expect(averageFrameTime).toBeLessThan(targetFrameTime)
-
-        // パフォーマンス統計を確認
-        const stats = yield* movementSystem.getPerformanceStats()
-        expect(stats.averageProcessingTime).toBeLessThan(5) // 5ms以下
-        expect(stats.frameRate).toBeGreaterThan(50) // 50FPS以上
-        expect(stats.totalCalculations).toBe(frameCount)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should handle multiple players efficiently', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerCount = 20
-        const frameCount = 60 // 1秒分
-
-        // 複数プレイヤーを作成
-        const playerIds = yield* Effect.all(
-          Array.from({ length: playerCount }, (_, i) => createTestPlayer(`perf-player-${i}`)),
-          { concurrency: 'unbounded' }
-        )
-
-        const startTime = performance.now()
-
-        // 全プレイヤーの移動を並行処理
-        for (let frame = 0; frame < frameCount; frame++) {
-          const operations = playerIds.map((playerId, index) => {
-            const input = createMovementInput(
-              (frame + index) % 4 === 0,
-              (frame + index) % 4 === 1,
-              (frame + index) % 4 === 2,
-              (frame + index) % 4 === 3,
-              (frame + index) % 20 === 0,
-              (frame + index) % 10 < 5,
-              16.67
-            )
-            return movementSystem.processMovementInput(playerId, input)
-          })
-
-          yield* Effect.all(operations, { concurrency: 'unbounded' })
-        }
-
-        const endTime = performance.now()
-        const totalTime = endTime - startTime
-        const averageTimePerPlayerPerFrame = totalTime / (playerCount * frameCount)
-
-        // マルチプレイヤー環境でのパフォーマンス要件
-        expect(averageTimePerPlayerPerFrame).toBeLessThan(1) // プレイヤー1人あたり1ms以下
-
-        const stats = yield* movementSystem.getPerformanceStats()
-        expect(stats.totalCalculations).toBe(playerCount * frameCount)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should demonstrate frame rate independence', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('framerate-test')
-
-        // 異なるフレームレートでの移動をシミュレート
-        const scenarios = [
-          { fps: 30, deltaTime: 33.33 },
-          { fps: 60, deltaTime: 16.67 },
-          { fps: 120, deltaTime: 8.33 },
-        ]
-
-        const simulationTime = 1000 // 1秒間のシミュレーション
-
-        for (const scenario of scenarios) {
-          // プレイヤーを初期位置にリセット
-          const playerService = yield* PlayerService
-          yield* playerService.setPlayerPosition(playerId, { x: 0, y: 64 + 1.8, z: 0 })
-
-          const frameCount = Math.ceil(simulationTime / scenario.deltaTime)
-          let totalDistance = 0
-
+          // 60FPS で2秒間の移動シミュレーション
           for (let frame = 0; frame < frameCount; frame++) {
-            const input = createMovementInput(true, false, false, false, false, false, scenario.deltaTime)
-            const result = yield* movementSystem.processMovementInput(playerId, input)
+            const input = createMovementInput(
+              frame % 4 === 0, // 前進
+              frame % 4 === 1, // 後退
+              frame % 4 === 2, // 左
+              frame % 4 === 3, // 右
+              frame % 20 === 0, // 20フレームに1回ジャンプ
+              frame % 10 < 5, // スプリントの切り替え
+              targetFrameTime
+            )
 
-            if (frame === 0) {
-              totalDistance = 0
-            } else {
-              totalDistance = result.newPosition.z
-            }
+            yield* movementSystem.processMovementInput(playerId, input)
           }
 
-          // フレームレートに関係なく、同じ時間で同じ距離を移動するべき
-          const expectedDistance = PHYSICS_CONSTANTS.MAX_SPEED * (simulationTime / 1000)
-          expect(totalDistance).toBeCloseTo(expectedDistance, 1)
-        }
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          const endTime = performance.now()
+          const totalTime = endTime - startTime
+          const averageFrameTime = totalTime / frameCount
+
+          // パフォーマンス要件: 平均フレーム時間が16.67ms以下
+          expect(averageFrameTime).toBeLessThan(targetFrameTime)
+
+          // パフォーマンス統計を確認
+          const stats = yield* movementSystem.getPerformanceStats()
+          expect(stats.averageProcessingTime).toBeLessThan(5) // 5ms以下
+          expect(stats.frameRate).toBeGreaterThan(50) // 50FPS以上
+          expect(stats.totalCalculations).toBe(frameCount)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
-    effectIt.effect('should measure collision detection performance', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
+    effectIt.effect(
+      'should handle multiple players efficiently',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerCount = 20
+          const frameCount = 60 // 1秒分
 
-        const testPositions = Array.from({ length: 1000 }, (_, i) => ({
-          x: (i % 50) * 10,
-          y: 64 + (i % 10),
-          z: Math.floor(i / 50) * 10,
-        }))
+          // 複数プレイヤーを作成
+          const playerIds = yield* Effect.all(
+            Array.from({ length: playerCount }, (_, i) => createTestPlayer(`perf-player-${i}`)),
+            { concurrency: 'unbounded' }
+          )
 
-        const testVelocity: VelocityVector = { x: 5, y: 0, z: 5 }
+          const startTime = performance.now()
 
-        const startTime = performance.now()
+          // 全プレイヤーの移動を並行処理
+          for (let frame = 0; frame < frameCount; frame++) {
+            const operations = playerIds.map((playerId, index) => {
+              const input = createMovementInput(
+                (frame + index) % 4 === 0,
+                (frame + index) % 4 === 1,
+                (frame + index) % 4 === 2,
+                (frame + index) % 4 === 3,
+                (frame + index) % 20 === 0,
+                (frame + index) % 10 < 5,
+                16.67
+              )
+              return movementSystem.processMovementInput(playerId, input)
+            })
 
-        // 1000回の衝突検出
-        const collisionResults = yield* Effect.all(
-          testPositions.map(pos => movementSystem.checkCollisions(pos, testVelocity)),
-          { concurrency: 'unbounded' }
-        )
+            yield* Effect.all(operations, { concurrency: 'unbounded' })
+          }
 
-        const endTime = performance.now()
-        const totalTime = endTime - startTime
-        const averageTimePerCheck = totalTime / testPositions.length
+          const endTime = performance.now()
+          const totalTime = endTime - startTime
+          const averageTimePerPlayerPerFrame = totalTime / (playerCount * frameCount)
 
-        // 衝突検出のパフォーマンス要件: 1回あたり0.1ms以下
-        expect(averageTimePerCheck).toBeLessThan(0.1)
-        expect(collisionResults).toHaveLength(testPositions.length)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          // マルチプレイヤー環境でのパフォーマンス要件
+          expect(averageTimePerPlayerPerFrame).toBeLessThan(1) // プレイヤー1人あたり1ms以下
+
+          const stats = yield* movementSystem.getPerformanceStats()
+          expect(stats.totalCalculations).toBe(playerCount * frameCount)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should demonstrate frame rate independence',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('framerate-test')
+
+          // 異なるフレームレートでの移動をシミュレート
+          const scenarios = [
+            { fps: 30, deltaTime: 33.33 },
+            { fps: 60, deltaTime: 16.67 },
+            { fps: 120, deltaTime: 8.33 },
+          ]
+
+          const simulationTime = 1000 // 1秒間のシミュレーション
+
+          for (const scenario of scenarios) {
+            // プレイヤーを初期位置にリセット
+            const playerService = yield* PlayerService
+            yield* playerService.setPlayerPosition(playerId, { x: 0, y: 64 + 1.8, z: 0 })
+
+            const frameCount = Math.ceil(simulationTime / scenario.deltaTime)
+            let totalDistance = 0
+
+            for (let frame = 0; frame < frameCount; frame++) {
+              const input = createMovementInput(true, false, false, false, false, false, scenario.deltaTime)
+              const result = yield* movementSystem.processMovementInput(playerId, input)
+
+              if (frame === 0) {
+                totalDistance = 0
+              } else {
+                totalDistance = result.newPosition.z
+              }
+            }
+
+            // フレームレートに関係なく、同じ時間で同じ距離を移動するべき
+            const expectedDistance = PHYSICS_CONSTANTS.MAX_SPEED * (simulationTime / 1000)
+            expect(totalDistance).toBeCloseTo(expectedDistance, 1)
+          }
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should measure collision detection performance',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+
+          const testPositions = Array.from({ length: 1000 }, (_, i) => ({
+            x: (i % 50) * 10,
+            y: 64 + (i % 10),
+            z: Math.floor(i / 50) * 10,
+          }))
+
+          const testVelocity: VelocityVector = { x: 5, y: 0, z: 5 }
+
+          const startTime = performance.now()
+
+          // 1000回の衝突検出
+          const collisionResults = yield* Effect.all(
+            testPositions.map((pos) => movementSystem.checkCollisions(pos, testVelocity)),
+            { concurrency: 'unbounded' }
+          )
+
+          const endTime = performance.now()
+          const totalTime = endTime - startTime
+          const averageTimePerCheck = totalTime / testPositions.length
+
+          // 衝突検出のパフォーマンス要件: 1回あたり0.1ms以下
+          expect(averageTimePerCheck).toBeLessThan(0.1)
+          expect(collisionResults).toHaveLength(testPositions.length)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
   })
 
   describe('Physics Accuracy and Edge Cases', () => {
-    effectIt.effect('should handle extreme velocities correctly', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
+    effectIt.effect(
+      'should handle extreme velocities correctly',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
 
-        // 極端に高い速度
-        const extremeVelocity: VelocityVector = { x: 1000, y: 100, z: -500 }
-        const limitedVelocity = yield* movementSystem.applyVelocityLimits(extremeVelocity)
+          // 極端に高い速度
+          const extremeVelocity: VelocityVector = { x: 1000, y: 100, z: -500 }
+          const limitedVelocity = yield* movementSystem.applyVelocityLimits(extremeVelocity)
 
-        const horizontalSpeed = Math.sqrt(limitedVelocity.x ** 2 + limitedVelocity.z ** 2)
-        expect(horizontalSpeed).toBeLessThanOrEqual(PHYSICS_CONSTANTS.MAX_SPEED + 0.001)
+          const horizontalSpeed = Math.sqrt(limitedVelocity.x ** 2 + limitedVelocity.z ** 2)
+          expect(horizontalSpeed).toBeLessThanOrEqual(PHYSICS_CONSTANTS.MAX_SPEED + 0.001)
 
-        // Y軸の速度は制限されない（ジャンプ・重力のため）
-        expect(limitedVelocity.y).toBe(extremeVelocity.y)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          // Y軸の速度は制限されない（ジャンプ・重力のため）
+          expect(limitedVelocity.y).toBe(extremeVelocity.y)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
-    effectIt.effect('should handle rapid direction changes', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('direction-change-test')
+    effectIt.effect(
+      'should handle rapid direction changes',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('direction-change-test')
 
-        const directions = [
-          [true, false, false, false], // 前進
-          [false, true, false, false], // 後退
-          [false, false, true, false], // 左
-          [false, false, false, true], // 右
-        ]
+          const directions = [
+            [true, false, false, false], // 前進
+            [false, true, false, false], // 後退
+            [false, false, true, false], // 左
+            [false, false, false, true], // 右
+          ]
 
-        for (let cycle = 0; cycle < 10; cycle++) {
-          for (const [forward, backward, left, right] of directions) {
-            const input = createMovementInput(forward, backward, left, right, false, false, 16.67)
+          for (let cycle = 0; cycle < 10; cycle++) {
+            for (const [forward, backward, left, right] of directions) {
+              const input = createMovementInput(forward, backward, left, right, false, false, 16.67)
+              const result = yield* movementSystem.processMovementInput(playerId, input)
+
+              // 方向転換が正しく処理されることを確認
+              expect(result.newState.velocity).toBeDefined()
+              expect(result.newPosition).toBeDefined()
+            }
+          }
+
+          // 最終的にプレイヤーが有効な状態にあることを確認
+          const finalState = yield* movementSystem.getMovementState(playerId)
+          expect(finalState.lastUpdate).toBeGreaterThan(0)
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+    )
+
+    effectIt.effect(
+      'should maintain physics consistency over time',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('consistency-test')
+
+          // 一定の入力で長時間シミュレーション
+          const frameCount = 60 * 5 // 5秒間
+          let previousEnergy = 0
+
+          for (let frame = 0; frame < frameCount; frame++) {
+            const input = createMovementInput(true, false, false, false, false, false, 16.67)
             const result = yield* movementSystem.processMovementInput(playerId, input)
 
-            // 方向転換が正しく処理されることを確認
-            expect(result.newState.velocity).toBeDefined()
-            expect(result.newPosition).toBeDefined()
-          }
-        }
+            // エネルギー保存の概念をチェック（摩擦により減少）
+            const currentEnergy = PhysicsUtils.getMagnitude(result.newVelocity)
 
-        // 最終的にプレイヤーが有効な状態にあることを確認
-        const finalState = yield* movementSystem.getMovementState(playerId)
-        expect(finalState.lastUpdate).toBeGreaterThan(0)
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+            if (frame > 0 && result.newState.isGrounded) {
+              // 地面にいる場合、摩擦により徐々にエネルギーが失われる、または一定になる
+              expect(currentEnergy).toBeLessThanOrEqual(previousEnergy + 1) // 小さな許容範囲
+            }
+
+            previousEnergy = currentEnergy
+          }
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
-    effectIt.effect('should maintain physics consistency over time', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('consistency-test')
+    effectIt.effect(
+      'should handle floating point precision correctly',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
 
-        // 一定の入力で長時間シミュレーション
-        const frameCount = 60 * 5 // 5秒間
-        let previousEnergy = 0
+          // 浮動小数点精度テスト
+          const precisePositions = [
+            { x: 0.1 + 0.2, y: 64.0000001, z: -0.0000001 },
+            { x: Number.EPSILON, y: 64 + Number.EPSILON, z: Number.EPSILON },
+            { x: 1e-10, y: 64, z: 1e10 },
+          ]
 
-        for (let frame = 0; frame < frameCount; frame++) {
-          const input = createMovementInput(true, false, false, false, false, false, 16.67)
-          const result = yield* movementSystem.processMovementInput(playerId, input)
+          for (const position of precisePositions) {
+            const isGrounded = yield* movementSystem.checkGrounded(position)
+            expect(typeof isGrounded).toBe('boolean')
 
-          // エネルギー保存の概念をチェック（摩擦により減少）
-          const currentEnergy = PhysicsUtils.getMagnitude(result.newVelocity)
+            // フレームレート独立計算
+            const velocity: VelocityVector = { x: 0.1, y: 0, z: 0.1 }
+            const newPosition = yield* movementSystem.calculateFrameIndependentMovement(position, velocity, 16.67)
 
-          if (frame > 0 && result.newState.isGrounded) {
-            // 地面にいる場合、摩擦により徐々にエネルギーが失われる、または一定になる
-            expect(currentEnergy).toBeLessThanOrEqual(previousEnergy + 1) // 小さな許容範囲
+            expect(Number.isFinite(newPosition.x)).toBe(true)
+            expect(Number.isFinite(newPosition.y)).toBe(true)
+            expect(Number.isFinite(newPosition.z)).toBe(true)
           }
-
-          previousEnergy = currentEnergy
-        }
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
-    )
-
-    effectIt.effect('should handle floating point precision correctly', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-
-        // 浮動小数点精度テスト
-        const precisePositions = [
-          { x: 0.1 + 0.2, y: 64.0000001, z: -0.0000001 },
-          { x: Number.EPSILON, y: 64 + Number.EPSILON, z: Number.EPSILON },
-          { x: 1e-10, y: 64, z: 1e10 },
-        ]
-
-        for (const position of precisePositions) {
-          const isGrounded = yield* movementSystem.checkGrounded(position)
-          expect(typeof isGrounded).toBe('boolean')
-
-          // フレームレート独立計算
-          const velocity: VelocityVector = { x: 0.1, y: 0, z: 0.1 }
-          const newPosition = yield* movementSystem.calculateFrameIndependentMovement(
-            position,
-            velocity,
-            16.67
-          )
-
-          expect(Number.isFinite(newPosition.x)).toBe(true)
-          expect(Number.isFinite(newPosition.y)).toBe(true)
-          expect(Number.isFinite(newPosition.z)).toBe(true)
-        }
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
   })
 
   describe('Error Handling and Resilience', () => {
-    effectIt.effect('should handle non-existent player gracefully', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
+    effectIt.effect(
+      'should handle non-existent player gracefully',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
 
-        // 存在しないプレイヤーの移動処理
-        const input = createMovementInput(true, false, false, false, false, false, 16.67)
-        const inputResult = yield* Effect.either(
-          movementSystem.processMovementInput(nonExistentPlayerId, input)
-        )
-        expect(inputResult._tag).toBe('Left')
+          // 存在しないプレイヤーの移動処理
+          const input = createMovementInput(true, false, false, false, false, false, 16.67)
+          const inputResult = yield* Effect.either(movementSystem.processMovementInput(nonExistentPlayerId, input))
+          expect(inputResult._tag).toBe('Left')
 
-        // 存在しないプレイヤーの状態取得
-        const stateResult = yield* Effect.either(
-          movementSystem.getMovementState(nonExistentPlayerId)
-        )
-        expect(stateResult._tag).toBe('Left')
+          // 存在しないプレイヤーの状態取得
+          const stateResult = yield* Effect.either(movementSystem.getMovementState(nonExistentPlayerId))
+          expect(stateResult._tag).toBe('Left')
 
-        // 存在しないプレイヤーの状態設定
-        const setStateResult = yield* Effect.either(
-          movementSystem.setMovementState(nonExistentPlayerId, DEFAULT_MOVEMENT_STATE)
-        )
-        expect(setStateResult._tag).toBe('Left')
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          // 存在しないプレイヤーの状態設定
+          const setStateResult = yield* Effect.either(
+            movementSystem.setMovementState(nonExistentPlayerId, DEFAULT_MOVEMENT_STATE)
+          )
+          expect(setStateResult._tag).toBe('Left')
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
-    effectIt.effect('should recover from invalid physics states', () =>
-      Effect.gen(function* () {
-        const movementSystem = yield* MovementSystem
-        const playerId = yield* createTestPlayer('recovery-test')
+    effectIt.effect(
+      'should recover from invalid physics states',
+      () =>
+        Effect.gen(function* () {
+          const movementSystem = yield* MovementSystem
+          const playerId = yield* createTestPlayer('recovery-test')
 
-        // 無効な移動状態を設定
-        const invalidStates = [
-          { velocity: { x: NaN, y: 0, z: 0 }, isGrounded: true, isJumping: false, isSprinting: false, lastUpdate: Date.now() },
-          { velocity: { x: Infinity, y: 0, z: 0 }, isGrounded: true, isJumping: false, isSprinting: false, lastUpdate: Date.now() },
-          null,
-          undefined,
-          'invalid',
-        ]
+          // 無効な移動状態を設定
+          const invalidStates = [
+            {
+              velocity: { x: NaN, y: 0, z: 0 },
+              isGrounded: true,
+              isJumping: false,
+              isSprinting: false,
+              lastUpdate: Date.now(),
+            },
+            {
+              velocity: { x: Infinity, y: 0, z: 0 },
+              isGrounded: true,
+              isJumping: false,
+              isSprinting: false,
+              lastUpdate: Date.now(),
+            },
+            null,
+            undefined,
+            'invalid',
+          ]
 
-        for (const invalidState of invalidStates) {
-          const result = yield* Effect.either(
-            movementSystem.setMovementState(playerId, invalidState)
-          )
-          expect(result._tag).toBe('Left')
-        }
+          for (const invalidState of invalidStates) {
+            const result = yield* Effect.either(movementSystem.setMovementState(playerId, invalidState))
+            expect(result._tag).toBe('Left')
+          }
 
-        // 有効な入力で正常に動作することを確認
-        const input = createMovementInput(true, false, false, false, false, false, 16.67)
-        const validResult = yield* movementSystem.processMovementInput(playerId, input)
-        expect(validResult.newPosition).toBeDefined()
-        expect(validResult.newVelocity).toBeDefined()
-      }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+          // 有効な入力で正常に動作することを確認
+          const input = createMovementInput(true, false, false, false, false, false, 16.67)
+          const validResult = yield* movementSystem.processMovementInput(playerId, input)
+          expect(validResult.newPosition).toBeDefined()
+          expect(validResult.newVelocity).toBeDefined()
+        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
   })
 })

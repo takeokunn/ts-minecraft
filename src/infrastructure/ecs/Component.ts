@@ -35,7 +35,6 @@ export type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
  */
 export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
 
-
 /**
  * 移動コンポーネント - プレイヤー移動関連のプロパティ
  */

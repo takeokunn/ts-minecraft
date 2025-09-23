@@ -112,10 +112,12 @@ describe('PlayerService', () => {
     it('should validate position with correct bounds', async () => {
       const position = { x: 100.5, y: 64, z: -50.25 }
 
-      const result = await Effect.runPromise(validatePlayerConfig({
-        playerId: 'test-player',
-        initialPosition: position,
-      }))
+      const result = await Effect.runPromise(
+        validatePlayerConfig({
+          playerId: 'test-player',
+          initialPosition: position,
+        })
+      )
 
       expect(result.initialPosition).toEqual(position)
     })
@@ -123,10 +125,12 @@ describe('PlayerService', () => {
     it('should validate rotation with correct bounds', async () => {
       const rotation = { pitch: Math.PI / 4, yaw: Math.PI }
 
-      const result = await Effect.runPromise(validatePlayerConfig({
-        playerId: 'test-player',
-        initialRotation: rotation,
-      }))
+      const result = await Effect.runPromise(
+        validatePlayerConfig({
+          playerId: 'test-player',
+          initialRotation: rotation,
+        })
+      )
 
       expect(result.initialRotation).toEqual(rotation)
     })
