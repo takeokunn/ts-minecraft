@@ -4,7 +4,7 @@
  * @module domain/world/createWorldGenerator
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match, Option } from 'effect'
 import { createChunkData } from '../chunk/ChunkData.js'
 import type { ChunkData } from '../chunk/ChunkData.js'
 import type { ChunkPosition } from '../chunk/ChunkPosition.js'
@@ -199,15 +199,18 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
         // 構造物生成が無効な場合はエラー
-        if (!generatorOptions.generateStructures) {
-          return yield* Effect.fail(
-            new StructureGenerationError({
-              structureType: type,
-              position,
-              reason: 'Structure generation is disabled',
-            })
-          )
-        }
+        yield* Match.value(generatorOptions.generateStructures).pipe(
+          Match.when(false, () =>
+            Effect.fail(
+              new StructureGenerationError({
+                structureType: type,
+                position,
+                reason: 'Structure generation is disabled',
+              })
+            )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         const structure = createStructure(type, position)
         state.structures.push(structure)
@@ -250,25 +253,24 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     canGenerateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        if (!generatorOptions.generateStructures) {
+        const structuresEnabled = yield* Match.value(generatorOptions.generateStructures).pipe(
+          Match.when(false, () => Effect.succeed(false)),
+          Match.orElse(() => Effect.succeed(true))
+        )
+
+        if (!structuresEnabled) {
           return false
         }
 
         // 構造物タイプごとの生成条件をチェック
-        switch (type) {
-          case 'village':
-            return generatorOptions.features.villages
-          case 'mineshaft':
-            return generatorOptions.features.mineshafts
-          case 'stronghold':
-            return generatorOptions.features.strongholds
-          case 'temple':
-            return generatorOptions.features.temples
-          case 'dungeon':
-            return generatorOptions.features.dungeons
-          default:
-            return true
-        }
+        return Match.value(type).pipe(
+          Match.when('village', () => generatorOptions.features.villages),
+          Match.when('mineshaft', () => generatorOptions.features.mineshafts),
+          Match.when('stronghold', () => generatorOptions.features.strongholds),
+          Match.when('temple', () => generatorOptions.features.temples),
+          Match.when('dungeon', () => generatorOptions.features.dungeons),
+          Match.orElse(() => true)
+        )
       }),
 
     findNearestStructure: (type: StructureType, position: Vector3, searchRadius: number) =>
@@ -283,19 +285,20 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           return distance <= searchRadius
         })
 
-        if (nearbyStructures.length === 0) {
-          return null
-        }
-
-        // 最も近い構造物を返す
-        return nearbyStructures.reduce((nearest, current) => {
-          const currentDist = Math.sqrt(
-            Math.pow(current.position.x - position.x, 2) + Math.pow(current.position.z - position.z, 2)
-          )
-          const nearestDist = Math.sqrt(
-            Math.pow(nearest.position.x - position.x, 2) + Math.pow(nearest.position.z - position.z, 2)
-          )
-          return currentDist < nearestDist ? current : nearest
+        return Option.match(Option.fromNullable(nearbyStructures.length > 0 ? nearbyStructures : null), {
+          onNone: () => null,
+          onSome: (structures) => {
+            // 最も近い構造物を返す
+            return structures.reduce((nearest, current) => {
+              const currentDist = Math.sqrt(
+                Math.pow(current.position.x - position.x, 2) + Math.pow(current.position.z - position.z, 2)
+              )
+              const nearestDist = Math.sqrt(
+                Math.pow(nearest.position.x - position.x, 2) + Math.pow(nearest.position.z - position.z, 2)
+              )
+              return currentDist < nearestDist ? current : nearest
+            })
+          },
         })
       }),
   }

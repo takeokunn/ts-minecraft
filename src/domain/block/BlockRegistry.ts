@@ -1,4 +1,4 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer } from 'effect'
+import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 
@@ -43,18 +43,26 @@ export const BlockRegistryLive = Layer.effect(
     const initializeIndexes = () => {
       // カテゴリーインデックスの構築
       allBlocks.forEach((block) => {
-        if (!categoryIndex.has(block.category)) {
-          categoryIndex.set(block.category, new Set())
-        }
+        pipe(
+          Match.value(categoryIndex.has(block.category)),
+          Match.when(false, () => {
+            categoryIndex.set(block.category, new Set())
+          }),
+          Match.orElse(() => {})
+        )
         categoryIndex.get(block.category)!.add(block.id)
       })
 
       // タグインデックスの構築
       allBlocks.forEach((block) => {
         block.tags.forEach((tag) => {
-          if (!tagIndex.has(tag)) {
-            tagIndex.set(tag, new Set())
-          }
+          pipe(
+            Match.value(tagIndex.has(tag)),
+            Match.when(false, () => {
+              tagIndex.set(tag, new Set())
+            }),
+            Match.orElse(() => undefined)
+          )
           tagIndex.get(tag)!.add(block.id)
         })
       })
@@ -134,17 +142,22 @@ export const BlockRegistryLive = Layer.effect(
       registerBlock: (block: BlockType) =>
         Effect.gen(function* () {
           const exists = HashMap.has(blockMap, block.id)
-          if (exists) {
-            return yield* Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))
-          }
+
+          yield* pipe(
+            Match.value(exists),
+            Match.when(true, () => Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))),
+            Match.orElse(() => Effect.void)
+          )
 
           // ブロックマップに追加
           blockMap = HashMap.set(blockMap, block.id, block)
 
           // カテゴリーインデックスに追加
-          if (!categoryIndex.has(block.category)) {
-            categoryIndex.set(block.category, new Set())
-          }
+          yield* pipe(
+            Match.value(!categoryIndex.has(block.category)),
+            Match.when(true, () => Effect.sync(() => categoryIndex.set(block.category, new Set()))),
+            Match.orElse(() => Effect.void)
+          )
           categoryIndex.get(block.category)!.add(block.id)
 
           // タグインデックスに追加
