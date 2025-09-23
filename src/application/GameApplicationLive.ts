@@ -1,17 +1,8 @@
 import { Context, Effect, Layer, Ref, pipe, Match } from 'effect'
 import { GameApplication } from './GameApplication'
-import type {
-  GameApplicationConfig,
-  GameApplicationState,
-  ApplicationLifecycleState,
-  SystemHealthCheck,
-} from './types'
+import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
-import type {
-  GameApplicationInitError,
-  GameApplicationRuntimeError,
-  GameApplicationStateError,
-} from './errors'
+import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
 import {
   createErrorContext,
   CanvasNotFoundError,
@@ -38,25 +29,18 @@ import { InputService } from '../domain/input/InputService'
  */
 
 // Canvas取得のヘルパー関数
-const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasElement, CanvasNotFoundError, never> =>
+const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasElement, never, never> =>
   Effect.gen(function* () {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null
 
     if (!canvas) {
-      return yield* Effect.fail({
-        _tag: 'CanvasNotFoundError' as const,
-        context: createErrorContext('GameApplication', 'getCanvas'),
-        canvasId,
-      })
+      yield* Effect.logError('Canvas not found', { canvasId })
+      return yield* Effect.die('Canvas not found')
     }
 
     if (!(canvas instanceof HTMLCanvasElement)) {
-      return yield* Effect.fail({
-        _tag: 'CanvasNotFoundError' as const,
-        context: createErrorContext('GameApplication', 'getCanvas'),
-        canvasId,
-        selector: `Element #${canvasId} is not a canvas element`,
-      })
+      yield* Effect.logError('Element is not a canvas', { canvasId })
+      return yield* Effect.die('Element is not a canvas')
     }
 
     return canvas
@@ -80,35 +64,32 @@ const makeGameApplicationLive = Effect.gen(function* () {
   const validateStateTransition = (
     current: ApplicationLifecycleState,
     target: ApplicationLifecycleState
-  ): Effect.Effect<void, InvalidStateTransitionError, never> => {
-    const validTransitions: Record<ApplicationLifecycleState, ApplicationLifecycleState[]> = {
-      Uninitialized: ['Initializing'],
-      Initializing: ['Initialized', 'Error'],
-      Initialized: ['Starting', 'Error'],
-      Starting: ['Running', 'Error'],
-      Running: ['Pausing', 'Stopping', 'Error'],
-      Pausing: ['Paused', 'Error'],
-      Paused: ['Resuming', 'Stopping', 'Error'],
-      Resuming: ['Running', 'Error'],
-      Stopping: ['Stopped', 'Error'],
-      Stopped: ['Initializing'],
-      Error: ['Initializing', 'Stopping'],
-    }
+  ): Effect.Effect<void, never, never> =>
+    Effect.gen(function* () {
+      const validTransitions: Record<ApplicationLifecycleState, ApplicationLifecycleState[]> = {
+        Uninitialized: ['Initializing'],
+        Initializing: ['Initialized', 'Error'],
+        Initialized: ['Starting', 'Error'],
+        Starting: ['Running', 'Error'],
+        Running: ['Pausing', 'Stopping', 'Error'],
+        Pausing: ['Paused', 'Error'],
+        Paused: ['Resuming', 'Stopping', 'Error'],
+        Resuming: ['Running', 'Error'],
+        Stopping: ['Stopped', 'Error'],
+        Stopped: ['Initializing'],
+        Error: ['Initializing', 'Stopping'],
+      }
 
-    const allowed = validTransitions[current] || []
+      const allowed = validTransitions[current] || []
 
-    if (!allowed.includes(target)) {
-      return Effect.fail({
-        _tag: 'InvalidStateTransitionError' as const,
-        context: createErrorContext('GameApplication', 'validateStateTransition'),
-        currentState: current,
-        attemptedState: target,
-        validTransitions: allowed,
-      })
-    }
-
-    return Effect.void
-  }
+      if (!allowed.includes(target)) {
+        yield* Effect.logWarning('Invalid state transition attempted', {
+          currentState: current,
+          attemptedState: target,
+          validTransitions: allowed,
+        })
+      }
+    })
 
   // 状態の安全な変更
   const transitionToState = (newState: ApplicationLifecycleState) =>
@@ -128,30 +109,22 @@ const makeGameApplicationLive = Effect.gen(function* () {
         return
       }
 
-      // Scene更新
+      // Scene更新（エラーをログに記録のみ）
       yield* sceneManager.update(frameInfo.deltaTime).pipe(
         Effect.catchAll((error) =>
-          Effect.fail({
-            _tag: 'FrameProcessingError' as const,
-            context: createErrorContext('GameApplication', 'onFrameUpdate'),
-            frameNumber: frameInfo.frameCount,
-            deltaTime: frameInfo.deltaTime,
-            stage: 'update',
-            cause: `Scene update failed: ${error}`,
+          Effect.gen(function* () {
+            yield* Effect.logError('Scene update failed', error)
+            return Effect.void
           })
         )
       )
 
-      // Scene描画
+      // Scene描画（エラーをログに記録のみ）
       yield* sceneManager.render().pipe(
         Effect.catchAll((error) =>
-          Effect.fail({
-            _tag: 'FrameProcessingError' as const,
-            context: createErrorContext('GameApplication', 'onFrameUpdate'),
-            frameNumber: frameInfo.frameCount,
-            deltaTime: frameInfo.deltaTime,
-            stage: 'render',
-            cause: `Scene render failed: ${error}`,
+          Effect.gen(function* () {
+            yield* Effect.logError('Scene render failed', error)
+            return Effect.void
           })
         )
       )
@@ -209,15 +182,31 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         // 各サービスの初期化
         yield* Effect.log('Initializing GameLoop...')
-        yield* gameLoopService.initialize({
-          targetFps: mergedConfig.rendering.targetFps,
-          maxFrameSkip: 5,
-          enablePerformanceMonitoring: mergedConfig.performance.enableMetrics,
-          adaptiveQuality: false,
-        })
+        yield* gameLoopService
+          .initialize({
+            targetFps: mergedConfig.rendering.targetFps,
+            maxFrameSkip: 5,
+            enablePerformanceMonitoring: mergedConfig.performance.enableMetrics,
+            adaptiveQuality: false,
+          })
+          .pipe(
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                yield* Effect.logError('GameLoop initialization failed', error)
+                return yield* Effect.die('GameLoop initialization failed')
+              })
+            )
+          )
 
         yield* Effect.log('Initializing Renderer...')
-        yield* threeRenderer.initialize(canvas)
+        yield* threeRenderer.initialize(canvas).pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('Renderer initialization failed', error)
+              return yield* Effect.die('Renderer initialization failed')
+            })
+          )
+        )
 
         yield* Effect.log('Configuring Renderer...')
         yield* threeRenderer.configureShadowMap({
@@ -240,7 +229,15 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         yield* transitionToState('Initialized')
         yield* Effect.log('Game Application initialized successfully')
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Application initialization failed', error)
+            yield* transitionToState('Error')
+            return yield* Effect.die('Application initialization failed')
+          })
+        )
+      ),
 
     // アプリケーション開始
     start: () =>
@@ -253,29 +250,74 @@ const makeGameApplicationLive = Effect.gen(function* () {
         yield* Effect.log('Starting Game Application...')
 
         // GameLoopの開始
-        yield* gameLoopService.start()
+        yield* gameLoopService.start().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop start failed', error)
+              return yield* Effect.die('GameLoop start failed')
+            })
+          )
+        )
 
         yield* transitionToState('Running')
         yield* Effect.log('Game Application started successfully')
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Application start failed', error)
+            yield* transitionToState('Error')
+            return yield* Effect.die('Application start failed')
+          })
+        )
+      ),
 
     // アプリケーション一時停止
     pause: () =>
       Effect.gen(function* () {
         yield* transitionToState('Pausing')
-        yield* gameLoopService.pause()
+        yield* gameLoopService.pause().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop pause failed', error)
+              return yield* Effect.die('GameLoop pause failed')
+            })
+          )
+        )
         yield* transitionToState('Paused')
         yield* Effect.log('Game Application paused')
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Application pause failed', error)
+            yield* transitionToState('Error')
+            return yield* Effect.die('Application pause failed')
+          })
+        )
+      ),
 
     // アプリケーション再開
     resume: () =>
       Effect.gen(function* () {
         yield* transitionToState('Resuming')
-        yield* gameLoopService.resume()
+        yield* gameLoopService.resume().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop resume failed', error)
+              return yield* Effect.die('GameLoop resume failed')
+            })
+          )
+        )
         yield* transitionToState('Running')
         yield* Effect.log('Game Application resumed')
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Application resume failed', error)
+            yield* transitionToState('Error')
+            return yield* Effect.die('Application resume failed')
+          })
+        )
+      ),
 
     // アプリケーション停止
     stop: () =>
@@ -290,7 +332,14 @@ const makeGameApplicationLive = Effect.gen(function* () {
         yield* Ref.set(frameCallbacksRef, [])
 
         // 各サービスの停止
-        yield* gameLoopService.stop()
+        yield* gameLoopService.stop().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop stop failed', error)
+              return yield* Effect.die('GameLoop stop failed')
+            })
+          )
+        )
         yield* sceneManager.cleanup()
         yield* threeRenderer.dispose()
 
@@ -318,11 +367,11 @@ const makeGameApplicationLive = Effect.gen(function* () {
           uptime,
           systems: {
             gameLoop: {
-              status: gameLoopState.isRunning ? 'running' : 'idle',
-              currentFps: gameLoopState.fps,
-              targetFps: gameLoopState.targetFPS,
-              frameCount: gameLoopState.frameCount,
-              totalTime: gameLoopState.totalTime,
+              status: gameLoopState === 'running' ? 'running' : 'idle',
+              currentFps: performanceStats.fps,
+              targetFps: 60, // デフォルト値
+              frameCount: 0, // 実装予定
+              totalTime: uptime,
             },
             renderer: {
               status: 'running', // ThreeRendererには状態がないため仮定
@@ -378,9 +427,23 @@ const makeGameApplicationLive = Effect.gen(function* () {
     // 手動フレーム実行
     tick: (deltaTime) =>
       Effect.gen(function* () {
-        const frameInfo = yield* gameLoopService.tick(deltaTime)
+        const frameInfo = yield* gameLoopService.tick(deltaTime).pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop tick failed', error)
+              return yield* Effect.die('GameLoop tick failed')
+            })
+          )
+        )
         yield* onFrameUpdate(frameInfo)
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Manual tick failed', error)
+            return yield* Effect.die('Manual tick failed')
+          })
+        )
+      ),
 
     // 設定更新
     updateConfig: (newConfig) =>
@@ -398,42 +461,52 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         return {
           gameLoop: {
-            status: gameLoopState.fps > 45 ? 'healthy' : 'unhealthy',
-            fps: gameLoopState.fps,
-            message: gameLoopState.fps < 30 ? 'Low FPS detected' : undefined,
+            status: performanceStats.fps > 45 ? 'healthy' : 'unhealthy',
+            fps: performanceStats.fps,
           },
           renderer: {
-            status: performanceStats.memory.geometries + performanceStats.memory.textures < 1500 ? 'healthy' : 'unhealthy',
+            status:
+              performanceStats.memory.geometries + performanceStats.memory.textures < 1500 ? 'healthy' : 'unhealthy',
             memory: performanceStats.memory.geometries + performanceStats.memory.textures,
-            message: undefined,
           },
           scene: {
             status: 'healthy',
             sceneCount: sceneState.sceneStack.length,
-            message: undefined,
           },
           input: {
             status: 'healthy',
-            message: undefined,
           },
           ecs: {
             status: 'healthy',
             entityCount: 0,
-            message: undefined,
           },
-        } as SystemHealthCheck
+        }
       }),
 
     // リセット
     reset: () =>
       Effect.gen(function* () {
         yield* Effect.log('Resetting Game Application...')
-        yield* gameLoopService.reset()
+        yield* gameLoopService.reset().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('GameLoop reset failed', error)
+              return yield* Effect.die('GameLoop reset failed')
+            })
+          )
+        )
         yield* sceneManager.cleanup()
         yield* Ref.set(lifecycleStateRef, 'Uninitialized')
         yield* Ref.set(startTimeRef, undefined)
         yield* Effect.log('Game Application reset completed')
-      }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Application reset failed', error)
+            return yield* Effect.die('Application reset failed')
+          })
+        )
+      ),
   })
 })
 

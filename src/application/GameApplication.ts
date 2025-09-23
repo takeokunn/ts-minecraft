@@ -1,10 +1,6 @@
 import { Context, Effect } from 'effect'
 import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState } from './types'
-import type {
-  GameApplicationInitError,
-  GameApplicationRuntimeError,
-  GameApplicationStateError
-} from './errors'
+import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
 
 /**
  * GameApplication - ゲームアプリケーション統合サービス
@@ -34,9 +30,7 @@ export interface GameApplication {
    * - Chunk → Mesh → Renderer連携の確立
    * - Camera → Input連携の確立
    */
-  readonly initialize: (
-    config?: Partial<GameApplicationConfig>
-  ) => Effect.Effect<void, GameApplicationInitError, never>
+  readonly initialize: (config?: Partial<GameApplicationConfig>) => Effect.Effect<void, GameApplicationInitError, never>
 
   /**
    * ゲームアプリケーションの開始

@@ -16,16 +16,16 @@ import { Schema } from 'effect'
  */
 export const ApplicationLifecycleState = Schema.Literal(
   'Uninitialized', // 未初期化
-  'Initializing',  // 初期化中
-  'Initialized',   // 初期化完了
-  'Starting',      // 開始中
-  'Running',       // 実行中
-  'Pausing',       // 一時停止中
-  'Paused',        // 一時停止
-  'Resuming',      // 再開中
-  'Stopping',      // 停止中
-  'Stopped',       // 停止
-  'Error'          // エラー状態
+  'Initializing', // 初期化中
+  'Initialized', // 初期化完了
+  'Starting', // 開始中
+  'Running', // 実行中
+  'Pausing', // 一時停止中
+  'Paused', // 一時停止
+  'Resuming', // 再開中
+  'Stopping', // 停止中
+  'Stopped', // 停止
+  'Error' // エラー状態
 )
 export type ApplicationLifecycleState = Schema.Schema.Type<typeof ApplicationLifecycleState>
 
@@ -192,12 +192,14 @@ export const GameApplicationState = Schema.Struct({
   config: GameApplicationConfig,
 
   // 最後のエラー（存在する場合）
-  lastError: Schema.optional(Schema.Struct({
-    timestamp: Schema.Number,
-    system: Schema.String,
-    message: Schema.String,
-    severity: Schema.Literal('low', 'medium', 'high', 'critical'),
-  })),
+  lastError: Schema.optional(
+    Schema.Struct({
+      timestamp: Schema.Number,
+      system: Schema.String,
+      message: Schema.String,
+      severity: Schema.Literal('low', 'medium', 'high', 'critical'),
+    })
+  ),
 })
 export type GameApplicationState = Schema.Schema.Type<typeof GameApplicationState>
 
@@ -249,7 +251,7 @@ export const DEFAULT_GAME_APPLICATION_CONFIG: GameApplicationConfig = {
   },
   gameLoop: {
     updateInterval: 16.67, // 60FPS
-    maxDeltaTime: 50,      // 50ms max
+    maxDeltaTime: 50, // 50ms max
     enableFixedTimeStep: false,
     fixedTimeStep: 16.67,
   },
@@ -261,7 +263,7 @@ export const DEFAULT_GAME_APPLICATION_CONFIG: GameApplicationConfig = {
   performance: {
     enableMetrics: true,
     memoryLimit: 2048, // 2GB
-    gcThreshold: 0.8,  // 80%
+    gcThreshold: 0.8, // 80%
   },
   debug: {
     enableLogging: true,

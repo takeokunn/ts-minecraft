@@ -16,11 +16,9 @@ const makeInputServiceLive = Effect.gen(function* () {
   const mouseDelta = { deltaX: 0, deltaY: 0, timestamp: Date.now() }
 
   return InputService.of({
-    isKeyPressed: (key: string) =>
-      Effect.succeed(pressedKeys.has(key.toLowerCase())),
+    isKeyPressed: (key: string) => Effect.succeed(pressedKeys.has(key.toLowerCase())),
 
-    isMousePressed: (button: number) =>
-      Effect.succeed(pressedMouseButtons.has(button)),
+    isMousePressed: (button: number) => Effect.succeed(pressedMouseButtons.has(button)),
 
     getMouseDelta: () =>
       Effect.succeed({

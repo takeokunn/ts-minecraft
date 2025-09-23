@@ -31,12 +31,7 @@ export type {
   SystemHealthCheck,
 } from './types'
 
-export {
-  DEFAULT_GAME_APPLICATION_CONFIG,
-  ApplicationLifecycleState,
-  GameApplicationConfig,
-  GameApplicationState,
-} from './types'
+export { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 
 // ===== エラー定義 =====
 export type {
@@ -63,18 +58,4 @@ export {
   createErrorContext,
   getErrorSeverity,
   isRecoverable,
-  GameLoopInitializationFailedError,
-  RendererInitializationFailedError,
-  SceneInitializationFailedError,
-  InputInitializationFailedError,
-  ECSInitializationFailedError,
-  CanvasNotFoundError,
-  SystemCommunicationError,
-  FrameProcessingError,
-  PerformanceDegradationError,
-  MemoryLeakError,
-  WebGLContextLostError,
-  InvalidStateTransitionError,
-  ConfigurationValidationError,
-  SystemSynchronizationError,
 } from './errors'

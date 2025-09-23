@@ -38,20 +38,21 @@ const createMockGameLoopService = () =>
       getState: () => Effect.succeed('running' as const),
       getPerformanceMetrics: () =>
         Effect.succeed({
-          fps: 60,
-          averageFrameTime: 16.67,
-          minFrameTime: 14.0,
-          maxFrameTime: 20.0,
-          frameTimeStdDev: 2.0,
-          totalFrames: 1000,
+          averageFps: 60,
+          minFps: 55,
+          maxFps: 65,
+          frameTimeMs: 16.67,
+          cpuUsage: 50,
+          memoryUsage: 100,
           droppedFrames: 0,
         }),
       tick: () =>
         Effect.succeed({
           frameCount: 1001,
           deltaTime: 16.67,
-          totalTime: 16683.67,
+          currentTime: 16683.67,
           fps: 60,
+          frameSkipped: false,
         }),
       updateConfig: () => Effect.void,
       reset: () => Effect.log('Mock GameLoop reset').pipe(Effect.asVoid),
@@ -143,7 +144,7 @@ const createMockCanvas = () => {
   return canvas
 }
 
-const runTestWithMockCanvas = <A, E>(effect: Effect.Effect<A, E>) =>
+const runTestWithMockCanvas = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const canvas = createMockCanvas()
     try {
@@ -177,12 +178,7 @@ describe('GameApplication', () => {
         expect(stateAfterStop).toBe('Stopped')
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
 
     it('一時停止と再開が正常に動作する', async () => {
@@ -203,12 +199,7 @@ describe('GameApplication', () => {
         expect(stateAfterResume).toBe('Running')
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -221,6 +212,9 @@ describe('GameApplication', () => {
           rendering: {
             targetFps: 30,
             enableVSync: false,
+            antialiasing: true,
+            shadowMapping: true,
+            webgl2: true,
           },
         }
 
@@ -231,12 +225,7 @@ describe('GameApplication', () => {
         expect(state.config.rendering.enableVSync).toBe(false)
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
 
     it('実行時に設定を更新できる', async () => {
@@ -248,6 +237,8 @@ describe('GameApplication', () => {
         const newConfig = {
           performance: {
             enableMetrics: false,
+            memoryLimit: 1024,
+            gcThreshold: 0.8,
           },
         }
 
@@ -257,12 +248,7 @@ describe('GameApplication', () => {
         expect(state.config.performance.enableMetrics).toBe(false)
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -284,12 +270,7 @@ describe('GameApplication', () => {
         expect(state.uptime).toBeGreaterThan(0)
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -310,12 +291,7 @@ describe('GameApplication', () => {
         expect(healthCheck.ecs.status).toBe('healthy')
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -333,12 +309,7 @@ describe('GameApplication', () => {
         expect(true).toBe(true)
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -355,12 +326,7 @@ describe('GameApplication', () => {
         expect(state).toBe('Uninitialized')
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 
@@ -394,12 +360,7 @@ describe('GameApplication', () => {
         }
       })
 
-      await Effect.runPromise(
-        test.pipe(
-          runTestWithMockCanvas,
-          Effect.provide(MockLayer)
-        )
-      )
+      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
     })
   })
 })
