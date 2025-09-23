@@ -4,20 +4,17 @@ import { World, WorldLive, type EntityId, WorldError } from '../World'
 import { EntityId as EntityIdBrand, EntityPoolLayer } from '../Entity.js'
 import { createSystem, SystemError } from '../System'
 import { PositionComponent, VelocityComponent } from '../Component'
-import { EntityManagerLive } from '../EntityManager.js'
+import { EntityManager, EntityManagerLive } from '../EntityManager.js'
 import { SystemRegistryServiceLive } from '../SystemRegistry.js'
 
 describe('World', () => {
-  const TestLayer = WorldLive.pipe(
-    Layer.provide(Layer.mergeAll(
-      EntityPoolLayer,
-      EntityManagerLive,
-      SystemRegistryServiceLive
-    ))
+  const TestLayer = Layer.provide(
+    WorldLive,
+    SystemRegistryServiceLive
   )
 
   const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): Promise<A> =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestLayer)))
+    Effect.runPromise(Effect.provide(effect, TestLayer))
 
   describe('エンティティ管理', () => {
     it('エンティティを作成できる', async () => {
@@ -57,11 +54,14 @@ describe('World', () => {
 
     it('存在しないエンティティの削除でエラーが発生する', async () => {
       const result = await Effect.runPromiseExit(
-        Effect.gen(function* () {
-          const world = yield* World
-          const nonExistentId = EntityIdBrand(99999)
-          yield* world.destroyEntity(nonExistentId)
-        }).pipe(Effect.provide(TestLayer))
+        Effect.provide(
+          Effect.gen(function* () {
+            const world = yield* World
+            const nonExistentId = EntityIdBrand(99999)
+            yield* world.destroyEntity(nonExistentId)
+          }),
+          TestLayer
+        )
       )
 
       expect(result._tag).toBe('Failure')
@@ -146,11 +146,14 @@ describe('World', () => {
 
     it('存在しないエンティティへのコンポーネント追加でエラーが発生する', async () => {
       const result = await Effect.runPromiseExit(
-        Effect.gen(function* () {
-          const world = yield* World
-          const nonExistentId = EntityIdBrand(99999)
-          yield* world.addComponent(nonExistentId, 'Position', { x: 0, y: 0, z: 0 })
-        }).pipe(Effect.provide(TestLayer))
+        Effect.provide(
+          Effect.gen(function* () {
+            const world = yield* World
+            const nonExistentId = EntityIdBrand(99999)
+            yield* world.addComponent(nonExistentId, 'Position', { x: 0, y: 0, z: 0 })
+          }),
+          TestLayer
+        )
       )
 
       expect(result._tag).toBe('Failure')
