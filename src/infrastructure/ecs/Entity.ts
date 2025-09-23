@@ -11,7 +11,7 @@ export const EntityId = Brand.nominal<EntityId>()
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export const EntityPoolError = Schema.TaggedError('EntityPoolError')({
+export const EntityPoolError = Schema.TaggedStruct('EntityPoolError', {
   reason: Schema.Literal('pool_exhausted', 'invalid_entity_id', 'entity_not_allocated'),
   message: Schema.String,
 })
@@ -280,10 +280,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         Match.value,
         Match.when(true, () =>
           Effect.fail(
-            new EntityPoolError({
+            {
+              _tag: 'EntityPoolError' as const,
               reason: 'pool_exhausted',
               message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
-            })
+            } satisfies EntityPoolError
           )
         ),
         Match.orElse(() =>
@@ -303,10 +304,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         Match.value,
         Match.when(true, () =>
           Effect.fail(
-            new EntityPoolError({
+            {
+              _tag: 'EntityPoolError' as const,
               reason: 'entity_not_allocated',
               message: `Entity ${id} is not allocated`,
-            })
+            } satisfies EntityPoolError
           )
         ),
         Match.orElse(() =>

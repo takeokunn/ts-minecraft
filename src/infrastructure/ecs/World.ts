@@ -19,7 +19,7 @@ export type EntityId = Schema.Schema.Type<typeof EntityId>
 /**
  * ワールドエラー
  */
-export const WorldError = Schema.TaggedError('WorldError')({
+export const WorldError = Schema.TaggedStruct('WorldError', {
   message: Schema.String,
   entityId: Schema.optional(EntityId),
   componentType: Schema.optional(Schema.String),
@@ -259,7 +259,7 @@ export const WorldLive = Layer.effect(
 
         if (!state.entities.has(id)) {
           yield* Effect.fail({
-            _tag: 'WorldError',
+            _tag: 'WorldError' as const,
             message: `Entity not found: ${id}`,
             entityId: id,
           } satisfies WorldError)
@@ -300,7 +300,7 @@ export const WorldLive = Layer.effect(
 
         if (!state.entities.has(entityId)) {
           yield* Effect.fail({
-            _tag: 'WorldError',
+            _tag: 'WorldError' as const,
             message: `Entity not found: ${entityId}`,
             entityId,
           } satisfies WorldError)
@@ -669,7 +669,7 @@ export const WorldLive = Layer.effect(
 
         if (!state.entities.has(id)) {
           yield* Effect.fail({
-            _tag: 'WorldError',
+            _tag: 'WorldError' as const,
             message: `Entity not found: ${id}`,
             entityId: id,
           } satisfies WorldError)

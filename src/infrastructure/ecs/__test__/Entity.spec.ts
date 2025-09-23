@@ -121,7 +121,7 @@ describe('Entity ECS Architecture', () => {
           return yield* Effect.fail(new Error('Should have failed with EntityPoolError'))
         }
 
-        if (result.cause._tag === 'Fail' && result.cause.error instanceof EntityPoolError) {
+        if (result.cause._tag === 'Fail' && typeof result.cause.error === 'object' && result.cause.error !== null && '_tag' in result.cause.error && result.cause.error._tag === 'EntityPoolError') {
           return true
         }
 
@@ -647,10 +647,11 @@ describe('Entity ECS Architecture', () => {
             Effect.gen(function* () {
               if (state.freeList.length === 0) {
                 return yield* Effect.fail(
-                  new EntityPoolError({
+                  {
+                    _tag: 'EntityPoolError' as const,
                     reason: 'pool_exhausted',
                     message: `Entity pool exhausted. Maximum capacity: ${SMALL_MAX_ENTITIES}`,
-                  })
+                  } satisfies EntityPoolError
                 )
               }
               const id = state.freeList.pop()!
@@ -662,10 +663,11 @@ describe('Entity ECS Architecture', () => {
             Effect.gen(function* () {
               if (!state.allocated.has(id)) {
                 return yield* Effect.fail(
-                  new EntityPoolError({
+                  {
+                    _tag: 'EntityPoolError' as const,
                     reason: 'invalid_entity_id',
                     message: `Entity ${id} is not allocated`,
-                  })
+                  } satisfies EntityPoolError
                 )
               }
               state.allocated.delete(id)
@@ -712,8 +714,8 @@ describe('Entity ECS Architecture', () => {
         }
 
         const error = result.left
-        if (!(error instanceof EntityPoolError)) {
-          return yield* Effect.fail(new Error('Expected EntityPoolError instance'))
+        if (!(typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityPoolError')) {
+          return yield* Effect.fail(new Error('Expected EntityPoolError'))
         }
 
         // lines 280-285の具体的な内容を確認
