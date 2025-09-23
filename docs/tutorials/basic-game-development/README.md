@@ -1596,14 +1596,28 @@ const main = Effect.gen(function* () {
 })
 
 // アプリケーション実行
-Effect.runPromise(main.pipe(Effect.provide(AppLayer))).catch((error) => {
-  console.error('Application failed:', error)
-  document.body.innerHTML = `
-    <div style="color: white; text-align: center; margin-top: 50px;">
-      <h2>ゲーム開始に失敗しました</h2>
-      <p>${error.message}</p>
-      <p>ブラウザのコンソールで詳細を確認してください。</p>
-    </div>
+const runApp = main.pipe(
+  Effect.provide(AppLayer),
+  Effect.catchAll((error) =>
+    Effect.gen(function* () {
+      yield* Effect.logError(`Application failed: ${error}`)
+
+      // DOM操作もEffectで管理
+      yield* Effect.sync(() => {
+        document.body.innerHTML = `
+          <div style="color: white; text-align: center; margin-top: 50px;">
+            <h2>ゲーム開始に失敗しました</h2>
+            <p>${error.message}</p>
+            <p>ブラウザのコンソールで詳細を確認してください。</p>
+          </div>`
+      })
+
+      return Effect.fail(error)
+    })
+  )
+)
+
+Effect.runPromise(runApp)
   `
 })
 ```

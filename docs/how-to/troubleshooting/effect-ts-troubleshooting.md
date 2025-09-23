@@ -726,8 +726,8 @@ const TestLayer = Layer.mergeAll(
 )
 
 // Effect.genを使用したテスト
-it('should handle player operations correctly', async () => {
-  const result = await Effect.runPromise(
+it('should handle player operations correctly', () => {
+  return Effect.runPromise(
     Effect.gen(function* () {
       // テスト用のクロックを進める
       const testClock = yield* TestClock.TestClock

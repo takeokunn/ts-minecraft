@@ -1842,8 +1842,8 @@ describe('World Data Structure Property Tests', () => {
 
   it('should preserve invariants across all valid world configurations', () =>
     fc.assert(
-      fc.asyncProperty(worldGen, async (config) => {
-        const result = await Effect.gen(function* () {
+      fc.asyncProperty(worldGen, (config) =>
+        Effect.gen(function* () {
           const world = yield* WorldAggregateOperations.createWorld(config.name, {
             seed: config.seed,
             generationType: 'default',

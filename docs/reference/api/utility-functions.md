@@ -527,26 +527,27 @@ export const CoordinateTestUtils = {
    * @example
    * ```typescript
    * // 実行時検証とBrand型の統合テスト
-   * const testBlockCoordinate = async () => {
-   *   const testCases = [
-   *     { input: [10.7, 64.3, 20.9], expected: [10, 64, 20] },
-   *     { input: [-5.2, 128.8, -15.1], expected: [-6, 128, -16] },
-   *     { input: [0.0, 0.0, 0.0], expected: [0, 0, 0] }
-   *   ];
+   * const testBlockCoordinate = (): Effect.Effect<void, never> =>
+   *   Effect.gen(function* () {
+   *     const testCases = [
+   *       { input: [10.7, 64.3, 20.9], expected: [10, 64, 20] },
+   *       { input: [-5.2, 128.8, -15.1], expected: [-6, 128, -16] },
+   *       { input: [0.0, 0.0, 0.0], expected: [0, 0, 0] }
+   *     ];
    *
-   *   for (const testCase of testCases) {
-   *     const result = await CoordinateUtils.createBlockPosition(
-   *       testCase.input[0], testCase.input[1], testCase.input[2]
-   *     );
+   *     for (const testCase of testCases) {
+   *       const result = yield* CoordinateUtils.createBlockPosition(
+   *         testCase.input[0], testCase.input[1], testCase.input[2]
+   *       );
    *
-   *     if (Effect.isEffect(result)) {
-   *       const blockPos = await Effect.runPromise(result);
-   *       expect([
-   *         Brand.value(blockPos.x),
-   *         Brand.value(blockPos.y),
-   *         Brand.value(blockPos.z)
-   *       ]).toEqual(testCase.expected);
-   *     }
+   *       if (Effect.isEffect(result)) {
+   *         const blockPos = yield* result;
+   *         expect([
+   *           Brand.value(blockPos.x),
+   *           Brand.value(blockPos.y),
+   *           Brand.value(blockPos.z)
+   *         ]).toEqual(testCase.expected);
+   *       }
    *   }
    * };
    * ```
@@ -1042,7 +1043,7 @@ export const ArrayUtils = {
    * const batches = ArrayUtils.chunk(chunkCoords, 10);
    *
    * for (const batch of batches) {
-   *   await loadChunksBatch(batch);
+   *   yield* loadChunksBatch(batch);
    *   // 10個ずつバッチで処理
    * }
    * ```
@@ -1970,7 +1971,7 @@ export const InventoryManager = {
    * インベントリ操作のユーティリティ
    * @example
    * ```typescript
-   * const inventory = await InventoryManager.validateAndNormalize(rawData);
+   * const inventory = yield* InventoryManager.validateAndNormalize(rawData);
    *
    * // アイテムの検索
    * const diamondSwords = InventoryManager.findItemsByType(inventory, "minecraft:diamond_sword");

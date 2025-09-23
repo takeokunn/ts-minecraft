@@ -806,54 +806,66 @@ export interface DevelopmentPerformanceMonitor {
   private fpsCounter = 0
   private lastFpsTime = performance.now()
 
-  startMonitoring(): void {
-    if (!import.meta.env.DEV) return
+  startMonitoring(): Effect.Effect<void, never> {
+    return Effect.gen(function* () {
+      if (!import.meta.env.DEV) return
 
-    // メモリ使用量監視
-    setInterval(() => {
-      this.metrics.memoryUsage = process.memoryUsage()
+      // メモリ使用量監視
+      yield* Effect.schedule(
+        Effect.sync(() => {
+          this.metrics.memoryUsage = process.memoryUsage()
 
-      // メモリ使用量警告（開発環境）
-      const usedMB = this.metrics.memoryUsage.heapUsed / 1024 / 1024
-      if (usedMB > 500) { // 500MB超過で警告
-        console.warn(`🚨 High memory usage: ${usedMB.toFixed(2)}MB`)
+          // メモリ使用量警告（開発環境）
+          const usedMB = this.metrics.memoryUsage.heapUsed / 1024 / 1024
+          if (usedMB > 500) { // 500MB超過で警告
+            console.warn(`🚨 High memory usage: ${usedMB.toFixed(2)}MB`)
+          }
+        }),
+        Schedule.fixed('5 seconds')
+      ).pipe(Effect.fork)
+
+      // HMR更新時間測定
+      if (import.meta.hot) {
+        const hmrStart = performance.now()
+        import.meta.hot.on('vite:afterUpdate', () => {
+          this.metrics.hmrUpdateTime = performance.now() - hmrStart
+          console.log(`⚡ HMR Update: ${this.metrics.hmrUpdateTime.toFixed(2)}ms`)
+        })
       }
-    }, 5000)
 
-    // HMR更新時間測定
-    if (import.meta.hot) {
-      const hmrStart = performance.now()
-      import.meta.hot.on('vite:afterUpdate', () => {
-        this.metrics.hmrUpdateTime = performance.now() - hmrStart
-        console.log(`⚡ HMR Update: ${this.metrics.hmrUpdateTime.toFixed(2)}ms`)
-      })
-    }
-
-    // FPS監視（Three.js）
-    this.startFpsMonitoring()
+      // FPS監視（Three.js）
+      yield* this.startFpsMonitoring()
+    }.bind(this))
   }
 
-  private startFpsMonitoring(): void {
-    const measureFps = () => {
-      this.fpsCounter++
-      const currentTime = performance.now()
+  private startFpsMonitoring(): Effect.Effect<void, never> {
+    return Effect.gen(function* () {
+      const measureFps = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          this.fpsCounter++
+          const currentTime = performance.now()
 
-      if (currentTime - this.lastFpsTime >= 1000) {
-        this.metrics.renderFps = this.fpsCounter
+          if (currentTime - this.lastFpsTime >= 1000) {
+            this.metrics.renderFps = this.fpsCounter
 
-        // FPS警告
-        if (this.metrics.renderFps < 30) {
-          console.warn(`🎮 Low FPS detected: ${this.metrics.renderFps}fps`)
-        }
+            // FPS警告
+            if (this.metrics.renderFps < 30) {
+              console.warn(`🎮 Low FPS detected: ${this.metrics.renderFps}fps`)
+            }
 
-        this.fpsCounter = 0
-        this.lastFpsTime = currentTime
-      }
+            this.fpsCounter = 0
+            this.lastFpsTime = currentTime
+          }
 
-      requestAnimationFrame(measureFps)
-    }
+          // 次のフレームをスケジュール
+          yield* Effect.async<void, never>((resume) => {
+            requestAnimationFrame(() => resume(Effect.void))
+          })
+          yield* measureFps() // 再帰的に実行
+        }.bind(this))
 
-    measureFps()
+      yield* measureFps()
+    }.bind(this))
   }
 
   getMetrics(): DevPerformanceMetrics {
@@ -1281,43 +1293,69 @@ export interface NixDevelopmentMonitor {
       }
     }
 
-    this.initializeMetrics()
+    // Effect実行を同期的に開始
+    Effect.runPromise(this.initializeMetrics())
   }
 
-  private async initializeMetrics(): Promise<void> {
-    // pnpmバージョン取得
-    try {
-      const { execSync } = await import('child_process')
-      this.metrics.pnpmVersion = execSync('pnpm --version', { encoding: 'utf-8' }).trim()
-    } catch (error) {
-      console.warn('Failed to get pnpm version:', error)
-    }
+  private initializeMetrics(): Effect.Effect<void, Error> {
+    return Effect.gen(function* () {
+      // pnpmバージョン取得
+      const pnpmVersionResult = yield* pipe(
+        Effect.tryPromise({
+          try: async () => {
+            const { execSync } = await import('child_process')
+            return execSync('pnpm --version', { encoding: 'utf-8' }).trim()
+          },
+          catch: (error) => new Error(`Failed to get pnpm version: ${error}`)
+        }),
+        Effect.orElse(() => Effect.succeed('unknown'))
+      )
+      this.metrics.pnpmVersion = pnpmVersionResult
 
-    // ディスク使用量計算
-    await this.calculateDiskUsage()
+      // ディスク使用量計算
+      yield* this.calculateDiskUsage()
+    }.bind(this))
   }
 
-  private async calculateDiskUsage(): Promise<void> {
-    const { statSync } = await import('fs')
-    const { resolve } = await import('path')
+  private calculateDiskUsage(): Effect.Effect<void, Error> {
+    return Effect.gen(function* () {
+      const modules = yield* pipe(
+        Effect.tryPromise({
+          try: async () => {
+            const { resolve } = await import('path')
+            return { resolve }
+          },
+          catch: (error) => new Error(`Failed to import path module: ${error}`)
+        })
+      )
 
-    try {
-      // node_modules サイズ
-      const nodeModulesPath = resolve(process.cwd(), 'node_modules')
-      this.metrics.diskUsage.nodeModules = this.getFolderSize(nodeModulesPath)
+      yield* pipe(
+        Effect.try({
+          try: () => {
+            // node_modules サイズ
+            const nodeModulesPath = modules.resolve(process.cwd(), 'node_modules')
+            this.metrics.diskUsage.nodeModules = this.getFolderSize(nodeModulesPath)
 
-      // devenv state サイズ
-      if (process.env.DEVENV_STATE) {
-        this.metrics.diskUsage.devenvState = this.getFolderSize(process.env.DEVENV_STATE)
-      }
+            // devenv state サイズ
+            if (process.env.DEVENV_STATE) {
+              this.metrics.diskUsage.devenvState = this.getFolderSize(process.env.DEVENV_STATE)
+            }
 
-      // Nix store サイズ（概算）
-      if (process.env.NIX_PROFILE) {
-        this.metrics.diskUsage.nixStore = this.getFolderSize('/nix/store') / 1024 // KB単位で概算
-      }
-    } catch (error) {
-      console.warn('Failed to calculate disk usage:', error)
-    }
+            // Nix store サイズ（概算）
+            if (process.env.NIX_PROFILE) {
+              this.metrics.diskUsage.nixStore = this.getFolderSize('/nix/store') / 1024 // KB単位で概算
+            }
+          },
+          catch: (error) => new Error(`Failed to calculate disk usage: ${error}`)
+        }),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            console.warn('Failed to calculate disk usage:', error)
+            return
+          })
+        )
+      )
+    }.bind(this))
   }
 
   private getFolderSize(folderPath: string): number {

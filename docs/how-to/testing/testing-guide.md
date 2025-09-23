@@ -546,7 +546,17 @@ describe('Player Properties', () => {
       fc.asyncProperty(playerArbitrary, async (playerData) => {
         const program = Effect.gen(function* () {
           const service = yield* PlayerService
-          return yield* service.create(playerData)
+          const result = yield* service.create(playerData)
+
+          // 不変条件1: ヘルスは0-100の範囲内
+          expect(result.health).toBeGreaterThanOrEqual(0)
+          expect(result.health).toBeLessThanOrEqual(100)
+
+          // 不変条件2: 位置のY座標は有効範囲内
+          expect(result.position.y).toBeGreaterThanOrEqual(-64)
+          expect(result.position.y).toBeLessThanOrEqual(320)
+
+          return result
         })
 
         const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
