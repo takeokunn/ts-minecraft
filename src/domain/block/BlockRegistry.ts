@@ -161,9 +161,12 @@ export const BlockRegistryLive = Layer.effect(
         Effect.gen(function* () {
           const exists = HashMap.has(blockMap, block.id)
 
-          if (exists) {
-            return yield* Effect.fail(BlockAlreadyRegisteredError(block.id))
-          }
+          yield* pipe(
+            exists,
+            Match.value,
+            Match.when(true, () => Effect.fail(BlockAlreadyRegisteredError(block.id))),
+            Match.orElse(() => Effect.void)
+          )
 
           // ブロックマップに追加
           blockMap = HashMap.set(blockMap, block.id, block)
@@ -178,9 +181,12 @@ export const BlockRegistryLive = Layer.effect(
 
           // タグインデックスに追加
           block.tags.forEach((tag) => {
-            if (!tagIndex.has(tag)) {
-              tagIndex.set(tag, new Set())
-            }
+            pipe(
+              tagIndex.has(tag),
+              Match.value,
+              Match.when(false, () => tagIndex.set(tag, new Set())),
+              Match.orElse(() => undefined)
+            )
             tagIndex.get(tag)!.add(block.id)
           })
         }),
