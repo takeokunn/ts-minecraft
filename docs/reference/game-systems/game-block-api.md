@@ -637,26 +637,34 @@ const greedyMeshing = (blocks: ReadonlyArray<BlockData>) =>
     }
   })
 
-// LOD（Level of Detail）システム
+// LOD（Level of Detail）システム（Match式による数値パターンマッチング）
 const generateLODMesh = (blocks: ReadonlyArray<BlockData>, distance: number) =>
   Effect.gen(function* () {
     const lodLevel = calculateLODLevel(distance)
 
-    switch (lodLevel) {
-      case 0: // 高詳細
-        return yield* greedyMeshing(blocks)
-
-      case 1: // 中詳細
-        const simplifiedBlocks = yield* simplifyBlocks(blocks, 0.7)
-        return yield* greedyMeshing(simplifiedBlocks)
-
-      case 2: // 低詳細
-        const verySimplifiedBlocks = yield* simplifyBlocks(blocks, 0.4)
-        return yield* greedyMeshing(verySimplifiedBlocks)
-
-      default: // インポスター
-        return yield* generateImpostor(blocks)
-    }
+    // 数値ベースのLODレベルをMatch式で処理
+    return yield* Match.value(lodLevel).pipe(
+      Match.when(0, () => // 高詳細レベル
+        greedyMeshing(blocks)
+      ),
+      Match.when(1, () => // 中詳細レベル
+        Effect.gen(function* () {
+          const simplifiedBlocks = yield* simplifyBlocks(blocks, 0.7)
+          return yield* greedyMeshing(simplifiedBlocks)
+        })
+      ),
+      Match.when(2, () => // 低詳細レベル
+        Effect.gen(function* () {
+          const verySimplifiedBlocks = yield* simplifyBlocks(blocks, 0.4)
+          return yield* greedyMeshing(verySimplifiedBlocks)
+        })
+      ),
+      Match.orElse(() => // インポスター（予期しないLODレベル含む）
+        Effect.logDebug(`Using impostor for LOD level: ${lodLevel}`).pipe(
+          Effect.andThen(() => generateImpostor(blocks))
+        )
+      )
+    )
   })
 ```
 

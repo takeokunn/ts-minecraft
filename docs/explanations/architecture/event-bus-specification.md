@@ -753,6 +753,8 @@ export const fromHistory = <State, Event extends DomainEvent>(
 }
 
 // プレイヤーのEvent Sourced実装
+import { Match } from "effect"
+
 export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<PlayerState, PlayerEvent> => {
   const getInitialState = (): PlayerState => ({
     id,
@@ -765,74 +767,63 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
   })
 
   const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
-    switch (event._tag) {
-      case "PlayerCreated":
-        return {
-          ...state,
-          name: event.playerName,
-          position: event.position
-        }
-
-      case "PlayerMoved":
-        return {
-          ...state,
-          position: event.to,
-          lastActivity: event.timestamp
-        }
-
-      case "PlayerDamaged":
-        return {
-          ...state,
-          health: {
-            ...state.health,
-            value: Math.max(0, state.health.value - event.damage)
-          },
-          lastActivity: event.timestamp
-        }
-
-      case "PlayerDied":
-        return {
-          ...state,
-          status: "dead",
-          lastActivity: event.timestamp
-        }
-
-      case "PlayerRespawned":
-        return {
-          ...state,
-          status: "active",
-          position: event.position,
-          health: { value: 100, max: 100 },
-          lastActivity: event.timestamp
-        }
-
-      default:
-        return state
-    }
+    return Match.value(event).pipe(
+      Match.tag("PlayerCreated", (event) => ({
+        ...state,
+        name: event.playerName,
+        position: event.position
+      })),
+      Match.tag("PlayerMoved", (event) => ({
+        ...state,
+        position: event.to,
+        lastActivity: event.timestamp
+      })),
+      Match.tag("PlayerDamaged", (event) => ({
+        ...state,
+        health: {
+          ...state.health,
+          value: Math.max(0, state.health.value - event.damage)
+        },
+        lastActivity: event.timestamp
+      })),
+      Match.tag("PlayerDied", (event) => ({
+        ...state,
+        status: "dead",
+        lastActivity: event.timestamp
+      })),
+      Match.tag("PlayerRespawned", (event) => ({
+        ...state,
+        status: "active",
+        position: event.position,
+        health: { value: 100, max: 100 },
+        lastActivity: event.timestamp
+      })),
+      Match.exhaustive
+    )
   }
 
   protected validate(event: PlayerEvent): Effect.Effect<void, DomainError> {
-    return Effect.gen(function* () {
-      switch (event._tag) {
-        case "PlayerMoved":
-          if (this.getState().status === "dead") {
-            yield* Effect.fail(new InvalidOperationError({
-              message: "Dead players cannot move",
-              aggregateId: this.id
-            }))
-          }
-          break
-
-        case "PlayerDamaged":
-          if (this.getState().health.value <= 0) {
-            yield* Effect.fail(new InvalidOperationError({
-              message: "Cannot damage dead player",
-              aggregateId: this.id
-            }))
-          }
-          break
-      }
-    })
+    return Match.value(event).pipe(
+      Match.tag("PlayerMoved", () => {
+        if (this.getState().status === "dead") {
+          return Effect.fail(new InvalidOperationError({
+            message: "Dead players cannot move",
+            aggregateId: this.id
+          }))
+        }
+        return Effect.void
+      }),
+      Match.tag("PlayerDamaged", () => {
+        if (this.getState().health.value <= 0) {
+          return Effect.fail(new InvalidOperationError({
+            message: "Cannot damage dead player",
+            aggregateId: this.id
+          }))
+        }
+        return Effect.void
+      }),
+      Match.orElse(() => Effect.void)
+    )
   }
 
   // ビジネスメソッド
@@ -880,6 +871,56 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
   }
 }
 ```
+
+### Effect-TS Match パターン使用に関する改善点
+
+上記の実装では、従来のswitch文をEffect-TSのMatchモジュールに置き換えています。この変更により以下の利点が得られます：
+
+#### 修正前（従来のswitch文）：
+```typescript
+const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
+  switch (event._tag) {
+    case "PlayerCreated":
+      return { ...state, name: event.playerName, position: event.position }
+    case "PlayerMoved":
+      return { ...state, position: event.to, lastActivity: event.timestamp }
+    default:
+      return state
+  }
+}
+```
+
+#### 修正後（Effect-TS Match）：
+```typescript
+const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
+  return Match.value(event).pipe(
+    Match.tag("PlayerCreated", (event) => ({
+      ...state,
+      name: event.playerName,
+      position: event.position
+    })),
+    Match.tag("PlayerMoved", (event) => ({
+      ...state,
+      position: event.to,
+      lastActivity: event.timestamp
+    })),
+    Match.exhaustive  // 全てのケースが処理されることを型レベルで保証
+  )
+}
+```
+
+#### Effect-TSのMatch式の利点：
+
+1. **型安全性の向上**: `Match.exhaustive`により、全ケースが処理されることがコンパイル時に保証される
+2. **関数型パラダイム**: パイプライン形式での処理により、より宣言的で可読性の高いコードを実現
+3. **イミュータブル設計**: 各ケースで明示的にオブジェクトを返すため、状態の不変性が保たれる
+4. **ホットスワップ対応**: ケースの追加・削除時にコンパイラが未処理ケースを検出し、実行時エラーを防止
+
+特にEvent Sourcingパターンにおいて、Matchモジュールの使用は以下の価値を提供します：
+
+- **イベント処理の信頼性**: 全イベントタイプの処理が保証される
+- **リファクタリング安全性**: イベントタイプの変更時にコンパイラがエラーを検出
+- **可読性向上**: イベント処理ロジックが明確に分離される
 
 #### CQRS (Command Query Responsibility Segregation)
 

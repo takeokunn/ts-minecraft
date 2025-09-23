@@ -221,6 +221,7 @@ const managedBackgroundTasks = Effect.scoped(
 
 ```typescript
 import * as FiberRef from 'effect/FiberRef'
+import { Match } from 'effect'
 
 // 適切なFiberRef使用
 const playerContextRef = FiberRef.unsafeMake<Option.Option<Player>>(Option.none())
@@ -392,25 +393,21 @@ const calculateLodLevel = (
   return 'high'
 }
 
-// LOD対応レンダリング
+// LOD対応レンダリング（Match式による型安全な分岐処理）
 const renderWithLod = (entity: Entity, camera: THREE.Camera) =>
   Effect.gen(function* () {
     const lodLevel = calculateLodLevel(entity.position, camera.position, { medium: 50, low: 100, hidden: 200 })
 
-    switch (lodLevel) {
-      case 'high':
-        yield* renderHighDetail(entity)
-        break
-      case 'medium':
-        yield* renderMediumDetail(entity)
-        break
-      case 'low':
-        yield* renderLowDetail(entity)
-        break
-      case 'hidden':
-        // レンダリングしない
-        break
-    }
+    // Effect-TSのMatch式によるレンダリング分岐
+    yield* Match.value(lodLevel).pipe(
+      Match.when('high', () => renderHighDetail(entity)),
+      Match.when('medium', () => renderMediumDetail(entity)),
+      Match.when('low', () => renderLowDetail(entity)),
+      Match.when('hidden', () => Effect.void), // レンダリングしない場合の明示的な処理
+      Match.orElse(() => Effect.logWarning(`Unknown LOD level: ${lodLevel}`).pipe(
+        Effect.andThen(() => renderHighDetail(entity)) // フォールバック処理
+      ))
+    )
 
     yield* Effect.logTrace('Entity rendered', {
       entityId: entity.id,
