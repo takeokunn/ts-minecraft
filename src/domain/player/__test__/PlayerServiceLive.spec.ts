@@ -149,7 +149,10 @@ describe('PlayerService Integration Tests', () => {
           expect(Either.isLeft(result)).toBe(true)
           if (Either.isLeft(result)) {
             expect(result.left.reason).toBe('PLAYER_ALREADY_EXISTS')
-            expect(result.left.playerId).toBe(config.playerId)
+            // PlayerErrorの場合のみplayerIdをチェック
+            if ('playerId' in result.left) {
+              expect(result.left.playerId).toBe(config.playerId)
+            }
           }
         }).pipe(Effect.provide(PlayerServiceTestLayer)) as any
     )

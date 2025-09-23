@@ -16,13 +16,6 @@ export type { PlayerComponent, PositionComponent, RotationComponent } from './Pl
 
 // Schema and validation exports (runtime values)
 export {
-  type PlayerPosition,
-  type PlayerRotation,
-  type PlayerState,
-  type PlayerConfig,
-  type PlayerError,
-  type PlayerErrorReason,
-  type PlayerUpdateData,
   PlayerPosition,
   PlayerRotation,
   PlayerState,
@@ -38,6 +31,17 @@ export {
   validatePlayerRotation,
   validatePlayerUpdateData,
   DEFAULT_PLAYER_CONFIG,
+} from './PlayerService.js'
+
+// Type-only exports for schemas
+export type {
+  PlayerPosition as PlayerPositionType,
+  PlayerRotation as PlayerRotationType,
+  PlayerState as PlayerStateType,
+  PlayerConfig as PlayerConfigType,
+  PlayerError as PlayerErrorType,
+  PlayerErrorReason as PlayerErrorReasonType,
+  PlayerUpdateData as PlayerUpdateDataType,
 } from './PlayerService.js'
 
 // Service implementation
