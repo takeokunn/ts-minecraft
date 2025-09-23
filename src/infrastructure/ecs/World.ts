@@ -483,12 +483,16 @@ export const WorldLive = Layer.effect(
     const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
       Effect.gen(function* () {
         // コンポーネントタイプがない場合は空配列を返す
-        const emptyCheck = yield* Effect.if(componentTypes.length === 0, {
-          onTrue: () => Effect.succeed([]),
-          onFalse: () => Effect.succeed(null),
-        })
+        const result = yield* pipe(
+          componentTypes.length,
+          Match.value,
+          Match.when(0, () => Effect.succeed([])),
+          Match.orElse(() => Effect.succeed(null))
+        )
 
-        if (emptyCheck !== null) return emptyCheck
+        if (result !== null) {
+          return result
+        }
 
         const state = yield* Ref.get(stateRef)
 
