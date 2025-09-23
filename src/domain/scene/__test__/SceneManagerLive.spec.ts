@@ -461,35 +461,38 @@ describe('SceneManagerLive', () => {
 
         // 可能であれば、もう一度確実にエラーを試行
         let errorCaught = false
-        try {
-          // 確実に遷移中の状態を作るため、内部実装に依存した方法を試す
-          // 通常この方法では Effect-TS の並行性によりエラーが発生する可能性がある
 
-          // より積極的なアプローチ: 非常に短い間隔で複数回実行
-          for (let i = 0; i < 100; i++) {
-            const results = yield* Effect.all(
-              [Effect.either(manager.transitionTo('Game')), Effect.either(manager.pushScene('Loading'))],
-              { concurrency: 'unbounded', batching: false }
-            )
+        const attemptResult = yield* Effect.either(
+          Effect.gen(function* () {
+            // 確実に遷移中の状態を作るため、内部実装に依存した方法を試す
+            // 通常この方法では Effect-TS の並行性によりエラーが発生する可能性がある
 
-            const [transitionResult, pushResult] = results
+            // より積極的なアプローチ: 非常に短い間隔で複数回実行
+            for (let i = 0; i < 100; i++) {
+              const results = yield* Effect.all(
+                [Effect.either(manager.transitionTo('Game')), Effect.either(manager.pushScene('Loading'))],
+                { concurrency: 'unbounded', batching: false }
+              )
 
-            if (
-              pushResult._tag === 'Left' &&
-              pushResult.left._tag === 'SceneTransitionError' &&
-              pushResult.left.message.includes('Cannot push scene during transition')
-            ) {
-              errorCaught = true
-              break
+              const [transitionResult, pushResult] = results
+
+              if (
+                pushResult._tag === 'Left' &&
+                pushResult.left._tag === 'SceneTransitionError' &&
+                pushResult.left.message.includes('Cannot push scene during transition')
+              ) {
+                errorCaught = true
+                break
+              }
+
+              // 状態をリセット
+              yield* manager.cleanup()
+              yield* manager.transitionTo('MainMenu')
             }
+          })
+        )
 
-            // 状態をリセット
-            yield* manager.cleanup()
-            yield* manager.transitionTo('MainMenu')
-          }
-        } catch (e) {
-          // エラーが発生した場合もOK
-        }
+        // エラーが発生した場合もOK
 
         // 最終的な動作確認
         yield* manager.cleanup()

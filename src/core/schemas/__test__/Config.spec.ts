@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Exit, Either } from 'effect'
 import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
 import { Config } from '../Config'
@@ -161,12 +161,19 @@ describe('Config Schema', () => {
         memoryLimit: 3000,
       }
 
-      try {
-        Schema.decodeUnknownSync(Config)(invalidConfig)
-        expect(true).toBe(false) // Should not reach here
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error)
-        expect(String(error)).toContain('fps') // Should mention fps issue
+      const result = Effect.runSync(
+        Effect.either(
+          Effect.try({
+            try: () => Schema.decodeUnknownSync(Config)(invalidConfig),
+            catch: (error) => error,
+          })
+        )
+      )
+
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(Error)
+        expect(String(result.left)).toContain('fps') // Should mention fps issue
       }
     })
   })

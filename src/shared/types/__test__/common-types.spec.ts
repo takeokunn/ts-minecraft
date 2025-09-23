@@ -140,12 +140,13 @@ describe('common-types', () => {
   describe('AsyncCallback型', () => {
     it('非同期コールバック関数を正しく表現する', async () => {
       let called = false
-      const callback: AsyncCallback<string> = async (value) => {
-        called = true
-        expect(value).toBe('async-test')
-      }
+      const callback: AsyncCallback<string> = (value) =>
+        Effect.gen(function* () {
+          called = true
+          expect(value).toBe('async-test')
+        })
 
-      await callback('async-test')
+      await Effect.runPromise(callback('async-test'))
       expect(called).toBe(true)
     })
   })

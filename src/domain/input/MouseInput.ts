@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Option, Match, pipe } from 'effect'
+import { Context, Effect, Exit, Layer, Ref, Option, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import { MouseDelta, MouseButtonState, InputSystemError } from './types'
 
@@ -80,8 +80,8 @@ export const MouseInputLive = Layer.effect(
       })
 
     // マウス移動イベントリスナー
-    const handleMouseMove = (event: MouseEvent) =>
-      Effect.gen(function* () {
+    const handleMouseMove = (event: MouseEvent) => {
+      const effect = Effect.gen(function* () {
         const currentTime = Date.now()
         const currentPosition = yield* Ref.get(position)
 
@@ -108,11 +108,16 @@ export const MouseInputLive = Layer.effect(
           deltaY,
           timestamp: currentTime,
         })
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Mouse move handler failed:', exit.cause)
+      )
+    }
 
     // マウスボタンイベントリスナー
-    const handleMouseButton = (event: MouseEvent, isPressed: boolean) =>
-      Effect.gen(function* () {
+    const handleMouseButton = (event: MouseEvent, isPressed: boolean) => {
+      const effect = Effect.gen(function* () {
         const buttonState: MouseButtonState = {
           button: event.button,
           isPressed,
@@ -120,11 +125,16 @@ export const MouseInputLive = Layer.effect(
         }
 
         yield* Ref.update(buttonStates, (states) => new Map(states.set(event.button, buttonState)))
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Mouse button handler failed:', exit.cause)
+      )
+    }
 
     // ポインターロック状態変更リスナー
-    const handlePointerLockChange = () =>
-      Effect.gen(function* () {
+    const handlePointerLockChange = () => {
+      const effect = Effect.gen(function* () {
         const documentExists = typeof document !== 'undefined'
 
         const isLocked = documentExists && document.pointerLockElement !== null
@@ -135,7 +145,12 @@ export const MouseInputLive = Layer.effect(
           element,
           lockTime: isLocked ? Date.now() : undefined,
         })
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Pointer lock change handler failed:', exit.cause)
+      )
+    }
 
     // イベントリスナーの設定
     yield* pipe(

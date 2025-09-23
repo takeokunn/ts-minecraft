@@ -29,16 +29,56 @@ World管理システムは以下の主要な責務を持ちます：
 ```typescript
 import { Effect, Context, Schema } from 'effect'
 
-export interface WorldService {
+export // World関連スキーマ
+const WorldMetadataSchema = Schema.Struct({
+  id: WorldIdSchema,
+  name: Schema.String,
+  createdAt: Schema.Date,
+  lastPlayed: Schema.Date,
+  seed: Schema.Number.pipe(Schema.int()),
+  gameMode: GameModeSchema,
+  difficulty: Schema.Union(
+    Schema.Literal('peaceful'),
+    Schema.Literal('easy'),
+    Schema.Literal('normal'),
+    Schema.Literal('hard')
+  ),
+  allowCheats: Schema.Boolean,
+  generateStructures: Schema.Boolean,
+})
+export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
+
+export const WorldSettingsSchema = Schema.Struct({
+  gameMode: GameModeSchema,
+  difficulty: Schema.Union(
+    Schema.Literal('peaceful'),
+    Schema.Literal('easy'),
+    Schema.Literal('normal'),
+    Schema.Literal('hard')
+  ),
+  allowCheats: Schema.Boolean,
+  generateStructures: Schema.Boolean,
+  spawnPosition: PositionSchema,
+})
+export type WorldSettings = Schema.Schema.Type<typeof WorldSettingsSchema>
+
+export const WorldSchema = Schema.Struct({
+  id: WorldIdSchema,
+  metadata: WorldMetadataSchema,
+  settings: WorldSettingsSchema,
+})
+export type World = Schema.Schema.Type<typeof WorldSchema>
+
+interface WorldService {
   readonly createWorld: (
-    params: Schema.Schema.Type<typeof CreateWorldParams>
+    params: Schema.Schema.Type<typeof CreateWorldParamsSchema>
   ) => Effect.Effect<World, WorldCreationError>
   readonly loadWorld: (worldId: WorldId) => Effect.Effect<World, WorldLoadError>
   readonly saveWorld: (worldId: WorldId) => Effect.Effect<void, WorldSaveError>
   readonly deleteWorld: (worldId: WorldId) => Effect.Effect<void, WorldDeleteError>
   readonly getWorldMetadata: (worldId: WorldId) => Effect.Effect<WorldMetadata, WorldNotFoundError>
   readonly updateWorldSettings: (
-    params: Schema.Schema.Type<typeof UpdateWorldSettingsParams>
+    params: Schema.Schema.Type<typeof UpdateWorldSettingsParamsSchema>
   ) => Effect.Effect<WorldSettings, WorldUpdateError>
   readonly checkCollision: (position: Position) => Effect.Effect<boolean, CollisionCheckError>
 }
@@ -49,9 +89,21 @@ export const WorldService = Context.GenericTag<WorldService>('@app/WorldService'
 ### ChunkService - Chunk管理
 
 ```typescript
-export interface ChunkService {
+export // Chunk関連スキーマ
+const ChunkSchema = Schema.Struct({
+  coordinate: ChunkCoordinateSchema,
+  blocks: Schema.Array(Schema.suspend(() => BlockSchema)),
+  biome: Schema.String,
+  heightMap: Schema.Array(Schema.Number.pipe(Schema.int())),
+  isGenerated: Schema.Boolean,
+  isDirty: Schema.Boolean,
+  lastAccessed: Schema.Date,
+})
+export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
+
+interface ChunkService {
   readonly generateChunk: (
-    params: Schema.Schema.Type<typeof GenerateChunkParams>
+    params: Schema.Schema.Type<typeof GenerateChunkParamsSchema>
   ) => Effect.Effect<Chunk, ChunkGenerationError>
   readonly loadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
   readonly unloadChunk: (coordinate: ChunkCoordinate) => Effect.Effect<void, ChunkUnloadError>
@@ -67,18 +119,54 @@ export const ChunkService = Context.GenericTag<ChunkService>('@app/ChunkService'
 ### WorldManagementService - 高レベルWorld操作
 
 ```typescript
-export interface WorldManagementService {
+export // World管理関連スキーマ
+const WorldInfoSchema = Schema.Struct({
+  metadata: WorldMetadataSchema,
+  settings: WorldSettingsSchema,
+  playerCount: Schema.Number.pipe(Schema.nonNegative()),
+  chunkCount: Schema.Number.pipe(Schema.nonNegative()),
+  size: Schema.Number.pipe(Schema.nonNegative()),
+})
+export type WorldInfo = Schema.Schema.Type<typeof WorldInfoSchema>
+
+export const WorldSummarySchema = Schema.Struct({
+  id: WorldIdSchema,
+  name: Schema.String,
+  gameMode: GameModeSchema,
+  lastPlayed: Schema.Date,
+  playerCount: Schema.Number.pipe(Schema.nonNegative()),
+})
+export type WorldSummary = Schema.Schema.Type<typeof WorldSummarySchema>
+
+export const CreateNewWorldParamsSchema = CreateWorldParamsSchema
+export type CreateNewWorldParams = Schema.Schema.Type<typeof CreateNewWorldParamsSchema>
+
+export const TransferPlayerParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  fromWorldId: WorldIdSchema,
+  toWorldId: WorldIdSchema,
+  targetPosition: Schema.optional(PositionSchema),
+})
+export type TransferPlayerParams = Schema.Schema.Type<typeof TransferPlayerParamsSchema>
+
+export const UpdateWorldSettingsParamsSchema = Schema.Struct({
+  worldId: WorldIdSchema,
+  settings: Schema.partial(WorldSettingsSchema),
+})
+export type UpdateWorldSettingsParams = Schema.Schema.Type<typeof UpdateWorldSettingsParamsSchema>
+
+interface WorldManagementService {
   readonly createNewWorld: (
-    params: Schema.Schema.Type<typeof CreateNewWorldParams>
+    params: Schema.Schema.Type<typeof CreateNewWorldParamsSchema>
   ) => Effect.Effect<World, WorldManagementError>
   readonly generateTerrain: (
-    params: Schema.Schema.Type<typeof GenerateTerrainParams>
+    params: Schema.Schema.Type<typeof GenerateTerrainParamsSchema>
   ) => Effect.Effect<ReadonlyArray<Chunk>, TerrainGenerationError>
   readonly spawnPlayer: (
-    params: Schema.Schema.Type<typeof SpawnPlayerParams>
+    params: Schema.Schema.Type<typeof SpawnPlayerParamsSchema>
   ) => Effect.Effect<Player, PlayerSpawnError>
   readonly transferPlayer: (
-    params: Schema.Schema.Type<typeof TransferPlayerParams>
+    params: Schema.Schema.Type<typeof TransferPlayerParamsSchema>
   ) => Effect.Effect<void, PlayerTransferError>
   readonly getWorldInfo: (worldId: WorldId) => Effect.Effect<WorldInfo, WorldNotFoundError>
   readonly listWorlds: () => Effect.Effect<ReadonlyArray<WorldSummary>, WorldListError>
@@ -96,8 +184,25 @@ export const WorldManagementService = Context.GenericTag<WorldManagementService>
 新しいワールドを作成します。
 
 ```typescript
+// ブランド型定義
+export const WorldIdSchema = Schema.String.pipe(Schema.pattern(/^world-[a-zA-Z0-9_-]+$/), Schema.brand('WorldId'))
+export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
+
+export const ChunkCoordinateSchema = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int()),
+})
+export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>
+
+export const PositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+export type Position = Schema.Schema.Type<typeof PositionSchema>
+
 // Schema定義
-export const CreateWorldParams = Schema.Struct({
+export const CreateWorldParamsSchema = Schema.Struct({
   name: Schema.String.pipe(
     Schema.minLength(1, { message: () => 'ワールド名は必須です' }),
     Schema.maxLength(32, { message: () => 'ワールド名は32文字以下にしてください' })
@@ -124,6 +229,7 @@ export const CreateWorldParams = Schema.Struct({
     description: 'ワールド作成パラメータ',
   })
 )
+export type CreateWorldParams = Schema.Schema.Type<typeof CreateWorldParamsSchema>
 
 // 使用例
 const createNewWorld = Effect.gen(function* () {
@@ -187,7 +293,7 @@ const saveWorldData = (worldId: WorldId) =>
 
 ```typescript
 // Schema定義
-export const GenerateChunkParams = Schema.Struct({
+export const GenerateChunkParamsSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
   seed: Schema.Number.pipe(Schema.int()),
@@ -199,6 +305,7 @@ export const GenerateChunkParams = Schema.Struct({
     description: 'チャンク生成パラメータ',
   })
 )
+export type GenerateChunkParams = Schema.Schema.Type<typeof GenerateChunkParamsSchema>
 
 // 使用例
 const generateNewChunk = (x: number, z: number, seed: number) =>
@@ -254,7 +361,7 @@ const loadChunkSafely = (coordinate: ChunkCoordinate) =>
 
 ```typescript
 // Schema定義
-export const GenerateTerrainParams = Schema.Struct({
+export const GenerateTerrainParamsSchema = Schema.Struct({
   center: ChunkCoordinateSchema,
   radius: Schema.Number.pipe(
     Schema.int(),
@@ -274,6 +381,7 @@ export const GenerateTerrainParams = Schema.Struct({
     description: '地形生成パラメータ',
   })
 )
+export type GenerateTerrainParams = Schema.Schema.Type<typeof GenerateTerrainParamsSchema>
 
 // 使用例
 const generateSpawnArea = (spawnPoint: Position) =>
@@ -301,10 +409,19 @@ const generateSpawnArea = (spawnPoint: Position) =>
 プレイヤーをワールドにスポーンさせます。
 
 ```typescript
+// ゲームモードスキーマ
+export const GameModeSchema = Schema.Union(
+  Schema.Literal('survival'),
+  Schema.Literal('creative'),
+  Schema.Literal('adventure'),
+  Schema.Literal('spectator')
+)
+export type GameMode = Schema.Schema.Type<typeof GameModeSchema>
+
 // Schema定義
-export const SpawnPlayerParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand(PlayerId)),
-  worldId: Schema.String.pipe(Schema.brand(WorldId)),
+export const SpawnPlayerParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  worldId: WorldIdSchema,
   spawnType: Schema.Union(
     Schema.Literal('world_spawn'),
     Schema.Literal('bed_spawn'),
@@ -319,6 +436,7 @@ export const SpawnPlayerParams = Schema.Struct({
     description: 'プレイヤースポーンパラメータ',
   })
 )
+export type SpawnPlayerParams = Schema.Schema.Type<typeof SpawnPlayerParamsSchema>
 
 // 使用例
 const spawnNewPlayer = (playerId: PlayerId, worldId: WorldId) =>

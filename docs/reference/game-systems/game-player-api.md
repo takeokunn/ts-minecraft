@@ -59,77 +59,260 @@ import { Effect, Layer, Context, Schema, pipe, Match, STM, Ref, Stream } from 'e
 import { Brand, Option } from 'effect'
 
 // ブランド型定義（型安全性確保）
-export const PlayerId = Schema.String.pipe(
+export const PlayerIdSchema = Schema.String.pipe(
   Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
   Schema.brand('PlayerId')
 )
-export type PlayerId = Schema.Schema.Type<typeof PlayerId>
+export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
-export const PlayerName = Schema.String.pipe(
+export const PlayerNameSchema = Schema.String.pipe(
   Schema.minLength(3),
   Schema.maxLength(16),
   Schema.pattern(/^[a-zA-Z0-9_]+$/),
   Schema.brand('PlayerName')
 )
-export type PlayerName = Schema.Schema.Type<typeof PlayerName>
+export type PlayerName = Schema.Schema.Type<typeof PlayerNameSchema>
 
-export const Experience = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience'))
-export type Experience = Schema.Schema.Type<typeof Experience>
+export const ExperienceSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience'))
+export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 ```
 
 ### 座標・物理系
 
 ```typescript
-// 座標系の値オブジェクト
-export const Position3D = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type Position3D = Schema.Schema.Type<typeof Position3D>
+// 座標系の厳密な制約 - World boundaries with overflow protection
+export const WorldPositionSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.between(-30000000, 30000000),
+    Schema.filter((x) => Number.isFinite(x) && !Number.isNaN(x)),
+    Schema.brand('WorldX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-64, 320), // Minecraft Y range
+    Schema.filter((y) => Number.isInteger(y)),
+    Schema.brand('WorldY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-30000000, 30000000),
+    Schema.filter((z) => Number.isFinite(z) && !Number.isNaN(z)),
+    Schema.brand('WorldZ')
+  ),
+}).pipe(
+  Schema.filter((pos) => {
+    // Additional semantic validation
+    const distanceFromOrigin = Math.sqrt(pos.x * pos.x + pos.z * pos.z)
+    return distanceFromOrigin <= 30000000 // Prevent floating point errors
+  }),
+  Schema.annotations({
+    identifier: 'WorldPosition',
+    title: 'World Position',
+    description: '3D position within Minecraft world boundaries with overflow protection',
+  })
+)
+export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
 
-export const Rotation = Schema.Struct({
-  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-  pitch: Schema.Number.pipe(Schema.between(-90, 90)),
-})
-export type Rotation = Schema.Schema.Type<typeof Rotation>
+// Relative position with clamping
+export const RelativePositionSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((x) => Number.isFinite(x)),
+    Schema.brand('RelativeX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((y) => Number.isFinite(y)),
+    Schema.brand('RelativeY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((z) => Number.isFinite(z)),
+    Schema.brand('RelativeZ')
+  ),
+}).pipe(
+  Schema.filter((pos) => {
+    // Ensure relative positions don't create impossible vectors
+    const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z)
+    return magnitude <= 221.7 // Maximum 3D distance in 128^3 cube
+  }),
+  Schema.annotations({
+    identifier: 'RelativePosition',
+    title: 'Relative Position',
+    description: 'Position relative to a reference point with magnitude validation',
+  })
+)
+export type RelativePosition = Schema.Schema.Type<typeof RelativePositionSchema>
 
-export const Velocity3D = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type Velocity3D = Schema.Schema.Type<typeof Velocity3D>
+// Backward compatibility aliases
+export const Position3DSchema = WorldPositionSchema
+export type Position3D = WorldPosition
+
+// Rotation with overflow protection
+export const RotationSchema = Schema.Struct({
+  yaw: Schema.Number.pipe(
+    Schema.between(-180, 180),
+    Schema.filter((yaw) => Number.isFinite(yaw)),
+    Schema.brand('Yaw')
+  ),
+  pitch: Schema.Number.pipe(
+    Schema.between(-90, 90),
+    Schema.filter((pitch) => Number.isFinite(pitch)),
+    Schema.brand('Pitch')
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'Rotation',
+    title: 'Player Rotation',
+    description: 'Player view rotation with clamped angles',
+  })
+)
+export type Rotation = Schema.Schema.Type<typeof RotationSchema>
+
+// Velocity with physics constraints
+export const Velocity3DSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.between(-100, 100), // Max velocity constraint
+    Schema.filter((x) => Number.isFinite(x)),
+    Schema.brand('VelocityX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-100, 100),
+    Schema.filter((y) => Number.isFinite(y)),
+    Schema.brand('VelocityY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-100, 100),
+    Schema.filter((z) => Number.isFinite(z)),
+    Schema.brand('VelocityZ')
+  ),
+}).pipe(
+  Schema.filter((velocity) => {
+    // Terminal velocity check
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
+    return speed <= 78.4 // Maximum realistic speed
+  }),
+  Schema.annotations({
+    identifier: 'Velocity3D',
+    title: '3D Velocity',
+    description: 'Player velocity with physics constraints',
+  })
+)
+export type Velocity3D = Schema.Schema.Type<typeof Velocity3DSchema>
 ```
 
 ### プレイヤー統計・状態
 
 ```typescript
+// Health with game mechanics validation
+export const HealthSchema = Schema.Number.pipe(
+  Schema.between(0, 20),
+  Schema.multipleOf(0.5), // Half-heart increments
+  Schema.filter((health) => health >= 0 && health <= 20),
+  Schema.brand('Health'),
+  Schema.annotations({
+    identifier: 'Health',
+    title: 'Player Health',
+    description: 'Health points in half-heart increments (0.5, 1.0, 1.5, ..., 20.0)',
+  })
+)
+export type Health = Schema.Schema.Type<typeof HealthSchema>
+
+// Helper functions for experience calculations
+const calculateLevelFromPoints = (points: number): number => {
+  // Minecraft experience calculation
+  if (points < 352) return Math.floor(Math.sqrt(points + 9) - 3)
+  if (points < 1507) return Math.floor((Math.sqrt(40 * points - 7839) + 81) / 20)
+  return Math.floor((Math.sqrt(72 * points - 54215) + 325) / 36)
+}
+
+const getLevelRequiredPoints = (level: number): number => {
+  if (level <= 16) return level * level + 6 * level
+  if (level <= 31) return 2.5 * level * level - 40.5 * level + 360
+  return 4.5 * level * level - 162.5 * level + 2220
+}
+
+const calculateProgressInLevel = (points: number, level: number): number => {
+  const levelPoints = getLevelRequiredPoints(level)
+  const nextLevelPoints = getLevelRequiredPoints(level + 1)
+  const pointsInLevel = points - levelPoints
+  const pointsNeeded = nextLevelPoints - levelPoints
+  return Math.max(0, Math.min(1, pointsInLevel / pointsNeeded))
+}
+
+// Experience with level correlation validation
+export const PlayerExperienceSchema = Schema.Struct({
+  points: Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('ExperiencePoints')),
+  level: Schema.Number.pipe(Schema.int(), Schema.between(0, 2147483647), Schema.brand('ExperienceLevel')),
+  progress: Schema.Number.pipe(
+    Schema.between(0, 1),
+    Schema.filter((progress) => Number.isFinite(progress)),
+    Schema.brand('ExperienceProgress')
+  ),
+}).pipe(
+  Schema.filter((exp) => {
+    // Validate level-points correlation
+    const expectedLevel = calculateLevelFromPoints(exp.points)
+    const expectedProgress = calculateProgressInLevel(exp.points, expectedLevel)
+    return Math.abs(exp.level - expectedLevel) <= 1 && Math.abs(exp.progress - expectedProgress) <= 0.01
+  }),
+  Schema.annotations({
+    identifier: 'PlayerExperience',
+    title: 'Player Experience',
+    description: 'Experience system with validated level-points correlation',
+  })
+)
+export type PlayerExperience = Schema.Schema.Type<typeof PlayerExperienceSchema>
+
 // プレイヤーステータス - Schema.Structによる型安全な定義
-export const PlayerStats = Schema.Struct({
-  health: pipe(Schema.Number, Schema.between(0, 20), Schema.brand('Health')),
-  hunger: pipe(Schema.Number, Schema.between(0, 20), Schema.brand('Hunger')),
-  saturation: pipe(Schema.Number, Schema.between(0, 20), Schema.brand('Saturation')),
-  experience: Experience,
-  level: pipe(Schema.Number, Schema.int(), Schema.nonNegative(), Schema.brand('Level')),
-  armor: pipe(Schema.Number, Schema.between(0, 20), Schema.brand('Armor')),
-})
-export type PlayerStats = Schema.Schema.Type<typeof PlayerStats>
+export const PlayerStatsSchema = Schema.Struct({
+  health: HealthSchema,
+  hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.multipleOf(0.5), Schema.brand('Hunger')),
+  saturation: Schema.Number.pipe(
+    Schema.between(0, 20),
+    Schema.filter((sat, ctx) => {
+      // Saturation cannot exceed hunger level
+      const hunger = ctx.parent?.hunger
+      return hunger ? sat <= hunger : true
+    }),
+    Schema.brand('Saturation')
+  ),
+  experience: PlayerExperienceSchema,
+  armor: Schema.Number.pipe(Schema.between(0, 20), Schema.multipleOf(0.5), Schema.brand('Armor')),
+}).pipe(
+  Schema.filter((stats) => {
+    // Cross-field validation
+    if (stats.saturation > stats.hunger) return false
+    if (stats.health === 0 && stats.hunger > 0) {
+      // Dead players should have no hunger
+      return false
+    }
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'PlayerStats',
+    title: 'Player Statistics',
+    description: 'Complete player statistics with cross-field validation',
+  })
+)
+export type PlayerStats = Schema.Schema.Type<typeof PlayerStatsSchema>
+
+// Backward compatibility
+export const ExperienceSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience'))
+export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 ```
 
 ### プレイヤーアグリゲート（ルート）
 
 ```typescript
 // プレイヤーアグリゲートルート - 完全なプレイヤー表現
-export const Player = Schema.Struct({
-  id: PlayerId,
-  name: PlayerName,
-  position: Position3D,
-  rotation: Rotation,
-  velocity: Velocity3D,
-  stats: PlayerStats,
-  inventory: Schema.reference(() => Inventory), // 循環参照回避
-  equipment: Schema.reference(() => Equipment),
+export const PlayerSchema = Schema.Struct({
+  id: PlayerIdSchema,
+  name: PlayerNameSchema,
+  position: Position3DSchema,
+  rotation: RotationSchema,
+  velocity: Velocity3DSchema,
+  stats: PlayerStatsSchema,
+  inventory: Schema.suspend(() => InventorySchema), // 循環参照回避
+  equipment: Schema.suspend(() => EquipmentSchema),
   gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
   abilities: Schema.Struct({
     canFly: Schema.Boolean,
@@ -141,19 +324,19 @@ export const Player = Schema.Struct({
     flySpeed: Schema.Number,
   }),
   metadata: Schema.Struct({
-    createdAt: Schema.DateTimeUtc,
-    lastActive: Schema.DateTimeUtc,
+    createdAt: Schema.Date,
+    lastActive: Schema.Date,
     playTime: Schema.Number.pipe(Schema.nonNegative()),
   }),
 })
-export type Player = Schema.Schema.Type<typeof Player>
+export type Player = Schema.Schema.Type<typeof PlayerSchema>
 ```
 
 ### 移動・アクション関連
 
 ```typescript
 // 移動方向定義
-export const Direction = Schema.Struct({
+export const DirectionSchema = Schema.Struct({
   forward: Schema.Boolean,
   backward: Schema.Boolean,
   left: Schema.Boolean,
@@ -162,13 +345,13 @@ export const Direction = Schema.Struct({
   sneak: Schema.Boolean,
   sprint: Schema.Boolean,
 })
-export type Direction = Schema.Schema.Type<typeof Direction>
+export type Direction = Schema.Schema.Type<typeof DirectionSchema>
 
 // プレイヤーアクション（Tagged Union）
-export const PlayerAction = Schema.Union(
+export const PlayerActionSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('Move'),
-    direction: Direction,
+    direction: DirectionSchema,
     deltaTime: Schema.Number.pipe(Schema.positive()),
   }),
   Schema.Struct({
@@ -180,21 +363,21 @@ export const PlayerAction = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('UseItem'),
-    item: Schema.reference(() => ItemStack),
-    target: Schema.optional(Position3D),
+    item: Schema.suspend(() => ItemStackSchema),
+    target: Schema.optional(Position3DSchema),
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlaceBlock'),
-    position: Position3D,
+    position: Position3DSchema,
     face: Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west'),
   }),
   Schema.Struct({
     _tag: Schema.Literal('BreakBlock'),
-    position: Position3D,
+    position: Position3DSchema,
   }),
   Schema.Struct({
     _tag: Schema.Literal('OpenContainer'),
-    position: Position3D,
+    position: Position3DSchema,
   }),
   Schema.Struct({
     _tag: Schema.Literal('DropItem'),
@@ -202,7 +385,7 @@ export const PlayerAction = Schema.Union(
     count: Schema.Number.pipe(Schema.int(), Schema.positive()),
   })
 )
-export type PlayerAction = Schema.Schema.Type<typeof PlayerAction>
+export type PlayerAction = Schema.Schema.Type<typeof PlayerActionSchema>
 ```
 
 ## 🏗️ 主要インターフェース
@@ -384,8 +567,8 @@ export const PlayerServiceLive = Layer.effect(
 )
 
 // Schema定義
-export const CreatePlayerParams = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand('PlayerId')),
+export const CreatePlayerParamsSchema = Schema.Struct({
+  id: PlayerIdSchema,
   name: Schema.String.pipe(
     Schema.minLength(3, { message: () => 'プレイヤー名は3文字以上必要です' }),
     Schema.maxLength(16, { message: () => 'プレイヤー名は16文字以下必要です' }),
@@ -420,13 +603,14 @@ export const CreatePlayerParams = Schema.Struct({
     },
   })
 )
+export type CreatePlayerParams = Schema.Schema.Type<typeof CreatePlayerParamsSchema>
 
 // 高度なバリデーション拡張
-export const CreatePlayerParamsWithAdvancedValidation = CreatePlayerParams.pipe(
+export const CreatePlayerParamsWithAdvancedValidationSchema = CreatePlayerParamsSchema.pipe(
   Schema.transform(
     Schema.Struct({
-      id: Schema.String.pipe(Schema.brand('PlayerId')),
-      name: Schema.String.pipe(Schema.brand('PlayerName')),
+      id: PlayerIdSchema,
+      name: PlayerNameSchema,
       position: Schema.Struct({
         x: Schema.Number,
         y: Schema.Number,
@@ -441,12 +625,12 @@ export const CreatePlayerParamsWithAdvancedValidation = CreatePlayerParams.pipe(
       // 拡張フィールド
       initialStats: Schema.optional(
         Schema.Struct({
-          health: Schema.Number.pipe(Schema.between(1, 20), Schema.withDefault(20)),
-          hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.withDefault(20)),
-          experience: Schema.Number.pipe(Schema.nonNegative(), Schema.withDefault(0)),
+          health: Schema.Number.pipe(Schema.between(1, 20)),
+          hunger: Schema.Number.pipe(Schema.between(0, 20)),
+          experience: Schema.Number.pipe(Schema.nonNegative()),
         })
       ),
-      spawnProtection: Schema.optional(Schema.Boolean.pipe(Schema.withDefault(true))),
+      spawnProtection: Schema.optional(Schema.Boolean),
     }),
     {
       strict: false,
@@ -462,26 +646,24 @@ export const CreatePlayerParamsWithAdvancedValidation = CreatePlayerParams.pipe(
     }
   )
 )
+export type CreatePlayerParamsWithAdvancedValidation = Schema.Schema.Type<
+  typeof CreatePlayerParamsWithAdvancedValidationSchema
+>
 
-export const UpdatePositionParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  rotation: Schema.Struct({
-    yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-    pitch: Schema.Number.pipe(Schema.between(-90, 90)),
-  }),
+export const UpdatePositionParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  position: Position3DSchema,
+  rotation: RotationSchema,
 })
+export type UpdatePositionParams = Schema.Schema.Type<typeof UpdatePositionParamsSchema>
 
-export const UpdateStatsParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const UpdateStatsParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   health: Schema.optional(Schema.Number.pipe(Schema.between(0, 20))),
   hunger: Schema.optional(Schema.Number.pipe(Schema.between(0, 20))),
   experience: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
 })
+export type UpdateStatsParams = Schema.Schema.Type<typeof UpdateStatsParamsSchema>
 ```
 
 ### IPlayerMovementService - プレイヤー移動
@@ -499,7 +681,7 @@ export interface IPlayerMovementService {
 export const PlayerMovementService = Context.GenericTag<IPlayerMovementService>('@app/PlayerMovementService')
 
 // 移動方向定義
-export const Direction = Schema.Struct({
+export const DirectionSchema = Schema.Struct({
   forward: Schema.Boolean,
   backward: Schema.Boolean,
   left: Schema.Boolean,
@@ -508,40 +690,34 @@ export const Direction = Schema.Struct({
   sneak: Schema.Boolean,
   sprint: Schema.Boolean,
 })
+export type Direction = Schema.Schema.Type<typeof DirectionSchema>
 
-export const MovePlayerParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  direction: Direction,
+export const MovePlayerParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  direction: DirectionSchema,
   deltaTime: Schema.Number.pipe(Schema.positive()),
   inputVector: Schema.Struct({
     x: Schema.Number.pipe(Schema.between(-1, 1)),
     z: Schema.Number.pipe(Schema.between(-1, 1)),
   }),
 })
+export type MovePlayerParams = Schema.Schema.Type<typeof MovePlayerParamsSchema>
 
-export const TeleportParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  destination: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
+export const TeleportParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  destination: Position3DSchema,
   preserveRotation: Schema.optional(Schema.Boolean),
 })
+export type TeleportParams = Schema.Schema.Type<typeof TeleportParamsSchema>
 
 // 衝突結果
-export const CollisionResult = Schema.Struct({
+export const CollisionResultSchema = Schema.Struct({
   hasCollision: Schema.Boolean,
-  resolvedPosition: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    })
-  ),
+  resolvedPosition: Schema.optional(Position3DSchema),
   collisionAxis: Schema.optional(Schema.Union(Schema.Literal('x'), Schema.Literal('y'), Schema.Literal('z'))),
   isOnGround: Schema.Boolean,
 })
+export type CollisionResult = Schema.Schema.Type<typeof CollisionResultSchema>
 ```
 
 ### IPlayerInventoryService - インベントリ管理
@@ -564,40 +740,30 @@ export interface IPlayerInventoryService {
 export const PlayerInventoryService = Context.GenericTag<IPlayerInventoryService>('@app/PlayerInventoryService')
 
 // インベントリ操作パラメータ
-export const AddItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  item: Schema.Struct({
-    itemId: Schema.String.pipe(Schema.brand('ItemId')),
-    count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-    durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-    enchantments: Schema.optional(
-      Schema.Array(
-        Schema.Struct({
-          id: Schema.String,
-          level: Schema.Number.pipe(Schema.int(), Schema.between(1, 5)),
-        })
-      )
-    ),
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  }),
+export const AddItemParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  item: Schema.suspend(() => ItemStackSchema),
   preferredSlot: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.between(0, 35))),
 })
+export type AddItemParams = Schema.Schema.Type<typeof AddItemParamsSchema>
 
-export const RemoveItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const RemoveItemParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   slotIndex: Schema.Number.pipe(Schema.int(), Schema.between(0, 35)),
   count: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
 })
+export type RemoveItemParams = Schema.Schema.Type<typeof RemoveItemParamsSchema>
 
-export const MoveItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const MoveItemParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   fromSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 35)),
   toSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 35)),
   amount: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
 })
+export type MoveItemParams = Schema.Schema.Type<typeof MoveItemParamsSchema>
 
-export const EquipItemParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const EquipItemParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   slotIndex: Schema.Number.pipe(Schema.int(), Schema.between(0, 35)),
   equipmentSlot: Schema.Union(
     Schema.Literal('helmet'),
@@ -608,6 +774,7 @@ export const EquipItemParams = Schema.Struct({
     Schema.Literal('offHand')
   ),
 })
+export type EquipItemParams = Schema.Schema.Type<typeof EquipItemParamsSchema>
 ```
 
 ### IPlayerActionProcessor - アクション処理
@@ -626,10 +793,10 @@ export interface IPlayerActionProcessor {
 export const PlayerActionProcessor = Context.GenericTag<IPlayerActionProcessor>('@app/PlayerActionProcessor')
 
 // プレイヤーアクション定義（Tagged Union）
-export const PlayerAction = Schema.Union(
+export const PlayerActionSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('Move'),
-    direction: Direction,
+    direction: DirectionSchema,
     deltaTime: Schema.Number,
   }),
   Schema.Struct({
@@ -637,7 +804,7 @@ export const PlayerAction = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlaceBlock'),
-    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    position: Position3DSchema,
     blockType: Schema.String.pipe(Schema.brand('BlockType')),
     face: Schema.Union(
       Schema.Literal('top'),
@@ -650,13 +817,13 @@ export const PlayerAction = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('BreakBlock'),
-    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    position: Position3DSchema,
     tool: Schema.optional(Schema.String.pipe(Schema.brand('ItemId'))),
   }),
   Schema.Struct({
     _tag: Schema.Literal('UseItem'),
     item: Schema.String.pipe(Schema.brand('ItemId')),
-    target: Schema.optional(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })),
+    target: Schema.optional(Position3DSchema),
   }),
   Schema.Struct({
     _tag: Schema.Literal('Attack'),
@@ -668,7 +835,7 @@ export const PlayerAction = Schema.Union(
     target: Schema.Union(
       Schema.Struct({
         type: Schema.Literal('block'),
-        position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+        position: Position3DSchema,
       }),
       Schema.Struct({
         type: Schema.Literal('entity'),
@@ -677,8 +844,9 @@ export const PlayerAction = Schema.Union(
     ),
   })
 )
+export type PlayerAction = Schema.Schema.Type<typeof PlayerActionSchema>
 
-export const ActionResult = Schema.Struct({
+export const ActionResultSchema = Schema.Struct({
   success: Schema.Boolean,
   timestamp: Schema.Number,
   result: Schema.optional(Schema.Unknown),
@@ -692,6 +860,7 @@ export const ActionResult = Schema.Struct({
     )
   ),
 })
+export type ActionResult = Schema.Schema.Type<typeof ActionResultSchema>
 ```
 
 ### IPlayerHealthSystem - 体力・空腹度管理
@@ -712,9 +881,9 @@ export interface IPlayerHealthSystem {
 export const PlayerHealthSystem = Context.GenericTag<IPlayerHealthSystem>('@app/PlayerHealthSystem')
 
 // 体力関連パラメータ
-export const DamageParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  amount: Schema.Number.pipe(Schema.nonnegative()),
+export const DamageParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  amount: Schema.Number.pipe(Schema.nonNegative()),
   source: Schema.Union(
     Schema.Literal('fall'),
     Schema.Literal('fire'),
@@ -732,9 +901,10 @@ export const DamageParams = Schema.Struct({
     Schema.Literal('explosion')
   ),
 })
+export type DamageParams = Schema.Schema.Type<typeof DamageParamsSchema>
 
-export const HealParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const HealParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   amount: Schema.Number.pipe(Schema.positive()),
   source: Schema.Union(
     Schema.Literal('food'),
@@ -743,15 +913,17 @@ export const HealParams = Schema.Struct({
     Schema.Literal('command')
   ),
 })
+export type HealParams = Schema.Schema.Type<typeof HealParamsSchema>
 
-export const FeedParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const FeedParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   hunger: Schema.Number.pipe(Schema.between(0, 20)),
   saturation: Schema.Number.pipe(Schema.between(0, 20)),
 })
+export type FeedParams = Schema.Schema.Type<typeof FeedParamsSchema>
 
-export const StatusEffectParams = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+export const StatusEffectParamsSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
   effect: Schema.Struct({
     type: Schema.Union(
       Schema.Literal('speed'),
@@ -766,6 +938,7 @@ export const StatusEffectParams = Schema.Struct({
     duration: Schema.Number.pipe(Schema.positive()), // ティック数
   }),
 })
+export type StatusEffectParams = Schema.Schema.Type<typeof StatusEffectParamsSchema>
 ```
 
 ## メソッド詳細
@@ -1220,79 +1393,22 @@ const result =
 
 ```typescript
 // プレイヤーエンティティ完全定義
-export const Player = Schema.Struct({
+export const PlayerDetailedSchema = Schema.Struct({
   // 基本情報
-  id: Schema.String.pipe(Schema.brand('PlayerId')),
-  name: Schema.String.pipe(Schema.brand('PlayerName')),
+  id: PlayerIdSchema,
+  name: PlayerNameSchema,
 
   // 位置・回転
-  position: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
-  rotation: Schema.Struct({
-    yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-    pitch: Schema.Number.pipe(Schema.between(-90, 90)),
-  }),
-  velocity: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  }),
+  position: Position3DSchema,
+  rotation: RotationSchema,
+  velocity: Velocity3DSchema,
 
   // ステータス
-  stats: Schema.Struct({
-    health: Schema.Number.pipe(Schema.between(0, 20)),
-    hunger: Schema.Number.pipe(Schema.between(0, 20)),
-    saturation: Schema.Number.pipe(Schema.between(0, 20)),
-    experience: Schema.Number.pipe(Schema.nonNegative()),
-    level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    armor: Schema.Number.pipe(Schema.between(0, 20)),
-  }),
+  stats: PlayerStatsSchema,
 
   // インベントリ・装備
-  inventory: Schema.Struct({
-    slots: Schema.Array(
-      Schema.Union(
-        Schema.Struct({
-          itemId: Schema.String.pipe(Schema.brand('ItemId')),
-          count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-          durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-          enchantments: Schema.optional(
-            Schema.Array(
-              Schema.Struct({
-                id: Schema.String,
-                level: Schema.Number,
-              })
-            )
-          ),
-          metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-        }),
-        Schema.Null
-      )
-    ).pipe(Schema.itemsCount(36)), // 9x4 グリッド
-    hotbar: Schema.Array(
-      Schema.Union(
-        Schema.Struct({
-          itemId: Schema.String.pipe(Schema.brand('ItemId')),
-          count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
-          durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-        }),
-        Schema.Null
-      )
-    ).pipe(Schema.itemsCount(9)),
-    selectedSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 8)),
-  }),
-
-  equipment: Schema.Struct({
-    helmet: Schema.Union(ItemStackSchema, Schema.Null),
-    chestplate: Schema.Union(ItemStackSchema, Schema.Null),
-    leggings: Schema.Union(ItemStackSchema, Schema.Null),
-    boots: Schema.Union(ItemStackSchema, Schema.Null),
-    mainHand: Schema.Union(ItemStackSchema, Schema.Null),
-    offHand: Schema.Union(ItemStackSchema, Schema.Null),
-  }),
+  inventory: Schema.suspend(() => InventorySchema),
+  equipment: Schema.suspend(() => EquipmentSchema),
 
   // ゲーム設定
   gameMode: Schema.Union(
@@ -1328,17 +1444,10 @@ export const Player = Schema.Struct({
     lastLogin: Schema.Number,
     playtime: Schema.Number,
     worldId: Schema.String.pipe(Schema.brand('WorldId')),
-    bedPosition: Schema.optional(
-      Schema.Struct({
-        x: Schema.Number,
-        y: Schema.Number,
-        z: Schema.Number,
-      })
-    ),
+    bedPosition: Schema.optional(Position3DSchema),
   }),
 })
-
-export type Player = Schema.Schema.Type<typeof Player>
+export type PlayerDetailed = Schema.Schema.Type<typeof PlayerDetailedSchema>
 ```
 
 ### 状態更新パターン
@@ -1375,31 +1484,31 @@ export const PlayerStateUpdates = {
 
 ```typescript
 // プレイヤー関連イベント
-export const PlayerEvent = Schema.Union(
+export const PlayerEventSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('PlayerCreated'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    playerId: PlayerIdSchema,
+    position: Position3DSchema,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerMoved'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-    from: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-    to: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    playerId: PlayerIdSchema,
+    from: Position3DSchema,
+    to: Position3DSchema,
     distance: Schema.Number,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerJumped'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    playerId: PlayerIdSchema,
+    position: Position3DSchema,
     jumpHeight: Schema.Number,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerDamaged'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+    playerId: PlayerIdSchema,
     damage: Schema.Number,
     source: Schema.String,
     newHealth: Schema.Number,
@@ -1407,29 +1516,34 @@ export const PlayerEvent = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerHealed'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+    playerId: PlayerIdSchema,
     amount: Schema.Number,
     newHealth: Schema.Number,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerDied'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+    playerId: PlayerIdSchema,
     cause: Schema.String,
-    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    position: Position3DSchema,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerInventoryChanged'),
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+    playerId: PlayerIdSchema,
     slotIndex: Schema.Number,
-    oldItem: Schema.Union(ItemStackSchema, Schema.Null),
-    newItem: Schema.Union(ItemStackSchema, Schema.Null),
+    oldItem: Schema.Union(
+      Schema.suspend(() => ItemStackSchema),
+      Schema.Null
+    ),
+    newItem: Schema.Union(
+      Schema.suspend(() => ItemStackSchema),
+      Schema.Null
+    ),
     timestamp: Schema.Number,
   })
 )
-
-export type PlayerEvent = Schema.Schema.Type<typeof PlayerEvent>
+export type PlayerEvent = Schema.Schema.Type<typeof PlayerEventSchema>
 
 // イベントハンドラー例
 export const PlayerEventHandlers = {
@@ -1485,15 +1599,16 @@ export interface IPlayerSyncService {
 export const PlayerSyncService = Context.GenericTag<IPlayerSyncService>('@app/PlayerSyncService')
 
 // 同期データ定義
-export const PlayerSyncData = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-  rotation: Schema.Struct({ yaw: Schema.Number, pitch: Schema.Number }),
-  velocity: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+export const PlayerSyncDataSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  position: Position3DSchema,
+  rotation: RotationSchema,
+  velocity: Velocity3DSchema,
   animationState: Schema.String,
   timestamp: Schema.Number,
   sequenceNumber: Schema.Number,
 })
+export type PlayerSyncData = Schema.Schema.Type<typeof PlayerSyncDataSchema>
 
 // クライアント側予測
 const predictPlayerMovement = (playerId: PlayerId, input: InputState, deltaTime: number) =>

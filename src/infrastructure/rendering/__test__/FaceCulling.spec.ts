@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Exit, pipe } from 'effect'
+import { Effect, Exit, pipe, Match } from 'effect'
 import {
   FaceCullingError,
   isFaceCullingError,
@@ -20,8 +20,9 @@ const createTestChunk = (size: number, pattern: 'empty' | 'full' | 'hollow' | 's
     Array.from({ length: size }, () => Array.from({ length: size }, () => 0))
   )
 
-  switch (pattern) {
-    case 'full':
+  pipe(
+    Match.value(pattern),
+    Match.when('full', () => {
       for (let x = 0; x < size; x++) {
         for (let y = 0; y < size; y++) {
           for (let z = 0; z < size; z++) {
@@ -29,8 +30,8 @@ const createTestChunk = (size: number, pattern: 'empty' | 'full' | 'hollow' | 's
           }
         }
       }
-      break
-    case 'hollow':
+    }),
+    Match.when('hollow', () => {
       for (let x = 0; x < size; x++) {
         for (let y = 0; y < size; y++) {
           for (let z = 0; z < size; z++) {
@@ -40,14 +41,14 @@ const createTestChunk = (size: number, pattern: 'empty' | 'full' | 'hollow' | 's
           }
         }
       }
-      break
-    case 'single':
+    }),
+    Match.when('single', () => {
       blocks[Math.floor(size / 2)]![Math.floor(size / 2)]![Math.floor(size / 2)] = 1
-      break
-    case 'empty':
-    default:
-      break
-  }
+    }),
+    Match.orElse(() => {
+      // 'empty' ケースやdefaultの場合は何もしない
+    })
+  )
 
   return {
     position: { x: 0, y: 0, z: 0 },

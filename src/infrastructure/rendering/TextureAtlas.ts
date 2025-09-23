@@ -261,24 +261,16 @@ const makeService = (config: AtlasConfig) =>
                       onNone: () => Effect.succeed(calculateTextureRegion(0, config.textureSize, config.atlasSize)),
                       onSome: (blockTexture) =>
                         Effect.succeed(
-                          (() => {
-                            switch (face) {
-                              case 'top':
-                                return blockTexture.top
-                              case 'bottom':
-                                return blockTexture.bottom
-                              case 'front':
-                                return blockTexture.front
-                              case 'back':
-                                return blockTexture.back
-                              case 'left':
-                                return blockTexture.left
-                              case 'right':
-                                return blockTexture.right
-                              default:
-                                throw new Error(`Invalid face: ${face}`)
-                            }
-                          })()
+                          pipe(
+                            Match.value(face),
+                            Match.when('top', () => blockTexture.top),
+                            Match.when('bottom', () => blockTexture.bottom),
+                            Match.when('front', () => blockTexture.front),
+                            Match.when('back', () => blockTexture.back),
+                            Match.when('left', () => blockTexture.left),
+                            Match.when('right', () => blockTexture.right),
+                            Match.exhaustive
+                          )
                         ),
                     })
                   ),
@@ -304,24 +296,16 @@ const makeService = (config: AtlasConfig) =>
                           generateUVCoordsFromRegion(calculateTextureRegion(0, config.textureSize, config.atlasSize))
                         ),
                       onSome: (blockTexture) => {
-                        const region = (() => {
-                          switch (face) {
-                            case 'top':
-                              return blockTexture.top
-                            case 'bottom':
-                              return blockTexture.bottom
-                            case 'front':
-                              return blockTexture.front
-                            case 'back':
-                              return blockTexture.back
-                            case 'left':
-                              return blockTexture.left
-                            case 'right':
-                              return blockTexture.right
-                            default:
-                              throw new Error(`Invalid face: ${face}`)
-                          }
-                        })()
+                        const region = pipe(
+                          Match.value(face),
+                          Match.when('top', () => blockTexture.top),
+                          Match.when('bottom', () => blockTexture.bottom),
+                          Match.when('front', () => blockTexture.front),
+                          Match.when('back', () => blockTexture.back),
+                          Match.when('left', () => blockTexture.left),
+                          Match.when('right', () => blockTexture.right),
+                          Match.exhaustive
+                        )
                         return Effect.succeed(generateUVCoordsFromRegion(region))
                       },
                     })

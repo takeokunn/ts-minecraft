@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Match, Option, pipe } from 'effect'
+import { Context, Effect, Exit, Layer, Ref, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import { DefaultKeyMap, KeyAction, KeyMappingConfig, KeyMappingError } from './KeyMapping'
 import { KeyState } from './types'
@@ -66,8 +66,8 @@ export const KeyboardInputLive = Layer.effect(
       })
 
     // キー押下イベントハンドラー
-    const handleKeyDown = (event: KeyboardEvent) =>
-      Effect.gen(function* () {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const effect = Effect.gen(function* () {
         const key = event.code || event.key
         const keyState: KeyState = {
           key,
@@ -76,11 +76,16 @@ export const KeyboardInputLive = Layer.effect(
         }
 
         yield* Ref.update(keyStates, (states) => new Map(states.set(key, keyState)))
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Key down handler failed:', exit.cause)
+      )
+    }
 
     // キー解放イベントハンドラー
-    const handleKeyUp = (event: KeyboardEvent) =>
-      Effect.gen(function* () {
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const effect = Effect.gen(function* () {
         const key = event.code || event.key
         const keyState: KeyState = {
           key,
@@ -89,11 +94,16 @@ export const KeyboardInputLive = Layer.effect(
         }
 
         yield* Ref.update(keyStates, (states) => new Map(states.set(key, keyState)))
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Key up handler failed:', exit.cause)
+      )
+    }
 
     // ウィンドウフォーカス喪失時の処理
-    const handleWindowBlur = () =>
-      Effect.gen(function* () {
+    const handleWindowBlur = () => {
+      const effect = Effect.gen(function* () {
         // 全てのキーの押下状態をリセット
         const currentStates = yield* Ref.get(keyStates)
         const newStates = new Map<string, KeyState>()
@@ -107,7 +117,12 @@ export const KeyboardInputLive = Layer.effect(
         })
 
         yield* Ref.set(keyStates, newStates)
-      }).pipe(Effect.runPromise)
+      })
+
+      Effect.runPromiseExit(effect).then(
+        (exit) => Exit.isFailure(exit) && console.error('Window blur handler failed:', exit.cause)
+      )
+    }
 
     // イベントリスナーの設定
     const setupEventListeners = safeWindowAccess(() => {

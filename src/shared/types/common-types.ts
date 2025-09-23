@@ -37,9 +37,10 @@ export type NonEmptyArray<T> = readonly [T, ...T[]]
 export type Predicate<T> = (value: T) => boolean
 
 /**
- * AsyncResult型 - 非同期のResult型
+ * AsyncResult型 - 非同期のResult型（Effect-TSパターン）
+ * @deprecated Promise-based AsyncResult is deprecated. Use Effect.Effect<A, E> directly.
  */
-export type AsyncResult<A, E = Error> = Promise<Result<A, E>>
+export type AsyncResult<A, E = Error> = Effect.Effect<A, E>
 
 /**
  * Callback型 - コールバック関数
@@ -47,9 +48,9 @@ export type AsyncResult<A, E = Error> = Promise<Result<A, E>>
 export type Callback<T = void> = (value: T) => void
 
 /**
- * AsyncCallback型 - 非同期コールバック関数
+ * AsyncCallback型 - 非同期コールバック関数（Effect-TSパターン）
  */
-export type AsyncCallback<T = void> = (value: T) => Promise<void>
+export type AsyncCallback<T = void> = (value: T) => Effect.Effect<void>
 
 /**
  * DeepReadonly型 - 深い読み取り専用型
