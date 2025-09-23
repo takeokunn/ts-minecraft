@@ -1344,7 +1344,7 @@ describe('Integration Tests with Test Utilities', () => {
 
 #### 禁止事項
 
-- ❌ **async/await テスト**: Effect.runPromise を使用
+- ❌ **async/await テスト**: 代わりに Effect.runPromise を使用
 - ❌ **手動モック管理**: Layer.succeed でサービス提供
 - ❌ **グローバルテスト状態**: STM + TRef で管理
 - ❌ **非決定論的テスト**: TestClock + TestRandom で制御

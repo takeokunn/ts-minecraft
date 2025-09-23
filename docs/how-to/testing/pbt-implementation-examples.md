@@ -173,10 +173,15 @@ export const calculateJumpVelocityEffect = (
 ): Effect.Effect<number, never, never> => Effect.succeed(Math.sqrt(2 * gravity * jumpHeight))
 
 // PBTテスト（Effect版）
-test.prop([fc.float({ min: 0, max: 10 })])('jump velocity effect is correct', async (height) => {
-  const velocity = await Effect.runPromise(calculateJumpVelocityEffect(height))
-  const calculatedHeight = velocity ** 2 / (2 * 9.8)
-  expect(calculatedHeight).toBeCloseTo(height, 5)
+test.prop([fc.float({ min: 0, max: 10 })])('jump velocity effect is correct', (height) => {
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      const velocity = yield* calculateJumpVelocityEffect(height)
+      const calculatedHeight = velocity ** 2 / (2 * 9.8)
+      expect(calculatedHeight).toBeCloseTo(height, 5)
+      return velocity
+    })
+  )
 })
 ```
 

@@ -974,10 +974,13 @@ const processInParallel = (urls: ReadonlyArray<string>) =>
   Effect.forEach(
     urls,
     (url) =>
-      Effect.tryPromise({
-        try: () => fetch(url).then((r) => r.json()),
-        catch: (e) => new FetchError(String(e)),
-      }),
+      Effect.gen(function* () {
+        const httpClient = yield* HttpClient.HttpClient
+        const response = yield* httpClient.get(url)
+        return yield* response.json
+      }).pipe(
+        Effect.catchAll((e) => Effect.fail(new FetchError(String(e))))
+      ),
     { concurrency: 5 } // 最大5並列
   )
 
@@ -1186,13 +1189,13 @@ const executeAsyncOperation = (op: AsyncOperation): Effect.Effect<string> =>
   pipe(
     Match.value(op),
     Match.when({ type: 'fetch' }, ({ url }) =>
-      Effect.tryPromise({
-        try: async () => {
-          const response = await fetch(url)
-          return await response.text()
-        },
-        catch: (e) => new Error(`Fetch failed: ${e}`),
-      })
+      Effect.gen(function* () {
+        const httpClient = yield* HttpClient.HttpClient
+        const response = yield* httpClient.get(url)
+        return yield* response.text
+      }).pipe(
+        Effect.catchAll((e) => Effect.fail(new Error(`Fetch failed: ${e}`)))
+      )
     ),
     Match.when({ type: 'compute' }, ({ data }) =>
       Effect.gen(function* () {
