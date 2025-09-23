@@ -84,7 +84,7 @@ describe('ThreeRenderer', () => {
   })
 
   describe('基本機能', () => {
-    it('正常に初期化できる', async () => {
+    it('正常に初期化できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -92,42 +92,42 @@ describe('ThreeRenderer', () => {
         expect(rendererInstance).not.toBeNull()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('WebGL2サポート状況を確認できる', async () => {
+    it('WebGL2サポート状況を確認できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         const isSupported = yield* renderer.isWebGL2Supported()
         expect(typeof isSupported).toBe('boolean')
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('シーンを正常にレンダリングできる', async () => {
+    it('シーンを正常にレンダリングできる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
         yield* renderer.render(scene, camera)
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('レンダラーのサイズを変更できる', async () => {
+    it('レンダラーのサイズを変更できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
         yield* renderer.resize(1024, 768)
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
   })
 
   describe('設定機能', () => {
-    it('シャドウマップを設定できる', async () => {
+    it('シャドウマップを設定できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -138,10 +138,10 @@ describe('ThreeRenderer', () => {
         })
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('アンチエイリアシングを設定できる', async () => {
+    it('アンチエイリアシングを設定できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -151,30 +151,30 @@ describe('ThreeRenderer', () => {
         })
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('WebGL2機能を有効化できる', async () => {
+    it('WebGL2機能を有効化できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
         yield* renderer.enableWebGL2Features()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('ポストプロセシングを設定できる', async () => {
+    it('ポストプロセシングを設定できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
         yield* renderer.setupPostprocessing()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('WebGL2機能有効化時にWebGL2パスが実行される', async () => {
+    it('WebGL2機能有効化時にWebGL2パスが実行される', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       // WebGL2コンテキストのセットアップ
@@ -214,7 +214,7 @@ describe('ThreeRenderer', () => {
         yield* renderer.enableWebGL2Features()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
 
       expect(consoleSpy).toHaveBeenCalledWith('WebGL2 advanced features enabled')
 
@@ -223,7 +223,7 @@ describe('ThreeRenderer', () => {
       global.WebGL2RenderingContext = originalWebGL2
     })
 
-    it('初期化前の設定変更は安全に実行される', async () => {
+    it('初期化前の設定変更は安全に実行される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.configureShadowMap({ enabled: true })
@@ -231,12 +231,12 @@ describe('ThreeRenderer', () => {
         yield* renderer.resize(1920, 1080)
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
   })
 
   describe('パフォーマンス監視', () => {
-    it('パフォーマンス統計を取得できる', async () => {
+    it('パフォーマンス統計を取得できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -255,10 +255,10 @@ describe('ThreeRenderer', () => {
         expect(typeof stats.frameTime).toBe('number')
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('パフォーマンス統計の初期値を確認できる', async () => {
+    it('パフォーマンス統計の初期値を確認できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
 
@@ -270,10 +270,10 @@ describe('ThreeRenderer', () => {
         expect(initialStats.render).toEqual({ calls: 0, triangles: 0 })
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('フレームタイム警告機能が動作する', async () => {
+    it('フレームタイム警告機能が動作する', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       // performance.nowをモックして長いフレーム時間をシミュレート
@@ -290,7 +290,7 @@ describe('ThreeRenderer', () => {
         yield* renderer.render(scene, camera)
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Frame time exceeded 16\.67ms/))
 
@@ -300,34 +300,58 @@ describe('ThreeRenderer', () => {
   })
 
   describe('エラーハンドリング', () => {
-    it('初期化前のレンダリングでエラーが発生する', async () => {
+    it('初期化前のレンダリングでエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.render(scene, camera)
       })
 
-      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
-    it('初期化前のWebGL2機能有効化でエラーが発生する', async () => {
+    it('初期化前のWebGL2機能有効化でエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.enableWebGL2Features()
       })
 
-      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
-    it('初期化前のポストプロセシング設定でエラーが発生する', async () => {
+    it('初期化前のポストプロセシング設定でエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.setupPostprocessing()
       })
 
-      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
-    it('WebGLコンテキスト作成失敗でエラーが発生する', async () => {
+    it('WebGLコンテキスト作成失敗でエラーが発生する', () => {
       const canvas = createMockCanvas()
       vi.spyOn(canvas, 'getContext').mockReturnValue(null)
 
@@ -336,10 +360,18 @@ describe('ThreeRenderer', () => {
         yield* renderer.initialize(canvas)
       })
 
-      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderInitError')
+      }
     })
 
-    it('WebGLコンテキストロスト時のエラーハンドリング', async () => {
+    it('WebGLコンテキストロスト時のエラーハンドリング', () => {
       // コンテキストロスト状態のモック
       vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
         () =>
@@ -370,12 +402,20 @@ describe('ThreeRenderer', () => {
         yield* renderer.render(scene, camera)
       })
 
-      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('ContextLostError')
+      }
     })
   })
 
   describe('リソース管理', () => {
-    it('リソースを正常に解放できる', async () => {
+    it('リソースを正常に解放できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -385,10 +425,10 @@ describe('ThreeRenderer', () => {
         expect(rendererInstance).toBeNull()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('初期化状態を正しく判定できる', async () => {
+    it('初期化状態を正しく判定できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
 
@@ -402,7 +442,7 @@ describe('ThreeRenderer', () => {
         expect(afterInit).not.toBeNull()
       })
 
-      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+      Effect.runSync(Effect.provide(program, ThreeRendererLive))
     })
   })
 })

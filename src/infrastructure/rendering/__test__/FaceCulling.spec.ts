@@ -101,12 +101,12 @@ describe('FaceCulling', () => {
   describe('FaceCullingService - checkFaceVisibility', () => {
     const getService = () => pipe(FaceCullingService, Effect.provide(FaceCullingLive), Effect.runSync)
 
-    it('should return no visible faces for air block', async () => {
+    it('should return no visible faces for air block', () => {
       const chunk = createTestChunk(4, 'empty')
 
-      const visibility = await pipe(
+      const visibility = pipe(
         getService().checkFaceVisibility(chunk.blocks as number[][][], 0, 0, 0, chunk.size),
-        Effect.runPromise
+        Effect.runSync
       )
 
       expect(visibility.top).toBe(false)
@@ -117,13 +117,13 @@ describe('FaceCulling', () => {
       expect(visibility.right).toBe(false)
     })
 
-    it('should detect all visible faces for isolated block', async () => {
+    it('should detect all visible faces for isolated block', () => {
       const chunk = createTestChunk(5, 'single')
       const mid = 2
 
-      const visibility = await pipe(
+      const visibility = pipe(
         getService().checkFaceVisibility(chunk.blocks as number[][][], mid, mid, mid, chunk.size),
-        Effect.runPromise
+        Effect.runSync
       )
 
       expect(visibility.top).toBe(true)
@@ -134,13 +134,13 @@ describe('FaceCulling', () => {
       expect(visibility.right).toBe(true)
     })
 
-    it('should detect edge faces at chunk boundaries', async () => {
+    it('should detect edge faces at chunk boundaries', () => {
       const chunk = createTestChunk(4, 'full')
 
       // Corner block
-      const visibility = await pipe(
+      const visibility = pipe(
         getService().checkFaceVisibility(chunk.blocks as number[][][], 0, 0, 0, chunk.size),
-        Effect.runPromise
+        Effect.runSync
       )
 
       expect(visibility.left).toBe(true) // At boundary
@@ -151,13 +151,13 @@ describe('FaceCulling', () => {
       expect(visibility.front).toBe(false) // Has neighbor
     })
 
-    it('should handle out of bounds coordinates gracefully', async () => {
+    it('should handle out of bounds coordinates gracefully', () => {
       const chunk = createTestChunk(4, 'full')
 
       // Out of bounds coordinates
-      const visibility = await pipe(
+      const visibility = pipe(
         getService().checkFaceVisibility(chunk.blocks as number[][][], -1, -1, -1, chunk.size),
-        Effect.runPromise
+        Effect.runSync
       )
 
       // Air blocks have no visible faces
@@ -165,7 +165,7 @@ describe('FaceCulling', () => {
       expect(visibility.bottom).toBe(false)
     })
 
-    it('should handle errors in face visibility check', async () => {
+    it('should handle errors in face visibility check', () => {
       const result = runEffect(getService().checkFaceVisibility(null as any, 0, 0, 0, 4))
 
       expect(Exit.isFailure(result)).toBe(true)
@@ -179,41 +179,38 @@ describe('FaceCulling', () => {
   describe('FaceCullingService - shouldRenderFace', () => {
     const getService = () => pipe(FaceCullingService, Effect.provide(FaceCullingLive), Effect.runSync)
 
-    it('should not render face for air block', async () => {
-      const shouldRender = await pipe(getService().shouldRenderFace(0, 1), Effect.runPromise)
+    it('should not render face for air block', () => {
+      const shouldRender = pipe(getService().shouldRenderFace(0, 1), Effect.runSync)
 
       expect(shouldRender).toBe(false)
     })
 
-    it('should render face when neighbor is air', async () => {
-      const shouldRender = await pipe(getService().shouldRenderFace(1, 0), Effect.runPromise)
+    it('should render face when neighbor is air', () => {
+      const shouldRender = pipe(getService().shouldRenderFace(1, 0), Effect.runSync)
 
       expect(shouldRender).toBe(true)
     })
 
-    it('should not render face when neighbor is solid', async () => {
-      const shouldRender = await pipe(getService().shouldRenderFace(1, 1), Effect.runPromise)
+    it('should not render face when neighbor is solid', () => {
+      const shouldRender = pipe(getService().shouldRenderFace(1, 1), Effect.runSync)
 
       expect(shouldRender).toBe(false)
     })
 
-    it('should handle transparent blocks correctly', async () => {
+    it('should handle transparent blocks correctly', () => {
       const transparentBlocks = new Set([10, 20])
 
-      const shouldRenderForTransparent = await pipe(
-        getService().shouldRenderFace(1, 10, transparentBlocks),
-        Effect.runPromise
-      )
+      const shouldRenderForTransparent = pipe(getService().shouldRenderFace(1, 10, transparentBlocks), Effect.runSync)
 
       expect(shouldRenderForTransparent).toBe(true)
 
-      const shouldRenderForSolid = await pipe(getService().shouldRenderFace(1, 5, transparentBlocks), Effect.runPromise)
+      const shouldRenderForSolid = pipe(getService().shouldRenderFace(1, 5, transparentBlocks), Effect.runSync)
 
       expect(shouldRenderForSolid).toBe(false)
     })
 
-    it('should use default transparent blocks when not specified', async () => {
-      const shouldRender = await pipe(getService().shouldRenderFace(1, 0), Effect.runPromise)
+    it('should use default transparent blocks when not specified', () => {
+      const shouldRender = pipe(getService().shouldRenderFace(1, 0), Effect.runSync)
 
       expect(shouldRender).toBe(true)
     })
@@ -222,18 +219,18 @@ describe('FaceCulling', () => {
   describe('FaceCullingService - cullHiddenFaces', () => {
     const getService = () => pipe(FaceCullingService, Effect.provide(FaceCullingLive), Effect.runSync)
 
-    it('should return empty array for empty chunk', async () => {
+    it('should return empty array for empty chunk', () => {
       const chunk = createTestChunk(4, 'empty')
 
-      const visibleBlocks = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const visibleBlocks = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
 
       expect(visibleBlocks).toHaveLength(0)
     })
 
-    it('should identify all blocks in hollow cube', async () => {
+    it('should identify all blocks in hollow cube', () => {
       const chunk = createTestChunk(4, 'hollow')
 
-      const visibleBlocks = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const visibleBlocks = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
 
       // All blocks on the surface should be visible
       expect(visibleBlocks.length).toBeGreaterThan(0)
@@ -253,10 +250,10 @@ describe('FaceCulling', () => {
       })
     })
 
-    it('should cull interior blocks in full chunk', async () => {
+    it('should cull interior blocks in full chunk', () => {
       const chunk = createTestChunk(4, 'full')
 
-      const visibleBlocks = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const visibleBlocks = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
 
       // Only surface blocks should be visible
       const totalBlocks = 4 * 4 * 4
@@ -266,10 +263,10 @@ describe('FaceCulling', () => {
       expect(visibleBlocks.length).toBe(surfaceBlocks)
     })
 
-    it('should include visibility data for each block', async () => {
+    it('should include visibility data for each block', () => {
       const chunk = createTestChunk(4, 'single')
 
-      const visibleBlocks = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const visibleBlocks = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
 
       expect(visibleBlocks).toHaveLength(1)
       const [x, y, z, visibility] = visibleBlocks[0]!
@@ -282,7 +279,7 @@ describe('FaceCulling', () => {
       expect(visibility.bottom).toBe(true)
     })
 
-    it('should handle errors in face culling', async () => {
+    it('should handle errors in face culling', () => {
       const invalidChunk = {
         position: { x: 0, y: 0, z: 0 },
         blocks: null as any,
@@ -369,13 +366,13 @@ describe('FaceCulling', () => {
   })
 
   describe('Performance', () => {
-    it('should cull faces efficiently for large chunks', async () => {
+    it('should cull faces efficiently for large chunks', () => {
       const getService = () => pipe(FaceCullingService, Effect.provide(FaceCullingLive), Effect.runSync)
 
       const chunk = createTestChunk(16, 'full')
 
       const startTime = performance.now()
-      const result = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const result = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
       const endTime = performance.now()
 
       // Should complete within 200ms for 16x16x16 chunk (adjusted for CI environment)
@@ -386,14 +383,14 @@ describe('FaceCulling', () => {
       expect(result.length).toBeLessThan(totalBlocks)
     })
 
-    it('should achieve high culling ratio for dense chunks', async () => {
+    it('should achieve high culling ratio for dense chunks', () => {
       const getService = () => pipe(FaceCullingService, Effect.provide(FaceCullingLive), Effect.runSync)
 
       const chunk = createTestChunk(8, 'full')
       const totalBlocks = 8 * 8 * 8
       const totalFaces = totalBlocks * 6
 
-      const visibleBlocks = await pipe(getService().cullHiddenFaces(chunk), Effect.runPromise)
+      const visibleBlocks = pipe(getService().cullHiddenFaces(chunk), Effect.runSync)
 
       // Count visible faces
       let visibleFaces = 0
@@ -414,7 +411,7 @@ describe('FaceCulling', () => {
   })
 
   describe('Layer Construction', () => {
-    it('should provide FaceCullingLive layer', async () => {
+    it('should provide FaceCullingLive layer', () => {
       const program = pipe(
         FaceCullingService,
         Effect.map((service) => {
@@ -426,7 +423,7 @@ describe('FaceCulling', () => {
         })
       )
 
-      const result = await pipe(program, Effect.provide(FaceCullingLive), Effect.runPromise)
+      const result = pipe(program, Effect.provide(FaceCullingLive), Effect.runSync)
 
       expect(result).toBe(true)
     })

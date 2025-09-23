@@ -391,7 +391,7 @@ const measurePerformance = <A, E>(
 
 describe('MeshGenerator', () => {
   describe('Basic Mesh Generation', () => {
-    it('should generate empty mesh for empty chunk', async () => {
+    it('should generate empty mesh for empty chunk', () => {
       const program = Effect.gen(function* () {
         const emptyChunk = createEmptyChunkData(4)
         const meshData = yield* generateBasicMesh(emptyChunk)
@@ -402,10 +402,10 @@ describe('MeshGenerator', () => {
         expect(meshData.indices).toHaveLength(0)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
 
-    it('should generate mesh for solid chunk', async () => {
+    it('should generate mesh for solid chunk', () => {
       const program = Effect.gen(function* () {
         const solidChunk = createSolidChunkData(2) // 2x2x2 = 8 blocks
         const meshData = yield* generateBasicMesh(solidChunk)
@@ -422,10 +422,10 @@ describe('MeshGenerator', () => {
         expect(meshData.indices.length % 3).toBe(0) // Indices are triangles
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
 
-    it('should handle pattern-based chunk data', async () => {
+    it('should handle pattern-based chunk data', () => {
       const program = Effect.gen(function* () {
         const patternChunk = createTestChunkData(4)
         const meshData = yield* generateBasicMesh(patternChunk)
@@ -435,12 +435,12 @@ describe('MeshGenerator', () => {
         expect(meshData.indices.length).toBeGreaterThan(0)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
   })
 
   describe('Greedy Meshing Algorithm', () => {
-    it('should reduce vertex count compared to basic mesh', async () => {
+    it('should reduce vertex count compared to basic mesh', () => {
       const program = Effect.gen(function* () {
         const solidChunk = createSolidChunkData(4)
 
@@ -457,10 +457,10 @@ describe('MeshGenerator', () => {
         expect(greedyMesh.indices.length % 3).toBe(0)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
 
-    it('should handle empty chunk correctly', async () => {
+    it('should handle empty chunk correctly', () => {
       const program = Effect.gen(function* () {
         const emptyChunk = createEmptyChunkData(4)
         const greedyMesh = yield* generateGreedyMesh(emptyChunk)
@@ -471,7 +471,7 @@ describe('MeshGenerator', () => {
         expect(greedyMesh.indices).toHaveLength(0)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
   })
 
@@ -518,7 +518,7 @@ describe('MeshGenerator', () => {
   })
 
   describe('Performance Requirements', () => {
-    it('should generate mesh within performance requirements', async () => {
+    it('should generate mesh within performance requirements', () => {
       const program = Effect.gen(function* () {
         const largeChunk = createTestChunkData(16) // 16x16x16 chunk
 
@@ -531,10 +531,10 @@ describe('MeshGenerator', () => {
         expect(duration).toBeLessThan(300)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
 
-    it('should demonstrate vertex reduction with greedy meshing', async () => {
+    it('should demonstrate vertex reduction with greedy meshing', () => {
       const program = Effect.gen(function* () {
         const solidChunk = createSolidChunkData(8) // 8x8x8 chunk
 
@@ -559,12 +559,12 @@ describe('MeshGenerator', () => {
         expect(reduction).toBeGreaterThanOrEqual(50)
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
   })
 
   describe('Schema Validation', () => {
-    it('should validate chunk data schema', async () => {
+    it('should validate chunk data schema', () => {
       const program = Effect.gen(function* () {
         const invalidChunk = {
           position: { x: 'invalid', y: 0, z: 0 },
@@ -577,10 +577,10 @@ describe('MeshGenerator', () => {
         expect(result._tag).toBe('Left')
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
 
-    it('should validate block type ranges', async () => {
+    it('should validate block type ranges', () => {
       const program = Effect.gen(function* () {
         const blocks = [[[300]]] // Invalid block type (> 255)
         const invalidChunk = {
@@ -594,12 +594,12 @@ describe('MeshGenerator', () => {
         expect(result._tag).toBe('Left')
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
   })
 
   describe('THREE.js Integration', () => {
-    it('should produce data compatible with THREE.BufferGeometry', async () => {
+    it('should produce data compatible with THREE.BufferGeometry', () => {
       const program = Effect.gen(function* () {
         const testChunk = createTestChunkData(4)
         const meshData = yield* generateBasicMesh(testChunk)
@@ -642,7 +642,7 @@ describe('MeshGenerator', () => {
         geometry.dispose()
       })
 
-      await Effect.runPromise(program)
+      Effect.runSync(program)
     })
   })
 })

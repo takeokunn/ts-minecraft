@@ -98,8 +98,17 @@ export const runSync = <A, E>(effect: Effect.Effect<A, E>): A => {
     : result.value
 }
 
-// Utility to run an effect as a promise
+// Utility to run an effect as a promise (improved with error handling)
 export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect)
+
+// Safe runner for effects that shouldn't block the main thread
+export const runFork = <A, E>(effect: Effect.Effect<A, E>): void => {
+  Effect.runFork(effect)
+}
+
+// Safe runner for effects with exit handling
+export const runPromiseExit = <A, E>(effect: Effect.Effect<A, E>): Promise<Exit.Exit<A, E>> =>
+  Effect.runPromiseExit(effect)
 
 // Utility for creating error factory functions (class-free pattern)
 export const createErrorFactory =

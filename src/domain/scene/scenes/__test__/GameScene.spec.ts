@@ -24,14 +24,14 @@ describe('GameScene', () => {
             difficulty: 'Normal',
           },
         })
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('初回の初期化が成功する', () =>
       Effect.gen(function* () {
         const scene = yield* createFreshScene()
         const result = yield* scene.initialize()
         expect(result).toBeUndefined()
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('二重初期化でエラーになる', () =>
       Effect.gen(function* () {
@@ -45,7 +45,7 @@ describe('GameScene', () => {
           expect(result.left.message).toContain('already initialized')
           expect(result.left.sceneType).toBe('Game')
         }
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 
   describe('更新処理', () => {
@@ -54,7 +54,7 @@ describe('GameScene', () => {
         const scene = yield* createFreshScene()
         yield* scene.update(16)
         // エラーなく完了することを確認
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('初期化後のupdateが正常に動作する', () =>
       Effect.gen(function* () {
@@ -62,7 +62,7 @@ describe('GameScene', () => {
         yield* scene.initialize()
         yield* scene.update(16)
         // エラーなく完了することを確認
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('ゲーム一時停止中はupdateが早期リターンする', () =>
       Effect.gen(function* () {
@@ -75,7 +75,7 @@ describe('GameScene', () => {
         // 一時停止状態でupdateを呼ぶ（isPausedの条件をテスト）
         yield* scene.update(16)
         // エラーなく完了することを確認（早期リターンが動作）
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 
   describe('描画処理', () => {
@@ -85,7 +85,7 @@ describe('GameScene', () => {
         yield* scene.initialize()
         yield* scene.render()
         // エラーなく完了することを確認
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 
   describe('ライフサイクル管理', () => {
@@ -103,7 +103,7 @@ describe('GameScene', () => {
         // 退場
         yield* scene.onExit()
         yield* scene.cleanup()
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('ゲーム状態管理（再開と一時停止）', () =>
       Effect.gen(function* () {
@@ -121,7 +121,7 @@ describe('GameScene', () => {
         // 再開
         yield* scene.onEnter()
         yield* scene.update(16)
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 
   describe('エラーハンドリング', () => {
@@ -136,7 +136,7 @@ describe('GameScene', () => {
           expect(result.left.message).toContain('not initialized')
           expect(result.left.sceneType).toBe('Game')
         }
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
 
     it('cleanup後に再初期化できる', () =>
       Effect.gen(function* () {
@@ -149,7 +149,7 @@ describe('GameScene', () => {
         // 再初期化
         yield* scene.initialize()
         yield* scene.update(16)
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 
   describe('ゲーム設定の検証', () => {
@@ -159,6 +159,6 @@ describe('GameScene', () => {
         expect(scene.data.metadata?.['gameMode']).toBe('Creative')
         expect(scene.data.metadata?.['worldName']).toBe('New World')
         expect(scene.data.metadata?.['difficulty']).toBe('Normal')
-      }).pipe(Effect.runPromise))
+      }).pipe(Effect.runSync))
   })
 })

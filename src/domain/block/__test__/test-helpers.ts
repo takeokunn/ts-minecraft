@@ -3,18 +3,18 @@ import { expect } from 'vitest'
 import type { BlockType } from '../BlockType'
 
 // Effect-TS用の共通テストヘルパー - 最新理想系パターン
-export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect)
+export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSyncExit(effect)
 
-export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
+export const runSuccessful = <A, E = never>(effect: Effect.Effect<A, E>) => Effect.runSync(effect)
 
-export const expectSuccess = async <A, E = never>(effect: Effect.Effect<A, E>) => {
-  const result = await runEffect(effect)
+export const expectSuccess = <A, E = never>(effect: Effect.Effect<A, E>) => {
+  const result = runEffect(effect)
   expect(Exit.isSuccess(result)).toBe(true)
   return Exit.isSuccess(result) ? result.value : undefined
 }
 
-export const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
-  const result = await runEffect(effect)
+export const expectFailure = <E>(effect: Effect.Effect<unknown, E>) => {
+  const result = runEffect(effect)
   expect(Exit.isFailure(result)).toBe(true)
   return Exit.isFailure(result) ? result.cause : undefined
 }
@@ -75,10 +75,6 @@ export const expectBlockToMatch = (actual: BlockType, expected: Partial<BlockTyp
 }
 
 // Effect-TS パターンでのテストランナー - 改善版
-export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromiseExit(effect).then((exit) => (Exit.isSuccess(exit) ? exit.value : Promise.reject(exit.cause)))
+export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>): A => Effect.runSync(effect)
 
-export const runTestSuite = <E>(effects: Effect.Effect<unknown, E>[]) =>
-  Effect.runPromiseExit(Effect.all(effects)).then((exit) =>
-    Exit.isSuccess(exit) ? exit.value : Promise.reject(exit.cause)
-  )
+export const runTestSuite = <E>(effects: Effect.Effect<unknown, E>[]): unknown[] => Effect.runSync(Effect.all(effects))

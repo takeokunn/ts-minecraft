@@ -31,14 +31,14 @@ describe('NetworkErrors', () => {
       expect(error.statusCode).toBe(500)
     })
 
-    it('should work with Effect', async () => {
+    it('should work with Effect', () => {
       const program = Effect.fail(
         NetworkError({
           message: 'Test error',
         })
       )
 
-      const result = await Effect.runPromiseExit(program)
+      const result = Effect.runSyncExit(program)
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null

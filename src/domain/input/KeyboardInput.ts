@@ -78,8 +78,8 @@ export const KeyboardInputLive = Layer.effect(
         yield* Ref.update(keyStates, (states) => new Map(states.set(key, keyState)))
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Key down handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Key down handler failed:', error))))
       )
     }
 
@@ -96,8 +96,8 @@ export const KeyboardInputLive = Layer.effect(
         yield* Ref.update(keyStates, (states) => new Map(states.set(key, keyState)))
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Key up handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Key up handler failed:', error))))
       )
     }
 
@@ -119,8 +119,8 @@ export const KeyboardInputLive = Layer.effect(
         yield* Ref.set(keyStates, newStates)
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Window blur handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Window blur handler failed:', error))))
       )
     }
 

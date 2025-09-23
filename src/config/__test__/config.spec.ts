@@ -393,8 +393,8 @@ describe('Property-Based Tests', () => {
   describe('有効な設定の不変条件', () => {
     it('有効な設定は常に正しくデコード・エンコードされる', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.validConfig, (config) => {
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
 
           expect(Either.isRight(result)).toBe(true)
           if (Either.isRight(result)) {
@@ -407,8 +407,8 @@ describe('Property-Based Tests', () => {
 
     it('有効な設定は常に指定範囲内にある', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.validConfig, (config) => {
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
 
           if (Either.isRight(result)) {
             const validated = result.right
@@ -424,8 +424,8 @@ describe('Property-Based Tests', () => {
 
     it('追加フィールドは常に除去される', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.configWithExtraFields, async (config) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.configWithExtraFields, (config) => {
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
 
           if (Either.isRight(result)) {
             const validated = result.right
@@ -442,14 +442,14 @@ describe('Property-Based Tests', () => {
   describe('無効な設定の検出', () => {
     it('無効なfps値は常に拒否される', () => {
       fc.assert(
-        fc.asyncProperty(
+        fc.property(
           fc.record({
             debug: fc.boolean(),
             fps: Arbitraries.invalidFps,
             memoryLimit: fc.integer({ min: 1, max: 2048 }),
           }),
-          async (config) => {
-            const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          (config) => {
+            const result = Effect.runSync(Effect.either(validateConfig(config)))
             expect(Either.isLeft(result)).toBe(true)
           }
         ),
@@ -459,14 +459,14 @@ describe('Property-Based Tests', () => {
 
     it('無効なmemoryLimit値は常に拒否される', () => {
       fc.assert(
-        fc.asyncProperty(
+        fc.property(
           fc.record({
             debug: fc.boolean(),
             fps: fc.integer({ min: 1, max: 120 }),
             memoryLimit: Arbitraries.invalidMemoryLimit,
           }),
-          async (config) => {
-            const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          (config) => {
+            const result = Effect.runSync(Effect.either(validateConfig(config)))
             expect(Either.isLeft(result)).toBe(true)
           }
         ),
@@ -476,8 +476,8 @@ describe('Property-Based Tests', () => {
 
     it('不完全な設定は常に拒否される', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.incompleteConfig, async (config) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.incompleteConfig, (config) => {
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
           expect(Either.isLeft(result)).toBe(true)
         }),
         { numRuns: 50 }
@@ -486,8 +486,8 @@ describe('Property-Based Tests', () => {
 
     it('型が間違っている設定は常に拒否される', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.wrongTypeConfig, async (config) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.wrongTypeConfig, (config) => {
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
           expect(Either.isLeft(result)).toBe(true)
         }),
         { numRuns: 50 }
@@ -496,8 +496,8 @@ describe('Property-Based Tests', () => {
 
     it('プリミティブ型や無効な構造は常に拒否される', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.invalidTypes, async (invalidInput) => {
-          const result = await Effect.runPromise(Effect.either(validateConfig(invalidInput)))
+        fc.property(Arbitraries.invalidTypes, (invalidInput) => {
+          const result = Effect.runSync(Effect.either(validateConfig(invalidInput)))
           expect(Either.isLeft(result)).toBe(true)
         }),
         { numRuns: 50 }
@@ -508,9 +508,9 @@ describe('Property-Based Tests', () => {
   describe('境界値の検証', () => {
     it('fps境界値の動作を検証', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.boundaryFps, async (fps) => {
+        fc.property(Arbitraries.boundaryFps, (fps) => {
           const config = { debug: false, fps, memoryLimit: 1024 }
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
 
           const shouldBeValid = Number.isInteger(fps) && fps >= 1 && fps <= 120
           expect(Either.isRight(result)).toBe(shouldBeValid)
@@ -521,9 +521,9 @@ describe('Property-Based Tests', () => {
 
     it('memoryLimit境界値の動作を検証', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.boundaryMemoryLimit, async (memoryLimit) => {
+        fc.property(Arbitraries.boundaryMemoryLimit, (memoryLimit) => {
           const config = { debug: false, fps: 60, memoryLimit }
-          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          const result = Effect.runSync(Effect.either(validateConfig(config)))
 
           const shouldBeValid = Number.isInteger(memoryLimit) && memoryLimit >= 1 && memoryLimit <= 2048
           expect(Either.isRight(result)).toBe(shouldBeValid)
@@ -536,9 +536,9 @@ describe('Property-Based Tests', () => {
   describe('ラウンドトリップテスト', () => {
     it('有効な設定は複数回のバリデーションでも同一', () => {
       fc.assert(
-        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
-          const result1 = await Effect.runPromise(Effect.either(validateConfig(config)))
-          const result2 = await Effect.runPromise(Effect.either(validateConfig(config)))
+        fc.property(Arbitraries.validConfig, (config) => {
+          const result1 = Effect.runSync(Effect.either(validateConfig(config)))
+          const result2 = Effect.runSync(Effect.either(validateConfig(config)))
 
           expect(Either.isRight(result1)).toBe(true)
           expect(Either.isRight(result2)).toBe(true)

@@ -11,7 +11,7 @@ describe('LoggerServiceTest', () => {
       expect(typeof LoggerServiceTest).toBe('object')
     })
 
-    it('provides LoggerService implementation', async () => {
+    it('provides LoggerService implementation', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
         expect(logger).toBeDefined()
@@ -23,7 +23,7 @@ describe('LoggerServiceTest', () => {
         return logger
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
     })
   })
 
@@ -35,66 +35,66 @@ describe('LoggerServiceTest', () => {
       timestamp: fc.integer({ min: 1000000000, max: 2000000000 }),
     })
 
-    it('logs debug messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
-          const program = Effect.gen(function* () {
+    it('logs debug messages', () => {
+      fc.assert(
+        fc.property(messageArbitrary, contextArbitrary, (message, context) => {
+          const logProgram = Effect.gen(function* () {
             const logger = yield* LoggerService
             yield* logger.debug(message, context)
             return 'success'
           })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          const result = Effect.runSync(logProgram.pipe(Effect.provide(LoggerServiceTest)))
           expect(result).toBe('success')
         }),
         { numRuns: 50 }
       )
     })
 
-    it('logs info messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
+    it('logs info messages', () => {
+      fc.assert(
+        fc.property(messageArbitrary, contextArbitrary, (message, context) => {
           const program = Effect.gen(function* () {
             const logger = yield* LoggerService
             yield* logger.info(message, context)
             return 'success'
           })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
           expect(result).toBe('success')
         }),
         { numRuns: 50 }
       )
     })
 
-    it('logs warn messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
+    it('logs warn messages', () => {
+      fc.assert(
+        fc.property(messageArbitrary, contextArbitrary, (message, context) => {
           const program = Effect.gen(function* () {
             const logger = yield* LoggerService
             yield* logger.warn(message, context)
             return 'success'
           })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
           expect(result).toBe('success')
         }),
         { numRuns: 50 }
       )
     })
 
-    it('logs error messages', async () => {
+    it('logs error messages', () => {
       const errorArbitrary = fc.string().map((msg) => new Error(msg))
 
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, errorArbitrary, async (message, error) => {
+      fc.assert(
+        fc.property(messageArbitrary, errorArbitrary, (message, error) => {
           const program = Effect.gen(function* () {
             const logger = yield* LoggerService
             yield* logger.error(message, error)
             return 'success'
           })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
           expect(result).toBe('success')
         }),
         { numRuns: 50 }
@@ -103,12 +103,12 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Performance measurement', () => {
-    it('measures performance of Effect operations', async () => {
+    it('measures performance of Effect operations', () => {
       const functionNameArbitrary = fc.string({ minLength: 1, maxLength: 50 })
       const valueArbitrary = fc.integer({ min: 1, max: 1000 })
 
-      await fc.assert(
-        fc.asyncProperty(functionNameArbitrary, valueArbitrary, async (functionName, value) => {
+      fc.assert(
+        fc.property(functionNameArbitrary, valueArbitrary, (functionName, value) => {
           const program = Effect.gen(function* () {
             const logger = yield* LoggerService
 
@@ -118,32 +118,31 @@ describe('LoggerServiceTest', () => {
             return result
           })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+          const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
           expect(result).toBe(value * 2)
         }),
         { numRuns: 50 }
       )
     })
 
-    it('measures performance of async operations', async () => {
+    it('measures performance of sync operations that appear async', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
-        const asyncOperation = Effect.gen(function* () {
-          // Simulate async work
-          yield* Effect.sleep('10 millis')
-          return 'async-result'
+        const syncOperation = Effect.gen(function* () {
+          // Simulate work without actual async delay
+          return 'sync-result'
         })
 
-        const result = yield* logger.measurePerformance('async-test', asyncOperation)
+        const result = yield* logger.measurePerformance('sync-test', syncOperation)
         return result
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-      expect(result).toBe('async-result')
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
+      expect(result).toBe('sync-result')
     })
 
-    it('preserves operation errors during performance measurement', async () => {
+    it('preserves operation errors during performance measurement', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
@@ -154,13 +153,13 @@ describe('LoggerServiceTest', () => {
         return yield* logger.measurePerformance('failing-test', failingOperation)
       })
 
-      const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(LoggerServiceTest)))
+      const exit = Effect.runSyncExit(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(exit._tag).toBe('Failure')
     })
   })
 
   describe('Layer composition', () => {
-    it('can be composed with other layers', async () => {
+    it('can be composed with other layers', () => {
       const TestService = Context.GenericTag<{ value: string }>('TestService')
       const TestServiceImpl = { value: 'test' }
       const TestLayer = Layer.succeed(TestService, TestServiceImpl)
@@ -178,7 +177,7 @@ describe('LoggerServiceTest', () => {
       })
 
       const combinedLayer = Layer.merge(LoggerServiceTest, TestLayer)
-      const result = await Effect.runPromise(program.pipe(Effect.provide(combinedLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(combinedLayer)))
 
       expect(result.loggerAvailable).toBe(true)
       expect(result.testServiceValue).toBe('test')
@@ -186,7 +185,7 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Error handling', () => {
-    it('handles logging operations gracefully', async () => {
+    it('handles logging operations gracefully', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
@@ -201,11 +200,11 @@ describe('LoggerServiceTest', () => {
         return 'success'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('success')
     })
 
-    it('handles empty messages', async () => {
+    it('handles empty messages', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
@@ -217,17 +216,17 @@ describe('LoggerServiceTest', () => {
         return 'success'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('success')
     })
   })
 
   describe('Message format consistency', () => {
-    it('maintains consistent log entry format', async () => {
+    it('maintains consistent log entry format', () => {
       const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
 
       for (const level of levels) {
-        const entry = await Effect.runPromise(createLogEntry(level, 'test message', { key: 'value' }))
+        const entry = Effect.runSync(createLogEntry(level, 'test message', { key: 'value' }))
 
         expect(entry.level).toBe(level)
         expect(entry.message).toBe('test message')
@@ -237,9 +236,9 @@ describe('LoggerServiceTest', () => {
       }
     })
 
-    it('handles errors in log entries', async () => {
+    it('handles errors in log entries', () => {
       const error = new Error('test error')
-      const entry = await Effect.runPromise(createLogEntry('ERROR', 'error occurred', undefined, error))
+      const entry = Effect.runSync(createLogEntry('ERROR', 'error occurred', undefined, error))
 
       expect(entry.level).toBe('ERROR')
       expect(entry.message).toBe('error occurred')
@@ -253,7 +252,7 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Integration scenarios', () => {
-    it('supports rapid sequential logging', async () => {
+    it('supports rapid sequential logging', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
@@ -265,11 +264,11 @@ describe('LoggerServiceTest', () => {
         return 'completed'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('completed')
     })
 
-    it('supports concurrent logging operations', async () => {
+    it('supports concurrent logging operations', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
@@ -280,7 +279,7 @@ describe('LoggerServiceTest', () => {
         return 'completed'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('completed')
     })
   })

@@ -9,8 +9,8 @@ const createFreshScene = () =>
     return yield* Scene.pipe(Effect.provide(LoadingScene))
   })
 
-const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
-const runEither = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.either(effect))
+const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(effect)
+const runEither = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(Effect.either(effect))
 
 describe('LoadingScene', () => {
   describe('初期化', () => {

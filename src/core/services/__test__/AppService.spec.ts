@@ -130,14 +130,13 @@ describe('AppService', () => {
       Effect.gen(function* () {
         const service = yield* AppService
 
-        yield* Effect.promise(async () => {
-          await fc.assert(
-            fc.asyncProperty(fc.integer({ min: 1, max: 100 }), async (count) => {
-              const results = await Promise.all(
-                Array(count)
-                  .fill(null)
-                  .map(() => Effect.runPromise(service.initialize()))
-              )
+        yield* Effect.sync(() => {
+          fc.assert(
+            fc.property(fc.integer({ min: 1, max: 100 }), (count) => {
+              const effects = Array(count)
+                .fill(null)
+                .map(() => service.initialize())
+              const results = Effect.runSync(Effect.all(effects))
 
               // All results should be identical
               const firstResult = results[0]
@@ -155,14 +154,13 @@ describe('AppService', () => {
       Effect.gen(function* () {
         const service = yield* AppService
 
-        yield* Effect.promise(async () => {
-          await fc.assert(
-            fc.asyncProperty(fc.integer({ min: 1, max: 100 }), async (count) => {
-              const results = await Promise.all(
-                Array(count)
-                  .fill(null)
-                  .map(() => Effect.runPromise(service.getReadyStatus()))
-              )
+        yield* Effect.sync(() => {
+          fc.assert(
+            fc.property(fc.integer({ min: 1, max: 100 }), (count) => {
+              const effects = Array(count)
+                .fill(null)
+                .map(() => service.getReadyStatus())
+              const results = Effect.runSync(Effect.all(effects))
 
               // All status results should be identical
               const firstStatus = results[0]
@@ -176,93 +174,105 @@ describe('AppService', () => {
       }).pipe(Effect.provide(AppServiceLive))
     )
 
-    vitestIt('should handle concurrent access patterns', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.array(fc.constantFrom('initialize', 'getReadyStatus'), { minLength: 1, maxLength: 20 }),
-          async (operations) => {
-            const program = Effect.gen(function* () {
-              const service = yield* AppService
+    it.effect('should handle concurrent access patterns', () =>
+      Effect.gen(function* () {
+        const service = yield* AppService
 
-              const results = yield* Effect.all(
-                operations.map((op) => (op === 'initialize' ? service.initialize() : service.getReadyStatus())),
-                { concurrency: 'unbounded' }
-              )
+        yield* Effect.sync(() => {
+          fc.assert(
+            fc.property(
+              fc.array(fc.constantFrom('initialize', 'getReadyStatus'), { minLength: 1, maxLength: 20 }),
+              (operations) => {
+                const program = Effect.gen(function* () {
+                  const service = yield* AppService
 
-              return results
-            }).pipe(Effect.provide(AppServiceLive))
+                  const results = yield* Effect.all(
+                    operations.map((op) => (op === 'initialize' ? service.initialize() : service.getReadyStatus())),
+                    { concurrency: 'unbounded' }
+                  )
 
-            const results = await Effect.runPromise(program)
+                  return results
+                }).pipe(Effect.provide(AppServiceLive))
 
-            // Verify all operations completed successfully
-            results.forEach((result, index) => {
-              if (operations[index] === 'initialize') {
-                expect(result).toHaveProperty('success')
-                expect((result as any).success).toBe(true)
-              } else {
-                expect(result).toHaveProperty('ready')
-                expect((result as any).ready).toBe(true)
-              }
-            })
-          }
-        )
-      )
-    })
+                const results = Effect.runSync(program)
 
-    vitestIt('should maintain service invariants', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.record({
-            initCount: fc.integer({ min: 0, max: 10 }),
-            statusCount: fc.integer({ min: 0, max: 10 }),
-            interleaved: fc.boolean(),
-          }),
-          async ({ initCount, statusCount, interleaved }) => {
-            const program = Effect.gen(function* () {
-              const service = yield* AppService
-              const results: any[] = []
-
-              if (interleaved) {
-                // Interleave operations
-                for (let i = 0; i < Math.max(initCount, statusCount); i++) {
-                  if (i < initCount) {
-                    results.push(yield* service.initialize())
+                // Verify all operations completed successfully
+                results.forEach((result, index) => {
+                  if (operations[index] === 'initialize') {
+                    expect(result).toHaveProperty('success')
+                    expect((result as any).success).toBe(true)
+                  } else {
+                    expect(result).toHaveProperty('ready')
+                    expect((result as any).ready).toBe(true)
                   }
-                  if (i < statusCount) {
-                    results.push(yield* service.getReadyStatus())
-                  }
-                }
-              } else {
-                // Sequential operations
-                for (let i = 0; i < initCount; i++) {
-                  results.push(yield* service.initialize())
-                }
-                for (let i = 0; i < statusCount; i++) {
-                  results.push(yield* service.getReadyStatus())
-                }
+                })
               }
+            )
+          )
+        })
+      }).pipe(Effect.provide(AppServiceLive))
+    )
 
-              return results
-            }).pipe(Effect.provide(AppServiceLive))
+    it.effect('should maintain service invariants', () =>
+      Effect.gen(function* () {
+        const service = yield* AppService
 
-            const results = await Effect.runPromise(program)
+        yield* Effect.sync(() => {
+          fc.assert(
+            fc.property(
+              fc.record({
+                initCount: fc.integer({ min: 0, max: 10 }),
+                statusCount: fc.integer({ min: 0, max: 10 }),
+                interleaved: fc.boolean(),
+              }),
+              ({ initCount, statusCount, interleaved }) => {
+                const program = Effect.gen(function* () {
+                  const service = yield* AppService
+                  const results: any[] = []
 
-            // All operations should complete successfully
-            expect(results).toHaveLength(initCount + statusCount)
+                  if (interleaved) {
+                    // Interleave operations
+                    for (let i = 0; i < Math.max(initCount, statusCount); i++) {
+                      if (i < initCount) {
+                        results.push(yield* service.initialize())
+                      }
+                      if (i < statusCount) {
+                        results.push(yield* service.getReadyStatus())
+                      }
+                    }
+                  } else {
+                    // Sequential operations
+                    for (let i = 0; i < initCount; i++) {
+                      results.push(yield* service.initialize())
+                    }
+                    for (let i = 0; i < statusCount; i++) {
+                      results.push(yield* service.getReadyStatus())
+                    }
+                  }
 
-            // Verify invariants
-            const initResults = results.filter((r) => 'success' in r)
-            const statusResults = results.filter((r) => 'ready' in r)
+                  return results
+                }).pipe(Effect.provide(AppServiceLive))
 
-            expect(initResults).toHaveLength(initCount)
-            expect(statusResults).toHaveLength(statusCount)
+                const results = Effect.runSync(program)
 
-            initResults.forEach((r) => expect(r.success).toBe(true))
-            statusResults.forEach((r) => expect(r.ready).toBe(true))
-          }
-        )
-      )
-    })
+                // All operations should complete successfully
+                expect(results).toHaveLength(initCount + statusCount)
+
+                // Verify invariants
+                const initResults = results.filter((r) => 'success' in r)
+                const statusResults = results.filter((r) => 'ready' in r)
+
+                expect(initResults).toHaveLength(initCount)
+                expect(statusResults).toHaveLength(statusCount)
+
+                initResults.forEach((r) => expect(r.success).toBe(true))
+                statusResults.forEach((r) => expect(r.ready).toBe(true))
+              }
+            )
+          )
+        })
+      }).pipe(Effect.provide(AppServiceLive))
+    )
   })
 
   describe('Performance Characteristics', () => {

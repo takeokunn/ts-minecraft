@@ -5,7 +5,7 @@ import { LoggerServiceLive } from '../LoggerServiceLive'
 
 describe('LoggerServiceLive', () => {
   describe('Core Functionality', () => {
-    it('should provide logger service implementation', async () => {
+    it('should provide logger service implementation', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
         // サービスが正常に提供されることを確認
@@ -16,10 +16,10 @@ describe('LoggerServiceLive', () => {
         expect(typeof logger.measurePerformance).toBe('function')
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
+      Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))
     })
 
-    it('should execute logging operations without errors', async () => {
+    it('should execute logging operations without errors', () => {
       process.env['LOG_LEVEL'] = 'DEBUG'
 
       const program = Effect.gen(function* () {
@@ -32,10 +32,12 @@ describe('LoggerServiceLive', () => {
       })
 
       // ログ処理でエラーが発生しないことを確認
-      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).resolves.toBeUndefined()
+      expect(() => {
+        Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))
+      }).not.toThrow()
     })
 
-    it('should handle performance measurement operations', async () => {
+    it('should handle performance measurement operations', () => {
       process.env['LOG_LEVEL'] = 'DEBUG'
 
       const testOperation = Effect.succeed('test-result')
@@ -45,11 +47,11 @@ describe('LoggerServiceLive', () => {
         return yield* logger.measurePerformance('testOperation', testOperation)
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
+      const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))
       expect(result).toBe('test-result')
     })
 
-    it('should handle errors in performance measurement gracefully', async () => {
+    it('should handle errors in performance measurement gracefully', () => {
       process.env['LOG_LEVEL'] = 'DEBUG'
 
       const failingOperation = Effect.fail(new Error('Operation failed'))
@@ -62,9 +64,12 @@ describe('LoggerServiceLive', () => {
         )
       })
 
-      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
-        'Operation failed'
-      )
+      const result = Effect.runSync(Effect.either(program.pipe(Effect.provide(LoggerServiceLive))))
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(Error)
+        expect((result.left as Error).message).toBe('Operation failed')
+      }
     })
   })
 
@@ -122,9 +127,9 @@ describe('LoggerServiceLive', () => {
       expect(shouldLog('ERROR', 'ERROR')).toBe(true)
     })
 
-    it('should create properly structured log entries', async () => {
+    it('should create properly structured log entries', () => {
       // ログエントリ作成のテスト
-      const basicEntry = await Effect.runPromise(createLogEntry('INFO', 'Test message'))
+      const basicEntry = Effect.runSync(createLogEntry('INFO', 'Test message'))
       expect(basicEntry.level).toBe('INFO')
       expect(basicEntry.message).toBe('Test message')
       expect(basicEntry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
@@ -132,13 +137,13 @@ describe('LoggerServiceLive', () => {
       expect(basicEntry.error).toBeUndefined()
 
       // コンテキスト付きログエントリ
-      const contextEntry = await Effect.runPromise(createLogEntry('DEBUG', 'Debug message', { key: 'value' }))
+      const contextEntry = Effect.runSync(createLogEntry('DEBUG', 'Debug message', { key: 'value' }))
       expect(contextEntry.context).toEqual({ key: 'value' })
 
       // エラー付きログエントリ
       const testError = new Error('Test error')
       testError.stack = 'Error stack trace'
-      const errorEntry = await Effect.runPromise(createLogEntry('ERROR', 'Error message', undefined, testError))
+      const errorEntry = Effect.runSync(createLogEntry('ERROR', 'Error message', undefined, testError))
       expect(errorEntry.error).toEqual({
         name: 'Error',
         message: 'Test error',
@@ -146,7 +151,7 @@ describe('LoggerServiceLive', () => {
       })
 
       // コンテキストとエラー両方付きログエントリ
-      const fullEntry = await Effect.runPromise(createLogEntry('WARN', 'Full message', { context: 'data' }, testError))
+      const fullEntry = Effect.runSync(createLogEntry('WARN', 'Full message', { context: 'data' }, testError))
       expect(fullEntry.context).toEqual({ context: 'data' })
       expect(fullEntry.error).toEqual({
         name: 'Error',
@@ -157,7 +162,7 @@ describe('LoggerServiceLive', () => {
   })
 
   describe('Integration Tests', () => {
-    it('should complete logging workflow end-to-end', async () => {
+    it('should complete logging workflow end-to-end', () => {
       // 統合テスト: ログ処理の全体的なワークフローが完了すること
       process.env['LOG_LEVEL'] = 'INFO'
 
@@ -181,11 +186,11 @@ describe('LoggerServiceLive', () => {
         return result
       })
 
-      const result = await Effect.runPromise(workflow.pipe(Effect.provide(LoggerServiceLive)))
+      const result = Effect.runSync(workflow.pipe(Effect.provide(LoggerServiceLive)))
       expect(result).toEqual({ processed: true, count: 100 })
     })
 
-    it('should handle complex error scenarios gracefully', async () => {
+    it('should handle complex error scenarios gracefully', () => {
       process.env['LOG_LEVEL'] = 'ERROR'
 
       const errorWorkflow = Effect.gen(function* () {
@@ -207,9 +212,12 @@ describe('LoggerServiceLive', () => {
         return result.right
       })
 
-      await expect(Effect.runPromise(errorWorkflow.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
-        'Task failed'
-      )
+      const result = Effect.runSync(Effect.either(errorWorkflow.pipe(Effect.provide(LoggerServiceLive))))
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(Error)
+        expect((result.left as Error).message).toBe('Task failed')
+      }
     })
   })
 })

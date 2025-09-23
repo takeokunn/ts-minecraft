@@ -34,7 +34,7 @@ import { BrandedTypes } from '../../../shared/types/branded.js'
 
 describe('Player Entity System - Component Tests', () => {
   describe('Schema Validation - PlayerPosition', () => {
-    it('should validate correct position coordinates', async () => {
+    it('should validate correct position coordinates', () => {
       const validPositions = [
         { x: 0, y: 0, z: 0 },
         { x: 100.5, y: 64, z: -50.25 },
@@ -44,12 +44,12 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const position of validPositions) {
-        const result = await Effect.runPromise(validatePlayerPosition(position))
+        const result = Effect.runSync(validatePlayerPosition(position))
         expect(result).toEqual(position)
       }
     })
 
-    it('should reject invalid position types', async () => {
+    it('should reject invalid position types', () => {
       const invalidPositions = [
         { x: 'invalid', y: 0, z: 0 },
         { x: 0, y: null, z: 0 },
@@ -65,7 +65,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const position of invalidPositions) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerPosition(position)))
+        const result = Effect.runSync(Effect.either(validatePlayerPosition(position)))
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
           expect(isPlayerError(result.left)).toBe(true)
@@ -74,7 +74,7 @@ describe('Player Entity System - Component Tests', () => {
       }
     })
 
-    it('should handle extreme numeric values', async () => {
+    it('should handle extreme numeric values', () => {
       const extremePositions = [
         { x: Infinity, y: 0, z: 0 },
         { x: -Infinity, y: 0, z: 0 },
@@ -88,7 +88,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const position of extremePositions) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerPosition(position)))
+        const result = Effect.runSync(Effect.either(validatePlayerPosition(position)))
         // NaN, Infinity は Schema.Number で受け入れられるかもしれないが、
         // 実際のゲームロジックでは無効として扱う場合があります
         // これは現在の Schema 設定に依存します
@@ -97,7 +97,7 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerRotation', () => {
-    it('should validate correct rotation angles', async () => {
+    it('should validate correct rotation angles', () => {
       const validRotations = [
         { pitch: 0, yaw: 0 },
         { pitch: Math.PI / 4, yaw: Math.PI },
@@ -107,12 +107,12 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const rotation of validRotations) {
-        const result = await Effect.runPromise(validatePlayerRotation(rotation))
+        const result = Effect.runSync(validatePlayerRotation(rotation))
         expect(result).toEqual(rotation)
       }
     })
 
-    it('should reject out-of-bounds pitch values', async () => {
+    it('should reject out-of-bounds pitch values', () => {
       const invalidRotations = [
         { pitch: Math.PI, yaw: 0 }, // pitch > π/2
         { pitch: -Math.PI, yaw: 0 }, // pitch < -π/2
@@ -121,7 +121,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const rotation of invalidRotations) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerRotation(rotation)))
+        const result = Effect.runSync(Effect.either(validatePlayerRotation(rotation)))
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
           expect(isPlayerError(result.left)).toBe(true)
@@ -130,7 +130,7 @@ describe('Player Entity System - Component Tests', () => {
       }
     })
 
-    it('should reject invalid rotation types', async () => {
+    it('should reject invalid rotation types', () => {
       const invalidRotations = [
         { pitch: 'invalid', yaw: 0 },
         { pitch: 0, yaw: null },
@@ -144,7 +144,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const rotation of invalidRotations) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerRotation(rotation)))
+        const result = Effect.runSync(Effect.either(validatePlayerRotation(rotation)))
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
           expect(isPlayerError(result.left)).toBe(true)
@@ -155,7 +155,7 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerConfig', () => {
-    it('should validate complete player config', async () => {
+    it('should validate complete player config', () => {
       const config = {
         playerId: 'test-player-1',
         initialPosition: { x: 0, y: 64, z: 0 },
@@ -163,7 +163,7 @@ describe('Player Entity System - Component Tests', () => {
         health: 100,
       }
 
-      const result = await Effect.runPromise(validatePlayerConfig(config))
+      const result = Effect.runSync(validatePlayerConfig(config))
 
       expect(result.playerId).toBe('test-player-1')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
@@ -171,12 +171,12 @@ describe('Player Entity System - Component Tests', () => {
       expect(result.health).toBe(100)
     })
 
-    it('should validate minimal player config', async () => {
+    it('should validate minimal player config', () => {
       const config = {
         playerId: 'minimal-player',
       }
 
-      const result = await Effect.runPromise(validatePlayerConfig(config))
+      const result = Effect.runSync(validatePlayerConfig(config))
 
       expect(result.playerId).toBe('minimal-player')
       expect(result.initialPosition).toBeUndefined()
@@ -184,7 +184,7 @@ describe('Player Entity System - Component Tests', () => {
       expect(result.health).toBeUndefined()
     })
 
-    it('should reject invalid player config', async () => {
+    it('should reject invalid player config', () => {
       const definitelyInvalidConfigs = [
         null,
         undefined,
@@ -195,7 +195,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const config of definitelyInvalidConfigs) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerConfig(config)))
+        const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
           expect(isPlayerError(result.left)).toBe(true)
@@ -204,10 +204,10 @@ describe('Player Entity System - Component Tests', () => {
       }
 
       // Test specific edge cases that should fail
-      const emptyPlayerIdResult = await Effect.runPromise(Effect.either(validatePlayerConfig({ playerId: '' })))
+      const emptyPlayerIdResult = Effect.runSync(Effect.either(validatePlayerConfig({ playerId: '' })))
       // Note: empty string might be valid for some schemas, so we test but don't strictly require failure
 
-      const negativeHealthResult = await Effect.runPromise(
+      const negativeHealthResult = Effect.runSync(
         Effect.either(
           validatePlayerConfig({
             playerId: 'test',
@@ -217,7 +217,7 @@ describe('Player Entity System - Component Tests', () => {
       )
       expect(negativeHealthResult._tag).toBe('Left')
 
-      const highHealthResult = await Effect.runPromise(
+      const highHealthResult = Effect.runSync(
         Effect.either(
           validatePlayerConfig({
             playerId: 'test',
@@ -228,7 +228,7 @@ describe('Player Entity System - Component Tests', () => {
       expect(highHealthResult._tag).toBe('Left')
     })
 
-    it('should validate health boundaries', async () => {
+    it('should validate health boundaries', () => {
       const healthTests = [
         { playerId: 'test', health: 0 }, // min valid
         { playerId: 'test', health: 100 }, // max valid
@@ -236,14 +236,14 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const config of healthTests) {
-        const result = await Effect.runPromise(validatePlayerConfig(config))
+        const result = Effect.runSync(validatePlayerConfig(config))
         expect(result.health).toBe(config.health)
       }
     })
   })
 
   describe('Schema Validation - PlayerState', () => {
-    it('should validate complete player state', async () => {
+    it('should validate complete player state', () => {
       const state = {
         playerId: 'state-test-player',
         entityId: 12345,
@@ -254,11 +254,11 @@ describe('Player Entity System - Component Tests', () => {
         lastUpdate: Date.now(),
       }
 
-      const result = await Effect.runPromise(validatePlayerState(state))
+      const result = Effect.runSync(validatePlayerState(state))
       expect(result).toEqual(state)
     })
 
-    it('should reject invalid player state', async () => {
+    it('should reject invalid player state', () => {
       const invalidStates = [
         {
           // missing playerId
@@ -299,7 +299,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const state of invalidStates) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerState(state)))
+        const result = Effect.runSync(Effect.either(validatePlayerState(state)))
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
           expect(isPlayerError(result.left)).toBe(true)
@@ -310,7 +310,7 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerUpdateData', () => {
-    it('should validate partial update data', async () => {
+    it('should validate partial update data', () => {
       const updateTests = [
         { position: { x: 1, y: 2, z: 3 } },
         { rotation: { pitch: 0.1, yaw: 0.2 } },
@@ -326,12 +326,12 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const updateData of updateTests) {
-        const result = await Effect.runPromise(validatePlayerUpdateData(updateData))
+        const result = Effect.runSync(validatePlayerUpdateData(updateData))
         expect(result).toEqual(updateData)
       }
     })
 
-    it('should reject invalid update data', async () => {
+    it('should reject invalid update data', () => {
       const invalidUpdates = [
         { position: { x: 'invalid', y: 0, z: 0 } },
         { rotation: { pitch: Math.PI, yaw: 0 } }, // out of bounds
@@ -343,7 +343,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const updateData of invalidUpdates) {
-        const result = await Effect.runPromise(Effect.either(validatePlayerUpdateData(updateData)))
+        const result = Effect.runSync(Effect.either(validatePlayerUpdateData(updateData)))
         if (
           updateData === null ||
           updateData === undefined ||
@@ -481,13 +481,13 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Default Configuration', () => {
-    it('should provide valid default player config', async () => {
+    it('should provide valid default player config', () => {
       const defaultConfig = {
         playerId: 'default-test-player',
         ...DEFAULT_PLAYER_CONFIG,
       }
 
-      const result = await Effect.runPromise(validatePlayerConfig(defaultConfig))
+      const result = Effect.runSync(validatePlayerConfig(defaultConfig))
 
       expect(result.playerId).toBe('default-test-player')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
@@ -495,7 +495,7 @@ describe('Player Entity System - Component Tests', () => {
       expect(result.health).toBe(100)
     })
 
-    it('should allow overriding default config', async () => {
+    it('should allow overriding default config', () => {
       const customConfig = {
         playerId: 'custom-test-player',
         ...DEFAULT_PLAYER_CONFIG,
@@ -503,7 +503,7 @@ describe('Player Entity System - Component Tests', () => {
         health: 50,
       }
 
-      const result = await Effect.runPromise(validatePlayerConfig(customConfig))
+      const result = Effect.runSync(validatePlayerConfig(customConfig))
 
       expect(result.playerId).toBe('custom-test-player')
       expect(result.initialPosition).toEqual({ x: 100, y: 128, z: -100 })
@@ -525,7 +525,7 @@ describe('Player Entity System - Component Tests', () => {
       expect(error.playerId).toBe(playerId)
     })
 
-    it('should maintain type safety in schema transformations', async () => {
+    it('should maintain type safety in schema transformations', () => {
       const input = {
         playerId: 'type-safety-test',
         initialPosition: { x: 42, y: 64, z: -42 },
@@ -533,7 +533,7 @@ describe('Player Entity System - Component Tests', () => {
         health: 95,
       }
 
-      const validated = await Effect.runPromise(validatePlayerConfig(input))
+      const validated = Effect.runSync(validatePlayerConfig(input))
 
       // TypeScript should enforce the correct types
       expect(validated.playerId).toBe(input.playerId)
@@ -544,21 +544,19 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Performance and Memory Tests', () => {
-    it('should handle large numbers of validation operations efficiently', async () => {
+    it('should handle large numbers of validation operations efficiently', () => {
       const startTime = performance.now()
       const operations = 1000
 
-      const promises = Array.from({ length: operations }, (_, i) =>
-        Effect.runPromise(
-          validatePlayerConfig({
-            playerId: `perf-test-player-${i}`,
-            initialPosition: { x: i, y: 64, z: -i },
-            health: (i % 100) + 1,
-          })
-        )
+      const effects = Array.from({ length: operations }, (_, i) =>
+        validatePlayerConfig({
+          playerId: `perf-test-player-${i}`,
+          initialPosition: { x: i, y: 64, z: -i },
+          health: (i % 100) + 1,
+        })
       )
 
-      const results = await Promise.all(promises)
+      const results = Effect.runSync(Effect.all(effects))
       const endTime = performance.now()
 
       expect(results).toHaveLength(operations)
@@ -571,15 +569,15 @@ describe('Player Entity System - Component Tests', () => {
       })
     })
 
-    it('should handle validation errors efficiently', async () => {
+    it('should handle validation errors efficiently', () => {
       const startTime = performance.now()
       const operations = 500
 
-      const promises = Array.from({ length: operations }, () =>
-        Effect.runPromise(Effect.either(validatePlayerConfig({ invalidField: 'invalid' })))
+      const effects = Array.from({ length: operations }, () =>
+        Effect.either(validatePlayerConfig({ invalidField: 'invalid' }))
       )
 
-      const results = await Promise.all(promises)
+      const results = Effect.runSync(Effect.all(effects))
       const endTime = performance.now()
 
       expect(results).toHaveLength(operations)
@@ -596,7 +594,7 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Edge Cases and Boundary Conditions', () => {
-    it('should handle edge case positions', async () => {
+    it('should handle edge case positions', () => {
       const edgeCases = [
         { x: 0, y: 0, z: 0 }, // origin
         { x: -0, y: -0, z: -0 }, // negative zero
@@ -605,14 +603,14 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const position of edgeCases) {
-        const result = await Effect.runPromise(validatePlayerPosition(position))
+        const result = Effect.runSync(validatePlayerPosition(position))
         expect(result.x).toBeCloseTo(position.x, 10)
         expect(result.y).toBeCloseTo(position.y, 10)
         expect(result.z).toBeCloseTo(position.z, 10)
       }
     })
 
-    it('should handle edge case rotations', async () => {
+    it('should handle edge case rotations', () => {
       const edgeCases = [
         { pitch: Math.PI / 2 - 1e-10, yaw: 0 }, // just under max pitch
         { pitch: -Math.PI / 2 + 1e-10, yaw: 0 }, // just over min pitch
@@ -621,13 +619,13 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const rotation of edgeCases) {
-        const result = await Effect.runPromise(validatePlayerRotation(rotation))
+        const result = Effect.runSync(validatePlayerRotation(rotation))
         expect(result.pitch).toBeCloseTo(rotation.pitch, 10)
         expect(result.yaw).toBeCloseTo(rotation.yaw, 10)
       }
     })
 
-    it('should handle edge case health values', async () => {
+    it('should handle edge case health values', () => {
       const edgeCases = [
         { playerId: 'test', health: 0.1 }, // just above zero
         { playerId: 'test', health: 99.9 }, // just below max
@@ -636,7 +634,7 @@ describe('Player Entity System - Component Tests', () => {
       ]
 
       for (const config of edgeCases) {
-        const result = await Effect.runPromise(validatePlayerConfig(config))
+        const result = Effect.runSync(validatePlayerConfig(config))
         expect(result.health).toBeCloseTo(config.health!, 10)
       }
     })
