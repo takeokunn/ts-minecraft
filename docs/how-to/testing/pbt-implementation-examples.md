@@ -51,7 +51,9 @@ const ClimateSchema = Schema.Struct({
 const BiomeSchema = Schema.Literal('tundra', 'jungle', 'desert', 'forest', 'plains')
 
 // Effect-TSでのバイオーム判定
-export const getBiomeFromClimate = (climate: Schema.Schema.Type<typeof ClimateSchema>): Effect.Effect<Schema.Schema.Type<typeof BiomeSchema>, never, never> =>
+export const getBiomeFromClimate = (
+  climate: Schema.Schema.Type<typeof ClimateSchema>
+): Effect.Effect<Schema.Schema.Type<typeof BiomeSchema>, never, never> =>
   Effect.succeed(
     pipe(
       Match.value(climate),
@@ -107,13 +109,16 @@ interface PhysicsService {
 const PhysicsService = Context.GenericTag<PhysicsService>('@app/PhysicsService')
 
 // エラーハンドリング統合
-class PhysicsError extends Schema.TaggedError<PhysicsError>()("PhysicsError", {
+class PhysicsError extends Schema.TaggedError<PhysicsError>()('PhysicsError', {
   message: Schema.String,
-  code: Schema.Literal("INVALID_HEIGHT", "SIMULATION_FAILED")
+  code: Schema.Literal('INVALID_HEIGHT', 'SIMULATION_FAILED'),
 }) {}
 
 // ジャンプ速度計算（Effect統合）
-export const calculateJumpVelocity = (jumpHeight: number, gravity: number = 9.8): Effect.Effect<number, PhysicsError> =>
+export const calculateJumpVelocity = (
+  jumpHeight: number,
+  gravity: number = 9.8
+): Effect.Effect<number, PhysicsError> =>
   jumpHeight < 0
     ? Effect.fail(new PhysicsError({ message: 'Jump height must be positive', code: 'INVALID_HEIGHT' }))
     : Effect.succeed(Math.sqrt(2 * gravity * jumpHeight))
@@ -157,7 +162,7 @@ const createTestPhysicsLayer = () =>
       Effect.gen(function* () {
         // STMを使用した並行性テスト実装
         const results = yield* Effect.allPar(
-          entities.map(entity =>
+          entities.map((entity) =>
             STM.gen(function* () {
               const positionRef = yield* STM.makeRef(entity.position)
               const velocityRef = yield* STM.makeRef(entity.velocity)
@@ -178,7 +183,7 @@ const createTestPhysicsLayer = () =>
           { concurrency: 10 }
         )
         return results
-      })
+      }),
   })
 
 // Schema-based Arbitrary定義
@@ -247,8 +252,9 @@ describe('Velocity System', () => {
 
         // 方向保持の検証（非ゼロベクトル）
         if (originalMagnitude > 0) {
-          const dotProduct = (original.x * clamped.x + original.y * clamped.y + original.z * clamped.z) /
-                           (originalMagnitude * clampedMagnitude)
+          const dotProduct =
+            (original.x * clamped.x + original.y * clamped.y + original.z * clamped.z) /
+            (originalMagnitude * clampedMagnitude)
           expect(dotProduct).toBeCloseTo(1, 5) // 方向が同じならcos(0) = 1
         }
       }
@@ -296,9 +302,9 @@ interface PhysicsService {
 const PhysicsService = Context.GenericTag<PhysicsService>('@app/PhysicsService')
 
 // エラーハンドリング統合
-class PhysicsError extends Schema.TaggedError<PhysicsError>()("PhysicsError", {
+class PhysicsError extends Schema.TaggedError<PhysicsError>()('PhysicsError', {
   message: Schema.String,
-  code: Schema.Literal("INVALID_HEIGHT", "SIMULATION_FAILED")
+  code: Schema.Literal('INVALID_HEIGHT', 'SIMULATION_FAILED'),
 }) {}
 
 // 実装パターン
@@ -311,7 +317,7 @@ export const PhysicsServiceLive = Layer.succeed(PhysicsService, {
   simulatePhysics: (entities: Entity[], deltaTime: number) =>
     Effect.gen(function* () {
       const results = yield* Effect.allPar(
-        entities.map(entity =>
+        entities.map((entity) =>
           STM.gen(function* () {
             const positionRef = yield* STM.makeRef(entity.position)
             const velocityRef = yield* STM.makeRef(entity.velocity)
@@ -333,7 +339,7 @@ export const PhysicsServiceLive = Layer.succeed(PhysicsService, {
         { concurrency: 10 }
       )
       return results
-    })
+    }),
 })
 
 // Schema-based テストデータ生成
@@ -346,7 +352,7 @@ const PhysicsTestDataSchema = Schema.Struct({
       position: Vector3Schema,
       velocity: Vector3Schema,
     })
-  ).pipe(Schema.maxItems(10))
+  ).pipe(Schema.maxItems(10)),
 })
 
 const physicsTestArbitrary = Arbitrary.make(PhysicsTestDataSchema)
@@ -374,15 +380,9 @@ describe('Advanced Physics PBT', () => {
       result1.forEach((entity, i) => {
         const originalEntity = testData.entities[i]
         const originalEnergy = Math.sqrt(
-          originalEntity.velocity.x ** 2 +
-          originalEntity.velocity.y ** 2 +
-          originalEntity.velocity.z ** 2
+          originalEntity.velocity.x ** 2 + originalEntity.velocity.y ** 2 + originalEntity.velocity.z ** 2
         )
-        const newEnergy = Math.sqrt(
-          entity.velocity.x ** 2 +
-          entity.velocity.y ** 2 +
-          entity.velocity.z ** 2
-        )
+        const newEnergy = Math.sqrt(entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2)
         // 摩擦がない場合のエネルギー保存
         expect(newEnergy).toBeCloseTo(originalEnergy, 2)
       })
@@ -402,9 +402,7 @@ describe('Error Handling', () => {
   it.prop([invalidHeightArbitrary])('negative jump height handling with Effect', (negativeHeight) =>
     Effect.gen(function* () {
       const physicsService = yield* PhysicsService
-      const result = yield* physicsService.calculateJumpVelocity(negativeHeight).pipe(
-        Effect.either
-      )
+      const result = yield* physicsService.calculateJumpVelocity(negativeHeight).pipe(Effect.either)
 
       expect(Either.isLeft(result)).toBe(true)
       if (Either.isLeft(result)) {
@@ -418,9 +416,9 @@ describe('Error Handling', () => {
   it.prop([physicsTestArbitrary])('physics simulation completes within timeout', (testData) =>
     Effect.gen(function* () {
       const physicsService = yield* PhysicsService
-      const result = yield* physicsService.simulatePhysics(testData.entities, 0.016).pipe(
-        Effect.timeout(Duration.millis(100))
-      )
+      const result = yield* physicsService
+        .simulatePhysics(testData.entities, 0.016)
+        .pipe(Effect.timeout(Duration.millis(100)))
       expect(result.length).toBe(testData.entities.length)
     }).pipe(Effect.provide(PhysicsServiceLive))
   )
@@ -450,8 +448,8 @@ describe('Fast-check Vitest Integration', () => {
       examples: [
         [0, 0],
         [1, -1],
-        [Number.MAX_SAFE_INTEGER, 0]
-      ]
+        [Number.MAX_SAFE_INTEGER, 0],
+      ],
     }
   )
 })
@@ -467,7 +465,7 @@ const GameEntitySchema = Schema.Struct({
   velocity: Vector3Schema,
   health: Schema.Number.pipe(Schema.between(0, 100)),
   type: Schema.Literal('player', 'mob', 'item'),
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.JsonValue))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.JsonValue)),
 })
 
 // 自動生成されるArbitrary

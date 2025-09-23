@@ -722,37 +722,33 @@ describe('Property-Based Testing with @effect/vitest', () => {
     Effect.gen(function* () {
       yield* Effect.sync(() => {
         fc.assert(
-          fc.property(
-            coordinateArbitrary,
-            coordinateArbitrary,
-            (pos1, pos2) => {
-              const result = Effect.runSync(
-                Effect.gen(function* () {
-                  // 距離計算のテスト（プロパティ：距離は常に非負）
-                  const distance = yield* calculateDistance(pos1, pos2)
+          fc.property(coordinateArbitrary, coordinateArbitrary, (pos1, pos2) => {
+            const result = Effect.runSync(
+              Effect.gen(function* () {
+                // 距離計算のテスト（プロパティ：距離は常に非負）
+                const distance = yield* calculateDistance(pos1, pos2)
 
-                  // 不変条件チェック
-                  if (distance < 0) {
-                    return false
-                  }
+                // 不変条件チェック
+                if (distance < 0) {
+                  return false
+                }
 
-                  // 三角不等式の確認
-                  const midPoint = {
-                    x: (pos1.x + pos2.x) / 2,
-                    y: (pos1.y + pos2.y) / 2,
-                    z: (pos1.z + pos2.z) / 2,
-                  }
+                // 三角不等式の確認
+                const midPoint = {
+                  x: (pos1.x + pos2.x) / 2,
+                  y: (pos1.y + pos2.y) / 2,
+                  z: (pos1.z + pos2.z) / 2,
+                }
 
-                  const dist1ToMid = yield* calculateDistance(pos1, midPoint)
-                  const dist2ToMid = yield* calculateDistance(pos2, midPoint)
+                const dist1ToMid = yield* calculateDistance(pos1, midPoint)
+                const dist2ToMid = yield* calculateDistance(pos2, midPoint)
 
-                  return dist1ToMid + dist2ToMid >= distance * 0.99 // 浮動小数点誤差考慮
-                })
-              )
+                return dist1ToMid + dist2ToMid >= distance * 0.99 // 浮動小数点誤差考慮
+              })
+            )
 
-              return result
-            }
-          ),
+            return result
+          }),
           { numRuns: 1000, seed: 42 }
         )
       })

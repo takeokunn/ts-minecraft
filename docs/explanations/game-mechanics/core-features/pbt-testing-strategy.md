@@ -44,17 +44,14 @@ const WorldService = Context.GenericTag<WorldService>('@game/WorldService')
 
 // Pure functions with Effect integration
 export const WorldServiceLive = Layer.succeed(WorldService, {
-  worldToChunkCoord: (worldCoord: number) =>
-    Effect.succeed(Math.floor(worldCoord / 16)),
+  worldToChunkCoord: (worldCoord: number) => Effect.succeed(Math.floor(worldCoord / 16)),
 
-  chunkToWorldCoord: (chunkCoord: number) =>
-    Effect.succeed(chunkCoord * 16),
+  chunkToWorldCoord: (chunkCoord: number) => Effect.succeed(chunkCoord * 16),
 
-  combineLightLevels: (blockLight: number, skyLight: number) =>
-    Effect.succeed(Math.max(blockLight, skyLight)),
+  combineLightLevels: (blockLight: number, skyLight: number) => Effect.succeed(Math.max(blockLight, skyLight)),
 
   calculateLightAttenuation: (sourceLevel: number, distance: number) =>
-    Effect.succeed(Math.max(0, sourceLevel - distance))
+    Effect.succeed(Math.max(0, sourceLevel - distance)),
 })
 ```
 
@@ -64,7 +61,7 @@ export const WorldServiceLive = Layer.succeed(WorldService, {
 // STM-based concurrent testing for chunk operations
 const ChunkOperationSchema = Schema.Struct({
   worldCoord: Schema.Number,
-  operations: Schema.Array(Schema.Literal('toChunk', 'toWorld')).pipe(Schema.maxItems(10))
+  operations: Schema.Array(Schema.Literal('toChunk', 'toWorld')).pipe(Schema.maxItems(10)),
 })
 
 const chunkOperationArbitrary = Arbitrary.make(ChunkOperationSchema)
@@ -77,24 +74,21 @@ describe('Chunk Coordinate System PBT', () => {
       // STMを使用した並行操作のテスト
       const coordRef = yield* STM.makeRef(testData.worldCoord)
 
-      const concurrentOperations = testData.operations.map(operation =>
+      const concurrentOperations = testData.operations.map((operation) =>
         STM.gen(function* () {
           const currentCoord = yield* STM.get(coordRef)
 
           if (operation === 'toChunk') {
-            const chunkCoord = yield* Effect.map(
-              worldService.worldToChunkCoord(currentCoord),
-              (chunk) => {
-                yield* STM.set(coordRef, chunk * 16) // Convert back to world coord
-                return chunk
-              }
-            ).pipe(Effect.runSync)
+            const chunkCoord = yield* Effect.map(worldService.worldToChunkCoord(currentCoord), (chunk) => {
+              yield * STM.set(coordRef, chunk * 16) // Convert back to world coord
+              return chunk
+            }).pipe(Effect.runSync)
             return chunkCoord
           } else {
             const worldCoord = yield* Effect.map(
               worldService.chunkToWorldCoord(Math.floor(currentCoord / 16)),
               (world) => {
-                yield* STM.set(coordRef, world)
+                yield * STM.set(coordRef, world)
                 return world
               }
             ).pipe(Effect.runSync)
@@ -210,7 +204,7 @@ const ClimateDataSchema = Schema.Struct({
   temperature: Schema.Number.pipe(Schema.between(0, 1)),
   humidity: Schema.Number.pipe(Schema.between(0, 1)),
   elevation: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-  seasonalFactor: Schema.optional(Schema.Number.pipe(Schema.between(0, 1)))
+  seasonalFactor: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
 })
 
 const BiomeTypeSchema = Schema.Literal('tundra', 'jungle', 'desert', 'forest', 'plains', 'mountain', 'swamp')
@@ -218,7 +212,9 @@ const BiomeTypeSchema = Schema.Literal('tundra', 'jungle', 'desert', 'forest', '
 const climateArbitrary = Arbitrary.make(ClimateDataSchema)
 
 interface BiomeService {
-  readonly getBiomeFromClimate: (climate: Schema.Schema.Type<typeof ClimateDataSchema>) => Effect.Effect<Schema.Schema.Type<typeof BiomeTypeSchema>>
+  readonly getBiomeFromClimate: (
+    climate: Schema.Schema.Type<typeof ClimateDataSchema>
+  ) => Effect.Effect<Schema.Schema.Type<typeof BiomeTypeSchema>>
   readonly validateBiomeTransition: (from: BiomeType, to: BiomeType, distance: number) => Effect.Effect<boolean>
 }
 
@@ -256,8 +252,8 @@ describe('Advanced Biome System PBT', () => {
       const biome2 = yield* biomeService.getBiomeFromClimate(climate2)
 
       // 気候差から地理的距離を推定
-      const climateDiff = Math.abs(climate1.temperature - climate2.temperature) +
-                         Math.abs(climate1.humidity - climate2.humidity)
+      const climateDiff =
+        Math.abs(climate1.temperature - climate2.temperature) + Math.abs(climate1.humidity - climate2.humidity)
       const distance = climateDiff * 1000 // スケール調整
 
       const isValidTransition = yield* biomeService.validateBiomeTransition(biome1, biome2, distance)
@@ -308,7 +304,7 @@ const PhysicsEntitySchema = Schema.Struct({
   position: Vector3Schema,
   velocity: Vector3Schema,
   mass: Schema.Number.pipe(Schema.between(0.1, 1000)),
-  forces: Schema.Array(Vector3Schema).pipe(Schema.maxItems(10))
+  forces: Schema.Array(Vector3Schema).pipe(Schema.maxItems(10)),
 })
 
 const physicsEntityArbitrary = Arbitrary.make(PhysicsEntitySchema)
@@ -343,9 +339,8 @@ describe('STM-Enhanced Physics PBT', () => {
           let totalEnergy = 0
           for (const ref of entityRefs) {
             const entity = yield* STM.get(ref)
-            const kineticEnergy = 0.5 * entity.mass * (
-              entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2
-            )
+            const kineticEnergy =
+              0.5 * entity.mass * (entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2)
             const potentialEnergy = entity.mass * 9.8 * entity.position.y
             totalEnergy += kineticEnergy + potentialEnergy
           }
@@ -353,19 +348,21 @@ describe('STM-Enhanced Physics PBT', () => {
         }).pipe(STM.commit)
 
         // 並行物理シミュレーション
-        const simulationResults = yield* Effect.allPar([
-          physicsEngine.simulateStep(entities, 0.016),
-          physicsEngine.simulateStep(entities, 0.016),
-          physicsEngine.simulateStep(entities, 0.016)
-        ], { concurrency: 3 })
+        const simulationResults = yield* Effect.allPar(
+          [
+            physicsEngine.simulateStep(entities, 0.016),
+            physicsEngine.simulateStep(entities, 0.016),
+            physicsEngine.simulateStep(entities, 0.016),
+          ],
+          { concurrency: 3 }
+        )
 
         // 各シミュレーション結果でエネルギー保存則を検証
         for (const result of simulationResults) {
           let totalEnergy = 0
           for (const entity of result) {
-            const kineticEnergy = 0.5 * entity.mass * (
-              entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2
-            )
+            const kineticEnergy =
+              0.5 * entity.mass * (entity.velocity.x ** 2 + entity.velocity.y ** 2 + entity.velocity.z ** 2)
             const potentialEnergy = entity.mass * 9.8 * entity.position.y
             totalEnergy += kineticEnergy + potentialEnergy
           }
@@ -392,7 +389,7 @@ describe('STM-Enhanced Physics PBT', () => {
         const calculations = [
           physicsEngine.calculateJumpVelocity(currentHeight, 9.8),
           physicsEngine.calculateJumpVelocity(currentHeight, 9.8),
-          physicsEngine.calculateJumpVelocity(currentHeight, 9.8)
+          physicsEngine.calculateJumpVelocity(currentHeight, 9.8),
         ]
 
         return calculations
@@ -416,11 +413,11 @@ describe('STM-Enhanced Physics PBT', () => {
 ```
 
 test.prop([fc.record({ x: fc.float(), y: fc.float(), z: fc.float() }), fc.float({ min: 0, max: 100 })])(
-  'velocity clamping preserves direction',
-  (velocity, maxSpeed) => {
-    const clamped = clampVelocity(velocity, maxSpeed)
-    const originalSpeed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2)
-    const clampedSpeed = Math.sqrt(clamped.x ** 2 + clamped.y ** 2 + clamped.z ** 2)
+'velocity clamping preserves direction',
+(velocity, maxSpeed) => {
+const clamped = clampVelocity(velocity, maxSpeed)
+const originalSpeed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2)
+const clampedSpeed = Math.sqrt(clamped.x ** 2 + clamped.y ** 2 + clamped.z ** 2)
 
     if (originalSpeed <= maxSpeed) {
       expect(clamped).toEqual(velocity)
@@ -434,9 +431,11 @@ test.prop([fc.record({ x: fc.float(), y: fc.float(), z: fc.float() }), fc.float(
         expect(clamped.z).toBeCloseTo(velocity.z * scale, 5)
       }
     }
-  }
+
+}
 )
-```
+
+````
 
 ## 5. Effect-TS 3.17+ とPBTの高度統合
 
@@ -568,7 +567,7 @@ export const AdvancedPerformanceTests = describe('Advanced Performance PBT', () 
       }).pipe(Effect.provide(ChunkServiceLive))
   )
 })
-```
+````
 
 ### 決定論的生成のSTM統合検証
 
@@ -579,15 +578,15 @@ const WorldGenTestDataSchema = Schema.Struct({
   coordinates: Schema.Array(
     Schema.Struct({
       x: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000)),
-      z: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000))
+      z: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000)),
     })
   ).pipe(Schema.minItems(1), Schema.maxItems(20)),
   biomeConfig: Schema.Struct({
     temperature: Schema.Number.pipe(Schema.between(0, 1)),
     humidity: Schema.Number.pipe(Schema.between(0, 1)),
     generateOres: Schema.Boolean,
-    generateStructures: Schema.Boolean
-  })
+    generateStructures: Schema.Boolean,
+  }),
 })
 
 const worldGenArbitrary = Arbitrary.make(WorldGenTestDataSchema)
@@ -608,7 +607,7 @@ describe('STM-Enhanced World Generation PBT', () => {
       const generationResults = yield* STM.makeRef(new Map<string, Chunk>())
 
       // 並行生成（同じシードで複数回）
-      const concurrentGenerations = testData.coordinates.map(coord =>
+      const concurrentGenerations = testData.coordinates.map((coord) =>
         Effect.gen(function* () {
           const chunk1 = yield* worldGen.generateChunk(coord, testData.seed, testData.biomeConfig)
           const chunk2 = yield* worldGen.generateChunk(coord, testData.seed, testData.biomeConfig)
@@ -753,10 +752,10 @@ const DivisionOperationSchema = Schema.Struct({
   dividend: Schema.Number,
   divisor: Schema.Number.pipe(
     Schema.filter((n): n is number => n !== 0, {
-      message: () => 'Divisor cannot be zero'
+      message: () => 'Divisor cannot be zero',
     })
   ),
-  precision: Schema.optional(Schema.Number.pipe(Schema.between(1, 15)))
+  precision: Schema.optional(Schema.Number.pipe(Schema.between(1, 15))),
 })
 
 const divisionArbitrary = Arbitrary.make(DivisionOperationSchema)
@@ -799,17 +798,17 @@ describe('Schema-Enhanced Precondition Testing', () => {
   )
 
   // Complex game-specific preconditions
-  it.prop([fc.record({
-    playerHealth: fc.float({ min: 0, max: 100 }),
-    damageAmount: fc.float({ min: 0, max: 200 }),
-    armorValue: fc.float({ min: 0, max: 50 }),
-    damageType: fc.constantFrom('physical', 'magical', 'fire', 'ice')
-  })])('damage calculation with complex preconditions', (damageData) =>
+  it.prop([
+    fc.record({
+      playerHealth: fc.float({ min: 0, max: 100 }),
+      damageAmount: fc.float({ min: 0, max: 200 }),
+      armorValue: fc.float({ min: 0, max: 50 }),
+      damageType: fc.constantFrom('physical', 'magical', 'fire', 'ice'),
+    }),
+  ])('damage calculation with complex preconditions', (damageData) =>
     Effect.gen(function* () {
       // Game-specific preconditions
-      const isValidScenario = damageData.playerHealth > 0 &&
-                             damageData.damageAmount >= 0 &&
-                             damageData.armorValue >= 0
+      const isValidScenario = damageData.playerHealth > 0 && damageData.damageAmount >= 0 && damageData.armorValue >= 0
 
       if (!isValidScenario) {
         return Effect.succeed({ skipped: true })
@@ -847,7 +846,7 @@ describe('Schema-Enhanced Precondition Testing', () => {
           originalHealth: currentHealth,
           newHealth,
           actualDamage,
-          damageReduction
+          damageReduction,
         }
       }).pipe(STM.commit)
 

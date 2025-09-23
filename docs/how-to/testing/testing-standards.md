@@ -420,7 +420,7 @@ describe('Complete Coverage Testing', () => {
         const results = yield* Effect.all(updates, { concurrency: 3 })
 
         expect(results).toHaveLength(3)
-        expect(results.every(p => p.id === player.id)).toBe(true)
+        expect(results.every((p) => p.id === player.id)).toBe(true)
 
         return results
       }).pipe(Effect.provide(TestPlayerServiceLive))

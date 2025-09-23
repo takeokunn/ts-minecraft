@@ -1291,7 +1291,11 @@ const inventoryArbitrary = Arbitrary.make(InventorySchema)
 // Service interface for inventory operations
 interface InventoryService {
   readonly addItem: (inventory: Inventory, item: ItemStack) => Effect.Effect<AddItemResult, InventoryError>
-  readonly removeItem: (inventory: Inventory, itemId: string, quantity: number) => Effect.Effect<RemoveItemResult, InventoryError>
+  readonly removeItem: (
+    inventory: Inventory,
+    itemId: string,
+    quantity: number
+  ) => Effect.Effect<RemoveItemResult, InventoryError>
   readonly moveItem: (inventory: Inventory, fromSlot: number, toSlot: number) => Effect.Effect<void, InventoryError>
   readonly craft: (inventory: Inventory, recipe: Recipe) => Effect.Effect<CraftResult, InventoryError>
 }
@@ -1299,7 +1303,6 @@ interface InventoryService {
 const InventoryService = Context.GenericTag<InventoryService>('@game/InventoryService')
 
 describe('STM-Enhanced Inventory Properties', () => {
-
   describe('STM並行操作での可逆性', () => {
     it.prop([inventoryArbitrary, itemStackArbitrary])(
       'concurrent add/remove operations maintain consistency',
@@ -1321,18 +1324,21 @@ describe('STM-Enhanced Inventory Properties', () => {
           const snapshotBefore = yield* STM.commit(STM.get(inventoryRef))
 
           // 並行アイテム操作のシミュレーション
-          const concurrentOperations = yield* Effect.allPar([
-            // 操作1: アイテム追加
-            Effect.gen(function* () {
-              const inventory = yield* STM.commit(STM.get(inventoryRef))
-              return yield* inventoryService.addItem(inventory, newItem)
-            }),
-            // 操作2: 同じアイテムの削除試行
-            Effect.gen(function* () {
-              const inventory = yield* STM.commit(STM.get(inventoryRef))
-              return yield* inventoryService.removeItem(inventory, newItem.itemId, newItem.quantity)
-            }).pipe(Effect.delay(Duration.millis(10))), // 若干の遅延
-          ], { concurrency: 2 })
+          const concurrentOperations = yield* Effect.allPar(
+            [
+              // 操作1: アイテム追加
+              Effect.gen(function* () {
+                const inventory = yield* STM.commit(STM.get(inventoryRef))
+                return yield* inventoryService.addItem(inventory, newItem)
+              }),
+              // 操作2: 同じアイテムの削除試行
+              Effect.gen(function* () {
+                const inventory = yield* STM.commit(STM.get(inventoryRef))
+                return yield* inventoryService.removeItem(inventory, newItem.itemId, newItem.quantity)
+              }).pipe(Effect.delay(Duration.millis(10))), // 若干の遅延
+            ],
+            { concurrency: 2 }
+          )
 
           const [addResult, removeResult] = concurrentOperations
 
@@ -1535,56 +1541,60 @@ describe('STM-Enhanced Inventory Properties', () => {
   })
 
   describe('Fiber-based 並行クラフティング', () => {
-    it.prop([fc.array(fc.record({
-      inputs: fc.array(fc.record({
-        itemId: fc.string({ minLength: 3, maxLength: 15 }),
-        quantity: fc.integer({ min: 1, max: 5 })
-      }), { minLength: 1, maxLength: 3 }),
-      output: fc.record({
-        itemId: fc.string({ minLength: 3, maxLength: 15 }),
-        quantity: fc.integer({ min: 1, max: 10 })
-      })
-    }), { minLength: 1, maxLength: 5 })])(
-      'concurrent crafting operations maintain resource conservation',
-      (recipes) =>
-        Effect.gen(function* () {
-          const inventoryService = yield* InventoryService
+    it.prop([
+      fc.array(
+        fc.record({
+          inputs: fc.array(
+            fc.record({
+              itemId: fc.string({ minLength: 3, maxLength: 15 }),
+              quantity: fc.integer({ min: 1, max: 5 }),
+            }),
+            { minLength: 1, maxLength: 3 }
+          ),
+          output: fc.record({
+            itemId: fc.string({ minLength: 3, maxLength: 15 }),
+            quantity: fc.integer({ min: 1, max: 10 }),
+          }),
+        }),
+        { minLength: 1, maxLength: 5 }
+      ),
+    ])('concurrent crafting operations maintain resource conservation', (recipes) =>
+      Effect.gen(function* () {
+        const inventoryService = yield* InventoryService
 
-          // 複数レシピの並行クラフティング
-          const craftingFibers = recipes.map(recipe =>
-            Effect.gen(function* () {
-              const inventory = yield* createTestInventoryWithMaterials(recipe.inputs)
+        // 複数レシピの並行クラフティング
+        const craftingFibers = recipes.map((recipe) =>
+          Effect.gen(function* () {
+            const inventory = yield* createTestInventoryWithMaterials(recipe.inputs)
 
-              // 材料の初期合計を計算
-              const initialMaterials = recipe.inputs.reduce((total, input) =>
-                total + input.quantity, 0
-              )
+            // 材料の初期合計を計算
+            const initialMaterials = recipe.inputs.reduce((total, input) => total + input.quantity, 0)
 
-              const craftResult = yield* inventoryService.craft(inventory, recipe)
+            const craftResult = yield* inventoryService.craft(inventory, recipe)
 
-              // 成功した場合の材料保存則を検証
-              if (Either.isRight(craftResult)) {
-                const remainingMaterials = yield* calculateRemainingMaterials(inventory, recipe.inputs)
-                const consumedMaterials = initialMaterials - remainingMaterials
-                const expectedConsumption = recipe.inputs.reduce((sum, input) => sum + input.quantity, 0)
+            // 成功した場合の材料保存則を検証
+            if (Either.isRight(craftResult)) {
+              const remainingMaterials = yield* calculateRemainingMaterials(inventory, recipe.inputs)
+              const consumedMaterials = initialMaterials - remainingMaterials
+              const expectedConsumption = recipe.inputs.reduce((sum, input) => sum + input.quantity, 0)
 
-                expect(consumedMaterials).toBe(expectedConsumption)
-              }
+              expect(consumedMaterials).toBe(expectedConsumption)
+            }
 
-              return craftResult
-            }).pipe(Effect.fork)
-          )
+            return craftResult
+          }).pipe(Effect.fork)
+        )
 
-          const fibers = yield* Effect.allPar(craftingFibers)
-          const results = yield* Effect.allPar(fibers.map(Fiber.join))
+        const fibers = yield* Effect.allPar(craftingFibers)
+        const results = yield* Effect.allPar(fibers.map(Fiber.join))
 
-          // 全体的な材料保存則の検証
-          const successfulCrafts = results.filter(Either.isRight).length
-          expect(successfulCrafts).toBeGreaterThanOrEqual(0)
-          expect(successfulCrafts).toBeLessThanOrEqual(recipes.length)
+        // 全体的な材料保存則の検証
+        const successfulCrafts = results.filter(Either.isRight).length
+        expect(successfulCrafts).toBeGreaterThanOrEqual(0)
+        expect(successfulCrafts).toBeLessThanOrEqual(recipes.length)
 
-          return { totalRecipes: recipes.length, successfulCrafts }
-        }).pipe(Effect.provide(InventoryServiceLive))
+        return { totalRecipes: recipes.length, successfulCrafts }
+      }).pipe(Effect.provide(InventoryServiceLive))
     )
   })
 })
@@ -1605,14 +1615,14 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
     examples: [
       [0, 0],
       [Number.MAX_SAFE_INTEGER, 1],
-      [-1, Number.MAX_SAFE_INTEGER]
-    ]
+      [-1, Number.MAX_SAFE_INTEGER],
+    ],
   })('mathematical properties with enhanced reporting', (a, b) => {
     // 交換法則
     expect(a + b).toBe(b + a)
 
     // 結合法則
-    expect((a + b) + 0).toBe(a + (b + 0))
+    expect(a + b + 0).toBe(a + (b + 0))
 
     // 恒等元
     expect(a + 0).toBe(a)
@@ -1621,11 +1631,7 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
   it.prop([fc.array(fc.integer(), { minLength: 1, maxLength: 100 })], {
     numRuns: 500,
     timeout: 5000,
-    examples: [
-      [[1]],
-      [[1, 2, 3]],
-      [Array.from({ length: 50 }, (_, i) => i)]
-    ]
+    examples: [[[1]], [[1, 2, 3]], [Array.from({ length: 50 }, (_, i) => i)]],
   })('array operations maintain invariants', (arr) => {
     const sorted = [...arr].sort((a, b) => a - b)
 
@@ -1633,8 +1639,7 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
     expect(sorted.length).toBe(arr.length)
 
     // 要素保存
-    expect(sorted.reduce((sum, x) => sum + x, 0))
-      .toBe(arr.reduce((sum, x) => sum + x, 0))
+    expect(sorted.reduce((sum, x) => sum + x, 0)).toBe(arr.reduce((sum, x) => sum + x, 0))
 
     // ソート順序
     for (let i = 1; i < sorted.length; i++) {
@@ -1643,20 +1648,18 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
   })
 
   // Schema統合による型安全なProperty Testing
-  it.prop([Arbitrary.make(GameEntitySchema)])(
-    'game entities maintain schema compliance',
-    (entity) =>
-      Effect.gen(function* () {
-        // Schemaによる自動バリデーション
-        const validated = yield* Schema.decodeUnknown(GameEntitySchema)(entity)
+  it.prop([Arbitrary.make(GameEntitySchema)])('game entities maintain schema compliance', (entity) =>
+    Effect.gen(function* () {
+      // Schemaによる自動バリデーション
+      const validated = yield* Schema.decodeUnknown(GameEntitySchema)(entity)
 
-        expect(validated.health).toBeGreaterThanOrEqual(0)
-        expect(validated.health).toBeLessThanOrEqual(100)
-        expect(['player', 'mob', 'item']).toContain(validated.type)
+      expect(validated.health).toBeGreaterThanOrEqual(0)
+      expect(validated.health).toBeLessThanOrEqual(100)
+      expect(['player', 'mob', 'item']).toContain(validated.type)
 
-        // UUID形式の検証
-        expect(validated.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-      })
+      // UUID形式の検証
+      expect(validated.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    })
   )
 })
 ```

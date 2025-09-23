@@ -464,10 +464,7 @@ Console.setConsole({
 // @effect/vitest拡張設定
 declare module '@effect/vitest' {
   interface TestAPI {
-    effect: <E, A>(
-      name: string,
-      effect: Effect.Effect<A, E>
-    ) => void
+    effect: <E, A>(name: string, effect: Effect.Effect<A, E>) => void
   }
 }
 ```
@@ -622,12 +619,7 @@ export default defineConfig({
 
     // 依存関係最適化
     deps: {
-      inline: [
-        'effect',
-        '@effect/vitest',
-        '@effect/platform',
-        '@effect/schema'
-      ],
+      inline: ['effect', '@effect/vitest', '@effect/platform', '@effect/schema'],
     },
 
     // ESM対応
@@ -645,6 +637,7 @@ export default defineConfig({
 ```
 
 **effect-vitest-setup.ts**:
+
 ```typescript
 import '@effect/vitest'
 
