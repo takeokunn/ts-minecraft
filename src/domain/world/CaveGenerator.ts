@@ -98,28 +98,37 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
               // 洞窟生成判定
               const isCaveBlock = Math.abs(caveNoise) < config.caveThreshold
 
-              if (isCaveBlock) {
-                const index = getBlockIndex(x, y, z)
-                const currentBlock = newBlocks[index] ?? 0
+              // Match.valueパターンで洞窟ブロック判定
+              pipe(
+                Match.value(isCaveBlock),
+                Match.when(true, () => {
+                  const index = getBlockIndex(x, y, z)
+                  const currentBlock = newBlocks[index] ?? 0
 
-                // 既に空気でない場合のみ処理
-                if (currentBlock !== AIR_ID) {
-                  // Match.valueパターンを使用してy座標に基づく分岐
+                  // Match.valueパターンで空気ブロック判定
                   pipe(
-                    y,
-                    Match.value,
-                    Match.when(
-                      (y) => y <= config.lavaLevel,
-                      () => {
-                        newBlocks[index] = LAVA_ID
-                      }
-                    ),
-                    Match.orElse(() => {
-                      newBlocks[index] = AIR_ID
-                    })
+                    Match.value(currentBlock !== AIR_ID),
+                    Match.when(true, () => {
+                      // Match.valueパターンを使用してy座標に基づく分岐
+                      pipe(
+                        y,
+                        Match.value,
+                        Match.when(
+                          (y) => y <= config.lavaLevel,
+                          () => {
+                            newBlocks[index] = LAVA_ID
+                          }
+                        ),
+                        Match.orElse(() => {
+                          newBlocks[index] = AIR_ID
+                        })
+                      )
+                    }),
+                    Match.orElse(() => {})
                   )
-                }
-              }
+                }),
+                Match.orElse(() => {})
+              )
             }
           }
         }
@@ -165,19 +174,23 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
               BrandedTypes.createNoiseCoordinate(worldZ * config.ravineScale)
             )
 
-            // 峡谷の深さを決定
+            // Match.valueパターンで峡谷生成判定
             const isRavine = Math.abs(ravineNoise) < config.ravineThreshold
 
-            if (isRavine) {
-              // 峡谷の深さを計算（地表から下に向かって彫る）
-              const ravineDepth = Math.floor(Math.abs(ravineNoise) * 60) + 20
-              const surfaceY = 64 // 仮の地表レベル
+            pipe(
+              Match.value(isRavine),
+              Match.when(true, () => {
+                // 峡谷の深さを計算（地表から下に向かって彫る）
+                const ravineDepth = Math.floor(Math.abs(ravineNoise) * 60) + 20
+                const surfaceY = 64 // 仮の地表レベル
 
-              for (let y = surfaceY; y > surfaceY - ravineDepth && y > -64; y--) {
-                const index = getBlockIndex(x, y, z)
-                newBlocks[index] = AIR_ID
-              }
-            }
+                for (let y = surfaceY; y > surfaceY - ravineDepth && y > -64; y--) {
+                  const index = getBlockIndex(x, y, z)
+                  newBlocks[index] = AIR_ID
+                }
+              }),
+              Match.orElse(() => {})
+            )
           }
         }
 
@@ -210,33 +223,37 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
               BrandedTypes.createNoiseCoordinate(worldZ * 0.02)
             )
 
-            // 溶岩湖生成判定
+            // Match.valueパターンで溶岩湖生成判定
             const isLavaLake = lakeNoise > 0.7
 
-            if (isLavaLake) {
-              // 溶岩レベル周辺に溶岩湖を生成
-              for (let y = config.lavaLevel - 3; y <= config.lavaLevel + 1; y++) {
-                if (y >= -64 && y < 320) {
-                  const index = getBlockIndex(x, y, z)
-                  const currentBlock = newBlocks[index] ?? 0
+            pipe(
+              Match.value(isLavaLake),
+              Match.when(true, () => {
+                // 溶岩レベル周辺に溶岩湖を生成
+                for (let y = config.lavaLevel - 3; y <= config.lavaLevel + 1; y++) {
+                  if (y >= -64 && y < 320) {
+                    const index = getBlockIndex(x, y, z)
+                    const currentBlock = newBlocks[index] ?? 0
 
-                  // Match.valueパターンを使用してブロック種別による分岐
-                  pipe(
-                    currentBlock,
-                    Match.value,
-                    Match.when(
-                      (block) => block === 0 || block === 2,
-                      () => {
-                        newBlocks[index] = LAVA_ID
-                      }
-                    ),
-                    Match.orElse(() => {
-                      // その他のブロックは変更しない
-                    })
-                  )
+                    // Match.valueパターンを使用してブロック種別による分岐
+                    pipe(
+                      currentBlock,
+                      Match.value,
+                      Match.when(
+                        (block) => block === 0 || block === 2,
+                        () => {
+                          newBlocks[index] = LAVA_ID
+                        }
+                      ),
+                      Match.orElse(() => {
+                        // その他のブロックは変更しない
+                      })
+                    )
+                  }
                 }
-              }
-            }
+              }),
+              Match.orElse(() => {})
+            )
           }
         }
 

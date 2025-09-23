@@ -135,35 +135,43 @@ const makeGameApplicationLive = Effect.gen(function* () {
   const monitorPerformance = Effect.gen(function* () {
     const performanceStats = yield* threeRenderer.getPerformanceStats()
 
-    // FPS低下の検出
-    if (performanceStats.fps < 45) {
-      yield* Effect.logWarning('Performance degradation detected', {
-        fps: performanceStats.fps,
-        frameTime: performanceStats.frameTime,
-      })
+    // FPS低下の検出 - Effect.if使用
+    yield* Effect.if(performanceStats.fps < 45, {
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Effect.logWarning('Performance degradation detected', {
+            fps: performanceStats.fps,
+            frameTime: performanceStats.frameTime,
+          })
 
-      if (performanceStats.fps < 30) {
-        return yield* Effect.fail({
-          _tag: 'PerformanceDegradationError' as const,
-          context: createErrorContext('GameApplication', 'monitorPerformance'),
-          metric: 'fps',
-          currentValue: performanceStats.fps,
-          thresholdValue: 30,
-          severity: 'critical',
-        })
-      }
-    }
+          // 重要パフォーマンス監視 - Effect.if使用
+          yield* Effect.if(performanceStats.fps < 30, {
+            onTrue: () =>
+              Effect.fail({
+                _tag: 'PerformanceDegradationError' as const,
+                context: createErrorContext('GameApplication', 'monitorPerformance'),
+                metric: 'fps',
+                currentValue: performanceStats.fps,
+                thresholdValue: 30,
+                severity: 'critical',
+              }),
+            onFalse: () => Effect.void,
+          })
+        }),
+      onFalse: () => Effect.void,
+    })
 
-    // メモリ使用量の監視
+    // メモリ使用量の監視 - Effect.if使用
     const totalMemory = performanceStats.memory.geometries + performanceStats.memory.textures
-    if (totalMemory > 1500) {
-      // 1.5GB閾値
-      yield* Effect.logWarning('High memory usage detected', {
-        totalMemory,
-        geometries: performanceStats.memory.geometries,
-        textures: performanceStats.memory.textures,
-      })
-    }
+    yield* Effect.if(totalMemory > 1500, {
+      onTrue: () =>
+        Effect.logWarning('High memory usage detected', {
+          totalMemory,
+          geometries: performanceStats.memory.geometries,
+          textures: performanceStats.memory.textures,
+        }),
+      onFalse: () => Effect.void,
+    })
   })
 
   return GameApplication.of({
@@ -217,12 +225,19 @@ const makeGameApplicationLive = Effect.gen(function* () {
           enabled: mergedConfig.rendering.antialiasing,
         })
 
-        if (mergedConfig.rendering.webgl2) {
-          const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
-          if (webgl2Supported) {
-            yield* threeRenderer.enableWebGL2Features()
-          }
-        }
+        // WebGL2機能有効化 - Effect.if使用
+        yield* Effect.if(mergedConfig.rendering.webgl2, {
+          onTrue: () =>
+            Effect.gen(function* () {
+              const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
+              // WebGL2サポート確認 - Effect.if使用
+              yield* Effect.if(webgl2Supported, {
+                onTrue: () => threeRenderer.enableWebGL2Features(),
+                onFalse: () => Effect.void,
+              })
+            }),
+          onFalse: () => Effect.void,
+        })
 
         // GameLoopにフレーム更新コールバックを登録
         const unregisterCallback = yield* gameLoopService.onFrame(onFrameUpdate)

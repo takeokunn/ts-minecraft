@@ -244,16 +244,19 @@ const processFaceDirection = (
   Effect.gen(function* () {
     const meshComponent = createEmptyMeshComponent()
 
-    // スライスごとの処理（最大3レベルネスト）
-    for (let slice = 0; slice < CHUNK_SIZE; slice++) {
-      const mask = yield* generateFaceMask(chunkData, direction, slice)
-      const quads = yield* generateQuadsFromMask(mask, slice, direction)
+    // スライスごとの処理をEffect-TSパターンで実行（最大3レベルネスト）
+    yield* Effect.forEach(
+      Array.makeBy(CHUNK_SIZE, (i) => i),
+      (slice) => Effect.gen(function* () {
+        const mask = yield* generateFaceMask(chunkData, direction, slice)
+        const quads = yield* generateQuadsFromMask(mask, slice, direction)
 
-      meshComponent.positions.push(...quads.positions)
-      meshComponent.normals.push(...quads.normals)
-      meshComponent.uvs.push(...quads.uvs)
-      meshComponent.indices.push(...quads.indices)
-    }
+        meshComponent.positions.push(...quads.positions)
+        meshComponent.normals.push(...quads.normals)
+        meshComponent.uvs.push(...quads.uvs)
+        meshComponent.indices.push(...quads.indices)
+      })
+    )
 
     return meshComponent
   })
@@ -268,8 +271,12 @@ const generateFaceMask = (
     const mask: (Block | null)[] = new Array(CHUNK_SIZE * CHUNK_SIZE).fill(null)
     let maskIndex = 0
 
-    for (let v = 0; v < CHUNK_SIZE; v++) {
-      for (let u = 0; u < CHUNK_SIZE; u++) {
+    // 2Dフェイスマスク生成をEffect-TSパターンで実行
+    const vRange = Array.makeBy(CHUNK_SIZE, (i) => i)
+    const uRange = Array.makeBy(CHUNK_SIZE, (i) => i)
+
+    vRange.forEach(v => {
+      uRange.forEach(u => {
         const block = getBlockAtPosition(chunkData, u, v, slice, direction)
         const neighborBlock = getNeighborBlock(chunkData, u, v, slice, direction)
 
@@ -768,9 +775,10 @@ const InstancedRenderingServiceLive = Layer.effect(
 
     const updateInstances = (mesh: THREE.InstancedMesh, transforms: Matrix4[]) =>
       Effect.gen(function* () {
-        for (let i = 0; i < transforms.length; i++) {
-          mesh.setMatrixAt(i, transforms[i])
-        }
+        // インスタンス変換行列の更新をEffect-TSパターンで実行
+        transforms.forEach((transform, i) => {
+          mesh.setMatrixAt(i, transform)
+        })
         mesh.instanceMatrix.needsUpdate = true
       })
 

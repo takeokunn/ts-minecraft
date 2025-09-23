@@ -210,9 +210,17 @@ const testBlockPlacement = Effect.gen(function* () {
 })
 
 // 実行
-Effect.runPromise(testBlockPlacement)
-  .then(() => console.log('テスト完了'))
-  .catch(console.error)
+const runTest = testBlockPlacement.pipe(
+  Effect.flatMap(() => Effect.log('テスト完了')),
+  Effect.catchAll((error) =>
+    Effect.gen(function* () {
+      yield* Effect.logError(`テスト失敗: ${error}`)
+      return Effect.fail(error)
+    })
+  )
+)
+
+Effect.runPromise(runTest)
 ```
 
 **🔍 確認ポイント**:
@@ -480,7 +488,18 @@ const testBlockRendering = Effect.gen(function* () {
   console.log('✅ ブロック削除成功')
 })
 
-Effect.runPromise(testBlockRendering)
+// レンダリングテスト実行
+const runRenderingTest = testBlockRendering.pipe(
+  Effect.flatMap(() => Effect.log('✅ レンダリングテスト完了')),
+  Effect.catchAll((error) =>
+    Effect.gen(function* () {
+      yield* Effect.logError(`❌ レンダリングテスト失敗: ${error}`)
+      return Effect.fail(error)
+    })
+  )
+)
+
+Effect.runPromise(runRenderingTest)
 ```
 
 ## 🎯 Section 3: 実践的統合開発（30分）
