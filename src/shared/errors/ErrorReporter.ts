@@ -1,4 +1,4 @@
-import { Option, Match, pipe } from 'effect'
+import { Option, Match, pipe, Effect } from 'effect'
 
 /**
  * エラーレポート用のヘルパー
@@ -7,28 +7,34 @@ export const ErrorReporter = {
   /**
    * エラーを構造化された形式でフォーマット
    */
-  format: (error: unknown): string =>
+  format: (error: unknown): Effect.Effect<string> =>
     pipe(
-      Option.fromNullable(error),
-      Option.filter((e: unknown): e is object => typeof e === 'object'),
-      Option.filter(
-        (e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
-          e !== null && typeof e === 'object' && '_tag' in e
-      ),
-      Option.match({
-        onNone: () => String(error),
-        onSome: (taggedError) =>
-          JSON.stringify(
-            {
-              type: taggedError._tag,
-              message: taggedError.message,
-              details: taggedError,
-              timestamp: new Date().toISOString(),
-            },
-            null,
-            2
+      Effect.clockWith((clock) => clock.currentTimeMillis),
+      Effect.map((millis) => new Date(millis).toISOString()),
+      Effect.map((timestamp) =>
+        pipe(
+          Option.fromNullable(error),
+          Option.filter((e: unknown): e is object => typeof e === 'object'),
+          Option.filter(
+            (e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
+              e !== null && typeof e === 'object' && '_tag' in e
           ),
-      })
+          Option.match({
+            onNone: () => String(error),
+            onSome: (taggedError) =>
+              JSON.stringify(
+                {
+                  type: taggedError._tag,
+                  message: taggedError.message,
+                  details: taggedError,
+                  timestamp,
+                },
+                null,
+                2
+              ),
+          })
+        )
+      )
     ),
 
   /**

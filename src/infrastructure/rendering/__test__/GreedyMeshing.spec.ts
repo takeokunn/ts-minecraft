@@ -9,6 +9,7 @@ import {
 } from '../GreedyMeshing'
 import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 // ========================================
 // Test Helpers
@@ -72,8 +73,8 @@ describe('GreedyMeshing', () => {
         x: 0,
         y: 0,
         z: 0,
-        width: 1,
-        height: 1,
+        width: BrandedTypes.createMeshDimension(1),
+        height: BrandedTypes.createMeshDimension(1),
         axis: 0,
         blockType: 1,
         normal: [1, 0, 0],
@@ -82,8 +83,8 @@ describe('GreedyMeshing', () => {
       expect(quad.x).toBe(0)
       expect(quad.y).toBe(0)
       expect(quad.z).toBe(0)
-      expect(quad.width).toBe(1)
-      expect(quad.height).toBe(1)
+      expect(quad.width).toBe(BrandedTypes.createMeshDimension(1))
+      expect(quad.height).toBe(BrandedTypes.createMeshDimension(1))
       expect(quad.axis).toBe(0)
       expect(quad.blockType).toBe(1)
       expect(quad.normal).toEqual([1, 0, 0])

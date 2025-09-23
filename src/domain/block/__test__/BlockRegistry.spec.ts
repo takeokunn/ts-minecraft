@@ -18,13 +18,14 @@ import {
 } from '../BlockRegistry'
 import type { BlockType } from '../BlockType'
 import { createTestBlock } from './test-helpers'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 describe('BlockRegistry', () => {
   describe('getBlock', () => {
     it.effect('登録されているブロックを取得できる', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const block = yield* registry.getBlock('stone')
+        const block = yield* registry.getBlock(BrandedTypes.createBlockId('stone'))
         expect(block.id).toBe('stone')
         expect(block.name).toBe('Stone')
       }).pipe(Effect.provide(BlockRegistryLive))
@@ -33,11 +34,11 @@ describe('BlockRegistry', () => {
     it.effect('存在しないブロックIDでエラーを返す', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const result = yield* Effect.either(registry.getBlock('non_existent_block'))
+        const result = yield* Effect.either(registry.getBlock(BrandedTypes.createBlockId('non_existent_block')))
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
           expect(isBlockNotFoundError(result.left)).toBe(true)
-          expect((result.left as BlockNotFoundError).blockId).toBe('non_existent_block')
+          expect((result.left as BlockNotFoundError).blockId).toBe(BrandedTypes.createBlockId('non_existent_block'))
         }
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -47,7 +48,7 @@ describe('BlockRegistry', () => {
     it.effect('登録されているブロックをSomeで返す', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const result = yield* registry.getBlockOption('stone')
+        const result = yield* registry.getBlockOption(BrandedTypes.createBlockId('stone'))
 
         pipe(
           result,
@@ -64,7 +65,7 @@ describe('BlockRegistry', () => {
     it.effect('存在しないブロックでNoneを返す', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const result = yield* registry.getBlockOption('non_existent_block')
+        const result = yield* registry.getBlockOption(BrandedTypes.createBlockId('non_existent_block'))
         expect(Option.isNone(result)).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -198,7 +199,7 @@ describe('BlockRegistry', () => {
         const testBlock = createTestBlock({ id: 'test_new', category: 'natural' })
 
         yield* registry.registerBlock(testBlock)
-        const block = yield* registry.getBlock('test_new')
+        const block = yield* registry.getBlock(BrandedTypes.createBlockId('test_new'))
         expect(block.id).toBe('test_new')
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -263,7 +264,7 @@ describe('BlockRegistry', () => {
     it.effect('登録されているブロックでtrueを返す', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const result = yield* registry.isBlockRegistered('stone')
+        const result = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('stone'))
         expect(result).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -271,7 +272,7 @@ describe('BlockRegistry', () => {
     it.effect('登録されていないブロックでfalseを返す', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
-        const result = yield* registry.isBlockRegistered('non_existent')
+        const result = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('non_existent'))
         expect(result).toBe(false)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -281,12 +282,12 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
         const testBlock = createTestBlock({ id: 'test_registered', category: 'natural' })
 
-        const before = yield* registry.isBlockRegistered('test_registered')
+        const before = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('test_registered'))
         expect(before).toBe(false)
 
         yield* registry.registerBlock(testBlock)
 
-        const after = yield* registry.isBlockRegistered('test_registered')
+        const after = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('test_registered'))
         expect(after).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -328,7 +329,7 @@ describe('BlockRegistry', () => {
         yield* Effect.all(
           essentialBlocks.map((blockId) =>
             Effect.gen(function* () {
-              const registered = yield* registry.isBlockRegistered(blockId)
+              const registered = yield* registry.isBlockRegistered(BrandedTypes.createBlockId(blockId))
               expect(registered).toBe(true)
             })
           )
@@ -386,18 +387,18 @@ describe('BlockRegistry', () => {
         yield* registerBlock(testBlock)
 
         // isBlockRegistered外部API関数（行209-213）を直接テスト
-        const isRegistered = yield* isBlockRegistered('api_coverage_test')
+        const isRegistered = yield* isBlockRegistered(BrandedTypes.createBlockId('api_coverage_test'))
         expect(isRegistered).toBe(true)
 
         // 追加で別のブロックでも確認
         const testBlock2 = createTestBlock({ id: 'api_coverage_test_2', category: 'building' })
         yield* registerBlock(testBlock2)
 
-        const isRegistered2 = yield* isBlockRegistered('api_coverage_test_2')
+        const isRegistered2 = yield* isBlockRegistered(BrandedTypes.createBlockId('api_coverage_test_2'))
         expect(isRegistered2).toBe(true)
 
         // 存在しないブロックの確認
-        const doesNotExist = yield* isBlockRegistered('non_existent_api_coverage_test')
+        const doesNotExist = yield* isBlockRegistered(BrandedTypes.createBlockId('non_existent_api_coverage_test'))
         expect(doesNotExist).toBe(false)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -411,10 +412,10 @@ describe('BlockRegistry', () => {
         yield* registry.registerBlock(testBlock)
 
         // 登録されたかを確認
-        const isRegistered = yield* registry.isBlockRegistered('api_test_block')
+        const isRegistered = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('api_test_block'))
         expect(isRegistered).toBe(true)
 
-        const block = yield* registry.getBlock('api_test_block')
+        const block = yield* registry.getBlock(BrandedTypes.createBlockId('api_test_block'))
         expect(block.id).toBe('api_test_block')
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -423,11 +424,11 @@ describe('BlockRegistry', () => {
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
         // 存在しないブロック
-        const notExists = yield* registry.isBlockRegistered('non_existent_api_test')
+        const notExists = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('non_existent_api_test'))
         expect(notExists).toBe(false)
 
         // 存在するブロック
-        const exists = yield* registry.isBlockRegistered('stone')
+        const exists = yield* registry.isBlockRegistered(BrandedTypes.createBlockId('stone'))
         expect(exists).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -474,7 +475,7 @@ describe('BlockRegistry', () => {
 
     it.effect('module-level isBlockRegistered function works', () =>
       Effect.gen(function* () {
-        const result = yield* isBlockRegistered('stone')
+        const result = yield* isBlockRegistered(BrandedTypes.createBlockId('stone'))
         expect(result).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -562,7 +563,7 @@ describe('BlockRegistry', () => {
         expect(experimentBlocks[0]?.id).toBe('experimental_block')
 
         // 登録されたブロックの詳細確認
-        const registeredBlock = yield* registry.getBlock('experimental_block')
+        const registeredBlock = yield* registry.getBlock(BrandedTypes.createBlockId('experimental_block'))
         expect(registeredBlock.category).toBe('experiment')
         expect(registeredBlock.tags).toContain('experimental')
         expect(registeredBlock.tags).toContain('new_category')

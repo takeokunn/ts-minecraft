@@ -1,13 +1,14 @@
 import { Schema } from '@effect/schema'
 import { Match, Option } from 'effect'
+import { type WorldCoordinate, BrandedTypes } from '../../shared/types/branded'
 
 /**
  * チャンク座標のスキーマ定義
  * チャンクはX,Z軸で16x16ブロックを管理
  */
 export const ChunkPositionSchema = Schema.Struct({
-  x: Schema.Number,
-  z: Schema.Number,
+  x: Schema.Number.pipe(Schema.transform(Schema.Number.pipe(Schema.int()), { decode: Math.floor, encode: (n) => n })),
+  z: Schema.Number.pipe(Schema.transform(Schema.Number.pipe(Schema.int()), { decode: Math.floor, encode: (n) => n })),
 })
 
 export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
@@ -15,15 +16,15 @@ export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
 /**
  * チャンク座標からブロック座標への変換
  */
-export const chunkToBlockCoords = (chunkPos: ChunkPosition): { startX: number; startZ: number } => ({
-  startX: chunkPos.x * 16,
-  startZ: chunkPos.z * 16,
+export const chunkToBlockCoords = (chunkPos: ChunkPosition): { startX: WorldCoordinate; startZ: WorldCoordinate } => ({
+  startX: BrandedTypes.createWorldCoordinate(chunkPos.x * 16),
+  startZ: BrandedTypes.createWorldCoordinate(chunkPos.z * 16),
 })
 
 /**
  * ブロック座標からチャンク座標への変換
  */
-export const blockToChunkCoords = (blockX: number, blockZ: number): ChunkPosition => ({
+export const blockToChunkCoords = (blockX: WorldCoordinate, blockZ: WorldCoordinate): ChunkPosition => ({
   x: Math.floor(blockX / 16),
   z: Math.floor(blockZ / 16),
 })

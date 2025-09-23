@@ -1,9 +1,10 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, Option, Either, pipe, Schema } from 'effect'
-import { EntityManager, EntityManagerLayer, EntityManagerError } from '../EntityManager.js'
-import { EntityPool, EntityPoolLayer, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity.js'
-import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry.js'
+import { EntityManager, EntityManagerLayer, EntityManagerError } from '../EntityManager'
+import { EntityPool, EntityPoolLayer, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity'
+import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry'
+import { BrandedTypes } from '../../../shared/types/branded'
 import * as TestContext from 'effect/TestContext'
 import * as Exit from 'effect/Exit'
 import fc from 'fast-check'
@@ -117,15 +118,18 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entityId = yield* manager.createEntity()
 
         const position: PositionComponent = { x: 10, y: 20, z: 30 }
-        yield* manager.addComponent(entityId, 'Position', position)
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Position'), position)
 
-        const retrieved = yield* manager.getComponent<PositionComponent>(entityId, 'Position')
+        const retrieved = yield* manager.getComponent<PositionComponent>(
+          entityId,
+          BrandedTypes.createComponentTypeName('Position')
+        )
         expect(Option.isSome(retrieved)).toBe(true)
         if (Option.isSome(retrieved)) {
           expect(retrieved.value).toEqual(position)
         }
 
-        const hasComponent = yield* manager.hasComponent(entityId, 'Position')
+        const hasComponent = yield* manager.hasComponent(entityId, BrandedTypes.createComponentTypeName('Position'))
         expect(hasComponent).toBe(true)
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
@@ -135,10 +139,13 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const manager = yield* EntityManager
         const entityId = yield* manager.createEntity()
 
-        yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
-        yield* manager.addComponent(entityId, 'Position', { x: 10, y: 20, z: 30 })
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Position'), { x: 1, y: 2, z: 3 })
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Position'), { x: 10, y: 20, z: 30 })
 
-        const updated = yield* manager.getComponent<PositionComponent>(entityId, 'Position')
+        const updated = yield* manager.getComponent<PositionComponent>(
+          entityId,
+          BrandedTypes.createComponentTypeName('Position')
+        )
         expect(Option.isSome(updated)).toBe(true)
         if (Option.isSome(updated)) {
           expect(updated.value).toEqual({ x: 10, y: 20, z: 30 })
@@ -151,13 +158,13 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const manager = yield* EntityManager
         const entityId = yield* manager.createEntity()
 
-        yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
-        yield* manager.removeComponent(entityId, 'Position')
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Position'), { x: 1, y: 2, z: 3 })
+        yield* manager.removeComponent(entityId, BrandedTypes.createComponentTypeName('Position'))
 
-        const hasComponent = yield* manager.hasComponent(entityId, 'Position')
+        const hasComponent = yield* manager.hasComponent(entityId, BrandedTypes.createComponentTypeName('Position'))
         expect(hasComponent).toBe(false)
 
-        const component = yield* manager.getComponent(entityId, 'Position')
+        const component = yield* manager.getComponent(entityId, BrandedTypes.createComponentTypeName('Position'))
         expect(Option.isNone(component)).toBe(true)
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
@@ -167,15 +174,19 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const manager = yield* EntityManager
         const entityId = yield* manager.createEntity()
 
-        yield* manager.addComponent(entityId, 'Position', { x: 1, y: 2, z: 3 })
-        yield* manager.addComponent(entityId, 'Velocity', { vx: 10, vy: 0, vz: -5 })
-        yield* manager.addComponent(entityId, 'Health', { current: 80, max: 100 })
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Position'), { x: 1, y: 2, z: 3 })
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Velocity'), {
+          vx: 10,
+          vy: 0,
+          vz: -5,
+        })
+        yield* manager.addComponent(entityId, BrandedTypes.createComponentTypeName('Health'), { current: 80, max: 100 })
 
         const components = yield* manager.getEntityComponents(entityId)
         expect(components.size).toBe(3)
-        expect(components.has('Position')).toBe(true)
-        expect(components.has('Velocity')).toBe(true)
-        expect(components.has('Health')).toBe(true)
+        expect(components.has(BrandedTypes.createComponentTypeName('Position'))).toBe(true)
+        expect(components.has(BrandedTypes.createComponentTypeName('Velocity'))).toBe(true)
+        expect(components.has(BrandedTypes.createComponentTypeName('Health'))).toBe(true)
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
@@ -188,11 +199,11 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entity2 = yield* manager.createEntity()
         const entity3 = yield* manager.createEntity()
 
-        yield* manager.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0 })
-        yield* manager.addComponent(entity2, 'Position', { x: 1, y: 1, z: 1 })
-        yield* manager.addComponent(entity3, 'Velocity', { vx: 0, vy: 0, vz: 0 })
+        yield* manager.addComponent(entity1, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+        yield* manager.addComponent(entity2, BrandedTypes.createComponentTypeName('Position'), { x: 1, y: 1, z: 1 })
+        yield* manager.addComponent(entity3, BrandedTypes.createComponentTypeName('Velocity'), { vx: 0, vy: 0, vz: 0 })
 
-        const withPosition = yield* manager.getEntitiesWithComponent('Position')
+        const withPosition = yield* manager.getEntitiesWithComponent(BrandedTypes.createComponentTypeName('Position'))
         expect(withPosition).toHaveLength(2)
         expect(withPosition).toContain(entity1)
         expect(withPosition).toContain(entity2)
@@ -207,15 +218,18 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entity2 = yield* manager.createEntity()
         const entity3 = yield* manager.createEntity()
 
-        yield* manager.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0 })
-        yield* manager.addComponent(entity1, 'Velocity', { vx: 1, vy: 1, vz: 1 })
+        yield* manager.addComponent(entity1, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+        yield* manager.addComponent(entity1, BrandedTypes.createComponentTypeName('Velocity'), { vx: 1, vy: 1, vz: 1 })
 
-        yield* manager.addComponent(entity2, 'Position', { x: 10, y: 10, z: 10 })
+        yield* manager.addComponent(entity2, BrandedTypes.createComponentTypeName('Position'), { x: 10, y: 10, z: 10 })
 
-        yield* manager.addComponent(entity3, 'Position', { x: 20, y: 20, z: 20 })
-        yield* manager.addComponent(entity3, 'Velocity', { vx: 2, vy: 2, vz: 2 })
+        yield* manager.addComponent(entity3, BrandedTypes.createComponentTypeName('Position'), { x: 20, y: 20, z: 20 })
+        yield* manager.addComponent(entity3, BrandedTypes.createComponentTypeName('Velocity'), { vx: 2, vy: 2, vz: 2 })
 
-        const withBoth = yield* manager.getEntitiesWithComponents(['Position', 'Velocity'])
+        const withBoth = yield* manager.getEntitiesWithComponents([
+          BrandedTypes.createComponentTypeName('Position'),
+          BrandedTypes.createComponentTypeName('Velocity'),
+        ])
         expect(withBoth).toHaveLength(2)
         expect(withBoth).toContain(entity1)
         expect(withBoth).toContain(entity3)
@@ -264,10 +278,14 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const manager = yield* EntityManager
         const invalidId = EntityIdBrand(99999)
 
-        const addResult = yield* Effect.either(manager.addComponent(invalidId, 'Position', { x: 0, y: 0, z: 0 }))
+        const addResult = yield* Effect.either(
+          manager.addComponent(invalidId, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+        )
         expect(addResult._tag).toBe('Left')
 
-        const removeResult = yield* Effect.either(manager.removeComponent(invalidId, 'Position'))
+        const removeResult = yield* Effect.either(
+          manager.removeComponent(invalidId, BrandedTypes.createComponentTypeName('Position'))
+        )
         expect(removeResult._tag).toBe('Left')
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
@@ -323,7 +341,11 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // コンポーネント追加の軽量テスト
         const componentTest = Effect.gen(function* () {
           for (let i = 0; i < 100; i++) {
-            yield* manager.addComponent(entitiesResult[i]!, 'Position', { x: i, y: i * 2, z: i * 3 })
+            yield* manager.addComponent(entitiesResult[i]!, BrandedTypes.createComponentTypeName('Position'), {
+              x: i,
+              y: i * 2,
+              z: i * 3,
+            })
           }
           return true
         })
@@ -337,9 +359,12 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
         // クエリパフォーマンス測定 (CI環境考慮版)
         const queryTest = Effect.gen(function* () {
-          const withPosition = yield* manager.getEntitiesWithComponent('Position')
-          const withVelocity = yield* manager.getEntitiesWithComponent('Velocity')
-          const withBoth = yield* manager.getEntitiesWithComponents(['Position', 'Velocity'])
+          const withPosition = yield* manager.getEntitiesWithComponent(BrandedTypes.createComponentTypeName('Position'))
+          const withVelocity = yield* manager.getEntitiesWithComponent(BrandedTypes.createComponentTypeName('Velocity'))
+          const withBoth = yield* manager.getEntitiesWithComponents([
+            BrandedTypes.createComponentTypeName('Position'),
+            BrandedTypes.createComponentTypeName('Velocity'),
+          ])
 
           expect(withPosition).toHaveLength(100)
           expect(withVelocity).toHaveLength(0)
@@ -363,10 +388,17 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // 軽量な一貫性テスト
         for (let i = 0; i < 10; i++) {
           const id = yield* manager.createEntity(`Entity${i}`)
-          yield* manager.addComponent(id, 'Position', { x: i, y: i * 2, z: i * 3 })
+          yield* manager.addComponent(id, BrandedTypes.createComponentTypeName('Position'), {
+            x: i,
+            y: i * 2,
+            z: i * 3,
+          })
 
-          const hasComponent = yield* manager.hasComponent(id, 'Position')
-          const component = yield* manager.getComponent<PositionComponent>(id, 'Position')
+          const hasComponent = yield* manager.hasComponent(id, BrandedTypes.createComponentTypeName('Position'))
+          const component = yield* manager.getComponent<PositionComponent>(
+            id,
+            BrandedTypes.createComponentTypeName('Position')
+          )
 
           expect(hasComponent).toBe(true)
           expect(Option.isSome(component)).toBe(true)
@@ -387,11 +419,17 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // 100個のエンティティを作成
         for (let i = 0; i < 100; i++) {
           const id = yield* manager.createEntity()
-          yield* manager.addComponent(id, 'Position', { x: i, y: i * 2, z: i * 3 })
+          yield* manager.addComponent(id, BrandedTypes.createComponentTypeName('Position'), {
+            x: i,
+            y: i * 2,
+            z: i * 3,
+          })
           entities.push(id)
         }
 
-        const positions = yield* manager.batchGetComponents<PositionComponent>('Position')
+        const positions = yield* manager.batchGetComponents<PositionComponent>(
+          BrandedTypes.createComponentTypeName('Position')
+        )
         expect(positions).toHaveLength(100)
 
         // データが正しく取得されているか確認
@@ -411,12 +449,12 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // エンティティを作成
         for (let i = 1; i <= 10; i++) {
           const id = yield* manager.createEntity()
-          yield* manager.addComponent(id, 'Position', { x: i, y: 0, z: 0 })
+          yield* manager.addComponent(id, BrandedTypes.createComponentTypeName('Position'), { x: i, y: 0, z: 0 })
         }
 
         // コンポーネントをイテレート
         yield* manager.iterateComponents<PositionComponent, never, EntityManagerError>(
-          'Position',
+          BrandedTypes.createComponentTypeName('Position'),
           (_entity, component) =>
             Effect.sync(() => {
               totalX += component.x
@@ -434,7 +472,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // エンティティを作成
         for (let i = 0; i < 100; i++) {
           const id = yield* manager.createEntity()
-          yield* manager.addComponent(id, 'Position', { x: i, y: i, z: i })
+          yield* manager.addComponent(id, BrandedTypes.createComponentTypeName('Position'), { x: i, y: i, z: i })
         }
 
         const statsBefore = yield* manager.getStats()
@@ -527,7 +565,9 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entity = yield* manager.createEntity()
 
         // 登録されていないコンポーネントタイプで削除を試みる（行309-310のカバレッジ）
-        const result = yield* Effect.either(manager.removeComponent(entity, 'UnregisteredComponentType'))
+        const result = yield* Effect.either(
+          manager.removeComponent(entity, BrandedTypes.createComponentTypeName('UnregisteredComponentType'))
+        )
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
@@ -593,8 +633,16 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
         // エンティティを作成してコンポーネントを追加
         const entity = yield* manager.createEntity()
-        yield* manager.addComponent(entity, 'Position', { x: 100, y: 200, z: 300 })
-        yield* manager.addComponent(entity, 'Velocity', { dx: 10, dy: 20, dz: 30 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), {
+          x: 100,
+          y: 200,
+          z: 300,
+        })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Velocity'), {
+          dx: 10,
+          dy: 20,
+          dz: 30,
+        })
 
         // 内部ストレージを操作して一部のコンポーネントストレージを削除する状況をシミュレート
         // （通常は発生しないが、onNoneパス（行242）をカバーするため）
@@ -637,9 +685,9 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entity = yield* manager.createEntity('ComplexEntity', ['player', 'active', 'visible'])
 
         // 複数のコンポーネントを追加
-        yield* manager.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
-        yield* manager.addComponent(entity, 'Velocity', { dx: 1, dy: 1, dz: 1 })
-        yield* manager.addComponent(entity, 'Health', { current: 100, max: 100 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Velocity'), { dx: 1, dy: 1, dz: 1 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Health'), { current: 100, max: 100 })
 
         // コンポーネントが存在することを確認
         const components = yield* manager.getEntityComponents(entity)
@@ -676,7 +724,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           `Invalid component type: ${componentType}${details && details.length > 0 ? ` - ${details}` : ''}`,
           'INVALID_COMPONENT_TYPE',
           undefined,
-          componentType
+          BrandedTypes.createComponentTypeName(componentType)
         ),
       entityLimitReached: (limit: number) =>
         EntityManagerError(`Entity limit reached: ${limit}`, 'ENTITY_LIMIT_REACHED'),
@@ -685,7 +733,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           `Component ${componentType} already exists on entity ${entityId}`,
           'COMPONENT_ALREADY_EXISTS',
           entityId,
-          componentType
+          BrandedTypes.createComponentTypeName(componentType)
         ),
     })
 
@@ -768,13 +816,13 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const entity = yield* manager.createEntity()
 
         // コンポーネント追加
-        yield* manager.addComponent(entity, 'position', { x: 0, y: 0, z: 0 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('position'), { x: 0, y: 0, z: 0 })
 
         // 同じコンポーネントを再度追加（更新として動作）
-        yield* manager.addComponent(entity, 'position', { x: 1, y: 1, z: 1 })
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('position'), { x: 1, y: 1, z: 1 })
 
         // コンポーネントが更新されていることを確認
-        const component = yield* manager.getComponent(entity, 'position')
+        const component = yield* manager.getComponent(entity, BrandedTypes.createComponentTypeName('position'))
         expect(Option.isSome(component)).toBe(true)
         if (Option.isSome(component)) {
           expect(component.value).toEqual({ x: 1, y: 1, z: 1 })
@@ -867,10 +915,13 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
         // Add component through schema validation
         const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(originalPosition)
-        yield* manager.addComponent(entity, 'Position', validatedPosition)
+        yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), validatedPosition)
 
         // Retrieve and validate round-trip
-        const retrieved = yield* manager.getComponent<PositionComponent>(entity, 'Position')
+        const retrieved = yield* manager.getComponent<PositionComponent>(
+          entity,
+          BrandedTypes.createComponentTypeName('Position')
+        )
         expect(Option.isSome(retrieved)).toBe(true)
 
         if (Option.isSome(retrieved)) {
@@ -900,11 +951,14 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           // Schema validation before adding
           const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(position)
-          yield* manager.addComponent(entity, 'Position', validatedPosition)
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), validatedPosition)
 
           // Invariant: component should exist and be retrievable
-          const hasComponent = yield* manager.hasComponent(entity, 'Position')
-          const retrieved = yield* manager.getComponent<PositionComponent>(entity, 'Position')
+          const hasComponent = yield* manager.hasComponent(entity, BrandedTypes.createComponentTypeName('Position'))
+          const retrieved = yield* manager.getComponent<PositionComponent>(
+            entity,
+            BrandedTypes.createComponentTypeName('Position')
+          )
 
           const isValid =
             hasComponent &&
@@ -941,17 +995,22 @@ describe('EntityManager - Effect-TS Pattern', () => {
           const position = { x: Number.MAX_SAFE_INTEGER, y: 0, z: 0 }
           const entity = yield* manager.createEntity()
 
-          try {
-            // Some extreme values might be valid, others might not
-            const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(position)
-            yield* manager.addComponent(entity, 'Position', validatedPosition)
+          const result = yield* Effect.either(
+            Effect.gen(function* () {
+              // Some extreme values might be valid, others might not
+              const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(position)
+              yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), validatedPosition)
 
-            const retrieved = yield* manager.getComponent<PositionComponent>(entity, 'Position')
-            expect(Option.isSome(retrieved)).toBe(true)
-          } catch {
-            // Invalid extreme values should fail schema validation
-            // This is expected behavior
-          }
+              const retrieved = yield* manager.getComponent<PositionComponent>(
+                entity,
+                BrandedTypes.createComponentTypeName('Position')
+              )
+              expect(Option.isSome(retrieved)).toBe(true)
+            })
+          )
+
+          // Invalid extreme values should fail schema validation
+          // This is expected behavior, so we don't need to do anything with the error
         }
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
@@ -1012,9 +1071,16 @@ describe('EntityManager - Effect-TS Pattern', () => {
           const manager = yield* EntityManager
           const entity = yield* manager.createEntity('LayerTestEntity')
 
-          yield* manager.addComponent(entity, 'Position', { x: 100, y: 200, z: 300 })
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), {
+            x: 100,
+            y: 200,
+            z: 300,
+          })
 
-          const retrieved = yield* manager.getComponent<PositionComponent>(entity, 'Position')
+          const retrieved = yield* manager.getComponent<PositionComponent>(
+            entity,
+            BrandedTypes.createComponentTypeName('Position')
+          )
           expect(Option.isSome(retrieved)).toBe(true)
 
           return entity
@@ -1042,7 +1108,12 @@ describe('EntityManager - Effect-TS Pattern', () => {
       Effect.gen(function* () {
         // Complete system test combining Schema + Property + Layer
         const componentArbitrary = fc.oneof(
-          fc.record({ type: fc.constant('position'), x: fc.float(), y: fc.float(), z: fc.float() }),
+          fc.record({
+            type: fc.constant(BrandedTypes.createComponentTypeName('position')),
+            x: fc.float(),
+            y: fc.float(),
+            z: fc.float(),
+          }),
           fc.record({ type: fc.constant('velocity'), vx: fc.float(), vy: fc.float(), vz: fc.float() }),
           fc.record({ type: fc.constant('health'), current: fc.nat({ max: 1000 }), max: fc.nat({ max: 1000 }) })
         )
@@ -1053,9 +1124,12 @@ describe('EntityManager - Effect-TS Pattern', () => {
           const entity = yield* manager.createEntity()
 
           // Test basic system integration
-          yield* manager.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
-          yield* manager.addComponent(entity, 'Velocity', { vx: 1, vy: 1, vz: 1 })
-          yield* manager.addComponent(entity, 'Health', { current: 100, max: 100 })
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Velocity'), { vx: 1, vy: 1, vz: 1 })
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Health'), {
+            current: 100,
+            max: 100,
+          })
 
           const components = yield* manager.getEntityComponents(entity)
           expect(components.size).toBe(3)
@@ -1074,8 +1148,8 @@ describe('EntityManager - Effect-TS Pattern', () => {
         const fastEntityOperation = Effect.gen(function* () {
           const manager = yield* EntityManager
           const entity = yield* manager.createEntity()
-          yield* manager.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
-          const hasComponent = yield* manager.hasComponent(entity, 'Position')
+          yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
+          const hasComponent = yield* manager.hasComponent(entity, BrandedTypes.createComponentTypeName('Position'))
           expect(hasComponent).toBe(true)
           return entity
         })

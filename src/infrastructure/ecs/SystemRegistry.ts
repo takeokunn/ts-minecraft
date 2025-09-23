@@ -6,9 +6,9 @@
  */
 
 import { Context, Data, Effect, Layer, Ref, Schema, Either, Match, pipe, Option } from 'effect'
-import type { System, SystemMetadata, SystemPriority } from './System.js'
-import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System.js'
-import type { World } from './World.js'
+import type { System, SystemMetadata, SystemPriority } from './System'
+import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System'
+import type { World } from './World'
 
 /**
  * システムレジストリエラー

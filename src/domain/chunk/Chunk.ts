@@ -1,4 +1,4 @@
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, Option, pipe } from 'effect'
 import type { ChunkPosition } from './ChunkPosition.js'
 import type { ChunkData, ChunkMetadata } from './ChunkData.js'
 import {
@@ -9,7 +9,8 @@ import {
   CHUNK_HEIGHT,
   CHUNK_MIN_Y,
   CHUNK_MAX_Y,
-} from './ChunkData.js'
+} from './ChunkData'
+import { BrandedTypes } from '../../shared/types/branded'
 
 /**
  * チャンク操作のエラー型
@@ -97,7 +98,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         Match.value,
         Match.when(true, () => Effect.fail(ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`))),
         Match.orElse(() => {
-          const index = getBlockIndex(x, y, z)
+          const index = getBlockIndex(
+            BrandedTypes.createWorldCoordinate(x),
+            BrandedTypes.createWorldCoordinate(y),
+            BrandedTypes.createWorldCoordinate(z)
+          )
           return Effect.succeed(chunk.blocks[index] ?? 0)
         })
       )
@@ -112,7 +117,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         Match.when(true, () => Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))),
         Match.orElse(() =>
           Effect.gen(function* () {
-            const index = getBlockIndex(x, y, z)
+            const index = getBlockIndex(
+              BrandedTypes.createWorldCoordinate(x),
+              BrandedTypes.createWorldCoordinate(y),
+              BrandedTypes.createWorldCoordinate(z)
+            )
             const newBlocks = new Uint16Array(chunk.blocks)
             newBlocks[index] = blockId
 
@@ -177,7 +186,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         for (let x = minX; x <= maxX; x++) {
           for (let y = minY; y <= maxY; y++) {
             for (let z = minZ; z <= maxZ; z++) {
-              const index = getBlockIndex(x, y, z)
+              const index = getBlockIndex(
+                BrandedTypes.createWorldCoordinate(x),
+                BrandedTypes.createWorldCoordinate(y),
+                BrandedTypes.createWorldCoordinate(z)
+              )
               newBlocks[index] = blockId
             }
           }
@@ -237,49 +250,71 @@ export const createChunk = (data: ChunkData): Chunk => {
     deserialize(data: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
       return Effect.try({
         try: () => {
-          if (data.byteLength < 64) {
-            throw ChunkSerializationError('Buffer too small')
-          }
+          // Option.matchパターンでシリアライゼーション検証
+          return pipe(
+            Option.fromNullable(data.byteLength >= 64 ? data : null),
+            Option.match({
+              onNone: () => {
+                throw ChunkSerializationError('Buffer too small')
+              },
+              onSome: (validData) => {
+                const view = new DataView(validData)
+                let offset = 0
 
-          const view = new DataView(data)
-          let offset = 0
+                const version = view.getUint32(offset, true)
+                offset += 4
 
-          const version = view.getUint32(offset, true)
-          offset += 4
-          if (version !== 1) {
-            throw ChunkSerializationError(`Unsupported version: ${version}`)
-          }
+                // Option.matchパターンでバージョン検証
+                return pipe(
+                  Option.fromNullable(version === 1 ? version : null),
+                  Option.match({
+                    onNone: () => {
+                      throw ChunkSerializationError(`Unsupported version: ${version}`)
+                    },
+                    onSome: () => {
+                      const blocksSize = view.getUint32(offset, true)
+                      offset += 4
+                      const heightMapSize = view.getUint32(offset, true)
+                      offset += 4
+                      const lastUpdate = view.getFloat64(offset, true)
+                      offset += 8
 
-          const blocksSize = view.getUint32(offset, true)
-          offset += 4
-          const heightMapSize = view.getUint32(offset, true)
-          offset += 4
-          const lastUpdate = view.getFloat64(offset, true)
-          offset += 8
+                      // Option.matchパターンでバッファサイズ検証
+                      return pipe(
+                        Option.fromNullable(data.byteLength >= offset + blocksSize + heightMapSize ? data : null),
+                        Option.match({
+                          onNone: () => {
+                            throw ChunkSerializationError('Invalid buffer size')
+                          },
+                          onSome: () => {
+                            const blocksView = new Uint16Array(data, offset, blocksSize / 2)
+                            const blocks = new Uint16Array(blocksView)
+                            offset += blocksSize
 
-          if (data.byteLength < offset + blocksSize + heightMapSize) {
-            throw ChunkSerializationError('Invalid buffer size')
-          }
+                            const heightMapView = new Float32Array(data, offset, heightMapSize / 4)
+                            const heightMap = Array.from(heightMapView)
 
-          const blocksView = new Uint16Array(data, offset, blocksSize / 2)
-          const blocks = new Uint16Array(blocksView)
-          offset += blocksSize
+                            const newData: ChunkData = {
+                              position: chunk.position,
+                              blocks,
+                              metadata: {
+                                ...chunk.metadata,
+                                heightMap,
+                                lastUpdate,
+                              },
+                              isDirty: false,
+                            }
 
-          const heightMapView = new Float32Array(data, offset, heightMapSize / 4)
-          const heightMap = Array.from(heightMapView)
-
-          const newData: ChunkData = {
-            position: chunk.position,
-            blocks,
-            metadata: {
-              ...chunk.metadata,
-              heightMap,
-              lastUpdate,
-            },
-            isDirty: false,
-          }
-
-          return createChunk(newData)
+                            return createChunk(newData)
+                          },
+                        })
+                      )
+                    },
+                  })
+                )
+              },
+            })
+          )
         },
         catch: (error) =>
           isChunkSerializationError(error) ? error : ChunkSerializationError(`Failed to deserialize chunk: ${error}`),

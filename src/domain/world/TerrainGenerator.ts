@@ -4,6 +4,9 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
 import type { ChunkData } from '../chunk/ChunkData'
+import { Height, BrandedTypes } from '../../shared/types/branded'
+import type { WorldCoordinate } from '../../shared/types/branded'
+import { getBlockIndex as getChunkBlockIndex } from '../chunk/ChunkData'
 
 /**
  * 地形生成の設定
@@ -36,7 +39,7 @@ export interface TerrainGenerator {
   /**
    * 指定座標の地形高度を取得
    */
-  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never, NoiseGenerator>
+  readonly getTerrainHeight: (x: WorldCoordinate, z: WorldCoordinate) => Effect.Effect<Height, never, NoiseGenerator>
 
   /**
    * チャンクに基本地形ブロックを配置
@@ -49,7 +52,12 @@ export interface TerrainGenerator {
   /**
    * 指定高度でのブロックタイプを決定
    */
-  readonly getBlockTypeAtHeight: (worldX: number, worldZ: number, y: number, surfaceHeight: number) => string
+  readonly getBlockTypeAtHeight: (
+    worldX: WorldCoordinate,
+    worldZ: WorldCoordinate,
+    y: Height,
+    surfaceHeight: Height
+  ) => string
 
   /**
    * 設定を取得
@@ -66,7 +74,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
   return {
     generateHeightMap: (position: ChunkPosition) =>
       Effect.gen(function* () {
-        const heightMap: number[][] = []
+        const heightMap: Height[][] = []
 
         for (let x = 0; x < 16; x++) {
           heightMap[x] = []
@@ -78,22 +86,27 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
             // 基本地形高度（大きなスケールのノイズ）
             const baseHeight = yield* noiseGenerator.octaveNoise2D(
-              worldX * 0.005, // 低周波数で大きな地形
-              worldZ * 0.005,
+              BrandedTypes.createNoiseCoordinate(worldX * 0.005), // 低周波数で大きな地形
+              BrandedTypes.createNoiseCoordinate(worldZ * 0.005),
               4, // オクターブ数
               0.6 // 持続性
             )
 
             // 詳細地形（小さなスケールのノイズ）
             const detailHeight = yield* noiseGenerator.octaveNoise2D(
-              worldX * 0.02, // 高周波数で細かい起伏
-              worldZ * 0.02,
+              BrandedTypes.createNoiseCoordinate(worldX * 0.02), // 高周波数で細かい起伏
+              BrandedTypes.createNoiseCoordinate(worldZ * 0.02),
               3,
               0.4
             )
 
             // 山岳地帯用の高周波ノイズ
-            const mountainHeight = yield* noiseGenerator.octaveNoise2D(worldX * 0.001, worldZ * 0.001, 6, 0.5)
+            const mountainHeight = yield* noiseGenerator.octaveNoise2D(
+              BrandedTypes.createNoiseCoordinate(worldX * 0.001),
+              BrandedTypes.createNoiseCoordinate(worldZ * 0.001),
+              6,
+              0.5
+            )
 
             // 高度計算（海面レベルを基準に調整）
             let finalHeight = config.seaLevel
@@ -101,14 +114,17 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
             finalHeight += detailHeight * 8 // ±8ブロックの詳細変動
             finalHeight += Math.max(0, mountainHeight * 64) // 0-64ブロックの山岳変動
 
-            // 高度制限
+            // 高度制限とHeight型へ変換
             finalHeight = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+            // Height型は0-256の範囲のみ許可するため、さらにクランプ
+            const clampedHeight = Math.max(0, Math.min(256, finalHeight))
+            const heightValue = BrandedTypes.createHeight(clampedHeight)
 
             // 配列アクセスをOptionパターンで安全化
             pipe(
               Option.fromNullable(heightMap[x]),
               Option.map((row) => {
-                row[z] = finalHeight
+                row[z] = heightValue
               })
             )
           }
@@ -117,25 +133,41 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
         return heightMap
       }),
 
-    getTerrainHeight: (x: number, z: number) =>
+    getTerrainHeight: (x: WorldCoordinate, z: WorldCoordinate) =>
       Effect.gen(function* () {
         const noiseGenerator = yield* NoiseGeneratorTag
 
         // 基本地形高度
-        const baseHeight = yield* noiseGenerator.octaveNoise2D(x * 0.005, z * 0.005, 4, 0.6)
+        const baseHeight = yield* noiseGenerator.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(x * 0.005),
+          BrandedTypes.createNoiseCoordinate(z * 0.005),
+          4,
+          0.6
+        )
 
         // 詳細地形
-        const detailHeight = yield* noiseGenerator.octaveNoise2D(x * 0.02, z * 0.02, 3, 0.4)
+        const detailHeight = yield* noiseGenerator.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(x * 0.02),
+          BrandedTypes.createNoiseCoordinate(z * 0.02),
+          3,
+          0.4
+        )
 
         // 山岳地帯
-        const mountainHeight = yield* noiseGenerator.octaveNoise2D(x * 0.001, z * 0.001, 6, 0.5)
+        const mountainHeight = yield* noiseGenerator.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(x * 0.001),
+          BrandedTypes.createNoiseCoordinate(z * 0.001),
+          6,
+          0.5
+        )
 
         let finalHeight = config.seaLevel
         finalHeight += baseHeight * 32
         finalHeight += detailHeight * 8
         finalHeight += Math.max(0, mountainHeight * 64)
 
-        return Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+        const heightValue = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+        return BrandedTypes.createHeight(heightValue)
       }),
 
     generateBaseTerrain: (chunkData: ChunkData, heightMap: HeightMap) =>
@@ -156,12 +188,16 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
         for (let x = 0; x < 16; x++) {
           for (let z = 0; z < 16; z++) {
-            const surfaceHeight = heightMap[x]?.[z] ?? config.seaLevel
-            const worldX = chunkData.position.x * 16 + x
-            const worldZ = chunkData.position.z * 16 + z
+            const surfaceHeight = heightMap[x]?.[z] ?? BrandedTypes.createHeight(config.seaLevel)
+            const worldX = BrandedTypes.createWorldCoordinate(chunkData.position.x * 16 + x)
+            const worldZ = BrandedTypes.createWorldCoordinate(chunkData.position.z * 16 + z)
 
             for (let y = -64; y < 320; y++) {
-              const index = getBlockIndex(x, y, z)
+              const index = getChunkBlockIndex(
+                BrandedTypes.createWorldCoordinate(x),
+                BrandedTypes.createWorldCoordinate(y),
+                BrandedTypes.createWorldCoordinate(z)
+              )
               let blockId = blockIds.air
 
               blockId = pipe(
@@ -222,7 +258,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
         }
       }),
 
-    getBlockTypeAtHeight: (worldX: number, worldZ: number, y: number, surfaceHeight: number) => {
+    getBlockTypeAtHeight: (worldX: WorldCoordinate, worldZ: WorldCoordinate, y: Height, surfaceHeight: Height) => {
       // 高度と位置に基づいてブロックタイプを決定
       return pipe(
         Match.value(surfaceHeight),
@@ -243,9 +279,10 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 }
 
 /**
- * ブロックインデックス計算（chunk/ChunkData.tsと同じロジック）
+ * ローカルのブロックインデックス計算ヘルパー
+ * chunk/ChunkData.tsのgetBlockIndexとは別の実装
  */
-const getBlockIndex = (x: number, y: number, z: number): number => {
+const calculateBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y + 64 // -64～319 → 0～383
   return normalizedY + z * 384 + x * 384 * 16
 }

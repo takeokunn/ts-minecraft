@@ -8,7 +8,7 @@ export {
   chunkIdToPosition,
   chunkPositionEquals,
   chunkPositionDistance,
-} from './ChunkPosition.js'
+} from './ChunkPosition'
 
 // チャンクデータ関連
 export {
@@ -30,10 +30,10 @@ export {
   isEmpty,
   getMemoryUsage,
   resetChunkData,
-} from './ChunkData.js'
+} from './ChunkData'
 
 // チャンクインターフェース関連
-export { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from './Chunk.js'
+export { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from './Chunk'
 
 // チャンクマネージャー関連
 export {
@@ -51,7 +51,7 @@ export {
   worldToChunkPosition,
   chunkDistance,
   generateLoadOrder,
-} from './ChunkManager.js'
+} from './ChunkManager'
 
 // チャンクローダー関連
 export {
@@ -68,7 +68,7 @@ export {
   createChunkLoadRequest,
   chunkLoadRequestToKey,
   isLoadExpired,
-} from './ChunkLoader.js'
+} from './ChunkLoader'
 
 // 描画距離管理関連
 export {
@@ -85,4 +85,4 @@ export {
   calculateOptimalViewDistance,
   getVisibleChunkPositions,
   calculateChunkPriority,
-} from './ViewDistance.js'
+} from './ViewDistance'

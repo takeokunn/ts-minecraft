@@ -1,6 +1,6 @@
 import { Context, Data, Effect, HashMap, Layer, Option, pipe, Schema, Match } from 'effect'
-import type { SystemError } from './System.js'
-import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry.js'
+import type { SystemError } from './System'
+import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
 import {
   type EntityId,
   type EntityMetadata,
@@ -10,7 +10,8 @@ import {
   type ComponentStorage,
   createArchetypeManager,
   type ArchetypeManager,
-} from './Entity.js'
+} from './Entity'
+import { ComponentTypeName, BrandedTypes } from '../../shared/types/branded'
 
 // =====================================
 // Entity Manager Errors
@@ -36,14 +37,14 @@ export interface EntityManagerError {
   readonly message: string
   readonly reason: EntityManagerErrorReason
   readonly entityId?: number
-  readonly componentType?: string
+  readonly componentType?: ComponentTypeName
 }
 
 export const EntityManagerError = (
   message: string,
   reason: EntityManagerErrorReason,
   entityId?: number,
-  componentType?: string
+  componentType?: ComponentTypeName
 ): EntityManagerError => ({
   _tag: 'EntityManagerError',
   message,
@@ -65,14 +66,14 @@ export const createEntityManagerError = {
       'ENTITY_NOT_FOUND',
       entityId
     ),
-  componentNotFound: (componentType: string, entityId?: EntityId) =>
+  componentNotFound: (componentType: ComponentTypeName, entityId?: EntityId) =>
     EntityManagerError(
       `Component type ${componentType} not found${entityId ? ` on entity ${entityId}` : ''}`,
       'COMPONENT_NOT_FOUND',
       entityId,
       componentType
     ),
-  invalidComponentType: (componentType: string, details?: string) =>
+  invalidComponentType: (componentType: ComponentTypeName, details?: string) =>
     EntityManagerError(
       `Invalid component type: ${componentType}${details ? ` - ${details}` : ''}`,
       'INVALID_COMPONENT_TYPE',
@@ -80,7 +81,7 @@ export const createEntityManagerError = {
       componentType
     ),
   entityLimitReached: (limit: number) => EntityManagerError(`Entity limit reached: ${limit}`, 'ENTITY_LIMIT_REACHED'),
-  componentAlreadyExists: (entityId: EntityId, componentType: string) =>
+  componentAlreadyExists: (entityId: EntityId, componentType: ComponentTypeName) =>
     EntityManagerError(
       `Component ${componentType} already exists on entity ${entityId}`,
       'COMPONENT_ALREADY_EXISTS',
@@ -132,26 +133,34 @@ export interface EntityManager {
   // コンポーネント管理
   readonly addComponent: <T>(
     entityId: EntityId,
-    componentType: string,
+    componentType: ComponentTypeName,
     component: T
   ) => Effect.Effect<void, EntityManagerError>
-  readonly removeComponent: (entityId: EntityId, componentType: string) => Effect.Effect<void, EntityManagerError>
-  readonly getComponent: <T>(entityId: EntityId, componentType: string) => Effect.Effect<Option.Option<T>, never>
-  readonly hasComponent: (entityId: EntityId, componentType: string) => Effect.Effect<boolean, never>
-  readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<ReadonlyMap<string, unknown>, never>
+  readonly removeComponent: (
+    entityId: EntityId,
+    componentType: ComponentTypeName
+  ) => Effect.Effect<void, EntityManagerError>
+  readonly getComponent: <T>(
+    entityId: EntityId,
+    componentType: ComponentTypeName
+  ) => Effect.Effect<Option.Option<T>, never>
+  readonly hasComponent: (entityId: EntityId, componentType: ComponentTypeName) => Effect.Effect<boolean, never>
+  readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<ReadonlyMap<ComponentTypeName, unknown>, never>
 
   // クエリ
-  readonly getEntitiesWithComponent: (componentType: string) => Effect.Effect<ReadonlyArray<EntityId>, never>
+  readonly getEntitiesWithComponent: (componentType: ComponentTypeName) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getEntitiesWithComponents: (
-    componentTypes: readonly string[]
+    componentTypes: readonly ComponentTypeName[]
   ) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getEntitiesByTag: (tag: string) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>, never>
 
   // バッチ操作（高速）
-  readonly batchGetComponents: <T>(componentType: string) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
+  readonly batchGetComponents: <T>(
+    componentType: ComponentTypeName
+  ) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
   readonly iterateComponents: <T, R, E>(
-    componentType: string,
+    componentType: ComponentTypeName,
     f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
   ) => Effect.Effect<void, E, R>
 
@@ -174,15 +183,15 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   // Internal state
   const entities = new Map<EntityId, EntityMetadata>()
-  const componentStorages = new Map<string, ComponentStorage<unknown>>()
-  const entityComponents = new Map<EntityId, Set<string>>()
+  const componentStorages = new Map<ComponentTypeName, ComponentStorage<unknown>>()
+  const entityComponents = new Map<EntityId, Set<ComponentTypeName>>()
   const archetypeManager = createArchetypeManager()
   const tagIndex = new Map<string, Set<EntityId>>()
 
   let entityGeneration = 0
 
   // Helper: コンポーネントストレージの取得または作成
-  const getOrCreateStorage = (componentType: string): ComponentStorage<unknown> => {
+  const getOrCreateStorage = (componentType: ComponentTypeName): ComponentStorage<unknown> => {
     return pipe(
       Option.fromNullable(componentStorages.get(componentType)),
       Option.match({
@@ -251,7 +260,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(id)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -289,7 +298,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // コンポーネント追加
-  const addComponent = <T>(entityId: EntityId, componentType: string, component: T) =>
+  const addComponent = <T>(entityId: EntityId, componentType: ComponentTypeName, component: T) =>
     Effect.gen(function* () {
       yield* pipe(
         entities.has(entityId),
@@ -302,7 +311,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -331,7 +340,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // コンポーネント削除
-  const removeComponent = (entityId: EntityId, componentType: string) =>
+  const removeComponent = (entityId: EntityId, componentType: ComponentTypeName) =>
     Effect.gen(function* () {
       // エンティティの存在確認
       yield* pipe(entities.has(entityId), (exists) =>
@@ -357,7 +366,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                     const components = yield* pipe(
                       Option.fromNullable(entityComponents.get(entityId)),
                       Option.match({
-                        onNone: () => Effect.succeed(new Set<string>()),
+                        onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
                         onSome: (c) => Effect.succeed(c),
                       })
                     )
@@ -376,7 +385,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // コンポーネント取得
-  const getComponent = <T>(entityId: EntityId, componentType: string) =>
+  const getComponent = <T>(entityId: EntityId, componentType: ComponentTypeName) =>
     Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
@@ -388,7 +397,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // コンポーネント存在確認
-  const hasComponent = (entityId: EntityId, componentType: string) =>
+  const hasComponent = (entityId: EntityId, componentType: ComponentTypeName) =>
     Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
@@ -402,11 +411,11 @@ export const EntityManagerLive = Effect.gen(function* () {
   // エンティティのすべてのコンポーネント取得
   const getEntityComponents = (entityId: EntityId) =>
     Effect.gen(function* () {
-      const result = new Map<string, unknown>()
+      const result = new Map<ComponentTypeName, unknown>()
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -436,11 +445,11 @@ export const EntityManagerLive = Effect.gen(function* () {
         )
       }
 
-      return result as ReadonlyMap<string, unknown>
+      return result as ReadonlyMap<ComponentTypeName, unknown>
     })
 
   // クエリ：コンポーネントを持つエンティティ
-  const getEntitiesWithComponent = (componentType: string) =>
+  const getEntitiesWithComponent = (componentType: ComponentTypeName) =>
     Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
@@ -456,7 +465,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // クエリ：複数コンポーネントを持つエンティティ（AND）
-  const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
+  const getEntitiesWithComponents = (componentTypes: readonly ComponentTypeName[]) =>
     Effect.gen(function* () {
       return yield* pipe(
         componentTypes.length === 0,
@@ -534,7 +543,7 @@ export const EntityManagerLive = Effect.gen(function* () {
   const getAllEntities = () => Effect.sync(() => Array.from(entities.keys()))
 
   // バッチコンポーネント取得（高速）
-  const batchGetComponents = <T>(componentType: string) =>
+  const batchGetComponents = <T>(componentType: ComponentTypeName) =>
     Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
@@ -551,7 +560,7 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   // コンポーネントイテレーション（高速）
   const iterateComponents = <T, R, E>(
-    componentType: string,
+    componentType: ComponentTypeName,
     f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
   ): Effect.Effect<void, E, R> =>
     Effect.gen(function* () {

@@ -1546,8 +1546,8 @@ const CreatePlayerParamsArb = fc.record({
 describe('Player Creation Property Tests', () => {
   it('should always create valid players from valid params', () =>
     fc.assert(
-      fc.asyncProperty(CreatePlayerParamsArb, async (params) => {
-        const result = await Effect.runPromise(
+      fc.asyncProperty(CreatePlayerParamsArb, (params) =>
+        Effect.runPromise(
           Effect.gen(function* () {
             const service = yield* PlayerService
             const player = yield* service.create(params)

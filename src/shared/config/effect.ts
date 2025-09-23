@@ -128,10 +128,11 @@ export const logDebug = (message: string) => Effect.logDebug(message)
 export const timed = <A, E, R>(label: string, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   pipe(
     Effect.Do,
-    Effect.bind('start', () => Effect.sync(() => Date.now())),
+    Effect.bind('start', () => Effect.clockWith((clock) => clock.currentTimeMillis)),
     Effect.bind('result', () => effect),
-    Effect.tap(({ start }) => {
-      const duration = Date.now() - start
+    Effect.bind('end', () => Effect.clockWith((clock) => clock.currentTimeMillis)),
+    Effect.tap(({ start, end }) => {
+      const duration = end - start
       return logDebug(`${label} took ${duration}ms`)
     }),
     Effect.map(({ result }) => result)

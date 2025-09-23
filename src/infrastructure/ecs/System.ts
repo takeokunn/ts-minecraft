@@ -6,7 +6,7 @@
  */
 
 import { Context, Data, Effect, Layer, Match, pipe, Schema } from 'effect'
-import type { World } from './World.js'
+import type { World } from './World'
 
 /**
  * システムエラー - ECSシステム実行時のエラー

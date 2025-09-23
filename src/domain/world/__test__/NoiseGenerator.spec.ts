@@ -2,6 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { Schema } from '@effect/schema'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   NoiseGeneratorLive,
   NoiseGeneratorLiveDefault,
@@ -118,8 +119,8 @@ describe('NoiseGenerator', () => {
         ]
 
         for (const { x, y } of testCoords) {
-          const value1 = yield* ng.noise2D(x, y)
-          const value2 = yield* ng.noise2D(x, y)
+          const value1 = yield* ng.noise2D(BrandedTypes.createNoiseCoordinate(x), BrandedTypes.createNoiseCoordinate(y))
+          const value2 = yield* ng.noise2D(BrandedTypes.createNoiseCoordinate(x), BrandedTypes.createNoiseCoordinate(y))
 
           expect(value1).toBe(value2)
           expect(typeof value1).toBe('number')
@@ -133,8 +134,14 @@ describe('NoiseGenerator', () => {
     it.effect('generates different values for different coordinates', () =>
       Effect.gen(function* () {
         const ng = yield* NoiseGeneratorTag
-        const value1 = yield* ng.noise2D(1.5, 2.7)
-        const value2 = yield* ng.noise2D(10.3, 15.8)
+        const value1 = yield* ng.noise2D(
+          BrandedTypes.createNoiseCoordinate(1.5),
+          BrandedTypes.createNoiseCoordinate(2.7)
+        )
+        const value2 = yield* ng.noise2D(
+          BrandedTypes.createNoiseCoordinate(10.3),
+          BrandedTypes.createNoiseCoordinate(15.8)
+        )
 
         // ノイズ関数は通常異なる座標で異なる値を生成するが、稀に同じ値になることもある
         // そのため、少なくとも数値であることと範囲内であることのみ検証
@@ -152,8 +159,16 @@ describe('NoiseGenerator', () => {
     it.effect('generates consistent 3D noise values for same input', () =>
       Effect.gen(function* () {
         const ng = yield* NoiseGeneratorTag
-        const value1 = yield* ng.noise3D(1.5, 2.7, -1.3)
-        const value2 = yield* ng.noise3D(1.5, 2.7, -1.3)
+        const value1 = yield* ng.noise3D(
+          BrandedTypes.createNoiseCoordinate(1.5),
+          BrandedTypes.createNoiseCoordinate(2.7),
+          BrandedTypes.createNoiseCoordinate(-1.3)
+        )
+        const value2 = yield* ng.noise3D(
+          BrandedTypes.createNoiseCoordinate(1.5),
+          BrandedTypes.createNoiseCoordinate(2.7),
+          BrandedTypes.createNoiseCoordinate(-1.3)
+        )
 
         expect(value1).toBe(value2)
         expect(typeof value1).toBe('number')
@@ -168,8 +183,18 @@ describe('NoiseGenerator', () => {
     it.effect('generates octave noise with different octave counts', () =>
       Effect.gen(function* () {
         const ng = yield* NoiseGeneratorTag
-        const octave1 = yield* ng.octaveNoise2D(1.5, 2.7, 1, 0.5)
-        const octave4 = yield* ng.octaveNoise2D(1.5, 2.7, 4, 0.5)
+        const octave1 = yield* ng.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(1.5),
+          BrandedTypes.createNoiseCoordinate(2.7),
+          1,
+          0.5
+        )
+        const octave4 = yield* ng.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(1.5),
+          BrandedTypes.createNoiseCoordinate(2.7),
+          4,
+          0.5
+        )
 
         expect(octave1).not.toBe(octave4)
         expect(octave1).toBeGreaterThanOrEqual(-1)
@@ -186,8 +211,14 @@ describe('NoiseGenerator', () => {
     it.effect('generates identical results with same seed', () =>
       Effect.gen(function* () {
         const ng = yield* NoiseGeneratorTag
-        const noise1 = yield* ng.noise2D(15.7, -8.3)
-        const noise2 = yield* ng.noise2D(15.7, -8.3)
+        const noise1 = yield* ng.noise2D(
+          BrandedTypes.createNoiseCoordinate(15.7),
+          BrandedTypes.createNoiseCoordinate(-8.3)
+        )
+        const noise2 = yield* ng.noise2D(
+          BrandedTypes.createNoiseCoordinate(15.7),
+          BrandedTypes.createNoiseCoordinate(-8.3)
+        )
 
         expect(noise1).toBe(noise2)
         expect(typeof noise1).toBe('number')
@@ -199,7 +230,12 @@ describe('NoiseGenerator', () => {
     it.effect('handles zero octaves gracefully', () =>
       Effect.gen(function* () {
         const ng = yield* NoiseGeneratorTag
-        const zeroOctave = yield* ng.octaveNoise2D(10, 20, 0, 0.5)
+        const zeroOctave = yield* ng.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(10),
+          BrandedTypes.createNoiseCoordinate(20),
+          0,
+          0.5
+        )
 
         expect(zeroOctave).toBe(0)
         expect(Number.isFinite(zeroOctave)).toBe(true)

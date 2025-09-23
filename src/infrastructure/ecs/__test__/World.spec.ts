@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Cause, Chunk } from 'effect'
 import { World, WorldLive, type EntityId, WorldError } from '../World'
-import { EntityId as EntityIdBrand, EntityPoolLayer } from '../Entity.js'
+import { EntityId as EntityIdBrand, EntityPoolLayer } from '../Entity'
 import { createSystem, SystemError } from '../System'
 import { PositionComponent, VelocityComponent } from '../Component'
-import { EntityManager, EntityManagerLive } from '../EntityManager.js'
-import { SystemRegistryServiceLive } from '../SystemRegistry.js'
+import { EntityManager, EntityManagerLive } from '../EntityManager'
+import { SystemRegistryServiceLive } from '../SystemRegistry'
 
 describe('World', () => {
   const TestLayer = Layer.provide(WorldLive, SystemRegistryServiceLive)

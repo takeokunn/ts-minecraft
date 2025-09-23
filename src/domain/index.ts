@@ -15,6 +15,9 @@ export * from './camera'
 // Input System Domain
 export * from './input'
 
+// Player Management Domain
+export * from './player'
+
 // Block System Domain
 export * from './block'
 

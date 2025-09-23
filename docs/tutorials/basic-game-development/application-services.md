@@ -1123,9 +1123,23 @@ const serviceDemo = Effect.gen(function* () {
 
 // 実行
 const AppLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive)
-Effect.runPromise(serviceDemo.pipe(Effect.provide(AppLayer)))
-  .then(console.log)
-  .catch(console.error)
+
+// Effect的な実行方法
+const runDemo = Effect.gen(function* () {
+  const result = yield* serviceDemo.pipe(Effect.provide(AppLayer))
+  yield* Effect.log(result)
+  return result
+}).pipe(
+  Effect.catchAll((error) =>
+    Effect.gen(function* () {
+      yield* Effect.logError(`Demo failed: ${error}`)
+      return Effect.fail(error)
+    })
+  )
+)
+
+// 必要に応じてPromiseとして実行
+Effect.runPromise(runDemo)
 ```
 
 `★ Insight ─────────────────────────────────────`
