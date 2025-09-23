@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import { Vector3 } from '../world/types'
-import { BlockTypeId } from '../../shared/types/branded'
+import type { Vector3 } from '../world/types'
+import type { BlockTypeId } from '../../shared/types/branded'
 import { BLOCK_FRICTION } from './types'
 
 /**
@@ -13,7 +13,7 @@ export const Friction = {
    */
   getFrictionCoefficient: (blockType: BlockTypeId): number => {
     const blockId = Number(blockType)
-    return BLOCK_FRICTION[blockId] ?? BLOCK_FRICTION[0]
+    return BLOCK_FRICTION[blockId] ?? BLOCK_FRICTION[0] ?? 0.6
   },
 
   /**

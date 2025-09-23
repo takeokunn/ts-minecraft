@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { Vector3 } from '../world/types'
+import type { Vector3 } from '../world/types'
 import { PHYSICS_CONSTANTS } from './types'
 
 /**

@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
-import { Vector3 } from '../world/types'
-import { BlockTypeId } from '../../shared/types/branded'
-import { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from './types'
+import type { Vector3 } from '../world/types'
+import type { BlockTypeId } from '../../shared/types/branded'
+import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from './types'
 
 /**
  * 物理エンジンサービスインターフェース

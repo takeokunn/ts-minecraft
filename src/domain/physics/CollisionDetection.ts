@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
-import { Vector3 } from '../world/types'
-import { BlockTypeId } from '../../shared/types/branded'
-import { AABB, CollisionResult } from './types'
+import type { Vector3 } from '../world/types'
+import type { BlockTypeId } from '../../shared/types/branded'
+import type { AABB, CollisionResult } from './types'
 
 /**
  * AABB衝突検出システム
@@ -37,7 +37,7 @@ export const CollisionDetection = {
       y: box.max.y + offset.y,
       z: box.max.z + offset.z,
     },
-  }),
+  } as AABB),
 
   /**
    * エンティティの周囲のブロックAABBを取得
@@ -60,7 +60,7 @@ export const CollisionDetection = {
             _tag: 'AABB' as const,
             min: { x, y, z },
             max: { x: x + 1, y: y + 1, z: z + 1 },
-          }
+          } as AABB
           blocks.push({ position: blockPos, aabb: blockAABB })
         }
       }

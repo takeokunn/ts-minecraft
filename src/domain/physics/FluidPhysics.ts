@@ -1,7 +1,8 @@
 import { Effect } from 'effect'
-import { Vector3 } from '../world/types'
-import { BlockTypeId } from '../../shared/types/branded'
-import { FluidType, FluidPhysicsResult, PHYSICS_CONSTANTS } from './types'
+import type { Vector3 } from '../world/types'
+import type { BlockTypeId } from '../../shared/types/branded'
+import type { FluidType, FluidPhysicsResult } from './types'
+import { PHYSICS_CONSTANTS } from './types'
 
 /**
  * 流体物理システム

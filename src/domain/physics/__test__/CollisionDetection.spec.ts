@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { it as effectIt } from '@effect/vitest'
 import { CollisionDetection } from '../CollisionDetection'
-import { AABB } from '../types'
-import { BlockTypeId } from '../../../shared/types/branded'
+import type { AABB } from '../types'
+import type { BlockTypeId } from '../../../shared/types/branded'
 
 describe('CollisionDetection', () => {
   const createAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): AABB => ({
     _tag: 'AABB' as const,
     min: { x: minX, y: minY, z: minZ },
     max: { x: maxX, y: maxY, z: maxZ },
-  })
+  } as AABB)
 
   describe('intersectsAABB', () => {
     it('should detect overlapping AABBs', () => {
