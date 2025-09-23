@@ -47,10 +47,7 @@ export const ConfigError = (params: Omit<ConfigError, '_tag'>): ConfigError => (
 /**
  * すべてのアプリケーションエラーのユニオン型
  */
-export const AppErrorUnion = Schema.Union(
-  InitErrorSchema,
-  ConfigErrorSchema
-)
+export const AppErrorUnion = Schema.Union(InitErrorSchema, ConfigErrorSchema)
 
 export type AnyAppError = Schema.Schema.Type<typeof AppErrorUnion>
 
@@ -65,8 +62,6 @@ export const decodeAppError = Schema.decodeUnknown(AppErrorUnion)
  * 旧式の型ガード関数（互換性のため保持）
  * 新しいコードでは上記のdecode関数を使用してください
  */
-export const isInitError = (error: unknown): error is InitError =>
-  Schema.is(InitErrorSchema)(error)
+export const isInitError = (error: unknown): error is InitError => Schema.is(InitErrorSchema)(error)
 
-export const isConfigError = (error: unknown): error is ConfigError =>
-  Schema.is(ConfigErrorSchema)(error)
+export const isConfigError = (error: unknown): error is ConfigError => Schema.is(ConfigErrorSchema)(error)

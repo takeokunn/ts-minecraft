@@ -18,18 +18,13 @@ export const EntityIdSchema = Schema.Number.pipe(
 export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
 
 // Helper for creating EntityId
-export const createEntityId = (value: number): EntityId =>
-  Schema.decodeSync(EntityIdSchema)(value)
+export const createEntityId = (value: number): EntityId => Schema.decodeSync(EntityIdSchema)(value)
 
 // =====================================
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export const EntityPoolErrorReasonSchema = Schema.Literal(
-  'pool_exhausted',
-  'invalid_entity_id',
-  'entity_not_allocated'
-)
+export const EntityPoolErrorReasonSchema = Schema.Literal('pool_exhausted', 'invalid_entity_id', 'entity_not_allocated')
 export type EntityPoolErrorReason = Schema.Schema.Type<typeof EntityPoolErrorReasonSchema>
 
 export const EntityPoolErrorSchema = Schema.Struct({
@@ -44,17 +39,13 @@ export const EntityPoolErrorSchema = Schema.Struct({
 )
 export type EntityPoolError = Schema.Schema.Type<typeof EntityPoolErrorSchema>
 
-export const EntityPoolError = (
-  reason: EntityPoolErrorReason,
-  message: string
-): EntityPoolError => ({
+export const EntityPoolError = (reason: EntityPoolErrorReason, message: string): EntityPoolError => ({
   _tag: 'EntityPoolError',
   reason,
   message,
 })
 
-export const isEntityPoolError = (error: unknown): error is EntityPoolError =>
-  Schema.is(EntityPoolErrorSchema)(error)
+export const isEntityPoolError = (error: unknown): error is EntityPoolError => Schema.is(EntityPoolErrorSchema)(error)
 
 // EntityPool interface - keeping as interface for service definition
 export interface EntityPool {
@@ -81,12 +72,12 @@ export type EntityPoolStats = Schema.Schema.Type<typeof EntityPoolStats>
 // ComponentArray Schema for type-safe component storage
 export const ComponentArraySchema = <T>(componentSchema: Schema.Schema<T>) =>
   Schema.Struct({
-    data: Schema.ReadonlyArray(componentSchema),
+    data: Schema.Array(componentSchema),
     entityToIndex: Schema.Record({
-      key: Schema.String.pipe(Schema.fromBrand(EntityIdSchema as any)),
-      value: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+      key: Schema.String,
+      value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     }),
-    indexToEntity: Schema.ReadonlyArray(EntityIdSchema),
+    indexToEntity: Schema.Array(EntityIdSchema),
     size: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   }).pipe(
     Schema.annotations({
@@ -307,7 +298,7 @@ export interface ComponentStorage<T> {
 export const EntityMetadata = Schema.Struct({
   id: EntityIdSchema,
   name: Schema.optional(Schema.String),
-  tags: Schema.ReadonlyArray(Schema.String),
+  tags: Schema.Array(Schema.String),
   active: Schema.Boolean,
   createdAt: Schema.Number.pipe(Schema.int(), Schema.positive()),
   generation: Schema.Number.pipe(Schema.int(), Schema.nonNegative()), // リサイクル世代番号

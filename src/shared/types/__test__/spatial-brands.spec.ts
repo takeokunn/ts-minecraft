@@ -26,7 +26,7 @@ describe('Spatial Brand Types', () => {
         { x: 1000000, y: -1000000, z: 0 },
       ]
 
-      validVectors.forEach(vector => {
+      validVectors.forEach((vector) => {
         expect(() => Schema.decodeSync(Vector3DSchema)(vector)).not.toThrow()
       })
     })
@@ -36,10 +36,10 @@ describe('Spatial Brand Types', () => {
         { x: NaN, y: 0, z: 0 },
         { x: 0, y: Infinity, z: 0 },
         { x: 0, y: 0, z: -Infinity },
-        { x: 'invalid', y: 0, z: 0 },
+        { x: 'invalid' as any, y: 0, z: 0 },
       ]
 
-      invalidVectors.forEach(vector => {
+      invalidVectors.forEach((vector) => {
         expect(() => Schema.decodeSync(Vector3DSchema)(vector)).toThrow()
       })
     })
@@ -53,7 +53,7 @@ describe('Spatial Brand Types', () => {
         { pitch: -Math.PI, yaw: Math.PI, roll: 0 },
       ]
 
-      validRotations.forEach(rotation => {
+      validRotations.forEach((rotation) => {
         expect(() => Schema.decodeSync(Rotation3DSchema)(rotation)).not.toThrow()
       })
     })
@@ -66,7 +66,7 @@ describe('Spatial Brand Types', () => {
         { pitch: NaN, yaw: 0, roll: 0 },
       ]
 
-      invalidRotations.forEach(rotation => {
+      invalidRotations.forEach((rotation) => {
         expect(() => Schema.decodeSync(Rotation3DSchema)(rotation)).toThrow()
       })
     })
@@ -76,7 +76,7 @@ describe('Spatial Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validDistances = [0, 1, 5.5, 100, 1000000]
 
-      validDistances.forEach(distance => {
+      validDistances.forEach((distance) => {
         expect(() => Schema.decodeSync(DistanceSchema)(distance)).not.toThrow()
       })
     })
@@ -84,7 +84,7 @@ describe('Spatial Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidDistances = [-1, -0.1, NaN, Infinity, -Infinity]
 
-      invalidDistances.forEach(distance => {
+      invalidDistances.forEach((distance) => {
         expect(() => Schema.decodeSync(DistanceSchema)(distance)).toThrow()
       })
     })
@@ -94,7 +94,7 @@ describe('Spatial Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validAngles = [0, Math.PI / 2, Math.PI, -Math.PI, Math.PI * 2, -Math.PI * 2]
 
-      validAngles.forEach(angle => {
+      validAngles.forEach((angle) => {
         expect(() => Schema.decodeSync(AngleSchema)(angle)).not.toThrow()
       })
     })
@@ -102,7 +102,7 @@ describe('Spatial Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidAngles = [Math.PI * 2.1, -Math.PI * 2.1, NaN, Infinity]
 
-      invalidAngles.forEach(angle => {
+      invalidAngles.forEach((angle) => {
         expect(() => Schema.decodeSync(AngleSchema)(angle)).toThrow()
       })
     })
@@ -112,7 +112,7 @@ describe('Spatial Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validCoords = [0, -1, 5, -10, 1000, -1000]
 
-      validCoords.forEach(coord => {
+      validCoords.forEach((coord) => {
         expect(() => Schema.decodeSync(ChunkCoordinateSchema)(coord)).not.toThrow()
       })
     })
@@ -120,7 +120,7 @@ describe('Spatial Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidCoords = [1.5, -0.5, NaN, Infinity]
 
-      invalidCoords.forEach(coord => {
+      invalidCoords.forEach((coord) => {
         expect(() => Schema.decodeSync(ChunkCoordinateSchema)(coord)).toThrow()
       })
     })
@@ -130,7 +130,7 @@ describe('Spatial Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validCoords = [0, 16, -32, 256, 1000, -1000]
 
-      validCoords.forEach(coord => {
+      validCoords.forEach((coord) => {
         expect(() => Schema.decodeSync(BlockCoordinateSchema)(coord)).not.toThrow()
       })
     })
@@ -138,7 +138,7 @@ describe('Spatial Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidCoords = [1.5, -0.5, NaN, Infinity]
 
-      invalidCoords.forEach(coord => {
+      invalidCoords.forEach((coord) => {
         expect(() => Schema.decodeSync(BlockCoordinateSchema)(coord)).toThrow()
       })
     })

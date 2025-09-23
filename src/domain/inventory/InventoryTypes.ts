@@ -18,7 +18,7 @@ export const PlayerId = Brand.nominal<PlayerId>()
 // Item metadata schema (ReadonlyArray migration)
 export const ItemMetadata = Schema.Struct({
   enchantments: Schema.optional(
-    Schema.ReadonlyArray(
+    Schema.Array(
       Schema.Struct({
         id: Schema.String,
         level: Schema.Number.pipe(Schema.between(1, 5)),
@@ -26,7 +26,7 @@ export const ItemMetadata = Schema.Struct({
     )
   ),
   customName: Schema.optional(Schema.String),
-  lore: Schema.optional(Schema.ReadonlyArray(Schema.String)),
+  lore: Schema.optional(Schema.Array(Schema.String)),
   damage: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
 })
 export type ItemMetadata = Schema.Schema.Type<typeof ItemMetadata>
@@ -43,15 +43,15 @@ export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 // Inventory schema with 36 slots (ReadonlyArray migration)
 export const Inventory = Schema.Struct({
   playerId: Schema.String.pipe(Schema.fromBrand(PlayerId)),
-  slots: Schema.ReadonlyArray(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(36)),
-  hotbar: Schema.ReadonlyArray(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.itemsCount(9)), // インデックス参照
+  slots: Schema.Array(Schema.Union(Schema.Null, ItemStack)).pipe(Schema.minItems(36), Schema.maxItems(36)),
+  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.minItems(9), Schema.maxItems(9)), // インデックス参照
   armor: Schema.Struct({
-    helmet: Schema.NullOr(ItemStack),
-    chestplate: Schema.NullOr(ItemStack),
-    leggings: Schema.NullOr(ItemStack),
-    boots: Schema.NullOr(ItemStack),
+    helmet: Schema.Union(Schema.Null, ItemStack),
+    chestplate: Schema.Union(Schema.Null, ItemStack),
+    leggings: Schema.Union(Schema.Null, ItemStack),
+    boots: Schema.Union(Schema.Null, ItemStack),
   }),
-  offhand: Schema.NullOr(ItemStack),
+  offhand: Schema.Union(Schema.Null, ItemStack),
   selectedSlot: Schema.Number.pipe(Schema.between(0, 8)),
 })
 export type Inventory = Schema.Schema.Type<typeof Inventory>
@@ -61,13 +61,13 @@ export const AddItemResult = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('success'),
     remainingItems: Schema.Number,
-    affectedSlots: Schema.ReadonlyArray(Schema.Number),
+    affectedSlots: Schema.Array(Schema.Number),
   }),
   Schema.Struct({
     _tag: Schema.Literal('partial'),
     addedItems: Schema.Number,
     remainingItems: Schema.Number,
-    affectedSlots: Schema.ReadonlyArray(Schema.Number),
+    affectedSlots: Schema.Array(Schema.Number),
   }),
   Schema.Struct({
     _tag: Schema.Literal('full'),

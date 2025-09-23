@@ -16,16 +16,19 @@ last_updated: '2024-12-24'
 ## 移行の目標
 
 ### コンパイル時安全性
+
 - **Brand型の活用**: プリミティブ型の混同防止
 - **Schema.Struct**: 実行時検証付きの型定義
 - **unknown型の排除**: 具体的な型による置換
 
 ### ランタイム安全性
+
 - **自動検証**: Schema.decode による入力値検証
 - **エラーハンドリング**: 構造化エラーと型安全な処理
 - **境界層保護**: 外部データの厳密な検証
 
 ### パフォーマンス
+
 - **不変性**: ReadonlyArray/HashMap による効率的な操作
 - **検証の最適化**: 必要箇所での選択的検証
 - **60FPS維持**: ゲームループでの軽量検証
@@ -75,7 +78,10 @@ export const Vector3DSchema = Schema.Struct({
   Schema.annotations({
     title: 'Vector3D',
     description: '3D vector with x, y, z components',
-    examples: [{ x: 1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }],
+    examples: [
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    ],
   })
 )
 export type Vector3D = Schema.Schema.Type<typeof Vector3DSchema>
@@ -85,14 +91,11 @@ export type Vector3D = Schema.Schema.Type<typeof Vector3DSchema>
 
 ```typescript
 export const GameBrands = {
-  createHealth: (value: number): Health =>
-    Schema.decodeSync(HealthSchema)(value),
+  createHealth: (value: number): Health => Schema.decodeSync(HealthSchema)(value),
 
-  fullHealth: (): Health =>
-    Schema.decodeSync(HealthSchema)(20),
+  fullHealth: (): Health => Schema.decodeSync(HealthSchema)(20),
 
-  createPlayerId: (id: string): PlayerId =>
-    Schema.decodeSync(PlayerIdSchema)(id),
+  createPlayerId: (id: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(id),
 } as const
 ```
 
@@ -197,7 +200,7 @@ export const validatePlayerState = (state: unknown): Effect.Effect<PlayerState, 
     Effect.mapError((parseError) =>
       PlayerError({
         message: `Player state validation failed: ${parseError.message}`,
-        cause: state
+        cause: state,
       })
     )
   )
@@ -207,9 +210,7 @@ export const updatePlayer = (playerId: PlayerId, data: unknown) =>
   pipe(
     validatePlayerUpdateData(data),
     Effect.flatMap((validData) => playerService.update(playerId, validData)),
-    Effect.catchTag('ValidationError', (error) =>
-      Effect.logError(`Validation failed: ${error.message}`)
-    )
+    Effect.catchTag('ValidationError', (error) => Effect.logError(`Validation failed: ${error.message}`))
   )
 ```
 
@@ -217,11 +218,7 @@ export const updatePlayer = (playerId: PlayerId, data: unknown) =>
 
 ```typescript
 // 全エラー型の統一
-const AllErrorsUnion = Schema.Union(
-  PlayerErrorSchema,
-  GameErrorSchema,
-  NetworkErrorSchema
-)
+const AllErrorsUnion = Schema.Union(PlayerErrorSchema, GameErrorSchema, NetworkErrorSchema)
 
 // 型安全なエラーハンドリング
 export const handleError = (error: unknown): Effect.Effect<string> =>
@@ -229,7 +226,7 @@ export const handleError = (error: unknown): Effect.Effect<string> =>
     Schema.decodeUnknownEither(AllErrorsUnion)(error),
     Either.match({
       onLeft: () => `Unknown error: ${String(error)}`,
-      onRight: (knownError) => `${knownError._tag}: ${knownError.message}`
+      onRight: (knownError) => `${knownError._tag}: ${knownError.message}`,
     }),
     Effect.succeed
   )
@@ -262,12 +259,8 @@ export const PlayerServiceLive = Layer.effect(
       createPlayer: (config) =>
         pipe(
           validatePlayerConfig(config),
-          Effect.flatMap((validConfig) =>
-            createPlayerEntity(validConfig, entityManager)
-          ),
-          Effect.tap((playerId) =>
-            Effect.sync(() => storage.set(playerId, initialPlayerState(validConfig)))
-          )
+          Effect.flatMap((validConfig) => createPlayerEntity(validConfig, entityManager)),
+          Effect.tap((playerId) => Effect.sync(() => storage.set(playerId, initialPlayerState(validConfig))))
         ),
 
       getPlayer: (id) =>
@@ -275,9 +268,9 @@ export const PlayerServiceLive = Layer.effect(
           HashMap.get(storage, id),
           Option.match({
             onNone: () => Effect.fail(PlayerError({ message: `Player ${id} not found` })),
-            onSome: (state) => Effect.succeed(state)
+            onSome: (state) => Effect.succeed(state),
           })
-        )
+        ),
     })
   })
 )
@@ -289,14 +282,13 @@ export const PlayerServiceLive = Layer.effect(
 
 ```typescript
 // 開発環境: 完全検証
-const validateInDevelopment = <T>(schema: Schema.Schema<T, unknown>) => (value: unknown) =>
-  NODE_ENV === 'development'
-    ? Schema.decodeUnknown(schema)(value)
-    : Effect.succeed(value as T)
+const validateInDevelopment =
+  <T>(schema: Schema.Schema<T, unknown>) =>
+  (value: unknown) =>
+    NODE_ENV === 'development' ? Schema.decodeUnknown(schema)(value) : Effect.succeed(value as T)
 
 // ゲームループ: 軽量検証
-const validateInGameLoop = <T>(value: T): Effect.Effect<T> =>
-  Effect.succeed(value) // 型レベルでの安全性に依存
+const validateInGameLoop = <T>(value: T): Effect.Effect<T> => Effect.succeed(value) // 型レベルでの安全性に依存
 ```
 
 ### バッチ処理
@@ -326,7 +318,7 @@ describe('PlayerState Schema', () => {
       health: 20,
       position: { x: 0, y: 64, z: 0 },
       isActive: true,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     }
 
     expect(() => Schema.decodeSync(PlayerStateSchema)(validState)).not.toThrow()
@@ -338,7 +330,7 @@ describe('PlayerState Schema', () => {
       health: -5, // Invalid: negative health
       position: { x: 0, y: 64, z: 0 },
       isActive: true,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     }
 
     expect(() => Schema.decodeSync(PlayerStateSchema)(invalidState)).toThrow()
@@ -352,7 +344,7 @@ describe('PlayerState Schema', () => {
 const testPlayerService = Effect.gen(function* () {
   const playerId = yield* PlayerService.createPlayer({
     playerId: 'test_player',
-    initialPosition: { x: 0, y: 64, z: 0 }
+    initialPosition: { x: 0, y: 64, z: 0 },
   })
 
   const player = yield* PlayerService.getPlayer(playerId)
@@ -363,6 +355,7 @@ const testPlayerService = Effect.gen(function* () {
 ## 移行チェックリスト
 
 ### ステップ1: Brand型準備
+
 - [ ] 既存のプリミティブ型を特定
 - [ ] Brand型スキーマを定義
 - [ ] 検証ルールを追加
@@ -370,6 +363,7 @@ const testPlayerService = Effect.gen(function* () {
 - [ ] Unit testを作成
 
 ### ステップ2: Interface移行
+
 - [ ] 対象interfaceを特定
 - [ ] Schema.Structに変換
 - [ ] Brand型を統合
@@ -377,18 +371,21 @@ const testPlayerService = Effect.gen(function* () {
 - [ ] 型エクスポートを更新
 
 ### ステップ3: Collection更新
+
 - [ ] Array → ReadonlyArray
 - [ ] Map → HashMap
 - [ ] Set → HashSet
 - [ ] 不変操作に変更
 
 ### ステップ4: 検証追加
+
 - [ ] 検証関数を実装
 - [ ] エラーハンドリングを統合
 - [ ] Effect統合を完了
 - [ ] パフォーマンステストを実行
 
 ### ステップ5: テスト更新
+
 - [ ] 既存テストを更新
 - [ ] Schema検証テストを追加
 - [ ] Property-based testを実装
@@ -400,6 +397,7 @@ const testPlayerService = Effect.gen(function* () {
 
 **問題**: `Type 'number' is not assignable to type 'number & Brand<"Health">'`
 **解決**: Brand型作成ヘルパーを使用
+
 ```typescript
 // ❌ 直接代入
 const health: Health = 20
@@ -410,6 +408,7 @@ const health = GameBrands.createHealth(20)
 
 **問題**: Schema検証でのパフォーマンス低下
 **解決**: 選択的検証とバッチ処理
+
 ```typescript
 // 重い検証は境界層のみで実行
 const validateAtBoundary = process.env.NODE_ENV === 'development'
@@ -417,6 +416,7 @@ const validateAtBoundary = process.env.NODE_ENV === 'development'
 
 **問題**: 循環参照エラー
 **解決**: Schema.suspend使用
+
 ```typescript
 const PlayerSchema: Schema.Schema<Player> = Schema.suspend(() =>
   Schema.Struct({

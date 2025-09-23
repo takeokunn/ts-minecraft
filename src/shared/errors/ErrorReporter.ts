@@ -102,14 +102,30 @@ export const ErrorReporter = {
    */
   categorizeError: (tag: string): 'game' | 'network' | 'app' | 'unknown' => {
     const gameErrorTags = [
-      'GameError', 'InvalidStateError', 'ResourceNotFoundError', 'ValidationError',
-      'PerformanceError', 'RenderError', 'WorldGenerationError', 'EntityError', 'PhysicsError'
+      'GameError',
+      'InvalidStateError',
+      'ResourceNotFoundError',
+      'ValidationError',
+      'PerformanceError',
+      'RenderError',
+      'WorldGenerationError',
+      'EntityError',
+      'PhysicsError',
     ]
 
     const networkErrorTags = [
-      'NetworkError', 'ConnectionError', 'TimeoutError', 'ProtocolError',
-      'AuthenticationError', 'SessionError', 'SyncError', 'RateLimitError',
-      'WebSocketError', 'PacketError', 'ServerError', 'P2PError'
+      'NetworkError',
+      'ConnectionError',
+      'TimeoutError',
+      'ProtocolError',
+      'AuthenticationError',
+      'SessionError',
+      'SyncError',
+      'RateLimitError',
+      'WebSocketError',
+      'PacketError',
+      'ServerError',
+      'P2PError',
     ]
 
     const appErrorTags = ['InitError', 'ConfigError']
@@ -131,8 +147,7 @@ export const ErrorReporter = {
         (e: Error) => e.stack
       ),
       Match.when(
-        (e: unknown): e is { stack: unknown } =>
-          e !== null && typeof e === 'object' && 'stack' in e,
+        (e: unknown): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
         (e: { stack: unknown }) => String(e.stack)
       ),
       Match.orElse(() => undefined)
@@ -161,25 +176,22 @@ export const ErrorReporter = {
   /**
    * 既知のエラー型かどうかを判定
    */
-  isKnownError: (error: unknown): error is AnyKnownError =>
-    Schema.is(AllErrorsUnion)(error),
+  isKnownError: (error: unknown): error is AnyKnownError => Schema.is(AllErrorsUnion)(error),
 
   /**
    * Effectとの統合 - Effect.catchAndDecode
    */
-  catchAndDecode: <A, E>(
-    effect: Effect.Effect<A, E>
-  ): Effect.Effect<A, AnyKnownError | E> =>
+  catchAndDecode: <A, E>(effect: Effect.Effect<A, E, never>): Effect.Effect<A, AnyKnownError | E, never> =>
     pipe(
       effect,
       Effect.catchAll((error) =>
         pipe(
           Schema.decodeUnknownEither(AllErrorsUnion)(error),
           Either.match({
-            onLeft: () => Effect.fail(error),
-            onRight: (knownError) => Effect.fail(knownError),
+            onLeft: () => Effect.fail(error as E),
+            onRight: (knownError) => Effect.fail(knownError as AnyKnownError as E),
           })
         )
       )
-    ),
+    ) as Effect.Effect<A, AnyKnownError | E, never>,
 }

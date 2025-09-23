@@ -8,19 +8,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, pipe, Duration } from 'effect'
 import { Schema } from '@effect/schema'
-import {
-  SchemaOptimization,
-  OptimizedValidators,
-  type ValidationStrategy
-} from '../schema-optimization'
-import {
-  HealthSchema,
-  Vector3DSchema,
-  TimestampSchema,
-  GameBrands,
-  SpatialBrands,
-  TimeBrands
-} from '../../types'
+import { SchemaOptimization, OptimizedValidators, type ValidationStrategy } from '../schema-optimization'
+import { HealthSchema, Vector3DSchema, TimestampSchema, GameBrands, SpatialBrands, TimeBrands } from '../../types'
 import { EffectTestUtils } from '../../testing/effect-test-utils'
 
 describe('Effect-TS Migration Performance Benchmarks', () => {
@@ -89,12 +78,12 @@ describe('Effect-TS Migration Performance Benchmarks', () => {
     const testData = Array.from({ length: 100 }, (_, i) => ({
       x: i,
       y: i * 2,
-      z: i * 3
+      z: i * 3,
     }))
 
     const strategies: ValidationStrategy[] = ['strict', 'development', 'boundary', 'disabled']
 
-    strategies.forEach(strategy => {
+    strategies.forEach((strategy) => {
       it(`should validate Vector3D with ${strategy} strategy within budget`, async () => {
         const validator = SchemaOptimization.createOptimizedValidator(Vector3DSchema, strategy)
 
@@ -196,27 +185,23 @@ describe('Effect-TS Migration Performance Benchmarks', () => {
 
       // First validation (cache miss)
       const firstValidation = async () => {
-        return await EffectTestUtils.expectSuccess(
-          cacheValidator.validateWithCache(testVector, cacheKey, 5000)
-        )
+        return await EffectTestUtils.expectSuccess(cacheValidator.validateWithCache(testVector, cacheKey, 5000))
       }
 
       // Second validation (cache hit)
       const secondValidation = async () => {
-        return await EffectTestUtils.expectSuccess(
-          cacheValidator.validateWithCache(testVector, cacheKey, 5000)
-        )
+        return await EffectTestUtils.expectSuccess(cacheValidator.validateWithCache(testVector, cacheKey, 5000))
       }
 
       // Measure cache miss
       const { duration: firstDuration } = await EffectTestUtils.measurePerformance(
-        Effect.fromPromise(firstValidation),
+        Effect.promise(() => firstValidation()),
         Duration.millis(50)
       )
 
       // Measure cache hit
       const { duration: secondDuration } = await EffectTestUtils.measurePerformance(
-        Effect.fromPromise(secondValidation),
+        Effect.promise(() => secondValidation()),
         Duration.millis(50)
       )
 
@@ -238,7 +223,7 @@ describe('Effect-TS Migration Performance Benchmarks', () => {
       await EffectTestUtils.expectSuccess(addItemsToCache)
 
       // Wait for TTL to expire
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Cleanup should be fast
       const { result: cleanedCount, duration } = await EffectTestUtils.measurePerformance(
@@ -269,9 +254,7 @@ describe('Effect-TS Migration Performance Benchmarks', () => {
       )
 
       // Check metrics
-      const metrics = await EffectTestUtils.expectSuccess(
-        monitoredValidator.getMetrics()
-      )
+      const metrics = await EffectTestUtils.expectSuccess(monitoredValidator.getMetrics())
 
       expect(metrics.validationCount).toBe(1000)
       expect(metrics.averageTime).toBeGreaterThan(0)
@@ -290,7 +273,7 @@ describe('Effect-TS Migration Performance Benchmarks', () => {
       const largeBatch = Array.from({ length: LARGE_BATCH_SIZE }, (_, i) => ({
         x: i,
         y: i * 2,
-        z: i * 3
+        z: i * 3,
       }))
 
       const validateLargeBatch = batchValidator.validateBatch(largeBatch, 100) // High concurrency

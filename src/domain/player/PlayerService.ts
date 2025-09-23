@@ -2,17 +2,15 @@ import { Context, Effect, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager.js'
+import type { PlayerId, Timestamp, Health, Vector3D, Rotation3D } from '../../shared/types/index.js'
 import {
-  PlayerId,
   PlayerIdSchema,
-  Timestamp,
   TimestampSchema,
-  Health,
   HealthSchema,
-  Vector3D,
   Vector3DSchema,
-  Rotation3D,
-  Rotation3DSchema
+  Rotation3DSchema,
+  BrandedTypes,
+  SpatialBrands,
 } from '../../shared/types/index.js'
 
 /**
@@ -65,8 +63,8 @@ export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
  */
 export const PlayerConfig = Schema.Struct({
   playerId: Schema.String.pipe(Schema.minLength(1)), // PlayerId branded type with min length validation
-  initialPosition: Schema.optional(PlayerPosition),
-  initialRotation: Schema.optional(PlayerRotation),
+  initialPosition: Schema.optional(PlayerPositionSchema),
+  initialRotation: Schema.optional(PlayerRotationSchema),
   health: Schema.optional(Schema.Number.pipe(Schema.between(0, 100))),
 })
 export type PlayerConfig = Schema.Schema.Type<typeof PlayerConfig>
@@ -114,7 +112,7 @@ export const PlayerError = (
   _tag: 'PlayerError',
   message,
   reason,
-  ...(playerId !== undefined && { playerId }),
+  ...(playerId !== undefined && { playerId: BrandedTypes.createPlayerId(playerId) }),
   ...(entityId !== undefined && { entityId }),
   ...(cause !== undefined && { cause }),
 })
@@ -296,8 +294,8 @@ export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/domai
  * デフォルトのプレイヤー設定
  */
 export const DEFAULT_PLAYER_CONFIG: Omit<PlayerConfig, 'playerId'> = {
-  initialPosition: { x: 0, y: 64, z: 0 },
-  initialRotation: { pitch: 0, yaw: 0 },
+  initialPosition: SpatialBrands.createVector3D(0, 64, 0),
+  initialRotation: { pitch: 0, yaw: 0, roll: 0 },
   health: 100,
 }
 
@@ -317,7 +315,7 @@ export const validatePlayerConfig = (config: unknown): Effect.Effect<PlayerConfi
  */
 export const validatePlayerState = (state: unknown): Effect.Effect<PlayerState, PlayerError> =>
   pipe(
-    Schema.decodeUnknown(PlayerState)(state),
+    Schema.decodeUnknown(PlayerStateSchema)(state),
     Effect.mapError((parseError) =>
       createPlayerError.validationError(`Player state validation failed: ${parseError.message}`, state)
     )

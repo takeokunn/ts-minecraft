@@ -2,6 +2,7 @@ import { Effect, Layer, Ref, pipe, HashMap, Option } from 'effect'
 import { MovementSystem } from './MovementSystem.js'
 import { PlayerService } from './PlayerService.js'
 import type { PlayerId } from '../../shared/types/branded.js'
+import { SpatialBrands } from '../../shared/types/spatial-brands.js'
 import {
   type MovementInput,
   type MovementState,
@@ -166,11 +167,11 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const limitedVelocity = PhysicsUtils.normalizeVelocity(finalVelocity, PHYSICS_CONSTANTS.MAX_SPEED)
 
       // 新しい位置計算
-      const newPosition = {
-        x: playerState.position.x + limitedVelocity.x * (validatedInput.deltaTime / 1000),
-        y: playerState.position.y + limitedVelocity.y * (validatedInput.deltaTime / 1000),
-        z: playerState.position.z + limitedVelocity.z * (validatedInput.deltaTime / 1000),
-      }
+      const newPosition = SpatialBrands.createVector3D(
+        playerState.position.x + limitedVelocity.x * (validatedInput.deltaTime / 1000),
+        playerState.position.y + limitedVelocity.y * (validatedInput.deltaTime / 1000),
+        playerState.position.z + limitedVelocity.z * (validatedInput.deltaTime / 1000)
+      )
 
       // 衝突検出
       const collisions = checkCollisionsInternal(newPosition, limitedVelocity)
@@ -180,17 +181,18 @@ const makeMovementSystemLive = Effect.gen(function* () {
       let correctedVelocity = limitedVelocity
 
       if (collisions.includes('ground')) {
-        correctedPosition = { ...correctedPosition, y: 64 + 1.8 }
+        correctedPosition = SpatialBrands.createVector3D(correctedPosition.x, 64 + 1.8, correctedPosition.z)
         correctedVelocity = { ...correctedVelocity, y: 0 }
       }
 
       // 境界衝突の処理
       if (collisions.includes('world-boundary-x')) {
         correctedVelocity = { ...correctedVelocity, x: 0 }
-        correctedPosition = {
-          ...correctedPosition,
-          x: Math.max(-1000, Math.min(1000, correctedPosition.x)),
-        }
+        correctedPosition = SpatialBrands.createVector3D(
+          Math.max(-1000, Math.min(1000, correctedPosition.x)),
+          correctedPosition.y,
+          correctedPosition.z
+        )
       }
 
       // 新しい移動状態
@@ -242,11 +244,11 @@ const makeMovementSystemLive = Effect.gen(function* () {
       }
 
       // 新しい位置計算
-      const newPosition = {
-        x: playerState.position.x + newVelocity.x * (deltaTime / 1000),
-        y: playerState.position.y + newVelocity.y * (deltaTime / 1000),
-        z: playerState.position.z + newVelocity.z * (deltaTime / 1000),
-      }
+      const newPosition = SpatialBrands.createVector3D(
+        playerState.position.x + newVelocity.x * (deltaTime / 1000),
+        playerState.position.y + newVelocity.y * (deltaTime / 1000),
+        playerState.position.z + newVelocity.z * (deltaTime / 1000)
+      )
 
       // 衝突検出と補正
       const collisions = checkCollisionsInternal(newPosition, newVelocity)
@@ -254,7 +256,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
       let correctedVelocity = newVelocity
 
       if (collisions.includes('ground')) {
-        correctedPosition = { ...correctedPosition, y: 64 + 1.8 }
+        correctedPosition = SpatialBrands.createVector3D(correctedPosition.x, 64 + 1.8, correctedPosition.z)
         correctedVelocity = { ...correctedVelocity, y: 0 }
       }
 
@@ -339,11 +341,13 @@ const makeMovementSystemLive = Effect.gen(function* () {
     velocity: VelocityVector,
     deltaTime: number
   ) =>
-    Effect.succeed({
-      x: currentPosition.x + velocity.x * (deltaTime / 1000),
-      y: currentPosition.y + velocity.y * (deltaTime / 1000),
-      z: currentPosition.z + velocity.z * (deltaTime / 1000),
-    })
+    Effect.succeed(
+      SpatialBrands.createVector3D(
+        currentPosition.x + velocity.x * (deltaTime / 1000),
+        currentPosition.y + velocity.y * (deltaTime / 1000),
+        currentPosition.z + velocity.z * (deltaTime / 1000)
+      )
+    )
 
   // パフォーマンス統計の取得
   const getPerformanceStats = () =>

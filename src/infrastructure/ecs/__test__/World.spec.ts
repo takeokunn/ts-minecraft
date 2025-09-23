@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Cause, Chunk } from 'effect'
-import { World, WorldLive, type EntityId, WorldError } from '../World'
-import { EntityId as EntityIdBrand, EntityPoolLayer } from '../Entity'
+import { World, WorldLive, WorldError } from '../World'
+import { EntityPoolLayer, createEntityId } from '../Entity'
+import type { EntityId } from '../Entity'
 import { createSystem, SystemError } from '../System'
 import { PositionComponent, VelocityComponent } from '../Component'
 import { EntityManager, EntityManagerLive } from '../EntityManager'
@@ -54,7 +55,7 @@ describe('World', () => {
         Effect.provide(
           Effect.gen(function* () {
             const world = yield* World
-            const nonExistentId = EntityIdBrand(99999)
+            const nonExistentId = createEntityId(99999)
             yield* world.destroyEntity(nonExistentId)
           }),
           TestLayer
@@ -146,7 +147,7 @@ describe('World', () => {
         Effect.provide(
           Effect.gen(function* () {
             const world = yield* World
-            const nonExistentId = EntityIdBrand(99999)
+            const nonExistentId = createEntityId(99999)
             yield* world.addComponent(nonExistentId, 'Position', { x: 0, y: 0, z: 0 })
           }),
           TestLayer

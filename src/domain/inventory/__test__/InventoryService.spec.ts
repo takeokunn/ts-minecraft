@@ -42,7 +42,7 @@ describe('InventoryService', () => {
 
       expect(result.playerId).toBe(testPlayerId)
       expect(result.slots).toHaveLength(36)
-      expect(result.slots.every((slot) => slot === null)).toBe(true)
+      expect(result.slots.every((slot: any) => slot === null)).toBe(true)
       expect(result.hotbar).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
       expect(result.selectedSlot).toBe(0)
     })
@@ -612,7 +612,7 @@ describe('InventoryService', () => {
       )
 
       expect(result.droppedItems).toHaveLength(4)
-      expect(result.inventory.slots.every((slot) => slot === null)).toBe(true)
+      expect(result.inventory.slots.every((slot: any) => slot === null)).toBe(true)
       expect(result.inventory.armor.helmet).toBeNull()
       expect(result.inventory.offhand).toBeNull()
     })
@@ -700,7 +700,7 @@ describe('InventoryService', () => {
         })
       )
 
-      expect(result.slots.every((slot) => slot === null)).toBe(true)
+      expect(result.slots.every((slot: any) => slot === null)).toBe(true)
       expect(result.armor.helmet).toBeNull()
       expect(result.offhand).toBeNull()
     })

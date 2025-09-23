@@ -28,8 +28,8 @@ export type Vector3D = Schema.Schema.Type<typeof Vector3DSchema>
  */
 export const Rotation3DSchema = Schema.Struct({
   pitch: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)), // X軸回転
-  yaw: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),   // Y軸回転
-  roll: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),  // Z軸回転
+  yaw: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)), // Y軸回転
+  roll: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)), // Z軸回転
 }).pipe(
   Schema.brand('Rotation3D'),
   Schema.annotations({
@@ -103,26 +103,21 @@ export const SpatialBrands = {
   /**
    * 安全なVector3D作成
    */
-  createVector3D: (x: number, y: number, z: number): Vector3D =>
-    Schema.decodeSync(Vector3DSchema)({ x, y, z }),
+  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3DSchema)({ x, y, z }),
 
   /**
    * Zero vector
    */
-  zeroVector: (): Vector3D =>
-    Schema.decodeSync(Vector3DSchema)({ x: 0, y: 0, z: 0 }),
+  zeroVector: (): Vector3D => Schema.decodeSync(Vector3DSchema)({ x: 0, y: 0, z: 0 }),
 
   /**
    * Unit vectors
    */
-  unitX: (): Vector3D =>
-    Schema.decodeSync(Vector3DSchema)({ x: 1, y: 0, z: 0 }),
+  unitX: (): Vector3D => Schema.decodeSync(Vector3DSchema)({ x: 1, y: 0, z: 0 }),
 
-  unitY: (): Vector3D =>
-    Schema.decodeSync(Vector3DSchema)({ x: 0, y: 1, z: 0 }),
+  unitY: (): Vector3D => Schema.decodeSync(Vector3DSchema)({ x: 0, y: 1, z: 0 }),
 
-  unitZ: (): Vector3D =>
-    Schema.decodeSync(Vector3DSchema)({ x: 0, y: 0, z: 1 }),
+  unitZ: (): Vector3D => Schema.decodeSync(Vector3DSchema)({ x: 0, y: 0, z: 1 }),
 
   /**
    * 安全なRotation3D作成
@@ -133,38 +128,32 @@ export const SpatialBrands = {
   /**
    * Identity rotation
    */
-  identityRotation: (): Rotation3D =>
-    Schema.decodeSync(Rotation3DSchema)({ pitch: 0, yaw: 0, roll: 0 }),
+  identityRotation: (): Rotation3D => Schema.decodeSync(Rotation3DSchema)({ pitch: 0, yaw: 0, roll: 0 }),
 
   /**
    * 安全なDistance作成
    */
-  createDistance: (value: number): Distance =>
-    Schema.decodeSync(DistanceSchema)(value),
+  createDistance: (value: number): Distance => Schema.decodeSync(DistanceSchema)(value),
 
   /**
    * 安全なAngle作成
    */
-  createAngle: (value: number): Angle =>
-    Schema.decodeSync(AngleSchema)(value),
+  createAngle: (value: number): Angle => Schema.decodeSync(AngleSchema)(value),
 
   /**
    * Angle from degrees
    */
-  angleFromDegrees: (degrees: number): Angle =>
-    Schema.decodeSync(AngleSchema)((degrees * Math.PI) / 180),
+  angleFromDegrees: (degrees: number): Angle => Schema.decodeSync(AngleSchema)((degrees * Math.PI) / 180),
 
   /**
    * 安全なChunkCoordinate作成
    */
-  createChunkCoordinate: (value: number): ChunkCoordinate =>
-    Schema.decodeSync(ChunkCoordinateSchema)(value),
+  createChunkCoordinate: (value: number): ChunkCoordinate => Schema.decodeSync(ChunkCoordinateSchema)(value),
 
   /**
    * 安全なBlockCoordinate作成
    */
-  createBlockCoordinate: (value: number): BlockCoordinate =>
-    Schema.decodeSync(BlockCoordinateSchema)(value),
+  createBlockCoordinate: (value: number): BlockCoordinate => Schema.decodeSync(BlockCoordinateSchema)(value),
 
   /**
    * Convert world coordinate to chunk coordinate

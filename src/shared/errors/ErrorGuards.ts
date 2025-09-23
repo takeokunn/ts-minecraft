@@ -1,5 +1,5 @@
 import { Match, pipe, Option, Effect, Either } from 'effect'
-import { Schema } from '@effect/schema'
+import { Schema, ParseResult } from '@effect/schema'
 import { GameErrorUnion, type AnyGameError } from './GameErrors'
 import { NetworkErrorUnion, type AnyNetworkError } from './NetworkErrors'
 
@@ -10,26 +10,24 @@ export const ErrorValidation = {
   /**
    * ゲームエラーのデコード
    */
-  decodeGameError: (error: unknown): Either.Either<AnyGameError, Schema.ParseError> =>
+  decodeGameError: (error: unknown): Either.Either<AnyGameError, ParseResult.ParseError> =>
     Schema.decodeUnknownEither(GameErrorUnion)(error),
 
   /**
    * ネットワークエラーのデコード
    */
-  decodeNetworkError: (error: unknown): Either.Either<AnyNetworkError, Schema.ParseError> =>
+  decodeNetworkError: (error: unknown): Either.Either<AnyNetworkError, ParseResult.ParseError> =>
     Schema.decodeUnknownEither(NetworkErrorUnion)(error),
 
   /**
    * エラーがゲームエラーかどうかをSchema検証で判定
    */
-  isGameError: (error: unknown): error is AnyGameError =>
-    Schema.is(GameErrorUnion)(error),
+  isGameError: (error: unknown): error is AnyGameError => Schema.is(GameErrorUnion)(error),
 
   /**
    * エラーがネットワークエラーかどうかをSchema検証で判定
    */
-  isNetworkError: (error: unknown): error is AnyNetworkError =>
-    Schema.is(NetworkErrorUnion)(error),
+  isNetworkError: (error: unknown): error is AnyNetworkError => Schema.is(NetworkErrorUnion)(error),
 
   /**
    * エラーがリトライ可能かどうかを判定
@@ -49,11 +47,7 @@ export const ErrorValidation = {
   /**
    * エラーの安全なデコードとフォールバック
    */
-  safeDecodeError: <T>(
-    schema: Schema.Schema<T, unknown>,
-    error: unknown,
-    fallback: T
-  ): T =>
+  safeDecodeError: <T>(schema: Schema.Schema<T, unknown>, error: unknown, fallback: T): T =>
     pipe(
       Schema.decodeUnknownEither(schema)(error),
       Either.getOrElse(() => fallback)

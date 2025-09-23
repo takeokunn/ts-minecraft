@@ -6,16 +6,16 @@
  */
 
 import { Effect, pipe } from 'effect'
-import { Schema } from '@effect/schema'
+import { Schema, ParseResult } from '@effect/schema'
 
 /**
  * Performance optimization strategies for Schema validation
  */
 export type ValidationStrategy =
-  | 'strict'      // Full validation always
+  | 'strict' // Full validation always
   | 'development' // Full validation only in development
-  | 'boundary'    // Only at system boundaries
-  | 'disabled'    // Type-level only, no runtime validation
+  | 'boundary' // Only at system boundaries
+  | 'disabled' // Type-level only, no runtime validation
 
 /**
  * Performance-aware Schema validation utilities
@@ -24,17 +24,14 @@ export const SchemaOptimization = {
   /**
    * Create a performance-optimized validator based on context
    */
-  createOptimizedValidator: <A, I>(
-    schema: Schema.Schema<A, I>,
-    strategy: ValidationStrategy = 'development'
-  ) => {
-    const validator = (input: unknown): Effect.Effect<A, Schema.ParseError> => {
+  createOptimizedValidator: <A, I>(schema: Schema.Schema<A, I>, strategy: ValidationStrategy = 'development') => {
+    const validator = (input: unknown): Effect.Effect<A, ParseResult.ParseError> => {
       switch (strategy) {
         case 'strict':
           return Schema.decodeUnknown(schema)(input)
 
         case 'development':
-          return process.env.NODE_ENV === 'development'
+          return process.env['NODE_ENV'] === 'development'
             ? Schema.decodeUnknown(schema)(input)
             : Effect.succeed(input as A)
 
@@ -57,21 +54,29 @@ export const SchemaOptimization = {
       /**
        * Validate with timeout for performance-critical paths
        */
-      validateWithTimeout: (input: unknown, timeoutMs: number = 16): Effect.Effect<A, Schema.ParseError | 'timeout'> =>
+      validateWithTimeout: (
+        input: unknown,
+        timeoutMs: number = 16
+      ): Effect.Effect<A, 'timeout' | ParseResult.ParseError> =>
         pipe(
           validator(input),
           Effect.timeout(`${timeoutMs} millis`),
-          Effect.mapError((error) => error === 'timeout' ? 'timeout' : error)
+          Effect.mapError((error) => {
+            if (typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TimeoutException') {
+              return 'timeout' as const
+            }
+            return error as ParseResult.ParseError
+          })
         ),
 
       /**
        * Batch validation for multiple items
        */
-      validateBatch: (inputs: unknown[], concurrency: number = 10): Effect.Effect<A[], Schema.ParseError[]> =>
+      validateBatch: (inputs: unknown[], concurrency: number = 10): Effect.Effect<A[], ParseResult.ParseError[]> =>
         pipe(
           inputs,
           Effect.forEach(validator, { concurrency, batching: true }),
-          Effect.mapError((errors) => Array.isArray(errors) ? errors : [errors])
+          Effect.mapError((errors) => (Array.isArray(errors) ? errors : [errors]))
         ),
 
       /**
@@ -82,7 +87,7 @@ export const SchemaOptimization = {
           validator(input),
           Effect.map((result) => result),
           Effect.catchAll(() => Effect.succeed(null))
-        )
+        ),
     }
   },
 
@@ -99,7 +104,7 @@ export const SchemaOptimization = {
       validateInGameLoop: (input: unknown): Effect.Effect<A, 'timeout' | 'validation_error'> =>
         pipe(
           validator.validateWithTimeout(input, 16),
-          Effect.mapError((error) => error === 'timeout' ? 'timeout' : 'validation_error')
+          Effect.mapError((error) => (error === 'timeout' ? 'timeout' : 'validation_error'))
         ),
 
       /**
@@ -131,9 +136,9 @@ export const SchemaOptimization = {
 
           clear: (): Effect.Effect<void, never> => Effect.sync(() => cache.clear()),
 
-          size: (): Effect.Effect<number, never> => Effect.sync(() => cache.size)
+          size: (): Effect.Effect<number, never> => Effect.sync(() => cache.size),
         }
-      }
+      },
     }
   },
 
@@ -147,7 +152,10 @@ export const SchemaOptimization = {
       /**
        * Validate input at service boundary with detailed error reporting
        */
-      validateInput: (input: unknown, context: string): Effect.Effect<A, { context: string; error: Schema.ParseError }> =>
+      validateInput: (
+        input: unknown,
+        context: string
+      ): Effect.Effect<A, { context: string; error: ParseResult.ParseError }> =>
         pipe(
           validator.validate(input),
           Effect.mapError((error) => ({ context, error }))
@@ -156,13 +164,16 @@ export const SchemaOptimization = {
       /**
        * Validate output at service boundary (development only)
        */
-      validateOutput: (output: A, context: string): Effect.Effect<A, { context: string; error: Schema.ParseError }> =>
-        process.env.NODE_ENV === 'development'
+      validateOutput: (
+        output: A,
+        context: string
+      ): Effect.Effect<A, { context: string; error: ParseResult.ParseError }> =>
+        process.env['NODE_ENV'] === 'development'
           ? pipe(
               validator.validate(output),
               Effect.mapError((error) => ({ context, error }))
             )
-          : Effect.succeed(output)
+          : Effect.succeed(output),
     }
   },
 
@@ -174,21 +185,18 @@ export const SchemaOptimization = {
       validationCount: 0,
       totalTime: 0,
       timeouts: 0,
-      errors: 0
+      errors: 0,
     }
 
     return {
       /**
        * Wrap validator with performance monitoring
        */
-      monitor: <A, I>(
-        schema: Schema.Schema<A, I>,
-        name: string
-      ) => {
+      monitor: <A, I>(schema: Schema.Schema<A, I>, name: string) => {
         const validator = SchemaOptimization.createOptimizedValidator(schema)
 
         return {
-          validate: (input: unknown): Effect.Effect<A, Schema.ParseError> =>
+          validate: (input: unknown): Effect.Effect<A, ParseResult.ParseError> =>
             pipe(
               Effect.sync(() => performance.now()),
               Effect.flatMap((start) =>
@@ -198,7 +206,7 @@ export const SchemaOptimization = {
                     Effect.sync(() => {
                       const end = performance.now()
                       metrics.validationCount++
-                      metrics.totalTime += (end - start)
+                      metrics.totalTime += end - start
                     })
                   ),
                   Effect.tapError(() =>
@@ -210,15 +218,18 @@ export const SchemaOptimization = {
               )
             ),
 
-          getMetrics: (): Effect.Effect<{
-            name: string
-            validationCount: number
-            averageTime: number
-            totalTime: number
-            timeouts: number
-            errors: number
-            errorRate: number
-          }, never> =>
+          getMetrics: (): Effect.Effect<
+            {
+              name: string
+              validationCount: number
+              averageTime: number
+              totalTime: number
+              timeouts: number
+              errors: number
+              errorRate: number
+            },
+            never
+          > =>
             Effect.sync(() => ({
               name,
               validationCount: metrics.validationCount,
@@ -226,7 +237,7 @@ export const SchemaOptimization = {
               totalTime: metrics.totalTime,
               timeouts: metrics.timeouts,
               errors: metrics.errors,
-              errorRate: metrics.validationCount > 0 ? metrics.errors / metrics.validationCount : 0
+              errorRate: metrics.validationCount > 0 ? metrics.errors / metrics.validationCount : 0,
             })),
 
           resetMetrics: (): Effect.Effect<void, never> =>
@@ -235,9 +246,9 @@ export const SchemaOptimization = {
               metrics.totalTime = 0
               metrics.timeouts = 0
               metrics.errors = 0
-            })
+            }),
         }
-      }
+      },
     }
   },
 
@@ -256,11 +267,11 @@ export const SchemaOptimization = {
         input: unknown,
         cacheKey: string,
         ttlMs: number = 5000
-      ): Effect.Effect<A, Schema.ParseError> => {
+      ): Effect.Effect<A, ParseResult.ParseError> => {
         const now = Date.now()
         const cached = cache.get(cacheKey)
 
-        if (cached && (now - cached.timestamp) < cached.ttl) {
+        if (cached && now - cached.timestamp < cached.ttl) {
           return Effect.succeed(cached.data)
         }
 
@@ -271,7 +282,7 @@ export const SchemaOptimization = {
               cache.set(cacheKey, {
                 data: result,
                 timestamp: now,
-                ttl: ttlMs
+                ttl: ttlMs,
               })
             })
           )
@@ -281,11 +292,7 @@ export const SchemaOptimization = {
       /**
        * Force revalidation and update cache
        */
-      revalidate: (
-        input: unknown,
-        cacheKey: string,
-        ttlMs: number = 5000
-      ): Effect.Effect<A, Schema.ParseError> =>
+      revalidate: (input: unknown, cacheKey: string, ttlMs: number = 5000): Effect.Effect<A, ParseResult.ParseError> =>
         pipe(
           validator.validate(input),
           Effect.tap((result) =>
@@ -293,7 +300,7 @@ export const SchemaOptimization = {
               cache.set(cacheKey, {
                 data: result,
                 timestamp: Date.now(),
-                ttl: ttlMs
+                ttl: ttlMs,
               })
             })
           )
@@ -308,16 +315,16 @@ export const SchemaOptimization = {
           let cleaned = 0
 
           for (const [key, value] of cache.entries()) {
-            if ((now - value.timestamp) >= value.ttl) {
+            if (now - value.timestamp >= value.ttl) {
               cache.delete(key)
               cleaned++
             }
           }
 
           return cleaned
-        })
+        }),
     }
-  }
+  },
 }
 
 /**
@@ -327,30 +334,25 @@ export const OptimizedValidators = {
   /**
    * For game entities (high frequency, performance critical)
    */
-  gameEntity: <A, I>(schema: Schema.Schema<A, I>) =>
-    SchemaOptimization.createGameLoopValidator(schema),
+  gameEntity: <A, I>(schema: Schema.Schema<A, I>) => SchemaOptimization.createGameLoopValidator(schema),
 
   /**
    * For service boundaries (strict validation)
    */
-  serviceBoundary: <A, I>(schema: Schema.Schema<A, I>) =>
-    SchemaOptimization.createBoundaryValidator(schema),
+  serviceBoundary: <A, I>(schema: Schema.Schema<A, I>) => SchemaOptimization.createBoundaryValidator(schema),
 
   /**
    * For configuration (validate once, cache indefinitely)
    */
-  configuration: <A, I>(schema: Schema.Schema<A, I>) =>
-    SchemaOptimization.createCacheAwareValidator(schema),
+  configuration: <A, I>(schema: Schema.Schema<A, I>) => SchemaOptimization.createCacheAwareValidator(schema),
 
   /**
    * For user input (strict with detailed errors)
    */
-  userInput: <A, I>(schema: Schema.Schema<A, I>) =>
-    SchemaOptimization.createOptimizedValidator(schema, 'strict'),
+  userInput: <A, I>(schema: Schema.Schema<A, I>) => SchemaOptimization.createOptimizedValidator(schema, 'strict'),
 
   /**
    * For internal data (development validation only)
    */
-  internal: <A, I>(schema: Schema.Schema<A, I>) =>
-    SchemaOptimization.createOptimizedValidator(schema, 'development')
+  internal: <A, I>(schema: Schema.Schema<A, I>) => SchemaOptimization.createOptimizedValidator(schema, 'development'),
 }

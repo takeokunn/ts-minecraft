@@ -23,7 +23,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 1, 10, 20, 5.5, 15.7]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(HealthSchema)(value)).not.toThrow()
       })
     })
@@ -31,7 +31,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 21, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(HealthSchema)(value)).toThrow()
       })
     })
@@ -46,7 +46,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 1, 10, 20, 15.5]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(HungerSchema)(value)).not.toThrow()
       })
     })
@@ -54,7 +54,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 21, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(HungerSchema)(value)).toThrow()
       })
     })
@@ -64,7 +64,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 100, 1000, 50000, 1000000]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(ExperienceSchema)(value)).not.toThrow()
       })
     })
@@ -72,7 +72,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(ExperienceSchema)(value)).toThrow()
       })
     })
@@ -82,7 +82,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 1, 10, 30, 100, 1000]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(LevelSchema)(value)).not.toThrow()
       })
     })
@@ -90,7 +90,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 1001, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(LevelSchema)(value)).toThrow()
       })
     })
@@ -100,7 +100,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 500, 10000, 1000000]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(ScoreSchema)(value)).not.toThrow()
       })
     })
@@ -108,7 +108,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(ScoreSchema)(value)).toThrow()
       })
     })
@@ -118,7 +118,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [1, 16, 32, 64]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(StackSizeSchema)(value)).not.toThrow()
       })
     })
@@ -126,7 +126,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [0, 65, -1, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(StackSizeSchema)(value)).toThrow()
       })
     })
@@ -141,7 +141,7 @@ describe('Game Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 1, 100, 500, 1000]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(DurabilitySchema)(value)).not.toThrow()
       })
     })
@@ -149,7 +149,7 @@ describe('Game Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 1001, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(DurabilitySchema)(value)).toThrow()
       })
     })

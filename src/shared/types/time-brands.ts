@@ -100,66 +100,55 @@ export const TimeBrands = {
    * 安全なTimestamp作成
    * 現在時刻を取得
    */
-  createTimestamp: (value?: number): Timestamp =>
-    Schema.decodeSync(TimestampSchema)(value ?? Date.now()),
+  createTimestamp: (value?: number): Timestamp => Schema.decodeSync(TimestampSchema)(value ?? Date.now()),
 
   /**
    * 現在のタイムスタンプを取得
    */
-  now: (): Timestamp =>
-    Schema.decodeSync(TimestampSchema)(Date.now()),
+  now: (): Timestamp => Schema.decodeSync(TimestampSchema)(Date.now()),
 
   /**
    * 安全なDeltaTime作成
    */
-  createDeltaTime: (value: number): DeltaTime =>
-    Schema.decodeSync(DeltaTimeSchema)(value),
+  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTimeSchema)(value),
 
   /**
    * 安全なFrameTime作成
    */
-  createFrameTime: (value: number): FrameTime =>
-    Schema.decodeSync(FrameTimeSchema)(value),
+  createFrameTime: (value: number): FrameTime => Schema.decodeSync(FrameTimeSchema)(value),
 
   /**
    * 安全なDuration作成
    */
-  createDuration: (value: number): Duration =>
-    Schema.decodeSync(DurationSchema)(value),
+  createDuration: (value: number): Duration => Schema.decodeSync(DurationSchema)(value),
 
   /**
    * Duration from milliseconds
    */
-  durationFromMs: (ms: number): Duration =>
-    Schema.decodeSync(DurationSchema)(ms / 1000),
+  durationFromMs: (ms: number): Duration => Schema.decodeSync(DurationSchema)(ms / 1000),
 
   /**
    * Duration from minutes
    */
-  durationFromMinutes: (minutes: number): Duration =>
-    Schema.decodeSync(DurationSchema)(minutes * 60),
+  durationFromMinutes: (minutes: number): Duration => Schema.decodeSync(DurationSchema)(minutes * 60),
 
   /**
    * Duration from hours
    */
-  durationFromHours: (hours: number): Duration =>
-    Schema.decodeSync(DurationSchema)(hours * 3600),
+  durationFromHours: (hours: number): Duration => Schema.decodeSync(DurationSchema)(hours * 3600),
 
   /**
    * 安全なFPS作成
    */
-  createFPS: (value: number): FPS =>
-    Schema.decodeSync(FPSSchema)(value),
+  createFPS: (value: number): FPS => Schema.decodeSync(FPSSchema)(value),
 
   /**
    * Target 60 FPS
    */
-  targetFPS: (): FPS =>
-    Schema.decodeSync(FPSSchema)(60),
+  targetFPS: (): FPS => Schema.decodeSync(FPSSchema)(60),
 
   /**
    * 安全なPerformanceMetric作成
    */
-  createPerformanceMetric: (value: number): PerformanceMetric =>
-    Schema.decodeSync(PerformanceMetricSchema)(value),
+  createPerformanceMetric: (value: number): PerformanceMetric => Schema.decodeSync(PerformanceMetricSchema)(value),
 } as const

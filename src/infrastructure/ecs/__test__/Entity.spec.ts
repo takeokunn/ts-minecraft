@@ -10,8 +10,9 @@ import * as Layer from 'effect/Layer'
 import * as TestContext from 'effect/TestContext'
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect/Function'
+import type { EntityId } from '../Entity'
 import {
-  EntityId,
+  createEntityId,
   EntityPoolError,
   EntityPoolLive,
   EntityPoolLayer,
@@ -112,7 +113,7 @@ describe('Entity ECS Architecture', () => {
     it.effect('should fail when deallocating unallocated entity', () =>
       Effect.gen(function* () {
         const pool = yield* EntityPool
-        const invalidId = EntityId(99999)
+        const invalidId = createEntityId(99999)
 
         // EntityPoolErrorが発生することを確認
         const result = yield* Effect.exit(pool.deallocate(invalidId))
@@ -198,7 +199,7 @@ describe('Entity ECS Architecture', () => {
     it.effect('should insert and retrieve components', () =>
       Effect.gen(function* () {
         const storage = createComponentStorage<TestComponent>()
-        const entityId = EntityId(1)
+        const entityId = createEntityId(1)
         const component = { x: 10, y: 20, z: 30 }
 
         yield* storage.insert(entityId, component)
@@ -222,7 +223,7 @@ describe('Entity ECS Architecture', () => {
     it.effect('should update existing components', () =>
       Effect.gen(function* () {
         const storage = createComponentStorage<TestComponent>()
-        const entityId = EntityId(1)
+        const entityId = createEntityId(1)
 
         yield* storage.insert(entityId, { x: 1, y: 2, z: 3 })
         yield* storage.insert(entityId, { x: 10, y: 20, z: 30 })
@@ -245,9 +246,9 @@ describe('Entity ECS Architecture', () => {
     it.effect('should remove components and maintain array compactness', () =>
       Effect.gen(function* () {
         const storage = createComponentStorage<TestComponent>()
-        const entity1 = EntityId(1)
-        const entity2 = EntityId(2)
-        const entity3 = EntityId(3)
+        const entity1 = createEntityId(1)
+        const entity2 = createEntityId(2)
+        const entity3 = createEntityId(3)
 
         // 3つのコンポーネントを追加
         yield* storage.insert(entity1, { x: 1, y: 1, z: 1 })
@@ -287,9 +288,9 @@ describe('Entity ECS Architecture', () => {
       Effect.gen(function* () {
         const storage = createComponentStorage<TestComponent>()
         const components: [EntityId, TestComponent][] = [
-          [EntityId(1), { x: 1, y: 1, z: 1 }],
-          [EntityId(2), { x: 2, y: 2, z: 2 }],
-          [EntityId(3), { x: 3, y: 3, z: 3 }],
+          [createEntityId(1), { x: 1, y: 1, z: 1 }],
+          [createEntityId(2), { x: 2, y: 2, z: 2 }],
+          [createEntityId(3), { x: 3, y: 3, z: 3 }],
         ]
 
         // 複数のコンポーネントを追加
@@ -322,7 +323,7 @@ describe('Entity ECS Architecture', () => {
 
         // 100個のコンポーネントを追加
         for (let i = 0; i < 100; i++) {
-          yield* storage.insert(EntityId(i), { x: i, y: i * 2, z: i * 3 })
+          yield* storage.insert(createEntityId(i), { x: i, y: i * 2, z: i * 3 })
         }
 
         // イテレーション
@@ -354,7 +355,7 @@ describe('Entity ECS Architecture', () => {
         const numEntities = 10
 
         for (let i = 0; i < numEntities; i++) {
-          yield* storage.insert(EntityId(i), { x: i, y: 0, z: 0 })
+          yield* storage.insert(createEntityId(i), { x: i, y: 0, z: 0 })
         }
 
         const raw = yield* storage.getRawData()
@@ -382,15 +383,15 @@ describe('Entity ECS Architecture', () => {
         const storage = createComponentStorage<TestComponent>()
 
         // データを追加
-        yield* storage.insert(EntityId(1), { x: 1, y: 1, z: 1 })
-        yield* storage.insert(EntityId(2), { x: 2, y: 2, z: 2 })
+        yield* storage.insert(createEntityId(1), { x: 1, y: 1, z: 1 })
+        yield* storage.insert(createEntityId(2), { x: 2, y: 2, z: 2 })
 
         // クリア
         yield* storage.clear()
 
         // すべてのデータが削除されていることを確認
-        const has1 = yield* storage.has(EntityId(1))
-        const has2 = yield* storage.has(EntityId(2))
+        const has1 = yield* storage.has(createEntityId(1))
+        const has2 = yield* storage.has(createEntityId(2))
         if (has1 || has2) {
           return yield* Effect.fail(new Error('Data not cleared'))
         }
@@ -451,7 +452,7 @@ describe('Entity ECS Architecture', () => {
     it.effect('should move entities between archetypes', () =>
       Effect.gen(function* () {
         const manager = createArchetypeManager()
-        const entityId = EntityId(1)
+        const entityId = createEntityId(1)
 
         const components1 = new Set(['Position'])
         const components2 = new Set(['Position', 'Velocity'])
@@ -485,7 +486,7 @@ describe('Entity ECS Architecture', () => {
     it.effect('should remove entities from archetypes', () =>
       Effect.gen(function* () {
         const manager = createArchetypeManager()
-        const entityId = EntityId(1)
+        const entityId = createEntityId(1)
         const components = new Set(['Position', 'Velocity'])
 
         yield* manager.moveEntity(entityId, components)
@@ -505,7 +506,7 @@ describe('Entity ECS Architecture', () => {
         const manager = createArchetypeManager()
         const components = new Set(['Position', 'Velocity'])
 
-        const entities = [EntityId(1), EntityId(2), EntityId(3)]
+        const entities = [createEntityId(1), createEntityId(2), createEntityId(3)]
 
         for (const entity of entities) {
           yield* manager.moveEntity(entity, components)
@@ -534,8 +535,8 @@ describe('Entity ECS Architecture', () => {
         const components1 = new Set(['Position'])
         const components2 = new Set(['Velocity'])
 
-        yield* manager.moveEntity(EntityId(1), components1)
-        yield* manager.moveEntity(EntityId(2), components2)
+        yield* manager.moveEntity(createEntityId(1), components1)
+        yield* manager.moveEntity(createEntityId(2), components2)
 
         yield* manager.clear()
 
@@ -559,7 +560,7 @@ describe('Entity ECS Architecture', () => {
         // パフォーマンステスト - 10000個のコンポーネント挿入
         const insertionTest = Effect.gen(function* () {
           for (let i = 0; i < 10000; i++) {
-            yield* storage.insert(EntityId(i), { value: i })
+            yield* storage.insert(createEntityId(i), { value: i })
           }
           return 'insertion_complete'
         })
@@ -608,7 +609,7 @@ describe('Entity ECS Architecture', () => {
         // メモリ効率テスト
         const memoryTest = Effect.gen(function* () {
           for (let i = 0; i < 5000; i++) {
-            yield* storage.insert(EntityId(i), { x: i, y: i, z: i, w: i })
+            yield* storage.insert(createEntityId(i), { x: i, y: i, z: i, w: i })
           }
           const stats = yield* storage.getStats()
           return stats
@@ -643,7 +644,7 @@ describe('Entity ECS Architecture', () => {
         // より小さなサイズでプールを作成（テスト用）
         const SMALL_MAX_ENTITIES = 3
         const state = {
-          freeList: Array.from({ length: SMALL_MAX_ENTITIES }, (_, i) => EntityId(SMALL_MAX_ENTITIES - 1 - i)),
+          freeList: Array.from({ length: SMALL_MAX_ENTITIES }, (_, i) => createEntityId(SMALL_MAX_ENTITIES - 1 - i)),
           allocated: new Set<EntityId>(),
           nextId: SMALL_MAX_ENTITIES,
         }
@@ -684,7 +685,7 @@ describe('Entity ECS Architecture', () => {
             Effect.gen(function* () {
               state.allocated.clear()
               state.freeList = Array.from({ length: SMALL_MAX_ENTITIES }, (_, i) =>
-                EntityId(SMALL_MAX_ENTITIES - 1 - i)
+                createEntityId(SMALL_MAX_ENTITIES - 1 - i)
               )
               state.nextId = SMALL_MAX_ENTITIES
             }),

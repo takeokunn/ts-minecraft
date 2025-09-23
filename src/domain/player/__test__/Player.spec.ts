@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Either, pipe } from 'effect'
 import { Schema } from '@effect/schema'
+import type { PlayerPosition, PlayerRotation, PlayerState } from '../PlayerService.js'
 import {
-  PlayerPosition,
-  PlayerRotation,
-  PlayerState,
   PlayerConfig,
   PlayerUpdateData,
   PlayerError,
@@ -19,7 +17,7 @@ import {
   DEFAULT_PLAYER_CONFIG,
 } from '../PlayerService.js'
 import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService.js'
-import { BrandedTypes } from '../../../shared/types/branded.js'
+import { BrandedTypes, GameBrands, SpatialBrands, TimeBrands } from '../../../shared/types/index.js'
 
 /**
  * Player Entity System - Component Tests
@@ -441,8 +439,8 @@ describe('Player Entity System - Component Tests', () => {
     it('should validate PlayerComponent structure', () => {
       const playerComponent: PlayerComponent = {
         playerId: BrandedTypes.createPlayerId('component-test'),
-        health: 85,
-        lastUpdate: Date.now(),
+        health: GameBrands.createHealth(85),
+        lastUpdate: TimeBrands.createTimestamp(),
       }
 
       expect(playerComponent.playerId).toBeDefined()
@@ -453,11 +451,7 @@ describe('Player Entity System - Component Tests', () => {
     })
 
     it('should validate PositionComponent structure', () => {
-      const positionComponent: PositionComponent = {
-        x: 123.456,
-        y: 64.0,
-        z: -789.123,
-      }
+      const positionComponent: PositionComponent = SpatialBrands.createVector3D(123.456, 64.0, -789.123)
 
       expect(typeof positionComponent.x).toBe('number')
       expect(typeof positionComponent.y).toBe('number')
@@ -471,6 +465,7 @@ describe('Player Entity System - Component Tests', () => {
       const rotationComponent: RotationComponent = {
         pitch: Math.PI / 3,
         yaw: -Math.PI / 4,
+        roll: 0,
       }
 
       expect(typeof rotationComponent.pitch).toBe('number')

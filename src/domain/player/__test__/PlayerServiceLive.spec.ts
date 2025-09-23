@@ -7,6 +7,7 @@ import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/E
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
 import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded.js'
+import { SpatialBrands } from '../../../shared/types/spatial-brands.js'
 import {
   createPlayerError,
   type PlayerPosition,
@@ -399,7 +400,7 @@ describe('PlayerService Integration Tests', () => {
           }
 
           // 範囲検索テスト（半径10）
-          const center: PlayerPosition = { x: 0, y: 0, z: 0 }
+          const center: PlayerPosition = SpatialBrands.createVector3D(0, 0, 0)
           const playersInRange = yield* playerService.getPlayersInRange(center, 10)
 
           expect(playersInRange).toHaveLength(3) // center, close-1, close-2

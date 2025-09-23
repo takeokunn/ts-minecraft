@@ -20,13 +20,7 @@ export const EffectTestUtils = {
     effect: Effect.Effect<A, E>,
     timeout: Duration.Duration = Duration.seconds(5)
   ): Promise<A> => {
-    const result = await Effect.runPromise(
-      pipe(
-        effect,
-        Effect.timeout(timeout),
-        Effect.either
-      )
-    )
+    const result = await Effect.runPromise(pipe(effect, Effect.timeout(timeout), Effect.either))
 
     if (Either.isLeft(result)) {
       throw new Error(`Expected success but got error: ${String(result.left)}`)
@@ -43,19 +37,13 @@ export const EffectTestUtils = {
     errorMatcher?: (error: E) => boolean,
     timeout: Duration.Duration = Duration.seconds(5)
   ): Promise<E> => {
-    const result = await Effect.runPromise(
-      pipe(
-        effect,
-        Effect.timeout(timeout),
-        Effect.either
-      )
-    )
+    const result = await Effect.runPromise(pipe(effect, Effect.timeout(timeout), Effect.either))
 
     if (Either.isRight(result)) {
       throw new Error(`Expected failure but got success: ${String(result.right)}`)
     }
 
-    const error = result.left
+    const error = result.left as E
     if (errorMatcher && !errorMatcher(error)) {
       throw new Error(`Error did not match expected pattern: ${String(error)}`)
     }
@@ -66,34 +54,21 @@ export const EffectTestUtils = {
   /**
    * Test schema validation with Effect
    */
-  expectSchemaSuccess: async <I, A>(
-    schema: Schema.Schema<A, I>,
-    input: I
-  ): Promise<A> => {
-    return EffectTestUtils.expectSuccess(
-      Schema.decodeUnknown(schema)(input)
-    )
+  expectSchemaSuccess: async <I, A>(schema: Schema.Schema<A, I>, input: I): Promise<A> => {
+    return EffectTestUtils.expectSuccess(Schema.decodeUnknown(schema)(input))
   },
 
   /**
    * Test schema validation failure
    */
-  expectSchemaFailure: async <I, A>(
-    schema: Schema.Schema<A, I>,
-    input: unknown
-  ): Promise<Schema.ParseError> => {
-    return EffectTestUtils.expectFailure(
-      Schema.decodeUnknown(schema)(input)
-    )
+  expectSchemaFailure: async <I, A>(schema: Schema.Schema<A, I>, input: unknown): Promise<any> => {
+    return EffectTestUtils.expectFailure(Schema.decodeUnknown(schema)(input))
   },
 
   /**
    * Create a test layer for dependency injection
    */
-  createTestLayer: <R, E, A>(
-    tag: Context.Tag<R, A>,
-    implementation: A
-  ): Layer.Layer<R, E, never> => {
+  createTestLayer: <R, E, A>(tag: Context.Tag<R, A>, implementation: A): Layer.Layer<R, E, never> => {
     return Layer.succeed(tag, implementation)
   },
 
@@ -105,13 +80,7 @@ export const EffectTestUtils = {
     testLayer: Layer.Layer<R, E, never>,
     timeout: Duration.Duration = Duration.seconds(5)
   ): Promise<A> => {
-    return Effect.runPromise(
-      pipe(
-        effect,
-        Effect.provide(testLayer),
-        Effect.timeout(timeout)
-      )
-    )
+    return Effect.runPromise(pipe(effect, Effect.provide(testLayer), Effect.timeout(timeout)))
   },
 
   /**
@@ -191,7 +160,7 @@ export const EffectTestUtils = {
         throw new Error(`Scenario '${scenario.name}' failed: ${String(error)}`)
       }
     }
-  }
+  },
 }
 
 /**
@@ -201,11 +170,7 @@ export const PropertyTestUtils = {
   /**
    * Generate test cases for schema validation
    */
-  generateValidationTests: <I, A>(
-    schema: Schema.Schema<A, I>,
-    validInputs: I[],
-    invalidInputs: unknown[]
-  ) => ({
+  generateValidationTests: <I, A>(schema: Schema.Schema<A, I>, validInputs: I[], invalidInputs: unknown[]) => ({
     testValid: async () => {
       for (const input of validInputs) {
         await EffectTestUtils.expectSchemaSuccess(schema, input)
@@ -215,17 +180,13 @@ export const PropertyTestUtils = {
       for (const input of invalidInputs) {
         await EffectTestUtils.expectSchemaFailure(schema, input)
       }
-    }
+    },
   }),
 
   /**
    * Test Brand type creation and validation
    */
-  testBrandType: async <T>(
-    schema: Schema.Schema<T>,
-    validValues: unknown[],
-    invalidValues: unknown[]
-  ) => {
+  testBrandType: async <T>(schema: Schema.Schema<T, unknown>, validValues: unknown[], invalidValues: unknown[]) => {
     // Test valid values
     for (const value of validValues) {
       const result = await EffectTestUtils.expectSchemaSuccess(schema, value)
@@ -236,7 +197,7 @@ export const PropertyTestUtils = {
     for (const value of invalidValues) {
       await EffectTestUtils.expectSchemaFailure(schema, value)
     }
-  }
+  },
 }
 
 /**
@@ -246,17 +207,13 @@ export const IntegrationTestUtils = {
   /**
    * Test service integration with proper dependency injection
    */
-  testServiceIntegration: async <ServiceType, Dependencies>(
+  testServiceIntegration: async <ServiceType, Dependencies = never>(
     serviceTag: Context.Tag<any, ServiceType>,
     dependencies: Layer.Layer<Dependencies, never, never>,
-    testEffect: (service: ServiceType) => Effect.Effect<void, any, Dependencies>
+    testEffect: (service: ServiceType) => Effect.Effect<void, any, Exclude<any, Dependencies>>
   ): Promise<void> => {
     await Effect.runPromise(
-      pipe(
-        serviceTag,
-        Effect.flatMap(testEffect),
-        Effect.provide(dependencies)
-      )
+      pipe(serviceTag, Effect.flatMap(testEffect), Effect.provide(dependencies)) as Effect.Effect<void, any, never>
     )
   },
 
@@ -267,13 +224,8 @@ export const IntegrationTestUtils = {
     workflow: Effect.Effect<void, E, R>,
     testLayers: Layer.Layer<R, E, never>
   ): Promise<void> => {
-    await Effect.runPromise(
-      pipe(
-        workflow,
-        Effect.provide(testLayers)
-      )
-    )
-  }
+    await Effect.runPromise(pipe(workflow, Effect.provide(testLayers)))
+  },
 }
 
 /**
@@ -283,10 +235,7 @@ export const ErrorTestUtils = {
   /**
    * Test error serialization and deserialization
    */
-  testErrorSerialization: async <E>(
-    errorSchema: Schema.Schema<E>,
-    error: E
-  ): Promise<void> => {
+  testErrorSerialization: async <E>(errorSchema: Schema.Schema<E>, error: E): Promise<void> => {
     // Serialize to JSON
     const serialized = JSON.stringify(error)
     expect(serialized).toBeDefined()
@@ -300,10 +249,7 @@ export const ErrorTestUtils = {
   /**
    * Test error hierarchy and type guards
    */
-  testErrorTypeGuards: <E>(
-    errors: E[],
-    typeGuard: (error: unknown) => error is E
-  ): void => {
+  testErrorTypeGuards: <E>(errors: E[], typeGuard: (error: unknown) => error is E): void => {
     for (const error of errors) {
       expect(typeGuard(error)).toBe(true)
       expect(typeGuard(null)).toBe(false)
@@ -311,5 +257,5 @@ export const ErrorTestUtils = {
       expect(typeGuard({})).toBe(false)
       expect(typeGuard('string')).toBe(false)
     }
-  }
+  },
 }

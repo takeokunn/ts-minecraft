@@ -12,13 +12,17 @@
 export { PlayerService } from './PlayerService.js'
 
 // Type-only exports
-export type { PlayerComponent, PositionComponent, RotationComponent } from './PlayerService.js'
-
-// Schema and validation exports (runtime values)
-export {
+export type {
+  PlayerComponent,
+  PositionComponent,
+  RotationComponent,
   PlayerPosition,
   PlayerRotation,
   PlayerState,
+} from './PlayerService.js'
+
+// Schema and validation exports (runtime values)
+export {
   PlayerConfig,
   PlayerUpdateData,
   PlayerErrorReason,

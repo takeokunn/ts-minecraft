@@ -17,7 +17,7 @@ describe('Time Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [1640995200000, Date.now(), 1]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(TimestampSchema)(value)).not.toThrow()
       })
     })
@@ -25,7 +25,7 @@ describe('Time Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 0, 1.5, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(TimestampSchema)(value)).toThrow()
       })
     })
@@ -40,7 +40,7 @@ describe('Time Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 16.67, 33.33, 8.33, 1000]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(DeltaTimeSchema)(value)).not.toThrow()
       })
     })
@@ -48,7 +48,7 @@ describe('Time Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 1001, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(DeltaTimeSchema)(value)).toThrow()
       })
     })
@@ -63,7 +63,7 @@ describe('Time Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 8.33, 16.67, 33.33, 100]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(FrameTimeSchema)(value)).not.toThrow()
       })
     })
@@ -71,7 +71,7 @@ describe('Time Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, 101, NaN, Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(FrameTimeSchema)(value)).toThrow()
       })
     })
@@ -81,7 +81,7 @@ describe('Time Brand Types', () => {
     it('正常な値を受け入れる', () => {
       const validValues = [0, 1.5, 30, 3600, 86400]
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         expect(() => Schema.decodeSync(DurationSchema)(value)).not.toThrow()
       })
     })
@@ -89,7 +89,7 @@ describe('Time Brand Types', () => {
     it('不正な値を拒否する', () => {
       const invalidValues = [-1, NaN, Infinity, -Infinity]
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         expect(() => Schema.decodeSync(DurationSchema)(value)).toThrow()
       })
     })

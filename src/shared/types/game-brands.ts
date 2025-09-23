@@ -115,38 +115,32 @@ export const GameBrands = {
   /**
    * 安全なHealth作成
    */
-  createHealth: (value: number): Health =>
-    Schema.decodeSync(HealthSchema)(value),
+  createHealth: (value: number): Health => Schema.decodeSync(HealthSchema)(value),
 
   /**
    * Full health
    */
-  fullHealth: (): Health =>
-    Schema.decodeSync(HealthSchema)(20),
+  fullHealth: (): Health => Schema.decodeSync(HealthSchema)(20),
 
   /**
    * 安全なHunger作成
    */
-  createHunger: (value: number): Hunger =>
-    Schema.decodeSync(HungerSchema)(value),
+  createHunger: (value: number): Hunger => Schema.decodeSync(HungerSchema)(value),
 
   /**
    * Full hunger
    */
-  fullHunger: (): Hunger =>
-    Schema.decodeSync(HungerSchema)(20),
+  fullHunger: (): Hunger => Schema.decodeSync(HungerSchema)(20),
 
   /**
    * 安全なExperience作成
    */
-  createExperience: (value: number): Experience =>
-    Schema.decodeSync(ExperienceSchema)(value),
+  createExperience: (value: number): Experience => Schema.decodeSync(ExperienceSchema)(value),
 
   /**
    * 安全なLevel作成
    */
-  createLevel: (value: number): Level =>
-    Schema.decodeSync(LevelSchema)(value),
+  createLevel: (value: number): Level => Schema.decodeSync(LevelSchema)(value),
 
   /**
    * Calculate level from experience
@@ -160,45 +154,37 @@ export const GameBrands = {
   /**
    * 安全なScore作成
    */
-  createScore: (value: number): Score =>
-    Schema.decodeSync(ScoreSchema)(value),
+  createScore: (value: number): Score => Schema.decodeSync(ScoreSchema)(value),
 
   /**
    * 安全なStackSize作成
    */
-  createStackSize: (value: number): StackSize =>
-    Schema.decodeSync(StackSizeSchema)(value),
+  createStackSize: (value: number): StackSize => Schema.decodeSync(StackSizeSchema)(value),
 
   /**
    * Default stack sizes
    */
-  defaultStackSize: (): StackSize =>
-    Schema.decodeSync(StackSizeSchema)(64),
+  defaultStackSize: (): StackSize => Schema.decodeSync(StackSizeSchema)(64),
 
-  singleStack: (): StackSize =>
-    Schema.decodeSync(StackSizeSchema)(1),
+  singleStack: (): StackSize => Schema.decodeSync(StackSizeSchema)(1),
 
   /**
    * 安全なDurability作成
    */
-  createDurability: (value: number): Durability =>
-    Schema.decodeSync(DurabilitySchema)(value),
+  createDurability: (value: number): Durability => Schema.decodeSync(DurabilitySchema)(value),
 
   /**
    * Maximum durability
    */
-  maxDurability: (): Durability =>
-    Schema.decodeSync(DurabilitySchema)(1000),
+  maxDurability: (): Durability => Schema.decodeSync(DurabilitySchema)(1000),
 
   /**
    * Check if item is broken
    */
-  isBroken: (durability: Durability): boolean =>
-    durability === 0,
+  isBroken: (durability: Durability): boolean => durability === 0,
 
   /**
    * Calculate durability percentage
    */
-  durabilityPercentage: (current: Durability, max: Durability): number =>
-    max === 0 ? 0 : (current / max) * 100,
+  durabilityPercentage: (current: Durability, max: Durability): number => (max === 0 ? 0 : (current / max) * 100),
 } as const

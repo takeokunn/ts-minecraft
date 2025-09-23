@@ -24,11 +24,11 @@ export const ChunkDataSchema = Schema.Struct({
 })
 
 export const MeshDataSchema = Schema.Struct({
-  vertices: Schema.ReadonlyArray(Schema.Number),
-  normals: Schema.ReadonlyArray(Schema.Number),
-  uvs: Schema.ReadonlyArray(Schema.Number),
-  indices: Schema.ReadonlyArray(Schema.Number),
-  colors: Schema.optional(Schema.ReadonlyArray(Schema.Number)),
+  vertices: Schema.Array(Schema.Number),
+  normals: Schema.Array(Schema.Number),
+  uvs: Schema.Array(Schema.Number),
+  indices: Schema.Array(Schema.Number),
+  colors: Schema.optional(Schema.Array(Schema.Number)),
 }).pipe(
   Schema.annotations({
     title: 'MeshData',

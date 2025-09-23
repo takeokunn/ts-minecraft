@@ -45,7 +45,7 @@ export interface AtlasMetadata {
 
 export const TextureRegionSchema = Schema.Struct({
   u: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
-  v: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')), 
+  v: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
   width: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
   height: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
 }).pipe(

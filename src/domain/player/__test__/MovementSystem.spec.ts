@@ -8,7 +8,7 @@ import { PlayerService } from '../PlayerService.js'
 import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager.js'
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
-import { BrandedTypes } from '../../../shared/types/branded.js'
+import { BrandedTypes, SpatialBrands } from '../../../shared/types/index.js'
 import {
   PHYSICS_CONSTANTS,
   PhysicsUtils,
@@ -129,8 +129,8 @@ describe('MovementSystem Physics and Performance Tests', () => {
     })
 
     it('should calculate distance between positions correctly', () => {
-      const pos1: PlayerPosition = { x: 0, y: 0, z: 0 }
-      const pos2: PlayerPosition = { x: 3, y: 4, z: 0 }
+      const pos1: PlayerPosition = SpatialBrands.createVector3D(0, 0, 0)
+      const pos2: PlayerPosition = SpatialBrands.createVector3D(3, 4, 0)
       const distance = PhysicsUtils.getDistance(pos1, pos2)
       expect(distance).toBe(5)
     })
@@ -187,7 +187,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
     )
 
     it('should calculate movement vector from WASD input correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
+      const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
 
       // 前進のみ
       const forwardInput = createMovementInput(true, false, false, false)
@@ -209,7 +209,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
     })
 
     it('should handle sprint multiplier correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
+      const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
       const sprintInput = createMovementInput(true, false, false, false, false, true)
 
       const normalVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.0)
@@ -287,7 +287,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
           const playerId = yield* createTestPlayer('gravity-test-1')
 
           // プレイヤーを空中に配置
-          yield* playerService.setPlayerPosition(playerId, { x: 0, y: 100, z: 0 })
+          yield* playerService.setPlayerPosition(playerId, SpatialBrands.createVector3D(0, 100, 0))
 
           // 重力による落下をシミュレート
           let currentY = 100
@@ -338,14 +338,14 @@ describe('MovementSystem Physics and Performance Tests', () => {
           const movementSystem = yield* MovementSystem
 
           // 境界外への移動テスト
-          const outsidePosition: PlayerPosition = { x: 2000, y: 64, z: 0 } // ワールド境界外
+          const outsidePosition: PlayerPosition = SpatialBrands.createVector3D(2000, 64, 0) // ワールド境界外
           const velocity: VelocityVector = { x: 1, y: 0, z: 0 }
 
           const collisions = yield* movementSystem.checkCollisions(outsidePosition, velocity)
           expect(collisions).toContain('world-boundary-x')
 
           // 地面より下への移動テスト
-          const undergroundPosition: PlayerPosition = { x: 0, y: 50, z: 0 }
+          const undergroundPosition: PlayerPosition = SpatialBrands.createVector3D(0, 50, 0)
           const undergroundCollisions = yield* movementSystem.checkCollisions(undergroundPosition, velocity)
           expect(undergroundCollisions).toContain('ground')
         }).pipe(Effect.provide(MovementSystemTestLayer)) as any
@@ -525,11 +525,9 @@ describe('MovementSystem Physics and Performance Tests', () => {
         Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
 
-          const testPositions = Array.from({ length: 1000 }, (_, i) => ({
-            x: (i % 50) * 10,
-            y: 64 + (i % 10),
-            z: Math.floor(i / 50) * 10,
-          }))
+          const testPositions = Array.from({ length: 1000 }, (_, i) =>
+            SpatialBrands.createVector3D((i % 50) * 10, 64 + (i % 10), Math.floor(i / 50) * 10)
+          )
 
           const testVelocity: VelocityVector = { x: 5, y: 0, z: 5 }
 
@@ -640,9 +638,9 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
           // 浮動小数点精度テスト
           const precisePositions = [
-            { x: 0.1 + 0.2, y: 64.0000001, z: -0.0000001 },
-            { x: Number.EPSILON, y: 64 + Number.EPSILON, z: Number.EPSILON },
-            { x: 1e-10, y: 64, z: 1e10 },
+            SpatialBrands.createVector3D(0.1 + 0.2, 64.0000001, -0.0000001),
+            SpatialBrands.createVector3D(Number.EPSILON, 64 + Number.EPSILON, Number.EPSILON),
+            SpatialBrands.createVector3D(1e-10, 64, 1e10),
           ]
 
           for (const position of precisePositions) {

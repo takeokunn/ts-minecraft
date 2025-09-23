@@ -381,3 +381,7 @@ export const BrandedTypes = {
       z: Schema.decodeSync(WorldCoordinateSchema)(z),
     }),
 } as const
+
+// Re-export time-related types for backward compatibility
+export type { DeltaTime, Timestamp } from './time-brands'
+export { DeltaTimeSchema, TimestampSchema } from './time-brands'
