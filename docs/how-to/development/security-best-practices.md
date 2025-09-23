@@ -127,21 +127,27 @@ const SecurePlayerInputSchema = Schema.Struct({
 // タイムスタンプの検証（リプレイ攻撃対策）
 const validateTimestamp = (timestamp: number, tolerance: number = 5000) =>
   Effect.gen(function* (_) {
+    import { Match } from 'effect'
+
     const now = Date.now()
     const diff = Math.abs(now - timestamp)
 
-    if (diff > tolerance) {
-      return yield* _(
-        Effect.fail(
-          new SecurityError({
-            type: 'timestamp_validation_failed',
-            message: `Timestamp too old or in future: ${diff}ms difference`,
-          })
-        )
+    return yield* _(
+      pipe(
+        Match.value(diff),
+        Match.when(
+          (d) => d > tolerance,
+          (d) =>
+            Effect.fail(
+              new SecurityError({
+                type: 'timestamp_validation_failed',
+                message: `Timestamp too old or in future: ${d}ms difference`,
+              })
+            )
+        ),
+        Match.orElse(() => Effect.succeed(timestamp))
       )
-    }
-
-    return timestamp
+    )
   })
 
 // レート制限の実装
@@ -157,16 +163,22 @@ const createRateLimiter = (maxRequests: number, windowMs: number) => {
       const clientRequests = requests.get(clientId) ?? []
       const validRequests = clientRequests.filter((time) => time > windowStart)
 
-      if (validRequests.length >= maxRequests) {
-        return yield* _(
-          Effect.fail(
-            new SecurityError({
-              type: 'rate_limit_exceeded',
-              message: `Too many requests: ${validRequests.length}/${maxRequests}`,
-            })
-          )
+      return yield* _(
+        pipe(
+          Match.value(validRequests.length),
+          Match.when(
+            (count) => count >= maxRequests,
+            (count) =>
+              Effect.fail(
+                new SecurityError({
+                  type: 'rate_limit_exceeded',
+                  message: `Too many requests: ${count}/${maxRequests}`,
+                })
+              )
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
         )
-      }
+      )
 
       validRequests.push(now)
       requests.set(clientId, validRequests)
@@ -220,22 +232,30 @@ const sanitizeChatMessage = (rawMessage: unknown) =>
 // DOM操作の安全な実装
 const safeUpdateDOM = (elementId: string, content: string) =>
   Effect.gen(function* (_) {
+    import { Match } from 'effect'
+
     const element = document.getElementById(elementId)
-    if (!element) {
-      return yield* _(
-        Effect.fail(
-          new SecurityError({
-            type: 'dom_element_not_found',
-            message: `Element ${elementId} not found`,
-          })
-        )
+
+    return yield* _(
+      pipe(
+        Match.value(element),
+        Match.when(
+          (el) => el == null,
+          () =>
+            Effect.fail(
+              new SecurityError({
+                type: 'dom_element_not_found',
+                message: `Element ${elementId} not found`,
+              })
+            )
+        ),
+        Match.orElse((el) => {
+          // innerHTML を使わず textContent で安全に更新
+          el.textContent = content
+          return Effect.succeed(el)
+        })
       )
-    }
-
-    // innerHTML を使わず textContent で安全に更新
-    element.textContent = content
-
-    return element
+    )
   })
 ```
 
@@ -271,19 +291,21 @@ const requirePermission = (permission: string) =>
     const sessionId = yield* _(getCurrentSessionId())
     const session = yield* _(sessionService.validateSession(sessionId))
 
-    if (!session.permissions.includes(permission)) {
-      return yield* _(
-        Effect.fail(
-          new AuthError({
-            type: 'insufficient_permissions',
-            required: permission,
-            available: session.permissions,
-          })
-        )
+    return yield* _(
+      pipe(
+        Match.value(session.permissions.includes(permission)),
+        Match.when(false, () =>
+          Effect.fail(
+            new AuthError({
+              type: 'insufficient_permissions',
+              required: permission,
+              available: session.permissions,
+            })
+          )
+        ),
+        Match.orElse(() => Effect.succeed(session))
       )
-    }
-
-    return session
+    )
   })
 
 // アクションの認可チェック
@@ -293,13 +315,14 @@ const authorizePlayerAction = (action: PlayerAction) =>
     yield* _(requirePermission('play'))
 
     // アクション固有の権限チェック
-    if (action.type === 'moderate_player') {
-      yield* _(requirePermission('moderate'))
-    }
-
-    if (action.type === 'admin_command') {
-      yield* _(requirePermission('admin'))
-    }
+    yield* _(
+      pipe(
+        Match.value(action.type),
+        Match.when('moderate_player', () => requirePermission('moderate')),
+        Match.when('admin_command', () => requirePermission('admin')),
+        Match.orElse(() => Effect.succeed(void 0))
+      )
+    )
 
     return action
   })
@@ -312,16 +335,20 @@ const authorizePlayerAction = (action: PlayerAction) =>
 const createSecureWebSocket = (url: string, sessionId: string) =>
   Effect.gen(function* (_) {
     // HTTPS/WSS の強制
-    if (!url.startsWith('wss://')) {
-      return yield* _(
-        Effect.fail(
-          new SecurityError({
-            type: 'insecure_connection',
-            message: 'Only WSS connections are allowed',
-          })
-        )
+    yield* _(
+      pipe(
+        Match.value(url.startsWith('wss://')),
+        Match.when(false, () =>
+          Effect.fail(
+            new SecurityError({
+              type: 'insecure_connection',
+              message: 'Only WSS connections are allowed',
+            })
+          )
+        ),
+        Match.orElse(() => Effect.succeed(void 0))
       )
-    }
+    )
 
     // 接続時の認証
     const ws = new WebSocket(url, [], {
@@ -386,25 +413,38 @@ const createSecureStorage = () => {
   // 機密情報は暗号化して保存
   const setSecureItem = (key: string, value: string, isSecret = false) =>
     Effect.gen(function* (_) {
-      if (isSecret) {
-        const encrypted = yield* _(encryptData(value))
-        localStorage.setItem(`secure_${key}`, encrypted)
-      } else {
-        localStorage.setItem(key, value)
-      }
+      yield* _(
+        pipe(
+          Match.value(isSecret),
+          Match.when(true, () =>
+            Effect.gen(function* (_) {
+              const encrypted = yield* _(encryptData(value))
+              localStorage.setItem(`secure_${key}`, encrypted)
+            })
+          ),
+          Match.orElse(() => Effect.sync(() => localStorage.setItem(key, value)))
+        )
+      )
     })
 
   const getSecureItem = (key: string, isSecret = false) =>
     Effect.gen(function* (_) {
       const stored = isSecret ? localStorage.getItem(`secure_${key}`) : localStorage.getItem(key)
 
-      if (!stored) return null
-
-      if (isSecret) {
-        return yield* _(decryptData(stored))
-      }
-
-      return stored
+      return yield* _(
+        pipe(
+          Match.value(stored),
+          Match.when(
+            (s) => s == null,
+            () => Effect.succeed(null)
+          ),
+          Match.when(
+            () => isSecret,
+            (s) => decryptData(s!)
+          ),
+          Match.orElse((s) => Effect.succeed(s))
+        )
+      )
     })
 
   // 機密情報の自動削除
@@ -415,17 +455,26 @@ const createSecureStorage = () => {
 
       for (const key of secureKeys) {
         const data = localStorage.getItem(key)
-        if (data) {
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-              localStorage.removeItem(key)
+        pipe(
+          Match.value(data),
+          Match.when(
+            (d) => d != null,
+            (d) => {
+              try {
+                const parsed = JSON.parse(d)
+                pipe(
+                  Match.value(parsed.expiresAt && Date.now() > parsed.expiresAt),
+                  Match.when(true, () => localStorage.removeItem(key)),
+                  Match.orElse(() => void 0)
+                )
+              } catch {
+                // 無効なデータは削除
+                localStorage.removeItem(key)
+              }
             }
-          } catch {
-            // 無効なデータは削除
-            localStorage.removeItem(key)
-          }
-        }
+          ),
+          Match.orElse(() => void 0)
+        )
       }
     })
 
@@ -452,9 +501,13 @@ const createSecureLogger = (): SecureLogger => {
     // パスワードやトークンを除去
     const sensitiveKeys = ['password', 'token', 'sessionId', 'privateKey']
     for (const key of sensitiveKeys) {
-      if (key in sanitized) {
-        ;(sanitized as any)[key] = '[REDACTED]'
-      }
+      pipe(
+        Match.value(key in sanitized),
+        Match.when(true, () => {
+          ;(sanitized as any)[key] = '[REDACTED]'
+        }),
+        Match.orElse(() => void 0)
+      )
     }
 
     return sanitized
@@ -489,9 +542,14 @@ const createSecureLogger = (): SecureLogger => {
       console.warn('🔒 SECURITY EVENT:', securityLog)
 
       // 重要なセキュリティイベントは外部に送信
-      if (event.severity === 'critical' || event.severity === 'high') {
-        yield* _(sendSecurityAlert(securityLog))
-      }
+      yield* _(
+        pipe(
+          Match.value(event.severity),
+          Match.when('critical', () => sendSecurityAlert(securityLog)),
+          Match.when('high', () => sendSecurityAlert(securityLog)),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
+      )
     })
 
   return { info, warn, error, security }
@@ -628,38 +686,68 @@ const createSecurityEventDetector = (): SecurityEventDetector => {
       const anomalies: SecurityEvent[] = []
 
       // 移動速度の異常検出（スピードハック）
-      if (action.type === 'move') {
-        const speed = calculateMovementSpeed(action)
-        if (speed > MAX_LEGITIMATE_SPEED) {
-          anomalies.push({
-            type: 'suspicious_movement_speed',
-            severity: 'high',
-            context: { playerId: action.playerId, speed, maxSpeed: MAX_LEGITIMATE_SPEED },
-          })
-        }
-      }
+      pipe(
+        Match.value(action.type),
+        Match.when('move', () => {
+          const speed = calculateMovementSpeed(action)
+          pipe(
+            Match.value(speed),
+            Match.when(
+              (s) => s > MAX_LEGITIMATE_SPEED,
+              (s) => {
+                anomalies.push({
+                  type: 'suspicious_movement_speed',
+                  severity: 'high',
+                  context: { playerId: action.playerId, speed: s, maxSpeed: MAX_LEGITIMATE_SPEED },
+                })
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
+        }),
+        Match.orElse(() => void 0)
+      )
 
       // 短時間での大量アクション（ボット検出）
       const recentActions = yield* _(getRecentPlayerActions(action.playerId, 1000))
-      if (recentActions.length > 20) {
-        anomalies.push({
-          type: 'excessive_actions',
-          severity: 'medium',
-          context: { playerId: action.playerId, actionCount: recentActions.length },
-        })
-      }
+      pipe(
+        Match.value(recentActions.length),
+        Match.when(
+          (count) => count > 20,
+          (count) => {
+            anomalies.push({
+              type: 'excessive_actions',
+              severity: 'medium',
+              context: { playerId: action.playerId, actionCount: count },
+            })
+          }
+        ),
+        Match.orElse(() => void 0)
+      )
 
       // 物理法則違反の検出
-      if (action.type === 'place_block') {
-        const canReach = yield* _(validateBlockReachability(action))
-        if (!canReach) {
-          anomalies.push({
-            type: 'impossible_block_placement',
-            severity: 'high',
-            context: { playerId: action.playerId, position: action.position },
-          })
-        }
-      }
+      yield* _(
+        pipe(
+          Match.value(action.type),
+          Match.when('place_block', () =>
+            Effect.gen(function* (_) {
+              const canReach = yield* _(validateBlockReachability(action))
+              pipe(
+                Match.value(canReach),
+                Match.when(false, () => {
+                  anomalies.push({
+                    type: 'impossible_block_placement',
+                    severity: 'high',
+                    context: { playerId: action.playerId, position: action.position },
+                  })
+                }),
+                Match.orElse(() => void 0)
+              )
+            })
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
+      )
 
       return anomalies
     })
@@ -669,10 +757,23 @@ const createSecurityEventDetector = (): SecurityEventDetector => {
       const actions = yield* _(getPlayerActionHistory(playerId, 3600000)) // 1時間
       const riskScore = calculateRiskScore(actions)
 
+      const threatLevel = pipe(
+        Match.value(riskScore),
+        Match.when(
+          (score) => score > 80,
+          () => 'high' as const
+        ),
+        Match.when(
+          (score) => score > 50,
+          () => 'medium' as const
+        ),
+        Match.orElse(() => 'low' as const)
+      )
+
       return {
         playerId,
         riskScore,
-        threatLevel: riskScore > 80 ? 'high' : riskScore > 50 ? 'medium' : 'low',
+        threatLevel,
         recommendations: generateSecurityRecommendations(actions),
       }
     })
@@ -696,34 +797,33 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
       const actions: SecurityAction[] = []
 
       // 脅威レベルに応じた自動対応
-      switch (threat.severity) {
-        case 'critical':
+      pipe(
+        Match.value(threat.severity),
+        Match.when('critical', () => {
           actions.push(
             { type: 'suspend_player', playerId: threat.context.playerId },
             { type: 'notify_administrators', threat },
             { type: 'log_security_incident', threat }
           )
-          break
-
-        case 'high':
+        }),
+        Match.when('high', () => {
           actions.push(
             { type: 'limit_player_actions', playerId: threat.context.playerId },
             { type: 'increase_monitoring', playerId: threat.context.playerId },
             { type: 'log_security_incident', threat }
           )
-          break
-
-        case 'medium':
+        }),
+        Match.when('medium', () => {
           actions.push(
             { type: 'flag_for_review', playerId: threat.context.playerId },
             { type: 'log_security_event', threat }
           )
-          break
-
-        case 'low':
+        }),
+        Match.when('low', () => {
           actions.push({ type: 'log_security_event', threat })
-          break
-      }
+        }),
+        Match.orElse(() => void 0)
+      )
 
       // アクションの実行
       for (const action of actions) {
@@ -742,10 +842,18 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
         indicatesAutomatedAttack(threat),
       ]
 
-      if (escalationCriteria.some(Boolean)) {
-        yield* _(notifySecurityTeam(threat))
-        yield* _(createSecurityIncidentTicket(threat))
-      }
+      yield* _(
+        pipe(
+          Match.value(escalationCriteria.some(Boolean)),
+          Match.when(true, () =>
+            Effect.gen(function* (_) {
+              yield* _(notifySecurityTeam(threat))
+              yield* _(createSecurityIncidentTicket(threat))
+            })
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
+      )
     })
 
   return { respondToThreat, escalateThreat }
@@ -815,16 +923,22 @@ const createPrivacyService = (): PrivacyService => {
 
       // 削除の確認
       const remainingData = yield* _(searchPlayerData(playerId))
-      if (remainingData.length > 0) {
-        return yield* _(
-          Effect.fail(
-            new PrivacyError({
-              type: 'incomplete_deletion',
-              remainingRecords: remainingData.length,
-            })
-          )
+      return yield* _(
+        pipe(
+          Match.value(remainingData.length),
+          Match.when(
+            (count) => count > 0,
+            (count) =>
+              Effect.fail(
+                new PrivacyError({
+                  type: 'incomplete_deletion',
+                  remainingRecords: count,
+                })
+              )
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
         )
-      }
+      )
     })
 
   return { anonymizePlayerData, exportPlayerData, deletePlayerData }
@@ -885,9 +999,11 @@ const createSecurityAuditService = (): SecurityAuditService => {
         const current = auditEntries[i]
         const previous = auditEntries[i - 1]
 
-        if (current.previousHash !== previous.hash) {
-          corruptedEntries.push(current.id)
-        }
+        pipe(
+          Match.value(current.previousHash !== previous.hash),
+          Match.when(true, () => corruptedEntries.push(current.id)),
+          Match.orElse(() => void 0)
+        )
       }
 
       return {
@@ -947,25 +1063,33 @@ const runSecurityChecks = () =>
 
     const failedChecks = results.filter((result) => !result.passed)
 
-    if (failedChecks.length > 0) {
-      yield* _(
-        Effect.sync(() => {
-          console.error('🚨 Security checks failed:')
-          failedChecks.forEach((check) => console.error(`  - ${check.name}: ${check.error}`))
-        })
-      )
+    return yield* _(
+      pipe(
+        Match.value(failedChecks.length),
+        Match.when(
+          (count) => count > 0,
+          () =>
+            Effect.gen(function* (_) {
+              yield* _(
+                Effect.sync(() => {
+                  console.error('🚨 Security checks failed:')
+                  failedChecks.forEach((check) => console.error(`  - ${check.name}: ${check.error}`))
+                })
+              )
 
-      return yield* _(
-        Effect.fail(
-          new SecurityError({
-            type: 'security_checks_failed',
-            failedChecks: failedChecks.map((c) => c.name),
-          })
-        )
+              return yield* _(
+                Effect.fail(
+                  new SecurityError({
+                    type: 'security_checks_failed',
+                    failedChecks: failedChecks.map((c) => c.name),
+                  })
+                )
+              )
+            })
+        ),
+        Match.orElse(() => Effect.succeed(results))
       )
-    }
-
-    return results
+    )
   })
 ```
 

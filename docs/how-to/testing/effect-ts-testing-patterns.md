@@ -135,14 +135,20 @@ describe('Error Handling Patterns', () => {
     Effect.gen(function* () {
       const result = yield* Effect.either(setupComplexTestEnvironment())
 
-      if (result._tag === 'Left') {
-        // 型安全なエラー処理
-        expect(result.left._tag).toBe('TestSetupError')
-        return 'Setup failed as expected'
-      }
-
-      expect(result.right.world).toBeDefined()
-      return 'Setup succeeded'
+      return pipe(
+        result,
+        Either.match({
+          onLeft: (error) => {
+            // 型安全なエラー処理
+            expect(error._tag).toBe('TestSetupError')
+            return 'Setup failed as expected'
+          },
+          onRight: (success) => {
+            expect(success.world).toBeDefined()
+            return 'Setup succeeded'
+          },
+        })
+      )
     }).pipe(Effect.runPromise))
 })
 ```
@@ -1047,12 +1053,18 @@ describe('Inventory System Tests', () => {
       const overflowItem = TestDataFactory.itemStack({ quantity: 100 })
       const result2 = yield* Effect.either(addItemToInventory(result1.inventory, overflowItem))
 
-      if (result2._tag === 'Left') {
-        expect(result2.left._tag).toBe('InventoryFullError')
-      } else {
-        // 部分的に追加される場合
-        expect(result2.right.remainingQuantity).toBeGreaterThan(0)
-      }
+      pipe(
+        result2,
+        Either.match({
+          onLeft: (error) => {
+            expect(error._tag).toBe('InventoryFullError')
+          },
+          onRight: (success) => {
+            // 部分的に追加される場合
+            expect(success.remainingQuantity).toBeGreaterThan(0)
+          },
+        })
+      )
     }).pipe(Effect.runPromise))
 
   it('maintains item stack integrity during operations', () =>

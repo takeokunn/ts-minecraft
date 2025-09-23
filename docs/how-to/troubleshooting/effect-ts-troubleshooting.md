@@ -194,11 +194,14 @@ TS2345: Argument of type '{ _tag: string; message: string; }' is not assignable 
        const players = yield* getStoredPlayers
        const player = players.find((p) => p.id === id)
 
-       if (!player) {
-         return yield* Effect.fail(new PlayerNotFoundError({ playerId: id, timestamp: Date.now() }))
-       }
-
-       return player
+       return yield* pipe(
+         player,
+         Option.fromNullable,
+         Option.match({
+           onNone: () => Effect.fail(new PlayerNotFoundError({ playerId: id, timestamp: Date.now() })),
+           onSome: (p) => Effect.succeed(p),
+         })
+       )
      })
    ```
 
