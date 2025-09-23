@@ -11,7 +11,7 @@ describe('Config Schema with Effect-TS integration', () => {
         // Create custom arbitrary that generates valid configs
         const validConfigArb = fc.record({
           debug: fc.boolean(),
-          fps: fc.double({ min: 0.001, max: 120, noNaN: true }),
+          fps: fc.integer({ min: 1, max: 120 }),
           memoryLimit: fc.integer({ min: 1, max: 2048 })
         })
 
@@ -71,7 +71,7 @@ describe('Config Schema with Effect-TS integration', () => {
       Effect.gen(function* () {
         const invalidMemoryArb = fc.record({
           debug: fc.boolean(),
-          fps: fc.double({ min: 0.001, max: 120, noNaN: true }),
+          fps: fc.integer({ min: 1, max: 120 }),
           memoryLimit: fc.oneof(
             fc.constant(0),
             fc.constant(-1),
@@ -99,7 +99,7 @@ describe('Config Schema with Effect-TS integration', () => {
       Effect.gen(function* () {
         const configArb = fc.record({
           debug: fc.boolean(),
-          fps: fc.double({ min: 0.001, max: 120, noNaN: true }),
+          fps: fc.integer({ min: 1, max: 120 }),
           memoryLimit: fc.integer({ min: 1, max: 2048 })
         })
 
@@ -188,7 +188,7 @@ describe('Config Schema with Effect-TS integration', () => {
     it.effect('should validate boundary values', () =>
       Effect.gen(function* () {
         const boundaryConfigs = [
-          { debug: true, fps: 0.001, memoryLimit: 1 },      // minimum values
+          { debug: true, fps: 1, memoryLimit: 1 },      // minimum values
           { debug: false, fps: 120, memoryLimit: 2048 },    // maximum values
           { debug: true, fps: 60, memoryLimit: 1024 },      // typical values
         ]

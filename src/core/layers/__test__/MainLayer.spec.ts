@@ -38,33 +38,22 @@ describe('MainLayer', () => {
     })
   })
 
-<<<<<<< HEAD
-  it('should provide multiple services including AppService', () => {
-    // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
-    const layerInstance = MainLayer
-    expect(layerInstance).toBeDefined()
-||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
-  it('should provide the correct service type', () => {
-    // MainLayer should provide the same services as AppServiceLive
-    const layerInstance = MainLayer
-    expect(layerInstance).toBeDefined()
-=======
-  describe('Service Contract', () => {
+  describe('Service Integration', () => {
+    it('should provide multiple services including AppService', () => {
+      // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
+      const layerInstance = MainLayer
+      expect(layerInstance).toBeDefined()
+      // Check that it's a Layer (not checking for same reference anymore since it's a composite)
+      expect(Layer.isLayer(layerInstance)).toBe(true)
+    })
+
     it('should provide AppService when used', () => {
       const program = Effect.gen(function* () {
         const service = yield* AppService
         const status = yield* service.getReadyStatus()
         return status
       })
->>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
 
-<<<<<<< HEAD
-    // Check that it's a Layer (not checking for same reference anymore since it's a composite)
-    expect(Layer.isLayer(layerInstance)).toBe(true)
-||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
-    // Check that it's the same reference
-    expect(layerInstance === AppServiceLive).toBe(true)
-=======
       const runnable = Effect.provide(program, MainLayer)
       const result = Effect.runSync(runnable)
 
@@ -79,7 +68,6 @@ describe('MainLayer', () => {
       // Layer structure properties
       expect(MainLayer).toHaveProperty('_op_layer')
     })
->>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
   })
 
   describe('Type Safety', () => {

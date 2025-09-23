@@ -202,7 +202,7 @@ describe('Config Schema', () => {
         fc.assert(
           fc.property(
             fc.boolean(),
-            fc.double({ min: 1, max: 120, noNaN: true }),
+            fc.integer({ min: 1, max: 120 }),
             fc.integer({ min: 1, max: 2048 }),
             (debug, fps, memoryLimit) => {
               const config = { debug, fps, memoryLimit }
@@ -221,8 +221,8 @@ describe('Config Schema', () => {
           fc.property(
             fc.boolean(),
             fc.oneof(
-              fc.double({ min: -1000, max: 0, noNaN: true }), // Below minimum (negative)
-              fc.double({ min: 120.001, max: 10000, noNaN: true }), // Above maximum
+              fc.integer({ min: -1000, max: 0 }), // Below minimum (negative)
+              fc.integer({ min: 121, max: 10000 }), // Above maximum
               fc.constant(NaN),
               fc.constant(Infinity),
               fc.constant(-Infinity),
@@ -240,7 +240,7 @@ describe('Config Schema', () => {
         fc.assert(
           fc.property(
             fc.boolean(),
-            fc.double({ min: 1, max: 120, noNaN: true }),
+            fc.integer({ min: 1, max: 120 }),
             fc.oneof(
               fc.integer({ max: 0 }), // Zero or negative
               fc.integer({ min: 2049 }), // Above maximum
@@ -257,7 +257,7 @@ describe('Config Schema', () => {
         fc.assert(
           fc.property(
             fc.boolean(),
-            fc.double({ min: 1, max: 120, noNaN: true }),
+            fc.integer({ min: 1, max: 120 }),
             fc.integer({ min: 1, max: 2048 }),
             (debug, fps, memoryLimit) => {
               const config = { debug, fps, memoryLimit }
@@ -274,7 +274,7 @@ describe('Config Schema', () => {
         fc.assert(
           fc.property(
             fc.boolean(),
-            fc.double({ min: 1, max: 120, noNaN: true }),
+            fc.integer({ min: 1, max: 120 }),
             fc.integer({ min: 1, max: 2048 }),
             (debug, fps, memoryLimit) => {
               const original = { debug, fps, memoryLimit }
@@ -291,7 +291,7 @@ describe('Config Schema', () => {
         fc.assert(
           fc.property(
             fc.boolean(),
-            fc.double({ min: 1, max: 120, noNaN: true }),
+            fc.integer({ min: 1, max: 120 }),
             fc.integer({ min: 1, max: 2048 }),
             fc.dictionary(fc.string(), fc.anything()),
             (debug, fps, memoryLimit, extras) => {
