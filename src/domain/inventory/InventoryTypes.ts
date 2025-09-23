@@ -15,10 +15,10 @@ export const ItemId = Brand.nominal<ItemId>()
 export type PlayerId = string & Brand.Brand<'PlayerId'>
 export const PlayerId = Brand.nominal<PlayerId>()
 
-// Item metadata schema
+// Item metadata schema (ReadonlyArray migration)
 export const ItemMetadata = Schema.Struct({
   enchantments: Schema.optional(
-    Schema.Array(
+    Schema.ReadonlyArray(
       Schema.Struct({
         id: Schema.String,
         level: Schema.Number.pipe(Schema.between(1, 5)),
@@ -26,7 +26,7 @@ export const ItemMetadata = Schema.Struct({
     )
   ),
   customName: Schema.optional(Schema.String),
-  lore: Schema.optional(Schema.Array(Schema.String)),
+  lore: Schema.optional(Schema.ReadonlyArray(Schema.String)),
   damage: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
 })
 export type ItemMetadata = Schema.Schema.Type<typeof ItemMetadata>
@@ -40,11 +40,11 @@ export const ItemStack = Schema.Struct({
 })
 export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 
-// Inventory schema with 36 slots
+// Inventory schema with 36 slots (ReadonlyArray migration)
 export const Inventory = Schema.Struct({
   playerId: Schema.String.pipe(Schema.fromBrand(PlayerId)),
-  slots: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(36)),
-  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.itemsCount(9)), // インデックス参照
+  slots: Schema.ReadonlyArray(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(36)),
+  hotbar: Schema.ReadonlyArray(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.itemsCount(9)), // インデックス参照
   armor: Schema.Struct({
     helmet: Schema.NullOr(ItemStack),
     chestplate: Schema.NullOr(ItemStack),
@@ -56,18 +56,18 @@ export const Inventory = Schema.Struct({
 })
 export type Inventory = Schema.Schema.Type<typeof Inventory>
 
-// Add item result
+// Add item result (ReadonlyArray migration)
 export const AddItemResult = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('success'),
     remainingItems: Schema.Number,
-    affectedSlots: Schema.Array(Schema.Number),
+    affectedSlots: Schema.ReadonlyArray(Schema.Number),
   }),
   Schema.Struct({
     _tag: Schema.Literal('partial'),
     addedItems: Schema.Number,
     remainingItems: Schema.Number,
-    affectedSlots: Schema.Array(Schema.Number),
+    affectedSlots: Schema.ReadonlyArray(Schema.Number),
   }),
   Schema.Struct({
     _tag: Schema.Literal('full'),

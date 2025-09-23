@@ -9,28 +9,63 @@ import { Schema } from '@effect/schema'
  * プレイヤーID用のブランド型
  * 文字列だが他の文字列と区別される
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export const PlayerIdSchema = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.brand('PlayerId'),
+  Schema.annotations({
+    title: 'PlayerId',
+    description: 'Unique identifier for a player',
+    examples: ['player_123', 'user_abc', 'steve'],
+  })
+)
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
 /**
  * ワールド座標用のブランド型
  * 数値だが座標値として明確に区別される
  */
-export const WorldCoordinateSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate'))
+export const WorldCoordinateSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.brand('WorldCoordinate'),
+  Schema.annotations({
+    title: 'WorldCoordinate',
+    description: 'World coordinate value (finite number)',
+    examples: [0, 16.5, -32.75, 1000],
+  })
+)
 export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
 
 /**
  * チャンクID用のブランド型
  * 文字列だがチャンク識別子として区別される
  */
-export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
+export const ChunkIdSchema = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.pattern(/^chunk_\d+_\d+$/),
+  Schema.brand('ChunkId'),
+  Schema.annotations({
+    title: 'ChunkId',
+    description: 'Unique identifier for a chunk (format: chunk_x_z)',
+    examples: ['chunk_0_0', 'chunk_-1_5', 'chunk_100_-50'],
+  })
+)
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 
 /**
  * ブロックタイプID用のブランド型
  * 数値だがブロック種別として区別される
  */
-export const BlockTypeIdSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('BlockTypeId'))
+export const BlockTypeIdSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.positive(),
+  Schema.lessThanOrEqualTo(10000), // 実用的上限
+  Schema.brand('BlockTypeId'),
+  Schema.annotations({
+    title: 'BlockTypeId',
+    description: 'Unique identifier for block types (positive integer)',
+    examples: [1, 2, 17, 256],
+  })
+)
 export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
 
 /**
@@ -57,26 +92,49 @@ export type BlockPosition = Schema.Schema.Type<typeof BlockPosition>
 /**
  * エンティティID用のブランド型
  */
-export const EntityId = Schema.String.pipe(Schema.brand('EntityId'))
+export const EntityId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.brand('EntityId'),
+  Schema.annotations({
+    title: 'EntityId',
+    description: 'Unique identifier for an entity',
+    examples: ['entity_123', 'player_456', 'mob_789'],
+  })
+)
 export type EntityId = Schema.Schema.Type<typeof EntityId>
 
 /**
  * アイテムID用のブランド型
  */
-export const ItemId = Schema.String.pipe(Schema.brand('ItemId'))
+export const ItemId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.pattern(/^[a-z_]+$/), // 小文字とアンダースコアのみ
+  Schema.brand('ItemId'),
+  Schema.annotations({
+    title: 'ItemId',
+    description: 'Unique identifier for an item (lowercase with underscores)',
+    examples: ['stone', 'wooden_sword', 'iron_pickaxe'],
+  })
+)
 export type ItemId = Schema.Schema.Type<typeof ItemId>
 
 /**
  * セッションID用のブランド型
  */
-export const SessionId = Schema.String.pipe(Schema.brand('SessionId'))
+export const SessionId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.minLength(8), // 最低8文字
+  Schema.brand('SessionId'),
+  Schema.annotations({
+    title: 'SessionId',
+    description: 'Unique identifier for a session (minimum 8 characters)',
+    examples: ['session_abc123', 'sess_xyz789', '12345678'],
+  })
+)
 export type SessionId = Schema.Schema.Type<typeof SessionId>
 
-/**
- * タイムスタンプ用のブランド型（Unix時間）
- */
-export const Timestamp = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof Timestamp>
+// ⚠️ Timestamp は time-brands.ts に移行されました
+// 新しいインポートを使用してください: import { Timestamp } from './time-brands'
 
 /**
  * バージョン番号用のブランド型
@@ -151,11 +209,8 @@ export type AOValue = Schema.Schema.Type<typeof AOValue>
 export const MeshDimension = Schema.Number.pipe(Schema.positive(), Schema.brand('MeshDimension'))
 export type MeshDimension = Schema.Schema.Type<typeof MeshDimension>
 
-/**
- * デルタタイム（フレーム時間差）の型安全な表現
- */
-export const DeltaTime = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('DeltaTime'))
-export type DeltaTime = Schema.Schema.Type<typeof DeltaTime>
+// ⚠️ DeltaTime は time-brands.ts に移行されました
+// 新しいインポートを使用してください: import { DeltaTime } from './time-brands'
 
 /**
  * マウス感度の型安全な表現

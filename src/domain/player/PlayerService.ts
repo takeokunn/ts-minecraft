@@ -2,40 +2,63 @@ import { Context, Effect, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager.js'
-import type { PlayerId } from '../../shared/types/branded.js'
+import {
+  PlayerId,
+  PlayerIdSchema,
+  Timestamp,
+  TimestampSchema,
+  Health,
+  HealthSchema,
+  Vector3D,
+  Vector3DSchema,
+  Rotation3D,
+  Rotation3DSchema
+} from '../../shared/types/index.js'
 
 /**
- * プレイヤーの位置情報
+ * プレイヤーの位置情報（Vector3Dベース）
  */
-export const PlayerPosition = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type PlayerPosition = Schema.Schema.Type<typeof PlayerPosition>
+export const PlayerPositionSchema = Vector3DSchema.pipe(
+  Schema.annotations({
+    title: 'PlayerPosition',
+    description: 'Player position in 3D world space',
+  })
+)
+export type PlayerPosition = Schema.Schema.Type<typeof PlayerPositionSchema>
 
 /**
- * プレイヤーの向き情報
+ * プレイヤーの向き情報（Rotation3Dベース）
  */
-export const PlayerRotation = Schema.Struct({
+export const PlayerRotationSchema = Schema.Struct({
   pitch: Schema.Number.pipe(Schema.between(-Math.PI / 2, Math.PI / 2)),
-  yaw: Schema.Number,
-})
-export type PlayerRotation = Schema.Schema.Type<typeof PlayerRotation>
+  yaw: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),
+  roll: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),
+}).pipe(
+  Schema.annotations({
+    title: 'PlayerRotation',
+    description: 'Player rotation with pitch, yaw, and roll',
+  })
+)
+export type PlayerRotation = Schema.Schema.Type<typeof PlayerRotationSchema>
 
 /**
  * プレイヤーの状態
  */
-export const PlayerState = Schema.Struct({
-  playerId: Schema.String, // PlayerId branded type
-  entityId: Schema.Number, // EntityId branded type
-  position: PlayerPosition,
-  rotation: PlayerRotation,
-  health: Schema.Number.pipe(Schema.between(0, 100)),
+export const PlayerStateSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  entityId: Schema.Number, // EntityId brand型は後で定義
+  position: PlayerPositionSchema,
+  rotation: PlayerRotationSchema,
+  health: HealthSchema,
   isActive: Schema.Boolean,
-  lastUpdate: Schema.Number, // timestamp
-})
-export type PlayerState = Schema.Schema.Type<typeof PlayerState>
+  lastUpdate: TimestampSchema,
+}).pipe(
+  Schema.annotations({
+    title: 'PlayerState',
+    description: 'Complete player state including position, rotation, and status',
+  })
+)
+export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 
 /**
  * プレイヤー作成時の設定
@@ -64,16 +87,22 @@ export const PlayerErrorReason = Schema.Literal(
 export type PlayerErrorReason = Schema.Schema.Type<typeof PlayerErrorReason>
 
 /**
- * プレイヤーエラー - Data.TaggedError パターン
+ * プレイヤーエラー - Schema.Struct パターン
  */
-export interface PlayerError {
-  readonly _tag: 'PlayerError'
-  readonly message: string
-  readonly reason: PlayerErrorReason
-  readonly playerId?: string
-  readonly entityId?: number
-  readonly cause?: unknown
-}
+export const PlayerErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('PlayerError'),
+  message: Schema.String,
+  reason: PlayerErrorReason,
+  playerId: Schema.optional(PlayerIdSchema),
+  entityId: Schema.optional(Schema.Number),
+  cause: Schema.optional(Schema.Unknown),
+}).pipe(
+  Schema.annotations({
+    title: 'PlayerError',
+    description: 'Player operation error with detailed context',
+  })
+)
+export type PlayerError = Schema.Schema.Type<typeof PlayerErrorSchema>
 
 export const PlayerError = (
   message: string,
@@ -134,32 +163,43 @@ export const createPlayerError = {
 }
 
 /**
- * プレイヤーコンポーネント型定義
+ * プレイヤーコンポーネント型定義（Schema版）
  */
-export interface PlayerComponent {
-  readonly playerId: PlayerId
-  readonly health: number
-  readonly lastUpdate: number
-}
+export const PlayerComponentSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  health: HealthSchema,
+  lastUpdate: TimestampSchema,
+}).pipe(
+  Schema.annotations({
+    title: 'PlayerComponent',
+    description: 'ECS Player component with branded types',
+  })
+)
+export type PlayerComponent = Schema.Schema.Type<typeof PlayerComponentSchema>
 
-export interface PositionComponent {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}
+export const PositionComponentSchema = Vector3DSchema.pipe(
+  Schema.annotations({
+    title: 'PositionComponent',
+    description: 'ECS Position component using Vector3D',
+  })
+)
+export type PositionComponent = Schema.Schema.Type<typeof PositionComponentSchema>
 
-export interface RotationComponent {
-  readonly pitch: number
-  readonly yaw: number
-}
+export const RotationComponentSchema = PlayerRotationSchema.pipe(
+  Schema.annotations({
+    title: 'RotationComponent',
+    description: 'ECS Rotation component for player orientation',
+  })
+)
+export type RotationComponent = Schema.Schema.Type<typeof RotationComponentSchema>
 
 /**
  * プレイヤー更新データ
  */
 export const PlayerUpdateData = Schema.Struct({
-  position: Schema.optional(PlayerPosition),
-  rotation: Schema.optional(PlayerRotation),
-  health: Schema.optional(Schema.Number.pipe(Schema.between(0, 100))),
+  position: Schema.optional(PlayerPositionSchema),
+  rotation: Schema.optional(PlayerRotationSchema),
+  health: Schema.optional(HealthSchema),
 })
 export type PlayerUpdateData = Schema.Schema.Type<typeof PlayerUpdateData>
 
@@ -288,7 +328,7 @@ export const validatePlayerState = (state: unknown): Effect.Effect<PlayerState, 
  */
 export const validatePlayerPosition = (position: unknown): Effect.Effect<PlayerPosition, PlayerError> =>
   pipe(
-    Schema.decodeUnknown(PlayerPosition)(position),
+    Schema.decodeUnknown(PlayerPositionSchema)(position),
     Effect.mapError((parseError) => createPlayerError.invalidPosition(position))
   )
 
@@ -297,7 +337,7 @@ export const validatePlayerPosition = (position: unknown): Effect.Effect<PlayerP
  */
 export const validatePlayerRotation = (rotation: unknown): Effect.Effect<PlayerRotation, PlayerError> =>
   pipe(
-    Schema.decodeUnknown(PlayerRotation)(rotation),
+    Schema.decodeUnknown(PlayerRotationSchema)(rotation),
     Effect.mapError((parseError) => createPlayerError.invalidRotation(rotation))
   )
 

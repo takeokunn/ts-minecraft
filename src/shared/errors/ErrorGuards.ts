@@ -1,58 +1,71 @@
-import { Match, pipe, Option } from 'effect'
-import type { AnyGameError } from './GameErrors'
-import type { AnyNetworkError } from './NetworkErrors'
+import { Match, pipe, Option, Effect, Either } from 'effect'
+import { Schema } from '@effect/schema'
+import { GameErrorUnion, type AnyGameError } from './GameErrors'
+import { NetworkErrorUnion, type AnyNetworkError } from './NetworkErrors'
 
 /**
- * エラーの型ガード
+ * Schemaベースのエラー検証とデコード
  */
-export const ErrorGuards = {
+export const ErrorValidation = {
+  /**
+   * ゲームエラーのデコード
+   */
+  decodeGameError: (error: unknown): Either.Either<AnyGameError, Schema.ParseError> =>
+    Schema.decodeUnknownEither(GameErrorUnion)(error),
+
+  /**
+   * ネットワークエラーのデコード
+   */
+  decodeNetworkError: (error: unknown): Either.Either<AnyNetworkError, Schema.ParseError> =>
+    Schema.decodeUnknownEither(NetworkErrorUnion)(error),
+
+  /**
+   * エラーがゲームエラーかどうかをSchema検証で判定
+   */
   isGameError: (error: unknown): error is AnyGameError =>
-    error !== null &&
-    typeof error === 'object' &&
-    '_tag' in error &&
-    [
-      'GameError',
-      'InvalidStateError',
-      'ResourceNotFoundError',
-      'ValidationError',
-      'PerformanceError',
-      'ConfigError',
-      'RenderError',
-      'WorldGenerationError',
-      'EntityError',
-      'PhysicsError',
-    ].includes((error as { _tag: string })._tag),
+    Schema.is(GameErrorUnion)(error),
 
+  /**
+   * エラーがネットワークエラーかどうかをSchema検証で判定
+   */
   isNetworkError: (error: unknown): error is AnyNetworkError =>
-    error !== null &&
-    typeof error === 'object' &&
-    '_tag' in error &&
-    [
-      'NetworkError',
-      'ConnectionError',
-      'TimeoutError',
-      'ProtocolError',
-      'AuthenticationError',
-      'SessionError',
-      'SyncError',
-      'RateLimitError',
-      'WebSocketError',
-      'PacketError',
-      'ServerError',
-      'P2PError',
-    ].includes((error as { _tag: string })._tag),
+    Schema.is(NetworkErrorUnion)(error),
 
+  /**
+   * エラーがリトライ可能かどうかを判定
+   */
   isRetryableError: (error: unknown): boolean =>
     pipe(
-      Option.fromNullable(error),
-      Option.filter((e): e is object => typeof e === 'object'),
-      Option.filter((e): e is { _tag: string } => '_tag' in e),
-      Option.match({
-        onNone: () => false,
-        onSome: (taggedError) => {
+      ErrorValidation.decodeNetworkError(error),
+      Either.match({
+        onLeft: () => false,
+        onRight: (networkError) => {
           const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
-          return retryableTags.includes(taggedError._tag)
+          return retryableTags.includes(networkError._tag)
         },
       })
     ),
+
+  /**
+   * エラーの安全なデコードとフォールバック
+   */
+  safeDecodeError: <T>(
+    schema: Schema.Schema<T, unknown>,
+    error: unknown,
+    fallback: T
+  ): T =>
+    pipe(
+      Schema.decodeUnknownEither(schema)(error),
+      Either.getOrElse(() => fallback)
+    ),
+}
+
+/**
+ * 旧式のエラーガード（互換性のため保持）
+ * 新しいコードではErrorValidationを使用してください
+ */
+export const ErrorGuards = {
+  isGameError: ErrorValidation.isGameError,
+  isNetworkError: ErrorValidation.isNetworkError,
+  isRetryableError: ErrorValidation.isRetryableError,
 }
