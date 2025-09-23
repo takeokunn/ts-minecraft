@@ -103,96 +103,94 @@ const createQuad = (
 
 const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: number): readonly Quad[] => {
   const quads: Quad[] = []
-  const u = (axis + 1) % 3
-  const v = (axis + 2) % 3
 
-  const dims = [0, 0, 0]
-  const mask = new Int32Array(size * size)
+  // 各スライス位置で面を生成（境界も含む）
+  for (let d = 0; d <= size; d++) {
+    const mask: BlockType[] = []
 
-  // Process each slice perpendicular to the axis
-  for (dims[axis] = -1; dims[axis]! < size; ) {
-    // Generate mask for current slice
-    let n = 0
-    for (dims[v] = 0; dims[v]! < size; dims[v]!) {
-      for (dims[u] = 0; dims[u]! < size; dims[u]!) {
-        const current = dims[axis]! >= 0 ? getBlock(blocks, dims[0]!, dims[1]!, dims[2]!, size) : 0
-        const next =
-          dims[axis]! < size - 1
-            ? getBlock(
-                blocks,
-                dims[0]! + (axis === 0 ? 1 : 0),
-                dims[1]! + (axis === 1 ? 1 : 0),
-                dims[2]! + (axis === 2 ? 1 : 0),
-                size
-              )
-            : 0
-
-        // Create mask entry based on face visibility
-        if (current !== 0 && next === 0) {
-          mask[n] = current
-        } else if (current === 0 && next !== 0) {
-          mask[n] = -next
-        } else {
-          mask[n] = 0
+    // マスクを作成（面が必要なブロックを特定）
+    for (let j = 0; j < size; j++) {
+      for (let i = 0; i < size; i++) {
+        const [x1, y1, z1] = axis === 0 ? [d - 1, i, j] : axis === 1 ? [i, d - 1, j] : [i, j, d - 1]
+        const [x2, y2, z2] = axis === 0 ? [d, i, j] : axis === 1 ? [i, d, j] : [i, j, d]
+        
+        const block1 = getBlock(blocks, x1, y1, z1, size)
+        const block2 = getBlock(blocks, x2, y2, z2, size)
+        
+        // 面が表示される条件
+        let faceBlock: BlockType = 0
+        if (block1 !== 0 && block2 === 0) {
+          faceBlock = block1 // 正方向の面
+        } else if (block1 === 0 && block2 !== 0) {
+          faceBlock = -block2 // 負方向の面（負の値で区別）
         }
-        n++
+        
+        mask.push(faceBlock)
       }
     }
 
-    dims[axis]!++
-
-    // Generate quads from mask using greedy algorithm
-    n = 0
+    // マスクをもとにGreedy Meshingを実行
+    const processedMask = [...mask]
+    
     for (let j = 0; j < size; j++) {
-      for (let i = 0; i < size; ) {
-        const maskValue = mask[n]!
-        const processQuad = maskValue !== 0
+      for (let i = 0; i < size; i++) {
+        const index = j * size + i
+        const blockType = processedMask[index]
+        
+        if (blockType === 0) continue
 
-        if (processQuad) {
-          const blockType = Math.abs(maskValue)
-          const forward = maskValue > 0
+        // 幅方向（i軸）への拡張
+        let width = 1
+        while (i + width < size && processedMask[j * size + (i + width)] === blockType) {
+          width++
+        }
 
-          // Compute quad width
-          let width = 1
-          while (i + width < size && mask[n + width] === maskValue) {
-            width++
-          }
-
-          // Compute quad height
-          let height = 1
-          let done = false
-
-          while (j + height < size && !done) {
-            for (let k = 0; k < width; k++) {
-              if (mask[n + k + height * size] !== maskValue) {
-                done = true
-                break
-              }
-            }
-            if (!done) height++
-          }
-
-          // Create position based on axis
-          const position = [0, 0, 0]
-          position[axis] = dims[axis]!
-          position[u] = i
-          position[v] = j
-
-          // Add quad
-          quads.push(createQuad(position[0]!, position[1]!, position[2]!, width, height, axis, blockType, forward))
-
-          // Clear mask for processed area
-          for (let l = 0; l < height; l++) {
-            for (let k = 0; k < width; k++) {
-              mask[n + k + l * size] = 0
+        // 高さ方向（j軸）への拡張
+        let height = 1
+        let canExpandHeight = true
+        while (j + height < size && canExpandHeight) {
+          for (let w = 0; w < width; w++) {
+            if (processedMask[(j + height) * size + (i + w)] !== blockType) {
+              canExpandHeight = false
+              break
             }
           }
+          if (canExpandHeight) {
+            height++
+          }
+        }
 
-          i += width
-          n += width
+        // クアッドを作成
+        const isPositive = (blockType ?? 0) > 0
+        const actualBlockType = Math.abs(blockType ?? 0)
+        
+        // 位置計算を修正（常に非負の値を保証）
+        let quadX: number, quadY: number, quadZ: number
+        
+        if (axis === 0) {
+          quadX = isPositive ? d : Math.max(0, d - 1)
+          quadY = i
+          quadZ = j
+        } else if (axis === 1) {
+          quadX = i
+          quadY = isPositive ? d : Math.max(0, d - 1)
+          quadZ = j
         } else {
-          i++
-          n++
+          quadX = i
+          quadY = j
+          quadZ = isPositive ? d : Math.max(0, d - 1)
+        }
+        
+        quads.push(createQuad(
+          quadX, quadY, quadZ,
+          width, height, axis, actualBlockType, isPositive
+        ))
+
+        // 使用したマスクエリアをクリア
+        for (let h = 0; h < height; h++) {
+          for (let w = 0; w < width; w++) {
+            processedMask[(j + h) * size + (i + w)] = 0
+          }
         }
       }
     }
@@ -277,7 +275,7 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, Greed
       try: () => {
         const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
         const allQuads = pipe(
-          A.range(0, 2),
+          A.range(0, 2), // 0, 1, 2の3つの軸
           A.flatMap((axis) => generateGreedyMeshForAxis(mutableBlocks, chunkData.size, axis))
         )
         return quadsToMeshData(allQuads)
@@ -302,6 +300,11 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
     pipe(
       Effect.try({
         try: () => {
+          // 入力検証
+          if (!chunkData || !chunkData.blocks || chunkData.size <= 0) {
+            throw new Error('Invalid chunk data: missing blocks or invalid size')
+          }
+          
           const allQuads: Quad[] = []
           const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
 

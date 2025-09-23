@@ -25,11 +25,10 @@ const outputToConsole = (entry: LogEntry): void => {
 
 // LoggerService の Live 実装
 export const LoggerServiceLive = Layer.sync(LoggerService, () => {
-  const currentLogLevel = getCurrentLogLevel()
-
   const log = (level: LogLevel, message: string, context?: any, error?: Error) =>
     Effect.sync(() => {
-      // ログレベルチェック
+      // 実行時に動的にログレベルを取得 - テスト中の環境変数変更に対応
+      const currentLogLevel = getCurrentLogLevel()
       const canLog = shouldLog(level, currentLogLevel)
 
       // ログ出力の実行

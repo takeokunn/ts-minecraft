@@ -88,29 +88,29 @@ describe('SceneManagerLive', () => {
       }).pipe(Effect.provide(SceneManagerLive))
     )
 
-    it.effect('遷移中に別の遷移を開始するとエラーになる', () =>
+    it.effect('並行遷移時の競合状態を適切に処理する', () =>
       Effect.gen(function* () {
         const manager = yield* SceneManager
 
-        // 遷移を並行実行
-        const results = yield* Effect.all(
-          [Effect.either(manager.transitionTo('Game')), Effect.either(manager.transitionTo('Loading'))],
-          { concurrency: 'unbounded' }
-        )
+        // 複数の遷移を並行実行
+        const results = yield* Effect.all([
+          Effect.either(manager.transitionTo('Game')),
+          Effect.either(manager.transitionTo('Loading'))
+        ], { concurrency: 'unbounded' })
 
-        // 少なくとも1つはエラーになるか確認
-        const hasError = results.some(Either.isLeft)
-        const hasSuccess = results.some(Either.isRight)
+        // 結果を分析
+        const errors = results.filter(Either.isLeft)
+        const successes = results.filter(Either.isRight)
 
-        expect(hasSuccess).toBe(true)
-        if (hasError) {
-          const errors = results.filter(Either.isLeft)
-          errors.forEach((error) => {
-            if (Either.isLeft(error)) {
-              expect(error.left._tag).toBe('SceneTransitionError')
-            }
-          })
-        }
+        // 少なくとも1つは成功することを確認
+        expect(successes.length).toBeGreaterThan(0)
+
+        // エラーがある場合は適切なエラータイプを確認
+        errors.forEach((error) => {
+          if (Either.isLeft(error)) {
+            expect(error.left._tag).toBe('SceneTransitionError')
+          }
+        })
       }).pipe(Effect.provide(SceneManagerLive))
     )
   })

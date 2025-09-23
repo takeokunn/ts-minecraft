@@ -122,74 +122,87 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - calculateVertexAO', () => {
-    const getService = () => pipe(AmbientOcclusionService, Effect.provide(AmbientOcclusionLive), Effect.runSync)
-
     it('should calculate AO for open space vertex', async () => {
-      const chunk = createTestChunk(5, 'empty')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'empty')
 
-      const ao = await pipe(
-        getService().calculateVertexAO(chunk.blocks as number[][][], 2, 2, 2, chunk.size),
-        Effect.runPromise
-      )
+        const ao = yield* service.calculateVertexAO(chunk.blocks as number[][][], 2, 2, 2, chunk.size)
 
-      // Open space should have high AO value (bright)
-      expect(ao).toBeGreaterThan(0.5)
-      expect(ao).toBeLessThanOrEqual(1.0)
+        // Open space should have high AO value (bright)
+        expect(ao).toBeGreaterThan(0.5)
+        expect(ao).toBeLessThanOrEqual(1.0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should calculate AO for occluded vertex', async () => {
-      const chunk = createTestChunk(5, 'full')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'full')
 
-      const ao = await pipe(
-        getService().calculateVertexAO(chunk.blocks as number[][][], 2, 2, 2, chunk.size),
-        Effect.runPromise
-      )
+        const ao = yield* service.calculateVertexAO(chunk.blocks as number[][][], 2, 2, 2, chunk.size)
 
-      // Fully occluded vertex should have low AO value (dark)
-      expect(ao).toBeLessThan(0.5)
-      expect(ao).toBeGreaterThanOrEqual(0.0)
+        // Fully occluded vertex should have low AO value (dark)
+        expect(ao).toBeLessThan(0.5)
+        expect(ao).toBeGreaterThanOrEqual(0.0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle corner occlusion correctly', async () => {
-      const chunk = createTestChunk(5, 'corner')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'corner')
 
-      const ao = await pipe(
-        getService().calculateVertexAO(chunk.blocks as number[][][], 0, 0, 0, chunk.size),
-        Effect.runPromise
-      )
+        const ao = yield* service.calculateVertexAO(chunk.blocks as number[][][], 0, 0, 0, chunk.size)
 
-      // Partially occluded corner
-      expect(ao).toBeGreaterThan(0.0)
-      expect(ao).toBeLessThan(1.0)
+        // Partially occluded corner
+        expect(ao).toBeGreaterThan(0.0)
+        expect(ao).toBeLessThan(1.0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle edge coordinates', async () => {
-      const chunk = createTestChunk(4, 'full')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(4, 'full')
 
-      const ao = await pipe(
-        getService().calculateVertexAO(chunk.blocks as number[][][], 0, 0, 0, chunk.size),
-        Effect.runPromise
-      )
+        const ao = yield* service.calculateVertexAO(chunk.blocks as number[][][], 0, 0, 0, chunk.size)
 
-      expect(ao).toBeGreaterThanOrEqual(0.0)
-      expect(ao).toBeLessThanOrEqual(1.0)
+        expect(ao).toBeGreaterThanOrEqual(0.0)
+        expect(ao).toBeLessThanOrEqual(1.0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle out of bounds coordinates', async () => {
-      const chunk = createTestChunk(4, 'full')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(4, 'full')
 
-      const ao = await pipe(
-        getService().calculateVertexAO(chunk.blocks as number[][][], -1, -1, -1, chunk.size),
-        Effect.runPromise
-      )
+        const ao = yield* service.calculateVertexAO(chunk.blocks as number[][][], -1, -1, -1, chunk.size)
 
-      // Should handle gracefully
-      expect(ao).toBeGreaterThanOrEqual(0.0)
-      expect(ao).toBeLessThanOrEqual(1.0)
+        // Should handle gracefully
+        expect(ao).toBeGreaterThanOrEqual(0.0)
+        expect(ao).toBeLessThanOrEqual(1.0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle errors in vertex AO calculation', async () => {
-      const result = runEffect(getService().calculateVertexAO(null as any, 0, 0, 0, 4))
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        return yield* service.calculateVertexAO(null as any, 0, 0, 0, 4)
+      })
+
+      const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
@@ -200,88 +213,95 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - calculateFaceAO', () => {
-    const getService = () => pipe(AmbientOcclusionService, Effect.provide(AmbientOcclusionLive), Effect.runSync)
-
     it('should calculate AO for top face', async () => {
-      const chunk = createTestChunk(5, 'single')
-      const mid = 2
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'single')
+        const mid = 2
 
-      const face = await pipe(
-        getService().calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, 'top', chunk.size),
-        Effect.runPromise
-      )
+        const face = yield* service.calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, 'top', chunk.size)
 
-      expect(face.vertices).toHaveLength(4)
-      expect(face.averageAO).toBeGreaterThan(0.0)
-      expect(face.averageAO).toBeLessThanOrEqual(1.0)
+        expect(face.vertices).toHaveLength(4)
+        expect(face.averageAO).toBeGreaterThan(0.0)
+        expect(face.averageAO).toBeLessThanOrEqual(1.0)
 
-      // All vertices should have valid AO values
-      face.vertices.forEach((vertex) => {
-        expect(vertex.ao).toBeGreaterThanOrEqual(0.0)
-        expect(vertex.ao).toBeLessThanOrEqual(1.0)
+        // All vertices should have valid AO values
+        face.vertices.forEach((vertex) => {
+          expect(vertex.ao).toBeGreaterThanOrEqual(0.0)
+          expect(vertex.ao).toBeLessThanOrEqual(1.0)
+        })
       })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should calculate different AO for different faces', async () => {
-      const chunk = createTestChunk(5, 'corner')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'corner')
 
-      const topFace = await pipe(
-        getService().calculateFaceAO(chunk.blocks as number[][][], 0, 0, 0, 'top', chunk.size),
-        Effect.runPromise
-      )
+        const topFace = yield* service.calculateFaceAO(chunk.blocks as number[][][], 0, 0, 0, 'top', chunk.size)
+        const bottomFace = yield* service.calculateFaceAO(chunk.blocks as number[][][], 0, 0, 0, 'bottom', chunk.size)
 
-      const bottomFace = await pipe(
-        getService().calculateFaceAO(chunk.blocks as number[][][], 0, 0, 0, 'bottom', chunk.size),
-        Effect.runPromise
-      )
+        // Different faces should potentially have different AO
+        expect(topFace.averageAO).toBeDefined()
+        expect(bottomFace.averageAO).toBeDefined()
+      })
 
-      // Different faces should potentially have different AO
-      expect(topFace.averageAO).toBeDefined()
-      expect(bottomFace.averageAO).toBeDefined()
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle all face directions', async () => {
-      const chunk = createTestChunk(5, 'single')
-      const mid = 2
-      const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
-        'top',
-        'bottom',
-        'front',
-        'back',
-        'left',
-        'right',
-      ]
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'single')
+        const mid = 2
+        const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
+          'top',
+          'bottom',
+          'front',
+          'back',
+          'left',
+          'right',
+        ]
 
-      for (const face of faces) {
-        const aoFace = await pipe(
-          getService().calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, face, chunk.size),
-          Effect.runPromise
-        )
+        for (const face of faces) {
+          const aoFace = yield* service.calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, face, chunk.size)
 
-        expect(aoFace.vertices).toHaveLength(4)
-        expect(aoFace.averageAO).toBeGreaterThanOrEqual(0.0)
-        expect(aoFace.averageAO).toBeLessThanOrEqual(1.0)
-      }
+          expect(aoFace.vertices).toHaveLength(4)
+          expect(aoFace.averageAO).toBeGreaterThanOrEqual(0.0)
+          expect(aoFace.averageAO).toBeLessThanOrEqual(1.0)
+        }
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should calculate correct average AO', async () => {
-      const chunk = createTestChunk(5, 'single')
-      const mid = 2
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'single')
+        const mid = 2
 
-      const face = await pipe(
-        getService().calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, 'top', chunk.size),
-        Effect.runPromise
-      )
+        const face = yield* service.calculateFaceAO(chunk.blocks as number[][][], mid, mid, mid, 'top', chunk.size)
 
-      // Calculate expected average
-      const sum = face.vertices.reduce((acc, v) => acc + v.ao, 0)
-      const expectedAverage = sum / 4
+        // Calculate expected average
+        const sum = face.vertices.reduce((acc, v) => acc + v.ao, 0)
+        const expectedAverage = sum / 4
 
-      expect(Math.abs(face.averageAO - expectedAverage)).toBeLessThan(0.01)
+        expect(Math.abs(face.averageAO - expectedAverage)).toBeLessThan(0.01)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle errors in face AO calculation', async () => {
-      const result = runEffect(getService().calculateFaceAO(null as any, 0, 0, 0, 'top', 4))
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        return yield* service.calculateFaceAO(null as any, 0, 0, 0, 'top', 4)
+      })
+
+      const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
@@ -295,82 +315,105 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - applyAOToChunk', () => {
-    const getService = () => pipe(AmbientOcclusionService, Effect.provide(AmbientOcclusionLive), Effect.runSync)
-
     it('should apply AO to empty chunk', async () => {
-      const chunk = createTestChunk(4, 'empty')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(4, 'empty')
 
-      const vertices = await pipe(getService().applyAOToChunk(chunk), Effect.runPromise)
+        const vertices = yield* service.applyAOToChunk(chunk)
 
-      // Empty chunk should have no vertices
-      expect(vertices).toHaveLength(0)
+        // Empty chunk should have no vertices
+        expect(vertices).toHaveLength(0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should apply AO to single block chunk', async () => {
-      const chunk = createTestChunk(5, 'single')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(5, 'single')
 
-      const vertices = await pipe(getService().applyAOToChunk(chunk), Effect.runPromise)
+        const vertices = yield* service.applyAOToChunk(chunk)
 
-      // Single block has 6 faces * 4 vertices
-      expect(vertices.length).toBe(6 * 4)
+        // Single block has 6 faces * 4 vertices
+        expect(vertices.length).toBe(6 * 4)
 
-      // All vertices should have valid AO values
-      vertices.forEach((vertex) => {
-        expect(vertex.ao).toBeGreaterThanOrEqual(0.0)
-        expect(vertex.ao).toBeLessThanOrEqual(1.0)
+        // All vertices should have valid AO values
+        vertices.forEach((vertex) => {
+          expect(vertex.ao).toBeGreaterThanOrEqual(0.0)
+          expect(vertex.ao).toBeLessThanOrEqual(1.0)
+        })
       })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should apply AO to full chunk', async () => {
-      const chunk = createTestChunk(4, 'full')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(4, 'full')
 
-      const vertices = await pipe(getService().applyAOToChunk(chunk), Effect.runPromise)
+        const vertices = yield* service.applyAOToChunk(chunk)
 
-      // Should have vertices for all blocks
-      expect(vertices.length).toBeGreaterThan(0)
+        // Should have vertices for all blocks
+        expect(vertices.length).toBeGreaterThan(0)
 
-      // Check AO variation
-      const aoValues = new Set(vertices.map((v) => Math.round(v.ao * 100) / 100))
-      expect(aoValues.size).toBeGreaterThan(1) // Should have variation in AO values
+        // Check AO variation
+        const aoValues = new Set(vertices.map((v) => Math.round(v.ao * 100) / 100))
+        expect(aoValues.size).toBeGreaterThan(1) // Should have variation in AO values
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should apply smoothing when enabled', async () => {
-      const chunk = createTestChunk(4, 'corner')
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(4, 'corner')
 
-      const vertices = await pipe(getService().applyAOToChunk(chunk), Effect.runPromise)
+        const vertices = yield* service.applyAOToChunk(chunk)
 
-      // Smoothing should be applied (config has smoothing: true)
-      expect(vertices.length).toBeGreaterThan(0)
+        // Smoothing should be applied (config has smoothing: true)
+        expect(vertices.length).toBeGreaterThan(0)
 
-      // Group vertices by position and check for averaging
-      const positionMap = new Map<string, number[]>()
-      vertices.forEach((v) => {
-        const key = `${v.x},${v.y},${v.z}`
-        if (!positionMap.has(key)) {
-          positionMap.set(key, [])
-        }
-        positionMap.get(key)!.push(v.ao)
+        // Group vertices by position and check for averaging
+        const positionMap = new Map<string, number[]>()
+        vertices.forEach((v) => {
+          const key = `${v.x},${v.y},${v.z}`
+          if (!positionMap.has(key)) {
+            positionMap.set(key, [])
+          }
+          positionMap.get(key)!.push(v.ao)
+        })
+
+        // Vertices at the same position should have the same AO after smoothing
+        positionMap.forEach((aoValues) => {
+          if (aoValues.length > 1) {
+            const firstAO = aoValues[0]!
+            aoValues.forEach((ao) => {
+              expect(Math.abs(ao - firstAO)).toBeLessThan(0.01)
+            })
+          }
+        })
       })
 
-      // Vertices at the same position should have the same AO after smoothing
-      positionMap.forEach((aoValues) => {
-        if (aoValues.length > 1) {
-          const firstAO = aoValues[0]!
-          aoValues.forEach((ao) => {
-            expect(Math.abs(ao - firstAO)).toBeLessThan(0.01)
-          })
-        }
-      })
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
     it('should handle errors in chunk AO application', async () => {
-      const invalidChunk = {
-        position: { x: 0, y: 0, z: 0 },
-        blocks: null as any,
-        size: 4,
-      }
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const invalidChunk = {
+          position: { x: 0, y: 0, z: 0 },
+          blocks: null as any,
+          size: 4,
+        }
 
-      const result = runEffect(getService().applyAOToChunk(invalidChunk))
+        return yield* service.applyAOToChunk(invalidChunk)
+      })
+
+      const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
@@ -437,23 +480,26 @@ describe('AmbientOcclusion', () => {
 
   describe('Performance', () => {
     it('should calculate AO efficiently for large chunks', async () => {
-      const getService = () => pipe(AmbientOcclusionService, Effect.provide(AmbientOcclusionLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const chunk = createTestChunk(8, 'full')
 
-      const chunk = createTestChunk(8, 'full')
+        const startTime = performance.now()
+        const vertices = yield* service.applyAOToChunk(chunk)
+        const endTime = performance.now()
 
-      const startTime = performance.now()
-      const vertices = await pipe(getService().applyAOToChunk(chunk), Effect.runPromise)
-      const endTime = performance.now()
+        // Should complete within reasonable time
+        expect(endTime - startTime).toBeLessThan(500)
 
-      // Should complete within reasonable time
-      expect(endTime - startTime).toBeLessThan(500)
-
-      // Should produce valid AO for all vertices
-      expect(vertices.length).toBeGreaterThan(0)
-      vertices.forEach((v) => {
-        expect(v.ao).toBeGreaterThanOrEqual(0.0)
-        expect(v.ao).toBeLessThanOrEqual(1.0)
+        // Should produce valid AO for all vertices
+        expect(vertices.length).toBeGreaterThan(0)
+        vertices.forEach((v) => {
+          expect(v.ao).toBeGreaterThanOrEqual(0.0)
+          expect(v.ao).toBeLessThanOrEqual(1.0)
+        })
       })
+
+      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
   })
 
@@ -497,11 +543,14 @@ describe('AmbientOcclusion', () => {
         })
       )
 
-      const getService = () => pipe(AmbientOcclusionService, Effect.provide(DisabledAOLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* AmbientOcclusionService
+        const ao = yield* service.calculateVertexAO([], 0, 0, 0, 4)
 
-      const ao = await pipe(getService().calculateVertexAO([], 0, 0, 0, 4), Effect.runPromise)
+        expect(ao).toBe(1.0) // No occlusion when disabled
+      })
 
-      expect(ao).toBe(1.0) // No occlusion when disabled
+      await Effect.runPromise(program.pipe(Effect.provide(DisabledAOLive)))
     })
   })
 })

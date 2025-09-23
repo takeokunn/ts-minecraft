@@ -15,35 +15,7 @@ import {
   getAllBlocks,
 } from '../BlockRegistry'
 import type { BlockType } from '../BlockType'
-// テストヘルパー関数
-const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType => ({
-  id: 'test_block',
-  name: 'Test Block',
-  category: 'natural',
-  stackSize: 64,
-  texture: 'test_texture',
-  physics: {
-    hardness: 1.0,
-    resistance: 1.0,
-    luminance: 0,
-    opacity: 15,
-    flammable: false,
-    gravity: false,
-    solid: true,
-    replaceable: false,
-    waterloggable: false,
-  },
-  tool: 'none',
-  minToolLevel: 0,
-  sound: {
-    break: 'block.stone.break',
-    place: 'block.stone.place',
-    step: 'block.stone.step',
-  },
-  drops: [],
-  tags: [],
-  ...overrides,
-})
+import { createTestBlock } from './test-helpers'
 
 describe('BlockRegistry', () => {
   describe('getBlock', () => {

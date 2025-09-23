@@ -3,7 +3,7 @@
  * 描画距離の動的調整とパフォーマンス最適化（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Layer, Schema, pipe, Match, Option } from 'effect'
+import { Context, Effect, Ref, Layer, Schema, pipe, Match, Option, Clock } from 'effect'
 import type { ChunkPosition } from './index.js'
 import type { Vector3 } from '../world/index.js'
 
@@ -148,7 +148,7 @@ export const analyzePerformanceTrend = (
     })),
     Match.orElse(() => {
       const recent = metricsHistory.slice(-5)
-      const older = metricsHistory.slice(-15, -10)
+      const older = metricsHistory.slice(-10, -5)
 
       const recentAvg = calculateAverageMetrics(recent, 5)
       const olderAvg = calculateAverageMetrics(older, 5)
@@ -419,13 +419,14 @@ export const createViewDistance = (
 ): Effect.Effect<ViewDistance, never> =>
   Effect.gen(function* () {
     // State管理
+    const currentTime = yield* Clock.currentTimeMillis
     const state = yield* Ref.make<ViewDistanceState>({
       currentViewDistance: config.defaultViewDistance,
       targetViewDistance: config.defaultViewDistance,
       metricsHistory: [],
       adjustmentHistory: [],
       config,
-      lastAdjustmentTime: Date.now(),
+      lastAdjustmentTime: currentTime,
     })
 
     const getCurrentViewDistance = (): Effect.Effect<number, never> =>
@@ -451,8 +452,9 @@ export const createViewDistance = (
           ? currentState.metricsHistory[currentState.metricsHistory.length - 1]
           : undefined
 
+        const currentTime = yield* Clock.currentTimeMillis
         const event: ViewDistanceEvent = {
-          timestamp: Date.now(),
+          timestamp: currentTime,
           oldDistance: currentState.currentViewDistance,
           newDistance: clampedDistance,
           reason,
@@ -467,7 +469,7 @@ export const createViewDistance = (
             ...currentState.adjustmentHistory.slice(-(currentState.config.metricsHistorySize - 1)),
             event,
           ],
-          lastAdjustmentTime: Date.now(),
+          lastAdjustmentTime: currentTime,
         }))
       })
 
@@ -495,7 +497,8 @@ export const createViewDistance = (
           return null
         }
 
-        const timeSinceLastAdjustment = Date.now() - currentState.lastAdjustmentTime
+        const currentTime = yield* Clock.currentTimeMillis
+        const timeSinceLastAdjustment = currentTime - currentState.lastAdjustmentTime
         if (timeSinceLastAdjustment < 5000) {
           // 5秒間隔
           return null

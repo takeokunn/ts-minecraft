@@ -314,8 +314,8 @@ describe('GreedyMeshing', () => {
 
     it('should handle edge cases in vertex reduction', () => {
       expect(calculateVertexReduction(0, 100)).toBe(0) // Division by zero protection
-      expect(calculateVertexReduction(-100, 50)).toBe(-150)
-      expect(calculateVertexReduction(100, -50)).toBe(150)
+      expect(calculateVertexReduction(-100, 50)).toBe(150) // (-100 - 50) / -100 * 100 = 150
+      expect(calculateVertexReduction(100, -50)).toBe(150) // (100 - (-50)) / 100 * 100 = 150
     })
   })
 

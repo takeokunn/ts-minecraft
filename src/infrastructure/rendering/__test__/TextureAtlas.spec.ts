@@ -156,41 +156,51 @@ describe('TextureAtlas', () => {
   })
 
   describe('TextureAtlasService - loadAtlas', () => {
-    const getService = () =>
-      Effect.gen(function* () {
-        return yield* TextureAtlasService
-      }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
-
     it('should load atlas with default textures', async () => {
-      const metadata = await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const metadata = yield* service.loadAtlas('/path/to/atlas.png')
 
-      expect(metadata).toBeDefined()
-      expect(metadata.atlasWidth).toBe(256)
-      expect(metadata.atlasHeight).toBe(256)
-      expect(metadata.textureCount).toBeGreaterThan(0)
-      expect(metadata.blockTextures).toBeDefined()
+        expect(metadata).toBeDefined()
+        expect(metadata.atlasWidth).toBe(256)
+        expect(metadata.atlasHeight).toBe(256)
+        expect(metadata.textureCount).toBeGreaterThan(0)
+        expect(metadata.blockTextures).toBeDefined()
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should create default block textures', async () => {
-      const metadata = await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const metadata = yield* service.loadAtlas('/path/to/atlas.png')
 
-      // Should have default textures for common blocks
-      expect(metadata.blockTextures.has(1)).toBe(true) // Stone
-      expect(metadata.blockTextures.has(2)).toBe(true) // Dirt
-      expect(metadata.blockTextures.has(3)).toBe(true) // Grass
-      expect(metadata.blockTextures.has(4)).toBe(true) // Wood
+        // Should have default textures for common blocks
+        expect(metadata.blockTextures.has(1)).toBe(true) // Stone
+        expect(metadata.blockTextures.has(2)).toBe(true) // Dirt
+        expect(metadata.blockTextures.has(3)).toBe(true) // Grass
+        expect(metadata.blockTextures.has(4)).toBe(true) // Wood
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should handle grass block with different top/bottom textures', async () => {
-      const metadata = await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const metadata = yield* service.loadAtlas('/path/to/atlas.png')
 
-      const grassTexture = metadata.blockTextures.get(3)
-      expect(grassTexture).toBeDefined()
-      if (grassTexture) {
-        // Grass should have different textures for top/bottom/sides
-        expect(grassTexture.top).not.toEqual(grassTexture.bottom)
-        expect(grassTexture.top).not.toEqual(grassTexture.front)
-      }
+        const grassTexture = metadata.blockTextures.get(3)
+        expect(grassTexture).toBeDefined()
+        if (grassTexture) {
+          // Grass should have different textures for top/bottom/sides
+          expect(grassTexture.top).not.toEqual(grassTexture.bottom)
+          expect(grassTexture.top).not.toEqual(grassTexture.front)
+        }
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should handle errors during atlas loading', async () => {
@@ -246,69 +256,77 @@ describe('TextureAtlas', () => {
 
   describe('TextureAtlasService - getBlockUVs', () => {
     it('should get UVs for registered block', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      // Load atlas first
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const uvs = await pipe(getService().getBlockUVs(1, 'top'), Effect.runPromise)
+        // Then get UVs
+        const uvs = yield* service.getBlockUVs(1, 'top')
 
-      expect(uvs).toBeDefined()
-      expect(uvs.u).toBeGreaterThanOrEqual(0)
-      expect(uvs.u).toBeLessThanOrEqual(1)
-      expect(uvs.v).toBeGreaterThanOrEqual(0)
-      expect(uvs.v).toBeLessThanOrEqual(1)
+        expect(uvs).toBeDefined()
+        expect(uvs.u).toBeGreaterThanOrEqual(0)
+        expect(uvs.u).toBeLessThanOrEqual(1)
+        expect(uvs.v).toBeGreaterThanOrEqual(0)
+        expect(uvs.v).toBeLessThanOrEqual(1)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should handle all face types', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
-        'top',
-        'bottom',
-        'front',
-        'back',
-        'left',
-        'right',
-      ]
+        const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
+          'top',
+          'bottom',
+          'front',
+          'back',
+          'left',
+          'right',
+        ]
 
-      for (const face of faces) {
-        const uvs = await pipe(getService().getBlockUVs(1, face), Effect.runPromise)
-        expect(uvs).toBeDefined()
-      }
+        // Test all faces
+        for (const face of faces) {
+          const uvs = yield* service.getBlockUVs(1, face)
+          expect(uvs).toBeDefined()
+        }
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should return default UVs for unregistered block', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const uvs = await pipe(getService().getBlockUVs(999, 'top'), Effect.runPromise)
+        // Test with unregistered block type
+        const uvs = yield* service.getBlockUVs(999, 'top')
 
-      expect(uvs).toBeDefined()
-      // Should return default texture region
-      expect(uvs.u).toBe(0)
-      expect(uvs.v).toBeGreaterThanOrEqual(0)
+        expect(uvs).toBeDefined()
+        // Should return default texture region
+        expect(uvs.u).toBe(0)
+        expect(uvs.v).toBeGreaterThanOrEqual(0)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should fail when atlas not loaded', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        return yield* service.getBlockUVs(1, 'top')
+      })
 
-      const result = runEffect(getService().getBlockUVs(1, 'top'))
+      const result = runEffect(program.pipe(Effect.provide(TextureAtlasLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
@@ -322,111 +340,147 @@ describe('TextureAtlas', () => {
   })
 
   describe('TextureAtlasService - generateUVCoords', () => {
-    const getService = () =>
-      Effect.gen(function* () {
-        return yield* TextureAtlasService
-      }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
-
     it('should generate UV coordinates for a quad', async () => {
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      const coords = await pipe(getService().generateUVCoords(1, 'top'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      expect(coords).toHaveLength(8) // 4 vertices * 2 coords
-      coords.forEach((coord) => {
-        expect(coord).toBeGreaterThanOrEqual(0)
-        expect(coord).toBeLessThanOrEqual(1)
+        // Generate UV coordinates
+        const coords = yield* service.generateUVCoords(1, 'top')
+
+        expect(coords).toHaveLength(8) // 4 vertices * 2 coords
+        coords.forEach((coord) => {
+          expect(coord).toBeGreaterThanOrEqual(0)
+          expect(coord).toBeLessThanOrEqual(1)
+        })
       })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should generate different coords for different faces', async () => {
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      const topCoords = await pipe(getService().generateUVCoords(3, 'top'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const bottomCoords = await pipe(getService().generateUVCoords(3, 'bottom'), Effect.runPromise)
+        // Generate UV coordinates for different faces
+        const topCoords = yield* service.generateUVCoords(3, 'top')
+        const bottomCoords = yield* service.generateUVCoords(3, 'bottom')
 
-      // Grass block should have different UVs for top and bottom
-      expect(topCoords).not.toEqual(bottomCoords)
+        // Grass block should have different UVs for top and bottom
+        expect(topCoords).not.toEqual(bottomCoords)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
   })
 
   describe('TextureAtlasService - createTextureMaterial', () => {
-    const getService = () =>
-      Effect.gen(function* () {
-        return yield* TextureAtlasService
-      }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
-
     it('should create texture material', async () => {
-      const material = await pipe(getService().createTextureMaterial(), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const material = yield* service.createTextureMaterial()
 
-      expect(material).toBeDefined()
-      const threeMaterial = material as any
-      expect(threeMaterial.map).toBeDefined()
-      expect(threeMaterial.side).toBe('FrontSide')
-      expect(threeMaterial.vertexColors).toBe(true)
+        expect(material).toBeDefined()
+        const threeMaterial = material as any
+        expect(threeMaterial.map).toBeDefined()
+        expect(threeMaterial.side).toBe('FrontSide')
+        expect(threeMaterial.vertexColors).toBe(true)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should reuse texture on subsequent calls', async () => {
-      const material1 = await pipe(getService().createTextureMaterial(), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const material1 = yield* service.createTextureMaterial()
+        const material2 = yield* service.createTextureMaterial()
 
-      const material2 = await pipe(getService().createTextureMaterial(), Effect.runPromise)
+        // Should reuse the same texture
+        const threeMaterial1 = material1 as any
+        const threeMaterial2 = material2 as any
+        expect(threeMaterial1.map).toStrictEqual(threeMaterial2.map)
+      })
 
-      // Should reuse the same texture
-      const threeMaterial1 = material1 as any
-      const threeMaterial2 = material2 as any
-      expect(threeMaterial1.map).toStrictEqual(threeMaterial2.map)
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should configure texture filters correctly', async () => {
-      const material = await pipe(getService().createTextureMaterial(), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        const material = yield* service.createTextureMaterial()
 
-      const threeMaterial = material as any
-      expect(threeMaterial.map?.magFilter).toBeDefined()
-      expect(threeMaterial.map?.minFilter).toBeDefined()
-      expect(threeMaterial.map?.needsUpdate === true || Boolean(threeMaterial.map?.needsUpdate)).toBe(true)
+        const threeMaterial = material as any
+        expect(threeMaterial.map?.magFilter).toBeDefined()
+        expect(threeMaterial.map?.minFilter).toBeDefined()
+        expect(threeMaterial.map?.needsUpdate === true || Boolean(threeMaterial.map?.needsUpdate)).toBe(true)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
   })
 
   describe('TextureAtlasService - registerBlockTexture', () => {
-    const getService = () =>
-      Effect.gen(function* () {
-        return yield* TextureAtlasService
-      }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
-
     it('should register new block texture', async () => {
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      const customTexture = createTestBlockTexture(100)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      await pipe(getService().registerBlockTexture(customTexture), Effect.runPromise)
+        const customTexture = createTestBlockTexture(100)
 
-      // Verify it was registered
-      const uvs = await pipe(getService().getBlockUVs(100, 'top'), Effect.runPromise)
+        // Register the texture
+        yield* service.registerBlockTexture(customTexture)
 
-      expect(uvs).toEqual(customTexture.top)
+        // Verify it was registered
+        const uvs = yield* service.getBlockUVs(100, 'top')
+
+        expect(uvs).toEqual(customTexture.top)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should override existing texture', async () => {
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      const customTexture = {
-        ...createTestBlockTexture(1),
-        top: createTestRegion(0.9, 0.9, 0.1, 0.1),
-      }
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      await pipe(getService().registerBlockTexture(customTexture), Effect.runPromise)
+        const customTexture = {
+          ...createTestBlockTexture(1),
+          top: createTestRegion(0.9, 0.9, 0.1, 0.1),
+        }
 
-      const uvs = await pipe(getService().getBlockUVs(1, 'top'), Effect.runPromise)
+        // Override the texture
+        yield* service.registerBlockTexture(customTexture)
 
-      expect(uvs.u).toBe(0.9)
-      expect(uvs.v).toBe(0.9)
+        // Verify it was overridden
+        const uvs = yield* service.getBlockUVs(1, 'top')
+
+        expect(uvs.u).toBe(0.9)
+        expect(uvs.v).toBe(0.9)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should fail when atlas not loaded', async () => {
       const customTexture = createTestBlockTexture(100)
 
-      const result = runEffect(getService().registerBlockTexture(customTexture))
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
+        return yield* service.registerBlockTexture(customTexture)
+      })
+
+      const result = runEffect(program.pipe(Effect.provide(TextureAtlasLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
@@ -478,45 +532,49 @@ describe('TextureAtlas', () => {
 
   describe('Performance', () => {
     it('should handle large texture counts efficiently', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const startTime = performance.now()
+        const startTime = performance.now()
 
-      // Register many textures
-      for (let i = 10; i < 100; i++) {
-        await pipe(getService().registerBlockTexture(createTestBlockTexture(i)), Effect.runPromise)
-      }
+        // Register many textures
+        for (let i = 10; i < 100; i++) {
+          yield* service.registerBlockTexture(createTestBlockTexture(i))
+        }
 
-      const endTime = performance.now()
+        const endTime = performance.now()
 
-      // Should complete quickly
-      expect(endTime - startTime).toBeLessThan(100)
+        // Should complete quickly
+        expect(endTime - startTime).toBeLessThan(100)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
     it('should retrieve UVs quickly', async () => {
-      const getService = () =>
-        Effect.gen(function* () {
-          return yield* TextureAtlasService
-        }).pipe(Effect.provide(TextureAtlasLive), Effect.runSync)
+      const program = Effect.gen(function* () {
+        const service = yield* TextureAtlasService
 
-      await pipe(getService().loadAtlas('/path/to/atlas.png'), Effect.runPromise)
+        // Load atlas first
+        yield* service.loadAtlas('/path/to/atlas.png')
 
-      const startTime = performance.now()
+        const startTime = performance.now()
 
-      // Get UVs many times
-      for (let i = 0; i < 1000; i++) {
-        await pipe(getService().getBlockUVs(1, 'top'), Effect.runPromise)
-      }
+        // Get UVs many times
+        for (let i = 0; i < 1000; i++) {
+          yield* service.getBlockUVs(1, 'top')
+        }
 
-      const endTime = performance.now()
+        const endTime = performance.now()
 
-      // Should be very fast
-      expect(endTime - startTime).toBeLessThan(100)
+        // Should be very fast
+        expect(endTime - startTime).toBeLessThan(100)
+      })
+
+      await Effect.runPromise(program.pipe(Effect.provide(TextureAtlasLive)))
     })
   })
 

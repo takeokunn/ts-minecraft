@@ -9,11 +9,11 @@ import type { ChunkData } from '../chunk/ChunkData'
  * 地形生成の設定
  */
 export const TerrainConfigSchema = Schema.Struct({
-  seaLevel: Schema.Number,
-  maxHeight: Schema.Number,
-  minHeight: Schema.Number,
-  surfaceVariation: Schema.Number,
-  caveThreshold: Schema.Number,
+  seaLevel: pipe(Schema.Number, Schema.int(), Schema.between(0, 256)),
+  maxHeight: pipe(Schema.Number, Schema.int(), Schema.between(64, 320)),
+  minHeight: pipe(Schema.Number, Schema.int(), Schema.between(-64, 0)),
+  surfaceVariation: pipe(Schema.Number, Schema.int(), Schema.between(8, 64)),
+  caveThreshold: pipe(Schema.Number, Schema.between(0.1, 1.0)),
 })
 
 export type TerrainConfig = Schema.Schema.Type<typeof TerrainConfigSchema>
@@ -244,7 +244,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
  */
 const getBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y + 64 // -64～319 → 0～383
-  return normalizedY + (z << 9) + (x << 13)
+  return normalizedY + (z * 384) + (x * 384 * 16)
 }
 
 /**

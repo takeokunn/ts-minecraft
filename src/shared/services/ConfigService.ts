@@ -48,7 +48,7 @@ export interface ConfigService {
   readonly updateConfig: <K extends keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>>(
     key: K,
     value: Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>[K]
-  ) => Effect.Effect<void>
+  ) => Effect.Effect<void, Error>
 }
 
 // Config Key タイプ定義
@@ -139,22 +139,21 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
       >
     },
 
-    updateConfig: (key, value) =>
-      Effect.gen(function* () {
-        switch (key) {
-          case 'gameConfig':
-            currentGameConfig = value as GameConfig
-            return Effect.succeed(undefined)
-          case 'renderConfig':
-            currentRenderConfig = value as RenderConfig
-            return Effect.succeed(undefined)
-          case 'debugConfig':
-            currentDebugConfig = value as DebugConfig
-            return Effect.succeed(undefined)
-          default:
-            return Effect.fail(new Error(`Unknown config key: ${key}`))
-        }
-      }) as Effect.Effect<void, never, never>,
+    updateConfig: (key, value) => {
+      switch (key) {
+        case 'gameConfig':
+          currentGameConfig = value as GameConfig
+          return Effect.succeed(undefined)
+        case 'renderConfig':
+          currentRenderConfig = value as RenderConfig
+          return Effect.succeed(undefined)
+        case 'debugConfig':
+          currentDebugConfig = value as DebugConfig
+          return Effect.succeed(undefined)
+        default:
+          return Effect.fail(new Error(`Unknown config key: ${key}`))
+      }
+    },
   })
 })
 

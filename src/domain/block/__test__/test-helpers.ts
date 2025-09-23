@@ -1,7 +1,6 @@
 import { Effect, Exit, pipe } from 'effect'
 import { expect } from 'vitest'
 import type { BlockType } from '../BlockType'
-import { DomainFactories, EffectHelpers } from '../../../test/unified-test-helpers'
 
 // Effect-TS用の共通テストヘルパー - 最新理想系パターン
 export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseExit(effect)
@@ -21,9 +20,35 @@ export const expectFailure = async <E>(effect: Effect.Effect<unknown, E>) => {
 }
 
 // ブロック関連の共通テストヘルパー
-// DomainFactoriesのBlockFactoryを使用
-export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType =>
-  DomainFactories.Block.createType(1, 'test_block', 'natural', overrides)
+// 直接的なブロックファクトリー関数
+export const createTestBlock = (overrides: Partial<BlockType> = {}): BlockType => ({
+  id: 'test_block',
+  name: 'Test Block',
+  category: 'natural',
+  texture: 'test_texture',
+  physics: {
+    hardness: 1.0,
+    resistance: 1.0,
+    luminance: 0,
+    opacity: 15,
+    flammable: false,
+    gravity: false,
+    solid: true,
+    replaceable: false,
+    waterloggable: false,
+  },
+  tool: 'none',
+  minToolLevel: 0,
+  drops: [],
+  sound: {
+    break: 'block.stone.break',
+    place: 'block.stone.place',
+    step: 'block.stone.step',
+  },
+  stackSize: 64,
+  tags: [],
+  ...overrides,
+})
 
 // Effect-TS パターンでのアサーション関数
 export const assertBlockExists = (blocks: readonly BlockType[], id: string) =>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { Effect } from 'effect'
 import {
   LogLevel,
@@ -9,6 +9,7 @@ import {
   createTimestamp,
   createLogEntry,
 } from '../LoggerService'
+import { LoggerServiceTest } from '../LoggerServiceTest'
 
 describe('LoggerService - Core Types and Utilities', () => {
   describe('LogLevel Schema', () => {
@@ -127,17 +128,14 @@ describe('LoggerService - Core Types and Utilities', () => {
   })
 
   describe('Test Implementation Integration', () => {
-    it('should provide silent test implementation for LoggerServiceTest', async () => {
-      const { LoggerServiceTest } = await import('../LoggerServiceTest')
-      const program = Effect.gen(function* () {
+    it.effect('should provide silent test implementation for LoggerServiceTest', () =>
+      Effect.gen(function* () {
         const logger = yield* LoggerService
         yield* logger.info('Test log message')
         const result = yield* logger.measurePerformance('testFunction', Effect.succeed('result'))
+        expect(result).toBe('result')
         return result
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-      expect(result).toBe('result')
-    })
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
   })
 })

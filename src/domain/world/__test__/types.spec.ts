@@ -46,8 +46,8 @@ describe('World Generation Types', () => {
         [],
       ]
 
-      for (const vector of invalidVectors) {
-        expect(() => Schema.decodeUnknownSync(Vector3Schema)(vector)).toThrow()
+      for (const [index, vector] of invalidVectors.entries()) {
+        expect(() => Schema.decodeUnknownSync(Vector3Schema)(vector), `Test case ${index}: ${JSON.stringify(vector)}`).toThrow()
       }
     })
 
@@ -171,8 +171,9 @@ describe('World Generation Types', () => {
       const decoded = Schema.decodeUnknownSync(BiomeType)(biomeType)
 
       expect(decoded).toBe(biomeType)
-      expect(Object.isFrozen(decoded)).toBe(false) // プリミティブ値はfreezeされない
+      // プリミティブ値（string）自体はfreezeできないが、Schema処理後も同じ値であることを確認
       expect(typeof decoded).toBe('string')
+      expect(decoded).toEqual('forest')
     })
   })
 

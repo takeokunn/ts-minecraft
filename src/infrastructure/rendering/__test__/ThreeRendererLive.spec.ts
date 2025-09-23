@@ -32,42 +32,58 @@ vi.mock('three', async () => {
   const actual = await vi.importActual('three')
   return {
     ...actual,
-    WebGLRenderer: vi.fn().mockImplementation(() => ({
-      setPixelRatio: vi.fn(),
-      setSize: vi.fn(),
-      setClearColor: vi.fn(),
-      setViewport: vi.fn(),
-      render: vi.fn(),
-      dispose: vi.fn(),
-      getContext: vi.fn().mockReturnValue({
-        isContextLost: vi.fn().mockReturnValue(false),
-      }),
-      domElement: createMockCanvas(),
-      shadowMap: {
-        enabled: false,
-        type: THREE.PCFShadowMap,
-        autoUpdate: true,
-        needsUpdate: false,
+    WebGLRenderer: vi.fn().mockImplementation(() => {
+      const mockCanvas = createMockCanvas()
+      return {
+        setPixelRatio: vi.fn(),
+        setSize: vi.fn(),
+        setClearColor: vi.fn(),
+        setViewport: vi.fn(),
         render: vi.fn(),
-        cullFace: THREE.CullFaceBack,
+        dispose: vi.fn(),
+        getContext: vi.fn().mockReturnValue({
+          isContextLost: vi.fn().mockReturnValue(false),
+          getExtension: vi.fn(),
+        }),
+        domElement: mockCanvas,
+        shadowMap: {
+          enabled: false,
+          type: actual['PCFShadowMap'],
+          autoUpdate: true,
+          needsUpdate: false,
+          render: vi.fn(),
+          cullFace: actual['CullFaceBack'],
+        },
+        info: {
+          memory: { geometries: 0, textures: 0 },
+          render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
+          autoReset: true,
+          programs: null,
+          update: vi.fn(),
+          reset: vi.fn(),
+        },
+        outputColorSpace: actual['SRGBColorSpace'],
+        toneMapping: actual['NoToneMapping'],
+        toneMappingExposure: 1.0,
+        sortObjects: true,
+        extensions: {
+          get: vi.fn(),
+          has: vi.fn(),
+          init: vi.fn(),
+        },
+      }
+    }),
+    WebGLRenderTarget: vi.fn().mockImplementation((width = 800, height = 600, options = {}) => ({
+      width,
+      height,
+      texture: {
+        format: options.format || actual['RGBAFormat'],
+        type: options.type || actual['FloatType'],
+        minFilter: options.minFilter || actual['LinearFilter'],
+        magFilter: options.magFilter || actual['LinearFilter'],
       },
-      info: {
-        memory: { geometries: 0, textures: 0 },
-        render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
-        autoReset: true,
-        programs: null,
-        update: vi.fn(),
-        reset: vi.fn(),
-      },
-      outputColorSpace: THREE.SRGBColorSpace,
-      toneMapping: THREE.NoToneMapping,
-      toneMappingExposure: 1.0,
-      sortObjects: true,
-      extensions: {
-        get: vi.fn(),
-        has: vi.fn(),
-        init: vi.fn(),
-      },
+      stencilBuffer: options.stencilBuffer || false,
+      dispose: vi.fn(),
     })),
   }
 })
@@ -207,7 +223,15 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderInitError')
+      }
     })
 
     it('不正なキャンバス要素でエラーが発生する', async () => {
@@ -219,7 +243,15 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderInitError')
+      }
     })
   })
 
@@ -263,7 +295,15 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
     it('WebGL2機能を有効化する', async () => {
@@ -284,7 +324,15 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
     it('ポストプロセシングの設定', async () => {
@@ -305,12 +353,24 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
+    // このテストを最後に実行して他のテストに影響しないようにする
     it('初期化でエラーが発生した場合の適切なエラーハンドリング', async () => {
       // WebGLRendererの作成でエラーが発生するケース
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => {
+      const WebGLRendererMock = vi.mocked(THREE.WebGLRenderer)
+      
+      // 現在のテストのみでエラーを投げる実装に変更
+      WebGLRendererMock.mockImplementationOnce(() => {
         throw new Error('Renderer creation failed')
       })
 
@@ -320,7 +380,15 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      const result = await Effect.runPromiseExit(runnable)
+      
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        // Extract the actual error from the Effect failure cause
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderInitError')
+      }
     })
   })
 })

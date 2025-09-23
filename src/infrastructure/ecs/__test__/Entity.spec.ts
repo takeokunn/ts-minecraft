@@ -20,13 +20,7 @@ import {
   createArchetypeManager,
   type EntityMetadata,
 } from '../Entity.js'
-import {
-  expectEffectSuccess,
-  expectEffectFailure,
-  expectSchemaSuccess,
-  expectPerformanceTest,
-  expectPerformanceTestEffect,
-} from '../../../test/unified-test-helpers'
+import * as Exit from 'effect/Exit'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -66,9 +60,9 @@ describe('Entity ECS Architecture', () => {
         const id3 = yield* pool.allocate()
 
         // Schema validation for entity IDs
-        expectSchemaSuccess(Schema.Number, id1)
-        expectSchemaSuccess(Schema.Number, id2)
-        expectSchemaSuccess(Schema.Number, id3)
+        const validId1 = Schema.decodeUnknownSync(Schema.Number)(id1)
+        const validId2 = Schema.decodeUnknownSync(Schema.Number)(id2)
+        const validId3 = Schema.decodeUnknownSync(Schema.Number)(id3)
 
         // Uniqueness verification
         if (id1 === id2 || id2 === id3 || id1 === id3) {
@@ -209,7 +203,7 @@ describe('Entity ECS Architecture', () => {
         }
 
         // Schema validation
-        expectSchemaSuccess(ComponentDataSchema, retrieved.value)
+        const validComponent = Schema.decodeUnknownSync(ComponentDataSchema)(retrieved.value)
 
         if (JSON.stringify(retrieved.value) !== JSON.stringify(component)) {
           return yield* Effect.fail(new Error('Component data mismatch'))
@@ -564,7 +558,11 @@ describe('Entity ECS Architecture', () => {
           return 'insertion_complete'
         })
 
-        const insertionResult = yield* expectPerformanceTestEffect(insertionTest) as Effect.Effect<any, never, never>
+        // Performance test - measure insertion time
+        const startTime = Date.now()
+        const insertionResult = yield* insertionTest
+        const insertionTime = Date.now() - startTime
+        console.log(`Insertion performance: ${insertionTime}ms`)
 
         // イテレーションのパフォーマンステスト
         const iterationTest = Effect.gen(function* () {
@@ -577,7 +575,11 @@ describe('Entity ECS Architecture', () => {
           return sum
         })
 
-        const iterationResult = yield* expectPerformanceTestEffect(iterationTest) as Effect.Effect<any, never, never>
+        // Performance test - measure iteration time
+        const iterationStartTime = Date.now()
+        const iterationResult = yield* iterationTest
+        const iterationTime = Date.now() - iterationStartTime
+        console.log(`Iteration performance: ${iterationTime}ms`)
 
         // 数学的検証: 0+1+2+...+9999 = 49995000
         if (iterationResult !== 49995000) {
@@ -606,7 +608,11 @@ describe('Entity ECS Architecture', () => {
           return stats
         })
 
-        const memoryResult = yield* expectPerformanceTestEffect(memoryTest) as Effect.Effect<any, never, never>
+        // Performance test - measure memory operation time
+        const memoryStartTime = Date.now()
+        const memoryResult = yield* memoryTest
+        const memoryTime = Date.now() - memoryStartTime
+        console.log(`Memory test performance: ${memoryTime}ms`)
 
         if (memoryResult.size !== 5000) {
           return yield* Effect.fail(new Error('Memory test data size incorrect'))

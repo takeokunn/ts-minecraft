@@ -5,7 +5,6 @@
 
 import { it, expect } from '@effect/vitest'
 import { Effect, Layer, Schema, Exit, pipe, TestContext } from 'effect'
-import { PropertyTest, fc } from '../../../test/unified-test-helpers'
 import * as THREE from 'three'
 import {
   CameraService,
@@ -19,7 +18,6 @@ import {
 } from '../CameraService.js'
 import { FirstPersonCameraLive } from '../FirstPersonCamera.js'
 import { ThirdPersonCameraLive } from '../ThirdPersonCamera.js'
-import TestUtils from '../../../test/unified-test-helpers'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -142,7 +140,7 @@ describe('CameraService', () => {
   })
 
   describe('Schema Validations - Property-based Testing', () => {
-    it.skip('should validate FOV range (30-120)', () =>
+    it.effect('should validate FOV range (30-120)', () =>
       Effect.gen(function* () {
         // Valid FOV values
         const validConfig: CameraConfig = {
@@ -153,22 +151,21 @@ describe('CameraService', () => {
         const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(validConfig)
         expect(validatedConfig).toEqual(validConfig)
 
-        // Property-based testing for FOV range
-        yield* PropertyTest.check(
-          fc.integer({ min: 30, max: 120 }),
-          (fov) =>
-            Effect.gen(function* () {
-              const config = { ...DEFAULT_CAMERA_CONFIG, fov: fov as number }
-              const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(config)
-              expect(validatedConfig).toEqual(config)
-              return true
-            }) as Effect.Effect<boolean, any, never>
-        )
+        // Test boundary values
+        const minConfig = { ...DEFAULT_CAMERA_CONFIG, fov: 30 }
+        const maxConfig = { ...DEFAULT_CAMERA_CONFIG, fov: 120 }
+
+        const validatedMinConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(minConfig)
+        expect(validatedMinConfig).toEqual(minConfig)
+
+        const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
+        expect(validatedMaxConfig).toEqual(maxConfig)
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext)))
+      }).pipe(Effect.provide(TestContext.TestContext))
+    )
 
-    it.skip('should validate sensitivity range (0.1-10)', () =>
+    it.effect('should validate sensitivity range (0.1-10)', () =>
       Effect.gen(function* () {
         const validConfig: CameraConfig = {
           ...DEFAULT_CAMERA_CONFIG,
@@ -178,25 +175,21 @@ describe('CameraService', () => {
         const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(validConfig)
         expect(validatedConfig).toEqual(validConfig)
 
-        // Property-based testing for sensitivity range
-        // fc.float requires Math.fround for min/max values
-        yield* PropertyTest.check(
-          fc.float({ min: Math.fround(0.1), max: Math.fround(10), noNaN: true }),
-          (sensitivity) =>
-            Effect.gen(function* () {
-              // Clamp to ensure we stay within bounds after float operations
-              const clampedSensitivity = Math.max(0.1, Math.min(10, sensitivity as number))
-              const config = { ...DEFAULT_CAMERA_CONFIG, sensitivity: clampedSensitivity }
-              const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(config)
-              expect(validatedConfig).toEqual(config)
-              return true
-            }) as Effect.Effect<boolean, any, never>
-        )
+        // Test boundary values
+        const minConfig = { ...DEFAULT_CAMERA_CONFIG, sensitivity: 0.1 }
+        const maxConfig = { ...DEFAULT_CAMERA_CONFIG, sensitivity: 10 }
+
+        const validatedMinConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(minConfig)
+        expect(validatedMinConfig).toEqual(minConfig)
+
+        const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
+        expect(validatedMaxConfig).toEqual(maxConfig)
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext)))
+      }).pipe(Effect.provide(TestContext.TestContext))
+    )
 
-    it.skip('should validate smoothing range (0-1)', () =>
+    it.effect('should validate smoothing range (0-1)', () =>
       Effect.gen(function* () {
         const validConfig: CameraConfig = {
           ...DEFAULT_CAMERA_CONFIG,
@@ -206,22 +199,19 @@ describe('CameraService', () => {
         const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(validConfig)
         expect(validatedConfig).toEqual(validConfig)
 
-        // Property-based testing for smoothing range
-        yield* PropertyTest.check(
-          fc.float({ min: Math.fround(0), max: Math.fround(1), noNaN: true }),
-          (smoothing) =>
-            Effect.gen(function* () {
-              // Clamp to ensure we stay within bounds after float operations
-              const clampedSmoothing = Math.max(0, Math.min(1, smoothing as number))
-              const config = { ...DEFAULT_CAMERA_CONFIG, smoothing: clampedSmoothing }
-              const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(config)
-              expect(validatedConfig).toEqual(config)
-              return true
-            }) as Effect.Effect<boolean, any, never>
-        )
+        // Test boundary values
+        const minConfig = { ...DEFAULT_CAMERA_CONFIG, smoothing: 0 }
+        const maxConfig = { ...DEFAULT_CAMERA_CONFIG, smoothing: 1 }
+
+        const validatedMinConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(minConfig)
+        expect(validatedMinConfig).toEqual(minConfig)
+
+        const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
+        expect(validatedMaxConfig).toEqual(maxConfig)
 
         return true
-      }).pipe(Effect.provide(TestContext.TestContext)))
+      }).pipe(Effect.provide(TestContext.TestContext))
+    )
 
     it.effect('should reject invalid configurations', () =>
       Effect.gen(function* () {
@@ -413,21 +403,25 @@ describe('CameraService', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    it.skip('should handle aspect ratio property-based testing', () =>
+    it.effect('should handle different aspect ratios', () =>
       Effect.gen(function* () {
         const cameraService = yield* CameraService
 
-        yield* PropertyTest.check(fc.float({ min: 0.5, max: 5.0 }), (aspectRatio) =>
-          Effect.gen(function* () {
-            const width = 1920
-            const height = Math.round(width / (aspectRatio as number))
-            yield* cameraService.updateAspectRatio(width, height)
-            return true
-          })
-        )
+        // Test common aspect ratios
+        const aspectRatios = [
+          { width: 1920, height: 1080 }, // 16:9
+          { width: 1024, height: 768 },  // 4:3
+          { width: 2560, height: 1080 }, // 21:9
+          { width: 800, height: 600 },   // 4:3
+        ]
+
+        for (const { width, height } of aspectRatios) {
+          yield* cameraService.updateAspectRatio(width, height)
+        }
 
         return true
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Mouse Look Control', () => {

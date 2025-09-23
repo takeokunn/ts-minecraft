@@ -2,14 +2,9 @@
  * WorldGenerator インターフェースのテスト
  * Issue #164対応 - World Generator Interface実装
  */
-import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
-import {
-  expectEffectSuccess,
-  expectEffectFailure,
-  expectEffectFailureWith,
-  testAllBranches,
-} from '../../../test/unified-test-helpers'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
 import {
   createWorldGenerator,
   GenerationError,
@@ -20,11 +15,55 @@ import {
   type StructureType,
 } from '../index.js'
 import { type ChunkPosition } from '../../chunk/ChunkPosition.js'
+import { NoiseGeneratorLive } from '../NoiseGenerator.js'
+import { TerrainGeneratorLive } from '../TerrainGenerator.js'
+import { BiomeGeneratorLive } from '../BiomeGenerator.js'
+import { CaveGeneratorLive } from '../CaveGenerator.js'
+import { OreDistributionLive, defaultOreConfigs } from '../OreDistribution.js'
+
+// ================================================================================
+// Test Layers - Layer-based DI Pattern
+// ================================================================================
+
+const TestLayer = Layer.mergeAll(
+  NoiseGeneratorLive({
+    seed: 12345,
+    octaves: 6,
+    persistence: 0.5,
+    lacunarity: 2.0,
+  }),
+  TerrainGeneratorLive({
+    seaLevel: 64,
+    maxHeight: 319,
+    minHeight: -64,
+    surfaceVariation: 32,
+    caveThreshold: 0.6,
+  }),
+  BiomeGeneratorLive({
+    temperatureScale: 0.002,
+    humidityScale: 0.003,
+    mountainThreshold: 80,
+    oceanDepth: 10,
+    riverWidth: 8,
+  }),
+  CaveGeneratorLive({
+    caveThreshold: 0.2,
+    caveScale: 0.02,
+    lavaLevel: 10,
+    ravineThreshold: 0.05,
+    ravineScale: 0.005,
+  }),
+  OreDistributionLive({
+    ores: defaultOreConfigs,
+    noiseScale: 0.05,
+    clusterThreshold: 0.6,
+  })
+)
 
 describe('WorldGenerator Interface', () => {
   describe('createWorldGenerator', () => {
-    it('デフォルトオプションでジェネレータを作成できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('デフォルトオプションでジェネレータを作成できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
 
         expect(generator).toBeDefined()
@@ -37,14 +76,11 @@ describe('WorldGenerator Interface', () => {
         expect(typeof generator.getOptions).toBe('function')
         expect(typeof generator.canGenerateStructure).toBe('function')
         expect(typeof generator.findNearestStructure).toBe('function')
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
+    )
 
-        return generator
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('カスタムオプションでジェネレータを作成できる', async () => {
+    it.effect('カスタムオプションでジェネレータを作成できる', () => {
       const customOptions: Partial<GeneratorOptions> = {
         seed: 12345,
         worldType: 'flat',
@@ -52,7 +88,7 @@ describe('WorldGenerator Interface', () => {
         biomeSize: 5,
       }
 
-      const effect = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const generator = yield* createWorldGenerator(customOptions)
         const options = generator.getOptions()
 
@@ -60,17 +96,14 @@ describe('WorldGenerator Interface', () => {
         expect(options.worldType).toBe('flat')
         expect(options.generateStructures).toBe(false)
         expect(options.biomeSize).toBe(5)
-
-        return generator
-      })
-
-      await expectEffectSuccess(effect)
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
     })
   })
 
   describe('チャンク生成', () => {
-    it('有効な座標でチャンクを生成できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('有効な座標でチャンクを生成できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
         const position: ChunkPosition = { x: 0, z: 0 }
 
@@ -81,15 +114,12 @@ describe('WorldGenerator Interface', () => {
         expect(result.biomes).toBeDefined()
         expect(result.structures).toBeDefined()
         expect(result.heightMap).toBeDefined()
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>
+    )
 
-        return result
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('複数のチャンクを生成できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('複数のチャンクを生成できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
         const positions: ChunkPosition[] = [
           { x: 0, z: 0 },
@@ -107,17 +137,14 @@ describe('WorldGenerator Interface', () => {
           expect(result.structures).toBeDefined()
           expect(result.heightMap).toBeDefined()
         })
-
-        return results
-      })
-
-      await expectEffectSuccess(effect)
-    })
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>
+    )
   })
 
   describe('構造物生成', () => {
-    it('構造物生成が有効な場合、構造物を生成できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('構造物生成が有効な場合、構造物を生成できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: true })
         const position: Vector3 = { x: 100, y: 64, z: 100 }
 
@@ -126,26 +153,25 @@ describe('WorldGenerator Interface', () => {
         expect(structure).toBeDefined()
         expect(structure.type).toBe('village')
         expect(structure.position).toEqual(position)
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, StructureGenerationError, never>
+    )
 
-        return structure
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('構造物生成が無効な場合、エラーを返す', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('構造物生成が無効な場合、エラーを返す', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: false })
         const position: Vector3 = { x: 100, y: 64, z: 100 }
 
-        return yield* generator.generateStructure('village', position)
-      })
+        // Effect.eitherでエラーをキャッチして検証
+        const result = yield* Effect.either(generator.generateStructure('village', position))
 
-      await expectEffectFailure(effect)
-    })
+        expect(result._tag).toBe('Left')
+        return true
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
+    )
 
-    it('すべての構造物タイプを生成できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('すべての構造物タイプを生成できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: true })
         const position: Vector3 = { x: 0, y: 64, z: 0 }
         const structureTypes: StructureType[] = ['village', 'mineshaft', 'stronghold', 'temple', 'dungeon']
@@ -155,17 +181,13 @@ describe('WorldGenerator Interface', () => {
         structures.forEach((structure, index) => {
           expect(structure.type).toBe(structureTypes[index])
         })
-
-        return structures
-      })
-
-      await expectEffectSuccess(effect)
-    })
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
   })
 
   describe('ワールド情報取得', () => {
-    it('スポーン地点を取得できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('スポーン地点を取得できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
 
         const spawnPoint = yield* generator.getSpawnPoint()
@@ -174,15 +196,11 @@ describe('WorldGenerator Interface', () => {
         expect(typeof spawnPoint.x).toBe('number')
         expect(typeof spawnPoint.y).toBe('number')
         expect(typeof spawnPoint.z).toBe('number')
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
 
-        return spawnPoint
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('バイオーム情報を取得できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('バイオーム情報を取得できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
         const position: Vector3 = { x: 0, y: 64, z: 0 }
 
@@ -192,15 +210,11 @@ describe('WorldGenerator Interface', () => {
         expect(biome.type).toBeDefined()
         expect(biome.temperature).toBeDefined()
         expect(biome.humidity).toBeDefined()
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
 
-        return biome
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('地形高さを取得できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('地形高さを取得できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
 
         const height = yield* generator.getTerrainHeight(0, 0)
@@ -208,47 +222,35 @@ describe('WorldGenerator Interface', () => {
         expect(typeof height).toBe('number')
         expect(height).toBeGreaterThanOrEqual(0)
         expect(height).toBeLessThanOrEqual(255)
-
-        return height
-      })
-
-      await expectEffectSuccess(effect)
-    })
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
   })
 
   describe('構造物検索', () => {
-    it('構造物生成可能性をチェックできる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('構造物生成可能性をチェックできる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: true })
         const position: Vector3 = { x: 0, y: 64, z: 0 }
 
         const canGenerate = yield* generator.canGenerateStructure('village', position)
 
         expect(typeof canGenerate).toBe('boolean')
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
 
-        return canGenerate
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('構造物生成が無効な場合、生成不可を返す', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('構造物生成が無効な場合、生成不可を返す', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: false })
         const position: Vector3 = { x: 0, y: 64, z: 0 }
 
         const canGenerate = yield* generator.canGenerateStructure('village', position)
 
         expect(canGenerate).toBe(false)
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
+    )
 
-        return canGenerate
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('最近接構造物を検索できる', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('最近接構造物を検索できる', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: true })
 
         // まず構造物を生成
@@ -262,15 +264,11 @@ describe('WorldGenerator Interface', () => {
         expect(foundStructure).toBeDefined()
         expect(foundStructure?.type).toBe('village')
         expect(foundStructure?.position).toEqual(structurePos)
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, GenerationError | StructureGenerationError, never>
+    )
 
-        return foundStructure
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('範囲外の構造物は見つからない', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('範囲外の構造物は見つからない', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ generateStructures: true })
 
         // 遠い場所に構造物を生成
@@ -282,32 +280,24 @@ describe('WorldGenerator Interface', () => {
         const foundStructure = yield* generator.findNearestStructure('village', searchPos, 10)
 
         expect(foundStructure).toBeNull()
-
-        return foundStructure
-      })
-
-      await expectEffectSuccess(effect)
-    })
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, GenerationError | StructureGenerationError, never>
+    )
   })
 
   describe('設定とメタデータ', () => {
-    it('シード値を取得できる', async () => {
+    it.effect('シード値を取得できる', () => {
       const customSeed = 98765
 
-      const effect = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const generator = yield* createWorldGenerator({ seed: customSeed })
 
         const seed = generator.getSeed()
 
         expect(seed).toBe(customSeed)
-
-        return seed
-      })
-
-      await expectEffectSuccess(effect)
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
     })
 
-    it('ジェネレータオプションを取得できる', async () => {
+    it.effect('ジェネレータオプションを取得できる', () => {
       const customOptions: Partial<GeneratorOptions> = {
         seed: 11111,
         worldType: 'amplified',
@@ -316,7 +306,7 @@ describe('WorldGenerator Interface', () => {
         biomeSize: 7,
       }
 
-      const effect = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const generator = yield* createWorldGenerator(customOptions)
         const options = generator.getOptions()
 
@@ -325,17 +315,13 @@ describe('WorldGenerator Interface', () => {
         expect(options.generateStructures).toBe(true)
         expect(options.bonusChest).toBe(true)
         expect(options.biomeSize).toBe(7)
-
-        return options
-      })
-
-      await expectEffectSuccess(effect)
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, never, never>
     })
   })
 
   describe('エッジケース', () => {
-    it('極座標でのチャンク生成', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('極座標でのチャンク生成', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
         const extremePositions: ChunkPosition[] = [
           { x: Number.MAX_SAFE_INTEGER, z: 0 },
@@ -352,15 +338,11 @@ describe('WorldGenerator Interface', () => {
           expect(result.structures).toBeDefined()
           expect(result.heightMap).toBeDefined()
         })
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, GenerationError, never>
+    )
 
-        return results
-      })
-
-      await expectEffectSuccess(effect)
-    })
-
-    it('無効な構造物タイプでの生成', async () => {
-      const effect = Effect.gen(function* () {
+    it.effect('無効な構造物タイプでの生成', () =>
+      Effect.gen(function* () {
         const generator = yield* createWorldGenerator()
         const position: Vector3 = { x: 0, y: 64, z: 0 }
 
@@ -371,11 +353,7 @@ describe('WorldGenerator Interface', () => {
 
         // 無効なタイプでも何らかの構造物が生成される（フォールバック動作）
         expect(structure).toBeDefined()
-
-        return structure
-      })
-
-      await expectEffectSuccess(effect)
-    })
+      }).pipe(Effect.provide(TestLayer)) as Effect.Effect<void, StructureGenerationError, never>
+    )
   })
 })

@@ -94,6 +94,9 @@ describe('app', () => {
     })
 
     it('app要素がnullでない場合のみ動作する', () => {
+      // DOM環境を確実にセットアップ
+      document.body.innerHTML = '<div id="app"></div>'
+
       // 正常なapp要素が存在する場合
       const app = document.querySelector<HTMLDivElement>('#app')
       expect(app).not.toBeNull()

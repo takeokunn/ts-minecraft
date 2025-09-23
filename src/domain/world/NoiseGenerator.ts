@@ -5,10 +5,10 @@ import { Schema } from '@effect/schema'
  * ノイズ生成の設定オプション
  */
 export const NoiseConfigSchema = Schema.Struct({
-  seed: Schema.Number,
-  octaves: Schema.Number,
-  persistence: Schema.Number,
-  lacunarity: Schema.Number,
+  seed: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  octaves: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
+  persistence: Schema.Number.pipe(Schema.between(0.1, 1.0)),
+  lacunarity: Schema.Number.pipe(Schema.between(1.5, 3.0)),
 })
 
 export type NoiseConfig = Schema.Schema.Type<typeof NoiseConfigSchema>

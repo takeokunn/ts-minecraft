@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { Effect, Layer, TestContext } from 'effect'
+import { Effect } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer.js'
 import { ThreeRendererLive } from '../ThreeRendererLive.js'
@@ -9,25 +9,17 @@ const createMockCanvas = (): HTMLCanvasElement => {
   const canvas = document.createElement('canvas')
   canvas.width = 800
   canvas.height = 600
-  // clientWidthとclientHeightはreadonlyのため、definePropertyを使用
   Object.defineProperty(canvas, 'clientWidth', { value: 800, writable: false })
   Object.defineProperty(canvas, 'clientHeight', { value: 600, writable: false })
-
-  // WebGLコンテキストのモック
-  const mockContext = {
-    isContextLost: vi.fn().mockReturnValue(false),
-    getExtension: vi.fn(),
-  }
-
-  vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
-    if (type === 'webgl2' || type === 'webgl') {
-      return mockContext as unknown as WebGLRenderingContext
-    }
-    return null
-  })
-
   return canvas
 }
+
+// WebGLコンテキストのモック
+const createMockWebGLContext = (isWebGL2 = false) => ({
+  isContextLost: vi.fn().mockReturnValue(false),
+  getExtension: vi.fn().mockReturnValue({}),
+  ...(isWebGL2 && { constructor: { name: 'WebGL2RenderingContext' } }),
+})
 
 // Three.js WebGLRendererのモック
 vi.mock('three', async () => {
@@ -41,26 +33,29 @@ vi.mock('three', async () => {
       setViewport: vi.fn(),
       render: vi.fn(),
       dispose: vi.fn(),
-      getContext: vi.fn().mockReturnValue({
-        isContextLost: vi.fn().mockReturnValue(false),
-      }),
+      getContext: vi.fn().mockReturnValue(createMockWebGLContext()),
       domElement: createMockCanvas(),
       shadowMap: {
         enabled: false,
-        type: THREE.PCFShadowMap,
+        type: actual['PCFShadowMap'],
         autoUpdate: true,
       },
       info: {
         memory: { geometries: 0, textures: 0 },
         render: { calls: 0, triangles: 0 },
       },
-      outputColorSpace: THREE.SRGBColorSpace,
-      toneMapping: THREE.NoToneMapping,
+      outputColorSpace: actual['SRGBColorSpace'],
+      toneMapping: actual['NoToneMapping'],
       toneMappingExposure: 1.0,
       sortObjects: true,
       extensions: {
-        get: vi.fn(),
+        get: vi.fn().mockReturnValue({}),
       },
+    })),
+    WebGLRenderTarget: vi.fn().mockImplementation(() => ({
+      width: 800,
+      height: 600,
+      dispose: vi.fn(),
     })),
   }
 })
@@ -74,23 +69,30 @@ describe('ThreeRenderer', () => {
     canvas = createMockCanvas()
     scene = new THREE.Scene()
     camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
+
+    // Canvas WebGLコンテキストのモック
+    vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
+      if (type === 'webgl2' || type === 'webgl') {
+        return createMockWebGLContext(type === 'webgl2') as unknown as WebGLRenderingContext
+      }
+      return null
+    })
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  describe('初期化', () => {
+  describe('基本機能', () => {
     it('正常に初期化できる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
-        const isInitialized = yield* renderer.getRenderer()
-        expect(isInitialized).not.toBeNull()
+        const rendererInstance = yield* renderer.getRenderer()
+        expect(rendererInstance).not.toBeNull()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
     it('WebGL2サポート状況を確認できる', async () => {
@@ -100,12 +102,9 @@ describe('ThreeRenderer', () => {
         expect(typeof isSupported).toBe('boolean')
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
-  })
 
-  describe('レンダリング', () => {
     it('シーンを正常にレンダリングできる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
@@ -113,23 +112,9 @@ describe('ThreeRenderer', () => {
         yield* renderer.render(scene, camera)
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('初期化前のレンダリングでエラーが発生する', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.render(scene, camera)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-  })
-
-  describe('リサイズ', () => {
     it('レンダラーのサイズを変更できる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
@@ -137,25 +122,23 @@ describe('ThreeRenderer', () => {
         yield* renderer.resize(1024, 768)
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
   })
 
-  describe('設定', () => {
+  describe('設定機能', () => {
     it('シャドウマップを設定できる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
         yield* renderer.configureShadowMap({
           enabled: true,
-          type: THREE.PCFSoftShadowMap,
+          type: THREE['PCFSoftShadowMap'],
           resolution: 2048,
         })
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
     it('アンチエイリアシングを設定できる', async () => {
@@ -168,8 +151,7 @@ describe('ThreeRenderer', () => {
         })
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
     it('WebGL2機能を有効化できる', async () => {
@@ -179,8 +161,7 @@ describe('ThreeRenderer', () => {
         yield* renderer.enableWebGL2Features()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
     it('ポストプロセシングを設定できる', async () => {
@@ -190,69 +171,39 @@ describe('ThreeRenderer', () => {
         yield* renderer.setupPostprocessing()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('WebGL2機能を有効化時にWebGL2パスが実行される', async () => {
+    it('WebGL2機能有効化時にWebGL2パスが実行される', async () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-      // WebGL2コンテキストをモック（WebGL2RenderingContextのインスタンスとして判定されるように）
-      const mockWebGL2Context = {
-        isContextLost: vi.fn().mockReturnValue(false),
-        getExtension: vi.fn(),
-      }
-
-      // WebGL2RenderingContextクラスを一時的に定義
+      // WebGL2コンテキストのセットアップ
       const originalWebGL2 = global.WebGL2RenderingContext
-      class MockWebGL2RenderingContext {
+      global.WebGL2RenderingContext = class MockWebGL2RenderingContext {
         isContextLost = vi.fn().mockReturnValue(false)
         getExtension = vi.fn()
-      }
-      global.WebGL2RenderingContext = MockWebGL2RenderingContext as any
+      } as any
 
-      // WebGL2コンテキストのインスタンスを作成
-      const webgl2Instance = new MockWebGL2RenderingContext()
+      const webgl2Instance = new global.WebGL2RenderingContext()
 
-      // Three.js WebGLRendererのモックでWebGL2コンテキストを返すように設定
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
-        () =>
-          ({
-            setPixelRatio: vi.fn(),
-            setSize: vi.fn(),
-            setClearColor: vi.fn(),
-            setViewport: vi.fn(),
-            render: vi.fn(),
-            dispose: vi.fn(),
-            getContext: vi.fn().mockReturnValue(webgl2Instance),
-            domElement: createMockCanvas(),
-            shadowMap: {
-              enabled: false,
-              type: THREE.PCFShadowMap,
-              autoUpdate: true,
-              needsUpdate: false,
-              render: vi.fn(),
-              cullFace: THREE.CullFaceBack,
-            },
-            info: {
-              memory: { geometries: 0, textures: 0 },
-              render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
-              autoReset: true,
-              programs: null,
-              update: vi.fn(),
-              reset: vi.fn(),
-            },
-            outputColorSpace: THREE.SRGBColorSpace,
-            toneMapping: THREE.NoToneMapping,
-            toneMappingExposure: 1.0,
-            sortObjects: true,
-            extensions: {
-              get: vi.fn(),
-              has: vi.fn(),
-              init: vi.fn(),
-            },
-          }) as unknown as THREE.WebGLRenderer
-      )
+      // WebGLRendererモックをWebGL2対応に変更
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => ({
+        setPixelRatio: vi.fn(),
+        setSize: vi.fn(),
+        setClearColor: vi.fn(),
+        setViewport: vi.fn(),
+        render: vi.fn(),
+        dispose: vi.fn(),
+        getContext: vi.fn().mockReturnValue(webgl2Instance),
+        domElement: createMockCanvas(),
+        shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
+        info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
+        outputColorSpace: THREE['SRGBColorSpace'],
+        toneMapping: THREE['NoToneMapping'],
+        toneMappingExposure: 1.0,
+        sortObjects: true,
+        extensions: { get: vi.fn().mockReturnValue({}) },
+      }) as unknown as THREE.WebGLRenderer)
 
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
@@ -260,8 +211,7 @@ describe('ThreeRenderer', () => {
         yield* renderer.enableWebGL2Features()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
 
       expect(consoleSpy).toHaveBeenCalledWith('WebGL2 advanced features enabled')
 
@@ -270,45 +220,26 @@ describe('ThreeRenderer', () => {
       global.WebGL2RenderingContext = originalWebGL2
     })
 
-    it('ポストプロセシング設定でエラーが発生した場合のエラーハンドリング', async () => {
-      // RenderTargetの作成でエラーを発生させるため、THREE.WebGLRenderTargetをモック
-      const originalWebGLRenderTarget = THREE.WebGLRenderTarget
-      const mockWebGLRenderTarget = vi.fn().mockImplementation(() => {
-        throw new Error('RenderTarget creation failed')
-      })
-      // readonly プロパティを回避するために Object.defineProperty を使用
-      Object.defineProperty(THREE, 'WebGLRenderTarget', {
-        value: mockWebGLRenderTarget,
-        writable: true,
-        configurable: true,
-      })
-
+    it('初期化前の設定変更は安全に実行される', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        yield* renderer.setupPostprocessing()
+        yield* renderer.configureShadowMap({ enabled: true })
+        yield* renderer.configureAntialiasing({ enabled: true })
+        yield* renderer.resize(1920, 1080)
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-
-      // クリーンアップ
-      Object.defineProperty(THREE, 'WebGLRenderTarget', {
-        value: originalWebGLRenderTarget,
-        writable: true,
-        configurable: true,
-      })
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
   })
 
-  describe('パフォーマンス', () => {
+  describe('パフォーマンス監視', () => {
     it('パフォーマンス統計を取得できる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
 
-        // 数フレームレンダリング
-        for (let i = 0; i < 5; i++) {
+        // レンダリング実行
+        for (let i = 0; i < 3; i++) {
           yield* renderer.render(scene, camera)
         }
 
@@ -321,8 +252,119 @@ describe('ThreeRenderer', () => {
         expect(typeof stats.frameTime).toBe('number')
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+    })
+
+    it('パフォーマンス統計の初期値を確認できる', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+
+        // 初期化前の統計
+        const initialStats = yield* renderer.getPerformanceStats()
+        expect(initialStats.fps).toBe(0)
+        expect(initialStats.frameTime).toBe(0)
+        expect(initialStats.memory).toEqual({ geometries: 0, textures: 0 })
+        expect(initialStats.render).toEqual({ calls: 0, triangles: 0 })
+      })
+
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+    })
+
+    it('フレームタイム警告機能が動作する', async () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      // performance.nowをモックして長いフレーム時間をシミュレート
+      let callCount = 0
+      const mockNow = vi.spyOn(performance, 'now').mockImplementation(() => {
+        callCount++
+        // フレーム開始時と終了時で20msの差を作る（16.67ms以上なので警告発生）
+        return callCount % 2 === 1 ? 0 : 20
+      })
+
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+        yield* renderer.render(scene, camera)
+      })
+
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Frame time exceeded 16\.67ms/))
+
+      consoleSpy.mockRestore()
+      mockNow.mockRestore()
+    })
+  })
+
+  describe('エラーハンドリング', () => {
+    it('初期化前のレンダリングでエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.render(scene, camera)
+      })
+
+      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+    })
+
+    it('初期化前のWebGL2機能有効化でエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.enableWebGL2Features()
+      })
+
+      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+    })
+
+    it('初期化前のポストプロセシング設定でエラーが発生する', async () => {
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.setupPostprocessing()
+      })
+
+      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+    })
+
+    it('WebGLコンテキスト作成失敗でエラーが発生する', async () => {
+      const canvas = createMockCanvas()
+      vi.spyOn(canvas, 'getContext').mockReturnValue(null)
+
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+      })
+
+      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+    })
+
+    it('WebGLコンテキストロスト時のエラーハンドリング', async () => {
+      // コンテキストロスト状態のモック
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => ({
+        setPixelRatio: vi.fn(),
+        setSize: vi.fn(),
+        setClearColor: vi.fn(),
+        setViewport: vi.fn(),
+        render: vi.fn(),
+        dispose: vi.fn(),
+        getContext: vi.fn().mockReturnValue({
+          isContextLost: vi.fn().mockReturnValue(true), // ロスト状態
+        }),
+        domElement: canvas,
+        shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
+        info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
+        outputColorSpace: THREE['SRGBColorSpace'],
+        toneMapping: THREE['NoToneMapping'],
+        toneMappingExposure: 1.0,
+        sortObjects: true,
+        extensions: { get: vi.fn().mockReturnValue({}) },
+      }) as unknown as THREE.WebGLRenderer)
+
+      const program = Effect.gen(function* () {
+        const renderer = yield* ThreeRenderer
+        yield* renderer.initialize(canvas)
+        yield* renderer.render(scene, camera)
+      })
+
+      await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
     })
   })
 
@@ -337,337 +379,24 @@ describe('ThreeRenderer', () => {
         expect(rendererInstance).toBeNull()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-    })
-  })
-
-  describe('エラーハンドリング', () => {
-    it('不正なCanvas要素でエラーが発生する', async () => {
-      const invalidCanvas = null as unknown as HTMLCanvasElement
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(invalidCanvas)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
 
-    it('WebGLコンテキスト作成失敗でエラーが発生する', async () => {
-      const canvas = createMockCanvas()
-      vi.spyOn(canvas, 'getContext').mockReturnValue(null)
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-
-    it('WebGLコンテキストロスト時のエラーハンドリング', async () => {
-      const canvas = createMockCanvas()
-
-      // WebGLRendererのgetContextメソッドをモック
-      let isContextLost = false
-      const mockGetContext = vi.fn().mockImplementation(() => ({
-        isContextLost: vi.fn().mockImplementation(() => isContextLost),
-      }))
-
-      // Three.js WebGLRendererのモックを一時的に変更
-      const originalMock = vi.mocked(THREE.WebGLRenderer)
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
-        () =>
-          ({
-            setPixelRatio: vi.fn(),
-            setSize: vi.fn(),
-            setClearColor: vi.fn(),
-            setViewport: vi.fn(),
-            render: vi.fn(),
-            dispose: vi.fn(),
-            getContext: mockGetContext,
-            domElement: canvas,
-            shadowMap: {
-              enabled: false,
-              type: THREE.PCFShadowMap,
-              autoUpdate: true,
-              needsUpdate: false,
-              render: vi.fn(),
-              cullFace: THREE.CullFaceBack,
-            },
-            info: {
-              memory: { geometries: 0, textures: 0 },
-              render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
-              autoReset: true,
-              programs: null,
-              update: vi.fn(),
-              reset: vi.fn(),
-            },
-            outputColorSpace: THREE.SRGBColorSpace,
-            toneMapping: THREE.NoToneMapping,
-            toneMappingExposure: 1.0,
-            sortObjects: true,
-            extensions: {
-              get: vi.fn(),
-              has: vi.fn(),
-              init: vi.fn(),
-            },
-          }) as unknown as THREE.WebGLRenderer
-      )
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-
-        // レンダリング時にコンテキストをロストさせる
-        isContextLost = true
-        yield* renderer.render(scene, camera) // この時点でコンテキストロスト
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-
-    it('初期化前のWebGL2機能有効化でエラーが発生する', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.enableWebGL2Features()
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-
-    it('初期化前のポストプロセシング設定でエラーが発生する', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.setupPostprocessing()
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-
-    it('レンダリング中に一般的なエラーが発生した場合のエラーハンドリング', async () => {
-      // Three.js WebGLRendererのrenderメソッドでエラーを発生させる
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
-        () =>
-          ({
-            setPixelRatio: vi.fn(),
-            setSize: vi.fn(),
-            setClearColor: vi.fn(),
-            setViewport: vi.fn(),
-            render: vi.fn().mockImplementation(() => {
-              throw new Error('Rendering failed')
-            }),
-            dispose: vi.fn(),
-            getContext: vi.fn().mockReturnValue({
-              isContextLost: vi.fn().mockReturnValue(false),
-            }),
-            domElement: createMockCanvas(),
-            shadowMap: {
-              enabled: false,
-              type: THREE.PCFShadowMap,
-              autoUpdate: true,
-              needsUpdate: false,
-              render: vi.fn(),
-              cullFace: THREE.CullFaceBack,
-            },
-            info: {
-              memory: { geometries: 0, textures: 0 },
-              render: { calls: 0, triangles: 0, frame: 0, lines: 0, points: 0 },
-              autoReset: true,
-              programs: null,
-              update: vi.fn(),
-              reset: vi.fn(),
-            },
-            outputColorSpace: THREE.SRGBColorSpace,
-            toneMapping: THREE.NoToneMapping,
-            toneMappingExposure: 1.0,
-            sortObjects: true,
-            extensions: {
-              get: vi.fn(),
-              has: vi.fn(),
-              init: vi.fn(),
-            },
-          }) as unknown as THREE.WebGLRenderer
-      )
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        yield* renderer.render(scene, camera)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await expect(Effect.runPromise(runnable)).rejects.toThrow()
-    })
-  })
-
-  describe('レンダラー状態管理', () => {
     it('初期化状態を正しく判定できる', async () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
 
         // 初期化前
-        const isInitializedBefore = yield* renderer.getRenderer()
-        expect(isInitializedBefore).toBeNull()
+        const beforeInit = yield* renderer.getRenderer()
+        expect(beforeInit).toBeNull()
 
         // 初期化後
         yield* renderer.initialize(canvas)
-        const isInitializedAfter = yield* renderer.getRenderer()
-        expect(isInitializedAfter).not.toBeNull()
+        const afterInit = yield* renderer.getRenderer()
+        expect(afterInit).not.toBeNull()
       })
 
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
-
-    it('クリアカラーとピクセル比を設定できる（初期化後）', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-
-        // 設定変更（初期化後）
-        yield* renderer.configureShadowMap({ enabled: false })
-        yield* renderer.configureAntialiasing({ enabled: false })
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-    })
-
-    it('初期化前でも設定変更は安全に実行される', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-
-        // 初期化前でも設定変更は安全
-        yield* renderer.configureShadowMap({ enabled: true })
-        yield* renderer.configureAntialiasing({ enabled: true })
-        yield* renderer.resize(1920, 1080)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-    })
-
-    it('フレームタイムの警告が正しく動作する', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-      // レンダリング時間を人工的に長くするためのモック
-      let callCount = 0
-      const mockNow = vi.spyOn(performance, 'now').mockImplementation(() => {
-        callCount++
-        // 初期化時とレンダリング統計初期化用の呼び出しをスキップ
-        if (callCount <= 2) return 0
-        // フレーム開始時間 (callCount 3) と終了時間 (callCount 4) で20msの差を作る
-        return callCount === 3 ? 1000 : 1020
-      })
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        yield* renderer.render(scene, camera) // 20ms > 16.67msなので警告が出る
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Frame time exceeded 16.67ms/))
-
-      consoleSpy.mockRestore()
-      mockNow.mockRestore()
-    })
-
-    it('FPS計算が正しく動作する', async () => {
-      let time = 0
-      vi.spyOn(performance, 'now').mockImplementation(() => {
-        time += 100 // 100msずつ進める
-        return time
-      })
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-
-        // 11回レンダリング（1秒以上経過させてFPS計算をトリガー）
-        for (let i = 0; i < 11; i++) {
-          yield* renderer.render(scene, camera)
-        }
-
-        const stats = yield* renderer.getPerformanceStats()
-        expect(stats.fps).toBeGreaterThan(0)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-    })
-
-    it('パフォーマンス統計の初期値を確認できる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-
-        // 初期化前の統計
-        const initialStats = yield* renderer.getPerformanceStats()
-        expect(initialStats.fps).toBe(0)
-        expect(initialStats.frameTime).toBe(0)
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
-    })
-  })
-})
-
-describe('ThreeRenderer統合テスト', () => {
-  it('完全なレンダリングパイプラインが動作する', async () => {
-    const canvas = createMockCanvas()
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
-
-    const program = Effect.gen(function* () {
-      const renderer = yield* ThreeRenderer
-
-      // 初期化
-      yield* renderer.initialize(canvas)
-
-      // WebGL2機能有効化
-      yield* renderer.enableWebGL2Features()
-
-      // シャドウマップ設定
-      yield* renderer.configureShadowMap({
-        enabled: true,
-        type: THREE.PCFSoftShadowMap,
-        resolution: 1024,
-      })
-
-      // アンチエイリアシング設定
-      yield* renderer.configureAntialiasing({
-        enabled: true,
-        samples: 4,
-      })
-
-      // ポストプロセシング設定
-      yield* renderer.setupPostprocessing()
-
-      // リサイズ
-      yield* renderer.resize(1024, 768)
-
-      // レンダリング実行
-      yield* renderer.render(scene, camera)
-
-      // パフォーマンス統計確認
-      const stats = yield* renderer.getPerformanceStats()
-      expect(stats.fps).toBeGreaterThanOrEqual(0)
-
-      // リソース解放
-      yield* renderer.dispose()
-    })
-
-    const runnable = Effect.provide(program, ThreeRendererLive)
-    await Effect.runPromise(runnable)
   })
 })

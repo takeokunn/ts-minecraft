@@ -12,3 +12,5 @@ public/*
 .devenv/
 __snapshots__/
 src/**/*.js
+/test-results/
+/html/

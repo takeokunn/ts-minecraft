@@ -3,8 +3,9 @@
  * 1対1対応テストファイル
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect, TestContext } from 'effect'
+import { describe, expect, beforeEach } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, TestContext, TestClock } from 'effect'
 import {
   ViewDistance,
   ViewDistanceLive,
@@ -23,8 +24,7 @@ import type { ChunkPosition } from '../ChunkPosition.js'
 // Test Utilities
 // =============================================================================
 
-const runViewDistanceTest = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.runSync(Effect.provide(effect, ViewDistanceLive()) as Effect.Effect<A, E, never>)
+// runViewDistanceTest helper removed - use it.effect with proper provider pattern instead
 
 const createMockMetrics = (overrides: Partial<PerformanceMetrics> = {}): PerformanceMetrics => ({
   frameRate: 60,
@@ -266,51 +266,45 @@ describe('Chunk Position Functions', () => {
 
 describe('ViewDistance Service', () => {
   describe('Configuration', () => {
-    it('デフォルト設定でサービスを作成できる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('デフォルト設定でサービスを作成できる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
         const currentDistance = yield* viewDistance.getCurrentViewDistance()
 
         expect(currentDistance).toBe(defaultViewDistanceConfig.defaultViewDistance)
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('カスタム設定でサービスを作成できる', () => {
+    it.effect('カスタム設定でサービスを作成できる', () => {
       const customConfig = {
         ...defaultViewDistanceConfig,
         defaultViewDistance: 8,
         maxViewDistance: 24,
       }
 
-      const test = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
         const currentDistance = yield* viewDistance.getCurrentViewDistance()
 
         expect(currentDistance).toBe(8)
-      })
-
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(customConfig)) as Effect.Effect<any, any, never>)
+      }).pipe(Effect.provide(ViewDistanceLive(customConfig)))
     })
   })
 
   describe('setViewDistance', () => {
-    it('描画距離を設定できる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('描画距離を設定できる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         yield* viewDistance.setViewDistance(12, 'manual')
         const newDistance = yield* viewDistance.getCurrentViewDistance()
 
         expect(newDistance).toBe(12)
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('設定時に最小・最大値で制限される', () => {
-      const test = Effect.gen(function* () {
+    it.effect('設定時に最小・最大値で制限される', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // 最小値未満
@@ -320,13 +314,11 @@ describe('ViewDistance Service', () => {
         // 最大値超過
         yield* viewDistance.setViewDistance(50, 'manual')
         expect(yield* viewDistance.getCurrentViewDistance()).toBe(defaultViewDistanceConfig.maxViewDistance)
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('同じ値の設定では履歴が更新されない', () => {
-      const test = Effect.gen(function* () {
+    it.effect('同じ値の設定では履歴が更新されない', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         const initialStats = yield* viewDistance.getPerformanceStats()
@@ -336,15 +328,13 @@ describe('ViewDistance Service', () => {
 
         const newStats = yield* viewDistance.getPerformanceStats()
         expect(newStats.adjustmentHistory).toHaveLength(initialHistoryLength)
-      })
-
-      runViewDistanceTest(test)
-    })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 
   describe('updateMetrics', () => {
-    it('パフォーマンスメトリクスを更新できる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('パフォーマンスメトリクスを更新できる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
         const metrics = createMockMetrics({ frameRate: 45 })
 
@@ -352,13 +342,11 @@ describe('ViewDistance Service', () => {
 
         const stats = yield* viewDistance.getPerformanceStats()
         expect(stats.currentMetrics?.frameRate).toBe(45)
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('複数のメトリクスを履歴として保持する', () => {
-      const test = Effect.gen(function* () {
+    it.effect('複数のメトリクスを履歴として保持する', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         const metrics1 = createMockMetrics({ frameRate: 60 })
@@ -370,18 +358,16 @@ describe('ViewDistance Service', () => {
         const stats = yield* viewDistance.getPerformanceStats()
         expect(stats.currentMetrics?.frameRate).toBe(45)
         expect(stats.averageMetrics?.frameRate).toBe(52.5) // (60+45)/2
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('履歴サイズの制限が適用される', () => {
+    it.effect('履歴サイズの制限が適用される', () => {
       const config = {
         ...defaultViewDistanceConfig,
         metricsHistorySize: 3,
       }
 
-      const test = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // 制限を超えるメトリクスを追加
@@ -394,20 +380,18 @@ describe('ViewDistance Service', () => {
         // 最新の3つのみ保持されていることを確認
         // 平均は最後の3つ: (62+63+64)/3 = 63
         expect(stats.averageMetrics?.frameRate).toBe(63)
-      })
-
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)) as Effect.Effect<any, any, never>)
+      }).pipe(Effect.provide(ViewDistanceLive(config)))
     })
   })
 
   describe('performAdaptiveAdjustment', () => {
-    it('適応調整が無効の場合はnullを返す', () => {
+    it.effect('適応調整が無効の場合はnullを返す', () => {
       const config = {
         ...defaultViewDistanceConfig,
         adaptiveEnabled: false,
       }
 
-      const test = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // メトリクスを追加
@@ -417,13 +401,11 @@ describe('ViewDistance Service', () => {
 
         const adjustment = yield* viewDistance.performAdaptiveAdjustment()
         expect(adjustment).toBeNull()
-      })
-
-      Effect.runSync(Effect.provide(test, ViewDistanceLive(config)) as Effect.Effect<any, any, never>)
+      }).pipe(Effect.provide(ViewDistanceLive(config)))
     })
 
-    it('メトリクス履歴が不足している場合はnullを返す', () => {
-      const test = Effect.gen(function* () {
+    it.effect('メトリクス履歴が不足している場合はnullを返す', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // 少ないメトリクスのみ追加
@@ -431,13 +413,11 @@ describe('ViewDistance Service', () => {
 
         const adjustment = yield* viewDistance.performAdaptiveAdjustment()
         expect(adjustment).toBeNull()
-      })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
 
-      runViewDistanceTest(test)
-    })
-
-    it('低パフォーマンスで自動的に描画距離を減らす', () => {
-      const test = Effect.gen(function* () {
+    it.effect('低パフォーマンスで自動的に描画距離を減らす', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // 低パフォーマンスメトリクスを追加
@@ -445,48 +425,52 @@ describe('ViewDistance Service', () => {
           yield* viewDistance.updateMetrics(createMockMetrics({ frameRate: 30 }))
         }
 
-        // 時間を経過させるため少し待つ
-        yield* Effect.sleep('6 seconds')
+        // TestClockを使用して時間を進める（決定論的）
+        yield* TestClock.adjust('6 seconds')
 
         const adjustment = yield* viewDistance.performAdaptiveAdjustment()
 
         expect(adjustment).not.toBeNull()
         expect(adjustment?.newDistance).toBeLessThan(adjustment?.oldDistance ?? 0)
         expect(adjustment?.reason).toBe('performance_low')
-      })
-
-      runViewDistanceTest(test)
-    })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 
   describe('getVisibleChunks', () => {
-    it('現在の描画距離に基づいて見えるチャンクを返す', () => {
-      const test = Effect.gen(function* () {
+    it.effect('現在の描画距離に基づいて見えるチャンクを返す', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
-        yield* viewDistance.setViewDistance(2, 'manual')
+        yield* viewDistance.setViewDistance(8, 'manual')
+
+        // 設定が正しく反映されているかテスト
+        const currentDistance = yield* viewDistance.getCurrentViewDistance()
+        expect(currentDistance).toBe(8)
 
         const playerPos = { x: 0, y: 64, z: 0 }
         const visibleChunks = yield* viewDistance.getVisibleChunks(playerPos)
 
-        expect(visibleChunks).toHaveLength(25) // 5x5
-      })
-
-      runViewDistanceTest(test)
-    })
+        expect(visibleChunks).toHaveLength(289) // 17x17
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 
   describe('getVisibleChunksWithPriority', () => {
-    it('優先度付きでチャンクを返し、高い順にソートされる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('優先度付きでチャンクを返し、高い順にソートされる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
-        yield* viewDistance.setViewDistance(1, 'manual')
+        yield* viewDistance.setViewDistance(5, 'manual')
+
+        // 設定が正しく反映されているかテスト
+        const currentDistance = yield* viewDistance.getCurrentViewDistance()
+        expect(currentDistance).toBe(5)
 
         const playerPos = { x: 0, y: 64, z: 0 }
         const chunksWithPriority = yield* viewDistance.getVisibleChunksWithPriority(playerPos)
 
-        expect(chunksWithPriority).toHaveLength(9) // 3x3
+        expect(chunksWithPriority).toHaveLength(121) // 11x11
 
         // 優先度順にソートされていることを確認
         for (let i = 0; i < chunksWithPriority.length - 1; i++) {
@@ -496,15 +480,13 @@ describe('ViewDistance Service', () => {
         // 中心チャンクが最高優先度であることを確認
         const centerChunk = chunksWithPriority.find((c) => c.position.x === 0 && c.position.z === 0)
         expect(centerChunk?.priority).toBe(chunksWithPriority[0]?.priority)
-      })
-
-      runViewDistanceTest(test)
-    })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 
   describe('updateConfig', () => {
-    it('設定を部分的に更新できる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('設定を部分的に更新できる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         yield* viewDistance.updateConfig({
@@ -517,15 +499,13 @@ describe('ViewDistance Service', () => {
         const newDistance = yield* viewDistance.getCurrentViewDistance()
 
         expect(newDistance).toBe(20) // 新しい最大値で制限される
-      })
-
-      runViewDistanceTest(test)
-    })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 
   describe('Performance Statistics', () => {
-    it('パフォーマンス統計を正しく取得できる', () => {
-      const test = Effect.gen(function* () {
+    it.effect('パフォーマンス統計を正しく取得できる', () =>
+      Effect.gen(function* () {
         const viewDistance = yield* ViewDistance
 
         // メトリクスを追加
@@ -541,10 +521,8 @@ describe('ViewDistance Service', () => {
         expect(stats.averageMetrics?.frameRate).toBe(52.5)
         expect(stats.adjustmentHistory).toHaveLength(1)
         expect(stats.adjustmentHistory[0]?.newDistance).toBe(12)
-      })
-
-      runViewDistanceTest(test)
-    })
+      }).pipe(Effect.provide(ViewDistanceLive()))
+    )
   })
 })
 
@@ -553,8 +531,8 @@ describe('ViewDistance Service', () => {
 // =============================================================================
 
 describe('Integration Tests', () => {
-  it('完全なワークフロー: メトリクス更新→適応調整→チャンク取得', () => {
-    const test = Effect.gen(function* () {
+  it.effect('完全なワークフロー: メトリクス更新→適応調整→チャンク取得', () =>
+    Effect.gen(function* () {
       const viewDistance = yield* ViewDistance
 
       // 初期状態
@@ -571,8 +549,8 @@ describe('Integration Tests', () => {
         )
       }
 
-      // 時間経過をシミュレート
-      yield* Effect.sleep('6 seconds')
+      // 時間経過をシミュレート（決定論的）
+      yield* TestClock.adjust('6 seconds')
 
       // 適応調整を実行
       const adjustment = yield* viewDistance.performAdaptiveAdjustment()
@@ -587,8 +565,6 @@ describe('Integration Tests', () => {
       // 減った描画距離に応じてチャンク数も減る
       const expectedChunks = (adjustment?.newDistance ?? 0) * 2 + 1
       expect(visibleChunks.length).toBeLessThanOrEqual(expectedChunks * expectedChunks)
-    })
-
-    runViewDistanceTest(test)
-  })
+    }).pipe(Effect.provide(ViewDistanceLive()))
+  )
 })

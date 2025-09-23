@@ -73,6 +73,15 @@ export const lruGet = <K, V>(cache: LRUCacheState<K, V>, key: K): [V | undefined
 }
 
 export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUCacheState<K, V> => {
+  // maxSize=0の場合は何も保存せずに空の状態を維持
+  if (cache.maxSize === 0) {
+    return {
+      ...cache,
+      cache: new Map(),
+      accessOrder: []
+    }
+  }
+
   const newCache = new Map(cache.cache)
   let newAccessOrder = [...cache.accessOrder]
 

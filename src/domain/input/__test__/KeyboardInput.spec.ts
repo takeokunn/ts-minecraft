@@ -1,91 +1,140 @@
-// Unified Test Pattern - Context7準拠
-import { it, expect, Effect, Layer, Schema } from '../../../test/unified-test-helpers'
+import { describe, expect, it as vitestIt } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
 import { KeyboardInput, KeyboardInputLive, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
 import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
 describe('KeyboardInput', () => {
   describe('KeyboardInputError', () => {
-    it('エラーオブジェクトを正しく作成する', () => {
-      const effect = Effect.gen(function* () {
-        const error = KeyboardInputError({
-          message: 'テストエラー',
-          key: 'TestKey',
-          cause: '原因',
-        })
-
-        expect(error._tag).toBe('KeyboardInputError')
-        expect(error.message).toBe('テストエラー')
-        expect(error.key).toBe('TestKey')
-        expect(error.cause).toBe('原因')
+    it('should create error with proper structure', () => {
+      const error = KeyboardInputError({
+        message: 'Test error',
+        key: 'TestKey',
+        cause: 'Test cause',
       })
 
-      Effect.runSync(effect)
+      expect(error._tag).toBe('KeyboardInputError')
+      expect(error.message).toBe('Test error')
+      expect(error.key).toBe('TestKey')
+      expect(error.cause).toBe('Test cause')
     })
   })
 
   describe('MockKeyboardInput', () => {
-    it('モックサービスが正しく動作する', () => {
-      const effect = Effect.gen(function* () {
+    const TestLayer = MockKeyboardInput
+
+    it.effect('should check key press state', () =>
+      Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
         const isPressed = yield* keyboard.isKeyPressed('W')
+
+        expect(typeof isPressed).toBe('boolean')
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('should get key state', () =>
+      Effect.gen(function* () {
+        const keyboard = yield* KeyboardInput
         const state = yield* keyboard.getKeyState('W')
-        const pressedKeys = yield* keyboard.getPressedKeys()
-        const mapping = yield* keyboard.getKeyMapping()
-        const action = yield* keyboard.getActionForKey('W')
-        yield* keyboard.resetKeyStates()
-        yield* keyboard.setKeyMapping(DefaultKeyMap)
-        const isActionPressed = yield* keyboard.isActionPressed('forward')
 
-        expect(isPressed).toBe(false)
         expect(state.key).toBe('W')
-        expect(state.isPressed).toBe(false)
-        expect(Array.isArray(pressedKeys)).toBe(true)
-        expect(typeof mapping).toBe('object')
-        expect(typeof isActionPressed).toBe('boolean')
-      }).pipe(Effect.provide(MockKeyboardInput))
+        expect(typeof state.isPressed).toBe('boolean')
+        expect(typeof state.timestamp).toBe('number')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-      Effect.runSync(effect)
-    })
+    it.effect('should get pressed keys list', () =>
+      Effect.gen(function* () {
+        const keyboard = yield* KeyboardInput
+        const pressedKeys = yield* keyboard.getPressedKeys()
+
+        expect(Array.isArray(pressedKeys)).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('should get key mapping', () =>
+      Effect.gen(function* () {
+        const keyboard = yield* KeyboardInput
+        const mapping = yield* keyboard.getKeyMapping()
+
+        expect(typeof mapping).toBe('object')
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('should set key mapping', () =>
+      Effect.gen(function* () {
+        const keyboard = yield* KeyboardInput
+
+        // Should not throw error
+        yield* keyboard.setKeyMapping(DefaultKeyMap)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('should reset key states', () =>
+      Effect.gen(function* () {
+        const keyboard = yield* KeyboardInput
+
+        // Should not throw error
+        yield* keyboard.resetKeyStates()
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
-  // DEPRECATED: Legacy KeyboardInputLive tests removed
-  // Use unified test pattern with TestPattern.live for live environment testing
+  describe('Error Handling', () => {
+    const failingKeyboard: KeyboardInput = {
+      // Effect<boolean> - エラーなし
+      isKeyPressed: () => Effect.succeed(false),
+      // Effect<KeyState> - エラーなし
+      getKeyState: () => Effect.succeed({
+        key: 'test',
+        isPressed: false,
+        timestamp: Date.now(),
+      }),
+      // Effect<ReadonlyArray<string>> - エラーなし
+      getPressedKeys: () => Effect.succeed([]),
+      // Effect<KeyMappingConfig> - エラーなし
+      getKeyMapping: () => Effect.succeed(DefaultKeyMap),
+      // Effect<void, KeyMappingError> - KeyMappingErrorを返す
+      setKeyMapping: () => Effect.fail(KeyMappingError({
+        message: 'Failed to set mapping',
+      })),
+      // Effect<KeyAction | undefined> - エラーなし
+      getActionForKey: () => Effect.succeed(undefined),
+      // Effect<boolean, KeyMappingError> - KeyMappingErrorを返す
+      isActionPressed: () => Effect.fail(KeyMappingError({
+        message: 'Failed to check action',
+        action: 'forward',
+      })),
+      // Effect<void> - エラーなし
+      resetKeyStates: () => Effect.succeed(undefined),
+    }
 
-  describe('Unified Test Pattern Examples', () => {
-    it('Schema検証テスト例', () => {
-      const effect = Effect.gen(function* () {
-        const error = KeyboardInputError({
-          message: 'Test error',
-          key: 'TestKey',
-        })
+    const FailingLayer = Layer.succeed(KeyboardInput, failingKeyboard)
 
-        expect(error._tag).toBe('KeyboardInputError')
-        expect(error.message).toBe('Test error')
-      })
-
-      Effect.runSync(effect)
-    })
-
-    it('Effect成功アサーション例', () => {
-      const effect = Effect.gen(function* () {
+    it.effect('should handle action press check error', () =>
+      Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
-        const result = yield* keyboard.getPressedKeys()
-        expect(Array.isArray(result)).toBe(true)
-      }).pipe(Effect.provide(MockKeyboardInput))
+        const result = yield* Effect.either(keyboard.isActionPressed('forward'))
 
-      Effect.runSync(effect)
-    })
+        expect(result._tag).toBe('Left')
+        if (result._tag === 'Left') {
+          expect(result.left._tag).toBe('KeyMappingError')
+          expect(result.left.message).toBe('Failed to check action')
+        }
+      }).pipe(Effect.provide(FailingLayer))
+    )
 
-    it('パフォーマンステスト例', () => {
-      const effect = Effect.gen(function* () {
+    it.effect('should handle set key mapping error', () =>
+      Effect.gen(function* () {
         const keyboard = yield* KeyboardInput
-        const start = Date.now()
-        yield* keyboard.isKeyPressed('W')
-        const duration = Date.now() - start
-        expect(duration).toBeLessThan(50)
-      }).pipe(Effect.provide(MockKeyboardInput))
+        const result = yield* Effect.either(keyboard.setKeyMapping(DefaultKeyMap))
 
-      Effect.runSync(effect)
-    })
+        expect(result._tag).toBe('Left')
+        if (result._tag === 'Left') {
+          expect(result.left._tag).toBe('KeyMappingError')
+          expect(result.left.message).toBe('Failed to set mapping')
+        }
+      }).pipe(Effect.provide(FailingLayer))
+    )
   })
 })

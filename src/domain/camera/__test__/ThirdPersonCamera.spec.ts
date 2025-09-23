@@ -5,13 +5,11 @@
 
 import { it, expect } from '@effect/vitest'
 import { Effect, Layer, Schema, TestContext } from 'effect'
-import { PropertyTest, fc } from '../../../test/unified-test-helpers'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
 import { CameraService, CameraError, CameraConfig, DEFAULT_CAMERA_CONFIG } from '../CameraService.js'
 import { ThirdPersonCameraLive } from '../ThirdPersonCamera.js'
-import TestUtils from '../../../test/unified-test-helpers'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -328,43 +326,42 @@ describe('ThirdPersonCamera', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    it.skip('should normalize extreme rotation values', () =>
+    it.effect('should normalize extreme rotation values', () =>
       Effect.gen(function* () {
-        yield* PropertyTest.check(
-          fc.record({
-            deltaX: fc.integer({ min: -50000, max: 50000 }),
-            deltaY: fc.integer({ min: -25000, max: 25000 }),
-          }),
-          (input: any) =>
-            Effect.gen(function* () {
-              const { deltaX, deltaY } = input
-              const service = yield* CameraService
-              yield* service.initialize({
-                ...DEFAULT_CAMERA_CONFIG,
-                mode: 'third-person',
-              })
+        const service = yield* CameraService
+        yield* service.initialize({
+          ...DEFAULT_CAMERA_CONFIG,
+          mode: 'third-person',
+        })
 
-              yield* service.rotate(deltaX, deltaY)
-              const state = yield* service.getState()
+        // Test extreme rotation values
+        const extremeValues = [
+          { deltaX: -50000, deltaY: -25000 },
+          { deltaX: 50000, deltaY: 25000 },
+          { deltaX: 0, deltaY: -25000 },
+          { deltaX: 0, deltaY: 25000 },
+        ]
 
-              const validatedRotation = yield* Schema.decodeUnknown(RotationSchema)(state.rotation)
-              expect(validatedRotation).toEqual(state.rotation)
+        for (const { deltaX, deltaY } of extremeValues) {
+          yield* service.rotate(deltaX, deltaY)
+          const state = yield* service.getState()
 
-              // Verify rotation values are within expected ranges
-              if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
-                return false
-              }
+          const validatedRotation = yield* Schema.decodeUnknown(RotationSchema)(state.rotation)
+          expect(validatedRotation).toEqual(state.rotation)
 
-              if (Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.1) {
-                return false
-              }
+          // Verify rotation values are within expected ranges
+          if (state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI) {
+            return yield* Effect.fail(new Error('Yaw should be normalized to [-π, π]'))
+          }
 
-              return true
-            }) as Effect.Effect<boolean, any, never>
-        )
+          if (Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.1) {
+            return yield* Effect.fail(new Error('Pitch should be clamped within limits'))
+          }
+        }
 
         return true
-      }).pipe(Effect.provide(TestLayer)))
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Camera Configuration Management', () => {
