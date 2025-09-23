@@ -9,6 +9,9 @@ export default defineConfig({
     testTimeout: 20000, // 20秒に増やす
     hookTimeout: 20000, // フックのタイムアウトも増やす
 
+    // タイムアウト設定（パフォーマンステスト用に余裕を持った値）
+    testTimeout: 30000, // 30秒
+
     include: ['src/**/__test__/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 

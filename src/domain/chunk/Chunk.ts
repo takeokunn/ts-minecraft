@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Effect } from 'effect'
 import type { ChunkPosition } from './ChunkPosition.js'
 import type { ChunkData, ChunkMetadata } from './ChunkData.js'
 import {
@@ -14,24 +14,37 @@ import {
 /**
  * チャンク操作のエラー型
  */
-export const ChunkBoundsError = Schema.TaggedStruct('ChunkBoundsError', {
-  message: Schema.String,
-  coordinates: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    })
-  ),
-  cause: Schema.optional(Schema.Unknown),
-})
-export type ChunkBoundsError = Schema.Schema.Type<typeof ChunkBoundsError>
+export interface ChunkBoundsError {
+  readonly _tag: 'ChunkBoundsError'
+  readonly message: string
+}
 
-export const ChunkSerializationError = Schema.TaggedStruct('ChunkSerializationError', {
-  message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+export const ChunkBoundsError = (message: string): ChunkBoundsError => ({
+  _tag: 'ChunkBoundsError',
+  message
 })
-export type ChunkSerializationError = Schema.Schema.Type<typeof ChunkSerializationError>
+
+export const isChunkBoundsError = (error: unknown): error is ChunkBoundsError =>
+  typeof error === 'object' &&
+  error !== null &&
+  '_tag' in error &&
+  error._tag === 'ChunkBoundsError'
+
+export interface ChunkSerializationError {
+  readonly _tag: 'ChunkSerializationError'
+  readonly message: string
+}
+
+export const ChunkSerializationError = (message: string): ChunkSerializationError => ({
+  _tag: 'ChunkSerializationError',
+  message
+})
+
+export const isChunkSerializationError = (error: unknown): error is ChunkSerializationError =>
+  typeof error === 'object' &&
+  error !== null &&
+  '_tag' in error &&
+  error._tag === 'ChunkSerializationError'
 
 /**
  * チャンクインターフェース
@@ -83,28 +96,18 @@ export const createChunk = (data: ChunkData): Chunk => {
     isDirty: data.isDirty,
 
     getBlock(x: number, y: number, z: number): Effect.Effect<number, ChunkBoundsError> {
-      return Effect.gen(function* () {
-        if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
-          yield* Effect.fail({
-            _tag: 'ChunkBoundsError' as const,
-            message: `Invalid coordinates: (${x}, ${y}, ${z})`,
-            coordinates: { x, y, z },
-          } satisfies ChunkBoundsError)
-        }
-        const index = getBlockIndex(x, y, z)
-        return chunk.blocks[index] ?? 0
-      })
+      if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
+        return Effect.fail(ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`))
+      }
+      const index = getBlockIndex(x, y, z)
+      return Effect.succeed(chunk.blocks[index] ?? 0)
     },
 
     setBlock(x: number, y: number, z: number, blockId: number): Effect.Effect<Chunk, ChunkBoundsError> {
+      if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
+        return Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))
+      }
       return Effect.gen(function* () {
-        if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
-          yield* Effect.fail({
-            _tag: 'ChunkBoundsError' as const,
-            message: `Failed to set block at (${x}, ${y}, ${z})`,
-            coordinates: { x, y, z },
-          } satisfies ChunkBoundsError)
-        }
         const index = getBlockIndex(x, y, z)
         const newBlocks = new Uint16Array(chunk.blocks)
         newBlocks[index] = blockId
@@ -133,37 +136,36 @@ export const createChunk = (data: ChunkData): Chunk => {
       endZ: number,
       blockId: number
     ): Effect.Effect<Chunk, ChunkBoundsError> {
-      return Effect.gen(function* () {
-        // 境界チェック
-        const minX = Math.max(0, Math.min(startX, endX))
-        const maxX = Math.min(CHUNK_SIZE - 1, Math.max(startX, endX))
-        const minY = Math.max(CHUNK_MIN_Y, Math.min(startY, endY))
-        const maxY = Math.min(CHUNK_MAX_Y - 1, Math.max(startY, endY))
-        const minZ = Math.max(0, Math.min(startZ, endZ))
-        const maxZ = Math.min(CHUNK_SIZE - 1, Math.max(startZ, endZ))
+      // 境界チェック
+      const minX = Math.max(0, Math.min(startX, endX))
+      const maxX = Math.min(CHUNK_SIZE - 1, Math.max(startX, endX))
+      const minY = Math.max(CHUNK_MIN_Y, Math.min(startY, endY))
+      const maxY = Math.min(CHUNK_MAX_Y - 1, Math.max(startY, endY))
+      const minZ = Math.max(0, Math.min(startZ, endZ))
+      const maxZ = Math.min(CHUNK_SIZE - 1, Math.max(startZ, endZ))
 
-        if (
-          minX > maxX ||
-          minY > maxY ||
-          minZ > maxZ ||
-          startX < 0 ||
-          startX >= CHUNK_SIZE ||
-          endX < 0 ||
-          endX >= CHUNK_SIZE ||
-          startY < CHUNK_MIN_Y ||
-          startY >= CHUNK_MAX_Y ||
-          endY < CHUNK_MIN_Y ||
-          endY >= CHUNK_MAX_Y ||
-          startZ < 0 ||
-          startZ >= CHUNK_SIZE ||
-          endZ < 0 ||
-          endZ >= CHUNK_SIZE
-        ) {
-          yield* Effect.fail({
-            _tag: 'ChunkBoundsError' as const,
-            message: `Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`,
-          } satisfies ChunkBoundsError)
-        }
+      if (
+        minX > maxX ||
+        minY > maxY ||
+        minZ > maxZ ||
+        startX < 0 ||
+        startX >= CHUNK_SIZE ||
+        endX < 0 ||
+        endX >= CHUNK_SIZE ||
+        startY < CHUNK_MIN_Y ||
+        startY >= CHUNK_MAX_Y ||
+        endY < CHUNK_MIN_Y ||
+        endY >= CHUNK_MAX_Y ||
+        startZ < 0 ||
+        startZ >= CHUNK_SIZE ||
+        endZ < 0 ||
+        endZ >= CHUNK_SIZE
+      ) {
+        return Effect.fail(
+          ChunkBoundsError(`Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`)
+        )
+      }
+      return Effect.gen(function* () {
 
         const newBlocks = new Uint16Array(chunk.blocks)
 
@@ -223,11 +225,7 @@ export const createChunk = (data: ChunkData): Chunk => {
 
           return buffer
         },
-        catch: (error) => ({
-          _tag: 'ChunkSerializationError' as const,
-          message: `Failed to serialize chunk: ${error}`,
-          cause: error,
-        }),
+        catch: (error) => ChunkSerializationError(`Failed to serialize chunk: ${error}`),
       })
     },
 
@@ -235,7 +233,7 @@ export const createChunk = (data: ChunkData): Chunk => {
       return Effect.try({
         try: () => {
           if (data.byteLength < 64) {
-            throw { _tag: 'ChunkSerializationError' as const, message: 'Buffer too small' }
+            throw ChunkSerializationError('Buffer too small')
           }
 
           const view = new DataView(data)
@@ -244,7 +242,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           const version = view.getUint32(offset, true)
           offset += 4
           if (version !== 1) {
-            throw { _tag: 'ChunkSerializationError' as const, message: `Unsupported version: ${version}` }
+            throw ChunkSerializationError(`Unsupported version: ${version}`)
           }
 
           const blocksSize = view.getUint32(offset, true)
@@ -255,7 +253,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           offset += 8
 
           if (data.byteLength < offset + blocksSize + heightMapSize) {
-            throw { _tag: 'ChunkSerializationError' as const, message: 'Invalid buffer size' }
+            throw ChunkSerializationError('Invalid buffer size')
           }
 
           const blocksView = new Uint16Array(data, offset, blocksSize / 2)
@@ -279,13 +277,9 @@ export const createChunk = (data: ChunkData): Chunk => {
           return createChunk(newData)
         },
         catch: (error) =>
-          typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkSerializationError'
-            ? (error as ChunkSerializationError)
-            : {
-                _tag: 'ChunkSerializationError' as const,
-                message: `Failed to deserialize chunk: ${error}`,
-                cause: error,
-              },
+          isChunkSerializationError(error)
+            ? error
+            : ChunkSerializationError(`Failed to deserialize chunk: ${error}`),
       })
     },
 
@@ -317,11 +311,7 @@ export const createChunk = (data: ChunkData): Chunk => {
 
             return result
           },
-          catch: (error) => ({
-            _tag: 'ChunkSerializationError' as const,
-            message: `Failed to compress chunk: ${error}`,
-            cause: error,
-          }),
+          catch: (error) => ChunkSerializationError(`Failed to compress chunk: ${error}`),
         })
       })
     },
@@ -331,7 +321,7 @@ export const createChunk = (data: ChunkData): Chunk => {
         const decompressedBuffer = yield* Effect.try({
           try: () => {
             if (compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0) {
-              throw { _tag: 'ChunkSerializationError' as const, message: 'Invalid compressed data' }
+              throw ChunkSerializationError('Invalid compressed data')
             }
 
             const input = new Uint16Array(compressedData)
@@ -353,13 +343,9 @@ export const createChunk = (data: ChunkData): Chunk => {
             return result
           },
           catch: (error) =>
-            typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkSerializationError'
-              ? (error as ChunkSerializationError)
-              : {
-                  _tag: 'ChunkSerializationError' as const,
-                  message: `Failed to decompress chunk: ${error}`,
-                  cause: error,
-                },
+            isChunkSerializationError(error)
+              ? error
+              : ChunkSerializationError(`Failed to decompress chunk: ${error}`),
         })
 
         return yield* chunk.deserialize(decompressedBuffer)
