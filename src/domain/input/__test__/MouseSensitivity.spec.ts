@@ -1,6 +1,6 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Either, Layer, pipe } from 'effect'
 import {
   MouseSensitivity,
   MouseSensitivityError,
@@ -314,10 +314,18 @@ describe('MouseSensitivity', () => {
         const result = yield* Effect.either(mouseSensitivity.getConfig())
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('MouseSensitivityError')
-          expect(result.left.message).toBe('Failed to get config')
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: (error) => {
+              expect(error._tag).toBe('MouseSensitivityError')
+              expect(error.message).toBe('Failed to get config')
+            },
+            onRight: () => {
+              // 失敗ケースなので到達しない
+            },
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
 
@@ -333,10 +341,18 @@ describe('MouseSensitivity', () => {
         const result = yield* Effect.either(mouseSensitivity.applySensitivity(delta))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('MouseSensitivityError')
-          expect(result.left.message).toBe('Failed to apply sensitivity')
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: (error) => {
+              expect(error._tag).toBe('MouseSensitivityError')
+              expect(error.message).toBe('Failed to apply sensitivity')
+            },
+            onRight: () => {
+              // 失敗ケースなので到達しない
+            },
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
   })
@@ -452,10 +468,18 @@ describe('MouseSensitivity', () => {
           const result = yield* Effect.either(mouseSensitivity.setConfig(invalidConfig))
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('MouseSensitivityError')
-            expect(result.left.message).toBe('Invalid configuration provided')
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: (error) => {
+                expect(error._tag).toBe('MouseSensitivityError')
+                expect(error.message).toBe('Invalid configuration provided')
+              },
+              onRight: () => {
+                // 失敗ケースなので到達しない
+              },
+            })
+          )
         }).pipe(Effect.provide(TestLayer))
       )
     })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Either, pipe } from 'effect'
 import * as fc from 'fast-check'
 import {
   type NumberValue,
@@ -52,9 +52,17 @@ describe('common-types', () => {
         const either = yield* Effect.either(result)
 
         expect(either._tag).toBe('Left')
-        if (either._tag === 'Left') {
-          expect(either.left.message).toBe('test error')
-        }
+        pipe(
+          either,
+          Either.match({
+            onLeft: (error) => {
+              expect(error.message).toBe('test error')
+            },
+            onRight: () => {
+              // 失敗ケースなので到達しない
+            },
+          })
+        )
       })
     )
   })

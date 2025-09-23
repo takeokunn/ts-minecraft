@@ -511,28 +511,37 @@ export const WorldLive = Layer.effect(
 
         if (firstResult !== null) return firstResult
 
-        const firstStorage = state.components.get(componentTypes[0]!)
-        if (!firstStorage) {
-          return []
-        }
+        // 最初のストレージ取得をOption化
+        const firstStorageResult = yield* pipe(
+          Option.fromNullable(state.components.get(componentTypes[0]!)),
+          Option.match({
+            onNone: () => Effect.succeed([]),
+            onSome: (storage) => Effect.succeed(Array.from(storage.data.keys())),
+          })
+        )
 
-        let entities = Array.from(firstStorage.data.keys())
+        let entities = firstStorageResult
+        if (entities.length === 0) return entities
 
-        // 残りのコンポーネントでフィルタリング
+        // 残りのコンポーネントでフィルタリング（Optionパターン使用）
         for (let i = 1; i < componentTypes.length; i++) {
-          const componentType = componentTypes[i]
-          if (!componentType) {
-            entities = []
-            break
-          }
+          const result = yield* pipe(
+            Option.fromNullable(componentTypes[i]),
+            Option.match({
+              onNone: () => Effect.succeed([]),
+              onSome: (componentType) =>
+                pipe(
+                  Option.fromNullable(state.components.get(componentType)),
+                  Option.match({
+                    onNone: () => Effect.succeed([]),
+                    onSome: (storage) => Effect.succeed(entities.filter((id) => storage.data.has(id))),
+                  })
+                ),
+            })
+          )
 
-          const storage = state.components.get(componentType)
-          if (!storage) {
-            entities = []
-            break
-          }
-
-          entities = entities.filter((id) => storage.data.has(id))
+          entities = result
+          if (entities.length === 0) break
         }
 
         // アクティブなエンティティのみを返す

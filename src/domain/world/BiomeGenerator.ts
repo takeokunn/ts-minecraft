@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
@@ -215,10 +215,13 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
             const climate = yield* biomeGenerator.getClimateData(worldX, worldZ)
             const biome = biomeGenerator.determineBiome(climate)
 
-            const row = biomeMap[x]
-            if (row) {
-              row[z] = biome
-            }
+            // 配列アクセスをOptionパターンで安全化
+            pipe(
+              Option.fromNullable(biomeMap[x]),
+              Option.map((row) => {
+                row[z] = biome
+              })
+            )
           }
         }
 

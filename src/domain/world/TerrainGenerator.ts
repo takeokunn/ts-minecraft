@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
@@ -104,10 +104,13 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
             // 高度制限
             finalHeight = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
 
-            const row = heightMap[x]
-            if (row) {
-              row[z] = finalHeight
-            }
+            // 配列アクセスをOptionパターンで安全化
+            pipe(
+              Option.fromNullable(heightMap[x]),
+              Option.map((row) => {
+                row[z] = finalHeight
+              })
+            )
           }
         }
 
