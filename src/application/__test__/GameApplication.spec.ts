@@ -35,16 +35,7 @@ const createMockGameLoopService = () =>
       resume: () => Effect.log('Mock GameLoop resumed').pipe(Effect.asVoid),
       stop: () => Effect.log('Mock GameLoop stopped').pipe(Effect.asVoid),
       onFrame: () => Effect.succeed(() => {}),
-      getState: () =>
-        Effect.succeed({
-          isRunning: true,
-          fps: 60,
-          targetFPS: 60,
-          frameCount: 1000,
-          totalTime: 16.67,
-          deltaTime: 16.67,
-          averageFrameTime: 16.67,
-        }),
+      getState: () => Effect.succeed('running' as const),
       getPerformanceMetrics: () =>
         Effect.succeed({
           fps: 60,

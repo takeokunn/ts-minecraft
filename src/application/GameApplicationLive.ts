@@ -43,22 +43,20 @@ const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasEl
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null
 
     if (!canvas) {
-      return yield* Effect.fail(
-        CanvasNotFoundError({
-          context: createErrorContext('GameApplication', 'getCanvas'),
-          canvasId,
-        })
-      )
+      return yield* Effect.fail({
+        _tag: 'CanvasNotFoundError' as const,
+        context: createErrorContext('GameApplication', 'getCanvas'),
+        canvasId,
+      })
     }
 
     if (!(canvas instanceof HTMLCanvasElement)) {
-      return yield* Effect.fail(
-        CanvasNotFoundError({
-          context: createErrorContext('GameApplication', 'getCanvas'),
-          canvasId,
-          selector: `Element #${canvasId} is not a canvas element`,
-        })
-      )
+      return yield* Effect.fail({
+        _tag: 'CanvasNotFoundError' as const,
+        context: createErrorContext('GameApplication', 'getCanvas'),
+        canvasId,
+        selector: `Element #${canvasId} is not a canvas element`,
+      })
     }
 
     return canvas
@@ -100,14 +98,13 @@ const makeGameApplicationLive = Effect.gen(function* () {
     const allowed = validTransitions[current] || []
 
     if (!allowed.includes(target)) {
-      return Effect.fail(
-        InvalidStateTransitionError({
-          context: createErrorContext('GameApplication', 'validateStateTransition'),
-          currentState: current,
-          attemptedState: target,
-          validTransitions: allowed,
-        })
-      )
+      return Effect.fail({
+        _tag: 'InvalidStateTransitionError' as const,
+        context: createErrorContext('GameApplication', 'validateStateTransition'),
+        currentState: current,
+        attemptedState: target,
+        validTransitions: allowed,
+      })
     }
 
     return Effect.void
@@ -134,30 +131,28 @@ const makeGameApplicationLive = Effect.gen(function* () {
       // Scene更新
       yield* sceneManager.update(frameInfo.deltaTime).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(
-            FrameProcessingError({
-              context: createErrorContext('GameApplication', 'onFrameUpdate'),
-              frameNumber: frameInfo.frameCount,
-              deltaTime: frameInfo.deltaTime,
-              stage: 'update',
-              cause: `Scene update failed: ${error}`,
-            })
-          )
+          Effect.fail({
+            _tag: 'FrameProcessingError' as const,
+            context: createErrorContext('GameApplication', 'onFrameUpdate'),
+            frameNumber: frameInfo.frameCount,
+            deltaTime: frameInfo.deltaTime,
+            stage: 'update',
+            cause: `Scene update failed: ${error}`,
+          })
         )
       )
 
       // Scene描画
       yield* sceneManager.render().pipe(
         Effect.catchAll((error) =>
-          Effect.fail(
-            FrameProcessingError({
-              context: createErrorContext('GameApplication', 'onFrameUpdate'),
-              frameNumber: frameInfo.frameCount,
-              deltaTime: frameInfo.deltaTime,
-              stage: 'render',
-              cause: `Scene render failed: ${error}`,
-            })
-          )
+          Effect.fail({
+            _tag: 'FrameProcessingError' as const,
+            context: createErrorContext('GameApplication', 'onFrameUpdate'),
+            frameNumber: frameInfo.frameCount,
+            deltaTime: frameInfo.deltaTime,
+            stage: 'render',
+            cause: `Scene render failed: ${error}`,
+          })
         )
       )
     })
@@ -174,15 +169,14 @@ const makeGameApplicationLive = Effect.gen(function* () {
       })
 
       if (performanceStats.fps < 30) {
-        return yield* Effect.fail(
-          PerformanceDegradationError({
-            context: createErrorContext('GameApplication', 'monitorPerformance'),
-            metric: 'fps',
-            currentValue: performanceStats.fps,
-            thresholdValue: 30,
-            severity: 'critical',
-          })
-        )
+        return yield* Effect.fail({
+          _tag: 'PerformanceDegradationError' as const,
+          context: createErrorContext('GameApplication', 'monitorPerformance'),
+          metric: 'fps',
+          currentValue: performanceStats.fps,
+          thresholdValue: 30,
+          severity: 'critical',
+        })
       }
     }
 
