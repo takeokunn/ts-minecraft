@@ -47,7 +47,10 @@ describe('World Generation Types', () => {
       ]
 
       for (const [index, vector] of invalidVectors.entries()) {
-        expect(() => Schema.decodeUnknownSync(Vector3Schema)(vector), `Test case ${index}: ${JSON.stringify(vector)}`).toThrow()
+        expect(
+          () => Schema.decodeUnknownSync(Vector3Schema)(vector),
+          `Test case ${index}: ${JSON.stringify(vector)}`
+        ).toThrow()
       }
     })
 

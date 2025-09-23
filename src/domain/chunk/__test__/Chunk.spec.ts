@@ -28,7 +28,9 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
         const chunkData = createChunkData(testPosition)
 
         // より単純で確実な座標でテスト
-        const testX = 5, testY = 0, testZ = 5 // 有効な座標
+        const testX = 5,
+          testY = 0,
+          testZ = 5 // 有効な座標
 
         // createChunkでチャンクを作成してから値を設定
         const chunk = createChunk(chunkData)

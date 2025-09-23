@@ -224,7 +224,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause
@@ -244,7 +244,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause
@@ -296,7 +296,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause
@@ -325,7 +325,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause
@@ -354,7 +354,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause
@@ -368,7 +368,7 @@ describe('ThreeRendererLive', () => {
     it('初期化でエラーが発生した場合の適切なエラーハンドリング', async () => {
       // WebGLRendererの作成でエラーが発生するケース
       const WebGLRendererMock = vi.mocked(THREE.WebGLRenderer)
-      
+
       // 現在のテストのみでエラーを投げる実装に変更
       WebGLRendererMock.mockImplementationOnce(() => {
         throw new Error('Renderer creation failed')
@@ -381,7 +381,7 @@ describe('ThreeRendererLive', () => {
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
-      
+
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
         // Extract the actual error from the Effect failure cause

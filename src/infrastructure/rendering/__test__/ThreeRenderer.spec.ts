@@ -187,23 +187,26 @@ describe('ThreeRenderer', () => {
       const webgl2Instance = new global.WebGL2RenderingContext()
 
       // WebGLRendererモックをWebGL2対応に変更
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => ({
-        setPixelRatio: vi.fn(),
-        setSize: vi.fn(),
-        setClearColor: vi.fn(),
-        setViewport: vi.fn(),
-        render: vi.fn(),
-        dispose: vi.fn(),
-        getContext: vi.fn().mockReturnValue(webgl2Instance),
-        domElement: createMockCanvas(),
-        shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
-        info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
-        outputColorSpace: THREE['SRGBColorSpace'],
-        toneMapping: THREE['NoToneMapping'],
-        toneMappingExposure: 1.0,
-        sortObjects: true,
-        extensions: { get: vi.fn().mockReturnValue({}) },
-      }) as unknown as THREE.WebGLRenderer)
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
+        () =>
+          ({
+            setPixelRatio: vi.fn(),
+            setSize: vi.fn(),
+            setClearColor: vi.fn(),
+            setViewport: vi.fn(),
+            render: vi.fn(),
+            dispose: vi.fn(),
+            getContext: vi.fn().mockReturnValue(webgl2Instance),
+            domElement: createMockCanvas(),
+            shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
+            info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
+            outputColorSpace: THREE['SRGBColorSpace'],
+            toneMapping: THREE['NoToneMapping'],
+            toneMappingExposure: 1.0,
+            sortObjects: true,
+            extensions: { get: vi.fn().mockReturnValue({}) },
+          }) as unknown as THREE.WebGLRenderer
+      )
 
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
@@ -338,25 +341,28 @@ describe('ThreeRenderer', () => {
 
     it('WebGLコンテキストロスト時のエラーハンドリング', async () => {
       // コンテキストロスト状態のモック
-      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(() => ({
-        setPixelRatio: vi.fn(),
-        setSize: vi.fn(),
-        setClearColor: vi.fn(),
-        setViewport: vi.fn(),
-        render: vi.fn(),
-        dispose: vi.fn(),
-        getContext: vi.fn().mockReturnValue({
-          isContextLost: vi.fn().mockReturnValue(true), // ロスト状態
-        }),
-        domElement: canvas,
-        shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
-        info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
-        outputColorSpace: THREE['SRGBColorSpace'],
-        toneMapping: THREE['NoToneMapping'],
-        toneMappingExposure: 1.0,
-        sortObjects: true,
-        extensions: { get: vi.fn().mockReturnValue({}) },
-      }) as unknown as THREE.WebGLRenderer)
+      vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
+        () =>
+          ({
+            setPixelRatio: vi.fn(),
+            setSize: vi.fn(),
+            setClearColor: vi.fn(),
+            setViewport: vi.fn(),
+            render: vi.fn(),
+            dispose: vi.fn(),
+            getContext: vi.fn().mockReturnValue({
+              isContextLost: vi.fn().mockReturnValue(true), // ロスト状態
+            }),
+            domElement: canvas,
+            shadowMap: { enabled: false, type: THREE['PCFShadowMap'], autoUpdate: true },
+            info: { memory: { geometries: 0, textures: 0 }, render: { calls: 0, triangles: 0 } },
+            outputColorSpace: THREE['SRGBColorSpace'],
+            toneMapping: THREE['NoToneMapping'],
+            toneMappingExposure: 1.0,
+            sortObjects: true,
+            extensions: { get: vi.fn().mockReturnValue({}) },
+          }) as unknown as THREE.WebGLRenderer
+      )
 
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
