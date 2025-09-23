@@ -399,11 +399,11 @@ describe('Player Domain Entity', () => {
         inventory: Inventory.createEmpty(36), // 36スロット
       })
 
-      // 容量内での追加
-      for (let i = 0; i < 36; i++) {
+      // 容量内での追加 - Effect-TSパターン
+      Array.makeBy(36, (i) => i).forEach((i) => {
         const added = player.addItem(ItemStack.create('dirt', 1))
         expect(added.isSuccess).toBe(true)
-      }
+      })
 
       // 容量超過
       const overflow = player.addItem(ItemStack.create('stone', 1))
@@ -1404,14 +1404,14 @@ describe('STM-Enhanced Inventory Properties', () => {
           // 不変条件2: 追加できたアイテム数も容量以下
           expect(addedCount).toBeLessThanOrEqual(36)
 
-          // 不変条件3: 各スロットのアイテムは有効
-          for (let i = 0; i < 36; i++) {
+          // 不変条件3: 各スロットのアイテムは有効 - Effect-TSパターン
+          Array.makeBy(36, (i) => i).forEach((i) => {
             const item = inventory.getItemAt(i)
             if (item) {
               expect(item.quantity).toBeGreaterThan(0)
               expect(item.quantity).toBeLessThanOrEqual(64)
             }
-          }
+          })
         })
       )
     })
@@ -1492,16 +1492,19 @@ describe('STM-Enhanced Inventory Properties', () => {
             count: inventory.getItemCount(input.itemId),
           }))
 
-          // クラフティング実行
+          // クラフティング実行 - Effect-TSパターン
           let successfulCrafts = 0
-          for (let i = 0; i < craftCount; i++) {
-            const result = inventory.craft(recipe)
-            if (result.isSuccess) {
-              successfulCrafts++
-            } else {
-              break // 材料不足で停止
+          let shouldBreak = false
+          Array.makeBy(craftCount, (i) => i).forEach((i) => {
+            if (!shouldBreak) {
+              const result = inventory.craft(recipe)
+              if (result.isSuccess) {
+                successfulCrafts++
+              } else {
+                shouldBreak = true // 材料不足で停止
+              }
             }
-          }
+          })
 
           // 材料消費の確認
           recipe.inputs.forEach((input, index) => {
@@ -1722,10 +1725,11 @@ describe('Full Stack Integration Tests', () => {
           playerId,
         })
 
-        // 4. 物理更新の時間経過
-        for (let tick = 0; tick < 10; tick++) {
-          yield* gameController.updateGame(16) // 16ms tick
-        }
+        // 4. 物理更新の時間経過 - Effect-TSパターン
+        yield* Effect.forEach(
+          Array.makeBy(10, (i) => i),
+          (_) => gameController.updateGame(16) // 16ms tick
+        )
 
         // 5. 最終状態確認
         const updatedPlayer = yield* playerRepository.findById(playerId)
@@ -1923,13 +1927,16 @@ describe('Performance Integration Tests', () => {
       const program = Effect.gen(function* () {
         const worldService = yield* WorldService
 
-        // 10x10 = 100チャンクの生成とロード
-        const chunkCoords = []
-        for (let x = -5; x <= 4; x++) {
-          for (let z = -5; z <= 4; z++) {
+        // 10x10 = 100チャンクの生成とロード - Effect-TSパターン
+        const chunkCoords: Array<{ x: number; z: number }> = []
+        const xRange = Array.makeBy(10, (i) => i - 5)
+        const zRange = Array.makeBy(10, (i) => i - 5)
+
+        xRange.forEach((x) => {
+          zRange.forEach((z) => {
             chunkCoords.push({ x, z })
-          }
-        }
+          })
+        })
 
         const loadStartTime = Date.now()
         const chunks = yield* Effect.all(
@@ -1995,36 +2002,40 @@ describe('Performance Integration Tests', () => {
 
         recordMemory()
 
-        // 30分間のシミュレーション（高速実行）
-        for (let cycle = 0; cycle < 100; cycle++) {
-          // プレイヤー作成→活動→削除のサイクル
-          const tempPlayers = yield* Effect.all(
-            Array.from({ length: 10 }, (_, i) => gameController.createPlayer(`temp_${cycle}_${i}`)),
-            { concurrency: 'unbounded' }
-          )
+        // 30分間のシミュレーション（高速実行）- Effect-TSパターン
+        yield* Effect.forEach(
+          Array.makeBy(100, (i) => i),
+          (cycle) =>
+            Effect.gen(function* () {
+              // プレイヤー作成→活動→削除のサイクル
+              const tempPlayers = yield* Effect.all(
+                Array.from({ length: 10 }, (_, i) => gameController.createPlayer(`temp_${cycle}_${i}`)),
+                { concurrency: 'unbounded' }
+              )
 
-          // アクティビティシミュレーション
-          yield* Effect.all(
-            tempPlayers.map(
-              (player) => gameController.simulateActivity(player.id, 100) // 100アクション
-            ),
-            { concurrency: 'unbounded' }
-          )
+              // アクティビティシミュレーション
+              yield* Effect.all(
+                tempPlayers.map(
+                  (player) => gameController.simulateActivity(player.id, 100) // 100アクション
+                ),
+                { concurrency: 'unbounded' }
+              )
 
-          // プレイヤー削除
-          yield* Effect.all(
-            tempPlayers.map((player) => gameController.removePlayer(player.id)),
-            { concurrency: 'unbounded' }
-          )
+              // プレイヤー削除
+              yield* Effect.all(
+                tempPlayers.map((player) => gameController.removePlayer(player.id)),
+                { concurrency: 'unbounded' }
+              )
 
-          if (cycle % 10 === 0) {
-            // 強制GC（テスト環境）
-            if (global.gc) {
-              global.gc()
-            }
-            recordMemory()
-          }
-        }
+              if (cycle % 10 === 0) {
+                // 強制GC（テスト環境）
+                if (global.gc) {
+                  global.gc()
+                }
+                recordMemory()
+              }
+            })
+        )
 
         // メモリ増加傾向の分析
         const firstHalf = memorySnapshots.slice(0, 5)

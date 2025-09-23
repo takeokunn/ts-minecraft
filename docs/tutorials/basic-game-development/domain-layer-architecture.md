@@ -318,19 +318,31 @@ export const ChunkOperations = {
     }),
 
   // チャンクが空かどうかの判定（最適化用）
-  isEmpty: (chunk: Chunk): boolean => {
-    for (let x = 0; x < ChunkOperations.CHUNK_SIZE; x++) {
-      for (let z = 0; z < ChunkOperations.CHUNK_SIZE; z++) {
-        for (let y = 0; y < ChunkOperations.CHUNK_HEIGHT; y++) {
-          const block = chunk.blocks[x]?.[z]?.[y]
-          if (block && block.type !== 'air') {
-            return false
-          }
-        }
-      }
-    }
-    return true
-  },
+  isEmpty: (chunk: Chunk): Effect.Effect<boolean, never> =>
+    Effect.gen(function* () {
+      // Array.range + Effect.forEach の三重ネスト構造による効率的な3D探索
+      const hasNonAirBlock = yield* Effect.forEach(
+        Array.range(0, ChunkOperations.CHUNK_SIZE),
+        (x) =>
+          Effect.forEach(
+            Array.range(0, ChunkOperations.CHUNK_SIZE),
+            (z) =>
+              Effect.forEach(
+                Array.range(0, ChunkOperations.CHUNK_HEIGHT),
+                (y) =>
+                  Effect.gen(function* () {
+                    const block = chunk.blocks[x]?.[z]?.[y]
+                    return block && block.type !== 'air' ? true : false
+                  }),
+                { concurrency: 'unbounded' } // Y軸方向の並列処理
+              ).pipe(Effect.map((results) => results.some(Boolean))),
+            { concurrency: 4 } // Z軸方向（適度な並列化）
+          ).pipe(Effect.map((results) => results.some(Boolean))),
+        { concurrency: 2 } // X軸方向（メモリ効率考慮）
+      ).pipe(Effect.map((results) => results.some(Boolean)))
+
+      return !hasNonAirBlock // 逆論理（hasNonAirBlock の否定が isEmpty）
+    }),
 
   // チャンクの境界ボックス取得
   getBoundingBox: (chunk: Chunk) => ({
