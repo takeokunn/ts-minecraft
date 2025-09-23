@@ -5,14 +5,15 @@
  */
 
 import { Effect, Layer, Match, Option, pipe } from 'effect'
-import { createChunkData } from '../chunk/ChunkData.js'
-import type { ChunkData } from '../chunk/ChunkData.js'
-import type { ChunkPosition } from '../chunk/ChunkPosition.js'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types.js'
-import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGenerator } from './WorldGenerator.js'
-import { StructureGenerationError } from './WorldGenerator.js'
-import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
-import { createGeneratorOptions } from './GeneratorOptions.js'
+import { createChunkData } from '../chunk/ChunkData'
+import type { ChunkData } from '../chunk/ChunkData'
+import type { ChunkPosition } from '../chunk/ChunkPosition'
+import { BrandedTypes } from '../../shared/types/branded'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGenerator } from './WorldGenerator'
+import { StructureGenerationError } from './WorldGenerator'
+import type { GeneratorOptions, StructureType } from './GeneratorOptions'
+import { createGeneratorOptions } from './GeneratorOptions'
 import { NoiseGeneratorTag, NoiseGeneratorLive } from './NoiseGenerator'
 import { TerrainGeneratorTag, TerrainGeneratorLive } from './TerrainGenerator'
 import { BiomeGeneratorTag, BiomeGeneratorLive } from './BiomeGenerator'
@@ -198,13 +199,21 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        // 構造物生成が無効な場合はエラー
-        if (!generatorOptions.generateStructures) {
-          return yield* Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
-        }
+        // Match.valueパターンを使用して構造物生成の有効性をチェック
+        const structure = yield* pipe(
+          Match.value(!generatorOptions.generateStructures),
+          Match.when(true, () =>
+            Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
+          ),
+          Match.orElse(() =>
+            Effect.gen(function* () {
+              const structure = createStructure(type, position)
+              state.structures.push(structure)
+              return structure
+            })
+          )
+        )
 
-        const structure = createStructure(type, position)
-        state.structures.push(structure)
         return structure
       }),
 
@@ -231,7 +240,10 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
         const terrainGenerator = yield* TerrainGeneratorTag
-        return yield* terrainGenerator.getTerrainHeight(x, z)
+        return yield* terrainGenerator.getTerrainHeight(
+          BrandedTypes.createWorldCoordinate(x),
+          BrandedTypes.createWorldCoordinate(z)
+        )
       }).pipe(Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))) as unknown as Effect.Effect<
         number,
         never,
@@ -255,7 +267,7 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           Match.value,
           Match.when(false, () => Effect.succeed(false)),
           Match.orElse(() =>
-            // 構造物タイプごトの生成条件をチェック
+            // 構造物タイプごとの生成条件をチェック
             Effect.succeed(
               pipe(
                 Match.value(type),

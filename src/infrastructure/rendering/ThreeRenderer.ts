@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
 import * as THREE from 'three'
-import type { RenderError } from './types.js'
+import type { RenderError } from './types'
 
 /**
  * ThreeRenderer - 高度なThree.jsレンダリング機能

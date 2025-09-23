@@ -361,79 +361,112 @@ export default defineConfig({
 })
 ```
 
-### Effect-TS専用最適化設定
+### @effect/vitest 0.25.1+ 最新統合設定
 
 ```typescript
-// vitest.config.effect.ts
-import { defineConfig } from 'vitest/config'
+// vitest.config.ts - 最新Effect-TS統合
+import { defineConfig } from '@effect/vitest/config'
 
 export default defineConfig({
   test: {
-    // Effect-TS用環境設定
+    // @effect/vitest専用環境設定
+    globals: true,
     environment: 'node',
 
-    // Effect-TS用セットアップ
-    setupFiles: ['./test/effect-setup.ts'],
+    // Effect-TSテスト用セットアップ
+    setupFiles: ['./test/effect-vitest-setup.ts'],
 
-    // 依存関係最適化（Effect-TS特化）
+    // @effect/vitest最適化設定
+    include: ['src/**/__test__/*.spec.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**'],
+
+    // Effect-TS依存関係最適化
     deps: {
       optimizer: {
         ssr: {
           enabled: true,
           include: [
-            // Effect-TSコアモジュール
+            // Effect 3.17+ コアモジュール
             'effect',
-            'effect/Effect',
-            'effect/Context',
-            'effect/Layer',
-            'effect/Schema',
-            'effect/Match',
-            'effect/Chunk',
-            'effect/Array',
-            'effect/Option',
-            'effect/Either',
-
-            // Effect-TSプラットフォーム
-            '@effect/platform',
-            '@effect/platform/HttpClient',
-            '@effect/platform/FileSystem',
             '@effect/schema',
+            '@effect/platform',
+            '@effect/vitest',
           ],
         },
       },
 
-      // Effect-TSインライン化
+      // インライン化による高速化
       inline: [/^effect/, /^@effect/],
     },
 
-    // Effect-TS用変換設定
-    transformMode: {
-      ssr: [/\.ts$/, /\.tsx$/],
+    // タイムアウト調整（Effect実行時間考慮）
+    testTimeout: 30000,
+    hookTimeout: 20000,
+
+    // 並行実行制御（Effect安定性重視）
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        maxThreads: 4,
+        minThreads: 1,
+        isolate: true,
+      },
     },
 
-    // タイムアウト調整（Effect実行時間考慮）
-    testTimeout: 15000,
-
-    // 型チェック設定（Effect-TS型対応）
+    // 型チェック統合
     typecheck: {
       enabled: true,
       checker: 'tsc',
-      tsconfig: './tsconfig.test.json',
+      tsconfig: './tsconfig.json',
+      include: ['src/**/*.ts'],
+      exclude: ['**/node_modules/**'],
     },
   },
 
-  // Effect-TS用エイリアス
+  // Effect-TS用パス解決
   resolve: {
     alias: {
+      '@': resolve(__dirname, 'src'),
+      '@test': resolve(__dirname, 'src/test'),
       '@effect-test': resolve(__dirname, 'test/effect-helpers'),
     },
   },
 
-  // Effect-TS用定義
+  // Effect-TS開発環境定義
   define: {
     __EFFECT_DEBUG__: true,
+    __VITEST__: true,
+    __EFFECT_VITEST_VERSION__: JSON.stringify('0.25.1'),
   },
 })
+```
+
+### effect-vitest-setup.ts設定例
+
+```typescript
+// test/effect-vitest-setup.ts
+import { Effect, Console } from 'effect'
+import type { TestAPI } from '@effect/vitest'
+
+// Effect-TS専用グローバル設定
+globalThis.__EFFECT_TEST_ENVIRONMENT__ = 'vitest'
+
+// デバッグレベル設定
+Effect.logLevel = Effect.LogLevel.Debug
+
+// テスト用コンソール設定
+Console.setConsole({
+  log: (...args) => console.log('[EFFECT-TEST]', ...args),
+  error: (...args) => console.error('[EFFECT-ERROR]', ...args),
+  warn: (...args) => console.warn('[EFFECT-WARN]', ...args),
+})
+
+// @effect/vitest拡張設定
+declare module '@effect/vitest' {
+  interface TestAPI {
+    effect: <E, A>(name: string, effect: Effect.Effect<A, E>) => void
+  }
+}
 ```
 
 ## ⚡ パフォーマンス最適化
@@ -565,35 +598,57 @@ export default defineConfig({
 })
 ```
 
-#### 2. Effect-TSテストでエラー
+#### 2. @effect/vitest統合エラー
 
-**問題**: Effect types not resolved, runtime errors
+**問題**: `it.effect is not a function`, `Effect types not resolved`
 
 **解決策**:
 
 ```typescript
+// vitest.config.ts - @effect/vitest統合修正
+import { defineConfig } from '@effect/vitest/config'
+
 export default defineConfig({
   test: {
-    // Effect-TS専用セットアップ
-    setupFiles: ['./test/effect-setup.ts'],
+    // @effect/vitest必須設定
+    globals: true,
+    environment: 'node',
 
-    // 依存関係の明示的インライン化
+    // Effect-TS専用セットアップ（必須）
+    setupFiles: ['./test/effect-vitest-setup.ts'],
+
+    // 依存関係最適化
     deps: {
-      inline: ['effect', '@effect/platform', '@effect/schema'],
+      inline: ['effect', '@effect/vitest', '@effect/platform', '@effect/schema'],
     },
 
-    // 変換モード調整
+    // ESM対応
     transformMode: {
       ssr: [/\.ts$/],
     },
 
-    // 型チェック有効化
+    // 型チェック統合
     typecheck: {
       enabled: true,
-      allowJs: false,
+      include: ['src/**/*.ts', 'src/**/__test__/*.spec.ts'],
     },
   },
 })
+```
+
+**effect-vitest-setup.ts**:
+
+```typescript
+import '@effect/vitest'
+
+// Effect-TSテスト拡張の明示的読み込み
+declare global {
+  namespace Vi {
+    interface ExpectStatic {
+      effect: typeof import('@effect/vitest').expect.effect
+    }
+  }
+}
 ```
 
 #### 3. カバレッジが正確に取得できない
@@ -907,12 +962,13 @@ export default defineConfig({
 ### 外部リファレンス
 
 - [Vitest公式ドキュメント](https://vitest.dev/)
+- [@effect/vitest](https://github.com/Effect-TS/effect/tree/main/packages/vitest) - Effect-TS統合
+- [Effect-TS 3.17+ Testing](https://effect.website/docs/testing) - 公式テストガイド
 - [Coverage設定](https://vitest.dev/config/#coverage)
 - [Browser Testing](https://vitest.dev/guide/browser.html)
-- [Playwright Integration](https://playwright.dev/docs/test-runners)
 
 ### プロジェクト固有
 
-- [Effect-TSテストパターン](../../how-to/testing/effect-ts-testing-patterns.md)
-- [テスト戦略ガイド](../../how-to/testing/testing-guide.md)
-- [パフォーマンステスト](../troubleshooting/performance-issues.md)
+- [Effect-TSテストパターン](../../how-to/testing/effect-ts-testing-patterns.md) - it.effectパターン完全版
+- [テスト戦略ガイド](../../how-to/testing/testing-guide.md) - 基礎から実践まで
+- [テスト標準規約](../../how-to/testing/testing-standards.md) - 必須実装パターン

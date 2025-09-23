@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Ref, Match, pipe, Option } from 'effect'
 import { Schema } from 'effect'
 import { MouseDelta } from './types'
+import { SensitivityValue } from '../../shared/types/branded'
 
 // 感度プリセット
 export const SensitivityPreset = Schema.Literal('low', 'medium', 'high', 'gaming', 'precision', 'custom')
@@ -57,7 +58,7 @@ export interface MouseSensitivity {
   readonly setConfig: (config: MouseSensitivityConfig) => Effect.Effect<void, MouseSensitivityError>
   readonly applySensitivity: (delta: MouseDelta) => Effect.Effect<AdjustedMouseDelta, MouseSensitivityError>
   readonly setPreset: (preset: SensitivityPreset) => Effect.Effect<void, MouseSensitivityError>
-  readonly setSensitivity: (x: number, y: number) => Effect.Effect<void, MouseSensitivityError>
+  readonly setSensitivity: (x: SensitivityValue, y: SensitivityValue) => Effect.Effect<void, MouseSensitivityError>
   readonly setGlobalMultiplier: (multiplier: number) => Effect.Effect<void, MouseSensitivityError>
   readonly invertAxis: (x: boolean, y: boolean) => Effect.Effect<void, MouseSensitivityError>
   readonly setCurve: (curve: SensitivityCurve) => Effect.Effect<void, MouseSensitivityError>

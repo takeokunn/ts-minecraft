@@ -14,8 +14,8 @@ import {
   validateCameraMode,
   Vector3Schema,
   CameraParameterSchemas,
-} from './CameraService.js'
-import type { Vector3 } from './CameraService.js'
+} from './CameraService'
+import type { Vector3 } from './CameraService'
 
 /**
  * 三人称カメラの内部状態

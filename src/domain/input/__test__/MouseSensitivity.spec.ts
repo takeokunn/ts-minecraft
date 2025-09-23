@@ -1,6 +1,7 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either, Layer, pipe } from 'effect'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   MouseSensitivity,
   MouseSensitivityError,
@@ -161,7 +162,10 @@ describe('MouseSensitivity', () => {
         const mouseSensitivity = yield* MouseSensitivity
 
         // Should not throw an error
-        yield* mouseSensitivity.setSensitivity(1.5, 1.2)
+        yield* mouseSensitivity.setSensitivity(
+          BrandedTypes.createSensitivityValue(1.5),
+          BrandedTypes.createSensitivityValue(1.2)
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -518,7 +522,10 @@ describe('MouseSensitivity', () => {
         Effect.gen(function* () {
           const mouseSensitivity = yield* MouseSensitivity
 
-          yield* mouseSensitivity.setSensitivity(2.5, 1.8)
+          yield* mouseSensitivity.setSensitivity(
+            BrandedTypes.createSensitivityValue(2.5),
+            BrandedTypes.createSensitivityValue(1.8)
+          )
           const config = yield* mouseSensitivity.getConfig()
 
           expect(config.xSensitivity).toBe(2.5)
@@ -531,7 +538,11 @@ describe('MouseSensitivity', () => {
         Effect.gen(function* () {
           const mouseSensitivity = yield* MouseSensitivity
 
-          yield* mouseSensitivity.setSensitivity(-1, 0)
+          // Use very small positive values that will be clamped to 0.01
+          yield* mouseSensitivity.setSensitivity(
+            BrandedTypes.createSensitivityValue(0.001),
+            BrandedTypes.createSensitivityValue(0.005)
+          )
           const config = yield* mouseSensitivity.getConfig()
 
           expect(config.xSensitivity).toBe(0.01)
@@ -592,7 +603,10 @@ describe('MouseSensitivity', () => {
           const mouseSensitivity = yield* MouseSensitivity
 
           // First modify the configuration
-          yield* mouseSensitivity.setSensitivity(5.0, 3.0)
+          yield* mouseSensitivity.setSensitivity(
+            BrandedTypes.createSensitivityValue(5.0),
+            BrandedTypes.createSensitivityValue(3.0)
+          )
           yield* mouseSensitivity.setGlobalMultiplier(2.0)
 
           // Then reset
@@ -867,7 +881,10 @@ describe('MouseSensitivity', () => {
           const mouseSensitivity = yield* MouseSensitivity
           const delta = createTestDelta(1, 1)
 
-          yield* mouseSensitivity.setSensitivity(100, 100)
+          yield* mouseSensitivity.setSensitivity(
+            BrandedTypes.createSensitivityValue(100),
+            BrandedTypes.createSensitivityValue(100)
+          )
           yield* mouseSensitivity.setGlobalMultiplier(10)
           const result = yield* mouseSensitivity.applySensitivity(delta)
 

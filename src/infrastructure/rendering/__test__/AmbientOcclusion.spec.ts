@@ -12,6 +12,7 @@ import {
   getAOQualitySettings,
 } from '../AmbientOcclusion'
 import type { ChunkData } from '../MeshGenerator'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 // ========================================
 // Test Helpers
@@ -67,7 +68,7 @@ describe('AmbientOcclusion', () => {
         x: 1,
         y: 2,
         z: 3,
-        ao: 0.75,
+        ao: BrandedTypes.createAOValue(0.75),
       }
 
       expect(vertex.x).toBe(1)
@@ -78,15 +79,15 @@ describe('AmbientOcclusion', () => {
 
     it('should create valid AOFace objects', () => {
       const vertices: [AOVertex, AOVertex, AOVertex, AOVertex] = [
-        { x: 0, y: 0, z: 0, ao: 0.5 },
-        { x: 1, y: 0, z: 0, ao: 0.6 },
-        { x: 1, y: 1, z: 0, ao: 0.7 },
-        { x: 0, y: 1, z: 0, ao: 0.8 },
+        { x: 0, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.5) },
+        { x: 1, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.6) },
+        { x: 1, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.7) },
+        { x: 0, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.8) },
       ]
 
       const face: AOFace = {
         vertices,
-        averageAO: 0.65,
+        averageAO: BrandedTypes.createAOValue(0.65),
       }
 
       expect(face.vertices).toHaveLength(4)
@@ -525,16 +526,16 @@ describe('AmbientOcclusion', () => {
       const DisabledAOLive = Layer.succeed(
         AmbientOcclusionService,
         AmbientOcclusionService.of({
-          calculateVertexAO: () => Effect.succeed(1.0),
+          calculateVertexAO: () => Effect.succeed(BrandedTypes.createAOValue(1.0)),
           calculateFaceAO: () =>
             Effect.succeed({
               vertices: [
-                { x: 0, y: 0, z: 0, ao: 1.0 },
-                { x: 1, y: 0, z: 0, ao: 1.0 },
-                { x: 1, y: 1, z: 0, ao: 1.0 },
-                { x: 0, y: 1, z: 0, ao: 1.0 },
+                { x: 0, y: 0, z: 0, ao: BrandedTypes.createAOValue(1.0) },
+                { x: 1, y: 0, z: 0, ao: BrandedTypes.createAOValue(1.0) },
+                { x: 1, y: 1, z: 0, ao: BrandedTypes.createAOValue(1.0) },
+                { x: 0, y: 1, z: 0, ao: BrandedTypes.createAOValue(1.0) },
               ] as [AOVertex, AOVertex, AOVertex, AOVertex],
-              averageAO: 1.0,
+              averageAO: BrandedTypes.createAOValue(1.0),
             }),
           applyAOToChunk: () => Effect.succeed([]),
         })

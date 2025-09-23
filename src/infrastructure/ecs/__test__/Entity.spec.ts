@@ -19,7 +19,7 @@ import {
   createComponentStorage,
   createArchetypeManager,
   type EntityMetadata,
-} from '../Entity.js'
+} from '../Entity'
 import * as Exit from 'effect/Exit'
 
 // ================================================================================

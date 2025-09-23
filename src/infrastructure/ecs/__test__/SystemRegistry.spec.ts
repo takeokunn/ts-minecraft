@@ -16,9 +16,9 @@ import {
   SystemRegistryServiceLive,
   SystemRegistryError,
   isSystemRegistryError,
-} from '../SystemRegistry.js'
-import { createSystem, SystemError } from '../System.js'
-import type { World } from '../World.js'
+} from '../SystemRegistry'
+import { createSystem, SystemError } from '../System'
+import type { World } from '../World'
 
 // ================================================================================
 // Test Layers - Layer-based DI Pattern

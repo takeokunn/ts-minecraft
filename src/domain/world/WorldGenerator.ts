@@ -6,10 +6,10 @@
 
 import { Effect, Context } from 'effect'
 import { Schema } from '@effect/schema'
-import type { Chunk, ChunkData } from '../chunk/index.js'
-import type { ChunkPosition } from '../chunk/ChunkPosition.js'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types.js'
-import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
+import type { Chunk, ChunkData } from '../chunk/index'
+import type { ChunkPosition } from '../chunk/ChunkPosition'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { GeneratorOptions, StructureType } from './GeneratorOptions'
 
 /**
  * ワールド生成エラーの定義

@@ -1,4 +1,5 @@
 import { Brand, Context, Data, Effect, Layer, Option, pipe, Schema, Match } from 'effect'
+import { BrandedTypes, EntityCount, EntityCapacity } from '../../shared/types/branded'
 
 // =====================================
 // Entity ID Type
@@ -218,10 +219,10 @@ export const createComponentStorage = <T>() => {
       entities: array.indexToEntity.slice(0, array.size),
     }))
 
-  const getStats = (): Effect.Effect<{ size: number; capacity: number }, never> =>
+  const getStats = (): Effect.Effect<{ size: EntityCount; capacity: EntityCapacity }, never> =>
     Effect.sync(() => ({
-      size: array.size,
-      capacity: array.data.length,
+      size: BrandedTypes.createEntityCount(array.size),
+      capacity: BrandedTypes.createEntityCapacity(array.data.length),
     }))
 
   return {
@@ -251,7 +252,7 @@ export interface ComponentStorage<T> {
     { readonly data: ReadonlyArray<T>; readonly entities: ReadonlyArray<EntityId> },
     never
   >
-  readonly getStats: () => Effect.Effect<{ size: number; capacity: number }, never>
+  readonly getStats: () => Effect.Effect<{ size: EntityCount; capacity: EntityCapacity }, never>
 }
 
 // =====================================

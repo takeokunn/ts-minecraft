@@ -3,6 +3,7 @@ import { it as itEffect } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   BiomeGeneratorTag,
   BiomeGeneratorLive,
@@ -19,10 +20,10 @@ import type { BiomeType, Vector3 } from '../types'
 
 // NoiseGenerator モックレイヤー
 const NoiseGeneratorTestLayer = Layer.succeed(NoiseGeneratorTag, {
-  noise2D: () => Effect.succeed(0.5),
-  noise3D: () => Effect.succeed(0.5),
-  octaveNoise2D: () => Effect.succeed(0.3),
-  octaveNoise3D: () => Effect.succeed(0.3),
+  noise2D: () => Effect.succeed(BrandedTypes.createNoiseValue(0.5)),
+  noise3D: () => Effect.succeed(BrandedTypes.createNoiseValue(0.5)),
+  octaveNoise2D: () => Effect.succeed(BrandedTypes.createNoiseValue(0.3)),
+  octaveNoise3D: () => Effect.succeed(BrandedTypes.createNoiseValue(0.3)),
   getSeed: () => 12345,
   getConfig: () => ({
     seed: 12345,

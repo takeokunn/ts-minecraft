@@ -887,18 +887,21 @@ export const PhysicsSystem = {
     Effect.gen(function* () {
       let resolvedVelocity = velocity
 
-      for (const collision of collisions) {
-        resolvedVelocity = yield* Match.value(collision.collisionType).pipe(
-          Match.when({ _tag: 'Enter' }, ({ contactPoint }) =>
-            PhysicsSystem.applyCollisionImpulse(resolvedVelocity, collision.normal, collision.impulse)
-          ),
-          Match.when({ _tag: 'Stay' }, ({ contactPoint, duration }) =>
-            PhysicsSystem.applyContinuousContact(resolvedVelocity, collision.normal, duration)
-          ),
-          Match.when({ _tag: 'Exit' }, () => Effect.succeed(resolvedVelocity)),
-          Match.exhaustive
-        )
-      }
+      // 衝突配列の処理をEffect-TSパターンで実行
+      yield* Effect.forEach(collisions, (collision) =>
+        Effect.gen(function* () {
+          resolvedVelocity = yield* Match.value(collision.collisionType).pipe(
+            Match.when({ _tag: 'Enter' }, ({ contactPoint }) =>
+              PhysicsSystem.applyCollisionImpulse(resolvedVelocity, collision.normal, collision.impulse)
+            ),
+            Match.when({ _tag: 'Stay' }, ({ contactPoint, duration }) =>
+              PhysicsSystem.applyContinuousContact(resolvedVelocity, collision.normal, duration)
+            ),
+            Match.when({ _tag: 'Exit' }, () => Effect.succeed(resolvedVelocity)),
+            Match.exhaustive
+          )
+        })
+      )
 
       return resolvedVelocity
     }),
@@ -1204,10 +1207,12 @@ export const RaycastSystem = {
     Effect.gen(function* () {
       const rays: Array<Ray> = []
 
-      // 球面上の点を生成（フィボナッチ螺旋）
-      for (let i = 0; i < rayCount; i++) {
-        const theta = (2 * Math.PI * i) / ((1 + Math.sqrt(5)) / 2)
-        const phi = Math.acos(1 - (2 * (i + 0.5)) / rayCount)
+      // 球面上の点を生成（フィボナッチ螺旋）- Effect-TSパターン
+      yield* Effect.forEach(
+        Array.makeBy(rayCount, (i) => i),
+        (i) => Effect.sync(() => {
+          const theta = (2 * Math.PI * i) / ((1 + Math.sqrt(5)) / 2)
+          const phi = Math.acos(1 - (2 * (i + 0.5)) / rayCount)
 
         const direction = Vector3DUtils.make(
           Math.sin(phi) * Math.cos(theta),
@@ -1407,9 +1412,11 @@ export const SpatialGridSystem = {
       const cellKeys = SpatialGridSystem.getCellKeys(aabb, grid.cellSize)
       const newCells = new Map(grid.cells)
 
-      for (const cellKey of cellKeys) {
-        const existingCell = newCells.get(cellKey)
-        const entities = existingCell ? new Set(existingCell.entities).add(entityId) : new Set([entityId])
+      // セルキー配列の処理をEffect-TSパターンで実行
+      yield* Effect.forEach(cellKeys, (cellKey) =>
+        Effect.sync(() => {
+          const existingCell = newCells.get(cellKey)
+          const entities = existingCell ? new Set(existingCell.entities).add(entityId) : new Set([entityId])
 
         const cellAABB = SpatialGridSystem.getCellAABB(cellKey, grid.cellSize)
 
@@ -1438,14 +1445,17 @@ export const SpatialGridSystem = {
     Stream.gen(function* () {
       const cellKeys = SpatialGridSystem.getCellKeys(queryAABB, grid.cellSize)
 
-      for (const cellKey of cellKeys) {
-        const cell = grid.cells.get(cellKey)
-        if (cell && AABBUtils.intersects(cell.bounds, queryAABB)) {
-          for (const entityId of cell.entities) {
-            yield* Stream.succeed(entityId)
+      // セルキーとエンティティの処理をEffect-TSパターンで実行
+      yield* Effect.forEach(cellKeys, (cellKey) =>
+        Effect.gen(function* () {
+          const cell = grid.cells.get(cellKey)
+          if (cell && AABBUtils.intersects(cell.bounds, queryAABB)) {
+            yield* Effect.forEach(Array.from(cell.entities), (entityId) =>
+              Stream.succeed(entityId)
+            )
           }
-        }
-      }
+        })
+      )
     }),
 
   // 近隣検索（距離ベース・Stream対応）
@@ -1481,13 +1491,18 @@ export const SpatialGridSystem = {
 
     const keys: Array<string> = []
 
-    for (let x = minCell.x; x <= maxCell.x; x++) {
-      for (let y = minCell.y; y <= maxCell.y; y++) {
-        for (let z = minCell.z; z <= maxCell.z; z++) {
+    // 3D座標空間の反復処理をEffect-TSパターンで実行
+    const xRange = Array.makeBy(maxCell.x - minCell.x + 1, (i) => minCell.x + i)
+    const yRange = Array.makeBy(maxCell.y - minCell.y + 1, (i) => minCell.y + i)
+    const zRange = Array.makeBy(maxCell.z - minCell.z + 1, (i) => minCell.z + i)
+
+    xRange.forEach(x => {
+      yRange.forEach(y => {
+        zRange.forEach(z => {
           keys.push(`${x},${y},${z}`)
-        }
-      }
-    }
+        })
+      })
+    })
 
     return keys
   },
@@ -1577,9 +1592,14 @@ export const SpatialGridSystem = {
 
     const newCells = new Map(grid.cells)
 
-    for (let x = minCellX; x <= maxCellX; x++) {
-      for (let y = minCellY; y <= maxCellY; y++) {
-        for (let z = minCellZ; z <= maxCellZ; z++) {
+    // 3D座標空間でのセル生成をEffect-TSパターンで実行
+    const xRange = Array.makeBy(maxCellX - minCellX + 1, (i) => minCellX + i)
+    const yRange = Array.makeBy(maxCellY - minCellY + 1, (i) => minCellY + i)
+    const zRange = Array.makeBy(maxCellZ - minCellZ + 1, (i) => minCellZ + i)
+
+    xRange.forEach(x => {
+      yRange.forEach(y => {
+        zRange.forEach(z => {
           const cellKey = `${x},${y},${z}`
           const existingCell = newCells.get(cellKey) || {
             entities: new Set(),
@@ -1611,9 +1631,14 @@ export const SpatialGridSystem = {
     const minCellZ = Math.floor(aabb.minZ / grid.cellSize)
     const maxCellZ = Math.floor(aabb.maxZ / grid.cellSize)
 
-    for (let x = minCellX; x <= maxCellX; x++) {
-      for (let y = minCellY; y <= maxCellY; y++) {
-        for (let z = minCellZ; z <= maxCellZ; z++) {
+    // 3D座標空間でのセル検索をEffect-TSパターンで実行
+    const xRange = Array.makeBy(maxCellX - minCellX + 1, (i) => minCellX + i)
+    const yRange = Array.makeBy(maxCellY - minCellY + 1, (i) => minCellY + i)
+    const zRange = Array.makeBy(maxCellZ - minCellZ + 1, (i) => minCellZ + i)
+
+    xRange.forEach(x => {
+      yRange.forEach(y => {
+        zRange.forEach(z => {
           const cellKey = `${x},${y},${z}`
           const cell = grid.cells.get(cellKey)
           if (cell) {
@@ -2188,14 +2213,16 @@ export const VerletIntegration = {
     Effect.gen(function* () {
       let constrainedEntities = entities
 
-      // 反復制約解決
-      for (let iteration = 0; iteration < 10; iteration++) {
-        let constraintsSatisfied = true
+      // 反復制約解決をEffect-TSパターンで実行
+      yield* Effect.repeatN(
+        Effect.gen(function* () {
+          let constraintsSatisfied = true
 
-        for (const constraint of constraints) {
-          const result = yield* Match.value(constraint).pipe(
-            Match.when({ _tag: 'DistanceConstraint' }, (dist) =>
-              VerletIntegration.solveDistanceConstraint(constrainedEntities, dist)
+          yield* Effect.forEach(constraints, (constraint) =>
+            Effect.gen(function* () {
+              const result = yield* Match.value(constraint).pipe(
+                Match.when({ _tag: 'DistanceConstraint' }, (dist) =>
+                  VerletIntegration.solveDistanceConstraint(constrainedEntities, dist)
             ),
             Match.when({ _tag: 'FixedConstraint' }, (fixed) =>
               VerletIntegration.solveFixedConstraint(constrainedEntities, fixed)
@@ -2243,9 +2270,10 @@ export const SIMDPhysicsSystem = {
     count: number
   ): Effect.Effect<void, never> =>
     Effect.sync(() => {
-      // WebAssembly SIMD関数呼び出し
+      // WebAssembly SIMD関数呼び出しをEffect-TSパターンで実行
       // 実際の実装ではWASMモジュールと連携
-      for (let i = 0; i < count; i += 4) {
+      const simdIndices = Array.makeBy(Math.floor(count / 4), (i) => i * 4)
+      simdIndices.forEach(i => {
         // 4つのエンティティを同時に処理
         const vx = velocities[i + 0] + accelerations[i + 0] * deltaTime
         const vy = velocities[i + 1] + accelerations[i + 1] * deltaTime

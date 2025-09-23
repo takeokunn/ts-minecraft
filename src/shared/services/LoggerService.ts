@@ -67,7 +67,11 @@ export const shouldLog = (level: LogLevel, currentLevel: LogLevel): boolean => {
 }
 
 // タイムスタンプ生成
-export const createTimestamp = (): string => new Date().toISOString()
+export const createTimestamp = (): Effect.Effect<string> =>
+  pipe(
+    Effect.clockWith((clock) => clock.currentTimeMillis),
+    Effect.map((millis) => new Date(millis).toISOString())
+  )
 
 // 構造化ログの生成
 export const createLogEntry = (
@@ -75,10 +79,14 @@ export const createLogEntry = (
   message: string,
   context?: Record<string, unknown>,
   error?: Error
-): LogEntry => ({
-  timestamp: createTimestamp(),
-  level,
-  message,
-  ...(context && { context }),
-  ...(error && { error: { name: error.name, message: error.message, stack: error.stack } }),
-})
+): Effect.Effect<LogEntry> =>
+  pipe(
+    createTimestamp(),
+    Effect.map((timestamp) => ({
+      timestamp,
+      level,
+      message,
+      ...(context && { context }),
+      ...(error && { error: { name: error.name, message: error.message, stack: error.stack } }),
+    }))
+  )

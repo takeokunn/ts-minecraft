@@ -6,14 +6,14 @@
  */
 
 import { Context, Data, Effect, Layer, Ref, Schema, Match, Option, pipe } from 'effect'
-import { EntityManager } from './EntityManager.js'
-import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry.js'
-import type { System, SystemPriority } from './System.js'
-import { SystemError } from './System.js'
-import { type EntityId, EntityId as EntityIdBrand } from './Entity.js'
+import { EntityManager } from './EntityManager'
+import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry'
+import type { System, SystemPriority } from './System'
+import { SystemError } from './System'
+import { type EntityId, EntityId as EntityIdBrand } from './Entity'
 
 // EntityIdを再エクスポート
-export { type EntityId } from './Entity.js'
+export { type EntityId } from './Entity'
 
 /**
  * ワールドエラー

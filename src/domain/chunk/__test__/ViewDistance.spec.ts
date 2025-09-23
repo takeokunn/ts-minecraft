@@ -17,8 +17,8 @@ import {
   defaultViewDistanceConfig,
   type PerformanceMetrics,
   type ViewDistanceConfig,
-} from '../ViewDistance.js'
-import type { ChunkPosition } from '../ChunkPosition.js'
+} from '../ViewDistance'
+import type { ChunkPosition } from '../ChunkPosition'
 
 // =============================================================================
 // Test Utilities
