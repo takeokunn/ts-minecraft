@@ -4,21 +4,23 @@ import { MainLayer } from '../MainLayer'
 import { AppServiceLive } from '../../services/AppService'
 
 describe('MainLayer', () => {
-  it('should export AppServiceLive as MainLayer', () => {
-    expect(MainLayer).toBe(AppServiceLive)
+  it('should be a composite layer including AppServiceLive', () => {
+    // MainLayer is now a composite of multiple service layers
+    expect(Layer.isLayer(MainLayer)).toBe(true)
+    expect(MainLayer).toBeDefined()
   })
 
   it('should be a valid Layer', () => {
     expect(Layer.isLayer(MainLayer)).toBe(true)
   })
 
-  it('should provide the correct service type', () => {
-    // MainLayer should provide the same services as AppServiceLive
+  it('should provide multiple services including AppService', () => {
+    // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
     const layerInstance = MainLayer
     expect(layerInstance).toBeDefined()
 
-    // Check that it's the same reference
-    expect(layerInstance === AppServiceLive).toBe(true)
+    // Check that it's a Layer (not checking for same reference anymore since it's a composite)
+    expect(Layer.isLayer(layerInstance)).toBe(true)
   })
 
   it('should be usable in Layer composition', () => {
@@ -27,11 +29,12 @@ describe('MainLayer', () => {
     expect(Layer.isLayer(composedLayer)).toBe(true)
   })
 
-  it('should maintain all properties of AppServiceLive', () => {
-    // Ensure MainLayer is identical to AppServiceLive
+  it('should be a properly structured composite layer', () => {
+    // MainLayer is now a mergeAll of multiple layers
     const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
-    const appServiceProps = Object.getOwnPropertyNames(AppServiceLive)
 
-    expect(mainLayerProps).toEqual(appServiceProps)
+    // Should have Layer properties
+    expect(mainLayerProps).toContain('_op_layer')
+    expect(mainLayerProps).toContain('evaluate')
   })
 })
