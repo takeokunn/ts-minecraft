@@ -33,7 +33,7 @@ describe('System', () => {
   })
 
   describe('runSystems', () => {
-    it('複数のシステムを順次実行する', async () => {
+    it('複数のシステムを順次実行する', () => {
       const executionOrder: string[] = []
 
       const system1 = createSystem('System1', () =>
@@ -54,17 +54,17 @@ describe('System', () => {
         })
       )
 
-      await Effect.runPromise(runSystems([system1, system2, system3], {} as World, 16))
+      Effect.runSync(runSystems([system1, system2, system3], {} as World, 16))
 
       expect(executionOrder).toEqual(['System1', 'System2', 'System3'])
     })
 
-    it('システムエラーを適切に処理する', async () => {
+    it('システムエラーを適切に処理する', () => {
       const system1 = createSystem('System1', () => Effect.void)
 
       const system2 = createSystem('System2', () => Effect.fail(SystemError('System2', 'Test error')))
 
-      const result = await Effect.runPromiseExit(runSystems([system1, system2], {} as World, 16))
+      const result = Effect.runSyncExit(runSystems([system1, system2], {} as World, 16))
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -77,10 +77,10 @@ describe('System', () => {
       }
     })
 
-    it('未知のエラーをSystemErrorにラップする', async () => {
+    it('未知のエラーをSystemErrorにラップする', () => {
       const system = createSystem('FailingSystem', () => Effect.fail('Unknown error' as unknown as SystemError))
 
-      const result = await Effect.runPromiseExit(runSystems([system], {} as World, 16))
+      const result = Effect.runSyncExit(runSystems([system], {} as World, 16))
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -95,7 +95,7 @@ describe('System', () => {
   })
 
   describe('runSystemWithMetrics', () => {
-    it('システム実行時間を計測する', async () => {
+    it('システム実行時間を計測する', () => {
       const system = createSystem('TimedSystem', () =>
         Effect.sync(() => {
           // 何か処理をシミュレート
@@ -106,12 +106,12 @@ describe('System', () => {
         })
       )
 
-      const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
+      const result = Effect.runSync(runSystemWithMetrics(system, {} as World, 16))
 
       expect(result.duration).toBeGreaterThanOrEqual(5)
     })
 
-    it('16ms以上かかったシステムに対して警告を出す', async () => {
+    it('16ms以上かかったシステムに対して警告を出す', () => {
       const warnings: string[] = []
       const originalLogWarning = console.warn
 
@@ -130,7 +130,7 @@ describe('System', () => {
         })
       )
 
-      const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
+      const result = Effect.runSync(runSystemWithMetrics(system, {} as World, 16))
 
       // console.warnを元に戻す
       console.warn = originalLogWarning
@@ -142,17 +142,17 @@ describe('System', () => {
   })
 
   describe('createMockSystem', () => {
-    it('デフォルトの動作でモックシステムを作成する', async () => {
+    it('デフォルトの動作でモックシステムを作成する', () => {
       const mockSystem = createMockSystem('MockSystem')
 
       expect(mockSystem.name).toBe('MockSystem')
 
-      const result = await Effect.runPromise(mockSystem.update({} as World, 16))
+      const result = Effect.runSync(mockSystem.update({} as World, 16))
 
       expect(result).toBeUndefined()
     })
 
-    it('カスタム動作でモックシステムを作成する', async () => {
+    it('カスタム動作でモックシステムを作成する', () => {
       let executed = false
 
       const customBehavior = Effect.sync(() => {
@@ -161,17 +161,17 @@ describe('System', () => {
 
       const mockSystem = createMockSystem('MockSystem', customBehavior)
 
-      await Effect.runPromise(mockSystem.update({} as World, 16))
+      Effect.runSync(mockSystem.update({} as World, 16))
 
       expect(executed).toBe(true)
     })
 
-    it('エラーを返すモックシステムを作成できる', async () => {
+    it('エラーを返すモックシステムを作成できる', () => {
       const error = SystemError('MockSystem', 'Mock error')
 
       const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 
-      const result = await Effect.runPromiseExit(mockSystem.update({} as World, 16))
+      const result = Effect.runSyncExit(mockSystem.update({} as World, 16))
 
       expect(result._tag).toBe('Failure')
       pipe(

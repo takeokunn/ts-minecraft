@@ -44,7 +44,7 @@ describe('RendererServiceLive', () => {
   })
 
   describe('Layer creation', () => {
-    it('creates a valid RendererService layer', async () => {
+    it('creates a valid RendererService layer', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         expect(service).toBeDefined()
@@ -55,12 +55,12 @@ describe('RendererServiceLive', () => {
         return service
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
     })
   })
 
   describe('Basic Service Operations', () => {
-    it('initializes WebGL renderer successfully', async () => {
+    it('initializes WebGL renderer successfully', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
@@ -68,11 +68,11 @@ describe('RendererServiceLive', () => {
         return isInitialized
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe(true)
     })
 
-    it('handles service layer creation correctly', async () => {
+    it('handles service layer creation correctly', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
@@ -83,13 +83,13 @@ describe('RendererServiceLive', () => {
         return isInitialized
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe(true)
     })
   })
 
   describe('Rendering Operations', () => {
-    it('renders scene successfully', async () => {
+    it('renders scene successfully', () => {
       const mockScene = { uuid: 'scene-123' } as THREE.Scene
       const mockCamera = { type: 'PerspectiveCamera' } as THREE.Camera
 
@@ -100,11 +100,11 @@ describe('RendererServiceLive', () => {
         return 'success'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('success')
     })
 
-    it('handles multiple render operations', async () => {
+    it('handles multiple render operations', () => {
       const mockScene = { uuid: 'scene-123' } as THREE.Scene
       const mockCamera = { type: 'PerspectiveCamera' } as THREE.Camera
 
@@ -120,13 +120,13 @@ describe('RendererServiceLive', () => {
         return 'completed'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('completed')
     })
   })
 
   describe('Resize and Configuration Operations', () => {
-    it('handles resize operations', async () => {
+    it('handles resize operations', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
@@ -135,11 +135,11 @@ describe('RendererServiceLive', () => {
         return 'resized'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('resized')
     })
 
-    it('handles configuration changes', async () => {
+    it('handles configuration changes', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
@@ -148,13 +148,13 @@ describe('RendererServiceLive', () => {
         return 'configured'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('configured')
     })
   })
 
   describe('Lifecycle Operations', () => {
-    it('handles complete lifecycle', async () => {
+    it('handles complete lifecycle', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
 
@@ -178,11 +178,11 @@ describe('RendererServiceLive', () => {
         return 'completed'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('completed')
     })
 
-    it('handles concurrent operations safely', async () => {
+    it('handles concurrent operations safely', () => {
       const program = Effect.gen(function* () {
         const service = yield* RendererService
         yield* service.initialize(mockCanvas)
@@ -197,7 +197,7 @@ describe('RendererServiceLive', () => {
         return 'completed'
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(WebGLTestLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(WebGLTestLayer)))
       expect(result).toBe('completed')
     })
   })

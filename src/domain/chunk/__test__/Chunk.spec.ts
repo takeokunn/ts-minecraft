@@ -112,15 +112,15 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
       })
     )
 
-    it('should handle any valid coordinate with property testing', async () => {
-      await fc.assert(
-        fc.asyncProperty(
+    it('should handle any valid coordinate with property testing', () => {
+      fc.assert(
+        fc.property(
           fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
           fc.integer({ min: CHUNK_MIN_Y, max: CHUNK_MAX_Y - 1 }),
           fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
-          async (x, y, z) => {
+          (x, y, z) => {
             const chunk = createEmptyChunk(testPosition)
-            const result = await Effect.runPromise(Effect.exit(chunk.getBlock(x, y, z)))
+            const result = Effect.runSync(Effect.exit(chunk.getBlock(x, y, z)))
             expect(Exit.isSuccess(result)).toBe(true)
           }
         )
@@ -174,17 +174,17 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
       })
     )
 
-    it('should set any valid block with property testing', async () => {
-      await fc.assert(
-        fc.asyncProperty(
+    it('should set any valid block with property testing', () => {
+      fc.assert(
+        fc.property(
           fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
           fc.integer({ min: CHUNK_MIN_Y, max: CHUNK_MAX_Y - 1 }),
           fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
           fc.integer({ min: 1, max: 100 }),
-          async (x, y, z, blockId) => {
+          (x, y, z, blockId) => {
             const chunk = createEmptyChunk(testPosition)
-            const newChunk = await Effect.runPromise(chunk.setBlock(x, y, z, blockId))
-            const retrievedId = await Effect.runPromise(newChunk.getBlock(x, y, z))
+            const newChunk = Effect.runSync(chunk.setBlock(x, y, z, blockId))
+            const retrievedId = Effect.runSync(newChunk.getBlock(x, y, z))
             expect(retrievedId).toBe(blockId)
             expect(newChunk.isDirty).toBe(true)
           }
@@ -490,9 +490,9 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
       })
     )
 
-    it('should maintain data integrity through all operations', async () => {
-      await fc.assert(
-        fc.asyncProperty(
+    it('should maintain data integrity through all operations', () => {
+      fc.assert(
+        fc.property(
           fc.array(
             fc.record({
               x: fc.integer({ min: 0, max: CHUNK_SIZE - 1 }),
@@ -502,7 +502,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
             }),
             { minLength: 1, maxLength: 20 }
           ),
-          async (operations) => {
+          (operations) => {
             const effect = Effect.gen(function* () {
               let chunk = createEmptyChunk(testPosition)
 
@@ -537,7 +537,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
               }
             })
 
-            await Effect.runPromise(effect)
+            Effect.runSync(effect)
           }
         )
       )

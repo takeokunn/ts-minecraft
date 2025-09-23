@@ -270,7 +270,7 @@ describe('Player System Performance Benchmarks', () => {
               return movementSystem.processMovementInput(playerId, input)
             })
 
-            await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded' }))
+            Effect.runSync(Effect.all(operations, { concurrency: 'unbounded' }))
           })
 
           // マルチプレイヤー環境での性能要件
@@ -317,7 +317,7 @@ describe('Player System Performance Benchmarks', () => {
               batches.push(Effect.all(batch, { concurrency: 'unbounded' }))
             }
 
-            await Effect.runPromise(Effect.all(batches, { concurrency: 'unbounded' }))
+            Effect.runSync(Effect.all(batches, { concurrency: 'unbounded' }))
           })
 
           // 大規模環境での性能要件（緩和された要件）
@@ -359,7 +359,7 @@ describe('Player System Performance Benchmarks', () => {
                 return movementSystem.processMovementInput(playerId, input)
               })
 
-              await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded' }))
+              Effect.runSync(Effect.all(operations, { concurrency: 'unbounded' }))
             })
 
             scalingResults.push({

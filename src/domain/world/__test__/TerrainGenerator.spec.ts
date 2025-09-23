@@ -238,7 +238,7 @@ describe('TerrainGenerator', () => {
       isDirty: false,
     })
 
-    it('generates base terrain with proper block placement', async () => {
+    it('generates base terrain with proper block placement', () => {
       const chunkPosition = { x: 0, z: 0 }
       const chunkData = createTestChunkData(chunkPosition)
 
@@ -275,10 +275,10 @@ describe('TerrainGenerator', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('respects height map boundaries', async () => {
+    it('respects height map boundaries', () => {
       const chunkPosition = { x: 0, z: 0 }
       const chunkData = createTestChunkData(chunkPosition)
 
@@ -330,12 +330,12 @@ describe('TerrainGenerator', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
   })
 
   describe('Block Type Determination', () => {
-    it('determines correct block types based on height and position', async () => {
+    it('determines correct block types based on height and position', () => {
       const testCases = [
         { worldX: 0, worldZ: 0, y: 60, surfaceHeight: 62, expected: 'sand' }, // 海面近く
         { worldX: 0, worldZ: 0, y: 120, surfaceHeight: 120, expected: 'stone' }, // 高山
@@ -358,7 +358,7 @@ describe('TerrainGenerator', () => {
         })
       )
 
-      const results = await Effect.runPromise(effect)
+      const results = Effect.runSync(effect)
 
       for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i]
@@ -411,7 +411,7 @@ describe('TerrainGenerator', () => {
   })
 
   describe('Edge Cases', () => {
-    it('handles extreme chunk positions', async () => {
+    it('handles extreme chunk positions', () => {
       const extremePositions = [
         { x: 1000000, z: 1000000 },
         { x: -1000000, z: -1000000 },
@@ -437,11 +437,11 @@ describe('TerrainGenerator', () => {
           })
         )
 
-        await Effect.runPromise(effect)
+        Effect.runSync(effect)
       }
     })
 
-    it('handles boundary height values', async () => {
+    it('handles boundary height values', () => {
       const extremeConfig: TerrainConfig = {
         seaLevel: 0,
         maxHeight: 10,
@@ -468,7 +468,7 @@ describe('TerrainGenerator', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
   })
 })

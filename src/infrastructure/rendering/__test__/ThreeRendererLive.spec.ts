@@ -104,12 +104,12 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('Layer作成', () => {
-    it('ThreeRendererLiveレイヤーが正常に作成される', async () => {
+    it('ThreeRendererLiveレイヤーが正常に作成される', () => {
       const layer = ThreeRendererLive
       expect(layer).toBeDefined()
     })
 
-    it('ThreeRendererサービスが正常に提供される', async () => {
+    it('ThreeRendererサービスが正常に提供される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         expect(renderer).toBeDefined()
@@ -119,12 +119,12 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
   })
 
   describe('実装詳細テスト', () => {
-    it('初期化時にWebGL2サポートがチェックされる', async () => {
+    it('初期化時にWebGL2サポートがチェックされる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -135,10 +135,10 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('パフォーマンス統計が正しく初期化される', async () => {
+    it('パフォーマンス統計が正しく初期化される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
 
@@ -156,10 +156,10 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('初期化後にレンダラーインスタンスが取得できる', async () => {
+    it('初期化後にレンダラーインスタンスが取得できる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -169,10 +169,10 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('リサイズが正常に実行される', async () => {
+    it('リサイズが正常に実行される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -180,10 +180,10 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('レンダリング時にフレームタイミングが記録される', async () => {
+    it('レンダリング時にフレームタイミングが記録される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -194,10 +194,10 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('dispose時にレンダラーインスタンスがクリアされる', async () => {
+    it('dispose時にレンダラーインスタンスがクリアされる', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -208,12 +208,12 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
   })
 
   describe('エラーハンドリング', () => {
-    it('WebGLコンテキスト作成失敗時に適切なエラーが発生する', async () => {
+    it('WebGLコンテキスト作成失敗時に適切なエラーが発生する', () => {
       const failingCanvas = createMockCanvas()
       vi.spyOn(failingCanvas, 'getContext').mockReturnValue(null)
 
@@ -223,7 +223,7 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -234,7 +234,7 @@ describe('ThreeRendererLive', () => {
       }
     })
 
-    it('不正なキャンバス要素でエラーが発生する', async () => {
+    it('不正なキャンバス要素でエラーが発生する', () => {
       const invalidCanvas = null as unknown as HTMLCanvasElement
 
       const program = Effect.gen(function* () {
@@ -243,7 +243,7 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -256,46 +256,46 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('設定機能', () => {
-    it('初期化前でもシャドウマップ設定が安全に実行される', async () => {
+    it('初期化前でもシャドウマップ設定が安全に実行される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.configureShadowMap({ enabled: true })
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('初期化前でもアンチエイリアシング設定が安全に実行される', async () => {
+    it('初期化前でもアンチエイリアシング設定が安全に実行される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.configureAntialiasing({ enabled: true })
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('初期化前でもリサイズが安全に実行される', async () => {
+    it('初期化前でもリサイズが安全に実行される', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.resize(1024, 768)
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
   })
 
   describe('高度な機能とエラーケース', () => {
-    it('初期化されていない状態でrenderを呼ぶとエラーが発生する', async () => {
+    it('初期化されていない状態でrenderを呼ぶとエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.render(scene, camera)
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -306,7 +306,7 @@ describe('ThreeRendererLive', () => {
       }
     })
 
-    it('WebGL2機能を有効化する', async () => {
+    it('WebGL2機能を有効化する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -314,17 +314,17 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('初期化されていない状態でWebGL2機能を有効化するとエラーが発生する', async () => {
+    it('初期化されていない状態でWebGL2機能を有効化するとエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.enableWebGL2Features()
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -335,7 +335,7 @@ describe('ThreeRendererLive', () => {
       }
     })
 
-    it('ポストプロセシングの設定', async () => {
+    it('ポストプロセシングの設定', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.initialize(canvas)
@@ -343,17 +343,17 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      await Effect.runPromise(runnable)
+      Effect.runSync(runnable)
     })
 
-    it('初期化されていない状態でポストプロセシングを設定するとエラーが発生する', async () => {
+    it('初期化されていない状態でポストプロセシングを設定するとエラーが発生する', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* ThreeRenderer
         yield* renderer.setupPostprocessing()
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -365,7 +365,7 @@ describe('ThreeRendererLive', () => {
     })
 
     // このテストを最後に実行して他のテストに影響しないようにする
-    it('初期化でエラーが発生した場合の適切なエラーハンドリング', async () => {
+    it('初期化でエラーが発生した場合の適切なエラーハンドリング', () => {
       // WebGLRendererの作成でエラーが発生するケース
       const WebGLRendererMock = vi.mocked(THREE.WebGLRenderer)
 
@@ -380,7 +380,7 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {

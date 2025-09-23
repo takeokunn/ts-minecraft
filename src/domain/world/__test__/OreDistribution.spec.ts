@@ -296,7 +296,7 @@ describe('OreDistribution', () => {
         ) as Effect.Effect<void, never, never>
     )
 
-    it('provides consistent density for same position', async () => {
+    it('provides consistent density for same position', () => {
       const position = { x: 123, y: 45, z: 678 }
 
       const effect = runWithTestOreDistribution(testConfig, (od) =>
@@ -310,10 +310,10 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('handles unknown ore types gracefully', async () => {
+    it('handles unknown ore types gracefully', () => {
       const position = { x: 0, y: 0, z: 0 }
 
       const effect = runWithTestOreDistribution(testConfig, (od) =>
@@ -327,10 +327,10 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('shows depth-based rarity effects', async () => {
+    it('shows depth-based rarity effects', () => {
       const surfacePosition = { x: 0, y: 200, z: 0 } // 地表
       const deepPosition = { x: 0, y: -50, z: 0 } // 深層
 
@@ -353,7 +353,7 @@ describe('OreDistribution', () => {
         })
       )
 
-      const results = await Effect.runPromise(effect)
+      const results = Effect.runSync(effect)
 
       // ダイヤモンドは深層で高密度になる傾向（ただしノイズベースなので絶対ではない）
       expect(typeof results.surfaceDiamond).toBe('number')
@@ -364,7 +364,7 @@ describe('OreDistribution', () => {
   })
 
   describe('Ore Position Detection', () => {
-    it('detects ore at specific positions', async () => {
+    it('detects ore at specific positions', () => {
       const testPositions = [
         { x: 0, y: 10, z: 0 },
         { x: 100, y: 50, z: 100 },
@@ -390,11 +390,11 @@ describe('OreDistribution', () => {
           })
         )
 
-        await Effect.runPromise(effect)
+        Effect.runSync(effect)
       }
     })
 
-    it('respects height restrictions', async () => {
+    it('respects height restrictions', () => {
       // ダイヤモンドの高度制限をテスト（maxY: 16）
       const highPosition = { x: 0, y: 50, z: 0 } // ダイヤモンドの範囲外
       const lowPosition = { x: 0, y: 10, z: 0 } // ダイヤモンドの範囲内
@@ -421,10 +421,10 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('handles extreme coordinates', async () => {
+    it('handles extreme coordinates', () => {
       const extremePositions = [
         { x: 1000000, y: 0, z: 1000000 },
         { x: -1000000, y: -60, z: -1000000 },
@@ -446,7 +446,7 @@ describe('OreDistribution', () => {
           })
         )
 
-        await Effect.runPromise(effect)
+        Effect.runSync(effect)
       }
     })
   })
@@ -499,7 +499,7 @@ describe('OreDistribution', () => {
         ) as Effect.Effect<void, never, never>
     )
 
-    it('preserves non-stone blocks', async () => {
+    it('preserves non-stone blocks', () => {
       const chunkPosition = { x: 0, z: 0 }
       const chunkData = createChunkData(chunkPosition)
 
@@ -551,7 +551,7 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
     it.effect.skip(
@@ -577,7 +577,7 @@ describe('OreDistribution', () => {
       { timeout: 15000 }
     )
 
-    it('respects ore height restrictions in chunks', async () => {
+    it('respects ore height restrictions in chunks', () => {
       const highConfig: OreDistributionConfig = {
         ores: [
           {
@@ -636,7 +636,7 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
   })
 
@@ -689,7 +689,7 @@ describe('OreDistribution', () => {
   })
 
   describe('Edge Cases', () => {
-    it('handles empty ore configuration', async () => {
+    it('handles empty ore configuration', () => {
       const emptyConfig: OreDistributionConfig = {
         ores: [],
         noiseScale: 0.05,
@@ -710,10 +710,10 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('handles extreme density configurations', async () => {
+    it('handles extreme density configurations', () => {
       const extremeConfig: OreDistributionConfig = {
         ores: [
           {
@@ -758,10 +758,10 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     })
 
-    it('handles boundary height values', async () => {
+    it('handles boundary height values', () => {
       const boundaryConfig: OreDistributionConfig = {
         ores: [
           {
@@ -804,11 +804,11 @@ describe('OreDistribution', () => {
           })
         )
 
-        await Effect.runPromise(effect)
+        Effect.runSync(effect)
       }
     })
 
-    it.skip('handles extreme chunk positions', async () => {
+    it.skip('handles extreme chunk positions', () => {
       const extremePositions = [
         { x: 1000000, z: 1000000 },
         { x: -1000000, z: -1000000 },
@@ -835,13 +835,13 @@ describe('OreDistribution', () => {
           })
         )
 
-        await Effect.runPromise(effect)
+        Effect.runSync(effect)
       }
     }, 30000)
   })
 
   describe('Realistic Ore Distribution', () => {
-    it('generates realistic ore distribution patterns', async () => {
+    it('generates realistic ore distribution patterns', () => {
       const realisticConfig: OreDistributionConfig = {
         ores: defaultOreConfigs,
         noiseScale: 0.05,
@@ -882,7 +882,7 @@ describe('OreDistribution', () => {
         })
       )
 
-      await Effect.runPromise(effect)
+      Effect.runSync(effect)
     }, 30000)
   })
 })

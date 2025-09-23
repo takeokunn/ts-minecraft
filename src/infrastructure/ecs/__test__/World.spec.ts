@@ -10,12 +10,12 @@ import { SystemRegistryServiceLive } from '../SystemRegistry'
 describe('World', () => {
   const TestLayer = Layer.provide(WorldLive, SystemRegistryServiceLive)
 
-  const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): Promise<A> =>
-    Effect.runPromise(Effect.provide(effect, TestLayer))
+  const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): A =>
+    Effect.runSync(Effect.provide(effect, TestLayer))
 
   describe('エンティティ管理', () => {
-    it('エンティティを作成できる', async () => {
-      const result = await runWithWorld(
+    it('エンティティを作成できる', () => {
+      const result = runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity('TestEntity', ['player'])
@@ -35,8 +35,8 @@ describe('World', () => {
       expect(result).toBeDefined()
     })
 
-    it('エンティティを削除できる', async () => {
-      await runWithWorld(
+    it('エンティティを削除できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity()
@@ -49,8 +49,8 @@ describe('World', () => {
       )
     })
 
-    it('存在しないエンティティの削除でエラーが発生する', async () => {
-      const result = await Effect.runPromiseExit(
+    it('存在しないエンティティの削除でエラーが発生する', () => {
+      const result = Effect.runSyncExit(
         Effect.provide(
           Effect.gen(function* () {
             const world = yield* World
@@ -70,8 +70,8 @@ describe('World', () => {
       }
     })
 
-    it('エンティティの有効/無効を切り替えられる', async () => {
-      await runWithWorld(
+    it('エンティティの有効/無効を切り替えられる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity()
@@ -89,8 +89,8 @@ describe('World', () => {
   })
 
   describe('コンポーネント管理', () => {
-    it('コンポーネントを追加・取得できる', async () => {
-      await runWithWorld(
+    it('コンポーネントを追加・取得できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity()
@@ -105,8 +105,8 @@ describe('World', () => {
       )
     })
 
-    it('コンポーネントを削除できる', async () => {
-      await runWithWorld(
+    it('コンポーネントを削除できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity()
@@ -123,8 +123,8 @@ describe('World', () => {
       )
     })
 
-    it('コンポーネントの存在を確認できる', async () => {
-      await runWithWorld(
+    it('コンポーネントの存在を確認できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
           const entityId = yield* world.createEntity()
@@ -141,8 +141,8 @@ describe('World', () => {
       )
     })
 
-    it('存在しないエンティティへのコンポーネント追加でエラーが発生する', async () => {
-      const result = await Effect.runPromiseExit(
+    it('存在しないエンティティへのコンポーネント追加でエラーが発生する', () => {
+      const result = Effect.runSyncExit(
         Effect.provide(
           Effect.gen(function* () {
             const world = yield* World
@@ -158,8 +158,8 @@ describe('World', () => {
   })
 
   describe('エンティティ検索', () => {
-    it('特定のコンポーネントを持つエンティティを検索できる', async () => {
-      await runWithWorld(
+    it('特定のコンポーネントを持つエンティティを検索できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -180,8 +180,8 @@ describe('World', () => {
       )
     })
 
-    it('複数のコンポーネントを持つエンティティを検索できる', async () => {
-      await runWithWorld(
+    it('複数のコンポーネントを持つエンティティを検索できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -205,8 +205,8 @@ describe('World', () => {
       )
     })
 
-    it('空のコンポーネント配列での検索で空配列を返す', async () => {
-      await runWithWorld(
+    it('空のコンポーネント配列での検索で空配列を返す', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -217,8 +217,8 @@ describe('World', () => {
       )
     })
 
-    it('存在しないコンポーネント型での複数検索で空配列を返す', async () => {
-      await runWithWorld(
+    it('存在しないコンポーネント型での複数検索で空配列を返す', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -232,8 +232,8 @@ describe('World', () => {
       )
     })
 
-    it('タグでエンティティを検索できる', async () => {
-      await runWithWorld(
+    it('タグでエンティティを検索できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -255,8 +255,8 @@ describe('World', () => {
       )
     })
 
-    it('非アクティブなエンティティは検索結果から除外される', async () => {
-      await runWithWorld(
+    it('非アクティブなエンティティは検索結果から除外される', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -278,8 +278,8 @@ describe('World', () => {
   })
 
   describe('システム管理', () => {
-    it('システムを登録・実行できる', async () => {
-      await runWithWorld(
+    it('システムを登録・実行できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -298,8 +298,8 @@ describe('World', () => {
       )
     })
 
-    it('複数のシステムを優先度順に実行する', async () => {
-      await runWithWorld(
+    it('複数のシステムを優先度順に実行する', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -325,8 +325,8 @@ describe('World', () => {
       )
     })
 
-    it('システムを削除できる', async () => {
-      await runWithWorld(
+    it('システムを削除できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -350,8 +350,8 @@ describe('World', () => {
   })
 
   describe('パフォーマンス最適化', () => {
-    it('コンポーネントを一括取得できる', async () => {
-      await runWithWorld(
+    it('コンポーネントを一括取得できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -377,8 +377,8 @@ describe('World', () => {
       )
     })
 
-    it('非アクティブなエンティティのコンポーネントは一括取得から除外される', async () => {
-      await runWithWorld(
+    it('非アクティブなエンティティのコンポーネントは一括取得から除外される', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -399,8 +399,8 @@ describe('World', () => {
       )
     })
 
-    it('存在しないコンポーネント型の一括取得で空のMapを返す', async () => {
-      await runWithWorld(
+    it('存在しないコンポーネント型の一括取得で空のMapを返す', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -414,8 +414,8 @@ describe('World', () => {
   })
 
   describe('統計情報', () => {
-    it('ワールドの統計情報を取得できる', async () => {
-      await runWithWorld(
+    it('ワールドの統計情報を取得できる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 
@@ -442,8 +442,8 @@ describe('World', () => {
   })
 
   describe('ワールドクリア', () => {
-    it('ワールドをクリアできる', async () => {
-      await runWithWorld(
+    it('ワールドをクリアできる', () => {
+      runWithWorld(
         Effect.gen(function* () {
           const world = yield* World
 

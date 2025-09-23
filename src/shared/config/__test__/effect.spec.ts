@@ -59,9 +59,9 @@ describe('Effect-TS Configuration', () => {
   })
 
   describe('EffectConfig Basic Operations', () => {
-    it('should create successful Effect', async () => {
+    it('should create successful Effect', () => {
       const effect = EffectConfig.succeed('test value')
-      const result = await Effect.runPromise(effect)
+      const result = Effect.runSync(effect)
 
       expect(result).toBe('test value')
     })
@@ -93,10 +93,10 @@ describe('Effect-TS Configuration', () => {
       expect(result).toBe(13)
     })
 
-    it('should create failed Effect', async () => {
+    it('should create failed Effect', () => {
       const effect = EffectConfig.fail('Test error', 'TEST_CODE')
 
-      const result = await Effect.runPromise(Effect.either(effect))
+      const result = Effect.runSync(Effect.either(effect))
 
       expect(result._tag).toBe('Left')
       pipe(
@@ -174,16 +174,16 @@ describe('Effect-TS Configuration', () => {
   })
 
   describe('Schema validation', () => {
-    it('should validate using schema', async () => {
+    it('should validate using schema', () => {
       const stringSchema = Schema.String
       const validator = EffectConfig.validate(stringSchema)
 
       const validEffect = validator('valid string')
-      const result = await Effect.runPromise(validEffect)
+      const result = Effect.runSync(validEffect)
       expect(result).toBe('valid string')
 
       const invalidEffect = validator(123 as unknown as string)
-      const invalidResult = await Effect.runPromise(Effect.either(invalidEffect))
+      const invalidResult = Effect.runSync(Effect.either(invalidEffect))
 
       expect(invalidResult._tag).toBe('Left')
       pipe(

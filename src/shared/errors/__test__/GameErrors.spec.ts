@@ -29,14 +29,14 @@ describe('GameErrors', () => {
       expect(error.cause).toBeInstanceOf(Error)
     })
 
-    it('should work with Effect', async () => {
+    it('should work with Effect', () => {
       const program = Effect.fail(
         GameError({
           message: 'Test error',
         })
       )
 
-      const result = await Effect.runPromiseExit(program)
+      const result = Effect.runSyncExit(program)
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null

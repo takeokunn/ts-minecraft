@@ -78,7 +78,7 @@ describe('PlayerService', () => {
   })
 
   describe('Schema Validation', () => {
-    it('should validate correct player config', async () => {
+    it('should validate correct player config', () => {
       const config = {
         playerId: 'test-player-1',
         initialPosition: { x: 0, y: 64, z: 0 },
@@ -86,7 +86,7 @@ describe('PlayerService', () => {
         health: 100,
       }
 
-      const result = await Effect.runPromise(validatePlayerConfig(config))
+      const result = Effect.runSync(validatePlayerConfig(config))
 
       expect(result.playerId).toBe('test-player-1')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
@@ -94,13 +94,13 @@ describe('PlayerService', () => {
       expect(result.health).toBe(100)
     })
 
-    it('should reject invalid player config', async () => {
+    it('should reject invalid player config', () => {
       const config = {
         playerId: '', // invalid empty string
         health: -10, // invalid negative health
       }
 
-      const result = await Effect.runPromise(Effect.either(validatePlayerConfig(config)))
+      const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -109,10 +109,10 @@ describe('PlayerService', () => {
       }
     })
 
-    it('should validate position with correct bounds', async () => {
+    it('should validate position with correct bounds', () => {
       const position = { x: 100.5, y: 64, z: -50.25 }
 
-      const result = await Effect.runPromise(
+      const result = Effect.runSync(
         validatePlayerConfig({
           playerId: 'test-player',
           initialPosition: position,
@@ -122,10 +122,10 @@ describe('PlayerService', () => {
       expect(result.initialPosition).toEqual(position)
     })
 
-    it('should validate rotation with correct bounds', async () => {
+    it('should validate rotation with correct bounds', () => {
       const rotation = { pitch: Math.PI / 4, yaw: Math.PI }
 
-      const result = await Effect.runPromise(
+      const result = Effect.runSync(
         validatePlayerConfig({
           playerId: 'test-player',
           initialRotation: rotation,
@@ -135,13 +135,13 @@ describe('PlayerService', () => {
       expect(result.initialRotation).toEqual(rotation)
     })
 
-    it('should reject invalid rotation bounds', async () => {
+    it('should reject invalid rotation bounds', () => {
       const config = {
         playerId: 'test-player',
         initialRotation: { pitch: Math.PI, yaw: 0 }, // pitch out of bounds
       }
 
-      const result = await Effect.runPromise(Effect.either(validatePlayerConfig(config)))
+      const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
 
       expect(result._tag).toBe('Left')
     })

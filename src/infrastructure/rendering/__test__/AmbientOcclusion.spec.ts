@@ -124,7 +124,7 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - calculateVertexAO', () => {
-    it('should calculate AO for open space vertex', async () => {
+    it('should calculate AO for open space vertex', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'empty')
@@ -136,10 +136,10 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBeLessThanOrEqual(1.0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should calculate AO for occluded vertex', async () => {
+    it('should calculate AO for occluded vertex', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'full')
@@ -151,10 +151,10 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBeGreaterThanOrEqual(0.0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle corner occlusion correctly', async () => {
+    it('should handle corner occlusion correctly', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'corner')
@@ -166,10 +166,10 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBeLessThan(1.0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle edge coordinates', async () => {
+    it('should handle edge coordinates', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(4, 'full')
@@ -180,10 +180,10 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBeLessThanOrEqual(1.0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle out of bounds coordinates', async () => {
+    it('should handle out of bounds coordinates', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(4, 'full')
@@ -195,10 +195,10 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBeLessThanOrEqual(1.0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle errors in vertex AO calculation', async () => {
+    it('should handle errors in vertex AO calculation', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         return yield* service.calculateVertexAO(null as any, 0, 0, 0, 4)
@@ -215,7 +215,7 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - calculateFaceAO', () => {
-    it('should calculate AO for top face', async () => {
+    it('should calculate AO for top face', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'single')
@@ -234,10 +234,10 @@ describe('AmbientOcclusion', () => {
         })
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should calculate different AO for different faces', async () => {
+    it('should calculate different AO for different faces', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'corner')
@@ -250,10 +250,10 @@ describe('AmbientOcclusion', () => {
         expect(bottomFace.averageAO).toBeDefined()
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle all face directions', async () => {
+    it('should handle all face directions', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'single')
@@ -276,10 +276,10 @@ describe('AmbientOcclusion', () => {
         }
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should calculate correct average AO', async () => {
+    it('should calculate correct average AO', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'single')
@@ -294,10 +294,10 @@ describe('AmbientOcclusion', () => {
         expect(Math.abs(face.averageAO - expectedAverage)).toBeLessThan(0.01)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle errors in face AO calculation', async () => {
+    it('should handle errors in face AO calculation', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         return yield* service.calculateFaceAO(null as any, 0, 0, 0, 'top', 4)
@@ -317,7 +317,7 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('AmbientOcclusionService - applyAOToChunk', () => {
-    it('should apply AO to empty chunk', async () => {
+    it('should apply AO to empty chunk', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(4, 'empty')
@@ -328,10 +328,10 @@ describe('AmbientOcclusion', () => {
         expect(vertices).toHaveLength(0)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should apply AO to single block chunk', async () => {
+    it('should apply AO to single block chunk', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(5, 'single')
@@ -348,10 +348,10 @@ describe('AmbientOcclusion', () => {
         })
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should apply AO to full chunk', async () => {
+    it('should apply AO to full chunk', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(4, 'full')
@@ -366,10 +366,10 @@ describe('AmbientOcclusion', () => {
         expect(aoValues.size).toBeGreaterThan(1) // Should have variation in AO values
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should apply smoothing when enabled', async () => {
+    it('should apply smoothing when enabled', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(4, 'corner')
@@ -400,10 +400,10 @@ describe('AmbientOcclusion', () => {
         })
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
 
-    it('should handle errors in chunk AO application', async () => {
+    it('should handle errors in chunk AO application', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const invalidChunk = {
@@ -477,7 +477,7 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('Performance', () => {
-    it('should calculate AO efficiently for large chunks', async () => {
+    it('should calculate AO efficiently for large chunks', () => {
       const program = Effect.gen(function* () {
         const service = yield* AmbientOcclusionService
         const chunk = createTestChunk(8, 'full')
@@ -497,12 +497,12 @@ describe('AmbientOcclusion', () => {
         })
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(AmbientOcclusionLive)))
+      Effect.runSync(program.pipe(Effect.provide(AmbientOcclusionLive)))
     })
   })
 
   describe('Layer Construction', () => {
-    it('should provide AmbientOcclusionLive layer', async () => {
+    it('should provide AmbientOcclusionLive layer', () => {
       const program = pipe(
         AmbientOcclusionService,
         Effect.map((service) => {
@@ -514,14 +514,14 @@ describe('AmbientOcclusion', () => {
         })
       )
 
-      const result = await pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runPromise)
+      const result = pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runSync)
 
       expect(result).toBe(true)
     })
   })
 
   describe('AO Configuration', () => {
-    it('should respect disabled AO setting', async () => {
+    it('should respect disabled AO setting', () => {
       // Create a custom layer with AO disabled
       const DisabledAOLive = Layer.succeed(
         AmbientOcclusionService,
@@ -548,7 +548,7 @@ describe('AmbientOcclusion', () => {
         expect(ao).toBe(1.0) // No occlusion when disabled
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(DisabledAOLive)))
+      Effect.runSync(program.pipe(Effect.provide(DisabledAOLive)))
     })
   })
 })

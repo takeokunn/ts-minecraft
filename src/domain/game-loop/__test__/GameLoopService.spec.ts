@@ -184,7 +184,7 @@ describe('GameLoopService', () => {
       expect(service.reset).toBeDefined()
     })
 
-    it('should handle initialization correctly', async () => {
+    it('should handle initialization correctly', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize({ targetFps: 120 })
@@ -192,12 +192,12 @@ describe('GameLoopService', () => {
         return state
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
 
-    it('should prevent double initialization', async () => {
+    it('should prevent double initialization', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -205,7 +205,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.initialize()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -215,7 +215,7 @@ describe('GameLoopService', () => {
   })
 
   describe('State Management', () => {
-    it('should transition from idle to running', async () => {
+    it('should transition from idle to running', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -225,13 +225,13 @@ describe('GameLoopService', () => {
         return { initialState, runningState }
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.initialState).toBe('idle')
       expect(result.runningState).toBe('running')
     })
 
-    it('should transition from running to paused', async () => {
+    it('should transition from running to paused', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -240,12 +240,12 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('paused')
     })
 
-    it('should transition from paused to running', async () => {
+    it('should transition from paused to running', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -255,12 +255,12 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('running')
     })
 
-    it('should handle invalid state transitions', async () => {
+    it('should handle invalid state transitions', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -268,7 +268,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.pause()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -276,7 +276,7 @@ describe('GameLoopService', () => {
       }
     })
 
-    it('should stop from any state', async () => {
+    it('should stop from any state', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -285,14 +285,14 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('stopped')
     })
   })
 
   describe('Frame Callbacks', () => {
-    it('should register and execute frame callbacks', async () => {
+    it('should register and execute frame callbacks', () => {
       const frameData: FrameInfo[] = []
 
       const program = Effect.gen(function* () {
@@ -311,12 +311,12 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(2)
     })
 
-    it('should support multiple callbacks', async () => {
+    it('should support multiple callbacks', () => {
       const callback1Data: FrameInfo[] = []
       const callback2Data: FrameInfo[] = []
 
@@ -344,13 +344,13 @@ describe('GameLoopService', () => {
         }
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.callback1).toBe(1)
       expect(result.callback2).toBe(1)
     })
 
-    it('should handle callback removal', async () => {
+    it('should handle callback removal', () => {
       const frameData: FrameInfo[] = []
 
       const program = Effect.gen(function* () {
@@ -370,12 +370,12 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(1)
     })
 
-    it('should handle callback errors gracefully', async () => {
+    it('should handle callback errors gracefully', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -385,7 +385,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.tick()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -395,7 +395,7 @@ describe('GameLoopService', () => {
   })
 
   describe('Performance Metrics', () => {
-    it('should provide performance metrics when available', async () => {
+    it('should provide performance metrics when available', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -405,7 +405,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.averageFps).toBeCloseTo(60, 0)
       expect(result.minFps).toBeGreaterThan(0)
@@ -414,14 +414,14 @@ describe('GameLoopService', () => {
       expect(result.droppedFrames !== undefined).toBe(true)
     })
 
-    it('should fail when no performance data is available', async () => {
+    it('should fail when no performance data is available', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -431,19 +431,19 @@ describe('GameLoopService', () => {
   })
 
   describe('Configuration Management', () => {
-    it('should initialize with default config', async () => {
+    it('should initialize with default config', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
 
-    it('should accept custom configuration', async () => {
+    it('should accept custom configuration', () => {
       const customConfig: Partial<GameLoopConfig> = {
         targetFps: 120,
         maxFrameSkip: 10,
@@ -455,12 +455,12 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
 
-    it('should update configuration dynamically', async () => {
+    it('should update configuration dynamically', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -468,14 +468,14 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
   })
 
   describe('Tick Function', () => {
-    it('should execute single frame with default delta time', async () => {
+    it('should execute single frame with default delta time', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -483,7 +483,7 @@ describe('GameLoopService', () => {
         return frameInfo
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.frameCount !== undefined).toBe(true)
       expect(result!.deltaTime).toBeGreaterThan(0)
@@ -491,7 +491,7 @@ describe('GameLoopService', () => {
       expect(result.frameSkipped).toBe(false)
     })
 
-    it('should execute single frame with custom delta time', async () => {
+    it('should execute single frame with custom delta time', () => {
       const customDelta = 33.33 // 30 FPS
 
       const program = Effect.gen(function* () {
@@ -501,12 +501,12 @@ describe('GameLoopService', () => {
         return frameInfo
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.deltaTime).toBe(customDelta)
     })
 
-    it('should increment frame count on each tick', async () => {
+    it('should increment frame count on each tick', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -516,7 +516,7 @@ describe('GameLoopService', () => {
         return [frame1, frame2, frame3]
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result[0]?.frameCount).toBe(0)
       expect(result[1]?.frameCount).toBe(1)
@@ -525,7 +525,7 @@ describe('GameLoopService', () => {
   })
 
   describe('Reset Functionality', () => {
-    it('should reset to initial state', async () => {
+    it('should reset to initial state', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -536,12 +536,12 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
 
-    it('should clear all callbacks on reset', async () => {
+    it('should clear all callbacks on reset', () => {
       const frameData: FrameInfo[] = []
 
       const program = Effect.gen(function* () {
@@ -562,14 +562,14 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(1) // Only first tick should have been recorded
     })
   })
 
   describe('Error Handling', () => {
-    it('should handle initialization errors', async () => {
+    it('should handle initialization errors', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -577,7 +577,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.initialize()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -585,14 +585,14 @@ describe('GameLoopService', () => {
       }
     })
 
-    it('should handle state transition errors', async () => {
+    it('should handle state transition errors', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
         return yield* gameLoop.resume() // Can't resume when not paused
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -600,7 +600,7 @@ describe('GameLoopService', () => {
       }
     })
 
-    it('should handle runtime errors', async () => {
+    it('should handle runtime errors', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -612,7 +612,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.tick()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -620,7 +620,7 @@ describe('GameLoopService', () => {
       }
     })
 
-    it('should handle performance errors', async () => {
+    it('should handle performance errors', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -628,7 +628,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -638,7 +638,7 @@ describe('GameLoopService', () => {
   })
 
   describe('Integration Scenarios', () => {
-    it('should handle complete lifecycle', async () => {
+    it('should handle complete lifecycle', () => {
       const states: string[] = []
 
       const program = Effect.gen(function* () {
@@ -662,12 +662,12 @@ describe('GameLoopService', () => {
         return states
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toEqual(['idle', 'running', 'paused', 'running', 'stopped'])
     })
 
-    it('should handle rapid state changes', async () => {
+    it('should handle rapid state changes', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
@@ -683,12 +683,12 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('stopped')
     })
 
-    it('should maintain frame consistency during pause/resume', async () => {
+    it('should maintain frame consistency during pause/resume', () => {
       const frameData: FrameInfo[] = []
 
       const program = Effect.gen(function* () {
@@ -711,7 +711,7 @@ describe('GameLoopService', () => {
         return frameData
       })
 
-      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
+      const result = Effect.runSync(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.length).toBe(2)
       expect(result[0]?.frameCount).toBe(0)

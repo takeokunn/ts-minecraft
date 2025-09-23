@@ -263,8 +263,8 @@ describe('ErrorReporter', () => {
       })
 
       fc.assert(
-        fc.asyncProperty(taggedErrorArbitrary, async (error) => {
-          return await Effect.runPromise(
+        fc.property(taggedErrorArbitrary, (error) => {
+          return Effect.runSync(
             Effect.gen(function* () {
               const formatted = yield* ErrorReporter.format(error)
               expect(typeof formatted).toBe('string')
@@ -299,8 +299,8 @@ describe('ErrorReporter', () => {
       )
 
       fc.assert(
-        fc.asyncProperty(primitiveArbitrary, async (value) => {
-          return await Effect.runPromise(
+        fc.property(primitiveArbitrary, (value) => {
+          return Effect.runSync(
             Effect.gen(function* () {
               const formatted = yield* ErrorReporter.format(value)
               expect(typeof formatted).toBe('string')

@@ -397,11 +397,11 @@ describe('ErrorHandlers', () => {
     // 最小限のプロパティベーステストのみ残す
     it('logAndFallbackは任意のエラーと任意のフォールバック値で動作する', () => {
       fc.assert(
-        fc.asyncProperty(fc.string(), fc.string(), async (errorMsg, fallback) => {
+        fc.property(fc.string(), fc.string(), (errorMsg, fallback) => {
           // ログ出力を抑制するためにloggerを無効化
           const handler = ErrorHandlers.logAndFallback(fallback, () => {})
           const program = Effect.fail(new Error(errorMsg)).pipe(Effect.catchAll(handler))
-          const result = await Effect.runPromise(program)
+          const result = Effect.runSync(program)
           expect(result).toBe(fallback)
         }),
         {

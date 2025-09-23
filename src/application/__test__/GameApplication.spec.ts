@@ -161,7 +161,7 @@ const runTestWithMockCanvas = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 // The actual implementation works correctly - this is a test setup issue only
 describe.skip('GameApplication', () => {
   describe('基本ライフサイクル', () => {
-    it('初期化 → 開始 → 停止のライフサイクルが正常に動作する', async () => {
+    it('初期化 → 開始 → 停止のライフサイクルが正常に動作する', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -181,12 +181,10 @@ describe.skip('GameApplication', () => {
         expect(stateAfterStop).toBe('Stopped')
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
 
-    it('一時停止と再開が正常に動作する', async () => {
+    it('一時停止と再開が正常に動作する', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -204,14 +202,12 @@ describe.skip('GameApplication', () => {
         expect(stateAfterResume).toBe('Running')
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe('設定管理', () => {
-    it('カスタム設定で初期化できる', async () => {
+    it('カスタム設定で初期化できる', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -232,12 +228,10 @@ describe.skip('GameApplication', () => {
         expect(state.config.rendering.enableVSync).toBe(false)
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
 
-    it('実行時に設定を更新できる', async () => {
+    it('実行時に設定を更新できる', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -257,14 +251,12 @@ describe.skip('GameApplication', () => {
         expect(state.config.performance.enableMetrics).toBe(false)
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe('状態管理', () => {
-    it('アプリケーション状態を正しく取得できる', async () => {
+    it('アプリケーション状態を正しく取得できる', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -281,14 +273,12 @@ describe.skip('GameApplication', () => {
         expect(state.uptime).toBeGreaterThan(0)
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe('ヘルスチェック', () => {
-    it('システムヘルスチェックが正常に動作する', async () => {
+    it('システムヘルスチェックが正常に動作する', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -304,14 +294,12 @@ describe.skip('GameApplication', () => {
         expect(healthCheck.ecs.status).toBe('healthy')
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe('手動フレーム実行', () => {
-    it('手動でフレームを実行できる', async () => {
+    it('手動でフレームを実行できる', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -324,14 +312,12 @@ describe.skip('GameApplication', () => {
         expect(true).toBe(true)
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe('リセット機能', () => {
-    it('アプリケーションをリセットできる', async () => {
+    it('アプリケーションをリセットできる', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -343,14 +329,12 @@ describe.skip('GameApplication', () => {
         expect(state).toBe('Uninitialized')
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 
   describe.skip('エラーハンドリング', () => {
-    it('Canvas要素が存在しない場合はエラーを返す', async () => {
+    it('Canvas要素が存在しない場合はエラーを返す', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -363,10 +347,10 @@ describe.skip('GameApplication', () => {
         }
       })
 
-      await Effect.runPromise(test.pipe(Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
+      Effect.runSync(test.pipe(Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
 
-    it('不正な状態遷移を試行するとエラーを返す', async () => {
+    it('不正な状態遷移を試行するとエラーを返す', () => {
       const test = Effect.gen(function* () {
         const gameApp = yield* GameApplication
 
@@ -379,9 +363,7 @@ describe.skip('GameApplication', () => {
         }
       })
 
-      await Effect.runPromise(
-        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
-      )
+      Effect.runSync(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
   })
 })

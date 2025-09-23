@@ -110,8 +110,8 @@ export const MouseInputLive = Layer.effect(
         })
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Mouse move handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Mouse move handler failed:', error))))
       )
     }
 
@@ -127,8 +127,8 @@ export const MouseInputLive = Layer.effect(
         yield* Ref.update(buttonStates, (states) => new Map(states.set(event.button, buttonState)))
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Mouse button handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(Effect.catchAll((error) => Effect.sync(() => console.error('Mouse button handler failed:', error))))
       )
     }
 
@@ -147,8 +147,10 @@ export const MouseInputLive = Layer.effect(
         })
       })
 
-      Effect.runPromiseExit(effect).then(
-        (exit) => Exit.isFailure(exit) && console.error('Pointer lock change handler failed:', exit.cause)
+      Effect.runFork(
+        effect.pipe(
+          Effect.catchAll((error) => Effect.sync(() => console.error('Pointer lock change handler failed:', error)))
+        )
       )
     }
 
