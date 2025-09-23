@@ -1,5 +1,6 @@
 import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R, Number as N } from 'effect'
 import type { ChunkData, BlockType } from './MeshGenerator'
+import { AOValue, BrandedTypes } from '../../shared/types/branded.js'
 
 // ========================================
 // Type Definitions
@@ -9,12 +10,12 @@ export interface AOVertex {
   readonly x: number
   readonly y: number
   readonly z: number
-  readonly ao: number // 0.0 (fully occluded) to 1.0 (fully lit)
+  readonly ao: AOValue // 0.0 (fully occluded) to 1.0 (fully lit)
 }
 
 export interface AOFace {
   readonly vertices: readonly [AOVertex, AOVertex, AOVertex, AOVertex]
-  readonly averageAO: number
+  readonly averageAO: AOValue
 }
 
 export interface AOConfig {
@@ -94,7 +95,7 @@ const calculateVertexAOPure = (
   z: number,
   size: number,
   config: AOConfig
-): number => {
+): AOValue => {
   // Generate neighbor offsets (3x3x3 cube minus center)
   const offsets = pipe(
     A.makeBy(27, (i) => {
@@ -122,11 +123,13 @@ const calculateVertexAOPure = (
   )
 
   // Calculate and clamp AO value
-  return pipe(
+  const aoValue = pipe(
     1.0 - occluders / samples,
     (aoRaw) => 1.0 - (1.0 - aoRaw) * config.strength,
     N.clamp({ minimum: 0.0, maximum: 1.0 })
   )
+  
+  return BrandedTypes.createAOValue(aoValue)
 }
 
 // Calculate AO for a face (4 vertices)
@@ -209,9 +212,9 @@ const calculateFaceAOPure = (
 
   const averageAO = pipe(
     vertices,
-    A.map((v) => v.ao),
+    A.map((v) => v.ao as number), // Brand型から数値を取得
     A.reduce(0, N.sum),
-    (total) => total / 4
+    (total) => BrandedTypes.createAOValue(total / 4) // 平均を計算してAOValueに変換
   )
 
   return {

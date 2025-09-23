@@ -46,7 +46,7 @@ export const ErrorRecovery = {
 
     return <R, E, A>(effect: Effect.Effect<A, E, R>) =>
       Effect.gen(function* (_) {
-        const now = Date.now()
+        const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
         // サーキットがオープンの場合、リセット時間をチェック
         const shouldExecute = pipe(

@@ -1,6 +1,7 @@
 import { Context, Effect } from 'effect'
 import type { FrameInfo, GameLoopConfig, GameLoopState, PerformanceMetrics } from './types'
 import type { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from './errors'
+import { DeltaTime } from '../../shared/types/branded.js'
 
 // ゲームループサービスのインターフェース
 export interface GameLoopService {
@@ -29,7 +30,7 @@ export interface GameLoopService {
   readonly getPerformanceMetrics: () => Effect.Effect<PerformanceMetrics, GameLoopPerformanceError>
 
   // 単一フレームの実行（テスト用）
-  readonly tick: (deltaTime?: number) => Effect.Effect<FrameInfo, GameLoopRuntimeError>
+  readonly tick: (deltaTime?: DeltaTime) => Effect.Effect<FrameInfo, GameLoopRuntimeError>
 
   // 設定の更新
   readonly updateConfig: (config: Partial<GameLoopConfig>) => Effect.Effect<void>

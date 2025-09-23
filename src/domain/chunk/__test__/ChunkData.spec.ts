@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Schema } from '@effect/schema'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   CHUNK_SIZE,
   CHUNK_HEIGHT,
@@ -96,7 +97,7 @@ describe('ChunkData', () => {
       ]
 
       testCases.forEach(([x, y, z, expectedIndex]) => {
-        const result = getBlockIndex(x, y, z)
+        const result = getBlockIndex(BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))
         expect(result).toBe(expectedIndex)
       })
     })
@@ -113,7 +114,7 @@ describe('ChunkData', () => {
 
       invalidCases.forEach(([x, y, z]) => {
         if (x !== undefined && y !== undefined && z !== undefined) {
-          expect(() => getBlockIndex(x, y, z)).toThrow()
+          expect(() => getBlockIndex(BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))).toThrow()
         }
       })
     })
@@ -132,7 +133,7 @@ describe('ChunkData', () => {
       }
 
       coordinates.forEach(([x, y, z]) => {
-        const index = getBlockIndex(x, y, z)
+        const index = getBlockIndex(BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))
         expect(indices.has(index)).toBe(false)
         indices.add(index)
       })
@@ -142,7 +143,7 @@ describe('ChunkData', () => {
       for (let x = 0; x < CHUNK_SIZE; x += 2) {
         for (let y = CHUNK_MIN_Y; y <= CHUNK_MAX_Y; y += 40) {
           for (let z = 0; z < CHUNK_SIZE; z += 2) {
-            const index = getBlockIndex(x, y, z)
+            const index = getBlockIndex(BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))
             expect(index).toBeGreaterThanOrEqual(0)
             expect(index).toBeLessThanOrEqual(CHUNK_VOLUME - 1)
           }
@@ -227,29 +228,29 @@ describe('ChunkData', () => {
       ]
 
       testCases.forEach(([x, y, z]) => {
-        const block = getBlock(testChunk, x, y, z)
+        const block = getBlock(testChunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))
         expect(block).toBe(0)
       })
     })
 
     it('should return correct block after setting', () => {
-      const modifiedChunk = setBlock(testChunk, 5, 100, 10, 42)
-      const block = getBlock(modifiedChunk, 5, 100, 10)
+      const modifiedChunk = setBlock(testChunk, BrandedTypes.createWorldCoordinate(5), BrandedTypes.createWorldCoordinate(100), BrandedTypes.createWorldCoordinate(10), 42)
+      const block = getBlock(modifiedChunk, BrandedTypes.createWorldCoordinate(5), BrandedTypes.createWorldCoordinate(100), BrandedTypes.createWorldCoordinate(10))
       expect(block).toBe(42)
     })
   })
 
   describe('setBlock', () => {
     it('should set block and return new chunk', () => {
-      const newChunk = setBlock(testChunk, 8, 64, 12, 123)
+      const newChunk = setBlock(testChunk, BrandedTypes.createWorldCoordinate(8), BrandedTypes.createWorldCoordinate(64), BrandedTypes.createWorldCoordinate(12), 123)
 
       expect(newChunk).not.toBe(testChunk) // immutable
-      expect(getBlock(newChunk, 8, 64, 12)).toBe(123)
-      expect(getBlock(testChunk, 8, 64, 12)).toBe(0) // original unchanged
+      expect(getBlock(newChunk, BrandedTypes.createWorldCoordinate(8), BrandedTypes.createWorldCoordinate(64), BrandedTypes.createWorldCoordinate(12))).toBe(123)
+      expect(getBlock(testChunk, BrandedTypes.createWorldCoordinate(8), BrandedTypes.createWorldCoordinate(64), BrandedTypes.createWorldCoordinate(12))).toBe(0) // original unchanged
     })
 
     it('should mark chunk as dirty and modified', () => {
-      const newChunk = setBlock(testChunk, 0, 0, 0, 1)
+      const newChunk = setBlock(testChunk, BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0), 1)
 
       expect(newChunk.isDirty).toBe(true)
       expect(newChunk.metadata.isModified).toBe(true)
@@ -258,36 +259,36 @@ describe('ChunkData', () => {
 
     it('should preserve other blocks', () => {
       let chunk = testChunk
-      chunk = setBlock(chunk, 1, 1, 1, 10)
-      chunk = setBlock(chunk, 2, 2, 2, 20)
-      chunk = setBlock(chunk, 3, 3, 3, 30)
+      chunk = setBlock(chunk, BrandedTypes.createWorldCoordinate(1), BrandedTypes.createWorldCoordinate(1), BrandedTypes.createWorldCoordinate(1), 10)
+      chunk = setBlock(chunk, BrandedTypes.createWorldCoordinate(2), BrandedTypes.createWorldCoordinate(2), BrandedTypes.createWorldCoordinate(2), 20)
+      chunk = setBlock(chunk, BrandedTypes.createWorldCoordinate(3), BrandedTypes.createWorldCoordinate(3), BrandedTypes.createWorldCoordinate(3), 30)
 
-      expect(getBlock(chunk, 1, 1, 1)).toBe(10)
-      expect(getBlock(chunk, 2, 2, 2)).toBe(20)
-      expect(getBlock(chunk, 3, 3, 3)).toBe(30)
-      expect(getBlock(chunk, 0, 0, 0)).toBe(0) // unchanged
+      expect(getBlock(chunk, BrandedTypes.createWorldCoordinate(1), BrandedTypes.createWorldCoordinate(1), BrandedTypes.createWorldCoordinate(1))).toBe(10)
+      expect(getBlock(chunk, BrandedTypes.createWorldCoordinate(2), BrandedTypes.createWorldCoordinate(2), BrandedTypes.createWorldCoordinate(2))).toBe(20)
+      expect(getBlock(chunk, BrandedTypes.createWorldCoordinate(3), BrandedTypes.createWorldCoordinate(3), BrandedTypes.createWorldCoordinate(3))).toBe(30)
+      expect(getBlock(chunk, BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0))).toBe(0) // unchanged
     })
   })
 
   describe('updateHeightMap', () => {
     it('should update height at specified coordinates', () => {
-      const newChunk = updateHeightMap(testChunk, 5, 10, 128)
+      const newChunk = updateHeightMap(testChunk, BrandedTypes.createWorldCoordinate(5), BrandedTypes.createWorldCoordinate(10), 128)
 
-      expect(getHeight(newChunk, 5, 10)).toBe(128)
+      expect(getHeight(newChunk, BrandedTypes.createWorldCoordinate(5), BrandedTypes.createWorldCoordinate(10))).toBe(128)
       expect(newChunk.isDirty).toBe(true)
       expect(newChunk.metadata.lastUpdate).toBeGreaterThanOrEqual(testChunk.metadata.lastUpdate)
     })
 
     it('should preserve other height values', () => {
       let chunk = testChunk
-      chunk = updateHeightMap(chunk, 0, 0, 100)
-      chunk = updateHeightMap(chunk, 15, 15, 200)
-      chunk = updateHeightMap(chunk, 8, 8, 150)
+      chunk = updateHeightMap(chunk, BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0), 100)
+      chunk = updateHeightMap(chunk, BrandedTypes.createWorldCoordinate(15), BrandedTypes.createWorldCoordinate(15), 200)
+      chunk = updateHeightMap(chunk, BrandedTypes.createWorldCoordinate(8), BrandedTypes.createWorldCoordinate(8), 150)
 
-      expect(getHeight(chunk, 0, 0)).toBe(100)
-      expect(getHeight(chunk, 15, 15)).toBe(200)
-      expect(getHeight(chunk, 8, 8)).toBe(150)
-      expect(getHeight(chunk, 1, 1)).toBe(0) // unchanged
+      expect(getHeight(chunk, BrandedTypes.createWorldCoordinate(0), BrandedTypes.createWorldCoordinate(0))).toBe(100)
+      expect(getHeight(chunk, BrandedTypes.createWorldCoordinate(15), BrandedTypes.createWorldCoordinate(15))).toBe(200)
+      expect(getHeight(chunk, BrandedTypes.createWorldCoordinate(8), BrandedTypes.createWorldCoordinate(8))).toBe(150)
+      expect(getHeight(chunk, BrandedTypes.createWorldCoordinate(1), BrandedTypes.createWorldCoordinate(1))).toBe(0) // unchanged
     })
   })
 
@@ -394,8 +395,8 @@ describe('ChunkData', () => {
         const z = (i * 2) % CHUNK_SIZE
         const blockId = (i % 255) + 1 // 1-255, avoid 0 which is Air
 
-        chunk = setBlock(chunk, x, y, z, blockId)
-        const retrieved = getBlock(chunk, x, y, z)
+        chunk = setBlock(chunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z), blockId)
+        const retrieved = getBlock(chunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(y), BrandedTypes.createWorldCoordinate(z))
         expect(retrieved).toBe(blockId)
       }
 

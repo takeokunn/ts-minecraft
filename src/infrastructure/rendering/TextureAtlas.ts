@@ -1,16 +1,17 @@
 import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Array as A } from 'effect'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
+import { UVCoordinate, BrandedTypes } from '../../shared/types/branded.js'
 
 // ========================================
 // Type Definitions
 // ========================================
 
 export interface TextureRegion {
-  readonly u: number // U coordinate (0-1)
-  readonly v: number // V coordinate (0-1)
-  readonly width: number // Width in UV space (0-1)
-  readonly height: number // Height in UV space (0-1)
+  readonly u: UVCoordinate // U coordinate (0-1)
+  readonly v: UVCoordinate // V coordinate (0-1)
+  readonly width: UVCoordinate // Width in UV space (0-1)
+  readonly height: UVCoordinate // Height in UV space (0-1)
 }
 
 export interface BlockTexture {
@@ -116,7 +117,12 @@ const calculateTextureRegion = (index: number, textureSize: number, atlasSize: n
   const width = textureSize / atlasSize
   const height = textureSize / atlasSize
 
-  return { u, v, width, height }
+  return { 
+    u: BrandedTypes.createUVCoordinate(u), 
+    v: BrandedTypes.createUVCoordinate(v), 
+    width: BrandedTypes.createUVCoordinate(width), 
+    height: BrandedTypes.createUVCoordinate(height) 
+  }
 }
 
 const getDefaultBlockTexture = (blockType: BlockType, config: AtlasConfig): BlockTexture => {
@@ -139,15 +145,21 @@ const generateUVCoordsFromRegion = (
 ): [number, number, number, number, number, number, number, number] => {
   // Generate UV coordinates for a quad (4 vertices, 2 coords each)
   // Order: bottom-left, bottom-right, top-right, top-left
+  // Brand型から実際の数値を取得
+  const u = region.u as number
+  const v = region.v as number
+  const width = region.width as number
+  const height = region.height as number
+  
   return [
-    region.u,
-    region.v, // Bottom-left
-    region.u + region.width,
-    region.v, // Bottom-right
-    region.u + region.width,
-    region.v + region.height, // Top-right
-    region.u,
-    region.v + region.height, // Top-left
+    u,
+    v, // Bottom-left
+    u + width,
+    v, // Bottom-right
+    u + width,
+    v + height, // Top-right
+    u,
+    v + height, // Top-left
   ]
 }
 

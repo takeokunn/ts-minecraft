@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
+import { NoiseCoordinate, NoiseValue, BrandedTypes } from '../../shared/types/branded.js'
 
 /**
  * ノイズ生成の設定オプション
@@ -20,28 +21,28 @@ export interface NoiseGenerator {
   /**
    * 2D Perlin Noise生成
    */
-  readonly noise2D: (x: number, y: number) => Effect.Effect<number, never>
+  readonly noise2D: (x: NoiseCoordinate, y: NoiseCoordinate) => Effect.Effect<NoiseValue, never>
 
   /**
    * 3D Perlin Noise生成
    */
-  readonly noise3D: (x: number, y: number, z: number) => Effect.Effect<number, never>
+  readonly noise3D: (x: NoiseCoordinate, y: NoiseCoordinate, z: NoiseCoordinate) => Effect.Effect<NoiseValue, never>
 
   /**
    * オクターブノイズ生成（複数レイヤーのノイズを重ね合わせ）
    */
-  readonly octaveNoise2D: (x: number, y: number, octaves: number, persistence: number) => Effect.Effect<number, never>
+  readonly octaveNoise2D: (x: NoiseCoordinate, y: NoiseCoordinate, octaves: number, persistence: number) => Effect.Effect<NoiseValue, never>
 
   /**
    * オクターブノイズ生成（3D版）
    */
   readonly octaveNoise3D: (
-    x: number,
-    y: number,
-    z: number,
+    x: NoiseCoordinate,
+    y: NoiseCoordinate,
+    z: NoiseCoordinate,
     octaves: number,
     persistence: number
-  ) => Effect.Effect<number, never>
+  ) => Effect.Effect<NoiseValue, never>
 
   /**
    * シード値を取得

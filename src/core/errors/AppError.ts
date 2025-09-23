@@ -1,6 +1,8 @@
+import { Schema } from 'effect'
+
 export interface InitError {
   readonly _tag: 'InitError'
-  readonly message: string
+  readonly message: Schema.Schema.Type<typeof Schema.String>
   readonly cause?: unknown
 }
 
@@ -15,7 +17,7 @@ export const isInitError = (error: unknown): error is InitError =>
 
 export interface ConfigError {
   readonly _tag: 'ConfigError'
-  readonly message: string
+  readonly message: Schema.Schema.Type<typeof Schema.String>
   readonly path: string
 }
 

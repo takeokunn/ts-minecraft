@@ -94,6 +94,156 @@ export const UUID = Schema.String.pipe(
 export type UUID = Schema.Schema.Type<typeof UUID>
 
 /**
+ * 高度用のブランド型（0-256の範囲）
+ */
+export const Height = Schema.Number.pipe(
+  Schema.int(),
+  Schema.between(0, 256),
+  Schema.brand('Height')
+)
+export type Height = Schema.Schema.Type<typeof Height>
+
+/**
+ * ノイズ座標用のブランド型
+ */
+export const NoiseCoordinate = Schema.Number.pipe(Schema.finite(), Schema.brand('NoiseCoordinate'))
+export type NoiseCoordinate = Schema.Schema.Type<typeof NoiseCoordinate>
+
+/**
+ * ノイズ値用のブランド型（-1.0 から 1.0 の範囲）
+ */
+export const NoiseValue = Schema.Number.pipe(
+  Schema.between(-1.0, 1.0),
+  Schema.brand('NoiseValue')
+)
+export type NoiseValue = Schema.Schema.Type<typeof NoiseValue>
+
+/**
+ * コンポーネント型名用のブランド型
+ */
+export const ComponentTypeName = Schema.String.pipe(Schema.brand('ComponentTypeName'))
+export type ComponentTypeName = Schema.Schema.Type<typeof ComponentTypeName>
+
+// === 統計情報関連のBrand型 ===
+
+/**
+ * Entity数の型安全な表現
+ */
+export const EntityCount = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("EntityCount")
+)
+export type EntityCount = Schema.Schema.Type<typeof EntityCount>
+
+/**
+ * Entity容量の型安全な表現
+ */
+export const EntityCapacity = Schema.Number.pipe(
+  Schema.positive(),
+  Schema.brand("EntityCapacity")
+)
+export type EntityCapacity = Schema.Schema.Type<typeof EntityCapacity>
+
+// === レンダリング関連のBrand型 ===
+
+/**
+ * UV座標の型安全な表現 (0-1範囲)
+ */
+export const UVCoordinate = Schema.Number.pipe(
+  Schema.between(0, 1),
+  Schema.brand("UVCoordinate")
+)
+export type UVCoordinate = Schema.Schema.Type<typeof UVCoordinate>
+
+/**
+ * AmbientOcclusion値の型安全な表現 (0-1範囲)
+ */
+export const AOValue = Schema.Number.pipe(
+  Schema.between(0, 1),
+  Schema.brand("AOValue")
+)
+export type AOValue = Schema.Schema.Type<typeof AOValue>
+
+/**
+ * メッシュ寸法の型安全な表現
+ */
+export const MeshDimension = Schema.Number.pipe(
+  Schema.positive(),
+  Schema.brand("MeshDimension")
+)
+export type MeshDimension = Schema.Schema.Type<typeof MeshDimension>
+
+/**
+ * デルタタイム（フレーム時間差）の型安全な表現
+ */
+export const DeltaTime = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("DeltaTime")
+)
+export type DeltaTime = Schema.Schema.Type<typeof DeltaTime>
+
+/**
+ * マウス感度の型安全な表現
+ */
+export const SensitivityValue = Schema.Number.pipe(
+  Schema.positive(),
+  Schema.brand("SensitivityValue")
+)
+export type SensitivityValue = Schema.Schema.Type<typeof SensitivityValue>
+
+/**
+ * 環境変数キーの型安全な表現
+ */
+export const EnvironmentKey = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.brand("EnvironmentKey")
+)
+export type EnvironmentKey = Schema.Schema.Type<typeof EnvironmentKey>
+
+/**
+ * キャッシュサイズの型安全な表現
+ */
+export const CacheSize = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("CacheSize")
+)
+export type CacheSize = Schema.Schema.Type<typeof CacheSize>
+
+/**
+ * キャッシュヒット回数の型安全な表現
+ */
+export const CacheHitCount = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("CacheHitCount")
+)
+export type CacheHitCount = Schema.Schema.Type<typeof CacheHitCount>
+
+/**
+ * キャッシュミス回数の型安全な表現
+ */
+export const CacheMissCount = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand("CacheMissCount")
+)
+export type CacheMissCount = Schema.Schema.Type<typeof CacheMissCount>
+
+/**
+ * ワールド位置の型安全な表現
+ */
+export const WorldPosition = Schema.Struct({
+  x: WorldCoordinateSchema,
+  y: WorldCoordinateSchema,
+  z: WorldCoordinateSchema
+})
+export type WorldPosition = Schema.Schema.Type<typeof WorldPosition>
+
+/**
+ * ブロックID用のブランド型（文字列版）
+ */
+export const BlockId = Schema.String.pipe(Schema.brand('BlockId'))
+export type BlockId = Schema.Schema.Type<typeof BlockId>
+
+/**
  * ブランド型を作成するためのヘルパー関数
  */
 export const BrandedTypes = {
@@ -126,4 +276,98 @@ export const BrandedTypes = {
    * 安全なItemId作成
    */
   createItemId: (id: string): ItemId => Schema.decodeSync(ItemId)(id),
+
+  /**
+   * 安全なHeight作成
+   */
+  createHeight: (value: number): Height => Schema.decodeSync(Height)(value),
+
+  /**
+   * 安全なNoiseCoordinate作成
+   */
+  createNoiseCoordinate: (value: number): NoiseCoordinate => Schema.decodeSync(NoiseCoordinate)(value),
+
+  /**
+   * 安全なNoiseValue作成
+   */
+  createNoiseValue: (value: number): NoiseValue => Schema.decodeSync(NoiseValue)(value),
+
+  /**
+   * 安全なComponentTypeName作成
+   */
+  createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
+
+  /**
+   * 安全なBlockId作成
+   */
+  createBlockId: (id: string): BlockId => Schema.decodeSync(BlockId)(id),
+
+  // === 統計情報関連のヘルパー ===
+
+  /**
+   * 安全なEntityCount作成
+   */
+  createEntityCount: (value: number): EntityCount => Schema.decodeSync(EntityCount)(value),
+
+  /**
+   * 安全なEntityCapacity作成
+   */
+  createEntityCapacity: (value: number): EntityCapacity => Schema.decodeSync(EntityCapacity)(value),
+
+  // === レンダリング関連のヘルパー ===
+
+  /**
+   * 安全なUVCoordinate作成
+   */
+  createUVCoordinate: (value: number): UVCoordinate => Schema.decodeSync(UVCoordinate)(value),
+
+  /**
+   * 安全なAOValue作成
+   */
+  createAOValue: (value: number): AOValue => Schema.decodeSync(AOValue)(value),
+
+  /**
+   * 安全なMeshDimension作成
+   */
+  createMeshDimension: (value: number): MeshDimension => Schema.decodeSync(MeshDimension)(value),
+
+  /**
+   * 安全なDeltaTime作成
+   */
+  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTime)(value),
+
+  /**
+   * 安全なSensitivityValue作成
+   */
+  createSensitivityValue: (value: number): SensitivityValue => Schema.decodeSync(SensitivityValue)(value),
+
+  /**
+   * 安全なEnvironmentKey作成
+   */
+  createEnvironmentKey: (key: string): EnvironmentKey => Schema.decodeSync(EnvironmentKey)(key),
+
+  /**
+   * 安全なCacheSize作成
+   */
+  createCacheSize: (value: number): CacheSize => Schema.decodeSync(CacheSize)(value),
+
+  /**
+   * 安全なCacheHitCount作成
+   */
+  createCacheHitCount: (value: number): CacheHitCount => Schema.decodeSync(CacheHitCount)(value),
+
+  /**
+   * 安全なCacheMissCount作成
+   */
+  createCacheMissCount: (value: number): CacheMissCount => Schema.decodeSync(CacheMissCount)(value),
+
+  /**
+   * 安全なWorldPosition作成
+   */
+  createWorldPosition: (x: number, y: number, z: number): WorldPosition =>
+    Schema.decodeSync(WorldPosition)({
+      x: Schema.decodeSync(WorldCoordinateSchema)(x),
+      y: Schema.decodeSync(WorldCoordinateSchema)(y),
+      z: Schema.decodeSync(WorldCoordinateSchema)(z)
+    }),
 } as const

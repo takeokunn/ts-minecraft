@@ -6,17 +6,17 @@ import type { ChunkData, BlockType } from './MeshGenerator'
 // ========================================
 
 export interface FaceVisibility {
-  readonly top: boolean
-  readonly bottom: boolean
-  readonly front: boolean
-  readonly back: boolean
-  readonly left: boolean
-  readonly right: boolean
+  readonly top: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly bottom: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly front: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly back: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly left: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly right: Schema.Schema.Type<typeof Schema.Boolean>
 }
 
 export interface CullingConfig {
-  readonly enableBackfaceCulling: boolean
-  readonly enableOcclusionCulling: boolean
+  readonly enableBackfaceCulling: Schema.Schema.Type<typeof Schema.Boolean>
+  readonly enableOcclusionCulling: Schema.Schema.Type<typeof Schema.Boolean>
   readonly transparentBlocks: ReadonlySet<BlockType>
 }
 
@@ -58,7 +58,7 @@ export interface FaceCullingService {
     currentBlock: BlockType,
     neighborBlock: BlockType,
     transparentBlocks?: ReadonlySet<BlockType>
-  ) => Effect.Effect<boolean, FaceCullingError, never>
+  ) => Effect.Effect<Schema.Schema.Type<typeof Schema.Boolean>, FaceCullingError, never>
 
   readonly cullHiddenFaces: (
     chunkData: ChunkData

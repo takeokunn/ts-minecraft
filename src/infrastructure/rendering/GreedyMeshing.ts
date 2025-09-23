@@ -1,5 +1,6 @@
 import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R } from 'effect'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
+import { MeshDimension, BrandedTypes } from '../../shared/types/branded.js'
 
 // ========================================
 // Type Definitions
@@ -9,8 +10,8 @@ export interface Quad {
   readonly x: number
   readonly y: number
   readonly z: number
-  readonly width: number
-  readonly height: number
+  readonly width: MeshDimension
+  readonly height: MeshDimension
   readonly axis: number
   readonly blockType: BlockType
   readonly normal: readonly [number, number, number]
@@ -106,8 +107,8 @@ const createQuad = (
     x,
     y,
     z,
-    width,
-    height,
+    width: BrandedTypes.createMeshDimension(width),
+    height: BrandedTypes.createMeshDimension(height),
     axis,
     blockType,
     normal: getNormal(axis, forward),
@@ -238,6 +239,10 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
 
   for (const quad of quads) {
     const { x, y, z, width, height, axis, normal } = quad
+    
+    // Brand型から数値を取得
+    const widthNum = width as number
+    const heightNum = height as number
 
     // Calculate quad vertices based on axis and dimensions
     const [quadVertices, quadUvs]: [number[], number[]] = (() => {
@@ -245,20 +250,20 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
         case 0:
           // X-axis facing quad (YZ plane)
           return [
-            [x, y, z, x, y + height, z, x, y + height, z + width, x, y, z + width],
-            [0, 0, 0, height, width, height, width, 0],
+            [x, y, z, x, y + heightNum, z, x, y + heightNum, z + widthNum, x, y, z + widthNum],
+            [0, 0, 0, heightNum, widthNum, heightNum, widthNum, 0],
           ]
         case 1:
           // Y-axis facing quad (XZ plane)
           return [
-            [x, y, z, x + width, y, z, x + width, y, z + height, x, y, z + height],
-            [0, 0, width, 0, width, height, 0, height],
+            [x, y, z, x + widthNum, y, z, x + widthNum, y, z + heightNum, x, y, z + heightNum],
+            [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
           ]
         case 2:
           // Z-axis facing quad (XY plane)
           return [
-            [x, y, z, x + width, y, z, x + width, y + height, z, x, y + height, z],
-            [0, 0, width, 0, width, height, 0, height],
+            [x, y, z, x + widthNum, y, z, x + widthNum, y + heightNum, z, x, y + heightNum, z],
+            [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
           ]
         default:
           throw new Error(`Invalid axis: ${axis}`)

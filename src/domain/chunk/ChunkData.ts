@@ -1,6 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match, Option } from 'effect'
 import { ChunkPositionSchema, type ChunkPosition } from './ChunkPosition.js'
+import { WorldCoordinate, BrandedTypes } from '../../shared/types/branded.js'
 
 // チャンクサイズ定数
 export const CHUNK_SIZE = 16 // X, Z軸のサイズ
@@ -8,6 +9,8 @@ export const CHUNK_HEIGHT = 384 // Y軸のサイズ（-64 ~ 320）
 export const CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT // 98,304ブロック
 export const CHUNK_MIN_Y = -64
 export const CHUNK_MAX_Y = 319
+// チャンクタイムスタンプ生成ユーティリティ
+const getCurrentTimestamp = (): number => Date.now()
 
 /**
  * チャンクメタデータのスキーマ定義
@@ -37,10 +40,10 @@ export interface ChunkData {
  * 座標検証のための境界チェック
  */
 const validateCoordinates = (
-  x: number,
-  y: number,
-  z: number
-): Effect.Effect<{ x: number; y: number; z: number; normalizedY: number }, Error> => {
+  x: WorldCoordinate,
+  y: WorldCoordinate,
+  z: WorldCoordinate
+): Effect.Effect<{ x: WorldCoordinate; y: WorldCoordinate; z: WorldCoordinate; normalizedY: number }, Error> => {
   const normalizedY = y + 64
 
   return Match.value([x, z, normalizedY]).pipe(
@@ -58,7 +61,7 @@ const validateCoordinates = (
  * normalizedY + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  * CHUNK_HEIGHT=384, CHUNK_SIZE=16, so x * 384 * 16 = x * 6144
  */
-export const getBlockIndex = (x: number, y: number, z: number): number => {
+export const getBlockIndex = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): number => {
   return Effect.runSync(
     validateCoordinates(x, y, z).pipe(
       Effect.map(({ normalizedY }) => normalizedY + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
@@ -69,7 +72,7 @@ export const getBlockIndex = (x: number, y: number, z: number): number => {
 /**
  * 1Dインデックスから3D座標への変換
  */
-export const getBlockCoords = (index: number): [number, number, number] => {
+export const getBlockCoords = (index: number): [WorldCoordinate, WorldCoordinate, WorldCoordinate] => {
   return Effect.runSync(
     Match.value(index).pipe(
       Match.when(
@@ -79,7 +82,11 @@ export const getBlockCoords = (index: number): [number, number, number] => {
           const z = Math.floor((index % (CHUNK_HEIGHT * CHUNK_SIZE)) / CHUNK_HEIGHT)
           const normalizedY = index % CHUNK_HEIGHT
           const y = normalizedY - 64 // 0-383範囲を-64～319に戻す
-          return Effect.succeed([x, y, z] as [number, number, number])
+          return Effect.succeed([
+            BrandedTypes.createWorldCoordinate(x),
+            BrandedTypes.createWorldCoordinate(y),
+            BrandedTypes.createWorldCoordinate(z)
+          ] as [WorldCoordinate, WorldCoordinate, WorldCoordinate])
         }
       ),
       Match.orElse(() => Effect.fail(new Error(`Invalid index: ${index}`)))
@@ -95,7 +102,7 @@ export const createChunkData = (position: ChunkPosition, metadata?: Partial<Chun
     biome: 'plains',
     lightLevel: 15,
     isModified: false,
-    lastUpdate: Date.now(),
+    lastUpdate: getCurrentTimestamp(),
     heightMap: new Array(CHUNK_SIZE * CHUNK_SIZE).fill(0),
     ...metadata,
   }
@@ -111,7 +118,7 @@ export const createChunkData = (position: ChunkPosition, metadata?: Partial<Chun
 /**
  * チャンクデータのブロック取得
  */
-export const getBlock = (chunk: ChunkData, x: number, y: number, z: number): number => {
+export const getBlock = (chunk: ChunkData, x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): number => {
   const index = getBlockIndex(x, y, z)
   return chunk.blocks[index] ?? 0
 }
@@ -119,7 +126,7 @@ export const getBlock = (chunk: ChunkData, x: number, y: number, z: number): num
 /**
  * チャンクデータのブロック設定（immutable）
  */
-export const setBlock = (chunk: ChunkData, x: number, y: number, z: number, blockId: number): ChunkData => {
+export const setBlock = (chunk: ChunkData, x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate, blockId: number): ChunkData => {
   const index = getBlockIndex(x, y, z)
   const newBlocks = new Uint16Array(chunk.blocks)
   newBlocks[index] = blockId
@@ -131,7 +138,7 @@ export const setBlock = (chunk: ChunkData, x: number, y: number, z: number, bloc
     metadata: {
       ...chunk.metadata,
       isModified: true,
-      lastUpdate: Date.now(),
+      lastUpdate: getCurrentTimestamp(),
     },
   }
 }
@@ -139,7 +146,7 @@ export const setBlock = (chunk: ChunkData, x: number, y: number, z: number, bloc
 /**
  * チャンクの高さマップ更新
  */
-export const updateHeightMap = (chunk: ChunkData, x: number, z: number, height: number): ChunkData => {
+export const updateHeightMap = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate, height: number): ChunkData => {
   const heightMapIndex = x + z * CHUNK_SIZE
   const newHeightMap = [...chunk.metadata.heightMap]
   newHeightMap[heightMapIndex] = height
@@ -149,7 +156,7 @@ export const updateHeightMap = (chunk: ChunkData, x: number, z: number, height: 
     metadata: {
       ...chunk.metadata,
       heightMap: newHeightMap,
-      lastUpdate: Date.now(),
+      lastUpdate: getCurrentTimestamp(),
     },
     isDirty: true,
   }
@@ -158,7 +165,7 @@ export const updateHeightMap = (chunk: ChunkData, x: number, z: number, height: 
 /**
  * チャンクの高さ取得
  */
-export const getHeight = (chunk: ChunkData, x: number, z: number): number => {
+export const getHeight = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate): number => {
   return Effect.runSync(
     Match.value([x, z]).pipe(
       Match.when(
@@ -210,7 +217,7 @@ export const resetChunkData = (chunk: ChunkData, newPosition: ChunkPosition): Ch
       biome: 'plains',
       lightLevel: 15,
       isModified: false,
-      lastUpdate: Date.now(),
+      lastUpdate: getCurrentTimestamp(),
       heightMap: new Array(CHUNK_SIZE * CHUNK_SIZE).fill(0),
     },
     isDirty: false,

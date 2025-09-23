@@ -1,14 +1,15 @@
 import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
+import { BlockId, BrandedTypes } from '../../shared/types/branded.js'
 
 // エラー定義（Data.TaggedErrorを使用）
 export interface BlockNotFoundError {
   readonly _tag: 'BlockNotFoundError'
-  readonly blockId: string
+  readonly blockId: BlockId
 }
 
-export const BlockNotFoundError = (blockId: string): BlockNotFoundError => ({
+export const BlockNotFoundError = (blockId: BlockId): BlockNotFoundError => ({
   _tag: 'BlockNotFoundError',
   blockId,
 })
@@ -18,10 +19,10 @@ export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundErro
 
 export interface BlockAlreadyRegisteredError {
   readonly _tag: 'BlockAlreadyRegisteredError'
-  readonly blockId: string
+  readonly blockId: BlockId
 }
 
-export const BlockAlreadyRegisteredError = (blockId: string): BlockAlreadyRegisteredError => ({
+export const BlockAlreadyRegisteredError = (blockId: BlockId): BlockAlreadyRegisteredError => ({
   _tag: 'BlockAlreadyRegisteredError',
   blockId,
 })
@@ -31,14 +32,14 @@ export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlr
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {
-  readonly getBlock: (id: string) => Effect.Effect<BlockType, BlockNotFoundError>
-  readonly getBlockOption: (id: string) => Effect.Effect<Option.Option<BlockType>>
+  readonly getBlock: (id: BlockId) => Effect.Effect<BlockType, BlockNotFoundError>
+  readonly getBlockOption: (id: BlockId) => Effect.Effect<Option.Option<BlockType>>
   readonly getAllBlocks: () => Effect.Effect<readonly BlockType[]>
   readonly getBlocksByCategory: (category: BlockCategory) => Effect.Effect<readonly BlockType[]>
   readonly getBlocksByTag: (tag: string) => Effect.Effect<readonly BlockType[]>
   readonly searchBlocks: (query: string) => Effect.Effect<readonly BlockType[]>
   readonly registerBlock: (block: BlockType) => Effect.Effect<void, BlockAlreadyRegisteredError>
-  readonly isBlockRegistered: (id: string) => Effect.Effect<boolean>
+  readonly isBlockRegistered: (id: BlockId) => Effect.Effect<boolean>
 }
 
 // BlockRegistryサービスタグ
@@ -90,7 +91,7 @@ export const BlockRegistryLive = Layer.effect(
     initializeIndexes()
 
     return {
-      getBlock: (id: string) =>
+      getBlock: (id: BlockId) =>
         pipe(
           HashMap.get(blockMap, id),
           Option.match({
@@ -99,7 +100,7 @@ export const BlockRegistryLive = Layer.effect(
           })
         ),
 
-      getBlockOption: (id: string) => Effect.succeed(HashMap.get(blockMap, id)),
+      getBlockOption: (id: BlockId) => Effect.succeed(HashMap.get(blockMap, id)),
 
       getAllBlocks: () => Effect.succeed(pipe(blockMap, HashMap.values, EffectArray.fromIterable)),
 
@@ -162,7 +163,7 @@ export const BlockRegistryLive = Layer.effect(
           const exists = HashMap.has(blockMap, block.id)
 
           if (exists) {
-            return yield* Effect.fail(BlockAlreadyRegisteredError(block.id))
+            return yield* Effect.fail(BlockAlreadyRegisteredError(BrandedTypes.createBlockId(block.id)))
           }
 
           // ブロックマップに追加
@@ -185,7 +186,7 @@ export const BlockRegistryLive = Layer.effect(
           })
         }),
 
-      isBlockRegistered: (id: string) => Effect.succeed(HashMap.has(blockMap, id)),
+      isBlockRegistered: (id: BlockId) => Effect.succeed(HashMap.has(blockMap, id)),
     } satisfies BlockRegistry
   })
 )
@@ -196,7 +197,7 @@ export const BlockRegistryLive = Layer.effect(
 export const getBlock = (id: string) =>
   Effect.gen(function* () {
     const registry = yield* BlockRegistry
-    return yield* registry.getBlock(id)
+    return yield* registry.getBlock(BrandedTypes.createBlockId(id))
   })
 
 // 全ブロックを取得
@@ -238,5 +239,5 @@ export const registerBlock = (block: BlockType) =>
 export const isBlockRegistered = (id: string) =>
   Effect.gen(function* () {
     const registry = yield* BlockRegistry
-    return yield* registry.isBlockRegistered(id)
+    return yield* registry.isBlockRegistered(BrandedTypes.createBlockId(id))
   })

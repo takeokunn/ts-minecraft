@@ -9,6 +9,9 @@ import { createChunk } from './Chunk.js'
 import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index.js'
 import { WorldGeneratorTag } from '../world/index.js'
 
+// チャンクローダー用タイムスタンプ生成ユーティリティ
+const getCurrentTimestamp = (): number => Date.now()
+
 // =============================================================================
 // Types & Schemas
 // =============================================================================
@@ -81,7 +84,7 @@ export interface ChunkLoaderState {
 export const calculatePriorityScore = (request: ChunkLoadRequest, config: ChunkLoaderConfig): number => {
   const baseScore = config.priorityWeights[request.priority]
   const distancePenalty = request.playerDistance * 0.1
-  const agePenalty = (Date.now() - request.timestamp) * 0.001
+  const agePenalty = (getCurrentTimestamp() - request.timestamp) * 0.001
 
   return baseScore - distancePenalty - agePenalty
 }
@@ -102,7 +105,7 @@ export const createChunkLoadRequest = (
 ): ChunkLoadRequest => ({
   position,
   priority,
-  timestamp: Date.now(),
+  timestamp: getCurrentTimestamp(),
   playerDistance,
 })
 
@@ -180,7 +183,7 @@ export const isLoadExpired = (state: ChunkLoadState, timeoutMs: number): boolean
     Option.fromNullable(state.startTime),
     Option.match({
       onNone: () => false,
-      onSome: (startTime) => Date.now() - startTime > timeoutMs,
+      onSome: (startTime) => getCurrentTimestamp() - startTime > timeoutMs,
     })
   )
 }
@@ -302,7 +305,7 @@ export const createChunkLoader = (
                   biome: 'plains',
                   lightLevel: 15,
                   isModified: false,
-                  lastUpdate: Date.now(),
+                  lastUpdate: getCurrentTimestamp(),
                   heightMap: Array.from(new Uint16Array(256)),
                 },
                 isDirty: false,
@@ -317,7 +320,7 @@ export const createChunkLoader = (
             loadStates: new Map(currentState.loadStates).set(key, {
               position: request.position,
               status: 'loading' as const,
-              startTime: Date.now(),
+              startTime: getCurrentTimestamp(),
             }),
           }))
 
@@ -338,8 +341,8 @@ export const createChunkLoader = (
                     newLoadStates.set(key, {
                       position: request.position,
                       status: 'completed' as const,
-                      startTime: currentLoadState?.startTime ?? Date.now(),
-                      completedTime: Date.now(),
+                      startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
+                      completedTime: getCurrentTimestamp(),
                       chunk,
                     })
                     return {
@@ -352,8 +355,8 @@ export const createChunkLoader = (
                     newLoadStates.set(key, {
                       position: request.position,
                       status: 'failed' as const,
-                      startTime: currentLoadState?.startTime ?? Date.now(),
-                      completedTime: Date.now(),
+                      startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
+                      completedTime: getCurrentTimestamp(),
                       error: Exit.isFailure(result)
                         ? result.cause._tag === 'Fail'
                           ? result.cause.error

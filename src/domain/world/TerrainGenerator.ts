@@ -4,6 +4,8 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
 import type { ChunkData } from '../chunk/ChunkData'
+import { Height, WorldCoordinate, BrandedTypes } from '../../shared/types/branded.js'
+import { getBlockIndex } from '../chunk/ChunkData.js'
 
 /**
  * 地形生成の設定
@@ -21,7 +23,7 @@ export type TerrainConfig = Schema.Schema.Type<typeof TerrainConfigSchema>
 /**
  * 高度マップ（16x16のチャンク用）
  */
-export const HeightMapSchema = Schema.Array(Schema.Array(Schema.Number))
+export const HeightMapSchema = Schema.Array(Schema.Array(Height))
 export type HeightMap = Schema.Schema.Type<typeof HeightMapSchema>
 
 /**
@@ -36,7 +38,7 @@ export interface TerrainGenerator {
   /**
    * 指定座標の地形高度を取得
    */
-  readonly getTerrainHeight: (x: number, z: number) => Effect.Effect<number, never, NoiseGenerator>
+  readonly getTerrainHeight: (x: WorldCoordinate, z: WorldCoordinate) => Effect.Effect<Height, never, NoiseGenerator>
 
   /**
    * チャンクに基本地形ブロックを配置
@@ -49,7 +51,7 @@ export interface TerrainGenerator {
   /**
    * 指定高度でのブロックタイプを決定
    */
-  readonly getBlockTypeAtHeight: (worldX: number, worldZ: number, y: number, surfaceHeight: number) => string
+  readonly getBlockTypeAtHeight: (worldX: WorldCoordinate, worldZ: WorldCoordinate, y: Height, surfaceHeight: Height) => string
 
   /**
    * 設定を取得
@@ -66,7 +68,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
   return {
     generateHeightMap: (position: ChunkPosition) =>
       Effect.gen(function* () {
-        const heightMap: number[][] = []
+        const heightMap: Height[][] = []
 
         for (let x = 0; x < 16; x++) {
           heightMap[x] = []
@@ -101,14 +103,15 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
             finalHeight += detailHeight * 8 // ±8ブロックの詳細変動
             finalHeight += Math.max(0, mountainHeight * 64) // 0-64ブロックの山岳変動
 
-            // 高度制限
+            // 高度制限とHeight型へ変換
             finalHeight = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+            const heightValue = BrandedTypes.createHeight(finalHeight)
 
             // 配列アクセスをOptionパターンで安全化
             pipe(
               Option.fromNullable(heightMap[x]),
               Option.map((row) => {
-                row[z] = finalHeight
+                row[z] = heightValue
               })
             )
           }
@@ -117,7 +120,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
         return heightMap
       }),
 
-    getTerrainHeight: (x: number, z: number) =>
+    getTerrainHeight: (x: WorldCoordinate, z: WorldCoordinate) =>
       Effect.gen(function* () {
         const noiseGenerator = yield* NoiseGeneratorTag
 
@@ -135,7 +138,8 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
         finalHeight += detailHeight * 8
         finalHeight += Math.max(0, mountainHeight * 64)
 
-        return Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+        const heightValue = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
+        return BrandedTypes.createHeight(heightValue)
       }),
 
     generateBaseTerrain: (chunkData: ChunkData, heightMap: HeightMap) =>
@@ -156,12 +160,16 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
         for (let x = 0; x < 16; x++) {
           for (let z = 0; z < 16; z++) {
-            const surfaceHeight = heightMap[x]?.[z] ?? config.seaLevel
-            const worldX = chunkData.position.x * 16 + x
-            const worldZ = chunkData.position.z * 16 + z
+            const surfaceHeight = heightMap[x]?.[z] ?? BrandedTypes.createHeight(config.seaLevel)
+            const worldX = BrandedTypes.createWorldCoordinate(chunkData.position.x * 16 + x)
+            const worldZ = BrandedTypes.createWorldCoordinate(chunkData.position.z * 16 + z)
 
             for (let y = -64; y < 320; y++) {
-              const index = getBlockIndex(x, y, z)
+              const index = getBlockIndex(
+                BrandedTypes.createWorldCoordinate(x),
+                BrandedTypes.createWorldCoordinate(y),
+                BrandedTypes.createWorldCoordinate(z)
+              )
               let blockId = blockIds.air
 
               blockId = pipe(
