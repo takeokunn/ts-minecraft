@@ -110,13 +110,11 @@ export const GameLoopServiceLive = Layer.effect(
           const currentState = yield* Ref.get(internalState)
 
           if (currentState.state !== 'idle' && currentState.state !== 'stopped') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopInitError' as const,
-                message: 'GameLoop is already initialized',
-                reason: `Current state is ${currentState.state}`,
-              } satisfies GameLoopInitError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopInitError' as const,
+              message: 'GameLoop is already initialized',
+              reason: `Current state is ${currentState.state}`,
+            } satisfies GameLoopInitError)
           }
 
           const mergedConfig = { ...DEFAULT_GAME_LOOP_CONFIG, ...config }
@@ -142,14 +140,12 @@ export const GameLoopServiceLive = Layer.effect(
           }
 
           if (currentState.state !== 'idle' && currentState.state !== 'paused') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Invalid state transition',
-                currentState: currentState.state,
-                attemptedTransition: 'start',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Invalid state transition',
+              currentState: currentState.state,
+              attemptedTransition: 'start',
+            } satisfies GameLoopStateError)
           }
 
           yield* Ref.update(internalState, (s) => ({
@@ -174,14 +170,12 @@ export const GameLoopServiceLive = Layer.effect(
           const currentState = yield* Ref.get(internalState)
 
           if (currentState.state !== 'running') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Can only pause when running',
-                currentState: currentState.state,
-                attemptedTransition: 'pause',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Can only pause when running',
+              currentState: currentState.state,
+              attemptedTransition: 'pause',
+            } satisfies GameLoopStateError)
           }
 
           if (currentState.animationFrameId !== null) {
@@ -200,14 +194,12 @@ export const GameLoopServiceLive = Layer.effect(
           const currentState = yield* Ref.get(internalState)
 
           if (currentState.state !== 'paused') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Can only resume when paused',
-                currentState: currentState.state,
-                attemptedTransition: 'resume',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Can only resume when paused',
+              currentState: currentState.state,
+              attemptedTransition: 'resume',
+            } satisfies GameLoopStateError)
           }
 
           yield* Ref.update(internalState, (s) => ({
@@ -273,15 +265,13 @@ export const GameLoopServiceLive = Layer.effect(
           const state = yield* Ref.get(internalState)
 
           if (state.performanceBuffer.length === 0) {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopPerformanceError' as const,
-                message: 'No performance data available',
-                currentFps: 0,
-                targetFps: state.config.targetFps,
-                droppedFrames: 0,
-              } satisfies GameLoopPerformanceError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopPerformanceError' as const,
+              message: 'No performance data available',
+              currentFps: 0,
+              targetFps: state.config.targetFps,
+              droppedFrames: 0,
+            } satisfies GameLoopPerformanceError)
           }
 
           const averageFps = state.performanceBuffer.reduce((sum, fps) => sum + fps, 0) / state.performanceBuffer.length
@@ -335,14 +325,12 @@ export const GameLoopServiceLive = Layer.effect(
             { concurrency: 'unbounded' }
           ).pipe(
             Effect.catchAll((error) =>
-              Effect.fail(
-                {
-                  _tag: 'GameLoopRuntimeError' as const,
-                  message: 'Error executing frame callbacks',
-                  frameNumber: state.frameCount,
-                  error,
-                } satisfies GameLoopRuntimeError
-              )
+              Effect.fail({
+                _tag: 'GameLoopRuntimeError' as const,
+                message: 'Error executing frame callbacks',
+                frameNumber: state.frameCount,
+                error,
+              } satisfies GameLoopRuntimeError)
             )
           )
 

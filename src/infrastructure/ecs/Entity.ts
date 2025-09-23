@@ -279,13 +279,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         state.freeList.length === 0,
         Match.value,
         Match.when(true, () =>
-          Effect.fail(
-            {
-              _tag: 'EntityPoolError' as const,
-              reason: 'pool_exhausted',
-              message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
-            } satisfies EntityPoolError
-          )
+          Effect.fail({
+            _tag: 'EntityPoolError' as const,
+            reason: 'pool_exhausted',
+            message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
+          } satisfies EntityPoolError)
         ),
         Match.orElse(() =>
           Effect.gen(function* () {
@@ -303,13 +301,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         !state.allocated.has(id),
         Match.value,
         Match.when(true, () =>
-          Effect.fail(
-            {
-              _tag: 'EntityPoolError' as const,
-              reason: 'entity_not_allocated',
-              message: `Entity ${id} is not allocated`,
-            } satisfies EntityPoolError
-          )
+          Effect.fail({
+            _tag: 'EntityPoolError' as const,
+            reason: 'entity_not_allocated',
+            message: `Entity ${id} is not allocated`,
+          } satisfies EntityPoolError)
         ),
         Match.orElse(() =>
           Effect.sync(() => {

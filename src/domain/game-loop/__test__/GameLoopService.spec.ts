@@ -21,13 +21,11 @@ describe('GameLoopService', () => {
       initialize: (config) =>
         Effect.gen(function* () {
           if (mockState !== 'idle' && mockState !== 'stopped') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopInitError' as const,
-                message: 'Already initialized',
-                reason: `State is ${mockState}`,
-              } satisfies GameLoopInitError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopInitError' as const,
+              message: 'Already initialized',
+              reason: `State is ${mockState}`,
+            } satisfies GameLoopInitError)
           }
           if (config) {
             mockConfig = { ...mockConfig, ...config }
@@ -40,14 +38,12 @@ describe('GameLoopService', () => {
         Effect.gen(function* () {
           if (mockState === 'running') return
           if (mockState !== 'idle' && mockState !== 'paused') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Invalid state transition',
-                currentState: mockState,
-                attemptedTransition: 'start',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Invalid state transition',
+              currentState: mockState,
+              attemptedTransition: 'start',
+            } satisfies GameLoopStateError)
           }
           mockState = 'running'
         }),
@@ -55,14 +51,12 @@ describe('GameLoopService', () => {
       pause: () =>
         Effect.gen(function* () {
           if (mockState !== 'running') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Can only pause when running',
-                currentState: mockState,
-                attemptedTransition: 'pause',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Can only pause when running',
+              currentState: mockState,
+              attemptedTransition: 'pause',
+            } satisfies GameLoopStateError)
           }
           mockState = 'paused'
         }),
@@ -70,14 +64,12 @@ describe('GameLoopService', () => {
       resume: () =>
         Effect.gen(function* () {
           if (mockState !== 'paused') {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopStateError' as const,
-                message: 'Can only resume when paused',
-                currentState: mockState,
-                attemptedTransition: 'resume',
-              } satisfies GameLoopStateError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopStateError' as const,
+              message: 'Can only resume when paused',
+              currentState: mockState,
+              attemptedTransition: 'resume',
+            } satisfies GameLoopStateError)
           }
           mockState = 'running'
         }),
@@ -104,15 +96,13 @@ describe('GameLoopService', () => {
       getPerformanceMetrics: () =>
         Effect.gen(function* () {
           if (mockFrameCount === 0) {
-            return yield* Effect.fail(
-              {
-                _tag: 'GameLoopPerformanceError' as const,
-                message: 'No performance data',
-                currentFps: 0,
-                targetFps: mockConfig.targetFps,
-                droppedFrames: 0,
-              } satisfies GameLoopPerformanceError
-            )
+            return yield* Effect.fail({
+              _tag: 'GameLoopPerformanceError' as const,
+              message: 'No performance data',
+              currentFps: 0,
+              targetFps: mockConfig.targetFps,
+              droppedFrames: 0,
+            } satisfies GameLoopPerformanceError)
           }
           return {
             averageFps: 60,
@@ -142,14 +132,12 @@ describe('GameLoopService', () => {
             }
           ).pipe(
             Effect.catchAll((error) =>
-              Effect.fail(
-                {
-                  _tag: 'GameLoopRuntimeError' as const,
-                  message: 'Callback error',
-                  frameNumber: mockFrameCount,
-                  error,
-                } satisfies GameLoopRuntimeError
-              )
+              Effect.fail({
+                _tag: 'GameLoopRuntimeError' as const,
+                message: 'Callback error',
+                frameNumber: mockFrameCount,
+                error,
+              } satisfies GameLoopRuntimeError)
             )
           )
 

@@ -85,13 +85,11 @@ export const createChunk = (data: ChunkData): Chunk => {
     getBlock(x: number, y: number, z: number): Effect.Effect<number, ChunkBoundsError> {
       return Effect.gen(function* () {
         if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
-          yield* Effect.fail(
-            {
-              _tag: 'ChunkBoundsError' as const,
-              message: `Invalid coordinates: (${x}, ${y}, ${z})`,
-              coordinates: { x, y, z },
-            } satisfies ChunkBoundsError
-          )
+          yield* Effect.fail({
+            _tag: 'ChunkBoundsError' as const,
+            message: `Invalid coordinates: (${x}, ${y}, ${z})`,
+            coordinates: { x, y, z },
+          } satisfies ChunkBoundsError)
         }
         const index = getBlockIndex(x, y, z)
         return chunk.blocks[index] ?? 0
@@ -101,13 +99,11 @@ export const createChunk = (data: ChunkData): Chunk => {
     setBlock(x: number, y: number, z: number, blockId: number): Effect.Effect<Chunk, ChunkBoundsError> {
       return Effect.gen(function* () {
         if (x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE) {
-          yield* Effect.fail(
-            {
-              _tag: 'ChunkBoundsError' as const,
-              message: `Failed to set block at (${x}, ${y}, ${z})`,
-              coordinates: { x, y, z },
-            } satisfies ChunkBoundsError
-          )
+          yield* Effect.fail({
+            _tag: 'ChunkBoundsError' as const,
+            message: `Failed to set block at (${x}, ${y}, ${z})`,
+            coordinates: { x, y, z },
+          } satisfies ChunkBoundsError)
         }
         const index = getBlockIndex(x, y, z)
         const newBlocks = new Uint16Array(chunk.blocks)
@@ -163,12 +159,10 @@ export const createChunk = (data: ChunkData): Chunk => {
           endZ < 0 ||
           endZ >= CHUNK_SIZE
         ) {
-          yield* Effect.fail(
-            {
-              _tag: 'ChunkBoundsError' as const,
-              message: `Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`,
-            } satisfies ChunkBoundsError
-          )
+          yield* Effect.fail({
+            _tag: 'ChunkBoundsError' as const,
+            message: `Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`,
+          } satisfies ChunkBoundsError)
         }
 
         const newBlocks = new Uint16Array(chunk.blocks)
@@ -286,7 +280,7 @@ export const createChunk = (data: ChunkData): Chunk => {
         },
         catch: (error) =>
           typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkSerializationError'
-            ? error as ChunkSerializationError
+            ? (error as ChunkSerializationError)
             : {
                 _tag: 'ChunkSerializationError' as const,
                 message: `Failed to deserialize chunk: ${error}`,
@@ -360,7 +354,7 @@ export const createChunk = (data: ChunkData): Chunk => {
           },
           catch: (error) =>
             typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ChunkSerializationError'
-              ? error as ChunkSerializationError
+              ? (error as ChunkSerializationError)
               : {
                   _tag: 'ChunkSerializationError' as const,
                   message: `Failed to decompress chunk: ${error}`,
