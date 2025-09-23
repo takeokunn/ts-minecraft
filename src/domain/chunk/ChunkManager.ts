@@ -210,8 +210,9 @@ export const createChunkManager = (
       loadedChunks: new Map(),
       cache: createLRUCache(config.maxCachedChunks),
       loadQueue: yield* Queue.unbounded<ChunkPosition>(),
-      loadingChunks: new Set(),
-      config,
+      loadingChunks: new Set(
+    }),
+    config,
     })
 
     const getChunk = (position: ChunkPosition): Effect.Effect<Chunk | null, never> =>
@@ -223,24 +224,24 @@ export const createChunkManager = (
         const loaded = yield* pipe(
           Option.fromNullable(currentState.loadedChunks.get(key)),
           Option.match({
-            onNone: () => Effect.succeed(null),
-            onSome: (chunk) => Effect.succeed(chunk),
+            onNone: () => Effect.succeed(null
+    }),
+    onSome: (chunk) => Effect.succeed(chunk),
           })
         )
 
         return yield* pipe(
           Option.fromNullable(loaded),
           Option.match({
-            onNone: () =>
-              Effect.gen(function* () {
+            onNone: () => Effect.gen(function* () {
                 // キャッシュチェック
                 const [cached, newCache] = lruGet(currentState.cache, key)
 
                 return yield* pipe(
-                  Option.fromNullable(cached),
-                  Option.match({
-                    onNone: () =>
-                      Effect.gen(function* () {
+                  Option.fromNullable(cached
+    }),
+    Option.match({
+                    onNone: () => Effect.gen(function* () {
                         // ロードキューに追加
                         yield* Queue.offer(currentState.loadQueue, position)
                         return null

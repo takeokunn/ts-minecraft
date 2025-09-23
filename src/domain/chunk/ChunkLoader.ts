@@ -200,8 +200,9 @@ export const createChunkLoader = (
     const state = yield* Ref.make<ChunkLoaderState>({
       loadQueue: yield* Queue.bounded<ChunkLoadRequest>(config.queueCapacity),
       activeLoads: new Map(),
-      loadStates: new Map(),
-      config,
+      loadStates: new Map(
+    }),
+    config,
     })
 
     // ロード処理用Fiberの管理
@@ -220,8 +221,9 @@ export const createChunkLoader = (
         const existing = yield* pipe(
           Option.fromNullable(currentState.loadStates.get(key)),
           Option.match({
-            onNone: () => Effect.succeed(null),
-            onSome: (state) => Effect.succeed(state),
+            onNone: () => Effect.succeed(null
+    }),
+    onSome: (state) => Effect.succeed(state),
           })
         )
 
@@ -246,8 +248,7 @@ export const createChunkLoader = (
         yield* pipe(
           added,
           Match.value,
-          Match.when(true, () =>
-            Effect.gen(function* () {
+          Match.when(true, () => Effect.gen(function* () {
               // ロード状態を更新
               yield* Ref.update(state, (currentState) => ({
                 ...currentState,
@@ -305,8 +306,9 @@ export const createChunkLoader = (
                   biome: 'plains',
                   lightLevel: 15,
                   isModified: false,
-                  lastUpdate: getCurrentTimestamp(),
-                  heightMap: Array.from(new Uint16Array(256)),
+                  lastUpdate: getCurrentTimestamp(
+    }),
+    heightMap: Array.from(new Uint16Array(256)),
                 },
                 isDirty: false,
               })
@@ -342,8 +344,9 @@ export const createChunkLoader = (
                       position: request.position,
                       status: 'completed' as const,
                       startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
-                      completedTime: getCurrentTimestamp(),
-                      chunk,
+                      completedTime: getCurrentTimestamp(
+    }),
+    chunk,
                     })
                     return {
                       ...currentState,
@@ -381,10 +384,10 @@ export const createChunkLoader = (
         const currentFiber = yield* Ref.get(processingFiber)
 
         return yield* pipe(
-          Option.fromNullable(currentFiber),
-          Option.match({
-            onNone: () =>
-              Effect.gen(function* () {
+          Option.fromNullable(currentFiber
+    }),
+    Option.match({
+            onNone: () => Effect.gen(function* () {
                 const newFiber = yield* Effect.fork(processLoadQueue())
                 yield* Ref.set(processingFiber, newFiber)
                 return newFiber
@@ -401,8 +404,9 @@ export const createChunkLoader = (
         yield* pipe(
           Option.fromNullable(currentFiber),
           Option.match({
-            onNone: () => Effect.succeed(undefined),
-            onSome: (fiber) =>
+            onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (fiber) =>
               Effect.gen(function* () {
                 yield* Fiber.interrupt(fiber)
                 yield* Ref.set(processingFiber, null)
@@ -419,8 +423,9 @@ export const createChunkLoader = (
         return yield* pipe(
           Option.fromNullable(currentState.loadStates.get(key)),
           Option.match({
-            onNone: () => Effect.succeed(null),
-            onSome: (state) => Effect.succeed(state),
+            onNone: () => Effect.succeed(null
+    }),
+    onSome: (state) => Effect.succeed(state),
           })
         )
       })
@@ -446,8 +451,9 @@ export const createChunkLoader = (
         return yield* pipe(
           Option.fromNullable(activeFiber),
           Option.match({
-            onNone: () => Effect.succeed(false),
-            onSome: (fiber) =>
+            onNone: () => Effect.succeed(false
+    }),
+    onSome: (fiber) =>
               Effect.gen(function* () {
                 yield* Fiber.interrupt(fiber)
                 yield* Ref.update(state, (currentState) => {
@@ -524,8 +530,7 @@ const loadChunkWithTimeout = (
     })
 
     return yield* Effect.timeout(chunkGeneration, `${timeoutMs} millis`).pipe(
-      Effect.catchTag('TimeoutException', () =>
-        Effect.fail({
+      Effect.catchTag('TimeoutException', () => Effect.fail({
           _tag: 'GenerationError' as const,
           position: request.position,
           reason: `Chunk generation timed out after ${timeoutMs}ms`,

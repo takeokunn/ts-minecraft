@@ -123,8 +123,7 @@ export const MouseInputLive = Layer.effect(
       }).pipe(Effect.runPromise)
 
     // ポインターロック状態変更リスナー
-    const handlePointerLockChange = () =>
-      Effect.gen(function* () {
+    const handlePointerLockChange = () => Effect.gen(function* () {
         const documentExists = typeof document !== 'undefined'
 
         const isLocked = documentExists && document.pointerLockElement !== null
@@ -219,17 +218,15 @@ export const MouseInputLive = Layer.effect(
 
 // テスト用のモック実装
 export const MockMouseInput = Layer.succeed(
-  MouseInput,
-  MouseInput.of({
-    getPosition: () =>
-      Effect.succeed({
+    MouseInput,
+    MouseInput.of({
+    getPosition: () => Effect.succeed({
         x: 100,
         y: 200,
         timestamp: Date.now(),
       }),
 
-    getDelta: () =>
-      Effect.succeed({
+    getDelta: () => Effect.succeed({
         deltaX: 5,
         deltaY: -3,
         timestamp: Date.now(),
@@ -248,8 +245,7 @@ export const MockMouseInput = Layer.succeed(
 
     exitPointerLock: () => Effect.succeed(undefined),
 
-    getPointerLockState: () =>
-      Effect.succeed({
+    getPointerLockState: () => Effect.succeed({
         isLocked: false,
       }),
 

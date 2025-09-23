@@ -193,8 +193,9 @@ export const EntityManagerLive = Effect.gen(function* () {
   // Helper: コンポーネントストレージの取得または作成
   const getOrCreateStorage = (componentType: ComponentTypeName): ComponentStorage<unknown> => {
     return pipe(
-      Option.fromNullable(componentStorages.get(componentType)),
-      Option.match({
+      Option.fromNullable(componentStorages.get(componentType)
+    }),
+    Option.match({
         onNone: () => {
           const storage = createComponentStorage<unknown>()
           componentStorages.set(componentType, storage)
@@ -215,8 +216,9 @@ export const EntityManagerLive = Effect.gen(function* () {
         name,
         tags: [...tags],
         active: true,
-        createdAt: Date.now(),
-        generation: entityGeneration++,
+        createdAt: Date.now(
+    }),
+    generation: entityGeneration++,
       }
 
       entities.set(id, metadata)
@@ -251,8 +253,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       const metadata = yield* pipe(
         Option.fromNullable(entities.get(id)),
         Option.match({
-          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'destroy')),
-          onSome: (metadata) => Effect.succeed(metadata),
+          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'destroy')
+    }),
+    onSome: (metadata) => Effect.succeed(metadata),
         })
       )
 
@@ -311,22 +314,21 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
-          onSome: (components) => Effect.succeed(components),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()
+    }),
+    onSome: (components) => Effect.succeed(components),
         })
       )
 
       yield* pipe(
         components.has(componentType),
         Match.value,
-        Match.when(true, () =>
-          Effect.gen(function* () {
+        Match.when(true, () => Effect.gen(function* () {
             // 既存のコンポーネントを更新
             yield* storage.insert(entityId, component)
           })
         ),
-        Match.orElse(() =>
-          Effect.gen(function* () {
+        Match.orElse(() => Effect.gen(function* () {
             // 新しいコンポーネントを追加
             yield* storage.insert(entityId, component)
             components.add(componentType)
@@ -361,13 +363,13 @@ export const EntityManagerLive = Effect.gen(function* () {
             Effect.gen(function* () {
               const removed = yield* s.remove(entityId)
               yield* Match.value(removed).pipe(
-                Match.when(true, () =>
-                  Effect.gen(function* () {
+                Match.when(true, () => Effect.gen(function* () {
                     const components = yield* pipe(
                       Option.fromNullable(entityComponents.get(entityId)),
                       Option.match({
-                        onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
-                        onSome: (c) => Effect.succeed(c),
+                        onNone: () => Effect.succeed(new Set<ComponentTypeName>()
+    }),
+    onSome: (c) => Effect.succeed(c),
                       })
                     )
 
@@ -390,8 +392,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
-          onNone: () => Effect.succeed(Option.none<T>()),
-          onSome: (storage) => Effect.map(storage.get(entityId), (result) => result as Option.Option<T>),
+          onNone: () => Effect.succeed(Option.none<T>()
+    }),
+    onSome: (storage) => Effect.map(storage.get(entityId), (result) => result as Option.Option<T>),
         })
       )
     })
@@ -402,8 +405,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
-          onNone: () => Effect.succeed(false),
-          onSome: (storage) => storage.has(entityId),
+          onNone: () => Effect.succeed(false
+    }),
+    onSome: (storage) => storage.has(entityId),
         })
       )
     })
@@ -415,8 +419,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
-          onSome: (components) => Effect.succeed(components),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()
+    }),
+    onSome: (components) => Effect.succeed(components),
         })
       )
 
@@ -454,8 +459,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
-          onNone: () => Effect.succeed([]),
-          onSome: (storage) =>
+          onNone: () => Effect.succeed([]
+    }),
+    onSome: (storage) =>
             Effect.gen(function* () {
               const all = yield* storage.getAll()
               return all.map(([entity]) => entity)
@@ -471,14 +477,14 @@ export const EntityManagerLive = Effect.gen(function* () {
         componentTypes.length === 0,
         Match.value,
         Match.when(true, () => Effect.succeed([])),
-        Match.orElse(() =>
-          Effect.gen(function* () {
+        Match.orElse(() => Effect.gen(function* () {
             // 最初のコンポーネントを持つエンティティから開始
             const firstComponent = yield* pipe(
               Option.fromNullable(componentTypes[0]),
               Option.match({
-                onNone: () => Effect.succeed([]),
-                onSome: (componentType) => getEntitiesWithComponent(componentType),
+                onNone: () => Effect.succeed([]
+    }),
+    onSome: (componentType) => getEntitiesWithComponent(componentType),
               })
             )
 
@@ -548,8 +554,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       return yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
-          onNone: () => Effect.succeed([]),
-          onSome: (storage) =>
+          onNone: () => Effect.succeed([]
+    }),
+    onSome: (storage) =>
             Effect.gen(function* () {
               const all = yield* storage.getAll()
               return all as ReadonlyArray<[EntityId, T]>
@@ -567,8 +574,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       yield* pipe(
         Option.fromNullable(componentStorages.get(componentType)),
         Option.match({
-          onNone: () => Effect.succeed(undefined),
-          onSome: (storage) => (storage as ComponentStorage<T>).iterate(f),
+          onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (storage) => (storage as ComponentStorage<T>).iterate(f),
         })
       )
     }) as Effect.Effect<void, E, R>
@@ -583,8 +591,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     }) as Effect.Effect<void, SystemError | EntityManagerError>
 
   // 統計情報
-  const getStats = () =>
-    Effect.sync((): EntityManagerStats => {
+  const getStats = () => Effect.sync((): EntityManagerStats => {
       let totalComponents = 0
       for (const storage of componentStorages.values()) {
         Effect.runSync(storage.getStats()).size
@@ -600,8 +607,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // クリア
-  const clear = () =>
-    Effect.gen(function* () {
+  const clear = () => Effect.gen(function* () {
       // すべてのコンポーネントストレージをクリア
       for (const storage of componentStorages.values()) {
         yield* storage.clear()
@@ -629,8 +635,9 @@ export const EntityManagerLive = Effect.gen(function* () {
       yield* pipe(
         Option.fromNullable(entities.get(id)),
         Option.match({
-          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'setEntityActive')),
-          onSome: (meta) =>
+          onNone: () => Effect.fail(createEntityManagerError.entityNotFound(id, 'setEntityActive')
+    }),
+    onSome: (meta) =>
             Effect.sync(() => {
               // Create new metadata object to maintain immutability
               const updatedMetadata = { ...meta, active }

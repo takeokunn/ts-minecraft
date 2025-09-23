@@ -137,8 +137,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
     // FPS低下の検出 - Effect.if使用
     yield* Effect.if(performanceStats.fps < 45, {
-      onTrue: () =>
-        Effect.gen(function* () {
+      onTrue: () => Effect.gen(function* () {
           yield* Effect.logWarning('Performance degradation detected', {
             fps: performanceStats.fps,
             frameTime: performanceStats.frameTime,
@@ -146,8 +145,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
           // 重要パフォーマンス監視 - Effect.if使用
           yield* Effect.if(performanceStats.fps < 30, {
-            onTrue: () =>
-              Effect.fail({
+            onTrue: () => Effect.fail({
                 _tag: 'PerformanceDegradationError' as const,
                 context: createErrorContext('GameApplication', 'monitorPerformance'),
                 metric: 'fps',
@@ -164,8 +162,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
     // メモリ使用量の監視 - Effect.if使用
     const totalMemory = performanceStats.memory.geometries + performanceStats.memory.textures
     yield* Effect.if(totalMemory > 1500, {
-      onTrue: () =>
-        Effect.logWarning('High memory usage detected', {
+      onTrue: () => Effect.logWarning('High memory usage detected', {
           totalMemory,
           geometries: performanceStats.memory.geometries,
           textures: performanceStats.memory.textures,
@@ -227,13 +224,13 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         // WebGL2機能有効化 - Effect.if使用
         yield* Effect.if(mergedConfig.rendering.webgl2, {
-          onTrue: () =>
-            Effect.gen(function* () {
+          onTrue: () => Effect.gen(function* () {
               const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
               // WebGL2サポート確認 - Effect.if使用
               yield* Effect.if(webgl2Supported, {
-                onTrue: () => threeRenderer.enableWebGL2Features(),
-                onFalse: () => Effect.void,
+                onTrue: () => threeRenderer.enableWebGL2Features(
+    }),
+    onFalse: () => Effect.void,
               })
             }),
           onFalse: () => Effect.void,
@@ -256,8 +253,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       ),
 
     // アプリケーション開始
-    start: () =>
-      Effect.gen(function* () {
+    start: () => Effect.gen(function* () {
         yield* transitionToState('Starting')
 
         // 開始時刻の記録
@@ -289,8 +285,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       ),
 
     // アプリケーション一時停止
-    pause: () =>
-      Effect.gen(function* () {
+    pause: () => Effect.gen(function* () {
         yield* transitionToState('Pausing')
         yield* gameLoopService.pause().pipe(
           Effect.catchAll((error) =>
@@ -313,8 +308,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       ),
 
     // アプリケーション再開
-    resume: () =>
-      Effect.gen(function* () {
+    resume: () => Effect.gen(function* () {
         yield* transitionToState('Resuming')
         yield* gameLoopService.resume().pipe(
           Effect.catchAll((error) =>
@@ -337,8 +331,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       ),
 
     // アプリケーション停止
-    stop: () =>
-      Effect.gen(function* () {
+    stop: () => Effect.gen(function* () {
         yield* transitionToState('Stopping')
 
         yield* Effect.log('Stopping Game Application...')
@@ -365,8 +358,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       }),
 
     // 状態取得
-    getState: () =>
-      Effect.gen(function* () {
+    getState: () => Effect.gen(function* () {
         const lifecycle = yield* Ref.get(lifecycleStateRef)
         const config = yield* Ref.get(configRef)
         const startTime = yield* Ref.get(startTimeRef)
@@ -472,8 +464,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       }),
 
     // ヘルスチェック
-    healthCheck: () =>
-      Effect.gen(function* () {
+    healthCheck: () => Effect.gen(function* () {
         const performanceStats = yield* threeRenderer.getPerformanceStats()
         const gameLoopState = yield* gameLoopService.getState()
         const sceneState = yield* sceneManager.getState()
@@ -503,8 +494,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
       }),
 
     // リセット
-    reset: () =>
-      Effect.gen(function* () {
+    reset: () => Effect.gen(function* () {
         yield* Effect.log('Resetting Game Application...')
         yield* gameLoopService.reset().pipe(
           Effect.catchAll((error) =>

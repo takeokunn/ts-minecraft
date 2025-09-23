@@ -201,8 +201,9 @@ export const WorldLive = Layer.effect(
     const initialState: WorldState = {
       entityIdCounter: 0,
       entities: new Map(),
-      components: new Map(),
-      stats: {
+      components: new Map(
+    }),
+    stats: {
         entityCount: 0,
         componentCount: 0,
         systemCount: 0,
@@ -240,8 +241,9 @@ export const WorldLive = Layer.effect(
           id,
           name: name ?? undefined,
           tags: [...tags],
-          createdAt: Date.now(),
-          active: true,
+          createdAt: Date.now(
+    }),
+    active: true,
         }
 
         yield* Ref.update(stateRef, (state) => {
@@ -270,9 +272,9 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         yield* pipe(
-          Match.value(state.entities.has(id)),
-          Match.when(false, () =>
-            Effect.fail(
+          Match.value(state.entities.has(id)
+    }),
+    Match.when(false, () => Effect.fail(
               createWorldError({
                 message: `Entity not found: ${id}`,
                 entityId: id,
@@ -316,9 +318,9 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         yield* pipe(
-          Match.value(state.entities.has(entityId)),
-          Match.when(false, () =>
-            Effect.fail(
+          Match.value(state.entities.has(entityId)
+    }),
+    Match.when(false, () => Effect.fail(
               createWorldError({
                 message: `Entity not found: ${entityId}`,
                 entityId,
@@ -377,8 +379,9 @@ export const WorldLive = Layer.effect(
                 Match.when(false, () => Option.none()),
                 Match.orElse(() => Option.some(storage))
               )
-            ),
-            Option.match({
+            
+    }),
+    Option.match({
               onNone: () => state,
               onSome: (storage) => {
                 const newData = new Map(storage.data)
@@ -429,8 +432,9 @@ export const WorldLive = Layer.effect(
             onNone: () => null,
             onSome: (storage) =>
               pipe(
-                Option.fromNullable(storage.data.get(entityId)),
-                Option.match({
+                Option.fromNullable(storage.data.get(entityId)
+    }),
+    Option.match({
                   onNone: () => null,
                   onSome: (component) => component as T,
                 })
@@ -449,8 +453,9 @@ export const WorldLive = Layer.effect(
         return yield* pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
-            onNone: () => Effect.succeed(false),
-            onSome: (storage) => Effect.succeed(storage.data.has(entityId)),
+            onNone: () => Effect.succeed(false
+    }),
+    onSome: (storage) => Effect.succeed(storage.data.has(entityId)),
           })
         )
       })
@@ -465,8 +470,9 @@ export const WorldLive = Layer.effect(
         return yield* pipe(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
-            onNone: () => Effect.succeed([]),
-            onSome: (storage) =>
+            onNone: () => Effect.succeed([]
+    }),
+    onSome: (storage) =>
               Effect.succeed(
                 Array.from(storage.data.keys()).filter((id) => {
                   const metadata = state.entities.get(id)
@@ -486,8 +492,9 @@ export const WorldLive = Layer.effect(
         const result = yield* pipe(
           componentTypes.length,
           Match.value,
-          Match.when(0, () => Effect.succeed([])),
-          Match.orElse(() => Effect.succeed(null))
+          Match.when(0, () => Effect.succeed([])
+    }),
+    Match.orElse(() => Effect.succeed(null))
         )
 
         if (result !== null) {
@@ -580,7 +587,9 @@ export const WorldLive = Layer.effect(
     const getEntityMetadata = (id: EntityId) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
-        return pipe(Option.fromNullable(state.entities.get(id)), Option.getOrNull)
+        return pipe(Option.fromNullable(state.entities.get(id)
+    }),
+    Option.getOrNull)
       })
 
     /**
@@ -705,8 +714,9 @@ export const WorldLive = Layer.effect(
                   Match.when(
                     (m) => m != null && m.active,
                     () => activeComponents.set(id, component as T)
-                  ),
-                  Match.orElse(() => undefined)
+                  
+    }),
+    Match.orElse(() => undefined)
                 )
               }
 
@@ -724,9 +734,9 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         yield* pipe(
-          Match.value(state.entities.has(id)),
-          Match.when(false, () =>
-            Effect.fail(
+          Match.value(state.entities.has(id)
+    }),
+    Match.when(false, () => Effect.fail(
               createWorldError({
                 message: `Entity not found: ${id}`,
                 entityId: id,

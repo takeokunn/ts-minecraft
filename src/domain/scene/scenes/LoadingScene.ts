@@ -44,8 +44,7 @@ export const LoadingScene = Layer.effect(
     return Scene.of({
       data: sceneData,
 
-      initialize: () =>
-        Effect.gen(function* () {
+      initialize: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -85,9 +84,9 @@ export const LoadingScene = Layer.effect(
 
           yield* pipe(
             Match.value(isInitialized),
-            Match.when(false, () => Effect.succeed(undefined)),
-            Match.orElse(() =>
-              Effect.gen(function* () {
+            Match.when(false, () => Effect.succeed(undefined)
+    }),
+    Match.orElse(() => Effect.gen(function* () {
                 const loadingState = yield* Ref.get(loadingStateRef)
 
                 // ローディング進行の更新
@@ -96,8 +95,7 @@ export const LoadingScene = Layer.effect(
                 // 擬似的なローディング進行の更新
                 yield* pipe(
                   Match.value(loadingState.progress < 100),
-                  Match.when(true, () =>
-                    Effect.gen(function* () {
+                  Match.when(true, () => Effect.gen(function* () {
                       const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
 
                       yield* Ref.update(loadingStateRef, (state) => {
@@ -124,8 +122,9 @@ export const LoadingScene = Layer.effect(
                           Match.when(
                             (p) => p <= 90,
                             () => 'チャンクを生成中...'
-                          ),
-                          Match.orElse(() => '最終処理中...')
+                          
+    }),
+    Match.orElse(() => '最終処理中...')
                         )
 
                         return {
@@ -151,15 +150,14 @@ export const LoadingScene = Layer.effect(
           )
         }),
 
-      render: () =>
-        Effect.gen(function* () {
+      render: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           yield* pipe(
             Match.value(isInitialized),
-            Match.when(false, () => Effect.succeed(undefined)),
-            Match.orElse(() =>
-              Effect.gen(function* () {
+            Match.when(false, () => Effect.succeed(undefined)
+    }),
+    Match.orElse(() => Effect.gen(function* () {
                 const loadingState = yield* Ref.get(loadingStateRef)
 
                 yield* Effect.logDebug(
@@ -172,8 +170,7 @@ export const LoadingScene = Layer.effect(
           )
         }),
 
-      cleanup: () =>
-        Effect.gen(function* () {
+      cleanup: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -205,20 +202,19 @@ export const LoadingScene = Layer.effect(
               )
         }),
 
-      onEnter: () =>
-        Effect.gen(function* () {
+      onEnter: () => Effect.gen(function* () {
           yield* Effect.logInfo('LoadingSceneに入場しました')
 
           yield* Ref.update(loadingStateRef, (state) => ({
             ...state,
             progress: 0,
-            startTime: Date.now(),
-            currentTask: 'ローディング開始...',
+            startTime: Date.now(
+    }),
+    currentTask: 'ローディング開始...',
           }))
         }),
 
-      onExit: () =>
-        Effect.gen(function* () {
+      onExit: () => Effect.gen(function* () {
           yield* Effect.logInfo('LoadingSceneから退場しました')
         }),
     })

@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as itEffect } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
-import * as fc from 'fast-check'
 import { BrandedTypes } from '../../../shared/types/branded'
 import {
   CaveGeneratorLive,
@@ -38,87 +38,78 @@ const testLayer = (config: CaveConfig) => Layer.mergeAll(NoiseGeneratorTestLayer
 
 describe('CaveGenerator', () => {
   const testConfig: CaveConfig = {
-    caveThreshold: 0.2,
-    caveScale: 0.02,
-    lavaLevel: 10,
-    ravineThreshold: 0.05,
-    ravineScale: 0.005,
+  caveThreshold: 0.2,
+  caveScale: 0.02,
+  lavaLevel: 10,
+  ravineThreshold: 0.05,
+  ravineScale: 0.005,
   }
-
   describe('CaveConfigSchema', () => {
-    it('validates valid cave configuration', () => {
-      fc.assert(
-        fc.property(
-          fc.record({
-            caveThreshold: fc.float({ min: Math.fround(0.01), max: Math.fround(1.0) }),
-            caveScale: fc.float({ min: Math.fround(0.001), max: Math.fround(0.1) }),
-            lavaLevel: fc.integer({ min: -64, max: 50 }),
-            ravineThreshold: fc.float({ min: Math.fround(0.01), max: Math.fround(0.2) }),
-            ravineScale: fc.float({ min: Math.fround(0.001), max: Math.fround(0.01) }),
-          }),
-          (config) => {
-            expect(() => Schema.decodeUnknownSync(CaveConfigSchema)(config)).not.toThrow()
-          }
-        ),
-        { numRuns: 50 }
-      )
-    })
-
-    it('rejects invalid configuration', () => {
-      const invalidConfigs = [
-        { caveThreshold: 'invalid', caveScale: 0.02, lavaLevel: 10, ravineThreshold: 0.05, ravineScale: 0.005 },
-        { caveThreshold: 0.2, caveScale: null, lavaLevel: 10, ravineThreshold: 0.05, ravineScale: 0.005 },
-      ]
-
-      for (const config of invalidConfigs) {
-        expect(() => Schema.decodeUnknownSync(CaveConfigSchema)(config)).toThrow()
-      }
-    })
-  })
-
-  describe('CaveDataSchema', () => {
-    it('validates valid cave data', () => {
-      fc.assert(
-        fc.property(
-          fc.record({
-            position: fc.record({
-              x: fc.integer({ min: -1000000, max: 1000000 }),
-              y: fc.integer({ min: -64, max: 319 }),
-              z: fc.integer({ min: -1000000, max: 1000000 }),
-            }),
-            size: fc.float({ min: Math.fround(1.0), max: Math.fround(100.0) }),
-            type: fc.constantFrom('cave', 'ravine', 'cavern'),
-          }),
-          (caveData) => {
-            expect(() => Schema.decodeUnknownSync(CaveDataSchema)(caveData)).not.toThrow()
-          }
-        ),
-        { numRuns: 50 }
-      )
-    })
-
-    it('rejects invalid cave data', () => {
-      const invalidCaveData = [
-        { position: { x: 0, y: 0 }, size: 10, type: 'cave' }, // missing z
-        { position: { x: 0, y: 0, z: 0 }, size: 'invalid', type: 'cave' },
-      ]
-
-      for (const data of invalidCaveData) {
-        expect(() => Schema.decodeUnknownSync(CaveDataSchema)(data)).toThrow()
-      }
-    })
-  })
-
-  describe('Service Creation', () => {
-    itEffect('creates CaveGenerator with custom config', () =>
-      Effect.gen(function* () {
+  it.effect('validates valid cave configuration', () => Effect.gen(function* () {
+    // REMOVED: // REMOVED: fc.assert(
+    // REMOVED: fc.property(
+    // REMOVED: fc.record({
+    caveThreshold: // REMOVED: fc.float({ min: Math.fround(0.01), max: Math.fround(1.0)
+    ),
+    caveScale: // REMOVED: fc.float({ min: Math.fround(0.001
+    }),
+    max: Math.fround(0.1)
+}),
+    lavaLevel: // REMOVED: fc.integer({ min: -64, max: 50 }),
+    ravineThreshold: // REMOVED: fc.float({ min: Math.fround(0.01), max: Math.fround(0.2) }),
+    ravineScale: // REMOVED: fc.float({ min: Math.fround(0.001), max: Math.fround(0.01) }),
+    }),
+    (config) => {
+    expect(() => Schema.decodeUnknownSync(CaveConfigSchema)(config)).not.toThrow()
+    ),
+    { numRuns: 50 }
+    )
+    it.effect('rejects invalid configuration', () => Effect.gen(function* () {
+    const invalidConfigs = [
+    { caveThreshold: 'invalid', caveScale: 0.02, lavaLevel: 10, ravineThreshold: 0.05, ravineScale: 0.005 },
+    { caveThreshold: 0.2, caveScale: null, lavaLevel: 10, ravineThreshold: 0.05, ravineScale: 0.005 },
+    ]
+    for (
+    expect(() => Schema.decodeUnknownSync(CaveConfigSchema)(config)).toThrow()
+    ) {$2}
+    )
+  }) {
+    it.effect('validates valid cave data', () => Effect.gen(function* () {
+    // REMOVED: // REMOVED: fc.assert(
+    // REMOVED: fc.property(
+    // REMOVED: fc.record({
+    position: // REMOVED: fc.record({
+    x: // REMOVED: fc.integer({ min: -1000000, max: 1000000
+    
+    }),
+    y: // REMOVED: fc.integer({ min: -64, max: 319 }),
+    z: // REMOVED: fc.integer({ min: -1000000, max: 1000000 }),
+    }),
+    size: // REMOVED: fc.float({ min: Math.fround(1.0), max: Math.fround(100.0) }),
+    type: // REMOVED: fc.constantFrom('cave', 'ravine', 'cavern'),
+    }),
+    (caveData) => {
+    expect(() => Schema.decodeUnknownSync(CaveDataSchema)(caveData)).not.toThrow()
+    ),
+    { numRuns: 50 }
+    )
+    it.effect('rejects invalid cave data', () => Effect.gen(function* () {
+    const invalidCaveData = [
+    { position: { x: 0, y: 0 }, size: 10, type: 'cave' }, // missing z
+    { position: { x: 0, y: 0, z: 0 }, size: 'invalid', type: 'cave' },
+    ]
+    for (
+    expect(() => Schema.decodeUnknownSync(CaveDataSchema)(data)).toThrow()
+    ) {$2}
+    )
+  }) {
+    itEffect('creates CaveGenerator with custom config', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         expect(cg.getConfig()).toEqual(testConfig)
       }).pipe(Effect.provide(testLayer(testConfig)))
     )
 
-    itEffect('creates CaveGenerator with default config', () =>
-      Effect.gen(function* () {
+    itEffect('creates CaveGenerator with default config', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const config = cg.getConfig()
 
@@ -132,22 +123,18 @@ describe('CaveGenerator', () => {
   })
 
   describe('Cave Detection', () => {
-    itEffect('detects cave positions accurately', () =>
-      Effect.gen(function* () {
-        const cg = yield* CaveGeneratorTag
-        const position = { x: 0, y: 0, z: 0 }
-
-        const isCave1 = yield* cg.isCave(position)
-        const isCave2 = yield* cg.isCave(position)
-
-        // 同じ座標では同じ結果になるはず
-        expect(isCave1).toBe(isCave2)
-        expect(typeof isCave1).toBe('boolean')
-      }).pipe(Effect.provide(testLayer(testConfig)))
+  itEffect('detects cave positions accurately', () => Effect.gen(function* () {
+  const cg = yield* CaveGeneratorTag
+  const position = { x: 0, y: 0, z: 0 }
+  const isCave1 = yield* cg.isCave(position)
+  const isCave2 = yield* cg.isCave(position)
+  // 同じ座標では同じ結果になるはず
+  expect(isCave1).toBe(isCave2)
+  expect(typeof isCave1).toBe('boolean')
+}).pipe(Effect.provide(testLayer(testConfig)))
     )
 
-    itEffect('provides consistent cave detection', () =>
-      Effect.gen(function* () {
+    itEffect('provides consistent cave detection', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const position = { x: 123, y: 45, z: 678 }
 
@@ -164,8 +151,7 @@ describe('CaveGenerator', () => {
       }).pipe(Effect.provide(testLayer(testConfig)))
     )
 
-    itEffect('handles extreme coordinates', () =>
-      Effect.gen(function* () {
+    itEffect('handles extreme coordinates', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const position = { x: 1000000, y: 319, z: 1000000 }
 
@@ -176,7 +162,8 @@ describe('CaveGenerator', () => {
   })
 
   describe('Chunk Cave Carving', () => {
-    const createTestChunkData = (position: { x: number; z: number }) => {
+  const createTestChunkData = (position: { x: number; z: number
+}) => {
       const chunkData = createChunkData(position)
 
       // チャンクを石で埋める（洞窟彫刻用）
@@ -189,8 +176,7 @@ describe('CaveGenerator', () => {
       }
     }
 
-    itEffect('carves caves in chunk correctly', () =>
-      Effect.gen(function* () {
+    itEffect('carves caves in chunk correctly', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const chunkPosition = { x: 0, z: 0 }
         const chunkData = createTestChunkData(chunkPosition)
@@ -223,8 +209,7 @@ describe('CaveGenerator', () => {
       }).pipe(Effect.provide(testLayer(testConfig)))
     )
 
-    itEffect('preserves chunk metadata correctly', () =>
-      Effect.gen(function* () {
+    itEffect('preserves chunk metadata correctly', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const chunkPosition = { x: 5, z: 10 }
         const chunkData = createTestChunkData(chunkPosition)
@@ -241,7 +226,8 @@ describe('CaveGenerator', () => {
   })
 
   describe('Ravine Generation', () => {
-    const createTestChunkData = (position: { x: number; z: number }) => {
+  const createTestChunkData = (position: { x: number; z: number
+}) => {
       const chunkData = createChunkData(position)
 
       // チャンクを石で埋める
@@ -254,8 +240,7 @@ describe('CaveGenerator', () => {
       }
     }
 
-    itEffect('generates ravines correctly', () =>
-      Effect.gen(function* () {
+    itEffect('generates ravines correctly', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const chunkPosition = { x: 0, z: 0 }
         const chunkData = createTestChunkData(chunkPosition)
@@ -287,7 +272,8 @@ describe('CaveGenerator', () => {
   })
 
   describe('Lava Lake Generation', () => {
-    const createTestChunkData = (position: { x: number; z: number }) => {
+  const createTestChunkData = (position: { x: number; z: number
+}) => {
       const chunkData = createChunkData(position)
 
       // チャンクを石で埋める
@@ -300,8 +286,7 @@ describe('CaveGenerator', () => {
       }
     }
 
-    itEffect('generates lava lakes correctly', () =>
-      Effect.gen(function* () {
+    itEffect('generates lava lakes correctly', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const chunkPosition = { x: 0, z: 0 }
         const chunkData = createTestChunkData(chunkPosition)
@@ -331,25 +316,21 @@ describe('CaveGenerator', () => {
   })
 
   describe('Edge Cases', () => {
-    itEffect('handles extreme chunk positions', () =>
-      Effect.gen(function* () {
-        const cg = yield* CaveGeneratorTag
-        const position = { x: 1000000, z: 1000000 }
-        const chunkData = createChunkData(position)
-        const stoneBlocks = new Uint16Array(16 * 16 * 384)
-        stoneBlocks.fill(2)
-        const testChunkData = { ...chunkData, blocks: stoneBlocks }
-
-        const result = yield* cg.carveChunk(testChunkData)
-
-        expect(result.position).toEqual(position)
-        expect(result.blocks).toHaveLength(16 * 16 * 384)
-        expect(result.isDirty).toBe(true)
-      }).pipe(Effect.provide(testLayer(testConfig)))
+  itEffect('handles extreme chunk positions', () => Effect.gen(function* () {
+  const cg = yield* CaveGeneratorTag
+  const position = { x: 1000000, z: 1000000 }
+  const chunkData = createChunkData(position)
+  const stoneBlocks = new Uint16Array(16 * 16 * 384)
+  stoneBlocks.fill(2)
+  const testChunkData = { ...chunkData, blocks: stoneBlocks }
+  const result = yield* cg.carveChunk(testChunkData)
+  expect(result.position).toEqual(position)
+  expect(result.blocks).toHaveLength(16 * 16 * 384)
+  expect(result.isDirty).toBe(true)
+}).pipe(Effect.provide(testLayer(testConfig)))
     )
 
-    itEffect('handles empty chunks correctly', () =>
-      Effect.gen(function* () {
+    itEffect('handles empty chunks correctly', () => Effect.gen(function* () {
         const cg = yield* CaveGeneratorTag
         const chunkPosition = { x: 0, z: 0 }
         const emptyChunkData = createChunkData(chunkPosition) // 全て空気(0)

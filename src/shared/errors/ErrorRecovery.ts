@@ -83,15 +83,13 @@ export const ErrorRecovery = {
         // エフェクトを実行
         return yield* _(
           effect.pipe(
-            Effect.tapError(() =>
-              Effect.sync(() => {
+            Effect.tapError(() => Effect.sync(() => {
                 failureCount++
                 lastFailureTime = now
                 circuitOpen = failureCount >= failureThreshold
               })
             ),
-            Effect.tap(() =>
-              Effect.sync(() => {
+            Effect.tap(() => Effect.sync(() => {
                 failureCount = 0
                 circuitOpen = false
               })

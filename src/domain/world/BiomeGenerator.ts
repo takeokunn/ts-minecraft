@@ -98,8 +98,9 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
 
         // 地形変動ノイズ（高度補正用）
         const elevationNoise = yield* noiseGenerator.octaveNoise2D(
-          BrandedTypes.createNoiseCoordinate(x * 0.001),
-          BrandedTypes.createNoiseCoordinate(z * 0.001),
+          BrandedTypes.createNoiseCoordinate(x * 0.001
+    }),
+    BrandedTypes.createNoiseCoordinate(z * 0.001),
           6,
           0.5
         )
@@ -120,7 +121,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
         // 高山地帯
         Match.when(
           ({ elevation }) => elevation > config.mountainThreshold,
-          ({ temperature }) =>
+          ({ temperature })
             pipe(
               Match.value(temperature < -0.5),
               Match.when(true, () => 'snowy_tundra' as BiomeType),
@@ -135,7 +136,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
         // 極寒地帯
         Match.when(
           ({ temperature }) => temperature < -0.6,
-          ({ humidity }) =>
+          ({ humidity })
             pipe(
               Match.value(humidity > 0.2),
               Match.when(true, () => 'snowy_tundra' as BiomeType),
@@ -145,7 +146,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
         // 寒冷地帯
         Match.when(
           ({ temperature }) => temperature < -0.2,
-          ({ humidity }) =>
+          ({ humidity })
             pipe(
               Match.value(humidity > 0.3),
               Match.when(true, () => 'taiga' as BiomeType),
@@ -155,7 +156,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
         // 暑い地帯
         Match.when(
           ({ temperature }) => temperature > 0.6,
-          ({ humidity }) =>
+          ({ humidity })
             pipe(
               Match.value(humidity),
               Match.when(
@@ -172,7 +173,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
         // 暖かい地帯
         Match.when(
           ({ temperature }) => temperature > 0.2,
-          ({ humidity }) =>
+          ({ humidity })
             pipe(
               Match.value(humidity),
               Match.when(
@@ -187,7 +188,7 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
             )
         ),
         // 温帯（デフォルト）
-        Match.orElse(({ humidity }) =>
+        Match.orElse(({ humidity })
           pipe(
             Match.value(humidity),
             Match.when(
@@ -223,8 +224,9 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
 
             // 配列アクセスをOptionパターンで安全化
             pipe(
-              Option.fromNullable(biomeMap[x]),
-              Option.map((row) => {
+              Option.fromNullable(biomeMap[x]
+    }),
+    Option.map((row) => {
                 row[z] = biome
               })
             )

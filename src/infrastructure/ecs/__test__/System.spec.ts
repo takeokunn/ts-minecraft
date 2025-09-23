@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Cause, Chunk, pipe, Exit, Match } from 'effect'
 import {
   createSystem,
@@ -14,46 +15,34 @@ import type { World } from '../World'
 
 describe('System', () => {
   describe('createSystem', () => {
-    it('システムを正しく作成できる', () => {
-      const system = createSystem('TestSystem', () => Effect.void)
+  it.effect('システムを正しく作成できる', () => Effect.gen(function* () {
+    const system = createSystem('TestSystem', () => Effect.void)
+    expect(system.name).toBe('TestSystem')
+    expect(system.update).toBeDefined()
+}) {
+  it.effect('優先度を正しく数値に変換する', () => Effect.gen(function* () {
+    expect(priorityToNumber('critical')).toBe(50)
+    expect(priorityToNumber('high')).toBe(200)
+    expect(priorityToNumber('normal')).toBe(500)
+    expect(priorityToNumber('low')).toBe(800)
+    expect(priorityToNumber('deferred')).toBe(950)
+  }) {
+  it('複数のシステムを順次実行する', async () => {
+  const executionOrder: string[] = []
 
-      expect(system.name).toBe('TestSystem')
-      expect(system.update).toBeDefined()
-    })
-  })
+  const system1 = createSystem('System1', (),
+  Effect.sync(() => {
+  executionOrder.push('System1')
+})
 
-  describe('priorityToNumber', () => {
-    it('優先度を正しく数値に変換する', () => {
-      expect(priorityToNumber('critical')).toBe(50)
-      expect(priorityToNumber('high')).toBe(200)
-      expect(priorityToNumber('normal')).toBe(500)
-      expect(priorityToNumber('low')).toBe(800)
-      expect(priorityToNumber('deferred')).toBe(950)
-    })
-  })
-
-  describe('runSystems', () => {
-    it('複数のシステムを順次実行する', async () => {
-      const executionOrder: string[] = []
-
-      const system1 = createSystem('System1', () =>
-        Effect.sync(() => {
-          executionOrder.push('System1')
-        })
-      )
-
-      const system2 = createSystem('System2', () =>
+      const system2 = createSystem('System2', (),
         Effect.sync(() => {
           executionOrder.push('System2')
         })
-      )
-
-      const system3 = createSystem('System3', () =>
+      const system3 = createSystem('System3', (),
         Effect.sync(() => {
           executionOrder.push('System3')
         })
-      )
-
       await Effect.runPromise(runSystems([system1, system2, system3], {} as World, 16))
 
       expect(executionOrder).toEqual(['System1', 'System2', 'System3'])
@@ -95,16 +84,15 @@ describe('System', () => {
   })
 
   describe('runSystemWithMetrics', () => {
-    it('システム実行時間を計測する', async () => {
-      const system = createSystem('TimedSystem', () =>
-        Effect.sync(() => {
-          // 何か処理をシミュレート
-          const start = Date.now()
-          while (Date.now() - start < 5) {
-            // 5ms待機
-          }
-        })
-      )
+  it('システム実行時間を計測する', async () => {
+  const system = createSystem('TimedSystem', (),
+  Effect.sync(() => {
+  // 何か処理をシミュレート
+  const start = Date.now()
+  while (Date.now() - start < 5) {
+  // 5ms待機
+  }
+})
 
       const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
 
@@ -120,7 +108,7 @@ describe('System', () => {
         warnings.push(message)
       }
 
-      const system = createSystem('SlowSystem', () =>
+      const system = createSystem('SlowSystem', (),
         Effect.sync(() => {
           // 20ms以上かかる処理をシミュレート
           const start = Date.now()
@@ -128,8 +116,6 @@ describe('System', () => {
             // 20ms待機
           }
         })
-      )
-
       const result = await Effect.runPromise(runSystemWithMetrics(system, {} as World, 16))
 
       // console.warnを元に戻す
@@ -142,15 +128,12 @@ describe('System', () => {
   })
 
   describe('createMockSystem', () => {
-    it('デフォルトの動作でモックシステムを作成する', async () => {
-      const mockSystem = createMockSystem('MockSystem')
-
-      expect(mockSystem.name).toBe('MockSystem')
-
-      const result = await Effect.runPromise(mockSystem.update({} as World, 16))
-
-      expect(result).toBeUndefined()
-    })
+  it('デフォルトの動作でモックシステムを作成する', async () => {
+  const mockSystem = createMockSystem('MockSystem')
+  expect(mockSystem.name).toBe('MockSystem')
+  const result = await Effect.runPromise(mockSystem.update({} as World, 16))
+  expect(result).toBeUndefined()
+})
 
     it('カスタム動作でモックシステムを作成する', async () => {
       let executed = false
@@ -185,9 +168,7 @@ describe('System', () => {
           onSuccess: (value) => {
             // 成功時の処理（この場合は期待しない）
             throw new Error('Expected failure but got success')
-          },
-        })
-      )
+          },})
     })
   })
 })

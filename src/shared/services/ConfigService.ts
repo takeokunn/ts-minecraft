@@ -161,8 +161,8 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
 
 // テスト用のMock Layer
 export const ConfigServiceTest = Layer.succeed(
-  ConfigService,
-  ConfigService.of({
+    ConfigService,
+    ConfigService.of({
     gameConfig: defaultGameConfig,
     renderConfig: defaultRenderConfig,
     debugConfig: { ...defaultDebugConfig, enabled: true },

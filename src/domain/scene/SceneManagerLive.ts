@@ -12,8 +12,7 @@ const ensureNotTransitioning = (
   pipe(
     state.isTransitioning,
     Match.value,
-    Match.when(true, () =>
-      Effect.fail(
+    Match.when(true, () => Effect.fail(
         SceneTransitionError({
           message: 'Scene transition already in progress',
           currentScene: state.currentScene?.type,
@@ -31,8 +30,7 @@ const ensureStackNotEmpty = (state: SceneManagerState): Effect.Effect<SceneType,
   pipe(
     state.sceneStack.length,
     Match.value,
-    Match.when(0, () =>
-      Effect.fail(
+    Match.when(0, () => Effect.fail(
         SceneTransitionError({
           message: 'No scene in stack to pop',
           currentScene: state.currentScene?.type,
@@ -45,8 +43,7 @@ const ensureStackNotEmpty = (state: SceneManagerState): Effect.Effect<SceneType,
       return pipe(
         Option.fromNullable(previousScene),
         Option.match({
-          onNone: () =>
-            Effect.fail(
+          onNone: () => Effect.fail(
               SceneTransitionError({
                 message: 'Previous scene is undefined',
                 currentScene: state.currentScene?.type,
@@ -78,18 +75,15 @@ export const SceneManagerLive = Layer.effect(
     const createScene = (sceneType: SceneType): Effect.Effect<Scene, SceneTransitionError> =>
       Effect.gen(function* () {
         const sceneFactory: Effect.Effect<Scene, SceneTransitionError> = processSceneType(sceneType, {
-          MainMenu: () =>
-            Effect.gen(function* () {
+          MainMenu: () => Effect.gen(function* () {
               const { MainMenuScene } = yield* Effect.promise(() => import('./scenes/MainMenuScene'))
               return yield* Scene.pipe(Effect.provide(MainMenuScene))
             }),
-          Game: () =>
-            Effect.gen(function* () {
+          Game: () => Effect.gen(function* () {
               const { GameScene } = yield* Effect.promise(() => import('./scenes/GameScene'))
               return yield* Scene.pipe(Effect.provide(GameScene))
             }),
-          Loading: () =>
-            Effect.gen(function* () {
+          Loading: () => Effect.gen(function* () {
               const { LoadingScene } = yield* Effect.promise(() => import('./scenes/LoadingScene'))
               return yield* Scene.pipe(Effect.provide(LoadingScene))
             }),
@@ -120,12 +114,13 @@ export const SceneManagerLive = Layer.effect(
         yield* pipe(
           Option.fromNullable(currentActiveScene),
           Option.match({
-            onNone: () => Effect.succeed(undefined),
-            onSome: (scene) =>
+            onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (scene) =>
               Effect.gen(function* () {
                 yield* Effect.logInfo('現在のシーンをクリーンアップ中...')
                 yield* scene.onExit()
-                yield* Effect.catchAll(scene.cleanup(), (error) =>
+                yield* Effect.catchAll(scene.cleanup() => (error) =>
                   Effect.logError(`シーンクリーンアップエラー: ${error}`)
                 )
                 yield* Ref.set(activeSceneRef, undefined)
@@ -174,8 +169,7 @@ export const SceneManagerLive = Layer.effect(
                   })
                 )
               }),
-            onRight: () =>
-              Effect.gen(function* () {
+            onRight: () => Effect.gen(function* () {
                 // 状態更新
                 yield* Ref.update(stateRef, (s) => ({
                   ...s,
@@ -192,8 +186,7 @@ export const SceneManagerLive = Layer.effect(
       })
 
     return SceneManager.of({
-      getCurrentScene: () =>
-        Effect.gen(function* () {
+      getCurrentScene: () => Effect.gen(function* () {
           const state = yield* Ref.get(stateRef)
           return state.currentScene
         }),
@@ -227,8 +220,9 @@ export const SceneManagerLive = Layer.effect(
           yield* pipe(
             Option.fromNullable(currentState.currentScene),
             Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: () =>
+              onNone: () => Effect.succeed(undefined
+    }),
+    onSome: () =>
                 Ref.update(stateRef, (s) => ({
                   ...s,
                   sceneStack: [...s.sceneStack, s.currentScene!],
@@ -241,8 +235,7 @@ export const SceneManagerLive = Layer.effect(
           yield* performTransition(newScene, { from: currentState.currentScene?.type, to: sceneType })
         }),
 
-      popScene: () =>
-        Effect.gen(function* () {
+      popScene: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(stateRef)
           const previousSceneType = yield* ensureStackNotEmpty(currentState)
 
@@ -268,26 +261,26 @@ export const SceneManagerLive = Layer.effect(
           yield* pipe(
             Option.fromNullable(activeScene),
             Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: (scene) => scene.update(deltaTime),
+              onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (scene) => scene.update(deltaTime),
             })
           )
         }),
 
-      render: () =>
-        Effect.gen(function* () {
+      render: () => Effect.gen(function* () {
           const activeScene = yield* Ref.get(activeSceneRef)
           yield* pipe(
             Option.fromNullable(activeScene),
             Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: (scene) => scene.render(),
+              onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (scene) => scene.render(),
             })
           )
         }),
 
-      cleanup: () =>
-        Effect.gen(function* () {
+      cleanup: () => Effect.gen(function* () {
           yield* cleanupCurrentScene()
           yield* Ref.set(stateRef, {
             currentScene: undefined,

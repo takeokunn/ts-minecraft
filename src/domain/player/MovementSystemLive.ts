@@ -67,8 +67,9 @@ const makeMovementSystemLive = Effect.gen(function* () {
         return {
           totalCalculations: stats.totalCalculations + 1,
           totalProcessingTime: stats.totalProcessingTime + processingTime,
-          maxProcessingTime: Math.max(stats.maxProcessingTime, processingTime),
-          frameRateHistory: newFrameRateHistory,
+          maxProcessingTime: Math.max(stats.maxProcessingTime, processingTime
+    }),
+    frameRateHistory: newFrameRateHistory,
           lastFrameTime: endTime,
         }
       })
@@ -168,8 +169,9 @@ const makeMovementSystemLive = Effect.gen(function* () {
       // 新しい位置計算
       const newPosition = {
         x: playerState.position.x + limitedVelocity.x * (validatedInput.deltaTime / 1000),
-        y: playerState.position.y + limitedVelocity.y * (validatedInput.deltaTime / 1000),
-        z: playerState.position.z + limitedVelocity.z * (validatedInput.deltaTime / 1000),
+        y: playerState.position.y + limitedVelocity.y * (validatedInput.deltaTime / 1000
+    }),
+    z: playerState.position.z + limitedVelocity.z * (validatedInput.deltaTime / 1000),
       }
 
       // 衝突検出
@@ -346,8 +348,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
     })
 
   // パフォーマンス統計の取得
-  const getPerformanceStats = () =>
-    Effect.gen(function* () {
+  const getPerformanceStats = () => Effect.gen(function* () {
       const stats = yield* Ref.get(performanceStatsRef)
 
       const averageProcessingTime =

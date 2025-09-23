@@ -61,7 +61,7 @@ export const withTexture =
 export const withSimpleTexture = (textureId: string) => withTexture(textureId)
 
 export const withTexturePerFace =
-  (faces: { top?: string; bottom?: string; north?: string; south?: string; east?: string; west?: string }) =>
+  (faces: { top?: string; bottom?: string; north?: string; south?: string; east?: string; west?: string })
   (props: BlockProperties): BlockProperties => {
     const defaultTexture = typeof props.texture === 'string' ? props.texture : 'missing'
     return {

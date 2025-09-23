@@ -153,7 +153,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
   shouldRenderFace: (currentBlock, neighborBlock, transparentBlocks = config.transparentBlocks) =>
     pipe(
       Effect.succeed({ currentBlock, neighborBlock, transparentBlocks }),
-      Effect.map(({ currentBlock, neighborBlock, transparentBlocks }) =>
+      Effect.map(({ currentBlock, neighborBlock, transparentBlocks })
         pipe(
           Match.value(currentBlock),
           Match.when(0, () => false),

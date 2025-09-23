@@ -41,8 +41,7 @@ export const GameScene = Layer.effect(
     return Scene.of({
       data: sceneData,
 
-      initialize: () =>
-        Effect.gen(function* () {
+      initialize: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -97,8 +96,7 @@ export const GameScene = Layer.effect(
           yield* Effect.logDebug(`GameScene update: deltaTime=${deltaTime}ms, tick=${gameState.tickCount}`)
         }),
 
-      render: () =>
-        Effect.gen(function* () {
+      render: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           // 初期化済み確認（render処理） - Effect.if使用
@@ -116,8 +114,7 @@ export const GameScene = Layer.effect(
           )
         }),
 
-      cleanup: () =>
-        Effect.gen(function* () {
+      cleanup: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -143,8 +140,7 @@ export const GameScene = Layer.effect(
               )
         }),
 
-      onEnter: () =>
-        Effect.gen(function* () {
+      onEnter: () => Effect.gen(function* () {
           yield* Effect.logInfo('GameSceneに入場しました')
 
           yield* Ref.update(gameStateRef, (state) => ({
@@ -153,8 +149,7 @@ export const GameScene = Layer.effect(
           }))
         }),
 
-      onExit: () =>
-        Effect.gen(function* () {
+      onExit: () => Effect.gen(function* () {
           yield* Effect.logInfo('GameSceneから退場しました')
 
           yield* Ref.update(gameStateRef, (state) => ({

@@ -1,20 +1,21 @@
 import { Effect } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { LoggerService, getCurrentLogLevel, shouldLog, createLogEntry } from '../LoggerService'
 import { LoggerServiceLive } from '../LoggerServiceLive'
 
 describe('LoggerServiceLive', () => {
   describe('Core Functionality', () => {
-    it('should provide logger service implementation', async () => {
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        // サービスが正常に提供されることを確認
-        expect(typeof logger.debug).toBe('function')
-        expect(typeof logger.info).toBe('function')
-        expect(typeof logger.warn).toBe('function')
-        expect(typeof logger.error).toBe('function')
-        expect(typeof logger.measurePerformance).toBe('function')
-      })
+  it('should provide logger service implementation', async () => {
+  const program = Effect.gen(function* () {
+  const logger = yield* LoggerService
+  // サービスが正常に提供されることを確認
+  expect(typeof logger.debug).toBe('function')
+  expect(typeof logger.info).toBe('function')
+  expect(typeof logger.warn).toBe('function')
+  expect(typeof logger.error).toBe('function')
+  expect(typeof logger.measurePerformance).toBe('function')
+})
 
       await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
     })
@@ -69,59 +70,49 @@ describe('LoggerServiceLive', () => {
   })
 
   describe('Log Level Utilities', () => {
-    it('should correctly determine current log level from environment', () => {
-      // 明示的なログレベル設定のテスト
-      process.env['LOG_LEVEL'] = 'WARN'
-      expect(getCurrentLogLevel()).toBe('WARN')
+  it.effect('should correctly determine current log level from environment', () => Effect.gen(function* () {
+    // 明示的なログレベル設定のテスト
+    process.env['LOG_LEVEL'] = 'WARN'
+    expect(getCurrentLogLevel()).toBe('WARN')
+    process.env['LOG_LEVEL'] = 'ERROR'
+    expect(getCurrentLogLevel()).toBe('ERROR')
+    // プロダクション環境でのデフォルト値テスト
+    const originalEnv = { NODE_ENV: process.env['NODE_ENV'], LOG_LEVEL: process.env['LOG_LEVEL'] }
+    process.env['NODE_ENV'] = 'production'
+    delete process.env['LOG_LEVEL']
+    expect(getCurrentLogLevel()).toBe('INFO')
+    // 開発環境でのデフォルト値テスト
+    process.env['NODE_ENV'] = 'development'
+    delete process.env['LOG_LEVEL']
+    expect(getCurrentLogLevel()).toBe('DEBUG')
+    // 環境変数復元
+    Object.entries(originalEnv).forEach(([key, value]) => {
+    if (value === undefined) {
+    delete process.env[key]
+    } else {
+    process.env[key] = value
+})
+),
+  Effect.gen(function* () {
+        // ログレベルフィルタリングのテスト
+        expect(shouldLog('DEBUG', 'DEBUG')).toBe(true)
+        expect(shouldLog('INFO', 'DEBUG')).toBe(true)
+        expect(shouldLog('WARN', 'DEBUG')).toBe(true)
+        expect(shouldLog('ERROR', 'DEBUG')).toBe(true)
+        expect(shouldLog('DEBUG', 'INFO')).toBe(false)
+        expect(shouldLog('INFO', 'INFO')).toBe(true)
+        expect(shouldLog('WARN', 'INFO')).toBe(true)
+        expect(shouldLog('ERROR', 'INFO')).toBe(true)
+        expect(shouldLog('DEBUG', 'WARN')).toBe(false)
+        expect(shouldLog('INFO', 'WARN')).toBe(false)
+        expect(shouldLog('WARN', 'WARN')).toBe(true)
+        expect(shouldLog('ERROR', 'WARN')).toBe(true)
+        expect(shouldLog('DEBUG', 'ERROR')).toBe(false)
+        expect(shouldLog('INFO', 'ERROR')).toBe(false)
+        expect(shouldLog('WARN', 'ERROR')).toBe(false)
+        expect(shouldLog('ERROR', 'ERROR')).toBe(true)
 
-      process.env['LOG_LEVEL'] = 'ERROR'
-      expect(getCurrentLogLevel()).toBe('ERROR')
-
-      // プロダクション環境でのデフォルト値テスト
-      const originalEnv = { NODE_ENV: process.env['NODE_ENV'], LOG_LEVEL: process.env['LOG_LEVEL'] }
-
-      process.env['NODE_ENV'] = 'production'
-      delete process.env['LOG_LEVEL']
-      expect(getCurrentLogLevel()).toBe('INFO')
-
-      // 開発環境でのデフォルト値テスト
-      process.env['NODE_ENV'] = 'development'
-      delete process.env['LOG_LEVEL']
-      expect(getCurrentLogLevel()).toBe('DEBUG')
-
-      // 環境変数復元
-      Object.entries(originalEnv).forEach(([key, value]) => {
-        if (value === undefined) {
-          delete process.env[key]
-        } else {
-          process.env[key] = value
-        }
       })
-    })
-
-    it('should correctly filter log levels', () => {
-      // ログレベルフィルタリングのテスト
-      expect(shouldLog('DEBUG', 'DEBUG')).toBe(true)
-      expect(shouldLog('INFO', 'DEBUG')).toBe(true)
-      expect(shouldLog('WARN', 'DEBUG')).toBe(true)
-      expect(shouldLog('ERROR', 'DEBUG')).toBe(true)
-
-      expect(shouldLog('DEBUG', 'INFO')).toBe(false)
-      expect(shouldLog('INFO', 'INFO')).toBe(true)
-      expect(shouldLog('WARN', 'INFO')).toBe(true)
-      expect(shouldLog('ERROR', 'INFO')).toBe(true)
-
-      expect(shouldLog('DEBUG', 'WARN')).toBe(false)
-      expect(shouldLog('INFO', 'WARN')).toBe(false)
-      expect(shouldLog('WARN', 'WARN')).toBe(true)
-      expect(shouldLog('ERROR', 'WARN')).toBe(true)
-
-      expect(shouldLog('DEBUG', 'ERROR')).toBe(false)
-      expect(shouldLog('INFO', 'ERROR')).toBe(false)
-      expect(shouldLog('WARN', 'ERROR')).toBe(false)
-      expect(shouldLog('ERROR', 'ERROR')).toBe(true)
-    })
-
     it('should create properly structured log entries', async () => {
       // ログエントリ作成のテスト
       const basicEntry = await Effect.runPromise(createLogEntry('INFO', 'Test message'))
@@ -132,7 +123,7 @@ describe('LoggerServiceLive', () => {
       expect(basicEntry.error).toBeUndefined()
 
       // コンテキスト付きログエントリ
-      const contextEntry = await Effect.runPromise(createLogEntry('DEBUG', 'Debug message', { key: 'value' }))
+      const contextEntry = await Effect.runPromise(createLogEntry('DEBUG', 'Debug message', { key: 'value' })
       expect(contextEntry.context).toEqual({ key: 'value' })
 
       // エラー付きログエントリ
@@ -157,24 +148,21 @@ describe('LoggerServiceLive', () => {
   })
 
   describe('Integration Tests', () => {
-    it('should complete logging workflow end-to-end', async () => {
-      // 統合テスト: ログ処理の全体的なワークフローが完了すること
-      process.env['LOG_LEVEL'] = 'INFO'
-
-      const workflow = Effect.gen(function* () {
-        const logger = yield* LoggerService
-
-        // 複数のログレベルでログを出力
-        yield* logger.info('Workflow started', { step: 1 })
+  it('should complete logging workflow end-to-end', async () => {
+  // 統合テスト: ログ処理の全体的なワークフローが完了すること
+  process.env['LOG_LEVEL'] = 'INFO'
+  const workflow = Effect.gen(function* () {
+  const logger = yield* LoggerService
+  // 複数のログレベルでログを出力
+  yield* logger.info('Workflow started', { step: 1
+})
         yield* logger.warn('Potential issue detected', { step: 2 })
 
         // パフォーマンス測定付きの処理
         const result = yield* logger.measurePerformance(
           'data-processing',
           Effect.sync(() => {
-            return { processed: true, count: 100 }
-          })
-        )
+            return { processed: true, count: 100 }})
 
         yield* logger.info('Workflow completed', { step: 3, result })
 

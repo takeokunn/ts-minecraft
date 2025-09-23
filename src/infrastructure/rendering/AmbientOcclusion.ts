@@ -248,7 +248,7 @@ const smoothAOValues = (aoVertices: AOVertex[]): AOVertex[] => {
   // Create a map of vertex positions to AO values using Effect-TS patterns
   const aoMap = pipe(
     aoVertices,
-    A.reduce(new Map<string, number[]>(), (map, vertex) => {
+    A.reduce(new Map<string, number[]>() => (map, vertex) => {
       const key = `${vertex.x},${vertex.y},${vertex.z}`
       pipe(
         Option.fromNullable(map.get(key)),
@@ -293,8 +293,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
   calculateVertexAO: (blocks, x, y, z, size) =>
     pipe(
       Effect.if(config.enabled, {
-        onTrue: () =>
-          Effect.try({
+        onTrue: () => Effect.try({
             try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
             catch: (error) =>
               AmbientOcclusionError(
@@ -310,8 +309,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
   calculateFaceAO: (blocks, x, y, z, face, size) =>
     pipe(
       Effect.if(config.enabled, {
-        onTrue: () =>
-          Effect.try({
+        onTrue: () => Effect.try({
             try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
             catch: (error) =>
               AmbientOcclusionError(
@@ -320,8 +318,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
                 Date.now()
               ),
           }),
-        onFalse: () =>
-          Effect.succeed<AOFace>({
+        onFalse: () => Effect.succeed<AOFace>({
             vertices: [
               { x, y, z, ao: BrandedTypes.createAOValue(1.0) },
               { x: x + 1, y, z, ao: BrandedTypes.createAOValue(1.0) },
@@ -338,8 +335,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
       config.enabled,
       Match.value,
       Match.when(false, () => Effect.succeed([] as readonly AOVertex[])),
-      Match.when(true, () =>
-        Effect.try({
+      Match.when(true, () => Effect.try({
           try: () => {
             // Calculate AO for all solid block vertices using Effect-TS patterns
             const aoVertices = pipe(

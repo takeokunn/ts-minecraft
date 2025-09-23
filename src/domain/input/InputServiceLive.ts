@@ -20,8 +20,7 @@ const makeInputServiceLive = Effect.gen(function* () {
 
     isMousePressed: (button: number) => Effect.succeed(pressedMouseButtons.has(button)),
 
-    getMouseDelta: () =>
-      Effect.succeed({
+    getMouseDelta: () => Effect.succeed({
         deltaX: mouseDelta.deltaX,
         deltaY: mouseDelta.deltaY,
         timestamp: Date.now(),

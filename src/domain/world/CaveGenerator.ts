@@ -107,8 +107,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
 
                   // Match.valueパターンで空気ブロック判定
                   pipe(
-                    Match.value(currentBlock !== AIR_ID),
-                    Match.when(true, () => {
+                    Match.value(currentBlock !== AIR_ID
+    }),
+    Match.when(true, () => {
                       // Match.valueパターンを使用してy座標に基づく分岐
                       pipe(
                         y,
@@ -150,8 +151,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
         const noiseGenerator = yield* NoiseGeneratorTag
         const caveNoise = yield* noiseGenerator.noise3D(
           BrandedTypes.createNoiseCoordinate(position.x * config.caveScale),
-          BrandedTypes.createNoiseCoordinate(position.y * config.caveScale * 2),
-          BrandedTypes.createNoiseCoordinate(position.z * config.caveScale)
+          BrandedTypes.createNoiseCoordinate(position.y * config.caveScale * 2
+    }),
+    BrandedTypes.createNoiseCoordinate(position.z * config.caveScale)
         )
 
         return Math.abs(caveNoise) < config.caveThreshold
@@ -178,8 +180,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
             const isRavine = Math.abs(ravineNoise) < config.ravineThreshold
 
             pipe(
-              Match.value(isRavine),
-              Match.when(true, () => {
+              Match.value(isRavine
+    }),
+    Match.when(true, () => {
                 // 峡谷の深さを計算（地表から下に向かって彫る）
                 const ravineDepth = Math.floor(Math.abs(ravineNoise) * 60) + 20
                 const surfaceY = 64 // 仮の地表レベル
@@ -227,8 +230,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
             const isLavaLake = lakeNoise > 0.7
 
             pipe(
-              Match.value(isLavaLake),
-              Match.when(true, () => {
+              Match.value(isLavaLake
+    }),
+    Match.when(true, () => {
                 // 溶岩レベル周辺に溶岩湖を生成
                 for (let y = config.lavaLevel - 3; y <= config.lavaLevel + 1; y++) {
                   if (y >= -64 && y < 320) {

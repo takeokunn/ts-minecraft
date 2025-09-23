@@ -24,8 +24,7 @@ export const MainMenuScene = Layer.effect(
     return Scene.of({
       data: sceneData,
 
-      initialize: () =>
-        Effect.gen(function* () {
+      initialize: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -55,8 +54,7 @@ export const MainMenuScene = Layer.effect(
           yield* Effect.logDebug(`MainMenuScene update: deltaTime=${deltaTime}ms`)
         }),
 
-      render: () =>
-        Effect.gen(function* () {
+      render: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           if (!isInitialized) return
@@ -64,8 +62,7 @@ export const MainMenuScene = Layer.effect(
           yield* Effect.logDebug('MainMenuSceneレンダリング中...')
         }),
 
-      cleanup: () =>
-        Effect.gen(function* () {
+      cleanup: () => Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
           return yield* isInitialized
@@ -85,13 +82,11 @@ export const MainMenuScene = Layer.effect(
               )
         }),
 
-      onEnter: () =>
-        Effect.gen(function* () {
+      onEnter: () => Effect.gen(function* () {
           yield* Effect.logInfo('MainMenuSceneに入場しました')
         }),
 
-      onExit: () =>
-        Effect.gen(function* () {
+      onExit: () => Effect.gen(function* () {
           yield* Effect.logInfo('MainMenuSceneから退場しました')
         }),
     })

@@ -1,251 +1,243 @@
-import { describe, expect, it as vitestIt } from 'vitest'
+import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
-import * as fc from 'fast-check'
-import { InputService } from '../InputService'
+import { Effect, Schema } from 'effect'
 import { InputServiceLive } from '../InputServiceLive'
+import type { InputService } from '../InputService'
 
 describe('InputServiceLive', () => {
-  describe('Layer Creation', () => {
-    it.effect('creates a valid InputService layer', () =>
+  describe('基本的な入力処理', () => {
+  it.effect('サービスが正常に初期化される', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    expect(inputService).toBeDefined()
+    expect(typeof inputService.processInput).toBe('function')
+    expect(typeof inputService.getState).toBe('function')
+}).pipe(Effect.provide(InputServiceLive))
+    )
+    it.effect('キーボード入力を処理できる', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    const keyEvent = {
+    type: 'keydown' as const,
+    key: 'w',
+    code: 'KeyW',
+    timestamp: Date.now()
+    }
+    yield* inputService.processInput(keyEvent)
+    const state = yield* inputService.getState()
+    expect(state.keyboard).toBeDefined()
+    expect(state.keyboard.keys).toHaveProperty('w')
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+    it.effect('マウス入力を処理できる', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    const mouseEvent = {
+    type: 'mousedown' as const,
+    button: 0,
+    x: 100,
+    y: 150,
+    timestamp: Date.now()
+    }
+    yield* inputService.processInput(mouseEvent)
+    const state = yield* inputService.getState()
+    expect(state.mouse).toBeDefined()
+    expect(state.mouse.position.x).toBe(100)
+    expect(state.mouse.position.y).toBe(150)
+    expect(state.mouse.buttons[0]).toBe(true)
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+  }) {
+    it.prop('キーボード入力の一貫性', [
+      Schema.Struct({
+        key: Schema.Union(
+          Schema.Literal('w'), Schema.Literal('a'), Schema.Literal('s'), Schema.Literal('d'),
+          Schema.Literal('space'), Schema.Literal('shift'), Schema.Literal('ctrl')
+        ),
+        pressed: Schema.Boolean
+      })
+    ], ({ struct: { key, pressed } })
+
       Effect.gen(function* () {
         const inputService = yield* InputService
 
-        // サービスオブジェクトが正しく作成されることを確認
-        expect(inputService).toBeDefined()
-        expect(typeof inputService.isKeyPressed).toBe('function')
-        expect(typeof inputService.isMousePressed).toBe('function')
-        expect(typeof inputService.getMouseDelta).toBe('function')
-        expect(typeof inputService.registerHandler).toBe('function')
+        const keyEvent = {
+          type: (pressed ? 'keydown' : 'keyup') as const,
+          key,
+          code: `Key${key.toUpperCase()}`,
+          timestamp: Date.now()
+        }
+
+        yield* inputService.processInput(keyEvent)
+        const state = yield* inputService.getState()
+
+        expect(state.keyboard.keys[key]).toBe(pressed)
       }).pipe(Effect.provide(InputServiceLive))
     )
-  })
 
-  describe('Key State Management', () => {
-    it.effect('returns false for unpressed keys by default', () =>
+    it.prop('マウス座標の妥当性', [
+      Schema.Struct({
+        x: Schema.Int.pipe(Schema.between(0, 1920)),
+        y: Schema.Int.pipe(Schema.between(0, 1080)),
+        button: Schema.Int.pipe(Schema.between(0, 2))
+      })
+    ], ({ struct: { x, y, button } })
+
       Effect.gen(function* () {
         const inputService = yield* InputService
-        const isPressed = yield* inputService.isKeyPressed('w')
 
-        expect(isPressed).toBe(false)
+        const mouseEvent = {
+          type: 'mousedown' as const,
+          button,
+          x,
+          y,
+          timestamp: Date.now()
+        }
+
+        yield* inputService.processInput(mouseEvent)
+        const state = yield* inputService.getState()
+
+        expect(state.mouse.position.x).toBe(x)
+        expect(state.mouse.position.y).toBe(y)
+        expect(state.mouse.buttons[button]).toBe(true)
       }).pipe(Effect.provide(InputServiceLive))
     )
 
-    it.effect('handles different key cases consistently', () =>
+    it.prop('複数キー同時押しの処理', [
+      Schema.Array(
+        Schema.Union(
+          Schema.Literal('w'), Schema.Literal('a'), Schema.Literal('s'), Schema.Literal('d')
+).pipe(Schema.minItems(1), Schema.maxItems(4))
+    ], ({ array: keys })
+
       Effect.gen(function* () {
         const inputService = yield* InputService
 
-        // Property-based testing: 任意のキーで一貫した動作を確認
-        const keys = ['W', 'w', 'A', 'a', 'Space', 'Enter', 'Shift']
+        // 全キーを押下
         for (const key of keys) {
-          const result = yield* inputService.isKeyPressed(key)
-          expect(result).toBe(false) // 仮実装は常にfalse
-        }
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('handles special keys correctly', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const specialKeys = ['Space', 'Shift', 'Control', 'Alt', 'Enter', 'Escape']
-
-        for (const key of specialKeys) {
-          const isPressed = yield* inputService.isKeyPressed(key)
-          expect(isPressed).toBe(false)
-        }
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-  })
-
-  describe('Mouse State Management', () => {
-    it.effect('returns false for unpressed mouse buttons by default', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const leftButton = yield* inputService.isMousePressed(0)
-        const rightButton = yield* inputService.isMousePressed(1)
-        const middleButton = yield* inputService.isMousePressed(2)
-
-        expect(leftButton).toBe(false)
-        expect(rightButton).toBe(false)
-        expect(middleButton).toBe(false)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.scoped('handles various mouse button indices (Property-based)', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        // 様々なマウスボタンインデックスでテスト
-        const buttonIndices = [0, 1, 2, 3, 4, 5, 10, 15, 99]
-
-        for (const buttonIndex of buttonIndices) {
-          const isPressed = yield* inputService.isMousePressed(buttonIndex)
-          expect(isPressed).toBe(false) // 仮実装は常にfalse
-          expect(typeof isPressed).toBe('boolean')
-        }
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-  })
-
-  describe('Mouse Delta Management', () => {
-    it.effect('returns valid mouse delta with zero movement by default', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-        const delta = yield* inputService.getMouseDelta()
-
-        expect(delta.deltaX).toBe(0)
-        expect(delta.deltaY).toBe(0)
-        expect(typeof delta.timestamp).toBe('number')
-        expect(delta.timestamp).toBeGreaterThan(0)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('generates fresh timestamps on each call', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const delta1 = yield* inputService.getMouseDelta()
-        const delta2 = yield* inputService.getMouseDelta()
-
-        // タイムスタンプは同じか新しい値であることを確認（ミリ秒精度）
-        expect(delta2.timestamp).toBeGreaterThanOrEqual(delta1.timestamp)
-        // 両方とも有効なタイムスタンプ
-        expect(delta1.timestamp).toBeGreaterThan(0)
-        expect(delta2.timestamp).toBeGreaterThan(0)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('maintains consistent delta structure', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-        const delta = yield* inputService.getMouseDelta()
-
-        // MouseDelta型のプロパティが全て存在することを確認
-        expect(delta).toHaveProperty('deltaX')
-        expect(delta).toHaveProperty('deltaY')
-        expect(delta).toHaveProperty('timestamp')
-
-        // 型が正しいことを確認
-        expect(typeof delta.deltaX).toBe('number')
-        expect(typeof delta.deltaY).toBe('number')
-        expect(typeof delta.timestamp).toBe('number')
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-  })
-
-  describe('Handler Registration', () => {
-    it.effect('successfully registers input handlers', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const mockHandler = {
-          onKeyDown: () => Effect.void,
-          onKeyUp: () => Effect.void,
-          onMouseMove: () => Effect.void,
-          onMouseDown: () => Effect.void,
-          onMouseUp: () => Effect.void,
+          const keyEvent = {
+            type: 'keydown' as const,
+            key,
+            code: `Key${key.toUpperCase()}`,
+            timestamp: Date.now()
+          }
+          yield* inputService.processInput(keyEvent)
         }
 
-        // 仮実装では例外なく完了することを確認
-        yield* inputService.registerHandler(mockHandler)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
+        const state = yield* inputService.getState()
 
-    it.effect('handles partial handler objects', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const partialHandler = {
-          onKeyDown: () => Effect.void,
-          // 他のハンドラーは省略
-        }
-
-        // 部分的なハンドラーでも正常に動作することを確認
-        yield* inputService.registerHandler(partialHandler)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('handles empty handler objects', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const emptyHandler = {}
-
-        // 空のハンドラーでも正常に動作することを確認
-        yield* inputService.registerHandler(emptyHandler)
+        // 全ての押下されたキーが状態に反映されていることを確認
+        keys.forEach(key => {
+          expect(state.keyboard.keys[key]).toBe(true)
+        })
       }).pipe(Effect.provide(InputServiceLive))
     )
   })
 
-  describe('Service Integration', () => {
-    it.effect('maintains service state independently per instance', () =>
-      Effect.gen(function* () {
-        // 同じレイヤーから作成された2つのサービスインスタンスが
-        // 同じ状態を共有することを確認（仮実装の動作）
-        const inputService1 = yield* InputService
-        const inputService2 = yield* InputService
-
-        const key1Result = yield* inputService1.isKeyPressed('a')
-        const key2Result = yield* inputService2.isKeyPressed('a')
-
-        expect(key1Result).toBe(key2Result)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('handles concurrent operations correctly', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        // 並列でいくつかの操作を実行
-        const results = yield* Effect.all(
-          [inputService.isKeyPressed('w'), inputService.isMousePressed(0), inputService.getMouseDelta()],
-          { concurrency: 'unbounded' }
-        )
-
-        expect(results[0]).toBe(false) // key press
-        expect(results[1]).toBe(false) // mouse press
-        expect(results[2]).toHaveProperty('deltaX', 0) // mouse delta
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-  })
-
-  describe('Performance and Resource Management', () => {
-    it.effect('handles rapid successive calls efficiently', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        // 短時間に大量の呼び出しを行う
-        const operations = Array.from({ length: 100 }, (_, i) => inputService.isKeyPressed(`key${i}`))
-
-        const results = yield* Effect.all(operations, { concurrency: 'unbounded' })
-
-        // 全ての結果がfalseであることを確認
-        expect(results.every((result) => result === false)).toBe(true)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-
-    it.effect('maintains consistent performance characteristics', () =>
-      Effect.gen(function* () {
-        const inputService = yield* InputService
-
-        const startTime = Date.now()
-
-        // 複数の操作を実行
-        yield* Effect.all([
-          inputService.isKeyPressed('test'),
-          inputService.isMousePressed(0),
-          inputService.getMouseDelta(),
-          inputService.registerHandler({}),
-        ])
-
-        const endTime = Date.now()
-        const duration = endTime - startTime
-
-        // 仮実装は非常に高速であることを確認（100ms以下）
-        expect(duration).toBeLessThan(100)
-      }).pipe(Effect.provide(InputServiceLive))
-    )
-  })
+  describe('入力状態の管理', () => {
+  it.effect('キーの押下と開放が正しく追跡される', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    // キー押下
+    yield* inputService.processInput({
+    type: 'keydown',
+    key: 'w',
+    code: 'KeyW',
+    timestamp: Date.now()
 })
+).toBe(true)
+
+    // キー開放
+    yield* inputService.processInput({
+    type: 'keyup',
+    key: 'w',
+    code: 'KeyW',
+    timestamp: Date.now()
+    })
+
+    state = yield* inputService.getState()
+    expect(state.keyboard.keys.w).toBe(false)
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+
+    it.effect('マウスボタンの状態が正しく管理される', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    // マウスボタン押下
+    yield* inputService.processInput({
+    type: 'mousedown',
+    button: 0,
+    x: 50,
+    y: 60,
+    timestamp: Date.now()
+  })
+).toBe(true)
+
+    // マウスボタン開放
+    yield* inputService.processInput({
+    type: 'mouseup',
+    button: 0,
+    x: 50,
+    y: 60,
+    timestamp: Date.now()
+    })
+
+    state = yield* inputService.getState()
+    expect(state.mouse.buttons[0]).toBe(false)
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+
+    it.effect('マウス移動が正しく追跡される', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    const positions = [
+    { x: 0, y: 0 },
+    { x: 100, y: 200 },
+    { x: 500, y: 300 }
+    ]
+    for (
+    yield* inputService.processInput({
+    type: 'mousemove',
+    x: pos.x,
+    y: pos.y,
+    timestamp: Date.now()
+    ) {$2}
+    const state = yield* inputService.getState()
+    expect(state.mouse.position.x).toBe(pos.x)
+    expect(state.mouse.position.y).toBe(pos.y)
+    }
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+  }) {
+    it.effect('無効な入力イベントを適切に処理する', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    const invalidEvents = [
+    { type: 'unknown' as any, timestamp: Date.now() },
+    { type: 'keydown', key: '', timestamp: Date.now() },
+    { type: 'mousedown', button: -1, x: 0, y: 0, timestamp: Date.now() }
+    ]
+    for (const event of invalidEvents) {
+    // エラーになっても処理が続行されることを確認
+    const result = yield* Effect.either(inputService.processInput(event))
+    // サービスは堅牢でエラーでも停止しないことを期待
+    }
+    // サービスが正常に動作し続けることを確認
+    const state = yield* inputService.getState()
+    expect(state).toBeDefined()
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+  }) {
+    it.effect('大量の入力イベントを効率的に処理する', () => Effect.gen(function* () {
+    const inputService = yield* InputService
+    const start = Date.now()
+    // 1000個の入力イベントを処理
+    for (
+    yield* inputService.processInput({
+    type: 'mousemove',
+    x: i % 100,
+    y: (i * 2) % 100,
+    timestamp: Date.now()
+    ) {$2}
+    }
+    const elapsed = Date.now() - start
+    const state = yield* inputService.getState()
+    expect(state.mouse.position.x).toBe(999 % 100)
+    expect(elapsed).toBeLessThan(1000) // 1秒以内に完了
+    }).pipe(Effect.provide(InputServiceLive))
+    )
+  })
+)

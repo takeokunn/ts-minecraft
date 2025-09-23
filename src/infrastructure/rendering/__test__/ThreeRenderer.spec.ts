@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
@@ -64,19 +65,17 @@ describe('ThreeRenderer', () => {
   let canvas: HTMLCanvasElement
   let scene: THREE.Scene
   let camera: THREE.Camera
-
   beforeEach(() => {
-    canvas = createMockCanvas()
-    scene = new THREE.Scene()
-    camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
-
-    // Canvas WebGLコンテキストのモック
-    vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
-      if (type === 'webgl2' || type === 'webgl') {
-        return createMockWebGLContext(type === 'webgl2') as unknown as WebGLRenderingContext
-      }
-      return null
-    })
+  canvas = createMockCanvas()
+  scene = new THREE.Scene()
+  camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
+  // Canvas WebGLコンテキストのモック
+  vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
+  if (type === 'webgl2' || type === 'webgl') {
+  return createMockWebGLContext(type === 'webgl2') as unknown as WebGLRenderingContext
+  }
+  return null
+})
   })
 
   afterEach(() => {
@@ -84,13 +83,13 @@ describe('ThreeRenderer', () => {
   })
 
   describe('基本機能', () => {
-    it('正常に初期化できる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        const rendererInstance = yield* renderer.getRenderer()
-        expect(rendererInstance).not.toBeNull()
-      })
+  it('正常に初期化できる', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(canvas)
+  const rendererInstance = yield* renderer.getRenderer()
+  expect(rendererInstance).not.toBeNull()
+})
 
       await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
@@ -127,15 +126,15 @@ describe('ThreeRenderer', () => {
   })
 
   describe('設定機能', () => {
-    it('シャドウマップを設定できる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        yield* renderer.configureShadowMap({
-          enabled: true,
-          type: THREE['PCFSoftShadowMap'],
-          resolution: 2048,
-        })
+  it('シャドウマップを設定できる', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(canvas)
+  yield* renderer.configureShadowMap({
+  enabled: true,
+  type: THREE['PCFSoftShadowMap'],
+  resolution: 2048,
+})
       })
 
       await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
@@ -188,8 +187,7 @@ describe('ThreeRenderer', () => {
 
       // WebGLRendererモックをWebGL2対応に変更
       vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
-        () =>
-          ({
+        () => ({
             setPixelRatio: vi.fn(),
             setSize: vi.fn(),
             setClearColor: vi.fn(),
@@ -236,24 +234,22 @@ describe('ThreeRenderer', () => {
   })
 
   describe('パフォーマンス監視', () => {
-    it('パフォーマンス統計を取得できる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-
-        // レンダリング実行
-        for (let i = 0; i < 3; i++) {
-          yield* renderer.render(scene, camera)
-        }
-
-        const stats = yield* renderer.getPerformanceStats()
-        expect(stats).toHaveProperty('fps')
-        expect(stats).toHaveProperty('frameTime')
-        expect(stats).toHaveProperty('memory')
-        expect(stats).toHaveProperty('render')
-        expect(typeof stats.fps).toBe('number')
-        expect(typeof stats.frameTime).toBe('number')
-      })
+  it('パフォーマンス統計を取得できる', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(canvas)
+  // レンダリング実行
+  for (let i = 0; i < 3; i++) {
+  yield* renderer.render(scene, camera)
+  }
+  const stats = yield* renderer.getPerformanceStats()
+  expect(stats).toHaveProperty('fps')
+  expect(stats).toHaveProperty('frameTime')
+  expect(stats).toHaveProperty('memory')
+  expect(stats).toHaveProperty('render')
+  expect(typeof stats.fps).toBe('number')
+  expect(typeof stats.frameTime).toBe('number')
+})
 
       await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })
@@ -300,11 +296,11 @@ describe('ThreeRenderer', () => {
   })
 
   describe('エラーハンドリング', () => {
-    it('初期化前のレンダリングでエラーが発生する', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.render(scene, camera)
-      })
+  it('初期化前のレンダリングでエラーが発生する', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.render(scene, camera)
+})
 
       await expect(Effect.runPromise(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
     })
@@ -342,8 +338,7 @@ describe('ThreeRenderer', () => {
     it('WebGLコンテキストロスト時のエラーハンドリング', async () => {
       // コンテキストロスト状態のモック
       vi.mocked(THREE.WebGLRenderer).mockImplementationOnce(
-        () =>
-          ({
+        () => ({
             setPixelRatio: vi.fn(),
             setSize: vi.fn(),
             setClearColor: vi.fn(),
@@ -375,15 +370,14 @@ describe('ThreeRenderer', () => {
   })
 
   describe('リソース管理', () => {
-    it('リソースを正常に解放できる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-        yield* renderer.dispose()
-
-        const rendererInstance = yield* renderer.getRenderer()
-        expect(rendererInstance).toBeNull()
-      })
+  it('リソースを正常に解放できる', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(canvas)
+  yield* renderer.dispose()
+  const rendererInstance = yield* renderer.getRenderer()
+  expect(rendererInstance).toBeNull()
+})
 
       await Effect.runPromise(Effect.provide(program, ThreeRendererLive))
     })

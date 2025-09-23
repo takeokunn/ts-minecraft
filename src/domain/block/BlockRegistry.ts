@@ -63,8 +63,9 @@ export const BlockRegistryLive = Layer.effect(
       // カテゴリーインデックスの構築
       allBlocks.forEach((block) => {
         pipe(
-          Match.value(categoryIndex.has(block.category)),
-          Match.when(false, () => {
+          Match.value(categoryIndex.has(block.category)
+    }),
+    Match.when(false, () => {
             categoryIndex.set(block.category, new Set())
           }),
           Match.orElse(() => {})
@@ -114,8 +115,9 @@ export const BlockRegistryLive = Layer.effect(
               pipe(
                 HashMap.get(blockMap, id),
                 Option.match({
-                  onNone: () => Option.none(),
-                  onSome: (block) => Option.some(block),
+                  onNone: () => Option.none(
+    }),
+    onSome: (block) => Option.some(block),
                 })
               )
             )
@@ -132,8 +134,9 @@ export const BlockRegistryLive = Layer.effect(
               pipe(
                 HashMap.get(blockMap, id),
                 Option.match({
-                  onNone: () => Option.none(),
-                  onSome: (block) => Option.some(block),
+                  onNone: () => Option.none(
+    }),
+    onSome: (block) => Option.some(block),
                 })
               )
             )
@@ -201,8 +204,7 @@ export const getBlock = (id: string) =>
   })
 
 // 全ブロックを取得
-export const getAllBlocks = () =>
-  Effect.gen(function* () {
+export const getAllBlocks = () => Effect.gen(function* () {
     const registry = yield* BlockRegistry
     return yield* registry.getAllBlocks()
   })

@@ -43,8 +43,9 @@ export const GameLoopServiceLive = Layer.effect(
         const shouldContinue = pipe(
           state.state,
           Match.value,
-          Match.when('running', () => true),
-          Match.orElse(() => false)
+          Match.when('running', () => true
+    }),
+    Match.orElse(() => false)
         )
 
         if (!shouldContinue) {
@@ -154,8 +155,7 @@ export const GameLoopServiceLive = Layer.effect(
           }))
         }),
 
-      start: () =>
-        Effect.gen(function* () {
+      start: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
           // Match.valueパターンを使用して状態遷移チェック
@@ -204,8 +204,7 @@ export const GameLoopServiceLive = Layer.effect(
           }))
         }),
 
-      pause: () =>
-        Effect.gen(function* () {
+      pause: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
           // Match.valueパターンを使用して状態チェック
@@ -246,8 +245,7 @@ export const GameLoopServiceLive = Layer.effect(
           }))
         }),
 
-      resume: () =>
-        Effect.gen(function* () {
+      resume: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
           // Match.valueパターンを使用して状態チェック
@@ -289,13 +287,13 @@ export const GameLoopServiceLive = Layer.effect(
           }))
         }),
 
-      stop: () =>
-        Effect.gen(function* () {
+      stop: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
           yield* pipe(
-            Option.fromNullable(currentState.animationFrameId),
-            Option.match({
+            Option.fromNullable(currentState.animationFrameId
+    }),
+    Option.match({
               onNone: () => Effect.void,
               onSome: (frameId) => Effect.sync(() => cancelAnimationFrame(frameId)),
             })
@@ -329,14 +327,12 @@ export const GameLoopServiceLive = Layer.effect(
           }
         }),
 
-      getState: () =>
-        Effect.gen(function* () {
+      getState: () => Effect.gen(function* () {
           const state = yield* Ref.get(internalState)
           return state.state
         }),
 
-      getPerformanceMetrics: () =>
-        Effect.gen(function* () {
+      getPerformanceMetrics: () => Effect.gen(function* () {
           const state = yield* Ref.get(internalState)
 
           // Match.valueパターンを使用してパフォーマンスデータチェック
@@ -392,8 +388,9 @@ export const GameLoopServiceLive = Layer.effect(
 
           const frameInfo: FrameInfo = {
             currentTime,
-            deltaTime: Math.min(actualDeltaTime, targetFrameTime * 2),
-            frameCount: state.frameCount,
+            deltaTime: Math.min(actualDeltaTime, targetFrameTime * 2
+    }),
+    frameCount: state.frameCount,
             fps: actualDeltaTime > 0 ? 1000 / actualDeltaTime : state.config.targetFps,
             frameSkipped,
           }
@@ -443,13 +440,13 @@ export const GameLoopServiceLive = Layer.effect(
           }))
         }),
 
-      reset: () =>
-        Effect.gen(function* () {
+      reset: () => Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
           yield* pipe(
-            Option.fromNullable(currentState.animationFrameId),
-            Option.match({
+            Option.fromNullable(currentState.animationFrameId
+    }),
+    Option.match({
               onNone: () => Effect.void,
               onSome: (frameId) => Effect.sync(() => cancelAnimationFrame(frameId)),
             })

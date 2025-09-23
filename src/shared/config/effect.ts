@@ -104,7 +104,7 @@ export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Eff
 // Utility for creating error factory functions (class-free pattern)
 export const createErrorFactory =
   <Tag extends string>(tag: Tag) =>
-  <T extends Record<string, any>>(factory: (props: T) => T & { readonly _tag: Tag }) =>
+  <T extends Record<string, any>>(factory: (props: T) => T & { readonly _tag: Tag })
     factory
 
 // Utility for creating services

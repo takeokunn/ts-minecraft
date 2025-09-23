@@ -163,8 +163,9 @@ export const MouseSensitivityLive = Layer.effect(
                   Match.value,
                   Match.when(true, () =>
                     pipe(
-                      Option.fromNullable(points[points.length - 1]),
-                      Option.match({
+                      Option.fromNullable(points[points.length - 1]
+    }),
+    Option.match({
                         onNone: () => value,
                         onSome: (lastPoint) => sign * lastPoint,
                       })
@@ -283,8 +284,7 @@ export const MouseSensitivityLive = Layer.effect(
             deadZoneResult,
             Option.match({
               onSome: (result) => Effect.succeed(result),
-              onNone: () =>
-                Effect.gen(function* () {
+              onNone: () => Effect.gen(function* () {
                   // スムージング適用
                   const { smoothedDelta, newBuffer } = applySmoothing(delta, currentConfig.smoothing, buffer)
                   yield* Ref.set(smoothingBuffer, newBuffer)
@@ -350,8 +350,9 @@ export const MouseSensitivityLive = Layer.effect(
           yield* Ref.update(config, (current) => ({
             ...current,
             xSensitivity: Math.max(0.01, x),
-            ySensitivity: Math.max(0.01, y),
-            preset: 'custom' as SensitivityPreset,
+            ySensitivity: Math.max(0.01, y
+    }),
+    preset: 'custom' as SensitivityPreset,
           }))
         }),
 
@@ -359,8 +360,9 @@ export const MouseSensitivityLive = Layer.effect(
         Effect.gen(function* () {
           yield* Ref.update(config, (current) => ({
             ...current,
-            globalMultiplier: Math.max(0.01, multiplier),
-            preset: 'custom' as SensitivityPreset,
+            globalMultiplier: Math.max(0.01, multiplier
+    }),
+    preset: 'custom' as SensitivityPreset,
           }))
         }),
 
@@ -390,13 +392,12 @@ export const MouseSensitivityLive = Layer.effect(
 
 // テスト用のモック実装
 export const MockMouseSensitivity = Layer.succeed(
-  MouseSensitivity,
-  MouseSensitivity.of({
+    MouseSensitivity,
+    MouseSensitivity.of({
     getConfig: () => Effect.succeed(defaultSensitivityConfig),
 
-    setConfig: () => Effect.succeed(undefined),
-
-    applySensitivity: (delta) =>
+    setConfig: () => Effect.succeed(undefined,
+      applySensitivity: (delta) =>
       Effect.succeed({
         deltaX: delta.deltaX,
         deltaY: delta.deltaY,

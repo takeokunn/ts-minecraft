@@ -50,8 +50,9 @@ const createThreeRendererService = (
     Effect.gen(function* () {
       // WebGL2サポート確認
       const webgl2Supported = yield* Effect.try({
-        try: () => checkWebGL2Support(),
-        catch: (error) =>
+        try: () => checkWebGL2Support(
+    }),
+    catch: (error) =>
           RenderInitError({
             message: 'WebGL2サポート確認に失敗しました',
             canvas,
@@ -172,10 +173,10 @@ const createThreeRendererService = (
       const stats = yield* Ref.get(statsRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
-          onNone: () =>
-            Effect.fail(
+        Option.fromNullable(renderer
+    }),
+    Option.match({
+          onNone: () => Effect.fail(
               RenderExecutionError({
                 message: 'レンダラーが初期化されていません',
                 operation: 'render',
@@ -290,8 +291,9 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
+        Option.fromNullable(renderer
+    }),
+    Option.match({
           onNone: () => Effect.void,
           onSome: (renderer) =>
             Effect.sync(() => {
@@ -314,10 +316,10 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
-          onNone: () =>
-            Effect.fail(
+        Option.fromNullable(renderer
+    }),
+    Option.match({
+          onNone: () => Effect.fail(
               RenderExecutionError({
                 message: 'レンダラーが初期化されていません',
                 operation: 'enableWebGL2Features',
@@ -357,8 +359,9 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
+        Option.fromNullable(renderer
+    }),
+    Option.match({
           onNone: () => Effect.void,
           onSome: (renderer) =>
             Effect.sync(() => {
@@ -380,11 +383,11 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
+        Option.fromNullable(renderer
+    }),
+    Option.match({
           onNone: () => Effect.void,
-          onSome: () =>
-            Effect.sync(() => {
+          onSome: () => Effect.sync(() => {
               const { enabled = true, samples = 4 } = options
 
               // WebGLのMSAAサンプル数設定（既存のレンダラーでは変更不可）
@@ -400,10 +403,10 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
-          onNone: () =>
-            Effect.fail(
+        Option.fromNullable(renderer
+    }),
+    Option.match({
+          onNone: () => Effect.fail(
               RenderExecutionError({
                 message: 'レンダラーが初期化されていません',
                 operation: 'setupPostprocessing',
@@ -437,8 +440,7 @@ const createThreeRendererService = (
       })
     }),
 
-  getPerformanceStats: () =>
-    Effect.gen(function* () {
+  getPerformanceStats: () => Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
       const stats = yield* Ref.get(statsRef)
 
@@ -470,8 +472,9 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
 
       yield* pipe(
-        Option.fromNullable(renderer),
-        Option.match({
+        Option.fromNullable(renderer
+    }),
+    Option.match({
           onNone: () => Effect.void,
           onSome: (renderer) =>
             Effect.sync(() => {

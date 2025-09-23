@@ -202,11 +202,10 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
         // Match.valueパターンを使用して構造物生成の有効性をチェック
         const structure = yield* pipe(
           Match.value(!generatorOptions.generateStructures),
-          Match.when(true, () =>
-            Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
-          ),
-          Match.orElse(() =>
-            Effect.gen(function* () {
+          Match.when(true, () => Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
+          
+    }),
+    Match.orElse(() => Effect.gen(function* () {
               const structure = createStructure(type, position)
               state.structures.push(structure)
               return structure
@@ -241,8 +240,9 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
       Effect.gen(function* () {
         const terrainGenerator = yield* TerrainGeneratorTag
         return yield* terrainGenerator.getTerrainHeight(
-          BrandedTypes.createWorldCoordinate(x),
-          BrandedTypes.createWorldCoordinate(z)
+          BrandedTypes.createWorldCoordinate(x
+    }),
+    BrandedTypes.createWorldCoordinate(z)
         )
       }).pipe(Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))) as unknown as Effect.Effect<
         number,
@@ -275,8 +275,9 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
                 Match.when('mineshaft', () => generatorOptions.features.mineshafts),
                 Match.when('stronghold', () => generatorOptions.features.strongholds),
                 Match.when('temple', () => generatorOptions.features.temples),
-                Match.when('dungeon', () => generatorOptions.features.dungeons),
-                Match.orElse(() => true)
+                Match.when('dungeon', () => generatorOptions.features.dungeons
+    }),
+    Match.orElse(() => true)
               )
             )
           )

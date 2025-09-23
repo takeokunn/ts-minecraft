@@ -122,8 +122,9 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
             // 配列アクセスをOptionパターンで安全化
             pipe(
-              Option.fromNullable(heightMap[x]),
-              Option.map((row) => {
+              Option.fromNullable(heightMap[x]
+    }),
+    Option.map((row) => {
                 row[z] = heightValue
               })
             )
@@ -155,8 +156,9 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
         // 山岳地帯
         const mountainHeight = yield* noiseGenerator.octaveNoise2D(
-          BrandedTypes.createNoiseCoordinate(x * 0.001),
-          BrandedTypes.createNoiseCoordinate(z * 0.001),
+          BrandedTypes.createNoiseCoordinate(x * 0.001
+    }),
+    BrandedTypes.createNoiseCoordinate(z * 0.001),
           6,
           0.5
         )

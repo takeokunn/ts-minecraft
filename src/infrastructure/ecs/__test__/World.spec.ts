@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, Cause, Chunk } from 'effect'
 import { World, WorldLive, type EntityId, WorldError } from '../World'
 import { EntityId as EntityIdBrand, EntityPoolLayer } from '../Entity'
@@ -9,28 +10,22 @@ import { SystemRegistryServiceLive } from '../SystemRegistry'
 
 describe('World', () => {
   const TestLayer = Layer.provide(WorldLive, SystemRegistryServiceLive)
-
   const runWithWorld = <A, E>(effect: Effect.Effect<A, E, World>): Promise<A> =>
-    Effect.runPromise(Effect.provide(effect, TestLayer))
-
+  Effect.runPromise(Effect.provide(effect, TestLayer))
   describe('エンティティ管理', () => {
-    it('エンティティを作成できる', async () => {
-      const result = await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-          const entityId = yield* world.createEntity('TestEntity', ['player'])
-
-          expect(typeof entityId).toBe('number')
-
-          const metadata = yield* world.getEntityMetadata(entityId)
-          expect(metadata).toBeDefined()
-          expect(metadata?.['name']).toBe('TestEntity')
-          expect(metadata?.['tags']).toEqual(['player'])
-          expect(metadata?.['active']).toBe(true)
-
-          return entityId
-        })
-      )
+  it('エンティティを作成できる', async () => {
+  const result = await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entityId = yield* world.createEntity('TestEntity', ['player'])
+  expect(typeof entityId).toBe('number')
+  const metadata = yield* world.getEntityMetadata(entityId)
+  expect(metadata).toBeDefined()
+  expect(metadata?.['name']).toBe('TestEntity')
+  expect(metadata?.['tags']).toEqual(['player'])
+  expect(metadata?.['active']).toBe(true)
+  return entityId
+})
 
       expect(result).toBeDefined()
     })
@@ -46,7 +41,6 @@ describe('World', () => {
           const metadata = yield* world.getEntityMetadata(entityId)
           expect(metadata).toBeNull()
         })
-      )
     })
 
     it('存在しないエンティティの削除でエラーが発生する', async () => {
@@ -58,8 +52,7 @@ describe('World', () => {
             yield* world.destroyEntity(nonExistentId)
           }),
           TestLayer
-        )
-      )
+)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -84,25 +77,20 @@ describe('World', () => {
           const metadata2 = yield* world.getEntityMetadata(entityId)
           expect(metadata2?.['active']).toBe(true)
         })
-      )
     })
   })
 
   describe('コンポーネント管理', () => {
-    it('コンポーネントを追加・取得できる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-          const entityId = yield* world.createEntity()
-
-          const position: PositionComponent = { x: 10, y: 20, z: 30 }
-          yield* world.addComponent(entityId, 'Position', position)
-
-          const retrieved = yield* world.getComponent<PositionComponent>(entityId, 'Position')
-
-          expect(retrieved).toEqual(position)
-        })
-      )
+  it('コンポーネントを追加・取得できる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entityId = yield* world.createEntity()
+  const position: PositionComponent = { x: 10, y: 20, z: 30 }
+  yield* world.addComponent(entityId, 'Position', position)
+  const retrieved = yield* world.getComponent<PositionComponent>(entityId, 'Position')
+  expect(retrieved).toEqual(position)
+})
     })
 
     it('コンポーネントを削除できる', async () => {
@@ -120,7 +108,6 @@ describe('World', () => {
 
           expect(retrieved).toBeNull()
         })
-      )
     })
 
     it('コンポーネントの存在を確認できる', async () => {
@@ -138,7 +125,6 @@ describe('World', () => {
           expect(hasPosition).toBe(true)
           expect(hasVelocity).toBe(false)
         })
-      )
     })
 
     it('存在しないエンティティへのコンポーネント追加でエラーが発生する', async () => {
@@ -150,24 +136,22 @@ describe('World', () => {
             yield* world.addComponent(nonExistentId, 'Position', { x: 0, y: 0, z: 0 })
           }),
           TestLayer
-        )
-      )
+)
 
       expect(result._tag).toBe('Failure')
     })
   })
 
   describe('エンティティ検索', () => {
-    it('特定のコンポーネントを持つエンティティを検索できる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-
-          const entity1 = yield* world.createEntity()
-          const entity2 = yield* world.createEntity()
-          const entity3 = yield* world.createEntity()
-
-          yield* world.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0 })
+  it('特定のコンポーネントを持つエンティティを検索できる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entity1 = yield* world.createEntity()
+  const entity2 = yield* world.createEntity()
+  const entity3 = yield* world.createEntity()
+  yield* world.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0
+})
           yield* world.addComponent(entity2, 'Position', { x: 1, y: 1, z: 1 })
           yield* world.addComponent(entity3, 'Velocity', { vx: 0, vy: 0, vz: 0 })
 
@@ -175,9 +159,7 @@ describe('World', () => {
 
           expect(entitiesWithPosition).toContain(entity1)
           expect(entitiesWithPosition).toContain(entity2)
-          expect(entitiesWithPosition).not.toContain(entity3)
-        })
-      )
+          expect(entitiesWithPosition).not.toContain(entity3)})
     })
 
     it('複数のコンポーネントを持つエンティティを検索できる', async () => {
@@ -202,7 +184,6 @@ describe('World', () => {
           expect(entities).not.toContain(entity2)
           expect(entities).not.toContain(entity3)
         })
-      )
     })
 
     it('空のコンポーネント配列での検索で空配列を返す', async () => {
@@ -214,7 +195,6 @@ describe('World', () => {
 
           expect(entities).toEqual([])
         })
-      )
     })
 
     it('存在しないコンポーネント型での複数検索で空配列を返す', async () => {
@@ -229,7 +209,6 @@ describe('World', () => {
 
           expect(entities).toEqual([])
         })
-      )
     })
 
     it('タグでエンティティを検索できる', async () => {
@@ -252,7 +231,6 @@ describe('World', () => {
           expect(players).not.toContain(entity1)
           expect(players).not.toContain(entity3)
         })
-      )
     })
 
     it('非アクティブなエンティティは検索結果から除外される', async () => {
@@ -273,29 +251,26 @@ describe('World', () => {
           expect(entities).toContain(activeEntity)
           expect(entities).not.toContain(inactiveEntity)
         })
-      )
     })
   })
 
   describe('システム管理', () => {
-    it('システムを登録・実行できる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-
-          let executed = false
-          const testSystem = createSystem('TestSystem', () =>
-            Effect.sync(() => {
-              executed = true
-            })
-          )
+  it('システムを登録・実行できる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  let executed = false
+  const testSystem = createSystem('TestSystem', (
+    }),
+    Effect.sync(() => {
+  executed = true
+})
 
           yield* world.registerSystem(testSystem, 'normal', 500)
           yield* world.update(16)
 
           expect(executed).toBe(true)
         })
-      )
     })
 
     it('複数のシステムを優先度順に実行する', async () => {
@@ -307,8 +282,9 @@ describe('World', () => {
 
           const highPrioritySystem = createSystem('HighPriority', () => Effect.sync(() => executionOrder.push('high')))
 
-          const normalPrioritySystem = createSystem('NormalPriority', () =>
-            Effect.sync(() => executionOrder.push('normal'))
+          const normalPrioritySystem = createSystem('NormalPriority', (
+    }),
+    Effect.sync(() => executionOrder.push('normal'))
           )
 
           const lowPrioritySystem = createSystem('LowPriority', () => Effect.sync(() => executionOrder.push('low')))
@@ -322,7 +298,6 @@ describe('World', () => {
 
           expect(executionOrder).toEqual(['high', 'normal', 'low'])
         })
-      )
     })
 
     it('システムを削除できる', async () => {
@@ -331,12 +306,11 @@ describe('World', () => {
           const world = yield* World
 
           let executionCount = 0
-          const testSystem = createSystem('TestSystem', () =>
-            Effect.sync(() => {
+          const testSystem = createSystem('TestSystem', (
+    }),
+    Effect.sync(() => {
               executionCount++
             })
-          )
-
           yield* world.registerSystem(testSystem)
           yield* world.update(16)
           expect(executionCount).toBe(1)
@@ -345,36 +319,29 @@ describe('World', () => {
           yield* world.update(16)
           expect(executionCount).toBe(1) // 削除後は実行されない
         })
-      )
     })
   })
 
   describe('パフォーマンス最適化', () => {
-    it('コンポーネントを一括取得できる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-
-          const entity1 = yield* world.createEntity()
-          const entity2 = yield* world.createEntity()
-          const entity3 = yield* world.createEntity()
-
-          const pos1: PositionComponent = { x: 1, y: 1, z: 1 }
-          const pos2: PositionComponent = { x: 2, y: 2, z: 2 }
-          const pos3: PositionComponent = { x: 3, y: 3, z: 3 }
-
-          yield* world.addComponent(entity1, 'Position', pos1)
-          yield* world.addComponent(entity2, 'Position', pos2)
-          yield* world.addComponent(entity3, 'Position', pos3)
-
-          const positions = yield* world.batchGetComponents<PositionComponent>('Position')
-
-          expect(positions.size).toBe(3)
-          expect(positions.get(entity1)).toEqual(pos1)
-          expect(positions.get(entity2)).toEqual(pos2)
-          expect(positions.get(entity3)).toEqual(pos3)
-        })
-      )
+  it('コンポーネントを一括取得できる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entity1 = yield* world.createEntity()
+  const entity2 = yield* world.createEntity()
+  const entity3 = yield* world.createEntity()
+  const pos1: PositionComponent = { x: 1, y: 1, z: 1 }
+  const pos2: PositionComponent = { x: 2, y: 2, z: 2 }
+  const pos3: PositionComponent = { x: 3, y: 3, z: 3 }
+  yield* world.addComponent(entity1, 'Position', pos1)
+  yield* world.addComponent(entity2, 'Position', pos2)
+  yield* world.addComponent(entity3, 'Position', pos3)
+  const positions = yield* world.batchGetComponents<PositionComponent>('Position')
+  expect(positions.size).toBe(3)
+  expect(positions.get(entity1)).toEqual(pos1)
+  expect(positions.get(entity2)).toEqual(pos2)
+  expect(positions.get(entity3)).toEqual(pos3)
+})
     })
 
     it('非アクティブなエンティティのコンポーネントは一括取得から除外される', async () => {
@@ -396,7 +363,6 @@ describe('World', () => {
           expect(positions.has(activeEntity)).toBe(true)
           expect(positions.has(inactiveEntity)).toBe(false)
         })
-      )
     })
 
     it('存在しないコンポーネント型の一括取得で空のMapを返す', async () => {
@@ -409,20 +375,18 @@ describe('World', () => {
           expect(positions.size).toBe(0)
           expect(positions).toBeInstanceOf(Map)
         })
-      )
     })
   })
 
   describe('統計情報', () => {
-    it('ワールドの統計情報を取得できる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-
-          const entity1 = yield* world.createEntity()
-          const entity2 = yield* world.createEntity()
-
-          yield* world.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0 })
+  it('ワールドの統計情報を取得できる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entity1 = yield* world.createEntity()
+  const entity2 = yield* world.createEntity()
+  yield* world.addComponent(entity1, 'Position', { x: 0, y: 0, z: 0
+})
           yield* world.addComponent(entity1, 'Velocity', { vx: 0, vy: 0, vz: 0 })
           yield* world.addComponent(entity2, 'Position', { x: 1, y: 1, z: 1 })
 
@@ -435,20 +399,18 @@ describe('World', () => {
           expect(stats.componentCount).toBe(3) // 実装によりコンポーネント数が3になっている
           expect(stats.systemCount).toBe(1)
           expect(typeof stats.fps).toBe('number')
-          expect(typeof stats.frameTime).toBe('number')
-        })
-      )
+          expect(typeof stats.frameTime).toBe('number')})
     })
   })
 
   describe('ワールドクリア', () => {
-    it('ワールドをクリアできる', async () => {
-      await runWithWorld(
-        Effect.gen(function* () {
-          const world = yield* World
-
-          const entity = yield* world.createEntity()
-          yield* world.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
+  it('ワールドをクリアできる', async () => {
+  await runWithWorld(
+  Effect.gen(function* () {
+  const world = yield* World
+  const entity = yield* world.createEntity()
+  yield* world.addComponent(entity, 'Position', { x: 0, y: 0, z: 0
+})
 
           const testSystem = createSystem('TestSystem', () => Effect.void)
           yield* world.registerSystem(testSystem)
@@ -463,9 +425,7 @@ describe('World', () => {
           expect(stats.componentCount).toBe(0)
           expect(stats.systemCount).toBe(0)
           expect(typeof stats.fps).toBe('number')
-          expect(typeof stats.frameTime).toBe('number')
-        })
-      )
+          expect(typeof stats.frameTime).toBe('number')})
     })
   })
 })

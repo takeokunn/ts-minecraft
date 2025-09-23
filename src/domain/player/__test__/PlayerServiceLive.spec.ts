@@ -31,49 +31,42 @@ describe('PlayerService Integration Tests', () => {
   const TestDependencies = Layer.mergeAll(EntityPoolLayer, SystemRegistryServiceLive)
   const EntityManagerTestLayer = Layer.provide(EntityManagerLayer, TestDependencies)
   const PlayerServiceTestLayer = Layer.mergeAll(
-    Layer.provide(PlayerServiceLive, EntityManagerTestLayer),
-    EntityManagerTestLayer
+  Layer.provide(PlayerServiceLive, EntityManagerTestLayer),
+  EntityManagerTestLayer
   )
-
   describe('Player Creation and Destruction', () => {
-    effectIt.effect(
-      'should create a player with complete configuration',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-
-          const config = {
-            playerId: 'integration-test-player-1',
-            initialPosition: { x: 10.5, y: 64, z: -20.3 },
-            initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4 },
-            health: 85,
-          }
-
-          const entityId = yield* playerService.createPlayer(config)
-          expect(typeof entityId).toBe('number')
-          expect(entityId).toBeGreaterThanOrEqual(0)
-
-          // プレイヤーが存在することを確認
-          const playerId = BrandedTypes.createPlayerId(config.playerId)
-          const exists = yield* playerService.playerExists(playerId)
-          expect(exists).toBe(true)
-
-          // プレイヤー状態を取得して検証
-          const playerState = yield* playerService.getPlayerState(playerId)
-          expect(playerState.playerId).toBe(config.playerId)
-          expect(playerState.entityId).toBe(entityId)
-          expect(playerState.position).toEqual(config.initialPosition)
-          expect(playerState.rotation).toEqual(config.initialRotation)
-          expect(playerState.health).toBe(config.health)
-          expect(playerState.isActive).toBe(true)
-          expect(playerState.lastUpdate).toBeGreaterThan(0)
-        }).pipe(Effect.provide(PlayerServiceTestLayer)) as any
+  effectIt.effect(
+  'should create a player with complete configuration',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const config = {
+  playerId: 'integration-test-player-1',
+  initialPosition: { x: 10.5, y: 64, z: -20.3 },
+  initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4 },
+  health: 85,
+  }
+  const entityId = yield* playerService.createPlayer(config)
+  expect(typeof entityId).toBe('number')
+  expect(entityId).toBeGreaterThanOrEqual(0)
+  // プレイヤーが存在することを確認
+  const playerId = BrandedTypes.createPlayerId(config.playerId)
+  const exists = yield* playerService.playerExists(playerId)
+  expect(exists).toBe(true)
+  // プレイヤー状態を取得して検証
+  const playerState = yield* playerService.getPlayerState(playerId)
+  expect(playerState.playerId).toBe(config.playerId)
+  expect(playerState.entityId).toBe(entityId)
+  expect(playerState.position).toEqual(config.initialPosition)
+  expect(playerState.rotation).toEqual(config.initialRotation)
+  expect(playerState.health).toBe(config.health)
+  expect(playerState.isActive).toBe(true)
+  expect(playerState.lastUpdate).toBeGreaterThan(0)
+}).pipe(Effect.provide(PlayerServiceTestLayer)) as any
     )
 
     effectIt.effect(
       'should create a player with minimal configuration using defaults',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           const config = {
@@ -94,8 +87,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should destroy a player and clean up resources',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const entityManager = yield* EntityManager
 
@@ -134,8 +126,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should prevent duplicate player creation',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           const config = {
@@ -162,15 +153,14 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Player State Management', () => {
-    effectIt.effect(
-      'should update player position',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const playerId = BrandedTypes.createPlayerId('position-update-test')
-
-          // プレイヤーを作成
-          yield* playerService.createPlayer({ playerId })
+  effectIt.effect(
+  'should update player position',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const playerId = BrandedTypes.createPlayerId('position-update-test')
+  // プレイヤーを作成
+  yield* playerService.createPlayer({ playerId
+})
 
           const newPosition = { x: 100, y: 128, z: -50 }
           yield* playerService.setPlayerPosition(playerId, newPosition)
@@ -182,8 +172,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should update player rotation',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const playerId = BrandedTypes.createPlayerId('rotation-update-test')
 
@@ -199,8 +188,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should update player health',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const playerId = BrandedTypes.createPlayerId('health-update-test')
 
@@ -216,8 +204,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should update player active state',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const playerId = BrandedTypes.createPlayerId('active-state-test')
 
@@ -237,8 +224,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should update multiple player properties at once',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const playerId = BrandedTypes.createPlayerId('bulk-update-test')
 
@@ -261,31 +247,27 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Error Handling and Validation', () => {
-    effectIt.effect(
-      'should handle non-existent player operations',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
-
-          // 存在しないプレイヤーの状態取得
-          const getStateResult = yield* Effect.either(playerService.getPlayerState(nonExistentPlayerId))
-          expect(Either.isLeft(getStateResult)).toBe(true)
-          if (Either.isLeft(getStateResult)) {
-            expect(getStateResult.left.reason).toBe('PLAYER_NOT_FOUND')
-          }
-
-          // 存在しないプレイヤーの削除
-          const destroyResult = yield* Effect.either(playerService.destroyPlayer(nonExistentPlayerId))
-          expect(Either.isLeft(destroyResult)).toBe(true)
-          if (Either.isLeft(destroyResult)) {
-            expect(destroyResult.left.reason).toBe('PLAYER_NOT_FOUND')
-          }
-
-          // 存在しないプレイヤーの更新
-          const updateResult = yield* Effect.either(
-            playerService.updatePlayerState(nonExistentPlayerId, { health: 50 })
-          )
+  effectIt.effect(
+  'should handle non-existent player operations',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
+  // 存在しないプレイヤーの状態取得
+  const getStateResult = yield* Effect.either(playerService.getPlayerState(nonExistentPlayerId))
+  expect(Either.isLeft(getStateResult)).toBe(true)
+  if (Either.isLeft(getStateResult)) {
+  expect(getStateResult.left.reason).toBe('PLAYER_NOT_FOUND')
+  }
+  // 存在しないプレイヤーの削除
+  const destroyResult = yield* Effect.either(playerService.destroyPlayer(nonExistentPlayerId))
+  expect(Either.isLeft(destroyResult)).toBe(true)
+  if (Either.isLeft(destroyResult)) {
+  expect(destroyResult.left.reason).toBe('PLAYER_NOT_FOUND')
+  }
+  // 存在しないプレイヤーの更新
+  const updateResult = yield* Effect.either(
+  playerService.updatePlayerState(nonExistentPlayerId, { health: 50
+})
           expect(Either.isLeft(updateResult)).toBe(true)
           if (Either.isLeft(updateResult)) {
             expect(updateResult.left.reason).toBe('PLAYER_NOT_FOUND')
@@ -295,8 +277,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should validate input data and reject invalid values',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           // 無効なプレイヤー設定
@@ -320,13 +301,11 @@ describe('PlayerService Integration Tests', () => {
           // 無効な位置更新
           const invalidPositionResult = yield* Effect.either(
             playerService.setPlayerPosition(playerId, { x: 'invalid', y: 0, z: 0 })
-          )
           expect(Either.isLeft(invalidPositionResult)).toBe(true)
 
           // 無効な回転更新
           const invalidRotationResult = yield* Effect.either(
             playerService.setPlayerRotation(playerId, { pitch: Math.PI * 2, yaw: 0 })
-          )
           expect(Either.isLeft(invalidRotationResult)).toBe(true)
 
           // 無効な体力更新
@@ -337,18 +316,16 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Multi-Player Operations', () => {
-    effectIt.effect(
-      'should manage multiple players simultaneously',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-
-          // 複数のプレイヤーを作成
-          const playerConfigs = Array.from({ length: 10 }, (_, i) => ({
-            playerId: `multi-player-${i}`,
-            initialPosition: { x: i * 10, y: 64, z: i * -5 },
-            health: 80 + i,
-          }))
+  effectIt.effect(
+  'should manage multiple players simultaneously',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  // 複数のプレイヤーを作成
+  const playerConfigs = Array.from({ length: 10 }, (_, i) => ({
+  playerId: `multi-player-${i}`,
+  initialPosition: { x: i * 10, y: 64, z: i * -5 },
+  health: 80 + i,
+})
 
           // 並行してプレイヤーを作成
           const entityIds = yield* Effect.all(
@@ -377,8 +354,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should get players in range',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           // プレイヤーを異なる位置に配置
@@ -391,11 +367,11 @@ describe('PlayerService Integration Tests', () => {
           ]
 
           // プレイヤーを作成
-          for (const { playerId, position } of playerPositions) {
+          for (
             yield* playerService.createPlayer({
               playerId,
               initialPosition: position,
-            })
+            ) {$2}
           }
 
           // 範囲検索テスト（半径10）
@@ -414,8 +390,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should get player statistics',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           // 複数のプレイヤーを作成（一部は非アクティブ）
@@ -427,11 +402,11 @@ describe('PlayerService Integration Tests', () => {
             { playerId: 'stats-player-5', health: 20, active: false },
           ]
 
-          for (const player of players) {
+          for (
             yield* playerService.createPlayer({
               playerId: player.playerId,
               health: player.health,
-            })
+            ) {$2}
 
             if (!player.active) {
               const playerId = BrandedTypes.createPlayerId(player.playerId)
@@ -449,24 +424,20 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Performance and Concurrency Tests', () => {
-    effectIt.effect(
-      'should handle high-frequency player operations efficiently',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-
-          // 大量のプレイヤー操作を並行実行
-          const operationCount = 100
-          const startTime = performance.now()
-
-          // プレイヤー作成
-          const createOperations = Array.from({ length: operationCount }, (_, i) =>
-            playerService.createPlayer({
-              playerId: `perf-player-${i}`,
-              initialPosition: { x: i, y: 64, z: 0 },
-              health: 50 + (i % 50),
-            })
-          )
+  effectIt.effect(
+  'should handle high-frequency player operations efficiently',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  // 大量のプレイヤー操作を並行実行
+  const operationCount = 100
+  const startTime = performance.now()
+  // プレイヤー作成
+  const createOperations = Array.from({ length: operationCount }, (_, i),
+  playerService.createPlayer({
+  playerId: `perf-player-${i}`,
+  initialPosition: { x: i, y: 64, z: 0 },
+  health: 50 + (i % 50),
+})
 
           const entityIds = yield* Effect.all(createOperations, { concurrency: 'unbounded' })
           expect(entityIds).toHaveLength(operationCount)
@@ -507,20 +478,17 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should handle concurrent player creation and deletion',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           const playerCount = 50
 
           // 同時にプレイヤーを作成
-          const createOperations = Array.from({ length: playerCount }, (_, i) =>
+          const createOperations = Array.from({ length: playerCount }, (_, i),
             playerService.createPlayer({
               playerId: `concurrent-player-${i}`,
               health: 100,
             })
-          )
-
           yield* Effect.all(createOperations, { concurrency: 'unbounded' })
 
           // 作成されたプレイヤー数を確認
@@ -549,69 +517,58 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('ECS Integration Tests', () => {
-    effectIt.effect(
-      'should properly integrate with EntityManager',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const entityManager = yield* EntityManager
-
-          const config = {
-            playerId: 'ecs-integration-test',
-            initialPosition: { x: 42, y: 84, z: -42 },
-            health: 90,
-          }
-
-          const entityId = yield* playerService.createPlayer(config)
-
-          // EntityManager を直接使用してエンティティを確認
-          const isAlive = yield* entityManager.isEntityAlive(entityId)
-          expect(isAlive).toBe(true)
-
-          // エンティティのメタデータを確認
-          const metadata = yield* entityManager.getEntityMetadata(entityId)
-          expect(Option.isSome(metadata)).toBe(true)
-          if (Option.isSome(metadata)) {
-            expect(metadata.value.name).toBe(`Player-${config.playerId}`)
-            expect(metadata.value.tags).toContain('player')
-            expect(metadata.value.tags).toContain('entity')
-          }
-
-          // コンポーネントの存在確認
-          const hasPlayerComponent = yield* entityManager.hasComponent(entityId, 'PlayerComponent' as ComponentTypeName)
-          const hasPositionComponent = yield* entityManager.hasComponent(
-            entityId,
-            'PositionComponent' as ComponentTypeName
-          )
-          const hasRotationComponent = yield* entityManager.hasComponent(
-            entityId,
-            'RotationComponent' as ComponentTypeName
-          )
-
-          expect(hasPlayerComponent).toBe(true)
-          expect(hasPositionComponent).toBe(true)
-          expect(hasRotationComponent).toBe(true)
-
-          // コンポーネントの内容確認
-          const playerComponent = yield* entityManager.getComponent(entityId, 'PlayerComponent' as ComponentTypeName)
-          const positionComponent = yield* entityManager.getComponent(
-            entityId,
-            'PositionComponent' as ComponentTypeName
-          )
-
-          expect(Option.isSome(playerComponent)).toBe(true)
-          expect(Option.isSome(positionComponent)).toBe(true)
-
-          if (Option.isSome(positionComponent)) {
-            expect(positionComponent.value).toEqual(config.initialPosition)
-          }
-        }).pipe(Effect.provide(PlayerServiceTestLayer)) as any
+  effectIt.effect(
+  'should properly integrate with EntityManager',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const entityManager = yield* EntityManager
+  const config = {
+  playerId: 'ecs-integration-test',
+  initialPosition: { x: 42, y: 84, z: -42 },
+  health: 90,
+  }
+  const entityId = yield* playerService.createPlayer(config)
+  // EntityManager を直接使用してエンティティを確認
+  const isAlive = yield* entityManager.isEntityAlive(entityId)
+  expect(isAlive).toBe(true)
+  // エンティティのメタデータを確認
+  const metadata = yield* entityManager.getEntityMetadata(entityId)
+  expect(Option.isSome(metadata)).toBe(true)
+  if (Option.isSome(metadata)) {
+  expect(metadata.value.name).toBe(`Player-${config.playerId}`)
+  expect(metadata.value.tags).toContain('player')
+  expect(metadata.value.tags).toContain('entity')
+  }
+  // コンポーネントの存在確認
+  const hasPlayerComponent = yield* entityManager.hasComponent(entityId, 'PlayerComponent' as ComponentTypeName)
+  const hasPositionComponent = yield* entityManager.hasComponent(
+  entityId,
+  'PositionComponent' as ComponentTypeName
+  )
+  const hasRotationComponent = yield* entityManager.hasComponent(
+  entityId,
+  'RotationComponent' as ComponentTypeName
+  )
+  expect(hasPlayerComponent).toBe(true)
+  expect(hasPositionComponent).toBe(true)
+  expect(hasRotationComponent).toBe(true)
+  // コンポーネントの内容確認
+  const playerComponent = yield* entityManager.getComponent(entityId, 'PlayerComponent' as ComponentTypeName)
+  const positionComponent = yield* entityManager.getComponent(
+  entityId,
+  'PositionComponent' as ComponentTypeName
+  )
+  expect(Option.isSome(playerComponent)).toBe(true)
+  expect(Option.isSome(positionComponent)).toBe(true)
+  if (Option.isSome(positionComponent)) {
+  expect(positionComponent.value).toEqual(config.initialPosition)
+  }
+}).pipe(Effect.provide(PlayerServiceTestLayer)) as any
     )
 
     effectIt.effect(
       'should handle ECS errors gracefully',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const entityManager = yield* EntityManager
 
@@ -638,26 +595,21 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Memory Management and Resource Cleanup', () => {
-    effectIt.effect(
-      'should not leak memory after player deletion',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-
-          const initialStats = yield* playerService.getPlayerStats()
-          const initialPlayerCount = initialStats.totalPlayers
-
-          // 大量のプレイヤーを作成・削除
-          const cycleCount = 100
-
-          for (let cycle = 0; cycle < 5; cycle++) {
-            // プレイヤー作成
-            const createOperations = Array.from({ length: cycleCount }, (_, i) =>
-              playerService.createPlayer({
-                playerId: `memory-test-${cycle}-${i}`,
-                health: 50,
-              })
-            )
+  effectIt.effect(
+  'should not leak memory after player deletion',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const initialStats = yield* playerService.getPlayerStats()
+  const initialPlayerCount = initialStats.totalPlayers
+  // 大量のプレイヤーを作成・削除
+  const cycleCount = 100
+  for (let cycle = 0; cycle < 5; cycle++) {
+  // プレイヤー作成
+  const createOperations = Array.from({ length: cycleCount }, (_, i),
+  playerService.createPlayer({
+  playerId: `memory-test-${cycle}-${i}`,
+  health: 50,
+})
             yield* Effect.all(createOperations, { concurrency: 'unbounded' })
 
             // 全プレイヤーを削除
@@ -680,22 +632,19 @@ describe('PlayerService Integration Tests', () => {
   })
 
   describe('Edge Cases and Boundary Conditions', () => {
-    effectIt.effect(
-      'should handle rapid state changes correctly',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const playerId = BrandedTypes.createPlayerId('rapid-change-test')
-
-          yield* playerService.createPlayer({ playerId })
+  effectIt.effect(
+  'should handle rapid state changes correctly',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const playerId = BrandedTypes.createPlayerId('rapid-change-test')
+  yield* playerService.createPlayer({ playerId
+})
 
           // 短時間で大量の状態変更
-          const changeOperations = Array.from({ length: 50 }, (_, i) =>
+          const changeOperations = Array.from({ length: 50 }, (_, i),
             playerService.updatePlayerState(playerId, {
               position: { x: i, y: 64 + i, z: -i },
-              health: 50 + (i % 50),
-            })
-          )
+              health: 50 + (i % 50),})
 
           yield* Effect.all(changeOperations, { concurrency: 'unbounded' })
 
@@ -710,8 +659,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should handle extreme coordinate values',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const playerId = BrandedTypes.createPlayerId('extreme-coords-test')
 
@@ -734,8 +682,7 @@ describe('PlayerService Integration Tests', () => {
 
     effectIt.effect(
       'should maintain consistency under error conditions',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
 
           // 正常なプレイヤーと問題のあるプレイヤーを混在させる

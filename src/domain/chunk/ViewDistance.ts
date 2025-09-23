@@ -458,12 +458,12 @@ export const createViewDistance = (
           clampedDistance === currentState.currentViewDistance,
           Match.value,
           Match.when(true, () => Effect.void),
-          Match.orElse(() =>
-            Effect.gen(function* () {
+          Match.orElse(() => Effect.gen(function* () {
               const latestMetrics = pipe(
                 currentState.metricsHistory.length > 0,
-                Option.liftPredicate(Boolean),
-                Option.match({
+                Option.liftPredicate(Boolean
+    }),
+    Option.match({
                   onNone: () => undefined,
                   onSome: () => currentState.metricsHistory[currentState.metricsHistory.length - 1],
                 })
@@ -500,8 +500,9 @@ export const createViewDistance = (
         yield* Ref.update(state, (currentState) => ({
           ...currentState,
           metricsHistory: [
-            ...currentState.metricsHistory.slice(-(currentState.config.metricsHistorySize - 1)),
-            metrics,
+            ...currentState.metricsHistory.slice(-(currentState.config.metricsHistorySize - 1)
+    }),
+    metrics,
           ],
         }))
       })
@@ -520,8 +521,7 @@ export const createViewDistance = (
               currentState.metricsHistory.length < 10,
               Match.value,
               Match.when(true, () => Effect.succeed(null)),
-              Match.orElse(() =>
-                Effect.gen(function* () {
+              Match.orElse(() => Effect.gen(function* () {
                   const currentTime = yield* Clock.currentTimeMillis
                   const timeSinceLastAdjustment = currentTime - currentState.lastAdjustmentTime
 
@@ -551,9 +551,9 @@ export const createViewDistance = (
                                   pipe(
                                     optimization.confidence < 0.6,
                                     Match.value,
-                                    Match.when(true, () => Effect.succeed(null)),
-                                    Match.orElse(() =>
-                                      Effect.gen(function* () {
+                                    Match.when(true, () => Effect.succeed(null)
+    }),
+    Match.orElse(() => Effect.gen(function* () {
                                         yield* setViewDistance(optimization.suggestedDistance, optimization.reason)
 
                                         // 調整後の状態を取得してイベントを返す
@@ -616,8 +616,9 @@ export const createViewDistance = (
         // undefinedを明示的にnullに変換
         const currentMetrics: PerformanceMetrics | null = pipe(
           currentState.metricsHistory.length > 0,
-          Option.liftPredicate(Boolean),
-          Option.match({
+          Option.liftPredicate(Boolean
+    }),
+    Option.match({
             onNone: () => null,
             onSome: () => currentState.metricsHistory[currentState.metricsHistory.length - 1] ?? null,
           })

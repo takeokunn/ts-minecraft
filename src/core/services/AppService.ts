@@ -10,8 +10,8 @@ export const AppService = Context.GenericTag<AppService>('@app/services/AppServi
 
 // Service実装
 export const AppServiceLive = Layer.succeed(
-  AppService,
-  AppService.of({
+    AppService,
+    AppService.of({
     initialize: () => Effect.succeed({ success: true }),
     getReadyStatus: () => Effect.succeed({ ready: true }),
   })

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Schema, Either, pipe } from 'effect'
 import {
   PlayerPosition,
@@ -33,20 +34,19 @@ import { BrandedTypes } from '../../../shared/types/branded.js'
 
 describe('Player Entity System - Component Tests', () => {
   describe('Schema Validation - PlayerPosition', () => {
-    it('should validate correct position coordinates', async () => {
-      const validPositions = [
-        { x: 0, y: 0, z: 0 },
-        { x: 100.5, y: 64, z: -50.25 },
-        { x: -1000, y: 256, z: 1000 },
-        { x: Number.MAX_SAFE_INTEGER, y: Number.MAX_SAFE_INTEGER, z: Number.MAX_SAFE_INTEGER },
-        { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER, z: Number.MIN_SAFE_INTEGER },
-      ]
-
-      for (const position of validPositions) {
-        const result = await Effect.runPromise(validatePlayerPosition(position))
-        expect(result).toEqual(position)
-      }
-    })
+  it('should validate correct position coordinates', async () => {
+  const validPositions = [
+  { x: 0, y: 0, z: 0 },
+  { x: 100.5, y: 64, z: -50.25 },
+  { x: -1000, y: 256, z: 1000 },
+  { x: Number.MAX_SAFE_INTEGER, y: Number.MAX_SAFE_INTEGER, z: Number.MAX_SAFE_INTEGER },
+  { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER, z: Number.MIN_SAFE_INTEGER },
+  ]
+  for (const position of validPositions) {
+  const result = await Effect.runPromise(validatePlayerPosition(position))
+  expect(result).toEqual(position)
+  }
+})
 
     it('should reject invalid position types', async () => {
       const invalidPositions = [
@@ -96,20 +96,19 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerRotation', () => {
-    it('should validate correct rotation angles', async () => {
-      const validRotations = [
-        { pitch: 0, yaw: 0 },
-        { pitch: Math.PI / 4, yaw: Math.PI },
-        { pitch: -Math.PI / 4, yaw: -Math.PI },
-        { pitch: Math.PI / 2, yaw: 2 * Math.PI }, // Max pitch
-        { pitch: -Math.PI / 2, yaw: -2 * Math.PI }, // Min pitch
-      ]
-
-      for (const rotation of validRotations) {
-        const result = await Effect.runPromise(validatePlayerRotation(rotation))
-        expect(result).toEqual(rotation)
-      }
-    })
+  it('should validate correct rotation angles', async () => {
+  const validRotations = [
+  { pitch: 0, yaw: 0 },
+  { pitch: Math.PI / 4, yaw: Math.PI },
+  { pitch: -Math.PI / 4, yaw: -Math.PI },
+  { pitch: Math.PI / 2, yaw: 2 * Math.PI }, // Max pitch
+  { pitch: -Math.PI / 2, yaw: -2 * Math.PI }, // Min pitch
+  ]
+  for (const rotation of validRotations) {
+  const result = await Effect.runPromise(validatePlayerRotation(rotation))
+  expect(result).toEqual(rotation)
+  }
+})
 
     it('should reject out-of-bounds pitch values', async () => {
       const invalidRotations = [
@@ -154,18 +153,17 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerConfig', () => {
-    it('should validate complete player config', async () => {
-      const config = {
-        playerId: 'test-player-1',
-        initialPosition: { x: 0, y: 64, z: 0 },
-        initialRotation: { pitch: 0, yaw: 0 },
-        health: 100,
-      }
-
-      const result = await Effect.runPromise(validatePlayerConfig(config))
-
-      expect(result.playerId).toBe('test-player-1')
-      expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
+  it('should validate complete player config', async () => {
+  const config = {
+  playerId: 'test-player-1',
+  initialPosition: { x: 0, y: 64, z: 0 },
+  initialRotation: { pitch: 0, yaw: 0 },
+  health: 100,
+  }
+  const result = await Effect.runPromise(validatePlayerConfig(config))
+  expect(result.playerId).toBe('test-player-1')
+  expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0
+})
       expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
       expect(result.health).toBe(100)
     })
@@ -203,7 +201,7 @@ describe('Player Entity System - Component Tests', () => {
       }
 
       // Test specific edge cases that should fail
-      const emptyPlayerIdResult = await Effect.runPromise(Effect.either(validatePlayerConfig({ playerId: '' })))
+      const emptyPlayerIdResult = await Effect.runPromise(Effect.either(validatePlayerConfig({ playerId: ''})
       // Note: empty string might be valid for some schemas, so we test but don't strictly require failure
 
       const negativeHealthResult = await Effect.runPromise(
@@ -212,8 +210,6 @@ describe('Player Entity System - Component Tests', () => {
             playerId: 'test',
             health: -10,
           })
-        )
-      )
       expect(negativeHealthResult._tag).toBe('Left')
 
       const highHealthResult = await Effect.runPromise(
@@ -222,8 +218,6 @@ describe('Player Entity System - Component Tests', () => {
             playerId: 'test',
             health: 150,
           })
-        )
-      )
       expect(highHealthResult._tag).toBe('Left')
     })
 
@@ -242,20 +236,19 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerState', () => {
-    it('should validate complete player state', async () => {
-      const state = {
-        playerId: 'state-test-player',
-        entityId: 12345,
-        position: { x: 10.5, y: 65, z: -20.3 },
-        rotation: { pitch: Math.PI / 6, yaw: Math.PI / 3 },
-        health: 85,
-        isActive: true,
-        lastUpdate: Date.now(),
-      }
-
-      const result = await Effect.runPromise(validatePlayerState(state))
-      expect(result).toEqual(state)
-    })
+  it('should validate complete player state', async () => {
+  const state = {
+  playerId: 'state-test-player',
+  entityId: 12345,
+  position: { x: 10.5, y: 65, z: -20.3 },
+  rotation: { pitch: Math.PI / 6, yaw: Math.PI / 3 },
+  health: 85,
+  isActive: true,
+  lastUpdate: Date.now(),
+  }
+  const result = await Effect.runPromise(validatePlayerState(state))
+  expect(result).toEqual(state)
+})
 
     it('should reject invalid player state', async () => {
       const invalidStates = [
@@ -309,26 +302,25 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Schema Validation - PlayerUpdateData', () => {
-    it('should validate partial update data', async () => {
-      const updateTests = [
-        { position: { x: 1, y: 2, z: 3 } },
-        { rotation: { pitch: 0.1, yaw: 0.2 } },
-        { health: 90 },
-        { position: { x: 0, y: 0, z: 0 }, health: 50 },
-        { rotation: { pitch: 0, yaw: 0 }, health: 75 },
-        {
-          position: { x: 100, y: 200, z: 300 },
-          rotation: { pitch: 0.5, yaw: 1.0 },
-          health: 80,
-        },
-        {}, // empty update is valid
-      ]
-
-      for (const updateData of updateTests) {
-        const result = await Effect.runPromise(validatePlayerUpdateData(updateData))
-        expect(result).toEqual(updateData)
-      }
-    })
+  it('should validate partial update data', async () => {
+  const updateTests = [
+  { position: { x: 1, y: 2, z: 3 } },
+  { rotation: { pitch: 0.1, yaw: 0.2 } },
+  { health: 90 },
+  { position: { x: 0, y: 0, z: 0 }, health: 50 },
+  { rotation: { pitch: 0, yaw: 0 }, health: 75 },
+  {
+  position: { x: 100, y: 200, z: 300 },
+  rotation: { pitch: 0.5, yaw: 1.0 },
+  health: 80,
+  },
+  {}, // empty update is valid
+  ]
+  for (const updateData of updateTests) {
+  const result = await Effect.runPromise(validatePlayerUpdateData(updateData))
+  expect(result).toEqual(updateData)
+  }
+})
 
     it('should reject invalid update data', async () => {
       const invalidUpdates = [
@@ -363,168 +355,150 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Error Handling and Types', () => {
-    it('should create PlayerError with correct structure', () => {
-      const playerId = BrandedTypes.createPlayerId('error-test-player')
-      const error = createPlayerError.playerNotFound(playerId, 'test operation')
+  it.effect('should create PlayerError with correct structure', () => Effect.gen(function* () {
+    const playerId = BrandedTypes.createPlayerId('error-test-player')
+    const error = createPlayerError.playerNotFound(playerId, 'test operation')
+    expect(error._tag).toBe('PlayerError')
+    expect(error.reason).toBe('PLAYER_NOT_FOUND')
+    expect(error.message).toContain('error-test-player')
+    expect(error.message).toContain('test operation')
+    expect(error.playerId).toBe(playerId)
+    expect(isPlayerError(error)).toBe(true)
+    )
+    it.effect('should create all error types correctly', () => Effect.gen(function* () {
+    const playerId = BrandedTypes.createPlayerId('test-player')
+    const errors = [
+    createPlayerError.playerNotFound(playerId),
+    createPlayerError.playerAlreadyExists(playerId
+    }),
+    createPlayerError.invalidPosition({ x: 'invalid' }, playerId),
+    createPlayerError.invalidRotation({ pitch: 'invalid' }, playerId),
+    createPlayerError.invalidHealth(-10, playerId),
+    createPlayerError.entityCreationFailed(playerId),
+    createPlayerError.componentError(playerId, 'TestComponent'),
+    createPlayerError.validationError('Test validation error'),
+    ]
+    for (
+    expect(error._tag).toBe('PlayerError')
+    expect(typeof error.message).toBe('string')
+    expect(error.message.length).toBeGreaterThan(0)
+    expect(
+    [
+    'PLAYER_NOT_FOUND',
+    'PLAYER_ALREADY_EXISTS',
+    'INVALID_POSITION',
+    'INVALID_ROTATION',
+    'INVALID_HEALTH',
+    'ENTITY_CREATION_FAILED',
+    'COMPONENT_ERROR',
+    'VALIDATION_ERROR',
+    ].includes(error.reason)
+    ).toBe(true)
+    expect(isPlayerError(error)).toBe(true)
+    ) {$2
+})
+),
+    Effect.gen(function* () {
+    const validReasons = [
+    'PLAYER_NOT_FOUND',
+    'PLAYER_ALREADY_EXISTS',
+    'INVALID_POSITION',
+    'INVALID_ROTATION',
+    'INVALID_HEALTH',
+    'ENTITY_CREATION_FAILED',
+    'COMPONENT_ERROR',
+    'VALIDATION_ERROR',
+    ]
+    for (
+    const result = Schema.decodeUnknownSync(PlayerErrorReason)(reason)
+    expect(result).toBe(reason)
+    ) {$2}
+    )
 
-      expect(error._tag).toBe('PlayerError')
-      expect(error.reason).toBe('PLAYER_NOT_FOUND')
-      expect(error.message).toContain('error-test-player')
-      expect(error.message).toContain('test operation')
-      expect(error.playerId).toBe(playerId)
-      expect(isPlayerError(error)).toBe(true)
-    })
-
-    it('should create all error types correctly', () => {
-      const playerId = BrandedTypes.createPlayerId('test-player')
-
-      const errors = [
-        createPlayerError.playerNotFound(playerId),
-        createPlayerError.playerAlreadyExists(playerId),
-        createPlayerError.invalidPosition({ x: 'invalid' }, playerId),
-        createPlayerError.invalidRotation({ pitch: 'invalid' }, playerId),
-        createPlayerError.invalidHealth(-10, playerId),
-        createPlayerError.entityCreationFailed(playerId),
-        createPlayerError.componentError(playerId, 'TestComponent'),
-        createPlayerError.validationError('Test validation error'),
-      ]
-
-      for (const error of errors) {
-        expect(error._tag).toBe('PlayerError')
-        expect(typeof error.message).toBe('string')
-        expect(error.message.length).toBeGreaterThan(0)
-        expect(
-          [
-            'PLAYER_NOT_FOUND',
-            'PLAYER_ALREADY_EXISTS',
-            'INVALID_POSITION',
-            'INVALID_ROTATION',
-            'INVALID_HEALTH',
-            'ENTITY_CREATION_FAILED',
-            'COMPONENT_ERROR',
-            'VALIDATION_ERROR',
-          ].includes(error.reason)
-        ).toBe(true)
-        expect(isPlayerError(error)).toBe(true)
-      }
-    })
-
-    it('should validate PlayerErrorReason enum', () => {
-      const validReasons = [
-        'PLAYER_NOT_FOUND',
-        'PLAYER_ALREADY_EXISTS',
-        'INVALID_POSITION',
-        'INVALID_ROTATION',
-        'INVALID_HEALTH',
-        'ENTITY_CREATION_FAILED',
-        'COMPONENT_ERROR',
-        'VALIDATION_ERROR',
-      ]
-
-      for (const reason of validReasons) {
-        const result = Schema.decodeUnknownSync(PlayerErrorReason)(reason)
-        expect(result).toBe(reason)
-      }
-    })
-
-    it('should reject invalid error reasons', () => {
-      const invalidReasons = ['INVALID_REASON', '', null, undefined, 123, {}]
-
-      for (const reason of invalidReasons) {
-        expect(() => Schema.decodeUnknownSync(PlayerErrorReason)(reason)).toThrow()
-      }
-    })
+    it.effect('should reject invalid error reasons', () => Effect.gen(function* () {
+    const invalidReasons = ['INVALID_REASON', '', null, undefined, 123, {}]
+    for (
+    expect(() => Schema.decodeUnknownSync(PlayerErrorReason)(reason)).toThrow()
+    ) {$2}
+    )
+  }) {
+    it.effect('should validate PlayerComponent structure', () => Effect.gen(function* () {
+    const playerComponent: PlayerComponent = {
+    playerId: BrandedTypes.createPlayerId('component-test'),
+    health: 85,
+    lastUpdate: Date.now(
+    }),
+    expect(playerComponent.playerId).toBeDefined()
+    expect(typeof playerComponent.health).toBe('number')
+    expect(typeof playerComponent.lastUpdate).toBe('number')
+    expect(playerComponent.health).toBeGreaterThanOrEqual(0)
+    expect(playerComponent.health).toBeLessThanOrEqual(100)
   })
-
-  describe('Component Type Validation', () => {
-    it('should validate PlayerComponent structure', () => {
-      const playerComponent: PlayerComponent = {
-        playerId: BrandedTypes.createPlayerId('component-test'),
-        health: 85,
-        lastUpdate: Date.now(),
-      }
-
-      expect(playerComponent.playerId).toBeDefined()
-      expect(typeof playerComponent.health).toBe('number')
-      expect(typeof playerComponent.lastUpdate).toBe('number')
-      expect(playerComponent.health).toBeGreaterThanOrEqual(0)
-      expect(playerComponent.health).toBeLessThanOrEqual(100)
-    })
-
-    it('should validate PositionComponent structure', () => {
-      const positionComponent: PositionComponent = {
+),
+  Effect.gen(function* () {
+        const positionComponent: PositionComponent = {
         x: 123.456,
         y: 64.0,
         z: -789.123,
-      }
+        expect(typeof positionComponent.x).toBe('number')
+        expect(typeof positionComponent.y).toBe('number')
+        expect(typeof positionComponent.z).toBe('number')
+        expect(Number.isFinite(positionComponent.x)).toBe(true)
+        expect(Number.isFinite(positionComponent.y)).toBe(true)
+        expect(Number.isFinite(positionComponent.z)).toBe(true)
 
-      expect(typeof positionComponent.x).toBe('number')
-      expect(typeof positionComponent.y).toBe('number')
-      expect(typeof positionComponent.z).toBe('number')
-      expect(Number.isFinite(positionComponent.x)).toBe(true)
-      expect(Number.isFinite(positionComponent.y)).toBe(true)
-      expect(Number.isFinite(positionComponent.z)).toBe(true)
-    })
-
-    it('should validate RotationComponent structure', () => {
-      const rotationComponent: RotationComponent = {
-        pitch: Math.PI / 3,
-        yaw: -Math.PI / 4,
-      }
-
-      expect(typeof rotationComponent.pitch).toBe('number')
-      expect(typeof rotationComponent.yaw).toBe('number')
-      expect(Number.isFinite(rotationComponent.pitch)).toBe(true)
-      expect(Number.isFinite(rotationComponent.yaw)).toBe(true)
-    })
+      })
+    it.effect('should validate RotationComponent structure', () => Effect.gen(function* () {
+    const rotationComponent: RotationComponent = {
+    pitch: Math.PI / 3,
+    yaw: -Math.PI / 4,
+    expect(typeof rotationComponent.pitch).toBe('number')
+    expect(typeof rotationComponent.yaw).toBe('number')
+    expect(Number.isFinite(rotationComponent.pitch)).toBe(true)
+    expect(Number.isFinite(rotationComponent.yaw)).toBe(true)
   })
-
-  describe('Default Configuration', () => {
-    it('should provide valid default player config', async () => {
-      const defaultConfig = {
-        playerId: 'default-test-player',
-        ...DEFAULT_PLAYER_CONFIG,
-      }
-
-      const result = await Effect.runPromise(validatePlayerConfig(defaultConfig))
-
-      expect(result.playerId).toBe('default-test-player')
-      expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
-      expect(result.health).toBe(100)
+)
+    describe('Default Configuration', () => {
+  it('should provide valid default player config', async () => {
+    const defaultConfig = {
+    playerId: 'default-test-player',
+    ...DEFAULT_PLAYER_CONFIG,
+    }
+    const result = await Effect.runPromise(validatePlayerConfig(defaultConfig))
+    expect(result.playerId).toBe('default-test-player')
+    expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0
+})
+    expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+    expect(result.health).toBe(100)
     })
 
     it('should allow overriding default config', async () => {
-      const customConfig = {
-        playerId: 'custom-test-player',
-        ...DEFAULT_PLAYER_CONFIG,
-        initialPosition: { x: 100, y: 128, z: -100 },
-        health: 50,
-      }
+    const customConfig = {
+    playerId: 'custom-test-player',
+    ...DEFAULT_PLAYER_CONFIG,
+    initialPosition: { x: 100, y: 128, z: -100 },
+    health: 50,
+    }
 
-      const result = await Effect.runPromise(validatePlayerConfig(customConfig))
+    const result = await Effect.runPromise(validatePlayerConfig(customConfig))
 
-      expect(result.playerId).toBe('custom-test-player')
-      expect(result.initialPosition).toEqual({ x: 100, y: 128, z: -100 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
-      expect(result.health).toBe(50)
+    expect(result.playerId).toBe('custom-test-player')
+    expect(result.initialPosition).toEqual({ x: 100, y: 128, z: -100 })
+    expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+    expect(result.health).toBe(50)
     })
-  })
-
-  describe('Type Safety and Branded Types', () => {
-    it('should enforce branded types for PlayerId', () => {
-      const playerId = BrandedTypes.createPlayerId('branded-test-player')
-
-      // PlayerId should be a branded string type
-      expect(typeof playerId).toBe('string')
-      expect(playerId).toBe('branded-test-player')
-
-      // Should be usable in Player-related functions
-      const error = createPlayerError.playerNotFound(playerId)
-      expect(error.playerId).toBe(playerId)
     })
 
-    it('should maintain type safety in schema transformations', async () => {
+    describe('Type Safety and Branded Types', () => {
+  it.effect('should enforce branded types for PlayerId', () => Effect.gen(function* () {
+    const playerId = BrandedTypes.createPlayerId('branded-test-player')
+    // PlayerId should be a branded string type
+    expect(typeof playerId).toBe('string')
+    expect(playerId).toBe('branded-test-player')
+    // Should be usable in Player-related functions
+    const error = createPlayerError.playerNotFound(playerId)
+    expect(error.playerId).toBe(playerId)
+}) {
       const input = {
         playerId: 'type-safety-test',
         initialPosition: { x: 42, y: 64, z: -42 },
@@ -543,19 +517,16 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Performance and Memory Tests', () => {
-    it('should handle large numbers of validation operations efficiently', async () => {
-      const startTime = performance.now()
-      const operations = 1000
-
-      const promises = Array.from({ length: operations }, (_, i) =>
-        Effect.runPromise(
-          validatePlayerConfig({
-            playerId: `perf-test-player-${i}`,
-            initialPosition: { x: i, y: 64, z: -i },
-            health: (i % 100) + 1,
-          })
-        )
-      )
+  it('should handle large numbers of validation operations efficiently', async () => {
+  const startTime = performance.now()
+  const operations = 1000
+  const promises = Array.from({ length: operations }, (_, i),
+  Effect.runPromise(
+  validatePlayerConfig({
+  playerId: `perf-test-player-${i}`,
+  initialPosition: { x: i, y: 64, z: -i },
+  health: (i % 100) + 1,
+})
 
       const results = await Promise.all(promises)
       const endTime = performance.now()
@@ -574,10 +545,8 @@ describe('Player Entity System - Component Tests', () => {
       const startTime = performance.now()
       const operations = 500
 
-      const promises = Array.from({ length: operations }, () =>
-        Effect.runPromise(Effect.either(validatePlayerConfig({ invalidField: 'invalid' })))
-      )
-
+      const promises = Array.from({ length: operations }, (),
+        Effect.runPromise(Effect.either(validatePlayerConfig({ invalidField: 'invalid'  })
       const results = await Promise.all(promises)
       const endTime = performance.now()
 
@@ -595,21 +564,20 @@ describe('Player Entity System - Component Tests', () => {
   })
 
   describe('Edge Cases and Boundary Conditions', () => {
-    it('should handle edge case positions', async () => {
-      const edgeCases = [
-        { x: 0, y: 0, z: 0 }, // origin
-        { x: -0, y: -0, z: -0 }, // negative zero
-        { x: 1e-10, y: 1e10, z: -1e10 }, // very small and very large
-        { x: 0.1 + 0.2, y: 0, z: 0 }, // floating point precision
-      ]
-
-      for (const position of edgeCases) {
-        const result = await Effect.runPromise(validatePlayerPosition(position))
-        expect(result.x).toBeCloseTo(position.x, 10)
-        expect(result.y).toBeCloseTo(position.y, 10)
-        expect(result.z).toBeCloseTo(position.z, 10)
-      }
-    })
+  it('should handle edge case positions', async () => {
+  const edgeCases = [
+  { x: 0, y: 0, z: 0 }, // origin
+  { x: -0, y: -0, z: -0 }, // negative zero
+  { x: 1e-10, y: 1e10, z: -1e10 }, // very small and very large
+  { x: 0.1 + 0.2, y: 0, z: 0 }, // floating point precision
+  ]
+  for (const position of edgeCases) {
+  const result = await Effect.runPromise(validatePlayerPosition(position))
+  expect(result.x).toBeCloseTo(position.x, 10)
+  expect(result.y).toBeCloseTo(position.y, 10)
+  expect(result.z).toBeCloseTo(position.z, 10)
+  }
+})
 
     it('should handle edge case rotations', async () => {
       const edgeCases = [

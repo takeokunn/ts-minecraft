@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, TestContext } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
@@ -92,22 +93,21 @@ describe('ThreeRendererLive', () => {
   let canvas: HTMLCanvasElement
   let scene: THREE.Scene
   let camera: THREE.Camera
-
   beforeEach(() => {
-    canvas = createMockCanvas()
-    scene = new THREE.Scene()
-    camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
-  })
+  canvas = createMockCanvas()
+  scene = new THREE.Scene()
+  camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000)
+})
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
   describe('Layer作成', () => {
-    it('ThreeRendererLiveレイヤーが正常に作成される', async () => {
-      const layer = ThreeRendererLive
-      expect(layer).toBeDefined()
-    })
+  it('ThreeRendererLiveレイヤーが正常に作成される', async () => {
+  const layer = ThreeRendererLive
+  expect(layer).toBeDefined()
+})
 
     it('ThreeRendererサービスが正常に提供される', async () => {
       const program = Effect.gen(function* () {
@@ -124,15 +124,14 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('実装詳細テスト', () => {
-    it('初期化時にWebGL2サポートがチェックされる', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(canvas)
-
-        // 初期化が成功することを確認
-        const rendererInstance = yield* renderer.getRenderer()
-        expect(rendererInstance).not.toBeNull()
-      })
+  it('初期化時にWebGL2サポートがチェックされる', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(canvas)
+  // 初期化が成功することを確認
+  const rendererInstance = yield* renderer.getRenderer()
+  expect(rendererInstance).not.toBeNull()
+})
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       await Effect.runPromise(runnable)
@@ -213,14 +212,13 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('エラーハンドリング', () => {
-    it('WebGLコンテキスト作成失敗時に適切なエラーが発生する', async () => {
-      const failingCanvas = createMockCanvas()
-      vi.spyOn(failingCanvas, 'getContext').mockReturnValue(null)
-
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.initialize(failingCanvas)
-      })
+  it('WebGLコンテキスト作成失敗時に適切なエラーが発生する', async () => {
+  const failingCanvas = createMockCanvas()
+  vi.spyOn(failingCanvas, 'getContext').mockReturnValue(null)
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.initialize(failingCanvas)
+})
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)
@@ -243,7 +241,7 @@ describe('ThreeRendererLive', () => {
       })
 
       const runnable = Effect.provide(program, ThreeRendererLive)
-      const result = await Effect.runPromiseExit(runnable)
+      const result = await Effect.runPromiseExit.effect(runnable)
 
       expect(result._tag).toBe('Failure')
       if (result._tag === 'Failure') {
@@ -255,14 +253,13 @@ describe('ThreeRendererLive', () => {
     })
   })
 
-  describe('設定機能', () => {
+  describe('設定機能', () => Effect.gen(function* () {
     it('初期化前でもシャドウマップ設定が安全に実行される', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.configureShadowMap({ enabled: true })
-      })
-
-      const runnable = Effect.provide(program, ThreeRendererLive)
+    const program = Effect.gen(function* () {
+    const renderer = yield* ThreeRenderer
+    yield* renderer.configureShadowMap({ enabled: true
+  })
+)
       await Effect.runPromise(runnable)
     })
 
@@ -288,11 +285,11 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('高度な機能とエラーケース', () => {
-    it('初期化されていない状態でrenderを呼ぶとエラーが発生する', async () => {
-      const program = Effect.gen(function* () {
-        const renderer = yield* ThreeRenderer
-        yield* renderer.render(scene, camera)
-      })
+  it('初期化されていない状態でrenderを呼ぶとエラーが発生する', async () => {
+  const program = Effect.gen(function* () {
+  const renderer = yield* ThreeRenderer
+  yield* renderer.render(scene, camera)
+})
 
       const runnable = Effect.provide(program, ThreeRendererLive)
       const result = await Effect.runPromiseExit(runnable)

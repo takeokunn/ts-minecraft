@@ -1,17 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Context } from 'effect'
-import * as fc from 'fast-check'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Layer, Context, Schema } from 'effect'
 import { LoggerServiceTest } from '../LoggerServiceTest'
 import { LoggerService, LogLevel, createLogEntry } from '../LoggerService'
 
 describe('LoggerServiceTest', () => {
   describe('Layer creation', () => {
-    it('creates a valid LoggerService Layer', () => {
-      expect(LoggerServiceTest).toBeDefined()
-      expect(typeof LoggerServiceTest).toBe('object')
-    })
-
-    it('provides LoggerService implementation', async () => {
+  it.effect('creates a valid LoggerService Layer', () => Effect.gen(function* () {
+    expect(LoggerServiceTest).toBeDefined()
+    expect(typeof LoggerServiceTest).toBe('object')
+}) {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
         expect(logger).toBeDefined()
@@ -28,102 +26,71 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Logging operations', () => {
-    const messageArbitrary = fc.string({ minLength: 1, maxLength: 100 })
-    const contextArbitrary = fc.record({
-      userId: fc.string(),
-      action: fc.string(),
-      timestamp: fc.integer({ min: 1000000000, max: 2000000000 }),
-    })
+  const MessageSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(100))
+  const ContextSchema = Schema.Struct({
+  userId: Schema.String,
+  action: Schema.String,
+  timestamp: Schema.Int.pipe(Schema.between(1000000000, 2000000000)),
+})
 
-    it('logs debug messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
-          const program = Effect.gen(function* () {
-            const logger = yield* LoggerService
-            yield* logger.debug(message, context)
-            return 'success'
-          })
+    it.prop('logs debug messages', [MessageSchema, ContextSchema], ({ string: message, struct: context })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-          expect(result).toBe('success')
-        }),
-        { numRuns: 50 }
-      )
-    })
+      Effect.gen(function* () {
+        const logger = yield* LoggerService
+        yield* logger.debug(message, context)
+        const result = 'success'
+        expect(result).toBe('success')
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
 
-    it('logs info messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
-          const program = Effect.gen(function* () {
-            const logger = yield* LoggerService
-            yield* logger.info(message, context)
-            return 'success'
-          })
+    it.prop('logs info messages', [MessageSchema, ContextSchema], ({ string: message, struct: context })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-          expect(result).toBe('success')
-        }),
-        { numRuns: 50 }
-      )
-    })
+      Effect.gen(function* () {
+        const logger = yield* LoggerService
+        yield* logger.info(message, context)
+        const result = 'success'
+        expect(result).toBe('success')
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
 
-    it('logs warn messages', async () => {
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, contextArbitrary, async (message, context) => {
-          const program = Effect.gen(function* () {
-            const logger = yield* LoggerService
-            yield* logger.warn(message, context)
-            return 'success'
-          })
+    it.prop('logs warn messages', [MessageSchema, ContextSchema], ({ string: message, struct: context })
 
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-          expect(result).toBe('success')
-        }),
-        { numRuns: 50 }
-      )
-    })
+      Effect.gen(function* () {
+        const logger = yield* LoggerService
+        yield* logger.warn(message, context)
+        const result = 'success'
+        expect(result).toBe('success')
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
 
-    it('logs error messages', async () => {
-      const errorArbitrary = fc.string().map((msg) => new Error(msg))
+    it.prop('logs error messages', [MessageSchema, Schema.String.pipe(Schema.transform(Schema.Unknown, { decode: (s: string) => new Error(s), encode: (e: unknown) => String(e)})], ({ string: message, unknown: error })
 
-      await fc.assert(
-        fc.asyncProperty(messageArbitrary, errorArbitrary, async (message, error) => {
-          const program = Effect.gen(function* () {
-            const logger = yield* LoggerService
-            yield* logger.error(message, error)
-            return 'success'
-          })
-
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-          expect(result).toBe('success')
-        }),
-        { numRuns: 50 }
-      )
-    })
+      Effect.gen(function* () {
+        const logger = yield* LoggerService
+        yield* logger.error(message, error)
+        const result = 'success'
+        expect(result).toBe('success')
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
   })
 
   describe('Performance measurement', () => {
-    it('measures performance of Effect operations', async () => {
-      const functionNameArbitrary = fc.string({ minLength: 1, maxLength: 50 })
-      const valueArbitrary = fc.integer({ min: 1, max: 1000 })
+  it.prop('measures performance of Effect operations', [
+  Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
+  Schema.Int.pipe(Schema.between(1, 1000))
+  ], ({ string: functionName, number: value
+})
 
-      await fc.assert(
-        fc.asyncProperty(functionNameArbitrary, valueArbitrary, async (functionName, value) => {
-          const program = Effect.gen(function* () {
-            const logger = yield* LoggerService
+      Effect.gen(function* () {
+        const logger = yield* LoggerService
 
-            const operation = Effect.sync(() => value * 2)
-            const result = yield* logger.measurePerformance(functionName, operation)
+        const operation = Effect.sync(() => value * 2)
+        const result = yield* logger.measurePerformance(functionName, operation)
 
-            return result
-          })
-
-          const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
-          expect(result).toBe(value * 2)
-        }),
-        { numRuns: 50 }
-      )
-    })
+        expect(result).toBe(value * 2)
+        return result
+      }).pipe(Effect.provide(LoggerServiceTest))
+    )
 
     it('measures performance of async operations', async () => {
       const program = Effect.gen(function* () {
@@ -154,30 +121,25 @@ describe('LoggerServiceTest', () => {
         return yield* logger.measurePerformance('failing-test', failingOperation)
       })
 
-      const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(LoggerServiceTest)))
+      const exit = await Effect.runPromiseExit.effect(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(exit._tag).toBe('Failure')
     })
   })
 
-  describe('Layer composition', () => {
+  describe('Layer composition', () => Effect.gen(function* () {
     it('can be composed with other layers', async () => {
-      const TestService = Context.GenericTag<{ value: string }>('TestService')
-      const TestServiceImpl = { value: 'test' }
-      const TestLayer = Layer.succeed(TestService, TestServiceImpl)
-
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-        const testService = yield* TestService
-
-        yield* logger.info('Testing layer composition')
-
-        return {
-          loggerAvailable: !!logger,
-          testServiceValue: testService.value,
-        }
-      })
-
-      const combinedLayer = Layer.merge(LoggerServiceTest, TestLayer)
+    const TestService = Context.GenericTag<{ value: string }>('TestService')
+    const TestServiceImpl = { value: 'test' }
+    const TestLayer = Layer.succeed(TestService, TestServiceImpl)
+    const program = Effect.gen(function* () {
+    const logger = yield* LoggerService
+    const testService = yield* TestService
+    yield* logger.info('Testing layer composition')
+    return {
+    loggerAvailable: !!logger,
+    testServiceValue: testService.value,
+  })
+)
       const result = await Effect.runPromise(program.pipe(Effect.provide(combinedLayer)))
 
       expect(result.loggerAvailable).toBe(true)
@@ -186,20 +148,17 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Error handling', () => {
-    it('handles logging operations gracefully', async () => {
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-
-        // Test with undefined context
-        yield* logger.debug('debug message', undefined)
-        yield* logger.info('info message', undefined)
-        yield* logger.warn('warn message', undefined)
-
-        // Test with undefined error
-        yield* logger.error('error message', undefined)
-
-        return 'success'
-      })
+  it('handles logging operations gracefully', async () => {
+  const program = Effect.gen(function* () {
+  const logger = yield* LoggerService
+  // Test with undefined context
+  yield* logger.debug('debug message', undefined)
+  yield* logger.info('info message', undefined)
+  yield* logger.warn('warn message', undefined)
+  // Test with undefined error
+  yield* logger.error('error message', undefined)
+  return 'success'
+})
 
       const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('success')
@@ -223,11 +182,11 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Message format consistency', () => {
-    it('maintains consistent log entry format', async () => {
-      const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
-
-      for (const level of levels) {
-        const entry = await Effect.runPromise(createLogEntry(level, 'test message', { key: 'value' }))
+  it('maintains consistent log entry format', async () => {
+  const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
+  for (
+  const entry = await Effect.runPromise(createLogEntry(level, 'test message', { key: 'value' ) {$2
+})
 
         expect(entry.level).toBe(level)
         expect(entry.message).toBe('test message')
@@ -253,17 +212,15 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Integration scenarios', () => {
-    it('supports rapid sequential logging', async () => {
-      const program = Effect.gen(function* () {
-        const logger = yield* LoggerService
-
-        // Log many messages in sequence
-        for (let i = 0; i < 100; i++) {
-          yield* logger.info(`Message ${i}`)
-        }
-
-        return 'completed'
-      })
+  it('supports rapid sequential logging', async () => {
+  const program = Effect.gen(function* () {
+  const logger = yield* LoggerService
+  // Log many messages in sequence
+  for (let i = 0; i < 100; i++) {
+  yield* logger.info(`Message ${i}`)
+  }
+  return 'completed'
+})
 
       const result = await Effect.runPromise(program.pipe(Effect.provide(LoggerServiceTest)))
       expect(result).toBe('completed')

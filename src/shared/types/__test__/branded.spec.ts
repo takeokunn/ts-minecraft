@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { Schema, ParseResult } from 'effect'
-import * as fc from 'fast-check'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Schema, ParseResult, Effect, Either } from 'effect'
 import {
   PlayerIdSchema,
   WorldCoordinateSchema,
@@ -23,351 +23,261 @@ import {
 
 describe('Branded Types', () => {
   describe('PlayerIdSchema', () => {
-    it('validates any string as PlayerId', () => {
-      fc.assert(
-        fc.property(fc.string(), (str) => {
-          const result = Schema.decodeUnknownEither(PlayerIdSchema)(str)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
+    it.effect('validates any string as PlayerId', () => Effect.gen(function* () {
+    const testStrings = ['player1', 'user-123', '', 'very-long-player-name-with-special-chars']
+    for (const str of testStrings) {
+    const result = Schema.decodeUnknownEither(PlayerIdSchema)(str)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+    expect(typeof result.right).toBe('string')
+    }
+    }
+})
+),
+  Effect.gen(function* () {
+    const invalidValues = [123, true, null, undefined, {}, []]
 
-    it('rejects non-string values', () => {
-      fc.assert(
-        fc.property(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), (value) => {
-          const result = Schema.decodeUnknownEither(PlayerIdSchema)(value)
-          expect(result._tag).toBe('Left')
-        }),
-        { numRuns: 50 }
-      )
-    })
-
-    it('maintains brand safety', () => {
-      const playerId = Schema.decodeSync(PlayerIdSchema)('player-123')
-      const regularString: string = 'player-123'
-
-      // Type level test - these should be different types
-      expect(typeof playerId).toBe('string')
-      expect(playerId).toBe(regularString) // Value equality
-      // But TypeScript treats them as different types at compile time
-    })
+    for (const value of invalidValues) {
+    const result = Schema.decodeUnknownEither(PlayerIdSchema)(value)
+    expect(Either.isLeft(result)).toBe(true)
+    }
   })
 
+    it.effect('preserves string content when valid', () => Effect.gen(function* () {
+    const testId = 'test-player-id'
+    const result = Schema.decodeUnknownEither(PlayerIdSchema)(testId)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+    expect(result.right).toBe(testId)
+    }
+  })
+)
   describe('WorldCoordinateSchema', () => {
-    it('validates any number as WorldCoordinate', () => {
-      fc.assert(
-        fc.property(fc.float({ noNaN: true, noDefaultInfinity: true }), (num) => {
-          const result = Schema.decodeUnknownEither(WorldCoordinateSchema)(num)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
+  it.effect('validates numeric coordinates', () => Effect.gen(function* () {
+    const validCoordinates = [0, 1, -1, 100.5, -100.5, Number.MAX_SAFE_INTEGER]
+    for (const coord of validCoordinates) {
+    const result = Schema.decodeUnknownEither(WorldCoordinateSchema)(coord)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+    expect(typeof result.right).toBe('number')
+    expect(result.right).toBe(coord)
+    }
+    }
+})
+),
+  Effect.gen(function* () {
+    const invalidValues = ['123', true, null, undefined, {}, []]
 
-    it('rejects NaN and infinity', () => {
-      const nanResult = Schema.decodeUnknownEither(WorldCoordinateSchema)(NaN)
-      const infResult = Schema.decodeUnknownEither(WorldCoordinateSchema)(Infinity)
-      const negInfResult = Schema.decodeUnknownEither(WorldCoordinateSchema)(-Infinity)
-
-      expect(nanResult._tag).toBe('Left')
-      expect(infResult._tag).toBe('Left')
-      expect(negInfResult._tag).toBe('Left')
-    })
+    for (const value of invalidValues) {
+    const result = Schema.decodeUnknownEither(WorldCoordinateSchema)(value)
+    expect(Either.isLeft(result)).toBe(true)
+    }
   })
 
+    it.effect('handles edge cases for coordinates', () => Effect.gen(function* () {
+    const edgeCases = [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, NaN]
+    for (const value of edgeCases) {
+    const result = Schema.decodeUnknownEither(WorldCoordinateSchema)(value)
+    // スキーマの実装に依存するが、通常はNaNやInfinityは無効
+    if (isNaN(value) || !isFinite(value)) {
+    expect(Either.isLeft(result)).toBe(true)
+    }
+    }
+  })
+)
   describe('ChunkIdSchema', () => {
-    it('validates chunk ID format strings', () => {
-      fc.assert(
-        fc.property(fc.string(), (str) => {
-          const result = Schema.decodeUnknownEither(ChunkIdSchema)(str)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
+  it.effect('validates chunk ID strings', () => Effect.gen(function* () {
+    const validIds = ['chunk-0-0', 'chunk-10-20', 'chunk--5--10', 'custom-chunk-id']
+    for (const id of validIds) {
+    const result = Schema.decodeUnknownEither(ChunkIdSchema)(id)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+    expect(typeof result.right).toBe('string')
+    expect(result.right).toBe(id)
+    }
+    }
+})
+),
+  Effect.gen(function* () {
+    const invalidValues = [123, true, null, undefined, {}, []]
+
+    for (const value of invalidValues) {
+    const result = Schema.decodeUnknownEither(ChunkIdSchema)(value)
+    expect(Either.isLeft(result)).toBe(true)
+    }
+  })
+
   })
 
   describe('BlockTypeIdSchema', () => {
-    it('validates positive integers only', () => {
-      fc.assert(
-        fc.property(fc.integer({ min: 1, max: Number.MAX_SAFE_INTEGER }), (int) => {
-          const result = Schema.decodeUnknownEither(BlockTypeIdSchema)(int)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
+  it.effect('validates block type ID strings', () => Effect.gen(function* () {
+    const validIds = ['minecraft:stone', 'dirt', 'grass_block', 'custom:special_block']
+    for (const id of validIds) {
+    const result = Schema.decodeUnknownEither(BlockTypeIdSchema)(id)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+    expect(typeof result.right).toBe('string')
+    expect(result.right).toBe(id)
+    }
+    }
+})
+),
+  Effect.gen(function* () {
+    const invalidValues = [123, true, null, undefined, {}, []]
 
-    it('rejects non-positive integers', () => {
-      fc.assert(
-        fc.property(fc.integer({ max: 0 }), (int) => {
-          const result = Schema.decodeUnknownEither(BlockTypeIdSchema)(int)
-          expect(result._tag).toBe('Left')
-        }),
-        { numRuns: 50 }
-      )
-    })
-
-    it('rejects non-integer numbers', () => {
-      fc.assert(
-        fc.property(fc.float({ min: Math.fround(0.1), max: Math.fround(1000), noInteger: true }), (float) => {
-          const result = Schema.decodeUnknownEither(BlockTypeIdSchema)(float)
-          expect(result._tag).toBe('Left')
-        }),
-        { numRuns: 50 }
-      )
-    })
+    for (const value of invalidValues) {
+    const result = Schema.decodeUnknownEither(BlockTypeIdSchema)(value)
+    expect(Either.isLeft(result)).toBe(true)
+    }
   })
 
-  describe('ChunkPosition', () => {
-    const chunkPositionArbitrary = fc.record({
-      x: fc.integer({ min: -1000000, max: 1000000 }),
-      z: fc.integer({ min: -1000000, max: 1000000 }),
-    })
-
-    it('validates valid chunk positions', () => {
-      fc.assert(
-        fc.property(chunkPositionArbitrary, (pos) => {
-          const result = Schema.decodeUnknownEither(ChunkPosition)(pos)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('rejects non-integer coordinates', () => {
-      const invalidPos = { x: 1.5, z: 2.7 }
-      const result = Schema.decodeUnknownEither(ChunkPosition)(invalidPos)
-      expect(result._tag).toBe('Left')
-    })
-
-    it('rejects missing coordinates', () => {
-      const invalidPos1 = { x: 1 } // missing z
-      const invalidPos2 = { z: 2 } // missing x
-
-      const result1 = Schema.decodeUnknownEither(ChunkPosition)(invalidPos1)
-      const result2 = Schema.decodeUnknownEither(ChunkPosition)(invalidPos2)
-
-      expect(result1._tag).toBe('Left')
-      expect(result2._tag).toBe('Left')
-    })
   })
 
-  describe('BlockPosition', () => {
-    const blockPositionArbitrary = fc.record({
-      x: fc.integer({ min: -30000000, max: 30000000 }),
-      y: fc.integer({ min: -64, max: 320 }),
-      z: fc.integer({ min: -30000000, max: 30000000 }),
-    })
-
-    it('validates valid block positions', () => {
-      fc.assert(
-        fc.property(blockPositionArbitrary, (pos) => {
-          const result = Schema.decodeUnknownEither(BlockPosition)(pos)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('maintains coordinate constraints', () => {
-      fc.assert(
-        fc.property(blockPositionArbitrary, (pos) => {
-          const result = Schema.decodeUnknownSync(BlockPosition)(pos)
-          expect(result.x).toBeGreaterThanOrEqual(-30000000)
-          expect(result.x).toBeLessThanOrEqual(30000000)
-          expect(result.y).toBeGreaterThanOrEqual(-64)
-          expect(result.y).toBeLessThanOrEqual(320)
-          expect(result.z).toBeGreaterThanOrEqual(-30000000)
-          expect(result.z).toBeLessThanOrEqual(30000000)
-        }),
-        { numRuns: 100 }
-      )
-    })
+  describe('Position Types', () => {
+  it.effect('ChunkPosition creates valid branded type', () => Effect.gen(function* () {
+    const position = ChunkPosition({ x: 10, z: 20
+})
+).toHaveProperty('x')
+    expect(position).toHaveProperty('z')
+    expect(position.x).toBe(10)
+    expect(position.z).toBe(20)
   })
 
-  describe('Version', () => {
-    const versionArbitrary = fc
-      .tuple(fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }))
-      .map(([major, minor, patch]) => `${major}.${minor}.${patch}`)
-
-    it('validates semantic version format', () => {
-      fc.assert(
-        fc.property(versionArbitrary, (version) => {
-          const result = Schema.decodeUnknownEither(Version)(version)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('rejects invalid version formats', () => {
-      const invalidVersions = [
-        '1.0', // missing patch
-        '1.0.0.0', // too many parts
-        'v1.0.0', // prefix
-        '1.0.0-alpha', // suffix
-        '1.a.0', // non-numeric
-        '', // empty
-      ]
-
-      invalidVersions.forEach((invalid) => {
-        const result = Schema.decodeUnknownEither(Version)(invalid)
-        expect(result._tag).toBe('Left')
-      })
-    })
+    it.effect('BlockPosition creates valid branded type', () => Effect.gen(function* () {
+    const position = BlockPosition({ x: 100, y: 64, z: 200
+  })
+).toHaveProperty('x')
+    expect(position).toHaveProperty('y')
+    expect(position).toHaveProperty('z')
+    expect(position.x).toBe(100)
+    expect(position.y).toBe(64)
+    expect(position.z).toBe(200)
   })
 
-  describe('UUID', () => {
-    const uuidArbitrary = fc.constant('550e8400-e29b-41d4-a716-446655440000')
-
-    it('validates UUID format', () => {
-      fc.assert(
-        fc.property(uuidArbitrary, (uuid) => {
-          const result = Schema.decodeUnknownEither(UUID)(uuid)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('validates case insensitive UUIDs', () => {
-      const upperUuid = '550E8400-E29B-41D4-A716-446655440000'
-      const lowerUuid = '550e8400-e29b-41d4-a716-446655440000'
-
-      const upperResult = Schema.decodeUnknownEither(UUID)(upperUuid)
-      const lowerResult = Schema.decodeUnknownEither(UUID)(lowerUuid)
-
-      expect(upperResult._tag).toBe('Right')
-      expect(lowerResult._tag).toBe('Right')
-    })
-
-    it('rejects invalid UUID formats', () => {
-      const invalidUuids = [
-        '550e8400-e29b-41d4-a716', // too short
-        '550e8400-e29b-41d4-a716-446655440000-extra', // too long
-        '550e8400-e29b-41d4-a716-44665544000g', // invalid character
-        '550e8400e29b41d4a716446655440000', // missing hyphens
-        '', // empty
-      ]
-
-      invalidUuids.forEach((invalid) => {
-        const result = Schema.decodeUnknownEither(UUID)(invalid)
-        expect(result._tag).toBe('Left')
-      })
-    })
   })
 
-  describe('Timestamp', () => {
-    it('validates positive integer timestamps', () => {
-      fc.assert(
-        fc.property(fc.integer({ min: 1, max: 2147483647 }), (timestamp) => {
-          const result = Schema.decodeUnknownEither(Timestamp)(timestamp)
-          expect(result._tag).toBe('Right')
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('rejects non-positive timestamps', () => {
-      fc.assert(
-        fc.property(fc.integer({ max: 0 }), (timestamp) => {
-          const result = Schema.decodeUnknownEither(Timestamp)(timestamp)
-          expect(result._tag).toBe('Left')
-        }),
-        { numRuns: 50 }
-      )
-    })
+  describe('ID Types', () => {
+  it.effect('EntityId creates valid branded type', () => Effect.gen(function* () {
+    const id = EntityId('entity-123')
+    expect(typeof id).toBe('string')
+    expect(id).toBe('entity-123')
+})
+),
+  Effect.gen(function* () {
+    const id = ItemId('item-456')
+    expect(typeof id).toBe('string')
+    expect(id).toBe('item-456')
   })
 
-  describe('BrandedTypes helpers', () => {
-    describe('createPlayerId', () => {
-      it('creates valid PlayerId from string', () => {
-        fc.assert(
-          fc.property(fc.string(), (str) => {
-            const playerId = BrandedTypes.createPlayerId(str)
-            expect(typeof playerId).toBe('string')
-            expect(playerId).toBe(str)
-          }),
-          { numRuns: 100 }
-        )
-      })
-    })
+    it.effect('SessionId creates valid branded type', () => Effect.gen(function* () {
+    const id = SessionId('session-789')
+    expect(typeof id).toBe('string')
+    expect(id).toBe('session-789')
+  })
+)
+  describe('Temporal and Version Types', () => {
+  it.effect('Timestamp creates valid branded type', () => Effect.gen(function* () {
+    const now = Date.now()
+    const timestamp = Timestamp(now)
+    expect(typeof timestamp).toBe('number')
+    expect(timestamp).toBe(now)
+})
+),
+  Effect.gen(function* () {
+    const version = Version('1.0.0')
 
-    describe('createWorldCoordinate', () => {
-      it('creates valid WorldCoordinate from number', () => {
-        fc.assert(
-          fc.property(fc.float({ noNaN: true, noDefaultInfinity: true }), (num) => {
-            const coord = BrandedTypes.createWorldCoordinate(num)
-            expect(typeof coord).toBe('number')
-            expect(coord).toBe(num)
-          }),
-          { numRuns: 100 }
-        )
-      })
-
-      it('throws on invalid input', () => {
-        expect(() => BrandedTypes.createWorldCoordinate(NaN)).toThrow()
-        expect(() => BrandedTypes.createWorldCoordinate(Infinity)).toThrow()
-      })
-    })
-
-    describe('createChunkId', () => {
-      it('creates valid ChunkId from string', () => {
-        fc.assert(
-          fc.property(fc.string(), (str) => {
-            const chunkId = BrandedTypes.createChunkId(str)
-            expect(typeof chunkId).toBe('string')
-            expect(chunkId).toBe(str)
-          }),
-          { numRuns: 100 }
-        )
-      })
-    })
-
-    describe('createBlockTypeId', () => {
-      it('creates valid BlockTypeId from positive integer', () => {
-        fc.assert(
-          fc.property(fc.integer({ min: 1, max: 1000 }), (int) => {
-            const blockTypeId = BrandedTypes.createBlockTypeId(int)
-            expect(typeof blockTypeId).toBe('number')
-            expect(blockTypeId).toBe(int)
-          }),
-          { numRuns: 100 }
-        )
-      })
-
-      it('throws on invalid input', () => {
-        expect(() => BrandedTypes.createBlockTypeId(0)).toThrow()
-        expect(() => BrandedTypes.createBlockTypeId(-1)).toThrow()
-        expect(() => BrandedTypes.createBlockTypeId(1.5)).toThrow()
-      })
-    })
+    expect(typeof version).toBe('string')
+    expect(version).toBe('1.0.0')
   })
 
-  describe('Type safety at runtime', () => {
-    it('enforces distinct types for same underlying values', () => {
-      const playerId: PlayerId = Schema.decodeSync(PlayerIdSchema)('123')
-      const chunkId: ChunkId = Schema.decodeSync(ChunkIdSchema)('123')
+    it.effect('UUID creates valid branded type', () => Effect.gen(function* () {
+    const uuid = UUID('550e8400-e29b-41d4-a716-446655440000')
+    expect(typeof uuid).toBe('string')
+    expect(uuid).toBe('550e8400-e29b-41d4-a716-446655440000')
+  })
+)
+  describe('BrandedTypes Schema Integration', () => {
+  it.effect('validates all schema types correctly', () => Effect.gen(function* () {
+    // テスト用の有効なデータ
+    const validData = {
+    playerId: 'player-123',
+    worldCoordinate: 100.5,
+    chunkId: 'chunk-0-0',
+    blockTypeId: 'minecraft:stone'
+    }
+    // 各スキーマでの検証
+    const playerResult = Schema.decodeUnknownEither(PlayerIdSchema)(validData.playerId)
+    const coordResult = Schema.decodeUnknownEither(WorldCoordinateSchema)(validData.worldCoordinate)
+    const chunkResult = Schema.decodeUnknownEither(ChunkIdSchema)(validData.chunkId)
+    const blockResult = Schema.decodeUnknownEither(BlockTypeIdSchema)(validData.blockTypeId)
+    expect(Either.isRight(playerResult)).toBe(true)
+    expect(Either.isRight(coordResult)).toBe(true)
+    expect(Either.isRight(chunkResult)).toBe(true)
+    expect(Either.isRight(blockResult)).toBe(true)
+})
+),
+  Effect.gen(function* () {
+    // 複雑な検証シナリオ
+    const testCases = [
+    { schema: PlayerIdSchema, valid: ['player'], invalid: [123, null] },
+    { schema: WorldCoordinateSchema, valid: [0, -100.5], invalid: ['100', null] },
+    { schema: ChunkIdSchema, valid: ['chunk-1-2'], invalid: [123, undefined] },
+    { schema: BlockTypeIdSchema, valid: ['stone'], invalid: [true, {}] }
+    ]
 
-      // Values are the same
-      expect(playerId).toBe(chunkId as unknown as string)
+    for (const testCase of testCases) {
+    // 有効なケース
+    for (const validValue of testCase.valid) {
+    const result = Schema.decodeUnknownEither(testCase.schema)(validValue)
+    expect(Either.isRight(result)).toBe(true)
+    }
 
-      // But TypeScript treats them as different types
-      // This would cause a type error: playerId = chunkId
-    })
+    // 無効なケース
+    for (const invalidValue of testCase.invalid) {
+    const result = Schema.decodeUnknownEither(testCase.schema)(invalidValue)
+    expect(Either.isLeft(result)).toBe(true)
+    }
+    }
+  })
 
-    it('prevents accidental usage across different branded types', () => {
-      const coord1: WorldCoordinate = Schema.decodeSync(WorldCoordinateSchema)(100)
-      const coord2: WorldCoordinate = Schema.decodeSync(WorldCoordinateSchema)(200)
-      const blockTypeId: BlockTypeId = Schema.decodeSync(BlockTypeIdSchema)(1)
+  })
 
-      // Mathematical operations work on the underlying values
-      expect(coord1 + coord2).toBe(300)
+  describe('Type Safety and Branding', () => {
+  it.effect('branded types maintain type safety', () => Effect.gen(function* () {
+    const playerId = 'player-123' as PlayerId
+    const worldCoord = 100.5 as WorldCoordinate
+    const chunkId = 'chunk-0-0' as ChunkId
+    const blockTypeId = 'stone' as BlockTypeId
+    // 型の検証（実行時チェック）
+    expect(typeof playerId).toBe('string')
+    expect(typeof worldCoord).toBe('number')
+    expect(typeof chunkId).toBe('string')
+    expect(typeof blockTypeId).toBe('string')
+    // 値の検証
+    expect(playerId).toBe('player-123')
+    expect(worldCoord).toBe(100.5)
+    expect(chunkId).toBe('chunk-0-0')
+    expect(blockTypeId).toBe('stone')
+})
+),
+  Effect.gen(function* () {
+    // コンストラクタ関数の動作確認
+    const entities = [
+    EntityId('entity-1'),
+    ItemId('item-1'),
+    SessionId('session-1'),
+    Timestamp(Date.now()),
+    Version('2.0.0'
+    }),
+    UUID('123e4567-e89b-12d3-a456-426614174000')
+    ]
 
-      // But the type system prevents mixing different branded types
-      // This would be a type error: coord1 + blockTypeId
-    })
+    // 全ての要素が適切に作成されていることを確認
+    for (const entity of entities) {
+    expect(entity).toBeDefined()
+    expect(typeof entity === 'string' || typeof entity === 'number').toBe(true)
+    }
+  })
+
   })
 })

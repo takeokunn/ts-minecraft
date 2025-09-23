@@ -28,85 +28,76 @@ describe('Player System Performance Benchmarks', () => {
   const isCI = process.env['CI'] === 'true'
   const describeOrSkip = isCI ? describe.skip : describe
   const itOrSkip = isCI ? it.skip : it
-
   // パフォーマンステスト用レイヤー設定
   const BaseDependencies = Layer.mergeAll(EntityPoolLayer, SystemRegistryServiceLive)
   const EntityManagerTestLayer = Layer.provide(EntityManagerLayer, BaseDependencies)
   const PlayerServiceTestLayer = Layer.mergeAll(
-    Layer.provide(PlayerServiceLive, EntityManagerTestLayer),
-    EntityManagerTestLayer
+  Layer.provide(PlayerServiceLive, EntityManagerTestLayer),
+  EntityManagerTestLayer
   )
   const PerformanceTestLayer = Layer.mergeAll(
-    Layer.provide(MovementSystemLive, PlayerServiceTestLayer),
-    PlayerServiceTestLayer
+  Layer.provide(MovementSystemLive, PlayerServiceTestLayer),
+  PlayerServiceTestLayer
   )
-
   // パフォーマンス測定ユーティリティ
   interface PerformanceMetrics {
-    frameCount: number
-    totalTime: number
-    averageFrameTime: number
-    minFrameTime: number
-    maxFrameTime: number
-    frameTimes: number[]
-    framesOver16ms: number
-    framesOver33ms: number
-    frameRate: number
-    memoryUsage?: {
-      heapUsed: number
-      heapTotal: number
-      external: number
-    }
+  frameCount: number
+  totalTime: number
+  averageFrameTime: number
+  minFrameTime: number
+  maxFrameTime: number
+  frameTimes: number[]
+  framesOver16ms: number
+  framesOver33ms: number
+  frameRate: number
+  memoryUsage?: {
+  heapUsed: number
+  heapTotal: number
+  external: number
   }
+  }
+  const measurePerformance = (frameCount: number, operation: () => Promise<void>),
+  Effect.gen(function* () {
+  const frameTimes: number[] = []
+  let totalTime = 0
+  let minTime = Infinity
+  let maxTime = 0
+  const startMemory = process.memoryUsage()
+  for (let frame = 0; frame < frameCount; frame++) {
+  const frameStart = performance.now()
+  yield* Effect.promise(() => operation())
+  const frameEnd = performance.now()
+  const frameTime = frameEnd - frameStart
+  frameTimes.push(frameTime)
+  totalTime += frameTime
+  minTime = Math.min(minTime, frameTime)
+  maxTime = Math.max(maxTime, frameTime)
+  }
+  const endMemory = process.memoryUsage()
+  const averageFrameTime = totalTime / frameCount
+  const framesOver16ms = frameTimes.filter((t) => t > 16.67).length
+  const framesOver33ms = frameTimes.filter((t) => t > 33.33).length
+  const metrics: PerformanceMetrics = {
+  frameCount,
+  totalTime,
+  averageFrameTime,
+  minFrameTime: minTime,
+  maxFrameTime: maxTime,
+  frameTimes,
+  framesOver16ms,
+  framesOver33ms,
+  frameRate: 1000 / averageFrameTime,
+  memoryUsage: {
+  heapUsed: endMemory.heapUsed - startMemory.heapUsed,
+  heapTotal: endMemory.heapTotal - startMemory.heapTotal,
+  external: endMemory.external - startMemory.external,
+  },
+  }
+  return metrics
+})
 
-  const measurePerformance = (frameCount: number, operation: () => Promise<void>) =>
-    Effect.gen(function* () {
-      const frameTimes: number[] = []
-      let totalTime = 0
-      let minTime = Infinity
-      let maxTime = 0
-
-      const startMemory = process.memoryUsage()
-
-      for (let frame = 0; frame < frameCount; frame++) {
-        const frameStart = performance.now()
-        yield* Effect.promise(() => operation())
-        const frameEnd = performance.now()
-
-        const frameTime = frameEnd - frameStart
-        frameTimes.push(frameTime)
-        totalTime += frameTime
-        minTime = Math.min(minTime, frameTime)
-        maxTime = Math.max(maxTime, frameTime)
-      }
-
-      const endMemory = process.memoryUsage()
-      const averageFrameTime = totalTime / frameCount
-      const framesOver16ms = frameTimes.filter((t) => t > 16.67).length
-      const framesOver33ms = frameTimes.filter((t) => t > 33.33).length
-
-      const metrics: PerformanceMetrics = {
-        frameCount,
-        totalTime,
-        averageFrameTime,
-        minFrameTime: minTime,
-        maxFrameTime: maxTime,
-        frameTimes,
-        framesOver16ms,
-        framesOver33ms,
-        frameRate: 1000 / averageFrameTime,
-        memoryUsage: {
-          heapUsed: endMemory.heapUsed - startMemory.heapUsed,
-          heapTotal: endMemory.heapTotal - startMemory.heapTotal,
-          external: endMemory.external - startMemory.external,
-        },
-      }
-
-      return metrics
-    })
-
-  const createPerformanceTestPlayer = (playerId: string) =>
-    Effect.gen(function* () {
+  const createPerformanceTestPlayer = (playerId: string),
+  Effect.gen(function* () {
       const playerService = yield* PlayerService
       const brandedPlayerId = BrandedTypes.createPlayerId(playerId)
 
@@ -133,8 +124,7 @@ describe('Player System Performance Benchmarks', () => {
   describeOrSkip('60FPS Requirements Validation', () => {
     effectIt.effect(
       'should maintain 60FPS with single player for 5 seconds',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('fps-single-test')
 
@@ -172,8 +162,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should handle high-frequency input changes at 60FPS',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('fps-highfreq-test')
 
@@ -211,8 +200,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should maintain performance with complex movement patterns',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('fps-complex-test')
 
@@ -249,8 +237,7 @@ describe('Player System Performance Benchmarks', () => {
   describeOrSkip('Multi-Player Scalability Tests', () => {
     effectIt.effect(
       'should handle 10 players at 60FPS',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerCount = 10
           const frameCount = 60 * 2 // 2秒間
@@ -270,7 +257,7 @@ describe('Player System Performance Benchmarks', () => {
               return movementSystem.processMovementInput(playerId, input)
             })
 
-            await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded' }))
+            await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded'})
           })
 
           // マルチプレイヤー環境での性能要件
@@ -290,8 +277,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should scale to 50 players with acceptable performance',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerCount = 50
           const frameCount = 60 // 1秒間（負荷が高いため短縮）
@@ -309,15 +295,15 @@ describe('Player System Performance Benchmarks', () => {
             const batchSize = 10
             const batches = []
 
-            for (let i = 0; i < playerIds.length; i += batchSize) {
+            for (
               const batch = playerIds.slice(i, i + batchSize).map((playerId, index) => {
                 const input = createMovementInput(frame + i + index, 16.67)
                 return movementSystem.processMovementInput(playerId, input)
-              })
-              batches.push(Effect.all(batch, { concurrency: 'unbounded' }))
+              ) {$2}
+              batches.push(Effect.all(batch, { concurrency: 'unbounded' })
             }
 
-            await Effect.runPromise(Effect.all(batches, { concurrency: 'unbounded' }))
+            await Effect.runPromise(Effect.all(batches, { concurrency: 'unbounded' })
           })
 
           // 大規模環境での性能要件（緩和された要件）
@@ -336,8 +322,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should demonstrate linear scaling characteristics',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerCounts = [1, 5, 10, 20]
           const frameCount = 30 // 短縮テスト
@@ -359,7 +344,7 @@ describe('Player System Performance Benchmarks', () => {
                 return movementSystem.processMovementInput(playerId, input)
               })
 
-              await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded' }))
+              await Effect.runPromise(Effect.all(operations, { concurrency: 'unbounded' })
             })
 
             scalingResults.push({
@@ -412,8 +397,7 @@ describe('Player System Performance Benchmarks', () => {
   describeOrSkip('Memory and Resource Management', () => {
     effectIt.effect(
       'should not leak memory over extended gameplay',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const movementSystem = yield* MovementSystem
 
@@ -457,8 +441,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should handle rapid player creation and deletion efficiently',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const cycleCount = 100
 
@@ -500,8 +483,7 @@ describe('Player System Performance Benchmarks', () => {
   describeOrSkip('Stress Tests and Edge Cases', () => {
     effectIt.effect(
       'should handle extreme input frequencies',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('stress-frequency-test')
 
@@ -538,8 +520,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should maintain performance under continuous load',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('stress-continuous-test')
 
@@ -585,8 +566,7 @@ describe('Player System Performance Benchmarks', () => {
 
     effectIt.effect(
       'should handle worst-case collision scenarios efficiently',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createPerformanceTestPlayer('stress-collision-test')
 
@@ -624,8 +604,7 @@ describe('Player System Performance Benchmarks', () => {
   describeOrSkip('Performance Regression Detection', () => {
     effectIt.effect(
       'should maintain baseline performance characteristics',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
 
           // ベースライン測定用の標準テスト

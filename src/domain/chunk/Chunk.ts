@@ -115,12 +115,12 @@ export const createChunk = (data: ChunkData): Chunk => {
         isOutOfBounds,
         Match.value,
         Match.when(true, () => Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))),
-        Match.orElse(() =>
-          Effect.gen(function* () {
+        Match.orElse(() => Effect.gen(function* () {
             const index = getBlockIndex(
               BrandedTypes.createWorldCoordinate(x),
-              BrandedTypes.createWorldCoordinate(y),
-              BrandedTypes.createWorldCoordinate(z)
+              BrandedTypes.createWorldCoordinate(y
+    }),
+    BrandedTypes.createWorldCoordinate(z)
             )
             const newBlocks = new Uint16Array(chunk.blocks)
             newBlocks[index] = blockId
@@ -188,8 +188,9 @@ export const createChunk = (data: ChunkData): Chunk => {
             for (let z = minZ; z <= maxZ; z++) {
               const index = getBlockIndex(
                 BrandedTypes.createWorldCoordinate(x),
-                BrandedTypes.createWorldCoordinate(y),
-                BrandedTypes.createWorldCoordinate(z)
+                BrandedTypes.createWorldCoordinate(y
+    }),
+    BrandedTypes.createWorldCoordinate(z)
               )
               newBlocks[index] = blockId
             }
@@ -360,8 +361,9 @@ export const createChunk = (data: ChunkData): Chunk => {
         yield* pipe(
           Match.value(compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0),
           Match.when(true, () => Effect.fail(ChunkSerializationError('Invalid compressed data'))),
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.exhaustive
+          Match.when(false, () => Effect.succeed(undefined)
+    }),
+    Match.exhaustive
         )
 
         const decompressedBuffer = yield* Effect.try({

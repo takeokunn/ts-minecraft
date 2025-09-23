@@ -298,8 +298,7 @@ const makeService = (config: AtlasConfig) =>
                   pipe(
                     Option.fromNullable(metadata.blockTextures.get(blockType)),
                     Option.match({
-                      onNone: () =>
-                        Effect.succeed(
+                      onNone: () => Effect.succeed(
                           generateUVCoordsFromRegion(calculateTextureRegion(0, config.textureSize, config.atlasSize))
                         ),
                       onSome: (blockTexture) => {
@@ -337,8 +336,7 @@ const makeService = (config: AtlasConfig) =>
             return pipe(
               Option.fromNullable(state.material),
               Option.match({
-                onNone: () =>
-                  Effect.try({
+                onNone: () => Effect.try({
                     try: () => {
                       const texture = new THREE.Texture()
                       const material = new THREE.MeshBasicMaterial({

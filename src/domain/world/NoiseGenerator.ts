@@ -202,8 +202,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
       Effect.gen(function* () {
         return yield* Effect.if(octaves <= 0, {
           onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
-          onFalse: () =>
-            Effect.gen(function* () {
+          onFalse: () => Effect.gen(function* () {
               let total = 0
               let frequency = 1
               let amplitude = 1
@@ -211,8 +210,9 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
 
               for (let i = 0; i < octaves; i++) {
                 const noise = yield* noiseGenerator.noise2D(
-                  BrandedTypes.createNoiseCoordinate(x * frequency),
-                  BrandedTypes.createNoiseCoordinate(y * frequency)
+                  BrandedTypes.createNoiseCoordinate(x * frequency
+    }),
+    BrandedTypes.createNoiseCoordinate(y * frequency)
                 )
                 total += noise * amplitude
                 maxValue += amplitude
@@ -236,8 +236,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
       Effect.gen(function* () {
         return yield* Effect.if(octaves <= 0, {
           onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
-          onFalse: () =>
-            Effect.gen(function* () {
+          onFalse: () => Effect.gen(function* () {
               let total = 0
               let frequency = 1
               let amplitude = 1
@@ -246,8 +245,9 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
               for (let i = 0; i < octaves; i++) {
                 const noise = yield* noiseGenerator.noise3D(
                   BrandedTypes.createNoiseCoordinate(x * frequency),
-                  BrandedTypes.createNoiseCoordinate(y * frequency),
-                  BrandedTypes.createNoiseCoordinate(z * frequency)
+                  BrandedTypes.createNoiseCoordinate(y * frequency
+    }),
+    BrandedTypes.createNoiseCoordinate(z * frequency)
                 )
                 total += noise * amplitude
                 maxValue += amplitude

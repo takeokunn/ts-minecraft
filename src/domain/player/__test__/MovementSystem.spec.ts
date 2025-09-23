@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, Layer, pipe, Duration } from 'effect'
 import { MovementSystemLive } from '../MovementSystemLive.js'
@@ -40,22 +41,20 @@ describe('MovementSystem Physics and Performance Tests', () => {
   const EntityManagerTestLayer = Layer.provide(EntityManagerLayer, TestDependencies)
   const PlayerServiceTestLayer = Layer.provide(PlayerServiceLive, EntityManagerTestLayer)
   const MovementSystemTestLayer = Layer.mergeAll(
-    PlayerServiceTestLayer,
-    Layer.provide(MovementSystemLive, PlayerServiceTestLayer)
+  PlayerServiceTestLayer,
+  Layer.provide(MovementSystemLive, PlayerServiceTestLayer)
   )
-
   // テスト用ヘルパー
-  const createTestPlayer = (playerId: string) =>
-    Effect.gen(function* () {
-      const playerService = yield* PlayerService
-      const brandedPlayerId = BrandedTypes.createPlayerId(playerId)
-
-      yield* playerService.createPlayer({
-        playerId,
-        initialPosition: { x: 0, y: 64 + 1.8, z: 0 }, // 地面から1.8m上（プレイヤーの高さ）
-        initialRotation: { pitch: 0, yaw: 0 },
-        health: 100,
-      })
+  const createTestPlayer = (playerId: string),
+  Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const brandedPlayerId = BrandedTypes.createPlayerId(playerId)
+  yield* playerService.createPlayer({
+  playerId,
+  initialPosition: { x: 0, y: 64 + 1.8, z: 0 }, // 地面から1.8m上（プレイヤーの高さ）
+  initialRotation: { pitch: 0, yaw: 0 },
+  health: 100,
+})
 
       return brandedPlayerId
     })
@@ -79,186 +78,154 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Physics Constants and Utilities', () => {
-    it('should have valid physics constants', () => {
-      expect(PHYSICS_CONSTANTS.GRAVITY).toBe(-9.81)
-      expect(PHYSICS_CONSTANTS.MAX_SPEED).toBe(10.0)
-      expect(PHYSICS_CONSTANTS.FRICTION).toBe(0.8)
-      expect(PHYSICS_CONSTANTS.JUMP_FORCE).toBe(8.0)
-      expect(PHYSICS_CONSTANTS.TERMINAL_VELOCITY).toBe(-50.0)
-      expect(PHYSICS_CONSTANTS.COLLISION_EPSILON).toBe(0.001)
-    })
-
-    it('should apply gravity correctly', () => {
-      const initialVelocity: VelocityVector = { x: 0, y: 0, z: 0 }
-      const deltaTime = 16.67 // 1 frame at 60FPS
-
-      const result = PhysicsUtils.applyGravity(initialVelocity, deltaTime)
-
-      // 重力による速度変化: g * dt = -9.81 * (16.67/1000) ≈ -0.1635327
-      expect(result.x).toBe(0)
-      expect(result.y).toBeCloseTo(-0.1635327, 4)
-      expect(result.z).toBe(0)
-    })
-
-    it('should apply friction correctly', () => {
-      const velocity: VelocityVector = { x: 10, y: 5, z: -8 }
-      const friction = 0.8
-
-      const result = PhysicsUtils.applyFriction(velocity, friction)
-
-      expect(result.x).toBe(8) // 10 * 0.8
-      expect(result.y).toBe(5) // Y軸は摩擦の影響を受けない
-      expect(result.z).toBe(-6.4) // -8 * 0.8
-    })
-
-    it('should normalize velocity correctly', () => {
-      const velocity: VelocityVector = { x: 15, y: 0, z: 20 }
-      const maxSpeed = 10
-
-      const result = PhysicsUtils.normalizeVelocity(velocity, maxSpeed)
-
-      const magnitude = Math.sqrt(result.x * result.x + result.z * result.z)
-      expect(magnitude).toBeCloseTo(maxSpeed, 3)
-      expect(result.y).toBe(0) // Y軸は正規化の影響を受けない
-    })
-
-    it('should calculate vector magnitude correctly', () => {
-      const velocity: VelocityVector = { x: 3, y: 4, z: 0 }
-      const magnitude = PhysicsUtils.getMagnitude(velocity)
-      expect(magnitude).toBe(5) // 3-4-5 triangle
-    })
-
-    it('should calculate distance between positions correctly', () => {
-      const pos1: PlayerPosition = { x: 0, y: 0, z: 0 }
-      const pos2: PlayerPosition = { x: 3, y: 4, z: 0 }
-      const distance = PhysicsUtils.getDistance(pos1, pos2)
-      expect(distance).toBe(5)
-    })
-
-    it('should perform linear interpolation correctly', () => {
-      expect(PhysicsUtils.lerp(0, 10, 0.5)).toBe(5)
-      expect(PhysicsUtils.lerp(0, 10, 0)).toBe(0)
-      expect(PhysicsUtils.lerp(0, 10, 1)).toBe(10)
-      expect(PhysicsUtils.lerp(0, 10, -0.5)).toBe(0) // クランプされる
-      expect(PhysicsUtils.lerp(0, 10, 1.5)).toBe(10) // クランプされる
-    })
-  })
-
-  describe('Input Processing and Validation', () => {
-    effectIt.effect('should validate correct movement input', () =>
-      Effect.gen(function* () {
-        const input = createMovementInput(true, false, false, true, true, false, 16.67)
-        const result = yield* validateMovementInput(input)
-
-        expect(result.forward).toBe(true)
-        expect(result.backward).toBe(false)
-        expect(result.left).toBe(false)
-        expect(result.right).toBe(true)
-        expect(result.jump).toBe(true)
-        expect(result.sprint).toBe(false)
-        expect(result.deltaTime).toBeCloseTo(16.67, 2)
-      })
+  it.effect('should have valid physics constants', () => Effect.gen(function* () {
+    expect(PHYSICS_CONSTANTS.GRAVITY).toBe(-9.81)
+    expect(PHYSICS_CONSTANTS.MAX_SPEED).toBe(10.0)
+    expect(PHYSICS_CONSTANTS.FRICTION).toBe(0.8)
+    expect(PHYSICS_CONSTANTS.JUMP_FORCE).toBe(8.0)
+    expect(PHYSICS_CONSTANTS.TERMINAL_VELOCITY).toBe(-50.0)
+    expect(PHYSICS_CONSTANTS.COLLISION_EPSILON).toBe(0.001)
     )
+    it.effect('should apply gravity correctly', () => Effect.gen(function* () {
+    const initialVelocity: VelocityVector = { x: 0, y: 0, z: 0 }
+    const deltaTime = 16.67 // 1 frame at 60FPS
+    const result = PhysicsUtils.applyGravity(initialVelocity, deltaTime)
+    // 重力による速度変化: g * dt = -9.81 * (16.67/1000) ≈ -0.1635327
+    expect(result.x).toBe(0)
+    expect(result.y).toBeCloseTo(-0.1635327, 4)
+    expect(result.z).toBe(0)
+})
+),
+  Effect.gen(function* () {
+        const velocity: VelocityVector = { x: 10, y: 5, z: -8 }
+        const friction = 0.8
+        const result = PhysicsUtils.applyFriction(velocity, friction)
+        expect(result.x).toBe(8) // 10 * 0.8
+        expect(result.y).toBe(5) // Y軸は摩擦の影響を受けない
+        expect(result.z).toBe(-6.4) // -8 * 0.8
 
-    effectIt.effect('should reject invalid movement input', () =>
-      Effect.gen(function* () {
-        const invalidInputs = [
-          {
-            forward: 'invalid',
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            sprint: false,
-            deltaTime: 16.67,
-          },
-          { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, deltaTime: -1 }, // 負のdeltaTime
-          { forward: true, backward: false, left: false, right: false, jump: false, sprint: false }, // deltaTime欠損
-          null,
-          undefined,
-          'not an object',
-        ]
-
-        for (const input of invalidInputs) {
-          const result = yield* Effect.either(validateMovementInput(input))
-          expect(result._tag).toBe('Left')
-        }
       })
-    )
-
-    it('should calculate movement vector from WASD input correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
-
-      // 前進のみ
-      const forwardInput = createMovementInput(true, false, false, false)
-      const forwardVector = InputUtils.calculateMovementVector(forwardInput, rotation)
-      expect(forwardVector.x).toBeCloseTo(0, 3)
-      expect(forwardVector.z).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
-
-      // 右のみ
-      const rightInput = createMovementInput(false, false, false, true)
-      const rightVector = InputUtils.calculateMovementVector(rightInput, rotation)
-      expect(rightVector.x).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
-      expect(rightVector.z).toBeCloseTo(0, 3)
-
-      // 対角線移動（正規化されていないため√2倍になる）
-      const diagonalInput = createMovementInput(true, false, false, true)
-      const diagonalVector = InputUtils.calculateMovementVector(diagonalInput, rotation)
-      const magnitude = Math.sqrt(diagonalVector.x * diagonalVector.x + diagonalVector.z * diagonalVector.z)
-      expect(magnitude).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED * Math.sqrt(2), 3)
-    })
-
-    it('should handle sprint multiplier correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
-      const sprintInput = createMovementInput(true, false, false, false, false, true)
-
-      const normalVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.0)
-      const sprintVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.5)
-
-      expect(sprintVector.z).toBeCloseTo(normalVector.z * 1.5, 3)
-    })
-
-    it('should process jump input correctly', () => {
-      const currentVelocity: VelocityVector = { x: 5, y: 0, z: 3 }
-
-      // 地面でジャンプ
-      const jumpInput = createMovementInput(false, false, false, false, true)
-      const jumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, true)
-      expect(jumpResult.y).toBe(PHYSICS_CONSTANTS.JUMP_FORCE)
-
-      // 空中でジャンプ（無効）
-      const airJumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, false)
-      expect(airJumpResult.y).toBe(0)
-
-      // ジャンプ入力なし
-      const noJumpInput = createMovementInput(false, false, false, false, false)
-      const noJumpResult = InputUtils.processJumpInput(noJumpInput, currentVelocity, true)
-      expect(noJumpResult.y).toBe(0)
-    })
+    it.effect('should normalize velocity correctly', () => Effect.gen(function* () {
+    const velocity: VelocityVector = { x: 15, y: 0, z: 20 }
+    const maxSpeed = 10
+    const result = PhysicsUtils.normalizeVelocity(velocity, maxSpeed)
+    const magnitude = Math.sqrt(result.x * result.x + result.z * result.z)
+    expect(magnitude).toBeCloseTo(maxSpeed, 3)
+    expect(result.y).toBe(0) // Y軸は正規化の影響を受けない
   })
+),
+    Effect.gen(function* () {
+    const velocity: VelocityVector = { x: 3, y: 4, z: 0 }
+    const magnitude = PhysicsUtils.getMagnitude(velocity)
+    expect(magnitude).toBe(5) // 3-4-5 triangle
+    })
+    it.effect('should calculate distance between positions correctly', () => Effect.gen(function* () {
+    const pos1: PlayerPosition = { x: 0, y: 0, z: 0 }
+    const pos2: PlayerPosition = { x: 3, y: 4, z: 0 }
+    const distance = PhysicsUtils.getDistance(pos1, pos2)
+    expect(distance).toBe(5)
+  })
+),
+    Effect.gen(function* () {
+    expect(PhysicsUtils.lerp(0, 10, 0.5)).toBe(5)
+    expect(PhysicsUtils.lerp(0, 10, 0)).toBe(0)
+    expect(PhysicsUtils.lerp(0, 10, 1)).toBe(10)
+    expect(PhysicsUtils.lerp(0, 10, -0.5)).toBe(0) // クランプされる
+    expect(PhysicsUtils.lerp(0, 10, 1.5)).toBe(10) // クランプされる
+    )
+    describe('Input Processing and Validation', () => {
+  effectIt.effect('should validate correct movement input', () => Effect.gen(function* () {
+    const input = createMovementInput(true, false, false, true, true, false, 16.67)
+    const result = yield* validateMovementInput(input)
+    expect(result.forward).toBe(true)
+    expect(result.backward).toBe(false)
+    expect(result.left).toBe(false)
+    expect(result.right).toBe(true)
+    expect(result.jump).toBe(true)
+    expect(result.sprint).toBe(false)
+    expect(result.deltaTime).toBeCloseTo(16.67, 2)
+    )
+    effectIt.effect('should reject invalid movement input', () => Effect.gen(function* () {
+    const invalidInputs = [
+    {
+    forward: 'invalid',
+    backward: false,
+    left: false,
+    right: false,
+    jump: false,
+    sprint: false,
+    deltaTime: 16.67,
+    },
+    { forward: true, backward: false, left: false, right: false, jump: false, sprint: false, deltaTime: -1 }, // 負のdeltaTime
+    { forward: true, backward: false, left: false, right: false, jump: false, sprint: false }, // deltaTime欠損
+    null,
+    undefined,
+    'not an object',
+    ]
+    for (const input of invalidInputs) {
+    const result = yield* Effect.either(validateMovementInput(input))
+    expect(result._tag).toBe('Left')
+    )
+    it.effect('should calculate movement vector from WASD input correctly', () => Effect.gen(function* () {
+    const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
+    // 前進のみ
+    const forwardInput = createMovementInput(true, false, false, false)
+    const forwardVector = InputUtils.calculateMovementVector(forwardInput, rotation)
+    expect(forwardVector.x).toBeCloseTo(0, 3)
+    expect(forwardVector.z).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
+    // 右のみ
+    const rightInput = createMovementInput(false, false, false, true)
+    const rightVector = InputUtils.calculateMovementVector(rightInput, rotation)
+    expect(rightVector.x).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
+    expect(rightVector.z).toBeCloseTo(0, 3)
+    // 対角線移動（正規化されていないため√2倍になる）
+    const diagonalInput = createMovementInput(true, false, false, true)
+    const diagonalVector = InputUtils.calculateMovementVector(diagonalInput, rotation)
+    const magnitude = Math.sqrt(diagonalVector.x * diagonalVector.x + diagonalVector.z * diagonalVector.z)
+    expect(magnitude).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED * Math.sqrt(2), 3)
+})
+),
+  Effect.gen(function* () {
+        const rotation: PlayerRotation = { pitch: 0, yaw: 0 }
+        const sprintInput = createMovementInput(true, false, false, false, false, true)
+        const normalVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.0)
+        const sprintVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.5)
+        expect(sprintVector.z).toBeCloseTo(normalVector.z * 1.5, 3)
 
+      })
+    it.effect('should process jump input correctly', () => Effect.gen(function* () {
+    const currentVelocity: VelocityVector = { x: 5, y: 0, z: 3 }
+    // 地面でジャンプ
+    const jumpInput = createMovementInput(false, false, false, false, true)
+    const jumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, true)
+    expect(jumpResult.y).toBe(PHYSICS_CONSTANTS.JUMP_FORCE)
+    // 空中でジャンプ（無効）
+    const airJumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, false)
+    expect(airJumpResult.y).toBe(0)
+    // ジャンプ入力なし
+    const noJumpInput = createMovementInput(false, false, false, false, false)
+    const noJumpResult = InputUtils.processJumpInput(noJumpInput, currentVelocity, true)
+    expect(noJumpResult.y).toBe(0)
+  })
+)
   describe('Movement System Operations', () => {
-    effectIt.effect(
-      'should process basic movement input',
-      () =>
-        Effect.gen(function* () {
-          const movementSystem = yield* MovementSystem
-          const playerId = yield* createTestPlayer('movement-test-1')
-
-          const input = createMovementInput(true, false, false, false, false, false, 16.67)
-          const result = yield* movementSystem.processMovementInput(playerId, input)
-
-          expect(result.newPosition.z).toBeGreaterThan(0) // 前進
-          expect(result.newVelocity.z).toBeGreaterThan(0)
-          expect(result.newState.isGrounded).toBe(true)
-          expect(result.collisions).toEqual([])
-        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+  effectIt.effect(
+  'should process basic movement input',
+  () => Effect.gen(function* () {
+  const movementSystem = yield* MovementSystem
+  const playerId = yield* createTestPlayer('movement-test-1')
+  const input = createMovementInput(true, false, false, false, false, false, 16.67)
+  const result = yield* movementSystem.processMovementInput(playerId, input)
+  expect(result.newPosition.z).toBeGreaterThan(0) // 前進
+  expect(result.newVelocity.z).toBeGreaterThan(0)
+  expect(result.newState.isGrounded).toBe(true)
+  expect(result.collisions).toEqual([])
+}).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
     effectIt.effect(
       'should handle jump mechanics',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('jump-test-1')
 
@@ -280,8 +247,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should apply gravity and landing',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerService = yield* PlayerService
           const playerId = yield* createTestPlayer('gravity-test-1')
@@ -310,8 +276,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should handle sprint mechanics',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('sprint-test-1')
 
@@ -333,8 +298,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should detect and handle collisions',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
 
           // 境界外への移動テスト
@@ -353,8 +317,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should maintain movement state correctly',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('state-test-1')
 
@@ -379,52 +342,43 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Performance Benchmarks', () => {
-    effectIt.effect(
-      'should maintain 60FPS performance with single player',
-      () =>
-        Effect.gen(function* () {
-          const movementSystem = yield* MovementSystem
-          const playerId = yield* createTestPlayer('performance-single')
-
-          const frameCount = 60 * 2 // 2秒分のフレーム
-          const targetFrameTime = 16.67 // 60FPS = 16.67ms
-
-          const startTime = performance.now()
-
-          // 60FPS で2秒間の移動シミュレーション
-          for (let frame = 0; frame < frameCount; frame++) {
-            const input = createMovementInput(
-              frame % 4 === 0, // 前進
-              frame % 4 === 1, // 後退
-              frame % 4 === 2, // 左
-              frame % 4 === 3, // 右
-              frame % 20 === 0, // 20フレームに1回ジャンプ
-              frame % 10 < 5, // スプリントの切り替え
-              targetFrameTime
-            )
-
-            yield* movementSystem.processMovementInput(playerId, input)
-          }
-
-          const endTime = performance.now()
-          const totalTime = endTime - startTime
-          const averageFrameTime = totalTime / frameCount
-
-          // パフォーマンス要件: 平均フレーム時間が16.67ms以下
-          expect(averageFrameTime).toBeLessThan(targetFrameTime)
-
-          // パフォーマンス統計を確認
-          const stats = yield* movementSystem.getPerformanceStats()
-          expect(stats.averageProcessingTime).toBeLessThan(5) // 5ms以下
-          expect(stats.frameRate).toBeGreaterThan(50) // 50FPS以上
-          expect(stats.totalCalculations).toBe(frameCount)
-        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+  effectIt.effect(
+  'should maintain 60FPS performance with single player',
+  () => Effect.gen(function* () {
+  const movementSystem = yield* MovementSystem
+  const playerId = yield* createTestPlayer('performance-single')
+  const frameCount = 60 * 2 // 2秒分のフレーム
+  const targetFrameTime = 16.67 // 60FPS = 16.67ms
+  const startTime = performance.now()
+  // 60FPS で2秒間の移動シミュレーション
+  for (let frame = 0; frame < frameCount; frame++) {
+  const input = createMovementInput(
+  frame % 4 === 0, // 前進
+  frame % 4 === 1, // 後退
+  frame % 4 === 2, // 左
+  frame % 4 === 3, // 右
+  frame % 20 === 0, // 20フレームに1回ジャンプ
+  frame % 10 < 5, // スプリントの切り替え
+  targetFrameTime
+  )
+  yield* movementSystem.processMovementInput(playerId, input)
+  }
+  const endTime = performance.now()
+  const totalTime = endTime - startTime
+  const averageFrameTime = totalTime / frameCount
+  // パフォーマンス要件: 平均フレーム時間が16.67ms以下
+  expect(averageFrameTime).toBeLessThan(targetFrameTime)
+  // パフォーマンス統計を確認
+  const stats = yield* movementSystem.getPerformanceStats()
+  expect(stats.averageProcessingTime).toBeLessThan(5) // 5ms以下
+  expect(stats.frameRate).toBeGreaterThan(50) // 50FPS以上
+  expect(stats.totalCalculations).toBe(frameCount)
+}).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
     effectIt.effect(
       'should handle multiple players efficiently',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerCount = 20
           const frameCount = 60 // 1秒分
@@ -438,7 +392,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
           const startTime = performance.now()
 
           // 全プレイヤーの移動を並行処理
-          for (let frame = 0; frame < frameCount; frame++) {
+          for (
             const operations = playerIds.map((playerId, index) => {
               const input = createMovementInput(
                 (frame + index) % 4 === 0,
@@ -450,7 +404,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
                 16.67
               )
               return movementSystem.processMovementInput(playerId, input)
-            })
+            ) {$2}
 
             yield* Effect.all(operations, { concurrency: 'unbounded' })
           }
@@ -469,8 +423,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should demonstrate frame rate independence',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('framerate-test')
 
@@ -483,10 +436,10 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
           const simulationTime = 1000 // 1秒間のシミュレーション
 
-          for (const scenario of scenarios) {
+          for (
             // プレイヤーを初期位置にリセット
             const playerService = yield* PlayerService
-            yield* playerService.setPlayerPosition(playerId, { x: 0, y: 64 + 1.8, z: 0 })
+            yield* playerService.setPlayerPosition(playerId, { x: 0, y: 64 + 1.8, z: 0 ) {$2}
 
             const frameCount = Math.ceil(simulationTime / scenario.deltaTime)
             let totalDistance = 0
@@ -514,15 +467,13 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should measure collision detection performance',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
 
           const testPositions = Array.from({ length: 1000 }, (_, i) => ({
             x: (i % 50) * 10,
             y: 64 + (i % 10),
-            z: Math.floor(i / 50) * 10,
-          }))
+            z: Math.floor(i / 50) * 10,})
 
           const testVelocity: VelocityVector = { x: 5, y: 0, z: 5 }
 
@@ -546,28 +497,23 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Physics Accuracy and Edge Cases', () => {
-    effectIt.effect(
-      'should handle extreme velocities correctly',
-      () =>
-        Effect.gen(function* () {
-          const movementSystem = yield* MovementSystem
-
-          // 極端に高い速度
-          const extremeVelocity: VelocityVector = { x: 1000, y: 100, z: -500 }
-          const limitedVelocity = yield* movementSystem.applyVelocityLimits(extremeVelocity)
-
-          const horizontalSpeed = Math.sqrt(limitedVelocity.x ** 2 + limitedVelocity.z ** 2)
-          expect(horizontalSpeed).toBeLessThanOrEqual(PHYSICS_CONSTANTS.MAX_SPEED + 0.001)
-
-          // Y軸の速度は制限されない（ジャンプ・重力のため）
-          expect(limitedVelocity.y).toBe(extremeVelocity.y)
-        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+  effectIt.effect(
+  'should handle extreme velocities correctly',
+  () => Effect.gen(function* () {
+  const movementSystem = yield* MovementSystem
+  // 極端に高い速度
+  const extremeVelocity: VelocityVector = { x: 1000, y: 100, z: -500 }
+  const limitedVelocity = yield* movementSystem.applyVelocityLimits(extremeVelocity)
+  const horizontalSpeed = Math.sqrt(limitedVelocity.x ** 2 + limitedVelocity.z ** 2)
+  expect(horizontalSpeed).toBeLessThanOrEqual(PHYSICS_CONSTANTS.MAX_SPEED + 0.001)
+  // Y軸の速度は制限されない（ジャンプ・重力のため）
+  expect(limitedVelocity.y).toBe(extremeVelocity.y)
+}).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
     effectIt.effect(
       'should handle rapid direction changes',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('direction-change-test')
 
@@ -597,8 +543,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should maintain physics consistency over time',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('consistency-test')
 
@@ -625,8 +570,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
     effectIt.effect(
       'should handle floating point precision correctly',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
 
           // 浮動小数点精度テスト
@@ -653,34 +597,29 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Error Handling and Resilience', () => {
-    effectIt.effect(
-      'should handle non-existent player gracefully',
-      () =>
-        Effect.gen(function* () {
-          const movementSystem = yield* MovementSystem
-          const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
-
-          // 存在しないプレイヤーの移動処理
-          const input = createMovementInput(true, false, false, false, false, false, 16.67)
-          const inputResult = yield* Effect.either(movementSystem.processMovementInput(nonExistentPlayerId, input))
-          expect(inputResult._tag).toBe('Left')
-
-          // 存在しないプレイヤーの状態取得
-          const stateResult = yield* Effect.either(movementSystem.getMovementState(nonExistentPlayerId))
-          expect(stateResult._tag).toBe('Left')
-
-          // 存在しないプレイヤーの状態設定
-          const setStateResult = yield* Effect.either(
-            movementSystem.setMovementState(nonExistentPlayerId, DEFAULT_MOVEMENT_STATE)
-          )
-          expect(setStateResult._tag).toBe('Left')
-        }).pipe(Effect.provide(MovementSystemTestLayer)) as any
+  effectIt.effect(
+  'should handle non-existent player gracefully',
+  () => Effect.gen(function* () {
+  const movementSystem = yield* MovementSystem
+  const nonExistentPlayerId = BrandedTypes.createPlayerId('non-existent-player')
+  // 存在しないプレイヤーの移動処理
+  const input = createMovementInput(true, false, false, false, false, false, 16.67)
+  const inputResult = yield* Effect.either(movementSystem.processMovementInput(nonExistentPlayerId, input))
+  expect(inputResult._tag).toBe('Left')
+  // 存在しないプレイヤーの状態取得
+  const stateResult = yield* Effect.either(movementSystem.getMovementState(nonExistentPlayerId))
+  expect(stateResult._tag).toBe('Left')
+  // 存在しないプレイヤーの状態設定
+  const setStateResult = yield* Effect.either(
+  movementSystem.setMovementState(nonExistentPlayerId, DEFAULT_MOVEMENT_STATE)
+  )
+  expect(setStateResult._tag).toBe('Left')
+}).pipe(Effect.provide(MovementSystemTestLayer)) as any
     )
 
     effectIt.effect(
       'should recover from invalid physics states',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const movementSystem = yield* MovementSystem
           const playerId = yield* createTestPlayer('recovery-test')
 

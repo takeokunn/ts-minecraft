@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 
@@ -349,7 +350,7 @@ const createTestChunkData = (size: number = 4): ChunkData => {
 }
 
 const createSolidChunkData = (size: number = 4): ChunkData => {
-  const blocks: number[][][] = Array.from({ length: size }, () =>
+  const blocks: number[][][] = Array.from({ length: size }, (),
     Array.from({ length: size }, () => Array.from({ length: size }, () => 1))
   )
 
@@ -361,7 +362,7 @@ const createSolidChunkData = (size: number = 4): ChunkData => {
 }
 
 const createEmptyChunkData = (size: number = 4): ChunkData => {
-  const blocks: number[][][] = Array.from({ length: size }, () =>
+  const blocks: number[][][] = Array.from({ length: size }, (),
     Array.from({ length: size }, () => Array.from({ length: size }, () => 0))
   )
 
@@ -390,16 +391,15 @@ const measurePerformance = <A, E>(
 
 describe('MeshGenerator', () => {
   describe('Basic Mesh Generation', () => {
-    it('should generate empty mesh for empty chunk', async () => {
-      const program = Effect.gen(function* () {
-        const emptyChunk = createEmptyChunkData(4)
-        const meshData = yield* generateBasicMesh(emptyChunk)
-
-        expect(meshData.vertices).toHaveLength(0)
-        expect(meshData.normals).toHaveLength(0)
-        expect(meshData.uvs).toHaveLength(0)
-        expect(meshData.indices).toHaveLength(0)
-      })
+  it('should generate empty mesh for empty chunk', async () => {
+  const program = Effect.gen(function* () {
+  const emptyChunk = createEmptyChunkData(4)
+  const meshData = yield* generateBasicMesh(emptyChunk)
+  expect(meshData.vertices).toHaveLength(0)
+  expect(meshData.normals).toHaveLength(0)
+  expect(meshData.uvs).toHaveLength(0)
+  expect(meshData.indices).toHaveLength(0)
+})
 
       await Effect.runPromise(program)
     })
@@ -439,22 +439,19 @@ describe('MeshGenerator', () => {
   })
 
   describe('Greedy Meshing Algorithm', () => {
-    it('should reduce vertex count compared to basic mesh', async () => {
-      const program = Effect.gen(function* () {
-        const solidChunk = createSolidChunkData(4)
-
-        const basicMesh = yield* generateBasicMesh(solidChunk)
-        const greedyMesh = yield* generateGreedyMesh(solidChunk)
-
-        // Greedy meshing should produce fewer vertices for solid chunks
-        expect(greedyMesh.vertices.length).toBeLessThanOrEqual(basicMesh.vertices.length)
-
-        // Both should have valid mesh data
-        expect(greedyMesh.vertices.length % 3).toBe(0)
-        expect(greedyMesh.normals.length % 3).toBe(0)
-        expect(greedyMesh.uvs.length % 2).toBe(0)
-        expect(greedyMesh.indices.length % 3).toBe(0)
-      })
+  it('should reduce vertex count compared to basic mesh', async () => {
+  const program = Effect.gen(function* () {
+  const solidChunk = createSolidChunkData(4)
+  const basicMesh = yield* generateBasicMesh(solidChunk)
+  const greedyMesh = yield* generateGreedyMesh(solidChunk)
+  // Greedy meshing should produce fewer vertices for solid chunks
+  expect(greedyMesh.vertices.length).toBeLessThanOrEqual(basicMesh.vertices.length)
+  // Both should have valid mesh data
+  expect(greedyMesh.vertices.length % 3).toBe(0)
+  expect(greedyMesh.normals.length % 3).toBe(0)
+  expect(greedyMesh.uvs.length % 2).toBe(0)
+  expect(greedyMesh.indices.length % 3).toBe(0)
+})
 
       await Effect.runPromise(program)
     })
@@ -475,60 +472,56 @@ describe('MeshGenerator', () => {
   })
 
   describe('Face Culling', () => {
-    it('should correctly identify faces to render', () => {
-      // Create a 2x2x2 blocks array where blocks[x][y][z]
-      const blocks = [
-        [
-          // x=0
-          [1, 0], // y=0: [z=0, z=1]
-          [0, 0], // y=1: [z=0, z=1]
-        ],
-        [
-          // x=1
-          [0, 1], // y=0: [z=0, z=1]
-          [1, 1], // y=1: [z=0, z=1]
-        ],
-      ]
+  it.effect('should correctly identify faces to render', () => Effect.gen(function* () {
+    // Create a 2x2x2 blocks array where blocks[x][y][z]
+    const blocks = [
+    [
+    // x=0
+    [1, 0], // y=0: [z=0, z=1]
+    [0, 0], // y=1: [z=0, z=1]
+    ],
+    [
+    // x=1
+    [0, 1], // y=0: [z=0, z=1]
+    [1, 1], // y=1: [z=0, z=1]
+    ],
+    ]
+    // Test block at (0,0,0) = 1 (solid)
+    // Face should be rendered when neighbor is air (0)
+    expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
+    expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true) // neighbor (1,0,0) = 0 (air)
+    expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true) // neighbor (0,0,1) = 0 (air)
+    // Test block at (1,1,1) = 1 (solid)
+    // blocks[1][1][0] = 1, so west neighbor blocks[0][1][0] = 0 (air) → render
+    expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
+    // blocks[1][1][1] = 1, so west neighbor blocks[0][1][1] = 0 (air) → render
+    expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true) // neighbor (0,1,1) = 0 (air)
+})
+),
+  Effect.gen(function* () {
+        const blocks = [[[1]]]
+        // All boundary faces should be rendered
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'west', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'bottom', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'north', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 1)).toBe(true)
 
-      // Test block at (0,0,0) = 1 (solid)
-      // Face should be rendered when neighbor is air (0)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true) // neighbor (1,0,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true) // neighbor (0,0,1) = 0 (air)
-
-      // Test block at (1,1,1) = 1 (solid)
-      // blocks[1][1][0] = 1, so west neighbor blocks[0][1][0] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
-      // blocks[1][1][1] = 1, so west neighbor blocks[0][1][1] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true) // neighbor (0,1,1) = 0 (air)
-    })
-
-    it('should render faces on chunk boundaries', () => {
-      const blocks = [[[1]]]
-
-      // All boundary faces should be rendered
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'west', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'bottom', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'north', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 1)).toBe(true)
-    })
+      })
   })
 
   describe('Performance Requirements', () => {
-    it('should generate mesh within performance requirements', async () => {
-      const program = Effect.gen(function* () {
-        const largeChunk = createTestChunkData(16) // 16x16x16 chunk
-
-        const { duration } = yield* measurePerformance(
-          generateBasicMesh(largeChunk),
-          'Basic mesh generation for 16x16x16 chunk'
-        )
-
-        // Should complete within 300ms for 16x16x16 chunk (CI環境考慮)
-        expect(duration).toBeLessThan(300)
-      })
+  it('should generate mesh within performance requirements', async () => {
+  const program = Effect.gen(function* () {
+  const largeChunk = createTestChunkData(16) // 16x16x16 chunk
+  const { duration } = yield* measurePerformance(
+  generateBasicMesh(largeChunk),
+  'Basic mesh generation for 16x16x16 chunk'
+  )
+  // Should complete within 300ms for 16x16x16 chunk (CI環境考慮)
+  expect(duration).toBeLessThan(300)
+})
 
       await Effect.runPromise(program)
     })
@@ -563,18 +556,16 @@ describe('MeshGenerator', () => {
   })
 
   describe('Schema Validation', () => {
-    it('should validate chunk data schema', async () => {
-      const program = Effect.gen(function* () {
-        const invalidChunk = {
-          position: { x: 'invalid', y: 0, z: 0 },
-          blocks: [],
-          size: -1,
-        }
-
-        const result = yield* Effect.either(generateBasicMesh(invalidChunk as any))
-
-        expect(result._tag).toBe('Left')
-      })
+  it('should validate chunk data schema', async () => {
+  const program = Effect.gen(function* () {
+  const invalidChunk = {
+  position: { x: 'invalid', y: 0, z: 0 },
+  blocks: [],
+  size: -1,
+  }
+  const result = yield* Effect.either(generateBasicMesh(invalidChunk as any))
+  expect(result._tag).toBe('Left')
+})
 
       await Effect.runPromise(program)
     })
@@ -598,48 +589,42 @@ describe('MeshGenerator', () => {
   })
 
   describe('THREE.js Integration', () => {
-    it('should produce data compatible with THREE.BufferGeometry', async () => {
-      const program = Effect.gen(function* () {
-        const testChunk = createTestChunkData(4)
-        const meshData = yield* generateBasicMesh(testChunk)
-
-        // Create THREE.js BufferGeometry to verify compatibility
-        const geometry = new THREE.BufferGeometry()
-
-        if (meshData.vertices.length > 0) {
-          // Convert readonly arrays to mutable arrays for THREE.js
-          const vertices = [...meshData.vertices]
-          const normals = [...meshData.normals]
-          const uvs = [...meshData.uvs]
-          const indices = [...meshData.indices]
-
-          geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-          geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-          geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-          geometry.setIndex(indices)
-
-          // Verify geometry is valid
-          const positionAttribute = geometry.attributes['position']
-          const normalAttribute = geometry.attributes['normal']
-          const uvAttribute = geometry.attributes['uv']
-          const indexAttribute = geometry.index
-
-          if (positionAttribute) {
-            expect(positionAttribute.count).toBeGreaterThan(0)
-          }
-          if (normalAttribute && positionAttribute) {
-            expect(normalAttribute.count).toBe(positionAttribute.count)
-          }
-          if (uvAttribute && positionAttribute) {
-            expect(uvAttribute.count).toBe(positionAttribute.count)
-          }
-          if (indexAttribute) {
-            expect(indexAttribute.count).toBeGreaterThan(0)
-          }
-        }
-
-        geometry.dispose()
-      })
+  it('should produce data compatible with THREE.BufferGeometry', async () => {
+  const program = Effect.gen(function* () {
+  const testChunk = createTestChunkData(4)
+  const meshData = yield* generateBasicMesh(testChunk)
+  // Create THREE.js BufferGeometry to verify compatibility
+  const geometry = new THREE.BufferGeometry()
+  if (meshData.vertices.length > 0) {
+  // Convert readonly arrays to mutable arrays for THREE.js
+  const vertices = [...meshData.vertices]
+  const normals = [...meshData.normals]
+  const uvs = [...meshData.uvs]
+  const indices = [...meshData.indices]
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geometry.setIndex(indices)
+  // Verify geometry is valid
+  const positionAttribute = geometry.attributes['position']
+  const normalAttribute = geometry.attributes['normal']
+  const uvAttribute = geometry.attributes['uv']
+  const indexAttribute = geometry.index
+  if (positionAttribute) {
+  expect(positionAttribute.count).toBeGreaterThan(0)
+  }
+  if (normalAttribute && positionAttribute) {
+  expect(normalAttribute.count).toBe(positionAttribute.count)
+  }
+  if (uvAttribute && positionAttribute) {
+  expect(uvAttribute.count).toBe(positionAttribute.count)
+  }
+  if (indexAttribute) {
+  expect(indexAttribute.count).toBeGreaterThan(0)
+  }
+  }
+  geometry.dispose()
+})
 
       await Effect.runPromise(program)
     })

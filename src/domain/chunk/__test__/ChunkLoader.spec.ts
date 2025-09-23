@@ -3,7 +3,8 @@
  * 1対1対応テストファイル
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, expect, beforeEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, TestContext, Layer, Fiber } from 'effect'
 import {
@@ -27,7 +28,7 @@ import { WorldGeneratorTag } from '../../world/index'
 // =============================================================================
 
 const createMockWorldGenerator = (): WorldGeneratorInterface => ({
-  generateChunk: (position) =>
+  generateChunk: (position),
     Effect.succeed({
       chunk: {
         position,
@@ -84,494 +85,412 @@ const MockWorldGeneratorLive = Layer.succeed(WorldGeneratorTag, createMockWorldG
 
 describe('Priority Functions', () => {
   describe('calculatePriorityScore', () => {
-    const config = defaultChunkLoaderConfig
+  const config = defaultChunkLoaderConfig
+  it.effect('immediate優先度が最も高いスコアを持つ', () => Effect.gen(function* () {
+    const request = createChunkLoadRequest({ x: 0, z: 0 }, 'immediate', 1.0)
+    const score = calculatePriorityScore(request, config)
+    expect(score).toBeGreaterThan(900) // 1000 - distance penalty - age penalty
+})
+),
+  Effect.gen(function* () {
+        const nearRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 1.0)
+        const farRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0)
+        const nearScore = calculatePriorityScore(nearRequest, config)
+        const farScore = calculatePriorityScore(farRequest, config)
+        expect(nearScore).toBeGreaterThan(farScore)
 
-    it('immediate優先度が最も高いスコアを持つ', () => {
-      const request = createChunkLoadRequest({ x: 0, z: 0 }, 'immediate', 1.0)
-
-      const score = calculatePriorityScore(request, config)
-      expect(score).toBeGreaterThan(900) // 1000 - distance penalty - age penalty
-    })
-
-    it('距離が遠いほどスコアが低くなる', () => {
-      const nearRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 1.0)
-      const farRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0)
-
-      const nearScore = calculatePriorityScore(nearRequest, config)
-      const farScore = calculatePriorityScore(farRequest, config)
-
-      expect(nearScore).toBeGreaterThan(farScore)
-    })
-
-    it('古いリクエストほどスコアが低くなる', () => {
-      // 手動でタイムスタンプを設定
-      const oldRequest: ChunkLoadRequest = {
-        position: { x: 0, z: 0 },
-        priority: 'normal',
-        timestamp: Date.now() - 10000, // 10秒前
-        playerDistance: 1.0,
-      }
-
-      const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
-
-      const oldScore = calculatePriorityScore(oldRequest, config)
-      const newScore = calculatePriorityScore(newRequest, config)
-
-      expect(newScore).toBeGreaterThan(oldScore)
-    })
+      })
+    it.effect('古いリクエストほどスコアが低くなる', () => Effect.gen(function* () {
+    // 手動でタイムスタンプを設定
+    const oldRequest: ChunkLoadRequest = {
+    position: { x: 0, z: 0 },
+    priority: 'normal',
+    timestamp: Date.now() - 10000, // 10秒前
+    playerDistance: 1.0,
+    const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
+    const oldScore = calculatePriorityScore(oldRequest, config)
+    const newScore = calculatePriorityScore(newRequest, config)
+    expect(newScore).toBeGreaterThan(oldScore)
   })
-
-  describe('sortRequestsByPriority', () => {
-    const config = defaultChunkLoaderConfig
-
-    it('優先度順に正しくソートされる', () => {
-      const requests: ChunkLoadRequest[] = [
-        createChunkLoadRequest({ x: 0, z: 0 }, 'low', 1.0),
-        createChunkLoadRequest({ x: 1, z: 1 }, 'immediate', 1.0),
-        createChunkLoadRequest({ x: 2, z: 2 }, 'high', 1.0),
-        createChunkLoadRequest({ x: 3, z: 3 }, 'normal', 1.0),
-      ]
-
-      const sorted = sortRequestsByPriority(requests, config)
-
-      expect(sorted[0]?.priority).toBe('immediate')
-      expect(sorted[1]?.priority).toBe('high')
-      expect(sorted[2]?.priority).toBe('normal')
-      expect(sorted[3]?.priority).toBe('low')
-    })
-
-    it('同じ優先度では距離順にソートされる', () => {
-      const requests: ChunkLoadRequest[] = [
+)
+    describe('sortRequestsByPriority', () => {
+  const config = defaultChunkLoaderConfig
+    it.effect('優先度順に正しくソートされる', () => Effect.gen(function* () {
+    const requests: ChunkLoadRequest[] = [
+    createChunkLoadRequest({ x: 0, z: 0 }, 'low', 1.0),
+    createChunkLoadRequest({ x: 1, z: 1 }, 'immediate', 1.0),
+    createChunkLoadRequest({ x: 2, z: 2 }, 'high', 1.0),
+    createChunkLoadRequest({ x: 3, z: 3 }, 'normal', 1.0),
+    ]
+    const sorted = sortRequestsByPriority(requests, config)
+    expect(sorted[0]?.priority).toBe('immediate')
+    expect(sorted[1]?.priority).toBe('high')
+    expect(sorted[2]?.priority).toBe('normal')
+    expect(sorted[3]?.priority).toBe('low')
+})
+),
+  Effect.gen(function* () {
+        const requests: ChunkLoadRequest[] = [
         createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0),
         createChunkLoadRequest({ x: 1, z: 1 }, 'high', 1.0),
         createChunkLoadRequest({ x: 2, z: 2 }, 'high', 5.0),
-      ]
+        ]
+        const sorted = sortRequestsByPriority(requests, config)
+        expect(sorted[0]?.playerDistance).toBe(1.0)
+        expect(sorted[1]?.playerDistance).toBe(5.0)
+        expect(sorted[2]?.playerDistance).toBe(10.0)
 
-      const sorted = sortRequestsByPriority(requests, config)
-
-      expect(sorted[0]?.playerDistance).toBe(1.0)
-      expect(sorted[1]?.playerDistance).toBe(5.0)
-      expect(sorted[2]?.playerDistance).toBe(10.0)
-    })
+      })
   })
 
   describe('createChunkLoadRequest', () => {
-    it('正しい構造のリクエストを作成する', () => {
-      const position: ChunkPosition = { x: 5, z: -3 }
-      const priority: ChunkLoadPriority = 'high'
-      const distance = 7.5
-
-      const request = createChunkLoadRequest(position, priority, distance)
-
-      expect(request.position).toEqual(position)
-      expect(request.priority).toBe(priority)
-      expect(request.playerDistance).toBe(distance)
-      expect(request.timestamp).toBeGreaterThan(0)
-      expect(request.timestamp).toBeLessThanOrEqual(Date.now())
-    })
-  })
+  it.effect('正しい構造のリクエストを作成する', () => Effect.gen(function* () {
+    const position: ChunkPosition = { x: 5, z: -3 }
+    const priority: ChunkLoadPriority = 'high'
+    const distance = 7.5
+    const request = createChunkLoadRequest(position, priority, distance)
+    expect(request.position).toEqual(position)
+    expect(request.priority).toBe(priority)
+    expect(request.playerDistance).toBe(distance)
+    expect(request.timestamp).toBeGreaterThan(0)
+    expect(request.timestamp).toBeLessThanOrEqual(Date.now())
 })
+)
+    // =============================================================================
+    // Utility Functions Tests
+    // =============================================================================
 
-// =============================================================================
-// Utility Functions Tests
-// =============================================================================
-
-describe('Utility Functions', () => {
+    describe('Utility Functions', () => {
   describe('chunkLoadRequestToKey', () => {
-    it('チャンク座標を文字列キーに変換する', () => {
-      const position: ChunkPosition = { x: 42, z: -17 }
-      const key = chunkLoadRequestToKey(position)
-
-      expect(key).toBe('42,-17')
-    })
+    it.effect('チャンク座標を文字列キーに変換する', () => Effect.gen(function* () {
+    const position: ChunkPosition = { x: 42, z: -17 }
+    const key = chunkLoadRequestToKey(position)
+    expect(key).toBe('42,-17')
+}) {
+  it.effect('タイムアウト時間内の場合はfalseを返す', () => Effect.gen(function* () {
+    const state = {
+    position: { x: 0, z: 0 },
+    status: 'loading' as const,
+    startTime: Date.now() - 1000, // 1秒前
+    const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
+    expect(expired).toBe(false)
   })
-
-  describe('isLoadExpired', () => {
-    it('タイムアウト時間内の場合はfalseを返す', () => {
-      const state = {
-        position: { x: 0, z: 0 },
-        status: 'loading' as const,
-        startTime: Date.now() - 1000, // 1秒前
-      }
-
-      const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
-      expect(expired).toBe(false)
-    })
-
-    it('タイムアウト時間を超えた場合はtrueを返す', () => {
-      const state = {
+),
+  Effect.gen(function* () {
+        const state = {
         position: { x: 0, z: 0 },
         status: 'loading' as const,
         startTime: Date.now() - 10000, // 10秒前
-      }
+        const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
+        expect(expired).toBe(true)
 
-      const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
-      expect(expired).toBe(true)
-    })
-
-    it('startTimeがない場合はfalseを返す', () => {
-      const state = {
-        position: { x: 0, z: 0 },
-        status: 'queued' as const,
-      }
-
-      const expired = isLoadExpired(state, 5000)
-      expect(expired).toBe(false)
-    })
-  })
-})
-
-// =============================================================================
-// ChunkLoader Service Tests
-// =============================================================================
-
-describe('ChunkLoader Service', () => {
-  describe('Configuration', () => {
-    effectIt.effect('デフォルト設定でサービスを作成できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const queueSize = yield* loader.getQueueSize()
-        const activeCount = yield* loader.getActiveLoadCount()
-
-        expect(queueSize).toBe(0)
-        expect(activeCount).toBe(0)
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
-    )
-
-    it('カスタム設定でサービスを作成できる', () => {
-      const customConfig = {
-        ...defaultChunkLoaderConfig,
-        maxConcurrentLoads: 8,
-        queueCapacity: 500,
-      }
-
-      const test = Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const queueSize = yield* loader.getQueueSize()
-
-        expect(queueSize).toBe(0)
       })
-
-      Effect.runSync(
-        Effect.provide(test, Layer.provide(ChunkLoaderLive(customConfig), MockWorldGeneratorLive)) as Effect.Effect<
-          any,
-          any,
-          never
-        >
-      )
+    it.effect('startTimeがない場合はfalseを返す', () => Effect.gen(function* () {
+    const state = {
+    position: { x: 0, z: 0 },
+    status: 'queued' as const,
+    const expired = isLoadExpired(state, 5000)
+    expect(expired).toBe(false)
+  })
+)
     })
-  })
 
-  describe('queueChunkLoad', () => {
-    effectIt.effect('チャンクロードリクエストをキューに追加できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const position: ChunkPosition = { x: 1, z: 2 }
+    // =============================================================================
+    // ChunkLoader Service Tests
+    // =============================================================================
 
-        yield* loader.queueChunkLoad(position, 'high', 5.0)
-
-        const queueSize = yield* loader.getQueueSize()
-        const loadState = yield* loader.getLoadState(position)
-
-        expect(queueSize).toBe(1)
-        expect(loadState?.status).toBe('queued')
-        expect(loadState?.position).toEqual(position)
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    describe('ChunkLoader Service', () => {
+  describe('Configuration', () => {
+    effectIt.effect('デフォルト設定でサービスを作成できる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const queueSize = yield* loader.getQueueSize()
+    const activeCount = yield* loader.getActiveLoadCount()
+    expect(queueSize).toBe(0)
+    expect(activeCount).toBe(0)
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
 
-    effectIt.effect('同じチャンクの重複リクエストは追加されない', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const position: ChunkPosition = { x: 0, z: 0 }
-
-        yield* loader.queueChunkLoad(position, 'high', 1.0)
-        yield* loader.queueChunkLoad(position, 'immediate', 0.5) // 重複だが優先度が違う
-
-        const queueSize = yield* loader.getQueueSize()
-        // 実装では、'queued'状態では重複チェックしないため、両方キューに追加される
-        expect(queueSize).toBe(2) // 重複でも異なる優先度は両方追加される
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    it.effect('カスタム設定でサービスを作成できる', () => Effect.gen(function* () {
+    const customConfig = {
+    ...defaultChunkLoaderConfig,
+    maxConcurrentLoads: 8,
+    queueCapacity: 500,
+    const test = Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const queueSize = yield* loader.getQueueSize()
+    expect(queueSize).toBe(0)
+    Effect.runSync(
+    Effect.provide(test, Layer.provide(ChunkLoaderLive(customConfig
+    }),
+    MockWorldGeneratorLive)) as Effect.Effect<
+    any,
+    any,
+    never
+    >
     )
-  })
+  }) {
+  effectIt.effect('チャンクロードリクエストをキューに追加できる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const position: ChunkPosition = { x: 1, z: 2 }
 
-  describe('queueChunkLoadBatch', () => {
-    effectIt.effect('複数のチャンクを一度にキューに追加できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
+    yield* loader.queueChunkLoad(position, 'high', 5.0)
 
-        const requests = [
-          { position: { x: 0, z: 0 }, priority: 'high' as const, playerDistance: 1.0 },
-          { position: { x: 1, z: 0 }, priority: 'normal' as const, playerDistance: 2.0 },
-          { position: { x: 0, z: 1 }, priority: 'low' as const, playerDistance: 3.0 },
-        ]
+    const queueSize = yield* loader.getQueueSize()
+    const loadState = yield* loader.getLoadState(position)
 
-        yield* loader.queueChunkLoadBatch(requests)
-
-        const queueSize = yield* loader.getQueueSize()
-        expect(queueSize).toBe(3)
-
-        // 各チャンクの状態を確認
-        for (const request of requests) {
-          const loadState = yield* loader.getLoadState(request.position)
-          expect(loadState?.status).toBe('queued')
-        }
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    expect(queueSize).toBe(1)
+    expect(loadState?.status).toBe('queued')
+    expect(loadState?.position).toEqual(position)
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
-  })
 
-  describe('Load Processing', () => {
-    effectIt.effect(
-      'ロード処理を開始・停止できる',
-      () =>
-        Effect.gen(function* () {
-          const loader = yield* ChunkLoader
+    effectIt.effect('同じチャンクの重複リクエストは追加されない', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const position: ChunkPosition = { x: 0, z: 0 }
 
-          // ロード処理開始
-          const processingFiber = yield* loader.startLoadProcessing()
-          expect(processingFiber).toBeDefined()
+    yield* loader.queueChunkLoad(position, 'high', 1.0)
+    yield* loader.queueChunkLoad(position, 'immediate', 0.5) // 重複だが優先度が違う
 
-          // 停止 - ただ停止できることを確認
-          yield* loader.stopLoadProcessing()
+    const queueSize = yield* loader.getQueueSize()
+    // 実装では、'queued'状態では重複チェックしないため、両方キューに追加される
+    expect(queueSize).toBe(2) // 重複でも異なる優先度は両方追加される
+    }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    )
+    })
 
-          // 再開始できることを確認（停止が成功した証拠）
-          const newProcessingFiber = yield* loader.startLoadProcessing()
-          expect(newProcessingFiber).toBeDefined()
+    describe('queueChunkLoadBatch', () => {
+  effectIt.effect('複数のチャンクを一度にキューに追加できる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const requests = [
+    { position: { x: 0, z: 0 }, priority: 'high' as const, playerDistance: 1.0 },
+    { position: { x: 1, z: 0 }, priority: 'normal' as const, playerDistance: 2.0 },
+    { position: { x: 0, z: 1 }, priority: 'low' as const, playerDistance: 3.0 },
+    ]
+    yield* loader.queueChunkLoadBatch(requests)
+    const queueSize = yield* loader.getQueueSize()
+    expect(queueSize).toBe(3)
+    // 各チャンクの状態を確認
+    for (const request of requests) {
+    const loadState = yield* loader.getLoadState(request.position)
+    expect(loadState?.status).toBe('queued')
+    }
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    )
+    })
 
-          // cleanup
-          yield* loader.stopLoadProcessing()
-        }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive))),
-      10000
+    describe('Load Processing', () => {
+  effectIt.effect(
+    'ロード処理を開始・停止できる',
+    () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    // ロード処理開始
+    const processingFiber = yield* loader.startLoadProcessing()
+    expect(processingFiber).toBeDefined()
+    // 停止 - ただ停止できることを確認
+    yield* loader.stopLoadProcessing()
+    // 再開始できることを確認（停止が成功した証拠）
+    const newProcessingFiber = yield* loader.startLoadProcessing()
+    expect(newProcessingFiber).toBeDefined()
+    // cleanup
+    yield* loader.stopLoadProcessing()
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive))),
+    10000
     ) // 10秒のタイムアウトを設定
 
-    effectIt.effect('既にロード処理が開始されている場合は同じFiberを返す', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
+    effectIt.effect('既にロード処理が開始されている場合は同じFiberを返す', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
 
-        const fiber1 = yield* loader.startLoadProcessing()
-        const fiber2 = yield* loader.startLoadProcessing()
+    const fiber1 = yield* loader.startLoadProcessing()
+    const fiber2 = yield* loader.startLoadProcessing()
 
-        expect(fiber1).toBe(fiber2)
+    expect(fiber1).toBe(fiber2)
 
-        yield* loader.stopLoadProcessing()
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    yield* loader.stopLoadProcessing()
+    }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
-  })
+    })
 
-  describe('Load State Management', () => {
-    effectIt.effect('存在しないチャンクの状態はnullを返す', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const position: ChunkPosition = { x: 999, z: 999 }
-
-        const loadState = yield* loader.getLoadState(position)
-        expect(loadState).toBeNull()
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    describe('Load State Management', () => {
+  effectIt.effect('存在しないチャンクの状態はnullを返す', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const position: ChunkPosition = { x: 999, z: 999 }
+    const loadState = yield* loader.getLoadState(position)
+    expect(loadState).toBeNull()
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
 
-    effectIt.effect('キューに追加されたチャンクの状態を取得できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const position: ChunkPosition = { x: 5, z: -3 }
+    effectIt.effect('キューに追加されたチャンクの状態を取得できる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const position: ChunkPosition = { x: 5, z: -3 }
 
-        yield* loader.queueChunkLoad(position, 'immediate', 2.5)
+    yield* loader.queueChunkLoad(position, 'immediate', 2.5)
 
-        const loadState = yield* loader.getLoadState(position)
-        expect(loadState?.status).toBe('queued')
-        expect(loadState?.position).toEqual(position)
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    const loadState = yield* loader.getLoadState(position)
+    expect(loadState?.status).toBe('queued')
+    expect(loadState?.position).toEqual(position)
+    }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
-  })
+    })
 
-  describe('Statistics', () => {
-    effectIt.effect('アクティブロード数とキューサイズを正確に追跡する', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-
-        // 初期状態
-        expect(yield* loader.getActiveLoadCount()).toBe(0)
-        expect(yield* loader.getQueueSize()).toBe(0)
-
-        // チャンクをキューに追加
-        yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
-        yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'normal', 2.0)
-
-        expect(yield* loader.getQueueSize()).toBe(2)
-        expect(yield* loader.getActiveLoadCount()).toBe(0)
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    describe('Statistics', () => {
+  effectIt.effect('アクティブロード数とキューサイズを正確に追跡する', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    // 初期状態
+    expect(yield* loader.getActiveLoadCount()).toBe(0)
+    expect(yield* loader.getQueueSize()).toBe(0)
+    // チャンクをキューに追加
+    yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
+    yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'normal', 2.0)
+    expect(yield* loader.getQueueSize()).toBe(2)
+    expect(yield* loader.getActiveLoadCount()).toBe(0)
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
-  })
+    })
 
-  describe('Load Cancellation', () => {
-    effectIt.effect('特定のチャンクロードをキャンセルできる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const position: ChunkPosition = { x: 0, z: 0 }
-
-        yield* loader.queueChunkLoad(position, 'high', 1.0)
-
-        const cancelled = yield* loader.cancelChunkLoad(position)
-        expect(cancelled).toBe(false) // キューにある状態ではキャンセルできない
-
-        const loadState = yield* loader.getLoadState(position)
-        expect(loadState?.status).toBe('queued') // まだキューにある
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    describe('Load Cancellation', () => {
+  effectIt.effect('特定のチャンクロードをキャンセルできる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const position: ChunkPosition = { x: 0, z: 0 }
+    yield* loader.queueChunkLoad(position, 'high', 1.0)
+    const cancelled = yield* loader.cancelChunkLoad(position)
+    expect(cancelled).toBe(false) // キューにある状態ではキャンセルできない
+    const loadState = yield* loader.getLoadState(position)
+    expect(loadState?.status).toBe('queued') // まだキューにある
+}).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
     )
 
-    effectIt.effect('全てのロードをキャンセルできる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
+    effectIt.effect('全てのロードをキャンセルできる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
 
-        // 複数のチャンクをキューに追加
-        yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
-        yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'normal', 2.0)
+    // 複数のチャンクをキューに追加
+    yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
+    yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'normal', 2.0)
 
-        expect(yield* loader.getQueueSize()).toBe(2)
+    expect(yield* loader.getQueueSize()).toBe(2)
 
-        // cancelAllLoads の実行だけを確認（Queue.shutdownによる後続エラーは無視）
-        yield* Effect.catchAll(
-          loader.cancelAllLoads(),
-          () => Effect.succeed(void 0) // シャットダウンエラーは想定内
-        )
-
-        // cancelAllLoads後はキューがシャットダウンされるため、新しいローダーで動作確認
-        // 実際のアプリケーションでは、cancelAllLoads後はサービス全体を再初期化する想定
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    // cancelAllLoads の実行だけを確認（Queue.shutdownによる後続エラーは無視）
+    yield* Effect.catchAll(
+    loader.cancelAllLoads() => () => Effect.succeed(void 0) // シャットダウンエラーは想定内
     )
-  })
-})
 
-// =============================================================================
-// Performance Tests
-// =============================================================================
+    // cancelAllLoads後はキューがシャットダウンされるため、新しいローダーで動作確認
+    // 実際のアプリケーションでは、cancelAllLoads後はサービス全体を再初期化する想定
+    }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    )
+    })
+    })
 
-describe('Performance Tests', () => {
+    // =============================================================================
+    // Performance Tests
+    // =============================================================================
+
+    describe('Performance Tests', () => {
   describe('Queue Performance', () => {
-    effectIt.effect('大量のチャンクリクエストを高速で処理できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-        const startTime = performance.now()
-
-        // 1000個のチャンクリクエストを作成
-        const requests = Array.from({ length: 1000 }, (_, i) => ({
-          position: { x: i % 50, z: Math.floor(i / 50) },
-          priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
-          playerDistance: Math.random() * 20,
-        }))
-
-        yield* loader.queueChunkLoadBatch(requests)
-
-        const endTime = performance.now()
-        const executionTime = endTime - startTime
-
-        expect(yield* loader.getQueueSize()).toBe(1000)
-        expect(executionTime).toBeLessThan(1000) // 1秒以内
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
-    )
-  })
-
-  describe('Priority Calculation Performance', () => {
-    it('大量の優先度計算を高速で実行できる', () => {
-      const config = defaultChunkLoaderConfig
-      const startTime = performance.now()
-
-      const requests: ChunkLoadRequest[] = Array.from({ length: 10000 }, (_, i) => ({
-        position: { x: i % 100, z: Math.floor(i / 100) },
-        priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
-        timestamp: Date.now() - Math.random() * 10000,
-        playerDistance: Math.random() * 50,
-      }))
-
-      const sorted = sortRequestsByPriority(requests, config)
-
-      const endTime = performance.now()
-      const executionTime = endTime - startTime
-
-      expect(sorted).toHaveLength(10000)
-      expect(executionTime).toBeLessThan(500) // 500ms以内
-    })
-  })
+    effectIt.effect('大量のチャンクリクエストを高速で処理できる', () => Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    const startTime = performance.now()
+    // 1000個のチャンクリクエストを作成
+    const requests = Array.from({ length: 1000 }, (_, i) => ({
+    position: { x: i % 50, z: Math.floor(i / 50) },
+    priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
+    playerDistance: Math.random() * 20,
 })
 
-// =============================================================================
-// Edge Cases
-// =============================================================================
+    yield* loader.queueChunkLoadBatch(requests)
 
-describe('Edge Cases', () => {
-  describe('Configuration Edge Cases', () => {
-    it('maxConcurrentLoads=1でも正しく動作する', () => {
-      const config = {
-        ...defaultChunkLoaderConfig,
-        maxConcurrentLoads: 1,
-      }
+    const endTime = performance.now()
+    const executionTime = endTime - startTime
 
-      const test = Effect.gen(function* () {
-        const loader = yield* ChunkLoader
-
-        yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
-        yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'high', 1.0)
-
-        expect(yield* loader.getQueueSize()).toBe(2)
-      })
-
-      Effect.runSync(
-        Effect.provide(test, Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)) as Effect.Effect<
-          any,
-          any,
-          never
-        >
-      )
+    expect(yield* loader.getQueueSize()).toBe(1000)
+    expect(executionTime).toBeLessThan(1000) // 1秒以内
+    }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
+    )
     })
 
-    it('queueCapacity=0でも動作する（即座に処理）', () => {
-      const config = {
+    describe('Priority Calculation Performance', () => {
+  it.effect('大量の優先度計算を高速で実行できる', () => Effect.gen(function* () {
+    const config = defaultChunkLoaderConfig
+    const startTime = performance.now()
+    const requests: ChunkLoadRequest[] = Array.from({ length: 10000 }, (_, i) => ({
+    position: { x: i % 100, z: Math.floor(i / 100) },
+    priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
+    timestamp: Date.now() - Math.random() * 10000,
+    playerDistance: Math.random() * 50,
+})
+)
+    const executionTime = endTime - startTime
+    expect(sorted).toHaveLength(10000)
+    expect(executionTime).toBeLessThan(500) // 500ms以内
+
+    })
+    })
+    })
+
+    // =============================================================================
+    // Edge Cases
+    // =============================================================================
+
+    describe('Edge Cases', () => {
+  describe('Configuration Edge Cases', () => {
+    it.effect('maxConcurrentLoads=1でも正しく動作する', () => Effect.gen(function* () {
+    const config = {
+    ...defaultChunkLoaderConfig,
+    maxConcurrentLoads: 1,
+    const test = Effect.gen(function* () {
+    const loader = yield* ChunkLoader
+    yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
+    yield* loader.queueChunkLoad({ x: 1, z: 0 }, 'high', 1.0)
+    expect(yield* loader.getQueueSize()).toBe(2)
+    Effect.runSync(
+    Effect.provide(test, Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)) as Effect.Effect<
+    any,
+    any,
+    never
+    >
+    )
+})
+),
+  Effect.gen(function* () {
+        const config = {
         ...defaultChunkLoaderConfig,
         queueCapacity: 1, // 最小値1
-      }
-
-      const test = Effect.gen(function* () {
+        const test = Effect.gen(function* () {
         const loader = yield* ChunkLoader
-
         yield* loader.queueChunkLoad({ x: 0, z: 0 }, 'high', 1.0)
-
         // キューサイズが制限されることを確認
         expect(yield* loader.getQueueSize()).toBeLessThanOrEqual(1)
-      })
-
-      Effect.runSync(
+        Effect.runSync(
         Effect.provide(test, Layer.provide(ChunkLoaderLive(config), MockWorldGeneratorLive)) as Effect.Effect<
-          any,
-          any,
-          never
+        any,
+        any,
+        never
         >
-      )
-    })
+        )
+
+      })
   })
 
   describe('Priority Edge Cases', () => {
-    it('同じスコアのリクエストでも安定したソートを行う', () => {
-      const config = defaultChunkLoaderConfig
-
-      const requests: ChunkLoadRequest[] = [
-        {
-          position: { x: 0, z: 0 },
-          priority: 'normal',
-          timestamp: 1000,
-          playerDistance: 5.0,
-        },
-        {
-          position: { x: 1, z: 0 },
-          priority: 'normal',
-          timestamp: 1000,
-          playerDistance: 5.0,
-        },
-      ]
-
-      const sorted1 = sortRequestsByPriority([...requests], config)
-      const sorted2 = sortRequestsByPriority([...requests], config)
-
-      // 安定ソートの確認（順序が一貫している）
-      expect(sorted1[0]?.position).toEqual(sorted2[0]?.position)
-      expect(sorted1[1]?.position).toEqual(sorted2[1]?.position)
-    })
-  })
+  it.effect('同じスコアのリクエストでも安定したソートを行う', () => Effect.gen(function* () {
+    const config = defaultChunkLoaderConfig
+    const requests: ChunkLoadRequest[] = [
+    {
+    position: { x: 0, z: 0 },
+    priority: 'normal',
+    timestamp: 1000,
+    playerDistance: 5.0,
+    },
+    {
+    position: { x: 1, z: 0 },
+    priority: 'normal',
+    timestamp: 1000,
+    playerDistance: 5.0,
+    },
+    ]
+    const sorted1 = sortRequestsByPriority([...requests], config)
+    const sorted2 = sortRequestsByPriority([...requests], config)
+    // 安定ソートの確認（順序が一貫している）
+    expect(sorted1[0]?.position).toEqual(sorted2[0]?.position)
+    expect(sorted1[1]?.position).toEqual(sorted2[1]?.position)
 })
+)

@@ -148,8 +148,9 @@ export const SystemRegistryServiceLive = Layer.effect(
   Effect.gen(function* () {
     // 初期状態
     const initialState: RegistryState = {
-      systems: new Map(),
-      executionOrder: [],
+      systems: new Map(
+    }),
+    executionOrder: [],
       globalEnabled: true,
     }
 
@@ -164,8 +165,9 @@ export const SystemRegistryServiceLive = Layer.effect(
           pipe(
             state.systems.has(system.name),
             Match.value,
-            Match.when(true, () => state),
-            Match.when(false, () => {
+            Match.when(true, () => state
+    }),
+    Match.when(false, () => {
               const metadata: SystemMetadata = {
                 name: system.name,
                 priority,
@@ -213,8 +215,9 @@ export const SystemRegistryServiceLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         yield* pipe(
-          state.systems.has(name),
-          Match.value,
+          state.systems.has(name
+    }),
+    Match.value,
           Match.when(false, () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name))),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
@@ -339,8 +342,9 @@ export const SystemRegistryServiceLive = Layer.effect(
                   yield* Ref.update(stateRef, (s) => {
                     const entry = s.systems.get(system.name)
                     return pipe(
-                      Option.fromNullable(entry),
-                      Option.match({
+                      Option.fromNullable(entry
+    }),
+    Option.match({
                         onNone: () => s,
                         onSome: (entry) => {
                           const errorMessage = isSystemError(error)

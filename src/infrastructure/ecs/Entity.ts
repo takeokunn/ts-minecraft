@@ -285,16 +285,13 @@ export const EntityPoolLive = Effect.gen(function* () {
     nextId: MAX_ENTITIES,
   }))
 
-  const allocate = () =>
-    Effect.gen(function* () {
+  const allocate = () => Effect.gen(function* () {
       return yield* pipe(
         state.freeList.length === 0,
         Match.value,
-        Match.when(true, () =>
-          Effect.fail(EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`))
+        Match.when(true, () => Effect.fail(EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`))
         ),
-        Match.orElse(() =>
-          Effect.gen(function* () {
+        Match.orElse(() => Effect.gen(function* () {
             const id = state.freeList.pop()!
             state.allocated.add(id)
             return id
@@ -306,11 +303,11 @@ export const EntityPoolLive = Effect.gen(function* () {
   const deallocate = (id: EntityId) =>
     Effect.gen(function* () {
       return yield* pipe(
-        !state.allocated.has(id),
-        Match.value,
+        !state.allocated.has(id
+    }),
+    Match.value,
         Match.when(true, () => Effect.fail(EntityPoolError('entity_not_allocated', `Entity ${id} is not allocated`))),
-        Match.orElse(() =>
-          Effect.sync(() => {
+        Match.orElse(() => Effect.sync(() => {
             state.allocated.delete(id)
             state.freeList.push(id)
             state.recycledCount++
@@ -321,15 +318,13 @@ export const EntityPoolLive = Effect.gen(function* () {
 
   const isAllocated = (id: EntityId) => Effect.sync(() => state.allocated.has(id))
 
-  const reset = () =>
-    Effect.sync(() => {
+  const reset = () => Effect.sync(() => {
       state.freeList = Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i))
       state.allocated.clear()
       state.recycledCount = 0
     })
 
-  const getStats = () =>
-    Effect.sync(
+  const getStats = () => Effect.sync(
       (): EntityPoolStats => ({
         totalCapacity: MAX_ENTITIES,
         allocatedCount: state.allocated.size,
@@ -396,8 +391,9 @@ export const createArchetypeManager = () => {
     Effect.gen(function* () {
       // 古いアーキタイプから削除
       pipe(
-        Option.fromNullable(entityToArchetype.get(entity)),
-        Option.match({
+        Option.fromNullable(entityToArchetype.get(entity)
+    }),
+    Option.match({
           onNone: () => {},
           onSome: (oldArchetype) => {
             oldArchetype.entities.delete(entity)

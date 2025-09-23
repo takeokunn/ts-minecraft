@@ -198,8 +198,9 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
             pipe(
               state.config.mode,
               Match.value,
-              Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)),
-              Match.orElse((): Effect.Effect<void, CameraError> => {
+              Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)
+    }),
+    Match.orElse((): Effect.Effect<void, CameraError> => {
                 const newConfig = { ...state.config, mode: validatedMode }
                 const newState: ThirdPersonState = {
                   ...state,
@@ -450,8 +451,9 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* pipe(
         Option.fromNullable(state.camera),
         Option.match({
-          onNone: () => Effect.succeed(undefined),
-          onSome: (camera) =>
+          onNone: () => Effect.succeed(undefined
+    }),
+    onSome: (camera) =>
             Effect.sync(() => {
               // Three.jsカメラのリソースをクリア
               camera.clear()

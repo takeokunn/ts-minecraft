@@ -45,8 +45,8 @@ describe.skip('Player System Integration Tests', () => {
   )
 
   // テスト用ヘルパー
-  const createIntegratedPlayer = (playerId: string) =>
-    Effect.gen(function* () {
+  const createIntegratedPlayer = (playerId: string),
+  Effect.gen(function* () {
       const playerService = yield* PlayerService
       const cameraService = yield* CameraService
       const brandedPlayerId = BrandedTypes.createPlayerId(playerId)
@@ -103,41 +103,34 @@ describe.skip('Player System Integration Tests', () => {
   })
 
   describe('Basic System Integration', () => {
-    effectIt.effect(
-      'should integrate all player systems successfully',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const movementSystem = yield* MovementSystem
-          const inputService = yield* InputService
-          const cameraService = yield* CameraService
-
-          // プレイヤーを作成
-          const { playerId, entityId } = yield* createIntegratedPlayer('integration-basic-test')
-
-          // 各システムが正常に動作することを確認
-          const playerExists = yield* playerService.playerExists(playerId)
-          expect(playerExists).toBe(true)
-
-          const movementState = yield* movementSystem.getMovementState(playerId)
-          expect(movementState).toBeDefined()
-
-          // カメラをプレイヤーに設定
-          const playerState = yield* playerService.getPlayerState(playerId)
-          yield* cameraService.update(16.67, playerState.position)
-          const cameraState = yield* cameraService.getState()
-          expect(cameraState.target).toEqual(playerState.position)
-
-          // 入力処理のテスト（現在のAPIに合わせて簡略化）
-          const wKeyPressed = yield* inputService.isKeyPressed('w')
-          expect(typeof wKeyPressed).toBe('boolean')
-        }).pipe(Effect.provide(FullSystemLayer)) as any
+  effectIt.effect(
+  'should integrate all player systems successfully',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const movementSystem = yield* MovementSystem
+  const inputService = yield* InputService
+  const cameraService = yield* CameraService
+  // プレイヤーを作成
+  const { playerId, entityId } = yield* createIntegratedPlayer('integration-basic-test')
+  // 各システムが正常に動作することを確認
+  const playerExists = yield* playerService.playerExists(playerId)
+  expect(playerExists).toBe(true)
+  const movementState = yield* movementSystem.getMovementState(playerId)
+  expect(movementState).toBeDefined()
+  // カメラをプレイヤーに設定
+  const playerState = yield* playerService.getPlayerState(playerId)
+  yield* cameraService.update(16.67, playerState.position)
+  const cameraState = yield* cameraService.getState()
+  expect(cameraState.target).toEqual(playerState.position)
+  // 入力処理のテスト（現在のAPIに合わせて簡略化）
+  const wKeyPressed = yield* inputService.isKeyPressed('w')
+  expect(typeof wKeyPressed).toBe('boolean')
+}).pipe(Effect.provide(FullSystemLayer)) as any
     )
 
     effectIt.effect(
       'should handle player movement with camera following',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const movementSystem = yield* MovementSystem
           const cameraService = yield* CameraService
@@ -180,57 +173,47 @@ describe.skip('Player System Integration Tests', () => {
   })
 
   describe('Input Processing Integration', () => {
-    effectIt.effect(
-      'should process WASD input and update player position',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const movementSystem = yield* MovementSystem
-          const inputService = yield* InputService
-
-          const { playerId } = yield* createIntegratedPlayer('wasd-test')
-
-          // 入力シミュレーション
-          // 現在のInputServiceAPIに合わせてキー状態を直接確認
-          // 注：実際のキー入力シミュレーションは統合テストレベルで行う
-          const wKeyPressed = yield* inputService.isKeyPressed('w')
-          const aKeyPressed = yield* inputService.isKeyPressed('a')
-
-          // デフォルトではキーは押されていない状態
-          expect(typeof wKeyPressed).toBe('boolean')
-          expect(typeof aKeyPressed).toBe('boolean')
-
-          // 移動処理（テスト用の入力状態をシミュレート）
-          const movementInput = {
-            forward: true, // 前進をテストするため明示的にtrueに設定
-            backward: false,
-            left: true, // 左移動をテストするため明示的にtrueに設定
-            right: false,
-            jump: false,
-            sprint: false,
-            deltaTime: 16.67,
-          }
-
-          const movementResult = yield* movementSystem.processMovementInput(playerId, movementInput)
-
-          // 対角線移動の確認
-          expect(movementResult.newPosition.x).toBeLessThan(0) // 左移動
-          expect(movementResult.newPosition.z).toBeGreaterThan(0) // 前進
-
-          // 入力解除（現在のAPIでは状態管理をしないため省略）
-          // // yield* inputService.processKeyboardInput('KeyW', false)
-          // // yield* inputService.processKeyboardInput('KeyA', false)
-
-          // const clearedInputState = yield* inputService.getCurrentInputState()
-          // expect(clearedInputState.keyboard.forward).toBe(false)
-          // expect(clearedInputState.keyboard.left).toBe(false)
-        }).pipe(Effect.provide(FullSystemLayer)) as any
+  effectIt.effect(
+  'should process WASD input and update player position',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const movementSystem = yield* MovementSystem
+  const inputService = yield* InputService
+  const { playerId } = yield* createIntegratedPlayer('wasd-test')
+  // 入力シミュレーション
+  // 現在のInputServiceAPIに合わせてキー状態を直接確認
+  // 注：実際のキー入力シミュレーションは統合テストレベルで行う
+  const wKeyPressed = yield* inputService.isKeyPressed('w')
+  const aKeyPressed = yield* inputService.isKeyPressed('a')
+  // デフォルトではキーは押されていない状態
+  expect(typeof wKeyPressed).toBe('boolean')
+  expect(typeof aKeyPressed).toBe('boolean')
+  // 移動処理（テスト用の入力状態をシミュレート）
+  const movementInput = {
+  forward: true, // 前進をテストするため明示的にtrueに設定
+  backward: false,
+  left: true, // 左移動をテストするため明示的にtrueに設定
+  right: false,
+  jump: false,
+  sprint: false,
+  deltaTime: 16.67,
+  }
+  const movementResult = yield* movementSystem.processMovementInput(playerId, movementInput)
+  // 対角線移動の確認
+  expect(movementResult.newPosition.x).toBeLessThan(0) // 左移動
+  expect(movementResult.newPosition.z).toBeGreaterThan(0) // 前進
+  // 入力解除（現在のAPIでは状態管理をしないため省略）
+  // // yield* inputService.processKeyboardInput('KeyW', false)
+  // // yield* inputService.processKeyboardInput('KeyA', false)
+  // const clearedInputState = yield* inputService.getCurrentInputState()
+  // expect(clearedInputState.keyboard.forward).toBe(false)
+  // expect(clearedInputState.keyboard.left).toBe(false)
+}).pipe(Effect.provide(FullSystemLayer)) as any
     )
 
     effectIt.effect(
       'should handle mouse input for camera rotation',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const inputService = yield* InputService
           const cameraService = yield* CameraService
           const playerService = yield* PlayerService
@@ -260,8 +243,7 @@ describe.skip('Player System Integration Tests', () => {
 
     effectIt.effect(
       'should synchronize player rotation with camera',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const cameraService = yield* CameraService
 
@@ -291,99 +273,80 @@ describe.skip('Player System Integration Tests', () => {
   })
 
   describe('Real-Time Game Loop Simulation', () => {
-    effectIt.effect(
-      'should simulate complete game loop with multiple systems',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const movementSystem = yield* MovementSystem
-          const inputService = yield* InputService
-          const cameraService = yield* CameraService
-
-          const { playerId, entityId } = yield* createIntegratedPlayer('gameloop-test')
-
-          // カメラ設定
-          const tempPlayerState = yield* playerService.getPlayerState(playerId)
-          yield* cameraService.update(16.67, tempPlayerState.position)
-
-          const frameCount = 60 // 1秒間のシミュレーション
-          const targetDeltaTime = 16.67 // 60FPS
-
-          // ゲームループシミュレーション
-          for (let frame = 0; frame < frameCount; frame++) {
-            // 入力状態のシミュレーション（複雑なパターン）
-            const isMovingForward = frame % 20 < 15 // 15フレーム前進、5フレーム停止
-            const isTurning = frame % 30 < 10 // 10フレームごとに方向転換
-            const isJumping = frame % 60 === 0 // 1秒に1回ジャンプ
-
-            // キーボード入力
-            if (isMovingForward) {
-              // // yield* inputService.processKeyboardInput('KeyW', true) // API変更により一時的にコメントアウト
-            } else {
-              // // yield* inputService.processKeyboardInput('KeyW', false) // API変更により一時的にコメントアウト
-            }
-
-            if (isJumping) {
-              // yield* inputService.processKeyboardInput('Space', true)
-            } else {
-              // yield* inputService.processKeyboardInput('Space', false)
-            }
-
-            // マウス入力（カメラ回転）
-            if (isTurning) {
-              // yield* inputService.processMouseInput(1, 0) // ゆっくり右回転
-            }
-
-            // 入力状態取得
-            // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
-
-            // 移動処理
-            const movementInput = {
-              forward: false, // false // inputState.keyboard.forward,
-              backward: false, // false // inputState.keyboard.backward,
-              left: false, // false // inputState.keyboard.left,
-              right: false, // false // inputState.keyboard.right,
-              jump: false, // false // inputState.keyboard.jump,
-              sprint: false, // false // inputState.keyboard.sprint,
-              deltaTime: targetDeltaTime,
-            }
-
-            const movementResult = yield* movementSystem.processMovementInput(playerId, movementInput)
-
-            // カメラ回転（マウス入力に基づく） - 現在のAPIでは省略
-            // if (Math.abs(inputState.mouse.deltaX) > 0 || Math.abs(inputState.mouse.deltaY) > 0) {
-            //   yield* cameraService.rotate(inputState.mouse.deltaX * 0.01, inputState.mouse.deltaY * 0.01)
-            // }
-
-            // カメラ更新（プレイヤーの現在位置を取得してターゲットとして使用）
-            const currentPlayerState = yield* playerService.getPlayerState(playerId)
-            yield* cameraService.update(targetDeltaTime, currentPlayerState.position)
-
-            // フレームごとの入力状態クリア
-            yield* inputService.getMouseDelta() // clearMouseDelta は存在しないため getMouseDelta に変更
-          }
-
-          // 最終状態の検証
-          const finalPlayerState = yield* playerService.getPlayerState(playerId)
-          const finalMovementState = yield* movementSystem.getMovementState(playerId)
-          const finalCameraState = yield* cameraService.getState()
-
-          // プレイヤーが移動していることを確認
-          expect(finalPlayerState.position.z).toBeGreaterThan(0)
-
-          // カメラがプレイヤーを追従していることを確認
-          expect(finalCameraState.position).toBeDefined()
-
-          // システム間の同期を確認
-          expect(finalPlayerState.lastUpdate).toBeGreaterThan(0)
-          expect(finalMovementState.lastUpdate).toBeGreaterThan(0)
-        }).pipe(Effect.provide(FullSystemLayer)) as any
+  effectIt.effect(
+  'should simulate complete game loop with multiple systems',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const movementSystem = yield* MovementSystem
+  const inputService = yield* InputService
+  const cameraService = yield* CameraService
+  const { playerId, entityId } = yield* createIntegratedPlayer('gameloop-test')
+  // カメラ設定
+  const tempPlayerState = yield* playerService.getPlayerState(playerId)
+  yield* cameraService.update(16.67, tempPlayerState.position)
+  const frameCount = 60 // 1秒間のシミュレーション
+  const targetDeltaTime = 16.67 // 60FPS
+  // ゲームループシミュレーション
+  for (let frame = 0; frame < frameCount; frame++) {
+  // 入力状態のシミュレーション（複雑なパターン）
+  const isMovingForward = frame % 20 < 15 // 15フレーム前進、5フレーム停止
+  const isTurning = frame % 30 < 10 // 10フレームごとに方向転換
+  const isJumping = frame % 60 === 0 // 1秒に1回ジャンプ
+  // キーボード入力
+  if (isMovingForward) {
+  // // yield* inputService.processKeyboardInput('KeyW', true) // API変更により一時的にコメントアウト
+  } else {
+  // // yield* inputService.processKeyboardInput('KeyW', false) // API変更により一時的にコメントアウト
+  }
+  if (isJumping) {
+  // yield* inputService.processKeyboardInput('Space', true)
+  } else {
+  // yield* inputService.processKeyboardInput('Space', false)
+  }
+  // マウス入力（カメラ回転）
+  if (isTurning) {
+  // yield* inputService.processMouseInput(1, 0) // ゆっくり右回転
+  }
+  // 入力状態取得
+  // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
+  // 移動処理
+  const movementInput = {
+  forward: false, // false // inputState.keyboard.forward,
+  backward: false, // false // inputState.keyboard.backward,
+  left: false, // false // inputState.keyboard.left,
+  right: false, // false // inputState.keyboard.right,
+  jump: false, // false // inputState.keyboard.jump,
+  sprint: false, // false // inputState.keyboard.sprint,
+  deltaTime: targetDeltaTime,
+  }
+  const movementResult = yield* movementSystem.processMovementInput(playerId, movementInput)
+  // カメラ回転（マウス入力に基づく） - 現在のAPIでは省略
+  // if (Math.abs(inputState.mouse.deltaX) > 0 || Math.abs(inputState.mouse.deltaY) > 0) {
+  //   yield* cameraService.rotate(inputState.mouse.deltaX * 0.01, inputState.mouse.deltaY * 0.01)
+  // }
+  // カメラ更新（プレイヤーの現在位置を取得してターゲットとして使用）
+  const currentPlayerState = yield* playerService.getPlayerState(playerId)
+  yield* cameraService.update(targetDeltaTime, currentPlayerState.position)
+  // フレームごとの入力状態クリア
+  yield* inputService.getMouseDelta() // clearMouseDelta は存在しないため getMouseDelta に変更
+  }
+  // 最終状態の検証
+  const finalPlayerState = yield* playerService.getPlayerState(playerId)
+  const finalMovementState = yield* movementSystem.getMovementState(playerId)
+  const finalCameraState = yield* cameraService.getState()
+  // プレイヤーが移動していることを確認
+  expect(finalPlayerState.position.z).toBeGreaterThan(0)
+  // カメラがプレイヤーを追従していることを確認
+  expect(finalCameraState.position).toBeDefined()
+  // システム間の同期を確認
+  expect(finalPlayerState.lastUpdate).toBeGreaterThan(0)
+  expect(finalMovementState.lastUpdate).toBeGreaterThan(0)
+}).pipe(Effect.provide(FullSystemLayer)) as any
     )
 
     effectIt.effect(
       'should handle rapid input changes without system conflicts',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const movementSystem = yield* MovementSystem
           const inputService = yield* InputService
@@ -439,110 +402,89 @@ describe.skip('Player System Integration Tests', () => {
   })
 
   describe('Performance Integration Tests', () => {
-    effectIt.effect(
-      'should maintain 60FPS with full system integration',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const movementSystem = yield* MovementSystem
-          const inputService = yield* InputService
-          const cameraService = yield* CameraService
-
-          const { playerId, entityId } = yield* createIntegratedPlayer('60fps-integration-test')
-
-          // カメラ設定
-          const tempPlayerState = yield* playerService.getPlayerState(playerId)
-          yield* cameraService.update(16.67, tempPlayerState.position)
-
-          const frameCount = 60 * 2 // 2秒間
-          const targetFrameTime = 16.67 // 60FPS
-
-          const startTime = performance.now()
-
-          // フルシステム統合での60FPSシミュレーション
-          for (let frame = 0; frame < frameCount; frame++) {
-            const frameStartTime = performance.now()
-
-            // 複雑な入力パターン
-            const inputPattern = frame % 8
-            const movements = [
-              [true, false, false, false, false, false], // 前進
-              [true, false, false, true, false, false], // 前進+右
-              [false, false, false, true, false, false], // 右
-              [false, true, false, true, false, false], // 後退+右
-              [false, true, false, false, false, false], // 後退
-              [false, true, true, false, false, false], // 後退+左
-              [false, false, true, false, false, false], // 左
-              [true, false, true, false, true, true], // 前進+左+ジャンプ+スプリント
-            ]
-
-            const movement = movements[inputPattern]
-            if (!movement) throw new Error(`Invalid input pattern: ${inputPattern}`)
-            const [forward, backward, left, right, jump, sprint] = movement
-
-            // 入力処理
-            // yield* inputService.processKeyboardInput('KeyW', forward)
-            // yield* inputService.processKeyboardInput('KeyS', backward)
-            // yield* inputService.processKeyboardInput('KeyA', left)
-            // yield* inputService.processKeyboardInput('KeyD', right)
-            // yield* inputService.processKeyboardInput('Space', jump)
-            // yield* inputService.processKeyboardInput('ShiftLeft', sprint)
-
-            // マウス入力（滑らかな回転）
-            const mouseX = Math.sin(frame * 0.1) * 2
-            const mouseY = Math.cos(frame * 0.05) * 1
-            // yield* inputService.processMouseInput(mouseX, mouseY)
-
-            // 入力状態取得
-            // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
-
-            // 移動処理
-            const movementInput = {
-              forward: false, // inputState.keyboard.forward,
-              backward: false, // inputState.keyboard.backward,
-              left: false, // inputState.keyboard.left,
-              right: false, // inputState.keyboard.right,
-              jump: false, // inputState.keyboard.jump,
-              sprint: false, // inputState.keyboard.sprint,
-              deltaTime: targetFrameTime,
-            }
-
-            yield* movementSystem.processMovementInput(playerId, movementInput)
-
-            // カメラ処理（InputServiceの現在のAPIに合わせて調整）
-            const mouseDelta = yield* inputService.getMouseDelta()
-            yield* cameraService.rotate(mouseDelta.deltaX * 0.001, mouseDelta.deltaY * 0.001)
-            const currentPlayerPos = yield* playerService.getPlayerState(playerId)
-            yield* cameraService.update(targetFrameTime, currentPlayerPos.position)
-
-            // 入力状態クリア
-            yield* inputService.getMouseDelta() // clearMouseDelta は存在しないため getMouseDelta に変更
-
-            const frameEndTime = performance.now()
-            const frameTime = frameEndTime - frameStartTime
-
-            // 各フレームが16.67ms以内で完了することを確認
-            expect(frameTime).toBeLessThan(targetFrameTime)
-          }
-
-          const endTime = performance.now()
-          const totalTime = endTime - startTime
-          const averageFrameTime = totalTime / frameCount
-
-          // 平均フレーム時間が60FPS要件を満たすことを確認
-          expect(averageFrameTime).toBeLessThan(targetFrameTime)
-
-          // パフォーマンス統計の確認
-          const movementStats = yield* movementSystem.getPerformanceStats()
-          expect(movementStats.averageProcessingTime).toBeLessThan(5) // 5ms以下
-          expect(movementStats.totalCalculations).toBe(frameCount)
-        }).pipe(Effect.provide(FullSystemLayer)) as any
+  effectIt.effect(
+  'should maintain 60FPS with full system integration',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const movementSystem = yield* MovementSystem
+  const inputService = yield* InputService
+  const cameraService = yield* CameraService
+  const { playerId, entityId } = yield* createIntegratedPlayer('60fps-integration-test')
+  // カメラ設定
+  const tempPlayerState = yield* playerService.getPlayerState(playerId)
+  yield* cameraService.update(16.67, tempPlayerState.position)
+  const frameCount = 60 * 2 // 2秒間
+  const targetFrameTime = 16.67 // 60FPS
+  const startTime = performance.now()
+  // フルシステム統合での60FPSシミュレーション
+  for (let frame = 0; frame < frameCount; frame++) {
+  const frameStartTime = performance.now()
+  // 複雑な入力パターン
+  const inputPattern = frame % 8
+  const movements = [
+  [true, false, false, false, false, false], // 前進
+  [true, false, false, true, false, false], // 前進+右
+  [false, false, false, true, false, false], // 右
+  [false, true, false, true, false, false], // 後退+右
+  [false, true, false, false, false, false], // 後退
+  [false, true, true, false, false, false], // 後退+左
+  [false, false, true, false, false, false], // 左
+  [true, false, true, false, true, true], // 前進+左+ジャンプ+スプリント
+  ]
+  const movement = movements[inputPattern]
+  if (!movement) throw new Error(`Invalid input pattern: ${inputPattern}`)
+  const [forward, backward, left, right, jump, sprint] = movement
+  // 入力処理
+  // yield* inputService.processKeyboardInput('KeyW', forward)
+  // yield* inputService.processKeyboardInput('KeyS', backward)
+  // yield* inputService.processKeyboardInput('KeyA', left)
+  // yield* inputService.processKeyboardInput('KeyD', right)
+  // yield* inputService.processKeyboardInput('Space', jump)
+  // yield* inputService.processKeyboardInput('ShiftLeft', sprint)
+  // マウス入力（滑らかな回転）
+  const mouseX = Math.sin(frame * 0.1) * 2
+  const mouseY = Math.cos(frame * 0.05) * 1
+  // yield* inputService.processMouseInput(mouseX, mouseY)
+  // 入力状態取得
+  // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
+  // 移動処理
+  const movementInput = {
+  forward: false, // inputState.keyboard.forward,
+  backward: false, // inputState.keyboard.backward,
+  left: false, // inputState.keyboard.left,
+  right: false, // inputState.keyboard.right,
+  jump: false, // inputState.keyboard.jump,
+  sprint: false, // inputState.keyboard.sprint,
+  deltaTime: targetFrameTime,
+  }
+  yield* movementSystem.processMovementInput(playerId, movementInput)
+  // カメラ処理（InputServiceの現在のAPIに合わせて調整）
+  const mouseDelta = yield* inputService.getMouseDelta()
+  yield* cameraService.rotate(mouseDelta.deltaX * 0.001, mouseDelta.deltaY * 0.001)
+  const currentPlayerPos = yield* playerService.getPlayerState(playerId)
+  yield* cameraService.update(targetFrameTime, currentPlayerPos.position)
+  // 入力状態クリア
+  yield* inputService.getMouseDelta() // clearMouseDelta は存在しないため getMouseDelta に変更
+  const frameEndTime = performance.now()
+  const frameTime = frameEndTime - frameStartTime
+  // 各フレームが16.67ms以内で完了することを確認
+  expect(frameTime).toBeLessThan(targetFrameTime)
+  }
+  const endTime = performance.now()
+  const totalTime = endTime - startTime
+  const averageFrameTime = totalTime / frameCount
+  // 平均フレーム時間が60FPS要件を満たすことを確認
+  expect(averageFrameTime).toBeLessThan(targetFrameTime)
+  // パフォーマンス統計の確認
+  const movementStats = yield* movementSystem.getPerformanceStats()
+  expect(movementStats.averageProcessingTime).toBeLessThan(5) // 5ms以下
+  expect(movementStats.totalCalculations).toBe(frameCount)
+}).pipe(Effect.provide(FullSystemLayer)) as any
     )
 
     effectIt.effect(
       'should handle multiple players with system coordination',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const movementSystem = yield* MovementSystem
           const inputService = yield* InputService
@@ -568,8 +510,8 @@ describe.skip('Player System Integration Tests', () => {
           // 全プレイヤーの協調動作シミュレーション
           for (let frame = 0; frame < frameCount; frame++) {
             // 各プレイヤーに異なる入力パターンを適用
-            const playerOperations = players.map((player, index) =>
-              Effect.gen(function* () {
+            const playerOperations = players.map((player, index),
+  Effect.gen(function* () {
                 // プレイヤーごとに異なる移動パターン
                 const pattern = (frame + index) % 4
                 const movements = [
@@ -593,9 +535,7 @@ describe.skip('Player System Integration Tests', () => {
                   deltaTime: 16.67,
                 }
 
-                return yield* movementSystem.processMovementInput(player.playerId, movementInput)
-              })
-            )
+                return yield* movementSystem.processMovementInput(player.playerId, movementInput)})
 
             // 全プレイヤーの移動を並行処理
             yield* Effect.all(playerOperations, { concurrency: 'unbounded' })
@@ -627,62 +567,52 @@ describe.skip('Player System Integration Tests', () => {
   })
 
   describe('Error Handling and Recovery', () => {
-    effectIt.effect(
-      'should handle system failures gracefully',
-      () =>
-        Effect.gen(function* () {
-          const playerService = yield* PlayerService
-          const movementSystem = yield* MovementSystem
-          const inputService = yield* InputService
-
-          const { playerId } = yield* createIntegratedPlayer('error-recovery-test')
-
-          // 正常な操作
-          const normalInput = {
-            forward: true,
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            sprint: false,
-            deltaTime: 16.67,
-          }
-
-          const normalResult = yield* movementSystem.processMovementInput(playerId, normalInput)
-          expect(normalResult.newPosition).toBeDefined()
-
-          // 異常なデータでの操作
-          const invalidInputs = [
-            null,
-            undefined,
-            'invalid',
-            { invalid: true },
-            { forward: 'not-boolean', deltaTime: 16.67 },
-          ]
-
-          // システムが異常データを適切に処理することを確認
-          for (const invalidInput of invalidInputs) {
-            const result = yield* Effect.either(movementSystem.processMovementInput(playerId, invalidInput))
-            expect(result._tag).toBe('Left')
-          }
-
-          // エラー後も正常な操作が可能であることを確認
-          const recoveryResult = yield* movementSystem.processMovementInput(playerId, normalInput)
-          expect(recoveryResult.newPosition).toBeDefined()
-
-          // 他のシステムも正常に動作することを確認
-          // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
-          // expect(inputState).toBeDefined() // inputStateがコメントアウトされているため、このテストも省略
-
-          const playerState = yield* playerService.getPlayerState(playerId)
-          expect(playerState.health).toBe(100)
-        }).pipe(Effect.provide(FullSystemLayer)) as any
+  effectIt.effect(
+  'should handle system failures gracefully',
+  () => Effect.gen(function* () {
+  const playerService = yield* PlayerService
+  const movementSystem = yield* MovementSystem
+  const inputService = yield* InputService
+  const { playerId } = yield* createIntegratedPlayer('error-recovery-test')
+  // 正常な操作
+  const normalInput = {
+  forward: true,
+  backward: false,
+  left: false,
+  right: false,
+  jump: false,
+  sprint: false,
+  deltaTime: 16.67,
+  }
+  const normalResult = yield* movementSystem.processMovementInput(playerId, normalInput)
+  expect(normalResult.newPosition).toBeDefined()
+  // 異常なデータでの操作
+  const invalidInputs = [
+  null,
+  undefined,
+  'invalid',
+  { invalid: true },
+  { forward: 'not-boolean', deltaTime: 16.67 },
+  ]
+  // システムが異常データを適切に処理することを確認
+  for (const invalidInput of invalidInputs) {
+  const result = yield* Effect.either(movementSystem.processMovementInput(playerId, invalidInput))
+  expect(result._tag).toBe('Left')
+  }
+  // エラー後も正常な操作が可能であることを確認
+  const recoveryResult = yield* movementSystem.processMovementInput(playerId, normalInput)
+  expect(recoveryResult.newPosition).toBeDefined()
+  // 他のシステムも正常に動作することを確認
+  // const inputState = yield* inputService.getCurrentInputState() // API変更により一時的にコメントアウト
+  // expect(inputState).toBeDefined() // inputStateがコメントアウトされているため、このテストも省略
+  const playerState = yield* playerService.getPlayerState(playerId)
+  expect(playerState.health).toBe(100)
+}).pipe(Effect.provide(FullSystemLayer)) as any
     )
 
     effectIt.effect(
       'should maintain data consistency across system failures',
-      () =>
-        Effect.gen(function* () {
+      () => Effect.gen(function* () {
           const playerService = yield* PlayerService
           const movementSystem = yield* MovementSystem
 
@@ -695,7 +625,7 @@ describe.skip('Player System Integration Tests', () => {
           // 失敗する操作を試行
           const failureOperations = [
             Effect.either(playerService.setPlayerHealth(playerId, -100)), // 無効な体力
-            Effect.either(playerService.setPlayerPosition(playerId, { invalid: true })), // 無効な位置
+            Effect.either(playerService.setPlayerPosition(playerId, { invalid: true}), // 無効な位置
             Effect.either(movementSystem.setMovementState(playerId, null)), // 無効な移動状態
           ]
 

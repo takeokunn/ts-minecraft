@@ -60,8 +60,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
         pipe(
           HashMap.get(players, playerId),
           Option.match({
-            onNone: () => Effect.fail(createPlayerError.playerNotFound(playerId)),
-            onSome: (state) => Effect.succeed(state),
+            onNone: () => Effect.fail(createPlayerError.playerNotFound(playerId)
+    }),
+    onSome: (state) => Effect.succeed(state),
           })
         )
       )
@@ -99,8 +100,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
         entityManager.getComponent<PlayerComponent>(entityId, PLAYER_COMPONENT),
         Effect.flatMap(
           Option.match({
-            onNone: () => Effect.fail(createPlayerError.componentError(playerId, PLAYER_COMPONENT)),
-            onSome: (component) => Effect.succeed(component),
+            onNone: () => Effect.fail(createPlayerError.componentError(playerId, PLAYER_COMPONENT)
+    }),
+    onSome: (component) => Effect.succeed(component),
           })
         )
       )
@@ -219,8 +221,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
 
       // エンティティの削除
       yield* pipe(
-        entityManager.destroyEntity(playerState.entityId),
-        Effect.mapError((error) => createPlayerError.componentError(playerId, 'Entity', error))
+        entityManager.destroyEntity(playerState.entityId
+    }),
+    Effect.mapError((error) => createPlayerError.componentError(playerId, 'Entity', error))
       )
 
       // 内部状態からの削除
@@ -245,8 +248,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
             playerState.entityId,
             POSITION_COMPONENT,
             createPositionComponent(validatedUpdateData.position)
-          ),
-          Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
+          
+    }),
+    Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
         )
       }
 
@@ -311,8 +315,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
           playerState.entityId,
           POSITION_COMPONENT,
           createPositionComponent(validatedPosition)
-        ),
-        Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
+        
+    }),
+    Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
       )
 
       yield* Effect.log(`Player position set: ${playerId}`, validatedPosition)
@@ -329,8 +334,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
           playerState.entityId,
           ROTATION_COMPONENT,
           createRotationComponent(validatedRotation)
-        ),
-        Effect.mapError((error) => createPlayerError.componentError(playerId, ROTATION_COMPONENT, error))
+        
+    }),
+    Effect.mapError((error) => createPlayerError.componentError(playerId, ROTATION_COMPONENT, error))
       )
 
       yield* Effect.log(`Player rotation set: ${playerId}`, validatedRotation)
@@ -361,8 +367,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
 
       // エンティティのアクティブ状態を設定
       yield* pipe(
-        entityManager.setEntityActive(playerState.entityId, active),
-        Effect.mapError((error) => createPlayerError.componentError(playerId, 'EntityActive', error))
+        entityManager.setEntityActive(playerState.entityId, active
+    }),
+    Effect.mapError((error) => createPlayerError.componentError(playerId, 'EntityActive', error))
       )
 
       // 内部状態の更新
@@ -423,8 +430,7 @@ const makePlayerServiceLive = Effect.gen(function* () {
     })
 
   // プレイヤー統計情報の取得
-  const getPlayerStats = () =>
-    Effect.gen(function* () {
+  const getPlayerStats = () => Effect.gen(function* () {
       const allPlayers = yield* getAllPlayers()
       const activePlayers = allPlayers.filter((player) => player.isActive)
       const averageHealth =

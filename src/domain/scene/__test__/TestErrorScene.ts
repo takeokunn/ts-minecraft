@@ -28,8 +28,7 @@ export const TestErrorScene = Layer.effect(
     return Scene.of({
       data: sceneData,
 
-      initialize: () =>
-        Effect.gen(function* () {
+      initialize: () => Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
           if (flags.forceInitError) {
@@ -50,13 +49,11 @@ export const TestErrorScene = Layer.effect(
           yield* Effect.logDebug(`TestErrorScene update: ${deltaTime}ms`)
         }),
 
-      render: () =>
-        Effect.gen(function* () {
+      render: () => Effect.gen(function* () {
           yield* Effect.logDebug('TestErrorScene rendering')
         }),
 
-      cleanup: () =>
-        Effect.gen(function* () {
+      cleanup: () => Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
           if (flags.forceCleanupError) {
@@ -77,13 +74,11 @@ export const TestErrorScene = Layer.effect(
           yield* Effect.logInfo('TestErrorScene cleanup completed')
         }),
 
-      onEnter: () =>
-        Effect.gen(function* () {
+      onEnter: () => Effect.gen(function* () {
           yield* Effect.logInfo('Entering TestErrorScene')
         }),
 
-      onExit: () =>
-        Effect.gen(function* () {
+      onExit: () => Effect.gen(function* () {
           yield* Effect.logInfo('Exiting TestErrorScene')
         }),
     })
@@ -99,8 +94,7 @@ export const TestErrorSceneWithInitError = Layer.effect(
     // 初期化エラーを強制的に発生させる
     return Scene.of({
       ...baseScene,
-      initialize: () =>
-        Effect.fail(
+      initialize: () => Effect.fail(
           SceneInitializationError({
             message: 'Forced initialization error for testing onEnter path',
             sceneType: 'Game',
@@ -118,8 +112,7 @@ export const TestErrorSceneWithCleanupError = Layer.effect(
     // クリーンアップエラーを強制的に発生させる
     return Scene.of({
       ...baseScene,
-      cleanup: () =>
-        Effect.fail(
+      cleanup: () => Effect.fail(
           SceneCleanupError({
             message: 'Forced cleanup error for testing error handling',
             sceneType: 'Game',

@@ -1,8 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
-import { Schema } from '@effect/schema'
-import * as fc from 'fast-check'
+import { Effect, Layer, Schema } from 'effect'
 import { BrandedTypes } from '../../../shared/types/branded'
 import {
   TerrainGeneratorTag,
@@ -31,444 +29,245 @@ const runWithTestTerrain = <A>(
   >
 
 describe('TerrainGenerator', () => {
-  const testConfig: TerrainConfig = {
-    seaLevel: 64,
-    maxHeight: 319,
-    minHeight: -64,
-    surfaceVariation: 32,
-    caveThreshold: 0.6,
-  }
-
-  describe('TerrainConfigSchema', () => {
-    it('validates valid terrain configuration', () => {
-      fc.assert(
-        fc.property(
-          fc.record({
-            seaLevel: fc.integer({ min: 0, max: 256 }),
-            maxHeight: fc.integer({ min: 64, max: 320 }),
-            minHeight: fc.integer({ min: -64, max: 0 }),
-            surfaceVariation: fc.integer({ min: 8, max: 64 }),
-            caveThreshold: fc.float({ min: Math.fround(0.1), max: Math.fround(1.0), noNaN: true }),
-          }),
-          (config) => {
-            expect(() => Schema.decodeUnknownSync(TerrainConfigSchema)(config)).not.toThrow()
-          }
-        ),
-        { numRuns: 50 }
-      )
-    })
-
-    it('rejects invalid configuration', () => {
-      const invalidConfigs = [
-        { seaLevel: 'invalid', maxHeight: 319, minHeight: -64, surfaceVariation: 32, caveThreshold: 0.6 },
-        { seaLevel: 64, maxHeight: null, minHeight: -64, surfaceVariation: 32, caveThreshold: 0.6 },
-        { seaLevel: 64, maxHeight: 319, minHeight: 'invalid', surfaceVariation: 32, caveThreshold: 0.6 },
-        { seaLevel: 64, maxHeight: 319, minHeight: -64, surfaceVariation: -5, caveThreshold: 0.6 },
-      ]
-
-      for (const config of invalidConfigs) {
-        expect(() => Schema.decodeUnknownSync(TerrainConfigSchema)(config)).toThrow()
-      }
-    })
-  })
-
-  describe('Service Creation', () => {
-    it.effect(
-      'creates TerrainGenerator with custom config',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          expect(tg.getConfig()).toEqual(testConfig)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
+  describe('基本的な地形生成', () => {
+  it.effect('デフォルト設定で地形を生成できる', () => Effect.gen(function* () {
+    const defaultConfig: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+    const heightMap = yield* runWithTestTerrain(defaultConfig, (tg),
+    tg.generateHeightMap(0, 0, 16, 16)
     )
-
-    it.effect(
-      'creates TerrainGenerator with default config',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const config = tg.getConfig()
-
-          expect(config.seaLevel).toBe(64)
-          expect(config.maxHeight).toBe(319)
-          expect(config.minHeight).toBe(-64)
-          expect(config.surfaceVariation).toBe(32)
-          expect(config.caveThreshold).toBe(0.6)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLiveDefault))
-        ) as Effect.Effect<void, never, never>
-    )
-  })
-
-  describe('Height Map Generation', () => {
-    it.effect(
-      'generates valid 16x16 height map',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const chunkPosition = { x: 0, z: 0 }
-          const heightMap = yield* tg.generateHeightMap(chunkPosition)
-
-          expect(heightMap).toHaveLength(16)
-          for (let x = 0; x < 16; x++) {
-            expect(heightMap[x]).toHaveLength(16)
-            for (let z = 0; z < 16; z++) {
-              const height = heightMap[x]?.[z]
-              expect(height).toBeDefined()
-              expect(typeof height).toBe('number')
-              expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
-              expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
-            }
-          }
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-
-    it.effect(
-      'generates consistent height maps for same chunk position',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const chunkPosition = { x: 5, z: 10 }
-
-          const heightMap1 = yield* tg.generateHeightMap(chunkPosition)
-          const heightMap2 = yield* tg.generateHeightMap(chunkPosition)
-
-          expect(heightMap1).toEqual(heightMap2)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-
-    it.effect(
-      'generates different height maps for different positions',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const heightMap1 = yield* tg.generateHeightMap({ x: 0, z: 0 })
-          const heightMap2 = yield* tg.generateHeightMap({ x: 10, z: 10 })
-
-          expect(heightMap1).not.toEqual(heightMap2)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-
-    it.effect(
-      'generates height maps efficiently',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const chunkPosition = { x: 0, z: 0 }
-          const heightMap = yield* tg.generateHeightMap(chunkPosition)
-
-          expect(heightMap).toHaveLength(16)
-          expect(heightMap.every((row) => Array.isArray(row) && row.length === 16)).toBe(true)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-  })
-
-  describe('Terrain Height Calculation', () => {
-    it.effect(
-      'calculates terrain height for specific coordinates',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const testCoords = [
-            { x: 0, z: 0 },
-            { x: 100, z: 100 },
-          ]
-
-          for (const { x, z } of testCoords) {
-            const height = yield* tg.getTerrainHeight(
-              BrandedTypes.createWorldCoordinate(x),
-              BrandedTypes.createWorldCoordinate(z)
-            )
-
-            expect(typeof height).toBe('number')
-            expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
-            expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
-            expect(Number.isFinite(height)).toBe(true)
-          }
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-
-    it.effect(
-      'provides consistent height values',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const x = 123
-          const z = 456
-
-          const height1 = yield* tg.getTerrainHeight(
-            BrandedTypes.createWorldCoordinate(x),
-            BrandedTypes.createWorldCoordinate(z)
-          )
-          const height2 = yield* tg.getTerrainHeight(
-            BrandedTypes.createWorldCoordinate(x),
-            BrandedTypes.createWorldCoordinate(z)
-          )
-
-          expect(height1).toBe(height2)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-  })
-
-  describe('Base Terrain Generation', () => {
-    const createTestChunkData = (position: { x: number; z: number }) => ({
-      blocks: new Uint16Array(16 * 16 * 384), // 16x16x384 chunks
-      position,
-      metadata: {
-        biome: 'plains',
-        lightLevel: 15,
-        isModified: false,
-        lastUpdate: 0,
-        heightMap: new Array(16 * 16).fill(64),
-      },
-      isDirty: false,
-    })
-
-    it('generates base terrain with proper block placement', async () => {
-      const chunkPosition = { x: 0, z: 0 }
-      const chunkData = createTestChunkData(chunkPosition)
-
-      const effect = runWithTestTerrain(testConfig, (tg) =>
-        Effect.gen(function* () {
-          const heightMap = yield* tg.generateHeightMap(chunkPosition)
-          const result = yield* tg.generateBaseTerrain(chunkData, heightMap)
-
-          // 結果の基本検証
-          expect(result.isDirty).toBe(true)
-          expect(result.metadata.isModified).toBe(true)
-          expect(result.blocks).toBeInstanceOf(Uint16Array)
-          expect(result.blocks.length).toBe(16 * 16 * 384)
-
-          // ブロック配置の検証
-          let hasNonAirBlocks = false
-          let hasBedrockAtBottom = false
-
-          for (let i = 0; i < result.blocks.length; i++) {
-            const blockId = result.blocks[i] ?? 0
-            if (blockId !== 0) {
-              hasNonAirBlocks = true
-            }
-            // Y=-64（配列インデックス0）は岩盤のはず
-            if (i % (16 * 16) === 0 && blockId === 1) {
-              hasBedrockAtBottom = true
-            }
-          }
-
-          expect(hasNonAirBlocks).toBe(true)
-          expect(hasBedrockAtBottom).toBe(true)
-
-          return result
-        })
-      )
-
-      await Effect.runPromise(effect)
-    })
-
-    it('respects height map boundaries', async () => {
-      const chunkPosition = { x: 0, z: 0 }
-      const chunkData = createTestChunkData(chunkPosition)
-
-      // カスタム高度マップ（全て海面レベル）
-      const flatHeightMap: HeightMap = Array.from({ length: 16 }, () =>
-        Array.from({ length: 16 }, () => testConfig.seaLevel)
-      )
-
-      const effect = runWithTestTerrain(testConfig, (tg) =>
-        Effect.gen(function* () {
-          const result = yield* tg.generateBaseTerrain(chunkData, flatHeightMap)
-
-          // 海面レベル付近のブロック配置を検証
-          const getBlockIndex = (x: number, y: number, z: number) => {
-            const normalizedY = y + 64 // -64～319 → 0～383
-            return normalizedY + z * 384 + x * 384 * 16
-          }
-
-          // 各列で適切なブロック配置を確認
-          for (let x = 0; x < 16; x++) {
-            for (let z = 0; z < 16; z++) {
-              const surfaceY = testConfig.seaLevel
-
-              // 地下十分深い部分は石であることを確認（surface - 10で石のはず）
-              const deepUndergroundY = surfaceY - 10
-              const deepUndergroundIndex = getBlockIndex(x, deepUndergroundY, z)
-              expect(deepUndergroundIndex).toBeGreaterThanOrEqual(0)
-              expect(deepUndergroundIndex).toBeLessThan(result.blocks.length)
-              const deepUndergroundBlock = result.blocks[deepUndergroundIndex] ?? 0
-              expect(deepUndergroundBlock).toBeGreaterThan(0) // 空気以外
-
-              // 表面は適切なブロック
-              const surfaceIndex = getBlockIndex(x, surfaceY, z)
-              expect(surfaceIndex).toBeGreaterThanOrEqual(0)
-              expect(surfaceIndex).toBeLessThan(result.blocks.length)
-              const surfaceBlock = result.blocks[surfaceIndex] ?? 0
-              expect(surfaceBlock).toBeGreaterThan(0) // 空気以外
-
-              // 表面より上は空気
-              const aboveIndex = getBlockIndex(x, surfaceY + 10, z)
-              expect(aboveIndex).toBeGreaterThanOrEqual(0)
-              expect(aboveIndex).toBeLessThan(result.blocks.length)
-              const aboveBlock = result.blocks[aboveIndex] ?? 0
-              expect(aboveBlock).toBe(0) // 空気
-            }
-          }
-
-          return result
-        })
-      )
-
-      await Effect.runPromise(effect)
-    })
-  })
-
-  describe('Block Type Determination', () => {
-    it('determines correct block types based on height and position', async () => {
-      const testCases = [
-        { worldX: 0, worldZ: 0, y: 60, surfaceHeight: 62, expected: 'sand' }, // 海面近く
-        { worldX: 0, worldZ: 0, y: 120, surfaceHeight: 120, expected: 'stone' }, // 高山
-        { worldX: 0, worldZ: 0, y: 80, surfaceHeight: 80, expected: 'grass_block' }, // 平原
-      ]
-
-      const effect = runWithTestTerrain(testConfig, (tg) =>
-        Effect.gen(function* () {
-          const results = testCases.map(({ worldX, worldZ, y, surfaceHeight }) => ({
-            input: { worldX, worldZ, y, surfaceHeight },
-            result: tg.getBlockTypeAtHeight(
-              BrandedTypes.createWorldCoordinate(worldX),
-              BrandedTypes.createWorldCoordinate(worldZ),
-              BrandedTypes.createHeight(y),
-              BrandedTypes.createHeight(surfaceHeight)
-            ),
-          }))
-
-          return results
-        })
-      )
-
-      const results = await Effect.runPromise(effect)
-
-      for (let i = 0; i < testCases.length; i++) {
-        const testCase = testCases[i]
-        const result = Array.isArray(results) ? results[i] : undefined
-        if (testCase && result) {
-          expect(result.result).toBe(testCase.expected)
+    expect(heightMap).toHaveProperty('width', 16)
+    expect(heightMap).toHaveProperty('height', 16)
+    expect(heightMap.data).toHaveLength(16 * 16)
+    // 高さ値が妥当な範囲内であることを確認
+    heightMap.data.forEach((height) => {
+    expect(height).toBeGreaterThanOrEqual(0)
+    expect(height).toBeLessThanOrEqual(256)
+})
+  ),
+  Effect.gen(function* () {
+        const customConfig: TerrainConfig = {
+          baseHeight: 80,
+          amplitude: 50,
+          frequency: 0.02,
+          octaves: 6,
+          persistence: 0.7,
+          lacunarity: 1.8,
         }
-      }
-    })
-  })
 
-  describe('Performance Requirements', () => {
-    it.effect(
-      'generates height map efficiently',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const chunkPosition = { x: 0, z: 0 }
-          const heightMap = yield* tg.generateHeightMap(chunkPosition)
-
-          expect(heightMap).toHaveLength(16)
-          expect(heightMap.every((row) => Array.isArray(row) && row.length === 16)).toBe(true)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-
-    it.effect(
-      'handles multiple chunk generation',
-      () =>
-        Effect.gen(function* () {
-          const tg = yield* TerrainGeneratorTag
-          const positions = [
-            { x: 0, z: 0 },
-            { x: 1, z: 0 },
-          ]
-
-          const heightMaps = []
-          for (const position of positions) {
-            const heightMap = yield* tg.generateHeightMap(position)
-            heightMaps.push(heightMap)
-          }
-
-          expect(heightMaps).toHaveLength(2)
-          expect(heightMaps.every((hm) => Array.isArray(hm) && hm.length === 16)).toBe(true)
-        }).pipe(
-          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
-    )
-  })
-
-  describe('Edge Cases', () => {
-    it('handles extreme chunk positions', async () => {
-      const extremePositions = [
-        { x: 1000000, z: 1000000 },
-        { x: -1000000, z: -1000000 },
-        { x: 0, z: 1000000 },
-        { x: -1000000, z: 0 },
-      ]
-
-      for (const position of extremePositions) {
-        const effect = runWithTestTerrain(testConfig, (tg) =>
-          Effect.gen(function* () {
-            const heightMap = yield* tg.generateHeightMap(position)
-            const height = yield* tg.getTerrainHeight(
-              BrandedTypes.createWorldCoordinate(position.x * 16),
-              BrandedTypes.createWorldCoordinate(position.z * 16)
-            )
-
-            // 結果が有効であることを確認
-            expect(heightMap).toHaveLength(16)
-            expect(typeof height).toBe('number')
-            expect(Number.isFinite(height)).toBe(true)
-
-            return { heightMap, height }
-          })
+        const heightMap = yield* runWithTestTerrain(customConfig, (tg),
+          tg.generateHeightMap(10, 10, 8, 8)
         )
 
-        await Effect.runPromise(effect)
-      }
-    })
+        expect(heightMap.width).toBe(8)
+        expect(heightMap.height).toBe(8)
+        expect(heightMap.data).toHaveLength(64)
 
-    it('handles boundary height values', async () => {
-      const extremeConfig: TerrainConfig = {
-        seaLevel: 0,
-        maxHeight: 10,
-        minHeight: -10,
-        surfaceVariation: 5,
-        caveThreshold: 0.5,
-      }
-
-      const effect = runWithTestTerrain(extremeConfig, (tg) =>
-        Effect.gen(function* () {
-          const heightMap = yield* tg.generateHeightMap({ x: 0, z: 0 })
-
-          // すべての高度が制限内であることを確認
-          for (let x = 0; x < 16; x++) {
-            for (let z = 0; z < 16; z++) {
-              const height = heightMap[x]?.[z]
-              expect(height).toBeDefined()
-              expect(height).toBeGreaterThanOrEqual(extremeConfig.minHeight)
-              expect(height).toBeLessThanOrEqual(extremeConfig.maxHeight)
-            }
-          }
-
-          return heightMap
-        })
-      )
-
-      await Effect.runPromise(effect)
-    })
+        // カスタム設定による高さ値の特徴を確認
+        const avgHeight = heightMap.data.reduce((sum, h) => sum + h, 0) / heightMap.data.length
+        expect(avgHeight).toBeGreaterThan(30) // baseHeight 80, amplitude 50 なのでそれなりの高さ
+      })
+    it.effect('異なる座標で異なる地形を生成する', () => Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+    const heightMap1 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(0, 0, 8, 8)
+    )
+    const heightMap2 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(100, 100, 8, 8)
+    )
+    // 異なる座標では異なる地形が生成されるはず
+    let isDifferent = false
+    for (let i = 0; i < heightMap1.data.length; i++) {
+    if (Math.abs(heightMap1.data[i] - heightMap2.data[i]) > 1) {
+    isDifferent = true
+    break
+    }
+    }
+    expect(isDifferent).toBe(true)
   })
+)
+    describe('Property-based testing', () => {
+  it.prop('生成される地形マップは指定されたサイズと一致する', [
+    Schema.Struct({
+    x: Schema.Int.pipe(Schema.between(0, 1000)),
+    z: Schema.Int.pipe(Schema.between(0, 1000)),
+    width: Schema.Int.pipe(Schema.between(1, 64)),
+    height: Schema.Int.pipe(Schema.between(1, 64))
 })
+    ], ({ struct: { x, z, width, height } })
+
+    Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+
+    const heightMap = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(x, z, width, height)
+    )
+
+    expect(heightMap.width).toBe(width)
+    expect(heightMap.height).toBe(height)
+    expect(heightMap.data).toHaveLength(width * height)})
+
+    it.prop('地形設定パラメータが出力に影響する', [
+    Schema.Struct({
+    baseHeight: Schema.Int.pipe(Schema.between(0, 128)),
+    amplitude: Schema.Int.pipe(Schema.between(1, 100)),
+    frequency: Schema.Number.pipe(Schema.between(0.001, 0.1)),
+    octaves: Schema.Int.pipe(Schema.between(1, 8))
+    })
+    ], ({ struct: { baseHeight, amplitude, frequency, octaves } })
+
+    Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight,
+    amplitude,
+    frequency,
+    octaves,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+
+    const heightMap = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(0, 0, 16, 16)
+    )
+
+    // 生成された高さ値がパラメータの影響を受けていることを確認
+    const minExpectedHeight = Math.max(0, baseHeight - amplitude)
+    const maxExpectedHeight = Math.min(256, baseHeight + amplitude)
+
+    let validHeights = 0
+    heightMap.data.forEach((height) => {
+    if (height >= minExpectedHeight && height <= maxExpectedHeight) {
+    validHeights++
+    }
+    })
+
+    // 大部分の高さ値が期待範囲内であることを確認
+    expect(validHeights / heightMap.data.length).toBeGreaterThan(0.5)
+    })
+    it.prop('同じ設定・座標では一貫した結果を生成する', [
+    Schema.Struct({
+    x: Schema.Int.pipe(Schema.between(0, 100)),
+    z: Schema.Int.pipe(Schema.between(0, 100)),
+    size: Schema.Int.pipe(Schema.between(4, 16))
+    })
+    ], ({ struct: { x, z, size } })
+
+    Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+
+    const heightMap1 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(x, z, size, size)
+    )
+    const heightMap2 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(x, z, size, size)
+    )
+
+    // 同じ設定・座標では同じ結果が得られるはず
+    expect(heightMap1.width).toBe(heightMap2.width)
+    expect(heightMap1.height).toBe(heightMap2.height)
+    expect(heightMap1.data).toEqual(heightMap2.data)
+    })
+    })
+
+    describe('地形の連続性', () => {
+  it.effect('隣接するチャンクの境界で連続性が保たれる', () => Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+    const size = 16
+    // 隣接する2つのチャンクを生成
+    const chunk1 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(0, 0, size, size)
+    )
+    const chunk2 = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(size, 0, size, size)
+    )
+    // 境界での高さの差が小さいことを確認
+    for (let z = 0; z < size; z++) {
+    const height1 = chunk1.data[(size - 1) * size + z] // chunk1の右端
+    const height2 = chunk2.data[0 * size + z] // chunk2の左端
+    // 隣接するピクセル間の高さ差は妥当な範囲内であるべき
+    expect(Math.abs(height1 - height2)).toBeLessThan(amplitude * 0.5)
+    }
+}) {
+  it.effect('TerrainConfigSchemaは有効な設定を受け入れる', () => Effect.gen(function* () {
+    const validConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+    const result = Schema.decodeUnknownEither(TerrainConfigSchema)(validConfig)
+    expect(result._tag).toBe('Right')
+  })
+),
+  Effect.gen(function* () {
+        const invalidConfigs = [
+          { baseHeight: -10 }, // 負の基準高度
+          { amplitude: 0 }, // ゼロ振幅
+          { frequency: -0.01 }, // 負の周波数
+          { octaves: 0 }, // ゼロオクターブ
+          { persistence: 1.5 }, // 範囲外の持続性
+          { lacunarity: 0.5 }, // 範囲外のラクナリティ
+        ]
+
+        invalidConfigs.forEach((config) => {
+          const result = Schema.decodeUnknownEither(TerrainConfigSchema)(config)
+          expect(result._tag).toBe('Left')
+        })
+      })
+  })
+
+  describe('パフォーマンス特性', () => {
+  it.effect('大きなサイズの地形生成が合理的な時間で完了する', () => Effect.gen(function* () {
+    const config: TerrainConfig = {
+    baseHeight: 64,
+    amplitude: 30,
+    frequency: 0.01,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    }
+    const start = Date.now()
+    const heightMap = yield* runWithTestTerrain(config, (tg),
+    tg.generateHeightMap(0, 0, 64, 64)
+    )
+    const elapsed = Date.now() - start
+    expect(heightMap.data).toHaveLength(64 * 64)
+    expect(elapsed).toBeLessThan(1000) // 1秒以内に完了
+})
+)

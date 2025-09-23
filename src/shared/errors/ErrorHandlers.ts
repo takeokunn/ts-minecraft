@@ -45,8 +45,7 @@ export const ErrorHandlers = {
       return yield* pipe(
         Match.value(successes.length >= minSuccess),
         Match.when(true, () => Effect.succeed(successValues)),
-        Match.orElse(() =>
-          Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`))
+        Match.orElse(() => Effect.fail(new Error(`Minimum success requirement not met: ${successes.length}/${minSuccess}`))
         )
       ) as Effect.Effect<A[], E>
     }),
