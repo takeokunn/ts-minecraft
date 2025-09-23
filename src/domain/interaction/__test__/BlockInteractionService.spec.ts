@@ -78,9 +78,12 @@ describe('BlockInteractionService', () => {
       Effect.gen(function* () {
         const service = yield* BlockInteractionService
 
-        const session = yield* service.startBlockBreaking(testPlayerId, testBlockPosition, 'pickaxe' as ToolType)
+        // 異なるプレイヤーIDを使用してテストを隔離
+        const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
 
-        expect(session.playerId).toBe(testPlayerId)
+        const session = yield* service.startBlockBreaking(uniquePlayerId, testBlockPosition, 'pickaxe' as ToolType)
+
+        expect(session.playerId).toBe(uniquePlayerId)
         expect(session.blockPosition).toEqual(testBlockPosition)
         expect(session.toolType).toBe('pickaxe')
         expect(session.progress).toBe(0)
@@ -115,8 +118,11 @@ describe('BlockInteractionService', () => {
       Effect.gen(function* () {
         const service = yield* BlockInteractionService
 
+        // 異なるプレイヤーIDを使用してテストを隔離
+        const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
+
         // セッション開始
-        const session = yield* service.startBlockBreaking(testPlayerId, testBlockPosition, 'pickaxe' as ToolType)
+        const session = yield* service.startBlockBreaking(uniquePlayerId, testBlockPosition, 'pickaxe' as ToolType)
 
         // 進捗更新
         const progress = yield* service.updateBlockBreaking(
@@ -154,8 +160,11 @@ describe('BlockInteractionService', () => {
       Effect.gen(function* () {
         const service = yield* BlockInteractionService
 
+        // 異なるプレイヤーIDを使用してテストを隔離
+        const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
+
         const result = yield* service.placeBlock(
-          testPlayerId,
+          uniquePlayerId,
           { x: 10, y: 65, z: 5 } as BlockPosition,
           testBlockId,
           'top' as BlockFace
@@ -259,15 +268,18 @@ describe('BlockInteractionService', () => {
       Effect.gen(function* () {
         const service = yield* BlockInteractionService
 
+        // 異なるプレイヤーIDを使用してテストを隔離
+        const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
+
         // セッション開始
-        const session = yield* service.startBlockBreaking(testPlayerId, testBlockPosition, 'pickaxe' as ToolType)
+        const session = yield* service.startBlockBreaking(uniquePlayerId, testBlockPosition, 'pickaxe' as ToolType)
 
         // セッション取得
         const retrievedSession = yield* service.getBreakingSession(session.sessionId)
         expect(retrievedSession).toEqual(session)
 
         // プレイヤーセッション取得
-        const playerSession = yield* service.getPlayerBreakingSession(testPlayerId)
+        const playerSession = yield* service.getPlayerBreakingSession(uniquePlayerId)
         expect(playerSession).toEqual(session)
 
         // 全セッション取得
@@ -306,10 +318,13 @@ describe('BlockInteractionService Integration', () => {
       // 1. レイキャストでブロックを発見
       const raycast = yield* service.performRaycast(testOrigin, testDirection, 10)
 
+      // 異なるプレイヤーIDを使用してテストを隔離
+      const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
+
       // 2. ブロックが見つかった場合、破壊を開始
       if (raycast.hit && raycast.blockPosition) {
         const session = yield* service.startBlockBreaking(
-          testPlayerId,
+          uniquePlayerId,
           raycast.blockPosition as BlockPosition,
           'pickaxe' as ToolType
         )
@@ -334,7 +349,7 @@ describe('BlockInteractionService Integration', () => {
         } as BlockPosition
 
         const placement = yield* service.placeBlock(
-          testPlayerId,
+          uniquePlayerId,
           placementPosition,
           'dirt' as BlockId,
           'west' as BlockFace
