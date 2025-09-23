@@ -1,326 +1,585 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Either } from 'effect'
+import { Effect, Either, ParseResult } from 'effect'
 import * as fc from 'fast-check'
 import { defaultConfig, validateConfig, loadConfig } from '../config'
-import { Config } from '../../core/schemas/Config'
 
-describe('config', () => {
-  describe('defaultConfig', () => {
-    it('デフォルト設定が正しい値を持つ', () => {
-      expect(defaultConfig.debug).toBe(false)
-      expect(defaultConfig.fps).toBe(60)
-      expect(defaultConfig.memoryLimit).toBe(2048)
+// ===========================
+// テスト用アービトラリ定義
+// ===========================
+
+const Arbitraries = {
+  // 有効な設定値のアービトラリ
+  validConfig: fc.record({
+    debug: fc.boolean(),
+    fps: fc.integer({ min: 1, max: 120 }),
+    memoryLimit: fc.integer({ min: 1, max: 2048 }),
+  }),
+
+  // 境界値用のアービトラリ
+  boundaryFps: fc.constantFrom(0, 1, 120, 121, -1, 0.5, 119.9),
+  boundaryMemoryLimit: fc.constantFrom(0, 1, 2048, 2049, -1, 0.5, 2047.9),
+
+  // 無効なFPS値のアービトラリ
+  invalidFps: fc.oneof(
+    fc.integer({ max: 0 }),
+    fc.integer({ min: 121 }),
+    fc.float({ max: Math.fround(0.99) }),
+    fc.constant(NaN),
+    fc.constant(Infinity),
+    fc.constant(-Infinity)
+  ),
+
+  // 無効なメモリリミット値のアービトラリ
+  invalidMemoryLimit: fc.oneof(
+    fc.integer({ max: 0 }),
+    fc.integer({ min: 2049 }),
+    fc.float({ max: Math.fround(0.99) }),
+    fc.constant(NaN),
+    fc.constant(Infinity),
+    fc.constant(-Infinity)
+  ),
+
+  // 無効な型のアービトラリ
+  invalidTypes: fc.oneof(
+    fc.string(),
+    fc.integer(),
+    fc.float(),
+    fc.array(fc.anything()),
+    fc.constant(null),
+    fc.constant(undefined),
+    fc.constant(Symbol('test')),
+    fc.bigInt(),
+    fc.date(),
+    fc.func(fc.anything())
+  ),
+
+  // 不完全な設定のアービトラリ
+  incompleteConfig: fc.oneof(
+    fc.record({ debug: fc.boolean(), fps: fc.integer({ min: 1, max: 120 }) }),
+    fc.record({ debug: fc.boolean(), memoryLimit: fc.integer({ min: 1, max: 2048 }) }),
+    fc.record({ fps: fc.integer({ min: 1, max: 120 }), memoryLimit: fc.integer({ min: 1, max: 2048 }) }),
+    fc.record({ debug: fc.boolean() }),
+    fc.record({ fps: fc.integer({ min: 1, max: 120 }) }),
+    fc.record({ memoryLimit: fc.integer({ min: 1, max: 2048 }) }),
+    fc.constant({})
+  ),
+
+  // 型が間違っている設定のアービトラリ
+  wrongTypeConfig: fc.oneof(
+    fc.record({
+      debug: fc.oneof(fc.string(), fc.integer(), fc.constant(null)),
+      fps: fc.integer({ min: 1, max: 120 }),
+      memoryLimit: fc.integer({ min: 1, max: 2048 }),
+    }),
+    fc.record({
+      debug: fc.boolean(),
+      fps: fc.oneof(fc.string(), fc.boolean(), fc.constant(null)),
+      memoryLimit: fc.integer({ min: 1, max: 2048 }),
+    }),
+    fc.record({
+      debug: fc.boolean(),
+      fps: fc.integer({ min: 1, max: 120 }),
+      memoryLimit: fc.oneof(fc.string(), fc.boolean(), fc.constant(null)),
     })
+  ),
 
-    it('デフォルト設定がConfigスキーマに適合する', async () => {
-      const validation = await Effect.runPromise(Effect.either(validateConfig(defaultConfig)))
+  // 追加フィールドを持つ設定のアービトラリ
+  configWithExtraFields: fc.record({
+    debug: fc.boolean(),
+    fps: fc.integer({ min: 1, max: 120 }),
+    memoryLimit: fc.integer({ min: 1, max: 2048 }),
+    extra: fc.anything(),
+    another: fc.anything(),
+  }),
+}
 
-      expect(Either.isRight(validation)).toBe(true)
-      if (Either.isRight(validation)) {
-        expect(validation.right).toEqual(defaultConfig)
-      }
+// ===========================
+// defaultConfig のテスト
+// ===========================
+
+describe('defaultConfig', () => {
+  it('正しいデフォルト値を持つ', () => {
+    expect(defaultConfig).toEqual({
+      debug: false,
+      fps: 60,
+      memoryLimit: 2048,
     })
   })
 
-  describe('validateConfig', () => {
-    it.effect('有効な設定をバリデーションできる', () =>
+  it.effect('Configスキーマに適合する', () =>
+    Effect.gen(function* () {
+      const result = yield* validateConfig(defaultConfig)
+      expect(result).toEqual(defaultConfig)
+    })
+  )
+
+  it('不変であることを保証', () => {
+    const frozen = Object.freeze({ ...defaultConfig })
+    expect(() => {
+      // @ts-expect-error - 意図的な変更テスト
+      frozen.debug = true
+    }).toThrow()
+  })
+})
+
+// ===========================
+// validateConfig のテスト
+// ===========================
+
+describe('validateConfig', () => {
+  describe('正常系', () => {
+    it.effect('有効な最小値設定を受け入れる', () =>
       Effect.gen(function* () {
-        const validConfig = {
+        const minConfig = { debug: false, fps: 1, memoryLimit: 1 }
+        const result = yield* validateConfig(minConfig)
+        expect(result).toEqual(minConfig)
+      })
+    )
+
+    it.effect('有効な最大値設定を受け入れる', () =>
+      Effect.gen(function* () {
+        const maxConfig = { debug: true, fps: 120, memoryLimit: 2048 }
+        const result = yield* validateConfig(maxConfig)
+        expect(result).toEqual(maxConfig)
+      })
+    )
+
+    it.effect('追加フィールドを無視する', () =>
+      Effect.gen(function* () {
+        const configWithExtra = {
           debug: true,
-          fps: 120,
+          fps: 60,
           memoryLimit: 1024,
+          extraField: 'should be ignored',
         }
-
-        const result = yield* validateConfig(validConfig)
-        expect(result.debug).toBe(true)
-        expect(result.fps).toBe(120)
-        expect(result.memoryLimit).toBe(1024)
-      })
-    )
-
-    it.effect('無効なfps値を拒否する', () =>
-      Effect.gen(function* () {
-        const invalidConfig = {
-          debug: false,
-          fps: 0, // 無効な値（正数である必要がある）
-          memoryLimit: 2048,
-        }
-
-        const result = yield* Effect.either(validateConfig(invalidConfig))
-        expect(Either.isLeft(result)).toBe(true)
-      })
-    )
-
-    it.effect('fps上限を超える値を拒否する', () =>
-      Effect.gen(function* () {
-        const invalidConfig = {
-          debug: false,
-          fps: 121, // 無効な値（120以下である必要がある）
-          memoryLimit: 2048,
-        }
-
-        const result = yield* Effect.either(validateConfig(invalidConfig))
-        expect(Either.isLeft(result)).toBe(true)
-      })
-    )
-
-    it.effect('無効なmemoryLimit値を拒否する', () =>
-      Effect.gen(function* () {
-        const invalidConfig = {
-          debug: false,
-          fps: 60,
-          memoryLimit: -1, // 無効な値（正数である必要がある）
-        }
-
-        const result = yield* Effect.either(validateConfig(invalidConfig))
-        expect(Either.isLeft(result)).toBe(true)
-      })
-    )
-
-    it.effect('memoryLimit上限を超える値を拒否する', () =>
-      Effect.gen(function* () {
-        const invalidConfig = {
-          debug: false,
-          fps: 60,
-          memoryLimit: 2049, // 無効な値（2048以下である必要がある）
-        }
-
-        const result = yield* Effect.either(validateConfig(invalidConfig))
-        expect(Either.isLeft(result)).toBe(true)
-      })
-    )
-
-    it.effect('必須フィールドが欠けている場合にエラーを返す', () =>
-      Effect.gen(function* () {
-        const incompleteConfig = {
+        const result = yield* validateConfig(configWithExtra)
+        expect(result).toEqual({
           debug: true,
           fps: 60,
-          // memoryLimitが欠けている
-        }
-
-        const result = yield* Effect.either(validateConfig(incompleteConfig))
-        expect(Either.isLeft(result)).toBe(true)
+          memoryLimit: 1024,
+        })
       })
     )
+  })
 
-    it.effect('型が間違っている場合にエラーを返す', () =>
+  describe('異常系 - fps', () => {
+    it.effect('fps = 0 を拒否する', () =>
       Effect.gen(function* () {
-        const wrongTypeConfig = {
-          debug: 'not a boolean', // 型が間違っている
-          fps: 60,
-          memoryLimit: 2048,
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 0, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(ParseResult.isParseError(result.left)).toBe(true)
         }
+      })
+    )
 
-        const result = yield* Effect.either(validateConfig(wrongTypeConfig))
+    it.effect('fps = 121 を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 121, memoryLimit: 1024 }))
         expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('null値に対してエラーを返す', () =>
+    it.effect('負のfps値を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: -1, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('小数のfps値を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60.5, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('NaNをfpsとして拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: NaN, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('Infinityをfpsとして拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: Infinity, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+  })
+
+  describe('異常系 - memoryLimit', () => {
+    it.effect('memoryLimit = 0 を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60, memoryLimit: 0 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('memoryLimit = 2049 を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60, memoryLimit: 2049 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('負のmemoryLimit値を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60, memoryLimit: -1 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('小数のmemoryLimit値を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60, memoryLimit: 1024.5 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+  })
+
+  describe('異常系 - 型エラー', () => {
+    it.effect('debugフィールドの型エラーを検出', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: 'not boolean', fps: 60, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('fpsフィールドの型エラーを検出', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: '60', memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('memoryLimitフィールドの型エラーを検出', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60, memoryLimit: '1024' }))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+  })
+
+  describe('異常系 - 構造エラー', () => {
+    it.effect('null入力を拒否する', () =>
       Effect.gen(function* () {
         const result = yield* Effect.either(validateConfig(null))
         expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('undefined値に対してエラーを返す', () =>
+    it.effect('undefined入力を拒否する', () =>
       Effect.gen(function* () {
         const result = yield* Effect.either(validateConfig(undefined))
         expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('空のオブジェクトに対してエラーを返す', () =>
+    it.effect('空オブジェクトを拒否する', () =>
       Effect.gen(function* () {
         const result = yield* Effect.either(validateConfig({}))
         expect(Either.isLeft(result)).toBe(true)
       })
     )
-  })
 
-  describe('loadConfig', () => {
-    it.effect('デフォルト設定を正常に読み込む', () =>
+    it.effect('debugフィールドの欠如を検出', () =>
       Effect.gen(function* () {
-        const config = yield* loadConfig
-
-        expect(config.debug).toBe(false)
-        expect(config.fps).toBe(60)
-        expect(config.memoryLimit).toBe(2048)
+        const result = yield* Effect.either(validateConfig({ fps: 60, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('loadConfigが常に有効な設定を返す', () =>
+    it.effect('fpsフィールドの欠如を検出', () =>
       Effect.gen(function* () {
-        const config = yield* loadConfig
-
-        // 設定が有効かチェック
-        expect(typeof config.debug).toBe('boolean')
-        expect(typeof config.fps).toBe('number')
-        expect(typeof config.memoryLimit).toBe('number')
-        expect(config.fps).toBeGreaterThan(0)
-        expect(config.fps).toBeLessThanOrEqual(120)
-        expect(config.memoryLimit).toBeGreaterThan(0)
-        expect(config.memoryLimit).toBeLessThanOrEqual(2048)
-      })
-    )
-  })
-
-  describe('境界値テスト', () => {
-    it.effect('fps最小値（1）を受け入れる', () =>
-      Effect.gen(function* () {
-        const config = {
-          debug: false,
-          fps: 1,
-          memoryLimit: 1024,
-        }
-
-        const result = yield* validateConfig(config)
-        expect(result.fps).toBe(1)
+        const result = yield* Effect.either(validateConfig({ debug: false, memoryLimit: 1024 }))
+        expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('fps最大値（120）を受け入れる', () =>
+    it.effect('memoryLimitフィールドの欠如を検出', () =>
       Effect.gen(function* () {
-        const config = {
-          debug: false,
-          fps: 120,
-          memoryLimit: 1024,
-        }
-
-        const result = yield* validateConfig(config)
-        expect(result.fps).toBe(120)
+        const result = yield* Effect.either(validateConfig({ debug: false, fps: 60 }))
+        expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('memoryLimit最小値（1）を受け入れる', () =>
+    it.effect('配列入力を拒否する', () =>
       Effect.gen(function* () {
-        const config = {
-          debug: false,
-          fps: 60,
-          memoryLimit: 1,
-        }
-
-        const result = yield* validateConfig(config)
-        expect(result.memoryLimit).toBe(1)
+        const result = yield* Effect.either(validateConfig([]))
+        expect(Either.isLeft(result)).toBe(true)
       })
     )
 
-    it.effect('memoryLimit最大値（2048）を受け入れる', () =>
+    it.effect('文字列入力を拒否する', () =>
       Effect.gen(function* () {
-        const config = {
-          debug: false,
-          fps: 60,
-          memoryLimit: 2048,
-        }
+        const result = yield* Effect.either(validateConfig('config'))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
 
-        const result = yield* validateConfig(config)
-        expect(result.memoryLimit).toBe(2048)
+    it.effect('数値入力を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig(123))
+        expect(Either.isLeft(result)).toBe(true)
+      })
+    )
+
+    it.effect('関数入力を拒否する', () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(validateConfig(() => ({})))
+        expect(Either.isLeft(result)).toBe(true)
       })
     )
   })
+})
 
-  describe('Property-based testing', () => {
-    it('有効な設定のプロパティテスト', () => {
-      const validConfigArbitrary = fc.record({
-        debug: fc.boolean(),
-        fps: fc.integer({ min: 1, max: 120 }),
-        memoryLimit: fc.integer({ min: 1, max: 2048 }),
+// ===========================
+// loadConfig のテスト
+// ===========================
+
+describe('loadConfig', () => {
+  it.effect('デフォルト設定を正しく読み込む', () =>
+    Effect.gen(function* () {
+      const config = yield* loadConfig
+      expect(config).toEqual({
+        debug: false,
+        fps: 60,
+        memoryLimit: 2048,
       })
+    })
+  )
 
+  it.effect('読み込まれた設定が不変条件を満たす', () =>
+    Effect.gen(function* () {
+      const config = yield* loadConfig
+
+      // 型の検証
+      expect(typeof config.debug).toBe('boolean')
+      expect(typeof config.fps).toBe('number')
+      expect(typeof config.memoryLimit).toBe('number')
+
+      // 範囲の検証
+      expect(config.fps).toBeGreaterThan(0)
+      expect(config.fps).toBeLessThanOrEqual(120)
+      expect(config.memoryLimit).toBeGreaterThan(0)
+      expect(config.memoryLimit).toBeLessThanOrEqual(2048)
+
+      // 整数の検証
+      expect(Number.isInteger(config.fps)).toBe(true)
+      expect(Number.isInteger(config.memoryLimit)).toBe(true)
+    })
+  )
+
+  it.effect('複数回呼び出しても同じ値を返す', () =>
+    Effect.gen(function* () {
+      const config1 = yield* loadConfig
+      const config2 = yield* loadConfig
+      const config3 = yield* loadConfig
+
+      expect(config1).toEqual(config2)
+      expect(config2).toEqual(config3)
+    })
+  )
+})
+
+// ===========================
+// Property-Based Tests
+// ===========================
+
+describe('Property-Based Tests', () => {
+  describe('有効な設定の不変条件', () => {
+    it('有効な設定は常に正しくデコード・エンコードされる', () => {
       fc.assert(
-        fc.asyncProperty(validConfigArbitrary, async (config) => {
-          const validation = await Effect.runPromise(Effect.either(validateConfig(config)))
-          expect(Either.isRight(validation)).toBe(true)
+        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
 
-          if (Either.isRight(validation)) {
-            expect(validation.right.debug).toBe(config.debug)
-            expect(validation.right.fps).toBe(config.fps)
-            expect(validation.right.memoryLimit).toBe(config.memoryLimit)
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toEqual(config)
           }
         }),
         { numRuns: 100 }
       )
     })
 
-    it('無効なfps値のプロパティテスト', () => {
-      const invalidFpsArbitrary = fc.record({
-        debug: fc.boolean(),
-        fps: fc.oneof(
-          fc.integer({ max: 0 }), // 0以下
-          fc.integer({ min: 121 }) // 121以上
-        ),
-        memoryLimit: fc.integer({ min: 1, max: 2048 }),
-      })
-
+    it('有効な設定は常に指定範囲内にある', () => {
       fc.assert(
-        fc.asyncProperty(invalidFpsArbitrary, async (config) => {
-          const validation = await Effect.runPromise(Effect.either(validateConfig(config)))
-          expect(Either.isLeft(validation)).toBe(true)
+        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+
+          if (Either.isRight(result)) {
+            const validated = result.right
+            expect(validated.fps).toBeGreaterThanOrEqual(1)
+            expect(validated.fps).toBeLessThanOrEqual(120)
+            expect(validated.memoryLimit).toBeGreaterThanOrEqual(1)
+            expect(validated.memoryLimit).toBeLessThanOrEqual(2048)
+          }
         }),
         { numRuns: 100 }
       )
     })
 
-    it('無効なmemoryLimit値のプロパティテスト', () => {
-      const invalidMemoryLimitArbitrary = fc.record({
-        debug: fc.boolean(),
-        fps: fc.integer({ min: 1, max: 120 }),
-        memoryLimit: fc.oneof(
-          fc.integer({ max: 0 }), // 0以下
-          fc.integer({ min: 2049 }) // 2049以上
-        ),
-      })
-
+    it('追加フィールドは常に除去される', () => {
       fc.assert(
-        fc.asyncProperty(invalidMemoryLimitArbitrary, async (config) => {
-          const validation = await Effect.runPromise(Effect.either(validateConfig(config)))
-          expect(Either.isLeft(validation)).toBe(true)
-        }),
-        { numRuns: 100 }
-      )
-    })
+        fc.asyncProperty(Arbitraries.configWithExtraFields, async (config) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
 
-    it('不正な型のプロパティテスト', () => {
-      const invalidTypeArbitrary = fc.oneof(
-        fc.string(),
-        fc.integer(),
-        fc.array(fc.anything()),
-        fc.constant(null),
-        fc.constant(undefined)
-      )
-
-      fc.assert(
-        fc.asyncProperty(invalidTypeArbitrary, async (invalidInput) => {
-          const validation = await Effect.runPromise(Effect.either(validateConfig(invalidInput)))
-          expect(Either.isLeft(validation)).toBe(true)
+          if (Either.isRight(result)) {
+            const validated = result.right
+            expect(Object.keys(validated).sort()).toEqual(['debug', 'fps', 'memoryLimit'].sort())
+            expect('extra' in validated).toBe(false)
+            expect('another' in validated).toBe(false)
+          }
         }),
         { numRuns: 50 }
       )
     })
   })
 
-  describe('設定の不変条件', () => {
-    it.effect('設定は常に非負の値を持つ', () =>
-      Effect.gen(function* () {
-        const config = yield* loadConfig
+  describe('無効な設定の検出', () => {
+    it('無効なfps値は常に拒否される', () => {
+      fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            debug: fc.boolean(),
+            fps: Arbitraries.invalidFps,
+            memoryLimit: fc.integer({ min: 1, max: 2048 }),
+          }),
+          async (config) => {
+            const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+            expect(Either.isLeft(result)).toBe(true)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
 
-        expect(config.fps).toBeGreaterThan(0)
-        expect(config.memoryLimit).toBeGreaterThan(0)
-      })
-    )
+    it('無効なmemoryLimit値は常に拒否される', () => {
+      fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            debug: fc.boolean(),
+            fps: fc.integer({ min: 1, max: 120 }),
+            memoryLimit: Arbitraries.invalidMemoryLimit,
+          }),
+          async (config) => {
+            const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+            expect(Either.isLeft(result)).toBe(true)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
 
-    it.effect('設定は実用的な範囲内にある', () =>
-      Effect.gen(function* () {
-        const config = yield* loadConfig
+    it('不完全な設定は常に拒否される', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.incompleteConfig, async (config) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          expect(Either.isLeft(result)).toBe(true)
+        }),
+        { numRuns: 50 }
+      )
+    })
 
-        // 実用的なFPS範囲
-        expect(config.fps).toBeLessThanOrEqual(120)
-        expect(config.fps).toBeGreaterThanOrEqual(1)
+    it('型が間違っている設定は常に拒否される', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.wrongTypeConfig, async (config) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+          expect(Either.isLeft(result)).toBe(true)
+        }),
+        { numRuns: 50 }
+      )
+    })
 
-        // 実用的なメモリ制限範囲
-        expect(config.memoryLimit).toBeLessThanOrEqual(2048)
-        expect(config.memoryLimit).toBeGreaterThanOrEqual(1)
-      })
-    )
+    it('プリミティブ型や無効な構造は常に拒否される', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.invalidTypes, async (invalidInput) => {
+          const result = await Effect.runPromise(Effect.either(validateConfig(invalidInput)))
+          expect(Either.isLeft(result)).toBe(true)
+        }),
+        { numRuns: 50 }
+      )
+    })
   })
+
+  describe('境界値の検証', () => {
+    it('fps境界値の動作を検証', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.boundaryFps, async (fps) => {
+          const config = { debug: false, fps, memoryLimit: 1024 }
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+
+          const shouldBeValid = Number.isInteger(fps) && fps >= 1 && fps <= 120
+          expect(Either.isRight(result)).toBe(shouldBeValid)
+        }),
+        { numRuns: 10 }
+      )
+    })
+
+    it('memoryLimit境界値の動作を検証', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.boundaryMemoryLimit, async (memoryLimit) => {
+          const config = { debug: false, fps: 60, memoryLimit }
+          const result = await Effect.runPromise(Effect.either(validateConfig(config)))
+
+          const shouldBeValid = Number.isInteger(memoryLimit) && memoryLimit >= 1 && memoryLimit <= 2048
+          expect(Either.isRight(result)).toBe(shouldBeValid)
+        }),
+        { numRuns: 10 }
+      )
+    })
+  })
+
+  describe('ラウンドトリップテスト', () => {
+    it('有効な設定は複数回のバリデーションでも同一', () => {
+      fc.assert(
+        fc.asyncProperty(Arbitraries.validConfig, async (config) => {
+          const result1 = await Effect.runPromise(Effect.either(validateConfig(config)))
+          const result2 = await Effect.runPromise(Effect.either(validateConfig(config)))
+
+          expect(Either.isRight(result1)).toBe(true)
+          expect(Either.isRight(result2)).toBe(true)
+
+          if (Either.isRight(result1) && Either.isRight(result2)) {
+            expect(result1.right).toEqual(result2.right)
+          }
+        }),
+        { numRuns: 50 }
+      )
+    })
+  })
+})
+
+// ===========================
+// 統合テスト
+// ===========================
+
+describe('統合テスト', () => {
+  it.effect('loadConfigの結果はvalidateConfigを通過する', () =>
+    Effect.gen(function* () {
+      const loaded = yield* loadConfig
+      const validated = yield* validateConfig(loaded)
+      expect(validated).toEqual(loaded)
+    })
+  )
+
+  it.effect('エラーケースでEffectが適切に失敗する', () =>
+    Effect.gen(function* () {
+      const invalidConfigs = [
+        null,
+        undefined,
+        {},
+        { debug: 'not boolean', fps: 60, memoryLimit: 1024 },
+        { debug: false, fps: 0, memoryLimit: 1024 },
+        { debug: false, fps: 60, memoryLimit: -1 },
+      ]
+
+      for (const invalid of invalidConfigs) {
+        const result = yield* Effect.either(validateConfig(invalid))
+        expect(Either.isLeft(result)).toBe(true)
+      }
+    })
+  )
 })
