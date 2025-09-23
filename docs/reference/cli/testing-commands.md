@@ -295,11 +295,10 @@ export const propertyTest = <A>(
 ) =>
   it(name, () =>
     fc.assert(
-      fc.asyncProperty(arbitrary, async (value) => {
-        const result = await Effect.runPromise(
+      fc.asyncProperty(arbitrary, (value) =>
+        Effect.runPromise(
           property(value).pipe(Effect.provide(TestContext.TestContext), Effect.timeout(Duration.seconds(10)))
         )
-        return result
       }),
       { numRuns: 100, timeout: 2000 }
     )

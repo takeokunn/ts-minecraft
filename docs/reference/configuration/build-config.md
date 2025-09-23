@@ -662,59 +662,78 @@ interface ChunkAnalysis {
   duplicateCode: string[]
 }
 
-export async function validateBuild(): Promise<BuildStats> {
-  const distDir = 'dist'
-  const stats: BuildStats = {
-    files: [],
-    totalSize: 0,
-    totalGzipSize: 0,
-    totalBrotliSize: 0,
-    chunkAnalysis: [],
-  }
-
-  // ファイル統計収集
-  function collectFileStats(dir: string): void {
-    const files = readdirSync(dir, { withFileTypes: true })
-
-    for (const file of files) {
-      const filePath = join(dir, file.name)
-
-      if (file.isDirectory()) {
-        collectFileStats(filePath)
-      } else {
-        const content = readFileSync(filePath)
-        const gzipSize = gzipSync(content).length
-        const brotliSize = brotliCompressSync(content).length
-
-        const fileStats: FileStats = {
-          name: file.name,
-          size: content.length,
-          gzipSize,
-          brotliSize,
-          type: getFileType(file.name),
-        }
-
-        stats.files.push(fileStats)
-        stats.totalSize += fileStats.size
-        stats.totalGzipSize += fileStats.gzipSize
-        stats.totalBrotliSize += fileStats.brotliSize
-      }
+export const validateBuild = (): Effect.Effect<BuildStats, Error> =>
+  Effect.gen(function* () {
+    const distDir = 'dist'
+    const stats: BuildStats = {
+      files: [],
+      totalSize: 0,
+      totalGzipSize: 0,
+      totalBrotliSize: 0,
+      chunkAnalysis: [],
     }
-  }
 
-  collectFileStats(distDir)
+    // ファイル統計収集
+    const collectFileStats = (dir: string): Effect.Effect<void, Error> =>
+      Effect.gen(function* () {
+        const files = yield* Effect.try({
+          try: () => readdirSync(dir, { withFileTypes: true }),
+          catch: (error) => new Error(`Failed to read directory ${dir}: ${error}`),
+        })
 
-  // サイズ制限チェック
-  validateSizeConstraints(stats)
+        for (const file of files) {
+          const filePath = join(dir, file.name)
 
-  // 重複コードチェック
-  await analyzeDuplicateCode(stats)
+          if (file.isDirectory()) {
+            yield* collectFileStats(filePath)
+          } else {
+            const content = yield* Effect.try({
+              try: () => readFileSync(filePath),
+              catch: (error) => new Error(`Failed to read file ${filePath}: ${error}`),
+            })
 
-  // パフォーマンス予測
-  estimatePerformanceMetrics(stats)
+            const gzipSize = yield* Effect.try({
+              try: () => gzipSync(content).length,
+              catch: (error) => new Error(`Failed to gzip ${filePath}: ${error}`),
+            })
 
-  return stats
-}
+            const brotliSize = yield* Effect.try({
+              try: () => brotliCompressSync(content).length,
+              catch: (error) => new Error(`Failed to brotli compress ${filePath}: ${error}`),
+            })
+
+            const fileStats: FileStats = {
+              name: file.name,
+              size: content.length,
+              gzipSize,
+              brotliSize,
+              type: getFileType(file.name),
+            }
+
+            stats.files.push(fileStats)
+            stats.totalSize += fileStats.size
+            stats.totalGzipSize += fileStats.gzipSize
+            stats.totalBrotliSize += fileStats.brotliSize
+          }
+        }
+      })
+
+    yield* collectFileStats(distDir)
+
+    // サイズ制限チェック
+    yield* Effect.try({
+      try: () => validateSizeConstraints(stats),
+      catch: (error) => new Error(`Size validation failed: ${error}`),
+    })
+
+    // 重複コードチェック
+    yield* analyzeDuplicateCode(stats)
+
+    // パフォーマンス予測
+    yield* Effect.sync(() => estimatePerformanceMetrics(stats))
+
+    return stats
+  })
 
 function getFileType(filename: string): 'js' | 'css' | 'asset' {
   if (filename.endsWith('.js')) return 'js'
@@ -739,11 +758,12 @@ function validateSizeConstraints(stats: BuildStats): void {
   }
 }
 
-async function analyzeDuplicateCode(stats: BuildStats): Promise<void> {
-  // 重複コード分析ロジック
-  // 実装は複雑になるため概要のみ
-  console.log('Analyzing duplicate code...')
-}
+const analyzeDuplicateCode = (stats: BuildStats): Effect.Effect<void, Error> =>
+  Effect.gen(function* () {
+    // 重複コード分析ロジック
+    // 実装は複雑になるため概要のみ
+    yield* Effect.log('Analyzing duplicate code...')
+  })
 
 function estimatePerformanceMetrics(stats: BuildStats): void {
   // パフォーマンス指標推定
@@ -1023,42 +1043,50 @@ interface BuildMetrics {
   }
 }
 
-export async function collectBuildMetrics(): Promise<BuildMetrics> {
-  const startTime = Date.now()
+export const collectBuildMetrics = (): Effect.Effect<BuildMetrics, Error> =>
+  Effect.gen(function* () {
+    const startTime = Date.now()
 
-  // ビルド実行
-  await execBuild()
+    // ビルド実行
+    yield* execBuild()
 
-  const buildTime = Date.now() - startTime
+    const buildTime = Date.now() - startTime
 
-  // メトリクス収集
-  const metrics: BuildMetrics = {
-    buildTime,
-    bundleSize: await analyzeBundleSize(),
-    chunkSizes: await analyzeChunkSizes(),
-    dependencies: await analyzeDependencies(),
-    performance: await estimatePerformance(),
-  }
+    // メトリクス収集
+    const bundleSize = yield* analyzeBundleSize()
+    const chunkSizes = yield* analyzeChunkSizes()
+    const dependencies = yield* analyzeDependencies()
+    const performance = yield* estimatePerformance()
 
-  // メトリクス保存
-  await saveMetrics(metrics)
+    const metrics: BuildMetrics = {
+      buildTime,
+      bundleSize,
+      chunkSizes,
+      dependencies,
+      performance,
+    }
 
-  // 閾値チェック
-  validateMetrics(metrics)
+    // メトリクス保存
+    yield* saveMetrics(metrics)
 
-  return metrics
-}
+    // 閾値チェック
+    yield* validateMetrics(metrics)
 
-async function validateMetrics(metrics: BuildMetrics): Promise<void> {
-  const constraints = buildQualityConfig.sizeConstraints
+    return metrics
+  })
 
-  if (metrics.bundleSize.gzipped > constraints.total.js) {
-    throw new Error(`Bundle size exceeded: ${metrics.bundleSize.gzipped}`)
-  }
+const validateMetrics = (metrics: BuildMetrics): Effect.Effect<void, Error> =>
+  Effect.gen(function* () {
+    const constraints = buildQualityConfig.sizeConstraints
 
-  if (metrics.performance.fcp > buildQualityConfig.performance.fcp) {
-    console.warn(`FCP target missed: ${metrics.performance.fcp}ms`)
-  }
+    if (metrics.bundleSize.gzipped > constraints.total.js) {
+      yield* Effect.fail(new Error(`Bundle size exceeded: ${metrics.bundleSize.gzipped}`))
+    }
+
+    if (metrics.performance.fcp > buildQualityConfig.performance.fcp) {
+      yield* Effect.log(`FCP target missed: ${metrics.performance.fcp}ms`)
+    }
+  })
 }
 ```
 

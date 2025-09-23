@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, pipe, Match } from 'effect'
 import * as THREE from 'three'
 import type { RendererService } from './RendererService'
 import { RendererService as RendererServiceTag } from './RendererService'

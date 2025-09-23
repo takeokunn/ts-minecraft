@@ -250,11 +250,17 @@ const createThreeRendererService = (
         Match.orElse(() => false)
       )
 
-      if (shouldUpdateFps) {
-        newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
-        newStats.frameCount = 0
-        newStats.lastStatsUpdate = frameEnd
-      }
+      pipe(
+        shouldUpdateFps,
+        Match.value,
+        Match.when(true, () => {
+          newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
+          newStats.frameCount = 0
+          newStats.lastStatsUpdate = frameEnd
+        }),
+        Match.when(false, () => {}),
+        Match.exhaustive
+      )
 
       yield* Ref.set(statsRef, newStats)
 
@@ -269,9 +275,15 @@ const createThreeRendererService = (
         Match.orElse(() => false)
       )
 
-      if (shouldWarn) {
-        console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
-      }
+      pipe(
+        shouldWarn,
+        Match.value,
+        Match.when(true, () => {
+          console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
+        }),
+        Match.when(false, () => {}),
+        Match.exhaustive
+      )
     }),
   resize: (width: number, height: number): Effect.Effect<void, never> =>
     Effect.gen(function* () {
@@ -318,20 +330,26 @@ const createThreeRendererService = (
       const context = renderer!.getContext()
       const isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext
 
-      if (isWebGL2) {
-        // WebGL2固有の機能を有効化
-        const extensions = renderer!.extensions
+      pipe(
+        isWebGL2,
+        Match.value,
+        Match.when(true, () => {
+          // WebGL2固有の機能を有効化
+          const extensions = renderer!.extensions
 
-        // 高度なテクスチャ機能
-        extensions.get('EXT_color_buffer_float')
-        extensions.get('EXT_texture_filter_anisotropic')
-        extensions.get('WEBGL_compressed_texture_s3tc')
-        extensions.get('WEBGL_compressed_texture_etc')
+          // 高度なテクスチャ機能
+          extensions.get('EXT_color_buffer_float')
+          extensions.get('EXT_texture_filter_anisotropic')
+          extensions.get('WEBGL_compressed_texture_s3tc')
+          extensions.get('WEBGL_compressed_texture_etc')
 
-        console.log('WebGL2 advanced features enabled')
-      } else {
-        console.warn('WebGL2 not supported, using WebGL1 fallback')
-      }
+          console.log('WebGL2 advanced features enabled')
+        }),
+        Match.when(false, () => {
+          console.warn('WebGL2 not supported, using WebGL1 fallback')
+        }),
+        Match.exhaustive
+      )
     }),
 
   configureShadowMap: (options = {}): Effect.Effect<void, never> =>
