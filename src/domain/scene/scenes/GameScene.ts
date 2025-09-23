@@ -74,6 +74,12 @@ export const GameScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
+          // 初期化済み確認（update処理） - Effect.if使用
+          yield* Effect.if(!isInitialized, {
+            onTrue: () => Effect.void, // 早期リターンの代わり
+            onFalse: () => Effect.void,
+          })
+
           if (!isInitialized) return
 
           const gameState = yield* Ref.get(gameStateRef)
@@ -94,6 +100,12 @@ export const GameScene = Layer.effect(
       render: () =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
+
+          // 初期化済み確認（render処理） - Effect.if使用
+          yield* Effect.if(!isInitialized, {
+            onTrue: () => Effect.void, // 早期リターンの代わり
+            onFalse: () => Effect.void,
+          })
 
           if (!isInitialized) return
 
