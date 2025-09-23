@@ -1,40 +1,163 @@
 import { describe, it, expect } from 'vitest'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { MainLayer } from '../MainLayer'
-import { AppServiceLive } from '../../services/AppService'
+import { AppServiceLive, AppService } from '../../services/AppService'
 
 describe('MainLayer', () => {
-  it('should be a composite layer including AppServiceLive', () => {
-    // MainLayer is now a composite of multiple service layers
-    expect(Layer.isLayer(MainLayer)).toBe(true)
-    expect(MainLayer).toBeDefined()
+  describe('Layer Structure', () => {
+    it('should be a composite layer including AppServiceLive', () => {
+      // MainLayer is now a composite of multiple service layers
+      expect(Layer.isLayer(MainLayer)).toBe(true)
+      expect(MainLayer).toBeDefined()
+    })
+
+    it('should be a valid Effect Layer', () => {
+      expect(Layer.isLayer(MainLayer)).toBe(true)
+    })
   })
 
-  it('should be a valid Layer', () => {
-    expect(Layer.isLayer(MainLayer)).toBe(true)
+  describe('Layer Composition', () => {
+    it('should be composable with other layers', () => {
+      const composedLayer = Layer.merge(MainLayer, Layer.empty)
+      expect(Layer.isLayer(composedLayer)).toBe(true)
+    })
+
+    it('should work in provideSome patterns', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* AppService
+        return yield* service.getReadyStatus()
+      })
+
+      const provided = Effect.provide(program, MainLayer)
+      expect(Effect.isEffect(provided)).toBe(true)
+    })
+
+    it('should be usable with Layer.use', () => {
+      const result = Layer.launch(MainLayer)
+      expect(Effect.isEffect(result)).toBe(true)
+    })
   })
 
+<<<<<<< HEAD
   it('should provide multiple services including AppService', () => {
     // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
     const layerInstance = MainLayer
     expect(layerInstance).toBeDefined()
+||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
+  it('should provide the correct service type', () => {
+    // MainLayer should provide the same services as AppServiceLive
+    const layerInstance = MainLayer
+    expect(layerInstance).toBeDefined()
+=======
+  describe('Service Contract', () => {
+    it('should provide AppService when used', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* AppService
+        const status = yield* service.getReadyStatus()
+        return status
+      })
+>>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
 
+<<<<<<< HEAD
     // Check that it's a Layer (not checking for same reference anymore since it's a composite)
     expect(Layer.isLayer(layerInstance)).toBe(true)
+||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
+    // Check that it's the same reference
+    expect(layerInstance === AppServiceLive).toBe(true)
+=======
+      const runnable = Effect.provide(program, MainLayer)
+      const result = Effect.runSync(runnable)
+
+      expect(result).toHaveProperty('ready')
+      expect(typeof result.ready).toBe('boolean')
+    })
+
+    it('should maintain all Layer properties', () => {
+      // Verify that MainLayer has all the properties of a Layer
+      expect(MainLayer).toBeDefined()
+      expect(typeof MainLayer.pipe).toBe('function')
+      // Layer structure properties
+      expect(MainLayer).toHaveProperty('_op_layer')
+    })
+>>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
   })
 
-  it('should be usable in Layer composition', () => {
-    // Test that MainLayer can be used in typical Layer patterns
-    const composedLayer = Layer.merge(MainLayer, Layer.empty)
-    expect(Layer.isLayer(composedLayer)).toBe(true)
+  describe('Type Safety', () => {
+    it('should satisfy Layer type constraints', () => {
+      // This is a compile-time test
+      const _typeTest: Layer.Layer<AppService> = MainLayer
+      expect(_typeTest).toBeDefined()
+    })
+
+    it('should be assignable to AppServiceLive type', () => {
+      const _assignmentTest: typeof AppServiceLive = MainLayer
+      expect(_assignmentTest).toBe(AppServiceLive)
+    })
   })
 
+<<<<<<< HEAD
   it('should be a properly structured composite layer', () => {
     // MainLayer is now a mergeAll of multiple layers
     const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
+||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
+  it('should maintain all properties of AppServiceLive', () => {
+    // Ensure MainLayer is identical to AppServiceLive
+    const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
+    const appServiceProps = Object.getOwnPropertyNames(AppServiceLive)
+=======
+  describe('Runtime Behavior', () => {
+    it('should initialize without errors', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* AppService
+        return service
+      }).pipe(Effect.provide(MainLayer))
+>>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
 
+<<<<<<< HEAD
     // Should have Layer properties
     expect(mainLayerProps).toContain('_op_layer')
     expect(mainLayerProps).toContain('evaluate')
+||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
+    expect(mainLayerProps).toEqual(appServiceProps)
+=======
+      expect(() => Effect.runSync(program)).not.toThrow()
+    })
+
+    it('should provide working AppService implementation', () => {
+      const testProgram = Effect.gen(function* () {
+        const service = yield* AppService
+
+        // Test initialize
+        const initResult = yield* service.initialize()
+        expect(initResult).toHaveProperty('success')
+
+        // Test getReadyStatus
+        const status = yield* service.getReadyStatus()
+        expect(status).toHaveProperty('ready')
+
+        return { initResult, status }
+      })
+
+      const result = Effect.runSync(Effect.provide(testProgram, MainLayer))
+      expect(result.initResult.success).toBe(true)
+      expect(typeof result.status.ready).toBe('boolean')
+    })
+
+    it('should handle multiple sequential operations', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* AppService
+
+        // Multiple operations
+        yield* service.initialize()
+        const status1 = yield* service.getReadyStatus()
+        const status2 = yield* service.getReadyStatus()
+
+        return { status1, status2 }
+      })
+
+      const result = Effect.runSync(Effect.provide(program, MainLayer))
+      expect(result.status1).toEqual(result.status2)
+    })
+>>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
   })
 })

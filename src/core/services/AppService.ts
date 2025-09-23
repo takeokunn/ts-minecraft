@@ -2,8 +2,8 @@ import { Context, Effect, Layer } from 'effect'
 
 // Service定義
 export interface AppService {
-  readonly initialize: () => Effect.Effect<void>
-  readonly getStatus: () => Effect.Effect<{ ready: boolean }>
+  readonly initialize: () => Effect.Effect<{ success: boolean }>
+  readonly getReadyStatus: () => Effect.Effect<{ ready: boolean }>
 }
 
 export const AppService = Context.GenericTag<AppService>('@app/services/AppService')
@@ -12,7 +12,7 @@ export const AppService = Context.GenericTag<AppService>('@app/services/AppServi
 export const AppServiceLive = Layer.succeed(
   AppService,
   AppService.of({
-    initialize: () => Effect.succeed(undefined),
-    getStatus: () => Effect.succeed({ ready: true }),
+    initialize: () => Effect.succeed({ success: true }),
+    getReadyStatus: () => Effect.succeed({ ready: true }),
   })
 )
