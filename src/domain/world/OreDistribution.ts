@@ -168,8 +168,16 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
             Match.orElse(() => Effect.succeed(Option.none()))
           )
 
-          if (Option.isSome(result)) {
-            return result.value
+          const oreResult = yield* pipe(
+            result,
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (oreType) => Effect.succeed(oreType),
+            })
+          )
+
+          if (oreResult) {
+            return oreResult
           }
         }
 

@@ -128,7 +128,7 @@ graph TB
 
 ```typescript
 // src/application/services/WorldService.ts
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Schema, Match, pipe } from 'effect'
 import { Chunk, ChunkCoordinate, ChunkOperations } from '../../domain/world/entities/Chunk.js'
 import { Block, BlockType } from '../../domain/world/entities/Block.js'
 
@@ -412,7 +412,16 @@ const makeWorldService = Effect.gen(function* () {
 
   // LRUキャッシュ管理
   const manageCache = (): void => {
-    if (chunkCache.size <= MAX_CACHED_CHUNKS) return
+    const shouldManage = pipe(
+      Match.value(chunkCache.size),
+      Match.when(
+        (size) => size <= MAX_CACHED_CHUNKS,
+        () => false
+      ),
+      Match.orElse(() => true)
+    )
+
+    if (!shouldManage) return
 
     // 最も古いアクセスのチャンクを削除
     const entries = Array.from(chunkCache.entries())
@@ -460,15 +469,22 @@ const makeWorldService = Effect.gen(function* () {
         const key = getChunkKey(coordinate)
         const cached = chunkCache.get(key)
 
-        if (cached) {
-          // アクセス時刻更新
-          const updatedChunk = { ...cached, lastAccessed: new Date() }
-          chunkCache.set(key, updatedChunk)
-          return updatedChunk
-        }
-
-        // キャッシュにない場合は生成
-        return yield* WorldService.generateChunk(coordinate)
+        return yield* pipe(
+          Match.value(cached),
+          Match.when(
+            (chunk) => !!chunk,
+            (chunk) => {
+              // アクセス時刻更新
+              const updatedChunk = { ...chunk!, lastAccessed: new Date() }
+              chunkCache.set(key, updatedChunk)
+              return Effect.succeed(updatedChunk)
+            }
+          ),
+          Match.orElse(() => {
+            // キャッシュにない場合は生成
+            return WorldService.generateChunk(coordinate)
+          })
+        )
       }),
 
     // チャンク保存
@@ -552,7 +568,16 @@ const makeWorldService = Effect.gen(function* () {
       Effect.gen(function* () {
         const currentBlock = yield* WorldService.getBlock(x, y, z)
 
-        if (!currentBlock || currentBlock.type === 'air') {
+        const shouldBreak = pipe(
+          Match.value(currentBlock),
+          Match.when(
+            (block) => !block || block.type === 'air',
+            () => false
+          ),
+          Match.orElse(() => true)
+        )
+
+        if (!shouldBreak) {
           return null
         }
 
@@ -591,7 +616,7 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 
 ```typescript
 // src/application/services/PlayerService.ts
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Schema, Match, pipe } from 'effect'
 import { Player, PlayerOperations, Position } from '../../domain/player/entities/Player.js'
 import { WorldService } from './WorldService.js'
 
@@ -739,37 +764,60 @@ const makePlayerService = Effect.gen(function* () {
     handleInput: (playerId, input, deltaTime) =>
       Effect.gen(function* () {
         const player = players.get(playerId)
-        if (!player) {
-          return yield* Effect.fail(
-            new PlayerError({
-              cause: 'PlayerNotFound',
-              playerId,
-              message: 'Player not found',
-            })
-          )
-        }
+
+        const validPlayer = yield* pipe(
+          Match.value(player),
+          Match.when(
+            (p) => !p,
+            () =>
+              Effect.fail(
+                new PlayerError({
+                  cause: 'PlayerNotFound',
+                  playerId,
+                  message: 'Player not found',
+                })
+              )
+          ),
+          Match.orElse((p) => Effect.succeed(p!))
+        )
 
         try {
-          let updatedPlayer = player
+          let updatedPlayer = validPlayer
 
           // マウス入力による視点回転
-          if (input.mouse.deltaX !== 0 || input.mouse.deltaY !== 0) {
-            updatedPlayer = PlayerOperations.updateRotation(
-              updatedPlayer,
-              input.mouse.deltaX,
-              input.mouse.deltaY,
-              0.001 // マウス感度
-            )
-          }
+          pipe(
+            Match.value({ deltaX: input.mouse.deltaX, deltaY: input.mouse.deltaY }),
+            Match.when(
+              ({ deltaX, deltaY }) => deltaX !== 0 || deltaY !== 0,
+              ({ deltaX, deltaY }) => {
+                updatedPlayer = PlayerOperations.updateRotation(
+                  updatedPlayer,
+                  deltaX,
+                  deltaY,
+                  0.001 // マウス感度
+                )
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           // 移動入力処理
-          let moveSpeed = 1.0
-          if (input.movement.sprint && player.gameMode !== 'creative') {
-            moveSpeed = 1.3 // スプリント倍率
-          }
-          if (input.movement.crouch) {
-            moveSpeed = 0.3 // スニーク倍率
-          }
+          let moveSpeed = pipe(
+            Match.value({
+              sprint: input.movement.sprint,
+              crouch: input.movement.crouch,
+              gameMode: validPlayer.gameMode,
+            }),
+            Match.when(
+              ({ sprint, gameMode }) => sprint && gameMode !== 'creative',
+              () => 1.3 // スプリント倍率
+            ),
+            Match.when(
+              ({ crouch }) => crouch,
+              () => 0.3 // スニーク倍率
+            ),
+            Match.orElse(() => 1.0) // デフォルト速度
+          )
 
           const movement = {
             forward: input.movement.forward,
@@ -791,18 +839,26 @@ const makePlayerService = Effect.gen(function* () {
           }
 
           // ジャンプ処理
-          if (input.movement.jump) {
-            if (updatedPlayer.gameMode === 'creative') {
-              // クリエイティブ飛行
-              updatedPlayer = {
-                ...updatedPlayer,
-                velocity: { ...updatedPlayer.velocity, y: 10 },
+          pipe(
+            Match.value(input.movement.jump),
+            Match.when(
+              (jump) => jump,
+              () => {
+                updatedPlayer = pipe(
+                  Match.value(updatedPlayer.gameMode),
+                  Match.when(
+                    (mode) => mode === 'creative',
+                    () => ({
+                      ...updatedPlayer,
+                      velocity: { ...updatedPlayer.velocity, y: 10 },
+                    })
+                  ),
+                  Match.orElse(() => PlayerOperations.jump(updatedPlayer))
+                )
               }
-            } else {
-              // 通常ジャンプ
-              updatedPlayer = PlayerOperations.jump(updatedPlayer)
-            }
-          }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           players.set(playerId, updatedPlayer)
           return updatedPlayer
@@ -822,32 +878,48 @@ const makePlayerService = Effect.gen(function* () {
     applyPhysics: (playerId, deltaTime) =>
       Effect.gen(function* () {
         const player = players.get(playerId)
-        if (!player) {
-          return yield* Effect.fail(
-            new PlayerError({
-              cause: 'PlayerNotFound',
-              playerId,
-              message: 'Player not found',
-            })
-          )
-        }
+
+        const validPlayer = yield* pipe(
+          Match.value(player),
+          Match.when(
+            (p) => !p,
+            () =>
+              Effect.fail(
+                new PlayerError({
+                  cause: 'PlayerNotFound',
+                  playerId,
+                  message: 'Player not found',
+                })
+              )
+          ),
+          Match.orElse((p) => Effect.succeed(p!))
+        )
 
         try {
-          let updatedPlayer = player
+          let updatedPlayer = validPlayer
 
           // クリエイティブモードでは物理演算をスキップ
-          if (player.gameMode === 'creative') {
-            updatedPlayer = PlayerOperations.applyMovement(updatedPlayer, deltaTime)
-          } else {
-            // 重力適用
-            updatedPlayer = PlayerOperations.applyGravity(updatedPlayer, deltaTime)
+          updatedPlayer = yield* pipe(
+            Match.value(validPlayer.gameMode),
+            Match.when(
+              (mode) => mode === 'creative',
+              () => Effect.succeed(PlayerOperations.applyMovement(updatedPlayer, deltaTime))
+            ),
+            Match.orElse(() =>
+              Effect.gen(function* () {
+                // 重力適用
+                let physicsPlayer = PlayerOperations.applyGravity(updatedPlayer, deltaTime)
 
-            // 位置更新
-            updatedPlayer = PlayerOperations.applyMovement(updatedPlayer, deltaTime)
+                // 位置更新
+                physicsPlayer = PlayerOperations.applyMovement(physicsPlayer, deltaTime)
 
-            // 衝突判定
-            updatedPlayer = yield* PlayerService.checkCollisions(updatedPlayer)
-          }
+                // 衝突判定
+                physicsPlayer = yield* PlayerService.checkCollisions(physicsPlayer)
+
+                return physicsPlayer
+              })
+            )
+          )
 
           players.set(playerId, updatedPlayer)
           return updatedPlayer
@@ -882,34 +954,51 @@ const makePlayerService = Effect.gen(function* () {
             checkBlockCollision(pos, { x: -PLAYER_WIDTH / 2, y: 0, z: -PLAYER_WIDTH / 2 }), // 左後
           ])
 
-          if (horizontalCollisions.some(Boolean)) {
-            correctedPlayer = {
-              ...correctedPlayer,
-              velocity: { ...correctedPlayer.velocity, x: 0, z: 0 },
-            }
-          }
+          pipe(
+            Match.value(horizontalCollisions.some(Boolean)),
+            Match.when(
+              (hasCollision) => hasCollision,
+              () => {
+                correctedPlayer = {
+                  ...correctedPlayer,
+                  velocity: { ...correctedPlayer.velocity, x: 0, z: 0 },
+                }
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           // 垂直方向の衝突判定
           const groundCollision = yield* checkBlockCollision(pos, { x: 0, y: -0.1, z: 0 })
           const ceilingCollision = yield* checkBlockCollision(pos, { x: 0, y: PLAYER_HEIGHT, z: 0 })
 
-          if (groundCollision) {
-            correctedPlayer = {
-              ...correctedPlayer,
-              position: { ...correctedPlayer.position, y: Math.ceil(pos.y) },
-              velocity: { ...correctedPlayer.velocity, y: 0 },
-              onGround: true,
-            }
-          } else {
-            correctedPlayer = { ...correctedPlayer, onGround: false }
-          }
+          correctedPlayer = pipe(
+            Match.value(groundCollision),
+            Match.when(
+              (collision) => collision,
+              () => ({
+                ...correctedPlayer,
+                position: { ...correctedPlayer.position, y: Math.ceil(pos.y) },
+                velocity: { ...correctedPlayer.velocity, y: 0 },
+                onGround: true,
+              })
+            ),
+            Match.orElse(() => ({ ...correctedPlayer, onGround: false }))
+          )
 
-          if (ceilingCollision && correctedPlayer.velocity.y > 0) {
-            correctedPlayer = {
-              ...correctedPlayer,
-              velocity: { ...correctedPlayer.velocity, y: 0 },
-            }
-          }
+          pipe(
+            Match.value({ ceilingCollision, velocityY: correctedPlayer.velocity.y }),
+            Match.when(
+              ({ ceilingCollision, velocityY }) => ceilingCollision && velocityY > 0,
+              () => {
+                correctedPlayer = {
+                  ...correctedPlayer,
+                  velocity: { ...correctedPlayer.velocity, y: 0 },
+                }
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           return correctedPlayer
         } catch (error) {

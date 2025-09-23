@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Match, pipe, Schema } from 'effect'
+import { Match, pipe, Schema, Either } from 'effect'
 import * as fc from 'fast-check'
 import {
   RenderInitErrorSchema,
@@ -44,11 +44,16 @@ describe('Rendering Types', () => {
           const error = RenderInitError(params)
           const result = Schema.decodeUnknownEither(RenderInitErrorSchema)(error)
 
-          expect(result._tag).toBe('Right')
-          if (result._tag === 'Right') {
-            expect(result.right._tag).toBe('RenderInitError')
-            expect(result.right.message).toBe(params.message)
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for RenderInitError but got error'),
+              onRight: (value) => {
+                expect(value._tag).toBe('RenderInitError')
+                expect(value.message).toBe(params.message)
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -112,11 +117,16 @@ describe('Rendering Types', () => {
           const error = RenderExecutionError(params)
           const result = Schema.decodeUnknownEither(RenderExecutionErrorSchema)(error)
 
-          expect(result._tag).toBe('Right')
-          if (result._tag === 'Right') {
-            expect(result.right._tag).toBe('RenderExecutionError')
-            expect(result.right.operation).toBe(params.operation)
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for RenderExecutionError but got error'),
+              onRight: (value) => {
+                expect(value._tag).toBe('RenderExecutionError')
+                expect(value.operation).toBe(params.operation)
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -167,12 +177,17 @@ describe('Rendering Types', () => {
           const error = ContextLostError(params)
           const result = Schema.decodeUnknownEither(ContextLostErrorSchema)(error)
 
-          expect(result._tag).toBe('Right')
-          if (result._tag === 'Right') {
-            expect(result.right._tag).toBe('ContextLostError')
-            expect(result.right.canRestore).toBe(params.canRestore)
-            expect(result.right.lostTime).toBe(params.lostTime)
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for ContextLostError but got error'),
+              onRight: (value) => {
+                expect(value._tag).toBe('ContextLostError')
+                expect(value.canRestore).toBe(params.canRestore)
+                expect(value.lostTime).toBe(params.lostTime)
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -189,11 +204,33 @@ describe('Rendering Types', () => {
 
           const result = Schema.decodeUnknownEither(ContextLostErrorSchema)(error)
 
-          if (Number.isFinite(lostTime)) {
-            expect(result._tag).toBe('Right')
-          } else {
-            expect(result._tag).toBe('Left')
-          }
+          pipe(
+            Number.isFinite(lostTime),
+            Match.value,
+            Match.when(true, () => {
+              pipe(
+                result,
+                Either.match({
+                  onLeft: () => expect.fail('Expected success for finite lostTime but got error'),
+                  onRight: () => {
+                    // 有限値の場合は成功することを確認
+                  },
+                })
+              )
+            }),
+            Match.when(false, () => {
+              pipe(
+                result,
+                Either.match({
+                  onLeft: () => {
+                    // 無限値の場合はエラーとなることを確認
+                  },
+                  onRight: () => expect.fail('Expected error for infinite lostTime but got success'),
+                })
+              )
+            }),
+            Match.exhaustive
+          )
         }),
         { numRuns: 100 }
       )
@@ -233,12 +270,17 @@ describe('Rendering Types', () => {
           const error = RenderTargetError(params)
           const result = Schema.decodeUnknownEither(RenderTargetErrorSchema)(error)
 
-          expect(result._tag).toBe('Right')
-          if (result._tag === 'Right') {
-            expect(result.right._tag).toBe('RenderTargetError')
-            expect(result.right.width).toBe(params.width)
-            expect(result.right.height).toBe(params.height)
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for RenderTargetError but got error'),
+              onRight: (value) => {
+                expect(value._tag).toBe('RenderTargetError')
+                expect(value.width).toBe(params.width)
+                expect(value.height).toBe(params.height)
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -297,13 +339,17 @@ describe('Rendering Types', () => {
       fc.assert(
         fc.property(anyRenderErrorArbitrary, (errorData) => {
           const result = Schema.decodeUnknownEither(RenderErrorUnion)(errorData)
-          expect(result._tag).toBe('Right')
-
-          if (result._tag === 'Right') {
-            expect(['RenderInitError', 'RenderExecutionError', 'ContextLostError', 'RenderTargetError']).toContain(
-              result.right._tag
-            )
-          }
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for error union but got error'),
+              onRight: (value) => {
+                expect(['RenderInitError', 'RenderExecutionError', 'ContextLostError', 'RenderTargetError']).toContain(
+                  value._tag
+                )
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -426,12 +472,16 @@ describe('Rendering Types', () => {
       })
 
       const result = Schema.decodeUnknownEither(RenderInitErrorSchema)(complexError)
-      expect(result._tag).toBe('Right')
-
-      if (result._tag === 'Right') {
-        expect(result.right.canvas).toBeDefined()
-        expect(result.right.cause).toBeDefined()
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for complex error but got error'),
+          onRight: (value) => {
+            expect(value.canvas).toBeDefined()
+            expect(value.cause).toBeDefined()
+          },
+        })
+      )
     })
 
     it('validates error serialization compatibility', () => {

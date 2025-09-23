@@ -170,10 +170,13 @@ export const BlockOperations = {
   // ブロック破壊時間の計算
   calculateBreakTime: (blockType: BlockType, toolEfficiency: number = 1): number => {
     const hardness = BlockOperations.getHardness(blockType)
-    if (hardness === 0) return 0
-
-    // 基本破壊時間（秒）= 硬度 × 1.5 ÷ ツール効率
-    return (hardness * 1.5) / toolEfficiency
+    return pipe(
+      hardness === 0,
+      Match.boolean({
+        onTrue: () => 0,
+        onFalse: () => (hardness * 1.5) / toolEfficiency,
+      })
+    )
   },
 
   // ブロック設置時の検証
@@ -183,10 +186,13 @@ export const BlockOperations = {
     playerGameMode: 'survival' | 'creative'
   ): boolean => {
     // クリエイティブモードでは制約なし
-    if (playerGameMode === 'creative') return true
-
-    // サバイバルモードでは設置可能性をチェック
-    return BlockOperations.canPlaceOn(targetBlock, newBlockType)
+    return pipe(
+      playerGameMode === 'creative',
+      Match.boolean({
+        onTrue: () => true,
+        onFalse: () => BlockOperations.canPlaceOn(targetBlock, newBlockType),
+      })
+    )
   },
 }
 ```
@@ -197,7 +203,7 @@ export const BlockOperations = {
 
 ```typescript
 // src/domain/world/entities/Chunk.ts
-import { Schema, Effect } from 'effect'
+import { Schema, Effect, Match, pipe } from 'effect'
 import { Block, Position } from './Block.js'
 
 // チャンク座標の定義 - 16×16ブロックの領域
@@ -253,11 +259,13 @@ export const ChunkOperations = {
   // 指定ローカル座標のブロックを取得
   getBlockAt: (chunk: Chunk, localX: number, localY: number, localZ: number): Block | null => {
     // 範囲チェック
-    if (!ChunkOperations.isValidLocalCoordinate(localX, localY, localZ)) {
-      return null
-    }
-
-    return chunk.blocks[localX]?.[localZ]?.[localY] || null
+    return pipe(
+      ChunkOperations.isValidLocalCoordinate(localX, localY, localZ),
+      Match.boolean({
+        onTrue: () => chunk.blocks[localX]?.[localZ]?.[localY] || null,
+        onFalse: () => null,
+      })
+    )
   },
 
   // ローカル座標の有効性チェック
@@ -282,26 +290,31 @@ export const ChunkOperations = {
   ): Effect.Effect<Chunk, never> =>
     Effect.gen(function* () {
       // 範囲チェック
-      if (!ChunkOperations.isValidLocalCoordinate(localX, localY, localZ)) {
-        return chunk // 範囲外の場合は変更なし
-      }
+      return yield* pipe(
+        ChunkOperations.isValidLocalCoordinate(localX, localY, localZ),
+        Match.boolean({
+          onTrue: () =>
+            Effect.gen(function* () {
+              // イミュータブルな更新 - 元のchunkは変更せず新しいインスタンスを作成
+              const newBlocks = chunk.blocks.map((xBlocks, x) =>
+                x === localX
+                  ? xBlocks.map((zBlocks, z) =>
+                      z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
+                    )
+                  : xBlocks
+              )
 
-      // イミュータブルな更新 - 元のchunkは変更せず新しいインスタンスを作成
-      const newBlocks = chunk.blocks.map((xBlocks, x) =>
-        x === localX
-          ? xBlocks.map((zBlocks, z) =>
-              z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
-            )
-          : xBlocks
+              // 新しいチャンクインスタンスを返す
+              return {
+                ...chunk,
+                blocks: newBlocks,
+                modified: true, // 変更フラグをセット
+                lastAccessed: new Date(), // アクセス時刻を更新
+              }
+            }),
+          onFalse: () => Effect.succeed(chunk), // 範囲外の場合は変更なし
+        })
       )
-
-      // 新しいチャンクインスタンスを返す
-      return {
-        ...chunk,
-        blocks: newBlocks,
-        modified: true, // 変更フラグをセット
-        lastAccessed: new Date(), // アクセス時刻を更新
-      }
     }),
 
   // チャンクが空かどうかの判定（最適化用）
@@ -391,24 +404,26 @@ export const PlayerOperations = {
   // 重力の適用 - 物理演算の核となる関数
   applyGravity: (player: Player, deltaTime: number): Player => {
     // 地面に接触している場合は重力を適用しない
-    if (player.onGround && player.velocity.y <= 0) {
-      return {
-        ...player,
-        velocity: { ...player.velocity, y: 0 },
-      }
-    }
-
-    // 重力による加速度を速度に加算
-    const newVelocityY = Math.max(
-      player.velocity.y - PlayerOperations.GRAVITY * deltaTime,
-      PlayerOperations.TERMINAL_VELOCITY
+    return pipe(
+      player.onGround && player.velocity.y <= 0,
+      Match.boolean({
+        onTrue: () => ({
+          ...player,
+          velocity: { ...player.velocity, y: 0 },
+        }),
+        onFalse: () => {
+          // 空中にいる場合は重力を適用
+          const newVelocityY = Math.max(
+            player.velocity.y - PlayerOperations.GRAVITY * deltaTime,
+            PlayerOperations.TERMINAL_VELOCITY
+          )
+          return {
+            ...player,
+            velocity: { ...player.velocity, y: newVelocityY },
+          }
+        },
+      })
     )
-
-    return {
-      ...player,
-      velocity: { ...player.velocity, y: newVelocityY },
-      onGround: false, // 重力が適用されている = 空中にいる
-    }
   },
 
   // 位置の更新 - 速度を位置に適用
@@ -423,16 +438,20 @@ export const PlayerOperations = {
 
   // ジャンプ処理 - 地面にいる時のみ実行可能
   jump: (player: Player): Player => {
-    if (!player.onGround) return player
-
-    return {
-      ...player,
-      velocity: {
-        ...player.velocity,
-        y: PlayerOperations.JUMP_VELOCITY,
-      },
-      onGround: false,
-    }
+    return pipe(
+      player.onGround,
+      Match.boolean({
+        onTrue: () => ({
+          ...player,
+          velocity: {
+            ...player.velocity,
+            y: PlayerOperations.JUMP_VELOCITY,
+          },
+          onGround: false,
+        }),
+        onFalse: () => player,
+      })
+    )
   },
 
   // 移動入力の処理

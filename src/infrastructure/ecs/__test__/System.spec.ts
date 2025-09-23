@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Cause, Chunk } from 'effect'
+import { Effect, Cause, Chunk, pipe, Exit, Match } from 'effect'
 import {
   createSystem,
   createMockSystem,
@@ -174,11 +174,20 @@ describe('System', () => {
       const result = await Effect.runPromiseExit(mockSystem.update({} as World, 16))
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const failures = Chunk.toArray(Cause.failures(result.cause))
-        expect(failures).toHaveLength(1)
-        expect(failures[0]).toBe(error)
-      }
+      pipe(
+        result,
+        Exit.match({
+          onFailure: (cause) => {
+            const failures = Chunk.toArray(Cause.failures(cause))
+            expect(failures).toHaveLength(1)
+            expect(failures[0]).toBe(error)
+          },
+          onSuccess: (value) => {
+            // 成功時の処理（この場合は期待しない）
+            throw new Error('Expected failure but got success')
+          },
+        })
+      )
     })
   })
 })

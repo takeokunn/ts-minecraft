@@ -1941,10 +1941,13 @@ interface OpenAPISpec {
 // API統合テスト例
 // =============================================================================
 
+import { it, expect } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
+
 describe('World API Integration Tests', () => {
   const testLayer = Layer.mergeAll(HTTPCacheManagerLive, RateLimiterLive, JWTAuthMiddlewareLive, WebSocketManagerLive)
 
-  test('ワールド作成から削除までのフルフロー', async () => {
+  it.effect('ワールド作成から削除までのフルフロー', () =>
     const program = Effect.gen(function* () {
       // 1. 認証
       const authResponse = yield* Effect.promise(() =>
@@ -2040,62 +2043,66 @@ describe('World API Integration Tests', () => {
       expect(getDeletedResponse.status).toBe(404)
 
       return { world, updatedWorld }
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('認証なしでのAPI呼び出しは401エラー', () =>
+    Effect.gen(function* () {
+      const response = yield* Effect.promise(() =>
+        fetch('/api/v1/worlds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Unauthorized World',
+            gameMode: 'survival',
+            difficulty: 'normal',
+          }),
+        })
+      )
+
+      expect(response.status).toBe(401)
+
+      const error = yield* Effect.promise(() => response.json())
+      expect(error.error).toBe('UnauthorizedError')
+      expect(error.code).toBe('TOKEN_MISSING')
     })
+  )
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
+  it.effect('レート制限のテスト', () =>
+    Effect.gen(function* () {
+      const accessToken = 'valid-test-token' // テスト用トークン
 
-    expect(result.world.name).toBe('Test World')
-  })
+      // 制限に達するまで連続リクエスト
+      const requests = Array.from({ length: 102 }, (_, i) =>
+        Effect.promise(() =>
+          fetch('/api/v1/worlds', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+        )
+      )
 
-  test('認証なしでのAPI呼び出しは401エラー', async () => {
-    const response = await fetch('/api/v1/worlds', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Unauthorized World',
-        gameMode: 'survival',
-        difficulty: 'normal',
-      }),
-    })
+      const responses = yield* Effect.all(requests)
 
-    expect(response.status).toBe(401)
-
-    const error = await response.json()
-    expect(error.error).toBe('UnauthorizedError')
-    expect(error.code).toBe('TOKEN_MISSING')
-  })
-
-  test('レート制限のテスト', async () => {
-    const accessToken = 'valid-test-token' // テスト用トークン
-
-    // 制限に達するまで連続リクエスト
-    const requests = Array.from({ length: 102 }, (_, i) =>
-      fetch('/api/v1/worlds', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      // 最初の100リクエストは成功
+      const successfulResponses = responses.slice(0, 100)
+      successfulResponses.forEach((response) => {
+        expect(response.status).toBe(200)
       })
-    )
 
-    const responses = await Promise.all(requests)
+      // 101番目と102番目は制限に達する
+      const rateLimitedResponses = responses.slice(100)
+      rateLimitedResponses.forEach((response) => {
+        expect(response.status).toBe(429)
+      })
 
-    // 最初の100リクエストは成功
-    const successfulResponses = responses.slice(0, 100)
-    successfulResponses.forEach((response) => {
-      expect(response.status).toBe(200)
+      const rateLimitError = yield* Effect.promise(() => rateLimitedResponses[0].json())
+      expect(rateLimitError.error).toBe('TooManyRequestsError')
+      expect(rateLimitError.code).toBe('RATE_LIMIT_EXCEEDED')
     })
-
-    // 101番目と102番目は制限に達する
-    const rateLimitedResponses = responses.slice(100)
-    rateLimitedResponses.forEach((response) => {
-      expect(response.status).toBe(429)
-    })
-
-    const rateLimitError = await rateLimitedResponses[0].json()
-    expect(rateLimitError.error).toBe('TooManyRequestsError')
-    expect(rateLimitError.code).toBe('RATE_LIMIT_EXCEEDED')
-  })
+  )
 })
 ```
 
