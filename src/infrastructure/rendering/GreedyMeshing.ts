@@ -89,18 +89,16 @@ const createQuad = (
   blockType: BlockType,
   forward: boolean
 ): Quad => {
-  const getNormal = (axis: number, forward: boolean): readonly [number, number, number] => {
-    switch (axis) {
-      case 0:
-        return forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const)
-      case 1:
-        return forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const)
-      case 2:
-        return forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const)
-      default:
-        throw new Error(`Invalid axis: ${axis}`)
-    }
-  }
+  // 軸方向と向きに基づく法線ベクトルを決定（Match.valueパターン使用）
+  const getNormal = (axis: number, forward: boolean): readonly [number, number, number] =>
+    Match.value(axis).pipe(
+      Match.when(0, () => (forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const))),
+      Match.when(1, () => (forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const))),
+      Match.when(2, () => (forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const))),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
 
   return {
     x,
@@ -228,44 +226,46 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
   for (const quad of quads) {
     const { x, y, z, width, height, axis, normal } = quad
 
-    // Calculate quad vertices based on axis and dimensions
-    const [quadVertices, quadUvs]: [number[], number[]] = (() => {
-      switch (axis) {
-        case 0:
-          // X-axis facing quad (YZ plane)
-          return [
-            [x, y, z, x, y + height, z, x, y + height, z + width, x, y, z + width],
-            [0, 0, 0, height, width, height, width, 0],
-          ]
-        case 1:
-          // Y-axis facing quad (XZ plane)
-          return [
-            [x, y, z, x + width, y, z, x + width, y, z + height, x, y, z + height],
-            [0, 0, width, 0, width, height, 0, height],
-          ]
-        case 2:
-          // Z-axis facing quad (XY plane)
-          return [
-            [x, y, z, x + width, y, z, x + width, y + height, z, x, y + height, z],
-            [0, 0, width, 0, width, height, 0, height],
-          ]
-        default:
-          throw new Error(`Invalid axis: ${axis}`)
-      }
-    })()
+    // 軸に基づくクアッド頂点とUV座標の計算（Match.valueパターン使用）
+    const quadVertices: number[] = Match.value(axis).pipe(
+      Match.when(0, () =>
+        // X軸方向のクアッド（YZ平面）
+        [x, y, z, x, y + height, z, x, y + height, z + width, x, y, z + width]
+      ),
+      Match.when(1, () =>
+        // Y軸方向のクアッド（XZ平面）
+        [x, y, z, x + width, y, z, x + width, y, z + height, x, y, z + height]
+      ),
+      Match.when(2, () =>
+        // Z軸方向のクアッド（XY平面）
+        [x, y, z, x + width, y, z, x + width, y + height, z, x, y + height, z]
+      ),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
 
-    // Add vertices
+    const quadUvs: number[] = Match.value(axis).pipe(
+      Match.when(0, () => [0, 0, 0, height, width, height, width, 0]),
+      Match.when(1, () => [0, 0, width, 0, width, height, 0, height]),
+      Match.when(2, () => [0, 0, width, 0, width, height, 0, height]),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
+
+    // 頂点座標を追加
     vertices.push(...quadVertices)
 
-    // Add normals (same for all 4 vertices of the quad)
+    // 法線ベクトルを追加（クアッドの4つの頂点すべてに同じ法線）
     for (let i = 0; i < 4; i++) {
       normals.push(...normal)
     }
 
-    // Add UVs
+    // UV座標を追加
     uvs.push(...quadUvs)
 
-    // Add indices for two triangles
+    // インデックスを追加（2つの三角形で構成）
     indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3)
 
     vertexOffset += 4
@@ -349,9 +349,11 @@ export const GreedyMeshingLive = Layer.succeed(
 // Utility Exports
 // ========================================
 
-export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number => {
-  if (originalVertexCount === 0) {
-    return 0
-  }
-  return ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100
-}
+export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number =>
+  pipe(
+    Match.value(originalVertexCount === 0).pipe(
+      Match.when(true, () => 0),
+      Match.when(false, () => ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100),
+      Match.exhaustive
+    )
+  )

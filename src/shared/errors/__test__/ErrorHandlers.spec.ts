@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Exit, Duration, TestContext, TestClock, Ref, Either, Fiber, Cause } from 'effect'
+import { Effect, Exit, Duration, TestContext, TestClock, Ref, Either, Fiber, Cause, Match, pipe } from 'effect'
 import * as fc from 'fast-check'
 import { ErrorHandlers } from '../ErrorHandlers'
 import { NetworkError } from '../NetworkErrors'
@@ -510,11 +510,17 @@ describe('ErrorHandlers', () => {
           const program = ErrorHandlers.partial(effects, 1)
           const exit = yield* Effect.exit(program)
 
-          if (Exit.isSuccess(exit)) {
-            expect(Array.isArray(exit.value)).toBe(true)
-          } else {
-            expect(Exit.isFailure(exit)).toBe(true)
-          }
+          pipe(
+            exit,
+            Exit.match({
+              onFailure: (cause) => {
+                expect(Exit.isFailure(exit)).toBe(true)
+              },
+              onSuccess: (value) => {
+                expect(Array.isArray(value)).toBe(true)
+              },
+            })
+          )
         }
       })
     )

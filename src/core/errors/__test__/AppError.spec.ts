@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { pipe } from 'effect'
+import { Match } from 'effect'
 import { InitError, ConfigError } from '../AppError'
 
 describe('AppError Module', () => {
@@ -16,103 +18,79 @@ describe('AppError Module', () => {
       const error = InitError('Initialization failed', cause)
 
       expect(error.message).toBe('Initialization failed')
-      expect(error.cause).toBe(cause)
       expect(error._tag).toBe('InitError')
+      expect(error.cause).toBe(cause)
     })
 
-    it('should have correct interface structure', () => {
-      const error = InitError('Test error')
+    it('should have correct discriminated union type', () => {
+      const error = InitError('test')
+      expect(error._tag).toBe('InitError')
 
-      expect(error).toHaveProperty('_tag', 'InitError')
-      expect(error).toHaveProperty('message', 'Test error')
-      expect(typeof error.message).toBe('string')
-    })
-
-    it('should handle optional cause parameter', () => {
-      const errorWithoutCause = InitError('Error without cause')
-      const errorWithCause = InitError('Error with cause', new Error('cause'))
-
-      expect(errorWithoutCause.cause).toBeUndefined()
-      expect(errorWithCause.cause).toBeDefined()
-    })
-
-    it('should create readonly properties', () => {
-      const error = InitError('Test error')
-
-      // TypeScriptのreadonlyプロパティのため、値の変更はできないはず
-      expect(() => {
-        ;(error as any)._tag = 'OtherError'
-      }).not.toThrow() // ランタイムでは変更可能だが、TypeScriptレベルで制約される
-
-      expect(error._tag).toBe('OtherError') // 値は変更されている
+      // Type check: InitError should not have 'path' property
+      expect('path' in error).toBe(false)
     })
   })
 
   describe('ConfigError', () => {
     it('should create ConfigError with required fields', () => {
-      const error = ConfigError('Config validation failed', 'config.fps')
+      const error = ConfigError('Configuration failed', '/config/test.yaml')
 
-      expect(error.message).toBe('Config validation failed')
-      expect(error.path).toBe('config.fps')
+      expect(error.message).toBe('Configuration failed')
       expect(error._tag).toBe('ConfigError')
+      expect(error.path).toBe('/config/test.yaml')
     })
 
-    it('should have correct interface structure', () => {
-      const error = ConfigError('Config error', 'debug')
+    it('should create ConfigError with path and message', () => {
+      const error = ConfigError('Configuration failed', '/config/test.yaml')
 
-      expect(error).toHaveProperty('_tag', 'ConfigError')
-      expect(error).toHaveProperty('message', 'Config error')
-      expect(error).toHaveProperty('path', 'debug')
-      expect(typeof error.message).toBe('string')
-      expect(typeof error.path).toBe('string')
-    })
-
-    it('should handle different path values', () => {
-      const paths = ['config.debug', 'fps', 'memoryLimit.max', '']
-
-      paths.forEach((path) => {
-        const error = ConfigError('Error', path)
-
-        expect(error.path).toBe(path)
-        expect(error._tag).toBe('ConfigError')
-        expect(error.message).toBe('Error')
-      })
-    })
-
-    it('should create readonly properties', () => {
-      const error = ConfigError('Config validation error', 'memoryLimit')
-
-      expect(error.message).toBe('Config validation error')
-      expect(error.path).toBe('memoryLimit')
+      expect(error.message).toBe('Configuration failed')
       expect(error._tag).toBe('ConfigError')
+      expect(error.path).toBe('/config/test.yaml')
+    })
+
+    it('should have correct discriminated union type', () => {
+      const error = ConfigError('test', '/path')
+      expect(error._tag).toBe('ConfigError')
+      expect(error.path).toBe('/path')
+
+      // Type check: ConfigError should have 'path' property
+      expect('path' in error).toBe(true)
     })
   })
 
-  describe('Error Type Distinction', () => {
+  describe('Error Type Discrimination', () => {
     it('should distinguish between error types using _tag', () => {
       const initError = InitError('Init failed')
-      const configError = ConfigError('Config failed', 'test')
+      const configError = ConfigError('Config failed', '/config/test.yaml')
 
       expect(initError._tag).toBe('InitError')
       expect(configError._tag).toBe('ConfigError')
+    })
 
-      expect(initError._tag).not.toBe(configError._tag)
+    it('should have proper Error prototype chain', () => {
+      const initError = InitError('Init failed')
+      const configError = ConfigError('Config failed', '/config/test.yaml')
+
+      expect(initError instanceof Error).toBe(true)
+      expect(configError instanceof Error).toBe(true)
     })
 
     it('should maintain type safety with discriminated unions', () => {
       const initError = InitError('Init failed')
       const configError = ConfigError('Config failed', 'test')
 
-      // _tagによる型判定
+      // _tagによる型判定をMatch.valueパターンに変換
       const checkErrorType = (error: typeof initError | typeof configError) => {
-        switch (error._tag) {
-          case 'InitError':
-            return { type: 'init', hasPath: false }
-          case 'ConfigError':
-            return { type: 'config', hasPath: true, path: error.path }
-          default:
-            return { type: 'unknown', hasPath: false }
-        }
+        return pipe(
+          Match.value(error._tag),
+          Match.when('InitError', () => ({ type: 'init', hasPath: false })),
+          Match.when('ConfigError', () => ({
+            type: 'config',
+            hasPath: true,
+            path: (error as typeof configError).path,
+          })),
+          Match.orElse(() => ({ type: 'unknown', hasPath: false }))
+        )
       }
 
       const initResult = checkErrorType(initError)
@@ -123,7 +101,47 @@ describe('AppError Module', () => {
 
       expect(configResult.type).toBe('config')
       expect(configResult.hasPath).toBe(true)
-      expect((configResult as any).path).toBe('test')
+      expect('path' in configResult && configResult.path).toBe('test')
+    })
+
+    it('should handle error pattern matching correctly', () => {
+      const errors = [InitError('Init error'), ConfigError('Config error', '/path/to/config')]
+
+      const results = errors.map((error) => {
+        return pipe(
+          Match.value(error._tag),
+          Match.when('InitError', () => `Init error: ${error.message}`),
+          Match.when('ConfigError', () => {
+            const configErr = error as ReturnType<typeof ConfigError>
+            return `Config error at ${configErr.path}: ${configErr.message}`
+          }),
+          Match.orElse(() => `Unknown error: ${error.message}`)
+        )
+      })
+
+      expect(results[0]).toBe('Init error: Init error')
+      expect(results[1]).toBe('Config error at /path/to/config: Config error')
+    })
+  })
+
+  describe('Error Serialization', () => {
+    it('should serialize InitError correctly', () => {
+      const error = InitError('Serialization test')
+      const serialized = JSON.stringify(error)
+      const parsed = JSON.parse(serialized)
+
+      expect(parsed.message).toBe('Serialization test')
+      expect(parsed._tag).toBe('InitError')
+    })
+
+    it('should serialize ConfigError correctly', () => {
+      const error = ConfigError('Config serialization test', '/config/path')
+      const serialized = JSON.stringify(error)
+      const parsed = JSON.parse(serialized)
+
+      expect(parsed.message).toBe('Config serialization test')
+      expect(parsed._tag).toBe('ConfigError')
+      expect(parsed.path).toBe('/config/path')
     })
   })
 })

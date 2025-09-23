@@ -140,19 +140,21 @@ export const ConfigServiceLive = Layer.sync(ConfigService, () => {
     },
 
     updateConfig: (key, value) => {
-      switch (key) {
-        case 'gameConfig':
+      return Match.value(key as ConfigKey).pipe(
+        Match.when('gameConfig' as const, () => {
           currentGameConfig = value as GameConfig
           return Effect.succeed(undefined)
-        case 'renderConfig':
+        }),
+        Match.when('renderConfig' as const, () => {
           currentRenderConfig = value as RenderConfig
           return Effect.succeed(undefined)
-        case 'debugConfig':
+        }),
+        Match.when('debugConfig' as const, () => {
           currentDebugConfig = value as DebugConfig
           return Effect.succeed(undefined)
-        default:
-          return Effect.fail(new Error(`Unknown config key: ${key}`))
-      }
+        }),
+        Match.orElse(() => Effect.fail(new Error(`Unknown config key: ${key}`)))
+      ) as Effect.Effect<void, Error>
     },
   })
 })
