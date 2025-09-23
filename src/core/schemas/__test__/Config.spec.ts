@@ -37,15 +37,14 @@ describe('Config Schema', () => {
       expect(result).toEqual(validConfig)
     })
 
-    it('should validate with decimal fps', () => {
-      const validConfig = {
+    it('should reject decimal fps values', () => {
+      const invalidConfig = {
         debug: true,
-        fps: 59.94, // Common video fps
+        fps: 59.94, // Common video fps but not allowed (must be integer)
         memoryLimit: 1024,
       }
 
-      const result = Schema.decodeUnknownSync(Config)(validConfig)
-      expect(result).toEqual(validConfig)
+      expect(() => Schema.decodeUnknownSync(Config)(invalidConfig)).toThrow()
     })
   })
 
