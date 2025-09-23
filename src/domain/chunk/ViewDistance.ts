@@ -328,7 +328,10 @@ export const getVisibleChunkPositions = (centerPosition: Vector3, viewDistance: 
       pipe(
         distance,
         Match.value,
-        Match.when((d) => d <= viewDistance, () => positions.push({ x, z })),
+        Match.when(
+          (d) => d <= viewDistance,
+          () => positions.push({ x, z })
+        ),
         Match.orElse(() => undefined)
       )
     }
