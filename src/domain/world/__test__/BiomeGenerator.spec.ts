@@ -18,26 +18,22 @@ import { NoiseGeneratorTag } from '../NoiseGenerator'
 import type { BiomeType, Vector3 } from '../types'
 
 // NoiseGenerator モックレイヤー
-const NoiseGeneratorTestLayer = Layer.succeed(
-  NoiseGeneratorTag,
-  {
-    noise2D: () => Effect.succeed(0.5),
-    noise3D: () => Effect.succeed(0.5),
-    octaveNoise2D: () => Effect.succeed(0.3),
-    octaveNoise3D: () => Effect.succeed(0.3),
-    getSeed: () => 12345,
-    getConfig: () => ({
-      seed: 12345,
-      octaves: 4,
-      persistence: 0.5,
-      lacunarity: 2.0,
-    }),
-  }
-)
+const NoiseGeneratorTestLayer = Layer.succeed(NoiseGeneratorTag, {
+  noise2D: () => Effect.succeed(0.5),
+  noise3D: () => Effect.succeed(0.5),
+  octaveNoise2D: () => Effect.succeed(0.3),
+  octaveNoise3D: () => Effect.succeed(0.3),
+  getSeed: () => 12345,
+  getConfig: () => ({
+    seed: 12345,
+    octaves: 4,
+    persistence: 0.5,
+    lacunarity: 2.0,
+  }),
+})
 
 // テスト用レイヤー
-const testLayer = (config: BiomeConfig) =>
-  Layer.mergeAll(NoiseGeneratorTestLayer, BiomeGeneratorLive(config))
+const testLayer = (config: BiomeConfig) => Layer.mergeAll(NoiseGeneratorTestLayer, BiomeGeneratorLive(config))
 
 describe('BiomeGenerator', () => {
   const testConfig: BiomeConfig = {

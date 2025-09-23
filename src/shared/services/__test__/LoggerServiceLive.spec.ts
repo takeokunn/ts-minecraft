@@ -32,9 +32,7 @@ describe('LoggerServiceLive', () => {
       })
 
       // ログ処理でエラーが発生しないことを確認
-      await expect(
-        Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-      ).resolves.toBeUndefined()
+      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).resolves.toBeUndefined()
     })
 
     it('should handle performance measurement operations', async () => {
@@ -58,12 +56,15 @@ describe('LoggerServiceLive', () => {
 
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
-        return yield* logger.measurePerformance('failingOperation', failingOperation as Effect.Effect<never, never, never>)
+        return yield* logger.measurePerformance(
+          'failingOperation',
+          failingOperation as Effect.Effect<never, never, never>
+        )
       })
 
-      await expect(
-        Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))
-      ).rejects.toThrow('Operation failed')
+      await expect(Effect.runPromise(program.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
+        'Operation failed'
+      )
     })
   })
 
@@ -141,7 +142,7 @@ describe('LoggerServiceLive', () => {
       expect(errorEntry.error).toEqual({
         name: 'Error',
         message: 'Test error',
-        stack: 'Error stack trace'
+        stack: 'Error stack trace',
       })
 
       // コンテキストとエラー両方付きログエントリ
@@ -150,7 +151,7 @@ describe('LoggerServiceLive', () => {
       expect(fullEntry.error).toEqual({
         name: 'Error',
         message: 'Test error',
-        stack: 'Error stack trace'
+        stack: 'Error stack trace',
       })
     })
   })
@@ -168,7 +169,8 @@ describe('LoggerServiceLive', () => {
         yield* logger.warn('Potential issue detected', { step: 2 })
 
         // パフォーマンス測定付きの処理
-        const result = yield* logger.measurePerformance('data-processing',
+        const result = yield* logger.measurePerformance(
+          'data-processing',
           Effect.sync(() => {
             return { processed: true, count: 100 }
           })
@@ -191,7 +193,8 @@ describe('LoggerServiceLive', () => {
 
         // 複数のエラーハンドリングシナリオ
         try {
-          yield* logger.measurePerformance('failing-task',
+          yield* logger.measurePerformance(
+            'failing-task',
             Effect.fail(new Error('Task failed')) as Effect.Effect<never, never, never>
           )
         } catch (error) {
@@ -200,9 +203,9 @@ describe('LoggerServiceLive', () => {
         }
       })
 
-      await expect(
-        Effect.runPromise(errorWorkflow.pipe(Effect.provide(LoggerServiceLive)))
-      ).rejects.toThrow('Task failed')
+      await expect(Effect.runPromise(errorWorkflow.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
+        'Task failed'
+      )
     })
   })
 })

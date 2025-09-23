@@ -26,7 +26,6 @@ const TestLayer = SystemRegistryServiceLive
 // ================================================================================
 
 describe('SystemRegistry ECS Architecture', () => {
-
   describe('システム登録', () => {
     it.effect('システムを登録できる', () =>
       Effect.gen(function* () {

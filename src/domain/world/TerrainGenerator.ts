@@ -244,7 +244,7 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
  */
 const getBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y + 64 // -64～319 → 0～383
-  return normalizedY + (z * 384) + (x * 384 * 16)
+  return normalizedY + z * 384 + x * 384 * 16
 }
 
 /**

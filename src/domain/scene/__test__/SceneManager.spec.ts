@@ -166,13 +166,13 @@ describe('SceneManager', () => {
         const manager = yield* SceneManager
 
         // 並行遷移を実行
-        const results = yield* Effect.all([
-          Effect.either(manager.transitionTo('MainMenu')),
-          Effect.either(manager.transitionTo('Game'))
-        ], { concurrency: 'unbounded' })
+        const results = yield* Effect.all(
+          [Effect.either(manager.transitionTo('MainMenu')), Effect.either(manager.transitionTo('Game'))],
+          { concurrency: 'unbounded' }
+        )
 
         // 少なくとも1つは成功することを確認
-        const hasSuccess = results.some(result => Either.isRight(result))
+        const hasSuccess = results.some((result) => Either.isRight(result))
         expect(hasSuccess).toBe(true)
 
         // 現在のシーンが適切に設定されていることを確認

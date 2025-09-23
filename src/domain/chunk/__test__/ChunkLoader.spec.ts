@@ -320,25 +320,28 @@ describe('ChunkLoader Service', () => {
   })
 
   describe('Load Processing', () => {
-    effectIt.effect('ロード処理を開始・停止できる', () =>
-      Effect.gen(function* () {
-        const loader = yield* ChunkLoader
+    effectIt.effect(
+      'ロード処理を開始・停止できる',
+      () =>
+        Effect.gen(function* () {
+          const loader = yield* ChunkLoader
 
-        // ロード処理開始
-        const processingFiber = yield* loader.startLoadProcessing()
-        expect(processingFiber).toBeDefined()
+          // ロード処理開始
+          const processingFiber = yield* loader.startLoadProcessing()
+          expect(processingFiber).toBeDefined()
 
-        // 停止 - ただ停止できることを確認
-        yield* loader.stopLoadProcessing()
+          // 停止 - ただ停止できることを確認
+          yield* loader.stopLoadProcessing()
 
-        // 再開始できることを確認（停止が成功した証拠）
-        const newProcessingFiber = yield* loader.startLoadProcessing()
-        expect(newProcessingFiber).toBeDefined()
-        
-        // cleanup
-        yield* loader.stopLoadProcessing()
-      }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))
-    , 10000) // 10秒のタイムアウトを設定
+          // 再開始できることを確認（停止が成功した証拠）
+          const newProcessingFiber = yield* loader.startLoadProcessing()
+          expect(newProcessingFiber).toBeDefined()
+
+          // cleanup
+          yield* loader.stopLoadProcessing()
+        }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive))),
+      10000
+    ) // 10秒のタイムアウトを設定
 
     effectIt.effect('既にロード処理が開始されている場合は同じFiberを返す', () =>
       Effect.gen(function* () {
@@ -429,7 +432,7 @@ describe('ChunkLoader Service', () => {
           loader.cancelAllLoads(),
           () => Effect.succeed(void 0) // シャットダウンエラーは想定内
         )
-        
+
         // cancelAllLoads後はキューがシャットダウンされるため、新しいローダーで動作確認
         // 実際のアプリケーションでは、cancelAllLoads後はサービス全体を再初期化する想定
       }).pipe(Effect.provide(Layer.provide(ChunkLoaderLive(), MockWorldGeneratorLive)))

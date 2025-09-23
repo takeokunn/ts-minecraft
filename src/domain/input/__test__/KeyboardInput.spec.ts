@@ -85,26 +85,33 @@ describe('KeyboardInput', () => {
       // Effect<boolean> - エラーなし
       isKeyPressed: () => Effect.succeed(false),
       // Effect<KeyState> - エラーなし
-      getKeyState: () => Effect.succeed({
-        key: 'test',
-        isPressed: false,
-        timestamp: Date.now(),
-      }),
+      getKeyState: () =>
+        Effect.succeed({
+          key: 'test',
+          isPressed: false,
+          timestamp: Date.now(),
+        }),
       // Effect<ReadonlyArray<string>> - エラーなし
       getPressedKeys: () => Effect.succeed([]),
       // Effect<KeyMappingConfig> - エラーなし
       getKeyMapping: () => Effect.succeed(DefaultKeyMap),
       // Effect<void, KeyMappingError> - KeyMappingErrorを返す
-      setKeyMapping: () => Effect.fail(KeyMappingError({
-        message: 'Failed to set mapping',
-      })),
+      setKeyMapping: () =>
+        Effect.fail(
+          KeyMappingError({
+            message: 'Failed to set mapping',
+          })
+        ),
       // Effect<KeyAction | undefined> - エラーなし
       getActionForKey: () => Effect.succeed(undefined),
       // Effect<boolean, KeyMappingError> - KeyMappingErrorを返す
-      isActionPressed: () => Effect.fail(KeyMappingError({
-        message: 'Failed to check action',
-        action: 'forward',
-      })),
+      isActionPressed: () =>
+        Effect.fail(
+          KeyMappingError({
+            message: 'Failed to check action',
+            action: 'forward',
+          })
+        ),
       // Effect<void> - エラーなし
       resetKeyStates: () => Effect.succeed(undefined),
     }

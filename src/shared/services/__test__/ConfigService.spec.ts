@@ -17,9 +17,7 @@ describe('ConfigService', () => {
         const service = yield* ConfigService
 
         // 無効なconfig keyでupdateConfigを呼び出す
-        const result = yield* Effect.either(
-          service.updateConfig('invalidKey' as any, {} as any)
-        )
+        const result = yield* Effect.either(service.updateConfig('invalidKey' as any, {} as any))
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
@@ -434,5 +432,4 @@ describe('ConfigService', () => {
       expect(() => Effect.runSync(invalidResult)).toThrow()
     })
   })
-
 })

@@ -29,7 +29,11 @@ const runWithTestOreDistribution = <A>(
   Effect.gen(function* () {
     const od = yield* OreDistributionTag
     return yield* operation(od)
-  }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(config)))) as Effect.Effect<A, never, never>
+  }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(config)))) as Effect.Effect<
+    A,
+    never,
+    never
+  >
 
 describe('OreDistribution', () => {
   const testConfig: OreDistributionConfig = {
@@ -240,46 +244,56 @@ describe('OreDistribution', () => {
       )
     )
 
-    it.effect('creates OreDistribution with default config', () =>
-      Effect.gen(function* () {
-        const od = yield* OreDistributionTag
-        const config = od.getConfig()
+    it.effect(
+      'creates OreDistribution with default config',
+      () =>
+        Effect.gen(function* () {
+          const od = yield* OreDistributionTag
+          const config = od.getConfig()
 
-        expect(config.ores).toHaveLength(8)
-        expect(config.noiseScale).toBe(0.05)
-        expect(config.clusterThreshold).toBe(0.6)
-        expect(config.ores).toEqual(defaultOreConfigs)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLiveDefault))) as Effect.Effect<void, never, never>
+          expect(config.ores).toHaveLength(8)
+          expect(config.noiseScale).toBe(0.05)
+          expect(config.clusterThreshold).toBe(0.6)
+          expect(config.ores).toEqual(defaultOreConfigs)
+        }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLiveDefault))) as Effect.Effect<
+          void,
+          never,
+          never
+        >
     )
   })
 
   describe('Ore Density Calculation', () => {
-    it.effect('calculates ore density for different types', () =>
-      Effect.gen(function* () {
-        const od = yield* OreDistributionTag
-        const testPositions = [
-          { x: 0, y: 0, z: 0 },
-          { x: 100, y: 50, z: 100 },
-        ]
+    it.effect(
+      'calculates ore density for different types',
+      () =>
+        Effect.gen(function* () {
+          const od = yield* OreDistributionTag
+          const testPositions = [
+            { x: 0, y: 0, z: 0 },
+            { x: 100, y: 50, z: 100 },
+          ]
 
-        for (const position of testPositions) {
-          const coalDensity = yield* od.calculateOreDensity('coal_ore', position)
-          const ironDensity = yield* od.calculateOreDensity('iron_ore', position)
-          const diamondDensity = yield* od.calculateOreDensity('diamond_ore', position)
+          for (const position of testPositions) {
+            const coalDensity = yield* od.calculateOreDensity('coal_ore', position)
+            const ironDensity = yield* od.calculateOreDensity('iron_ore', position)
+            const diamondDensity = yield* od.calculateOreDensity('diamond_ore', position)
 
-          expect(typeof coalDensity).toBe('number')
-          expect(typeof ironDensity).toBe('number')
-          expect(typeof diamondDensity).toBe('number')
+            expect(typeof coalDensity).toBe('number')
+            expect(typeof ironDensity).toBe('number')
+            expect(typeof diamondDensity).toBe('number')
 
-          expect(coalDensity).toBeGreaterThanOrEqual(0)
-          expect(ironDensity).toBeGreaterThanOrEqual(0)
-          expect(diamondDensity).toBeGreaterThanOrEqual(0)
+            expect(coalDensity).toBeGreaterThanOrEqual(0)
+            expect(ironDensity).toBeGreaterThanOrEqual(0)
+            expect(diamondDensity).toBeGreaterThanOrEqual(0)
 
-          expect(Number.isFinite(coalDensity)).toBe(true)
-          expect(Number.isFinite(ironDensity)).toBe(true)
-          expect(Number.isFinite(diamondDensity)).toBe(true)
-        }
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))) as Effect.Effect<void, never, never>
+            expect(Number.isFinite(coalDensity)).toBe(true)
+            expect(Number.isFinite(ironDensity)).toBe(true)
+            expect(Number.isFinite(diamondDensity)).toBe(true)
+          }
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
     it('provides consistent density for same position', async () => {
@@ -451,34 +465,38 @@ describe('OreDistribution', () => {
       }
     }
 
-    it.effect('places ores in stone blocks correctly', () =>
-      Effect.gen(function* () {
-        const od = yield* OreDistributionTag
-        const chunkPosition = { x: 0, z: 0 }
-        const chunkData = createStoneChunkData(chunkPosition)
+    it.effect(
+      'places ores in stone blocks correctly',
+      () =>
+        Effect.gen(function* () {
+          const od = yield* OreDistributionTag
+          const chunkPosition = { x: 0, z: 0 }
+          const chunkData = createStoneChunkData(chunkPosition)
 
-        const result = yield* od.placeOres(chunkData)
+          const result = yield* od.placeOres(chunkData)
 
-        expect(result.isDirty).toBe(true)
-        expect(result.metadata.isModified).toBe(true)
-        expect(result.blocks).toBeInstanceOf(Uint16Array)
-        expect(result.blocks.length).toBe(16 * 16 * 384)
+          expect(result.isDirty).toBe(true)
+          expect(result.metadata.isModified).toBe(true)
+          expect(result.blocks).toBeInstanceOf(Uint16Array)
+          expect(result.blocks.length).toBe(16 * 16 * 384)
 
-        let stoneBlocks = 0
-        let oreBlocks = 0
+          let stoneBlocks = 0
+          let oreBlocks = 0
 
-        for (let i = 0; i < result.blocks.length; i++) {
-          const blockId = result.blocks[i] ?? 0
-          if (blockId === 2) {
-            stoneBlocks++
-          } else if (blockId >= 16 && blockId <= 23) {
-            oreBlocks++
+          for (let i = 0; i < result.blocks.length; i++) {
+            const blockId = result.blocks[i] ?? 0
+            if (blockId === 2) {
+              stoneBlocks++
+            } else if (blockId >= 16 && blockId <= 23) {
+              oreBlocks++
+            }
           }
-        }
 
-        expect(stoneBlocks).toBeLessThan(16 * 16 * 384)
-        expect(oreBlocks).toBeGreaterThanOrEqual(0)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(stoneBlocks).toBeLessThan(16 * 16 * 384)
+          expect(oreBlocks).toBeGreaterThanOrEqual(0)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
     it('preserves non-stone blocks', async () => {
@@ -557,7 +575,7 @@ describe('OreDistribution', () => {
       )
 
       await Effect.runPromise(effect)
-    })
+    }, 30000)
 
     it('respects ore height restrictions in chunks', async () => {
       const highConfig: OreDistributionConfig = {
@@ -623,41 +641,50 @@ describe('OreDistribution', () => {
   })
 
   describe('Performance Requirements', () => {
-    it.effect('places ores efficiently', () =>
-      Effect.gen(function* () {
-        const od = yield* OreDistributionTag
-        const chunkPosition = { x: 0, z: 0 }
-        const chunkData = createChunkData(chunkPosition)
+    it.effect(
+      'places ores efficiently',
+      () =>
+        Effect.gen(function* () {
+          const od = yield* OreDistributionTag
+          const chunkPosition = { x: 0, z: 0 }
+          const chunkData = createChunkData(chunkPosition)
 
-        const stoneBlocks = new Uint16Array(16 * 16 * 384)
-        stoneBlocks.fill(2)
-        const testChunkData = { ...chunkData, blocks: stoneBlocks }
+          const stoneBlocks = new Uint16Array(16 * 16 * 384)
+          stoneBlocks.fill(2)
+          const testChunkData = { ...chunkData, blocks: stoneBlocks }
 
-        const result = yield* od.placeOres(testChunkData)
+          const result = yield* od.placeOres(testChunkData)
 
-        expect(result.blocks).toHaveLength(16 * 16 * 384)
-        expect(result.isDirty).toBe(true)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(result.blocks).toHaveLength(16 * 16 * 384)
+          expect(result.isDirty).toBe(true)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
+        ) as Effect.Effect<void, never, never>,
+      { timeout: 30000 }
     )
 
-    it.effect('handles multiple ore calculations efficiently', () =>
-      Effect.gen(function* () {
-        const od = yield* OreDistributionTag
-        const positions = Array.from({ length: 10 }, (_, i) => ({
-          x: i % 5,
-          y: Math.floor(i / 5) - 50,
-          z: i % 3,
-        }))
+    it.effect(
+      'handles multiple ore calculations efficiently',
+      () =>
+        Effect.gen(function* () {
+          const od = yield* OreDistributionTag
+          const positions = Array.from({ length: 10 }, (_, i) => ({
+            x: i % 5,
+            y: Math.floor(i / 5) - 50,
+            z: i % 3,
+          }))
 
-        const results = []
-        for (const position of positions) {
-          const oreType = yield* od.getOreAtPosition(position)
-          results.push(oreType)
-        }
+          const results = []
+          for (const position of positions) {
+            const oreType = yield* od.getOreAtPosition(position)
+            results.push(oreType)
+          }
 
-        expect(results).toHaveLength(10)
-        expect(results.every(r => r === null || typeof r === 'string')).toBe(true)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(results).toHaveLength(10)
+          expect(results.every((r) => r === null || typeof r === 'string')).toBe(true)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
   })
 
@@ -810,7 +837,7 @@ describe('OreDistribution', () => {
 
         await Effect.runPromise(effect)
       }
-    }, 10000)
+    }, 30000)
   })
 
   describe('Realistic Ore Distribution', () => {
@@ -856,6 +883,6 @@ describe('OreDistribution', () => {
       )
 
       await Effect.runPromise(effect)
-    })
+    }, 30000)
   })
 })

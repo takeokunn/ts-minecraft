@@ -113,10 +113,10 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
       for (let i = 0; i < size; i++) {
         const [x1, y1, z1] = axis === 0 ? [d - 1, i, j] : axis === 1 ? [i, d - 1, j] : [i, j, d - 1]
         const [x2, y2, z2] = axis === 0 ? [d, i, j] : axis === 1 ? [i, d, j] : [i, j, d]
-        
+
         const block1 = getBlock(blocks, x1, y1, z1, size)
         const block2 = getBlock(blocks, x2, y2, z2, size)
-        
+
         // 面が表示される条件
         let faceBlock: BlockType = 0
         if (block1 !== 0 && block2 === 0) {
@@ -124,19 +124,19 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         } else if (block1 === 0 && block2 !== 0) {
           faceBlock = -block2 // 負方向の面（負の値で区別）
         }
-        
+
         mask.push(faceBlock)
       }
     }
 
     // マスクをもとにGreedy Meshingを実行
     const processedMask = [...mask]
-    
+
     for (let j = 0; j < size; j++) {
       for (let i = 0; i < size; i++) {
         const index = j * size + i
         const blockType = processedMask[index]
-        
+
         if (blockType === 0) continue
 
         // 幅方向（i軸）への拡張
@@ -163,10 +163,10 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         // クアッドを作成
         const isPositive = (blockType ?? 0) > 0
         const actualBlockType = Math.abs(blockType ?? 0)
-        
+
         // 位置計算を修正（常に非負の値を保証）
         let quadX: number, quadY: number, quadZ: number
-        
+
         if (axis === 0) {
           quadX = isPositive ? d : Math.max(0, d - 1)
           quadY = i
@@ -180,11 +180,8 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
           quadY = j
           quadZ = isPositive ? d : Math.max(0, d - 1)
         }
-        
-        quads.push(createQuad(
-          quadX, quadY, quadZ,
-          width, height, axis, actualBlockType, isPositive
-        ))
+
+        quads.push(createQuad(quadX, quadY, quadZ, width, height, axis, actualBlockType, isPositive))
 
         // 使用したマスクエリアをクリア
         for (let h = 0; h < height; h++) {
@@ -304,7 +301,7 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
           if (!chunkData || !chunkData.blocks || chunkData.size <= 0) {
             throw new Error('Invalid chunk data: missing blocks or invalid size')
           }
-          
+
           const allQuads: Quad[] = []
           const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
 

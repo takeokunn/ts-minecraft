@@ -410,9 +410,9 @@ describe('CameraService', () => {
         // Test common aspect ratios
         const aspectRatios = [
           { width: 1920, height: 1080 }, // 16:9
-          { width: 1024, height: 768 },  // 4:3
+          { width: 1024, height: 768 }, // 4:3
           { width: 2560, height: 1080 }, // 21:9
-          { width: 800, height: 600 },   // 4:3
+          { width: 800, height: 600 }, // 4:3
         ]
 
         for (const { width, height } of aspectRatios) {

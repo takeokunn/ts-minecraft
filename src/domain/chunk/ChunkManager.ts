@@ -78,7 +78,7 @@ export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUC
     return {
       ...cache,
       cache: new Map(),
-      accessOrder: []
+      accessOrder: [],
     }
   }
 

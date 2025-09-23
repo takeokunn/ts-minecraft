@@ -407,7 +407,7 @@ describe('ErrorHandlers', () => {
         {
           numRuns: 3, // 最小実行回数
           timeout: 50, // 短いタイムアウト
-          verbose: false
+          verbose: false,
         }
       )
     })
