@@ -174,6 +174,10 @@ export const MovementSystem = (
 
 ```typescript
 // システム統合テスト例
+import { describe, test, expect } from '@effect/vitest'
+import { Effect, pipe } from 'effect'
+import * as fc from 'fast-check'
+
 describe('World-Player Integration', () => {
   test.prop([
     fc.record({
@@ -185,7 +189,12 @@ describe('World-Player Integration', () => {
     const world = await createTestWorld()
     const player = await createTestPlayer(position)
 
-    const result = await Effect.runPromise(pipe(movePlayer(player, { x: 1, y: 0, z: 0 }), Effect.provide(world)))
+    const result = await Effect.runPromise(
+      pipe(
+        movePlayer(player, { x: 1, y: 0, z: 0 }),
+        Effect.provide(world)
+      )
+    )
 
     expect(result.position.x).toBe(position.x + 1)
   })

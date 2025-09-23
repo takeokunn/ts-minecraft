@@ -76,8 +76,7 @@ try {
 
 ```typescript
 import { Effect, Context, Layer, Schema, Match } from 'effect'
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 
 // ✅ @effect/vitestパターン: it.effectの活用
 describe('Modern Effect-TS Vitest Pattern', () => {
@@ -472,7 +471,7 @@ describe('Parallel Processing with Effect.gen', () => {
 
 ```typescript
 import { Gen } from 'effect'
-import { it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 
 // Effect-TS Genベースの自動テストデータ生成
 const coordinateGen = Gen.struct({

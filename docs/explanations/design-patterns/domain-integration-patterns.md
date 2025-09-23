@@ -459,6 +459,8 @@ export const createPlayerProjection = (components: PlayerComponents): PlayerProj
 ### ドメインロジックのテスト
 
 ```typescript
+import { describe, expect, it } from '@effect/vitest'
+
 describe('Player Domain', () => {
   it('should generate death event when health reaches zero', () => {
     const player = Player.create({
@@ -481,6 +483,8 @@ describe('Player Domain', () => {
 ### 統合テスト
 
 ```typescript
+import { describe, expect, it } from '@effect/vitest'
+
 describe('Player Domain-ECS Integration', () => {
   it('should sync domain changes to ECS', async () => {
     const testLayer = Layer.mergeAll(TestECSWorld.Live, TestPlayerRepository.Live, TestEventBus.Live)

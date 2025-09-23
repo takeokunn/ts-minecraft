@@ -530,10 +530,11 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
 ### Property-Based Testing による型制約検証
 
 ```typescript
+import { it, expect } from '@effect/vitest'
 import fc from 'fast-check'
 
 describe('Health Brand Type', () => {
-  test('should only accept valid health values', () => {
+  it('should only accept valid health values', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 100 }), (validValue) => {
         const health = Health.create(validValue)
@@ -542,7 +543,7 @@ describe('Health Brand Type', () => {
     )
   })
 
-  test('should reject invalid health values', () => {
+  it('should reject invalid health values', () => {
     fc.assert(
       fc.property(
         fc.integer().filter((n) => n < 0 || n > 100),
@@ -554,7 +555,7 @@ describe('Health Brand Type', () => {
     )
   })
 
-  test('health arithmetic should maintain invariants', () => {
+  it('health arithmetic should maintain invariants', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 }), (initial, damage) => {
         const health = Health.create(initial).pipe(Option.getOrThrow)
@@ -572,7 +573,7 @@ describe('Health Brand Type', () => {
 
 ```typescript
 describe('Player Schema Validation', () => {
-  test('should validate correct player data', async () => {
+  it('should validate correct player data', async () => {
     const validPlayer = {
       id: 'player-123',
       health: 75,
@@ -586,7 +587,7 @@ describe('Player Schema Validation', () => {
     expect(result).toEqual(validPlayer)
   })
 
-  test('should reject invalid player data', async () => {
+  it('should reject invalid player data', async () => {
     const invalidPlayer = {
       id: '', // 空文字列は無効
       health: -10, // 負の値は無効

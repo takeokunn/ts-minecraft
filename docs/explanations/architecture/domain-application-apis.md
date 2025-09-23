@@ -2477,7 +2477,7 @@ describe('PlayerService Integration Tests', () => {
     WorldServiceTest
   )
 
-  test('プレイヤー作成と移動のフロー', async () => {
+  it.effect('プレイヤー作成と移動のフロー', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2517,12 +2517,10 @@ describe('PlayerService Integration Tests', () => {
       return { player, newPosition, healthAfterDamage }
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
+    return program.pipe(Effect.provide(TestLayer))
+  )
 
-    expect(result.player.name).toBe('TestPlayer')
-  })
-
-  test('エラーハンドリングのテスト', async () => {
+  it.effect('エラーハンドリングのテスト', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2537,15 +2535,19 @@ describe('PlayerService Integration Tests', () => {
       })
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer), Effect.either))
+    return program.pipe(
+      Effect.provide(TestLayer),
+      Effect.either,
+      Effect.map(result => {
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('PlayerSystem.PlayerNotFoundError')
+        }
+      })
+    )
+  )
 
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left._tag).toBe('PlayerSystem.PlayerNotFoundError')
-    }
-  })
-
-  test('並行処理のテスト', async () => {
+  it.effect('並行処理のテスト', () =>
     const program = Effect.gen(function* () {
       const playerService = yield* PlayerService
       const testData = yield* TestData
@@ -2580,10 +2582,8 @@ describe('PlayerService Integration Tests', () => {
       return players
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
-
-    expect(result).toHaveLength(3)
-  })
+    return program.pipe(Effect.provide(TestLayer))
+  )
 })
 ```
 
@@ -2599,8 +2599,8 @@ import * as fc from 'fast-check'
 describe('PlayerService Property Tests', () => {
   const TestLayer = Layer.mergeAll(PlayerServiceTest, PlayerRepositoryTest, TestDataLive)
 
-  test('プレイヤー作成の不変条件', async () => {
-    await fc.assert(
+  it.effect('プレイヤー作成の不変条件', () =>
+    Effect.promise(() => fc.assert(
       fc.asyncProperty(
         fc.record({
           id: fc.string({ minLength: 1, maxLength: 36 }),
@@ -2632,11 +2632,11 @@ describe('PlayerService Property Tests', () => {
           await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
         }
       )
-    )
-  })
+    ))
+  )
 
-  test('移動処理の正当性', async () => {
-    await fc.assert(
+  it.effect('移動処理の正当性', () =>
+    Effect.promise(() => fc.assert(
       fc.asyncProperty(
         fc.tuple(fc.constantFrom('north', 'south', 'east', 'west', 'up', 'down'), fc.integer({ min: 1, max: 10 })),
         async ([direction, distance]) => {
@@ -2671,8 +2671,8 @@ describe('PlayerService Property Tests', () => {
           await Effect.runPromise(program.pipe(Effect.provide(TestLayer)))
         }
       )
-    )
-  })
+    ))
+  )
 })
 ```
 

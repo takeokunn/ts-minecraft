@@ -138,8 +138,12 @@ const program = Effect.gen(function* () {
   yield* robustPlayerSearch('network_test')
 })
 
-// 実行してみてください！
-// Effect.runSync(program)
+// @effect/vitestでテスト実行
+// import { describe, it } from '@effect/vitest'
+//
+// describe('Error Handling Demo', () => {
+//   it.effect('should demonstrate error handling patterns', () => program)
+// })
 ```
 
 **💡 試してみよう**:
@@ -862,6 +866,9 @@ const testableValidation = <T>(data: unknown): Effect.Effect<T, TestValidationEr
   )
 
 // エラーハンドリングの包括的テストスイート
+import { describe, it, expect } from '@effect/vitest'
+import { Effect, Either, Schedule, Match, Cause, pipe } from 'effect'
+
 describe('Error Handling Patterns', () => {
   it.effect('should handle validation errors correctly', () =>
     Effect.gen(function* () {
@@ -992,40 +999,37 @@ describe('Error Handling Patterns', () => {
     })
   )
 
-  // フレーキーテストの処理
+  // サーキットブレーカー状態遷移のテスト
   it.effect('should handle circuit breaker state transitions', () =>
-    it.flakyTest(
-      Effect.gen(function* () {
-        const { callWithCircuitBreaker } = yield* createCircuitBreakerService('test-service', {
-          threshold: 2,
-          cooldownMs: 100,
-          halfOpenMaxAttempts: 1,
-        })
+    Effect.gen(function* () {
+      const { callWithCircuitBreaker } = yield* createCircuitBreakerService('test-service', {
+        threshold: 2,
+        cooldownMs: 100,
+        halfOpenMaxAttempts: 1,
+      })
 
-        let callCount = 0
-        const flakyService = Effect.gen(function* () {
-          callCount++
-          if (callCount <= 2) {
-            return yield* Effect.fail(new Error('Service unavailable'))
-          }
-          return yield* Effect.succeed('Service OK')
-        })
+      let callCount = 0
+      const flakyService = Effect.gen(function* () {
+        callCount++
+        if (callCount <= 2) {
+          return yield* Effect.fail(new Error('Service unavailable'))
+        }
+        return yield* Effect.succeed('Service OK')
+      })
 
-        // 最初の2回の呼び出しは失敗してサーキットがオープンになる
-        yield* Effect.either(callWithCircuitBreaker(flakyService))
-        yield* Effect.either(callWithCircuitBreaker(flakyService))
+      // 最初の2回の呼び出しは失敗してサーキットがオープンになる
+      yield* Effect.either(callWithCircuitBreaker(flakyService))
+      yield* Effect.either(callWithCircuitBreaker(flakyService))
 
-        // 3回目は即座に失敗（サーキットオープン）
-        const circuitOpenResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
-        expect(Either.isLeft(circuitOpenResult)).toBe(true)
+      // 3回目は即座に失敗（サーキットオープン）
+      const circuitOpenResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+      expect(Either.isLeft(circuitOpenResult)).toBe(true)
 
-        // クールダウン後、サーキットがハーフオープンになって成功
-        yield* Effect.sleep('150 millis')
-        const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
-        expect(Either.isRight(recoveryResult)).toBe(true)
-      }),
-      '10 seconds'
-    )
+      // クールダウン後、サーキットがハーフオープンになって成功
+      yield* Effect.sleep('150 millis')
+      const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+      expect(Either.isRight(recoveryResult)).toBe(true)
+    }), { timeout: 10000 }
   )
 })
 ```

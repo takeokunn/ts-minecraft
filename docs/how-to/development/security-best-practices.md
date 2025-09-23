@@ -503,6 +503,10 @@ const createSecureLogger = (): SecureLogger => {
 ### 5.1 入力検証のテスト
 
 ```typescript
+import { describe, it, expect } from '@effect/vitest'
+import { Effect } from 'effect'
+import * as fc from 'fast-check'
+
 // セキュリティテストケース
 describe('Input Validation Security', () => {
   const maliciousInputs = [
@@ -531,29 +535,33 @@ describe('Input Validation Security', () => {
     '\ufeff', // BOM
   ]
 
-  it.each(maliciousInputs)('rejects malicious input: %s', async (maliciousInput) => {
-    const result = await Effect.runPromise(sanitizeChatMessage({ content: maliciousInput }).pipe(Effect.flip))
+  it.each(maliciousInputs)('rejects malicious input: %s', (maliciousInput) =>
+    Effect.gen(function* () {
+      const result = yield* sanitizeChatMessage({ content: maliciousInput }).pipe(Effect.flip)
+      expect(result).toBeInstanceOf(SecurityError)
+    })
+  )
 
-    expect(result).toBeInstanceOf(SecurityError)
-  })
+  it.effect('allows legitimate input', () =>
+    Effect.gen(function* () {
+      const legitimateMessage = {
+        playerId: '550e8400-e29b-41d4-a716-446655440000',
+        content: 'Hello, world!',
+        timestamp: Date.now(),
+      }
 
-  it('allows legitimate input', async () => {
-    const legitimateMessage = {
-      playerId: '550e8400-e29b-41d4-a716-446655440000',
-      content: 'Hello, world!',
-      timestamp: Date.now(),
-    }
-
-    const result = await Effect.runPromise(sanitizeChatMessage(legitimateMessage))
-
-    expect(result.content).toBe('Hello, world!')
-  })
+      const result = yield* sanitizeChatMessage(legitimateMessage)
+      expect(result.content).toBe('Hello, world!')
+    })
+  )
 })
 ```
 
 ### 5.2 認可テストの実装
 
 ```typescript
+import { Layer } from 'effect'
+
 describe('Authorization Security', () => {
   const testCases = [
     {
@@ -573,32 +581,32 @@ describe('Authorization Security', () => {
     },
   ]
 
-  it.each(testCases)('enforces permissions correctly', async ({ permission, action, shouldAllow }) => {
-    const mockSession = {
-      sessionId: 'test-session',
-      playerId: 'test-player',
-      permissions: [permission],
-      createdAt: Date.now() - 1000,
-      expiresAt: Date.now() + 3600000,
-    }
+  it.each(testCases)('enforces permissions correctly', ({ permission, action, shouldAllow }) =>
+    Effect.gen(function* () {
+      const mockSession = {
+        sessionId: 'test-session',
+        playerId: 'test-player',
+        permissions: [permission],
+        createdAt: Date.now() - 1000,
+        expiresAt: Date.now() + 3600000,
+      }
 
-    const mockSessionService = {
-      validateSession: () => Effect.succeed(mockSession),
-    } as SessionService
+      const mockSessionService = {
+        validateSession: () => Effect.succeed(mockSession),
+      } as SessionService
 
-    const result = await Effect.runPromise(
-      authorizePlayerAction(action).pipe(
+      const result = yield* authorizePlayerAction(action).pipe(
         Effect.provide(Layer.succeed(SessionService, mockSessionService)),
         shouldAllow ? Effect.identity : Effect.flip
       )
-    )
 
-    if (shouldAllow) {
-      expect(result).toEqual(action)
-    } else {
-      expect(result).toBeInstanceOf(AuthError)
-    }
-  })
+      if (shouldAllow) {
+        expect(result).toEqual(action)
+      } else {
+        expect(result).toBeInstanceOf(AuthError)
+      }
+    })
+  )
 })
 ```
 

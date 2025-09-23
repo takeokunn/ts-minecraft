@@ -53,7 +53,7 @@ src/
 
 ```typescript
 // src/domain/entity/__test__/Player.spec.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { Schema, Effect, pipe } from 'effect'
 import * as fc from 'fast-check'
 
@@ -271,10 +271,27 @@ describe('Player Properties', () => {
 
 ```typescript
 describe('Complete Coverage Testing', () => {
+  // Effect-TS Layer設定
+  const TestLayers = Layer.mergeAll(
+    TestPlayerServiceLive,
+    TestInventoryServiceLive,
+    TestLoggerServiceLive
+  )
+
   // 1. 正常系
   describe('Success paths', () => {
     it('creates player with valid data', async () => {
-      // 実装
+      const program = Effect.gen(function* () {
+        const service = yield* PlayerService
+        return yield* service.create(validPlayerData)
+      })
+
+      const result = await Effect.runPromise(
+        program.pipe(Effect.provide(TestLayers))
+      )
+
+      expect(result._tag).toBe('Player')
+      expect(result.health).toBe(100)
     })
   })
 
@@ -349,16 +366,26 @@ describe('Complete Coverage Testing', () => {
 
 ```typescript
 // vitest.config.ts
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from '@effect/vitest/config'
 
 export default defineConfig({
   test: {
+    // Effect-TS専用のテスト環境設定
+    globals: true,
+    environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     coverage: {
       provider: 'v8',
       enabled: true,
       all: true,
       include: ['src/**/*.ts'],
-      exclude: ['src/**/__test__/**', 'src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/index.ts', 'src/types/**'],
+      exclude: [
+        'src/**/__test__/**',
+        'src/**/*.spec.ts',
+        'src/**/*.test.ts',
+        'src/**/index.ts',
+        'src/types/**'
+      ],
       thresholds: {
         statements: 100,
         branches: 100,
@@ -373,6 +400,8 @@ export default defineConfig({
       },
     },
   },
+  // Effect-TSサポートのためのプラグイン設定
+  plugins: [],
 })
 ```
 
@@ -384,12 +413,18 @@ export default defineConfig({
 // ❌ 絶対禁止
 const player = data as any
 const result = service.create(data as PlayerData)
-const mock = jest.fn() as any
+const mockServiceLayer = Layer.succeed(PlayerService, PlayerService.of({
+  create: () => Effect.succeed(mockPlayer),
+  findById: () => Effect.succeed(mockPlayer)
+}))
 
 // ✅ 必須: 型推論または明示的な型定義
 const player = Schema.decodeUnknownSync(PlayerSchema)(data)
 const result = await service.create(validatedData)
-const mock = vi.fn<[PlayerData], Player>()
+const mockPlayerService = Layer.succeed(PlayerService, PlayerService.of({
+  create: (data: PlayerData) => Effect.succeed(player),
+  findById: (id: PlayerId) => Effect.succeed(player)
+}))
 ```
 
 ### テスト品質の低下を防ぐ

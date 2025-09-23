@@ -274,15 +274,15 @@ it.effect('バリデーションエラーのテスト', () =>
 ### Effect.gen テスト
 
 ````typescript
-import { it, expect } from "@effect/vitest"
-import { Effect, Schema, Match, Option } from "effect"
-import { Brand } from "effect/Brand"
+import { it, expect } from '@effect/vitest'
+import { Effect, Schema, Match, Option } from 'effect'
+import { Brand } from 'effect/Brand'
 
 // Branded Types定義
-type PlayerId = string & Brand.Brand<"PlayerId">
+type PlayerId = string & Brand.Brand<'PlayerId'>
 const PlayerId = Brand.nominal<PlayerId>()
 
-type PlayerName = string & Brand.Brand<"PlayerName">
+type PlayerName = string & Brand.Brand<'PlayerName'>
 const PlayerName = Brand.nominal<PlayerName>()
 
 // Schema定義
@@ -299,32 +299,32 @@ const Player = Schema.Struct({
 })
 
 // TaggedError定義
-const PlayerCreateError = Schema.TaggedError("PlayerCreateError")({
+const PlayerCreateError = Schema.TaggedError('PlayerCreateError')({
   reason: Schema.String
 })
 
 // テスト実装
-it.effect("プレイヤー作成が正常に完了すること", () =>
+it.effect('プレイヤー作成が正常に完了すること', () =>
   Effect.gen(function* () {
     const createResult = yield* PlayerService.create({
-      name: PlayerName("TestPlayer"),
+      name: PlayerName('TestPlayer'),
       position: { x: 0, y: 64, z: 0 }
     })
 
     // パターンマッチングで結果を検証
     const player = Match.value(createResult).pipe(
       Match.when(
-        { _tag: "Success" },
+        { _tag: 'Success' },
         ({ player }) => player
       ),
       Match.orElse(() => {
-        throw new Error("プレイヤー作成に失敗しました")
+        throw new Error('プレイヤー作成に失敗しました')
       })
     )
 
     expect(Schema.decodeSync(Player)(player)).toStrictEqual({
       id: expect.any(String),
-      name: "TestPlayer",
+      name: 'TestPlayer',
       position: { x: 0, y: 64, z: 0 }
     })
   })
@@ -333,7 +333,7 @@ it.effect("プレイヤー作成が正常に完了すること", () =>
 ### Layer モックパターン
 
 ```typescript
-import { Layer, Context, Effect, Option } from "effect"
+import { Layer, Context, Effect, Option } from 'effect'
 
 // サービス定義
 interface PlayerRepositoryInterface {
@@ -342,7 +342,7 @@ interface PlayerRepositoryInterface {
   readonly delete: (id: PlayerId) => Effect.Effect<void, never>
 }
 
-const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>("PlayerRepository")
+const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>('PlayerRepository')
 
 // モック実装
 const MockPlayerRepository = Layer.succeed(
@@ -351,13 +351,13 @@ const MockPlayerRepository = Layer.succeed(
     save: () => Effect.succeed(undefined),
     findById: (id: PlayerId) => {
       // Early Return パターン
-      if (id === PlayerId("invalid")) {
+      if (id === PlayerId('invalid')) {
         return Effect.succeed(Option.none())
       }
 
       return Effect.succeed(Option.some({
         id,
-        name: PlayerName("MockPlayer"),
+        name: PlayerName('MockPlayer'),
         position: { x: 0, y: 64, z: 0 }
       }))
     },
@@ -1011,9 +1011,9 @@ export default defineConfig({
 
 // Step 2: Brand Types導入
 // 既存のプリミティブ型を段階的にBrand化
-type PlayerId = string & Brand.Brand<"PlayerId">
-type ChunkId = string & Brand.Brand<"ChunkId">
-type BlockId = number & Brand.Brand<"BlockId">
+type PlayerId = string & Brand.Brand<'PlayerId'>
+type ChunkId = string & Brand.Brand<'ChunkId'>
+type BlockId = number & Brand.Brand<'BlockId'>
 ```
 
 ### Phase 2: Schema導入 (2-3週間)
