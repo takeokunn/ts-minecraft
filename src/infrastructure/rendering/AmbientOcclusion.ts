@@ -381,7 +381,6 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
                     )
                   )
                 )
-                )
               )
             )
 
@@ -401,7 +400,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         })
       ),
       Match.exhaustive
-    )
+    ),
 })
 
 // ========================================
