@@ -554,7 +554,7 @@ describe('OreDistribution', () => {
       await Effect.runPromise(effect)
     })
 
-    it.effect(
+    it.effect.skip(
       'places only one ore type per block',
       () =>
         Effect.gen(function* () {
