@@ -652,11 +652,13 @@ const createSystemScheduler = Effect.gen(function* () {
           const parallelSystems = group.filter((s) => s.canRunInParallel)
           const sequentialSystems = group.filter((s) => !s.canRunInParallel)
 
-        // 並列実行可能なシステム
-        if (parallelSystems.length > 0) {
-          const parallelResults = yield* Effect.allPar(parallelSystems.map((system) => executeSystem(system, tickData)))
-          results.push(...parallelResults)
-        }
+          // 並列実行可能なシステム
+          if (parallelSystems.length > 0) {
+            const parallelResults = yield* Effect.allPar(
+              parallelSystems.map((system) => executeSystem(system, tickData))
+            )
+            results.push(...parallelResults)
+          }
 
           // 順次実行システム - Effect-TSパターン
           yield* Effect.forEach(sequentialSystems, (system) =>

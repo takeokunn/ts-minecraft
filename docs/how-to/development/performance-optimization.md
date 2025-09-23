@@ -102,11 +102,13 @@ const processBatch = <T, R>(
     const chunks = Array.chunksOf(items, batchSize)
     const results: R[] = []
 
-    yield* Effect.forEach(chunks, (batch) =>
-      Effect.gen(function* () {
-        const batchResults = yield* processor(batch)
-        results.push(...batchResults)
-      }),
+    yield* Effect.forEach(
+      chunks,
+      (batch) =>
+        Effect.gen(function* () {
+          const batchResults = yield* processor(batch)
+          results.push(...batchResults)
+        }),
       { concurrency: 'unbounded' } // 並列処理で性能向上
     )
 
@@ -1394,17 +1396,19 @@ const incrementalOptimization = Effect.gen(function* () {
   let cumulativeImprovement = 0
 
   // Array.forEach による順次実行（最適化は依存性があるため順次処理が必須）
-  yield* Effect.forEach(optimizations, (optimization) =>
-    Effect.gen(function* () {
-      const before = yield* measurePerformance()
-      yield* optimization.fn()
-      const after = yield* measurePerformance()
+  yield* Effect.forEach(
+    optimizations,
+    (optimization) =>
+      Effect.gen(function* () {
+        const before = yield* measurePerformance()
+        yield* optimization.fn()
+        const after = yield* measurePerformance()
 
-      const improvement = ((before.duration - after.duration) / before.duration) * 100
-      cumulativeImprovement += improvement
+        const improvement = ((before.duration - after.duration) / before.duration) * 100
+        cumulativeImprovement += improvement
 
-      yield* Effect.logInfo(`${optimization.name}: ${improvement.toFixed(2)}% improvement`)
-    }),
+        yield* Effect.logInfo(`${optimization.name}: ${improvement.toFixed(2)}% improvement`)
+      }),
     { concurrency: 1 } // 順次実行を明示的に指定
   )
 

@@ -379,7 +379,7 @@ describe('Player Domain Entity', () => {
       })
 
       // 容量内での追加 - Effect-TSパターン
-      Array.makeBy(36, (i) => i).forEach(i => {
+      Array.makeBy(36, (i) => i).forEach((i) => {
         const added = player.addItem(ItemStack.create('dirt', 1))
         expect(added.isSuccess).toBe(true)
       })
@@ -1085,7 +1085,7 @@ describe('Inventory Management Properties', () => {
           expect(addedCount).toBeLessThanOrEqual(36)
 
           // 不変条件3: 各スロットのアイテムは有効 - Effect-TSパターン
-          Array.makeBy(36, (i) => i).forEach(i => {
+          Array.makeBy(36, (i) => i).forEach((i) => {
             const item = inventory.getItemAt(i)
             if (item) {
               expect(item.quantity).toBeGreaterThan(0)
@@ -1175,7 +1175,7 @@ describe('Inventory Management Properties', () => {
           // クラフティング実行 - Effect-TSパターン
           let successfulCrafts = 0
           let shouldBreak = false
-          Array.makeBy(craftCount, (i) => i).forEach(i => {
+          Array.makeBy(craftCount, (i) => i).forEach((i) => {
             if (!shouldBreak) {
               const result = inventory.craft(recipe)
               if (result.isSuccess) {
@@ -1462,12 +1462,12 @@ describe('Performance Integration Tests', () => {
         const worldService = yield* WorldService
 
         // 10x10 = 100チャンクの生成とロード - Effect-TSパターン
-        const chunkCoords: Array<{x: number, z: number}> = []
+        const chunkCoords: Array<{ x: number; z: number }> = []
         const xRange = Array.makeBy(10, (i) => i - 5)
         const zRange = Array.makeBy(10, (i) => i - 5)
 
-        xRange.forEach(x => {
-          zRange.forEach(z => {
+        xRange.forEach((x) => {
+          zRange.forEach((z) => {
             chunkCoords.push({ x, z })
           })
         })
@@ -1533,31 +1533,32 @@ describe('Performance Integration Tests', () => {
         // 30分間のシミュレーション（高速実行）- Effect-TSパターン
         yield* Effect.forEach(
           Array.makeBy(100, (i) => i),
-          (cycle) => Effect.gen(function* () {
-            // プレイヤー作成→活動→削除のサイクル
-            const tempPlayers = yield* Effect.allPar(
-              Array.from({ length: 10 }, (_, i) => gameController.createPlayer(`temp_${cycle}_${i}`))
-            )
+          (cycle) =>
+            Effect.gen(function* () {
+              // プレイヤー作成→活動→削除のサイクル
+              const tempPlayers = yield* Effect.allPar(
+                Array.from({ length: 10 }, (_, i) => gameController.createPlayer(`temp_${cycle}_${i}`))
+              )
 
-          // アクティビティシミュレーション
-          yield* Effect.allPar(
-            tempPlayers.map(
-              (player) => gameController.simulateActivity(player.id, 100) // 100アクション
-            )
-          )
+              // アクティビティシミュレーション
+              yield* Effect.allPar(
+                tempPlayers.map(
+                  (player) => gameController.simulateActivity(player.id, 100) // 100アクション
+                )
+              )
 
-          // プレイヤー削除
-          yield* Effect.allPar(tempPlayers.map((player) => gameController.removePlayer(player.id)))
+              // プレイヤー削除
+              yield* Effect.allPar(tempPlayers.map((player) => gameController.removePlayer(player.id)))
 
-          if (cycle % 10 === 0) {
-            // 強制GC（テスト環境）
-            if (global.gc) {
-              global.gc()
-            }
-            recordMemory()
-          }
-        })
-      )
+              if (cycle % 10 === 0) {
+                // 強制GC（テスト環境）
+                if (global.gc) {
+                  global.gc()
+                }
+                recordMemory()
+              }
+            })
+        )
 
         // メモリ増加傾向の分析
         const firstHalf = memorySnapshots.slice(0, 5)
