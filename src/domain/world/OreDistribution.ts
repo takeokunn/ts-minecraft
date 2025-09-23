@@ -152,10 +152,10 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
           for (let z = 0; z < 16; z++) {
             for (let y = -64; y < maxHeight; y++) {
               const index = getBlockIndex(x, y, z)
-              
+
               // 範囲外チェック（安全性）
               if (index >= newBlocks.length) continue
-              
+
               const currentBlock = newBlocks[index] ?? 0
 
               // 石ブロックの場合のみ鉱石生成を検討

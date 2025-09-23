@@ -412,7 +412,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
           // パフォーマンス要件: 平均フレーム時間が適切な範囲内
           // CI環境を考慮した現実的な閾値
-          const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
+          const isCI = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true'
           const frameTimeThreshold = isCI ? targetFrameTime * 2 : targetFrameTime * 1.5 // CI: 33.34ms, ローカル: 25ms
           expect(averageFrameTime).toBeLessThan(frameTimeThreshold)
 
@@ -465,7 +465,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
 
           // マルチプレイヤー環境でのパフォーマンス要件
           // CI環境を考慮した現実的な閾値に調整
-          const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
+          const isCI = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true'
           const performanceThreshold = isCI ? 2.5 : 1.5 // CI: 2.5ms, ローカル: 1.5ms
           expect(averageTimePerPlayerPerFrame).toBeLessThan(performanceThreshold)
 
@@ -546,7 +546,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
           const averageTimePerCheck = totalTime / testPositions.length
 
           // 衝突検出のパフォーマンス要件: CI環境を考慮した現実的な値
-          const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
+          const isCI = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true'
           const collisionThreshold = isCI ? 1.0 : 0.5 // CI: 1ms, ローカル: 0.5ms
           expect(averageTimePerCheck).toBeLessThan(collisionThreshold)
           expect(collisionResults).toHaveLength(testPositions.length)
