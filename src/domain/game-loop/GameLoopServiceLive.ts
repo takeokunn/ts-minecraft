@@ -3,12 +3,7 @@ import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics } from './types'
 import type { GameLoopState } from './types'
 import { DEFAULT_GAME_LOOP_CONFIG } from './types'
-import {
-  GameLoopInitError,
-  GameLoopPerformanceError,
-  GameLoopRuntimeError,
-  GameLoopStateError,
-} from './errors'
+import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from './errors'
 
 interface GameLoopInternalState {
   state: GameLoopState
@@ -116,10 +111,11 @@ export const GameLoopServiceLive = Layer.effect(
 
           if (currentState.state !== 'idle' && currentState.state !== 'stopped') {
             return yield* Effect.fail(
-              new GameLoopInitError({
+              {
+                _tag: 'GameLoopInitError' as const,
                 message: 'GameLoop is already initialized',
                 reason: `Current state is ${currentState.state}`,
-              })
+              } satisfies GameLoopInitError
             )
           }
 
@@ -147,11 +143,12 @@ export const GameLoopServiceLive = Layer.effect(
 
           if (currentState.state !== 'idle' && currentState.state !== 'paused') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Invalid state transition',
                 currentState: currentState.state,
                 attemptedTransition: 'start',
-              })
+              } satisfies GameLoopStateError
             )
           }
 
@@ -178,11 +175,12 @@ export const GameLoopServiceLive = Layer.effect(
 
           if (currentState.state !== 'running') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Can only pause when running',
                 currentState: currentState.state,
                 attemptedTransition: 'pause',
-              })
+              } satisfies GameLoopStateError
             )
           }
 
@@ -203,11 +201,12 @@ export const GameLoopServiceLive = Layer.effect(
 
           if (currentState.state !== 'paused') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Can only resume when paused',
                 currentState: currentState.state,
                 attemptedTransition: 'resume',
-              })
+              } satisfies GameLoopStateError
             )
           }
 
@@ -275,18 +274,17 @@ export const GameLoopServiceLive = Layer.effect(
 
           if (state.performanceBuffer.length === 0) {
             return yield* Effect.fail(
-              new GameLoopPerformanceError({
+              {
+                _tag: 'GameLoopPerformanceError' as const,
                 message: 'No performance data available',
                 currentFps: 0,
                 targetFps: state.config.targetFps,
                 droppedFrames: 0,
-              })
+              } satisfies GameLoopPerformanceError
             )
           }
 
-          const averageFps =
-            state.performanceBuffer.reduce((sum, fps) => sum + fps, 0) /
-            state.performanceBuffer.length
+          const averageFps = state.performanceBuffer.reduce((sum, fps) => sum + fps, 0) / state.performanceBuffer.length
           const minFps = Math.min(...state.performanceBuffer)
           const maxFps = Math.max(...state.performanceBuffer)
           const frameTimeMs = 1000 / averageFps
@@ -338,11 +336,12 @@ export const GameLoopServiceLive = Layer.effect(
           ).pipe(
             Effect.catchAll((error) =>
               Effect.fail(
-                new GameLoopRuntimeError({
+                {
+                  _tag: 'GameLoopRuntimeError' as const,
                   message: 'Error executing frame callbacks',
                   frameNumber: state.frameCount,
                   error,
-                })
+                } satisfies GameLoopRuntimeError
               )
             )
           )

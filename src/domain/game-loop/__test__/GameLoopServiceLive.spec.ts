@@ -3,12 +3,7 @@ import { Effect, Either, TestClock, TestContext, Duration, Fiber } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import { GameLoopServiceLive } from '../GameLoopServiceLive'
 import type { FrameInfo, GameLoopConfig } from '../types'
-import {
-  GameLoopInitError,
-  GameLoopPerformanceError,
-  GameLoopRuntimeError,
-  GameLoopStateError,
-} from '../errors'
+import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
 
 describe('GameLoopServiceLive', () => {
   // Mock requestAnimationFrame for testing
@@ -80,7 +75,7 @@ describe('GameLoopServiceLive', () => {
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(GameLoopInitError)
+          expect(result.left._tag).toBe('GameLoopInitError')
           expect(result.left.reason).toContain('running')
         }
       }).pipe(Effect.provide(GameLoopServiceLive))
@@ -145,7 +140,7 @@ describe('GameLoopServiceLive', () => {
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(GameLoopStateError)
+          expect(result.left._tag).toBe('GameLoopStateError')
           expect(result.left.attemptedTransition).toBe('pause')
         }
       }).pipe(Effect.provide(GameLoopServiceLive))
@@ -159,7 +154,7 @@ describe('GameLoopServiceLive', () => {
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(GameLoopStateError)
+          expect(result.left._tag).toBe('GameLoopStateError')
           expect(result.left.attemptedTransition).toBe('resume')
         }
       }).pipe(Effect.provide(GameLoopServiceLive))
@@ -247,15 +242,13 @@ describe('GameLoopServiceLive', () => {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
 
-        yield* gameLoop.onFrame(() =>
-          Effect.fail(new Error('Callback error')) as Effect.Effect<void>
-        )
+        yield* gameLoop.onFrame(() => Effect.fail(new Error('Callback error')) as unknown as Effect.Effect<void>)
 
         const result = yield* Effect.either(gameLoop.tick())
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(GameLoopRuntimeError)
+          expect(result.left._tag).toBe('GameLoopRuntimeError')
           expect(result.left.message).toContain('callbacks')
         }
       }).pipe(Effect.provide(GameLoopServiceLive))
@@ -362,7 +355,7 @@ describe('GameLoopServiceLive', () => {
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(GameLoopPerformanceError)
+          expect(result.left._tag).toBe('GameLoopPerformanceError')
           expect(result.left.message).toContain('No performance data')
         }
       }).pipe(Effect.provide(GameLoopServiceLive))
@@ -515,7 +508,7 @@ describe('GameLoopServiceLive', () => {
         yield* gameLoop.initialize()
         yield* gameLoop.start()
 
-        const rafId = mockRAF.mock.results[0].value
+        const rafId = mockRAF.mock.results[0]?.value
 
         yield* gameLoop.pause()
 
@@ -596,11 +589,14 @@ describe('GameLoopServiceLive', () => {
         const results: number[] = []
 
         // Register callbacks concurrently
-        yield* Effect.all([
-          gameLoop.onFrame(() => Effect.sync(() => results.push(1))),
-          gameLoop.onFrame(() => Effect.sync(() => results.push(2))),
-          gameLoop.onFrame(() => Effect.sync(() => results.push(3))),
-        ], { concurrency: 'unbounded' })
+        yield* Effect.all(
+          [
+            gameLoop.onFrame(() => Effect.sync(() => results.push(1))),
+            gameLoop.onFrame(() => Effect.sync(() => results.push(2))),
+            gameLoop.onFrame(() => Effect.sync(() => results.push(3))),
+          ],
+          { concurrency: 'unbounded' }
+        )
 
         yield* gameLoop.tick()
 
@@ -653,12 +649,10 @@ describe('GameLoopServiceLive', () => {
         }
 
         // Remove all callbacks
-        unsubscribes.forEach(unsub => unsub())
+        unsubscribes.forEach((unsub) => unsub())
 
         const results: number[] = []
-        yield* gameLoop.onFrame(() =>
-          Effect.sync(() => results.push(1))
-        )
+        yield* gameLoop.onFrame(() => Effect.sync(() => results.push(1)))
 
         yield* gameLoop.tick()
 

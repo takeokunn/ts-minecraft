@@ -3,12 +3,7 @@ export { GameLoopService } from './GameLoopService'
 export { GameLoopServiceLive } from './GameLoopServiceLive'
 
 // Type exports
-export type {
-  GameLoopState,
-  FrameInfo,
-  PerformanceMetrics,
-  GameLoopConfig,
-} from './types'
+export type { GameLoopState, FrameInfo, PerformanceMetrics, GameLoopConfig } from './types'
 
 export {
   GameLoopStateSchema,

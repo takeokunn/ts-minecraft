@@ -2,12 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Effect, Layer, TestClock, TestContext } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import type { FrameInfo, GameLoopConfig } from '../types'
-import {
-  GameLoopInitError,
-  GameLoopPerformanceError,
-  GameLoopRuntimeError,
-  GameLoopStateError,
-} from '../errors'
+import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
 
 describe('GameLoopService', () => {
   // Mock GameLoopService for testing the interface contract
@@ -27,10 +22,11 @@ describe('GameLoopService', () => {
         Effect.gen(function* () {
           if (mockState !== 'idle' && mockState !== 'stopped') {
             return yield* Effect.fail(
-              new GameLoopInitError({
+              {
+                _tag: 'GameLoopInitError' as const,
                 message: 'Already initialized',
                 reason: `State is ${mockState}`,
-              })
+              } satisfies GameLoopInitError
             )
           }
           if (config) {
@@ -45,11 +41,12 @@ describe('GameLoopService', () => {
           if (mockState === 'running') return
           if (mockState !== 'idle' && mockState !== 'paused') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Invalid state transition',
                 currentState: mockState,
                 attemptedTransition: 'start',
-              })
+              } satisfies GameLoopStateError
             )
           }
           mockState = 'running'
@@ -59,11 +56,12 @@ describe('GameLoopService', () => {
         Effect.gen(function* () {
           if (mockState !== 'running') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Can only pause when running',
                 currentState: mockState,
                 attemptedTransition: 'pause',
-              })
+              } satisfies GameLoopStateError
             )
           }
           mockState = 'paused'
@@ -73,11 +71,12 @@ describe('GameLoopService', () => {
         Effect.gen(function* () {
           if (mockState !== 'paused') {
             return yield* Effect.fail(
-              new GameLoopStateError({
+              {
+                _tag: 'GameLoopStateError' as const,
                 message: 'Can only resume when paused',
                 currentState: mockState,
                 attemptedTransition: 'resume',
-              })
+              } satisfies GameLoopStateError
             )
           }
           mockState = 'running'
@@ -106,12 +105,13 @@ describe('GameLoopService', () => {
         Effect.gen(function* () {
           if (mockFrameCount === 0) {
             return yield* Effect.fail(
-              new GameLoopPerformanceError({
+              {
+                _tag: 'GameLoopPerformanceError' as const,
                 message: 'No performance data',
                 currentFps: 0,
                 targetFps: mockConfig.targetFps,
                 droppedFrames: 0,
-              })
+              } satisfies GameLoopPerformanceError
             )
           }
           return {
@@ -135,16 +135,20 @@ describe('GameLoopService', () => {
             frameSkipped: false,
           }
 
-          yield* Effect.all(mockCallbacks.map((cb) => cb(frameInfo)), {
-            concurrency: 'unbounded',
-          }).pipe(
+          yield* Effect.all(
+            mockCallbacks.map((cb) => cb(frameInfo)),
+            {
+              concurrency: 'unbounded',
+            }
+          ).pipe(
             Effect.catchAll((error) =>
               Effect.fail(
-                new GameLoopRuntimeError({
+                {
+                  _tag: 'GameLoopRuntimeError' as const,
                   message: 'Callback error',
                   frameNumber: mockFrameCount,
                   error,
-                })
+                } satisfies GameLoopRuntimeError
               )
             )
           )
@@ -199,9 +203,7 @@ describe('GameLoopService', () => {
         return state
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
@@ -214,16 +216,11 @@ describe('GameLoopService', () => {
         return yield* gameLoop.initialize()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(GameLoopInitError)
+        expect(result.left._tag).toBe('GameLoopInitError')
       }
     })
   })
@@ -239,9 +236,7 @@ describe('GameLoopService', () => {
         return { initialState, runningState }
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.initialState).toBe('idle')
       expect(result.runningState).toBe('running')
@@ -256,9 +251,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('paused')
     })
@@ -273,9 +266,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('running')
     })
@@ -288,16 +279,11 @@ describe('GameLoopService', () => {
         return yield* gameLoop.pause()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(GameLoopStateError)
+        expect(result.left._tag).toBe('GameLoopStateError')
       }
     })
 
@@ -310,9 +296,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('stopped')
     })
@@ -338,9 +322,7 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(2)
     })
@@ -373,9 +355,7 @@ describe('GameLoopService', () => {
         }
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.callback1).toBe(1)
       expect(result.callback2).toBe(1)
@@ -401,9 +381,7 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(1)
     })
@@ -413,23 +391,16 @@ describe('GameLoopService', () => {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
 
-        yield* gameLoop.onFrame(() =>
-          Effect.fail(new Error('Callback error')) as Effect.Effect<void>
-        )
+        yield* gameLoop.onFrame(() => Effect.fail(new Error('Callback error')) as unknown as Effect.Effect<void>)
 
         return yield* gameLoop.tick()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(GameLoopRuntimeError)
+        expect(result.left._tag).toBe('GameLoopRuntimeError')
       }
     })
   })
@@ -445,9 +416,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.averageFps).toBeCloseTo(60, 0)
       expect(result.minFps).toBeGreaterThan(0)
@@ -463,16 +432,11 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(GameLoopPerformanceError)
+        expect(result.left._tag).toBe('GameLoopPerformanceError')
       }
     })
   })
@@ -485,9 +449,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
@@ -504,9 +466,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
@@ -519,9 +479,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
@@ -536,9 +494,7 @@ describe('GameLoopService', () => {
         return frameInfo
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.frameCount !== undefined).toBe(true)
       expect(result!.deltaTime).toBeGreaterThan(0)
@@ -556,9 +512,7 @@ describe('GameLoopService', () => {
         return frameInfo
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.deltaTime).toBe(customDelta)
     })
@@ -573,13 +527,11 @@ describe('GameLoopService', () => {
         return [frame1, frame2, frame3]
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
-      expect(result[0].frameCount).toBe(0)
-      expect(result[1].frameCount).toBe(1)
-      expect(result[2].frameCount).toBe(2)
+      expect(result[0]?.frameCount).toBe(0)
+      expect(result[1]?.frameCount).toBe(1)
+      expect(result[2]?.frameCount).toBe(2)
     })
   })
 
@@ -595,9 +547,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('idle')
     })
@@ -623,9 +573,7 @@ describe('GameLoopService', () => {
         return frameData.length
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe(1) // Only first tick should have been recorded
     })
@@ -640,12 +588,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.initialize()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -660,12 +603,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.resume() // Can't resume when not paused
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -678,19 +616,14 @@ describe('GameLoopService', () => {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
 
-        yield* gameLoop.onFrame(() =>
-          Effect.fail(new Error('Frame processing error')) as Effect.Effect<void>
+        yield* gameLoop.onFrame(
+          () => Effect.fail(new Error('Frame processing error')) as unknown as Effect.Effect<void>
         )
 
         return yield* gameLoop.tick()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -706,12 +639,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getPerformanceMetrics()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(
-          Effect.provide(MockGameLoopServiceLayer),
-          Effect.either
-        )
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer), Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -745,9 +673,7 @@ describe('GameLoopService', () => {
         return states
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toEqual(['idle', 'running', 'paused', 'running', 'stopped'])
     })
@@ -768,9 +694,7 @@ describe('GameLoopService', () => {
         return yield* gameLoop.getState()
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result).toBe('stopped')
     })
@@ -798,13 +722,11 @@ describe('GameLoopService', () => {
         return frameData
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(MockGameLoopServiceLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(MockGameLoopServiceLayer)))
 
       expect(result.length).toBe(2)
-      expect(result[0].frameCount).toBe(0)
-      expect(result[1].frameCount).toBe(1)
+      expect(result[0]?.frameCount).toBe(0)
+      expect(result[1]?.frameCount).toBe(1)
     })
   })
 })

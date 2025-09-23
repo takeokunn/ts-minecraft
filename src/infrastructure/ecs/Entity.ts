@@ -11,10 +11,12 @@ export const EntityId = Brand.nominal<EntityId>()
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export class EntityPoolError extends Data.TaggedError('EntityPoolError')<{
-  readonly reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated'
-  readonly message: string
-}> {}
+export const EntityPoolError = Schema.TaggedError('EntityPoolError')({
+  reason: Schema.Literal('pool_exhausted', 'invalid_entity_id', 'entity_not_allocated'),
+  message: Schema.String,
+})
+
+export type EntityPoolError = Schema.Schema.Type<typeof EntityPoolError>
 
 export interface EntityPool {
   readonly allocate: () => Effect.Effect<EntityId, EntityPoolError>
