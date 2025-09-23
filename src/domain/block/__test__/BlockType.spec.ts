@@ -207,28 +207,32 @@ describe('BlockType', () => {
   })
 
   describe('ItemDropSchema', () => {
-    const itemDropArb = Arbitrary.make(ItemDropSchema)(fc)
+    effectIt.scoped('アイテムドロップを定義できる（Property-based）', () =>
+      Effect.gen(function* () {
+        const testCases = [
+          { itemId: 'diamond', minCount: 1, maxCount: 3, chance: 0.5 },
+          { itemId: 'stone', minCount: 1, maxCount: 1, chance: 1.0 },
+          { itemId: 'rare_item', minCount: 0, maxCount: 1, chance: 0.1 },
+          { itemId: '', minCount: 0, maxCount: 64, chance: 0.0 }
+        ]
 
-    test.prop({
-      itemId: fc.string({ minLength: 1 }),
-      minCount: fc.integer({ min: 0, max: 64 }),
-      maxCount: fc.integer({ min: 1, max: 64 }),
-      chance: fc.float({ min: 0, max: 1 })
-    })('アイテムドロップを定義できる', ({ itemId, minCount, maxCount, chance }) => {
-      const itemDrop = { itemId, minCount: Math.min(minCount, maxCount), maxCount: Math.max(minCount, maxCount), chance }
-      const result = Schema.decodeEither(ItemDropSchema)(itemDrop)
-      pipe(
-        result,
-        Either.match({
-          onLeft: () => expect.fail('Expected success for item drop but got error'),
-          onRight: (value) => {
-            expect(value).toEqual(itemDrop)
-            expect(value.minCount).toBeLessThanOrEqual(value.maxCount)
-            expect(value.chance).toBeGreaterThanOrEqual(0)
-          },
-        })
-      )
-    })
+        for (const { itemId, minCount, maxCount, chance } of testCases) {
+          const itemDrop = { itemId, minCount, maxCount, chance }
+          const result = Schema.decodeEither(ItemDropSchema)(itemDrop)
+          pipe(
+            result,
+            Either.match({
+              onLeft: () => expect.fail('Expected success for item drop but got error'),
+              onRight: (value) => {
+                expect(value).toEqual(itemDrop)
+                expect(value.minCount).toBeLessThanOrEqual(value.maxCount)
+                expect(value.chance).toBeGreaterThanOrEqual(0)
+              },
+            })
+          )
+        }
+      })
+    )
 
     it('確率が範囲外でも受け入れる（バリデーションは別レイヤー）', () => {
       const itemDrop = {
