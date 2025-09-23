@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Exit, pipe } from 'effect'
-import { GreedyMeshingError, isGreedyMeshingError, GreedyMeshingService, GreedyMeshingLive, calculateVertexReduction } from '../GreedyMeshing'
+import {
+  GreedyMeshingError,
+  isGreedyMeshingError,
+  GreedyMeshingService,
+  GreedyMeshingLive,
+  calculateVertexReduction,
+} from '../GreedyMeshing'
 import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
 

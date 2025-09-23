@@ -11,7 +11,12 @@ import * as Chunk from 'effect/Chunk'
 import * as TestContext from 'effect/TestContext'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
-import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError, isSystemRegistryError } from '../SystemRegistry.js'
+import {
+  SystemRegistryService,
+  SystemRegistryServiceLive,
+  SystemRegistryError,
+  isSystemRegistryError,
+} from '../SystemRegistry.js'
 import { createSystem, SystemError } from '../System.js'
 import type { World } from '../World.js'
 

@@ -343,8 +343,9 @@ export const SystemRegistryServiceLive = Layer.effect(
                       Option.match({
                         onNone: () => s,
                         onSome: (entry) => {
-                          const errorMessage =
-                            isSystemError(error) ? `${error.systemName}: ${error.message}` : String(error)
+                          const errorMessage = isSystemError(error)
+                            ? `${error.systemName}: ${error.message}`
+                            : String(error)
 
                           const newExecutionState: SystemExecutionState = {
                             ...entry.executionState,
