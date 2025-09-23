@@ -344,11 +344,13 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
                       A.flatMap((z) => {
                         const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
 
+                        // Match.valueパターンを使用してブロック種別チェック
                         return pipe(
-                          blockType === 0,
+                          blockType,
                           Match.value,
-                          Match.when(true, () => [] as AOVertex[]),
-                          Match.when(false, () => {
+                          Match.when(0, () => []), // 空気ブロックの場合は空配列
+                          Match.orElse(() => {
+                            // ソリッドブロックの場合はAO計算
                             const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
                               'top',
                               'bottom',
@@ -373,12 +375,12 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
                                 return Array.from(aoFace.vertices)
                               })
                             )
-                          }),
-                          Match.exhaustive
+                          })
                         )
                       })
                     )
                   )
+                )
                 )
               )
             )
@@ -399,7 +401,7 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         })
       ),
       Match.exhaustive
-    ),
+    )
 })
 
 // ========================================

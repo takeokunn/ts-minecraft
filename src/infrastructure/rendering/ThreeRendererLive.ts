@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Option, Ref, pipe, Match } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from './ThreeRenderer.js'
 import type { RenderError } from './types.js'
@@ -72,17 +72,13 @@ const createThreeRendererService = (
             failIfMajorPerformanceCaveat: false,
           }
 
-          let context: WebGLRenderingContext | WebGL2RenderingContext | null = null
-          if (webgl2Supported) {
-            context = canvas.getContext('webgl2', contextAttributes)
-          }
-          if (!context) {
-            context = canvas.getContext('webgl', contextAttributes)
-          }
-
-          if (!context) {
-            throw new Error('WebGLコンテキストの取得に失敗しました')
-          }
+          const context = pipe(
+            webgl2Supported ? Option.fromNullable(canvas.getContext('webgl2', contextAttributes)) : Option.none(),
+            Option.orElse(() => Option.fromNullable(canvas.getContext('webgl', contextAttributes))),
+            Option.getOrElse(() => {
+              throw new Error('WebGLコンテキストの取得に失敗しました')
+            })
+          )
 
           return context
         },
@@ -175,14 +171,19 @@ const createThreeRendererService = (
       const renderer = yield* Ref.get(rendererRef)
       const stats = yield* Ref.get(statsRef)
 
-      if (!renderer) {
-        yield* Effect.fail(
-          RenderExecutionError({
-            message: 'レンダラーが初期化されていません',
-            operation: 'render',
-          })
-        )
-      }
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              RenderExecutionError({
+                message: 'レンダラーが初期化されていません',
+                operation: 'render',
+              })
+            ),
+          onSome: () => Effect.void,
+        })
+      )
 
       // WebGLコンテキストの状態確認とレンダリング実行
       const renderResult = yield* Effect.try({
@@ -202,20 +203,29 @@ const createThreeRendererService = (
           return { frameStart, frameEnd: performance.now() }
         },
         catch: (error) => {
-          if (error instanceof Error && error.message === 'WebGLコンテキストが失われています') {
-            return ContextLostError({
-              message: 'WebGLコンテキストが失われています',
-              canRestore: true,
-              lostTime: Date.now(),
-            })
-          }
-          return RenderExecutionError({
-            message: 'レンダリング実行中にエラーが発生しました',
-            operation: 'render',
-            sceneId: scene.uuid,
-            cameraType: camera.type,
-            cause: error,
-          })
+          // Match.valueパターンを使用してエラー分類
+          return pipe(
+            error,
+            Match.value,
+            Match.when(
+              (err: any): err is Error => err instanceof Error && err.message === 'WebGLコンテキストが失われています',
+              () =>
+                ContextLostError({
+                  message: 'WebGLコンテキストが失われています',
+                  canRestore: true,
+                  lostTime: Date.now(),
+                })
+            ),
+            Match.orElse((err: any) =>
+              RenderExecutionError({
+                message: 'レンダリング実行中にエラーが発生しました',
+                operation: 'render',
+                sceneId: scene.uuid,
+                cameraType: camera.type,
+                cause: err,
+              })
+            )
+          )
         },
       })
 
@@ -229,8 +239,18 @@ const createThreeRendererService = (
         lastFrameTime: frameEnd,
       }
 
-      // FPS計算（1秒ごと）
-      if (frameEnd - stats.lastStatsUpdate >= 1000) {
+      // Match.valueパターンを使用してFPS計算条件判定
+      const shouldUpdateFps = pipe(
+        frameEnd - stats.lastStatsUpdate,
+        Match.value,
+        Match.when(
+          (timeDiff) => timeDiff >= 1000,
+          () => true
+        ),
+        Match.orElse(() => false)
+      )
+
+      if (shouldUpdateFps) {
         newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
         newStats.frameCount = 0
         newStats.lastStatsUpdate = frameEnd
@@ -238,41 +258,62 @@ const createThreeRendererService = (
 
       yield* Ref.set(statsRef, newStats)
 
-      // 60FPS目標のパフォーマンス警告
-      if (frameTime > 16.67) {
+      // Match.valueパターンを使用してパフォーマンス警告判定
+      const shouldWarn = pipe(
+        frameTime,
+        Match.value,
+        Match.when(
+          (time) => time > 16.67,
+          () => true
+        ),
+        Match.orElse(() => false)
+      )
+
+      if (shouldWarn) {
         console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
       }
     }),
-
   resize: (width: number, height: number): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (renderer) {
-        // ピクセル比を考慮したリサイズ
-        const pixelRatio = Math.min(window.devicePixelRatio, 2)
-        renderer.setPixelRatio(pixelRatio)
-        renderer.setSize(width, height, false)
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (renderer) =>
+            Effect.sync(() => {
+              // ピクセル比を考慮したリサイズ
+              const pixelRatio = Math.min(window.devicePixelRatio, 2)
+              renderer.setPixelRatio(pixelRatio)
+              renderer.setSize(width, height, false)
 
-        // ビューポート設定
-        renderer.setViewport(0, 0, width, height)
+              // ビューポート設定
+              renderer.setViewport(0, 0, width, height)
 
-        console.log(`ThreeRenderer resized to ${width}x${height} (pixel ratio: ${pixelRatio})`)
-      }
+              console.log(`ThreeRenderer resized to ${width}x${height} (pixel ratio: ${pixelRatio})`)
+            }),
+        })
+      )
     }),
 
   enableWebGL2Features: (): Effect.Effect<void, RenderError> =>
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (!renderer) {
-        yield* Effect.fail(
-          RenderExecutionError({
-            message: 'レンダラーが初期化されていません',
-            operation: 'enableWebGL2Features',
-          })
-        )
-      }
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              RenderExecutionError({
+                message: 'レンダラーが初期化されていません',
+                operation: 'enableWebGL2Features',
+              })
+            ),
+          onSome: () => Effect.void,
+        })
+      )
 
       const context = renderer!.getContext()
       const isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext
@@ -297,43 +338,62 @@ const createThreeRendererService = (
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (renderer) {
-        const { enabled = true, type = THREE.PCFSoftShadowMap, resolution = 2048 } = options
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (renderer) =>
+            Effect.sync(() => {
+              const { enabled = true, type = THREE.PCFSoftShadowMap, resolution = 2048 } = options
 
-        renderer.shadowMap.enabled = enabled
-        renderer.shadowMap.type = type
-        renderer.shadowMap.autoUpdate = true
+              renderer.shadowMap.enabled = enabled
+              renderer.shadowMap.type = type
+              renderer.shadowMap.autoUpdate = true
 
-        // シャドウマップの解像度設定（ライト設定時に使用）
-        console.log(`Shadow map configured: enabled=${enabled}, type=${type}, resolution=${resolution}`)
-      }
+              // シャドウマップの解像度設定（ライト設定時に使用）
+              console.log(`Shadow map configured: enabled=${enabled}, type=${type}, resolution=${resolution}`)
+            }),
+        })
+      )
     }),
 
   configureAntialiasing: (options = {}): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (renderer) {
-        const { enabled = true, samples = 4 } = options
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: () =>
+            Effect.sync(() => {
+              const { enabled = true, samples = 4 } = options
 
-        // WebGLのMSAAサンプル数設定（既存のレンダラーでは変更不可）
-        // 新しいレンダラー作成時にantialias: enabledが適用済み
-        console.log(`Antialiasing configured: enabled=${enabled}, samples=${samples}`)
-      }
+              // WebGLのMSAAサンプル数設定（既存のレンダラーでは変更不可）
+              // 新しいレンダラー作成時にantialias: enabledが適用済み
+              console.log(`Antialiasing configured: enabled=${enabled}, samples=${samples}`)
+            }),
+        })
+      )
     }),
 
   setupPostprocessing: (): Effect.Effect<void, RenderError> =>
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (!renderer) {
-        yield* Effect.fail(
-          RenderExecutionError({
-            message: 'レンダラーが初期化されていません',
-            operation: 'setupPostprocessing',
-          })
-        )
-      }
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              RenderExecutionError({
+                message: 'レンダラーが初期化されていません',
+                operation: 'setupPostprocessing',
+              })
+            ),
+          onSome: () => Effect.void,
+        })
+      )
 
       yield* Effect.try({
         try: () => {
@@ -391,17 +451,24 @@ const createThreeRendererService = (
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
-      if (renderer) {
-        // WebGLリソースの解放
-        renderer.dispose()
+      yield* pipe(
+        Option.fromNullable(renderer),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (renderer) =>
+            Effect.sync(() => {
+              // WebGLリソースの解放
+              renderer.dispose()
 
-        // イベントリスナーの削除
-        const canvas = renderer.domElement
-        canvas.removeEventListener('webglcontextlost', handleContextLost)
-        canvas.removeEventListener('webglcontextrestored', handleContextRestored)
+              // イベントリスナーの削除
+              const canvas = renderer.domElement
+              canvas.removeEventListener('webglcontextlost', handleContextLost)
+              canvas.removeEventListener('webglcontextrestored', handleContextRestored)
 
-        console.log('ThreeRenderer disposed successfully')
-      }
+              console.log('ThreeRenderer disposed successfully')
+            }),
+        })
+      )
 
       // レンダラー参照のクリア
       yield* Ref.set(rendererRef, null)

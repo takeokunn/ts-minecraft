@@ -132,13 +132,20 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         const block1 = getBlock(blocks, x1, y1, z1, size)
         const block2 = getBlock(blocks, x2, y2, z2, size)
 
-        // 面が表示される条件
-        let faceBlock: BlockType = 0
-        if (block1 !== 0 && block2 === 0) {
-          faceBlock = block1 // 正方向の面
-        } else if (block1 === 0 && block2 !== 0) {
-          faceBlock = -block2 // 負方向の面（負の値で区別）
-        }
+        // Match.valueパターンを使用して面表示条件を判定
+        const faceBlock = pipe(
+          { block1, block2 },
+          Match.value,
+          Match.when(
+            ({ block1, block2 }) => block1 !== 0 && block2 === 0,
+            ({ block1 }) => block1
+          ), // 正方向の面
+          Match.when(
+            ({ block1, block2 }) => block1 === 0 && block2 !== 0,
+            ({ block2 }) => -block2
+          ), // 負方向の面（負の値で区別）
+          Match.orElse(() => 0) // その他の場合は面を表示しない
+        )
 
         mask.push(faceBlock)
       }
@@ -179,22 +186,26 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         const isPositive = (blockType ?? 0) > 0
         const actualBlockType = Math.abs(blockType ?? 0)
 
-        // 位置計算を修正（常に非負の値を保証）
-        let quadX: number, quadY: number, quadZ: number
-
-        if (axis === 0) {
-          quadX = isPositive ? d : Math.max(0, d - 1)
-          quadY = i
-          quadZ = j
-        } else if (axis === 1) {
-          quadX = i
-          quadY = isPositive ? d : Math.max(0, d - 1)
-          quadZ = j
-        } else {
-          quadX = i
-          quadY = j
-          quadZ = isPositive ? d : Math.max(0, d - 1)
-        }
+        // Match.valueパターンを使用して位置計算
+        const { quadX, quadY, quadZ } = pipe(
+          axis,
+          Match.value,
+          Match.when(0, () => ({
+            quadX: isPositive ? d : Math.max(0, d - 1),
+            quadY: i,
+            quadZ: j,
+          })),
+          Match.when(1, () => ({
+            quadX: i,
+            quadY: isPositive ? d : Math.max(0, d - 1),
+            quadZ: j,
+          })),
+          Match.orElse(() => ({
+            quadX: i,
+            quadY: j,
+            quadZ: isPositive ? d : Math.max(0, d - 1),
+          }))
+        )
 
         quads.push(createQuad(quadX, quadY, quadZ, width, height, axis, actualBlockType, isPositive))
 
