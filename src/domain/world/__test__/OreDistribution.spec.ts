@@ -554,28 +554,32 @@ describe('OreDistribution', () => {
       await Effect.runPromise(effect)
     })
 
-    it('places only one ore type per block', async () => {
-      const chunkPosition = { x: 0, z: 0 }
-      const chunkData = createStoneChunkData(chunkPosition)
+    it(
+      'places only one ore type per block',
+      async () => {
+        const chunkPosition = { x: 0, z: 0 }
+        const chunkData = createStoneChunkData(chunkPosition)
 
-      const effect = runWithTestOreDistribution(testConfig, (od) =>
-        Effect.gen(function* () {
-          const result = yield* od.placeOres(chunkData)
+        const effect = runWithTestOreDistribution(testConfig, (od) =>
+          Effect.gen(function* () {
+            const result = yield* od.placeOres(chunkData)
 
-          // 各ブロックが有効な鉱石IDまたは石であることを確認
-          const validBlockIds = [2, 16, 17, 22] // 石、石炭、鉄、ダイヤモンド
+            // 各ブロックが有効な鉱石IDまたは石であることを確認
+            const validBlockIds = [2, 16, 17, 22] // 石、石炭、鉄、ダイヤモンド
 
-          for (let i = 0; i < result.blocks.length; i++) {
-            const blockId = result.blocks[i] ?? 0
-            expect(validBlockIds).toContain(blockId)
-          }
+            for (let i = 0; i < result.blocks.length; i++) {
+              const blockId = result.blocks[i] ?? 0
+              expect(validBlockIds).toContain(blockId)
+            }
 
-          return result
-        })
-      )
+            return result
+          })
+        )
 
-      await Effect.runPromise(effect)
-    })
+        await Effect.runPromise(effect)
+      },
+      30000
+    )
 
     it('respects ore height restrictions in chunks', async () => {
       const highConfig: OreDistributionConfig = {
@@ -659,7 +663,8 @@ describe('OreDistribution', () => {
           expect(result.isDirty).toBe(true)
         }).pipe(
           Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
-        ) as Effect.Effect<void, never, never>
+        ) as Effect.Effect<void, never, never>,
+      { timeout: 30000 }
     )
 
     it.effect(

@@ -547,7 +547,15 @@ describe('World Generation Types', () => {
             expect(() => Schema.decodeUnknownSync(StructureSchema)(structure)).not.toThrow()
 
             const decoded = Schema.decodeUnknownSync(StructureSchema)(structure)
-            expect(decoded).toEqual(structure)
+            // metadataのプロトタイプの違いを無視して比較
+            expect(decoded.type).toEqual(structure.type)
+            expect(decoded.position).toEqual(structure.position)
+            expect(decoded.boundingBox).toEqual(structure.boundingBox)
+            // metadataの内容を比較（プロトタイプの違いは無視）
+            expect(Object.keys(decoded.metadata)).toEqual(Object.keys(structure.metadata))
+            for (const key of Object.keys(structure.metadata)) {
+              expect(decoded.metadata[key]).toEqual(structure.metadata[key])
+            }
           }
         ),
         { numRuns: 50 }
