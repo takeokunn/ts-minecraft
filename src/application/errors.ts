@@ -1,4 +1,5 @@
 import { Schema } from '@effect/schema'
+import { Match } from 'effect'
 
 /**
  * Application Layer Errors - ゲームアプリケーション統合のエラー定義
@@ -235,36 +236,32 @@ export const createErrorContext = (
 export const getErrorSeverity = (
   error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
 ): 'low' | 'medium' | 'high' | 'critical' => {
-  switch (error._tag) {
+  return Match.value(error._tag).pipe(
     // 致命的エラー
-    case 'CanvasNotFoundError':
-    case 'RendererInitializationFailedError':
-    case 'WebGLContextLostError':
-    case 'MemoryLeakError':
-      return 'critical'
+    Match.when('CanvasNotFoundError', () => 'critical' as const),
+    Match.when('RendererInitializationFailedError', () => 'critical' as const),
+    Match.when('WebGLContextLostError', () => 'critical' as const),
+    Match.when('MemoryLeakError', () => 'critical' as const),
 
     // 高重要度エラー
-    case 'GameLoopInitializationFailedError':
-    case 'SystemCommunicationError':
-    case 'FrameProcessingError':
-    case 'InvalidStateTransitionError':
-      return 'high'
+    Match.when('GameLoopInitializationFailedError', () => 'high' as const),
+    Match.when('SystemCommunicationError', () => 'high' as const),
+    Match.when('FrameProcessingError', () => 'high' as const),
+    Match.when('InvalidStateTransitionError', () => 'high' as const),
 
     // 中重要度エラー
-    case 'SceneInitializationFailedError':
-    case 'InputInitializationFailedError':
-    case 'ECSInitializationFailedError':
-    case 'SystemSynchronizationError':
-      return 'medium'
+    Match.when('SceneInitializationFailedError', () => 'medium' as const),
+    Match.when('InputInitializationFailedError', () => 'medium' as const),
+    Match.when('ECSInitializationFailedError', () => 'medium' as const),
+    Match.when('SystemSynchronizationError', () => 'medium' as const),
 
     // 低重要度エラー
-    case 'PerformanceDegradationError':
-    case 'ConfigurationValidationError':
-      return 'low'
+    Match.when('PerformanceDegradationError', () => 'low' as const),
+    Match.when('ConfigurationValidationError', () => 'low' as const),
 
-    default:
-      return 'medium'
-  }
+    // デフォルト: 網羅的パターンマッチのためのフォールバック
+    Match.orElse(() => 'medium' as const)
+  )
 }
 
 /**
@@ -273,27 +270,21 @@ export const getErrorSeverity = (
 export const isRecoverable = (
   error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
 ): boolean => {
-  switch (error._tag) {
+  return Match.value(error._tag).pipe(
     // 回復不可能
-    case 'CanvasNotFoundError':
-    case 'MemoryLeakError':
-      return false
+    Match.when('CanvasNotFoundError', () => false),
+    Match.when('MemoryLeakError', () => false),
 
     // 回復可能
-    case 'PerformanceDegradationError':
-    case 'ConfigurationValidationError':
-    case 'SystemSynchronizationError':
-      return true
+    Match.when('PerformanceDegradationError', () => true),
+    Match.when('ConfigurationValidationError', () => true),
+    Match.when('SystemSynchronizationError', () => true),
 
     // 条件付き回復可能
-    case 'WebGLContextLostError':
-      return error.recoverable
+    Match.when('WebGLContextLostError', () => (error as any).recoverable),
+    Match.when('GameLoopInitializationFailedError', () => (error as any).retryable),
 
-    case 'GameLoopInitializationFailedError':
-      return error.retryable
-
-    // デフォルトは回復可能
-    default:
-      return true
-  }
+    // デフォルトは回復可能（網羅的パターンマッチ）
+    Match.orElse(() => true)
+  )
 }

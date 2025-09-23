@@ -198,13 +198,17 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        // 構造物生成が無効な場合はエラー
-        if (!generatorOptions.generateStructures) {
-          return yield* Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
-        }
+        // Effect.ifを使用して構造物生成の有効性をチェック
+        const structure = yield* Effect.if(!generatorOptions.generateStructures, {
+          onTrue: () => Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled')),
+          onFalse: () =>
+            Effect.gen(function* () {
+              const structure = createStructure(type, position)
+              state.structures.push(structure)
+              return structure
+            }),
+        })
 
-        const structure = createStructure(type, position)
-        state.structures.push(structure)
         return structure
       }),
 
@@ -249,7 +253,12 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
           Match.orElse(() => Effect.succeed(true))
         )
 
-        if (!structuresEnabled) {
+        const canGenerate = yield* Effect.if(!structuresEnabled, {
+          onTrue: () => Effect.succeed(false),
+          onFalse: () => Effect.succeed(true),
+        })
+
+        if (!canGenerate) {
           return false
         }
 
