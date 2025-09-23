@@ -575,6 +575,304 @@ const validatePlayerData = (data: unknown) =>
   })
 ```
 
+## 🔐 Opaque型とセキュリティ強化パターン
+
+### セキュリティ関連のOpaque型
+
+```typescript
+// ✅ 推奨：Secret Token管理
+declare const SecretTokenSymbol: unique symbol
+export interface SecretToken {
+  readonly [SecretTokenSymbol]: true
+  readonly value: string
+  readonly expiresAt: Date
+}
+
+export const SecretTokenSchema = Schema.transform(
+  Schema.Struct({
+    token: Schema.String.pipe(
+      Schema.minLength(32),
+      Schema.pattern(/^[A-Za-z0-9+/]+=*$/) // Base64 pattern
+    ),
+    expiresAt: Schema.DateFromSelf,
+  }),
+  Schema.Struct({
+    [SecretTokenSymbol]: Schema.Literal(true),
+    value: Schema.String,
+    expiresAt: Schema.DateFromSelf,
+  }),
+  {
+    decode: ({ token, expiresAt }) => ({
+      [SecretTokenSymbol]: true as const,
+      value: token,
+      expiresAt,
+    }),
+    encode: (secret) => ({
+      token: secret.value,
+      expiresAt: secret.expiresAt,
+    }),
+  }
+)
+export type SecretToken = Schema.Schema.Type<typeof SecretTokenSchema>
+
+// 使用例：認証トークンの安全な管理
+const authenticateUser = (token: SecretToken) =>
+  Effect.gen(function* () {
+    // トークンの有効期限確認
+    if (token.expiresAt < new Date()) {
+      return yield* Effect.fail(AuthError.TokenExpired({ expiresAt: token.expiresAt }))
+    }
+
+    // トークンバリデーション（Opaque型により漏洩防止）
+    return yield* validateTokenWithServer(token.value)
+  })
+```
+
+### 改ざん防止Currency
+
+```typescript
+// ✅ 推奨：ゲーム通貨の改ざん防止
+declare const CurrencySymbol: unique symbol
+export interface GameCurrency {
+  readonly [CurrencySymbol]: true
+  readonly amount: number
+  readonly type: 'emerald' | 'diamond' | 'gold' | 'iron'
+  readonly checksum: string
+}
+
+export const GameCurrencySchema = Schema.transformOrFail(
+  Schema.Struct({
+    amount: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
+    type: Schema.Union(
+      Schema.Literal('emerald'),
+      Schema.Literal('diamond'),
+      Schema.Literal('gold'),
+      Schema.Literal('iron')
+    ),
+  }),
+  Schema.Struct({
+    [CurrencySymbol]: Schema.Literal(true),
+    amount: Schema.Number,
+    type: Schema.String,
+    checksum: Schema.String,
+  }),
+  {
+    decode: ({ amount, type }, options, ast) => {
+      const checksum = generateCurrencyChecksum(amount, type)
+      return ParseResult.succeed({
+        [CurrencySymbol]: true as const,
+        amount,
+        type,
+        checksum,
+      })
+    },
+    encode: (currency) => {
+      const expectedChecksum = generateCurrencyChecksum(currency.amount, currency.type)
+      if (currency.checksum !== expectedChecksum) {
+        return ParseResult.fail(new ParseResult.Type(ast, currency))
+      }
+      return ParseResult.succeed({
+        amount: currency.amount,
+        type: currency.type as any,
+      })
+    },
+  }
+)
+
+// 使用例：通貨の安全な操作
+const transferCurrency = (from: PlayerId, to: PlayerId, currency: GameCurrency) =>
+  Effect.gen(function* () {
+    const playerService = yield* PlayerService
+
+    // チェックサムでデータ整合性確認
+    const isValid = yield* validateCurrency(currency)
+    if (!isValid) {
+      return yield* Effect.fail(CurrencyError.TamperedData({ currency }))
+    }
+
+    yield* playerService.deductCurrency(from, currency)
+    yield* playerService.addCurrency(to, currency)
+  })
+```
+
+## 📊 Transform最適化パターン
+
+### 圧縮付きデータ保存
+
+```typescript
+// ✅ 推奨：自動圧縮/展開Schema
+export const CompressedSaveDataSchema = Schema.transformOrFail(
+  Schema.String.pipe(Schema.minLength(1), Schema.annotations({ description: 'Base64 encoded compressed data' })),
+  Schema.Struct({
+    world: WorldDataSchema,
+    player: PlayerDataSchema,
+    gameRules: GameRulesSchema,
+    timestamp: Schema.DateFromSelf,
+    version: Schema.String,
+  }),
+  {
+    decode: (compressedData, options, ast) =>
+      Effect.gen(function* () {
+        try {
+          const binaryData = Buffer.from(compressedData, 'base64')
+          const decompressed = yield* Effect.tryPromise({
+            try: () => decompressData(binaryData),
+            catch: () => new ParseResult.Type(ast, compressedData),
+          })
+          const parsed = JSON.parse(decompressed.toString('utf8'))
+          return parsed
+        } catch (error) {
+          return yield* Effect.fail(new ParseResult.Type(ast, compressedData))
+        }
+      }),
+    encode: (saveData) =>
+      Effect.gen(function* () {
+        const jsonString = JSON.stringify(saveData)
+        const compressed = yield* Effect.tryPromise({
+          try: () => compressData(Buffer.from(jsonString, 'utf8')),
+          catch: () => new ParseResult.Type(ast, saveData),
+        })
+        return compressed.toString('base64')
+      }),
+  }
+)
+
+// 使用例：世界データの自動圧縮保存
+const saveWorldData = (worldData: WorldData) =>
+  Effect.gen(function* () {
+    const compressedData = yield* Schema.encode(CompressedSaveDataSchema)(worldData)
+    yield* FileSystem.writeFile('world.dat', compressedData)
+    yield* Effect.logInfo(`World saved (compressed: ${compressedData.length} chars)`)
+  })
+```
+
+### メモ化付き高コストバリデーション
+
+```typescript
+// ✅ 推奨：メモ化Schemaファクトリー
+export const createMemoizedSchema = <A, I, R>(
+  baseSchema: Schema.Schema<A, I, R>,
+  keyExtractor: (input: I) => string,
+  cacheSize: number = 1000
+) => {
+  const cache = new Map<string, Either.Either<ParseResult.ParseError, A>>()
+
+  return Schema.transformOrFail(baseSchema, baseSchema, {
+    decode: (input, options, ast) => {
+      const key = keyExtractor(input)
+
+      if (cache.has(key)) {
+        const cached = cache.get(key)!
+        return cached._tag === 'Right' ? ParseResult.succeed(cached.right) : ParseResult.fail(cached.left)
+      }
+
+      const result = baseSchema.decode(input, options)
+
+      // LRU cache management
+      if (cache.size >= cacheSize) {
+        const firstKey = cache.keys().next().value
+        cache.delete(firstKey)
+      }
+
+      cache.set(key, result)
+      return result
+    },
+    encode: (output) => baseSchema.encode(output),
+  })
+}
+
+// 使用例：複雑なプレイヤーバリデーションのメモ化
+const MemoizedPlayerSchema = createMemoizedSchema(
+  ComplexPlayerSchema,
+  (player) => `${player.id}-${player.version}`,
+  500 // キャッシュサイズ
+)
+```
+
+### バッチ処理最適化
+
+```typescript
+// ✅ 推奨：大量データのバッチ処理
+export const createBatchSchema = <A, I, R>(itemSchema: Schema.Schema<A, I, R>, batchSize: number = 100) => {
+  return Schema.transformOrFail(Schema.Array(itemSchema), Schema.Array(itemSchema), {
+    decode: (items, options, ast) =>
+      Effect.gen(function* () {
+        const results: A[] = []
+
+        // バッチ処理でスタックオーバーフロー防止
+        for (let i = 0; i < items.length; i += batchSize) {
+          const batch = items.slice(i, i + batchSize)
+          const batchResults = yield* Effect.forEach(batch, (item) => itemSchema.decode(item, options), {
+            concurrency: 'unbounded',
+          })
+          results.push(...batchResults)
+
+          // 進行状況ログ
+          if (i % (batchSize * 10) === 0) {
+            yield* Effect.logInfo(`Processed ${i}/${items.length} items`)
+          }
+        }
+
+        return results
+      }),
+    encode: (items) => Effect.forEach(items, (item) => itemSchema.encode(item), { concurrency: 'unbounded' }),
+  })
+}
+
+// 使用例：大量エンティティの効率的処理
+const processMassEntities = (entities: unknown[]) =>
+  Effect.gen(function* () {
+    const BatchEntitySchema = createBatchSchema(EntitySchema, 50)
+    const validatedEntities = yield* Schema.decodeUnknown(BatchEntitySchema)(entities)
+
+    yield* Effect.forEach(validatedEntities, (entity) => processEntity(entity), { concurrency: 10 })
+  })
+```
+
+### パフォーマンス監視付きSchema
+
+```typescript
+// ✅ 推奨：パフォーマンス監視
+export const createInstrumentedSchema = <A, I, R>(
+  schema: Schema.Schema<A, I, R>,
+  metricsCollector: (operation: string, duration: number) => void
+) => {
+  return Schema.transformOrFail(schema, schema, {
+    decode: (input, options, ast) =>
+      Effect.gen(function* () {
+        const start = performance.now()
+        const result = yield* schema.decode(input, options)
+        const duration = performance.now() - start
+
+        metricsCollector('decode', duration)
+
+        // 遅い処理の警告
+        if (duration > 100) {
+          yield* Effect.logWarning(`Slow decode: ${duration}ms`)
+        }
+
+        return result
+      }),
+    encode: (output) =>
+      Effect.gen(function* () {
+        const start = performance.now()
+        const result = yield* schema.encode(output)
+        const duration = performance.now() - start
+
+        metricsCollector('encode', duration)
+        return result
+      }),
+  })
+}
+
+// 使用例：メトリクス収集付きスキーマ
+const InstrumentedPlayerSchema = createInstrumentedSchema(PlayerSchema, (operation, duration) => {
+  console.log(`PlayerSchema.${operation}: ${duration}ms`)
+  // メトリクスサーバーに送信
+  sendMetrics({ schema: 'Player', operation, duration })
+})
+```
+
 ---
 
 ## 💡 補足情報
@@ -599,5 +897,25 @@ const validatePlayerData = (data: unknown) =>
 - **段階的バリデーション**: パフォーマンスが重要な場合は軽いチェックから開始
 - **型安全性の活用**: Brand型やTagged Unionでコンパイル時エラー検出
 - **メモ化の活用**: 高コストなバリデーションはメモ化で最適化
+- **Opaque型の活用**: 機密データやビジネスルールが重要なデータはOpaque型で保護
+- **Transform最適化**: 大量データや重い処理は段階的処理・バッチ処理・メモ化で最適化
+- **セキュリティ考慮**: 認証トークン・ゲーム通貨等はチェックサム・有効期限付きで実装
+- **監視とメトリクス**: パフォーマンス監視機能を内蔵して本番環境での動作を把握
 
-このリファレンスを参考に、型安全で保守可能なMinecraft実装を進めてください！
+### Opaque型とTransform使用指針
+
+**Opaque型を使うべき場面:**
+
+- 認証トークン・API キー等の機密情報
+- ゲーム通貨・スコア等の改ざん防止が必要なデータ
+- ファイルパス・URL等の形式検証が重要なデータ
+- ID・Handle等の誤った代入を防ぎたいデータ
+
+**Transform最適化を適用すべき場面:**
+
+- 大量データの処理（100件以上の配列処理）
+- 重いバリデーション（正規表現・API呼び出し等）
+- 圧縮・暗号化が必要なデータ
+- パフォーマンス監視が必要な処理
+
+このリファレンスを参考に、型安全で保守可能かつセキュアなMinecraft実装を進めてください！

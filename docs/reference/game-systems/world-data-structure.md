@@ -111,6 +111,129 @@ export namespace WorldManagementContext {
     Schema.description('チャンク座標文字列')
   )
 
+  // === 高度なUUID系識別子とEntity管理（Newtype Pattern強化版） ===
+
+  // Player UUID with strict validation
+  export const PlayerUUIDSchema = Schema.String.pipe(
+    Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+    Schema.brand('PlayerUUID'),
+    Schema.annotations({
+      identifier: 'PlayerUUID',
+      title: 'Player UUID',
+      description: 'RFC 4122 compliant UUID v4 for unique player identification in world management',
+      examples: ['550e8400-e29b-41d4-a716-446655440000'],
+      security: 'Unique player identification for world access control',
+    })
+  )
+  export type PlayerUUID = Schema.Schema.Type<typeof PlayerUUIDSchema>
+
+  // Entity UUID for world entities
+  export const EntityUUIDSchema = Schema.String.pipe(
+    Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+    Schema.brand('EntityUUID'),
+    Schema.annotations({
+      identifier: 'EntityUUID',
+      title: 'Entity UUID',
+      description: 'RFC 4122 compliant UUID v4 for unique entity identification in world',
+      examples: ['123e4567-e89b-12d3-a456-426614174000'],
+    })
+  )
+  export type EntityUUID = Schema.Schema.Type<typeof EntityUUIDSchema>
+
+  // Session token with security considerations
+  export const WorldSessionTokenSchema = Schema.String.pipe(
+    Schema.minLength(64),
+    Schema.maxLength(128),
+    Schema.pattern(/^[A-Za-z0-9+/]+=*$/), // Base64 pattern
+    Schema.brand('WorldSessionToken'),
+    Schema.annotations({
+      identifier: 'WorldSessionToken',
+      title: 'World Session Token',
+      description: 'Cryptographically secure session identifier for world access',
+      security: 'Contains sensitive authentication data for world access',
+    })
+  )
+  export type WorldSessionToken = Schema.Schema.Type<typeof WorldSessionTokenSchema>
+
+  // Block entity identifier with coordinate validation
+  export const BlockEntityIdSchema = Schema.Struct({
+    worldId: WorldIdSchema,
+    x: Schema.Number.pipe(Schema.int(), Schema.brand('BlockX')),
+    y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320), Schema.brand('BlockY')),
+    z: Schema.Number.pipe(Schema.int(), Schema.brand('BlockZ')),
+  }).pipe(
+    Schema.transform({
+      decode: (coord) => `${coord.worldId}:${coord.x},${coord.y},${coord.z}`,
+      encode: (id: string) => {
+        const [worldId, coords] = id.split(':')
+        const [x, y, z] = coords.split(',').map(Number)
+        return { worldId, x, y, z }
+      },
+    }),
+    Schema.brand('BlockEntityId'),
+    Schema.annotations({
+      identifier: 'BlockEntityId',
+      title: 'Block Entity Identifier',
+      description: 'Composite identifier for block entities including world and position',
+      examples: ['world_overworld:100,64,200'],
+    })
+  )
+  export type BlockEntityId = Schema.Schema.Type<typeof BlockEntityIdSchema>
+
+  // Enhanced chunk identifier with world context
+  export const EnhancedChunkIdSchema = Schema.Struct({
+    worldId: WorldIdSchema,
+    x: Schema.Number.pipe(
+      Schema.int(),
+      Schema.between(-1875000, 1875000), // Minecraft chunk limits
+      Schema.brand('ChunkX')
+    ),
+    z: Schema.Number.pipe(Schema.int(), Schema.between(-1875000, 1875000), Schema.brand('ChunkZ')),
+  }).pipe(
+    Schema.transform({
+      decode: (coord) => `${coord.worldId}:chunk_${coord.x}_${coord.z}`,
+      encode: (id: string) => {
+        const [worldId, chunkPart] = id.split(':')
+        const [, x, z] = chunkPart.split('_').map((v, i) => (i === 0 ? v : Number(v)))
+        return { worldId, x: x as number, z: z as number }
+      },
+    }),
+    Schema.brand('EnhancedChunkId'),
+    Schema.annotations({
+      identifier: 'EnhancedChunkId',
+      title: 'Enhanced Chunk Identifier',
+      description: 'Composite identifier for world chunks with coordinate validation and world context',
+      examples: ['world_overworld:chunk_10_-5'],
+    })
+  )
+  export type EnhancedChunkId = Schema.Schema.Type<typeof EnhancedChunkIdSchema>
+
+  // Time-based identifiers with validation
+  export const GameTimestampSchema = Schema.Number.pipe(
+    Schema.int(),
+    Schema.nonnegative(),
+    Schema.brand('GameTimestamp'),
+    Schema.annotations({
+      identifier: 'GameTimestamp',
+      title: 'Game Timestamp',
+      description: 'Game time in ticks (20 ticks = 1 second)',
+      examples: [24000, 12000, 0],
+      performance: 'Optimized for frequent updates',
+    })
+  )
+  export type GameTimestamp = Schema.Schema.Type<typeof GameTimestampSchema>
+
+  // Real world timestamp for events
+  export const WorldEventTimestampSchema = Schema.DateFromSelf.pipe(
+    Schema.brand('WorldEventTimestamp'),
+    Schema.annotations({
+      identifier: 'WorldEventTimestamp',
+      title: 'World Event Timestamp',
+      description: 'Real-world timestamp for world event tracking and logging',
+    })
+  )
+  export type WorldEventTimestamp = Schema.Schema.Type<typeof WorldEventTimestampSchema>
+
   // 座標系値オブジェクト
   export const WorldPositionSchema = Schema.Struct({
     x: Schema.Number.pipe(Schema.finite(), Schema.description('X座標（東西方向）')),
@@ -741,6 +864,65 @@ export namespace BlockValueObjects {
     Schema.maxLength(32),
     Schema.description('材質タイプ識別子')
   )
+
+  // === 高度なブロックID管理（Newtype Pattern強化版） ===
+
+  // Advanced Block UUID with namespace support
+  export const BlockUUIDSchema = Schema.String.pipe(
+    Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+    Schema.brand('BlockUUID'),
+    Schema.annotations({
+      identifier: 'BlockUUID',
+      title: 'Block UUID',
+      description: 'RFC 4122 compliant UUID v4 for unique block entity identification',
+      examples: ['123e4567-e89b-12d3-a456-426614174000'],
+      usage: 'Used for complex block entities like chests, furnaces, etc.',
+    })
+  )
+  export type BlockUUID = Schema.Schema.Type<typeof BlockUUIDSchema>
+
+  // Enhanced Material Type with namespacing
+  export const EnhancedMaterialTypeSchema = Schema.String.pipe(
+    Schema.pattern(/^([a-z0-9_]+:)?[a-z0-9_]+$/), // Optional namespace support
+    Schema.minLength(1),
+    Schema.maxLength(64),
+    Schema.brand('EnhancedMaterialType'),
+    Schema.annotations({
+      identifier: 'EnhancedMaterialType',
+      title: 'Enhanced Material Type',
+      description: 'Material type identifier with optional namespace support',
+      examples: ['minecraft:stone', 'custom:special_ore', 'wood'],
+    })
+  )
+  export type EnhancedMaterialType = Schema.Schema.Type<typeof EnhancedMaterialTypeSchema>
+
+  // Block Registry Key with validation
+  export const BlockRegistryKeySchema = Schema.String.pipe(
+    Schema.pattern(/^[a-z0-9_]+:[a-z0-9_/]+$/),
+    Schema.minLength(3),
+    Schema.maxLength(128),
+    Schema.brand('BlockRegistryKey'),
+    Schema.annotations({
+      identifier: 'BlockRegistryKey',
+      title: 'Block Registry Key',
+      description: 'Namespaced registry key for block types',
+      examples: ['minecraft:stone', 'minecraft:oak_wood', 'custom:special_block'],
+    })
+  )
+  export type BlockRegistryKey = Schema.Schema.Type<typeof BlockRegistryKeySchema>
+
+  // Block Version identifier for format compatibility
+  export const BlockVersionSchema = Schema.String.pipe(
+    Schema.pattern(/^\d+\.\d+\.\d+$/),
+    Schema.brand('BlockVersion'),
+    Schema.annotations({
+      identifier: 'BlockVersion',
+      title: 'Block Version',
+      description: 'Semantic version for block format compatibility',
+      examples: ['1.0.0', '2.1.3'],
+    })
+  )
+  export type BlockVersion = Schema.Schema.Type<typeof BlockVersionSchema>
 
   // ブロック状態の不変値オブジェクト（強化版）
   export const BlockStateSchema = Schema.Struct({

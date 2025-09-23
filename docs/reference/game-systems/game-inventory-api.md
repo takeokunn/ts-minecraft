@@ -134,23 +134,98 @@ export const EnchantmentSchema = Schema.Struct({
 })
 export type Enchantment = Schema.Schema.Type<typeof EnchantmentSchema>
 
+// Item type information for validation (normally from registry)
+interface ItemTypeInfo {
+  stackable: boolean
+  maxStackSize: number
+  maxDurability: number
+  allowedEnchantments: readonly string[]
+  allowedInHotbar: boolean
+}
+
+// Helper function to get item type info (would be injected from item registry)
+const getItemTypeInfo = (itemId: string): ItemTypeInfo => {
+  // This would typically come from an item registry service
+  // Simplified implementation for validation
+  const defaults: ItemTypeInfo = {
+    stackable: true,
+    maxStackSize: 64,
+    maxDurability: 0,
+    allowedEnchantments: [],
+    allowedInHotbar: true,
+  }
+
+  // Item-specific overrides would be loaded from registry
+  const overrides: Record<string, Partial<ItemTypeInfo>> = {
+    'minecraft:diamond_sword': {
+      stackable: false,
+      maxStackSize: 1,
+      maxDurability: 1561,
+      allowedEnchantments: ['sharpness', 'unbreaking', 'fire_aspect', 'looting', 'sweeping_edge', 'mending'],
+      allowedInHotbar: true,
+    },
+    'minecraft:ender_pearl': {
+      stackable: true,
+      maxStackSize: 16,
+      maxDurability: 0,
+      allowedEnchantments: [],
+      allowedInHotbar: true,
+    },
+    'minecraft:shulker_box': {
+      stackable: false,
+      maxStackSize: 1,
+      maxDurability: 0,
+      allowedEnchantments: [],
+      allowedInHotbar: false,
+    },
+  }
+
+  return { ...defaults, ...overrides[itemId] }
+}
+
+// Item stack with metadata validation
 export const ItemStackSchema = Schema.Struct({
   itemId: ItemIdSchema,
-  quantity: ItemQuantitySchema,
-  durability: Schema.optional(DurabilityValueSchema),
+  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemCount')),
+  durability: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('ItemDurability'))),
   enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
-  metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    })
-  ),
   nbt: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-}).annotations({
-  identifier: 'ItemStack',
-  description: 'アイテムスタック - アイテムの基本単位',
-})
+}).pipe(
+  Schema.filter((stack) => {
+    const itemType = getItemTypeInfo(stack.itemId)
+
+    // Stackability validation
+    if (!itemType.stackable && stack.count > 1) return false
+
+    // Stack size validation
+    if (stack.count > itemType.maxStackSize) return false
+
+    // Durability validation
+    if (itemType.maxDurability > 0) {
+      if (!stack.durability) return false
+      if (stack.durability > itemType.maxDurability) return false
+    } else {
+      if (stack.durability !== undefined) return false
+    }
+
+    // Enchantment compatibility
+    if (stack.enchantments) {
+      return stack.enchantments.every((ench) => itemType.allowedEnchantments.includes(ench.id))
+    }
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'ItemStack',
+    title: 'Item Stack',
+    description: 'Item stack with comprehensive game mechanics validation',
+  })
+)
 export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
+
+// Backward compatibility
+export const ItemQuantitySchema = Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemQuantity'))
+export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantitySchema>
 ```
 
 ### Inventory - インベントリ構造
@@ -159,6 +234,36 @@ export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 // ホットバースロットスキーマ
 export const HotbarSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot'))
 export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
+
+// Inventory slot with position validation
+export const InventorySlotSchema = Schema.Struct({
+  index: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(0, 35), // Standard inventory size
+    Schema.brand('SlotIndex')
+  ),
+  item: Schema.optional(ItemStackSchema),
+  locked: Schema.Boolean,
+}).pipe(
+  Schema.filter((slot) => {
+    // Hotbar slots (0-8) cannot be locked in standard gameplay
+    if (slot.index < 9 && slot.locked) return false
+
+    // Some items cannot be placed in certain slots
+    if (slot.item && slot.index < 9) {
+      const itemType = getItemTypeInfo(slot.item.itemId)
+      if (!itemType.allowedInHotbar) return false
+    }
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'InventorySlot',
+    title: 'Inventory Slot',
+    description: 'Inventory slot with position and content validation',
+  })
+)
+export type InventorySlot = Schema.Schema.Type<typeof InventorySlotSchema>
 
 export const InventorySchema = Schema.Struct({
   // メインインベントリ（27スロット）
@@ -175,10 +280,39 @@ export const InventorySchema = Schema.Struct({
 
   // オフハンド
   offhand: Schema.NullOr(ItemStackSchema),
-}).annotations({
-  identifier: 'Inventory',
-  description: 'プレイヤーインベントリ - 45スロット構成',
-})
+}).pipe(
+  Schema.filter((inventory) => {
+    // Validate hotbar items can be placed in hotbar
+    const invalidHotbarItems = inventory.hotbar.some((item, index) => {
+      if (!item) return false
+      const itemType = getItemTypeInfo(item.itemId)
+      return !itemType.allowedInHotbar
+    })
+    if (invalidHotbarItems) return false
+
+    // Validate selected slot contains an item or is valid empty slot
+    const selectedItem = inventory.hotbar[inventory.selectedSlot]
+    if (selectedItem) {
+      const itemType = getItemTypeInfo(selectedItem.itemId)
+      if (!itemType.allowedInHotbar) return false
+    }
+
+    // Validate no duplicate shulker boxes (prevent nesting)
+    const allItems = [...inventory.main, ...inventory.hotbar, inventory.offhand].filter(Boolean)
+    const shulkerBoxes = allItems.filter((item) => item?.itemId.includes('shulker_box'))
+    if (shulkerBoxes.length > 1) {
+      // Check for nested shulker boxes in NBT data
+      const hasNestedShulkers = shulkerBoxes.some((box) => box?.nbt && JSON.stringify(box.nbt).includes('shulker_box'))
+      if (hasNestedShulkers) return false
+    }
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'Inventory',
+    description: 'プレイヤーインベントリ - 45スロット構成 with validation',
+  })
+)
 export type Inventory = Schema.Schema.Type<typeof InventorySchema>
 ```
 
