@@ -54,8 +54,4 @@ export type {
   SystemSynchronizationError,
 } from './errors'
 
-export {
-  createErrorContext,
-  getErrorSeverity,
-  isRecoverable,
-} from './errors'
+export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'

@@ -181,7 +181,9 @@ describe.skip('GameApplication', () => {
         expect(stateAfterStop).toBe('Stopped')
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
 
     it('一時停止と再開が正常に動作する', async () => {
@@ -202,7 +204,9 @@ describe.skip('GameApplication', () => {
         expect(stateAfterResume).toBe('Running')
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -228,7 +232,9 @@ describe.skip('GameApplication', () => {
         expect(state.config.rendering.enableVSync).toBe(false)
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
 
     it('実行時に設定を更新できる', async () => {
@@ -251,7 +257,9 @@ describe.skip('GameApplication', () => {
         expect(state.config.performance.enableMetrics).toBe(false)
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -273,7 +281,9 @@ describe.skip('GameApplication', () => {
         expect(state.uptime).toBeGreaterThan(0)
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -294,7 +304,9 @@ describe.skip('GameApplication', () => {
         expect(healthCheck.ecs.status).toBe('healthy')
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -312,7 +324,9 @@ describe.skip('GameApplication', () => {
         expect(true).toBe(true)
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -329,7 +343,9 @@ describe.skip('GameApplication', () => {
         expect(state).toBe('Uninitialized')
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 
@@ -347,7 +363,7 @@ describe.skip('GameApplication', () => {
         }
       })
 
-      await Effect.runPromise(test.pipe(Effect.provide(MockLayer)))
+      await Effect.runPromise(test.pipe(Effect.provide(MockLayer)) as Effect.Effect<void, never, never>)
     })
 
     it('不正な状態遷移を試行するとエラーを返す', async () => {
@@ -363,7 +379,9 @@ describe.skip('GameApplication', () => {
         }
       })
 
-      await Effect.runPromise(test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)))
+      await Effect.runPromise(
+        test.pipe(runTestWithMockCanvas, Effect.provide(MockLayer)) as Effect.Effect<void, never, never>
+      )
     })
   })
 })

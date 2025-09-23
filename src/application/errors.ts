@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 /**
  * Application Layer Errors - ゲームアプリケーション統合のエラー定義
@@ -25,7 +25,7 @@ export type ErrorContext = Schema.Schema.Type<typeof ErrorContext>
 /**
  * GameLoopサービス初期化失敗
  */
-export const GameLoopInitializationFailedError = Schema.TaggedError('GameLoopInitializationFailedError', {
+export const GameLoopInitializationFailedError = Schema.TaggedStruct('GameLoopInitializationFailedError', {
   context: ErrorContext,
   cause: Schema.String,
   retryable: Schema.Boolean,
@@ -35,7 +35,7 @@ export type GameLoopInitializationFailedError = Schema.Schema.Type<typeof GameLo
 /**
  * Rendererサービス初期化失敗
  */
-export const RendererInitializationFailedError = Schema.TaggedError('RendererInitializationFailedError', {
+export const RendererInitializationFailedError = Schema.TaggedStruct('RendererInitializationFailedError', {
   context: ErrorContext,
   cause: Schema.String,
   webglVersion: Schema.optional(Schema.Union(Schema.Literal('webgl'), Schema.Literal('webgl2'))),
@@ -46,7 +46,7 @@ export type RendererInitializationFailedError = Schema.Schema.Type<typeof Render
 /**
  * Sceneサービス初期化失敗
  */
-export const SceneInitializationFailedError = Schema.TaggedError('SceneInitializationFailedError', {
+export const SceneInitializationFailedError = Schema.TaggedStruct('SceneInitializationFailedError', {
   context: ErrorContext,
   sceneType: Schema.optional(Schema.String),
   cause: Schema.String,
@@ -56,9 +56,11 @@ export type SceneInitializationFailedError = Schema.Schema.Type<typeof SceneInit
 /**
  * Inputサービス初期化失敗
  */
-export const InputInitializationFailedError = Schema.TaggedError('InputInitializationFailedError', {
+export const InputInitializationFailedError = Schema.TaggedStruct('InputInitializationFailedError', {
   context: ErrorContext,
-  deviceType: Schema.optional(Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))),
+  deviceType: Schema.optional(
+    Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))
+  ),
   cause: Schema.String,
 })
 export type InputInitializationFailedError = Schema.Schema.Type<typeof InputInitializationFailedError>
@@ -66,7 +68,7 @@ export type InputInitializationFailedError = Schema.Schema.Type<typeof InputInit
 /**
  * ECSサービス初期化失敗
  */
-export const ECSInitializationFailedError = Schema.TaggedError('ECSInitializationFailedError', {
+export const ECSInitializationFailedError = Schema.TaggedStruct('ECSInitializationFailedError', {
   context: ErrorContext,
   component: Schema.optional(Schema.String),
   system: Schema.optional(Schema.String),
@@ -77,7 +79,7 @@ export type ECSInitializationFailedError = Schema.Schema.Type<typeof ECSInitiali
 /**
  * Canvas要素が見つからない
  */
-export const CanvasNotFoundError = Schema.TaggedError('CanvasNotFoundError', {
+export const CanvasNotFoundError = Schema.TaggedStruct('CanvasNotFoundError', {
   context: ErrorContext,
   canvasId: Schema.optional(Schema.String),
   selector: Schema.optional(Schema.String),
@@ -100,7 +102,7 @@ export type GameApplicationInitError =
 /**
  * システム間通信エラー
  */
-export const SystemCommunicationError = Schema.TaggedError('SystemCommunicationError', {
+export const SystemCommunicationError = Schema.TaggedStruct('SystemCommunicationError', {
   context: ErrorContext,
   sourceSystem: Schema.String,
   targetSystem: Schema.String,
@@ -112,11 +114,16 @@ export type SystemCommunicationError = Schema.Schema.Type<typeof SystemCommunica
 /**
  * フレーム処理エラー
  */
-export const FrameProcessingError = Schema.TaggedError('FrameProcessingError', {
+export const FrameProcessingError = Schema.TaggedStruct('FrameProcessingError', {
   context: ErrorContext,
   frameNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   deltaTime: Schema.Number,
-  stage: Schema.Union(Schema.Literal('update'), Schema.Literal('render'), Schema.Literal('input'), Schema.Literal('ecs')),
+  stage: Schema.Union(
+    Schema.Literal('update'),
+    Schema.Literal('render'),
+    Schema.Literal('input'),
+    Schema.Literal('ecs')
+  ),
   cause: Schema.String,
 })
 export type FrameProcessingError = Schema.Schema.Type<typeof FrameProcessingError>
@@ -124,7 +131,7 @@ export type FrameProcessingError = Schema.Schema.Type<typeof FrameProcessingErro
 /**
  * パフォーマンス劣化エラー
  */
-export const PerformanceDegradationError = Schema.TaggedError('PerformanceDegradationError', {
+export const PerformanceDegradationError = Schema.TaggedStruct('PerformanceDegradationError', {
   context: ErrorContext,
   metric: Schema.Union(Schema.Literal('fps'), Schema.Literal('memory'), Schema.Literal('cpu'), Schema.Literal('gpu')),
   currentValue: Schema.Number,
@@ -136,7 +143,7 @@ export type PerformanceDegradationError = Schema.Schema.Type<typeof PerformanceD
 /**
  * メモリリークエラー
  */
-export const MemoryLeakError = Schema.TaggedError('MemoryLeakError', {
+export const MemoryLeakError = Schema.TaggedStruct('MemoryLeakError', {
   context: ErrorContext,
   memoryUsage: Schema.Number,
   memoryLimit: Schema.Number,
@@ -147,7 +154,7 @@ export type MemoryLeakError = Schema.Schema.Type<typeof MemoryLeakError>
 /**
  * WebGLコンテキスト喪失エラー
  */
-export const WebGLContextLostError = Schema.TaggedError('WebGLContextLostError', {
+export const WebGLContextLostError = Schema.TaggedStruct('WebGLContextLostError', {
   context: ErrorContext,
   recoverable: Schema.Boolean,
   lastDrawCall: Schema.optional(Schema.String),
@@ -169,7 +176,7 @@ export type GameApplicationRuntimeError =
 /**
  * 不正な状態遷移エラー
  */
-export const InvalidStateTransitionError = Schema.TaggedError('InvalidStateTransitionError', {
+export const InvalidStateTransitionError = Schema.TaggedStruct('InvalidStateTransitionError', {
   context: ErrorContext,
   currentState: Schema.String,
   attemptedState: Schema.String,
@@ -180,7 +187,7 @@ export type InvalidStateTransitionError = Schema.Schema.Type<typeof InvalidState
 /**
  * 設定検証エラー
  */
-export const ConfigurationValidationError = Schema.TaggedError('ConfigurationValidationError', {
+export const ConfigurationValidationError = Schema.TaggedStruct('ConfigurationValidationError', {
   context: ErrorContext,
   field: Schema.String,
   value: Schema.Unknown,
@@ -191,7 +198,7 @@ export type ConfigurationValidationError = Schema.Schema.Type<typeof Configurati
 /**
  * システム同期エラー
  */
-export const SystemSynchronizationError = Schema.TaggedError('SystemSynchronizationError', {
+export const SystemSynchronizationError = Schema.TaggedStruct('SystemSynchronizationError', {
   context: ErrorContext,
   outOfSyncSystems: Schema.Array(Schema.String),
   timeDrift: Schema.Number,

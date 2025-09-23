@@ -27,19 +27,11 @@ import { InputServiceLive } from '../../domain/input/InputServiceLive'
  * 2. アプリケーション統合サービス（GameApplication）
  * 3. 既存のAppService
  */
-export const MainLayer = Layer.mergeAll(
-  // 基盤インフラストラクチャサービス
-  GameLoopServiceLive,
-  SceneManagerLive,
-  ThreeRendererLive,
-  InputServiceLive,
+const BaseServicesLayer = Layer.mergeAll(GameLoopServiceLive, SceneManagerLive, ThreeRendererLive, InputServiceLive)
 
-  // アプリケーション統合レイヤー
-  GameApplicationLive,
+const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 
-  // 既存のアプリケーションサービス
-  AppServiceLive
-)
+export const MainLayer = Layer.mergeAll(BaseServicesLayer, ApplicationLayer, AppServiceLive)
 
 /**
  * テスト環境用のレイヤー
