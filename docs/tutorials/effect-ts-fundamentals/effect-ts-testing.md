@@ -264,16 +264,19 @@ const makeTestWorldServiceWithState = Effect.gen(function* () {
         yield* Ref.update(metricsRef, m => ({ ...m, blocksRetrieved: m.blocksRetrieved + 1 }));
 
         const block = state.get(key);
-        if (block) {
-          return block;
-        }
 
-        return {
-          id: "minecraft:air" as any,
-          metadata: undefined,
-          lightLevel: 0,
-          hardness: 0
-        };
+        return pipe(
+          Option.fromNullable(block),
+          Option.match({
+            onNone: () => ({
+              id: "minecraft:air" as any,
+              metadata: undefined,
+              lightLevel: 0,
+              hardness: 0
+            }),
+            onSome: (b) => b
+          })
+        );
       }),
 
     setBlock: (pos: Position, block: Block) =>
@@ -684,13 +687,19 @@ describe('Inventory System Integration Tests', () => {
     const emptySlots = inventory.slots.filter((slot) => slot === undefined).length
     const emptySlotIndex = findEmptySlot(inventory)
 
-    if (emptySlots > 0) {
-      expect(emptySlotIndex).toBeGreaterThanOrEqual(0)
-      expect(emptySlotIndex).toBeLessThan(inventory.slots.length)
-      expect(inventory.slots[emptySlotIndex!]).toBeUndefined()
-    } else {
-      expect(emptySlotIndex).toBeUndefined()
-    }
+    pipe(
+      emptySlots > 0,
+      Match.boolean({
+        onTrue: () => {
+          expect(emptySlotIndex).toBeGreaterThanOrEqual(0)
+          expect(emptySlotIndex).toBeLessThan(inventory.slots.length)
+          expect(inventory.slots[emptySlotIndex!]).toBeUndefined()
+        },
+        onFalse: () => {
+          expect(emptySlotIndex).toBeUndefined()
+        },
+      })
+    )
   })
 })
 ```
@@ -718,13 +727,20 @@ describe('STM Concurrent Testing', () => {
       const addPlayer = (player: Player): Effect.Effect<boolean, never> =>
         STM.gen(function* () {
           const players = yield* STM.get(playersRef)
-          if (players.has(player.id)) {
-            return false
-          }
 
-          const newPlayers = new Map(players).set(player.id, player)
-          yield* STM.set(playersRef, newPlayers)
-          return true
+          return yield* pipe(
+            players.has(player.id),
+            Match.boolean({
+              onTrue: () => STM.succeed(false),
+              onFalse: () => {
+                const newPlayers = new Map(players).set(player.id, player)
+                return STM.gen(function* () {
+                  yield* STM.set(playersRef, newPlayers)
+                  return true
+                })
+              },
+            })
+          )
         }).pipe(STM.commit)
 
       // 10個のプレイヤーを並行追加
@@ -944,13 +960,17 @@ const makeTestPlayerServiceWithErrors = Effect.gen(function* () => {
         }
 
         // エラーケース3: 移動がブロックされている
-        if (position.x === 0 && position.z === 0) {
-          return yield* Effect.fail({
-            _tag: "MovementBlockedError" as const,
-            playerId: playerId as any,
-            reason: "スポーン地点には移動できません"
-          });
-        }
+        yield* pipe(
+          position.x === 0 && position.z === 0,
+          Match.boolean({
+            onTrue: () => Effect.fail({
+              _tag: "MovementBlockedError" as const,
+              playerId: playerId as any,
+              reason: "スポーン地点には移動できません"
+            }),
+            onFalse: () => Effect.succeed(undefined)
+          })
+        )
 
         // 正常ケース: プレイヤー移動
         const updatedPlayer = { ...player, position };
@@ -986,10 +1006,16 @@ describe("Error Handling Tests", () => {
       );
 
       expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("PlayerNotFoundError");
-        expect(result.left.playerId).toBe("nonexistent");
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: (err) => {
+            expect(err._tag).toBe("PlayerNotFoundError");
+            expect(err.playerId).toBe("nonexistent");
+          },
+          onRight: () => fail("Expected error but got success")
+        })
+      );
     });
 
     await Effect.runPromise(test.pipe(Effect.provide(TestPlayerServiceWithErrors)));
@@ -1012,11 +1038,17 @@ describe("Error Handling Tests", () => {
       );
 
       expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("InvalidPositionError");
-        expect(result.left.position.y).toBe(400);
-        expect((result.left.bounds as any).maxY).toBe(320);
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: (err) => {
+            expect(err._tag).toBe("InvalidPositionError");
+            expect(err.position.y).toBe(400);
+            expect((err.bounds as any).maxY).toBe(320);
+          },
+          onRight: () => fail("Expected error but got success")
+        })
+      );
     });
 
     await Effect.runPromise(test.pipe(Effect.provide(TestPlayerServiceWithErrors)));
@@ -1220,9 +1252,27 @@ export const TestAssertions = {
   },
 
   expectBlock: (actual: Block, expected: Partial<Block>) => {
-    if (expected.id) expect(actual.id).toBe(expected.id)
-    if (expected.lightLevel !== undefined) expect(actual.lightLevel).toBe(expected.lightLevel)
-    if (expected.hardness !== undefined) expect(actual.hardness).toBe(expected.hardness)
+    pipe(
+      Option.fromNullable(expected.id),
+      Option.match({
+        onNone: () => {},
+        onSome: (id) => expect(actual.id).toBe(id),
+      })
+    )
+    pipe(
+      Option.fromNullable(expected.lightLevel),
+      Option.match({
+        onNone: () => {},
+        onSome: (level) => expect(actual.lightLevel).toBe(level),
+      })
+    )
+    pipe(
+      Option.fromNullable(expected.hardness),
+      Option.match({
+        onNone: () => {},
+        onSome: (hardness) => expect(actual.hardness).toBe(hardness),
+      })
+    )
   },
 
   expectInventoryInvariant: (inventory: Inventory) => {
@@ -1309,9 +1359,13 @@ describe('Integration Tests with Test Utilities', () => {
 
       // 移動後のプレイヤー確認
       const movedPlayer = yield* playerService.getPlayer(player.id)
-      if (Option.isSome(movedPlayer)) {
-        TestAssertions.expectPosition(movedPlayer.value.position, newPosition)
-      }
+      pipe(
+        movedPlayer,
+        Option.match({
+          onNone: () => {},
+          onSome: (p) => TestAssertions.expectPosition(p.position, newPosition),
+        })
+      )
     })
 
     await TestSetup.expectSuccess(TestSetup.withTestEnvironment(test))

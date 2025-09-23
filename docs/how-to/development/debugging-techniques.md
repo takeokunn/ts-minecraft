@@ -96,7 +96,7 @@ flowchart TD
 
 ```typescript
 // src/debugging/EffectTracer.ts
-import { Effect, Context, Layer, FiberRef, pipe } from 'effect'
+import { Effect, Context, Layer, FiberRef, pipe, Match } from 'effect'
 import { Schema } from '@effect/schema'
 
 // デバッグ情報のスキーマ
@@ -137,13 +137,17 @@ const makeDebugContext = Effect.gen(function* () {
       Effect.sync(() => {
         traces.set(info.operationId, info)
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🔍 [DEBUG] ${info.operationId}:`, {
-            timestamp: info.timestamp,
-            context: info.context,
-            performance: info.performance,
-          })
-        }
+        pipe(
+          Match.value(process.env.NODE_ENV),
+          Match.when('development', () => {
+            console.log(`🔍 [DEBUG] ${info.operationId}:`, {
+              timestamp: info.timestamp,
+              context: info.context,
+              performance: info.performance,
+            })
+          }),
+          Match.orElse(() => void 0)
+        )
       }),
 
     startOperation: (operationName) =>
@@ -196,7 +200,14 @@ const makeDebugContext = Effect.gen(function* () {
 
         // スタックから削除
         const index = operationStack.findIndex((op) => op.id === operationId)
-        if (index >= 0) operationStack.splice(index, 1)
+        pipe(
+          Match.value(index),
+          Match.when(
+            (idx) => idx >= 0,
+            (idx) => operationStack.splice(idx, 1)
+          ),
+          Match.orElse(() => void 0)
+        )
       }),
 
     getTrace: () => Effect.sync(() => Array.from(traces.values())),
@@ -420,9 +431,11 @@ export const createErrorPatternDetector = () => {
       Effect.sync(() => {
         const errorKey = error instanceof Error ? error.constructor.name : 'UnknownError'
 
-        if (!errorHistory.has(errorKey)) {
-          errorHistory.set(errorKey, [])
-        }
+        pipe(
+          Match.value(errorHistory.has(errorKey)),
+          Match.when(false, () => errorHistory.set(errorKey, [])),
+          Match.orElse(() => void 0)
+        )
 
         errorHistory.get(errorKey)!.push({
           timestamp: Date.now(),
@@ -433,13 +446,20 @@ export const createErrorPatternDetector = () => {
         const oneHourAgo = Date.now() - 60 * 60 * 1000
         const recentErrors = errorHistory.get(errorKey)!.filter((e) => e.timestamp > oneHourAgo)
 
-        if (recentErrors.length >= 5) {
-          console.warn(`🚨 Pattern Alert: ${errorKey} occurred ${recentErrors.length} times in the last hour`)
+        pipe(
+          Match.value(recentErrors.length),
+          Match.when(
+            (count) => count >= 5,
+            (count) => {
+              console.warn(`🚨 Pattern Alert: ${errorKey} occurred ${count} times in the last hour`)
 
-          // パターン分析
-          const contexts = recentErrors.map((e) => e.context)
-          console.log('🔍 Error Contexts:', contexts)
-        }
+              // パターン分析
+              const contexts = recentErrors.map((e) => e.context)
+              console.log('🔍 Error Contexts:', contexts)
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
       }),
 
     getErrorPatterns: () =>
@@ -521,9 +541,16 @@ const makePerformanceMonitor = Effect.gen(function* () {
   let renderer: THREE.WebGLRenderer | null = null
 
   const updateMetrics = (currentRenderer?: THREE.WebGLRenderer) => {
-    if (currentRenderer) {
-      renderer = currentRenderer
-    }
+    pipe(
+      Match.value(currentRenderer),
+      Match.when(
+        (r): r is THREE.WebGLRenderer => r != null,
+        (r) => {
+          renderer = r
+        }
+      ),
+      Match.orElse(() => void 0)
+    )
 
     if (!renderer) return
 
@@ -532,11 +559,18 @@ const makePerformanceMonitor = Effect.gen(function* () {
 
     // FPS計算
     frameCount++
-    if (currentTime - lastTime >= 1000) {
-      metrics.fps = Math.round((frameCount * 1000) / (currentTime - lastTime))
-      frameCount = 0
-      lastTime = currentTime
-    }
+    pipe(
+      Match.value(currentTime - lastTime),
+      Match.when(
+        (diff) => diff >= 1000,
+        (diff) => {
+          metrics.fps = Math.round((frameCount * 1000) / diff)
+          frameCount = 0
+          lastTime = currentTime
+        }
+      ),
+      Match.orElse(() => void 0)
+    )
 
     // レンダリング統計
     metrics.drawCalls = info.render.calls
@@ -549,12 +583,26 @@ const makePerformanceMonitor = Effect.gen(function* () {
 
     // メモリ使用量（WebGLMemoryInfo が利用可能な場合）
     const glMemory = (renderer as any).getContext().getExtension('WEBGL_lose_context')
-    if (glMemory) {
-      const memInfo = (performance as any).memory
-      if (memInfo) {
-        metrics.memoryUsage.total = memInfo.usedJSHeapSize / 1024 / 1024 // MB
-      }
-    }
+    pipe(
+      Match.value(glMemory),
+      Match.when(
+        (gl) => gl != null,
+        () => {
+          const memInfo = (performance as any).memory
+          pipe(
+            Match.value(memInfo),
+            Match.when(
+              (mem) => mem != null,
+              (mem) => {
+                metrics.memoryUsage.total = mem.usedJSHeapSize / 1024 / 1024 // MB
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
+        }
+      ),
+      Match.orElse(() => void 0)
+    )
   }
 
   return PerformanceMonitor.of({
@@ -564,10 +612,14 @@ const makePerformanceMonitor = Effect.gen(function* () {
         lastTime = performance.now()
 
         const monitorLoop = () => {
-          if (monitoring) {
-            updateMetrics()
-            requestAnimationFrame(monitorLoop)
-          }
+          pipe(
+            Match.value(monitoring),
+            Match.when(true, () => {
+              updateMetrics()
+              requestAnimationFrame(monitorLoop)
+            }),
+            Match.orElse(() => void 0)
+          )
         }
 
         requestAnimationFrame(monitorLoop)
@@ -600,12 +652,37 @@ const makePerformanceMonitor = Effect.gen(function* () {
 
         // 統計情報の更新ループ
         const updatePanel = () => {
-          if (panel.parentNode) {
-            const fpsColor = metrics.fps > 55 ? '#00ff00' : metrics.fps > 30 ? '#ffff00' : '#ff0000'
-            const memoryColor =
-              metrics.memoryUsage.total < 100 ? '#00ff00' : metrics.memoryUsage.total < 200 ? '#ffff00' : '#ff0000'
+          pipe(
+            Match.value(panel.parentNode),
+            Match.when(
+              (parent) => parent != null,
+              () => {
+                const fpsColor = pipe(
+                  Match.value(metrics.fps),
+                  Match.when(
+                    (fps) => fps > 55,
+                    () => '#00ff00'
+                  ),
+                  Match.when(
+                    (fps) => fps > 30,
+                    () => '#ffff00'
+                  ),
+                  Match.orElse(() => '#ff0000')
+                )
+                const memoryColor = pipe(
+                  Match.value(metrics.memoryUsage.total),
+                  Match.when(
+                    (mem) => mem < 100,
+                    () => '#00ff00'
+                  ),
+                  Match.when(
+                    (mem) => mem < 200,
+                    () => '#ffff00'
+                  ),
+                  Match.orElse(() => '#ff0000')
+                )
 
-            panel.innerHTML = `
+                panel.innerHTML = `
             <div style="border-bottom: 1px solid #333; margin-bottom: 8px; padding-bottom: 5px;">
               <strong>🔥 Performance Monitor</strong>
             </div>
@@ -629,8 +706,11 @@ const makePerformanceMonitor = Effect.gen(function* () {
             </div>
           `
 
-            setTimeout(updatePanel, 100) // 10 FPS更新
-          }
+                setTimeout(updatePanel, 100) // 10 FPS更新
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
         }
 
         updatePanel()
@@ -727,26 +807,43 @@ const makeThreeDebugger = Effect.sync(() => {
     enableWireframe: (scene) =>
       Effect.sync(() => {
         scene.traverse((object) => {
-          if (object instanceof THREE.Mesh && object.material) {
-            const material = Array.isArray(object.material) ? object.material[0] : object.material
-            if (
-              material instanceof THREE.MeshBasicMaterial ||
-              material instanceof THREE.MeshLambertMaterial ||
-              material instanceof THREE.MeshPhongMaterial
-            ) {
-              material.wireframe = true
-            }
-          }
+          pipe(
+            Match.value(object),
+            Match.when(
+              (obj): obj is THREE.Mesh => obj instanceof THREE.Mesh && obj.material != null,
+              (mesh) => {
+                const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+                pipe(
+                  Match.value(material),
+                  Match.when(
+                    (mat): mat is THREE.MeshBasicMaterial | THREE.MeshLambertMaterial | THREE.MeshPhongMaterial =>
+                      mat instanceof THREE.MeshBasicMaterial ||
+                      mat instanceof THREE.MeshLambertMaterial ||
+                      mat instanceof THREE.MeshPhongMaterial,
+                    (mat) => {
+                      mat.wireframe = true
+                    }
+                  ),
+                  Match.orElse(() => void 0)
+                )
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
         })
       }),
 
     showBoundingBoxes: (scene) =>
       Effect.sync(() => {
         scene.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            const box = new THREE.BoxHelper(object, 0xffff00)
-            scene.add(box)
-          }
+          pipe(
+            Match.value(object),
+            Match.when(Match.instanceOf(THREE.Mesh), (mesh) => {
+              const box = new THREE.BoxHelper(mesh, 0xffff00)
+              scene.add(box)
+            }),
+            Match.orElse(() => void 0)
+          )
         })
       }),
 
@@ -756,15 +853,24 @@ const makeThreeDebugger = Effect.sync(() => {
         const materialMap = new Map<string, THREE.Material>()
 
         scene.traverse((object) => {
-          if (object instanceof THREE.Mesh && object.material) {
-            const materials = Array.isArray(object.material) ? object.material : [object.material]
+          pipe(
+            Match.value(object),
+            Match.when(
+              (obj): obj is THREE.Mesh => obj instanceof THREE.Mesh && obj.material != null,
+              (mesh) => {
+                const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
 
-            materials.forEach((material) => {
-              if (!materialMap.has(material.uuid)) {
-                materialMap.set(material.uuid, material)
+                materials.forEach((material) => {
+                  pipe(
+                    Match.value(materialMap.has(material.uuid)),
+                    Match.when(false, () => materialMap.set(material.uuid, material)),
+                    Match.orElse(() => void 0)
+                  )
+                })
               }
-            })
-          }
+            ),
+            Match.orElse(() => void 0)
+          )
         })
 
         materialMap.forEach((material, uuid) => {
@@ -775,29 +881,58 @@ const makeThreeDebugger = Effect.sync(() => {
 
           // テクスチャ分析
           Object.values(material).forEach((value) => {
-            if (value instanceof THREE.Texture) {
-              textureCount++
-              if (value.image) {
-                const size = value.image.width * value.image.height * 4 // RGBA
-                textureSize += size
-              }
-            }
+            pipe(
+              Match.value(value),
+              Match.when(Match.instanceOf(THREE.Texture), (texture) => {
+                textureCount++
+                pipe(
+                  Match.value(texture.image),
+                  Match.when(
+                    (img) => img != null,
+                    (img) => {
+                      const size = img.width * img.height * 4 // RGBA
+                      textureSize += size
+                    }
+                  ),
+                  Match.orElse(() => void 0)
+                )
+              }),
+              Match.orElse(() => void 0)
+            )
           })
 
           // 複雑性判定
-          if (textureCount > 5 || textureSize > 4 * 1024 * 1024) {
-            complexity = 'high'
-            recommendations.push('Consider texture atlasing or compression')
-          } else if (textureCount > 2 || textureSize > 1024 * 1024) {
-            complexity = 'medium'
-            recommendations.push('Monitor texture memory usage')
-          }
+          pipe(
+            Match.value({ textureCount, textureSize }),
+            Match.when(
+              ({ textureCount, textureSize }) => textureCount > 5 || textureSize > 4 * 1024 * 1024,
+              () => {
+                complexity = 'high'
+                recommendations.push('Consider texture atlasing or compression')
+              }
+            ),
+            Match.when(
+              ({ textureCount, textureSize }) => textureCount > 2 || textureSize > 1024 * 1024,
+              () => {
+                complexity = 'medium'
+                recommendations.push('Monitor texture memory usage')
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           // シェーダー複雑性チェック
-          if ('vertexShader' in material && 'fragmentShader' in material) {
-            complexity = 'high'
-            recommendations.push('Custom shaders detected - profile GPU performance')
-          }
+          pipe(
+            Match.value(material),
+            Match.when(
+              (mat) => 'vertexShader' in mat && 'fragmentShader' in mat,
+              () => {
+                complexity = 'high'
+                recommendations.push('Custom shaders detected - profile GPU performance')
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           analyses.push({
             materialId: uuid,
@@ -821,60 +956,111 @@ const makeThreeDebugger = Effect.sync(() => {
         const suggestions: OptimizationReport['suggestions'] = []
 
         scene.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            meshCount++
+          pipe(
+            Match.value(object),
+            Match.when(Match.instanceOf(THREE.Mesh), (mesh) => {
+              meshCount++
 
-            // 三角形数カウント
-            if (object.geometry) {
-              const geometry = object.geometry
-              if (geometry.index) {
-                triangleCount += geometry.index.count / 3
-              } else if (geometry.attributes.position) {
-                triangleCount += geometry.attributes.position.count / 3
-              }
-            }
+              // 三角形数カウント
+              pipe(
+                Match.value(mesh.geometry),
+                Match.when(
+                  (geo) => geo != null,
+                  (geometry) => {
+                    pipe(
+                      Match.value(geometry.index),
+                      Match.when(
+                        (idx) => idx != null,
+                        (idx) => {
+                          triangleCount += idx.count / 3
+                        }
+                      ),
+                      Match.orElse(() => {
+                        pipe(
+                          Match.value(geometry.attributes.position),
+                          Match.when(
+                            (pos) => pos != null,
+                            (pos) => {
+                              triangleCount += pos.count / 3
+                            }
+                          ),
+                          Match.orElse(() => void 0)
+                        )
+                      })
+                    )
+                  }
+                ),
+                Match.orElse(() => void 0)
+              )
 
-            // マテリアル・テクスチャ収集
-            const materials = Array.isArray(object.material) ? object.material : [object.material]
-            materials.forEach((material) => {
-              materialSet.add(material.uuid)
+              // マテリアル・テクスチャ収集
+              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+              materials.forEach((material) => {
+                materialSet.add(material.uuid)
 
-              Object.values(material).forEach((value) => {
-                if (value instanceof THREE.Texture) {
-                  textureSet.add(value.uuid)
-                }
+                Object.values(material).forEach((value) => {
+                  pipe(
+                    Match.value(value),
+                    Match.when(Match.instanceOf(THREE.Texture), (texture) => {
+                      textureSet.add(texture.uuid)
+                    }),
+                    Match.orElse(() => void 0)
+                  )
+                })
               })
-            })
-          }
+            }),
+            Match.orElse(() => void 0)
+          )
         })
 
         // 最適化提案生成
-        if (meshCount > 1000) {
-          suggestions.push({
-            type: 'geometry',
-            description: `High mesh count (${meshCount}). Consider mesh instancing or LOD.`,
-            impact: 'high',
-            implementation: 'Use InstancedMesh for repeated objects',
-          })
-        }
+        pipe(
+          Match.value(meshCount),
+          Match.when(
+            (count) => count > 1000,
+            (count) => {
+              suggestions.push({
+                type: 'geometry',
+                description: `High mesh count (${count}). Consider mesh instancing or LOD.`,
+                impact: 'high',
+                implementation: 'Use InstancedMesh for repeated objects',
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
-        if (triangleCount > 1000000) {
-          suggestions.push({
-            type: 'geometry',
-            description: `Very high triangle count (${triangleCount.toLocaleString()}). Reduce geometry complexity.`,
-            impact: 'high',
-            implementation: 'Use LOD system or geometry simplification',
-          })
-        }
+        pipe(
+          Match.value(triangleCount),
+          Match.when(
+            (count) => count > 1000000,
+            (count) => {
+              suggestions.push({
+                type: 'geometry',
+                description: `Very high triangle count (${count.toLocaleString()}). Reduce geometry complexity.`,
+                impact: 'high',
+                implementation: 'Use LOD system or geometry simplification',
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
-        if (textureSet.size > 50) {
-          suggestions.push({
-            type: 'texture',
-            description: `Many unique textures (${textureSet.size}). Consider texture atlasing.`,
-            impact: 'medium',
-            implementation: 'Combine textures into atlases to reduce draw calls',
-          })
-        }
+        pipe(
+          Match.value(textureSet.size),
+          Match.when(
+            (size) => size > 50,
+            (size) => {
+              suggestions.push({
+                type: 'texture',
+                description: `Many unique textures (${size}). Consider texture atlasing.`,
+                impact: 'medium',
+                implementation: 'Combine textures into atlases to reduce draw calls',
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
         return {
           meshCount,
@@ -923,29 +1109,50 @@ const makeThreeDebugger = Effect.sync(() => {
 
         report.totalMemoryLeak = (geometryMemory + textureMemory) / 1024 / 1024 // MB
 
-        if (report.geometriesNotDisposed > 0) {
-          report.leakSources.push({
-            type: 'BufferGeometry',
-            count: report.geometriesNotDisposed,
-            estimatedSize: geometryMemory / 1024 / 1024,
-          })
-        }
+        pipe(
+          Match.value(report.geometriesNotDisposed),
+          Match.when(
+            (count) => count > 0,
+            (count) => {
+              report.leakSources.push({
+                type: 'BufferGeometry',
+                count,
+                estimatedSize: geometryMemory / 1024 / 1024,
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
-        if (report.texturesNotDisposed > 0) {
-          report.leakSources.push({
-            type: 'Texture',
-            count: report.texturesNotDisposed,
-            estimatedSize: textureMemory / 1024 / 1024,
-          })
-        }
+        pipe(
+          Match.value(report.texturesNotDisposed),
+          Match.when(
+            (count) => count > 0,
+            (count) => {
+              report.leakSources.push({
+                type: 'Texture',
+                count,
+                estimatedSize: textureMemory / 1024 / 1024,
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
-        if (report.materialsNotDisposed > 0) {
-          report.leakSources.push({
-            type: 'Material',
-            count: report.materialsNotDisposed,
-            estimatedSize: 0.001 * report.materialsNotDisposed, // 推定値
-          })
-        }
+        pipe(
+          Match.value(report.materialsNotDisposed),
+          Match.when(
+            (count) => count > 0,
+            (count) => {
+              report.leakSources.push({
+                type: 'Material',
+                count,
+                estimatedSize: 0.001 * count, // 推定値
+              })
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
 
         return report
       }),
@@ -1050,12 +1257,23 @@ const makeDebugDashboard = Effect.gen(function* () {
 
         // 定期更新
         const updateLoop = () => {
-          if (isVisible && dashboard) {
-            Effect.runSync(updateDashboardContent())
-            setTimeout(updateLoop, 500) // 2 FPS更新
-          } else if (isVisible) {
-            setTimeout(updateLoop, 100)
-          }
+          pipe(
+            Match.value({ isVisible, dashboard }),
+            Match.when(
+              ({ isVisible, dashboard }) => isVisible && dashboard != null,
+              () => {
+                Effect.runSync(updateDashboardContent())
+                setTimeout(updateLoop, 500) // 2 FPS更新
+              }
+            ),
+            Match.when(
+              ({ isVisible }) => isVisible,
+              () => {
+                setTimeout(updateLoop, 100)
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
         }
 
         updateLoop()
@@ -1063,10 +1281,17 @@ const makeDebugDashboard = Effect.gen(function* () {
 
     toggleVisibility: () =>
       Effect.sync(() => {
-        if (dashboard) {
-          isVisible = !isVisible
-          dashboard.style.display = isVisible ? 'block' : 'none'
-        }
+        pipe(
+          Match.value(dashboard),
+          Match.when(
+            (d) => d != null,
+            (d) => {
+              isVisible = !isVisible
+              d.style.display = isVisible ? 'block' : 'none'
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
       }),
 
     addCustomPanel: (name, contentProvider) =>
