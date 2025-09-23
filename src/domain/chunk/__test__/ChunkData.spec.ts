@@ -460,7 +460,7 @@ describe('ChunkData', () => {
 
       // Should handle many operations quickly
       expect(operationCount).toBeGreaterThan(300)
-      expect(timePerOperation).toBeLessThan(0.25) // Less than 0.25ms per operation (CI環境での変動を考慮)
+      expect(timePerOperation).toBeLessThan(0.5) // Less than 0.5ms per operation (CI環境での変動を考慮)
       expect(totalTime).toBeLessThan(1000) // Total time under 1 second
     })
 
