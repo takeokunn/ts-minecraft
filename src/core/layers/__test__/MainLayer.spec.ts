@@ -83,31 +83,24 @@ describe('MainLayer', () => {
     })
   })
 
-<<<<<<< HEAD
-  it('should be a properly structured composite layer', () => {
-    // MainLayer is now a mergeAll of multiple layers
-    const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
-||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
-  it('should maintain all properties of AppServiceLive', () => {
-    // Ensure MainLayer is identical to AppServiceLive
-    const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
-    const appServiceProps = Object.getOwnPropertyNames(AppServiceLive)
-=======
+  describe('Layer Structure Details', () => {
+    it('should be a properly structured composite layer', () => {
+      // MainLayer is now a mergeAll of multiple layers
+      const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
+
+      // Should have Layer properties
+      expect(mainLayerProps).toContain('_op_layer')
+      expect(mainLayerProps).toContain('evaluate')
+    })
+  })
+
   describe('Runtime Behavior', () => {
     it('should initialize without errors', () => {
       const program = Effect.gen(function* () {
         const service = yield* AppService
         return service
       }).pipe(Effect.provide(MainLayer))
->>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
 
-<<<<<<< HEAD
-    // Should have Layer properties
-    expect(mainLayerProps).toContain('_op_layer')
-    expect(mainLayerProps).toContain('evaluate')
-||||||| parent of 9c6af52 (test: improve core module test coverage to 100%)
-    expect(mainLayerProps).toEqual(appServiceProps)
-=======
       expect(() => Effect.runSync(program)).not.toThrow()
     })
 
@@ -146,6 +139,5 @@ describe('MainLayer', () => {
       const result = Effect.runSync(Effect.provide(program, MainLayer))
       expect(result.status1).toEqual(result.status2)
     })
->>>>>>> 9c6af52 (test: improve core module test coverage to 100%)
   })
 })
