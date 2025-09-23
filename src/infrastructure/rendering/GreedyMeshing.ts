@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Schema, Option, pipe, Array as A, Record as R } from 'effect'
+import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R } from 'effect'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
 
 // ========================================
@@ -48,19 +48,25 @@ export const GreedyMeshingService = Context.GenericTag<GreedyMeshingService>('@m
 // Helper Functions (Pure Functions)
 // ========================================
 
-const getBlock = (blocks: number[][][], x: number, y: number, z: number, size: number): BlockType => {
-  if (x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size) {
-    return 0
-  }
-  return Option.fromNullable(blocks[x]?.[y]?.[z]).pipe(Option.getOrElse(() => 0))
-}
+const getBlock = (blocks: number[][][], x: number, y: number, z: number, size: number): BlockType =>
+  pipe(
+    Match.value({ x, y, z }),
+    Match.when(
+      ({ x, y, z }) => x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size,
+      () => 0
+    ),
+    Match.orElse(() => Option.fromNullable(blocks[x]?.[y]?.[z]).pipe(Option.getOrElse(() => 0)))
+  )
 
-const compareBlocks = (a: BlockType, b: BlockType): boolean => {
-  if (a === 0 || b === 0) {
-    return a === b
-  }
-  return a === b
-}
+const compareBlocks = (a: BlockType, b: BlockType): boolean =>
+  pipe(
+    Match.value({ a, b }),
+    Match.when(
+      ({ a, b }) => a === 0 || b === 0,
+      ({ a, b }) => a === b
+    ),
+    Match.orElse(({ a, b }) => a === b)
+  )
 
 const createQuad = (
   x: number,

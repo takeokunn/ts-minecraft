@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, Match, pipe } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // ローディング状態の定義
@@ -101,16 +101,26 @@ export const LoadingScene = Layer.effect(
               const estimatedRemaining = Math.max(0, estimatedTotal - elapsed)
 
               // タスクの更新
-              const currentTask =
-                newProgress <= 25
-                  ? state.currentTask
-                  : newProgress <= 50
-                    ? 'ワールドを生成中...'
-                    : newProgress <= 75
-                      ? 'テクスチャを読み込み中...'
-                      : newProgress <= 90
-                        ? 'チャンクを生成中...'
-                        : '最終処理中...'
+              const currentTask = pipe(
+                Match.value(newProgress),
+                Match.when(
+                  (p) => p <= 25,
+                  () => state.currentTask
+                ),
+                Match.when(
+                  (p) => p <= 50,
+                  () => 'ワールドを生成中...'
+                ),
+                Match.when(
+                  (p) => p <= 75,
+                  () => 'テクスチャを読み込み中...'
+                ),
+                Match.when(
+                  (p) => p <= 90,
+                  () => 'チャンクを生成中...'
+                ),
+                Match.orElse(() => '最終処理中...')
+              )
 
               return {
                 ...state,

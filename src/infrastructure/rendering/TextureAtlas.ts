@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Schema, Ref, Option, pipe, Array as A } from 'effect'
+import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Array as A } from 'effect'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
 
@@ -401,24 +401,32 @@ export const TextureAtlasLive = Layer.effect(
 // Utility Exports
 // ========================================
 
-export const calculateAtlasEfficiency = (usedTextures: number, atlasSize: number, textureSize: number): number => {
-  if (atlasSize <= 0 || textureSize <= 0) {
-    return 0
-  }
+export const calculateAtlasEfficiency = (usedTextures: number, atlasSize: number, textureSize: number): number =>
+  pipe(
+    Match.value({ atlasSize, textureSize }),
+    Match.when(
+      ({ atlasSize, textureSize }) => atlasSize <= 0 || textureSize <= 0,
+      () => 0
+    ),
+    Match.orElse(() => {
+      const totalSlots = (atlasSize / textureSize) ** 2
+      return totalSlots === 0 ? 0 : (usedTextures / totalSlots) * 100
+    })
+  )
 
-  const totalSlots = (atlasSize / textureSize) ** 2
-  return totalSlots === 0 ? 0 : (usedTextures / totalSlots) * 100
-}
+export const getOptimalAtlasSize = (textureCount: number, textureSize: number): number =>
+  pipe(
+    Match.value(textureCount),
+    Match.when(
+      (count) => count <= 0,
+      () => Math.max(1, textureSize) // 最小サイズを1に調整
+    ),
+    Match.orElse(() => {
+      const slotsNeeded = textureCount
+      const slotsPerRow = Math.ceil(Math.sqrt(slotsNeeded))
+      const atlasSize = slotsPerRow * textureSize
 
-export const getOptimalAtlasSize = (textureCount: number, textureSize: number): number => {
-  if (textureCount <= 0) {
-    return Math.max(1, textureSize) // 最小サイズを1に調整
-  }
-
-  const slotsNeeded = textureCount
-  const slotsPerRow = Math.ceil(Math.sqrt(slotsNeeded))
-  const atlasSize = slotsPerRow * textureSize
-
-  // Round up to nearest power of 2
-  return Math.pow(2, Math.ceil(Math.log2(Math.max(atlasSize, 1))))
-}
+      // Round up to nearest power of 2
+      return Math.pow(2, Math.ceil(Math.log2(Math.max(atlasSize, 1))))
+    })
+  )
