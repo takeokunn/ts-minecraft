@@ -148,7 +148,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const inputVelocity = InputUtils.calculateMovementVector(
         validatedInput,
         playerState.rotation,
-        movementState.isSprinting ? 1.5 : 1.0
+        validatedInput.sprint ? 1.5 : 1.0
       )
 
       // ジャンプ処理
@@ -197,7 +197,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const newMovementState: MovementState = {
         velocity: correctedVelocity,
         isGrounded: checkGroundedInternal(correctedPosition),
-        isJumping: validatedInput.jump && !movementState.isGrounded,
+        isJumping: validatedInput.jump && movementState.isGrounded,
         isSprinting: validatedInput.sprint,
         lastUpdate: Date.now(),
       }
@@ -300,6 +300,17 @@ const makeMovementSystemLive = Effect.gen(function* () {
     Effect.gen(function* () {
       // 状態の検証
       const validatedState = yield* validateMovementState(state)
+
+      // 追加の検証: NaN, Infinity, 無効な値のチェック
+      if (
+        !Number.isFinite(validatedState.velocity.x) ||
+        !Number.isFinite(validatedState.velocity.y) ||
+        !Number.isFinite(validatedState.velocity.z)
+      ) {
+        return yield* Effect.fail(
+          createPlayerError.validationError('Movement state contains invalid numeric values (NaN or Infinity)', state)
+        )
+      }
 
       // プレイヤーの存在確認
       const exists = yield* playerService.playerExists(playerId)
