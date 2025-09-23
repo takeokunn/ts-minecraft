@@ -29,6 +29,19 @@ export const WorldError = Schema.TaggedStruct('WorldError', {
 export type WorldError = Schema.Schema.Type<typeof WorldError>
 
 /**
+ * WorldErrorインスタンス作成ヘルパー
+ */
+const createWorldError = (data: {
+  message: string
+  entityId?: EntityId
+  componentType?: string
+  cause?: unknown
+}): WorldError => ({
+  _tag: 'WorldError' as const,
+  ...data,
+})
+
+/**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
  */
 interface ComponentStorage {
@@ -183,7 +196,7 @@ export const World = Context.GenericTag<World>('@minecraft/ecs/World')
 export const WorldLive = Layer.effect(
   World,
   Effect.gen(function* () {
-    const stateRef = yield* Ref.make<WorldState>({
+    const initialState: WorldState = {
       entityIdCounter: 0,
       entities: new Map(),
       components: new Map(),
@@ -204,7 +217,7 @@ export const WorldLive = Layer.effect(
      */
     const generateEntityId = (): EntityId => {
       const state = Effect.runSync(Ref.get(stateRef))
-      const id = `entity_${state.entityIdCounter}` as EntityId
+      const id = EntityIdBrand(state.entityIdCounter)
       Effect.runSync(
         Ref.update(stateRef, (s) => ({
           ...s,
@@ -257,11 +270,10 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(id)),
           Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
+            Effect.fail(createWorldError({
               message: `Entity not found: ${id}`,
               entityId: id,
-            } satisfies WorldError)
+            }))
           ),
           Match.orElse(() => Effect.void)
         )
@@ -302,11 +314,10 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(entityId)),
           Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
+            Effect.fail(createWorldError({
               message: `Entity not found: ${entityId}`,
               entityId,
-            } satisfies WorldError)
+            }))
           ),
           Match.orElse(() => Effect.void)
         )
@@ -696,11 +707,10 @@ export const WorldLive = Layer.effect(
         yield* pipe(
           Match.value(state.entities.has(id)),
           Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
+            Effect.fail(createWorldError({
               message: `Entity not found: ${id}`,
               entityId: id,
-            } satisfies WorldError)
+            }))
           ),
           Match.orElse(() => Effect.void)
         )
@@ -725,131 +735,27 @@ export const WorldLive = Layer.effect(
         })
       })
 
-    const entityManager = yield* EntityManager
     const systemRegistry = yield* SystemRegistryService
 
     return World.of({
-      createEntity: (name?: string, tags?: readonly string[]) =>
-        Effect.gen(function* () {
-          const state = yield* Ref.get(stateRef)
-          const id = EntityIdBrand(state.entityIdCounter)
-          yield* Ref.update(stateRef, (state) => ({
-            ...state,
-            entityIdCounter: state.entityIdCounter + 1,
-          }))
-
-          yield* pipe(
-            entityManager.createEntity(id, name, tags),
-            Effect.mapError((error) => new WorldError({ message: error.message, cause: error }))
-          )
-          return id
-        }),
-
-      destroyEntity: (id: EntityId) =>
-        pipe(
-          entityManager.destroyEntity(id),
-          Effect.mapError((error) => new WorldError({ message: error.message, cause: error }))
-        ),
-
-      addComponent: <T>(entityId: EntityId, componentType: string, component: T) =>
-        pipe(
-          entityManager.addComponent(entityId, componentType, component),
-          Effect.mapError((error) => new WorldError({ message: error.message, cause: error }))
-        ),
-
-      removeComponent: (entityId: EntityId, componentType: string) =>
-        pipe(
-          entityManager.removeComponent(entityId, componentType),
-          Effect.mapError((error) => new WorldError({ message: error.message, cause: error }))
-        ),
-
-      getComponent: <T>(entityId: EntityId, componentType: string) =>
-        pipe(
-          entityManager.getComponent<T>(entityId, componentType),
-          Effect.map(Option.match({
-            onNone: () => null,
-            onSome: (component) => component
-          }))
-        ),
-
-      hasComponent: (entityId: EntityId, componentType: string) =>
-        entityManager.hasComponent(entityId, componentType),
-
-      getEntitiesWithComponent: (componentType: string) => entityManager.getEntitiesWithComponent(componentType),
-
-      getEntitiesWithComponents: (componentTypes: readonly string[]) =>
-        entityManager.getEntitiesWithComponents(componentTypes),
-
-      getEntitiesByTag: (tag: string) => entityManager.getEntitiesByTag(tag),
-
-      getAllEntities: entityManager.getAllEntities(),
-
-      getEntityMetadata: (id: EntityId) =>
-        pipe(
-          entityManager.getEntityMetadata(id),
-          Effect.map(Option.match({
-            onNone: () => null,
-            onSome: (metadata) => metadata
-          }))
-        ),
-
-      registerSystem: (system: System, priority?: SystemPriority, order?: number) =>
-        systemRegistry.register(system, priority, order),
-
-      unregisterSystem: (name: string) => systemRegistry.unregister(name),
-
-      update: (deltaTime: number) =>
-        pipe(
-          systemRegistry.update(deltaTime),
-          Effect.mapError((error) => {
-            if (error._tag === 'SystemError') {
-              return error
-            }
-            return new WorldError({ message: error.message, cause: error })
-          })
-        ),
-
-      getStats: Effect.gen(function* () {
-        const allEntities = yield* entityManager.getAllEntities()
-        const systems = yield* systemRegistry.getSystems
-
-        return {
-          entityCount: allEntities.length,
-          componentCount: 0, // TODO: 実際のコンポーネント数を計算
-          systemCount: systems.length,
-          frameTime: 0, // TODO: 実際のフレーム時間を計算
-          fps: 0, // TODO: 実際のFPSを計算
-        }
-      }),
-
-      clear: Effect.gen(function* () {
-        yield* entityManager.clear()
-        yield* systemRegistry.clear
-        yield* Ref.set(stateRef, {
-          entityIdCounter: 0,
-          entities: new Map(),
-          components: new Map(),
-          stats: {
-            entityCount: 0,
-            componentCount: 0,
-            systemCount: 0,
-            frameTime: 0,
-            fps: 0,
-          },
-        })
-      }),
-
-      batchGetComponents: <T>(componentType: string) =>
-        pipe(
-          entityManager.batchGetComponents<T>(componentType),
-          Effect.map(arr => new Map(arr))
-        ),
-
-      setEntityActive: (id: EntityId, active: boolean) =>
-        pipe(
-          entityManager.setEntityActive(id, active),
-          Effect.mapError((error) => new WorldError({ message: error.message, cause: error }))
-        ),
+      createEntity,
+      destroyEntity,
+      addComponent,
+      removeComponent,
+      getComponent,
+      hasComponent,
+      getEntitiesWithComponent,
+      getEntitiesWithComponents,
+      getEntitiesByTag,
+      getAllEntities,
+      getEntityMetadata,
+      registerSystem,
+      unregisterSystem,
+      update,
+      getStats,
+      clear,
+      batchGetComponents,
+      setEntityActive,
     })
   })
 )

@@ -88,11 +88,10 @@ const validateVector3 = (
   paramName: string = 'position'
 ): Effect.Effect<Vector3, CameraError> => {
   return pipe(
-    Effect.try({
-      try: () => Schema.decodeSync(Vector3Schema)(position),
-      catch: () => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates')
-    })
-  )
+    position,
+    Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3, unknown>),
+    Effect.mapError(() => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates'))
+  ) as Effect.Effect<Vector3, CameraError>
 }
 
 /**
