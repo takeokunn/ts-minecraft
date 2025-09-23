@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, Schedule, Stream, Match, pipe } from 'effect'
+import { Effect, Layer, Option, pipe, Ref, Schedule, Stream, Match } from 'effect'
 import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics } from './types'
 import type { GameLoopState } from './types'
@@ -231,9 +231,13 @@ export const GameLoopServiceLive = Layer.effect(
             return yield* Effect.fail((pauseResult as any).error)
           }
 
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (frameId) => Effect.sync(() => cancelAnimationFrame(frameId)),
+            })
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -289,9 +293,13 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (frameId) => Effect.sync(() => cancelAnimationFrame(frameId)),
+            })
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -439,9 +447,13 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (frameId) => Effect.sync(() => cancelAnimationFrame(frameId)),
+            })
+          )
 
           yield* Ref.set(internalState, {
             state: 'idle' as GameLoopState,

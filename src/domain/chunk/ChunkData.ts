@@ -177,12 +177,8 @@ export const getHeight = (chunk: ChunkData, x: number, z: number): number => {
  * チャンクが空かどうかをチェック
  */
 export const isEmpty = (chunk: ChunkData): boolean => {
-  for (let i = 0; i < chunk.blocks.length; i++) {
-    if (chunk.blocks[i] !== 0) {
-      return false
-    }
-  }
-  return true
+  // forループをArray.every()に変換（ショートサーキット評価でパフォーマンス維持）
+  return Array.from(chunk.blocks).every((blockValue) => blockValue === 0)
 }
 
 /**

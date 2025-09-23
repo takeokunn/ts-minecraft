@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { ChunkPosition } from './ChunkPosition.js'
 import type { ChunkData, ChunkMetadata } from './ChunkData.js'
 import {
@@ -309,12 +309,16 @@ export const createChunk = (data: ChunkData): Chunk => {
 
     decompress(compressedData: ArrayBuffer): Effect.Effect<Chunk, ChunkSerializationError> {
       return Effect.gen(function* () {
+        // Effect-TSパターン: 複合条件分岐をMatch.valueで置換
+        yield* pipe(
+          Match.value(compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0),
+          Match.when(true, () => Effect.fail(ChunkSerializationError('Invalid compressed data'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
+
         const decompressedBuffer = yield* Effect.try({
           try: () => {
-            if (compressedData.byteLength === 0 || compressedData.byteLength % 2 !== 0) {
-              throw ChunkSerializationError('Invalid compressed data')
-            }
-
             const input = new Uint16Array(compressedData)
             const decompressed: number[] = []
 
@@ -342,12 +346,8 @@ export const createChunk = (data: ChunkData): Chunk => {
     },
 
     isEmpty(): boolean {
-      for (let i = 0; i < chunk.blocks.length; i++) {
-        if (chunk.blocks[i] !== 0) {
-          return false
-        }
-      }
-      return true
+      // Effect-TSパターン: forループをArray.everyで置換
+      return Array.from(chunk.blocks).every((blockValue) => blockValue === 0)
     },
 
     getMemoryUsage(): number {

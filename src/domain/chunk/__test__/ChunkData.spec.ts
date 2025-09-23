@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Schema } from '@effect/schema'
+import { Option, pipe, Match } from 'effect'
 import {
   CHUNK_SIZE,
   CHUNK_HEIGHT,
@@ -112,9 +113,28 @@ describe('ChunkData', () => {
       ]
 
       invalidCases.forEach(([x, y, z]) => {
-        if (x !== undefined && y !== undefined && z !== undefined) {
-          expect(() => getBlockIndex(x, y, z)).toThrow()
-        }
+        pipe(
+          Option.fromNullable(x),
+          Option.flatMap((_x) =>
+            pipe(
+              Option.fromNullable(y),
+              Option.flatMap((_y) =>
+                pipe(
+                  Option.fromNullable(z),
+                  Option.map((_z) => ({ x: _x, y: _y, z: _z }))
+                )
+              )
+            )
+          ),
+          Option.match({
+            onNone: () => {
+              // undefined値が含まれる場合はスキップ
+            },
+            onSome: (coords) => {
+              expect(() => getBlockIndex(coords.x, coords.y, coords.z)).toThrow()
+            },
+          })
+        )
       })
     })
 
@@ -311,9 +331,23 @@ describe('ChunkData', () => {
       ]
 
       invalidCases.forEach(([x, z]) => {
-        if (x !== undefined && z !== undefined) {
-          expect(() => getHeight(testChunk, x, z)).toThrow()
-        }
+        pipe(
+          Option.fromNullable(x),
+          Option.flatMap((_x) =>
+            pipe(
+              Option.fromNullable(z),
+              Option.map((_z) => ({ x: _x, z: _z }))
+            )
+          ),
+          Option.match({
+            onNone: () => {
+              // undefined値が含まれる場合はスキップ
+            },
+            onSome: (coords) => {
+              expect(() => getHeight(testChunk, coords.x, coords.z)).toThrow()
+            },
+          })
+        )
       })
     })
   })
@@ -424,18 +458,40 @@ describe('ChunkData', () => {
 
         const end = performance.now()
         const timePerOperation = (end - start) / size
-        if (timePerOperation !== undefined) {
-          times.push(timePerOperation)
-        }
+        pipe(
+          Option.fromNullable(timePerOperation),
+          Option.match({
+            onNone: () => {
+              // 時間が未定義の場合はスキップ
+            },
+            onSome: (time) => {
+              times.push(time)
+            },
+          })
+        )
       }
 
       // Time per operation should not increase significantly with size
       const lastTime = times[times.length - 1]
       const firstTime = times[0]
-      if (lastTime !== undefined && firstTime !== undefined) {
-        const ratioLastToFirst = lastTime / firstTime
-        expect(ratioLastToFirst).toBeLessThan(2.0) // Allow some variance but should be roughly constant
-      }
+      pipe(
+        Option.fromNullable(lastTime),
+        Option.flatMap((last) =>
+          pipe(
+            Option.fromNullable(firstTime),
+            Option.map((first) => ({ last, first }))
+          )
+        ),
+        Option.match({
+          onNone: () => {
+            // 時間データが不完全な場合はスキップ
+          },
+          onSome: ({ last, first }) => {
+            const ratioLastToFirst = last / first
+            expect(ratioLastToFirst).toBeLessThan(2.0) // Allow some variance but should be roughly constant
+          },
+        })
+      )
     })
 
     it('should handle full chunk population efficiently', () => {

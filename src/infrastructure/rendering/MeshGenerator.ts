@@ -465,10 +465,19 @@ export const createBufferGeometry = (meshData: MeshData): THREE.BufferGeometry =
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
 
-  if (meshData.colors) {
-    const colors = [...meshData.colors]
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-  }
+  // Effect-TSパターン: Option.fromNullableとOption.matchを使用してnullableチェックを実行
+  pipe(
+    Option.fromNullable(meshData.colors),
+    Option.match({
+      onNone: () => {
+        // colors が null/undefined の場合は何もしない
+      },
+      onSome: (colors) => {
+        const colorArray = [...colors]
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colorArray, 3))
+      },
+    })
+  )
 
   geometry.setIndex(indices)
   geometry.computeBoundingSphere()
