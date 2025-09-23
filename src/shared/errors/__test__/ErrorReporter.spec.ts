@@ -197,7 +197,7 @@ describe('ErrorReporter', () => {
     })
 
     it('深い原因チェーンを処理する', () => {
-      let currentError: any = new Error('Root')
+      let currentError: unknown = new Error('Root')
 
       // 10層の原因チェーンを作成
       for (let i = 1; i < 10; i++) {
@@ -211,6 +211,7 @@ describe('ErrorReporter', () => {
       const chain = ErrorReporter.getCauseChain(currentError)
       expect(chain).toHaveLength(10)
       expect(chain[0]).toBe(currentError)
+      expect(chain[9]).toBeInstanceOf(Error)
       expect((chain[9] as Error).message).toBe('Root')
     })
 

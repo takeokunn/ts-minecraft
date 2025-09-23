@@ -120,14 +120,14 @@ const validateNumber = (value: unknown, parameterName: string): Effect.Effect<nu
 const validateVector3 = (
   position: unknown,
   paramName: string = 'position'
-): Effect.Effect<Vector3, CameraError, never> =>
-  Effect.gen(function* () {
-    const decoded = yield* pipe(
-      Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3>)(position),
-      Effect.mapError(() => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates'))
-    )
-    return decoded as Vector3
-  })
+): Effect.Effect<Vector3, CameraError> => {
+  return pipe(
+    Effect.try({
+      try: () => Schema.decodeSync(Vector3Schema)(position),
+      catch: () => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates')
+    })
+  )
+}
 
 /**
  * ThirdPersonCameraサービスの実装を作成

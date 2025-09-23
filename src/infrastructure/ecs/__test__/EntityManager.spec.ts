@@ -73,7 +73,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const isAlive = yield* manager.isEntityAlive(entityId)
           expect(isAlive).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -89,7 +89,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const metadata = yield* manager.getEntityMetadata(entityId)
           expect(Option.isNone(metadata)).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -112,7 +112,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // 新しいエンティティを作成（IDが再利用される）
           const recycledId = yield* manager.createEntity()
           expect(createdIds).toContain(recycledId)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -135,7 +135,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const hasComponent = yield* manager.hasComponent(entityId, 'Position')
           expect(hasComponent).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -153,7 +153,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           if (Option.isSome(updated)) {
             expect(updated.value).toEqual({ x: 10, y: 20, z: 30 })
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -171,7 +171,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const component = yield* manager.getComponent(entityId, 'Position')
           expect(Option.isNone(component)).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -190,7 +190,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(components.has('Position')).toBe(true)
           expect(components.has('Velocity')).toBe(true)
           expect(components.has('Health')).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -213,7 +213,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(withPosition).toContain(entity1)
           expect(withPosition).toContain(entity2)
           expect(withPosition).not.toContain(entity3)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -238,7 +238,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(withBoth).toContain(entity1)
           expect(withBoth).toContain(entity3)
           expect(withBoth).not.toContain(entity2)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -259,7 +259,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           const heroes = yield* manager.getEntitiesByTag('hero')
           expect(heroes).toHaveLength(1)
           expect(heroes).toContain(player1)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -269,7 +269,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
       () =>
         Effect.gen(function* () {
           const manager = yield* EntityManager
-          const invalidId = 99999 as EntityId
+          const invalidId = EntityIdBrand(99999)
 
           // Effect.eitherを使用してエラーを検証
           const result = yield* Effect.either(manager.destroyEntity(invalidId))
@@ -278,7 +278,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
             expect(result.left).toHaveProperty('_tag', 'EntityManagerError')
             expect(result.left).toHaveProperty('reason', 'ENTITY_NOT_FOUND')
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -286,14 +286,14 @@ describe('EntityManager - Effect-TS Pattern', () => {
       () =>
         Effect.gen(function* () {
           const manager = yield* EntityManager
-          const invalidId = 99999 as EntityId
+          const invalidId = EntityIdBrand(99999)
 
           const addResult = yield* Effect.either(manager.addComponent(invalidId, 'Position', { x: 0, y: 0, z: 0 }))
           expect(addResult._tag).toBe('Left')
 
           const removeResult = yield* Effect.either(manager.removeComponent(invalidId, 'Position'))
           expect(removeResult._tag).toBe('Left')
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -312,7 +312,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
             expect(result.left.message).toContain(`Entity ${nonExistentId} not found`)
             expect(result.left.entityId).toBe(nonExistentId)
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -371,7 +371,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           yield* queryTest
           const end = performance.now()
           expect(end - start).toBeLessThan(300) // 300ms以内 (CI環境での変動を考慮)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -396,7 +396,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
               expect(component.value.x).toBe(i)
             }
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -424,7 +424,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
             const pos = positionMap.get(entities[i]!)
             expect(pos).toEqual({ x: i, y: i * 2, z: i * 3 })
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -450,7 +450,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           )
 
           expect(totalX).toBe(55) // 1+2+3+...+10 = 55
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -477,7 +477,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const allEntities = yield* manager.getAllEntities()
           expect(allEntities).toHaveLength(0)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -496,7 +496,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           yield* manager.setEntityActive(entityId, true)
           const metadata2 = yield* manager.getEntityMetadata(entityId)
           expect(Option.isSome(metadata2) && metadata2.value.active).toBe(true)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -508,7 +508,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // 存在しないタグでの検索
           const result = yield* manager.getEntitiesByTag('non-existent-tag')
           expect(result).toHaveLength(0)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -520,7 +520,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // updateメソッドをテスト（現在はvoidを返すプレースホルダー実装）
           yield* manager.update(16.67) // 60FPS相当のdeltaTime
           // エラーが発生しないことを確認
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -552,7 +552,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(enemyAfter).not.toContain(entity)
           expect(flyingAfter).not.toContain(entity)
           expect(bossAfter).not.toContain(entity)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -572,7 +572,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
             expect(result.left._tag).toBe('EntityManagerError')
             expect(result.left.reason).toBe('COMPONENT_NOT_FOUND')
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -608,7 +608,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(tag3After).toHaveLength(2)
           expect(tag4After).toHaveLength(1)
           expect(tag4After).toContain(entities[2])
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -626,7 +626,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // エンティティが存在しないことを確認
           const isAlive = yield* manager.isEntityAlive(entity)
           expect(isAlive).toBe(false)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -650,7 +650,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // エンティティが削除されていることを確認
           const isAlive = yield* manager.isEntityAlive(entity)
           expect(isAlive).toBe(false)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -672,7 +672,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           // タグインデックスから削除されていることを確認
           const afterDeletion = yield* manager.getEntitiesByTag('special-tag')
           expect(afterDeletion).not.toContain(entity)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -708,7 +708,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           expect(playerEntities).not.toContain(entity)
           expect(activeEntities).not.toContain(entity)
           expect(visibleEntities).not.toContain(entity)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -833,7 +833,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           }
 
           return true
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect('EntityManagerError の構造とプロパティ検証', () =>
@@ -888,7 +888,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           const invalidPosition = { x: 'not-a-number', y: 20, z: 30 }
           expect(() => Schema.decodeUnknownSync(PositionComponentSchema)(invalidPosition)).toThrow()
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -896,7 +896,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
       () =>
         Effect.gen(function* () {
           const manager = yield* EntityManager
-          const invalidId = 99999 as EntityId
+          const invalidId = EntityIdBrand(99999)
 
           const errorResult = yield* Effect.either(manager.destroyEntity(invalidId))
           expect(Either.isLeft(errorResult)).toBe(true)
@@ -904,10 +904,14 @@ describe('EntityManager - Effect-TS Pattern', () => {
           if (Either.isLeft(errorResult)) {
             const taggedError = errorResult.left
             expect(taggedError._tag).toBe('EntityManagerError')
-            expect((taggedError as any).reason).toBe('ENTITY_NOT_FOUND')
-            expect((taggedError as any).entityId).toBe(invalidId)
+            if ('reason' in taggedError) {
+              expect(taggedError.reason).toBe('ENTITY_NOT_FOUND')
+            }
+            if ('entityId' in taggedError) {
+              expect(taggedError.entityId).toBe(invalidId)
+            }
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -931,7 +935,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
             const roundTripValidated = Schema.decodeUnknownSync(PositionComponentSchema)(retrieved.value)
             expect(roundTripValidated).toEqual(originalPosition)
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -971,7 +975,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
             expect(isValid).toBe(true)
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -1011,7 +1015,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
               // This is expected behavior
             }
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
 
     it.effect(
@@ -1060,7 +1064,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
             expect(allTagsValid && metadataValid).toBe(true)
           }
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -1095,7 +1099,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           expect(typeof entity).toBe('number')
           expect(entity).toBeGreaterThanOrEqual(0)
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -1128,7 +1132,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
           })
 
           yield* systemTest
-        }).pipe(Effect.provide(EntityManagerTestLayer)) as any
+        }).pipe(Effect.provide(EntityManagerTestLayer))
     )
   })
 
@@ -1154,7 +1158,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
           expect(typeof measureResult).toBe('number')
           expect(performanceTime).toBeGreaterThan(0)
-        }) as any
+        })
     )
   })
 })
