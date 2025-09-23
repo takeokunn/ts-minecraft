@@ -306,7 +306,15 @@ describe('ThreeRenderer', () => {
         yield* renderer.render(scene, camera)
       })
 
-      expect(Effect.runSync(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
     it('初期化前のWebGL2機能有効化でエラーが発生する', () => {
@@ -315,7 +323,15 @@ describe('ThreeRenderer', () => {
         yield* renderer.enableWebGL2Features()
       })
 
-      expect(Effect.runSync(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
     it('初期化前のポストプロセシング設定でエラーが発生する', () => {
@@ -324,7 +340,15 @@ describe('ThreeRenderer', () => {
         yield* renderer.setupPostprocessing()
       })
 
-      expect(Effect.runSync(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderExecutionError')
+      }
     })
 
     it('WebGLコンテキスト作成失敗でエラーが発生する', () => {
@@ -336,7 +360,15 @@ describe('ThreeRenderer', () => {
         yield* renderer.initialize(canvas)
       })
 
-      expect(Effect.runSync(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('RenderInitError')
+      }
     })
 
     it('WebGLコンテキストロスト時のエラーハンドリング', () => {
@@ -370,7 +402,15 @@ describe('ThreeRenderer', () => {
         yield* renderer.render(scene, camera)
       })
 
-      expect(Effect.runSync(Effect.provide(program, ThreeRendererLive))).rejects.toThrow()
+      const runnable = Effect.provide(program, ThreeRendererLive)
+      const result = Effect.runSyncExit(runnable)
+
+      expect(result._tag).toBe('Failure')
+      if (result._tag === 'Failure') {
+        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
+        expect(actualError).toBeDefined()
+        expect(actualError._tag).toBe('ContextLostError')
+      }
     })
   })
 

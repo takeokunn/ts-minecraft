@@ -17,21 +17,35 @@ describe('GameLoopServiceLive', () => {
     rafCallbacks = new Map()
     nextRAFId = 1
 
+    // 改善されたモック実装（タイムアウトを防ぐ）
     mockRAF = vi.fn((callback: (timestamp: number) => void) => {
       const id = nextRAFId++
       rafCallbacks.set(id, callback)
-      // Simulate async execution
-      setTimeout(() => {
+
+      // 即座にコールバックを実行（タイムアウトによるデッドロックを防ぐ）
+      queueMicrotask(() => {
         const cb = rafCallbacks.get(id)
         if (cb) {
-          cb(performance.now())
+          try {
+            cb(performance.now())
+          } catch (error) {
+            console.error('Mock RAF callback error:', error)
+          }
         }
-      }, 16) // ~60fps
+      })
       return id
     })
 
     mockCAF = vi.fn((id: number) => {
       rafCallbacks.delete(id)
+    })
+
+    // パフォーマンス.nowのモック追加
+    vi.stubGlobal('performance', {
+      now: () => Date.now(),
+      memory: {
+        usedJSHeapSize: 1024 * 1024, // 1MB
+      },
     })
 
     global.requestAnimationFrame = mockRAF

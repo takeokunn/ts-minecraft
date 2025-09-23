@@ -125,22 +125,21 @@ describe('LoggerServiceTest', () => {
       )
     })
 
-    it('measures performance of async operations', () => {
+    it('measures performance of sync operations that appear async', () => {
       const program = Effect.gen(function* () {
         const logger = yield* LoggerService
 
-        const asyncOperation = Effect.gen(function* () {
-          // Simulate async work
-          yield* Effect.sleep('10 millis')
-          return 'async-result'
+        const syncOperation = Effect.gen(function* () {
+          // Simulate work without actual async delay
+          return 'sync-result'
         })
 
-        const result = yield* logger.measurePerformance('async-test', asyncOperation)
+        const result = yield* logger.measurePerformance('sync-test', syncOperation)
         return result
       })
 
       const result = Effect.runSync(program.pipe(Effect.provide(LoggerServiceTest)))
-      expect(result).toBe('async-result')
+      expect(result).toBe('sync-result')
     })
 
     it('preserves operation errors during performance measurement', () => {

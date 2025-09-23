@@ -145,51 +145,42 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
         const newBlocks = new Uint16Array(chunkData.blocks)
         const STONE_ID = 2 // 石ブロックID
 
+        // チャンクの実際の高さを計算（最適化）
+        const maxHeight = Math.min(320, Math.floor(chunkData.blocks.length / (16 * 16)) - 64)
+
         for (let x = 0; x < 16; x++) {
           for (let z = 0; z < 16; z++) {
-            for (let y = -64; y < 320; y++) {
-              const worldX = chunkData.position.x * 16 + x
-              const worldZ = chunkData.position.z * 16 + z
+            for (let y = -64; y < maxHeight; y++) {
               const index = getBlockIndex(x, y, z)
+              
+              // 範囲外チェック（安全性）
+              if (index >= newBlocks.length) continue
+              
               const currentBlock = newBlocks[index] ?? 0
 
               // 石ブロックの場合のみ鉱石生成を検討
-              yield* pipe(
-                Match.value(currentBlock),
-                Match.when(STONE_ID, () =>
-                  Effect.gen(function* () {
-                    const position = { x: worldX, y, z: worldZ }
+              if (currentBlock === STONE_ID) {
+                const worldX = chunkData.position.x * 16 + x
+                const worldZ = chunkData.position.z * 16 + z
+                const position = { x: worldX, y, z: worldZ }
 
-                    // 各鉱石タイプをチェック
-                    for (const oreConfig of config.ores) {
-                      // 高度範囲チェック
-                      const isInRange = y >= oreConfig.minY && y <= oreConfig.maxY
+                // 各鉱石タイプをチェック（最適化: 早期終了）
+                for (const oreConfig of config.ores) {
+                  // 高度範囲チェック（早期リターン）
+                  if (y < oreConfig.minY || y > oreConfig.maxY) {
+                    continue
+                  }
 
-                      yield* pipe(
-                        Match.value(isInRange),
-                        Match.when(true, () =>
-                          Effect.gen(function* () {
-                            // 鉱石密度計算（内部関数を使用）
-                            const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
+                  // 鉱石密度計算
+                  const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
 
-                            // 生成判定
-                            yield* pipe(
-                              Match.value(density > oreConfig.rarity),
-                              Match.when(true, () => {
-                                newBlocks[index] = oreConfig.blockId
-                                return Effect.succeed(true) // 配置完了
-                              }),
-                              Match.orElse(() => Effect.succeed(false))
-                            )
-                          })
-                        ),
-                        Match.orElse(() => Effect.succeed(false))
-                      )
-                    }
-                  })
-                ),
-                Match.orElse(() => Effect.succeed(undefined))
-              )
+                  // 生成判定
+                  if (density > oreConfig.rarity) {
+                    newBlocks[index] = oreConfig.blockId
+                    break // 最初にマッチした鉱石を配置して終了
+                  }
+                }
+              }
             }
           }
         }

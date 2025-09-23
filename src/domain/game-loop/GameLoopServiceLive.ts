@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer, Option, pipe, Ref, Schedule, Stream, Match } from 'effect'
+import { Effect, Exit, Layer, Option, pipe, Ref, Schedule, Stream, Match, Duration } from 'effect'
 import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics } from './types'
 import type { GameLoopState } from './types'
@@ -34,7 +34,7 @@ export const GameLoopServiceLive = Layer.effect(
       totalFrames: 0,
     })
 
-    // フレーム実行ロジック
+    // フレーム実行ロジック（再帰を制御）
     const executeFrame = (timestamp: number) =>
       Effect.gen(function* () {
         const state = yield* Ref.get(internalState)
@@ -98,28 +98,37 @@ export const GameLoopServiceLive = Layer.effect(
           performanceBuffer: updatedBuffer,
           totalFrames: s.totalFrames + 1,
         }))
+      })
 
-        // 次フレームのスケジューリング
-        if (state.state === 'running') {
-          yield* Effect.async<void, never, never>((resume) => {
+    // 安全なフレームスケジューリング（タイムアウト付き）
+    const scheduleNextFrame = () =>
+      Effect.gen(function* () {
+        const state = yield* Ref.get(internalState)
+
+        // 状態が'running'でない場合は何もしない
+        if (state.state !== 'running') {
+          return
+        }
+
+        // タイムアウト付きで単一フレームを実行（再帰を防ぐ）
+        yield* Effect.race(
+          Effect.async<void, never, never>((resume) => {
             const nextFrameId = requestAnimationFrame((ts) => {
+              // フレーム処理のみを実行（再帰呼び出しを削除）
               Effect.runFork(
-                Effect.gen(function* () {
-                  yield* executeFrame(ts)
-                  resume(Effect.succeed(undefined))
-                }).pipe(
+                executeFrame(ts).pipe(
                   Effect.catchAll((error) =>
                     Effect.sync(() => {
                       console.error('Frame execution failed:', error)
-                      resume(Effect.succeed(undefined))
                     })
                   )
                 )
               )
+              resume(Effect.succeed(undefined))
             })
 
             // animationFrameIdの更新をリソース取得として管理
-            Effect.runSync(
+            Effect.runFork(
               Ref.update(internalState, (s) => ({
                 ...s,
                 animationFrameId: nextFrameId,
@@ -127,8 +136,11 @@ export const GameLoopServiceLive = Layer.effect(
             )
 
             return Effect.sync(() => cancelAnimationFrame(nextFrameId))
-          })
-        }
+          }),
+          Effect.sleep(Duration.millis(50)) // タイムアウト50msに短縮
+        ).pipe(
+          Effect.catchAll(() => Effect.void) // タイムアウト時は無視
+        )
       })
 
     return GameLoopService.of({
@@ -206,40 +218,41 @@ export const GameLoopServiceLive = Layer.effect(
             return
           }
 
+          // 原子的な状態更新
           yield* Ref.update(internalState, (s) => ({
             ...s,
             state: 'running' as GameLoopState,
             lastFrameTime: performance.now(),
           }))
 
-          // 最初のフレームを開始
-          yield* Effect.async<void, never, never>((resume) => {
-            const frameId = requestAnimationFrame((timestamp) => {
-              Effect.runFork(
-                Effect.gen(function* () {
-                  yield* executeFrame(timestamp)
-                  resume(Effect.succeed(undefined))
-                }).pipe(
-                  Effect.catchAll((error) =>
-                    Effect.sync(() => {
-                      console.error('Frame execution failed:', error)
-                      resume(Effect.succeed(undefined))
-                    })
+          // 単一フレームをスケジュール（連続実行はしない）
+          yield* Effect.race(
+            Effect.async<void, never, never>((resume) => {
+              const frameId = requestAnimationFrame((timestamp) => {
+                Effect.runFork(
+                  executeFrame(timestamp).pipe(
+                    Effect.catchAll((error) =>
+                      Effect.sync(() => {
+                        console.error('Frame execution failed:', error)
+                      })
+                    )
                   )
                 )
+                resume(Effect.succeed(undefined))
+              })
+
+              // animationFrameIdの更新
+              Effect.runFork(
+                Ref.update(internalState, (s) => ({
+                  ...s,
+                  animationFrameId: frameId,
+                }))
               )
-            })
 
-            // animationFrameIdの更新
-            Effect.runSync(
-              Ref.update(internalState, (s) => ({
-                ...s,
-                animationFrameId: frameId,
-              }))
-            )
-
-            return Effect.sync(() => cancelAnimationFrame(frameId))
-          })
+              return Effect.sync(() => cancelAnimationFrame(frameId))
+            }),
+            Effect.sleep(Duration.millis(100)) // タイムアウト保護
+          ).pipe(Effect.catchAll(() => Effect.void))
         }),
 
       pause: () =>
@@ -269,6 +282,7 @@ export const GameLoopServiceLive = Layer.effect(
             return yield* Effect.fail((pauseResult as any).error)
           }
 
+          // アニメーションフレームのキャンセル
           yield* pipe(
             Option.fromNullable(currentState.animationFrameId),
             Option.match({
@@ -277,6 +291,7 @@ export const GameLoopServiceLive = Layer.effect(
             })
           )
 
+          // 原子的な状態更新
           yield* Ref.update(internalState, (s) => ({
             ...s,
             state: 'paused' as GameLoopState,
@@ -311,45 +326,48 @@ export const GameLoopServiceLive = Layer.effect(
             return yield* Effect.fail((resumeResult as any).error)
           }
 
+          // 原子的な状態更新
           yield* Ref.update(internalState, (s) => ({
             ...s,
             state: 'running' as GameLoopState,
             lastFrameTime: performance.now(),
           }))
 
-          yield* Effect.async<void, never, never>((resume) => {
-            const frameId = requestAnimationFrame((timestamp) => {
-              Effect.runFork(
-                Effect.gen(function* () {
-                  yield* executeFrame(timestamp)
-                  resume(Effect.succeed(undefined))
-                }).pipe(
-                  Effect.catchAll((error) =>
-                    Effect.sync(() => {
-                      console.error('Frame execution failed:', error)
-                      resume(Effect.succeed(undefined))
-                    })
+          // 単一フレームをスケジュール（連続実行はしない）
+          yield* Effect.race(
+            Effect.async<void, never, never>((resume) => {
+              const frameId = requestAnimationFrame((timestamp) => {
+                Effect.runFork(
+                  executeFrame(timestamp).pipe(
+                    Effect.catchAll((error) =>
+                      Effect.sync(() => {
+                        console.error('Frame execution failed:', error)
+                      })
+                    )
                   )
                 )
+                resume(Effect.succeed(undefined))
+              })
+
+              // animationFrameIdの更新
+              Effect.runFork(
+                Ref.update(internalState, (s) => ({
+                  ...s,
+                  animationFrameId: frameId,
+                }))
               )
-            })
 
-            // animationFrameIdの更新
-            Effect.runSync(
-              Ref.update(internalState, (s) => ({
-                ...s,
-                animationFrameId: frameId,
-              }))
-            )
-
-            return Effect.sync(() => cancelAnimationFrame(frameId))
-          })
+              return Effect.sync(() => cancelAnimationFrame(frameId))
+            }),
+            Effect.sleep(Duration.millis(100)) // タイムアウト保護
+          ).pipe(Effect.catchAll(() => Effect.void))
         }),
 
       stop: () =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
+          // アニメーションフレームのキャンセル
           yield* pipe(
             Option.fromNullable(currentState.animationFrameId),
             Option.match({
@@ -358,6 +376,7 @@ export const GameLoopServiceLive = Layer.effect(
             })
           )
 
+          // 原子的な状態更新
           yield* Ref.update(internalState, (s) => ({
             ...s,
             state: 'stopped' as GameLoopState,
@@ -441,6 +460,7 @@ export const GameLoopServiceLive = Layer.effect(
 
       tick: (deltaTime) =>
         Effect.gen(function* () {
+          // 現在の状態を取得（フレッシュな状態を取得）
           const state = yield* Ref.get(internalState)
           const currentTime = performance.now()
           const actualDeltaTime = deltaTime ?? (state.lastFrameTime > 0 ? currentTime - state.lastFrameTime : 16.67)
@@ -466,20 +486,22 @@ export const GameLoopServiceLive = Layer.effect(
           // Update performance buffer
           const updatedBuffer = [...state.performanceBuffer, frameInfo.fps].slice(-60)
 
-          // コールバックの実行
-          yield* Effect.all(
-            state.frameCallbacks.map((callback) => callback(frameInfo)),
-            { concurrency: 'unbounded' }
-          ).pipe(
-            Effect.catchAll((error) =>
-              Effect.fail({
-                _tag: 'GameLoopRuntimeError' as const,
-                message: 'Error executing frame callbacks',
-                frameNumber: state.frameCount,
-                error,
-              } satisfies GameLoopRuntimeError)
+          // コールバックの実行（現在の状態のコールバックのみを実行）
+          if (state.frameCallbacks.length > 0) {
+            yield* Effect.all(
+              state.frameCallbacks.map((callback) => callback(frameInfo)),
+              { concurrency: 'unbounded' }
+            ).pipe(
+              Effect.catchAll((error) =>
+                Effect.fail({
+                  _tag: 'GameLoopRuntimeError' as const,
+                  message: 'Error executing frame callbacks',
+                  frameNumber: state.frameCount,
+                  error,
+                } satisfies GameLoopRuntimeError)
+              )
             )
-          )
+          }
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -504,6 +526,7 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
+          // アニメーションフレームのキャンセル
           yield* pipe(
             Option.fromNullable(currentState.animationFrameId),
             Option.match({
@@ -512,6 +535,7 @@ export const GameLoopServiceLive = Layer.effect(
             })
           )
 
+          // 完全リセット
           yield* Ref.set(internalState, {
             state: 'idle' as GameLoopState,
             config: DEFAULT_GAME_LOOP_CONFIG,

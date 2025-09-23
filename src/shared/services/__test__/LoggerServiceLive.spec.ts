@@ -32,7 +32,9 @@ describe('LoggerServiceLive', () => {
       })
 
       // ログ処理でエラーが発生しないことを確認
-      expect(Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))).resolves.toBeUndefined()
+      expect(() => {
+        Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))
+      }).not.toThrow()
     })
 
     it('should handle performance measurement operations', () => {
@@ -62,7 +64,12 @@ describe('LoggerServiceLive', () => {
         )
       })
 
-      expect(Effect.runSync(program.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow('Operation failed')
+      const result = Effect.runSync(Effect.either(program.pipe(Effect.provide(LoggerServiceLive))))
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(Error)
+        expect((result.left as Error).message).toBe('Operation failed')
+      }
     })
   })
 
@@ -205,7 +212,12 @@ describe('LoggerServiceLive', () => {
         return result.right
       })
 
-      expect(Effect.runSync(errorWorkflow.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow('Task failed')
+      const result = Effect.runSync(Effect.either(errorWorkflow.pipe(Effect.provide(LoggerServiceLive))))
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(Error)
+        expect((result.left as Error).message).toBe('Task failed')
+      }
     })
   })
 })
