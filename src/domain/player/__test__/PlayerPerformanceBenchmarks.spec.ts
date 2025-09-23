@@ -25,7 +25,7 @@ import { PHYSICS_CONSTANTS } from '../MovementSystem.js'
 
 describe('Player System Performance Benchmarks', () => {
   // CI環境ではパフォーマンステストをスキップ（不安定なため）
-  const isCI = process.env.CI === 'true'
+  const isCI = process.env['CI'] === 'true'
   const describeOrSkip = isCI ? describe.skip : describe
   const itOrSkip = isCI ? it.skip : it
 
