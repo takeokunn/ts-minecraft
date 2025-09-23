@@ -2,7 +2,7 @@ import { Effect, Layer, Ref, pipe, Option, HashMap } from 'effect'
 import { PlayerService } from './PlayerService.js'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
-import type { PlayerId } from '../../shared/types/branded.js'
+import type { PlayerId, ComponentTypeName } from '../../shared/types/branded.js'
 import {
   type PlayerConfig,
   type PlayerState,
@@ -48,9 +48,9 @@ const makePlayerServiceLive = Effect.gen(function* () {
   const playersRef = yield* Ref.make<HashMap.HashMap<PlayerId, PlayerInternalState>>(HashMap.empty())
 
   // Component type constants
-  const PLAYER_COMPONENT = 'PlayerComponent'
-  const POSITION_COMPONENT = 'PositionComponent'
-  const ROTATION_COMPONENT = 'RotationComponent'
+  const PLAYER_COMPONENT = 'PlayerComponent' as ComponentTypeName
+  const POSITION_COMPONENT = 'PositionComponent' as ComponentTypeName
+  const ROTATION_COMPONENT = 'RotationComponent' as ComponentTypeName
 
   // Helper: プレイヤーの内部状態を取得
   const getPlayerInternalState = (playerId: PlayerId): Effect.Effect<PlayerInternalState, PlayerError> =>

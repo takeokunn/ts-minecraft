@@ -40,7 +40,7 @@ export type PlayerState = Schema.Schema.Type<typeof PlayerState>
  * プレイヤー作成時の設定
  */
 export const PlayerConfig = Schema.Struct({
-  playerId: Schema.String, // PlayerId branded type
+  playerId: Schema.String.pipe(Schema.minLength(1)), // PlayerId branded type with min length validation
   initialPosition: Schema.optional(PlayerPosition),
   initialRotation: Schema.optional(PlayerRotation),
   health: Schema.optional(Schema.Number.pipe(Schema.between(0, 100))),

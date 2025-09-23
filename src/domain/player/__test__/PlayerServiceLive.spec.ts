@@ -6,7 +6,7 @@ import { PlayerService } from '../PlayerService.js'
 import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/EntityManager.js'
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
-import { BrandedTypes } from '../../../shared/types/branded.js'
+import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded.js'
 import {
   createPlayerError,
   type PlayerPosition,
@@ -30,7 +30,10 @@ describe('PlayerService Integration Tests', () => {
   // テスト用のレイヤー設定
   const TestDependencies = Layer.mergeAll(EntityPoolLayer, SystemRegistryServiceLive)
   const EntityManagerTestLayer = Layer.provide(EntityManagerLayer, TestDependencies)
-  const PlayerServiceTestLayer = Layer.provide(PlayerServiceLive, EntityManagerTestLayer)
+  const PlayerServiceTestLayer = Layer.mergeAll(
+    Layer.provide(PlayerServiceLive, EntityManagerTestLayer),
+    EntityManagerTestLayer
+  )
 
   describe('Player Creation and Destruction', () => {
     effectIt.effect(
@@ -575,17 +578,26 @@ describe('PlayerService Integration Tests', () => {
           }
 
           // コンポーネントの存在確認
-          const hasPlayerComponent = yield* entityManager.hasComponent(entityId, 'PlayerComponent')
-          const hasPositionComponent = yield* entityManager.hasComponent(entityId, 'PositionComponent')
-          const hasRotationComponent = yield* entityManager.hasComponent(entityId, 'RotationComponent')
+          const hasPlayerComponent = yield* entityManager.hasComponent(entityId, 'PlayerComponent' as ComponentTypeName)
+          const hasPositionComponent = yield* entityManager.hasComponent(
+            entityId,
+            'PositionComponent' as ComponentTypeName
+          )
+          const hasRotationComponent = yield* entityManager.hasComponent(
+            entityId,
+            'RotationComponent' as ComponentTypeName
+          )
 
           expect(hasPlayerComponent).toBe(true)
           expect(hasPositionComponent).toBe(true)
           expect(hasRotationComponent).toBe(true)
 
           // コンポーネントの内容確認
-          const playerComponent = yield* entityManager.getComponent(entityId, 'PlayerComponent')
-          const positionComponent = yield* entityManager.getComponent(entityId, 'PositionComponent')
+          const playerComponent = yield* entityManager.getComponent(entityId, 'PlayerComponent' as ComponentTypeName)
+          const positionComponent = yield* entityManager.getComponent(
+            entityId,
+            'PositionComponent' as ComponentTypeName
+          )
 
           expect(Option.isSome(playerComponent)).toBe(true)
           expect(Option.isSome(positionComponent)).toBe(true)
