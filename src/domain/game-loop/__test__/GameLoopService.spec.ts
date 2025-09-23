@@ -3,6 +3,7 @@ import { Effect, Either, Layer, TestClock, TestContext, pipe } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import type { FrameInfo, GameLoopConfig } from '../types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 describe('GameLoopService', () => {
   // Mock GameLoopService for testing the interface contract
@@ -496,7 +497,7 @@ describe('GameLoopService', () => {
       const program = Effect.gen(function* () {
         const gameLoop = yield* GameLoopService
         yield* gameLoop.initialize()
-        const frameInfo = yield* gameLoop.tick(customDelta)
+        const frameInfo = yield* gameLoop.tick(BrandedTypes.createDeltaTime(customDelta))
         return frameInfo
       })
 

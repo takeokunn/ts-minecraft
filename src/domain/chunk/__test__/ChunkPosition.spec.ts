@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from '@effect/schema'
 import { Option } from 'effect'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   ChunkPositionSchema,
   type ChunkPosition,
@@ -10,7 +11,7 @@ import {
   chunkIdToPosition,
   chunkPositionEquals,
   chunkPositionDistance,
-} from '../ChunkPosition.js'
+} from '../ChunkPosition'
 
 describe('ChunkPosition', () => {
   describe('ChunkPositionSchema', () => {
@@ -118,17 +119,28 @@ describe('ChunkPosition', () => {
       ]
 
       testCases.forEach(([blockX, blockZ, expected]) => {
-        const result = blockToChunkCoords(blockX, blockZ)
+        const result = blockToChunkCoords(
+          BrandedTypes.createWorldCoordinate(blockX),
+          BrandedTypes.createWorldCoordinate(blockZ)
+        )
         expect(result).toEqual(expected)
       })
     })
 
     it('should handle negative coordinates correctly', () => {
       // Negative block coordinates should floor correctly
-      expect(blockToChunkCoords(-1, 0)).toEqual({ x: -1, z: 0 })
-      expect(blockToChunkCoords(-15, -15)).toEqual({ x: -1, z: -1 })
-      expect(blockToChunkCoords(-16, -16)).toEqual({ x: -1, z: -1 })
-      expect(blockToChunkCoords(-17, -17)).toEqual({ x: -2, z: -2 })
+      expect(blockToChunkCoords(BrandedTypes.createWorldCoordinate(-1), BrandedTypes.createWorldCoordinate(0))).toEqual(
+        { x: -1, z: 0 }
+      )
+      expect(
+        blockToChunkCoords(BrandedTypes.createWorldCoordinate(-15), BrandedTypes.createWorldCoordinate(-15))
+      ).toEqual({ x: -1, z: -1 })
+      expect(
+        blockToChunkCoords(BrandedTypes.createWorldCoordinate(-16), BrandedTypes.createWorldCoordinate(-16))
+      ).toEqual({ x: -1, z: -1 })
+      expect(
+        blockToChunkCoords(BrandedTypes.createWorldCoordinate(-17), BrandedTypes.createWorldCoordinate(-17))
+      ).toEqual({ x: -2, z: -2 })
     })
 
     it('should be inverse of chunkToBlockCoords', () => {

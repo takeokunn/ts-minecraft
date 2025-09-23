@@ -5,14 +5,15 @@
  */
 
 import { Effect, Layer, Match, Option, pipe } from 'effect'
-import { createChunkData } from '../chunk/ChunkData.js'
-import type { ChunkData } from '../chunk/ChunkData.js'
-import type { ChunkPosition } from '../chunk/ChunkPosition.js'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types.js'
-import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGenerator } from './WorldGenerator.js'
-import { StructureGenerationError } from './WorldGenerator.js'
-import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
-import { createGeneratorOptions } from './GeneratorOptions.js'
+import { createChunkData } from '../chunk/ChunkData'
+import type { ChunkData } from '../chunk/ChunkData'
+import type { ChunkPosition } from '../chunk/ChunkPosition'
+import { BrandedTypes } from '../../shared/types/branded'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGenerator } from './WorldGenerator'
+import { StructureGenerationError } from './WorldGenerator'
+import type { GeneratorOptions, StructureType } from './GeneratorOptions'
+import { createGeneratorOptions } from './GeneratorOptions'
 import { NoiseGeneratorTag, NoiseGeneratorLive } from './NoiseGenerator'
 import { TerrainGeneratorTag, TerrainGeneratorLive } from './TerrainGenerator'
 import { BiomeGeneratorTag, BiomeGeneratorLive } from './BiomeGenerator'
@@ -239,7 +240,10 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     getTerrainHeight: (x: number, z: number) =>
       Effect.gen(function* () {
         const terrainGenerator = yield* TerrainGeneratorTag
-        return yield* terrainGenerator.getTerrainHeight(x, z)
+        return yield* terrainGenerator.getTerrainHeight(
+          BrandedTypes.createWorldCoordinate(x),
+          BrandedTypes.createWorldCoordinate(z)
+        )
       }).pipe(Effect.provide(Layer.mergeAll(terrainLayer, noiseLayer))) as unknown as Effect.Effect<
         number,
         never,

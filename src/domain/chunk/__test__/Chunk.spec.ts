@@ -3,9 +3,9 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Either from 'effect/Either'
 import * as fc from 'fast-check'
-import { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from '../Chunk.js'
-import { createChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y, getBlockIndex } from '../ChunkData.js'
-import type { ChunkPosition } from '../ChunkPosition.js'
+import { ChunkBoundsError, ChunkSerializationError, type Chunk, createChunk, createEmptyChunk } from '../Chunk'
+import { createChunkData, CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_MAX_Y, getBlockIndex } from '../ChunkData'
+import type { ChunkPosition } from '../ChunkPosition'
 
 describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
   const testPosition: ChunkPosition = { x: 10, z: -5 }

@@ -32,12 +32,13 @@ export const LoggerServiceLive = Layer.sync(LoggerService, () => {
       const canLog = shouldLog(level, currentLogLevel)
 
       // ログ出力の実行
-      return canLog
-        ? (() => {
-            const entry = createLogEntry(level, message, context, error)
-            outputToConsole(entry)
-          })()
-        : undefined
+      if (!canLog) {
+        return undefined
+      }
+
+      // Effect<LogEntry>をEffect.runSyncで実行してLogEntryを取得
+      const entry = Effect.runSync(createLogEntry(level, message, context, error))
+      outputToConsole(entry)
     })
 
   return LoggerService.of({
@@ -46,7 +47,7 @@ export const LoggerServiceLive = Layer.sync(LoggerService, () => {
     warn: (message, context) => log('WARN', message, context),
     error: (message, error) => log('ERROR', message, undefined, error),
 
-    measurePerformance: (functionName, operation) =>
+    measurePerformance: <A>(functionName: string, operation: Effect.Effect<A>) =>
       Effect.gen(function* () {
         const startTime = performance.now()
         const startMemory = (performance as any).memory?.usedJSHeapSize

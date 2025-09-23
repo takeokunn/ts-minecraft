@@ -30,7 +30,7 @@ export const ErrorHandlers = {
   /**
    * 部分的な成功を許可
    */
-  partial: <R, E, A>(effects: Array<Effect.Effect<A, E, R>>, minSuccess: number = 1) =>
+  partial: <R, E, A>(effects: ReadonlyArray<Effect.Effect<A, E, R>>, minSuccess: number = 1) =>
     Effect.gen(function* (_) {
       const results = yield* _(
         Effect.all(

@@ -15,9 +15,9 @@ import {
   validateCameraState,
   validateCameraMode,
   createCameraError,
-} from '../CameraService.js'
-import { FirstPersonCameraLive } from '../FirstPersonCamera.js'
-import { ThirdPersonCameraLive } from '../ThirdPersonCamera.js'
+} from '../CameraService'
+import { FirstPersonCameraLive } from '../FirstPersonCamera'
+import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach

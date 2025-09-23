@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Ref, pipe, Match } from 'effect'
 import { GameApplication } from './GameApplication'
+import { BrandedTypes } from '../shared/types/branded'
 import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
@@ -260,7 +261,8 @@ const makeGameApplicationLive = Effect.gen(function* () {
         yield* transitionToState('Starting')
 
         // 開始時刻の記録
-        yield* Ref.set(startTimeRef, Date.now())
+        const currentTime = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
+        yield* Ref.set(startTimeRef, currentTime)
 
         yield* Effect.log('Starting Game Application...')
 
@@ -373,7 +375,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
         const sceneState = yield* sceneManager.getState()
         const performanceStats = yield* threeRenderer.getPerformanceStats()
 
-        const now = Date.now()
+        const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
         const uptime = startTime ? now - startTime : 0
 
         return {
@@ -442,14 +444,16 @@ const makeGameApplicationLive = Effect.gen(function* () {
     // 手動フレーム実行
     tick: (deltaTime) =>
       Effect.gen(function* () {
-        const frameInfo = yield* gameLoopService.tick(deltaTime).pipe(
-          Effect.catchAll((error) =>
-            Effect.gen(function* () {
-              yield* Effect.logError('GameLoop tick failed', error)
-              return yield* Effect.die('GameLoop tick failed')
-            })
+        const frameInfo = yield* gameLoopService
+          .tick(deltaTime ? BrandedTypes.createDeltaTime(deltaTime) : BrandedTypes.createDeltaTime(16))
+          .pipe(
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                yield* Effect.logError('GameLoop tick failed', error)
+                return yield* Effect.die('GameLoop tick failed')
+              })
+            )
           )
-        )
         yield* onFrameUpdate(frameInfo)
       }).pipe(
         Effect.catchAll((error) =>

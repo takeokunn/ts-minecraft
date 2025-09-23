@@ -17,10 +17,10 @@ import {
   defaultChunkLoaderConfig,
   type ChunkLoadRequest,
   type ChunkLoadPriority,
-} from '../ChunkLoader.js'
-import type { ChunkPosition } from '../ChunkPosition.js'
-import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index.js'
-import { WorldGeneratorTag } from '../../world/index.js'
+} from '../ChunkLoader'
+import type { ChunkPosition } from '../ChunkPosition'
+import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index'
+import { WorldGeneratorTag } from '../../world/index'
 
 // =============================================================================
 // Mock WorldGenerator

@@ -1,8 +1,8 @@
 import { Effect, Layer, Option, Ref, pipe, Match } from 'effect'
 import * as THREE from 'three'
-import { ThreeRenderer } from './ThreeRenderer.js'
-import type { RenderError } from './types.js'
-import { RenderInitError, RenderExecutionError, ContextLostError } from './types.js'
+import { ThreeRenderer } from './ThreeRenderer'
+import type { RenderError } from './types'
+import { RenderInitError, RenderExecutionError, ContextLostError } from './types'
 
 /**
  * パフォーマンス統計の内部型

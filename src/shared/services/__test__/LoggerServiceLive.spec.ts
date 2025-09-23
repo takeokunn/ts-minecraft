@@ -122,9 +122,9 @@ describe('LoggerServiceLive', () => {
       expect(shouldLog('ERROR', 'ERROR')).toBe(true)
     })
 
-    it('should create properly structured log entries', () => {
+    it('should create properly structured log entries', async () => {
       // ログエントリ作成のテスト
-      const basicEntry = createLogEntry('INFO', 'Test message')
+      const basicEntry = await Effect.runPromise(createLogEntry('INFO', 'Test message'))
       expect(basicEntry.level).toBe('INFO')
       expect(basicEntry.message).toBe('Test message')
       expect(basicEntry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
@@ -132,13 +132,13 @@ describe('LoggerServiceLive', () => {
       expect(basicEntry.error).toBeUndefined()
 
       // コンテキスト付きログエントリ
-      const contextEntry = createLogEntry('DEBUG', 'Debug message', { key: 'value' })
+      const contextEntry = await Effect.runPromise(createLogEntry('DEBUG', 'Debug message', { key: 'value' }))
       expect(contextEntry.context).toEqual({ key: 'value' })
 
       // エラー付きログエントリ
       const testError = new Error('Test error')
       testError.stack = 'Error stack trace'
-      const errorEntry = createLogEntry('ERROR', 'Error message', undefined, testError)
+      const errorEntry = await Effect.runPromise(createLogEntry('ERROR', 'Error message', undefined, testError))
       expect(errorEntry.error).toEqual({
         name: 'Error',
         message: 'Test error',
@@ -146,7 +146,7 @@ describe('LoggerServiceLive', () => {
       })
 
       // コンテキストとエラー両方付きログエントリ
-      const fullEntry = createLogEntry('WARN', 'Full message', { context: 'data' }, testError)
+      const fullEntry = await Effect.runPromise(createLogEntry('WARN', 'Full message', { context: 'data' }, testError))
       expect(fullEntry.context).toEqual({ context: 'data' })
       expect(fullEntry.error).toEqual({
         name: 'Error',

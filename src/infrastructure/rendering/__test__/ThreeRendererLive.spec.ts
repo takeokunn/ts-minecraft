@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Effect, Layer, TestContext } from 'effect'
 import * as THREE from 'three'
-import { ThreeRenderer } from '../ThreeRenderer.js'
-import { ThreeRendererLive } from '../ThreeRendererLive.js'
+import { ThreeRenderer } from '../ThreeRenderer'
+import { ThreeRendererLive } from '../ThreeRendererLive'
 
 // Canvas要素のモック
 const createMockCanvas = (): HTMLCanvasElement => {

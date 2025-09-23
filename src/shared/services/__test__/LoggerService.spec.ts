@@ -94,37 +94,45 @@ describe('LoggerService - Core Types and Utilities', () => {
   })
 
   describe('createTimestamp', () => {
-    it('should return ISO timestamp string', () => {
-      const timestamp = createTimestamp()
-      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-    })
+    it.effect('should return ISO timestamp string', () =>
+      Effect.gen(function* () {
+        const timestamp = yield* createTimestamp()
+        expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+      })
+    )
   })
 
   describe('createLogEntry', () => {
-    it('should create log entry with required fields', () => {
-      const entry = createLogEntry('INFO', 'Test message')
-      expect(entry.level).toBe('INFO')
-      expect(entry.message).toBe('Test message')
-      expect(entry.timestamp).toBeDefined()
-    })
-
-    it('should include context when provided', () => {
-      const context = { key: 'value' }
-      const entry = createLogEntry('INFO', 'Test message', context)
-      expect(entry.context).toEqual(context)
-    })
-
-    it('should include structured error when provided', () => {
-      const error = new Error('Test error')
-      error.stack = 'Error stack trace'
-      const entry = createLogEntry('ERROR', 'Error occurred', undefined, error)
-
-      expect(entry.error).toEqual({
-        name: 'Error',
-        message: 'Test error',
-        stack: 'Error stack trace',
+    it.effect('should create log entry with required fields', () =>
+      Effect.gen(function* () {
+        const entry = yield* createLogEntry('INFO', 'Test message')
+        expect(entry.level).toBe('INFO')
+        expect(entry.message).toBe('Test message')
+        expect(entry.timestamp).toBeDefined()
       })
-    })
+    )
+
+    it.effect('should include context when provided', () =>
+      Effect.gen(function* () {
+        const context = { key: 'value' }
+        const entry = yield* createLogEntry('INFO', 'Test message', context)
+        expect(entry.context).toEqual(context)
+      })
+    )
+
+    it.effect('should include structured error when provided', () =>
+      Effect.gen(function* () {
+        const error = new Error('Test error')
+        error.stack = 'Error stack trace'
+        const entry = yield* createLogEntry('ERROR', 'Error occurred', undefined, error)
+
+        expect(entry.error).toEqual({
+          name: 'Error',
+          message: 'Test error',
+          stack: 'Error stack trace',
+        })
+      })
+    )
   })
 
   describe('Test Implementation Integration', () => {

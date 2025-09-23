@@ -4,6 +4,7 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { BiomeType } from './types'
 import type { Vector3 } from './types'
+import { BrandedTypes } from '../../shared/types/branded'
 
 /**
  * バイオーム生成の設定
@@ -81,22 +82,27 @@ const createBiomeGenerator = (config: BiomeConfig): BiomeGenerator => {
 
         // 温度ノイズ（大きなスケール）
         const temperatureNoise = yield* noiseGenerator.octaveNoise2D(
-          x * config.temperatureScale,
-          z * config.temperatureScale,
+          BrandedTypes.createNoiseCoordinate(x * config.temperatureScale),
+          BrandedTypes.createNoiseCoordinate(z * config.temperatureScale),
           4,
           0.6
         )
 
         // 湿度ノイズ（中程度のスケール）
         const humidityNoise = yield* noiseGenerator.octaveNoise2D(
-          x * config.humidityScale,
-          z * config.humidityScale,
+          BrandedTypes.createNoiseCoordinate(x * config.humidityScale),
+          BrandedTypes.createNoiseCoordinate(z * config.humidityScale),
           3,
           0.5
         )
 
         // 地形変動ノイズ（高度補正用）
-        const elevationNoise = yield* noiseGenerator.octaveNoise2D(x * 0.001, z * 0.001, 6, 0.5)
+        const elevationNoise = yield* noiseGenerator.octaveNoise2D(
+          BrandedTypes.createNoiseCoordinate(x * 0.001),
+          BrandedTypes.createNoiseCoordinate(z * 0.001),
+          6,
+          0.5
+        )
 
         return {
           temperature: temperatureNoise,
