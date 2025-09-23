@@ -132,7 +132,10 @@ const DatabaseLive = Layer.effect(
   Database,
   Effect.gen(function* () {
     const config = yield* Config
-    const connection = await connectDB(config.dbUrl)
+    const connection = yield* Effect.tryPromise({
+      try: () => connectDB(config.dbUrl),
+      catch: (error) => new Error(`Database connection failed: ${error}`),
+    })
     return {
       query: (sql) => Effect.tryPromise(() => connection.query(sql)),
       close: () => Effect.tryPromise(() => connection.close()),

@@ -177,27 +177,29 @@ const inventoryArbitrary = fc.array(itemArbitrary, { maxLength: 36 })
 
 ```typescript
 describe('Player Properties', () => {
-  it('player creation invariants', async () => {
-    await fc.assert(
-      fc.asyncProperty(playerArbitrary, async (playerData) => {
+  it('player creation invariants', () => {
+    return fc.assert(
+      fc.asyncProperty(playerArbitrary, (playerData) => {
         const program = Effect.gen(function* () {
           const service = yield* PlayerService
-          return yield* service.create(playerData)
+          const result = yield* service.create(playerData)
+
+          // 不変条件の検証
+          expect(result.health).toBeGreaterThanOrEqual(0)
+          expect(result.health).toBeLessThanOrEqual(100)
+          expect(result.health).toBeLessThanOrEqual(result.maxHealth)
+
+          // 位置の有効性
+          expect(result.position.y).toBeGreaterThanOrEqual(-64)
+          expect(result.position.y).toBeLessThanOrEqual(320)
+
+          // 名前の形式
+          expect(result.name).toMatch(/^[a-zA-Z0-9_]{3,16}$/)
+
+          return result
         })
 
-        const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-        // 不変条件の検証
-        expect(result.health).toBeGreaterThanOrEqual(0)
-        expect(result.health).toBeLessThanOrEqual(100)
-        expect(result.health).toBeLessThanOrEqual(result.maxHealth)
-
-        // 位置の有効性
-        expect(result.position.y).toBeGreaterThanOrEqual(-64)
-        expect(result.position.y).toBeLessThanOrEqual(320)
-
-        // 名前の形式
-        expect(result.name).toMatch(/^[a-zA-Z0-9_]{3,16}$/)
+        return Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
       }),
       {
         numRuns: 1000,
@@ -230,9 +232,9 @@ describe('Player Properties', () => {
     )
   })
 
-  it('inventory management properties', async () => {
-    await fc.assert(
-      fc.asyncProperty(inventoryArbitrary, itemArbitrary, async (initialInventory, newItem) => {
+  it('inventory management properties', () => {
+    return fc.assert(
+      fc.asyncProperty(inventoryArbitrary, itemArbitrary, (initialInventory, newItem) => {
         const program = Effect.gen(function* () {
           const service = yield* InventoryService
 
@@ -245,19 +247,21 @@ describe('Player Properties', () => {
             yield* service.addItem(newItem)
           }
 
-          return yield* service.getInventory()
+          const result = yield* service.getInventory()
+
+          // インベントリサイズ制限
+          expect(result.length).toBeLessThanOrEqual(36)
+
+          // アイテムスタック制限
+          result.forEach((item) => {
+            expect(item.quantity).toBeGreaterThanOrEqual(1)
+            expect(item.quantity).toBeLessThanOrEqual(64)
+          })
+
+          return result
         })
 
-        const result = await Effect.runPromise(program.pipe(Effect.provide(TestInventoryServiceLive)))
-
-        // インベントリサイズ制限
-        expect(result.length).toBeLessThanOrEqual(36)
-
-        // アイテムスタック制限
-        result.forEach((item) => {
-          expect(item.quantity).toBeGreaterThanOrEqual(1)
-          expect(item.quantity).toBeLessThanOrEqual(64)
-        })
+        return Effect.runPromise(program.pipe(Effect.provide(TestInventoryServiceLive)))
       }),
       { numRuns: 500 }
     )
@@ -291,27 +295,29 @@ describe('Complete Coverage Testing', () => {
 
   // 2. 異常系（全エラーパス）
   describe('Error paths', () => {
-    it('handles validation errors', async () => {
+    it('handles validation errors', () => {
       const program = Effect.gen(function* () {
         const service = yield* PlayerService
         return yield* service.create({ name: '' }) // 無効データ
       })
 
-      const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-      expect(Exit.isFailure(exit)).toBe(true)
-      if (Exit.isFailure(exit)) {
-        const error = Cause.squash(exit.cause)
-        expect(error._tag).toBe('ValidationError')
-      }
+      return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then((exit) => {
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause)
+          expect(error._tag).toBe('ValidationError')
+        }
+      })
     })
 
-    it('handles not found errors', async () => {
+    it('handles not found errors', () => {
       // 実装
+      return Effect.succeed(void 0).pipe(Effect.runPromise)
     })
 
-    it('handles concurrent modification', async () => {
+    it('handles concurrent modification', () => {
       // 実装
+      return Effect.succeed(void 0).pipe(Effect.runPromise)
     })
   })
 
@@ -330,7 +336,7 @@ describe('Complete Coverage Testing', () => {
 
   // 4. 状態遷移
   describe('State transitions', () => {
-    it('player lifecycle: create -> update -> delete', async () => {
+    it('player lifecycle: create -> update -> delete', () => {
       const program = Effect.gen(function* () {
         const service = yield* PlayerService
 
@@ -350,7 +356,7 @@ describe('Complete Coverage Testing', () => {
         expect(Either.isLeft(result)).toBe(true)
       })
 
-      await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
+      return Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
     })
   })
 })
@@ -411,7 +417,7 @@ const mockServiceLayer = Layer.succeed(
 
 // ✅ 必須: 型推論または明示的な型定義
 const player = Schema.decodeUnknownSync(PlayerSchema)(data)
-const result = await service.create(validatedData)
+const result = yield * service.create(validatedData)
 const mockPlayerService = Layer.succeed(
   PlayerService,
   PlayerService.of({
