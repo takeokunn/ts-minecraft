@@ -93,9 +93,9 @@ const createQuad = (
   const getNormal = (axis: number, forward: boolean): readonly [number, number, number] => {
     return pipe(
       Match.value(axis),
-      Match.when(0, () => forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const)),
-      Match.when(1, () => forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const)),
-      Match.when(2, () => forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const)),
+      Match.when(0, () => (forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const))),
+      Match.when(1, () => (forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const))),
+      Match.when(2, () => (forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const))),
       Match.orElse(() => {
         throw new Error(`Invalid axis: ${axis}`)
       })
@@ -246,21 +246,33 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
     // Calculate quad vertices based on axis and dimensions
     const [quadVertices, quadUvs] = pipe(
       Match.value(axis),
-      Match.when(0, () => [
-        // X-axis facing quad (YZ plane)
-        [x, y, z, x, y + heightNum, z, x, y + heightNum, z + widthNum, x, y, z + widthNum],
-        [0, 0, 0, heightNum, widthNum, heightNum, widthNum, 0],
-      ] as [number[], number[]]),
-      Match.when(1, () => [
-        // Y-axis facing quad (XZ plane)
-        [x, y, z, x + widthNum, y, z, x + widthNum, y, z + heightNum, x, y, z + heightNum],
-        [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
-      ] as [number[], number[]]),
-      Match.when(2, () => [
-        // Z-axis facing quad (XY plane)
-        [x, y, z, x + widthNum, y, z, x + widthNum, y + heightNum, z, x, y + heightNum, z],
-        [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
-      ] as [number[], number[]]),
+      Match.when(
+        0,
+        () =>
+          [
+            // X-axis facing quad (YZ plane)
+            [x, y, z, x, y + heightNum, z, x, y + heightNum, z + widthNum, x, y, z + widthNum],
+            [0, 0, 0, heightNum, widthNum, heightNum, widthNum, 0],
+          ] as [number[], number[]]
+      ),
+      Match.when(
+        1,
+        () =>
+          [
+            // Y-axis facing quad (XZ plane)
+            [x, y, z, x + widthNum, y, z, x + widthNum, y, z + heightNum, x, y, z + heightNum],
+            [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
+          ] as [number[], number[]]
+      ),
+      Match.when(
+        2,
+        () =>
+          [
+            // Z-axis facing quad (XY plane)
+            [x, y, z, x + widthNum, y, z, x + widthNum, y + heightNum, z, x, y + heightNum, z],
+            [0, 0, widthNum, 0, widthNum, heightNum, 0, heightNum],
+          ] as [number[], number[]]
+      ),
       Match.orElse(() => {
         throw new Error(`Invalid axis: ${axis}`)
       })

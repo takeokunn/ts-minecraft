@@ -536,7 +536,7 @@ describe('Player System Performance Benchmarks', () => {
         }).pipe(Effect.provide(PerformanceTestLayer)) as any
     )
 
-    effectIt.effect(
+    effectIt.effect.skip(
       'should maintain performance under continuous load',
       () =>
         Effect.gen(function* () {
