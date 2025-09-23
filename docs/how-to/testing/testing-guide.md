@@ -295,23 +295,24 @@ const PlayerSchema = Schema.Struct({
 
 // 2. Effect-aware テストの実行
 describe('PlayerService', () => {
-  it('should create player with valid data', async () => {
+  it('should create player with valid data', () => {
     const program = Effect.gen(function* () {
       const service = yield* PlayerService
       const player = yield* service.create({
         name: 'TestPlayer',
         position: { x: 0, y: 64, z: 0 },
       })
+
+      expect(player).toMatchObject({
+        name: 'TestPlayer',
+        position: { x: 0, y: 64, z: 0 },
+        health: 100,
+      })
+
       return player
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-    expect(result).toMatchObject({
-      name: 'TestPlayer',
-      position: { x: 0, y: 64, z: 0 },
-      health: 100,
-    })
+    return Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
   })
 })
 ```
@@ -320,19 +321,19 @@ describe('PlayerService', () => {
 
 ```typescript
 // 3. TaggedError のテスト
-it('should handle validation errors properly', async () => {
+it('should handle validation errors properly', () => {
   const program = Effect.gen(function* () {
     const service = yield* PlayerService
     return yield* service.create({ name: '' }) // 無効なデータ
   })
 
-  const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-  expect(Exit.isFailure(exit)).toBe(true)
-  if (Exit.isFailure(exit)) {
-    const error = Exit.unannotate(exit.cause)
-    expect(error._tag).toBe('ValidationError')
-  }
+  return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then((exit) => {
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = Exit.unannotate(exit.cause)
+      expect(error._tag).toBe('ValidationError')
+    }
+  })
 })
 ```
 
@@ -436,23 +437,25 @@ describe('Player Properties', () => {
     )
   })
 
-  it('プレイヤー作成の不変条件', async () => {
-    await fc.assert(
-      fc.asyncProperty(playerArbitrary, async (playerData) => {
+  it('プレイヤー作成の不変条件', () => {
+    return fc.assert(
+      fc.asyncProperty(playerArbitrary, (playerData) => {
         const program = Effect.gen(function* () {
           const service = yield* PlayerService
-          return yield* service.create(playerData)
+          const result = yield* service.create(playerData)
+
+          // 不変条件1: ヘルスは0-100の範囲内
+          expect(result.health).toBeGreaterThanOrEqual(0)
+          expect(result.health).toBeLessThanOrEqual(100)
+
+          // 不変条件2: 位置のY座標は有効範囲内
+          expect(result.position.y).toBeGreaterThanOrEqual(-64)
+          expect(result.position.y).toBeLessThanOrEqual(320)
+
+          return result
         })
 
-        const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-        // 不変条件1: ヘルスは0-100の範囲内
-        expect(result.health).toBeGreaterThanOrEqual(0)
-        expect(result.health).toBeLessThanOrEqual(100)
-
-        // 不変条件2: 位置のY座標は有効範囲内
-        expect(result.position.y).toBeGreaterThanOrEqual(-64)
-        expect(result.position.y).toBeLessThanOrEqual(320)
+        return Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
       }),
       { seed: 24680, numRuns: 300 }
     )

@@ -41,6 +41,44 @@ export const CHUNK_CONSTANTS = {
 
 ```typescript
 import { Schema } from 'effect'
+import { Effect, Option } from 'effect'
+
+// エラー型定義
+export const CompressionErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('CompressionError'),
+  message: Schema.String,
+  operation: Schema.Union(
+    Schema.Literal('serialize'),
+    Schema.Literal('deserialize'),
+    Schema.Literal('compress'),
+    Schema.Literal('decompress')
+  ),
+})
+
+export type CompressionError = Schema.Schema.Type<typeof CompressionErrorSchema>
+
+export const CompressionError = (params: Omit<CompressionError, '_tag'>): CompressionError => ({
+  _tag: 'CompressionError' as const,
+  ...params,
+})
+
+export const FileErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('FileError'),
+  message: Schema.String,
+  operation: Schema.Union(
+    Schema.Literal('read'),
+    Schema.Literal('write'),
+    Schema.Literal('create'),
+    Schema.Literal('delete')
+  ),
+})
+
+export type FileError = Schema.Schema.Type<typeof FileErrorSchema>
+
+export const FileError = (params: Omit<FileError, '_tag'>): FileError => ({
+  _tag: 'FileError' as const,
+  ...params,
+})
 
 export const ChunkSchema = Schema.Struct({
   // チャンク座標
@@ -449,32 +487,46 @@ export const BlockEntitySchema = Schema.Struct({
 ```typescript
 export const ChunkCompression = {
   // Zlib圧縮
-  compress: async (chunk: ChunkData): Promise<Uint8Array> => {
-    const serialized = serializeChunk(chunk)
+  compress: (chunk: ChunkData): Effect.Effect<Uint8Array, CompressionError> =>
+    Effect.gen(function* () {
+      const serialized = yield* Effect.try({
+        try: () => serializeChunk(chunk),
+        catch: (error) => CompressionError({ message: `Serialization failed: ${error}`, operation: 'serialize' }),
+      })
 
-    // pako or native compressionを使用
-    const compressed = await compressZlib(serialized)
+      // pako or native compressionを使用
+      const compressed = yield* Effect.tryPromise({
+        try: () => compressZlib(serialized),
+        catch: (error) => CompressionError({ message: `Compression failed: ${error}`, operation: 'compress' }),
+      })
 
-    // ヘッダー付加
-    const header = new Uint8Array(8)
-    const view = new DataView(header.buffer)
-    view.setUint32(0, serialized.length) // 元のサイズ
-    view.setUint32(4, compressed.length) // 圧縮後サイズ
+      // ヘッダー付加
+      const header = new Uint8Array(8)
+      const view = new DataView(header.buffer)
+      view.setUint32(0, serialized.length) // 元のサイズ
+      view.setUint32(4, compressed.length) // 圧縮後サイズ
 
-    return concatenate(header, compressed)
-  },
+      return concatenate(header, compressed)
+    }),
 
   // 解凍
-  decompress: async (data: Uint8Array): Promise<ChunkData> => {
-    const view = new DataView(data.buffer)
-    const originalSize = view.getUint32(0)
-    const compressedSize = view.getUint32(4)
+  decompress: (data: Uint8Array): Effect.Effect<ChunkData, CompressionError> =>
+    Effect.gen(function* () {
+      const view = new DataView(data.buffer)
+      const originalSize = view.getUint32(0)
+      const compressedSize = view.getUint32(4)
 
-    const compressed = data.slice(8, 8 + compressedSize)
-    const decompressed = await decompressZlib(compressed)
+      const compressed = data.slice(8, 8 + compressedSize)
+      const decompressed = yield* Effect.tryPromise({
+        try: () => decompressZlib(compressed),
+        catch: (error) => CompressionError({ message: `Decompression failed: ${error}`, operation: 'decompress' }),
+      })
 
-    return deserializeChunk(decompressed)
-  },
+      return yield* Effect.try({
+        try: () => deserializeChunk(decompressed),
+        catch: (error) => CompressionError({ message: `Deserialization failed: ${error}`, operation: 'deserialize' }),
+      })
+    }),
 }
 ```
 
@@ -524,45 +576,56 @@ export interface RegionFile {
   private file: FileHandle
   private locations: Map<string, { offset: number; sectors: number }>
 
-  async loadChunk(x: number, z: number): Promise<ChunkData | null> {
-    const key = `${x},${z}`
-    const location = this.locations.get(key)
+  loadChunk(x: number, z: number): Effect.Effect<Option.Option<ChunkData>, FileError> {
+    return Effect.gen(function* () {
+      const key = `${x},${z}`
+      const location = this.locations.get(key)
 
-    if (!location || location.offset === 0) {
-      return null
-    }
+      if (!location || location.offset === 0) {
+        return Option.none()
+      }
 
-    // セクタ読み込み
-    const buffer = Buffer.alloc(location.sectors * RegionFile.SECTOR_SIZE)
-    await this.file.read(
-      buffer,
-      0,
-      buffer.length,
-      location.offset * RegionFile.SECTOR_SIZE
-    )
+      // セクタ読み込み
+      const buffer = Buffer.alloc(location.sectors * RegionFile.SECTOR_SIZE)
+      yield* Effect.tryPromise({
+        try: () => this.file.read(
+          buffer,
+          0,
+          buffer.length,
+          location.offset * RegionFile.SECTOR_SIZE
+        ),
+        catch: (error) => FileError({ message: `Failed to read chunk data: ${error}`, operation: 'read' })
+      })
 
-    // 解凍とデシリアライズ
-    return ChunkCompression.decompress(buffer)
+      // 解凍とデシリアライズ
+      const chunkData = yield* ChunkCompression.decompress(buffer)
+      return Option.some(chunkData)
+    }.bind(this))
   }
 
-  async saveChunk(x: number, z: number, chunk: ChunkData): Promise<void> {
-    const compressed = await ChunkCompression.compress(chunk)
-    const sectors = Math.ceil(compressed.length / RegionFile.SECTOR_SIZE)
+  saveChunk(x: number, z: number, chunk: ChunkData): Effect.Effect<void, FileError | CompressionError> {
+    return Effect.gen(function* () {
+      const compressed = yield* ChunkCompression.compress(chunk)
+      const sectors = Math.ceil(compressed.length / RegionFile.SECTOR_SIZE)
 
-    // 空きセクタを探す
-    const offset = await this.findFreeSectors(sectors)
+      // 空きセクタを探す
+      const offset = yield* this.findFreeSectors(sectors)
 
-    // データ書き込み
-    await this.file.write(
-      compressed,
-      0,
-      compressed.length,
-      offset * RegionFile.SECTOR_SIZE
-    )
+      // データ書き込み
+      yield* Effect.tryPromise({
+        try: () => this.file.write(
+          compressed,
+          0,
+          compressed.length,
+          offset * RegionFile.SECTOR_SIZE
+        ),
+        catch: (error) => FileError({ message: `Failed to write chunk data: ${error}`, operation: 'write' })
+      })
 
-    // ヘッダー更新
-    this.locations.set(`${x},${z}`, { offset, sectors })
-    await this.updateHeader()
+      // ヘッダー更新
+      this.locations.set(`${x},${z}`, { offset, sectors })
+      yield* this.updateHeader()
+    }.bind(this))
   }
 }
 ```
