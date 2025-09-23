@@ -572,7 +572,6 @@ describe('OreDistribution', () => {
             expect(validBlockIds).toContain(blockId)
           }
 
-          return result
         }).pipe(
           Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, OreDistributionLive(testConfig)))
         ) as Effect.Effect<void, never, never>,
