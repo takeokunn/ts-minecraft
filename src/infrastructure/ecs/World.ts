@@ -27,6 +27,9 @@ export const WorldError = Schema.TaggedStruct('WorldError', {
 
 export type WorldError = Schema.Schema.Type<typeof WorldError>
 
+export const isWorldError = (error: unknown): error is WorldError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'WorldError'
+
 /**
  * WorldErrorインスタンス作成ヘルパー
  */

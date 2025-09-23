@@ -14,33 +14,50 @@ import type { GeneratorOptions, StructureType } from './GeneratorOptions.js'
 /**
  * ワールド生成エラーの定義
  */
-export class GenerationError extends Schema.TaggedError<GenerationError>()('GenerationError', {
-  position: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.optional(Schema.Number),
-      z: Schema.Number,
-    })
-  ),
-  reason: Schema.String,
-  context: Schema.optional(Schema.String),
-}) {}
+export interface GenerationError {
+  readonly _tag: 'GenerationError'
+  readonly position?: { x: number; y?: number; z: number }
+  readonly reason: string
+  readonly context?: string
+}
+
+export const GenerationError = (
+  reason: string,
+  position?: { x: number; y?: number; z: number },
+  context?: string
+): GenerationError => ({
+  _tag: 'GenerationError',
+  reason,
+  ...(position !== undefined && { position }),
+  ...(context !== undefined && { context }),
+})
+
+export const isGenerationError = (error: unknown): error is GenerationError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GenerationError'
 
 /**
  * 構造物生成エラー
  */
-export class StructureGenerationError extends Schema.TaggedError<StructureGenerationError>()(
-  'StructureGenerationError',
-  {
-    structureType: Schema.String,
-    position: Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    }),
-    reason: Schema.String,
-  }
-) {}
+export interface StructureGenerationError {
+  readonly _tag: 'StructureGenerationError'
+  readonly structureType: string
+  readonly position: { x: number; y: number; z: number }
+  readonly reason: string
+}
+
+export const StructureGenerationError = (
+  structureType: string,
+  position: { x: number; y: number; z: number },
+  reason: string
+): StructureGenerationError => ({
+  _tag: 'StructureGenerationError',
+  structureType,
+  position,
+  reason,
+})
+
+export const isStructureGenerationError = (error: unknown): error is StructureGenerationError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'StructureGenerationError'
 
 /**
  * チャンク生成結果
