@@ -266,15 +266,14 @@ describe('Position', () => {
 プロジェクトのEffect-TSテスト環境をセットアップします：
 
 ```bash
-# Effect-TS 3.17+ 対応の最新パッケージインストール
-npm install -D vitest @vitest/ui happy-dom
-npm install -D @effect/vitest fast-check@^3.15.0
-npm install -D @effect/schema @effect/platform
+# Effect-TS 3.17+ 対応の最新パッケージインストール（2024年最新版）
+npm install -D vitest@^3.2.4 @vitest/ui happy-dom
+npm install -D @effect/vitest@^0.25.1 fast-check@^4.3.0
+npm install -D @effect/schema@^0.75.5 @effect/platform@^0.90.10
 npm install -D @types/node typescript
 
-# Property-Based Testing 統合
-npm install -D @effect/schema@latest
-npm install -D @fast-check/vitest
+# Property-Based Testing 統合（最新版）
+npm install -D effect@^3.17.14
 ```
 
 ### Schema-first テストパターン
@@ -293,25 +292,35 @@ const PlayerSchema = Schema.Struct({
   maxHealth: Schema.Number.pipe(Schema.clamp(0, 100), Schema.int(), Schema.brand('Health')),
 })
 
-// 2. Effect-aware テストの実行
+// 2. @effect/vitest 0.25.1+ を使ったEffect-awareテストの実行
 describe('PlayerService', () => {
-  it('should create player with valid data', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('should create player with valid data', () =>
+    Effect.gen(function* () {
       const service = yield* PlayerService
       const player = yield* service.create({
         name: 'TestPlayer',
         position: { x: 0, y: 64, z: 0 },
       })
+
+      expect(player).toMatchObject({
+        name: 'TestPlayer',
+        position: { x: 0, y: 64, z: 0 },
+        health: 100,
+      })
+
       return player
+    }).pipe(Effect.provide(TestPlayerServiceLive))
+  )
+
+  // 従来のrunPromiseパターンとの併用例
+  it('demonstrates compatibility with Effect.runPromise', async () => {
+    const program = Effect.gen(function* () {
+      const service = yield* PlayerService
+      return yield* service.create({ name: 'LegacyPlayer' })
     })
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-
-    expect(result).toMatchObject({
-      name: 'TestPlayer',
-      position: { x: 0, y: 64, z: 0 },
-      health: 100,
-    })
+    expect(result.name).toBe('LegacyPlayer')
   })
 })
 ```
@@ -319,8 +328,26 @@ describe('PlayerService', () => {
 ### Effect-aware エラーハンドリング
 
 ```typescript
-// 3. TaggedError のテスト
-it('should handle validation errors properly', async () => {
+// 3. TaggedError のテスト（最新パターン）
+it.effect('should handle validation errors properly', () =>
+  Effect.gen(function* () {
+    const service = yield* PlayerService
+
+    // エラーが発生することを期待した操作
+    const result = yield* Effect.either(service.create({ name: '' })) // 無効なデータ
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isLeft(result)) {
+      expect(result.left._tag).toBe('ValidationError')
+      expect(result.left.message).toContain('name')
+    }
+
+    return result
+  }).pipe(Effect.provide(TestPlayerServiceLive))
+)
+
+// Exit-basedエラーハンドリングの例
+it('demonstrates Exit-based error handling', async () => {
   const program = Effect.gen(function* () {
     const service = yield* PlayerService
     return yield* service.create({ name: '' }) // 無効なデータ
@@ -330,7 +357,7 @@ it('should handle validation errors properly', async () => {
 
   expect(Exit.isFailure(exit)).toBe(true)
   if (Exit.isFailure(exit)) {
-    const error = Exit.unannotate(exit.cause)
+    const error = Cause.squash(exit.cause)
     expect(error._tag).toBe('ValidationError')
   }
 })
@@ -362,13 +389,13 @@ export interface PlayerService {
 
 export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
 
-// テスト用PlayerService実装
+// テスト用PlayerService実装（最新パターン）
 const makeTestPlayerService = Effect.gen(function* () {
-  const players = new Map<PlayerId, Player>()
+  const players = yield* Ref.make(new Map<PlayerId, Player>())
 
   return PlayerService.of({
     create: (data) => Effect.gen(function* () {
-      const validatedData = yield* Schema.decodeUnknown(CreatePlayerDataSchema)(data).pipe(
+      const validatedData = yield* Schema.decode(CreatePlayerDataSchema)(data).pipe(
         Effect.mapError(error => new TestPlayerError({
           operation: "create",
           reason: `Validation failed: ${error.message}`,
@@ -381,13 +408,14 @@ const makeTestPlayerService = Effect.gen(function* () {
         position: validatedData.position || { x: 0, y: 64, z: 0 }
       })
 
-      players.set(player.id, player)
+      yield* Ref.update(players, (map) => map.set(player.id, player))
       yield* Effect.logDebug(`Test player created: ${player.id}`)
       return player
     }),
 
     findById: (id) => Effect.gen(function* () {
-      const player = players.get(id)
+      const playersMap = yield* Ref.get(players)
+      const player = playersMap.get(id)
       if (!player) {
         yield* Effect.logDebug(`Player not found: ${id}`)
         return null
@@ -395,7 +423,40 @@ const makeTestPlayerService = Effect.gen(function* () {
       return player
     }),
 
-    // ... 他のメソッド実装
+    update: (id, data) => Effect.gen(function* () {
+      const playersMap = yield* Ref.get(players)
+      const existingPlayer = playersMap.get(id)
+
+      if (!existingPlayer) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "update",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      const updatedPlayer = { ...existingPlayer, ...data }
+      yield* Ref.update(players, (map) => map.set(id, updatedPlayer))
+      return updatedPlayer
+    }),
+
+    delete: (id) => Effect.gen(function* () {
+      const playersMap = yield* Ref.get(players)
+      if (!playersMap.has(id)) {
+        return yield* Effect.fail(new TestPlayerError({
+          operation: "delete",
+          playerId: id,
+          reason: "Player not found",
+          timestamp: Date.now()
+        }))
+      }
+
+      yield* Ref.update(players, (map) => {
+        map.delete(id)
+        return map
+      })
+    }),
   })
 })
 
@@ -424,19 +485,63 @@ const playerArbitrary = fc.record({
 })
 
 describe('Player Properties', () => {
-  it('距離計算の交換法則', () => {
-    fc.assert(
-      fc.property(positionArbitrary, positionArbitrary, (pos1, pos2) => {
-        const distance1 = calculateDistance(pos1, pos2)
-        const distance2 = calculateDistance(pos2, pos1)
+  it.effect('距離計算の交換法則', () =>
+    Effect.gen(function* () {
+      yield* Effect.sync(() => {
+        fc.assert(
+          fc.property(positionArbitrary, positionArbitrary, (pos1, pos2) => {
+            const result = Effect.runSync(
+              Effect.gen(function* () {
+                const distance1 = yield* calculateDistance(pos1, pos2)
+                const distance2 = yield* calculateDistance(pos2, pos1)
 
-        expect(distance1).toBeCloseTo(distance2, 5)
-      }),
-      { seed: 12345, numRuns: 1000 }
-    )
-  })
+                // 交換法則の検証
+                const isEqual = Math.abs(distance1 - distance2) < 0.00001
+                return isEqual
+              })
+            )
 
-  it('プレイヤー作成の不変条件', async () => {
+            return result
+          }),
+          { seed: 12345, numRuns: 1000 }
+        )
+      })
+    })
+  )
+
+  it.effect('プレイヤー作成の不変条件', () =>
+    Effect.gen(function* () {
+      yield* Effect.sync(() => {
+        fc.assert(
+          fc.property(playerArbitrary, (playerData) => {
+            const result = Effect.runSync(
+              Effect.gen(function* () {
+                const service = yield* PlayerService
+                const player = yield* service.create(playerData)
+
+                // 不変条件1: ヘルスは0-100の範囲内
+                const healthValid = player.health >= 0 && player.health <= 100
+
+                // 不変条件2: 位置のY座標は有効範囲内
+                const positionValid = player.position.y >= -64 && player.position.y <= 320
+
+                // 不変条件3: 名前が有効
+                const nameValid = player.name.length >= 3 && player.name.length <= 16
+
+                return healthValid && positionValid && nameValid
+              }).pipe(Effect.provide(TestPlayerServiceLive))
+            )
+
+            return result
+          }),
+          { seed: 24680, numRuns: 300 }
+        )
+      })
+    })
+  )
+
+  // Effect統合版の非同期Property-Based Testing
+  it('プレイヤー作成の不変条件（非同期版）', async () => {
     await fc.assert(
       fc.asyncProperty(playerArbitrary, async (playerData) => {
         const program = Effect.gen(function* () {
@@ -446,13 +551,14 @@ describe('Player Properties', () => {
 
         const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
 
-        // 不変条件1: ヘルスは0-100の範囲内
+        // 不変条件検証
         expect(result.health).toBeGreaterThanOrEqual(0)
         expect(result.health).toBeLessThanOrEqual(100)
-
-        // 不変条件2: 位置のY座標は有効範囲内
         expect(result.position.y).toBeGreaterThanOrEqual(-64)
         expect(result.position.y).toBeLessThanOrEqual(320)
+        expect(result.name).toMatch(/^[a-zA-Z0-9_]{3,20}$/)
+
+        return true
       }),
       { seed: 24680, numRuns: 300 }
     )
@@ -598,17 +704,30 @@ describe('デバッグ技術', () => {
 - ✅ テストの基本概念と重要性
 - ✅ Vitestの基本的な使い方（describe、it、expect）
 - ✅ 基本的なアサーションパターン
-- ✅ Effect-TSとSchemaを活用したテスト
-- ✅ Property-Based Testingの基礎
-- ✅ Layer-basedモックシステム
+- ✅ **@effect/vitest 0.25.1+** を活用したit.effectパターン
+- ✅ **Effect-TS 3.17+** とSchemaを活用した型安全テスト
+- ✅ Property-Based Testingの基礎と実践
+- ✅ Layer-basedモックシステムによるDI
+- ✅ **最新パターン**: 従来のEffect.runPromiseからit.effectへの移行
 - ✅ 実践的なテストパターンとデバッグ技術
 
 ## 📚 次に学ぶべきこと
 
-1. **[包括的テスト戦略](./comprehensive-testing-strategy.md)** - Flaky Test排除、大規模テスト戦略
-2. **[高度なテスト技術](./advanced-testing-techniques.md)** - モッキング、統合テスト
-3. **[Effect-TSテストパターン](./effect-ts-testing-patterns.md)** - 専門的なEffect-TSパターン
-4. **[PBT実装例](./pbt-implementation-examples.md)** - Property-Based Testing実践
+1. **[Effect-TSテストパターン](./effect-ts-testing-patterns.md)** - it.effectパターン完全版、TestClock/TestRandom活用
+2. **[テスト標準規約](./testing-standards.md)** - 必須実装パターンとカバレッジ100%達成
+3. **[包括的テスト戦略](./comprehensive-testing-strategy.md)** - Flaky Test排除、大規模テスト戦略
+4. **[高度なテスト技術](./advanced-testing-techniques.md)** - モッキング、統合テスト
+
+## 🔄 移行チェックリスト
+
+従来のテストコードを最新パターンに移行する際の確認事項：
+
+- [ ] `Effect.runPromise` → `it.effect` パターンへの移行
+- [ ] `@effect/vitest` パッケージの追加（0.25.1+）
+- [ ] vitest.config.tsの`@effect/vitest/config`への更新
+- [ ] Schema.decodeUnknownSync → Schema.decode への移行
+- [ ] Layer.effectでのRef活用によるステート管理改善
+- [ ] Property-Based TestingでのEffect統合パターン適用
 
 ## ✍️ 実践課題
 
