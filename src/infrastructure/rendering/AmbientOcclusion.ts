@@ -128,7 +128,7 @@ const calculateVertexAOPure = (
     (aoRaw) => 1.0 - (1.0 - aoRaw) * config.strength,
     N.clamp({ minimum: 0.0, maximum: 1.0 })
   )
-  
+
   return BrandedTypes.createAOValue(aoValue)
 }
 

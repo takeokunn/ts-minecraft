@@ -52,7 +52,12 @@ export interface TerrainGenerator {
   /**
    * 指定高度でのブロックタイプを決定
    */
-  readonly getBlockTypeAtHeight: (worldX: WorldCoordinate, worldZ: WorldCoordinate, y: Height, surfaceHeight: Height) => string
+  readonly getBlockTypeAtHeight: (
+    worldX: WorldCoordinate,
+    worldZ: WorldCoordinate,
+    y: Height,
+    surfaceHeight: Height
+  ) => string
 
   /**
    * 設定を取得
@@ -111,7 +116,9 @@ const createTerrainGenerator = (config: TerrainConfig): TerrainGenerator => {
 
             // 高度制限とHeight型へ変換
             finalHeight = Math.max(config.minHeight, Math.min(config.maxHeight, Math.floor(finalHeight)))
-            const heightValue = BrandedTypes.createHeight(finalHeight)
+            // Height型は0-256の範囲のみ許可するため、さらにクランプ
+            const clampedHeight = Math.max(0, Math.min(256, finalHeight))
+            const heightValue = BrandedTypes.createHeight(clampedHeight)
 
             // 配列アクセスをOptionパターンで安全化
             pipe(

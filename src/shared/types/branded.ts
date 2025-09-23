@@ -96,11 +96,7 @@ export type UUID = Schema.Schema.Type<typeof UUID>
 /**
  * 高度用のブランド型（0-256の範囲）
  */
-export const Height = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 256),
-  Schema.brand('Height')
-)
+export const Height = Schema.Number.pipe(Schema.int(), Schema.between(0, 256), Schema.brand('Height'))
 export type Height = Schema.Schema.Type<typeof Height>
 
 /**
@@ -112,10 +108,7 @@ export type NoiseCoordinate = Schema.Schema.Type<typeof NoiseCoordinate>
 /**
  * ノイズ値用のブランド型（-1.0 から 1.0 の範囲）
  */
-export const NoiseValue = Schema.Number.pipe(
-  Schema.between(-1.0, 1.0),
-  Schema.brand('NoiseValue')
-)
+export const NoiseValue = Schema.Number.pipe(Schema.between(-1.0, 1.0), Schema.brand('NoiseValue'))
 export type NoiseValue = Schema.Schema.Type<typeof NoiseValue>
 
 /**
@@ -129,19 +122,13 @@ export type ComponentTypeName = Schema.Schema.Type<typeof ComponentTypeName>
 /**
  * Entity数の型安全な表現
  */
-export const EntityCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("EntityCount")
-)
+export const EntityCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('EntityCount'))
 export type EntityCount = Schema.Schema.Type<typeof EntityCount>
 
 /**
  * Entity容量の型安全な表現
  */
-export const EntityCapacity = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand("EntityCapacity")
-)
+export const EntityCapacity = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('EntityCapacity'))
 export type EntityCapacity = Schema.Schema.Type<typeof EntityCapacity>
 
 // === レンダリング関連のBrand型 ===
@@ -149,82 +136,55 @@ export type EntityCapacity = Schema.Schema.Type<typeof EntityCapacity>
 /**
  * UV座標の型安全な表現 (0-1範囲)
  */
-export const UVCoordinate = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand("UVCoordinate")
-)
+export const UVCoordinate = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate'))
 export type UVCoordinate = Schema.Schema.Type<typeof UVCoordinate>
 
 /**
  * AmbientOcclusion値の型安全な表現 (0-1範囲)
  */
-export const AOValue = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand("AOValue")
-)
+export const AOValue = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('AOValue'))
 export type AOValue = Schema.Schema.Type<typeof AOValue>
 
 /**
  * メッシュ寸法の型安全な表現
  */
-export const MeshDimension = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand("MeshDimension")
-)
+export const MeshDimension = Schema.Number.pipe(Schema.positive(), Schema.brand('MeshDimension'))
 export type MeshDimension = Schema.Schema.Type<typeof MeshDimension>
 
 /**
  * デルタタイム（フレーム時間差）の型安全な表現
  */
-export const DeltaTime = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("DeltaTime")
-)
+export const DeltaTime = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('DeltaTime'))
 export type DeltaTime = Schema.Schema.Type<typeof DeltaTime>
 
 /**
  * マウス感度の型安全な表現
  */
-export const SensitivityValue = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand("SensitivityValue")
-)
+export const SensitivityValue = Schema.Number.pipe(Schema.positive(), Schema.brand('SensitivityValue'))
 export type SensitivityValue = Schema.Schema.Type<typeof SensitivityValue>
 
 /**
  * 環境変数キーの型安全な表現
  */
-export const EnvironmentKey = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand("EnvironmentKey")
-)
+export const EnvironmentKey = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('EnvironmentKey'))
 export type EnvironmentKey = Schema.Schema.Type<typeof EnvironmentKey>
 
 /**
  * キャッシュサイズの型安全な表現
  */
-export const CacheSize = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("CacheSize")
-)
+export const CacheSize = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheSize'))
 export type CacheSize = Schema.Schema.Type<typeof CacheSize>
 
 /**
  * キャッシュヒット回数の型安全な表現
  */
-export const CacheHitCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("CacheHitCount")
-)
+export const CacheHitCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheHitCount'))
 export type CacheHitCount = Schema.Schema.Type<typeof CacheHitCount>
 
 /**
  * キャッシュミス回数の型安全な表現
  */
-export const CacheMissCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand("CacheMissCount")
-)
+export const CacheMissCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheMissCount'))
 export type CacheMissCount = Schema.Schema.Type<typeof CacheMissCount>
 
 /**
@@ -233,7 +193,7 @@ export type CacheMissCount = Schema.Schema.Type<typeof CacheMissCount>
 export const WorldPosition = Schema.Struct({
   x: WorldCoordinateSchema,
   y: WorldCoordinateSchema,
-  z: WorldCoordinateSchema
+  z: WorldCoordinateSchema,
 })
 export type WorldPosition = Schema.Schema.Type<typeof WorldPosition>
 
@@ -368,6 +328,6 @@ export const BrandedTypes = {
     Schema.decodeSync(WorldPosition)({
       x: Schema.decodeSync(WorldCoordinateSchema)(x),
       y: Schema.decodeSync(WorldCoordinateSchema)(y),
-      z: Schema.decodeSync(WorldCoordinateSchema)(z)
+      z: Schema.decodeSync(WorldCoordinateSchema)(z),
     }),
 } as const

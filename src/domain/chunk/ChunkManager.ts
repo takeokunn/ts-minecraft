@@ -4,8 +4,8 @@
  */
 
 import { Context, Effect, Ref, Queue, Layer, Schema, Option, Match, pipe } from 'effect'
-import type { ChunkPosition, Chunk } from './index.js'
-import type { WorldGenerator, Vector3 } from '../world/index.js'
+import type { ChunkPosition, Chunk } from './index'
+import type { WorldGenerator, Vector3 } from '../world/index'
 
 // =============================================================================
 // Types & Schemas

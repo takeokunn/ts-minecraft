@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Ref, Match, pipe, Option } from 'effect'
 import { Schema } from 'effect'
 import { MouseDelta } from './types'
-import { SensitivityValue } from '../../shared/types/branded.js'
+import { SensitivityValue } from '../../shared/types/branded'
 
 // 感度プリセット
 export const SensitivityPreset = Schema.Literal('low', 'medium', 'high', 'gaming', 'precision', 'custom')

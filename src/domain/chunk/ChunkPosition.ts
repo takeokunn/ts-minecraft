@@ -1,14 +1,14 @@
 import { Schema } from '@effect/schema'
 import { Match, Option } from 'effect'
-import { WorldCoordinate, BrandedTypes } from '../../shared/types/branded.js'
+import { type WorldCoordinate, BrandedTypes } from '../../shared/types/branded'
 
 /**
  * チャンク座標のスキーマ定義
  * チャンクはX,Z軸で16x16ブロックを管理
  */
 export const ChunkPositionSchema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.int()),
-  z: Schema.Number.pipe(Schema.int()),
+  x: Schema.Number.pipe(Schema.transform(Schema.Number.pipe(Schema.int()), { decode: Math.floor, encode: (n) => n })),
+  z: Schema.Number.pipe(Schema.transform(Schema.Number.pipe(Schema.int()), { decode: Math.floor, encode: (n) => n })),
 })
 
 export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>

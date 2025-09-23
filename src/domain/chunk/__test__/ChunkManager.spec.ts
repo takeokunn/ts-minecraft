@@ -16,8 +16,8 @@ import {
   chunkDistance,
   generateLoadOrder,
   defaultChunkManagerConfig,
-} from '../ChunkManager.js'
-import type { ChunkPosition } from '../ChunkPosition.js'
+} from '../ChunkManager'
+import type { ChunkPosition } from '../ChunkPosition'
 
 // =============================================================================
 // LRU Cache Tests

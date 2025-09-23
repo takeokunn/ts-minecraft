@@ -4,6 +4,7 @@ import { GameLoopService } from '../GameLoopService'
 import { GameLoopServiceLive } from '../GameLoopServiceLive'
 import type { FrameInfo, GameLoopConfig } from '../types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 describe('GameLoopServiceLive', () => {
   // Mock requestAnimationFrame for testing
@@ -197,7 +198,7 @@ describe('GameLoopServiceLive', () => {
           })
         )
 
-        const frameInfo = yield* gameLoop.tick(16.67)
+        const frameInfo = yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
 
         expect(frameInfo.deltaTime).toBe(16.67)
         expect(frameInfo.fps).toBeCloseTo(60, 0)
@@ -232,7 +233,7 @@ describe('GameLoopServiceLive', () => {
         expect(frame1.deltaTime).toBeGreaterThan(0)
 
         // Manual delta time
-        const frame2 = yield* gameLoop.tick(20)
+        const frame2 = yield* gameLoop.tick(BrandedTypes.createDeltaTime(20))
         expect(frame2.deltaTime).toBe(20)
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
@@ -333,7 +334,7 @@ describe('GameLoopServiceLive', () => {
 
         // Execute several frames to build metrics
         for (let i = 0; i < 5; i++) {
-          yield* gameLoop.tick(16.67)
+          yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
         }
 
         const metrics = yield* gameLoop.getPerformanceMetrics()
@@ -367,11 +368,11 @@ describe('GameLoopServiceLive', () => {
         yield* gameLoop.initialize({ targetFps: 60, maxFrameSkip: 2 })
 
         // Simulate normal frames first
-        yield* gameLoop.tick(16.67)
-        yield* gameLoop.tick(16.67)
+        yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
+        yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
 
         // Simulate dropped frame (way over target)
-        yield* gameLoop.tick(200)
+        yield* gameLoop.tick(BrandedTypes.createDeltaTime(200))
 
         const metrics = yield* gameLoop.getPerformanceMetrics()
         expect(metrics.droppedFrames).toBeGreaterThanOrEqual(0)
@@ -385,7 +386,7 @@ describe('GameLoopServiceLive', () => {
 
         // Execute many frames to fill buffer
         for (let i = 0; i < 70; i++) {
-          yield* gameLoop.tick(16.67)
+          yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
         }
 
         const metrics = yield* gameLoop.getPerformanceMetrics()
@@ -409,7 +410,7 @@ describe('GameLoopServiceLive', () => {
         expect(state).toBe('idle')
 
         // New frames should respect updated config
-        const frame = yield* gameLoop.tick(33.33)
+        const frame = yield* gameLoop.tick(BrandedTypes.createDeltaTime(33.33))
         expect(frame.fps).toBeCloseTo(30, 0)
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
@@ -467,7 +468,7 @@ describe('GameLoopServiceLive', () => {
 
         // Should be back to defaults (60 FPS)
         yield* gameLoop.initialize()
-        const frame = yield* gameLoop.tick(16.67)
+        const frame = yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
         expect(frame.fps).toBeCloseTo(60, 0)
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
@@ -546,11 +547,11 @@ describe('GameLoopServiceLive', () => {
         yield* gameLoop.initialize({ targetFps: 60, maxFrameSkip: 2 })
 
         // Normal frame
-        const frame1 = yield* gameLoop.tick(16.67)
+        const frame1 = yield* gameLoop.tick(BrandedTypes.createDeltaTime(16.67))
         expect(frame1.frameSkipped).toBe(false)
 
         // Skipped frame (way over threshold - maxFrameSkip * targetFrameTime)
-        const frame2 = yield* gameLoop.tick(40) // > 2 * 16.67
+        const frame2 = yield* gameLoop.tick(BrandedTypes.createDeltaTime(40)) // > 2 * 16.67
         expect(frame2.frameSkipped).toBe(true)
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
@@ -561,7 +562,7 @@ describe('GameLoopServiceLive', () => {
         yield* gameLoop.initialize({ targetFps: 60 })
 
         // Huge delta time (e.g., from tab being backgrounded)
-        const frame = yield* gameLoop.tick(1000)
+        const frame = yield* gameLoop.tick(BrandedTypes.createDeltaTime(1000))
 
         // Delta should be capped at 2x target frame time
         expect(frame.deltaTime).toBeLessThanOrEqual(33.34)

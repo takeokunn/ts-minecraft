@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
 import type { FrameInfo, GameLoopConfig, GameLoopState, PerformanceMetrics } from './types'
 import type { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from './errors'
-import { DeltaTime } from '../../shared/types/branded.js'
+import { DeltaTime } from '../../shared/types/branded'
 
 // ゲームループサービスのインターフェース
 export interface GameLoopService {

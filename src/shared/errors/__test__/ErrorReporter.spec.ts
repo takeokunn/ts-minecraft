@@ -7,81 +7,97 @@ import { GameError } from '../GameErrors'
 
 describe('ErrorReporter', () => {
   describe('format', () => {
-    it.effect('タグ付きエラーを正しくフォーマットする', () => Effect.gen(function* () {
-      const error = NetworkError({
-        message: 'Test error',
-        code: 'NET_001',
+    it.effect('タグ付きエラーを正しくフォーマットする', () =>
+      Effect.gen(function* () {
+        const error = NetworkError({
+          message: 'Test error',
+          code: 'NET_001',
+        })
+
+        const formatted = yield* ErrorReporter.format(error)
+        const parsed = JSON.parse(formatted)
+
+        expect(parsed.type).toBe('NetworkError')
+        expect(parsed.message).toBe('Test error')
+        expect(parsed.details.code).toBe('NET_001')
+        expect(parsed.timestamp).toBeDefined()
+        expect(new Date(parsed.timestamp)).toBeInstanceOf(Date)
       })
+    )
 
-      const formatted = yield* ErrorReporter.format(error)
-      const parsed = JSON.parse(formatted)
-
-      expect(parsed.type).toBe('NetworkError')
-      expect(parsed.message).toBe('Test error')
-      expect(parsed.details.code).toBe('NET_001')
-      expect(parsed.timestamp).toBeDefined()
-      expect(new Date(parsed.timestamp)).toBeInstanceOf(Date)
-    }))
-
-    it.effect('プレーンエラーを処理する', () => Effect.gen(function* () {
-      const error = new Error('Plain error')
-      const formatted = yield* ErrorReporter.format(error)
-      expect(formatted).toContain('Plain error')
-      expect(typeof formatted).toBe('string')
-    }))
-
-    it.effect('null値を処理する', () => Effect.gen(function* () {
-      const formatted = yield* ErrorReporter.format(null)
-      expect(formatted).toBe('null')
-    }))
-
-    it.effect('undefined値を処理する', () => Effect.gen(function* () {
-      const formatted = yield* ErrorReporter.format(undefined)
-      expect(formatted).toBe('undefined')
-    }))
-
-    it.effect('文字列値を処理する', () => Effect.gen(function* () {
-      const formatted = yield* ErrorReporter.format('string error')
-      expect(formatted).toBe('string error')
-    }))
-
-    it.effect('数値を処理する', () => Effect.gen(function* () {
-      const formatted = yield* ErrorReporter.format(123)
-      expect(formatted).toBe('123')
-    }))
-
-    it.effect('複雑なタグ付きエラーを完全にフォーマットする', () => Effect.gen(function* () {
-      const error = NetworkError({
-        message: 'Complex error',
-        code: 'NET_002',
-        statusCode: 500,
-        cause: new Error('Root cause'),
+    it.effect('プレーンエラーを処理する', () =>
+      Effect.gen(function* () {
+        const error = new Error('Plain error')
+        const formatted = yield* ErrorReporter.format(error)
+        expect(formatted).toContain('Plain error')
+        expect(typeof formatted).toBe('string')
       })
+    )
 
-      const formatted = yield* ErrorReporter.format(error)
-      const parsed = JSON.parse(formatted)
-
-      expect(parsed.type).toBe('NetworkError')
-      expect(parsed.message).toBe('Complex error')
-      expect(parsed.details.code).toBe('NET_002')
-      expect(parsed.details.statusCode).toBe(500)
-      expect(parsed.details.cause).toBeDefined()
-      expect(parsed.timestamp).toBeDefined()
-    }))
-
-    it.effect('ゲームエラーも正しくフォーマットする', () => Effect.gen(function* () {
-      const error = GameError({
-        message: 'Game test error',
-        code: 'GAME_001',
+    it.effect('null値を処理する', () =>
+      Effect.gen(function* () {
+        const formatted = yield* ErrorReporter.format(null)
+        expect(formatted).toBe('null')
       })
+    )
 
-      const formatted = yield* ErrorReporter.format(error)
-      const parsed = JSON.parse(formatted)
+    it.effect('undefined値を処理する', () =>
+      Effect.gen(function* () {
+        const formatted = yield* ErrorReporter.format(undefined)
+        expect(formatted).toBe('undefined')
+      })
+    )
 
-      expect(parsed.type).toBe('GameError')
-      expect(parsed.message).toBe('Game test error')
-      expect(parsed.details.code).toBe('GAME_001')
-    }))
+    it.effect('文字列値を処理する', () =>
+      Effect.gen(function* () {
+        const formatted = yield* ErrorReporter.format('string error')
+        expect(formatted).toBe('string error')
+      })
+    )
+
+    it.effect('数値を処理する', () =>
+      Effect.gen(function* () {
+        const formatted = yield* ErrorReporter.format(123)
+        expect(formatted).toBe('123')
+      })
+    )
+
+    it.effect('複雑なタグ付きエラーを完全にフォーマットする', () =>
+      Effect.gen(function* () {
+        const error = NetworkError({
+          message: 'Complex error',
+          code: 'NET_002',
+          statusCode: 500,
+          cause: new Error('Root cause'),
+        })
+
+        const formatted = yield* ErrorReporter.format(error)
+        const parsed = JSON.parse(formatted)
+
+        expect(parsed.type).toBe('NetworkError')
+        expect(parsed.message).toBe('Complex error')
+        expect(parsed.details.code).toBe('NET_002')
+        expect(parsed.details.statusCode).toBe(500)
+        expect(parsed.details.cause).toBeDefined()
+        expect(parsed.timestamp).toBeDefined()
+      })
+    )
+
+    it.effect('ゲームエラーも正しくフォーマットする', () =>
+      Effect.gen(function* () {
+        const error = GameError({
+          message: 'Game test error',
+          code: 'GAME_001',
+        })
+
+        const formatted = yield* ErrorReporter.format(error)
+        const parsed = JSON.parse(formatted)
+
+        expect(parsed.type).toBe('GameError')
+        expect(parsed.message).toBe('Game test error')
+        expect(parsed.details.code).toBe('GAME_001')
+      })
+    )
   })
 
   describe('getStackTrace', () => {
@@ -248,24 +264,26 @@ describe('ErrorReporter', () => {
 
       fc.assert(
         fc.asyncProperty(taggedErrorArbitrary, async (error) => {
-          return await Effect.runPromise(Effect.gen(function* () {
-            const formatted = yield* ErrorReporter.format(error)
-            expect(typeof formatted).toBe('string')
+          return await Effect.runPromise(
+            Effect.gen(function* () {
+              const formatted = yield* ErrorReporter.format(error)
+              expect(typeof formatted).toBe('string')
 
-            pipe(
-              Match.value(formatted.startsWith('{')),
-              Match.when(true, () => {
-                const parsed = JSON.parse(formatted)
-                expect(parsed.type).toBe(error._tag)
-                expect(parsed.message).toBe(error.message)
-                expect(parsed.timestamp).toBeDefined()
-              }),
-              Match.when(false, () => {
-                // フォーマットがJSONではない場合の処理
-              }),
-              Match.exhaustive
-            )
-          }))
+              pipe(
+                Match.value(formatted.startsWith('{')),
+                Match.when(true, () => {
+                  const parsed = JSON.parse(formatted)
+                  expect(parsed.type).toBe(error._tag)
+                  expect(parsed.message).toBe(error.message)
+                  expect(parsed.timestamp).toBeDefined()
+                }),
+                Match.when(false, () => {
+                  // フォーマットがJSONではない場合の処理
+                }),
+                Match.exhaustive
+              )
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -282,10 +300,12 @@ describe('ErrorReporter', () => {
 
       fc.assert(
         fc.asyncProperty(primitiveArbitrary, async (value) => {
-          return await Effect.runPromise(Effect.gen(function* () {
-            const formatted = yield* ErrorReporter.format(value)
-            expect(typeof formatted).toBe('string')
-          }))
+          return await Effect.runPromise(
+            Effect.gen(function* () {
+              const formatted = yield* ErrorReporter.format(value)
+              expect(typeof formatted).toBe('string')
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -350,86 +370,92 @@ describe('ErrorReporter', () => {
   })
 
   describe('統合テスト', () => {
-    it.effect('複雑なエラー構造を完全に処理する', () => Effect.gen(function* () {
-      const rootCause = new Error('Root cause')
-      const middleError = NetworkError({
-        message: 'Middle network error',
-        code: 'NET_001',
-        statusCode: 503,
-        cause: rootCause,
+    it.effect('複雑なエラー構造を完全に処理する', () =>
+      Effect.gen(function* () {
+        const rootCause = new Error('Root cause')
+        const middleError = NetworkError({
+          message: 'Middle network error',
+          code: 'NET_001',
+          statusCode: 503,
+          cause: rootCause,
+        })
+        const topError = GameError({
+          message: 'Top game error',
+          code: 'GAME_001',
+          cause: middleError,
+        })
+
+        // フォーマット
+        const formatted = yield* ErrorReporter.format(topError)
+        const parsed = JSON.parse(formatted)
+
+        expect(parsed.type).toBe('GameError')
+        expect(parsed.message).toBe('Top game error')
+        expect(parsed.details.cause).toBeDefined()
+
+        // スタックトレース
+        const stack = ErrorReporter.getStackTrace(topError)
+        expect(stack).toBeUndefined() // GameErrorはErrorを継承していないため
+
+        const rootStack = ErrorReporter.getStackTrace(rootCause)
+        expect(rootStack).toBeDefined()
+        expect(rootStack).toContain('Root cause')
+
+        // 原因チェーン
+        const chain = ErrorReporter.getCauseChain(topError)
+        expect(chain).toHaveLength(3)
+        expect(chain[0]).toBe(topError)
+        expect(chain[1]).toBe(middleError)
+        expect(chain[2]).toBe(rootCause)
       })
-      const topError = GameError({
-        message: 'Top game error',
-        code: 'GAME_001',
-        cause: middleError,
+    )
+
+    it.effect('エラーレポートの一貫性', () =>
+      Effect.gen(function* () {
+        const error = NetworkError({
+          message: 'Consistent error',
+          code: 'CONSISTENT_001',
+        })
+
+        // 複数回フォーマットしても一貫した結果
+        const format1 = yield* ErrorReporter.format(error)
+        const format2 = yield* ErrorReporter.format(error)
+
+        const parsed1 = JSON.parse(format1)
+        const parsed2 = JSON.parse(format2)
+
+        expect(parsed1.type).toBe(parsed2.type)
+        expect(parsed1.message).toBe(parsed2.message)
+        expect(parsed1.details.code).toBe(parsed2.details.code)
+        // timestampは異なる可能性があるが、両方とも有効なISO文字列
+        expect(new Date(parsed1.timestamp)).toBeInstanceOf(Date)
+        expect(new Date(parsed2.timestamp)).toBeInstanceOf(Date)
       })
-
-      // フォーマット
-      const formatted = yield* ErrorReporter.format(topError)
-      const parsed = JSON.parse(formatted)
-
-      expect(parsed.type).toBe('GameError')
-      expect(parsed.message).toBe('Top game error')
-      expect(parsed.details.cause).toBeDefined()
-
-      // スタックトレース
-      const stack = ErrorReporter.getStackTrace(topError)
-      expect(stack).toBeUndefined() // GameErrorはErrorを継承していないため
-
-      const rootStack = ErrorReporter.getStackTrace(rootCause)
-      expect(rootStack).toBeDefined()
-      expect(rootStack).toContain('Root cause')
-
-      // 原因チェーン
-      const chain = ErrorReporter.getCauseChain(topError)
-      expect(chain).toHaveLength(3)
-      expect(chain[0]).toBe(topError)
-      expect(chain[1]).toBe(middleError)
-      expect(chain[2]).toBe(rootCause)
-    }))
-
-    it.effect('エラーレポートの一貫性', () => Effect.gen(function* () {
-      const error = NetworkError({
-        message: 'Consistent error',
-        code: 'CONSISTENT_001',
-      })
-
-      // 複数回フォーマットしても一貫した結果
-      const format1 = yield* ErrorReporter.format(error)
-      const format2 = yield* ErrorReporter.format(error)
-
-      const parsed1 = JSON.parse(format1)
-      const parsed2 = JSON.parse(format2)
-
-      expect(parsed1.type).toBe(parsed2.type)
-      expect(parsed1.message).toBe(parsed2.message)
-      expect(parsed1.details.code).toBe(parsed2.details.code)
-      // timestampは異なる可能性があるが、両方とも有効なISO文字列
-      expect(new Date(parsed1.timestamp)).toBeInstanceOf(Date)
-      expect(new Date(parsed2.timestamp)).toBeInstanceOf(Date)
-    }))
+    )
   })
 
   describe('エラーレポートの不変条件', () => {
-    it.effect('フォーマット結果は常に文字列', () => Effect.gen(function* () {
-      const testCases = [
-        NetworkError({ message: 'test' }),
-        new Error('test'),
-        'string',
-        123,
-        true,
-        null,
-        undefined,
-        { _tag: 'CustomError', message: 'custom' },
-        {},
-        [],
-      ]
+    it.effect('フォーマット結果は常に文字列', () =>
+      Effect.gen(function* () {
+        const testCases = [
+          NetworkError({ message: 'test' }),
+          new Error('test'),
+          'string',
+          123,
+          true,
+          null,
+          undefined,
+          { _tag: 'CustomError', message: 'custom' },
+          {},
+          [],
+        ]
 
-      for (const testCase of testCases) {
-        const result = yield* ErrorReporter.format(testCase)
-        expect(typeof result).toBe('string')
-      }
-    }))
+        for (const testCase of testCases) {
+          const result = yield* ErrorReporter.format(testCase)
+          expect(typeof result).toBe('string')
+        }
+      })
+    )
 
     it('原因チェーンは常に配列', () => {
       const testCases = [NetworkError({ message: 'test' }), new Error('test'), 'string', 123, null, undefined]

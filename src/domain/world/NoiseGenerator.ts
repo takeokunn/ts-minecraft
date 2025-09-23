@@ -31,7 +31,12 @@ export interface NoiseGenerator {
   /**
    * オクターブノイズ生成（複数レイヤーのノイズを重ね合わせ）
    */
-  readonly octaveNoise2D: (x: NoiseCoordinate, y: NoiseCoordinate, octaves: number, persistence: number) => Effect.Effect<NoiseValue, never>
+  readonly octaveNoise2D: (
+    x: NoiseCoordinate,
+    y: NoiseCoordinate,
+    octaves: number,
+    persistence: number
+  ) => Effect.Effect<NoiseValue, never>
 
   /**
    * オクターブノイズ生成（3D版）

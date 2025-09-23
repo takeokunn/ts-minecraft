@@ -1,7 +1,7 @@
 import { Effect, Context, Layer, Schema, Ref, Option, Match, pipe, Array as A } from 'effect'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
-import { UVCoordinate, BrandedTypes } from '../../shared/types/branded.js'
+import { UVCoordinate, BrandedTypes } from '../../shared/types/branded'
 
 // ========================================
 // Type Definitions
@@ -117,11 +117,11 @@ const calculateTextureRegion = (index: number, textureSize: number, atlasSize: n
   const width = textureSize / atlasSize
   const height = textureSize / atlasSize
 
-  return { 
-    u: BrandedTypes.createUVCoordinate(u), 
-    v: BrandedTypes.createUVCoordinate(v), 
-    width: BrandedTypes.createUVCoordinate(width), 
-    height: BrandedTypes.createUVCoordinate(height) 
+  return {
+    u: BrandedTypes.createUVCoordinate(u),
+    v: BrandedTypes.createUVCoordinate(v),
+    width: BrandedTypes.createUVCoordinate(width),
+    height: BrandedTypes.createUVCoordinate(height),
   }
 }
 
@@ -150,7 +150,7 @@ const generateUVCoordsFromRegion = (
   const v = region.v as number
   const width = region.width as number
   const height = region.height as number
-  
+
   return [
     u,
     v, // Bottom-left

@@ -67,7 +67,7 @@ export const shouldLog = (level: LogLevel, currentLevel: LogLevel): boolean => {
 }
 
 // タイムスタンプ生成
-export const createTimestamp = (): Effect.Effect<string> => 
+export const createTimestamp = (): Effect.Effect<string> =>
   pipe(
     Effect.clockWith((clock) => clock.currentTimeMillis),
     Effect.map((millis) => new Date(millis).toISOString())

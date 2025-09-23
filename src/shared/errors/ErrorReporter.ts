@@ -11,7 +11,7 @@ export const ErrorReporter = {
     pipe(
       Effect.clockWith((clock) => clock.currentTimeMillis),
       Effect.map((millis) => new Date(millis).toISOString()),
-      Effect.map((timestamp) => 
+      Effect.map((timestamp) =>
         pipe(
           Option.fromNullable(error),
           Option.filter((e: unknown): e is object => typeof e === 'object'),

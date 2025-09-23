@@ -4,10 +4,10 @@
  */
 
 import { Context, Effect, Ref, Queue, Fiber, Schema, Layer, Exit, Option, Match, pipe } from 'effect'
-import type { ChunkPosition, Chunk } from './index.js'
-import { createChunk } from './Chunk.js'
-import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index.js'
-import { WorldGeneratorTag } from '../world/index.js'
+import type { ChunkPosition, Chunk } from './index'
+import { createChunk } from './Chunk'
+import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index'
+import { WorldGeneratorTag } from '../world/index'
 
 // チャンクローダー用タイムスタンプ生成ユーティリティ
 const getCurrentTimestamp = (): number => Date.now()

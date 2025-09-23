@@ -3,6 +3,7 @@ import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import * as fc from 'fast-check'
+import { BrandedTypes } from '../../../shared/types/branded'
 import {
   TerrainGeneratorTag,
   TerrainGeneratorLive,
@@ -184,7 +185,10 @@ describe('TerrainGenerator', () => {
           ]
 
           for (const { x, z } of testCoords) {
-            const height = yield* tg.getTerrainHeight(x, z)
+            const height = yield* tg.getTerrainHeight(
+              BrandedTypes.createWorldCoordinate(x),
+              BrandedTypes.createWorldCoordinate(z)
+            )
 
             expect(typeof height).toBe('number')
             expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
@@ -204,8 +208,14 @@ describe('TerrainGenerator', () => {
           const x = 123
           const z = 456
 
-          const height1 = yield* tg.getTerrainHeight(x, z)
-          const height2 = yield* tg.getTerrainHeight(x, z)
+          const height1 = yield* tg.getTerrainHeight(
+            BrandedTypes.createWorldCoordinate(x),
+            BrandedTypes.createWorldCoordinate(z)
+          )
+          const height2 = yield* tg.getTerrainHeight(
+            BrandedTypes.createWorldCoordinate(x),
+            BrandedTypes.createWorldCoordinate(z)
+          )
 
           expect(height1).toBe(height2)
         }).pipe(
@@ -336,7 +346,12 @@ describe('TerrainGenerator', () => {
         Effect.gen(function* () {
           const results = testCases.map(({ worldX, worldZ, y, surfaceHeight }) => ({
             input: { worldX, worldZ, y, surfaceHeight },
-            result: tg.getBlockTypeAtHeight(worldX, worldZ, y, surfaceHeight),
+            result: tg.getBlockTypeAtHeight(
+              BrandedTypes.createWorldCoordinate(worldX),
+              BrandedTypes.createWorldCoordinate(worldZ),
+              BrandedTypes.createHeight(y),
+              BrandedTypes.createHeight(surfaceHeight)
+            ),
           }))
 
           return results
@@ -408,7 +423,10 @@ describe('TerrainGenerator', () => {
         const effect = runWithTestTerrain(testConfig, (tg) =>
           Effect.gen(function* () {
             const heightMap = yield* tg.generateHeightMap(position)
-            const height = yield* tg.getTerrainHeight(position.x * 16, position.z * 16)
+            const height = yield* tg.getTerrainHeight(
+              BrandedTypes.createWorldCoordinate(position.x * 16),
+              BrandedTypes.createWorldCoordinate(position.z * 16)
+            )
 
             // 結果が有効であることを確認
             expect(heightMap).toHaveLength(16)

@@ -8,8 +8,8 @@ import { Effect, Layer, Schema, TestContext } from 'effect'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as THREE from 'three'
-import { CameraService, CameraError, CameraConfig, DEFAULT_CAMERA_CONFIG } from '../CameraService.js'
-import { ThirdPersonCameraLive } from '../ThirdPersonCamera.js'
+import { CameraService, CameraError, CameraConfig, DEFAULT_CAMERA_CONFIG } from '../CameraService'
+import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach

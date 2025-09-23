@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match, Option } from 'effect'
-import { ChunkPositionSchema, type ChunkPosition } from './ChunkPosition.js'
-import { WorldCoordinate, BrandedTypes } from '../../shared/types/branded.js'
+import { ChunkPositionSchema, type ChunkPosition } from './ChunkPosition'
+import { type WorldCoordinate, BrandedTypes } from '../../shared/types/branded'
 
 // チャンクサイズ定数
 export const CHUNK_SIZE = 16 // X, Z軸のサイズ
@@ -85,7 +85,7 @@ export const getBlockCoords = (index: number): [WorldCoordinate, WorldCoordinate
           return Effect.succeed([
             BrandedTypes.createWorldCoordinate(x),
             BrandedTypes.createWorldCoordinate(y),
-            BrandedTypes.createWorldCoordinate(z)
+            BrandedTypes.createWorldCoordinate(z),
           ] as [WorldCoordinate, WorldCoordinate, WorldCoordinate])
         }
       ),
@@ -126,7 +126,13 @@ export const getBlock = (chunk: ChunkData, x: WorldCoordinate, y: WorldCoordinat
 /**
  * チャンクデータのブロック設定（immutable）
  */
-export const setBlock = (chunk: ChunkData, x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate, blockId: number): ChunkData => {
+export const setBlock = (
+  chunk: ChunkData,
+  x: WorldCoordinate,
+  y: WorldCoordinate,
+  z: WorldCoordinate,
+  blockId: number
+): ChunkData => {
   const index = getBlockIndex(x, y, z)
   const newBlocks = new Uint16Array(chunk.blocks)
   newBlocks[index] = blockId
@@ -146,7 +152,12 @@ export const setBlock = (chunk: ChunkData, x: WorldCoordinate, y: WorldCoordinat
 /**
  * チャンクの高さマップ更新
  */
-export const updateHeightMap = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate, height: number): ChunkData => {
+export const updateHeightMap = (
+  chunk: ChunkData,
+  x: WorldCoordinate,
+  z: WorldCoordinate,
+  height: number
+): ChunkData => {
   const heightMapIndex = x + z * CHUNK_SIZE
   const newHeightMap = [...chunk.metadata.heightMap]
   newHeightMap[heightMapIndex] = height

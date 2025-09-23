@@ -223,23 +223,23 @@ describe('LoggerServiceTest', () => {
   })
 
   describe('Message format consistency', () => {
-    it('maintains consistent log entry format', () => {
+    it('maintains consistent log entry format', async () => {
       const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR']
 
-      levels.forEach((level) => {
-        const entry = createLogEntry(level, 'test message', { key: 'value' })
+      for (const level of levels) {
+        const entry = await Effect.runPromise(createLogEntry(level, 'test message', { key: 'value' }))
 
         expect(entry.level).toBe(level)
         expect(entry.message).toBe('test message')
         expect(entry.context).toEqual({ key: 'value' })
         expect(entry.timestamp).toBeTypeOf('string')
         expect(entry.timestamp.length).toBeGreaterThan(0)
-      })
+      }
     })
 
-    it('handles errors in log entries', () => {
+    it('handles errors in log entries', async () => {
       const error = new Error('test error')
-      const entry = createLogEntry('ERROR', 'error occurred', undefined, error)
+      const entry = await Effect.runPromise(createLogEntry('ERROR', 'error occurred', undefined, error))
 
       expect(entry.level).toBe('ERROR')
       expect(entry.message).toBe('error occurred')

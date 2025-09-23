@@ -1,6 +1,6 @@
 import { Context, Data, Effect, HashMap, Layer, Option, pipe, Schema, Match } from 'effect'
-import type { SystemError } from './System.js'
-import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry.js'
+import type { SystemError } from './System'
+import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
 import {
   type EntityId,
   type EntityMetadata,
@@ -10,8 +10,8 @@ import {
   type ComponentStorage,
   createArchetypeManager,
   type ArchetypeManager,
-} from './Entity.js'
-import { ComponentTypeName, BrandedTypes } from '../../shared/types/branded.js'
+} from './Entity'
+import { ComponentTypeName, BrandedTypes } from '../../shared/types/branded'
 
 // =====================================
 // Entity Manager Errors
@@ -136,8 +136,14 @@ export interface EntityManager {
     componentType: ComponentTypeName,
     component: T
   ) => Effect.Effect<void, EntityManagerError>
-  readonly removeComponent: (entityId: EntityId, componentType: ComponentTypeName) => Effect.Effect<void, EntityManagerError>
-  readonly getComponent: <T>(entityId: EntityId, componentType: ComponentTypeName) => Effect.Effect<Option.Option<T>, never>
+  readonly removeComponent: (
+    entityId: EntityId,
+    componentType: ComponentTypeName
+  ) => Effect.Effect<void, EntityManagerError>
+  readonly getComponent: <T>(
+    entityId: EntityId,
+    componentType: ComponentTypeName
+  ) => Effect.Effect<Option.Option<T>, never>
   readonly hasComponent: (entityId: EntityId, componentType: ComponentTypeName) => Effect.Effect<boolean, never>
   readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<ReadonlyMap<ComponentTypeName, unknown>, never>
 
@@ -150,7 +156,9 @@ export interface EntityManager {
   readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>, never>
 
   // バッチ操作（高速）
-  readonly batchGetComponents: <T>(componentType: ComponentTypeName) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
+  readonly batchGetComponents: <T>(
+    componentType: ComponentTypeName
+  ) => Effect.Effect<ReadonlyArray<[EntityId, T]>, never>
   readonly iterateComponents: <T, R, E>(
     componentType: ComponentTypeName,
     f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>
@@ -175,8 +183,8 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   // Internal state
   const entities = new Map<EntityId, EntityMetadata>()
-  const componentStorages = new Map<string, ComponentStorage<unknown>>()
-  const entityComponents = new Map<EntityId, Set<string>>()
+  const componentStorages = new Map<ComponentTypeName, ComponentStorage<unknown>>()
+  const entityComponents = new Map<EntityId, Set<ComponentTypeName>>()
   const archetypeManager = createArchetypeManager()
   const tagIndex = new Map<string, Set<EntityId>>()
 
@@ -252,7 +260,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(id)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -303,7 +311,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -358,7 +366,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                     const components = yield* pipe(
                       Option.fromNullable(entityComponents.get(entityId)),
                       Option.match({
-                        onNone: () => Effect.succeed(new Set<string>()),
+                        onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
                         onSome: (c) => Effect.succeed(c),
                       })
                     )
@@ -403,11 +411,11 @@ export const EntityManagerLive = Effect.gen(function* () {
   // エンティティのすべてのコンポーネント取得
   const getEntityComponents = (entityId: EntityId) =>
     Effect.gen(function* () {
-      const result = new Map<string, unknown>()
+      const result = new Map<ComponentTypeName, unknown>()
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
-          onNone: () => Effect.succeed(new Set<string>()),
+          onNone: () => Effect.succeed(new Set<ComponentTypeName>()),
           onSome: (components) => Effect.succeed(components),
         })
       )
@@ -437,7 +445,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         )
       }
 
-      return result as ReadonlyMap<string, unknown>
+      return result as ReadonlyMap<ComponentTypeName, unknown>
     })
 
   // クエリ：コンポーネントを持つエンティティ
@@ -457,7 +465,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // クエリ：複数コンポーネントを持つエンティティ（AND）
-  const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
+  const getEntitiesWithComponents = (componentTypes: readonly ComponentTypeName[]) =>
     Effect.gen(function* () {
       return yield* pipe(
         componentTypes.length === 0,

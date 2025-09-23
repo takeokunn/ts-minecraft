@@ -13,13 +13,13 @@ import {
   type WorldGenerator,
   type Vector3,
   type StructureType,
-} from '../index.js'
-import { type ChunkPosition } from '../../chunk/ChunkPosition.js'
-import { NoiseGeneratorLive } from '../NoiseGenerator.js'
-import { TerrainGeneratorLive } from '../TerrainGenerator.js'
-import { BiomeGeneratorLive } from '../BiomeGenerator.js'
-import { CaveGeneratorLive } from '../CaveGenerator.js'
-import { OreDistributionLive, defaultOreConfigs } from '../OreDistribution.js'
+} from '../index'
+import { type ChunkPosition } from '../../chunk/ChunkPosition'
+import { NoiseGeneratorLive } from '../NoiseGenerator'
+import { TerrainGeneratorLive } from '../TerrainGenerator'
+import { BiomeGeneratorLive } from '../BiomeGenerator'
+import { CaveGeneratorLive } from '../CaveGenerator'
+import { OreDistributionLive, defaultOreConfigs } from '../OreDistribution'
 
 // ================================================================================
 // Test Layers - Layer-based DI Pattern

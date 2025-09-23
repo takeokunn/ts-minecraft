@@ -429,14 +429,16 @@ const makeGameApplicationLive = Effect.gen(function* () {
     // 手動フレーム実行
     tick: (deltaTime) =>
       Effect.gen(function* () {
-        const frameInfo = yield* gameLoopService.tick(deltaTime ? BrandedTypes.createDeltaTime(deltaTime) : BrandedTypes.createDeltaTime(16)).pipe(
-          Effect.catchAll((error) =>
-            Effect.gen(function* () {
-              yield* Effect.logError('GameLoop tick failed', error)
-              return yield* Effect.die('GameLoop tick failed')
-            })
+        const frameInfo = yield* gameLoopService
+          .tick(deltaTime ? BrandedTypes.createDeltaTime(deltaTime) : BrandedTypes.createDeltaTime(16))
+          .pipe(
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                yield* Effect.logError('GameLoop tick failed', error)
+                return yield* Effect.die('GameLoop tick failed')
+              })
+            )
           )
-        )
         yield* onFrameUpdate(frameInfo)
       }).pipe(
         Effect.catchAll((error) =>

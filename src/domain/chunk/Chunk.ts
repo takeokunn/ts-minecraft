@@ -1,6 +1,6 @@
 import { Effect, Match, pipe } from 'effect'
-import type { ChunkPosition } from './ChunkPosition.js'
-import type { ChunkData, ChunkMetadata } from './ChunkData.js'
+import type { ChunkPosition } from './ChunkPosition'
+import type { ChunkData, ChunkMetadata } from './ChunkData'
 import {
   getBlockIndex,
   getBlockCoords,
@@ -9,7 +9,8 @@ import {
   CHUNK_HEIGHT,
   CHUNK_MIN_Y,
   CHUNK_MAX_Y,
-} from './ChunkData.js'
+} from './ChunkData'
+import { BrandedTypes } from '../../shared/types/branded'
 
 /**
  * チャンク操作のエラー型
@@ -97,7 +98,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         Match.value,
         Match.when(true, () => Effect.fail(ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`))),
         Match.orElse(() => {
-          const index = getBlockIndex(x, y, z)
+          const index = getBlockIndex(
+            BrandedTypes.createWorldCoordinate(x),
+            BrandedTypes.createWorldCoordinate(y),
+            BrandedTypes.createWorldCoordinate(z)
+          )
           return Effect.succeed(chunk.blocks[index] ?? 0)
         })
       )
@@ -112,7 +117,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         Match.when(true, () => Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))),
         Match.orElse(() =>
           Effect.gen(function* () {
-            const index = getBlockIndex(x, y, z)
+            const index = getBlockIndex(
+              BrandedTypes.createWorldCoordinate(x),
+              BrandedTypes.createWorldCoordinate(y),
+              BrandedTypes.createWorldCoordinate(z)
+            )
             const newBlocks = new Uint16Array(chunk.blocks)
             newBlocks[index] = blockId
 
@@ -177,7 +186,11 @@ export const createChunk = (data: ChunkData): Chunk => {
         for (let x = minX; x <= maxX; x++) {
           for (let y = minY; y <= maxY; y++) {
             for (let z = minZ; z <= maxZ; z++) {
-              const index = getBlockIndex(x, y, z)
+              const index = getBlockIndex(
+                BrandedTypes.createWorldCoordinate(x),
+                BrandedTypes.createWorldCoordinate(y),
+                BrandedTypes.createWorldCoordinate(z)
+              )
               newBlocks[index] = blockId
             }
           }

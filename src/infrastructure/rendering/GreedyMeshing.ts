@@ -239,7 +239,7 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
 
   for (const quad of quads) {
     const { x, y, z, width, height, axis, normal } = quad
-    
+
     // Brand型から数値を取得
     const widthNum = width as number
     const heightNum = height as number

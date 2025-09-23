@@ -4,6 +4,7 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkData } from '../chunk/ChunkData'
 import type { Vector3 } from './types'
+import { BrandedTypes } from '../../shared/types/branded'
 
 /**
  * 洞窟生成の設定
@@ -89,9 +90,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
 
               // 3D洞窟ノイズ
               const caveNoise = yield* noiseGenerator.noise3D(
-                worldX * config.caveScale,
-                y * config.caveScale * 2, // Y軸は少し圧縮
-                worldZ * config.caveScale
+                BrandedTypes.createNoiseCoordinate(worldX * config.caveScale),
+                BrandedTypes.createNoiseCoordinate(y * config.caveScale * 2), // Y軸は少し圧縮
+                BrandedTypes.createNoiseCoordinate(worldZ * config.caveScale)
               )
 
               // 洞窟生成判定
@@ -139,9 +140,9 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
       Effect.gen(function* () {
         const noiseGenerator = yield* NoiseGeneratorTag
         const caveNoise = yield* noiseGenerator.noise3D(
-          position.x * config.caveScale,
-          position.y * config.caveScale * 2,
-          position.z * config.caveScale
+          BrandedTypes.createNoiseCoordinate(position.x * config.caveScale),
+          BrandedTypes.createNoiseCoordinate(position.y * config.caveScale * 2),
+          BrandedTypes.createNoiseCoordinate(position.z * config.caveScale)
         )
 
         return Math.abs(caveNoise) < config.caveThreshold
@@ -159,7 +160,10 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
 
             const noiseGenerator = yield* NoiseGeneratorTag
             // 峡谷ノイズ（2Dで地表から切り込む）
-            const ravineNoise = yield* noiseGenerator.noise2D(worldX * config.ravineScale, worldZ * config.ravineScale)
+            const ravineNoise = yield* noiseGenerator.noise2D(
+              BrandedTypes.createNoiseCoordinate(worldX * config.ravineScale),
+              BrandedTypes.createNoiseCoordinate(worldZ * config.ravineScale)
+            )
 
             // 峡谷の深さを決定
             const isRavine = Math.abs(ravineNoise) < config.ravineThreshold
@@ -201,7 +205,10 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
 
             const noiseGenerator = yield* NoiseGeneratorTag
             // 溶岩湖ノイズ
-            const lakeNoise = yield* noiseGenerator.noise2D(worldX * 0.02, worldZ * 0.02)
+            const lakeNoise = yield* noiseGenerator.noise2D(
+              BrandedTypes.createNoiseCoordinate(worldX * 0.02),
+              BrandedTypes.createNoiseCoordinate(worldZ * 0.02)
+            )
 
             // 溶岩湖生成判定
             const isLavaLake = lakeNoise > 0.7
