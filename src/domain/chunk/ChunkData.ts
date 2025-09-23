@@ -61,7 +61,11 @@ const validateCoordinates = (
  * normalizedY + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  * CHUNK_HEIGHT=384, CHUNK_SIZE=16, so x * 384 * 16 = x * 6144
  */
-export const getBlockIndexEffect = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCoordinate): Effect.Effect<number, Error> => {
+export const getBlockIndexEffect = (
+  x: WorldCoordinate,
+  y: WorldCoordinate,
+  z: WorldCoordinate
+): Effect.Effect<number, Error> => {
   return validateCoordinates(x, y, z).pipe(
     Effect.map(({ normalizedY }) => normalizedY + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
   )
@@ -78,7 +82,9 @@ export const getBlockIndex = (x: WorldCoordinate, y: WorldCoordinate, z: WorldCo
 /**
  * 1Dインデックスから3D座標への変換（Effect-TSパターン）
  */
-export const getBlockCoordsEffect = (index: number): Effect.Effect<[WorldCoordinate, WorldCoordinate, WorldCoordinate], Error> => {
+export const getBlockCoordsEffect = (
+  index: number
+): Effect.Effect<[WorldCoordinate, WorldCoordinate, WorldCoordinate], Error> => {
   return Match.value(index).pipe(
     Match.when(
       (index) => index >= 0 && index < CHUNK_VOLUME,
@@ -187,7 +193,11 @@ export const updateHeightMap = (
 /**
  * チャンクの高さ取得（Effect-TSパターン）
  */
-export const getHeightEffect = (chunk: ChunkData, x: WorldCoordinate, z: WorldCoordinate): Effect.Effect<number, Error> => {
+export const getHeightEffect = (
+  chunk: ChunkData,
+  x: WorldCoordinate,
+  z: WorldCoordinate
+): Effect.Effect<number, Error> => {
   return Match.value([x, z]).pipe(
     Match.when(
       ([x, z]) => x >= 0 && x < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE,

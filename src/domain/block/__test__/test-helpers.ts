@@ -76,11 +76,9 @@ export const expectBlockToMatch = (actual: BlockType, expected: Partial<BlockTyp
 
 // Effect-TS パターンでのテストランナー - 改善版
 export const runTestEffect = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromiseExit(effect).then(exit =>
-    Exit.isSuccess(exit) ? exit.value : Promise.reject(exit.cause)
-  )
+  Effect.runPromiseExit(effect).then((exit) => (Exit.isSuccess(exit) ? exit.value : Promise.reject(exit.cause)))
 
 export const runTestSuite = <E>(effects: Effect.Effect<unknown, E>[]) =>
-  Effect.runPromiseExit(Effect.all(effects)).then(exit =>
+  Effect.runPromiseExit(Effect.all(effects)).then((exit) =>
     Exit.isSuccess(exit) ? exit.value : Promise.reject(exit.cause)
   )

@@ -103,7 +103,7 @@ export const GameLoopServiceLive = Layer.effect(
         if (state.state === 'running') {
           const nextFrameId = requestAnimationFrame((ts) => {
             Effect.runPromiseExit(executeFrame(ts)).then(
-              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+              (exit) => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
             )
           })
 
@@ -198,7 +198,7 @@ export const GameLoopServiceLive = Layer.effect(
           // 最初のフレームを開始
           const frameId = requestAnimationFrame((timestamp) => {
             Effect.runPromiseExit(executeFrame(timestamp)).then(
-              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+              (exit) => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
             )
           })
 
@@ -285,7 +285,7 @@ export const GameLoopServiceLive = Layer.effect(
 
           const frameId = requestAnimationFrame((timestamp) => {
             Effect.runPromiseExit(executeFrame(timestamp)).then(
-              exit => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
+              (exit) => Exit.isFailure(exit) && console.error('Frame execution failed:', exit.cause)
             )
           })
 
@@ -331,9 +331,7 @@ export const GameLoopServiceLive = Layer.effect(
                 ...s,
                 frameCallbacks: s.frameCallbacks.filter((cb) => cb !== callback),
               }))
-            ).then(
-              exit => Exit.isFailure(exit) && console.error('Cleanup failed:', exit.cause)
-            )
+            ).then((exit) => Exit.isFailure(exit) && console.error('Cleanup failed:', exit.cause))
           }
         }),
 
