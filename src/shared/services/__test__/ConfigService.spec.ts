@@ -207,16 +207,21 @@ describe('ConfigService', () => {
       Layer.sync(ConfigService, () => {
         const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
           const envValue = envVars[envKey]
-          return envValue
-            ? (() => {
-                try {
+          if (!envValue) return defaultValue
+
+          const result = Effect.runSync(
+            Effect.either(
+              Effect.try({
+                try: () => {
                   const parsed = JSON.parse(envValue)
                   return Schema.decodeSync(schema)(parsed)
-                } catch {
-                  return defaultValue
-                }
-              })()
-            : defaultValue
+                },
+                catch: (error) => error
+              })
+            )
+          )
+
+          return result._tag === 'Right' ? result.right : defaultValue
         }
 
         const gameConfig = loadFromEnv(

@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Either } from 'effect'
 import { describe, it, expect } from 'vitest'
 import { LoggerService, getCurrentLogLevel, shouldLog, createLogEntry } from '../LoggerService'
 import { LoggerServiceLive } from '../LoggerServiceLive'
@@ -192,15 +192,19 @@ describe('LoggerServiceLive', () => {
         const logger = yield* LoggerService
 
         // 複数のエラーハンドリングシナリオ
-        try {
-          yield* logger.measurePerformance(
+        const result = yield* Effect.either(
+          logger.measurePerformance(
             'failing-task',
             Effect.fail(new Error('Task failed')) as Effect.Effect<never, never, never>
           )
-        } catch (error) {
-          yield* logger.error('Performance measurement failed', error as Error)
-          throw error
+        )
+
+        if (Either.isLeft(result)) {
+          yield* logger.error('Performance measurement failed', result.left as Error)
+          return yield* Effect.fail(result.left)
         }
+
+        return result.right
       })
 
       await expect(Effect.runPromise(errorWorkflow.pipe(Effect.provide(LoggerServiceLive)))).rejects.toThrow(
