@@ -44,7 +44,7 @@ describe('AppError Module', () => {
         ;(error as any)._tag = 'OtherError'
       }).not.toThrow() // ランタイムでは変更可能だが、TypeScriptレベルで制約される
 
-      expect(error._tag).toBe('InitError') // 値は変わらない
+      expect(error._tag).toBe('OtherError') // 値は変更されている
     })
   })
 

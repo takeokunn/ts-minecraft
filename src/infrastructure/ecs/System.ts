@@ -109,7 +109,7 @@ export const runSystems = (
     (system) =>
       system.update(world, deltaTime).pipe(
         Effect.mapError((error) =>
-          error instanceof SystemError ? error : SystemError(system.name, 'Unknown error in system execution', error)
+          isSystemError(error) ? error : SystemError(system.name, 'Unknown error in system execution', error)
         ),
         Effect.catchTag('SystemError', (error) =>
           Effect.logError(`System ${error.systemName} failed: ${error.message}`).pipe(

@@ -11,7 +11,7 @@ import * as Chunk from 'effect/Chunk'
 import * as TestContext from 'effect/TestContext'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
-import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from '../SystemRegistry.js'
+import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError, isSystemRegistryError } from '../SystemRegistry.js'
 import { createSystem, SystemError } from '../System.js'
 import type { World } from '../World.js'
 
@@ -127,7 +127,7 @@ describe('SystemRegistry ECS Architecture', () => {
           return yield* Effect.fail(new Error('Expected exactly one failure'))
         }
 
-        if (!(failures[0] instanceof SystemRegistryError)) {
+        if (!isSystemRegistryError(failures[0])) {
           return yield* Effect.fail(new Error('Expected SystemRegistryError'))
         }
 
@@ -350,7 +350,7 @@ describe('SystemRegistry ECS Architecture', () => {
           return yield* Effect.fail(new Error('Expected exactly one failure'))
         }
 
-        if (!(failures[0] instanceof SystemRegistryError)) {
+        if (!isSystemRegistryError(failures[0])) {
           return yield* Effect.fail(new Error('Expected SystemRegistryError'))
         }
 

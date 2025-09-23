@@ -7,7 +7,7 @@
 
 import { Context, Data, Effect, Layer, Ref, Schema, Either, Match, pipe, Option } from 'effect'
 import type { System, SystemMetadata, SystemPriority } from './System.js'
-import { priorityToNumber, runSystems, SystemError, SystemExecutionState } from './System.js'
+import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System.js'
 import type { World } from './World.js'
 
 /**
@@ -344,7 +344,7 @@ export const SystemRegistryServiceLive = Layer.effect(
                         onNone: () => s,
                         onSome: (entry) => {
                           const errorMessage =
-                            error instanceof SystemError ? `${error.systemName}: ${error.message}` : String(error)
+                            isSystemError(error) ? `${error.systemName}: ${error.message}` : String(error)
 
                           const newExecutionState: SystemExecutionState = {
                             ...entry.executionState,

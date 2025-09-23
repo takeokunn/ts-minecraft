@@ -5,6 +5,7 @@ import {
   type AOFace,
   type AOConfig,
   AmbientOcclusionError,
+  isAmbientOcclusionError,
   AmbientOcclusionService,
   AmbientOcclusionLive,
   blendAOColors,
@@ -207,7 +208,7 @@ describe('AmbientOcclusion', () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeInstanceOf(AmbientOcclusionError)
+        expect(isAmbientOcclusionError(error)).toBe(true)
       }
     })
   })
@@ -306,8 +307,8 @@ describe('AmbientOcclusion', () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeInstanceOf(AmbientOcclusionError)
-        if (error instanceof AmbientOcclusionError) {
+        expect(isAmbientOcclusionError(error)).toBe(true)
+        if (isAmbientOcclusionError(error)) {
           expect(error.context).toBe('calculateFaceAO(top)')
         }
       }
@@ -418,8 +419,8 @@ describe('AmbientOcclusion', () => {
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
         const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeInstanceOf(AmbientOcclusionError)
-        if (error instanceof AmbientOcclusionError) {
+        expect(isAmbientOcclusionError(error)).toBe(true)
+        if (isAmbientOcclusionError(error)) {
           expect(error.context).toBe('applyAOToChunk')
         }
       }
@@ -467,7 +468,7 @@ describe('AmbientOcclusion', () => {
     it('should create AmbientOcclusionError with correct properties', () => {
       const error = AmbientOcclusionError('Test error', 'test', Date.now())
 
-      expect(error).toBeInstanceOf(AmbientOcclusionError)
+      expect(isAmbientOcclusionError(error)).toBe(true)
       expect(error.reason).toBe('Test error')
       expect(error.context).toBe('test')
       expect(error.timestamp).toBeGreaterThan(0)

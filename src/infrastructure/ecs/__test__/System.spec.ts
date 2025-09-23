@@ -8,6 +8,7 @@ import {
   SystemError,
   priorityToNumber,
   SystemPriority,
+  isSystemError,
 } from '../System'
 import type { World } from '../World'
 
@@ -71,7 +72,7 @@ describe('System', () => {
         expect(error).toBeDefined()
         const failures = Chunk.toArray(Cause.failures(error))
         expect(failures).toHaveLength(1)
-        expect(failures[0]).toBeInstanceOf(SystemError)
+        expect(isSystemError(failures[0])).toBe(true)
         expect((failures[0] as SystemError).systemName).toBe('System2')
       }
     })
@@ -87,7 +88,7 @@ describe('System', () => {
         expect(error).toBeDefined()
         const failures = Chunk.toArray(Cause.failures(error))
         expect(failures).toHaveLength(1)
-        expect(failures[0]).toBeInstanceOf(SystemError)
+        expect(isSystemError(failures[0])).toBe(true)
         expect((failures[0] as SystemError).systemName).toBe('FailingSystem')
       }
     })
