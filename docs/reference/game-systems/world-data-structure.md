@@ -1,6 +1,6 @@
 ---
-title: 'ワールドデータ構造仕様 - DDD設計による型安全な実装'
-description: 'Effect-TS 3.17+とDDD原則に基づく包括的なワールドデータ構造設計。集約ルート、値オブジェクト、ドメインサービスを含むプロダクションレベルの実装仕様'
+title: 'ワールドデータ構造仕様 - Effect-TS Schema対応DDD設計'
+description: 'Effect-TS 3.17+ SchemaとDDD原則に基づく型安全なワールドデータ構造設計。Schema-driven型定義、集約ルート、値オブジェクト、Event Sourcingを含むプロダクションレベルの実装仕様'
 category: 'specification'
 difficulty: 'advanced'
 tags: ['effect-ts', 'ddd', 'world-data', 'aggregates', 'domain-modeling', 'performance']
@@ -88,43 +88,91 @@ export namespace WorldManagementContext {
   export const RegionId = Brand.nominal<RegionId>()
   export const ChunkCoordinate = Brand.nominal<ChunkCoordinate>()
 
+  // Schemaベースの型定義への変換
+  export const WorldIdSchema = Schema.String.pipe(
+    Schema.brand(WorldId),
+    Schema.minLength(1),
+    Schema.maxLength(64),
+    Schema.description('一意のワールド識別子')
+  )
+  export const DimensionIdSchema = Schema.String.pipe(
+    Schema.brand(DimensionId),
+    Schema.pattern(/^(overworld|nether|the_end|custom:[a-z0-9_-]+)$/),
+    Schema.description('ディメンション識別子')
+  )
+  export const RegionIdSchema = Schema.String.pipe(
+    Schema.brand(RegionId),
+    Schema.pattern(/^r\.-?\d+\.-?\d+$/),
+    Schema.description('リージョンファイル識別子')
+  )
+  export const ChunkCoordinateSchema = Schema.String.pipe(
+    Schema.brand(ChunkCoordinate),
+    Schema.pattern(/^-?\d+,-?\d+$/),
+    Schema.description('チャンク座標文字列')
+  )
+
   // 座標系値オブジェクト
   export const WorldPositionSchema = Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number.pipe(Schema.clamp(-64, 320)), // Y座標制限
-    z: Schema.Number,
-    dimension: Schema.String.pipe(Schema.brand(DimensionId)),
-  })
+    x: Schema.Number.pipe(Schema.finite(), Schema.description('X座標（東西方向）')),
+    y: Schema.Number.pipe(
+      Schema.clamp(-64, 320), // Y座標制限
+      Schema.description('Y座標（上下方向、-64から320まで）')
+    ),
+    z: Schema.Number.pipe(Schema.finite(), Schema.description('Z座標（南北方向）')),
+    dimension: DimensionIdSchema,
+  }).pipe(Schema.readonly, Schema.description('ワールド内の絶対座標'))
 
-  export const ChunkCoordinateSchema = Schema.Struct({
-    x: Schema.Int.pipe(Schema.between(-1875000, 1875000)), // ワールド境界
-    z: Schema.Int.pipe(Schema.between(-1875000, 1875000)),
-  }).pipe(
-    Schema.transform(Schema.String, {
-      decode: (coord) => `${coord.x},${coord.z}`,
+  export const ChunkCoordinateDataSchema = Schema.Struct({
+    x: Schema.Int.pipe(
+      Schema.between(-1875000, 1875000), // ワールド境界
+      Schema.description('チャンクX座標')
+    ),
+    z: Schema.Int.pipe(Schema.between(-1875000, 1875000), Schema.description('チャンクZ座標')),
+  }).pipe(Schema.readonly, Schema.description('チャンク座標データ'))
+
+  export const ChunkCoordinateTransformSchema = ChunkCoordinateDataSchema.pipe(
+    Schema.transform(ChunkCoordinateSchema, {
+      strict: true,
+      decode: (coord) => ChunkCoordinate(`${coord.x},${coord.z}`),
       encode: (str) => {
         const [x, z] = str.split(',').map(Number)
+        if (isNaN(x) || isNaN(z)) {
+          throw new Error(`Invalid chunk coordinate format: ${str}`)
+        }
         return { x, z }
       },
     }),
-    Schema.brand(ChunkCoordinate)
+    Schema.description('チャンク座標の文字列変換')
   )
 
-  export const RegionCoordinateSchema = Schema.Struct({
-    x: Schema.Int,
-    z: Schema.Int,
-  }).pipe(
-    Schema.transform(Schema.String, {
-      decode: (coord) => `r.${coord.x}.${coord.z}`,
+  export const RegionCoordinateDataSchema = Schema.Struct({
+    x: Schema.Int.pipe(Schema.description('リージョンX座標')),
+    z: Schema.Int.pipe(Schema.description('リージョンZ座標')),
+  }).pipe(Schema.readonly, Schema.description('リージョン座標データ'))
+
+  export const RegionCoordinateTransformSchema = RegionCoordinateDataSchema.pipe(
+    Schema.transform(RegionIdSchema, {
+      strict: true,
+      decode: (coord) => RegionId(`r.${coord.x}.${coord.z}`),
       encode: (str) => {
         const parts = str.split('.')
-        return { x: parseInt(parts[1]), z: parseInt(parts[2]) }
+        if (parts.length !== 3 || parts[0] !== 'r') {
+          throw new Error(`Invalid region ID format: ${str}`)
+        }
+        const x = parseInt(parts[1])
+        const z = parseInt(parts[2])
+        if (isNaN(x) || isNaN(z)) {
+          throw new Error(`Invalid region coordinates in: ${str}`)
+        }
+        return { x, z }
       },
     }),
-    Schema.brand(RegionId)
+    Schema.description('リージョンIDの文字列変換')
   )
 
   export interface WorldPosition extends Schema.Schema.Type<typeof WorldPositionSchema> {}
+  export interface ChunkCoordinateData extends Schema.Schema.Type<typeof ChunkCoordinateDataSchema> {}
+  export interface RegionCoordinateData extends Schema.Schema.Type<typeof RegionCoordinateDataSchema> {}
 
   // 座標変換ヘルパー関数
   export const CoordinateConversion = {
@@ -156,13 +204,33 @@ export namespace TerrainGenerationContext {
   export const StructureId = Brand.nominal<StructureId>()
   export const GeneratorSeed = Brand.nominal<GeneratorSeed>()
 
-  // バイオーム値オブジェクト
+  // Schemaベースの型定義
+  export const BiomeIdSchema = Schema.String.pipe(
+    Schema.brand(BiomeId),
+    Schema.pattern(/^[a-z0-9_]+$/),
+    Schema.minLength(1),
+    Schema.maxLength(64),
+    Schema.description('バイオーム識別子')
+  )
+  export const StructureIdSchema = Schema.String.pipe(
+    Schema.brand(StructureId),
+    Schema.pattern(/^[a-z0-9_]+$/),
+    Schema.minLength(1),
+    Schema.maxLength(64),
+    Schema.description('構造物識別子')
+  )
+  export const GeneratorSeedSchema = Schema.BigIntFromSelf.pipe(
+    Schema.brand(GeneratorSeed),
+    Schema.description('地形生成シード値')
+  )
+
+  // バイオーム値オブジェクト（Value Object Pattern強化）
   export const BiomeSchema = Schema.Struct({
-    id: Schema.String.pipe(Schema.brand(BiomeId)),
-    name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(32)),
-    temperature: Schema.Number.pipe(Schema.between(-2.0, 2.0)),
-    humidity: Schema.Number.pipe(Schema.between(0.0, 1.0)),
-    precipitation: Schema.Literal('none', 'rain', 'snow'),
+    id: BiomeIdSchema,
+    name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(32), Schema.description('表示用バイオーム名')),
+    temperature: Schema.Number.pipe(Schema.between(-2.0, 2.0), Schema.description('温度値（-2.0:極寒 ～ 2.0:極暑）')),
+    humidity: Schema.Number.pipe(Schema.between(0.0, 1.0), Schema.description('湿度値（0.0:乾燥 ～ 1.0:湿潤）')),
+    precipitation: Schema.Literal('none', 'rain', 'snow').pipe(Schema.description('降水タイプ')),
     category: Schema.Literal(
       'ocean',
       'plains',
@@ -180,38 +248,43 @@ export namespace TerrainGenerationContext {
       'jungle',
       'savanna',
       'mesa'
-    ),
+    ).pipe(Schema.description('バイオームカテゴリ')),
     colors: Schema.Struct({
-      grass: Schema.Number, // RGB値
-      foliage: Schema.Number,
-      water: Schema.Number,
-      sky: Schema.Number,
-      fog: Schema.Number,
-    }),
-    features: Schema.Array(Schema.String), // 生成される地形特徴
-    structures: Schema.Array(Schema.String.pipe(Schema.brand(StructureId))),
-  })
+      grass: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff), Schema.description('草の色（RGB値）')),
+      foliage: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff), Schema.description('葉の色（RGB値）')),
+      water: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff), Schema.description('水の色（RGB値）')),
+      sky: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff), Schema.description('空の色（RGB値）')),
+      fog: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff), Schema.description('霧の色（RGB値）')),
+    }).pipe(Schema.readonly, Schema.description('バイオーム固有の色情報')),
+    features: Schema.Array(Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64))).pipe(
+      Schema.readonly,
+      Schema.description('生成される地形特徴のリスト')
+    ),
+    structures: Schema.Array(StructureIdSchema).pipe(Schema.readonly, Schema.description('生成される構造物のリスト')),
+  }).pipe(Schema.readonly, Schema.description('バイオーム値オブジェクト（不変）'))
 
   export interface Biome extends Schema.Schema.Type<typeof BiomeSchema> {}
 
-  // 地形生成パラメータ
+  // 地形生成パラメータ（Value Object Pattern）
   export const TerrainGenerationParametersSchema = Schema.Struct({
-    seed: Schema.BigInt.pipe(Schema.brand(GeneratorSeed)),
-    generationType: Schema.Literal('default', 'flat', 'large_biomes', 'amplified', 'custom'),
-    seaLevel: Schema.Number.pipe(Schema.clamp(0, 256)),
-    biomeSize: Schema.Number.pipe(Schema.between(0.1, 4.0)),
-    structureDensity: Schema.Number.pipe(Schema.between(0.0, 1.0)),
+    seed: GeneratorSeedSchema,
+    generationType: Schema.Literal('default', 'flat', 'large_biomes', 'amplified', 'custom').pipe(
+      Schema.description('地形生成タイプ')
+    ),
+    seaLevel: Schema.Number.pipe(Schema.clamp(0, 256), Schema.int(), Schema.description('海面レベル（Y座標）')),
+    biomeSize: Schema.Number.pipe(Schema.between(0.1, 4.0), Schema.description('バイオームサイズ倍率')),
+    structureDensity: Schema.Number.pipe(Schema.between(0.0, 1.0), Schema.description('構造物生成密度')),
     oreDensity: Schema.Record({
-      key: Schema.String, // 鉱石タイプ
-      value: Schema.Number.pipe(Schema.between(0.0, 1.0)),
-    }),
+      key: Schema.String.pipe(Schema.pattern(/^[a-z0-9_]+$/), Schema.description('鉱石タイプ識別子')),
+      value: Schema.Number.pipe(Schema.between(0.0, 1.0), Schema.description('鉱石生成密度')),
+    }).pipe(Schema.readonly, Schema.description('鉱石生成密度マップ')),
     customSettings: Schema.optional(
       Schema.Record({
         key: Schema.String,
         value: Schema.Unknown,
-      })
+      }).pipe(Schema.readonly, Schema.description('カスタム生成設定'))
     ),
-  })
+  }).pipe(Schema.readonly, Schema.description('地形生成パラメータ（不変）'))
 }
 ```
 
@@ -220,134 +293,162 @@ export namespace TerrainGenerationContext {
 ### ワールド集約ルート
 
 ```typescript
-// ワールド集約ルート - DRFパターン（Aggregate Root Pattern）
+// ワールド集約ルート - Aggregate Root Pattern（強化版）
 export const WorldAggregateSchema = Schema.Struct({
   // アイデンティティ
-  id: Schema.String.pipe(Schema.brand(WorldId)),
+  id: WorldIdSchema,
   name: Schema.String.pipe(
     Schema.minLength(1),
     Schema.maxLength(32),
-    Schema.pattern(/^[\w\s\-_.]+$/) // 安全なワールド名のみ許可
+    Schema.pattern(/^[\w\s\-_.]+$/), // 安全なワールド名のみ許可
+    Schema.description('ワールド名（表示用）')
   ),
 
-  // メタデータ
+  // メタデータ（Value Object Pattern）
   metadata: Schema.Struct({
-    createdAt: Schema.Date,
-    lastModified: Schema.Date,
-    lastPlayed: Schema.Date,
-    totalPlayTime: Schema.Number.pipe(Schema.nonnegative()), // ミリ秒
+    createdAt: Schema.DateFromSelf.pipe(Schema.description('ワールド作成日時')),
+    lastModified: Schema.DateFromSelf.pipe(Schema.description('最終更新日時')),
+    lastPlayed: Schema.DateFromSelf.pipe(Schema.description('最終プレイ日時')),
+    totalPlayTime: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('総プレイ時間（ミリ秒）')),
     version: Schema.Struct({
-      game: Schema.String,
-      format: Schema.Number,
-      features: Schema.Array(Schema.String),
-    }),
+      game: Schema.String.pipe(Schema.minLength(1), Schema.description('ゲームバージョン')),
+      format: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.description('セーブフォーマットバージョン')),
+      features: Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(
+        Schema.readonly,
+        Schema.description('有効機能リスト')
+      ),
+    }).pipe(Schema.readonly, Schema.description('バージョン情報')),
     statistics: Schema.Struct({
-      totalBlocks: Schema.Number.pipe(Schema.nonnegative()),
-      totalEntities: Schema.Number.pipe(Schema.nonnegative()),
-      loadedChunks: Schema.Number.pipe(Schema.nonnegative()),
-      savedChunks: Schema.Number.pipe(Schema.nonnegative()),
-    }),
-  }),
+      totalBlocks: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('総ブロック数')),
+      totalEntities: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('総エンティティ数')),
+      loadedChunks: Schema.Number.pipe(
+        Schema.nonnegative(),
+        Schema.int(),
+        Schema.description('読み込み済みチャンク数')
+      ),
+      savedChunks: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('保存済みチャンク数')),
+    }).pipe(Schema.readonly, Schema.description('統計情報')),
+  }).pipe(Schema.readonly, Schema.description('ワールドメタデータ')),
 
   // 世界生成設定（不変）
   generationSettings: TerrainGenerationParametersSchema,
 
-  // ディメンション管理
+  // ディメンション管理（Aggregate内のEntity参照）
   dimensions: Schema.Map({
-    key: Schema.String.pipe(Schema.brand(DimensionId)),
-    value: DimensionReferenceSchema,
-  }),
+    key: DimensionIdSchema,
+    value: Schema.suspend(() => DimensionReferenceSchema), // 循環参照回避
+  }).pipe(Schema.readonly, Schema.description('ディメンション管理マップ')),
 
-  // ゲームルール設定
+  // ゲームルール設定（Value Object Pattern）
   gameRules: Schema.Struct({
-    difficulty: Schema.Literal('peaceful', 'easy', 'normal', 'hard'),
-    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
-    pvp: Schema.Boolean,
-    mobSpawning: Schema.Boolean,
-    naturalRegeneration: Schema.Boolean,
-    keepInventory: Schema.Boolean,
-    doDaylightCycle: Schema.Boolean,
-    doWeatherCycle: Schema.Boolean,
-    commandBlockOutput: Schema.Boolean,
-    randomTickSpeed: Schema.Number.pipe(Schema.clamp(0, 4096)),
-    maxEntityCramming: Schema.Number.pipe(Schema.clamp(0, 100)),
-  }),
+    difficulty: Schema.Literal('peaceful', 'easy', 'normal', 'hard').pipe(Schema.description('難易度設定')),
+    gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator').pipe(
+      Schema.description('デフォルトゲームモード')
+    ),
+    pvp: Schema.Boolean.pipe(Schema.description('PvP有効フラグ')),
+    mobSpawning: Schema.Boolean.pipe(Schema.description('Mob生成有効フラグ')),
+    naturalRegeneration: Schema.Boolean.pipe(Schema.description('自然回復有効フラグ')),
+    keepInventory: Schema.Boolean.pipe(Schema.description('死亡時インベントリ保持フラグ')),
+    doDaylightCycle: Schema.Boolean.pipe(Schema.description('昼夜サイクル有効フラグ')),
+    doWeatherCycle: Schema.Boolean.pipe(Schema.description('天候サイクル有効フラグ')),
+    commandBlockOutput: Schema.Boolean.pipe(Schema.description('コマンドブロック出力有効フラグ')),
+    randomTickSpeed: Schema.Number.pipe(
+      Schema.clamp(0, 4096),
+      Schema.int(),
+      Schema.description('ランダムティック速度')
+    ),
+    maxEntityCramming: Schema.Number.pipe(
+      Schema.clamp(0, 100),
+      Schema.int(),
+      Schema.description('最大エンティティ詰め込み数')
+    ),
+  }).pipe(Schema.readonly, Schema.description('ゲームルール設定')),
 
-  // ワールドボーダー
+  // ワールドボーダー（Value Object Pattern）
   worldBorder: Schema.Struct({
-    centerX: Schema.Number,
-    centerZ: Schema.Number,
-    size: Schema.Number.pipe(Schema.between(1, 60000000)),
-    safeZone: Schema.Number.pipe(Schema.nonnegative()),
-    warningDistance: Schema.Number.pipe(Schema.nonnegative()),
-    warningTime: Schema.Number.pipe(Schema.nonnegative()),
-    damagePerBlock: Schema.Number.pipe(Schema.nonnegative()),
-  }),
+    centerX: Schema.Number.pipe(Schema.finite(), Schema.description('ワールドボーダー中心X座標')),
+    centerZ: Schema.Number.pipe(Schema.finite(), Schema.description('ワールドボーダー中心Z座標')),
+    size: Schema.Number.pipe(Schema.between(1, 60000000), Schema.description('ワールドボーダーサイズ（直径）')),
+    safeZone: Schema.Number.pipe(Schema.nonnegative(), Schema.description('安全地帯サイズ')),
+    warningDistance: Schema.Number.pipe(Schema.nonnegative(), Schema.description('警告表示距離')),
+    warningTime: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('警告表示時間（秒）')),
+    damagePerBlock: Schema.Number.pipe(Schema.nonnegative(), Schema.description('ブロック当たりダメージ')),
+  }).pipe(Schema.readonly, Schema.description('ワールドボーダー設定')),
 
-  // グローバル時間状態
+  // グローバル時間状態（Value Object Pattern）
   worldTime: Schema.Struct({
-    dayTime: Schema.Number.pipe(Schema.clamp(0, 23999)), // 1日 = 24000 tick
-    totalTime: Schema.BigInt.pipe(Schema.nonnegative()),
-    moonPhase: Schema.Number.pipe(Schema.clamp(0, 7)),
-    doDaylightCycle: Schema.Boolean,
-  }),
+    dayTime: Schema.Number.pipe(
+      Schema.clamp(0, 23999), // 1日 = 24000 tick
+      Schema.int(),
+      Schema.description('1日の時間（0-23999ティック）')
+    ),
+    totalTime: Schema.BigIntFromSelf.pipe(Schema.nonnegative(), Schema.description('ワールド開始からの総ティック数')),
+    moonPhase: Schema.Number.pipe(Schema.clamp(0, 7), Schema.int(), Schema.description('月の満ち欠け（0-7）')),
+    doDaylightCycle: Schema.Boolean.pipe(Schema.description('昼夜サイクル有効フラグ')),
+  }).pipe(Schema.readonly, Schema.description('ワールド時間状態')),
 
-  // 天候状態
+  // 天候状態（Value Object Pattern）
   weather: Schema.Struct({
-    current: Schema.Literal('clear', 'rain', 'thunder'),
-    rainTime: Schema.Number.pipe(Schema.nonnegative()),
-    thunderTime: Schema.Number.pipe(Schema.nonnegative()),
-    rainLevel: Schema.Number.pipe(Schema.between(0, 1)),
-    thunderLevel: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
+    current: Schema.Literal('clear', 'rain', 'thunder').pipe(Schema.description('現在の天候状態')),
+    rainTime: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('雨の残り時間（ティック）')),
+    thunderTime: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('雷の残り時間（ティック）')),
+    rainLevel: Schema.Number.pipe(Schema.between(0, 1), Schema.description('雨の強度（0.0-1.0）')),
+    thunderLevel: Schema.Number.pipe(Schema.between(0, 1), Schema.description('雷の強度（0.0-1.0）')),
+  }).pipe(Schema.readonly, Schema.description('天候状態')),
 
-  // スポーン設定
+  // スポーン設定（Value Object Pattern）
   spawnSettings: Schema.Struct({
     worldSpawn: WorldPositionSchema,
-    spawnRadius: Schema.Number.pipe(Schema.clamp(0, 128)),
-    randomizeSpawn: Schema.Boolean,
-    spawnProtection: Schema.Number.pipe(Schema.clamp(0, 16)),
-  }),
-})
+    spawnRadius: Schema.Number.pipe(Schema.clamp(0, 128), Schema.int(), Schema.description('スポーン範囲半径')),
+    randomizeSpawn: Schema.Boolean.pipe(Schema.description('ランダムスポーン有効フラグ')),
+    spawnProtection: Schema.Number.pipe(Schema.clamp(0, 16), Schema.int(), Schema.description('スポーン保護範囲')),
+  }).pipe(Schema.readonly, Schema.description('スポーン設定')),
+}).pipe(Schema.readonly, Schema.description('ワールド集約ルート（Aggregate Root Pattern）'))
 
 export interface WorldAggregate extends Schema.Schema.Type<typeof WorldAggregateSchema> {}
 
-// ディメンション参照エンティティ
+// ディメンション参照エンティティ（Entity Pattern）
 export const DimensionReferenceSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand(DimensionId)),
-  type: Schema.Literal('overworld', 'nether', 'the_end', 'custom'),
-  name: Schema.String,
+  id: DimensionIdSchema,
+  type: Schema.Literal('overworld', 'nether', 'the_end', 'custom').pipe(Schema.description('ディメンションタイプ')),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64), Schema.description('ディメンション表示名')),
 
-  // ディメンション固有設定
+  // ディメンション固有設定（Value Object Pattern）
   settings: Schema.Struct({
-    hasWeather: Schema.Boolean,
-    hasSkylight: Schema.Boolean,
-    hasCeiling: Schema.Boolean,
-    ambientLight: Schema.Number.pipe(Schema.between(0, 1)),
-    logicalHeight: Schema.Number.pipe(Schema.clamp(0, 384)),
-    coordinateScale: Schema.Number.pipe(Schema.positive()),
-    piglinSafe: Schema.Boolean,
-    bedWorks: Schema.Boolean,
-    respawnAnchorWorks: Schema.Boolean,
-    ultraWarm: Schema.Boolean,
-    natural: Schema.Boolean,
-  }),
+    hasWeather: Schema.Boolean.pipe(Schema.description('天候システム有効フラグ')),
+    hasSkylight: Schema.Boolean.pipe(Schema.description('空光源有効フラグ')),
+    hasCeiling: Schema.Boolean.pipe(Schema.description('天井存在フラグ')),
+    ambientLight: Schema.Number.pipe(Schema.between(0, 1), Schema.description('環境光レベル（0.0-1.0）')),
+    logicalHeight: Schema.Number.pipe(Schema.clamp(0, 384), Schema.int(), Schema.description('論理的高度制限')),
+    coordinateScale: Schema.Number.pipe(Schema.positive(), Schema.description('座標スケール倍率')),
+    piglinSafe: Schema.Boolean.pipe(Schema.description('ピグリン安全地帯フラグ')),
+    bedWorks: Schema.Boolean.pipe(Schema.description('ベッド使用可能フラグ')),
+    respawnAnchorWorks: Schema.Boolean.pipe(Schema.description('リスポーンアンカー使用可能フラグ')),
+    ultraWarm: Schema.Boolean.pipe(Schema.description('超高温環境フラグ')),
+    natural: Schema.Boolean.pipe(Schema.description('自然ディメンションフラグ')),
+  }).pipe(Schema.readonly, Schema.description('ディメンション固有設定')),
 
-  // チャンク管理情報
+  // チャンク管理情報（Entity状態管理）
   chunkManagement: Schema.Struct({
-    loadedRegions: Schema.Set(Schema.String.pipe(Schema.brand(RegionId))),
-    activeChunks: Schema.Set(Schema.String.pipe(Schema.brand(ChunkCoordinate))),
-    dirtyChunks: Schema.Set(Schema.String.pipe(Schema.brand(ChunkCoordinate))),
-    lastCleanup: Schema.Date,
-    memoryUsage: Schema.Number.pipe(Schema.nonnegative()), // bytes
-  }),
+    loadedRegions: Schema.Set(RegionIdSchema).pipe(Schema.readonly, Schema.description('読み込み済みリージョンセット')),
+    activeChunks: Schema.Set(ChunkCoordinateSchema).pipe(
+      Schema.readonly,
+      Schema.description('アクティブチャンクセット')
+    ),
+    dirtyChunks: Schema.Set(ChunkCoordinateSchema).pipe(
+      Schema.readonly,
+      Schema.description('保存が必要なチャンクセット')
+    ),
+    lastCleanup: Schema.DateFromSelf.pipe(Schema.description('最終クリーンアップ日時')),
+    memoryUsage: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('メモリ使用量（バイト）')),
+  }).pipe(Schema.readonly, Schema.description('チャンク管理情報')),
 
-  // バイオーム分布マップ
+  // バイオーム分布マップ（Value Object）
   biomeDistribution: Schema.Map({
-    key: Schema.String.pipe(Schema.brand(BiomeId)),
-    value: Schema.Number.pipe(Schema.between(0, 1)), // 分布密度
-  }),
-})
+    key: BiomeIdSchema,
+    value: Schema.Number.pipe(Schema.between(0, 1), Schema.description('分布密度（0.0-1.0）')),
+  }).pipe(Schema.readonly, Schema.description('バイオーム分布密度マップ')),
+}).pipe(Schema.readonly, Schema.description('ディメンション参照エンティティ'))
 
 export interface DimensionReference extends Schema.Schema.Type<typeof DimensionReferenceSchema> {}
 ```
@@ -617,7 +718,7 @@ const createDefaultWorldBorder = () => ({
 ### ブロック状態値オブジェクト
 
 ```typescript
-// ブロック状態値オブジェクト（Value Object Pattern）
+// ブロック状態値オブジェクト（Value Object Pattern強化）
 export namespace BlockValueObjects {
   export type BlockId = string & Brand.Brand<'BlockId'>
   export type MaterialType = string & Brand.Brand<'MaterialType'>
@@ -625,49 +726,72 @@ export namespace BlockValueObjects {
   export const BlockId = Brand.nominal<BlockId>()
   export const MaterialType = Brand.nominal<MaterialType>()
 
-  // ブロック状態の不変値オブジェクト
-  export const BlockStateSchema = Schema.Struct({
-    id: Schema.String.pipe(Schema.brand(BlockId)),
-    material: Schema.String.pipe(Schema.brand(MaterialType)),
+  // Schema定義
+  export const BlockIdSchema = Schema.String.pipe(
+    Schema.brand(BlockId),
+    Schema.pattern(/^[a-z0-9_]+$/),
+    Schema.minLength(1),
+    Schema.maxLength(64),
+    Schema.description('ブロック識別子')
+  )
+  export const MaterialTypeSchema = Schema.String.pipe(
+    Schema.brand(MaterialType),
+    Schema.pattern(/^[a-z0-9_]+$/),
+    Schema.minLength(1),
+    Schema.maxLength(32),
+    Schema.description('材質タイプ識別子')
+  )
 
-    // 物理的プロパティ
+  // ブロック状態の不変値オブジェクト（強化版）
+  export const BlockStateSchema = Schema.Struct({
+    id: BlockIdSchema,
+    material: MaterialTypeSchema,
+
+    // 物理的プロパティ（Value Object Pattern）
     properties: Schema.Struct({
-      solid: Schema.Boolean,
-      transparent: Schema.Boolean,
-      luminous: Schema.Boolean,
-      hardness: Schema.Number.pipe(Schema.between(0, 50)),
-      resistance: Schema.Number.pipe(Schema.between(0, 3600000)),
-      lightLevel: Schema.Number.pipe(Schema.clamp(0, 15)),
-      lightOpacity: Schema.Number.pipe(Schema.clamp(0, 15)),
-    }),
+      solid: Schema.Boolean.pipe(Schema.description('固体ブロックかどうか')),
+      transparent: Schema.Boolean.pipe(Schema.description('透明ブロックかどうか')),
+      luminous: Schema.Boolean.pipe(Schema.description('発光ブロックかどうか')),
+      hardness: Schema.Number.pipe(Schema.between(0, 50), Schema.description('硬度値（破壊時間に影響）')),
+      resistance: Schema.Number.pipe(Schema.between(0, 3600000), Schema.description('爆発耐性値')),
+      lightLevel: Schema.Number.pipe(Schema.clamp(0, 15), Schema.int(), Schema.description('発光レベル（0-15）')),
+      lightOpacity: Schema.Number.pipe(Schema.clamp(0, 15), Schema.int(), Schema.description('光透過度（0-15）')),
+    }).pipe(Schema.readonly, Schema.description('ブロックの物理的プロパティ')),
 
     // 状態プロパティ（ブロック種別固有）
     stateProperties: Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }),
+      key: Schema.String.pipe(Schema.pattern(/^[a-z_]+$/), Schema.description('プロパティ名')),
+      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean).pipe(Schema.description('プロパティ値')),
+    }).pipe(Schema.readonly, Schema.description('ブロック固有の状態プロパティ')),
 
-    // レンダリング情報
+    // レンダリング情報（Value Object Pattern）
     rendering: Schema.Struct({
-      model: Schema.String,
+      model: Schema.String.pipe(Schema.minLength(1), Schema.description('3Dモデルリソースパス')),
       textures: Schema.Map({
-        key: Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west', 'all'),
-        value: Schema.String, // テクスチャリソースパス
-      }),
-      tintIndex: Schema.optional(Schema.Number),
-      cullFaces: Schema.Array(Schema.Literal('up', 'down', 'north', 'south', 'east', 'west')),
-    }),
+        key: Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west', 'all').pipe(
+          Schema.description('テクスチャ面指定')
+        ),
+        value: Schema.String.pipe(Schema.minLength(1), Schema.description('テクスチャリソースパス')),
+      }).pipe(Schema.readonly, Schema.description('面別テクスチャマッピング')),
+      tintIndex: Schema.optional(
+        Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.description('色調インデックス'))
+      ),
+      cullFaces: Schema.Array(Schema.Literal('up', 'down', 'north', 'south', 'east', 'west')).pipe(
+        Schema.readonly,
+        Schema.description('カリング対象面リスト')
+      ),
+    }).pipe(Schema.readonly, Schema.description('レンダリング情報')),
 
-    // ゲーム動作
+    // ゲーム動作（Value Object Pattern）
     behavior: Schema.Struct({
-      tickable: Schema.Boolean, // randomTick対象か
-      interactable: Schema.Boolean, // 右クリック可能か
-      placeable: Schema.Boolean, // 設置可能か
-      breakable: Schema.Boolean, // 破壊可能か
-      waterloggable: Schema.Boolean, // 水没可能か
-      flammable: Schema.Boolean, // 燃焼するか
-    }),
-  })
+      tickable: Schema.Boolean.pipe(Schema.description('randomTick処理対象かどうか')),
+      interactable: Schema.Boolean.pipe(Schema.description('右クリック相互作用可能かどうか')),
+      placeable: Schema.Boolean.pipe(Schema.description('プレイヤーが設置可能かどうか')),
+      breakable: Schema.Boolean.pipe(Schema.description('破壊可能かどうか')),
+      waterloggable: Schema.Boolean.pipe(Schema.description('水没状態になれるかどうか')),
+      flammable: Schema.Boolean.pipe(Schema.description('燃焼するかどうか')),
+    }).pipe(Schema.readonly, Schema.description('ブロックのゲーム内動作')),
+  }).pipe(Schema.readonly, Schema.description('ブロック状態値オブジェクト（不変）'))
 
   export interface BlockState extends Schema.Schema.Type<typeof BlockStateSchema> {}
 
@@ -802,38 +926,44 @@ export namespace BlockValueObjects {
 ### 座標値オブジェクト
 
 ```typescript
-// 3D座標系値オブジェクト
+// 3D座標系値オブジェクト（Value Object Pattern強化）
 export namespace CoordinateValueObjects {
   // 絶対座標（ワールド座標系）
   export const AbsolutePositionSchema = Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number.pipe(Schema.clamp(-64, 320)), // ワールド高度制限
-    z: Schema.Number,
-    dimension: Schema.String.pipe(Schema.brand(DimensionId)),
-  })
+    x: Schema.Number.pipe(Schema.finite(), Schema.description('X座標（東西方向）')),
+    y: Schema.Number.pipe(
+      Schema.clamp(-64, 320), // ワールド高度制限
+      Schema.description('Y座標（上下方向、-64から320まで）')
+    ),
+    z: Schema.Number.pipe(Schema.finite(), Schema.description('Z座標（南北方向）')),
+    dimension: DimensionIdSchema,
+  }).pipe(Schema.readonly, Schema.description('ワールド内絶対座標'))
 
   // 相対座標（チャンク内座標）
   export const LocalPositionSchema = Schema.Struct({
-    x: Schema.Number.pipe(Schema.clamp(0, 15)),
-    y: Schema.Number.pipe(Schema.clamp(0, 255)),
-    z: Schema.Number.pipe(Schema.clamp(0, 15)),
-  })
+    x: Schema.Number.pipe(Schema.clamp(0, 15), Schema.int(), Schema.description('チャンク内X座標（0-15）')),
+    y: Schema.Number.pipe(Schema.clamp(0, 255), Schema.int(), Schema.description('チャンク内Y座標（0-255）')),
+    z: Schema.Number.pipe(Schema.clamp(0, 15), Schema.int(), Schema.description('チャンク内Z座標（0-15）')),
+  }).pipe(Schema.readonly, Schema.description('チャンク内相対座標'))
 
-  // 方向ベクトル
+  // 方向ベクトル（正規化済み）
   export const DirectionVectorSchema = Schema.Struct({
-    x: Schema.Number.pipe(Schema.between(-1, 1)),
-    y: Schema.Number.pipe(Schema.between(-1, 1)),
-    z: Schema.Number.pipe(Schema.between(-1, 1)),
+    x: Schema.Number.pipe(Schema.between(-1, 1), Schema.description('X方向成分')),
+    y: Schema.Number.pipe(Schema.between(-1, 1), Schema.description('Y方向成分')),
+    z: Schema.Number.pipe(Schema.between(-1, 1), Schema.description('Z方向成分')),
   }).pipe(
     Schema.filter((vec) => Math.abs(Math.sqrt(vec.x ** 2 + vec.y ** 2 + vec.z ** 2) - 1) < 1e-6, {
-      message: 'Direction vector must be normalized',
-    })
+      message: (actual) =>
+        `Direction vector must be normalized (length=${Math.sqrt(actual.x ** 2 + actual.y ** 2 + actual.z ** 2)})`,
+    }),
+    Schema.readonly,
+    Schema.description('正規化済み方向ベクトル')
   )
 
-  // 境界ボックス
+  // 境界ボックス（Value Object Pattern）
   export const BoundingBoxSchema = Schema.Struct({
-    min: AbsolutePositionSchema,
-    max: AbsolutePositionSchema,
+    min: AbsolutePositionSchema.pipe(Schema.description('境界ボックス最小座標')),
+    max: AbsolutePositionSchema.pipe(Schema.description('境界ボックス最大座標')),
   }).pipe(
     Schema.filter(
       (box) =>
@@ -841,8 +971,13 @@ export namespace CoordinateValueObjects {
         box.min.y <= box.max.y &&
         box.min.z <= box.max.z &&
         box.min.dimension === box.max.dimension,
-      { message: 'Invalid bounding box: min must be less than or equal to max' }
-    )
+      {
+        message: (actual) =>
+          `Invalid bounding box: min(${actual.min.x},${actual.min.y},${actual.min.z}) must be <= max(${actual.max.x},${actual.max.y},${actual.max.z}) and same dimension`,
+      }
+    ),
+    Schema.readonly,
+    Schema.description('3D境界ボックス')
   )
 
   export interface AbsolutePosition extends Schema.Schema.Type<typeof AbsolutePositionSchema> {}
@@ -1209,34 +1344,46 @@ export const makeDataIntegrityService = Effect.gen(function* () {
 ### ドメインイベント定義
 
 ```typescript
-// ドメインイベント基底型
+// ドメインイベント基底型（Event Sourcing Pattern）
+export type EventId = string & Brand.Brand<'EventId'>
+export const EventId = Brand.nominal<EventId>()
+export const EventIdSchema = Schema.String.pipe(
+  Schema.brand(EventId),
+  Schema.uuid(),
+  Schema.description('イベント一意識別子')
+)
+
 export const DomainEventSchema = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand(Brand.nominal<'EventId'>())),
-  aggregateId: Schema.String,
-  aggregateType: Schema.String,
-  eventType: Schema.String,
-  eventVersion: Schema.Number.pipe(Schema.positive()),
-  timestamp: Schema.Date,
+  id: EventIdSchema,
+  aggregateId: Schema.String.pipe(Schema.minLength(1), Schema.description('集約ルートID')),
+  aggregateType: Schema.String.pipe(Schema.pattern(/^[A-Z][a-zA-Z0-9]*$/), Schema.description('集約ルートタイプ')),
+  eventType: Schema.String.pipe(Schema.pattern(/^[A-Z][a-zA-Z0-9]*$/), Schema.description('イベントタイプ')),
+  eventVersion: Schema.Number.pipe(Schema.positive(), Schema.int(), Schema.description('イベントスキーマバージョン')),
+  timestamp: Schema.DateFromSelf.pipe(Schema.description('イベント発生日時')),
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
       value: Schema.Unknown,
-    })
+    }).pipe(Schema.readonly, Schema.description('イベントメタデータ'))
   ),
-})
+}).pipe(Schema.readonly, Schema.description('ドメインイベント基底スキーマ'))
 
-// ワールド関連ドメインイベント
+// ワールド関連ドメインイベント（Tagged Union Pattern強化）
 export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
   WorldCreated: Schema.extend(
     DomainEventSchema,
     Schema.Struct({
       eventType: Schema.Literal('WorldCreated'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        worldName: Schema.String,
+        worldId: WorldIdSchema,
+        worldName: Schema.String.pipe(
+          Schema.minLength(1),
+          Schema.maxLength(32),
+          Schema.description('作成されたワールド名')
+        ),
         generationSettings: TerrainGenerationParametersSchema,
-        createdBy: Schema.String, // プレイヤーID
-      }),
+        createdBy: Schema.String.pipe(Schema.minLength(1), Schema.description('作成者プレイヤーID')),
+      }).pipe(Schema.readonly, Schema.description('ワールド作成イベントデータ')),
     })
   ),
 
@@ -1245,11 +1392,11 @@ export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
     Schema.Struct({
       eventType: Schema.Literal('WorldTimeAdvanced'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        previousTime: Schema.Number,
-        newTime: Schema.Number,
-        ticksAdvanced: Schema.Number,
-      }),
+        worldId: WorldIdSchema,
+        previousTime: Schema.Number.pipe(Schema.clamp(0, 23999), Schema.int(), Schema.description('変更前の時間')),
+        newTime: Schema.Number.pipe(Schema.clamp(0, 23999), Schema.int(), Schema.description('変更後の時間')),
+        ticksAdvanced: Schema.Number.pipe(Schema.positive(), Schema.int(), Schema.description('進んだティック数')),
+      }).pipe(Schema.readonly, Schema.description('時間進行イベントデータ')),
     })
   ),
 
@@ -1258,13 +1405,19 @@ export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
     Schema.Struct({
       eventType: Schema.Literal('WeatherChanged'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-        previousWeather: Schema.Literal('clear', 'rain', 'thunder'),
-        newWeather: Schema.Literal('clear', 'rain', 'thunder'),
-        duration: Schema.Number,
-        changedBy: Schema.optional(Schema.String), // プレイヤーID（コマンドの場合）
-      }),
+        worldId: WorldIdSchema,
+        dimensionId: DimensionIdSchema,
+        previousWeather: Schema.Literal('clear', 'rain', 'thunder').pipe(Schema.description('変更前の天候')),
+        newWeather: Schema.Literal('clear', 'rain', 'thunder').pipe(Schema.description('変更後の天候')),
+        duration: Schema.Number.pipe(
+          Schema.nonnegative(),
+          Schema.int(),
+          Schema.description('天候持続時間（ティック）')
+        ),
+        changedBy: Schema.optional(
+          Schema.String.pipe(Schema.minLength(1), Schema.description('変更実行者プレイヤーID'))
+        ),
+      }).pipe(Schema.readonly, Schema.description('天候変更イベントデータ')),
     })
   ),
 
@@ -1273,12 +1426,16 @@ export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
     Schema.Struct({
       eventType: Schema.Literal('ChunkLoaded'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-        chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
-        loadReason: Schema.Literal('player_proximity', 'forced_load', 'structure_generation'),
-        loadedBy: Schema.optional(Schema.String), // プレイヤーIDまたはシステム
-      }),
+        worldId: WorldIdSchema,
+        dimensionId: DimensionIdSchema,
+        chunkCoordinate: ChunkCoordinateSchema,
+        loadReason: Schema.Literal('player_proximity', 'forced_load', 'structure_generation').pipe(
+          Schema.description('チャンク読み込み理由')
+        ),
+        loadedBy: Schema.optional(
+          Schema.String.pipe(Schema.minLength(1), Schema.description('読み込み実行者（プレイヤーIDまたはsystem）'))
+        ),
+      }).pipe(Schema.readonly, Schema.description('チャンク読み込みイベントデータ')),
     })
   ),
 
@@ -1287,12 +1444,14 @@ export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
     Schema.Struct({
       eventType: Schema.Literal('ChunkUnloaded'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        dimensionId: Schema.String.pipe(Schema.brand(DimensionId)),
-        chunkCoordinate: Schema.String.pipe(Schema.brand(ChunkCoordinate)),
-        unloadReason: Schema.Literal('player_distance', 'memory_pressure', 'world_shutdown'),
-        wasDirty: Schema.Boolean, // 保存されていない変更があったか
-      }),
+        worldId: WorldIdSchema,
+        dimensionId: DimensionIdSchema,
+        chunkCoordinate: ChunkCoordinateSchema,
+        unloadReason: Schema.Literal('player_distance', 'memory_pressure', 'world_shutdown').pipe(
+          Schema.description('チャンクアンロード理由')
+        ),
+        wasDirty: Schema.Boolean.pipe(Schema.description('保存が必要な未保存変更があったか')),
+      }).pipe(Schema.readonly, Schema.description('チャンクアンロードイベントデータ')),
     })
   ),
 
@@ -1301,34 +1460,68 @@ export const WorldDomainEventSchema = Schema.TaggedUnion('eventType', {
     Schema.Struct({
       eventType: Schema.Literal('GameRuleChanged'),
       data: Schema.Struct({
-        worldId: Schema.String.pipe(Schema.brand(WorldId)),
-        ruleName: Schema.String,
-        previousValue: Schema.Unknown,
-        newValue: Schema.Unknown,
-        changedBy: Schema.String, // プレイヤーIDまたは管理者
-      }),
+        worldId: WorldIdSchema,
+        ruleName: Schema.String.pipe(
+          Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_]*$/),
+          Schema.description('変更されたゲームルール名')
+        ),
+        previousValue: Schema.Unknown.pipe(Schema.description('変更前の値')),
+        newValue: Schema.Unknown.pipe(Schema.description('変更後の値')),
+        changedBy: Schema.String.pipe(
+          Schema.minLength(1),
+          Schema.description('変更実行者（プレイヤーIDまたは管理者）')
+        ),
+      }).pipe(Schema.readonly, Schema.description('ゲームルール変更イベントデータ')),
     })
   ),
-})
+}).pipe(Schema.description('ワールド関連ドメインイベントのTagged Union'))
 
 export interface WorldDomainEvent extends Schema.Schema.Type<typeof WorldDomainEventSchema> {}
 
-// イベントストア
+// イベントストリーム管理（Event Sourcing基盤）
+export type StreamId = string & Brand.Brand<'StreamId'>
+export const StreamId = Brand.nominal<StreamId>()
+export const StreamIdSchema = Schema.String.pipe(
+  Schema.brand(StreamId),
+  Schema.minLength(1),
+  Schema.maxLength(256),
+  Schema.description('イベントストリーム識別子')
+)
+
+export type StreamVersion = number & Brand.Brand<'StreamVersion'>
+export const StreamVersion = Brand.nominal<StreamVersion>()
+export const StreamVersionSchema = Schema.Number.pipe(
+  Schema.brand(StreamVersion),
+  Schema.int(),
+  Schema.nonnegative(),
+  Schema.description('ストリームバージョン番号')
+)
+
+// イベントストア（型安全強化版）
 export interface EventStore {
   readonly appendEvents: (
-    streamId: string,
-    expectedVersion: number,
+    streamId: StreamId,
+    expectedVersion: StreamVersion,
     events: ReadonlyArray<WorldDomainEvent>
-  ) => Effect.Effect<void, EventStoreError>
+  ) => Effect.Effect<StreamVersion, EventStoreError>
 
   readonly readEvents: (
-    streamId: string,
-    fromVersion?: number
+    streamId: StreamId,
+    fromVersion?: StreamVersion
   ) => Effect.Effect<ReadonlyArray<WorldDomainEvent>, EventStoreError>
 
-  readonly readAllEvents: () => Stream.Stream<WorldDomainEvent, EventStoreError>
+  readonly readAllEvents: (filter?: {
+    aggregateType?: string
+    eventType?: string
+    fromTimestamp?: Date
+    toTimestamp?: Date
+  }) => Stream.Stream<WorldDomainEvent, EventStoreError>
 
-  readonly getStreamVersion: (streamId: string) => Effect.Effect<number, EventStoreError>
+  readonly getStreamVersion: (streamId: StreamId) => Effect.Effect<StreamVersion, EventStoreError>
+
+  readonly streamExists: (streamId: StreamId) => Effect.Effect<boolean, EventStoreError>
+
+  readonly deleteStream: (streamId: StreamId, expectedVersion: StreamVersion) => Effect.Effect<void, EventStoreError>
 }
 
 export const EventStore = Context.GenericTag<EventStore>('@app/EventStore')
@@ -1454,7 +1647,7 @@ export const makeEventDispatcher = Effect.gen(function* () {
 ### Structure of Arrays (SoA) 最適化
 
 ```typescript
-// Structure of Arrays パターンによる最適化
+// Structure of Arrays パターンによる最適化（Schema強化版）
 export namespace PerformanceOptimizations {
   // 従来の Array of Structures (AoS) - キャッシュ効率が悪い
   interface BlockDataAoS {
@@ -1465,13 +1658,15 @@ export namespace PerformanceOptimizations {
   }
 
   // 最適化された Structure of Arrays (SoA) - キャッシュ効率が良い
-  export interface BlockDataSoA {
-    readonly types: Uint16Array // ブロックタイプ配列
-    readonly states: Uint32Array // ブロック状態配列
-    readonly lightLevels: Uint8Array // 光レベル配列（4ビット×2値パック）
-    readonly metadata: Uint8Array // メタデータ配列
-    readonly count: number // 有効ブロック数
-  }
+  export const BlockDataSoASchema = Schema.Struct({
+    types: Schema.InstanceOf(Uint16Array).pipe(Schema.description('ブロックタイプ配列（パフォーマンス最適化）')),
+    states: Schema.InstanceOf(Uint32Array).pipe(Schema.description('ブロック状態配列（4バイト値）')),
+    lightLevels: Schema.InstanceOf(Uint8Array).pipe(Schema.description('光レベル配列（4ビット×2値パック）')),
+    metadata: Schema.InstanceOf(Uint8Array).pipe(Schema.description('メタデータ配列')),
+    count: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('有効ブロック数')),
+  }).pipe(Schema.readonly, Schema.description('Structure of Arrays形式のブロックデータ（キャッシュ効率最適化）'))
+
+  export interface BlockDataSoA extends Schema.Schema.Type<typeof BlockDataSoASchema> {}
 
   // SoAデータ操作ユーティリティ
   export const SoAOperations = {
@@ -1612,21 +1807,29 @@ const findBlocksScalar = (types: Uint16Array, targetType: number): Effect.Effect
 ### メモリプール管理
 
 ```typescript
-// 高性能メモリプール実装
+// 高性能メモリプール実装（Schema型安全版）
+export const PoolStatsSchema = Schema.Struct({
+  totalAcquired: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('総取得回数')),
+  totalReleased: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('総解放回数')),
+  currentlyInUse: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.int(),
+    Schema.description('現在使用中のオブジェクト数')
+  ),
+  peakUsage: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('最大同時使用数')),
+  memoryUsage: Schema.Number.pipe(Schema.nonnegative(), Schema.int(), Schema.description('メモリ使用量（バイト）')),
+}).pipe(Schema.readonly, Schema.description('メモリプール統計情報'))
+
+export interface PoolStats extends Schema.Schema.Type<typeof PoolStatsSchema> {}
+
 export interface MemoryPool<T> {
   readonly acquire: () => Effect.Effect<T, PoolExhaustedError>
   readonly release: (item: T) => Effect.Effect<void, never>
   readonly size: () => Effect.Effect<number, never>
   readonly capacity: () => Effect.Effect<number, never>
   readonly stats: () => Effect.Effect<PoolStats, never>
-}
-
-export interface PoolStats {
-  readonly totalAcquired: number
-  readonly totalReleased: number
-  readonly currentlyInUse: number
-  readonly peakUsage: number
-  readonly memoryUsage: number
+  readonly clear: () => Effect.Effect<void, never>
+  readonly resize: (newCapacity: number) => Effect.Effect<void, PoolResizeError>
 }
 
 // チャンクデータ用メモリプール
@@ -1945,20 +2148,38 @@ describe('Performance Benchmarks', () => {
 
 ## まとめ
 
-この仕様書では、TypeScript Minecraft Cloneにおけるワールドデータ構造を、DDD原則とEffect-TS 3.17+を活用して包括的に設計しました。
+この仕様書では、TypeScript Minecraft Cloneにおけるワールドデータ構造を、DDD原則とEffect-TS 3.17+のSchema機能を活用して包括的に設計し、型定義をEffect-TS Schemaに変換しました。
 
-### 主な特徴
+### 変換後の主な改善点
 
-1. **ドメイン中心設計**: ビジネスロジックを型システムで表現
-2. **型安全性**: Brand型とSchemaによる厳密な型チェック
-3. **不変性**: すべての状態変更は新しいインスタンス生成で表現
-4. **パフォーマンス最適化**: SoA、メモリプール、SIMD対応
-5. **テスタビリティ**: Property-Based TestingとEffect型による高品質保証
+1. **Schema-driven型安全性**: すべての型定義がEffect-TS Schemaベースとなり、実行時バリデーションが可能
+2. **DDDパターン強化**: Aggregate Root、Value Object、Entity、Domain Eventの型表現が明確化
+3. **Event Sourcing型安全性**: イベントストリーム管理が型安全なBrand型で強化
+4. **不変性の強制**: `Schema.readonly`により、すべてのValue Objectが不変性を保証
+5. **バリデーション強化**: `Schema.filter`、`Schema.clamp`、`Schema.pattern`による厳密なデータ検証
+6. **ドキュメント内蔵**: `Schema.description`により、型定義に説明が組み込まれ、自己文書化を実現
+
+### Effect-TS Schema活用のメリット
+
+- **型推論**: `Schema.Schema.Type<typeof Schema>`による正確な型推論
+- **変換処理**: `Schema.transform`による型安全な変換
+- **エラーハンドリング**: Effect型との組み合わせによる包括的エラー処理
+- **コンポーザビリティ**: スキーマの合成・拡張による柔軟な型定義
+- **パフォーマンス**: 実行時型チェックの最適化
+
+### DDDパターンの型実装
+
+- **Aggregate Root**: `WorldAggregateSchema` - 集約境界とビジネスルール
+- **Value Objects**: `WorldPositionSchema`、`BlockStateSchema` - 不変性と等価性
+- **Entities**: `DimensionReferenceSchema` - アイデンティティと変更可能な状態
+- **Domain Events**: `WorldDomainEventSchema` - Tagged Unionによるイベント型安全性
+- **Event Sourcing**: `EventStore`インターフェース - ストリーム管理の型安全化
 
 ### 次のステップ
 
 - [チャンクフォーマット仕様](./chunk-format.md)でより詳細な実装を確認
 - [セーブファイル仕様](./save-file-format.md)で永続化戦略を学習
 - [DDD戦略設計](../explanations/architecture/02-ddd-strategic-design.md)でアーキテクチャ全体を理解
+- Effect-TS Service/Layer実装でのSchema活用パターンを学習
 
-この設計により、プロダクションレベルの品質と拡張性を備えたワールドデータ管理システムを構築できます。
+この設計により、型安全性、実行時検証、自己文書化を兼ね備えたプロダクションレベルのワールドデータ管理システムを構築できます。

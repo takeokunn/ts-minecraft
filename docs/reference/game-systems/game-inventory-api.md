@@ -38,17 +38,23 @@ TypeScript Minecraft Clone インベントリ管理システムの完全APIリ�
 import { Effect, Context, Schema } from 'effect'
 
 export interface InventoryService {
-  readonly addItem: (params: Schema.Schema.Type<typeof AddItemParams>) => Effect.Effect<boolean, InventoryError>
+  readonly addItem: (params: Schema.Schema.Type<typeof AddItemParamsSchema>) => Effect.Effect<boolean, InventoryError>
   readonly removeItem: (
-    params: Schema.Schema.Type<typeof RemoveItemParams>
+    params: Schema.Schema.Type<typeof RemoveItemParamsSchema>
   ) => Effect.Effect<ItemStack | null, InventoryError>
-  readonly moveItem: (params: Schema.Schema.Type<typeof MoveItemParams>) => Effect.Effect<void, InventoryError>
-  readonly swapItems: (params: Schema.Schema.Type<typeof SwapItemsParams>) => Effect.Effect<void, InventoryError>
-  readonly mergeStacks: (params: Schema.Schema.Type<typeof MergeStacksParams>) => Effect.Effect<boolean, InventoryError>
-  readonly splitStack: (params: Schema.Schema.Type<typeof SplitStackParams>) => Effect.Effect<ItemStack, InventoryError>
-  readonly clearSlot: (params: Schema.Schema.Type<typeof ClearSlotParams>) => Effect.Effect<ItemStack | null, never>
+  readonly moveItem: (params: Schema.Schema.Type<typeof MoveItemParamsSchema>) => Effect.Effect<void, InventoryError>
+  readonly swapItems: (params: Schema.Schema.Type<typeof SwapItemsParamsSchema>) => Effect.Effect<void, InventoryError>
+  readonly mergeStacks: (
+    params: Schema.Schema.Type<typeof MergeStacksParamsSchema>
+  ) => Effect.Effect<boolean, InventoryError>
+  readonly splitStack: (
+    params: Schema.Schema.Type<typeof SplitStackParamsSchema>
+  ) => Effect.Effect<ItemStack, InventoryError>
+  readonly clearSlot: (
+    params: Schema.Schema.Type<typeof ClearSlotParamsSchema>
+  ) => Effect.Effect<ItemStack | null, never>
   readonly getSlotItem: (
-    params: Schema.Schema.Type<typeof GetSlotParams>
+    params: Schema.Schema.Type<typeof GetSlotParamsSchema>
   ) => Effect.Effect<ItemStack | null, InventoryNotFoundError>
   readonly validateInventory: (inventory: Inventory) => Effect.Effect<boolean, ValidationError>
 }
@@ -59,17 +65,29 @@ export const InventoryService = Context.GenericTag<InventoryService>('@app/Inven
 ### EquipmentService - 装備管理
 
 ```typescript
+// ステータスエフェクトスキーマ
+export const StatusEffectSchema = Schema.Struct({
+  type: Schema.String,
+  amplifier: Schema.Number.pipe(Schema.int(), Schema.between(0, 255)),
+  duration: Schema.Number.pipe(Schema.positive()),
+  showParticles: Schema.Boolean,
+  showIcon: Schema.Boolean,
+})
+export type StatusEffect = Schema.Schema.Type<typeof StatusEffectSchema>
+
 export interface EquipmentService {
-  readonly equipItem: (params: Schema.Schema.Type<typeof EquipItemParams>) => Effect.Effect<Equipment, EquipmentError>
+  readonly equipItem: (
+    params: Schema.Schema.Type<typeof EquipItemParamsSchema>
+  ) => Effect.Effect<Equipment, EquipmentError>
   readonly unequipItem: (
-    params: Schema.Schema.Type<typeof UnequipItemParams>
+    params: Schema.Schema.Type<typeof UnequipItemParamsSchema>
   ) => Effect.Effect<Equipment, EquipmentError>
   readonly getEquippedItem: (
-    params: Schema.Schema.Type<typeof GetEquippedParams>
+    params: Schema.Schema.Type<typeof GetEquippedParamsSchema>
   ) => Effect.Effect<ItemStack | null, never>
   readonly calculateArmorValue: (equipment: Equipment) => Effect.Effect<number, never>
   readonly calculateDamageReduction: (
-    params: Schema.Schema.Type<typeof DamageReductionParams>
+    params: Schema.Schema.Type<typeof DamageReductionParamsSchema>
   ) => Effect.Effect<number, never>
   readonly applyEquipmentEffects: (equipment: Equipment) => Effect.Effect<ReadonlyArray<StatusEffect>, never>
 }
@@ -83,31 +101,44 @@ export const EquipmentService = Context.GenericTag<EquipmentService>('@app/Equip
 
 ```typescript
 // ブランド型定義（型安全性確保）
-export const ItemId = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('ItemId'))
-export type ItemId = Schema.Schema.Type<typeof ItemId>
+export const ItemIdSchema = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('ItemId'))
+export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
 
-export const SlotIndex = Schema.Number.pipe(
+export const SlotIndexSchema = Schema.Number.pipe(
   Schema.int(),
   Schema.between(0, 44), // 45スロット（36メイン + 9ホットバー）
   Schema.brand('SlotIndex')
 )
-export type SlotIndex = Schema.Schema.Type<typeof SlotIndex>
+export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 
-export const ItemQuantity = Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemQuantity'))
-export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantity>
+export const ItemQuantitySchema = Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemQuantity'))
+export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantitySchema>
 
-export const DurabilityValue = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('DurabilityValue'))
-export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValue>
+export const DurabilityValueSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonNegative(),
+  Schema.brand('DurabilityValue')
+)
+export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValueSchema>
 ```
 
 ### ItemStack - アイテムスタック
 
 ```typescript
-export const ItemStack = Schema.Struct({
-  itemId: ItemId,
-  quantity: ItemQuantity,
-  durability: Schema.optional(DurabilityValue),
-  enchantments: Schema.optional(Schema.Array(Enchantment)),
+// エンチャント定義
+export const EnchantmentSchema = Schema.Struct({
+  id: Schema.String.pipe(Schema.brand('EnchantmentId')),
+  level: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
+}).annotations({
+  identifier: 'Enchantment',
+})
+export type Enchantment = Schema.Schema.Type<typeof EnchantmentSchema>
+
+export const ItemStackSchema = Schema.Struct({
+  itemId: ItemIdSchema,
+  quantity: ItemQuantitySchema,
+  durability: Schema.optional(DurabilityValueSchema),
+  enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
@@ -119,58 +150,53 @@ export const ItemStack = Schema.Struct({
   identifier: 'ItemStack',
   description: 'アイテムスタック - アイテムの基本単位',
 })
-export type ItemStack = Schema.Schema.Type<typeof ItemStack>
-
-// エンチャント定義
-export const Enchantment = Schema.Struct({
-  id: Schema.String.pipe(Schema.brand('EnchantmentId')),
-  level: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
-}).annotations({
-  identifier: 'Enchantment',
-})
-export type Enchantment = Schema.Schema.Type<typeof Enchantment>
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 ```
 
 ### Inventory - インベントリ構造
 
 ```typescript
-export const Inventory = Schema.Struct({
+// ホットバースロットスキーマ
+export const HotbarSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot'))
+export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
+
+export const InventorySchema = Schema.Struct({
   // メインインベントリ（27スロット）
-  main: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(27)),
+  main: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(Schema.itemsCount(27)),
 
   // ホットバー（9スロット）
-  hotbar: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(9)),
+  hotbar: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(Schema.itemsCount(9)),
 
   // 選択中スロット（ホットバー内）
-  selectedSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot')),
+  selectedSlot: HotbarSlotSchema,
 
   // 装備スロット
-  armor: Equipment,
+  armor: Schema.suspend(() => EquipmentSchema),
 
   // オフハンド
-  offhand: Schema.NullOr(ItemStack),
+  offhand: Schema.NullOr(ItemStackSchema),
 }).annotations({
   identifier: 'Inventory',
   description: 'プレイヤーインベントリ - 45スロット構成',
 })
-export type Inventory = Schema.Schema.Type<typeof Inventory>
+export type Inventory = Schema.Schema.Type<typeof InventorySchema>
 ```
 
 ### Equipment - 装備システム
 
 ```typescript
-export const Equipment = Schema.Struct({
-  helmet: Schema.NullOr(ItemStack),
-  chestplate: Schema.NullOr(ItemStack),
-  leggings: Schema.NullOr(ItemStack),
-  boots: Schema.NullOr(ItemStack),
-  mainhand: Schema.NullOr(ItemStack),
-  offhand: Schema.NullOr(ItemStack),
+export const EquipmentSchema = Schema.Struct({
+  helmet: Schema.NullOr(ItemStackSchema),
+  chestplate: Schema.NullOr(ItemStackSchema),
+  leggings: Schema.NullOr(ItemStackSchema),
+  boots: Schema.NullOr(ItemStackSchema),
+  mainhand: Schema.NullOr(ItemStackSchema),
+  offhand: Schema.NullOr(ItemStackSchema),
 }).annotations({
   identifier: 'Equipment',
   description: 'プレイヤー装備 - 6部位管理',
 })
-export type Equipment = Schema.Schema.Type<typeof Equipment>
+export type Equipment = Schema.Schema.Type<typeof EquipmentSchema>
 ```
 
 ## 🔧 API操作パラメータ
@@ -179,71 +205,116 @@ export type Equipment = Schema.Schema.Type<typeof Equipment>
 
 ```typescript
 // アイテム追加
-export const AddItemParams = Schema.Struct({
+export const AddItemParamsSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  item: ItemStack,
-  preferredSlot: Schema.optional(SlotIndex),
-  allowPartialAdd: Schema.Boolean.pipe(Schema.withDefault(() => true)),
+  item: ItemStackSchema,
+  preferredSlot: Schema.optional(SlotIndexSchema),
+  allowPartialAdd: Schema.Boolean,
 }).annotations({
   identifier: 'AddItemParams',
 })
+export type AddItemParams = Schema.Schema.Type<typeof AddItemParamsSchema>
 
 // アイテム削除
-export const RemoveItemParams = Schema.Struct({
+export const RemoveItemParamsSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  slot: SlotIndex,
-  quantity: Schema.optional(ItemQuantity),
+  slot: SlotIndexSchema,
+  quantity: Schema.optional(ItemQuantitySchema),
 }).annotations({
   identifier: 'RemoveItemParams',
 })
+export type RemoveItemParams = Schema.Schema.Type<typeof RemoveItemParamsSchema>
 
 // アイテム移動
-export const MoveItemParams = Schema.Struct({
+export const MoveItemParamsSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  fromSlot: SlotIndex,
-  toSlot: SlotIndex,
-  quantity: Schema.optional(ItemQuantity),
+  fromSlot: SlotIndexSchema,
+  toSlot: SlotIndexSchema,
+  quantity: Schema.optional(ItemQuantitySchema),
 }).annotations({
   identifier: 'MoveItemParams',
 })
+export type MoveItemParams = Schema.Schema.Type<typeof MoveItemParamsSchema>
 
 // アイテム交換
-export const SwapItemsParams = Schema.Struct({
+export const SwapItemsParamsSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  slot1: SlotIndex,
-  slot2: SlotIndex,
+  slot1: SlotIndexSchema,
+  slot2: SlotIndexSchema,
 }).annotations({
   identifier: 'SwapItemsParams',
 })
+export type SwapItemsParams = Schema.Schema.Type<typeof SwapItemsParamsSchema>
 ```
 
 ### 装備操作パラメータ
 
 ```typescript
-// 装備着用
-export const EquipItemParams = Schema.Struct({
+// マージ・スプリットパラメータ
+export const MergeStacksParamsSchema = Schema.Struct({
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-  slot: SlotIndex,
+  fromSlot: SlotIndexSchema,
+  toSlot: SlotIndexSchema,
+})
+export type MergeStacksParams = Schema.Schema.Type<typeof MergeStacksParamsSchema>
+
+export const SplitStackParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  slot: SlotIndexSchema,
+  amount: ItemQuantitySchema,
+})
+export type SplitStackParams = Schema.Schema.Type<typeof SplitStackParamsSchema>
+
+export const ClearSlotParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  slot: SlotIndexSchema,
+})
+export type ClearSlotParams = Schema.Schema.Type<typeof ClearSlotParamsSchema>
+
+export const GetSlotParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  slot: SlotIndexSchema,
+})
+export type GetSlotParams = Schema.Schema.Type<typeof GetSlotParamsSchema>
+
+// 装備着用
+export const EquipItemParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  slot: SlotIndexSchema,
   equipmentSlot: Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainhand', 'offhand'),
 }).annotations({
   identifier: 'EquipItemParams',
 })
+export type EquipItemParams = Schema.Schema.Type<typeof EquipItemParamsSchema>
+
+export const UnequipItemParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  equipmentSlot: Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainhand', 'offhand'),
+})
+export type UnequipItemParams = Schema.Schema.Type<typeof UnequipItemParamsSchema>
+
+export const GetEquippedParamsSchema = Schema.Struct({
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  equipmentSlot: Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainhand', 'offhand'),
+})
+export type GetEquippedParams = Schema.Schema.Type<typeof GetEquippedParamsSchema>
 
 // ダメージ軽減計算
-export const DamageReductionParams = Schema.Struct({
-  equipment: Equipment,
+export const DamageReductionParamsSchema = Schema.Struct({
+  equipment: EquipmentSchema,
   damageAmount: Schema.Number.pipe(Schema.nonNegative()),
   damageType: Schema.Literal('physical', 'fire', 'explosion', 'projectile', 'magic', 'fall'),
 }).annotations({
   identifier: 'DamageReductionParams',
 })
+export type DamageReductionParams = Schema.Schema.Type<typeof DamageReductionParamsSchema>
 ```
 
 ## ⚠️ エラー型定義
 
 ```typescript
 // インベントリエラー
-export const InventoryError = Schema.TaggedUnion('_tag', {
+export const InventoryErrorSchema = Schema.TaggedUnion('_tag', {
   InventoryFull: Schema.Struct({
     _tag: Schema.Literal('InventoryFull'),
     availableSpace: Schema.Number,
@@ -264,7 +335,7 @@ export const InventoryError = Schema.TaggedUnion('_tag', {
 
   ItemNotStackable: Schema.Struct({
     _tag: Schema.Literal('ItemNotStackable'),
-    itemId: ItemId,
+    itemId: ItemIdSchema,
   }),
 
   StackSizeExceeded: Schema.Struct({
@@ -273,10 +344,10 @@ export const InventoryError = Schema.TaggedUnion('_tag', {
     maximum: Schema.Number,
   }),
 })
-export type InventoryError = Schema.Schema.Type<typeof InventoryError>
+export type InventoryError = Schema.Schema.Type<typeof InventoryErrorSchema>
 
 // 装備エラー
-export const EquipmentError = Schema.TaggedUnion('_tag', {
+export const EquipmentErrorSchema = Schema.TaggedUnion('_tag', {
   InvalidEquipmentSlot: Schema.Struct({
     _tag: Schema.Literal('InvalidEquipmentSlot'),
     itemType: Schema.String,
@@ -286,7 +357,7 @@ export const EquipmentError = Schema.TaggedUnion('_tag', {
   EquipmentSlotOccupied: Schema.Struct({
     _tag: Schema.Literal('EquipmentSlotOccupied'),
     slot: Schema.String,
-    occupiedBy: ItemId,
+    occupiedBy: ItemIdSchema,
   }),
 
   DurabilityTooLow: Schema.Struct({
@@ -295,7 +366,7 @@ export const EquipmentError = Schema.TaggedUnion('_tag', {
     required: Schema.Number,
   }),
 })
-export type EquipmentError = Schema.Schema.Type<typeof EquipmentError>
+export type EquipmentError = Schema.Schema.Type<typeof EquipmentErrorSchema>
 ```
 
 ## 🎯 実装例

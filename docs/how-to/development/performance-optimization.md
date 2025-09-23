@@ -86,15 +86,17 @@ pnpx bundle-buddy dist/main.js
 ### 基本最適化チェックリスト
 
 ```typescript
-// 1. 高速な型安全チェック
-const isValidEntity = (obj: unknown): obj is Entity => typeof obj === 'object' && obj !== null && 'id' in obj
+// 1. Effect-TS Schema による型安全チェック
+const isValidEntity = Schema.is(EntitySchema)
+const parseEntity = Schema.decodeUnknown(EntitySchema)
+const validateEntityData = Schema.decodeUnknown(EntityDataSchema)
 
-// 2. 効率的なバッチ処理
-const processBatch = <T, R>(
+// 2. 効率的なバッチ処理（型安全）
+const processBatch = <T, R, E, Ctx>(
   items: ReadonlyArray<T>,
-  processor: (batch: ReadonlyArray<T>) => Effect.Effect<ReadonlyArray<R>, Error>,
-  batchSize: number = 100
-) =>
+  processor: (batch: ReadonlyArray<T>) => Effect.Effect<ReadonlyArray<R>, E, Ctx>,
+  batchSize: number & Brand.Brand<'BatchSize'> = 100 as any
+): Effect.Effect<ReadonlyArray<R>, E, Ctx> =>
   Effect.gen(function* () {
     const results: R[] = []
 
@@ -107,11 +109,31 @@ const processBatch = <T, R>(
     return results
   })
 
-// 3. メモリ効率的なSoA構造
+// 3. メモリ効率的なSoA構造（型安全）
+export const ComponentStoreSchema = <T>() =>
+  Schema.Struct({
+    data: Schema.Union(Schema.instanceOf(Float32Array), Schema.instanceOf(Int32Array), Schema.instanceOf(Uint32Array)),
+    indices: Schema.instanceOf(Map<EntityId, number>),
+    count: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('ComponentCount')),
+    capacity: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('ComponentCapacity')),
+  }).pipe(
+    Schema.filter(
+      (store) => {
+        return store.count <= store.capacity && store.indices.size <= store.count
+      },
+      {
+        message: () => 'ComponentStore の整合性チェックに失敗しました',
+      }
+    ),
+    Schema.identifier('ComponentStore'),
+    Schema.description('コンポーネント用SoAストレージ')
+  )
+
 interface ComponentStore<T> {
-  readonly data: Float32Array | Int32Array
+  readonly data: Float32Array | Int32Array | Uint32Array
   readonly indices: Map<EntityId, number>
-  readonly count: number
+  readonly count: number & Brand.Brand<'ComponentCount'>
+  readonly capacity: number & Brand.Brand<'ComponentCapacity'>
 }
 ```
 
@@ -209,19 +231,38 @@ console.log('WebGL Info:', {
 
 ```typescript
 // src/performance/profiler.ts
-import { Effect, Context, Layer, Schema, Match, Option, pipe } from "effect"
+import { Effect, Context, Layer, Schema, Match, Option, pipe, Brand } from "effect"
+import type { ParseError } from "@effect/schema/ParseResult"
 
 // 計測メトリクスの定義
-const PerformanceMetric = Schema.Struct({
-  name: Schema.String,
-  category: Schema.Literal("cpu", "memory", "network", "rendering", "physics"),
-  value: Schema.Number,
-  unit: Schema.Literal("ms", "mb", "fps", "ops/sec", "percent"),
-  timestamp: Schema.Number,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
-})
+export const PerformanceMetricCategorySchema = Schema.Literal("cpu", "memory", "network", "rendering", "physics")
+export const PerformanceMetricUnitSchema = Schema.Literal("ms", "mb", "fps", "ops/sec", "percent")
 
-export type PerformanceMetric = Schema.Schema.Type<typeof PerformanceMetric>
+export const PerformanceMetricSchema = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.minLength(1),
+    Schema.maxLength(100),
+    Schema.brand("MetricName")
+  ),
+  category: PerformanceMetricCategorySchema,
+  value: Schema.Number.pipe(
+    Schema.nonnegative(),
+    Schema.brand("MetricValue")
+  ),
+  unit: PerformanceMetricUnitSchema,
+  timestamp: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.brand("Timestamp")
+  ),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+}).pipe(
+  Schema.identifier("PerformanceMetric"),
+  Schema.description("パフォーマンス計測データを表現するスキーマ")
+)
+
+export type PerformanceMetric = Schema.Schema.Type<typeof PerformanceMetricSchema>
+export type PerformanceMetricCategory = Schema.Schema.Type<typeof PerformanceMetricCategorySchema>
+export type PerformanceMetricUnit = Schema.Schema.Type<typeof PerformanceMetricUnitSchema>
 
 // 🚀 コマンドライン実行例
 // プロファイラー起動: DEBUG=profiler:* pnpm dev
@@ -239,13 +280,67 @@ export interface ProfilerService {
 
 export const ProfilerService = Context.GenericTag<ProfilerService>("@minecraft/ProfilerService")
 
+// プロファイリング設定の型安全な定義
+export const ProfilingConfigSchema = Schema.Struct({
+  enableCPUProfiling: Schema.Boolean,
+  enableMemoryProfiling: Schema.Boolean,
+  enableNetworkProfiling: Schema.optional(Schema.Boolean),
+  sampleRate: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand("SampleRate")
+  ),
+  maxSamples: Schema.optional(Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand("MaxSamples")
+  )),
+  autoStop: Schema.optional(Schema.Boolean),
+  outputFormat: Schema.optional(Schema.Literal("json", "csv", "flamegraph"))
+}).pipe(
+  Schema.identifier("ProfilingConfig"),
+  Schema.description("プロファイリングセッションの設定")
+)
+
+export const ProfilingSessionIdSchema = Schema.String.pipe(
+  Schema.pattern(/^session-\d+-[a-z0-9]+$/),
+  Schema.brand("ProfilingSessionId")
+)
+
 // プロファイリングセッション
-export const ProfilingSession = Schema.TaggedError("ProfilingSession")({
-  id: Schema.String
-  name: Schema.String
-  startTime: Schema.Number
-  readonly config: ProfilingConfig
-}> {
+export const ProfilingSessionSchema = Schema.Struct({
+  id: ProfilingSessionIdSchema,
+  name: Schema.String.pipe(
+    Schema.minLength(1),
+    Schema.maxLength(100),
+    Schema.brand("SessionName")
+  ),
+  startTime: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.brand("Timestamp")
+  ),
+  config: ProfilingConfigSchema,
+  status: Schema.Literal("active", "completed", "failed", "aborted"),
+  endTime: Schema.optional(Schema.Number.pipe(
+    Schema.positive(),
+    Schema.brand("Timestamp")
+  ))
+}).pipe(
+  Schema.filter((session) => {
+    return !session.endTime || session.endTime >= session.startTime
+  }, {
+    message: () => "終了時刻は開始時刻より後である必要があります"
+  }),
+  Schema.identifier("ProfilingSession"),
+  Schema.description("プロファイリングセッションの定義")
+)
+
+export type ProfilingConfig = Schema.Schema.Type<typeof ProfilingConfigSchema>
+export type ProfilingSession = Schema.Schema.Type<typeof ProfilingSessionSchema> & {
+  measure: <A, E>(
+    operation: Effect.Effect<A, E>,
+    operationName: string
+  ) => Effect.Effect<A, E>
   measure = <A, E>(
     operation: Effect.Effect<A, E>,
     operationName: string
@@ -442,28 +537,107 @@ const realTimeMonitoringLoop = (config: MonitoringConfig) => Effect.gen(function
 import { Effect } from "effect"
 
 // エンティティコンポーネントのSoA構造
-export interface PositionStore {
-  readonly x: Float32Array
-  readonly y: Float32Array
-  readonly z: Float32Array
-  count: Schema.Number
-  capacity: Schema.Number
-}
+export const PositionStoreSchema = Schema.Struct({
+  x: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("X座標のFloat32Array配列")
+  ),
+  y: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("Y座標のFloat32Array配列")
+  ),
+  z: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("Z座標のFloat32Array配列")
+  ),
+  count: Schema.Number.pipe(
+    Schema.int(),
+    Schema.nonnegative(),
+    Schema.brand("EntityCount")
+  ),
+  capacity: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand("StoreCapacity")
+  )
+}).pipe(
+  Schema.filter((store) => {
+    const expectedLength = store.capacity
+    return store.x.length === expectedLength &&
+           store.y.length === expectedLength &&
+           store.z.length === expectedLength &&
+           store.count <= store.capacity
+  }, {
+    message: () => "PositionStore配列の長さとカウントが一致しません"
+  }),
+  Schema.identifier("PositionStore"),
+  Schema.description("位置コンポーネントのStructure of Arrays格納")
+)
 
-export interface VelocityStore {
-  readonly x: Float32Array
-  readonly y: Float32Array
-  readonly z: Float32Array
-  count: Schema.Number
-  capacity: Schema.Number
-}
+export const VelocityStoreSchema = Schema.Struct({
+  x: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("X速度のFloat32Array配列")
+  ),
+  y: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("Y速度のFloat32Array配列")
+  ),
+  z: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("Z速度のFloat32Array配列")
+  ),
+  count: Schema.Number.pipe(
+    Schema.int(),
+    Schema.nonnegative(),
+    Schema.brand("EntityCount")
+  ),
+  capacity: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand("StoreCapacity")
+  )
+}).pipe(
+  Schema.filter((store) => {
+    const expectedLength = store.capacity
+    return store.x.length === expectedLength &&
+           store.y.length === expectedLength &&
+           store.z.length === expectedLength &&
+           store.count <= store.capacity
+  }, {
+    message: () => "VelocityStore配列の長さとカウントが一致しません"
+  }),
+  Schema.identifier("VelocityStore"),
+  Schema.description("速度コンポーネントのStructure of Arrays格納")
+)
 
-export interface HealthStore {
-  readonly current: Float32Array
-  readonly maximum: Float32Array
-  count: Schema.Number
-  capacity: Schema.Number
-}
+export const HealthStoreSchema = Schema.Struct({
+  current: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("現在ヘルスのFloat32Array配列")
+  ),
+  maximum: Schema.instanceOf(Float32Array).pipe(
+    Schema.description("最大ヘルスのFloat32Array配列")
+  ),
+  count: Schema.Number.pipe(
+    Schema.int(),
+    Schema.nonnegative(),
+    Schema.brand("EntityCount")
+  ),
+  capacity: Schema.Number.pipe(
+    Schema.int(),
+    Schema.positive(),
+    Schema.brand("StoreCapacity")
+  )
+}).pipe(
+  Schema.filter((store) => {
+    const expectedLength = store.capacity
+    return store.current.length === expectedLength &&
+           store.maximum.length === expectedLength &&
+           store.count <= store.capacity
+  }, {
+    message: () => "HealthStore配列の長さとカウントが一致しません"
+  }),
+  Schema.identifier("HealthStore"),
+  Schema.description("ヘルスコンポーネントのStructure of Arrays格納")
+)
+
+export type PositionStore = Schema.Schema.Type<typeof PositionStoreSchema>
+export type VelocityStore = Schema.Schema.Type<typeof VelocityStoreSchema>
+export type HealthStore = Schema.Schema.Type<typeof HealthStoreSchema>
 
 // SoA操作ユーティリティ
 export const SoAOperations = {
@@ -574,12 +748,55 @@ export const SoAOperations = {
   })
 }
 
+// ECS エンティティデータの型安全な定義
+export const EntityIdSchema = Schema.String.pipe(
+  Schema.pattern(/^entity-[a-f0-9-]+$/),
+  Schema.brand("EntityId")
+)
+
+export const EntityDataSchema = Schema.Struct({
+  id: EntityIdSchema,
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  }),
+  velocity: Schema.optional(Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number
+  })),
+  health: Schema.optional(Schema.Struct({
+    current: Schema.Number.pipe(Schema.nonnegative()),
+    maximum: Schema.Number.pipe(Schema.positive())
+  }))
+}).pipe(
+  Schema.filter((entity) => {
+    return !entity.health || entity.health.current <= entity.health.maximum
+  }, {
+    message: () => "現在のヘルスが最大ヘルスを超えています"
+  }),
+  Schema.identifier("EntityData"),
+  Schema.description("エンティティの初期化データ")
+)
+
+export const SystemErrorSchema = Schema.TaggedError("SystemError")({
+  operation: Schema.String,
+  entityId: Schema.optional(EntityIdSchema),
+  reason: Schema.String,
+  timestamp: Schema.Number.pipe(Schema.brand("Timestamp"))
+})
+
+export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
+export type EntityData = Schema.Schema.Type<typeof EntityDataSchema>
+export type SystemError = Schema.Schema.Type<typeof SystemErrorSchema>
+
 // SoA ECSシステムの実装例
 export interface SoAEntitySystem {
   private positions: PositionStore
   private velocities: VelocityStore
   private healths: HealthStore
-  private entityIndices = new Map<EntityId, number>()
+  private entityIndices: Map<EntityId, number>
 
   constructor(initialCapacity: number = 10000) {
     this.positions = {
@@ -709,37 +926,132 @@ CPU集約的処理の並列化：
 // src/performance/worker-pool.ts
 import { Effect, Context, Layer, Queue } from 'effect'
 
-// Workerタスクの定義
-export const WorkerTask = Schema.Struct({
-  id: Schema.String,
-  type: Schema.Literal('mesh-generation', 'pathfinding', 'physics', 'lighting'),
-  data: Schema.Unknown,
-  priority: Schema.Number.pipe(Schema.between(0, 10)), // 0が最高優先度
-  timeout: Schema.Number.pipe(Schema.positive()),
-  retryCount: Schema.Number.pipe(Schema.nonNegative()),
+// Workerタスクの型安全な定義
+export const WorkerTaskTypeSchema = Schema.Literal('mesh-generation', 'pathfinding', 'physics', 'lighting')
+export const WorkerTaskPrioritySchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.between(0, 10),
+  Schema.brand('TaskPriority')
+)
+
+export const WorkerTaskIdSchema = Schema.String.pipe(
+  Schema.pattern(/^task-[a-zA-Z0-9-]+$/),
+  Schema.brand('WorkerTaskId')
+)
+
+export const WorkerIdSchema = Schema.String.pipe(Schema.pattern(/^worker-[a-zA-Z0-9-]+$/), Schema.brand('WorkerId'))
+
+// 具体的なタスクデータのスキーマ
+export const MeshGenerationDataSchema = Schema.Struct({
+  chunkCoords: Schema.Array(Schema.Number).pipe(Schema.minItems(3), Schema.maxItems(3)),
+  blockData: Schema.instanceOf(Uint16Array),
+  lightingData: Schema.optional(Schema.instanceOf(Uint8Array)),
 })
 
-export type WorkerTask = Schema.Schema.Type<typeof WorkerTask>
+export const PathfindingDataSchema = Schema.Struct({
+  start: Schema.Array(Schema.Number).pipe(Schema.minItems(3), Schema.maxItems(3)),
+  end: Schema.Array(Schema.Number).pipe(Schema.minItems(3), Schema.maxItems(3)),
+  obstacles: Schema.Array(Schema.Array(Schema.Number)),
+  maxDistance: Schema.Number.pipe(Schema.positive()),
+})
 
-// Worker結果
-export const WorkerResult = Schema.Struct({
-  taskId: Schema.String,
+// タスクデータのTaggedUnion
+export const WorkerTaskDataSchema = Schema.TaggedUnion('type', {
+  'mesh-generation': Schema.Struct({
+    type: Schema.Literal('mesh-generation'),
+    data: MeshGenerationDataSchema,
+  }),
+  pathfinding: Schema.Struct({
+    type: Schema.Literal('pathfinding'),
+    data: PathfindingDataSchema,
+  }),
+  physics: Schema.Struct({
+    type: Schema.Literal('physics'),
+    data: Schema.Record(Schema.String, Schema.Unknown), // 物理計算用の汎用データ
+  }),
+  lighting: Schema.Struct({
+    type: Schema.Literal('lighting'),
+    data: Schema.Record(Schema.String, Schema.Unknown), // ライティング計算用の汎用データ
+  }),
+})
+
+export const WorkerTaskSchema = Schema.Struct({
+  id: WorkerTaskIdSchema,
+  type: WorkerTaskTypeSchema,
+  data: WorkerTaskDataSchema,
+  priority: WorkerTaskPrioritySchema,
+  timeout: Schema.Number.pipe(Schema.positive(), Schema.brand('TaskTimeout')),
+  retryCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('TaskRetryCount')),
+  createdAt: Schema.Number.pipe(Schema.positive(), Schema.brand('Timestamp')),
+}).pipe(Schema.identifier('WorkerTask'), Schema.description('WebWorkerで実行されるタスクの型安全な定義'))
+
+export type WorkerTask = Schema.Schema.Type<typeof WorkerTaskSchema>
+export type WorkerTaskType = Schema.Schema.Type<typeof WorkerTaskTypeSchema>
+export type WorkerTaskData = Schema.Schema.Type<typeof WorkerTaskDataSchema>
+
+// Worker結果の型安全な定義
+export const WorkerResultSchema = Schema.Struct({
+  taskId: WorkerTaskIdSchema,
   success: Schema.Boolean,
   result: Schema.optional(Schema.Unknown),
-  error: Schema.optional(Schema.String),
-  executionTime: Schema.Number,
-  workerId: Schema.String,
+  error: Schema.optional(Schema.String.pipe(Schema.maxLength(1000), Schema.brand('ErrorMessage'))),
+  executionTime: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('ExecutionTime')),
+  workerId: WorkerIdSchema,
+  completedAt: Schema.Number.pipe(Schema.positive(), Schema.brand('Timestamp')),
+  memoryUsage: Schema.optional(Schema.Number.pipe(Schema.nonnegative(), Schema.brand('MemoryUsage'))),
+}).pipe(Schema.identifier('WorkerResult'), Schema.description('WebWorkerタスク実行結果の型安全な定義'))
+
+export type WorkerResult = Schema.Schema.Type<typeof WorkerResultSchema>
+
+// Worker Pool 関連の型定義
+export const PoolStatusSchema = Schema.Struct({
+  totalWorkers: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('WorkerCount')),
+  availableWorkers: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('AvailableWorkerCount')),
+  busyWorkers: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('BusyWorkerCount')),
+  pendingTasks: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('PendingTaskCount')),
+  statistics: Schema.Struct({
+    totalTasks: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
+    completedTasks: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
+    failedTasks: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
+    averageExecutionTime: Schema.Number.pipe(Schema.nonnegative()),
+    workerUtilization: Schema.Record(Schema.String, Schema.Number),
+  }),
+}).pipe(
+  Schema.filter(
+    (status) => {
+      return (
+        status.totalWorkers === status.availableWorkers + status.busyWorkers &&
+        status.statistics.totalTasks === status.statistics.completedTasks + status.statistics.failedTasks
+      )
+    },
+    {
+      message: () => 'PoolStatus の整合性チェックに失敗しました',
+    }
+  ),
+  Schema.identifier('PoolStatus'),
+  Schema.description('ワーカープールの状態情報')
+)
+
+export const WorkerErrorSchema = Schema.TaggedError('WorkerError')({
+  operation: Schema.String,
+  workerId: Schema.optional(WorkerIdSchema),
+  taskId: Schema.optional(WorkerTaskIdSchema),
+  reason: Schema.String,
+  timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
 })
 
-export type WorkerResult = Schema.Schema.Type<typeof WorkerResult>
+export type PoolStatus = Schema.Schema.Type<typeof PoolStatusSchema>
+export type WorkerError = Schema.Schema.Type<typeof WorkerErrorSchema>
 
 // Worker Pool サービス
 export interface WorkerPoolService {
   readonly submitTask: (task: WorkerTask) => Effect.Effect<WorkerResult, WorkerError>
   readonly submitBatch: (tasks: ReadonlyArray<WorkerTask>) => Effect.Effect<ReadonlyArray<WorkerResult>, WorkerError>
   readonly getPoolStatus: Effect.Effect<PoolStatus, never>
-  readonly adjustPoolSize: (newSize: number) => Effect.Effect<void, WorkerError>
+  readonly adjustPoolSize: (newSize: number & Brand.Brand<'WorkerCount'>) => Effect.Effect<void, WorkerError>
   readonly shutdown: Effect.Effect<void, never>
+  readonly validateTask: (task: unknown) => Effect.Effect<WorkerTask, ParseError>
+  readonly validateResult: (result: unknown) => Effect.Effect<WorkerResult, ParseError>
 }
 
 export const WorkerPoolService = Context.GenericTag<WorkerPoolService>('@minecraft/WorkerPoolService')
@@ -1041,28 +1353,82 @@ GC圧力の軽減とオブジェクト再利用：
 // src/performance/memory-pool.ts
 import { Effect, Context, Layer, Ref } from 'effect'
 
-// メモリプールのインターフェース
+// メモリプールの型安全な定義
+export const MemoryPoolStatsSchema = Schema.Struct({
+  available: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('AvailableCount')),
+  inUse: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('InUseCount')),
+  total: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('TotalCount')),
+  utilizationRate: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UtilizationRate')),
+  peakUsage: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('PeakUsage')),
+  allocationCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('AllocationCount')),
+  releaseCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('ReleaseCount')),
+}).pipe(
+  Schema.filter(
+    (stats) => {
+      return (
+        stats.available + stats.inUse === stats.total &&
+        stats.utilizationRate === (stats.total > 0 ? stats.inUse / stats.total : 0) &&
+        stats.allocationCount >= stats.releaseCount
+      )
+    },
+    {
+      message: () => 'MemoryPoolStats の整合性チェックに失敗しました',
+    }
+  ),
+  Schema.identifier('MemoryPoolStats'),
+  Schema.description('メモリプールの統計情報')
+)
+
+export const MemoryPoolConfigSchema = <A, I, R>(itemSchema: Schema.Schema<A, I, R>) =>
+  Schema.Struct({
+    name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50), Schema.brand('PoolName')),
+    factory: Schema.Function.pipe(Schema.description('オブジェクト生成ファクトリ関数')),
+    reset: Schema.Function.pipe(Schema.description('オブジェクトリセット関数')),
+    validate: Schema.optional(Schema.Function.pipe(Schema.description('オブジェクト検証関数'))),
+    initialSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('InitialSize'))),
+    maxSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('MaxSize'))),
+    enableMetrics: Schema.optional(Schema.Boolean),
+    warnOnLeak: Schema.optional(Schema.Boolean),
+  }).pipe(
+    Schema.filter(
+      (config) => {
+        return !config.maxSize || !config.initialSize || config.initialSize <= config.maxSize
+      },
+      {
+        message: () => 'initialSize は maxSize 以下である必要があります',
+      }
+    ),
+    Schema.identifier('MemoryPoolConfig'),
+    Schema.description('メモリプール設定の型安全な定義')
+  )
+
+// メモリプールインターフェースの定義
 export interface MemoryPool<T> {
   readonly acquire: () => Effect.Effect<T, never, never>
   readonly release: (item: T) => Effect.Effect<void, never, never>
   readonly getStats: () => Effect.Effect<MemoryPoolStats, never, never>
+  readonly preAllocate: (count: number) => Effect.Effect<void, never, never>
+  readonly clear: () => Effect.Effect<void, never, never>
+  readonly validateIntegrity: () => Effect.Effect<boolean, never, never>
 }
 
-export interface MemoryPoolStats {
-  readonly available: number
-  readonly inUse: number
-  readonly total: number
-}
-
-export interface MemoryPoolConfig<T> {
+export type MemoryPoolStats = Schema.Schema.Type<typeof MemoryPoolStatsSchema>
+export type MemoryPoolConfig<T> = {
+  readonly name: string & Brand.Brand<'PoolName'>
   readonly factory: () => T
   readonly reset: (item: T) => void
-  readonly initialSize?: number
-  readonly maxSize?: number
+  readonly validate?: (item: T) => boolean
+  readonly initialSize?: number & Brand.Brand<'InitialSize'>
+  readonly maxSize?: number & Brand.Brand<'MaxSize'>
+  readonly enableMetrics?: boolean
+  readonly warnOnLeak?: boolean
 }
 
-// メモリプールの作成関数
-export const makeMemoryPool = <T>(config: MemoryPoolConfig<T>): Effect.Effect<MemoryPool<T>, never, never> =>
+// メモリプールの作成関数（型安全）
+export const makeMemoryPool = <A, I, R>(
+  itemSchema: Schema.Schema<A, I, R>,
+  config: MemoryPoolConfig<A>
+): Effect.Effect<MemoryPool<A>, never, never> =>
   Effect.gen(function* () {
     const { factory, reset, initialSize = 10, maxSize = 1000 } = config
 
@@ -1136,6 +1502,78 @@ export const makeMemoryPool = <T>(config: MemoryPoolConfig<T>): Effect.Effect<Me
     }
   })
 
+// ゲーム固有オブジェクトの型定義
+export const Vector3Schema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+}).pipe(Schema.identifier('Vector3'), Schema.description('3次元ベクトル'))
+
+export const EntitySchema = Schema.Struct({
+  id: EntityIdSchema,
+  components: Schema.instanceOf(Map),
+  active: Schema.Boolean,
+  lastUpdateTime: Schema.optional(Schema.Number.pipe(Schema.brand('Timestamp'))),
+}).pipe(Schema.identifier('Entity'), Schema.description('ゲームエンティティ'))
+
+export const ParticleSchema = Schema.Struct({
+  position: Vector3Schema,
+  velocity: Vector3Schema,
+  life: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('ParticleLife')),
+  maxLife: Schema.Number.pipe(Schema.positive(), Schema.brand('ParticleMaxLife')),
+  size: Schema.Number.pipe(Schema.positive(), Schema.brand('ParticleSize')),
+  color: Schema.Struct({
+    r: Schema.Number.pipe(Schema.between(0, 1)),
+    g: Schema.Number.pipe(Schema.between(0, 1)),
+    b: Schema.Number.pipe(Schema.between(0, 1)),
+    a: Schema.Number.pipe(Schema.between(0, 1)),
+  }),
+}).pipe(
+  Schema.filter((particle) => particle.life <= particle.maxLife, {
+    message: () => 'パーティクルのlifeはmaxLife以下である必要があります',
+  }),
+  Schema.identifier('Particle'),
+  Schema.description('パーティクル効果')
+)
+
+export const MeshDataSchema = Schema.Struct({
+  vertices: Schema.instanceOf(Float32Array),
+  indices: Schema.instanceOf(Uint32Array),
+  normals: Schema.instanceOf(Float32Array),
+  uvs: Schema.instanceOf(Float32Array),
+  vertexCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('VertexCount')),
+  indexCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('IndexCount')),
+}).pipe(
+  Schema.filter(
+    (mesh) => {
+      const expectedVertexBytes = mesh.vertexCount * 3 * 4 // 3 floats per vertex
+      const expectedIndexBytes = mesh.indexCount * 4 // 1 uint32 per index
+      return mesh.vertices.byteLength >= expectedVertexBytes && mesh.indices.byteLength >= expectedIndexBytes
+    },
+    {
+      message: () => 'メッシュデータの配列サイズとカウントが一致しません',
+    }
+  ),
+  Schema.identifier('MeshData'),
+  Schema.description('3Dメッシュデータ')
+)
+
+export const GlobalPoolStatsSchema = Schema.Struct({
+  vector3: MemoryPoolStatsSchema,
+  entity: MemoryPoolStatsSchema,
+  particle: MemoryPoolStatsSchema,
+  meshData: MemoryPoolStatsSchema,
+  totalInUse: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('TotalInUse')),
+  totalAvailable: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('TotalAvailable')),
+  overallUtilization: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('OverallUtilization')),
+}).pipe(Schema.identifier('GlobalPoolStats'), Schema.description('全メモリプールの統計情報'))
+
+export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
+export type Entity = Schema.Schema.Type<typeof EntitySchema>
+export type Particle = Schema.Schema.Type<typeof ParticleSchema>
+export type MeshData = Schema.Schema.Type<typeof MeshDataSchema>
+export type GlobalPoolStats = Schema.Schema.Type<typeof GlobalPoolStatsSchema>
+
 // ゲーム固有のオブジェクトプール
 export interface MemoryPoolService {
   readonly vector3Pool: MemoryPool<Vector3>
@@ -1144,85 +1582,109 @@ export interface MemoryPoolService {
   readonly meshDataPool: MemoryPool<MeshData>
   readonly getGlobalStats: Effect.Effect<GlobalPoolStats, never>
   readonly optimizeAllPools: Effect.Effect<void, never>
+  readonly validateAllPools: Effect.Effect<boolean, never>
+  readonly clearAllPools: Effect.Effect<void, never>
 }
 
 export const MemoryPoolService = Context.GenericTag<MemoryPoolService>('@minecraft/MemoryPoolService')
 
 // Vector3プール（頻繁に使用される）
 const createVector3Pool = () =>
-  new MemoryPool<Vector3>(
-    () => ({ x: 0, y: 0, z: 0 }),
-    (v) => {
+  makeMemoryPool(Vector3Schema, {
+    name: 'vector3-pool' as any,
+    factory: () => ({ x: 0, y: 0, z: 0 }),
+    reset: (v) => {
       v.x = 0
       v.y = 0
       v.z = 0
     },
-    100, // 初期サイズ
-    10000 // 最大サイズ
-  )
+    validate: (v) => typeof v.x === 'number' && typeof v.y === 'number' && typeof v.z === 'number',
+    initialSize: 100 as any,
+    maxSize: 10000 as any,
+    enableMetrics: true,
+    warnOnLeak: true,
+  })
 
 // エンティティプール
 const createEntityPool = () =>
-  new MemoryPool<Entity>(
-    () => ({
-      id: '',
+  makeMemoryPool(EntitySchema, {
+    name: 'entity-pool' as any,
+    factory: () => ({
+      id: '' as any,
       components: new Map(),
       active: false,
     }),
-    (entity) => {
-      entity.id = ''
+    reset: (entity) => {
+      entity.id = '' as any
       entity.components.clear()
       entity.active = false
+      entity.lastUpdateTime = undefined
     },
-    50,
-    5000
-  )
+    validate: (entity) => typeof entity.id === 'string' && entity.components instanceof Map,
+    initialSize: 50 as any,
+    maxSize: 5000 as any,
+    enableMetrics: true,
+    warnOnLeak: true,
+  })
 
 // パーティクルプール
 const createParticlePool = () =>
-  new MemoryPool<Particle>(
-    () => ({
+  makeMemoryPool(ParticleSchema, {
+    name: 'particle-pool' as any,
+    factory: () => ({
       position: { x: 0, y: 0, z: 0 },
       velocity: { x: 0, y: 0, z: 0 },
-      life: 0,
-      maxLife: 0,
-      size: 1,
+      life: 0 as any,
+      maxLife: 1 as any, // positive値が必要
+      size: 1 as any,
       color: { r: 1, g: 1, b: 1, a: 1 },
     }),
-    (particle) => {
+    reset: (particle) => {
       particle.position.x = particle.position.y = particle.position.z = 0
       particle.velocity.x = particle.velocity.y = particle.velocity.z = 0
-      particle.life = particle.maxLife = 0
-      particle.size = 1
+      particle.life = 0 as any
+      particle.maxLife = 1 as any
+      particle.size = 1 as any
       particle.color.r = particle.color.g = particle.color.b = particle.color.a = 1
     },
-    200,
-    20000
-  )
+    validate: (particle) => particle.life <= particle.maxLife && particle.size > 0,
+    initialSize: 200 as any,
+    maxSize: 20000 as any,
+    enableMetrics: true,
+    warnOnLeak: true,
+  })
 
 // メッシュデータプール
 const createMeshDataPool = () =>
-  new MemoryPool<MeshData>(
-    () => ({
+  makeMemoryPool(MeshDataSchema, {
+    name: 'mesh-data-pool' as any,
+    factory: () => ({
       vertices: new Float32Array(0),
       indices: new Uint32Array(0),
       normals: new Float32Array(0),
       uvs: new Float32Array(0),
-      vertexCount: 0,
-      indexCount: 0,
+      vertexCount: 0 as any,
+      indexCount: 0 as any,
     }),
-    (meshData) => {
+    reset: (meshData) => {
       // TypedArrayは再利用のためにクリア
       meshData.vertices.fill(0)
       meshData.indices.fill(0)
       meshData.normals.fill(0)
       meshData.uvs.fill(0)
-      meshData.vertexCount = 0
-      meshData.indexCount = 0
+      meshData.vertexCount = 0 as any
+      meshData.indexCount = 0 as any
     },
-    10,
-    1000
-  )
+    validate: (meshData) => {
+      const expectedVertexBytes = meshData.vertexCount * 3 * 4
+      const expectedIndexBytes = meshData.indexCount * 4
+      return meshData.vertices.byteLength >= expectedVertexBytes && meshData.indices.byteLength >= expectedIndexBytes
+    },
+    initialSize: 10 as any,
+    maxSize: 1000 as any,
+    enableMetrics: true,
+    warnOnLeak: true,
+  })
 
 // メモリプールサービスの実装
 const makeMemoryPoolService = Effect.gen(function* () {
@@ -1275,8 +1737,10 @@ const makeMemoryPoolService = Effect.gen(function* () {
 
 export const MemoryPoolServiceLive = Layer.effect(MemoryPoolService, makeMemoryPoolService)
 
-// 使用例: スコープ付きリソース管理
-export const withPooledVector3 = <A, E>(operation: (vector: Vector3) => Effect.Effect<A, E>): Effect.Effect<A, E> =>
+// 使用例: スコープ付きリソース管理（型安全）
+export const withPooledVector3 = <A, E, R>(
+  operation: (vector: Vector3) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R | MemoryPoolService> =>
   Effect.gen(function* () {
     const pools = yield* MemoryPoolService
     const vector = yield* pools.vector3Pool.acquire()
@@ -1289,11 +1753,11 @@ export const withPooledVector3 = <A, E>(operation: (vector: Vector3) => Effect.E
     }
   })
 
-// バッチ処理用のヘルパー
-export const withPooledVectors = <A, E>(
-  count: number,
-  operation: (vectors: ReadonlyArray<Vector3>) => Effect.Effect<A, E>
-): Effect.Effect<A, E> =>
+// バッチ処理用のヘルパー（型安全）
+export const withPooledVectors = <A, E, R>(
+  count: number & Brand.Brand<'VectorCount'>,
+  operation: (vectors: ReadonlyArray<Vector3>) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R | MemoryPoolService> =>
   Effect.gen(function* () {
     const pools = yield* MemoryPoolService
     const vectors = yield* Effect.all(Array.from({ length: count }, () => pools.vector3Pool.acquire()))
@@ -1497,4 +1961,165 @@ const predictiveOptimization = Effect.gen(function* () {
 })
 ```
 
-このガイドに従うことで、60FPSを維持する高性能なリアルタイムゲームエンジンを構築できます。
+## 📊 パフォーマンス統計とメトリクス
+
+### リアルタイム統計の型安全な定義
+
+```typescript
+// パフォーマンス統計の基本型
+export const FrameRateStatsSchema = Schema.Struct({
+  current: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('FrameRate')),
+  average: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('AverageFrameRate')),
+  min: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('MinFrameRate')),
+  max: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('MaxFrameRate')),
+  target: Schema.Number.pipe(Schema.positive(), Schema.brand('TargetFrameRate')),
+  frameDrops: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('FrameDropCount')),
+}).pipe(
+  Schema.filter(
+    (stats) => {
+      return stats.min <= stats.average && stats.average <= stats.max && stats.current >= 0
+    },
+    {
+      message: () => 'FrameRateStats の統計値が無効です',
+    }
+  ),
+  Schema.identifier('FrameRateStats'),
+  Schema.description('フレームレート統計情報')
+)
+
+export const MemoryStatsSchema = Schema.Struct({
+  heapUsed: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('HeapUsed')),
+  heapTotal: Schema.Number.pipe(Schema.positive(), Schema.brand('HeapTotal')),
+  heapLimit: Schema.Number.pipe(Schema.positive(), Schema.brand('HeapLimit')),
+  external: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('ExternalMemory')),
+  rss: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('ResidentSetSize')),
+  gcCount: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('GCCount')),
+  gcTime: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('GCTime')),
+}).pipe(
+  Schema.filter(
+    (stats) => {
+      return stats.heapUsed <= stats.heapTotal && stats.heapTotal <= stats.heapLimit
+    },
+    {
+      message: () => 'MemoryStats のメモリ使用量が無効です',
+    }
+  ),
+  Schema.identifier('MemoryStats'),
+  Schema.description('メモリ使用量統計情報')
+)
+
+export const RenderingStatsSchema = Schema.Struct({
+  drawCalls: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('DrawCalls')),
+  triangles: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('TriangleCount')),
+  vertices: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('VertexCount')),
+  textureMemory: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('TextureMemory')),
+  shaderPrograms: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('ShaderPrograms')),
+  renderTime: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('RenderTime')),
+}).pipe(Schema.identifier('RenderingStats'), Schema.description('レンダリング統計情報'))
+
+export const SystemPerformanceStatsSchema = Schema.Struct({
+  frameRate: FrameRateStatsSchema,
+  memory: MemoryStatsSchema,
+  rendering: RenderingStatsSchema,
+  timestamp: Schema.Number.pipe(Schema.positive(), Schema.brand('Timestamp')),
+  sessionDuration: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('SessionDuration')),
+}).pipe(Schema.identifier('SystemPerformanceStats'), Schema.description('システム全体のパフォーマンス統計'))
+
+export type FrameRateStats = Schema.Schema.Type<typeof FrameRateStatsSchema>
+export type MemoryStats = Schema.Schema.Type<typeof MemoryStatsSchema>
+export type RenderingStats = Schema.Schema.Type<typeof RenderingStatsSchema>
+export type SystemPerformanceStats = Schema.Schema.Type<typeof SystemPerformanceStatsSchema>
+
+// パフォーマンス閾値の型安全な定義
+export const PerformanceThresholdsSchema = Schema.Struct({
+  criticalFPS: Schema.Number.pipe(Schema.positive(), Schema.brand('CriticalFPS')),
+  warningFPS: Schema.Number.pipe(Schema.positive(), Schema.brand('WarningFPS')),
+  maxMemoryUsage: Schema.Number.pipe(Schema.positive(), Schema.brand('MaxMemoryUsage')),
+  maxGCTime: Schema.Number.pipe(Schema.positive(), Schema.brand('MaxGCTime')),
+  maxRenderTime: Schema.Number.pipe(Schema.positive(), Schema.brand('MaxRenderTime')),
+}).pipe(
+  Schema.filter(
+    (thresholds) => {
+      return thresholds.criticalFPS < thresholds.warningFPS
+    },
+    {
+      message: () => 'criticalFPS は warningFPS より小さい必要があります',
+    }
+  ),
+  Schema.identifier('PerformanceThresholds'),
+  Schema.description('パフォーマンス閾値設定')
+)
+
+export type PerformanceThresholds = Schema.Schema.Type<typeof PerformanceThresholdsSchema>
+
+// アラート生成の型安全な定義
+export const PerformanceAlertSchema = Schema.TaggedUnion('severity', {
+  critical: Schema.Struct({
+    severity: Schema.Literal('critical'),
+    metric: PerformanceMetricCategorySchema,
+    value: Schema.Number,
+    threshold: Schema.Number,
+    message: Schema.String,
+    timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
+    actionRequired: Schema.Boolean,
+  }),
+  warning: Schema.Struct({
+    severity: Schema.Literal('warning'),
+    metric: PerformanceMetricCategorySchema,
+    value: Schema.Number,
+    threshold: Schema.Number,
+    message: Schema.String,
+    timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
+    actionRequired: Schema.Boolean,
+  }),
+  info: Schema.Struct({
+    severity: Schema.Literal('info'),
+    metric: PerformanceMetricCategorySchema,
+    value: Schema.Number,
+    message: Schema.String,
+    timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
+    actionRequired: Schema.Literal(false),
+  }),
+}).pipe(Schema.identifier('PerformanceAlert'), Schema.description('パフォーマンスアラート'))
+
+export type PerformanceAlert = Schema.Schema.Type<typeof PerformanceAlertSchema>
+```
+
+### 型安全なパフォーマンス監視システム
+
+```typescript
+// パフォーマンス監視サービス
+export interface PerformanceMonitorService {
+  readonly startMonitoring: (config: MonitoringConfig) => Effect.Effect<void, MonitoringError>
+  readonly stopMonitoring: Effect.Effect<void, never>
+  readonly getCurrentStats: Effect.Effect<SystemPerformanceStats, never>
+  readonly getAlertsHistory: (timeRange?: TimeRange) => Effect.Effect<ReadonlyArray<PerformanceAlert>, never>
+  readonly setThresholds: (thresholds: PerformanceThresholds) => Effect.Effect<void, never>
+  readonly optimizeAutomatically: (
+    aggressiveness: OptimizationLevel
+  ) => Effect.Effect<OptimizationResult, OptimizationError>
+}
+
+// 最適化レベルの型定義
+export const OptimizationLevelSchema = Schema.Literal('conservative', 'balanced', 'aggressive')
+export type OptimizationLevel = Schema.Schema.Type<typeof OptimizationLevelSchema>
+
+// 最適化結果の型定義
+export const OptimizationResultSchema = Schema.Struct({
+  appliedOptimizations: Schema.Array(Schema.String),
+  performanceImprovement: Schema.Number.pipe(
+    Schema.between(-100, 1000), // -100% to 1000%
+    Schema.brand('PerformanceImprovement')
+  ),
+  memoryReduction: Schema.Number.pipe(
+    Schema.between(-100, 100), // -100% to 100%
+    Schema.brand('MemoryReduction')
+  ),
+  executionTime: Schema.Number.pipe(Schema.nonnegative(), Schema.brand('OptimizationTime')),
+  success: Schema.Boolean,
+}).pipe(Schema.identifier('OptimizationResult'), Schema.description('最適化実行結果'))
+
+export type OptimizationResult = Schema.Schema.Type<typeof OptimizationResultSchema>
+```
+
+このガイドに従うことで、60FPSを維持する高性能なリアルタイムゲームエンジンを構築できます。すべての型定義はEffect-TS Schemaによって検証され、実行時の型安全性が保証されます。

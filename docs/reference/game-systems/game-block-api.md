@@ -39,11 +39,11 @@ import { Effect, Layer, Context, Schema, pipe, Match } from 'effect'
 import { Brand, Option, ReadonlyArray } from 'effect'
 
 // ブロックID（ブランド型）
-export const BlockId = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('BlockId'))
-export type BlockId = Schema.Schema.Type<typeof BlockId>
+export const BlockIdSchema = Schema.String.pipe(Schema.pattern(/^[a-z]+:[a-z_]+$/), Schema.brand('BlockId'))
+export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 
 // ブロック状態
-export const BlockState = Schema.Struct({
+export const BlockStateSchema = Schema.Struct({
   facing: Schema.optional(Schema.Literal('north', 'south', 'east', 'west', 'up', 'down')),
   powered: Schema.optional(Schema.Boolean),
   waterlogged: Schema.optional(Schema.Boolean),
@@ -53,28 +53,28 @@ export const BlockState = Schema.Struct({
   shape: Schema.optional(Schema.Literal('straight', 'inner_left', 'inner_right', 'outer_left', 'outer_right')),
   axis: Schema.optional(Schema.Literal('x', 'y', 'z')),
 })
-export type BlockState = Schema.Schema.Type<typeof BlockState>
+export type BlockState = Schema.Schema.Type<typeof BlockStateSchema>
 
 // ブロック物理特性
-export const BlockProperties = Schema.Struct({
-  hardness: pipe(Schema.Number, Schema.nonNegative()),
-  resistance: pipe(Schema.Number, Schema.nonNegative()),
-  luminance: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
-  opacity: pipe(Schema.Number, Schema.int(), Schema.between(0, 15)),
-  flammability: pipe(Schema.Number, Schema.int(), Schema.between(0, 300)),
-  slipperiness: pipe(Schema.Number, Schema.between(0.4, 1.0)),
+export const BlockPropertiesSchema = Schema.Struct({
+  hardness: Schema.Number.pipe(Schema.nonNegative()),
+  resistance: Schema.Number.pipe(Schema.nonNegative()),
+  luminance: Schema.Number.pipe(Schema.int(), Schema.between(0, 15)),
+  opacity: Schema.Number.pipe(Schema.int(), Schema.between(0, 15)),
+  flammability: Schema.Number.pipe(Schema.int(), Schema.between(0, 300)),
+  slipperiness: Schema.Number.pipe(Schema.between(0.4, 1.0)),
   jumpVelocityModifier: Schema.Number,
   velocityModifier: Schema.Number,
   soundType: Schema.Literal('stone', 'wood', 'gravel', 'grass', 'metal', 'glass', 'wool', 'sand', 'snow'),
 })
-export type BlockProperties = Schema.Schema.Type<typeof BlockProperties>
+export type BlockProperties = Schema.Schema.Type<typeof BlockPropertiesSchema>
 
 // ブロック定義
-export const BlockDefinition = Schema.Struct({
-  id: BlockId,
+export const BlockDefinitionSchema = Schema.Struct({
+  id: BlockIdSchema,
   name: Schema.String,
-  properties: BlockProperties,
-  defaultState: BlockState,
+  properties: BlockPropertiesSchema,
+  defaultState: BlockStateSchema,
   boundingBox: Schema.Struct({
     min: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
     max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
@@ -112,7 +112,7 @@ export const BlockDefinition = Schema.Struct({
   isFlammable: Schema.Boolean,
   isReplaceable: Schema.Boolean,
   toolRequired: Schema.optional(Schema.Literal('pickaxe', 'axe', 'shovel', 'hoe', 'shears')),
-  harvestLevel: Schema.optional(pipe(Schema.Number, Schema.int(), Schema.between(0, 4))),
+  harvestLevel: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.between(0, 4))),
   drops: Schema.Array(
     Schema.Struct({
       item: Schema.String,
@@ -120,18 +120,30 @@ export const BlockDefinition = Schema.Struct({
         min: Schema.Number,
         max: Schema.Number,
       }),
-      chance: pipe(Schema.Number, Schema.between(0, 1)),
+      chance: Schema.Number.pipe(Schema.between(0, 1)),
     })
   ),
 })
-export type BlockDefinition = Schema.Schema.Type<typeof BlockDefinition>
+export type BlockDefinition = Schema.Schema.Type<typeof BlockDefinitionSchema>
 ```
 
 ### ブロックタイプの例
 
 ```typescript
-// 石ブロック
-const stoneBlock: BlockDefinition = {
+// ブロックインスタンススキーマ
+export const BlockSchema = Schema.Struct({
+  id: BlockIdSchema,
+  state: BlockStateSchema,
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number,
+  }),
+})
+export type Block = Schema.Schema.Type<typeof BlockSchema>
+
+// 石ブロックの例
+const stoneBlockExample: BlockDefinition = {
   id: 'minecraft:stone' as BlockId,
   name: '石',
   properties: {
@@ -166,8 +178,8 @@ const stoneBlock: BlockDefinition = {
   ],
 }
 
-// 水ブロック
-const waterBlock: BlockDefinition = {
+// 水ブロックの例
+const waterBlockExample: BlockDefinition = {
   id: 'minecraft:water' as BlockId,
   name: '水',
   properties: {
@@ -179,7 +191,7 @@ const waterBlock: BlockDefinition = {
     slipperiness: 0.6,
     jumpVelocityModifier: 1.0,
     velocityModifier: 0.5,
-    soundType: 'water', // カスタムサウンド
+    soundType: 'stone', // サポートされているサウンドタイプのみ
   },
   defaultState: {},
   boundingBox: {
@@ -200,6 +212,18 @@ const waterBlock: BlockDefinition = {
 ### IBlockRegistry - ブロックレジストリサービス
 
 ```typescript
+// ワールド位置スキーマ
+export const WorldPositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
+
+// ブロックフェイススキーマ
+export const BlockFaceSchema = Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west')
+export type BlockFace = Schema.Schema.Type<typeof BlockFaceSchema>
+
 interface BlockRegistryInterface {
   // ブロック登録
   readonly register: (block: BlockDefinition) => Effect.Effect<void, RegistrationError>
@@ -233,6 +257,15 @@ const findHardBlocks = Effect.gen(function* () {
 ### IBlockUpdateService - ブロック更新システム
 
 ```typescript
+// ブロック更新スキーマ
+export const BlockUpdateSchema = Schema.Struct({
+  position: WorldPositionSchema,
+  delay: Schema.Number.pipe(Schema.nonNegative()),
+  priority: Schema.Number.pipe(Schema.int(), Schema.between(0, 10)),
+  updateType: Schema.Literal('scheduled', 'neighbor', 'random', 'physics'),
+})
+export type BlockUpdate = Schema.Schema.Type<typeof BlockUpdateSchema>
+
 interface BlockUpdateServiceInterface {
   // 更新スケジューリング
   readonly scheduleUpdate: (position: WorldPosition, delay: number) => Effect.Effect<void, never>
@@ -268,31 +301,43 @@ const handleBlockUpdate = (position: WorldPosition) =>
 ### IBlockInteractionService - インタラクションシステム
 
 ```typescript
+// ベクタースキーマ
+export const Vector3Schema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
+
 interface BlockInteractionServiceInterface {
   // ブロック配置
   readonly onBlockPlace: (
     position: WorldPosition,
     block: BlockId,
-    placer: PlayerId,
+    placer: Schema.Schema.Type<typeof PlayerIdSchema>,
     face: BlockFace
   ) => Effect.Effect<void, PlaceError>
 
   // ブロック破壊
   readonly onBlockBreak: (
     position: WorldPosition,
-    breaker: PlayerId,
-    tool?: ItemStack
-  ) => Effect.Effect<ReadonlyArray<ItemStack>, BreakError>
+    breaker: Schema.Schema.Type<typeof PlayerIdSchema>,
+    tool?: Schema.Schema.Type<typeof ItemStackSchema>
+  ) => Effect.Effect<ReadonlyArray<Schema.Schema.Type<typeof ItemStackSchema>>, BreakError>
 
   // ブロックアクティベーション
   readonly onBlockActivate: (
     position: WorldPosition,
-    player: PlayerId,
+    player: Schema.Schema.Type<typeof PlayerIdSchema>,
     hand: 'main' | 'off'
   ) => Effect.Effect<boolean, ActivateError>
 
   // 衝突処理
-  readonly onBlockCollide: (position: WorldPosition, entity: EntityId, velocity: Vector3) => Effect.Effect<void, never>
+  readonly onBlockCollide: (
+    position: WorldPosition,
+    entity: Schema.String.pipe(Schema.brand('EntityId')),
+    velocity: Vector3
+  ) => Effect.Effect<void, never>
 }
 
 export const BlockInteractionService =
@@ -302,6 +347,15 @@ export const BlockInteractionService =
 ### IBlockPhysicsService - 物理システム
 
 ```typescript
+// 物理システムスキーマ
+export const ExplosionParamsSchema = Schema.Struct({
+  center: WorldPositionSchema,
+  power: Schema.Number.pipe(Schema.positive()),
+  createFire: Schema.Boolean,
+  damageEntities: Schema.Boolean,
+})
+export type ExplosionParams = Schema.Schema.Type<typeof ExplosionParamsSchema>
+
 interface BlockPhysicsServiceInterface {
   // 重力処理
   readonly processGravity: (position: WorldPosition) => Effect.Effect<void, PhysicsError>
