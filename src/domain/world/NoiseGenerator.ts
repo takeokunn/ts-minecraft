@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 
 /**
@@ -211,7 +211,14 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 frequency *= 2
               }
 
-              return maxValue > 0 ? total / maxValue : 0
+              return yield* pipe(
+                Match.value(maxValue),
+                Match.when(
+                  (n) => n > 0,
+                  () => Effect.succeed(total / maxValue)
+                ),
+                Match.orElse(() => Effect.succeed(0))
+              )
             }),
         })
       }),
@@ -235,7 +242,14 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 frequency *= 2
               }
 
-              return maxValue > 0 ? total / maxValue : 0
+              return yield* pipe(
+                Match.value(maxValue),
+                Match.when(
+                  (n) => n > 0,
+                  () => Effect.succeed(total / maxValue)
+                ),
+                Match.orElse(() => Effect.succeed(0))
+              )
             }),
         })
       }),

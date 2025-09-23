@@ -257,13 +257,17 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(id)) {
-          yield* Effect.fail({
-            _tag: 'WorldError' as const,
-            message: `Entity not found: ${id}`,
-            entityId: id,
-          } satisfies WorldError)
-        }
+        yield* pipe(
+          Match.value(state.entities.has(id)),
+          Match.when(false, () =>
+            Effect.fail({
+              _tag: 'WorldError' as const,
+              message: `Entity not found: ${id}`,
+              entityId: id,
+            } satisfies WorldError)
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           const newEntities = new Map(s.entities)
@@ -298,13 +302,17 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(entityId)) {
-          yield* Effect.fail({
-            _tag: 'WorldError' as const,
-            message: `Entity not found: ${entityId}`,
-            entityId,
-          } satisfies WorldError)
-        }
+        yield* pipe(
+          Match.value(state.entities.has(entityId)),
+          Match.when(false, () =>
+            Effect.fail({
+              _tag: 'WorldError' as const,
+              message: `Entity not found: ${entityId}`,
+              entityId,
+            } satisfies WorldError)
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           const newComponents = new Map(s.components)
@@ -665,9 +673,14 @@ export const WorldLive = Layer.effect(
               for (const [id, component] of storage.data) {
                 const metadata = pipe(Option.fromNullable(state.entities.get(id)), Option.getOrNull)
 
-                if (metadata && metadata.active) {
-                  activeComponents.set(id, component as T)
-                }
+                pipe(
+                  Match.value(metadata),
+                  Match.when(
+                    (m) => m != null && m.active,
+                    () => activeComponents.set(id, component as T)
+                  ),
+                  Match.orElse(() => undefined)
+                )
               }
 
               return Effect.succeed(activeComponents)
@@ -683,13 +696,17 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        if (!state.entities.has(id)) {
-          yield* Effect.fail({
-            _tag: 'WorldError' as const,
-            message: `Entity not found: ${id}`,
-            entityId: id,
-          } satisfies WorldError)
-        }
+        yield* pipe(
+          Match.value(state.entities.has(id)),
+          Match.when(false, () =>
+            Effect.fail({
+              _tag: 'WorldError' as const,
+              message: `Entity not found: ${id}`,
+              entityId: id,
+            } satisfies WorldError)
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         yield* Ref.update(stateRef, (s) => {
           return pipe(
