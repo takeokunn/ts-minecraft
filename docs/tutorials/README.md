@@ -128,6 +128,10 @@ TypeScript Minecraft Cloneプロジェクトの理解と実装スキルを体系
 
 Effect-TSの基礎から応用までの関数型プログラミングパターン
 
+- **[Effect-TS型システム](./effect-ts-fundamentals/effect-ts-type-system.md)**: Brand型とSchemaによる型安全な設計
+- **[Effect-TSパターン集](./effect-ts-fundamentals/effect-ts-patterns.md)**: Layer構成とサービス設計の実践
+- **[型安全性パターン](./design-patterns/type-safety-patterns.md)**: ドメインモデリングと型安全設計
+
 **🔗 関連リソース**: [関数型哲学](../explanations/design-patterns/functional-programming-philosophy.md) • [移行ガイド](../how-to/development/effect-ts-migration-guide.md) • [APIリファレンス](../reference/api/effect-ts-schema-api.md)
 
 ### 🌐 [Advanced Topics](./advanced-topics/README.md)

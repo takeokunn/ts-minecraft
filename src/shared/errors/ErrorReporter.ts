@@ -33,14 +33,25 @@ export const ErrorReporter = {
    * エラーを構造化された形式でフォーマット（型安全版）
    */
   format: (error: unknown): Effect.Effect<string> =>
-    pipe(
-      Effect.clockWith((clock) => clock.currentTimeMillis),
-      Effect.map((millis) => new Date(millis).toISOString()),
-      Effect.map((timestamp) => {
-        const report = ErrorReporter.createErrorReport(error, timestamp)
-        return JSON.stringify(report, null, 2)
-      })
-    ),
+    Effect.sync(() => {
+      // プリミティブ値の場合はそのまま文字列として返す
+      if (error === null) return 'null'
+      if (error === undefined) return 'undefined'
+      if (typeof error === 'string') return error
+      if (typeof error === 'number') return String(error)
+      if (typeof error === 'boolean') return String(error)
+      
+      // オブジェクトの場合は従来通りJSONレポートを作成
+      return pipe(
+        Effect.clockWith((clock) => clock.currentTimeMillis),
+        Effect.map((millis) => new Date(millis).toISOString()),
+        Effect.map((timestamp) => {
+          const report = ErrorReporter.createErrorReport(error, timestamp)
+          return JSON.stringify(report, null, 2)
+        }),
+        Effect.runSync
+      )
+    }),
 
   /**
    * エラーレポートオブジェクトの作成
@@ -163,7 +174,7 @@ export const ErrorReporter = {
     while (current && typeof current === 'object' && 'cause' in current) {
       const withCause = current as { cause?: unknown }
       current = withCause.cause
-      if (current !== undefined) {
+      if (current !== undefined && current !== null) {
         chain.push(current)
       } else {
         break

@@ -53,7 +53,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
       yield* playerService.createPlayer({
         playerId,
         initialPosition: { x: 0, y: 64 + 1.8, z: 0 }, // 地面から1.8m上（プレイヤーの高さ）
-        initialRotation: { pitch: 0, yaw: 0 },
+        initialRotation: { pitch: 0, yaw: 0, roll: 0 },
         health: 100,
       })
 

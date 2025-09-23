@@ -292,12 +292,12 @@ describe('Branded Types', () => {
     })
 
     describe('createChunkId', () => {
-      it('creates valid ChunkId from string', () => {
+      it('creates valid ChunkId from coordinates', () => {
         fc.assert(
-          fc.property(fc.string(), (str: string) => {
-            const chunkId = BrandedTypes.createChunkId(str)
+          fc.property(fc.integer({ min: -1000, max: 1000 }), fc.integer({ min: -1000, max: 1000 }), (x: number, z: number) => {
+            const chunkId = BrandedTypes.createChunkId(x, z)
             expect(typeof chunkId).toBe('string')
-            expect(chunkId).toBe(str)
+            expect(chunkId).toBe(`chunk_${x}_${z}`)
           }),
           { numRuns: 100 }
         )
@@ -327,10 +327,10 @@ describe('Branded Types', () => {
   describe('Type safety at runtime', () => {
     it('enforces distinct types for same underlying values', () => {
       const playerId: PlayerId = Schema.decodeSync(PlayerIdSchema)('123')
-      const chunkId: ChunkId = Schema.decodeSync(ChunkIdSchema)('123')
+      const chunkId: ChunkId = Schema.decodeSync(ChunkIdSchema)('chunk_1_2')
 
-      // Values are the same
-      expect(playerId).toBe(chunkId as unknown as string)
+      // Values are different
+      expect(playerId).not.toBe(chunkId as unknown as string)
 
       // But TypeScript treats them as different types
       // This would cause a type error: playerId = chunkId

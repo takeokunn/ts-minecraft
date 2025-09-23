@@ -10,11 +10,11 @@ import { Schema } from '@effect/schema'
  * プレイヤーやエンティティの体力を表現（0-20の範囲）
  */
 export const HealthSchema = Schema.Number.pipe(
-  Schema.between(0, 20),
+  Schema.between(0, 100),
   Schema.brand('Health'),
   Schema.annotations({
     title: 'Health',
-    description: 'Health points (0-20, where 20 is full health)',
+    description: 'Health points (0-100, where 100 is full health)',
   })
 )
 export type Health = Schema.Schema.Type<typeof HealthSchema>

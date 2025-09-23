@@ -97,11 +97,11 @@ describe('Player Entity System - Component Tests', () => {
   describe('Schema Validation - PlayerRotation', () => {
     it('should validate correct rotation angles', () => {
       const validRotations = [
-        { pitch: 0, yaw: 0 },
-        { pitch: Math.PI / 4, yaw: Math.PI },
-        { pitch: -Math.PI / 4, yaw: -Math.PI },
-        { pitch: Math.PI / 2, yaw: 2 * Math.PI }, // Max pitch
-        { pitch: -Math.PI / 2, yaw: -2 * Math.PI }, // Min pitch
+        { pitch: 0, yaw: 0, roll: 0 },
+        { pitch: Math.PI / 4, yaw: Math.PI, roll: 0 },
+        { pitch: -Math.PI / 4, yaw: -Math.PI, roll: 0 },
+        { pitch: Math.PI / 2, yaw: 2 * Math.PI, roll: 0 }, // Max pitch
+        { pitch: -Math.PI / 2, yaw: -2 * Math.PI, roll: 0 }, // Min pitch
       ]
 
       for (const rotation of validRotations) {
@@ -112,10 +112,10 @@ describe('Player Entity System - Component Tests', () => {
 
     it('should reject out-of-bounds pitch values', () => {
       const invalidRotations = [
-        { pitch: Math.PI, yaw: 0 }, // pitch > π/2
-        { pitch: -Math.PI, yaw: 0 }, // pitch < -π/2
-        { pitch: Math.PI * 2, yaw: 0 }, // pitch > π/2
-        { pitch: -Math.PI * 2, yaw: 0 }, // pitch < -π/2
+        { pitch: Math.PI, yaw: 0, roll: 0 }, // pitch > π/2
+        { pitch: -Math.PI, yaw: 0, roll: 0 }, // pitch < -π/2
+        { pitch: Math.PI * 2, yaw: 0, roll: 0 }, // pitch > π/2
+        { pitch: -Math.PI * 2, yaw: 0, roll: 0 }, // pitch < -π/2
       ]
 
       for (const rotation of invalidRotations) {
@@ -130,8 +130,8 @@ describe('Player Entity System - Component Tests', () => {
 
     it('should reject invalid rotation types', () => {
       const invalidRotations = [
-        { pitch: 'invalid', yaw: 0 },
-        { pitch: 0, yaw: null },
+        { pitch: 'invalid', yaw: 0, roll: 0 },
+        { pitch: 0, yaw: null, roll: 0 },
         { pitch: 0 }, // missing yaw
         { yaw: 0 }, // missing pitch
         null,
@@ -157,7 +157,7 @@ describe('Player Entity System - Component Tests', () => {
       const config = {
         playerId: 'test-player-1',
         initialPosition: { x: 0, y: 64, z: 0 },
-        initialRotation: { pitch: 0, yaw: 0 },
+        initialRotation: { pitch: 0, yaw: 0, roll: 0 },
         health: 100,
       }
 
@@ -165,7 +165,7 @@ describe('Player Entity System - Component Tests', () => {
 
       expect(result.playerId).toBe('test-player-1')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0, roll: 0 })
       expect(result.health).toBe(100)
     })
 
@@ -246,7 +246,7 @@ describe('Player Entity System - Component Tests', () => {
         playerId: 'state-test-player',
         entityId: 12345,
         position: { x: 10.5, y: 65, z: -20.3 },
-        rotation: { pitch: Math.PI / 6, yaw: Math.PI / 3 },
+        rotation: { pitch: Math.PI / 6, yaw: Math.PI / 3, roll: 0 },
         health: 85,
         isActive: true,
         lastUpdate: Date.now(),
@@ -262,7 +262,7 @@ describe('Player Entity System - Component Tests', () => {
           // missing playerId
           entityId: 123,
           position: { x: 0, y: 0, z: 0 },
-          rotation: { pitch: 0, yaw: 0 },
+          rotation: { pitch: 0, yaw: 0, roll: 0 },
           health: 100,
           isActive: true,
           lastUpdate: Date.now(),
@@ -271,7 +271,7 @@ describe('Player Entity System - Component Tests', () => {
           playerId: 'test',
           // missing entityId
           position: { x: 0, y: 0, z: 0 },
-          rotation: { pitch: 0, yaw: 0 },
+          rotation: { pitch: 0, yaw: 0, roll: 0 },
           health: 100,
           isActive: true,
           lastUpdate: Date.now(),
@@ -280,7 +280,7 @@ describe('Player Entity System - Component Tests', () => {
           playerId: 'test',
           entityId: 123,
           position: { x: 0, y: 0, z: 0 },
-          rotation: { pitch: 0, yaw: 0 },
+          rotation: { pitch: 0, yaw: 0, roll: 0 },
           health: -10, // invalid health
           isActive: true,
           lastUpdate: Date.now(),
@@ -289,7 +289,7 @@ describe('Player Entity System - Component Tests', () => {
           playerId: 'test',
           entityId: 123,
           position: { x: 0, y: 0, z: 0 },
-          rotation: { pitch: Math.PI, yaw: 0 }, // invalid rotation
+          rotation: { pitch: Math.PI, yaw: 0, roll: 0 }, // invalid rotation
           health: 100,
           isActive: true,
           lastUpdate: Date.now(),
@@ -311,13 +311,13 @@ describe('Player Entity System - Component Tests', () => {
     it('should validate partial update data', () => {
       const updateTests = [
         { position: { x: 1, y: 2, z: 3 } },
-        { rotation: { pitch: 0.1, yaw: 0.2 } },
+        { rotation: { pitch: 0.1, yaw: 0.2, roll: 0 } },
         { health: 90 },
         { position: { x: 0, y: 0, z: 0 }, health: 50 },
-        { rotation: { pitch: 0, yaw: 0 }, health: 75 },
+        { rotation: { pitch: 0, yaw: 0, roll: 0 }, health: 75 },
         {
           position: { x: 100, y: 200, z: 300 },
-          rotation: { pitch: 0.5, yaw: 1.0 },
+          rotation: { pitch: 0.5, yaw: 1.0, roll: 0 },
           health: 80,
         },
         {}, // empty update is valid
@@ -332,7 +332,7 @@ describe('Player Entity System - Component Tests', () => {
     it('should reject invalid update data', () => {
       const invalidUpdates = [
         { position: { x: 'invalid', y: 0, z: 0 } },
-        { rotation: { pitch: Math.PI, yaw: 0 } }, // out of bounds
+        { rotation: { pitch: Math.PI, yaw: 0, roll: 0 } }, // out of bounds
         { health: -10 }, // negative health
         { health: 150 }, // health > 100
         null,
@@ -486,7 +486,7 @@ describe('Player Entity System - Component Tests', () => {
 
       expect(result.playerId).toBe('default-test-player')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0, roll: 0 })
       expect(result.health).toBe(100)
     })
 
@@ -502,7 +502,7 @@ describe('Player Entity System - Component Tests', () => {
 
       expect(result.playerId).toBe('custom-test-player')
       expect(result.initialPosition).toEqual({ x: 100, y: 128, z: -100 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0, roll: 0 })
       expect(result.health).toBe(50)
     })
   })
@@ -524,7 +524,7 @@ describe('Player Entity System - Component Tests', () => {
       const input = {
         playerId: 'type-safety-test',
         initialPosition: { x: 42, y: 64, z: -42 },
-        initialRotation: { pitch: 0.1, yaw: -0.1 },
+        initialRotation: { pitch: 0.1, yaw: -0.1, roll: 0 },
         health: 95,
       }
 
@@ -607,10 +607,10 @@ describe('Player Entity System - Component Tests', () => {
 
     it('should handle edge case rotations', () => {
       const edgeCases = [
-        { pitch: Math.PI / 2 - 1e-10, yaw: 0 }, // just under max pitch
-        { pitch: -Math.PI / 2 + 1e-10, yaw: 0 }, // just over min pitch
-        { pitch: 0, yaw: 2 * Math.PI }, // full rotation
-        { pitch: 0, yaw: -2 * Math.PI }, // full negative rotation
+        { pitch: Math.PI / 2 - 1e-10, yaw: 0, roll: 0 }, // just under max pitch
+        { pitch: -Math.PI / 2 + 1e-10, yaw: 0, roll: 0 }, // just over min pitch
+        { pitch: 0, yaw: 2 * Math.PI, roll: 0 }, // full rotation
+        { pitch: 0, yaw: -2 * Math.PI, roll: 0 }, // full negative rotation
       ]
 
       for (const rotation of edgeCases) {

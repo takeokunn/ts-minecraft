@@ -8,7 +8,7 @@ import { BrandedTypes, EntityCount, EntityCapacity } from '../../shared/types/br
 
 export const EntityIdSchema = Schema.Number.pipe(
   Schema.int(),
-  Schema.positive(),
+  Schema.nonNegative(),
   Schema.brand('EntityId'),
   Schema.annotations({
     title: 'EntityId',

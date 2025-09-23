@@ -29,7 +29,7 @@ export type PlayerPosition = Schema.Schema.Type<typeof PlayerPositionSchema>
  */
 export const PlayerRotationSchema = Schema.Struct({
   pitch: Schema.Number.pipe(Schema.between(-Math.PI / 2, Math.PI / 2)),
-  yaw: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),
+  yaw: Schema.Number.pipe(Schema.between(-2 * Math.PI, 2 * Math.PI)),
   roll: Schema.Number.pipe(Schema.between(-Math.PI, Math.PI)),
 }).pipe(
   Schema.annotations({

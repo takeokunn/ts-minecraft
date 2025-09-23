@@ -41,7 +41,8 @@ export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
  */
 export const ChunkIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
-  Schema.pattern(/^chunk_\d+_\d+$/),
+  Schema.minLength(9), // minimum: "chunk_0_0"
+  Schema.pattern(/^chunk_-?\d+_-?\d+$/),
   Schema.brand('ChunkId'),
   Schema.annotations({
     title: 'ChunkId',
@@ -257,130 +258,26 @@ export type BlockId = Schema.Schema.Type<typeof BlockId>
  * ブランド型を作成するためのヘルパー関数
  */
 export const BrandedTypes = {
-  /**
-   * 安全なPlayerId作成
-   */
-  createPlayerId: (id: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(id),
-
-  /**
-   * 安全なWorldCoordinate作成
-   */
-  createWorldCoordinate: (value: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(value),
-
-  /**
-   * 安全なChunkId作成
-   */
-  createChunkId: (id: string): ChunkId => Schema.decodeSync(ChunkIdSchema)(id),
-
-  /**
-   * 安全なBlockTypeId作成
-   */
-  createBlockTypeId: (id: number): BlockTypeId => Schema.decodeSync(BlockTypeIdSchema)(id),
-
-  /**
-   * 安全なEntityId作成
-   */
-  createEntityId: (id: string): EntityId => Schema.decodeSync(EntityId)(id),
-
-  /**
-   * 安全なItemId作成
-   */
-  createItemId: (id: string): ItemId => Schema.decodeSync(ItemId)(id),
-
-  /**
-   * 安全なHeight作成
-   */
-  createHeight: (value: number): Height => Schema.decodeSync(Height)(value),
-
-  /**
-   * 安全なNoiseCoordinate作成
-   */
-  createNoiseCoordinate: (value: number): NoiseCoordinate => Schema.decodeSync(NoiseCoordinate)(value),
-
-  /**
-   * 安全なNoiseValue作成
-   */
-  createNoiseValue: (value: number): NoiseValue => Schema.decodeSync(NoiseValue)(value),
-
-  /**
-   * 安全なComponentTypeName作成
-   */
-  createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
-
-  /**
-   * 安全なBlockId作成
-   */
-  createBlockId: (id: string): BlockId => Schema.decodeSync(BlockId)(id),
-
-  // === 統計情報関連のヘルパー ===
-
-  /**
-   * 安全なEntityCount作成
-   */
-  createEntityCount: (value: number): EntityCount => Schema.decodeSync(EntityCount)(value),
-
-  /**
-   * 安全なEntityCapacity作成
-   */
-  createEntityCapacity: (value: number): EntityCapacity => Schema.decodeSync(EntityCapacity)(value),
-
-  // === レンダリング関連のヘルパー ===
-
-  /**
-   * 安全なUVCoordinate作成
-   */
-  createUVCoordinate: (value: number): UVCoordinate => Schema.decodeSync(UVCoordinate)(value),
-
-  /**
-   * 安全なAOValue作成
-   */
-  createAOValue: (value: number): AOValue => Schema.decodeSync(AOValue)(value),
-
-  /**
-   * 安全なMeshDimension作成
-   */
-  createMeshDimension: (value: number): MeshDimension => Schema.decodeSync(MeshDimension)(value),
-
-  /**
-   * 安全なDeltaTime作成
-   */
-  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTimeSchema)(value),
-
-  /**
-   * 安全なSensitivityValue作成
-   */
-  createSensitivityValue: (value: number): SensitivityValue => Schema.decodeSync(SensitivityValue)(value),
-
-  /**
-   * 安全なEnvironmentKey作成
-   */
-  createEnvironmentKey: (key: string): EnvironmentKey => Schema.decodeSync(EnvironmentKey)(key),
-
-  /**
-   * 安全なCacheSize作成
-   */
-  createCacheSize: (value: number): CacheSize => Schema.decodeSync(CacheSize)(value),
-
-  /**
-   * 安全なCacheHitCount作成
-   */
-  createCacheHitCount: (value: number): CacheHitCount => Schema.decodeSync(CacheHitCount)(value),
-
-  /**
-   * 安全なCacheMissCount作成
-   */
-  createCacheMissCount: (value: number): CacheMissCount => Schema.decodeSync(CacheMissCount)(value),
-
-  /**
-   * 安全なWorldPosition作成
-   */
-  createWorldPosition: (x: number, y: number, z: number): WorldPosition =>
-    Schema.decodeSync(WorldPosition)({
-      x: Schema.decodeSync(WorldCoordinateSchema)(x),
-      y: Schema.decodeSync(WorldCoordinateSchema)(y),
-      z: Schema.decodeSync(WorldCoordinateSchema)(z),
-    }),
-} as const
+  createPlayerId: (id: string): PlayerId => {
+    if (!id || id.trim().length === 0) {
+      throw new Error(`Invalid PlayerId: cannot be empty or whitespace-only`)
+    }
+    return Schema.decodeSync(PlayerIdSchema)(id)
+  },
+  createWorldCoordinate: (coord: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(coord),
+  createChunkId: (x: number, z: number): ChunkId => Schema.decodeSync(ChunkIdSchema)(`chunk_${x}_${z}`),
+  createChunkPosition: (x: number, z: number): ChunkPosition => Schema.decodeSync(ChunkPositionSchema)({ x, z }),
+  createBlockPosition: (x: number, y: number, z: number): BlockPosition =>
+    Schema.decodeSync(BlockPositionSchema)({ x, y, z }),
+  createVersion: (major: number, minor: number, patch: number): Version =>
+    Schema.decodeSync(VersionSchema)(`${major}.${minor}.${patch}`),
+  createEntityId: (id: number): EntityId => {
+    if (id < 0 || !Number.isInteger(id)) {
+      throw new Error(`Invalid EntityId: must be non-negative integer, got ${id}`)
+    }
+    return id as EntityId
+  },
+}
 
 // Re-export time-related types for backward compatibility
 export type { DeltaTime, Timestamp } from './time-brands'

@@ -14,11 +14,21 @@
 - **品質**: 80%+ カバレッジ
 - **アーキテクチャ**: 完全関数型・イベント駆動・DDD/ECS
 
-### 技術的制約
+### 技術的制約・設計方針
 
-- クラス禁止 (Effect-TS Service/Layerパターン使用)
-- var,let,any,async禁止
-- Effect.gen/Schema.Struct必須
+- **クラス禁止**: Effect-TS Service/Layerパターンによる関数型設計
+- **変数制約**: var,let,any,async禁止（const + Effect.gen必須）
+- **型安全性**: Effect.gen/Schema.Struct必須
+- **ランタイム検証**: 外部データはすべてSchemaによる検証必須
+- **エラーハンドリング**: 例外禁止・Effect型によるエラー表現
+
+### Effect-TS採用理由
+
+1. **型安全性の向上**: Brand型により同種プリミティブの混同を防止
+2. **ランタイム安全性**: Schemaによる実行時データ検証
+3. **関数型エラーハンドリング**: Effect型による予測可能なエラー処理
+4. **コンポーザビリティ**: 小さな関数を組み合わせた堅牢なシステム構築
+5. **テスタビリティ**: 依存性注入により100%モック可能な設計
 
 ## ドキュメント構造
 
@@ -29,6 +39,17 @@
 - [入門ガイド](./tutorials/getting-started/README.md)
 - [Effect-TS基礎](./tutorials/effect-ts-fundamentals/README.md)
 - [基本ゲーム開発](./tutorials/basic-game-development/README.md)
+
+### ⚡ [Effect-TS型システム](./tutorials/effect-ts-fundamentals/effect-ts-type-system.md)
+
+**完全関数型プログラミング基盤**
+
+プロジェクトのコア技術基盤であるEffect-TSによる型安全性とランタイム検証の包括的システム。ブランド型・Schema・関数型エラーハンドリングによって、コンパイル時・実行時の両方で堅牢性を保証します。
+
+- [**型システム基礎**](./tutorials/effect-ts-fundamentals/effect-ts-type-system.md) - ブランド型・Schema・Immutable Collections
+- [**型リファレンス**](./reference/effect-ts-types/type-reference.md) - 50+のBrand型定義とSchema
+- [**マイグレーションガイド**](./how-to/migration/effect-ts-migration.md) - 従来TypeScriptからの移行手順
+- [**型安全パターン**](./tutorials/design-patterns/type-safety-patterns.md) - 設計パターンとベストプラクティス
 
 ### 🔧 [How-Toガイド](./how-to/README.md)
 
@@ -62,15 +83,19 @@
 
 1. **環境構築**: [環境セットアップ](./tutorials/basic-game-development/environment-setup.md)
 2. **開発規約**: [開発規約](./how-to/development/development-conventions.md)
-3. **Effect-TSパターン**: [Effect-TSパターン](./tutorials/effect-ts-fundamentals/effect-ts-patterns.md)
-4. **テスト戦略**: [テストガイド](./how-to/testing/testing-guide.md)
+3. **Effect-TS型システム**: [型システム基礎](./tutorials/effect-ts-fundamentals/effect-ts-type-system.md)
+4. **Effect-TSパターン**: [Effect-TSパターン](./tutorials/effect-ts-fundamentals/effect-ts-patterns.md)
+5. **型リファレンス**: [Brand型・Schema一覧](./reference/effect-ts-types/type-reference.md)
+6. **テスト戦略**: [テストガイド](./how-to/testing/testing-guide.md)
 
 ### AIエージェント向け
 
 1. **Issue実装フロー**: [GitHub Issue管理](./how-to/development/github-issue-management.md)
 2. **エントリーポイント**: [エントリーポイント](./how-to/development/entry-points.md)
-3. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
-4. **トラブルシューティング**: [よくあるエラー](./how-to/troubleshooting/common-errors.md)
+3. **Effect-TS移行**: [マイグレーションガイド](./how-to/migration/effect-ts-migration.md)
+4. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
+5. **型安全設計**: [型安全パターン](./tutorials/design-patterns/type-safety-patterns.md)
+6. **トラブルシューティング**: [よくあるエラー](./how-to/troubleshooting/common-errors.md)
 
 ## Issue駆動開発
 

@@ -46,7 +46,7 @@ describe('PlayerService Integration Tests', () => {
           const config = {
             playerId: 'integration-test-player-1',
             initialPosition: { x: 10.5, y: 64, z: -20.3 },
-            initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4 },
+            initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4, roll: 0 },
             health: 85,
           }
 
@@ -306,7 +306,7 @@ describe('PlayerService Integration Tests', () => {
             { playerId: 'valid', health: -10 }, // 負の体力
             { playerId: 'valid', health: 150 }, // 範囲外の体力
             { playerId: 'valid', initialPosition: { x: 'invalid', y: 0, z: 0 } }, // 無効な位置
-            { playerId: 'valid', initialRotation: { pitch: Math.PI, yaw: 0 } }, // 範囲外の回転
+            { playerId: 'valid', initialRotation: { pitch: Math.PI, yaw: 0, roll: 0 } }, // 範囲外の回転
           ]
 
           for (const config of invalidConfigs) {

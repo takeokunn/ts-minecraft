@@ -125,8 +125,12 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
     "stripInternal": true, // internal注釈削除
     "preserveSymlinks": true, // シンボリックリンク保持
 
-    /* === Effect-TS専用最適化 === */
-    "moduleDetection": "force" // モジュール検出強制
+    /* === Effect-TS 3.17+専用最適化 === */
+    "moduleDetection": "force", // モジュール検出強制
+    "noImplicitReturns": true, // Effect型戻り値の一貫性保証
+    "noUnusedLocals": true, // 未使用変数検出（Effect-TS開発効率化）
+    "noUnusedParameters": true, // 未使用パラメータ検出
+    "useUnknownInCatchVariables": true // Effect error handling最適化
   },
 
   /* === ファイル包含/除外 === */
@@ -308,61 +312,117 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
 }
 ```
 
-### Effect-TS専用最適化設定
+### Effect-TS 3.17+専用最適化設定
 
 ```json
-// tsconfig.effect.json - Effect-TS特化設定
+// tsconfig.effect.json - Effect-TS 3.17+特化設定
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    /* Effect-TS最適化 */
+    /* Effect-TS 3.17+最適化 */
     "target": "ES2022", // Effect-TS推奨バージョン
     "module": "ESNext", // 最新モジュール
-    "moduleResolution": "node", // 依存関係解決
+    "moduleResolution": "bundler", // Vite統合最適化
 
-    /* 型システム強化 */
+    /* 型システム強化（Effect-TS Schema対応） */
     "strict": true, // 厳格モード必須
-    "exactOptionalPropertyTypes": true, // 厳密オプショナル
-    "noUncheckedIndexedAccess": true, // インデックス安全性
-    "useUnknownInCatchVariables": true, // catch文型安全
+    "exactOptionalPropertyTypes": true, // Option<T>型精度向上
+    "noUncheckedIndexedAccess": true, // ReadonlyRecord安全性
+    "useUnknownInCatchVariables": true, // Effect.catchAll最適化
+    "noImplicitReturns": true, // Effect戻り値一貫性
+    "noFallthroughCasesInSwitch": true, // Match.value対応
 
     /* Effect-TS型推論支援 */
-    "noImplicitAny": true, // any禁止
-    "strictNullChecks": true, // null/undefined厳格
-    "strictFunctionTypes": true, // 関数型厳格
+    "noImplicitAny": true, // Schema.Unknown制限
+    "strictNullChecks": true, // Option/Either型推論
+    "strictFunctionTypes": true, // Effect関数型安全性
+    "noImplicitOverride": true, // Service実装時の明示性
+    "noPropertyAccessFromIndexSignature": true, // ReadonlyRecord型安全
 
-    /* モジュール設定 */
+    /* モジュール設定（Effect-TS 3.17+対応） */
     "esModuleInterop": true, // ESモジュール相互運用
-    "allowSyntheticDefaultImports": true, // デフォルトインポート
-    "verbatimModuleSyntax": true, // モジュール構文保持
+    "allowSyntheticDefaultImports": true, // Effect再エクスポート対応
+    "verbatimModuleSyntax": false, // Effect Tree-shaking最適化
     "isolatedModules": true, // 単独モジュール
+    "allowImportingTsExtensions": true, // .ts拡張子許可
 
-    /* パフォーマンス */
+    /* パフォーマンス（Schema最適化） */
     "skipLibCheck": true, // ライブラリスキップ
     "incremental": true, // インクリメンタル
     "tsBuildInfoFile": "./.tsbuildinfo.effect", // Effect専用キャッシュ
 
-    /* デコレータサポート */
-    "experimentalDecorators": true, // Effect Schema用
+    /* Schema・Brand型サポート */
+    "experimentalDecorators": true, // Schema.Class用
     "emitDecoratorMetadata": true, // メタデータ生成
+    "downlevelIteration": true, // ReadonlyArray iteration
 
-    /* パス解決（Effect-TS向け） */
+    /* DDD + Effect-TS パス解決 */
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
+      "@/domain/*": ["src/domain/*"], // ドメイン層（Schema中心）
+      "@/application/*": ["src/application/*"], // ユースケース（Effect中心）
+      "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層（Layer中心）
+      "@/shared/*": ["src/shared/*"], // 共有型・ユーティリティ
       "@effect/*": ["node_modules/effect/*"], // Effect直接参照
-      "@fp-ts/*": ["node_modules/fp-ts/*"] // FP-TS互換
-    }
+      "@effect/schema": ["node_modules/@effect/schema"], // Schema専用
+      "@effect/platform": ["node_modules/@effect/platform"] // Platform専用
+    },
+
+    /* Effect-TS開発支援型定義 */
+    "types": [
+      "node", // Node.js API
+      "vitest/globals" // テスト環境
+      // Effect型定義は自動解決される
+    ]
   },
 
-  "include": ["src/**/*", "test/**/*"],
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "types/effect.d.ts" // Effect拡張型定義
+  ],
 
   "exclude": [
-    "node_modules/!(@effect|effect)", // Effect以外のnode_modules除外
+    "node_modules", // 全依存関係除外（effectは自動解決）
     "dist",
-    "coverage"
+    "coverage",
+    "**/*.js", // JSファイル除外（型安全性重視）
+    "**/*.mjs" // MJSファイル除外
   ]
 }
+```
+
+#### Effect-TS専用カスタム型定義
+
+```typescript
+// types/effect.d.ts - Effect-TS拡張型定義
+declare global {
+  // Effect開発支援
+  namespace Effect {
+    // カスタムブランド型の拡張
+    interface BrandRegistry {
+      PlayerId: string
+      ChunkCoordinate: number
+      WorldCoordinate: number
+      BlockId: string
+      Health: number
+      Vector3D: { x: number; y: number; z: number }
+    }
+  }
+
+  // Schema拡張
+  namespace Schema {
+    // カスタムスキーマの型推論支援
+    interface CustomSchemaRegistry {
+      Player: import('@/domain/player/Player').Player
+      Block: import('@/domain/world/Block').Block
+      Chunk: import('@/domain/world/Chunk').Chunk
+    }
+  }
+}
+
+export {}
 ```
 
 ## ⚡ Three.js統合専用設定
@@ -420,55 +480,126 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
 
 ### よくある問題と解決方法
 
-#### 1. Effect-TS型エラー
+#### 1. Effect-TS 3.17+型エラー
 
-**問題**: Effect types not properly inferred, `any` type warnings
+**問題**: Effect types not properly inferred, Schema validation warnings
 
 **解決策**:
 
 ```json
 {
   "compilerOptions": {
-    // 型推論強化
+    // 型推論強化（Effect-TS 3.17+対応）
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
+    "useUnknownInCatchVariables": true,
 
-    // Effect-TS専用
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
+    // Effect-TS Schema専用
+    "exactOptionalPropertyTypes": true, // Option<T>型精度
+    "noUncheckedIndexedAccess": true, // ReadonlyRecord安全性
+    "noImplicitReturns": true, // Effect戻り値一貫性
+    "noFallthroughCasesInSwitch": true, // Match.value対応
 
-    // パス解決
-    "moduleResolution": "node",
+    // モジュール解決（重要）
+    "moduleResolution": "bundler", // Vite統合
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false, // Tree-shaking最適化
 
-    // 型定義明示
-    "types": ["effect", "@effect/platform", "@effect/schema"]
+    // Effect-TS型定義（自動解決を優先）
+    "types": ["node", "vitest/globals"],
+    "skipLibCheck": true // Effect内部型チェックスキップ
   }
 }
 ```
 
-#### 2. Three.js import errors
+**追加の型推論支援**:
 
-**問題**: Cannot find module 'three/examples/jsm/\*'
+```typescript
+// src/types/effect-helpers.ts - 型推論ヘルパー
+import { Schema, Effect } from 'effect'
+
+// Schema型推論ヘルパー
+export const createTypedSchema = <A>(schema: Schema.Schema<A>) => ({
+  schema,
+  decode: Schema.decodeUnknown(schema),
+  encode: Schema.encode(schema),
+  validate: Schema.validate(schema)
+})
+
+// Effect型推論ヘルパー
+export const createService = <T extends Record<string, any>>(
+  implementation: T
+): { [K in keyof T]: T[K] } => implementation
+
+// 使用例
+const PlayerSchemaHelper = createTypedSchema(PlayerSchema)
+const playerService = createService({
+  create: (data: unknown) => PlayerSchemaHelper.decode(data),
+  // 他のメソッド...
+})
+```
+
+#### 2. Effect-TS + ゲームエンジン統合エラー
+
+**問題**: Cannot resolve Effect-TS with game libraries (Three.js, etc.)
 
 **解決策**:
 
 ```json
 {
   "compilerOptions": {
-    "moduleResolution": "node",
+    "moduleResolution": "bundler", // Vite最適化
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
 
     "paths": {
+      // Effect-TS パス
+      "@effect/*": ["node_modules/effect/*"],
+      "@effect/schema": ["node_modules/@effect/schema"],
+      "@effect/platform": ["node_modules/@effect/platform"],
+
+      // ゲームエンジン パス
       "three": ["node_modules/three"],
-      "three/examples/jsm/*": ["node_modules/three/examples/jsm/*"]
+      "three/examples/jsm/*": ["node_modules/three/examples/jsm/*"],
+
+      // プロジェクト パス
+      "@/*": ["src/*"],
+      "@/domain/*": ["src/domain/*"],
+      "@/infrastructure/*": ["src/infrastructure/*"]
     },
 
-    "types": ["three", "@types/three"]
+    "types": ["node", "vitest/globals"],
+    "lib": ["ES2022", "DOM", "WebWorker"]
   }
 }
+```
+
+**Effect-TS + Three.js統合パターン**:
+
+```typescript
+// src/infrastructure/rendering/ThreeJSService.ts
+import { Effect, Context, Layer } from 'effect'
+import * as THREE from 'three'
+
+interface ThreeJSService {
+  readonly createRenderer: () => Effect.Effect<THREE.WebGLRenderer, RendererError>
+  readonly createScene: () => Effect.Effect<THREE.Scene, never>
+}
+
+const ThreeJSService = Context.GenericTag<ThreeJSService>('ThreeJSService')
+
+const makeThreeJSService = Effect.succeed({
+  createRenderer: () => Effect.try({
+    try: () => new THREE.WebGLRenderer({ antialias: true }),
+    catch: (error) => new RendererError({ cause: error })
+  }),
+  createScene: () => Effect.succeed(new THREE.Scene())
+})
+
+export const ThreeJSServiceLive = Layer.effect(ThreeJSService, makeThreeJSService)
 ```
 
 #### 3. パフォーマンス問題
@@ -498,9 +629,9 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
 }
 ```
 
-#### 4. モジュール解決エラー
+#### 4. Effect-TS モジュール解決エラー
 
-**問題**: Cannot resolve module, path mapping not working
+**問題**: Cannot resolve Effect modules, tree-shaking issues
 
 **解決策**:
 
@@ -509,22 +640,55 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      // Effect-TS 解決パス
+      "@effect/*": ["node_modules/effect/*"],
+      "@effect/schema": ["node_modules/@effect/schema"],
+      "@effect/platform": ["node_modules/@effect/platform"],
+
+      // プロジェクト解決パス
       "@/*": ["src/*"],
       "@/domain/*": ["src/domain/*"],
-      "@/application/*": ["src/application/*"]
+      "@/application/*": ["src/application/*"],
+      "@/infrastructure/*": ["src/infrastructure/*"]
     },
 
-    // モジュール解決強化
-    "moduleResolution": "node",
+    // Effect-TS最適化モジュール解決
+    "moduleResolution": "bundler", // Vite統合重要
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
 
-    // TypeScript 5.x 新機能
+    // Tree-shaking最適化
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+
+    // TypeScript 5.x + Effect-TS
     "resolvePackageJsonExports": true,
-    "resolvePackageJsonImports": true
+    "resolvePackageJsonImports": true,
+    "moduleDetection": "force"
   }
 }
+```
+
+**Effect-TSインポート最適化パターン**:
+
+```typescript
+// ✅ 推奨: 名前付きインポート（Tree-shaking最適化）
+import { Effect, Schema, Context, Layer } from 'effect'
+import { Option, ReadonlyArray } from 'effect'
+
+// ✅ 特定モジュールの直接インポート
+import * as Schema from '@effect/schema/Schema'
+import * as Effect from 'effect/Effect'
+
+// ❌ 非推奨: デフォルトインポート
+import Effect from 'effect' // Tree-shakingされない
+
+// ✅ プロジェクト内インポート（パス解決最適化）
+import { PlayerSchema } from '@/domain/player/Player'
+import { GameService } from '@/application/game/GameService'
+import { DatabaseLayer } from '@/infrastructure/database/DatabaseLayer'
 ```
 
 ## 🔧 高度な設定例
@@ -653,25 +817,64 @@ declare global {
 }
 ```
 
+## 📖 Effect-TS移行ガイド参照
+
+### 設定変更の実践的アプローチ
+
+Effect-TSに移行する際のTypeScript設定変更について、詳細な手順とパターンは[Effect-TS移行ガイド](../../how-to/migration/effect-ts-migration.md)を参照してください。
+
+**移行時の重要な設定ポイント**:
+
+1. **段階的移行**: 既存のtsconfig.jsonを保持しつつ、`tsconfig.effect.json`で段階的に移行
+2. **Schema最適化**: `exactOptionalPropertyTypes`とBrand型設定の重要性
+3. **パフォーマンス**: ゲーム開発での型チェック最適化戦略
+4. **トラブルシューティング**: よくある型エラーとその解決方法
+
+**設定ファイル例の活用**:
+
+```bash
+# 移行手順例
+# 1. 現在の設定をバックアップ
+cp tsconfig.json tsconfig.backup.json
+
+# 2. Effect-TS専用設定を作成
+cp tsconfig.json tsconfig.effect.json
+# → 上記のEffect-TS専用設定を適用
+
+# 3. 段階的に機能を移行
+npx tsc -p tsconfig.effect.json --noEmit  # 型チェックのみ
+npx tsc -p tsconfig.effect.json           # 実際のビルド
+```
+
+### 移行チェックリスト
+
+移行時の設定確認項目については、[移行ガイドのチェックリスト](../../how-to/migration/effect-ts-migration.md#8-migration-checklist)を参照してください。
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
 
 - [Vite設定](./vite-config.md) - TypeScript統合とビルド設定
-- [Vitest設定](./vitest-config.md) - テスト環境でのTypeScript設定
+- [TypeScript実践設定](./typescript-config-practical.md) - Nix環境での詳細設定
 - [開発設定](./development-config.md) - 開発効率化ツール
 - [Project設定](./project-config.md) - プロジェクト全体設定
+
+### Effect-TS統合ガイド
+
+- **[Effect-TS移行ガイド](../../how-to/migration/effect-ts-migration.md)** - 包括的な移行手順
+- [Effect-TSパターン](../../tutorials/effect-ts-fundamentals/effect-ts-patterns.md) - 実装パターン集
+- [Schema API](../../reference/api/effect-ts-schema-api.md) - Schema設計ガイド
+- [型安全性戦略](../../how-to/development/security-best-practices.md) - セキュリティ考慮事項
 
 ### 外部リファレンス
 
 - [TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/)
 - [TSConfig Reference](https://www.typescriptlang.org/tsconfig)
-- [TypeScript Compiler Options](https://www.typescriptlang.org/docs/handbook/compiler-options.html)
+- [Effect-TS公式ドキュメント](https://effect.website/docs/)
 - [TypeScript Module Resolution](https://www.typescriptlang.org/docs/handbook/module-resolution.html)
 
-### プロジェクト固有
+### トラブルシューティング
 
-- [Effect-TSパターン](../../how-to/development/effect-ts-migration-guide.md)
-- [Three.js統合ガイド](../../how-to/development/performance-optimization.md)
-- [型安全性戦略](../../how-to/development/security-best-practices.md)
-- [パフォーマンス最適化](../troubleshooting/performance-issues.md)
+- [パフォーマンス最適化](../troubleshooting/performance-issues.md) - 型チェック性能問題
+- [一般的なエラー](../../how-to/troubleshooting/common-errors.md) - Effect-TS統合エラー
+- [デバッグガイド](../../how-to/troubleshooting/debugging-guide.md) - 型推論問題の解決
