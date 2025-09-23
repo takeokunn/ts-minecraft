@@ -106,9 +106,9 @@ export const NoiseCoordinate = Schema.Number.pipe(Schema.finite(), Schema.brand(
 export type NoiseCoordinate = Schema.Schema.Type<typeof NoiseCoordinate>
 
 /**
- * ノイズ値用のブランド型（-1.0 から 1.0 の範囲）
+ * ノイズ値用のブランド型（-1.1 から 1.1 の範囲、浮動小数点精度を考慮）
  */
-export const NoiseValue = Schema.Number.pipe(Schema.between(-1.0, 1.0), Schema.brand('NoiseValue'))
+export const NoiseValue = Schema.Number.pipe(Schema.between(-1.1, 1.1), Schema.brand('NoiseValue'))
 export type NoiseValue = Schema.Schema.Type<typeof NoiseValue>
 
 /**
