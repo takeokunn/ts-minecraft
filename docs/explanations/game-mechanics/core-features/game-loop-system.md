@@ -644,11 +644,13 @@ const createSystemScheduler = Effect.gen(function* () {
 
       const results: SystemExecutionResult[] = []
 
-      // 各優先度グループを順次実行
-      for (const priority of Object.keys(systemGroups).map(Number).sort()) {
-        const group = systemGroups[priority]
-        const parallelSystems = group.filter((s) => s.canRunInParallel)
-        const sequentialSystems = group.filter((s) => !s.canRunInParallel)
+      // 各優先度グループを順次実行 - Effect-TSパターン
+      const sortedPriorities = Object.keys(systemGroups).map(Number).sort()
+      yield* Effect.forEach(sortedPriorities, (priority) =>
+        Effect.gen(function* () {
+          const group = systemGroups[priority]
+          const parallelSystems = group.filter((s) => s.canRunInParallel)
+          const sequentialSystems = group.filter((s) => !s.canRunInParallel)
 
         // 並列実行可能なシステム
         if (parallelSystems.length > 0) {
@@ -656,12 +658,15 @@ const createSystemScheduler = Effect.gen(function* () {
           results.push(...parallelResults)
         }
 
-        // 順次実行システム
-        for (const system of sequentialSystems) {
-          const result = yield* executeSystem(system, tickData)
-          results.push(result)
-        }
-      }
+          // 順次実行システム - Effect-TSパターン
+          yield* Effect.forEach(sequentialSystems, (system) =>
+            Effect.gen(function* () {
+              const result = yield* executeSystem(system, tickData)
+              results.push(result)
+            })
+          )
+        })
+      )
 
       return results
     })

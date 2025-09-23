@@ -763,11 +763,13 @@ describe('Deterministic Random Testing', () => {
 
       const worldFeatures: string[] = []
 
-      // 各チャンクで地形特徴を決定
-      for (let i = 0; i < 10; i++) {
-        const randomValue = yield* Random.next
+      // 各チャンクで地形特徴を決定 - Effect-TSパターン
+      yield* Effect.forEach(
+        Array.makeBy(10, (i) => i),
+        (_) => Effect.gen(function* () {
+          const randomValue = yield* Random.next
 
-        const feature = Match.value(randomValue).pipe(
+          const feature = Match.value(randomValue).pipe(
           Match.when(
             (v) => v < 0.2,
             () => 'plains'
@@ -827,11 +829,15 @@ describe('Deterministic Random Testing', () => {
 
       const combatResults: CombatResult[] = []
 
-      // 3回の攻撃を実行
-      for (let i = 0; i < 3; i++) {
-        const result = yield* executeCombatAttack(attacker, defender)
-        combatResults.push(result)
-      }
+      // 3回の攻撃を実行 - Effect-TSパターン
+      yield* Effect.forEach(
+        Array.makeBy(3, (i) => i),
+        (_) => Effect.gen(function* () {
+          const result = yield* executeCombatAttack(attacker, defender)
+          combatResults.push(result)
+          return Effect.unit
+        })
+      )
 
       // 予測可能な戦闘結果
       expect(combatResults[0]).toMatchObject({
@@ -897,10 +903,13 @@ describe('Game Event Stream Processing', () => {
             { type: 'PLAYER_MOVE', playerId: '2', from: { x: 0, y: 0, z: 0 }, to: { x: -1, y: 0, z: 0 } },
           ]
 
-          for (const event of events) {
-            yield* Queue.offer(eventQueue, event)
-            yield* Effect.sleep(Duration.millis(10)) // 小さな遅延
-          }
+          // イベント配列の処理をEffect-TSパターンで実行
+          yield* Effect.forEach(events, (event) =>
+            Effect.gen(function* () {
+              yield* Queue.offer(eventQueue, event)
+              yield* Effect.sleep(Duration.millis(10)) // 小さな遅延
+            })
+          )
         })
       )
 
@@ -925,12 +934,15 @@ describe('Game Event Stream Processing', () => {
       // 高速でイベントを送信するFiber
       const producerFiber = yield* Effect.fork(
         Effect.gen(function* () {
-          for (let i = 0; i < 100; i++) {
-            const event: GameEvent = {
-              type: 'PLAYER_MOVE',
-              playerId: `player_${i}`,
-              from: { x: 0, y: 0, z: 0 },
-              to: { x: i, y: 0, z: 0 },
+          // 高速イベント生成をEffect-TSパターンで実行
+          yield* Effect.forEach(
+            Array.makeBy(100, (i) => i),
+            (i) => Effect.gen(function* () {
+              const event: GameEvent = {
+                type: 'PLAYER_MOVE',
+                playerId: `player_${i}`,
+                from: { x: 0, y: 0, z: 0 },
+                to: { x: i, y: 0, z: 0 },
             }
 
             // バックプレッシャーで遅延が発生する可能性
@@ -944,11 +956,14 @@ describe('Game Event Stream Processing', () => {
         Effect.gen(function* () {
           const processedEvents: GameEvent[] = []
 
-          for (let i = 0; i < 100; i++) {
-            const event = yield* Queue.take(eventQueue)
+          // イベント処理をEffect-TSパターンで実行
+          yield* Effect.forEach(
+            Array.makeBy(100, (i) => i),
+            (_) => Effect.gen(function* () {
+              const event = yield* Queue.take(eventQueue)
 
-            // 処理に時間がかかる
-            yield* Effect.sleep(Duration.millis(1))
+              // 処理に時間がかかる
+              yield* Effect.sleep(Duration.millis(1))
 
             processedEvents.push(event)
           }

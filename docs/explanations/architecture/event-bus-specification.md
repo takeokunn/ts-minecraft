@@ -616,9 +616,10 @@ export const InMemoryEventStoreLive = Layer.effect(
             .filter(e => e.version >= fromVersion)
             .slice(0, maxEvents)
 
-          for (const event of eventsToReturn) {
-            yield* Stream.succeed(event)
-          }
+          // ストリームイベント配列の処理をEffect-TSパターンで実行
+          yield* Effect.forEach(eventsToReturn, (event) =>
+            Stream.succeed(event)
+          )
         }),
 
       readAll: (params) =>
@@ -632,9 +633,10 @@ export const InMemoryEventStoreLive = Layer.effect(
             .filter(e => e.globalPosition >= fromPos)
             .slice(0, maxEvents)
 
-          for (const event of eventsToReturn) {
-            yield* Stream.succeed(event)
-          }
+          // 全イベント配列の処理をEffect-TSパターンで実行
+          yield* Effect.forEach(eventsToReturn, (event) =>
+            Stream.succeed(event)
+          )
         }),
 
       subscribe: (params) => Effect.gen(function* () {
@@ -736,10 +738,11 @@ export const fromHistory = <State, Event extends DomainEvent>(
   let state = initialState
   let version = 0
 
-  for (const event of events) {
+  // イベント配列の処理をEffect-TSパターンで実行（イベントソーシング）
+  events.forEach(event => {
     state = config.apply(state, event)
     version++
-  }
+  })
 
   return createEventSourcedAggregate({
     id,
@@ -1232,8 +1235,9 @@ export const EventReplayServiceLive = Layer.succeed(EventReplayService, {
           Stream.runCollect
         )
 
-      for (const event of Array.fromIterable(events)) {
-        yield* Stream.succeed({
+      // イベントリプレイの処理をEffect-TSパターンで実行
+      yield* Effect.forEach(Array.fromIterable(events), (event) =>
+        Stream.succeed({
           ...event,
           originalTimestamp: event.timestamp,
           replayTimestamp: Date.now(),
@@ -1260,21 +1264,24 @@ export const EventReplayServiceLive = Layer.succeed(EventReplayService, {
 
       let lastTimestamp = 0
 
-      for (const event of Array.fromIterable(events)) {
-        // 元のタイミングを再現（速度調整付き）
-        if (lastTimestamp > 0) {
-          const delay = (event.timestamp - lastTimestamp) / speed
-          yield* Stream.fromEffect(Effect.sleep(Duration.millis(Math.max(0, delay))))
-        }
+      // タイムシーケンス再現の処理をEffect-TSパターンで実行
+      yield* Effect.forEach(Array.fromIterable(events), (event) =>
+        Effect.gen(function* () {
+          // 元のタイミングを再現（速度調整付き）
+          if (lastTimestamp > 0) {
+            const delay = (event.timestamp - lastTimestamp) / speed
+            yield* Stream.fromEffect(Effect.sleep(Duration.millis(Math.max(0, delay))))
+          }
 
-        yield* Stream.succeed({
-          ...event,
-          originalTimestamp: event.timestamp,
-          replayTimestamp: Date.now(),
+          yield* Stream.succeed({
+            ...event,
+            originalTimestamp: event.timestamp,
+            replayTimestamp: Date.now(),
+          })
+
+          lastTimestamp = event.timestamp
         })
-
-        lastTimestamp = event.timestamp
-      }
+      )
     }),
 
   createSnapshot: (params) =>
@@ -1414,8 +1421,8 @@ export const EventDebuggerLive = Layer.effect(
 
           const anomalies: EventAnomaly[] = []
 
-          // 異常検出ロジック
-          for (let i = 1; i < sortedEvents.length; i++) {
+          // 異常検出ロジック - Effect-TSパターン
+          Array.makeBy(sortedEvents.length - 1, (i) => i + 1).forEach(i => {
             const current = sortedEvents[i]
             const previous = sortedEvents[i - 1]
             const timeDiff = current.timestamp - previous.timestamp

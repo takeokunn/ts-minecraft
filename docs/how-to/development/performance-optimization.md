@@ -98,11 +98,17 @@ const processBatch = <T, R>(
   Effect.gen(function* () {
     const results: R[] = []
 
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize)
-      const batchResults = yield* processor(batch)
-      results.push(...batchResults)
-    }
+    // Array.chunksOf + Effect.forEach による並列バッチ処理
+    const chunks = Array.chunksOf(items, batchSize)
+    const results: R[] = []
+
+    yield* Effect.forEach(chunks, (batch) =>
+      Effect.gen(function* () {
+        const batchResults = yield* processor(batch)
+        results.push(...batchResults)
+      }),
+      { concurrency: 'unbounded' } // 並列処理で性能向上
+    )
 
     return results
   })
@@ -476,11 +482,16 @@ export const SoAOperations = {
     const count = Math.min(positions.count, velocities.count)
 
     // SIMD最適化可能なループ
-    for (let i = 0; i < count; i++) {
-      positions.x[i] += velocities.x[i] * deltaTime
-      positions.y[i] += velocities.y[i] * deltaTime
-      positions.z[i] += velocities.z[i] * deltaTime
-    }
+    // Array.range + Effect.forEach による並列SIMD処理
+    yield* Effect.forEach(
+      Array.range(0, count),
+      (i) => Effect.gen(function* () {
+        positions.x[i] += velocities.x[i] * deltaTime
+        positions.y[i] += velocities.y[i] * deltaTime
+        positions.z[i] += velocities.z[i] * deltaTime
+      }),
+      { concurrency: 'unbounded' } // 計算集約的処理の並列化
+    )
   }),
 
   // バッチでの距離計算
@@ -491,13 +502,18 @@ export const SoAOperations = {
   ): Effect.Effect<void, never> => Effect.gen(function* () {
     const count = Math.min(positions1.count, positions2.count, results.length)
 
-    for (let i = 0; i < count; i++) {
-      const dx = positions1.x[i] - positions2.x[i]
-      const dy = positions1.y[i] - positions2.y[i]
-      const dz = positions1.z[i] - positions2.z[i]
+    // Array.range + Effect.forEach による並列距離計算
+    yield* Effect.forEach(
+      Array.range(0, count),
+      (i) => Effect.gen(function* () {
+        const dx = positions1.x[i] - positions2.x[i]
+        const dy = positions1.y[i] - positions2.y[i]
+        const dz = positions1.z[i] - positions2.z[i]
 
-      results[i] = Math.sqrt(dx * dx + dy * dy + dz * dz)
-    }
+        results[i] = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      }),
+      { concurrency: 'unbounded' } // CPU集約的な数学計算の並列化
+    )
   }),
 
   // 範囲クエリの最適化
@@ -512,24 +528,33 @@ export const SoAOperations = {
     let resultCount = 0
     const radiusSquared = radius * radius
 
-    for (let i = 0; i < positions.count && resultCount < resultIndices.length; i++) {
-      const dx = positions.x[i] - centerX
-      const dy = positions.y[i] - centerY
-      const dz = positions.z[i] - centerZ
+    // Effect.loop による条件付き反復処理（早期終了対応）
+    let currentIndex = 0
 
-      const distanceSquared = dx * dx + dy * dy + dz * dz
+    yield* Effect.loop(
+      { index: currentIndex, resultCount },
+      ({ index, resultCount }) => index < positions.count && resultCount < resultIndices.length,
+      ({ index, resultCount }) => Effect.gen(function* () {
+        const dx = positions.x[index] - centerX
+        const dy = positions.y[index] - centerY
+        const dz = positions.z[index] - centerZ
 
-      pipe(
-        distanceSquared <= radiusSquared,
-        Match.boolean({
-          onTrue: () => {
-            resultIndices[resultCount] = i
-            resultCount++
-          },
-          onFalse: () => {}
-        })
-      )
-    }
+        const distanceSquared = dx * dx + dy * dy + dz * dz
+
+        const newResultCount = yield* pipe(
+          distanceSquared <= radiusSquared,
+          Match.boolean({
+            onTrue: () => Effect.gen(function* () {
+              resultIndices[resultCount] = index
+              return resultCount + 1
+            }),
+            onFalse: () => Effect.succeed(resultCount)
+          })
+        )
+
+        return { index: index + 1, resultCount: newResultCount }
+      })
+    ).pipe(Effect.map(({ resultCount }) => resultCount))
 
     return resultCount
   }),
@@ -550,19 +575,24 @@ export const SoAOperations = {
 
           // TypedArrayの各プロパティを圧縮
           const compactedStore = { ...store }
-          for (const [key, value] of Object.entries(store)) {
-            pipe(
-              value instanceof Float32Array || value instanceof Uint32Array,
-              Match.boolean({
-                onTrue: () => {
-                  const newArray = new (value.constructor as any)(newCapacity)
-                  newArray.set(value.subarray(0, store.count))
-                  ;(compactedStore as any)[key] = newArray
-                },
-                onFalse: () => {}
-              })
-            )
-          }
+          // Record.fromEntries + Effect.forEach による型安全な変換
+          yield* Effect.forEach(
+            Object.entries(store),
+            ([key, value]) => Effect.gen(function* () {
+              yield* pipe(
+                value instanceof Float32Array || value instanceof Uint32Array,
+                Match.boolean({
+                  onTrue: () => Effect.gen(function* () {
+                    const newArray = new (value.constructor as any)(newCapacity)
+                    newArray.set(value.subarray(0, store.count))
+                    ;(compactedStore as any)[key] = newArray
+                  }),
+                  onFalse: () => Effect.unit
+                })
+              )
+            }),
+            { concurrency: 'unbounded' }
+          )
 
           ;(compactedStore as any).capacity = newCapacity
 
@@ -687,13 +717,18 @@ export interface SoAEntitySystem {
     Effect.gen(function* () {
       const expandedStore = { ...store }
 
-      for (const [key, value] of Object.entries(store)) {
-        if (value instanceof Float32Array || value instanceof Uint32Array) {
-          const newArray = new (value.constructor as any)(newCapacity)
-          newArray.set(value)
-          ;(expandedStore as any)[key] = newArray
-        }
-      }
+      // Record.fromEntries + Effect.forEach によるタイプ配列拡張
+      yield* Effect.forEach(
+        Object.entries(store),
+        ([key, value]) => Effect.gen(function* () {
+          if (value instanceof Float32Array || value instanceof Uint32Array) {
+            const newArray = new (value.constructor as any)(newCapacity)
+            newArray.set(value)
+            ;(expandedStore as any)[key] = newArray
+          }
+        }),
+        { concurrency: 3 } // I/O集約的でないため制限付き並列
+      )
 
       ;(expandedStore as any).capacity = newCapacity
       return expandedStore
@@ -1072,9 +1107,8 @@ export const makeMemoryPool = <T>(config: MemoryPoolConfig<T>): Effect.Effect<Me
 
     // 初期プールを作成
     const initialItems: T[] = []
-    for (let i = 0; i < initialSize; i++) {
-      initialItems.push(factory())
-    }
+    // Array.makeBy + Effect.succeed による初期化配列生成
+    const initialItems = Array.makeBy(initialSize, () => factory())
     yield* Ref.set(available, initialItems)
 
     const acquire = (): Effect.Effect<T, never, never> =>
@@ -1359,16 +1393,20 @@ const incrementalOptimization = Effect.gen(function* () {
 
   let cumulativeImprovement = 0
 
-  for (const optimization of optimizations) {
-    const before = yield* measurePerformance()
-    yield* optimization.fn()
-    const after = yield* measurePerformance()
+  // Array.forEach による順次実行（最適化は依存性があるため順次処理が必須）
+  yield* Effect.forEach(optimizations, (optimization) =>
+    Effect.gen(function* () {
+      const before = yield* measurePerformance()
+      yield* optimization.fn()
+      const after = yield* measurePerformance()
 
-    const improvement = ((before.duration - after.duration) / before.duration) * 100
-    cumulativeImprovement += improvement
+      const improvement = ((before.duration - after.duration) / before.duration) * 100
+      cumulativeImprovement += improvement
 
-    yield* Effect.logInfo(`${optimization.name}: ${improvement.toFixed(2)}% improvement`)
-  }
+      yield* Effect.logInfo(`${optimization.name}: ${improvement.toFixed(2)}% improvement`)
+    }),
+    { concurrency: 1 } // 順次実行を明示的に指定
+  )
 
   yield* Effect.logInfo(`Total improvement: ${cumulativeImprovement.toFixed(2)}%`)
 })
