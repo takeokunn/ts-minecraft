@@ -461,19 +461,35 @@ export const WorldLive = Layer.effect(
     const getEntitiesWithComponents = (componentTypes: readonly string[]) =>
       Effect.gen(function* () {
         // コンポーネントタイプがない場合は空配列を返す
-        if (componentTypes.length === 0) {
-          return []
-        }
+        const emptyCheck = yield* Effect.if(componentTypes.length === 0, {
+          onTrue: () => Effect.succeed([]),
+          onFalse: () => Effect.succeed(null),
+        })
+
+        if (emptyCheck !== null) return emptyCheck
 
         const state = yield* Ref.get(stateRef)
 
         // 最初のコンポーネントを持つエンティティから開始
-        const firstComponentType = componentTypes[0]
-        if (!firstComponentType) {
-          return []
-        }
+        const firstComponentType = Option.fromNullable(componentTypes[0])
+        const firstResult = yield* pipe(
+          firstComponentType,
+          Option.match({
+            onNone: () => Effect.succeed([]),
+            onSome: (type) =>
+              pipe(
+                Option.fromNullable(state.components.get(type)),
+                Option.match({
+                  onNone: () => Effect.succeed([]),
+                  onSome: (storage) => Effect.succeed(null),
+                })
+              ),
+          })
+        )
 
-        const firstStorage = state.components.get(firstComponentType)
+        if (firstResult !== null) return firstResult
+
+        const firstStorage = state.components.get(componentTypes[0]!)
         if (!firstStorage) {
           return []
         }

@@ -1,4 +1,4 @@
-import { Match, pipe } from 'effect'
+import { Match, pipe, Option } from 'effect'
 import type { AnyGameError } from './GameErrors'
 import type { AnyNetworkError } from './NetworkErrors'
 
@@ -42,12 +42,17 @@ export const ErrorGuards = {
       'P2PError',
     ].includes((error as { _tag: string })._tag),
 
-  isRetryableError: (error: unknown): boolean => {
-    if (error !== null && typeof error === 'object' && '_tag' in error) {
-      const taggedError = error as { _tag: string }
-      const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
-      return retryableTags.includes(taggedError._tag)
-    }
-    return false
-  },
+  isRetryableError: (error: unknown): boolean =>
+    pipe(
+      Option.fromNullable(error),
+      Option.filter((e): e is object => typeof e === 'object'),
+      Option.filter((e): e is { _tag: string } => '_tag' in e),
+      Option.match({
+        onNone: () => false,
+        onSome: (taggedError) => {
+          const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
+          return retryableTags.includes(taggedError._tag)
+        },
+      })
+    ),
 }
