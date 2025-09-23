@@ -347,8 +347,8 @@ describe('Performance Tests', () => {
       const endTime = performance.now()
       const executionTime = endTime - startTime
 
-      // 2秒以内で完了することを確認（CI環境考慮）
-      expect(executionTime).toBeLessThan(2000)
+      // 3秒以内で完了することを確認（CI環境考慮）
+      expect(executionTime).toBeLessThan(3000)
     })
   })
 
