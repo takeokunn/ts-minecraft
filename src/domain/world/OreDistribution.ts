@@ -77,6 +77,65 @@ export interface OreDistribution {
 export const OreDistributionTag = Context.GenericTag<OreDistribution>('domain/world/OreDistribution')
 
 /**
+ * 鉱石密度を計算する内部関数
+ */
+const calculateOreDensityInternal = (
+  config: OreDistributionConfig,
+  oreType: OreType,
+  position: Vector3
+): Effect.Effect<number, never, NoiseGenerator> =>
+  Effect.gen(function* () {
+    const oreConfig = config.ores.find((ore) => ore.type === oreType)
+
+    return yield* pipe(
+      Option.fromNullable(oreConfig),
+      Option.match({
+        onNone: () => Effect.succeed(0),
+        onSome: (config) =>
+          Effect.gen(function* () {
+            const noiseGenerator = yield* NoiseGeneratorTag
+
+            // 基本ノイズ
+            const baseNoise = yield* noiseGenerator.noise3D(
+              BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale),
+              BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale),
+              BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale)
+            )
+
+            // クラスターノイズ（より細かいスケール）
+            const clusterNoise = yield* noiseGenerator.noise3D(
+              BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale * 3),
+              BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale * 3),
+              BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale * 3)
+            )
+
+            // 高度補正（深いほど希少鉱石が生成されやすい）
+            const depthFactor = Math.max(0, (64 - position.y) / 64)
+
+            // 鉱石タイプ別の調整
+            const typeMultiplier = pipe(
+              Match.value(oreType),
+              Match.when('coal_ore', () => 1.5), // 石炭は豊富
+              Match.when('iron_ore', () => 1.2),
+              Match.when('copper_ore', () => 1.0),
+              Match.when('gold_ore', () => 0.6 * depthFactor),
+              Match.when('redstone_ore', () => 0.8 * depthFactor),
+              Match.when('lapis_ore', () => 0.4 * depthFactor),
+              Match.when('diamond_ore', () => 0.2 * depthFactor * depthFactor), // 非常に稀
+              Match.when('emerald_ore', () => 0.1 * depthFactor * depthFactor), // 最も稀
+              Match.exhaustive
+            )
+
+            // 最終密度計算
+            const finalDensity = (baseNoise + clusterNoise * 0.5) * config.density * typeMultiplier
+
+            return Math.abs(finalDensity)
+          }),
+      })
+    )
+  })
+
+/**
  * OreDistributionの実装
  */
 const createOreDistribution = (config: OreDistributionConfig): OreDistribution => {
@@ -110,8 +169,8 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
                         Match.value(isInRange),
                         Match.when(true, () =>
                           Effect.gen(function* () {
-                            // 鉱石密度計算
-                            const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
+                            // 鉱石密度計算（内部関数を使用）
+                            const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
 
                             // 生成判定
                             yield* pipe(
@@ -155,8 +214,8 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
             Match.value(position.y >= oreConfig.minY && position.y <= oreConfig.maxY),
             Match.when(true, () =>
               Effect.gen(function* () {
-                // 鉱石密度計算
-                const density = yield* oreDistribution.calculateOreDensity(oreConfig.type, position)
+                // 鉱石密度計算（内部関数を使用）
+                const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
 
                 // 生成判定
                 return pipe(
@@ -186,56 +245,7 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
       }),
 
     calculateOreDensity: (oreType: OreType, position: Vector3) =>
-      Effect.gen(function* () {
-        const oreConfig = config.ores.find((ore) => ore.type === oreType)
-
-        return yield* pipe(
-          Option.fromNullable(oreConfig),
-          Option.match({
-            onNone: () => Effect.succeed(0),
-            onSome: (config) =>
-              Effect.gen(function* () {
-                const noiseGenerator = yield* NoiseGeneratorTag
-
-                // 基本ノイズ
-                const baseNoise = yield* noiseGenerator.noise3D(
-                  BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale),
-                  BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale),
-                  BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale)
-                )
-
-                // クラスターノイズ（より細かいスケール）
-                const clusterNoise = yield* noiseGenerator.noise3D(
-                  BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale * 3),
-                  BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale * 3),
-                  BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale * 3)
-                )
-
-                // 高度補正（深いほど希少鉱石が生成されやすい）
-                const depthFactor = Math.max(0, (64 - position.y) / 64)
-
-                // 鉱石タイプ別の調整
-                const typeMultiplier = pipe(
-                  Match.value(oreType),
-                  Match.when('coal_ore', () => 1.5), // 石炭は豊富
-                  Match.when('iron_ore', () => 1.2),
-                  Match.when('copper_ore', () => 1.0),
-                  Match.when('gold_ore', () => 0.6 * depthFactor),
-                  Match.when('redstone_ore', () => 0.8 * depthFactor),
-                  Match.when('lapis_ore', () => 0.4 * depthFactor),
-                  Match.when('diamond_ore', () => 0.2 * depthFactor * depthFactor), // 非常に稀
-                  Match.when('emerald_ore', () => 0.1 * depthFactor * depthFactor), // 最も稀
-                  Match.exhaustive
-                )
-
-                // 最終密度計算
-                const finalDensity = (baseNoise + clusterNoise * 0.5) * config.density * typeMultiplier
-
-                return Math.abs(finalDensity)
-              }),
-          })
-        )
-      }),
+      calculateOreDensityInternal(config, oreType, position),
 
     getConfig: () => config,
   }
