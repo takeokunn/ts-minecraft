@@ -67,8 +67,13 @@ export class StackProcessor {
     original: ItemStack | null
     split: ItemStack | null
   } {
-    if (amount <= 0 || amount >= stack.count) {
+    if (amount <= 0) {
       return { original: stack, split: null }
+    }
+
+    if (amount >= stack.count) {
+      // Moving entire stack
+      return { original: null, split: stack }
     }
 
     const splitStack: ItemStack = {
@@ -76,7 +81,7 @@ export class StackProcessor {
       count: amount,
     }
 
-    const remainingStack: ItemStack | null = {
+    const remainingStack: ItemStack = {
       ...stack,
       count: stack.count - amount,
     }

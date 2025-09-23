@@ -14,7 +14,7 @@ import {
   PlayerId,
   ItemId,
   createEmptyInventory,
-} from './index.js'
+} from '../index'
 
 describe('InventoryService', () => {
   const testPlayerId = PlayerId('player-test-001')
