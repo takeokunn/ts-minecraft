@@ -19,12 +19,14 @@ export type EntityId = Schema.Schema.Type<typeof EntityId>
 /**
  * ワールドエラー
  */
-export class WorldError extends Data.TaggedError('WorldError')<{
-  readonly message: string
-  readonly entityId?: EntityId
-  readonly componentType?: string
-  readonly cause?: unknown
-}> {}
+export const WorldError = Schema.TaggedStruct('WorldError', {
+  message: Schema.String,
+  entityId: Schema.optional(EntityId),
+  componentType: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+})
+
+export type WorldError = Schema.Schema.Type<typeof WorldError>
 
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
@@ -256,12 +258,11 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(id)) {
-          yield* Effect.fail(
-            new WorldError({
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            })
-          )
+          yield* Effect.fail({
+            _tag: 'WorldError' as const,
+            message: `Entity not found: ${id}`,
+            entityId: id,
+          } satisfies WorldError)
         }
 
         yield* Ref.update(stateRef, (s) => {
@@ -298,12 +299,11 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(entityId)) {
-          yield* Effect.fail(
-            new WorldError({
-              message: `Entity not found: ${entityId}`,
-              entityId,
-            })
-          )
+          yield* Effect.fail({
+            _tag: 'WorldError' as const,
+            message: `Entity not found: ${entityId}`,
+            entityId,
+          } satisfies WorldError)
         }
 
         yield* Ref.update(stateRef, (s) => {
@@ -684,12 +684,11 @@ export const WorldLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         if (!state.entities.has(id)) {
-          yield* Effect.fail(
-            new WorldError({
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            })
-          )
+          yield* Effect.fail({
+            _tag: 'WorldError' as const,
+            message: `Entity not found: ${id}`,
+            entityId: id,
+          } satisfies WorldError)
         }
 
         yield* Ref.update(stateRef, (s) => {

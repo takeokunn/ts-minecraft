@@ -11,10 +11,12 @@ export const EntityId = Brand.nominal<EntityId>()
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export class EntityPoolError extends Data.TaggedError('EntityPoolError')<{
-  readonly reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated'
-  readonly message: string
-}> {}
+export const EntityPoolError = Schema.TaggedStruct('EntityPoolError', {
+  reason: Schema.Literal('pool_exhausted', 'invalid_entity_id', 'entity_not_allocated'),
+  message: Schema.String,
+})
+
+export type EntityPoolError = Schema.Schema.Type<typeof EntityPoolError>
 
 export interface EntityPool {
   readonly allocate: () => Effect.Effect<EntityId, EntityPoolError>
@@ -277,12 +279,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         state.freeList.length === 0,
         Match.value,
         Match.when(true, () =>
-          Effect.fail(
-            new EntityPoolError({
-              reason: 'pool_exhausted',
-              message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
-            })
-          )
+          Effect.fail({
+            _tag: 'EntityPoolError' as const,
+            reason: 'pool_exhausted',
+            message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
+          } satisfies EntityPoolError)
         ),
         Match.orElse(() =>
           Effect.gen(function* () {
@@ -300,12 +301,11 @@ export const EntityPoolLive = Effect.gen(function* () {
         !state.allocated.has(id),
         Match.value,
         Match.when(true, () =>
-          Effect.fail(
-            new EntityPoolError({
-              reason: 'entity_not_allocated',
-              message: `Entity ${id} is not allocated`,
-            })
-          )
+          Effect.fail({
+            _tag: 'EntityPoolError' as const,
+            reason: 'entity_not_allocated',
+            message: `Entity ${id} is not allocated`,
+          } satisfies EntityPoolError)
         ),
         Match.orElse(() =>
           Effect.sync(() => {
