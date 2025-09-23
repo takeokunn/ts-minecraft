@@ -787,14 +787,19 @@ const createPlayer = (params: CreatePlayerParams) =>
       Effect.option
     )
 
-    if (Option.isSome(existing)) {
-      return yield* Effect.fail(
-        PlayerCreationError({
-          message: 'Player name already exists',
-          playerName: validated.name,
-        })
-      )
-    }
+    yield* pipe(
+      existing,
+      Option.match({
+        onNone: () => Effect.unit,
+        onSome: () =>
+          Effect.fail(
+            PlayerCreationError({
+              message: 'Player name already exists',
+              playerName: validated.name,
+            })
+          ),
+      })
+    )
 
     // プレイヤー作成
     const player = {

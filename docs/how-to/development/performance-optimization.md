@@ -161,20 +161,33 @@ let lastTime = performance.now();
 const measureFPS = () => {
   frameCount++;
   const currentTime = performance.now();
-  if (currentTime - lastTime >= 1000) {
-    console.log(`FPS: ${Math.round(frameCount * 1000 / (currentTime - lastTime))}`);
-    frameCount = 0;
-    lastTime = currentTime;
-  }
+  pipe(
+    currentTime - lastTime >= 1000,
+    Match.boolean({
+      onTrue: () => {
+        console.log(`FPS: ${Math.round(frameCount * 1000 / (currentTime - lastTime))}`);
+        frameCount = 0;
+        lastTime = currentTime;
+      },
+      onFalse: () => {}
+    })
+  )
   requestAnimationFrame(measureFPS);
 };
 measureFPS();
 
 # 2. メモリ使用量リアルタイム監視
 setInterval(() => {
-  if (performance.memory) {
-    console.log(`Memory: ${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB`);
-  }
+  pipe(
+    performance.memory,
+    Option.fromNullable,
+    Option.match({
+      onNone: () => {},
+      onSome: (memory) => {
+        console.log(`Memory: ${Math.round(memory.usedJSHeapSize / 1024 / 1024)}MB`);
+      }
+    })
+  )
 }, 1000);
 
 # 3. レンダリングパフォーマンス測定
@@ -196,7 +209,7 @@ console.log('WebGL Info:', {
 
 ```typescript
 // src/performance/profiler.ts
-import { Effect, Context, Layer, Schema } from "effect"
+import { Effect, Context, Layer, Schema, Match, Option, pipe } from "effect"
 
 // 計測メトリクスの定義
 const PerformanceMetric = Schema.Struct({
@@ -290,13 +303,18 @@ const makeProfilerServiceLive = Effect.gen(function* () {
     stopProfiling: (sessionId) => Effect.gen(function* () {
       const session = sessions.get(sessionId)
 
-      if (!session) {
-        return yield* Effect.fail(new ProfilerError({
-          operation: "stopProfiling",
-          reason: "Session not found",
-          sessionId
-        }))
-      }
+      return yield* pipe(
+        session,
+        Option.fromNullable,
+        Option.match({
+          onNone: () => Effect.fail(new ProfilerError({
+            operation: "stopProfiling",
+            reason: "Session not found",
+            sessionId
+          })),
+          onSome: (sessionValue) => Effect.succeed(sessionValue)
+        }),
+        Effect.flatMap((sessionValue) => Effect.gen(function* () {
 
       const endTime = performance.now()
       const duration = endTime - session.startTime
@@ -319,9 +337,13 @@ const makeProfilerServiceLive = Effect.gen(function* () {
     recordMetric: (metric) => Effect.gen(function* () {
       const sessionId = metric.metadata?.sessionId as string || "global"
 
-      if (!metrics.has(sessionId)) {
-        metrics.set(sessionId, [])
-      }
+      pipe(
+        metrics.has(sessionId),
+        Match.boolean({
+          onTrue: () => {},
+          onFalse: () => metrics.set(sessionId, [])
+        })
+      )
 
       metrics.get(sessionId)!.push(metric)
 
@@ -332,9 +354,14 @@ const makeProfilerServiceLive = Effect.gen(function* () {
     getMetrics: (filter) => Effect.gen(function* () {
       const allMetrics = Array.from(metrics.values()).flat()
 
-      if (!filter) {
-        return allMetrics
-      }
+      return pipe(
+        filter,
+        Option.fromNullable,
+        Option.match({
+          onNone: () => allMetrics,
+          onSome: (filterValue) => filterValue
+        })
+      )
 
       return allMetrics.filter(metric =>
         (!filter.category || metric.category === filter.category) &&
@@ -377,10 +404,13 @@ const realTimeMonitoringLoop = (config: MonitoringConfig) => Effect.gen(function
   })
 
   // メモリ使用量測定
-  if ((performance as any).memory) {
-    const memoryInfo = (performance as any).memory
-    yield* ProfilerService.recordMetric({
-      name: "heap-used",
+  yield* pipe(
+    (performance as any).memory,
+    Option.fromNullable,
+    Option.match({
+      onNone: () => Effect.unit,
+      onSome: (memoryInfo) => ProfilerService.recordMetric({
+        name: "heap-used",
       category: "memory",
       value: memoryInfo.usedJSHeapSize / 1024 / 1024, // MB
       unit: "mb",
@@ -489,10 +519,16 @@ export const SoAOperations = {
 
       const distanceSquared = dx * dx + dy * dy + dz * dz
 
-      if (distanceSquared <= radiusSquared) {
-        resultIndices[resultCount] = i
-        resultCount++
-      }
+      pipe(
+        distanceSquared <= radiusSquared,
+        Match.boolean({
+          onTrue: () => {
+            resultIndices[resultCount] = i
+            resultCount++
+          },
+          onFalse: () => {}
+        })
+      )
     }
 
     return resultCount
@@ -502,28 +538,39 @@ export const SoAOperations = {
   compactStore: <T extends { count: number; capacity: number }>(
     store: T & { [K in keyof T]: T[K] extends TypedArray ? T[K] : T[K] }
   ): Effect.Effect<T, never> => Effect.gen(function* () {
-    if (store.count >= store.capacity * 0.75) {
-      // 75%以上使用されている場合は圧縮しない
-      return store
-    }
+    return yield* pipe(
+      store.count >= store.capacity * 0.75,
+      Match.boolean({
+        onTrue: () => Effect.succeed(store), // 75%以上使用されている場合は圧縮しない
+        onFalse: () => Effect.gen(function* () {
+          // 圧縮処理を続行
 
-    // 使用されている部分のみを新しい配列にコピー
-    const newCapacity = Math.max(store.count, Math.floor(store.capacity / 2))
+          // 使用されている部分のみを新しい配列にコピー
+          const newCapacity = Math.max(store.count, Math.floor(store.capacity / 2))
 
-    // TypedArrayの各プロパティを圧縮
-    const compactedStore = { ...store }
-    for (const [key, value] of Object.entries(store)) {
-      if (value instanceof Float32Array || value instanceof Uint32Array) {
-        const newArray = new (value.constructor as any)(newCapacity)
-        newArray.set(value.subarray(0, store.count))
-        ;(compactedStore as any)[key] = newArray
-      }
-    }
+          // TypedArrayの各プロパティを圧縮
+          const compactedStore = { ...store }
+          for (const [key, value] of Object.entries(store)) {
+            pipe(
+              value instanceof Float32Array || value instanceof Uint32Array,
+              Match.boolean({
+                onTrue: () => {
+                  const newArray = new (value.constructor as any)(newCapacity)
+                  newArray.set(value.subarray(0, store.count))
+                  ;(compactedStore as any)[key] = newArray
+                },
+                onFalse: () => {}
+              })
+            )
+          }
 
-    ;(compactedStore as any).capacity = newCapacity
+          ;(compactedStore as any).capacity = newCapacity
 
-    yield* Effect.logDebug(`Store compacted: ${store.capacity} -> ${newCapacity} (${store.count} active)`)
-    return compactedStore
+          yield* Effect.logDebug(`Store compacted: ${store.capacity} -> ${newCapacity} (${store.count} active)`)
+          return compactedStore
+        })
+      })
+    )
   })
 }
 
@@ -561,9 +608,13 @@ export interface SoAEntitySystem {
 
   addEntity = (entityId: EntityId, initialData: EntityData): Effect.Effect<number, SystemError> =>
     Effect.gen(function* () {
-      if (this.positions.count >= this.positions.capacity) {
-        yield* this.expandCapacity()
-      }
+      yield* pipe(
+        this.positions.count >= this.positions.capacity,
+        Match.boolean({
+          onTrue: () => this.expandCapacity(),
+          onFalse: () => Effect.unit
+        })
+      )
 
       const index = this.positions.count
 
@@ -572,18 +623,32 @@ export interface SoAEntitySystem {
       this.positions.y[index] = initialData.position.y
       this.positions.z[index] = initialData.position.z
 
-      if (initialData.velocity) {
-        this.velocities.x[index] = initialData.velocity.x
-        this.velocities.y[index] = initialData.velocity.y
-        this.velocities.z[index] = initialData.velocity.z
-        this.velocities.count++
-      }
+      pipe(
+        initialData.velocity,
+        Option.fromNullable,
+        Option.match({
+          onNone: () => {},
+          onSome: (velocity) => {
+            this.velocities.x[index] = velocity.x
+            this.velocities.y[index] = velocity.y
+            this.velocities.z[index] = velocity.z
+            this.velocities.count++
+          }
+        })
+      )
 
-      if (initialData.health) {
-        this.healths.current[index] = initialData.health.current
-        this.healths.maximum[index] = initialData.health.maximum
-        this.healths.count++
-      }
+      pipe(
+        initialData.health,
+        Option.fromNullable,
+        Option.match({
+          onNone: () => {},
+          onSome: (health) => {
+            this.healths.current[index] = health.current
+            this.healths.maximum[index] = health.maximum
+            this.healths.count++
+          }
+        })
+      )
 
       this.entityIndices.set(entityId, index)
       this.positions.count++
@@ -749,16 +814,24 @@ const makeWorkerPoolService = Effect.gen(function* () {
       const workerId = yield* Queue.take(availableWorkers)
       const worker = workers.get(workerId)
 
-      if (!worker) {
-        yield* Queue.offer(availableWorkers, workerId) // Workerを戻す
-        return yield* Effect.fail(
-          new WorkerError({
-            operation: 'executeTask',
-            workerId,
-            reason: 'Worker not found',
-          })
-        )
-      }
+      yield* pipe(
+        worker,
+        Option.fromNullable,
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              yield* Queue.offer(availableWorkers, workerId) // Workerを戻す
+              return yield* Effect.fail(
+                new WorkerError({
+                  operation: 'executeTask',
+                  workerId,
+                  reason: 'Worker not found',
+                })
+              )
+            }),
+          onSome: () => Effect.unit,
+        })
+      )
 
       const startTime = performance.now()
 
@@ -842,16 +915,21 @@ const makeWorkerPoolService = Effect.gen(function* () {
         stats.totalTasks++
 
         // 高優先度タスクの場合は即座に実行
-        if (task.priority <= 2) {
-          return yield* executeTask(task)
-        }
+        return yield* pipe(
+          task.priority <= 2,
+          Match.boolean({
+            onTrue: () => executeTask(task),
+            onFalse: () =>
+              Effect.gen(function* () {
+                // 通常の優先度の場合はキューに追加
+                yield* Queue.offer(pendingTasks, task)
 
-        // 通常の優先度の場合はキューに追加
-        yield* Queue.offer(pendingTasks, task)
-
-        // キューからタスクを取得して実行
-        const queuedTask = yield* Queue.take(pendingTasks)
-        return yield* executeTask(queuedTask)
+                // キューからタスクを取得して実行
+                const queuedTask = yield* Queue.take(pendingTasks)
+                return yield* executeTask(queuedTask)
+              }),
+          })
+        )
       }),
 
     submitBatch: (tasks) =>
@@ -888,33 +966,54 @@ const makeWorkerPoolService = Effect.gen(function* () {
       Effect.gen(function* () {
         const currentSize = workers.size
 
-        if (newSize > currentSize) {
-          // Workerを追加
-          const addCount = newSize - currentSize
-          yield* Effect.forEach(
-            Array.from({ length: addCount }, (_, i) => `worker-${currentSize + i}`),
-            (workerId) => createWorker(workerId, 'general'),
-            { concurrency: 3 }
-          )
-        } else if (newSize < currentSize) {
-          // Workerを削除
-          const removeCount = currentSize - newSize
-          const workersToRemove = Array.from(workers.keys()).slice(-removeCount)
-
-          yield* Effect.forEach(
-            workersToRemove,
-            (workerId) =>
+        yield* pipe(
+          { newSize, currentSize },
+          Match.value({
+            when: ({ newSize, currentSize }) => newSize > currentSize,
+            then: ({ newSize, currentSize }) =>
               Effect.gen(function* () {
-                const worker = workers.get(workerId)
-                if (worker) {
-                  worker.terminate()
-                  workers.delete(workerId)
-                  yield* Effect.logInfo(`Worker terminated: ${workerId}`)
-                }
+                // Workerを追加
+                const addCount = newSize - currentSize
+                yield* Effect.forEach(
+                  Array.from({ length: addCount }, (_, i) => `worker-${currentSize + i}`),
+                  (workerId) => createWorker(workerId, 'general'),
+                  { concurrency: 3 }
+                )
               }),
-            { concurrency: 'unbounded' }
-          )
-        }
+          }),
+          Match.when(
+            ({ newSize, currentSize }) => newSize < currentSize,
+            ({ newSize, currentSize }) =>
+              Effect.gen(function* () {
+                // Workerを削除
+                const removeCount = currentSize - newSize
+                const workersToRemove = Array.from(workers.keys()).slice(-removeCount)
+
+                yield* Effect.forEach(
+                  workersToRemove,
+                  (workerId) =>
+                    Effect.gen(function* () {
+                      const worker = workers.get(workerId)
+                      yield* pipe(
+                        worker,
+                        Option.fromNullable,
+                        Option.match({
+                          onNone: () => Effect.unit,
+                          onSome: (w) =>
+                            Effect.gen(function* () {
+                              w.terminate()
+                              workers.delete(workerId)
+                              yield* Effect.logInfo(`Worker terminated: ${workerId}`)
+                            }),
+                        })
+                      )
+                    }),
+                  { concurrency: 'unbounded' }
+                )
+              })
+          ),
+          Match.orElse(() => Effect.unit)
+        )
 
         yield* Effect.logInfo(`Worker pool size adjusted: ${currentSize} -> ${newSize}`)
       }),
@@ -1232,11 +1331,15 @@ const optimizeWithProfiling = Effect.gen(function* () {
   // 性能改善の検証
   const improvement = ((baselineResult.duration - optimizedResult.duration) / baselineResult.duration) * 100
 
-  if (improvement < 10) {
-    yield* Effect.logWarning(`Optimization showed minimal improvement: ${improvement.toFixed(2)}%`)
-  } else {
-    yield* Effect.logInfo(`Optimization successful: ${improvement.toFixed(2)}% improvement`)
-  }
+  // Effect-TS Matchパターンによる改善度評価
+  yield* pipe(
+    Match.value(improvement),
+    Match.when(
+      (value) => value < 10,
+      (value) => Effect.logWarning(`Optimization showed minimal improvement: ${value.toFixed(2)}%`)
+    ),
+    Match.orElse((value) => Effect.logInfo(`Optimization successful: ${value.toFixed(2)}% improvement`))
+  )
 
   return report
 })
@@ -1290,12 +1393,15 @@ const measuredOptimization = Effect.gen(function* () {
   // まず現状を計測
   const baseline = yield* profiler.measure(simpleFunction(), 'simple-version')
 
-  // ボトルネックが確認された場合のみ最適化
-  if (baseline.duration > PERFORMANCE_THRESHOLD) {
-    return yield* profiler.measure(optimizedFunction(), 'optimized-version')
-  }
-
-  return baseline.result
+  // Effect-TS Matchパターンによる条件付き最適化
+  return yield* pipe(
+    Match.value(baseline.duration),
+    Match.when(
+      (duration) => duration > PERFORMANCE_THRESHOLD,
+      () => profiler.measure(optimizedFunction(), 'optimized-version').pipe(Effect.map((result) => result.result))
+    ),
+    Match.orElse(() => Effect.succeed(baseline.result))
+  )
 })
 ```
 
@@ -1335,19 +1441,34 @@ const adaptivePerformanceControl = Effect.gen(function* () {
   const profiler = yield* ProfilerService
   const currentFPS = yield* profiler.getCurrentFPS()
 
-  if (currentFPS < TARGET_FPS * 0.8) {
-    // パフォーマンスが低下している場合は品質を下げる
-    yield* Effect.logInfo('Reducing quality settings due to low FPS')
-    yield* reduceRenderQuality()
-    yield* decreaseParticleCount()
-    yield* simplifyPhysicsCalculations()
-  } else if (currentFPS > TARGET_FPS * 1.1) {
-    // パフォーマンスに余裕がある場合は品質を上げる
-    yield* Effect.logInfo('Increasing quality settings due to high FPS')
-    yield* increaseRenderQuality()
-    yield* increaseParticleCount()
-    yield* enhancePhysicsCalculations()
-  }
+  // Effect-TS Matchパターンによるパフォーマンス調整
+  yield* pipe(
+    Match.value(currentFPS),
+    Match.when(
+      (fps) => fps < TARGET_FPS * 0.8,
+      () =>
+        Effect.gen(function* () {
+          // パフォーマンスが低下している場合は品質を下げる
+          yield* Effect.logInfo('Reducing quality settings due to low FPS')
+          yield* reduceRenderQuality()
+          yield* decreaseParticleCount()
+          yield* simplifyPhysicsCalculations()
+        })
+    ),
+    Match.when(
+      (fps) => fps > TARGET_FPS * 1.1,
+      () =>
+        Effect.gen(function* () {
+          // パフォーマンスに余裕がある場合は品質を上げる
+          yield* Effect.logInfo('Increasing quality settings due to high FPS')
+          yield* increaseRenderQuality()
+          yield* increaseParticleCount()
+          yield* enhancePhysicsCalculations()
+        })
+    ),
+    Match.orElse(() => Effect.unit), // 適切な範囲内の場合は何もしない
+    Effect.flatten
+  )
 })
 ```
 

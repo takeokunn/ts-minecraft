@@ -173,13 +173,21 @@ const transferItems = (
     const targetInventory = yield* TRef.get(to)
 
     // アトミックな検証
-    if (!hasItems(sourceInventory, items)) {
-      return yield* STM.fail(new InsufficientItemsError())
-    }
+    yield* pipe(
+      !hasItems(sourceInventory, items),
+      Match.boolean({
+        onTrue: () => STM.fail(new InsufficientItemsError()),
+        onFalse: () => STM.succeed(undefined),
+      })
+    )
 
-    if (!hasSpace(targetInventory, items)) {
-      return yield* STM.fail(new NoSpaceError())
-    }
+    yield* pipe(
+      !hasSpace(targetInventory, items),
+      Match.boolean({
+        onTrue: () => STM.fail(new NoSpaceError()),
+        onFalse: () => STM.succeed(undefined),
+      })
+    )
 
     // アトミックな更新
     yield* TRef.set(from, removeItems(sourceInventory, items))

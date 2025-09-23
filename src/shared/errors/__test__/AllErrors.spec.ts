@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
+import { Match } from 'effect'
 import * as fc from 'fast-check'
 import type { AllErrors } from '../AllErrors'
 import { GameError, InvalidStateError, ValidationError, type AnyGameError } from '../GameErrors'
@@ -151,39 +152,55 @@ describe('AllErrors', () => {
       errors.forEach((error) => {
         let handled = false
 
-        switch (error._tag) {
-          case 'GameError':
-          case 'InvalidStateError':
-          case 'ResourceNotFoundError':
-          case 'ValidationError':
-          case 'PerformanceError':
-          case 'ConfigError':
-          case 'RenderError':
-          case 'WorldGenerationError':
-          case 'EntityError':
-          case 'PhysicsError':
-            handled = true
-            expect(error.message).toBeDefined()
-            break
-          case 'NetworkError':
-          case 'ConnectionError':
-          case 'TimeoutError':
-          case 'ProtocolError':
-          case 'AuthenticationError':
-          case 'SessionError':
-          case 'SyncError':
-          case 'RateLimitError':
-          case 'WebSocketError':
-          case 'PacketError':
-          case 'ServerError':
-          case 'P2PError':
-            handled = true
-            expect(error.message).toBeDefined()
-            break
-          default:
+        // Match.valueを使用したパターンマッチング
+        const gameErrorTags = [
+          'GameError',
+          'InvalidStateError',
+          'ResourceNotFoundError',
+          'ValidationError',
+          'PerformanceError',
+          'ConfigError',
+          'RenderError',
+          'WorldGenerationError',
+          'EntityError',
+          'PhysicsError',
+        ] as const
+
+        const networkErrorTags = [
+          'NetworkError',
+          'ConnectionError',
+          'TimeoutError',
+          'ProtocolError',
+          'AuthenticationError',
+          'SessionError',
+          'SyncError',
+          'RateLimitError',
+          'WebSocketError',
+          'PacketError',
+          'ServerError',
+          'P2PError',
+        ] as const
+
+        Match.value(error._tag).pipe(
+          Match.when(
+            (tag): tag is (typeof gameErrorTags)[number] => gameErrorTags.includes(tag as any),
+            () => {
+              handled = true
+              expect(error.message).toBeDefined()
+            }
+          ),
+          Match.when(
+            (tag): tag is (typeof networkErrorTags)[number] => networkErrorTags.includes(tag as any),
+            () => {
+              handled = true
+              expect(error.message).toBeDefined()
+            }
+          ),
+          Match.orElse(() => {
             // すべてのケースがカバーされているはず
             expect.fail(`Unknown error tag: ${(error as any)._tag}`)
-        }
+          })
+        )
 
         expect(handled).toBe(true)
       })
@@ -263,36 +280,49 @@ describe('AllErrors', () => {
       const error: AllErrors = GameError({ message: 'test' })
 
       const handleError = (error: AllErrors): string => {
-        switch (error._tag) {
-          case 'GameError':
-          case 'InvalidStateError':
-          case 'ResourceNotFoundError':
-          case 'ValidationError':
-          case 'PerformanceError':
-          case 'ConfigError':
-          case 'RenderError':
-          case 'WorldGenerationError':
-          case 'EntityError':
-          case 'PhysicsError':
-            return 'Game Error'
-          case 'NetworkError':
-          case 'ConnectionError':
-          case 'TimeoutError':
-          case 'ProtocolError':
-          case 'AuthenticationError':
-          case 'SessionError':
-          case 'SyncError':
-          case 'RateLimitError':
-          case 'WebSocketError':
-          case 'PacketError':
-          case 'ServerError':
-          case 'P2PError':
-            return 'Network Error'
-          default:
-            // 全ケースが網羅されている場合、errorはnever型になる
-            const _exhaustiveCheck: never = error
-            throw new Error(`Unhandled error: ${JSON.stringify(_exhaustiveCheck)}`)
-        }
+        // Match.valueを使用したパターンマッチング
+        const gameErrorTags = [
+          'GameError',
+          'InvalidStateError',
+          'ResourceNotFoundError',
+          'ValidationError',
+          'PerformanceError',
+          'ConfigError',
+          'RenderError',
+          'WorldGenerationError',
+          'EntityError',
+          'PhysicsError',
+        ] as const
+
+        const networkErrorTags = [
+          'NetworkError',
+          'ConnectionError',
+          'TimeoutError',
+          'ProtocolError',
+          'AuthenticationError',
+          'SessionError',
+          'SyncError',
+          'RateLimitError',
+          'WebSocketError',
+          'PacketError',
+          'ServerError',
+          'P2PError',
+        ] as const
+
+        return Match.value(error._tag).pipe(
+          Match.when(
+            (tag): tag is (typeof gameErrorTags)[number] => gameErrorTags.includes(tag as any),
+            () => 'Game Error'
+          ),
+          Match.when(
+            (tag): tag is (typeof networkErrorTags)[number] => networkErrorTags.includes(tag as any),
+            () => 'Network Error'
+          ),
+          Match.orElse((tag) => {
+            // 全ケースが網羅されている場合、このブランチは到達不可能
+            throw new Error(`Unhandled error tag: ${tag}`)
+          })
+        )
       }
 
       expect(handleError(error)).toBe('Game Error')

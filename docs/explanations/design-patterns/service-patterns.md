@@ -2104,33 +2104,36 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 ```typescript
 // Effect-TS対応テストの例
 import { Effect, Layer } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 
 describe('WorldService', () => {
   const testLayer = Layer.mergeAll(WorldServiceLive, TestChunkServiceLive, TestPlayerServiceLive, TestEventBusLive)
 
-  it('should load player world successfully', async () => {
+  it.effect('should load player world successfully', () => {
     const testPlayerId = 'test-player-123' as PlayerId
 
-    const result = await pipe(WorldService.loadPlayerWorld(testPlayerId), Effect.provide(testLayer), Effect.runPromise)
-
-    expect(result.player.id).toBe(testPlayerId)
-    expect(result.chunks).toHaveLength(9) // 3x3 chunks around player
+    return pipe(
+      WorldService.loadPlayerWorld(testPlayerId),
+      Effect.provide(testLayer),
+      Effect.map((result) => {
+        expect(result.player.id).toBe(testPlayerId)
+        expect(result.chunks).toHaveLength(9) // 3x3 chunks around player
+      })
+    )
   })
 
-  it('should handle player not found error', async () => {
+  it.effect('should handle player not found error', () => {
     const invalidPlayerId = 'invalid-player' as PlayerId
 
-    const result = await pipe(
+    return pipe(
       WorldService.loadPlayerWorld(invalidPlayerId),
       Effect.provide(testLayer),
-      Effect.runPromiseEither
+      Effect.flip,
+      Effect.map((error) => {
+        expect(error._tag).toBe('PlayerNotFoundError')
+      })
     )
-
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left._tag).toBe('PlayerNotFoundError')
-    }
   })
 })
 ```

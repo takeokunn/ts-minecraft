@@ -4,6 +4,7 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkData } from '../chunk/ChunkData'
 import type { Vector3 } from './types'
+import { BrandedTypes } from '../../shared/types/branded'
 
 /**
  * 鉱石の種類
@@ -168,8 +169,16 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
             Match.orElse(() => Effect.succeed(Option.none()))
           )
 
-          if (Option.isSome(result)) {
-            return result.value
+          const oreResult = yield* pipe(
+            result,
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (oreType) => Effect.succeed(oreType),
+            })
+          )
+
+          if (oreResult) {
+            return oreResult
           }
         }
 
@@ -190,16 +199,16 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
 
                 // 基本ノイズ
                 const baseNoise = yield* noiseGenerator.noise3D(
-                  position.x * config.noiseScale,
-                  position.y * config.noiseScale,
-                  position.z * config.noiseScale
+                  BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale),
+                  BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale),
+                  BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale)
                 )
 
                 // クラスターノイズ（より細かいスケール）
                 const clusterNoise = yield* noiseGenerator.noise3D(
-                  position.x * config.noiseScale * 3,
-                  position.y * config.noiseScale * 3,
-                  position.z * config.noiseScale * 3
+                  BrandedTypes.createNoiseCoordinate(position.x * config.noiseScale * 3),
+                  BrandedTypes.createNoiseCoordinate(position.y * config.noiseScale * 3),
+                  BrandedTypes.createNoiseCoordinate(position.z * config.noiseScale * 3)
                 )
 
                 // 高度補正（深いほど希少鉱石が生成されやすい）

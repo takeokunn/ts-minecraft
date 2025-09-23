@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { NoiseCoordinate, NoiseValue, BrandedTypes } from '../../shared/types/branded.js'
+import { NoiseCoordinate, NoiseValue, BrandedTypes } from '../../shared/types/branded'
 
 /**
  * ノイズ生成の設定オプション
@@ -119,7 +119,7 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
   const permutation = generatePermutation(config.seed)
 
   const noiseGenerator: NoiseGenerator = {
-    noise2D: (x: number, y: number) =>
+    noise2D: (x: NoiseCoordinate, y: NoiseCoordinate) =>
       Effect.sync(() => {
         // グリッド座標
         const X = Math.floor(x) & 255
@@ -141,10 +141,10 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
         const x1 = lerp(grad2D(permutation[A] ?? 0, xf, yf), grad2D(permutation[B] ?? 0, xf - 1, yf), u)
         const x2 = lerp(grad2D(permutation[A + 1] ?? 0, xf, yf - 1), grad2D(permutation[B + 1] ?? 0, xf - 1, yf - 1), u)
 
-        return lerp(x1, x2, v)
+        return BrandedTypes.createNoiseValue(lerp(x1, x2, v))
       }),
 
-    noise3D: (x: number, y: number, z: number) =>
+    noise3D: (x: NoiseCoordinate, y: NoiseCoordinate, z: NoiseCoordinate) =>
       Effect.sync(() => {
         // グリッド座標
         const X = Math.floor(x) & 255
@@ -190,13 +190,13 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
         )
         const y2 = lerp(x3, x4, v)
 
-        return lerp(y1, y2, w)
+        return BrandedTypes.createNoiseValue(lerp(y1, y2, w))
       }),
 
-    octaveNoise2D: (x: number, y: number, octaves: number, persistence: number) =>
+    octaveNoise2D: (x: NoiseCoordinate, y: NoiseCoordinate, octaves: number, persistence: number) =>
       Effect.gen(function* () {
         return yield* Effect.if(octaves <= 0, {
-          onTrue: () => Effect.succeed(0),
+          onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
           onFalse: () =>
             Effect.gen(function* () {
               let total = 0
@@ -205,7 +205,10 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
               let maxValue = 0
 
               for (let i = 0; i < octaves; i++) {
-                const noise = yield* noiseGenerator.noise2D(x * frequency, y * frequency)
+                const noise = yield* noiseGenerator.noise2D(
+                  BrandedTypes.createNoiseCoordinate(x * frequency),
+                  BrandedTypes.createNoiseCoordinate(y * frequency)
+                )
                 total += noise * amplitude
                 maxValue += amplitude
                 amplitude *= persistence
@@ -216,18 +219,18 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 Match.value(maxValue),
                 Match.when(
                   (n) => n > 0,
-                  () => Effect.succeed(total / maxValue)
+                  () => Effect.succeed(BrandedTypes.createNoiseValue(total / maxValue))
                 ),
-                Match.orElse(() => Effect.succeed(0))
+                Match.orElse(() => Effect.succeed(BrandedTypes.createNoiseValue(0)))
               )
             }),
         })
       }),
 
-    octaveNoise3D: (x: number, y: number, z: number, octaves: number, persistence: number) =>
+    octaveNoise3D: (x: NoiseCoordinate, y: NoiseCoordinate, z: NoiseCoordinate, octaves: number, persistence: number) =>
       Effect.gen(function* () {
         return yield* Effect.if(octaves <= 0, {
-          onTrue: () => Effect.succeed(0),
+          onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
           onFalse: () =>
             Effect.gen(function* () {
               let total = 0
@@ -236,7 +239,11 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
               let maxValue = 0
 
               for (let i = 0; i < octaves; i++) {
-                const noise = yield* noiseGenerator.noise3D(x * frequency, y * frequency, z * frequency)
+                const noise = yield* noiseGenerator.noise3D(
+                  BrandedTypes.createNoiseCoordinate(x * frequency),
+                  BrandedTypes.createNoiseCoordinate(y * frequency),
+                  BrandedTypes.createNoiseCoordinate(z * frequency)
+                )
                 total += noise * amplitude
                 maxValue += amplitude
                 amplitude *= persistence
@@ -247,9 +254,9 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 Match.value(maxValue),
                 Match.when(
                   (n) => n > 0,
-                  () => Effect.succeed(total / maxValue)
+                  () => Effect.succeed(BrandedTypes.createNoiseValue(total / maxValue))
                 ),
-                Match.orElse(() => Effect.succeed(0))
+                Match.orElse(() => Effect.succeed(BrandedTypes.createNoiseValue(0)))
               )
             }),
         })

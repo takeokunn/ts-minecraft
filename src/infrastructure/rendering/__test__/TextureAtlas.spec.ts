@@ -16,16 +16,17 @@ import {
   BlockTextureSchema,
 } from '../TextureAtlas'
 import type { BlockType } from '../MeshGenerator'
+import { BrandedTypes } from '../../../shared/types/branded'
 
 // ========================================
 // Test Helpers
 // ========================================
 
 const createTestRegion = (u = 0, v = 0, width = 0.25, height = 0.25): TextureRegion => ({
-  u,
-  v,
-  width,
-  height,
+  u: BrandedTypes.createUVCoordinate(u),
+  v: BrandedTypes.createUVCoordinate(v),
+  width: BrandedTypes.createUVCoordinate(width),
+  height: BrandedTypes.createUVCoordinate(height),
 })
 
 const createTestBlockTexture = (blockType: BlockType): BlockTexture => ({
@@ -109,10 +110,10 @@ describe('TextureAtlas', () => {
   describe('Type Guards and Interfaces', () => {
     it('should create valid TextureRegion objects', () => {
       const region: TextureRegion = {
-        u: 0.25,
-        v: 0.5,
-        width: 0.125,
-        height: 0.125,
+        u: BrandedTypes.createUVCoordinate(0.25),
+        v: BrandedTypes.createUVCoordinate(0.5),
+        width: BrandedTypes.createUVCoordinate(0.125),
+        height: BrandedTypes.createUVCoordinate(0.125),
       }
 
       expect(region.u).toBe(0.25)

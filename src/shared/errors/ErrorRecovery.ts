@@ -73,9 +73,12 @@ export const ErrorRecovery = {
           })
         )
 
-        if (!shouldExecute) {
-          return yield* _(Effect.fail(new Error('Circuit breaker is open')) as Effect.Effect<never, E>)
-        }
+        yield* pipe(
+          shouldExecute,
+          Match.value,
+          Match.when(false, () => _(Effect.fail(new Error('Circuit breaker is open')) as Effect.Effect<never, E>)),
+          Match.orElse(() => Effect.void)
+        )
 
         // エフェクトを実行
         return yield* _(
