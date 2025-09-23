@@ -404,9 +404,11 @@ const renderWithLod = (entity: Entity, camera: THREE.Camera) =>
       Match.when('medium', () => renderMediumDetail(entity)),
       Match.when('low', () => renderLowDetail(entity)),
       Match.when('hidden', () => Effect.void), // レンダリングしない場合の明示的な処理
-      Match.orElse(() => Effect.logWarning(`Unknown LOD level: ${lodLevel}`).pipe(
-        Effect.andThen(() => renderHighDetail(entity)) // フォールバック処理
-      ))
+      Match.orElse(() =>
+        Effect.logWarning(`Unknown LOD level: ${lodLevel}`).pipe(
+          Effect.andThen(() => renderHighDetail(entity)) // フォールバック処理
+        )
+      )
     )
 
     yield* Effect.logTrace('Entity rendered', {

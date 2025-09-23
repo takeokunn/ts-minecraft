@@ -877,12 +877,13 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
 上記の実装では、従来のswitch文をEffect-TSのMatchモジュールに置き換えています。この変更により以下の利点が得られます：
 
 #### 修正前（従来のswitch文）：
+
 ```typescript
 const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
   switch (event._tag) {
-    case "PlayerCreated":
+    case 'PlayerCreated':
       return { ...state, name: event.playerName, position: event.position }
-    case "PlayerMoved":
+    case 'PlayerMoved':
       return { ...state, position: event.to, lastActivity: event.timestamp }
     default:
       return state
@@ -891,20 +892,21 @@ const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
 ```
 
 #### 修正後（Effect-TS Match）：
+
 ```typescript
 const apply = (state: PlayerState, event: PlayerEvent): PlayerState => {
   return Match.value(event).pipe(
-    Match.tag("PlayerCreated", (event) => ({
+    Match.tag('PlayerCreated', (event) => ({
       ...state,
       name: event.playerName,
-      position: event.position
+      position: event.position,
     })),
-    Match.tag("PlayerMoved", (event) => ({
+    Match.tag('PlayerMoved', (event) => ({
       ...state,
       position: event.to,
-      lastActivity: event.timestamp
+      lastActivity: event.timestamp,
     })),
-    Match.exhaustive  // 全てのケースが処理されることを型レベルで保証
+    Match.exhaustive // 全てのケースが処理されることを型レベルで保証
   )
 }
 ```

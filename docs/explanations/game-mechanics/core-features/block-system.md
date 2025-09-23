@@ -1756,22 +1756,26 @@ const makeBlockRenderingService = Effect.gen(function* () {
 
       // Match式による型安全なLODレベル処理
       return yield* Match.value(lodLevel).pipe(
-        Match.when(0, () => // 高詳細（近距離）
+        Match.when(0, () =>
+          // 高詳細（近距離）
           generateOptimizedMesh(chunk)
         ),
-        Match.when(1, () => // 中詳細
+        Match.when(1, () =>
+          // 中詳細
           Effect.gen(function* () {
             const simplifiedChunk = yield* simplifyChunk(chunk, 0.7)
             return yield* generateOptimizedMesh(simplifiedChunk)
           })
         ),
-        Match.when(2, () => // 低詳細（遠距離）
+        Match.when(2, () =>
+          // 低詳細（遠距離）
           Effect.gen(function* () {
             const verySimplifiedChunk = yield* simplifyChunk(chunk, 0.4)
             return yield* generateOptimizedMesh(verySimplifiedChunk)
           })
         ),
-        Match.orElse(() => // 非常に遠距離やその他のケース
+        Match.orElse(() =>
+          // 非常に遠距離やその他のケース
           Effect.logInfo(`Using impostor for chunk at distance ${distance}, LOD level: ${lodLevel}`).pipe(
             Effect.andThen(() => generateImpostor(chunk))
           )

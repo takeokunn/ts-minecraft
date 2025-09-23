@@ -644,22 +644,26 @@ const generateLODMesh = (blocks: ReadonlyArray<BlockData>, distance: number) =>
 
     // 数値ベースのLODレベルをMatch式で処理
     return yield* Match.value(lodLevel).pipe(
-      Match.when(0, () => // 高詳細レベル
+      Match.when(0, () =>
+        // 高詳細レベル
         greedyMeshing(blocks)
       ),
-      Match.when(1, () => // 中詳細レベル
+      Match.when(1, () =>
+        // 中詳細レベル
         Effect.gen(function* () {
           const simplifiedBlocks = yield* simplifyBlocks(blocks, 0.7)
           return yield* greedyMeshing(simplifiedBlocks)
         })
       ),
-      Match.when(2, () => // 低詳細レベル
+      Match.when(2, () =>
+        // 低詳細レベル
         Effect.gen(function* () {
           const verySimplifiedBlocks = yield* simplifyBlocks(blocks, 0.4)
           return yield* greedyMeshing(verySimplifiedBlocks)
         })
       ),
-      Match.orElse(() => // インポスター（予期しないLODレベル含む）
+      Match.orElse(() =>
+        // インポスター（予期しないLODレベル含む）
         Effect.logDebug(`Using impostor for LOD level: ${lodLevel}`).pipe(
           Effect.andThen(() => generateImpostor(blocks))
         )
