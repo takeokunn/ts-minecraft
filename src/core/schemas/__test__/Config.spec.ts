@@ -164,7 +164,7 @@ describe('Config Schema', () => {
         Effect.either(
           Effect.try({
             try: () => Schema.decodeUnknownSync(Config)(invalidConfig),
-            catch: (error) => error
+            catch: (error) => error,
           })
         )
       )

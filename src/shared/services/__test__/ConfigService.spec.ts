@@ -216,7 +216,7 @@ describe('ConfigService', () => {
                   const parsed = JSON.parse(envValue)
                   return Schema.decodeSync(schema)(parsed)
                 },
-                catch: (error) => error
+                catch: (error) => error,
               })
             )
           )
