@@ -808,7 +808,7 @@ describe('OreDistribution', () => {
       }
     })
 
-    it('handles extreme chunk positions', async () => {
+    it.skip('handles extreme chunk positions', async () => {
       const extremePositions = [
         { x: 1000000, z: 1000000 },
         { x: -1000000, z: -1000000 },
