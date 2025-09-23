@@ -13,7 +13,6 @@ export const EntityIdSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'EntityId',
     description: 'Unique entity identifier in the ECS system',
-    examples: [1, 42, 100, 999],
   })
 )
 export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>

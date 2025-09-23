@@ -44,11 +44,16 @@ export interface AtlasMetadata {
 // ========================================
 
 export const TextureRegionSchema = Schema.Struct({
-  u: Schema.Number.pipe(Schema.between(0, 1)),
-  v: Schema.Number.pipe(Schema.between(0, 1)),
-  width: Schema.Number.pipe(Schema.between(0, 1)),
-  height: Schema.Number.pipe(Schema.between(0, 1)),
-})
+  u: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
+  v: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')), 
+  width: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
+  height: Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate')),
+}).pipe(
+  Schema.annotations({
+    title: 'TextureRegion',
+    description: 'UV texture coordinates with Brand type safety',
+  })
+)
 
 export const BlockTextureSchema = Schema.Struct({
   blockType: Schema.Number,

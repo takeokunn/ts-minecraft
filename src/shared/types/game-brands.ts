@@ -15,7 +15,6 @@ export const HealthSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Health',
     description: 'Health points (0-20, where 20 is full health)',
-    examples: [20, 10, 5, 0],
   })
 )
 export type Health = Schema.Schema.Type<typeof HealthSchema>
@@ -30,7 +29,6 @@ export const HungerSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Hunger',
     description: 'Hunger level (0-20, where 20 is full saturation)',
-    examples: [20, 15, 5, 0],
   })
 )
 export type Hunger = Schema.Schema.Type<typeof HungerSchema>
@@ -46,7 +44,6 @@ export const ExperienceSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Experience',
     description: 'Experience points (non-negative integer)',
-    examples: [0, 100, 1000, 50000],
   })
 )
 export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
@@ -62,7 +59,6 @@ export const LevelSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Level',
     description: 'Player level (0-1000)',
-    examples: [1, 10, 30, 100],
   })
 )
 export type Level = Schema.Schema.Type<typeof LevelSchema>
@@ -78,7 +74,6 @@ export const ScoreSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Score',
     description: 'Player score (non-negative integer)',
-    examples: [0, 500, 10000, 1000000],
   })
 )
 export type Score = Schema.Schema.Type<typeof ScoreSchema>
@@ -94,7 +89,6 @@ export const StackSizeSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'StackSize',
     description: 'Item stack size (1-64)',
-    examples: [1, 16, 32, 64],
   })
 )
 export type StackSize = Schema.Schema.Type<typeof StackSizeSchema>
@@ -110,7 +104,6 @@ export const DurabilitySchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Durability',
     description: 'Item durability (0-1000, where 0 is broken)',
-    examples: [1000, 500, 100, 1],
   })
 )
 export type Durability = Schema.Schema.Type<typeof DurabilitySchema>

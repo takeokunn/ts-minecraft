@@ -24,38 +24,16 @@ export const ChunkDataSchema = Schema.Struct({
 })
 
 export const MeshDataSchema = Schema.Struct({
-  vertices: Schema.Array(Schema.Number),
-  normals: Schema.Array(Schema.Number),
-  uvs: Schema.Array(Schema.Number),
-  indices: Schema.Array(Schema.Number),
-  colors: Schema.optional(Schema.Array(Schema.Number)),
+  vertices: Schema.ReadonlyArray(Schema.Number),
+  normals: Schema.ReadonlyArray(Schema.Number),
+  uvs: Schema.ReadonlyArray(Schema.Number),
+  indices: Schema.ReadonlyArray(Schema.Number),
+  colors: Schema.optional(Schema.ReadonlyArray(Schema.Number)),
 }).pipe(
-  Schema.transform(
-    Schema.Struct({
-      vertices: Schema.Array(Schema.Number),
-      normals: Schema.Array(Schema.Number),
-      uvs: Schema.Array(Schema.Number),
-      indices: Schema.Array(Schema.Number),
-      colors: Schema.optional(Schema.Array(Schema.Number)),
-    }),
-    {
-      strict: true,
-      decode: (input) => ({
-        vertices: [...input.vertices],
-        normals: [...input.normals],
-        uvs: [...input.uvs],
-        indices: [...input.indices],
-        colors: input.colors ? [...input.colors] : undefined,
-      }),
-      encode: (input) => ({
-        vertices: [...input.vertices],
-        normals: [...input.normals],
-        uvs: [...input.uvs],
-        indices: [...input.indices],
-        colors: input.colors ? [...input.colors] : undefined,
-      }),
-    }
-  )
+  Schema.annotations({
+    title: 'MeshData',
+    description: 'Immutable mesh data with ReadonlyArrays for performance',
+  })
 )
 
 export const MeshConfigSchema = Schema.Struct({

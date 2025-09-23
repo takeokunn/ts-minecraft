@@ -68,6 +68,33 @@ export type Duration = Schema.Schema.Type<typeof DurationSchema>
 /**
  * 時間関連Brand型の安全な作成ヘルパー
  */
+/**
+ * FPS用のブランド型
+ * フレームレート測定値を表現（1-240FPSの範囲）
+ */
+export const FPSSchema = Schema.Number.pipe(
+  Schema.between(1, 240),
+  Schema.brand('FPS'),
+  Schema.annotations({
+    title: 'FPS',
+    description: 'Frames per second (1-240 range)',
+  })
+)
+export type FPS = Schema.Schema.Type<typeof FPSSchema>
+
+/**
+ * PerformanceMetric用のブランド型
+ * パフォーマンス測定値を表現（非負数）
+ */
+export const PerformanceMetricSchema = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand('PerformanceMetric'),
+  Schema.annotations({
+    title: 'PerformanceMetric',
+    description: 'Performance measurement value (non-negative)',
+  })
+)
+export type PerformanceMetric = Schema.Schema.Type<typeof PerformanceMetricSchema>
 export const TimeBrands = {
   /**
    * 安全なTimestamp作成
@@ -117,4 +144,22 @@ export const TimeBrands = {
    */
   durationFromHours: (hours: number): Duration =>
     Schema.decodeSync(DurationSchema)(hours * 3600),
+
+  /**
+   * 安全なFPS作成
+   */
+  createFPS: (value: number): FPS =>
+    Schema.decodeSync(FPSSchema)(value),
+
+  /**
+   * Target 60 FPS
+   */
+  targetFPS: (): FPS =>
+    Schema.decodeSync(FPSSchema)(60),
+
+  /**
+   * 安全なPerformanceMetric作成
+   */
+  createPerformanceMetric: (value: number): PerformanceMetric =>
+    Schema.decodeSync(PerformanceMetricSchema)(value),
 } as const

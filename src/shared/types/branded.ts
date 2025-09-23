@@ -1,4 +1,6 @@
 import { Schema } from '@effect/schema'
+import type { DeltaTime } from './time-brands'
+import { DeltaTimeSchema } from './time-brands'
 
 /**
  * ブランド型定義
@@ -15,7 +17,6 @@ export const PlayerIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'PlayerId',
     description: 'Unique identifier for a player',
-    examples: ['player_123', 'user_abc', 'steve'],
   })
 )
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
@@ -30,7 +31,6 @@ export const WorldCoordinateSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'WorldCoordinate',
     description: 'World coordinate value (finite number)',
-    examples: [0, 16.5, -32.75, 1000],
   })
 )
 export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
@@ -46,7 +46,6 @@ export const ChunkIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'ChunkId',
     description: 'Unique identifier for a chunk (format: chunk_x_z)',
-    examples: ['chunk_0_0', 'chunk_-1_5', 'chunk_100_-50'],
   })
 )
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
@@ -63,7 +62,6 @@ export const BlockTypeIdSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'BlockTypeId',
     description: 'Unique identifier for block types (positive integer)',
-    examples: [1, 2, 17, 256],
   })
 )
 export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
@@ -98,7 +96,6 @@ export const EntityId = Schema.String.pipe(
   Schema.annotations({
     title: 'EntityId',
     description: 'Unique identifier for an entity',
-    examples: ['entity_123', 'player_456', 'mob_789'],
   })
 )
 export type EntityId = Schema.Schema.Type<typeof EntityId>
@@ -113,7 +110,6 @@ export const ItemId = Schema.String.pipe(
   Schema.annotations({
     title: 'ItemId',
     description: 'Unique identifier for an item (lowercase with underscores)',
-    examples: ['stone', 'wooden_sword', 'iron_pickaxe'],
   })
 )
 export type ItemId = Schema.Schema.Type<typeof ItemId>
@@ -128,7 +124,6 @@ export const SessionId = Schema.String.pipe(
   Schema.annotations({
     title: 'SessionId',
     description: 'Unique identifier for a session (minimum 8 characters)',
-    examples: ['session_abc123', 'sess_xyz789', '12345678'],
   })
 )
 export type SessionId = Schema.Schema.Type<typeof SessionId>
@@ -349,7 +344,7 @@ export const BrandedTypes = {
   /**
    * 安全なDeltaTime作成
    */
-  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTime)(value),
+  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTimeSchema)(value),
 
   /**
    * 安全なSensitivityValue作成
