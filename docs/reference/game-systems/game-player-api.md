@@ -80,41 +80,224 @@ export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 ### 座標・物理系
 
 ```typescript
-// 座標系の値オブジェクト
-export const Position3DSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type Position3D = Schema.Schema.Type<typeof Position3DSchema>
+// 座標系の厳密な制約 - World boundaries with overflow protection
+export const WorldPositionSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.between(-30000000, 30000000),
+    Schema.filter((x) => Number.isFinite(x) && !Number.isNaN(x)),
+    Schema.brand('WorldX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-64, 320), // Minecraft Y range
+    Schema.filter((y) => Number.isInteger(y)),
+    Schema.brand('WorldY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-30000000, 30000000),
+    Schema.filter((z) => Number.isFinite(z) && !Number.isNaN(z)),
+    Schema.brand('WorldZ')
+  ),
+}).pipe(
+  Schema.filter((pos) => {
+    // Additional semantic validation
+    const distanceFromOrigin = Math.sqrt(pos.x * pos.x + pos.z * pos.z)
+    return distanceFromOrigin <= 30000000 // Prevent floating point errors
+  }),
+  Schema.annotations({
+    identifier: 'WorldPosition',
+    title: 'World Position',
+    description: '3D position within Minecraft world boundaries with overflow protection',
+  })
+)
+export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
 
+// Relative position with clamping
+export const RelativePositionSchema = Schema.Struct({
+  x: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((x) => Number.isFinite(x)),
+    Schema.brand('RelativeX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((y) => Number.isFinite(y)),
+    Schema.brand('RelativeY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-128, 128),
+    Schema.filter((z) => Number.isFinite(z)),
+    Schema.brand('RelativeZ')
+  ),
+}).pipe(
+  Schema.filter((pos) => {
+    // Ensure relative positions don't create impossible vectors
+    const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z)
+    return magnitude <= 221.7 // Maximum 3D distance in 128^3 cube
+  }),
+  Schema.annotations({
+    identifier: 'RelativePosition',
+    title: 'Relative Position',
+    description: 'Position relative to a reference point with magnitude validation',
+  })
+)
+export type RelativePosition = Schema.Schema.Type<typeof RelativePositionSchema>
+
+// Backward compatibility aliases
+export const Position3DSchema = WorldPositionSchema
+export type Position3D = WorldPosition
+
+// Rotation with overflow protection
 export const RotationSchema = Schema.Struct({
-  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
-  pitch: Schema.Number.pipe(Schema.between(-90, 90)),
-})
+  yaw: Schema.Number.pipe(
+    Schema.between(-180, 180),
+    Schema.filter((yaw) => Number.isFinite(yaw)),
+    Schema.brand('Yaw')
+  ),
+  pitch: Schema.Number.pipe(
+    Schema.between(-90, 90),
+    Schema.filter((pitch) => Number.isFinite(pitch)),
+    Schema.brand('Pitch')
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'Rotation',
+    title: 'Player Rotation',
+    description: 'Player view rotation with clamped angles',
+  })
+)
 export type Rotation = Schema.Schema.Type<typeof RotationSchema>
 
+// Velocity with physics constraints
 export const Velocity3DSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
+  x: Schema.Number.pipe(
+    Schema.between(-100, 100), // Max velocity constraint
+    Schema.filter((x) => Number.isFinite(x)),
+    Schema.brand('VelocityX')
+  ),
+  y: Schema.Number.pipe(
+    Schema.between(-100, 100),
+    Schema.filter((y) => Number.isFinite(y)),
+    Schema.brand('VelocityY')
+  ),
+  z: Schema.Number.pipe(
+    Schema.between(-100, 100),
+    Schema.filter((z) => Number.isFinite(z)),
+    Schema.brand('VelocityZ')
+  ),
+}).pipe(
+  Schema.filter((velocity) => {
+    // Terminal velocity check
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
+    return speed <= 78.4 // Maximum realistic speed
+  }),
+  Schema.annotations({
+    identifier: 'Velocity3D',
+    title: '3D Velocity',
+    description: 'Player velocity with physics constraints',
+  })
+)
 export type Velocity3D = Schema.Schema.Type<typeof Velocity3DSchema>
 ```
 
 ### プレイヤー統計・状態
 
 ```typescript
+// Health with game mechanics validation
+export const HealthSchema = Schema.Number.pipe(
+  Schema.between(0, 20),
+  Schema.multipleOf(0.5), // Half-heart increments
+  Schema.filter((health) => health >= 0 && health <= 20),
+  Schema.brand('Health'),
+  Schema.annotations({
+    identifier: 'Health',
+    title: 'Player Health',
+    description: 'Health points in half-heart increments (0.5, 1.0, 1.5, ..., 20.0)',
+  })
+)
+export type Health = Schema.Schema.Type<typeof HealthSchema>
+
+// Helper functions for experience calculations
+const calculateLevelFromPoints = (points: number): number => {
+  // Minecraft experience calculation
+  if (points < 352) return Math.floor(Math.sqrt(points + 9) - 3)
+  if (points < 1507) return Math.floor((Math.sqrt(40 * points - 7839) + 81) / 20)
+  return Math.floor((Math.sqrt(72 * points - 54215) + 325) / 36)
+}
+
+const getLevelRequiredPoints = (level: number): number => {
+  if (level <= 16) return level * level + 6 * level
+  if (level <= 31) return 2.5 * level * level - 40.5 * level + 360
+  return 4.5 * level * level - 162.5 * level + 2220
+}
+
+const calculateProgressInLevel = (points: number, level: number): number => {
+  const levelPoints = getLevelRequiredPoints(level)
+  const nextLevelPoints = getLevelRequiredPoints(level + 1)
+  const pointsInLevel = points - levelPoints
+  const pointsNeeded = nextLevelPoints - levelPoints
+  return Math.max(0, Math.min(1, pointsInLevel / pointsNeeded))
+}
+
+// Experience with level correlation validation
+export const PlayerExperienceSchema = Schema.Struct({
+  points: Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('ExperiencePoints')),
+  level: Schema.Number.pipe(Schema.int(), Schema.between(0, 2147483647), Schema.brand('ExperienceLevel')),
+  progress: Schema.Number.pipe(
+    Schema.between(0, 1),
+    Schema.filter((progress) => Number.isFinite(progress)),
+    Schema.brand('ExperienceProgress')
+  ),
+}).pipe(
+  Schema.filter((exp) => {
+    // Validate level-points correlation
+    const expectedLevel = calculateLevelFromPoints(exp.points)
+    const expectedProgress = calculateProgressInLevel(exp.points, expectedLevel)
+    return Math.abs(exp.level - expectedLevel) <= 1 && Math.abs(exp.progress - expectedProgress) <= 0.01
+  }),
+  Schema.annotations({
+    identifier: 'PlayerExperience',
+    title: 'Player Experience',
+    description: 'Experience system with validated level-points correlation',
+  })
+)
+export type PlayerExperience = Schema.Schema.Type<typeof PlayerExperienceSchema>
+
 // プレイヤーステータス - Schema.Structによる型安全な定義
 export const PlayerStatsSchema = Schema.Struct({
-  health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Health')),
-  hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Hunger')),
-  saturation: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Saturation')),
-  experience: ExperienceSchema,
-  level: Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Level')),
-  armor: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('Armor')),
-})
+  health: HealthSchema,
+  hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.multipleOf(0.5), Schema.brand('Hunger')),
+  saturation: Schema.Number.pipe(
+    Schema.between(0, 20),
+    Schema.filter((sat, ctx) => {
+      // Saturation cannot exceed hunger level
+      const hunger = ctx.parent?.hunger
+      return hunger ? sat <= hunger : true
+    }),
+    Schema.brand('Saturation')
+  ),
+  experience: PlayerExperienceSchema,
+  armor: Schema.Number.pipe(Schema.between(0, 20), Schema.multipleOf(0.5), Schema.brand('Armor')),
+}).pipe(
+  Schema.filter((stats) => {
+    // Cross-field validation
+    if (stats.saturation > stats.hunger) return false
+    if (stats.health === 0 && stats.hunger > 0) {
+      // Dead players should have no hunger
+      return false
+    }
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'PlayerStats',
+    title: 'Player Statistics',
+    description: 'Complete player statistics with cross-field validation',
+  })
+)
 export type PlayerStats = Schema.Schema.Type<typeof PlayerStatsSchema>
+
+// Backward compatibility
+export const ExperienceSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience'))
+export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 ```
 
 ### プレイヤーアグリゲート（ルート）

@@ -197,6 +197,129 @@ export const DurabilityValueSchema = Schema.Number.pipe(
 )
 export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValueSchema>
 
+// === UUID系識別子の高度な型安全化（Newtype Pattern強化版） ===
+
+// Player UUID with strict validation
+export const PlayerIdSchema = Schema.String.pipe(
+  Schema.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+  Schema.brand("PlayerId"),
+  Schema.annotations({
+    identifier: "PlayerId",
+    title: "Player UUID",
+    description: "RFC 4122 compliant UUID v4 for unique player identification",
+    examples: ["550e8400-e29b-41d4-a716-446655440000"]
+  })
+)
+export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+
+// World identifier with semantic naming
+export const WorldIdSchema = Schema.String.pipe(
+  Schema.pattern(/^world_[a-zA-Z0-9_-]{3,32}$/),
+  Schema.brand("WorldId"),
+  Schema.annotations({
+    identifier: "WorldId",
+    title: "World Identifier",
+    description: "Semantic world identifier with world_ prefix",
+    examples: ["world_overworld", "world_nether", "world_end"]
+  })
+)
+export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
+
+// Session token with security considerations
+export const SessionTokenSchema = Schema.String.pipe(
+  Schema.minLength(64),
+  Schema.maxLength(128),
+  Schema.pattern(/^[A-Za-z0-9+/]+=*$/), // Base64 pattern
+  Schema.brand("SessionToken"),
+  Schema.annotations({
+    identifier: "SessionToken",
+    title: "Session Token",
+    description: "Cryptographically secure session identifier",
+    security: "Contains sensitive authentication data"
+  })
+)
+export type SessionToken = Schema.Schema.Type<typeof SessionTokenSchema>
+
+// Block entity identifier with coordinate validation
+export const BlockEntityIdSchema = Schema.Struct({
+  worldId: WorldIdSchema,
+  x: Schema.Number.pipe(Schema.int(), Schema.brand("BlockX")),
+  y: Schema.Number.pipe(Schema.int(), Schema.between(-64, 320), Schema.brand("BlockY")),
+  z: Schema.Number.pipe(Schema.int(), Schema.brand("BlockZ"))
+}).pipe(
+  Schema.transform({
+    decode: (coord) => `${coord.worldId}:${coord.x},${coord.y},${coord.z}`,
+    encode: (id: string) => {
+      const [worldId, coords] = id.split(':')
+      const [x, y, z] = coords.split(',').map(Number)
+      return { worldId, x, y, z }
+    }
+  }),
+  Schema.brand("BlockEntityId"),
+  Schema.annotations({
+    identifier: "BlockEntityId",
+    title: "Block Entity Identifier",
+    description: "Composite identifier for block entities including world and position"
+  })
+)
+export type BlockEntityId = Schema.Schema.Type<typeof BlockEntityIdSchema>
+
+// Chunk coordinate with semantic validation
+export const ChunkIdSchema = Schema.Struct({
+  worldId: WorldIdSchema,
+  x: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(-1875000, 1875000), // Minecraft chunk limits
+    Schema.brand("ChunkX")
+  ),
+  z: Schema.Number.pipe(
+    Schema.int(),
+    Schema.between(-1875000, 1875000),
+    Schema.brand("ChunkZ")
+  )
+}).pipe(
+  Schema.transform({
+    decode: (coord) => `${coord.worldId}:chunk_${coord.x}_${coord.z}`,
+    encode: (id: string) => {
+      const [worldId, chunkPart] = id.split(':')
+      const [, x, z] = chunkPart.split('_').map((v, i) => i === 0 ? v : Number(v))
+      return { worldId, x: x as number, z: z as number }
+    }
+  }),
+  Schema.brand("ChunkId"),
+  Schema.annotations({
+    identifier: "ChunkId",
+    title: "Chunk Identifier",
+    description: "Composite identifier for world chunks with coordinate validation"
+  })
+)
+export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
+
+// Timestamp with game time semantics
+export const GameTimestampSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonnegative(),
+  Schema.brand("GameTimestamp"),
+  Schema.annotations({
+    identifier: "GameTimestamp",
+    title: "Game Timestamp",
+    description: "Game time in ticks (20 ticks = 1 second)",
+    examples: [24000, 12000, 0]
+  })
+)
+export type GameTimestamp = Schema.Schema.Type<typeof GameTimestampSchema>
+
+// Real world timestamp for events
+export const EventTimestampSchema = Schema.DateFromSelf.pipe(
+  Schema.brand("EventTimestamp"),
+  Schema.annotations({
+    identifier: "EventTimestamp",
+    title: "Event Timestamp",
+    description: "Real-world timestamp for event tracking and logging"
+  })
+)
+export type EventTimestamp = Schema.Schema.Type<typeof EventTimestampSchema>
+
 // ドメイン特化ヘルパー関数群
 export const DomainUtils = {
   /**

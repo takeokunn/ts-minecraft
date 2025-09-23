@@ -128,7 +128,7 @@ export const ChunkMetadataSchema = Schema.Struct({
 })
 export type ChunkMetadata = Schema.Schema.Type<typeof ChunkMetadataSchema>
 
-// メインチャンクスキーマ
+// メインチャンクスキーマ with comprehensive validation
 export const ChunkSchema = Schema.Struct({
   position: ChunkPositionSchema,
   version: ChunkVersionSchema,
@@ -138,7 +138,64 @@ export const ChunkSchema = Schema.Struct({
   heightMaps: HeightMapSchema,
   lighting: LightingSchema,
   metadata: ChunkMetadataSchema,
-})
+}).pipe(
+  Schema.filter((chunk) => {
+    // Validate chunk generation status consistency
+    if (chunk.metadata.status === 'empty') {
+      // Empty chunks should have no block entities
+      if (chunk.blockEntities.length > 0) return false
+
+      // All sections should be marked as empty
+      const hasNonEmptySections = chunk.sections.some((section) => !section.empty)
+      if (hasNonEmptySections) return false
+    }
+
+    // Validate height maps are consistent with sections
+    if (chunk.metadata.status === 'full') {
+      // Full chunks should have valid height maps
+      const invalidHeightMaps = Object.values(chunk.heightMaps).some((heightMap) => {
+        return heightMap.data.length === 0
+      })
+      if (invalidHeightMaps) return false
+    }
+
+    // Validate block entities are within chunk bounds
+    const invalidBlockEntities = chunk.blockEntities.some((entity) => {
+      return (
+        entity.position.x < 0 ||
+        entity.position.x > 15 ||
+        entity.position.z < 0 ||
+        entity.position.z > 15 ||
+        entity.position.y < 0 ||
+        entity.position.y > 383
+      )
+    })
+    if (invalidBlockEntities) return false
+
+    // Validate lighting consistency
+    if (chunk.lighting.isLightCorrect) {
+      // Light-correct chunks should have all necessary lighting data
+      const hasIncompleteLighting = chunk.sections.some((section, index) => {
+        if (section.empty) return false
+        return !section.skyLight || !section.blockLight
+      })
+      if (hasIncompleteLighting) return false
+    }
+
+    // Validate timestamps make sense
+    if (chunk.metadata.lastModified < chunk.metadata.generatedAt) return false
+
+    // Validate version compatibility
+    if (chunk.version.format < 1 || chunk.version.format > 100) return false
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'Chunk',
+    title: 'Minecraft Chunk',
+    description: 'Complete chunk data with comprehensive validation',
+  })
+)
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 ```
 
@@ -151,37 +208,101 @@ export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 export const SectionYSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 15), Schema.brand('SectionY'))
 export type SectionY = Schema.Schema.Type<typeof SectionYSchema>
 
-// ビットストレージスキーマ
+// ビットストレージスキーマ with enhanced validation
 export const BitStorageSchema = Schema.Struct({
   data: Schema.instanceOf(Uint32Array).pipe(Schema.brand('BitStorageData')),
   bitsPerEntry: Schema.Number.pipe(Schema.int(), Schema.between(4, 32), Schema.brand('BitsPerEntry')),
   mask: Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('BitMask')),
   entriesPerLong: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('EntriesPerLong')),
 }).pipe(
-  Schema.filter(({ data, bitsPerEntry, entriesPerLong }) => {
+  Schema.filter(({ data, bitsPerEntry, entriesPerLong, mask }) => {
+    // Validate array size consistency
     const expectedSize = Math.ceil(4096 / entriesPerLong)
-    return data.length === expectedSize
+    if (data.length !== expectedSize) return false
+
+    // Validate mask calculation
+    const expectedMask = (1 << bitsPerEntry) - 1
+    if (mask !== expectedMask) return false
+
+    // Validate entries per long calculation
+    const expectedEntriesPerLong = Math.floor(32 / bitsPerEntry)
+    if (entriesPerLong !== expectedEntriesPerLong) return false
+
+    // Validate no data corruption (all values within mask range)
+    for (let i = 0; i < data.length; i++) {
+      const longValue = data[i]
+      // Check each entry in this long
+      for (let j = 0; j < entriesPerLong && i * entriesPerLong + j < 4096; j++) {
+        const bitOffset = j * bitsPerEntry
+        const value = (longValue >>> bitOffset) & mask
+        // Value should not exceed mask
+        if (value > mask) return false
+      }
+    }
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'BitStorage',
+    title: 'Bit Storage',
+    description: 'Compressed bit storage with data integrity validation',
   })
 )
 export type BitStorage = Schema.Schema.Type<typeof BitStorageSchema>
 
-// パレット化されたコンテナ
+// Helper function to extract indices from bit storage for validation
+const extractIndicesFromBitStorage = (storage: BitStorage): number[] => {
+  const indices: number[] = []
+  const { data, bitsPerEntry, entriesPerLong, mask } = storage
+  const totalEntries = 4096 // 16x16x16
+
+  for (let i = 0; i < totalEntries; i++) {
+    const longIndex = Math.floor(i / entriesPerLong)
+    const bitIndex = (i % entriesPerLong) * bitsPerEntry
+    if (longIndex < data.length) {
+      const value = (data[longIndex] >>> bitIndex) & mask
+      indices.push(value)
+    }
+  }
+  return indices
+}
+
+// Palletted container with compression validation
 export const PalettedContainerSchema = Schema.Struct({
   palette: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonnegative(), Schema.brand('BlockStateId'))).pipe(
     Schema.minItems(1),
-    Schema.maxItems(4096) // 最大ブロック状態数
+    Schema.maxItems(4096)
   ),
-  storage: BitStorageSchema,
+  data: BitStorageSchema,
+  bitsPerEntry: Schema.Number.pipe(Schema.int(), Schema.between(4, 15), Schema.brand('BitsPerEntry')),
 }).pipe(
-  Schema.filter(({ palette, storage }) => {
-    // パレットサイズとビット数の整合性をチェック
-    const requiredBits = Math.max(4, Math.ceil(Math.log2(palette.length)))
-    return storage.bitsPerEntry >= requiredBits
+  Schema.filter((container) => {
+    // Validate palette size matches bits per entry
+    const maxPaletteSize = Math.pow(2, container.bitsPerEntry)
+    if (container.palette.length > maxPaletteSize) return false
+
+    // Validate bit storage capacity
+    const expectedDataLength = Math.ceil((4096 * container.bitsPerEntry) / 64)
+    if (container.data.data.length !== expectedDataLength) return false
+
+    // Validate all palette indices are used and valid
+    const usedIndices = new Set(extractIndicesFromBitStorage(container.data))
+    const invalidIndices = Array.from(usedIndices).filter((index) => index >= container.palette.length)
+    if (invalidIndices.length > 0) return false
+
+    // Validate no unused palette entries (compression efficiency)
+    const unusedEntries = container.palette.length - usedIndices.size
+    return unusedEntries <= Math.max(1, Math.floor(container.palette.length * 0.1)) // Allow 10% unused
+  }),
+  Schema.annotations({
+    identifier: 'PalettedContainer',
+    title: 'Palletted Container',
+    description: 'Compressed block storage with integrity validation',
   })
 )
 export type PalettedContainer = Schema.Schema.Type<typeof PalettedContainerSchema>
 
-// チャンクセクション
+// チャンクセクション with cross-field validation
 export const ChunkSectionSchema = Schema.Struct({
   y: SectionYSchema,
   blockStates: PalettedContainerSchema,
@@ -189,7 +310,48 @@ export const ChunkSectionSchema = Schema.Struct({
   skyLight: Schema.optional(NibbleArraySchema),
   blockLight: Schema.optional(NibbleArraySchema),
   empty: Schema.Boolean,
-})
+}).pipe(
+  Schema.filter((section) => {
+    // If marked as empty, should have minimal data
+    if (section.empty) {
+      // Empty sections should only contain air blocks
+      const airOnlyPalette = section.blockStates.palette.length === 1 && section.blockStates.palette[0] === 0
+      if (!airOnlyPalette) return false
+
+      // Empty sections should not have complex lighting
+      if (section.blockLight && section.blockLight.some((level) => level > 0)) return false
+    }
+
+    // Validate biome data consistency if present
+    if (section.biomes) {
+      // Biome palette should be reasonable size
+      if (section.biomes.palette.length > 64) return false
+
+      // Biome storage should use fewer bits than block storage
+      if (section.biomes.bitsPerEntry > section.blockStates.bitsPerEntry) return false
+    }
+
+    // Validate lighting data consistency
+    if (section.skyLight && section.blockLight) {
+      // Both light arrays should have same length
+      if (section.skyLight.length !== section.blockLight.length) return false
+
+      // Sky light should generally be >= block light
+      const invalidLighting = section.skyLight.some((skyLevel, i) => {
+        const blockLevel = section.blockLight?.[i] ?? 0
+        return skyLevel < blockLevel && blockLevel > 0
+      })
+      if (invalidLighting) return false
+    }
+
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'ChunkSection',
+    title: 'Chunk Section',
+    description: '16x16x16 chunk section with cross-field validation',
+  })
+)
 export type ChunkSection = Schema.Schema.Type<typeof ChunkSectionSchema>
 ```
 
