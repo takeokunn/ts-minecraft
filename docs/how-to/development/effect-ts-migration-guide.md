@@ -142,20 +142,20 @@ const loadPlayerData = (id: string) =>
       catch: (error) => StandardErrors.NetworkError({ status: 0, url, cause: error }),
     })
 
-    // HTTPエラーハンドリング
-    if (!response.ok) {
-      if (response.status === 404) {
-        return yield* _(Effect.fail(new PlayerNotFoundError({ id })))
-      }
-      return yield* _(
-        Effect.fail(
-          new NetworkError({
-            status: response.status,
-            url,
-          })
+    // HTTPエラーハンドリング - Effect-TS Matchパターンを使用
+    return yield* pipe(
+      Match.value(response.ok),
+      Match.when(true, () => Effect.succeed(response)),
+      Match.when(false, () =>
+        pipe(
+          Match.value(response.status),
+          Match.when(404, () => Effect.fail(new PlayerNotFoundError({ id }))),
+          Match.orElse(() => Effect.fail(new NetworkError({ status: response.status, url })))
         )
-      )
-    }
+      ),
+      Match.exhaustive,
+      Effect.flatten
+    )
 
     // レスポンス解析＋バリデーション
     const rawData = yield* _(
@@ -297,19 +297,21 @@ const loadConfig = Effect.gen(function* (_) {
 ### 3.3 エラーハンドリングの統一
 
 ```typescript
-// Before: 異なるエラーハンドリングパターン
+// Before: 異なるエラーハンドリングパターン（避けるべき従来のif/else文）
 function handleRequest(req: Request, res: Response) {
   try {
     const result = processRequest(req.body)
     res.json({ success: true, data: result })
   } catch (error) {
-    if (error instanceof ValidationError) {
-      res.status(400).json({ error: error.message })
-    } else if (error instanceof DatabaseError) {
-      res.status(500).json({ error: 'Internal server error' })
-    } else {
-      res.status(500).json({ error: 'Unknown error' })
-    }
+    // ❌ 避けるべき: if/else文によるエラーハンドリング
+    // 代わりにEffect-TS Matchパターンを使用
+    const errorResponse = pipe(
+      Match.value(error),
+      Match.when(Match.instanceOf(ValidationError), (err) => ({ status: 400, json: { error: err.message } })),
+      Match.when(Match.instanceOf(DatabaseError), () => ({ status: 500, json: { error: 'Internal server error' } })),
+      Match.orElse(() => ({ status: 500, json: { error: 'Unknown error' } }))
+    )
+    res.status(errorResponse.status).json(errorResponse.json)
   }
 }
 

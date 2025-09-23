@@ -284,8 +284,9 @@ pipe(
 
 ```typescript
 // ✅ 単体テスト例
-import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
 import { MyService, MyServiceLive } from '../MyService'
 
 describe('MyService', () => {
@@ -316,15 +317,19 @@ import { fc } from 'fast-check'
 describe('Property-based Tests', () => {
   it.effect('invariant condition always holds', () =>
     Effect.gen(function* () {
-      yield* fc.asyncProperty(fc.string(), (input) =>
-        Effect.gen(function* () {
-          const service = yield* MyService
-          const result = yield* service.process(input)
-          // 不変条件の検証
-          expect(result.length).toBeGreaterThanOrEqual(0)
-        }).pipe(Effect.provide(MyServiceLive))
+      const service = yield* MyService
+
+      // Property-based test using fast-check
+      yield* Effect.promise(() =>
+        fc.assert(
+          fc.asyncProperty(fc.string(), async (input) => {
+            const result = await Effect.runPromise(service.process(input).pipe(Effect.provide(MyServiceLive)))
+            // 不変条件の検証
+            expect(result.length).toBeGreaterThanOrEqual(0)
+          })
+        )
       )
-    })
+    }).pipe(Effect.provide(MyServiceLive))
   )
 })
 
@@ -338,6 +343,21 @@ describe('Service Integration', () => {
       const resultA = yield* serviceA.getData()
       const resultB = yield* serviceB.process(resultA)
 
+      expect(resultB).toBeDefined()
+    }).pipe(Effect.provide(Layer.mergeAll(ServiceALive, ServiceBLive)))
+  )
+
+  it.effect('複数サービスの協調動作をテスト', () =>
+    Effect.gen(function* () {
+      const serviceA = yield* ServiceA
+      const serviceB = yield* ServiceB
+
+      // 複数の操作を並行実行
+      const [resultA, resultB] = yield* Effect.all([serviceA.operation1(), serviceB.operation2()], {
+        concurrency: 'unbounded',
+      })
+
+      expect(resultA).toBeDefined()
       expect(resultB).toBeDefined()
     }).pipe(Effect.provide(Layer.mergeAll(ServiceALive, ServiceBLive)))
   )

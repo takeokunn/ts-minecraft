@@ -1466,13 +1466,13 @@ const validateToken = (token: string): Effect.Effect<AuthToken> =>
 // Branded Types の判別
 const processAuthToken = (token: AuthToken) => {
   // Brand を使った型安全な判別
-  if (UserId.is(token)) {
-    return `User authentication: ${token}`
-  } else if (SessionId.is(token)) {
-    return `Session validation: ${token}`
-  } else {
-    return `API key verification: ${token}`
-  }
+  return pipe(
+    token,
+    Match.value,
+    Match.when(UserId.is, () => `User authentication: ${token}`),
+    Match.when(SessionId.is, () => `Session validation: ${token}`),
+    Match.orElse(() => `API key verification: ${token}`)
+  )
 }
 ```
 
@@ -1487,10 +1487,15 @@ const Password = (() => {
 
   return Object.assign(_Password, {
     make: (value: string) => {
-      if (value.length < 8) {
-        throw new Error('Password must be at least 8 characters')
-      }
-      return _Password({ value })
+      return pipe(
+        value.length < 8,
+        Match.boolean({
+          onTrue: () => {
+            throw new Error('Password must be at least 8 characters')
+          },
+          onFalse: () => _Password({ value }),
+        })
+      )
     },
 
     validate: (password: ReturnType<typeof _Password>) =>

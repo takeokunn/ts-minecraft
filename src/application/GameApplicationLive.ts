@@ -136,26 +136,28 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
     // FPS低下の検出 - Effect.if使用
     yield* Effect.if(performanceStats.fps < 45, {
-      onTrue: () => Effect.gen(function* () {
-        yield* Effect.logWarning('Performance degradation detected', {
-          fps: performanceStats.fps,
-          frameTime: performanceStats.frameTime,
-        })
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Effect.logWarning('Performance degradation detected', {
+            fps: performanceStats.fps,
+            frameTime: performanceStats.frameTime,
+          })
 
-        // 重要パフォーマンス監視 - Effect.if使用
-        yield* Effect.if(performanceStats.fps < 30, {
-          onTrue: () => Effect.fail({
-            _tag: 'PerformanceDegradationError' as const,
-            context: createErrorContext('GameApplication', 'monitorPerformance'),
-            metric: 'fps',
-            currentValue: performanceStats.fps,
-            thresholdValue: 30,
-            severity: 'critical',
-          }),
-          onFalse: () => Effect.void
-        })
-      }),
-      onFalse: () => Effect.void
+          // 重要パフォーマンス監視 - Effect.if使用
+          yield* Effect.if(performanceStats.fps < 30, {
+            onTrue: () =>
+              Effect.fail({
+                _tag: 'PerformanceDegradationError' as const,
+                context: createErrorContext('GameApplication', 'monitorPerformance'),
+                metric: 'fps',
+                currentValue: performanceStats.fps,
+                thresholdValue: 30,
+                severity: 'critical',
+              }),
+            onFalse: () => Effect.void,
+          })
+        }),
+      onFalse: () => Effect.void,
     })
 
     // メモリ使用量の監視 - Effect.if使用
@@ -224,15 +226,16 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         // WebGL2機能有効化 - Effect.if使用
         yield* Effect.if(mergedConfig.rendering.webgl2, {
-          onTrue: () => Effect.gen(function* () {
-            const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
-            // WebGL2サポート確認 - Effect.if使用
-            yield* Effect.if(webgl2Supported, {
-              onTrue: () => threeRenderer.enableWebGL2Features(),
-              onFalse: () => Effect.void
-            })
-          }),
-          onFalse: () => Effect.void
+          onTrue: () =>
+            Effect.gen(function* () {
+              const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
+              // WebGL2サポート確認 - Effect.if使用
+              yield* Effect.if(webgl2Supported, {
+                onTrue: () => threeRenderer.enableWebGL2Features(),
+                onFalse: () => Effect.void,
+              })
+            }),
+          onFalse: () => Effect.void,
         })
 
         // GameLoopにフレーム更新コールバックを登録

@@ -322,25 +322,28 @@ const makeService = (config: AtlasConfig) =>
         pipe(
           Ref.get(stateRef),
           Effect.flatMap((state) => {
-            if (state.material) {
-              return Effect.succeed(state.material)
-            }
-
-            return Effect.try({
-              try: () => {
-                const texture = new THREE.Texture()
-                const material = new THREE.MeshBasicMaterial({
-                  map: texture,
-                  color: 0xffffff,
-                  wireframe: false,
-                  side: THREE.FrontSide,
-                  vertexColors: true,
-                })
-                return material
-              },
-              catch: (error) =>
-                TextureAtlasError(`Failed to create texture material: ${String(error)}`, 'createTextureMaterial'),
-            }).pipe(Effect.tap((material) => Ref.update(stateRef, (s) => ({ ...s, material }))))
+            return pipe(
+              Option.fromNullable(state.material),
+              Option.match({
+                onNone: () =>
+                  Effect.try({
+                    try: () => {
+                      const texture = new THREE.Texture()
+                      const material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        color: 0xffffff,
+                        wireframe: false,
+                        side: THREE.FrontSide,
+                        vertexColors: true,
+                      })
+                      return material
+                    },
+                    catch: (error) =>
+                      TextureAtlasError(`Failed to create texture material: ${String(error)}`, 'createTextureMaterial'),
+                  }).pipe(Effect.tap((material) => Ref.update(stateRef, (s) => ({ ...s, material })))),
+                onSome: (material) => Effect.succeed(material),
+              })
+            )
           })
         ),
 
@@ -348,10 +351,16 @@ const makeService = (config: AtlasConfig) =>
         Effect.try({
           try: () => {
             const state = Effect.runSync(Ref.get(stateRef))
-            if (!state.metadata) {
-              throw new Error('Texture atlas not loaded')
-            }
-            const newBlockTextures = new Map(state.metadata.blockTextures)
+            pipe(
+              Option.fromNullable(state.metadata),
+              Option.match({
+                onNone: () => {
+                  throw new Error('Texture atlas not loaded')
+                },
+                onSome: () => undefined,
+              })
+            )
+            const newBlockTextures = new Map(state.metadata!.blockTextures)
             newBlockTextures.set(blockTexture.blockType, blockTexture)
             Effect.runSync(
               Ref.update(stateRef, (s) => ({

@@ -49,7 +49,7 @@ function calculateDistance(pos1: Position, pos2: Position): number {
 
 ```typescript
 // ✅ テストありの開発
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 
 describe('calculateDistance', () => {
   it('正しい距離を計算する', () => {
@@ -97,7 +97,7 @@ npm run test:coverage
 
 ```typescript
 // 📁 src/domain/__test__/position.spec.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import * as fc from 'fast-check'
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
@@ -189,7 +189,7 @@ describe('Vitestアサーション基本', () => {
 
 ```typescript
 // 📁 src/domain/position.test.ts
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { Position, PositionOps } from './position'
 
 describe('Position', () => {
@@ -408,7 +408,7 @@ Fast-Checkを使用した包括的なテスト：
 
 ```typescript
 import * as fc from 'fast-check'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 
 // Arbitraryジェネレータ
 const positionArbitrary = fc.record({

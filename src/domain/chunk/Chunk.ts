@@ -90,19 +90,27 @@ export const createChunk = (data: ChunkData): Chunk => {
     isDirty: data.isDirty,
 
     getBlock(x: number, y: number, z: number): Effect.Effect<number, ChunkBoundsError> {
-      return Effect.if(x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE, {
-        onTrue: () => Effect.fail(ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`)),
-        onFalse: () => {
+      const isOutOfBounds = x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE
+
+      return pipe(
+        isOutOfBounds,
+        Match.value,
+        Match.when(true, () => Effect.fail(ChunkBoundsError(`Invalid coordinates: (${x}, ${y}, ${z})`))),
+        Match.orElse(() => {
           const index = getBlockIndex(x, y, z)
           return Effect.succeed(chunk.blocks[index] ?? 0)
-        },
-      })
+        })
+      )
     },
 
     setBlock(x: number, y: number, z: number, blockId: number): Effect.Effect<Chunk, ChunkBoundsError> {
-      return Effect.if(x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE, {
-        onTrue: () => Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`)),
-        onFalse: () =>
+      const isOutOfBounds = x < 0 || x >= CHUNK_SIZE || y < CHUNK_MIN_Y || y >= CHUNK_MAX_Y || z < 0 || z >= CHUNK_SIZE
+
+      return pipe(
+        isOutOfBounds,
+        Match.value,
+        Match.when(true, () => Effect.fail(ChunkBoundsError(`Failed to set block at (${x}, ${y}, ${z})`))),
+        Match.orElse(() =>
           Effect.gen(function* () {
             const index = getBlockIndex(x, y, z)
             const newBlocks = new Uint16Array(chunk.blocks)
@@ -120,8 +128,9 @@ export const createChunk = (data: ChunkData): Chunk => {
             }
 
             return createChunk(newData)
-          }),
-      })
+          })
+        )
+      )
     },
 
     fillRegion(

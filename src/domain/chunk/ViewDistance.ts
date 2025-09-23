@@ -325,9 +325,15 @@ export const getVisibleChunkPositions = (centerPosition: Vector3, viewDistance: 
   for (let x = centerChunk.x - viewDistance; x <= centerChunk.x + viewDistance; x++) {
     for (let z = centerChunk.z - viewDistance; z <= centerChunk.z + viewDistance; z++) {
       const distance = Math.max(Math.abs(x - centerChunk.x), Math.abs(z - centerChunk.z))
-      if (distance <= viewDistance) {
-        positions.push({ x, z })
-      }
+      pipe(
+        distance,
+        Match.value,
+        Match.when(
+          (d) => d <= viewDistance,
+          () => positions.push({ x, z })
+        ),
+        Match.orElse(() => undefined)
+      )
     }
   }
 

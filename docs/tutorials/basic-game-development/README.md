@@ -197,7 +197,7 @@ Effect-TS 3.17+パターンに基づくクリーンアーキテクチャを構�
 
 ```typescript
 // src/domain/world/entities/Block.ts
-import { Schema } from 'effect'
+import { Schema, Match, pipe } from 'effect'
 
 export const BlockType = Schema.Literal('air', 'stone', 'grass', 'dirt', 'wood', 'leaves', 'sand', 'water')
 
@@ -277,10 +277,15 @@ export const ChunkOperations = {
 
   // 指定座標のブロックを取得
   getBlockAt: (chunk: Chunk, localX: number, localY: number, localZ: number): Block | null => {
-    if (localX < 0 || localX >= 16 || localY < 0 || localY >= 256 || localZ < 0 || localZ >= 16) {
-      return null
-    }
-    return chunk.blocks[localX]?.[localZ]?.[localY] || null
+    return pipe(
+      Match.value({ localX, localY, localZ }),
+      Match.when(
+        ({ localX, localY, localZ }) =>
+          localX < 0 || localX >= 16 || localY < 0 || localY >= 256 || localZ < 0 || localZ >= 16,
+        () => null
+      ),
+      Match.orElse(() => chunk.blocks[localX]?.[localZ]?.[localY] || null)
+    )
   },
 
   // ブロックを設置
@@ -292,24 +297,30 @@ export const ChunkOperations = {
     block: Block
   ): Effect.Effect<Chunk, never> =>
     Effect.sync(() => {
-      if (localX < 0 || localX >= 16 || localY < 0 || localY >= 256 || localZ < 0 || localZ >= 16) {
-        return chunk
-      }
+      return pipe(
+        Match.value({ localX, localY, localZ }),
+        Match.when(
+          ({ localX, localY, localZ }) =>
+            localX < 0 || localX >= 16 || localY < 0 || localY >= 256 || localZ < 0 || localZ >= 16,
+          () => chunk
+        ),
+        Match.orElse(() => {
+          const newBlocks = chunk.blocks.map((xBlocks, x) =>
+            x === localX
+              ? xBlocks.map((zBlocks, z) =>
+                  z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
+                )
+              : xBlocks
+          )
 
-      const newBlocks = chunk.blocks.map((xBlocks, x) =>
-        x === localX
-          ? xBlocks.map((zBlocks, z) =>
-              z === localZ ? zBlocks.map((existingBlock, y) => (y === localY ? block : existingBlock)) : zBlocks
-            )
-          : xBlocks
+          return {
+            ...chunk,
+            blocks: newBlocks,
+            modified: true,
+            lastAccessed: new Date(),
+          }
+        })
       )
-
-      return {
-        ...chunk,
-        blocks: newBlocks,
-        modified: true,
-        lastAccessed: new Date(),
-      }
     }),
 }
 ```
@@ -352,15 +363,20 @@ export type Velocity = Schema.Schema.Type<typeof Velocity>
 export const PlayerOperations = {
   // 重力適用
   applyGravity: (player: Player, deltaTime: number): Player => {
-    if (player.onGround) return player
-
-    return {
-      ...player,
-      velocity: {
-        ...player.velocity,
-        y: Math.max(player.velocity.y - 9.81 * deltaTime, -50), // 最大落下速度制限
-      },
-    }
+    return pipe(
+      Match.value(player.onGround),
+      Match.when(
+        (onGround) => onGround,
+        () => player
+      ),
+      Match.orElse(() => ({
+        ...player,
+        velocity: {
+          ...player.velocity,
+          y: Math.max(player.velocity.y - 9.81 * deltaTime, -50), // 最大落下速度制限
+        },
+      }))
+    )
   },
 
   // 移動適用
@@ -375,16 +391,21 @@ export const PlayerOperations = {
 
   // ジャンプ
   jump: (player: Player): Player => {
-    if (!player.onGround) return player
-
-    return {
-      ...player,
-      velocity: {
-        ...player.velocity,
-        y: 8.0, // ジャンプ力
-      },
-      onGround: false,
-    }
+    return pipe(
+      Match.value(player.onGround),
+      Match.when(
+        (onGround) => !onGround,
+        () => player
+      ),
+      Match.orElse(() => ({
+        ...player,
+        velocity: {
+          ...player.velocity,
+          y: 8.0, // ジャンプ力
+        },
+        onGround: false,
+      }))
+    )
   },
 
   // 移動入力処理
@@ -397,17 +418,48 @@ export const PlayerOperations = {
     let forwardMovement = 0
     let sidewaysMovement = 0
 
-    if (input.forward) forwardMovement += 1
-    if (input.backward) forwardMovement -= 1
-    if (input.right) sidewaysMovement += 1
-    if (input.left) sidewaysMovement -= 1
+    pipe(
+      Match.value(input.forward),
+      Match.when(true, () => {
+        forwardMovement += 1
+      }),
+      Match.orElse(() => void 0)
+    )
+    pipe(
+      Match.value(input.backward),
+      Match.when(true, () => {
+        forwardMovement -= 1
+      }),
+      Match.orElse(() => void 0)
+    )
+    pipe(
+      Match.value(input.right),
+      Match.when(true, () => {
+        sidewaysMovement += 1
+      }),
+      Match.orElse(() => void 0)
+    )
+    pipe(
+      Match.value(input.left),
+      Match.when(true, () => {
+        sidewaysMovement -= 1
+      }),
+      Match.orElse(() => void 0)
+    )
 
     // 斜め移動の正規化
     const length = Math.sqrt(forwardMovement * forwardMovement + sidewaysMovement * sidewaysMovement)
-    if (length > 0) {
-      forwardMovement /= length
-      sidewaysMovement /= length
-    }
+    pipe(
+      Match.value(length),
+      Match.when(
+        (len) => len > 0,
+        (len) => {
+          forwardMovement /= len
+          sidewaysMovement /= len
+        }
+      ),
+      Match.orElse(() => void 0)
+    )
 
     // プレイヤーの向きに基づく移動方向計算
     const yaw = player.rotation.yaw
@@ -479,26 +531,26 @@ const generateTerrain = (chunkX: number, chunkZ: number): Block[][][] => {
       const height = Math.floor(64 + Math.sin(worldX * 0.01) * 16 + Math.cos(worldZ * 0.01) * 16)
 
       for (let y = 0; y < 256; y++) {
-        if (y < height - 3) {
-          blocks[x][z][y] = {
-            type: 'stone',
-            position: { x: worldX, y, z: worldZ },
-          }
-        } else if (y < height - 1) {
-          blocks[x][z][y] = {
-            type: 'dirt',
-            position: { x: worldX, y, z: worldZ },
-          }
-        } else if (y < height) {
-          blocks[x][z][y] = {
-            type: 'grass',
-            position: { x: worldX, y, z: worldZ },
-          }
-        } else {
-          blocks[x][z][y] = {
-            type: 'air',
-            position: { x: worldX, y, z: worldZ },
-          }
+        const blockType = pipe(
+          Match.value(y),
+          Match.when(
+            (yPos) => yPos < height - 3,
+            () => 'stone' as const
+          ),
+          Match.when(
+            (yPos) => yPos < height - 1,
+            () => 'dirt' as const
+          ),
+          Match.when(
+            (yPos) => yPos < height,
+            () => 'grass' as const
+          ),
+          Match.orElse(() => 'air' as const)
+        )
+
+        blocks[x][z][y] = {
+          type: blockType,
+          position: { x: worldX, y, z: worldZ },
         }
       }
     }
@@ -541,15 +593,18 @@ const makeWorldService = Effect.gen(function* () {
         const key = `${coordinate.x},${coordinate.z}`
         const cached = chunkCache.get(key)
 
-        if (cached) {
-          return {
-            ...cached,
-            lastAccessed: new Date(),
-          }
-        }
-
-        // キャッシュにない場合は生成
-        return yield* WorldService.generateChunk(coordinate)
+        return yield* pipe(
+          Match.value(cached),
+          Match.when(
+            (c) => c != null,
+            (c) =>
+              Effect.succeed({
+                ...c,
+                lastAccessed: new Date(),
+              })
+          ),
+          Match.orElse(() => WorldService.generateChunk(coordinate))
+        )
       }),
 
     saveChunk: (chunk) =>
@@ -690,9 +745,11 @@ const makePlayerService = Effect.gen(function* () {
         updatedPlayer = PlayerOperations.handleMovementInput(updatedPlayer, input.movement, deltaTime)
 
         // ジャンプ処理
-        if (input.movement.jump) {
-          updatedPlayer = PlayerOperations.jump(updatedPlayer)
-        }
+        updatedPlayer = pipe(
+          Match.value(input.movement.jump),
+          Match.when(true, () => PlayerOperations.jump(updatedPlayer)),
+          Match.orElse(() => updatedPlayer)
+        )
 
         return updatedPlayer
       }),
@@ -708,19 +765,22 @@ const makePlayerService = Effect.gen(function* () {
         updatedPlayer = PlayerOperations.applyMovement(updatedPlayer, deltaTime)
 
         // 簡易的な地面判定（実際のプロジェクトでは衝突判定が必要）
-        if (updatedPlayer.position.y <= 64) {
-          updatedPlayer = {
-            ...updatedPlayer,
-            position: { ...updatedPlayer.position, y: 64 },
-            velocity: { ...updatedPlayer.velocity, y: 0 },
-            onGround: true,
-          }
-        } else {
-          updatedPlayer = {
+        updatedPlayer = pipe(
+          Match.value(updatedPlayer.position.y),
+          Match.when(
+            (y) => y <= 64,
+            () => ({
+              ...updatedPlayer,
+              position: { ...updatedPlayer.position, y: 64 },
+              velocity: { ...updatedPlayer.velocity, y: 0 },
+              onGround: true,
+            })
+          ),
+          Match.orElse(() => ({
             ...updatedPlayer,
             onGround: false,
-          }
-        }
+          }))
+        )
 
         return updatedPlayer
       }),
@@ -808,18 +868,29 @@ const makeRenderService = Effect.gen(function* () {
         for (let y = 0; y < 256; y++) {
           const block = chunk.blocks[x][z][y]
 
-          if (!block || block.type === 'air') continue
-
-          // マテリアル作成/取得
-          if (!materialMap.has(block.type)) {
-            const texture = blockTextures.get(block.type)
-            const material = new THREE.MeshLambertMaterial({
-              map: texture,
-              transparent: block.type === 'leaves',
+          pipe(
+            Match.value(block),
+            Match.when(
+              (b) => !b || b.type === 'air',
+              () => void 0  // continue equivalent
+            ),
+            Match.orElse((b) => {
+              // マテリアル作成/取得
+              pipe(
+                Match.value(materialMap.has(b.type)),
+                Match.when(false, () => {
+                  const texture = blockTextures.get(b.type)
+                  const material = new THREE.MeshLambertMaterial({
+                    map: texture,
+                    transparent: b.type === 'leaves',
+                  })
+                  materials.push(material)
+                  materialMap.set(b.type, materialIndex++)
+                }),
+                Match.orElse(() => void 0)
+              )
             })
-            materials.push(material)
-            materialMap.set(block.type, materialIndex++)
-          }
+          )
 
           // 各面の可視性チェック（最適化のため）
           const faces = [
@@ -947,9 +1018,14 @@ const makeRenderService = Effect.gen(function* () {
 
     render: () =>
       Effect.gen(function* () {
-        if (!renderer || !scene || !camera) {
-          return yield* Effect.fail(new RenderError('RenderFailed', 'Renderer not initialized'))
-        }
+        yield* pipe(
+          Match.value({ renderer, scene, camera }),
+          Match.when(
+            ({ renderer, scene, camera }) => !renderer || !scene || !camera,
+            () => Effect.fail(new RenderError('RenderFailed', 'Renderer not initialized'))
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
 
         try {
           renderer.render(scene, camera)
@@ -960,24 +1036,39 @@ const makeRenderService = Effect.gen(function* () {
 
     renderChunk: (chunk) =>
       Effect.gen(function* () {
-        if (!scene) {
-          return yield* Effect.fail(new RenderError('ChunkRenderFailed', 'Scene not initialized'))
-        }
+        yield* pipe(
+          Match.value(scene),
+          Match.when(
+            (s) => !s,
+            () => Effect.fail(new RenderError('ChunkRenderFailed', 'Scene not initialized'))
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
 
         try {
           const key = `${chunk.coordinate.x},${chunk.coordinate.z}`
 
           // 既存のメッシュがあれば削除
           const existingMesh = chunkMeshes.get(key)
-          if (existingMesh) {
-            scene.remove(existingMesh)
-            existingMesh.geometry.dispose()
-            if (Array.isArray(existingMesh.material)) {
-              existingMesh.material.forEach((mat) => mat.dispose())
-            } else {
-              existingMesh.material.dispose()
-            }
-          }
+          pipe(
+            Match.value(existingMesh),
+            Match.when(
+              (mesh) => !!mesh,
+              (mesh) => {
+                scene.remove(mesh!)
+                mesh!.geometry.dispose()
+                pipe(
+                  Match.value(mesh!.material),
+                  Match.when(
+                    (material) => Array.isArray(material),
+                    (material) => (material as THREE.Material[]).forEach((mat) => mat.dispose())
+                  ),
+                  Match.orElse((material) => (material as THREE.Material).dispose())
+                )
+              }
+            ),
+            Match.orElse(() => void 0)
+          )
 
           // 新しいメッシュ生成
           const mesh = generateChunkMesh(chunk)
@@ -992,9 +1083,14 @@ const makeRenderService = Effect.gen(function* () {
 
     updateCamera: (player) =>
       Effect.gen(function* () {
-        if (!camera) {
-          return yield* Effect.fail(new RenderError('RenderFailed', 'Camera not initialized'))
-        }
+        yield* pipe(
+          Match.value(camera),
+          Match.when(
+            (c) => !c,
+            () => Effect.fail(new RenderError('RenderFailed', 'Camera not initialized'))
+          ),
+          Match.orElse(() => Effect.succeed(void 0))
+        )
 
         // プレイヤーの位置と回転に基づいてカメラ更新
         camera.position.set(
@@ -1014,13 +1110,23 @@ const makeRenderService = Effect.gen(function* () {
       Effect.sync(() => {
         // メッシュクリーンアップ
         chunkMeshes.forEach((mesh) => {
-          if (scene) scene.remove(mesh)
+          pipe(
+            Match.value(scene),
+            Match.when(
+              (s) => !!s,
+              (s) => s!.remove(mesh)
+            ),
+            Match.orElse(() => void 0)
+          )
           mesh.geometry.dispose()
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((mat) => mat.dispose())
-          } else {
-            mesh.material.dispose()
-          }
+          pipe(
+            Match.value(mesh.material),
+            Match.when(
+              (material) => Array.isArray(material),
+              (material) => (material as THREE.Material[]).forEach((mat) => mat.dispose())
+            ),
+            Match.orElse((material) => (material as THREE.Material).dispose())
+          )
         })
         chunkMeshes.clear()
 
@@ -1029,9 +1135,17 @@ const makeRenderService = Effect.gen(function* () {
         blockTextures.clear()
 
         // レンダラークリーンアップ
-        if (renderer) {
-          renderer.dispose()
-          renderer = null
+        pipe(
+          Match.value(renderer),
+          Match.when(
+            (r) => !!r,
+            (r) => {
+              r!.dispose()
+              renderer = null
+            }
+          ),
+          Match.orElse(() => void 0)
+        )
         }
 
         scene = null
@@ -1087,8 +1201,17 @@ const makeGameApplication = Effect.gen(function* () {
       const deltaTime = (currentTime - lastTime) / 1000 // 秒単位
       lastTime = currentTime
 
-      if (!currentPlayer || !isRunning || deltaTime > 0.1) {
-        // 最大100ms制限
+      // 最大100ms制限チェック
+      const shouldContinue = pipe(
+        Match.value({ currentPlayer, isRunning, deltaTime }),
+        Match.when(
+          ({ currentPlayer, isRunning, deltaTime }) => !currentPlayer || !isRunning || deltaTime > 0.1,
+          () => false
+        ),
+        Match.orElse(() => true)
+      )
+
+      if (!shouldContinue) {
         return
       }
 
@@ -1103,13 +1226,20 @@ const makeGameApplication = Effect.gen(function* () {
       yield* renderService.render()
 
       // 次のフレーム予約
-      if (isRunning) {
-        Effect.sync(() => {
-          requestAnimationFrame((time) => {
-            Effect.runSync(gameLoop(time))
-          })
-        })
-      }
+      pipe(
+        Match.value(isRunning),
+        Match.when(
+          (running) => running,
+          () => {
+            Effect.sync(() => {
+              requestAnimationFrame((time) => {
+                Effect.runSync(gameLoop(time))
+              })
+            })
+          }
+        ),
+        Match.orElse(() => void 0)
+      )
     })
 
   return GameApplication.of({
@@ -1164,7 +1294,16 @@ const makeGameApplication = Effect.gen(function* () {
 
     handleInput: (input) =>
       Effect.gen(function* () {
-        if (!currentPlayer) return
+        const shouldContinue = pipe(
+          Match.value(currentPlayer),
+          Match.when(
+            (player) => !player,
+            () => false
+          ),
+          Match.orElse(() => true)
+        )
+
+        if (!shouldContinue) return
 
         try {
           const deltaTime = 1 / 60 // 固定デルタタイム（簡略化）
@@ -1301,9 +1440,14 @@ const makeInputManager = (canvas: HTMLCanvasElement): InputManagerInterface => {
     // キーボードイベント
     document.addEventListener('keydown', (e) => {
       keys.add(e.code)
-      if (e.code === 'Escape') {
-        document.exitPointerLock()
-      }
+      pipe(
+        Match.value(e.code),
+        Match.when(
+          (code) => code === 'Escape',
+          () => document.exitPointerLock()
+        ),
+        Match.orElse(() => void 0)
+      )
     })
 
     document.addEventListener('keyup', (e) => {
@@ -1320,10 +1464,17 @@ const makeInputManager = (canvas: HTMLCanvasElement): InputManagerInterface => {
     })
 
     document.addEventListener('mousemove', (e) => {
-      if (isPointerLocked) {
-        mouseMovement.x = e.movementX
-        mouseMovement.y = e.movementY
-      }
+      pipe(
+        Match.value(isPointerLocked),
+        Match.when(
+          (locked) => locked,
+          () => {
+            mouseMovement.x = e.movementX
+            mouseMovement.y = e.movementY
+          }
+        ),
+        Match.orElse(() => void 0)
+      )
     })
   }
 
@@ -1369,7 +1520,16 @@ const makePerformanceMonitor = (): PerformanceMonitorInterface => {
     frameCount = 0
 
     const fpsElement = document.getElementById('fps')
-    if (fpsElement) fpsElement.textContent = fps.toString()
+    pipe(
+      Match.value(fpsElement),
+      Match.when(
+        (element) => !!element,
+        (element) => {
+          element!.textContent = fps.toString()
+        }
+      ),
+      Match.orElse(() => void 0)
+    )
   }
 
   setInterval(() => updateFPS(), 1000)
@@ -1384,9 +1544,16 @@ const makePerformanceMonitor = (): PerformanceMonitorInterface => {
 // メイン関数
 const main = Effect.gen(function* () {
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement
-  if (!canvas) {
-    throw new Error('Canvas element not found')
-  }
+  pipe(
+    Match.value(canvas),
+    Match.when(
+      (c) => !c,
+      () => {
+        throw new Error('Canvas element not found')
+      }
+    ),
+    Match.orElse(() => void 0)
+  )
 
   // Canvas サイズを画面に合わせる
   const resizeCanvas = () => {

@@ -4,7 +4,7 @@
  * @module domain/world/createWorldGenerator
  */
 
-import { Effect, Layer, Match, Option } from 'effect'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
 import { createChunkData } from '../chunk/ChunkData.js'
 import type { ChunkData } from '../chunk/ChunkData.js'
 import type { ChunkPosition } from '../chunk/ChunkPosition.js'
@@ -198,16 +198,20 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     generateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        // Effect.ifを使用して構造物生成の有効性をチェック
-        const structure = yield* Effect.if(!generatorOptions.generateStructures, {
-          onTrue: () => Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled')),
-          onFalse: () =>
+        // Match.valueパターンを使用して構造物生成の有効性をチェック
+        const structure = yield* pipe(
+          Match.value(!generatorOptions.generateStructures),
+          Match.when(true, () =>
+            Effect.fail(StructureGenerationError(type, position, 'Structure generation is disabled'))
+          ),
+          Match.orElse(() =>
             Effect.gen(function* () {
               const structure = createStructure(type, position)
               state.structures.push(structure)
               return structure
-            }),
-        })
+            })
+          )
+        )
 
         return structure
       }),
@@ -248,28 +252,30 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
 
     canGenerateStructure: (type: StructureType, position: Vector3) =>
       Effect.gen(function* () {
-        const structuresEnabled = yield* Match.value(generatorOptions.generateStructures).pipe(
+        const structuresEnabled = yield* pipe(
+          Match.value(generatorOptions.generateStructures),
           Match.when(false, () => Effect.succeed(false)),
           Match.orElse(() => Effect.succeed(true))
         )
 
-        const canGenerate = yield* Effect.if(!structuresEnabled, {
-          onTrue: () => Effect.succeed(false),
-          onFalse: () => Effect.succeed(true),
-        })
-
-        if (!canGenerate) {
-          return false
-        }
-
-        // 構造物タイプごとの生成条件をチェック
-        return Match.value(type).pipe(
-          Match.when('village', () => generatorOptions.features.villages),
-          Match.when('mineshaft', () => generatorOptions.features.mineshafts),
-          Match.when('stronghold', () => generatorOptions.features.strongholds),
-          Match.when('temple', () => generatorOptions.features.temples),
-          Match.when('dungeon', () => generatorOptions.features.dungeons),
-          Match.orElse(() => true)
+        return yield* pipe(
+          structuresEnabled,
+          Match.value,
+          Match.when(false, () => Effect.succeed(false)),
+          Match.orElse(() =>
+            // 構造物タイプごとの生成条件をチェック
+            Effect.succeed(
+              pipe(
+                Match.value(type),
+                Match.when('village', () => generatorOptions.features.villages),
+                Match.when('mineshaft', () => generatorOptions.features.mineshafts),
+                Match.when('stronghold', () => generatorOptions.features.strongholds),
+                Match.when('temple', () => generatorOptions.features.temples),
+                Match.when('dungeon', () => generatorOptions.features.dungeons),
+                Match.orElse(() => true)
+              )
+            )
+          )
         )
       }),
 
