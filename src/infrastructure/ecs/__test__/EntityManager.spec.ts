@@ -995,20 +995,22 @@ describe('EntityManager - Effect-TS Pattern', () => {
           const position = { x: Number.MAX_SAFE_INTEGER, y: 0, z: 0 }
           const entity = yield* manager.createEntity()
 
-          try {
-            // Some extreme values might be valid, others might not
-            const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(position)
-            yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), validatedPosition)
+          const result = yield* Effect.either(
+            Effect.gen(function* () {
+              // Some extreme values might be valid, others might not
+              const validatedPosition = Schema.decodeUnknownSync(PositionComponentSchema)(position)
+              yield* manager.addComponent(entity, BrandedTypes.createComponentTypeName('Position'), validatedPosition)
 
-            const retrieved = yield* manager.getComponent<PositionComponent>(
-              entity,
-              BrandedTypes.createComponentTypeName('Position')
-            )
-            expect(Option.isSome(retrieved)).toBe(true)
-          } catch {
-            // Invalid extreme values should fail schema validation
-            // This is expected behavior
-          }
+              const retrieved = yield* manager.getComponent<PositionComponent>(
+                entity,
+                BrandedTypes.createComponentTypeName('Position')
+              )
+              expect(Option.isSome(retrieved)).toBe(true)
+            })
+          )
+
+          // Invalid extreme values should fail schema validation
+          // This is expected behavior, so we don't need to do anything with the error
         }
       }).pipe(Effect.provide(EntityManagerTestLayer))
     )
