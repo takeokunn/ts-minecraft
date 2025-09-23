@@ -60,59 +60,77 @@ export type CameraErrorReason = Schema.Schema.Type<typeof CameraErrorReason>
 /**
  * カメラエラー - Schema.TaggedError パターン
  */
-export class CameraError extends Schema.TaggedError<CameraError>()('CameraError', {
-  message: Schema.String,
+export interface CameraError {
+  readonly _tag: 'CameraError'
+  readonly message: string
+  readonly reason: CameraErrorReason
+  readonly cause?: unknown
+  readonly context?: Record<string, unknown>
+}
+
+export const CameraError = (
+  message: string,
   reason: CameraErrorReason,
-  cause: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  context: Schema.optionalWith(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }),
-    { exact: true }
-  ),
-}) {}
+  cause?: unknown,
+  context?: Record<string, unknown>
+): CameraError => ({
+  _tag: 'CameraError',
+  message,
+  reason,
+  ...(cause !== undefined && { cause }),
+  ...(context !== undefined && { context })
+})
+
+export const isCameraError = (error: unknown): error is CameraError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'CameraError'
 
 /**
  * カメラエラー作成ヘルパー
  */
 export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
-    new CameraError({
+    CameraError(
       message,
-      reason: 'INITIALIZATION_FAILED',
-      cause,
-    }),
+      'INITIALIZATION_FAILED',
+      cause
+    ),
   notInitialized: (operation: string) =>
-    new CameraError({
-      message: `カメラが初期化されていません: ${operation}`,
-      reason: 'CAMERA_NOT_INITIALIZED',
-      context: { operation },
-    }),
+    CameraError(
+      `カメラが初期化されていません: ${operation}`,
+      'CAMERA_NOT_INITIALIZED',
+      undefined,
+      { operation }
+    ),
   invalidConfiguration: (message: string, config?: unknown) =>
-    new CameraError({
+    CameraError(
       message,
-      reason: 'INVALID_CONFIGURATION',
-      context: { config },
-    }),
+      'INVALID_CONFIGURATION',
+      undefined,
+      { config }
+    ),
   invalidMode: (mode: string) =>
-    new CameraError({
-      message: `無効なカメラモード: ${mode}`,
-      reason: 'INVALID_MODE',
-      context: { mode },
-    }),
+    CameraError(
+      `無効なカメラモード: ${mode}`,
+      'INVALID_MODE',
+      undefined,
+      { mode }
+    ),
   invalidParameter: (parameter: string, value: unknown, expected?: string) =>
-    new CameraError({
-      message: `無効なパラメータ: ${parameter}`,
-      reason: 'INVALID_PARAMETER',
-      context: { parameter, value, expected },
-    }),
+    CameraError(
+      `無効なパラメータ: ${parameter}`,
+      'INVALID_PARAMETER',
+      undefined,
+      { parameter, value, expected }
+    ),
   resourceError: (message: string, cause?: unknown) =>
-    new CameraError({
+    CameraError(
       message,
-      reason: 'RESOURCE_ERROR',
-      cause,
-    }),
+      'RESOURCE_ERROR',
+      cause
+    ),
 }
 
 /**

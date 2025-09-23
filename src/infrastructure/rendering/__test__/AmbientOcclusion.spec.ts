@@ -465,11 +465,11 @@ describe('AmbientOcclusion', () => {
 
   describe('Error Handling', () => {
     it('should create AmbientOcclusionError with correct properties', () => {
-      const error = new AmbientOcclusionError({
-        reason: 'Test error',
-        context: 'test',
-        timestamp: Date.now(),
-      })
+      const error = AmbientOcclusionError(
+        'Test error',
+        'test',
+        Date.now()
+      )
 
       expect(error).toBeInstanceOf(AmbientOcclusionError)
       expect(error.reason).toBe('Test error')

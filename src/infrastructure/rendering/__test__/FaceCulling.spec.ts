@@ -357,11 +357,11 @@ describe('FaceCulling', () => {
 
   describe('Error Handling', () => {
     it('should create FaceCullingError with correct properties', () => {
-      const error = new FaceCullingError({
-        reason: 'Test error',
-        context: 'test',
-        timestamp: Date.now(),
-      })
+      const error = FaceCullingError(
+        'Test error',
+        'test',
+        Date.now()
+      )
 
       expect(error).toBeInstanceOf(FaceCullingError)
       expect(error.reason).toBe('Test error')

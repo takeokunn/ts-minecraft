@@ -63,10 +63,10 @@ describe('System', () => {
 
       const system2 = createSystem('System2', () =>
         Effect.fail(
-          new SystemError({
-            systemName: 'System2',
-            message: 'Test error',
-          })
+          SystemError(
+            'System2',
+            'Test error'
+          )
         )
       )
 
@@ -173,10 +173,10 @@ describe('System', () => {
     })
 
     it('エラーを返すモックシステムを作成できる', async () => {
-      const error = new SystemError({
-        systemName: 'MockSystem',
-        message: 'Mock error',
-      })
+      const error = SystemError(
+        'MockSystem',
+        'Mock error'
+      )
 
       const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 

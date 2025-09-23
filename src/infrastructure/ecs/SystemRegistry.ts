@@ -13,11 +13,29 @@ import type { World } from './World.js'
 /**
  * システムレジストリエラー
  */
-export class SystemRegistryError extends Data.TaggedError('SystemRegistryError')<{
+export interface SystemRegistryError {
+  readonly _tag: 'SystemRegistryError'
   readonly message: string
   readonly systemName?: string
   readonly cause?: unknown
-}> {}
+}
+
+export const SystemRegistryError = (
+  message: string, 
+  systemName?: string, 
+  cause?: unknown
+): SystemRegistryError => ({
+  _tag: 'SystemRegistryError',
+  message,
+  ...(systemName !== undefined && { systemName }),
+  ...(cause !== undefined && { cause })
+})
+
+export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'SystemRegistryError'
 
 /**
  * 登録されたシステムのエントリ
@@ -206,10 +224,10 @@ export const SystemRegistryServiceLive = Layer.effect(
           Match.value,
           Match.when(false, () =>
             Effect.fail(
-              new SystemRegistryError({
-                message: `System not found: ${name}`,
-                systemName: name,
-              })
+              SystemRegistryError(
+                `System not found: ${name}`,
+                name
+              )
             )
           ),
           Match.when(true, () => Effect.succeed(undefined)),
@@ -413,10 +431,10 @@ export const SystemRegistryServiceLive = Layer.effect(
 
         if (!entry) {
           return yield* Effect.fail(
-            new SystemRegistryError({
-              message: `System not found: ${name}`,
-              systemName: name,
-            })
+            SystemRegistryError(
+              `System not found: ${name}`,
+              name
+            )
           )
         }
 

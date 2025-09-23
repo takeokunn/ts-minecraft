@@ -19,14 +19,32 @@ export type EntityId = Schema.Schema.Type<typeof EntityId>
 /**
  * ワールドエラー
  */
-export const WorldError = Schema.TaggedStruct('WorldError', {
-  message: Schema.String,
-  entityId: Schema.optional(EntityId),
-  componentType: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+export interface WorldError {
+  readonly _tag: 'WorldError'
+  readonly message: string
+  readonly entityId?: EntityId
+  readonly componentType?: string
+  readonly cause?: unknown
+}
+
+export const WorldError = (
+  message: string,
+  entityId?: EntityId,
+  componentType?: string,
+  cause?: unknown
+): WorldError => ({
+  _tag: 'WorldError',
+  message,
+  ...(entityId !== undefined && { entityId }),
+  ...(componentType !== undefined && { componentType }),
+  ...(cause !== undefined && { cause })
 })
 
-export type WorldError = Schema.Schema.Type<typeof WorldError>
+export const isWorldError = (error: unknown): error is WorldError =>
+  typeof error === 'object' &&
+  error !== null &&
+  '_tag' in error &&
+  error._tag === 'WorldError'
 
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
@@ -257,17 +275,14 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          Match.value(state.entities.has(id)),
-          Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            } satisfies WorldError)
-          ),
-          Match.orElse(() => Effect.void)
-        )
+        if (!state.entities.has(id)) {
+          yield* Effect.fail(
+            WorldError(
+              `Entity not found: ${id}`,
+              id
+            )
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           const newEntities = new Map(s.entities)
@@ -302,17 +317,14 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          Match.value(state.entities.has(entityId)),
-          Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
-              message: `Entity not found: ${entityId}`,
-              entityId,
-            } satisfies WorldError)
-          ),
-          Match.orElse(() => Effect.void)
-        )
+        if (!state.entities.has(entityId)) {
+          yield* Effect.fail(
+            WorldError(
+              `Entity not found: ${entityId}`,
+              entityId
+            )
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           const newComponents = new Map(s.components)
@@ -696,17 +708,14 @@ export const WorldLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          Match.value(state.entities.has(id)),
-          Match.when(false, () =>
-            Effect.fail({
-              _tag: 'WorldError' as const,
-              message: `Entity not found: ${id}`,
-              entityId: id,
-            } satisfies WorldError)
-          ),
-          Match.orElse(() => Effect.void)
-        )
+        if (!state.entities.has(id)) {
+          yield* Effect.fail(
+            WorldError(
+              `Entity not found: ${id}`,
+              id
+            )
+          )
+        }
 
         yield* Ref.update(stateRef, (s) => {
           return pipe(

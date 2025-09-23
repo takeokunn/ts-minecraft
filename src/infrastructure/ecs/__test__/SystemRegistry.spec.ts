@@ -286,10 +286,10 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const failingSystem = createSystem('FailingSystem', () =>
           Effect.fail(
-            new SystemError({
-              systemName: 'FailingSystem',
-              message: 'Test error',
-            })
+            SystemError(
+              'FailingSystem',
+              'Test error'
+            )
           )
         )
 
@@ -373,10 +373,10 @@ describe('SystemRegistry ECS Architecture', () => {
             failCount++
             if (failCount % 2 === 1) {
               yield* Effect.fail(
-                new SystemError({
-                  systemName: 'UnreliableSystem',
-                  message: `Failure ${failCount}`,
-                })
+                SystemError(
+                  'UnreliableSystem',
+                  `Failure ${failCount}`
+                )
               )
             }
           })

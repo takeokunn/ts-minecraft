@@ -76,18 +76,56 @@ export type MeshConfig = Schema.Schema.Type<typeof MeshConfigSchema>
 // Error Definitions (following project pattern)
 // ========================================
 
-export class MeshGenerationError extends Schema.TaggedError<MeshGenerationError>()('MeshGenerationError', {
-  reason: Schema.String,
-  chunkPosition: ChunkPositionSchema,
-  timestamp: Schema.Number,
-  context: Schema.optional(Schema.String),
-}) {}
+export interface MeshGenerationError {
+  readonly _tag: 'MeshGenerationError'
+  readonly reason: string
+  readonly chunkPosition: { x: number; z: number }
+  readonly timestamp: number
+  readonly context?: string
+}
 
-export class InvalidChunkError extends Schema.TaggedError<InvalidChunkError>()('InvalidChunkError', {
-  reason: Schema.String,
-  chunkData: Schema.Unknown,
-  timestamp: Schema.Number,
-}) {}
+export const MeshGenerationError = (
+  reason: string,
+  chunkPosition: { x: number; z: number },
+  timestamp: number,
+  context?: string
+): MeshGenerationError => ({
+  _tag: 'MeshGenerationError',
+  reason,
+  chunkPosition,
+  timestamp,
+  ...(context !== undefined && { context })
+})
+
+export const isMeshGenerationError = (error: unknown): error is MeshGenerationError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'MeshGenerationError'
+
+export interface InvalidChunkError {
+  readonly _tag: 'InvalidChunkError'
+  readonly reason: string
+  readonly chunkData: unknown
+  readonly timestamp: number
+}
+
+export const InvalidChunkError = (
+  reason: string,
+  chunkData: unknown,
+  timestamp: number
+): InvalidChunkError => ({
+  _tag: 'InvalidChunkError',
+  reason,
+  chunkData,
+  timestamp
+})
+
+export const isInvalidChunkError = (error: unknown): error is InvalidChunkError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'InvalidChunkError'
 
 // ========================================
 // Service Interface
@@ -278,11 +316,11 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
     Effect.try({
       try: () => Schema.decodeUnknownSync(ChunkDataSchema)(chunkData),
       catch: (error) =>
-        new MeshGenerationError({
-          reason: `Invalid chunk data: ${String(error)}`,
-          chunkPosition: chunkData.position || { x: 0, y: 0, z: 0 },
-          timestamp: Date.now(),
-        }),
+        MeshGenerationError(
+          `Invalid chunk data: ${String(error)}`,
+          chunkData.position || { x: 0, z: 0 },
+          Date.now()
+        ),
     }),
     Effect.map((validatedChunk) => {
       const meshData = {
@@ -303,31 +341,28 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
               Option.getOrElse(() => 0)
             )
 
-            pipe(
-              blockType,
-              Option.liftPredicate(isValidBlock),
-              Option.match({
-                onNone: () => {},
-                onSome: () => {
-                  const cube = generateBasicCube(x, y, z)
+            if (blockType === 0) continue // Skip air blocks
 
-                  // Add vertices
-                  meshData.vertices.push(...cube.vertices)
-                  meshData.normals.push(...cube.normals)
-                  meshData.uvs.push(...cube.uvs)
+            // Add 6 faces per block (basic cube)
+            const cubeData = generateBasicCube(x, y, z)
 
-                  // Add indices with offset
-                  meshData.indices.push(...cube.indices.map((i) => i + vertexOffset))
+            // Add vertices with offset
+            cubeData.vertices.forEach(v => meshData.vertices.push(v))
+            cubeData.normals.forEach(n => meshData.normals.push(n))
+            cubeData.uvs.forEach(uv => meshData.uvs.push(uv))
+            cubeData.indices.forEach(i => meshData.indices.push(i + vertexOffset))
 
-                  vertexOffset += cube.vertices.length / 3
-                },
-              })
-            )
+            vertexOffset += cubeData.vertices.length / 3 // Number of vertices added
           }
         }
       }
 
-      return meshData
+      return {
+        vertices: meshData.vertices as readonly number[],
+        normals: meshData.normals as readonly number[],
+        uvs: meshData.uvs as readonly number[],
+        indices: meshData.indices as readonly number[],
+      } satisfies MeshData
     })
   )
 
@@ -366,12 +401,12 @@ const makeService = (
               greedyMeshing.generateGreedyMesh(chunkData),
               Effect.mapError(
                 (greedyError) =>
-                  new MeshGenerationError({
-                    reason: `Greedy meshing failed: ${greedyError.reason}`,
-                    chunkPosition: chunkData.position,
-                    timestamp: Date.now(),
-                    context: greedyError.context,
-                  })
+                  MeshGenerationError(
+                    `Greedy meshing failed: ${greedyError.reason}`,
+                    chunkData.position,
+                    Date.now(),
+                    greedyError.context
+                  )
               )
             )
           : pipe(

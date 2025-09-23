@@ -11,11 +11,29 @@ import type { World } from './World.js'
 /**
  * システムエラー - ECSシステム実行時のエラー
  */
-export class SystemError extends Data.TaggedError('SystemError')<{
+export interface SystemError {
+  readonly _tag: 'SystemError'
   readonly systemName: string
   readonly message: string
   readonly cause?: unknown
-}> {}
+}
+
+export const SystemError = (
+  systemName: string,
+  message: string,
+  cause?: unknown
+): SystemError => ({
+  _tag: 'SystemError',
+  systemName,
+  message,
+  ...(cause !== undefined && { cause })
+})
+
+export const isSystemError = (error: unknown): error is SystemError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'SystemError'
 
 /**
  * システムの優先度レベル
@@ -100,11 +118,11 @@ export const runSystems = (
         Effect.mapError((error) =>
           error instanceof SystemError
             ? error
-            : new SystemError({
-                systemName: system.name,
-                message: 'Unknown error in system execution',
-                cause: error,
-              })
+            : SystemError(
+                system.name,
+                'Unknown error in system execution',
+                error
+              )
         ),
         Effect.catchTag('SystemError', (error) =>
           Effect.logError(`System ${error.systemName} failed: ${error.message}`).pipe(

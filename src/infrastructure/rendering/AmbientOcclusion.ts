@@ -28,11 +28,29 @@ export interface AOConfig {
 // Error Definitions
 // ========================================
 
-export class AmbientOcclusionError extends Schema.TaggedError<AmbientOcclusionError>()('AmbientOcclusionError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface AmbientOcclusionError {
+  readonly _tag: 'AmbientOcclusionError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const AmbientOcclusionError = (
+  reason: string,
+  context: string,
+  timestamp: number
+): AmbientOcclusionError => ({
+  _tag: 'AmbientOcclusionError',
+  reason,
+  context,
+  timestamp
+})
+
+export const isAmbientOcclusionError = (error: unknown): error is AmbientOcclusionError =>
+  typeof error === 'object' && 
+  error !== null && 
+  '_tag' in error && 
+  error._tag === 'AmbientOcclusionError'
 
 // ========================================
 // Service Interface
@@ -257,11 +275,11 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
           Effect.try({
             try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
             catch: (error) =>
-              new AmbientOcclusionError({
-                reason: `Failed to calculate vertex AO: ${String(error)}`,
-                context: `calculateVertexAO(${x},${y},${z})`,
-                timestamp: Date.now(),
-              }),
+              AmbientOcclusionError(
+                `Failed to calculate vertex AO: ${String(error)}`,
+                `calculateVertexAO(${x},${y},${z})`,
+                Date.now()
+              ),
           }),
         onFalse: () => Effect.succeed(1.0),
       })
@@ -274,11 +292,11 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
           Effect.try({
             try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
             catch: (error) =>
-              new AmbientOcclusionError({
-                reason: `Failed to calculate face AO: ${String(error)}`,
-                context: `calculateFaceAO(${face})`,
-                timestamp: Date.now(),
-              }),
+              AmbientOcclusionError(
+                `Failed to calculate face AO: ${String(error)}`,
+                `calculateFaceAO(${face})`,
+                Date.now()
+              ),
           }),
         onFalse: () =>
           Effect.succeed<AOFace>({
@@ -353,11 +371,11 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
         return finalVertices
       },
       catch: (error) =>
-        new AmbientOcclusionError({
-          reason: `Failed to apply AO to chunk: ${String(error)}`,
-          context: 'applyAOToChunk',
-          timestamp: Date.now(),
-        }),
+        AmbientOcclusionError(
+          `Failed to apply AO to chunk: ${String(error)}`,
+          'applyAOToChunk',
+          Date.now()
+        ),
     }),
 })
 
