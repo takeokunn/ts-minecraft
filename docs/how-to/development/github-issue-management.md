@@ -323,9 +323,7 @@ describe('Property-based Tests', () => {
       yield* Effect.promise(() =>
         fc.assert(
           fc.asyncProperty(fc.string(), async (input) => {
-            const result = await Effect.runPromise(
-              service.process(input).pipe(Effect.provide(MyServiceLive))
-            )
+            const result = await Effect.runPromise(service.process(input).pipe(Effect.provide(MyServiceLive)))
             // 不変条件の検証
             expect(result.length).toBeGreaterThanOrEqual(0)
           })
@@ -355,10 +353,9 @@ describe('Service Integration', () => {
       const serviceB = yield* ServiceB
 
       // 複数の操作を並行実行
-      const [resultA, resultB] = yield* Effect.all([
-        serviceA.operation1(),
-        serviceB.operation2()
-      ], { concurrency: 'unbounded' })
+      const [resultA, resultB] = yield* Effect.all([serviceA.operation1(), serviceB.operation2()], {
+        concurrency: 'unbounded',
+      })
 
       expect(resultA).toBeDefined()
       expect(resultB).toBeDefined()

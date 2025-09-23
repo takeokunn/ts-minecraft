@@ -272,11 +272,7 @@ describe('Player Properties', () => {
 ```typescript
 describe('Complete Coverage Testing', () => {
   // Effect-TS Layer設定
-  const TestLayers = Layer.mergeAll(
-    TestPlayerServiceLive,
-    TestInventoryServiceLive,
-    TestLoggerServiceLive
-  )
+  const TestLayers = Layer.mergeAll(TestPlayerServiceLive, TestInventoryServiceLive, TestLoggerServiceLive)
 
   // 1. 正常系
   describe('Success paths', () => {
@@ -286,9 +282,7 @@ describe('Complete Coverage Testing', () => {
         return yield* service.create(validPlayerData)
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(TestLayers))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayers)))
 
       expect(result._tag).toBe('Player')
       expect(result.health).toBe(100)
@@ -379,13 +373,7 @@ export default defineConfig({
       enabled: true,
       all: true,
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/__test__/**',
-        'src/**/*.spec.ts',
-        'src/**/*.test.ts',
-        'src/**/index.ts',
-        'src/types/**'
-      ],
+      exclude: ['src/**/__test__/**', 'src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/index.ts', 'src/types/**'],
       thresholds: {
         statements: 100,
         branches: 100,
@@ -413,18 +401,24 @@ export default defineConfig({
 // ❌ 絶対禁止
 const player = data as any
 const result = service.create(data as PlayerData)
-const mockServiceLayer = Layer.succeed(PlayerService, PlayerService.of({
-  create: () => Effect.succeed(mockPlayer),
-  findById: () => Effect.succeed(mockPlayer)
-}))
+const mockServiceLayer = Layer.succeed(
+  PlayerService,
+  PlayerService.of({
+    create: () => Effect.succeed(mockPlayer),
+    findById: () => Effect.succeed(mockPlayer),
+  })
+)
 
 // ✅ 必須: 型推論または明示的な型定義
 const player = Schema.decodeUnknownSync(PlayerSchema)(data)
 const result = await service.create(validatedData)
-const mockPlayerService = Layer.succeed(PlayerService, PlayerService.of({
-  create: (data: PlayerData) => Effect.succeed(player),
-  findById: (id: PlayerId) => Effect.succeed(player)
-}))
+const mockPlayerService = Layer.succeed(
+  PlayerService,
+  PlayerService.of({
+    create: (data: PlayerData) => Effect.succeed(player),
+    findById: (id: PlayerId) => Effect.succeed(player),
+  })
+)
 ```
 
 ### テスト品質の低下を防ぐ

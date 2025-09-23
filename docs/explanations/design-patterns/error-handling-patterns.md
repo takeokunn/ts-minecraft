@@ -1000,36 +1000,39 @@ describe('Error Handling Patterns', () => {
   )
 
   // サーキットブレーカー状態遷移のテスト
-  it.effect('should handle circuit breaker state transitions', () =>
-    Effect.gen(function* () {
-      const { callWithCircuitBreaker } = yield* createCircuitBreakerService('test-service', {
-        threshold: 2,
-        cooldownMs: 100,
-        halfOpenMaxAttempts: 1,
-      })
+  it.effect(
+    'should handle circuit breaker state transitions',
+    () =>
+      Effect.gen(function* () {
+        const { callWithCircuitBreaker } = yield* createCircuitBreakerService('test-service', {
+          threshold: 2,
+          cooldownMs: 100,
+          halfOpenMaxAttempts: 1,
+        })
 
-      let callCount = 0
-      const flakyService = Effect.gen(function* () {
-        callCount++
-        if (callCount <= 2) {
-          return yield* Effect.fail(new Error('Service unavailable'))
-        }
-        return yield* Effect.succeed('Service OK')
-      })
+        let callCount = 0
+        const flakyService = Effect.gen(function* () {
+          callCount++
+          if (callCount <= 2) {
+            return yield* Effect.fail(new Error('Service unavailable'))
+          }
+          return yield* Effect.succeed('Service OK')
+        })
 
-      // 最初の2回の呼び出しは失敗してサーキットがオープンになる
-      yield* Effect.either(callWithCircuitBreaker(flakyService))
-      yield* Effect.either(callWithCircuitBreaker(flakyService))
+        // 最初の2回の呼び出しは失敗してサーキットがオープンになる
+        yield* Effect.either(callWithCircuitBreaker(flakyService))
+        yield* Effect.either(callWithCircuitBreaker(flakyService))
 
-      // 3回目は即座に失敗（サーキットオープン）
-      const circuitOpenResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
-      expect(Either.isLeft(circuitOpenResult)).toBe(true)
+        // 3回目は即座に失敗（サーキットオープン）
+        const circuitOpenResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+        expect(Either.isLeft(circuitOpenResult)).toBe(true)
 
-      // クールダウン後、サーキットがハーフオープンになって成功
-      yield* Effect.sleep('150 millis')
-      const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
-      expect(Either.isRight(recoveryResult)).toBe(true)
-    }), { timeout: 10000 }
+        // クールダウン後、サーキットがハーフオープンになって成功
+        yield* Effect.sleep('150 millis')
+        const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
+        expect(Either.isRight(recoveryResult)).toBe(true)
+      }),
+    { timeout: 10000 }
   )
 })
 ```

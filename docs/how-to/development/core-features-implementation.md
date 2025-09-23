@@ -189,12 +189,7 @@ describe('World-Player Integration', () => {
     const world = await createTestWorld()
     const player = await createTestPlayer(position)
 
-    const result = await Effect.runPromise(
-      pipe(
-        movePlayer(player, { x: 1, y: 0, z: 0 }),
-        Effect.provide(world)
-      )
-    )
+    const result = await Effect.runPromise(pipe(movePlayer(player, { x: 1, y: 0, z: 0 }), Effect.provide(world)))
 
     expect(result.position.x).toBe(position.x + 1)
   })
