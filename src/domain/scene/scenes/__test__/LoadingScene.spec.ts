@@ -13,7 +13,6 @@ const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effec
 const runEither = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.either(effect))
 
 describe('LoadingScene', () => {
-
   describe('初期化', () => {
     it('シーンデータが正しく設定される', () =>
       runEffect(
@@ -311,8 +310,8 @@ describe('LoadingScene', () => {
           yield* scene.update(1250) // 25%まで (初期タスク)
           yield* scene.update(1250) // 50%まで (ワールド生成)
           yield* scene.update(1250) // 75%まで (テクスチャ読み込み)
-          yield* scene.update(750)  // 90%まで (チャンク生成)
-          yield* scene.update(500)  // 100%まで (最終処理)
+          yield* scene.update(750) // 90%まで (チャンク生成)
+          yield* scene.update(500) // 100%まで (最終処理)
         })
       ))
 

@@ -47,7 +47,10 @@ describe('World Generation Types', () => {
       ]
 
       for (const [index, vector] of invalidVectors.entries()) {
-        expect(() => Schema.decodeUnknownSync(Vector3Schema)(vector), `Test case ${index}: ${JSON.stringify(vector)}`).toThrow()
+        expect(
+          () => Schema.decodeUnknownSync(Vector3Schema)(vector),
+          `Test case ${index}: ${JSON.stringify(vector)}`
+        ).toThrow()
       }
     })
 
@@ -536,7 +539,9 @@ describe('World Generation Types', () => {
               }),
             }),
             metadata: fc.dictionary(
-              fc.string({ minLength: 1, maxLength: 20 }),
+              fc
+                .string({ minLength: 1, maxLength: 20 })
+                .filter((key) => !['__proto__', 'constructor', 'prototype'].includes(key)),
               fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null))
             ),
           }),
@@ -544,7 +549,15 @@ describe('World Generation Types', () => {
             expect(() => Schema.decodeUnknownSync(StructureSchema)(structure)).not.toThrow()
 
             const decoded = Schema.decodeUnknownSync(StructureSchema)(structure)
-            expect(decoded).toEqual(structure)
+            // metadataのプロトタイプの違いを無視して比較
+            expect(decoded.type).toEqual(structure.type)
+            expect(decoded.position).toEqual(structure.position)
+            expect(decoded.boundingBox).toEqual(structure.boundingBox)
+            // metadataの内容を比較（プロトタイプの違いは無視）
+            expect(Object.keys(decoded.metadata)).toEqual(Object.keys(structure.metadata))
+            for (const key of Object.keys(structure.metadata)) {
+              expect(decoded.metadata[key]).toEqual(structure.metadata[key])
+            }
           }
         ),
         { numRuns: 50 }

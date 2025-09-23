@@ -1,11 +1,35 @@
-import { Schema } from 'effect'
+export interface InitError {
+  readonly _tag: 'InitError'
+  readonly message: string
+  readonly cause?: unknown
+}
 
-export class InitError extends Schema.TaggedError<InitError>()('InitError', {
-  message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
-}) {}
+export const InitError = (message: string, cause?: unknown): InitError => {
+  const error = Object.create(Error.prototype)
+  error._tag = 'InitError'
+  error.message = message
+  if (cause !== undefined) {
+    error.cause = cause
+  }
+  return error
+}
 
-export class ConfigError extends Schema.TaggedError<ConfigError>()('ConfigError', {
-  message: Schema.String,
-  path: Schema.String,
-}) {}
+export const isInitError = (error: unknown): error is InitError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'InitError'
+
+export interface ConfigError {
+  readonly _tag: 'ConfigError'
+  readonly message: string
+  readonly path: string
+}
+
+export const ConfigError = (message: string, path: string): ConfigError => {
+  const error = Object.create(Error.prototype)
+  error._tag = 'ConfigError'
+  error.message = message
+  error.path = path
+  return error
+}
+
+export const isConfigError = (error: unknown): error is ConfigError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ConfigError'

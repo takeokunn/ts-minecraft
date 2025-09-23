@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Schema, Option, pipe, Array as A, Record as R } from 'effect'
+import { Effect, Context, Layer, Schema, Option, Match, pipe, Array as A, Record as R } from 'effect'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
 
 // ========================================
@@ -26,11 +26,22 @@ export interface GreedyMeshingConfig {
 // Error Definitions
 // ========================================
 
-export class GreedyMeshingError extends Schema.TaggedError<GreedyMeshingError>()('GreedyMeshingError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface GreedyMeshingError {
+  readonly _tag: 'GreedyMeshingError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const GreedyMeshingError = (reason: string, context: string, timestamp: number): GreedyMeshingError => ({
+  _tag: 'GreedyMeshingError',
+  reason,
+  context,
+  timestamp,
+})
+
+export const isGreedyMeshingError = (error: unknown): error is GreedyMeshingError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GreedyMeshingError'
 
 // ========================================
 // Service Interface
@@ -48,19 +59,25 @@ export const GreedyMeshingService = Context.GenericTag<GreedyMeshingService>('@m
 // Helper Functions (Pure Functions)
 // ========================================
 
-const getBlock = (blocks: number[][][], x: number, y: number, z: number, size: number): BlockType => {
-  if (x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size) {
-    return 0
-  }
-  return Option.fromNullable(blocks[x]?.[y]?.[z]).pipe(Option.getOrElse(() => 0))
-}
+const getBlock = (blocks: number[][][], x: number, y: number, z: number, size: number): BlockType =>
+  pipe(
+    Match.value({ x, y, z }),
+    Match.when(
+      ({ x, y, z }) => x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size,
+      () => 0
+    ),
+    Match.orElse(() => Option.fromNullable(blocks[x]?.[y]?.[z]).pipe(Option.getOrElse(() => 0)))
+  )
 
-const compareBlocks = (a: BlockType, b: BlockType): boolean => {
-  if (a === 0 || b === 0) {
-    return a === b
-  }
-  return a === b
-}
+const compareBlocks = (a: BlockType, b: BlockType): boolean =>
+  pipe(
+    Match.value({ a, b }),
+    Match.when(
+      ({ a, b }) => a === 0 || b === 0,
+      ({ a, b }) => a === b
+    ),
+    Match.orElse(({ a, b }) => a === b)
+  )
 
 const createQuad = (
   x: number,
@@ -72,18 +89,16 @@ const createQuad = (
   blockType: BlockType,
   forward: boolean
 ): Quad => {
-  const getNormal = (axis: number, forward: boolean): readonly [number, number, number] => {
-    switch (axis) {
-      case 0:
-        return forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const)
-      case 1:
-        return forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const)
-      case 2:
-        return forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const)
-      default:
-        throw new Error(`Invalid axis: ${axis}`)
-    }
-  }
+  // 軸方向と向きに基づく法線ベクトルを決定（Match.valueパターン使用）
+  const getNormal = (axis: number, forward: boolean): readonly [number, number, number] =>
+    Match.value(axis).pipe(
+      Match.when(0, () => (forward ? ([1, 0, 0] as const) : ([-1, 0, 0] as const))),
+      Match.when(1, () => (forward ? ([0, 1, 0] as const) : ([0, -1, 0] as const))),
+      Match.when(2, () => (forward ? ([0, 0, 1] as const) : ([0, 0, -1] as const))),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
 
   return {
     x,
@@ -113,30 +128,37 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
       for (let i = 0; i < size; i++) {
         const [x1, y1, z1] = axis === 0 ? [d - 1, i, j] : axis === 1 ? [i, d - 1, j] : [i, j, d - 1]
         const [x2, y2, z2] = axis === 0 ? [d, i, j] : axis === 1 ? [i, d, j] : [i, j, d]
-        
+
         const block1 = getBlock(blocks, x1, y1, z1, size)
         const block2 = getBlock(blocks, x2, y2, z2, size)
-        
-        // 面が表示される条件
-        let faceBlock: BlockType = 0
-        if (block1 !== 0 && block2 === 0) {
-          faceBlock = block1 // 正方向の面
-        } else if (block1 === 0 && block2 !== 0) {
-          faceBlock = -block2 // 負方向の面（負の値で区別）
-        }
-        
+
+        // Match.valueパターンを使用して面表示条件を判定
+        const faceBlock = pipe(
+          { block1, block2 },
+          Match.value,
+          Match.when(
+            ({ block1, block2 }) => block1 !== 0 && block2 === 0,
+            ({ block1 }) => block1
+          ), // 正方向の面
+          Match.when(
+            ({ block1, block2 }) => block1 === 0 && block2 !== 0,
+            ({ block2 }) => -block2
+          ), // 負方向の面（負の値で区別）
+          Match.orElse(() => 0) // その他の場合は面を表示しない
+        )
+
         mask.push(faceBlock)
       }
     }
 
     // マスクをもとにGreedy Meshingを実行
     const processedMask = [...mask]
-    
+
     for (let j = 0; j < size; j++) {
       for (let i = 0; i < size; i++) {
         const index = j * size + i
         const blockType = processedMask[index]
-        
+
         if (blockType === 0) continue
 
         // 幅方向（i軸）への拡張
@@ -163,28 +185,29 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         // クアッドを作成
         const isPositive = (blockType ?? 0) > 0
         const actualBlockType = Math.abs(blockType ?? 0)
-        
-        // 位置計算を修正（常に非負の値を保証）
-        let quadX: number, quadY: number, quadZ: number
-        
-        if (axis === 0) {
-          quadX = isPositive ? d : Math.max(0, d - 1)
-          quadY = i
-          quadZ = j
-        } else if (axis === 1) {
-          quadX = i
-          quadY = isPositive ? d : Math.max(0, d - 1)
-          quadZ = j
-        } else {
-          quadX = i
-          quadY = j
-          quadZ = isPositive ? d : Math.max(0, d - 1)
-        }
-        
-        quads.push(createQuad(
-          quadX, quadY, quadZ,
-          width, height, axis, actualBlockType, isPositive
-        ))
+
+        // Match.valueパターンを使用して位置計算
+        const { quadX, quadY, quadZ } = pipe(
+          axis,
+          Match.value,
+          Match.when(0, () => ({
+            quadX: isPositive ? d : Math.max(0, d - 1),
+            quadY: i,
+            quadZ: j,
+          })),
+          Match.when(1, () => ({
+            quadX: i,
+            quadY: isPositive ? d : Math.max(0, d - 1),
+            quadZ: j,
+          })),
+          Match.orElse(() => ({
+            quadX: i,
+            quadY: j,
+            quadZ: isPositive ? d : Math.max(0, d - 1),
+          }))
+        )
+
+        quads.push(createQuad(quadX, quadY, quadZ, width, height, axis, actualBlockType, isPositive))
 
         // 使用したマスクエリアをクリア
         for (let h = 0; h < height; h++) {
@@ -214,44 +237,46 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
   for (const quad of quads) {
     const { x, y, z, width, height, axis, normal } = quad
 
-    // Calculate quad vertices based on axis and dimensions
-    const [quadVertices, quadUvs]: [number[], number[]] = (() => {
-      switch (axis) {
-        case 0:
-          // X-axis facing quad (YZ plane)
-          return [
-            [x, y, z, x, y + height, z, x, y + height, z + width, x, y, z + width],
-            [0, 0, 0, height, width, height, width, 0],
-          ]
-        case 1:
-          // Y-axis facing quad (XZ plane)
-          return [
-            [x, y, z, x + width, y, z, x + width, y, z + height, x, y, z + height],
-            [0, 0, width, 0, width, height, 0, height],
-          ]
-        case 2:
-          // Z-axis facing quad (XY plane)
-          return [
-            [x, y, z, x + width, y, z, x + width, y + height, z, x, y + height, z],
-            [0, 0, width, 0, width, height, 0, height],
-          ]
-        default:
-          throw new Error(`Invalid axis: ${axis}`)
-      }
-    })()
+    // 軸に基づくクアッド頂点とUV座標の計算（Match.valueパターン使用）
+    const quadVertices: number[] = Match.value(axis).pipe(
+      Match.when(0, () =>
+        // X軸方向のクアッド（YZ平面）
+        [x, y, z, x, y + height, z, x, y + height, z + width, x, y, z + width]
+      ),
+      Match.when(1, () =>
+        // Y軸方向のクアッド（XZ平面）
+        [x, y, z, x + width, y, z, x + width, y, z + height, x, y, z + height]
+      ),
+      Match.when(2, () =>
+        // Z軸方向のクアッド（XY平面）
+        [x, y, z, x + width, y, z, x + width, y + height, z, x, y + height, z]
+      ),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
 
-    // Add vertices
+    const quadUvs: number[] = Match.value(axis).pipe(
+      Match.when(0, () => [0, 0, 0, height, width, height, width, 0]),
+      Match.when(1, () => [0, 0, width, 0, width, height, 0, height]),
+      Match.when(2, () => [0, 0, width, 0, width, height, 0, height]),
+      Match.orElse((invalidAxis) => {
+        throw new Error(`Invalid axis: ${invalidAxis}`)
+      })
+    )
+
+    // 頂点座標を追加
     vertices.push(...quadVertices)
 
-    // Add normals (same for all 4 vertices of the quad)
+    // 法線ベクトルを追加（クアッドの4つの頂点すべてに同じ法線）
     for (let i = 0; i < 4; i++) {
       normals.push(...normal)
     }
 
-    // Add UVs
+    // UV座標を追加
     uvs.push(...quadUvs)
 
-    // Add indices for two triangles
+    // インデックスを追加（2つの三角形で構成）
     indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3)
 
     vertexOffset += 4
@@ -281,11 +306,7 @@ const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, Greed
         return quadsToMeshData(allQuads)
       },
       catch: (error) =>
-        new GreedyMeshingError({
-          reason: `Failed to generate greedy mesh: ${String(error)}`,
-          context: 'generateGreedyMesh',
-          timestamp: Date.now(),
-        }),
+        GreedyMeshingError(`Failed to generate greedy mesh: ${String(error)}`, 'generateGreedyMesh', Date.now()),
     })
   )
 
@@ -304,7 +325,7 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
           if (!chunkData || !chunkData.blocks || chunkData.size <= 0) {
             throw new Error('Invalid chunk data: missing blocks or invalid size')
           }
-          
+
           const allQuads: Quad[] = []
           const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
 
@@ -315,12 +336,7 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
 
           return allQuads
         },
-        catch: (error) =>
-          new GreedyMeshingError({
-            reason: `Failed to generate quads: ${String(error)}`,
-            context: 'generateQuads',
-            timestamp: Date.now(),
-          }),
+        catch: (error) => GreedyMeshingError(`Failed to generate quads: ${String(error)}`, 'generateQuads', Date.now()),
       })
     ),
 
@@ -344,9 +360,11 @@ export const GreedyMeshingLive = Layer.succeed(
 // Utility Exports
 // ========================================
 
-export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number => {
-  if (originalVertexCount === 0) {
-    return 0
-  }
-  return ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100
-}
+export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number =>
+  pipe(
+    Match.value(originalVertexCount === 0).pipe(
+      Match.when(true, () => 0),
+      Match.when(false, () => ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100),
+      Match.exhaustive
+    )
+  )

@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema, Layer } from 'effect'
+import { Effect, Either, Schema, Layer, pipe } from 'effect'
 import {
   ConfigService,
   ConfigServiceLive,
@@ -17,14 +17,20 @@ describe('ConfigService', () => {
         const service = yield* ConfigService
 
         // 無効なconfig keyでupdateConfigを呼び出す
-        const result = yield* Effect.either(
-          service.updateConfig('invalidKey' as any, {} as any)
-        )
+        const result = yield* Effect.either(service.updateConfig('invalidKey' as any, {} as any))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect((result.left as Error).message).toContain('Unknown config key: invalidKey')
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: (error) => {
+              expect((error as Error).message).toContain('Unknown config key: invalidKey')
+            },
+            onRight: () => {
+              // 失敗ケースなので到達しない
+            },
+          })
+        )
       }).pipe(Effect.provide(ConfigServiceLive))
     )
 
@@ -434,5 +440,4 @@ describe('ConfigService', () => {
       expect(() => Effect.runSync(invalidResult)).toThrow()
     })
   })
-
 })

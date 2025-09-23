@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Schema, Effect, pipe } from 'effect'
+import { Schema, Effect, Either, pipe } from 'effect'
 import {
   GameErrorSchema,
   createGameError,
@@ -99,13 +99,21 @@ describe('Effect-TS Configuration', () => {
       const result = await Effect.runPromise(Effect.either(effect))
 
       expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(EffectConfig.isGameError(result.left)).toBe(true)
-        if (EffectConfig.isGameError(result.left)) {
-          expect(result.left.message).toBe('Test error')
-          expect(result.left.code).toBe('TEST_CODE')
-        }
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: (error) => {
+            expect(EffectConfig.isGameError(error)).toBe(true)
+            if (EffectConfig.isGameError(error)) {
+              expect(error.message).toBe('Test error')
+              expect(error.code).toBe('TEST_CODE')
+            }
+          },
+          onRight: () => {
+            // 失敗ケースなので到達しない
+          },
+        })
+      )
     })
 
     it('should identify GameError correctly', () => {
@@ -178,12 +186,20 @@ describe('Effect-TS Configuration', () => {
       const invalidResult = await Effect.runPromise(Effect.either(invalidEffect))
 
       expect(invalidResult._tag).toBe('Left')
-      if (invalidResult._tag === 'Left') {
-        expect(EffectConfig.isGameError(invalidResult.left)).toBe(true)
-        if (EffectConfig.isGameError(invalidResult.left)) {
-          expect(invalidResult.left.code).toBe('VALIDATION_ERROR')
-        }
-      }
+      pipe(
+        invalidResult,
+        Either.match({
+          onLeft: (error) => {
+            expect(EffectConfig.isGameError(error)).toBe(true)
+            if (EffectConfig.isGameError(error)) {
+              expect(error.code).toBe('VALIDATION_ERROR')
+            }
+          },
+          onRight: () => {
+            // 失敗ケースなので到達しない
+          },
+        })
+      )
     })
 
     it('should validate data with schemas', () => {
@@ -322,63 +338,6 @@ describe('Effect-TS Configuration', () => {
       expect(() => BrandedTypes.createBlockTypeId(-1)).toThrow()
       expect(() => BrandedTypes.createBlockTypeId(0)).toThrow()
       expect(() => BrandedTypes.createBlockTypeId(1.5)).toThrow()
-    })
-  })
-
-  describe('Tagged Error Utility', () => {
-    it('should create tagged errors using taggedError utility', async () => {
-      const { taggedError } = await import('../effect')
-
-      const TestError = taggedError('TestError')({
-        message: Schema.String,
-        code: Schema.Number,
-      })
-
-      const errorInstance = {
-        _tag: 'TestError',
-        message: 'Test message',
-        code: 123,
-      }
-
-      expect(errorInstance._tag).toBe('TestError')
-      expect(errorInstance.message).toBe('Test message')
-      expect(errorInstance.code).toBe(123)
-    })
-
-    it('should create tagged errors with multiple fields', async () => {
-      const { taggedError } = await import('../effect')
-
-      const ComplexError = taggedError('ComplexError')({
-        message: Schema.String,
-        details: Schema.Object,
-        timestamp: Schema.Date,
-        severity: Schema.Literal('low', 'medium', 'high'),
-      })
-
-      const errorInstance = {
-        _tag: 'ComplexError',
-        message: 'Complex error occurred',
-        details: { field: 'value' },
-        timestamp: new Date(),
-        severity: 'high' as const,
-      }
-
-      expect(errorInstance._tag).toBe('ComplexError')
-      expect(errorInstance.message).toBe('Complex error occurred')
-      expect(errorInstance.details).toEqual({ field: 'value' })
-      expect(errorInstance.severity).toBe('high')
-    })
-
-    it('should handle empty fields object', async () => {
-      const { taggedError } = await import('../effect')
-
-      const SimpleError = taggedError('SimpleError')({})
-
-      const errorInstance = {
-        _tag: 'SimpleError',
-      }
-
-      expect(errorInstance._tag).toBe('SimpleError')
     })
   })
 

@@ -201,5 +201,4 @@ describe('MainMenuScene', () => {
       })
     )
   })
-
 })

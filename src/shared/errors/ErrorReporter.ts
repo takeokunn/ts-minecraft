@@ -7,36 +7,46 @@ export const ErrorReporter = {
   /**
    * エラーを構造化された形式でフォーマット
    */
-  format: (error: unknown): string => {
-    if (error !== null && typeof error === 'object' && '_tag' in error) {
-      const taggedError = error as { _tag: string; message?: string; [key: string]: unknown }
-      return JSON.stringify(
-        {
-          type: taggedError._tag,
-          message: taggedError.message,
-          details: taggedError,
-          timestamp: new Date().toISOString(),
-        },
-        null,
-        2
-      )
-    }
-    return String(error)
-  },
+  format: (error: unknown): string =>
+    pipe(
+      Option.fromNullable(error),
+      Option.filter((e: unknown): e is object => typeof e === 'object'),
+      Option.filter(
+        (e: unknown): e is { _tag: string; message?: string; [key: string]: unknown } =>
+          e !== null && typeof e === 'object' && '_tag' in e
+      ),
+      Option.match({
+        onNone: () => String(error),
+        onSome: (taggedError) =>
+          JSON.stringify(
+            {
+              type: taggedError._tag,
+              message: taggedError.message,
+              details: taggedError,
+              timestamp: new Date().toISOString(),
+            },
+            null,
+            2
+          ),
+      })
+    ),
 
   /**
    * エラースタックトレースを取得
    */
-  getStackTrace: (error: unknown): string | undefined => {
-    if (error instanceof Error) {
-      return error.stack
-    }
-    if (error !== null && typeof error === 'object' && 'stack' in error) {
-      const stackError = error as { stack: unknown }
-      return String(stackError.stack)
-    }
-    return undefined
-  },
+  getStackTrace: (error: unknown): string | undefined =>
+    pipe(
+      Match.value(error),
+      Match.when(
+        (e: unknown): e is Error => e instanceof Error,
+        (e: Error) => e.stack
+      ),
+      Match.when(
+        (e: unknown): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
+        (e: { stack: unknown }) => String(e.stack)
+      ),
+      Match.orElse(() => undefined)
+    ),
 
   /**
    * エラーの原因チェーンを取得

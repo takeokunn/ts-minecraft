@@ -28,11 +28,22 @@ export interface AOConfig {
 // Error Definitions
 // ========================================
 
-export class AmbientOcclusionError extends Schema.TaggedError<AmbientOcclusionError>()('AmbientOcclusionError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface AmbientOcclusionError {
+  readonly _tag: 'AmbientOcclusionError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const AmbientOcclusionError = (reason: string, context: string, timestamp: number): AmbientOcclusionError => ({
+  _tag: 'AmbientOcclusionError',
+  reason,
+  context,
+  timestamp,
+})
+
+export const isAmbientOcclusionError = (error: unknown): error is AmbientOcclusionError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'AmbientOcclusionError'
 
 // ========================================
 // Service Interface
@@ -128,60 +139,80 @@ const calculateFaceAOPure = (
   size: number,
   config: AOConfig
 ): AOFace => {
-  // Define vertex offsets for each face
-  const getVertexOffsets = (face: string): [number, number, number][] => {
-    switch (face) {
-      case 'top':
-        return [
-          [0, 1, 0],
-          [1, 1, 0],
-          [1, 1, 1],
-          [0, 1, 1],
-        ] as [number, number, number][]
-      case 'bottom':
-        return [
-          [0, 0, 0],
-          [0, 0, 1],
-          [1, 0, 1],
-          [1, 0, 0],
-        ] as [number, number, number][]
-      case 'front':
-        return [
-          [0, 0, 1],
-          [1, 0, 1],
-          [1, 1, 1],
-          [0, 1, 1],
-        ] as [number, number, number][]
-      case 'back':
-        return [
-          [1, 0, 0],
-          [0, 0, 0],
-          [0, 1, 0],
-          [1, 1, 0],
-        ] as [number, number, number][]
-      case 'left':
-        return [
-          [0, 0, 0],
-          [0, 0, 1],
-          [0, 1, 1],
-          [0, 1, 0],
-        ] as [number, number, number][]
-      case 'right':
-        return [
-          [1, 0, 1],
-          [1, 0, 0],
-          [1, 1, 0],
-          [1, 1, 1],
-        ] as [number, number, number][]
-      default:
-        return [
-          [0, 0, 0],
-          [1, 0, 0],
-          [1, 1, 0],
-          [0, 1, 0],
-        ] as [number, number, number][]
-    }
-  }
+  // Define vertex offsets for each face using Match.value pattern
+  const getVertexOffsets = (face: string): [number, number, number][] =>
+    pipe(
+      Match.value(face),
+      Match.when(
+        'top',
+        () =>
+          [
+            [0, 1, 0],
+            [1, 1, 0],
+            [1, 1, 1],
+            [0, 1, 1],
+          ] as [number, number, number][]
+      ),
+      Match.when(
+        'bottom',
+        () =>
+          [
+            [0, 0, 0],
+            [0, 0, 1],
+            [1, 0, 1],
+            [1, 0, 0],
+          ] as [number, number, number][]
+      ),
+      Match.when(
+        'front',
+        () =>
+          [
+            [0, 0, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+            [0, 1, 1],
+          ] as [number, number, number][]
+      ),
+      Match.when(
+        'back',
+        () =>
+          [
+            [1, 0, 0],
+            [0, 0, 0],
+            [0, 1, 0],
+            [1, 1, 0],
+          ] as [number, number, number][]
+      ),
+      Match.when(
+        'left',
+        () =>
+          [
+            [0, 0, 0],
+            [0, 0, 1],
+            [0, 1, 1],
+            [0, 1, 0],
+          ] as [number, number, number][]
+      ),
+      Match.when(
+        'right',
+        () =>
+          [
+            [1, 0, 1],
+            [1, 0, 0],
+            [1, 1, 0],
+            [1, 1, 1],
+          ] as [number, number, number][]
+      ),
+      Match.orElse(
+        () =>
+          [
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0],
+          ] as [number, number, number][]
+      )
+    )
 
   const offsets = getVertexOffsets(face)
 
@@ -257,11 +288,11 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
           Effect.try({
             try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
             catch: (error) =>
-              new AmbientOcclusionError({
-                reason: `Failed to calculate vertex AO: ${String(error)}`,
-                context: `calculateVertexAO(${x},${y},${z})`,
-                timestamp: Date.now(),
-              }),
+              AmbientOcclusionError(
+                `Failed to calculate vertex AO: ${String(error)}`,
+                `calculateVertexAO(${x},${y},${z})`,
+                Date.now()
+              ),
           }),
         onFalse: () => Effect.succeed(1.0),
       })
@@ -274,11 +305,11 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
           Effect.try({
             try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
             catch: (error) =>
-              new AmbientOcclusionError({
-                reason: `Failed to calculate face AO: ${String(error)}`,
-                context: `calculateFaceAO(${face})`,
-                timestamp: Date.now(),
-              }),
+              AmbientOcclusionError(
+                `Failed to calculate face AO: ${String(error)}`,
+                `calculateFaceAO(${face})`,
+                Date.now()
+              ),
           }),
         onFalse: () =>
           Effect.succeed<AOFace>({
@@ -294,71 +325,82 @@ const makeService = (config: AOConfig): AmbientOcclusionService => ({
     ),
 
   applyAOToChunk: (chunkData) =>
-    Effect.try({
-      try: () => {
-        if (!config.enabled) {
-          return []
-        }
-
-        // Calculate AO for all solid block vertices using Effect-TS patterns
-        const aoVertices = pipe(
-          A.range(0, chunkData.size - 1),
-          A.flatMap((x) =>
-            pipe(
+    pipe(
+      config.enabled,
+      Match.value,
+      Match.when(false, () => Effect.succeed([] as readonly AOVertex[])),
+      Match.when(true, () =>
+        Effect.try({
+          try: () => {
+            // Calculate AO for all solid block vertices using Effect-TS patterns
+            const aoVertices = pipe(
               A.range(0, chunkData.size - 1),
-              A.flatMap((y) =>
+              A.flatMap((x) =>
                 pipe(
                   A.range(0, chunkData.size - 1),
-                  A.flatMap((z) => {
-                    const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
+                  A.flatMap((y) =>
+                    pipe(
+                      A.range(0, chunkData.size - 1),
+                      A.flatMap((z) => {
+                        const blockType = chunkData.blocks[x]?.[y]?.[z] ?? 0
 
-                    if (blockType === 0) {
-                      return []
-                    } else {
-                      const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
-                        'top',
-                        'bottom',
-                        'front',
-                        'back',
-                        'left',
-                        'right',
-                      ]
+                        // Match.valueパターンを使用してブロック種別チェック
+                        return pipe(
+                          blockType,
+                          Match.value,
+                          Match.when(0, () => []), // 空気ブロックの場合は空配列
+                          Match.orElse(() => {
+                            // ソリッドブロックの場合はAO計算
+                            const faces: Array<'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'> = [
+                              'top',
+                              'bottom',
+                              'front',
+                              'back',
+                              'left',
+                              'right',
+                            ]
 
-                      return pipe(
-                        faces,
-                        A.flatMap((face) => {
-                          const aoFace = calculateFaceAOPure(
-                            chunkData.blocks.map((layer) => layer.map((row) => [...row])),
-                            x,
-                            y,
-                            z,
-                            face,
-                            chunkData.size,
-                            config
-                          )
-                          return Array.from(aoFace.vertices)
-                        })
-                      )
-                    }
-                  })
+                            return pipe(
+                              faces,
+                              A.flatMap((face) => {
+                                const aoFace = calculateFaceAOPure(
+                                  chunkData.blocks.map((layer) => layer.map((row) => [...row])),
+                                  x,
+                                  y,
+                                  z,
+                                  face,
+                                  chunkData.size,
+                                  config
+                                )
+                                return Array.from(aoFace.vertices)
+                              })
+                            )
+                          })
+                        )
+                      })
+                    )
+                  )
                 )
               )
             )
-          )
-        )
 
-        // Apply smoothing if enabled
-        const finalVertices = config.smoothing ? smoothAOValues(aoVertices) : aoVertices
+            // Apply smoothing if enabled using Match.value pattern
+            const finalVertices = pipe(
+              config.smoothing,
+              Match.value,
+              Match.when(true, () => smoothAOValues(aoVertices)),
+              Match.when(false, () => aoVertices),
+              Match.exhaustive
+            )
 
-        return finalVertices
-      },
-      catch: (error) =>
-        new AmbientOcclusionError({
-          reason: `Failed to apply AO to chunk: ${String(error)}`,
-          context: 'applyAOToChunk',
-          timestamp: Date.now(),
-        }),
-    }),
+            return finalVertices
+          },
+          catch: (error) =>
+            AmbientOcclusionError(`Failed to apply AO to chunk: ${String(error)}`, 'applyAOToChunk', Date.now()),
+        })
+      ),
+      Match.exhaustive
+    ),
 })
 
 // ========================================
@@ -389,15 +431,11 @@ export const getAOQualitySettings = (
 ): {
   sampleRadius: number
   sampleCount: number
-} => {
-  switch (quality) {
-    case 'low':
-      return { sampleRadius: 1, sampleCount: 6 }
-    case 'medium':
-      return { sampleRadius: 1, sampleCount: 14 }
-    case 'high':
-      return { sampleRadius: 2, sampleCount: 26 }
-    default:
-      return { sampleRadius: 1, sampleCount: 14 }
-  }
-}
+} =>
+  pipe(
+    Match.value(quality),
+    Match.when('low', () => ({ sampleRadius: 1, sampleCount: 6 })),
+    Match.when('medium', () => ({ sampleRadius: 1, sampleCount: 14 })),
+    Match.when('high', () => ({ sampleRadius: 2, sampleCount: 26 })),
+    Match.orElse(() => ({ sampleRadius: 1, sampleCount: 14 }))
+  )

@@ -1,15 +1,33 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer } from 'effect'
+import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 
 // エラー定義（Data.TaggedErrorを使用）
-export class BlockNotFoundError extends Data.TaggedError('BlockNotFoundError')<{
+export interface BlockNotFoundError {
+  readonly _tag: 'BlockNotFoundError'
   readonly blockId: string
-}> {}
+}
 
-export class BlockAlreadyRegisteredError extends Data.TaggedError('BlockAlreadyRegisteredError')<{
+export const BlockNotFoundError = (blockId: string): BlockNotFoundError => ({
+  _tag: 'BlockNotFoundError',
+  blockId,
+})
+
+export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockNotFoundError'
+
+export interface BlockAlreadyRegisteredError {
+  readonly _tag: 'BlockAlreadyRegisteredError'
   readonly blockId: string
-}> {}
+}
+
+export const BlockAlreadyRegisteredError = (blockId: string): BlockAlreadyRegisteredError => ({
+  _tag: 'BlockAlreadyRegisteredError',
+  blockId,
+})
+
+export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlreadyRegisteredError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {
@@ -43,18 +61,26 @@ export const BlockRegistryLive = Layer.effect(
     const initializeIndexes = () => {
       // カテゴリーインデックスの構築
       allBlocks.forEach((block) => {
-        if (!categoryIndex.has(block.category)) {
-          categoryIndex.set(block.category, new Set())
-        }
+        pipe(
+          Match.value(categoryIndex.has(block.category)),
+          Match.when(false, () => {
+            categoryIndex.set(block.category, new Set())
+          }),
+          Match.orElse(() => {})
+        )
         categoryIndex.get(block.category)!.add(block.id)
       })
 
       // タグインデックスの構築
       allBlocks.forEach((block) => {
         block.tags.forEach((tag) => {
-          if (!tagIndex.has(tag)) {
-            tagIndex.set(tag, new Set())
-          }
+          pipe(
+            Match.value(tagIndex.has(tag)),
+            Match.when(false, () => {
+              tagIndex.set(tag, new Set())
+            }),
+            Match.orElse(() => undefined)
+          )
           tagIndex.get(tag)!.add(block.id)
         })
       })
@@ -68,7 +94,7 @@ export const BlockRegistryLive = Layer.effect(
         pipe(
           HashMap.get(blockMap, id),
           Option.match({
-            onNone: () => Effect.fail(new BlockNotFoundError({ blockId: id })),
+            onNone: () => Effect.fail(BlockNotFoundError(id)),
             onSome: (block) => Effect.succeed(block),
           })
         ),
@@ -134,24 +160,33 @@ export const BlockRegistryLive = Layer.effect(
       registerBlock: (block: BlockType) =>
         Effect.gen(function* () {
           const exists = HashMap.has(blockMap, block.id)
-          if (exists) {
-            return yield* Effect.fail(new BlockAlreadyRegisteredError({ blockId: block.id }))
-          }
+
+          yield* pipe(
+            exists,
+            Match.value,
+            Match.when(true, () => Effect.fail(BlockAlreadyRegisteredError(block.id))),
+            Match.orElse(() => Effect.void)
+          )
 
           // ブロックマップに追加
           blockMap = HashMap.set(blockMap, block.id, block)
 
           // カテゴリーインデックスに追加
-          if (!categoryIndex.has(block.category)) {
-            categoryIndex.set(block.category, new Set())
-          }
+          yield* pipe(
+            Match.value(!categoryIndex.has(block.category)),
+            Match.when(true, () => Effect.sync(() => categoryIndex.set(block.category, new Set()))),
+            Match.orElse(() => Effect.void)
+          )
           categoryIndex.get(block.category)!.add(block.id)
 
           // タグインデックスに追加
           block.tags.forEach((tag) => {
-            if (!tagIndex.has(tag)) {
-              tagIndex.set(tag, new Set())
-            }
+            pipe(
+              tagIndex.has(tag),
+              Match.value,
+              Match.when(false, () => tagIndex.set(tag, new Set())),
+              Match.orElse(() => undefined)
+            )
             tagIndex.get(tag)!.add(block.id)
           })
         }),

@@ -24,11 +24,22 @@ export interface CullingConfig {
 // Error Definitions
 // ========================================
 
-export class FaceCullingError extends Schema.TaggedError<FaceCullingError>()('FaceCullingError', {
-  reason: Schema.String,
-  context: Schema.String,
-  timestamp: Schema.Number,
-}) {}
+export interface FaceCullingError {
+  readonly _tag: 'FaceCullingError'
+  readonly reason: string
+  readonly context: string
+  readonly timestamp: number
+}
+
+export const FaceCullingError = (reason: string, context: string, timestamp: number): FaceCullingError => ({
+  _tag: 'FaceCullingError',
+  reason,
+  context,
+  timestamp,
+})
+
+export const isFaceCullingError = (error: unknown): error is FaceCullingError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'FaceCullingError'
 
 // ========================================
 // Service Interface
@@ -132,11 +143,11 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
     Effect.try({
       try: () => checkFaceVisibilityPure(blocks, x, y, z, size, config.transparentBlocks),
       catch: (error) =>
-        new FaceCullingError({
-          reason: `Failed to check face visibility: ${String(error)}`,
-          context: `checkFaceVisibility(${x},${y},${z})`,
-          timestamp: Date.now(),
-        }),
+        FaceCullingError(
+          `Failed to check face visibility: ${String(error)}`,
+          `checkFaceVisibility(${x},${y},${z})`,
+          Date.now()
+        ),
     }),
 
   shouldRenderFace: (currentBlock, neighborBlock, transparentBlocks = config.transparentBlocks) =>
@@ -151,11 +162,7 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
       ),
       Effect.catchAll((error) =>
         Effect.fail(
-          new FaceCullingError({
-            reason: `Failed to determine face rendering: ${String(error)}`,
-            context: 'shouldRenderFace',
-            timestamp: Date.now(),
-          })
+          FaceCullingError(`Failed to determine face rendering: ${String(error)}`, 'shouldRenderFace', Date.now())
         )
       )
     ),
@@ -163,42 +170,58 @@ const makeService = (config: CullingConfig): FaceCullingService => ({
   cullHiddenFaces: (chunkData) =>
     Effect.try({
       try: () => {
-        const visibleBlocks: [number, number, number, FaceVisibility][] = []
+        // Create indices for 3D iteration using functional approach
+        const indices = pipe(
+          A.range(0, chunkData.size - 1),
+          A.flatMap((x) =>
+            pipe(
+              A.range(0, chunkData.size - 1),
+              A.flatMap((y) =>
+                pipe(
+                  A.range(0, chunkData.size - 1),
+                  A.map((z) => [x, y, z] as const)
+                )
+              )
+            )
+          )
+        )
+
+        // Convert readonly blocks to mutable for checkFaceVisibilityPure
         const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
 
-        for (let x = 0; x < chunkData.size; x++) {
-          for (let y = 0; y < chunkData.size; y++) {
-            for (let z = 0; z < chunkData.size; z++) {
-              const blockType = mutableBlocks[x]?.[y]?.[z] ?? 0
+        // Use filterMap to process blocks functionally
+        const visibleBlocks = pipe(
+          indices,
+          A.filterMap(([x, y, z]) => {
+            const blockType = mutableBlocks[x]?.[y]?.[z] ?? 0
 
-              // Skip air blocks
-              if (blockType === 0) continue
+            return pipe(
+              Match.value(blockType),
+              Match.when(0, () => Option.none()), // Skip air blocks
+              Match.orElse(() => {
+                const visibility = checkFaceVisibilityPure(
+                  mutableBlocks,
+                  x,
+                  y,
+                  z,
+                  chunkData.size,
+                  config.transparentBlocks
+                )
 
-              const visibility = checkFaceVisibilityPure(
-                mutableBlocks,
-                x,
-                y,
-                z,
-                chunkData.size,
-                config.transparentBlocks
-              )
+                return pipe(
+                  Option.some(countVisibleFaces(visibility)),
+                  Option.filter((visibleCount: number) => visibleCount > 0),
+                  Option.map(() => [x, y, z, visibility] as [number, number, number, FaceVisibility])
+                )
+              })
+            )
+          })
+        )
 
-              // Only include blocks with at least one visible face
-              if (countVisibleFaces(visibility) > 0) {
-                visibleBlocks.push([x, y, z, visibility])
-              }
-            }
-          }
-        }
-
-        return visibleBlocks
+        return visibleBlocks as readonly [number, number, number, FaceVisibility][]
       },
       catch: (error) =>
-        new FaceCullingError({
-          reason: `Failed to cull hidden faces: ${String(error)}`,
-          context: 'cullHiddenFaces',
-          timestamp: Date.now(),
-        }),
+        FaceCullingError(`Failed to cull hidden faces: ${String(error)}`, 'cullHiddenFaces', Date.now()),
     }),
 })
 
@@ -232,12 +255,9 @@ export const calculateFaceCullingStats = (
   }
 }
 
-export const optimizeFaceVisibility = (visibilities: readonly FaceVisibility[]): number => {
-  let totalVisible = 0
-
-  for (const vis of visibilities) {
-    totalVisible += countVisibleFaces(vis)
-  }
-
-  return totalVisible
-}
+export const optimizeFaceVisibility = (visibilities: readonly FaceVisibility[]): number =>
+  pipe(
+    visibilities,
+    A.map(countVisibleFaces),
+    A.reduce(0, (acc, count) => acc + count)
+  )

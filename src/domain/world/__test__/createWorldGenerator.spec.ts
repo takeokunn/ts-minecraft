@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { it as itEffect } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Option, pipe } from 'effect'
 import * as fc from 'fast-check'
 import { createWorldGenerator } from '../createWorldGenerator'
 import type { GeneratorOptions, StructureType } from '../GeneratorOptions'
@@ -578,9 +578,17 @@ describe('createWorldGenerator', () => {
 
         // 構造物検索で生成した構造物が見つかることを確認
         const foundStructure = yield* generator.findNearestStructure('village', { x: 50, y: 64, z: 50 }, 1000)
-        if (foundStructure) {
-          expect(foundStructure.type).toBe('village')
-        }
+        pipe(
+          Option.fromNullable(foundStructure),
+          Option.match({
+            onNone: () => {
+              // 構造物が見つからない場合はスキップ
+            },
+            onSome: (structure) => {
+              expect(structure.type).toBe('village')
+            },
+          })
+        )
       })
     )
   })

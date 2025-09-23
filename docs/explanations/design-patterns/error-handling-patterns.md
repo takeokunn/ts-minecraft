@@ -138,8 +138,12 @@ const program = Effect.gen(function* () {
   yield* robustPlayerSearch('network_test')
 })
 
-// 実行してみてください！
-// Effect.runSync(program)
+// @effect/vitestでテスト実行
+// import { describe, it } from '@effect/vitest'
+//
+// describe('Error Handling Demo', () => {
+//   it.effect('should demonstrate error handling patterns', () => program)
+// })
 ```
 
 **💡 試してみよう**:
@@ -862,6 +866,9 @@ const testableValidation = <T>(data: unknown): Effect.Effect<T, TestValidationEr
   )
 
 // エラーハンドリングの包括的テストスイート
+import { describe, it, expect } from '@effect/vitest'
+import { Effect, Either, Schedule, Match, Cause, pipe } from 'effect'
+
 describe('Error Handling Patterns', () => {
   it.effect('should handle validation errors correctly', () =>
     Effect.gen(function* () {
@@ -992,9 +999,10 @@ describe('Error Handling Patterns', () => {
     })
   )
 
-  // フレーキーテストの処理
-  it.effect('should handle circuit breaker state transitions', () =>
-    it.flakyTest(
+  // サーキットブレーカー状態遷移のテスト
+  it.effect(
+    'should handle circuit breaker state transitions',
+    () =>
       Effect.gen(function* () {
         const { callWithCircuitBreaker } = yield* createCircuitBreakerService('test-service', {
           threshold: 2,
@@ -1024,8 +1032,7 @@ describe('Error Handling Patterns', () => {
         const recoveryResult = yield* Effect.either(callWithCircuitBreaker(flakyService))
         expect(Either.isRight(recoveryResult)).toBe(true)
       }),
-      '10 seconds'
-    )
+    { timeout: 10000 }
   )
 })
 ```

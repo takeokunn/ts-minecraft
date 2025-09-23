@@ -398,9 +398,11 @@ const TestPlayerServiceLive = Layer.effect(
 )
 
 // 2. 統合テスト
+import { describe, it, expect } from '@effect/vitest'
+
 describe('PlayerService', () => {
-  it('should move player to new position', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('should move player to new position', () =>
+    Effect.gen(function* () {
       const service = yield* PlayerService
       const playerId = 'player-123' as PlayerId
       const newPosition = { x: 10, y: 0, z: 5 }
@@ -409,13 +411,11 @@ describe('PlayerService', () => {
 
       const player = yield* service.findById(playerId)
       expect(player?.position).toEqual(newPosition)
-    })
-
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestPlayerServiceLive)))
-  })
+    }).pipe(Effect.provide(TestPlayerServiceLive))
+  )
 
   // 3. Property-based テスト
-  it('should handle any valid position', () =>
+  it.effect('should handle any valid position', () =>
     Effect.gen(function* () {
       const service = yield* PlayerService
 
@@ -430,7 +430,8 @@ describe('PlayerService', () => {
           expect(player?.position.x).toBe(position.x)
         })
       )
-    }).pipe(Effect.provide(TestPlayerServiceLive)))
+    }).pipe(Effect.provide(TestPlayerServiceLive))
+  )
 })
 ```
 

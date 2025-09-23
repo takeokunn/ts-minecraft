@@ -11,10 +11,23 @@ export const EntityId = Brand.nominal<EntityId>()
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export class EntityPoolError extends Data.TaggedError('EntityPoolError')<{
+export interface EntityPoolError {
+  readonly _tag: 'EntityPoolError'
   readonly reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated'
   readonly message: string
-}> {}
+}
+
+export const EntityPoolError = (
+  reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated',
+  message: string
+): EntityPoolError => ({
+  _tag: 'EntityPoolError',
+  reason,
+  message,
+})
+
+export const isEntityPoolError = (error: unknown): error is EntityPoolError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityPoolError'
 
 export interface EntityPool {
   readonly allocate: () => Effect.Effect<EntityId, EntityPoolError>
@@ -277,12 +290,7 @@ export const EntityPoolLive = Effect.gen(function* () {
         state.freeList.length === 0,
         Match.value,
         Match.when(true, () =>
-          Effect.fail(
-            new EntityPoolError({
-              reason: 'pool_exhausted',
-              message: `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`,
-            })
-          )
+          Effect.fail(EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${MAX_ENTITIES}`))
         ),
         Match.orElse(() =>
           Effect.gen(function* () {
@@ -299,14 +307,7 @@ export const EntityPoolLive = Effect.gen(function* () {
       return yield* pipe(
         !state.allocated.has(id),
         Match.value,
-        Match.when(true, () =>
-          Effect.fail(
-            new EntityPoolError({
-              reason: 'entity_not_allocated',
-              message: `Entity ${id} is not allocated`,
-            })
-          )
-        ),
+        Match.when(true, () => Effect.fail(EntityPoolError('entity_not_allocated', `Entity ${id} is not allocated`))),
         Match.orElse(() =>
           Effect.sync(() => {
             state.allocated.delete(id)

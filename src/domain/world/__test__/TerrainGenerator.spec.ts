@@ -23,7 +23,11 @@ const runWithTestTerrain = <A>(
   Effect.gen(function* () {
     const tg = yield* TerrainGeneratorTag
     return yield* operation(tg)
-  }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(config)))) as Effect.Effect<A, never, never>
+  }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(config)))) as Effect.Effect<
+    A,
+    never,
+    never
+  >
 
 describe('TerrainGenerator', () => {
   const testConfig: TerrainConfig = {
@@ -68,113 +72,145 @@ describe('TerrainGenerator', () => {
   })
 
   describe('Service Creation', () => {
-    it.effect('creates TerrainGenerator with custom config', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        expect(tg.getConfig()).toEqual(testConfig)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+    it.effect(
+      'creates TerrainGenerator with custom config',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          expect(tg.getConfig()).toEqual(testConfig)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('creates TerrainGenerator with default config', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const config = tg.getConfig()
+    it.effect(
+      'creates TerrainGenerator with default config',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const config = tg.getConfig()
 
-        expect(config.seaLevel).toBe(64)
-        expect(config.maxHeight).toBe(319)
-        expect(config.minHeight).toBe(-64)
-        expect(config.surfaceVariation).toBe(32)
-        expect(config.caveThreshold).toBe(0.6)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLiveDefault))) as Effect.Effect<void, never, never>
+          expect(config.seaLevel).toBe(64)
+          expect(config.maxHeight).toBe(319)
+          expect(config.minHeight).toBe(-64)
+          expect(config.surfaceVariation).toBe(32)
+          expect(config.caveThreshold).toBe(0.6)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLiveDefault))
+        ) as Effect.Effect<void, never, never>
     )
   })
 
   describe('Height Map Generation', () => {
-    it.effect('generates valid 16x16 height map', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const chunkPosition = { x: 0, z: 0 }
-        const heightMap = yield* tg.generateHeightMap(chunkPosition)
+    it.effect(
+      'generates valid 16x16 height map',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const chunkPosition = { x: 0, z: 0 }
+          const heightMap = yield* tg.generateHeightMap(chunkPosition)
 
-        expect(heightMap).toHaveLength(16)
-        for (let x = 0; x < 16; x++) {
-          expect(heightMap[x]).toHaveLength(16)
-          for (let z = 0; z < 16; z++) {
-            const height = heightMap[x]?.[z]
-            expect(height).toBeDefined()
-            expect(typeof height).toBe('number')
-            expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
-            expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
+          expect(heightMap).toHaveLength(16)
+          for (let x = 0; x < 16; x++) {
+            expect(heightMap[x]).toHaveLength(16)
+            for (let z = 0; z < 16; z++) {
+              const height = heightMap[x]?.[z]
+              expect(height).toBeDefined()
+              expect(typeof height).toBe('number')
+              expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
+              expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
+            }
           }
-        }
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('generates consistent height maps for same chunk position', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const chunkPosition = { x: 5, z: 10 }
+    it.effect(
+      'generates consistent height maps for same chunk position',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const chunkPosition = { x: 5, z: 10 }
 
-        const heightMap1 = yield* tg.generateHeightMap(chunkPosition)
-        const heightMap2 = yield* tg.generateHeightMap(chunkPosition)
+          const heightMap1 = yield* tg.generateHeightMap(chunkPosition)
+          const heightMap2 = yield* tg.generateHeightMap(chunkPosition)
 
-        expect(heightMap1).toEqual(heightMap2)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(heightMap1).toEqual(heightMap2)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('generates different height maps for different positions', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const heightMap1 = yield* tg.generateHeightMap({ x: 0, z: 0 })
-        const heightMap2 = yield* tg.generateHeightMap({ x: 10, z: 10 })
+    it.effect(
+      'generates different height maps for different positions',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const heightMap1 = yield* tg.generateHeightMap({ x: 0, z: 0 })
+          const heightMap2 = yield* tg.generateHeightMap({ x: 10, z: 10 })
 
-        expect(heightMap1).not.toEqual(heightMap2)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(heightMap1).not.toEqual(heightMap2)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('generates height maps efficiently', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const chunkPosition = { x: 0, z: 0 }
-        const heightMap = yield* tg.generateHeightMap(chunkPosition)
+    it.effect(
+      'generates height maps efficiently',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const chunkPosition = { x: 0, z: 0 }
+          const heightMap = yield* tg.generateHeightMap(chunkPosition)
 
-        expect(heightMap).toHaveLength(16)
-        expect(heightMap.every(row => Array.isArray(row) && row.length === 16)).toBe(true)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(heightMap).toHaveLength(16)
+          expect(heightMap.every((row) => Array.isArray(row) && row.length === 16)).toBe(true)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
   })
 
   describe('Terrain Height Calculation', () => {
-    it.effect('calculates terrain height for specific coordinates', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const testCoords = [
-          { x: 0, z: 0 },
-          { x: 100, z: 100 },
-        ]
+    it.effect(
+      'calculates terrain height for specific coordinates',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const testCoords = [
+            { x: 0, z: 0 },
+            { x: 100, z: 100 },
+          ]
 
-        for (const { x, z } of testCoords) {
-          const height = yield* tg.getTerrainHeight(x, z)
+          for (const { x, z } of testCoords) {
+            const height = yield* tg.getTerrainHeight(x, z)
 
-          expect(typeof height).toBe('number')
-          expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
-          expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
-          expect(Number.isFinite(height)).toBe(true)
-        }
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+            expect(typeof height).toBe('number')
+            expect(height).toBeGreaterThanOrEqual(testConfig.minHeight)
+            expect(height).toBeLessThanOrEqual(testConfig.maxHeight)
+            expect(Number.isFinite(height)).toBe(true)
+          }
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('provides consistent height values', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const x = 123
-        const z = 456
+    it.effect(
+      'provides consistent height values',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const x = 123
+          const z = 456
 
-        const height1 = yield* tg.getTerrainHeight(x, z)
-        const height2 = yield* tg.getTerrainHeight(x, z)
+          const height1 = yield* tg.getTerrainHeight(x, z)
+          const height2 = yield* tg.getTerrainHeight(x, z)
 
-        expect(height1).toBe(height2)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(height1).toBe(height2)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
   })
 
@@ -248,7 +284,7 @@ describe('TerrainGenerator', () => {
           // 海面レベル付近のブロック配置を検証
           const getBlockIndex = (x: number, y: number, z: number) => {
             const normalizedY = y + 64 // -64～319 → 0～383
-            return normalizedY + (z * 384) + (x * 384 * 16)
+            return normalizedY + z * 384 + x * 384 * 16
           }
 
           // 各列で適切なブロック配置を確認
@@ -320,34 +356,42 @@ describe('TerrainGenerator', () => {
   })
 
   describe('Performance Requirements', () => {
-    it.effect('generates height map efficiently', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const chunkPosition = { x: 0, z: 0 }
-        const heightMap = yield* tg.generateHeightMap(chunkPosition)
+    it.effect(
+      'generates height map efficiently',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const chunkPosition = { x: 0, z: 0 }
+          const heightMap = yield* tg.generateHeightMap(chunkPosition)
 
-        expect(heightMap).toHaveLength(16)
-        expect(heightMap.every(row => Array.isArray(row) && row.length === 16)).toBe(true)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(heightMap).toHaveLength(16)
+          expect(heightMap.every((row) => Array.isArray(row) && row.length === 16)).toBe(true)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
 
-    it.effect('handles multiple chunk generation', () =>
-      Effect.gen(function* () {
-        const tg = yield* TerrainGeneratorTag
-        const positions = [
-          { x: 0, z: 0 },
-          { x: 1, z: 0 },
-        ]
+    it.effect(
+      'handles multiple chunk generation',
+      () =>
+        Effect.gen(function* () {
+          const tg = yield* TerrainGeneratorTag
+          const positions = [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+          ]
 
-        const heightMaps = []
-        for (const position of positions) {
-          const heightMap = yield* tg.generateHeightMap(position)
-          heightMaps.push(heightMap)
-        }
+          const heightMaps = []
+          for (const position of positions) {
+            const heightMap = yield* tg.generateHeightMap(position)
+            heightMaps.push(heightMap)
+          }
 
-        expect(heightMaps).toHaveLength(2)
-        expect(heightMaps.every(hm => Array.isArray(hm) && hm.length === 16)).toBe(true)
-      }).pipe(Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))) as Effect.Effect<void, never, never>
+          expect(heightMaps).toHaveLength(2)
+          expect(heightMaps.every((hm) => Array.isArray(hm) && hm.length === 16)).toBe(true)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(NoiseGeneratorLiveDefault, TerrainGeneratorLive(testConfig)))
+        ) as Effect.Effect<void, never, never>
     )
   })
 

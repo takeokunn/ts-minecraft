@@ -5,7 +5,7 @@ import { MainLayer } from './core/layers/MainLayer'
 const program = Effect.gen(function* () {
   const app = yield* AppService
   yield* app.initialize()
-  const status = yield* app.getStatus()
+  const status = yield* app.getReadyStatus()
   console.log('App initialized:', status)
   return status
 })

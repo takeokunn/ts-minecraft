@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
+import { Match, Option, pipe } from 'effect'
 import * as fc from 'fast-check'
 import { ErrorReporter } from '../ErrorReporter'
 import { NetworkError } from '../NetworkErrors'
@@ -197,7 +198,7 @@ describe('ErrorReporter', () => {
     })
 
     it('深い原因チェーンを処理する', () => {
-      let currentError: any = new Error('Root')
+      let currentError: unknown = new Error('Root')
 
       // 10層の原因チェーンを作成
       for (let i = 1; i < 10; i++) {
@@ -211,6 +212,7 @@ describe('ErrorReporter', () => {
       const chain = ErrorReporter.getCauseChain(currentError)
       expect(chain).toHaveLength(10)
       expect(chain[0]).toBe(currentError)
+      expect(chain[9]).toBeInstanceOf(Error)
       expect((chain[9] as Error).message).toBe('Root')
     })
 
@@ -249,12 +251,20 @@ describe('ErrorReporter', () => {
           const formatted = ErrorReporter.format(error)
           expect(typeof formatted).toBe('string')
 
-          if (formatted.startsWith('{')) {
-            const parsed = JSON.parse(formatted)
-            expect(parsed.type).toBe(error._tag)
-            expect(parsed.message).toBe(error.message)
-            expect(parsed.timestamp).toBeDefined()
-          }
+          pipe(
+            formatted.startsWith('{'),
+            Match.value,
+            Match.when(true, () => {
+              const parsed = JSON.parse(formatted)
+              expect(parsed.type).toBe(error._tag)
+              expect(parsed.message).toBe(error.message)
+              expect(parsed.timestamp).toBeDefined()
+            }),
+            Match.when(false, () => {
+              // フォーマットがJSONではない場合の処理
+            }),
+            Match.exhaustive
+          )
         }),
         { numRuns: 100 }
       )
@@ -290,12 +300,18 @@ describe('ErrorReporter', () => {
           expect(chain.length).toBeGreaterThan(0)
           expect(chain[0]).toBe(error)
 
-          if (error.cause) {
-            expect(chain.length).toBeGreaterThan(1)
-            expect(chain[1]).toBe(error.cause)
-          } else {
-            expect(chain.length).toBe(1)
-          }
+          pipe(
+            Option.fromNullable(error.cause),
+            Option.match({
+              onNone: () => {
+                expect(chain.length).toBe(1)
+              },
+              onSome: (cause) => {
+                expect(chain.length).toBeGreaterThan(1)
+                expect(chain[1]).toBe(cause)
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )
@@ -311,13 +327,19 @@ describe('ErrorReporter', () => {
         fc.property(errorWithStackArbitrary, (error) => {
           const stack = ErrorReporter.getStackTrace(error)
 
-          if (error.stack !== undefined) {
-            expect(stack).toBeDefined()
-            expect(typeof stack).toBe('string')
-          } else {
-            // stackがundefinedの場合、String(undefined)で"undefined"文字列が返される
-            expect(stack === undefined || stack === 'undefined').toBe(true)
-          }
+          pipe(
+            Option.fromNullable(error.stack),
+            Option.match({
+              onNone: () => {
+                // stackがundefinedの場合、String(undefined)で"undefined"文字列が返される
+                expect(stack === undefined || stack === 'undefined').toBe(true)
+              },
+              onSome: () => {
+                expect(stack).toBeDefined()
+                expect(typeof stack).toBe('string')
+              },
+            })
+          )
         }),
         { numRuns: 100 }
       )

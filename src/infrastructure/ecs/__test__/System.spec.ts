@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Cause, Chunk } from 'effect'
+import { Effect, Cause, Chunk, pipe, Exit, Match } from 'effect'
 import {
   createSystem,
   createMockSystem,
@@ -8,6 +8,7 @@ import {
   SystemError,
   priorityToNumber,
   SystemPriority,
+  isSystemError,
 } from '../System'
 import type { World } from '../World'
 
@@ -61,14 +62,7 @@ describe('System', () => {
     it('システムエラーを適切に処理する', async () => {
       const system1 = createSystem('System1', () => Effect.void)
 
-      const system2 = createSystem('System2', () =>
-        Effect.fail(
-          new SystemError({
-            systemName: 'System2',
-            message: 'Test error',
-          })
-        )
-      )
+      const system2 = createSystem('System2', () => Effect.fail(SystemError('System2', 'Test error')))
 
       const result = await Effect.runPromiseExit(runSystems([system1, system2], {} as World, 16))
 
@@ -78,7 +72,7 @@ describe('System', () => {
         expect(error).toBeDefined()
         const failures = Chunk.toArray(Cause.failures(error))
         expect(failures).toHaveLength(1)
-        expect(failures[0]).toBeInstanceOf(SystemError)
+        expect(isSystemError(failures[0])).toBe(true)
         expect((failures[0] as SystemError).systemName).toBe('System2')
       }
     })
@@ -94,7 +88,7 @@ describe('System', () => {
         expect(error).toBeDefined()
         const failures = Chunk.toArray(Cause.failures(error))
         expect(failures).toHaveLength(1)
-        expect(failures[0]).toBeInstanceOf(SystemError)
+        expect(isSystemError(failures[0])).toBe(true)
         expect((failures[0] as SystemError).systemName).toBe('FailingSystem')
       }
     })
@@ -173,21 +167,27 @@ describe('System', () => {
     })
 
     it('エラーを返すモックシステムを作成できる', async () => {
-      const error = new SystemError({
-        systemName: 'MockSystem',
-        message: 'Mock error',
-      })
+      const error = SystemError('MockSystem', 'Mock error')
 
       const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 
       const result = await Effect.runPromiseExit(mockSystem.update({} as World, 16))
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const failures = Chunk.toArray(Cause.failures(result.cause))
-        expect(failures).toHaveLength(1)
-        expect(failures[0]).toBe(error)
-      }
+      pipe(
+        result,
+        Exit.match({
+          onFailure: (cause) => {
+            const failures = Chunk.toArray(Cause.failures(cause))
+            expect(failures).toHaveLength(1)
+            expect(failures[0]).toBe(error)
+          },
+          onSuccess: (value) => {
+            // 成功時の処理（この場合は期待しない）
+            throw new Error('Expected failure but got success')
+          },
+        })
+      )
     })
   })
 })

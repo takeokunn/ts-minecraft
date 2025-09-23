@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, Match, pipe } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // ローディング状態の定義
@@ -83,62 +83,92 @@ export const LoadingScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          if (!isInitialized) return
+          yield* pipe(
+            Match.value(isInitialized),
+            Match.when(false, () => Effect.succeed(undefined)),
+            Match.orElse(() =>
+              Effect.gen(function* () {
+                const loadingState = yield* Ref.get(loadingStateRef)
 
-          const loadingState = yield* Ref.get(loadingStateRef)
+                // ローディング進行の更新
+                yield* Effect.logDebug(`LoadingScene update: progress=${loadingState.progress}%`)
 
-          // ローディング進行の更新
-          yield* Effect.logDebug(`LoadingScene update: progress=${loadingState.progress}%`)
+                // 擬似的なローディング進行の更新
+                yield* pipe(
+                  Match.value(loadingState.progress < 100),
+                  Match.when(true, () =>
+                    Effect.gen(function* () {
+                      const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
 
-          // 擬似的なローディング進行の更新
-          if (loadingState.progress < 100) {
-            const progressIncrement = Math.min(deltaTime / 50, 100 - loadingState.progress)
+                      yield* Ref.update(loadingStateRef, (state) => {
+                        const newProgress = Math.min(state.progress + progressIncrement, 100)
+                        const elapsed = Date.now() - state.startTime
+                        const estimatedTotal = elapsed / (newProgress / 100)
+                        const estimatedRemaining = Math.max(0, estimatedTotal - elapsed)
 
-            yield* Ref.update(loadingStateRef, (state) => {
-              const newProgress = Math.min(state.progress + progressIncrement, 100)
-              const elapsed = Date.now() - state.startTime
-              const estimatedTotal = elapsed / (newProgress / 100)
-              const estimatedRemaining = Math.max(0, estimatedTotal - elapsed)
+                        // タスクの更新
+                        const currentTask = pipe(
+                          Match.value(newProgress),
+                          Match.when(
+                            (p) => p <= 25,
+                            () => state.currentTask
+                          ),
+                          Match.when(
+                            (p) => p <= 50,
+                            () => 'ワールドを生成中...'
+                          ),
+                          Match.when(
+                            (p) => p <= 75,
+                            () => 'テクスチャを読み込み中...'
+                          ),
+                          Match.when(
+                            (p) => p <= 90,
+                            () => 'チャンクを生成中...'
+                          ),
+                          Match.orElse(() => '最終処理中...')
+                        )
 
-              // タスクの更新
-              const currentTask =
-                newProgress <= 25
-                  ? state.currentTask
-                  : newProgress <= 50
-                    ? 'ワールドを生成中...'
-                    : newProgress <= 75
-                      ? 'テクスチャを読み込み中...'
-                      : newProgress <= 90
-                        ? 'チャンクを生成中...'
-                        : '最終処理中...'
+                        return {
+                          ...state,
+                          progress: newProgress,
+                          currentTask,
+                          estimatedTimeRemaining: estimatedRemaining,
+                        }
+                      })
+                    })
+                  ),
+                  Match.orElse(() => Effect.succeed(undefined))
+                )
 
-              return {
-                ...state,
-                progress: newProgress,
-                currentTask,
-                estimatedTimeRemaining: estimatedRemaining,
-              }
-            })
-          }
-
-          // ローディング完了時の処理
-          if (loadingState.progress >= 100) {
-            yield* Effect.logInfo('ローディング完了')
-          }
+                // ローディング完了時の処理
+                yield* pipe(
+                  Match.value(loadingState.progress >= 100),
+                  Match.when(true, () => Effect.logInfo('ローディング完了')),
+                  Match.orElse(() => Effect.succeed(undefined))
+                )
+              })
+            )
+          )
         }),
 
       render: () =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          if (!isInitialized) return
+          yield* pipe(
+            Match.value(isInitialized),
+            Match.when(false, () => Effect.succeed(undefined)),
+            Match.orElse(() =>
+              Effect.gen(function* () {
+                const loadingState = yield* Ref.get(loadingStateRef)
 
-          const loadingState = yield* Ref.get(loadingStateRef)
-
-          yield* Effect.logDebug(
-            `LoadingSceneレンダリング中... (progress: ${Math.round(loadingState.progress)}%, task: ${
-              loadingState.currentTask
-            })`
+                yield* Effect.logDebug(
+                  `LoadingSceneレンダリング中... (progress: ${Math.round(loadingState.progress)}%, task: ${
+                    loadingState.currentTask
+                  })`
+                )
+              })
+            )
           )
         }),
 

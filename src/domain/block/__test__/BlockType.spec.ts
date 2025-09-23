@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from '@effect/schema'
-import { Either } from 'effect'
+import { Either, pipe } from 'effect'
 import {
   BlockId,
   TextureId,
@@ -41,10 +41,15 @@ describe('BlockType', () => {
 
       validTools.forEach((tool) => {
         const result = Schema.decodeEither(ToolTypeSchema)(tool)
-        expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toBe(tool)
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: () => expect.fail(`Expected success for tool '${tool}' but got error`),
+            onRight: (value) => {
+              expect(value).toBe(tool)
+            },
+          })
+        )
       })
     })
 
@@ -66,10 +71,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(TextureFacesSchema)(textureFaces)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(textureFaces)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for texture faces but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(textureFaces)
+          },
+        })
+      )
     })
 
     it('不完全なテクスチャ面定義を拒否する', () => {
@@ -87,10 +97,15 @@ describe('BlockType', () => {
   describe('BlockTextureSchema', () => {
     it('単純なテクスチャ文字列を受け入れる', () => {
       const result = Schema.decodeEither(BlockTextureSchema)('stone')
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toBe('stone')
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for simple texture but got error'),
+          onRight: (value) => {
+            expect(value).toBe('stone')
+          },
+        })
+      )
     })
 
     it('面別テクスチャオブジェクトを受け入れる', () => {
@@ -104,10 +119,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(BlockTextureSchema)(textureFaces)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(textureFaces)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for texture faces object but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(textureFaces)
+          },
+        })
+      )
     })
   })
 
@@ -121,10 +141,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(ItemDropSchema)(itemDrop)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(itemDrop)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for item drop but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(itemDrop)
+          },
+        })
+      )
     })
 
     it('確率が範囲外でも受け入れる（バリデーションは別レイヤー）', () => {
@@ -136,7 +161,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(ItemDropSchema)(itemDrop)
-      expect(Either.isRight(result)).toBe(true)
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for item drop with out-of-range chance but got error'),
+          onRight: () => {
+            // 成功することを確認
+          },
+        })
+      )
     })
   })
 
@@ -149,10 +182,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(BlockSoundSchema)(sound)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(sound)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for block sound but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(sound)
+          },
+        })
+      )
     })
   })
 
@@ -171,10 +209,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(BlockPhysicsSchema)(physics)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(physics)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for block physics but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(physics)
+          },
+        })
+      )
     })
 
     it('数値が範囲外でも受け入れる（バリデーションは別レイヤー）', () => {
@@ -191,7 +234,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(BlockPhysicsSchema)(physics)
-      expect(Either.isRight(result)).toBe(true)
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for block physics with out-of-range values but got error'),
+          onRight: () => {
+            // 成功することを確認
+          },
+        })
+      )
     })
   })
 
@@ -211,10 +262,15 @@ describe('BlockType', () => {
 
       validCategories.forEach((category) => {
         const result = Schema.decodeEither(BlockCategorySchema)(category)
-        expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toBe(category)
-        }
+        pipe(
+          result,
+          Either.match({
+            onLeft: () => expect.fail(`Expected success for category '${category}' but got error`),
+            onRight: (value) => {
+              expect(value).toBe(category)
+            },
+          })
+        )
       })
     })
 
@@ -248,10 +304,15 @@ describe('BlockType', () => {
       }
 
       const result = Schema.decodeEither(BlockTypeSchema)(blockType)
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toEqual(blockType)
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: () => expect.fail('Expected success for complete block type but got error'),
+          onRight: (value) => {
+            expect(value).toEqual(blockType)
+          },
+        })
+      )
     })
 
     it('必須フィールドが欠けている場合は拒否する', () => {

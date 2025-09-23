@@ -174,6 +174,10 @@ export const MovementSystem = (
 
 ```typescript
 // システム統合テスト例
+import { describe, test, expect } from '@effect/vitest'
+import { Effect, pipe } from 'effect'
+import * as fc from 'fast-check'
+
 describe('World-Player Integration', () => {
   test.prop([
     fc.record({

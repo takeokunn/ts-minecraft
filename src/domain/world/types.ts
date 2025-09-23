@@ -5,6 +5,79 @@
  */
 
 import { Schema, ParseResult } from '@effect/schema'
+import { Match, Option, pipe } from 'effect'
+
+/**
+ * オブジェクト検証のヘルパー関数
+ */
+const validateObjectInput = (input: unknown, ast: any) =>
+  pipe(
+    Option.fromNullable(
+      typeof input === 'object' && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : null
+    ),
+    Option.match({
+      onNone: () => ParseResult.fail(new ParseResult.Type(ast, input, 'Expected an object')),
+      onSome: (obj) => ParseResult.succeed(obj),
+    })
+  )
+
+/**
+ * 追加プロパティをチェックするヘルパー関数
+ */
+const validateNoExtraKeys = (input: Record<string, unknown>, allowedKeys: string[], ast: any) =>
+  pipe(
+    input,
+    (obj) => Object.keys(obj).some((key) => !allowedKeys.includes(key)),
+    (hasExtraKeys) =>
+      Match.value(hasExtraKeys).pipe(
+        Match.when(true, () => ParseResult.fail(new ParseResult.Type(ast, input, 'No extra properties allowed'))),
+        Match.when(false, () => ParseResult.succeed(input)),
+        Match.exhaustive
+      )
+  )
+
+/**
+ * 必須プロパティをチェックするヘルパー関数
+ */
+const validateRequiredKeys = (input: Record<string, unknown>, requiredKeys: string[], ast: any) => {
+  const missingKeys = requiredKeys.filter((key) => !(key in input))
+  return pipe(
+    Match.value(missingKeys.length > 0).pipe(
+      Match.when(true, () =>
+        ParseResult.fail(new ParseResult.Type(ast, input, `Missing required properties: ${missingKeys.join(', ')}`))
+      ),
+      Match.when(false, () => ParseResult.succeed(input)),
+      Match.exhaustive
+    )
+  )
+}
+
+/**
+ * スキーマ検証のメイン関数
+ */
+const validateSchemaInput = (input: unknown, allowedKeys: string[], ast: any) => {
+  // オブジェクト検証
+  const objectResult = validateObjectInput(input, ast)
+  if (objectResult._tag === 'Left') {
+    return objectResult
+  }
+
+  const validatedObject = objectResult.right
+
+  // 追加プロパティチェック
+  const extraKeysResult = validateNoExtraKeys(validatedObject, allowedKeys, ast)
+  if (extraKeysResult._tag === 'Left') {
+    return extraKeysResult
+  }
+
+  // 必須プロパティチェック
+  const requiredKeysResult = validateRequiredKeys(validatedObject, allowedKeys, ast)
+  if (requiredKeysResult._tag === 'Left') {
+    return requiredKeysResult
+  }
+
+  return ParseResult.succeed(input as any)
+}
 
 /**
  * 3次元座標を表すスキーマ
@@ -12,36 +85,13 @@ import { Schema, ParseResult } from '@effect/schema'
 export const Vector3Schema = Schema.transformOrFail(
   Schema.Unknown,
   Schema.Struct({
-    x: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "x must be a finite number" })),
-    y: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "y must be a finite number" })),
-    z: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "z must be a finite number" })),
+    x: Schema.Number.pipe(Schema.filter((n) => Number.isFinite(n), { message: () => 'x must be a finite number' })),
+    y: Schema.Number.pipe(Schema.filter((n) => Number.isFinite(n), { message: () => 'y must be a finite number' })),
+    z: Schema.Number.pipe(Schema.filter((n) => Number.isFinite(n), { message: () => 'z must be a finite number' })),
   }),
   {
-    decode: (input, options, ast) => {
-      // 入力がオブジェクトかチェック
-      if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, "Expected an object"))
-      }
-
-      // 追加プロパティのチェック
-      const allowedKeys = ['x', 'y', 'z'];
-      const inputKeys = Object.keys(input);
-      const hasExtraKeys = inputKeys.some(key => !allowedKeys.includes(key));
-
-      if (hasExtraKeys) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, "No extra properties allowed"))
-      }
-
-      // 必須プロパティのチェック
-      const missingKeys = allowedKeys.filter(key => !(key in input));
-      if (missingKeys.length > 0) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, `Missing required properties: ${missingKeys.join(', ')}`))
-      }
-
-      // 型変換無しで入力をそのまま返す
-      return ParseResult.succeed(input as any)
-    },
-    encode: ParseResult.succeed
+    decode: (input, options, ast) => validateSchemaInput(input, ['x', 'y', 'z'], ast),
+    encode: ParseResult.succeed,
   }
 )
 export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
@@ -77,36 +127,19 @@ export const BiomeInfoSchema = Schema.transformOrFail(
   Schema.Unknown,
   Schema.Struct({
     type: BiomeType,
-    temperature: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "temperature must be a finite number" })),
-    humidity: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "humidity must be a finite number" })),
-    elevation: Schema.Number.pipe(Schema.filter(n => Number.isFinite(n), { message: () => "elevation must be a finite number" })),
+    temperature: Schema.Number.pipe(
+      Schema.filter((n) => Number.isFinite(n), { message: () => 'temperature must be a finite number' })
+    ),
+    humidity: Schema.Number.pipe(
+      Schema.filter((n) => Number.isFinite(n), { message: () => 'humidity must be a finite number' })
+    ),
+    elevation: Schema.Number.pipe(
+      Schema.filter((n) => Number.isFinite(n), { message: () => 'elevation must be a finite number' })
+    ),
   }),
   {
-    decode: (input, options, ast) => {
-      // 入力がオブジェクトかチェック
-      if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, "Expected an object"))
-      }
-
-      // 追加プロパティのチェック
-      const allowedKeys = ['type', 'temperature', 'humidity', 'elevation'];
-      const inputKeys = Object.keys(input);
-      const hasExtraKeys = inputKeys.some(key => !allowedKeys.includes(key));
-
-      if (hasExtraKeys) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, "No extra properties allowed"))
-      }
-
-      // 必須プロパティのチェック
-      const missingKeys = allowedKeys.filter(key => !(key in input));
-      if (missingKeys.length > 0) {
-        return ParseResult.fail(new ParseResult.Type(ast, input, `Missing required properties: ${missingKeys.join(', ')}`))
-      }
-
-      // 型変換無しで入力をそのまま返す
-      return ParseResult.succeed(input as any)
-    },
-    encode: ParseResult.succeed
+    decode: (input, options, ast) => validateSchemaInput(input, ['type', 'temperature', 'humidity', 'elevation'], ast),
+    encode: ParseResult.succeed,
   }
 )
 export type BiomeInfo = Schema.Schema.Type<typeof BiomeInfoSchema>

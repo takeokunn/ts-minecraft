@@ -53,58 +53,78 @@ export const createLRUCache = <K, V>(maxSize: number): LRUCacheState<K, V> => ({
   maxSize,
 })
 
-export const lruGet = <K, V>(cache: LRUCacheState<K, V>, key: K): [V | undefined, LRUCacheState<K, V>] => {
-  const value = cache.cache.get(key)
-  if (!value) {
-    return [undefined, cache]
-  }
+export const lruGet = <K, V>(cache: LRUCacheState<K, V>, key: K): [V | undefined, LRUCacheState<K, V>] =>
+  pipe(
+    Option.fromNullable(cache.cache.get(key)),
+    Option.match({
+      onNone: () => [undefined, cache] as [V | undefined, LRUCacheState<K, V>],
+      onSome: (value) => {
+        // アクセス順を更新（Immutableパターン）
+        const newAccessOrder = cache.accessOrder.filter((k) => k !== key)
+        newAccessOrder.push(key)
 
-  // アクセス順を更新（Immutableパターン）
-  const newAccessOrder = cache.accessOrder.filter((k) => k !== key)
-  newAccessOrder.push(key)
+        return [
+          value,
+          {
+            ...cache,
+            accessOrder: newAccessOrder,
+          },
+        ] as [V | undefined, LRUCacheState<K, V>]
+      },
+    })
+  )
 
-  return [
-    value,
-    {
-      ...cache,
-      accessOrder: newAccessOrder,
-    },
-  ]
-}
+export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUCacheState<K, V> =>
+  pipe(
+    Match.value(cache.maxSize),
+    Match.when(
+      (size) => size === 0,
+      () => ({
+        ...cache,
+        cache: new Map(),
+        accessOrder: [],
+      })
+    ),
+    Match.orElse(() => {
+      const newCache = new Map(cache.cache)
+      let newAccessOrder = [...cache.accessOrder]
 
-export const lruPut = <K, V>(cache: LRUCacheState<K, V>, key: K, value: V): LRUCacheState<K, V> => {
-  // maxSize=0の場合は何も保存せずに空の状態を維持
-  if (cache.maxSize === 0) {
-    return {
-      ...cache,
-      cache: new Map(),
-      accessOrder: []
-    }
-  }
+      // 既存キーの場合は順序のみ更新
+      pipe(
+        Match.value({ hasKey: newCache.has(key), sizeExceeded: newCache.size >= cache.maxSize }),
+        Match.when(
+          ({ hasKey }) => hasKey,
+          () => {
+            newAccessOrder = newAccessOrder.filter((k) => k !== key)
+          }
+        ),
+        Match.when(
+          ({ hasKey, sizeExceeded }) => !hasKey && sizeExceeded,
+          () => {
+            // 容量超過の場合、最も古いエントリを削除
+            const oldest = newAccessOrder.shift()
+            pipe(
+              Option.fromNullable(oldest),
+              Option.match({
+                onNone: () => {},
+                onSome: (oldestKey) => newCache.delete(oldestKey),
+              })
+            )
+          }
+        ),
+        Match.orElse(() => {})
+      )
 
-  const newCache = new Map(cache.cache)
-  let newAccessOrder = [...cache.accessOrder]
+      newCache.set(key, value)
+      newAccessOrder.push(key)
 
-  // 既存キーの場合は順序のみ更新
-  if (newCache.has(key)) {
-    newAccessOrder = newAccessOrder.filter((k) => k !== key)
-  } else if (newCache.size >= cache.maxSize) {
-    // 容量超過の場合、最も古いエントリを削除
-    const oldest = newAccessOrder.shift()
-    if (oldest) {
-      newCache.delete(oldest)
-    }
-  }
-
-  newCache.set(key, value)
-  newAccessOrder.push(key)
-
-  return {
-    ...cache,
-    cache: newCache,
-    accessOrder: newAccessOrder,
-  }
-}
+      return {
+        ...cache,
+        cache: newCache,
+        accessOrder: newAccessOrder,
+      }
+    })
+  )
 
 // =============================================================================
 // ChunkManager Service Interface

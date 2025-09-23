@@ -4,6 +4,8 @@ import { Effect, Option, Either, pipe } from 'effect'
 import {
   BlockNotFoundError,
   BlockAlreadyRegisteredError,
+  isBlockNotFoundError,
+  isBlockAlreadyRegisteredError,
   BlockRegistryLive,
   BlockRegistry,
   registerBlock,
@@ -34,7 +36,7 @@ describe('BlockRegistry', () => {
         const result = yield* Effect.either(registry.getBlock('non_existent_block'))
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(BlockNotFoundError)
+          expect(isBlockNotFoundError(result.left)).toBe(true)
           expect((result.left as BlockNotFoundError).blockId).toBe('non_existent_block')
         }
       }).pipe(Effect.provide(BlockRegistryLive))
@@ -617,7 +619,7 @@ describe('BlockRegistry', () => {
         const result = yield* Effect.either(getBlock('nonexistent_export_test'))
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
-          expect(result.left).toBeInstanceOf(BlockNotFoundError)
+          expect(isBlockNotFoundError(result.left)).toBe(true)
         }
       }).pipe(Effect.provide(BlockRegistryLive))
     )

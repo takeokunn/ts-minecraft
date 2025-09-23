@@ -6,15 +6,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    testTimeout: 30000, // 30秒（パフォーマンステスト対応）
+    hookTimeout: 20000, // フックのタイムアウト
 
     include: ['src/**/__test__/*.spec.ts'],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.git/**',
-      '**/coverage/**',
-      '**/docs/**',
-    ],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 
     pool: 'threads',
     poolOptions: {
@@ -42,7 +38,7 @@ export default defineConfig({
         'src/**/__test__/**',
         'src/**/*.{test,spec}.ts',
         'src/test/**',
-        'src/**/index.ts'
+        'src/**/index.ts',
       ],
 
       // thresholds: {

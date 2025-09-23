@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 
 /**
@@ -194,46 +194,64 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
 
     octaveNoise2D: (x: number, y: number, octaves: number, persistence: number) =>
       Effect.gen(function* () {
-        if (octaves <= 0) {
-          return 0
-        }
+        return yield* Effect.if(octaves <= 0, {
+          onTrue: () => Effect.succeed(0),
+          onFalse: () =>
+            Effect.gen(function* () {
+              let total = 0
+              let frequency = 1
+              let amplitude = 1
+              let maxValue = 0
 
-        let total = 0
-        let frequency = 1
-        let amplitude = 1
-        let maxValue = 0
+              for (let i = 0; i < octaves; i++) {
+                const noise = yield* noiseGenerator.noise2D(x * frequency, y * frequency)
+                total += noise * amplitude
+                maxValue += amplitude
+                amplitude *= persistence
+                frequency *= 2
+              }
 
-        for (let i = 0; i < octaves; i++) {
-          const noise = yield* noiseGenerator.noise2D(x * frequency, y * frequency)
-          total += noise * amplitude
-          maxValue += amplitude
-          amplitude *= persistence
-          frequency *= 2
-        }
-
-        return maxValue > 0 ? total / maxValue : 0
+              return yield* pipe(
+                Match.value(maxValue),
+                Match.when(
+                  (n) => n > 0,
+                  () => Effect.succeed(total / maxValue)
+                ),
+                Match.orElse(() => Effect.succeed(0))
+              )
+            }),
+        })
       }),
 
     octaveNoise3D: (x: number, y: number, z: number, octaves: number, persistence: number) =>
       Effect.gen(function* () {
-        if (octaves <= 0) {
-          return 0
-        }
+        return yield* Effect.if(octaves <= 0, {
+          onTrue: () => Effect.succeed(0),
+          onFalse: () =>
+            Effect.gen(function* () {
+              let total = 0
+              let frequency = 1
+              let amplitude = 1
+              let maxValue = 0
 
-        let total = 0
-        let frequency = 1
-        let amplitude = 1
-        let maxValue = 0
+              for (let i = 0; i < octaves; i++) {
+                const noise = yield* noiseGenerator.noise3D(x * frequency, y * frequency, z * frequency)
+                total += noise * amplitude
+                maxValue += amplitude
+                amplitude *= persistence
+                frequency *= 2
+              }
 
-        for (let i = 0; i < octaves; i++) {
-          const noise = yield* noiseGenerator.noise3D(x * frequency, y * frequency, z * frequency)
-          total += noise * amplitude
-          maxValue += amplitude
-          amplitude *= persistence
-          frequency *= 2
-        }
-
-        return maxValue > 0 ? total / maxValue : 0
+              return yield* pipe(
+                Match.value(maxValue),
+                Match.when(
+                  (n) => n > 0,
+                  () => Effect.succeed(total / maxValue)
+                ),
+                Match.orElse(() => Effect.succeed(0))
+              )
+            }),
+        })
       }),
 
     getSeed: () => config.seed,

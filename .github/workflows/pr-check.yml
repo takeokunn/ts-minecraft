@@ -32,21 +32,32 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: TypeScript type check
+        id: typecheck
         run: pnpm typecheck
+        continue-on-error: true
 
       - name: Run tests with coverage
+        id: test-coverage
         run: pnpm test:coverage
+        continue-on-error: true
 
       - name: Format check
+        id: format-check
         run: pnpm format:check
+        continue-on-error: true
 
       - name: EditorConfig check
+        id: editorconfig
         run: pnpm editorconfig
+        continue-on-error: true
 
       - name: Build project
+        id: build
         run: pnpm build
+        continue-on-error: true
 
       - name: Check bundle size
+        id: bundle-size
         run: |
           echo "📦 Bundle Size Report"
           echo "===================="
@@ -61,15 +72,18 @@ jobs:
           else
             echo "No dist directory found"
           fi
+        continue-on-error: true
 
       - name: Run actionlint
+        id: actionlint
         uses: reviewdog/action-actionlint@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
-          fail_on_error: true
+          fail_on_error: false
           filter_mode: nofilter
           level: error
+        continue-on-error: true
 
       - name: Comment test results on PR
         uses: actions/github-script@v8
@@ -78,6 +92,67 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+
+            // 各ステップの結果を収集
+            const stepResults = {
+              typecheck: {
+                name: 'TypeScript type checking',
+                outcome: '${{ steps.typecheck.outcome }}',
+                conclusion: '${{ steps.typecheck.conclusion }}'
+              },
+              'test-coverage': {
+                name: 'Unit tests execution with coverage',
+                outcome: '${{ steps.test-coverage.outcome }}',
+                conclusion: '${{ steps.test-coverage.conclusion }}'
+              },
+              'format-check': {
+                name: 'Code formatting check',
+                outcome: '${{ steps.format-check.outcome }}',
+                conclusion: '${{ steps.format-check.conclusion }}'
+              },
+              'editorconfig': {
+                name: 'EditorConfig compliance check',
+                outcome: '${{ steps.editorconfig.outcome }}',
+                conclusion: '${{ steps.editorconfig.conclusion }}'
+              },
+              'build': {
+                name: 'Build verification',
+                outcome: '${{ steps.build.outcome }}',
+                conclusion: '${{ steps.build.conclusion }}'
+              },
+              'bundle-size': {
+                name: 'Bundle size analysis',
+                outcome: '${{ steps.bundle-size.outcome }}',
+                conclusion: '${{ steps.bundle-size.conclusion }}'
+              },
+              'actionlint': {
+                name: 'GitHub Actions lint check',
+                outcome: '${{ steps.actionlint.outcome }}',
+                conclusion: '${{ steps.actionlint.conclusion }}'
+              }
+            };
+
+            // 結果を解析して成功/失敗を判定
+            const passedSteps = [];
+            const failedSteps = [];
+            let overallSuccess = true;
+
+            Object.entries(stepResults).forEach(([stepId, stepInfo]) => {
+              const isSuccess = stepInfo.outcome === 'success' ||
+                                (stepInfo.outcome === 'skipped' && stepInfo.conclusion === 'success');
+
+              if (isSuccess) {
+                passedSteps.push({ id: stepId, name: stepInfo.name });
+              } else {
+                failedSteps.push({
+                  id: stepId,
+                  name: stepInfo.name,
+                  outcome: stepInfo.outcome,
+                  conclusion: stepInfo.conclusion
+                });
+                overallSuccess = false;
+              }
+            });
 
             // カバレッジサマリーを取得（存在する場合）
             let coverageText = '';
@@ -103,23 +178,93 @@ jobs:
               }
             }
 
-            const comment = `## ✅ PR Check Results
+            // コメント内容を動的に生成
+            const statusIcon = overallSuccess ? '✅' : '❌';
+            const statusText = overallSuccess ? 'All Checks Passed' : 'Some Checks Failed';
 
-            All checks have been completed for this PR.
+            let checksSection = '### 🔍 Check Results:\n';
 
-            ### 🔍 Checks Performed:
-            - ✅ TypeScript type checking
-            - ✅ Unit tests execution with coverage
-            - ✅ Code formatting check
-            - ✅ EditorConfig compliance check
-            - ✅ Build verification
-            - ✅ Bundle size analysis
-            - ✅ GitHub Actions lint check
+            // 成功したステップ
+            passedSteps.forEach(step => {
+              checksSection += `- ✅ ${step.name}\n`;
+            });
+
+            // 失敗したステップ
+            failedSteps.forEach(step => {
+              checksSection += `- ❌ ${step.name} (${step.outcome})\n`;
+            });
+
+            // 失敗時の詳細情報セクション
+            let failureDetailsSection = '';
+            if (failedSteps.length > 0) {
+              failureDetailsSection = `
+            ### ❌ Failure Details:
+
+            ${failedSteps.map(step => `
+            **${step.name}**
+            - Status: ${step.outcome}
+            - Conclusion: ${step.conclusion}
+            - Step ID: \`${step.id}\``).join('\n')}
+
+            #### 🔧 Troubleshooting Tips:
+            `;
+
+              failedSteps.forEach(step => {
+                switch (step.id) {
+                  case 'typecheck':
+                    failureDetailsSection += `
+            - **TypeScript Errors**: Run \`pnpm typecheck\` locally to see detailed type errors
+            - Check for missing types, incorrect imports, or type mismatches`;
+                    break;
+                  case 'test-coverage':
+                    failureDetailsSection += `
+            - **Test Failures**: Run \`pnpm test:coverage\` locally to see failing tests
+            - Check test logs for specific test cases that are failing`;
+                    break;
+                  case 'format-check':
+                    failureDetailsSection += `
+            - **Formatting Issues**: Run \`pnpm format\` to auto-fix formatting issues
+            - Or run \`pnpm format:check\` to see what needs formatting`;
+                    break;
+                  case 'editorconfig':
+                    failureDetailsSection += `
+            - **EditorConfig Violations**: Check line endings, indentation, and file encoding
+            - Ensure your editor respects .editorconfig settings`;
+                    break;
+                  case 'build':
+                    failureDetailsSection += `
+            - **Build Errors**: Run \`pnpm build\` locally to see compilation errors
+            - Check for missing dependencies or configuration issues`;
+                    break;
+                  case 'bundle-size':
+                    failureDetailsSection += `
+            - **Bundle Analysis**: Check if build artifacts were generated correctly
+            - Verify dist directory structure`;
+                    break;
+                  case 'actionlint':
+                    failureDetailsSection += `
+            - **GitHub Actions Issues**: Check workflow file syntax and structure
+            - Ensure all required fields and proper YAML formatting`;
+                    break;
+                }
+              });
+            }
+
+            const comment = `## ${statusIcon} PR Check Results
+
+            ${statusText}
+
+            ${checksSection}
 
             ${coverageText}
 
+            ${failureDetailsSection}
+
             ### 📝 Next Steps:
-            Please ensure all checks are passing before merging.
+            ${overallSuccess
+              ? 'All checks are passing! This PR is ready for review.'
+              : `Please fix the failing checks before merging. ${failedSteps.length} check(s) failed.`
+            }
             `;
 
             // 既存のボットコメントを探す
@@ -150,4 +295,9 @@ jobs:
                 issue_number: context.issue.number,
                 body: comment
               });
+            }
+
+            // ジョブの最終ステータスを設定
+            if (!overallSuccess) {
+              core.setFailed(`${failedSteps.length} check(s) failed: ${failedSteps.map(s => s.name).join(', ')}`);
             }

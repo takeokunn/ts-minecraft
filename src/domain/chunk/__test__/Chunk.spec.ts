@@ -28,7 +28,9 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
         const chunkData = createChunkData(testPosition)
 
         // より単純で確実な座標でテスト
-        const testX = 5, testY = 0, testZ = 5 // 有効な座標
+        const testX = 5,
+          testY = 0,
+          testZ = 5 // 有効な座標
 
         // createChunkでチャンクを作成してから値を設定
         const chunk = createChunk(chunkData)
@@ -103,7 +105,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
           expect(Exit.isFailure(result)).toBe(true)
           if (Exit.isFailure(result)) {
             const error = result.cause._tag === 'Fail' ? result.cause.error : null
-            expect(error).toBeInstanceOf(ChunkBoundsError)
+            expect(error?._tag).toBe('ChunkBoundsError')
             expect(error?.message).toContain(`Invalid coordinates: (${x}, ${y}, ${z})`)
           }
         }
@@ -165,7 +167,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
           expect(Exit.isFailure(result)).toBe(true)
           if (Exit.isFailure(result)) {
             const error = result.cause._tag === 'Fail' ? result.cause.error : null
-            expect(error).toBeInstanceOf(ChunkBoundsError)
+            expect(error?._tag).toBe('ChunkBoundsError')
             expect(error?.message).toContain(`Failed to set block at (${x}, ${y}, ${z})`)
           }
         }
@@ -249,7 +251,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
           expect(Exit.isFailure(result)).toBe(true)
           if (Exit.isFailure(result)) {
             const error = result.cause._tag === 'Fail' ? result.cause.error : null
-            expect(error).toBeInstanceOf(ChunkBoundsError)
+            expect(error?._tag).toBe('ChunkBoundsError')
             expect(error?.message).toContain(`Failed to fill region`)
           }
         }
@@ -293,7 +295,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
         expect(Exit.isFailure(result1)).toBe(true)
         if (Exit.isFailure(result1)) {
           const error = result1.cause._tag === 'Fail' ? result1.cause.error : null
-          expect(error).toBeInstanceOf(ChunkSerializationError)
+          expect(error?._tag).toBe('ChunkSerializationError')
           expect(error?.message).toContain('Buffer too small')
         }
 
@@ -306,7 +308,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
         expect(Exit.isFailure(result2)).toBe(true)
         if (Exit.isFailure(result2)) {
           const error = result2.cause._tag === 'Fail' ? result2.cause.error : null
-          expect(error).toBeInstanceOf(ChunkSerializationError)
+          expect(error?._tag).toBe('ChunkSerializationError')
           expect(error?.message).toContain('Unsupported version: 999')
         }
       })
@@ -393,7 +395,7 @@ describe('Chunk - Effect-TS Pattern 100% Coverage', () => {
           expect(Exit.isFailure(result)).toBe(true)
           if (Exit.isFailure(result)) {
             const error = result.cause._tag === 'Fail' ? result.cause.error : null
-            expect(error).toBeInstanceOf(ChunkSerializationError)
+            expect(error?._tag).toBe('ChunkSerializationError')
           }
         }
       })

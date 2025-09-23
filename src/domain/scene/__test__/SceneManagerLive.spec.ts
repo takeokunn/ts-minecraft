@@ -93,10 +93,10 @@ describe('SceneManagerLive', () => {
         const manager = yield* SceneManager
 
         // 複数の遷移を並行実行
-        const results = yield* Effect.all([
-          Effect.either(manager.transitionTo('Game')),
-          Effect.either(manager.transitionTo('Loading'))
-        ], { concurrency: 'unbounded' })
+        const results = yield* Effect.all(
+          [Effect.either(manager.transitionTo('Game')), Effect.either(manager.transitionTo('Loading'))],
+          { concurrency: 'unbounded' }
+        )
 
         // 結果を分析
         const errors = results.filter(Either.isLeft)

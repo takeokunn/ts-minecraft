@@ -101,20 +101,11 @@ export const runSync = <A, E>(effect: Effect.Effect<A, E>): A => {
 // Utility to run an effect as a promise
 export const runPromise = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect)
 
-// Utility for creating tagged errors
-export const taggedError =
+// Utility for creating error factory functions (class-free pattern)
+export const createErrorFactory =
   <Tag extends string>(tag: Tag) =>
-  <Fields extends Record<string, any>>(fields: Fields) =>
-    Schema.TaggedError<Tag>()(
-      tag,
-      Object.entries(fields).reduce(
-        (acc, [key, value]) => ({
-          ...acc,
-          [key]: value,
-        }),
-        {} as Fields
-      )
-    )
+  <T extends Record<string, any>>(factory: (props: T) => T & { readonly _tag: Tag }) =>
+    factory
 
 // Utility for creating services
 export const makeService = <T>(name: string) => Context.GenericTag<T>(`@app/${name}`)
