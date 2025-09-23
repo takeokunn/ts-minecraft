@@ -136,9 +136,12 @@ describe('Config Schema with Effect-TS integration', () => {
 
         expect(results).toHaveLength(3)
         results.forEach((result, i) => {
-          expect(result.debug).toBe(configs[i].debug)
-          expect(result.fps).toBe(configs[i].fps)
-          expect(result.memoryLimit).toBe(configs[i].memoryLimit)
+          const config = configs[i]
+          if (config) {
+            expect(result.debug).toBe(config.debug)
+            expect(result.fps).toBe(config.fps)
+            expect(result.memoryLimit).toBe(config.memoryLimit)
+          }
         })
       })
     )
@@ -170,9 +173,12 @@ describe('Config Schema with Effect-TS integration', () => {
 
         expect(results).toHaveLength(100)
         results.forEach((result, i) => {
-          expect(result.debug).toBe(configs[i].debug)
-          expect(result.fps).toBe(configs[i].fps)
-          expect(result.memoryLimit).toBe(configs[i].memoryLimit)
+          const config = configs[i]
+          if (config) {
+            expect(result.debug).toBe(config.debug)
+            expect(result.fps).toBe(config.fps)
+            expect(result.memoryLimit).toBe(config.memoryLimit)
+          }
         })
       })
     )

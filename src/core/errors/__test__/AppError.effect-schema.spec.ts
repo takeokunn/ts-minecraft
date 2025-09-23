@@ -123,7 +123,7 @@ describe('AppError with Effect-TS patterns', () => {
 
         // Test no recovery for wrong type
         const noRecovery = yield* Effect.fail(InitError('Test')).pipe(
-          Effect.catchIf(isConfigError, handleConfigError),
+          Effect.catchIf(isConfigError, () => Effect.succeed('should not reach here')),
           Effect.either
         )
         expect(noRecovery._tag).toBe('Left')
@@ -189,17 +189,19 @@ describe('AppError with Effect-TS patterns', () => {
         const results = yield* Effect.all(effects, { mode: 'either' })
 
         expect(results).toHaveLength(4)
-        expect(results[0]._tag).toBe('Left')
-        expect(results[1]._tag).toBe('Right')
-        expect(results[2]._tag).toBe('Left')
-        expect(results[3]._tag).toBe('Right')
+        expect(results[0]?._tag).toBe('Left')
+        expect(results[1]?._tag).toBe('Right')
+        expect(results[2]?._tag).toBe('Left')
+        expect(results[3]?._tag).toBe('Right')
 
         // Verify error types
-        if (results[0]._tag === 'Left') {
-          expect(isInitError(results[0].left)).toBe(true)
+        const result0 = results[0]
+        if (result0 && result0._tag === 'Left') {
+          expect(isInitError(result0.left)).toBe(true)
         }
-        if (results[2]._tag === 'Left') {
-          expect(isConfigError(results[2].left)).toBe(true)
+        const result2 = results[2]
+        if (result2 && result2._tag === 'Left') {
+          expect(isConfigError(result2.left)).toBe(true)
         }
       })
     )
@@ -394,9 +396,9 @@ describe('AppError with Effect-TS patterns', () => {
 
         const validateConfig = (config: Record<string, unknown>) =>
           Effect.all({
-            username: validateField('username', config.username),
-            password: validateField('password', config.password),
-            email: validateField('email', config.email)
+            username: validateField('username', config['username']),
+            password: validateField('password', config['password']),
+            email: validateField('email', config['email'])
           }, { mode: 'either' })
 
         // Test with invalid config
@@ -409,9 +411,9 @@ describe('AppError with Effect-TS patterns', () => {
         const result = yield* validateConfig(invalidConfig)
 
         // All fields should have errors
-        expect(result.username._tag).toBe('Left')
-        expect(result.password._tag).toBe('Left')
-        expect(result.email._tag).toBe('Left')
+        expect(result['username']._tag).toBe('Left')
+        expect(result['password']._tag).toBe('Left')
+        expect(result['email']._tag).toBe('Left')
 
         // Test with valid config
         const validConfig = {
@@ -422,9 +424,9 @@ describe('AppError with Effect-TS patterns', () => {
 
         const validResult = yield* validateConfig(validConfig)
 
-        expect(validResult.username._tag).toBe('Right')
-        expect(validResult.password._tag).toBe('Right')
-        expect(validResult.email._tag).toBe('Right')
+        expect(validResult['username']._tag).toBe('Right')
+        expect(validResult['password']._tag).toBe('Right')
+        expect(validResult['email']._tag).toBe('Right')
       })
     )
   })

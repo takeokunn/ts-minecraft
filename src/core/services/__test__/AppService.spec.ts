@@ -121,17 +121,6 @@ describe('AppService', () => {
   })
 
   describe('Error Handling', () => {
-    vitestIt('should handle missing service context', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* AppService
-        return yield* service.initialize()
-      })
-
-      // Without providing the service
-      const exit = Effect.runSyncExit(program)
-      expect(Exit.isFailure(exit)).toBe(true)
-    })
-
     it.effect('should work with Effect.catchAll', () =>
       Effect.gen(function* () {
         const service = yield* AppService

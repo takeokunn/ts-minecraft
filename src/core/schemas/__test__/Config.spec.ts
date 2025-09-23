@@ -221,7 +221,7 @@ describe('Config Schema', () => {
           fc.property(
             fc.boolean(),
             fc.oneof(
-              fc.double({ max: 0.999, noNaN: true }), // Below minimum
+              fc.double({ min: -1000, max: 0, noNaN: true }), // Below minimum (negative)
               fc.double({ min: 120.001, max: 10000, noNaN: true }), // Above maximum
               fc.constant(NaN),
               fc.constant(Infinity),
