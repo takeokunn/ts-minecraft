@@ -38,7 +38,7 @@ import { InputService } from '../domain/input/InputService'
  */
 
 // Canvas取得のヘルパー関数
-const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasElement, CanvasNotFoundError> =>
+const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasElement, CanvasNotFoundError, never> =>
   Effect.gen(function* () {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null
 
@@ -82,7 +82,7 @@ const makeGameApplicationLive = Effect.gen(function* () {
   const validateStateTransition = (
     current: ApplicationLifecycleState,
     target: ApplicationLifecycleState
-  ): Effect.Effect<void, InvalidStateTransitionError> => {
+  ): Effect.Effect<void, InvalidStateTransitionError, never> => {
     const validTransitions: Record<ApplicationLifecycleState, ApplicationLifecycleState[]> = {
       Uninitialized: ['Initializing'],
       Initializing: ['Initialized', 'Error'],
@@ -215,7 +215,12 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
         // 各サービスの初期化
         yield* Effect.log('Initializing GameLoop...')
-        yield* gameLoopService.initialize(mergedConfig.gameLoop)
+        yield* gameLoopService.initialize({
+          targetFps: mergedConfig.rendering.targetFps,
+          maxFrameSkip: 5,
+          enablePerformanceMonitoring: mergedConfig.performance.enableMetrics,
+          adaptiveQuality: false,
+        })
 
         yield* Effect.log('Initializing Renderer...')
         yield* threeRenderer.initialize(canvas)

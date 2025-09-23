@@ -36,7 +36,7 @@ export interface GameApplication {
    */
   readonly initialize: (
     config?: Partial<GameApplicationConfig>
-  ) => Effect.Effect<void, GameApplicationInitError>
+  ) => Effect.Effect<void, GameApplicationInitError, never>
 
   /**
    * ゲームアプリケーションの開始
@@ -46,7 +46,7 @@ export interface GameApplication {
    * - レンダリングパイプラインの開始
    * - 入力システムの有効化
    */
-  readonly start: () => Effect.Effect<void, GameApplicationRuntimeError>
+  readonly start: () => Effect.Effect<void, GameApplicationRuntimeError, never>
 
   /**
    * ゲームアプリケーションの一時停止
@@ -56,14 +56,14 @@ export interface GameApplication {
    * - レンダリングの一時停止
    * - 入力の無効化
    */
-  readonly pause: () => Effect.Effect<void, GameApplicationStateError>
+  readonly pause: () => Effect.Effect<void, GameApplicationStateError, never>
 
   /**
    * ゲームアプリケーションの再開
    *
    * 一時停止状態から描画とゲームロジックを再開
    */
-  readonly resume: () => Effect.Effect<void, GameApplicationStateError>
+  readonly resume: () => Effect.Effect<void, GameApplicationStateError, never>
 
   /**
    * ゲームアプリケーションの停止
@@ -73,21 +73,21 @@ export interface GameApplication {
    * - レンダリングの停止
    * - リソースの解放
    */
-  readonly stop: () => Effect.Effect<void, GameApplicationRuntimeError>
+  readonly stop: () => Effect.Effect<void, GameApplicationRuntimeError, never>
 
   /**
    * 現在のアプリケーション状態の取得
    *
    * 統合されたシステム状態の概要を提供
    */
-  readonly getState: () => Effect.Effect<GameApplicationState, never>
+  readonly getState: () => Effect.Effect<GameApplicationState, never, never>
 
   /**
    * ライフサイクル状態の取得
    *
    * アプリケーションの現在のライフサイクル段階を取得
    */
-  readonly getLifecycleState: () => Effect.Effect<ApplicationLifecycleState, never>
+  readonly getLifecycleState: () => Effect.Effect<ApplicationLifecycleState, never, never>
 
   /**
    * フレーム更新の手動実行
@@ -97,7 +97,7 @@ export interface GameApplication {
    * - Sceneの更新
    * - レンダリングの実行
    */
-  readonly tick: (deltaTime?: number) => Effect.Effect<void, GameApplicationRuntimeError>
+  readonly tick: (deltaTime?: number) => Effect.Effect<void, GameApplicationRuntimeError, never>
 
   /**
    * 設定の更新
@@ -106,7 +106,7 @@ export interface GameApplication {
    */
   readonly updateConfig: (
     config: Partial<GameApplicationConfig>
-  ) => Effect.Effect<void, GameApplicationStateError>
+  ) => Effect.Effect<void, GameApplicationStateError, never>
 
   /**
    * システムヘルスチェック
@@ -124,6 +124,7 @@ export interface GameApplication {
       input: { status: 'healthy' | 'unhealthy' }
       ecs: { status: 'healthy' | 'unhealthy'; entityCount?: number }
     },
+    never,
     never
   >
 
@@ -132,7 +133,7 @@ export interface GameApplication {
    *
    * 全システムを初期状態に戻す
    */
-  readonly reset: () => Effect.Effect<void, GameApplicationRuntimeError>
+  readonly reset: () => Effect.Effect<void, GameApplicationRuntimeError, never>
 }
 
 /**
