@@ -78,7 +78,7 @@ mindmap
  * @performance_critical チャンク読み込み・レンダリング処理で高頻度使用
  * @since 1.0.0
  */
-export interface WorldService {
+export const WorldServiceSchema = Schema.Struct({
   /**
    * チャンクの読み込み
    * @param coord チャンク座標
@@ -86,7 +86,7 @@ export interface WorldService {
    * @throws ChunkLoadError チャンク読み込み失敗
    * @performance O(1) - キャッシュヒット時、O(log n) - ディスク読み込み時
    */
-  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
+  loadChunk: Schema.Function,
 
   /**
    * チャンクの非同期保存
@@ -94,14 +94,14 @@ export interface WorldService {
    * @returns 保存完了
    * @throws ChunkSaveError 保存失敗
    */
-  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
+  saveChunk: Schema.Function,
 
   /**
    * チャンクのメモリ解放
    * @param coord チャンク座標
    * @returns 解放完了
    */
-  readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
+  unloadChunk: Schema.Function,
 
   /**
    * 新規チャンク生成
@@ -110,17 +110,14 @@ export interface WorldService {
    * @returns 生成されたチャンク
    * @throws ChunkGenerationError 生成失敗
    */
-  readonly generateChunk: (
-    coord: ChunkCoordinate,
-    options?: ChunkGenerationOptions
-  ) => Effect.Effect<Chunk, ChunkGenerationError>
+  generateChunk: Schema.Function,
 
   /**
    * ブロック取得（高頻度）
    * @param position 3D座標
    * @returns ブロック情報、または空気ブロック
    */
-  readonly getBlock: (position: Position) => Effect.Effect<Block, BlockError>
+  getBlock: Schema.Function,
 
   /**
    * ブロック設置（高頻度）
@@ -129,47 +126,76 @@ export interface WorldService {
    * @returns 設置完了
    * @throws BlockPlacementError 設置失敗
    */
-  readonly setBlock: (position: Position, block: Block) => Effect.Effect<void, BlockPlacementError>
+  setBlock: Schema.Function,
 
   /**
    * 読み込み済みチャンク一覧取得
    * @returns チャンク座標配列
    */
-  readonly getLoadedChunks: () => Effect.Effect<readonly ChunkCoordinate[], never>
+  getLoadedChunks: Schema.Function,
 
   /**
    * チャンク読み込み状態確認
    * @param coord チャンク座標
    * @returns 読み込み済みフラグ
    */
-  readonly isChunkLoaded: (coord: ChunkCoordinate) => Effect.Effect<boolean, never>
-}
+  isChunkLoaded: Schema.Function
+}).annotations({
+  identifier: "WorldService"
+})
+export type WorldService = Schema.Schema.Type<typeof WorldServiceSchema>
 
 /**
  * WorldService Context Tag
  * @usage const worldService = yield* WorldService
  */
 export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
+export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
+export const BlockService = Context.GenericTag<BlockService>("@minecraft/BlockService")
+export const EntityService = Context.GenericTag<EntityService>("@minecraft/EntityService")
+export const GameService = Context.GenericTag<GameService>("@minecraft/GameService")
 
 ### 📋 World基本データ構造
 
 #### ✅ **コアデータ定義**
 ```typescript
-import { Schema, Effect, Context, Brand } from "effect"
+import { Schema, Effect, Context } from "effect"
 
-// ゲームドメイン特化Brand型定義
-export type SlotIndex = Brand.Brand<number, "SlotIndex">
-export type HealthPoints = Brand.Brand<number, "HealthPoints">
-export type ExperiencePoints = Brand.Brand<number, "ExperiencePoints">
-export type ItemQuantity = Brand.Brand<number, "ItemQuantity">
-export type DurabilityValue = Brand.Brand<number, "DurabilityValue">
+// ゲームドメイン特化Schema型定義
+export const SlotIndexSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.between(0, 35),
+  Schema.brand("SlotIndex")
+)
+export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 
-// Brand型コンストラクタ
-export const SlotIndex = Brand.nominal<SlotIndex>()
-export const HealthPoints = Brand.nominal<HealthPoints>()
-export const ExperiencePoints = Brand.nominal<ExperiencePoints>()
-export const ItemQuantity = Brand.nominal<ItemQuantity>()
-export const DurabilityValue = Brand.nominal<DurabilityValue>()
+export const HealthPointsSchema = Schema.Number.pipe(
+  Schema.between(0, 20),
+  Schema.multipleOf(0.5),
+  Schema.brand("HealthPoints")
+)
+export type HealthPoints = Schema.Schema.Type<typeof HealthPointsSchema>
+
+export const ExperiencePointsSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonNegative(),
+  Schema.brand("ExperiencePoints")
+)
+export type ExperiencePoints = Schema.Schema.Type<typeof ExperiencePointsSchema>
+
+export const ItemQuantitySchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.between(1, 64),
+  Schema.brand("ItemQuantity")
+)
+export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantitySchema>
+
+export const DurabilityValueSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonNegative(),
+  Schema.brand("DurabilityValue")
+)
+export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValueSchema>
 
 // ドメイン特化ヘルパー関数群
 export const DomainUtils = {
@@ -187,15 +213,12 @@ export const DomainUtils = {
    */
   createSlotIndex: (index: number, maxSlots = 36): Effect.Effect<SlotIndex, DomainError> =>
     Effect.gen(function* () {
-      if (!Number.isInteger(index)) {
-        return yield* Effect.fail(new DomainError("Slot index must be an integer"))
-      }
-
-      if (index < 0 || index >= maxSlots) {
-        return yield* Effect.fail(new DomainError(`Slot index must be between 0-${maxSlots - 1}`))
-      }
-
-      return SlotIndex(index)
+      const schema = Schema.Number.pipe(
+        Schema.int(),
+        Schema.between(0, maxSlots - 1),
+        Schema.brand("SlotIndex")
+      )
+      return yield* Schema.decode(schema)(index)
     }),
 
   /**
@@ -209,22 +232,7 @@ export const DomainUtils = {
    * ```
    */
   createHealthPoints: (health: number): Effect.Effect<HealthPoints, DomainError> =>
-    Effect.gen(function* () {
-      if (!Number.isFinite(health)) {
-        return yield* Effect.fail(new DomainError("Health must be a finite number"))
-      }
-
-      if (health < 0 || health > 20) {
-        return yield* Effect.fail(new DomainError("Health must be between 0-20"))
-      }
-
-      // 0.5刻みの検証
-      if ((health * 2) % 1 !== 0) {
-        return yield* Effect.fail(new DomainError("Health must be in 0.5 increments"))
-      }
-
-      return HealthPoints(health)
-    }),
+    Schema.decode(HealthPointsSchema)(health),
 
   /**
    * アイテム数量の作成（スタック制限検証付き）
@@ -240,15 +248,12 @@ export const DomainUtils = {
    */
   createItemQuantity: (quantity: number, maxStack = 64): Effect.Effect<ItemQuantity, DomainError> =>
     Effect.gen(function* () {
-      if (!Number.isInteger(quantity)) {
-        return yield* Effect.fail(new DomainError("Item quantity must be an integer"))
-      }
-
-      if (quantity < 1 || quantity > maxStack) {
-        return yield* Effect.fail(new DomainError(`Item quantity must be between 1-${maxStack}`))
-      }
-
-      return ItemQuantity(quantity)
+      const schema = Schema.Number.pipe(
+        Schema.int(),
+        Schema.between(1, maxStack),
+        Schema.brand("ItemQuantity")
+      )
+      return yield* Schema.decode(schema)(quantity)
     }),
 
   /**
@@ -264,19 +269,14 @@ export const DomainUtils = {
    */
   createDurabilityValue: (durability: number, maxDurability?: number): Effect.Effect<DurabilityValue, DomainError> =>
     Effect.gen(function* () {
-      if (!Number.isInteger(durability)) {
-        return yield* Effect.fail(new DomainError("Durability must be an integer"))
-      }
-
-      if (durability < 0) {
-        return yield* Effect.fail(new DomainError("Durability must be non-negative"))
-      }
-
-      if (maxDurability !== undefined && durability > maxDurability) {
-        return yield* Effect.fail(new DomainError(`Durability must not exceed ${maxDurability}`))
-      }
-
-      return DurabilityValue(durability)
+      const schema = maxDurability
+        ? Schema.Number.pipe(
+            Schema.int(),
+            Schema.between(0, maxDurability),
+            Schema.brand("DurabilityValue")
+          )
+        : DurabilityValueSchema
+      return yield* Schema.decode(schema)(durability)
     }),
 
   /**
@@ -290,40 +290,130 @@ export const DomainUtils = {
    * ```
    */
   createExperiencePoints: (experience: number): Effect.Effect<ExperiencePoints, DomainError> =>
-    Effect.gen(function* () {
-      if (!Number.isInteger(experience)) {
-        return yield* Effect.fail(new DomainError("Experience must be an integer"))
-      }
-
-      if (experience < 0) {
-        return yield* Effect.fail(new DomainError("Experience must be non-negative"))
-      }
-
-      return ExperiencePoints(experience)
-    })
+    Schema.decode(ExperiencePointsSchema)(experience)
 } as const
 
 // カスタムエラー型 - Effect-TS関数型パターン
-export const DomainError = Schema.TaggedError("DomainError")({
+export const DomainErrorSchema = Schema.TaggedError("DomainError")({
   message: Schema.String,
   timestamp: Schema.optional(Schema.DateTimeUtc)
 })
+export type DomainError = Schema.Schema.Type<typeof DomainErrorSchema>
+
+// 各種エラー型定義
+export const ChunkLoadErrorSchema = Schema.TaggedError("ChunkLoadError")({
+  coordinate: ChunkCoordinateSchema,
+  reason: Schema.String
+})
+export type ChunkLoadError = Schema.Schema.Type<typeof ChunkLoadErrorSchema>
+
+export const ChunkSaveErrorSchema = Schema.TaggedError("ChunkSaveError")({
+  coordinate: ChunkCoordinateSchema,
+  reason: Schema.String
+})
+export type ChunkSaveError = Schema.Schema.Type<typeof ChunkSaveErrorSchema>
+
+export const ChunkGenerationErrorSchema = Schema.TaggedError("ChunkGenerationError")({
+  coordinate: ChunkCoordinateSchema,
+  reason: Schema.String
+})
+export type ChunkGenerationError = Schema.Schema.Type<typeof ChunkGenerationErrorSchema>
+
+export const BlockErrorSchema = Schema.TaggedError("BlockError")({
+  position: PositionSchema,
+  reason: Schema.String
+})
+export type BlockError = Schema.Schema.Type<typeof BlockErrorSchema>
+
+export const BlockPlacementErrorSchema = Schema.TaggedError("BlockPlacementError")({
+  position: PositionSchema,
+  blockType: BlockTypeSchema,
+  reason: Schema.String
+})
+export type BlockPlacementError = Schema.Schema.Type<typeof BlockPlacementErrorSchema>
+
+export const PlayerNotFoundErrorSchema = Schema.TaggedError("PlayerNotFoundError")({
+  playerId: Schema.String
+})
+export type PlayerNotFoundError = Schema.Schema.Type<typeof PlayerNotFoundErrorSchema>
+
+export const PlayerUpdateErrorSchema = Schema.TaggedError("PlayerUpdateError")({
+  playerId: Schema.String,
+  reason: Schema.String
+})
+export type PlayerUpdateError = Schema.Schema.Type<typeof PlayerUpdateErrorSchema>
+
+export const MovementErrorSchema = Schema.TaggedError("MovementError")({
+  playerId: Schema.String,
+  from: PositionSchema,
+  to: PositionSchema,
+  reason: Schema.String
+})
+export type MovementError = Schema.Schema.Type<typeof MovementErrorSchema>
+
+export const InventoryErrorSchema = Schema.TaggedError("InventoryError")({
+  playerId: Schema.String,
+  reason: Schema.String
+})
+export type InventoryError = Schema.Schema.Type<typeof InventoryErrorSchema>
+
+export const GameErrorSchema = Schema.TaggedError("GameError")({
+  type: Schema.String,
+  message: Schema.String,
+  context: Schema.optional(Schema.Unknown)
+})
+export type GameError = Schema.Schema.Type<typeof GameErrorSchema>
 
 // ワールド基本情報
+export const GameModeSchema = Schema.Literal("survival", "creative", "hardcore")
+export type GameMode = Schema.Schema.Type<typeof GameModeSchema>
+
+export const DifficultySchema = Schema.Literal("peaceful", "easy", "normal", "hard")
+export type Difficulty = Schema.Schema.Type<typeof DifficultySchema>
+
 export const WorldMetadataSchema = Schema.Struct({
   name: Schema.String.pipe(
     Schema.minLength(1),
     Schema.maxLength(32)
   ),
   seed: Schema.BigInt,
-  gamemode: Schema.Literal("survival", "creative", "hardcore"),
-  difficulty: Schema.Literal("peaceful", "easy", "normal", "hard"),
+  gamemode: GameModeSchema,
+  difficulty: DifficultySchema,
   createdAt: Schema.DateTimeUtc,
   lastPlayed: Schema.DateTimeUtc,
   version: Schema.String
 }).annotations({
   identifier: "WorldMetadata"
 })
+export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
+
+// チャンク生成オプション
+export const ChunkGenerationOptionsSchema = Schema.Struct({
+  generateStructures: Schema.optional(Schema.Boolean),
+  biomeOverride: Schema.optional(BiomeTypeSchema),
+  seed: Schema.optional(Schema.BigInt)
+}).annotations({
+  identifier: "ChunkGenerationOptions"
+})
+export type ChunkGenerationOptions = Schema.Schema.Type<typeof ChunkGenerationOptionsSchema>
+
+// 座標定義
+export const ChunkCoordinateSchema = Schema.Struct({
+  chunkX: Schema.Number.pipe(Schema.int()),
+  chunkZ: Schema.Number.pipe(Schema.int())
+}).annotations({
+  identifier: "ChunkCoordinate"
+})
+export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinateSchema>
+
+export const PositionSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number
+}).annotations({
+  identifier: "Position"
+})
+export type Position = Schema.Schema.Type<typeof PositionSchema>
 
 // チャンクデータ構造
 export const ChunkSchema = Schema.Struct({
@@ -337,13 +427,17 @@ export const ChunkSchema = Schema.Struct({
 }).annotations({
   identifier: "Chunk"
 })
+export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 
 // ブロック定義
+export const BlockTypeSchema = Schema.Literal(
+  "air", "stone", "grass", "dirt", "cobblestone",
+  "wood", "sand", "gravel", "water", "lava"
+)
+export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
+
 export const BlockSchema = Schema.Struct({
-  type: Schema.Literal(
-    "air", "stone", "grass", "dirt", "cobblestone",
-    "wood", "sand", "gravel", "water", "lava"
-  ),
+  type: BlockTypeSchema,
   metadata: Schema.optional(Schema.Record({
     key: Schema.String,
     value: Schema.Unknown
@@ -355,13 +449,17 @@ export const BlockSchema = Schema.Struct({
 }).annotations({
   identifier: "Block"
 })
+export type Block = Schema.Schema.Type<typeof BlockSchema>
 
 // バイオーム定義
+export const BiomeTypeSchema = Schema.Literal(
+  "plains", "forest", "desert", "mountains",
+  "ocean", "taiga", "swampland"
+)
+export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
+
 export const BiomeSchema = Schema.Struct({
-  type: Schema.Literal(
-    "plains", "forest", "desert", "mountains",
-    "ocean", "taiga", "swampland"
-  ),
+  type: BiomeTypeSchema,
   temperature: Schema.Number.pipe(Schema.between(-2, 2)),
   rainfall: Schema.Number.pipe(Schema.between(0, 2)),
   grassColor: Schema.String,
@@ -369,17 +467,19 @@ export const BiomeSchema = Schema.Struct({
 }).annotations({
   identifier: "Biome"
 })
+export type Biome = Schema.Schema.Type<typeof BiomeSchema>
 ````
 
 #### ⭐ **WorldService実装**
 
 ````typescript
 /**
- * ワールド管理サービス
+ * ワールド管理サービス実装インターフェース（実行時型定義）
  * @description Minecraftワールドの包括的な管理機能を提供するサービス
  * @since 1.0.0
+ * @note このインターフェースはWorldServiceSchemaの実行時型として使用
  */
-export interface WorldService {
+export interface WorldServiceImpl {
   /**
    * チャンクの読み込み
    * @param coord - 読み込み対象のチャンク座標
@@ -698,14 +798,31 @@ export const placeStructure = (
 #### ✅ **プレイヤー状態定義**
 
 ```typescript
+// 移動・回転関連スキーマ
+export const VelocitySchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+}).annotations({
+  identifier: 'Velocity',
+})
+export type Velocity = Schema.Schema.Type<typeof VelocitySchema>
+
+export const RotationSchema = Schema.Struct({
+  yaw: Schema.Number.pipe(Schema.between(-180, 180)),
+  pitch: Schema.Number.pipe(Schema.between(-90, 90)),
+}).annotations({
+  identifier: 'Rotation',
+})
+export type Rotation = Schema.Schema.Type<typeof RotationSchema>
+
+export const GameModeSchema = Schema.Literal('survival', 'creative', 'spectator')
+export type GameMode = Schema.Schema.Type<typeof GameModeSchema>
+
 // プレイヤー基本状態
 export const PlayerStateSchema = Schema.Struct({
   id: Schema.String.pipe(Schema.uuid()),
-  username: Schema.String.pipe(
-    Schema.minLength(3),
-    Schema.maxLength(16),
-    Schema.pattern(/^[a-zA-Z0-9_]+$/)
-  ),
+  username: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(16), Schema.pattern(/^[a-zA-Z0-9_]+$/)),
 
   // 位置・移動
   position: PositionSchema,
@@ -714,86 +831,80 @@ export const PlayerStateSchema = Schema.Struct({
   onGround: Schema.Boolean,
 
   // ステータス（Brand型統合・型安全性強化）
-  health: Schema.Number.pipe(
-    Schema.brand("HealthPoints"),
-    Schema.between(0, 20),
-    Schema.multipleOf(0.5)
-  ), // 体力値（Brand型化・0.5刻み）
-  hunger: Schema.Number.pipe(
-    Schema.brand("HealthPoints"), // 空腹度も同じ範囲なので再利用
-    Schema.between(0, 20),
-    Schema.int()
-  ), // 空腹度（Brand型化・整数制限）
-  experience: Schema.Number.pipe(
-    Schema.brand("ExperiencePoints"),
-    Schema.nonNegative(),
-    Schema.int()
-  ), // 経験値（Brand型化・整数制限）
+  health: HealthPointsSchema, // 体力値（Brand型化・0.5刻み）
+  hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.int(), Schema.brand('HungerPoints')), // 空腹度（Brand型化・整数制限）
+  experience: ExperiencePointsSchema, // 経験値（Brand型化・整数制限）
   level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 
   // ゲーム設定
-  gamemode: Schema.Literal("survival", "creative", "spectator"),
+  gamemode: GameModeSchema,
   flying: Schema.Boolean,
 
   // インベントリ（Brand型統合・型安全性強化）
   inventory: InventorySchema,
-  selectedSlot: Schema.Number.pipe(
-    Schema.brand("SlotIndex"),
-    Schema.int(),
-    Schema.between(0, 8)
-  ) // 選択スロット（Brand型化・整数制限）,
+  selectedSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot')), // 選択スロット（Brand型化・整数制限）
 
   // その他
   lastActive: Schema.DateTimeUtc,
-  settings: PlayerSettingsSchema
+  settings: PlayerSettingsSchema,
 }).annotations({
-  identifier: "PlayerState"
+  identifier: 'PlayerState',
 })
+export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
+
+// エンチャント定義
+export const EnchantmentSchema = Schema.Struct({
+  type: Schema.String,
+  level: Schema.Number.pipe(Schema.int(), Schema.between(1, 5)),
+}).annotations({
+  identifier: 'Enchantment',
+})
+export type Enchantment = Schema.Schema.Type<typeof EnchantmentSchema>
+
+// プレイヤー設定
+export const PlayerSettingsSchema = Schema.Struct({
+  renderDistance: Schema.Number.pipe(Schema.int(), Schema.between(2, 32)),
+  mouseSensitivity: Schema.Number.pipe(Schema.between(0.1, 2.0)),
+  musicVolume: Schema.Number.pipe(Schema.between(0, 1)),
+  effectsVolume: Schema.Number.pipe(Schema.between(0, 1)),
+}).annotations({
+  identifier: 'PlayerSettings',
+})
+export type PlayerSettings = Schema.Schema.Type<typeof PlayerSettingsSchema>
 
 // インベントリシステム
 export const InventorySchema = Schema.Struct({
-  hotbar: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(
-    Schema.length(9)
-  ),
-  main: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(
-    Schema.length(27)
-  ),
+  hotbar: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(Schema.length(9)),
+  main: Schema.Array(Schema.NullOr(ItemStackSchema)).pipe(Schema.length(27)),
   armor: Schema.Struct({
     helmet: Schema.NullOr(ItemStackSchema),
     chestplate: Schema.NullOr(ItemStackSchema),
     leggings: Schema.NullOr(ItemStackSchema),
-    boots: Schema.NullOr(ItemStackSchema)
+    boots: Schema.NullOr(ItemStackSchema),
   }),
-  offhand: Schema.NullOr(ItemStackSchema)
+  offhand: Schema.NullOr(ItemStackSchema),
 }).annotations({
-  identifier: "Inventory"
+  identifier: 'Inventory',
 })
+export type Inventory = Schema.Schema.Type<typeof InventorySchema>
 
 // アイテムスタック（Brand型統合・型安全性強化）
 export const ItemStackSchema = Schema.Struct({
-  itemType: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(64)
-  ), // アイテム種別（長さ制限追加）
-  quantity: Schema.Number.pipe(
-    Schema.brand("ItemQuantity"),
-    Schema.int(),
-    Schema.between(1, 64)
-  ), // アイテム数量（Brand型化・スタック制限）
-  durability: Schema.optional(Schema.Number.pipe(
-    Schema.brand("DurabilityValue"),
-    Schema.int(),
-    Schema.nonNegative()
-  )), // 耐久度（Brand型化・非負整数）
+  itemType: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64)), // アイテム種別（長さ制限追加）
+  quantity: ItemQuantitySchema, // アイテム数量（Brand型化・スタック制限）
+  durability: Schema.optional(DurabilityValueSchema), // 耐久度（Brand型化・非負整数）
   enchantments: Schema.optional(Schema.Array(EnchantmentSchema)),
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 }).annotations({
-  identifier: "ItemStack",
-  description: "型安全なアイテムスタック（数量・耐久度Brand型化）"
+  identifier: 'ItemStack',
+  description: '型安全なアイテムスタック（数量・耐久度Brand型化）',
 })
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 ```
 
 #### ⭐ **PlayerService実装**
@@ -806,7 +917,7 @@ export const ItemStackSchema = Schema.Struct({
  * @consolidated_from ["tutorials/application-services.md", "explanations/domain-application-apis.md", "game-systems/game-player-api.md"]
  * @since 1.0.0
  */
-export interface PlayerService {
+export const PlayerServiceSchema = Schema.Struct({
   /**
    * プレイヤー情報の取得
    * @param id - プレイヤーのUUID
@@ -818,7 +929,7 @@ export interface PlayerService {
    * console.log(`Player ${player.username} at ${player.position.x}, ${player.position.y}, ${player.position.z}`);
    * ```
    */
-  readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>
+  getPlayer: Schema.Function,
 
   /**
    * プレイヤー状態の更新
@@ -831,7 +942,7 @@ export interface PlayerService {
    * yield* playerService.updatePlayer(updatedPlayer);
    * ```
    */
-  readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>
+  updatePlayer: Schema.Function,
 
   /**
    * プレイヤーの削除
@@ -842,7 +953,7 @@ export interface PlayerService {
    * yield* playerService.removePlayer("550e8400-e29b-41d4-a716-446655440000");
    * ```
    */
-  readonly removePlayer: (id: string) => Effect.Effect<void, never>
+  removePlayer: Schema.Function,
 
   /**
    * プレイヤーの移動
@@ -856,7 +967,7 @@ export interface PlayerService {
    * yield* playerService.movePlayer("player-uuid", newPos);
    * ```
    */
-  readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>
+  movePlayer: Schema.Function,
 
   /**
    * プレイヤーの速度設定
@@ -869,7 +980,7 @@ export interface PlayerService {
    * yield* playerService.setVelocity("player-uuid", jumpVelocity);
    * ```
    */
-  readonly setVelocity: (id: string, velocity: Velocity) => Effect.Effect<void, never>
+  setVelocity: Schema.Function,
 
   /**
    * プレイヤーのテレポート
@@ -883,7 +994,7 @@ export interface PlayerService {
    * yield* playerService.teleportPlayer("player-uuid", spawnPoint);
    * ```
    */
-  readonly teleportPlayer: (id: string, position: Position) => Effect.Effect<void, TeleportError>
+  teleportPlayer: Schema.Function,
 
   /**
    * インベントリへのアイテム追加
@@ -898,7 +1009,7 @@ export interface PlayerService {
    * console.log(success ? "All items added" : "Inventory full or partial add");
    * ```
    */
-  readonly addItem: (id: string, item: ItemStack) => Effect.Effect<boolean, InventoryError>
+  addItem: Schema.Function,
 
   /**
    * インベントリからのアイテム削除
@@ -915,7 +1026,7 @@ export interface PlayerService {
    * }
    * ```
    */
-  readonly removeItem: (id: string, slot: number, quantity?: number) => Effect.Effect<ItemStack | null, InventoryError>
+  removeItem: Schema.Function,
 
   /**
    * インベントリアイテムの交換
@@ -930,7 +1041,7 @@ export interface PlayerService {
    * yield* playerService.swapItems("player-uuid", 0, 1);
    * ```
    */
-  readonly swapItems: (id: string, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>
+  swapItems: Schema.Function,
 
   /**
    * プレイヤーの回復
@@ -942,7 +1053,7 @@ export interface PlayerService {
    * yield* playerService.heal("player-uuid", 2.5); // 2.5ハート回復
    * ```
    */
-  readonly heal: (id: string, amount: number) => Effect.Effect<void, never>
+  heal: Schema.Function,
 
   /**
    * プレイヤーへのダメージ適用
@@ -956,7 +1067,7 @@ export interface PlayerService {
    * yield* playerService.damage("player-uuid", 5, fallDamage);
    * ```
    */
-  readonly damage: (id: string, amount: number, source?: DamageSource) => Effect.Effect<void, never>
+  damage: Schema.Function,
 
   /**
    * プレイヤーのゲームモード設定
@@ -968,8 +1079,11 @@ export interface PlayerService {
    * yield* playerService.setGamemode("player-uuid", "creative");
    * ```
    */
-  readonly setGamemode: (id: string, gamemode: GameMode) => Effect.Effect<void, never>
-}
+  setGamemode: Schema.Function,
+}).annotations({
+  identifier: 'PlayerService',
+})
+export type PlayerService = Schema.Schema.Type<typeof PlayerServiceSchema>
 
 export const PlayerService = Context.GenericTag<PlayerService>('@app/PlayerService')
 
@@ -1104,29 +1218,24 @@ export const PlayerServiceLive = Layer.effect(
 #### ✅ **高度なブロック操作**
 
 ```typescript
-export interface BlockService {
+export const BlockServiceSchema = Schema.Struct({
   // ブロック操作
-  readonly placeBlock: (
-    position: Position,
-    blockType: BlockType,
-    placer?: string
-  ) => Effect.Effect<void, BlockPlacementError>
-  readonly breakBlock: (position: Position, breaker?: string) => Effect.Effect<ItemStack[], BlockBreakError>
-  readonly updateBlock: (position: Position, updates: Partial<Block>) => Effect.Effect<void, BlockUpdateError>
+  placeBlock: Schema.Function,
+  breakBlock: Schema.Function,
+  updateBlock: Schema.Function,
 
   // 物理システム
-  readonly applyGravity: (position: Position) => Effect.Effect<void, never>
-  readonly checkSupport: (position: Position) => Effect.Effect<boolean, never>
-  readonly triggerRedstone: (position: Position, power: number) => Effect.Effect<void, never>
+  applyGravity: Schema.Function,
+  checkSupport: Schema.Function,
+  triggerRedstone: Schema.Function,
 
   // 相互作用
-  readonly onBlockInteract: (
-    position: Position,
-    player: string,
-    item?: ItemStack
-  ) => Effect.Effect<void, InteractionError>
-  readonly getBlockDrops: (position: Position, tool?: ItemStack) => Effect.Effect<ItemStack[], never>
-}
+  onBlockInteract: Schema.Function,
+  getBlockDrops: Schema.Function,
+}).annotations({
+  identifier: 'BlockService',
+})
+export type BlockService = Schema.Schema.Type<typeof BlockServiceSchema>
 
 // ブロック配置システム
 export const placeBlockAdvanced = (
@@ -1269,13 +1378,14 @@ export const breakBlockAdvanced = (
 #### ✅ **エンティティ・コンポーネント・システム**
 
 ```typescript
-// コンポーネント定義
+// ECSコンポーネント定義
 export const PositionComponentSchema = Schema.Struct({
   type: Schema.Literal('position'),
   x: Schema.Number,
   y: Schema.Number,
   z: Schema.Number,
 }).annotations({ identifier: 'PositionComponent' })
+export type PositionComponent = Schema.Schema.Type<typeof PositionComponentSchema>
 
 export const VelocityComponentSchema = Schema.Struct({
   type: Schema.Literal('velocity'),
@@ -1283,59 +1393,66 @@ export const VelocityComponentSchema = Schema.Struct({
   y: Schema.Number,
   z: Schema.Number,
 }).annotations({ identifier: 'VelocityComponent' })
+export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponentSchema>
 
 export const HealthComponentSchema = Schema.Struct({
   type: Schema.Literal('health'),
   current: Schema.Number.pipe(Schema.nonNegative()),
   maximum: Schema.Number.pipe(Schema.positive()),
 }).annotations({ identifier: 'HealthComponent' })
+export type HealthComponent = Schema.Schema.Type<typeof HealthComponentSchema>
+
+export const ComponentSchema = Schema.Union(PositionComponentSchema, VelocityComponentSchema, HealthComponentSchema)
+export type Component = Schema.Schema.Type<typeof ComponentSchema>
+
+export const EntityTypeSchema = Schema.Literal('player', 'mob', 'item', 'projectile')
+export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 
 // エンティティ定義
 export const EntitySchema = Schema.Struct({
   id: Schema.String.pipe(Schema.uuid()),
-  type: Schema.Literal('player', 'mob', 'item', 'projectile'),
-  components: Schema.Array(
-    Schema.Union(
-      PositionComponentSchema,
-      VelocityComponentSchema,
-      HealthComponentSchema
-      // 他のコンポーネント...
-    )
-  ),
+  type: EntityTypeSchema,
+  components: Schema.Array(ComponentSchema),
   active: Schema.Boolean,
   world: Schema.String,
   chunk: ChunkCoordinateSchema,
 }).annotations({
   identifier: 'Entity',
 })
+export type Entity = Schema.Schema.Type<typeof EntitySchema>
+
+// ECSクエリ定義
+export const EntityQuerySchema = Schema.Struct({
+  all: Schema.optional(Schema.Array(Schema.String)), // 必須コンポーネント
+  any: Schema.optional(Schema.Array(Schema.String)), // いずれかを持つ
+  none: Schema.optional(Schema.Array(Schema.String)), // 持たないコンポーネント
+}).annotations({
+  identifier: 'EntityQuery',
+})
+export type EntityQuery = Schema.Schema.Type<typeof EntityQuerySchema>
 
 // ECSサービス
-export interface EntityService {
+export const EntityServiceSchema = Schema.Struct({
   // エンティティ管理
-  readonly createEntity: (type: EntityType, components: Component[]) => Effect.Effect<Entity, EntityCreationError>
-  readonly removeEntity: (id: string) => Effect.Effect<void, EntityNotFoundError>
-  readonly getEntity: (id: string) => Effect.Effect<Entity, EntityNotFoundError>
+  createEntity: Schema.Function,
+  removeEntity: Schema.Function,
+  getEntity: Schema.Function,
 
   // コンポーネント操作
-  readonly addComponent: <T extends Component>(
-    entityId: string,
-    component: T
-  ) => Effect.Effect<void, EntityNotFoundError>
-  readonly removeComponent: (entityId: string, componentType: string) => Effect.Effect<void, EntityNotFoundError>
-  readonly getComponent: <T extends Component>(
-    entityId: string,
-    componentType: string
-  ) => Effect.Effect<T | null, never>
+  addComponent: Schema.Function,
+  removeComponent: Schema.Function,
+  getComponent: Schema.Function,
 
   // クエリシステム
-  readonly queryEntities: (query: EntityQuery) => Effect.Effect<Entity[], never>
-  readonly queryComponents: <T extends Component>(
-    componentType: string
-  ) => Effect.Effect<Array<{ entity: Entity; component: T }>, never>
+  queryEntities: Schema.Function,
+  queryComponents: Schema.Function,
 
   // システム実行
-  readonly runSystems: () => Effect.Effect<void, SystemError>
-}
+  runSystems: Schema.Function,
+}).annotations({
+  identifier: 'EntityService',
+})
+export type EntityService = Schema.Schema.Type<typeof EntityServiceSchema>
 
 // システム実装例
 export const MovementSystem = Effect.gen(function* () {
@@ -1414,12 +1531,38 @@ export const PhysicsSystem = Effect.gen(function* () {
 ### 🚀 **ドメインサービス統合例**
 
 ```typescript
+// ゲームアクション定義
+export const PlayerActionSchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal('move'),
+    playerId: Schema.String,
+    position: PositionSchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal('place_block'),
+    playerId: Schema.String,
+    position: PositionSchema,
+    blockType: BlockTypeSchema,
+  }),
+  Schema.Struct({
+    type: Schema.Literal('break_block'),
+    playerId: Schema.String,
+    position: PositionSchema,
+  })
+).annotations({
+  identifier: 'PlayerAction',
+})
+export type PlayerAction = Schema.Schema.Type<typeof PlayerActionSchema>
+
 // ゲーム統合サービス
-export const GameService = Context.GenericTag<{
-  readonly processPlayerAction: (action: PlayerAction) => Effect.Effect<void, GameError>
-  readonly processGameTick: () => Effect.Effect<void, GameError>
-  readonly handlePlayerJoin: (player: PlayerState) => Effect.Effect<void, GameError>
-}>()('GameService')
+export const GameServiceSchema = Schema.Struct({
+  processPlayerAction: Schema.Function,
+  processGameTick: Schema.Function,
+  handlePlayerJoin: Schema.Function,
+}).annotations({
+  identifier: 'GameService',
+})
+export type GameService = Schema.Schema.Type<typeof GameServiceSchema>
 
 export const GameServiceLive = Layer.effect(
   GameService,

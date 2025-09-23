@@ -26,7 +26,7 @@ TypeScript Minecraft開発で頻繁に使用するEffect-TSパターンの実践
 - コードレビュー時のパターン照合
 - プロジェクト規約に準拠した実装の確認
 
-## 📚 基本パターン集
+## 📚 最新基本パターン集 (Effect-TS 3.17+)
 
 ### 1. Context.GenericTag（サービス定義）
 
@@ -301,6 +301,19 @@ export const ItemStackCountSchema = pipe(
   Schema.brand('ItemStackCount')
 )
 
+// 高度なBrand型パターン（最新）
+const EmailSchema = Schema.String.pipe(
+  Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+  Schema.brand('Email'),
+  Schema.annotations({
+    identifier: 'Email',
+    title: 'Email Address',
+    description: 'Valid email address format',
+  })
+)
+
+const PositiveIntSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('PositiveInt'))
+
 // 使用例
 const createPlayer = (name: string, startPosition: Position) =>
   Effect.gen(function* () {
@@ -502,6 +515,66 @@ const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
   })
 ```
 
+### Schema Transform 最適化パターン
+
+```typescript
+// 効率的なDate変換
+const OptimizedDateSchema = Schema.transformOrFail(Schema.String, Schema.DateFromSelf, {
+  decode: (str) => {
+    const timestamp = Date.parse(str)
+    return isNaN(timestamp)
+      ? ParseResult.fail(new ParseResult.Type(Schema.String.ast, str))
+      : ParseResult.succeed(new Date(timestamp))
+  },
+  encode: (date) => ParseResult.succeed(date.toISOString()),
+})
+
+// メモ化付き複雑バリデーション
+const memoizedComplexValidation = Schema.memoize(
+  ComplexPlayerSchema,
+  (player) => `${player.id}-${player.version}` // キー関数
+)
+```
+
+### 遅延評価とパフォーマンス
+
+```typescript
+// 大型オブジェクトの遅延評価
+const LazyWorldSchema = Schema.suspend(() =>
+  Schema.Struct({
+    chunks: Schema.Record(
+      ChunkCoordinateSchema,
+      Schema.suspend(() => ChunkSchema) // 必要時のみ評価
+    ),
+    players: Schema.Record(
+      PlayerIdSchema,
+      Schema.suspend(() => PlayerSchema)
+    ),
+    entities: Schema.Array(Schema.suspend(() => EntitySchema)),
+  })
+)
+
+// 段階的バリデーション（パフォーマンス最適化）
+const validatePlayerData = (data: unknown) =>
+  Effect.gen(function* () {
+    // 第1段階: 基本構造のみ
+    const basicCheck = yield* Schema.decodeUnknown(
+      Schema.Struct({
+        id: Schema.String,
+        name: Schema.String,
+      })
+    )(data)
+
+    // 第2段階: 必要な場合のみ詳細チェック
+    if (basicCheck.name.length > 16) {
+      return yield* Effect.fail(new ValidationError('Name too long'))
+    }
+
+    // 第3段階: 完全バリデーション
+    return yield* Schema.decodeUnknown(FullPlayerSchema)(data)
+  })
+```
+
 ---
 
 ## 💡 補足情報
@@ -517,5 +590,14 @@ const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
 - `yield*` の忘れ（`yield Effect...` ではなく `yield* Effect...`）
 - 古いAPIの使用（`Context.Tag` や `Data.Class`）
 - Brand型の不適切な使用（実行時チェックなしの使用）
+- `transformOrFail` でのエラーハンドリング漏れ
+- Schema合成時のパフォーマンス考慮不足
+
+### ベストプラクティス
+
+- **最新APIの使用**: Context7でEffect-TS最新情報を定期的に確認
+- **段階的バリデーション**: パフォーマンスが重要な場合は軽いチェックから開始
+- **型安全性の活用**: Brand型やTagged Unionでコンパイル時エラー検出
+- **メモ化の活用**: 高コストなバリデーションはメモ化で最適化
 
 このリファレンスを参考に、型安全で保守可能なMinecraft実装を進めてください！
