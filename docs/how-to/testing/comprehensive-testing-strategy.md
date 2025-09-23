@@ -229,11 +229,11 @@ describe('Network Request - FLAKY', () => {
       Effect.gen(function* () {
         const response = yield* Effect.tryPromise({
           try: () => fetch('https://api.example.com/data'),
-          catch: (error) => new NetworkError(String(error))
+          catch: (error) => new NetworkError(String(error)),
         })
         const data = yield* Effect.tryPromise({
           try: () => response.json(),
-          catch: (error) => new NetworkError(String(error))
+          catch: (error) => new NetworkError(String(error)),
         })
         expect(data.status).toBe('success') // ネットワーク状態に依存
       })
@@ -299,7 +299,7 @@ describe('Network Request - DETERMINISTIC', () => {
         const network = yield* NetworkService
         return yield* network.fetch('https://api.example.com/error')
       }).pipe(Effect.provide(createMockNetworkService(new Map(), mockErrors)))
-    ).then(exit => {
+    ).then((exit) => {
       expect(Exit.isFailure(exit)).toBe(true)
     })
   })
@@ -638,20 +638,23 @@ describe('PlayerMovementUseCase', () => {
             return Effect.succeed(collisionCallCount === 1 ? false : true) // 1人目は成功、2人目は衝突で失敗
           })
 
-          const [result1, result2] = yield* Effect.all([
-            useCase.execute(
-              PlayerMovementCommand.create({
-                playerId: player1.id.value,
-                targetPosition: targetPos,
-              })
-            ),
-            useCase.execute(
-              PlayerMovementCommand.create({
-                playerId: player2.id.value,
-                targetPosition: targetPos,
-              })
-            ),
-          ], { concurrency: 'unbounded' })
+          const [result1, result2] = yield* Effect.all(
+            [
+              useCase.execute(
+                PlayerMovementCommand.create({
+                  playerId: player1.id.value,
+                  targetPosition: targetPos,
+                })
+              ),
+              useCase.execute(
+                PlayerMovementCommand.create({
+                  playerId: player2.id.value,
+                  targetPosition: targetPos,
+                })
+              ),
+            ],
+            { concurrency: 'unbounded' }
+          )
 
           expect(result1.isSuccess).toBe(true)
           expect(result2.isSuccess).toBe(false)
@@ -693,7 +696,7 @@ describe('PlayerMovementUseCase', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(mockLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.isSuccess).toBe(false)
             expect(result.error).toContain('Player not found')
             return result
@@ -719,7 +722,7 @@ describe('IndexedDBPlayerRepository', () => {
         // テスト用InMemory IndexedDB
         mockDB = yield* Effect.tryPromise({
           try: () => createInMemoryDB('test-db', 1),
-          catch: (error) => new DatabaseError(String(error))
+          catch: (error) => new DatabaseError(String(error)),
         })
         repository = new IndexedDBPlayerRepository(mockDB)
       })
@@ -731,7 +734,7 @@ describe('IndexedDBPlayerRepository', () => {
       Effect.gen(function* () {
         yield* Effect.tryPromise({
           try: () => repository.clear(),
-          catch: (error) => new DatabaseError(String(error))
+          catch: (error) => new DatabaseError(String(error)),
         })
         mockDB.close()
       })
@@ -746,11 +749,11 @@ describe('IndexedDBPlayerRepository', () => {
 
           yield* Effect.tryPromise({
             try: () => repository.save(player),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           const retrieved = yield* Effect.tryPromise({
             try: () => repository.findById(player.id.value),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           expect(retrieved).toEqual(player)
@@ -763,7 +766,7 @@ describe('IndexedDBPlayerRepository', () => {
         Effect.gen(function* () {
           const result = yield* Effect.tryPromise({
             try: () => repository.findById('non-existent'),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           expect(Option.isNone(result)).toBe(true)
         })
@@ -776,18 +779,18 @@ describe('IndexedDBPlayerRepository', () => {
           const player = TestDataBuilder.player()
           yield* Effect.tryPromise({
             try: () => repository.save(player),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           const updated = player.takeDamage(20)
           yield* Effect.tryPromise({
             try: () => repository.save(updated),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           const retrieved = yield* Effect.tryPromise({
             try: () => repository.findById(player.id.value),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           expect(retrieved.health.value).toBe(updated.health.value)
         })
@@ -800,16 +803,16 @@ describe('IndexedDBPlayerRepository', () => {
           const player = TestDataBuilder.player()
           yield* Effect.tryPromise({
             try: () => repository.save(player),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           yield* Effect.tryPromise({
             try: () => repository.delete(player.id),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           const retrieved = yield* Effect.tryPromise({
             try: () => repository.findById(player.id.value),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           expect(Option.isNone(retrieved)).toBe(true)
@@ -832,18 +835,19 @@ describe('IndexedDBPlayerRepository', () => {
             players.map((p) =>
               Effect.tryPromise({
                 try: () => repository.save(p),
-                catch: (error) => new DatabaseError(String(error))
+                catch: (error) => new DatabaseError(String(error)),
               })
             ),
             { concurrency: 'unbounded' }
           )
 
           const nearbyPlayers = yield* Effect.tryPromise({
-            try: () => repository.findInRadius(
-              Position.create(5, 64, 0),
-              15 // 半径15ブロック
-            ),
-            catch: (error) => new DatabaseError(String(error))
+            try: () =>
+              repository.findInRadius(
+                Position.create(5, 64, 0),
+                15 // 半径15ブロック
+              ),
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           expect(nearbyPlayers).toHaveLength(2) // 最初の2人のみ
@@ -861,7 +865,7 @@ describe('IndexedDBPlayerRepository', () => {
             players.map((p) =>
               Effect.tryPromise({
                 try: () => repository.save(p),
-                catch: (error) => new DatabaseError(String(error))
+                catch: (error) => new DatabaseError(String(error)),
               })
             ),
             { concurrency: 'unbounded' }
@@ -870,16 +874,16 @@ describe('IndexedDBPlayerRepository', () => {
           const [page1, page2, page3] = yield* Effect.all([
             Effect.tryPromise({
               try: () => repository.findAll({ offset: 0, limit: 10 }),
-              catch: (error) => new DatabaseError(String(error))
+              catch: (error) => new DatabaseError(String(error)),
             }),
             Effect.tryPromise({
               try: () => repository.findAll({ offset: 10, limit: 10 }),
-              catch: (error) => new DatabaseError(String(error))
+              catch: (error) => new DatabaseError(String(error)),
             }),
             Effect.tryPromise({
               try: () => repository.findAll({ offset: 20, limit: 10 }),
-              catch: (error) => new DatabaseError(String(error))
-            })
+              catch: (error) => new DatabaseError(String(error)),
+            }),
           ])
 
           expect(page1).toHaveLength(10)
@@ -903,32 +907,33 @@ describe('IndexedDBPlayerRepository', () => {
           const player2 = TestDataBuilder.player()
 
           yield* Effect.tryPromise({
-            try: () => repository.transaction((tx) =>
-              Effect.runPromise(
-                Effect.gen(function* () {
-                  yield* Effect.tryPromise({
-                    try: () => repository.save(player1, tx),
-                    catch: (error) => new DatabaseError(String(error))
+            try: () =>
+              repository.transaction((tx) =>
+                Effect.runPromise(
+                  Effect.gen(function* () {
+                    yield* Effect.tryPromise({
+                      try: () => repository.save(player1, tx),
+                      catch: (error) => new DatabaseError(String(error)),
+                    })
+                    yield* Effect.tryPromise({
+                      try: () => repository.save(player2, tx),
+                      catch: (error) => new DatabaseError(String(error)),
+                    })
                   })
-                  yield* Effect.tryPromise({
-                    try: () => repository.save(player2, tx),
-                    catch: (error) => new DatabaseError(String(error))
-                  })
-                })
-              )
-            ),
-            catch: (error) => new DatabaseError(String(error))
+                )
+              ),
+            catch: (error) => new DatabaseError(String(error)),
           })
 
           const [retrieved1, retrieved2] = yield* Effect.all([
             Effect.tryPromise({
               try: () => repository.findById(player1.id.value),
-              catch: (error) => new DatabaseError(String(error))
+              catch: (error) => new DatabaseError(String(error)),
             }),
             Effect.tryPromise({
               try: () => repository.findById(player2.id.value),
-              catch: (error) => new DatabaseError(String(error))
-            })
+              catch: (error) => new DatabaseError(String(error)),
+            }),
           ])
 
           expect(Option.isSome(retrieved1)).toBe(true)
@@ -944,18 +949,19 @@ describe('IndexedDBPlayerRepository', () => {
 
           const exit = yield* Effect.exit(
             Effect.tryPromise({
-              try: () => repository.transaction((tx) =>
-                Effect.runPromise(
-                  Effect.gen(function* () {
-                    yield* Effect.tryPromise({
-                      try: () => repository.save(player, tx),
-                      catch: (error) => new DatabaseError(String(error))
+              try: () =>
+                repository.transaction((tx) =>
+                  Effect.runPromise(
+                    Effect.gen(function* () {
+                      yield* Effect.tryPromise({
+                        try: () => repository.save(player, tx),
+                        catch: (error) => new DatabaseError(String(error)),
+                      })
+                      yield* Effect.fail(new Error('Intentional error'))
                     })
-                    yield* Effect.fail(new Error('Intentional error'))
-                  })
-                )
-              ),
-              catch: (error) => error
+                  )
+                ),
+              catch: (error) => error,
             })
           )
 
@@ -966,7 +972,7 @@ describe('IndexedDBPlayerRepository', () => {
 
           const retrieved = yield* Effect.tryPromise({
             try: () => repository.findById(player.id.value),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           expect(Option.isNone(retrieved)).toBe(true)
         })
@@ -985,7 +991,7 @@ describe('IndexedDBPlayerRepository', () => {
             players.map((p) =>
               Effect.tryPromise({
                 try: () => repository.save(p),
-                catch: (error) => new DatabaseError(String(error))
+                catch: (error) => new DatabaseError(String(error)),
               })
             ),
             { concurrency: 'unbounded' }
@@ -997,7 +1003,7 @@ describe('IndexedDBPlayerRepository', () => {
 
           const count = yield* Effect.tryPromise({
             try: () => repository.count(),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           expect(count).toBe(1000)
         })
@@ -1013,7 +1019,7 @@ describe('IndexedDBPlayerRepository', () => {
             players.map((p) =>
               Effect.tryPromise({
                 try: () => repository.save(p),
-                catch: (error) => new DatabaseError(String(error))
+                catch: (error) => new DatabaseError(String(error)),
               })
             ),
             { concurrency: 'unbounded' }
@@ -1023,7 +1029,7 @@ describe('IndexedDBPlayerRepository', () => {
           const startTime = performance.now()
           const found = yield* Effect.tryPromise({
             try: () => repository.findByName('Player5000'),
-            catch: (error) => new DatabaseError(String(error))
+            catch: (error) => new DatabaseError(String(error)),
           })
           const endTime = performance.now()
 
@@ -1526,7 +1532,7 @@ describe('Full Stack Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.chunkLoaded).toBe(true)
             expect(result.finalPosition.z).not.toBe(result.initialPosition.z)
             return result
@@ -1549,10 +1555,10 @@ describe('Full Stack Integration Tests', () => {
         // 同じ位置に向かって移動
         const targetPos = Position.create(10, 64, 10)
 
-        const movements = yield* Effect.all([
-          gameController.movePlayerTo(player1.id, targetPos),
-          gameController.movePlayerTo(player2.id, targetPos),
-        ], { concurrency: 'unbounded' })
+        const movements = yield* Effect.all(
+          [gameController.movePlayerTo(player1.id, targetPos), gameController.movePlayerTo(player2.id, targetPos)],
+          { concurrency: 'unbounded' }
+        )
 
         // 結果確認
         const [result1, result2] = movements
@@ -1571,7 +1577,7 @@ describe('Full Stack Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.distance).toBeGreaterThan(0)
             return result
           })
@@ -1623,7 +1629,7 @@ describe('Full Stack Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.chunksMatch).toBe(true)
             expect(result.originalWorld.seed).toBe(result.loadedWorld.seed)
             return result
@@ -1685,7 +1691,7 @@ describe('Performance Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.playerCount).toBe(100)
             expect(result.creationTime).toBeLessThan(5000)
             expect(result.moveTime).toBeLessThan(10000)
@@ -1746,7 +1752,7 @@ describe('Performance Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             expect(result.chunkCount).toBe(100)
             expect(result.avgLoadTimePerChunk).toBeLessThan(150) // チャンク1個あたり150ms未満
             return result
@@ -1824,7 +1830,7 @@ describe('Performance Integration Tests', () => {
       return Effect.runPromise(
         program.pipe(
           Effect.provide(testLayer),
-          Effect.map(result => {
+          Effect.map((result) => {
             // メモリ増加が15%以下であることを確認
             expect(result.memoryGrowthPercent).toBeLessThan(15)
             expect(result.cycles).toBe(100)

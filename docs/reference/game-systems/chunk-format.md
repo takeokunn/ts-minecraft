@@ -47,7 +47,12 @@ import { Effect, Option } from 'effect'
 export const CompressionErrorSchema = Schema.Struct({
   _tag: Schema.Literal('CompressionError'),
   message: Schema.String,
-  operation: Schema.Union(Schema.Literal('serialize'), Schema.Literal('deserialize'), Schema.Literal('compress'), Schema.Literal('decompress')),
+  operation: Schema.Union(
+    Schema.Literal('serialize'),
+    Schema.Literal('deserialize'),
+    Schema.Literal('compress'),
+    Schema.Literal('decompress')
+  ),
 })
 
 export type CompressionError = Schema.Schema.Type<typeof CompressionErrorSchema>
@@ -60,7 +65,12 @@ export const CompressionError = (params: Omit<CompressionError, '_tag'>): Compre
 export const FileErrorSchema = Schema.Struct({
   _tag: Schema.Literal('FileError'),
   message: Schema.String,
-  operation: Schema.Union(Schema.Literal('read'), Schema.Literal('write'), Schema.Literal('create'), Schema.Literal('delete')),
+  operation: Schema.Union(
+    Schema.Literal('read'),
+    Schema.Literal('write'),
+    Schema.Literal('create'),
+    Schema.Literal('delete')
+  ),
 })
 
 export type FileError = Schema.Schema.Type<typeof FileErrorSchema>
@@ -481,13 +491,13 @@ export const ChunkCompression = {
     Effect.gen(function* () {
       const serialized = yield* Effect.try({
         try: () => serializeChunk(chunk),
-        catch: (error) => CompressionError({ message: `Serialization failed: ${error}`, operation: 'serialize' })
+        catch: (error) => CompressionError({ message: `Serialization failed: ${error}`, operation: 'serialize' }),
       })
 
       // pako or native compressionを使用
       const compressed = yield* Effect.tryPromise({
         try: () => compressZlib(serialized),
-        catch: (error) => CompressionError({ message: `Compression failed: ${error}`, operation: 'compress' })
+        catch: (error) => CompressionError({ message: `Compression failed: ${error}`, operation: 'compress' }),
       })
 
       // ヘッダー付加
@@ -509,12 +519,12 @@ export const ChunkCompression = {
       const compressed = data.slice(8, 8 + compressedSize)
       const decompressed = yield* Effect.tryPromise({
         try: () => decompressZlib(compressed),
-        catch: (error) => CompressionError({ message: `Decompression failed: ${error}`, operation: 'decompress' })
+        catch: (error) => CompressionError({ message: `Decompression failed: ${error}`, operation: 'decompress' }),
       })
 
       return yield* Effect.try({
         try: () => deserializeChunk(decompressed),
-        catch: (error) => CompressionError({ message: `Deserialization failed: ${error}`, operation: 'deserialize' })
+        catch: (error) => CompressionError({ message: `Deserialization failed: ${error}`, operation: 'deserialize' }),
       })
     }),
 }

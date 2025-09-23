@@ -553,7 +553,7 @@ export const CompressionStrategies = {
       Effect.gen(function* () {
         const arrayBuffer = yield* Effect.tryPromise({
           try: () => new Response(new Blob([data]).stream().pipeThrough(new CompressionStream('br'))).arrayBuffer(),
-          catch: (error) => new Error(`Brotli compression failed: ${error}`)
+          catch: (error) => new Error(`Brotli compression failed: ${error}`),
         })
         return new Uint8Array(arrayBuffer)
       }),
@@ -562,7 +562,7 @@ export const CompressionStrategies = {
       Effect.gen(function* () {
         const arrayBuffer = yield* Effect.tryPromise({
           try: () => new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('br'))).arrayBuffer(),
-          catch: (error) => new Error(`Brotli decompression failed: ${error}`)
+          catch: (error) => new Error(`Brotli decompression failed: ${error}`),
         })
         return new Uint8Array(arrayBuffer)
       }),

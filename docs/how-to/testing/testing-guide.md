@@ -327,7 +327,7 @@ it('should handle validation errors properly', () => {
     return yield* service.create({ name: '' }) // 無効なデータ
   })
 
-  return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then(exit => {
+  return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then((exit) => {
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {
       const error = Exit.unannotate(exit.cause)

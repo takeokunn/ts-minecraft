@@ -678,7 +678,7 @@ export const validateBuild = (): Effect.Effect<BuildStats, Error> =>
       Effect.gen(function* () {
         const files = yield* Effect.try({
           try: () => readdirSync(dir, { withFileTypes: true }),
-          catch: (error) => new Error(`Failed to read directory ${dir}: ${error}`)
+          catch: (error) => new Error(`Failed to read directory ${dir}: ${error}`),
         })
 
         for (const file of files) {
@@ -689,17 +689,17 @@ export const validateBuild = (): Effect.Effect<BuildStats, Error> =>
           } else {
             const content = yield* Effect.try({
               try: () => readFileSync(filePath),
-              catch: (error) => new Error(`Failed to read file ${filePath}: ${error}`)
+              catch: (error) => new Error(`Failed to read file ${filePath}: ${error}`),
             })
 
             const gzipSize = yield* Effect.try({
               try: () => gzipSync(content).length,
-              catch: (error) => new Error(`Failed to gzip ${filePath}: ${error}`)
+              catch: (error) => new Error(`Failed to gzip ${filePath}: ${error}`),
             })
 
             const brotliSize = yield* Effect.try({
               try: () => brotliCompressSync(content).length,
-              catch: (error) => new Error(`Failed to brotli compress ${filePath}: ${error}`)
+              catch: (error) => new Error(`Failed to brotli compress ${filePath}: ${error}`),
             })
 
             const fileStats: FileStats = {
@@ -723,7 +723,7 @@ export const validateBuild = (): Effect.Effect<BuildStats, Error> =>
     // サイズ制限チェック
     yield* Effect.try({
       try: () => validateSizeConstraints(stats),
-      catch: (error) => new Error(`Size validation failed: ${error}`)
+      catch: (error) => new Error(`Size validation failed: ${error}`),
     })
 
     // 重複コードチェック

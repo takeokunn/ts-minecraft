@@ -978,9 +978,7 @@ const processInParallel = (urls: ReadonlyArray<string>) =>
         const httpClient = yield* HttpClient.HttpClient
         const response = yield* httpClient.get(url)
         return yield* response.json
-      }).pipe(
-        Effect.catchAll((e) => Effect.fail(new FetchError(String(e))))
-      ),
+      }).pipe(Effect.catchAll((e) => Effect.fail(new FetchError(String(e))))),
     { concurrency: 5 } // 最大5並列
   )
 
@@ -1193,9 +1191,7 @@ const executeAsyncOperation = (op: AsyncOperation): Effect.Effect<string> =>
         const httpClient = yield* HttpClient.HttpClient
         const response = yield* httpClient.get(url)
         return yield* response.text
-      }).pipe(
-        Effect.catchAll((e) => Effect.fail(new Error(`Fetch failed: ${e}`)))
-      )
+      }).pipe(Effect.catchAll((e) => Effect.fail(new Error(`Fetch failed: ${e}`))))
     ),
     Match.when({ type: 'compute' }, ({ data }) =>
       Effect.gen(function* () {

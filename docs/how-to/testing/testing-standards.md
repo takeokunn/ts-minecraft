@@ -301,7 +301,7 @@ describe('Complete Coverage Testing', () => {
         return yield* service.create({ name: '' }) // 無効データ
       })
 
-      return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then(exit => {
+      return Effect.runPromiseExit(program.pipe(Effect.provide(TestPlayerServiceLive))).then((exit) => {
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
           const error = Cause.squash(exit.cause)
@@ -417,7 +417,7 @@ const mockServiceLayer = Layer.succeed(
 
 // ✅ 必須: 型推論または明示的な型定義
 const player = Schema.decodeUnknownSync(PlayerSchema)(data)
-const result = yield* service.create(validatedData)
+const result = yield * service.create(validatedData)
 const mockPlayerService = Layer.succeed(
   PlayerService,
   PlayerService.of({
