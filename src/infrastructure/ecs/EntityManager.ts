@@ -1,4 +1,4 @@
-import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
+import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import type { SystemError } from './System'
 import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
@@ -224,21 +224,27 @@ export const EntityManagerLive = Effect.gen(function* () {
       entityComponents.set(id, new Set())
 
       // タグインデックスの更新
-      for (const tag of tags) {
-        pipe(
-          Option.fromNullable(tagIndex.get(tag)),
-          Option.match({
-            onNone: () => {
-              const tagSet = new Set<EntityId>()
-              tagIndex.set(tag, tagSet)
-              tagSet.add(id)
-            },
-            onSome: (tagSet) => {
-              tagSet.add(id)
-            },
+      yield* pipe(
+        Stream.fromIterable(tags),
+        Stream.mapEffect((tag) =>
+          Effect.sync(() => {
+            pipe(
+              Option.fromNullable(tagIndex.get(tag)),
+              Option.match({
+                onNone: () => {
+                  const tagSet = new Set<EntityId>()
+                  tagIndex.set(tag, tagSet)
+                  tagSet.add(id)
+                },
+                onSome: (tagSet) => {
+                  tagSet.add(id)
+                },
+              })
+            )
           })
-        )
-      }
+        ),
+        Stream.runDrain
+      )
 
       // 空のアーキタイプに追加
       yield* archetypeManager.moveEntity(id, new Set())

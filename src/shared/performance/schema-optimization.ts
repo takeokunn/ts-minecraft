@@ -5,7 +5,7 @@
  * to maintain 60FPS performance while preserving type safety
  */
 
-import { Effect, pipe } from 'effect'
+import { Effect, pipe, Stream } from 'effect'
 import { Schema, ParseResult } from '@effect/schema'
 
 /**
@@ -310,16 +310,22 @@ export const SchemaOptimization = {
        * Clear expired cache entries
        */
       cleanupCache: (): Effect.Effect<number, never> =>
-        Effect.sync(() => {
+        Effect.gen(function* () {
           const now = Date.now()
           let cleaned = 0
 
-          for (const [key, value] of cache.entries()) {
-            if (now - value.timestamp >= value.ttl) {
-              cache.delete(key)
-              cleaned++
-            }
-          }
+          yield* pipe(
+            Stream.fromIterable(cache.entries()),
+            Stream.mapEffect(([key, value]) =>
+              Effect.sync(() => {
+                if (now - value.timestamp >= value.ttl) {
+                  cache.delete(key)
+                  cleaned++
+                }
+              })
+            ),
+            Stream.runDrain
+          )
 
           return cleaned
         }),

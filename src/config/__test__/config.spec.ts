@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Either } from 'effect'
+import { Effect, Either, Stream, pipe } from 'effect'
 import { defaultConfig, loadConfig, validateConfig } from '../config.js'
 
 describe('defaultConfig', () => {
@@ -284,47 +284,65 @@ describe('Property-Based Tests', () => {
   describe('有効な設定の不変条件', () => {
     it.effect('有効な設定は常に正しくデコード・エンコードされる', () =>
       Effect.gen(function* () {
-        for (const config of TestData.validConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
+        yield* pipe(
+          Stream.fromIterable(TestData.validConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
 
-          expect(Either.isRight(result)).toBe(true)
-          if (Either.isRight(result)) {
-            expect(result.right).toEqual(config)
-          }
-        }
+              expect(Either.isRight(result)).toBe(true)
+              if (Either.isRight(result)) {
+                expect(result.right).toEqual(config)
+              }
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
     it.effect('有効な設定は常に指定範囲内にある', () =>
       Effect.gen(function* () {
-        for (const config of TestData.validConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
+        yield* pipe(
+          Stream.fromIterable(TestData.validConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
 
-          if (Either.isRight(result)) {
-            const validated = result.right
-            expect(validated.fps).toBeGreaterThanOrEqual(1)
-            expect(validated.fps).toBeLessThanOrEqual(120)
-            expect(validated.memoryLimit).toBeGreaterThanOrEqual(1)
-            expect(validated.memoryLimit).toBeLessThanOrEqual(2048)
-          }
-        }
+              if (Either.isRight(result)) {
+                const validated = result.right
+                expect(validated.fps).toBeGreaterThanOrEqual(1)
+                expect(validated.fps).toBeLessThanOrEqual(120)
+                expect(validated.memoryLimit).toBeGreaterThanOrEqual(1)
+                expect(validated.memoryLimit).toBeLessThanOrEqual(2048)
+              }
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
     it.effect('追加フィールドは常に除去される', () =>
       Effect.gen(function* () {
-        for (const config of TestData.configsWithExtraFields) {
-          const result = yield* Effect.either(validateConfig(config))
+        yield* pipe(
+          Stream.fromIterable(TestData.configsWithExtraFields),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
 
-          if (Either.isRight(result)) {
-            const validated = result.right
-            expect(validated).toEqual({
-              debug: config.debug,
-              fps: config.fps,
-              memoryLimit: config.memoryLimit,
+              if (Either.isRight(result)) {
+                const validated = result.right
+                expect(validated).toEqual({
+                  debug: config.debug,
+                  fps: config.fps,
+                  memoryLimit: config.memoryLimit,
+                })
+              }
             })
-          }
-        }
+          ),
+          Stream.runDrain
+        )
       })
     )
   })
@@ -332,37 +350,61 @@ describe('Property-Based Tests', () => {
   describe('無効な設定の検出', () => {
     it.effect('無効なfps値は常に拒否される', () =>
       Effect.gen(function* () {
-        for (const config of TestData.invalidFpsConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
-          expect(Either.isLeft(result)).toBe(true)
-        }
+        yield* pipe(
+          Stream.fromIterable(TestData.invalidFpsConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
+              expect(Either.isLeft(result)).toBe(true)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
     it.effect('無効なmemoryLimit値は常に拒否される', () =>
       Effect.gen(function* () {
-        for (const config of TestData.invalidMemoryLimitConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
-          expect(Either.isLeft(result)).toBe(true)
-        }
+        yield* pipe(
+          Stream.fromIterable(TestData.invalidMemoryLimitConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
+              expect(Either.isLeft(result)).toBe(true)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
     it.effect('不完全な設定は常に拒否される', () =>
       Effect.gen(function* () {
-        for (const config of TestData.incompleteConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
-          expect(Either.isLeft(result)).toBe(true)
-        }
+        yield* pipe(
+          Stream.fromIterable(TestData.incompleteConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
+              expect(Either.isLeft(result)).toBe(true)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
     it.effect('型が間違っている設定は常に拒否される', () =>
       Effect.gen(function* () {
-        for (const config of TestData.wrongTypeConfigs) {
-          const result = yield* Effect.either(validateConfig(config))
-          expect(Either.isLeft(result)).toBe(true)
-        }
+        yield* pipe(
+          Stream.fromIterable(TestData.wrongTypeConfigs),
+          Stream.mapEffect((config) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(config))
+              expect(Either.isLeft(result)).toBe(true)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
   })
@@ -370,10 +412,16 @@ describe('Property-Based Tests', () => {
   describe('プリミティブ型や無効な構造は常に拒否される', () => {
     it.effect('プリミティブ型や無効な構造は常に拒否される', () =>
       Effect.gen(function* () {
-        for (const invalidInput of TestData.primitiveInputs) {
-          const result = yield* Effect.either(validateConfig(invalidInput))
-          expect(Either.isLeft(result)).toBe(true)
-        }
+        yield* pipe(
+          Stream.fromIterable(TestData.primitiveInputs),
+          Stream.mapEffect((invalidInput) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(validateConfig(invalidInput))
+              expect(Either.isLeft(result)).toBe(true)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
   })
@@ -392,22 +440,28 @@ describe('ラウンドトリップテスト', () => {
         { debug: true, fps: 120, memoryLimit: 2048 },
       ]
 
-      for (const originalConfig of configs) {
-        const validatedResult = yield* Effect.either(validateConfig(originalConfig))
+      yield* pipe(
+        Stream.fromIterable(configs),
+        Stream.mapEffect((originalConfig) =>
+          Effect.gen(function* () {
+            const validatedResult = yield* Effect.either(validateConfig(originalConfig))
 
-        expect(Either.isRight(validatedResult)).toBe(true)
-        if (Either.isRight(validatedResult)) {
-          const validated = validatedResult.right
+            expect(Either.isRight(validatedResult)).toBe(true)
+            if (Either.isRight(validatedResult)) {
+              const validated = validatedResult.right
 
-          // 再度バリデーションを通しても同じ結果になることを確認
-          const secondValidation = yield* Effect.either(validateConfig(validated))
-          expect(Either.isRight(secondValidation)).toBe(true)
+              // 再度バリデーションを通しても同じ結果になることを確認
+              const secondValidation = yield* Effect.either(validateConfig(validated))
+              expect(Either.isRight(secondValidation)).toBe(true)
 
-          if (Either.isRight(secondValidation)) {
-            expect(secondValidation.right).toEqual(validated)
-          }
-        }
-      }
+              if (Either.isRight(secondValidation)) {
+                expect(secondValidation.right).toEqual(validated)
+              }
+            }
+          })
+        ),
+        Stream.runDrain
+      )
     })
   )
 })
@@ -467,16 +521,22 @@ describe('無効な設定の検出', () => {
     Effect.gen(function* () {
       const invalidMemoryLimits = [-1, 0, 2049, 10000, Number.MAX_VALUE]
 
-      for (const invalidMemoryLimit of invalidMemoryLimits) {
-        const result = yield* Effect.either(
-          validateConfig({
-            debug: true,
-            fps: 60,
-            memoryLimit: invalidMemoryLimit,
+      yield* pipe(
+        Stream.fromIterable(invalidMemoryLimits),
+        Stream.mapEffect((invalidMemoryLimit) =>
+          Effect.gen(function* () {
+            const result = yield* Effect.either(
+              validateConfig({
+                debug: true,
+                fps: 60,
+                memoryLimit: invalidMemoryLimit,
+              })
+            )
+            expect(Either.isLeft(result)).toBe(true)
           })
-        )
-        expect(Either.isLeft(result)).toBe(true)
-      }
+        ),
+        Stream.runDrain
+      )
     })
   )
 
@@ -484,16 +544,22 @@ describe('無効な設定の検出', () => {
     Effect.gen(function* () {
       const invalidFpsValues = [-1, 0, 121, 1000, Number.MAX_VALUE]
 
-      for (const invalidFps of invalidFpsValues) {
-        const result = yield* Effect.either(
-          validateConfig({
-            debug: true,
-            fps: invalidFps,
-            memoryLimit: 1024,
+      yield* pipe(
+        Stream.fromIterable(invalidFpsValues),
+        Stream.mapEffect((invalidFps) =>
+          Effect.gen(function* () {
+            const result = yield* Effect.either(
+              validateConfig({
+                debug: true,
+                fps: invalidFps,
+                memoryLimit: 1024,
+              })
+            )
+            expect(Either.isLeft(result)).toBe(true)
           })
-        )
-        expect(Either.isLeft(result)).toBe(true)
-      }
+        ),
+        Stream.runDrain
+      )
     })
   )
 })

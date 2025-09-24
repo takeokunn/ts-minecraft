@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R } from 'effect'
+import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
 import { MeshDimension, BrandedTypes } from '../../shared/types/branded.js'
@@ -283,9 +283,13 @@ const quadsToMeshData = (quads: readonly Quad[]): MeshData => {
     vertices.push(...quadVertices)
 
     // Add normals (same for all 4 vertices of the quad)
-    for (let i = 0; i < 4; i++) {
-      normals.push(...normal)
-    }
+    Effect.runSync(
+      pipe(
+        Stream.range(0, 3), // 0-3, 4 iterations
+        Stream.mapEffect(() => Effect.sync(() => normals.push(...normal))),
+        Stream.runDrain
+      )
+    )
 
     // Add UVs
     uvs.push(...quadUvs)
@@ -343,10 +347,18 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
           const allQuads: Quad[] = []
           const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))
 
-          for (let axis = 0; axis < 3; axis++) {
-            const quads = generateGreedyMeshForAxis(mutableBlocks, chunkData.size, axis)
-            allQuads.push(...quads)
-          }
+          Effect.runSync(
+            pipe(
+              Stream.range(0, 2), // 0-2, 3 axes (X, Y, Z)
+              Stream.mapEffect((axis) =>
+                Effect.sync(() => {
+                  const quads = generateGreedyMeshForAxis(mutableBlocks, chunkData.size, axis)
+                  allQuads.push(...quads)
+                })
+              ),
+              Stream.runDrain
+            )
+          )
 
           return allQuads
         },
