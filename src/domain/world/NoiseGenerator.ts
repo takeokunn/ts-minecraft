@@ -200,9 +200,10 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
 
     octaveNoise2D: (x: NoiseCoordinate, y: NoiseCoordinate, octaves: number, persistence: number) =>
       Effect.gen(function* () {
-        return yield* Effect.if(octaves <= 0, {
-          onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
-          onFalse: () =>
+        return yield* pipe(
+          Match.value(octaves <= 0),
+          Match.when(true, () => Effect.succeed(BrandedTypes.createNoiseValue(0))),
+          Match.when(false, () =>
             Effect.gen(function* () {
               let total = 0
               let frequency = 1
@@ -228,15 +229,18 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 ),
                 Match.orElse(() => Effect.succeed(BrandedTypes.createNoiseValue(0)))
               )
-            }),
-        })
+            })
+          ),
+          Match.exhaustive
+        )
       }),
 
     octaveNoise3D: (x: NoiseCoordinate, y: NoiseCoordinate, z: NoiseCoordinate, octaves: number, persistence: number) =>
       Effect.gen(function* () {
-        return yield* Effect.if(octaves <= 0, {
-          onTrue: () => Effect.succeed(BrandedTypes.createNoiseValue(0)),
-          onFalse: () =>
+        return yield* pipe(
+          Match.value(octaves <= 0),
+          Match.when(true, () => Effect.succeed(BrandedTypes.createNoiseValue(0))),
+          Match.when(false, () =>
             Effect.gen(function* () {
               let total = 0
               let frequency = 1
@@ -263,8 +267,10 @@ const createNoiseGenerator = (config: NoiseConfig): NoiseGenerator => {
                 ),
                 Match.orElse(() => Effect.succeed(BrandedTypes.createNoiseValue(0)))
               )
-            }),
-        })
+            })
+          ),
+          Match.exhaustive
+        )
       }),
 
     getSeed: () => config.seed,

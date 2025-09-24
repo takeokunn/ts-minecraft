@@ -188,39 +188,51 @@ const createThreeRendererService = (
       // WebGLコンテキストの状態確認とレンダリング実行
       const renderResult = yield* Effect.try({
         try: () => {
-          // WebGLコンテキストの状態確認を簡潔な条件分岐で実装
+          // WebGLコンテキストの状態確認をMatch.valueで実装
           const gl = renderer!.getContext()
           const contextLost = gl.isContextLost()
 
-          if (contextLost) {
-            throw new Error('WebGLコンテキストが失われています')
-          }
+          return pipe(
+            Match.value(contextLost),
+            Match.when(true, () => {
+              throw new Error('WebGLコンテキストが失われています')
+            }),
+            Match.when(false, () => {
+              // フレームタイミング計測開始
+              const frameStart = performance.now()
 
-          // フレームタイミング計測開始
-          const frameStart = performance.now()
+              // レンダリング実行
+              renderer!.render(scene, camera)
 
-          // レンダリング実行
-          renderer!.render(scene, camera)
-
-          return { frameStart, frameEnd: performance.now() }
+              return { frameStart, frameEnd: performance.now() }
+            }),
+            Match.exhaustive
+          )
         },
         catch: (error) => {
-          // 簡潔で型安全なエラー分類
-          if (error instanceof Error && error.message === 'WebGLコンテキストが失われています') {
-            return ContextLostError({
-              message: 'WebGLコンテキストが失われています',
-              canRestore: true,
-              lostTime: Date.now(),
-            })
-          }
-
-          return RenderExecutionError({
-            message: 'レンダリング実行中にエラーが発生しました',
-            operation: 'render',
-            sceneId: scene.uuid,
-            cameraType: camera.type,
-            cause: error,
-          })
+          // 型安全なエラー分類をMatch.valueで実装
+          return pipe(
+            Match.value(error),
+            Match.when(
+              (err: unknown): err is Error =>
+                Predicate.isRecord(err) && 'message' in err && err['message'] === 'WebGLコンテキストが失われています',
+              () =>
+                ContextLostError({
+                  message: 'WebGLコンテキストが失われています',
+                  canRestore: true,
+                  lostTime: Date.now(),
+                })
+            ),
+            Match.orElse(() =>
+              RenderExecutionError({
+                message: 'レンダリング実行中にエラーが発生しました',
+                operation: 'render',
+                sceneId: scene.uuid,
+                cameraType: camera.type,
+                cause: error,
+              })
+            )
+          )
         },
       })
 
@@ -234,21 +246,28 @@ const createThreeRendererService = (
         lastFrameTime: frameEnd,
       }
 
-      // FPS計算条件判定を簡潔に実装
+      // FPS計算条件判定をMatch.valueで実装
       const shouldUpdateFps = frameEnd - stats.lastStatsUpdate >= 1000
 
-      if (shouldUpdateFps) {
-        newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
-        newStats.frameCount = 0
-        newStats.lastStatsUpdate = frameEnd
-      }
+      const finalStats = pipe(
+        Match.value(shouldUpdateFps),
+        Match.when(true, () => ({
+          ...newStats,
+          fps: Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate)),
+          frameCount: 0,
+          lastStatsUpdate: frameEnd,
+        })),
+        Match.when(false, () => newStats),
+        Match.exhaustive
+      )
 
-      yield* Ref.set(statsRef, newStats)
+      yield* Ref.set(statsRef, finalStats)
 
-      // パフォーマンス警告判定を簡潔に実装
-      if (frameTime > 16.67) {
-        console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
-      }
+      // パフォーマンス警告判定をEffect.whenで実装
+      yield* Effect.when(
+        Effect.sync(() => console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)),
+        () => frameTime > 16.67
+      )
     }),
   resize: (width: number, height: number): Effect.Effect<void, never> =>
     Effect.gen(function* () {
@@ -292,30 +311,59 @@ const createThreeRendererService = (
         })
       )
 
-      // WebGL2サポートの簡単で型安全なチェック
-      const isWebGL2 = (() => {
-        if (typeof WebGL2RenderingContext === 'undefined') {
-          return false
-        }
+      // WebGL2サポートの型安全なチェックをMatch.valueで実装
+      const isWebGL2 = pipe(
+        Effect.sync(() => {
+          // Check if WebGL2RenderingContext exists globally
+          const hasWebGL2 = typeof WebGL2RenderingContext !== 'undefined'
+          return pipe(
+            Match.value(hasWebGL2),
+            Match.when(false, () => false),
+            Match.when(true, () => {
+              const context = renderer!.getContext()
+              // Check if context is WebGL2 by examining its constructor
+              return pipe(
+                Option.fromNullable(context),
+                Option.match({
+                  onNone: () => false,
+                  onSome: (ctx) =>
+                    Predicate.isRecord(ctx) &&
+                    'constructor' in ctx &&
+                    typeof ctx.constructor === 'function' &&
+                    (ctx.constructor.name === 'WebGL2RenderingContext' ||
+                      ctx.constructor.name === 'MockWebGL2RenderingContext'),
+                })
+              )
+            }),
+            Match.exhaustive
+          )
+        }),
+        Effect.runSync
+      )
 
-        const context = renderer!.getContext()
-        return context instanceof WebGL2RenderingContext
-      })()
+      yield* pipe(
+        Match.value(isWebGL2),
+        Match.when(true, () =>
+          Effect.sync(() => {
+            // WebGL2固有の機能を有効化
+            const extensions = renderer!.extensions
 
-      if (isWebGL2) {
-        // WebGL2固有の機能を有効化
-        const extensions = renderer!.extensions
+            // 高度なテクスチャ機能
+            extensions.get('EXT_color_buffer_float')
+            extensions.get('EXT_texture_filter_anisotropic')
+            extensions.get('WEBGL_compressed_texture_s3tc')
+            extensions.get('WEBGL_compressed_texture_etc')
 
-        // 高度なテクスチャ機能
-        extensions.get('EXT_color_buffer_float')
-        extensions.get('EXT_texture_filter_anisotropic')
-        extensions.get('WEBGL_compressed_texture_s3tc')
-        extensions.get('WEBGL_compressed_texture_etc')
-
-        console.log('WebGL2 advanced features enabled')
-      } else {
-        console.warn('WebGL2 not supported, using WebGL1 fallback')
-      }
+            console.log('WebGL2 advanced features enabled')
+          })
+        ),
+        Match.when(false, () =>
+          Effect.sync(() => {
+            console.warn('WebGL2 not supported, using WebGL1 fallback')
+          })
+        ),
+        Match.exhaustive
+      )
     }),
 
   configureShadowMap: (options = {}): Effect.Effect<void, never> =>

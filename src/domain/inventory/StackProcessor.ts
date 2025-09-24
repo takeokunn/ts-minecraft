@@ -415,31 +415,51 @@ export class StackProcessor {
 
       let totalAvailableSpace = 0
 
-      // Calculate available space in existing stacks
+      // Calculate available space in existing stacks using Effect-TS patterns
       for (const slotIndex of existingSlots) {
         const existingStack = inventory.slots[slotIndex]
-        if (existingStack !== null && existingStack !== undefined) {
-          const canStack = yield* registryService.canStack(itemStack, existingStack)
-          if (canStack) {
-            const availableSpace = maxStackSize - existingStack.count
-            totalAvailableSpace += Math.max(0, availableSpace)
-          }
-        }
+        yield* pipe(
+          Option.fromNullable(existingStack),
+          Option.match({
+            onNone: () => Effect.void,
+            onSome: (stack) =>
+              Effect.gen(function* () {
+                const canStack = yield* registryService.canStack(itemStack, stack)
+                yield* pipe(
+                  Match.value(canStack),
+                  Match.when(true, () =>
+                    Effect.sync(() => {
+                      const availableSpace = maxStackSize - stack.count
+                      totalAvailableSpace += Math.max(0, availableSpace)
+                    })
+                  ),
+                  Match.when(false, () => Effect.void),
+                  Match.exhaustive
+                )
+              }),
+          })
+        )
       }
 
-      // If existing stacks can accommodate all items, we have space
-      if (totalAvailableSpace >= itemStack.count) {
-        return true
-      }
+      // Check if existing stacks can accommodate all items using Match.value
+      const hasEnoughSpace = totalAvailableSpace >= itemStack.count
+      return yield* pipe(
+        Match.value(hasEnoughSpace),
+        Match.when(true, () => Effect.succeed(true)),
+        Match.when(false, () =>
+          Effect.gen(function* () {
+            // Calculate remaining items that need new slots
+            const remainingItems = itemStack.count - totalAvailableSpace
 
-      // Calculate remaining items that need new slots
-      const remainingItems = itemStack.count - totalAvailableSpace
+            // Check if we have enough empty slots
+            const emptySlotCount = SlotManager.countEmptySlots(inventory)
+            const slotsNeeded = Math.ceil(remainingItems / maxStackSize)
 
-      // Check if we have enough empty slots
-      const emptySlotCount = SlotManager.countEmptySlots(inventory)
-      const slotsNeeded = Math.ceil(remainingItems / maxStackSize)
-
-      return emptySlotCount >= slotsNeeded
+            return emptySlotCount >= slotsNeeded
+          })
+        ),
+        Match.exhaustive
+      )
     })
   }
 
