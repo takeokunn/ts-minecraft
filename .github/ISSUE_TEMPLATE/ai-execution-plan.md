@@ -27,6 +27,74 @@ assignees: ''
 - **Error Handling**: Data.TaggedErrorまたはSchema.TaggedErrorで完全な型安全エラー
 - **FiberRef/Queue/Stream**: 非同期処理とイベント処理に活用
 
+### 制御フロー完全Effect-TS化
+
+**🚫 禁止事項: 以下のJavaScript/TypeScript標準制御フローは使用禁止**
+
+| 禁止パターン | Effect-TS代替 | 変換例 |
+|------------|--------------|--------|
+| `if/else` | `Match.value`, `Match.type` | `if (x > 0) { ... } else { ... }` → `Match.value(x).pipe(Match.when(x => x > 0, ...))` |
+| `switch` | `Match.value`, `Match.exhaustive` | `switch(action.type) { ... }` → `Match.value(action).pipe(Match.tag(...))` |
+| `try/catch` | `Effect.try`, `Effect.tryPromise` | `try { ... } catch(e) { ... }` → `Effect.try({ try: ..., catch: ... })` |
+| `Promise` | `Effect.promise`, `Effect.tryPromise` | `await fetch(...)` → `Effect.tryPromise(() => fetch(...))` |
+| `for/forEach` | `Effect.forEach`, `Array.map + Effect.all` | `for (const x of xs) { ... }` → `Effect.forEach(xs, x => ...)` |
+| `while` | `Effect.loop`, `Stream.iterate` | `while(condition) { ... }` → `Effect.loop(initial, { while: ..., step: ... })` |
+| `throw` | `Effect.fail`, `Effect.die` | `throw new Error(...)` → `Effect.fail(new MyError(...))` |
+| `async/await` | `Effect.gen` | `async function() { ... }` → `Effect.gen(function* () { ... })` |
+
+### 具体的な変換パターン
+
+```typescript
+// ❌ 禁止: if/else
+if (player.health <= 0) {
+  return handleDeath(player)
+} else {
+  return updatePlayer(player)
+}
+
+// ✅ 推奨: Match.value
+pipe(
+  player.health,
+  Match.value,
+  Match.when(h => h <= 0, () => handleDeath(player)),
+  Match.orElse(() => updatePlayer(player))
+)
+
+// ❌ 禁止: try/catch
+try {
+  const data = await fetchData()
+  return processData(data)
+} catch (error) {
+  console.error(error)
+  return defaultValue
+}
+
+// ✅ 推奨: Effect.tryPromise + Effect.catchAll
+pipe(
+  Effect.tryPromise({
+    try: () => fetchData(),
+    catch: e => new DataFetchError({ cause: e })
+  }),
+  Effect.flatMap(processData),
+  Effect.catchAll(() => Effect.succeed(defaultValue)),
+  Effect.tap(Effect.logDebug)
+)
+
+// ❌ 禁止: forループ
+const results = []
+for (const item of items) {
+  const processed = await processItem(item)
+  results.push(processed)
+}
+
+// ✅ 推奨: Effect.forEach
+const results = yield* Effect.forEach(
+  items,
+  item => processItem(item),
+  { concurrency: 'inherit' }
+)
+```
+
 ### ファイル構成
 
 ```typescript
@@ -102,6 +170,11 @@ export const FeatureService = Context.GenericTag<FeatureService>('@app/FeatureSe
 - [ ] STMでのトランザクショナル処理
 - [ ] Match.valueでのパターンマッチング
 - [ ] pipeでの関数合成
+- [ ] **制御フローの完全Effect-TS化**
+  - [ ] すべてのif/elseをMatchに置換
+  - [ ] すべてのtry/catchをEffect.tryに置換
+  - [ ] すべてのfor/forEachをEffect.forEachに置換
+  - [ ] すべてのPromiseをEffectに置換
 
 ### Step 4: Layer構成
 
@@ -156,6 +229,11 @@ export const FeatureService = Context.GenericTag<FeatureService>('@app/FeatureSe
 - [ ] すべてのユニオンが網羅的にハンドリングされている
 - [ ] エラーがすべて型として表現されている
 - [ ] **すべての実装ファイルに対応するテストファイルが存在**
+- [ ] **JavaScript標準制御フローが完全に排除**
+  - [ ] if/else/switchが存在しない
+  - [ ] try/catchが存在しない
+  - [ ] Promise/async/awaitが存在しない
+  - [ ] for/whileループが存在しない
 - [ ] テストカバレッジ80%以上
 - [ ] Property-based testingによる網羅的検証
 - [ ] Effect-TSベストプラクティス準拠
