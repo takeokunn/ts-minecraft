@@ -9,7 +9,6 @@ import {
   type Option,
   type NonEmptyArray,
   type Predicate,
-  type AsyncResult,
   type Callback,
   type AsyncCallback,
   type DeepReadonly,

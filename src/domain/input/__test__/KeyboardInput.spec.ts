@@ -1,7 +1,7 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
-import { KeyboardInput, KeyboardInputLive, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
+import { KeyboardInput, KeyboardInputLive, KeyboardInputError } from '../KeyboardInput'
 import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
 describe('KeyboardInput', () => {
@@ -18,66 +18,6 @@ describe('KeyboardInput', () => {
       expect(error.key).toBe('TestKey')
       expect(error.cause).toBe('Test cause')
     })
-  })
-
-  describe('MockKeyboardInput', () => {
-    const TestLayer = MockKeyboardInput
-
-    it.effect('should check key press state', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-        const isPressed = yield* keyboard.isKeyPressed('W')
-
-        expect(typeof isPressed).toBe('boolean')
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should get key state', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-        const state = yield* keyboard.getKeyState('W')
-
-        expect(state.key).toBe('W')
-        expect(typeof state.isPressed).toBe('boolean')
-        expect(typeof state.timestamp).toBe('number')
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should get pressed keys list', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-        const pressedKeys = yield* keyboard.getPressedKeys()
-
-        expect(Array.isArray(pressedKeys)).toBe(true)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should get key mapping', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-        const mapping = yield* keyboard.getKeyMapping()
-
-        expect(typeof mapping).toBe('object')
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should set key mapping', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-
-        // Should not throw error
-        yield* keyboard.setKeyMapping(DefaultKeyMap)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should reset key states', () =>
-      Effect.gen(function* () {
-        const keyboard = yield* KeyboardInput
-
-        // Should not throw error
-        yield* keyboard.resetKeyStates()
-      }).pipe(Effect.provide(TestLayer))
-    )
   })
 
   describe('Error Handling', () => {

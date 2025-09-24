@@ -387,35 +387,3 @@ export const MouseSensitivityLive = Layer.effect(
     })
   })
 )
-
-// テスト用のモック実装
-export const MockMouseSensitivity = Layer.succeed(
-  MouseSensitivity,
-  MouseSensitivity.of({
-    getConfig: () => Effect.succeed(defaultSensitivityConfig),
-
-    setConfig: () => Effect.succeed(undefined),
-
-    applySensitivity: (delta) =>
-      Effect.succeed({
-        deltaX: delta.deltaX,
-        deltaY: delta.deltaY,
-        originalDeltaX: delta.deltaX,
-        originalDeltaY: delta.deltaY,
-        appliedSensitivity: 1.0,
-        timestamp: delta.timestamp,
-      }),
-
-    setPreset: () => Effect.succeed(undefined),
-
-    setSensitivity: () => Effect.succeed(undefined),
-
-    setGlobalMultiplier: () => Effect.succeed(undefined),
-
-    invertAxis: () => Effect.succeed(undefined),
-
-    setCurve: () => Effect.succeed(undefined),
-
-    resetToDefault: () => Effect.succeed(undefined),
-  })
-)

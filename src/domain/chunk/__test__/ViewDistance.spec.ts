@@ -431,7 +431,7 @@ describe('ViewDistance Service', () => {
         const adjustment = yield* viewDistance.performAdaptiveAdjustment()
 
         expect(adjustment).not.toBeNull()
-        expect(adjustment?.newDistance).toBeLessThan(adjustment?.oldDistance ?? 0)
+        expect(adjustment?.newDistance).toBeLessThan(adjustment?.previousDistance ?? 0)
         expect(adjustment?.reason).toBe('performance_low')
       }).pipe(Effect.provide(ViewDistanceLive()))
     )

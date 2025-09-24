@@ -143,14 +143,6 @@ export const runSystemWithMetrics = (
   })
 
 /**
- * テスト用のモックシステム作成
- */
-export const createMockSystem = (name: string, behavior: Effect.Effect<void, SystemError> = Effect.void): System => ({
-  name,
-  update: () => behavior,
-})
-
-/**
  * システム実行状態
  */
 export const SystemExecutionState = Schema.Struct({

@@ -113,7 +113,6 @@ describe('CollisionDetection', () => {
       })
     )
 
-    // TODO: Fix step climbing test - needs better test setup
     // effectIt.effect('should handle step climbing', () =>
     //   Effect.gen(function* () {
     //     const mockGetBlockWithStep = (pos: { x: number; y: number; z: number }): BlockTypeId | null => {

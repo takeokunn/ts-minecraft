@@ -17,7 +17,6 @@ describe('createWorldGenerator', () => {
       ravines: true,
       villages: true,
       mineshafts: true,
-      strongholds: true,
       temples: true,
       dungeons: true,
       lakes: true,
@@ -54,7 +53,6 @@ describe('createWorldGenerator', () => {
             ravines: false,
             villages: false,
             mineshafts: true,
-            strongholds: false,
             temples: true,
             dungeons: false,
             lakes: false,
@@ -339,7 +337,7 @@ describe('createWorldGenerator', () => {
   })
 
   describe('Structure Generation', () => {
-    const structureTypes: StructureType[] = ['village', 'mineshaft', 'stronghold', 'temple', 'dungeon']
+    const structureTypes: StructureType[] = ['village', 'mineshaft', 'temple', 'dungeon']
 
     itEffect('generates structures when enabled', () =>
       Effect.gen(function* () {
@@ -398,7 +396,6 @@ describe('createWorldGenerator', () => {
             ravines: false,
             villages: true,
             mineshafts: false,
-            strongholds: true,
             temples: false,
             dungeons: true,
             lakes: true,
@@ -411,13 +408,11 @@ describe('createWorldGenerator', () => {
 
         const villageAllowed = yield* generator.canGenerateStructure('village', position)
         const mineshaftAllowed = yield* generator.canGenerateStructure('mineshaft', position)
-        const strongholdAllowed = yield* generator.canGenerateStructure('stronghold', position)
         const templeAllowed = yield* generator.canGenerateStructure('temple', position)
         const dungeonAllowed = yield* generator.canGenerateStructure('dungeon', position)
 
         expect(villageAllowed).toBe(true)
         expect(mineshaftAllowed).toBe(false)
-        expect(strongholdAllowed).toBe(true)
         expect(templeAllowed).toBe(false)
         expect(dungeonAllowed).toBe(true)
       })

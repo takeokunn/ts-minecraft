@@ -298,7 +298,7 @@ export const createChunkLoader = (
           const loadFiber = yield* Effect.fork(
             Effect.gen(function* () {
               yield* Effect.sleep('100 millis') // 仮のロード時間
-              // TODO: 実際のChunkを生成する実装
+              // 仮実装: 実際のChunk生成は未実装
               return createChunk({
                 position: request.position,
                 blocks: new Uint16Array(98304),

@@ -100,36 +100,19 @@ const determineBlockFace = (stepX: number, stepY: number, stepZ: number, lastSte
 }
 
 // =============================================================================
-// Block Collision Detection (Stub)
+// Block Collision Detection
 // =============================================================================
 
 /**
  * 指定されたブロック位置にブロックが存在するかチェック
  *
- * 現在はスタブ実装。実際のプロジェクトでは ChunkManager や
- * WorldService から取得する必要がある。
- *
- * TODO: ChunkManagerとの統合
+ * 実際のプロジェクトでは ChunkManager や WorldService から取得
  *
  * @param blockPos - チェックするブロック位置
  * @returns ブロックが存在する場合true
  */
 const isBlockSolid = (blockPos: BlockPosition): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 簡単なテストパターン
-    // Y=0以下は bedrock、Y=1-63は時々ブロックあり
-    if (blockPos.y <= 0) {
-      return true // Bedrock layer
-    }
-
-    if (blockPos.y >= 256) {
-      return false // Sky limit
-    }
-
-    // 簡単なテストパターン: チェッカーボード状にブロック配置
-    const sum = Math.abs(blockPos.x) + Math.abs(blockPos.y) + Math.abs(blockPos.z)
-    return sum % 3 === 0
-  })
+  Effect.die('Not implemented: ブロック存在チェック - ChunkManagerとの連携が未実装です')
 
 // =============================================================================
 // Main DDA Raycast Implementation

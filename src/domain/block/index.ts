@@ -96,7 +96,6 @@ export {
   // 鉱石ブロック
   coalOreBlock,
   ironOreBlock,
-  goldOreBlock,
   diamondOreBlock,
   emeraldOreBlock,
   redstoneOreBlock,

@@ -39,12 +39,4 @@ export const MainLayer = Layer.mergeAll(BaseServicesLayer, ApplicationLayer, App
  * Mock実装を使用してテストを高速化
  * 実際のWebGL/DOMに依存しない環境での実行が可能
  */
-export const TestLayer = Layer.mergeAll(
-  // TODO: Mock実装を作成
-  // MockGameLoopServiceLive,
-  // MockSceneManagerLive,
-  // MockThreeRendererLive,
-  // MockInputServiceLive,
-  // MockGameApplicationLive,
-  AppServiceLive
-)
+export const TestLayer = Layer.mergeAll(AppServiceLive)

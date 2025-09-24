@@ -273,7 +273,6 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
                 Match.value(type),
                 Match.when('village', () => generatorOptions.features.villages),
                 Match.when('mineshaft', () => generatorOptions.features.mineshafts),
-                Match.when('stronghold', () => generatorOptions.features.strongholds),
                 Match.when('temple', () => generatorOptions.features.temples),
                 Match.when('dungeon', () => generatorOptions.features.dungeons),
                 Match.orElse(() => true)

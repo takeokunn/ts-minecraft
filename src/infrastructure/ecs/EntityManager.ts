@@ -578,9 +578,9 @@ export const EntityManagerLive = Effect.gen(function* () {
   const update = (deltaTime: number): Effect.Effect<void, SystemError | EntityManagerError> =>
     Effect.gen(function* () {
       // すべての登録されたシステムを実行
-      // Note: SystemRegistryService doesn't have executeSystems method
-      // This is a placeholder implementation
-      return yield* Effect.void
+      return yield* Effect.fail(
+        EntityManagerError('Not implemented: システム更新 - この機能は未実装です', 'ENTITY_NOT_FOUND')
+      )
     }) as Effect.Effect<void, SystemError | EntityManagerError>
 
   // 統計情報
@@ -596,7 +596,7 @@ export const EntityManagerLive = Effect.gen(function* () {
         activeEntities: Array.from(entities.values()).filter((e) => e.active).length,
         totalComponents,
         componentTypes: componentStorages.size,
-        archetypeCount: 0, // TODO: archetypeManager.getArchetypeCount()
+        archetypeCount: 0, // archetypeManager未実装のため0固定
       }
     })
 

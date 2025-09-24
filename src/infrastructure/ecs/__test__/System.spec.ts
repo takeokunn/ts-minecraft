@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Cause, Chunk, pipe, Exit, Match } from 'effect'
 import {
   createSystem,
-  createMockSystem,
   runSystems,
   runSystemWithMetrics,
   SystemError,
@@ -138,56 +137,6 @@ describe('System', () => {
       expect(result.duration).toBeGreaterThanOrEqual(20)
       // Effect.logWarningの出力確認は実際のログ実装に依存するため、
       // ここでは実行時間の検証のみ行う
-    })
-  })
-
-  describe('createMockSystem', () => {
-    it('デフォルトの動作でモックシステムを作成する', () => {
-      const mockSystem = createMockSystem('MockSystem')
-
-      expect(mockSystem.name).toBe('MockSystem')
-
-      const result = Effect.runSync(mockSystem.update({} as World, 16))
-
-      expect(result).toBeUndefined()
-    })
-
-    it('カスタム動作でモックシステムを作成する', () => {
-      let executed = false
-
-      const customBehavior = Effect.sync(() => {
-        executed = true
-      })
-
-      const mockSystem = createMockSystem('MockSystem', customBehavior)
-
-      Effect.runSync(mockSystem.update({} as World, 16))
-
-      expect(executed).toBe(true)
-    })
-
-    it('エラーを返すモックシステムを作成できる', () => {
-      const error = SystemError('MockSystem', 'Mock error')
-
-      const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
-
-      const result = Effect.runSyncExit(mockSystem.update({} as World, 16))
-
-      expect(result._tag).toBe('Failure')
-      pipe(
-        result,
-        Exit.match({
-          onFailure: (cause) => {
-            const failures = Chunk.toArray(Cause.failures(cause))
-            expect(failures).toHaveLength(1)
-            expect(failures[0]).toBe(error)
-          },
-          onSuccess: (value) => {
-            // 成功時の処理（この場合は期待しない）
-            throw new Error('Expected failure but got success')
-          },
-        })
-      )
     })
   })
 })

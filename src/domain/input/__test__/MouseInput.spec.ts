@@ -1,7 +1,7 @@
 import { describe, expect, it as vitestIt, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, TestContext, TestClock, Ref } from 'effect'
-import { MouseInput, MouseInputError, MockMouseInput, MouseInputLive } from '../MouseInput'
+import { MouseInput, MouseInputError, MouseInputLive } from '../MouseInput'
 import type { MousePosition, PointerLockState } from '../MouseInput'
 import { MouseDelta } from '../types'
 import { JSDOM } from 'jsdom'
@@ -274,7 +274,37 @@ describe('MouseInput', () => {
     })
 
     describe('Service Contract', () => {
-      const TestLayer = MockMouseInput
+      const TestLayer = Layer.succeed(
+        MouseInput,
+        MouseInput.of({
+          getPosition: () =>
+            Effect.succeed({
+              x: 100,
+              y: 200,
+              timestamp: Date.now(),
+            }),
+          getDelta: () =>
+            Effect.succeed({
+              deltaX: 5,
+              deltaY: -3,
+              timestamp: Date.now(),
+            }),
+          getButtonState: (button) =>
+            Effect.succeed({
+              button,
+              isPressed: false,
+              timestamp: Date.now(),
+            }),
+          isButtonPressed: () => Effect.succeed(false),
+          requestPointerLock: () => Effect.succeed(undefined),
+          exitPointerLock: () => Effect.succeed(undefined),
+          getPointerLockState: () =>
+            Effect.succeed({
+              isLocked: false,
+            }),
+          resetDelta: () => Effect.succeed(undefined),
+        })
+      )
 
       it.effect('should get mouse position', () =>
         Effect.gen(function* () {

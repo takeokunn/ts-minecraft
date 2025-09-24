@@ -291,42 +291,15 @@ export const startBlockBreaking = (
       )
     }
 
-    // TODO: ブロックが実際に存在するかチェック
-    // const blockExists = yield* checkBlockExists(blockPos)
-
-    // 破壊時間を計算（仮のブロックIDを使用）
-    const blockId = 'stone' as BlockId // TODO: 実際のブロックIDを取得
-    const totalBreakTime = yield* calculateBlockBreakTime(blockId, toolType)
-
-    if (totalBreakTime === Infinity) {
-      return yield* Effect.fail(
-        createBlockBreakingError({
-          playerId,
-          blockPosition: blockPos,
-          toolType,
-          reason: 'Block is unbreakable',
-        })
-      )
-    }
-
-    // 新しいセッションを作成
-    const sessionId = generateSessionId()
-    const timestamp = Date.now() as Timestamp
-
-    const session: BreakingSession = {
-      sessionId,
-      playerId,
-      blockPosition: blockPos,
-      toolType,
-      startTime: timestamp,
-      progress: 0,
-      totalBreakTime,
-    }
-
-    // セッションを登録
-    activeBreakingSessions.set(sessionId, session)
-
-    return session
+    // ブロック存在チェックと実際のID取得は未実装
+    return yield* Effect.fail(
+      createBlockBreakingError({
+        playerId,
+        blockPosition: blockPos,
+        toolType,
+        reason: 'Not implemented: ブロック破壊 - ブロック存在チェックと実際のID取得が未実装です',
+      })
+    )
   })
 
 /**

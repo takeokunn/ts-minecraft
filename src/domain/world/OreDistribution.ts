@@ -13,7 +13,6 @@ export const OreTypeSchema = Schema.Literal(
   'coal_ore',
   'iron_ore',
   'copper_ore',
-  'gold_ore',
   'redstone_ore',
   'lapis_ore',
   'diamond_ore',
@@ -118,7 +117,6 @@ const calculateOreDensityInternal = (
               Match.when('coal_ore', () => 1.5), // 石炭は豊富
               Match.when('iron_ore', () => 1.2),
               Match.when('copper_ore', () => 1.0),
-              Match.when('gold_ore', () => 0.6 * depthFactor),
               Match.when('redstone_ore', () => 0.8 * depthFactor),
               Match.when('lapis_ore', () => 0.4 * depthFactor),
               Match.when('diamond_ore', () => 0.2 * depthFactor * depthFactor), // 非常に稀
@@ -285,16 +283,6 @@ export const defaultOreConfigs: OreConfig[] = [
     clusterSize: 5,
     rarity: 0.45,
     noiseScale: 0.04,
-  },
-  {
-    type: 'gold_ore',
-    blockId: 19,
-    minY: -64,
-    maxY: 32,
-    density: 0.3,
-    clusterSize: 4,
-    rarity: 0.6,
-    noiseScale: 0.03,
   },
   {
     type: 'redstone_ore',

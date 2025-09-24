@@ -6,7 +6,6 @@ import {
   MouseSensitivity,
   MouseSensitivityError,
   MouseSensitivityLive,
-  MockMouseSensitivity,
   defaultSensitivityConfig,
   sensitivityPresets,
 } from '../MouseSensitivity'
@@ -100,7 +99,28 @@ describe('MouseSensitivity', () => {
   })
 
   describe('Service Contract', () => {
-    const TestLayer = MockMouseSensitivity
+    const TestLayer = Layer.succeed(
+      MouseSensitivity,
+      MouseSensitivity.of({
+        getConfig: () => Effect.succeed(defaultSensitivityConfig),
+        setConfig: () => Effect.succeed(undefined),
+        applySensitivity: (delta) =>
+          Effect.succeed({
+            deltaX: delta.deltaX,
+            deltaY: delta.deltaY,
+            originalDeltaX: delta.deltaX,
+            originalDeltaY: delta.deltaY,
+            appliedSensitivity: 1.0,
+            timestamp: delta.timestamp,
+          }),
+        setPreset: () => Effect.succeed(undefined),
+        setSensitivity: () => Effect.succeed(undefined),
+        setGlobalMultiplier: () => Effect.succeed(undefined),
+        invertAxis: () => Effect.succeed(undefined),
+        setCurve: () => Effect.succeed(undefined),
+        resetToDefault: () => Effect.succeed(undefined),
+      })
+    )
 
     it.effect('should get default configuration', () =>
       Effect.gen(function* () {
@@ -207,7 +227,28 @@ describe('MouseSensitivity', () => {
   })
 
   describe('Sensitivity Application Logic', () => {
-    const TestLayer = MockMouseSensitivity
+    const TestLayer = Layer.succeed(
+      MouseSensitivity,
+      MouseSensitivity.of({
+        getConfig: () => Effect.succeed(defaultSensitivityConfig),
+        setConfig: () => Effect.succeed(undefined),
+        applySensitivity: (delta) =>
+          Effect.succeed({
+            deltaX: delta.deltaX,
+            deltaY: delta.deltaY,
+            originalDeltaX: delta.deltaX,
+            originalDeltaY: delta.deltaY,
+            appliedSensitivity: 1.0,
+            timestamp: delta.timestamp,
+          }),
+        setPreset: () => Effect.succeed(undefined),
+        setSensitivity: () => Effect.succeed(undefined),
+        setGlobalMultiplier: () => Effect.succeed(undefined),
+        invertAxis: () => Effect.succeed(undefined),
+        setCurve: () => Effect.succeed(undefined),
+        resetToDefault: () => Effect.succeed(undefined),
+      })
+    )
 
     it.effect('should preserve original delta values', () =>
       Effect.gen(function* () {

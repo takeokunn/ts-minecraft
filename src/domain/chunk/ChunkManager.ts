@@ -380,7 +380,7 @@ const loadChunkIfNeeded = (position: ChunkPosition, stateRef: Ref.Ref<ChunkManag
     }))
 
     try {
-      // TODO: 実際のチャンク生成はWorldGeneratorと連携
+      // 仮実装: 実際のチャンク生成はWorldGeneratorとの連携が必要
       // const worldGenerator = yield* WorldGenerator
       // const chunkResult = yield* worldGenerator.generateChunk(position)
       // const chunk = chunkResult.chunk

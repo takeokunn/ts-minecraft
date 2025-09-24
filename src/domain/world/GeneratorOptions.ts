@@ -18,7 +18,6 @@ export type WorldType = Schema.Schema.Type<typeof WorldType>
 export const StructureType = Schema.Literal(
   'village',
   'mineshaft',
-  'stronghold',
   'temple',
   'dungeon',
   'fortress',
@@ -37,7 +36,6 @@ export const GenerationFeatureSchema = Schema.Struct({
   ravines: Schema.Boolean,
   mineshafts: Schema.Boolean,
   villages: Schema.Boolean,
-  strongholds: Schema.Boolean,
   temples: Schema.Boolean,
   dungeons: Schema.Boolean,
   lakes: Schema.Boolean,
@@ -69,7 +67,6 @@ export const defaultGenerationFeatures: GenerationFeature = {
   ravines: true,
   mineshafts: true,
   villages: true,
-  strongholds: true,
   temples: true,
   dungeons: true,
   lakes: true,

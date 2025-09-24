@@ -348,19 +348,6 @@ describe('World Generation Types', () => {
             hasChests: true,
           },
         },
-        {
-          type: 'stronghold',
-          position: { x: -500, y: 20, z: 1000 },
-          boundingBox: {
-            min: { x: -600, y: 0, z: 900 },
-            max: { x: -400, y: 60, z: 1100 },
-          },
-          metadata: {
-            rooms: 15,
-            hasPortal: true,
-            discovered: false,
-          },
-        },
       ]
 
       for (const structure of validStructures) {

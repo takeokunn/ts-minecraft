@@ -13,7 +13,6 @@ import {
   oakPlanksBlock,
   coalOreBlock,
   ironOreBlock,
-  goldOreBlock,
   diamondOreBlock,
   glassBlock,
   torchBlock,
@@ -147,12 +146,11 @@ describe('blocks', () => {
   })
 
   describe('Ore blocks', () => {
-    const oreBlocks = [coalOreBlock, ironOreBlock, goldOreBlock, diamondOreBlock]
+    const oreBlocks = [coalOreBlock, ironOreBlock, diamondOreBlock]
 
     it('鉱石ブロックが正しいツールレベルを持つ', () => {
       expect(coalOreBlock.minToolLevel).toBe(0) // 木のツルハシ
       expect(ironOreBlock.minToolLevel).toBe(1) // 石のツルハシ
-      expect(goldOreBlock.minToolLevel).toBe(2) // 鉄のツルハシ
       expect(diamondOreBlock.minToolLevel).toBe(2) // 鉄のツルハシ
     })
 

@@ -105,7 +105,7 @@ describe('Priority Functions', () => {
 
     it('古いリクエストほどスコアが低くなる', () => {
       // 手動でタイムスタンプを設定
-      const oldRequest: ChunkLoadRequest = {
+      const olderRequest: ChunkLoadRequest = {
         position: { x: 0, z: 0 },
         priority: 'normal',
         timestamp: Date.now() - 10000, // 10秒前
@@ -114,10 +114,10 @@ describe('Priority Functions', () => {
 
       const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
 
-      const oldScore = calculatePriorityScore(oldRequest, config)
+      const olderScore = calculatePriorityScore(olderRequest, config)
       const newScore = calculatePriorityScore(newRequest, config)
 
-      expect(newScore).toBeGreaterThan(oldScore)
+      expect(newScore).toBeGreaterThan(olderScore)
     })
   })
 

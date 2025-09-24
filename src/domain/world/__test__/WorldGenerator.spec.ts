@@ -192,7 +192,7 @@ describe('WorldGenerator Interface', () => {
         Effect.gen(function* () {
           const generator = yield* createWorldGenerator({ generateStructures: true })
           const position: Vector3 = { x: 0, y: 64, z: 0 }
-          const structureTypes: StructureType[] = ['village', 'mineshaft', 'stronghold', 'temple', 'dungeon']
+          const structureTypes: StructureType[] = ['village', 'mineshaft', 'temple', 'dungeon']
 
           const structures = yield* Effect.all(
             structureTypes.map((type) => generator.generateStructure(type, position))

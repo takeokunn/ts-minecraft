@@ -252,23 +252,3 @@ export const KeyboardInputLive = Layer.effect(
     })
   })
 )
-
-// モック実装（テスト用）
-export const MockKeyboardInput = Layer.succeed(
-  KeyboardInput,
-  KeyboardInput.of({
-    isKeyPressed: () => Effect.succeed(false),
-    getKeyState: (key) =>
-      Effect.succeed({
-        key,
-        isPressed: false,
-        timestamp: Date.now(),
-      }),
-    isActionPressed: () => Effect.succeed(false),
-    getPressedKeys: () => Effect.succeed([]),
-    setKeyMapping: () => Effect.succeed(undefined),
-    getKeyMapping: () => Effect.succeed(DefaultKeyMap),
-    getActionForKey: () => Effect.succeed(undefined),
-    resetKeyStates: () => Effect.succeed(undefined),
-  })
-)

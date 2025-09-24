@@ -131,77 +131,40 @@ const getPlacementRule = (blockId: BlockId): PlacementRule => {
 }
 
 // =============================================================================
-// World State Simulation (Stub)
+// World State Simulation
 // =============================================================================
 
 /**
- * 指定位置のブロックを取得（スタブ実装）
+ * 指定位置のブロックを取得
  * 実際のプロジェクトでは ChunkManager から取得
  */
 const getBlockAt = (position: BlockPosition): Effect.Effect<BlockId, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 簡単なワールド生成
-    if (position.y <= 0) {
-      return 'bedrock' as BlockId
-    }
-    if (position.y <= 62) {
-      return 'stone' as BlockId
-    }
-    if (position.y === 63) {
-      return 'dirt' as BlockId
-    }
-    if (position.y === 64) {
-      return 'grass' as BlockId
-    }
-    return 'air' as BlockId
-  })
+  Effect.die('Not implemented: ブロック取得 - ChunkManagerとの連携が未実装です')
 
 /**
- * 指定位置にブロックを設置（スタブ実装）
+ * 指定位置にブロックを設置
  * 実際のプロジェクトでは ChunkManager に委譲
  */
 const setBlockAt = (position: BlockPosition, blockId: BlockId): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: ログ出力のみ
-    console.log(`Setting block ${blockId} at ${position.x}, ${position.y}, ${position.z}`)
-  })
+  Effect.die('Not implemented: ブロック設置 - ChunkManagerとの連携が未実装です')
 
 /**
- * 指定位置の光レベルを取得（スタブ実装）
+ * 指定位置の光レベルを取得
  */
 const getLightLevel = (position: BlockPosition): Effect.Effect<number, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 高度ベースの簡易計算
-    if (position.y >= 64) {
-      return 15 // 地上は最大光レベル
-    }
-    return Math.max(0, 15 - Math.floor((64 - position.y) / 4))
-  })
+  Effect.die('Not implemented: 光レベル取得 - ライティングシステムが未実装です')
 
 /**
- * 指定位置が水中かどうかチェック（スタブ実装）
+ * 指定位置が水中かどうかチェック
  */
 const isInWater = (position: BlockPosition): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: Y=62以下を水位とする
-    return position.y <= 62
-  })
+  Effect.die('Not implemented: 水中判定 - 流体システムが未実装です')
 
 /**
- * プレイヤーと位置の衝突チェック（スタブ実装）
+ * プレイヤーと位置の衝突チェック
  */
 const wouldCollideWithPlayer = (position: BlockPosition, playerId: PlayerId): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: プレイヤー位置を仮定
-    // 実際はPlayerServiceから位置を取得する必要がある
-    const playerY = 64 // 仮のプレイヤー高度
-
-    // プレイヤーの足元から頭上（2ブロック分）との衝突チェック
-    const playerBottomY = Math.floor(playerY)
-    const playerTopY = playerBottomY + 1
-
-    return position.y >= playerBottomY && position.y <= playerTopY
-  })
+  Effect.die('Not implemented: プレイヤー衝突判定 - PlayerServiceとの連携が未実装です')
 
 // =============================================================================
 // Face-based Position Calculation

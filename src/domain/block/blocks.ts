@@ -183,14 +183,6 @@ export const ironOreBlock: BlockType = {
   ...pipe(oreProperties(3.0, 1), withDrop('raw_iron', 1, 1, 1.0), withTexture('iron_ore')),
 }
 
-export const goldOreBlock: BlockType = {
-  id: 'gold_ore',
-  name: 'Gold Ore',
-  category: 'natural',
-  stackSize: 64,
-  ...pipe(oreProperties(3.0, 2), withDrop('raw_gold', 1, 1, 1.0), withTexture('gold_ore')),
-}
-
 export const diamondOreBlock: BlockType = {
   id: 'diamond_ore',
   name: 'Diamond Ore',
@@ -646,7 +638,6 @@ export const allBlocks: BlockType[] = [
   // 鉱石ブロック
   coalOreBlock,
   ironOreBlock,
-  goldOreBlock,
   diamondOreBlock,
   emeraldOreBlock,
   redstoneOreBlock,

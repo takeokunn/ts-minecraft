@@ -28,7 +28,12 @@ import {
   getAllBreakingSessions,
 } from './BlockBreaking'
 import { placeBlock, checkPlacementViability } from './BlockPlacement'
-import { createRaycastError, createInteractionValidationError } from './InteractionErrors'
+import {
+  createRaycastError,
+  createInteractionValidationError,
+  createBlockBreakingError,
+  createBlockPlacementError,
+} from './InteractionErrors'
 
 // =============================================================================
 // BlockInteractionServiceLive Implementation
@@ -89,20 +94,15 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
 
     startBlockBreaking: (playerId: PlayerId, blockPos: BlockPosition, toolType: ToolType | null) =>
       Effect.gen(function* () {
-        // TODO: Validate player exists and is in range
-        // const player = yield* playerService.getPlayer(playerId)
-        // const distance = calculateDistance(player.position, blockPos)
-        // if (distance > INTERACTION_RANGE) {
-        //   return yield* Effect.fail(createBlockBreakingError(...))
-        // }
-
-        // TODO: Validate block exists and is breakable
-        // const block = yield* chunkManager.getBlockAt(blockPos)
-        // if (!block || !isBreakable(block)) {
-        //   return yield* Effect.fail(createBlockBreakingError(...))
-        // }
-
-        return yield* startBlockBreaking(playerId, blockPos, toolType)
+        // プレイヤー検証とブロック検証は未実装
+        return yield* Effect.fail(
+          createBlockBreakingError({
+            playerId,
+            blockPosition: blockPos,
+            toolType,
+            reason: 'Not implemented: ブロック破壊開始 - プレイヤー検証とブロック検証が未実装です',
+          })
+        )
       }),
 
     updateBlockBreaking: (sessionId: SessionId, deltaTime: number) =>
@@ -138,20 +138,16 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
 
     placeBlock: (playerId: PlayerId, position: BlockPosition, blockId: BlockId, face: BlockFace) =>
       Effect.gen(function* () {
-        // TODO: Validate player exists and is in range
-        // const player = yield* playerService.getPlayer(playerId)
-        // const distance = calculateDistance(player.position, position)
-        // if (distance > INTERACTION_RANGE) {
-        //   return yield* Effect.fail(createBlockPlacementError(...))
-        // }
-
-        // TODO: Check player inventory for block
-        // const hasBlock = yield* playerService.hasItemInInventory(playerId, blockId)
-        // if (!hasBlock) {
-        //   return yield* Effect.fail(createBlockPlacementError(...))
-        // }
-
-        return yield* placeBlock(playerId, position, blockId, face)
+        // プレイヤー検証とインベントリチェックは未実装
+        return yield* Effect.fail(
+          createBlockPlacementError({
+            playerId,
+            position,
+            blockId,
+            face,
+            reason: 'Not implemented: ブロック配置 - プレイヤー検証とインベントリチェックが未実装です',
+          })
+        )
       }),
 
     // =========================================================================
@@ -171,47 +167,15 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
           )
         }
 
-        // TODO: Implement actual interactable blocks search
-        // This would involve:
-        // 1. Getting all blocks in the specified range
-        // 2. Filtering for interactable types
-        // 3. Calculating distances and interaction capabilities
-        // 4. Sorting by distance
-
-        const interactableBlocks: InteractableBlock[] = []
-
-        // Stub implementation for demonstration
-        const centerX = Math.floor(position.x)
-        const centerY = Math.floor(position.y)
-        const centerZ = Math.floor(position.z)
-
-        for (let x = centerX - range; x <= centerX + range; x++) {
-          for (let y = centerY - range; y <= centerY + range; y++) {
-            for (let z = centerZ - range; z <= centerZ + range; z++) {
-              const blockPos = { x, y, z } as BlockPosition
-              const distance = Math.sqrt((x - position.x) ** 2 + (y - position.y) ** 2 + (z - position.z) ** 2)
-
-              if (distance <= range) {
-                // TODO: Get actual block at position
-                // const block = yield* chunkManager.getBlockAt(blockPos)
-
-                // Stub: Add some test blocks
-                if (Math.random() < 0.3) {
-                  // 30% chance of interactable block
-                  interactableBlocks.push({
-                    blockId: 'stone' as BlockId,
-                    position: blockPos,
-                    distance,
-                    canBreak: true,
-                    canInteract: Math.random() < 0.5, // 50% chance
-                  })
-                }
-              }
-            }
-          }
-        }
-
-        return interactableBlocks.sort((a, b) => a.distance - b.distance)
+        // インタラクト可能ブロック検索は未実装
+        return yield* Effect.fail(
+          createInteractionValidationError({
+            field: 'interactableBlocks',
+            value: position,
+            expectedType: 'valid position',
+            reason: 'Not implemented: インタラクト可能ブロック検索 - ブロック検索機能が未実装です',
+          })
+        )
       }),
 
     getBreakingSession: (sessionId: SessionId) => getBreakingSession(sessionId),

@@ -59,7 +59,7 @@ export type ViewDistanceAdjustmentReason = Schema.Schema.Type<typeof ViewDistanc
 
 export const ViewDistanceEventSchema = Schema.Struct({
   timestamp: Schema.Number,
-  oldDistance: Schema.Number,
+  previousDistance: Schema.Number,
   newDistance: Schema.Number,
   reason: ViewDistanceAdjustmentReasonSchema,
   metrics: Schema.optional(PerformanceMetricsSchema),
@@ -149,27 +149,28 @@ export const analyzePerformanceTrend = (
     })),
     Match.orElse(() => {
       const recent = metricsHistory.slice(-5)
-      const older = metricsHistory.slice(-10, -5)
+      const earlier = metricsHistory.slice(-10, -5)
 
       const recentAvg = calculateAverageMetrics(recent, 5)
-      const olderAvg = calculateAverageMetrics(older, 5)
+      const earlierAvg = calculateAverageMetrics(earlier, 5)
 
       // 明示的なnullチェックと早期リターン
       return pipe(
-        [recentAvg, olderAvg] as const,
-        Option.liftPredicate(([recent, older]) => recent !== null && older !== null),
+        [recentAvg, earlierAvg] as const,
+        Option.liftPredicate(([recent, earlier]) => recent !== null && earlier !== null),
         Option.match({
           onNone: () => ({
             frameRateTrend: 'stable' as const,
             memoryTrend: 'stable' as const,
             loadTimeTrend: 'stable' as const,
           }),
-          onSome: ([recentAvg, olderAvg]) => {
-            // この時点でrecentAvgとolderAvgは確実に非null
-            const frameRateChange = (recentAvg!.frameRate - olderAvg!.frameRate) / olderAvg!.frameRate
-            const memoryChange = (recentAvg!.memoryUsageMB - olderAvg!.memoryUsageMB) / olderAvg!.memoryUsageMB
+          onSome: ([recentAvg, earlierAvg]) => {
+            // この時点でrecentAvgとearlierAvgは確実に非null
+            const frameRateChange = (recentAvg!.frameRate - earlierAvg!.frameRate) / earlierAvg!.frameRate
+            const memoryChange = (recentAvg!.memoryUsageMB - earlierAvg!.memoryUsageMB) / earlierAvg!.memoryUsageMB
             const loadTimeChange =
-              (recentAvg!.averageChunkLoadTimeMs - olderAvg!.averageChunkLoadTimeMs) / olderAvg!.averageChunkLoadTimeMs
+              (recentAvg!.averageChunkLoadTimeMs - earlierAvg!.averageChunkLoadTimeMs) /
+              earlierAvg!.averageChunkLoadTimeMs
 
             const threshold = config.adjustmentThreshold
 
@@ -473,7 +474,7 @@ export const createViewDistance = (
               const currentTime = yield* Clock.currentTimeMillis
               const event: ViewDistanceEvent = {
                 timestamp: currentTime,
-                oldDistance: currentState.currentViewDistance,
+                previousDistance: currentState.currentViewDistance,
                 newDistance: clampedDistance,
                 reason,
                 metrics: latestMetrics,
