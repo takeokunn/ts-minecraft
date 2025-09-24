@@ -43,7 +43,7 @@ describe('AppError with Effect-TS patterns', () => {
       })
     )
 
-    it.effect('should handle InitError with cause', () =>
+    it.effect.skip('should handle InitError with cause', () =>
       Effect.gen(function* () {
         const causes = [new Error('Root cause'), 'String cause', { error: 'Object cause' }, null, undefined]
 

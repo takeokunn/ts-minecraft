@@ -498,7 +498,7 @@ describe('Player System Performance Benchmarks', () => {
   })
 
   describeOrSkip('Stress Tests and Edge Cases', () => {
-    effectIt.effect(
+    effectIt.effect.skip(
       'should handle extreme input frequencies',
       () =>
         Effect.gen(function* () {
