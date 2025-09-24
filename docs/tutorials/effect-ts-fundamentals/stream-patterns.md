@@ -8,13 +8,13 @@
 
 ### Stream vs 従来のループ
 
-| 従来のループ | Stream API | 利点 |
-|------------|-----------|------|
-| `for...of` | `Stream.fromIterable` | 遅延評価、メモリ効率 |
-| `for(i=0;i<n;i++)` | `Stream.range` | 不変性、組み合わせ可能 |
-| ネストループ | `Stream.flatMap` | 可読性、並列処理可能 |
-| `break` | `Stream.takeWhile` | 明示的な終了条件 |
-| 累積 | `Stream.runFold` | 関数型パラダイム |
+| 従来のループ       | Stream API            | 利点                   |
+| ------------------ | --------------------- | ---------------------- |
+| `for...of`         | `Stream.fromIterable` | 遅延評価、メモリ効率   |
+| `for(i=0;i<n;i++)` | `Stream.range`        | 不変性、組み合わせ可能 |
+| ネストループ       | `Stream.flatMap`      | 可読性、並列処理可能   |
+| `break`            | `Stream.takeWhile`    | 明示的な終了条件       |
+| 累積               | `Stream.runFold`      | 関数型パラダイム       |
 
 ## 移行パターン
 
@@ -29,12 +29,11 @@ for (const item of items) {
 // Stream API
 import { Stream, Effect, pipe } from 'effect'
 
-yield* pipe(
-  Stream.fromIterable(items),
-  Stream.runForEach((item) =>
-    Effect.sync(() => processItem(item))
+yield *
+  pipe(
+    Stream.fromIterable(items),
+    Stream.runForEach((item) => Effect.sync(() => processItem(item)))
   )
-)
 ```
 
 ### パターン2: インデックスベースループ
@@ -46,12 +45,11 @@ for (let i = 0; i < 10; i++) {
 }
 
 // Stream API
-yield* pipe(
-  Stream.range(0, 9), // 0から9まで（10回）
-  Stream.runForEach((i) =>
-    Effect.sync(() => console.log(i))
+yield *
+  pipe(
+    Stream.range(0, 9), // 0から9まで（10回）
+    Stream.runForEach((i) => Effect.sync(() => console.log(i)))
   )
-)
 ```
 
 ### パターン3: 2次元ネストループ
@@ -65,17 +63,12 @@ for (let x = 0; x < width; x++) {
 }
 
 // Stream API
-yield* pipe(
-  Stream.range(0, width - 1),
-  Stream.flatMap((x) =>
-    Stream.range(0, height - 1).pipe(
-      Stream.map((y) => ({ x, y }))
-    )
-  ),
-  Stream.runForEach(({ x, y }) =>
-    Effect.sync(() => processPixel(x, y))
+yield *
+  pipe(
+    Stream.range(0, width - 1),
+    Stream.flatMap((x) => Stream.range(0, height - 1).pipe(Stream.map((y) => ({ x, y })))),
+    Stream.runForEach(({ x, y }) => Effect.sync(() => processPixel(x, y)))
   )
-)
 ```
 
 ### パターン4: 3次元ネストループ（チャンク処理）
@@ -93,27 +86,19 @@ for (let x = 0; x < 16; x++) {
 }
 
 // Stream API（最適化版）
-yield* pipe(
-  Stream.range(0, 15),
-  Stream.flatMap((x) =>
-    Stream.range(0, 383).pipe(
-      Stream.flatMap((y) =>
-        Stream.range(0, 15).pipe(
-          Stream.map((z) => ({ x, y, z }))
-        )
-      )
-    )
-  ),
-  Stream.filter(({ x, y, z }) => isValidBlock(x, y, z)),
-  Stream.chunks(1000), // パフォーマンス最適化
-  Stream.mapEffect((chunk) =>
-    Effect.forEach(chunk, ({ x, y, z }) =>
-      Effect.sync(() => processBlock(x, y, z)),
-      { concurrency: 'unbounded' }
-    )
-  ),
-  Stream.runDrain
-)
+yield *
+  pipe(
+    Stream.range(0, 15),
+    Stream.flatMap((x) =>
+      Stream.range(0, 383).pipe(Stream.flatMap((y) => Stream.range(0, 15).pipe(Stream.map((z) => ({ x, y, z })))))
+    ),
+    Stream.filter(({ x, y, z }) => isValidBlock(x, y, z)),
+    Stream.chunks(1000), // パフォーマンス最適化
+    Stream.mapEffect((chunk) =>
+      Effect.forEach(chunk, ({ x, y, z }) => Effect.sync(() => processBlock(x, y, z)), { concurrency: 'unbounded' })
+    ),
+    Stream.runDrain
+  )
 ```
 
 ### パターン5: フィルタと処理
@@ -127,13 +112,12 @@ for (const user of users) {
 }
 
 // Stream API
-yield* pipe(
-  Stream.fromIterable(users),
-  Stream.filter(user => user.isActive),
-  Stream.runForEach((user) =>
-    Effect.sync(() => sendEmail(user))
+yield *
+  pipe(
+    Stream.fromIterable(users),
+    Stream.filter((user) => user.isActive),
+    Stream.runForEach((user) => Effect.sync(() => sendEmail(user)))
   )
-)
 ```
 
 ### パターン6: 累積処理
@@ -146,12 +130,12 @@ for (const value of values) {
 }
 
 // Stream API
-const sum = yield* pipe(
-  Stream.fromIterable(values),
-  Stream.runFold(0, (acc, value) =>
-    Effect.succeed(acc + value)
+const sum =
+  yield *
+  pipe(
+    Stream.fromIterable(values),
+    Stream.runFold(0, (acc, value) => Effect.succeed(acc + value))
   )
-)
 ```
 
 ### パターン7: 早期終了
@@ -164,13 +148,12 @@ for (const item of items) {
 }
 
 // Stream API
-yield* pipe(
-  Stream.fromIterable(items),
-  Stream.takeWhile(isValid),
-  Stream.runForEach((item) =>
-    Effect.sync(() => process(item))
+yield *
+  pipe(
+    Stream.fromIterable(items),
+    Stream.takeWhile(isValid),
+    Stream.runForEach((item) => Effect.sync(() => process(item)))
   )
-)
 ```
 
 ### パターン8: インデックス付きマッピング
@@ -183,13 +166,15 @@ for (let i = 0; i < items.length; i++) {
 }
 
 // Stream API
-const results = yield* pipe(
-  Stream.fromIterable(items),
-  Stream.zipWithIndex,
-  Stream.map(([item, index]) => transform(item, index)),
-  Stream.runCollect,
-  Effect.map(Chunk.toReadonlyArray)
-)
+const results =
+  yield *
+  pipe(
+    Stream.fromIterable(items),
+    Stream.zipWithIndex,
+    Stream.map(([item, index]) => transform(item, index)),
+    Stream.runCollect,
+    Effect.map(Chunk.toReadonlyArray)
+  )
 ```
 
 ## ゲーム開発での実用例
@@ -204,11 +189,7 @@ const generateMesh = (chunkData: ChunkData) =>
     Stream.range(0, chunkData.size - 1),
     Stream.flatMap((x) =>
       Stream.range(0, chunkData.size - 1).pipe(
-        Stream.flatMap((y) =>
-          Stream.range(0, chunkData.size - 1).pipe(
-            Stream.map((z) => ({ x, y, z }))
-          )
-        )
+        Stream.flatMap((y) => Stream.range(0, chunkData.size - 1).pipe(Stream.map((z) => ({ x, y, z }))))
       )
     ),
     Stream.filter(({ x, y, z }) => {
@@ -230,10 +211,8 @@ const generateMesh = (chunkData: ChunkData) =>
 const updateEntities = (entities: ReadonlyArray<Entity>) =>
   pipe(
     Stream.fromIterable(entities),
-    Stream.filter(entity => entity.isActive),
-    Stream.mapConcurrently(4)((entity) =>
-      updateEntity(entity)
-    ),
+    Stream.filter((entity) => entity.isActive),
+    Stream.mapConcurrently(4)((entity) => updateEntity(entity)),
     Stream.runDrain
   )
 ```
@@ -243,6 +222,7 @@ const updateEntities = (entities: ReadonlyArray<Entity>) =>
 ### いつStream APIを使うべきか
 
 ✅ **推奨される場合**:
+
 - 大量データの処理
 - 非同期操作の連鎖
 - エラーハンドリングが必要
@@ -250,6 +230,7 @@ const updateEntities = (entities: ReadonlyArray<Entity>) =>
 - 関数型プログラミングパターンを活用したい
 
 ❌ **避けるべき場合**:
+
 - 極めてパフォーマンスクリティカルなコード（物理演算など）
 - 単純な小規模ループ（10回未満）
 - 複雑な状態変更を伴う処理
@@ -287,19 +268,13 @@ import {
   streamFilterProcess,
   streamAccumulate,
   streamTakeWhile,
-  streamCollectOptional
+  streamCollectOptional,
 } from '@/shared/utils/stream-migration-helpers'
 
 // 使用例
-yield* streamForEach(items, (item) =>
-  Effect.sync(() => console.log(item))
-)
+yield * streamForEach(items, (item) => Effect.sync(() => console.log(item)))
 
-yield* stream2D(
-  { start: 0, end: 10 },
-  { start: 0, end: 10 },
-  (x, y) => Effect.sync(() => processCell(x, y))
-)
+yield * stream2D({ start: 0, end: 10 }, { start: 0, end: 10 }, (x, y) => Effect.sync(() => processCell(x, y)))
 ```
 
 ## トラブルシューティング
