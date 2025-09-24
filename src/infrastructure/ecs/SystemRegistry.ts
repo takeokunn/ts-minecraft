@@ -325,97 +325,102 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        // グローバル無効時は早期リターン
+        // グローバル無効時は早期リターン using Match.value with early return effect
         const isEnabled = state.globalEnabled
-        if (!isEnabled) {
-          return
-        }
+        return yield* pipe(
+          Match.value(isEnabled),
+          Match.when(false, () => Effect.void),
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              const systems = yield* getOrderedSystems
 
-        const systems = yield* getOrderedSystems
+              // 各システムを実行し、統計を更新
+              for (const system of systems) {
+                const startTime = Date.now()
 
-        // 各システムを実行し、統計を更新
-        for (const system of systems) {
-          const startTime = Date.now()
+                const result = yield* Effect.either(system.update(world, deltaTime))
+                const duration = Date.now() - startTime
 
-          const result = yield* Effect.either(system.update(world, deltaTime))
-          const duration = Date.now() - startTime
+                yield* pipe(
+                  result,
+                  Either.match({
+                    onLeft: (error) =>
+                      Effect.gen(function* () {
+                        // エラー時: エラーを記録して再度スロー
+                        yield* Ref.update(stateRef, (s) => {
+                          const entry = s.systems.get(system.name)
+                          return pipe(
+                            Option.fromNullable(entry),
+                            Option.match({
+                              onNone: () => s,
+                              onSome: (entry) => {
+                                const errorMessage = isSystemError(error)
+                                  ? `${error.systemName}: ${error.message}`
+                                  : String(error)
 
-          yield* pipe(
-            result,
-            Either.match({
-              onLeft: (error) =>
-                Effect.gen(function* () {
-                  // エラー時: エラーを記録して再度スロー
-                  yield* Ref.update(stateRef, (s) => {
-                    const entry = s.systems.get(system.name)
-                    return pipe(
-                      Option.fromNullable(entry),
-                      Option.match({
-                        onNone: () => s,
-                        onSome: (entry) => {
-                          const errorMessage = isSystemError(error)
-                            ? `${error.systemName}: ${error.message}`
-                            : String(error)
+                                const newExecutionState: SystemExecutionState = {
+                                  ...entry.executionState,
+                                  errors: [...entry.executionState.errors, errorMessage].slice(-10), // 最新10件のエラーを保持
+                                }
 
-                          const newExecutionState: SystemExecutionState = {
-                            ...entry.executionState,
-                            errors: [...entry.executionState.errors, errorMessage].slice(-10), // 最新10件のエラーを保持
-                          }
+                                const newEntry: SystemEntry = {
+                                  ...entry,
+                                  executionState: newExecutionState,
+                                }
 
-                          const newEntry: SystemEntry = {
-                            ...entry,
-                            executionState: newExecutionState,
-                          }
+                                const newSystems = new Map(s.systems)
+                                newSystems.set(system.name, newEntry)
 
-                          const newSystems = new Map(s.systems)
-                          newSystems.set(system.name, newEntry)
+                                return { ...s, systems: newSystems }
+                              },
+                            })
+                          )
+                        })
 
-                          return { ...s, systems: newSystems }
-                        },
-                      })
-                    )
+                        yield* Effect.fail(error)
+                      }),
+                    onRight: () =>
+                      // 成功時: 統計を更新
+                      Ref.update(stateRef, (s) => {
+                        const entry = s.systems.get(system.name)
+                        return pipe(
+                          Option.fromNullable(entry),
+                          Option.match({
+                            onNone: () => s,
+                            onSome: (entry) => {
+                              const newState = entry.executionState
+                              const newCount = newState.executionCount + 1
+                              const newTotal = newState.totalDuration + duration
+
+                              const newExecutionState: SystemExecutionState = {
+                                ...newState,
+                                executionCount: newCount,
+                                totalDuration: newTotal,
+                                averageDuration: newTotal / newCount,
+                                maxDuration: Math.max(newState.maxDuration, duration),
+                                lastExecutionTime: Date.now(),
+                              }
+
+                              const newEntry: SystemEntry = {
+                                ...entry,
+                                executionState: newExecutionState,
+                              }
+
+                              const newSystems = new Map(s.systems)
+                              newSystems.set(system.name, newEntry)
+
+                              return { ...s, systems: newSystems }
+                            },
+                          })
+                        )
+                      }),
                   })
-
-                  yield* Effect.fail(error)
-                }),
-              onRight: () =>
-                // 成功時: 統計を更新
-                Ref.update(stateRef, (s) => {
-                  const entry = s.systems.get(system.name)
-                  return pipe(
-                    Option.fromNullable(entry),
-                    Option.match({
-                      onNone: () => s,
-                      onSome: (entry) => {
-                        const newState = entry.executionState
-                        const newCount = newState.executionCount + 1
-                        const newTotal = newState.totalDuration + duration
-
-                        const newExecutionState: SystemExecutionState = {
-                          ...newState,
-                          executionCount: newCount,
-                          totalDuration: newTotal,
-                          averageDuration: newTotal / newCount,
-                          maxDuration: Math.max(newState.maxDuration, duration),
-                          lastExecutionTime: Date.now(),
-                        }
-
-                        const newEntry: SystemEntry = {
-                          ...entry,
-                          executionState: newExecutionState,
-                        }
-
-                        const newSystems = new Map(s.systems)
-                        newSystems.set(system.name, newEntry)
-
-                        return { ...s, systems: newSystems }
-                      },
-                    })
-                  )
-                }),
+                )
+              }
             })
-          )
-        }
+          ),
+          Match.exhaustive
+        )
       })
 
     /**

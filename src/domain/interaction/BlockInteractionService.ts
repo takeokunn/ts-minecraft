@@ -1,4 +1,4 @@
-import { Context, Effect } from 'effect'
+import { Context, Effect, Match, pipe } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type {
   Vector3,
@@ -48,9 +48,14 @@ export interface BlockInteractionService {
    *   10                         // 最大10ブロック
    * )
    *
-   * if (result.hit) {
-   *   console.log(`ブロック発見: ${result.blockPosition}`)
-   * }
+   * yield* pipe(
+   *   Match.value(result.hit),
+   *   Match.when(true, () => Effect.sync(() =>
+   *     console.log(`ブロック発見: ${result.blockPosition}`)
+   *   )),
+   *   Match.when(false, () => Effect.void),
+   *   Match.exhaustive
+   * )
    * ```
    */
   readonly performRaycast: (
@@ -107,11 +112,16 @@ export interface BlockInteractionService {
    *   0.016  // 60FPSでの1フレーム時間
    * )
    *
-   * if (progress.isComplete) {
-   *   console.log('ブロック破壊完了!')
-   * } else {
-   *   console.log(`進捗: ${Math.round(progress.progress * 100)}%`)
-   * }
+   * yield* pipe(
+   *   Match.value(progress.isComplete),
+   *   Match.when(true, () => Effect.sync(() =>
+   *     console.log('ブロック破壊完了!')
+   *   )),
+   *   Match.when(false, () => Effect.sync(() =>
+   *     console.log(`進捗: ${Math.round(progress.progress * 100)}%`)
+   *   )),
+   *   Match.exhaustive
+   * )
    * ```
    */
   readonly updateBlockBreaking: (
@@ -141,11 +151,16 @@ export interface BlockInteractionService {
    *   'top'
    * )
    *
-   * if (result.success) {
-   *   console.log(`ブロック設置成功: ${result.placedPosition}`)
-   * } else {
-   *   console.log(`設置失敗: ${result.reason}`)
-   * }
+   * yield* pipe(
+   *   Match.value(result.success),
+   *   Match.when(true, () => Effect.sync(() =>
+   *     console.log(`ブロック設置成功: ${result.placedPosition}`)
+   *   )),
+   *   Match.when(false, () => Effect.sync(() =>
+   *     console.log(`設置失敗: ${result.reason}`)
+   *   )),
+   *   Match.exhaustive
+   * )
    * ```
    */
   readonly placeBlock: (

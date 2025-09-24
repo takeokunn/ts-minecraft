@@ -69,34 +69,48 @@ export class ItemRegistry extends Context.Tag('ItemRegistry')<
     canStack: (item1: ItemStack, item2: ItemStack) =>
       Effect.gen(function* () {
         // 1. Check if item IDs are the same
-        if (item1.itemId !== item2.itemId) {
-          return false
-        }
+        const idsMatch = item1.itemId === item2.itemId
 
-        // 2. Get item definition
-        const state = getState()
-        const definition = HashMap.get(state.items, item1.itemId)
+        return yield* pipe(
+          Match.value(idsMatch),
+          Match.when(false, () => Effect.succeed(false)),
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              // 2. Get item definition
+              const state = getState()
+              const definition = HashMap.get(state.items, item1.itemId)
 
-        if (Option.isNone(definition)) {
-          return false
-        }
+              return yield* pipe(
+                definition,
+                Option.match({
+                  onNone: () => Effect.succeed(false),
+                  onSome: (def) =>
+                    pipe(
+                      Match.value(def.isStackable),
+                      Match.when(false, () => Effect.succeed(false)),
+                      Match.when(true, () =>
+                        Effect.gen(function* () {
+                          // Check metadata compatibility
+                          const meta1 = item1.metadata
+                          const meta2 = item2.metadata
+                          const hasMetadata = !!(meta1 || meta2)
 
-        // 3. Check if item is stackable
-        if (!definition.value.isStackable) {
-          return false
-        }
-
-        // 4. Check metadata compatibility
-        const meta1 = item1.metadata
-        const meta2 = item2.metadata
-
-        // If either has metadata, they must be identical
-        if (meta1 || meta2) {
-          return JSON.stringify(meta1) === JSON.stringify(meta2)
-        }
-
-        // No metadata on either, they can stack
-        return true
+                          return yield* pipe(
+                            Match.value(hasMetadata),
+                            Match.when(true, () => Effect.succeed(JSON.stringify(meta1) === JSON.stringify(meta2))),
+                            Match.when(false, () => Effect.succeed(true)),
+                            Match.exhaustive
+                          )
+                        })
+                      ),
+                      Match.exhaustive
+                    ),
+                })
+              )
+            })
+          ),
+          Match.exhaustive
+        )
       }),
 
     getMaxStackSize: (itemId: ItemId) =>

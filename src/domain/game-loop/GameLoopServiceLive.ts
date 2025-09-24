@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, Option, pipe } from 'effect'
+import { Effect, Layer, Ref, Option, pipe, Match, Array as A } from 'effect'
 import { GameLoopService } from './GameLoopService'
 import type { FrameInfo, GameLoopConfig, PerformanceMetrics, GameLoopState } from './types'
 import { DEFAULT_GAME_LOOP_CONFIG } from './types'
@@ -38,15 +38,20 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          // 状態チェック
+          // 状態チェックをMatch.valueで実装
           const canInit = currentState.state === 'idle' || currentState.state === 'stopped'
-          if (!canInit) {
-            return yield* Effect.fail({
-              _tag: 'GameLoopInitError' as const,
-              message: 'GameLoop is already initialized',
-              reason: `Current state is ${currentState.state}`,
-            })
-          }
+          yield* pipe(
+            Match.value(canInit),
+            Match.when(false, () =>
+              Effect.fail({
+                _tag: 'GameLoopInitError' as const,
+                message: 'GameLoop is already initialized',
+                reason: `Current state is ${currentState.state}`,
+              })
+            ),
+            Match.when(true, () => Effect.void),
+            Match.exhaustive
+          )
 
           const mergedConfig = { ...DEFAULT_GAME_LOOP_CONFIG, ...config }
           yield* Ref.update(internalState, (s) => ({
@@ -65,46 +70,62 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          // 状態遷移チェック
-          const validStates = ['idle', 'paused', 'running']
-          if (!validStates.includes(currentState.state)) {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Invalid state transition',
-              currentState: currentState.state,
-              attemptedTransition: 'start',
-            })
-          }
+          // 状態遷移チェックをMatch.valueで実装
+          const validStates: GameLoopState[] = ['idle', 'paused', 'running']
+          const isValidState = A.contains(currentState.state)(validStates)
+          yield* pipe(
+            Match.value(isValidState),
+            Match.when(false, () =>
+              Effect.fail({
+                _tag: 'GameLoopStateError' as const,
+                message: 'Invalid state transition',
+                currentState: currentState.state,
+                attemptedTransition: 'start',
+              })
+            ),
+            Match.when(true, () => Effect.void),
+            Match.exhaustive
+          )
 
-          // 既に実行中なら何もしない
-          if (currentState.state === 'running') {
-            return
-          }
-
-          yield* Ref.update(internalState, (s) => ({
-            ...s,
-            state: 'running' as GameLoopState,
-            lastFrameTime: performance.now(),
-          }))
+          // 既に実行中かチェックしてMatch.valueで処理
+          yield* pipe(
+            Match.value(currentState.state),
+            Match.when('running', () => Effect.void),
+            Match.orElse(() =>
+              Ref.update(internalState, (s) => ({
+                ...s,
+                state: 'running' as GameLoopState,
+                lastFrameTime: performance.now(),
+              }))
+            )
+          )
         }),
 
       pause: () =>
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state !== 'running') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Can only pause when running',
-              currentState: currentState.state,
-              attemptedTransition: 'pause',
-            })
-          }
+          yield* pipe(
+            Match.value(currentState.state),
+            Match.when('running', () => Effect.void),
+            Match.orElse(() =>
+              Effect.fail({
+                _tag: 'GameLoopStateError' as const,
+                message: 'Can only pause when running',
+                currentState: currentState.state,
+                attemptedTransition: 'pause',
+              })
+            )
+          )
 
-          // アニメーションフレームのキャンセル
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          // アニメーションフレームのキャンセルをOption.matchで実装
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (id) => Effect.sync(() => cancelAnimationFrame(id)),
+            })
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -117,14 +138,18 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          if (currentState.state !== 'paused') {
-            return yield* Effect.fail({
-              _tag: 'GameLoopStateError' as const,
-              message: 'Can only resume when paused',
-              currentState: currentState.state,
-              attemptedTransition: 'resume',
-            })
-          }
+          yield* pipe(
+            Match.value(currentState.state),
+            Match.when('paused', () => Effect.void),
+            Match.orElse(() =>
+              Effect.fail({
+                _tag: 'GameLoopStateError' as const,
+                message: 'Can only resume when paused',
+                currentState: currentState.state,
+                attemptedTransition: 'resume',
+              })
+            )
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -137,10 +162,14 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          // アニメーションフレームのキャンセル
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          // アニメーションフレームのキャンセルをOption.matchで実装
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (id) => Effect.sync(() => cancelAnimationFrame(id)),
+            })
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -179,16 +208,22 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const state = yield* Ref.get(internalState)
 
-          // パフォーマンスデータが無い場合はエラー
-          if (state.performanceBuffer.length === 0) {
-            return yield* Effect.fail({
-              _tag: 'GameLoopPerformanceError' as const,
-              message: 'No performance data available',
-              currentFps: 0,
-              targetFps: state.config.targetFps,
-              droppedFrames: 0,
-            })
-          }
+          // パフォーマンスデータ有無をMatch.valueで判定
+          const hasPerformanceData = state.performanceBuffer.length > 0
+          yield* pipe(
+            Match.value(hasPerformanceData),
+            Match.when(false, () =>
+              Effect.fail({
+                _tag: 'GameLoopPerformanceError' as const,
+                message: 'No performance data available',
+                currentFps: 0,
+                targetFps: state.config.targetFps,
+                droppedFrames: 0,
+              })
+            ),
+            Match.when(true, () => Effect.void),
+            Match.exhaustive
+          )
 
           const averageFps = state.performanceBuffer.reduce((sum, fps) => sum + fps, 0) / state.performanceBuffer.length
           const minFps = Math.min(...state.performanceBuffer)
@@ -224,20 +259,21 @@ export const GameLoopServiceLive = Layer.effect(
             frameSkipped,
           }
 
-          // Track dropped frames
-          if (frameSkipped) {
-            yield* Ref.update(internalState, (s) => ({
+          // フレームドロップをEffect.whenで追跡
+          yield* Effect.when(
+            Ref.update(internalState, (s) => ({
               ...s,
               droppedFrames: s.droppedFrames + 1,
-            }))
-          }
+            })),
+            () => frameSkipped
+          )
 
           // Update performance buffer
           const updatedBuffer = [...state.performanceBuffer, frameInfo.fps].slice(-60)
 
-          // コールバックの実行
-          if (state.frameCallbacks.length > 0) {
-            yield* Effect.all(
+          // コールバックの実行をEffect.whenで処理
+          yield* Effect.when(
+            Effect.all(
               state.frameCallbacks.map((callback) => callback(frameInfo)),
               { concurrency: 'unbounded' }
             ).pipe(
@@ -249,8 +285,9 @@ export const GameLoopServiceLive = Layer.effect(
                   error,
                 })
               )
-            )
-          }
+            ),
+            () => state.frameCallbacks.length > 0
+          )
 
           yield* Ref.update(internalState, (s) => ({
             ...s,
@@ -275,10 +312,14 @@ export const GameLoopServiceLive = Layer.effect(
         Effect.gen(function* () {
           const currentState = yield* Ref.get(internalState)
 
-          // アニメーションフレームのキャンセル
-          if (currentState.animationFrameId !== null) {
-            cancelAnimationFrame(currentState.animationFrameId)
-          }
+          // アニメーションフレームのキャンセルをOption.matchで実装
+          yield* pipe(
+            Option.fromNullable(currentState.animationFrameId),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (id) => Effect.sync(() => cancelAnimationFrame(id)),
+            })
+          )
 
           // 完全リセット
           yield* Ref.set(internalState, {
