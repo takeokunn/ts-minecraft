@@ -370,13 +370,13 @@ const makePlayerMovementService = Effect.gen(function* () {
       return Math.min(damage, 20) // 最大20ダメージ
     })
 
-  return PlayerMovementService.of({
+  return {
     move,
     jump,
     updatePhysics,
     resolveCollisions,
     calculateFallDamage,
-  })
+  } satisfies PlayerMovementService
 })
 
 // Live Layer実装

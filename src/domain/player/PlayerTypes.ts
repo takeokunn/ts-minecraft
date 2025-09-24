@@ -113,7 +113,7 @@ export const ItemStack = Schema.Struct({
   readonly itemId: Schema.String,
   readonly count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
   readonly metadata: Schema.optional(
-    Schema.HashMap(Schema.String, Schema.Unknown)
+    Schema.Record({ key: Schema.String, value: Schema.Unknown })
   )
 })
 export interface ItemStack extends Schema.Schema.Type<typeof ItemStack> {}

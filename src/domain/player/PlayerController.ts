@@ -299,13 +299,13 @@ const makePlayerController = Effect.gen(function* () {
       } satisfies PlayerUpdateData
     })
 
-  return PlayerController.of({
+  return {
     processInput,
     getMovementDirection,
     getMouseLook,
     handleAction,
     updatePlayerFromInput,
-  })
+  } satisfies PlayerController
 })
 
 // Live Layer実装

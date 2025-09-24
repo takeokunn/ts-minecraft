@@ -3,7 +3,6 @@ import {
   Context,
   Layer,
   Ref,
-  STM,
   Queue,
   FiberRef,
   Match,
@@ -19,6 +18,8 @@ import {
   pipe,
   Schema
 } from 'effect'
+import * as STM from 'effect/STM'
+import * as TRef from 'effect/TRef'
 import * as Types from './PlayerTypes.js'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
 
@@ -108,20 +109,20 @@ export const PlayerEventBus = Context.GenericTag<PlayerEventBus>('@app/PlayerEve
 
 const makePlayerRepository = Effect.gen(function* () {
   // STMでトランザクショナルな状態管理
-  const playersRef = yield* STM.TRef.make(HashMap.empty<Types.PlayerId, Types.Player>())
+  const playersRef = yield* TRef.make(HashMap.empty<Types.PlayerId, Types.Player>())
 
   const save = (player: Types.Player) =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
-        yield* STM.TRef.set(playersRef, HashMap.set(players, player.id, player))
+        const players = yield* TRef.get(playersRef)
+        yield* TRef.set(playersRef, HashMap.set(players, player.id, player))
       })
     )
 
   const load = (playerId: Types.PlayerId) =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
+        const players = yield* TRef.get(playersRef)
         return yield* pipe(
           HashMap.get(players, playerId),
           STM.fromOption(() => ({
@@ -135,9 +136,9 @@ const makePlayerRepository = Effect.gen(function* () {
     )
 
   const deletePlayer = (playerId: Types.PlayerId) =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
+        const players = yield* TRef.get(playersRef)
         const exists = HashMap.has(players, playerId)
         if (!exists) {
           return yield* STM.fail({
@@ -147,45 +148,46 @@ const makePlayerRepository = Effect.gen(function* () {
             message: `Player ${playerId} not found`
           })
         }
-        yield* STM.TRef.set(playersRef, HashMap.remove(players, playerId))
+        yield* TRef.set(playersRef, HashMap.remove(players, playerId))
       })
     )
 
   const exists = (playerId: Types.PlayerId) =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
+        const players = yield* TRef.get(playersRef)
         return HashMap.has(players, playerId)
       })
     )
 
   const findAll = () =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
-        return Chunk.toReadonlyArray(HashMap.values(players))
+        const players = yield* TRef.get(playersRef)
+        return Chunk.toReadonlyArray(Chunk.fromIterable(HashMap.values(players)))
       })
     )
 
   const findByName = (name: string) =>
-    STM.atomically(
+    STM.commit(
       STM.gen(function* () {
-        const players = yield* STM.TRef.get(playersRef)
+        const players = yield* TRef.get(playersRef)
         return pipe(
-          HashMap.values(players),
-          Chunk.findFirst(p => p.name === name)
+          Array.from(HashMap.values(players)),
+          (arr) => arr.find(p => p.name === name),
+          Option.fromNullable
         )
       })
     )
 
-  return PlayerRepository.of({
+  return {
     save,
     load,
     delete: deletePlayer,
     exists,
     findAll,
     findByName
-  })
+  } satisfies PlayerRepository
 })
 
 // =========================================
@@ -295,13 +297,13 @@ const makePlayerStateManager = Effect.gen(function* () {
   const getAll = () => repository.findAll()
   const deletePlayer = (playerId: Types.PlayerId) => repository.delete(playerId)
 
-  return PlayerStateManager.of({
+  return {
     create,
     update,
     get,
     getAll,
     delete: deletePlayer
-  })
+  } satisfies PlayerStateManager
 })
 
 // =========================================
@@ -494,10 +496,10 @@ const makePlayerActionProcessor = Effect.gen(function* () {
       Match.orElse(() => Effect.succeed(false))
     )
 
-  return PlayerActionProcessor.of({
+  return {
     process,
     validate
-  })
+  } satisfies PlayerActionProcessor
 })
 
 // =========================================
@@ -514,11 +516,11 @@ const makePlayerEventBus = Effect.gen(function* () {
   const subscribeFiltered = (predicate: (event: Types.PlayerEvent) => boolean) =>
     Stream.fromQueue(queue).pipe(Stream.filter(predicate))
 
-  return PlayerEventBus.of({
+  return {
     publish,
     subscribe,
     subscribeFiltered
-  })
+  } satisfies PlayerEventBus
 })
 
 // =========================================

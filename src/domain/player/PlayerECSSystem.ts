@@ -409,7 +409,7 @@ const makePlayerECSSystem = Effect.gen(function* () {
       statsComp.level = player.stats.level
     })
 
-  return PlayerECSSystem.of({
+  return {
     createPlayerEntity,
     destroyPlayerEntity,
     updateMovementSystem,
@@ -417,7 +417,7 @@ const makePlayerECSSystem = Effect.gen(function* () {
     updateStatsSystem,
     queryPlayersInRange,
     syncPlayerState,
-  })
+  } satisfies PlayerECSSystem
 })
 
 // Live Layer実装
