@@ -473,7 +473,7 @@ describe('GreedyMeshing', () => {
             expect(service.generateGreedyMesh).toBeDefined()
             expect(service.generateQuads).toBeDefined()
             expect(service.optimizeMesh).toBeDefined()
-              })
+          })
         )
 
         const result = pipe(program, Effect.provide(GreedyMeshingLive), Effect.runSync)

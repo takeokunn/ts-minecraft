@@ -164,7 +164,8 @@ export const createComponentStorage = <T>() => {
             array.entityToIndex.delete(entity)
             array.size--
 
-              },
+            return true
+          },
         })
       )
     )

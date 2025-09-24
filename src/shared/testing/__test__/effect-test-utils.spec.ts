@@ -145,7 +145,7 @@ describe('Effect Testing Utilities', () => {
     it.effect('testErrorTypeGuards should validate error type detection', () =>
       Effect.gen(function* () {
         const isTestError = (error: unknown): error is TestError =>
-          Predicate.isRecord(error) && error !== null && '_tag' in error && error._tag === 'TestError'
+          Predicate.isRecord(error) && error !== null && '_tag' in error && error['_tag'] === 'TestError'
 
         ErrorTestUtils.testErrorTypeGuards([testError], isTestError)
       })

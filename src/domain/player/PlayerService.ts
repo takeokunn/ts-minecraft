@@ -118,7 +118,7 @@ export const PlayerError = (
 })
 
 export const isPlayerError = (error: unknown): error is PlayerError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'PlayerError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'PlayerError'
 
 /**
  * プレイヤーエラー作成ヘルパー

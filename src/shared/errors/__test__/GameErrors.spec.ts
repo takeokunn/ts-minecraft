@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Exit } from 'effect'
+import { Effect, Exit, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   GameError,

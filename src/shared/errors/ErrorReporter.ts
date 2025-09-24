@@ -93,7 +93,7 @@ export const ErrorReporter = {
     // 既知のエラー型であっても、_tagが空白や無効な場合はUnknownErrorとして扱う
     return pipe(
       Option.fromNullable(knownError),
-      Option.filter((e) => e._tag && e._tag.trim() !== ''),
+      Option.filter((e) => e['_tag'] && e['_tag'].trim() !== ''),
       Option.match({
         onNone: () => ({
           type: 'UnknownError',
@@ -104,12 +104,12 @@ export const ErrorReporter = {
           category: 'unknown' as const,
         }),
         onSome: (e) => ({
-          type: e._tag,
+          type: e['_tag'],
           message: e.message,
           details: ErrorReporter.extractErrorDetails(e),
           timestamp,
           stackTrace: ErrorReporter.getStackTrace(error),
-          category: ErrorReporter.categorizeError(e._tag),
+          category: ErrorReporter.categorizeError(e['_tag']),
         }),
       })
     )
@@ -198,8 +198,8 @@ export const ErrorReporter = {
           Predicate.isRecord(e) &&
           'message' in e &&
           'name' in e &&
-          Predicate.isString(e.name) &&
-          Predicate.isString(e.message),
+          Predicate.isString(e['name']) &&
+          Predicate.isString(e['message']),
         (e: Error) => e.stack
       ),
       Match.when(

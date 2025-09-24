@@ -134,21 +134,20 @@ describe('ChunkData', () => {
         ]
 
         for (const [x, y, z] of invalidCases) {
-          yield* pipe(
-            x !== undefined && y !== undefined && z !== undefined,
-            Match.value,
-            Match.when(true, () => Effect.sync(() => {
-              expect(() =>
-                getBlockIndex(
-                  BrandedTypes.createWorldCoordinate(x),
-                  BrandedTypes.createWorldCoordinate(y),
-                  BrandedTypes.createWorldCoordinate(z)
-                )
-              ).toThrow()
-            })),
-            Match.when(false, () => Effect.succeed(undefined)),
-            Match.exhaustive
-          )
+          // TypeScript type assertion: destructured array values are guaranteed to be numbers
+          const safeX = x as number
+          const safeY = y as number
+          const safeZ = z as number
+
+          yield* Effect.sync(() => {
+            expect(() =>
+              getBlockIndex(
+                BrandedTypes.createWorldCoordinate(safeX),
+                BrandedTypes.createWorldCoordinate(safeY),
+                BrandedTypes.createWorldCoordinate(safeZ)
+              )
+            ).toThrow()
+          })
         }
       })
     )
@@ -503,17 +502,15 @@ describe('ChunkData', () => {
         ]
 
         for (const [x, z] of invalidCases) {
-          yield* pipe(
-            x !== undefined && z !== undefined,
-            Match.value,
-            Match.when(true, () => Effect.sync(() => {
-              expect(() =>
-                getHeight(testChunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(z))
-              ).toThrow()
-            })),
-            Match.when(false, () => Effect.succeed(undefined)),
-            Match.exhaustive
-          )
+          // TypeScript type assertion: destructured array values are guaranteed to be numbers
+          const safeX = x as number
+          const safeZ = z as number
+
+          yield* Effect.sync(() => {
+            expect(() =>
+              getHeight(testChunk, BrandedTypes.createWorldCoordinate(safeX), BrandedTypes.createWorldCoordinate(safeZ))
+            ).toThrow()
+          })
         }
       })
     )

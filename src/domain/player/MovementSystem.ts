@@ -233,16 +233,15 @@ export const PhysicsUtils = {
     return pipe(
       horizontalSpeed > maxSpeed,
       Match.value,
-      Match.when(true, () => {
+      Match.when(false, () => velocity),
+      Match.orElse(() => {
         const ratio = maxSpeed / horizontalSpeed
         return {
           x: velocity.x * ratio,
           y: velocity.y,
           z: velocity.z * ratio,
         }
-      }),
-      Match.when(false, () => velocity),
-      Match.exhaustive
+      })
     )
   },
 
@@ -294,47 +293,11 @@ export const InputUtils = {
     rotation: PlayerRotation,
     sprintMultiplier: number = 1.5
   ): VelocityVector => {
-    const forward = pipe(
-      Match.value({ forward: input.forward, backward: input.backward }),
-      Match.when(
-        ({ forward, backward }) => forward && !backward,
-        () => 1
-      ),
-      Match.when(
-        ({ forward, backward }) => !forward && backward,
-        () => -1
-      ),
-      Match.when(
-        ({ forward, backward }) => forward && backward,
-        () => 0
-      ),
-      Match.when(
-        ({ forward, backward }) => !forward && !backward,
-        () => 0
-      ),
-      Match.exhaustive
-    )
+    // Forward/backward movement
+    const forward = input.forward && !input.backward ? 1 : !input.forward && input.backward ? -1 : 0
 
-    const right = pipe(
-      Match.value({ right: input.right, left: input.left }),
-      Match.when(
-        ({ right, left }) => right && !left,
-        () => 1
-      ),
-      Match.when(
-        ({ right, left }) => !right && left,
-        () => -1
-      ),
-      Match.when(
-        ({ right, left }) => right && left,
-        () => 0
-      ),
-      Match.when(
-        ({ right, left }) => !right && !left,
-        () => 0
-      ),
-      Match.exhaustive
-    )
+    // Right/left movement
+    const right = input.right && !input.left ? 1 : !input.right && input.left ? -1 : 0
 
     // 回転を考慮した方向計算
     const yaw = rotation.yaw
@@ -347,9 +310,8 @@ export const InputUtils = {
     const speedMultiplier = pipe(
       input.sprint,
       Match.value,
-      Match.when(true, () => sprintMultiplier),
       Match.when(false, () => 1.0),
-      Match.exhaustive
+      Match.orElse(() => sprintMultiplier)
     )
 
     const baseSpeed = PHYSICS_CONSTANTS.MAX_SPEED * speedMultiplier
@@ -374,8 +336,7 @@ export const InputUtils = {
           y: PHYSICS_CONSTANTS.JUMP_FORCE,
         })
       ),
-      Match.orElse(() => currentVelocity),
-      Match.exhaustive
+      Match.orElse(() => currentVelocity)
     )
   },
 }

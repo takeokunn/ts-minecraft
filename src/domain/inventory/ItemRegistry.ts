@@ -68,71 +68,35 @@ export class ItemRegistry extends Context.Tag('ItemRegistry')<
 
     canStack: (item1: ItemStack, item2: ItemStack) =>
       Effect.gen(function* () {
-        const sameItemId = pipe(
-          item1.itemId === item2.itemId,
-          Match.value,
-          Match.when(false, () => false),
-          Match.when(true, () => null),
-          Match.exhaustive
-        )
+        // 1. Check if item IDs are the same
+        if (item1.itemId !== item2.itemId) {
+          return false
+        }
 
-        // Transform if statement to Match pattern
-        return yield* pipe(
-          sameItemId,
-          Match.value,
-          Match.when(false, () => Effect.succeed(false)),
-          Match.when(null, () => Effect.gen(function* () {
-            const state = getState()
-            const definition = HashMap.get(state.items, item1.itemId)
+        // 2. Get item definition
+        const state = getState()
+        const definition = HashMap.get(state.items, item1.itemId)
 
-            const definitionExists = pipe(
-              Option.isNone(definition),
-              Match.value,
-              Match.when(true, () => false),
-              Match.when(false, () => null),
-              Match.exhaustive
-            )
+        if (Option.isNone(definition)) {
+          return false
+        }
 
-            return yield* pipe(
-              definitionExists,
-              Match.value,
-              Match.when(false, () => Effect.succeed(false)),
-              Match.when(null, () => Effect.gen(function* () {
-                const isStackable = pipe(
-                  definition.value.isStackable,
-                  Match.value,
-                  Match.when(false, () => false),
-                  Match.when(true, () => null),
-                  Match.exhaustive
-                )
+        // 3. Check if item is stackable
+        if (!definition.value.isStackable) {
+          return false
+        }
 
-                return yield* pipe(
-                  isStackable,
-                  Match.value,
-                  Match.when(false, () => Effect.succeed(false)),
-                  Match.when(null, () => Effect.gen(function* () {
-                    // Check metadata compatibility
-                    const meta1 = item1.metadata
-                    const meta2 = item2.metadata
+        // 4. Check metadata compatibility
+        const meta1 = item1.metadata
+        const meta2 = item2.metadata
 
-                    const metadataCheck = pipe(
-                      meta1 || meta2,
-                      Match.value,
-                      Match.when(true, () => JSON.stringify(meta1) === JSON.stringify(meta2)),
-                      Match.when(false, () => true),
-                      Match.exhaustive
-                    )
+        // If either has metadata, they must be identical
+        if (meta1 || meta2) {
+          return JSON.stringify(meta1) === JSON.stringify(meta2)
+        }
 
-                    return metadataCheck
-                  })),
-                  Match.exhaustive
-                )
-              })),
-              Match.exhaustive
-            )
-          })),
-          Match.exhaustive
-        )
+        // No metadata on either, they can stack
+        return true
       }),
 
     getMaxStackSize: (itemId: ItemId) =>

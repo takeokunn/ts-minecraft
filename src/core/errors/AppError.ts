@@ -72,7 +72,7 @@ export namespace AppError {
    */
   export const categorize = (error: AnyAppError): 'initialization' | 'configuration' =>
     pipe(
-      Match.value(error._tag),
+      Match.value(error['_tag']),
       Match.when('InitError', () => 'initialization' as const),
       Match.when('ConfigError', () => 'configuration' as const),
       Match.exhaustive

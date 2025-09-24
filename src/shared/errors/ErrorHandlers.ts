@@ -44,7 +44,7 @@ export const ErrorHandlers = {
       )
 
       const successes = results.filter(Either.isRight)
-      const successValues = successes.map((r) => r.right)
+      const successValues = successes.map((r) => Either.getOrNull(r)).filter((v) => v !== null)
 
       return yield* pipe(
         Match.value(successes.length >= minSuccess),

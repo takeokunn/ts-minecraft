@@ -69,7 +69,7 @@ export const EffectTestUtils = {
           throw new Error(`Expected failure but got success: ${String(value)}`)
         },
       })
-    )
+    ) as E
   },
 
   /**
@@ -209,8 +209,10 @@ export const EffectTestUtils = {
                           expectSuccess,
                           Match.value,
                           Match.when(true, () => EffectTestUtils.expectSuccess(scenario.effect)),
-                          Match.when(false, () =>
-                            EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher)
+                          Match.when(
+                            false,
+                            () =>
+                              EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher) as Promise<unknown>
                           ),
                           Match.exhaustive
                         ),
@@ -218,7 +220,7 @@ export const EffectTestUtils = {
                   ),
                 catch: (error) => new Error(`Scenario '${scenario.name}' failed: ${String(error)}`),
               }),
-              Effect.flatMap((promise) => Effect.promise(() => promise))
+              Effect.flatMap((promise) => Effect.promise(() => promise as Promise<unknown>))
             )
           })
         ),

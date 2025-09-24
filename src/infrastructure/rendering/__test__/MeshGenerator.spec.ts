@@ -62,8 +62,8 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
           const blockType = validatedChunk.blocks[x]?.[y]?.[z] ?? 0
 
           if (blockType > 0) {
-              // Generate cube faces (basic implementation)
-              const cubeVertices = [
+            // Generate cube faces (basic implementation)
+            const cubeVertices = [
               // Front face
               x,
               y,
@@ -175,24 +175,27 @@ const shouldRenderFace = (
             ({ nx, ny, nz }) => nx === undefined || ny === undefined || nz === undefined,
             () => true // Safety fallback
           ),
-          Match.when(false, () => {
+          Match.orElse(() => {
             // Check bounds
             return pipe(
               Match.value({ nx, ny, nz, chunkSize }),
               Match.when(
                 ({ nx, ny, nz, chunkSize }) =>
-                  nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkSize || nz < 0 || nz >= chunkSize,
+                  nx !== undefined &&
+                  ny !== undefined &&
+                  nz !== undefined &&
+                  (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkSize || nz < 0 || nz >= chunkSize),
                 () => true // Render faces on chunk boundaries
               ),
-              Match.when(false, () => {
+              Match.orElse(() => {
                 // Don't render face if neighbor is solid
-                const neighborBlockType = blocks[nx]?.[ny]?.[nz] ?? 0
+                const neighborBlockType = blocks[nx!]?.[ny!]?.[nz!] ?? 0
                 return neighborBlockType === 0
               })
             )
           })
         )
-      }
+      },
     })
   )
 }

@@ -320,12 +320,7 @@ export const performDDARaycast = (
     }
 
     return createEmptyRaycastResult(maxDistance, endPoint)
-  }).pipe(
-    Effect.catchTag('UnknownException', (error) =>
-      // Handle early returns from the loop
-      Effect.succeed(error as RaycastResult)
-    )
-  )
+  })
 
 // =============================================================================
 // Convenience Functions

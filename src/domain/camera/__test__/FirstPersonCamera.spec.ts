@@ -18,9 +18,10 @@ import { FirstPersonCameraLive } from '../FirstPersonCamera'
 // Predicate Functions - Type Guards
 // ================================================================================
 
-const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> =
-  (obj): obj is THREE.PerspectiveCamera =>
-    Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
+const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> = (
+  obj
+): obj is THREE.PerspectiveCamera =>
+  Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -66,7 +67,7 @@ const TestLayer = Layer.mergeAll(FirstPersonCameraLive, TestContext.TestContext)
 // ================================================================================
 
 describe('FirstPersonCamera', () => {
-  describe('Camera Initialization - Schema Validation', () => {
+  ;(describe('Camera Initialization - Schema Validation', () => {
     it.effect('should initialize camera with default settings', () =>
       Effect.gen(function* () {
         const service = yield* CameraService
@@ -92,7 +93,6 @@ describe('FirstPersonCamera', () => {
         const state = yield* service.getState()
         const validatedState = yield* Schema.decodeUnknown(CameraStateSchema)(state)
         expect(validatedState).toEqual(state)
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -121,7 +121,6 @@ describe('FirstPersonCamera', () => {
         // Verify configuration was applied
         expect(resultConfig.fov).toBe(90)
         expect(resultConfig.sensitivity).toBe(1.5)
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -155,96 +154,90 @@ describe('FirstPersonCamera', () => {
       }).pipe(Effect.provide(TestLayer))
     )
   }),
+    describe('Camera Updates - Position Tracking', () => {
+      it.effect('should update camera position based on target position', () =>
+        Effect.gen(function* () {
+          const service = yield* CameraService
+          yield* service.initialize(DEFAULT_CAMERA_CONFIG)
 
-  describe('Camera Updates - Position Tracking', () => {
-    it.effect('should update camera position based on target position', () =>
-      Effect.gen(function* () {
-        const service = yield* CameraService
-        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
+          const initialState = yield* service.getState()
+          const validatedInitialState = yield* Schema.decodeUnknown(CameraStateSchema)(initialState)
+          expect(validatedInitialState).toEqual(initialState)
 
-        const initialState = yield* service.getState()
-        const validatedInitialState = yield* Schema.decodeUnknown(CameraStateSchema)(initialState)
-        expect(validatedInitialState).toEqual(initialState)
+          const targetPosition = { x: 10, y: 5, z: -5 }
+          yield* service.update(0.016, targetPosition)
+          const updatedState = yield* service.getState()
 
-        const targetPosition = { x: 10, y: 5, z: -5 }
-        yield* service.update(0.016, targetPosition)
-        const updatedState = yield* service.getState()
+          const validatedUpdatedState = yield* Schema.decodeUnknown(CameraStateSchema)(updatedState)
+          expect(validatedUpdatedState).toEqual(updatedState)
 
-        const validatedUpdatedState = yield* Schema.decodeUnknown(CameraStateSchema)(updatedState)
-        expect(validatedUpdatedState).toEqual(updatedState)
+          // Verify position has moved towards target (with smoothing)
+          expect(updatedState.position.x).toBeGreaterThan(0) // Position should move in positive X direction
+          expect(updatedState.position.y).toBeGreaterThan(1.7) // Position should move upward from initial height
+          expect(updatedState.position.z).toBeLessThan(0) // Position should move in negative Z direction
+        }).pipe(Effect.provide(TestLayer))
+      )
 
-        // Verify position has moved towards target (with smoothing)
-        expect(updatedState.position.x).toBeGreaterThan(0) // Position should move in positive X direction
-        expect(updatedState.position.y).toBeGreaterThan(1.7) // Position should move upward from initial height
-        expect(updatedState.position.z).toBeLessThan(0) // Position should move in negative Z direction
+      it.effect('should apply smoothing to position updates', () =>
+        Effect.gen(function* () {
+          const service = yield* CameraService
+          yield* service.initialize({
+            ...DEFAULT_CAMERA_CONFIG,
+            smoothing: 0.1, // Strong smoothing
+          })
 
-      }).pipe(Effect.provide(TestLayer))
-    )
+          const targetPosition = { x: 10, y: 0, z: 0 }
 
-    it.effect('should apply smoothing to position updates', () =>
-      Effect.gen(function* () {
-        const service = yield* CameraService
-        yield* service.initialize({
-          ...DEFAULT_CAMERA_CONFIG,
-          smoothing: 0.1, // Strong smoothing
-        })
+          // First frame
+          yield* service.update(0.016, targetPosition)
+          const state1 = yield* service.getState()
 
-        const targetPosition = { x: 10, y: 0, z: 0 }
+          // Second frame
+          yield* service.update(0.016, targetPosition)
+          const state2 = yield* service.getState()
 
-        // First frame
-        yield* service.update(0.016, targetPosition)
-        const state1 = yield* service.getState()
+          const validatedState1 = yield* Schema.decodeUnknown(CameraStateSchema)(state1)
+          expect(validatedState1).toEqual(state1)
+          const validatedState2 = yield* Schema.decodeUnknown(CameraStateSchema)(state2)
+          expect(validatedState2).toEqual(state2)
 
-        // Second frame
-        yield* service.update(0.016, targetPosition)
-        const state2 = yield* service.getState()
+          // Verify gradual movement (second position closer to target)
+          const dist1 = Math.abs(state1.position.x - 10)
+          const dist2 = Math.abs(state2.position.x - 10)
 
-        const validatedState1 = yield* Schema.decodeUnknown(CameraStateSchema)(state1)
-        expect(validatedState1).toEqual(state1)
-        const validatedState2 = yield* Schema.decodeUnknown(CameraStateSchema)(state2)
-        expect(validatedState2).toEqual(state2)
+          yield* pipe(
+            dist2 >= dist1,
+            Match.value,
+            Match.when(true, () => Effect.fail(new Error('Smoothing should gradually move camera closer to target'))),
+            Match.when(false, () => Effect.succeed(undefined)),
+            Match.exhaustive
+          )
+        }).pipe(Effect.provide(TestLayer))
+      )
 
-        // Verify gradual movement (second position closer to target)
-        const dist1 = Math.abs(state1.position.x - 10)
-        const dist2 = Math.abs(state2.position.x - 10)
+      it.effect('should handle performance requirements for position updates', () =>
+        Effect.gen(function* () {
+          const service = yield* CameraService
+          yield* service.initialize(DEFAULT_CAMERA_CONFIG)
 
-        yield* pipe(
-          dist2 >= dist1,
-          Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Smoothing should gradually move camera closer to target'))
-          ),
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.exhaustive
-        )
-
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should handle performance requirements for position updates', () =>
-      Effect.gen(function* () {
-        const service = yield* CameraService
-        yield* service.initialize(DEFAULT_CAMERA_CONFIG)
-
-        const start = Date.now()
-        yield* Effect.gen(function* () {
-          for (let i = 0; i < 100; i++) {
-            const targetPosition = {
-              x: Math.random() * 100,
-              y: Math.random() * 20,
-              z: Math.random() * 100,
+          const start = Date.now()
+          yield* Effect.gen(function* () {
+            for (let i = 0; i < 100; i++) {
+              const targetPosition = {
+                x: Math.random() * 100,
+                y: Math.random() * 20,
+                z: Math.random() * 100,
+              }
+              yield* service.update(0.016, targetPosition)
             }
-            yield* service.update(0.016, targetPosition)
-          }
-        })
-        const duration = Date.now() - start
+          })
+          const duration = Date.now() - start
 
-        // Should complete within reasonable time
-        expect(duration).toBeLessThan(50)
-
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
+          // Should complete within reasonable time
+          expect(duration).toBeLessThan(50)
+        }).pipe(Effect.provide(TestLayer))
+      )
+    }))
 
   describe('Camera Rotation - Mouse Input', () => {
     it.effect('should change yaw with horizontal mouse movement', () =>
@@ -262,9 +255,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           rotatedState.rotation.yaw === initialState.rotation.yaw,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Yaw should have changed with horizontal movement'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Yaw should have changed with horizontal movement'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -272,13 +263,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           rotatedState.rotation.pitch !== initialState.rotation.pitch,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Pitch should not change with horizontal movement'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Pitch should not change with horizontal movement'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -296,7 +284,6 @@ describe('FirstPersonCamera', () => {
 
         expect(rotatedState.rotation.pitch).not.toBe(initialState.rotation.pitch) // Pitch should have changed with vertical movement
         expect(rotatedState.rotation.yaw).toBe(initialState.rotation.yaw) // Yaw should not change with vertical movement
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -317,13 +304,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           extremeState.rotation.pitch < -pitchLimit || extremeState.rotation.pitch > pitchLimit,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Pitch should be clamped within [-π/2, π/2]'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Pitch should be clamped within [-π/2, π/2]'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -348,13 +332,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           yawDiff2 <= yawDiff1,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('High sensitivity should produce larger rotation'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('High sensitivity should produce larger rotation'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -382,9 +363,7 @@ describe('FirstPersonCamera', () => {
           yield* pipe(
             state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI,
             Match.value,
-            Match.when(true, () =>
-              Effect.fail(new Error('Yaw should be normalized to [-π, π]'))
-            ),
+            Match.when(true, () => Effect.fail(new Error('Yaw should be normalized to [-π, π]'))),
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
@@ -393,14 +372,11 @@ describe('FirstPersonCamera', () => {
           yield* pipe(
             Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.01,
             Match.value,
-            Match.when(true, () =>
-              Effect.fail(new Error('Pitch should be clamped to [-π/2, π/2]'))
-            ),
+            Match.when(true, () => Effect.fail(new Error('Pitch should be clamped to [-π/2, π/2]'))),
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -419,13 +395,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           config1.mode !== config2.mode,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Same mode switch should not change configuration'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Same mode switch should not change configuration'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -441,9 +414,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           config1.sensitivity < 0.1 || config1.sensitivity > 10.0,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Sensitivity should be clamped to valid range'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Sensitivity should be clamped to valid range'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -455,9 +426,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           config2.smoothing < 0.0 || config2.smoothing > 1.0,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Smoothing should be clamped to valid range'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Smoothing should be clamped to valid range'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -469,13 +438,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           config3.fov !== 90,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected FOV 90, got ${config3.fov}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected FOV 90, got ${config3.fov}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -492,13 +458,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           updatedConfig.thirdPersonDistance !== initialConfig.thirdPersonDistance,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Third-person distance should not affect first-person camera'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Third-person distance should not affect first-person camera'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -515,13 +478,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           config1.mode !== 'first-person' || config2.mode !== 'first-person',
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('First-person camera should remain in first-person mode'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('First-person camera should remain in first-person mode'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -535,9 +495,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           initialConfig.mode !== 'first-person',
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Initial mode should be first-person'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Initial mode should be first-person'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -558,7 +516,9 @@ describe('FirstPersonCamera', () => {
           updatedConfig.mode !== 'first-person',
           Match.value,
           Match.when(true, () =>
-            Effect.fail(new Error('First-person camera should preserve first-person mode even when third-person is requested'))
+            Effect.fail(
+              new Error('First-person camera should preserve first-person mode even when third-person is requested')
+            )
           ),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
@@ -568,9 +528,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           updatedConfig.fov !== 85,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected FOV 85, got ${updatedConfig.fov}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected FOV 85, got ${updatedConfig.fov}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -578,9 +536,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           updatedConfig.sensitivity !== 2.5,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected sensitivity 2.5, got ${updatedConfig.sensitivity}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected sensitivity 2.5, got ${updatedConfig.sensitivity}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -588,13 +544,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           updatedConfig.smoothing !== 0.8,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected smoothing 0.8, got ${updatedConfig.smoothing}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected smoothing 0.8, got ${updatedConfig.smoothing}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -622,9 +575,7 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           Math.abs(resetState.rotation.yaw - initialState.rotation.yaw) > 0.01,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Reset should restore initial yaw'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Reset should restore initial yaw'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -632,13 +583,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           Math.abs(resetState.rotation.pitch - initialState.rotation.pitch) > 0.01,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Reset should restore initial pitch'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Reset should restore initial pitch'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -671,7 +619,6 @@ describe('FirstPersonCamera', () => {
 
         const validatedConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(config)
         expect(validatedConfig).toEqual(config)
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -694,9 +641,8 @@ describe('FirstPersonCamera', () => {
           yield* pipe(
             result,
             Exit.match({
-              onSuccess: (value) =>
-                Effect.fail(new Error('Operations before initialization should fail')),
-              onFailure: () => Effect.succeed(undefined)
+              onSuccess: (value) => Effect.fail(new Error('Operations before initialization should fail')),
+              onFailure: () => Effect.succeed(undefined),
             })
           )
         }
@@ -714,7 +660,6 @@ describe('FirstPersonCamera', () => {
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -728,12 +673,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           invalidModeResult,
           Exit.match({
-            onSuccess: (value) =>
-              Effect.fail(new Error('Invalid mode should cause error')),
-            onFailure: () => Effect.succeed(undefined)
+            onSuccess: (value) => Effect.fail(new Error('Invalid mode should cause error')),
+            onFailure: () => Effect.succeed(undefined),
           })
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -776,13 +719,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           Math.abs(camera.aspect - 1920 / 1080) > 0.01,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Aspect ratio should be applied correctly'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Aspect ratio should be applied correctly'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -804,13 +744,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Yaw should be normalized to [-π, π]'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Yaw should be normalized to [-π, π]'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -829,13 +766,10 @@ describe('FirstPersonCamera', () => {
         yield* pipe(
           Math.abs(state.position.x) < 0.05,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Minimal smoothing should still produce movement'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Minimal smoothing should still produce movement'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -865,7 +799,6 @@ describe('FirstPersonCamera', () => {
         for (const duration of durations) {
           expect(duration).toBeLessThan(500)
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })

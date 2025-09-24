@@ -15,7 +15,7 @@ export const BlockNotFoundError = (blockId: BlockId): BlockNotFoundError => ({
 })
 
 export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'BlockNotFoundError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'BlockNotFoundError'
 
 export interface BlockAlreadyRegisteredError {
   readonly _tag: 'BlockAlreadyRegisteredError'
@@ -28,7 +28,7 @@ export const BlockAlreadyRegisteredError = (blockId: BlockId): BlockAlreadyRegis
 })
 
 export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlreadyRegisteredError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'BlockAlreadyRegisteredError'
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {

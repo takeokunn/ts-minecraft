@@ -83,7 +83,7 @@ export const CameraError = (
 })
 
 export const isCameraError = (error: unknown): error is CameraError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'CameraError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'CameraError'
 
 /**
  * カメラエラー作成ヘルパー

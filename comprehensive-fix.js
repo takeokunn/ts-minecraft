@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 
 // Get all .spec.ts files that need fixing
 const errorFiles = [
@@ -35,50 +35,50 @@ const errorFiles = [
   'src/shared/services/__test__/ConfigService.spec.ts',
   'src/shared/services/__test__/LoggerService.spec.ts',
   'src/shared/services/__test__/LoggerServiceLive.spec.ts',
-  'src/shared/testing/__test__/effect-test-utils.spec.ts'
-];
+  'src/shared/testing/__test__/effect-test-utils.spec.ts',
+]
 
 function fixFile(filePath) {
-  const fullPath = path.join('/home/nixos/ts-minecraft', filePath);
+  const fullPath = path.join('/home/nixos/ts-minecraft', filePath)
   if (!fs.existsSync(fullPath)) {
-    console.log(`File not found: ${fullPath}`);
-    return;
+    console.log(`File not found: ${fullPath}`)
+    return
   }
 
-  let content = fs.readFileSync(fullPath, 'utf8');
-  let originalContent = content;
+  let content = fs.readFileSync(fullPath, 'utf8')
+  let originalContent = content
 
   // Fix "return true" statements
-  content = content.replace(/^        return true$/gm, '');
+  content = content.replace(/^        return true$/gm, '')
 
   // Fix malformed Match expressions - add missing Match.when(false) and Match.exhaustive
   content = content.replace(
     /(yield\*\s+pipe\([^,]+,\s*Match\.value,\s*Match\.when\(true,\s*[^}]+}\)\s*)\))/gm,
     '$1,\n            Match.when(false, () => Effect.succeed(undefined)),\n            Match.exhaustive\n          ))'
-  );
+  )
 
   // Fix missing commas after forEach/map statements
-  content = content.replace(/(\s+}\))\s*(\n\s*}\)\s*$)/gm, '$1,$2');
+  content = content.replace(/(\s+}\))\s*(\n\s*}\)\s*$)/gm, '$1,$2')
 
   // Fix missing parentheses/commas in pipe chains
-  content = content.replace(/}\)\s*\n\s*}\)\s*$/gm, '})\n      })\n    )');
+  content = content.replace(/}\)\s*\n\s*}\)\s*$/gm, '})\n      })\n    )')
 
   // Fix malformed Exit.match patterns
   content = content.replace(
     /Exit\.match\(([^,]+),\s*{\s*onSuccess:\s*([^}]+)}\s*\)/gm,
     'Exit.match($1, {\n          onSuccess: $2,\n          onFailure: (error) => { /* handle error */ }\n        })'
-  );
+  )
 
   // Write back the fixed content
   if (content !== originalContent) {
-    fs.writeFileSync(fullPath, content, 'utf8');
-    console.log(`Fixed: ${filePath}`);
+    fs.writeFileSync(fullPath, content, 'utf8')
+    console.log(`Fixed: ${filePath}`)
   } else {
-    console.log(`No changes needed: ${filePath}`);
+    console.log(`No changes needed: ${filePath}`)
   }
 }
 
 // Process all files
-console.log('Starting comprehensive syntax fixes...');
-errorFiles.forEach(fixFile);
-console.log('Comprehensive syntax fixes completed.');
+console.log('Starting comprehensive syntax fixes...')
+errorFiles.forEach(fixFile)
+console.log('Comprehensive syntax fixes completed.')

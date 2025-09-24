@@ -79,7 +79,7 @@ export const MouseInputLive = Layer.effect(
               Match.value(error),
               Match.when(
                 (e: unknown): e is Error =>
-                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
                 (e: Error) => e.message
               ),
               Match.orElse(() => String(error))

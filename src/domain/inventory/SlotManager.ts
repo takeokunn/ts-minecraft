@@ -254,11 +254,11 @@ export class SlotManager {
     // Create new slots array: fill with items first, then nulls
     const newSlots: (ItemStack | null)[] = Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) =>
       pipe(
-        i < nonNullItems.length,
-        Match.value,
-        Match.when(true, () => nonNullItems[i]),
-        Match.when(false, () => null),
-        Match.exhaustive
+        Option.fromNullable(nonNullItems[i]), // Use Option to handle potential undefined
+        Option.match({
+          onNone: () => null,
+          onSome: (item) => item,
+        })
       )
     )
 
@@ -290,11 +290,11 @@ export class SlotManager {
     // Create new slots array: fill with sorted items first, then nulls
     const newSlots: (ItemStack | null)[] = Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) =>
       pipe(
-        i < nonNullItems.length,
-        Match.value,
-        Match.when(true, () => nonNullItems[i]),
-        Match.when(false, () => null),
-        Match.exhaustive
+        Option.fromNullable(nonNullItems[i]), // Use Option to handle potential undefined
+        Option.match({
+          onNone: () => null,
+          onSome: (item) => item,
+        })
       )
     )
 

@@ -4,7 +4,7 @@
  */
 
 import { it, expect } from '@effect/vitest'
-import { Effect, Layer, Exit, pipe, TestContext } from 'effect'
+import { Effect, Layer, Exit, pipe, TestContext, Match, Option } from 'effect'
 import * as Predicate from 'effect/Predicate'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
@@ -110,7 +110,6 @@ describe('CameraService', () => {
         // Invalid config
         const invalidConfigResult = yield* Effect.exit(validateCameraConfig({ fov: 150 }))
         expect(Exit.isFailure(invalidConfigResult)).toBe(true)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -126,7 +125,6 @@ describe('CameraService', () => {
         // Invalid mode
         const invalidModeResult = yield* Effect.exit(validateCameraMode('invalid-mode'))
         expect(Exit.isFailure(invalidModeResult)).toBe(true)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -145,11 +143,9 @@ describe('CameraService', () => {
         // Invalid state
         const invalidStateResult = yield* Effect.exit(validateCameraState({ invalid: 'state' }))
         expect(Exit.isFailure(invalidStateResult)).toBe(true)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
-
   ;(describe('Schema Validations - Property-based Testing', () => {
     it.effect('should validate FOV range (30-120)', () =>
       Effect.gen(function* () {
@@ -171,7 +167,6 @@ describe('CameraService', () => {
 
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -194,7 +189,6 @@ describe('CameraService', () => {
 
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -217,7 +211,6 @@ describe('CameraService', () => {
 
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -246,7 +239,6 @@ describe('CameraService', () => {
             onFailure: () => Effect.succeed(true),
           })
         )
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   }),
@@ -258,7 +250,7 @@ describe('CameraService', () => {
           yield* cameraService.switchMode('first-person')
 
           // Mode setting should succeed without errors
-          }).pipe(Effect.provide(TestLayer))
+        }).pipe(Effect.provide(TestLayer))
       )
 
       it.effect('should set third-person mode', () =>
@@ -268,7 +260,7 @@ describe('CameraService', () => {
           yield* cameraService.switchMode('third-person')
 
           // Mode setting should succeed without errors
-          }).pipe(Effect.provide(TestLayer))
+        }).pipe(Effect.provide(TestLayer))
       )
 
       it.effect('should handle mode transitions', () =>
@@ -279,8 +271,7 @@ describe('CameraService', () => {
           yield* cameraService.switchMode('first-person')
           yield* cameraService.switchMode('third-person')
           yield* cameraService.switchMode('first-person')
-
-          }).pipe(Effect.provide(TestLayer))
+        }).pipe(Effect.provide(TestLayer))
       )
     }))
 
@@ -301,7 +292,6 @@ describe('CameraService', () => {
         }
         const validatedTarget = yield* Schema.decodeUnknown(Vector3Schema)(targetObj)
         expect(validatedTarget).toEqual(targetObj)
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -321,7 +311,6 @@ describe('CameraService', () => {
         }
         const validatedPosition = yield* Schema.decodeUnknown(Vector3Schema)(positionObj)
         expect(validatedPosition).toEqual(positionObj)
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -342,7 +331,6 @@ describe('CameraService', () => {
 
         // Should complete within reasonable time
         expect(duration).toBeLessThan(100)
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -364,7 +352,6 @@ describe('CameraService', () => {
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -384,7 +371,6 @@ describe('CameraService', () => {
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -402,7 +388,6 @@ describe('CameraService', () => {
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -415,7 +400,6 @@ describe('CameraService', () => {
         yield* cameraService.updateAspectRatio(1920, 1080) // 16:9
         yield* cameraService.updateAspectRatio(1024, 768) // 4:3
         yield* cameraService.updateAspectRatio(2560, 1080) // 21:9
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -434,7 +418,6 @@ describe('CameraService', () => {
         for (const { width, height } of aspectRatios) {
           yield* cameraService.updateAspectRatio(width, height)
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -445,7 +428,6 @@ describe('CameraService', () => {
         const cameraService = yield* CameraService
 
         // Mouse look functionality would be handled at a higher level
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -454,7 +436,6 @@ describe('CameraService', () => {
         const cameraService = yield* CameraService
 
         // Mouse look functionality would be handled at a higher level
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -467,7 +448,6 @@ describe('CameraService', () => {
         // Mouse look functionality would be handled at a higher level
         // Mouse look functionality would be handled at a higher level
         // Mouse look functionality would be handled at a higher level
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -485,7 +465,6 @@ describe('CameraService', () => {
 
         // Reset to defaults
         yield* cameraService.reset()
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -504,7 +483,6 @@ describe('CameraService', () => {
 
         // Should complete quickly
         expect(duration).toBeLessThan(50)
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -549,7 +527,6 @@ describe('CameraService', () => {
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(CameraServiceTestLayer))
     )
 
@@ -592,7 +569,6 @@ describe('CameraService', () => {
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(CameraServiceTestLayer))
     )
   })
@@ -606,7 +582,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('Test initialization failed')
         expect(error.reason).toBe('INITIALIZATION_FAILED')
         expect(error.cause).toBeInstanceOf(Error)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -618,7 +593,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('カメラが初期化されていません: rotate')
         expect(error.reason).toBe('CAMERA_NOT_INITIALIZED')
         expect(error.context).toEqual({ operation: 'rotate' })
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -631,7 +605,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('Invalid config provided')
         expect(error.reason).toBe('INVALID_CONFIGURATION')
         expect(error.context).toEqual({ config })
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -643,7 +616,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('無効なカメラモード: invalid-mode')
         expect(error.reason).toBe('INVALID_MODE')
         expect(error.context).toEqual({ mode: 'invalid-mode' })
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -655,7 +627,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('無効なパラメータ: fov')
         expect(error.reason).toBe('INVALID_PARAMETER')
         expect(error.context).toEqual({ parameter: 'fov', value: 150, expected: 'between 30-120' })
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -668,7 +639,6 @@ describe('CameraService', () => {
         expect(error.message).toBe('Failed to allocate camera resources')
         expect(error.reason).toBe('RESOURCE_ERROR')
         expect(error.cause).toBe(cause)
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -689,7 +659,6 @@ describe('CameraService', () => {
         // Test resourceError without cause
         const error4 = createCameraError.resourceError('Test without cause')
         expect(error4.cause).toBeUndefined()
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -719,7 +688,6 @@ describe('CameraService', () => {
         for (const duration of durations) {
           expect(duration).toBeLessThan(1000)
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })

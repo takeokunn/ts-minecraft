@@ -70,8 +70,12 @@ describe('Player Entity System - Component Tests', () => {
           const result = Effect.runSync(Effect.either(validatePlayerPosition(position)))
           expect(result._tag).toBe('Left')
           if (Either.isLeft(result)) {
-            expect(isPlayerError(result.left)).toBe(true)
-            expect(result.left.reason).toBe('INVALID_POSITION')
+            const error = Either.getOrNull(Either.flip(result))
+            expect(error).not.toBeNull()
+            if (error) {
+              expect(isPlayerError(error)).toBe(true)
+              expect(error.reason).toBe('INVALID_POSITION')
+            }
           }
         }
       })

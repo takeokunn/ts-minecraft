@@ -26,12 +26,14 @@ describe('InputService', () => {
           return pipe(
             key,
             Match.value,
-            Match.when('invalid', () => Effect.fail(
-              InputSystemError({
-                message: 'Invalid key',
-                key,
-              })
-            )),
+            Match.when('invalid', () =>
+              Effect.fail(
+                InputSystemError({
+                  message: 'Invalid key',
+                  key,
+                })
+              )
+            ),
             Match.orElse(() => Effect.succeed(key === 'w'))
           )
         }).pipe(Effect.flatten),
@@ -41,12 +43,14 @@ describe('InputService', () => {
           return pipe(
             button < 0 || button > 2,
             Match.value,
-            Match.when(true, () => Effect.fail(
-              InputSystemError({
-                message: 'Invalid button',
-                button,
-              })
-            )),
+            Match.when(true, () =>
+              Effect.fail(
+                InputSystemError({
+                  message: 'Invalid button',
+                  button,
+                })
+              )
+            ),
             Match.when(false, () => Effect.succeed(button === 0)),
             Match.exhaustive
           )
@@ -66,11 +70,13 @@ describe('InputService', () => {
           return pipe(
             !handler,
             Match.value,
-            Match.when(true, () => Effect.fail(
-              InputHandlerRegistrationError({
-                message: 'Invalid handler',
-              })
-            )),
+            Match.when(true, () =>
+              Effect.fail(
+                InputHandlerRegistrationError({
+                  message: 'Invalid handler',
+                })
+              )
+            ),
             Match.when(false, () => Effect.void),
             Match.exhaustive
           )
@@ -95,12 +101,19 @@ describe('InputService', () => {
         const inputService = yield* InputService
         const result = yield* Effect.either(inputService.isKeyPressed('invalid'))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('InputSystemError')
-          expect(result.left.message).toBe('Invalid key')
-          expect(result.left.key).toBe('invalid')
-        }
+        expect(Either.isLeft(result)).toBe(true)
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('InputSystemError')
+                expect(error.message).toBe('Invalid key')
+                expect(error.key).toBe('invalid')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -120,12 +133,19 @@ describe('InputService', () => {
         const inputService = yield* InputService
         const result = yield* Effect.either(inputService.isMousePressed(5))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('InputSystemError')
-          expect(result.left.message).toBe('Invalid button')
-          expect(result.left.button).toBe(5)
-        }
+        expect(Either.isLeft(result)).toBe(true)
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('InputSystemError')
+                expect(error.message).toBe('Invalid button')
+                expect(error.button).toBe(5)
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -163,11 +183,18 @@ describe('InputService', () => {
         const inputService = yield* InputService
         const result = yield* Effect.either(inputService.registerHandler(null as any))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('InputHandlerRegistrationError')
-          expect(result.left.message).toBe('Invalid handler')
-        }
+        expect(Either.isLeft(result)).toBe(true)
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('InputHandlerRegistrationError')
+                expect(error.message).toBe('Invalid handler')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -177,11 +204,11 @@ describe('InputService', () => {
         const keys = ['w', 'a', 's', 'd']
 
         const results = yield* Effect.all(
-          keys.map(key => inputService.isKeyPressed(key)),
+          keys.map((key) => inputService.isKeyPressed(key)),
           { concurrency: 'unbounded' }
         )
 
-        expect(results[0]).toBe(true)  // 'w' is pressed
+        expect(results[0]).toBe(true) // 'w' is pressed
         expect(results[1]).toBe(false) // 'a' is not pressed
         expect(results[2]).toBe(false) // 's' is not pressed
         expect(results[3]).toBe(false) // 'd' is not pressed
@@ -202,7 +229,7 @@ describe('InputService', () => {
         const invalidButtons = [-1, 3, 10, 100]
         for (const button of invalidButtons) {
           const result = yield* Effect.either(inputService.isMousePressed(button))
-          expect(result._tag).toBe('Left')
+          expect(Either.isLeft(result)).toBe(true)
         }
       }).pipe(Effect.provide(TestLayer))
     )
@@ -287,8 +314,74 @@ describe('InputService', () => {
       })
     )
 
-    it.effect('should handle error propagation through Effect chains', () =>
-      Effect.gen(function* () {
+    it.effect('should handle error propagation through Effect chains', () => {
+      // Create local mock service for this test
+      const localMockInputService: InputService = {
+        isKeyPressed: (key: string) =>
+          Effect.gen(function* () {
+            return pipe(
+              key,
+              Match.value,
+              Match.when('invalid', () =>
+                Effect.fail(
+                  InputSystemError({
+                    message: 'Invalid key',
+                    key,
+                  })
+                )
+              ),
+              Match.orElse(() => Effect.succeed(key === 'w'))
+            )
+          }).pipe(Effect.flatten),
+
+        isMousePressed: (button: number) =>
+          Effect.gen(function* () {
+            return pipe(
+              button < 0 || button > 2,
+              Match.value,
+              Match.when(true, () =>
+                Effect.fail(
+                  InputSystemError({
+                    message: 'Invalid button',
+                    button,
+                  })
+                )
+              ),
+              Match.when(false, () => Effect.succeed(button === 0)),
+              Match.exhaustive
+            )
+          }).pipe(Effect.flatten),
+
+        getMouseDelta: () =>
+          Effect.gen(function* () {
+            return {
+              deltaX: 10.5,
+              deltaY: -5.2,
+              timestamp: Date.now(),
+            } satisfies MouseDelta
+          }),
+
+        registerHandler: (handler: InputHandler) =>
+          Effect.gen(function* () {
+            return pipe(
+              !handler,
+              Match.value,
+              Match.when(true, () =>
+                Effect.fail(
+                  InputHandlerRegistrationError({
+                    message: 'Invalid handler',
+                  })
+                )
+              ),
+              Match.when(false, () => Effect.void),
+              Match.exhaustive
+            )
+          }).pipe(Effect.flatten),
+      }
+
+      const localTestLayer = Layer.succeed(InputService, localMockInputService)
+
+      return Effect.gen(function* () {
         const inputService = yield* InputService
 
         const errorChain = pipe(
@@ -298,15 +391,86 @@ describe('InputService', () => {
         )
 
         const result = yield* Effect.either(errorChain)
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('InputSystemError')
-        }
-      }).pipe(Effect.provide(Layer.succeed(InputService, mockInputService)))
-    )
+        expect(Either.isLeft(result)).toBe(true)
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('InputSystemError')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
+      }).pipe(Effect.provide(localTestLayer))
+    })
   })
 
   describe('Performance and Concurrency', () => {
+    // Create mock service for performance tests
+    const mockInputService: InputService = {
+      isKeyPressed: (key: string) =>
+        Effect.gen(function* () {
+          return pipe(
+            key,
+            Match.value,
+            Match.when('invalid', () =>
+              Effect.fail(
+                InputSystemError({
+                  message: 'Invalid key',
+                  key,
+                })
+              )
+            ),
+            Match.orElse(() => Effect.succeed(key === 'w'))
+          )
+        }).pipe(Effect.flatten),
+
+      isMousePressed: (button: number) =>
+        Effect.gen(function* () {
+          return pipe(
+            button < 0 || button > 2,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
+                InputSystemError({
+                  message: 'Invalid button',
+                  button,
+                })
+              )
+            ),
+            Match.when(false, () => Effect.succeed(button === 0)),
+            Match.exhaustive
+          )
+        }).pipe(Effect.flatten),
+
+      getMouseDelta: () =>
+        Effect.gen(function* () {
+          return {
+            deltaX: 10.5,
+            deltaY: -5.2,
+            timestamp: Date.now(),
+          } satisfies MouseDelta
+        }),
+
+      registerHandler: (handler: InputHandler) =>
+        Effect.gen(function* () {
+          return pipe(
+            !handler,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
+                InputHandlerRegistrationError({
+                  message: 'Invalid handler',
+                })
+              )
+            ),
+            Match.when(false, () => Effect.void),
+            Match.exhaustive
+          )
+        }).pipe(Effect.flatten),
+    }
+
     const TestLayer = Layer.succeed(InputService, mockInputService)
 
     it.effect('should handle concurrent input checks', () =>
@@ -323,11 +487,11 @@ describe('InputService', () => {
 
         const results = yield* Effect.all(operations, { concurrency: 'unbounded' })
 
-        expect(results[0]).toBe(true)   // key 'w'
-        expect(results[1]).toBe(true)   // mouse button 0
+        expect(results[0]).toBe(true) // key 'w'
+        expect(results[1]).toBe(true) // mouse button 0
         expect(typeof results[2]).toBe('object') // mouse delta
-        expect(results[3]).toBe(false)  // key 'a'
-        expect(results[4]).toBe(false)  // mouse button 1
+        expect(results[3]).toBe(false) // key 'a'
+        expect(results[4]).toBe(false) // mouse button 1
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -336,7 +500,9 @@ describe('InputService', () => {
         const inputService = yield* InputService
 
         const deltas = yield* Effect.all(
-          Array(5).fill(null).map(() => inputService.getMouseDelta()),
+          Array(5)
+            .fill(null)
+            .map(() => inputService.getMouseDelta()),
           { concurrency: 'unbounded' }
         )
 
@@ -347,9 +513,11 @@ describe('InputService', () => {
         }
 
         // Timestamps should be in ascending or equal order (allowing for same millisecond)
-        const timestamps = deltas.map(d => d.timestamp)
+        const timestamps = deltas.map((d) => d.timestamp)
         for (let i = 1; i < timestamps.length; i++) {
-          expect(timestamps[i]).toBeGreaterThanOrEqual(timestamps[i - 1])
+          const currentTimestamp = timestamps[i]!
+          const previousTimestamp = timestamps[i - 1]!
+          expect(currentTimestamp).toBeGreaterThanOrEqual(previousTimestamp)
         }
       }).pipe(Effect.provide(TestLayer))
     )

@@ -333,10 +333,10 @@ describe('TextureAtlas', () => {
             pipe(
               Match.value(error),
               Match.when(
-                (e): e is { _tag: 'TextureAtlasError'; reason: string } =>
-                  e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
+                (e) => e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
                 (e) => {
-                  expect(e.reason).toContain('not loaded')
+                  const textureError = e as TextureAtlasError
+                  expect(textureError.reason).toContain('not loaded')
                 }
               ),
               Match.orElse(() => {
@@ -508,10 +508,10 @@ describe('TextureAtlas', () => {
             pipe(
               Match.value(error),
               Match.when(
-                (e): e is { _tag: 'TextureAtlasError'; reason: string } =>
-                  e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
+                (e) => e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
                 (e) => {
-                  expect(e.reason).toContain('not loaded')
+                  const textureError = e as TextureAtlasError
+                  expect(textureError.reason).toContain('not loaded')
                 }
               ),
               Match.orElse(() => {

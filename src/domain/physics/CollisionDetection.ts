@@ -112,16 +112,15 @@ export const CollisionDetection = {
             return yield* pipe(
               !blockType || blockType === 0,
               Match.value,
-              Match.when(true, () => Effect.succeed(Option.none())), // continue相当
-              Match.when(false, () => Effect.succeed(Option.some({ blockType, blockPos, blockAABB }))),
-              Match.exhaustive
+              Match.when(false, () => Effect.succeed(Option.some({ blockType: blockType!, blockPos, blockAABB }))),
+              Match.orElse(() => Effect.succeed(Option.none())) // true case - continue相当
             )
           })
         ),
         Stream.filterMap((option) => option), // Option.none()を除外（continue相当）
         Stream.mapEffect(({ blockType, blockPos, blockAABB }) =>
           Effect.gen(function* () {
-            nearbyBlocks.push({ position: blockPos, blockType })
+            nearbyBlocks.push({ position: blockPos, blockType: blockType as BlockTypeId })
 
             // Y軸の衝突チェック（重力方向）
             const yTestBox = CollisionDetection.translateAABB(entityBox, {
@@ -132,7 +131,8 @@ export const CollisionDetection = {
             pipe(
               CollisionDetection.intersectsAABB(yTestBox, blockAABB),
               Match.value,
-              Match.when(true, () => {
+              Match.when(false, () => {}),
+              Match.orElse(() => {
                 collidedAxes.y = true
                 pipe(
                   Match.value(velocity.y),
@@ -155,9 +155,7 @@ export const CollisionDetection = {
                   ),
                   Match.orElse(() => {})
                 )
-              }),
-              Match.when(false, () => {}),
-              Match.exhaustive
+              })
             )
 
             // X軸の衝突チェック
@@ -169,7 +167,8 @@ export const CollisionDetection = {
             pipe(
               CollisionDetection.intersectsAABB(xTestBox, blockAABB),
               Match.value,
-              Match.when(true, () => {
+              Match.when(false, () => {}),
+              Match.orElse(() => {
                 collidedAxes.x = true
                 pipe(
                   Match.value(velocity.x),
@@ -188,9 +187,7 @@ export const CollisionDetection = {
                   Match.orElse(() => {})
                 )
                 newVelocity.x = 0
-              }),
-              Match.when(false, () => {}),
-              Match.exhaustive
+              })
             )
 
             // Z軸の衝突チェック
@@ -202,7 +199,8 @@ export const CollisionDetection = {
             pipe(
               CollisionDetection.intersectsAABB(zTestBox, blockAABB),
               Match.value,
-              Match.when(true, () => {
+              Match.when(false, () => {}),
+              Match.orElse(() => {
                 collidedAxes.z = true
                 pipe(
                   Match.value(velocity.z),
@@ -221,9 +219,7 @@ export const CollisionDetection = {
                   Match.orElse(() => {})
                 )
                 newVelocity.z = 0
-              }),
-              Match.when(false, () => {}),
-              Match.exhaustive
+              })
             )
           })
         ),
@@ -231,58 +227,13 @@ export const CollisionDetection = {
       )
 
       // 階段の自動登り処理 - Match pattern で if文を置き換え
-      pipe(
-        (collidedAxes.x || collidedAxes.z) && !collidedAxes.y && isGrounded,
-        Match.value,
-        Match.when(true, () => {
-          const stepHeight = 0.5 // 半ブロック分
-          const stepTestPos = {
-            x: newPosition.x,
-            y: position.y + stepHeight,
-            z: newPosition.z,
-          }
-          const stepTestBox = CollisionDetection.translateAABB(entityBox, stepTestPos)
-
-          // ステップ可能性を関数型で判定 - break相当を早期終了で実現
-          const canStep = pipe(
-            Stream.fromIterable(blockAABBs),
-            Stream.mapEffect(({ position: blockPos, aabb: blockAABB }) =>
-              Effect.gen(function* () {
-                const blockType = getBlockAt(blockPos)
-                return yield* pipe(
-                  blockType && blockType !== 0,
-                  Match.value,
-                  Match.when(true, () =>
-                    Effect.gen(function* () {
-                      // 上昇後の位置で衝突チェック
-                      return yield* pipe(
-                        CollisionDetection.intersectsAABB(stepTestBox, blockAABB),
-                        Match.value,
-                        Match.when(true, () => Effect.succeed(false)), // 衝突あり = ステップ不可
-                        Match.when(false, () => Effect.succeed(true)), // 衝突なし = ステップ可能
-                        Match.exhaustive
-                      )
-                    })
-                  ),
-                  Match.when(false, () => Effect.succeed(true)), // ブロックなし = ステップ可能
-                  Match.exhaustive
-                )
-              })
-            ),
-            Stream.takeUntil((canStep) => !canStep), // break相当 - falseが出たら終了
-            Stream.runCollect
-          )
-
-          return Effect.runSync(canStep).every((result) => result) // すべてがtrueならステップ可能
-        }),
-        Match.when(false, () => false),
-        Match.exhaustive
-      )
+      const stepCondition = (collidedAxes.x || collidedAxes.z) && !collidedAxes.y && isGrounded
 
       const canStepResult = pipe(
-        (collidedAxes.x || collidedAxes.z) && !collidedAxes.y && isGrounded,
+        stepCondition,
         Match.value,
-        Match.when(true, () => {
+        Match.when(false, () => false),
+        Match.orElse(() => {
           const stepHeight = 0.5
           const stepTestPos = {
             x: newPosition.x,
@@ -297,30 +248,27 @@ export const CollisionDetection = {
             return pipe(
               blockType && blockType !== 0,
               Match.value,
-              Match.when(true, () => {
+              Match.when(false, () => true), // ブロックなし = ステップ可能
+              Match.orElse(() => {
                 return pipe(
                   CollisionDetection.intersectsAABB(stepTestBox, blockAABB),
                   Match.value,
-                  Match.when(true, () => false), // 衝突あり = ステップ不可
                   Match.when(false, () => true), // 衝突なし = ステップ可能
-                  Match.exhaustive
+                  Match.orElse(() => false) // 衝突あり = ステップ不可
                 )
-              }),
-              Match.when(false, () => true), // ブロックなし = ステップ可能
-              Match.exhaustive
+              })
             )
           })
 
           return canStep
-        }),
-        Match.when(false, () => false),
-        Match.exhaustive
+        })
       )
 
       pipe(
         canStepResult,
         Match.value,
-        Match.when(true, () => {
+        Match.when(false, () => {}),
+        Match.orElse(() => {
           // 階段を登れる場合、Y位置を更新
           newPosition.y = position.y + 0.5
           // 水平方向の移動は継続
@@ -328,9 +276,7 @@ export const CollisionDetection = {
           newPosition.z = position.z + velocity.z * deltaTime
           collidedAxes.x = false
           collidedAxes.z = false
-        }),
-        Match.when(false, () => {}),
-        Match.exhaustive
+        })
       )
 
       return {
@@ -379,9 +325,10 @@ export const CollisionDetection = {
             return yield* pipe(
               blockType && blockType !== 0,
               Match.value,
-              Match.when(true, () => Effect.succeed(Option.some({ hit: true, position: blockPos, blockType }))),
               Match.when(false, () => Effect.succeed(Option.none())),
-              Match.exhaustive
+              Match.orElse(() =>
+                Effect.succeed(Option.some({ hit: true, position: blockPos, blockType: blockType as BlockTypeId }))
+              )
             )
           })
         ),

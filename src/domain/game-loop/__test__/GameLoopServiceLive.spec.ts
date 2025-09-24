@@ -97,8 +97,8 @@ describe('GameLoopServiceLive', () => {
           Either.match({
             onLeft: (error) =>
               Effect.sync(() => {
-                expect(result.left._tag).toBe('GameLoopInitError')
-                expect(result.left.reason).toContain('running')
+                expect(error._tag).toBe('GameLoopInitError')
+                expect(error.reason).toContain('running')
               }),
             onRight: () => Effect.succeed(undefined),
           })
@@ -169,8 +169,8 @@ describe('GameLoopServiceLive', () => {
           Either.match({
             onLeft: (error) =>
               Effect.sync(() => {
-                expect(result.left._tag).toBe('GameLoopStateError')
-                expect(result.left.attemptedTransition).toBe('pause')
+                expect(error._tag).toBe('GameLoopStateError')
+                expect(error.attemptedTransition).toBe('pause')
               }),
             onRight: () => Effect.succeed(undefined),
           })
@@ -190,8 +190,8 @@ describe('GameLoopServiceLive', () => {
           Either.match({
             onLeft: (error) =>
               Effect.sync(() => {
-                expect(result.left._tag).toBe('GameLoopStateError')
-                expect(result.left.attemptedTransition).toBe('resume')
+                expect(error._tag).toBe('GameLoopStateError')
+                expect(error.attemptedTransition).toBe('resume')
               }),
             onRight: () => Effect.succeed(undefined),
           })
@@ -291,8 +291,8 @@ describe('GameLoopServiceLive', () => {
           Either.match({
             onLeft: (error) =>
               Effect.sync(() => {
-                expect(result.left._tag).toBe('GameLoopRuntimeError')
-                expect(result.left.message).toContain('callbacks')
+                expect(error._tag).toBe('GameLoopRuntimeError')
+                expect(error.message).toContain('callbacks')
               }),
             onRight: () => Effect.succeed(undefined),
           })
@@ -405,8 +405,8 @@ describe('GameLoopServiceLive', () => {
           Either.match({
             onLeft: (error) =>
               Effect.sync(() => {
-                expect(result.left._tag).toBe('GameLoopPerformanceError')
-                expect(result.left.message).toContain('No performance data')
+                expect(error._tag).toBe('GameLoopPerformanceError')
+                expect(error.message).toContain('No performance data')
               }),
             onRight: () => Effect.succeed(undefined),
           })

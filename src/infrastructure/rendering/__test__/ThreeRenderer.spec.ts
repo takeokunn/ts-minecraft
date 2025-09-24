@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, pipe, Exit } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
 import { ThreeRendererLive } from '../ThreeRendererLive'
@@ -317,14 +317,11 @@ describe('ThreeRenderer', () => {
       expect(result._tag).toBe('Failure')
       pipe(
         Match.value(result),
-        Match.when(
-          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
-          (r) => {
-            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
-            expect(actualError).toBeDefined()
-            expect(actualError._tag).toBe('RenderExecutionError')
-          }
-        ),
+        Match.when(Exit.isFailure, (r) => {
+          const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+          expect(actualError).toBeDefined()
+          expect(actualError._tag).toBe('RenderExecutionError')
+        }),
         Match.orElse(() => {
           // No-op for successful results
         })
@@ -343,14 +340,11 @@ describe('ThreeRenderer', () => {
       expect(result._tag).toBe('Failure')
       pipe(
         Match.value(result),
-        Match.when(
-          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
-          (r) => {
-            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
-            expect(actualError).toBeDefined()
-            expect(actualError._tag).toBe('RenderExecutionError')
-          }
-        ),
+        Match.when(Exit.isFailure, (r) => {
+          const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+          expect(actualError).toBeDefined()
+          expect(actualError._tag).toBe('RenderExecutionError')
+        }),
         Match.orElse(() => {
           // No-op for successful results
         })
@@ -369,14 +363,11 @@ describe('ThreeRenderer', () => {
       expect(result._tag).toBe('Failure')
       pipe(
         Match.value(result),
-        Match.when(
-          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
-          (r) => {
-            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
-            expect(actualError).toBeDefined()
-            expect(actualError._tag).toBe('RenderExecutionError')
-          }
-        ),
+        Match.when(Exit.isFailure, (r) => {
+          const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+          expect(actualError).toBeDefined()
+          expect(actualError._tag).toBe('RenderExecutionError')
+        }),
         Match.orElse(() => {
           // No-op for successful results
         })
@@ -398,14 +389,11 @@ describe('ThreeRenderer', () => {
       expect(result._tag).toBe('Failure')
       pipe(
         Match.value(result),
-        Match.when(
-          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
-          (r) => {
-            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
-            expect(actualError).toBeDefined()
-            expect(actualError._tag).toBe('RenderInitError')
-          }
-        ),
+        Match.when(Exit.isFailure, (r) => {
+          const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+          expect(actualError).toBeDefined()
+          expect(actualError._tag).toBe('RenderInitError')
+        }),
         Match.orElse(() => {
           // No-op for successful results
         })
@@ -449,14 +437,11 @@ describe('ThreeRenderer', () => {
       expect(result._tag).toBe('Failure')
       pipe(
         Match.value(result),
-        Match.when(
-          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
-          (r) => {
-            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
-            expect(actualError).toBeDefined()
-            expect(actualError._tag).toBe('ContextLostError')
-          }
-        ),
+        Match.when(Exit.isFailure, (r) => {
+          const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+          expect(actualError).toBeDefined()
+          expect(actualError._tag).toBe('ContextLostError')
+        }),
         Match.orElse(() => {
           // No-op for successful results
         })

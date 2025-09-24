@@ -5,6 +5,7 @@
 
 import { it } from '@effect/vitest'
 import * as Effect from 'effect/Effect'
+import * as Either from 'effect/Either'
 import * as Option from 'effect/Option'
 import * as Layer from 'effect/Layer'
 import * as TestContext from 'effect/TestContext'
@@ -121,13 +122,17 @@ describe('Entity ECS Architecture', () => {
           yield* Effect.fail(new Error('Should have failed with EntityPoolError'))
         }
 
-        if (!(result._tag === 'Failure' &&
-          Predicate.isRecord(result.cause) &&
-          '_tag' in result.cause &&
-          (result.cause as any)._tag === 'Fail' &&
-          Predicate.isRecord((result.cause as any).error) &&
-          '_tag' in (result.cause as any).error &&
-          (result.cause as any).error._tag === 'EntityPoolError')) {
+        if (
+          !(
+            result._tag === 'Failure' &&
+            Predicate.isRecord(result.cause) &&
+            '_tag' in result.cause &&
+            (result.cause as any)._tag === 'Fail' &&
+            Predicate.isRecord((result.cause as any).error) &&
+            '_tag' in (result.cause as any).error &&
+            (result.cause as any).error._tag === 'EntityPoolError'
+          )
+        ) {
           yield* Effect.fail(new Error('Expected EntityPoolError'))
         }
       }).pipe(Effect.provide(TestLayer))
@@ -154,7 +159,6 @@ describe('Entity ECS Architecture', () => {
         if (stats.allocatedCount !== 0 || stats.recycledCount !== 0) {
           yield* Effect.fail(new Error('Stats not reset correctly'))
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -185,7 +189,6 @@ describe('Entity ECS Architecture', () => {
         if (afterRecycleStats.allocatedCount !== 3 || afterRecycleStats.recycledCount !== 1) {
           yield* Effect.fail(new Error('After recycle stats incorrect'))
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -205,12 +208,14 @@ describe('Entity ECS Architecture', () => {
         }
 
         // Schema validation
-        const validComponent = Schema.decodeUnknownSync(ComponentDataSchema)(retrieved.value)
+        const componentValue = Option.getOrElse(retrieved, () => {
+          throw new Error('Component not found')
+        })
+        const validComponent = Schema.decodeUnknownSync(ComponentDataSchema)(componentValue)
 
-        if (JSON.stringify(retrieved.value) !== JSON.stringify(component)) {
+        if (JSON.stringify(componentValue) !== JSON.stringify(component)) {
           yield* Effect.fail(new Error('Component data mismatch'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -229,10 +234,12 @@ describe('Entity ECS Architecture', () => {
         }
 
         const expected = { x: 10, y: 20, z: 30 }
-        if (JSON.stringify(retrieved.value) !== JSON.stringify(expected)) {
+        const componentValue = Option.getOrElse(retrieved, () => {
+          throw new Error('Component not found')
+        })
+        if (JSON.stringify(componentValue) !== JSON.stringify(expected)) {
           yield* Effect.fail(new Error('Component update failed'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -272,7 +279,6 @@ describe('Entity ECS Architecture', () => {
         if (stats.size !== 2) {
           yield* Effect.fail(new Error('Array compactness not maintained'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -304,7 +310,6 @@ describe('Entity ECS Architecture', () => {
             yield* Effect.fail(new Error('Batch retrieval data mismatch'))
           }
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -335,7 +340,6 @@ describe('Entity ECS Architecture', () => {
           // 0+1+2+...+99 = 99*100/2 = 4950
           yield* Effect.fail(new Error('Iteration sum mismatch'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -363,7 +367,6 @@ describe('Entity ECS Architecture', () => {
             yield* Effect.fail(new Error('Component data incorrect'))
           }
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -389,7 +392,6 @@ describe('Entity ECS Architecture', () => {
         if (stats.size !== 0) {
           yield* Effect.fail(new Error('Stats not cleared'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -407,7 +409,6 @@ describe('Entity ECS Architecture', () => {
         if (archetype1.id !== archetype2.id || archetype1 !== archetype2) {
           yield* Effect.fail(new Error('Archetype caching failed'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -431,7 +432,6 @@ describe('Entity ECS Architecture', () => {
           // 順序に関わらず同じ
           yield* Effect.fail(new Error('Component set order should not matter'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -464,7 +464,6 @@ describe('Entity ECS Architecture', () => {
         if (!Array.from(entities2After).includes(entityId)) {
           yield* Effect.fail(new Error('Entity should be added to second archetype'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -481,7 +480,6 @@ describe('Entity ECS Architecture', () => {
         if (Array.from(entities).includes(entityId)) {
           yield* Effect.fail(new Error('Entity should be removed from archetype'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -507,7 +505,6 @@ describe('Entity ECS Architecture', () => {
             yield* Effect.fail(new Error('Entity missing from archetype'))
           }
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -529,7 +526,6 @@ describe('Entity ECS Architecture', () => {
         if (entities1.size !== 0 || entities2.size !== 0) {
           yield* Effect.fail(new Error('Archetype data not cleared'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -574,7 +570,6 @@ describe('Entity ECS Architecture', () => {
         if (iterationResult !== 49995000) {
           yield* Effect.fail(new Error('Iteration sum incorrect'))
         }
-
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -690,21 +685,25 @@ describe('Entity ECS Architecture', () => {
           yield* Effect.fail(new Error('Expected EntityPoolError due to pool exhaustion'))
         }
 
-        const error = result.left
-        if (!(Predicate.isRecord(error) && '_tag' in error && error._tag === 'EntityPoolError')) {
+        const errorOption = Either.getLeft(result)
+        const error = Option.getOrNull(errorOption)
+        if (!error || !(Predicate.isRecord(error) && '_tag' in error && error._tag === 'EntityPoolError')) {
           yield* Effect.fail(new Error('Expected EntityPoolError'))
         }
 
+        // error is guaranteed to be not null here due to the check above
+        const validError = error as EntityPoolError
+
         // lines 280-285の具体的な内容を確認
-        if (error.reason !== 'pool_exhausted') {
+        if (validError.reason !== 'pool_exhausted') {
           yield* Effect.fail(new Error('Expected pool_exhausted reason'))
         }
 
-        if (!error.message.includes('Entity pool exhausted')) {
+        if (!validError.message.includes('Entity pool exhausted')) {
           yield* Effect.fail(new Error('Expected exhaustion message'))
         }
 
-        if (!error.message.includes('Maximum capacity: 3')) {
+        if (!validError.message.includes('Maximum capacity: 3')) {
           yield* Effect.fail(new Error('Expected capacity in message'))
         }
 
@@ -713,7 +712,6 @@ describe('Entity ECS Architecture', () => {
         if (stats.allocatedCount !== 3 || stats.recycledCount !== 0) {
           yield* Effect.fail(new Error('Pool stats incorrect after exhaustion'))
         }
-
       }).pipe(Effect.provide(SmallPoolLayer))
     )
 
@@ -746,7 +744,6 @@ describe('Entity ECS Architecture', () => {
         if (reExhaustedResult._tag !== 'Left') {
           yield* Effect.fail(new Error('Pool should be exhausted again'))
         }
-
       }).pipe(Effect.provide(SmallPoolLayer))
     )
 
@@ -778,11 +775,10 @@ describe('Entity ECS Architecture', () => {
           yield* Effect.fail(new Error('Should trigger pool exhaustion'))
         }
 
-        const exhaustionError = exhaustionResult.left as EntityPoolError
+        const exhaustionError = Option.getOrNull(Either.getLeft(exhaustionResult)) as EntityPoolError
         if (exhaustionError._tag !== 'EntityPoolError' || exhaustionError.reason !== 'pool_exhausted') {
           yield* Effect.fail(new Error('Incorrect exhaustion error'))
         }
-
       }).pipe(Effect.provide(SmallPoolLayer))
     )
   })

@@ -12,8 +12,8 @@ import { InventoryError } from './InventoryService.js'
 
 // Registry service interface for dependency injection
 export interface RegistryService {
-  readonly getMaxStackSize: (itemId: string | any) => Effect.Effect<number>
-  readonly canStack: (item1: ItemStack, item2: ItemStack) => Effect.Effect<boolean>
+  readonly getMaxStackSize: (itemId: string | any) => Effect.Effect<number, never, never>
+  readonly canStack: (item1: ItemStack, item2: ItemStack) => Effect.Effect<boolean, never, never>
 }
 
 export class StackProcessor {
@@ -406,78 +406,39 @@ export class StackProcessor {
     inventory: Inventory,
     itemStack: ItemStack,
     registryService: RegistryService
-  ): Effect.Effect<boolean, never> {
+  ): Effect.Effect<boolean, never, never> {
     return Effect.gen(function* () {
       const maxStackSize = yield* registryService.getMaxStackSize(itemStack.itemId)
-      let remainingToAdd = itemStack.count
 
-      // Check existing stacks
+      // Check existing stacks first - calculate how much space they have
       const existingSlots = SlotManager.findItemSlots(inventory, itemStack.itemId)
 
-      const hasSpaceInExisting = yield* Effect.forEach(
-        existingSlots,
-        (slotIndex) =>
-          Effect.gen(function* () {
-            const existingStack = inventory.slots[slotIndex]
+      let totalAvailableSpace = 0
 
-            return yield* pipe(
-              Option.fromNullable(existingStack),
-              Option.match({
-                onNone: () => Effect.succeed(false),
-                onSome: (stack) =>
-                  Effect.gen(function* () {
-                    const canStack = yield* registryService.canStack(itemStack, stack)
+      // Calculate available space in existing stacks
+      for (const slotIndex of existingSlots) {
+        const existingStack = inventory.slots[slotIndex]
+        if (existingStack !== null && existingStack !== undefined) {
+          const canStack = yield* registryService.canStack(itemStack, existingStack)
+          if (canStack) {
+            const availableSpace = maxStackSize - existingStack.count
+            totalAvailableSpace += Math.max(0, availableSpace)
+          }
+        }
+      }
 
-                    return yield* pipe(
-                      Match.value(canStack),
-                      Match.when(
-                        (canStack) => !canStack,
-                        () => Effect.succeed(false)
-                      ),
-                      Match.orElse(() =>
-                        Effect.gen(function* () {
-                          const availableSpace = maxStackSize - stack.count
-                          remainingToAdd -= availableSpace
+      // If existing stacks can accommodate all items, we have space
+      if (totalAvailableSpace >= itemStack.count) {
+        return true
+      }
 
-                          return yield* pipe(
-                            Match.value(remainingToAdd),
-                            Match.when(
-                              (remaining) => remaining <= 0,
-                              () => Effect.succeed(true)
-                            ),
-                            Match.orElse(() => Effect.succeed(false))
-                          )
-                        })
-                      )
-                    )
-                  }),
-              })
-            )
-          }),
-        { concurrency: 1 }
-      )
+      // Calculate remaining items that need new slots
+      const remainingItems = itemStack.count - totalAvailableSpace
 
-      // Check if any existing slot had space and satisfied the requirement
-      const foundSpace = hasSpaceInExisting.some((hasSpace) => hasSpace)
-      yield* pipe(
-        Match.value(foundSpace),
-        Match.when(
-          (found) => found,
-          () => Effect.succeed(true)
-        ),
-        Match.orElse(() =>
-          Effect.gen(function* () {
-            // Check empty slots
-            const emptySlotCount = SlotManager.countEmptySlots(inventory)
-            const slotsNeeded = Math.ceil(remainingToAdd / maxStackSize)
-            return Effect.succeed(emptySlotCount >= slotsNeeded)
-          })
-        )
-      ).pipe(Effect.flatMap((result) => result))
-
-      // Fallback calculation for empty slots if no existing space found
+      // Check if we have enough empty slots
       const emptySlotCount = SlotManager.countEmptySlots(inventory)
-      const slotsNeeded = Math.ceil(remainingToAdd / maxStackSize)
+      const slotsNeeded = Math.ceil(remainingItems / maxStackSize)
+
       return emptySlotCount >= slotsNeeded
     })
   }
@@ -486,7 +447,7 @@ export class StackProcessor {
   static consolidateStacks(
     inventory: Inventory,
     registryService: {
-      readonly getMaxStackSize: (itemId: string) => Effect.Effect<number>
+      readonly getMaxStackSize: (itemId: string) => Effect.Effect<number, never, never>
     }
   ): Effect.Effect<Inventory, InventoryError> {
     return Effect.gen(function* () {

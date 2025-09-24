@@ -26,7 +26,7 @@ export const ChunkBoundsError = (message: string): ChunkBoundsError => ({
 })
 
 export const isChunkBoundsError = (error: unknown): error is ChunkBoundsError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'ChunkBoundsError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'ChunkBoundsError'
 
 export interface ChunkSerializationError {
   readonly _tag: 'ChunkSerializationError'
@@ -39,7 +39,7 @@ export const ChunkSerializationError = (message: string): ChunkSerializationErro
 })
 
 export const isChunkSerializationError = (error: unknown): error is ChunkSerializationError =>
-  Predicate.isRecord(error) && '_tag' in error && error._tag === 'ChunkSerializationError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'ChunkSerializationError'
 
 /**
  * チャンクインターフェース
@@ -159,63 +159,60 @@ export const createChunk = (data: ChunkData): Chunk => {
       const minZ = Math.max(0, Math.min(startZ, endZ))
       const maxZ = Math.min(CHUNK_SIZE - 1, Math.max(startZ, endZ))
 
-      return (
-        yield *
-        pipe(
-          minX > maxX ||
-            minY > maxY ||
-            minZ > maxZ ||
-            startX < 0 ||
-            startX >= CHUNK_SIZE ||
-            endX < 0 ||
-            endX >= CHUNK_SIZE ||
-            startY < CHUNK_MIN_Y ||
-            startY >= CHUNK_MAX_Y ||
-            endY < CHUNK_MIN_Y ||
-            endY >= CHUNK_MAX_Y ||
-            startZ < 0 ||
-            startZ >= CHUNK_SIZE ||
-            endZ < 0 ||
-            endZ >= CHUNK_SIZE,
-          Match.value,
-          Match.when(true, () =>
-            Effect.fail(
-              ChunkBoundsError(`Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`)
-            )
-          ),
-          Match.when(false, () =>
-            Effect.gen(function* () {
-              const newBlocks = new Uint16Array(chunk.blocks)
+      return pipe(
+        minX > maxX ||
+          minY > maxY ||
+          minZ > maxZ ||
+          startX < 0 ||
+          startX >= CHUNK_SIZE ||
+          endX < 0 ||
+          endX >= CHUNK_SIZE ||
+          startY < CHUNK_MIN_Y ||
+          startY >= CHUNK_MAX_Y ||
+          endY < CHUNK_MIN_Y ||
+          endY >= CHUNK_MAX_Y ||
+          startZ < 0 ||
+          startZ >= CHUNK_SIZE ||
+          endZ < 0 ||
+          endZ >= CHUNK_SIZE,
+        Match.value,
+        Match.when(true, () =>
+          Effect.fail(
+            ChunkBoundsError(`Failed to fill region (${startX},${startY},${startZ}) to (${endX},${endY},${endZ})`)
+          )
+        ),
+        Match.when(false, () =>
+          Effect.gen(function* () {
+            const newBlocks = new Uint16Array(chunk.blocks)
 
-              for (let x = minX; x <= maxX; x++) {
-                for (let y = minY; y <= maxY; y++) {
-                  for (let z = minZ; z <= maxZ; z++) {
-                    const index = getBlockIndex(
-                      BrandedTypes.createWorldCoordinate(x),
-                      BrandedTypes.createWorldCoordinate(y),
-                      BrandedTypes.createWorldCoordinate(z)
-                    )
-                    newBlocks[index] = blockId
-                  }
+            for (let x = minX; x <= maxX; x++) {
+              for (let y = minY; y <= maxY; y++) {
+                for (let z = minZ; z <= maxZ; z++) {
+                  const index = getBlockIndex(
+                    BrandedTypes.createWorldCoordinate(x),
+                    BrandedTypes.createWorldCoordinate(y),
+                    BrandedTypes.createWorldCoordinate(z)
+                  )
+                  newBlocks[index] = blockId
                 }
               }
+            }
 
-              const newData: ChunkData = {
-                position: chunk.position,
-                blocks: newBlocks,
-                metadata: {
-                  ...chunk.metadata,
-                  isModified: true,
-                  lastUpdate: Date.now(),
-                },
-                isDirty: true,
-              }
+            const newData: ChunkData = {
+              position: chunk.position,
+              blocks: newBlocks,
+              metadata: {
+                ...chunk.metadata,
+                isModified: true,
+                lastUpdate: Date.now(),
+              },
+              isDirty: true,
+            }
 
-              return createChunk(newData)
-            })
-          ),
-          Match.exhaustive
-        )
+            return createChunk(newData)
+          })
+        ),
+        Match.exhaustive
       )
     },
 

@@ -5,7 +5,7 @@
  * to maintain 60FPS performance while preserving type safety
  */
 
-import { Effect, pipe, Stream, Match, Predicate } from 'effect'
+import { Effect, pipe, Stream, Match, Predicate, Option } from 'effect'
 import { Schema, ParseResult } from '@effect/schema'
 
 /**
@@ -113,21 +113,20 @@ export const SchemaOptimization = {
           get: (key: string, input: unknown): Effect.Effect<A, 'cache_miss' | 'validation_error'> => {
             const cached = cache.get(key)
             return pipe(
-              Match.value(cached),
-              Match.when(
-                (c): c is A => c !== undefined,
-                (c) => Effect.succeed(c)
-              ),
-              Match.orElse(() =>
-                pipe(
-                  validator.validate(input),
-                  Effect.map((result) => {
-                    cache.set(key, result)
-                    return result
-                  }),
-                  Effect.mapError(() => 'validation_error' as const)
-                )
-              )
+              cached,
+              Option.fromNullable,
+              Option.match({
+                onSome: (c) => Effect.succeed(c),
+                onNone: () =>
+                  pipe(
+                    validator.validate(input),
+                    Effect.map((result) => {
+                      cache.set(key, result)
+                      return result
+                    }),
+                    Effect.mapError(() => 'validation_error' as const)
+                  ),
+              })
             )
           },
 

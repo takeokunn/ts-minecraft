@@ -82,7 +82,8 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
       const updatedVelocityAfterFluid = yield* pipe(
         fluidType !== 'none',
         Match.value,
-        Match.when(true, () =>
+        Match.when(false, () => Effect.succeed(velocity)),
+        Match.orElse(() =>
           pipe(
             FluidPhysics.calculateFluidPhysics(position, velocity, fluidType, getBlockAt),
             Effect.mapError(
@@ -95,9 +96,7 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
             ),
             Effect.map((fluidResult) => fluidResult.velocity)
           )
-        ),
-        Match.when(false, () => Effect.succeed(velocity)),
-        Match.exhaustive
+        )
       )
 
       // 3. 重力を適用
@@ -159,8 +158,7 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
               )
             )
         ),
-        Match.orElse(() => Effect.succeed(collisionResult.velocity)),
-        Match.exhaustive
+        Match.orElse(() => Effect.succeed(collisionResult.velocity))
       )
 
       // 6. デッドゾーンを適用（微小な速度を0にする）

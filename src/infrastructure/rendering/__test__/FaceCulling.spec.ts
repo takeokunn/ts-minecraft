@@ -545,7 +545,7 @@ describe('FaceCulling', () => {
             expect(service.checkFaceVisibility).toBeDefined()
             expect(service.shouldRenderFace).toBeDefined()
             expect(service.cullHiddenFaces).toBeDefined()
-              })
+          })
         )
 
         const result = pipe(program, Effect.provide(FaceCullingLive), Effect.runSync)

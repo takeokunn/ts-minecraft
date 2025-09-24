@@ -229,10 +229,11 @@ describe('ChunkPosition', () => {
           yield* pipe(
             result,
             Option.match({
-              onSome: (value) => Effect.sync(() => {
-                expect(value).toEqual(expectedPos)
-              }),
-              onNone: () => Effect.succeed(undefined)
+              onSome: (value) =>
+                Effect.sync(() => {
+                  expect(value).toEqual(expectedPos)
+                }),
+              onNone: () => Effect.succeed(undefined),
             })
           )
         }
@@ -277,10 +278,11 @@ describe('ChunkPosition', () => {
           yield* pipe(
             convertedBack,
             Option.match({
-              onSome: (value) => Effect.sync(() => {
-                expect(value).toEqual(originalPos)
-              }),
-              onNone: () => Effect.succeed(undefined)
+              onSome: (value) =>
+                Effect.sync(() => {
+                  expect(value).toEqual(originalPos)
+                }),
+              onNone: () => Effect.succeed(undefined),
             })
           )
         }

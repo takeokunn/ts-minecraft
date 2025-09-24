@@ -1,4 +1,4 @@
-import { Effect, Either } from 'effect'
+import { Effect, Either, Option, pipe } from 'effect'
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { LoggerService, getCurrentLogLevel, shouldLog, createLogEntry } from '../LoggerService'
@@ -67,18 +67,19 @@ describe('LoggerServiceLive', () => {
 
       const result = Effect.runSync(Effect.either(program.pipe(Effect.provide(LoggerServiceLive))))
       expect(result._tag).toBe('Left')
-      yield *
-        pipe(
-          result,
-          Either.match({
-            onLeft: (error) =>
-              Effect.sync(() => {
-                expect(error).toBeInstanceOf(Error)
-                expect((error as Error).message).toBe('Operation failed')
-              }),
-            onRight: () => Effect.fail('Expected Left'),
-          })
-        )
+
+      pipe(
+        result,
+        Either.match({
+          onLeft: (error) => {
+            expect(error).toBeInstanceOf(Error)
+            expect((error as Error).message).toBe('Operation failed')
+          },
+          onRight: () => {
+            throw new Error('Expected Left')
+          },
+        })
+      )
     })
   })
 
@@ -106,20 +107,17 @@ describe('LoggerServiceLive', () => {
 
         // 環境変数復元
         Object.entries(originalEnv).forEach(([key, value]) => {
-          yield *
-            pipe(
-              Option.fromNullable(value),
-              Option.match({
-                onNone: () =>
-                  Effect.sync(() => {
-                    delete process.env[key]
-                  }),
-                onSome: (val) =>
-                  Effect.sync(() => {
-                    process.env[key] = val
-                  }),
-              })
-            )
+          pipe(
+            Option.fromNullable(value),
+            Option.match({
+              onNone: () => {
+                delete process.env[key]
+              },
+              onSome: (val) => {
+                process.env[key] = val
+              },
+            })
+          )
         })
       })
     )

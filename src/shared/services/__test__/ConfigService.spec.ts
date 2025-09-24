@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Layer, pipe } from 'effect'
+import { Effect, Either, Layer, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   ConfigService,
@@ -224,7 +224,7 @@ describe('ConfigService', () => {
                     })
                   )
                 )
-                return result._tag === 'Right' ? result.right : defaultValue
+                return Either.getOrElse(result, () => defaultValue)
               },
             })
           )

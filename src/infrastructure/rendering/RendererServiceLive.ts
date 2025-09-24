@@ -150,8 +150,8 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
                 Predicate.isRecord(err) &&
                 'message' in err &&
                 'name' in err &&
-                Predicate.isString(err.message) &&
-                err.message === 'WebGLコンテキストが失われています',
+                Predicate.isString(err['message']) &&
+                err['message'] === 'WebGLコンテキストが失われています',
               () =>
                 ContextLostError({
                   message: 'WebGLコンテキストが失われています',

@@ -78,7 +78,7 @@ describe('System', () => {
         pipe(
           Match.value(result),
           Match.when(
-            (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+            (r) => Exit.isFailure(r),
             (r) => {
               const error = r.cause
               expect(error).toBeDefined()
@@ -105,7 +105,7 @@ describe('System', () => {
         pipe(
           Match.value(result),
           Match.when(
-            (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+            (r) => Exit.isFailure(r),
             (r) => {
               const error = r.cause
               expect(error).toBeDefined()

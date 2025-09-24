@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate } from 'effect'
+import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate, Either } from 'effect'
 import { PlayerService } from './PlayerService.js'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
@@ -360,7 +360,7 @@ const makePlayerServiceLive = Effect.gen(function* () {
       )
 
       const playerState = yield* getPlayerInternalState(playerId)
-      const updatedPlayerComponent = createPlayerComponent(playerId, health)
+      const updatedPlayerComponent = createPlayerComponent(playerId, health as number)
 
       yield* pipe(
         entityManager.addComponent(playerState.entityId, PLAYER_COMPONENT, updatedPlayerComponent),
@@ -405,16 +405,16 @@ const makePlayerServiceLive = Effect.gen(function* () {
         )
 
         pipe(
-          result._tag,
-          Match.value,
-          Match.when('Right', () => {
-            playerStates.push(result.right)
-          }),
-          Match.when('Left', () => {
-            // エラーが発生したプレイヤーはスキップ
-            Effect.runSync(Effect.log(`Error building player state for ${playerId}`, { error: result.left }))
-          }),
-          Match.exhaustive
+          result,
+          Either.match({
+            onLeft: (error) => {
+              // エラーが発生したプレイヤーはスキップ
+              Effect.runSync(Effect.log(`Error building player state for ${playerId}`, { error }))
+            },
+            onRight: (playerState) => {
+              playerStates.push(playerState)
+            },
+          })
         )
       }
 

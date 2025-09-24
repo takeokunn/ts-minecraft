@@ -147,9 +147,9 @@ describe('MouseInput', () => {
             Either.match({
               onLeft: (error) =>
                 Effect.sync(() => {
-                  expect(result.left._tag).toBe('MouseInputError')
-                  expect(result.left.message).toBe('ポインターロックの要求に失敗しました')
-                  expect(result.left.cause).toContain('not found')
+                  expect(error._tag).toBe('MouseInputError')
+                  expect(error.message).toBe('ポインターロックの要求に失敗しました')
+                  expect(error.cause).toContain('not found')
                 }),
               onRight: () => Effect.succeed(undefined),
             })
@@ -267,8 +267,8 @@ describe('MouseInput', () => {
                 Either.match({
                   onLeft: (error) =>
                     Effect.sync(() => {
-                      expect(result.left._tag).toBe('MouseInputError')
-                      expect(result.left.cause).toContain('Document is not available')
+                      expect(error._tag).toBe('MouseInputError')
+                      expect(error.cause).toContain('Document is not available')
                     }),
                   onRight: () => Effect.succeed(undefined),
                 })
@@ -466,9 +466,9 @@ describe('MouseInput', () => {
             Either.match({
               onLeft: (error) =>
                 Effect.sync(() => {
-                  expect(result.left._tag).toBe('MouseInputError')
-                  expect(result.left.message).toBe('Failed to get position')
-                  expect(result.left.cause).toBe('DOM not available')
+                  expect(error._tag).toBe('MouseInputError')
+                  expect(error.message).toBe('Failed to get position')
+                  expect(error.cause).toBe('DOM not available')
                 }),
               onRight: () => Effect.succeed(undefined),
             })
@@ -487,8 +487,8 @@ describe('MouseInput', () => {
             Either.match({
               onLeft: (error) =>
                 Effect.sync(() => {
-                  expect(result.left._tag).toBe('MouseInputError')
-                  expect(result.left.message).toBe('Failed to get delta')
+                  expect(error._tag).toBe('MouseInputError')
+                  expect(error.message).toBe('Failed to get delta')
                 }),
               onRight: () => Effect.succeed(undefined),
             })
@@ -507,9 +507,9 @@ describe('MouseInput', () => {
             Either.match({
               onLeft: (error) =>
                 Effect.sync(() => {
-                  expect(result.left._tag).toBe('MouseInputError')
-                  expect(result.left.message).toBe('Failed to request pointer lock')
-                  expect(result.left.cause).toBe('Element not found')
+                  expect(error._tag).toBe('MouseInputError')
+                  expect(error.message).toBe('Failed to request pointer lock')
+                  expect(error.cause).toBe('Element not found')
                 }),
               onRight: () => Effect.succeed(undefined),
             })

@@ -1,6 +1,6 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Either, pipe } from 'effect'
 import { KeyboardInput, KeyboardInputLive, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
 import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
@@ -129,11 +129,12 @@ describe('KeyboardInput', () => {
         yield* pipe(
           result,
           Either.match({
-            onLeft: (error) => Effect.sync(() => {
-              expect(result.left._tag).toBe('KeyMappingError')
-              expect(result.left.message).toBe('Failed to check action')
-            }),
-            onRight: () => Effect.void
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('KeyMappingError')
+                expect(error.message).toBe('Failed to check action')
+              }),
+            onRight: () => Effect.void,
           })
         )
       }).pipe(Effect.provide(FailingLayer))
@@ -148,11 +149,12 @@ describe('KeyboardInput', () => {
         yield* pipe(
           result,
           Either.match({
-            onLeft: (error) => Effect.sync(() => {
-              expect(result.left._tag).toBe('KeyMappingError')
-              expect(result.left.message).toBe('Failed to set mapping')
-            }),
-            onRight: () => Effect.void
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('KeyMappingError')
+                expect(error.message).toBe('Failed to set mapping')
+              }),
+            onRight: () => Effect.void,
           })
         )
       }).pipe(Effect.provide(FailingLayer))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Option, pipe } from 'effect'
 import {
   LogLevel,
   LOG_LEVEL_PRIORITY,

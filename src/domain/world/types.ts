@@ -5,7 +5,7 @@
  */
 
 import { Schema, ParseResult } from '@effect/schema'
-import { Match, Option, pipe, Predicate } from 'effect'
+import { Either, Match, Option, pipe, Predicate } from 'effect'
 
 /**
  * オブジェクト検証のヘルパー関数
@@ -60,17 +60,19 @@ const validateSchemaInput = (input: unknown, allowedKeys: string[], ast: any) =>
   const objectResult = validateObjectInput(input, ast)
 
   return pipe(
-    objectResult._tag === 'Left',
+    objectResult['_tag'] === 'Left',
     Match.value,
     Match.when(true, () => objectResult), // エラーの場合は早期リターン
     Match.when(false, () => {
-      const validatedObject = objectResult.right
+      const validatedObject = Either.getOrElse(objectResult, () => {
+        throw new Error('Unexpected Left value')
+      })
 
       // 追加プロパティチェック
       const extraKeysResult = validateNoExtraKeys(validatedObject, allowedKeys, ast)
 
       return pipe(
-        extraKeysResult._tag === 'Left',
+        extraKeysResult['_tag'] === 'Left',
         Match.value,
         Match.when(true, () => extraKeysResult), // エラーの場合は早期リターン
         Match.when(false, () => {
@@ -78,7 +80,7 @@ const validateSchemaInput = (input: unknown, allowedKeys: string[], ast: any) =>
           const requiredKeysResult = validateRequiredKeys(validatedObject, allowedKeys, ast)
 
           return pipe(
-            requiredKeysResult._tag === 'Left',
+            requiredKeysResult['_tag'] === 'Left',
             Match.value,
             Match.when(true, () => requiredKeysResult), // エラーの場合は早期リターン
             Match.when(false, () => ParseResult.succeed(input as any)),

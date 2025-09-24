@@ -122,19 +122,16 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* pipe(
           result,
           Exit.match({
-            onSuccess: (value) =>
-              Effect.fail(new Error('Should have failed with SystemRegistryError')),
-            onFailure: () => Effect.succeed(undefined)
+            onSuccess: (value) => Effect.fail(new Error('Should have failed with SystemRegistryError')),
+            onFailure: () => Effect.succeed(undefined),
           })
         )
 
-        const failures = Chunk.toArray(Cause.failures(result.cause))
+        const failures = Exit.isFailure(result) ? Chunk.toArray(Cause.failures(result.cause)) : []
         yield* pipe(
           failures.length !== 1,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Expected exactly one failure'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Expected exactly one failure'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -142,9 +139,7 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* pipe(
           !isSystemRegistryError(failures[0]),
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Expected SystemRegistryError'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Expected SystemRegistryError'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -152,13 +147,10 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* pipe(
           (failures[0] as SystemRegistryError).systemName !== 'NonExistentSystem',
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Expected NonExistentSystem in error'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Expected NonExistentSystem in error'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -359,19 +351,16 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* pipe(
           result,
           Exit.match({
-            onSuccess: (value) =>
-              Effect.fail(new Error('Should have failed with SystemRegistryError')),
-            onFailure: () => Effect.succeed(undefined)
+            onSuccess: (value) => Effect.fail(new Error('Should have failed with SystemRegistryError')),
+            onFailure: () => Effect.succeed(undefined),
           })
         )
 
-        const failures = Chunk.toArray(Cause.failures(result.cause))
+        const failures = Exit.isFailure(result) ? Chunk.toArray(Cause.failures(result.cause)) : []
         yield* pipe(
           failures.length !== 1,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Expected exactly one failure'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Expected exactly one failure'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -379,13 +368,10 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* pipe(
           !isSystemRegistryError(failures[0]),
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Expected SystemRegistryError'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Expected SystemRegistryError'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -400,9 +386,7 @@ describe('SystemRegistry ECS Architecture', () => {
             yield* pipe(
               failCount % 2 === 1,
               Match.value,
-              Match.when(true, () =>
-                Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))
-              ),
+              Match.when(true, () => Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))),
               Match.when(false, () => Effect.succeed(undefined)),
               Match.exhaustive
             )

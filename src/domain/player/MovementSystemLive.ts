@@ -193,7 +193,7 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const collisions = checkCollisionsInternal(newPosition, limitedVelocity)
 
       // 衝突による位置補正
-      const { correctedPosition, correctedVelocity } = pipe(
+      const correctedState = pipe(
         { position: newPosition, velocity: limitedVelocity, collisions },
         (state) =>
           pipe(
@@ -224,6 +224,9 @@ const makeMovementSystemLive = Effect.gen(function* () {
             Match.exhaustive
           )
       )
+
+      const correctedPosition = correctedState.position
+      const correctedVelocity = correctedState.velocity
 
       // 新しい移動状態
       const newMovementState: MovementState = {

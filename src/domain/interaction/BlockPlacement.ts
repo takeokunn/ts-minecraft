@@ -497,7 +497,7 @@ export const placeBlock = (
             Match.value(error),
             Match.when(
               (e: unknown): e is Error =>
-                Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
               (e: Error) => e.message
             ),
             Match.orElse(() => 'Unknown placement error')
@@ -545,7 +545,7 @@ export const placeBatchBlocks = (
                 Match.value(error),
                 Match.when(
                   (e: unknown): e is Error =>
-                    Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                    Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
                   (e: Error) => e.message
                 ),
                 Match.orElse(() => 'Batch placement error')
@@ -626,7 +626,7 @@ export const checkPlacementViability = (
               Match.value(error),
               Match.when(
                 (e: unknown): e is Error =>
-                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
                 (e: Error) => e.message
               ),
               Match.orElse(() => 'Placement check error')

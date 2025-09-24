@@ -204,7 +204,6 @@ describe('BlockRegistry', () => {
           expect(block.id).toBe('test_new')
         }).pipe(Effect.provide(BlockRegistryLive))
       )
-
       ;(it.effect('同じIDのブロックを登録しようとするとエラーを返す', () =>
         Effect.gen(function* () {
           const registry = yield* BlockRegistry

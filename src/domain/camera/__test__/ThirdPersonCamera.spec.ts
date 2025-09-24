@@ -18,9 +18,10 @@ import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 // Predicate Functions - Type Guards
 // ================================================================================
 
-const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> =
-  (obj): obj is THREE.PerspectiveCamera =>
-    Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
+const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> = (
+  obj
+): obj is THREE.PerspectiveCamera =>
+  Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -100,11 +101,12 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           distance > 0,
           Match.value,
-          Match.when(false, () => Effect.sync(() => expect.fail('Third-person camera should be positioned away from origin'))),
+          Match.when(false, () =>
+            Effect.sync(() => expect.fail('Third-person camera should be positioned away from origin'))
+          ),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -133,13 +135,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           state.target.y !== 5,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected target height 5, got ${state.target.y}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected target height 5, got ${state.target.y}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -198,13 +197,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           updatedState.target.x === 0 && updatedState.target.z === 0,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Target position should have been updated'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Target position should have been updated'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -239,14 +235,11 @@ describe('ThirdPersonCamera', () => {
           yield* pipe(
             currDist > prevDist + 0.01,
             Match.value,
-            Match.when(true, () =>
-              Effect.fail(new Error(`Smoothing should gradually converge to target`))
-            ),
+            Match.when(true, () => Effect.fail(new Error(`Smoothing should gradually converge to target`))),
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -273,7 +266,6 @@ describe('ThirdPersonCamera', () => {
 
         // Should complete within reasonable time
         expect(duration).toBeLessThan(100)
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -297,9 +289,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           rotatedState.rotation.yaw === initialState.rotation.yaw,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Yaw should have changed'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Yaw should have changed'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -308,13 +298,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           rotatedState.rotation.pitch !== initialState.rotation.pitch,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Pitch should not change with horizontal rotation'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Pitch should not change with horizontal rotation'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -338,13 +325,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           Math.abs(extremeState.rotation.pitch) > pitchLimit + 0.1,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Pitch should be clamped within limits'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Pitch should be clamped within limits'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -371,13 +355,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           Math.abs(highSensState.rotation.yaw) <= Math.abs(lowSensState.rotation.yaw),
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('High sensitivity should produce larger rotation'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('High sensitivity should produce larger rotation'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -408,9 +389,7 @@ describe('ThirdPersonCamera', () => {
           yield* pipe(
             state.rotation.yaw < -Math.PI || state.rotation.yaw > Math.PI,
             Match.value,
-            Match.when(true, () =>
-              Effect.fail(new Error('Yaw should be normalized to [-π, π]'))
-            ),
+            Match.when(true, () => Effect.fail(new Error('Yaw should be normalized to [-π, π]'))),
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
@@ -418,14 +397,11 @@ describe('ThirdPersonCamera', () => {
           yield* pipe(
             Math.abs(state.rotation.pitch) > Math.PI / 2 + 0.1,
             Match.value,
-            Match.when(true, () =>
-              Effect.fail(new Error('Pitch should be clamped within limits'))
-            ),
+            Match.when(true, () => Effect.fail(new Error('Pitch should be clamped within limits'))),
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -448,9 +424,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           config.thirdPersonDistance !== 15,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected distance 15, got ${config.thirdPersonDistance}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected distance 15, got ${config.thirdPersonDistance}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -462,13 +436,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           clampedConfig.thirdPersonDistance > 20,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Distance should be clamped to maximum'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Distance should be clamped to maximum'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -490,9 +461,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           camera.fov !== 60,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected FOV 60, got ${camera.fov}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected FOV 60, got ${camera.fov}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -500,13 +469,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           config.smoothing !== 0.3,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected smoothing 0.3, got ${config.smoothing}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected smoothing 0.3, got ${config.smoothing}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -526,9 +492,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           beforeConfig.mode !== afterConfig.mode,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Same mode switch should not change configuration'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Same mode switch should not change configuration'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -538,12 +502,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           invalidModeResult,
           Exit.match({
-            onSuccess: (value) =>
-              Effect.fail(new Error('Invalid mode should cause error')),
-            onFailure: () => Effect.succeed(undefined)
+            onSuccess: (value) => Effect.fail(new Error('Invalid mode should cause error')),
+            onFailure: () => Effect.succeed(undefined),
           })
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -560,9 +522,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           initialConfig.mode !== 'third-person',
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Initial mode should be third-person'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Initial mode should be third-person'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -583,7 +543,9 @@ describe('ThirdPersonCamera', () => {
           updatedConfig.mode !== 'third-person',
           Match.value,
           Match.when(true, () =>
-            Effect.fail(new Error('Third-person camera should preserve third-person mode even when first-person is requested'))
+            Effect.fail(
+              new Error('Third-person camera should preserve third-person mode even when first-person is requested')
+            )
           ),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
@@ -593,9 +555,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           updatedConfig.fov !== 70,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected FOV 70, got ${updatedConfig.fov}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected FOV 70, got ${updatedConfig.fov}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -603,9 +563,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           updatedConfig.sensitivity !== 3.0,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error(`Expected sensitivity 3.0, got ${updatedConfig.sensitivity}`))
-          ),
+          Match.when(true, () => Effect.fail(new Error(`Expected sensitivity 3.0, got ${updatedConfig.sensitivity}`))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -619,7 +577,6 @@ describe('ThirdPersonCamera', () => {
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -654,13 +611,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           yawDiff > 0.1 || pitchDiff > 0.1,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Reset should restore initial rotation state'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Reset should restore initial rotation state'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -686,9 +640,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           disposedCamera !== null,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Camera should be null after disposal'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Camera should be null after disposal'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -698,13 +650,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           config.thirdPersonDistance !== DEFAULT_CAMERA_CONFIG.thirdPersonDistance,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Configuration should revert to defaults after disposal'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Configuration should revert to defaults after disposal'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -727,9 +676,8 @@ describe('ThirdPersonCamera', () => {
           yield* pipe(
             result,
             Exit.match({
-              onSuccess: (value) =>
-                Effect.fail(new Error('Operations before initialization should fail')),
-              onFailure: () => Effect.succeed(undefined)
+              onSuccess: (value) => Effect.fail(new Error('Operations before initialization should fail')),
+              onFailure: () => Effect.succeed(undefined),
             })
           )
         }
@@ -747,11 +695,10 @@ describe('ThirdPersonCamera', () => {
             Exit.match({
               onFailure: (error) =>
                 Effect.fail(new Error('Configuration operations should succeed before initialization')),
-              onSuccess: () => Effect.succeed(undefined)
+              onSuccess: () => Effect.succeed(undefined),
             })
           )
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -772,9 +719,7 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           Math.abs(wideAspect - 1920 / 1080) > 0.01,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Wide aspect ratio not set correctly'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Wide aspect ratio not set correctly'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -782,13 +727,10 @@ describe('ThirdPersonCamera', () => {
         yield* pipe(
           Math.abs(tallAspect - 1080 / 1920) > 0.01,
           Match.value,
-          Match.when(true, () =>
-            Effect.fail(new Error('Tall aspect ratio not set correctly'))
-          ),
+          Match.when(true, () => Effect.fail(new Error('Tall aspect ratio not set correctly'))),
           Match.when(false, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
-
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -823,7 +765,6 @@ describe('ThirdPersonCamera', () => {
         for (const duration of durations) {
           expect(duration).toBeLessThan(1000)
         }
-
       }).pipe(Effect.provide(TestLayer))
     )
   })

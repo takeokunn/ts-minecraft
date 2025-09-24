@@ -591,7 +591,7 @@ describe('AmbientOcclusion', () => {
             expect(service.calculateVertexAO).toBeDefined()
             expect(service.calculateFaceAO).toBeDefined()
             expect(service.applyAOToChunk).toBeDefined()
-              })
+          })
         )
 
         const result = pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runSync)
