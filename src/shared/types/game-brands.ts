@@ -10,9 +10,6 @@ import { Schema } from '@effect/schema'
  * プレイヤーやエンティティの体力を表現（0-20の範囲）
  */
 export const HealthSchema = Schema.Number.pipe(
-  Schema.filter((n) => n >= 0 && n <= 100, {
-    message: () => "Health must be between 0 and 100"
-  }),
   Schema.between(0, 100),
   Schema.brand('Health'),
   Schema.annotations({

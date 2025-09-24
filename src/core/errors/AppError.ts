@@ -4,7 +4,6 @@ import { Data } from 'effect'
 /**
  * 初期化エラー
  * アプリケーション初期化時の問題
- * Data.Errorを継承してinstanceof Errorに対応
  */
 export const InitErrorSchema = Schema.Struct({
   _tag: Schema.Literal('InitError'),
@@ -17,18 +16,16 @@ export const InitErrorSchema = Schema.Struct({
   })
 )
 
-export type InitError = Schema.Schema.Type<typeof InitErrorSchema>
+export interface InitError extends Schema.Schema.Type<typeof InitErrorSchema> {}
 
-export const InitError = (params: Omit<InitError, '_tag'>): InitError =>
-  Data.struct({
-    _tag: 'InitError' as const,
-    ...params,
-  })
+export const InitError = (params: Omit<InitError, '_tag'>): InitError => ({
+  _tag: 'InitError' as const,
+  ...params,
+})
 
 /**
  * 設定エラー
  * 設定ファイルの読み込みや解析の問題
- * Data.Errorを継承してinstanceof Errorに対応
  */
 export const ConfigErrorSchema = Schema.Struct({
   _tag: Schema.Literal('ConfigError'),
@@ -41,13 +38,12 @@ export const ConfigErrorSchema = Schema.Struct({
   })
 )
 
-export type ConfigError = Schema.Schema.Type<typeof ConfigErrorSchema>
+export interface ConfigError extends Schema.Schema.Type<typeof ConfigErrorSchema> {}
 
-export const ConfigError = (params: Omit<ConfigError, '_tag'>): ConfigError =>
-  Data.struct({
-    _tag: 'ConfigError' as const,
-    ...params,
-  })
+export const ConfigError = (params: Omit<ConfigError, '_tag'>): ConfigError => ({
+  _tag: 'ConfigError' as const,
+  ...params,
+})
 
 /**
  * すべてのアプリケーションエラーのユニオン型
@@ -57,26 +53,53 @@ export const AppErrorUnion = Schema.Union(InitErrorSchema, ConfigErrorSchema)
 export type AnyAppError = Schema.Schema.Type<typeof AppErrorUnion>
 
 /**
- * Schemaベースのデコード関数
+ * エラー型ガード
+ * 軽量な_tagチェックのみで判定
  */
-export const decodeInitError = Schema.decodeUnknown(InitErrorSchema)
-export const decodeConfigError = Schema.decodeUnknown(ConfigErrorSchema)
-export const decodeAppError = Schema.decodeUnknown(AppErrorUnion)
+export const isInitError = (error: unknown): error is InitError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'InitError'
+
+export const isConfigError = (error: unknown): error is ConfigError =>
+  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ConfigError'
 
 /**
- * 型ガード関数（_tagによる判定、messageプロパティ不要）
- * _tagだけで判定可能に修正
+ * AppError名前空間
+ * エラー処理のユーティリティ
  */
-export const isInitError = (error: unknown): error is InitError => {
-  return typeof error === 'object' &&
-         error !== null &&
-         '_tag' in error &&
-         error._tag === 'InitError'
-}
+export namespace AppError {
+  /**
+   * エラーを分類
+   */
+  export const categorize = (error: AnyAppError): 'initialization' | 'configuration' => {
+    switch (error._tag) {
+      case 'InitError':
+        return 'initialization'
+      case 'ConfigError':
+        return 'configuration'
+    }
+  }
 
-export const isConfigError = (error: unknown): error is ConfigError => {
-  return typeof error === 'object' &&
-         error !== null &&
-         '_tag' in error &&
-         error._tag === 'ConfigError'
+  /**
+   * エラーメッセージの取得
+   */
+  export const getMessage = (error: AnyAppError): string => error.message
+
+  /**
+   * 詳細なエラー情報を取得
+   */
+  export const getDetails = (error: AnyAppError): Record<string, unknown> => {
+    if (isInitError(error)) {
+      return {
+        type: 'initialization',
+        cause: error.cause,
+      }
+    }
+    if (isConfigError(error)) {
+      return {
+        type: 'configuration',
+        path: error.path,
+      }
+    }
+    return {}
+  }
 }
