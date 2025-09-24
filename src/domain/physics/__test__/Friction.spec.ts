@@ -7,15 +7,19 @@ import type { BlockTypeId } from '../../../shared/types/branded'
 
 describe('Friction System', () => {
   describe('getFrictionCoefficient', () => {
-    it('should return correct friction for known blocks', () => {
-      expect(Friction.getFrictionCoefficient(1 as BlockTypeId)).toBe(0.6) // Stone
-      expect(Friction.getFrictionCoefficient(79 as BlockTypeId)).toBe(0.98) // Ice
-      expect(Friction.getFrictionCoefficient(174 as BlockTypeId)).toBe(0.98) // Packed ice
-    })
+    it.effect('should return correct friction for known blocks', () =>
+      Effect.gen(function* () {
+        expect(Friction.getFrictionCoefficient(1 as BlockTypeId)).toBe(0.6) // Stone
+        expect(Friction.getFrictionCoefficient(79 as BlockTypeId)).toBe(0.98) // Ice
+        expect(Friction.getFrictionCoefficient(174 as BlockTypeId)).toBe(0.98) // Packed ice
+      })
+    )
 
-    it('should return default friction for unknown blocks', () => {
-      expect(Friction.getFrictionCoefficient(999 as BlockTypeId)).toBe(BLOCK_FRICTION[0])
-    })
+    it.effect('should return default friction for unknown blocks', () =>
+      Effect.gen(function* () {
+        expect(Friction.getFrictionCoefficient(999 as BlockTypeId)).toBe(BLOCK_FRICTION[0])
+      })
+    )
   })
 
   describe('applyGroundFriction', () => {
@@ -133,48 +137,56 @@ describe('Friction System', () => {
   })
 
   describe('clampVelocity', () => {
-    it('should not affect velocity below max speed', () => {
-      const velocity = { x: 3, y: -5, z: 4 } // 水平速度 = 5
-      const maxSpeed = 10
+    it.effect('should not affect velocity below max speed', () =>
+      Effect.gen(function* () {
+        const velocity = { x: 3, y: -5, z: 4 } // 水平速度 = 5
+        const maxSpeed = 10
 
-      const result = Friction.clampVelocity(velocity, maxSpeed)
+        const result = Friction.clampVelocity(velocity, maxSpeed)
 
-      expect(result).toEqual(velocity)
-    })
+        expect(result).toEqual(velocity)
+      })
+    )
 
-    it('should clamp velocity above max speed', () => {
-      const velocity = { x: 10, y: -5, z: 10 } // 水平速度 = √200 ≈ 14.14
-      const maxSpeed = 10
+    it.effect('should clamp velocity above max speed', () =>
+      Effect.gen(function* () {
+        const velocity = { x: 10, y: -5, z: 10 } // 水平速度 = √200 ≈ 14.14
+        const maxSpeed = 10
 
-      const result = Friction.clampVelocity(velocity, maxSpeed)
+        const result = Friction.clampVelocity(velocity, maxSpeed)
 
-      // 水平速度が制限される
-      const resultSpeed = Math.sqrt(result.x * result.x + result.z * result.z)
-      expect(resultSpeed).toBeCloseTo(maxSpeed, 5)
-      // Y軸は変更なし
-      expect(result.y).toBe(velocity.y)
-    })
+        // 水平速度が制限される
+        const resultSpeed = Math.sqrt(result.x * result.x + result.z * result.z)
+        expect(resultSpeed).toBeCloseTo(maxSpeed, 5)
+        // Y軸は変更なし
+        expect(result.y).toBe(velocity.y)
+      })
+    )
   })
 
   describe('applyDeadZone', () => {
-    it('should zero out tiny velocities', () => {
-      const velocity = { x: 0.0005, y: -0.0001, z: 0.0008 }
+    it.effect('should zero out tiny velocities', () =>
+      Effect.gen(function* () {
+        const velocity = { x: 0.0005, y: -0.0001, z: 0.0008 }
 
-      const result = Friction.applyDeadZone(velocity, 0.001)
+        const result = Friction.applyDeadZone(velocity, 0.001)
 
-      expect(result.x).toBe(0)
-      expect(result.y).toBe(0)
-      expect(result.z).toBe(0)
-    })
+        expect(result.x).toBe(0)
+        expect(result.y).toBe(0)
+        expect(result.z).toBe(0)
+      })
+    )
 
-    it('should preserve significant velocities', () => {
-      const velocity = { x: 0.1, y: -0.5, z: 0.002 }
+    it.effect('should preserve significant velocities', () =>
+      Effect.gen(function* () {
+        const velocity = { x: 0.1, y: -0.5, z: 0.002 }
 
-      const result = Friction.applyDeadZone(velocity, 0.001)
+        const result = Friction.applyDeadZone(velocity, 0.001)
 
-      expect(result.x).toBe(velocity.x)
-      expect(result.y).toBe(velocity.y)
-      expect(result.z).toBeCloseTo(velocity.z, 5)
-    })
+        expect(result.x).toBe(velocity.x)
+        expect(result.y).toBe(velocity.y)
+        expect(result.z).toBeCloseTo(velocity.z, 5)
+      })
+    )
   })
 })

@@ -2122,7 +2122,7 @@ export const CompleteBlockSystemLayer = Layer.mergeAll(
 
 ```typescript
 import { it } from '@effect/vitest'
-import { Arbitrary } from 'fast-check'
+import { Arbitrary } from '@effect/vitest'
 import { Schema } from 'effect'
 
 // ブロック定義のArbitrary生成

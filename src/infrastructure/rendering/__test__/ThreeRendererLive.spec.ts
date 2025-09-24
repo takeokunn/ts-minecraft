@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, TestContext } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
@@ -104,10 +105,12 @@ describe('ThreeRendererLive', () => {
   })
 
   describe('Layer作成', () => {
-    it('ThreeRendererLiveレイヤーが正常に作成される', () => {
-      const layer = ThreeRendererLive
-      expect(layer).toBeDefined()
-    })
+    it.effect('ThreeRendererLiveレイヤーが正常に作成される', () =>
+      Effect.gen(function* () {
+        const layer = ThreeRendererLive
+        expect(layer).toBeDefined()
+      })
+    )
 
     it('ThreeRendererサービスが正常に提供される', () => {
       const program = Effect.gen(function* () {

@@ -1,26 +1,33 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { MainLayer } from '../MainLayer'
 import { AppServiceLive, AppService } from '../../services/AppService'
 
 describe('MainLayer', () => {
   describe('Layer Structure', () => {
-    it('should be a composite layer including AppServiceLive', () => {
-      // MainLayer is now a composite of multiple service layers
-      expect(Layer.isLayer(MainLayer)).toBe(true)
-      expect(MainLayer).toBeDefined()
-    })
+    it.effect('should be a composite layer including AppServiceLive', () =>
+      Effect.gen(function* () {
+        // MainLayer is now a composite of multiple service layers
+        expect(Layer.isLayer(MainLayer)).toBe(true)
+        expect(MainLayer).toBeDefined()
+      })
+    )
 
-    it('should be a valid Effect Layer', () => {
-      expect(Layer.isLayer(MainLayer)).toBe(true)
-    })
+    it.effect('should be a valid Effect Layer', () =>
+      Effect.gen(function* () {
+        expect(Layer.isLayer(MainLayer)).toBe(true)
+      })
+    )
   })
 
   describe('Layer Composition', () => {
-    it('should be composable with other layers', () => {
-      const composedLayer = Layer.merge(MainLayer, Layer.empty)
-      expect(Layer.isLayer(composedLayer)).toBe(true)
-    })
+    it.effect('should be composable with other layers', () =>
+      Effect.gen(function* () {
+        const composedLayer = Layer.merge(MainLayer, Layer.empty)
+        expect(Layer.isLayer(composedLayer)).toBe(true)
+      })
+    )
 
     it('should work in provideSome patterns', () => {
       const program = Effect.gen(function* () {
@@ -32,20 +39,24 @@ describe('MainLayer', () => {
       expect(Effect.isEffect(provided)).toBe(true)
     })
 
-    it('should be usable with Layer.use', () => {
-      const result = Layer.launch(MainLayer)
-      expect(Effect.isEffect(result)).toBe(true)
-    })
+    it.effect('should be usable with Layer.use', () =>
+      Effect.gen(function* () {
+        const result = Layer.launch(MainLayer)
+        expect(Effect.isEffect(result)).toBe(true)
+      })
+    )
   })
 
   describe('Service Integration', () => {
-    it('should provide multiple services including AppService', () => {
-      // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
-      const layerInstance = MainLayer
-      expect(layerInstance).toBeDefined()
-      // Check that it's a Layer (not checking for same reference anymore since it's a composite)
-      expect(Layer.isLayer(layerInstance)).toBe(true)
-    })
+    it.effect('should provide multiple services including AppService', () =>
+      Effect.gen(function* () {
+        // MainLayer now provides GameLoop, Scene, Renderer, Input, GameApplication, and AppService
+        const layerInstance = MainLayer
+        expect(layerInstance).toBeDefined()
+        // Check that it's a Layer (not checking for same reference anymore since it's a composite)
+        expect(Layer.isLayer(layerInstance)).toBe(true)
+      })
+    )
 
     it('should provide AppService when used', () => {
       const program = Effect.gen(function* () {
@@ -61,21 +72,25 @@ describe('MainLayer', () => {
       expect(typeof result.ready).toBe('boolean')
     })
 
-    it('should maintain all Layer properties', () => {
-      // Verify that MainLayer has all the properties of a Layer
-      expect(MainLayer).toBeDefined()
-      expect(typeof MainLayer.pipe).toBe('function')
-      // Layer structure properties
-      expect(MainLayer).toHaveProperty('_op_layer')
-    })
+    it.effect('should maintain all Layer properties', () =>
+      Effect.gen(function* () {
+        // Verify that MainLayer has all the properties of a Layer
+        expect(MainLayer).toBeDefined()
+        expect(typeof MainLayer.pipe).toBe('function')
+        // Layer structure properties
+        expect(MainLayer).toHaveProperty('_op_layer')
+      })
+    )
   })
 
   describe('Type Safety', () => {
-    it('should satisfy Layer type constraints', () => {
-      // This is a compile-time test
-      const _typeTest: Layer.Layer<AppService> = MainLayer
-      expect(_typeTest).toBeDefined()
-    })
+    it.effect('should satisfy Layer type constraints', () =>
+      Effect.gen(function* () {
+        // This is a compile-time test
+        const _typeTest: Layer.Layer<AppService> = MainLayer
+        expect(_typeTest).toBeDefined()
+      })
+    )
 
     it('should provide the same service types as AppServiceLive', () => {
       // MainLayer is now a composite layer, but should still provide AppService
@@ -92,14 +107,16 @@ describe('MainLayer', () => {
   })
 
   describe('Layer Structure Details', () => {
-    it('should be a properly structured composite layer', () => {
-      // MainLayer is now a mergeAll of multiple layers
-      const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
+    it.effect('should be a properly structured composite layer', () =>
+      Effect.gen(function* () {
+        // MainLayer is now a mergeAll of multiple layers
+        const mainLayerProps = Object.getOwnPropertyNames(MainLayer)
 
-      // Should have Layer properties
-      expect(mainLayerProps).toContain('_op_layer')
-      expect(mainLayerProps).toContain('evaluate')
-    })
+        // Should have Layer properties
+        expect(mainLayerProps).toContain('_op_layer')
+        expect(mainLayerProps).toContain('evaluate')
+      })
+    )
   })
 
   describe('Runtime Behavior', () => {

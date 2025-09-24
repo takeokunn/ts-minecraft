@@ -474,62 +474,72 @@ describe('MouseInput', () => {
     })
 
     describe('Type Safety', () => {
-      it('should ensure MousePosition interface is correctly typed', () => {
-        const position: MousePosition = {
-          x: 100,
-          y: 200,
-          timestamp: Date.now(),
-        }
+      it.effect('should ensure MousePosition interface is correctly typed', () =>
+        Effect.gen(function* () {
+          const position: MousePosition = {
+            x: 100,
+            y: 200,
+            timestamp: Date.now(),
+          }
 
-        expect(typeof position.x).toBe('number')
-        expect(typeof position.y).toBe('number')
-        expect(typeof position.timestamp).toBe('number')
-      })
+          expect(typeof position.x).toBe('number')
+          expect(typeof position.y).toBe('number')
+          expect(typeof position.timestamp).toBe('number')
+        })
+      )
 
-      it('should ensure PointerLockState interface is correctly typed', () => {
-        const state: PointerLockState = {
-          isLocked: true,
-          element: 'game-canvas',
-          lockTime: Date.now(),
-        }
+      it.effect('should ensure PointerLockState interface is correctly typed', () =>
+        Effect.gen(function* () {
+          const state: PointerLockState = {
+            isLocked: true,
+            element: 'game-canvas',
+            lockTime: Date.now(),
+          }
 
-        expect(typeof state.isLocked).toBe('boolean')
-        expect(typeof state.element).toBe('string')
-        expect(typeof state.lockTime).toBe('number')
-      })
+          expect(typeof state.isLocked).toBe('boolean')
+          expect(typeof state.element).toBe('string')
+          expect(typeof state.lockTime).toBe('number')
+        })
+      )
 
-      it('should allow optional fields in PointerLockState', () => {
-        const minimalState: PointerLockState = {
-          isLocked: false,
-        }
+      it.effect('should allow optional fields in PointerLockState', () =>
+        Effect.gen(function* () {
+          const minimalState: PointerLockState = {
+            isLocked: false,
+          }
 
-        expect(typeof minimalState.isLocked).toBe('boolean')
-        expect(minimalState.element).toBeUndefined()
-        expect(minimalState.lockTime).toBeUndefined()
-      })
+          expect(typeof minimalState.isLocked).toBe('boolean')
+          expect(minimalState.element).toBeUndefined()
+          expect(minimalState.lockTime).toBeUndefined()
+        })
+      )
     })
 
     describe('Error Types', () => {
-      it('should create MouseInputError with proper structure', () => {
-        const error = MouseInputError({
-          message: 'Test error',
-          cause: 'Test cause',
+      it.effect('should create MouseInputError with proper structure', () =>
+        Effect.gen(function* () {
+          const error = MouseInputError({
+            message: 'Test error',
+            cause: 'Test cause',
+          })
+
+          expect(error._tag).toBe('MouseInputError')
+          expect(error.message).toBe('Test error')
+          expect(error.cause).toBe('Test cause')
         })
+      )
 
-        expect(error._tag).toBe('MouseInputError')
-        expect(error.message).toBe('Test error')
-        expect(error.cause).toBe('Test cause')
-      })
+      it.effect('should create MouseInputError without optional fields', () =>
+        Effect.gen(function* () {
+          const error = MouseInputError({
+            message: 'Test error',
+          })
 
-      it('should create MouseInputError without optional fields', () => {
-        const error = MouseInputError({
-          message: 'Test error',
+          expect(error._tag).toBe('MouseInputError')
+          expect(error.message).toBe('Test error')
+          expect(error.cause).toBeUndefined()
         })
-
-        expect(error._tag).toBe('MouseInputError')
-        expect(error.message).toBe('Test error')
-        expect(error.cause).toBeUndefined()
-      })
+      )
     })
 
     // ========================================

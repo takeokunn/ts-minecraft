@@ -23,8 +23,8 @@ Property-Based Testing (PBT)を使用してTypeScript Minecraftの純粋関数�
 ```typescript
 import { Effect, Match, pipe, Schema, STM, Layer, Context } from 'effect'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import * as fc from 'fast-check'
-import { describe, it, expect } from '@fast-check/vitest'
+import * as fc from '@effect/vitest'
+import { describe, it, expect } from '@@effect/vitest/vitest'
 
 // Schema定義によるチャンク座標システム
 const ChunkCoordSchema = Schema.Struct({
@@ -75,17 +75,19 @@ describe('Chunk System', () => {
     })
   )
 
-  it.prop([fc.integer(), fc.integer()])('chunk coordinate conversion maintains bounds', (x, z) =>
-    Effect.gen(function* () {
-      const key = getChunkKey(x, z)
-      const parsed = parseChunkKey(key)
+  it.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])(
+    'chunk coordinate conversion maintains bounds',
+    (x, z) =>
+      Effect.gen(function* () {
+        const key = getChunkKey(x, z)
+        const parsed = parseChunkKey(key)
 
-      // 座標変換の不変条件
-      expect(parsed.x).toBe(x)
-      expect(parsed.z).toBe(z)
-      expect(typeof parsed.x).toBe('number')
-      expect(typeof parsed.z).toBe('number')
-    })
+        // 座標変換の不変条件
+        expect(parsed.x).toBe(x)
+        expect(parsed.z).toBe(z)
+        expect(typeof parsed.x).toBe('number')
+        expect(typeof parsed.z).toBe('number')
+      })
   )
 })
 ```
@@ -97,8 +99,8 @@ describe('Chunk System', () => {
 ```typescript
 import { Effect, Match, pipe, Schema, STM, Layer, Context } from 'effect'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import * as fc from 'fast-check'
-import { describe, it, expect } from '@fast-check/vitest'
+import * as fc from '@effect/vitest'
+import { describe, it, expect } from '@@effect/vitest/vitest'
 
 // Physics Service定義
 interface PhysicsService {
@@ -290,8 +292,8 @@ describe('Velocity System', () => {
 ```typescript
 import { Effect, Layer, Context, Schema, STM, Duration } from 'effect'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import * as fc from 'fast-check'
-import { describe, it, expect } from '@fast-check/vitest'
+import * as fc from '@effect/vitest'
+import { describe, it, expect } from '@@effect/vitest/vitest'
 
 // Service定義とSchema統合
 interface PhysicsService {
@@ -425,17 +427,17 @@ describe('Error Handling', () => {
 })
 ```
 
-## fast-check 3.15.0+ 新機能活用
+## @effect/vitest 3.15.0+ 新機能活用
 
-### @fast-check/vitest統合
+### @@effect/vitest/vitest統合
 
 ```typescript
-import { describe, it, expect } from '@fast-check/vitest'
-import * as fc from 'fast-check'
+import { describe, it, expect } from '@@effect/vitest/vitest'
+import * as fc from '@effect/vitest'
 
 // Vitest統合での高度なテスト
 describe('Fast-check Vitest Integration', () => {
-  it.prop([fc.integer(), fc.integer()])(
+  it.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])(
     'mathematical properties with better reporting',
     (a, b) => {
       expect(a + b).toBe(b + a) // 交換法則

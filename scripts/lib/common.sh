@@ -230,3 +230,4 @@ export -f generate_task_id issue_exists
 export -f sanitize_for_branch escape_markdown
 export -f has_npm_script detect_project_type
 export -f confirm show_spinner
+

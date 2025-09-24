@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, Layer, Option, Either, pipe, TestContext, Duration } from 'effect'
 import { PlayerServiceLive } from '../PlayerServiceLive.js'

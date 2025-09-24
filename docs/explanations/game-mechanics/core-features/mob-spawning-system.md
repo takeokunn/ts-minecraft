@@ -1178,7 +1178,7 @@ describe('Mob Spawning System', () => {
 ### Fast-Check統合パターン
 
 ```typescript
-import { Arbitrary, fc } from 'fast-check'
+import { Arbitrary, fc } from '@effect/vitest'
 import { Effect, TestClock, TestRandom, Layer } from 'effect'
 import { describe, test, expect } from '@effect/vitest'
 
@@ -1217,7 +1217,7 @@ const EnvironmentConditionsArbitrary: Arbitrary<EnvironmentConditions> = fc.oneo
       phase: fc.constantFrom('new_moon', 'full_moon', 'first_quarter'),
       modifier: fc.float({ min: 0.5, max: 1.5 }),
     }),
-    nearbyBlocks: fc.array(fc.string(), { maxLength: 5 }),
+    nearbyBlocks: Schema.Array(Schema.String, { maxLength: 5 }),
   }),
   fc.record({
     type: fc.constant('underground' as const),
@@ -1390,7 +1390,7 @@ describe('Mob Spawning System - Property Based Tests', () => {
   })
 
   describe('スポーン戦略のパフォーマンステスト', () => {
-    test.prop([fc.array(PositionArbitrary, { minLength: 1, maxLength: 100 })])(
+    test.prop([Schema.Array(PositionArbitrary, { minLength: 1, maxLength: 100 })])(
       '大量位置でのスポーン処理が適切な時間内に完了する',
       (positions) =>
         Effect.gen(function* () {
@@ -1430,7 +1430,7 @@ describe('Mob Spawning System - Property Based Tests', () => {
   })
 
   describe('STM並行性テスト', () => {
-    test.prop([fc.array(MobTypeArbitrary, { minLength: 2, maxLength: 10 })])(
+    test.prop([Schema.Array(MobTypeArbitrary, { minLength: 2, maxLength: 10 })])(
       '複数モブタイプの並行人口更新が競合状態を起こさない',
       (mobTypes) =>
         Effect.gen(function* () {

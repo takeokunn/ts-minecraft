@@ -226,7 +226,7 @@ claude "Issue #123 を実装してエラーが出たら自動修正して"
 ### 2. テストコード（必須）
 
 - **単体テスト（vitest）**: 全公開関数・メソッドをカバー
-- **Property-based Testing（fast-check）**: ビジネスロジックの不変条件検証
+- **Property-based Testing（@effect/vitest）**: ビジネスロジックの不変条件検証
 - **統合テスト**: Service/Layer間の相互作用検証
 - **エラーケーステスト**: TaggedErrorの正しい伝播確認
 - **カバレッジ80%以上**: 実装品質の客観的指標
@@ -312,17 +312,17 @@ describe('MyService', () => {
 })
 
 // ✅ Property-based Testing例
-import { fc } from 'fast-check'
+import { fc } from '@effect/vitest'
 
 describe('Property-based Tests', () => {
   it.effect('invariant condition always holds', () =>
     Effect.gen(function* () {
       const service = yield* MyService
 
-      // Property-based test using fast-check
+      // Property-based test using @effect/vitest
       yield* Effect.promise(() =>
-        fc.assert(
-          fc.asyncProperty(fc.string(), async (input) => {
+        it.prop(
+          fc.asyncProperty(Schema.String, async (input) => {
             const result = await Effect.runPromise(service.process(input).pipe(Effect.provide(MyServiceLive)))
             // 不変条件の検証
             expect(result.length).toBeGreaterThanOrEqual(0)
@@ -566,7 +566,7 @@ assignees: ''
 ### **Property-based Testing（推奨）**
 
 - [ ] ビジネスロジックの不変条件検証
-- [ ] fast-checkによる大量データテスト
+- [ ] @effect/vitestによる大量データテスト
 - [ ] Schema validationのテスト
 
 ### **統合テスト（必須）**

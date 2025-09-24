@@ -858,7 +858,7 @@ export const makeHealthHungerUIService = Effect.gen(function* () {
 
 ```typescript
 import { Schema, Effect, Gen, TestClock, it } from 'effect'
-import { fc } from 'fast-check'
+import { fc } from '@effect/vitest'
 
 // Property-based test generators
 const genHealth = fc.integer({ min: 0, max: 20 }).map((n) => n as Health)
@@ -889,7 +889,7 @@ describe('Health/Hunger System Properties', () => {
         const service = yield* PlayerStatsService
 
         // Property: healing never makes health exceed 20
-        yield* fc.assert(
+        yield* it.prop(
           fc.asyncProperty(genPlayerStats, fc.integer({ min: 1, max: 100 }), (stats, healing) =>
             Effect.gen(function* () {
               const playerId = 'test-player'
@@ -917,7 +917,7 @@ describe('Health/Hunger System Properties', () => {
         const service = yield* PlayerStatsService
 
         // Property: saturation depletes before hunger
-        yield* fc.assert(
+        yield* it.prop(
           fc.asyncProperty(genPlayerStats, (initialStats) =>
             Effect.gen(function* () {
               const playerId = 'test-player'
@@ -947,7 +947,7 @@ describe('Health/Hunger System Properties', () => {
         const service = yield* PlayerStatsService
 
         // Property: same damage source produces same damage
-        yield* fc.assert(
+        yield* it.prop(
           fc.asyncProperty(genDamageSource, fc.integer({ min: 1, max: 20 }), (source, baseAmount) =>
             Effect.gen(function* () {
               const playerId1 = 'test-player-1'

@@ -563,7 +563,7 @@ const createSecureLogger = (): SecureLogger => {
 ```typescript
 import { describe, it, expect } from '@effect/vitest'
 import { Effect } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // セキュリティテストケース
 describe('Input Validation Security', () => {

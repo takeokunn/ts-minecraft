@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Exit, pipe, Layer, Match } from 'effect'
 import {
   type AOVertex,
@@ -64,64 +65,72 @@ const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSyncExit(effe
 
 describe('AmbientOcclusion', () => {
   describe('Type Guards and Interfaces', () => {
-    it('should create valid AOVertex objects', () => {
-      const vertex: AOVertex = {
-        x: 1,
-        y: 2,
-        z: 3,
-        ao: BrandedTypes.createAOValue(0.75),
-      }
+    it.effect('should create valid AOVertex objects', () =>
+      Effect.gen(function* () {
+        const vertex: AOVertex = {
+          x: 1,
+          y: 2,
+          z: 3,
+          ao: BrandedTypes.createAOValue(0.75),
+        }
 
-      expect(vertex.x).toBe(1)
-      expect(vertex.y).toBe(2)
-      expect(vertex.z).toBe(3)
-      expect(vertex.ao).toBe(0.75)
-    })
+        expect(vertex.x).toBe(1)
+        expect(vertex.y).toBe(2)
+        expect(vertex.z).toBe(3)
+        expect(vertex.ao).toBe(0.75)
+      })
+    )
 
-    it('should create valid AOFace objects', () => {
-      const vertices: [AOVertex, AOVertex, AOVertex, AOVertex] = [
-        { x: 0, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.5) },
-        { x: 1, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.6) },
-        { x: 1, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.7) },
-        { x: 0, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.8) },
-      ]
+    it.effect('should create valid AOFace objects', () =>
+      Effect.gen(function* () {
+        const vertices: [AOVertex, AOVertex, AOVertex, AOVertex] = [
+          { x: 0, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.5) },
+          { x: 1, y: 0, z: 0, ao: BrandedTypes.createAOValue(0.6) },
+          { x: 1, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.7) },
+          { x: 0, y: 1, z: 0, ao: BrandedTypes.createAOValue(0.8) },
+        ]
 
-      const face: AOFace = {
-        vertices,
-        averageAO: BrandedTypes.createAOValue(0.65),
-      }
+        const face: AOFace = {
+          vertices,
+          averageAO: BrandedTypes.createAOValue(0.65),
+        }
 
-      expect(face.vertices).toHaveLength(4)
-      expect(face.averageAO).toBe(0.65)
-    })
+        expect(face.vertices).toHaveLength(4)
+        expect(face.averageAO).toBe(0.65)
+      })
+    )
 
-    it('should create valid AOConfig', () => {
-      const config: AOConfig = {
-        enabled: true,
-        strength: 0.8,
-        smoothing: true,
-        quality: 'medium',
-      }
-
-      expect(config.enabled).toBe(true)
-      expect(config.strength).toBe(0.8)
-      expect(config.smoothing).toBe(true)
-      expect(config.quality).toBe('medium')
-    })
-
-    it('should handle all quality levels', () => {
-      const levels: AOConfig['quality'][] = ['low', 'medium', 'high']
-
-      levels.forEach((quality) => {
+    it.effect('should create valid AOConfig', () =>
+      Effect.gen(function* () {
         const config: AOConfig = {
           enabled: true,
-          strength: 1.0,
-          smoothing: false,
-          quality,
+          strength: 0.8,
+          smoothing: true,
+          quality: 'medium',
         }
-        expect(config.quality).toBe(quality)
+
+        expect(config.enabled).toBe(true)
+        expect(config.strength).toBe(0.8)
+        expect(config.smoothing).toBe(true)
+        expect(config.quality).toBe('medium')
       })
-    })
+    )
+
+    it.effect('should handle all quality levels', () =>
+      Effect.gen(function* () {
+        const levels: AOConfig['quality'][] = ['low', 'medium', 'high']
+
+        levels.forEach((quality) => {
+          const config: AOConfig = {
+            enabled: true,
+            strength: 1.0,
+            smoothing: false,
+            quality,
+          }
+          expect(config.quality).toBe(quality)
+        })
+      })
+    )
   })
 
   describe('AmbientOcclusionService - calculateVertexAO', () => {
@@ -430,51 +439,59 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('Utility Functions', () => {
-    it('should blend AO colors correctly', () => {
-      const baseColor: [number, number, number] = [1, 0.5, 0.25]
+    it.effect('should blend AO colors correctly', () =>
+      Effect.gen(function* () {
+        const baseColor: [number, number, number] = [1, 0.5, 0.25]
 
-      const blended1 = blendAOColors(baseColor, 1.0)
-      expect(blended1).toEqual([1, 0.5, 0.25])
+        const blended1 = blendAOColors(baseColor, 1.0)
+        expect(blended1).toEqual([1, 0.5, 0.25])
 
-      const blended2 = blendAOColors(baseColor, 0.5)
-      expect(blended2).toEqual([0.5, 0.25, 0.125])
+        const blended2 = blendAOColors(baseColor, 0.5)
+        expect(blended2).toEqual([0.5, 0.25, 0.125])
 
-      const blended3 = blendAOColors(baseColor, 0.0)
-      expect(blended3).toEqual([0, 0, 0])
-    })
+        const blended3 = blendAOColors(baseColor, 0.0)
+        expect(blended3).toEqual([0, 0, 0])
+      })
+    )
 
-    it('should handle edge cases in color blending', () => {
-      const whiteColor: [number, number, number] = [1, 1, 1]
-      const blackColor: [number, number, number] = [0, 0, 0]
+    it.effect('should handle edge cases in color blending', () =>
+      Effect.gen(function* () {
+        const whiteColor: [number, number, number] = [1, 1, 1]
+        const blackColor: [number, number, number] = [0, 0, 0]
 
-      expect(blendAOColors(whiteColor, 0.75)).toEqual([0.75, 0.75, 0.75])
-      expect(blendAOColors(blackColor, 0.5)).toEqual([0, 0, 0])
-    })
+        expect(blendAOColors(whiteColor, 0.75)).toEqual([0.75, 0.75, 0.75])
+        expect(blendAOColors(blackColor, 0.5)).toEqual([0, 0, 0])
+      })
+    )
 
-    it('should get correct AO quality settings', () => {
-      const lowQuality = getAOQualitySettings('low')
-      expect(lowQuality.sampleRadius).toBe(1)
-      expect(lowQuality.sampleCount).toBe(6)
+    it.effect('should get correct AO quality settings', () =>
+      Effect.gen(function* () {
+        const lowQuality = getAOQualitySettings('low')
+        expect(lowQuality.sampleRadius).toBe(1)
+        expect(lowQuality.sampleCount).toBe(6)
 
-      const mediumQuality = getAOQualitySettings('medium')
-      expect(mediumQuality.sampleRadius).toBe(1)
-      expect(mediumQuality.sampleCount).toBe(14)
+        const mediumQuality = getAOQualitySettings('medium')
+        expect(mediumQuality.sampleRadius).toBe(1)
+        expect(mediumQuality.sampleCount).toBe(14)
 
-      const highQuality = getAOQualitySettings('high')
-      expect(highQuality.sampleRadius).toBe(2)
-      expect(highQuality.sampleCount).toBe(26)
-    })
+        const highQuality = getAOQualitySettings('high')
+        expect(highQuality.sampleRadius).toBe(2)
+        expect(highQuality.sampleCount).toBe(26)
+      })
+    )
   })
 
   describe('Error Handling', () => {
-    it('should create AmbientOcclusionError with correct properties', () => {
-      const error = AmbientOcclusionError('Test error', 'test', Date.now())
+    it.effect('should create AmbientOcclusionError with correct properties', () =>
+      Effect.gen(function* () {
+        const error = AmbientOcclusionError('Test error', 'test', Date.now())
 
-      expect(isAmbientOcclusionError(error)).toBe(true)
-      expect(error.reason).toBe('Test error')
-      expect(error.context).toBe('test')
-      expect(error.timestamp).toBeGreaterThan(0)
-    })
+        expect(isAmbientOcclusionError(error)).toBe(true)
+        expect(error.reason).toBe('Test error')
+        expect(error.context).toBe('test')
+        expect(error.timestamp).toBeGreaterThan(0)
+      })
+    )
   })
 
   describe('Performance', () => {
@@ -503,22 +520,24 @@ describe('AmbientOcclusion', () => {
   })
 
   describe('Layer Construction', () => {
-    it('should provide AmbientOcclusionLive layer', () => {
-      const program = pipe(
-        AmbientOcclusionService,
-        Effect.map((service) => {
-          expect(service).toBeDefined()
-          expect(service.calculateVertexAO).toBeDefined()
-          expect(service.calculateFaceAO).toBeDefined()
-          expect(service.applyAOToChunk).toBeDefined()
-          return true
-        })
-      )
+    it.effect('should provide AmbientOcclusionLive layer', () =>
+      Effect.gen(function* () {
+        const program = pipe(
+          AmbientOcclusionService,
+          Effect.map((service) => {
+            expect(service).toBeDefined()
+            expect(service.calculateVertexAO).toBeDefined()
+            expect(service.calculateFaceAO).toBeDefined()
+            expect(service.applyAOToChunk).toBeDefined()
+            return true
+          })
+        )
 
-      const result = pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runSync)
+        const result = pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runSync)
 
-      expect(result).toBe(true)
-    })
+        expect(result).toBe(true)
+      })
+    )
   })
 
   describe('AO Configuration', () => {

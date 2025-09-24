@@ -1,9 +1,9 @@
 ---
 title: 'PBTテスト戦略 - Property-Based Testing統合'
-description: '純粋関数型設計とProperty-Based Testingの統合戦略。fast-checkとEffect-TSの組み合わせ。'
+description: '純粋関数型設計とProperty-Based Testingの統合戦略。@effect/vitestとEffect-TSの組み合わせ。'
 category: 'specification'
 difficulty: 'advanced'
-tags: ['testing', 'pbt', 'property-based-testing', 'fast-check', 'effect-ts', 'stm', 'schema', 'vitest']
+tags: ['testing', 'pbt', 'property-based-testing', '@effect/vitest', 'effect-ts', 'stm', 'schema', 'vitest']
 prerequisites: ['effect-ts-fundamentals', 'testing-fundamentals', 'functional-programming']
 estimated_reading_time: '12分'
 related_patterns: ['testing-patterns', 'functional-patterns']
@@ -15,7 +15,7 @@ related_docs:
 
 ## 概要
 
-Property-Based Testing (PBT) は、関数の性質（プロパティ）を検証することで、より堅牢なテストを実現する手法です。TypeScript Minecraftクローンでは、fast-check 3.15.0+と@fast-check/vitest、Effect-TS 3.17+、STM（Software Transactional Memory）を組み合わせて、ゲームロジックの正確性と並行性を保証しています。
+Property-Based Testing (PBT) は、関数の性質（プロパティ）を検証することで、より堅牢なテストを実現する手法です。TypeScript Minecraftクローンでは、@effect/vitest 3.15.0+と@@effect/vitest/vitest、Effect-TS 3.17+、STM（Software Transactional Memory）を組み合わせて、ゲームロジックの正確性と並行性を保証しています。
 
 ## 1. PBT対応の純粋関数型設計
 
@@ -24,8 +24,8 @@ Property-Based Testing (PBT) は、関数の性質（プロパティ）を検証
 ```typescript
 import { Effect, Schema, STM, Layer, Context } from 'effect'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import { describe, it, expect } from '@fast-check/vitest'
-import * as fc from 'fast-check'
+import { describe, it, expect } from '@@effect/vitest/vitest'
+import * as fc from '@effect/vitest'
 
 // Schema-first approach for type-safe PBT
 const WorldCoordSchema = Schema.Number
@@ -189,7 +189,7 @@ export const getBiomeFromClimate = (temperature: number, humidity: number): Biom
 }
 
 // PBTテスト
-test.prop([fc.integer(), fc.integer()])('chunk key is reversible', (x, z) => {
+test.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])('chunk key is reversible', (x, z) => {
   const key = getChunkKey(x, z)
   const parsed = parseChunkKey(key)
   expect(parsed).toEqual({ x, z })
@@ -318,7 +318,7 @@ interface PhysicsEngine {
 const PhysicsEngine = Context.GenericTag<PhysicsEngine>('@game/PhysicsEngine')
 
 describe('STM-Enhanced Physics PBT', () => {
-  it.prop([fc.array(physicsEntityArbitrary, { minLength: 2, maxLength: 10 })])(
+  it.prop([Schema.Array(physicsEntityArbitrary, { minLength: 2, maxLength: 10 })])(
     'concurrent physics simulation maintains energy conservation',
     (entities) =>
       Effect.gen(function* () {
@@ -443,9 +443,9 @@ const clampedSpeed = Math.sqrt(clamped.x ** 2 + clamped.y ** 2 + clamped.z ** 2)
 
 ```typescript
 import { Effect, Fiber, STM, TestClock, Duration, Either, pipe, Layer, Context } from 'effect'
-import { describe, it, expect } from '@fast-check/vitest'
+import { describe, it, expect } from '@@effect/vitest/vitest'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // Service interfaces for game systems
 interface ChunkService {
@@ -521,7 +521,7 @@ export const AdvancedPerformanceTests = describe('Advanced Performance PBT', () 
     }).pipe(Effect.provide(ChunkServiceLive))
   )
 
-  it.prop([fc.array(chunkBatchArbitrary, { minLength: 3, maxLength: 10 })])(
+  it.prop([Schema.Array(chunkBatchArbitrary, { minLength: 3, maxLength: 10 })])(
     'stress testing with multiple concurrent batches',
     (batches) =>
       Effect.gen(function* () {
@@ -658,9 +658,12 @@ describe('STM-Enhanced World Generation PBT', () => {
 ### 可換性 (Commutativity)
 
 ```typescript
-test.prop([fc.integer(), fc.integer()])('light level combination is commutative', (light1, light2) => {
-  expect(combineLightLevels(light1, light2)).toBe(combineLightLevels(light2, light1))
-})
+test.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])(
+  'light level combination is commutative',
+  (light1, light2) => {
+    expect(combineLightLevels(light1, light2)).toBe(combineLightLevels(light2, light1))
+  }
+)
 ```
 
 ### 冪等性 (Idempotency)
@@ -698,8 +701,8 @@ test.prop([fc.integer({ min: 0, max: 15 }), fc.integer({ min: 0, max: 10 }), fc.
 test.prop([
   fc.record({
     playerId: fc.string({ minLength: 1 }),
-    fromChunk: fc.record({ x: fc.integer(), z: fc.integer() }),
-    toChunk: fc.record({ x: fc.integer(), z: fc.integer() }),
+    fromChunk: fc.record({ x: Schema.Number.pipe(Schema.int()), z: Schema.Number.pipe(Schema.int()) }),
+    toChunk: fc.record({ x: Schema.Number.pipe(Schema.int()), z: Schema.Number.pipe(Schema.int()) }),
   }),
 ])('player chunk transition loads required chunks', async ({ playerId, fromChunk, toChunk }) => {
   // テストのセットアップ

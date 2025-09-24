@@ -670,7 +670,7 @@ TS2345: Argument of type 'Arbitrary<unknown>' is not assignable to parameter of 
 
 ```typescript
 // ✅ 正しいSchema.arbitrary統合
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Schema, Arbitrary } from 'effect'
 
 const Player = Schema.Struct({
@@ -688,7 +688,7 @@ const Player = Schema.Struct({
 const playerArbitrary = Arbitrary.make(Player)
 
 // Property-based test
-const testPlayerProperty = fc.property(fc.array(playerArbitrary(fc), { minLength: 1, maxLength: 100 }), (players) => {
+const testPlayerProperty = it.prop(Schema.Array(playerArbitrary(fc), { minLength: 1, maxLength: 100 }), (players) => {
   return Effect.gen(function* () {
     // 全プレイヤーがSchema通りであることをテスト
     const validatedPlayers = yield* Effect.forEach(players, (player) => Schema.decodeUnknown(Player)(player), {

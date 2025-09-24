@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
@@ -476,45 +477,49 @@ describe('MeshGenerator', () => {
   })
 
   describe('Face Culling', () => {
-    it('should correctly identify faces to render', () => {
-      // Create a 2x2x2 blocks array where blocks[x][y][z]
-      const blocks = [
-        [
-          // x=0
-          [1, 0], // y=0: [z=0, z=1]
-          [0, 0], // y=1: [z=0, z=1]
-        ],
-        [
-          // x=1
-          [0, 1], // y=0: [z=0, z=1]
-          [1, 1], // y=1: [z=0, z=1]
-        ],
-      ]
+    it.effect('should correctly identify faces to render', () =>
+      Effect.gen(function* () {
+        // Create a 2x2x2 blocks array where blocks[x][y][z]
+        const blocks = [
+          [
+            // x=0
+            [1, 0], // y=0: [z=0, z=1]
+            [0, 0], // y=1: [z=0, z=1]
+          ],
+          [
+            // x=1
+            [0, 1], // y=0: [z=0, z=1]
+            [1, 1], // y=1: [z=0, z=1]
+          ],
+        ]
 
-      // Test block at (0,0,0) = 1 (solid)
-      // Face should be rendered when neighbor is air (0)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true) // neighbor (1,0,0) = 0 (air)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true) // neighbor (0,0,1) = 0 (air)
+        // Test block at (0,0,0) = 1 (solid)
+        // Face should be rendered when neighbor is air (0)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 2)).toBe(true) // neighbor (1,0,0) = 0 (air)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 2)).toBe(true) // neighbor (0,0,1) = 0 (air)
 
-      // Test block at (1,1,1) = 1 (solid)
-      // blocks[1][1][0] = 1, so west neighbor blocks[0][1][0] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
-      // blocks[1][1][1] = 1, so west neighbor blocks[0][1][1] = 0 (air) → render
-      expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true) // neighbor (0,1,1) = 0 (air)
-    })
+        // Test block at (1,1,1) = 1 (solid)
+        // blocks[1][1][0] = 1, so west neighbor blocks[0][1][0] = 0 (air) → render
+        expect(shouldRenderFace(blocks, 1, 1, 0, 'west', 2)).toBe(true) // neighbor (0,1,0) = 0 (air)
+        // blocks[1][1][1] = 1, so west neighbor blocks[0][1][1] = 0 (air) → render
+        expect(shouldRenderFace(blocks, 1, 1, 1, 'west', 2)).toBe(true) // neighbor (0,1,1) = 0 (air)
+      })
+    )
 
-    it('should render faces on chunk boundaries', () => {
-      const blocks = [[[1]]]
+    it.effect('should render faces on chunk boundaries', () =>
+      Effect.gen(function* () {
+        const blocks = [[[1]]]
 
-      // All boundary faces should be rendered
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'west', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'bottom', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'north', 1)).toBe(true)
-      expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 1)).toBe(true)
-    })
+        // All boundary faces should be rendered
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'west', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'east', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'bottom', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'top', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'north', 1)).toBe(true)
+        expect(shouldRenderFace(blocks, 0, 0, 0, 'south', 1)).toBe(true)
+      })
+    )
   })
 
   describe('Performance Requirements', () => {

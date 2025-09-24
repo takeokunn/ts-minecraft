@@ -10,7 +10,7 @@ estimated_reading_time: '35分'
 
 # Effect-TS テスティング戦略 - PBT中心アプローチ
 
-TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** と **fast-check** を活用したProperty-Based Testing(PBT)中心のテスト戦略を採用しています。
+TypeScript Minecraftプロジェクトでは、**Effect-TS 3.17+** と **@effect/vitest** を活用したProperty-Based Testing(PBT)中心のテスト戦略を採用しています。
 
 ## PBTに最適化された関数設計原則
 
@@ -355,7 +355,7 @@ describe("Stateful WorldService Testing", () => {
 ### 3.1 Schema統合プロパティテスト - 小関数のテスト戦略
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { it } from '@effect/vitest'
 
 // ✅ PBT最適化: 小さな純粋関数のプロパティテスト
@@ -402,7 +402,7 @@ const BlockArbitrary = fc.record({
       fc.constant('minecraft:air')
     )
     .map((id) => id as any),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
+  metadata: fc.option(fc.dictionary(Schema.String, fc.anything()), { nil: undefined }),
   lightLevel: fc.integer({ min: 0, max: 15 }),
   hardness: fc.float({ min: 0, max: 100 }),
 })
@@ -431,7 +431,7 @@ describe('Pure Function Property-Based Tests', () => {
   )
 
   // 境界チェックのプロパティ
-  it.prop([fc.integer(), fc.integer(), fc.integer()])(
+  it.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])(
     'boundary check should correctly identify out-of-bounds positions',
     (x, y, z) => {
       const pos = { x, y, z }
@@ -487,7 +487,7 @@ describe('Composite Function Property-Based Tests', () => {
     }
   )
 
-  it.prop([fc.array(PositionArbitrary, { minLength: 1, maxLength: 10 })])(
+  it.prop([Schema.Array(PositionArbitrary, { minLength: 1, maxLength: 10 })])(
     'position validation should be transitive',
     async (positions) => {
       const test = Effect.gen(function* () {
@@ -572,17 +572,17 @@ const ItemStackArbitrary = fc.record({
     .oneof(fc.constant('minecraft:stone'), fc.constant('minecraft:dirt'), fc.constant('minecraft:wood'))
     .map((id) => id as any),
   quantity: fc.integer({ min: 1, max: 64 }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
+  metadata: fc.option(fc.dictionary(Schema.String, fc.anything()), { nil: undefined }),
 })
 
 const InventoryArbitrary = fc.record({
-  slots: fc.array(fc.option(ItemStackArbitrary, { nil: undefined }), { maxLength: 36 }),
+  slots: Schema.Array(fc.option(ItemStackArbitrary, { nil: undefined }), { maxLength: 36 }),
   maxSize: fc.constant(36),
 })
 
 describe('Inventory Pure Function Property Tests', () => {
   // 正規化関数のプロパティ
-  it.prop([fc.integer()])('normalizeQuantity should always return valid stack size', (quantity) => {
+  it.prop([Schema.Number.pipe(Schema.int())])('normalizeQuantity should always return valid stack size', (quantity) => {
     const normalized = normalizeQuantity(quantity)
     expect(normalized).toBeGreaterThanOrEqual(1)
     expect(normalized).toBeLessThanOrEqual(64)

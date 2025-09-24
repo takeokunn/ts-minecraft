@@ -41,141 +41,165 @@ const createMockMetrics = (overrides: Partial<PerformanceMetrics> = {}): Perform
 
 describe('Performance Analysis Functions', () => {
   describe('calculateAverageMetrics', () => {
-    it('空の履歴に対してnullを返す', () => {
-      const average = calculateAverageMetrics([])
-      expect(average).toBeNull()
-    })
+    it.effect('空の履歴に対してnullを返す', () =>
+      Effect.gen(function* () {
+        const average = calculateAverageMetrics([])
+        expect(average).toBeNull()
+      })
+    )
 
-    it('単一のメトリクスに対してそのまま返す', () => {
-      const metrics = createMockMetrics({ frameRate: 45 })
-      const average = calculateAverageMetrics([metrics], 10)
+    it.effect('単一のメトリクスに対してそのまま返す', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({ frameRate: 45 })
+        const average = calculateAverageMetrics([metrics], 10)
 
-      expect(average?.frameRate).toBe(45)
-      expect(average?.memoryUsageMB).toBe(1000)
-    })
+        expect(average?.frameRate).toBe(45)
+        expect(average?.memoryUsageMB).toBe(1000)
+      })
+    )
 
-    it('複数メトリクスの平均を正しく計算する', () => {
-      const metrics = [
-        createMockMetrics({ frameRate: 60, memoryUsageMB: 800 }),
-        createMockMetrics({ frameRate: 50, memoryUsageMB: 1200 }),
-        createMockMetrics({ frameRate: 70, memoryUsageMB: 1000 }),
-      ]
+    it.effect('複数メトリクスの平均を正しく計算する', () =>
+      Effect.gen(function* () {
+        const metrics = [
+          createMockMetrics({ frameRate: 60, memoryUsageMB: 800 }),
+          createMockMetrics({ frameRate: 50, memoryUsageMB: 1200 }),
+          createMockMetrics({ frameRate: 70, memoryUsageMB: 1000 }),
+        ]
 
-      const average = calculateAverageMetrics(metrics, 10)
+        const average = calculateAverageMetrics(metrics, 10)
 
-      expect(average?.frameRate).toBe(60) // (60+50+70)/3
-      expect(average?.memoryUsageMB).toBe(1000) // (800+1200+1000)/3
-    })
+        expect(average?.frameRate).toBe(60) // (60+50+70)/3
+        expect(average?.memoryUsageMB).toBe(1000) // (800+1200+1000)/3
+      })
+    )
 
-    it('サンプル数制限が正しく適用される', () => {
-      const metrics = Array.from({ length: 10 }, (_, i) => createMockMetrics({ frameRate: 60 + i }))
+    it.effect('サンプル数制限が正しく適用される', () =>
+      Effect.gen(function* () {
+        const metrics = Array.from({ length: 10 }, (_, i) => createMockMetrics({ frameRate: 60 + i }))
 
-      const average = calculateAverageMetrics(metrics, 3)
+        const average = calculateAverageMetrics(metrics, 3)
 
-      // 最後の3つの平均: (67+68+69)/3 = 68
-      expect(average?.frameRate).toBe(68)
-    })
+        // 最後の3つの平均: (67+68+69)/3 = 68
+        expect(average?.frameRate).toBe(68)
+      })
+    )
   })
 
   describe('analyzePerformanceTrend', () => {
-    it('履歴が不足している場合は全て安定を返す', () => {
-      const metrics = [createMockMetrics()]
-      const trend = analyzePerformanceTrend(metrics, defaultViewDistanceConfig)
+    it.effect('履歴が不足している場合は全て安定を返す', () =>
+      Effect.gen(function* () {
+        const metrics = [createMockMetrics()]
+        const trend = analyzePerformanceTrend(metrics, defaultViewDistanceConfig)
 
-      expect(trend.frameRateTrend).toBe('stable')
-      expect(trend.memoryTrend).toBe('stable')
-      expect(trend.loadTimeTrend).toBe('stable')
-    })
+        expect(trend.frameRateTrend).toBe('stable')
+        expect(trend.memoryTrend).toBe('stable')
+        expect(trend.loadTimeTrend).toBe('stable')
+      })
+    )
 
-    it('フレームレート向上を正しく検出する', () => {
-      const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
+    it.effect('フレームレート向上を正しく検出する', () =>
+      Effect.gen(function* () {
+        const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
 
-      // 古いメトリクス: 低いフレームレート
-      const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 45 }))
+        // 古いメトリクス: 低いフレームレート
+        const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 45 }))
 
-      // 新しいメトリクス: 高いフレームレート
-      const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 60 }))
+        // 新しいメトリクス: 高いフレームレート
+        const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ frameRate: 60 }))
 
-      const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
+        const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
 
-      const trend = analyzePerformanceTrend(allMetrics, config)
-      expect(trend.frameRateTrend).toBe('improving')
-    })
+        const trend = analyzePerformanceTrend(allMetrics, config)
+        expect(trend.frameRateTrend).toBe('improving')
+      })
+    )
 
-    it('メモリ使用量悪化を正しく検出する', () => {
-      const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
+    it.effect('メモリ使用量悪化を正しく検出する', () =>
+      Effect.gen(function* () {
+        const config = { ...defaultViewDistanceConfig, adjustmentThreshold: 0.1 }
 
-      const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 800 }))
+        const olderMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 800 }))
 
-      const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 1200 }))
+        const recentMetrics = Array.from({ length: 5 }, () => createMockMetrics({ memoryUsageMB: 1200 }))
 
-      const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
+        const allMetrics = [...Array.from({ length: 5 }, () => createMockMetrics()), ...olderMetrics, ...recentMetrics]
 
-      const trend = analyzePerformanceTrend(allMetrics, config)
-      expect(trend.memoryTrend).toBe('degrading')
-    })
+        const trend = analyzePerformanceTrend(allMetrics, config)
+        expect(trend.memoryTrend).toBe('degrading')
+      })
+    )
   })
 
   describe('calculateOptimalViewDistance', () => {
     const config = defaultViewDistanceConfig
 
-    it('低フレームレートで描画距離を減らす', () => {
-      const metrics = createMockMetrics({ frameRate: 30 }) // 目標60の50%
-      const result = calculateOptimalViewDistance(16, metrics, config)
+    it.effect('低フレームレートで描画距離を減らす', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({ frameRate: 30 }) // 目標60の50%
+        const result = calculateOptimalViewDistance(16, metrics, config)
 
-      expect(result.suggestedDistance).toBeLessThan(16)
-      expect(result.reason).toBe('performance_low')
-      expect(result.confidence).toBeGreaterThan(0.7)
-    })
-
-    it('高メモリ使用量で描画距離を減らす', () => {
-      const metrics = createMockMetrics({ memoryUsageMB: 1800 }) // 上限2000の90%
-      const result = calculateOptimalViewDistance(16, metrics, config)
-
-      expect(result.suggestedDistance).toBeLessThan(16)
-      expect(result.reason).toBe('memory_high')
-      expect(result.confidence).toBeGreaterThan(0.8)
-    })
-
-    it('高ロード時間で描画距離を減らす', () => {
-      const metrics = createMockMetrics({ averageChunkLoadTimeMs: 300 })
-      const result = calculateOptimalViewDistance(16, metrics, config)
-
-      expect(result.suggestedDistance).toBeLessThan(16)
-      expect(result.reason).toBe('load_time_high')
-      expect(result.confidence).toBeGreaterThan(0.6)
-    })
-
-    it('良好なパフォーマンスで描画距離を増やす', () => {
-      const metrics = createMockMetrics({
-        frameRate: 75, // 目標の125%
-        memoryUsageMB: 1000, // 上限の50%
-        averageChunkLoadTimeMs: 50, // 基準の50%
+        expect(result.suggestedDistance).toBeLessThan(16)
+        expect(result.reason).toBe('performance_low')
+        expect(result.confidence).toBeGreaterThan(0.7)
       })
-      const result = calculateOptimalViewDistance(16, metrics, config)
+    )
 
-      expect(result.suggestedDistance).toBeGreaterThan(16)
-      expect(result.reason).toBe('performance_good')
-    })
+    it.effect('高メモリ使用量で描画距離を減らす', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({ memoryUsageMB: 1800 }) // 上限2000の90%
+        const result = calculateOptimalViewDistance(16, metrics, config)
 
-    it('最小・最大描画距離の制限を守る', () => {
-      const metrics = createMockMetrics({ frameRate: 10 })
+        expect(result.suggestedDistance).toBeLessThan(16)
+        expect(result.reason).toBe('memory_high')
+        expect(result.confidence).toBeGreaterThan(0.8)
+      })
+    )
 
-      const result = calculateOptimalViewDistance(4, metrics, config) // 既に最小
-      expect(result.suggestedDistance).toBeGreaterThanOrEqual(config.minViewDistance)
+    it.effect('高ロード時間で描画距離を減らす', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({ averageChunkLoadTimeMs: 300 })
+        const result = calculateOptimalViewDistance(16, metrics, config)
 
-      const maxResult = calculateOptimalViewDistance(
-        32,
-        {
-          ...metrics,
-          frameRate: 90,
-          memoryUsageMB: 500,
-          averageChunkLoadTimeMs: 30,
-        },
-        config
-      )
-      expect(maxResult.suggestedDistance).toBeLessThanOrEqual(config.maxViewDistance)
-    })
+        expect(result.suggestedDistance).toBeLessThan(16)
+        expect(result.reason).toBe('load_time_high')
+        expect(result.confidence).toBeGreaterThan(0.6)
+      })
+    )
+
+    it.effect('良好なパフォーマンスで描画距離を増やす', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({
+          frameRate: 75, // 目標の125%
+          memoryUsageMB: 1000, // 上限の50%
+          averageChunkLoadTimeMs: 50, // 基準の50%
+        })
+        const result = calculateOptimalViewDistance(16, metrics, config)
+
+        expect(result.suggestedDistance).toBeGreaterThan(16)
+        expect(result.reason).toBe('performance_good')
+      })
+    )
+
+    it.effect('最小・最大描画距離の制限を守る', () =>
+      Effect.gen(function* () {
+        const metrics = createMockMetrics({ frameRate: 10 })
+
+        const result = calculateOptimalViewDistance(4, metrics, config) // 既に最小
+        expect(result.suggestedDistance).toBeGreaterThanOrEqual(config.minViewDistance)
+
+        const maxResult = calculateOptimalViewDistance(
+          32,
+          {
+            ...metrics,
+            frameRate: 90,
+            memoryUsageMB: 500,
+            averageChunkLoadTimeMs: 30,
+          },
+          config
+        )
+        expect(maxResult.suggestedDistance).toBeLessThanOrEqual(config.maxViewDistance)
+      })
+    )
   })
 })
 
@@ -185,78 +209,92 @@ describe('Performance Analysis Functions', () => {
 
 describe('Chunk Position Functions', () => {
   describe('getVisibleChunkPositions', () => {
-    it('描画距離0では中心チャンクのみ返す', () => {
-      const center = { x: 16, y: 64, z: 32 }
-      const positions = getVisibleChunkPositions(center, 0)
+    it.effect('描画距離0では中心チャンクのみ返す', () =>
+      Effect.gen(function* () {
+        const center = { x: 16, y: 64, z: 32 }
+        const positions = getVisibleChunkPositions(center, 0)
 
-      expect(positions).toHaveLength(1)
-      expect(positions[0]).toEqual({ x: 1, z: 2 })
-    })
+        expect(positions).toHaveLength(1)
+        expect(positions[0]).toEqual({ x: 1, z: 2 })
+      })
+    )
 
-    it('描画距離1では9つのチャンクを返す', () => {
-      const center = { x: 0, y: 64, z: 0 }
-      const positions = getVisibleChunkPositions(center, 1)
+    it.effect('描画距離1では9つのチャンクを返す', () =>
+      Effect.gen(function* () {
+        const center = { x: 0, y: 64, z: 0 }
+        const positions = getVisibleChunkPositions(center, 1)
 
-      expect(positions).toHaveLength(9) // 3x3
-      expect(positions).toContainEqual({ x: 0, z: 0 }) // 中心
-      expect(positions).toContainEqual({ x: -1, z: -1 }) // 角
-      expect(positions).toContainEqual({ x: 1, z: 1 }) // 角
-    })
+        expect(positions).toHaveLength(9) // 3x3
+        expect(positions).toContainEqual({ x: 0, z: 0 }) // 中心
+        expect(positions).toContainEqual({ x: -1, z: -1 }) // 角
+        expect(positions).toContainEqual({ x: 1, z: 1 }) // 角
+      })
+    )
 
-    it('描画距離2では正しい数のチャンクを返す', () => {
-      const center = { x: 0, y: 64, z: 0 }
-      const positions = getVisibleChunkPositions(center, 2)
+    it.effect('描画距離2では正しい数のチャンクを返す', () =>
+      Effect.gen(function* () {
+        const center = { x: 0, y: 64, z: 0 }
+        const positions = getVisibleChunkPositions(center, 2)
 
-      expect(positions).toHaveLength(25) // 5x5
-    })
+        expect(positions).toHaveLength(25) // 5x5
+      })
+    )
 
-    it('ワールド座標からチャンク座標への変換が正しい', () => {
-      const center = { x: 17, y: 64, z: -15 }
-      const positions = getVisibleChunkPositions(center, 1)
+    it.effect('ワールド座標からチャンク座標への変換が正しい', () =>
+      Effect.gen(function* () {
+        const center = { x: 17, y: 64, z: -15 }
+        const positions = getVisibleChunkPositions(center, 1)
 
-      // 17/16=1.0625→1, -15/16=-0.9375→-1
-      const centerChunk = { x: 1, z: -1 }
-      expect(positions).toContainEqual(centerChunk)
-    })
+        // 17/16=1.0625→1, -15/16=-0.9375→-1
+        const centerChunk = { x: 1, z: -1 }
+        expect(positions).toContainEqual(centerChunk)
+      })
+    )
   })
 
   describe('calculateChunkPriority', () => {
-    it('プレイヤーに近いチャンクほど高い優先度を持つ', () => {
-      const playerPos = { x: 0, y: 64, z: 0 }
-      const viewDistance = 4
+    it.effect('プレイヤーに近いチャンクほど高い優先度を持つ', () =>
+      Effect.gen(function* () {
+        const playerPos = { x: 0, y: 64, z: 0 }
+        const viewDistance = 4
 
-      const nearChunk: ChunkPosition = { x: 0, z: 0 }
-      const farChunk: ChunkPosition = { x: 3, z: 3 }
+        const nearChunk: ChunkPosition = { x: 0, z: 0 }
+        const farChunk: ChunkPosition = { x: 3, z: 3 }
 
-      const nearPriority = calculateChunkPriority(nearChunk, playerPos, viewDistance)
-      const farPriority = calculateChunkPriority(farChunk, playerPos, viewDistance)
+        const nearPriority = calculateChunkPriority(nearChunk, playerPos, viewDistance)
+        const farPriority = calculateChunkPriority(farChunk, playerPos, viewDistance)
 
-      expect(nearPriority).toBeGreaterThan(farPriority)
-    })
+        expect(nearPriority).toBeGreaterThan(farPriority)
+      })
+    )
 
-    it('プレイヤーの前方にあるチャンクがやや高い優先度を持つ', () => {
-      const playerPos = { x: 0, y: 64, z: 0 }
-      const viewDistance = 4
+    it.effect('プレイヤーの前方にあるチャンクがやや高い優先度を持つ', () =>
+      Effect.gen(function* () {
+        const playerPos = { x: 0, y: 64, z: 0 }
+        const viewDistance = 4
 
-      const frontChunk: ChunkPosition = { x: 1, z: 0 } // 右（前方と仮定）
-      const backChunk: ChunkPosition = { x: -1, z: 0 } // 左（後方と仮定）
+        const frontChunk: ChunkPosition = { x: 1, z: 0 } // 右（前方と仮定）
+        const backChunk: ChunkPosition = { x: -1, z: 0 } // 左（後方と仮定）
 
-      const frontPriority = calculateChunkPriority(frontChunk, playerPos, viewDistance)
-      const backPriority = calculateChunkPriority(backChunk, playerPos, viewDistance)
+        const frontPriority = calculateChunkPriority(frontChunk, playerPos, viewDistance)
+        const backPriority = calculateChunkPriority(backChunk, playerPos, viewDistance)
 
-      expect(frontPriority).toBeGreaterThanOrEqual(backPriority)
-    })
+        expect(frontPriority).toBeGreaterThanOrEqual(backPriority)
+      })
+    )
 
-    it('優先度が0-1の範囲内にある', () => {
-      const playerPos = { x: 0, y: 64, z: 0 }
-      const viewDistance = 4
+    it.effect('優先度が0-1の範囲内にある', () =>
+      Effect.gen(function* () {
+        const playerPos = { x: 0, y: 64, z: 0 }
+        const viewDistance = 4
 
-      const chunk: ChunkPosition = { x: 2, z: 1 }
-      const priority = calculateChunkPriority(chunk, playerPos, viewDistance)
+        const chunk: ChunkPosition = { x: 2, z: 1 }
+        const priority = calculateChunkPriority(chunk, playerPos, viewDistance)
 
-      expect(priority).toBeGreaterThanOrEqual(0)
-      expect(priority).toBeLessThanOrEqual(1)
-    })
+        expect(priority).toBeGreaterThanOrEqual(0)
+        expect(priority).toBeLessThanOrEqual(1)
+      })
+    )
   })
 })
 

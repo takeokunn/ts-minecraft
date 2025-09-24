@@ -1348,7 +1348,7 @@ const pauseResumeFlow = Effect.gen(function* () {
 ### Property-Based Testing with Schema Integration
 
 ```typescript
-import * as fc from "fast-check"
+import * as fc from "@effect/vitest"
 import { it } from "@effect/vitest"
 
 // テスト用のArbitrary定義
@@ -1360,7 +1360,7 @@ const sceneNodeArbitrary = fc.record({
   _tag: fc.constant("SceneNode" as const),
   id: sceneIdArbitrary,
   priority: loadPriorityArbitrary,
-  visible: fc.boolean(),
+  visible: Schema.Boolean,
   cullingRadius: fc.float({ min: 1, max: 500 }).map(CullingRadius),
   renderDepth: fc.integer({ min: 0, max: 100 }).map(RenderDepth),
   bounds: fc.record({
@@ -1368,18 +1368,18 @@ const sceneNodeArbitrary = fc.record({
     max: fc.record({ x: fc.float(), y: fc.float(), z: fc.float() })
   }),
   children: fc.constant([]), // 簡略化
-  metadata: fc.option(fc.record({ test: fc.string() }), { nil: undefined })
+  metadata: fc.option(fc.record({ test: Schema.String }), { nil: undefined })
 })
 
 const sceneArbitrary = fc.record({
   _tag: fc.constant("Scene" as const),
   type: fc.constantFrom("StartScreen", "MainGame", "GameOver", "Pause", "Settings", "Loading", "Credits"),
   id: sceneIdArbitrary,
-  isActive: fc.boolean(),
-  isLoading: fc.boolean(),
-  visible: fc.boolean(),
+  isActive: Schema.Boolean,
+  isLoading: Schema.Boolean,
+  visible: Schema.Boolean,
   sceneGraph: fc.option(sceneNodeArbitrary, { nil: undefined }),
-  data: fc.option(fc.record({ key: fc.string() }), { nil: undefined }),
+  data: fc.option(fc.record({ key: Schema.String }), { nil: undefined }),
   timestamp: fc.integer({ min: 0 })
 })
 
@@ -1397,7 +1397,7 @@ export const SceneManagementTests = describe("Scene Management", () => {
       Effect.provide(SceneSystemTestLayer)
     ))
 
-  it.prop([fc.array(sceneNodeArbitrary, { minLength: 1, maxLength: 50 }), viewDistanceArbitrary])(
+  it.prop([Schema.Array(sceneNodeArbitrary, { minLength: 1, maxLength: 50 }), viewDistanceArbitrary])(
     "Frustum culling preserves node count invariant",
     (nodes, viewDistance) =>
       Effect.gen(function* () {

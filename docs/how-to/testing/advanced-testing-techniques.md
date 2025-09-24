@@ -49,7 +49,7 @@ mindmap
 
 ### 緊急対応チェックリスト
 
-- [ ] **Property-Based実行**: `fc.assert(fc.property(...))`でエッジケース網羅
+- [ ] **Property-Based実行**: `it.prop(it.prop(...))`でエッジケース網羅
 - [ ] **ビジュアル検証**: `toMatchImageSnapshot()`で視覚的回帰確認
 - [ ] **契約テスト**: Schema検証でAPI/モジュール間整合性確認
 - [ ] **ゴールデンファイル**: 出力構造の一貫性確認
@@ -109,7 +109,7 @@ flowchart TD
 #### 1.1 Advanced Schema-Driven Generation
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Schema } from '@effect/schema'
 import { Effect, pipe } from 'effect'
 
@@ -175,7 +175,7 @@ const playerActionArbitrary = fc.oneof(
     _tag: fc.constant('BreakBlock' as const),
     playerId: fc.uuid(),
     position: worldCoordinateArbitrary,
-    tool: fc.option(fc.string()),
+    tool: fc.option(Schema.String),
     timestamp: fc.integer({ min: 1, max: Date.now() }),
   })
 )
@@ -183,8 +183,8 @@ const playerActionArbitrary = fc.oneof(
 describe('Advanced Property-Based World System Tests', () => {
   describe('World State Invariants', () => {
     it('任意のアクション実行後もワールドの整合性が保たれる', () => {
-      fc.assert(
-        fc.property(fc.array(playerActionArbitrary, { minLength: 1, maxLength: 100 }), (actions) => {
+      it.prop(
+        it.prop(Schema.Array(playerActionArbitrary, { minLength: 1, maxLength: 100 }), (actions) => {
           const world = new WorldState()
 
           // 各アクションが有効であることを事前確認
@@ -235,8 +235,8 @@ describe('Advanced Property-Based World System Tests', () => {
     })
 
     it('ブロック配置・破壊の可逆性テスト', () => {
-      fc.assert(
-        fc.property(
+      it.prop(
+        it.prop(
           worldCoordinateArbitrary,
           fc.constantFrom('Stone', 'Wood', 'Iron', 'Diamond'),
           (position, blockType) => {
@@ -275,9 +275,9 @@ describe('Advanced Property-Based World System Tests', () => {
     })
 
     it('物理法則の保存則検証', () => {
-      fc.assert(
-        fc.property(
-          fc.array(physicsEntityArbitrary, { minLength: 2, maxLength: 10 }),
+      it.prop(
+        it.prop(
+          Schema.Array(physicsEntityArbitrary, { minLength: 2, maxLength: 10 }),
           fc.float({ min: 0.001, max: 0.1, noNaN: true }), // deltaTime
           (entities, deltaTime) => {
             const physicsWorld = new PhysicsWorld()
@@ -342,12 +342,12 @@ describe('Advanced Property-Based World System Tests', () => {
 
   describe('Complex System Integration Properties', () => {
     it('マルチプレイヤー同期の一貫性', () => {
-      fc.assert(
-        fc.property(
-          fc.array(
+      it.prop(
+        it.prop(
+          Schema.Array(
             fc.record({
               playerId: fc.uuid(),
-              actions: fc.array(playerActionArbitrary, { maxLength: 20 }),
+              actions: Schema.Array(playerActionArbitrary, { maxLength: 20 }),
             }),
             { minLength: 2, maxLength: 5 }
           ),
@@ -404,8 +404,8 @@ describe('Advanced Property-Based World System Tests', () => {
 ```typescript
 describe('Property-Based Performance Tests', () => {
   it('チャンクロード性能のスケーラビリティ特性', () => {
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         fc.integer({ min: 1, max: 100 }), // チャンク数
         fc.integer({ min: 1, max: 4 }), // 並行度
         async (chunkCount, concurrency) => {
@@ -452,8 +452,8 @@ describe('Property-Based Performance Tests', () => {
   })
 
   it('エンティティ処理の計算量特性', () => {
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         fc.integer({ min: 10, max: 1000 }), // エンティティ数
         (entityCount) => {
           const world = new WorldState()

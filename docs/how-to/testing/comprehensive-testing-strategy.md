@@ -197,8 +197,8 @@ describe('Random Generation - DETERMINISTIC', () => {
   })
 
   it('Property-Based Testingでの決定論的実行', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 1000000 }), (seed) => {
+    it.prop(
+      it.prop(fc.integer({ min: 0, max: 1000000 }), (seed) => {
         const rng1 = Random.fromSeed(seed)
         const rng2 = Random.fromSeed(seed)
 
@@ -424,8 +424,8 @@ describe('Player Domain Entity', () => {
     })
 
     it('プレイヤー状態の不変条件', () => {
-      fc.assert(
-        fc.property(playerArbitrary, (playerData) => {
+      it.prop(
+        it.prop(playerArbitrary, (playerData) => {
           const player = Player.create({
             id: PlayerId.generate(),
             ...playerData,
@@ -448,8 +448,8 @@ describe('Player Domain Entity', () => {
     })
 
     it('ダメージ計算の交換法則', () => {
-      fc.assert(
-        fc.property(
+      it.prop(
+        it.prop(
           fc.integer({ min: 1, max: 100 }),
           fc.integer({ min: 1, max: 50 }),
           fc.integer({ min: 1, max: 50 }),
@@ -1049,8 +1049,8 @@ describe('IndexedDBPlayerRepository', () => {
 ```typescript
 import { Effect, STM, Layer, Context, Schema, Fiber, Duration } from 'effect'
 import { Arbitrary } from '@effect/schema/Arbitrary'
-import { describe, it, expect } from '@fast-check/vitest'
-import * as fc from 'fast-check'
+import { describe, it, expect } from '@@effect/vitest/vitest'
+import * as fc from '@effect/vitest'
 
 // Schema-first approach for type-safe property testing
 const BlockTypeSchema = Schema.Literal('air', 'stone', 'dirt', 'grass', 'water', 'lava', 'wood', 'iron', 'diamond')
@@ -1139,8 +1139,8 @@ describe('Advanced Block System Properties', () => {
     )
 
     it('隣接ブロック配置の独立性', () => {
-      fc.assert(
-        fc.property(worldPositionArbitrary, blockTypeArbitrary, blockTypeArbitrary, (basePos, type1, type2) => {
+      it.prop(
+        it.prop(worldPositionArbitrary, blockTypeArbitrary, blockTypeArbitrary, (basePos, type1, type2) => {
           const pos1 = basePos
           const pos2 = { ...basePos, x: basePos.x + 1 }
 
@@ -1157,8 +1157,8 @@ describe('Advanced Block System Properties', () => {
 
   describe('チャンク境界の性質', () => {
     it('チャンク内のすべてのブロックが正しい座標範囲内', () => {
-      fc.assert(
-        fc.property(fc.integer({ min: -100, max: 100 }), fc.integer({ min: -100, max: 100 }), (chunkX, chunkZ) => {
+      it.prop(
+        it.prop(fc.integer({ min: -100, max: 100 }), fc.integer({ min: -100, max: 100 }), (chunkX, chunkZ) => {
           const chunk = generateChunk(chunkX, chunkZ)
           const blocks = chunk.getAllBlocks()
 
@@ -1178,8 +1178,8 @@ describe('Advanced Block System Properties', () => {
     })
 
     it('チャンク境界跨ぎブロック配置の一貫性', () => {
-      fc.assert(
-        fc.property(
+      it.prop(
+        it.prop(
           fc.integer({ min: -10, max: 10 }),
           fc.integer({ min: -10, max: 10 }),
           blockTypeArbitrary,
@@ -1224,8 +1224,8 @@ describe('Advanced Block System Properties', () => {
     })
 
     it('重力による下方向加速度の一貫性', () => {
-      fc.assert(
-        fc.property(entityArbitrary, fc.float({ min: 0.01, max: 1, noNaN: true }), (entity, deltaTime) => {
+      it.prop(
+        it.prop(entityArbitrary, fc.float({ min: 0.01, max: 1, noNaN: true }), (entity, deltaTime) => {
           const physics = new PhysicsEngine()
           const initialVelocityY = entity.velocity.y
 
@@ -1241,8 +1241,8 @@ describe('Advanced Block System Properties', () => {
     })
 
     it('摩擦による速度減衰の単調性', () => {
-      fc.assert(
-        fc.property(entityArbitrary, fc.float({ min: 0.01, max: 0.1, noNaN: true }), (entity, deltaTime) => {
+      it.prop(
+        it.prop(entityArbitrary, fc.float({ min: 0.01, max: 0.1, noNaN: true }), (entity, deltaTime) => {
           fc.pre(entity.velocity.x !== 0 || entity.velocity.z !== 0) // 初期速度があることを前提
 
           const physics = new PhysicsEngine()
@@ -1356,9 +1356,9 @@ describe('STM-Enhanced Inventory Properties', () => {
     )
 
     it('アイテム移動操作の対称性', () => {
-      fc.assert(
-        fc.property(
-          fc.array(itemStackArbitrary, { minLength: 10, maxLength: 20 }),
+      it.prop(
+        it.prop(
+          Schema.Array(itemStackArbitrary, { minLength: 10, maxLength: 20 }),
           fc.integer({ min: 0, max: 35 }),
           fc.integer({ min: 0, max: 35 }),
           (items, fromSlot, toSlot) => {
@@ -1386,8 +1386,8 @@ describe('STM-Enhanced Inventory Properties', () => {
 
   describe('容量制限の不変条件', () => {
     it('どんな操作でも容量を超えない', () => {
-      fc.assert(
-        fc.property(fc.array(itemStackArbitrary, { minLength: 0, maxLength: 100 }), (items) => {
+      it.prop(
+        it.prop(Schema.Array(itemStackArbitrary, { minLength: 0, maxLength: 100 }), (items) => {
           const inventory = new Inventory(36)
           let addedCount = 0
 
@@ -1417,10 +1417,10 @@ describe('STM-Enhanced Inventory Properties', () => {
     })
 
     it('スタック可能アイテムの最適化', () => {
-      fc.assert(
-        fc.property(
+      it.prop(
+        it.prop(
           fc.string({ minLength: 1, maxLength: 20 }),
-          fc.array(fc.integer({ min: 1, max: 32 }), { minLength: 2, maxLength: 5 }),
+          Schema.Array(fc.integer({ min: 1, max: 32 }), { minLength: 2, maxLength: 5 }),
           (itemId, quantities) => {
             const inventory = new Inventory(36)
             const totalQuantity = quantities.reduce((sum, q) => sum + q, 0)
@@ -1458,7 +1458,7 @@ describe('STM-Enhanced Inventory Properties', () => {
 
   describe('クラフティングの組み合わせ爆発テスト', () => {
     const recipeArbitrary = fc.record({
-      inputs: fc.array(
+      inputs: Schema.Array(
         fc.record({
           itemId: fc.string({ minLength: 1, maxLength: 10 }),
           quantity: fc.integer({ min: 1, max: 9 }),
@@ -1469,12 +1469,15 @@ describe('STM-Enhanced Inventory Properties', () => {
         itemId: fc.string({ minLength: 1, maxLength: 10 }),
         quantity: fc.integer({ min: 1, max: 64 }),
       }),
-      pattern: fc.array(fc.array(fc.string(), { minLength: 3, maxLength: 3 }), { minLength: 3, maxLength: 3 }),
+      pattern: Schema.Array(Schema.Array(Schema.String, { minLength: 3, maxLength: 3 }), {
+        minLength: 3,
+        maxLength: 3,
+      }),
     })
 
     it('クラフティングの材料保存則', () => {
-      fc.assert(
-        fc.property(recipeArbitrary, fc.integer({ min: 1, max: 10 }), (recipe, craftCount) => {
+      it.prop(
+        it.prop(recipeArbitrary, fc.integer({ min: 1, max: 10 }), (recipe, craftCount) => {
           const inventory = new Inventory(36)
 
           // 十分な材料を準備
@@ -1521,8 +1524,8 @@ describe('STM-Enhanced Inventory Properties', () => {
     })
 
     it('無効レシピでのインベントリ不変性', () => {
-      fc.assert(
-        fc.property(recipeArbitrary, inventoryArbitrary, (recipe, initialItems) => {
+      it.prop(
+        it.prop(recipeArbitrary, inventoryArbitrary, (recipe, initialItems) => {
           const inventory = new Inventory(36)
           initialItems.forEach((item) => inventory.addItem(item))
 
@@ -1545,9 +1548,9 @@ describe('STM-Enhanced Inventory Properties', () => {
 
   describe('Fiber-based 並行クラフティング', () => {
     it.prop([
-      fc.array(
+      Schema.Array(
         fc.record({
-          inputs: fc.array(
+          inputs: Schema.Array(
             fc.record({
               itemId: fc.string({ minLength: 3, maxLength: 15 }),
               quantity: fc.integer({ min: 1, max: 5 }),
@@ -1603,15 +1606,15 @@ describe('STM-Enhanced Inventory Properties', () => {
 })
 ```
 
-#### 3.3 @fast-check/vitest 3.15.0+ 統合による高度なProperty-Based Testing
+#### 3.3 @@effect/vitest/vitest 3.15.0+ 統合による高度なProperty-Based Testing
 
 ```typescript
-import { describe, it, expect } from '@fast-check/vitest'
-import * as fc from 'fast-check'
+import { describe, it, expect } from '@@effect/vitest/vitest'
+import * as fc from '@effect/vitest'
 
 // Vitest統合による改善されたPBTレポーティング
 describe('Fast-check 3.15.0+ Integration Features', () => {
-  it.prop([fc.integer(), fc.integer()], {
+  it.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())], {
     numRuns: 1000,
     seed: 42,
     verbose: true,
@@ -1631,7 +1634,7 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
     expect(a + 0).toBe(a)
   })
 
-  it.prop([fc.array(fc.integer(), { minLength: 1, maxLength: 100 })], {
+  it.prop([Schema.Array(Schema.Number.pipe(Schema.int()), { minLength: 1, maxLength: 100 })], {
     numRuns: 500,
     timeout: 5000,
     examples: [[[1]], [[1, 2, 3]], [Array.from({ length: 50 }, (_, i) => i)]],

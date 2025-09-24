@@ -321,10 +321,10 @@ export const CoordinateError = Schema.TaggedError('CoordinateError')({
 export const CoordinateTestUtils = {
   /**
    * Property-Based Testing用の包括的Arbitrary生成 - Phase 6: PBT完全最適化
-   * @description fast-check統合Brand型対応Arbitraryジェネレーター（50個以上実装）
+   * @description @effect/vitest統合Brand型対応Arbitraryジェネレーター（50個以上実装）
    * @example
    * ```typescript
-   * import * as fc from "fast-check"
+   * import * as fc from "@effect/vitest"
    *
    * // 🎯 座標系Arbitraryジェネレーター（Brand型統合）
    * const WorldPositionArbitrary = fc.record({
@@ -370,12 +370,12 @@ export const CoordinateTestUtils = {
    *   itemId: ItemIdArbitrary,
    *   quantity: ItemQuantityArbitrary,
    *   durability: fc.option(DurabilityArbitrary),
-   *   enchantments: fc.array(fc.string(), { maxLength: 5 }),
-   *   metadata: fc.option(fc.record({ key: fc.string() }))
+   *   enchantments: Schema.Array(Schema.String, { maxLength: 5 }),
+   *   metadata: fc.option(fc.record({ key: Schema.String }))
    * });
    *
    * const InventoryArbitrary = fc.record({
-   *   slots: fc.array(fc.option(ItemStackArbitrary), { minLength: 36, maxLength: 36 }),
+   *   slots: Schema.Array(fc.option(ItemStackArbitrary), { minLength: 36, maxLength: 36 }),
    *   selectedSlot: SlotIndexArbitrary,
    *   totalItems: fc.integer({ min: 0, max: 36 }),
    *   totalWeight: fc.float({ min: 0, max: 1000 })
@@ -410,7 +410,7 @@ export const CoordinateTestUtils = {
    *   pitch: FrequencyArbitrary,
    *   attenuation: fc.option(AttenuationDistanceArbitrary),
    *   category: fc.constantFrom("ambient", "block", "entity", "player", "music"),
-   *   loop: fc.boolean()
+   *   loop: Schema.Boolean
    * });
    *
    * // ⚔️ 戦闘系Arbitraryジェネレーター（Brand型統合）
@@ -2134,12 +2134,12 @@ export const TypeSafetyDemonstration = {
    * @description 型安全性とテストの完全統合パターン（数学的プロパティ・Brand型・無限テスト）
    * @example
    * ```typescript
-   * import * as fc from "fast-check"
+   * import * as fc from "@effect/vitest"
    *
    * // 🧪 座標変換の数学的プロパティ（可逆性・交換法則・結合法則）
    * describe("Coordinate Mathematical Properties", () => {
    *   // ✨ プロパティ1: 座標変換の可逆性（Reversibility Property）
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     CoordinateTestUtils.arbitraryWorldPosition(),
    *     (worldPos: WorldVector3) => {
    *       const blockPos = CoordinateUtils.worldToBlock(worldPos);
@@ -2151,7 +2151,7 @@ export const TypeSafetyDemonstration = {
    *   ));
    *
    *   // ✨ プロパティ2: チャンク座標の単調性（Monotonicity Property）
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     CoordinateTestUtils.arbitraryWorldPosition(),
    *     CoordinateTestUtils.arbitraryWorldPosition(),
    *     (pos1, pos2) => {
@@ -2168,7 +2168,7 @@ export const TypeSafetyDemonstration = {
    * // 🎯 インベントリの代数的プロパティ（結合法則・交換法則・恒等元）
    * describe("Inventory Algebraic Properties", () => {
    *   // ✨ プロパティ3: アイテム追加の結合法則（Associativity）
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     InventoryTestUtils.arbitraryInventory(),
    *     InventoryTestUtils.arbitraryItemStack(),
    *     InventoryTestUtils.arbitraryItemStack(),
@@ -2184,7 +2184,7 @@ export const TypeSafetyDemonstration = {
    *   ));
    *
    *   // ✨ プロパティ4: インベントリ操作の可逆性（Reversibility）
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     InventoryTestUtils.arbitraryInventory(),
    *     InventoryTestUtils.arbitraryItemStack(),
    *     (inventory, itemStack) => {
@@ -2198,7 +2198,7 @@ export const TypeSafetyDemonstration = {
    * // 🏗️ ブロック配置の整合性プロパティ（Consistency & Adjacency）
    * describe("Block Placement Properties", () => {
    *   // ✨ プロパティ5: ブロック配置の局所的整合性（Local Consistency）
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     BlockTestUtils.arbitraryBlockPosition(),
    *     BlockTestUtils.arbitraryBlockType(),
    *     (position, blockType) => {
@@ -2215,7 +2215,7 @@ export const TypeSafetyDemonstration = {
    * // 🔄 エラーハンドリングの網羅性プロパティ
    * describe("Error Handling Properties", () => {
    *   // ✨ プロパティ6: 座標境界エラーの確定性
-   *   fc.assert(fc.property(
+   *   it.prop(it.prop(
    *     fc.oneof(
    *       fc.record({ x: fc.constant(NaN), y: fc.float(), z: fc.float() }),
    *       fc.record({ x: fc.float(), y: fc.constant(Infinity), z: fc.float() })
@@ -2244,7 +2244,7 @@ export const TypeSafetyDemonstration = {
 ### 🧪 **Effect-TSとProperty-Based Testingの完全統合実装**
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Effect, Layer, TestContext, TestClock, TestRandom } from 'effect'
 
 // 🎯 パターン1: Effect.gen + Property-Based Testing統合
@@ -2290,30 +2290,27 @@ export const EffectPBTPatterns = {
     )
 
     // Property-Based Testing実行
-    return fc.property(
-      CoordinateTestUtils.arbitraryWorldPosition(),
-      BlockTestUtils.arbitraryBlock(),
-      (position, block) =>
-        Effect.runSync(
-          Effect.gen(function* () {
-            const worldService = yield* WorldService
+    return it.prop(CoordinateTestUtils.arbitraryWorldPosition(), BlockTestUtils.arbitraryBlock(), (position, block) =>
+      Effect.runSync(
+        Effect.gen(function* () {
+          const worldService = yield* WorldService
 
-            // ブロック配置後の取得結果の整合性をテスト
-            yield* worldService.placeBlock(position, block)
-            const retrieved = yield* worldService.getBlock(position)
+          // ブロック配置後の取得結果の整合性をテスト
+          yield* worldService.placeBlock(position, block)
+          const retrieved = yield* worldService.getBlock(position)
 
-            return (
-              Option.isSome(retrieved) &&
-              retrieved.value.type === block.type &&
-              CoordinateUtils.equals(retrieved.value.position, position)
-            )
-          }).pipe(Effect.provide(TestWorldService), Effect.either)
-        ).pipe(
-          Either.match({
-            onLeft: () => true, // エラーも有効な結果
-            onRight: (result) => result,
-          })
-        )
+          return (
+            Option.isSome(retrieved) &&
+            retrieved.value.type === block.type &&
+            CoordinateUtils.equals(retrieved.value.position, position)
+          )
+        }).pipe(Effect.provide(TestWorldService), Effect.either)
+      ).pipe(
+        Either.match({
+          onLeft: () => true, // エラーも有効な結果
+          onRight: (result) => result,
+        })
+      )
     )
   },
 
@@ -2334,7 +2331,7 @@ export const EffectPBTPatterns = {
       }
     })
 
-    return fc.property(fc.integer({ min: 100, max: 5000 }), (delay) =>
+    return it.prop(fc.integer({ min: 100, max: 5000 }), (delay) =>
       Effect.runSync(
         Effect.gen(function* () {
           const service = yield* TimeBasedService
@@ -2357,8 +2354,8 @@ export const EffectPBTPatterns = {
    * @description Software Transactional Memoryを使った並行処理の検証
    */
   stmConcurrencyPropertyTesting: () => {
-    return fc.property(
-      fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 10, maxLength: 100 }),
+    return it.prop(
+      Schema.Array(fc.integer({ min: 1, max: 100 }), { minLength: 10, maxLength: 100 }),
       fc.integer({ min: 2, max: 10 }),
       (items, concurrency) =>
         Effect.runSync(
@@ -2418,7 +2415,7 @@ export const EffectPBTPatterns = {
         })
     )
 
-    return fc.property(fc.array(fc.string(), { minLength: 1, maxLength: 20 }), (operations) =>
+    return it.prop(Schema.Array(Schema.String, { minLength: 1, maxLength: 20 }), (operations) =>
       Effect.runSync(
         Effect.gen(function* () {
           const results: string[] = []
@@ -2458,7 +2455,7 @@ export const EffectPBTPatterns = {
       health: Schema.Number.pipe(Schema.between(0, 20), Schema.brand('HealthPoints')),
     })
 
-    return fc.property(
+    return it.prop(
       fc.oneof(
         // 有効なデータ
         fc.record({
@@ -2473,9 +2470,9 @@ export const EffectPBTPatterns = {
         }),
         // 無効なデータ
         fc.record({
-          id: fc.oneof(fc.constant(null), fc.integer()),
+          id: fc.oneof(fc.constant(null), Schema.Number.pipe(Schema.int())),
           name: fc.string({ maxLength: 2 }),
-          position: fc.string(),
+          position: Schema.String,
           health: fc.float({ min: -10, max: -1 }),
         })
       ),
@@ -2501,7 +2498,7 @@ export const AdvancedEffectPBTPatterns = {
    * パターン6: Fiber並行処理のProperty-Based Testing
    */
   fiberConcurrencyTesting: () =>
-    fc.property(fc.array(fc.integer({ min: 1, max: 1000 }), { minLength: 5, maxLength: 50 }), (tasks) =>
+    it.prop(Schema.Array(fc.integer({ min: 1, max: 1000 }), { minLength: 5, maxLength: 50 }), (tasks) =>
       Effect.runSync(
         Effect.gen(function* () {
           const fibers = yield* Effect.all(
@@ -2524,7 +2521,7 @@ export const AdvancedEffectPBTPatterns = {
    * パターン7: Queue操作のProperty-Based Testing
    */
   queueOperationsTesting: () =>
-    fc.property(fc.array(fc.string(), { minLength: 1, maxLength: 100 }), (items) =>
+    it.prop(Schema.Array(Schema.String, { minLength: 1, maxLength: 100 }), (items) =>
       Effect.runSync(
         Effect.gen(function* () {
           const queue = yield* Queue.unbounded<string>()
@@ -2551,7 +2548,7 @@ export const AdvancedEffectPBTPatterns = {
    * パターン8: Effect.raceとProperty-Based Testing
    */
   effectRaceTesting: () =>
-    fc.property(fc.integer({ min: 10, max: 1000 }), fc.integer({ min: 10, max: 1000 }), (delay1, delay2) =>
+    it.prop(fc.integer({ min: 10, max: 1000 }), fc.integer({ min: 10, max: 1000 }), (delay1, delay2) =>
       Effect.runSync(
         Effect.gen(function* () {
           const result = yield* Effect.race(
@@ -2569,7 +2566,7 @@ export const AdvancedEffectPBTPatterns = {
    * パターン9: Effect.retryとProperty-Based Testing
    */
   effectRetryTesting: () =>
-    fc.property(fc.integer({ min: 1, max: 5 }), fc.integer({ min: 0, max: 10 }), (maxRetries, failureCount) =>
+    it.prop(fc.integer({ min: 1, max: 5 }), fc.integer({ min: 0, max: 10 }), (maxRetries, failureCount) =>
       Effect.runSync(
         Effect.gen(function* () {
           let attempts = 0
@@ -2594,7 +2591,7 @@ export const AdvancedEffectPBTPatterns = {
    * パターン10: Stream処理のProperty-Based Testing
    */
   streamProcessingTesting: () =>
-    fc.property(fc.array(fc.integer(), { minLength: 1, maxLength: 1000 }), (numbers) =>
+    it.prop(Schema.Array(Schema.Number.pipe(Schema.int()), { minLength: 1, maxLength: 1000 }), (numbers) =>
       Effect.runSync(
         Effect.gen(function* () {
           const stream = Stream.fromIterable(numbers)
@@ -2625,7 +2622,7 @@ export const AdvancedEffectPBTPatterns = {
 ```typescript
 // 💥 従来テストでは発見困難: 特定の座標でのみ発生する微小誤差
 import { pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 export const CoordinateTransformationBugExamples = {
   /**
@@ -2633,7 +2630,7 @@ export const CoordinateTransformationBugExamples = {
    * 従来テスト: 整数座標のみテスト → バグ未発見
    * PBTテスト: ランダム浮動小数点 → 微小誤差バグ発見
    */
-  floatingPointPrecisionBug: fc.property(
+  floatingPointPrecisionBug: it.prop(
     fc.float({ min: -10000, max: 10000, noNaN: true }),
     fc.float({ min: -10000, max: 10000, noNaN: true }),
     fc.float({ min: -10000, max: 10000, noNaN: true }),
@@ -2666,7 +2663,7 @@ export const CoordinateTransformationBugExamples = {
    * 従来テスト: 正の座標のみ → バグ未発見
    * PBTテスト: 全座標範囲 → 負座標でのバグ発見
    */
-  negativeCoordinateFloorBug: fc.property(
+  negativeCoordinateFloorBug: it.prop(
     fc.integer({ min: -10000, max: 10000 }),
     fc.integer({ min: -10000, max: 10000 }),
     (worldX, worldZ) => {
@@ -2691,7 +2688,7 @@ export const CoordinateTransformationBugExamples = {
   /**
    * 🐛 バグ例3: チャンク境界での座標変換バウンダリエラー
    */
-  chunkBoundaryBug: fc.property(
+  chunkBoundaryBug: it.prop(
     fc.integer({ min: -32, max: 32 }), // チャンク番号
     fc.integer({ min: 0, max: 15 }), // チャンク内座標
     (chunkCoord, localCoord) => {
@@ -2726,8 +2723,8 @@ export const InventoryRaceConditionBugExamples = {
    * 従来テスト: 単一スレッド → 競合状態未発見
    * PBTテスト: 並行操作シミュレーション → 競合バグ発見
    */
-  itemTransferAtomicityBug: fc.property(
-    fc.array(
+  itemTransferAtomicityBug: it.prop(
+    Schema.Array(
       fc.record({
         from: fc.integer({ min: 0, max: 35 }),
         to: fc.integer({ min: 0, max: 35 }),
@@ -2801,7 +2798,7 @@ export const InventoryRaceConditionBugExamples = {
   /**
    * 🐛 バグ例5: スタック分割の整合性エラー
    */
-  stackSplitConsistencyBug: fc.property(
+  stackSplitConsistencyBug: it.prop(
     fc.integer({ min: 2, max: 64 }), // 元のスタック数
     fc.integer({ min: 1, max: 32 }), // 分割数
     (originalStack, splitAmount) => {
@@ -2844,8 +2841,8 @@ export const BlockPlacementPhysicsBugExamples = {
    * 従来テスト: 単純配置のみ → 複雑配置パターンでのバグ未発見
    * PBTテスト: ランダム配置パターン → 物理法則違反発見
    */
-  gravityBlockFloatingBug: fc.property(
-    fc.array(
+  gravityBlockFloatingBug: it.prop(
+    Schema.Array(
       fc.record({
         position: fc.record({
           x: fc.integer({ min: 0, max: 15 }),
@@ -2907,8 +2904,8 @@ export const BlockPlacementPhysicsBugExamples = {
   /**
    * 🐛 バグ例7: 水流計算の無限ループバグ
    */
-  waterFlowInfiniteLoopBug: fc.property(
-    fc.array(
+  waterFlowInfiniteLoopBug: it.prop(
+    Schema.Array(
       fc.record({
         x: fc.integer({ min: 0, max: 10 }),
         y: fc.integer({ min: 0, max: 5 }),
@@ -2979,8 +2976,8 @@ export const BlockPlacementPhysicsBugExamples = {
   /**
    * 🐛 バグ例8: レッドストーン信号伝播の遅延バグ
    */
-  redstoneSignalPropagationBug: fc.property(
-    fc.array(
+  redstoneSignalPropagationBug: it.prop(
+    Schema.Array(
       fc.record({
         position: fc.record({
           x: fc.integer({ min: 0, max: 20 }),
@@ -2988,7 +2985,7 @@ export const BlockPlacementPhysicsBugExamples = {
           z: fc.integer({ min: 0, max: 20 }),
         }),
         type: fc.constantFrom('redstone_wire', 'redstone_torch', 'stone', 'air'),
-        powered: fc.boolean(),
+        powered: Schema.Boolean,
       }),
       { minLength: 5, maxLength: 50 }
     ),
@@ -3057,8 +3054,8 @@ export const ResourceManagementBugExamples = {
   /**
    * 🐛 バグ例9: チャンクローディングでのメモリリーク
    */
-  chunkLoadingMemoryLeakBug: fc.property(
-    fc.array(
+  chunkLoadingMemoryLeakBug: it.prop(
+    Schema.Array(
       fc.record({
         chunkX: fc.integer({ min: -10, max: 10 }),
         chunkZ: fc.integer({ min: -10, max: 10 }),
@@ -3137,8 +3134,8 @@ export const ResourceManagementBugExamples = {
   /**
    * 🐛 バグ例10: イベントリスナーの登録解除漏れ
    */
-  eventListenerLeakBug: fc.property(
-    fc.array(
+  eventListenerLeakBug: it.prop(
+    Schema.Array(
       fc.record({
         action: fc.constantFrom('register', 'unregister', 'trigger'),
         eventType: fc.constantFrom('click', 'keydown', 'move', 'attack'),
@@ -3213,8 +3210,8 @@ export const DataStructureConsistencyBugExamples = {
   /**
    * 🐛 バグ例11: 双方向リンクの整合性エラー
    */
-  bidirectionalLinkConsistencyBug: fc.property(
-    fc.array(
+  bidirectionalLinkConsistencyBug: it.prop(
+    Schema.Array(
       fc.record({
         operation: fc.constantFrom('add', 'remove', 'connect', 'disconnect'),
         nodeA: fc.integer({ min: 1, max: 20 }),
@@ -3306,8 +3303,8 @@ export const DataStructureConsistencyBugExamples = {
   /**
    * 🐛 バグ例12: インデックスと実データの同期エラー
    */
-  indexDataSyncBug: fc.property(
-    fc.array(
+  indexDataSyncBug: it.prop(
+    Schema.Array(
       fc.record({
         operation: fc.constantFrom('insert', 'update', 'delete'),
         key: fc.string({ minLength: 1, maxLength: 10 }),
@@ -3449,7 +3446,7 @@ export const DataStructureConsistencyBugExamples = {
 - 分配法則: 12性質
 - 保存則: 10性質
 
-**✅ fast-check統合パターン**: **20+** (目標達成)
+**✅ @effect/vitest統合パターン**: **20+** (目標達成)
 
 - Brand型統合: 8パターン
 - Effect-TS統合: 7パターン

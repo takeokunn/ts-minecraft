@@ -236,3 +236,4 @@ export -f claude_next_steps
 export -f estimate_complexity_with_context
 export -f pre_implementation_checklist
 export -f claude_full_automation
+

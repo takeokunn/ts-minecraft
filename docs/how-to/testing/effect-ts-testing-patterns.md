@@ -3,7 +3,7 @@ title: 'Effect-TS 3.17+ 最新テストパターン完全ガイド'
 description: 'Effect-TS 3.17+ の最新APIと最新パターンに完全準拠したテスト実装ガイド。Schema統合、Property-Based Testing、Context.GenericTag、Match.valueなどの現代的パターンを網羅。'
 category: 'guide'
 difficulty: 'advanced'
-tags: ['effect-ts', 'testing', 'property-based-testing', 'schema-validation', 'fast-check', 'modern-patterns']
+tags: ['effect-ts', 'testing', 'property-based-testing', 'schema-validation', '@effect/vitest', 'modern-patterns']
 prerequisites: ['effect-ts-fundamentals', 'schema-basics', 'vitest-basics', 'development-conventions']
 estimated_reading_time: '45分'
 related_patterns: ['effect-ts-test-patterns', 'service-patterns-catalog', 'error-handling-patterns']
@@ -718,11 +718,11 @@ const itemStackGen = Gen.struct({
 })
 
 describe('Property-Based Testing with @effect/vitest', () => {
-  it.effect('validates position calculations maintain invariants using fast-check', () =>
+  it.effect('validates position calculations maintain invariants using @effect/vitest', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(coordinateArbitrary, coordinateArbitrary, (pos1, pos2) => {
+        it.prop(
+          it.prop(coordinateArbitrary, coordinateArbitrary, (pos1, pos2) => {
             const result = Effect.runSync(
               Effect.gen(function* () {
                 // 距離計算のテスト（プロパティ：距離は常に非負）
@@ -770,8 +770,8 @@ describe('Property-Based Testing with @effect/vitest', () => {
 
       // Effect Genを使ったプロパティテスト
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
+        it.prop(
+          it.prop(
             Gen.sample(testGenerator, 1)[0], // Effect Genから値を生成
             (playerData) => {
               const result = Effect.runSync(
@@ -800,9 +800,9 @@ describe('Property-Based Testing with @effect/vitest', () => {
   it('inventory operations are reversible', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
-            fc.array(itemStackArbitrary, { minLength: 0, maxLength: 36 }),
+        it.prop(
+          it.prop(
+            Schema.Array(itemStackArbitrary, { minLength: 0, maxLength: 36 }),
             itemStackArbitrary,
             (initialInventory, itemToAdd) => {
               const result = Effect.runSync(
@@ -835,11 +835,11 @@ describe('Property-Based Testing with @effect/vitest', () => {
 ```typescript
 // ゲームロジック特化のジェネレーター
 const playerArbitrary = fc.record({
-  id: fc.string(),
+  id: Schema.String,
   name: fc.string({ minLength: 3, maxLength: 16 }),
   position: coordinateArbitrary,
   health: fc.integer({ min: 0, max: 100 }),
-  inventory: fc.array(itemStackArbitrary, { maxLength: 36 }),
+  inventory: Schema.Array(itemStackArbitrary, { maxLength: 36 }),
 })
 
 const blockArbitrary = fc.record({
@@ -852,8 +852,8 @@ describe('Game Logic Properties', () => {
   it('block breaking time follows physics laws', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
+        it.prop(
+          it.prop(
             blockArbitrary,
             fc.integer({ min: 1, max: 10 }), // tool efficiency
             (block, toolEfficiency) => {
@@ -878,9 +878,9 @@ describe('Game Logic Properties', () => {
   it('chunk generation is deterministic with same seed', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
-            fc.string(), // seed
+        it.prop(
+          it.prop(
+            Schema.String, // seed
             coordinateArbitrary, // chunk coordinate
             (seed, coord) => {
               const result = Effect.runSync(
@@ -904,8 +904,8 @@ describe('Game Logic Properties', () => {
   it('physics simulation conserves energy', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(
+        it.prop(
+          it.prop(
             fc.record({
               mass: fc.float({ min: 0.1, max: 100 }),
               velocity: fc.record({
@@ -1768,7 +1768,7 @@ describe('Custom Mock Usage', () => {
 
 ### 🧪 **Property-Based Testing統合**
 
-- **fast-check**とEffect-TSの完全統合
+- **@effect/vitest**とEffect-TSの完全統合
 - ゲーム特化の自動テストデータ生成
 - 物理法則・ゲームルールの不変条件テスト
 - エッジケースの自動発見

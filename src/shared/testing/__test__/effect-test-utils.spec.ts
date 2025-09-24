@@ -5,7 +5,8 @@
  * and provide comprehensive testing patterns
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, pipe, Context, Layer, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import { EffectTestUtils, PropertyTestUtils, IntegrationTestUtils, ErrorTestUtils } from '../effect-test-utils'
@@ -155,12 +156,14 @@ describe('Effect Testing Utilities', () => {
       await ErrorTestUtils.testErrorSerialization(TestErrorSchema, testError)
     })
 
-    it('testErrorTypeGuards should validate error type detection', () => {
-      const isTestError = (error: unknown): error is TestError =>
-        typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TestError'
+    it.effect('testErrorTypeGuards should validate error type detection', () =>
+      Effect.gen(function* () {
+        const isTestError = (error: unknown): error is TestError =>
+          typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TestError'
 
-      ErrorTestUtils.testErrorTypeGuards([testError], isTestError)
-    })
+        ErrorTestUtils.testErrorTypeGuards([testError], isTestError)
+      })
+    )
   })
 
   describe('Real Brand Type Integration Tests', () => {

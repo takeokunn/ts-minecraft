@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Exit, pipe, Layer } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
@@ -82,79 +83,91 @@ vi.mock('three', async () => {
 
 describe('TextureAtlas', () => {
   describe('Schema Validation', () => {
-    it('should validate TextureRegion schema', () => {
-      const validRegion = { u: 0.5, v: 0.5, width: 0.25, height: 0.25 }
-      const parsed = Schema.decodeUnknownSync(TextureRegionSchema)(validRegion)
-      expect(parsed).toEqual(validRegion)
-    })
+    it.effect('should validate TextureRegion schema', () =>
+      Effect.gen(function* () {
+        const validRegion = { u: 0.5, v: 0.5, width: 0.25, height: 0.25 }
+        const parsed = Schema.decodeUnknownSync(TextureRegionSchema)(validRegion)
+        expect(parsed).toEqual(validRegion)
+      })
+    )
 
-    it('should reject invalid TextureRegion', () => {
-      const invalidRegion = { u: -0.1, v: 1.5, width: 2, height: -1 }
-      expect(() => Schema.decodeUnknownSync(TextureRegionSchema)(invalidRegion)).toThrow()
-    })
+    it.effect('should reject invalid TextureRegion', () =>
+      Effect.gen(function* () {
+        const invalidRegion = { u: -0.1, v: 1.5, width: 2, height: -1 }
+        expect(() => Schema.decodeUnknownSync(TextureRegionSchema)(invalidRegion)).toThrow()
+      })
+    )
 
-    it('should validate BlockTexture schema', () => {
-      const validBlockTexture = {
-        blockType: 1,
-        top: createTestRegion(),
-        bottom: createTestRegion(),
-        front: createTestRegion(),
-        back: createTestRegion(),
-        left: createTestRegion(),
-        right: createTestRegion(),
-      }
-      const parsed = Schema.decodeUnknownSync(BlockTextureSchema)(validBlockTexture)
-      expect(parsed).toEqual(validBlockTexture)
-    })
+    it.effect('should validate BlockTexture schema', () =>
+      Effect.gen(function* () {
+        const validBlockTexture = {
+          blockType: 1,
+          top: createTestRegion(),
+          bottom: createTestRegion(),
+          front: createTestRegion(),
+          back: createTestRegion(),
+          left: createTestRegion(),
+          right: createTestRegion(),
+        }
+        const parsed = Schema.decodeUnknownSync(BlockTextureSchema)(validBlockTexture)
+        expect(parsed).toEqual(validBlockTexture)
+      })
+    )
   })
 
   describe('Type Guards and Interfaces', () => {
-    it('should create valid TextureRegion objects', () => {
-      const region: TextureRegion = {
-        u: BrandedTypes.createUVCoordinate(0.25),
-        v: BrandedTypes.createUVCoordinate(0.5),
-        width: BrandedTypes.createUVCoordinate(0.125),
-        height: BrandedTypes.createUVCoordinate(0.125),
-      }
+    it.effect('should create valid TextureRegion objects', () =>
+      Effect.gen(function* () {
+        const region: TextureRegion = {
+          u: BrandedTypes.createUVCoordinate(0.25),
+          v: BrandedTypes.createUVCoordinate(0.5),
+          width: BrandedTypes.createUVCoordinate(0.125),
+          height: BrandedTypes.createUVCoordinate(0.125),
+        }
 
-      expect(region.u).toBe(0.25)
-      expect(region.v).toBe(0.5)
-      expect(region.width).toBe(0.125)
-      expect(region.height).toBe(0.125)
-    })
+        expect(region.u).toBe(0.25)
+        expect(region.v).toBe(0.5)
+        expect(region.width).toBe(0.125)
+        expect(region.height).toBe(0.125)
+      })
+    )
 
-    it('should create valid AtlasConfig', () => {
-      const config: AtlasConfig = {
-        textureSize: 16,
-        atlasSize: 256,
-        mipmapping: true,
-        filtering: 'nearest',
-      }
+    it.effect('should create valid AtlasConfig', () =>
+      Effect.gen(function* () {
+        const config: AtlasConfig = {
+          textureSize: 16,
+          atlasSize: 256,
+          mipmapping: true,
+          filtering: 'nearest',
+        }
 
-      expect(config.textureSize).toBe(16)
-      expect(config.atlasSize).toBe(256)
-      expect(config.mipmapping).toBe(true)
-      expect(config.filtering).toBe('nearest')
-    })
+        expect(config.textureSize).toBe(16)
+        expect(config.atlasSize).toBe(256)
+        expect(config.mipmapping).toBe(true)
+        expect(config.filtering).toBe('nearest')
+      })
+    )
 
-    it('should handle both filtering modes', () => {
-      const nearestConfig: AtlasConfig = {
-        textureSize: 32,
-        atlasSize: 512,
-        mipmapping: false,
-        filtering: 'nearest',
-      }
+    it.effect('should handle both filtering modes', () =>
+      Effect.gen(function* () {
+        const nearestConfig: AtlasConfig = {
+          textureSize: 32,
+          atlasSize: 512,
+          mipmapping: false,
+          filtering: 'nearest',
+        }
 
-      const linearConfig: AtlasConfig = {
-        textureSize: 32,
-        atlasSize: 512,
-        mipmapping: true,
-        filtering: 'linear',
-      }
+        const linearConfig: AtlasConfig = {
+          textureSize: 32,
+          atlasSize: 512,
+          mipmapping: true,
+          filtering: 'linear',
+        }
 
-      expect(nearestConfig.filtering).toBe('nearest')
-      expect(linearConfig.filtering).toBe('linear')
-    })
+        expect(nearestConfig.filtering).toBe('nearest')
+        expect(linearConfig.filtering).toBe('linear')
+      })
+    )
   })
 
   describe('TextureAtlasService - loadAtlas', () => {
@@ -205,20 +218,23 @@ describe('TextureAtlas', () => {
       Effect.runSync(program.pipe(Effect.provide(TextureAtlasLive)))
     })
 
-    it('should handle errors during atlas loading', () => {
-      // Create a service that throws an error
-      const errorService: TextureAtlasService = {
-        loadAtlas: () => Effect.fail(TextureAtlasError('Failed to load', 'loadAtlas')) as any,
-        getBlockUVs: () => Effect.fail(TextureAtlasError('Not implemented', 'getBlockUVs')) as any,
-        generateUVCoords: () => Effect.fail(TextureAtlasError('Not implemented', 'generateUVCoords')) as any,
-        createTextureMaterial: () => Effect.fail(TextureAtlasError('Not implemented', 'createTextureMaterial')) as any,
-        registerBlockTexture: () => Effect.fail(TextureAtlasError('Not implemented', 'registerBlockTexture')) as any,
-      }
+    it.effect('should handle errors during atlas loading', () =>
+      Effect.gen(function* () {
+        // Create a service that throws an error
+        const errorService: TextureAtlasService = {
+          loadAtlas: () => Effect.fail(TextureAtlasError('Failed to load', 'loadAtlas')) as any,
+          getBlockUVs: () => Effect.fail(TextureAtlasError('Not implemented', 'getBlockUVs')) as any,
+          generateUVCoords: () => Effect.fail(TextureAtlasError('Not implemented', 'generateUVCoords')) as any,
+          createTextureMaterial: () =>
+            Effect.fail(TextureAtlasError('Not implemented', 'createTextureMaterial')) as any,
+          registerBlockTexture: () => Effect.fail(TextureAtlasError('Not implemented', 'registerBlockTexture')) as any,
+        }
 
-      const result = pipe(errorService.loadAtlas('/path/to/atlas.png'), Effect.either, Effect.runSync)
+        const result = pipe(errorService.loadAtlas('/path/to/atlas.png'), Effect.either, Effect.runSync)
 
-      expect(result._tag).toBe('Left')
-    })
+        expect(result._tag).toBe('Left')
+      })
+    )
   })
 
   describe('TextureAtlasService - getBlockUVs', () => {
@@ -461,36 +477,44 @@ describe('TextureAtlas', () => {
   })
 
   describe('Utility Functions', () => {
-    it('should calculate atlas efficiency correctly', () => {
-      expect(calculateAtlasEfficiency(16, 256, 16)).toBe(6.25)
-      expect(calculateAtlasEfficiency(256, 256, 16)).toBe(100)
-      expect(calculateAtlasEfficiency(0, 256, 16)).toBe(0)
-      expect(calculateAtlasEfficiency(128, 256, 16)).toBe(50)
-    })
+    it.effect('should calculate atlas efficiency correctly', () =>
+      Effect.gen(function* () {
+        expect(calculateAtlasEfficiency(16, 256, 16)).toBe(6.25)
+        expect(calculateAtlasEfficiency(256, 256, 16)).toBe(100)
+        expect(calculateAtlasEfficiency(0, 256, 16)).toBe(0)
+        expect(calculateAtlasEfficiency(128, 256, 16)).toBe(50)
+      })
+    )
 
-    it('should calculate optimal atlas size', () => {
-      expect(getOptimalAtlasSize(4, 16)).toBe(32) // 2x2 grid = 32
-      expect(getOptimalAtlasSize(16, 16)).toBe(64) // 4x4 grid = 64
-      expect(getOptimalAtlasSize(17, 16)).toBe(128) // 5x5 grid rounds up
-      expect(getOptimalAtlasSize(256, 16)).toBe(256) // 16x16 grid
-    })
+    it.effect('should calculate optimal atlas size', () =>
+      Effect.gen(function* () {
+        expect(getOptimalAtlasSize(4, 16)).toBe(32) // 2x2 grid = 32
+        expect(getOptimalAtlasSize(16, 16)).toBe(64) // 4x4 grid = 64
+        expect(getOptimalAtlasSize(17, 16)).toBe(128) // 5x5 grid rounds up
+        expect(getOptimalAtlasSize(256, 16)).toBe(256) // 16x16 grid
+      })
+    )
 
-    it('should round to power of 2', () => {
-      expect(getOptimalAtlasSize(5, 16)).toBe(64) // 48 -> 64
-      expect(getOptimalAtlasSize(20, 16)).toBe(128) // 80 -> 128
-      expect(getOptimalAtlasSize(70, 16)).toBe(256) // 144 -> 256
-    })
+    it.effect('should round to power of 2', () =>
+      Effect.gen(function* () {
+        expect(getOptimalAtlasSize(5, 16)).toBe(64) // 48 -> 64
+        expect(getOptimalAtlasSize(20, 16)).toBe(128) // 80 -> 128
+        expect(getOptimalAtlasSize(70, 16)).toBe(256) // 144 -> 256
+      })
+    )
   })
 
   describe('Error Handling', () => {
-    it('should create TextureAtlasError with correct properties', () => {
-      const error = TextureAtlasError('Test error', 'test')
+    it.effect('should create TextureAtlasError with correct properties', () =>
+      Effect.gen(function* () {
+        const error = TextureAtlasError('Test error', 'test')
 
-      expect(error._tag).toBe('TextureAtlasError')
-      expect(error.reason).toBe('Test error')
-      expect(error.context).toBe('test')
-      expect(error.timestamp).toBeGreaterThan(0)
-    })
+        expect(error._tag).toBe('TextureAtlasError')
+        expect(error.reason).toBe('Test error')
+        expect(error.context).toBe('test')
+        expect(error.timestamp).toBeGreaterThan(0)
+      })
+    )
   })
 
   describe('Performance', () => {
@@ -561,14 +585,18 @@ describe('TextureAtlas', () => {
   })
 
   describe('Edge Cases', () => {
-    it('should handle zero-sized textures gracefully', () => {
-      const efficiency = calculateAtlasEfficiency(0, 0, 0)
-      expect(efficiency).toBe(0)
-    })
+    it.effect('should handle zero-sized textures gracefully', () =>
+      Effect.gen(function* () {
+        const efficiency = calculateAtlasEfficiency(0, 0, 0)
+        expect(efficiency).toBe(0)
+      })
+    )
 
-    it('should handle invalid atlas configurations', () => {
-      const size = getOptimalAtlasSize(0, 16)
-      expect(size).toBe(16) // Minimum size with textureSize
-    })
+    it.effect('should handle invalid atlas configurations', () =>
+      Effect.gen(function* () {
+        const size = getOptimalAtlasSize(0, 16)
+        expect(size).toBe(16) // Minimum size with textureSize
+      })
+    )
   })
 })

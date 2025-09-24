@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, Ref } from 'effect'
 import { GameApplication } from '../GameApplication'
 import { GameApplicationLive } from '../GameApplicationLive'

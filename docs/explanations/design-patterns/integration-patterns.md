@@ -3470,7 +3470,7 @@ const setupIntegratedHealthSystem = Effect.gen(function* () {
 **実装**:
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Gen } from 'effect'
 
 // テストデータ生成器
@@ -3489,7 +3489,7 @@ const blockTypeGen = fc.oneof(
 
 const chunkDataGen = fc.record({
   coordinate: chunkCoordinateGen,
-  blocks: fc.array(
+  blocks: Schema.Array(
     fc.record({
       type: blockTypeGen,
       position: fc.record({
@@ -3514,7 +3514,7 @@ const playerDataResponseGen = fc.record({
     y: fc.float({ min: 0, max: 256 }),
     z: fc.float({ min: -1000, max: 1000 }),
   }),
-  inventory: fc.array(
+  inventory: Schema.Array(
     fc.record({
       itemId: fc.oneof(fc.constant('dirt'), fc.constant('stone'), fc.constant('wood')),
       count: fc.integer({ min: 1, max: 64 }),
@@ -3528,7 +3528,7 @@ const testChunkRepositoryProperties = Effect.gen(function* () {
 
   // プロパティ1: 保存したチャンクは必ず読み込める
   yield* Effect.fromPromise(() =>
-    fc.assert(
+    it.prop(
       fc.asyncProperty(chunkDataGen, async (chunkData) => {
         const testEffect = Effect.gen(function* () {
           yield* repository.save(chunkData)
@@ -3547,8 +3547,8 @@ const testChunkRepositoryProperties = Effect.gen(function* () {
 
   // プロパティ2: バッチ読み込みの結果は個別読み込みと一致する
   yield* Effect.fromPromise(() =>
-    fc.assert(
-      fc.asyncProperty(fc.array(chunkDataGen, { minLength: 1, maxLength: 10 }), async (chunks) => {
+    it.prop(
+      fc.asyncProperty(Schema.Array(chunkDataGen, { minLength: 1, maxLength: 10 }), async (chunks) => {
         const testEffect = Effect.gen(function* () {
           // 全チャンクを保存
           yield* Effect.forEach(chunks, (chunk) => repository.save(chunk))
@@ -3574,7 +3574,7 @@ const testChunkRepositoryProperties = Effect.gen(function* () {
 
   // プロパティ3: 楽観的ロックの整合性
   yield* Effect.fromPromise(() =>
-    fc.assert(
+    it.prop(
       fc.asyncProperty(chunkDataGen, async (initialChunk) => {
         const testEffect = Effect.gen(function* () {
           yield* repository.save(initialChunk)
@@ -3617,7 +3617,7 @@ const testHttpIntegrationProperties = Effect.gen(function* () {
 
   // プロパティ1: 有効なプレイヤーIDに対してはレスポンスまたはエラーが返る
   yield* Effect.fromPromise(() =>
-    fc.assert(
+    it.prop(
       fc.asyncProperty(fc.uuid(), async (playerId) => {
         const testEffect = Effect.gen(function* () {
           const result = yield* Effect.either(httpService.getPlayerData(playerId))
@@ -3638,8 +3638,8 @@ const testHttpIntegrationProperties = Effect.gen(function* () {
 
   // プロパティ2: バッチ取得の結果数は要求数以下
   yield* Effect.fromPromise(() =>
-    fc.assert(
-      fc.asyncProperty(fc.array(fc.uuid(), { minLength: 1, maxLength: 20 }), async (playerIds) => {
+    it.prop(
+      fc.asyncProperty(Schema.Array(fc.uuid(), { minLength: 1, maxLength: 20 }), async (playerIds) => {
         const testEffect = Effect.gen(function* () {
           const results = yield* Effect.either(httpService.batchGetPlayers(playerIds))
 

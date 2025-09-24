@@ -98,7 +98,7 @@ npm run test:coverage
 ```typescript
 // 📁 src/domain/__test__/position.spec.ts
 import { describe, it, expect } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
 import { Position, PositionOps } from '../position'
@@ -268,7 +268,7 @@ describe('Position', () => {
 ```bash
 # Effect-TS 3.17+ 対応の最新パッケージインストール（2024年最新版）
 npm install -D vitest@^3.2.4 @vitest/ui happy-dom
-npm install -D @effect/vitest@^0.25.1 fast-check@^4.3.0
+npm install -D @effect/vitest@^0.25.1 @effect/vitest@^4.3.0
 npm install -D @effect/schema@^0.75.5 @effect/platform@^0.90.10
 npm install -D @types/node typescript
 
@@ -468,7 +468,7 @@ export const TestPlayerServiceLive = Layer.effect(PlayerService, makeTestPlayerS
 Fast-Checkを使用した包括的なテスト：
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { describe, it, expect } from '@effect/vitest'
 
 // Arbitraryジェネレータ
@@ -488,8 +488,8 @@ describe('Player Properties', () => {
   it.effect('距離計算の交換法則', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(positionArbitrary, positionArbitrary, (pos1, pos2) => {
+        it.prop(
+          it.prop(positionArbitrary, positionArbitrary, (pos1, pos2) => {
             const result = Effect.runSync(
               Effect.gen(function* () {
                 const distance1 = yield* calculateDistance(pos1, pos2)
@@ -512,8 +512,8 @@ describe('Player Properties', () => {
   it.effect('プレイヤー作成の不変条件', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(playerArbitrary, (playerData) => {
+        it.prop(
+          it.prop(playerArbitrary, (playerData) => {
             const result = Effect.runSync(
               Effect.gen(function* () {
                 const service = yield* PlayerService
@@ -542,7 +542,7 @@ describe('Player Properties', () => {
 
   // Effect統合版の非同期Property-Based Testing
   it('プレイヤー作成の不変条件（非同期版）', async () => {
-    await fc.assert(
+    await it.prop(
       fc.asyncProperty(playerArbitrary, async (playerData) => {
         const program = Effect.gen(function* () {
           const service = yield* PlayerService

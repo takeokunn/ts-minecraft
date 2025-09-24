@@ -51,7 +51,7 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
 - **Effect-TS 3.17+**: 関数型プログラミングによる堅牢なアプリケーション開発
 - **Domain-Driven Design**: ビジネスロジックの明確な分離と表現
 - **CQRS/Event Sourcing**: 読み書き分離とイベント駆動アーキテクチャ
-- **Property-Based Testing**: fast-checkによる網羅的テストカバレッジ
+- **Property-Based Testing**: @effect/vitestによる網羅的テストカバレッジ
 - **OpenAPI 3.1**: 自動生成される包括的なAPI仕様書
 - **WebGL + WebSocket**: リアルタイムレンダリングと双方向通信
 
@@ -418,8 +418,8 @@ export const processChunkRequest = (rawRequest: unknown) =>
 ### 🧪 **Property-Based Testing Integration**
 
 ```typescript
-// fast-check との統合
-import * as fc from 'fast-check'
+// @effect/vitest との統合
+import * as fc from '@effect/vitest'
 
 export const ChunkCoordinateArbitrary = fc.record({
   x: fc.integer({ min: -1000, max: 1000 }),
@@ -428,11 +428,11 @@ export const ChunkCoordinateArbitrary = fc.record({
 
 // テスト例
 export const chunkLoadTest = Effect.gen(function* () {
-  const property = fc.property(ChunkCoordinateArbitrary, (coord) =>
+  const property = it.prop(ChunkCoordinateArbitrary, (coord) =>
     pipe(WorldService.loadChunk(coord), Effect.either, Effect.map(Either.isRight))
   )
 
-  yield* Effect.promise(() => fc.assert(property))
+  yield* Effect.promise(() => it.prop(property))
 })
 ```
 
@@ -753,12 +753,12 @@ export const withTracing = <A, E, R>(effect: Effect.Effect<A, E, R>, traceContex
 ### 🔬 **Property-Based Contract Testing**
 
 ```typescript
-// Effect-TS + fast-check による包括的テスト
+// Effect-TS + @effect/vitest による包括的テスト
 export const apiContractTests = Effect.gen(function* () {
   // APIレスポンスの不変条件テスト
   yield* Effect.promise(() =>
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         fc.record({
           worldId: fc.string({ minLength: 24, maxLength: 24 }),
           chunkX: fc.integer({ min: -1000, max: 1000 }),
@@ -784,9 +784,9 @@ export const apiContractTests = Effect.gen(function* () {
 
   // パフォーマンス特性の検証
   yield* Effect.promise(() =>
-    fc.assert(
-      fc.property(
-        fc.array(
+    it.prop(
+      it.prop(
+        Schema.Array(
           fc.record({
             x: fc.integer({ min: -100, max: 100 }),
             z: fc.integer({ min: -100, max: 100 }),
@@ -856,7 +856,7 @@ export const generateOpenAPISpec = () =>
 
 1. **Schema First**: APIスキーマ定義から開始
 2. **Type-Driven Development**: Effect-TSの型システムを活用
-3. **Property-Based Testing**: fast-checkによる網羅的テスト
+3. **Property-Based Testing**: @effect/vitestによる網羅的テスト
 4. **Observability First**: メトリクス・ログ・トレーシングの統合
 5. **Security by Design**: 設計段階からセキュリティを考慮
 
