@@ -7,6 +7,7 @@ import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/E
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
 import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded.js'
+import { SpatialBrands } from '../../../shared/types/spatial-brands.js'
 import {
   createPlayerError,
   type PlayerPosition,
@@ -45,7 +46,7 @@ describe('PlayerService Integration Tests', () => {
           const config = {
             playerId: 'integration-test-player-1',
             initialPosition: { x: 10.5, y: 64, z: -20.3 },
-            initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4 },
+            initialRotation: { pitch: Math.PI / 6, yaw: Math.PI / 4, roll: 0 },
             health: 85,
           }
 
@@ -189,7 +190,7 @@ describe('PlayerService Integration Tests', () => {
 
           yield* playerService.createPlayer({ playerId })
 
-          const newRotation = { pitch: Math.PI / 3, yaw: -Math.PI / 2 }
+          const newRotation = { pitch: Math.PI / 3, yaw: -Math.PI / 2, roll: 0 }
           yield* playerService.setPlayerRotation(playerId, newRotation)
 
           const playerState = yield* playerService.getPlayerState(playerId)
@@ -246,7 +247,7 @@ describe('PlayerService Integration Tests', () => {
 
           const updateData = {
             position: { x: 200, y: 256, z: 100 },
-            rotation: { pitch: -Math.PI / 4, yaw: Math.PI },
+            rotation: { pitch: -Math.PI / 4, yaw: Math.PI, roll: 0 },
             health: 60,
           }
 
@@ -305,7 +306,7 @@ describe('PlayerService Integration Tests', () => {
             { playerId: 'valid', health: -10 }, // 負の体力
             { playerId: 'valid', health: 150 }, // 範囲外の体力
             { playerId: 'valid', initialPosition: { x: 'invalid', y: 0, z: 0 } }, // 無効な位置
-            { playerId: 'valid', initialRotation: { pitch: Math.PI, yaw: 0 } }, // 範囲外の回転
+            { playerId: 'valid', initialRotation: { pitch: Math.PI, yaw: 0, roll: 0 } }, // 範囲外の回転
           ]
 
           for (const config of invalidConfigs) {
@@ -325,7 +326,7 @@ describe('PlayerService Integration Tests', () => {
 
           // 無効な回転更新
           const invalidRotationResult = yield* Effect.either(
-            playerService.setPlayerRotation(playerId, { pitch: Math.PI * 2, yaw: 0 })
+            playerService.setPlayerRotation(playerId, { pitch: Math.PI * 2, yaw: 0, roll: 0 })
           )
           expect(Either.isLeft(invalidRotationResult)).toBe(true)
 
@@ -399,7 +400,7 @@ describe('PlayerService Integration Tests', () => {
           }
 
           // 範囲検索テスト（半径10）
-          const center: PlayerPosition = { x: 0, y: 0, z: 0 }
+          const center: PlayerPosition = SpatialBrands.createVector3D(0, 0, 0)
           const playersInRange = yield* playerService.getPlayersInRange(center, 10)
 
           expect(playersInRange).toHaveLength(3) // center, close-1, close-2

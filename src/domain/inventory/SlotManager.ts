@@ -124,12 +124,12 @@ export class SlotManager {
 
   // Count empty slots
   static countEmptySlots(inventory: Inventory): number {
-    return inventory.slots.filter((slot) => slot === null).length
+    return inventory.slots.filter((slot: any) => slot === null).length
   }
 
   // Count used slots
   static countUsedSlots(inventory: Inventory): number {
-    return inventory.slots.filter((slot) => slot !== null).length
+    return inventory.slots.filter((slot: any) => slot !== null).length
   }
 
   // Get hotbar item by index

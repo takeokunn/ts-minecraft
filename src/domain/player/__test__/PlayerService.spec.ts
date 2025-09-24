@@ -82,7 +82,7 @@ describe('PlayerService', () => {
       const config = {
         playerId: 'test-player-1',
         initialPosition: { x: 0, y: 64, z: 0 },
-        initialRotation: { pitch: 0, yaw: 0 },
+        initialRotation: { pitch: 0, yaw: 0, roll: 0 },
         health: 100,
       }
 
@@ -90,7 +90,7 @@ describe('PlayerService', () => {
 
       expect(result.playerId).toBe('test-player-1')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0, roll: 0 })
       expect(result.health).toBe(100)
     })
 
@@ -123,7 +123,7 @@ describe('PlayerService', () => {
     })
 
     it('should validate rotation with correct bounds', () => {
-      const rotation = { pitch: Math.PI / 4, yaw: Math.PI }
+      const rotation = { pitch: Math.PI / 4, yaw: Math.PI, roll: 0 }
 
       const result = Effect.runSync(
         validatePlayerConfig({
@@ -138,7 +138,7 @@ describe('PlayerService', () => {
     it('should reject invalid rotation bounds', () => {
       const config = {
         playerId: 'test-player',
-        initialRotation: { pitch: Math.PI, yaw: 0 }, // pitch out of bounds
+        initialRotation: { pitch: Math.PI, yaw: 0, roll: 0 }, // pitch out of bounds
       }
 
       const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
@@ -185,10 +185,12 @@ describe('PlayerService', () => {
       const rotationComponent = {
         pitch: Math.PI / 4,
         yaw: Math.PI / 2,
+        roll: 0,
       }
 
       expect(typeof rotationComponent.pitch).toBe('number')
       expect(typeof rotationComponent.yaw).toBe('number')
+      expect(typeof rotationComponent.roll).toBe('number')
     })
   })
 })

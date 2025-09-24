@@ -3,6 +3,7 @@ import { PlayerService } from './PlayerService.js'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { PlayerId, ComponentTypeName } from '../../shared/types/branded.js'
+import { GameBrands, TimeBrands, SpatialBrands } from '../../shared/types/index.js'
 import {
   type PlayerConfig,
   type PlayerState,
@@ -70,21 +71,19 @@ const makePlayerServiceLive = Effect.gen(function* () {
   // Helper: プレイヤーコンポーネントの作成
   const createPlayerComponent = (playerId: PlayerId, health: number): PlayerComponent => ({
     playerId,
-    health,
-    lastUpdate: Date.now(),
+    health: GameBrands.createHealth(health),
+    lastUpdate: TimeBrands.createTimestamp(),
   })
 
   // Helper: 位置コンポーネントの作成
-  const createPositionComponent = (position: PlayerPosition): PositionComponent => ({
-    x: position.x,
-    y: position.y,
-    z: position.z,
-  })
+  const createPositionComponent = (position: PlayerPosition): PositionComponent =>
+    SpatialBrands.createVector3D(position.x, position.y, position.z)
 
   // Helper: 回転コンポーネントの作成
   const createRotationComponent = (rotation: PlayerRotation): RotationComponent => ({
     pitch: rotation.pitch,
     yaw: rotation.yaw,
+    roll: 0, // デフォルト値
   })
 
   // Helper: エンティティからプレイヤー状態を構築
@@ -130,14 +129,11 @@ const makePlayerServiceLive = Effect.gen(function* () {
       return {
         playerId,
         entityId: entityId as number,
-        position: {
-          x: positionComponent.x,
-          y: positionComponent.y,
-          z: positionComponent.z,
-        },
+        position: SpatialBrands.createVector3D(positionComponent.x, positionComponent.y, positionComponent.z),
         rotation: {
           pitch: rotationComponent.pitch,
           yaw: rotationComponent.yaw,
+          roll: rotationComponent.roll || 0, // 既存データのrollが無い場合のフォールバック
         },
         health: playerComponent.health,
         isActive,

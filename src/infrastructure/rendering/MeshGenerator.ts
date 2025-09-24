@@ -30,32 +30,10 @@ export const MeshDataSchema = Schema.Struct({
   indices: Schema.Array(Schema.Number),
   colors: Schema.optional(Schema.Array(Schema.Number)),
 }).pipe(
-  Schema.transform(
-    Schema.Struct({
-      vertices: Schema.Array(Schema.Number),
-      normals: Schema.Array(Schema.Number),
-      uvs: Schema.Array(Schema.Number),
-      indices: Schema.Array(Schema.Number),
-      colors: Schema.optional(Schema.Array(Schema.Number)),
-    }),
-    {
-      strict: true,
-      decode: (input) => ({
-        vertices: [...input.vertices],
-        normals: [...input.normals],
-        uvs: [...input.uvs],
-        indices: [...input.indices],
-        colors: input.colors ? [...input.colors] : undefined,
-      }),
-      encode: (input) => ({
-        vertices: [...input.vertices],
-        normals: [...input.normals],
-        uvs: [...input.uvs],
-        indices: [...input.indices],
-        colors: input.colors ? [...input.colors] : undefined,
-      }),
-    }
-  )
+  Schema.annotations({
+    title: 'MeshData',
+    description: 'Immutable mesh data with ReadonlyArrays for performance',
+  })
 )
 
 export const MeshConfigSchema = Schema.Struct({

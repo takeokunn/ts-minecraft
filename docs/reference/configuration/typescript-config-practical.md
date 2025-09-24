@@ -133,13 +133,16 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
     "stripInternal": true, // internal注釈削除
     "preserveSymlinks": true, // Nixシンボリックリンク保持
 
-    /* === Effect-TS 3.17+専用最適化 === */
+    /* === Effect-TS 3.17+ 詳細最適化設定 === */
     "moduleDetection": "force", // モジュール検出強制
-    "allowImportingTsExtensions": false, // .ts拡張子インポート制御
+    "allowImportingTsExtensions": true, // .ts拡張子インポート許可（Vite対応）
     "resolvePackageJsonExports": true, // package.json exports解決
     "resolvePackageJsonImports": true, // package.json imports解決
     "allowArbitraryExtensions": false, // 任意拡張子制御
-    "verbatimModuleSyntax": false // Effect-TSインポート最適化
+    "verbatimModuleSyntax": false, // Effect Tree-shaking最適化
+    "preserveConstEnums": false, // enum最適化（Effect-TS Literal推奨）
+    "importsNotUsedAsValues": "remove", // 未使用インポート自動削除
+    "removeComments": false // Effect-TS JSDoc保持
   },
 
   /* === Nixプロジェクトファイル管理 === */
@@ -318,61 +321,146 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
 }
 ```
 
-### Effect-TS専用最適化設定
+### Effect-TS 3.17+ 実践最適化設定
 
 ```json
-// tsconfig.effect.json - Effect-TS特化設定
+// tsconfig.effect.json - TypeScript Minecraft用Effect-TS特化設定
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    /* Effect-TS最適化 */
+    /* Effect-TS 3.17+ 最適化 */
     "target": "ES2022", // Effect-TS推奨バージョン
     "module": "ESNext", // 最新モジュール
-    "moduleResolution": "NodeNext", // 依存関係解決
+    "moduleResolution": "bundler", // Vite統合最適化
 
-    /* 型システム強化 */
+    /* 型システム強化（Game Development向け） */
     "strict": true, // 厳格モード必須
-    "exactOptionalPropertyTypes": true, // 厳密オプショナル
-    "noUncheckedIndexedAccess": true, // インデックス安全性
-    "useUnknownInCatchVariables": true, // catch文型安全
+    "exactOptionalPropertyTypes": true, // Option<T>型精度向上
+    "noUncheckedIndexedAccess": true, // ReadonlyRecord安全性
+    "useUnknownInCatchVariables": true, // Effect.catchAll最適化
+    "noImplicitReturns": true, // Effect戻り値一貫性
+    "noFallthroughCasesInSwitch": true, // Match.value対応
 
-    /* Effect-TS型推論支援 */
-    "noImplicitAny": true, // any禁止
-    "strictNullChecks": true, // null/undefined厳格
-    "strictFunctionTypes": true, // 関数型厳格
+    /* Effect-TS型推論支援（ゲーム特化） */
+    "noImplicitAny": true, // Schema.Unknown制限
+    "strictNullChecks": true, // Option/Either型推論
+    "strictFunctionTypes": true, // Effect関数型安全性
+    "noImplicitOverride": true, // Service実装時の明示性
+    "noPropertyAccessFromIndexSignature": true, // ReadonlyRecord型安全
 
-    /* モジュール設定 */
+    /* Effect-TS + ゲームエンジンモジュール設定 */
     "esModuleInterop": true, // ESモジュール相互運用
-    "allowSyntheticDefaultImports": true, // デフォルトインポート
-    "verbatimModuleSyntax": false, // Effect-TSインポート最適化
+    "allowSyntheticDefaultImports": true, // Effect再エクスポート対応
+    "verbatimModuleSyntax": false, // Effect Tree-shaking最適化
     "isolatedModules": true, // 単独モジュール
+    "allowImportingTsExtensions": true, // .ts拡張子許可
 
-    /* パフォーマンス */
+    /* ゲーム開発パフォーマンス最適化 */
     "skipLibCheck": true, // ライブラリスキップ
     "incremental": true, // インクリメンタル
     "tsBuildInfoFile": "./.tsbuildinfo.effect", // Effect専用キャッシュ
+    "preserveConstEnums": false, // Effect-TS Literal推奨
 
-    /* デコレータサポート */
-    "experimentalDecorators": true, // Effect Schema用
+    /* Schema・Brand型サポート */
+    "experimentalDecorators": true, // Schema.Class用
     "emitDecoratorMetadata": true, // メタデータ生成
+    "downlevelIteration": true, // ReadonlyArray iteration
 
-    /* パス解決（Effect-TS向け） */
+    /* ゲーム開発特化パス解決 */
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
+      "@/domain/*": ["src/domain/*"], // ドメイン層（Schema中心）
+      "@/application/*": ["src/application/*"], // ユースケース（Effect中心）
+      "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層（Layer中心）
+      "@/shared/*": ["src/shared/*"], // 共有型・ユーティリティ
       "@effect/*": ["node_modules/effect/*"], // Effect直接参照
-      "@fp-ts/*": ["node_modules/fp-ts/*"] // FP-TS互換
-    }
+      "@effect/schema": ["node_modules/@effect/schema"], // Schema専用
+      "@effect/platform": ["node_modules/@effect/platform"] // Platform専用
+    },
+
+    /* Effect-TS開発支援型定義 */
+    "types": [
+      "node", // Node.js 22 API
+      "vitest/globals" // テスト環境
+      // Effect型定義は自動解決される
+    ]
   },
 
-  "include": ["src/**/*", "test/**/*"],
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "types/minecraft.d.ts", // ゲーム固有型定義
+    "types/effect-extensions.d.ts" // Effect拡張型定義
+  ],
 
   "exclude": [
-    "node_modules/!(@effect|effect)", // Effect以外のnode_modules除外
+    "node_modules", // 全依存関係除外（effectは自動解決）
     "dist",
-    "coverage"
+    "coverage",
+    "**/*.js", // JSファイル除外（型安全性重視）
+    "**/*.mjs", // MJSファイル除外
+    ".devenv" // Nix環境ファイル除外
   ]
 }
+```
+
+#### ゲーム開発特化カスタム型定義
+
+```typescript
+// types/minecraft.d.ts - Minecraft固有型定義
+declare namespace Minecraft {
+  // Effect-TSブランド型統合
+  interface GameBrands {
+    PlayerId: string & Effect.Brand<'PlayerId'>
+    ChunkCoordinate: number & Effect.Brand<'ChunkCoordinate'>
+    WorldCoordinate: number & Effect.Brand<'WorldCoordinate'>
+    BlockId: string & Effect.Brand<'BlockId'>
+    Health: number & Effect.Brand<'Health'>
+  }
+
+  // ゲームエンティティ型
+  interface Player {
+    readonly id: GameBrands['PlayerId']
+    readonly name: string
+    readonly position: Vector3D
+    readonly health: GameBrands['Health']
+    readonly isActive: boolean
+  }
+
+  interface Block {
+    readonly id: GameBrands['BlockId']
+    readonly type: BlockType
+    readonly position: Vector3D
+  }
+
+  type BlockType = 'air' | 'stone' | 'grass' | 'dirt' | 'cobblestone'
+
+  interface Vector3D {
+    readonly x: GameBrands['WorldCoordinate']
+    readonly y: GameBrands['WorldCoordinate']
+    readonly z: GameBrands['WorldCoordinate']
+  }
+}
+
+// types/effect-extensions.d.ts - Effect-TS拡張型定義
+declare global {
+  namespace Effect {
+    // カスタムブランド型の拡張
+    interface BrandRegistry extends Minecraft.GameBrands {}
+  }
+
+  namespace Schema {
+    // カスタムスキーマの型推論支援
+    interface CustomSchemaRegistry {
+      Player: Minecraft.Player
+      Block: Minecraft.Block
+      Vector3D: Minecraft.Vector3D
+    }
+  }
+}
+
+export {}
 ```
 
 ## ⚡ ゲーム開発専用設定
@@ -432,55 +520,143 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
 
 ### よくある問題と解決方法
 
-#### 1. Effect-TS型エラー
+#### 1. Effect-TS 3.17+ ゲーム開発型エラー
 
-**問題**: Effect types not properly inferred, `any` type warnings
+**問題**: Game entity schemas not properly inferred, Brand type warnings
 
 **解決策**:
 
 ```json
 {
   "compilerOptions": {
-    // 型推論強化
+    // ゲーム開発型推論強化
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
+    "useUnknownInCatchVariables": true,
 
-    // Effect-TS専用
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
+    // Effect-TS Schema最適化
+    "exactOptionalPropertyTypes": true, // Option<T>型精度
+    "noUncheckedIndexedAccess": true, // ReadonlyRecord安全性
+    "noImplicitReturns": true, // Effect戻り値一貫性
+    "noFallthroughCasesInSwitch": true, // Match.value対応
 
-    // パス解決
-    "moduleResolution": "NodeNext",
+    // モジュール解決（重要）
+    "moduleResolution": "bundler", // Vite統合
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false, // Tree-shaking最適化
 
-    // 型定義明示
-    "types": ["node", "vitest/globals"]
+    // Effect-TS型定義（自動解決を優先）
+    "types": ["node", "vitest/globals"],
+    "skipLibCheck": true // Effect内部型チェックスキップ
   }
 }
 ```
 
-#### 2. Node.js 22 import errors
+**ゲーム特化の型推論支援**:
 
-**問題**: Cannot find module with NodeNext module resolution
+```typescript
+// src/shared/types/game-schema-helpers.ts
+import { Schema, Effect } from 'effect'
+
+// ゲームエンティティ型推論ヘルパー
+export const createGameSchema = <A>(schema: Schema.Schema<A>) => ({
+  schema,
+  decode: Schema.decodeUnknown(schema),
+  validate: Schema.validate(schema),
+  // ゲームループ用高速バリデーション
+  fastValidate: (input: unknown) => Schema.validateSync(schema)(input),
+})
+
+// ブランド型ヘルパー
+export const createBrandedType =
+  <T extends string>(brand: T) =>
+  <A>(base: Schema.Schema<A>) =>
+    base.pipe(Schema.brand(brand))
+
+// 使用例
+const PlayerId = createBrandedType('PlayerId')(Schema.String.pipe(Schema.nonEmpty()))
+const PlayerSchemaHelper = createGameSchema(PlayerSchema)
+
+// ゲーム用サービス型推論
+export const createGameService = <T extends Record<string, any>>(implementation: T): { [K in keyof T]: T[K] } =>
+  implementation
+```
+
+#### 2. Effect-TS + Nix環境 統合エラー
+
+**問題**: Effect-TS with Nix devenv module resolution failures
 
 **解決策**:
 
 ```json
 {
   "compilerOptions": {
-    "moduleResolution": "NodeNext",
-    "module": "NodeNext",
+    // Nix + Effect-TS最適化
+    "moduleResolution": "bundler", // Vite + Nix統合
+    "module": "ESNext",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+
+    // Nixシンボリックリンク対応
+    "preserveSymlinks": true,
 
     "paths": {
+      // Effect-TS解決パス
+      "@effect/*": ["node_modules/effect/*"],
+      "@effect/schema": ["node_modules/@effect/schema"],
+      "@effect/platform": ["node_modules/@effect/platform"],
       "@/*": ["src/*"]
     },
 
     "resolvePackageJsonExports": true,
-    "resolvePackageJsonImports": true
+    "resolvePackageJsonImports": true,
+    "moduleDetection": "force"
+  },
+
+  // Nix環境除外設定
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    ".devenv", // Nix devenvキャッシュ
+    "devenv.lock", // Nixロックファイル
+    ".devenv.flake.nix" // Nix flakeキャッシュ
+  ],
+
+  // Nixウォッチャー最適化
+  "watchOptions": {
+    "excludeDirectories": [
+      "**/node_modules",
+      "**/.git",
+      "**/dist",
+      "**/.devenv" // Nixキャッシュ除外
+    ]
   }
+}
+```
+
+**Nix + Effect-TS 開発環境設定**:
+
+```bash
+# devenv.nix の TypeScript設定
+{ pkgs, ... }: {
+  packages = with pkgs; [
+    nodejs_22
+    typescript
+    nodePackages.pnpm
+  ];
+
+  scripts.type-check.exec = '''
+    pnpm exec tsc --noEmit --project tsconfig.effect.json
+  ''';
+
+  # Effect-TS開発支援
+  scripts.effect-check.exec = '''
+    pnpm exec tsc --noEmit --strict --exactOptionalPropertyTypes
+  ''';
 }
 ```
 
@@ -522,9 +698,9 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
 }
 ```
 
-#### 4. モジュール解決エラー（Nix環境）
+#### 4. Effect-TS ゲーム開発モジュール解決エラー
 
-**問題**: Cannot resolve module, path mapping not working
+**問題**: Game services and schemas module resolution failures
 
 **解決策**:
 
@@ -533,25 +709,79 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      // ゲーム開発アーキテクチャパス
       "@/*": ["src/*"],
-      "@/domain/*": ["src/domain/*"],
-      "@/application/*": ["src/application/*"]
+      "@/domain/*": ["src/domain/*"], // ゲームエンティティ・ビジネスロジック
+      "@/application/*": ["src/application/*"], // ゲームユースケース
+      "@/infrastructure/*": ["src/infrastructure/*"], // レンダリング・物理演算
+      "@/presentation/*": ["src/presentation/*"], // UI・入力制御
+      "@/shared/*": ["src/shared/*"], // 共有ユーティリティ
+
+      // Effect-TS解決パス（重要）
+      "@effect/*": ["node_modules/effect/*"],
+      "@effect/schema": ["node_modules/@effect/schema"],
+      "@effect/platform": ["node_modules/@effect/platform"],
+
+      // ゲームエンジン統合
+      "three": ["node_modules/three"],
+      "three/examples/jsm/*": ["node_modules/three/examples/jsm/*"]
     },
 
-    // モジュール解決強化
-    "moduleResolution": "NodeNext",
+    // Effect-TS最適化モジュール解決
+    "moduleResolution": "bundler", // Vite統合重要
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
 
-    // TypeScript 5.9 新機能
+    // Tree-shaking最適化
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+
+    // TypeScript 5.9 + Effect-TS
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
+    "moduleDetection": "force",
 
     // Nixシンボリックリンク対応
     "preserveSymlinks": true
   }
 }
+```
+
+**ゲーム特化インポート最適化パターン**:
+
+```typescript
+// ✅ 推奨: Effect-TS ゲーム開発インポートパターン
+
+// 1. Effect-TS コアライブラリ
+import { Effect, Schema, Context, Layer, ReadonlyArray } from 'effect'
+import { Option, Either, Match } from 'effect'
+
+// 2. ドメイン層（Schema中心）
+import { PlayerSchema, type Player } from '@/domain/player/Player'
+import { BlockSchema, type Block } from '@/domain/world/Block'
+import { ChunkSchema, type Chunk } from '@/domain/world/Chunk'
+
+// 3. アプリケーション層（Effect中心）
+import { GameService } from '@/application/game/GameService'
+import { WorldService } from '@/application/world/WorldService'
+import { PlayerService } from '@/application/player/PlayerService'
+
+// 4. インフラ層（Layer中心）
+import { DatabaseLayer } from '@/infrastructure/database/DatabaseLayer'
+import { RendererLayer } from '@/infrastructure/rendering/RendererLayer'
+import { PhysicsLayer } from '@/infrastructure/physics/PhysicsLayer'
+
+// 5. ゲームエンジン統合
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+
+// ❌ 非推奨: デフォルトインポート
+import Effect from 'effect' // Tree-shakingされない
+
+// ❌ 非推奨: 相対パス
+import { Player } from '../../../domain/player/Player' // パス解決複雑化
 ```
 
 ## 🔧 高度な設定例
@@ -643,25 +873,79 @@ export {}
 }
 ```
 
+## 📖 Effect-TSゲーム開発移行ガイド
+
+### ゲーム開発特化移行手順
+
+**TypeScript Minecraftプロジェクト**でのEffect-TS移行について、詳細な手順とゲーム開発固有の考慮事項は[Effect-TS移行ガイド](../../how-to/migration/effect-ts-migration.md)を参照してください。
+
+**ゲーム開発特有の重要ポイント**:
+
+1. **パフォーマンス重視**: 60FPSを維持しながらの型安全性向上
+2. **ゲームエンティティSchema**: Player、Block、Chunkなどのコアエンティティの型安全性
+3. **リアルタイム処理**: ゲームループでのバリデーション最適化
+4. **Three.js統合**: WebGLレンダリングとEffect-TSの統合
+
+**Nix + Effect-TS統合開発環境**:
+
+```bash
+# devenv.nix環境での移行作業
+# 1. Effect-TS依存関係のインストール
+devenv shell  # Nix環境に入る
+pnpm add effect @effect/schema @effect/platform
+
+# 2. TypeScript設定のテスト
+pnpm exec tsc -p tsconfig.effect.json --noEmit
+pnpm exec tsc -p tsconfig.effect.json
+
+# 3. ゲームビルドテスト
+pnpm run build:game    # ゲームエンジンビルド
+pnpm run test:effect   # Effect-TS特化テスト
+```
+
+### ゲーム特化移行チェックリスト
+
+ゲーム開発に特化した移行チェックリスト:
+
+- [ ] **Entity Schema移行**: Player, Block, Chunk, Entityの型安全性
+- [ ] **ゲームループ最適化**: フレームレート維持でのバリデーション
+- [ ] **Three.js統合**: WebGLコンテキストとEffect-TSの連携
+- [ ] **物理演算**: パフォーマンスを維持した型安全性
+- [ ] **アセット管理**: リソース読み込みの型安全性
+- [ ] **マルチプレイヤー**: ネットワーク通信のスキーマバリデーション
+
+詳細な手順は[移行ガイドのゲーム開発セクション](../../how-to/migration/effect-ts-migration.md#6-real-world-migration-example)を参照してください。
+
 ## 📚 関連ドキュメント
 
 ### 設定ファイル関連
 
 - [Vite設定](./vite-config.md) - TypeScript統合とビルド設定
-- [Vitest設定](./vitest-config.md) - テスト環境でのTypeScript設定
+- [TypeScript基本設定](./typescript-config.md) - 基本的な設定ガイド
 - [開発設定](./development-config.md) - 開発効率化ツール
 - [Project設定](./project-config.md) - プロジェクト全体設定
+
+### Effect-TS + ゲーム開発ガイド
+
+- **[Effect-TS移行ガイド](../../how-to/migration/effect-ts-migration.md)** - 完全な移行手順書
+- [Effect-TSパターン](../../tutorials/effect-ts-fundamentals/effect-ts-patterns.md) - ゲーム開発実装パターン
+- [Schema API](../../reference/api/effect-ts-schema-api.md) - ゲームエンティティスキーマ設計
+- [パフォーマンス最適化](../../how-to/development/performance-debugging-guide.md) - ゲームパフォーマンス
+
+### Nix + TypeScript統合
+
+- [Nixプロジェクト設定](../../how-to/development/README.md) - devenv環境設定
+- [開発環境ガイド](../../how-to/development/entry-points.md) - Nix環境での開発手順
 
 ### 外部リファレンス
 
 - [TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/)
+- [Effect-TS公式ドキュメント](https://effect.website/docs/)
 - [TSConfig Reference](https://www.typescriptlang.org/tsconfig)
-- [TypeScript Compiler Options](https://www.typescriptlang.org/docs/handbook/compiler-options.html)
-- [TypeScript Module Resolution](https://www.typescriptlang.org/docs/handbook/module-resolution.html)
+- [Nix devenvドキュメント](https://devenv.sh/)
 
-### プロジェクト固有
+### トラブルシューティング
 
-- [Effect-TSパターン](../../how-to/development/effect-ts-migration-guide.md)
-- [型安全性戦略](../../how-to/development/security-best-practices.md)
-- [パフォーマンス最適化](../troubleshooting/performance-issues.md)
-- [Nixプロジェクト設定](../../how-to/development/README.md)
+- [パフォーマンス最適化](../troubleshooting/performance-issues.md) - 型チェック性能問題
+- [ゲーム開発エラー](../../how-to/troubleshooting/common-errors.md) - Effect-TS + ゲームエンジンエラー
+- [Nix環境トラブルシューティング](../../how-to/troubleshooting/debugging-guide.md) - devenv固有の問題

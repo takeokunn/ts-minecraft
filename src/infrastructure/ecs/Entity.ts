@@ -6,31 +6,48 @@ import { BrandedTypes, EntityCount, EntityCapacity } from '../../shared/types/br
 // Entity ID Type
 // =====================================
 
-export type EntityId = number & Brand.Brand<'EntityId'>
-export const EntityId = Brand.nominal<EntityId>()
+export const EntityIdSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonNegative(),
+  Schema.brand('EntityId'),
+  Schema.annotations({
+    title: 'EntityId',
+    description: 'Unique entity identifier in the ECS system',
+  })
+)
+export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
+
+// Helper for creating EntityId
+export const createEntityId = (value: number): EntityId => Schema.decodeSync(EntityIdSchema)(value)
 
 // =====================================
 // Entity Pool (高速エンティティID管理)
 // =====================================
 
-export interface EntityPoolError {
-  readonly _tag: 'EntityPoolError'
-  readonly reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated'
-  readonly message: string
-}
+export const EntityPoolErrorReasonSchema = Schema.Literal('pool_exhausted', 'invalid_entity_id', 'entity_not_allocated')
+export type EntityPoolErrorReason = Schema.Schema.Type<typeof EntityPoolErrorReasonSchema>
 
-export const EntityPoolError = (
-  reason: 'pool_exhausted' | 'invalid_entity_id' | 'entity_not_allocated',
-  message: string
-): EntityPoolError => ({
+export const EntityPoolErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('EntityPoolError'),
+  reason: EntityPoolErrorReasonSchema,
+  message: Schema.String,
+}).pipe(
+  Schema.annotations({
+    title: 'EntityPoolError',
+    description: 'Error in entity pool operations',
+  })
+)
+export type EntityPoolError = Schema.Schema.Type<typeof EntityPoolErrorSchema>
+
+export const EntityPoolError = (reason: EntityPoolErrorReason, message: string): EntityPoolError => ({
   _tag: 'EntityPoolError',
   reason,
   message,
 })
 
-export const isEntityPoolError = (error: unknown): error is EntityPoolError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityPoolError'
+export const isEntityPoolError = (error: unknown): error is EntityPoolError => Schema.is(EntityPoolErrorSchema)(error)
 
+// EntityPool interface - keeping as interface for service definition
 export interface EntityPool {
   readonly allocate: () => Effect.Effect<EntityId, EntityPoolError>
   readonly deallocate: (id: EntityId) => Effect.Effect<void, EntityPoolError>
@@ -52,6 +69,24 @@ export type EntityPoolStats = Schema.Schema.Type<typeof EntityPoolStats>
 // Structure of Arrays Component Storage
 // =====================================
 
+// ComponentArray Schema for type-safe component storage
+export const ComponentArraySchema = <T>(componentSchema: Schema.Schema<T>) =>
+  Schema.Struct({
+    data: Schema.Array(componentSchema),
+    entityToIndex: Schema.Record({
+      key: Schema.String,
+      value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    }),
+    indexToEntity: Schema.Array(EntityIdSchema),
+    size: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  }).pipe(
+    Schema.annotations({
+      title: 'ComponentArray',
+      description: 'Structure of Arrays storage for components',
+    })
+  )
+
+// Runtime interface for performance (mutable operations)
 export interface ComponentArray<T> {
   readonly data: T[]
   readonly entityToIndex: Map<EntityId, number>
@@ -261,13 +296,18 @@ export interface ComponentStorage<T> {
 // =====================================
 
 export const EntityMetadata = Schema.Struct({
-  id: Schema.Number.pipe(Schema.brand('EntityId')),
+  id: EntityIdSchema,
   name: Schema.optional(Schema.String),
   tags: Schema.Array(Schema.String),
   active: Schema.Boolean,
-  createdAt: Schema.Number,
-  generation: Schema.Number, // リサイクル世代番号
-})
+  createdAt: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  generation: Schema.Number.pipe(Schema.int(), Schema.nonNegative()), // リサイクル世代番号
+}).pipe(
+  Schema.annotations({
+    title: 'EntityMetadata',
+    description: 'Metadata for entities in the ECS system',
+  })
+)
 
 export type EntityMetadata = Schema.Schema.Type<typeof EntityMetadata>
 
@@ -280,7 +320,7 @@ const MAX_ENTITIES = 100000 // 最大エンティティ数
 export const EntityPoolLive = Effect.gen(function* () {
   // エンティティプールの状態
   const state = yield* Effect.sync(() => ({
-    freeList: Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i)),
+    freeList: Array.from({ length: MAX_ENTITIES }, (_, i) => createEntityId(MAX_ENTITIES - 1 - i)),
     allocated: new Set<EntityId>(),
     recycledCount: 0,
     nextId: MAX_ENTITIES,
@@ -324,7 +364,7 @@ export const EntityPoolLive = Effect.gen(function* () {
 
   const reset = () =>
     Effect.sync(() => {
-      state.freeList = Array.from({ length: MAX_ENTITIES }, (_, i) => EntityId(MAX_ENTITIES - 1 - i))
+      state.freeList = Array.from({ length: MAX_ENTITIES }, (_, i) => createEntityId(MAX_ENTITIES - 1 - i))
       state.allocated.clear()
       state.recycledCount = 0
     })

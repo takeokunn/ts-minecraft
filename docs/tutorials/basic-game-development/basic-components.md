@@ -261,28 +261,42 @@ export const ChunkOps = {
 // 🏷️ Brand Types - 型レベルでの識別子安全性
 import { Schema, Brand } from 'effect'
 
-// ✅ 各種IDのBrand型定義
+// ✅ 各種IDのBrand型定義 - より詳細な制約付き
 export const PlayerId = Schema.String.pipe(
   Schema.uuid(),
   Schema.brand('PlayerId'),
   Schema.annotations({
     identifier: 'PlayerId',
     title: 'プレイヤー識別子',
-    description: 'UUID v4形式のプレイヤー固有ID',
+    description: 'UUID v4形式のプレイヤー固有ID - ランタイム検証付き',
+    examples: ['550e8400-e29b-41d4-a716-446655440000'],
   })
 )
 export type PlayerId = Schema.Schema.Type<typeof PlayerId>
 
+// ✅ 安全なPlayerId生成関数
+export const createPlayerId = (): PlayerId => {
+  const uuid = crypto.randomUUID()
+  return Schema.decodeSync(PlayerId)(uuid)
+}
+
 export const BlockId = Schema.String.pipe(
-  Schema.pattern(/^[a-z_]+$/),
+  Schema.nonEmptyString(),
+  Schema.pattern(/^[a-z][a-z0-9_]*$/), // より厳密：先頭は文字、その後は文字・数字・アンダースコア
+  Schema.maxLength(32), // 実用的な上限
   Schema.brand('BlockId'),
   Schema.annotations({
     identifier: 'BlockId',
     title: 'ブロック識別子',
-    description: '小文字とアンダースコアのみのブロック種別ID',
+    description: '小文字とアンダースコアのみのブロック種別ID（minecraft:stone形式対応）',
+    examples: ['stone', 'grass_block', 'oak_wood', 'redstone_ore'],
   })
 )
 export type BlockId = Schema.Schema.Type<typeof BlockId>
+
+// ✅ Minecraftスタイルのブロック名正規化
+export const normalizeBlockId = (name: string): Effect.Effect<BlockId, Schema.ParseError> =>
+  Schema.decodeUnknown(BlockId)(name.toLowerCase().replace(/[^a-z0-9_]/g, '_'))
 
 export const ChunkId = Schema.String.pipe(
   Schema.pattern(/^chunk_-?\d+_-?\d+$/),
@@ -290,10 +304,27 @@ export const ChunkId = Schema.String.pipe(
   Schema.annotations({
     identifier: 'ChunkId',
     title: 'チャンク識別子',
-    description: 'chunk_x_z形式のチャンク座標ID',
+    description: 'chunk_x_z形式のチャンク座標ID（例: chunk_10_-5）',
+    examples: ['chunk_0_0', 'chunk_10_-5', 'chunk_-100_200'],
   })
 )
 export type ChunkId = Schema.Schema.Type<typeof ChunkId>
+
+// ✅ チャンクIDの構造化パース
+export const parseChunkId = (chunkId: ChunkId): Option.Option<ChunkCoordinate> =>
+  Option.fromNullable(chunkId.match(/^chunk_(-?\d+)_(-?\d+)$/)).pipe(
+    Option.flatMap(([, x, z]) =>
+      Option.all([Option.fromNullable(x), Option.fromNullable(z)]).pipe(
+        Option.map(
+          ([xStr, zStr]) =>
+            ({
+              x: parseInt(xStr, 10),
+              z: parseInt(zStr, 10),
+            }) as ChunkCoordinate
+        )
+      )
+    )
+  )
 
 export const ItemId = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+$/),
@@ -306,20 +337,30 @@ export const ItemId = Schema.String.pipe(
 )
 export type ItemId = Schema.Schema.Type<typeof ItemId>
 
-// ✅ ID生成・バリデーション関数
+// ✅ ID生成・バリデーション関数群 - 型安全なファクトリーパターン
 export const IdOps = {
-  // プレイヤーID生成
-  generatePlayerId: (): PlayerId => crypto.randomUUID() as PlayerId,
+  // プレイヤーID生成（安全な生成関数）
+  generatePlayerId: (): PlayerId => createPlayerId(),
 
   // ブロックIDバリデーション
   validateBlockId: (id: string): Effect.Effect<BlockId, Schema.ParseError> => Schema.decodeUnknown(BlockId)(id),
 
-  // チャンクID生成
-  createChunkId: (x: number, z: number): ChunkId => `chunk_${x}_${z}` as ChunkId,
+  // チャンクID生成（型安全）
+  createChunkId: (x: number, z: number): ChunkId => {
+    const id = `chunk_${x}_${z}`
+    return Schema.decodeSync(ChunkId)(id) // 実行時検証付き
+  },
+
+  // 座標からチャンクIDへの変換
+  coordsToChunkId: (coords: ChunkCoordinate): ChunkId => IdOps.createChunkId(coords.x, coords.z),
 
   // アイテムIDの正規化
   normalizeItemId: (rawId: string): Effect.Effect<ItemId, Schema.ParseError> =>
-    Schema.decodeUnknown(ItemId)(rawId.toLowerCase().replace(/[^a-z_]/g, '_')),
+    Schema.decodeUnknown(ItemId)(rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_')),
+
+  // 複数IDの一括バリデーション
+  validateIds: <T extends string>(schema: Schema.Schema<T>, ids: string[]): Effect.Effect<T[], Schema.ParseError[]> =>
+    Effect.all(ids.map((id) => Schema.decodeUnknown(schema)(id))),
 } as const
 // [/LIVE_EXAMPLE]
 ```
@@ -814,6 +855,29 @@ const minecraftBasicSimulation = Effect.gen(function* () {
 // Effect.runSync(minecraftBasicSimulation);
 // [/LIVE_EXAMPLE]
 ```
+
+## 関連ドキュメント
+
+### 📚 Effect-TS基礎学習
+
+- **[Effect-TS型システム](../effect-ts-fundamentals/effect-ts-type-system.md)** - Brand型とSchemaの詳細パターン
+- **[Effect-TSパターン集](../effect-ts-fundamentals/effect-ts-patterns.md)** - Layer構成、Service設計の実践的パターン
+- **[Effect-TSエラーハンドリング](../effect-ts-fundamentals/effect-ts-error-handling.md)** - Schema.TaggedErrorと構造化エラー
+- **[Effect-TSテスト](../effect-ts-fundamentals/effect-ts-testing.md)** - Domain層のテスト戦略
+
+### 🏗️ 設計・実装指針
+
+- **[型安全性パターン](../design-patterns/type-safety-patterns.md)** - Brand型とドメインモデリングのベストプラクティス
+- **[ドメインレイヤー設計](./domain-layer-architecture.md)** - Clean ArchitectureでのDomain層責務
+- **[アーキテクチャ原則](../../explanations/architecture/README.md)** - 全体設計思想とパターン
+
+### 💡 実装のヒント
+
+> **Brand型の適用指針**: 異なる概念のIDや値オブジェクトには必ずBrand型を使用することで、型レベルでの混同を防ぐ
+>
+> **Schema.decodeSync vs Schema.decode**: 既知の安全なデータには`decodeSync`、外部入力には`decode`（Effect）を使用
+>
+> **Option型の活用**: チャンクIDのパース例のように、失敗の可能性がある処理にはOption型を積極活用
 
 ## まとめ
 

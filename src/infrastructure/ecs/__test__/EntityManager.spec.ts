@@ -3,7 +3,8 @@ import { it } from '@effect/vitest'
 import { Effect, Layer, Option, Either, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import { EntityManager, EntityManagerLayer, EntityManagerError } from '../EntityManager'
-import { EntityPool, EntityPoolLayer, type EntityId, EntityPoolError, EntityId as EntityIdBrand } from '../Entity'
+import { EntityPool, EntityPoolLayer, EntityPoolError, createEntityId } from '../Entity'
+import type { EntityId } from '../Entity'
 import { SystemRegistryService, SystemRegistryServiceLive } from '../SystemRegistry'
 import { BrandedTypes } from '../../../shared/types/branded'
 import * as TestContext from 'effect/TestContext'
@@ -262,7 +263,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
     it.effect('should handle entity not found errors with Either', () =>
       Effect.gen(function* () {
         const manager = yield* EntityManager
-        const invalidId = EntityIdBrand(99999)
+        const invalidId = createEntityId(99999)
 
         // Effect.eitherを使用してエラーを検証
         const result = yield* Effect.either(manager.destroyEntity(invalidId))
@@ -277,7 +278,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
     it.effect('should handle component operations on non-existent entities', () =>
       Effect.gen(function* () {
         const manager = yield* EntityManager
-        const invalidId = EntityIdBrand(99999)
+        const invalidId = createEntityId(99999)
 
         const addResult = yield* Effect.either(
           manager.addComponent(invalidId, BrandedTypes.createComponentTypeName('Position'), { x: 0, y: 0, z: 0 })
@@ -294,7 +295,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
     it.effect('should fail when setting active state of non-existent entity', () =>
       Effect.gen(function* () {
         const manager = yield* EntityManager
-        const nonExistentId = EntityIdBrand(99999)
+        const nonExistentId = createEntityId(99999)
 
         const result = yield* Effect.either(manager.setEntityActive(nonExistentId, true))
         expect(result._tag).toBe('Left')
@@ -791,7 +792,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
     it.effect('componentAlreadyExists エラーヘルパー関数をテスト (lines 70-75)', () =>
       Effect.gen(function* () {
-        const entityId = EntityIdBrand(12345)
+        const entityId = createEntityId(12345)
         const componentType = 'PositionComponent'
         const error = componentAlreadyExists(entityId, componentType)
 
@@ -802,7 +803,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
         expect(error.componentType).toBe(componentType)
 
         // 異なるentityIdとcomponentTypeでテスト
-        const error2 = componentAlreadyExists(EntityIdBrand(999), 'VelocityComponent')
+        const error2 = componentAlreadyExists(createEntityId(999), 'VelocityComponent')
         expect(error2.message).toBe('Component VelocityComponent already exists on entity 999')
         expect(error2.entityId).toBe(999)
         expect(error2.componentType).toBe('VelocityComponent')
@@ -838,7 +839,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
         // 各ヘルパー関数で作成されるエラーの構造を検証
         const invalidError = invalidComponentType('TestComponent', 'test details')
         const limitError = entityLimitReached(1000)
-        const existsError = componentAlreadyExists(EntityIdBrand(123), 'TestComponent')
+        const existsError = componentAlreadyExists(createEntityId(123), 'TestComponent')
 
         // 共通プロパティの確認
         const errors = [invalidError, limitError, existsError]
@@ -889,7 +890,7 @@ describe('EntityManager - Effect-TS Pattern', () => {
     it.effect('should validate EntityManagerError as tagged error', () =>
       Effect.gen(function* () {
         const manager = yield* EntityManager
-        const invalidId = EntityIdBrand(99999)
+        const invalidId = createEntityId(99999)
 
         const errorResult = yield* Effect.either(manager.destroyEntity(invalidId))
         expect(Either.isLeft(errorResult)).toBe(true)
@@ -940,9 +941,9 @@ describe('EntityManager - Effect-TS Pattern', () => {
 
         // Generate random valid components (excluding NaN and infinite values)
         const positionArbitrary = fc.record({
-          x: fc.float({ min: -1000, max: 1000 }).filter((n) => Number.isFinite(n)),
-          y: fc.float({ min: -1000, max: 1000 }).filter((n) => Number.isFinite(n)),
-          z: fc.float({ min: -1000, max: 1000 }).filter((n) => Number.isFinite(n)),
+          x: fc.float({ min: -1000, max: 1000 }).filter((n: number) => Number.isFinite(n)),
+          y: fc.float({ min: -1000, max: 1000 }).filter((n: number) => Number.isFinite(n)),
+          z: fc.float({ min: -1000, max: 1000 }).filter((n: number) => Number.isFinite(n)),
         })
 
         // Property-based testing simplified for Effect-TS patterns

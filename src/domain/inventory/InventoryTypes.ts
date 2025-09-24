@@ -15,7 +15,7 @@ export const ItemId = Brand.nominal<ItemId>()
 export type PlayerId = string & Brand.Brand<'PlayerId'>
 export const PlayerId = Brand.nominal<PlayerId>()
 
-// Item metadata schema
+// Item metadata schema (ReadonlyArray migration)
 export const ItemMetadata = Schema.Struct({
   enchantments: Schema.optional(
     Schema.Array(
@@ -40,23 +40,23 @@ export const ItemStack = Schema.Struct({
 })
 export type ItemStack = Schema.Schema.Type<typeof ItemStack>
 
-// Inventory schema with 36 slots
+// Inventory schema with 36 slots (ReadonlyArray migration)
 export const Inventory = Schema.Struct({
   playerId: Schema.String.pipe(Schema.fromBrand(PlayerId)),
-  slots: Schema.Array(Schema.NullOr(ItemStack)).pipe(Schema.itemsCount(36)),
-  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.itemsCount(9)), // インデックス参照
+  slots: Schema.Array(Schema.Union(Schema.Null, ItemStack)).pipe(Schema.minItems(36), Schema.maxItems(36)),
+  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.minItems(9), Schema.maxItems(9)), // インデックス参照
   armor: Schema.Struct({
-    helmet: Schema.NullOr(ItemStack),
-    chestplate: Schema.NullOr(ItemStack),
-    leggings: Schema.NullOr(ItemStack),
-    boots: Schema.NullOr(ItemStack),
+    helmet: Schema.Union(Schema.Null, ItemStack),
+    chestplate: Schema.Union(Schema.Null, ItemStack),
+    leggings: Schema.Union(Schema.Null, ItemStack),
+    boots: Schema.Union(Schema.Null, ItemStack),
   }),
-  offhand: Schema.NullOr(ItemStack),
+  offhand: Schema.Union(Schema.Null, ItemStack),
   selectedSlot: Schema.Number.pipe(Schema.between(0, 8)),
 })
 export type Inventory = Schema.Schema.Type<typeof Inventory>
 
-// Add item result
+// Add item result (ReadonlyArray migration)
 export const AddItemResult = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('success'),

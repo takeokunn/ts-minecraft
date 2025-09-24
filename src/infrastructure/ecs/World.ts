@@ -11,7 +11,8 @@ import { EntityManager } from './EntityManager'
 import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry'
 import type { System, SystemPriority } from './System'
 import { SystemError } from './System'
-import { type EntityId, EntityId as EntityIdBrand } from './Entity'
+import type { EntityId } from './Entity'
+import { createEntityId } from './Entity'
 
 // EntityIdを再エクスポート
 export { type EntityId } from './Entity'
@@ -220,7 +221,7 @@ export const WorldLive = Layer.effect(
      */
     const generateEntityId = (): EntityId => {
       const state = Effect.runSync(Ref.get(stateRef))
-      const id = EntityIdBrand(state.entityIdCounter)
+      const id = createEntityId(state.entityIdCounter)
       Effect.runSync(
         Ref.update(stateRef, (s) => ({
           ...s,

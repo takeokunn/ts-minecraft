@@ -117,7 +117,7 @@ describe('common-types', () => {
   describe('Callback型', () => {
     it('コールバック関数を正しく表現する', () => {
       let called = false
-      const callback: Callback<string> = (value) => {
+      const callback: Callback<string> = (value: any) => {
         called = true
         expect(value).toBe('test')
       }
@@ -140,7 +140,7 @@ describe('common-types', () => {
   describe('AsyncCallback型', () => {
     it('非同期コールバック関数を正しく表現する', () => {
       let called = false
-      const callback: AsyncCallback<string> = (value) =>
+      const callback: AsyncCallback<string> = (value: any) =>
         Effect.gen(function* () {
           called = true
           expect(value).toBe('async-test')
@@ -219,7 +219,7 @@ describe('common-types', () => {
   describe('Property-based testing', () => {
     it('NumberValue型のプロパティテスト', () => {
       fc.assert(
-        fc.property(fc.float(), (value) => {
+        fc.property(fc.float(), (value: any) => {
           const numberValue: NumberValue = value
           expect(typeof numberValue).toBe('number')
           return true
@@ -230,7 +230,7 @@ describe('common-types', () => {
 
     it('StringValue型のプロパティテスト', () => {
       fc.assert(
-        fc.property(fc.string(), (value) => {
+        fc.property(fc.string(), (value: any) => {
           const stringValue: StringValue = value
           expect(typeof stringValue).toBe('string')
           return true
@@ -241,7 +241,7 @@ describe('common-types', () => {
 
     it('BooleanValue型のプロパティテスト', () => {
       fc.assert(
-        fc.property(fc.boolean(), (value) => {
+        fc.property(fc.boolean(), (value: any) => {
           const booleanValue: BooleanValue = value
           expect(typeof booleanValue).toBe('boolean')
           return true
@@ -252,7 +252,7 @@ describe('common-types', () => {
 
     it('NonEmptyArray型のプロパティテスト', () => {
       fc.assert(
-        fc.property(fc.array(fc.integer(), { minLength: 1 }), (array) => {
+        fc.property(fc.array(fc.integer(), { minLength: 1 }), (array: any) => {
           // 配列が空でないことを型安全に確認
           if (array.length === 0) {
             return true // 空配列は除外
@@ -270,7 +270,7 @@ describe('common-types', () => {
       const alwaysFalse: Predicate<number> = () => false
 
       fc.assert(
-        fc.property(fc.integer(), (value) => {
+        fc.property(fc.integer(), (value: any) => {
           expect(alwaysTrue(value)).toBe(true)
           expect(alwaysFalse(value)).toBe(false)
           return true

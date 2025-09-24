@@ -12,9 +12,11 @@ estimated_reading_time: '15分'
 
 ## 概要
 
-本ドキュメントでは、基礎概念を学んだ後の実践的なパターン集を提供します。Layer構成、サービス組み合わせ、パフォーマンス最適化など、実際の開発で必要になる応用パターンを学習できます。
+本ドキュメントでは、基礎概念を学んだ後の実践的なパターン集を提供します。Layer構成、サービス組み合わせ、パフォーマンス最適化、Brand型の活用など、実際の開発で必要になる応用パターンを学習できます。
 
 > 📚 **学習前提**: このドキュメントは [Effect-TS 基礎](./effect-ts-basics.md) と [Effect-TS サービス](./effect-ts-services.md) の内容を理解していることを前提としています。
+>
+> 🔗 **関連チュートリアル**: [基本コンポーネント作成](../basic-game-development/basic-components.md) でBrand型を使った実際のMinecraftドメインモデルの例を参照してください。
 
 ### 学習の流れ
 
@@ -23,6 +25,103 @@ estimated_reading_time: '15分'
 3. **実践パターン** → **このドキュメント**
 4. **エラーハンドリング** → [Effect-TSエラーハンドリング](./effect-ts-error-handling.md)
 5. **テスト戦略** → [Effect-TSテスト](./effect-ts-testing.md)
+
+---
+
+## 0. Brand型による型安全な設計パターン
+
+### 0.1 ドメイン固有識別子のパターン
+
+Brand型は同じプリミティブ型でも意味的に異なる値を型レベルで区別するため、Minecraftのような複雑なドメインで特に威力を発揮します。
+
+```typescript
+import { Schema, Brand, Effect, Option } from 'effect'
+
+// ✅ ゲーム内の各概念を明確に分離
+export const EntityId = Schema.String.pipe(
+  Schema.uuid(),
+  Schema.brand('EntityId'),
+  Schema.annotations({
+    title: 'Entity ID',
+    description: 'Unique identifier for any game entity',
+  })
+)
+export type EntityId = Schema.Schema.Type<typeof EntityId>
+
+export const WorldId = Schema.String.pipe(
+  Schema.pattern(/^world_[a-z0-9_]+$/),
+  Schema.brand('WorldId'),
+  Schema.annotations({
+    title: 'World ID',
+    description: 'Unique identifier for a game world',
+    examples: ['world_survival', 'world_creative_build'],
+  })
+)
+export type WorldId = Schema.Schema.Type<typeof WorldId>
+
+// ✅ 値オブジェクトのBrand型応用
+export const Coordinate = Schema.Number.pipe(Schema.finite(), Schema.brand('Coordinate'))
+export type Coordinate = Schema.Schema.Type<typeof Coordinate>
+
+export const GamePosition = Schema.Struct({
+  x: Coordinate,
+  y: Coordinate,
+  z: Coordinate,
+  worldId: WorldId,
+}).pipe(Schema.brand('GamePosition'))
+export type GamePosition = Schema.Schema.Type<typeof GamePosition>
+```
+
+### 0.2 Brand型を活用したサービス設計
+
+```typescript
+// Brand型によりコンパイル時に誤用を防ぐサービス設計
+export const EntityManagerService = Context.GenericTag<{
+  readonly spawn: (worldId: WorldId, position: GamePosition) => Effect.Effect<EntityId, SpawnError>
+  readonly despawn: (entityId: EntityId) => Effect.Effect<void, DespawnError>
+  readonly move: (entityId: EntityId, newPosition: GamePosition) => Effect.Effect<void, MoveError>
+  readonly getPosition: (entityId: EntityId) => Effect.Effect<Option.Option<GamePosition>, never>
+}>('@minecraft/EntityManagerService')
+
+// 実装でのBrand型活用
+export const EntityManagerServiceLive = Layer.effect(
+  EntityManagerService,
+  Effect.gen(function* () {
+    const storage = yield* EntityStorageService
+
+    return EntityManagerService.of({
+      spawn: (worldId, position) =>
+        Effect.gen(function* () {
+          // Brand型により、worldIdとpositionの関係が型レベルで保証される
+          if (position.worldId !== worldId) {
+            return yield* Effect.fail(new WorldMismatchError({ worldId, position }))
+          }
+
+          const entityId = yield* generateEntityId()
+          yield* storage.store(entityId, { position, worldId })
+          return entityId
+        }),
+
+      move: (entityId, newPosition) =>
+        Effect.gen(function* () {
+          const currentData = yield* storage.get(entityId)
+          return yield* Option.match(currentData, {
+            onNone: () => Effect.fail(new EntityNotFoundError({ entityId })),
+            onSome: (data) =>
+              // 同じワールド内でのみ移動可能
+              data.worldId === newPosition.worldId
+                ? storage.update(entityId, { ...data, position: newPosition })
+                : Effect.fail(
+                    new CrossWorldMoveError({ entityId, fromWorld: data.worldId, toWorld: newPosition.worldId })
+                  ),
+          })
+        }),
+
+      // 他の実装...
+    })
+  })
+)
+```
 
 ---
 

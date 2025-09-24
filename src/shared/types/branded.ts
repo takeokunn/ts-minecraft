@@ -1,4 +1,6 @@
 import { Schema } from '@effect/schema'
+import type { DeltaTime } from './time-brands'
+import { DeltaTimeSchema, TimeBrands } from './time-brands'
 
 /**
  * ブランド型定義
@@ -9,80 +11,144 @@ import { Schema } from '@effect/schema'
  * プレイヤーID用のブランド型
  * 文字列だが他の文字列と区別される
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export const PlayerIdSchema = Schema.String.pipe(
+  Schema.filter((s) => s.length > 0, {
+    message: () => 'PlayerId cannot be empty',
+  }),
+  Schema.nonEmptyString(),
+  Schema.brand('PlayerId'),
+  Schema.annotations({
+    title: 'PlayerId',
+    description: 'Unique identifier for a player',
+  })
+)
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
 /**
  * ワールド座標用のブランド型
  * 数値だが座標値として明確に区別される
  */
-export const WorldCoordinateSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate'))
+export const WorldCoordinateSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.brand('WorldCoordinate'),
+  Schema.annotations({
+    title: 'WorldCoordinate',
+    description: 'World coordinate value (finite number)',
+  })
+)
 export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
 
 /**
  * チャンクID用のブランド型
  * 文字列だがチャンク識別子として区別される
  */
-export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
+export const ChunkIdSchema = Schema.String.pipe(
+  Schema.filter((s) => s.length > 0, {
+    message: () => 'ChunkId cannot be empty',
+  }),
+  Schema.nonEmptyString(),
+  Schema.minLength(9), // minimum: "chunk_0_0"
+  Schema.pattern(/^chunk_-?\d+_-?\d+$/),
+  Schema.brand('ChunkId'),
+  Schema.annotations({
+    title: 'ChunkId',
+    description: 'Unique identifier for a chunk (format: chunk_x_z)',
+  })
+)
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 
 /**
  * ブロックタイプID用のブランド型
  * 数値だがブロック種別として区別される
  */
-export const BlockTypeIdSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('BlockTypeId'))
+export const BlockTypeIdSchema = Schema.Number.pipe(
+  Schema.int(),
+  Schema.positive(),
+  Schema.filter((n) => n <= 10000, {
+    message: () => 'BlockTypeId must be less than or equal to 10000',
+  }),
+  Schema.lessThanOrEqualTo(10000), // 実用的上限
+  Schema.brand('BlockTypeId'),
+  Schema.annotations({
+    title: 'BlockTypeId',
+    description: 'Unique identifier for block types (positive integer)',
+  })
+)
 export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
 
 /**
  * チャンク位置のブランド型
  * チャンクのx,z座標を表現
  */
-export const ChunkPosition = Schema.Struct({
+export const ChunkPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
 }).pipe(Schema.brand('ChunkPosition'))
-export type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>
+export const ChunkPosition = ChunkPositionSchema
+export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
 
 /**
  * ブロック位置のブランド型
  * ワールド内のブロック座標を表現
  */
-export const BlockPosition = Schema.Struct({
+export const BlockPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   y: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
 }).pipe(Schema.brand('BlockPosition'))
-export type BlockPosition = Schema.Schema.Type<typeof BlockPosition>
+export const BlockPosition = BlockPositionSchema
+export type BlockPosition = Schema.Schema.Type<typeof BlockPositionSchema>
 
 /**
  * エンティティID用のブランド型
  */
-export const EntityId = Schema.String.pipe(Schema.brand('EntityId'))
+export const EntityId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.brand('EntityId'),
+  Schema.annotations({
+    title: 'EntityId',
+    description: 'Unique identifier for an entity',
+  })
+)
 export type EntityId = Schema.Schema.Type<typeof EntityId>
 
 /**
  * アイテムID用のブランド型
  */
-export const ItemId = Schema.String.pipe(Schema.brand('ItemId'))
+export const ItemId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.pattern(/^[a-z_]+$/), // 小文字とアンダースコアのみ
+  Schema.brand('ItemId'),
+  Schema.annotations({
+    title: 'ItemId',
+    description: 'Unique identifier for an item (lowercase with underscores)',
+  })
+)
 export type ItemId = Schema.Schema.Type<typeof ItemId>
 
 /**
  * セッションID用のブランド型
  */
-export const SessionId = Schema.String.pipe(Schema.brand('SessionId'))
+export const SessionId = Schema.String.pipe(
+  Schema.nonEmptyString(),
+  Schema.minLength(8), // 最低8文字
+  Schema.brand('SessionId'),
+  Schema.annotations({
+    title: 'SessionId',
+    description: 'Unique identifier for a session (minimum 8 characters)',
+  })
+)
 export type SessionId = Schema.Schema.Type<typeof SessionId>
 
-/**
- * タイムスタンプ用のブランド型（Unix時間）
- */
-export const Timestamp = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof Timestamp>
+// ⚠️ Timestamp は time-brands.ts に移行されました
+// 新しいインポートを使用してください: import { Timestamp } from './time-brands'
 
 /**
  * バージョン番号用のブランド型
  */
-export const Version = Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/), Schema.brand('Version'))
-export type Version = Schema.Schema.Type<typeof Version>
+export const VersionSchema = Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/), Schema.brand('Version'))
+export const Version = VersionSchema
+export type Version = Schema.Schema.Type<typeof VersionSchema>
 
 /**
  * UUID用のブランド型
@@ -151,11 +217,8 @@ export type AOValue = Schema.Schema.Type<typeof AOValue>
 export const MeshDimension = Schema.Number.pipe(Schema.positive(), Schema.brand('MeshDimension'))
 export type MeshDimension = Schema.Schema.Type<typeof MeshDimension>
 
-/**
- * デルタタイム（フレーム時間差）の型安全な表現
- */
-export const DeltaTime = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('DeltaTime'))
-export type DeltaTime = Schema.Schema.Type<typeof DeltaTime>
+// ⚠️ DeltaTime は time-brands.ts に移行されました
+// 新しいインポートを使用してください: import { DeltaTime } from './time-brands'
 
 /**
  * マウス感度の型安全な表現
@@ -207,127 +270,54 @@ export type BlockId = Schema.Schema.Type<typeof BlockId>
  * ブランド型を作成するためのヘルパー関数
  */
 export const BrandedTypes = {
-  /**
-   * 安全なPlayerId作成
-   */
-  createPlayerId: (id: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(id),
-
-  /**
-   * 安全なWorldCoordinate作成
-   */
-  createWorldCoordinate: (value: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(value),
-
-  /**
-   * 安全なChunkId作成
-   */
-  createChunkId: (id: string): ChunkId => Schema.decodeSync(ChunkIdSchema)(id),
-
-  /**
-   * 安全なBlockTypeId作成
-   */
-  createBlockTypeId: (id: number): BlockTypeId => Schema.decodeSync(BlockTypeIdSchema)(id),
-
-  /**
-   * 安全なEntityId作成
-   */
-  createEntityId: (id: string): EntityId => Schema.decodeSync(EntityId)(id),
-
-  /**
-   * 安全なItemId作成
-   */
-  createItemId: (id: string): ItemId => Schema.decodeSync(ItemId)(id),
-
-  /**
-   * 安全なHeight作成
-   */
-  createHeight: (value: number): Height => Schema.decodeSync(Height)(value),
-
-  /**
-   * 安全なNoiseCoordinate作成
-   */
-  createNoiseCoordinate: (value: number): NoiseCoordinate => Schema.decodeSync(NoiseCoordinate)(value),
-
-  /**
-   * 安全なNoiseValue作成
-   */
-  createNoiseValue: (value: number): NoiseValue => Schema.decodeSync(NoiseValue)(value),
-
-  /**
-   * 安全なComponentTypeName作成
-   */
-  createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
-
-  /**
-   * 安全なBlockId作成
-   */
+  createPlayerId: (id: string): PlayerId => {
+    if (!id || id.trim().length === 0) {
+      throw new Error(`Invalid PlayerId: cannot be empty or whitespace-only`)
+    }
+    return Schema.decodeSync(PlayerIdSchema)(id)
+  },
+  createWorldCoordinate: (coord: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(coord),
+  createChunkId: (x: number, z: number): ChunkId => Schema.decodeSync(ChunkIdSchema)(`chunk_${x}_${z}`),
+  createChunkPosition: (x: number, z: number): ChunkPosition => Schema.decodeSync(ChunkPositionSchema)({ x, z }),
+  createBlockPosition: (x: number, y: number, z: number): BlockPosition =>
+    Schema.decodeSync(BlockPositionSchema)({ x, y, z }),
+  createVersion: (major: number, minor: number, patch: number): Version =>
+    Schema.decodeSync(VersionSchema)(`${major}.${minor}.${patch}`),
+  createEntityId: (id: string): EntityId => {
+    if (!id || id.trim().length === 0) {
+      throw new Error(`Invalid EntityId: cannot be empty or whitespace-only`)
+    }
+    return Schema.decodeSync(EntityId)(id)
+  },
   createBlockId: (id: string): BlockId => Schema.decodeSync(BlockId)(id),
-
-  // === 統計情報関連のヘルパー ===
-
-  /**
-   * 安全なEntityCount作成
-   */
-  createEntityCount: (value: number): EntityCount => Schema.decodeSync(EntityCount)(value),
-
-  /**
-   * 安全なEntityCapacity作成
-   */
-  createEntityCapacity: (value: number): EntityCapacity => Schema.decodeSync(EntityCapacity)(value),
-
-  // === レンダリング関連のヘルパー ===
-
-  /**
-   * 安全なUVCoordinate作成
-   */
-  createUVCoordinate: (value: number): UVCoordinate => Schema.decodeSync(UVCoordinate)(value),
-
-  /**
-   * 安全なAOValue作成
-   */
+  createDeltaTime: (value: number): DeltaTime => TimeBrands.createDeltaTime(value),
+  createBlockTypeId: (id: number): BlockTypeId => {
+    if (id <= 0 || !Number.isInteger(id)) {
+      throw new Error(`Invalid BlockTypeId: must be positive integer, got ${id}`)
+    }
+    return Schema.decodeSync(BlockTypeIdSchema)(id)
+  },
+  createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
+  createEntityCount: (count: number): EntityCount => Schema.decodeSync(EntityCount)(count),
+  createEntityCapacity: (capacity: number): EntityCapacity => Schema.decodeSync(EntityCapacity)(capacity),
+  createHeight: (height: number): Height => Schema.decodeSync(Height)(height),
+  createNoiseCoordinate: (coord: number): NoiseCoordinate => Schema.decodeSync(NoiseCoordinate)(coord),
+  createNoiseValue: (value: number): NoiseValue => Schema.decodeSync(NoiseValue)(value),
+  createUVCoordinate: (coord: number): UVCoordinate => Schema.decodeSync(UVCoordinate)(coord),
   createAOValue: (value: number): AOValue => Schema.decodeSync(AOValue)(value),
-
-  /**
-   * 安全なMeshDimension作成
-   */
-  createMeshDimension: (value: number): MeshDimension => Schema.decodeSync(MeshDimension)(value),
-
-  /**
-   * 安全なDeltaTime作成
-   */
-  createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTime)(value),
-
-  /**
-   * 安全なSensitivityValue作成
-   */
+  createMeshDimension: (dimension: number): MeshDimension => Schema.decodeSync(MeshDimension)(dimension),
   createSensitivityValue: (value: number): SensitivityValue => Schema.decodeSync(SensitivityValue)(value),
-
-  /**
-   * 安全なEnvironmentKey作成
-   */
   createEnvironmentKey: (key: string): EnvironmentKey => Schema.decodeSync(EnvironmentKey)(key),
-
-  /**
-   * 安全なCacheSize作成
-   */
-  createCacheSize: (value: number): CacheSize => Schema.decodeSync(CacheSize)(value),
-
-  /**
-   * 安全なCacheHitCount作成
-   */
-  createCacheHitCount: (value: number): CacheHitCount => Schema.decodeSync(CacheHitCount)(value),
-
-  /**
-   * 安全なCacheMissCount作成
-   */
-  createCacheMissCount: (value: number): CacheMissCount => Schema.decodeSync(CacheMissCount)(value),
-
-  /**
-   * 安全なWorldPosition作成
-   */
+  createCacheSize: (size: number): CacheSize => Schema.decodeSync(CacheSize)(size),
+  createCacheHitCount: (count: number): CacheHitCount => Schema.decodeSync(CacheHitCount)(count),
+  createCacheMissCount: (count: number): CacheMissCount => Schema.decodeSync(CacheMissCount)(count),
   createWorldPosition: (x: number, y: number, z: number): WorldPosition =>
-    Schema.decodeSync(WorldPosition)({
-      x: Schema.decodeSync(WorldCoordinateSchema)(x),
-      y: Schema.decodeSync(WorldCoordinateSchema)(y),
-      z: Schema.decodeSync(WorldCoordinateSchema)(z),
-    }),
-} as const
+    Schema.decodeSync(WorldPosition)({ x, y, z }),
+  createItemId: (id: string): ItemId => Schema.decodeSync(ItemId)(id),
+  createSessionId: (id: string): SessionId => Schema.decodeSync(SessionId)(id),
+  createUUID: (uuid: string): UUID => Schema.decodeSync(UUID)(uuid),
+}
+
+// Re-export time-related types for backward compatibility
+export type { DeltaTime, Timestamp } from './time-brands'
+export { DeltaTimeSchema, TimestampSchema } from './time-brands'

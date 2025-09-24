@@ -508,7 +508,7 @@ describe('Property-Based Tests', () => {
   describe('境界値の検証', () => {
     it('fps境界値の動作を検証', () => {
       fc.assert(
-        fc.property(Arbitraries.boundaryFps, (fps) => {
+        fc.property(Arbitraries.boundaryFps, (fps: number) => {
           const config = { debug: false, fps, memoryLimit: 1024 }
           const result = Effect.runSync(Effect.either(validateConfig(config)))
 
@@ -521,7 +521,7 @@ describe('Property-Based Tests', () => {
 
     it('memoryLimit境界値の動作を検証', () => {
       fc.assert(
-        fc.property(Arbitraries.boundaryMemoryLimit, (memoryLimit) => {
+        fc.property(Arbitraries.boundaryMemoryLimit, (memoryLimit: number) => {
           const config = { debug: false, fps: 60, memoryLimit }
           const result = Effect.runSync(Effect.either(validateConfig(config)))
 

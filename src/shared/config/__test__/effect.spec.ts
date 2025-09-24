@@ -324,7 +324,7 @@ describe('Effect-TS Configuration', () => {
     })
 
     it('should create ChunkId safely', () => {
-      const chunkId = BrandedTypes.createChunkId('chunk_1_2')
+      const chunkId = BrandedTypes.createChunkId(1, 2)
       expect(chunkId).toBe('chunk_1_2')
       expect(Schema.is(ChunkIdSchema)(chunkId)).toBe(true)
     })
