@@ -1,4 +1,5 @@
-import { Schema, Data } from '@effect/schema'
+import { Schema } from '@effect/schema'
+import { Data } from 'effect'
 
 /**
  * 初期化エラー

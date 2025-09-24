@@ -87,7 +87,7 @@ export const ErrorReporter = {
       stackTrace: ErrorReporter.getStackTrace(error),
       category: 'unknown' as const,
     }
-  },,
+  },
 
   /**
    * エラーの詳細情報を抽出
