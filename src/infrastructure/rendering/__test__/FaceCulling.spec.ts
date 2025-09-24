@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Match } from 'effect'
+import { Effect, Exit, pipe, Match, Option } from 'effect'
 import {
   FaceCullingError,
   isFaceCullingError,
@@ -36,9 +36,19 @@ const createTestChunk = (size: number, pattern: 'empty' | 'full' | 'hollow' | 's
       for (let x = 0; x < size; x++) {
         for (let y = 0; y < size; y++) {
           for (let z = 0; z < size; z++) {
-            if (x === 0 || x === size - 1 || y === 0 || y === size - 1 || z === 0 || z === size - 1) {
-              blocks[x]![y]![z] = 1
-            }
+            pipe(
+              Match.value({ x, y, z, size }),
+              Match.when(
+                ({ x, y, z, size }) =>
+                  x === 0 || x === size - 1 || y === 0 || y === size - 1 || z === 0 || z === size - 1,
+                () => {
+                  blocks[x]![y]![z] = 1
+                }
+              ),
+              Match.orElse(() => {
+                // No-op for interior blocks
+              })
+            )
           }
         }
       }
@@ -183,10 +193,20 @@ describe('FaceCulling', () => {
         const result = runEffect(getService().checkFaceVisibility(null as any, 0, 0, 0, 4))
 
         expect(Exit.isFailure(result)).toBe(true)
-        if (Exit.isFailure(result)) {
-          const error = result.cause._tag === 'Fail' ? result.cause.error : null
-          expect(isFaceCullingError(error)).toBe(true)
-        }
+
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause._tag === 'Fail' ? r.cause.error : null
+              expect(isFaceCullingError(error)).toBe(true)
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
   })
@@ -323,13 +343,33 @@ describe('FaceCulling', () => {
         const result = runEffect(getService().cullHiddenFaces(invalidChunk))
 
         expect(Exit.isFailure(result)).toBe(true)
-        if (Exit.isFailure(result)) {
-          const error = result.cause._tag === 'Fail' ? result.cause.error : null
-          expect(isFaceCullingError(error)).toBe(true)
-          if (isFaceCullingError(error)) {
-            expect(error.context).toBe('cullHiddenFaces')
-          }
-        }
+
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause._tag === 'Fail' ? r.cause.error : null
+              expect(isFaceCullingError(error)).toBe(true)
+
+              pipe(
+                Match.value(error),
+                Match.when(
+                  (e): e is ReturnType<typeof FaceCullingError> => isFaceCullingError(e),
+                  (e) => {
+                    expect(e.context).toBe('cullHiddenFaces')
+                  }
+                ),
+                Match.orElse(() => {
+                  // No-op for non-FaceCullingError types
+                })
+              )
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
   })
@@ -443,12 +483,48 @@ describe('FaceCulling', () => {
         // Count visible faces
         let visibleFaces = 0
         visibleBlocks.forEach(([_, __, ___, visibility]) => {
-          if (visibility.top) visibleFaces++
-          if (visibility.bottom) visibleFaces++
-          if (visibility.front) visibleFaces++
-          if (visibility.back) visibleFaces++
-          if (visibility.left) visibleFaces++
-          if (visibility.right) visibleFaces++
+          pipe(
+            Match.value(visibility.top),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
+          pipe(
+            Match.value(visibility.bottom),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
+          pipe(
+            Match.value(visibility.front),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
+          pipe(
+            Match.value(visibility.back),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
+          pipe(
+            Match.value(visibility.left),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
+          pipe(
+            Match.value(visibility.right),
+            Match.when(true, () => {
+              visibleFaces++
+            }),
+            Match.orElse(() => {})
+          )
         })
 
         const stats = calculateFaceCullingStats(totalFaces, visibleFaces)

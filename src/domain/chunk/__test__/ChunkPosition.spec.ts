@@ -3,6 +3,8 @@ import { Effect } from 'effect'
 import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
 import { Option } from 'effect'
+import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
 import { BrandedTypes } from '../../../shared/types/branded'
 import {
   ChunkPositionSchema,
@@ -221,13 +223,20 @@ describe('ChunkPosition', () => {
           ['chunk_12345_-67890', { x: 12345, z: -67890 }],
         ]
 
-        testCases.forEach(([id, expectedPos]) => {
+        for (const [id, expectedPos] of testCases) {
           const result = chunkIdToPosition(id)
           expect(Option.isSome(result)).toBe(true)
-          if (Option.isSome(result)) {
-            expect(result.value).toEqual(expectedPos)
-          }
-        })
+          yield* pipe(
+            result,
+            Option.match({
+              onSome: (value) =>
+                Effect.sync(() => {
+                  expect(value).toEqual(expectedPos)
+                }),
+              onNone: () => Effect.succeed(undefined),
+            })
+          )
+        }
       })
     )
 
@@ -262,14 +271,21 @@ describe('ChunkPosition', () => {
           { x: 999999, z: -999999 },
         ]
 
-        positions.forEach((originalPos) => {
+        for (const originalPos of positions) {
           const id = chunkPositionToId(originalPos)
           const convertedBack = chunkIdToPosition(id)
           expect(Option.isSome(convertedBack)).toBe(true)
-          if (Option.isSome(convertedBack)) {
-            expect(convertedBack.value).toEqual(originalPos)
-          }
-        })
+          yield* pipe(
+            convertedBack,
+            Option.match({
+              onSome: (value) =>
+                Effect.sync(() => {
+                  expect(value).toEqual(originalPos)
+                }),
+              onNone: () => Effect.succeed(undefined),
+            })
+          )
+        }
       })
     )
   })

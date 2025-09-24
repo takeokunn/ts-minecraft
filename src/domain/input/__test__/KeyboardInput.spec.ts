@@ -1,6 +1,6 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Either, pipe } from 'effect'
 import { KeyboardInput, KeyboardInputLive, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
 import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
@@ -126,10 +126,17 @@ describe('KeyboardInput', () => {
         const result = yield* Effect.either(keyboard.isActionPressed('forward'))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('KeyMappingError')
-          expect(result.left.message).toBe('Failed to check action')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('KeyMappingError')
+                expect(error.message).toBe('Failed to check action')
+              }),
+            onRight: () => Effect.void,
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
 
@@ -139,10 +146,17 @@ describe('KeyboardInput', () => {
         const result = yield* Effect.either(keyboard.setKeyMapping(DefaultKeyMap))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('KeyMappingError')
-          expect(result.left.message).toBe('Failed to set mapping')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe('KeyMappingError')
+                expect(error.message).toBe('Failed to set mapping')
+              }),
+            onRight: () => Effect.void,
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
   })

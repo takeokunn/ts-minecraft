@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Either, pipe } from 'effect'
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { GameScene } from '../GameScene'

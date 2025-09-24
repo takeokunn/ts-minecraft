@@ -5,7 +5,7 @@
  * パフォーマンス最適化のためのStructure of Arrays (SoA)パターンを採用
  */
 
-import { Context, Data, Effect, Layer, Ref, Match, Option, pipe } from 'effect'
+import { Context, Data, Effect, Layer, Ref, Match, Option, pipe, Predicate, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import { EntityManager } from './EntityManager'
 import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry'
@@ -29,8 +29,8 @@ export const WorldError = Schema.TaggedStruct('WorldError', {
 
 export type WorldError = Schema.Schema.Type<typeof WorldError>
 
-export const isWorldError = (error: unknown): error is WorldError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'WorldError'
+export const isWorldError: Predicate.Refinement<unknown, WorldError> = (error): error is WorldError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'WorldError'
 
 /**
  * WorldErrorインスタンス作成ヘルパー
@@ -492,69 +492,55 @@ export const WorldLive = Layer.effect(
           Match.orElse(() => Effect.succeed(null))
         )
 
-        if (result !== null) {
-          return result
-        }
-
-        const state = yield* Ref.get(stateRef)
-
-        // 最初のコンポーネントを持つエンティティから開始
-        const firstComponentType = Option.fromNullable(componentTypes[0])
-        const firstResult = yield* pipe(
-          firstComponentType,
+        return yield* pipe(
+          Option.fromNullable(result),
           Option.match({
-            onNone: () => Effect.succeed([]),
-            onSome: (type) =>
-              pipe(
-                Option.fromNullable(state.components.get(type)),
-                Option.match({
-                  onNone: () => Effect.succeed([]),
-                  onSome: (storage) => Effect.succeed(null),
-                })
-              ),
-          })
-        )
+            onNone: () =>
+              Effect.gen(function* () {
+                const state = yield* Ref.get(stateRef)
 
-        if (firstResult !== null) return firstResult
-
-        // 最初のストレージ取得をOption化
-        const firstStorageResult = yield* pipe(
-          Option.fromNullable(state.components.get(componentTypes[0]!)),
-          Option.match({
-            onNone: () => Effect.succeed([]),
-            onSome: (storage) => Effect.succeed(Array.from(storage.data.keys())),
-          })
-        )
-
-        let entities = firstStorageResult
-        if (entities.length === 0) return entities
-
-        // 残りのコンポーネントでフィルタリング（Optionパターン使用）
-        for (let i = 1; i < componentTypes.length; i++) {
-          const result = yield* pipe(
-            Option.fromNullable(componentTypes[i]),
-            Option.match({
-              onNone: () => Effect.succeed([]),
-              onSome: (componentType) =>
-                pipe(
-                  Option.fromNullable(state.components.get(componentType)),
+                // 最初のコンポーネントを持つエンティティから開始
+                const firstStorageResult = yield* pipe(
+                  Option.fromNullable(state.components.get(componentTypes[0]!)),
                   Option.match({
                     onNone: () => Effect.succeed([]),
-                    onSome: (storage) => Effect.succeed(entities.filter((id) => storage.data.has(id))),
+                    onSome: (storage) => Effect.succeed(Array.from(storage.data.keys())),
                   })
-                ),
-            })
-          )
+                )
 
-          entities = result
-          if (entities.length === 0) break
-        }
+                let entities = firstStorageResult
 
-        // アクティブなエンティティのみを返す
-        return entities.filter((id) => {
-          const metadata = state.entities.get(id)
-          return metadata?.active ?? false
-        })
+                return yield* pipe(
+                  entities.length === 0,
+                  Match.value,
+                  Match.when(true, () => Effect.succeed(entities)),
+                  Match.when(false, () =>
+                    Effect.succeed(
+                      componentTypes.slice(1).reduce(
+                        (entities, componentType) =>
+                          pipe(
+                            Option.fromNullable(state.components.get(componentType)),
+                            Option.match({
+                              onNone: () => [],
+                              onSome: (storage) => entities.filter((id) => storage.data.has(id)),
+                            })
+                          ),
+                        entities
+                      )
+                    )
+                  ),
+                  Match.exhaustive,
+                  Effect.map((entities) =>
+                    entities.filter((id) => {
+                      const metadata = state.entities.get(id)
+                      return metadata?.active ?? false
+                    })
+                  )
+                )
+              }),
+            onSome: (value) => Effect.succeed(value),
+          })
+        )
       })
 
     /**

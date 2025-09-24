@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Number as N } from 'effect'
+import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Number as N, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ChunkData, BlockType } from './MeshGenerator'
 import { AOValue, BrandedTypes } from '../../shared/types/branded'
@@ -44,8 +44,10 @@ export const AmbientOcclusionError = (reason: string, context: string, timestamp
   timestamp,
 })
 
-export const isAmbientOcclusionError = (error: unknown): error is AmbientOcclusionError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'AmbientOcclusionError'
+export const isAmbientOcclusionError: Predicate.Refinement<unknown, AmbientOcclusionError> = (
+  error
+): error is AmbientOcclusionError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'AmbientOcclusionError'
 
 // ========================================
 // Service Interface
@@ -293,45 +295,50 @@ const smoothAOValues = (aoVertices: AOVertex[]): AOVertex[] => {
 const makeService = (config: AOConfig): AmbientOcclusionService => ({
   calculateVertexAO: (blocks, x, y, z, size) =>
     pipe(
-      Effect.if(config.enabled, {
-        onTrue: () =>
-          Effect.try({
-            try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
-            catch: (error) =>
-              AmbientOcclusionError(
-                `Failed to calculate vertex AO: ${String(error)}`,
-                `calculateVertexAO(${x},${y},${z})`,
-                Date.now()
-              ),
-          }),
-        onFalse: () => Effect.succeed(BrandedTypes.createAOValue(1.0)),
-      })
+      config.enabled,
+      Match.value,
+      Match.when(true, () =>
+        Effect.try({
+          try: () => calculateVertexAOPure(blocks, x, y, z, size, config),
+          catch: (error) =>
+            AmbientOcclusionError(
+              `Failed to calculate vertex AO: ${String(error)}`,
+              `calculateVertexAO(${x},${y},${z})`,
+              Date.now()
+            ),
+        })
+      ),
+      Match.when(false, () => Effect.succeed(BrandedTypes.createAOValue(1.0))),
+      Match.exhaustive
     ),
 
   calculateFaceAO: (blocks, x, y, z, face, size) =>
     pipe(
-      Effect.if(config.enabled, {
-        onTrue: () =>
-          Effect.try({
-            try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
-            catch: (error) =>
-              AmbientOcclusionError(
-                `Failed to calculate face AO: ${String(error)}`,
-                `calculateFaceAO(${face})`,
-                Date.now()
-              ),
-          }),
-        onFalse: () =>
-          Effect.succeed<AOFace>({
-            vertices: [
-              { x, y, z, ao: BrandedTypes.createAOValue(1.0) },
-              { x: x + 1, y, z, ao: BrandedTypes.createAOValue(1.0) },
-              { x: x + 1, y: y + 1, z, ao: BrandedTypes.createAOValue(1.0) },
-              { x, y: y + 1, z, ao: BrandedTypes.createAOValue(1.0) },
-            ],
-            averageAO: BrandedTypes.createAOValue(1.0),
-          }),
-      })
+      config.enabled,
+      Match.value,
+      Match.when(true, () =>
+        Effect.try({
+          try: () => calculateFaceAOPure(blocks, x, y, z, face, size, config),
+          catch: (error) =>
+            AmbientOcclusionError(
+              `Failed to calculate face AO: ${String(error)}`,
+              `calculateFaceAO(${face})`,
+              Date.now()
+            ),
+        })
+      ),
+      Match.when(false, () =>
+        Effect.succeed<AOFace>({
+          vertices: [
+            { x, y, z, ao: BrandedTypes.createAOValue(1.0) },
+            { x: x + 1, y, z, ao: BrandedTypes.createAOValue(1.0) },
+            { x: x + 1, y: y + 1, z, ao: BrandedTypes.createAOValue(1.0) },
+            { x, y: y + 1, z, ao: BrandedTypes.createAOValue(1.0) },
+          ],
+          averageAO: BrandedTypes.createAOValue(1.0),
+        })
+      ),
+      Match.exhaustive
     ),
 
   applyAOToChunk: (chunkData) =>

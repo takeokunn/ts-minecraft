@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema } from 'effect'
+import { Effect, Either, Option, Match, pipe, Exit, TestContext } from 'effect'
 import { BlockInteractionService, BlockInteractionServiceLive, INTERACTION_CONSTANTS } from '../index'
 import type { Vector3, BlockFace, ToolType } from '../InteractionTypes'
 import type { BlockId, BlockPosition, PlayerId } from '../../../shared/types/branded'
@@ -59,7 +59,7 @@ describe('BlockInteractionService', () => {
         const service = yield* BlockInteractionService
         const result = yield* Effect.either(service.performRaycast(testOrigin, testDirection, -1))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
 
@@ -68,7 +68,7 @@ describe('BlockInteractionService', () => {
         const service = yield* BlockInteractionService
         const result = yield* Effect.either(service.performRaycast(testOrigin, testDirection, 200))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
   })
@@ -108,7 +108,7 @@ describe('BlockInteractionService', () => {
           service.startBlockBreaking(uniquePlayerId, { x: 6, y: 64, z: 0 } as BlockPosition, 'hand' as ToolType)
         )
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
   })
@@ -150,7 +150,7 @@ describe('BlockInteractionService', () => {
 
         const result = yield* Effect.either(service.updateBlockBreaking(session.sessionId, -0.1))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
   })
@@ -217,7 +217,7 @@ describe('BlockInteractionService', () => {
         const service = yield* BlockInteractionService
         const result = yield* Effect.either(service.getInteractableBlocks(testOrigin, -1))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
 
@@ -226,7 +226,7 @@ describe('BlockInteractionService', () => {
         const service = yield* BlockInteractionService
         const result = yield* Effect.either(service.getInteractableBlocks(testOrigin, 50))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(BlockInteractionServiceLive))
     )
   })
@@ -323,50 +323,49 @@ describe('BlockInteractionService Integration', () => {
 
       // 2. ブロックが見つかった場合、破壊を開始
       if (raycast.hit && raycast.blockPosition) {
-        const session = yield* service.startBlockBreaking(
-          uniquePlayerId,
-          raycast.blockPosition as BlockPosition,
-          'pickaxe' as ToolType
-        )
+        yield* Effect.gen(function* () {
+          const session = yield* service.startBlockBreaking(
+            uniquePlayerId,
+            raycast.blockPosition as BlockPosition,
+            'pickaxe' as ToolType
+          )
 
-        // 3. 破壊進捗を更新
-        // updateBlockBreakingは実際の経過時間を使用するため、deltaTimeは使われない
-        // 進捗は実時間に基づくため、すぐに呼ばれた場合はほぼ0になる
-        const progress = yield* service.updateBlockBreaking(
-          session.sessionId,
-          1.0 // deltaTimeパラメータ（内部では実際の経過時間が使用される）
-        )
+          // 3. 破壊進捗を更新
+          // updateBlockBreakingは実際の経過時間を使用するため、deltaTimeは使われない
+          // 進捗は実時間に基づくため、すぐに呼ばれた場合はほぼ0になる
+          const progress = yield* service.updateBlockBreaking(
+            session.sessionId,
+            1.0 // deltaTimeパラメータ（内部では実際の経過時間が使用される）
+          )
 
-        // 実時間ベースのため、即座の呼び出しでは進捗は非常に小さい
-        expect(progress.progress).toBeGreaterThanOrEqual(0)
-        expect(progress.progress).toBeLessThanOrEqual(1)
+          // 実時間ベースのため、即座の呼び出しでは進捗は非常に小さい
+          expect(progress.progress).toBeGreaterThanOrEqual(0)
+          expect(progress.progress).toBeLessThanOrEqual(1)
 
-        // 4. 新しい位置にブロック設置
-        const placementPosition = {
-          x: raycast.blockPosition.x + 1,
-          y: raycast.blockPosition.y,
-          z: raycast.blockPosition.z,
-        } as BlockPosition
+          // 4. 新しい位置にブロック設置
+          const placementPosition = {
+            x: raycast.blockPosition!.x + 1,
+            y: raycast.blockPosition!.y,
+            z: raycast.blockPosition!.z,
+          } as BlockPosition
 
-        const placement = yield* service.placeBlock(
-          uniquePlayerId,
-          placementPosition,
-          'dirt' as BlockId,
-          'west' as BlockFace
-        )
+          const placement = yield* service.placeBlock(
+            uniquePlayerId,
+            placementPosition,
+            'dirt' as BlockId,
+            'west' as BlockFace
+          )
 
-        expect(raycast).toBeDefined()
+          expect(raycast).toBeDefined()
 
-        return {
-          raycast,
-          session,
-          progress,
-          placement,
-        }
+          return {
+            raycast,
+            session,
+            progress,
+            placement,
+          }
+        })
       }
-
-      expect(raycast).toBeDefined()
-      return { raycast }
     }).pipe(Effect.provide(BlockInteractionServiceLive))
   )
 })

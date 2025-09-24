@@ -39,7 +39,7 @@ export const ErrorValidation = {
         onLeft: () => false,
         onRight: (networkError) => {
           const retryableTags = ['NetworkError', 'ConnectionError', 'TimeoutError', 'ServerError']
-          return retryableTags.includes(networkError._tag)
+          return retryableTags.includes(networkError['_tag'])
         },
       })
     ),

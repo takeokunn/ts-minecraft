@@ -1,4 +1,4 @@
-import { Data, Schema } from 'effect'
+import { Data, Schema, Predicate } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type { Vector3, ToolType, BlockFace } from './InteractionTypes'
 
@@ -180,30 +180,32 @@ export const createInteractionValidationError = (params: {
 /**
  * RaycastErrorかどうかを判定
  */
-export const isRaycastError = (error: unknown): error is RaycastError => error instanceof RaycastError
+export const isRaycastError = (error: unknown): error is RaycastError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'RaycastError'
 
 /**
  * BlockBreakingErrorかどうかを判定
  */
-export const isBlockBreakingError = (error: unknown): error is BlockBreakingError => error instanceof BlockBreakingError
+export const isBlockBreakingError = (error: unknown): error is BlockBreakingError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'BlockBreakingError'
 
 /**
  * BlockPlacementErrorかどうかを判定
  */
 export const isBlockPlacementError = (error: unknown): error is BlockPlacementError =>
-  error instanceof BlockPlacementError
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'BlockPlacementError'
 
 /**
  * BreakingSessionErrorかどうかを判定
  */
 export const isBreakingSessionError = (error: unknown): error is BreakingSessionError =>
-  error instanceof BreakingSessionError
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'BreakingSessionError'
 
 /**
  * InteractionValidationErrorかどうかを判定
  */
 export const isInteractionValidationError = (error: unknown): error is InteractionValidationError =>
-  error instanceof InteractionValidationError
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'InteractionValidationError'
 
 /**
  * InteractionErrorかどうかを判定

@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import { it as effectIt } from '@effect/vitest'
 import { CollisionDetection } from '../CollisionDetection'
 import type { AABB } from '../types'
@@ -131,8 +131,8 @@ describe('CollisionDetection', () => {
     //   Effect.gen(function* () {
     //     const mockGetBlockWithStep = (pos: { x: number; y: number; z: number }): BlockTypeId | null => {
     //       // Y=0に床、Y=1, X=3に段差
-    //       if (pos.y === 0) return 1 as BlockTypeId
-    //       if (pos.y === 1 && pos.x === 3) return 1 as BlockTypeId
+    //       yield* pipe(pos.y === 0, Match.value, Match.when(true, () => Effect.succeed( 1 as BlockTypeId)), Match.when(false, () => Effect.succeed(undefined)), Match.exhaustive)
+    //       yield* pipe(pos.y === 1 && pos.x === 3, Match.value, Match.when(true, () => Effect.succeed( 1 as BlockTypeId)), Match.when(false, () => Effect.succeed(undefined)), Match.exhaustive)
     //       return null
     //     }
 
@@ -156,8 +156,13 @@ describe('CollisionDetection', () => {
   describe('raycast', () => {
     const mockGetBlockAt = (pos: { x: number; y: number; z: number }): BlockTypeId | null => {
       // X=10に壁を配置
-      if (Math.floor(pos.x) === 10) return 1 as BlockTypeId
-      return null
+      return pipe(
+        Math.floor(pos.x) === 10,
+        Match.value,
+        Match.when(true, () => 1 as BlockTypeId),
+        Match.when(false, () => null),
+        Match.exhaustive
+      )
     }
 
     effectIt.effect('should detect hit on block', () =>

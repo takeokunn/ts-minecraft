@@ -1,4 +1,4 @@
-import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match, Stream } from 'effect'
+import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match, Stream, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { SystemError } from './System'
 import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
@@ -54,8 +54,9 @@ export const EntityManagerError = (
   ...(componentType !== undefined && { componentType }),
 })
 
-export const isEntityManagerError = (error: unknown): error is EntityManagerError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityManagerError'
+export const isEntityManagerError: Predicate.Refinement<unknown, EntityManagerError> = (
+  error
+): error is EntityManagerError => Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'EntityManagerError'
 
 /**
  * EntityManagerError作成ヘルパー

@@ -1,4 +1,4 @@
-import { Context, Effect, pipe } from 'effect'
+import { Context, Effect, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager.js'
@@ -118,7 +118,7 @@ export const PlayerError = (
 })
 
 export const isPlayerError = (error: unknown): error is PlayerError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'PlayerError'
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'PlayerError'
 
 /**
  * プレイヤーエラー作成ヘルパー

@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { it as itEffect } from '@effect/vitest'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, pipe, Match } from 'effect'
 import { createWorldGenerator } from '../createWorldGenerator'
 import type { GeneratorOptions, StructureType } from '../GeneratorOptions'
 import type { ChunkPosition } from '../../chunk/ChunkPosition'

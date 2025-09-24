@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { Vector3 } from '../world/types'
 import { PHYSICS_CONSTANTS } from './types'
 
@@ -51,13 +51,16 @@ export const Gravity = {
    * @param fallDistance 落下距離（ブロック）
    * @returns ダメージ量（ハート単位）
    */
-  calculateFallDamage: (fallDistance: number): number => {
-    // 3ブロック以下は無害
-    if (fallDistance <= 3) return 0
-
-    // 3ブロックを超えた分だけダメージ
-    return Math.floor(fallDistance - 3) * 0.5
-  },
+  calculateFallDamage: (fallDistance: number): number =>
+    pipe(
+      fallDistance,
+      Match.value,
+      Match.when(
+        (distance) => distance <= 3,
+        () => 0
+      ), // 3ブロック以下は無害
+      Match.orElse((distance) => Math.floor(distance - 3) * 0.5) // 3ブロックを超えた分だけダメージ
+    ),
 
   /**
    * 空気抵抗を適用

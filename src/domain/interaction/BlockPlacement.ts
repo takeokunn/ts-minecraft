@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Match, pipe, Predicate } from 'effect'
 import type { BlockId, BlockPosition, PlayerId } from '../../shared/types/branded'
 import type { Vector3, BlockFace, PlacementResult } from './InteractionTypes'
 import { createSuccessfulPlacement, createFailedPlacement } from './InteractionTypes'
@@ -139,22 +139,23 @@ const getPlacementRule = (blockId: BlockId): PlacementRule => {
  * 実際のプロジェクトでは ChunkManager から取得
  */
 const getBlockAt = (position: BlockPosition): Effect.Effect<BlockId, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 簡単なワールド生成
-    if (position.y <= 0) {
-      return 'bedrock' as BlockId
-    }
-    if (position.y <= 62) {
-      return 'stone' as BlockId
-    }
-    if (position.y === 63) {
-      return 'dirt' as BlockId
-    }
-    if (position.y === 64) {
-      return 'grass' as BlockId
-    }
-    return 'air' as BlockId
-  })
+  Effect.succeed(
+    pipe(
+      position.y,
+      Match.value,
+      Match.when(
+        (y) => y <= 0,
+        () => 'bedrock' as BlockId
+      ),
+      Match.when(
+        (y) => y <= 62,
+        () => 'stone' as BlockId
+      ),
+      Match.when(63, () => 'dirt' as BlockId),
+      Match.when(64, () => 'grass' as BlockId),
+      Match.orElse(() => 'air' as BlockId)
+    )
+  )
 
 /**
  * 指定位置にブロックを設置（スタブ実装）
@@ -170,13 +171,17 @@ const setBlockAt = (position: BlockPosition, blockId: BlockId): Effect.Effect<vo
  * 指定位置の光レベルを取得（スタブ実装）
  */
 const getLightLevel = (position: BlockPosition): Effect.Effect<number, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 高度ベースの簡易計算
-    if (position.y >= 64) {
-      return 15 // 地上は最大光レベル
-    }
-    return Math.max(0, 15 - Math.floor((64 - position.y) / 4))
-  })
+  Effect.succeed(
+    pipe(
+      position.y,
+      Match.value,
+      Match.when(
+        (y) => y >= 64,
+        () => 15
+      ), // 地上は最大光レベル
+      Match.orElse((y) => Math.max(0, 15 - Math.floor((64 - y) / 4)))
+    )
+  )
 
 /**
  * 指定位置が水中かどうかチェック（スタブ実装）
@@ -217,43 +222,33 @@ const wouldCollideWithPlayer = (position: BlockPosition, playerId: PlayerId): Ef
  * @param face - 移動する面の方向
  * @returns 隣接位置
  */
-const getAdjacentPosition = (basePosition: BlockPosition, face: BlockFace): BlockPosition => {
-  switch (face) {
-    case 'top':
-      return { ...basePosition, y: basePosition.y + 1 } as BlockPosition
-    case 'bottom':
-      return { ...basePosition, y: basePosition.y - 1 } as BlockPosition
-    case 'north':
-      return { ...basePosition, z: basePosition.z - 1 } as BlockPosition
-    case 'south':
-      return { ...basePosition, z: basePosition.z + 1 } as BlockPosition
-    case 'east':
-      return { ...basePosition, x: basePosition.x + 1 } as BlockPosition
-    case 'west':
-      return { ...basePosition, x: basePosition.x - 1 } as BlockPosition
-  }
-}
+const getAdjacentPosition = (basePosition: BlockPosition, face: BlockFace): BlockPosition =>
+  pipe(
+    Match.value(face),
+    Match.when('top', () => ({ ...basePosition, y: basePosition.y + 1 }) as BlockPosition),
+    Match.when('bottom', () => ({ ...basePosition, y: basePosition.y - 1 }) as BlockPosition),
+    Match.when('north', () => ({ ...basePosition, z: basePosition.z - 1 }) as BlockPosition),
+    Match.when('south', () => ({ ...basePosition, z: basePosition.z + 1 }) as BlockPosition),
+    Match.when('east', () => ({ ...basePosition, x: basePosition.x + 1 }) as BlockPosition),
+    Match.when('west', () => ({ ...basePosition, x: basePosition.x - 1 }) as BlockPosition),
+    Match.exhaustive
+  )
 
 /**
  * 面の反対方向を取得
  * 支持ブロックチェック時に使用
  */
-const getOppositeFace = (face: BlockFace): BlockFace => {
-  switch (face) {
-    case 'top':
-      return 'bottom'
-    case 'bottom':
-      return 'top'
-    case 'north':
-      return 'south'
-    case 'south':
-      return 'north'
-    case 'east':
-      return 'west'
-    case 'west':
-      return 'east'
-  }
-}
+const getOppositeFace = (face: BlockFace): BlockFace =>
+  pipe(
+    Match.value(face),
+    Match.when('top', () => 'bottom' as const),
+    Match.when('bottom', () => 'top' as const),
+    Match.when('north', () => 'south' as const),
+    Match.when('south', () => 'north' as const),
+    Match.when('east', () => 'west' as const),
+    Match.when('west', () => 'east' as const),
+    Match.exhaustive
+  )
 
 // =============================================================================
 // Placement Validation
@@ -267,8 +262,8 @@ const validatePlacementPosition = (position: BlockPosition, blockId: BlockId): E
     const rule = getPlacementRule(blockId)
 
     // 高度制限チェック
-    if (position.y < 0 || position.y >= rule.maxStackHeight) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBlockPlacementError({
           playerId: 'system' as PlayerId,
           position,
@@ -276,13 +271,14 @@ const validatePlacementPosition = (position: BlockPosition, blockId: BlockId): E
           face: 'top',
           reason: `Invalid height: ${position.y}. Must be between 0 and ${rule.maxStackHeight}`,
         })
-      )
-    }
+      ),
+      () => position.y < 0 || position.y >= rule.maxStackHeight
+    )
 
     // ワールド境界チェック（Minecraft世界の限界）
     const WORLD_BORDER = 30000000 // Minecraft Far Lands
-    if (Math.abs(position.x) > WORLD_BORDER || Math.abs(position.z) > WORLD_BORDER) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBlockPlacementError({
           playerId: 'system' as PlayerId,
           position,
@@ -290,8 +286,9 @@ const validatePlacementPosition = (position: BlockPosition, blockId: BlockId): E
           face: 'top',
           reason: `Position outside world border: ${position.x}, ${position.z}`,
         })
-      )
-    }
+      ),
+      () => Math.abs(position.x) > WORLD_BORDER || Math.abs(position.z) > WORLD_BORDER
+    )
   })
 
 /**
@@ -303,8 +300,8 @@ const validateBlockReplacement = (position: BlockPosition, blockId: BlockId): Ef
     const rule = getPlacementRule(blockId)
 
     // 置換可能ブロックリストに含まれているかチェック
-    if (!rule.canReplaceBlocks.includes(existingBlock)) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBlockPlacementError({
           playerId: 'system' as PlayerId,
           position,
@@ -312,8 +309,9 @@ const validateBlockReplacement = (position: BlockPosition, blockId: BlockId): Ef
           face: 'top',
           reason: `Cannot replace block ${existingBlock} with ${blockId}`,
         })
-      )
-    }
+      ),
+      () => !rule.canReplaceBlocks.includes(existingBlock)
+    )
   })
 
 /**
@@ -327,39 +325,42 @@ const validateSupport = (
   Effect.gen(function* () {
     const rule = getPlacementRule(blockId)
 
-    if (!rule.requiresSupport) {
-      return // 支持不要なブロック
-    }
+    yield* Effect.when(
+      Effect.gen(function* () {
+        // 設置面が支持可能かチェック
+        const oppositeFace = getOppositeFace(face)
+        yield* Effect.when(
+          Effect.fail(
+            createBlockPlacementError({
+              playerId: 'system' as PlayerId,
+              position,
+              blockId,
+              face,
+              reason: `Block ${blockId} cannot be placed on face ${face}`,
+            })
+          ),
+          () => !rule.supportFaces.includes(oppositeFace)
+        )
 
-    // 設置面が支持可能かチェック
-    const oppositeFace = getOppositeFace(face)
-    if (!rule.supportFaces.includes(oppositeFace)) {
-      return yield* Effect.fail(
-        createBlockPlacementError({
-          playerId: 'system' as PlayerId,
-          position,
-          blockId,
-          face,
-          reason: `Block ${blockId} cannot be placed on face ${face}`,
-        })
-      )
-    }
+        // 支持ブロックの存在確認
+        const supportPosition = getAdjacentPosition(position, oppositeFace)
+        const supportBlock = yield* getBlockAt(supportPosition)
 
-    // 支持ブロックの存在確認
-    const supportPosition = getAdjacentPosition(position, oppositeFace)
-    const supportBlock = yield* getBlockAt(supportPosition)
-
-    if (supportBlock === ('air' as BlockId)) {
-      return yield* Effect.fail(
-        createBlockPlacementError({
-          playerId: 'system' as PlayerId,
-          position,
-          blockId,
-          face,
-          reason: `No support block found at ${supportPosition.x}, ${supportPosition.y}, ${supportPosition.z}`,
-        })
-      )
-    }
+        yield* Effect.when(
+          Effect.fail(
+            createBlockPlacementError({
+              playerId: 'system' as PlayerId,
+              position,
+              blockId,
+              face,
+              reason: `No support block found at ${supportPosition.x}, ${supportPosition.y}, ${supportPosition.z}`,
+            })
+          ),
+          () => supportBlock === ('air' as BlockId)
+        )
+      }),
+      () => rule.requiresSupport
+    )
   })
 
 /**
@@ -373,36 +374,44 @@ const validateEnvironmentalConditions = (
     const rule = getPlacementRule(blockId)
 
     // 光レベルチェック
-    if (rule.needsLight) {
-      const lightLevel = yield* getLightLevel(position)
-      if (lightLevel < rule.minLightLevel) {
-        return yield* Effect.fail(
-          createBlockPlacementError({
-            playerId: 'system' as PlayerId,
-            position,
-            blockId,
-            face: 'top',
-            reason: `Insufficient light: ${lightLevel}. Required: ${rule.minLightLevel}`,
-          })
+    yield* Effect.when(
+      Effect.gen(function* () {
+        const lightLevel = yield* getLightLevel(position)
+        yield* Effect.when(
+          Effect.fail(
+            createBlockPlacementError({
+              playerId: 'system' as PlayerId,
+              position,
+              blockId,
+              face: 'top',
+              reason: `Insufficient light: ${lightLevel}. Required: ${rule.minLightLevel}`,
+            })
+          ),
+          () => lightLevel < rule.minLightLevel
         )
-      }
-    }
+      }),
+      () => rule.needsLight
+    )
 
     // 水中条件チェック
-    if (rule.needsWater) {
-      const inWater = yield* isInWater(position)
-      if (!inWater) {
-        return yield* Effect.fail(
-          createBlockPlacementError({
-            playerId: 'system' as PlayerId,
-            position,
-            blockId,
-            face: 'top',
-            reason: `Block ${blockId} requires water`,
-          })
+    yield* Effect.when(
+      Effect.gen(function* () {
+        const inWater = yield* isInWater(position)
+        yield* Effect.when(
+          Effect.fail(
+            createBlockPlacementError({
+              playerId: 'system' as PlayerId,
+              position,
+              blockId,
+              face: 'top',
+              reason: `Block ${blockId} requires water`,
+            })
+          ),
+          () => !inWater
         )
-      }
-    }
+      }),
+      () => rule.needsWater
+    )
   })
 
 /**
@@ -416,8 +425,8 @@ const validatePlayerCollision = (
   Effect.gen(function* () {
     const wouldCollide = yield* wouldCollideWithPlayer(position, playerId)
 
-    if (wouldCollide) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBlockPlacementError({
           playerId,
           position,
@@ -425,8 +434,9 @@ const validatePlayerCollision = (
           face: 'top',
           reason: 'Block placement would collide with player',
         })
-      )
-    }
+      ),
+      () => wouldCollide
+    )
   })
 
 // =============================================================================
@@ -481,7 +491,19 @@ export const placeBlock = (
   }).pipe(
     // 設置エラーをキャッチして適切なレスポンスに変換
     Effect.catchAll((error) =>
-      Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Unknown placement error'))
+      Effect.succeed(
+        createFailedPlacement(
+          pipe(
+            Match.value(error),
+            Match.when(
+              (e: unknown): e is Error =>
+                Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
+              (e: Error) => e.message
+            ),
+            Match.orElse(() => 'Unknown placement error')
+          )
+        )
+      )
     )
   )
 
@@ -517,7 +539,19 @@ export const placeBatchBlocks = (
       const result = yield* placeBlock(playerId, request.position, request.blockId, request.face).pipe(
         // 個別エラーは結果に含める（全体の処理は継続）
         Effect.catchAll((error) =>
-          Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Batch placement error'))
+          Effect.succeed(
+            createFailedPlacement(
+              pipe(
+                Match.value(error),
+                Match.when(
+                  (e: unknown): e is Error =>
+                    Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
+                  (e: Error) => e.message
+                ),
+                Match.orElse(() => 'Batch placement error')
+              )
+            )
+          )
         )
       )
 
@@ -586,7 +620,19 @@ export const checkPlacementViability = (
   Effect.gen(function* () {
     const placementResult = yield* placeBlock(playerId, position, blockId, face).pipe(
       Effect.catchAll((error) =>
-        Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Placement check error'))
+        Effect.succeed(
+          createFailedPlacement(
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e: unknown): e is Error =>
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e['message']),
+                (e: Error) => e.message
+              ),
+              Match.orElse(() => 'Placement check error')
+            )
+          )
+        )
       )
     )
 
@@ -635,9 +681,12 @@ export const scanPlaceablePositions = (
             'top' // 仮に上面設置として検査
           )
 
-          if (viability.canPlace) {
-            placeablePositions.push(position)
-          }
+          yield* Effect.when(
+            Effect.sync(() => {
+              placeablePositions.push(position)
+            }),
+            () => viability.canPlace
+          )
         }
       }
     }

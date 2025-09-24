@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import { MeshGeneratorService, MeshGeneratorLive } from '../MeshGenerator'
@@ -61,7 +61,7 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
         for (let z = 0; z < validatedChunk.size; z++) {
           const blockType = validatedChunk.blocks[x]?.[y]?.[z] ?? 0
 
-          if (blockType && blockType > 0) {
+          if (blockType > 0) {
             // Generate cube faces (basic implementation)
             const cubeVertices = [
               // Front face
@@ -161,173 +161,44 @@ const shouldRenderFace = (
   }
 
   const neighborCoords = neighbors[faceDirection]
-  if (!neighborCoords) {
-    return true // No neighbor defined, render face
-  }
+  return pipe(
+    Option.fromNullable(neighborCoords),
+    Option.match({
+      onNone: () => true, // No neighbor defined, render face
+      onSome: (coords) => {
+        const [nx, ny, nz] = coords
 
-  const [nx, ny, nz] = neighborCoords
-
-  // Additional type guard for safety
-  if (nx === undefined || ny === undefined || nz === undefined) {
-    return true // Safety fallback
-  }
-
-  // Check bounds
-  if (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkSize || nz < 0 || nz >= chunkSize) {
-    return true // Render faces on chunk boundaries
-  }
-
-  // Don't render face if neighbor is solid
-  const neighborBlock = blocks[nx]?.[ny]?.[nz] ?? 0
-  return !neighborBlock || neighborBlock === 0
+        // Additional type guard for safety
+        return pipe(
+          Match.value({ nx, ny, nz }),
+          Match.when(
+            ({ nx, ny, nz }) => nx === undefined || ny === undefined || nz === undefined,
+            () => true // Safety fallback
+          ),
+          Match.orElse(() => {
+            // Check bounds
+            return pipe(
+              Match.value({ nx, ny, nz, chunkSize }),
+              Match.when(
+                ({ nx, ny, nz, chunkSize }) =>
+                  nx !== undefined &&
+                  ny !== undefined &&
+                  nz !== undefined &&
+                  (nx < 0 || nx >= chunkSize || ny < 0 || ny >= chunkSize || nz < 0 || nz >= chunkSize),
+                () => true // Render faces on chunk boundaries
+              ),
+              Match.orElse(() => {
+                // Don't render face if neighbor is solid
+                const neighborBlockType = blocks[nx!]?.[ny!]?.[nz!] ?? 0
+                return neighborBlockType === 0
+              })
+            )
+          })
+        )
+      },
+    })
+  )
 }
-
-// ★ Greedy meshing algorithm (functional approach)
-const generateGreedyMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGenerationError> =>
-  Effect.gen(function* () {
-    const validatedChunk = yield* Schema.decodeUnknown(ChunkDataSchema)(chunkData).pipe(
-      Effect.mapError(() => 'MeshGenerationError' as const)
-    )
-
-    const vertices: number[] = []
-    const normals: number[] = []
-    const uvs: number[] = []
-    const indices: number[] = []
-
-    let vertexIndex = 0
-
-    // Process each axis for greedy meshing
-    for (let axis = 0; axis < 3; axis++) {
-      const u = (axis + 1) % 3
-      const v = (axis + 2) % 3
-
-      const dimensions = [0, 0, 0]
-      const mask = new Array(validatedChunk.size * validatedChunk.size).fill(0)
-
-      // Sweep through each slice
-      for (dimensions[axis]! = -1; dimensions[axis]! < validatedChunk.size; ) {
-        // Generate mask for current slice
-        let n = 0
-        for (dimensions[v]! = 0; dimensions[v]! < validatedChunk.size; dimensions[v]!++) {
-          for (dimensions[u]! = 0; dimensions[u]! < validatedChunk.size; dimensions[u]!++) {
-            const currentBlock =
-              dimensions[axis]! >= 0
-                ? (validatedChunk.blocks[dimensions[0]!]?.[dimensions[1]!]?.[dimensions[2]!] ?? 0)
-                : 0
-            const nextBlock =
-              dimensions[axis]! < validatedChunk.size - 1
-                ? (validatedChunk.blocks[dimensions[0]! + (axis === 0 ? 1 : 0)]?.[
-                    dimensions[1]! + (axis === 1 ? 1 : 0)
-                  ]?.[dimensions[2]! + (axis === 2 ? 1 : 0)] ?? 0)
-                : 0
-
-            mask[n++] = currentBlock && !nextBlock ? currentBlock : 0
-          }
-        }
-
-        dimensions[axis]!++
-
-        // Generate mesh from mask
-        n = 0
-        for (let j = 0; j < validatedChunk.size; j++) {
-          for (let i = 0; i < validatedChunk.size; ) {
-            const currentMask = mask[n]
-            if (currentMask !== 0) {
-              const blockType = currentMask
-
-              // Compute width
-              let width = 1
-              while (i + width < validatedChunk.size && mask[n + width] === blockType) {
-                width++
-              }
-
-              // Compute height
-              let height = 1
-              let done = false
-              while (j + height < validatedChunk.size && !done) {
-                for (let k = 0; k < width; k++) {
-                  if (mask[n + k + height * validatedChunk.size] !== blockType) {
-                    done = true
-                    break
-                  }
-                }
-                if (!done) height++
-              }
-
-              // Add quad to mesh
-              const quadVertices = [
-                i,
-                j,
-                dimensions[axis]!,
-                i + width,
-                j,
-                dimensions[axis]!,
-                i + width,
-                j + height,
-                dimensions[axis]!,
-                i,
-                j + height,
-                dimensions[axis]!,
-              ]
-
-              const quadNormals = [
-                axis === 0 ? 1 : 0,
-                axis === 1 ? 1 : 0,
-                axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0,
-                axis === 1 ? 1 : 0,
-                axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0,
-                axis === 1 ? 1 : 0,
-                axis === 2 ? 1 : 0,
-                axis === 0 ? 1 : 0,
-                axis === 1 ? 1 : 0,
-                axis === 2 ? 1 : 0,
-              ]
-
-              const quadUVs = [0, 0, width, 0, width, height, 0, height]
-
-              const quadIndices = [
-                vertexIndex,
-                vertexIndex + 1,
-                vertexIndex + 2,
-                vertexIndex,
-                vertexIndex + 2,
-                vertexIndex + 3,
-              ]
-
-              vertices.push(...quadVertices)
-              normals.push(...quadNormals)
-              uvs.push(...quadUVs)
-              indices.push(...quadIndices)
-
-              vertexIndex += 4
-
-              // Clear processed mask
-              for (let l = 0; l < height; l++) {
-                for (let k = 0; k < width; k++) {
-                  mask[n + k + l * validatedChunk.size] = 0
-                }
-              }
-
-              i += width
-              n += width
-            } else {
-              i++
-              n++
-            }
-          }
-        }
-      }
-    }
-
-    return {
-      vertices,
-      normals,
-      uvs,
-      indices,
-    } as MeshData
-  })
 
 // ★ Test helper functions (pure functions)
 const createTestChunkData = (position: ChunkPosition, size: number = 4): ChunkData => {

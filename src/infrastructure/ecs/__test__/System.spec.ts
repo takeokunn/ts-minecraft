@@ -75,14 +75,23 @@ describe('System', () => {
         const result = Effect.runSyncExit(runSystems([system1, system2], {} as World, 16))
 
         expect(result._tag).toBe('Failure')
-        if (result._tag === 'Failure') {
-          const error = result.cause
-          expect(error).toBeDefined()
-          const failures = Chunk.toArray(Cause.failures(error))
-          expect(failures).toHaveLength(1)
-          expect(isSystemError(failures[0])).toBe(true)
-          expect((failures[0] as SystemError).systemName).toBe('System2')
-        }
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r) => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause
+              expect(error).toBeDefined()
+              const failures = Chunk.toArray(Cause.failures(error))
+              expect(failures).toHaveLength(1)
+              expect(isSystemError(failures[0])).toBe(true)
+              expect((failures[0] as SystemError).systemName).toBe('System2')
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
 
@@ -93,14 +102,23 @@ describe('System', () => {
         const result = Effect.runSyncExit(runSystems([system], {} as World, 16))
 
         expect(result._tag).toBe('Failure')
-        if (result._tag === 'Failure') {
-          const error = result.cause
-          expect(error).toBeDefined()
-          const failures = Chunk.toArray(Cause.failures(error))
-          expect(failures).toHaveLength(1)
-          expect(isSystemError(failures[0])).toBe(true)
-          expect((failures[0] as SystemError).systemName).toBe('FailingSystem')
-        }
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r) => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause
+              expect(error).toBeDefined()
+              const failures = Chunk.toArray(Cause.failures(error))
+              expect(failures).toHaveLength(1)
+              expect(isSystemError(failures[0])).toBe(true)
+              expect((failures[0] as SystemError).systemName).toBe('FailingSystem')
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
   })

@@ -1,4 +1,4 @@
-import { Option, Match, pipe, Effect, Either } from 'effect'
+import { Option, Match, pipe, Effect, Either, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import { GameErrorUnion, type AnyGameError } from './GameErrors'
 import { NetworkErrorUnion, type AnyNetworkError } from './NetworkErrors'
@@ -55,25 +55,27 @@ export const ErrorReporter = {
    * エラーを構造化された形式でフォーマット（型安全版）
    */
   format: (error: unknown): Effect.Effect<string> =>
-    Effect.sync(() => {
-      // プリミティブ値の場合はそのまま文字列として返す
-      if (error === null) return 'null'
-      if (error === undefined) return 'undefined'
-      if (typeof error === 'string') return error
-      if (typeof error === 'number') return String(error)
-      if (typeof error === 'boolean') return String(error)
-
-      // オブジェクトの場合は従来通りJSONレポートを作成
-      return pipe(
-        Effect.clockWith((clock) => clock.currentTimeMillis),
-        Effect.map((millis) => new Date(millis).toISOString()),
-        Effect.map((timestamp) => {
-          const report = ErrorReporter.createErrorReport(error, timestamp)
-          return JSON.stringify(report, null, 2)
-        }),
-        Effect.runSync
+    Effect.sync(() =>
+      pipe(
+        Match.value(error),
+        Match.when(Predicate.isNull, () => 'null'),
+        Match.when(Predicate.isUndefined, () => 'undefined'),
+        Match.when(Predicate.isString, (s) => s),
+        Match.when(Predicate.isNumber, (n) => String(n)),
+        Match.when(Predicate.isBoolean, (b) => String(b)),
+        Match.orElse(() =>
+          pipe(
+            Effect.clockWith((clock) => clock.currentTimeMillis),
+            Effect.map((millis) => new Date(millis).toISOString()),
+            Effect.map((timestamp) => {
+              const report = ErrorReporter.createErrorReport(error, timestamp)
+              return JSON.stringify(report, null, 2)
+            }),
+            Effect.runSync
+          )
+        )
       )
-    }),
+    ),
 
   /**
    * エラーレポートオブジェクトの作成
@@ -89,26 +91,28 @@ export const ErrorReporter = {
     )
 
     // 既知のエラー型であっても、_tagが空白や無効な場合はUnknownErrorとして扱う
-    if (knownError && knownError._tag && knownError._tag.trim() !== '') {
-      return {
-        type: knownError._tag,
-        message: knownError.message,
-        details: ErrorReporter.extractErrorDetails(knownError),
-        timestamp,
-        stackTrace: ErrorReporter.getStackTrace(error),
-        category: ErrorReporter.categorizeError(knownError._tag),
-      }
-    }
-
-    // 既知のエラー型でない場合、または_tagが無効な場合のフォールバック
-    return {
-      type: 'UnknownError',
-      message: String(error),
-      details: ErrorReporter.extractGenericDetails(error),
-      timestamp,
-      stackTrace: ErrorReporter.getStackTrace(error),
-      category: 'unknown' as const,
-    }
+    return pipe(
+      Option.fromNullable(knownError),
+      Option.filter((e) => e['_tag'] && e['_tag'].trim() !== ''),
+      Option.match({
+        onNone: () => ({
+          type: 'UnknownError',
+          message: String(error),
+          details: ErrorReporter.extractGenericDetails(error),
+          timestamp,
+          stackTrace: ErrorReporter.getStackTrace(error),
+          category: 'unknown' as const,
+        }),
+        onSome: (e) => ({
+          type: e['_tag'],
+          message: e.message,
+          details: ErrorReporter.extractErrorDetails(e),
+          timestamp,
+          stackTrace: ErrorReporter.getStackTrace(error),
+          category: ErrorReporter.categorizeError(e['_tag']),
+        }),
+      })
+    )
   },
 
   /**
@@ -122,14 +126,15 @@ export const ErrorReporter = {
   /**
    * 一般的なオブジェクトから詳細情報を抽出
    */
-  extractGenericDetails: (error: unknown): Record<string, unknown> => {
-    if (error && typeof error === 'object') {
-      const obj = error as Record<string, unknown>
-      const { _tag, message, ...details } = obj
-      return details
-    }
-    return {}
-  },
+  extractGenericDetails: (error: unknown): Record<string, unknown> =>
+    pipe(
+      Match.value(error),
+      Match.when(Predicate.isRecord, (obj) => {
+        const { _tag, message, ...details } = obj as Record<string, unknown>
+        return details
+      }),
+      Match.orElse(() => ({}))
+    ),
 
   /**
    * エラーのカテゴリを判定
@@ -164,10 +169,22 @@ export const ErrorReporter = {
 
     const appErrorTags = ['InitError', 'ConfigError']
 
-    if (gameErrorTags.includes(tag)) return 'game'
-    if (networkErrorTags.includes(tag)) return 'network'
-    if (appErrorTags.includes(tag)) return 'app'
-    return 'unknown'
+    return pipe(
+      Match.value(tag),
+      Match.when(
+        (t) => gameErrorTags.includes(t),
+        () => 'game' as const
+      ),
+      Match.when(
+        (t) => networkErrorTags.includes(t),
+        () => 'network' as const
+      ),
+      Match.when(
+        (t) => appErrorTags.includes(t),
+        () => 'app' as const
+      ),
+      Match.orElse(() => 'unknown' as const)
+    )
   },
 
   /**
@@ -177,11 +194,16 @@ export const ErrorReporter = {
     pipe(
       Match.value(error),
       Match.when(
-        (e: unknown): e is Error => e instanceof Error,
+        (e: unknown): e is Error =>
+          Predicate.isRecord(e) &&
+          'message' in e &&
+          'name' in e &&
+          Predicate.isString(e['name']) &&
+          Predicate.isString(e['message']),
         (e: Error) => e.stack
       ),
       Match.when(
-        (e: unknown): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
+        (e: unknown): e is { stack: unknown } => Predicate.isRecord(e) && 'stack' in e,
         (e: { stack: unknown }) => String(e.stack)
       ),
       Match.orElse(() => undefined)
@@ -194,14 +216,20 @@ export const ErrorReporter = {
     const chain: unknown[] = [error]
     let current = error
 
-    while (current && typeof current === 'object' && 'cause' in current) {
+    while (Predicate.isRecord(current) && 'cause' in current) {
       const withCause = current as { cause?: unknown }
       current = withCause.cause
-      if (current !== undefined && current !== null) {
-        chain.push(current)
-      } else {
-        break
-      }
+      pipe(
+        Option.fromNullable(current),
+        Option.match({
+          onNone: () => {
+            current = undefined
+          },
+          onSome: (c) => {
+            chain.push(c)
+          },
+        })
+      )
     }
 
     return chain

@@ -1,4 +1,4 @@
-import { pipe } from 'effect'
+import { pipe, Predicate } from 'effect'
 import type { BlockPhysics, BlockSound, BlockTexture, ItemDrop, ToolType } from './BlockType'
 import { createDefaultPhysics, createDefaultSound } from './BlockType'
 
@@ -63,7 +63,7 @@ export const withSimpleTexture = (textureId: string) => withTexture(textureId)
 export const withTexturePerFace =
   (faces: { top?: string; bottom?: string; north?: string; south?: string; east?: string; west?: string }) =>
   (props: BlockProperties): BlockProperties => {
-    const defaultTexture = typeof props.texture === 'string' ? props.texture : 'missing'
+    const defaultTexture = Predicate.isString(props.texture) ? props.texture : 'missing'
     return {
       ...props,
       texture: {

@@ -31,9 +31,13 @@ describe('validateConfig', () => {
         const result = yield* Effect.either(validateConfig(config))
 
         expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toEqual(config)
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: () => Effect.fail('Expected Right'),
+            onRight: (value) => Effect.sync(() => expect(value).toEqual(config)),
+          })
+        )
       })
     )
 
@@ -43,9 +47,13 @@ describe('validateConfig', () => {
         const result = yield* Effect.either(validateConfig(config))
 
         expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toEqual(config)
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: () => Effect.fail('Expected Right'),
+            onRight: (value) => Effect.sync(() => expect(value).toEqual(config)),
+          })
+        )
       })
     )
 
@@ -55,9 +63,13 @@ describe('validateConfig', () => {
         const result = yield* Effect.either(validateConfig(config))
 
         expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toEqual(config)
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: () => Effect.fail('Expected Right'),
+            onRight: (value) => Effect.sync(() => expect(value).toEqual(config)),
+          })
+        )
       })
     )
   })
@@ -228,13 +240,20 @@ describe('validateConfig', () => {
         const result = yield* Effect.either(validateConfig(config))
 
         expect(Either.isRight(result)).toBe(true)
-        if (Either.isRight(result)) {
-          expect(result.right).toEqual({
-            debug: true,
-            fps: 60,
-            memoryLimit: 1024,
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: () => Effect.fail('Expected Right'),
+            onRight: (value) =>
+              Effect.sync(() =>
+                expect(value).toEqual({
+                  debug: true,
+                  fps: 60,
+                  memoryLimit: 1024,
+                })
+              ),
           })
-        }
+        )
       })
     )
   })
@@ -291,9 +310,13 @@ describe('Property-Based Tests', () => {
               const result = yield* Effect.either(validateConfig(config))
 
               expect(Either.isRight(result)).toBe(true)
-              if (Either.isRight(result)) {
-                expect(result.right).toEqual(config)
-              }
+              yield* pipe(
+                result,
+                Either.match({
+                  onLeft: () => Effect.fail('Expected Right'),
+                  onRight: (value) => Effect.sync(() => expect(value).toEqual(config)),
+                })
+              )
             })
           ),
           Stream.runDrain
@@ -309,13 +332,19 @@ describe('Property-Based Tests', () => {
             Effect.gen(function* () {
               const result = yield* Effect.either(validateConfig(config))
 
-              if (Either.isRight(result)) {
-                const validated = result.right
-                expect(validated.fps).toBeGreaterThanOrEqual(1)
-                expect(validated.fps).toBeLessThanOrEqual(120)
-                expect(validated.memoryLimit).toBeGreaterThanOrEqual(1)
-                expect(validated.memoryLimit).toBeLessThanOrEqual(2048)
-              }
+              yield* pipe(
+                result,
+                Either.match({
+                  onLeft: () => Effect.fail('Expected Right'),
+                  onRight: (validated) =>
+                    Effect.sync(() => {
+                      expect(validated.fps).toBeGreaterThanOrEqual(1)
+                      expect(validated.fps).toBeLessThanOrEqual(120)
+                      expect(validated.memoryLimit).toBeGreaterThanOrEqual(1)
+                      expect(validated.memoryLimit).toBeLessThanOrEqual(2048)
+                    }),
+                })
+              )
             })
           ),
           Stream.runDrain
@@ -331,14 +360,20 @@ describe('Property-Based Tests', () => {
             Effect.gen(function* () {
               const result = yield* Effect.either(validateConfig(config))
 
-              if (Either.isRight(result)) {
-                const validated = result.right
-                expect(validated).toEqual({
-                  debug: config.debug,
-                  fps: config.fps,
-                  memoryLimit: config.memoryLimit,
+              yield* pipe(
+                result,
+                Either.match({
+                  onLeft: () => Effect.fail('Expected Right'),
+                  onRight: (validated) =>
+                    Effect.sync(() => {
+                      expect(validated).toEqual({
+                        debug: config.debug,
+                        fps: config.fps,
+                        memoryLimit: config.memoryLimit,
+                      })
+                    }),
                 })
-              }
+              )
             })
           ),
           Stream.runDrain
@@ -447,17 +482,26 @@ describe('ラウンドトリップテスト', () => {
             const validatedResult = yield* Effect.either(validateConfig(originalConfig))
 
             expect(Either.isRight(validatedResult)).toBe(true)
-            if (Either.isRight(validatedResult)) {
-              const validated = validatedResult.right
+            yield* pipe(
+              validatedResult,
+              Either.match({
+                onLeft: () => Effect.fail('Expected first validation to succeed'),
+                onRight: (validated) =>
+                  Effect.gen(function* () {
+                    // 再度バリデーションを通しても同じ結果になることを確認
+                    const secondValidation = yield* Effect.either(validateConfig(validated))
+                    expect(Either.isRight(secondValidation)).toBe(true)
 
-              // 再度バリデーションを通しても同じ結果になることを確認
-              const secondValidation = yield* Effect.either(validateConfig(validated))
-              expect(Either.isRight(secondValidation)).toBe(true)
-
-              if (Either.isRight(secondValidation)) {
-                expect(secondValidation.right).toEqual(validated)
-              }
-            }
+                    yield* pipe(
+                      secondValidation,
+                      Either.match({
+                        onLeft: () => Effect.fail('Expected second validation to succeed'),
+                        onRight: (secondValidated) => Effect.sync(() => expect(secondValidated).toEqual(validated)),
+                      })
+                    )
+                  }),
+              })
+            )
           })
         ),
         Stream.runDrain
@@ -575,9 +619,13 @@ describe('統合テスト', () => {
       const validationResult = yield* Effect.either(validateConfig(loadedConfig))
 
       expect(Either.isRight(validationResult)).toBe(true)
-      if (Either.isRight(validationResult)) {
-        expect(validationResult.right).toEqual(loadedConfig)
-      }
+      yield* pipe(
+        validationResult,
+        Either.match({
+          onLeft: () => Effect.fail('Expected Right'),
+          onRight: (value) => Effect.sync(() => expect(value).toEqual(loadedConfig)),
+        })
+      )
     })
   )
 
@@ -586,9 +634,13 @@ describe('統合テスト', () => {
       const validationResult = yield* Effect.either(validateConfig(defaultConfig))
 
       expect(Either.isRight(validationResult)).toBe(true)
-      if (Either.isRight(validationResult)) {
-        expect(validationResult.right).toEqual(defaultConfig)
-      }
+      yield* pipe(
+        validationResult,
+        Either.match({
+          onLeft: () => Effect.fail('Expected Right'),
+          onRight: (value) => Effect.sync(() => expect(value).toEqual(defaultConfig)),
+        })
+      )
     })
   )
 })

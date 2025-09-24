@@ -5,7 +5,7 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
-import { Context, Data, Effect, Layer, Ref, Either, Match, pipe, Option, Stream } from 'effect'
+import { Context, Data, Effect, Layer, Ref, Either, Match, pipe, Option, Stream, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { System, SystemMetadata, SystemPriority } from './System'
 import { priorityToNumber, runSystems, SystemError, SystemExecutionState, isSystemError } from './System'
@@ -28,8 +28,10 @@ export const SystemRegistryError = (message: string, systemName?: string, cause?
   ...(cause !== undefined && { cause }),
 })
 
-export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'SystemRegistryError'
+export const isSystemRegistryError: Predicate.Refinement<unknown, SystemRegistryError> = (
+  error
+): error is SystemRegistryError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'SystemRegistryError'
 
 /**
  * 登録されたシステムのエントリ
@@ -242,17 +244,23 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const entry = state.systems.get(name)
-          if (!entry) return state
+          return pipe(
+            Option.fromNullable(entry),
+            Option.match({
+              onNone: () => state,
+              onSome: (entry) => {
+                const newEntry: SystemEntry = {
+                  ...entry,
+                  metadata: { ...entry.metadata, enabled },
+                }
 
-          const newEntry: SystemEntry = {
-            ...entry,
-            metadata: { ...entry.metadata, enabled },
-          }
+                const newSystems = new Map(state.systems)
+                newSystems.set(name, newEntry)
 
-          const newSystems = new Map(state.systems)
-          newSystems.set(name, newEntry)
-
-          return { ...state, systems: newSystems }
+                return { ...state, systems: newSystems }
+              },
+            })
+          )
         })
       })
 
@@ -263,25 +271,31 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const entry = state.systems.get(name)
-          if (!entry) return state
+          return pipe(
+            Option.fromNullable(entry),
+            Option.match({
+              onNone: () => state,
+              onSome: (entry) => {
+                const newEntry: SystemEntry = {
+                  ...entry,
+                  metadata: {
+                    ...entry.metadata,
+                    priority,
+                    order: order ?? entry.metadata.order,
+                  },
+                }
 
-          const newEntry: SystemEntry = {
-            ...entry,
-            metadata: {
-              ...entry.metadata,
-              priority,
-              order: order ?? entry.metadata.order,
-            },
-          }
+                const newSystems = new Map(state.systems)
+                newSystems.set(name, newEntry)
 
-          const newSystems = new Map(state.systems)
-          newSystems.set(name, newEntry)
-
-          return {
-            ...state,
-            systems: newSystems,
-            executionOrder: calculateExecutionOrder(newSystems),
-          }
+                return {
+                  ...state,
+                  systems: newSystems,
+                  executionOrder: calculateExecutionOrder(newSystems),
+                }
+              },
+            })
+          )
         })
       })
 
@@ -312,15 +326,10 @@ export const SystemRegistryServiceLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         // グローバル無効時は早期リターン
-        yield* pipe(
-          state.globalEnabled,
-          Match.value,
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.when(true, () => Effect.succeed(undefined)),
-          Match.exhaustive
-        )
-
-        if (!state.globalEnabled) return
+        const isEnabled = state.globalEnabled
+        if (!isEnabled) {
+          return
+        }
 
         const systems = yield* getOrderedSystems
 
@@ -417,11 +426,13 @@ export const SystemRegistryServiceLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
         const entry = state.systems.get(name)
 
-        if (!entry) {
-          return yield* Effect.fail(SystemRegistryError(`System not found: ${name}`, name))
-        }
-
-        return entry.executionState
+        return yield* pipe(
+          Option.fromNullable(entry),
+          Option.match({
+            onNone: () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name)),
+            onSome: (entry) => Effect.succeed(entry.executionState),
+          })
+        )
       })
 
     /**

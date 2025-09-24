@@ -39,8 +39,8 @@ export const FaceCullingError = (reason: string, context: string, timestamp: num
   timestamp,
 })
 
-export const isFaceCullingError = (error: unknown): error is FaceCullingError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'FaceCullingError'
+export const isFaceCullingError: Predicate.Refinement<unknown, FaceCullingError> = (error): error is FaceCullingError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'FaceCullingError'
 
 // ========================================
 // Service Interface

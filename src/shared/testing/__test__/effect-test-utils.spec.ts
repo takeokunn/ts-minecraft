@@ -7,7 +7,7 @@
 
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, pipe, Context, Layer, Duration, Stream } from 'effect'
+import { Effect, pipe, Context, Layer, Duration, Stream, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import { EffectTestUtils, PropertyTestUtils, IntegrationTestUtils, ErrorTestUtils } from '../effect-test-utils'
 import { HealthSchema, TimestampSchema, Vector3DSchema, GameBrands, TimeBrands, SpatialBrands } from '../../types'
@@ -145,7 +145,7 @@ describe('Effect Testing Utilities', () => {
     it.effect('testErrorTypeGuards should validate error type detection', () =>
       Effect.gen(function* () {
         const isTestError = (error: unknown): error is TestError =>
-          typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TestError'
+          Predicate.isRecord(error) && error !== null && '_tag' in error && error['_tag'] === 'TestError'
 
         ErrorTestUtils.testErrorTypeGuards([testError], isTestError)
       })

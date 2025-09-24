@@ -286,13 +286,19 @@ export const createWorldGenerator = (options: Partial<GeneratorOptions> = {}): E
     findNearestStructure: (type: StructureType, position: Vector3, searchRadius: number) =>
       Effect.gen(function* () {
         const nearbyStructures = state.structures.filter((s) => {
-          if (s.type !== type) return false
+          return pipe(
+            s.type !== type,
+            Match.value,
+            Match.when(true, () => false),
+            Match.when(false, () => {
+              const dx = s.position.x - position.x
+              const dz = s.position.z - position.z
+              const distance = Math.sqrt(dx * dx + dz * dz)
 
-          const dx = s.position.x - position.x
-          const dz = s.position.z - position.z
-          const distance = Math.sqrt(dx * dx + dz * dz)
-
-          return distance <= searchRadius
+              return distance <= searchRadius
+            }),
+            Match.exhaustive
+          )
         })
 
         return Option.match(Option.fromNullable(nearbyStructures.length > 0 ? nearbyStructures : null), {

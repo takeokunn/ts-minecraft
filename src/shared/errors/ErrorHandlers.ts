@@ -12,11 +12,13 @@ export const ErrorHandlers = {
     (error: E) =>
       pipe(
         Effect.sync(() => {
-          if (logger) {
-            logger(error)
-          } else {
-            console.error('Error occurred:', error)
-          }
+          pipe(
+            Option.fromNullable(logger),
+            Option.match({
+              onNone: () => console.error('Error occurred:', error),
+              onSome: (loggerFn) => loggerFn(error),
+            })
+          )
           return fallbackValue
         })
       ),
@@ -42,7 +44,7 @@ export const ErrorHandlers = {
       )
 
       const successes = results.filter(Either.isRight)
-      const successValues = successes.map((r) => r.right)
+      const successValues = successes.map((r) => Either.getOrNull(r)).filter((v) => v !== null)
 
       return yield* pipe(
         Match.value(successes.length >= minSuccess),

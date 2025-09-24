@@ -236,7 +236,7 @@ export const createErrorContext = (
 export const getErrorSeverity = (
   error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
 ): 'low' | 'medium' | 'high' | 'critical' => {
-  return Match.value(error._tag).pipe(
+  return Match.value(error['_tag']).pipe(
     // 致命的エラー
     Match.when('CanvasNotFoundError', () => 'critical' as const),
     Match.when('RendererInitializationFailedError', () => 'critical' as const),
@@ -270,7 +270,7 @@ export const getErrorSeverity = (
 export const isRecoverable = (
   error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
 ): boolean => {
-  return Match.value(error._tag).pipe(
+  return Match.value(error['_tag']).pipe(
     // 回復不可能
     Match.when('CanvasNotFoundError', () => false),
     Match.when('MemoryLeakError', () => false),

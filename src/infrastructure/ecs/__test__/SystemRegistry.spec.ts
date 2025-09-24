@@ -11,6 +11,7 @@ import * as Chunk from 'effect/Chunk'
 import * as TestContext from 'effect/TestContext'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
 import {
   SystemRegistryService,
   SystemRegistryServiceLive,
@@ -42,7 +43,6 @@ describe('SystemRegistry ECS Architecture', () => {
         const systems = yield* registry.getSystems
         expect(systems).toHaveLength(1)
         expect(systems[0]?.name).toBe('TestSystem')
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -57,7 +57,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const systems = yield* registry.getSystems
         expect(systems).toHaveLength(1)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -77,7 +76,6 @@ describe('SystemRegistry ECS Architecture', () => {
         expect(orderedSystems[0]?.name).toBe('CriticalSystem')
         expect(orderedSystems[1]?.name).toBe('NormalSystem')
         expect(orderedSystems[2]?.name).toBe('DeferredSystem')
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -97,7 +95,6 @@ describe('SystemRegistry ECS Architecture', () => {
         expect(orderedSystems[0]?.name).toBe('System1')
         expect(orderedSystems[1]?.name).toBe('System2')
         expect(orderedSystems[2]?.name).toBe('System3')
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -113,7 +110,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const systems = yield* registry.getSystems
         expect(systems).toHaveLength(0)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -123,24 +119,38 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const result = yield* Effect.exit(registry.unregister('NonExistentSystem'))
 
-        if (result._tag === 'Success') {
-          return yield* Effect.fail(new Error('Should have failed with SystemRegistryError'))
-        }
+        yield* pipe(
+          result,
+          Exit.match({
+            onSuccess: (value) => Effect.fail(new Error('Should have failed with SystemRegistryError')),
+            onFailure: () => Effect.succeed(undefined),
+          })
+        )
 
-        const failures = Chunk.toArray(Cause.failures(result.cause))
-        if (failures.length !== 1) {
-          return yield* Effect.fail(new Error('Expected exactly one failure'))
-        }
+        const failures = Exit.isFailure(result) ? Chunk.toArray(Cause.failures(result.cause)) : []
+        yield* pipe(
+          failures.length !== 1,
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Expected exactly one failure'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!isSystemRegistryError(failures[0])) {
-          return yield* Effect.fail(new Error('Expected SystemRegistryError'))
-        }
+        yield* pipe(
+          !isSystemRegistryError(failures[0]),
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Expected SystemRegistryError'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if ((failures[0] as SystemRegistryError).systemName !== 'NonExistentSystem') {
-          return yield* Effect.fail(new Error('Expected NonExistentSystem in error'))
-        }
-
-        return true
+        yield* pipe(
+          (failures[0] as SystemRegistryError).systemName !== 'NonExistentSystem',
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Expected NonExistentSystem in error'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -165,7 +175,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         yield* registry.update({} as World, 16)
         expect(executed).toBe(false)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -188,7 +197,6 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* registry.setEnabled('TestSystem', true)
         yield* registry.update({} as World, 16)
         expect(executionCount).toBe(1)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -211,7 +219,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         orderedSystems = yield* registry.getOrderedSystems
         expect(orderedSystems[0]?.name).toBe('System1') // critical priority first
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -232,7 +239,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         orderedSystems = yield* registry.getOrderedSystems
         expect(orderedSystems[0]?.name).toBe('System2') // System2が先になる
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -257,7 +263,6 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* registry.update({} as World, 16)
 
         expect(executions).toEqual(['System1', 'System3'])
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -281,7 +286,6 @@ describe('SystemRegistry ECS Architecture', () => {
         yield* registry.setGlobalEnabled(true)
         yield* registry.update({} as World, 16)
         expect(executed).toBe(true)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -301,7 +305,6 @@ describe('SystemRegistry ECS Architecture', () => {
         // エラーが統計に記録される
         const stats = yield* registry.getStats('FailingSystem')
         expect(stats.errors).toHaveLength(1)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -336,7 +339,6 @@ describe('SystemRegistry ECS Architecture', () => {
         expect(stats.averageDuration).toBeGreaterThan(0)
         expect(stats.maxDuration).toBeGreaterThanOrEqual(5)
         expect(stats.totalDuration).toBeGreaterThanOrEqual(15)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -346,20 +348,30 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const result = yield* Effect.exit(registry.getStats('NonExistentSystem'))
 
-        if (result._tag === 'Success') {
-          return yield* Effect.fail(new Error('Should have failed with SystemRegistryError'))
-        }
+        yield* pipe(
+          result,
+          Exit.match({
+            onSuccess: (value) => Effect.fail(new Error('Should have failed with SystemRegistryError')),
+            onFailure: () => Effect.succeed(undefined),
+          })
+        )
 
-        const failures = Chunk.toArray(Cause.failures(result.cause))
-        if (failures.length !== 1) {
-          return yield* Effect.fail(new Error('Expected exactly one failure'))
-        }
+        const failures = Exit.isFailure(result) ? Chunk.toArray(Cause.failures(result.cause)) : []
+        yield* pipe(
+          failures.length !== 1,
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Expected exactly one failure'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!isSystemRegistryError(failures[0])) {
-          return yield* Effect.fail(new Error('Expected SystemRegistryError'))
-        }
-
-        return true
+        yield* pipe(
+          !isSystemRegistryError(failures[0]),
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Expected SystemRegistryError'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -371,9 +383,13 @@ describe('SystemRegistry ECS Architecture', () => {
         const unreliableSystem = createSystem('UnreliableSystem', () =>
           Effect.gen(function* () {
             failCount++
-            if (failCount % 2 === 1) {
-              yield* Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))
-            }
+            yield* pipe(
+              failCount % 2 === 1,
+              Match.value,
+              Match.when(true, () => Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))),
+              Match.when(false, () => Effect.succeed(undefined)),
+              Match.exhaustive
+            )
           })
         )
 
@@ -387,7 +403,6 @@ describe('SystemRegistry ECS Architecture', () => {
         const stats = yield* registry.getStats('UnreliableSystem')
         expect(stats.errors.length).toBeGreaterThan(0)
         expect(stats.errors.length).toBeLessThanOrEqual(10) // 最大10件のエラーを保持
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -407,7 +422,6 @@ describe('SystemRegistry ECS Architecture', () => {
         const stats = yield* registry.getStats('GenericErrorSystem')
         expect(stats.errors).toHaveLength(1)
         expect(stats.errors[0]).toBe('Generic string error')
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -430,7 +444,6 @@ describe('SystemRegistry ECS Architecture', () => {
 
         systems = yield* registry.getSystems
         expect(systems).toHaveLength(0)
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -448,7 +461,6 @@ describe('SystemRegistry ECS Architecture', () => {
         const systems = yield* registry.getSystems
         expect(systems).toHaveLength(1)
         expect(systems[0]?.name).toBe('System2')
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })

@@ -5,7 +5,7 @@
  * Integrates with block system for block items
  */
 
-import { Context, Effect, HashMap, Layer, Option, pipe } from 'effect'
+import { Context, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
 import { ItemId, ItemStack } from './InventoryTypes.js'
 
 // Item category types
@@ -68,23 +68,34 @@ export class ItemRegistry extends Context.Tag('ItemRegistry')<
 
     canStack: (item1: ItemStack, item2: ItemStack) =>
       Effect.gen(function* () {
-        if (item1.itemId !== item2.itemId) return false
+        // 1. Check if item IDs are the same
+        if (item1.itemId !== item2.itemId) {
+          return false
+        }
 
+        // 2. Get item definition
         const state = getState()
         const definition = HashMap.get(state.items, item1.itemId)
 
-        if (Option.isNone(definition)) return false
-        if (!definition.value.isStackable) return false
+        if (Option.isNone(definition)) {
+          return false
+        }
 
-        // Check metadata compatibility
+        // 3. Check if item is stackable
+        if (!definition.value.isStackable) {
+          return false
+        }
+
+        // 4. Check metadata compatibility
         const meta1 = item1.metadata
         const meta2 = item2.metadata
 
+        // If either has metadata, they must be identical
         if (meta1 || meta2) {
-          // Items with different metadata cannot stack
           return JSON.stringify(meta1) === JSON.stringify(meta2)
         }
 
+        // No metadata on either, they can stack
         return true
       }),
 

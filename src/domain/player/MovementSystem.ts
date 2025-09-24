@@ -1,4 +1,4 @@
-import { Effect, Context, pipe } from 'effect'
+import { Effect, Context, pipe, Match } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
 import type { PlayerId } from '../../shared/types/branded.js'
@@ -230,16 +230,19 @@ export const PhysicsUtils = {
   normalizeVelocity: (velocity: VelocityVector, maxSpeed: number): VelocityVector => {
     const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
 
-    if (horizontalSpeed > maxSpeed) {
-      const ratio = maxSpeed / horizontalSpeed
-      return {
-        x: velocity.x * ratio,
-        y: velocity.y,
-        z: velocity.z * ratio,
-      }
-    }
-
-    return velocity
+    return pipe(
+      horizontalSpeed > maxSpeed,
+      Match.value,
+      Match.when(false, () => velocity),
+      Match.orElse(() => {
+        const ratio = maxSpeed / horizontalSpeed
+        return {
+          x: velocity.x * ratio,
+          y: velocity.y,
+          z: velocity.z * ratio,
+        }
+      })
+    )
   },
 
   /**
@@ -290,13 +293,11 @@ export const InputUtils = {
     rotation: PlayerRotation,
     sprintMultiplier: number = 1.5
   ): VelocityVector => {
-    let forward = 0
-    let right = 0
+    // Forward/backward movement
+    const forward = input.forward && !input.backward ? 1 : !input.forward && input.backward ? -1 : 0
 
-    if (input.forward) forward += 1
-    if (input.backward) forward -= 1
-    if (input.right) right += 1
-    if (input.left) right -= 1
+    // Right/left movement
+    const right = input.right && !input.left ? 1 : !input.right && input.left ? -1 : 0
 
     // 回転を考慮した方向計算
     const yaw = rotation.yaw
@@ -306,7 +307,13 @@ export const InputUtils = {
     const worldX = forward * sin + right * cos
     const worldZ = forward * cos - right * sin
 
-    const speedMultiplier = input.sprint ? sprintMultiplier : 1.0
+    const speedMultiplier = pipe(
+      input.sprint,
+      Match.value,
+      Match.when(false, () => 1.0),
+      Match.orElse(() => sprintMultiplier)
+    )
+
     const baseSpeed = PHYSICS_CONSTANTS.MAX_SPEED * speedMultiplier
 
     return {
@@ -320,12 +327,16 @@ export const InputUtils = {
    * ジャンプ入力の処理
    */
   processJumpInput: (input: MovementInput, currentVelocity: VelocityVector, isGrounded: boolean): VelocityVector => {
-    if (input.jump && isGrounded) {
-      return {
-        ...currentVelocity,
-        y: PHYSICS_CONSTANTS.JUMP_FORCE,
-      }
-    }
-    return currentVelocity
+    return pipe(
+      Match.value({ jump: input.jump, isGrounded }),
+      Match.when(
+        ({ jump, isGrounded }) => jump && isGrounded,
+        () => ({
+          ...currentVelocity,
+          y: PHYSICS_CONSTANTS.JUMP_FORCE,
+        })
+      ),
+      Match.orElse(() => currentVelocity)
+    )
   },
 }

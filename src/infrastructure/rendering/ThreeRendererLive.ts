@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref, pipe, Match } from 'effect'
+import { Effect, Layer, Option, Ref, pipe, Match, Predicate } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from './ThreeRenderer'
 import type { RenderError } from './types'
@@ -188,9 +188,11 @@ const createThreeRendererService = (
       // WebGLコンテキストの状態確認とレンダリング実行
       const renderResult = yield* Effect.try({
         try: () => {
-          // WebGLコンテキストの状態確認
+          // WebGLコンテキストの状態確認を簡潔な条件分岐で実装
           const gl = renderer!.getContext()
-          if (gl.isContextLost()) {
+          const contextLost = gl.isContextLost()
+
+          if (contextLost) {
             throw new Error('WebGLコンテキストが失われています')
           }
 
@@ -203,29 +205,22 @@ const createThreeRendererService = (
           return { frameStart, frameEnd: performance.now() }
         },
         catch: (error) => {
-          // Match.valueパターンを使用してエラー分類
-          return pipe(
-            error,
-            Match.value,
-            Match.when(
-              (err: any): err is Error => err instanceof Error && err.message === 'WebGLコンテキストが失われています',
-              () =>
-                ContextLostError({
-                  message: 'WebGLコンテキストが失われています',
-                  canRestore: true,
-                  lostTime: Date.now(),
-                })
-            ),
-            Match.orElse((err: any) =>
-              RenderExecutionError({
-                message: 'レンダリング実行中にエラーが発生しました',
-                operation: 'render',
-                sceneId: scene.uuid,
-                cameraType: camera.type,
-                cause: err,
-              })
-            )
-          )
+          // 簡潔で型安全なエラー分類
+          if (error instanceof Error && error.message === 'WebGLコンテキストが失われています') {
+            return ContextLostError({
+              message: 'WebGLコンテキストが失われています',
+              canRestore: true,
+              lostTime: Date.now(),
+            })
+          }
+
+          return RenderExecutionError({
+            message: 'レンダリング実行中にエラーが発生しました',
+            operation: 'render',
+            sceneId: scene.uuid,
+            cameraType: camera.type,
+            cause: error,
+          })
         },
       })
 
@@ -239,51 +234,21 @@ const createThreeRendererService = (
         lastFrameTime: frameEnd,
       }
 
-      // Match.valueパターンを使用してFPS計算条件判定
-      const shouldUpdateFps = pipe(
-        frameEnd - stats.lastStatsUpdate,
-        Match.value,
-        Match.when(
-          (timeDiff) => timeDiff >= 1000,
-          () => true
-        ),
-        Match.orElse(() => false)
-      )
+      // FPS計算条件判定を簡潔に実装
+      const shouldUpdateFps = frameEnd - stats.lastStatsUpdate >= 1000
 
-      pipe(
-        shouldUpdateFps,
-        Match.value,
-        Match.when(true, () => {
-          newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
-          newStats.frameCount = 0
-          newStats.lastStatsUpdate = frameEnd
-        }),
-        Match.when(false, () => {}),
-        Match.exhaustive
-      )
+      if (shouldUpdateFps) {
+        newStats.fps = Math.round((newStats.frameCount * 1000) / (frameEnd - stats.lastStatsUpdate))
+        newStats.frameCount = 0
+        newStats.lastStatsUpdate = frameEnd
+      }
 
       yield* Ref.set(statsRef, newStats)
 
-      // Match.valueパターンを使用してパフォーマンス警告判定
-      const shouldWarn = pipe(
-        frameTime,
-        Match.value,
-        Match.when(
-          (time) => time > 16.67,
-          () => true
-        ),
-        Match.orElse(() => false)
-      )
-
-      pipe(
-        shouldWarn,
-        Match.value,
-        Match.when(true, () => {
-          console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
-        }),
-        Match.when(false, () => {}),
-        Match.exhaustive
-      )
+      // パフォーマンス警告判定を簡潔に実装
+      if (frameTime > 16.67) {
+        console.warn(`Frame time exceeded 16.67ms: ${frameTime.toFixed(2)}ms`)
+      }
     }),
   resize: (width: number, height: number): Effect.Effect<void, never> =>
     Effect.gen(function* () {
@@ -309,7 +274,7 @@ const createThreeRendererService = (
       )
     }),
 
-  enableWebGL2Features: (): Effect.Effect<void, RenderError> =>
+  enableWebGL2Features: (): Effect.Effect<void, RenderExecutionError, never> =>
     Effect.gen(function* () {
       const renderer = yield* Ref.get(rendererRef)
 
@@ -327,29 +292,30 @@ const createThreeRendererService = (
         })
       )
 
-      const context = renderer!.getContext()
-      const isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext
+      // WebGL2サポートの簡単で型安全なチェック
+      const isWebGL2 = (() => {
+        if (typeof WebGL2RenderingContext === 'undefined') {
+          return false
+        }
 
-      pipe(
-        isWebGL2,
-        Match.value,
-        Match.when(true, () => {
-          // WebGL2固有の機能を有効化
-          const extensions = renderer!.extensions
+        const context = renderer!.getContext()
+        return context instanceof WebGL2RenderingContext
+      })()
 
-          // 高度なテクスチャ機能
-          extensions.get('EXT_color_buffer_float')
-          extensions.get('EXT_texture_filter_anisotropic')
-          extensions.get('WEBGL_compressed_texture_s3tc')
-          extensions.get('WEBGL_compressed_texture_etc')
+      if (isWebGL2) {
+        // WebGL2固有の機能を有効化
+        const extensions = renderer!.extensions
 
-          console.log('WebGL2 advanced features enabled')
-        }),
-        Match.when(false, () => {
-          console.warn('WebGL2 not supported, using WebGL1 fallback')
-        }),
-        Match.exhaustive
-      )
+        // 高度なテクスチャ機能
+        extensions.get('EXT_color_buffer_float')
+        extensions.get('EXT_texture_filter_anisotropic')
+        extensions.get('WEBGL_compressed_texture_s3tc')
+        extensions.get('WEBGL_compressed_texture_etc')
+
+        console.log('WebGL2 advanced features enabled')
+      } else {
+        console.warn('WebGL2 not supported, using WebGL1 fallback')
+      }
     }),
 
   configureShadowMap: (options = {}): Effect.Effect<void, never> =>

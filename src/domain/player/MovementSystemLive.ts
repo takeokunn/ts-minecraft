@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, pipe, HashMap, Option } from 'effect'
+import { Effect, Layer, Ref, pipe, HashMap, Option, Match } from 'effect'
 import { MovementSystem } from './MovementSystem.js'
 import { PlayerService } from './PlayerService.js'
 import type { PlayerId } from '../../shared/types/branded.js'
@@ -103,8 +103,6 @@ const makeMovementSystemLive = Effect.gen(function* () {
 
   // Helper: 衝突検出（簡易実装 - 実際のゲームではオクツリーやBVHを使用）
   const checkCollisionsInternal = (position: PlayerPosition, velocity: VelocityVector): ReadonlyArray<string> => {
-    const collisions: string[] = []
-
     // 境界チェック（例: ワールドの端）
     const worldBounds = {
       minX: -1000,
@@ -115,22 +113,40 @@ const makeMovementSystemLive = Effect.gen(function* () {
       maxZ: 1000,
     }
 
-    if (position.x + velocity.x < worldBounds.minX || position.x + velocity.x > worldBounds.maxX) {
-      collisions.push('world-boundary-x')
-    }
-    if (position.y + velocity.y < worldBounds.minY || position.y + velocity.y > worldBounds.maxY) {
-      collisions.push('world-boundary-y')
-    }
-    if (position.z + velocity.z < worldBounds.minZ || position.z + velocity.z > worldBounds.maxZ) {
-      collisions.push('world-boundary-z')
-    }
+    const xBoundaryCollision = pipe(
+      position.x + velocity.x < worldBounds.minX || position.x + velocity.x > worldBounds.maxX,
+      Match.value,
+      Match.when(true, () => ['world-boundary-x']),
+      Match.when(false, () => []),
+      Match.exhaustive
+    )
+
+    const yBoundaryCollision = pipe(
+      position.y + velocity.y < worldBounds.minY || position.y + velocity.y > worldBounds.maxY,
+      Match.value,
+      Match.when(true, () => ['world-boundary-y']),
+      Match.when(false, () => []),
+      Match.exhaustive
+    )
+
+    const zBoundaryCollision = pipe(
+      position.z + velocity.z < worldBounds.minZ || position.z + velocity.z > worldBounds.maxZ,
+      Match.value,
+      Match.when(true, () => ['world-boundary-z']),
+      Match.when(false, () => []),
+      Match.exhaustive
+    )
 
     // 地面との衝突
-    if (position.y <= 64) {
-      collisions.push('ground')
-    }
+    const groundCollision = pipe(
+      position.y <= 64,
+      Match.value,
+      Match.when(true, () => ['ground']),
+      Match.when(false, () => []),
+      Match.exhaustive
+    )
 
-    return collisions
+    return [...xBoundaryCollision, ...yBoundaryCollision, ...zBoundaryCollision, ...groundCollision]
   }
 
   // 移動入力の処理
@@ -177,23 +193,40 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const collisions = checkCollisionsInternal(newPosition, limitedVelocity)
 
       // 衝突による位置補正
-      let correctedPosition = newPosition
-      let correctedVelocity = limitedVelocity
+      const correctedState = pipe(
+        { position: newPosition, velocity: limitedVelocity, collisions },
+        (state) =>
+          pipe(
+            collisions.includes('ground'),
+            Match.value,
+            Match.when(true, () => ({
+              ...state,
+              position: SpatialBrands.createVector3D(state.position.x, 64 + 1.8, state.position.z),
+              velocity: { ...state.velocity, y: 0 },
+            })),
+            Match.when(false, () => state),
+            Match.exhaustive
+          ),
+        (state) =>
+          pipe(
+            collisions.includes('world-boundary-x'),
+            Match.value,
+            Match.when(true, () => ({
+              ...state,
+              velocity: { ...state.velocity, x: 0 },
+              position: SpatialBrands.createVector3D(
+                Math.max(-1000, Math.min(1000, state.position.x)),
+                state.position.y,
+                state.position.z
+              ),
+            })),
+            Match.when(false, () => state),
+            Match.exhaustive
+          )
+      )
 
-      if (collisions.includes('ground')) {
-        correctedPosition = SpatialBrands.createVector3D(correctedPosition.x, 64 + 1.8, correctedPosition.z)
-        correctedVelocity = { ...correctedVelocity, y: 0 }
-      }
-
-      // 境界衝突の処理
-      if (collisions.includes('world-boundary-x')) {
-        correctedVelocity = { ...correctedVelocity, x: 0 }
-        correctedPosition = SpatialBrands.createVector3D(
-          Math.max(-1000, Math.min(1000, correctedPosition.x)),
-          correctedPosition.y,
-          correctedPosition.z
-        )
-      }
+      const correctedPosition = correctedState.position
+      const correctedVelocity = correctedState.velocity
 
       // 新しい移動状態
       const newMovementState: MovementState = {
@@ -233,15 +266,22 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const movementState = yield* getOrCreateMovementState(playerId)
 
       // 重力適用（ジャンプ中または空中の場合）
-      let newVelocity = movementState.velocity
-      if (!movementState.isGrounded) {
-        newVelocity = PhysicsUtils.applyGravity(newVelocity, deltaTime)
-      }
+      const velocityWithGravity = pipe(
+        movementState.isGrounded,
+        Match.value,
+        Match.when(false, () => PhysicsUtils.applyGravity(movementState.velocity, deltaTime)),
+        Match.when(true, () => movementState.velocity),
+        Match.exhaustive
+      )
 
       // 摩擦適用
-      if (movementState.isGrounded) {
-        newVelocity = PhysicsUtils.applyFriction(newVelocity, PHYSICS_CONSTANTS.FRICTION)
-      }
+      const newVelocity = pipe(
+        movementState.isGrounded,
+        Match.value,
+        Match.when(true, () => PhysicsUtils.applyFriction(velocityWithGravity, PHYSICS_CONSTANTS.FRICTION)),
+        Match.when(false, () => velocityWithGravity),
+        Match.exhaustive
+      )
 
       // 新しい位置計算
       const newPosition = SpatialBrands.createVector3D(
@@ -252,13 +292,19 @@ const makeMovementSystemLive = Effect.gen(function* () {
 
       // 衝突検出と補正
       const collisions = checkCollisionsInternal(newPosition, newVelocity)
-      let correctedPosition = newPosition
-      let correctedVelocity = newVelocity
-
-      if (collisions.includes('ground')) {
-        correctedPosition = SpatialBrands.createVector3D(correctedPosition.x, 64 + 1.8, correctedPosition.z)
-        correctedVelocity = { ...correctedVelocity, y: 0 }
-      }
+      const { correctedPosition, correctedVelocity } = pipe(
+        collisions.includes('ground'),
+        Match.value,
+        Match.when(true, () => ({
+          correctedPosition: SpatialBrands.createVector3D(newPosition.x, 64 + 1.8, newPosition.z),
+          correctedVelocity: { ...newVelocity, y: 0 },
+        })),
+        Match.when(false, () => ({
+          correctedPosition: newPosition,
+          correctedVelocity: newVelocity,
+        })),
+        Match.exhaustive
+      )
 
       // 新しい移動状態
       const newMovementState: MovementState = {
@@ -290,11 +336,14 @@ const makeMovementSystemLive = Effect.gen(function* () {
     Effect.gen(function* () {
       // プレイヤーの存在確認
       const exists = yield* playerService.playerExists(playerId)
-      if (!exists) {
-        return yield* Effect.fail(createPlayerError.playerNotFound(playerId, 'get movement state'))
-      }
 
-      return yield* getOrCreateMovementState(playerId)
+      return yield* pipe(
+        exists,
+        Match.value,
+        Match.when(false, () => Effect.fail(createPlayerError.playerNotFound(playerId, 'get movement state'))),
+        Match.when(true, () => getOrCreateMovementState(playerId)),
+        Match.exhaustive
+      )
     })
 
   // プレイヤーの移動状態設定
@@ -304,21 +353,29 @@ const makeMovementSystemLive = Effect.gen(function* () {
       const validatedState = yield* validateMovementState(state)
 
       // 追加の検証: NaN, Infinity, 無効な値のチェック
-      if (
-        !Number.isFinite(validatedState.velocity.x) ||
-        !Number.isFinite(validatedState.velocity.y) ||
-        !Number.isFinite(validatedState.velocity.z)
-      ) {
-        return yield* Effect.fail(
-          createPlayerError.validationError('Movement state contains invalid numeric values (NaN or Infinity)', state)
-        )
-      }
+      yield* pipe(
+        Number.isFinite(validatedState.velocity.x) &&
+          Number.isFinite(validatedState.velocity.y) &&
+          Number.isFinite(validatedState.velocity.z),
+        Match.value,
+        Match.when(false, () =>
+          Effect.fail(
+            createPlayerError.validationError('Movement state contains invalid numeric values (NaN or Infinity)', state)
+          )
+        ),
+        Match.when(true, () => Effect.void),
+        Match.exhaustive
+      )
 
       // プレイヤーの存在確認
       const exists = yield* playerService.playerExists(playerId)
-      if (!exists) {
-        return yield* Effect.fail(createPlayerError.playerNotFound(playerId, 'set movement state'))
-      }
+      yield* pipe(
+        exists,
+        Match.value,
+        Match.when(false, () => Effect.fail(createPlayerError.playerNotFound(playerId, 'set movement state'))),
+        Match.when(true, () => Effect.void),
+        Match.exhaustive
+      )
 
       // 状態更新
       yield* updateMovementState(playerId, validatedState)

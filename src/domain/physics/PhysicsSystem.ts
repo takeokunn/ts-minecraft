@@ -1,4 +1,4 @@
-import { Effect, Layer, pipe } from 'effect'
+import { Effect, Layer, pipe, Match } from 'effect'
 import type { Vector3 } from '../world/types'
 import type { BlockTypeId } from '../../shared/types/branded'
 import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from './types'
@@ -79,25 +79,29 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
       const fluidType = FluidPhysics.getFluidType(currentBlock)
 
       // 2. 流体物理を適用
-      let updatedVelocity = velocity
-      if (fluidType !== 'none') {
-        const fluidResult = yield* pipe(
-          FluidPhysics.calculateFluidPhysics(position, velocity, fluidType, getBlockAt),
-          Effect.mapError(
-            (error) =>
-              ({
-                _tag: 'PhysicsError',
-                message: `Fluid physics failed: ${error}`,
-                cause: error,
-              }) as PhysicsError
+      const updatedVelocityAfterFluid = yield* pipe(
+        fluidType !== 'none',
+        Match.value,
+        Match.when(false, () => Effect.succeed(velocity)),
+        Match.orElse(() =>
+          pipe(
+            FluidPhysics.calculateFluidPhysics(position, velocity, fluidType, getBlockAt),
+            Effect.mapError(
+              (error) =>
+                ({
+                  _tag: 'PhysicsError',
+                  message: `Fluid physics failed: ${error}`,
+                  cause: error,
+                }) as PhysicsError
+            ),
+            Effect.map((fluidResult) => fluidResult.velocity)
           )
         )
-        updatedVelocity = fluidResult.velocity
-      }
+      )
 
       // 3. 重力を適用
-      updatedVelocity = yield* pipe(
-        Gravity.apply(updatedVelocity, deltaTime, fluidType !== 'none'),
+      const updatedVelocityAfterGravity = yield* pipe(
+        Gravity.apply(updatedVelocityAfterFluid, deltaTime, fluidType !== 'none'),
         Effect.mapError(
           (error) =>
             ({
@@ -110,7 +114,7 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
 
       // 4. 衝突検出と応答
       const collisionResult = yield* pipe(
-        CollisionDetection.detectCollision(position, updatedVelocity, boundingBox, getBlockAt),
+        CollisionDetection.detectCollision(position, updatedVelocityAfterGravity, boundingBox, getBlockAt),
         Effect.mapError(
           (error) =>
             ({
@@ -122,39 +126,47 @@ export const makePhysicsSystem = (getBlockAt: (pos: Vector3) => BlockTypeId | nu
       )
 
       // 5. 摩擦を適用
-      if (collisionResult.isGrounded) {
-        updatedVelocity = yield* pipe(
-          Friction.applyGroundFriction(collisionResult.velocity, true, groundBlockType),
-          Effect.mapError(
-            (error) =>
-              ({
-                _tag: 'PhysicsError',
-                message: `Friction application failed: ${error}`,
-                cause: error,
-              }) as PhysicsError
-          )
-        )
-      } else if (fluidType === 'none') {
-        // 空中では空気抵抗を適用
-        updatedVelocity = yield* pipe(
-          Gravity.applyAirResistance(collisionResult.velocity),
-          Effect.mapError(
-            (error) =>
-              ({
-                _tag: 'PhysicsError',
-                message: `Air resistance failed: ${error}`,
-                cause: error,
-              }) as PhysicsError
-          )
-        )
-      }
+      const finalVelocity = yield* pipe(
+        Match.value({ isGrounded: collisionResult.isGrounded, fluidType }),
+        Match.when(
+          ({ isGrounded }) => isGrounded,
+          () =>
+            pipe(
+              Friction.applyGroundFriction(collisionResult.velocity, true, groundBlockType),
+              Effect.mapError(
+                (error) =>
+                  ({
+                    _tag: 'PhysicsError',
+                    message: `Friction application failed: ${error}`,
+                    cause: error,
+                  }) as PhysicsError
+              )
+            )
+        ),
+        Match.when(
+          ({ isGrounded, fluidType }) => !isGrounded && fluidType === 'none',
+          () =>
+            pipe(
+              Gravity.applyAirResistance(collisionResult.velocity),
+              Effect.mapError(
+                (error) =>
+                  ({
+                    _tag: 'PhysicsError',
+                    message: `Air resistance failed: ${error}`,
+                    cause: error,
+                  }) as PhysicsError
+              )
+            )
+        ),
+        Match.orElse(() => Effect.succeed(collisionResult.velocity))
+      )
 
       // 6. デッドゾーンを適用（微小な速度を0にする）
-      updatedVelocity = Friction.applyDeadZone(updatedVelocity)
+      const deadZoneAppliedVelocity = Friction.applyDeadZone(finalVelocity)
 
       return {
         position: collisionResult.position,
-        velocity: updatedVelocity,
+        velocity: deadZoneAppliedVelocity,
         isGrounded: collisionResult.isGrounded,
         isInFluid: fluidType !== 'none',
         fluidType,

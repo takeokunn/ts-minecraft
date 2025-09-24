@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { BlockPosition } from '../../shared/types/branded'
 import type { Vector3, BlockFace, RaycastResult } from './InteractionTypes'
 import { createEmptyRaycastResult, createHitRaycastResult } from './InteractionTypes'
@@ -38,16 +38,17 @@ const normalizeVector3 = (vector: Vector3): Effect.Effect<Vector3, InteractionEr
   Effect.gen(function* () {
     const magnitude = Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
 
-    if (magnitude === 0) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createRaycastError({
           origin: { x: 0, y: 0, z: 0 },
           direction: vector,
           maxDistance: 0,
           reason: 'Direction vector cannot be zero',
         })
-      )
-    }
+      ),
+      () => magnitude === 0
+    )
 
     return {
       x: vector.x / magnitude,
@@ -88,16 +89,14 @@ const distanceBetween = (a: Vector3, b: Vector3): number => {
  * @param lastStep - 最後にステップした軸（'x', 'y', 'z'）
  * @returns 衝突した面
  */
-const determineBlockFace = (stepX: number, stepY: number, stepZ: number, lastStep: 'x' | 'y' | 'z'): BlockFace => {
-  switch (lastStep) {
-    case 'x':
-      return stepX > 0 ? 'west' : 'east' // X軸正方向 = 東、負方向 = 西
-    case 'y':
-      return stepY > 0 ? 'bottom' : 'top' // Y軸正方向 = 上、負方向 = 下
-    case 'z':
-      return stepZ > 0 ? 'north' : 'south' // Z軸正方向 = 南、負方向 = 北
-  }
-}
+const determineBlockFace = (stepX: number, stepY: number, stepZ: number, lastStep: 'x' | 'y' | 'z'): BlockFace =>
+  pipe(
+    Match.value(lastStep),
+    Match.when('x', () => (stepX > 0 ? 'west' : 'east') as BlockFace), // X軸正方向 = 東、負方向 = 西
+    Match.when('y', () => (stepY > 0 ? 'bottom' : 'top') as BlockFace), // Y軸正方向 = 上、負方向 = 下
+    Match.when('z', () => (stepZ > 0 ? 'north' : 'south') as BlockFace), // Z軸正方向 = 南、負方向 = 北
+    Match.exhaustive
+  )
 
 // =============================================================================
 // Block Collision Detection (Stub)
@@ -115,21 +114,25 @@ const determineBlockFace = (stepX: number, stepY: number, stepZ: number, lastSte
  * @returns ブロックが存在する場合true
  */
 const isBlockSolid = (blockPos: BlockPosition): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    // スタブ実装: 簡単なテストパターン
-    // Y=0以下は bedrock、Y=1-63は時々ブロックあり
-    if (blockPos.y <= 0) {
-      return true // Bedrock layer
-    }
-
-    if (blockPos.y >= 256) {
-      return false // Sky limit
-    }
-
-    // 簡単なテストパターン: チェッカーボード状にブロック配置
-    const sum = Math.abs(blockPos.x) + Math.abs(blockPos.y) + Math.abs(blockPos.z)
-    return sum % 3 === 0
-  })
+  Effect.succeed(
+    pipe(
+      blockPos.y,
+      Match.value,
+      Match.when(
+        (y) => y <= 0,
+        () => true
+      ), // Bedrock layer
+      Match.when(
+        (y) => y >= 256,
+        () => false
+      ), // Sky limit
+      Match.orElse(() => {
+        // 簡単なテストパターン: チェッカーボード状にブロック配置
+        const sum = Math.abs(blockPos.x) + Math.abs(blockPos.y) + Math.abs(blockPos.z)
+        return sum % 3 === 0
+      })
+    )
+  )
 
 // =============================================================================
 // Main DDA Raycast Implementation
@@ -157,16 +160,17 @@ export const performDDARaycast = (
   Effect.gen(function* () {
     // ===== Step 1: Input validation and normalization =====
 
-    if (maxDistance <= 0) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createRaycastError({
           origin,
           direction,
           maxDistance,
           reason: 'Max distance must be positive',
         })
-      )
-    }
+      ),
+      () => maxDistance <= 0
+    )
 
     const normalizedDirection = yield* normalizeVector3(direction)
 
@@ -186,35 +190,41 @@ export const performDDARaycast = (
     let stepX: number
     let sideDistX: number
 
-    if (normalizedDirection.x < 0) {
-      stepX = -1
-      sideDistX = (origin.x - mapX) * deltaDistX
-    } else {
-      stepX = 1
-      sideDistX = (mapX + 1.0 - origin.x) * deltaDistX
-    }
+    const xResult = pipe(
+      normalizedDirection.x < 0,
+      Match.value,
+      Match.when(true, () => ({ stepX: -1, sideDistX: (origin.x - mapX) * deltaDistX })),
+      Match.when(false, () => ({ stepX: 1, sideDistX: (mapX + 1.0 - origin.x) * deltaDistX })),
+      Match.exhaustive
+    )
+    stepX = xResult.stepX
+    sideDistX = xResult.sideDistX
 
     let stepY: number
     let sideDistY: number
 
-    if (normalizedDirection.y < 0) {
-      stepY = -1
-      sideDistY = (origin.y - mapY) * deltaDistY
-    } else {
-      stepY = 1
-      sideDistY = (mapY + 1.0 - origin.y) * deltaDistY
-    }
+    const yResult = pipe(
+      normalizedDirection.y < 0,
+      Match.value,
+      Match.when(true, () => ({ stepY: -1, sideDistY: (origin.y - mapY) * deltaDistY })),
+      Match.when(false, () => ({ stepY: 1, sideDistY: (mapY + 1.0 - origin.y) * deltaDistY })),
+      Match.exhaustive
+    )
+    stepY = yResult.stepY
+    sideDistY = yResult.sideDistY
 
     let stepZ: number
     let sideDistZ: number
 
-    if (normalizedDirection.z < 0) {
-      stepZ = -1
-      sideDistZ = (origin.z - mapZ) * deltaDistZ
-    } else {
-      stepZ = 1
-      sideDistZ = (mapZ + 1.0 - origin.z) * deltaDistZ
-    }
+    const zResult = pipe(
+      normalizedDirection.z < 0,
+      Match.value,
+      Match.when(true, () => ({ stepZ: -1, sideDistZ: (origin.z - mapZ) * deltaDistZ })),
+      Match.when(false, () => ({ stepZ: 1, sideDistZ: (mapZ + 1.0 - origin.z) * deltaDistZ })),
+      Match.exhaustive
+    )
+    stepZ = zResult.stepZ
+    sideDistZ = zResult.sideDistZ
 
     // ===== Step 3: DDA main loop =====
 
@@ -229,25 +239,36 @@ export const performDDARaycast = (
       iterations++
 
       // 次にステップする軸を決定（最小のサイド距離）
-      if (sideDistX < sideDistY && sideDistX < sideDistZ) {
-        // X軸方向にステップ
-        sideDistX += deltaDistX
-        mapX += stepX
-        lastStep = 'x'
-        currentDistance = sideDistX - deltaDistX
-      } else if (sideDistY < sideDistZ) {
-        // Y軸方向にステップ
-        sideDistY += deltaDistY
-        mapY += stepY
-        lastStep = 'y'
-        currentDistance = sideDistY - deltaDistY
-      } else {
-        // Z軸方向にステップ
-        sideDistZ += deltaDistZ
-        mapZ += stepZ
-        lastStep = 'z'
-        currentDistance = sideDistZ - deltaDistZ
-      }
+      pipe(
+        Match.value({ sideDistX, sideDistY, sideDistZ }),
+        Match.when(
+          ({ sideDistX, sideDistY, sideDistZ }) => sideDistX < sideDistY && sideDistX < sideDistZ,
+          () => {
+            // X軸方向にステップ
+            sideDistX += deltaDistX
+            mapX += stepX
+            lastStep = 'x'
+            currentDistance = sideDistX - deltaDistX
+          }
+        ),
+        Match.when(
+          ({ sideDistY, sideDistZ }) => sideDistY < sideDistZ,
+          () => {
+            // Y軸方向にステップ
+            sideDistY += deltaDistY
+            mapY += stepY
+            lastStep = 'y'
+            currentDistance = sideDistY - deltaDistY
+          }
+        ),
+        Match.orElse(() => {
+          // Z軸方向にステップ
+          sideDistZ += deltaDistZ
+          mapZ += stepZ
+          lastStep = 'z'
+          currentDistance = sideDistZ - deltaDistZ
+        })
+      )
 
       // 現在の位置でブロック衝突チェック
       const blockPosition: BlockPosition = {
@@ -258,23 +279,35 @@ export const performDDARaycast = (
 
       const isSolid = yield* isBlockSolid(blockPosition)
 
-      if (isSolid) {
-        hit = true
+      const hitResult = pipe(
+        isSolid,
+        Match.value,
+        Match.when(true, () => {
+          // ===== Step 4: Hit point calculation =====
 
-        // ===== Step 4: Hit point calculation =====
+          // 正確な衝突点を計算
+          const hitPoint: Vector3 = {
+            x: origin.x + normalizedDirection.x * currentDistance,
+            y: origin.y + normalizedDirection.y * currentDistance,
+            z: origin.z + normalizedDirection.z * currentDistance,
+          }
 
-        // 正確な衝突点を計算
-        const hitPoint: Vector3 = {
-          x: origin.x + normalizedDirection.x * currentDistance,
-          y: origin.y + normalizedDirection.y * currentDistance,
-          z: origin.z + normalizedDirection.z * currentDistance,
-        }
+          // 衝突した面を特定
+          const face = determineBlockFace(stepX, stepY, stepZ, lastStep)
 
-        // 衝突した面を特定
-        const face = determineBlockFace(stepX, stepY, stepZ, lastStep)
+          return { hit: true, result: createHitRaycastResult(blockPosition, face, currentDistance, hitPoint) }
+        }),
+        Match.when(false, () => ({ hit: false, result: null })),
+        Match.exhaustive
+      )
 
-        return createHitRaycastResult(blockPosition, face, currentDistance, hitPoint)
-      }
+      // Transform if statement using Effect.when for early return
+      yield* Effect.when(Effect.succeed(hitResult.result!), () => hitResult.hit && hitResult.result !== null).pipe(
+        Effect.flatMap((result) => (result ? Effect.fail(result) : Effect.void)),
+        Effect.catchAll(() => Effect.void) // Continue if no early return
+      )
+
+      hit = hitResult.hit
     }
 
     // ===== Step 5: No hit case =====
@@ -330,12 +363,22 @@ export const hasObstacleBetween = (from: Vector3, to: Vector3): Effect.Effect<bo
 
     const distance = vectorLength(direction)
 
-    if (distance === 0) {
-      return false // 同じ位置
-    }
-
-    const result = yield* performDDARaycast(from, direction, distance)
-    return result.hit
+    // Use Effect.when to handle early return case instead of if statement
+    return yield* pipe(
+      distance === 0,
+      Match.value,
+      Match.when(
+        true,
+        () => Effect.succeed(false) // Same position, no obstacle
+      ),
+      Match.when(false, () =>
+        Effect.gen(function* () {
+          const result = yield* performDDARaycast(from, direction, distance)
+          return result.hit
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 // =============================================================================

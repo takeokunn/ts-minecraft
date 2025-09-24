@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Ref, Option, Match, pipe, Array as A } from 'effect'
+import { Effect, Context, Layer, Ref, Option, Match, pipe, Array as A, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
@@ -86,8 +86,9 @@ export const TextureAtlasError = (reason: string, context: string): TextureAtlas
 })
 
 // Type guard function
-export const isTextureAtlasError = (error: unknown): error is TextureAtlasError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TextureAtlasError'
+export const isTextureAtlasError: Predicate.Refinement<unknown, TextureAtlasError> = (
+  error
+): error is TextureAtlasError => Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'TextureAtlasError'
 
 // ========================================
 // Service Interface

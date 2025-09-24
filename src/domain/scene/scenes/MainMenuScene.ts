@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, pipe, Match } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // MainMenuScene実装
@@ -28,14 +28,19 @@ export const MainMenuScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          return yield* isInitialized
-            ? Effect.fail(
+          yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
                 SceneInitializationError({
                   message: 'MainMenuScene is already initialized',
                   sceneType: 'MainMenu',
                 })
               )
-            : Effect.gen(function* () {
+            ),
+            Match.when(false, () =>
+              Effect.gen(function* () {
                 yield* Effect.logInfo('MainMenuSceneを初期化中...')
 
                 // メニューUIの初期化
@@ -44,32 +49,46 @@ export const MainMenuScene = Layer.effect(
 
                 yield* Effect.logInfo('MainMenuScene初期化完了')
               })
+            ),
+            Match.exhaustive
+          )
         }),
 
       update: (deltaTime) =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          if (!isInitialized) return
-
-          yield* Effect.logDebug(`MainMenuScene update: deltaTime=${deltaTime}ms`)
+          yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(false, () => Effect.void),
+            Match.when(true, () => Effect.logDebug(`MainMenuScene update: deltaTime=${deltaTime}ms`)),
+            Match.exhaustive
+          )
         }),
 
       render: () =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          if (!isInitialized) return
-
-          yield* Effect.logDebug('MainMenuSceneレンダリング中...')
+          yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(false, () => Effect.void),
+            Match.when(true, () => Effect.logDebug('MainMenuSceneレンダリング中...')),
+            Match.exhaustive
+          )
         }),
 
       cleanup: () =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          return yield* isInitialized
-            ? Effect.gen(function* () {
+          yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(true, () =>
+              Effect.gen(function* () {
                 yield* Effect.logInfo('MainMenuSceneクリーンアップ中...')
 
                 yield* Ref.set(isInitializedRef, false)
@@ -77,12 +96,17 @@ export const MainMenuScene = Layer.effect(
 
                 yield* Effect.logInfo('MainMenuSceneクリーンアップ完了')
               })
-            : Effect.fail(
+            ),
+            Match.when(false, () =>
+              Effect.fail(
                 SceneCleanupError({
                   message: 'MainMenuScene is not initialized, cannot cleanup',
                   sceneType: 'MainMenu',
                 })
               )
+            ),
+            Match.exhaustive
+          )
         }),
 
       onEnter: () =>

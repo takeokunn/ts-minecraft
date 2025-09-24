@@ -5,7 +5,7 @@
  * SlotManager and StackProcessor for operations
  */
 
-import { Effect, HashMap, Layer, Option, pipe } from 'effect'
+import { Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import {
   AddItemResult,
   Inventory,
@@ -37,16 +37,23 @@ export const InventoryServiceLive = Layer.effect(
     const getOrCreateInventory = (playerId: PlayerId): Effect.Effect<Inventory, InventoryError> =>
       Effect.gen(function* () {
         const existing = HashMap.get(store.inventories, playerId)
-        if (Option.isSome(existing)) {
-          return existing.value
-        }
 
-        const newInventory = createEmptyInventory(playerId)
-        store = {
-          ...store,
-          inventories: HashMap.set(store.inventories, playerId, newInventory),
-        }
-        return newInventory
+        // Transform if statement to Option.match pattern
+        return yield* pipe(
+          existing,
+          Option.match({
+            onSome: (inventory) => Effect.succeed(inventory),
+            onNone: () =>
+              Effect.gen(function* () {
+                const newInventory = createEmptyInventory(playerId)
+                store = {
+                  ...store,
+                  inventories: HashMap.set(store.inventories, playerId, newInventory),
+                }
+                return newInventory
+              }),
+          })
+        )
       })
 
     // Helper to update inventory
@@ -97,21 +104,26 @@ export const InventoryServiceLive = Layer.effect(
           const inventory = yield* getOrCreateInventory(playerId)
           const fromItem = yield* SlotManager.getSlotItem(inventory, fromSlot)
 
-          if (!fromItem) {
-            yield* Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId, { fromSlot }))
-            return
-          }
+          // Transform if statement to Option.match pattern
+          yield* pipe(
+            Option.fromNullable(fromItem),
+            Option.match({
+              onNone: () => Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId, { fromSlot })),
+              onSome: (item) =>
+                Effect.gen(function* () {
+                  const moveAmount = amount ?? item.count
+                  const updatedInventory = yield* StackProcessor.transferBetweenSlots(
+                    inventory,
+                    fromSlot,
+                    toSlot,
+                    moveAmount,
+                    registry
+                  )
 
-          const moveAmount = amount ?? fromItem.count
-          const updatedInventory = yield* StackProcessor.transferBetweenSlots(
-            inventory,
-            fromSlot,
-            toSlot,
-            moveAmount,
-            registry
+                  yield* updateInventory(playerId, updatedInventory)
+                }),
+            })
           )
-
-          yield* updateInventory(playerId, updatedInventory)
         }),
 
       swapItems: (playerId: PlayerId, slot1: number, slot2: number) =>
@@ -126,32 +138,53 @@ export const InventoryServiceLive = Layer.effect(
           const inventory = yield* getOrCreateInventory(playerId)
           const sourceItem = yield* SlotManager.getSlotItem(inventory, sourceSlot)
 
-          if (!sourceItem) {
-            yield* Effect.fail(
-              new InventoryError('INSUFFICIENT_ITEMS', playerId, {
-                sourceSlot,
-              })
-            )
-            return
-          }
+          // Transform first if statement to Option.match pattern
+          yield* pipe(
+            Option.fromNullable(sourceItem),
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  new InventoryError('INSUFFICIENT_ITEMS', playerId, {
+                    sourceSlot,
+                  })
+                ),
+              onSome: (source) =>
+                Effect.gen(function* () {
+                  const targetItem = yield* SlotManager.getSlotItem(inventory, targetSlot)
 
-          const targetItem = yield* SlotManager.getSlotItem(inventory, targetSlot)
+                  // Transform second if statement to Option.match pattern
+                  yield* pipe(
+                    Option.fromNullable(targetItem),
+                    Option.match({
+                      onNone: () =>
+                        Effect.gen(function* () {
+                          const splitResult = StackProcessor.splitStack(source, amount)
 
-          if (targetItem) {
-            yield* Effect.fail(new InventoryError('SLOT_OCCUPIED', playerId, { targetSlot }))
-            return
-          }
+                          // Transform third if statement to Option.match pattern
+                          yield* pipe(
+                            Option.fromNullable(splitResult.split),
+                            Option.match({
+                              onNone: () => Effect.fail(new InventoryError('INVALID_ITEM_COUNT', playerId, { amount })),
+                              onSome: (split) =>
+                                Effect.gen(function* () {
+                                  let updatedInventory = yield* SlotManager.setSlotItem(
+                                    inventory,
+                                    sourceSlot,
+                                    splitResult.original
+                                  )
+                                  updatedInventory = yield* SlotManager.setSlotItem(updatedInventory, targetSlot, split)
 
-          const splitResult = StackProcessor.splitStack(sourceItem, amount)
-          if (!splitResult.split) {
-            yield* Effect.fail(new InventoryError('INVALID_ITEM_COUNT', playerId, { amount }))
-            return
-          }
-
-          let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, splitResult.original)
-          updatedInventory = yield* SlotManager.setSlotItem(updatedInventory, targetSlot, splitResult.split)
-
-          yield* updateInventory(playerId, updatedInventory)
+                                  yield* updateInventory(playerId, updatedInventory)
+                                }),
+                            })
+                          )
+                        }),
+                      onSome: () => Effect.fail(new InventoryError('SLOT_OCCUPIED', playerId, { targetSlot })),
+                    })
+                  )
+                }),
+            })
+          )
         }),
 
       mergeStacks: (playerId: PlayerId, sourceSlot: number, targetSlot: number) =>
@@ -160,24 +193,50 @@ export const InventoryServiceLive = Layer.effect(
           const sourceItem = yield* SlotManager.getSlotItem(inventory, sourceSlot)
           const targetItem = yield* SlotManager.getSlotItem(inventory, targetSlot)
 
-          if (!sourceItem || !targetItem) {
-            yield* Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId))
-            return
-          }
+          // Transform first if statement to Option validation pattern
+          const bothItems = pipe(
+            Option.fromNullable(sourceItem),
+            Option.flatMap((source) =>
+              pipe(
+                Option.fromNullable(targetItem),
+                Option.map((target) => ({ source, target }))
+              )
+            )
+          )
 
-          const canStack = yield* registry.canStack(sourceItem, targetItem)
-          if (!canStack) {
-            yield* Effect.fail(new InventoryError('ITEM_NOT_STACKABLE', playerId))
-            return
-          }
+          yield* pipe(
+            bothItems,
+            Option.match({
+              onNone: () => Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId)),
+              onSome: ({ source, target }) =>
+                Effect.gen(function* () {
+                  const canStack = yield* registry.canStack(source, target)
 
-          const maxStackSize = yield* registry.getMaxStackSize(sourceItem.itemId)
-          const mergeResult = StackProcessor.mergeStacks(sourceItem, targetItem, maxStackSize)
+                  // Transform second if statement to Match pattern
+                  yield* pipe(
+                    canStack,
+                    Match.value,
+                    Match.when(false, () => Effect.fail(new InventoryError('ITEM_NOT_STACKABLE', playerId))),
+                    Match.when(true, () =>
+                      Effect.gen(function* () {
+                        const maxStackSize = yield* registry.getMaxStackSize(source.itemId)
+                        const mergeResult = StackProcessor.mergeStacks(source, target, maxStackSize)
 
-          let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, mergeResult.source)
-          updatedInventory = yield* SlotManager.setSlotItem(updatedInventory, targetSlot, mergeResult.target)
+                        let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, mergeResult.source)
+                        updatedInventory = yield* SlotManager.setSlotItem(
+                          updatedInventory,
+                          targetSlot,
+                          mergeResult.target
+                        )
 
-          yield* updateInventory(playerId, updatedInventory)
+                        yield* updateInventory(playerId, updatedInventory)
+                      })
+                    ),
+                    Match.exhaustive
+                  )
+                }),
+            })
+          )
         }),
 
       getSelectedItem: (playerId: PlayerId) =>
@@ -285,17 +344,25 @@ export const InventoryServiceLive = Layer.effect(
           const inventory = yield* getOrCreateInventory(playerId)
           const item = yield* SlotManager.getSlotItem(inventory, slotIndex)
 
-          if (!item) return null
+          // Transform if statement to Option.match pattern
+          return yield* pipe(
+            Option.fromNullable(item),
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (existingItem) =>
+                Effect.gen(function* () {
+                  const dropAmount = amount ?? existingItem.count
+                  const { inventory: updatedInventory, removed } = yield* StackProcessor.removeFromSlot(
+                    inventory,
+                    slotIndex,
+                    dropAmount
+                  )
 
-          const dropAmount = amount ?? item.count
-          const { inventory: updatedInventory, removed } = yield* StackProcessor.removeFromSlot(
-            inventory,
-            slotIndex,
-            dropAmount
+                  yield* updateInventory(playerId, updatedInventory)
+                  return removed
+                }),
+            })
           )
-
-          yield* updateInventory(playerId, updatedInventory)
-          return removed
         }),
 
       dropAllItems: (playerId: PlayerId) =>
@@ -303,20 +370,60 @@ export const InventoryServiceLive = Layer.effect(
           const inventory = yield* getOrCreateInventory(playerId)
           const droppedItems: ItemStack[] = []
 
+          // Transform for loop with if statement to functional approach
           for (const item of inventory.slots) {
-            if (item) {
-              droppedItems.push(item)
-            }
+            pipe(
+              Option.fromNullable(item),
+              Option.match({
+                onNone: () => {},
+                onSome: (existingItem) => {
+                  droppedItems.push(existingItem)
+                },
+              })
+            )
           }
 
-          // Add armor items
-          if (inventory.armor.helmet) droppedItems.push(inventory.armor.helmet)
-          if (inventory.armor.chestplate) droppedItems.push(inventory.armor.chestplate)
-          if (inventory.armor.leggings) droppedItems.push(inventory.armor.leggings)
-          if (inventory.armor.boots) droppedItems.push(inventory.armor.boots)
+          // Transform armor if statements to Option.match patterns
+          pipe(
+            Option.fromNullable(inventory.armor.helmet),
+            Option.match({
+              onNone: () => {},
+              onSome: (helmet) => droppedItems.push(helmet),
+            })
+          )
 
-          // Add offhand item
-          if (inventory.offhand) droppedItems.push(inventory.offhand)
+          pipe(
+            Option.fromNullable(inventory.armor.chestplate),
+            Option.match({
+              onNone: () => {},
+              onSome: (chestplate) => droppedItems.push(chestplate),
+            })
+          )
+
+          pipe(
+            Option.fromNullable(inventory.armor.leggings),
+            Option.match({
+              onNone: () => {},
+              onSome: (leggings) => droppedItems.push(leggings),
+            })
+          )
+
+          pipe(
+            Option.fromNullable(inventory.armor.boots),
+            Option.match({
+              onNone: () => {},
+              onSome: (boots) => droppedItems.push(boots),
+            })
+          )
+
+          // Transform offhand if statement to Option.match pattern
+          pipe(
+            Option.fromNullable(inventory.offhand),
+            Option.match({
+              onNone: () => {},
+              onSome: (offhand) => droppedItems.push(offhand),
+            })
+          )
 
           // Clear inventory
           const emptyInventory = createEmptyInventory(playerId)
@@ -363,10 +470,26 @@ export const InventoryServiceLive = Layer.effect(
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
           let count = 0
+
+          // Transform for loop with if statement to functional approach
           for (const item of inventory.slots) {
-            if (item && item.itemId === itemId) {
-              count += item.count
-            }
+            pipe(
+              Option.fromNullable(item),
+              Option.match({
+                onNone: () => {},
+                onSome: (existingItem) => {
+                  pipe(
+                    existingItem.itemId === itemId,
+                    Match.value,
+                    Match.when(true, () => {
+                      count += existingItem.count
+                    }),
+                    Match.when(false, () => {}),
+                    Match.exhaustive
+                  )
+                },
+              })
+            )
           }
           return count
         }),

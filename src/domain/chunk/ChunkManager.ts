@@ -3,7 +3,7 @@
  * クラスを使わないEffect-TS Service/Layerパターン実装
  */
 
-import { Context, Effect, Ref, Queue, Layer, Option, Match, pipe } from 'effect'
+import { Context, Effect, Ref, Queue, Layer, Option, Match, pipe, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ChunkPosition, Chunk } from './index'
 import type { WorldGenerator, Vector3 } from '../world/index'
@@ -185,12 +185,21 @@ export const generateLoadOrder = (center: ChunkPosition, maxDistance: number): C
   for (let distance = 0; distance <= maxDistance; distance++) {
     for (let x = -distance; x <= distance; x++) {
       for (let z = -distance; z <= distance; z++) {
-        if (Math.abs(x) === distance || Math.abs(z) === distance) {
-          positions.push({
-            x: center.x + x,
-            z: center.z + z,
+        pipe(
+          Match.value({ x, z, distance }),
+          Match.when(
+            ({ x, z, distance }) => Math.abs(x) === distance || Math.abs(z) === distance,
+            ({ x, z }) => {
+              positions.push({
+                x: center.x + x,
+                z: center.z + z,
+              })
+            }
+          ),
+          Match.orElse(() => {
+            // Skip inner positions
           })
-        }
+        )
       }
     }
   }
@@ -291,32 +300,50 @@ export const createChunkManager = (
 
         currentState.loadedChunks.forEach((chunk, key) => {
           const distance = chunkDistance(chunk.position, centerChunk)
-          if (distance > currentState.config.viewDistance) {
-            toUnload.push(key)
-          }
+          pipe(
+            distance > currentState.config.viewDistance,
+            Match.value,
+            Match.when(true, () => {
+              toUnload.push(key)
+            }),
+            Match.when(false, () => {}),
+            Match.exhaustive
+          )
         })
 
-        if (toUnload.length > 0) {
-          yield* Ref.update(state, (currentState) => {
-            const newLoadedChunks = new Map(currentState.loadedChunks)
-            let newCache = currentState.cache
+        yield* pipe(
+          toUnload.length > 0,
+          Match.value,
+          Match.when(true, () =>
+            Ref.update(state, (currentState) => {
+              const newLoadedChunks = new Map(currentState.loadedChunks)
+              let newCache = currentState.cache
 
-            toUnload.forEach((key) => {
-              const chunk = newLoadedChunks.get(key)
-              if (chunk) {
-                // キャッシュに移動
-                newCache = lruPut(newCache, key, chunk)
-                newLoadedChunks.delete(key)
+              toUnload.forEach((key) => {
+                const chunk = newLoadedChunks.get(key)
+                pipe(
+                  chunk !== undefined,
+                  Match.value,
+                  Match.when(true, () => {
+                    // キャッシュに移動
+                    newCache = lruPut(newCache, key, chunk!)
+                    newLoadedChunks.delete(key)
+                  }),
+                  Match.when(false, () => {}),
+                  Match.exhaustive
+                )
+              })
+
+              return {
+                ...currentState,
+                loadedChunks: newLoadedChunks,
+                cache: newCache,
               }
             })
-
-            return {
-              ...currentState,
-              loadedChunks: newLoadedChunks,
-              cache: newCache,
-            }
-          })
-        }
+          ),
+          Match.when(false, () => Effect.void),
+          Match.exhaustive
+        )
       })
 
     const getMemoryUsage = (): Effect.Effect<number, never> =>
@@ -369,34 +396,51 @@ const loadChunkIfNeeded = (position: ChunkPosition, stateRef: Ref.Ref<ChunkManag
     const key = chunkPositionToKey(position)
 
     // 既にロード済みまたはロード中の場合はスキップ
-    if (currentState.loadedChunks.has(key) || currentState.loadingChunks.has(key)) {
-      return
-    }
+    const shouldSkip = yield* pipe(
+      currentState.loadedChunks.has(key) || currentState.loadingChunks.has(key),
+      Match.value,
+      Match.when(true, () => Effect.succeed(true)), // スキップ
+      Match.when(false, () => Effect.succeed(false)), // 続行
+      Match.exhaustive
+    )
 
-    // ロード中マークを追加
-    yield* Ref.update(stateRef, (state) => ({
-      ...state,
-      loadingChunks: new Set([...state.loadingChunks, key]),
-    }))
+    yield* pipe(
+      shouldSkip,
+      Match.value,
+      Match.when(true, () => Effect.void), // 早期終了
+      Match.when(false, () =>
+        Effect.gen(function* () {
+          // ロード中マークを追加
+          yield* Ref.update(stateRef, (state) => ({
+            ...state,
+            loadingChunks: new Set([...state.loadingChunks, key]),
+          }))
 
-    try {
-      // TODO: 実際のチャンク生成はWorldGeneratorと連携
-      // const worldGenerator = yield* WorldGenerator
-      // const chunkResult = yield* worldGenerator.generateChunk(position)
-      // const chunk = chunkResult.chunk
-      // 仮実装: 空のチャンクを作成
-      // yield* Effect.logInfo(`Loading chunk at ${key}`)
-    } finally {
-      // ロード中マークを削除
-      yield* Ref.update(stateRef, (state) => {
-        const newLoadingChunks = new Set(state.loadingChunks)
-        newLoadingChunks.delete(key)
-        return {
-          ...state,
-          loadingChunks: newLoadingChunks,
-        }
-      })
-    }
+          yield* pipe(
+            Effect.gen(function* () {
+              // TODO: 実際のチャンク生成はWorldGeneratorと連携
+              // const worldGenerator = yield* WorldGenerator
+              // const chunkResult = yield* worldGenerator.generateChunk(position)
+              // const chunk = chunkResult.chunk
+              // 仮実装: 空のチャンクを作成
+              // yield* Effect.logInfo(`Loading chunk at ${key}`)
+            }),
+            Effect.ensuring(
+              // ロード中マークを削除
+              Ref.update(stateRef, (state) => {
+                const newLoadingChunks = new Set(state.loadingChunks)
+                newLoadingChunks.delete(key)
+                return {
+                  ...state,
+                  loadingChunks: newLoadingChunks,
+                }
+              })
+            )
+          )
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 // =============================================================================

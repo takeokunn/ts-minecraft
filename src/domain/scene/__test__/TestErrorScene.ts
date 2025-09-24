@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, pipe } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 /**
@@ -32,17 +32,18 @@ export const TestErrorScene = Layer.effect(
         Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
+          // Use simple if statement instead of Match pattern
           if (flags.forceInitError) {
-            return yield* Effect.fail(
+            yield* Effect.fail(
               SceneInitializationError({
                 message: 'Forced initialization error for testing',
                 sceneType: 'Game',
               })
             )
+          } else {
+            yield* Ref.update(errorFlagsRef, (f) => ({ ...f, isInitialized: true }))
+            yield* Effect.logInfo('TestErrorScene initialized successfully')
           }
-
-          yield* Ref.update(errorFlagsRef, (f) => ({ ...f, isInitialized: true }))
-          yield* Effect.logInfo('TestErrorScene initialized successfully')
         }),
 
       update: (deltaTime) =>
@@ -59,22 +60,23 @@ export const TestErrorScene = Layer.effect(
         Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
+          // Use simple if statement instead of Match pattern
           if (flags.forceCleanupError) {
-            return yield* Effect.fail(
+            yield* Effect.fail(
               SceneCleanupError({
                 message: 'Forced cleanup error for testing',
                 sceneType: 'Game',
               })
             )
+          } else {
+            yield* Ref.update(errorFlagsRef, (f) => ({
+              ...f,
+              isInitialized: false,
+              forceInitError: false,
+              forceCleanupError: false,
+            }))
+            yield* Effect.logInfo('TestErrorScene cleanup completed')
           }
-
-          yield* Ref.update(errorFlagsRef, (f) => ({
-            ...f,
-            isInitialized: false,
-            forceInitError: false,
-            forceCleanupError: false,
-          }))
-          yield* Effect.logInfo('TestErrorScene cleanup completed')
         }),
 
       onEnter: () =>
