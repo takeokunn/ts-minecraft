@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema, Duration } from 'effect'
+import { Effect, Schema, Duration, Stream, pipe } from 'effect'
 import { ErrorRecovery } from '../ErrorRecovery'
 
 describe('ErrorRecovery', () => {
@@ -30,10 +30,16 @@ describe('ErrorRecovery', () => {
         const circuitBreakerWrapper = ErrorRecovery.circuitBreaker(3, Duration.seconds(1))
 
         // First few failures should be attempted
-        for (let i = 0; i < 3; i++) {
-          const result = yield* Effect.either(circuitBreakerWrapper(failingOperation))
-          expect(result._tag).toBe('Left')
-        }
+        yield* pipe(
+          Stream.range(0, 2), // 0, 1, 2 (3 iterations)
+          Stream.mapEffect((_i) =>
+            Effect.gen(function* () {
+              const result = yield* Effect.either(circuitBreakerWrapper(failingOperation))
+              expect(result._tag).toBe('Left')
+            })
+          ),
+          Stream.runDrain
+        )
 
         // After threshold, circuit should be open and fail fast
         const openResult = yield* Effect.either(circuitBreakerWrapper(failingOperation))

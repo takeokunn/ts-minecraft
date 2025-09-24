@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Schema } from 'effect'
+import { Effect, Either, Schema, Stream, pipe } from 'effect'
 import { ErrorGuards, ErrorValidation } from '../ErrorGuards'
 
 describe('ErrorGuards', () => {
@@ -13,10 +13,16 @@ describe('ErrorGuards', () => {
           { _tag: 'ResourceNotFoundError', message: 'not found', resourceType: 'texture', resourceId: 'stone' },
         ]
 
-        for (const gameError of validGameErrors) {
-          expect(ErrorGuards.isGameError(gameError)).toBe(true)
-          expect(ErrorGuards.isNetworkError(gameError)).toBe(false)
-        }
+        yield* pipe(
+          Stream.fromIterable(validGameErrors),
+          Stream.mapEffect((gameError) =>
+            Effect.sync(() => {
+              expect(ErrorGuards.isGameError(gameError)).toBe(true)
+              expect(ErrorGuards.isNetworkError(gameError)).toBe(false)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
@@ -34,12 +40,18 @@ describe('ErrorGuards', () => {
           { _tag: 'TimeoutError', message: 'timeout', operation: 'connect', timeoutMs: 5000, elapsedMs: 5001 },
         ]
 
-        for (const networkError of validNetworkErrors) {
-          console.log('Testing network error:', networkError)
-          console.log('isNetworkError result:', ErrorGuards.isNetworkError(networkError))
-          expect(ErrorGuards.isNetworkError(networkError)).toBe(true)
-          expect(ErrorGuards.isGameError(networkError)).toBe(false)
-        }
+        yield* pipe(
+          Stream.fromIterable(validNetworkErrors),
+          Stream.mapEffect((networkError) =>
+            Effect.sync(() => {
+              console.log('Testing network error:', networkError)
+              console.log('isNetworkError result:', ErrorGuards.isNetworkError(networkError))
+              expect(ErrorGuards.isNetworkError(networkError)).toBe(true)
+              expect(ErrorGuards.isGameError(networkError)).toBe(false)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
 
@@ -55,10 +67,16 @@ describe('ErrorGuards', () => {
           { _tag: 'GameError' }, // missing message
         ]
 
-        for (const invalidInput of invalidInputs) {
-          expect(ErrorGuards.isGameError(invalidInput)).toBe(false)
-          expect(ErrorGuards.isNetworkError(invalidInput)).toBe(false)
-        }
+        yield* pipe(
+          Stream.fromIterable(invalidInputs),
+          Stream.mapEffect((invalidInput) =>
+            Effect.sync(() => {
+              expect(ErrorGuards.isGameError(invalidInput)).toBe(false)
+              expect(ErrorGuards.isNetworkError(invalidInput)).toBe(false)
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
   })
@@ -122,17 +140,23 @@ describe('ErrorGuards', () => {
           { _tag: 'WrongTag' }, // invalid
         ]
 
-        for (const input of testInputs) {
-          const result = ErrorValidation.safeDecodeError(
-            Schema.Struct({ _tag: Schema.Literal('ValidError'), data: Schema.String }) as any,
-            input,
-            fallback
-          )
+        yield* pipe(
+          Stream.fromIterable(testInputs),
+          Stream.mapEffect((input) =>
+            Effect.sync(() => {
+              const result = ErrorValidation.safeDecodeError(
+                Schema.Struct({ _tag: Schema.Literal('ValidError'), data: Schema.String }) as any,
+                input,
+                fallback
+              )
 
-          expect(result).toBeDefined()
-          expect(typeof result).toBe('object')
-          expect(result._tag).toBeDefined()
-        }
+              expect(result).toBeDefined()
+              expect(typeof result).toBe('object')
+              expect(result._tag).toBeDefined()
+            })
+          ),
+          Stream.runDrain
+        )
       })
     )
   })

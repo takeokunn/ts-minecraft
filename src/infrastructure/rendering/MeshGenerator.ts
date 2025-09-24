@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Ref, Option, Match, pipe, Predicate } from 'effect'
+import { Effect, Context, Layer, Ref, Option, Match, pipe, Predicate, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import { GreedyMeshingService, GreedyMeshingLive } from './GreedyMeshing'
@@ -266,11 +266,17 @@ const generateBasicCube = (
   ]
 
   // Indices for triangles
-  const indices = []
-  for (let i = 0; i < 6; i++) {
-    const offset = i * 4
-    indices.push(offset, offset + 1, offset + 2, offset, offset + 2, offset + 3)
-  }
+  const indices = Effect.runSync(
+    pipe(
+      Stream.range(0, 5), // 0-5, 6 iterations
+      Stream.map((i) => {
+        const offset = i * 4
+        return [offset, offset + 1, offset + 2, offset, offset + 2, offset + 3]
+      }),
+      Stream.runCollect,
+      Effect.map((chunk) => Array.from(chunk).flat())
+    )
+  )
 
   return { vertices, normals, uvs, indices }
 }
@@ -287,7 +293,7 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
       catch: (error) =>
         MeshGenerationError(`Invalid chunk data: ${String(error)}`, chunkData.position || { x: 0, z: 0 }, Date.now()),
     }),
-    Effect.map((validatedChunk) => {
+    Effect.flatMap((validatedChunk) => {
       const meshData = {
         vertices: [] as number[],
         normals: [] as number[],
@@ -297,37 +303,49 @@ const generateBasicMesh = (chunkData: ChunkData): Effect.Effect<MeshData, MeshGe
 
       let vertexOffset = 0
 
-      // Generate mesh for each block
-      for (let x = 0; x < validatedChunk.size; x++) {
-        for (let y = 0; y < validatedChunk.size; y++) {
-          for (let z = 0; z < validatedChunk.size; z++) {
-            const blockType = pipe(
-              Option.fromNullable(validatedChunk.blocks[x]?.[y]?.[z]),
-              Option.getOrElse(() => 0)
-            )
+      // Generate mesh for each block using Stream API
+      return pipe(
+        Stream.range(0, validatedChunk.size - 1),
+        Stream.flatMap((x) =>
+          Stream.range(0, validatedChunk.size - 1).pipe(
+            Stream.flatMap((y) => Stream.range(0, validatedChunk.size - 1).pipe(Stream.map((z) => ({ x, y, z }))))
+          )
+        ),
+        Stream.filter(({ x, y, z }) => {
+          const blockType = pipe(
+            Option.fromNullable(validatedChunk.blocks[x]?.[y]?.[z]),
+            Option.getOrElse(() => 0)
+          )
+          return blockType !== 0 // Skip air blocks
+        }),
+        Stream.map(({ x, y, z }) => {
+          // Add 6 faces per block (basic cube)
+          const cubeData = generateBasicCube(x, y, z)
 
-            if (blockType === 0) continue // Skip air blocks
-
-            // Add 6 faces per block (basic cube)
-            const cubeData = generateBasicCube(x, y, z)
-
+          return {
+            cubeData,
+            vertexOffset: meshData.vertices.length / 3,
+          }
+        }),
+        Stream.runForEach(({ cubeData, vertexOffset: offset }) =>
+          Effect.sync(() => {
             // Add vertices with offset
             cubeData.vertices.forEach((v) => meshData.vertices.push(v))
             cubeData.normals.forEach((n) => meshData.normals.push(n))
             cubeData.uvs.forEach((uv) => meshData.uvs.push(uv))
-            cubeData.indices.forEach((i) => meshData.indices.push(i + vertexOffset))
-
-            vertexOffset += cubeData.vertices.length / 3 // Number of vertices added
-          }
-        }
-      }
-
-      return {
-        vertices: meshData.vertices as readonly number[],
-        normals: meshData.normals as readonly number[],
-        uvs: meshData.uvs as readonly number[],
-        indices: meshData.indices as readonly number[],
-      } satisfies MeshData
+            cubeData.indices.forEach((i) => meshData.indices.push(i + offset))
+          })
+        ),
+        Effect.map(
+          () =>
+            ({
+              vertices: meshData.vertices as readonly number[],
+              normals: meshData.normals as readonly number[],
+              uvs: meshData.uvs as readonly number[],
+              indices: meshData.indices as readonly number[],
+            }) satisfies MeshData
+        )
+      )
     })
   )
 

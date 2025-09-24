@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Stream, pipe } from 'effect'
 import { initApp } from '../app'
 
 describe('app', () => {
@@ -206,9 +206,10 @@ describe('app', () => {
         // 複数回の初期化でメモリリークが発生しないことを確認
         const initialChildCount = document.body.children.length
 
-        for (let i = 0; i < 10; i++) {
-          initApp()
-        }
+        yield* pipe(
+          Stream.range(0, 9),
+          Stream.runForEach(() => Effect.sync(() => initApp()))
+        )
 
         const finalChildCount = document.body.children.length
 

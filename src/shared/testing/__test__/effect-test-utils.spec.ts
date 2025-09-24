@@ -7,7 +7,7 @@
 
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, pipe, Context, Layer, Duration } from 'effect'
+import { Effect, pipe, Context, Layer, Duration, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import { EffectTestUtils, PropertyTestUtils, IntegrationTestUtils, ErrorTestUtils } from '../effect-test-utils'
 import { HealthSchema, TimestampSchema, Vector3DSchema, GameBrands, TimeBrands, SpatialBrands } from '../../types'
@@ -208,12 +208,13 @@ describe('Effect Testing Utilities', () => {
 
   describe('Performance Testing', () => {
     it('should measure Brand type creation performance', async () => {
-      const createManyBrands = Effect.sync(() => {
-        const results = []
-        for (let i = 0; i < 1000; i++) {
-          results.push(GameBrands.createHealth(Math.random() * 20))
-        }
-        return results
+      const createManyBrands = Effect.gen(function* () {
+        const results = yield* pipe(
+          Stream.range(0, 999), // 0-999, 1000 iterations
+          Stream.map(() => GameBrands.createHealth(Math.random() * 20)),
+          Stream.runCollect
+        )
+        return Array.from(results)
       })
 
       const { result, duration } = await EffectTestUtils.measurePerformance(
@@ -226,13 +227,13 @@ describe('Effect Testing Utilities', () => {
     })
 
     it('should measure Schema validation performance', async () => {
-      const validateManySchemas = Effect.sync(() => {
-        const results = []
-        for (let i = 0; i < 100; i++) {
-          const vector = SpatialBrands.createVector3D(i, i * 2, i * 3)
-          results.push(vector)
-        }
-        return results
+      const validateManySchemas = Effect.gen(function* () {
+        const results = yield* pipe(
+          Stream.range(0, 99), // 0-99, 100 iterations
+          Stream.map((i) => SpatialBrands.createVector3D(i, i * 2, i * 3)),
+          Stream.runCollect
+        )
+        return Array.from(results)
       })
 
       const { result, duration } = await EffectTestUtils.measurePerformance(validateManySchemas, Duration.millis(50))

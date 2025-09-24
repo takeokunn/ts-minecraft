@@ -5,7 +5,7 @@
  * with proper error handling and type safety
  */
 
-import { Effect, Either, Option, pipe, Layer, Context, Duration } from 'effect'
+import { Effect, Either, Option, pipe, Layer, Context, Duration, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import { expect } from 'vitest'
 
@@ -149,17 +149,25 @@ export const EffectTestUtils = {
       errorMatcher?: (error: E) => boolean
     }>
   ): Promise<void> => {
-    for (const scenario of scenarios) {
-      try {
-        if (scenario.expectSuccess !== false) {
-          await EffectTestUtils.expectSuccess(scenario.effect)
-        } else {
-          await EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher)
-        }
-      } catch (error) {
-        throw new Error(`Scenario '${scenario.name}' failed: ${String(error)}`)
-      }
-    }
+    await Effect.runPromise(
+      pipe(
+        Stream.fromIterable(scenarios),
+        Stream.mapEffect((scenario) =>
+          Effect.gen(function* () {
+            try {
+              if (scenario.expectSuccess !== false) {
+                yield* Effect.promise(() => EffectTestUtils.expectSuccess(scenario.effect))
+              } else {
+                yield* Effect.promise(() => EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher))
+              }
+            } catch (error) {
+              yield* Effect.fail(new Error(`Scenario '${scenario.name}' failed: ${String(error)}`))
+            }
+          })
+        ),
+        Stream.runDrain
+      )
+    )
   },
 }
 
@@ -172,14 +180,22 @@ export const PropertyTestUtils = {
    */
   generateValidationTests: <I, A>(schema: Schema.Schema<A, I>, validInputs: I[], invalidInputs: unknown[]) => ({
     testValid: async () => {
-      for (const input of validInputs) {
-        await EffectTestUtils.expectSchemaSuccess(schema, input)
-      }
+      await Effect.runPromise(
+        pipe(
+          Stream.fromIterable(validInputs),
+          Stream.mapEffect((input) => Effect.promise(() => EffectTestUtils.expectSchemaSuccess(schema, input))),
+          Stream.runDrain
+        )
+      )
     },
     testInvalid: async () => {
-      for (const input of invalidInputs) {
-        await EffectTestUtils.expectSchemaFailure(schema, input)
-      }
+      await Effect.runPromise(
+        pipe(
+          Stream.fromIterable(invalidInputs),
+          Stream.mapEffect((input) => Effect.promise(() => EffectTestUtils.expectSchemaFailure(schema, input))),
+          Stream.runDrain
+        )
+      )
     },
   }),
 
@@ -188,15 +204,27 @@ export const PropertyTestUtils = {
    */
   testBrandType: async <T>(schema: Schema.Schema<T, unknown>, validValues: unknown[], invalidValues: unknown[]) => {
     // Test valid values
-    for (const value of validValues) {
-      const result = await EffectTestUtils.expectSchemaSuccess(schema, value)
-      expect(result).toBeDefined()
-    }
+    await Effect.runPromise(
+      pipe(
+        Stream.fromIterable(validValues),
+        Stream.mapEffect((value) =>
+          Effect.gen(function* () {
+            const result = yield* Effect.promise(() => EffectTestUtils.expectSchemaSuccess(schema, value))
+            expect(result).toBeDefined()
+          })
+        ),
+        Stream.runDrain
+      )
+    )
 
     // Test invalid values
-    for (const value of invalidValues) {
-      await EffectTestUtils.expectSchemaFailure(schema, value)
-    }
+    await Effect.runPromise(
+      pipe(
+        Stream.fromIterable(invalidValues),
+        Stream.mapEffect((value) => Effect.promise(() => EffectTestUtils.expectSchemaFailure(schema, value))),
+        Stream.runDrain
+      )
+    )
   },
 }
 
@@ -250,12 +278,20 @@ export const ErrorTestUtils = {
    * Test error hierarchy and type guards
    */
   testErrorTypeGuards: <E>(errors: E[], typeGuard: (error: unknown) => error is E): void => {
-    for (const error of errors) {
-      expect(typeGuard(error)).toBe(true)
-      expect(typeGuard(null)).toBe(false)
-      expect(typeGuard(undefined)).toBe(false)
-      expect(typeGuard({})).toBe(false)
-      expect(typeGuard('string')).toBe(false)
-    }
+    Effect.runSync(
+      pipe(
+        Stream.fromIterable(errors),
+        Stream.mapEffect((error) =>
+          Effect.sync(() => {
+            expect(typeGuard(error)).toBe(true)
+            expect(typeGuard(null)).toBe(false)
+            expect(typeGuard(undefined)).toBe(false)
+            expect(typeGuard({})).toBe(false)
+            expect(typeGuard('string')).toBe(false)
+          })
+        ),
+        Stream.runDrain
+      )
+    )
   },
 }
