@@ -294,11 +294,15 @@ describe('Branded Types', () => {
     describe('createChunkId', () => {
       it('creates valid ChunkId from coordinates', () => {
         fc.assert(
-          fc.property(fc.integer({ min: -1000, max: 1000 }), fc.integer({ min: -1000, max: 1000 }), (x: number, z: number) => {
-            const chunkId = BrandedTypes.createChunkId(x, z)
-            expect(typeof chunkId).toBe('string')
-            expect(chunkId).toBe(`chunk_${x}_${z}`)
-          }),
+          fc.property(
+            fc.integer({ min: -1000, max: 1000 }),
+            fc.integer({ min: -1000, max: 1000 }),
+            (x: number, z: number) => {
+              const chunkId = BrandedTypes.createChunkId(x, z)
+              expect(typeof chunkId).toBe('string')
+              expect(chunkId).toBe(`chunk_${x}_${z}`)
+            }
+          ),
           { numRuns: 100 }
         )
       })

@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import type { DeltaTime } from './time-brands'
-import { DeltaTimeSchema } from './time-brands'
+import { DeltaTimeSchema, TimeBrands } from './time-brands'
 
 /**
  * ブランド型定義
@@ -71,22 +71,24 @@ export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
  * チャンク位置のブランド型
  * チャンクのx,z座標を表現
  */
-export const ChunkPosition = Schema.Struct({
+export const ChunkPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
 }).pipe(Schema.brand('ChunkPosition'))
-export type ChunkPosition = Schema.Schema.Type<typeof ChunkPosition>
+export const ChunkPosition = ChunkPositionSchema
+export type ChunkPosition = Schema.Schema.Type<typeof ChunkPositionSchema>
 
 /**
  * ブロック位置のブランド型
  * ワールド内のブロック座標を表現
  */
-export const BlockPosition = Schema.Struct({
+export const BlockPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
   y: Schema.Number.pipe(Schema.int()),
   z: Schema.Number.pipe(Schema.int()),
 }).pipe(Schema.brand('BlockPosition'))
-export type BlockPosition = Schema.Schema.Type<typeof BlockPosition>
+export const BlockPosition = BlockPositionSchema
+export type BlockPosition = Schema.Schema.Type<typeof BlockPositionSchema>
 
 /**
  * エンティティID用のブランド型
@@ -135,8 +137,9 @@ export type SessionId = Schema.Schema.Type<typeof SessionId>
 /**
  * バージョン番号用のブランド型
  */
-export const Version = Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/), Schema.brand('Version'))
-export type Version = Schema.Schema.Type<typeof Version>
+export const VersionSchema = Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/), Schema.brand('Version'))
+export const Version = VersionSchema
+export type Version = Schema.Schema.Type<typeof VersionSchema>
 
 /**
  * UUID用のブランド型
@@ -271,12 +274,39 @@ export const BrandedTypes = {
     Schema.decodeSync(BlockPositionSchema)({ x, y, z }),
   createVersion: (major: number, minor: number, patch: number): Version =>
     Schema.decodeSync(VersionSchema)(`${major}.${minor}.${patch}`),
-  createEntityId: (id: number): EntityId => {
-    if (id < 0 || !Number.isInteger(id)) {
-      throw new Error(`Invalid EntityId: must be non-negative integer, got ${id}`)
+  createEntityId: (id: string): EntityId => {
+    if (!id || id.trim().length === 0) {
+      throw new Error(`Invalid EntityId: cannot be empty or whitespace-only`)
     }
-    return id as EntityId
+    return Schema.decodeSync(EntityId)(id)
   },
+  createBlockId: (id: string): BlockId => Schema.decodeSync(BlockId)(id),
+  createDeltaTime: (value: number): DeltaTime => TimeBrands.createDeltaTime(value),
+  createBlockTypeId: (id: number): BlockTypeId => {
+    if (id <= 0 || !Number.isInteger(id)) {
+      throw new Error(`Invalid BlockTypeId: must be positive integer, got ${id}`)
+    }
+    return Schema.decodeSync(BlockTypeIdSchema)(id)
+  },
+  createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
+  createEntityCount: (count: number): EntityCount => Schema.decodeSync(EntityCount)(count),
+  createEntityCapacity: (capacity: number): EntityCapacity => Schema.decodeSync(EntityCapacity)(capacity),
+  createHeight: (height: number): Height => Schema.decodeSync(Height)(height),
+  createNoiseCoordinate: (coord: number): NoiseCoordinate => Schema.decodeSync(NoiseCoordinate)(coord),
+  createNoiseValue: (value: number): NoiseValue => Schema.decodeSync(NoiseValue)(value),
+  createUVCoordinate: (coord: number): UVCoordinate => Schema.decodeSync(UVCoordinate)(coord),
+  createAOValue: (value: number): AOValue => Schema.decodeSync(AOValue)(value),
+  createMeshDimension: (dimension: number): MeshDimension => Schema.decodeSync(MeshDimension)(dimension),
+  createSensitivityValue: (value: number): SensitivityValue => Schema.decodeSync(SensitivityValue)(value),
+  createEnvironmentKey: (key: string): EnvironmentKey => Schema.decodeSync(EnvironmentKey)(key),
+  createCacheSize: (size: number): CacheSize => Schema.decodeSync(CacheSize)(size),
+  createCacheHitCount: (count: number): CacheHitCount => Schema.decodeSync(CacheHitCount)(count),
+  createCacheMissCount: (count: number): CacheMissCount => Schema.decodeSync(CacheMissCount)(count),
+  createWorldPosition: (x: number, y: number, z: number): WorldPosition =>
+    Schema.decodeSync(WorldPosition)({ x, y, z }),
+  createItemId: (id: string): ItemId => Schema.decodeSync(ItemId)(id),
+  createSessionId: (id: string): SessionId => Schema.decodeSync(SessionId)(id),
+  createUUID: (uuid: string): UUID => Schema.decodeSync(UUID)(uuid),
 }
 
 // Re-export time-related types for backward compatibility

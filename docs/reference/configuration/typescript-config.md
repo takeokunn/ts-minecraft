@@ -525,13 +525,12 @@ export const createTypedSchema = <A>(schema: Schema.Schema<A>) => ({
   schema,
   decode: Schema.decodeUnknown(schema),
   encode: Schema.encode(schema),
-  validate: Schema.validate(schema)
+  validate: Schema.validate(schema),
 })
 
 // Effect型推論ヘルパー
-export const createService = <T extends Record<string, any>>(
-  implementation: T
-): { [K in keyof T]: T[K] } => implementation
+export const createService = <T extends Record<string, any>>(implementation: T): { [K in keyof T]: T[K] } =>
+  implementation
 
 // 使用例
 const PlayerSchemaHelper = createTypedSchema(PlayerSchema)
@@ -592,11 +591,12 @@ interface ThreeJSService {
 const ThreeJSService = Context.GenericTag<ThreeJSService>('ThreeJSService')
 
 const makeThreeJSService = Effect.succeed({
-  createRenderer: () => Effect.try({
-    try: () => new THREE.WebGLRenderer({ antialias: true }),
-    catch: (error) => new RendererError({ cause: error })
-  }),
-  createScene: () => Effect.succeed(new THREE.Scene())
+  createRenderer: () =>
+    Effect.try({
+      try: () => new THREE.WebGLRenderer({ antialias: true }),
+      catch: (error) => new RendererError({ cause: error }),
+    }),
+  createScene: () => Effect.succeed(new THREE.Scene()),
 })
 
 export const ThreeJSServiceLive = Layer.effect(ThreeJSService, makeThreeJSService)

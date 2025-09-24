@@ -566,11 +566,12 @@ export const createGameSchema = <A>(schema: Schema.Schema<A>) => ({
   decode: Schema.decodeUnknown(schema),
   validate: Schema.validate(schema),
   // ゲームループ用高速バリデーション
-  fastValidate: (input: unknown) => Schema.validateSync(schema)(input)
+  fastValidate: (input: unknown) => Schema.validateSync(schema)(input),
 })
 
 // ブランド型ヘルパー
-export const createBrandedType = <T extends string>(brand: T) =>
+export const createBrandedType =
+  <T extends string>(brand: T) =>
   <A>(base: Schema.Schema<A>) =>
     base.pipe(Schema.brand(brand))
 
@@ -579,9 +580,8 @@ const PlayerId = createBrandedType('PlayerId')(Schema.String.pipe(Schema.nonEmpt
 const PlayerSchemaHelper = createGameSchema(PlayerSchema)
 
 // ゲーム用サービス型推論
-export const createGameService = <T extends Record<string, any>>(
-  implementation: T
-): { [K in keyof T]: T[K] } => implementation
+export const createGameService = <T extends Record<string, any>>(implementation: T): { [K in keyof T]: T[K] } =>
+  implementation
 ```
 
 #### 2. Effect-TS + Nix環境 統合エラー

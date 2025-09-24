@@ -44,13 +44,13 @@ function processUserData(data: any) {
 // Effect-TSでの実装
 const UserSchema = Schema.Struct({
   name: Schema.String,
-  age: Schema.Number
+  age: Schema.Number,
 })
 
 const processUserDataEffect = (data: unknown) =>
   pipe(
     Schema.decodeUnknown(UserSchema)(data),
-    Effect.map(user => ({ ...user, processed: true }))
+    Effect.map((user) => ({ ...user, processed: true }))
   )
 ```
 
@@ -162,14 +162,12 @@ export const BrandedTypes = {
   /**
    * 安全なPlayerId作成
    */
-  createPlayerId: (id: string): PlayerId =>
-    Schema.decodeSync(PlayerIdSchema)(id),
+  createPlayerId: (id: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(id),
 
   /**
    * 安全なWorldCoordinate作成
    */
-  createWorldCoordinate: (value: number): WorldCoordinate =>
-    Schema.decodeSync(WorldCoordinateSchema)(value),
+  createWorldCoordinate: (value: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(value),
 
   /**
    * 安全なWorldPosition作成
@@ -256,17 +254,17 @@ export const BiomeInfoSchema = Schema.Struct({
   type: BiomeType,
   temperature: Schema.Number.pipe(
     Schema.filter((n) => Number.isFinite(n), {
-      message: () => 'temperature must be a finite number'
+      message: () => 'temperature must be a finite number',
     })
   ),
   humidity: Schema.Number.pipe(
     Schema.filter((n) => Number.isFinite(n), {
-      message: () => 'humidity must be a finite number'
+      message: () => 'humidity must be a finite number',
     })
   ),
   elevation: Schema.Number.pipe(
     Schema.filter((n) => Number.isFinite(n), {
-      message: () => 'elevation must be a finite number'
+      message: () => 'elevation must be a finite number',
     })
   ),
 })
@@ -298,13 +296,13 @@ const ChunkPositionSchema = Schema.Struct({
   x: Schema.Number.pipe(
     Schema.transform(Schema.Number.pipe(Schema.int()), {
       decode: Math.floor,
-      encode: (n) => n
+      encode: (n) => n,
     })
   ),
   z: Schema.Number.pipe(
     Schema.transform(Schema.Number.pipe(Schema.int()), {
       decode: Math.floor,
-      encode: (n) => n
+      encode: (n) => n,
     })
   ),
 })
@@ -313,15 +311,12 @@ const ChunkPositionSchema = Schema.Struct({
 const PositiveIntegerSchema = Schema.Number.pipe(
   Schema.int(),
   Schema.filter((n) => n > 0, {
-    message: () => 'Must be a positive integer'
+    message: () => 'Must be a positive integer',
   })
 )
 
 // レンジ制限
-const HeightSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 256)
-)
+const HeightSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 256))
 ```
 
 ### スキーマのデコード/エンコード
@@ -334,7 +329,7 @@ const user = Schema.decodeSync(UserSchema)({
   id: '123',
   name: 'Alice',
   age: 25,
-  isActive: true
+  isActive: true,
 })
 
 // 非同期デコード（Effectを返す）
@@ -342,7 +337,7 @@ const userEffect = Schema.decodeUnknown(UserSchema)({
   id: '123',
   name: 'Alice',
   age: 25,
-  isActive: true
+  isActive: true,
 })
 
 // 安全なデコード（Eitherを返す）
@@ -350,15 +345,15 @@ const userEither = Schema.decodeUnknownEither(UserSchema)({
   id: '123',
   name: 'Alice',
   age: 25,
-  isActive: true
+  isActive: true,
 })
 
 // Effectでの利用例
 const processUser = (rawData: unknown) =>
   pipe(
     Schema.decodeUnknown(UserSchema)(rawData),
-    Effect.map(user => ({ ...user, processed: true })),
-    Effect.mapError(error => ({ type: 'VALIDATION_ERROR', error }))
+    Effect.map((user) => ({ ...user, processed: true })),
+    Effect.mapError((error) => ({ type: 'VALIDATION_ERROR', error }))
   )
 ```
 
@@ -376,12 +371,12 @@ const numbers = [1, 2, 3, 4, 5] as const
 
 const doubled = pipe(
   numbers,
-  ReadonlyArray.map(n => n * 2)
+  ReadonlyArray.map((n) => n * 2)
 ) // readonly [2, 4, 6, 8, 10]
 
 const evenNumbers = pipe(
   numbers,
-  ReadonlyArray.filter(n => n % 2 === 0)
+  ReadonlyArray.filter((n) => n % 2 === 0)
 ) // readonly [2, 4]
 
 const sum = pipe(
@@ -392,8 +387,8 @@ const sum = pipe(
 // チェインした操作
 const result = pipe(
   numbers,
-  ReadonlyArray.filter(n => n > 2),
-  ReadonlyArray.map(n => n * 2),
+  ReadonlyArray.filter((n) => n > 2),
+  ReadonlyArray.map((n) => n * 2),
   ReadonlyArray.sort((a, b) => b - a)
 ) // readonly [10, 8, 6]
 ```
@@ -415,21 +410,18 @@ const player1Stats = HashMap.get('player1')(playerStats)
 // Option<{ score: number, level: number }>
 
 // 値の更新
-const updatedStats = pipe(
-  playerStats,
-  HashMap.set('player1', { score: 120, level: 5 })
-)
+const updatedStats = pipe(playerStats, HashMap.set('player1', { score: 120, level: 5 }))
 
 // 変換操作
 const scores = pipe(
   playerStats,
-  HashMap.map(stats => stats.score)
+  HashMap.map((stats) => stats.score)
 )
 
 // フィルタリング
 const highLevelPlayers = pipe(
   playerStats,
-  HashMap.filter(stats => stats.level > 6)
+  HashMap.filter((stats) => stats.level > 6)
 )
 ```
 
@@ -448,24 +440,15 @@ class ChunkCache {
   }
 
   set(chunkId: ChunkId, data: ChunkData): ChunkCache {
-    return new ChunkCache().withCache(
-      HashMap.set(chunkId, data)(this.cache)
-    )
+    return new ChunkCache().withCache(HashMap.set(chunkId, data)(this.cache))
   }
 
   getAllChunks(): ReadonlyArray<[ChunkId, ChunkData]> {
-    return pipe(
-      this.cache,
-      HashMap.toEntries
-    )
+    return pipe(this.cache, HashMap.toEntries)
   }
 
   getLoadedChunkIds(): ReadonlyArray<ChunkId> {
-    return pipe(
-      this.cache,
-      HashMap.keys,
-      ReadonlyArray.fromIterable
-    )
+    return pipe(this.cache, HashMap.keys, ReadonlyArray.fromIterable)
   }
 
   removeChunksNotInRange(centerChunk: ChunkPosition, maxDistance: number): ChunkCache {
@@ -473,8 +456,7 @@ class ChunkCache {
       this.cache,
       HashMap.filter((_, chunkId) => {
         const position = parseChunkId(chunkId)
-        return Option.isSome(position) &&
-               chunkPositionDistance(centerChunk, position.value) <= maxDistance
+        return Option.isSome(position) && chunkPositionDistance(centerChunk, position.value) <= maxDistance
       })
     )
 
@@ -507,17 +489,15 @@ const findPlayerById = (id: PlayerId): Option.Option<Player> => {
 // Optionの操作
 const playerName = pipe(
   findPlayerById(playerId),
-  Option.map(player => player.name),
+  Option.map((player) => player.name),
   Option.getOrElse(() => 'Unknown Player')
 )
 
 // チェインした操作
 const playerLevel = pipe(
   findPlayerById(playerId),
-  Option.flatMap(player =>
-    player.stats ? Option.some(player.stats.level) : Option.none()
-  ),
-  Option.filter(level => level > 0),
+  Option.flatMap((player) => (player.stats ? Option.some(player.stats.level) : Option.none())),
+  Option.filter((level) => level > 0),
   Option.getOrElse(() => 1)
 )
 
@@ -527,7 +507,7 @@ const displayPlayer = (maybePlayer: Option.Option<Player>) =>
     maybePlayer,
     Option.match({
       onNone: () => 'Player not found',
-      onSome: player => `Player: ${player.name} (Level ${player.level})`
+      onSome: (player) => `Player: ${player.name} (Level ${player.level})`,
     })
   )
 ```
@@ -555,9 +535,9 @@ const validatePlayerInput = (input: unknown): Either.Either<Player, ValidationEr
   const result = Schema.decodeUnknownEither(PlayerSchema)(input)
   return pipe(
     result,
-    Either.mapLeft(error => ({
+    Either.mapLeft((error) => ({
       type: 'VALIDATION_ERROR' as const,
-      message: error.message
+      message: error.message,
     }))
   )
 }
@@ -566,7 +546,7 @@ const validatePlayerInput = (input: unknown): Either.Either<Player, ValidationEr
 const processPlayerData = (input: unknown): Either.Either<ProcessedPlayer, AppError> =>
   pipe(
     validatePlayerInput(input),
-    Either.flatMap(player =>
+    Either.flatMap((player) =>
       player.age >= 0
         ? Either.right({ ...player, processed: true })
         : Either.left({ type: 'VALIDATION_ERROR', message: 'Age must be non-negative' })
@@ -578,7 +558,7 @@ const handlePlayerResult = (result: Either.Either<ProcessedPlayer, AppError>) =>
   pipe(
     result,
     Either.match({
-      onLeft: error => {
+      onLeft: (error) => {
         switch (error.type) {
           case 'VALIDATION_ERROR':
             console.error('Validation failed:', error.message)
@@ -589,10 +569,10 @@ const handlePlayerResult = (result: Either.Either<ProcessedPlayer, AppError>) =>
         }
         return null
       },
-      onRight: player => {
+      onRight: (player) => {
         console.log('Player processed successfully:', player.name)
         return player
-      }
+      },
     })
   )
 ```
@@ -606,16 +586,16 @@ import { Effect, pipe } from 'effect'
 const loadChunkData = (chunkId: ChunkId): Effect.Effect<ChunkData, ChunkLoadError> =>
   Effect.tryPromise({
     try: () => chunkService.loadChunk(chunkId),
-    catch: error => ({ type: 'CHUNK_LOAD_ERROR' as const, error })
+    catch: (error) => ({ type: 'CHUNK_LOAD_ERROR' as const, error }),
   })
 
 // Effectのチェイン
 const processChunk = (chunkId: ChunkId): Effect.Effect<ProcessedChunk, ChunkError> =>
   pipe(
     loadChunkData(chunkId),
-    Effect.flatMap(chunk => validateChunkData(chunk)),
-    Effect.flatMap(chunk => generateChunkMesh(chunk)),
-    Effect.map(chunk => ({ ...chunk, processed: true }))
+    Effect.flatMap((chunk) => validateChunkData(chunk)),
+    Effect.flatMap((chunk) => generateChunkMesh(chunk)),
+    Effect.map((chunk) => ({ ...chunk, processed: true }))
   )
 
 // エラーハンドリングとリトライ
@@ -623,7 +603,7 @@ const robustChunkProcessing = (chunkId: ChunkId) =>
   pipe(
     processChunk(chunkId),
     Effect.retry(Schedule.exponential(100).pipe(Schedule.jittered)),
-    Effect.catchAll(error => {
+    Effect.catchAll((error) => {
       console.error('Failed to process chunk:', error)
       return Effect.succeed(createEmptyChunk(chunkId))
     })
@@ -633,15 +613,13 @@ const robustChunkProcessing = (chunkId: ChunkId) =>
 const loadMultipleChunks = (chunkIds: ReadonlyArray<ChunkId>) =>
   pipe(
     chunkIds,
-    ReadonlyArray.map(id => loadChunkData(id)),
+    ReadonlyArray.map((id) => loadChunkData(id)),
     Effect.all({ concurrency: 4 })
   )
 
 // 実行
 const runChunkProcessing = async () => {
-  const result = await Effect.runPromise(
-    robustChunkProcessing(chunkId)
-  )
+  const result = await Effect.runPromise(robustChunkProcessing(chunkId))
   console.log('Chunk processing completed:', result)
 }
 ```
@@ -672,7 +650,7 @@ pipe(
   maybePosition,
   Option.match({
     onNone: () => console.error('Invalid chunk ID format'),
-    onSome: position => console.log(`Chunk at (${position.x}, ${position.z})`)
+    onSome: (position) => console.log(`Chunk at (${position.x}, ${position.z})`),
   })
 )
 ```
@@ -701,12 +679,12 @@ export const generateBiomeInfo = (
         type: biomeType,
         temperature: validTemp,
         humidity: validHumidity,
-        elevation
+        elevation,
       })
     }),
-    Effect.mapError(error => ({
+    Effect.mapError((error) => ({
       type: 'BIOME_GENERATION_ERROR' as const,
-      error
+      error,
     }))
   )
 
@@ -758,7 +736,7 @@ export const createOptimizedValidator = <A, I>(
         return input as A
       }
       return Schema.decodeSync(schema)(input)
-    }
+    },
   }
 }
 
@@ -785,17 +763,10 @@ const processChunkInGameLoop = (rawChunkData: unknown) => {
 ```typescript
 // 外部API境界では厳密に検証
 const apiEndpointHandler = (request: unknown) =>
-  pipe(
-    Schema.decodeUnknown(RequestSchema)(request),
-    Effect.flatMap(processRequest),
-    Effect.mapError(handleApiError)
-  )
+  pipe(Schema.decodeUnknown(RequestSchema)(request), Effect.flatMap(processRequest), Effect.mapError(handleApiError))
 
 // ゲームループ内では最適化
-const gameLoopProcessor = createOptimizedValidator(
-  GameStateSchema,
-  'development'
-)
+const gameLoopProcessor = createOptimizedValidator(GameStateSchema, 'development')
 
 // 内部モジュール間では型のみ依存
 const internalProcessor = (data: ValidatedGameState) => {
@@ -818,7 +789,7 @@ const validateChunkHeader = Schema.Struct({
 const quickChunkValidation = (rawChunk: unknown) =>
   pipe(
     Schema.decodeUnknown(validateChunkHeader)(rawChunk),
-    Effect.map(header => ({ header, rawData: rawChunk }))
+    Effect.map((header) => ({ header, rawData: rawChunk }))
   )
 ```
 

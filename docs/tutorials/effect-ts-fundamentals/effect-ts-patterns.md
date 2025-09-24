@@ -60,10 +60,7 @@ export const WorldId = Schema.String.pipe(
 export type WorldId = Schema.Schema.Type<typeof WorldId>
 
 // ✅ 値オブジェクトのBrand型応用
-export const Coordinate = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.brand('Coordinate')
-)
+export const Coordinate = Schema.Number.pipe(Schema.finite(), Schema.brand('Coordinate'))
 export type Coordinate = Schema.Schema.Type<typeof Coordinate>
 
 export const GamePosition = Schema.Struct({
@@ -114,7 +111,9 @@ export const EntityManagerServiceLive = Layer.effect(
               // 同じワールド内でのみ移動可能
               data.worldId === newPosition.worldId
                 ? storage.update(entityId, { ...data, position: newPosition })
-                : Effect.fail(new CrossWorldMoveError({ entityId, fromWorld: data.worldId, toWorld: newPosition.worldId }))
+                : Effect.fail(
+                    new CrossWorldMoveError({ entityId, fromWorld: data.worldId, toWorld: newPosition.worldId })
+                  ),
           })
         }),
 

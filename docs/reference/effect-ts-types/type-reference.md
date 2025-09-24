@@ -32,8 +32,8 @@ Brand型は、同じプリミティブ型（string、numberなど）でも論理
 
 ```typescript
 // 通常の型では区別されない
-const playerId: string = "player123"
-const blockId: string = "stone"
+const playerId: string = 'player123'
+const blockId: string = 'stone'
 // これらは誤って混同される可能性がある
 
 // Brand型で区別
@@ -71,11 +71,7 @@ export const PlayerIdSchema = Schema.String.pipe(
 
 ```typescript
 // 数値範囲制約
-export const Height = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 256),
-  Schema.brand('Height')
-)
+export const Height = Schema.Number.pipe(Schema.int(), Schema.between(0, 256), Schema.brand('Height'))
 
 // 文字列パターン制約
 export const ChunkId = Schema.String.pipe(
@@ -112,6 +108,7 @@ export type AABB = Schema.Schema.Type<typeof AABBSchema> & Brand.Brand<'AABB'>
 一意性を保証する識別子のためのBrand型群。
 
 #### PlayerId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const PlayerIdSchema = Schema.String.pipe(
@@ -125,10 +122,11 @@ export const PlayerIdSchema = Schema.String.pipe(
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
 // 使用例
-const playerId = BrandedTypes.createPlayerId("player_12345")
+const playerId = BrandedTypes.createPlayerId('player_12345')
 ```
 
 #### EntityId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const EntityId = Schema.String.pipe(
@@ -142,10 +140,11 @@ export const EntityId = Schema.String.pipe(
 export type EntityId = Schema.Schema.Type<typeof EntityId>
 
 // 使用例
-const entityId = BrandedTypes.createEntityId("entity_mob_001")
+const entityId = BrandedTypes.createEntityId('entity_mob_001')
 ```
 
 #### ItemId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const ItemId = Schema.String.pipe(
@@ -160,10 +159,11 @@ export const ItemId = Schema.String.pipe(
 export type ItemId = Schema.Schema.Type<typeof ItemId>
 
 // 使用例
-const itemId = BrandedTypes.createItemId("iron_sword")
+const itemId = BrandedTypes.createItemId('iron_sword')
 ```
 
 #### BlockId
+
 ```typescript
 // ファイル: src/domain/block/BlockType.ts + src/shared/types/branded.ts
 export type BlockId = string & Brand.Brand<'BlockId'>
@@ -174,20 +174,22 @@ export const BlockId = Schema.String.pipe(Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockId>
 
 // 使用例
-const blockId = BrandedTypes.createBlockId("minecraft:stone")
+const blockId = BrandedTypes.createBlockId('minecraft:stone')
 ```
 
 #### TextureId
+
 ```typescript
 // ファイル: src/domain/block/BlockType.ts
 export type TextureId = string & Brand.Brand<'TextureId'>
 export const TextureId = Brand.nominal<TextureId>()
 
 // 使用例
-const textureId = TextureId("stone_texture")
+const textureId = TextureId('stone_texture')
 ```
 
 #### SessionId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const SessionId = Schema.String.pipe(
@@ -202,10 +204,11 @@ export const SessionId = Schema.String.pipe(
 export type SessionId = Schema.Schema.Type<typeof SessionId>
 
 // 使用例
-const sessionId = BrandedTypes.createSessionId("sess_abc123def456")
+const sessionId = BrandedTypes.createSessionId('sess_abc123def456')
 ```
 
 #### ChunkId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const ChunkIdSchema = Schema.String.pipe(
@@ -220,10 +223,11 @@ export const ChunkIdSchema = Schema.String.pipe(
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 
 // 使用例
-const chunkId = BrandedTypes.createChunkId("chunk_0_0")
+const chunkId = BrandedTypes.createChunkId('chunk_0_0')
 ```
 
 #### BlockTypeId
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const BlockTypeIdSchema = Schema.Number.pipe(
@@ -243,6 +247,7 @@ const blockTypeId = BrandedTypes.createBlockTypeId(1)
 ```
 
 #### UUID
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const UUID = Schema.String.pipe(
@@ -257,26 +262,25 @@ const uuid = Schema.decodeSync(UUID)(randomUUID())
 ```
 
 #### Version
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const Version = Schema.String.pipe(
-  Schema.pattern(/^\d+\.\d+\.\d+$/),
-  Schema.brand('Version')
-)
+export const Version = Schema.String.pipe(Schema.pattern(/^\d+\.\d+\.\d+$/), Schema.brand('Version'))
 export type Version = Schema.Schema.Type<typeof Version>
 
 // 使用例
-const version = Schema.decodeSync(Version)("1.0.0")
+const version = Schema.decodeSync(Version)('1.0.0')
 ```
 
 #### ComponentTypeName
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const ComponentTypeName = Schema.String.pipe(Schema.brand('ComponentTypeName'))
 export type ComponentTypeName = Schema.Schema.Type<typeof ComponentTypeName>
 
 // 使用例
-const componentType = BrandedTypes.createComponentTypeName("RenderComponent")
+const componentType = BrandedTypes.createComponentTypeName('RenderComponent')
 ```
 
 ### 座標・位置型
@@ -284,6 +288,7 @@ const componentType = BrandedTypes.createComponentTypeName("RenderComponent")
 ワールド内の位置や座標を表現するBrand型群。
 
 #### WorldCoordinate
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const WorldCoordinateSchema = Schema.Number.pipe(
@@ -301,6 +306,7 @@ const x = BrandedTypes.createWorldCoordinate(100.5)
 ```
 
 #### WorldPosition
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const WorldPosition = Schema.Struct({
@@ -315,6 +321,7 @@ const position = BrandedTypes.createWorldPosition(10, 64, 20)
 ```
 
 #### BlockPosition
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const BlockPosition = Schema.Struct({
@@ -329,6 +336,7 @@ const blockPos = Schema.decodeSync(BlockPosition)({ x: 10, y: 64, z: 20 })
 ```
 
 #### ChunkPosition
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
 export const ChunkPosition = Schema.Struct({
@@ -342,6 +350,7 @@ const chunkPos = Schema.decodeSync(ChunkPosition)({ x: 0, z: 0 })
 ```
 
 #### Vector3
+
 ```typescript
 // ファイル: src/domain/world/types.ts
 export const Vector3Schema = Schema.transformOrFail(
@@ -363,13 +372,10 @@ const vector = Schema.decodeSync(Vector3Schema)({ x: 1.0, y: 2.0, z: 3.0 })
 ```
 
 #### Height
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const Height = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 256),
-  Schema.brand('Height')
-)
+export const Height = Schema.Number.pipe(Schema.int(), Schema.between(0, 256), Schema.brand('Height'))
 export type Height = Schema.Schema.Type<typeof Height>
 
 // 使用例
@@ -377,12 +383,10 @@ const height = BrandedTypes.createHeight(64)
 ```
 
 #### NoiseCoordinate
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const NoiseCoordinate = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.brand('NoiseCoordinate')
-)
+export const NoiseCoordinate = Schema.Number.pipe(Schema.finite(), Schema.brand('NoiseCoordinate'))
 export type NoiseCoordinate = Schema.Schema.Type<typeof NoiseCoordinate>
 
 // 使用例
@@ -390,12 +394,10 @@ const noiseX = BrandedTypes.createNoiseCoordinate(123.456)
 ```
 
 #### NoiseValue
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const NoiseValue = Schema.Number.pipe(
-  Schema.between(-1.1, 1.1),
-  Schema.brand('NoiseValue')
-)
+export const NoiseValue = Schema.Number.pipe(Schema.between(-1.1, 1.1), Schema.brand('NoiseValue'))
 export type NoiseValue = Schema.Schema.Type<typeof NoiseValue>
 
 // 使用例
@@ -407,6 +409,7 @@ const noiseVal = BrandedTypes.createNoiseValue(0.75)
 時間概念を表現するBrand型群（専用ファイルで管理）。
 
 #### Timestamp
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const TimestampSchema = Schema.Number.pipe(
@@ -426,6 +429,7 @@ const custom = TimeBrands.createTimestamp(1640995200000)
 ```
 
 #### DeltaTime
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const DeltaTimeSchema = Schema.Number.pipe(
@@ -444,6 +448,7 @@ const deltaTime = TimeBrands.createDeltaTime(16.67) // 60FPS
 ```
 
 #### FrameTime
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const FrameTimeSchema = Schema.Number.pipe(
@@ -462,6 +467,7 @@ const frameTime = TimeBrands.createFrameTime(8.33)
 ```
 
 #### Duration
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const DurationSchema = Schema.Number.pipe(
@@ -482,6 +488,7 @@ const fromMin = TimeBrands.durationFromMinutes(5) // 5分
 ```
 
 #### FPS
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const FPSSchema = Schema.Number.pipe(
@@ -500,6 +507,7 @@ const customFps = TimeBrands.createFPS(144)
 ```
 
 #### PerformanceMetric
+
 ```typescript
 // ファイル: src/shared/types/time-brands.ts
 export const PerformanceMetricSchema = Schema.Number.pipe(
@@ -521,12 +529,10 @@ const metric = TimeBrands.createPerformanceMetric(42.5)
 グラフィックス・レンダリング関連のBrand型群。
 
 #### UVCoordinate
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const UVCoordinate = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand('UVCoordinate')
-)
+export const UVCoordinate = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('UVCoordinate'))
 export type UVCoordinate = Schema.Schema.Type<typeof UVCoordinate>
 
 // 使用例
@@ -535,12 +541,10 @@ const v = BrandedTypes.createUVCoordinate(0.75)
 ```
 
 #### AOValue
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const AOValue = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand('AOValue')
-)
+export const AOValue = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('AOValue'))
 export type AOValue = Schema.Schema.Type<typeof AOValue>
 
 // 使用例
@@ -548,12 +552,10 @@ const aoValue = BrandedTypes.createAOValue(0.8) // 80% ambient occlusion
 ```
 
 #### MeshDimension
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const MeshDimension = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand('MeshDimension')
-)
+export const MeshDimension = Schema.Number.pipe(Schema.positive(), Schema.brand('MeshDimension'))
 export type MeshDimension = Schema.Schema.Type<typeof MeshDimension>
 
 // 使用例
@@ -562,12 +564,10 @@ const height = BrandedTypes.createMeshDimension(16)
 ```
 
 #### SensitivityValue
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const SensitivityValue = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand('SensitivityValue')
-)
+export const SensitivityValue = Schema.Number.pipe(Schema.positive(), Schema.brand('SensitivityValue'))
 export type SensitivityValue = Schema.Schema.Type<typeof SensitivityValue>
 
 // 使用例
@@ -579,12 +579,10 @@ const mouseSensitivity = BrandedTypes.createSensitivityValue(2.5)
 統計情報やパフォーマンス測定のためのBrand型群。
 
 #### EntityCount
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const EntityCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('EntityCount')
-)
+export const EntityCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('EntityCount'))
 export type EntityCount = Schema.Schema.Type<typeof EntityCount>
 
 // 使用例
@@ -592,12 +590,10 @@ const activeEntities = BrandedTypes.createEntityCount(150)
 ```
 
 #### EntityCapacity
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const EntityCapacity = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('EntityCapacity')
-)
+export const EntityCapacity = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('EntityCapacity'))
 export type EntityCapacity = Schema.Schema.Type<typeof EntityCapacity>
 
 // 使用例
@@ -605,12 +601,10 @@ const maxEntities = BrandedTypes.createEntityCapacity(1000)
 ```
 
 #### CacheSize
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const CacheSize = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('CacheSize')
-)
+export const CacheSize = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheSize'))
 export type CacheSize = Schema.Schema.Type<typeof CacheSize>
 
 // 使用例
@@ -618,12 +612,10 @@ const cacheSize = BrandedTypes.createCacheSize(1024 * 1024) // 1MB
 ```
 
 #### CacheHitCount
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const CacheHitCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('CacheHitCount')
-)
+export const CacheHitCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheHitCount'))
 export type CacheHitCount = Schema.Schema.Type<typeof CacheHitCount>
 
 // 使用例
@@ -631,12 +623,10 @@ const hits = BrandedTypes.createCacheHitCount(9876)
 ```
 
 #### CacheMissCount
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const CacheMissCount = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('CacheMissCount')
-)
+export const CacheMissCount = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('CacheMissCount'))
 export type CacheMissCount = Schema.Schema.Type<typeof CacheMissCount>
 
 // 使用例
@@ -644,16 +634,14 @@ const misses = BrandedTypes.createCacheMissCount(123)
 ```
 
 #### EnvironmentKey
+
 ```typescript
 // ファイル: src/shared/types/branded.ts
-export const EnvironmentKey = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('EnvironmentKey')
-)
+export const EnvironmentKey = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('EnvironmentKey'))
 export type EnvironmentKey = Schema.Schema.Type<typeof EnvironmentKey>
 
 // 使用例
-const envKey = BrandedTypes.createEnvironmentKey("NODE_ENV")
+const envKey = BrandedTypes.createEnvironmentKey('NODE_ENV')
 ```
 
 ### 物理演算型
@@ -661,6 +649,7 @@ const envKey = BrandedTypes.createEnvironmentKey("NODE_ENV")
 物理エンジン関連のBrand型群。
 
 #### AABB
+
 ```typescript
 // ファイル: src/domain/physics/types.ts
 export const AABBSchema = Schema.Struct({
@@ -675,7 +664,7 @@ export type AABB = Schema.Schema.Type<typeof AABBSchema> & Brand.Brand<'AABB'>
 const aabb: AABB = Schema.decodeSync(AABBSchema)({
   _tag: 'AABB',
   min: { x: 0, y: 0, z: 0 },
-  max: { x: 1, y: 1, z: 1 }
+  max: { x: 1, y: 1, z: 1 },
 })
 ```
 
@@ -684,23 +673,25 @@ const aabb: AABB = Schema.decodeSync(AABBSchema)({
 ゲーム固有の要素を表現するBrand型群（旧型定義との混在パターン）。
 
 #### ItemId（レガシー形式）
+
 ```typescript
 // ファイル: src/domain/inventory/InventoryTypes.ts
 export type ItemId = string & Brand.Brand<'ItemId'>
 export const ItemId = Brand.nominal<ItemId>()
 
 // 使用例
-const itemId = ItemId("iron_pickaxe")
+const itemId = ItemId('iron_pickaxe')
 ```
 
 #### PlayerId（レガシー形式）
+
 ```typescript
 // ファイル: src/domain/inventory/InventoryTypes.ts
 export type PlayerId = string & Brand.Brand<'PlayerId'>
 export const PlayerId = Brand.nominal<PlayerId>()
 
 // 使用例
-const playerId = PlayerId("player_123")
+const playerId = PlayerId('player_123')
 ```
 
 ### 複合型
@@ -708,12 +699,27 @@ const playerId = PlayerId("player_123")
 複数の要素を組み合わせた複合的なSchema定義。
 
 #### BiomeType
+
 ```typescript
 // ファイル: src/domain/world/types.ts
 export const BiomeType = Schema.Literal(
-  'plains', 'desert', 'forest', 'jungle', 'swamp', 'taiga',
-  'snowy_tundra', 'mountains', 'ocean', 'river', 'beach',
-  'mushroom_fields', 'savanna', 'badlands', 'nether', 'end', 'void'
+  'plains',
+  'desert',
+  'forest',
+  'jungle',
+  'swamp',
+  'taiga',
+  'snowy_tundra',
+  'mountains',
+  'ocean',
+  'river',
+  'beach',
+  'mushroom_fields',
+  'savanna',
+  'badlands',
+  'nether',
+  'end',
+  'void'
 )
 export type BiomeType = Schema.Schema.Type<typeof BiomeType>
 
@@ -722,6 +728,7 @@ const biome: BiomeType = 'plains'
 ```
 
 #### BiomeInfo
+
 ```typescript
 // ファイル: src/domain/world/types.ts
 export const BiomeInfoSchema = Schema.transformOrFail(
@@ -744,16 +751,15 @@ const biomeInfo = Schema.decodeSync(BiomeInfoSchema)({
   type: 'plains',
   temperature: 0.8,
   humidity: 0.4,
-  elevation: 64
+  elevation: 64,
 })
 ```
 
 #### ToolType
+
 ```typescript
 // ファイル: src/domain/block/BlockType.ts
-export const ToolTypeSchema = Schema.Literal(
-  'none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'
-)
+export const ToolTypeSchema = Schema.Literal('none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword')
 export type ToolType = Schema.Schema.Type<typeof ToolTypeSchema>
 
 // 使用例
@@ -761,11 +767,19 @@ const tool: ToolType = 'pickaxe'
 ```
 
 #### BlockCategory
+
 ```typescript
 // ファイル: src/domain/block/BlockType.ts
 export const BlockCategorySchema = Schema.Literal(
-  'natural', 'building', 'decoration', 'redstone',
-  'transportation', 'miscellaneous', 'food', 'tools', 'combat'
+  'natural',
+  'building',
+  'decoration',
+  'redstone',
+  'transportation',
+  'miscellaneous',
+  'food',
+  'tools',
+  'combat'
 )
 export type BlockCategory = Schema.Schema.Type<typeof BlockCategorySchema>
 
@@ -774,6 +788,7 @@ const category: BlockCategory = 'building'
 ```
 
 #### FluidType
+
 ```typescript
 // ファイル: src/domain/physics/types.ts
 export const FluidTypeSchema = Schema.Literal('water', 'lava', 'none')
@@ -784,11 +799,10 @@ const fluid: FluidType = 'water'
 ```
 
 #### BlockFace
+
 ```typescript
 // ファイル: src/domain/interaction/InteractionTypes.ts
-export const BlockFaceSchema = Schema.Literal(
-  'top', 'bottom', 'north', 'south', 'east', 'west'
-)
+export const BlockFaceSchema = Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west')
 export type BlockFace = Schema.Schema.Type<typeof BlockFaceSchema>
 
 // 使用例
@@ -821,10 +835,7 @@ export type BlockTypeEncoded = Schema.Schema.Encoded<typeof BlockTypeSchema>
 ### 2. Union型Schema
 
 ```typescript
-export const BlockTextureSchema = Schema.Union(
-  SimpleTextureSchema,
-  TextureFacesSchema
-)
+export const BlockTextureSchema = Schema.Union(SimpleTextureSchema, TextureFacesSchema)
 export type BlockTexture = Schema.Schema.Type<typeof BlockTextureSchema>
 ```
 
@@ -833,10 +844,8 @@ export type BlockTexture = Schema.Schema.Type<typeof BlockTextureSchema>
 ```typescript
 export const Inventory = Schema.Struct({
   playerId: Schema.String.pipe(Schema.fromBrand(PlayerId)),
-  slots: Schema.Array(Schema.Union(Schema.Null, ItemStack))
-    .pipe(Schema.minItems(36), Schema.maxItems(36)),
-  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35)))
-    .pipe(Schema.minItems(9), Schema.maxItems(9)),
+  slots: Schema.Array(Schema.Union(Schema.Null, ItemStack)).pipe(Schema.minItems(36), Schema.maxItems(36)),
+  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.minItems(9), Schema.maxItems(9)),
   // ...
 })
 ```
@@ -1063,17 +1072,17 @@ export const ChunkId = Schema.String.pipe(
 
 ```typescript
 // ✅ 推奨: ヘルパー関数の使用
-const playerId = BrandedTypes.createPlayerId("player123")
+const playerId = BrandedTypes.createPlayerId('player123')
 
 // ❌ 非推奨: 直接キャスト
-const playerId = "player123" as PlayerId
+const playerId = 'player123' as PlayerId
 ```
 
 ### 5. エラーハンドリング
 
 ```typescript
 // ✅ 推奨: 安全な検証
-const result = Schema.decodeUnknownEither(PlayerIdSchema)("invalid")
+const result = Schema.decodeUnknownEither(PlayerIdSchema)('invalid')
 if (result._tag === 'Left') {
   console.error('Validation failed:', result.left)
 } else {
@@ -1083,7 +1092,7 @@ if (result._tag === 'Left') {
 
 // ✅ 推奨: try-catch での例外処理
 try {
-  const playerId = Schema.decodeUnknownSync(PlayerIdSchema)("player123")
+  const playerId = Schema.decodeUnknownSync(PlayerIdSchema)('player123')
   // 使用
 } catch (error) {
   console.error('Invalid player ID:', error)
@@ -1122,7 +1131,7 @@ export const GameEvent = Schema.Union(
 ```typescript
 // テスト用ファクトリ関数
 export const TestDataFactory = {
-  createTestPlayerId: () => BrandedTypes.createPlayerId("test_player"),
+  createTestPlayerId: () => BrandedTypes.createPlayerId('test_player'),
   createTestBlockPosition: () => Schema.decodeSync(BlockPosition)({ x: 0, y: 64, z: 0 }),
   createTestTimestamp: () => TimeBrands.createTimestamp(1640995200000),
 } as const

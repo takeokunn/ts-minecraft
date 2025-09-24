@@ -5,6 +5,7 @@
 このドキュメントでは、TypeScript Minecraft Clone プロジェクトにおけるType Safety（型安全性）の設計パターンと実装ガイドラインを説明します。Effect-TSを活用した堅牢な型システムの構築方法、実行時バリデーション、エラーハンドリングのベストプラクティスを提供します。
 
 > 🔗 **実践的なチュートリアル**: このドキュメントで説明するパターンの具体的な実装例は以下を参照してください：
+>
 > - **[基本コンポーネント作成](../basic-game-development/basic-components.md)** - Brand型を使ったMinecraftドメインモデルの実装
 > - **[Effect-TS パターン集](../effect-ts-fundamentals/effect-ts-patterns.md)** - Layer構成とサービス設計パターン
 > - **[Effect-TS 型システム](../effect-ts-fundamentals/effect-ts-type-system.md)** - Brand型とSchemaの詳細な解説
@@ -36,7 +37,7 @@ type ChunkId = string
 
 function movePlayer(playerId: PlayerId, to: ChunkId) {
   // コンパイル時に以下のエラーを検出できない
-  movePlayer("chunk_1_2", "player_123") // 引数が逆！
+  movePlayer('chunk_1_2', 'player_123') // 引数が逆！
 }
 
 // 問題2: 実行時バリデーションの欠如
@@ -68,21 +69,15 @@ export type ChunkId = string & Brand.Brand<'ChunkId'>
 export const ChunkId = Brand.nominal<ChunkId>()
 
 // これはコンパイルエラーになる
-function movePlayer(playerId: PlayerId, to: ChunkId) { /* ... */ }
+function movePlayer(playerId: PlayerId, to: ChunkId) {
+  /* ... */
+}
 // movePlayer(ChunkId("chunk_1_2"), PlayerId("player_123")) // Type Error!
 
 // 解決策2: スキーマによる実行時バリデーション
 export const ConfigSchema = Schema.Struct({
-  fps: Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(120)
-  ),
-  memoryLimit: Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(2048)
-  ),
+  fps: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(120)),
+  memoryLimit: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(2048)),
 })
 
 // 解決策3: Optionによる安全なnull処理
@@ -112,17 +107,13 @@ interface BlockPosition {
 
 function getBlock(pos: BlockPosition): Block {
   if (pos.y < 0 || pos.y > 255) {
-    throw new Error("Invalid Y coordinate") // 実行時エラー
+    throw new Error('Invalid Y coordinate') // 実行時エラー
   }
   // ...
 }
 
 // ✅ 安全: コンパイル時保証
-export const HeightSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 255),
-  Schema.brand('Height')
-)
+export const HeightSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 255), Schema.brand('Height'))
 export type Height = Schema.Schema.Type<typeof HeightSchema>
 
 export const BlockPositionSchema = Schema.Struct({
@@ -175,7 +166,7 @@ export const loadChunk = (
     return yield* chunkData.pipe(
       Option.match({
         onNone: () => Effect.fail(new ChunkNotFoundError({ chunkId })),
-        onSome: (chunk) => Effect.succeed(chunk)
+        onSome: (chunk) => Effect.succeed(chunk),
       })
     )
   })
@@ -185,7 +176,7 @@ export const useChunk = (chunkId: ChunkId) =>
   loadChunk(chunkId).pipe(
     Effect.catchTags({
       ChunkNotFoundError: (error) => generateNewChunk(error.chunkId),
-      WorldGenerationError: (error) => Effect.logError("Generation failed", error)
+      WorldGenerationError: (error) => Effect.logError('Generation failed', error),
     })
   )
 ```
@@ -245,9 +236,7 @@ export const WorldPosition = Schema.Struct({
 })
 
 // 変換関数の型安全な実装
-export const chunkToBlockCoords = (
-  chunkPos: ChunkPosition
-): { startX: WorldCoordinate; startZ: WorldCoordinate } => ({
+export const chunkToBlockCoords = (chunkPos: ChunkPosition): { startX: WorldCoordinate; startZ: WorldCoordinate } => ({
   startX: BrandedTypes.createWorldCoordinate(chunkPos.x * 16),
   startZ: BrandedTypes.createWorldCoordinate(chunkPos.z * 16),
 })
@@ -271,7 +260,7 @@ export const ChunkIdSchema = Schema.String.pipe(
 export const ItemIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
   Schema.pattern(/^[a-z_]+$/), // 小文字とアンダースコアのみ
-  Schema.brand('ItemId'),
+  Schema.brand('ItemId')
 )
 ```
 
@@ -288,10 +277,7 @@ import { Option, Effect } from 'effect'
 export const chunkIdToPosition = (id: string): Option.Option<ChunkPosition> =>
   Option.fromNullable(id.match(/^chunk_(-?\d+)_(-?\d+)$/)).pipe(
     Option.flatMap((match) =>
-      Option.all([
-        Option.fromNullable(match[1]),
-        Option.fromNullable(match[2])
-      ]).pipe(
+      Option.all([Option.fromNullable(match[1]), Option.fromNullable(match[2])]).pipe(
         Option.map(([xStr, zStr]) => ({
           x: parseInt(xStr, 10),
           z: parseInt(zStr, 10),
@@ -301,10 +287,10 @@ export const chunkIdToPosition = (id: string): Option.Option<ChunkPosition> =>
   )
 
 // 使用例
-const maybePosition = chunkIdToPosition("chunk_10_20")
+const maybePosition = chunkIdToPosition('chunk_10_20')
 Option.match(maybePosition, {
-  onNone: () => console.log("Invalid chunk ID"),
-  onSome: (pos) => console.log(`Position: ${pos.x}, ${pos.z}`)
+  onNone: () => console.log('Invalid chunk ID'),
+  onSome: (pos) => console.log(`Position: ${pos.x}, ${pos.z}`),
 })
 ```
 
@@ -336,12 +322,8 @@ import { Match } from 'effect'
 // エラータイプによる分岐処理
 export const handleGameError = (error: AnyGameError) =>
   Match.value(error).pipe(
-    Match.when({ _tag: 'ResourceNotFoundError' }, (err) =>
-      Effect.logWarning(`Resource not found: ${err.resourceId}`)
-    ),
-    Match.when({ _tag: 'ValidationError' }, (err) =>
-      Effect.logError(`Validation failed: ${err.field}`)
-    ),
+    Match.when({ _tag: 'ResourceNotFoundError' }, (err) => Effect.logWarning(`Resource not found: ${err.resourceId}`)),
+    Match.when({ _tag: 'ValidationError' }, (err) => Effect.logError(`Validation failed: ${err.field}`)),
     Match.when({ _tag: 'PerformanceError' }, (err) =>
       err.severity === 'critical'
         ? Effect.logError(`Critical performance issue: ${err.message}`)
@@ -368,10 +350,7 @@ export class LoggerService extends Context.Tag('LoggerService')<
     readonly info: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
     readonly warn: (message: string, context?: Record<string, unknown>) => Effect.Effect<void>
     readonly error: (message: string, error?: Error) => Effect.Effect<void>
-    readonly measurePerformance: <A>(
-      functionName: string,
-      operation: Effect.Effect<A>
-    ) => Effect.Effect<A>
+    readonly measurePerformance: <A>(functionName: string, operation: Effect.Effect<A>) => Effect.Effect<A>
   }
 >() {}
 
@@ -401,11 +380,7 @@ export const LoggerServiceLive = Layer.sync(LoggerService, () => ({
 
 ```typescript
 // 複数のサービスを組み合わせ
-export const InfrastructureLayer = Layer.mergeAll(
-  LoggerServiceLive,
-  ConfigServiceLive,
-  DatabaseServiceLive
-)
+export const InfrastructureLayer = Layer.mergeAll(LoggerServiceLive, ConfigServiceLive, DatabaseServiceLive)
 
 // 条件付きレイヤー提供
 export const createAppLayer = (config: AppConfig) =>
@@ -414,11 +389,7 @@ export const createAppLayer = (config: AppConfig) =>
     : Layer.mergeAll(InfrastructureLayer, ProductionServicesLayer)
 
 // アプリケーション実行
-export const runApp = (config: AppConfig) =>
-  mainProgram.pipe(
-    Effect.provide(createAppLayer(config)),
-    Effect.runPromise
-  )
+export const runApp = (config: AppConfig) => mainProgram.pipe(Effect.provide(createAppLayer(config)), Effect.runPromise)
 ```
 
 ### 依存関係の型安全な管理
@@ -428,11 +399,9 @@ export const runApp = (config: AppConfig) =>
 export class ChunkLoaderService extends Context.Tag('ChunkLoaderService')<
   ChunkLoaderService,
   {
-    readonly loadChunk: (id: ChunkId) => Effect.Effect<
-      Option.Option<Chunk>,
-      ChunkLoadError,
-      LoggerService | DatabaseService
-    >
+    readonly loadChunk: (
+      id: ChunkId
+    ) => Effect.Effect<Option.Option<Chunk>, ChunkLoadError, LoggerService | DatabaseService>
   }
 >() {}
 
@@ -449,7 +418,7 @@ export const ChunkLoaderServiceLive = Layer.effect(
           yield* logger.debug(`Loading chunk: ${id}`)
           const result = yield* db.query(chunkQuery(id))
           return Option.fromNullable(result)
-        })
+        }),
     }
   })
 )
@@ -483,7 +452,7 @@ export const GameErrorUnion = Schema.Union(
   GameErrorSchema,
   ResourceNotFoundErrorSchema,
   ValidationErrorSchema,
-  PerformanceErrorSchema,
+  PerformanceErrorSchema
   // ... 他のエラータイプ
 )
 
@@ -504,7 +473,7 @@ export const loadChunkWithFallback = (chunkId: ChunkId) =>
         }),
       WorldGenerationError: (error) =>
         Effect.gen(function* () {
-          yield* Effect.logError("World generation failed", error)
+          yield* Effect.logError('World generation failed', error)
           return yield* getEmptyChunk(chunkId)
         }),
     }),
@@ -516,9 +485,7 @@ export const loadChunkWithFallback = (chunkId: ChunkId) =>
 
 ```typescript
 // 構造化ログとメトリクス収集
-export const withErrorMetrics = <A, E extends AnyGameError, R>(
-  effect: Effect.Effect<A, E, R>
-) =>
+export const withErrorMetrics = <A, E extends AnyGameError, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.tapError((error) =>
       Effect.gen(function* () {
@@ -526,11 +493,11 @@ export const withErrorMetrics = <A, E extends AnyGameError, R>(
         const metrics = yield* MetricsService
 
         // 構造化ログ出力
-        yield* logger.error("Operation failed", {
+        yield* logger.error('Operation failed', {
           errorType: error._tag,
           errorMessage: error.message,
           timestamp: Date.now(),
-          context: extractErrorContext(error)
+          context: extractErrorContext(error),
         })
 
         // メトリクス更新
@@ -566,22 +533,19 @@ export const GameState = {
     return {
       value: fb.value,
       timestamp: fb.timestamp, // 新しいタイムスタンプを使用
-      playerId: fa.playerId,   // 元のプレイヤーIDを保持
+      playerId: fa.playerId, // 元のプレイヤーIDを保持
     }
-  }
+  },
 }
 
 // 使用例
 const playerPosition: GameState<WorldPosition> = {
   value: { x: 10, y: 64, z: 20 },
   timestamp: Timestamp.now(),
-  playerId: PlayerId("player_123")
+  playerId: PlayerId('player_123'),
 }
 
-const chunkPosition = GameState.map(
-  playerPosition,
-  (pos) => blockToChunkCoords(pos.x, pos.z)
-)
+const chunkPosition = GameState.map(playerPosition, (pos) => blockToChunkCoords(pos.x, pos.z))
 ```
 
 ### 合成可能なバリデーション
@@ -605,9 +569,9 @@ export const validateGameConfig = Schema.Struct({
     mouseSensitivity: Schema.Number.pipe(Schema.positive()),
     keyBindings: Schema.Record({
       key: Schema.String,
-      value: Schema.String
+      value: Schema.String,
     }),
-  })
+  }),
 })
 
 // バリデーション合成の例
@@ -653,11 +617,7 @@ interface BadUser {
 
 ```typescript
 // ✅ 詳細なエラー情報
-export const ChunkNotFoundError = (params: {
-  chunkId: ChunkId
-  searchPaths?: string[]
-  cause?: unknown
-}) => ({
+export const ChunkNotFoundError = (params: { chunkId: ChunkId; searchPaths?: string[]; cause?: unknown }) => ({
   _tag: 'ChunkNotFoundError' as const,
   message: `Chunk not found: ${params.chunkId}`,
   chunkId: params.chunkId,
@@ -666,7 +626,7 @@ export const ChunkNotFoundError = (params: {
 })
 
 // ❌ 不十分なエラー情報
-const badError = new Error("Chunk not found") // どのチャンクかわからない
+const badError = new Error('Chunk not found') // どのチャンクかわからない
 ```
 
 ### 3. レイヤー境界での型変換
@@ -683,8 +643,7 @@ export const parsePlayerInput = (rawInput: unknown) =>
   })
 
 // ✅ 出力時の明示的なシリアライゼーション
-export const serializeGameState = (state: GameState) =>
-  Schema.encode(GameStateSchema)(state)
+export const serializeGameState = (state: GameState) => Schema.encode(GameStateSchema)(state)
 ```
 
 ### 4. テスト可能な設計
@@ -703,11 +662,7 @@ export const processGameTick = (deltaTime: DeltaTime) =>
   })
 
 // テスト時は簡単にモックを注入可能
-const testLayer = Layer.mergeAll(
-  MockPhysicsServiceLive,
-  MockRendererServiceLive,
-  MockWorldServiceLive
-)
+const testLayer = Layer.mergeAll(MockPhysicsServiceLive, MockRendererServiceLive, MockWorldServiceLive)
 ```
 
 ---
@@ -725,10 +680,7 @@ function processData(data: any): any {
 }
 
 // ✅ 改善案
-export const processGameData = <A>(
-  schema: Schema.Schema<A>,
-  data: unknown
-) =>
+export const processGameData = <A>(schema: Schema.Schema<A>, data: unknown) =>
   Effect.gen(function* () {
     const validData = yield* Schema.decode(schema)(data)
     return processValidatedData(validData)
@@ -748,17 +700,11 @@ function loadChunk(id: string): Chunk | null {
 }
 
 // ✅ 改善案
-export const loadChunk = (id: ChunkId): Effect.Effect<
-  Option.Option<Chunk>,
-  ChunkLoadError,
-  ChunkLoader
-> =>
+export const loadChunk = (id: ChunkId): Effect.Effect<Option.Option<Chunk>, ChunkLoadError, ChunkLoader> =>
   Effect.gen(function* () {
     const loader = yield* ChunkLoader
     return yield* loader.load(id).pipe(
-      Effect.mapError((cause) =>
-        ChunkLoadError({ chunkId: id, cause })
-      ),
+      Effect.mapError((cause) => ChunkLoadError({ chunkId: id, cause })),
       Effect.map(Option.fromNullable)
     )
   })
@@ -771,8 +717,7 @@ export const loadChunk = (id: ChunkId): Effect.Effect<
 const position = data as BlockPosition // 検証なし
 
 // ✅ 改善案
-const parsePosition = (data: unknown) =>
-  Schema.decode(BlockPositionSchema)(data)
+const parsePosition = (data: unknown) => Schema.decode(BlockPositionSchema)(data)
 ```
 
 ### トラブルシューティングガイド
@@ -792,7 +737,9 @@ type DeepNested<T> = {
 }
 
 // 解決策: 型を分割
-type Level3Data = { /* ... */ }
+type Level3Data = {
+  /* ... */
+}
 type Level2Data = { level3: Level3Data }
 type Level1Data = { level2: Level2Data }
 type GameData = { level1: Level1Data }
@@ -803,44 +750,53 @@ type GameData = { level1: Level1Data }
 ```typescript
 // 問題: 毎回新しいスキーマを作成
 const validateData = (data: unknown) => {
-  const schema = Schema.Struct({ /* 複雑な定義 */ }) // 毎回作成
+  const schema = Schema.Struct({
+    /* 複雑な定義 */
+  }) // 毎回作成
   return Schema.decode(schema)(data)
 }
 
 // 解決策: スキーマをキャッシュ
-const DataSchema = Schema.Struct({ /* 定義 */ }) // 一度だけ作成
+const DataSchema = Schema.Struct({
+  /* 定義 */
+}) // 一度だけ作成
 
-const validateData = (data: unknown) =>
-  Schema.decode(DataSchema)(data)
+const validateData = (data: unknown) => Schema.decode(DataSchema)(data)
 ```
 
 #### 問題: 循環依存エラー
 
 ```typescript
 // 問題: 相互依存するサービス
-class ServiceA extends Context.Tag('ServiceA')<ServiceA, {
-  useB: Effect.Effect<void, never, ServiceB>
-}>() {}
+class ServiceA extends Context.Tag('ServiceA')<
+  ServiceA,
+  {
+    useB: Effect.Effect<void, never, ServiceB>
+  }
+>() {}
 
-class ServiceB extends Context.Tag('ServiceB')<ServiceB, {
-  useA: Effect.Effect<void, never, ServiceA>
-}>() {}
+class ServiceB extends Context.Tag('ServiceB')<
+  ServiceB,
+  {
+    useA: Effect.Effect<void, never, ServiceA>
+  }
+>() {}
 
 // 解決策: 間接参照またはイベント駆動アーキテクチャ
-class EventBus extends Context.Tag('EventBus')<EventBus, {
-  publish: (event: GameEvent) => Effect.Effect<void>
-  subscribe: (handler: (event: GameEvent) => Effect.Effect<void>) => Effect.Effect<void>
-}>() {}
+class EventBus extends Context.Tag('EventBus')<
+  EventBus,
+  {
+    publish: (event: GameEvent) => Effect.Effect<void>
+    subscribe: (handler: (event: GameEvent) => Effect.Effect<void>) => Effect.Effect<void>
+  }
+>() {}
 ```
 
 ### デバッグのベストプラクティス
 
 ```typescript
 // デバッグ情報を含むEffect
-export const debugEffect = <A, E, R>(
-  name: string,
-  effect: Effect.Effect<A, E, R>
-) =>
+export const debugEffect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.tap((result) => Effect.log(`${name} succeeded`, result)),
     Effect.tapError((error) => Effect.log(`${name} failed`, error)),
@@ -848,11 +804,7 @@ export const debugEffect = <A, E, R>(
   )
 
 // 使用例
-const loadChunkDebug = (chunkId: ChunkId) =>
-  debugEffect(
-    `loadChunk(${chunkId})`,
-    loadChunk(chunkId)
-  )
+const loadChunkDebug = (chunkId: ChunkId) => debugEffect(`loadChunk(${chunkId})`, loadChunk(chunkId))
 ```
 
 ---

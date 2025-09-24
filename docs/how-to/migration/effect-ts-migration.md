@@ -22,7 +22,8 @@ ai_context:
       'performance-optimization',
     ]
   complexity_level: 4
-  learning_outcomes: ['Complete project migration', 'Performance optimization', 'Type safety enhancement', 'Error handling improvement']
+  learning_outcomes:
+    ['Complete project migration', 'Performance optimization', 'Type safety enhancement', 'Error handling improvement']
 machine_readable:
   confidence_score: 0.97
   api_maturity: 'stable'
@@ -58,6 +59,7 @@ npm run test:performance  # If available, benchmark performance
 ```
 
 **Migration Readiness Checklist:**
+
 - [ ] TypeScript 4.9+ with strict mode enabled
 - [ ] Comprehensive test suite (>80% coverage recommended)
 - [ ] Clear error handling patterns
@@ -69,12 +71,14 @@ npm run test:performance  # If available, benchmark performance
 Choose your migration approach:
 
 **🔄 Incremental Migration (Recommended)**
+
 - Migrate module by module
 - Maintain compatibility during transition
 - Lower risk, easier rollback
 - Allows team to learn gradually
 
 **⚡ Big Bang Migration**
+
 - Migrate entire codebase at once
 - Faster overall timeline
 - Higher risk, requires more planning
@@ -104,30 +108,22 @@ interface Player {
 import { Schema } from 'effect'
 
 export const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(
-    Schema.nonEmpty(),
-    Schema.brand('PlayerId')
-  ),
-  name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(50)
-  ),
+  id: Schema.String.pipe(Schema.nonEmpty(), Schema.brand('PlayerId')),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
   position: Schema.Struct({
     x: Schema.Number.pipe(Schema.finite()),
     y: Schema.Number.pipe(Schema.finite()),
-    z: Schema.Number.pipe(Schema.finite())
+    z: Schema.Number.pipe(Schema.finite()),
   }),
-  health: Schema.Number.pipe(
-    Schema.between(0, 100),
-    Schema.brand('Health')
-  ),
-  lastUpdate: Schema.DateFromSelf
+  health: Schema.Number.pipe(Schema.between(0, 100), Schema.brand('Health')),
+  lastUpdate: Schema.DateFromSelf,
 })
 
 export type Player = Schema.Schema.Type<typeof PlayerSchema>
 ```
 
 **Key Benefits:**
+
 - Runtime validation automatically included
 - Better error messages with context
 - Automatic type inference
@@ -148,22 +144,16 @@ function movePlayer(playerId: string, x: number, y: number, z: number) {
 import { Schema } from 'effect'
 
 // Define branded types
-export const PlayerId = Schema.String.pipe(
-  Schema.nonEmpty(),
-  Schema.brand('PlayerId')
-)
+export const PlayerId = Schema.String.pipe(Schema.nonEmpty(), Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerId>
 
-export const WorldCoordinate = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.brand('WorldCoordinate')
-)
+export const WorldCoordinate = Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate'))
 export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinate>
 
 export const Vector3D = Schema.Struct({
   x: WorldCoordinate,
   y: WorldCoordinate,
-  z: WorldCoordinate
+  z: WorldCoordinate,
 }).pipe(Schema.brand('Vector3D'))
 export type Vector3D = Schema.Schema.Type<typeof Vector3D>
 
@@ -175,15 +165,14 @@ function movePlayer(playerId: PlayerId, position: Vector3D): Effect.Effect<void,
 
 // Safe creation helpers
 export const BrandedTypes = {
-  createPlayerId: (id: string): PlayerId =>
-    Schema.decodeSync(PlayerId)(id),
+  createPlayerId: (id: string): PlayerId => Schema.decodeSync(PlayerId)(id),
 
   createVector3D: (x: number, y: number, z: number): Vector3D =>
     Schema.decodeSync(Vector3D)({
       x: Schema.decodeSync(WorldCoordinate)(x),
       y: Schema.decodeSync(WorldCoordinate)(y),
-      z: Schema.decodeSync(WorldCoordinate)(z)
-    })
+      z: Schema.decodeSync(WorldCoordinate)(z),
+    }),
 }
 ```
 
@@ -229,7 +218,7 @@ const addPlayer = (player: Player) =>
 const findPlayer = (id: PlayerId) =>
   Effect.gen(function* () {
     const players = yield* getPlayers()
-    return ReadonlyArray.findFirst(players, p => p.id === id)
+    return ReadonlyArray.findFirst(players, (p) => p.id === id)
   })
 
 // Functional array operations
@@ -281,7 +270,7 @@ export const PlayerError = Schema.TaggedError('PlayerError')({
   reason: Schema.Literal('NOT_FOUND', 'VALIDATION_FAILED', 'DATABASE_ERROR'),
   playerId: Schema.optional(PlayerId),
   details: Schema.String,
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 })
 export type PlayerError = Schema.Schema.Type<typeof PlayerError>
 
@@ -297,12 +286,12 @@ const savePlayerData = (player: Player) =>
 
     // Return success (void)
   }).pipe(
-    Effect.mapError(error =>
+    Effect.mapError((error) =>
       PlayerError({
         reason: 'DATABASE_ERROR',
         playerId: player.id,
         details: 'Failed to save player data',
-        cause: error
+        cause: error,
       })
     )
   )
@@ -314,11 +303,13 @@ const loadPlayerData = (id: PlayerId) =>
     const playerDataOption = yield* database.findById(id)
 
     if (Option.isNone(playerDataOption)) {
-      return yield* Effect.fail(PlayerError({
-        reason: 'NOT_FOUND',
-        playerId: id,
-        details: `Player with ID ${id} not found`
-      }))
+      return yield* Effect.fail(
+        PlayerError({
+          reason: 'NOT_FOUND',
+          playerId: id,
+          details: `Player with ID ${id} not found`,
+        })
+      )
     }
 
     const playerData = playerDataOption.value
@@ -341,22 +332,14 @@ const loadPlayerData = (id: PlayerId) =>
 const config = {
   port: parseInt(process.env.PORT || '3000'),
   dbUrl: process.env.DATABASE_URL || 'localhost',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 }
 
 // ✅ After: Validated configuration with schemas
 const ConfigSchema = Schema.Struct({
-  port: Schema.Number.pipe(
-    Schema.between(1, 65535),
-    Schema.annotations({ description: 'Server port number' })
-  ),
-  dbUrl: Schema.String.pipe(
-    Schema.nonEmpty(),
-    Schema.annotations({ description: 'Database connection URL' })
-  ),
-  logLevel: Schema.Literal('debug', 'info', 'warn', 'error').pipe(
-    Schema.annotations({ description: 'Logging level' })
-  )
+  port: Schema.Number.pipe(Schema.between(1, 65535), Schema.annotations({ description: 'Server port number' })),
+  dbUrl: Schema.String.pipe(Schema.nonEmpty(), Schema.annotations({ description: 'Database connection URL' })),
+  logLevel: Schema.Literal('debug', 'info', 'warn', 'error').pipe(Schema.annotations({ description: 'Logging level' })),
 })
 export type Config = Schema.Schema.Type<typeof ConfigSchema>
 
@@ -364,16 +347,19 @@ const loadConfig = Effect.gen(function* () {
   const rawConfig = {
     port: parseInt(process.env.PORT || '3000'),
     dbUrl: process.env.DATABASE_URL || '',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   }
 
   const config = yield* Schema.decodeUnknown(ConfigSchema)(rawConfig)
   return config
 }).pipe(
-  Effect.mapError(error => new ConfigurationError({
-    message: 'Invalid configuration',
-    details: error.message
-  }))
+  Effect.mapError(
+    (error) =>
+      new ConfigurationError({
+        message: 'Invalid configuration',
+        details: error.message,
+      })
+  )
 )
 
 // Usage with dependency injection
@@ -412,7 +398,7 @@ const PlayerServiceError = Schema.TaggedError('PlayerServiceError')({
   type: Schema.Literal('VALIDATION', 'ALREADY_EXISTS', 'DATABASE', 'NOT_FOUND'),
   message: Schema.String,
   playerId: Schema.optional(PlayerId),
-  details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
 })
 export type PlayerServiceError = Schema.Schema.Type<typeof PlayerServiceError>
 
@@ -424,11 +410,13 @@ const createPlayer = (data: unknown) =>
     // Check if player exists
     const exists = yield* playerExists(playerData.id)
     if (exists) {
-      return yield* Effect.fail(PlayerServiceError({
-        type: 'ALREADY_EXISTS',
-        message: 'Player already exists',
-        playerId: playerData.id
-      }))
+      return yield* Effect.fail(
+        PlayerServiceError({
+          type: 'ALREADY_EXISTS',
+          message: 'Player already exists',
+          playerId: playerData.id,
+        })
+      )
     }
 
     // Create player
@@ -437,14 +425,14 @@ const createPlayer = (data: unknown) =>
 
     return player
   }).pipe(
-    Effect.mapError(error => {
+    Effect.mapError((error) => {
       // Convert any unexpected errors to PlayerServiceError
       if (error._tag === 'PlayerServiceError') return error
 
       return PlayerServiceError({
         type: 'DATABASE',
         message: 'Failed to create player',
-        details: { originalError: error }
+        details: { originalError: error },
       })
     })
   )
@@ -511,7 +499,7 @@ const makeDatabaseService = Effect.gen(function* () {
     // Acquire
     Effect.tryPromise({
       try: () => createConnection(),
-      catch: (error) => new DatabaseError({ message: 'Connection failed', cause: error })
+      catch: (error) => new DatabaseError({ message: 'Connection failed', cause: error }),
     }),
     // Release (automatically called on scope exit)
     (connection) => Effect.promise(() => connection.close())
@@ -521,8 +509,8 @@ const makeDatabaseService = Effect.gen(function* () {
     query: (sql: string) =>
       Effect.tryPromise({
         try: () => connection.query(sql),
-        catch: (error) => new DatabaseError({ message: 'Query failed', cause: error })
-      })
+        catch: (error) => new DatabaseError({ message: 'Query failed', cause: error }),
+      }),
   }
 })
 
@@ -570,7 +558,7 @@ const createCachedValidator = <A, I>(schema: Schema.Schema<A, I>) => {
         return result
       }),
 
-    clearCache: () => Effect.sync(() => cache.clear())
+    clearCache: () => Effect.sync(() => cache.clear()),
   }
 }
 
@@ -582,10 +570,7 @@ const createConditionalValidator = <A, I>(
   const shouldValidate = environment !== 'production'
 
   return {
-    validate: (input: I) =>
-      shouldValidate
-        ? Schema.decodeUnknown(schema)(input)
-        : Effect.succeed(input as A) // Trust input in production
+    validate: (input: I) => (shouldValidate ? Schema.decodeUnknown(schema)(input) : Effect.succeed(input as A)), // Trust input in production
   }
 }
 
@@ -597,12 +582,10 @@ const createTimeoutValidator = <A, I>(
   validate: (input: I) =>
     Schema.decodeUnknown(schema)(input).pipe(
       Effect.timeout(Duration.millis(timeoutMs)),
-      Effect.mapError(error =>
-        error._tag === 'TimeoutException'
-          ? new ValidationTimeoutError({ timeoutMs })
-          : error
+      Effect.mapError((error) =>
+        error._tag === 'TimeoutException' ? new ValidationTimeoutError({ timeoutMs }) : error
       )
-    )
+    ),
 })
 
 // Usage example: Game entity validation
@@ -637,11 +620,7 @@ const processBatchEfficiently = <A, B, E>(
     const results: B[] = []
 
     for (const batch of batches) {
-      const batchResults = yield* Effect.forEach(
-        batch,
-        processor,
-        { concurrency }
-      )
+      const batchResults = yield* Effect.forEach(batch, processor, { concurrency })
       results.push(...batchResults)
     }
 
@@ -651,11 +630,10 @@ const processBatchEfficiently = <A, B, E>(
 
 // Example: Batch player validation
 const validatePlayers = (playerData: ReadonlyArray<unknown>) =>
-  processBatchEfficiently(
-    playerData,
-    (data) => Schema.decodeUnknown(PlayerSchema)(data),
-    { concurrency: 20, batchSize: 50 }
-  )
+  processBatchEfficiently(playerData, (data) => Schema.decodeUnknown(PlayerSchema)(data), {
+    concurrency: 20,
+    batchSize: 50,
+  })
 ```
 
 ## 5. Troubleshooting Common Issues
@@ -706,7 +684,7 @@ const consistentErrorHandling = Effect.gen(function* () {
   const result = yield* someEffect
   return result
 }).pipe(
-  Effect.catchAll(error =>
+  Effect.catchAll((error) =>
     Effect.gen(function* () {
       yield* logError('Operation failed', error)
       return yield* Effect.fail(new OperationError({ cause: error }))
@@ -719,11 +697,11 @@ const handleRequest = (req: Request, res: Response) => {
   const program = consistentErrorHandling.pipe(
     Effect.match({
       onFailure: (error) => ({ status: 500, body: { error: error.message } }),
-      onSuccess: (data) => ({ status: 200, body: data })
+      onSuccess: (data) => ({ status: 200, body: data }),
     })
   )
 
-  Effect.runPromise(program).then(response => {
+  Effect.runPromise(program).then((response) => {
     res.status(response.status).json(response.body)
   })
 }
@@ -749,14 +727,12 @@ const optimizedGameLoop = Effect.gen(function* () {
 
   yield* Effect.forEach(
     entities,
-    (entity) => Effect.gen(function* () {
-      // Use cached validation with entity ID as key
-      const validatedPosition = yield* validator.validate(
-        entity.position,
-        `position_${entity.id}`
-      )
-      yield* updateEntityPosition(entity.id, validatedPosition)
-    }),
+    (entity) =>
+      Effect.gen(function* () {
+        // Use cached validation with entity ID as key
+        const validatedPosition = yield* validator.validate(entity.position, `position_${entity.id}`)
+        yield* updateEntityPosition(entity.id, validatedPosition)
+      }),
     { concurrency: 'unbounded' } // Parallel processing
   )
 })
@@ -766,11 +742,9 @@ const boundaryValidation = Effect.gen(function* () {
   // Validate only at service boundaries
   const trustedEntities = entities // Already validated at input
 
-  yield* Effect.forEach(
-    trustedEntities,
-    (entity) => updateEntityPosition(entity.id, entity.position),
-    { concurrency: 'unbounded' }
-  )
+  yield* Effect.forEach(trustedEntities, (entity) => updateEntityPosition(entity.id, entity.position), {
+    concurrency: 'unbounded',
+  })
 })
 ```
 
@@ -798,8 +772,7 @@ const createBoundedCache = <K, V>(maxSize: number, ttlMs: number) => {
 
     // If still too big, remove oldest entries
     if (cache.size > maxSize) {
-      const entries = Array.from(cache.entries())
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+      const entries = Array.from(cache.entries()).sort((a, b) => a[1].timestamp - b[1].timestamp)
 
       const toRemove = entries.slice(0, cache.size - maxSize)
       toRemove.forEach(([key]) => cache.delete(key))
@@ -807,21 +780,23 @@ const createBoundedCache = <K, V>(maxSize: number, ttlMs: number) => {
   }
 
   return {
-    set: (key: K, value: V) => Effect.sync(() => {
-      cache.set(key, { value, timestamp: Date.now() })
-      cleanup()
-    }),
+    set: (key: K, value: V) =>
+      Effect.sync(() => {
+        cache.set(key, { value, timestamp: Date.now() })
+        cleanup()
+      }),
 
-    get: (key: K) => Effect.sync(() => {
-      const entry = cache.get(key)
-      if (!entry || Date.now() - entry.timestamp > ttlMs) {
-        cache.delete(key)
-        return Option.none()
-      }
-      return Option.some(entry.value)
-    }),
+    get: (key: K) =>
+      Effect.sync(() => {
+        const entry = cache.get(key)
+        if (!entry || Date.now() - entry.timestamp > ttlMs) {
+          cache.delete(key)
+          return Option.none()
+        }
+        return Option.some(entry.value)
+      }),
 
-    clear: () => Effect.sync(() => cache.clear())
+    clear: () => Effect.sync(() => cache.clear()),
   }
 }
 ```
@@ -873,25 +848,16 @@ import { Effect, Context, Layer, ReadonlyRecord } from 'effect'
 
 // Domain schemas (from real codebase)
 export const PlayerSchema = Schema.Struct({
-  id: Schema.String.pipe(
-    Schema.nonEmpty(),
-    Schema.brand('PlayerId')
-  ),
-  name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(50)
-  ),
+  id: Schema.String.pipe(Schema.nonEmpty(), Schema.brand('PlayerId')),
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
   position: Schema.Struct({
     x: Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate')),
     y: Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate')),
-    z: Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate'))
+    z: Schema.Number.pipe(Schema.finite(), Schema.brand('WorldCoordinate')),
   }).pipe(Schema.brand('Vector3D')),
-  health: Schema.Number.pipe(
-    Schema.between(0, 100),
-    Schema.brand('Health')
-  ),
+  health: Schema.Number.pipe(Schema.between(0, 100), Schema.brand('Health')),
   isActive: Schema.Boolean,
-  lastUpdate: Schema.DateFromSelf
+  lastUpdate: Schema.DateFromSelf,
 })
 
 export type Player = Schema.Schema.Type<typeof PlayerSchema>
@@ -899,15 +865,10 @@ export type PlayerId = Player['id']
 
 // Error types
 export const PlayerError = Schema.TaggedError('PlayerError')({
-  reason: Schema.Literal(
-    'PLAYER_NOT_FOUND',
-    'PLAYER_ALREADY_EXISTS',
-    'INVALID_DATA',
-    'DATABASE_ERROR'
-  ),
+  reason: Schema.Literal('PLAYER_NOT_FOUND', 'PLAYER_ALREADY_EXISTS', 'INVALID_DATA', 'DATABASE_ERROR'),
   message: Schema.String,
   playerId: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 })
 export type PlayerError = Schema.Schema.Type<typeof PlayerError>
 
@@ -939,30 +900,36 @@ const makePlayerService = Effect.gen(function* () {
     Effect.gen(function* () {
       // Validate input
       const playerData = yield* Schema.decodeUnknown(PlayerSchema)(data).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'INVALID_DATA',
-          message: 'Invalid player data',
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'INVALID_DATA',
+            message: 'Invalid player data',
+            cause: error,
+          })
+        )
       )
 
       // Check if exists
       if (players.has(playerData.id)) {
-        return yield* Effect.fail(PlayerError({
-          reason: 'PLAYER_ALREADY_EXISTS',
-          message: 'Player already exists',
-          playerId: playerData.id
-        }))
+        return yield* Effect.fail(
+          PlayerError({
+            reason: 'PLAYER_ALREADY_EXISTS',
+            message: 'Player already exists',
+            playerId: playerData.id,
+          })
+        )
       }
 
       // Save to database
       yield* database.save(playerData).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'DATABASE_ERROR',
-          message: 'Failed to save player',
-          playerId: playerData.id,
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'DATABASE_ERROR',
+            message: 'Failed to save player',
+            playerId: playerData.id,
+            cause: error,
+          })
+        )
       )
 
       // Cache locally
@@ -980,20 +947,24 @@ const makePlayerService = Effect.gen(function* () {
 
       // Load from database
       const playerOption = yield* database.load(id).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'DATABASE_ERROR',
-          message: 'Failed to load player',
-          playerId: id,
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'DATABASE_ERROR',
+            message: 'Failed to load player',
+            playerId: id,
+            cause: error,
+          })
+        )
       )
 
       if (Option.isNone(playerOption)) {
-        return yield* Effect.fail(PlayerError({
-          reason: 'PLAYER_NOT_FOUND',
-          message: 'Player not found',
-          playerId: id
-        }))
+        return yield* Effect.fail(
+          PlayerError({
+            reason: 'PLAYER_NOT_FOUND',
+            message: 'Player not found',
+            playerId: id,
+          })
+        )
       }
 
       const player = playerOption.value
@@ -1008,22 +979,26 @@ const makePlayerService = Effect.gen(function* () {
 
       // Validate updated player
       const validatedPlayer = yield* Schema.decodeUnknown(PlayerSchema)(updatedPlayer).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'INVALID_DATA',
-          message: 'Invalid update data',
-          playerId: id,
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'INVALID_DATA',
+            message: 'Invalid update data',
+            playerId: id,
+            cause: error,
+          })
+        )
       )
 
       // Save to database
       yield* database.save(validatedPlayer).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'DATABASE_ERROR',
-          message: 'Failed to update player',
-          playerId: id,
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'DATABASE_ERROR',
+            message: 'Failed to update player',
+            playerId: id,
+            cause: error,
+          })
+        )
       )
 
       // Update cache
@@ -1034,26 +1009,27 @@ const makePlayerService = Effect.gen(function* () {
   const deletePlayer = (id: PlayerId) =>
     Effect.gen(function* () {
       yield* database.delete(id).pipe(
-        Effect.mapError(error => PlayerError({
-          reason: 'DATABASE_ERROR',
-          message: 'Failed to delete player',
-          playerId: id,
-          cause: error
-        }))
+        Effect.mapError((error) =>
+          PlayerError({
+            reason: 'DATABASE_ERROR',
+            message: 'Failed to delete player',
+            playerId: id,
+            cause: error,
+          })
+        )
       )
 
       players.delete(id)
     })
 
-  const getAllPlayers = () =>
-    Effect.succeed(Array.from(players.values()))
+  const getAllPlayers = () => Effect.succeed(Array.from(players.values()))
 
   return {
     createPlayer,
     getPlayer,
     updatePlayer,
     deletePlayer,
-    getAllPlayers
+    getAllPlayers,
   } satisfies PlayerService
 })
 
@@ -1070,7 +1046,7 @@ const createAndGetPlayer = Effect.gen(function* () {
     position: { x: 0, y: 64, z: 0 },
     health: 100,
     isActive: true,
-    lastUpdate: new Date()
+    lastUpdate: new Date(),
   })
 
   console.log('Created player:', newPlayer)
@@ -1097,7 +1073,7 @@ describe('PlayerService', () => {
   const MockDatabaseService = Layer.succeed(DatabaseService, {
     save: () => Effect.succeed(void 0),
     load: (id) => Effect.succeed(Option.some(mockPlayer)),
-    delete: () => Effect.succeed(void 0)
+    delete: () => Effect.succeed(void 0),
   })
 
   const TestRuntime = Layer.provide(PlayerServiceLive, MockDatabaseService)
@@ -1111,7 +1087,7 @@ describe('PlayerService', () => {
         position: { x: 0, y: 0, z: 0 },
         health: 100,
         isActive: true,
-        lastUpdate: new Date()
+        lastUpdate: new Date(),
       })
 
       expect(player.name).toBe('Test Player')
@@ -1127,7 +1103,7 @@ describe('PlayerService', () => {
       const service = yield* PlayerService
       return yield* service.createPlayer({
         id: '', // Invalid empty ID
-        name: 'Test Player'
+        name: 'Test Player',
       })
     })
 
@@ -1145,6 +1121,7 @@ describe('PlayerService', () => {
 ## 8. Migration Checklist
 
 ### Phase 1: Foundation (Week 1-2)
+
 - [ ] Install Effect-TS dependencies (`effect`, `@effect/schema`, `@effect/platform`)
 - [ ] Configure TypeScript strict mode
 - [ ] Set up basic project structure for schemas and errors
@@ -1152,6 +1129,7 @@ describe('PlayerService', () => {
 - [ ] Define core error types with TaggedError
 
 ### Phase 2: Core Domain (Week 3-4)
+
 - [ ] Migrate all domain interfaces to Schema.Struct
 - [ ] Convert primitive types to branded types
 - [ ] Replace arrays with ReadonlyArray/HashMap where appropriate
@@ -1159,6 +1137,7 @@ describe('PlayerService', () => {
 - [ ] Implement basic service layer with Context
 
 ### Phase 3: Infrastructure (Week 5-6)
+
 - [ ] Migrate database layer to Effect-based operations
 - [ ] Implement resource management with Layer/Scope
 - [ ] Add configuration validation
@@ -1166,6 +1145,7 @@ describe('PlayerService', () => {
 - [ ] Implement caching strategies
 
 ### Phase 4: Optimization & Testing (Week 7-8)
+
 - [ ] Add performance monitoring for critical paths
 - [ ] Implement validation strategies (caching, conditional, timeout)
 - [ ] Write comprehensive test suite with Effect testing patterns
@@ -1173,6 +1153,7 @@ describe('PlayerService', () => {
 - [ ] Performance tune hot paths (game loops, frequent operations)
 
 ### Phase 5: Production Readiness (Week 9-10)
+
 - [ ] Add observability (tracing, metrics)
 - [ ] Implement graceful error handling throughout
 - [ ] Documentation and team training
@@ -1182,6 +1163,7 @@ describe('PlayerService', () => {
 ## 9. Success Metrics
 
 ### Technical Metrics
+
 - **Type Safety**: Zero TypeScript strict mode warnings
 - **Runtime Safety**: All inputs validated at service boundaries
 - **Error Handling**: 100% of errors are typed and trackable
@@ -1189,6 +1171,7 @@ describe('PlayerService', () => {
 - **Test Coverage**: Maintain or improve existing coverage
 
 ### Development Experience
+
 - **Compile-time Error Detection**: Earlier problem discovery
 - **Refactoring Safety**: Confident large-scale changes
 - **API Clarity**: Self-documenting function signatures
@@ -1216,4 +1199,4 @@ The migration effort pays dividends through improved reliability, easier testing
 
 ---
 
-*This guide is based on real-world migration experience from a complex TypeScript game engine to Effect-TS, maintaining performance while dramatically improving type safety and error handling.*
+_This guide is based on real-world migration experience from a complex TypeScript game engine to Effect-TS, maintaining performance while dramatically improving type safety and error handling._

@@ -314,14 +314,14 @@ export type ChunkId = Schema.Schema.Type<typeof ChunkId>
 export const parseChunkId = (chunkId: ChunkId): Option.Option<ChunkCoordinate> =>
   Option.fromNullable(chunkId.match(/^chunk_(-?\d+)_(-?\d+)$/)).pipe(
     Option.flatMap(([, x, z]) =>
-      Option.all([
-        Option.fromNullable(x),
-        Option.fromNullable(z)
-      ]).pipe(
-        Option.map(([xStr, zStr]) => ({
-          x: parseInt(xStr, 10),
-          z: parseInt(zStr, 10),
-        } as ChunkCoordinate))
+      Option.all([Option.fromNullable(x), Option.fromNullable(z)]).pipe(
+        Option.map(
+          ([xStr, zStr]) =>
+            ({
+              x: parseInt(xStr, 10),
+              z: parseInt(zStr, 10),
+            }) as ChunkCoordinate
+        )
       )
     )
   )
@@ -343,8 +343,7 @@ export const IdOps = {
   generatePlayerId: (): PlayerId => createPlayerId(),
 
   // ブロックIDバリデーション
-  validateBlockId: (id: string): Effect.Effect<BlockId, Schema.ParseError> =>
-    Schema.decodeUnknown(BlockId)(id),
+  validateBlockId: (id: string): Effect.Effect<BlockId, Schema.ParseError> => Schema.decodeUnknown(BlockId)(id),
 
   // チャンクID生成（型安全）
   createChunkId: (x: number, z: number): ChunkId => {
@@ -353,19 +352,15 @@ export const IdOps = {
   },
 
   // 座標からチャンクIDへの変換
-  coordsToChunkId: (coords: ChunkCoordinate): ChunkId =>
-    IdOps.createChunkId(coords.x, coords.z),
+  coordsToChunkId: (coords: ChunkCoordinate): ChunkId => IdOps.createChunkId(coords.x, coords.z),
 
   // アイテムIDの正規化
   normalizeItemId: (rawId: string): Effect.Effect<ItemId, Schema.ParseError> =>
     Schema.decodeUnknown(ItemId)(rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_')),
 
   // 複数IDの一括バリデーション
-  validateIds: <T extends string>(
-    schema: Schema.Schema<T>,
-    ids: string[]
-  ): Effect.Effect<T[], Schema.ParseError[]> =>
-    Effect.all(ids.map(id => Schema.decodeUnknown(schema)(id))),
+  validateIds: <T extends string>(schema: Schema.Schema<T>, ids: string[]): Effect.Effect<T[], Schema.ParseError[]> =>
+    Effect.all(ids.map((id) => Schema.decodeUnknown(schema)(id))),
 } as const
 // [/LIVE_EXAMPLE]
 ```

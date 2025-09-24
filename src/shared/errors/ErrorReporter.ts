@@ -40,7 +40,7 @@ export const ErrorReporter = {
       if (typeof error === 'string') return error
       if (typeof error === 'number') return String(error)
       if (typeof error === 'boolean') return String(error)
-      
+
       // オブジェクトの場合は従来通りJSONレポートを作成
       return pipe(
         Effect.clockWith((clock) => clock.currentTimeMillis),
