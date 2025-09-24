@@ -11,11 +11,11 @@ export type InputContextError = Schema.Schema.Type<typeof InputContextErrorSchem
 
 // 入力優先度（高い値ほど優先）
 export const InputPrioritySchema = Schema.Union(
-  Schema.Literal('GUI'),      // 優先度: 100
-  Schema.Literal('CHAT'),     // 優先度: 90
+  Schema.Literal('GUI'), // 優先度: 100
+  Schema.Literal('CHAT'), // 優先度: 90
   Schema.Literal('SETTINGS'), // 優先度: 80
-  Schema.Literal('GAME'),     // 優先度: 50
-  Schema.Literal('DEFAULT')   // 優先度: 0
+  Schema.Literal('GAME'), // 優先度: 50
+  Schema.Literal('DEFAULT') // 優先度: 0
 )
 
 export type InputPriority = Schema.Schema.Type<typeof InputPrioritySchema>
@@ -81,7 +81,14 @@ const DEFAULT_CONTEXTS: InputContext[] = [
     priority: 'SETTINGS',
     active: false,
     consumeInput: true,
-    allowedEvents: ['KeyPressed', 'KeyReleased', 'MouseButtonPressed', 'MouseButtonReleased', 'MouseMoved', 'MouseWheel'],
+    allowedEvents: [
+      'KeyPressed',
+      'KeyReleased',
+      'MouseButtonPressed',
+      'MouseButtonReleased',
+      'MouseMoved',
+      'MouseWheel',
+    ],
   },
 ]
 
@@ -89,16 +96,15 @@ const DEFAULT_CONTEXTS: InputContext[] = [
 export const makeInputContextManager = Effect.gen(function* () {
   // コンテキストマップ
   const contextsRef = yield* Ref.make<Map<string, InputContext>>(
-    new Map(DEFAULT_CONTEXTS.map(ctx => [ctx.name, ctx]))
+    new Map(DEFAULT_CONTEXTS.map((ctx) => [ctx.name, ctx]))
   )
 
   // コンテキスト登録
   const registerContext = (context: InputContext): Effect.Effect<void, InputContextError> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      yield* Effect.when(
-        Effect.succeed(contexts.has(context.name)),
-        () => Effect.fail(
+      yield* Effect.when(Effect.succeed(contexts.has(context.name)), () =>
+        Effect.fail(
           InputContextError.make({
             message: `Context already exists: ${context.name}`,
             context: context.name,
@@ -117,9 +123,8 @@ export const makeInputContextManager = Effect.gen(function* () {
   const unregisterContext = (name: string): Effect.Effect<void, InputContextError> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      yield* Effect.when(
-        Effect.succeed(!contexts.has(name)),
-        () => Effect.fail(
+      yield* Effect.when(Effect.succeed(!contexts.has(name)), () =>
+        Effect.fail(
           InputContextError.make({
             message: `Context not found: ${name}`,
             context: name,
@@ -146,7 +151,7 @@ export const makeInputContextManager = Effect.gen(function* () {
               const newMap = new Map(map)
               newMap.set(name, { ...context, active: true })
               return newMap
-            }
+            },
           })
         )
       )
@@ -166,7 +171,7 @@ export const makeInputContextManager = Effect.gen(function* () {
               const newMap = new Map(map)
               newMap.set(name, { ...context, active: false })
               return newMap
-            }
+            },
           })
         )
       )
@@ -178,40 +183,32 @@ export const makeInputContextManager = Effect.gen(function* () {
   const shouldProcessInput = (event: InputEvent, currentPriority: InputPriority): Effect.Effect<boolean, never> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      const activeContexts = Array.from(contexts.values()).filter(ctx => ctx.active)
+      const activeContexts = Array.from(contexts.values()).filter((ctx) => ctx.active)
 
-      yield* Effect.when(
-        Effect.succeed(activeContexts.length === 0),
-        () => Effect.succeed(true)
-      )
+      yield* Effect.when(Effect.succeed(activeContexts.length === 0), () => Effect.succeed(true))
 
       // 優先度でソート（高い順）
-      const sortedContexts = activeContexts.sort((a, b) =>
-        PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority]
-      )
+      const sortedContexts = activeContexts.sort((a, b) => PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority])
 
       // 最高優先度のコンテキストを確認
       return yield* pipe(
         Option.fromNullable(sortedContexts[0]),
         Option.match({
           onNone: () => Effect.succeed(true),
-          onSome: (highestContext) => Effect.gen(function* () {
-            // 現在の優先度より高い優先度のコンテキストがある場合
-            const higherPriority = PRIORITY_VALUES[highestContext.priority] > PRIORITY_VALUES[currentPriority]
-            yield* Effect.when(
-              Effect.succeed(higherPriority && highestContext.consumeInput),
-              () => Effect.succeed(false)
-            )
+          onSome: (highestContext) =>
+            Effect.gen(function* () {
+              // 現在の優先度より高い優先度のコンテキストがある場合
+              const higherPriority = PRIORITY_VALUES[highestContext.priority] > PRIORITY_VALUES[currentPriority]
+              yield* Effect.when(Effect.succeed(higherPriority && highestContext.consumeInput), () =>
+                Effect.succeed(false)
+              )
 
-            // イベントタイプが許可されているか確認
-            return yield* Effect.if(
-              highestContext.allowedEvents.length > 0,
-              {
+              // イベントタイプが許可されているか確認
+              return yield* Effect.if(highestContext.allowedEvents.length > 0, {
                 onTrue: () => Effect.succeed(highestContext.allowedEvents.includes(event._tag)),
-                onFalse: () => Effect.succeed(true)
-              }
-            )
-          })
+                onFalse: () => Effect.succeed(true),
+              })
+            }),
         })
       )
 
@@ -222,25 +219,22 @@ export const makeInputContextManager = Effect.gen(function* () {
   const getActiveContexts = (): Effect.Effect<ReadonlyArray<InputContext>, InputContextError> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      return Array.from(contexts.values()).filter(ctx => ctx.active)
+      return Array.from(contexts.values()).filter((ctx) => ctx.active)
     })
 
   // 最高優先度コンテキスト取得
   const getHighestPriorityContext = (): Effect.Effect<InputContext | null, InputContextError> =>
     Effect.gen(function* () {
       const activeContexts = yield* getActiveContexts()
-      return yield* pipe(
-        activeContexts.length === 0,
-        empty => Effect.if(empty, {
+      return yield* pipe(activeContexts.length === 0, (empty) =>
+        Effect.if(empty, {
           onTrue: () => Effect.succeed(null),
-          onFalse: () => Effect.gen(function* () {
+          onFalse: () =>
+            Effect.gen(function* () {
+              const sorted = activeContexts.sort((a, b) => PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority])
 
-      const sorted = activeContexts.sort((a, b) =>
-        PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority]
-      )
-
-            return sorted[0] || null
-          })
+              return sorted[0] || null
+            }),
         })
       )
     })
@@ -265,7 +259,7 @@ export const makeInputContextManager = Effect.gen(function* () {
               const newMap = new Map(map)
               newMap.set(name, { ...context, priority })
               return newMap
-            }
+            },
           })
         )
       )
@@ -288,7 +282,4 @@ export const makeInputContextManager = Effect.gen(function* () {
 })
 
 // InputContextManagerレイヤー
-export const InputContextManagerLive = Layer.effect(
-  InputContextManager,
-  makeInputContextManager
-)
+export const InputContextManagerLive = Layer.effect(InputContextManager, makeInputContextManager)

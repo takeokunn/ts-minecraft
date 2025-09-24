@@ -282,10 +282,7 @@ export const makeInputManager = Effect.gen(function* () {
 
 // InputManagerレイヤー
 export const InputManagerLive = Layer.effect(InputManager, makeInputManager).pipe(
-  Layer.provide(Layer.mergeAll(
-    KeyBindingServiceLive,
-    InputContextManagerLive,
-    GamepadServiceLive,
-    TouchInputServiceLive
-  ))
+  Layer.provide(
+    Layer.mergeAll(KeyBindingServiceLive, InputContextManagerLive, GamepadServiceLive, TouchInputServiceLive)
+  )
 )

@@ -23,11 +23,7 @@ export const DeadzoneValue = Brand.nominal<DeadzoneValue>()
 export const DeviceTypeSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('Keyboard'),
-    layout: Schema.Union(
-      Schema.Literal('QWERTY'),
-      Schema.Literal('AZERTY'),
-      Schema.Literal('Dvorak')
-    ),
+    layout: Schema.Union(Schema.Literal('QWERTY'), Schema.Literal('AZERTY'), Schema.Literal('Dvorak')),
   }),
   Schema.Struct({
     _tag: Schema.Literal('Mouse'),
@@ -61,44 +57,40 @@ export const InputEventSchema = Schema.TaggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('KeyPressed'),
     keyCode: Schema.String.pipe(Schema.brand('KeyCode')),
-    modifiers: Schema.optional(Schema.Struct({
-      shift: Schema.Boolean,
-      ctrl: Schema.Boolean,
-      alt: Schema.Boolean,
-      meta: Schema.Boolean,
-    })),
+    modifiers: Schema.optional(
+      Schema.Struct({
+        shift: Schema.Boolean,
+        ctrl: Schema.Boolean,
+        alt: Schema.Boolean,
+        meta: Schema.Boolean,
+      })
+    ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
     _tag: Schema.Literal('KeyReleased'),
     keyCode: Schema.String.pipe(Schema.brand('KeyCode')),
-    modifiers: Schema.optional(Schema.Struct({
-      shift: Schema.Boolean,
-      ctrl: Schema.Boolean,
-      alt: Schema.Boolean,
-      meta: Schema.Boolean,
-    })),
+    modifiers: Schema.optional(
+      Schema.Struct({
+        shift: Schema.Boolean,
+        ctrl: Schema.Boolean,
+        alt: Schema.Boolean,
+        meta: Schema.Boolean,
+      })
+    ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   // マウスイベント
   Schema.Struct({
     _tag: Schema.Literal('MouseButtonPressed'),
-    button: Schema.Union(
-      Schema.Literal('left'),
-      Schema.Literal('right'),
-      Schema.Literal('middle')
-    ),
+    button: Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle')),
     x: Schema.Number,
     y: Schema.Number,
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
     _tag: Schema.Literal('MouseButtonReleased'),
-    button: Schema.Union(
-      Schema.Literal('left'),
-      Schema.Literal('right'),
-      Schema.Literal('middle')
-    ),
+    button: Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle')),
     x: Schema.Number,
     y: Schema.Number,
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
@@ -139,32 +131,38 @@ export const InputEventSchema = Schema.TaggedUnion('_tag', [
   // タッチイベント
   Schema.Struct({
     _tag: Schema.Literal('TouchStart'),
-    touches: Schema.Array(Schema.Struct({
-      identifier: Schema.Number,
-      x: Schema.Number,
-      y: Schema.Number,
-      force: Schema.optional(Schema.Number),
-    })),
+    touches: Schema.Array(
+      Schema.Struct({
+        identifier: Schema.Number,
+        x: Schema.Number,
+        y: Schema.Number,
+        force: Schema.optional(Schema.Number),
+      })
+    ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
     _tag: Schema.Literal('TouchMove'),
-    touches: Schema.Array(Schema.Struct({
-      identifier: Schema.Number,
-      x: Schema.Number,
-      y: Schema.Number,
-      force: Schema.optional(Schema.Number),
-    })),
+    touches: Schema.Array(
+      Schema.Struct({
+        identifier: Schema.Number,
+        x: Schema.Number,
+        y: Schema.Number,
+        force: Schema.optional(Schema.Number),
+      })
+    ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
   Schema.Struct({
     _tag: Schema.Literal('TouchEnd'),
-    touches: Schema.Array(Schema.Struct({
-      identifier: Schema.Number,
-      x: Schema.Number,
-      y: Schema.Number,
-      force: Schema.optional(Schema.Number),
-    })),
+    touches: Schema.Array(
+      Schema.Struct({
+        identifier: Schema.Number,
+        x: Schema.Number,
+        y: Schema.Number,
+        force: Schema.optional(Schema.Number),
+      })
+    ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
   }),
 ])
@@ -180,12 +178,14 @@ export const InputStateSchema = Schema.Struct({
   mouseDelta: Schema.Struct({ deltaX: Schema.Number, deltaY: Schema.Number }),
   gamepadAxes: Schema.Array(Schema.Number),
   gamepadButtons: Schema.instanceOf(Set<ButtonId>),
-  touchPoints: Schema.Array(Schema.Struct({
-    identifier: Schema.Number,
-    x: Schema.Number,
-    y: Schema.Number,
-    force: Schema.optional(Schema.Number),
-  })),
+  touchPoints: Schema.Array(
+    Schema.Struct({
+      identifier: Schema.Number,
+      x: Schema.Number,
+      y: Schema.Number,
+      force: Schema.optional(Schema.Number),
+    })
+  ),
   timestamp: Schema.Number,
 })
 
@@ -253,20 +253,20 @@ export const InputMappingSchema = Schema.Struct({
       threshold: Schema.Number.pipe(Schema.between(0, 1)),
     })
   ),
-  mouseButtons: Schema.Array(
-    Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle'))
+  mouseButtons: Schema.Array(Schema.Union(Schema.Literal('left'), Schema.Literal('right'), Schema.Literal('middle'))),
+  touchGestures: Schema.Array(
+    Schema.Union(
+      Schema.Literal('tap'),
+      Schema.Literal('doubleTap'),
+      Schema.Literal('hold'),
+      Schema.Literal('swipeUp'),
+      Schema.Literal('swipeDown'),
+      Schema.Literal('swipeLeft'),
+      Schema.Literal('swipeRight'),
+      Schema.Literal('pinch'),
+      Schema.Literal('spread')
+    )
   ),
-  touchGestures: Schema.Array(Schema.Union(
-    Schema.Literal('tap'),
-    Schema.Literal('doubleTap'),
-    Schema.Literal('hold'),
-    Schema.Literal('swipeUp'),
-    Schema.Literal('swipeDown'),
-    Schema.Literal('swipeLeft'),
-    Schema.Literal('swipeRight'),
-    Schema.Literal('pinch'),
-    Schema.Literal('spread')
-  )),
 })
 
 export type InputMapping = Schema.Schema.Type<typeof InputMappingSchema>

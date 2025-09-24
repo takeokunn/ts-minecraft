@@ -154,14 +154,17 @@ export const makeKeyBindingService = Effect.gen(function* () {
           const matches = yield* checkMappingMatch(event, mapping)
           return yield* Effect.if(matches, {
             onTrue: () => Effect.succeed(Option.some(actionName)),
-            onFalse: () => Effect.succeed(Option.none())
+            onFalse: () => Effect.succeed(Option.none()),
           })
         })
       ).pipe(
-        Effect.map(results =>
-          results.filter(Option.isSome).map(opt => Option.getOrNull(opt)).filter(x => x !== null)
+        Effect.map((results) =>
+          results
+            .filter(Option.isSome)
+            .map((opt) => Option.getOrNull(opt))
+            .filter((x) => x !== null)
         ),
-        Effect.map(filtered => actions.push(...filtered))
+        Effect.map((filtered) => actions.push(...filtered))
       )
 
       return actions
@@ -170,23 +173,18 @@ export const makeKeyBindingService = Effect.gen(function* () {
   // マッピングマッチ確認
   const checkMappingMatch = (event: InputEvent, mapping: InputMapping): Effect.Effect<boolean, never> =>
     Match.value(event).pipe(
-      Match.when({ _tag: 'KeyPressed' }, ({ keyCode }) =>
-        Effect.succeed(mapping.keys.includes(keyCode))
-      ),
-      Match.when({ _tag: 'MouseButtonPressed' }, ({ button }) =>
-        Effect.succeed(mapping.mouseButtons.includes(button))
-      ),
+      Match.when({ _tag: 'KeyPressed' }, ({ keyCode }) => Effect.succeed(mapping.keys.includes(keyCode))),
+      Match.when({ _tag: 'MouseButtonPressed' }, ({ button }) => Effect.succeed(mapping.mouseButtons.includes(button))),
       Match.when({ _tag: 'GamepadButtonPressed' }, ({ buttonId }) =>
         Effect.succeed(mapping.gamepadButtons.includes(buttonId))
       ),
       Match.when({ _tag: 'GamepadAxisMove' }, ({ axisId, value }) =>
         Effect.succeed(
-          mapping.gamepadAxes.some(axis => {
+          mapping.gamepadAxes.some((axis) => {
             if (axis.axis !== axisId) return false
             const meetsThreshold = Math.abs(value) >= axis.threshold
             const correctDirection =
-              (axis.direction === 'positive' && value > 0) ||
-              (axis.direction === 'negative' && value < 0)
+              (axis.direction === 'positive' && value > 0) || (axis.direction === 'negative' && value < 0)
             return meetsThreshold && correctDirection
           })
         )
@@ -199,9 +197,8 @@ export const makeKeyBindingService = Effect.gen(function* () {
     Effect.gen(function* () {
       // コンフリクト検出
       const conflicts = yield* detectConflicts(mapping)
-      yield* Effect.when(
-        Effect.succeed(conflicts.length > 0),
-        () => Effect.fail(
+      yield* Effect.when(Effect.succeed(conflicts.length > 0), () =>
+        Effect.fail(
           KeyBindingError.make({
             message: `Binding conflicts detected`,
             conflictingAction: conflicts[0],
@@ -232,8 +229,7 @@ export const makeKeyBindingService = Effect.gen(function* () {
     })
 
   // 全バインディング取得
-  const getAllBindings = (): Effect.Effect<Record<string, InputMapping>, KeyBindingError> =>
-    Ref.get(mappingsRef)
+  const getAllBindings = (): Effect.Effect<Record<string, InputMapping>, KeyBindingError> => Ref.get(mappingsRef)
 
   // コンフリクト検出
   const detectConflicts = (mapping: InputMapping): Effect.Effect<ReadonlyArray<string>, KeyBindingError> =>
@@ -241,37 +237,37 @@ export const makeKeyBindingService = Effect.gen(function* () {
       const mappings = yield* Ref.get(mappingsRef)
       const conflicts: string[] = []
 
-      yield* Effect.forEach(
-        Object.entries(mappings),
-        ([actionName, existing]) => Effect.gen(function* () {
+      yield* Effect.forEach(Object.entries(mappings), ([actionName, existing]) =>
+        Effect.gen(function* () {
           return yield* Effect.if(Effect.succeed(actionName === mapping.actionName), {
             onTrue: () => Effect.succeed(Option.none<string>()),
-            onFalse: () => Effect.gen(function* () {
-              const keyConflict = mapping.keys.some(key => existing.keys.includes(key))
-              const mouseConflict = mapping.mouseButtons.some(btn => existing.mouseButtons.includes(btn))
-              const gamepadConflict = mapping.gamepadButtons.some(btn => existing.gamepadButtons.includes(btn))
+            onFalse: () =>
+              Effect.gen(function* () {
+                const keyConflict = mapping.keys.some((key) => existing.keys.includes(key))
+                const mouseConflict = mapping.mouseButtons.some((btn) => existing.mouseButtons.includes(btn))
+                const gamepadConflict = mapping.gamepadButtons.some((btn) => existing.gamepadButtons.includes(btn))
 
-              return yield* Effect.succeed(
-                keyConflict || mouseConflict || gamepadConflict
-                  ? Option.some(actionName)
-                  : Option.none()
-              )
-            })
+                return yield* Effect.succeed(
+                  keyConflict || mouseConflict || gamepadConflict ? Option.some(actionName) : Option.none()
+                )
+              }),
           })
         })
       ).pipe(
-        Effect.map(results =>
-          results.filter(Option.isSome).map(opt => Option.getOrNull(opt)).filter(x => x !== null)
+        Effect.map((results) =>
+          results
+            .filter(Option.isSome)
+            .map((opt) => Option.getOrNull(opt))
+            .filter((x) => x !== null)
         ),
-        Effect.map(filtered => conflicts.push(...filtered))
+        Effect.map((filtered) => conflicts.push(...filtered))
       )
 
       return conflicts
     })
 
   // デフォルトにリセット
-  const resetToDefaults = (): Effect.Effect<void, KeyBindingError> =>
-    Ref.set(mappingsRef, DEFAULT_MAPPINGS)
+  const resetToDefaults = (): Effect.Effect<void, KeyBindingError> => Ref.set(mappingsRef, DEFAULT_MAPPINGS)
 
   return {
     loadScheme,
@@ -287,7 +283,4 @@ export const makeKeyBindingService = Effect.gen(function* () {
 })
 
 // KeyBindingServiceレイヤー
-export const KeyBindingServiceLive = Layer.effect(
-  KeyBindingService,
-  makeKeyBindingService
-)
+export const KeyBindingServiceLive = Layer.effect(KeyBindingService, makeKeyBindingService)
