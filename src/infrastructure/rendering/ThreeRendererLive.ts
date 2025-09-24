@@ -313,16 +313,32 @@ const createThreeRendererService = (
 
       // WebGL2サポートの型安全なチェックをMatch.valueで実装
       const isWebGL2 = pipe(
-        Match.value(typeof WebGL2RenderingContext),
-        Match.when('undefined', () => false),
-        Match.orElse(() => {
-          const context = renderer!.getContext()
-          return (
-            Predicate.isRecord(context) &&
-            'constructor' in context &&
-            context.constructor.name === 'WebGL2RenderingContext'
+        Effect.sync(() => {
+          // Check if WebGL2RenderingContext exists globally
+          const hasWebGL2 = typeof WebGL2RenderingContext !== 'undefined'
+          return pipe(
+            Match.value(hasWebGL2),
+            Match.when(false, () => false),
+            Match.when(true, () => {
+              const context = renderer!.getContext()
+              // Check if context is WebGL2 by examining its constructor
+              return pipe(
+                Option.fromNullable(context),
+                Option.match({
+                  onNone: () => false,
+                  onSome: (ctx) =>
+                    Predicate.isRecord(ctx) &&
+                    'constructor' in ctx &&
+                    typeof ctx.constructor === 'function' &&
+                    (ctx.constructor.name === 'WebGL2RenderingContext' ||
+                     ctx.constructor.name === 'MockWebGL2RenderingContext'),
+                })
+              )
+            }),
+            Match.exhaustive
           )
-        })
+        }),
+        Effect.runSync
       )
 
       yield* pipe(
