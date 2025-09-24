@@ -70,8 +70,7 @@ export const ErrorRecovery = {
                   () => {
                     circuitOpen = false
                     failureCount = 0
-                    return true
-                  }
+                              }
                 ),
                 Match.orElse(() => false)
               ),

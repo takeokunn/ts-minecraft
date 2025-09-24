@@ -180,7 +180,7 @@ describe('InventoryService', () => {
       )
 
       expect(result._tag).toBe('partial')
-      if (result._tag === 'partial') {
+      yield* pipe(result._tag === 'partial', Match.value, Match.when(true, () => Effect.sync(() => {
         expect(result.addedItems).toBe(64)
         expect(result.remainingItems).toBe(36)
       }

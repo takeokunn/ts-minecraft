@@ -11,10 +11,13 @@ describe('ErrorRecovery', () => {
         let attempts = 0
         const flakyOperation = Effect.gen(function* () {
           attempts++
-          if (attempts < maxAttempts) {
-            return yield* Effect.fail(new Error(`Attempt ${attempts} failed`))
-          }
-          return `Success after ${attempts} attempts`
+          return yield* pipe(
+            attempts < maxAttempts,
+            Match.value,
+            Match.when(true, () => Effect.fail(new Error(`Attempt ${attempts} failed`))),
+            Match.when(false, () => Effect.succeed(`Success after ${attempts} attempts`)),
+            Match.exhaustive
+          )
         })
 
         const result = yield* ErrorRecovery.withRetry(flakyOperation, maxAttempts)

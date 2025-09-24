@@ -253,23 +253,29 @@ export const calculateBlockBreakTime = (
       Match.orElse(() => null)
     )
 
-    if (initialBreakTime !== null) {
-      return initialBreakTime
-    }
+    return yield* pipe(
+      initialBreakTime,
+      Option.fromNullable,
+      Option.match({
+        onSome: (time) => Effect.succeed(time),
+        onNone: () =>
+          Effect.gen(function* () {
+            const actualToolType = toolType ?? 'hand'
+            const toolEfficiency = getToolEfficiency(actualToolType)
+            const affinity = calculateToolBlockAffinity(actualToolType, blockId)
 
-    const actualToolType = toolType ?? 'hand'
-    const toolEfficiency = getToolEfficiency(actualToolType)
-    const affinity = calculateToolBlockAffinity(actualToolType, blockId)
+            // Minecraft式破壊時間計算
+            const baseBreakTime = hardness * 1.5
+            const toolSpeed = toolEfficiency.baseSpeed * affinity
+            let breakTime = baseBreakTime / toolSpeed
 
-    // Minecraft式破壊時間計算
-    const baseBreakTime = hardness * 1.5
-    const toolSpeed = toolEfficiency.baseSpeed * affinity
-    let breakTime = baseBreakTime / toolSpeed
+            // 実用的な範囲に制限
+            breakTime = Math.max(0.05, Math.min(60.0, breakTime))
 
-    // 実用的な範囲に制限
-    breakTime = Math.max(0.05, Math.min(60.0, breakTime))
-
-    return breakTime
+            return breakTime
+          }),
+      })
+    )
   })
 
 // =============================================================================

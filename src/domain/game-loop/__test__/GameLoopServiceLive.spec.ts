@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from '@effect/vitest'
-import { Effect, Either, TestClock, TestContext, Duration, Fiber } from 'effect'
+import { Effect, Either, TestClock, TestContext, Duration, Fiber, pipe, Match, Option } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import { GameLoopServiceLive } from '../GameLoopServiceLive'
 import type { FrameInfo, GameLoopConfig } from '../types'
@@ -25,13 +25,16 @@ describe('GameLoopServiceLive', () => {
       // 即座にコールバックを実行（タイムアウトによるデッドロックを防ぐ）
       queueMicrotask(() => {
         const cb = rafCallbacks.get(id)
-        if (cb) {
-          try {
-            cb(performance.now())
-          } catch (error) {
-            console.error('Mock RAF callback error:', error)
-          }
-        }
+        pipe(
+          Option.fromNullable(cb),
+          Option.match({
+            onNone: () => {},
+            onSome: (callback) => {
+              // ゲームループテストではシンプルにコールバックを実行
+              callback(performance.now())
+            },
+          })
+        )
       })
       return id
     })
@@ -89,10 +92,17 @@ describe('GameLoopServiceLive', () => {
         const result = yield* Effect.either(gameLoop.initialize())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('GameLoopInitError')
-          expect(result.left.reason).toContain('running')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(result.left._tag).toBe('GameLoopInitError')
+                expect(result.left.reason).toContain('running')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
 
@@ -154,10 +164,17 @@ describe('GameLoopServiceLive', () => {
         const result = yield* Effect.either(gameLoop.pause())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('GameLoopStateError')
-          expect(result.left.attemptedTransition).toBe('pause')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(result.left._tag).toBe('GameLoopStateError')
+                expect(result.left.attemptedTransition).toBe('pause')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
 
@@ -168,10 +185,17 @@ describe('GameLoopServiceLive', () => {
         const result = yield* Effect.either(gameLoop.resume())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('GameLoopStateError')
-          expect(result.left.attemptedTransition).toBe('resume')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(result.left._tag).toBe('GameLoopStateError')
+                expect(result.left.attemptedTransition).toBe('resume')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
 
@@ -262,10 +286,17 @@ describe('GameLoopServiceLive', () => {
         const result = yield* Effect.either(gameLoop.tick())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('GameLoopRuntimeError')
-          expect(result.left.message).toContain('callbacks')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(result.left._tag).toBe('GameLoopRuntimeError')
+                expect(result.left.message).toContain('callbacks')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
   })
@@ -369,10 +400,17 @@ describe('GameLoopServiceLive', () => {
         const result = yield* Effect.either(gameLoop.getPerformanceMetrics())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('GameLoopPerformanceError')
-          expect(result.left.message).toContain('No performance data')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(result.left._tag).toBe('GameLoopPerformanceError')
+                expect(result.left.message).toContain('No performance data')
+              }),
+            onRight: () => Effect.succeed(undefined),
+          })
+        )
       }).pipe(Effect.provide(GameLoopServiceLive))
     )
 

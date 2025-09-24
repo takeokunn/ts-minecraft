@@ -132,16 +132,21 @@ describe('ChunkData', () => {
         ]
 
         invalidCases.forEach(([x, y, z]) => {
-          if (x !== undefined && y !== undefined && z !== undefined) {
-            expect(() =>
-              getBlockIndex(
-                BrandedTypes.createWorldCoordinate(x),
-                BrandedTypes.createWorldCoordinate(y),
-                BrandedTypes.createWorldCoordinate(z)
-              )
-            ).toThrow()
-          }
-        })
+          yield* pipe(
+            x !== undefined && y !== undefined && z !== undefined,
+            Match.value,
+            Match.when(true, () => Effect.sync(() => {
+              expect(() =>
+                getBlockIndex(
+                  BrandedTypes.createWorldCoordinate(x),
+                  BrandedTypes.createWorldCoordinate(y),
+                  BrandedTypes.createWorldCoordinate(z)
+                )
+              ).toThrow()
+            })),
+            Match.when(false, () => Effect.succeed(undefined)),
+            Match.exhaustive
+          )
       })
     )
 
@@ -495,12 +500,17 @@ describe('ChunkData', () => {
         ]
 
         invalidCases.forEach(([x, z]) => {
-          if (x !== undefined && z !== undefined) {
-            expect(() =>
-              getHeight(testChunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(z))
-            ).toThrow()
-          }
-        })
+          yield* pipe(
+            x !== undefined && z !== undefined,
+            Match.value,
+            Match.when(true, () => Effect.sync(() => {
+              expect(() =>
+                getHeight(testChunk, BrandedTypes.createWorldCoordinate(x), BrandedTypes.createWorldCoordinate(z))
+              ).toThrow()
+            })),
+            Match.when(false, () => Effect.succeed(undefined)),
+            Match.exhaustive
+          )
       })
     )
   })

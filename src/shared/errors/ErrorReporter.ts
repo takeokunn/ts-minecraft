@@ -194,11 +194,16 @@ export const ErrorReporter = {
     pipe(
       Match.value(error),
       Match.when(
-        (e: unknown): e is Error => e instanceof Error,
+        (e: unknown): e is Error =>
+          Predicate.isRecord(e) &&
+          'message' in e &&
+          'name' in e &&
+          Predicate.isString(e.name) &&
+          Predicate.isString(e.message),
         (e: Error) => e.stack
       ),
       Match.when(
-        (e: unknown): e is { stack: unknown } => e !== null && typeof e === 'object' && 'stack' in e,
+        (e: unknown): e is { stack: unknown } => Predicate.isRecord(e) && 'stack' in e,
         (e: { stack: unknown }) => String(e.stack)
       ),
       Match.orElse(() => undefined)

@@ -2,6 +2,7 @@
  * @fileoverview Block Interaction Domain Constants and Type Guards
  */
 
+import { Predicate } from 'effect'
 import type { Vector3, BlockFace, ToolType } from './InteractionTypes'
 
 // =============================================================================
@@ -96,14 +97,14 @@ export const InteractionTypeGuards = {
    */
   isVector3: (value: unknown): value is Vector3 => {
     return (
-      typeof value === 'object' &&
+      Predicate.isRecord(value) &&
       value !== null &&
       'x' in value &&
-      typeof (value as any).x === 'number' &&
+      Predicate.isNumber((value as any).x) &&
       'y' in value &&
-      typeof (value as any).y === 'number' &&
+      Predicate.isNumber((value as any).y) &&
       'z' in value &&
-      typeof (value as any).z === 'number'
+      Predicate.isNumber((value as any).z)
     )
   },
 
@@ -111,14 +112,14 @@ export const InteractionTypeGuards = {
    * BlockFace型かどうかをチェック
    */
   isBlockFace: (value: unknown): value is BlockFace => {
-    return typeof value === 'string' && ['top', 'bottom', 'north', 'south', 'east', 'west'].includes(value)
+    return Predicate.isString(value) && ['top', 'bottom', 'north', 'south', 'east', 'west'].includes(value)
   },
 
   /**
    * ToolType型かどうかをチェック
    */
   isToolType: (value: unknown): value is ToolType => {
-    return typeof value === 'string' && ['pickaxe', 'shovel', 'axe', 'hoe', 'sword', 'shears', 'hand'].includes(value)
+    return Predicate.isString(value) && ['pickaxe', 'shovel', 'axe', 'hoe', 'sword', 'shears', 'hand'].includes(value)
   },
 } as const
 

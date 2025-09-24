@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe, Option } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Option, Stream } from 'effect'
 import { Schema } from '@effect/schema'
 import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
@@ -148,42 +148,102 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
         // チャンクの実際の高さを計算（最適化）
         const maxHeight = Math.min(320, Math.floor(chunkData.blocks.length / (16 * 16)) - 64)
 
-        for (let x = 0; x < 16; x++) {
-          for (let z = 0; z < 16; z++) {
-            for (let y = -64; y < maxHeight; y++) {
+        // 座標の組み合わせをStreamで生成（nested loops を関数型で置き換え）
+        yield* pipe(
+          Stream.range(0, 15), // x: 0-15
+          Stream.flatMap((x) =>
+            pipe(
+              Stream.range(0, 15), // z: 0-15
+              Stream.flatMap((z) =>
+                pipe(
+                  Stream.range(-64, maxHeight - 1), // y: -64 to maxHeight-1
+                  Stream.map((y) => ({ x, y, z }))
+                )
+              )
+            )
+          ),
+          Stream.mapEffect(({ x, y, z }) =>
+            Effect.gen(function* () {
               const index = getBlockIndex(x, y, z)
 
-              // 範囲外チェック（安全性）
-              if (index >= newBlocks.length) continue
+              // 範囲外チェック（安全性）- continue相当をfilterで実現
+              return yield* pipe(
+                index >= newBlocks.length,
+                Match.value,
+                Match.when(true, () => Effect.succeed(Option.none())), // continue相当
+                Match.when(false, () =>
+                  Effect.gen(function* () {
+                    const currentBlock = newBlocks[index] ?? 0
 
-              const currentBlock = newBlocks[index] ?? 0
+                    // 石ブロックの場合のみ鉱石生成を検討
+                    return yield* pipe(
+                      currentBlock === STONE_ID,
+                      Match.value,
+                      Match.when(false, () => Effect.succeed(Option.none())), // スキップ
+                      Match.when(true, () =>
+                        Effect.gen(function* () {
+                          const worldX = chunkData.position.x * 16 + x
+                          const worldZ = chunkData.position.z * 16 + z
+                          const position = { x: worldX, y, z: worldZ }
 
-              // 石ブロックの場合のみ鉱石生成を検討
-              if (currentBlock === STONE_ID) {
-                const worldX = chunkData.position.x * 16 + x
-                const worldZ = chunkData.position.z * 16 + z
-                const position = { x: worldX, y, z: worldZ }
+                          // 各鉱石タイプをチェック - for loopをStreamで関数型変換
+                          return yield* pipe(
+                            Stream.fromIterable(config.ores),
+                            Stream.mapEffect((oreConfig) =>
+                              Effect.gen(function* () {
+                                // 高度範囲チェック（早期リターン）
+                                return yield* pipe(
+                                  y < oreConfig.minY || y > oreConfig.maxY,
+                                  Match.value,
+                                  Match.when(true, () => Effect.succeed(Option.none())), // continue相当
+                                  Match.when(false, () =>
+                                    Effect.gen(function* () {
+                                      // 鉱石密度計算
+                                      const density = yield* calculateOreDensityInternal(
+                                        config,
+                                        oreConfig.type,
+                                        position
+                                      )
 
-                // 各鉱石タイプをチェック（最適化: 早期終了）
-                for (const oreConfig of config.ores) {
-                  // 高度範囲チェック（早期リターン）
-                  if (y < oreConfig.minY || y > oreConfig.maxY) {
-                    continue
-                  }
-
-                  // 鉱石密度計算
-                  const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
-
-                  // 生成判定
-                  if (density > oreConfig.rarity) {
-                    newBlocks[index] = oreConfig.blockId
-                    break // 最初にマッチした鉱石を配置して終了
-                  }
-                }
-              }
-            }
-          }
-        }
+                                      // 生成判定
+                                      return yield* pipe(
+                                        density > oreConfig.rarity,
+                                        Match.value,
+                                        Match.when(true, () => Effect.succeed(Option.some(oreConfig))), // 鉱石生成
+                                        Match.when(false, () => Effect.succeed(Option.none())), // 生成しない
+                                        Match.exhaustive
+                                      )
+                                    })
+                                  ),
+                                  Match.exhaustive
+                                )
+                              })
+                            ),
+                            Stream.filterMap((option) => option), // Option.none()を除外
+                            Stream.runHead, // 最初にマッチした鉱石を取得（break相当）
+                            Effect.map(
+                              Option.match({
+                                onNone: () => Option.none(),
+                                onSome: (oreConfig) => {
+                                  newBlocks[index] = oreConfig.blockId
+                                  return Option.some({ index, blockId: oreConfig.blockId })
+                                },
+                              })
+                            )
+                          )
+                        })
+                      ),
+                      Match.exhaustive
+                    )
+                  })
+                ),
+                Match.exhaustive
+              )
+            })
+          ),
+          Stream.filterMap((option) => option), // 変更されたブロックのみ
+          Stream.runDrain // すべて実行
+        )
 
         return {
           ...chunkData,
@@ -199,40 +259,48 @@ const createOreDistribution = (config: OreDistributionConfig): OreDistribution =
 
     getOreAtPosition: (position: Vector3) =>
       Effect.gen(function* () {
-        for (const oreConfig of config.ores) {
-          // 高度範囲チェックと鉱石生成判定
-          const result = yield* pipe(
-            Match.value(position.y >= oreConfig.minY && position.y <= oreConfig.maxY),
-            Match.when(true, () =>
-              Effect.gen(function* () {
-                // 鉱石密度計算（内部関数を使用）
-                const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
+        // for loopをStreamで関数型に変換、早期終了（break）をrunHeadで実現
+        return yield* pipe(
+          Stream.fromIterable(config.ores),
+          Stream.mapEffect((oreConfig) =>
+            Effect.gen(function* () {
+              // 高度範囲チェックと鉱石生成判定
+              const result = yield* pipe(
+                Match.value(position.y >= oreConfig.minY && position.y <= oreConfig.maxY),
+                Match.when(true, () =>
+                  Effect.gen(function* () {
+                    // 鉱石密度計算（内部関数を使用）
+                    const density = yield* calculateOreDensityInternal(config, oreConfig.type, position)
 
-                // 生成判定
-                return pipe(
-                  Match.value(density > oreConfig.rarity),
-                  Match.when(true, () => Option.some(oreConfig.type)),
-                  Match.orElse(() => Option.none())
-                )
-              })
-            ),
-            Match.orElse(() => Effect.succeed(Option.none()))
-          )
+                    // 生成判定
+                    return pipe(
+                      Match.value(density > oreConfig.rarity),
+                      Match.when(true, () => Option.some(oreConfig.type)),
+                      Match.orElse(() => Option.none())
+                    )
+                  })
+                ),
+                Match.orElse(() => Effect.succeed(Option.none()))
+              )
 
-          const oreResult = yield* pipe(
-            result,
+              return yield* pipe(
+                result,
+                Option.match({
+                  onNone: () => Effect.succeed(Option.none()), // null相当、次をチェック
+                  onSome: (oreType) => Effect.succeed(Option.some(oreType)), // 見つかった
+                })
+              )
+            })
+          ),
+          Stream.filterMap((option) => option), // Option.none()を除外
+          Stream.runHead, // 最初のマッチを取得（break相当の早期終了）
+          Effect.map(
             Option.match({
-              onNone: () => Effect.succeed(null),
-              onSome: (oreType) => Effect.succeed(oreType),
+              onNone: () => null, // 鉱石なし
+              onSome: (oreType) => oreType, // 鉱石あり
             })
           )
-
-          if (oreResult) {
-            return oreResult
-          }
-        }
-
-        return null
+        )
       }),
 
     calculateOreDensity: (oreType: OreType, position: Vector3) =>

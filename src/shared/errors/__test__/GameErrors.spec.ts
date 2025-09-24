@@ -43,10 +43,17 @@ describe('GameErrors', () => {
 
         const result = Effect.runSyncExit(program)
         expect(Exit.isFailure(result)).toBe(true)
-        if (Exit.isFailure(result)) {
-          const error = result.cause._tag === 'Fail' ? result.cause.error : null
-          expect(error?._tag).toBe('GameError')
-        }
+        yield* pipe(
+          result,
+          Exit.match({
+            onFailure: (cause) =>
+              Effect.sync(() => {
+                const error = cause._tag === 'Fail' ? cause.error : null
+                expect(error?._tag).toBe('GameError')
+              }),
+            onSuccess: () => Effect.fail('Expected failure'),
+          })
+        )
       })
     )
 

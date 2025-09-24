@@ -212,10 +212,20 @@ describe('GreedyMeshing', () => {
         const result = runEffect(getService().generateGreedyMesh(invalidChunk))
 
         expect(Exit.isFailure(result)).toBe(true)
-        if (Exit.isFailure(result)) {
-          const error = result.cause._tag === 'Fail' ? result.cause.error : null
-          expect(isGreedyMeshingError(error)).toBe(true)
-        }
+
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause._tag === 'Fail' ? r.cause.error : null
+              expect(isGreedyMeshingError(error)).toBe(true)
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
   })
@@ -295,13 +305,33 @@ describe('GreedyMeshing', () => {
         const result = runEffect(getService().generateQuads(invalidChunk))
 
         expect(Exit.isFailure(result)).toBe(true)
-        if (Exit.isFailure(result)) {
-          const error = result.cause._tag === 'Fail' ? result.cause.error : null
-          expect(isGreedyMeshingError(error)).toBe(true)
-          if (isGreedyMeshingError(error)) {
-            expect(error.context).toBe('generateQuads')
-          }
-        }
+
+        pipe(
+          Match.value(result),
+          Match.when(
+            (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+            (r) => {
+              const error = r.cause._tag === 'Fail' ? r.cause.error : null
+              expect(isGreedyMeshingError(error)).toBe(true)
+
+              pipe(
+                Match.value(error),
+                Match.when(
+                  (e): e is ReturnType<typeof GreedyMeshingError> => isGreedyMeshingError(e),
+                  (e) => {
+                    expect(e.context).toBe('generateQuads')
+                  }
+                ),
+                Match.orElse(() => {
+                  // No-op for non-GreedyMeshingError types
+                })
+              )
+            }
+          ),
+          Match.orElse(() => {
+            // No-op for successful results
+          })
+        )
       })
     )
   })
@@ -443,8 +473,7 @@ describe('GreedyMeshing', () => {
             expect(service.generateGreedyMesh).toBeDefined()
             expect(service.generateQuads).toBeDefined()
             expect(service.optimizeMesh).toBeDefined()
-            return true
-          })
+              })
         )
 
         const result = pipe(program, Effect.provide(GreedyMeshingLive), Effect.runSync)

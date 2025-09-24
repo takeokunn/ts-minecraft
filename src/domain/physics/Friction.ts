@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, pipe, Match } from 'effect'
 import type { Vector3 } from '../world/types'
 import type { BlockTypeId } from '../../shared/types/branded'
 import { BLOCK_FRICTION } from './types'
@@ -24,19 +24,22 @@ export const Friction = {
    */
   applyGroundFriction: (velocity: Vector3, isGrounded: boolean, groundBlockType: BlockTypeId): Effect.Effect<Vector3> =>
     Effect.gen(function* () {
-      if (!isGrounded) {
-        // 空中では摩擦を適用しない
-        return velocity
-      }
+      return pipe(
+        isGrounded,
+        Match.value,
+        Match.when(false, () => velocity), // 空中では摩擦を適用しない
+        Match.when(true, () => {
+          const friction = Friction.getFrictionCoefficient(groundBlockType)
 
-      const friction = Friction.getFrictionCoefficient(groundBlockType)
-
-      // 水平方向の速度に摩擦を適用
-      return {
-        x: velocity.x * friction,
-        y: velocity.y, // Y軸（垂直方向）には摩擦を適用しない
-        z: velocity.z * friction,
-      }
+          // 水平方向の速度に摩擦を適用
+          return {
+            x: velocity.x * friction,
+            y: velocity.y, // Y軸（垂直方向）には摩擦を適用しない
+            z: velocity.z * friction,
+          }
+        }),
+        Match.exhaustive
+      )
     }),
 
   /**
@@ -53,35 +56,46 @@ export const Friction = {
     groundBlockType: BlockTypeId
   ): Effect.Effect<Vector3> =>
     Effect.gen(function* () {
-      if (!isGrounded) {
-        // 空中では摩擦の影響を減少
-        const airControl = 0.2
-        return {
-          x: velocity.x + inputVelocity.x * airControl,
-          y: velocity.y,
-          z: velocity.z + inputVelocity.z * airControl,
-        }
-      }
+      return pipe(
+        isGrounded,
+        Match.value,
+        Match.when(false, () => {
+          // 空中では摩擦の影響を減少
+          const airControl = 0.2
+          return {
+            x: velocity.x + inputVelocity.x * airControl,
+            y: velocity.y,
+            z: velocity.z + inputVelocity.z * airControl,
+          }
+        }),
+        Match.when(true, () => {
+          const friction = Friction.getFrictionCoefficient(groundBlockType)
 
-      const friction = Friction.getFrictionCoefficient(groundBlockType)
-
-      // スケート効果（氷上など）
-      if (friction > 0.9) {
-        // 氷の上では加速が遅く、減速も遅い
-        const iceControl = 0.1
-        return {
-          x: velocity.x * friction + inputVelocity.x * iceControl,
-          y: velocity.y,
-          z: velocity.z * friction + inputVelocity.z * iceControl,
-        }
-      }
-
-      // 通常の地面
-      return {
-        x: inputVelocity.x,
-        y: velocity.y,
-        z: inputVelocity.z,
-      }
+          return pipe(
+            friction > 0.9,
+            Match.value,
+            Match.when(true, () => {
+              // 氷の上では加速が遅く、減速も遅い
+              const iceControl = 0.1
+              return {
+                x: velocity.x * friction + inputVelocity.x * iceControl,
+                y: velocity.y,
+                z: velocity.z * friction + inputVelocity.z * iceControl,
+              }
+            }),
+            Match.when(false, () => {
+              // 通常の地面
+              return {
+                x: inputVelocity.x,
+                y: velocity.y,
+                z: inputVelocity.z,
+              }
+            }),
+            Match.exhaustive
+          )
+        }),
+        Match.exhaustive
+      )
     }),
 
   /**
@@ -89,17 +103,21 @@ export const Friction = {
    */
   applySneakFriction: (velocity: Vector3, isGrounded: boolean): Effect.Effect<Vector3> =>
     Effect.gen(function* () {
-      if (!isGrounded) {
-        return velocity
-      }
-
-      // スニーク時は移動速度を大幅に減少
-      const sneakMultiplier = 0.3
-      return {
-        x: velocity.x * sneakMultiplier,
-        y: velocity.y,
-        z: velocity.z * sneakMultiplier,
-      }
+      return pipe(
+        isGrounded,
+        Match.value,
+        Match.when(false, () => velocity),
+        Match.when(true, () => {
+          // スニーク時は移動速度を大幅に減少
+          const sneakMultiplier = 0.3
+          return {
+            x: velocity.x * sneakMultiplier,
+            y: velocity.y,
+            z: velocity.z * sneakMultiplier,
+          }
+        }),
+        Match.exhaustive
+      )
     }),
 
   /**
@@ -108,17 +126,21 @@ export const Friction = {
   clampVelocity: (velocity: Vector3, maxSpeed: number): Vector3 => {
     const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
 
-    if (horizontalSpeed <= maxSpeed) {
-      return velocity
-    }
-
-    // 水平速度を制限
-    const scale = maxSpeed / horizontalSpeed
-    return {
-      x: velocity.x * scale,
-      y: velocity.y,
-      z: velocity.z * scale,
-    }
+    return pipe(
+      horizontalSpeed <= maxSpeed,
+      Match.value,
+      Match.when(true, () => velocity),
+      Match.when(false, () => {
+        // 水平速度を制限
+        const scale = maxSpeed / horizontalSpeed
+        return {
+          x: velocity.x * scale,
+          y: velocity.y,
+          z: velocity.z * scale,
+        }
+      }),
+      Match.exhaustive
+    )
   },
 
   /**

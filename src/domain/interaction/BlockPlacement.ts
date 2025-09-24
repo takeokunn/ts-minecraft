@@ -1,4 +1,4 @@
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, pipe, Predicate } from 'effect'
 import type { BlockId, BlockPosition, PlayerId } from '../../shared/types/branded'
 import type { Vector3, BlockFace, PlacementResult } from './InteractionTypes'
 import { createSuccessfulPlacement, createFailedPlacement } from './InteractionTypes'
@@ -491,7 +491,19 @@ export const placeBlock = (
   }).pipe(
     // 設置エラーをキャッチして適切なレスポンスに変換
     Effect.catchAll((error) =>
-      Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Unknown placement error'))
+      Effect.succeed(
+        createFailedPlacement(
+          pipe(
+            Match.value(error),
+            Match.when(
+              (e: unknown): e is Error =>
+                Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+              (e: Error) => e.message
+            ),
+            Match.orElse(() => 'Unknown placement error')
+          )
+        )
+      )
     )
   )
 
@@ -527,7 +539,19 @@ export const placeBatchBlocks = (
       const result = yield* placeBlock(playerId, request.position, request.blockId, request.face).pipe(
         // 個別エラーは結果に含める（全体の処理は継続）
         Effect.catchAll((error) =>
-          Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Batch placement error'))
+          Effect.succeed(
+            createFailedPlacement(
+              pipe(
+                Match.value(error),
+                Match.when(
+                  (e: unknown): e is Error =>
+                    Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                  (e: Error) => e.message
+                ),
+                Match.orElse(() => 'Batch placement error')
+              )
+            )
+          )
         )
       )
 
@@ -596,7 +620,19 @@ export const checkPlacementViability = (
   Effect.gen(function* () {
     const placementResult = yield* placeBlock(playerId, position, blockId, face).pipe(
       Effect.catchAll((error) =>
-        Effect.succeed(createFailedPlacement(error instanceof Error ? error.message : 'Placement check error'))
+        Effect.succeed(
+          createFailedPlacement(
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e: unknown): e is Error =>
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                (e: Error) => e.message
+              ),
+              Match.orElse(() => 'Placement check error')
+            )
+          )
+        )
       )
     )
 

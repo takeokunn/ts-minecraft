@@ -21,7 +21,7 @@ describe('InputService', () => {
     const mockInputService: InputService = {
       isKeyPressed: (key: string) =>
         Effect.gen(function* () {
-          if (key === 'invalid') {
+          yield* pipe(key === 'invalid', Match.value, Match.when(true, () => Effect.sync(() => {
             return yield* Effect.fail(
               InputSystemError({
                 message: 'Invalid key',
@@ -34,7 +34,7 @@ describe('InputService', () => {
 
       isMousePressed: (button: number) =>
         Effect.gen(function* () {
-          if (button < 0 || button > 2) {
+          yield* pipe(button < 0 || button > 2, Match.value, Match.when(true, () => Effect.sync(() => {
             return yield* Effect.fail(
               InputSystemError({
                 message: 'Invalid button',
@@ -56,7 +56,7 @@ describe('InputService', () => {
 
       registerHandler: (handler: InputHandler) =>
         Effect.gen(function* () {
-          if (!handler) {
+          yield* pipe(!handler, Match.value, Match.when(true, () => Effect.sync(() => {
             return yield* Effect.fail(
               InputHandlerRegistrationError({
                 message: 'Invalid handler',
@@ -86,7 +86,7 @@ describe('InputService', () => {
         const result = yield* Effect.either(inputService.isKeyPressed('invalid'))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('InputSystemError')
           expect(result.left.message).toBe('Invalid key')
           expect(result.left.key).toBe('invalid')
@@ -111,7 +111,7 @@ describe('InputService', () => {
         const result = yield* Effect.either(inputService.isMousePressed(5))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('InputSystemError')
           expect(result.left.message).toBe('Invalid button')
           expect(result.left.button).toBe(5)
@@ -154,7 +154,7 @@ describe('InputService', () => {
         const result = yield* Effect.either(inputService.registerHandler(null as any))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('InputHandlerRegistrationError')
           expect(result.left.message).toBe('Invalid handler')
         }

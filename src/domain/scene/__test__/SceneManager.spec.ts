@@ -84,7 +84,7 @@ describe('SceneManager', () => {
         const result = yield* Effect.either(manager.transitionTo('Pause'))
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.targetScene).toBe('Pause')
         }
@@ -154,7 +154,7 @@ describe('SceneManager', () => {
         const result = yield* Effect.either(manager.popScene())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('SceneTransitionError')
           expect(result.left.message).toContain('No scene in stack to pop')
         }
@@ -281,7 +281,7 @@ describe('SceneManager', () => {
         const result = yield* Effect.either(manager.popScene())
 
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left.message).toBe('No scene in stack to pop')
         }
       }).pipe(Effect.provide(SceneManagerLive))

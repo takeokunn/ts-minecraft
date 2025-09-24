@@ -1,6 +1,6 @@
 import { describe, expect, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Layer } from 'effect'
+import { Effect, Exit, pipe, Layer, Option, Match, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import type { Material as ThreeMaterial } from 'three'
@@ -208,11 +208,20 @@ describe('TextureAtlas', () => {
 
         const grassTexture = metadata.blockTextures.get(3)
         expect(grassTexture).toBeDefined()
-        if (grassTexture) {
-          // Grass should have different textures for top/bottom/sides
-          expect(grassTexture.top).not.toEqual(grassTexture.bottom)
-          expect(grassTexture.top).not.toEqual(grassTexture.front)
-        }
+
+        pipe(
+          Option.fromNullable(grassTexture),
+          Option.match({
+            onNone: () => {
+              // No-op when texture is not found
+            },
+            onSome: (texture) => {
+              // Grass should have different textures for top/bottom/sides
+              expect(texture.top).not.toEqual(texture.bottom)
+              expect(texture.top).not.toEqual(texture.front)
+            },
+          })
+        )
       })
 
       Effect.runSync(program.pipe(Effect.provide(TextureAtlasLive)))
@@ -312,13 +321,34 @@ describe('TextureAtlas', () => {
       const result = runEffect(program.pipe(Effect.provide(TextureAtlasLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeDefined()
-        if (error && typeof error === 'object' && '_tag' in error && (error as any)._tag === 'TextureAtlasError') {
-          expect((error as any).reason).toContain('not loaded')
-        }
-      }
+
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+          (r) => {
+            const error = r.cause._tag === 'Fail' ? r.cause.error : null
+            expect(error).toBeDefined()
+
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e): e is { _tag: 'TextureAtlasError'; reason: string } =>
+                  e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
+                (e) => {
+                  expect(e.reason).toContain('not loaded')
+                }
+              ),
+              Match.orElse(() => {
+                // No-op for non-TextureAtlasError types
+              })
+            )
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -466,13 +496,34 @@ describe('TextureAtlas', () => {
       const result = runEffect(program.pipe(Effect.provide(TextureAtlasLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(error).toBeDefined()
-        if (error && typeof error === 'object' && '_tag' in error && (error as any)._tag === 'TextureAtlasError') {
-          expect((error as any).reason).toContain('not loaded')
-        }
-      }
+
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+          (r) => {
+            const error = r.cause._tag === 'Fail' ? r.cause.error : null
+            expect(error).toBeDefined()
+
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e): e is { _tag: 'TextureAtlasError'; reason: string } =>
+                  e !== null && Predicate.isRecord(e) && '_tag' in e && (e as any)._tag === 'TextureAtlasError',
+                (e) => {
+                  expect(e.reason).toContain('not loaded')
+                }
+              ),
+              Match.orElse(() => {
+                // No-op for non-TextureAtlasError types
+              })
+            )
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -575,7 +626,6 @@ describe('TextureAtlas', () => {
         expect(service.generateUVCoords).toBeDefined()
         expect(service.createTextureMaterial).toBeDefined()
         expect(service.registerBlockTexture).toBeDefined()
-        return true
       })
 
       const result = pipe(program, Effect.provide(TextureAtlasLive), Effect.runSync)

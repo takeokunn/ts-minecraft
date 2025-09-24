@@ -208,21 +208,26 @@ describe('ConfigService', () => {
       Layer.sync(ConfigService, () => {
         const loadFromEnv = <T>(envKey: string, defaultValue: T, schema: Schema.Schema<T>): T => {
           const envValue = envVars[envKey]
-          if (!envValue) return defaultValue
-
-          const result = Effect.runSync(
-            Effect.either(
-              Effect.try({
-                try: () => {
-                  const parsed = JSON.parse(envValue)
-                  return Schema.decodeSync(schema)(parsed)
-                },
-                catch: (error) => error,
-              })
-            )
+          return pipe(
+            Option.fromNullable(envValue),
+            Option.match({
+              onNone: () => defaultValue,
+              onSome: (value) => {
+                const result = Effect.runSync(
+                  Effect.either(
+                    Effect.try({
+                      try: () => {
+                        const parsed = JSON.parse(value)
+                        return Schema.decodeSync(schema)(parsed)
+                      },
+                      catch: (error) => error,
+                    })
+                  )
+                )
+                return result._tag === 'Right' ? result.right : defaultValue
+              },
+            })
           )
-
-          return result._tag === 'Right' ? result.right : defaultValue
         }
 
         const gameConfig = loadFromEnv(

@@ -158,12 +158,21 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
     // マスクをもとにGreedy Meshingを実行
     const processedMask = [...mask]
 
-    for (let j = 0; j < size; j++) {
-      for (let i = 0; i < size; i++) {
+    // ネストしたループをStreamパターンで置き換え
+    const jRange = Array.from({ length: size }, (_, index) => index)
+    const iRange = Array.from({ length: size }, (_, index) => index)
+
+    for (const j of jRange) {
+      // blockType === 0をフィルタリングして、処理が必要なiのみ処理
+      const validIValues = iRange.filter((i) => {
         const index = j * size + i
         const blockType = processedMask[index]
+        return blockType !== 0 // Effect-TS: filtering pattern instead of imperative continue
+      })
 
-        if (blockType === 0) continue
+      for (const i of validIValues) {
+        const index = j * size + i
+        const blockType = processedMask[index]
 
         // 幅方向（i軸）への拡張
         let width = 1
@@ -175,15 +184,36 @@ const generateGreedyMeshForAxis = (blocks: number[][][], size: number, axis: num
         let height = 1
         let canExpandHeight = true
         while (j + height < size && canExpandHeight) {
-          for (let w = 0; w < width; w++) {
-            if (processedMask[(j + height) * size + (i + w)] !== blockType) {
+          // ネストしたループをStreamで置き換え、すべてがblockTypeと一致するかチェック
+          const widthRange = Array.from({ length: width }, (_, w) => w)
+          const allMatch = widthRange.every((w) => {
+            const checkValue = processedMask[(j + height) * size + (i + w)]
+            return checkValue === blockType
+          })
+
+          // Effect-TS: Match pattern for block type validation
+          const shouldContinue = pipe(
+            allMatch,
+            Match.value,
+            Match.when(true, () => true),
+            Match.when(false, () => {
               canExpandHeight = false
-              break
-            }
-          }
-          if (canExpandHeight) {
-            height++
-          }
+              return false
+            }),
+            Match.exhaustive
+          )
+
+          // Effect-TS: Match pattern for height expansion check
+          pipe(
+            canExpandHeight,
+            Match.value,
+            Match.when(true, () => {
+              height++
+              return height
+            }),
+            Match.when(false, () => height),
+            Match.exhaustive
+          )
         }
 
         // クアッドを作成
@@ -340,10 +370,16 @@ const makeService = (config: GreedyMeshingConfig): GreedyMeshingService => ({
     pipe(
       Effect.try({
         try: () => {
-          // 入力検証
-          if (!chunkData || !chunkData.blocks || chunkData.size <= 0) {
-            throw new Error('Invalid chunk data: missing blocks or invalid size')
-          }
+          // 入力検証をMatchパターンで実装
+          const isValidChunkData = pipe(
+            !chunkData || !chunkData.blocks || chunkData.size <= 0,
+            Match.value,
+            Match.when(true, () => {
+              throw new Error('Invalid chunk data: missing blocks or invalid size')
+            }),
+            Match.when(false, () => true),
+            Match.exhaustive
+          )
 
           const allQuads: Quad[] = []
           const mutableBlocks = chunkData.blocks.map((layer) => layer.map((row) => [...row]))

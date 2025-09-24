@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, Ref, pipe, Match } from 'effect'
 import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
 
 // ゲーム状態の定義
@@ -74,45 +74,59 @@ export const GameScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          // 初期化済み確認（update処理） - Effect.if使用
-          yield* Effect.if(!isInitialized, {
-            onTrue: () => Effect.void, // 早期リターンの代わり
-            onFalse: () => Effect.void,
-          })
+          // 初期化済み確認とゲーム状態の取得を関数型で処理
+          return yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(false, () => Effect.void), // 初期化されていない場合は早期終了
+            Match.when(true, () =>
+              Effect.gen(function* () {
+                const gameState = yield* Ref.get(gameStateRef)
 
-          if (!isInitialized) return
+                // ゲームが一時停止されている場合はスキップ
+                return yield* pipe(
+                  gameState.isPaused,
+                  Match.value,
+                  Match.when(true, () => Effect.void), // 一時停止中は早期終了
+                  Match.when(false, () =>
+                    Effect.gen(function* () {
+                      // ゲーム状態の更新
+                      yield* Ref.update(gameStateRef, (state) => ({
+                        ...state,
+                        worldTime: state.worldTime + deltaTime,
+                        tickCount: state.tickCount + 1,
+                      }))
 
-          const gameState = yield* Ref.get(gameStateRef)
-
-          // ゲームが一時停止されている場合はスキップ
-          if (gameState.isPaused) return
-
-          // ゲーム状態の更新
-          yield* Ref.update(gameStateRef, (state) => ({
-            ...state,
-            worldTime: state.worldTime + deltaTime,
-            tickCount: state.tickCount + 1,
-          }))
-
-          yield* Effect.logDebug(`GameScene update: deltaTime=${deltaTime}ms, tick=${gameState.tickCount}`)
+                      yield* Effect.logDebug(`GameScene update: deltaTime=${deltaTime}ms, tick=${gameState.tickCount}`)
+                    })
+                  ),
+                  Match.exhaustive
+                )
+              })
+            ),
+            Match.exhaustive
+          )
         }),
 
       render: () =>
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          // 初期化済み確認（render処理） - Effect.if使用
-          yield* Effect.if(!isInitialized, {
-            onTrue: () => Effect.void, // 早期リターンの代わり
-            onFalse: () => Effect.void,
-          })
+          // 初期化済み確認（render処理）を関数型で処理
+          return yield* pipe(
+            isInitialized,
+            Match.value,
+            Match.when(false, () => Effect.void), // 初期化されていない場合は早期終了
+            Match.when(true, () =>
+              Effect.gen(function* () {
+                const gameState = yield* Ref.get(gameStateRef)
 
-          if (!isInitialized) return
-
-          const gameState = yield* Ref.get(gameStateRef)
-
-          yield* Effect.logDebug(
-            `GameSceneレンダリング中... (position: ${gameState.playerPosition.x}, ${gameState.playerPosition.y}, ${gameState.playerPosition.z})`
+                yield* Effect.logDebug(
+                  `GameSceneレンダリング中... (position: ${gameState.playerPosition.x}, ${gameState.playerPosition.y}, ${gameState.playerPosition.z})`
+                )
+              })
+            ),
+            Match.exhaustive
           )
         }),
 

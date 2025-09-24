@@ -316,7 +316,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
             const input = createMovementInput(false, false, false, false, false, false, 16.67)
             const result = yield* movementSystem.processMovementInput(playerId, input)
 
-            if (result.newState.isGrounded) {
+            yield* pipe(result.newState.isGrounded, Match.value, Match.when(true, () => Effect.sync(() => {
               // 地面に着地
               expect(result.newPosition.y).toBeCloseTo(64 + 1.8, 1)
               expect(result.newVelocity.y).toBe(0)
@@ -523,7 +523,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
               const input = createMovementInput(true, false, false, false, false, false, scenario.deltaTime)
               const result = yield* movementSystem.processMovementInput(playerId, input)
 
-              if (frame === 0) {
+              yield* pipe(frame === 0, Match.value, Match.when(true, () => Effect.sync(() => {
                 totalDistance = 0
               } else {
                 totalDistance = result.newPosition.z
@@ -641,7 +641,7 @@ describe('MovementSystem Physics and Performance Tests', () => {
             // エネルギー保存の概念をチェック（摩擦により減少）
             const currentEnergy = PhysicsUtils.getMagnitude(result.newVelocity)
 
-            if (frame > 0 && result.newState.isGrounded) {
+            yield* pipe(frame > 0 && result.newState.isGrounded, Match.value, Match.when(true, () => Effect.sync(() => {
               // 地面にいる場合、摩擦により徐々にエネルギーが失われる、または一定になる
               expect(currentEnergy).toBeLessThanOrEqual(previousEnergy + 1) // 小さな許容範囲
             }

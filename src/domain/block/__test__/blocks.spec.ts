@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { Effect } from 'effect'
 import { it } from '@effect/vitest'
-import { pipe, Array as EffectArray, Match } from 'effect'
+import { pipe, Array as EffectArray, Match, Predicate } from 'effect'
 import {
   allBlocks,
   stoneBlock,
@@ -98,14 +98,14 @@ describe('blocks', () => {
           grassBlock.texture,
           Match.value,
           Match.when(
-            (texture): texture is string => typeof texture === 'string',
+            (texture): texture is string => Predicate.isString(texture),
             () => expect.fail('草ブロックは面別テクスチャを持つべき')
           ),
           Match.when(
             (
               texture
             ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
-              typeof texture === 'object' && texture !== null && 'top' in texture,
+              Predicate.isRecord(texture) && 'top' in texture,
             (texture) => {
               expect(texture.top).toBe('grass_block_top')
               expect(texture.bottom).toBe('dirt')
@@ -143,7 +143,7 @@ describe('blocks', () => {
             (
               texture
             ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
-              typeof texture === 'object' && texture !== null && 'top' in texture,
+              Predicate.isRecord(texture) && 'top' in texture,
             (texture) => {
               expect(texture.top).toBe('oak_log_top')
               expect(texture.bottom).toBe('oak_log_top')
@@ -288,7 +288,7 @@ describe('blocks', () => {
             (
               texture
             ): texture is { top: string; bottom: string; north: string; south: string; east: string; west: string } =>
-              typeof texture === 'object' && texture !== null && 'top' in texture,
+              Predicate.isRecord(texture) && 'top' in texture,
             (texture) => {
               expect(texture.north).toBe('furnace_front')
               expect(texture.south).toBe('furnace_side')
@@ -430,7 +430,7 @@ describe('blocks', () => {
               block.texture,
               Match.value,
               Match.when(
-                (texture): texture is string => typeof texture === 'string',
+                (texture): texture is string => Predicate.isString(texture),
                 (texture) => expect(texture).not.toBe('')
               ),
               Match.when(
@@ -443,7 +443,7 @@ describe('blocks', () => {
                   south: string
                   east: string
                   west: string
-                } => typeof texture === 'object' && texture !== null && 'top' in texture,
+                } => Predicate.isRecord(texture) && 'top' in texture,
                 (texture) => {
                   expect(texture.top).toBeDefined()
                   expect(texture.bottom).toBeDefined()

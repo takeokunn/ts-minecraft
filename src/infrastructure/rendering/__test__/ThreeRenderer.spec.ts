@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
 import { ThreeRendererLive } from '../ThreeRendererLive'
@@ -73,10 +73,14 @@ describe('ThreeRenderer', () => {
 
     // Canvas WebGLコンテキストのモック
     vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
-      if (type === 'webgl2' || type === 'webgl') {
-        return createMockWebGLContext(type === 'webgl2') as unknown as WebGLRenderingContext
-      }
-      return null
+      return pipe(
+        Match.value(type),
+        Match.when(
+          (t) => t === 'webgl2' || t === 'webgl',
+          (t) => createMockWebGLContext(t === 'webgl2') as unknown as WebGLRenderingContext
+        ),
+        Match.orElse(() => null)
+      )
     })
   })
 
@@ -311,11 +315,20 @@ describe('ThreeRenderer', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('初期化前のWebGL2機能有効化でエラーが発生する', () => {
@@ -328,11 +341,20 @@ describe('ThreeRenderer', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('初期化前のポストプロセシング設定でエラーが発生する', () => {
@@ -345,11 +367,20 @@ describe('ThreeRenderer', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('WebGLコンテキスト作成失敗でエラーが発生する', () => {
@@ -365,11 +396,20 @@ describe('ThreeRenderer', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderInitError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderInitError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('WebGLコンテキストロスト時のエラーハンドリング', () => {
@@ -407,11 +447,20 @@ describe('ThreeRenderer', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('ContextLostError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('ContextLostError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 

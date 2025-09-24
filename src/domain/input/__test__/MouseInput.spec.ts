@@ -1,6 +1,6 @@
 import { describe, expect, it as vitestIt, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext, TestClock, Ref } from 'effect'
+import { Effect, Layer, TestContext, TestClock, Ref, pipe, Match, Either, Predicate } from 'effect'
 import { MouseInput, MouseInputError, MockMouseInput, MouseInputLive } from '../MouseInput'
 import type { MousePosition, PointerLockState } from '../MouseInput'
 import { MouseDelta } from '../types'
@@ -142,11 +142,18 @@ describe('MouseInput', () => {
           const result = yield* Effect.either(mouseInput.requestPointerLock('non-existent'))
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('MouseInputError')
-            expect(result.left.message).toBe('ポインターロックの要求に失敗しました')
-            expect(result.left.cause).toContain('not found')
-          }
+          yield* pipe(
+            result,
+            Either.match({
+              onLeft: (error) =>
+                Effect.sync(() => {
+                  expect(result.left._tag).toBe('MouseInputError')
+                  expect(result.left.message).toBe('ポインターロックの要求に失敗しました')
+                  expect(result.left.cause).toContain('not found')
+                }),
+              onRight: () => Effect.succeed(undefined),
+            })
+          )
         }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
@@ -221,20 +228,25 @@ describe('MouseInput', () => {
           const originalDocument = global.document
           delete (global as any).document
 
-          try {
-            const mouseInput = yield* MouseInput
+          yield* pipe(
+            Effect.gen(function* () {
+              const mouseInput = yield* MouseInput
 
-            // documentがない環境でも基本機能は動作する
-            const position = yield* mouseInput.getPosition()
-            expect(position.x).toBe(0)
-            expect(position.y).toBe(0)
+              // documentがない環境でも基本機能は動作する
+              const position = yield* mouseInput.getPosition()
+              expect(position.x).toBe(0)
+              expect(position.y).toBe(0)
 
-            const delta = yield* mouseInput.getDelta()
-            expect(delta.deltaX).toBe(0)
-            expect(delta.deltaY).toBe(0)
-          } finally {
-            global.document = originalDocument as any
-          }
+              const delta = yield* mouseInput.getDelta()
+              expect(delta.deltaX).toBe(0)
+              expect(delta.deltaY).toBe(0)
+            }),
+            Effect.ensuring(
+              Effect.sync(() => {
+                global.document = originalDocument as any
+              })
+            )
+          )
         }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
 
@@ -243,19 +255,31 @@ describe('MouseInput', () => {
           const originalDocument = global.document
           delete (global as any).document
 
-          try {
-            const mouseInput = yield* MouseInput
+          yield* pipe(
+            Effect.gen(function* () {
+              const mouseInput = yield* MouseInput
 
-            const result = yield* Effect.either(mouseInput.requestPointerLock())
+              const result = yield* Effect.either(mouseInput.requestPointerLock())
 
-            expect(result._tag).toBe('Left')
-            if (result._tag === 'Left') {
-              expect(result.left._tag).toBe('MouseInputError')
-              expect(result.left.cause).toContain('Document is not available')
-            }
-          } finally {
-            global.document = originalDocument as any
-          }
+              expect(result._tag).toBe('Left')
+              yield* pipe(
+                result,
+                Either.match({
+                  onLeft: (error) =>
+                    Effect.sync(() => {
+                      expect(result.left._tag).toBe('MouseInputError')
+                      expect(result.left.cause).toContain('Document is not available')
+                    }),
+                  onRight: () => Effect.succeed(undefined),
+                })
+              )
+            }),
+            Effect.ensuring(
+              Effect.sync(() => {
+                global.document = originalDocument as any
+              })
+            )
+          )
         }).pipe(Effect.provide(Layer.mergeAll(MouseInputLive, TestContext.TestContext)))
       )
     })
@@ -437,11 +461,18 @@ describe('MouseInput', () => {
           const result = yield* Effect.either(mouseInput.getPosition())
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('MouseInputError')
-            expect(result.left.message).toBe('Failed to get position')
-            expect(result.left.cause).toBe('DOM not available')
-          }
+          yield* pipe(
+            result,
+            Either.match({
+              onLeft: (error) =>
+                Effect.sync(() => {
+                  expect(result.left._tag).toBe('MouseInputError')
+                  expect(result.left.message).toBe('Failed to get position')
+                  expect(result.left.cause).toBe('DOM not available')
+                }),
+              onRight: () => Effect.succeed(undefined),
+            })
+          )
         }).pipe(Effect.provide(FailingLayer))
       )
 
@@ -451,10 +482,17 @@ describe('MouseInput', () => {
           const result = yield* Effect.either(mouseInput.getDelta())
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('MouseInputError')
-            expect(result.left.message).toBe('Failed to get delta')
-          }
+          yield* pipe(
+            result,
+            Either.match({
+              onLeft: (error) =>
+                Effect.sync(() => {
+                  expect(result.left._tag).toBe('MouseInputError')
+                  expect(result.left.message).toBe('Failed to get delta')
+                }),
+              onRight: () => Effect.succeed(undefined),
+            })
+          )
         }).pipe(Effect.provide(FailingLayer))
       )
 
@@ -464,11 +502,18 @@ describe('MouseInput', () => {
           const result = yield* Effect.either(mouseInput.requestPointerLock('non-existent'))
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('MouseInputError')
-            expect(result.left.message).toBe('Failed to request pointer lock')
-            expect(result.left.cause).toBe('Element not found')
-          }
+          yield* pipe(
+            result,
+            Either.match({
+              onLeft: (error) =>
+                Effect.sync(() => {
+                  expect(result.left._tag).toBe('MouseInputError')
+                  expect(result.left.message).toBe('Failed to request pointer lock')
+                  expect(result.left.cause).toBe('Element not found')
+                }),
+              onRight: () => Effect.succeed(undefined),
+            })
+          )
         }).pipe(Effect.provide(FailingLayer))
       )
     })
@@ -642,13 +687,20 @@ describe('MouseInput', () => {
 
             // レガシーマウス移動をシミュレート（movementX/Y なし）
             const testService = mouseInput as any
-            if (testService.simulateLegacyMouseMove) {
-              const result = yield* testService.simulateLegacyMouseMove(150, 200)
+            yield* pipe(
+              testService.simulateLegacyMouseMove,
+              Match.value,
+              Match.when(true, () =>
+                Effect.gen(function* () {
+                  const result = yield* testService.simulateLegacyMouseMove(150, 200)
 
-              // フォールバック処理による計算結果の確認
-              expect(result.deltaX).toBe(50) // 150 - 100 (line 92 フォールバック)
-              expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
-            }
+                  // フォールバック処理による計算結果の確認
+                  expect(result.deltaX).toBe(50) // 150 - 100 (line 92 フォールバック)
+                  expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
+                })
+              ),
+              Match.orElse(() => Effect.succeed(undefined))
+            )
 
             // 位置更新の確認
             const updatedPosition = yield* mouseInput.getPosition()
@@ -675,21 +727,21 @@ describe('MouseInput', () => {
 
           // movementX が存在し、number型の場合
           const hasMovementX =
-            'movementX' in mockEventWithMovement && typeof mockEventWithMovement.movementX === 'number'
+            'movementX' in mockEventWithMovement && Predicate.isNumber(mockEventWithMovement.movementX)
           expect(hasMovementX).toBe(true)
 
           // movementX が存在しない場合
           const noMovementX =
-            'movementX' in mockEventWithoutMovement && typeof (mockEventWithoutMovement as any).movementX === 'number'
+            'movementX' in mockEventWithoutMovement && Predicate.isNumber((mockEventWithoutMovement as any).movementX)
           expect(noMovementX).toBe(false)
 
           // movementY についても同様
           const hasMovementY =
-            'movementY' in mockEventWithMovement && typeof mockEventWithMovement.movementY === 'number'
+            'movementY' in mockEventWithMovement && Predicate.isNumber(mockEventWithMovement.movementY)
           expect(hasMovementY).toBe(true)
 
           const noMovementY =
-            'movementY' in mockEventWithoutMovement && typeof (mockEventWithoutMovement as any).movementY === 'number'
+            'movementY' in mockEventWithoutMovement && Predicate.isNumber((mockEventWithoutMovement as any).movementY)
           expect(noMovementY).toBe(false)
         }).pipe(Effect.provide(TestContext.TestContext))
       )

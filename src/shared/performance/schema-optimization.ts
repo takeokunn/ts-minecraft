@@ -52,17 +52,17 @@ export const SchemaOptimization = {
         pipe(
           validator(input),
           Effect.timeout(`${timeoutMs} millis`),
-          Effect.mapError((error) => {
-            if (
-              typeof error === 'object' &&
-              error !== null &&
-              '_tag' in error &&
-              (error as any)._tag === 'TimeoutException'
-            ) {
-              return 'timeout' as const
-            }
-            return error as ParseResult.ParseError
-          })
+          Effect.mapError((error) =>
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e: unknown): e is { _tag: 'TimeoutException' } =>
+                  Predicate.isRecord(e) && Predicate.hasProperty(e, '_tag') && e._tag === 'TimeoutException',
+                () => 'timeout' as const
+              ),
+              Match.orElse(() => error as ParseResult.ParseError)
+            )
+          )
         ),
 
       /**
@@ -112,16 +112,22 @@ export const SchemaOptimization = {
         return {
           get: (key: string, input: unknown): Effect.Effect<A, 'cache_miss' | 'validation_error'> => {
             const cached = cache.get(key)
-            if (cached !== undefined) {
-              return Effect.succeed(cached)
-            }
             return pipe(
-              validator.validate(input),
-              Effect.map((result) => {
-                cache.set(key, result)
-                return result
-              }),
-              Effect.mapError(() => 'validation_error' as const)
+              Match.value(cached),
+              Match.when(
+                (c): c is A => c !== undefined,
+                (c) => Effect.succeed(c)
+              ),
+              Match.orElse(() =>
+                pipe(
+                  validator.validate(input),
+                  Effect.map((result) => {
+                    cache.set(key, result)
+                    return result
+                  }),
+                  Effect.mapError(() => 'validation_error' as const)
+                )
+              )
             )
           },
 

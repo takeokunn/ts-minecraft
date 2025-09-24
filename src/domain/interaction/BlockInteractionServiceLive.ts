@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match, pipe } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type {
   Vector3,
@@ -57,27 +57,35 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
     performRaycast: (origin: Vector3, direction: Vector3, maxDistance: number) =>
       Effect.gen(function* () {
         // Input validation
-        if (maxDistance <= 0) {
-          return yield* Effect.fail(
-            createRaycastError({
-              origin,
-              direction,
-              maxDistance,
-              reason: 'Max distance must be positive',
-            })
-          )
-        }
-
-        if (maxDistance > 100) {
-          return yield* Effect.fail(
-            createRaycastError({
-              origin,
-              direction,
-              maxDistance,
-              reason: 'Max distance too large (limit: 100 blocks)',
-            })
-          )
-        }
+        yield* pipe(
+          maxDistance,
+          Match.value,
+          Match.when(
+            (dist) => dist <= 0,
+            () =>
+              Effect.fail(
+                createRaycastError({
+                  origin,
+                  direction,
+                  maxDistance,
+                  reason: 'Max distance must be positive',
+                })
+              )
+          ),
+          Match.when(
+            (dist) => dist > 100,
+            () =>
+              Effect.fail(
+                createRaycastError({
+                  origin,
+                  direction,
+                  maxDistance,
+                  reason: 'Max distance too large (limit: 100 blocks)',
+                })
+              )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         // Execute DDA raycast
         return yield* performDDARaycast(origin, direction, maxDistance)
@@ -90,44 +98,62 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
     startBlockBreaking: (playerId: PlayerId, blockPos: BlockPosition, toolType: ToolType | null) =>
       Effect.gen(function* () {
         // TODO: Validate player exists and is in range
+        // Effect-TS pattern for distance validation:
         // const player = yield* playerService.getPlayer(playerId)
         // const distance = calculateDistance(player.position, blockPos)
-        // if (distance > INTERACTION_RANGE) {
-        //   return yield* Effect.fail(createBlockBreakingError(...))
-        // }
+        // yield* pipe(
+        //   distance > INTERACTION_RANGE,
+        //   Match.value,
+        //   Match.when(true, () => Effect.fail(createBlockBreakingError(...))),
+        //   Match.orElse(() => Effect.void)
+        // )
 
         // TODO: Validate block exists and is breakable
+        // Effect-TS pattern for block validation:
         // const block = yield* chunkManager.getBlockAt(blockPos)
-        // if (!block || !isBreakable(block)) {
-        //   return yield* Effect.fail(createBlockBreakingError(...))
-        // }
+        // yield* pipe(
+        //   Option.fromNullable(block),
+        //   Option.filter(isBreakable),
+        //   Option.match({
+        //     onNone: () => Effect.fail(createBlockBreakingError(...)),
+        //     onSome: () => Effect.void
+        //   })
+        // )
 
         return yield* startBlockBreaking(playerId, blockPos, toolType)
       }),
 
     updateBlockBreaking: (sessionId: SessionId, deltaTime: number) =>
       Effect.gen(function* () {
-        if (deltaTime < 0) {
-          return yield* Effect.fail(
-            createInteractionValidationError({
-              field: 'deltaTime',
-              value: deltaTime,
-              expectedType: 'positive number',
-              reason: 'Delta time cannot be negative',
-            })
-          )
-        }
-
-        if (deltaTime > 1.0) {
-          return yield* Effect.fail(
-            createInteractionValidationError({
-              field: 'deltaTime',
-              value: deltaTime,
-              expectedType: 'number <= 1.0',
-              reason: 'Delta time too large (suggests frame timing issue)',
-            })
-          )
-        }
+        yield* pipe(
+          deltaTime,
+          Match.value,
+          Match.when(
+            (dt) => dt < 0,
+            () =>
+              Effect.fail(
+                createInteractionValidationError({
+                  field: 'deltaTime',
+                  value: deltaTime,
+                  expectedType: 'positive number',
+                  reason: 'Delta time cannot be negative',
+                })
+              )
+          ),
+          Match.when(
+            (dt) => dt > 1.0,
+            () =>
+              Effect.fail(
+                createInteractionValidationError({
+                  field: 'deltaTime',
+                  value: deltaTime,
+                  expectedType: 'number <= 1.0',
+                  reason: 'Delta time too large (suggests frame timing issue)',
+                })
+              )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         return yield* updateBlockBreaking(sessionId, deltaTime)
       }),
@@ -139,17 +165,25 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
     placeBlock: (playerId: PlayerId, position: BlockPosition, blockId: BlockId, face: BlockFace) =>
       Effect.gen(function* () {
         // TODO: Validate player exists and is in range
+        // Effect-TS pattern for distance validation:
         // const player = yield* playerService.getPlayer(playerId)
         // const distance = calculateDistance(player.position, position)
-        // if (distance > INTERACTION_RANGE) {
-        //   return yield* Effect.fail(createBlockPlacementError(...))
-        // }
+        // yield* pipe(
+        //   distance > INTERACTION_RANGE,
+        //   Match.value,
+        //   Match.when(true, () => Effect.fail(createBlockPlacementError(...))),
+        //   Match.orElse(() => Effect.void)
+        // )
 
         // TODO: Check player inventory for block
+        // Effect-TS pattern for inventory check:
         // const hasBlock = yield* playerService.hasItemInInventory(playerId, blockId)
-        // if (!hasBlock) {
-        //   return yield* Effect.fail(createBlockPlacementError(...))
-        // }
+        // yield* pipe(
+        //   hasBlock,
+        //   Match.value,
+        //   Match.when(false, () => Effect.fail(createBlockPlacementError(...))),
+        //   Match.orElse(() => Effect.void)
+        // )
 
         return yield* placeBlock(playerId, position, blockId, face)
       }),
@@ -160,16 +194,23 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
 
     getInteractableBlocks: (position: Vector3, range: number) =>
       Effect.gen(function* () {
-        if (range <= 0 || range > 32) {
-          return yield* Effect.fail(
-            createInteractionValidationError({
-              field: 'range',
-              value: range,
-              expectedType: 'positive number <= 32',
-              reason: 'Range must be between 0 and 32 blocks',
-            })
-          )
-        }
+        yield* pipe(
+          range,
+          Match.value,
+          Match.when(
+            (r) => r <= 0 || r > 32,
+            () =>
+              Effect.fail(
+                createInteractionValidationError({
+                  field: 'range',
+                  value: range,
+                  expectedType: 'positive number <= 32',
+                  reason: 'Range must be between 0 and 32 blocks',
+                })
+              )
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         // TODO: Implement actual interactable blocks search
         // This would involve:
@@ -191,22 +232,34 @@ const makeBlockInteractionServiceLive = Effect.gen(function* () {
               const blockPos = { x, y, z } as BlockPosition
               const distance = Math.sqrt((x - position.x) ** 2 + (y - position.y) ** 2 + (z - position.z) ** 2)
 
-              if (distance <= range) {
-                // TODO: Get actual block at position
-                // const block = yield* chunkManager.getBlockAt(blockPos)
+              pipe(
+                distance <= range,
+                Match.value,
+                Match.when(true, () => {
+                  // TODO: Get actual block at position
+                  // const block = yield* chunkManager.getBlockAt(blockPos)
 
-                // Stub: Add some test blocks
-                if (Math.random() < 0.3) {
-                  // 30% chance of interactable block
-                  interactableBlocks.push({
-                    blockId: 'stone' as BlockId,
-                    position: blockPos,
-                    distance,
-                    canBreak: true,
-                    canInteract: Math.random() < 0.5, // 50% chance
-                  })
-                }
-              }
+                  // Stub: Add some test blocks
+                  pipe(
+                    Math.random() < 0.3,
+                    Match.value,
+                    Match.when(true, () => {
+                      // 30% chance of interactable block
+                      interactableBlocks.push({
+                        blockId: 'stone' as BlockId,
+                        position: blockPos,
+                        distance,
+                        canBreak: true,
+                        canInteract: Math.random() < 0.5, // 50% chance
+                      })
+                    }),
+                    Match.when(false, () => {}),
+                    Match.exhaustive
+                  )
+                }),
+                Match.when(false, () => {}),
+                Match.exhaustive
+              )
             }
           }
         }
@@ -310,25 +363,37 @@ export const BlockInteractionServiceLiveWithDependencies = Layer.effect(
       placeBlock: (playerId, position, blockId, face) =>
         Effect.gen(function* () {
           // プレイヤーインベントリチェック
+          // Effect-TS pattern:
           // const hasBlock = yield* playerService.hasItemInInventory(playerId, blockId)
-          // if (!hasBlock) { ... }
+          // yield* pipe(
+          //   hasBlock,
+          //   Match.value,
+          //   Match.when(false, () => Effect.fail(createBlockPlacementError(...))),
+          //   Match.orElse(() => Effect.void)
+          // )
 
           const result = yield* placeBlock(playerId, position, blockId, face)
 
-          if (result.success) {
-            // ワールド更新
-            // yield* chunkManager.setBlockAt(position, blockId)
-            // インベントリからアイテム削除
-            // yield* playerService.removeItemFromInventory(playerId, blockId, 1)
-            // イベント発火
-            // yield* eventBus.publish({
-            //   type: 'BlockPlaced',
-            //   playerId,
-            //   blockId,
-            //   position,
-            //   timestamp: Date.now()
-            // })
-          }
+          pipe(
+            result.success,
+            Match.value,
+            Match.when(true, () => {
+              // ワールド更新
+              // yield* chunkManager.setBlockAt(position, blockId)
+              // インベントリからアイテム削除
+              // yield* playerService.removeItemFromInventory(playerId, blockId, 1)
+              // イベント発火
+              // yield* eventBus.publish({
+              //   type: 'BlockPlaced',
+              //   playerId,
+              //   blockId,
+              //   position,
+              //   timestamp: Date.now()
+              // })
+            }),
+            Match.when(false, () => {}),
+            Match.exhaustive
+          )
 
           return result
         }),

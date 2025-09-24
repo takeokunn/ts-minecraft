@@ -49,7 +49,7 @@ describe('LoadingScene', () => {
           const result = yield* Effect.either(scene.initialize())
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
+          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(result.left._tag).toBe('SceneInitializationError')
             expect(result.left.message).toContain('already initialized')
             expect(result.left.sceneType).toBe('Loading')
@@ -185,7 +185,7 @@ describe('LoadingScene', () => {
           const result = yield* Effect.either(scene.cleanup())
 
           expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
+          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(result.left._tag).toBe('SceneCleanupError')
             expect(result.left.message).toContain('not initialized')
             expect(result.left.sceneType).toBe('Loading')

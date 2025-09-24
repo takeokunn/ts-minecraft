@@ -1,4 +1,4 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match } from 'effect'
+import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match, Predicate } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
 import { BlockId, BrandedTypes } from '../../shared/types/branded.js'
@@ -15,7 +15,7 @@ export const BlockNotFoundError = (blockId: BlockId): BlockNotFoundError => ({
 })
 
 export const isBlockNotFoundError = (error: unknown): error is BlockNotFoundError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockNotFoundError'
+  Predicate.isRecord(error) && '_tag' in error && error._tag === 'BlockNotFoundError'
 
 export interface BlockAlreadyRegisteredError {
   readonly _tag: 'BlockAlreadyRegisteredError'
@@ -28,7 +28,7 @@ export const BlockAlreadyRegisteredError = (blockId: BlockId): BlockAlreadyRegis
 })
 
 export const isBlockAlreadyRegisteredError = (error: unknown): error is BlockAlreadyRegisteredError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
+  Predicate.isRecord(error) && '_tag' in error && error._tag === 'BlockAlreadyRegisteredError'
 
 // BlockRegistryサービスインターフェース
 export interface BlockRegistry {
@@ -162,28 +162,42 @@ export const BlockRegistryLive = Layer.effect(
         Effect.gen(function* () {
           const exists = HashMap.has(blockMap, block.id)
 
-          if (exists) {
-            return yield* Effect.fail(BlockAlreadyRegisteredError(BrandedTypes.createBlockId(block.id)))
-          }
-
-          // ブロックマップに追加
-          blockMap = HashMap.set(blockMap, block.id, block)
-
-          // カテゴリーインデックスに追加
+          // Transform first if statement to Match pattern
           yield* pipe(
-            Match.value(!categoryIndex.has(block.category)),
-            Match.when(true, () => Effect.sync(() => categoryIndex.set(block.category, new Set()))),
-            Match.orElse(() => Effect.void)
-          )
-          categoryIndex.get(block.category)!.add(block.id)
+            exists,
+            Match.value,
+            Match.when(true, () => Effect.fail(BlockAlreadyRegisteredError(BrandedTypes.createBlockId(block.id)))),
+            Match.when(false, () =>
+              Effect.gen(function* () {
+                // ブロックマップに追加
+                blockMap = HashMap.set(blockMap, block.id, block)
 
-          // タグインデックスに追加
-          block.tags.forEach((tag) => {
-            if (!tagIndex.has(tag)) {
-              tagIndex.set(tag, new Set())
-            }
-            tagIndex.get(tag)!.add(block.id)
-          })
+                // カテゴリーインデックスに追加
+                yield* pipe(
+                  Match.value(!categoryIndex.has(block.category)),
+                  Match.when(true, () => Effect.sync(() => categoryIndex.set(block.category, new Set()))),
+                  Match.orElse(() => Effect.void)
+                )
+                categoryIndex.get(block.category)!.add(block.id)
+
+                // タグインデックスに追加
+                block.tags.forEach((tag) => {
+                  // Transform second if statement to Match pattern
+                  pipe(
+                    tagIndex.has(tag),
+                    Match.value,
+                    Match.when(false, () => {
+                      tagIndex.set(tag, new Set())
+                    }),
+                    Match.when(true, () => {}),
+                    Match.exhaustive
+                  )
+                  tagIndex.get(tag)!.add(block.id)
+                })
+              })
+            ),
+            Match.exhaustive
+          )
         }),
 
       isBlockRegistered: (id: BlockId) => Effect.succeed(HashMap.has(blockMap, id)),

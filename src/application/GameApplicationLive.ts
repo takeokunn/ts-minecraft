@@ -32,25 +32,34 @@ import { InputService } from '../domain/input/InputService'
 // Canvas取得のヘルパー関数
 const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasElement, never, never> =>
   Effect.gen(function* () {
-    const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null
+    const element = document.getElementById(canvasId)
 
     // Transform null check using Option pattern
-    if (!canvas) {
-      yield* Effect.logError('Canvas not found', { canvasId })
-      return yield* Effect.die('Canvas not found')
-    }
-
-    // Transform instanceof check using Match pattern
     return yield* pipe(
-      canvas instanceof HTMLCanvasElement,
-      Match.value,
-      Match.when(true, () => Effect.succeed(canvas)),
-      Match.orElse(() =>
-        Effect.gen(function* () {
-          yield* Effect.logError('Element is not a canvas', { canvasId })
-          return yield* Effect.die('Element is not a canvas')
-        })
-      )
+      Option.fromNullable(element),
+      Option.filterMap((el) =>
+        pipe(
+          Match.value(el),
+          Match.when(
+            (element): element is HTMLCanvasElement =>
+              Predicate.isRecord(element) &&
+              'tagName' in element &&
+              Predicate.isString(element.tagName) &&
+              element.tagName.toLowerCase() === 'canvas',
+            (canvas) => Option.some(canvas)
+          ),
+          Match.orElse(() => Option.none())
+        )
+      ),
+      Option.match({
+        onNone: () =>
+          Effect.gen(function* () {
+            const message = element === null ? 'Canvas not found' : 'Element is not a canvas'
+            yield* Effect.logError(message, { canvasId })
+            return yield* Effect.die(message)
+          }),
+        onSome: (canvas) => Effect.succeed(canvas),
+      })
     )
   })
 
@@ -154,18 +163,22 @@ const makeGameApplicationLive = Effect.gen(function* () {
   const monitorPerformance = Effect.gen(function* () {
     const performanceStats = yield* threeRenderer.getPerformanceStats()
 
-    // FPS低下の検出 - Effect.if使用
-    yield* Effect.if(performanceStats.fps < 45, {
-      onTrue: () =>
+    // FPS低下の検出 - Match pattern使用
+    yield* pipe(
+      performanceStats.fps < 45,
+      Match.value,
+      Match.when(true, () =>
         Effect.gen(function* () {
           yield* Effect.logWarning('Performance degradation detected', {
             fps: performanceStats.fps,
             frameTime: performanceStats.frameTime,
           })
 
-          // 重要パフォーマンス監視 - Effect.if使用
-          yield* Effect.if(performanceStats.fps < 30, {
-            onTrue: () =>
+          // 重要パフォーマンス監視 - Match pattern使用
+          yield* pipe(
+            performanceStats.fps < 30,
+            Match.value,
+            Match.when(true, () =>
               Effect.fail({
                 _tag: 'PerformanceDegradationError' as const,
                 context: createErrorContext('GameApplication', 'monitorPerformance'),
@@ -173,24 +186,29 @@ const makeGameApplicationLive = Effect.gen(function* () {
                 currentValue: performanceStats.fps,
                 thresholdValue: 30,
                 severity: 'critical',
-              }),
-            onFalse: () => Effect.void,
-          })
-        }),
-      onFalse: () => Effect.void,
-    })
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          )
+        })
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    // メモリ使用量の監視 - Effect.if使用
+    // メモリ使用量の監視 - Match pattern使用
     const totalMemory = performanceStats.memory.geometries + performanceStats.memory.textures
-    yield* Effect.if(totalMemory > 1500, {
-      onTrue: () =>
+    yield* pipe(
+      totalMemory > 1500,
+      Match.value,
+      Match.when(true, () =>
         Effect.logWarning('High memory usage detected', {
           totalMemory,
           geometries: performanceStats.memory.geometries,
           textures: performanceStats.memory.textures,
-        }),
-      onFalse: () => Effect.void,
-    })
+        })
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
   return GameApplication.of({
@@ -244,19 +262,24 @@ const makeGameApplicationLive = Effect.gen(function* () {
           enabled: mergedConfig.rendering.antialiasing,
         })
 
-        // WebGL2機能有効化 - Effect.if使用
-        yield* Effect.if(mergedConfig.rendering.webgl2, {
-          onTrue: () =>
+        // WebGL2機能有効化 - Match pattern使用
+        yield* pipe(
+          mergedConfig.rendering.webgl2,
+          Match.value,
+          Match.when(true, () =>
             Effect.gen(function* () {
               const webgl2Supported = yield* threeRenderer.isWebGL2Supported()
-              // WebGL2サポート確認 - Effect.if使用
-              yield* Effect.if(webgl2Supported, {
-                onTrue: () => threeRenderer.enableWebGL2Features(),
-                onFalse: () => Effect.void,
-              })
-            }),
-          onFalse: () => Effect.void,
-        })
+              // WebGL2サポート確認 - Match pattern使用
+              yield* pipe(
+                webgl2Supported,
+                Match.value,
+                Match.when(true, () => threeRenderer.enableWebGL2Features()),
+                Match.orElse(() => Effect.void)
+              )
+            })
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         // GameLoopにフレーム更新コールバックを登録
         const unregisterCallback = yield* gameLoopService.onFrame(onFrameUpdate)

@@ -224,10 +224,15 @@ describe('ChunkPosition', () => {
         testCases.forEach(([id, expectedPos]) => {
           const result = chunkIdToPosition(id)
           expect(Option.isSome(result)).toBe(true)
-          if (Option.isSome(result)) {
-            expect(result.value).toEqual(expectedPos)
-          }
-        })
+          yield* pipe(
+            result,
+            Option.match({
+              onSome: (value) => Effect.sync(() => {
+                expect(value).toEqual(expectedPos)
+              }),
+              onNone: () => Effect.succeed(undefined)
+            })
+          )
       })
     )
 
@@ -266,10 +271,15 @@ describe('ChunkPosition', () => {
           const id = chunkPositionToId(originalPos)
           const convertedBack = chunkIdToPosition(id)
           expect(Option.isSome(convertedBack)).toBe(true)
-          if (Option.isSome(convertedBack)) {
-            expect(convertedBack.value).toEqual(originalPos)
-          }
-        })
+          yield* pipe(
+            convertedBack,
+            Option.match({
+              onSome: (value) => Effect.sync(() => {
+                expect(value).toEqual(originalPos)
+              }),
+              onNone: () => Effect.succeed(undefined)
+            })
+          )
       })
     )
   })

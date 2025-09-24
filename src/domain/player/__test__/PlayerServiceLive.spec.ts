@@ -152,10 +152,10 @@ describe('PlayerService Integration Tests', () => {
           // 同じプレイヤーIDでの作成は失敗
           const result = yield* Effect.either(playerService.createPlayer(config))
           expect(Either.isLeft(result)).toBe(true)
-          if (Either.isLeft(result)) {
+          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(result.left.reason).toBe('PLAYER_ALREADY_EXISTS')
             // PlayerErrorの場合のみplayerIdをチェック
-            if ('playerId' in result.left) {
+            yield* pipe('playerId' in result.left, Match.value, Match.when(true, () => Effect.sync(() => {
               expect(result.left.playerId).toBe(config.playerId)
             }
           }
@@ -273,14 +273,14 @@ describe('PlayerService Integration Tests', () => {
           // 存在しないプレイヤーの状態取得
           const getStateResult = yield* Effect.either(playerService.getPlayerState(nonExistentPlayerId))
           expect(Either.isLeft(getStateResult)).toBe(true)
-          if (Either.isLeft(getStateResult)) {
+          yield* pipe(getStateResult, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(getStateResult.left.reason).toBe('PLAYER_NOT_FOUND')
           }
 
           // 存在しないプレイヤーの削除
           const destroyResult = yield* Effect.either(playerService.destroyPlayer(nonExistentPlayerId))
           expect(Either.isLeft(destroyResult)).toBe(true)
-          if (Either.isLeft(destroyResult)) {
+          yield* pipe(destroyResult, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(destroyResult.left.reason).toBe('PLAYER_NOT_FOUND')
           }
 
@@ -289,7 +289,7 @@ describe('PlayerService Integration Tests', () => {
             playerService.updatePlayerState(nonExistentPlayerId, { health: 50 })
           )
           expect(Either.isLeft(updateResult)).toBe(true)
-          if (Either.isLeft(updateResult)) {
+          yield* pipe(updateResult, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(updateResult.left.reason).toBe('PLAYER_NOT_FOUND')
           }
         }).pipe(Effect.provide(PlayerServiceTestLayer)) as any
@@ -368,7 +368,7 @@ describe('PlayerService Integration Tests', () => {
           for (let i = 0; i < 10; i++) {
             const player = allPlayers.find((p) => p.playerId === `multi-player-${i}`)
             expect(player).toBeDefined()
-            if (player) {
+            yield* pipe(player, Match.value, Match.when(true, () => Effect.sync(() => {
               expect(player.position).toEqual({ x: i * 10, y: 64, z: i * -5 })
               expect(player.health).toBe(80 + i)
               expect(player.isActive).toBe(true)
@@ -435,7 +435,7 @@ describe('PlayerService Integration Tests', () => {
               health: player.health,
             })
 
-            if (!player.active) {
+            yield* pipe(!player.active, Match.value, Match.when(true, () => Effect.sync(() => {
               const playerId = BrandedTypes.createPlayerId(player.playerId)
               yield* playerService.setPlayerActive(playerId, false)
             }
@@ -499,7 +499,7 @@ describe('PlayerService Integration Tests', () => {
             const randomIndex = Math.floor(Math.random() * operationCount)
             const player = allPlayers.find((p) => p.playerId === `perf-player-${randomIndex}`)
             expect(player).toBeDefined()
-            if (player) {
+            yield* pipe(player, Match.value, Match.when(true, () => Effect.sync(() => {
               expect(player.position.x).toBe(randomIndex + 100)
               expect(player.health).toBe(75)
             }
@@ -573,7 +573,7 @@ describe('PlayerService Integration Tests', () => {
           // エンティティのメタデータを確認
           const metadata = yield* entityManager.getEntityMetadata(entityId)
           expect(Option.isSome(metadata)).toBe(true)
-          if (Option.isSome(metadata)) {
+          yield* pipe(metadata, Option.match({ onSome: (value) => Effect.sync(() => {
             expect(metadata.value.name).toBe(`Player-${config.playerId}`)
             expect(metadata.value.tags).toContain('player')
             expect(metadata.value.tags).toContain('entity')
@@ -604,7 +604,7 @@ describe('PlayerService Integration Tests', () => {
           expect(Option.isSome(playerComponent)).toBe(true)
           expect(Option.isSome(positionComponent)).toBe(true)
 
-          if (Option.isSome(positionComponent)) {
+          yield* pipe(positionComponent, Option.match({ onSome: (value) => Effect.sync(() => {
             expect(positionComponent.value).toEqual(config.initialPosition)
           }
         }).pipe(Effect.provide(PlayerServiceTestLayer)) as any
@@ -632,7 +632,7 @@ describe('PlayerService Integration Tests', () => {
           // しかし、状態取得はECSエラーで失敗する
           const result = yield* Effect.either(playerService.getPlayerState(playerId))
           expect(Either.isLeft(result)).toBe(true)
-          if (Either.isLeft(result)) {
+          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
             expect(result.left.reason).toBe('COMPONENT_ERROR')
           }
         }).pipe(Effect.provide(PlayerServiceTestLayer)) as any

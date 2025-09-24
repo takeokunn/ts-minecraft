@@ -10,6 +10,8 @@ import * as Layer from 'effect/Layer'
 import * as TestContext from 'effect/TestContext'
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
+import * as Predicate from 'effect/Predicate'
 import type { EntityId } from '../Entity'
 import {
   createEntityId,
@@ -66,10 +68,13 @@ describe('Entity ECS Architecture', () => {
         const validId3 = Schema.decodeUnknownSync(Schema.Number)(id3)
 
         // Uniqueness verification
-        if (id1 === id2 || id2 === id3 || id1 === id3) {
-          return yield* Effect.fail(new Error('Entity IDs are not unique'))
-        }
-        return true
+        yield* pipe(
+          id1 === id2 || id2 === id3 || id1 === id3,
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('Entity IDs are not unique'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -82,10 +87,13 @@ describe('Entity ECS Architecture', () => {
         const id2 = yield* pool.allocate()
 
         // リサイクルされたIDは同じになるはず
-        if (id2 !== id1) {
-          return yield* Effect.fail(new Error('ID recycling failed'))
-        }
-        return true
+        yield* pipe(
+          id2 !== id1,
+          Match.value,
+          Match.when(true, () => Effect.fail(new Error('ID recycling failed'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -96,17 +104,25 @@ describe('Entity ECS Architecture', () => {
         const id = yield* pool.allocate()
         const isAllocated1 = yield* pool.isAllocated(id)
 
-        if (!isAllocated1) {
-          return yield* Effect.fail(new Error('Entity should be allocated'))
-        }
+        yield* pipe(
+          isAllocated1,
+          Match.value,
+          Match.when(false, () => Effect.fail(new Error('Entity should be allocated'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
         yield* pool.deallocate(id)
         const isAllocated2 = yield* pool.isAllocated(id)
 
-        if (isAllocated2) {
-          return yield* Effect.fail(new Error('Entity should be deallocated'))
-        }
-        return true
+        yield* pipe(
+          isAllocated2,
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Entity should be deallocated'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -118,21 +134,28 @@ describe('Entity ECS Architecture', () => {
         // EntityPoolErrorが発生することを確認
         const result = yield* Effect.exit(pool.deallocate(invalidId))
 
-        if (result._tag === 'Success') {
-          return yield* Effect.fail(new Error('Should have failed with EntityPoolError'))
-        }
+        yield* pipe(
+          result._tag === 'Success',
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Should have failed with EntityPoolError'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (
-          result.cause._tag === 'Fail' &&
-          typeof result.cause.error === 'object' &&
-          result.cause.error !== null &&
-          '_tag' in result.cause.error &&
-          result.cause.error._tag === 'EntityPoolError'
-        ) {
-          return true
-        }
-
-        return yield* Effect.fail(new Error('Expected EntityPoolError'))
+        yield* pipe(
+          result._tag === 'Failure' &&
+          Predicate.isRecord(result.cause) &&
+          '_tag' in result.cause &&
+          (result.cause as any)._tag === 'Fail' &&
+          Predicate.isRecord((result.cause as any).error) &&
+          '_tag' in (result.cause as any).error &&
+          (result.cause as any).error._tag === 'EntityPoolError',
+          Match.value,
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.when(false, () => Effect.fail(new Error('Expected EntityPoolError'))),
+          Match.exhaustive
+        )
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -149,16 +172,25 @@ describe('Entity ECS Architecture', () => {
         // リセット後、すべてのIDは未割り当てになるはず
         const allocationChecks = yield* Effect.all(ids.map((id) => pool.isAllocated(id)))
 
-        if (allocationChecks.some((allocated) => allocated)) {
-          return yield* Effect.fail(new Error('Some entities still allocated after reset'))
-        }
+        yield* pipe(
+          allocationChecks.some((allocated) => allocated),
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Some entities still allocated after reset'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
         const stats = yield* pool.getStats()
-        if (stats.allocatedCount !== 0 || stats.recycledCount !== 0) {
-          return yield* Effect.fail(new Error('Stats not reset correctly'))
-        }
+        yield* pipe(
+          stats.allocatedCount !== 0 || stats.recycledCount !== 0,
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Stats not reset correctly'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -167,8 +199,14 @@ describe('Entity ECS Architecture', () => {
         const pool = yield* EntityPool
 
         const initialStats = yield* pool.getStats()
-        if (initialStats.allocatedCount !== 0 || initialStats.recycledCount !== 0) {
-          return yield* Effect.fail(new Error('Initial stats incorrect'))
+        yield* pipe(
+          initialStats.allocatedCount !== 0 || initialStats.recycledCount !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Initial stats incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 3つ割り当て
@@ -177,8 +215,14 @@ describe('Entity ECS Architecture', () => {
         const id3 = yield* pool.allocate()
 
         const afterAllocStats = yield* pool.getStats()
-        if (afterAllocStats.allocatedCount !== 3 || afterAllocStats.recycledCount !== 0) {
-          return yield* Effect.fail(new Error('After allocation stats incorrect'))
+        yield* pipe(
+          afterAllocStats.allocatedCount !== 3 || afterAllocStats.recycledCount !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('After allocation stats incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 1つ解放してリサイクル
@@ -186,11 +230,16 @@ describe('Entity ECS Architecture', () => {
         yield* pool.allocate()
 
         const afterRecycleStats = yield* pool.getStats()
-        if (afterRecycleStats.allocatedCount !== 3 || afterRecycleStats.recycledCount !== 1) {
-          return yield* Effect.fail(new Error('After recycle stats incorrect'))
+        yield* pipe(
+          afterRecycleStats.allocatedCount !== 3 || afterRecycleStats.recycledCount !== 1,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('After recycle stats incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -205,18 +254,29 @@ describe('Entity ECS Architecture', () => {
         yield* storage.insert(entityId, component)
         const retrieved = yield* storage.get(entityId)
 
-        if (Option.isNone(retrieved)) {
-          return yield* Effect.fail(new Error('Component not found'))
+        yield* pipe(
+          Option.isNone(retrieved),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Component not found'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // Schema validation
         const validComponent = Schema.decodeUnknownSync(ComponentDataSchema)(retrieved.value)
 
-        if (JSON.stringify(retrieved.value) !== JSON.stringify(component)) {
-          return yield* Effect.fail(new Error('Component data mismatch'))
+        yield* pipe(
+          JSON.stringify(retrieved.value) !== JSON.stringify(component),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Component data mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -230,16 +290,27 @@ describe('Entity ECS Architecture', () => {
 
         const retrieved = yield* storage.get(entityId)
 
-        if (Option.isNone(retrieved)) {
-          return yield* Effect.fail(new Error('Component not found'))
+        yield* pipe(
+          Option.isNone(retrieved),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Component not found'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         const expected = { x: 10, y: 20, z: 30 }
-        if (JSON.stringify(retrieved.value) !== JSON.stringify(expected)) {
-          return yield* Effect.fail(new Error('Component update failed'))
+        yield* pipe(
+          JSON.stringify(retrieved.value) !== JSON.stringify(expected),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Component update failed'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -257,30 +328,53 @@ describe('Entity ECS Architecture', () => {
 
         // 中間の要素を削除
         const removed = yield* storage.remove(entity2)
-        if (!removed) {
-          return yield* Effect.fail(new Error('Remove operation failed'))
+        yield* pipe(
+          !removed,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Remove operation failed'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 削除されたことを確認
         const has2 = yield* storage.has(entity2)
-        if (has2) {
-          return yield* Effect.fail(new Error('Component should be removed'))
+        yield* pipe(
+          has2,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Component should be removed'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 他の要素はまだ存在
         const has1 = yield* storage.has(entity1)
         const has3 = yield* storage.has(entity3)
-        if (!has1 || !has3) {
-          return yield* Effect.fail(new Error('Other components should still exist'))
+        yield* pipe(
+          !has1 || !has3,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Other components should still exist'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 配列がコンパクトに保たれていることを確認
         const stats = yield* storage.getStats()
-        if (stats.size !== 2) {
-          return yield* Effect.fail(new Error('Array compactness not maintained'))
+        yield* pipe(
+          stats.size !== 2,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Array compactness not maintained'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -300,20 +394,31 @@ describe('Entity ECS Architecture', () => {
 
         // バッチ取得
         const all = yield* storage.getAll()
-        if (all.length !== 3) {
-          return yield* Effect.fail(new Error('Batch retrieval count mismatch'))
+        yield* pipe(
+          all.length !== 3,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Batch retrieval count mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 各コンポーネントが正しく取得されているか確認
         const allMap = new Map(all)
         for (const [id, component] of components) {
           const retrieved = allMap.get(id)
-          if (!retrieved || JSON.stringify(retrieved) !== JSON.stringify(component)) {
-            return yield* Effect.fail(new Error('Batch retrieval data mismatch'))
+          yield* pipe(
+          !retrieved || JSON.stringify(retrieved) !== JSON.stringify(component),
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Batch retrieval data mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
           }
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -336,16 +441,27 @@ describe('Entity ECS Architecture', () => {
           })
         )
 
-        if (count !== 100) {
-          return yield* Effect.fail(new Error('Iteration count mismatch'))
+        yield* pipe(
+          count !== 100,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Iteration count mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        if (sumX !== 4950) {
+        yield* pipe(
+          sumX !== 4950,
+          Match.value,
+          Match.when(true, () =>
           // 0+1+2+...+99 = 99*100/2 = 4950
-          return yield* Effect.fail(new Error('Iteration sum mismatch'))
+          Effect.fail(new Error('Iteration sum mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -359,22 +475,39 @@ describe('Entity ECS Architecture', () => {
         }
 
         const raw = yield* storage.getRawData()
-        if (raw.data.length !== numEntities || raw.entities.length !== numEntities) {
-          return yield* Effect.fail(new Error('Raw data length mismatch'))
+        yield* pipe(
+          raw.data.length !== numEntities || raw.entities.length !== numEntities,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Raw data length mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // データが正しい順序で格納されているか確認
         for (let i = 0; i < numEntities; i++) {
-          if (raw.entities[i] !== i) {
-            return yield* Effect.fail(new Error('Entity order incorrect'))
+          yield* pipe(
+          raw.entities[i] !== i,
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Entity order incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
           }
           const component = raw.data[i]
-          if (!component || component.x !== i) {
-            return yield* Effect.fail(new Error('Component data incorrect'))
+          yield* pipe(
+          !component || component.x !== i,
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Component data incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
           }
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -392,16 +525,27 @@ describe('Entity ECS Architecture', () => {
         // すべてのデータが削除されていることを確認
         const has1 = yield* storage.has(createEntityId(1))
         const has2 = yield* storage.has(createEntityId(2))
-        if (has1 || has2) {
-          return yield* Effect.fail(new Error('Data not cleared'))
+        yield* pipe(
+          has1 || has2,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Data not cleared'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         const stats = yield* storage.getStats()
-        if (stats.size !== 0) {
-          return yield* Effect.fail(new Error('Stats not cleared'))
+        yield* pipe(
+          stats.size !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Stats not cleared'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -416,11 +560,16 @@ describe('Entity ECS Architecture', () => {
         const archetype2 = yield* manager.getOrCreateArchetype(components1)
 
         // 同じコンポーネントセットに対しては同じアーキタイプが返される
-        if (archetype1.id !== archetype2.id || archetype1 !== archetype2) {
-          return yield* Effect.fail(new Error('Archetype caching failed'))
+        yield* pipe(
+          archetype1.id !== archetype2.id || archetype1 !== archetype2,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Archetype caching failed'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -436,16 +585,27 @@ describe('Entity ECS Architecture', () => {
         const archetype2 = yield* manager.getOrCreateArchetype(components2)
         const archetype3 = yield* manager.getOrCreateArchetype(components3)
 
-        if (archetype1.id === archetype2.id) {
-          return yield* Effect.fail(new Error('Different component sets should have different archetypes'))
+        yield* pipe(
+          archetype1.id === archetype2.id,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Different component sets should have different archetypes'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        if (archetype2.id !== archetype3.id) {
+        yield* pipe(
+          archetype2.id !== archetype3.id,
+          Match.value,
+          Match.when(true, () =>
           // 順序に関わらず同じ
-          return yield* Effect.fail(new Error('Component set order should not matter'))
+          Effect.fail(new Error('Component set order should not matter'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -461,8 +621,14 @@ describe('Entity ECS Architecture', () => {
         yield* manager.moveEntity(entityId, components1)
 
         const entities1 = yield* manager.getEntitiesWithArchetype(components1)
-        if (!Array.from(entities1).includes(entityId)) {
-          return yield* Effect.fail(new Error('Entity not added to first archetype'))
+        yield* pipe(
+          !Array.from(entities1).includes(entityId),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Entity not added to first archetype'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 別のアーキタイプに移動
@@ -471,15 +637,26 @@ describe('Entity ECS Architecture', () => {
         const entities1After = yield* manager.getEntitiesWithArchetype(components1)
         const entities2After = yield* manager.getEntitiesWithArchetype(components2)
 
-        if (Array.from(entities1After).includes(entityId)) {
-          return yield* Effect.fail(new Error('Entity should be removed from first archetype'))
+        yield* pipe(
+          Array.from(entities1After).includes(entityId),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Entity should be removed from first archetype'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        if (!Array.from(entities2After).includes(entityId)) {
-          return yield* Effect.fail(new Error('Entity should be added to second archetype'))
+        yield* pipe(
+          !Array.from(entities2After).includes(entityId),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Entity should be added to second archetype'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -493,11 +670,16 @@ describe('Entity ECS Architecture', () => {
         yield* manager.removeEntity(entityId)
 
         const entities = yield* manager.getEntitiesWithArchetype(components)
-        if (Array.from(entities).includes(entityId)) {
-          return yield* Effect.fail(new Error('Entity should be removed from archetype'))
+        yield* pipe(
+          Array.from(entities).includes(entityId),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Entity should be removed from archetype'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -514,17 +696,28 @@ describe('Entity ECS Architecture', () => {
 
         const retrieved = yield* manager.getEntitiesWithArchetype(components)
 
-        if (retrieved.size !== 3) {
-          return yield* Effect.fail(new Error('Retrieved entity count mismatch'))
+        yield* pipe(
+          retrieved.size !== 3,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Retrieved entity count mismatch'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         for (const entity of entities) {
-          if (!retrieved.has(entity)) {
-            return yield* Effect.fail(new Error('Entity missing from archetype'))
+          yield* pipe(
+          !retrieved.has(entity),
+          Match.value,
+          Match.when(true, () =>
+            Effect.fail(new Error('Entity missing from archetype'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
           }
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -543,11 +736,16 @@ describe('Entity ECS Architecture', () => {
         const entities1 = yield* manager.getEntitiesWithArchetype(components1)
         const entities2 = yield* manager.getEntitiesWithArchetype(components2)
 
-        if (entities1.size !== 0 || entities2.size !== 0) {
-          return yield* Effect.fail(new Error('Archetype data not cleared'))
+        yield* pipe(
+          entities1.size !== 0 || entities2.size !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Archetype data not cleared'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -589,11 +787,16 @@ describe('Entity ECS Architecture', () => {
         console.log(`Iteration performance: ${iterationTime}ms`)
 
         // 数学的検証: 0+1+2+...+9999 = 49995000
-        if (iterationResult !== 49995000) {
-          return yield* Effect.fail(new Error('Iteration sum incorrect'))
+        yield* pipe(
+          iterationResult !== 49995000,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Iteration sum incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -621,13 +824,18 @@ describe('Entity ECS Architecture', () => {
         const memoryTime = Date.now() - memoryStartTime
         console.log(`Memory test performance: ${memoryTime}ms`)
 
-        if (memoryResult.size !== 5000) {
-          return yield* Effect.fail(new Error('Memory test data size incorrect'))
+        yield* pipe(
+          memoryResult.size !== 5000,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Memory test data size incorrect'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // メモリ効率の確認（実際のメモリ使用量は環境依存）
         // 基本的な構造確認のみ実施
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -652,11 +860,17 @@ describe('Entity ECS Architecture', () => {
         return {
           allocate: () =>
             Effect.gen(function* () {
-              if (state.freeList.length === 0) {
-                return yield* Effect.fail(
-                  EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${SMALL_MAX_ENTITIES}`)
-                )
-              }
+              yield* pipe(
+                state.freeList.length === 0,
+                Match.value,
+                Match.when(true, () =>
+                  Effect.fail(
+                    EntityPoolError('pool_exhausted', `Entity pool exhausted. Maximum capacity: ${SMALL_MAX_ENTITIES}`)
+                  )
+                ),
+                Match.when(false, () => Effect.succeed(undefined)),
+                Match.exhaustive
+              )
               const id = state.freeList.pop()!
               state.allocated.add(id)
               return id
@@ -664,9 +878,14 @@ describe('Entity ECS Architecture', () => {
 
           deallocate: (id: EntityId) =>
             Effect.gen(function* () {
-              if (!state.allocated.has(id)) {
-                return yield* Effect.fail(EntityPoolError('invalid_entity_id', `Entity ${id} is not allocated`))
-              }
+              yield* pipe(
+                !state.allocated.has(id),
+                Match.value,
+                Match.when(true, () =>
+                  Effect.fail(EntityPoolError('invalid_entity_id', `Entity ${id} is not allocated`))),
+                Match.when(false, () => Effect.succeed(undefined)),
+                Match.exhaustive
+              )
               state.allocated.delete(id)
               state.freeList.push(id)
             }),
@@ -706,35 +925,70 @@ describe('Entity ECS Architecture', () => {
         const result = yield* Effect.either(pool.allocate())
 
         // EntityPoolErrorが発生することを確認
-        if (result._tag !== 'Left') {
-          return yield* Effect.fail(new Error('Expected EntityPoolError due to pool exhaustion'))
+        yield* pipe(
+          result._tag !== 'Left',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Expected EntityPoolError due to pool exhaustion'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         const error = result.left
-        if (!(typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'EntityPoolError')) {
-          return yield* Effect.fail(new Error('Expected EntityPoolError'))
+        yield* pipe(
+          !(Predicate.isRecord(error) && '_tag' in error && error._tag === 'EntityPoolError'),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Expected EntityPoolError'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // lines 280-285の具体的な内容を確認
-        if (error.reason !== 'pool_exhausted') {
-          return yield* Effect.fail(new Error('Expected pool_exhausted reason'))
+        yield* pipe(
+          error.reason !== 'pool_exhausted',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Expected pool_exhausted reason'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        if (!error.message.includes('Entity pool exhausted')) {
-          return yield* Effect.fail(new Error('Expected exhaustion message'))
+        yield* pipe(
+          !error.message.includes('Entity pool exhausted'),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Expected exhaustion message'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        if (!error.message.includes('Maximum capacity: 3')) {
-          return yield* Effect.fail(new Error('Expected capacity in message'))
+        yield* pipe(
+          !error.message.includes('Maximum capacity: 3'),
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Expected capacity in message'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // プール統計の確認
         const stats = yield* pool.getStats()
-        if (stats.allocatedCount !== 3 || stats.recycledCount !== 0) {
-          return yield* Effect.fail(new Error('Pool stats incorrect after exhaustion'))
+        yield* pipe(
+          stats.allocatedCount !== 3 || stats.recycledCount !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Pool stats incorrect after exhaustion'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(SmallPoolLayer))
     )
 
@@ -749,8 +1003,14 @@ describe('Entity ECS Architecture', () => {
 
         // 枯渇確認
         const exhaustedResult = yield* Effect.either(pool.allocate())
-        if (exhaustedResult._tag !== 'Left') {
-          return yield* Effect.fail(new Error('Pool should be exhausted'))
+        yield* pipe(
+          exhaustedResult._tag !== 'Left',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Pool should be exhausted'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 1つのエンティティを解放
@@ -758,17 +1018,28 @@ describe('Entity ECS Architecture', () => {
 
         // 再度割り当て可能になることを確認
         const newId = yield* pool.allocate()
-        if (newId !== id2) {
-          return yield* Effect.fail(new Error('Should reuse deallocated ID'))
+        yield* pipe(
+          newId !== id2,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Should reuse deallocated ID'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 再び枯渇状態になることを確認
         const reExhaustedResult = yield* Effect.either(pool.allocate())
-        if (reExhaustedResult._tag !== 'Left') {
-          return yield* Effect.fail(new Error('Pool should be exhausted again'))
+        yield* pipe(
+          reExhaustedResult._tag !== 'Left',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Pool should be exhausted again'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(SmallPoolLayer))
     )
 
@@ -778,8 +1049,14 @@ describe('Entity ECS Architecture', () => {
 
         // 初期状態の確認
         const initialStats = yield* pool.getStats()
-        if (initialStats.recycledCount !== 3) {
-          return yield* Effect.fail(new Error('Initial recycled count should be 3'))
+        yield* pipe(
+          initialStats.recycledCount !== 3,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Initial recycled count should be 3'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // 1つずつ割り当ててfreeListを減らす
@@ -788,24 +1065,41 @@ describe('Entity ECS Architecture', () => {
         yield* pool.allocate() // recycledCount: 0
 
         const preExhaustionStats = yield* pool.getStats()
-        if (preExhaustionStats.recycledCount !== 0) {
-          return yield* Effect.fail(new Error('FreeList should be empty'))
+        yield* pipe(
+          preExhaustionStats.recycledCount !== 0,
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('FreeList should be empty'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         // この時点でfreeList.length === 0 の条件に達している
         const exhaustionResult = yield* Effect.either(pool.allocate())
 
         // lines 280-285のエラーパスが実行される
-        if (exhaustionResult._tag !== 'Left') {
-          return yield* Effect.fail(new Error('Should trigger pool exhaustion'))
+        yield* pipe(
+          exhaustionResult._tag !== 'Left',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Should trigger pool exhaustion'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
         const exhaustionError = exhaustionResult.left as EntityPoolError
-        if (exhaustionError._tag !== 'EntityPoolError' || exhaustionError.reason !== 'pool_exhausted') {
-          return yield* Effect.fail(new Error('Incorrect exhaustion error'))
+        yield* pipe(
+          exhaustionError._tag !== 'EntityPoolError' || exhaustionError.reason !== 'pool_exhausted',
+          Match.value,
+          Match.when(true, () =>
+          Effect.fail(new Error('Incorrect exhaustion error'))),
+          Match.when(false, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
         }
 
-        return true
       }).pipe(Effect.provide(SmallPoolLayer))
     )
   })

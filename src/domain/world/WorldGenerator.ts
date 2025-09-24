@@ -4,7 +4,7 @@
  * @module domain/world/WorldGenerator
  */
 
-import { Effect, Context } from 'effect'
+import { Effect, Context, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { Chunk, ChunkData } from '../chunk/index'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
@@ -33,7 +33,7 @@ export const GenerationError = (
 })
 
 export const isGenerationError = (error: unknown): error is GenerationError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GenerationError'
+  Predicate.isRecord(error) && '_tag' in error && error._tag === 'GenerationError'
 
 /**
  * 構造物生成エラー
@@ -57,7 +57,7 @@ export const StructureGenerationError = (
 })
 
 export const isStructureGenerationError = (error: unknown): error is StructureGenerationError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'StructureGenerationError'
+  Predicate.isRecord(error) && '_tag' in error && error._tag === 'StructureGenerationError'
 
 /**
  * チャンク生成結果

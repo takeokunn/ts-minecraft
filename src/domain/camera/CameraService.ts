@@ -1,4 +1,4 @@
-import { Context, Effect, Match, pipe } from 'effect'
+import { Context, Effect, Match, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 
@@ -83,7 +83,7 @@ export const CameraError = (
 })
 
 export const isCameraError = (error: unknown): error is CameraError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'CameraError'
+  Predicate.isRecord(error) && '_tag' in error && error._tag === 'CameraError'
 
 /**
  * カメラエラー作成ヘルパー

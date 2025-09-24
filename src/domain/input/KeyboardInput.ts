@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, Ref, Match, Option, pipe } from 'effect'
+import { Context, Effect, Exit, Layer, Ref, Match, Option, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import { DefaultKeyMap, KeyAction, KeyMappingConfig, KeyMappingError } from './KeyMapping'
 import { KeyState } from './types'
@@ -61,7 +61,15 @@ export const KeyboardInputLive = Layer.effect(
         catch: (error) =>
           KeyboardInputError({
             message: errorMessage,
-            cause: error instanceof Error ? error.message : String(error),
+            cause: pipe(
+              Match.value(error),
+              Match.when(
+                (e: unknown): e is Error =>
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                (e: Error) => e.message
+              ),
+              Match.orElse(() => String(error))
+            ),
           }),
       })
 
@@ -127,7 +135,7 @@ export const KeyboardInputLive = Layer.effect(
     // イベントリスナーの設定
     const setupEventListeners = safeWindowAccess(() => {
       pipe(
-        typeof window !== 'undefined',
+        !Predicate.isUndefined(window),
         Match.value,
         Match.when(true, () => {
           window.addEventListener('keydown', handleKeyDown)

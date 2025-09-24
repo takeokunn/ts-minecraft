@@ -172,7 +172,7 @@ describe('BlockInteractionService', () => {
 
         expect(typeof result.success).toBe('boolean')
 
-        if (result.success) {
+        yield* pipe(result.success, Match.value, Match.when(true, () => Effect.sync(() => {
           expect(result.placedPosition).toBeDefined()
         } else {
           expect(result.reason).toBeDefined()
@@ -322,7 +322,7 @@ describe('BlockInteractionService Integration', () => {
       const uniquePlayerId = `test-player-${Date.now()}-${Math.random()}` as PlayerId
 
       // 2. ブロックが見つかった場合、破壊を開始
-      if (raycast.hit && raycast.blockPosition) {
+      yield* pipe(raycast.hit && raycast.blockPosition, Match.value, Match.when(true, () => Effect.sync(() => {
         const session = yield* service.startBlockBreaking(
           uniquePlayerId,
           raycast.blockPosition as BlockPosition,

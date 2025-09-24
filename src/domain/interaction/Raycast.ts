@@ -190,35 +190,41 @@ export const performDDARaycast = (
     let stepX: number
     let sideDistX: number
 
-    if (normalizedDirection.x < 0) {
-      stepX = -1
-      sideDistX = (origin.x - mapX) * deltaDistX
-    } else {
-      stepX = 1
-      sideDistX = (mapX + 1.0 - origin.x) * deltaDistX
-    }
+    const xResult = pipe(
+      normalizedDirection.x < 0,
+      Match.value,
+      Match.when(true, () => ({ stepX: -1, sideDistX: (origin.x - mapX) * deltaDistX })),
+      Match.when(false, () => ({ stepX: 1, sideDistX: (mapX + 1.0 - origin.x) * deltaDistX })),
+      Match.exhaustive
+    )
+    stepX = xResult.stepX
+    sideDistX = xResult.sideDistX
 
     let stepY: number
     let sideDistY: number
 
-    if (normalizedDirection.y < 0) {
-      stepY = -1
-      sideDistY = (origin.y - mapY) * deltaDistY
-    } else {
-      stepY = 1
-      sideDistY = (mapY + 1.0 - origin.y) * deltaDistY
-    }
+    const yResult = pipe(
+      normalizedDirection.y < 0,
+      Match.value,
+      Match.when(true, () => ({ stepY: -1, sideDistY: (origin.y - mapY) * deltaDistY })),
+      Match.when(false, () => ({ stepY: 1, sideDistY: (mapY + 1.0 - origin.y) * deltaDistY })),
+      Match.exhaustive
+    )
+    stepY = yResult.stepY
+    sideDistY = yResult.sideDistY
 
     let stepZ: number
     let sideDistZ: number
 
-    if (normalizedDirection.z < 0) {
-      stepZ = -1
-      sideDistZ = (origin.z - mapZ) * deltaDistZ
-    } else {
-      stepZ = 1
-      sideDistZ = (mapZ + 1.0 - origin.z) * deltaDistZ
-    }
+    const zResult = pipe(
+      normalizedDirection.z < 0,
+      Match.value,
+      Match.when(true, () => ({ stepZ: -1, sideDistZ: (origin.z - mapZ) * deltaDistZ })),
+      Match.when(false, () => ({ stepZ: 1, sideDistZ: (mapZ + 1.0 - origin.z) * deltaDistZ })),
+      Match.exhaustive
+    )
+    stepZ = zResult.stepZ
+    sideDistZ = zResult.sideDistZ
 
     // ===== Step 3: DDA main loop =====
 
@@ -233,25 +239,36 @@ export const performDDARaycast = (
       iterations++
 
       // 次にステップする軸を決定（最小のサイド距離）
-      if (sideDistX < sideDistY && sideDistX < sideDistZ) {
-        // X軸方向にステップ
-        sideDistX += deltaDistX
-        mapX += stepX
-        lastStep = 'x'
-        currentDistance = sideDistX - deltaDistX
-      } else if (sideDistY < sideDistZ) {
-        // Y軸方向にステップ
-        sideDistY += deltaDistY
-        mapY += stepY
-        lastStep = 'y'
-        currentDistance = sideDistY - deltaDistY
-      } else {
-        // Z軸方向にステップ
-        sideDistZ += deltaDistZ
-        mapZ += stepZ
-        lastStep = 'z'
-        currentDistance = sideDistZ - deltaDistZ
-      }
+      pipe(
+        Match.value({ sideDistX, sideDistY, sideDistZ }),
+        Match.when(
+          ({ sideDistX, sideDistY, sideDistZ }) => sideDistX < sideDistY && sideDistX < sideDistZ,
+          () => {
+            // X軸方向にステップ
+            sideDistX += deltaDistX
+            mapX += stepX
+            lastStep = 'x'
+            currentDistance = sideDistX - deltaDistX
+          }
+        ),
+        Match.when(
+          ({ sideDistY, sideDistZ }) => sideDistY < sideDistZ,
+          () => {
+            // Y軸方向にステップ
+            sideDistY += deltaDistY
+            mapY += stepY
+            lastStep = 'y'
+            currentDistance = sideDistY - deltaDistY
+          }
+        ),
+        Match.orElse(() => {
+          // Z軸方向にステップ
+          sideDistZ += deltaDistZ
+          mapZ += stepZ
+          lastStep = 'z'
+          currentDistance = sideDistZ - deltaDistZ
+        })
+      )
 
       // 現在の位置でブロック衝突チェック
       const blockPosition: BlockPosition = {
@@ -262,23 +279,35 @@ export const performDDARaycast = (
 
       const isSolid = yield* isBlockSolid(blockPosition)
 
-      if (isSolid) {
-        hit = true
+      const hitResult = pipe(
+        isSolid,
+        Match.value,
+        Match.when(true, () => {
+          // ===== Step 4: Hit point calculation =====
 
-        // ===== Step 4: Hit point calculation =====
+          // 正確な衝突点を計算
+          const hitPoint: Vector3 = {
+            x: origin.x + normalizedDirection.x * currentDistance,
+            y: origin.y + normalizedDirection.y * currentDistance,
+            z: origin.z + normalizedDirection.z * currentDistance,
+          }
 
-        // 正確な衝突点を計算
-        const hitPoint: Vector3 = {
-          x: origin.x + normalizedDirection.x * currentDistance,
-          y: origin.y + normalizedDirection.y * currentDistance,
-          z: origin.z + normalizedDirection.z * currentDistance,
-        }
+          // 衝突した面を特定
+          const face = determineBlockFace(stepX, stepY, stepZ, lastStep)
 
-        // 衝突した面を特定
-        const face = determineBlockFace(stepX, stepY, stepZ, lastStep)
+          return { hit: true, result: createHitRaycastResult(blockPosition, face, currentDistance, hitPoint) }
+        }),
+        Match.when(false, () => ({ hit: false, result: null })),
+        Match.exhaustive
+      )
 
-        return createHitRaycastResult(blockPosition, face, currentDistance, hitPoint)
-      }
+      // Transform if statement using Effect.when for early return
+      yield* Effect.when(Effect.succeed(hitResult.result!), () => hitResult.hit && hitResult.result !== null).pipe(
+        Effect.flatMap((result) => (result ? Effect.fail(result) : Effect.void)),
+        Effect.catchAll(() => Effect.void) // Continue if no early return
+      )
+
+      hit = hitResult.hit
     }
 
     // ===== Step 5: No hit case =====
@@ -291,7 +320,12 @@ export const performDDARaycast = (
     }
 
     return createEmptyRaycastResult(maxDistance, endPoint)
-  })
+  }).pipe(
+    Effect.catchTag('UnknownException', (error) =>
+      // Handle early returns from the loop
+      Effect.succeed(error as RaycastResult)
+    )
+  )
 
 // =============================================================================
 // Convenience Functions
@@ -334,12 +368,22 @@ export const hasObstacleBetween = (from: Vector3, to: Vector3): Effect.Effect<bo
 
     const distance = vectorLength(direction)
 
-    if (distance === 0) {
-      return false // 同じ位置
-    }
-
-    const result = yield* performDDARaycast(from, direction, distance)
-    return result.hit
+    // Use Effect.when to handle early return case instead of if statement
+    return yield* pipe(
+      distance === 0,
+      Match.value,
+      Match.when(
+        true,
+        () => Effect.succeed(false) // Same position, no obstacle
+      ),
+      Match.when(false, () =>
+        Effect.gen(function* () {
+          const result = yield* performDDARaycast(from, direction, distance)
+          return result.hit
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 // =============================================================================

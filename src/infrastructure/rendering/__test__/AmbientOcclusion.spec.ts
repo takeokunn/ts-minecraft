@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Layer, Match } from 'effect'
+import { Effect, Exit, pipe, Layer, Match, Option } from 'effect'
 import {
   type AOVertex,
   type AOFace,
@@ -217,10 +217,20 @@ describe('AmbientOcclusion', () => {
       const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(isAmbientOcclusionError(error)).toBe(true)
-      }
+
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+          (r) => {
+            const error = r.cause._tag === 'Fail' ? r.cause.error : null
+            expect(isAmbientOcclusionError(error)).toBe(true)
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -316,13 +326,33 @@ describe('AmbientOcclusion', () => {
       const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(isAmbientOcclusionError(error)).toBe(true)
-        if (isAmbientOcclusionError(error)) {
-          expect(error.context).toBe('calculateFaceAO(top)')
-        }
-      }
+
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+          (r) => {
+            const error = r.cause._tag === 'Fail' ? r.cause.error : null
+            expect(isAmbientOcclusionError(error)).toBe(true)
+
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e): e is ReturnType<typeof AmbientOcclusionError> => isAmbientOcclusionError(e),
+                (e) => {
+                  expect(e.context).toBe('calculateFaceAO(top)')
+                }
+              ),
+              Match.orElse(() => {
+                // No-op for non-AmbientOcclusionError types
+              })
+            )
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -393,20 +423,32 @@ describe('AmbientOcclusion', () => {
         const positionMap = new Map<string, number[]>()
         vertices.forEach((v) => {
           const key = `${v.x},${v.y},${v.z}`
-          if (!positionMap.has(key)) {
-            positionMap.set(key, [])
-          }
+          pipe(
+            Match.value(positionMap.has(key)),
+            Match.when(false, () => {
+              positionMap.set(key, [])
+            }),
+            Match.orElse(() => {
+              // Key already exists, no action needed
+            })
+          )
           positionMap.get(key)!.push(v.ao)
         })
 
         // Vertices at the same position should have the same AO after smoothing
         positionMap.forEach((aoValues) => {
-          if (aoValues.length > 1) {
-            const firstAO = aoValues[0]!
-            aoValues.forEach((ao) => {
-              expect(Math.abs(ao - firstAO)).toBeLessThan(0.01)
+          pipe(
+            Match.value(aoValues.length > 1),
+            Match.when(true, () => {
+              const firstAO = aoValues[0]!
+              aoValues.forEach((ao) => {
+                expect(Math.abs(ao - firstAO)).toBeLessThan(0.01)
+              })
+            }),
+            Match.orElse(() => {
+              // Single value, no comparison needed
             })
-          }
+          )
         })
       })
 
@@ -428,13 +470,33 @@ describe('AmbientOcclusion', () => {
       const result = runEffect(program.pipe(Effect.provide(AmbientOcclusionLive)))
 
       expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause._tag === 'Fail' ? result.cause.error : null
-        expect(isAmbientOcclusionError(error)).toBe(true)
-        if (isAmbientOcclusionError(error)) {
-          expect(error.context).toBe('applyAOToChunk')
-        }
-      }
+
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is Exit.Failure<any, any> => Exit.isFailure(r),
+          (r) => {
+            const error = r.cause._tag === 'Fail' ? r.cause.error : null
+            expect(isAmbientOcclusionError(error)).toBe(true)
+
+            pipe(
+              Match.value(error),
+              Match.when(
+                (e): e is ReturnType<typeof AmbientOcclusionError> => isAmbientOcclusionError(e),
+                (e) => {
+                  expect(e.context).toBe('applyAOToChunk')
+                }
+              ),
+              Match.orElse(() => {
+                // No-op for non-AmbientOcclusionError types
+              })
+            )
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -529,8 +591,7 @@ describe('AmbientOcclusion', () => {
             expect(service.calculateVertexAO).toBeDefined()
             expect(service.calculateFaceAO).toBeDefined()
             expect(service.applyAOToChunk).toBeDefined()
-            return true
-          })
+              })
         )
 
         const result = pipe(program, Effect.provide(AmbientOcclusionLive), Effect.runSync)

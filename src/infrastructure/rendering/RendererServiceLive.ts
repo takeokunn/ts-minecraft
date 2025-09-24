@@ -124,11 +124,19 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
       // WebGLコンテキストの状態確認とレンダリング実行
       yield* Effect.try({
         try: () => {
-          // WebGLコンテキストの状態確認
+          // WebGLコンテキストの状態確認をMatchパターンで実装
           const gl = renderer!.getContext()
-          if (gl.isContextLost()) {
-            throw new Error('WebGLコンテキストが失われています')
-          }
+          const contextLost = gl.isContextLost()
+
+          pipe(
+            contextLost,
+            Match.value,
+            Match.when(true, () => {
+              throw new Error('WebGLコンテキストが失われています')
+            }),
+            Match.when(false, () => {}),
+            Match.exhaustive
+          )
 
           // レンダリング実行
           renderer!.render(scene, camera)
@@ -138,7 +146,12 @@ const createRendererService = (rendererRef: Ref.Ref<THREE.WebGLRenderer | null>)
             error,
             Match.value,
             Match.when(
-              (err: any): err is Error => err instanceof Error && err.message === 'WebGLコンテキストが失われています',
+              (err: any): err is Error =>
+                Predicate.isRecord(err) &&
+                'message' in err &&
+                'name' in err &&
+                Predicate.isString(err.message) &&
+                err.message === 'WebGLコンテキストが失われています',
               () =>
                 ContextLostError({
                   message: 'WebGLコンテキストが失われています',

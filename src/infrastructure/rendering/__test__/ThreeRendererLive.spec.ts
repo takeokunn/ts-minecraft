@@ -1,6 +1,6 @@
 import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext } from 'effect'
+import { Effect, Layer, TestContext, Match, pipe } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'
 import { ThreeRendererLive } from '../ThreeRendererLive'
@@ -19,10 +19,14 @@ const createMockCanvas = (): HTMLCanvasElement => {
   }
 
   vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
-    if (type === 'webgl2' || type === 'webgl') {
-      return mockContext as unknown as WebGLRenderingContext
-    }
-    return null
+    return pipe(
+      Match.value(type),
+      Match.when(
+        (t) => t === 'webgl2' || t === 'webgl',
+        () => mockContext as unknown as WebGLRenderingContext
+      ),
+      Match.orElse(() => null)
+    )
   })
 
   return canvas
@@ -229,12 +233,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderInitError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderInitError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('不正なキャンバス要素でエラーが発生する', () => {
@@ -249,12 +262,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderInitError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderInitError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 
@@ -301,12 +323,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('WebGL2機能を有効化する', () => {
@@ -330,12 +361,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     it('ポストプロセシングの設定', () => {
@@ -359,12 +399,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderExecutionError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderExecutionError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
 
     // このテストを最後に実行して他のテストに影響しないようにする
@@ -386,12 +435,21 @@ describe('ThreeRendererLive', () => {
       const result = Effect.runSyncExit(runnable)
 
       expect(result._tag).toBe('Failure')
-      if (result._tag === 'Failure') {
-        // Extract the actual error from the Effect failure cause
-        const actualError = result.cause._tag === 'Fail' ? result.cause.error : result.cause
-        expect(actualError).toBeDefined()
-        expect(actualError._tag).toBe('RenderInitError')
-      }
+      pipe(
+        Match.value(result),
+        Match.when(
+          (r): r is { _tag: 'Failure'; cause: any } => r._tag === 'Failure',
+          (r) => {
+            // Extract the actual error from the Effect failure cause
+            const actualError = r.cause._tag === 'Fail' ? r.cause.error : r.cause
+            expect(actualError).toBeDefined()
+            expect(actualError._tag).toBe('RenderInitError')
+          }
+        ),
+        Match.orElse(() => {
+          // No-op for successful results
+        })
+      )
     })
   })
 })

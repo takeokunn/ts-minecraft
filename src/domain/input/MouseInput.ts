@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, Ref, Option, Match, pipe } from 'effect'
+import { Context, Effect, Exit, Layer, Ref, Option, Match, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import { MouseDelta, MouseButtonState, InputSystemError } from './types'
 
@@ -64,7 +64,7 @@ export const MouseInputLive = Layer.effect(
       Effect.try({
         try: () => {
           return pipe(
-            typeof document === 'undefined',
+            Predicate.isUndefined(document),
             Match.value,
             Match.when(true, () => {
               throw new Error('Document is not available')
@@ -75,7 +75,15 @@ export const MouseInputLive = Layer.effect(
         catch: (error) =>
           MouseInputError({
             message: errorMessage,
-            cause: error instanceof Error ? error.message : String(error),
+            cause: pipe(
+              Match.value(error),
+              Match.when(
+                (e: unknown): e is Error =>
+                  Predicate.isRecord(e) && 'message' in e && 'name' in e && Predicate.isString(e.message),
+                (e: Error) => e.message
+              ),
+              Match.orElse(() => String(error))
+            ),
           }),
       })
 
@@ -87,12 +95,12 @@ export const MouseInputLive = Layer.effect(
 
         // デルタ計算（movementX/Yの存在チェック）
         const deltaX =
-          'movementX' in event && typeof event.movementX === 'number'
+          'movementX' in event && Predicate.isNumber(event.movementX)
             ? event.movementX
             : (event as MouseEvent).clientX - currentPosition.x
 
         const deltaY =
-          'movementY' in event && typeof event.movementY === 'number'
+          'movementY' in event && Predicate.isNumber(event.movementY)
             ? event.movementY
             : (event as MouseEvent).clientY - currentPosition.y
 
@@ -135,7 +143,7 @@ export const MouseInputLive = Layer.effect(
     // ポインターロック状態変更リスナー
     const handlePointerLockChange = () => {
       const effect = Effect.gen(function* () {
-        const documentExists = typeof document !== 'undefined'
+        const documentExists = !Predicate.isUndefined(document)
 
         const isLocked = documentExists && document.pointerLockElement !== null
         const element = (documentExists && document.pointerLockElement?.id) || undefined
@@ -156,7 +164,7 @@ export const MouseInputLive = Layer.effect(
 
     // イベントリスナーの設定
     yield* pipe(
-      typeof document !== 'undefined',
+      !Predicate.isUndefined(document),
       Match.value,
       Match.when(true, () =>
         safeDocumentAccess(() => {

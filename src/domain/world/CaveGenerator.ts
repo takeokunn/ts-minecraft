@@ -231,25 +231,33 @@ const createCaveGenerator = (config: CaveConfig): CaveGenerator => {
               Match.when(true, () => {
                 // 溶岩レベル周辺に溶岩湖を生成
                 for (let y = config.lavaLevel - 3; y <= config.lavaLevel + 1; y++) {
-                  if (y >= -64 && y < 320) {
-                    const index = getBlockIndex(x, y, z)
-                    const currentBlock = newBlocks[index] ?? 0
+                  pipe(
+                    y >= -64 && y < 320,
+                    Match.value,
+                    Match.when(true, () => {
+                      const index = getBlockIndex(x, y, z)
+                      const currentBlock = newBlocks[index] ?? 0
 
-                    // Match.valueパターンを使用してブロック種別による分岐
-                    pipe(
-                      currentBlock,
-                      Match.value,
-                      Match.when(
-                        (block) => block === 0 || block === 2,
-                        () => {
-                          newBlocks[index] = LAVA_ID
-                        }
-                      ),
-                      Match.orElse(() => {
-                        // その他のブロックは変更しない
-                      })
-                    )
-                  }
+                      // Match.valueパターンを使用してブロック種別による分岐
+                      pipe(
+                        currentBlock,
+                        Match.value,
+                        Match.when(
+                          (block) => block === 0 || block === 2,
+                          () => {
+                            newBlocks[index] = LAVA_ID
+                          }
+                        ),
+                        Match.orElse(() => {
+                          // その他のブロックは変更しない
+                        })
+                      )
+                    }),
+                    Match.when(false, () => {
+                      // Y座標が範囲外の場合は何もしない
+                    }),
+                    Match.exhaustive
+                  )
                 }
               }),
               Match.orElse(() => {})

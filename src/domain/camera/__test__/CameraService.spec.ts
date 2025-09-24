@@ -5,6 +5,7 @@
 
 import { it, expect } from '@effect/vitest'
 import { Effect, Layer, Exit, pipe, TestContext } from 'effect'
+import * as Predicate from 'effect/Predicate'
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import {
@@ -19,6 +20,18 @@ import {
 } from '../CameraService'
 import { FirstPersonCameraLive } from '../FirstPersonCamera'
 import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
+
+// ================================================================================
+// Predicate Functions - Type Guards
+// ================================================================================
+
+const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> = (
+  obj
+): obj is THREE.PerspectiveCamera =>
+  Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
+
+const isMatrix4: Predicate.Refinement<unknown, THREE.Matrix4> = (obj): obj is THREE.Matrix4 =>
+  Predicate.isRecord(obj) && '_isMatrix4' in obj && obj['_isMatrix4'] === true
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach
@@ -98,7 +111,6 @@ describe('CameraService', () => {
         const invalidConfigResult = yield* Effect.exit(validateCameraConfig({ fov: 150 }))
         expect(Exit.isFailure(invalidConfigResult)).toBe(true)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -115,7 +127,6 @@ describe('CameraService', () => {
         const invalidModeResult = yield* Effect.exit(validateCameraMode('invalid-mode'))
         expect(Exit.isFailure(invalidModeResult)).toBe(true)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -135,12 +146,11 @@ describe('CameraService', () => {
         const invalidStateResult = yield* Effect.exit(validateCameraState({ invalid: 'state' }))
         expect(Exit.isFailure(invalidStateResult)).toBe(true)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
 
-  describe('Schema Validations - Property-based Testing', () => {
+  ;(describe('Schema Validations - Property-based Testing', () => {
     it.effect('should validate FOV range (30-120)', () =>
       Effect.gen(function* () {
         // Valid FOV values
@@ -162,7 +172,6 @@ describe('CameraService', () => {
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -186,7 +195,6 @@ describe('CameraService', () => {
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -210,7 +218,6 @@ describe('CameraService', () => {
         const validatedMaxConfig = yield* Schema.decodeUnknown(CameraConfigSchema)(maxConfig)
         expect(validatedMaxConfig).toEqual(maxConfig)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -220,59 +227,62 @@ describe('CameraService', () => {
         const invalidFovConfig = { ...DEFAULT_CAMERA_CONFIG, fov: 150 }
         const fovResult = yield* Effect.exit(Schema.decodeUnknown(CameraConfigSchema)(invalidFovConfig))
 
-        if (Exit.isSuccess(fovResult)) {
-          return yield* Effect.fail(new Error('Should have failed for invalid FOV'))
-        }
+        yield* pipe(
+          fovResult,
+          Exit.match({
+            onSuccess: () => Effect.fail(new Error('Should have failed for invalid FOV')),
+            onFailure: () => Effect.succeed(true),
+          })
+        )
 
         // Invalid sensitivity (too low)
         const invalidSensitivityConfig = { ...DEFAULT_CAMERA_CONFIG, sensitivity: 0.05 }
         const sensitivityResult = yield* Effect.exit(Schema.decodeUnknown(CameraConfigSchema)(invalidSensitivityConfig))
 
-        if (Exit.isSuccess(sensitivityResult)) {
-          return yield* Effect.fail(new Error('Should have failed for invalid sensitivity'))
-        }
+        yield* pipe(
+          sensitivityResult,
+          Exit.match({
+            onSuccess: () => Effect.fail(new Error('Should have failed for invalid sensitivity')),
+            onFailure: () => Effect.succeed(true),
+          })
+        )
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
-  })
+  }),
+    describe('Camera Mode Management', () => {
+      it.effect('should set first-person mode', () =>
+        Effect.gen(function* () {
+          const cameraService = yield* CameraService
 
-  describe('Camera Mode Management', () => {
-    it.effect('should set first-person mode', () =>
-      Effect.gen(function* () {
-        const cameraService = yield* CameraService
+          yield* cameraService.switchMode('first-person')
 
-        yield* cameraService.switchMode('first-person')
+          // Mode setting should succeed without errors
+          }).pipe(Effect.provide(TestLayer))
+      )
 
-        // Mode setting should succeed without errors
-        return true
-      }).pipe(Effect.provide(TestLayer))
-    )
+      it.effect('should set third-person mode', () =>
+        Effect.gen(function* () {
+          const cameraService = yield* CameraService
 
-    it.effect('should set third-person mode', () =>
-      Effect.gen(function* () {
-        const cameraService = yield* CameraService
+          yield* cameraService.switchMode('third-person')
 
-        yield* cameraService.switchMode('third-person')
+          // Mode setting should succeed without errors
+          }).pipe(Effect.provide(TestLayer))
+      )
 
-        // Mode setting should succeed without errors
-        return true
-      }).pipe(Effect.provide(TestLayer))
-    )
+      it.effect('should handle mode transitions', () =>
+        Effect.gen(function* () {
+          const cameraService = yield* CameraService
 
-    it.effect('should handle mode transitions', () =>
-      Effect.gen(function* () {
-        const cameraService = yield* CameraService
+          // Test rapid mode changes
+          yield* cameraService.switchMode('first-person')
+          yield* cameraService.switchMode('third-person')
+          yield* cameraService.switchMode('first-person')
 
-        // Test rapid mode changes
-        yield* cameraService.switchMode('first-person')
-        yield* cameraService.switchMode('third-person')
-        yield* cameraService.switchMode('first-person')
-
-        return true
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
+          }).pipe(Effect.provide(TestLayer))
+      )
+    }))
 
   describe('Camera Position and Target Management', () => {
     it.effect('should set camera target position', () =>
@@ -292,7 +302,6 @@ describe('CameraService', () => {
         const validatedTarget = yield* Schema.decodeUnknown(Vector3Schema)(targetObj)
         expect(validatedTarget).toEqual(targetObj)
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -313,7 +322,6 @@ describe('CameraService', () => {
         const validatedPosition = yield* Schema.decodeUnknown(Vector3Schema)(positionObj)
         expect(validatedPosition).toEqual(positionObj)
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -335,7 +343,6 @@ describe('CameraService', () => {
         // Should complete within reasonable time
         expect(duration).toBeLessThan(100)
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -350,11 +357,14 @@ describe('CameraService', () => {
         const viewMatrix = camera?.matrixWorldInverse || new THREE.Matrix4()
 
         // Verify it's a valid Matrix4
-        if (!(viewMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should return a Matrix4'))
-        }
+        yield* pipe(
+          isMatrix4(viewMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ViewMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -367,11 +377,14 @@ describe('CameraService', () => {
         const projectionMatrix = camera?.projectionMatrix || new THREE.Matrix4()
 
         // Verify it's a valid Matrix4
-        if (!(projectionMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should return a Matrix4'))
-        }
+        yield* pipe(
+          isMatrix4(projectionMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ProjectionMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -382,11 +395,14 @@ describe('CameraService', () => {
         const camera = yield* cameraService.getCamera()
 
         // Verify it's a valid PerspectiveCamera
-        if (!(camera instanceof THREE.PerspectiveCamera)) {
-          return yield* Effect.fail(new Error('Should return a PerspectiveCamera'))
-        }
+        yield* pipe(
+          isPerspectiveCamera(camera),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('Camera is not a PerspectiveCamera'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -400,7 +416,6 @@ describe('CameraService', () => {
         yield* cameraService.updateAspectRatio(1024, 768) // 4:3
         yield* cameraService.updateAspectRatio(2560, 1080) // 21:9
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -420,7 +435,6 @@ describe('CameraService', () => {
           yield* cameraService.updateAspectRatio(width, height)
         }
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -432,7 +446,6 @@ describe('CameraService', () => {
 
         // Mouse look functionality would be handled at a higher level
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -442,7 +455,6 @@ describe('CameraService', () => {
 
         // Mouse look functionality would be handled at a higher level
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -456,7 +468,6 @@ describe('CameraService', () => {
         // Mouse look functionality would be handled at a higher level
         // Mouse look functionality would be handled at a higher level
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -475,7 +486,6 @@ describe('CameraService', () => {
         // Reset to defaults
         yield* cameraService.reset()
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -495,7 +505,6 @@ describe('CameraService', () => {
         // Should complete quickly
         expect(duration).toBeLessThan(50)
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -517,19 +526,30 @@ describe('CameraService', () => {
         // Projection matrix would be calculated from camera instance
         const projectionMatrix = camera?.projectionMatrix || new THREE.Matrix4()
 
-        if (!(camera instanceof THREE.PerspectiveCamera)) {
-          return yield* Effect.fail(new Error('Should provide PerspectiveCamera'))
-        }
+        yield* pipe(
+          isPerspectiveCamera(camera),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('Camera is not a PerspectiveCamera'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!(viewMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should provide valid view matrix'))
-        }
+        yield* pipe(
+          isMatrix4(viewMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ViewMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!(projectionMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should provide valid projection matrix'))
-        }
+        yield* pipe(
+          isMatrix4(projectionMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ProjectionMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(CameraServiceTestLayer))
     )
 
@@ -549,19 +569,30 @@ describe('CameraService', () => {
         // Projection matrix would be calculated from camera instance
         const projectionMatrix = camera?.projectionMatrix || new THREE.Matrix4()
 
-        if (!(camera instanceof THREE.PerspectiveCamera)) {
-          return yield* Effect.fail(new Error('Should provide PerspectiveCamera'))
-        }
+        yield* pipe(
+          isPerspectiveCamera(camera),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('Camera is not a PerspectiveCamera'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!(viewMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should provide valid view matrix'))
-        }
+        yield* pipe(
+          isMatrix4(viewMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ViewMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        if (!(projectionMatrix instanceof THREE.Matrix4)) {
-          return yield* Effect.fail(new Error('Should provide valid projection matrix'))
-        }
+        yield* pipe(
+          isMatrix4(projectionMatrix),
+          Match.value,
+          Match.when(false, () => Effect.sync(() => expect.fail('ProjectionMatrix is not a Matrix4'))),
+          Match.when(true, () => Effect.succeed(undefined)),
+          Match.exhaustive
+        )
 
-        return true
       }).pipe(Effect.provide(CameraServiceTestLayer))
     )
   })
@@ -576,7 +607,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('INITIALIZATION_FAILED')
         expect(error.cause).toBeInstanceOf(Error)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -589,7 +619,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('CAMERA_NOT_INITIALIZED')
         expect(error.context).toEqual({ operation: 'rotate' })
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -603,7 +632,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('INVALID_CONFIGURATION')
         expect(error.context).toEqual({ config })
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -616,7 +644,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('INVALID_MODE')
         expect(error.context).toEqual({ mode: 'invalid-mode' })
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -629,7 +656,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('INVALID_PARAMETER')
         expect(error.context).toEqual({ parameter: 'fov', value: 150, expected: 'between 30-120' })
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -643,7 +669,6 @@ describe('CameraService', () => {
         expect(error.reason).toBe('RESOURCE_ERROR')
         expect(error.cause).toBe(cause)
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -665,7 +690,6 @@ describe('CameraService', () => {
         const error4 = createCameraError.resourceError('Test without cause')
         expect(error4.cause).toBeUndefined()
 
-        return true
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })
@@ -696,7 +720,6 @@ describe('CameraService', () => {
           expect(duration).toBeLessThan(1000)
         }
 
-        return true
       }).pipe(Effect.provide(TestLayer))
     )
   })

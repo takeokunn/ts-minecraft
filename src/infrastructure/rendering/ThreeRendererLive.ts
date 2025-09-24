@@ -188,11 +188,19 @@ const createThreeRendererService = (
       // WebGLコンテキストの状態確認とレンダリング実行
       const renderResult = yield* Effect.try({
         try: () => {
-          // WebGLコンテキストの状態確認
+          // WebGLコンテキストの状態確認をMatchパターンで実装
           const gl = renderer!.getContext()
-          if (gl.isContextLost()) {
-            throw new Error('WebGLコンテキストが失われています')
-          }
+          const contextLost = gl.isContextLost()
+
+          pipe(
+            contextLost,
+            Match.value,
+            Match.when(true, () => {
+              throw new Error('WebGLコンテキストが失われています')
+            }),
+            Match.when(false, () => {}),
+            Match.exhaustive
+          )
 
           // フレームタイミング計測開始
           const frameStart = performance.now()
@@ -208,7 +216,12 @@ const createThreeRendererService = (
             error,
             Match.value,
             Match.when(
-              (err: any): err is Error => err instanceof Error && err.message === 'WebGLコンテキストが失われています',
+              (err: any): err is Error =>
+                Predicate.isRecord(err) &&
+                'message' in err &&
+                'name' in err &&
+                Predicate.isString(err.message) &&
+                err.message === 'WebGLコンテキストが失われています',
               () =>
                 ContextLostError({
                   message: 'WebGLコンテキストが失われています',
@@ -328,7 +341,25 @@ const createThreeRendererService = (
       )
 
       const context = renderer!.getContext()
-      const isWebGL2 = typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext
+      const isWebGL2 = pipe(
+        Match.value({
+          contextExists: Predicate.isUndefined(WebGL2RenderingContext),
+          context,
+        }),
+        Match.when(
+          ({ contextExists }) => contextExists,
+          () => false
+        ),
+        Match.when(
+          ({ context }) =>
+            Predicate.isRecord(context) &&
+            'constructor' in context &&
+            !Predicate.isUndefined(WebGL2RenderingContext) &&
+            (context as any).constructor === WebGL2RenderingContext,
+          () => true
+        ),
+        Match.orElse(() => false)
+      )
 
       pipe(
         isWebGL2,

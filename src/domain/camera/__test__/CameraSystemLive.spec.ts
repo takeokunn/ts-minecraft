@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@effect/vitest'
-import { Effect, Layer, Context } from 'effect'
+import { Effect, Layer, Context, Predicate } from 'effect'
 import { CameraSystemLive } from '../CameraSystemLive'
 import { CameraService } from '../CameraService'
 
@@ -9,7 +9,7 @@ describe('CameraSystemLive', () => {
       Effect.gen(function* () {
         // LayerがEffect-TSのLayerであることを確認
         expect(CameraSystemLive).toBeDefined()
-        expect(typeof CameraSystemLive).toBe('object')
+        expect(Predicate.isRecord(CameraSystemLive)).toBe(true)
 
         // Layerの基本的な構造を持つことを確認
         expect('pipe' in CameraSystemLive).toBe(true)
@@ -24,23 +24,23 @@ describe('CameraSystemLive', () => {
         }).pipe(Effect.provide(CameraSystemLive))
 
         expect(cameraService).toBeDefined()
-        expect(typeof cameraService).toBe('object')
+        expect(Predicate.isRecord(cameraService)).toBe(true)
 
         // CameraServiceのインターフェースメソッドが存在することを確認
-        expect(typeof cameraService.initialize).toBe('function')
-        expect(typeof cameraService.switchMode).toBe('function')
-        expect(typeof cameraService.update).toBe('function')
-        expect(typeof cameraService.rotate).toBe('function')
-        expect(typeof cameraService.setFOV).toBe('function')
-        expect(typeof cameraService.setSensitivity).toBe('function')
-        expect(typeof cameraService.setThirdPersonDistance).toBe('function')
-        expect(typeof cameraService.setSmoothing).toBe('function')
-        expect(typeof cameraService.getState).toBe('function')
-        expect(typeof cameraService.getConfig).toBe('function')
-        expect(typeof cameraService.getCamera).toBe('function')
-        expect(typeof cameraService.reset).toBe('function')
-        expect(typeof cameraService.updateAspectRatio).toBe('function')
-        expect(typeof cameraService.dispose).toBe('function')
+        expect(Predicate.isFunction(cameraService.initialize)).toBe(true)
+        expect(Predicate.isFunction(cameraService.switchMode)).toBe(true)
+        expect(Predicate.isFunction(cameraService.update)).toBe(true)
+        expect(Predicate.isFunction(cameraService.rotate)).toBe(true)
+        expect(Predicate.isFunction(cameraService.setFOV)).toBe(true)
+        expect(Predicate.isFunction(cameraService.setSensitivity)).toBe(true)
+        expect(Predicate.isFunction(cameraService.setThirdPersonDistance)).toBe(true)
+        expect(Predicate.isFunction(cameraService.setSmoothing)).toBe(true)
+        expect(Predicate.isFunction(cameraService.getState)).toBe(true)
+        expect(Predicate.isFunction(cameraService.getConfig)).toBe(true)
+        expect(Predicate.isFunction(cameraService.getCamera)).toBe(true)
+        expect(Predicate.isFunction(cameraService.reset)).toBe(true)
+        expect(Predicate.isFunction(cameraService.updateAspectRatio)).toBe(true)
+        expect(Predicate.isFunction(cameraService.dispose)).toBe(true)
       })
     )
 
@@ -80,8 +80,8 @@ describe('CameraSystemLive', () => {
         expect(service2).toBeDefined()
 
         // 同じインターフェースを持つことを確認
-        expect(typeof service1.initialize).toBe(typeof service2.initialize)
-        expect(typeof service1.getState).toBe(typeof service2.getState)
+        expect(Predicate.isFunction(service1.initialize) && Predicate.isFunction(service2.initialize)).toBe(true)
+        expect(Predicate.isFunction(service1.getState) && Predicate.isFunction(service2.getState)).toBe(true)
       })
     )
 
@@ -98,14 +98,14 @@ describe('CameraSystemLive', () => {
         expect(initialConfig).toBeDefined()
 
         // 状態の基本構造を確認
-        expect(typeof initialState.position).toBe('object')
-        expect(typeof initialState.rotation).toBe('object')
-        expect(typeof initialState.target).toBe('object')
+        expect(Predicate.isRecord(initialState.position)).toBe(true)
+        expect(Predicate.isRecord(initialState.rotation)).toBe(true)
+        expect(Predicate.isRecord(initialState.target)).toBe(true)
 
         // 設定の基本構造を確認
-        expect(typeof initialConfig.fov).toBe('number')
-        expect(typeof initialConfig.sensitivity).toBe('number')
-        expect(typeof initialConfig.mode).toBe('string')
+        expect(Predicate.isNumber(initialConfig.fov)).toBe(true)
+        expect(Predicate.isNumber(initialConfig.sensitivity)).toBe(true)
+        expect(Predicate.isString(initialConfig.mode)).toBe(true)
       })
     )
   })
@@ -183,7 +183,7 @@ describe('CameraSystemLive', () => {
         expect(state).toBeDefined()
         expect(config).toBeDefined()
         // cameraは初期化前なのでnullの可能性がある
-        expect(camera === null || typeof camera === 'object').toBe(true)
+        expect(camera === null || Predicate.isRecord(camera)).toBe(true)
       })
     )
   })
@@ -195,7 +195,7 @@ describe('CameraSystemLive', () => {
         const service = yield* CameraService.pipe(Effect.provide(CameraSystemLive))
 
         // disposeメソッドが利用可能であることを確認
-        expect(typeof service.dispose).toBe('function')
+        expect(Predicate.isFunction(service.dispose)).toBe(true)
 
         // 実際にdisposeを呼び出してもエラーが発生しないことを確認
         yield* service.dispose()
@@ -218,7 +218,7 @@ describe('CameraSystemLive', () => {
         )
 
         expect(result).toBeDefined()
-        expect(typeof result.fov).toBe('number')
+        expect(Predicate.isNumber(result.fov)).toBe(true)
       })
     )
   })
@@ -258,7 +258,7 @@ describe('CameraSystemLive', () => {
         expect(duration).toBeLessThan(100) // 100ms以内
         expect(state).toBeDefined()
         expect(config).toBeDefined()
-        expect(camera === null || typeof camera === 'object').toBe(true)
+        expect(camera === null || Predicate.isRecord(camera)).toBe(true)
       })
     )
   })

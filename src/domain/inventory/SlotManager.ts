@@ -5,7 +5,7 @@
  * for inventory slots, hotbar, armor, and offhand
  */
 
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Match, Option, pipe } from 'effect'
 import { Inventory, ItemStack } from './InventoryTypes.js'
 import { InventoryError } from './InventoryService.js'
 
@@ -86,40 +86,51 @@ export class SlotManager {
 
   // Find empty slot
   static findEmptySlot(inventory: Inventory, preferHotbar: boolean = false): Option.Option<number> {
-    if (preferHotbar) {
-      // Check hotbar first
-      for (let i = SlotManager.FIRST_HOTBAR_SLOT; i <= SlotManager.LAST_HOTBAR_SLOT; i++) {
-        const hotbarSlot = inventory.hotbar[i]
-        if (hotbarSlot !== undefined) {
-          const slot = inventory.slots[hotbarSlot]
-          if (slot === null || slot === undefined) {
-            return Option.some(hotbarSlot)
-          }
-        }
-      }
-    }
+    // Create array of all slot indices to check
+    const allSlots = Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) => i)
 
-    // Check all slots
-    for (let i = 0; i < SlotManager.INVENTORY_SIZE; i++) {
-      const slot = inventory.slots[i]
-      if (slot === null || slot === undefined) {
-        return Option.some(i)
-      }
-    }
+    // Create hotbar slot indices array
+    const hotbarSlots = Array.from({ length: SlotManager.HOTBAR_SIZE }, (_, i) => i)
+      .map((hotbarIndex) => inventory.hotbar[hotbarIndex])
+      .filter((slot): slot is number => slot !== undefined)
 
-    return Option.none()
+    // Determine which slots to check first based on preference
+    const slotsToCheck = pipe(
+      preferHotbar,
+      Match.value,
+      Match.when(true, () => [...hotbarSlots, ...allSlots.filter((slot) => !hotbarSlots.includes(slot))]),
+      Match.when(false, () => allSlots),
+      Match.exhaustive
+    )
+
+    // Find first empty slot using functional approach
+    const result = slotsToCheck
+      .map((slotIndex) => ({
+        slotIndex,
+        isEmpty: pipe(inventory.slots[slotIndex], Option.fromNullable, Option.isNone),
+      }))
+      .find(({ isEmpty }) => isEmpty)
+
+    return pipe(
+      result,
+      Option.fromNullable,
+      Option.map(({ slotIndex }) => slotIndex)
+    )
   }
 
   // Find slots with specific item
   static findItemSlots(inventory: Inventory, itemId: string): number[] {
-    const slots: number[] = []
-    for (let i = 0; i < SlotManager.INVENTORY_SIZE; i++) {
+    return Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) => i).filter((i) => {
       const item = inventory.slots[i]
-      if (item && item.itemId === itemId) {
-        slots.push(i)
-      }
-    }
-    return slots
+      return pipe(
+        item,
+        Option.fromNullable,
+        Option.match({
+          onNone: () => false,
+          onSome: (stackItem) => stackItem.itemId === itemId,
+        })
+      )
+    })
   }
 
   // Count empty slots
@@ -138,8 +149,14 @@ export class SlotManager {
       SlotManager.validateHotbarIndex(hotbarIndex),
       Effect.map(() => {
         const slotIndex = inventory.hotbar[hotbarIndex]
-        if (slotIndex === undefined) return null
-        return inventory.slots[slotIndex] ?? null
+        return pipe(
+          slotIndex,
+          Option.fromNullable,
+          Option.match({
+            onNone: () => null,
+            onSome: (slot) => inventory.slots[slot] ?? null,
+          })
+        )
       })
     )
   }
@@ -166,8 +183,14 @@ export class SlotManager {
   // Get selected item (from hotbar)
   static getSelectedItem(inventory: Inventory): ItemStack | null {
     const hotbarSlot = inventory.hotbar[inventory.selectedSlot]
-    if (hotbarSlot === undefined) return null
-    return inventory.slots[hotbarSlot] ?? null
+    return pipe(
+      hotbarSlot,
+      Option.fromNullable,
+      Option.match({
+        onNone: () => null,
+        onSome: (slot) => inventory.slots[slot] ?? null,
+      })
+    )
   }
 
   // Set selected slot
@@ -195,18 +218,23 @@ export class SlotManager {
         const fromItem = inventory.slots[fromSlot] ?? null
         const toItem = inventory.slots[toSlot] ?? null
 
-        if (!fromItem) {
-          return Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', undefined, { fromSlot }))
-        }
+        return pipe(
+          fromItem,
+          Option.fromNullable,
+          Option.match({
+            onNone: () => Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', undefined, { fromSlot })),
+            onSome: (item) => {
+              const newSlots = [...inventory.slots]
+              newSlots[fromSlot] = toItem
+              newSlots[toSlot] = item
 
-        const newSlots = [...inventory.slots]
-        newSlots[fromSlot] = toItem
-        newSlots[toSlot] = fromItem
-
-        return Effect.succeed({
-          ...inventory,
-          slots: newSlots,
-        })
+              return Effect.succeed({
+                ...inventory,
+                slots: newSlots,
+              })
+            },
+          })
+        )
       })
     )
   }
@@ -218,76 +246,61 @@ export class SlotManager {
 
   // Compact inventory (move items to fill empty slots)
   static compactInventory(inventory: Inventory): Inventory {
-    const items: (ItemStack | null)[] = []
-    const nonNullItems: ItemStack[] = []
+    // Collect all non-null items using functional approach
+    const nonNullItems: ItemStack[] = inventory.slots.filter((slot): slot is ItemStack =>
+      pipe(slot, Option.fromNullable, Option.isSome)
+    )
 
-    // Collect all non-null items
-    for (const slot of inventory.slots) {
-      if (slot !== null && slot !== undefined) {
-        nonNullItems.push(slot)
-      }
-    }
-
-    // Fill slots from the beginning
-    let itemIndex = 0
-    for (let i = 0; i < SlotManager.INVENTORY_SIZE; i++) {
-      if (itemIndex < nonNullItems.length) {
-        const item = nonNullItems[itemIndex]
-        if (item !== undefined) {
-          items.push(item)
-          itemIndex++
-        } else {
-          items.push(null)
-        }
-      } else {
-        items.push(null)
-      }
-    }
+    // Create new slots array: fill with items first, then nulls
+    const newSlots: (ItemStack | null)[] = Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) =>
+      pipe(
+        i < nonNullItems.length,
+        Match.value,
+        Match.when(true, () => nonNullItems[i]),
+        Match.when(false, () => null),
+        Match.exhaustive
+      )
+    )
 
     return {
       ...inventory,
-      slots: items,
+      slots: newSlots,
     }
   }
 
   // Sort inventory by item ID
   static sortInventory(inventory: Inventory): Inventory {
-    const items: (ItemStack | null)[] = []
-    const nonNullItems: ItemStack[] = []
+    // Collect all non-null items using functional approach
+    const nonNullItems: ItemStack[] = inventory.slots.filter((slot): slot is ItemStack =>
+      pipe(slot, Option.fromNullable, Option.isSome)
+    )
 
-    // Collect all non-null items
-    for (const slot of inventory.slots) {
-      if (slot !== null && slot !== undefined) {
-        nonNullItems.push(slot)
-      }
-    }
-
-    // Sort items by ID, then by count
+    // Sort items by ID, then by count using functional comparison
     nonNullItems.sort((a, b) => {
       const idComparison = a.itemId.localeCompare(b.itemId)
-      if (idComparison !== 0) return idComparison
-      return b.count - a.count
+      return pipe(
+        idComparison !== 0,
+        Match.value,
+        Match.when(true, () => idComparison),
+        Match.when(false, () => b.count - a.count),
+        Match.exhaustive
+      )
     })
 
-    // Fill slots with sorted items
-    let itemIndex = 0
-    for (let i = 0; i < SlotManager.INVENTORY_SIZE; i++) {
-      if (itemIndex < nonNullItems.length) {
-        const item = nonNullItems[itemIndex]
-        if (item !== undefined) {
-          items.push(item)
-          itemIndex++
-        } else {
-          items.push(null)
-        }
-      } else {
-        items.push(null)
-      }
-    }
+    // Create new slots array: fill with sorted items first, then nulls
+    const newSlots: (ItemStack | null)[] = Array.from({ length: SlotManager.INVENTORY_SIZE }, (_, i) =>
+      pipe(
+        i < nonNullItems.length,
+        Match.value,
+        Match.when(true, () => nonNullItems[i]),
+        Match.when(false, () => null),
+        Match.exhaustive
+      )
+    )
 
     return {
       ...inventory,
-      slots: items,
+      slots: newSlots,
     }
   }
 }

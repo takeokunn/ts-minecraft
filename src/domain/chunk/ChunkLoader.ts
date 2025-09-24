@@ -284,95 +284,101 @@ export const createChunkLoader = (
         while (true) {
           const currentState = yield* Ref.get(state)
 
-          // 現在のアクティブロード数をチェック
-          if (currentState.activeLoads.size >= currentState.config.maxConcurrentLoads) {
-            yield* Effect.sleep('100 millis')
-            continue
-          }
+          // 現在のアクティブロード数をチェック後、処理を実行
+          yield* pipe(
+            currentState.activeLoads.size >= currentState.config.maxConcurrentLoads,
+            Match.value,
+            Match.when(true, () => Effect.gen(function* () {
+              yield* Effect.sleep('100 millis')
+              // スキップして次のループ実行 (continue相当)
+            })),
+            Match.when(false, () => Effect.gen(function* () {
+              // キューからリクエストを取得
+              const request = yield* Queue.take(currentState.loadQueue)
+              const key = chunkLoadRequestToKey(request.position)
 
-          // キューからリクエストを取得
-          const request = yield* Queue.take(currentState.loadQueue)
-          const key = chunkLoadRequestToKey(request.position)
-
-          // 仮実装: 単純な遅延でチャンクロードをシミュレート
-          const loadFiber = yield* Effect.fork(
-            Effect.gen(function* () {
-              yield* Effect.sleep('100 millis') // 仮のロード時間
-              // TODO: 実際のChunkを生成する実装
-              return createChunk({
-                position: request.position,
-                blocks: new Uint16Array(98304),
-                metadata: {
-                  biome: 'plains',
-                  lightLevel: 15,
-                  isModified: false,
-                  lastUpdate: getCurrentTimestamp(),
-                  heightMap: Array.from(new Uint16Array(256)),
-                },
-                isDirty: false,
-              })
-            })
-          )
-
-          // アクティブロードに追加
-          yield* Ref.update(state, (currentState) => ({
-            ...currentState,
-            activeLoads: new Map(currentState.activeLoads).set(key, loadFiber),
-            loadStates: new Map(currentState.loadStates).set(key, {
-              position: request.position,
-              status: 'loading' as const,
-              startTime: getCurrentTimestamp(),
-            }),
-          }))
-
-          // ロード完了を監視
-          yield* Effect.fork(
-            Effect.gen(function* () {
-              const result = yield* Fiber.await(loadFiber)
-
-              yield* Ref.update(state, (currentState) => {
-                const newActiveLoads = new Map(currentState.activeLoads)
-                newActiveLoads.delete(key)
-
-                const newLoadStates = new Map(currentState.loadStates)
-                const currentLoadState = newLoadStates.get(key)
-
-                return Exit.match(result, {
-                  onSuccess: (chunk) => {
-                    newLoadStates.set(key, {
-                      position: request.position,
-                      status: 'completed' as const,
-                      startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
-                      completedTime: getCurrentTimestamp(),
-                      chunk,
-                    })
-                    return {
-                      ...currentState,
-                      activeLoads: newActiveLoads,
-                      loadStates: newLoadStates,
-                    }
-                  },
-                  onFailure: () => {
-                    newLoadStates.set(key, {
-                      position: request.position,
-                      status: 'failed' as const,
-                      startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
-                      completedTime: getCurrentTimestamp(),
-                      error: Exit.isFailure(result)
-                        ? result.cause._tag === 'Fail'
-                          ? result.cause.error
-                          : undefined
-                        : undefined,
-                    })
-                    return {
-                      ...currentState,
-                      activeLoads: newActiveLoads,
-                      loadStates: newLoadStates,
-                    }
-                  },
+              // 仮実装: 単純な遅延でチャンクロードをシミュレート
+              const loadFiber = yield* Effect.fork(
+                Effect.gen(function* () {
+                  yield* Effect.sleep('100 millis') // 仮のロード時間
+                  // TODO: 実際のChunkを生成する実装
+                  return createChunk({
+                    position: request.position,
+                    blocks: new Uint16Array(98304),
+                    metadata: {
+                      biome: 'plains',
+                      lightLevel: 15,
+                      isModified: false,
+                      lastUpdate: getCurrentTimestamp(),
+                      heightMap: Array.from(new Uint16Array(256)),
+                    },
+                    isDirty: false,
+                  })
                 })
-              })
-            })
+              )
+
+              // アクティブロードに追加
+              yield* Ref.update(state, (currentState) => ({
+                ...currentState,
+                activeLoads: new Map(currentState.activeLoads).set(key, loadFiber),
+                loadStates: new Map(currentState.loadStates).set(key, {
+                  position: request.position,
+                  status: 'loading' as const,
+                  startTime: getCurrentTimestamp(),
+                }),
+              }))
+
+              // ロード完了を監視
+              yield* Effect.fork(
+                Effect.gen(function* () {
+                  const result = yield* Fiber.await(loadFiber)
+
+                  yield* Ref.update(state, (currentState) => {
+                    const newActiveLoads = new Map(currentState.activeLoads)
+                    newActiveLoads.delete(key)
+
+                    const newLoadStates = new Map(currentState.loadStates)
+                    const currentLoadState = newLoadStates.get(key)
+
+                    return Exit.match(result, {
+                      onSuccess: (chunk) => {
+                        newLoadStates.set(key, {
+                          position: request.position,
+                          status: 'completed' as const,
+                          startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
+                          completedTime: getCurrentTimestamp(),
+                          chunk,
+                        })
+                        return {
+                          ...currentState,
+                          activeLoads: newActiveLoads,
+                          loadStates: newLoadStates,
+                        }
+                      },
+                      onFailure: () => {
+                        newLoadStates.set(key, {
+                          position: request.position,
+                          status: 'failed' as const,
+                          startTime: currentLoadState?.startTime ?? getCurrentTimestamp(),
+                          completedTime: getCurrentTimestamp(),
+                          error: Exit.isFailure(result)
+                            ? result.cause._tag === 'Fail'
+                              ? result.cause.error
+                              : undefined
+                            : undefined,
+                        })
+                        return {
+                          ...currentState,
+                          activeLoads: newActiveLoads,
+                          loadStates: newLoadStates,
+                        }
+                      },
+                    })
+                  })
+                })
+              )
+            })),
+            Match.exhaustive
           )
         }
       })

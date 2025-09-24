@@ -32,17 +32,26 @@ export const TestErrorScene = Layer.effect(
         Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
-          if (flags.forceInitError) {
-            return yield* Effect.fail(
-              SceneInitializationError({
-                message: 'Forced initialization error for testing',
-                sceneType: 'Game',
+          // Transform if statement to Match pattern
+          yield* pipe(
+            flags.forceInitError,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
+                SceneInitializationError({
+                  message: 'Forced initialization error for testing',
+                  sceneType: 'Game',
+                })
+              )
+            ),
+            Match.when(false, () =>
+              Effect.gen(function* () {
+                yield* Ref.update(errorFlagsRef, (f) => ({ ...f, isInitialized: true }))
+                yield* Effect.logInfo('TestErrorScene initialized successfully')
               })
-            )
-          }
-
-          yield* Ref.update(errorFlagsRef, (f) => ({ ...f, isInitialized: true }))
-          yield* Effect.logInfo('TestErrorScene initialized successfully')
+            ),
+            Match.exhaustive
+          )
         }),
 
       update: (deltaTime) =>
@@ -59,22 +68,31 @@ export const TestErrorScene = Layer.effect(
         Effect.gen(function* () {
           const flags = yield* Ref.get(errorFlagsRef)
 
-          if (flags.forceCleanupError) {
-            return yield* Effect.fail(
-              SceneCleanupError({
-                message: 'Forced cleanup error for testing',
-                sceneType: 'Game',
+          // Transform if statement to Match pattern
+          yield* pipe(
+            flags.forceCleanupError,
+            Match.value,
+            Match.when(true, () =>
+              Effect.fail(
+                SceneCleanupError({
+                  message: 'Forced cleanup error for testing',
+                  sceneType: 'Game',
+                })
+              )
+            ),
+            Match.when(false, () =>
+              Effect.gen(function* () {
+                yield* Ref.update(errorFlagsRef, (f) => ({
+                  ...f,
+                  isInitialized: false,
+                  forceInitError: false,
+                  forceCleanupError: false,
+                }))
+                yield* Effect.logInfo('TestErrorScene cleanup completed')
               })
-            )
-          }
-
-          yield* Ref.update(errorFlagsRef, (f) => ({
-            ...f,
-            isInitialized: false,
-            forceInitError: false,
-            forceCleanupError: false,
-          }))
-          yield* Effect.logInfo('TestErrorScene cleanup completed')
+            ),
+            Match.exhaustive
+          )
         }),
 
       onEnter: () =>

@@ -5,7 +5,7 @@
  * with proper error handling and type safety
  */
 
-import { Effect, Either, Option, pipe, Layer, Context, Duration, Stream } from 'effect'
+import { Effect, Either, Option, pipe, Layer, Context, Duration, Stream, Match } from 'effect'
 import { Schema } from '@effect/schema'
 import { expect } from 'vitest'
 
@@ -22,11 +22,15 @@ export const EffectTestUtils = {
   ): Promise<A> => {
     const result = await Effect.runPromise(pipe(effect, Effect.timeout(timeout), Effect.either))
 
-    if (Either.isLeft(result)) {
-      throw new Error(`Expected success but got error: ${String(result.left)}`)
-    }
-
-    return result.right
+    return pipe(
+      result,
+      Either.match({
+        onLeft: (error) => {
+          throw new Error(`Expected success but got error: ${String(error)}`)
+        },
+        onRight: (value) => value,
+      })
+    )
   },
 
   /**
@@ -39,16 +43,33 @@ export const EffectTestUtils = {
   ): Promise<E> => {
     const result = await Effect.runPromise(pipe(effect, Effect.timeout(timeout), Effect.either))
 
-    if (Either.isRight(result)) {
-      throw new Error(`Expected failure but got success: ${String(result.right)}`)
-    }
-
-    const error = result.left as E
-    if (errorMatcher && !errorMatcher(error)) {
-      throw new Error(`Error did not match expected pattern: ${String(error)}`)
-    }
-
-    return error
+    return pipe(
+      result,
+      Either.match({
+        onLeft: (error) => {
+          const typedError = error as E
+          return pipe(
+            Option.fromNullable(errorMatcher),
+            Option.match({
+              onNone: () => typedError,
+              onSome: (matcher) =>
+                pipe(
+                  matcher(typedError),
+                  Match.value,
+                  Match.when(false, () => {
+                    throw new Error(`Error did not match expected pattern: ${String(typedError)}`)
+                  }),
+                  Match.when(true, () => typedError),
+                  Match.exhaustive
+                ),
+            })
+          )
+        },
+        onRight: (value) => {
+          throw new Error(`Expected failure but got success: ${String(value)}`)
+        },
+      })
+    )
   },
 
   /**
@@ -87,24 +108,42 @@ export const EffectTestUtils = {
    * Assert Option is Some with expected value
    */
   expectSome: <A>(option: Option.Option<A>, expectedValue?: A): A => {
-    if (Option.isNone(option)) {
-      throw new Error('Expected Some but got None')
-    }
-
-    if (expectedValue !== undefined) {
-      expect(option.value).toEqual(expectedValue)
-    }
-
-    return option.value
+    return pipe(
+      option,
+      Option.match({
+        onNone: () => {
+          throw new Error('Expected Some but got None')
+        },
+        onSome: (value) => {
+          pipe(
+            Option.fromNullable(expectedValue),
+            Option.match({
+              onNone: () => value,
+              onSome: (expected) => {
+                expect(value).toEqual(expected)
+                return value
+              },
+            })
+          )
+          return value
+        },
+      })
+    )
   },
 
   /**
    * Assert Option is None
    */
   expectNone: <A>(option: Option.Option<A>): void => {
-    if (Option.isSome(option)) {
-      throw new Error(`Expected None but got Some: ${String(option.value)}`)
-    }
+    pipe(
+      option,
+      Option.match({
+        onNone: () => undefined,
+        onSome: (value) => {
+          throw new Error(`Expected None but got Some: ${String(value)}`)
+        },
+      })
+    )
   },
 
   /**
@@ -129,13 +168,17 @@ export const EffectTestUtils = {
     const end = Date.now()
     const duration = Duration.millis(end - start)
 
-    if (Duration.greaterThan(duration, maxDuration)) {
-      throw new Error(
-        `Operation took ${Duration.toMillis(duration)}ms, expected max ${Duration.toMillis(maxDuration)}ms`
-      )
-    }
-
-    return { result, duration }
+    return pipe(
+      Duration.greaterThan(duration, maxDuration),
+      Match.value,
+      Match.when(true, () => {
+        throw new Error(
+          `Operation took ${Duration.toMillis(duration)}ms, expected max ${Duration.toMillis(maxDuration)}ms`
+        )
+      }),
+      Match.when(false, () => ({ result, duration })),
+      Match.exhaustive
+    )
   },
 
   /**
@@ -154,15 +197,29 @@ export const EffectTestUtils = {
         Stream.fromIterable(scenarios),
         Stream.mapEffect((scenario) =>
           Effect.gen(function* () {
-            try {
-              if (scenario.expectSuccess !== false) {
-                yield* Effect.promise(() => EffectTestUtils.expectSuccess(scenario.effect))
-              } else {
-                yield* Effect.promise(() => EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher))
-              }
-            } catch (error) {
-              yield* Effect.fail(new Error(`Scenario '${scenario.name}' failed: ${String(error)}`))
-            }
+            yield* pipe(
+              Effect.try({
+                try: () =>
+                  pipe(
+                    Option.fromNullable(scenario.expectSuccess),
+                    Option.match({
+                      onNone: () => EffectTestUtils.expectSuccess(scenario.effect),
+                      onSome: (expectSuccess) =>
+                        pipe(
+                          expectSuccess,
+                          Match.value,
+                          Match.when(true, () => EffectTestUtils.expectSuccess(scenario.effect)),
+                          Match.when(false, () =>
+                            EffectTestUtils.expectFailure(scenario.effect, scenario.errorMatcher)
+                          ),
+                          Match.exhaustive
+                        ),
+                    })
+                  ),
+                catch: (error) => new Error(`Scenario '${scenario.name}' failed: ${String(error)}`),
+              }),
+              Effect.flatMap((promise) => Effect.promise(() => promise))
+            )
           })
         ),
         Stream.runDrain

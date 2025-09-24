@@ -78,8 +78,7 @@ describe('WorldGenerator Interface', () => {
           expect(typeof generator.getOptions).toBe('function')
           expect(typeof generator.canGenerateStructure).toBe('function')
           expect(typeof generator.findNearestStructure).toBe('function')
-          return true
-        }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
+          }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
     )
 
     it.effect('カスタムオプションでジェネレータを作成できる', () => {
@@ -98,7 +97,6 @@ describe('WorldGenerator Interface', () => {
         expect(options.worldType).toBe('flat')
         expect(options.generateStructures).toBe(false)
         expect(options.biomeSize).toBe(5)
-        return true
       }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
     })
   })
@@ -118,8 +116,7 @@ describe('WorldGenerator Interface', () => {
           expect(result.biomes).toBeDefined()
           expect(result.structures).toBeDefined()
           expect(result.heightMap).toBeDefined()
-          return true
-        }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>
+          }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>
     )
 
     it.effect.skip(
@@ -148,8 +145,7 @@ describe('WorldGenerator Interface', () => {
             expect(result.structures).toBeDefined()
             expect(result.heightMap).toBeDefined()
           })
-          return true
-        }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>,
+          }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, GenerationError, never>,
       { timeout: 15000 }
     )
   })
@@ -167,8 +163,7 @@ describe('WorldGenerator Interface', () => {
           expect(structure).toBeDefined()
           expect(structure.type).toBe('village')
           expect(structure.position).toEqual(position)
-          return true
-        }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, StructureGenerationError, never>
+          }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, StructureGenerationError, never>
     )
 
     it.effect(
@@ -182,8 +177,7 @@ describe('WorldGenerator Interface', () => {
           const result = yield* Effect.either(generator.generateStructure('village', position))
 
           expect(result._tag).toBe('Left')
-          return true
-        }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
+          }).pipe(Effect.provide(TestLayer)) as Effect.Effect<boolean, never, never>
     )
 
     it.effect(

@@ -68,7 +68,7 @@ describe('World', () => {
         const failures = Chunk.toArray(Cause.failures(result.cause))
         expect(failures).toHaveLength(1)
         expect(failures[0]).toBeDefined()
-        expect(failures[0]!._tag).toBe('WorldError')
+        expect((failures[0] as any)._tag).toBe('WorldError')
       }
     })
 

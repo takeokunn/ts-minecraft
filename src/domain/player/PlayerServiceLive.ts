@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, pipe, Option, HashMap } from 'effect'
+import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate } from 'effect'
 import { PlayerService } from './PlayerService.js'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
 import type { EntityId } from '../../infrastructure/ecs/Entity.js'
@@ -149,9 +149,15 @@ const makePlayerServiceLive = Effect.gen(function* () {
 
       // プレイヤーが既に存在するかチェック
       const players = yield* Ref.get(playersRef)
-      if (HashMap.has(players, validatedConfig.playerId as PlayerId)) {
-        return yield* Effect.fail(createPlayerError.playerAlreadyExists(validatedConfig.playerId as PlayerId))
-      }
+      yield* pipe(
+        HashMap.has(players, validatedConfig.playerId as PlayerId),
+        Match.value,
+        Match.when(true, () =>
+          Effect.fail(createPlayerError.playerAlreadyExists(validatedConfig.playerId as PlayerId))
+        ),
+        Match.when(false, () => Effect.void),
+        Match.exhaustive
+      )
 
       // エンティティの作成
       const entityId = yield* pipe(
@@ -235,48 +241,58 @@ const makePlayerServiceLive = Effect.gen(function* () {
       const playerState = yield* getPlayerInternalState(playerId)
 
       // 位置の更新
-      if (validatedUpdateData.position) {
-        yield* pipe(
-          entityManager.addComponent(
-            playerState.entityId,
-            POSITION_COMPONENT,
-            createPositionComponent(validatedUpdateData.position)
-          ),
-          Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
-        )
-      }
+      yield* pipe(
+        Option.fromNullable(validatedUpdateData.position),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (position) =>
+            pipe(
+              entityManager.addComponent(playerState.entityId, POSITION_COMPONENT, createPositionComponent(position)),
+              Effect.mapError((error) => createPlayerError.componentError(playerId, POSITION_COMPONENT, error))
+            ),
+        })
+      )
 
       // 回転の更新
-      if (validatedUpdateData.rotation) {
-        yield* pipe(
-          entityManager.addComponent(
-            playerState.entityId,
-            ROTATION_COMPONENT,
-            createRotationComponent(validatedUpdateData.rotation)
-          ),
-          Effect.mapError((error) => createPlayerError.componentError(playerId, ROTATION_COMPONENT, error))
-        )
-      }
+      yield* pipe(
+        Option.fromNullable(validatedUpdateData.rotation),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (rotation) =>
+            pipe(
+              entityManager.addComponent(playerState.entityId, ROTATION_COMPONENT, createRotationComponent(rotation)),
+              Effect.mapError((error) => createPlayerError.componentError(playerId, ROTATION_COMPONENT, error))
+            ),
+        })
+      )
 
       // 体力の更新
-      if (validatedUpdateData.health !== undefined) {
-        // 既存のプレイヤーコンポーネントを取得して更新
-        const playerComponent = yield* pipe(
-          entityManager.getComponent<PlayerComponent>(playerState.entityId, PLAYER_COMPONENT),
-          Effect.flatMap(
-            Option.match({
-              onNone: () => Effect.fail(createPlayerError.componentError(playerId, PLAYER_COMPONENT)),
-              onSome: (component) => Effect.succeed(component),
-            })
-          )
-        )
+      yield* pipe(
+        validatedUpdateData.health !== undefined,
+        Match.value,
+        Match.when(true, () =>
+          Effect.gen(function* () {
+            // 既存のプレイヤーコンポーネントを取得して更新
+            const playerComponent = yield* pipe(
+              entityManager.getComponent<PlayerComponent>(playerState.entityId, PLAYER_COMPONENT),
+              Effect.flatMap(
+                Option.match({
+                  onNone: () => Effect.fail(createPlayerError.componentError(playerId, PLAYER_COMPONENT)),
+                  onSome: (component) => Effect.succeed(component),
+                })
+              )
+            )
 
-        const updatedPlayerComponent = createPlayerComponent(playerId, validatedUpdateData.health)
-        yield* pipe(
-          entityManager.addComponent(playerState.entityId, PLAYER_COMPONENT, updatedPlayerComponent),
-          Effect.mapError((error) => createPlayerError.componentError(playerId, PLAYER_COMPONENT, error))
-        )
-      }
+            const updatedPlayerComponent = createPlayerComponent(playerId, validatedUpdateData.health!)
+            yield* pipe(
+              entityManager.addComponent(playerState.entityId, PLAYER_COMPONENT, updatedPlayerComponent),
+              Effect.mapError((error) => createPlayerError.componentError(playerId, PLAYER_COMPONENT, error))
+            )
+          })
+        ),
+        Match.when(false, () => Effect.void),
+        Match.exhaustive
+      )
 
       // 内部状態の最終更新時刻を更新
       yield* Ref.update(playersRef, (players) =>
@@ -335,9 +351,13 @@ const makePlayerServiceLive = Effect.gen(function* () {
   // プレイヤーの体力設定
   const setPlayerHealth = (playerId: PlayerId, health: unknown) =>
     Effect.gen(function* () {
-      if (typeof health !== 'number' || health < 0 || health > 100) {
-        return yield* Effect.fail(createPlayerError.invalidHealth(health, playerId))
-      }
+      yield* pipe(
+        Predicate.isNumber(health) && health >= 0 && health <= 100,
+        Match.value,
+        Match.when(false, () => Effect.fail(createPlayerError.invalidHealth(health, playerId))),
+        Match.when(true, () => Effect.void),
+        Match.exhaustive
+      )
 
       const playerState = yield* getPlayerInternalState(playerId)
       const updatedPlayerComponent = createPlayerComponent(playerId, health)
@@ -384,12 +404,18 @@ const makePlayerServiceLive = Effect.gen(function* () {
           buildPlayerState(playerId, playerInternalState.entityId, playerInternalState.isActive)
         )
 
-        if (result._tag === 'Right') {
-          playerStates.push(result.right)
-        } else {
-          // エラーが発生したプレイヤーはスキップ
-          yield* Effect.log(`Error building player state for ${playerId}`, { error: result.left })
-        }
+        pipe(
+          result._tag,
+          Match.value,
+          Match.when('Right', () => {
+            playerStates.push(result.right)
+          }),
+          Match.when('Left', () => {
+            // エラーが発生したプレイヤーはスキップ
+            Effect.runSync(Effect.log(`Error building player state for ${playerId}`, { error: result.left }))
+          }),
+          Match.exhaustive
+        )
       }
 
       return playerStates

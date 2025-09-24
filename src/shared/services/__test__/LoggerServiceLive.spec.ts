@@ -67,10 +67,18 @@ describe('LoggerServiceLive', () => {
 
       const result = Effect.runSync(Effect.either(program.pipe(Effect.provide(LoggerServiceLive))))
       expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(Error)
-        expect((result.left as Error).message).toBe('Operation failed')
-      }
+      yield *
+        pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.sync(() => {
+                expect(error).toBeInstanceOf(Error)
+                expect((error as Error).message).toBe('Operation failed')
+              }),
+            onRight: () => Effect.fail('Expected Left'),
+          })
+        )
     })
   })
 
@@ -98,11 +106,20 @@ describe('LoggerServiceLive', () => {
 
         // 環境変数復元
         Object.entries(originalEnv).forEach(([key, value]) => {
-          if (value === undefined) {
-            delete process.env[key]
-          } else {
-            process.env[key] = value
-          }
+          yield *
+            pipe(
+              Option.fromNullable(value),
+              Option.match({
+                onNone: () =>
+                  Effect.sync(() => {
+                    delete process.env[key]
+                  }),
+                onSome: (val) =>
+                  Effect.sync(() => {
+                    process.env[key] = val
+                  }),
+              })
+            )
         })
       })
     )
@@ -211,20 +228,31 @@ describe('LoggerServiceLive', () => {
           )
         )
 
-        if (Either.isLeft(result)) {
-          yield* logger.error('Performance measurement failed', result.left as Error)
-          return yield* Effect.fail(result.left)
-        }
-
-        return result.right
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) =>
+              Effect.gen(function* () {
+                yield* logger.error('Performance measurement failed', error as Error)
+                return yield* Effect.fail(error)
+              }),
+            onRight: (value) => Effect.succeed(value),
+          })
+        )
       })
 
       const result = Effect.runSync(Effect.either(errorWorkflow.pipe(Effect.provide(LoggerServiceLive))))
       expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left).toBeInstanceOf(Error)
-        expect((result.left as Error).message).toBe('Task failed')
-      }
+      pipe(
+        result,
+        Either.match({
+          onLeft: (error) => {
+            expect(error).toBeInstanceOf(Error)
+            expect((error as Error).message).toBe('Task failed')
+          },
+          onRight: () => {},
+        })
+      )
     })
   })
 })

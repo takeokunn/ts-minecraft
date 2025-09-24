@@ -5,7 +5,7 @@
  */
 
 import { Schema, ParseResult } from '@effect/schema'
-import { Match, Option, pipe } from 'effect'
+import { Match, Option, pipe, Predicate } from 'effect'
 
 /**
  * オブジェクト検証のヘルパー関数
@@ -13,7 +13,7 @@ import { Match, Option, pipe } from 'effect'
 const validateObjectInput = (input: unknown, ast: any) =>
   pipe(
     Option.fromNullable(
-      typeof input === 'object' && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : null
+      Predicate.isRecord(input) && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : null
     ),
     Option.match({
       onNone: () => ParseResult.fail(new ParseResult.Type(ast, input, 'Expected an object')),
@@ -58,25 +58,38 @@ const validateRequiredKeys = (input: Record<string, unknown>, requiredKeys: stri
 const validateSchemaInput = (input: unknown, allowedKeys: string[], ast: any) => {
   // オブジェクト検証
   const objectResult = validateObjectInput(input, ast)
-  if (objectResult._tag === 'Left') {
-    return objectResult
-  }
 
-  const validatedObject = objectResult.right
+  return pipe(
+    objectResult._tag === 'Left',
+    Match.value,
+    Match.when(true, () => objectResult), // エラーの場合は早期リターン
+    Match.when(false, () => {
+      const validatedObject = objectResult.right
 
-  // 追加プロパティチェック
-  const extraKeysResult = validateNoExtraKeys(validatedObject, allowedKeys, ast)
-  if (extraKeysResult._tag === 'Left') {
-    return extraKeysResult
-  }
+      // 追加プロパティチェック
+      const extraKeysResult = validateNoExtraKeys(validatedObject, allowedKeys, ast)
 
-  // 必須プロパティチェック
-  const requiredKeysResult = validateRequiredKeys(validatedObject, allowedKeys, ast)
-  if (requiredKeysResult._tag === 'Left') {
-    return requiredKeysResult
-  }
+      return pipe(
+        extraKeysResult._tag === 'Left',
+        Match.value,
+        Match.when(true, () => extraKeysResult), // エラーの場合は早期リターン
+        Match.when(false, () => {
+          // 必須プロパティチェック
+          const requiredKeysResult = validateRequiredKeys(validatedObject, allowedKeys, ast)
 
-  return ParseResult.succeed(input as any)
+          return pipe(
+            requiredKeysResult._tag === 'Left',
+            Match.value,
+            Match.when(true, () => requiredKeysResult), // エラーの場合は早期リターン
+            Match.when(false, () => ParseResult.succeed(input as any)),
+            Match.exhaustive
+          )
+        }),
+        Match.exhaustive
+      )
+    }),
+    Match.exhaustive
+  )
 }
 
 /**

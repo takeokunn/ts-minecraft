@@ -5,7 +5,7 @@
  * Integrates with block system for block items
  */
 
-import { Context, Effect, HashMap, Layer, Option, pipe } from 'effect'
+import { Context, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
 import { ItemId, ItemStack } from './InventoryTypes.js'
 
 // Item category types
@@ -68,25 +68,72 @@ export class ItemRegistry extends Context.Tag('ItemRegistry')<
 
     canStack: (item1: ItemStack, item2: ItemStack) =>
       Effect.gen(function* () {
-        if (item1.itemId !== item2.itemId) return false
+        const sameItemId = pipe(
+          item1.itemId === item2.itemId,
+          Match.value,
+          Match.when(false, () => false),
+          Match.when(true, () => null),
+          Match.exhaustive
+        )
 
-        const state = getState()
-        const definition = HashMap.get(state.items, item1.itemId)
+        // Transform if statement to Match pattern
+        return yield* pipe(
+          sameItemId,
+          Match.value,
+          Match.when(false, () => Effect.succeed(false)),
+          Match.when(null, () => Effect.gen(function* () {
+            const state = getState()
+            const definition = HashMap.get(state.items, item1.itemId)
 
-        if (Option.isNone(definition)) return false
-        if (!definition.value.isStackable) return false
+            const definitionExists = pipe(
+              Option.isNone(definition),
+              Match.value,
+              Match.when(true, () => false),
+              Match.when(false, () => null),
+              Match.exhaustive
+            )
 
-        // Check metadata compatibility
-        const meta1 = item1.metadata
-        const meta2 = item2.metadata
+            return yield* pipe(
+              definitionExists,
+              Match.value,
+              Match.when(false, () => Effect.succeed(false)),
+              Match.when(null, () => Effect.gen(function* () {
+                const isStackable = pipe(
+                  definition.value.isStackable,
+                  Match.value,
+                  Match.when(false, () => false),
+                  Match.when(true, () => null),
+                  Match.exhaustive
+                )
 
-        if (meta1 || meta2) {
-          // Items with different metadata cannot stack
-          return JSON.stringify(meta1) === JSON.stringify(meta2)
-        }
+                return yield* pipe(
+                  isStackable,
+                  Match.value,
+                  Match.when(false, () => Effect.succeed(false)),
+                  Match.when(null, () => Effect.gen(function* () {
+                    // Check metadata compatibility
+                    const meta1 = item1.metadata
+                    const meta2 = item2.metadata
 
-        return true
-      }),
+                    const metadataCheck = pipe(
+                      meta1 || meta2,
+                      Match.value,
+                      Match.when(true, () => JSON.stringify(meta1) === JSON.stringify(meta2)),
+                      Match.when(false, () => true),
+                      Match.exhaustive
+                    )
+
+                    return metadataCheck
+                  })),
+                  Match.exhaustive
+                )
+              })),
+              Match.exhaustive
+            )
+          })),
+          Match.exhaustive
+        )
+      }),,
 
     getMaxStackSize: (itemId: ItemId) =>
       Effect.sync(() => {

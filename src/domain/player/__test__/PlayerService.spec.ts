@@ -115,7 +115,7 @@ describe('PlayerService', () => {
         const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
 
         expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
+        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
           expect(result.left._tag).toBe('PlayerError')
           expect(result.left.reason).toBe('VALIDATION_ERROR')
         }

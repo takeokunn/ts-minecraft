@@ -46,9 +46,16 @@ describe('LoggerService - Core Types and Utilities', () => {
 
         // 環境変数を復元
         process.env['NODE_ENV'] = originalNodeEnv
-        if (originalLogLevel) {
-          process.env['LOG_LEVEL'] = originalLogLevel
-        }
+        yield* pipe(
+          Option.fromNullable(originalLogLevel),
+          Option.match({
+            onNone: () => Effect.sync(() => {}),
+            onSome: (value) =>
+              Effect.sync(() => {
+                process.env['LOG_LEVEL'] = value
+              }),
+          })
+        )
       })
     )
 
@@ -65,9 +72,16 @@ describe('LoggerService - Core Types and Utilities', () => {
 
         // 環境変数を復元
         process.env['NODE_ENV'] = originalNodeEnv
-        if (originalLogLevel) {
-          process.env['LOG_LEVEL'] = originalLogLevel
-        }
+        yield* pipe(
+          Option.fromNullable(originalLogLevel),
+          Option.match({
+            onNone: () => Effect.sync(() => {}),
+            onSome: (value) =>
+              Effect.sync(() => {
+                process.env['LOG_LEVEL'] = value
+              }),
+          })
+        )
       })
     )
 
@@ -80,11 +94,19 @@ describe('LoggerService - Core Types and Utilities', () => {
         expect(level).toBe('ERROR')
 
         // 環境変数を復元
-        if (originalLogLevel) {
-          process.env['LOG_LEVEL'] = originalLogLevel
-        } else {
-          delete process.env['LOG_LEVEL']
-        }
+        yield* pipe(
+          Option.fromNullable(originalLogLevel),
+          Option.match({
+            onNone: () =>
+              Effect.sync(() => {
+                delete process.env['LOG_LEVEL']
+              }),
+            onSome: (value) =>
+              Effect.sync(() => {
+                process.env['LOG_LEVEL'] = value
+              }),
+          })
+        )
       })
     )
   })
