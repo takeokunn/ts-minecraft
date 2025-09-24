@@ -557,15 +557,18 @@ const retryableOperation = pipe(
 
 ```typescript
 // プロパティベーステスト
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { it } from '@effect/vitest'
 
-it.prop([fc.integer(), fc.integer(), fc.integer()])('position should be valid', (x, y, z) => {
-  const position = Position.create(x, y, z)
-  expect(position.x).toBe(x)
-  expect(position.y).toBe(y)
-  expect(position.z).toBe(z)
-})
+it.prop([Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int()), Schema.Number.pipe(Schema.int())])(
+  'position should be valid',
+  (x, y, z) => {
+    const position = Position.create(x, y, z)
+    expect(position.x).toBe(x)
+    expect(position.y).toBe(y)
+    expect(position.z).toBe(z)
+  }
+)
 ```
 
 ### 4. パフォーマンス監視

@@ -824,10 +824,10 @@ const renderMarineLifeInstanced = (entities: MarineLife[], renderer: Renderer): 
 
 ```typescript
 // Property-Based Testing for Ocean Generation
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 const oceanGenerationArbitrary = fc.record({
-  seed: fc.integer(),
+  seed: Schema.Number.pipe(Schema.int()),
   seaLevel: fc.integer({ min: 50, max: 100 }),
   biomeType: fc.constantFrom('deep_ocean', 'warm_ocean', 'cold_ocean', 'coral_reef'),
   size: fc.record({
@@ -838,8 +838,8 @@ const oceanGenerationArbitrary = fc.record({
 
 const testOceanGeneration = Effect.gen(function* () {
   yield* Effect.sync(() => {
-    fc.assert(
-      fc.property(oceanGenerationArbitrary, (config) => {
+    it.prop(
+      it.prop(oceanGenerationArbitrary, (config) => {
         const result = Effect.runSync(generateOceanBiome(config))
 
         // プロパティ検証

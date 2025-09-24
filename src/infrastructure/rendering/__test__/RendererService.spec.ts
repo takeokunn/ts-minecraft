@@ -1,7 +1,8 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import * as THREE from 'three'
 import { RendererService } from '../RendererService'

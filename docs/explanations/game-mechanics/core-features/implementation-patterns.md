@@ -450,7 +450,7 @@ export const SystemIntegrationTests = describe('System統合', () => {
 ```typescript
 import { Effect, TestClock, TestContext, Clock, Duration, Either, pipe } from 'effect'
 import { describe, test, expect } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 export const PerformanceTests = describe('パフォーマンス', () => {
   test('1000エンティティの物理計算', () =>
@@ -528,9 +528,9 @@ export const PerformanceTests = describe('パフォーマンス', () => {
 
   test('Property-based パフォーマンス特性検証', () =>
     Effect.promise(() =>
-      fc.assert(
-        fc.property(
-          fc.array(
+      it.prop(
+        it.prop(
+          Schema.Array(
             fc.record({
               x: fc.integer({ min: -50, max: 50 }),
               z: fc.integer({ min: -50, max: 50 }),

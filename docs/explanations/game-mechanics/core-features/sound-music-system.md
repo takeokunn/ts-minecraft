@@ -1191,7 +1191,7 @@ export const SoundEventArbitrary = fc.record({
   volume: VolumeArbitrary,
   pitch: FrequencyArbitrary,
   attenuation: fc.option(AttenuationDistanceArbitrary),
-  loop: fc.boolean(),
+  loop: Schema.Boolean,
   fadeIn: fc.option(DurationArbitrary),
   fadeOut: fc.option(DurationArbitrary),
 })
@@ -1203,8 +1203,8 @@ export const AudioSettingsArbitrary = fc.record({
   effectsVolume: VolumeArbitrary,
   ambientVolume: VolumeArbitrary,
   uiVolume: VolumeArbitrary,
-  spatialAudio: fc.boolean(),
-  subtitles: fc.boolean(),
+  spatialAudio: Schema.Boolean,
+  subtitles: Schema.Boolean,
   maxConcurrentSounds: fc.integer({ min: 16, max: 256 }),
   bufferSize: fc.integer({ min: 256, max: 4096 }),
 })
@@ -1216,7 +1216,7 @@ export const AudioSettingsArbitrary = fc.record({
 
 ```typescript
 import { it } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // サウンドイベントのプロパティテスト
 it.prop([SoundEventArbitrary])('should validate SoundEvent properties', (soundEvent) =>

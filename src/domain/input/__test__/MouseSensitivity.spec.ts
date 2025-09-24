@@ -362,72 +362,80 @@ describe('MouseSensitivity', () => {
   })
 
   describe('Type Safety', () => {
-    it('should ensure MouseSensitivityConfig interface is correctly typed', () => {
-      const config: MouseSensitivityConfig = {
-        xSensitivity: 1.5,
-        ySensitivity: 1.2,
-        globalMultiplier: 1.0,
-        dpi: 1000,
-        invertX: false,
-        invertY: true,
-        curve: 'linear',
-        preset: 'custom',
-        deadZone: 0.05,
-        smoothing: 0.1,
-      }
+    it.effect('should ensure MouseSensitivityConfig interface is correctly typed', () =>
+      Effect.gen(function* () {
+        const config: MouseSensitivityConfig = {
+          xSensitivity: 1.5,
+          ySensitivity: 1.2,
+          globalMultiplier: 1.0,
+          dpi: 1000,
+          invertX: false,
+          invertY: true,
+          curve: 'linear',
+          preset: 'custom',
+          deadZone: 0.05,
+          smoothing: 0.1,
+        }
 
-      expect(typeof config.xSensitivity).toBe('number')
-      expect(typeof config.ySensitivity).toBe('number')
-      expect(typeof config.globalMultiplier).toBe('number')
-      expect(typeof config.dpi).toBe('number')
-      expect(typeof config.invertX).toBe('boolean')
-      expect(typeof config.invertY).toBe('boolean')
-      expect(config.curve).toBe('linear')
-      expect(config.preset).toBe('custom')
-      expect(typeof config.deadZone).toBe('number')
-      expect(typeof config.smoothing).toBe('number')
-    })
+        expect(typeof config.xSensitivity).toBe('number')
+        expect(typeof config.ySensitivity).toBe('number')
+        expect(typeof config.globalMultiplier).toBe('number')
+        expect(typeof config.dpi).toBe('number')
+        expect(typeof config.invertX).toBe('boolean')
+        expect(typeof config.invertY).toBe('boolean')
+        expect(config.curve).toBe('linear')
+        expect(config.preset).toBe('custom')
+        expect(typeof config.deadZone).toBe('number')
+        expect(typeof config.smoothing).toBe('number')
+      })
+    )
 
-    it('should ensure AdjustedMouseDelta interface is correctly typed', () => {
-      const adjustedDelta: AdjustedMouseDelta = {
-        deltaX: 15.5,
-        deltaY: -8.2,
-        originalDeltaX: 10.0,
-        originalDeltaY: -5.0,
-        appliedSensitivity: 1.5,
-        timestamp: Date.now(),
-      }
+    it.effect('should ensure AdjustedMouseDelta interface is correctly typed', () =>
+      Effect.gen(function* () {
+        const adjustedDelta: AdjustedMouseDelta = {
+          deltaX: 15.5,
+          deltaY: -8.2,
+          originalDeltaX: 10.0,
+          originalDeltaY: -5.0,
+          appliedSensitivity: 1.5,
+          timestamp: Date.now(),
+        }
 
-      expect(typeof adjustedDelta.deltaX).toBe('number')
-      expect(typeof adjustedDelta.deltaY).toBe('number')
-      expect(typeof adjustedDelta.originalDeltaX).toBe('number')
-      expect(typeof adjustedDelta.originalDeltaY).toBe('number')
-      expect(typeof adjustedDelta.appliedSensitivity).toBe('number')
-      expect(typeof adjustedDelta.timestamp).toBe('number')
-    })
+        expect(typeof adjustedDelta.deltaX).toBe('number')
+        expect(typeof adjustedDelta.deltaY).toBe('number')
+        expect(typeof adjustedDelta.originalDeltaX).toBe('number')
+        expect(typeof adjustedDelta.originalDeltaY).toBe('number')
+        expect(typeof adjustedDelta.appliedSensitivity).toBe('number')
+        expect(typeof adjustedDelta.timestamp).toBe('number')
+      })
+    )
   })
 
   describe('Error Types', () => {
-    it('should create MouseSensitivityError with proper structure', () => {
-      const error = MouseSensitivityError({
-        message: 'Test error',
-        config: { preset: 'invalid' },
+    it.effect('should create MouseSensitivityError with proper structure', () =>
+      Effect.gen(function* () {
+        const error = MouseSensitivityError({
+          message: 'Test error',
+          config: { preset: 'invalid' },
+        })
+
+        expect(error._tag).toBe('MouseSensitivityError')
+        expect(error.message).toBe('Test error')
+        expect(error.config).toEqual({ preset: 'invalid' })
       })
+    )
 
-      expect(error._tag).toBe('MouseSensitivityError')
-      expect(error.message).toBe('Test error')
-      expect(error.config).toEqual({ preset: 'invalid' })
-    })
+    it.effect('should create MouseSensitivityError without optional fields', () =>
+      Effect.gen(function* () {
+        const error = MouseSensitivityError({
+          message: 'Test error',
+        })
 
-    it('should create MouseSensitivityError without optional fields', () => {
-      const error = MouseSensitivityError({
-        message: 'Test error',
+        expect(error._tag).toBe('MouseSensitivityError')
+        expect(error.message).toBe('Test error')
+        expect(error.config).toBeUndefined()
       })
-
-      expect(error._tag).toBe('MouseSensitivityError')
-      expect(error.message).toBe('Test error')
-      expect(error.config).toBeUndefined()
-    })
+    )
   })
 
   describe('MouseSensitivityLive Implementation', () => {
@@ -901,44 +909,50 @@ describe('MouseSensitivity', () => {
   })
 
   describe('Test Helpers Validation', () => {
-    it('should create test delta correctly', () => {
-      const delta = createTestDelta(5, -3, 12345)
+    it.effect('should create test delta correctly', () =>
+      Effect.gen(function* () {
+        const delta = createTestDelta(5, -3, 12345)
 
-      expect(delta.deltaX).toBe(5)
-      expect(delta.deltaY).toBe(-3)
-      expect(delta.timestamp).toBe(12345)
-    })
-
-    it('should create test delta with auto timestamp', () => {
-      const before = Date.now()
-      const delta = createTestDelta(1, 2)
-      const after = Date.now()
-
-      expect(delta.deltaX).toBe(1)
-      expect(delta.deltaY).toBe(2)
-      expect(delta.timestamp).toBeGreaterThanOrEqual(before)
-      expect(delta.timestamp).toBeLessThanOrEqual(after)
-    })
-
-    it('should validate delta expectations correctly', () => {
-      const testDelta: AdjustedMouseDelta = {
-        deltaX: 1.5,
-        deltaY: -2.3,
-        originalDeltaX: 1,
-        originalDeltaY: -2,
-        appliedSensitivity: 1.2,
-        timestamp: 12345,
-      }
-
-      // This should not throw
-      expectDeltaEquals(testDelta, {
-        deltaX: 1.5,
-        deltaY: -2.3,
-        originalDeltaX: 1,
-        originalDeltaY: -2,
-        appliedSensitivity: 1.2,
+        expect(delta.deltaX).toBe(5)
+        expect(delta.deltaY).toBe(-3)
+        expect(delta.timestamp).toBe(12345)
       })
-    })
+    )
+
+    it.effect('should create test delta with auto timestamp', () =>
+      Effect.gen(function* () {
+        const before = Date.now()
+        const delta = createTestDelta(1, 2)
+        const after = Date.now()
+
+        expect(delta.deltaX).toBe(1)
+        expect(delta.deltaY).toBe(2)
+        expect(delta.timestamp).toBeGreaterThanOrEqual(before)
+        expect(delta.timestamp).toBeLessThanOrEqual(after)
+      })
+    )
+
+    it.effect('should validate delta expectations correctly', () =>
+      Effect.gen(function* () {
+        const testDelta: AdjustedMouseDelta = {
+          deltaX: 1.5,
+          deltaY: -2.3,
+          originalDeltaX: 1,
+          originalDeltaY: -2,
+          appliedSensitivity: 1.2,
+          timestamp: 12345,
+        }
+
+        // This should not throw
+        expectDeltaEquals(testDelta, {
+          deltaX: 1.5,
+          deltaY: -2.3,
+          originalDeltaX: 1,
+          originalDeltaY: -2,
+          appliedSensitivity: 1.2,
+        })
+      })
+    )
 
     // ========================================
     // Phase 2: カーブ補間エッジケースカバレッジテスト

@@ -46,7 +46,7 @@ pnpm test
 - **ファイルパターン**: `**/*.{test,spec}.{ts,tsx}`, `**/*.{unit,integration}.test.ts`
 - **Environment**: jsdom（ブラウザ環境シミュレーション） + Effect-TS TestContext
 - **Schema Validation**: Effect-TS Schema による実行時テストデータ検証
-- **Property Testing**: fast-check統合によるProperty-based Testing
+- **Property Testing**: @effect/vitest統合によるProperty-based Testing
 
 **実行結果例**:
 
@@ -294,7 +294,7 @@ export const propertyTest = <A>(
   property: (value: A) => Effect.Effect<boolean, Error, TestContext.TestContext>
 ) =>
   it(name, () =>
-    fc.assert(
+    it.prop(
       fc.asyncProperty(arbitrary, (value) =>
         Effect.runPromise(
           property(value).pipe(Effect.provide(TestContext.TestContext), Effect.timeout(Duration.seconds(10)))
@@ -313,7 +313,7 @@ export const propertyTest = <A>(
 import { Schema } from '@effect/schema'
 import { Arbitrary } from '@effect/schema/Arbitrary'
 import { Gen } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // 高度なスキーマベースのテストデータ生成
 const PlayerSchema = Schema.Struct({

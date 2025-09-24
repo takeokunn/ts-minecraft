@@ -691,7 +691,7 @@ const createCombatUIStream = (
 ## Property-Based Testing Patterns
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // Schema-based Arbitraries for Property Testing
 const weaponArbitrary = fc.oneof(
@@ -701,14 +701,14 @@ const weaponArbitrary = fc.oneof(
     attackSpeed: fc.float({ min: 0.25, max: 4 }).map(AttackSpeed),
     criticalChance: fc.float({ min: 0, max: 0.5 }).map(CriticalChance),
     durability: fc.integer({ min: 1, max: 1000 }),
-    enchantments: fc.array(fc.string(), { maxLength: 3 }),
+    enchantments: Schema.Array(Schema.String, { maxLength: 3 }),
   }),
   fc.record({
     _tag: fc.constant('Bow' as const),
     attackDamage: fc.float({ min: 1, max: 15 }).map(Damage),
     drawTime: fc.integer({ min: 200, max: 2000 }),
     maxRange: fc.integer({ min: 8, max: 64 }),
-    enchantments: fc.array(fc.string(), { maxLength: 3 }),
+    enchantments: Schema.Array(Schema.String, { maxLength: 3 }),
   }),
   fc.record({
     _tag: fc.constant('Axe' as const),
@@ -726,15 +726,15 @@ const weaponArbitrary = fc.oneof(
 // Property Tests for Combat System
 const combatPropertyTests = {
   // プロパティ: ダメージは常に0以上
-  damageIsNonNegative: fc.property(
+  damageIsNonNegative: it.prop(
     weaponArbitrary,
     fc.record({
-      armorPieces: fc.array(
+      armorPieces: Schema.Array(
         fc.record({
-          _tag: fc.string(),
+          _tag: Schema.String,
           armorPoints: fc.integer({ min: 0, max: 20 }).map((v) => v as any), // Brand型の簡略化
           toughness: fc.float({ min: 0, max: 20 }),
-          enchantments: fc.array(fc.string()),
+          enchantments: Schema.Array(Schema.String),
           durability: fc.integer({ min: 1, max: 500 }),
         })
       ),
@@ -753,13 +753,13 @@ const combatPropertyTests = {
   ),
 
   // プロパティ: クリティカル確率0の場合、クリティカルヒットは発生しない
-  noCriticalWithZeroChance: fc.property(fc.float({ min: 1, max: 100 }).map(Damage), (damage) => {
+  noCriticalWithZeroChance: it.prop(fc.float({ min: 1, max: 100 }).map(Damage), (damage) => {
     const result = Effect.runSync(applyCriticalHit(damage, CriticalChance(0)))
     return result.isCritical === false && result.damage === damage
   }),
 
   // プロパティ: 攻撃クールダウンは武器タイプに依存
-  cooldownDependsOnWeaponType: fc.property(weaponArbitrary, (weapon) => {
+  cooldownDependsOnWeaponType: it.prop(weaponArbitrary, (weapon) => {
     const duration1 = calculateCooldownDuration(weapon)
     const duration2 = calculateCooldownDuration(weapon)
 
@@ -768,7 +768,7 @@ const combatPropertyTests = {
   }),
 
   // プロパティ: PvPダメージはPvEより低い
-  pvpDamageIsReduced: fc.property(fc.float({ min: 1, max: 50 }), (baseDamage) => {
+  pvpDamageIsReduced: it.prop(fc.float({ min: 1, max: 50 }), (baseDamage) => {
     const pvpDamage = baseDamage * 0.8 // PvP multiplier
     const pveDamage = baseDamage * 1.0 // PvE multiplier
 

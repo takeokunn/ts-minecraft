@@ -1130,7 +1130,7 @@ const monitorChunkSystem = Effect.gen(function* () {
 ### Property-Based Testing Support
 
 ```typescript
-import * as Arbitrary from 'fast-check'
+import * as Arbitrary from '@effect/vitest'
 
 const chunkCoordinateArbitrary = Arbitrary.record({
   x: Arbitrary.integer({ min: -1000000, max: 1000000 }),

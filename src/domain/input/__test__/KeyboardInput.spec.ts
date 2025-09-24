@@ -6,18 +6,20 @@ import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
 describe('KeyboardInput', () => {
   describe('KeyboardInputError', () => {
-    it('should create error with proper structure', () => {
-      const error = KeyboardInputError({
-        message: 'Test error',
-        key: 'TestKey',
-        cause: 'Test cause',
-      })
+    it.effect('should create error with proper structure', () =>
+      Effect.gen(function* () {
+        const error = KeyboardInputError({
+          message: 'Test error',
+          key: 'TestKey',
+          cause: 'Test cause',
+        })
 
-      expect(error._tag).toBe('KeyboardInputError')
-      expect(error.message).toBe('Test error')
-      expect(error.key).toBe('TestKey')
-      expect(error.cause).toBe('Test cause')
-    })
+        expect(error._tag).toBe('KeyboardInputError')
+        expect(error.message).toBe('Test error')
+        expect(error.key).toBe('TestKey')
+        expect(error.cause).toBe('Test cause')
+      })
+    )
   })
 
   describe('MockKeyboardInput', () => {

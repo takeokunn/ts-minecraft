@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { it as effectIt } from '@effect/vitest'
 import { CollisionDetection } from '../CollisionDetection'
@@ -14,65 +15,77 @@ describe('CollisionDetection', () => {
     }) as AABB
 
   describe('intersectsAABB', () => {
-    it('should detect overlapping AABBs', () => {
-      const box1 = createAABB(0, 0, 0, 2, 2, 2)
-      const box2 = createAABB(1, 1, 1, 3, 3, 3)
+    it.effect('should detect overlapping AABBs', () =>
+      Effect.gen(function* () {
+        const box1 = createAABB(0, 0, 0, 2, 2, 2)
+        const box2 = createAABB(1, 1, 1, 3, 3, 3)
 
-      expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
-    })
+        expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
+      })
+    )
 
-    it('should detect non-overlapping AABBs', () => {
-      const box1 = createAABB(0, 0, 0, 1, 1, 1)
-      const box2 = createAABB(2, 2, 2, 3, 3, 3)
+    it.effect('should detect non-overlapping AABBs', () =>
+      Effect.gen(function* () {
+        const box1 = createAABB(0, 0, 0, 1, 1, 1)
+        const box2 = createAABB(2, 2, 2, 3, 3, 3)
 
-      expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(false)
-    })
+        expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(false)
+      })
+    )
 
-    it('should detect touching AABBs as intersecting', () => {
-      const box1 = createAABB(0, 0, 0, 1, 1, 1)
-      const box2 = createAABB(1, 0, 0, 2, 1, 1)
+    it.effect('should detect touching AABBs as intersecting', () =>
+      Effect.gen(function* () {
+        const box1 = createAABB(0, 0, 0, 1, 1, 1)
+        const box2 = createAABB(1, 0, 0, 2, 1, 1)
 
-      expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
-    })
+        expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
+      })
+    )
 
-    it('should handle AABBs with negative coordinates', () => {
-      const box1 = createAABB(-2, -2, -2, 0, 0, 0)
-      const box2 = createAABB(-1, -1, -1, 1, 1, 1)
+    it.effect('should handle AABBs with negative coordinates', () =>
+      Effect.gen(function* () {
+        const box1 = createAABB(-2, -2, -2, 0, 0, 0)
+        const box2 = createAABB(-1, -1, -1, 1, 1, 1)
 
-      expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
-    })
+        expect(CollisionDetection.intersectsAABB(box1, box2)).toBe(true)
+      })
+    )
   })
 
   describe('translateAABB', () => {
-    it('should translate AABB by offset', () => {
-      const box = createAABB(0, 0, 0, 1, 1, 1)
-      const offset = { x: 5, y: 3, z: -2 }
+    it.effect('should translate AABB by offset', () =>
+      Effect.gen(function* () {
+        const box = createAABB(0, 0, 0, 1, 1, 1)
+        const offset = { x: 5, y: 3, z: -2 }
 
-      const translated = CollisionDetection.translateAABB(box, offset)
+        const translated = CollisionDetection.translateAABB(box, offset)
 
-      expect(translated.min).toEqual({ x: 5, y: 3, z: -2 })
-      expect(translated.max).toEqual({ x: 6, y: 4, z: -1 })
-      expect(translated._tag).toBe('AABB')
-    })
+        expect(translated.min).toEqual({ x: 5, y: 3, z: -2 })
+        expect(translated.max).toEqual({ x: 6, y: 4, z: -1 })
+        expect(translated._tag).toBe('AABB')
+      })
+    )
   })
 
   describe('getNearbyBlockAABBs', () => {
-    it('should return blocks within radius', () => {
-      const position = { x: 5.5, y: 10.5, z: 5.5 }
-      const radius = 1
+    it.effect('should return blocks within radius', () =>
+      Effect.gen(function* () {
+        const position = { x: 5.5, y: 10.5, z: 5.5 }
+        const radius = 1
 
-      const blocks = CollisionDetection.getNearbyBlockAABBs(position, radius)
+        const blocks = CollisionDetection.getNearbyBlockAABBs(position, radius)
 
-      // 半径1で3x3x3 = 27ブロック
-      expect(blocks.length).toBeGreaterThan(0)
+        // 半径1で3x3x3 = 27ブロック
+        expect(blocks.length).toBeGreaterThan(0)
 
-      // 各ブロックが正しいAABBを持つ
-      blocks.forEach((block) => {
-        expect(block.aabb.max.x - block.aabb.min.x).toBe(1)
-        expect(block.aabb.max.y - block.aabb.min.y).toBe(1)
-        expect(block.aabb.max.z - block.aabb.min.z).toBe(1)
+        // 各ブロックが正しいAABBを持つ
+        blocks.forEach((block) => {
+          expect(block.aabb.max.x - block.aabb.min.x).toBe(1)
+          expect(block.aabb.max.y - block.aabb.min.y).toBe(1)
+          expect(block.aabb.max.z - block.aabb.min.z).toBe(1)
+        })
       })
-    })
+    )
   })
 
   describe('detectCollision', () => {

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, Layer, pipe, Duration } from 'effect'
 import { MovementSystemLive } from '../MovementSystemLive.js'
@@ -79,69 +80,83 @@ describe('MovementSystem Physics and Performance Tests', () => {
   })
 
   describe('Physics Constants and Utilities', () => {
-    it('should have valid physics constants', () => {
-      expect(PHYSICS_CONSTANTS.GRAVITY).toBe(-9.81)
-      expect(PHYSICS_CONSTANTS.MAX_SPEED).toBe(10.0)
-      expect(PHYSICS_CONSTANTS.FRICTION).toBe(0.8)
-      expect(PHYSICS_CONSTANTS.JUMP_FORCE).toBe(8.0)
-      expect(PHYSICS_CONSTANTS.TERMINAL_VELOCITY).toBe(-50.0)
-      expect(PHYSICS_CONSTANTS.COLLISION_EPSILON).toBe(0.001)
-    })
+    it.effect('should have valid physics constants', () =>
+      Effect.gen(function* () {
+        expect(PHYSICS_CONSTANTS.GRAVITY).toBe(-9.81)
+        expect(PHYSICS_CONSTANTS.MAX_SPEED).toBe(10.0)
+        expect(PHYSICS_CONSTANTS.FRICTION).toBe(0.8)
+        expect(PHYSICS_CONSTANTS.JUMP_FORCE).toBe(8.0)
+        expect(PHYSICS_CONSTANTS.TERMINAL_VELOCITY).toBe(-50.0)
+        expect(PHYSICS_CONSTANTS.COLLISION_EPSILON).toBe(0.001)
+      })
+    )
 
-    it('should apply gravity correctly', () => {
-      const initialVelocity: VelocityVector = { x: 0, y: 0, z: 0 }
-      const deltaTime = 16.67 // 1 frame at 60FPS
+    it.effect('should apply gravity correctly', () =>
+      Effect.gen(function* () {
+        const initialVelocity: VelocityVector = { x: 0, y: 0, z: 0 }
+        const deltaTime = 16.67 // 1 frame at 60FPS
 
-      const result = PhysicsUtils.applyGravity(initialVelocity, deltaTime)
+        const result = PhysicsUtils.applyGravity(initialVelocity, deltaTime)
 
-      // 重力による速度変化: g * dt = -9.81 * (16.67/1000) ≈ -0.1635327
-      expect(result.x).toBe(0)
-      expect(result.y).toBeCloseTo(-0.1635327, 4)
-      expect(result.z).toBe(0)
-    })
+        // 重力による速度変化: g * dt = -9.81 * (16.67/1000) ≈ -0.1635327
+        expect(result.x).toBe(0)
+        expect(result.y).toBeCloseTo(-0.1635327, 4)
+        expect(result.z).toBe(0)
+      })
+    )
 
-    it('should apply friction correctly', () => {
-      const velocity: VelocityVector = { x: 10, y: 5, z: -8 }
-      const friction = 0.8
+    it.effect('should apply friction correctly', () =>
+      Effect.gen(function* () {
+        const velocity: VelocityVector = { x: 10, y: 5, z: -8 }
+        const friction = 0.8
 
-      const result = PhysicsUtils.applyFriction(velocity, friction)
+        const result = PhysicsUtils.applyFriction(velocity, friction)
 
-      expect(result.x).toBe(8) // 10 * 0.8
-      expect(result.y).toBe(5) // Y軸は摩擦の影響を受けない
-      expect(result.z).toBe(-6.4) // -8 * 0.8
-    })
+        expect(result.x).toBe(8) // 10 * 0.8
+        expect(result.y).toBe(5) // Y軸は摩擦の影響を受けない
+        expect(result.z).toBe(-6.4) // -8 * 0.8
+      })
+    )
 
-    it('should normalize velocity correctly', () => {
-      const velocity: VelocityVector = { x: 15, y: 0, z: 20 }
-      const maxSpeed = 10
+    it.effect('should normalize velocity correctly', () =>
+      Effect.gen(function* () {
+        const velocity: VelocityVector = { x: 15, y: 0, z: 20 }
+        const maxSpeed = 10
 
-      const result = PhysicsUtils.normalizeVelocity(velocity, maxSpeed)
+        const result = PhysicsUtils.normalizeVelocity(velocity, maxSpeed)
 
-      const magnitude = Math.sqrt(result.x * result.x + result.z * result.z)
-      expect(magnitude).toBeCloseTo(maxSpeed, 3)
-      expect(result.y).toBe(0) // Y軸は正規化の影響を受けない
-    })
+        const magnitude = Math.sqrt(result.x * result.x + result.z * result.z)
+        expect(magnitude).toBeCloseTo(maxSpeed, 3)
+        expect(result.y).toBe(0) // Y軸は正規化の影響を受けない
+      })
+    )
 
-    it('should calculate vector magnitude correctly', () => {
-      const velocity: VelocityVector = { x: 3, y: 4, z: 0 }
-      const magnitude = PhysicsUtils.getMagnitude(velocity)
-      expect(magnitude).toBe(5) // 3-4-5 triangle
-    })
+    it.effect('should calculate vector magnitude correctly', () =>
+      Effect.gen(function* () {
+        const velocity: VelocityVector = { x: 3, y: 4, z: 0 }
+        const magnitude = PhysicsUtils.getMagnitude(velocity)
+        expect(magnitude).toBe(5) // 3-4-5 triangle
+      })
+    )
 
-    it('should calculate distance between positions correctly', () => {
-      const pos1: PlayerPosition = SpatialBrands.createVector3D(0, 0, 0)
-      const pos2: PlayerPosition = SpatialBrands.createVector3D(3, 4, 0)
-      const distance = PhysicsUtils.getDistance(pos1, pos2)
-      expect(distance).toBe(5)
-    })
+    it.effect('should calculate distance between positions correctly', () =>
+      Effect.gen(function* () {
+        const pos1: PlayerPosition = SpatialBrands.createVector3D(0, 0, 0)
+        const pos2: PlayerPosition = SpatialBrands.createVector3D(3, 4, 0)
+        const distance = PhysicsUtils.getDistance(pos1, pos2)
+        expect(distance).toBe(5)
+      })
+    )
 
-    it('should perform linear interpolation correctly', () => {
-      expect(PhysicsUtils.lerp(0, 10, 0.5)).toBe(5)
-      expect(PhysicsUtils.lerp(0, 10, 0)).toBe(0)
-      expect(PhysicsUtils.lerp(0, 10, 1)).toBe(10)
-      expect(PhysicsUtils.lerp(0, 10, -0.5)).toBe(0) // クランプされる
-      expect(PhysicsUtils.lerp(0, 10, 1.5)).toBe(10) // クランプされる
-    })
+    it.effect('should perform linear interpolation correctly', () =>
+      Effect.gen(function* () {
+        expect(PhysicsUtils.lerp(0, 10, 0.5)).toBe(5)
+        expect(PhysicsUtils.lerp(0, 10, 0)).toBe(0)
+        expect(PhysicsUtils.lerp(0, 10, 1)).toBe(10)
+        expect(PhysicsUtils.lerp(0, 10, -0.5)).toBe(0) // クランプされる
+        expect(PhysicsUtils.lerp(0, 10, 1.5)).toBe(10) // クランプされる
+      })
+    )
   })
 
   describe('Input Processing and Validation', () => {
@@ -186,55 +201,61 @@ describe('MovementSystem Physics and Performance Tests', () => {
       })
     )
 
-    it('should calculate movement vector from WASD input correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
+    it.effect('should calculate movement vector from WASD input correctly', () =>
+      Effect.gen(function* () {
+        const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
 
-      // 前進のみ
-      const forwardInput = createMovementInput(true, false, false, false)
-      const forwardVector = InputUtils.calculateMovementVector(forwardInput, rotation)
-      expect(forwardVector.x).toBeCloseTo(0, 3)
-      expect(forwardVector.z).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
+        // 前進のみ
+        const forwardInput = createMovementInput(true, false, false, false)
+        const forwardVector = InputUtils.calculateMovementVector(forwardInput, rotation)
+        expect(forwardVector.x).toBeCloseTo(0, 3)
+        expect(forwardVector.z).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
 
-      // 右のみ
-      const rightInput = createMovementInput(false, false, false, true)
-      const rightVector = InputUtils.calculateMovementVector(rightInput, rotation)
-      expect(rightVector.x).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
-      expect(rightVector.z).toBeCloseTo(0, 3)
+        // 右のみ
+        const rightInput = createMovementInput(false, false, false, true)
+        const rightVector = InputUtils.calculateMovementVector(rightInput, rotation)
+        expect(rightVector.x).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED, 3)
+        expect(rightVector.z).toBeCloseTo(0, 3)
 
-      // 対角線移動（正規化されていないため√2倍になる）
-      const diagonalInput = createMovementInput(true, false, false, true)
-      const diagonalVector = InputUtils.calculateMovementVector(diagonalInput, rotation)
-      const magnitude = Math.sqrt(diagonalVector.x * diagonalVector.x + diagonalVector.z * diagonalVector.z)
-      expect(magnitude).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED * Math.sqrt(2), 3)
-    })
+        // 対角線移動（正規化されていないため√2倍になる）
+        const diagonalInput = createMovementInput(true, false, false, true)
+        const diagonalVector = InputUtils.calculateMovementVector(diagonalInput, rotation)
+        const magnitude = Math.sqrt(diagonalVector.x * diagonalVector.x + diagonalVector.z * diagonalVector.z)
+        expect(magnitude).toBeCloseTo(PHYSICS_CONSTANTS.MAX_SPEED * Math.sqrt(2), 3)
+      })
+    )
 
-    it('should handle sprint multiplier correctly', () => {
-      const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
-      const sprintInput = createMovementInput(true, false, false, false, false, true)
+    it.effect('should handle sprint multiplier correctly', () =>
+      Effect.gen(function* () {
+        const rotation: PlayerRotation = { pitch: 0, yaw: 0, roll: 0 }
+        const sprintInput = createMovementInput(true, false, false, false, false, true)
 
-      const normalVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.0)
-      const sprintVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.5)
+        const normalVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.0)
+        const sprintVector = InputUtils.calculateMovementVector(sprintInput, rotation, 1.5)
 
-      expect(sprintVector.z).toBeCloseTo(normalVector.z * 1.5, 3)
-    })
+        expect(sprintVector.z).toBeCloseTo(normalVector.z * 1.5, 3)
+      })
+    )
 
-    it('should process jump input correctly', () => {
-      const currentVelocity: VelocityVector = { x: 5, y: 0, z: 3 }
+    it.effect('should process jump input correctly', () =>
+      Effect.gen(function* () {
+        const currentVelocity: VelocityVector = { x: 5, y: 0, z: 3 }
 
-      // 地面でジャンプ
-      const jumpInput = createMovementInput(false, false, false, false, true)
-      const jumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, true)
-      expect(jumpResult.y).toBe(PHYSICS_CONSTANTS.JUMP_FORCE)
+        // 地面でジャンプ
+        const jumpInput = createMovementInput(false, false, false, false, true)
+        const jumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, true)
+        expect(jumpResult.y).toBe(PHYSICS_CONSTANTS.JUMP_FORCE)
 
-      // 空中でジャンプ（無効）
-      const airJumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, false)
-      expect(airJumpResult.y).toBe(0)
+        // 空中でジャンプ（無効）
+        const airJumpResult = InputUtils.processJumpInput(jumpInput, currentVelocity, false)
+        expect(airJumpResult.y).toBe(0)
 
-      // ジャンプ入力なし
-      const noJumpInput = createMovementInput(false, false, false, false, false)
-      const noJumpResult = InputUtils.processJumpInput(noJumpInput, currentVelocity, true)
-      expect(noJumpResult.y).toBe(0)
-    })
+        // ジャンプ入力なし
+        const noJumpInput = createMovementInput(false, false, false, false, false)
+        const noJumpResult = InputUtils.processJumpInput(noJumpInput, currentVelocity, true)
+        expect(noJumpResult.y).toBe(0)
+      })
+    )
   })
 
   describe('Movement System Operations', () => {

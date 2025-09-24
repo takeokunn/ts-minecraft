@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer, Cause, Chunk } from 'effect'
 import { World, WorldLive, WorldError } from '../World'
 import { EntityPoolLayer, createEntityId } from '../Entity'

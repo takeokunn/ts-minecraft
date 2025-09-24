@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Either, Layer, TestClock, TestContext, pipe } from 'effect'
 import { GameLoopService } from '../GameLoopService'
 import type { FrameInfo, GameLoopConfig } from '../types'
@@ -168,21 +169,23 @@ describe('GameLoopService', () => {
   const MockGameLoopServiceLayer = Layer.sync(GameLoopService, createMockGameLoopService)
 
   describe('Service Interface Contract', () => {
-    it('should provide all required methods', () => {
-      const service = createMockGameLoopService()
+    it.effect('should provide all required methods', () =>
+      Effect.gen(function* () {
+        const service = createMockGameLoopService()
 
-      expect(service.initialize).toBeDefined()
-      expect(service.start).toBeDefined()
-      expect(service.pause).toBeDefined()
-      expect(service.resume).toBeDefined()
-      expect(service.stop).toBeDefined()
-      expect(service.onFrame).toBeDefined()
-      expect(service.getState).toBeDefined()
-      expect(service.getPerformanceMetrics).toBeDefined()
-      expect(service.tick).toBeDefined()
-      expect(service.updateConfig).toBeDefined()
-      expect(service.reset).toBeDefined()
-    })
+        expect(service.initialize).toBeDefined()
+        expect(service.start).toBeDefined()
+        expect(service.pause).toBeDefined()
+        expect(service.resume).toBeDefined()
+        expect(service.stop).toBeDefined()
+        expect(service.onFrame).toBeDefined()
+        expect(service.getState).toBeDefined()
+        expect(service.getPerformanceMetrics).toBeDefined()
+        expect(service.tick).toBeDefined()
+        expect(service.updateConfig).toBeDefined()
+        expect(service.reset).toBeDefined()
+      })
+    )
 
     it('should handle initialization correctly', () => {
       const program = Effect.gen(function* () {

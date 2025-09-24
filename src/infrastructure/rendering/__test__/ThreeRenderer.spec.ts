@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, beforeEach, afterEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from '../ThreeRenderer'

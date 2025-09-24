@@ -2591,17 +2591,17 @@ describe('PlayerService Integration Tests', () => {
 
 ```typescript
 // =============================================================================
-// Property-Based Testing (fast-check使用)
+// Property-Based Testing (@effect/vitest使用)
 // =============================================================================
 
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 describe('PlayerService Property Tests', () => {
   const TestLayer = Layer.mergeAll(PlayerServiceTest, PlayerRepositoryTest, TestDataLive)
 
   it.effect('プレイヤー作成の不変条件', () =>
     Effect.promise(() =>
-      fc.assert(
+      it.prop(
         fc.asyncProperty(
           fc.record({
             id: fc.string({ minLength: 1, maxLength: 36 }),
@@ -2639,7 +2639,7 @@ describe('PlayerService Property Tests', () => {
 
   it.effect('移動処理の正当性', () =>
     Effect.promise(() =>
-      fc.assert(
+      it.prop(
         fc.asyncProperty(
           fc.tuple(fc.constantFrom('north', 'south', 'east', 'west', 'up', 'down'), fc.integer({ min: 1, max: 10 })),
           async ([direction, distance]) => {

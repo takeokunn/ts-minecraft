@@ -5,7 +5,8 @@
  * maintains 60FPS performance while adding type safety
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, expect, beforeEach } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, pipe, Duration } from 'effect'
 import { Schema } from '@effect/schema'
 import { SchemaOptimization, OptimizedValidators, type ValidationStrategy } from '../schema-optimization'

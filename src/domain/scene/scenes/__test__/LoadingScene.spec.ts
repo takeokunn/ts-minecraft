@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { LoadingScene } from '../LoadingScene'
 import { Scene } from '../../Scene'
 

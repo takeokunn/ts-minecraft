@@ -1029,7 +1029,7 @@ const applyNutritionBonus = (
 ### Property-Based Testing パターン
 
 ```typescript
-import { fc } from 'fast-check'
+import { fc } from '@effect/vitest'
 import { Effect, Schema, TestServices } from 'effect'
 import { describe, it, expect } from 'vitest'
 
@@ -1098,8 +1098,8 @@ const soilQualityArbitrary = fc.record({
 
 describe('Agriculture System Property-Based Tests', () => {
   it('作物の成長率は0と1の間に収まる', () => {
-    fc.assert(
-      fc.property(cropArbitrary, environmentalConditionArbitrary, (crop, condition) => {
+    it.prop(
+      it.prop(cropArbitrary, environmentalConditionArbitrary, (crop, condition) => {
         const program = pipe(
           calculateGrowthEffect(crop, condition, TestServices.TestRandom),
           Effect.provide(TestServices.TestRandom.deterministic)
@@ -1116,8 +1116,8 @@ describe('Agriculture System Property-Based Tests', () => {
   })
 
   it('土壌肥沃度の計算結果は常に有効な範囲内', () => {
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         soilQualityArbitrary,
         environmentalConditionArbitrary,
         fc.oneof(
@@ -1131,7 +1131,7 @@ describe('Agriculture System Property-Based Tests', () => {
             _tag: fc.constant('manual'),
             frequency: fc.integer({ min: 1, max: 10 }),
             amount: fc.integer({ min: 10, max: 100 }),
-            laborIntensive: fc.boolean(),
+            laborIntensive: Schema.Boolean,
           })
         ),
         (soil, weather, irrigation) => {
@@ -1151,8 +1151,8 @@ describe('Agriculture System Property-Based Tests', () => {
   })
 
   it('収穫量は常に正の整数', () => {
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         cropArbitrary.filter((crop) => crop.growthStage._tag === 'mature'),
         environmentalConditionArbitrary,
         soilQualityArbitrary,
@@ -1174,7 +1174,7 @@ describe('Agriculture System Property-Based Tests', () => {
 
   it('動物の繁殖は同じ種族間でのみ成功する', () => {
     const animalArbitrary = fc.record({
-      id: fc.string().map((id) => `animal_${id}` as AnimalId),
+      id: Schema.String.map((id) => `animal_${id}` as AnimalId),
       type: fc.constantFrom('cow', 'pig', 'sheep', 'chicken', 'rabbit', 'horse'),
       stage: fc.record({
         _tag: fc.constant('adult'),
@@ -1195,8 +1195,8 @@ describe('Agriculture System Property-Based Tests', () => {
       lastUpdate: fc.integer({ min: 0, max: Date.now() }),
     })
 
-    fc.assert(
-      fc.property(animalArbitrary, animalArbitrary, (animal1, animal2) => {
+    it.prop(
+      it.prop(animalArbitrary, animalArbitrary, (animal1, animal2) => {
         const program = pipe(attemptBreeding(animal1, animal2), Effect.provide(TestServices.TestRandom.deterministic))
 
         const result = Effect.runSync(program)
@@ -1218,7 +1218,7 @@ describe('Agriculture System Property-Based Tests', () => {
   it('調理によって食料の栄養価が向上する', () => {
     const rawFoodArbitrary = fc
       .record({
-        id: fc.string().map((id) => `food_${id}` as FoodId),
+        id: Schema.String.map((id) => `food_${id}` as FoodId),
         name: fc.string({ minLength: 3, maxLength: 10 }),
         type: fc.constantFrom('meat', 'vegetable'),
         state: fc.record({
@@ -1229,17 +1229,17 @@ describe('Agriculture System Property-Based Tests', () => {
         nutrition: fc.record({
           hungerRestore: fc.integer({ min: 1, max: 6 }).map((hr) => hr as HungerRestore),
           saturationModifier: fc.double({ min: 0.1, max: 0.8 }).map((sm) => sm as SaturationModifier),
-          vitamins: fc.dictionary(fc.string(), fc.integer({ min: 0, max: 100 })),
+          vitamins: fc.dictionary(Schema.String, fc.integer({ min: 0, max: 100 })),
           calories: fc.integer({ min: 50, max: 300 }),
         }),
         effects: fc.option(
-          fc.array(
+          Schema.Array(
             fc.record({
               type: fc.constantFrom('regeneration', 'absorption'),
               amplifier: fc.integer({ min: 0, max: 2 }),
               duration: fc.integer({ min: 100, max: 1200 }),
-              ambient: fc.boolean(),
-              showParticles: fc.boolean(),
+              ambient: Schema.Boolean,
+              showParticles: Schema.Boolean,
             })
           )
         ),
@@ -1248,8 +1248,8 @@ describe('Agriculture System Property-Based Tests', () => {
       })
       .filter((food) => food.cookingTime !== undefined)
 
-    fc.assert(
-      fc.property(rawFoodArbitrary, fc.constantFrom('furnace', 'smoker', 'campfire'), (rawFood, cookingMethod) => {
+    it.prop(
+      it.prop(rawFoodArbitrary, fc.constantFrom('furnace', 'smoker', 'campfire'), (rawFood, cookingMethod) => {
         const program = pipe(cookFood(rawFood, cookingMethod), Effect.provide(TestServices.TestRandom.deterministic))
 
         const cookedFood = Effect.runSync(program)
@@ -1265,12 +1265,12 @@ describe('Agriculture System Property-Based Tests', () => {
 
   it('作物の輪作により土壌品質が改善される', () => {
     const cropRotationArbitrary = fc.record({
-      previousCrop: fc.option(fc.string()),
-      currentCrop: fc.string(),
-      nextPlannedCrop: fc.option(fc.string()),
+      previousCrop: fc.option(Schema.String),
+      currentCrop: Schema.String,
+      nextPlannedCrop: fc.option(Schema.String),
       rotationCycle: fc.integer({ min: 2, max: 7 }),
       seasonsSinceRotation: fc.integer({ min: 0, max: 10 }),
-      benefitsActive: fc.boolean(),
+      benefitsActive: Schema.Boolean,
       soilRecovery: fc.double({ min: 0, max: 1 }),
     })
 
@@ -1285,13 +1285,13 @@ describe('Agriculture System Property-Based Tests', () => {
         _tag: fc.constant('summer'),
         temperature: fc.integer({ min: 20, max: 35 }),
         rainfall: fc.integer({ min: 10, max: 50 }),
-        heatStress: fc.boolean(),
-        droughtRisk: fc.boolean(),
+        heatStress: Schema.Boolean,
+        droughtRisk: Schema.Boolean,
       })
     )
 
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         cropArbitrary,
         cropRotationArbitrary.filter((r) => r.benefitsActive),
         seasonArbitrary,

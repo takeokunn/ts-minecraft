@@ -531,12 +531,12 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
 
 ```typescript
 import { it, expect } from '@effect/vitest'
-import fc from 'fast-check'
+import fc from '@effect/vitest'
 
 describe('Health Brand Type', () => {
   it('should only accept valid health values', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 100 }), (validValue) => {
+    it.prop(
+      it.prop(fc.integer({ min: 0, max: 100 }), (validValue) => {
         const health = Health.create(validValue)
         expect(Option.isSome(health)).toBe(true)
       })
@@ -544,9 +544,9 @@ describe('Health Brand Type', () => {
   })
 
   it('should reject invalid health values', () => {
-    fc.assert(
-      fc.property(
-        fc.integer().filter((n) => n < 0 || n > 100),
+    it.prop(
+      it.prop(
+        Schema.Number.pipe(Schema.int()).filter((n) => n < 0 || n > 100),
         (invalidValue) => {
           const health = Health.create(invalidValue)
           expect(Option.isNone(health)).toBe(true)
@@ -556,8 +556,8 @@ describe('Health Brand Type', () => {
   })
 
   it('health arithmetic should maintain invariants', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 }), (initial, damage) => {
+    it.prop(
+      it.prop(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 }), (initial, damage) => {
         const health = Health.create(initial).pipe(Option.getOrThrow)
         const afterDamage = Health.subtract(health, damage)
 

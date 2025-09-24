@@ -4,7 +4,8 @@
  * Comprehensive tests for inventory management functionality
  */
 
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, beforeEach } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import {
   InventoryService,

@@ -1709,8 +1709,8 @@ describe('Player API', () => {
     }).pipe(Effect.provide(TestPlayerServiceLayer)))
 })
 
-// Property-based testing with fast-check
-import * as fc from 'fast-check'
+// Property-based testing with @effect/vitest
+import * as fc from '@effect/vitest'
 
 const PlayerIdArb = fc.string({ minLength: 5, maxLength: 20 })
 const PositionArb = fc.record({
@@ -1728,7 +1728,7 @@ const CreatePlayerParamsArb = fc.record({
 
 describe('Player Creation Property Tests', () => {
   it('should always create valid players from valid params', () =>
-    fc.assert(
+    it.prop(
       fc.asyncProperty(CreatePlayerParamsArb, (params) =>
         Effect.runPromise(
           Effect.gen(function* () {

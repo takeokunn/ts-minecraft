@@ -3,7 +3,8 @@
  * 1対1対応テストファイル
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, expect, beforeEach, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, TestContext, Layer, Fiber } from 'effect'
 import {
@@ -86,89 +87,101 @@ describe('Priority Functions', () => {
   describe('calculatePriorityScore', () => {
     const config = defaultChunkLoaderConfig
 
-    it('immediate優先度が最も高いスコアを持つ', () => {
-      const request = createChunkLoadRequest({ x: 0, z: 0 }, 'immediate', 1.0)
+    it.effect('immediate優先度が最も高いスコアを持つ', () =>
+      Effect.gen(function* () {
+        const request = createChunkLoadRequest({ x: 0, z: 0 }, 'immediate', 1.0)
 
-      const score = calculatePriorityScore(request, config)
-      expect(score).toBeGreaterThan(900) // 1000 - distance penalty - age penalty
-    })
+        const score = calculatePriorityScore(request, config)
+        expect(score).toBeGreaterThan(900) // 1000 - distance penalty - age penalty
+      })
+    )
 
-    it('距離が遠いほどスコアが低くなる', () => {
-      const nearRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 1.0)
-      const farRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0)
+    it.effect('距離が遠いほどスコアが低くなる', () =>
+      Effect.gen(function* () {
+        const nearRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 1.0)
+        const farRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0)
 
-      const nearScore = calculatePriorityScore(nearRequest, config)
-      const farScore = calculatePriorityScore(farRequest, config)
+        const nearScore = calculatePriorityScore(nearRequest, config)
+        const farScore = calculatePriorityScore(farRequest, config)
 
-      expect(nearScore).toBeGreaterThan(farScore)
-    })
+        expect(nearScore).toBeGreaterThan(farScore)
+      })
+    )
 
-    it('古いリクエストほどスコアが低くなる', () => {
-      // 手動でタイムスタンプを設定
-      const oldRequest: ChunkLoadRequest = {
-        position: { x: 0, z: 0 },
-        priority: 'normal',
-        timestamp: Date.now() - 10000, // 10秒前
-        playerDistance: 1.0,
-      }
+    it.effect('古いリクエストほどスコアが低くなる', () =>
+      Effect.gen(function* () {
+        // 手動でタイムスタンプを設定
+        const oldRequest: ChunkLoadRequest = {
+          position: { x: 0, z: 0 },
+          priority: 'normal',
+          timestamp: Date.now() - 10000, // 10秒前
+          playerDistance: 1.0,
+        }
 
-      const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
+        const newRequest = createChunkLoadRequest({ x: 0, z: 0 }, 'normal', 1.0)
 
-      const oldScore = calculatePriorityScore(oldRequest, config)
-      const newScore = calculatePriorityScore(newRequest, config)
+        const oldScore = calculatePriorityScore(oldRequest, config)
+        const newScore = calculatePriorityScore(newRequest, config)
 
-      expect(newScore).toBeGreaterThan(oldScore)
-    })
+        expect(newScore).toBeGreaterThan(oldScore)
+      })
+    )
   })
 
   describe('sortRequestsByPriority', () => {
     const config = defaultChunkLoaderConfig
 
-    it('優先度順に正しくソートされる', () => {
-      const requests: ChunkLoadRequest[] = [
-        createChunkLoadRequest({ x: 0, z: 0 }, 'low', 1.0),
-        createChunkLoadRequest({ x: 1, z: 1 }, 'immediate', 1.0),
-        createChunkLoadRequest({ x: 2, z: 2 }, 'high', 1.0),
-        createChunkLoadRequest({ x: 3, z: 3 }, 'normal', 1.0),
-      ]
+    it.effect('優先度順に正しくソートされる', () =>
+      Effect.gen(function* () {
+        const requests: ChunkLoadRequest[] = [
+          createChunkLoadRequest({ x: 0, z: 0 }, 'low', 1.0),
+          createChunkLoadRequest({ x: 1, z: 1 }, 'immediate', 1.0),
+          createChunkLoadRequest({ x: 2, z: 2 }, 'high', 1.0),
+          createChunkLoadRequest({ x: 3, z: 3 }, 'normal', 1.0),
+        ]
 
-      const sorted = sortRequestsByPriority(requests, config)
+        const sorted = sortRequestsByPriority(requests, config)
 
-      expect(sorted[0]?.priority).toBe('immediate')
-      expect(sorted[1]?.priority).toBe('high')
-      expect(sorted[2]?.priority).toBe('normal')
-      expect(sorted[3]?.priority).toBe('low')
-    })
+        expect(sorted[0]?.priority).toBe('immediate')
+        expect(sorted[1]?.priority).toBe('high')
+        expect(sorted[2]?.priority).toBe('normal')
+        expect(sorted[3]?.priority).toBe('low')
+      })
+    )
 
-    it('同じ優先度では距離順にソートされる', () => {
-      const requests: ChunkLoadRequest[] = [
-        createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0),
-        createChunkLoadRequest({ x: 1, z: 1 }, 'high', 1.0),
-        createChunkLoadRequest({ x: 2, z: 2 }, 'high', 5.0),
-      ]
+    it.effect('同じ優先度では距離順にソートされる', () =>
+      Effect.gen(function* () {
+        const requests: ChunkLoadRequest[] = [
+          createChunkLoadRequest({ x: 0, z: 0 }, 'high', 10.0),
+          createChunkLoadRequest({ x: 1, z: 1 }, 'high', 1.0),
+          createChunkLoadRequest({ x: 2, z: 2 }, 'high', 5.0),
+        ]
 
-      const sorted = sortRequestsByPriority(requests, config)
+        const sorted = sortRequestsByPriority(requests, config)
 
-      expect(sorted[0]?.playerDistance).toBe(1.0)
-      expect(sorted[1]?.playerDistance).toBe(5.0)
-      expect(sorted[2]?.playerDistance).toBe(10.0)
-    })
+        expect(sorted[0]?.playerDistance).toBe(1.0)
+        expect(sorted[1]?.playerDistance).toBe(5.0)
+        expect(sorted[2]?.playerDistance).toBe(10.0)
+      })
+    )
   })
 
   describe('createChunkLoadRequest', () => {
-    it('正しい構造のリクエストを作成する', () => {
-      const position: ChunkPosition = { x: 5, z: -3 }
-      const priority: ChunkLoadPriority = 'high'
-      const distance = 7.5
+    it.effect('正しい構造のリクエストを作成する', () =>
+      Effect.gen(function* () {
+        const position: ChunkPosition = { x: 5, z: -3 }
+        const priority: ChunkLoadPriority = 'high'
+        const distance = 7.5
 
-      const request = createChunkLoadRequest(position, priority, distance)
+        const request = createChunkLoadRequest(position, priority, distance)
 
-      expect(request.position).toEqual(position)
-      expect(request.priority).toBe(priority)
-      expect(request.playerDistance).toBe(distance)
-      expect(request.timestamp).toBeGreaterThan(0)
-      expect(request.timestamp).toBeLessThanOrEqual(Date.now())
-    })
+        expect(request.position).toEqual(position)
+        expect(request.priority).toBe(priority)
+        expect(request.playerDistance).toBe(distance)
+        expect(request.timestamp).toBeGreaterThan(0)
+        expect(request.timestamp).toBeLessThanOrEqual(Date.now())
+      })
+    )
   })
 })
 
@@ -178,46 +191,54 @@ describe('Priority Functions', () => {
 
 describe('Utility Functions', () => {
   describe('chunkLoadRequestToKey', () => {
-    it('チャンク座標を文字列キーに変換する', () => {
-      const position: ChunkPosition = { x: 42, z: -17 }
-      const key = chunkLoadRequestToKey(position)
+    it.effect('チャンク座標を文字列キーに変換する', () =>
+      Effect.gen(function* () {
+        const position: ChunkPosition = { x: 42, z: -17 }
+        const key = chunkLoadRequestToKey(position)
 
-      expect(key).toBe('42,-17')
-    })
+        expect(key).toBe('42,-17')
+      })
+    )
   })
 
   describe('isLoadExpired', () => {
-    it('タイムアウト時間内の場合はfalseを返す', () => {
-      const state = {
-        position: { x: 0, z: 0 },
-        status: 'loading' as const,
-        startTime: Date.now() - 1000, // 1秒前
-      }
+    it.effect('タイムアウト時間内の場合はfalseを返す', () =>
+      Effect.gen(function* () {
+        const state = {
+          position: { x: 0, z: 0 },
+          status: 'loading' as const,
+          startTime: Date.now() - 1000, // 1秒前
+        }
 
-      const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
-      expect(expired).toBe(false)
-    })
+        const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
+        expect(expired).toBe(false)
+      })
+    )
 
-    it('タイムアウト時間を超えた場合はtrueを返す', () => {
-      const state = {
-        position: { x: 0, z: 0 },
-        status: 'loading' as const,
-        startTime: Date.now() - 10000, // 10秒前
-      }
+    it.effect('タイムアウト時間を超えた場合はtrueを返す', () =>
+      Effect.gen(function* () {
+        const state = {
+          position: { x: 0, z: 0 },
+          status: 'loading' as const,
+          startTime: Date.now() - 10000, // 10秒前
+        }
 
-      const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
-      expect(expired).toBe(true)
-    })
+        const expired = isLoadExpired(state, 5000) // 5秒タイムアウト
+        expect(expired).toBe(true)
+      })
+    )
 
-    it('startTimeがない場合はfalseを返す', () => {
-      const state = {
-        position: { x: 0, z: 0 },
-        status: 'queued' as const,
-      }
+    it.effect('startTimeがない場合はfalseを返す', () =>
+      Effect.gen(function* () {
+        const state = {
+          position: { x: 0, z: 0 },
+          status: 'queued' as const,
+        }
 
-      const expired = isLoadExpired(state, 5000)
-      expect(expired).toBe(false)
-    })
+        const expired = isLoadExpired(state, 5000)
+        expect(expired).toBe(false)
+      })
+    )
   })
 })
 
@@ -470,25 +491,27 @@ describe('Performance Tests', () => {
   })
 
   describe('Priority Calculation Performance', () => {
-    it('大量の優先度計算を高速で実行できる', () => {
-      const config = defaultChunkLoaderConfig
-      const startTime = performance.now()
+    it.effect('大量の優先度計算を高速で実行できる', () =>
+      Effect.gen(function* () {
+        const config = defaultChunkLoaderConfig
+        const startTime = performance.now()
 
-      const requests: ChunkLoadRequest[] = Array.from({ length: 10000 }, (_, i) => ({
-        position: { x: i % 100, z: Math.floor(i / 100) },
-        priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
-        timestamp: Date.now() - Math.random() * 10000,
-        playerDistance: Math.random() * 50,
-      }))
+        const requests: ChunkLoadRequest[] = Array.from({ length: 10000 }, (_, i) => ({
+          position: { x: i % 100, z: Math.floor(i / 100) },
+          priority: ['immediate', 'high', 'normal', 'low'][i % 4] as ChunkLoadPriority,
+          timestamp: Date.now() - Math.random() * 10000,
+          playerDistance: Math.random() * 50,
+        }))
 
-      const sorted = sortRequestsByPriority(requests, config)
+        const sorted = sortRequestsByPriority(requests, config)
 
-      const endTime = performance.now()
-      const executionTime = endTime - startTime
+        const endTime = performance.now()
+        const executionTime = endTime - startTime
 
-      expect(sorted).toHaveLength(10000)
-      expect(executionTime).toBeLessThan(500) // 500ms以内
-    })
+        expect(sorted).toHaveLength(10000)
+        expect(executionTime).toBeLessThan(500) // 500ms以内
+      })
+    )
   })
 })
 
@@ -548,30 +571,32 @@ describe('Edge Cases', () => {
   })
 
   describe('Priority Edge Cases', () => {
-    it('同じスコアのリクエストでも安定したソートを行う', () => {
-      const config = defaultChunkLoaderConfig
+    it.effect('同じスコアのリクエストでも安定したソートを行う', () =>
+      Effect.gen(function* () {
+        const config = defaultChunkLoaderConfig
 
-      const requests: ChunkLoadRequest[] = [
-        {
-          position: { x: 0, z: 0 },
-          priority: 'normal',
-          timestamp: 1000,
-          playerDistance: 5.0,
-        },
-        {
-          position: { x: 1, z: 0 },
-          priority: 'normal',
-          timestamp: 1000,
-          playerDistance: 5.0,
-        },
-      ]
+        const requests: ChunkLoadRequest[] = [
+          {
+            position: { x: 0, z: 0 },
+            priority: 'normal',
+            timestamp: 1000,
+            playerDistance: 5.0,
+          },
+          {
+            position: { x: 1, z: 0 },
+            priority: 'normal',
+            timestamp: 1000,
+            playerDistance: 5.0,
+          },
+        ]
 
-      const sorted1 = sortRequestsByPriority([...requests], config)
-      const sorted2 = sortRequestsByPriority([...requests], config)
+        const sorted1 = sortRequestsByPriority([...requests], config)
+        const sorted2 = sortRequestsByPriority([...requests], config)
 
-      // 安定ソートの確認（順序が一貫している）
-      expect(sorted1[0]?.position).toEqual(sorted2[0]?.position)
-      expect(sorted1[1]?.position).toEqual(sorted2[1]?.position)
-    })
+        // 安定ソートの確認（順序が一貫している）
+        expect(sorted1[0]?.position).toEqual(sorted2[0]?.position)
+        expect(sorted1[1]?.position).toEqual(sorted2[1]?.position)
+      })
+    )
   })
 })

@@ -33,57 +33,63 @@ describe('NoiseGenerator', () => {
   }
 
   describe('NoiseConfigSchema', () => {
-    it('validates valid noise configuration', () => {
-      const validConfig = {
-        seed: 12345,
-        octaves: 4,
-        persistence: 0.5,
-        lacunarity: 2.0,
-      }
+    it.effect('validates valid noise configuration', () =>
+      Effect.gen(function* () {
+        const validConfig = {
+          seed: 12345,
+          octaves: 4,
+          persistence: 0.5,
+          lacunarity: 2.0,
+        }
 
-      expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(validConfig)).not.toThrow()
-    })
+        expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(validConfig)).not.toThrow()
+      })
+    )
 
-    it('validates boundary values', () => {
-      const boundaryConfigs = [
-        { seed: 0, octaves: 1, persistence: 0.1, lacunarity: 1.5 },
-        { seed: 2147483647, octaves: 10, persistence: 1.0, lacunarity: 3.0 },
-      ]
+    it.effect('validates boundary values', () =>
+      Effect.gen(function* () {
+        const boundaryConfigs = [
+          { seed: 0, octaves: 1, persistence: 0.1, lacunarity: 1.5 },
+          { seed: 2147483647, octaves: 10, persistence: 1.0, lacunarity: 3.0 },
+        ]
 
-      for (const config of boundaryConfigs) {
-        expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(config)).not.toThrow()
-      }
-    })
+        for (const config of boundaryConfigs) {
+          expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(config)).not.toThrow()
+        }
+      })
+    )
 
-    it('rejects invalid configuration', () => {
-      const invalidConfigs = [
-        // 型エラー
-        { seed: 'invalid', octaves: 4, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 'invalid', lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: null },
-        // 範囲外
-        { seed: -1, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 0, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 11, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 0.05, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 1.1, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: 1.0 },
-        { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: 4.0 },
-        // NaN値
-        { seed: NaN, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: NaN, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: NaN, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: NaN },
-        // Infinity値
-        { seed: Infinity, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: Infinity, lacunarity: 2.0 },
-        { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: Infinity },
-      ]
+    it.effect('rejects invalid configuration', () =>
+      Effect.gen(function* () {
+        const invalidConfigs = [
+          // 型エラー
+          { seed: 'invalid', octaves: 4, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 'invalid', lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: null },
+          // 範囲外
+          { seed: -1, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 0, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 11, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 0.05, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 1.1, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: 1.0 },
+          { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: 4.0 },
+          // NaN値
+          { seed: NaN, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: NaN, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: NaN, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: NaN },
+          // Infinity値
+          { seed: Infinity, octaves: 4, persistence: 0.5, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: Infinity, lacunarity: 2.0 },
+          { seed: 12345, octaves: 4, persistence: 0.5, lacunarity: Infinity },
+        ]
 
-      for (const config of invalidConfigs) {
-        expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(config)).toThrow()
-      }
-    })
+        for (const config of invalidConfigs) {
+          expect(() => Schema.decodeUnknownSync(NoiseConfigSchema)(config)).toThrow()
+        }
+      })
+    )
   })
 
   describe('Service Creation', () => {

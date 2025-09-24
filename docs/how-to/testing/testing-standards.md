@@ -55,7 +55,7 @@ src/
 // src/domain/entity/__test__/Player.spec.ts
 import { describe, it, expect } from '@effect/vitest'
 import { Schema, Effect, Ref, Either, Match } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // 厳密な型定義（@effect/vitest 0.25.1+ 対応）
 const PlayerPositionSchema = Schema.Struct({
@@ -201,7 +201,7 @@ const itemArbitrary = fc.record({
   quantity: fc.integer({ min: 1, max: 64 }),
 })
 
-const inventoryArbitrary = fc.array(itemArbitrary, { maxLength: 36 })
+const inventoryArbitrary = Schema.Array(itemArbitrary, { maxLength: 36 })
 ```
 
 ### 2. PBTテストケース実装
@@ -211,8 +211,8 @@ describe('Player Properties', () => {
   it.effect('player creation invariants', () =>
     Effect.gen(function* () {
       yield* Effect.sync(() => {
-        fc.assert(
-          fc.property(playerArbitrary, (playerData) => {
+        it.prop(
+          it.prop(playerArbitrary, (playerData) => {
             const result = Effect.runSync(
               Effect.gen(function* () {
                 const service = yield* PlayerService
@@ -248,7 +248,7 @@ describe('Player Properties', () => {
 
   // 非同期版PBT（互換性のため残存）
   it('player creation invariants (async version)', async () => {
-    await fc.assert(
+    await it.prop(
       fc.asyncProperty(playerArbitrary, async (playerData) => {
         const program = Effect.gen(function* () {
           const service = yield* PlayerService
@@ -294,8 +294,8 @@ describe('Player Properties', () => {
   })
 
   it('distance calculation properties', () => {
-    fc.assert(
-      fc.property(positionArbitrary, positionArbitrary, (pos1, pos2) => {
+    it.prop(
+      it.prop(positionArbitrary, positionArbitrary, (pos1, pos2) => {
         const distance = calculateDistance(pos1, pos2)
 
         // 距離の性質
@@ -317,7 +317,7 @@ describe('Player Properties', () => {
   })
 
   it('inventory management properties', () => {
-    return fc.assert(
+    return it.prop(
       fc.asyncProperty(inventoryArbitrary, itemArbitrary, (initialInventory, newItem) => {
         const program = Effect.gen(function* () {
           const service = yield* InventoryService

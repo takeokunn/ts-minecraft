@@ -185,7 +185,7 @@ const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
 ```bash
 # Effect-TS 3.17+ と関連ライブラリのインストール
 pnpm add effect @effect/schema @effect/platform
-pnpm add -D @effect/vitest fast-check
+pnpm add -D @effect/vitest @effect/vitest
 
 # プロジェクト確認コマンド
 # バージョン確認

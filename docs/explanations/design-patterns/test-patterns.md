@@ -387,12 +387,12 @@ const TestLayer = Layer.mergeAll(
 | **回帰検出時間**   | 2.3日            | 4.2分                  | **99%短縮**   | CI実行時間            |
 | **実装時間**       | 2.1h             | 1.4h                   | **33%短縮**   | Arbitrary定義の効率化 |
 
-### fast-check統合とit.prop
+### @effect/vitest統合とit.prop
 
 ```typescript
 import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // Fast-Check Arbitraryの定義
 const positionArbitrary = fc.record({
@@ -634,7 +634,7 @@ it.scoped('データベース接続リソースのテスト', () =>
   "devDependencies": {
     "@effect/vitest": "^0.2.0",
     "vitest": "^1.0.0",
-    "fast-check": "^3.15.0"
+    "@effect/vitest": "^3.15.0"
   }
 }
 
@@ -655,7 +655,7 @@ export default defineConfig({
 
 ```typescript
 // test/arbitraries/player.ts
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 // 段階1: シンプルなArbitraryから開始
 export const playerIdArbitrary = fc
@@ -799,7 +799,7 @@ it.prop(
 // 段階3: 複雑な状態遷移テスト
 it.prop(
   [
-    fc.array(
+    Schema.Array(
       fc.record({
         action: fc.constantFrom('move', 'attack', 'use_item'),
         data: fc.anything(),
@@ -841,16 +841,19 @@ export const chunkDataArbitrary = fc.record({
     x: fc.integer({ min: -1000, max: 1000 }),
     z: fc.integer({ min: -1000, max: 1000 }),
   }),
-  blocks: fc.array(
-    fc.array(fc.array(fc.constantFrom('air', 'stone', 'dirt', 'grass', 'wood'), { minLength: 16, maxLength: 16 }), {
-      minLength: 256,
-      maxLength: 256,
-    }),
+  blocks: Schema.Array(
+    Schema.Array(
+      Schema.Array(fc.constantFrom('air', 'stone', 'dirt', 'grass', 'wood'), { minLength: 16, maxLength: 16 }),
+      {
+        minLength: 256,
+        maxLength: 256,
+      }
+    ),
     { minLength: 16, maxLength: 16 }
   ),
   biome: fc.constantFrom('plains', 'forest', 'desert', 'mountains'),
-  generated: fc.boolean(),
-  entities: fc.array(
+  generated: Schema.Boolean,
+  entities: Schema.Array(
     fc.record({
       id: fc.uuid(),
       type: fc.constantFrom('player', 'monster', 'animal'),
@@ -862,7 +865,7 @@ export const chunkDataArbitrary = fc.record({
 // 状態遷移をモデル化したArbitrary
 export const gameStateTransitionArbitrary = fc.letrec((tie) => ({
   initial: fc.record({
-    players: fc.array(playerArbitrary, { maxLength: 5 }),
+    players: Schema.Array(playerArbitrary, { maxLength: 5 }),
     world: chunkDataArbitrary,
     time: fc.integer({ min: 0, max: 24000 }),
   }),
@@ -871,7 +874,7 @@ export const gameStateTransitionArbitrary = fc.letrec((tie) => ({
     payload: fc.anything(),
     timestamp: fc.integer({ min: 0, max: 1000000 }),
   }),
-  sequence: fc.array(tie('transition'), { minLength: 1, maxLength: 20 }),
+  sequence: Schema.Array(tie('transition'), { minLength: 1, maxLength: 20 }),
 }))
 ```
 
@@ -880,7 +883,7 @@ export const gameStateTransitionArbitrary = fc.letrec((tie) => ({
 ```typescript
 // 統合テストでのProperty-based Testing
 it.prop(
-  [fc.array(playerArbitrary, { minLength: 10, maxLength: 100 })],
+  [Schema.Array(playerArbitrary, { minLength: 10, maxLength: 100 })],
   '大規模プレイヤー処理の統合テスト'
 )((players) =>
   Effect.gen(function* () {
@@ -1573,7 +1576,7 @@ const troubleshootingGuide = {
   'Property-basedテストが失敗': {
     cause: 'Arbitraryの制約不足',
     solution: 'ビジネスルールに沿った制約追加',
-    example: 'fc.string().filter(isValidPlayerName)',
+    example: 'Schema.String.filter(isValidPlayerName)',
   },
   モックが期待通り動かない: {
     cause: 'Layer合成の問題',

@@ -384,7 +384,7 @@ export const createBlockEntity = (block: Block) =>
 // BlockService.test.ts
 import { Effect, TestContext, Layer } from 'effect'
 import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 
 const testLayer = Layer.mergeAll(BlockServiceLayer, TestLoggerLayer, TestConfigLayer, TestWorldStorageLayer)
 ```
@@ -451,7 +451,7 @@ describe('BlockService', () => {
 ```typescript
 describe('BlockService Property Tests', () => {
   it('place then get should return same block', async () => {
-    await fc.assert(
+    await it.prop(
       fc.asyncProperty(
         fc.record({
           x: fc.integer({ min: -100, max: 100 }),

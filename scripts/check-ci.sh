@@ -147,3 +147,4 @@ gh pr view "$PR_NUMBER" --json title,state,mergeable,mergeStateStatus --jq '
   マージ可能: \(.mergeable)
   マージ状態: \(.mergeStateStatus)"
 ' 2>/dev/null || echo "  情報取得失敗"
+

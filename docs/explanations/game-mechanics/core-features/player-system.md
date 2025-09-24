@@ -1071,15 +1071,15 @@ export const PlayerSyncServiceLive = Layer.effect(PlayerSyncService, makePlayerS
 ### Property-Based Testing
 
 ```typescript
-import * as fc from 'fast-check'
+import * as fc from '@effect/vitest'
 import { Schema } from 'effect'
 
 // プロパティベーステストの設定
 describe('プレイヤーシステムのプロパティテスト', () => {
   // 位置計算の性質テスト
   test('移動は決定的であるべき', () => {
-    fc.assert(
-      fc.property(
+    it.prop(
+      it.prop(
         fc.record({
           x: fc.float({ min: -1000, max: 1000 }),
           y: fc.float({ min: -1000, max: 1000 }),
@@ -1115,8 +1115,8 @@ describe('プレイヤーシステムのプロパティテスト', () => {
 
   // インベントリ整合性テスト
   test('インベントリ操作は一貫性を保つべき', () => {
-    fc.assert(
-      fc.property(generateValidPlayer(), generateValidItemStack(), (player, item) => {
+    it.prop(
+      it.prop(generateValidPlayer(), generateValidItemStack(), (player, item) => {
         const result = addItemToInventory(player, item)
 
         // アイテム追加後、総アイテム数は増加するか同じ

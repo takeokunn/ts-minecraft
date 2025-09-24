@@ -322,128 +322,144 @@ describe('ConfigService', () => {
   })
 
   describe('Schema Validation', () => {
-    it('should validate GameConfig schema', () => {
-      const validConfig = {
-        fps: 60,
-        tickRate: 20,
-        renderDistance: 8,
-        chunkSize: 16,
-        gravity: -9.81,
-        playerSpeed: 4.317,
-        jumpHeight: 1.25,
-      }
+    it.effect('should validate GameConfig schema', () =>
+      Effect.gen(function* () {
+        const validConfig = {
+          fps: 60,
+          tickRate: 20,
+          renderDistance: 8,
+          chunkSize: 16,
+          gravity: -9.81,
+          playerSpeed: 4.317,
+          jumpHeight: 1.25,
+        }
 
-      const result = Schema.decodeEither(GameConfig)(validConfig)
-      expect(Effect.runSync(result)).toEqual(validConfig)
-    })
+        const result = Schema.decodeEither(GameConfig)(validConfig)
+        expect(Effect.runSync(result)).toEqual(validConfig)
+      })
+    )
 
-    it('should reject invalid FPS values', () => {
-      const invalidConfig = {
-        fps: 200, // 144以上は無効
-        tickRate: 20,
-        renderDistance: 8,
-        chunkSize: 16,
-        gravity: -9.81,
-        playerSpeed: 4.317,
-        jumpHeight: 1.25,
-      }
+    it.effect('should reject invalid FPS values', () =>
+      Effect.gen(function* () {
+        const invalidConfig = {
+          fps: 200, // 144以上は無効
+          tickRate: 20,
+          renderDistance: 8,
+          chunkSize: 16,
+          gravity: -9.81,
+          playerSpeed: 4.317,
+          jumpHeight: 1.25,
+        }
 
-      const result = Schema.decodeEither(GameConfig)(invalidConfig)
-      expect(() => Effect.runSync(result)).toThrow()
-    })
+        const result = Schema.decodeEither(GameConfig)(invalidConfig)
+        expect(() => Effect.runSync(result)).toThrow()
+      })
+    )
 
-    it('should validate RenderConfig schema', () => {
-      const validConfig = {
-        resolution: { width: 1920, height: 1080 },
-        quality: 'high' as const,
-        shadows: true,
-        antialiasing: true,
-        viewDistance: 8,
-        fov: 75,
-        vsync: true,
-      }
+    it.effect('should validate RenderConfig schema', () =>
+      Effect.gen(function* () {
+        const validConfig = {
+          resolution: { width: 1920, height: 1080 },
+          quality: 'high' as const,
+          shadows: true,
+          antialiasing: true,
+          viewDistance: 8,
+          fov: 75,
+          vsync: true,
+        }
 
-      const result = Schema.decodeEither(RenderConfig)(validConfig)
-      expect(Effect.runSync(result)).toEqual(validConfig)
-    })
+        const result = Schema.decodeEither(RenderConfig)(validConfig)
+        expect(Effect.runSync(result)).toEqual(validConfig)
+      })
+    )
 
-    it('should reject invalid quality values', () => {
-      const invalidConfig = {
-        resolution: { width: 1920, height: 1080 },
-        quality: 'invalid' as any, // "low", "medium", "high", "ultra"のみ有効
-        shadows: true,
-        antialiasing: true,
-        viewDistance: 8,
-        fov: 75,
-        vsync: true,
-      }
+    it.effect('should reject invalid quality values', () =>
+      Effect.gen(function* () {
+        const invalidConfig = {
+          resolution: { width: 1920, height: 1080 },
+          quality: 'invalid' as any, // "low", "medium", "high", "ultra"のみ有効
+          shadows: true,
+          antialiasing: true,
+          viewDistance: 8,
+          fov: 75,
+          vsync: true,
+        }
 
-      const result = Schema.decodeEither(RenderConfig)(invalidConfig)
-      expect(() => Effect.runSync(result)).toThrow()
-    })
+        const result = Schema.decodeEither(RenderConfig)(invalidConfig)
+        expect(() => Effect.runSync(result)).toThrow()
+      })
+    )
 
-    it('should validate DebugConfig schema', () => {
-      const validConfig = {
-        enabled: true,
-        showFps: true,
-        showChunkBorders: false,
-        showHitboxes: false,
-        showCoordinates: true,
-        wireframeMode: false,
-        logLevel: 'debug' as const,
-      }
+    it.effect('should validate DebugConfig schema', () =>
+      Effect.gen(function* () {
+        const validConfig = {
+          enabled: true,
+          showFps: true,
+          showChunkBorders: false,
+          showHitboxes: false,
+          showCoordinates: true,
+          wireframeMode: false,
+          logLevel: 'debug' as const,
+        }
 
-      const result = Schema.decodeEither(DebugConfig)(validConfig)
-      expect(Effect.runSync(result)).toEqual(validConfig)
-    })
+        const result = Schema.decodeEither(DebugConfig)(validConfig)
+        expect(Effect.runSync(result)).toEqual(validConfig)
+      })
+    )
 
-    it('should reject invalid log levels', () => {
-      const invalidConfig = {
-        enabled: true,
-        showFps: true,
-        showChunkBorders: false,
-        showHitboxes: false,
-        showCoordinates: true,
-        wireframeMode: false,
-        logLevel: 'verbose' as any, // "debug", "info", "warn", "error"のみ有効
-      }
+    it.effect('should reject invalid log levels', () =>
+      Effect.gen(function* () {
+        const invalidConfig = {
+          enabled: true,
+          showFps: true,
+          showChunkBorders: false,
+          showHitboxes: false,
+          showCoordinates: true,
+          wireframeMode: false,
+          logLevel: 'verbose' as any, // "debug", "info", "warn", "error"のみ有効
+        }
 
-      const result = Schema.decodeEither(DebugConfig)(invalidConfig)
-      expect(() => Effect.runSync(result)).toThrow()
-    })
+        const result = Schema.decodeEither(DebugConfig)(invalidConfig)
+        expect(() => Effect.runSync(result)).toThrow()
+      })
+    )
 
-    it('should reject negative resolution values', () => {
-      const invalidConfig = {
-        resolution: { width: -1920, height: 1080 },
-        quality: 'high' as const,
-        shadows: true,
-        antialiasing: true,
-        viewDistance: 8,
-        fov: 75,
-        vsync: true,
-      }
+    it.effect('should reject negative resolution values', () =>
+      Effect.gen(function* () {
+        const invalidConfig = {
+          resolution: { width: -1920, height: 1080 },
+          quality: 'high' as const,
+          shadows: true,
+          antialiasing: true,
+          viewDistance: 8,
+          fov: 75,
+          vsync: true,
+        }
 
-      const result = Schema.decodeEither(RenderConfig)(invalidConfig)
-      expect(() => Effect.runSync(result)).toThrow()
-    })
+        const result = Schema.decodeEither(RenderConfig)(invalidConfig)
+        expect(() => Effect.runSync(result)).toThrow()
+      })
+    )
 
-    it('should validate FOV within bounds', () => {
-      const validFov = {
-        resolution: { width: 1920, height: 1080 },
-        quality: 'high' as const,
-        shadows: true,
-        antialiasing: true,
-        viewDistance: 8,
-        fov: 90,
-        vsync: true,
-      }
+    it.effect('should validate FOV within bounds', () =>
+      Effect.gen(function* () {
+        const validFov = {
+          resolution: { width: 1920, height: 1080 },
+          quality: 'high' as const,
+          shadows: true,
+          antialiasing: true,
+          viewDistance: 8,
+          fov: 90,
+          vsync: true,
+        }
 
-      const result = Schema.decodeEither(RenderConfig)(validFov)
-      expect(Effect.runSync(result).fov).toBe(90)
+        const result = Schema.decodeEither(RenderConfig)(validFov)
+        expect(Effect.runSync(result).fov).toBe(90)
 
-      const invalidFov = { ...validFov, fov: 150 } // 120以上は無効
-      const invalidResult = Schema.decodeEither(RenderConfig)(invalidFov)
-      expect(() => Effect.runSync(invalidResult)).toThrow()
-    })
+        const invalidFov = { ...validFov, fov: 150 } // 120以上は無効
+        const invalidResult = Schema.decodeEither(RenderConfig)(invalidFov)
+        expect(() => Effect.runSync(invalidResult)).toThrow()
+      })
+    )
   })
 })

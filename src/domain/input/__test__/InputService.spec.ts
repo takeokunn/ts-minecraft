@@ -163,74 +163,82 @@ describe('InputService', () => {
   })
 
   describe('Type Safety', () => {
-    it('should ensure InputHandler interface is correctly typed', () => {
-      const handler: InputHandler = {
-        onKeyDown: (key: string) => {
-          expect(typeof key).toBe('string')
-        },
-        onKeyUp: (key: string) => {
-          expect(typeof key).toBe('string')
-        },
-        onMouseDown: (button: number) => {
-          expect(typeof button).toBe('number')
-        },
-        onMouseUp: (button: number) => {
-          expect(typeof button).toBe('number')
-        },
-        onMouseMove: (delta: MouseDelta) => {
-          expect(typeof delta.deltaX).toBe('number')
-          expect(typeof delta.deltaY).toBe('number')
-          expect(typeof delta.timestamp).toBe('number')
-        },
-      }
+    it.effect('should ensure InputHandler interface is correctly typed', () =>
+      Effect.gen(function* () {
+        const handler: InputHandler = {
+          onKeyDown: (key: string) => {
+            expect(typeof key).toBe('string')
+          },
+          onKeyUp: (key: string) => {
+            expect(typeof key).toBe('string')
+          },
+          onMouseDown: (button: number) => {
+            expect(typeof button).toBe('number')
+          },
+          onMouseUp: (button: number) => {
+            expect(typeof button).toBe('number')
+          },
+          onMouseMove: (delta: MouseDelta) => {
+            expect(typeof delta.deltaX).toBe('number')
+            expect(typeof delta.deltaY).toBe('number')
+            expect(typeof delta.timestamp).toBe('number')
+          },
+        }
 
-      // Test that handler can be called with correct types
-      handler.onKeyDown?.('w')
-      handler.onKeyUp?.('w')
-      handler.onMouseDown?.(0)
-      handler.onMouseUp?.(0)
-      handler.onMouseMove?.({
-        deltaX: 10,
-        deltaY: -5,
-        timestamp: Date.now(),
+        // Test that handler can be called with correct types
+        handler.onKeyDown?.('w')
+        handler.onKeyUp?.('w')
+        handler.onMouseDown?.(0)
+        handler.onMouseUp?.(0)
+        handler.onMouseMove?.({
+          deltaX: 10,
+          deltaY: -5,
+          timestamp: Date.now(),
+        })
       })
-    })
+    )
 
-    it('should allow partial handler implementation', () => {
-      const partialHandler: InputHandler = {
-        onKeyDown: (key: string) => {
-          expect(typeof key).toBe('string')
-        },
-        // Only implementing key down handler
-      }
+    it.effect('should allow partial handler implementation', () =>
+      Effect.gen(function* () {
+        const partialHandler: InputHandler = {
+          onKeyDown: (key: string) => {
+            expect(typeof key).toBe('string')
+          },
+          // Only implementing key down handler
+        }
 
-      expect(partialHandler.onKeyDown).toBeDefined()
-      expect(partialHandler.onKeyUp).toBeUndefined()
-      expect(partialHandler.onMouseDown).toBeUndefined()
-    })
+        expect(partialHandler.onKeyDown).toBeDefined()
+        expect(partialHandler.onKeyUp).toBeUndefined()
+        expect(partialHandler.onMouseDown).toBeUndefined()
+      })
+    )
   })
 
   describe('Error Types', () => {
-    it('should create InputSystemError with proper structure', () => {
-      const error = InputSystemError({
-        message: 'Test error',
-        key: 'test-key',
+    it.effect('should create InputSystemError with proper structure', () =>
+      Effect.gen(function* () {
+        const error = InputSystemError({
+          message: 'Test error',
+          key: 'test-key',
+        })
+
+        expect(error._tag).toBe('InputSystemError')
+        expect(error.message).toBe('Test error')
+        expect(error.key).toBe('test-key')
       })
+    )
 
-      expect(error._tag).toBe('InputSystemError')
-      expect(error.message).toBe('Test error')
-      expect(error.key).toBe('test-key')
-    })
+    it.effect('should create InputHandlerRegistrationError with proper structure', () =>
+      Effect.gen(function* () {
+        const error = InputHandlerRegistrationError({
+          message: 'Registration failed',
+          handlerId: 'handler-123',
+        })
 
-    it('should create InputHandlerRegistrationError with proper structure', () => {
-      const error = InputHandlerRegistrationError({
-        message: 'Registration failed',
-        handlerId: 'handler-123',
+        expect(error._tag).toBe('InputHandlerRegistrationError')
+        expect(error.message).toBe('Registration failed')
+        expect(error.handlerId).toBe('handler-123')
       })
-
-      expect(error._tag).toBe('InputHandlerRegistrationError')
-      expect(error.message).toBe('Registration failed')
-      expect(error.handlerId).toBe('handler-123')
-    })
+    )
   })
 })
