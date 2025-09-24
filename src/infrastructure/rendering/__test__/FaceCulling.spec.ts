@@ -545,6 +545,7 @@ describe('FaceCulling', () => {
             expect(service.checkFaceVisibility).toBeDefined()
             expect(service.shouldRenderFace).toBeDefined()
             expect(service.cullHiddenFaces).toBeDefined()
+            return true
           })
         )
 

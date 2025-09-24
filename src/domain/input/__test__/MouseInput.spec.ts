@@ -268,7 +268,7 @@ describe('MouseInput', () => {
                   onLeft: (error) =>
                     Effect.sync(() => {
                       expect(error._tag).toBe('MouseInputError')
-                      expect(error.cause).toContain('Document is not available')
+                      expect(error.cause).toContain('document is not defined')
                     }),
                   onRight: () => Effect.succeed(undefined),
                 })
@@ -687,20 +687,11 @@ describe('MouseInput', () => {
 
             // レガシーマウス移動をシミュレート（movementX/Y なし）
             const testService = mouseInput as any
-            yield* pipe(
-              testService.simulateLegacyMouseMove,
-              Match.value,
-              Match.when(true, () =>
-                Effect.gen(function* () {
-                  const result = yield* testService.simulateLegacyMouseMove(150, 200)
+            const result = yield* testService.simulateLegacyMouseMove(150, 200)
 
-                  // フォールバック処理による計算結果の確認
-                  expect(result.deltaX).toBe(50) // 150 - 100 (line 92 フォールバック)
-                  expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
-                })
-              ),
-              Match.orElse(() => Effect.succeed(undefined))
-            )
+            // フォールバック処理による計算結果の確認
+            expect(result.deltaX).toBe(50) // 150 - 100 (line 92 フォールバック)
+            expect(result.deltaY).toBe(100) // 200 - 100 (line 97 フォールバック)
 
             // 位置更新の確認
             const updatedPosition = yield* mouseInput.getPosition()

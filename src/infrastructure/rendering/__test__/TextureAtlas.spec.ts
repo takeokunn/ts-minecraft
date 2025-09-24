@@ -626,6 +626,7 @@ describe('TextureAtlas', () => {
         expect(service.generateUVCoords).toBeDefined()
         expect(service.createTextureMaterial).toBeDefined()
         expect(service.registerBlockTexture).toBeDefined()
+        return true
       })
 
       const result = pipe(program, Effect.provide(TextureAtlasLive), Effect.runSync)

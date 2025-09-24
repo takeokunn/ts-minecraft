@@ -326,20 +326,10 @@ export const SystemRegistryServiceLive = Layer.effect(
         const state = yield* Ref.get(stateRef)
 
         // グローバル無効時は早期リターン
-        yield* pipe(
-          state.globalEnabled,
-          Match.value,
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.when(true, () => Effect.succeed(undefined)),
-          Match.exhaustive
-        )
-
-        yield* pipe(
-          state.globalEnabled,
-          Match.value,
-          Match.when(false, () => Effect.void),
-          Match.orElse(() => Effect.void)
-        )
+        const isEnabled = state.globalEnabled
+        if (!isEnabled) {
+          return
+        }
 
         const systems = yield* getOrderedSystems
 

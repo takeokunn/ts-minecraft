@@ -28,10 +28,13 @@ import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> = (
   obj
 ): obj is THREE.PerspectiveCamera =>
-  Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
+  Predicate.isRecord(obj) && 'isPerspectiveCamera' in obj && obj['isPerspectiveCamera'] === true
 
 const isMatrix4: Predicate.Refinement<unknown, THREE.Matrix4> = (obj): obj is THREE.Matrix4 =>
-  Predicate.isRecord(obj) && '_isMatrix4' in obj && obj['_isMatrix4'] === true
+  Predicate.isRecord(obj) &&
+  Array.isArray(obj['elements']) &&
+  obj['elements'].length === 16 &&
+  typeof obj['decompose'] === 'function'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach

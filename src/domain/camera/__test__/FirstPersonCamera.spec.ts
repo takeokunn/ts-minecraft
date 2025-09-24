@@ -21,7 +21,7 @@ import { FirstPersonCameraLive } from '../FirstPersonCamera'
 const isPerspectiveCamera: Predicate.Refinement<unknown, THREE.PerspectiveCamera> = (
   obj
 ): obj is THREE.PerspectiveCamera =>
-  Predicate.isRecord(obj) && '_isPerspectiveCamera' in obj && obj['_isPerspectiveCamera'] === true
+  Predicate.isRecord(obj) && 'isPerspectiveCamera' in obj && obj['isPerspectiveCamera'] === true
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach

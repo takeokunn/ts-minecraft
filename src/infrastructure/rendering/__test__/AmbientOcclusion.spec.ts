@@ -591,6 +591,7 @@ describe('AmbientOcclusion', () => {
             expect(service.calculateVertexAO).toBeDefined()
             expect(service.calculateFaceAO).toBeDefined()
             expect(service.applyAOToChunk).toBeDefined()
+            return true
           })
         )
 

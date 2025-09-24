@@ -28,7 +28,7 @@ export const MainMenuScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          return pipe(
+          yield* pipe(
             isInitialized,
             Match.value,
             Match.when(true, () =>
@@ -84,7 +84,7 @@ export const MainMenuScene = Layer.effect(
         Effect.gen(function* () {
           const isInitialized = yield* Ref.get(isInitializedRef)
 
-          return pipe(
+          yield* pipe(
             isInitialized,
             Match.value,
             Match.when(true, () =>

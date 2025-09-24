@@ -323,12 +323,13 @@ export const CollisionDetection = {
 
             // if文をMatch patternで置き換え、Option型で表現
             return yield* pipe(
-              blockType && blockType !== 0,
+              blockType !== null && blockType !== 0,
               Match.value,
               Match.when(false, () => Effect.succeed(Option.none())),
-              Match.orElse(() =>
-                Effect.succeed(Option.some({ hit: true, position: blockPos, blockType: blockType as BlockTypeId }))
-              )
+              Match.when(true, () =>
+                Effect.succeed(Option.some({ hit: true, position: point, blockType: blockType as BlockTypeId }))
+              ),
+              Match.exhaustive
             )
           })
         ),
