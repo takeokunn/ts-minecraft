@@ -190,7 +190,7 @@ describe('PlayerService Integration Tests', () => {
 
           yield* playerService.createPlayer({ playerId })
 
-          const newRotation = { pitch: Math.PI / 3, yaw: -Math.PI / 2 }
+          const newRotation = { pitch: Math.PI / 3, yaw: -Math.PI / 2, roll: 0 }
           yield* playerService.setPlayerRotation(playerId, newRotation)
 
           const playerState = yield* playerService.getPlayerState(playerId)
@@ -247,7 +247,7 @@ describe('PlayerService Integration Tests', () => {
 
           const updateData = {
             position: { x: 200, y: 256, z: 100 },
-            rotation: { pitch: -Math.PI / 4, yaw: Math.PI },
+            rotation: { pitch: -Math.PI / 4, yaw: Math.PI, roll: 0 },
             health: 60,
           }
 
@@ -326,7 +326,7 @@ describe('PlayerService Integration Tests', () => {
 
           // 無効な回転更新
           const invalidRotationResult = yield* Effect.either(
-            playerService.setPlayerRotation(playerId, { pitch: Math.PI * 2, yaw: 0 })
+            playerService.setPlayerRotation(playerId, { pitch: Math.PI * 2, yaw: 0, roll: 0 })
           )
           expect(Either.isLeft(invalidRotationResult)).toBe(true)
 

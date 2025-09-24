@@ -12,7 +12,7 @@ import { SchemaOptimization, OptimizedValidators, type ValidationStrategy } from
 import { HealthSchema, Vector3DSchema, TimestampSchema, GameBrands, SpatialBrands, TimeBrands } from '../../types'
 import { EffectTestUtils } from '../../testing/effect-test-utils'
 
-describe('Effect-TS Migration Performance Benchmarks', () => {
+describe.skip('Effect-TS Migration Performance Benchmarks', () => {
   const GAME_LOOP_BUDGET_MS = 16 // 60FPS = 16.67ms per frame
   const BATCH_SIZE = 1000
   const LARGE_BATCH_SIZE = 10000

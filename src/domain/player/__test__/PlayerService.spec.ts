@@ -90,7 +90,7 @@ describe('PlayerService', () => {
 
       expect(result.playerId).toBe('test-player-1')
       expect(result.initialPosition).toEqual({ x: 0, y: 64, z: 0 })
-      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0 })
+      expect(result.initialRotation).toEqual({ pitch: 0, yaw: 0, roll: 0 })
       expect(result.health).toBe(100)
     })
 
@@ -185,10 +185,12 @@ describe('PlayerService', () => {
       const rotationComponent = {
         pitch: Math.PI / 4,
         yaw: Math.PI / 2,
+        roll: 0,
       }
 
       expect(typeof rotationComponent.pitch).toBe('number')
       expect(typeof rotationComponent.yaw).toBe('number')
+      expect(typeof rotationComponent.roll).toBe('number')
     })
   })
 })

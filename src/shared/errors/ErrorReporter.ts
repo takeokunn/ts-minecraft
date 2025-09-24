@@ -66,7 +66,8 @@ export const ErrorReporter = {
       })
     )
 
-    if (knownError) {
+    // 既知のエラー型であっても、_tagが空白や無効な場合はUnknownErrorとして扱う
+    if (knownError && knownError._tag && knownError._tag.trim() !== '') {
       return {
         type: knownError._tag,
         message: knownError.message,
@@ -77,7 +78,7 @@ export const ErrorReporter = {
       }
     }
 
-    // 既知のエラー型でない場合のフォールバック
+    // 既知のエラー型でない場合、または_tagが無効な場合のフォールバック
     return {
       type: 'UnknownError',
       message: String(error),
@@ -86,7 +87,7 @@ export const ErrorReporter = {
       stackTrace: ErrorReporter.getStackTrace(error),
       category: 'unknown' as const,
     }
-  },
+  },,
 
   /**
    * エラーの詳細情報を抽出

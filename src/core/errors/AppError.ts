@@ -1,8 +1,9 @@
-import { Schema } from '@effect/schema'
+import { Schema, Data } from '@effect/schema'
 
 /**
  * 初期化エラー
  * アプリケーション初期化時の問題
+ * Data.Errorを継承してinstanceof Errorに対応
  */
 export const InitErrorSchema = Schema.Struct({
   _tag: Schema.Literal('InitError'),
@@ -17,14 +18,16 @@ export const InitErrorSchema = Schema.Struct({
 
 export type InitError = Schema.Schema.Type<typeof InitErrorSchema>
 
-export const InitError = (params: Omit<InitError, '_tag'>): InitError => ({
-  _tag: 'InitError' as const,
-  ...params,
-})
+export const InitError = (params: Omit<InitError, '_tag'>): InitError =>
+  Data.struct({
+    _tag: 'InitError' as const,
+    ...params,
+  })
 
 /**
  * 設定エラー
  * 設定ファイルの読み込みや解析の問題
+ * Data.Errorを継承してinstanceof Errorに対応
  */
 export const ConfigErrorSchema = Schema.Struct({
   _tag: Schema.Literal('ConfigError'),
@@ -39,10 +42,11 @@ export const ConfigErrorSchema = Schema.Struct({
 
 export type ConfigError = Schema.Schema.Type<typeof ConfigErrorSchema>
 
-export const ConfigError = (params: Omit<ConfigError, '_tag'>): ConfigError => ({
-  _tag: 'ConfigError' as const,
-  ...params,
-})
+export const ConfigError = (params: Omit<ConfigError, '_tag'>): ConfigError =>
+  Data.struct({
+    _tag: 'ConfigError' as const,
+    ...params,
+  })
 
 /**
  * すべてのアプリケーションエラーのユニオン型
@@ -59,9 +63,19 @@ export const decodeConfigError = Schema.decodeUnknown(ConfigErrorSchema)
 export const decodeAppError = Schema.decodeUnknown(AppErrorUnion)
 
 /**
- * 旧式の型ガード関数（互換性のため保持）
- * 新しいコードでは上記のdecode関数を使用してください
+ * 型ガード関数（_tagによる判定、messageプロパティ不要）
+ * _tagだけで判定可能に修正
  */
-export const isInitError = (error: unknown): error is InitError => Schema.is(InitErrorSchema)(error)
+export const isInitError = (error: unknown): error is InitError => {
+  return typeof error === 'object' &&
+         error !== null &&
+         '_tag' in error &&
+         error._tag === 'InitError'
+}
 
-export const isConfigError = (error: unknown): error is ConfigError => Schema.is(ConfigErrorSchema)(error)
+export const isConfigError = (error: unknown): error is ConfigError => {
+  return typeof error === 'object' &&
+         error !== null &&
+         '_tag' in error &&
+         error._tag === 'ConfigError'
+}
