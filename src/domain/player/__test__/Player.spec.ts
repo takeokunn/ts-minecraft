@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, pipe, Predicate } from 'effect'
+import { Effect, Either, pipe, Predicate, Match } from 'effect'
 import { Schema } from '@effect/schema'
 import type { PlayerPosition, PlayerRotation, PlayerState } from '../PlayerService.js'
 import {
@@ -69,7 +69,7 @@ describe('Player Entity System - Component Tests', () => {
         for (const position of invalidPositions) {
           const result = Effect.runSync(Effect.either(validatePlayerPosition(position)))
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
             expect(result.left.reason).toBe('INVALID_POSITION')
           }
@@ -131,7 +131,7 @@ describe('Player Entity System - Component Tests', () => {
         for (const rotation of invalidRotations) {
           const result = Effect.runSync(Effect.either(validatePlayerRotation(rotation)))
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
             expect(result.left.reason).toBe('INVALID_ROTATION')
           }
@@ -156,7 +156,7 @@ describe('Player Entity System - Component Tests', () => {
         for (const rotation of invalidRotations) {
           const result = Effect.runSync(Effect.either(validatePlayerRotation(rotation)))
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
             expect(result.left.reason).toBe('INVALID_ROTATION')
           }
@@ -213,7 +213,7 @@ describe('Player Entity System - Component Tests', () => {
         for (const config of definitelyInvalidConfigs) {
           const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
             expect(result.left.reason).toBe('VALIDATION_ERROR')
           }
@@ -323,7 +323,7 @@ describe('Player Entity System - Component Tests', () => {
         for (const state of invalidStates) {
           const result = Effect.runSync(Effect.either(validatePlayerState(state)))
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
             expect(result.left.reason).toBe('VALIDATION_ERROR')
           }
@@ -370,7 +370,7 @@ describe('Player Entity System - Component Tests', () => {
 
         for (const updateData of invalidUpdates) {
           const result = Effect.runSync(Effect.either(validatePlayerUpdateData(updateData)))
-          yield* pipe(
+          if (
             updateData === null ||
             updateData === undefined ||
             !Predicate.isRecord(updateData) ||
@@ -380,7 +380,7 @@ describe('Player Entity System - Component Tests', () => {
             (updateData.health !== undefined && (updateData.health < 0 || updateData.health > 100))
           ) {
             expect(result._tag).toBe('Left')
-            yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+            if (Either.isLeft(result)) {
               expect(isPlayerError(result.left)).toBe(true)
               expect(result.left.reason).toBe('VALIDATION_ERROR')
             }
@@ -635,7 +635,7 @@ describe('Player Entity System - Component Tests', () => {
         // Verify all results are errors
         results.forEach((result) => {
           expect(result._tag).toBe('Left')
-          yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+          if (Either.isLeft(result)) {
             expect(isPlayerError(result.left)).toBe(true)
           }
         })

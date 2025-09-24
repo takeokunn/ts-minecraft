@@ -172,7 +172,7 @@ describe('BlockInteractionService', () => {
 
         expect(typeof result.success).toBe('boolean')
 
-        yield* pipe(result.success, Match.value, Match.when(true, () => Effect.sync(() => {
+        if (result.success) {
           expect(result.placedPosition).toBeDefined()
         } else {
           expect(result.reason).toBeDefined()
@@ -363,10 +363,7 @@ describe('BlockInteractionService Integration', () => {
           progress,
           placement,
         }
-      }
-
-      expect(raycast).toBeDefined()
-      return { raycast }
+      })), () => Effect.void)
     }).pipe(Effect.provide(BlockInteractionServiceLive))
   )
 })

@@ -126,10 +126,16 @@ describe('KeyboardInput', () => {
         const result = yield* Effect.either(keyboard.isActionPressed('forward'))
 
         expect(result._tag).toBe('Left')
-        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
-          expect(result.left._tag).toBe('KeyMappingError')
-          expect(result.left.message).toBe('Failed to check action')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) => Effect.sync(() => {
+              expect(result.left._tag).toBe('KeyMappingError')
+              expect(result.left.message).toBe('Failed to check action')
+            }),
+            onRight: () => Effect.void
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
 
@@ -139,10 +145,16 @@ describe('KeyboardInput', () => {
         const result = yield* Effect.either(keyboard.setKeyMapping(DefaultKeyMap))
 
         expect(result._tag).toBe('Left')
-        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
-          expect(result.left._tag).toBe('KeyMappingError')
-          expect(result.left.message).toBe('Failed to set mapping')
-        }
+        yield* pipe(
+          result,
+          Either.match({
+            onLeft: (error) => Effect.sync(() => {
+              expect(result.left._tag).toBe('KeyMappingError')
+              expect(result.left.message).toBe('Failed to set mapping')
+            }),
+            onRight: () => Effect.void
+          })
+        )
       }).pipe(Effect.provide(FailingLayer))
     )
   })

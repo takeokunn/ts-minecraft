@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Either, pipe } from 'effect'
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { GameScene } from '../GameScene'
@@ -41,7 +41,7 @@ describe('GameScene', () => {
         const result = yield* Effect.either(scene.initialize())
 
         expect(result._tag).toBe('Left')
-        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+        if (result._tag === 'Left') {
           expect(result.left._tag).toBe('SceneInitializationError')
           expect(result.left.message).toContain('already initialized')
           expect(result.left.sceneType).toBe('Game')
@@ -132,7 +132,7 @@ describe('GameScene', () => {
         const result = yield* Effect.either(scene.cleanup())
 
         expect(result._tag).toBe('Left')
-        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+        if (result._tag === 'Left') {
           expect(result.left._tag).toBe('SceneCleanupError')
           expect(result.left.message).toContain('not initialized')
           expect(result.left.sceneType).toBe('Game')

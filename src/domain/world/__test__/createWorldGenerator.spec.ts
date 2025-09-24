@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { it as itEffect } from '@effect/vitest'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, pipe, Match } from 'effect'
 import { createWorldGenerator } from '../createWorldGenerator'
 import type { GeneratorOptions, StructureType } from '../GeneratorOptions'
 import type { ChunkPosition } from '../../chunk/ChunkPosition'
@@ -182,7 +182,7 @@ describe('createWorldGenerator', () => {
             const result1 = results[i]
             const result2 = results[j]
 
-            yield* pipe(result1 && result2, Match.value, Match.when(true, () => Effect.sync(() => {
+            if (result1 && result2) {
               expect(result1.chunk.position).not.toEqual(result2.chunk.position)
               // モックなので同じデータになる可能性がある
               expect(result1.heightMap).toHaveLength(256)
@@ -224,12 +224,12 @@ describe('createWorldGenerator', () => {
         for (let i = 0; i < result.chunk.blocks.length; i++) {
           const blockId = result.chunk.blocks[i] ?? 0
 
-          yield* pipe(blockId !== 0, Match.value, Match.when(true, () => Effect.sync(() => {
+          if (blockId !== 0) {
             hasNonAirBlocks = true
           }
 
           // 有効なブロックIDの範囲チェック
-          yield* pipe(blockId < 0 || blockId > 255, Match.value, Match.when(true, () => Effect.sync(() => {
+          if (blockId < 0 || blockId > 255) {
             hasValidBlockIds = false
             break
           }
@@ -350,7 +350,7 @@ describe('createWorldGenerator', () => {
         for (const type of structureTypes) {
           const canGenerate = yield* generator.canGenerateStructure(type, position)
 
-          yield* pipe(canGenerate, Match.value, Match.when(true, () => Effect.sync(() => {
+          if (canGenerate) {
             const structure = yield* generator.generateStructure(type, position)
             structures.push(structure)
 
@@ -443,7 +443,7 @@ describe('createWorldGenerator', () => {
         // 最も近い村を探す
         const nearestVillage = yield* generator.findNearestStructure('village', centerPosition, searchRadius)
 
-        yield* pipe(nearestVillage, Match.value, Match.when(true, () => Effect.sync(() => {
+        if (nearestVillage) {
           expect(nearestVillage.type).toBe('village')
           expect(nearestVillage.position).toEqual(positions[0]) // 最も近いはず
 

@@ -2,6 +2,8 @@ import { describe, expect, beforeEach, vi } from 'vitest'
 import { Effect } from 'effect'
 import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
+import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
 import { BrandedTypes } from '../../../shared/types/branded'
 import {
   CHUNK_SIZE,
@@ -109,14 +111,14 @@ describe('ChunkData', () => {
           [15, 319, 15, 383 + 15 * 384 + 15 * 384 * 16], // max coordinates
         ]
 
-        testCases.forEach(([x, y, z, expectedIndex]) => {
+        for (const [x, y, z, expectedIndex] of testCases) {
           const result = getBlockIndex(
             BrandedTypes.createWorldCoordinate(x),
             BrandedTypes.createWorldCoordinate(y),
             BrandedTypes.createWorldCoordinate(z)
           )
           expect(result).toBe(expectedIndex)
-        })
+        }
       })
     )
 
@@ -131,7 +133,7 @@ describe('ChunkData', () => {
           [0, 0, 16], // Z >= CHUNK_SIZE
         ]
 
-        invalidCases.forEach(([x, y, z]) => {
+        for (const [x, y, z] of invalidCases) {
           yield* pipe(
             x !== undefined && y !== undefined && z !== undefined,
             Match.value,
@@ -147,6 +149,7 @@ describe('ChunkData', () => {
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
+        }
       })
     )
 
@@ -164,7 +167,7 @@ describe('ChunkData', () => {
           }
         }
 
-        coordinates.forEach(([x, y, z]) => {
+        for (const [x, y, z] of coordinates) {
           const index = getBlockIndex(
             BrandedTypes.createWorldCoordinate(x),
             BrandedTypes.createWorldCoordinate(y),
@@ -172,7 +175,7 @@ describe('ChunkData', () => {
           )
           expect(indices.has(index)).toBe(false)
           indices.add(index)
-        })
+        }
       })
     )
 
@@ -206,7 +209,7 @@ describe('ChunkData', () => {
           [3, -32, 11],
         ]
 
-        testCases.forEach(([x, y, z]) => {
+        for (const [x, y, z] of testCases) {
           const index = getBlockIndex(
             BrandedTypes.createWorldCoordinate(x),
             BrandedTypes.createWorldCoordinate(y),
@@ -216,7 +219,7 @@ describe('ChunkData', () => {
           expect(recoveredX).toBe(x)
           expect(recoveredY).toBe(y)
           expect(recoveredZ).toBe(z)
-        })
+        }
       })
     )
 
@@ -224,9 +227,9 @@ describe('ChunkData', () => {
       Effect.gen(function* () {
         const invalidIndices = [-1, CHUNK_VOLUME, CHUNK_VOLUME + 1, -100, 200000]
 
-        invalidIndices.forEach((index) => {
+        for (const index of invalidIndices) {
           expect(() => getBlockCoords(index)).toThrow()
-        })
+        }
       })
     )
   })
@@ -285,7 +288,7 @@ describe('ChunkData', () => {
           [3, 100, 11],
         ]
 
-        testCases.forEach(([x, y, z]) => {
+        for (const [x, y, z] of testCases) {
           const block = getBlock(
             testChunk,
             BrandedTypes.createWorldCoordinate(x),
@@ -293,7 +296,7 @@ describe('ChunkData', () => {
             BrandedTypes.createWorldCoordinate(z)
           )
           expect(block).toBe(0)
-        })
+        }
       })
     )
 
@@ -499,7 +502,7 @@ describe('ChunkData', () => {
           [16, 16],
         ]
 
-        invalidCases.forEach(([x, z]) => {
+        for (const [x, z] of invalidCases) {
           yield* pipe(
             x !== undefined && z !== undefined,
             Match.value,
@@ -511,6 +514,7 @@ describe('ChunkData', () => {
             Match.when(false, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
+        }
       })
     )
   })

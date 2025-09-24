@@ -21,19 +21,19 @@ const createTestDelta = (deltaX: number, deltaY: number, timestamp?: number): Mo
 })
 
 const expectDeltaEquals = (actual: AdjustedMouseDelta, expected: Partial<AdjustedMouseDelta>) => {
-  yield* pipe(expected.deltaX !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+  if (expected.deltaX !== undefined) {
     expect(actual.deltaX).toBeCloseTo(expected.deltaX, 5)
   }
-  yield* pipe(expected.deltaY !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+  if (expected.deltaY !== undefined) {
     expect(actual.deltaY).toBeCloseTo(expected.deltaY, 5)
   }
-  yield* pipe(expected.originalDeltaX !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+  if (expected.originalDeltaX !== undefined) {
     expect(actual.originalDeltaX).toBe(expected.originalDeltaX)
   }
-  yield* pipe(expected.originalDeltaY !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+  if (expected.originalDeltaY !== undefined) {
     expect(actual.originalDeltaY).toBe(expected.originalDeltaY)
   }
-  yield* pipe(expected.appliedSensitivity !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+  if (expected.appliedSensitivity !== undefined) {
     expect(actual.appliedSensitivity).toBeCloseTo(expected.appliedSensitivity, 5)
   }
 }
@@ -498,7 +498,7 @@ describe('MouseSensitivity', () => {
 
     describe('Preset Management', () => {
       Object.entries(sensitivityPresets).forEach(([presetName, presetConfig]) => {
-        yield* pipe(presetName !== 'custom', Match.value, Match.when(true, () => Effect.sync(() => {
+        if (presetName !== 'custom') {
           it.effect(`should apply ${presetName} preset correctly`, () =>
             Effect.gen(function* () {
               const mouseSensitivity = yield* MouseSensitivity
@@ -507,16 +507,16 @@ describe('MouseSensitivity', () => {
               const config = yield* mouseSensitivity.getConfig()
 
               expect(config.preset).toBe(presetName)
-              yield* pipe(presetConfig.xSensitivity !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+              if (presetConfig.xSensitivity !== undefined) {
                 expect(config.xSensitivity).toBe(presetConfig.xSensitivity)
               }
-              yield* pipe(presetConfig.ySensitivity !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+              if (presetConfig.ySensitivity !== undefined) {
                 expect(config.ySensitivity).toBe(presetConfig.ySensitivity)
               }
-              yield* pipe(presetConfig.globalMultiplier !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+              if (presetConfig.globalMultiplier !== undefined) {
                 expect(config.globalMultiplier).toBe(presetConfig.globalMultiplier)
               }
-              yield* pipe(presetConfig.curve !== undefined, Match.value, Match.when(true, () => Effect.sync(() => {
+              if (presetConfig.curve !== undefined) {
                 expect(config.curve).toBe(presetConfig.curve)
               }
             }).pipe(Effect.provide(TestLayer))

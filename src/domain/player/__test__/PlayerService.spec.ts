@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Either, pipe } from 'effect'
 import { PlayerService, createPlayerError, validatePlayerConfig } from '../index.js'
 import { BrandedTypes } from '../../../shared/types/branded.js'
 
@@ -115,7 +115,7 @@ describe('PlayerService', () => {
         const result = Effect.runSync(Effect.either(validatePlayerConfig(config)))
 
         expect(result._tag).toBe('Left')
-        yield* pipe(result, Either.match({ onLeft: (error) => Effect.sync(() => {
+        if (Either.isLeft(result)) {
           expect(result.left._tag).toBe('PlayerError')
           expect(result.left.reason).toBe('VALIDATION_ERROR')
         }

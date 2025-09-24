@@ -133,7 +133,7 @@ export class ItemRegistry extends Context.Tag('ItemRegistry')<
           })),
           Match.exhaustive
         )
-      }),,
+      }),
 
     getMaxStackSize: (itemId: ItemId) =>
       Effect.sync(() => {

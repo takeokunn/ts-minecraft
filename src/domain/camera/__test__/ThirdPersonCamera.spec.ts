@@ -168,6 +168,7 @@ describe('ThirdPersonCamera', () => {
             Match.when(true, () => Effect.succeed(undefined)),
             Match.exhaustive
           )
+        }
       }).pipe(Effect.provide(TestLayer))
     )
   })
