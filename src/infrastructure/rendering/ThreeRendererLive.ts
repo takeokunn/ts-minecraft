@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref, pipe, Match } from 'effect'
+import { Effect, Layer, Option, Ref, pipe, Match, Predicate } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from './ThreeRenderer'
 import type { RenderError } from './types'

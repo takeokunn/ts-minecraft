@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, pipe, Match } from 'effect'
+import { Context, Effect, Layer, Ref, pipe, Match, Option, Predicate } from 'effect'
 import { GameApplication } from './GameApplication'
 import { BrandedTypes } from '../shared/types/branded'
 import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
@@ -34,17 +34,24 @@ const getCanvas = (canvasId: string = 'game-canvas'): Effect.Effect<HTMLCanvasEl
   Effect.gen(function* () {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null
 
+    // Transform null check using Option pattern
     if (!canvas) {
       yield* Effect.logError('Canvas not found', { canvasId })
       return yield* Effect.die('Canvas not found')
     }
 
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      yield* Effect.logError('Element is not a canvas', { canvasId })
-      return yield* Effect.die('Element is not a canvas')
-    }
-
-    return canvas
+    // Transform instanceof check using Match pattern
+    return yield* pipe(
+      canvas instanceof HTMLCanvasElement,
+      Match.value,
+      Match.when(true, () => Effect.succeed(canvas)),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          yield* Effect.logError('Element is not a canvas', { canvasId })
+          return yield* Effect.die('Element is not a canvas')
+        })
+      )
+    )
   })
 
 // Live実装の作成
@@ -83,13 +90,19 @@ const makeGameApplicationLive = Effect.gen(function* () {
 
       const allowed = validTransitions[current] || []
 
-      if (!allowed.includes(target)) {
-        yield* Effect.logWarning('Invalid state transition attempted', {
-          currentState: current,
-          attemptedState: target,
-          validTransitions: allowed,
-        })
-      }
+      // Transform if/else to Match pattern
+      yield* pipe(
+        allowed.includes(target),
+        Match.value,
+        Match.when(false, () =>
+          Effect.logWarning('Invalid state transition attempted', {
+            currentState: current,
+            attemptedState: target,
+            validTransitions: allowed,
+          })
+        ),
+        Match.orElse(() => Effect.void)
+      )
     })
 
   // 状態の安全な変更
@@ -106,28 +119,34 @@ const makeGameApplicationLive = Effect.gen(function* () {
     Effect.gen(function* () {
       const currentState = yield* Ref.get(lifecycleStateRef)
 
-      if (currentState !== 'Running') {
-        return
-      }
-
-      // Scene更新（エラーをログに記録のみ）
-      yield* sceneManager.update(frameInfo.deltaTime).pipe(
-        Effect.catchAll((error) =>
+      // Transform if/else to Match pattern
+      yield* pipe(
+        currentState,
+        Match.value,
+        Match.when('Running', () =>
           Effect.gen(function* () {
-            yield* Effect.logError('Scene update failed', error)
-            return Effect.void
-          })
-        )
-      )
+            // Scene更新（エラーをログに記録のみ）
+            yield* sceneManager.update(frameInfo.deltaTime).pipe(
+              Effect.catchAll((error) =>
+                Effect.gen(function* () {
+                  yield* Effect.logError('Scene update failed', error)
+                  return Effect.void
+                })
+              )
+            )
 
-      // Scene描画（エラーをログに記録のみ）
-      yield* sceneManager.render().pipe(
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* Effect.logError('Scene render failed', error)
-            return Effect.void
+            // Scene描画（エラーをログに記録のみ）
+            yield* sceneManager.render().pipe(
+              Effect.catchAll((error) =>
+                Effect.gen(function* () {
+                  yield* Effect.logError('Scene render failed', error)
+                  return Effect.void
+                })
+              )
+            )
           })
-        )
+        ),
+        Match.orElse(() => Effect.void)
       )
     })
 

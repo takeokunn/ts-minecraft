@@ -1,4 +1,4 @@
-import { Effect, Layer, Match } from 'effect'
+import { Effect, Layer, Match, pipe } from 'effect'
 import {
   LoggerService,
   LogLevel,
@@ -32,13 +32,18 @@ export const LoggerServiceLive = Layer.sync(LoggerService, () => {
       const canLog = shouldLog(level, currentLogLevel)
 
       // ログ出力の実行
-      if (!canLog) {
-        return undefined
-      }
-
-      // Effect<LogEntry>をEffect.runSyncで実行してLogEntryを取得
-      const entry = Effect.runSync(createLogEntry(level, message, context, error))
-      outputToConsole(entry)
+      return pipe(
+        canLog,
+        Match.value,
+        Match.when(false, () => undefined),
+        Match.when(true, () => {
+          // Effect<LogEntry>をEffect.runSyncで実行してLogEntryを取得
+          const entry = Effect.runSync(createLogEntry(level, message, context, error))
+          outputToConsole(entry)
+          return undefined
+        }),
+        Match.exhaustive
+      )
     })
 
   return LoggerService.of({

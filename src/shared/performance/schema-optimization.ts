@@ -5,7 +5,7 @@
  * to maintain 60FPS performance while preserving type safety
  */
 
-import { Effect, pipe, Stream } from 'effect'
+import { Effect, pipe, Stream, Match, Predicate } from 'effect'
 import { Schema, ParseResult } from '@effect/schema'
 
 /**
@@ -25,28 +25,19 @@ export const SchemaOptimization = {
    * Create a performance-optimized validator based on context
    */
   createOptimizedValidator: <A, I>(schema: Schema.Schema<A, I>, strategy: ValidationStrategy = 'development') => {
-    const validator = (input: unknown): Effect.Effect<A, ParseResult.ParseError> => {
-      switch (strategy) {
-        case 'strict':
-          return Schema.decodeUnknown(schema)(input)
-
-        case 'development':
-          return process.env['NODE_ENV'] === 'development'
-            ? Schema.decodeUnknown(schema)(input)
-            : Effect.succeed(input as A)
-
-        case 'boundary':
-          // Only validate at service boundaries (externally facing APIs)
-          return Effect.succeed(input as A)
-
-        case 'disabled':
-          // Trust TypeScript types completely
-          return Effect.succeed(input as A)
-
-        default:
-          return Schema.decodeUnknown(schema)(input)
-      }
-    }
+    const validator = (input: unknown): Effect.Effect<A, ParseResult.ParseError> =>
+      pipe(
+        Match.value(strategy),
+        Match.when('strict', () => Schema.decodeUnknown(schema)(input)),
+        Match.when('development', () =>
+          pipe(process.env['NODE_ENV'] === 'development', (isDev) =>
+            isDev ? Schema.decodeUnknown(schema)(input) : Effect.succeed(input as A)
+          )
+        ),
+        Match.when('boundary', () => Effect.succeed(input as A)),
+        Match.when('disabled', () => Effect.succeed(input as A)),
+        Match.exhaustive
+      )
 
     return {
       validate: validator,
@@ -62,7 +53,12 @@ export const SchemaOptimization = {
           validator(input),
           Effect.timeout(`${timeoutMs} millis`),
           Effect.mapError((error) => {
-            if (typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'TimeoutException') {
+            if (
+              typeof error === 'object' &&
+              error !== null &&
+              '_tag' in error &&
+              (error as any)._tag === 'TimeoutException'
+            ) {
               return 'timeout' as const
             }
             return error as ParseResult.ParseError
@@ -119,18 +115,13 @@ export const SchemaOptimization = {
             if (cached !== undefined) {
               return Effect.succeed(cached)
             }
-
             return pipe(
-              validator.validateSafe(input),
-              Effect.flatMap((result) =>
-                result !== null
-                  ? Effect.sync(() => {
-                      cache.set(key, result)
-                      return result
-                    })
-                  : Effect.fail('validation_error' as const)
-              ),
-              Effect.catchAll(() => Effect.fail('cache_miss' as const))
+              validator.validate(input),
+              Effect.map((result) => {
+                cache.set(key, result)
+                return result
+              }),
+              Effect.mapError(() => 'validation_error' as const)
             )
           },
 
@@ -267,27 +258,37 @@ export const SchemaOptimization = {
         input: unknown,
         cacheKey: string,
         ttlMs: number = 5000
-      ): Effect.Effect<A, ParseResult.ParseError> => {
-        const now = Date.now()
-        const cached = cache.get(cacheKey)
-
-        if (cached && now - cached.timestamp < cached.ttl) {
-          return Effect.succeed(cached.data)
-        }
-
-        return pipe(
-          validator.validate(input),
-          Effect.tap((result) =>
-            Effect.sync(() => {
-              cache.set(cacheKey, {
-                data: result,
-                timestamp: now,
-                ttl: ttlMs,
-              })
-            })
+      ): Effect.Effect<A, ParseResult.ParseError> =>
+        pipe(
+          Effect.sync(() => {
+            const now = Date.now()
+            const cached = cache.get(cacheKey)
+            return { now, cached }
+          }),
+          Effect.flatMap(({ now, cached }) =>
+            pipe(
+              Match.value(cached),
+              Match.when(
+                (c): c is NonNullable<typeof cached> => c !== undefined && now - c.timestamp < c.ttl,
+                (c) => Effect.succeed(c.data)
+              ),
+              Match.orElse(() =>
+                pipe(
+                  validator.validate(input),
+                  Effect.tap((result) =>
+                    Effect.sync(() => {
+                      cache.set(cacheKey, {
+                        data: result,
+                        timestamp: now,
+                        ttl: ttlMs,
+                      })
+                    })
+                  )
+                )
+              )
+            )
           )
-        )
-      },
+        ),
 
       /**
        * Force revalidation and update cache
@@ -317,12 +318,16 @@ export const SchemaOptimization = {
           yield* pipe(
             Stream.fromIterable(cache.entries()),
             Stream.mapEffect(([key, value]) =>
-              Effect.sync(() => {
-                if (now - value.timestamp >= value.ttl) {
-                  cache.delete(key)
-                  cleaned++
-                }
-              })
+              Effect.sync(() =>
+                pipe(
+                  Match.value(now - value.timestamp >= value.ttl),
+                  Match.when(true, () => {
+                    cache.delete(key)
+                    cleaned++
+                  }),
+                  Match.orElse(() => undefined)
+                )
+              )
             ),
             Stream.runDrain
           )

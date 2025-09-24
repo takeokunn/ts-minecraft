@@ -1,4 +1,4 @@
-import { Effect, Ref, Schema } from 'effect'
+import { Effect, Ref, Schema, Match, pipe, Option } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type { Timestamp } from '../../shared/types/time-brands'
 import { SessionId as SessionIdSchema, BlockPosition as BlockPositionSchema } from '../../shared/types/branded'
@@ -159,16 +159,43 @@ const getToolEfficiency = (toolType: ToolType): ToolEfficiency => {
 const inferBlockType = (blockId: BlockId): string => {
   const id = blockId.toLowerCase()
 
-  if (id.includes('stone') || id.includes('cobblestone')) return 'stone'
-  if (id.includes('ore')) return 'ore'
-  if (id.includes('wood') || id.includes('log') || id.includes('planks')) return 'wood'
-  if (id.includes('dirt') || id.includes('soil')) return 'dirt'
-  if (id.includes('sand')) return 'sand'
-  if (id.includes('wool') || id.includes('carpet')) return 'wool'
-  if (id.includes('glass')) return 'glass'
-  if (id.includes('metal') || id.includes('iron') || id.includes('gold')) return 'metal'
-
-  return 'misc'
+  return pipe(
+    id,
+    Match.value,
+    Match.when(
+      (id) => id.includes('stone') || id.includes('cobblestone'),
+      () => 'stone'
+    ),
+    Match.when(
+      (id) => id.includes('ore'),
+      () => 'ore'
+    ),
+    Match.when(
+      (id) => id.includes('wood') || id.includes('log') || id.includes('planks'),
+      () => 'wood'
+    ),
+    Match.when(
+      (id) => id.includes('dirt') || id.includes('soil'),
+      () => 'dirt'
+    ),
+    Match.when(
+      (id) => id.includes('sand'),
+      () => 'sand'
+    ),
+    Match.when(
+      (id) => id.includes('wool') || id.includes('carpet'),
+      () => 'wool'
+    ),
+    Match.when(
+      (id) => id.includes('glass'),
+      () => 'glass'
+    ),
+    Match.when(
+      (id) => id.includes('metal') || id.includes('iron') || id.includes('gold'),
+      () => 'metal'
+    ),
+    Match.orElse(() => 'misc')
+  )
 }
 
 /**
@@ -178,18 +205,19 @@ const calculateToolBlockAffinity = (toolType: ToolType, blockId: BlockId): numbe
   const efficiency = getToolEfficiency(toolType)
   const blockType = inferBlockType(blockId)
 
-  // 効果的なブロックの場合は効率アップ
-  if (efficiency.effectiveBlocks.some((effective) => blockType.includes(effective))) {
-    return 1.0 // 最高効率
-  }
-
-  // 非効率なブロックの場合は効率ダウン
-  if (efficiency.ineffectiveBlocks.some((ineffective) => blockType.includes(ineffective))) {
-    return 0.25 // 1/4の効率
-  }
-
-  // 普通の相性の場合
-  return 0.5
+  return pipe(
+    blockType,
+    Match.value,
+    Match.when(
+      (blockType) => efficiency.effectiveBlocks.some((effective) => blockType.includes(effective)),
+      () => 1.0
+    ), // 最高効率
+    Match.when(
+      (blockType) => efficiency.ineffectiveBlocks.some((ineffective) => blockType.includes(ineffective)),
+      () => 0.25
+    ), // 1/4の効率
+    Match.orElse(() => 0.5) // 普通の相性の場合
+  )
 }
 
 /**
@@ -214,14 +242,19 @@ export const calculateBlockBreakTime = (
   Effect.gen(function* () {
     const hardness = getBlockHardness(blockId)
 
-    // 破壊不可能ブロック
-    if (hardness < 0) {
-      return Infinity
-    }
+    const initialBreakTime = pipe(
+      hardness,
+      Match.value,
+      Match.when(
+        (h) => h < 0,
+        () => Infinity
+      ), // 破壊不可能ブロック
+      Match.when(0, () => 0.05), // 瞬時破壊ブロック (見た目上瞬時だが、わずかな時間は必要)
+      Match.orElse(() => null)
+    )
 
-    // 瞬時破壊ブロック
-    if (hardness === 0) {
-      return 0.05 // 見た目上瞬時だが、わずかな時間は必要
+    if (initialBreakTime !== null) {
+      return initialBreakTime
     }
 
     const actualToolType = toolType ?? 'hand'
@@ -278,16 +311,21 @@ export const startBlockBreaking = (
     // プレイヤーの既存セッションをチェック
     const existingSession = Array.from(activeBreakingSessions.values()).find((session) => session.playerId === playerId)
 
-    if (existingSession) {
-      return yield* Effect.fail(
-        createBlockBreakingError({
-          playerId,
-          blockPosition: blockPos,
-          toolType,
-          reason: `Player already has active breaking session: ${existingSession.sessionId}`,
-        })
-      )
-    }
+    yield* pipe(
+      Option.fromNullable(existingSession),
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (session) =>
+          Effect.fail(
+            createBlockBreakingError({
+              playerId,
+              blockPosition: blockPos,
+              toolType,
+              reason: `Player already has active breaking session: ${session.sessionId}`,
+            })
+          ),
+      })
+    )
 
     // TODO: ブロックが実際に存在するかチェック
     // const blockExists = yield* checkBlockExists(blockPos)
@@ -296,16 +334,17 @@ export const startBlockBreaking = (
     const blockId = 'stone' as BlockId // TODO: 実際のブロックIDを取得
     const totalBreakTime = yield* calculateBlockBreakTime(blockId, toolType)
 
-    if (totalBreakTime === Infinity) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBlockBreakingError({
           playerId,
           blockPosition: blockPos,
           toolType,
           reason: 'Block is unbreakable',
         })
-      )
-    }
+      ),
+      () => totalBreakTime === Infinity
+    )
 
     // 新しいセッションを作成
     const sessionId = generateSessionId()
@@ -344,45 +383,58 @@ export const updateBlockBreaking = (
   Effect.gen(function* () {
     const session = activeBreakingSessions.get(sessionId)
 
-    if (!session) {
-      return yield* Effect.fail(
-        createBreakingSessionError({
-          sessionId,
-          playerId: 'unknown' as PlayerId,
-          reason: `Breaking session not found: ${sessionId}`,
-        })
-      )
-    }
+    yield* pipe(
+      Option.fromNullable(session),
+      Option.match({
+        onNone: () =>
+          Effect.fail(
+            createBreakingSessionError({
+              sessionId,
+              playerId: 'unknown' as PlayerId,
+              reason: `Breaking session not found: ${sessionId}`,
+            })
+          ),
+        onSome: () => Effect.void,
+      })
+    )
 
-    if (deltaTime < 0) {
-      return yield* Effect.fail(
+    yield* Effect.when(
+      Effect.fail(
         createBreakingSessionError({
           sessionId,
-          playerId: session.playerId,
+          playerId: session?.playerId ?? ('unknown' as PlayerId),
           reason: `Invalid delta time: ${deltaTime}`,
         })
-      )
-    }
+      ),
+      () => deltaTime < 0
+    )
 
-    // 進捗を計算
-    const elapsedTime = (Date.now() - session.startTime) / 1000
-    const newProgress = Math.min(1.0, elapsedTime / session.totalBreakTime)
+    // 進捗を計算 (session は既に null チェック済み)
+    const validSession = session!
+    const elapsedTime = (Date.now() - validSession.startTime) / 1000
+    const newProgress = Math.min(1.0, elapsedTime / validSession.totalBreakTime)
     const isComplete = newProgress >= 1.0
-    const remainingTime = Math.max(0, session.totalBreakTime - elapsedTime)
+    const remainingTime = Math.max(0, validSession.totalBreakTime - elapsedTime)
 
     // セッションを更新
     const updatedSession: BreakingSession = {
-      ...session,
+      ...validSession,
       progress: newProgress,
     }
 
-    if (isComplete) {
-      // 破壊完了 - セッションを削除
-      activeBreakingSessions.delete(sessionId)
-    } else {
-      // セッションを更新
-      activeBreakingSessions.set(sessionId, updatedSession)
-    }
+    pipe(
+      isComplete,
+      Match.value,
+      Match.when(true, () => {
+        // 破壊完了 - セッションを削除
+        activeBreakingSessions.delete(sessionId)
+      }),
+      Match.when(false, () => {
+        // セッションを更新
+        activeBreakingSessions.set(sessionId, updatedSession)
+      }),
+      Match.exhaustive
+    )
 
     return {
       sessionId,
@@ -411,17 +463,23 @@ export const cancelBreakingSession = (sessionId: SessionId): Effect.Effect<void,
   Effect.gen(function* () {
     const session = activeBreakingSessions.get(sessionId)
 
-    if (!session) {
-      return yield* Effect.fail(
-        createBreakingSessionError({
-          sessionId,
-          playerId: 'unknown' as PlayerId,
-          reason: `Breaking session not found: ${sessionId}`,
-        })
-      )
-    }
-
-    activeBreakingSessions.delete(sessionId)
+    yield* pipe(
+      Option.fromNullable(session),
+      Option.match({
+        onNone: () =>
+          Effect.fail(
+            createBreakingSessionError({
+              sessionId,
+              playerId: 'unknown' as PlayerId,
+              reason: `Breaking session not found: ${sessionId}`,
+            })
+          ),
+        onSome: () =>
+          Effect.sync(() => {
+            activeBreakingSessions.delete(sessionId)
+          }),
+      })
+    )
   })
 
 /**

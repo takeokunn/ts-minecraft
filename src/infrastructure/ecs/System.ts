@@ -5,7 +5,7 @@
  * Effect-TSを使用した関数型でコンポジタブルな実装
  */
 
-import { Context, Data, Effect, Layer, Match, pipe } from 'effect'
+import { Context, Data, Effect, Layer, Match, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { World } from './World'
 
@@ -26,8 +26,8 @@ export const SystemError = (systemName: string, message: string, cause?: unknown
   ...(cause !== undefined && { cause }),
 })
 
-export const isSystemError = (error: unknown): error is SystemError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'SystemError'
+export const isSystemError: Predicate.Refinement<unknown, SystemError> = (error): error is SystemError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'SystemError'
 
 /**
  * システムの優先度レベル
@@ -135,9 +135,13 @@ export const runSystemWithMetrics = (
     const duration = Date.now() - startTime
 
     // パフォーマンス警告（16ms = 60FPS基準）
-    if (duration > 16) {
-      yield* Effect.logWarning(`System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`)
-    }
+    yield* pipe(
+      duration > 16,
+      Match.value,
+      Match.when(true, () => Effect.logWarning(`System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`)),
+      Match.when(false, () => Effect.void),
+      Match.exhaustive
+    )
 
     return { duration }
   })

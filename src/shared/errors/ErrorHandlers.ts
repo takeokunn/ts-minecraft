@@ -12,11 +12,13 @@ export const ErrorHandlers = {
     (error: E) =>
       pipe(
         Effect.sync(() => {
-          if (logger) {
-            logger(error)
-          } else {
-            console.error('Error occurred:', error)
-          }
+          pipe(
+            Option.fromNullable(logger),
+            Option.match({
+              onNone: () => console.error('Error occurred:', error),
+              onSome: (loggerFn) => loggerFn(error),
+            })
+          )
           return fallbackValue
         })
       ),

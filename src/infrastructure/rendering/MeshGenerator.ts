@@ -76,8 +76,10 @@ export const MeshGenerationError = (
   ...(context !== undefined && { context }),
 })
 
-export const isMeshGenerationError = (error: unknown): error is MeshGenerationError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'MeshGenerationError'
+export const isMeshGenerationError: Predicate.Refinement<unknown, MeshGenerationError> = (
+  error
+): error is MeshGenerationError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'MeshGenerationError'
 
 export interface InvalidChunkError {
   readonly _tag: 'InvalidChunkError'
@@ -93,8 +95,9 @@ export const InvalidChunkError = (reason: string, chunkData: unknown, timestamp:
   timestamp,
 })
 
-export const isInvalidChunkError = (error: unknown): error is InvalidChunkError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'InvalidChunkError'
+export const isInvalidChunkError: Predicate.Refinement<unknown, InvalidChunkError> = (
+  error
+): error is InvalidChunkError => Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'InvalidChunkError'
 
 // ========================================
 // Service Interface

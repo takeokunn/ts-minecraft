@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Stream } from 'effect'
+import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Stream, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { ChunkData, MeshData, BlockType } from './MeshGenerator'
 import { MeshDimension, BrandedTypes } from '../../shared/types/branded.js'
@@ -42,8 +42,9 @@ export const GreedyMeshingError = (reason: string, context: string, timestamp: n
   timestamp,
 })
 
-export const isGreedyMeshingError = (error: unknown): error is GreedyMeshingError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'GreedyMeshingError'
+export const isGreedyMeshingError: Predicate.Refinement<unknown, GreedyMeshingError> = (
+  error
+): error is GreedyMeshingError => Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'GreedyMeshingError'
 
 // ========================================
 // Service Interface
@@ -386,9 +387,11 @@ export const GreedyMeshingLive = Layer.succeed(
 // Utility Exports
 // ========================================
 
-export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number => {
-  if (originalVertexCount === 0) {
-    return 0
-  }
-  return ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100
-}
+export const calculateVertexReduction = (originalVertexCount: number, optimizedVertexCount: number): number =>
+  pipe(
+    originalVertexCount === 0,
+    Match.value,
+    Match.when(true, () => 0),
+    Match.when(false, () => ((originalVertexCount - optimizedVertexCount) / originalVertexCount) * 100),
+    Match.exhaustive
+  )

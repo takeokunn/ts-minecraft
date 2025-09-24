@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import { Data } from 'effect'
+import { Data, Match, Predicate, pipe } from 'effect'
 
 /**
  * 初期化エラー
@@ -56,11 +56,11 @@ export type AnyAppError = Schema.Schema.Type<typeof AppErrorUnion>
  * エラー型ガード
  * 軽量な_tagチェックのみで判定
  */
-export const isInitError = (error: unknown): error is InitError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'InitError'
+export const isInitError: Predicate.Refinement<unknown, InitError> = (error): error is InitError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'InitError'
 
-export const isConfigError = (error: unknown): error is ConfigError =>
-  typeof error === 'object' && error !== null && '_tag' in error && error._tag === 'ConfigError'
+export const isConfigError: Predicate.Refinement<unknown, ConfigError> = (error): error is ConfigError =>
+  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'ConfigError'
 
 /**
  * AppError名前空間
@@ -70,14 +70,13 @@ export namespace AppError {
   /**
    * エラーを分類
    */
-  export const categorize = (error: AnyAppError): 'initialization' | 'configuration' => {
-    switch (error._tag) {
-      case 'InitError':
-        return 'initialization'
-      case 'ConfigError':
-        return 'configuration'
-    }
-  }
+  export const categorize = (error: AnyAppError): 'initialization' | 'configuration' =>
+    pipe(
+      Match.value(error._tag),
+      Match.when('InitError', () => 'initialization' as const),
+      Match.when('ConfigError', () => 'configuration' as const),
+      Match.exhaustive
+    )
 
   /**
    * エラーメッセージの取得
@@ -87,19 +86,17 @@ export namespace AppError {
   /**
    * 詳細なエラー情報を取得
    */
-  export const getDetails = (error: AnyAppError): Record<string, unknown> => {
-    if (isInitError(error)) {
-      return {
+  export const getDetails = (error: AnyAppError): Record<string, unknown> =>
+    pipe(
+      Match.value(error),
+      Match.when(isInitError, (e) => ({
         type: 'initialization',
-        cause: error.cause,
-      }
-    }
-    if (isConfigError(error)) {
-      return {
+        cause: e.cause,
+      })),
+      Match.when(isConfigError, (e) => ({
         type: 'configuration',
-        path: error.path,
-      }
-    }
-    return {}
-  }
+        path: e.path,
+      })),
+      Match.exhaustive
+    )
 }

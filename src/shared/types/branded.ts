@@ -1,4 +1,5 @@
 import { Schema } from '@effect/schema'
+import { Match, pipe } from 'effect'
 import type { DeltaTime } from './time-brands'
 import { DeltaTimeSchema, TimeBrands } from './time-brands'
 
@@ -271,10 +272,15 @@ export type BlockId = Schema.Schema.Type<typeof BlockId>
  */
 export const BrandedTypes = {
   createPlayerId: (id: string): PlayerId => {
-    if (!id || id.trim().length === 0) {
-      throw new Error(`Invalid PlayerId: cannot be empty or whitespace-only`)
-    }
-    return Schema.decodeSync(PlayerIdSchema)(id)
+    return pipe(
+      !id || id.trim().length === 0,
+      Match.value,
+      Match.when(true, () => {
+        throw new Error(`Invalid PlayerId: cannot be empty or whitespace-only`)
+      }),
+      Match.when(false, () => Schema.decodeSync(PlayerIdSchema)(id)),
+      Match.exhaustive
+    )
   },
   createWorldCoordinate: (coord: number): WorldCoordinate => Schema.decodeSync(WorldCoordinateSchema)(coord),
   createChunkId: (x: number, z: number): ChunkId => Schema.decodeSync(ChunkIdSchema)(`chunk_${x}_${z}`),
@@ -284,18 +290,28 @@ export const BrandedTypes = {
   createVersion: (major: number, minor: number, patch: number): Version =>
     Schema.decodeSync(VersionSchema)(`${major}.${minor}.${patch}`),
   createEntityId: (id: string): EntityId => {
-    if (!id || id.trim().length === 0) {
-      throw new Error(`Invalid EntityId: cannot be empty or whitespace-only`)
-    }
-    return Schema.decodeSync(EntityId)(id)
+    return pipe(
+      !id || id.trim().length === 0,
+      Match.value,
+      Match.when(true, () => {
+        throw new Error(`Invalid EntityId: cannot be empty or whitespace-only`)
+      }),
+      Match.when(false, () => Schema.decodeSync(EntityId)(id)),
+      Match.exhaustive
+    )
   },
   createBlockId: (id: string): BlockId => Schema.decodeSync(BlockId)(id),
   createDeltaTime: (value: number): DeltaTime => TimeBrands.createDeltaTime(value),
   createBlockTypeId: (id: number): BlockTypeId => {
-    if (id <= 0 || !Number.isInteger(id)) {
-      throw new Error(`Invalid BlockTypeId: must be positive integer, got ${id}`)
-    }
-    return Schema.decodeSync(BlockTypeIdSchema)(id)
+    return pipe(
+      id <= 0 || !Number.isInteger(id),
+      Match.value,
+      Match.when(true, () => {
+        throw new Error(`Invalid BlockTypeId: must be positive integer, got ${id}`)
+      }),
+      Match.when(false, () => Schema.decodeSync(BlockTypeIdSchema)(id)),
+      Match.exhaustive
+    )
   },
   createComponentTypeName: (name: string): ComponentTypeName => Schema.decodeSync(ComponentTypeName)(name),
   createEntityCount: (count: number): EntityCount => Schema.decodeSync(EntityCount)(count),
