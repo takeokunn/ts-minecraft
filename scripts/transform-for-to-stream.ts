@@ -39,20 +39,12 @@ class ForLoopTransformer {
   private changes: TransformationChange[] = []
   private hasStreamImport = false
 
-  async transformFile(
-    filePath: string,
-    config: TransformationConfig
-  ): Promise<TransformationResult> {
+  async transformFile(filePath: string, config: TransformationConfig): Promise<TransformationResult> {
     try {
       const content = await fs.readFile(filePath, 'utf-8')
 
       // TypeScript AST解析
-      this.sourceFile = ts.createSourceFile(
-        filePath,
-        content,
-        ts.ScriptTarget.Latest,
-        true
-      )
+      this.sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
 
       // Streamインポートの有無を確認
       this.hasStreamImport = this.checkStreamImport()
@@ -99,9 +91,8 @@ class ForLoopTransformer {
         transformedCode,
         changes: this.changes,
         success: true,
-        errors: []
+        errors: [],
       }
-
     } catch (error) {
       return {
         file: filePath,
@@ -109,7 +100,7 @@ class ForLoopTransformer {
         transformedCode: '',
         changes: [],
         success: false,
-        errors: [String(error)]
+        errors: [String(error)],
       }
     }
   }
@@ -117,7 +108,7 @@ class ForLoopTransformer {
   private checkStreamImport(): boolean {
     if (!this.sourceFile) return false
 
-    const hasEffectImport = this.sourceFile.statements.some(statement => {
+    const hasEffectImport = this.sourceFile.statements.some((statement) => {
       if (ts.isImportDeclaration(statement)) {
         const moduleSpecifier = statement.moduleSpecifier
         if (ts.isStringLiteral(moduleSpecifier)) {
@@ -125,9 +116,7 @@ class ForLoopTransformer {
             // インポート指定子をチェック
             const importClause = statement.importClause
             if (importClause?.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
-              return importClause.namedBindings.elements.some(
-                element => element.name.text === 'Stream'
-              )
+              return importClause.namedBindings.elements.some((element) => element.name.text === 'Stream')
             }
           }
         }
@@ -138,10 +127,7 @@ class ForLoopTransformer {
     return hasEffectImport
   }
 
-  private transformForStatement(
-    node: ts.ForStatement,
-    config: TransformationConfig
-  ): ts.Node {
+  private transformForStatement(node: ts.ForStatement, config: TransformationConfig): ts.Node {
     // for (let i = 0; i < n; i++) パターンを検出
     if (this.isRangeIterationPattern(node)) {
       return this.createRangeStreamNode(node, config)
@@ -151,10 +137,7 @@ class ForLoopTransformer {
     return node
   }
 
-  private transformForOfStatement(
-    node: ts.ForOfStatement,
-    config: TransformationConfig
-  ): ts.Node {
+  private transformForOfStatement(node: ts.ForOfStatement, config: TransformationConfig): ts.Node {
     // for (const item of items) パターンを変換
     return this.createIterationStreamNode(node, config)
   }
@@ -179,10 +162,7 @@ class ForLoopTransformer {
     return false
   }
 
-  private createRangeStreamNode(
-    node: ts.ForStatement,
-    config: TransformationConfig
-  ): ts.Node {
+  private createRangeStreamNode(node: ts.ForStatement, config: TransformationConfig): ts.Node {
     const printer = ts.createPrinter()
     const originalCode = printer.printNode(ts.EmitHint.Unspecified, node, this.sourceFile!)
 
@@ -200,28 +180,20 @@ class ForLoopTransformer {
     }
 
     // Stream API コードを生成
-    const streamCode = this.generateRangeStreamCode(
-      variableName,
-      upperBound,
-      node.statement,
-      config
-    )
+    const streamCode = this.generateRangeStreamCode(variableName, upperBound, node.statement, config)
 
     this.changes.push({
       line: this.sourceFile!.getLineAndCharacterOfPosition(node.getStart()).line + 1,
       type: 'for-to-stream',
       before: originalCode,
-      after: streamCode
+      after: streamCode,
     })
 
     // 新しいAST ノードを作成
     return this.createStreamExpressionNode(streamCode)
   }
 
-  private createIterationStreamNode(
-    node: ts.ForOfStatement,
-    config: TransformationConfig
-  ): ts.Node {
+  private createIterationStreamNode(node: ts.ForOfStatement, config: TransformationConfig): ts.Node {
     const printer = ts.createPrinter()
     const originalCode = printer.printNode(ts.EmitHint.Unspecified, node, this.sourceFile!)
 
@@ -229,18 +201,13 @@ class ForLoopTransformer {
     const iterableName = node.expression.getText()
 
     // Stream API コードを生成
-    const streamCode = this.generateIterationStreamCode(
-      variableName,
-      iterableName,
-      node.statement,
-      config
-    )
+    const streamCode = this.generateIterationStreamCode(variableName, iterableName, node.statement, config)
 
     this.changes.push({
       line: this.sourceFile!.getLineAndCharacterOfPosition(node.getStart()).line + 1,
       type: 'for-to-stream',
       before: originalCode,
-      after: streamCode
+      after: streamCode,
     })
 
     return this.createStreamExpressionNode(streamCode)
@@ -262,9 +229,7 @@ class ForLoopTransformer {
     }
 
     // チャンク処理を考慮
-    const chunkProcessing = config.chunkSize > 1
-      ? `.pipe(Stream.chunks(${config.chunkSize}))`
-      : ''
+    const chunkProcessing = config.chunkSize > 1 ? `.pipe(Stream.chunks(${config.chunkSize}))` : ''
 
     // 並列処理を考慮
     const parallelProcessing = config.enableParallel
@@ -288,9 +253,7 @@ class ForLoopTransformer {
       bodyCode = statementCode.slice(1, -1).trim()
     }
 
-    const chunkProcessing = config.chunkSize > 1
-      ? `.pipe(Stream.chunks(${config.chunkSize}))`
-      : ''
+    const chunkProcessing = config.chunkSize > 1 ? `.pipe(Stream.chunks(${config.chunkSize}))` : ''
 
     const parallelProcessing = config.enableParallel
       ? `.pipe(Stream.mapConcurrently(4, (${variableName}) => Effect.gen(function* () {\n        ${bodyCode.replace(/\n/g, '\n        ')}\n      })))`
@@ -301,12 +264,7 @@ class ForLoopTransformer {
 
   private createStreamExpressionNode(code: string): ts.Node {
     // 文字列からAST ノードを作成
-    const sourceFile = ts.createSourceFile(
-      'temp.ts',
-      code,
-      ts.ScriptTarget.Latest,
-      true
-    )
+    const sourceFile = ts.createSourceFile('temp.ts', code, ts.ScriptTarget.Latest, true)
     return sourceFile.statements[0]
   }
 
@@ -317,7 +275,7 @@ class ForLoopTransformer {
     // 既存のeffectインポートを探す
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      if (line.includes("import") && line.includes("from 'effect'")) {
+      if (line.includes('import') && line.includes("from 'effect'")) {
         // Stream を既存のインポートに追加
         if (!line.includes('Stream')) {
           lines[i] = line.replace(/\}(\s*from\s*'effect')/, ', Stream }$1')
@@ -329,7 +287,7 @@ class ForLoopTransformer {
 
     // 新しいインポートを追加
     if (!importInserted) {
-      const firstImportIndex = lines.findIndex(line => line.includes('import'))
+      const firstImportIndex = lines.findIndex((line) => line.includes('import'))
       const importLine = "import { Stream } from 'effect'"
 
       if (firstImportIndex >= 0) {
@@ -342,7 +300,7 @@ class ForLoopTransformer {
         line: firstImportIndex + 1,
         type: 'import-added',
         before: '',
-        after: importLine
+        after: importLine,
       })
     }
 
@@ -390,7 +348,7 @@ async function main() {
     targetFiles: [],
     patterns: ['simple-iteration', 'range-iteration'],
     chunkSize: 1000,
-    enableParallel: false
+    enableParallel: false,
   }
 
   // ターゲットファイル指定
@@ -424,7 +382,7 @@ async function main() {
   }
 
   // サマリー表示
-  const successCount = results.filter(r => r.success).length
+  const successCount = results.filter((r) => r.success).length
   const totalChanges = results.reduce((sum, r) => sum + r.changes.length, 0)
 
   console.log(`\n📊 変換完了:`)

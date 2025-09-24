@@ -425,5 +425,4 @@ describe('ChunkPosition', () => {
       })
     )
   })
-
 })

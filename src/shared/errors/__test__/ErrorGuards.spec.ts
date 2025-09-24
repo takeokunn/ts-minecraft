@@ -10,7 +10,7 @@ describe('ErrorGuards', () => {
         const validGameErrors = [
           { _tag: 'GameError', message: 'test error' },
           { _tag: 'InvalidStateError', message: 'invalid', currentState: 'A', expectedState: 'B' },
-          { _tag: 'ResourceNotFoundError', message: 'not found', resourceType: 'texture', resourceId: 'stone' }
+          { _tag: 'ResourceNotFoundError', message: 'not found', resourceType: 'texture', resourceId: 'stone' },
         ]
 
         for (const gameError of validGameErrors) {
@@ -24,8 +24,14 @@ describe('ErrorGuards', () => {
       Effect.gen(function* () {
         const validNetworkErrors = [
           { _tag: 'NetworkError', message: 'network issue', code: 'NET_001' },
-          { _tag: 'ConnectionError', message: 'connection failed', serverUrl: 'localhost:8080', attemptNumber: 1, maxAttempts: 3 },
-          { _tag: 'TimeoutError', message: 'timeout', operation: 'connect', timeoutMs: 5000, elapsedMs: 5001 }
+          {
+            _tag: 'ConnectionError',
+            message: 'connection failed',
+            serverUrl: 'localhost:8080',
+            attemptNumber: 1,
+            maxAttempts: 3,
+          },
+          { _tag: 'TimeoutError', message: 'timeout', operation: 'connect', timeoutMs: 5000, elapsedMs: 5001 },
         ]
 
         for (const networkError of validNetworkErrors) {
@@ -63,10 +69,16 @@ describe('ErrorGuards', () => {
         const retryableErrors = [
           { _tag: 'NetworkError', message: 'connection failed', code: 'NET_001' },
           { _tag: 'TimeoutError', message: 'request timeout', operation: 'connect', timeoutMs: 5000, elapsedMs: 5001 },
-          { _tag: 'ConnectionError', message: 'server error', serverUrl: 'localhost:8080', attemptNumber: 1, maxAttempts: 3 }
+          {
+            _tag: 'ConnectionError',
+            message: 'server error',
+            serverUrl: 'localhost:8080',
+            attemptNumber: 1,
+            maxAttempts: 3,
+          },
         ]
 
-        retryableErrors.forEach(error => {
+        retryableErrors.forEach((error) => {
           expect(ErrorGuards.isRetryableError(error)).toBe(true)
         })
       })
@@ -77,10 +89,10 @@ describe('ErrorGuards', () => {
         const nonRetryableErrors = [
           { _tag: 'ValidationError', message: 'invalid data' },
           { _tag: 'AuthError', message: 'unauthorized' },
-          'invalid error string'
+          'invalid error string',
         ]
 
-        nonRetryableErrors.forEach(error => {
+        nonRetryableErrors.forEach((error) => {
           expect(ErrorGuards.isRetryableError(error)).toBe(false)
         })
       })
@@ -107,7 +119,7 @@ describe('ErrorGuards', () => {
           { _tag: 'ValidError', data: 'test' }, // valid
           'invalid string', // invalid
           null, // invalid
-          { _tag: 'WrongTag' } // invalid
+          { _tag: 'WrongTag' }, // invalid
         ]
 
         for (const input of testInputs) {

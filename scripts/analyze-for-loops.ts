@@ -81,13 +81,7 @@ class ForLoopAnalyzer {
         const forLoopMatch = line.match(/for\s*\(/)
 
         if (forLoopMatch) {
-          const pattern = this.analyzeForLoopPattern(
-            filePath,
-            i + 1,
-            line,
-            lines,
-            i
-          )
+          const pattern = this.analyzeForLoopPattern(filePath, i + 1, line, lines, i)
           if (pattern) {
             this.patterns.push(pattern)
           }
@@ -130,7 +124,7 @@ class ForLoopAnalyzer {
       context,
       nestingLevel,
       iterationVariable,
-      complexity
+      complexity,
     }
   }
 
@@ -145,11 +139,7 @@ class ForLoopAnalyzer {
     return Math.max(0, level)
   }
 
-  private determineLoopType(
-    line: string,
-    allLines: string[],
-    lineIndex: number
-  ): ForLoopPattern['type'] {
+  private determineLoopType(line: string, allLines: string[], lineIndex: number): ForLoopPattern['type'] {
     // 範囲反復パターン（for (let i = 0; i < n; i++)）
     if (line.match(/for\s*\(\s*let\s+\w+\s*=\s*\d+\s*;\s*\w+\s*<\s*\w+\s*;\s*\w+\+\+\s*\)/)) {
       return 'range-iteration'
@@ -169,11 +159,7 @@ class ForLoopAnalyzer {
     return 'complex-loop'
   }
 
-  private evaluateComplexity(
-    line: string,
-    context: string,
-    nestingLevel: number
-  ): ForLoopPattern['complexity'] {
+  private evaluateComplexity(line: string, context: string, nestingLevel: number): ForLoopPattern['complexity'] {
     let complexityScore = 0
 
     // ネストレベルによる複雑度
@@ -210,13 +196,13 @@ class ForLoopAnalyzer {
       'simple-iteration': 0,
       'nested-loop': 0,
       'range-iteration': 0,
-      'complex-loop': 0
+      'complex-loop': 0,
     }
 
     const complexityCounts = {
-      'low': 0,
-      'medium': 0,
-      'high': 0
+      low: 0,
+      medium: 0,
+      high: 0,
     }
 
     const fileStats: Record<string, number> = {}
@@ -233,7 +219,7 @@ class ForLoopAnalyzer {
       patternCounts,
       complexityCounts,
       patterns: this.patterns,
-      fileStats
+      fileStats,
     }
   }
 
@@ -258,7 +244,7 @@ class ForLoopAnalyzer {
 
 ## 📁 ファイル別統計
 ${Object.entries(result.fileStats)
-  .sort(([,a], [,b]) => b - a)
+  .sort(([, a], [, b]) => b - a)
   .slice(0, 10)
   .map(([file, count]) => `- ${file}: ${count}個`)
   .join('\n')}
@@ -267,30 +253,30 @@ ${Object.entries(result.fileStats)
 
 ### Phase 2: テストコード（低リスク）
 ${result.patterns
-  .filter(p => p.file.includes('__test__') || p.file.includes('.spec.') || p.file.includes('.test.'))
+  .filter((p) => p.file.includes('__test__') || p.file.includes('.spec.') || p.file.includes('.test.'))
   .slice(0, 5)
-  .map(p => `- ${p.file}:${p.line} (${p.complexity}複雑度)`)
+  .map((p) => `- ${p.file}:${p.line} (${p.complexity}複雑度)`)
   .join('\n')}
 
 ### Phase 3: 単純反復（低リスク）
 ${result.patterns
-  .filter(p => p.type === 'simple-iteration' && p.complexity === 'low')
+  .filter((p) => p.type === 'simple-iteration' && p.complexity === 'low')
   .slice(0, 5)
-  .map(p => `- ${p.file}:${p.line} (${p.type})`)
+  .map((p) => `- ${p.file}:${p.line} (${p.type})`)
   .join('\n')}
 
 ### Phase 4: 範囲反復（中リスク）
 ${result.patterns
-  .filter(p => p.type === 'range-iteration')
+  .filter((p) => p.type === 'range-iteration')
   .slice(0, 5)
-  .map(p => `- ${p.file}:${p.line} (${p.complexity}複雑度)`)
+  .map((p) => `- ${p.file}:${p.line} (${p.complexity}複雑度)`)
   .join('\n')}
 
 ### Phase 5: 高複雑度（高リスク）
 ${result.patterns
-  .filter(p => p.complexity === 'high')
+  .filter((p) => p.complexity === 'high')
   .slice(0, 5)
-  .map(p => `- ${p.file}:${p.line} (${p.type}, nest:${p.nestingLevel})`)
+  .map((p) => `- ${p.file}:${p.line} (${p.type}, nest:${p.nestingLevel})`)
   .join('\n')}
 
 ## 🔧 推奨変換パターン
@@ -365,11 +351,7 @@ async function main() {
   console.log(`📄 詳細レポートを生成: ${reportPath}`)
 
   // JSON形式でも保存（ツール用）
-  await fs.writeFile(
-    'for-loop-patterns.json',
-    JSON.stringify(result, null, 2),
-    'utf-8'
-  )
+  await fs.writeFile('for-loop-patterns.json', JSON.stringify(result, null, 2), 'utf-8')
 
   console.log('📄 JSON形式のデータを生成: for-loop-patterns.json')
 }

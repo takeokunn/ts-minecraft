@@ -50,8 +50,7 @@ export const ErrorReporter = {
   /**
    * エラー統計を取得する
    */
-  getErrorStats: (): Effect.Effect<typeof errorStats> =>
-    Effect.succeed({ ...errorStats }),
+  getErrorStats: (): Effect.Effect<typeof errorStats> => Effect.succeed({ ...errorStats }),
   /**
    * エラーを構造化された形式でフォーマット（型安全版）
    */

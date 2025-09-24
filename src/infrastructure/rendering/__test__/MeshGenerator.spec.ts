@@ -408,7 +408,7 @@ describe('MeshGenerator', () => {
 
         // Basic validation - vertex count should be multiple of 3
         expect(meshData.vertices.length % 3).toBe(0)
-        expect(meshData.indices.every(i => i >= 0)).toBe(true)
+        expect(meshData.indices.every((i) => i >= 0)).toBe(true)
       }).pipe(Effect.provide(MeshGeneratorLive))
     )
 

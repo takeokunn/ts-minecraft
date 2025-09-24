@@ -64,7 +64,6 @@ describe('Effect Testing Utilities', () => {
   })
 
   describe('PropertyTestUtils', () => {
-
     it('generateValidationTests should create comprehensive test suites', async () => {
       const tests = PropertyTestUtils.generateValidationTests(
         TimestampSchema,

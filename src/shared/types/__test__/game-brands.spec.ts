@@ -32,7 +32,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-
     it.effect('境界値をテストする', () =>
       Effect.gen(function* () {
         expect(() => Schema.decodeSync(HealthSchema)(0)).not.toThrow()
@@ -51,7 +50,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
   })
 
   describe('ExperienceSchema', () => {
@@ -64,7 +62,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
   })
 
   describe('LevelSchema', () => {
@@ -77,7 +74,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
   })
 
   describe('ScoreSchema', () => {
@@ -90,7 +86,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
   })
 
   describe('StackSizeSchema', () => {
@@ -103,7 +98,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
 
     it.effect('境界値をテストする', () =>
       Effect.gen(function* () {
@@ -123,7 +117,6 @@ describe('Game Brand Types', () => {
         })
       })
     )
-
   })
 
   describe('GameBrands helpers', () => {
