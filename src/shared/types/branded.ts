@@ -13,7 +13,7 @@ import { DeltaTimeSchema, TimeBrands } from './time-brands'
  */
 export const PlayerIdSchema = Schema.String.pipe(
   Schema.filter((s) => s.length > 0, {
-    message: () => "PlayerId cannot be empty"
+    message: () => 'PlayerId cannot be empty',
   }),
   Schema.nonEmptyString(),
   Schema.brand('PlayerId'),
@@ -44,7 +44,7 @@ export type WorldCoordinate = Schema.Schema.Type<typeof WorldCoordinateSchema>
  */
 export const ChunkIdSchema = Schema.String.pipe(
   Schema.filter((s) => s.length > 0, {
-    message: () => "ChunkId cannot be empty"
+    message: () => 'ChunkId cannot be empty',
   }),
   Schema.nonEmptyString(),
   Schema.minLength(9), // minimum: "chunk_0_0"
@@ -65,7 +65,7 @@ export const BlockTypeIdSchema = Schema.Number.pipe(
   Schema.int(),
   Schema.positive(),
   Schema.filter((n) => n <= 10000, {
-    message: () => "BlockTypeId must be less than or equal to 10000"
+    message: () => 'BlockTypeId must be less than or equal to 10000',
   }),
   Schema.lessThanOrEqualTo(10000), // 実用的上限
   Schema.brand('BlockTypeId'),

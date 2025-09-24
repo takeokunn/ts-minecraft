@@ -263,11 +263,14 @@ describe('Branded Types', () => {
     describe('createPlayerId', () => {
       it('creates valid PlayerId from non-empty string', () => {
         fc.assert(
-          fc.property(fc.string({ minLength: 1 }).filter(s => s.trim().length > 0), (str: string) => {
-            const playerId = BrandedTypes.createPlayerId(str)
-            expect(typeof playerId).toBe('string')
-            expect(playerId).toBe(str)
-          }),
+          fc.property(
+            fc.string({ minLength: 1 }).filter((s) => s.trim().length > 0),
+            (str: string) => {
+              const playerId = BrandedTypes.createPlayerId(str)
+              expect(typeof playerId).toBe('string')
+              expect(playerId).toBe(str)
+            }
+          ),
           { numRuns: 100 }
         )
       })
