@@ -703,5 +703,4 @@ describe('CameraService', () => {
 })
 
 // Property-based testingパターン
-// fast-checkは統合テストヘルパーから使用
 // Property-based testingが必要な場合は統合テストヘルパーのfcを使用

@@ -5,6 +5,11 @@ import { Effect, Schedule, Duration, Option, Match, pipe } from 'effect'
  */
 export const ErrorRecovery = {
   /**
+   * シンプルなリトライ機能
+   */
+  withRetry: <A, E, R>(effect: Effect.Effect<A, E, R>, maxAttempts: number = 3): Effect.Effect<A, E, R> =>
+    effect.pipe(Effect.retry(Schedule.recurs(maxAttempts - 1))),
+  /**
    * 指数バックオフによるリトライ
    * ネットワークエラーや一時的な失敗に対して使用
    */

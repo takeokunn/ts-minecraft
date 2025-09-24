@@ -425,31 +425,4 @@ describe('ChunkPosition', () => {
       })
     )
   })
-
-  describe('performance', () => {
-    it.skip('should handle coordinate conversions efficiently', () => {
-      const iterations = 10000
-      const start = performance.now()
-
-      for (let i = 0; i < iterations; i++) {
-        const chunkPos = { x: i % 1000, z: (i * 2) % 1000 }
-        const blockCoords = chunkToBlockCoords(chunkPos)
-        const backToChunk = blockToChunkCoords(blockCoords.startX, blockCoords.startZ)
-        const id = chunkPositionToId(backToChunk)
-        const backToPos = chunkIdToPosition(id)
-
-        // Verify round-trip consistency
-        expect(Option.isSome(backToPos)).toBe(true)
-        if (Option.isSome(backToPos)) {
-          expect(backToPos.value).toEqual(chunkPos)
-        }
-      }
-
-      const end = performance.now()
-      const timePerOperation = (end - start) / iterations
-
-      // Should be very fast (less than 1ms per operation, CI環境での変動を考慮)
-      expect(timePerOperation).toBeLessThan(1)
-    })
-  })
 })
