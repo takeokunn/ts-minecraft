@@ -331,7 +331,7 @@ const createThreeRendererService = (
                     'constructor' in ctx &&
                     typeof ctx.constructor === 'function' &&
                     (ctx.constructor.name === 'WebGL2RenderingContext' ||
-                     ctx.constructor.name === 'MockWebGL2RenderingContext'),
+                      ctx.constructor.name === 'MockWebGL2RenderingContext'),
                 })
               )
             }),
