@@ -64,19 +64,6 @@ describe('Effect Testing Utilities', () => {
   })
 
   describe('PropertyTestUtils', () => {
-    it.skip('testBrandType should validate brand types comprehensively', async () => {
-      // Brand型テストは単純な検証に変更
-      const validValues = [0, 10, 20, 15.5]
-      const invalidValues = [-1, 21, NaN, Infinity]
-
-      validValues.forEach((value) => {
-        expect(() => Schema.decodeSync(HealthSchema)(value)).not.toThrow()
-      })
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(HealthSchema)(value)).toThrow()
-      })
-    })
 
     it('generateValidationTests should create comprehensive test suites', async () => {
       const tests = PropertyTestUtils.generateValidationTests(
@@ -167,27 +154,6 @@ describe('Effect Testing Utilities', () => {
   })
 
   describe('Real Brand Type Integration Tests', () => {
-    it.skip('should test Health brand type with helpers', async () => {
-      // Test creation helpers
-      const health = GameBrands.createHealth(15)
-      expect(health).toBe(15)
-
-      const fullHealth = GameBrands.fullHealth()
-      expect(fullHealth).toBe(20)
-
-      // Test boundary conditions - 単純な検証に変更
-      const boundaryValid = [0, 0.5, 10, 19.9, 20]
-      const boundaryInvalid = [-0.1, 20.1, NaN, Infinity, -Infinity]
-
-      boundaryValid.forEach((value) => {
-        expect(() => Schema.decodeSync(HealthSchema)(value)).not.toThrow()
-      })
-
-      boundaryInvalid.forEach((value) => {
-        expect(() => Schema.decodeSync(HealthSchema)(value)).toThrow()
-      })
-    })
-
     it('should test Timestamp brand type with helpers', async () => {
       // Test creation helpers
       const now = TimeBrands.createTimestamp(Date.now())

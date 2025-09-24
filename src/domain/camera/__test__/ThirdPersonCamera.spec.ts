@@ -669,4 +669,3 @@ describe('ThirdPersonCamera', () => {
 })
 
 // Property-based testingパターン
-// fast-checkは統合テストヘルパーから使用

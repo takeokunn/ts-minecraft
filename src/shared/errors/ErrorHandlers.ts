@@ -11,12 +11,14 @@ export const ErrorHandlers = {
     <E, A>(fallbackValue: A, logger?: (error: E) => void) =>
     (error: E) =>
       pipe(
-        Option.fromNullable(logger),
-        Option.match({
-          onNone: () => console.error('Error occurred:', error),
-          onSome: (log) => log(error),
-        }),
-        () => Effect.succeed(fallbackValue)
+        Effect.sync(() => {
+          if (logger) {
+            logger(error)
+          } else {
+            console.error('Error occurred:', error)
+          }
+          return fallbackValue
+        })
       ),
 
   /**

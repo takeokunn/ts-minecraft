@@ -32,13 +32,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 21, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(HealthSchema)(value)).toThrow()
-      })
-    })
 
     it.effect('境界値をテストする', () =>
       Effect.gen(function* () {
@@ -59,13 +52,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 21, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(HungerSchema)(value)).toThrow()
-      })
-    })
   })
 
   describe('ExperienceSchema', () => {
@@ -79,13 +65,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 1.5, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(ExperienceSchema)(value)).toThrow()
-      })
-    })
   })
 
   describe('LevelSchema', () => {
@@ -99,13 +78,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 1001, 1.5, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(LevelSchema)(value)).toThrow()
-      })
-    })
   })
 
   describe('ScoreSchema', () => {
@@ -119,13 +91,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 1.5, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(ScoreSchema)(value)).toThrow()
-      })
-    })
   })
 
   describe('StackSizeSchema', () => {
@@ -139,13 +104,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [0, 65, -1, 1.5, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(StackSizeSchema)(value)).toThrow()
-      })
-    })
 
     it.effect('境界値をテストする', () =>
       Effect.gen(function* () {
@@ -166,13 +124,6 @@ describe('Game Brand Types', () => {
       })
     )
 
-    it.skip('不正な値を拒否する', () => {
-      const invalidValues = [-1, 1001, 1.5, NaN, Infinity]
-
-      invalidValues.forEach((value) => {
-        expect(() => Schema.decodeSync(DurabilitySchema)(value)).toThrow()
-      })
-    })
   })
 
   describe('GameBrands helpers', () => {

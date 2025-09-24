@@ -25,10 +25,33 @@ const ErrorReportSchema = Schema.Struct({
 
 type ErrorReport = Schema.Schema.Type<typeof ErrorReportSchema>
 
+// エラー統計用のカウンター
+let errorStats = {
+  critical: 0,
+  warning: 0,
+  info: 0,
+  total: 0,
+}
+
 /**
  * 型安全なエラーレポート機能
  */
 export const ErrorReporter = {
+  /**
+   * エラーをレポートする
+   */
+  reportError: (error: Error, severity: 'critical' | 'warning' | 'info'): Effect.Effect<void> =>
+    Effect.sync(() => {
+      errorStats[severity]++
+      errorStats.total++
+      console.error(`[${severity.toUpperCase()}]`, error.message)
+    }),
+
+  /**
+   * エラー統計を取得する
+   */
+  getErrorStats: (): Effect.Effect<typeof errorStats> =>
+    Effect.succeed({ ...errorStats }),
   /**
    * エラーを構造化された形式でフォーマット（型安全版）
    */
