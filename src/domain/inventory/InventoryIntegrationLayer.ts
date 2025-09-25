@@ -16,20 +16,20 @@ import type { InventoryZustandState } from './InventoryZustandStore.js'
 // Integration service interface
 export interface InventoryIntegrationService {
   // Player inventory management
-  readonly loadPlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown>
-  readonly savePlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown>
-  readonly switchPlayer: (playerId: PlayerId) => Effect.Effect<void, unknown>
+  readonly loadPlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
+  readonly savePlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
+  readonly switchPlayer: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
 
   // Inventory operations with auto-sync
-  readonly addItemWithSync: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<void, unknown>
-  readonly removeItemWithSync: (playerId: PlayerId, slotIndex: number, amount?: number) => Effect.Effect<void, unknown>
-  readonly moveItemWithSync: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<void, unknown>
+  readonly addItemWithSync: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<void, unknown, unknown>
+  readonly removeItemWithSync: (playerId: PlayerId, slotIndex: number, amount?: number) => Effect.Effect<void, unknown, unknown>
+  readonly moveItemWithSync: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<void, unknown, unknown>
 
   // State synchronization
-  readonly syncToZustand: (playerId: PlayerId) => Effect.Effect<void, unknown>
-  readonly syncFromZustand: () => Effect.Effect<void, unknown>
-  readonly startAutoSync: () => Effect.Effect<void, unknown>
-  readonly stopAutoSync: () => Effect.Effect<void, unknown>
+  readonly syncToZustand: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
+  readonly syncFromZustand: () => Effect.Effect<void, unknown, unknown>
+  readonly startAutoSync: () => Effect.Effect<void, unknown, unknown>
+  readonly stopAutoSync: () => Effect.Effect<void, unknown, unknown>
 
   // Event handling
   readonly onInventoryChanged: (
@@ -44,7 +44,7 @@ export interface InventoryIntegrationService {
 
   // Batch operations
   readonly batchOperations: <T>(operations: Effect.Effect<T, never>[]) => Effect.Effect<T[], never>
-  readonly optimizedInventorySync: (playerId: PlayerId) => Effect.Effect<void, unknown>
+  readonly optimizedInventorySync: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
 }
 
 // Context tag
@@ -152,16 +152,21 @@ export const InventoryIntegrationServiceLive = Layer.effect(
         Effect.gen(function* () {
           // Save current player's inventory if exists
           const currentState = useInventoryStore.getState()
-          yield* pipe(
-            Option.fromNullable(currentState.currentPlayerId),
-            Option.match({
-              onNone: () => Effect.succeed(void 0),
-              onSome: (currentPlayerId) => this.savePlayerInventory(currentPlayerId),
-            })
-          )
+          if (currentState.currentPlayerId) {
+            yield* storageService.saveInventory(currentState.currentPlayerId as PlayerId, currentState.currentInventory)
+          }
 
           // Load new player's inventory
-          yield* this.loadPlayerInventory(playerId)
+          const loadedInventory = yield* storageService.loadInventory(playerId)
+          yield* pipe(
+            loadedInventory,
+            Option.match({
+              onNone: () => Effect.succeed(void 0),
+              onSome: (inventory) => Effect.sync(() => {
+                useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+              })
+            })
+          )
         }),
 
       addItemWithSync: (playerId: PlayerId, itemStack: ItemStack) =>
@@ -170,19 +175,19 @@ export const InventoryIntegrationServiceLive = Layer.effect(
           const addResult = yield* inventoryService.addItem(playerId, itemStack)
 
           // Sync to Zustand
-          yield* this.syncToZustand(playerId)
+          const inventory = yield* inventoryService.getInventory(playerId)
+          yield* Effect.sync(() => {
+            useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+          })(playerId)
 
           // Find the slot where item was added (simplified)
           const zustandState = useInventoryStore.getState()
           const slotIndex = zustandState.findItemSlots(itemStack.itemId)[0] ?? -1
 
-          yield* pipe(
-            Match.value(addResult._tag),
-            Match.when('success', () => triggerItemAdded(playerId, itemStack, slotIndex)),
-            Match.when('partial', () => triggerItemAdded(playerId, itemStack, slotIndex)),
-            Match.orElse(() => Effect.succeed(void 0)),
-            Match.exhaustive
-          )
+          // Handle successful/partial item addition
+          if (addResult._tag === 'success' || addResult._tag === 'partial') {
+            yield* triggerItemAdded(playerId, itemStack, slotIndex)
+          }
         }),
 
       removeItemWithSync: (playerId: PlayerId, slotIndex: number, amount?: number) =>
@@ -194,7 +199,10 @@ export const InventoryIntegrationServiceLive = Layer.effect(
           const removedItem = yield* inventoryService.removeItem(playerId, slotIndex, amount ?? 1)
 
           // Sync to Zustand
-          yield* this.syncToZustand(playerId)
+          const inventory = yield* inventoryService.getInventory(playerId)
+          yield* Effect.sync(() => {
+            useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+          })(playerId)
 
           // Trigger event if item was actually removed
           yield* pipe(
@@ -212,7 +220,10 @@ export const InventoryIntegrationServiceLive = Layer.effect(
           yield* inventoryService.moveItem(playerId, fromSlot, toSlot)
 
           // Sync to Zustand
-          yield* this.syncToZustand(playerId)
+          const inventory = yield* inventoryService.getInventory(playerId)
+          yield* Effect.sync(() => {
+            useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+          })(playerId)
 
           // Get updated inventory for event
           const updatedInventory = yield* inventoryService.getInventory(playerId)
@@ -345,7 +356,10 @@ export const InventoryIntegrationServiceLive = Layer.effect(
           // Only sync if enough time has passed (throttling)
           yield* pipe(
             Match.value(now - lastSync > 1000), // 1 second throttle
-            Match.when(true, () => this.syncToZustand(playerId)),
+            Match.when(true, () => Effect.sync(() => {
+              const inventory = Effect.runSync(inventoryService.getInventory(playerId))
+              useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+            })(playerId)),
             Match.when(false, () => Effect.succeed(void 0)),
             Match.exhaustive
           )
