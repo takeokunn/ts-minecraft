@@ -381,7 +381,7 @@ const makeTerrainAdaptationService: Effect.Effect<
               opacity: 15,
               flammable: false,
               replaceable: false,
-              waterloggable: false
+              waterloggable: false,
             },
             tool: 'none' as const,
             minToolLevel: 0,
@@ -389,7 +389,7 @@ const makeTerrainAdaptationService: Effect.Effect<
             sound: {
               break: 'block.stone.break',
               place: 'block.stone.place',
-              step: 'block.stone.step'
+              step: 'block.stone.step',
             },
             stackSize: 64,
           }

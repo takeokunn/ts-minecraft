@@ -88,10 +88,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
   cleanupPlayerTerrain: (playerId) => Effect.void,
 })
 
-const TestLayer = Layer.mergeAll(
-  MockTerrainAdaptationService,
-  TestContext.TestContext
-)
+const TestLayer = Layer.mergeAll(MockTerrainAdaptationService, TestContext.TestContext)
 
 // テスト用ブロック作成
 const createTestBlock = (id: string, customPhysics?: Partial<any>): BlockType => ({
@@ -448,14 +445,15 @@ describe('TerrainAdaptationService', () => {
           initializeWorld: () => Effect.void,
           createPlayerController: () => Effect.succeed('mock-body-id'),
           step: () => Effect.void,
-          getPlayerState: () => Effect.succeed({
-            position: { x: 0, y: 0, z: 0 },
-            velocity: { x: 0, y: 0, z: 0 },
-            angularVelocity: { x: 0, y: 0, z: 0 },
-            quaternion: { x: 0, y: 0, z: 0, w: 1 },
-            isOnGround: true,
-            isColliding: false,
-          }),
+          getPlayerState: () =>
+            Effect.succeed({
+              position: { x: 0, y: 0, z: 0 },
+              velocity: { x: 0, y: 0, z: 0 },
+              angularVelocity: { x: 0, y: 0, z: 0 },
+              quaternion: { x: 0, y: 0, z: 0, w: 1 },
+              isOnGround: true,
+              isColliding: false,
+            }),
           applyMovementForce: () => Effect.void,
           jumpPlayer: () => Effect.void,
           raycastGround: () => Effect.succeed(null),
@@ -470,39 +468,43 @@ describe('TerrainAdaptationService', () => {
           removeBlockCollision: () => Effect.void,
           addBlocksBatch: () => Effect.succeed(['mock-body-id']),
           removeBlocksBatch: () => Effect.void,
-          raycast: () => Effect.succeed({
-            hit: false,
-            hitPoint: { x: 0, y: 0, z: 0 },
-            hitNormal: { x: 0, y: 1, z: 0 },
-            distance: 0,
-          }),
+          raycast: () =>
+            Effect.succeed({
+              hit: false,
+              hitPoint: { x: 0, y: 0, z: 0 },
+              hitNormal: { x: 0, y: 1, z: 0 },
+              distance: 0,
+            }),
           sphereWorldCollision: () => Effect.succeed([]),
-          checkSphereCollision: () => Effect.succeed({
-            hasCollision: false,
-            blocks: [],
-          }),
-          getBlockProperties: () => Effect.succeed({
-            friction: 0.8,
-            restitution: 0.1,
-            hardness: 1.5,
-            resistance: 6.0,
-            luminance: 0,
-            opacity: 15,
-            flammable: false,
-            gravity: false,
-            solid: true,
-            replaceable: false,
-            waterloggable: false,
-            isTransparent: false,
-            isClimbable: false,
-            isFluid: false,
-          }),
+          checkSphereCollision: () =>
+            Effect.succeed({
+              hasCollision: false,
+              blocks: [],
+            }),
+          getBlockProperties: () =>
+            Effect.succeed({
+              friction: 0.8,
+              restitution: 0.1,
+              hardness: 1.5,
+              resistance: 6.0,
+              luminance: 0,
+              opacity: 15,
+              flammable: false,
+              gravity: false,
+              solid: true,
+              replaceable: false,
+              waterloggable: false,
+              isTransparent: false,
+              isClimbable: false,
+              isFluid: false,
+            }),
           updateCollisionsInRange: () => Effect.void,
-          getCollisionStats: () => Effect.succeed({
-            totalBodies: 0,
-            activeCollisions: 0,
-            cacheHitRate: 1.0,
-          }),
+          getCollisionStats: () =>
+            Effect.succeed({
+              totalBodies: 0,
+              activeCollisions: 0,
+              cacheHitRate: 1.0,
+            }),
           cleanup: () => Effect.void,
         })
 
@@ -527,8 +529,7 @@ describe('TerrainAdaptationService', () => {
 
         // 正常に動作することを確認（依存関係が適切に提供されているため）
         expect(result._tag).toBe('Right')
-      })
-    )
+      }))
   })
 
   describe('Cleanup', () => {
