@@ -28,9 +28,18 @@ export const processPlayerHealth_GOOD = (player: Types.Player): Effect.Effect<st
   pipe(
     player.stats.health,
     Match.value,
-    Match.when(h => h <= 0, () => 'dead'),
-    Match.when(h => h <= 5, () => 'critical'),
-    Match.when(h => h <= 10, () => 'injured'),
+    Match.when(
+      (h) => h <= 0,
+      () => 'dead'
+    ),
+    Match.when(
+      (h) => h <= 5,
+      () => 'critical'
+    ),
+    Match.when(
+      (h) => h <= 10,
+      () => 'injured'
+    ),
     Match.orElse(() => 'healthy'),
     Effect.succeed
   )
@@ -55,14 +64,11 @@ export const handlePlayerAction_BAD = (action: Types.PlayerAction): string => {
   }
 }
 
-// ✅ 推奨パターン: Match.type with exhaustive
+// ✅ 推奨パターン: Match.value with exhaustive
 export const handlePlayerAction_GOOD = (action: Types.PlayerAction): Effect.Effect<string> =>
   pipe(
-    action,
-    Match.type<Types.PlayerAction>(),
-    Match.tag('Move', ({ direction }) =>
-      Effect.succeed(`Moving ${direction.forward ? 'forward' : 'backward'}`)
-    ),
+    Match.value(action),
+    Match.tag('Move', ({ direction }) => Effect.succeed(`Moving ${direction.forward ? 'forward' : 'backward'}`)),
     Match.tag('Jump', () => Effect.succeed('Jumping')),
     Match.tag('Attack', ({ targetId }) => Effect.succeed(`Attacking entity ${targetId}`)),
     Match.tag('PlaceBlock', ({ position }) =>
@@ -75,9 +81,7 @@ export const handlePlayerAction_GOOD = (action: Types.PlayerAction): Effect.Effe
     Match.tag('OpenContainer', ({ position }) =>
       Effect.succeed(`Opening container at ${position.x},${position.y},${position.z}`)
     ),
-    Match.tag('DropItem', ({ slotIndex, count }) =>
-      Effect.succeed(`Dropping ${count} items from slot ${slotIndex}`)
-    ),
+    Match.tag('DropItem', ({ slotIndex, count }) => Effect.succeed(`Dropping ${count} items from slot ${slotIndex}`)),
     Match.exhaustive
   )
 
@@ -109,15 +113,15 @@ export const loadPlayerData_GOOD = (playerId: string): Effect.Effect<Types.Playe
         _tag: 'PlayerError' as const,
         reason: 'PlayerNotFound' as const,
         playerId: Types.makePlayerId(playerId),
-        message: `Failed to fetch player: ${error}`
-      })
+        message: `Failed to fetch player: ${error}`,
+      }),
     }),
-    Effect.flatMap(response =>
+    Effect.flatMap((response) =>
       pipe(
         response.ok,
         Match.value,
         Match.when(
-          ok => ok === true,
+          (ok) => ok === true,
           () => Effect.tryPromise(() => response.json())
         ),
         Match.orElse(() =>
@@ -125,18 +129,18 @@ export const loadPlayerData_GOOD = (playerId: string): Effect.Effect<Types.Playe
             _tag: 'PlayerError' as const,
             reason: 'PlayerNotFound' as const,
             playerId: Types.makePlayerId(playerId),
-            message: `HTTP ${response.status}`
+            message: `HTTP ${response.status}`,
           })
         )
       )
     ),
-    Effect.flatMap(data => Schema.decodeUnknown(Types.Player)(data)),
-    Effect.mapError(error => ({
+    Effect.flatMap((data) => Schema.decodeUnknown(Types.Player)(data)),
+    Effect.mapError((error) => ({
       _tag: 'PlayerError' as const,
       reason: 'ValidationFailed' as const,
       playerId: Types.makePlayerId(playerId),
       message: 'Invalid player data',
-      context: { originalError: error }
+      context: { originalError: error },
     }))
   )
 
@@ -175,7 +179,7 @@ export const findFirstHealthyPlayer_BAD = (players: Types.Player[]): Types.Playe
   let index = 0
   while (index < players.length) {
     const player = players[index]
-    if (player.stats.health > 10) {
+    if (player && player.stats.health > 10) {
       return player
     }
     index++
@@ -183,45 +187,18 @@ export const findFirstHealthyPlayer_BAD = (players: Types.Player[]): Types.Playe
   return null
 }
 
-// ✅ 推奨パターン: Effect.loop
+// ✅ 推奨パターン: Array.find with Option
 export const findFirstHealthyPlayer_GOOD = (
   players: ReadonlyArray<Types.Player>
 ): Effect.Effect<Option.Option<Types.Player>> =>
-  Effect.loop(
-    0,
-    {
-      while: (index) => index < players.length,
-      step: (index) => index + 1,
-      body: (index) =>
-        pipe(
-          players[index].stats.health > 10,
-          Match.value,
-          Match.when(
-            healthy => healthy === true,
-            () => Effect.succeed(Option.some(players[index]))
-          ),
-          Match.orElse(() => Effect.succeed(Option.none()))
-        )
-    }
-  ).pipe(
-    Effect.map(results =>
-      pipe(
-        results,
-        EffectArray.findFirst(Option.isSome),
-        Option.flatten
-      )
-    )
-  )
+  Effect.succeed(Option.fromNullable(players.find((player) => player && player.stats.health > 10)))
 
 // ============================================
 // 6. Promise/async → Effect.gen
 // ============================================
 
 // ❌ 禁止パターン: async/await
-export const updatePlayerStats_BAD = async (
-  playerId: string,
-  health: number
-): Promise<Types.Player | null> => {
+export const updatePlayerStats_BAD = async (playerId: string, health: number): Promise<Types.Player | null> => {
   try {
     const player = await loadPlayerData_BAD(playerId)
     if (!player) {
@@ -232,13 +209,13 @@ export const updatePlayerStats_BAD = async (
       ...player,
       stats: {
         ...player.stats,
-        health: Types.makeHealth(Math.min(20, Math.max(0, health)))
-      }
+        health: Types.makeHealth(Math.min(20, Math.max(0, health))),
+      },
     }
 
     const response = await fetch(`/api/players/${playerId}`, {
       method: 'PUT',
-      body: JSON.stringify(updatedPlayer)
+      body: JSON.stringify(updatedPlayer),
     })
 
     if (!response.ok) {
@@ -265,9 +242,15 @@ export const updatePlayerStats_GOOD = (
     const newHealth = yield* pipe(
       health,
       Match.value,
-      Match.when(h => h < 0, () => Effect.succeed(0)),
-      Match.when(h => h > 20, () => Effect.succeed(20)),
-      Match.orElse(h => Effect.succeed(h))
+      Match.when(
+        (h) => h < 0,
+        () => Effect.succeed(0)
+      ),
+      Match.when(
+        (h) => h > 20,
+        () => Effect.succeed(20)
+      ),
+      Match.orElse((h) => Effect.succeed(h))
     ).pipe(Effect.map(Types.makeHealth))
 
     // Create updated player
@@ -275,8 +258,8 @@ export const updatePlayerStats_GOOD = (
       ...player,
       stats: {
         ...player.stats,
-        health: newHealth
-      }
+        health: newHealth,
+      },
     }
 
     // Save updated player
@@ -285,14 +268,14 @@ export const updatePlayerStats_GOOD = (
         fetch(`/api/players/${playerId}`, {
           method: 'PUT',
           body: JSON.stringify(updatedPlayer),
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         }),
       catch: (error) => ({
         _tag: 'PlayerError' as const,
         reason: 'ValidationFailed' as const,
         playerId: Types.makePlayerId(playerId),
-        message: `Failed to save player: ${error}`
-      })
+        message: `Failed to save player: ${error}`,
+      }),
     })
 
     return updatedPlayer
@@ -327,9 +310,7 @@ export const processPlayerInventory_BAD = (player: Types.Player): string[] => {
 }
 
 // ✅ 推奨パターン: Effect.gen + Match + Effect.forEach
-export const processPlayerInventory_GOOD = (
-  player: Types.Player
-): Effect.Effect<ReadonlyArray<string>> =>
+export const processPlayerInventory_GOOD = (player: Types.Player): Effect.Effect<ReadonlyArray<string>> =>
   Effect.gen(function* () {
     const messages = yield* Effect.forEach(
       player.inventory.slots.map((item, index) => ({ item, index })),
@@ -343,29 +324,25 @@ export const processPlayerInventory_GOOD = (
                 itemStack,
                 Match.value,
                 Match.when(
-                  item => item.count > 32,
-                  item => Effect.succeed(Option.some(`Slot ${index}: Stack overflow (${item.count}/64)`))
+                  (item) => item.count > 32,
+                  (item) => Effect.succeed(Option.some(`Slot ${index}: Stack overflow (${item.count}/64)`))
                 ),
                 Match.when(
-                  item => item.itemId.startsWith('weapon_'),
-                  item => Effect.succeed(Option.some(`Slot ${index}: Weapon ${item.itemId}`))
+                  (item) => item.itemId.startsWith('weapon_'),
+                  (item) => Effect.succeed(Option.some(`Slot ${index}: Weapon ${item.itemId}`))
                 ),
-                Match.orElse(item =>
-                  Effect.succeed(Option.some(`Slot ${index}: ${item.itemId} x${item.count}`))
-                )
-              )
+                Match.orElse((item) => Effect.succeed(Option.some(`Slot ${index}: ${item.itemId} x${item.count}`)))
+              ),
           })
-      )
-    ).pipe(
-      Effect.map(EffectArray.getSomes)
-    )
+        )
+    ).pipe(Effect.map(EffectArray.getSomes))
 
     return yield* pipe(
       messages,
       EffectArray.isEmptyReadonlyArray,
       Match.value,
       Match.when(
-        isEmpty => isEmpty === true,
+        (isEmpty) => isEmpty === true,
         () => Effect.succeed(['Inventory is empty'] as ReadonlyArray<string>)
       ),
       Match.orElse(() => Effect.succeed(messages))
@@ -386,10 +363,22 @@ export const applyDamage = (
     const finalDamage = yield* pipe(
       player.stats.armor,
       Match.value,
-      Match.when(armor => armor >= 20, () => Effect.succeed(Math.floor(damage * 0.2))),
-      Match.when(armor => armor >= 15, () => Effect.succeed(Math.floor(damage * 0.4))),
-      Match.when(armor => armor >= 10, () => Effect.succeed(Math.floor(damage * 0.6))),
-      Match.when(armor => armor >= 5, () => Effect.succeed(Math.floor(damage * 0.8))),
+      Match.when(
+        (armor) => armor >= 20,
+        () => Effect.succeed(Math.floor(damage * 0.2))
+      ),
+      Match.when(
+        (armor) => armor >= 15,
+        () => Effect.succeed(Math.floor(damage * 0.4))
+      ),
+      Match.when(
+        (armor) => armor >= 10,
+        () => Effect.succeed(Math.floor(damage * 0.6))
+      ),
+      Match.when(
+        (armor) => armor >= 5,
+        () => Effect.succeed(Math.floor(damage * 0.8))
+      ),
       Match.orElse(() => Effect.succeed(damage))
     )
 
@@ -401,9 +390,8 @@ export const applyDamage = (
       newHealth,
       Match.value,
       Match.when(
-        h => h <= 0,
-        () =>
-          Effect.logInfo(`Player ${player.name} died from ${source._tag}`)
+        (h) => h <= 0,
+        () => Effect.logInfo(`Player ${player.name} died from ${source._tag}`)
       ),
       Match.orElse(() => Effect.succeed(undefined))
     )
@@ -412,8 +400,8 @@ export const applyDamage = (
       ...player,
       stats: {
         ...player.stats,
-        health: Types.makeHealth(newHealth)
-      }
+        health: Types.makeHealth(newHealth),
+      },
     }
   })
 
@@ -421,50 +409,49 @@ export const applyDamage = (
 // 9. Stream processing patterns
 // ============================================
 
-export const monitorPlayerHealth = (
-  player: Types.Player
-): Stream.Stream<Types.PlayerEvent, Types.PlayerError> =>
+export const monitorPlayerHealth = (player: Types.Player): Stream.Stream<Types.PlayerEvent, Types.PlayerError> =>
   Stream.iterate(player, (currentPlayer) => ({
     ...currentPlayer,
     stats: {
       ...currentPlayer.stats,
-      health: Types.makeHealth(Math.max(0, currentPlayer.stats.health - 1))
-    }
+      health: Types.makeHealth(Math.max(0, currentPlayer.stats.health - 1)),
+    },
   })).pipe(
-    Stream.map((player): Types.PlayerEvent =>
-      pipe(
-        player.stats.health,
-        Match.value,
-        Match.when(
-          h => h <= 0,
-          () => ({
-            _tag: 'PlayerDied' as const,
-            playerId: player.id,
-            cause: { _tag: 'Hunger' as const },
-            position: player.position,
-            timestamp: Date.now()
-          })
-        ),
-        Match.when(
-          h => h <= 5,
-          () => ({
+    Stream.map(
+      (player): Types.PlayerEvent =>
+        pipe(
+          player.stats.health,
+          Match.value,
+          Match.when(
+            (h) => h <= 0,
+            () => ({
+              _tag: 'PlayerDied' as const,
+              playerId: player.id,
+              cause: { _tag: 'Hunger' as const },
+              position: player.position,
+              timestamp: Date.now(),
+            })
+          ),
+          Match.when(
+            (h) => h <= 5,
+            () => ({
+              _tag: 'PlayerDamaged' as const,
+              playerId: player.id,
+              damage: 1,
+              source: { _tag: 'Hunger' as const },
+              newHealth: player.stats.health,
+              timestamp: Date.now(),
+            })
+          ),
+          Match.orElse(() => ({
             _tag: 'PlayerDamaged' as const,
             playerId: player.id,
             damage: 1,
             source: { _tag: 'Hunger' as const },
             newHealth: player.stats.health,
-            timestamp: Date.now()
-          })
-        ),
-        Match.orElse(() => ({
-          _tag: 'PlayerDamaged' as const,
-          playerId: player.id,
-          damage: 1,
-          source: { _tag: 'Hunger' as const },
-          newHealth: player.stats.health,
-          timestamp: Date.now()
-        }))
-      )
+            timestamp: Date.now(),
+          }))
+        )
     ),
-    Stream.takeUntil(event => event._tag === 'PlayerDied')
+    Stream.takeUntil((event) => event._tag === 'PlayerDied')
   )

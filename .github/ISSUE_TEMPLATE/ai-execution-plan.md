@@ -31,16 +31,16 @@ assignees: ''
 
 **🚫 禁止事項: 以下のJavaScript/TypeScript標準制御フローは使用禁止**
 
-| 禁止パターン | Effect-TS代替 | 変換例 |
-|------------|--------------|--------|
-| `if/else` | `Match.value`, `Match.type` | `if (x > 0) { ... } else { ... }` → `Match.value(x).pipe(Match.when(x => x > 0, ...))` |
-| `switch` | `Match.value`, `Match.exhaustive` | `switch(action.type) { ... }` → `Match.value(action).pipe(Match.tag(...))` |
-| `try/catch` | `Effect.try`, `Effect.tryPromise` | `try { ... } catch(e) { ... }` → `Effect.try({ try: ..., catch: ... })` |
-| `Promise` | `Effect.promise`, `Effect.tryPromise` | `await fetch(...)` → `Effect.tryPromise(() => fetch(...))` |
-| `for/forEach` | `Effect.forEach`, `Array.map + Effect.all` | `for (const x of xs) { ... }` → `Effect.forEach(xs, x => ...)` |
-| `while` | `Effect.loop`, `Stream.iterate` | `while(condition) { ... }` → `Effect.loop(initial, { while: ..., step: ... })` |
-| `throw` | `Effect.fail`, `Effect.die` | `throw new Error(...)` → `Effect.fail(new MyError(...))` |
-| `async/await` | `Effect.gen` | `async function() { ... }` → `Effect.gen(function* () { ... })` |
+| 禁止パターン  | Effect-TS代替                              | 変換例                                                                                 |
+| ------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `if/else`     | `Match.value`, `Match.type`                | `if (x > 0) { ... } else { ... }` → `Match.value(x).pipe(Match.when(x => x > 0, ...))` |
+| `switch`      | `Match.value`, `Match.exhaustive`          | `switch(action.type) { ... }` → `Match.value(action).pipe(Match.tag(...))`             |
+| `try/catch`   | `Effect.try`, `Effect.tryPromise`          | `try { ... } catch(e) { ... }` → `Effect.try({ try: ..., catch: ... })`                |
+| `Promise`     | `Effect.promise`, `Effect.tryPromise`      | `await fetch(...)` → `Effect.tryPromise(() => fetch(...))`                             |
+| `for/forEach` | `Effect.forEach`, `Array.map + Effect.all` | `for (const x of xs) { ... }` → `Effect.forEach(xs, x => ...)`                         |
+| `while`       | `Effect.loop`, `Stream.iterate`            | `while(condition) { ... }` → `Effect.loop(initial, { while: ..., step: ... })`         |
+| `throw`       | `Effect.fail`, `Effect.die`                | `throw new Error(...)` → `Effect.fail(new MyError(...))`                               |
+| `async/await` | `Effect.gen`                               | `async function() { ... }` → `Effect.gen(function* () { ... })`                        |
 
 ### 具体的な変換パターン
 
@@ -56,7 +56,10 @@ if (player.health <= 0) {
 pipe(
   player.health,
   Match.value,
-  Match.when(h => h <= 0, () => handleDeath(player)),
+  Match.when(
+    (h) => h <= 0,
+    () => handleDeath(player)
+  ),
   Match.orElse(() => updatePlayer(player))
 )
 
@@ -73,7 +76,7 @@ try {
 pipe(
   Effect.tryPromise({
     try: () => fetchData(),
-    catch: e => new DataFetchError({ cause: e })
+    catch: (e) => new DataFetchError({ cause: e }),
   }),
   Effect.flatMap(processData),
   Effect.catchAll(() => Effect.succeed(defaultValue)),
@@ -88,11 +91,7 @@ for (const item of items) {
 }
 
 // ✅ 推奨: Effect.forEach
-const results = yield* Effect.forEach(
-  items,
-  item => processItem(item),
-  { concurrency: 'inherit' }
-)
+const results = yield * Effect.forEach(items, (item) => processItem(item), { concurrency: 'inherit' })
 ```
 
 ### ファイル構成
@@ -107,6 +106,7 @@ src/domain/[feature]/__tests__/[Feature]ServiceLive.test.ts // Service実装の�
 ```
 
 **⚠️ テストファイル作成ルール**:
+
 - **必須**: 実装ファイルと1対1対応するテストファイルを作成
 - **除外**: `index.ts`はバレルエクスポートのみのため不要
 - **命名**: `[実装ファイル名].test.ts`形式で統一

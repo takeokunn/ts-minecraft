@@ -2,14 +2,7 @@ import { Schema } from 'effect'
 import { ItemStack } from '../inventory/Inventory.js'
 
 // 装備スロット定義
-export const EquipmentSlot = Schema.Literal(
-  'helmet',
-  'chestplate',
-  'leggings',
-  'boots',
-  'mainHand',
-  'offHand'
-)
+export const EquipmentSlot = Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainHand', 'offHand')
 export type EquipmentSlot = Schema.Schema.Type<typeof EquipmentSlot>
 
 // 装備スキーマ

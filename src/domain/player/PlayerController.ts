@@ -57,12 +57,13 @@ export const InputState = Schema.Struct({
 })
 export type InputState = Schema.Schema.Type<typeof InputState>
 
-// コントローラーエラー定義
-export class ControllerError extends Schema.TaggedError<ControllerError>()('ControllerError', {
+// コントローラーエラー定義 - 関数型スタイル
+export const ControllerError = Schema.TaggedStruct('ControllerError', {
   message: Schema.String,
   playerId: Schema.String,
   reason: Schema.Literal('InvalidInput', 'PlayerNotFound', 'ProcessingFailed'),
-}) {}
+})
+export type ControllerError = Schema.Schema.Type<typeof ControllerError>
 
 // PlayerController インターフェース
 export interface PlayerController {
@@ -78,10 +79,7 @@ export interface PlayerController {
     sensitivity: number
   ) => Effect.Effect<{ deltaYaw: number; deltaPitch: number }>
 
-  readonly handleAction: (
-    player: Player,
-    action: PlayerAction
-  ) => Effect.Effect<PlayerUpdateData, ControllerError>
+  readonly handleAction: (player: Player, action: PlayerAction) => Effect.Effect<PlayerUpdateData, ControllerError>
 
   readonly updatePlayerFromInput: (
     player: Player,
@@ -90,14 +88,11 @@ export interface PlayerController {
   ) => Effect.Effect<PlayerUpdateData, ControllerError>
 }
 
-// Context Tag定義
-export class PlayerController extends Context.Tag('PlayerController')<
-  PlayerController,
-  PlayerController
->() {}
+// Context Tag定義 - 関数型スタイル
+export const PlayerController = Context.GenericTag<PlayerController>('@app/PlayerController')
 
 // PlayerController実装
-const makePlayerController = Effect.gen(function* () {
+const makePlayerController: Effect.Effect<PlayerController> = Effect.gen(function* () {
   // 入力状態の管理
   const inputStates = yield* Ref.make<Map<PlayerId, InputState>>(new Map())
 
@@ -116,52 +111,54 @@ const makePlayerController = Effect.gen(function* () {
       const states = yield* Ref.get(inputStates)
       let currentState = states.get(playerId) || createDefaultInputState()
 
-      // イベントを順次処理
-      for (const event of events) {
-        currentState = yield* pipe(
-          Match.value(event),
-          Match.tag('KeyDown', ({ key }) =>
-            Effect.succeed({
-              ...currentState,
-              keys: { ...currentState.keys, [key]: true },
-            })
-          ),
-          Match.tag('KeyUp', ({ key }) =>
-            Effect.succeed({
-              ...currentState,
-              keys: { ...currentState.keys, [key]: false },
-            })
-          ),
-          Match.tag('MouseMove', ({ deltaX, deltaY }) =>
-            Effect.succeed({
-              ...currentState,
-              mouseDelta: { x: deltaX, y: deltaY },
-            })
-          ),
-          Match.tag('MouseDown', ({ button }) =>
-            Effect.succeed({
-              ...currentState,
-              mouseButtons: { ...currentState.mouseButtons, [button]: true },
-            })
-          ),
-          Match.tag('MouseUp', ({ button }) =>
-            Effect.succeed({
-              ...currentState,
-              mouseButtons: { ...currentState.mouseButtons, [button]: false },
-            })
-          ),
-          Match.tag('MouseWheel', ({ delta }) =>
-            Effect.succeed({
-              ...currentState,
-              selectedSlot: Math.max(
-                0,
-                Math.min(8, currentState.selectedSlot + (delta > 0 ? 1 : -1))
+      // イベントを順次処理 - Effect-TSパターン（forループ削除）
+      currentState = yield* pipe(
+        Effect.succeed(events),
+        Effect.flatMap((evts) =>
+          Effect.reduce(evts, currentState, (state, event) =>
+            pipe(
+              Match.value(event),
+              Match.tag('KeyDown', ({ key }) =>
+                Effect.succeed({
+                  ...state,
+                  keys: { ...state.keys, [key]: true },
+                })
               ),
-            })
-          ),
-          Match.exhaustive
+              Match.tag('KeyUp', ({ key }) =>
+                Effect.succeed({
+                  ...state,
+                  keys: { ...state.keys, [key]: false },
+                })
+              ),
+              Match.tag('MouseMove', ({ deltaX, deltaY }) =>
+                Effect.succeed({
+                  ...state,
+                  mouseDelta: { x: deltaX, y: deltaY },
+                })
+              ),
+              Match.tag('MouseDown', ({ button }) =>
+                Effect.succeed({
+                  ...state,
+                  mouseButtons: { ...state.mouseButtons, [button]: true },
+                })
+              ),
+              Match.tag('MouseUp', ({ button }) =>
+                Effect.succeed({
+                  ...state,
+                  mouseButtons: { ...state.mouseButtons, [button]: false },
+                })
+              ),
+              Match.tag('MouseWheel', ({ delta }) =>
+                Effect.succeed({
+                  ...state,
+                  selectedSlot: Math.max(0, Math.min(8, state.selectedSlot + (delta > 0 ? 1 : -1))),
+                })
+              ),
+              Match.exhaustive
+            )
+          )
         )
-      }
+      )
 
       // 状態を更新
       currentState = { ...currentState, lastUpdateTime: Date.now() }
@@ -199,55 +196,85 @@ const makePlayerController = Effect.gen(function* () {
       Match.value(action),
       Match.tag('Move', ({ direction }) =>
         Effect.gen(function* () {
-          // 移動速度計算
-          let speed: number = MOVEMENT_SPEEDS.WALK
-          if (player.isSprinting && !player.isSneaking) {
-            speed = MOVEMENT_SPEEDS.SPRINT
-          } else if (player.isSneaking) {
-            speed = MOVEMENT_SPEEDS.SNEAK
-          } else if (player.abilities.isFlying) {
-            speed = MOVEMENT_SPEEDS.FLY
-          }
+          // 移動速度計算 - Effect-TSパターン
+          const speed = yield* pipe(
+            Match.value({
+              isSprinting: player.isSprinting,
+              isSneaking: player.isSneaking,
+              isFlying: player.abilities.isFlying,
+            }),
+            Match.when(
+              ({ isSprinting, isSneaking }) => isSprinting && !isSneaking,
+              () => Effect.succeed(MOVEMENT_SPEEDS.SPRINT)
+            ),
+            Match.when(
+              ({ isSneaking }) => isSneaking,
+              () => Effect.succeed(MOVEMENT_SPEEDS.SNEAK)
+            ),
+            Match.when(
+              ({ isFlying }) => isFlying,
+              () => Effect.succeed(MOVEMENT_SPEEDS.FLY)
+            ),
+            Match.orElse(() => Effect.succeed(MOVEMENT_SPEEDS.WALK))
+          )
 
-          // 方向ベクトルの計算
-          const moveVector: MutableVector3D = { x: 0, y: 0, z: 0 }
+          // 方向ベクトルの計算 - Effect-TSパターン
+          const moveVector = yield* Effect.gen(function* () {
+            const base: MutableVector3D = { x: 0, y: 0, z: 0 }
 
-          // Forward/Backward (Z軸)
-          if (direction.forward) moveVector.z += 1
-          if (direction.backward) moveVector.z -= 1
+            // 各方向の移動を加算
+            const withForwardBackward = pipe(base, (vec) => ({
+              ...vec,
+              z: vec.z + (direction.forward ? 1 : 0) + (direction.backward ? -1 : 0),
+            }))
 
-          // Left/Right (X軸)
-          if (direction.left) moveVector.x -= 1
-          if (direction.right) moveVector.x += 1
+            const withLeftRight = pipe(withForwardBackward, (vec) => ({
+              ...vec,
+              x: vec.x + (direction.left ? -1 : 0) + (direction.right ? 1 : 0),
+            }))
 
-          // 対角移動の正規化
-          const magnitude = Math.sqrt(moveVector.x ** 2 + moveVector.z ** 2)
-          if (magnitude > 0) {
-            moveVector.x = (moveVector.x / magnitude) * speed
-            moveVector.z = (moveVector.z / magnitude) * speed
-          }
+            return withLeftRight
+          })
+
+          // 対角移動の正規化 - Effect-TSパターン
+          const normalizedVector = yield* pipe(
+            Effect.succeed(moveVector),
+            Effect.map((vec) => {
+              const magnitude = Math.sqrt(vec.x ** 2 + vec.z ** 2)
+              return magnitude > 0
+                ? { x: (vec.x / magnitude) * speed, y: vec.y, z: (vec.z / magnitude) * speed }
+                : { x: 0, y: 0, z: 0 }
+            })
+          )
 
           return {
-            velocity: moveVector,
+            velocity: normalizedVector,
             isSprinting: direction.sprint && !player.isSneaking,
             isSneaking: direction.sneak,
           } satisfies PlayerUpdateData
         })
       ),
       Match.tag('Jump', () =>
-        Effect.gen(function* () {
-          // ジャンプ可能条件チェック
-          if (!player.isOnGround && !player.abilities.canFly) {
-            return {} // ジャンプできない
-          }
-
-          return {
-            velocity: {
-              ...player.velocity,
-              y: 8.0, // ジャンプの初速
-            },
-          } satisfies PlayerUpdateData
-        })
+        pipe(
+          Effect.succeed(player),
+          Effect.flatMap((p) =>
+            pipe(
+              Match.value({ isOnGround: p.isOnGround, canFly: p.abilities.canFly }),
+              Match.when(
+                ({ isOnGround, canFly }) => !isOnGround && !canFly,
+                () => Effect.succeed({} satisfies PlayerUpdateData)
+              ),
+              Match.orElse(() =>
+                Effect.succeed({
+                  velocity: {
+                    ...player.velocity,
+                    y: 8.0, // ジャンプの初速
+                  },
+                } satisfies PlayerUpdateData)
+              )
+            )
+          )
+        )
       ),
       Match.tag('PlaceBlock', ({ position }) =>
         Effect.succeed({
@@ -270,42 +297,49 @@ const makePlayerController = Effect.gen(function* () {
       const direction = yield* getMovementDirection(inputState)
       const mouseLook = yield* getMouseLook(inputState, 1.0) // デフォルト感度
 
-      // 移動アクションの生成と処理
-      const moveAction: PlayerAction = { _tag: 'Move', direction }
-      const moveUpdate = yield* handleAction(player, moveAction)
-
-      // ジャンプ処理
-      let jumpUpdate: PlayerUpdateData = {}
-      if (direction.jump) {
-        const jumpAction: PlayerAction = { _tag: 'Jump' }
-        jumpUpdate = yield* handleAction(player, jumpAction)
-      }
+      // 移動アクションを処理
+      const updateData = yield* handleAction(player, { _tag: 'Move', direction } as PlayerAction)
 
       // 回転の更新
       const newRotation = {
-        pitch: Math.max(
-          -90,
-          Math.min(90, player.rotation.pitch + mouseLook.deltaPitch)
-        ),
         yaw: (player.rotation.yaw + mouseLook.deltaYaw) % 360,
-        roll: 0,
+        pitch: Math.max(-90, Math.min(90, player.rotation.pitch + mouseLook.deltaPitch)),
+        roll: player.rotation.roll || 0, // rollプロパティを追加
       }
 
-      // すべての更新をマージ
-      return {
-        ...moveUpdate,
-        ...jumpUpdate,
-        rotation: newRotation,
-      } satisfies PlayerUpdateData
+      // ジャンプ処理 - Effect-TSパターン
+      return yield* pipe(
+        Match.value({ shouldJump: direction.jump && player.isOnGround }),
+        Match.when(
+          ({ shouldJump }) => shouldJump,
+          () =>
+            pipe(
+              handleAction(player, { _tag: 'Jump' } as PlayerAction),
+              Effect.map((jumpUpdate) => ({
+                ...updateData,
+                ...jumpUpdate,
+                rotation: newRotation,
+              }))
+            )
+        ),
+        Match.orElse(() =>
+          Effect.succeed({
+            ...updateData,
+            rotation: newRotation,
+          })
+        )
+      )
     })
 
-  return {
+  const controller: PlayerController = {
     processInput,
     getMovementDirection,
     getMouseLook,
     handleAction,
     updatePlayerFromInput,
-  } satisfies PlayerController
+  }
+
+  return controller
 })
 
 // Live Layer実装

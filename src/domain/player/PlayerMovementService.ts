@@ -6,28 +6,25 @@ import {
   DEFAULT_PHYSICS_STATE,
   MOVEMENT_SPEEDS,
   JUMP_VELOCITY,
-  PHYSICS_CONSTANTS
+  PHYSICS_CONSTANTS,
 } from './PlayerState.js'
 import type { PlayerId } from '../../shared/types/branded.js'
 import { type Vector3D, VectorMath, type MutableVector3D } from '../../shared/schemas/spatial.js'
 
-// 移動エラー定義
-export class MovementError extends Schema.TaggedError<MovementError>()('MovementError', {
+// 移動エラー定義 - 関数型スタイル
+export const MovementError = Schema.TaggedStruct('MovementError', {
   message: Schema.String,
   playerId: Schema.String,
   reason: Schema.Literal('InvalidPosition', 'CollisionDetected', 'OutOfBounds', 'PhysicsError'),
-}) {}
+})
+export type MovementError = Schema.Schema.Type<typeof MovementError>
 
 // PlayerMovementService インターフェース
 export interface PlayerMovementService {
   /**
    * プレイヤーを指定方向に移動
    */
-  readonly move: (
-    player: Player,
-    direction: Direction,
-    deltaTime: number
-  ) => Effect.Effect<Player, MovementError>
+  readonly move: (player: Player, direction: Direction, deltaTime: number) => Effect.Effect<Player, MovementError>
 
   /**
    * ジャンプ処理
@@ -37,10 +34,7 @@ export interface PlayerMovementService {
   /**
    * 物理シミュレーション更新
    */
-  readonly updatePhysics: (
-    player: Player,
-    deltaTime: number
-  ) => Effect.Effect<Player, MovementError>
+  readonly updatePhysics: (player: Player, deltaTime: number) => Effect.Effect<Player, MovementError>
 
   /**
    * 衝突検出と解決
@@ -53,109 +47,137 @@ export interface PlayerMovementService {
   /**
    * 落下ダメージ計算
    */
-  readonly calculateFallDamage: (
-    fallDistance: number
-  ) => Effect.Effect<number>
+  readonly calculateFallDamage: (fallDistance: number) => Effect.Effect<number>
 }
 
 // Context Tag定義
-export class PlayerMovementService extends Context.Tag('PlayerMovementService')<
-  PlayerMovementService,
-  PlayerMovementService
->() {}
+export const PlayerMovementService = Context.GenericTag<PlayerMovementService>('PlayerMovementService')
 
 // PlayerMovementService実装
-const makePlayerMovementService = Effect.gen(function* () {
+const makePlayerMovementService: Effect.Effect<PlayerMovementService> = Effect.gen(function* () {
   // 移動処理
   const move = (player: Player, direction: Direction, deltaTime: number) =>
     Effect.gen(function* () {
-      // ゲームモードチェック
-      if (player.gameMode === 'spectator') {
-        // スペクテイターモードは自由移動
-        return moveSpectator(player, direction, deltaTime)
-      }
+      // ゲームモードチェック - Effect-TSパターン
+      return yield* pipe(
+        Match.value(player.gameMode),
+        Match.when('spectator', () => Effect.succeed(moveSpectator(player, direction, deltaTime))),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            // 移動速度の決定 - Effect-TSパターン
+            const speed = yield* pipe(
+              Match.value({
+                sprint: direction.sprint,
+                sneak: direction.sneak,
+                hunger: player.stats.hunger,
+                isFlying: player.abilities.isFlying,
+              }),
+              Match.when(
+                ({ sprint, sneak, hunger }) => sprint && !sneak && hunger > 6,
+                () => Effect.succeed(MOVEMENT_SPEEDS.SPRINT)
+              ),
+              Match.when(
+                ({ sneak }) => sneak,
+                () => Effect.succeed(MOVEMENT_SPEEDS.SNEAK)
+              ),
+              Match.when(
+                ({ isFlying }) => isFlying,
+                () => Effect.succeed(MOVEMENT_SPEEDS.FLY)
+              ),
+              Match.orElse(() => Effect.succeed(MOVEMENT_SPEEDS.WALK))
+            )
 
-      // 移動速度の決定
-      let speed: number = MOVEMENT_SPEEDS.WALK
+            // 方向ベクトルの計算 - Effect-TSパターン
+            const moveVector = yield* Effect.gen(function* () {
+              // 回転を考慮した移動方向の計算
+              const yawRad = (player.rotation.yaw * Math.PI) / 180
+              const cosYaw = Math.cos(yawRad)
+              const sinYaw = Math.sin(yawRad)
 
-      // スプリント/スニーク状態の処理
-      if (direction.sprint && !direction.sneak && player.stats.hunger > 6) {
-        speed = MOVEMENT_SPEEDS.SPRINT
-      } else if (direction.sneak) {
-        speed = MOVEMENT_SPEEDS.SNEAK
-      } else if (player.abilities.isFlying) {
-        speed = MOVEMENT_SPEEDS.FLY
-      }
+              const baseVector: MutableVector3D = { x: 0, y: 0, z: 0 }
 
-      // 方向ベクトルの計算
-      const moveVector: MutableVector3D = { x: 0, y: 0, z: 0 }
+              // 各方向の移動をパイプラインで処理
+              const withForwardBackward = pipe(baseVector, (vec) => ({
+                ...vec,
+                x:
+                  vec.x +
+                  (direction.forward ? -sinYaw * speed * deltaTime : 0) +
+                  (direction.backward ? sinYaw * speed * deltaTime : 0),
+                z:
+                  vec.z +
+                  (direction.forward ? cosYaw * speed * deltaTime : 0) +
+                  (direction.backward ? -cosYaw * speed * deltaTime : 0),
+              }))
 
-      // 回転を考慮した移動方向の計算
-      const yawRad = (player.rotation.yaw * Math.PI) / 180
-      const cosYaw = Math.cos(yawRad)
-      const sinYaw = Math.sin(yawRad)
+              const withStrafe = pipe(withForwardBackward, (vec) => ({
+                ...vec,
+                x:
+                  vec.x +
+                  (direction.left ? -cosYaw * speed * deltaTime : 0) +
+                  (direction.right ? cosYaw * speed * deltaTime : 0),
+                z:
+                  vec.z +
+                  (direction.left ? -sinYaw * speed * deltaTime : 0) +
+                  (direction.right ? sinYaw * speed * deltaTime : 0),
+              }))
 
-      // Forward/Backward
-      if (direction.forward) {
-        moveVector.x -= sinYaw * speed * deltaTime
-        moveVector.z += cosYaw * speed * deltaTime
-      }
-      if (direction.backward) {
-        moveVector.x += sinYaw * speed * deltaTime
-        moveVector.z -= cosYaw * speed * deltaTime
-      }
+              // 飛行モードでの上下移動 - Effect-TSパターン
+              return yield* pipe(
+                Match.value(player.abilities.isFlying),
+                Match.when(true, () =>
+                  Effect.succeed({
+                    ...withStrafe,
+                    y:
+                      withStrafe.y +
+                      (direction.jump ? speed * deltaTime : 0) +
+                      (direction.sneak ? -speed * deltaTime : 0),
+                  })
+                ),
+                Match.orElse(() => Effect.succeed(withStrafe))
+              )
+            })
 
-      // Strafe Left/Right
-      if (direction.left) {
-        moveVector.x -= cosYaw * speed * deltaTime
-        moveVector.z -= sinYaw * speed * deltaTime
-      }
-      if (direction.right) {
-        moveVector.x += cosYaw * speed * deltaTime
-        moveVector.z += sinYaw * speed * deltaTime
-      }
+            // 新しい位置の計算
+            const newPosition = VectorMath.add(player.position, moveVector)
 
-      // 飛行モードでの上下移動
-      if (player.abilities.isFlying) {
-        if (direction.jump) moveVector.y += speed * deltaTime
-        if (direction.sneak) moveVector.y -= speed * deltaTime
-      }
+            // 速度の更新（移動による速度変更）
+            const newVelocity: Vector3D = {
+              x: moveVector.x / deltaTime,
+              y: player.velocity.y, // Y速度は物理計算で更新
+              z: moveVector.z / deltaTime,
+            }
 
-      // 新しい位置の計算
-      const newPosition = VectorMath.add(player.position, moveVector)
+            // スプリント/スニーク状態の更新
+            const isSprinting = direction.sprint && !direction.sneak && player.stats.hunger > 6
+            const isSneaking = direction.sneak
 
-      // 速度の更新（移動による速度変更）
-      const newVelocity: Vector3D = {
-        x: moveVector.x / deltaTime,
-        y: player.velocity.y, // Y速度は物理計算で更新
-        z: moveVector.z / deltaTime,
-      }
+            // 空腹度消費の計算 - Effect-TSパターン
+            const hungerCost = yield* pipe(
+              Match.value(isSprinting),
+              Match.when(true, () => Effect.succeed(0.1 * deltaTime)),
+              Match.orElse(() => Effect.succeed(0))
+            )
 
-      // スプリント/スニーク状態の更新
-      const isSprinting = direction.sprint && !direction.sneak && player.stats.hunger > 6
-      const isSneaking = direction.sneak
-
-      // 空腹度消費（スプリント時）
-      const hungerCost = isSprinting ? 0.1 * deltaTime : 0
-
-      return {
-        ...player,
-        position: newPosition,
-        velocity: newVelocity,
-        isSprinting,
-        isSneaking,
-        stats: {
-          ...player.stats,
-          hunger: Math.max(0, player.stats.hunger - hungerCost),
-        },
-      }
+            return {
+              ...player,
+              position: newPosition,
+              velocity: newVelocity,
+              isSprinting,
+              isSneaking,
+              stats: {
+                ...player.stats,
+                hunger: Math.max(0, player.stats.hunger - hungerCost),
+              },
+            }
+          })
+        )
+      )
     })
 
   // スペクテイターモード移動
   const moveSpectator = (player: Player, direction: Direction, deltaTime: number): Player => {
     const speed = MOVEMENT_SPEEDS.FLY * 2 // スペクテイターは高速移動
 
-    const moveVector: MutableVector3D = { x: 0, y: 0, z: 0 }
     const yawRad = (player.rotation.yaw * Math.PI) / 180
     const pitchRad = (player.rotation.pitch * Math.PI) / 180
     const cosYaw = Math.cos(yawRad)
@@ -163,31 +185,40 @@ const makePlayerMovementService = Effect.gen(function* () {
     const cosPitch = Math.cos(pitchRad)
     const sinPitch = Math.sin(pitchRad)
 
-    // 3D空間での自由移動
-    if (direction.forward) {
-      moveVector.x -= sinYaw * cosPitch * speed * deltaTime
-      moveVector.y -= sinPitch * speed * deltaTime
-      moveVector.z += cosYaw * cosPitch * speed * deltaTime
-    }
-    if (direction.backward) {
-      moveVector.x += sinYaw * cosPitch * speed * deltaTime
-      moveVector.y += sinPitch * speed * deltaTime
-      moveVector.z -= cosYaw * cosPitch * speed * deltaTime
-    }
-
-    // Strafe
-    if (direction.left) {
-      moveVector.x -= cosYaw * speed * deltaTime
-      moveVector.z -= sinYaw * speed * deltaTime
-    }
-    if (direction.right) {
-      moveVector.x += cosYaw * speed * deltaTime
-      moveVector.z += sinYaw * speed * deltaTime
-    }
-
-    // 垂直移動
-    if (direction.jump) moveVector.y += speed * deltaTime
-    if (direction.sneak) moveVector.y -= speed * deltaTime
+    // Effect-TS パターンで移動ベクトル計算
+    const moveVector = pipe(
+      { x: 0, y: 0, z: 0 } as MutableVector3D,
+      // Forward/Backward movement
+      (vec) => ({
+        x: vec.x
+          + (direction.forward ? -sinYaw * cosPitch * speed * deltaTime : 0)
+          + (direction.backward ? sinYaw * cosPitch * speed * deltaTime : 0),
+        y: vec.y
+          + (direction.forward ? -sinPitch * speed * deltaTime : 0)
+          + (direction.backward ? sinPitch * speed * deltaTime : 0),
+        z: vec.z
+          + (direction.forward ? cosYaw * cosPitch * speed * deltaTime : 0)
+          + (direction.backward ? -cosYaw * cosPitch * speed * deltaTime : 0),
+      }),
+      // Strafe movement
+      (vec) => ({
+        x: vec.x
+          + (direction.left ? -cosYaw * speed * deltaTime : 0)
+          + (direction.right ? cosYaw * speed * deltaTime : 0),
+        y: vec.y,
+        z: vec.z
+          + (direction.left ? -sinYaw * speed * deltaTime : 0)
+          + (direction.right ? sinYaw * speed * deltaTime : 0),
+      }),
+      // Vertical movement
+      (vec) => ({
+        x: vec.x,
+        y: vec.y
+          + (direction.jump ? speed * deltaTime : 0)
+          + (direction.sneak ? -speed * deltaTime : 0),
+        z: vec.z,
+      })
+    )
 
     return {
       ...player,
@@ -199,152 +230,176 @@ const makePlayerMovementService = Effect.gen(function* () {
   // ジャンプ処理
   const jump = (player: Player) =>
     Effect.gen(function* () {
-      // ジャンプ可能条件チェック
-      if (!player.isOnGround && !player.abilities.canFly && player.gameMode !== 'creative') {
-        return player // ジャンプできない
-      }
+      // ジャンプ可能条件チェック - Effect-TSパターン
+      const canJump = yield* pipe(
+        Match.value({
+          isOnGround: player.isOnGround,
+          canFly: player.abilities.canFly,
+          gameMode: player.gameMode,
+          hunger: player.stats.hunger,
+        }),
+        Match.when(
+          ({ isOnGround, canFly, gameMode }) => !isOnGround && !canFly && gameMode !== 'creative',
+          () => Effect.succeed(false)
+        ),
+        Match.when(
+          ({ gameMode, hunger }) => gameMode === 'survival' && hunger <= 0,
+          () => Effect.succeed(false)
+        ),
+        Match.orElse(() => Effect.succeed(true))
+      )
 
-      // 空腹度チェック（サバイバルモード）
-      if (player.gameMode === 'survival' && player.stats.hunger <= 0) {
-        return player // 空腹でジャンプ不可
-      }
+      return yield* pipe(
+        Match.value(canJump),
+        Match.when(false, () => Effect.succeed(player)),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            // ジャンプ速度を設定
+            const jumpVelocity = JUMP_VELOCITY
 
-      // ジャンプ速度を設定
-      const jumpVelocity = JUMP_VELOCITY
+            // 空腹度消費の計算 - Effect-TSパターン
+            const hungerCost = yield* pipe(
+              Match.value(player.gameMode),
+              Match.when('survival', () => Effect.succeed(0.2)),
+              Match.orElse(() => Effect.succeed(0))
+            )
 
-      // 空腹度消費（サバイバルモード）
-      const hungerCost = player.gameMode === 'survival' ? 0.2 : 0
-
-      return {
-        ...player,
-        velocity: {
-          ...player.velocity,
-          y: jumpVelocity,
-        },
-        isOnGround: false,
-        stats: {
-          ...player.stats,
-          hunger: Math.max(0, player.stats.hunger - hungerCost),
-        },
-      }
+            return {
+              ...player,
+              velocity: {
+                ...player.velocity,
+                y: jumpVelocity,
+              },
+              isOnGround: false,
+              stats: {
+                ...player.stats,
+                hunger: Math.max(0, player.stats.hunger - hungerCost),
+              },
+            }
+          })
+        )
+      )
     })
 
   // 物理シミュレーション更新
   const updatePhysics = (player: Player, deltaTime: number) =>
     Effect.gen(function* () {
-      // クリエイティブ/スペクテイターモードは物理影響なし
-      if (player.gameMode === 'creative' || player.gameMode === 'spectator') {
-        if (!player.abilities.isFlying && player.gameMode === 'creative') {
-          // クリエイティブでも飛行していない場合は重力あり
-        } else {
-          return player
-        }
-      }
+      // ゲームモードによる物理処理の分岐 - Effect-TSパターン
+      return yield* pipe(
+        Match.value({
+          gameMode: player.gameMode,
+          isFlying: player.abilities.isFlying,
+        }),
+        Match.when(
+          ({ gameMode }) => gameMode === 'spectator',
+          () => Effect.succeed(player) // スペクテイターは物理影響なし
+        ),
+        Match.when(
+          ({ gameMode, isFlying }) => gameMode === 'creative' && isFlying,
+          () => Effect.succeed(player) // クリエイティブ飛行中も物理影響なし
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            // 重力の適用
+            const gravity = PHYSICS_CONSTANTS.GRAVITY
+            // 将来的な実装: 水中/溶岩中での重力変更
 
-      // 重力の適用
-      let gravity = PHYSICS_CONSTANTS.GRAVITY
+            // 速度の更新（重力）
+            const newVelocityY = Math.max(PHYSICS_CONSTANTS.TERMINAL_VELOCITY, player.velocity.y + gravity * deltaTime)
 
-      // 水中/溶岩中での重力減少（将来的な実装のプレースホルダー）
-      // if (isInWater(player)) gravity = PHYSICS_CONSTANTS.WATER_GRAVITY
-      // if (isInLava(player)) gravity = PHYSICS_CONSTANTS.LAVA_GRAVITY
+            // 空気抵抗の適用（水平方向）
+            const horizontalDrag = PHYSICS_CONSTANTS.AIR_RESISTANCE
+            const newVelocityX = player.velocity.x * Math.pow(horizontalDrag, deltaTime)
+            const newVelocityZ = player.velocity.z * Math.pow(horizontalDrag, deltaTime)
 
-      // 速度の更新（重力）
-      const newVelocityY = Math.max(
-        PHYSICS_CONSTANTS.TERMINAL_VELOCITY,
-        player.velocity.y + gravity * deltaTime
+            // 位置の更新
+            const deltaPosition: Vector3D = {
+              x: newVelocityX * deltaTime,
+              y: newVelocityY * deltaTime,
+              z: newVelocityZ * deltaTime,
+            }
+
+            const newPosition = VectorMath.add(player.position, deltaPosition)
+
+            // 地面判定（簡易版 - 実際はワールドとの衝突判定が必要）
+            const isOnGround = newPosition.y <= 64 && newVelocityY <= 0 // Y=64を仮の地面とする
+
+            // 地面接触の処理 - Effect-TSパターン
+            return yield* pipe(
+              Match.value({
+                isNewlyGrounded: isOnGround && !player.isOnGround,
+                isOnGround,
+              }),
+              Match.when(
+                ({ isNewlyGrounded }) => isNewlyGrounded,
+                () =>
+                  Effect.succeed({
+                    ...player,
+                    position: { ...newPosition, y: 64 }, // 地面に固定
+                    velocity: { x: newVelocityX, y: 0, z: newVelocityZ },
+                    isOnGround: true,
+                  })
+              ),
+              Match.orElse(({ isOnGround }) =>
+                Effect.succeed({
+                  ...player,
+                  position: newPosition,
+                  velocity: { x: newVelocityX, y: newVelocityY, z: newVelocityZ },
+                  isOnGround,
+                })
+              )
+            )
+          })
+        )
       )
-
-      // 空気抵抗の適用（水平方向）
-      const horizontalDrag = PHYSICS_CONSTANTS.AIR_RESISTANCE
-      const newVelocityX = player.velocity.x * Math.pow(horizontalDrag, deltaTime)
-      const newVelocityZ = player.velocity.z * Math.pow(horizontalDrag, deltaTime)
-
-      // 位置の更新
-      const deltaPosition: Vector3D = {
-        x: newVelocityX * deltaTime,
-        y: newVelocityY * deltaTime,
-        z: newVelocityZ * deltaTime,
-      }
-
-      const newPosition = VectorMath.add(player.position, deltaPosition)
-
-      // 地面判定（簡易版 - 実際はワールドとの衝突判定が必要）
-      const isOnGround = newPosition.y <= 64 && newVelocityY <= 0 // Y=64を仮の地面とする
-
-      // 地面に接触した場合の処理
-      if (isOnGround && !player.isOnGround) {
-        // 落下ダメージ計算用の落下距離（将来実装）
-        const fallDistance = Math.abs(player.velocity.y * deltaTime)
-
-        // 速度リセット
-        return {
-          ...player,
-          position: { ...newPosition, y: 64 }, // 地面に固定
-          velocity: { x: newVelocityX, y: 0, z: newVelocityZ },
-          isOnGround: true,
-        }
-      }
-
-      return {
-        ...player,
-        position: newPosition,
-        velocity: { x: newVelocityX, y: newVelocityY, z: newVelocityZ },
-        isOnGround,
-      }
     })
 
   // 衝突検出と解決
-  const resolveCollisions = (
-    player: Player,
-    worldBounds: { min: Vector3D; max: Vector3D }
-  ) =>
+  const resolveCollisions = (player: Player, worldBounds: { min: Vector3D; max: Vector3D }) =>
     Effect.gen(function* () {
       const position = player.position
       const velocity = player.velocity
-      let newPosition = { ...position }
-      let newVelocity = { ...velocity }
-      let collisionFlags = {
-        isCollidingX: false,
-        isCollidingY: false,
-        isCollidingZ: false,
+
+      // 各軸での衝突処理を関数型で実装
+      const resolveAxis = (
+        value: number,
+        vel: number,
+        min: number,
+        max: number
+      ): { position: number; velocity: number; isColliding: boolean } =>
+        pipe(
+          Match.value({ value, min, max }),
+          Match.when(
+            ({ value, min }) => value < min,
+            () => ({ position: min, velocity: 0, isColliding: true })
+          ),
+          Match.when(
+            ({ value, max }) => value > max,
+            () => ({ position: max, velocity: 0, isColliding: true })
+          ),
+          Match.orElse(() => ({ position: value, velocity: vel, isColliding: false }))
+        )
+
+      // 各軸の衝突を解決
+      const xResult = resolveAxis(position.x, velocity.x, worldBounds.min.x, worldBounds.max.x)
+      const yResult = resolveAxis(position.y, velocity.y, worldBounds.min.y, worldBounds.max.y)
+      const zResult = resolveAxis(position.z, velocity.z, worldBounds.min.z, worldBounds.max.z)
+
+      // 新しい位置と速度
+      const newPosition: Vector3D = {
+        x: xResult.position,
+        y: yResult.position,
+        z: zResult.position,
       }
 
-      // ワールド境界との衝突検出
-      // X軸
-      if (newPosition.x < worldBounds.min.x) {
-        newPosition.x = worldBounds.min.x
-        newVelocity.x = 0
-        collisionFlags.isCollidingX = true
-      } else if (newPosition.x > worldBounds.max.x) {
-        newPosition.x = worldBounds.max.x
-        newVelocity.x = 0
-        collisionFlags.isCollidingX = true
-      }
-
-      // Y軸
-      if (newPosition.y < worldBounds.min.y) {
-        newPosition.y = worldBounds.min.y
-        newVelocity.y = 0
-        collisionFlags.isCollidingY = true
-      } else if (newPosition.y > worldBounds.max.y) {
-        newPosition.y = worldBounds.max.y
-        newVelocity.y = 0
-        collisionFlags.isCollidingY = true
-      }
-
-      // Z軸
-      if (newPosition.z < worldBounds.min.z) {
-        newPosition.z = worldBounds.min.z
-        newVelocity.z = 0
-        collisionFlags.isCollidingZ = true
-      } else if (newPosition.z > worldBounds.max.z) {
-        newPosition.z = worldBounds.max.z
-        newVelocity.z = 0
-        collisionFlags.isCollidingZ = true
+      const newVelocity: Vector3D = {
+        x: xResult.velocity,
+        y: yResult.velocity,
+        z: zResult.velocity,
       }
 
       // 地面判定の更新
-      const isOnGround = collisionFlags.isCollidingY && velocity.y <= 0
+      const isOnGround = yResult.isColliding && velocity.y <= 0
 
       return {
         ...player,
@@ -360,27 +415,31 @@ const makePlayerMovementService = Effect.gen(function* () {
       // Minecraft標準: 3ブロック以上の落下でダメージ
       const damageThreshold = 3.0
 
-      if (fallDistance <= damageThreshold) {
-        return 0
-      }
-
-      // 3ブロックを超えた分だけダメージ（1ブロックあたり1ダメージ）
-      const damage = Math.floor(fallDistance - damageThreshold)
-
-      return Math.min(damage, 20) // 最大20ダメージ
+      // Effect-TSパターンでダメージ計算
+      return yield* pipe(
+        Match.value(fallDistance),
+        Match.when(
+          (distance) => distance <= damageThreshold,
+          () => Effect.succeed(0)
+        ),
+        Match.orElse((distance) => {
+          // 3ブロックを超えた分だけダメージ（1ブロックあたり1ダメージ）
+          const damage = Math.floor(distance - damageThreshold)
+          return Effect.succeed(Math.min(damage, 20)) // 最大20ダメージ
+        })
+      )
     })
 
-  return {
+  const service: PlayerMovementService = {
     move,
     jump,
     updatePhysics,
     resolveCollisions,
     calculateFallDamage,
-  } satisfies PlayerMovementService
+  }
+
+  return service
 })
 
 // Live Layer実装
-export const PlayerMovementServiceLive = Layer.effect(
-  PlayerMovementService,
-  makePlayerMovementService
-)
+export const PlayerMovementServiceLive = Layer.effect(PlayerMovementService, makePlayerMovementService)

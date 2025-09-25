@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@effect/vitest'
+import { describe, it, expect } from 'vitest'
 import { Effect, Schema, Option, Either, pipe, Match, Array as EffectArray } from 'effect'
 import * as fc from 'fast-check'
 import * as Types from '../PlayerTypes.js'
@@ -16,13 +16,13 @@ const arbExperience = fc.nat().map(Types.makeExperience)
 const arbVector3D = fc.record({
   x: fc.float({ min: -10000, max: 10000, noNaN: true }),
   y: fc.float({ min: -320, max: 320, noNaN: true }),
-  z: fc.float({ min: -10000, max: 10000, noNaN: true })
+  z: fc.float({ min: -10000, max: 10000, noNaN: true }),
 })
 
 const arbRotation = fc.record({
   pitch: fc.float({ min: -90, max: 90, noNaN: true }),
   yaw: fc.float({ min: -180, max: 180, noNaN: true }),
-  roll: fc.float({ noNaN: true })
+  roll: fc.float({ noNaN: true }),
 })
 
 const arbGameMode = fc.constantFrom(
@@ -35,7 +35,7 @@ const arbGameMode = fc.constantFrom(
 const arbItemStack = fc.record({
   itemId: fc.string({ minLength: 1, maxLength: 50 }),
   count: fc.integer({ min: 1, max: 64 }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined })
+  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
 })
 
 // =========================================
@@ -55,21 +55,19 @@ describe('PlayerTypes - Branded Types', () => {
         expect(valid).toBe('valid-id')
 
         const invalid = yield* Effect.either(Schema.decodeUnknown(Types.PlayerId)(123))
-        yield* pipe(
-          invalid,
-          Match.value,
-          Match.tag('Left', () => Effect.sync(() => expect(true).toBe(true))),
-          Match.tag('Right', () => Effect.fail('Should have failed')),
-          Match.exhaustive
-        )
-      })
-    )
+        yield* Effect.if(Either.isLeft(invalid), {
+          onTrue: () => Effect.sync(() => expect(true).toBe(true)),
+          onFalse: () => Effect.fail('Should have failed')
+        })
+      }))
 
-    it.prop([fc.string({ minLength: 1 })])('property: any non-empty string is valid PlayerId', (str) => {
-      const id = Types.makePlayerId(str)
-      expect(typeof id).toBe('string')
-      expect(id).toBe(str)
-    })
+    it('property: any non-empty string is valid PlayerId', () =>
+      fc.assert(fc.property(fc.string({ minLength: 1 }), (str: string) => {
+        const id = Types.makePlayerId(str)
+        expect(typeof id).toBe('string')
+        expect(id).toBe(str)
+      }))
+    )
   })
 
   describe('Health', () => {
@@ -87,25 +85,23 @@ describe('PlayerTypes - Branded Types', () => {
           pipe(
             Effect.try(() => Types.makeHealth(value)),
             Effect.either,
-            Effect.flatMap(result =>
-              pipe(
-                result,
-                Match.value,
-                Match.tag('Left', () => Effect.succeed('Invalid as expected')),
-                Match.tag('Right', () => Effect.fail(`Value ${value} should have been invalid`)),
-                Match.exhaustive
-              )
+            Effect.flatMap((result) =>
+              Effect.if(Either.isLeft(result), {
+                onTrue: () => Effect.succeed('Invalid as expected'),
+                onFalse: () => Effect.fail(`Value ${value} should have been invalid`)
+              })
             )
           )
         )
-      })
-    )
+      }))
 
-    it.prop([fc.integer({ min: 0, max: 20 })])('property: valid range 0-20', (value) => {
-      const health = Types.makeHealth(value)
-      expect(health).toBeGreaterThanOrEqual(0)
-      expect(health).toBeLessThanOrEqual(20)
-    })
+    it('property: valid range 0-20', () =>
+      fc.assert(fc.property(fc.integer({ min: 0, max: 20 }), (value: number) => {
+        const health = Types.makeHealth(value)
+        expect(health).toBeGreaterThanOrEqual(0)
+        expect(health).toBeLessThanOrEqual(20)
+      }))
+    )
   })
 
   describe('EntityId', () => {
@@ -114,11 +110,13 @@ describe('PlayerTypes - Branded Types', () => {
       expect(id).toBe(1)
     })
 
-    it.prop([fc.integer({ min: 1 })])('property: positive integers are valid', (value) => {
-      const id = Types.makeEntityId(value)
-      expect(id).toBeGreaterThan(0)
-      expect(Number.isInteger(id)).toBe(true)
-    })
+    it('property: positive integers are valid', () =>
+      fc.assert(fc.property(fc.integer({ min: 1 }), (value: number) => {
+        const id = Types.makeEntityId(value)
+        expect(id).toBeGreaterThan(0)
+        expect(Number.isInteger(id)).toBe(true)
+      }))
+    )
   })
 })
 
@@ -139,30 +137,25 @@ describe('PlayerTypes - Tagged Unions', () => {
             right: false,
             jump: false,
             sneak: false,
-            sprint: true
-          }
+            sprint: true,
+          },
         })
 
         expect(action._tag).toBe('Move')
-        yield* pipe(
-          action,
-          Match.type<Types.PlayerAction>(),
-          Match.tag('Move', (move) => Effect.sync(() => {
-            expect(move.direction.forward).toBe(true)
-            expect(move.direction.sprint).toBe(true)
-          })),
-          Match.orElse(() => Effect.fail('Expected Move action')),
-          Effect.catchAll(() => Effect.succeed(undefined))
-        )
-      })
-    )
+        if (action._tag === 'Move') {
+          expect(action.direction.forward).toBe(true)
+          expect(action.direction.sprint).toBe(true)
+        } else {
+          yield* Effect.fail('Expected Move action')
+        }
+      }))
 
     it('should create PlaceBlock action', () =>
       Effect.gen(function* () {
         const action = yield* Schema.decodeUnknown(Types.PlayerAction)({
           _tag: 'PlaceBlock',
           position: { x: 100, y: 64, z: 200 },
-          face: 'top'
+          face: 'top',
         })
 
         expect(action._tag).toBe('PlaceBlock')
@@ -170,14 +163,18 @@ describe('PlayerTypes - Tagged Unions', () => {
           expect(action.position.x).toBe(100)
           expect(action.face).toBe('top')
         }
-      })
-    )
+      }))
 
-    it.prop([
-      fc.constantFrom('Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem')
-    ])('property: all action tags are valid', (tag) => {
-      expect(['Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem']).toContain(tag)
-    })
+    it('property: all action tags are valid', () =>
+      fc.assert(fc.property(
+        fc.constantFrom('Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem'),
+        (tag: string) => {
+          expect(['Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem']).toContain(
+            tag
+          )
+        }
+      ))
+    )
   })
 
   describe('DamageSource', () => {
@@ -185,34 +182,27 @@ describe('PlayerTypes - Tagged Unions', () => {
       Effect.gen(function* () {
         const damage = yield* Schema.decodeUnknown(Types.DamageSource)({
           _tag: 'Fall',
-          distance: 10.5
+          distance: 10.5,
         })
 
         expect(damage._tag).toBe('Fall')
-        yield* pipe(
-          damage,
-          Match.type<Types.DamageSource>(),
-          Match.tag('Fall', (fall) => Effect.sync(() => {
-            expect(fall.distance).toBe(10.5)
-          })),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
-      })
-    )
+        if (damage._tag === 'Fall') {
+          expect(damage.distance).toBe(10.5)
+        }
+      }))
 
     it('should create Environment damage', () =>
       Effect.gen(function* () {
         const damage = yield* Schema.decodeUnknown(Types.DamageSource)({
           _tag: 'Environment',
-          type: 'lava'
+          type: 'lava',
         })
 
         expect(damage._tag).toBe('Environment')
         if (damage._tag === 'Environment') {
           expect(damage.type).toBe('lava')
         }
-      })
-    )
+      }))
   })
 
   describe('PlayerEvent', () => {
@@ -224,12 +214,11 @@ describe('PlayerTypes - Tagged Unions', () => {
           name: 'TestPlayer',
           position: { x: 0, y: 64, z: 0 },
           gameMode: 'survival',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
 
         expect(event._tag).toBe('PlayerCreated')
-      })
-    )
+      }))
 
     it('should create PlayerDamaged event', () =>
       Effect.gen(function* () {
@@ -239,21 +228,15 @@ describe('PlayerTypes - Tagged Unions', () => {
           damage: 5,
           source: { _tag: 'Fall', distance: 10 },
           newHealth: Types.makeHealth(15),
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
 
         expect(event._tag).toBe('PlayerDamaged')
-        yield* pipe(
-          event,
-          Match.type<Types.PlayerEvent>(),
-          Match.tag('PlayerDamaged', (damaged) => Effect.sync(() => {
-            expect(damaged.damage).toBe(5)
-            expect(damaged.newHealth).toBe(15)
-          })),
-          Match.orElse(() => Effect.succeed(undefined))
-        )
-      })
-    )
+        if (event._tag === 'PlayerDamaged') {
+          expect(event.damage).toBe(5)
+          expect(event.newHealth).toBe(15)
+        }
+      }))
   })
 })
 
@@ -272,32 +255,33 @@ describe('PlayerTypes - Composite Types', () => {
           saturation: 20,
           experience: 0,
           level: 0,
-          armor: 0
+          armor: 0,
         })
 
         expect(stats.health).toBe(20)
         expect(stats.level).toBe(0)
-      })
-    )
+      }))
 
-    it.prop([
-      fc.record({
-        health: fc.integer({ min: 0, max: 20 }),
-        maxHealth: fc.integer({ min: 0, max: 20 }),
-        hunger: fc.integer({ min: 0, max: 20 }),
-        saturation: fc.integer({ min: 0, max: 20 }),
-        experience: fc.nat(),
-        level: fc.nat(),
-        armor: fc.integer({ min: 0, max: 20 })
-      })
-    ])('property: valid stats within bounds', (statsData) =>
-      Effect.gen(function* () {
-        const stats = yield* Schema.decodeUnknown(Types.PlayerStats)(statsData)
-        expect(stats.health).toBeGreaterThanOrEqual(0)
-        expect(stats.health).toBeLessThanOrEqual(20)
-        expect(stats.armor).toBeGreaterThanOrEqual(0)
-        expect(stats.armor).toBeLessThanOrEqual(20)
-      }).pipe(Effect.runPromise)
+    it('property: valid stats within bounds', async () =>
+      await fc.assert(fc.asyncProperty(
+        fc.record({
+          health: fc.integer({ min: 0, max: 20 }),
+          maxHealth: fc.integer({ min: 0, max: 20 }),
+          hunger: fc.integer({ min: 0, max: 20 }),
+          saturation: fc.integer({ min: 0, max: 20 }),
+          experience: fc.nat(),
+          level: fc.nat(),
+          armor: fc.integer({ min: 0, max: 20 }),
+        }),
+        async (statsData: any) =>
+          await Effect.gen(function* () {
+            const stats = yield* Schema.decodeUnknown(Types.PlayerStats)(statsData)
+            expect(stats.health).toBeGreaterThanOrEqual(0)
+            expect(stats.health).toBeLessThanOrEqual(20)
+            expect(stats.armor).toBeGreaterThanOrEqual(0)
+            expect(stats.armor).toBeLessThanOrEqual(20)
+          }).pipe(Effect.runPromise)
+      ))
     )
   })
 
@@ -319,32 +303,27 @@ describe('PlayerTypes - Composite Types', () => {
       Effect.gen(function* () {
         const inventory = yield* Schema.decodeUnknown(Types.Inventory)({
           slots: Array(36).fill(null),
-          selectedSlot: 0
+          selectedSlot: 0,
         })
 
         expect(inventory.slots.length).toBe(36)
         expect(inventory.selectedSlot).toBe(0)
-      })
-    )
+      }))
 
     it('should validate selected slot range', () =>
       Effect.gen(function* () {
         const invalid = yield* Effect.either(
           Schema.decodeUnknown(Types.Inventory)({
             slots: Array(36).fill(null),
-            selectedSlot: 9 // Out of range
+            selectedSlot: 9, // Out of range
           })
         )
 
-        yield* pipe(
-          invalid,
-          Match.value,
-          Match.tag('Left', () => Effect.succeed('Validation failed as expected')),
-          Match.tag('Right', () => Effect.fail('Should have failed validation')),
-          Match.exhaustive
-        )
-      })
-    )
+        yield* Effect.if(Either.isLeft(invalid), {
+          onTrue: () => Effect.succeed('Validation failed as expected'),
+          onFalse: () => Effect.fail('Should have failed validation')
+        })
+      }))
   })
 
   describe('Player', () => {
@@ -366,13 +345,12 @@ describe('PlayerTypes - Composite Types', () => {
           isSneaking: false,
           isSprinting: false,
           lastUpdate: Date.now(),
-          createdAt: Date.now()
+          createdAt: Date.now(),
         })
 
         expect(player.name).toBe('TestPlayer')
         expect(player.gameMode).toBe('survival')
-      })
-    )
+      }))
 
     it('should validate player name pattern', () =>
       Effect.gen(function* () {
@@ -393,56 +371,54 @@ describe('PlayerTypes - Composite Types', () => {
             isSneaking: false,
             isSprinting: false,
             lastUpdate: Date.now(),
-            createdAt: Date.now()
+            createdAt: Date.now(),
           })
         )
 
-        yield* pipe(
-          invalid,
-          Either.match({
-            onLeft: () => Effect.succeed('Name validation failed correctly'),
-            onRight: () => Effect.fail('Invalid name should have been rejected')
-          })
-        )
-      })
-    )
-
-    it.prop([
-      fc.record({
-        name: fc.string({ minLength: 1, maxLength: 16 }).filter(s => /^[a-zA-Z0-9_]+$/.test(s)),
-        gameMode: arbGameMode,
-        position: arbVector3D,
-        rotation: arbRotation
-      })
-    ])('property: Player entity invariants', (data) =>
-      Effect.gen(function* () {
-        const player = yield* Schema.decodeUnknown(Types.Player)({
-          id: Types.makePlayerId('test'),
-          entityId: Types.makeEntityId(1),
-          name: data.name,
-          position: data.position,
-          rotation: data.rotation,
-          velocity: { x: 0, y: 0, z: 0 },
-          stats: Types.defaultPlayerStats,
-          gameMode: data.gameMode,
-          abilities: Types.defaultPlayerAbilities,
-          inventory: Types.defaultInventory,
-          equipment: Types.defaultEquipment,
-          isOnGround: false,
-          isSneaking: false,
-          isSprinting: false,
-          lastUpdate: Date.now(),
-          createdAt: Date.now()
+        yield* Effect.if(Either.isLeft(invalid), {
+          onTrue: () => Effect.succeed('Name validation failed correctly'),
+          onFalse: () => Effect.fail('Invalid name should have been rejected')
         })
+      }))
 
-        // Invariants
-        expect(player.name.length).toBeGreaterThan(0)
-        expect(player.name.length).toBeLessThanOrEqual(16)
-        expect(player.rotation.pitch).toBeGreaterThanOrEqual(-90)
-        expect(player.rotation.pitch).toBeLessThanOrEqual(90)
-        expect(player.rotation.yaw).toBeGreaterThanOrEqual(-180)
-        expect(player.rotation.yaw).toBeLessThanOrEqual(180)
-      }).pipe(Effect.runPromise)
+    it('property: Player entity invariants', async () =>
+      await fc.assert(fc.asyncProperty(
+        fc.record({
+          name: fc.string({ minLength: 1, maxLength: 16 }).filter((s) => /^[a-zA-Z0-9_]+$/.test(s)),
+          gameMode: arbGameMode,
+          position: arbVector3D,
+          rotation: arbRotation,
+        }),
+        async (data: any) =>
+          await Effect.gen(function* () {
+            const player = yield* Schema.decodeUnknown(Types.Player)({
+              id: Types.makePlayerId('test'),
+              entityId: Types.makeEntityId(1),
+              name: data.name,
+              position: data.position,
+              rotation: data.rotation,
+              velocity: { x: 0, y: 0, z: 0 },
+              stats: Types.defaultPlayerStats,
+              gameMode: data.gameMode,
+              abilities: Types.defaultPlayerAbilities,
+              inventory: Types.defaultInventory,
+              equipment: Types.defaultEquipment,
+              isOnGround: false,
+              isSneaking: false,
+              isSprinting: false,
+              lastUpdate: Date.now(),
+              createdAt: Date.now(),
+            })
+
+            // Invariants
+            expect(player.name.length).toBeGreaterThan(0)
+            expect(player.name.length).toBeLessThanOrEqual(16)
+            expect(player.rotation.pitch).toBeGreaterThanOrEqual(-90)
+            expect(player.rotation.pitch).toBeLessThanOrEqual(90)
+            expect(player.rotation.yaw).toBeGreaterThanOrEqual(-180)
+            expect(player.rotation.yaw).toBeLessThanOrEqual(180)
+          }).pipe(Effect.runPromise)
+      ))
     )
   })
 })
@@ -459,13 +435,12 @@ describe('PlayerTypes - Errors', () => {
           _tag: 'PlayerError',
           reason: 'PlayerNotFound',
           playerId: Types.makePlayerId('missing'),
-          message: 'Player not found'
+          message: 'Player not found',
         })
 
         expect(error.reason).toBe('PlayerNotFound')
         expect(error.message).toBe('Player not found')
-      })
-    )
+      }))
 
     it('should create InventoryFull error with context', () =>
       Effect.gen(function* () {
@@ -476,40 +451,41 @@ describe('PlayerTypes - Errors', () => {
           message: 'Cannot add item: inventory is full',
           context: {
             itemId: 'diamond',
-            count: 5
-          }
+            count: 5,
+          },
         })
 
         expect(error.reason).toBe('InventoryFull')
         expect(error.context).toEqual({
           itemId: 'diamond',
-          count: 5
+          count: 5,
         })
-      })
-    )
+      }))
 
-    it.prop([
-      fc.constantFrom(
-        'PlayerNotFound',
-        'PlayerAlreadyExists',
-        'InvalidPosition',
-        'InvalidHealth',
-        'InvalidGameMode',
-        'InventoryFull',
-        'ItemNotFound',
-        'PermissionDenied',
-        'ValidationFailed'
-      )
-    ])('property: all error reasons are valid', (reason) =>
-      Effect.gen(function* () {
-        const error = yield* Schema.decodeUnknown(Types.PlayerError)({
-          _tag: 'PlayerError',
-          reason,
-          message: `Error: ${reason}`
-        })
+    it('property: all error reasons are valid', async () =>
+      await fc.assert(fc.asyncProperty(
+        fc.constantFrom(
+          'PlayerNotFound',
+          'PlayerAlreadyExists',
+          'InvalidPosition',
+          'InvalidHealth',
+          'InvalidGameMode',
+          'InventoryFull',
+          'ItemNotFound',
+          'PermissionDenied',
+          'ValidationFailed'
+        ),
+        async (reason: string) =>
+          await Effect.gen(function* () {
+            const error = yield* Schema.decodeUnknown(Types.PlayerError)({
+              _tag: 'PlayerError',
+              reason,
+              message: `Error: ${reason}`,
+            })
 
-        expect(error.reason).toBe(reason)
-      }).pipe(Effect.runPromise)
+            expect(error.reason).toBe(reason)
+          }).pipe(Effect.runPromise)
+      ))
     )
   })
 })
@@ -535,7 +511,7 @@ describe('PlayerTypes - Default Values', () => {
     const inventory = Types.defaultInventory
 
     expect(inventory.slots.length).toBe(36)
-    expect(inventory.slots.every(slot => slot === null)).toBe(true)
+    expect(inventory.slots.every((slot) => slot === null)).toBe(true)
     expect(inventory.selectedSlot).toBe(0)
   })
 
@@ -544,16 +520,11 @@ describe('PlayerTypes - Default Values', () => {
     const fields = ['helmet', 'chestplate', 'leggings', 'boots', 'mainHand', 'offHand'] as const
 
     return Effect.gen(function* () {
-      yield* Effect.forEach(fields, field =>
-        pipe(
-          equipment[field],
-          Match.value,
-          Match.when(
-            value => value === null,
-            () => Effect.succeed(`${field} is correctly null`)
-          ),
-          Match.orElse(() => Effect.fail(`${field} should be null`))
-        )
+      yield* Effect.forEach(fields, (field) =>
+        Effect.if(equipment[field] === null, {
+          onTrue: () => Effect.succeed(`${field} is correctly null`),
+          onFalse: () => Effect.fail(`${field} should be null`)
+        })
       )
     })
   })

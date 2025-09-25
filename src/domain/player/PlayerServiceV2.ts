@@ -16,7 +16,7 @@ import {
   Cause,
   Exit,
   pipe,
-  Schema
+  Schema,
 } from 'effect'
 import * as STM from 'effect/STM'
 import * as TRef from 'effect/TRef'
@@ -66,10 +66,7 @@ export interface PlayerMovementSystem {
 
   readonly jump: (player: Types.Player) => Effect.Effect<Types.Player, Types.PlayerError>
 
-  readonly updatePhysics: (
-    player: Types.Player,
-    deltaTime: number
-  ) => Effect.Effect<Types.Player, Types.PlayerError>
+  readonly updatePhysics: (player: Types.Player, deltaTime: number) => Effect.Effect<Types.Player, Types.PlayerError>
 
   readonly applyVelocity: (
     player: Types.Player,
@@ -80,15 +77,9 @@ export interface PlayerMovementSystem {
 export const PlayerMovementSystem = Context.GenericTag<PlayerMovementSystem>('@app/PlayerMovementSystem')
 
 export interface PlayerActionProcessor {
-  readonly process: (
-    player: Types.Player,
-    action: Types.PlayerAction
-  ) => Effect.Effect<Types.Player, Types.PlayerError>
+  readonly process: (player: Types.Player, action: Types.PlayerAction) => Effect.Effect<Types.Player, Types.PlayerError>
 
-  readonly validate: (
-    player: Types.Player,
-    action: Types.PlayerAction
-  ) => Effect.Effect<boolean>
+  readonly validate: (player: Types.Player, action: Types.PlayerAction) => Effect.Effect<boolean>
 }
 
 export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessor>('@app/PlayerActionProcessor')
@@ -96,9 +87,7 @@ export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessor>('
 export interface PlayerEventBus {
   readonly publish: (event: Types.PlayerEvent) => Effect.Effect<void>
   readonly subscribe: () => Stream.Stream<Types.PlayerEvent>
-  readonly subscribeFiltered: (
-    predicate: (event: Types.PlayerEvent) => boolean
-  ) => Stream.Stream<Types.PlayerEvent>
+  readonly subscribeFiltered: (predicate: (event: Types.PlayerEvent) => boolean) => Stream.Stream<Types.PlayerEvent>
 }
 
 export const PlayerEventBus = Context.GenericTag<PlayerEventBus>('@app/PlayerEventBus')
@@ -123,14 +112,19 @@ const makePlayerRepository = Effect.gen(function* () {
     STM.commit(
       STM.gen(function* () {
         const players = yield* TRef.get(playersRef)
+        const player = HashMap.get(players, playerId)
         return yield* pipe(
-          HashMap.get(players, playerId),
-          STM.fromOption(() => ({
-            _tag: 'PlayerError' as const,
-            reason: 'PlayerNotFound' as const,
-            playerId,
-            message: `Player ${playerId} not found`
-          }))
+          player,
+          Option.match({
+            onNone: () =>
+              STM.fail({
+                _tag: 'PlayerError' as const,
+                reason: 'PlayerNotFound' as const,
+                playerId,
+                message: `Player ${playerId} not found`,
+              } as Types.PlayerError),
+            onSome: (p) => STM.succeed(p),
+          })
         )
       })
     )
@@ -140,14 +134,20 @@ const makePlayerRepository = Effect.gen(function* () {
       STM.gen(function* () {
         const players = yield* TRef.get(playersRef)
         const exists = HashMap.has(players, playerId)
-        if (!exists) {
-          return yield* STM.fail({
-            _tag: 'PlayerError' as const,
-            reason: 'PlayerNotFound' as const,
-            playerId,
-            message: `Player ${playerId} not found`
-          })
-        }
+        return yield* pipe(
+          exists,
+          Match.value,
+          Match.when(
+            (hasPlayer) => !hasPlayer,
+            () => STM.fail({
+              _tag: 'PlayerError' as const,
+              reason: 'PlayerNotFound' as const,
+              playerId,
+              message: `Player ${playerId} not found`,
+            })
+          ),
+          Match.orElse(() => STM.succeed(undefined))
+        )
         yield* TRef.set(playersRef, HashMap.remove(players, playerId))
       })
     )
@@ -172,22 +172,20 @@ const makePlayerRepository = Effect.gen(function* () {
     STM.commit(
       STM.gen(function* () {
         const players = yield* TRef.get(playersRef)
-        return pipe(
-          Array.from(HashMap.values(players)),
-          (arr) => arr.find(p => p.name === name),
-          Option.fromNullable
-        )
+        return pipe(Array.from(HashMap.values(players)), (arr) => arr.find((p) => p.name === name), Option.fromNullable)
       })
     )
 
-  return {
+  const repository: PlayerRepository = {
     save,
     load,
     delete: deletePlayer,
     exists,
     findAll,
-    findByName
-  } satisfies PlayerRepository
+    findByName,
+  }
+
+  return repository
 })
 
 // =========================================
@@ -219,14 +217,20 @@ const makePlayerStateManager = Effect.gen(function* () {
           _tag: 'PlayerError' as const,
           reason: 'PlayerAlreadyExists' as const,
           playerId,
-          message: `Player ${playerId} already exists`
-        })
+          message: `Player ${playerId} already exists`,
+        } satisfies Types.PlayerError)
       }
 
-      // Create entity
-      const entityId = yield* entityManager.createEntity(
-        `Player-${playerId}`,
-        ['player', 'entity']
+      // Create entity - map errors to PlayerError
+      const entityId = yield* pipe(
+        entityManager.createEntity(`Player-${playerId}`, ['player', 'entity']),
+        Effect.mapError((error): Types.PlayerError => ({
+          _tag: 'PlayerError',
+          reason: 'ValidationFailed',
+          playerId,
+          message: `Failed to create entity: ${error._tag === 'EntityPoolError' ? error.message : (error as any).message}`,
+          context: { originalError: error },
+        }))
       )
 
       // Create player
@@ -246,7 +250,7 @@ const makePlayerStateManager = Effect.gen(function* () {
         isSneaking: false,
         isSprinting: false,
         lastUpdate: Date.now(),
-        createdAt: Date.now()
+        createdAt: Date.now(),
       }
 
       // Save
@@ -259,36 +263,48 @@ const makePlayerStateManager = Effect.gen(function* () {
         name: config.name,
         position: player.position,
         gameMode: player.gameMode,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
 
       return player
     })
 
-  const update = (
-    playerId: Types.PlayerId,
-    updater: (player: Types.Player) => Types.Player
-  ) =>
+  const update = (playerId: Types.PlayerId, updater: (player: Types.Player) => Types.Player) =>
     Effect.gen(function* () {
       const player = yield* repository.load(playerId)
       const updated = updater(player)
 
-      // Validate updated player
-      const validated = yield* Schema.decode(Types.Player)(updated)
+      // Validate updated player - map ParseError to PlayerError
+      const validated = yield* pipe(
+        Schema.decode(Types.Player)(updated),
+        Effect.mapError((parseError): Types.PlayerError => ({
+          _tag: 'PlayerError',
+          reason: 'ValidationFailed',
+          playerId,
+          message: `Invalid player data: ${parseError.message}`,
+          context: { originalError: parseError },
+        }))
+      )
 
       // Save
       yield* repository.save(validated)
 
-      // Publish movement event if position changed
-      if (player.position !== validated.position) {
-        yield* eventBus.publish({
-          _tag: 'PlayerMoved',
-          playerId,
-          from: player.position,
-          to: validated.position,
-          timestamp: Date.now()
-        })
-      }
+      // Publish movement event if position changed - Effect-TSパターン
+      yield* pipe(
+        player.position !== validated.position,
+        Match.value,
+        Match.when(
+          (hasPositionChanged) => hasPositionChanged,
+          () => eventBus.publish({
+            _tag: 'PlayerMoved',
+            playerId,
+            from: player.position,
+            to: validated.position,
+            timestamp: Date.now(),
+          })
+        ),
+        Match.orElse(() => Effect.succeed(undefined))
+      )
 
       return validated
     })
@@ -297,13 +313,15 @@ const makePlayerStateManager = Effect.gen(function* () {
   const getAll = () => repository.findAll()
   const deletePlayer = (playerId: Types.PlayerId) => repository.delete(playerId)
 
-  return {
+  const manager: PlayerStateManager = {
     create,
     update,
     get,
     getAll,
-    delete: deletePlayer
-  } satisfies PlayerStateManager
+    delete: deletePlayer,
+  }
+
+  return manager
 })
 
 // =========================================
@@ -318,14 +336,11 @@ const PHYSICS = {
   WALK_SPEED: 4.317,
   SPRINT_SPEED: 5.612,
   SNEAK_SPEED: 1.295,
-  FLY_SPEED: 10.92
+  FLY_SPEED: 10.92,
 } as const
 
 const makePlayerMovementSystem = Effect.gen(function* () {
-  const move = (
-    player: Types.Player,
-    action: Types.PlayerAction & { _tag: 'Move' }
-  ) =>
+  const move = (player: Types.Player, action: Types.PlayerAction & { _tag: 'Move' }) =>
     Effect.gen(function* () {
       const { direction } = action
 
@@ -333,15 +348,15 @@ const makePlayerMovementSystem = Effect.gen(function* () {
       const speed = pipe(
         Match.value(player),
         Match.when(
-          p => p.isSprinting && !p.isSneaking,
+          (p) => p.isSprinting && !p.isSneaking,
           () => PHYSICS.SPRINT_SPEED
         ),
         Match.when(
-          p => p.isSneaking,
+          (p) => p.isSneaking,
           () => PHYSICS.SNEAK_SPEED
         ),
         Match.when(
-          p => p.abilities.isFlying,
+          (p) => p.abilities.isFlying,
           () => PHYSICS.FLY_SPEED
         ),
         Match.orElse(() => PHYSICS.WALK_SPEED)
@@ -371,10 +386,10 @@ const makePlayerMovementSystem = Effect.gen(function* () {
         velocity: {
           x: normalizedX,
           y: player.velocity.y,
-          z: normalizedZ
+          z: normalizedZ,
         } as Types.Velocity,
         isSprinting: direction.sprint && !direction.sneak,
-        isSneaking: direction.sneak
+        isSneaking: direction.sneak,
       }
     })
 
@@ -388,9 +403,9 @@ const makePlayerMovementSystem = Effect.gen(function* () {
         ...player,
         velocity: {
           ...player.velocity,
-          y: PHYSICS.JUMP_VELOCITY
+          y: PHYSICS.JUMP_VELOCITY,
         } as Types.Velocity,
-        isOnGround: false
+        isOnGround: false,
       }
     })
 
@@ -406,10 +421,7 @@ const makePlayerMovementSystem = Effect.gen(function* () {
       }
 
       // Apply gravity
-      const newVelocityY = Math.max(
-        PHYSICS.TERMINAL_VELOCITY,
-        player.velocity.y + PHYSICS.GRAVITY * deltaTime
-      )
+      const newVelocityY = Math.max(PHYSICS.TERMINAL_VELOCITY, player.velocity.y + PHYSICS.GRAVITY * deltaTime)
 
       // Apply air resistance
       const newVelocityX = player.velocity.x * Math.pow(PHYSICS.AIR_RESISTANCE, deltaTime)
@@ -419,7 +431,7 @@ const makePlayerMovementSystem = Effect.gen(function* () {
       const newPosition: Types.Vector3D = {
         x: player.position.x + newVelocityX * deltaTime,
         y: player.position.y + newVelocityY * deltaTime,
-        z: player.position.z + newVelocityZ * deltaTime
+        z: player.position.z + newVelocityZ * deltaTime,
       }
 
       // Ground detection (simplified)
@@ -431,23 +443,23 @@ const makePlayerMovementSystem = Effect.gen(function* () {
         velocity: {
           x: newVelocityX,
           y: isOnGround ? 0 : newVelocityY,
-          z: newVelocityZ
+          z: newVelocityZ,
         } as Types.Velocity,
-        isOnGround
+        isOnGround,
       }
     })
 
   const applyVelocity = (player: Types.Player, velocity: Types.Velocity) =>
     Effect.succeed({
       ...player,
-      velocity
+      velocity,
     })
 
   return PlayerMovementSystem.of({
     move,
     jump,
     updatePhysics,
-    applyVelocity
+    applyVelocity,
   })
 })
 
@@ -496,10 +508,12 @@ const makePlayerActionProcessor = Effect.gen(function* () {
       Match.orElse(() => Effect.succeed(false))
     )
 
-  return {
+  const processor: PlayerActionProcessor = {
     process,
-    validate
-  } satisfies PlayerActionProcessor
+    validate,
+  }
+
+  return processor
 })
 
 // =========================================
@@ -516,11 +530,13 @@ const makePlayerEventBus = Effect.gen(function* () {
   const subscribeFiltered = (predicate: (event: Types.PlayerEvent) => boolean) =>
     Stream.fromQueue(queue).pipe(Stream.filter(predicate))
 
-  return {
+  const eventBus: PlayerEventBus = {
     publish,
     subscribe,
-    subscribeFiltered
-  } satisfies PlayerEventBus
+    subscribeFiltered,
+  }
+
+  return eventBus
 })
 
 // =========================================
@@ -533,7 +549,7 @@ const getAbilitiesForGameMode = (gameMode: Types.GameMode): Types.PlayerAbilitie
     Match.when('creative', () => ({
       ...Types.defaultPlayerAbilities,
       canFly: true,
-      invulnerable: true
+      invulnerable: true,
     })),
     Match.when('spectator', () => ({
       ...Types.defaultPlayerAbilities,
@@ -541,11 +557,11 @@ const getAbilitiesForGameMode = (gameMode: Types.GameMode): Types.PlayerAbilitie
       isFlying: true,
       canBreakBlocks: false,
       canPlaceBlocks: false,
-      invulnerable: true
+      invulnerable: true,
     })),
     Match.when('adventure', () => ({
       ...Types.defaultPlayerAbilities,
-      canBreakBlocks: false
+      canBreakBlocks: false,
     })),
     Match.orElse(() => Types.defaultPlayerAbilities)
   )
@@ -554,33 +570,18 @@ const getAbilitiesForGameMode = (gameMode: Types.GameMode): Types.PlayerAbilitie
 // Layer Composition
 // =========================================
 
-export const PlayerRepositoryLive = Layer.effect(
-  PlayerRepository,
-  makePlayerRepository
-)
+export const PlayerRepositoryLive = Layer.effect(PlayerRepository, makePlayerRepository)
 
-export const PlayerEventBusLive = Layer.effect(
-  PlayerEventBus,
-  makePlayerEventBus
-)
+export const PlayerEventBusLive = Layer.effect(PlayerEventBus, makePlayerEventBus)
 
-export const PlayerStateManagerLive = Layer.effect(
-  PlayerStateManager,
-  makePlayerStateManager
-).pipe(
+export const PlayerStateManagerLive = Layer.effect(PlayerStateManager, makePlayerStateManager).pipe(
   Layer.provide(PlayerRepositoryLive),
   Layer.provide(PlayerEventBusLive)
 )
 
-export const PlayerMovementSystemLive = Layer.effect(
-  PlayerMovementSystem,
-  makePlayerMovementSystem
-)
+export const PlayerMovementSystemLive = Layer.effect(PlayerMovementSystem, makePlayerMovementSystem)
 
-export const PlayerActionProcessorLive = Layer.effect(
-  PlayerActionProcessor,
-  makePlayerActionProcessor
-).pipe(
+export const PlayerActionProcessorLive = Layer.effect(PlayerActionProcessor, makePlayerActionProcessor).pipe(
   Layer.provide(PlayerMovementSystemLive),
   Layer.provide(PlayerStateManagerLive)
 )

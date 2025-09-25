@@ -65,8 +65,7 @@ export const VectorMath = {
     z: v.z * scalar,
   }),
 
-  magnitude: (v: Vector3D): number =>
-    Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
+  magnitude: (v: Vector3D): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
 
   normalize: (v: Vector3D): Vector3D => {
     const mag = VectorMath.magnitude(v)
@@ -74,11 +73,9 @@ export const VectorMath = {
     return VectorMath.multiply(v, 1 / mag)
   },
 
-  distance: (a: Vector3D, b: Vector3D): number =>
-    VectorMath.magnitude(VectorMath.subtract(b, a)),
+  distance: (a: Vector3D, b: Vector3D): number => VectorMath.magnitude(VectorMath.subtract(b, a)),
 
-  dot: (a: Vector3D, b: Vector3D): number =>
-    a.x * b.x + a.y * b.y + a.z * b.z,
+  dot: (a: Vector3D, b: Vector3D): number => a.x * b.x + a.y * b.y + a.z * b.z,
 
   cross: (a: Vector3D, b: Vector3D): Vector3D => ({
     x: a.y * b.z - a.z * b.y,

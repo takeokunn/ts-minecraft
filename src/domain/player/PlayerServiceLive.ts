@@ -397,28 +397,35 @@ const makePlayerServiceLive = Effect.gen(function* () {
   const getAllPlayers = (): Effect.Effect<ReadonlyArray<PlayerState>, never> =>
     Effect.gen(function* () {
       const players = yield* Ref.get(playersRef)
-      const playerStates: PlayerState[] = []
 
-      for (const [playerId, playerInternalState] of HashMap.toEntries(players)) {
-        const result = yield* Effect.either(
-          buildPlayerState(playerId, playerInternalState.entityId, playerInternalState.isActive)
-        )
+      // Effect-TSパターンでfor loopを置換
+      const playerStates = yield* Effect.forEach(
+        HashMap.toEntries(players),
+        ([playerId, playerInternalState]) =>
+          Effect.gen(function* () {
+            const result = yield* Effect.either(
+              buildPlayerState(playerId, playerInternalState.entityId, playerInternalState.isActive)
+            )
 
-        pipe(
-          result,
-          Either.match({
-            onLeft: (error) => {
-              // エラーが発生したプレイヤーはスキップ
-              Effect.runSync(Effect.log(`Error building player state for ${playerId}`, { error }))
-            },
-            onRight: (playerState) => {
-              playerStates.push(playerState)
-            },
-          })
-        )
-      }
+            return yield* pipe(
+              result,
+              Either.match({
+                onLeft: (error) =>
+                  pipe(
+                    Effect.log(`Error building player state for ${playerId}`, { error }),
+                    Effect.map(() => Option.none<PlayerState>())
+                  ),
+                onRight: (playerState) => Effect.succeed(Option.some(playerState)),
+              })
+            )
+          }),
+        { concurrency: 'unbounded' }
+      )
 
-      return playerStates
+      return playerStates.flatMap(Option.match({
+        onNone: () => [],
+        onSome: (state) => [state],
+      }))
     })
 
   // プレイヤーの存在確認
