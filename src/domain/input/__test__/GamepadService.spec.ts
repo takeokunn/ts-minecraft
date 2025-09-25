@@ -9,19 +9,21 @@ let mockGamepads: (Gamepad | null)[]
 // playEffectモック関数を一度だけ作成して全テストで共用
 const mockPlayEffect = vi.fn().mockResolvedValue(undefined)
 
-const createMockGamepads = () => {
+const createMockGamepads = (): (Gamepad | null)[] => {
   return [
     {
       id: 'Mock Xbox Controller',
       index: 0,
       connected: true,
       timestamp: Date.now(),
+      mapping: 'standard' as GamepadMappingType,
       buttons: Array(16).fill({ pressed: false, touched: false, value: 0 }),
       axes: [0, 0, 0, 0],
+      hapticActuators: [],
       vibrationActuator: {
         playEffect: mockPlayEffect,
       },
-    },
+    } as unknown as Gamepad,
     null,
     null,
     null,
