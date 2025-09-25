@@ -39,13 +39,13 @@ describe('RecipeTypes', () => {
 
       it('should validate RecipeId schema', () => {
         const validId = 'valid_recipe'
-        const result = Schema.decodeSync(RecipeIdSchema)(validId)
+        const result = Schema.decodeUnknownSync(RecipeIdSchema)(validId)
         expect(result).toBe(validId)
       })
 
       it('should reject empty RecipeId', () => {
         expect(() => {
-          Schema.decodeSync(RecipeIdSchema)('')
+          Schema.decodeUnknownSync(RecipeIdSchema)('')
         }).toThrow()
       })
     })
@@ -57,24 +57,24 @@ describe('RecipeTypes', () => {
       })
 
       it('should validate ItemStackCount within range', () => {
-        const result = Schema.decodeSync(ItemStackCountSchema)(32)
+        const result = Schema.decodeUnknownSync(ItemStackCountSchema)(32)
         expect(result).toBe(32)
       })
 
       it('should reject invalid ItemStackCount', () => {
         // Negative number
         expect(() => {
-          Schema.decodeSync(ItemStackCountSchema)(-1)
+          Schema.decodeUnknownSync(ItemStackCountSchema)(-1)
         }).toThrow()
 
         // Over 64
         expect(() => {
-          Schema.decodeSync(ItemStackCountSchema)(65)
+          Schema.decodeUnknownSync(ItemStackCountSchema)(65)
         }).toThrow()
 
         // Non-integer
         expect(() => {
-          Schema.decodeSync(ItemStackCountSchema)(1.5)
+          Schema.decodeUnknownSync(ItemStackCountSchema)(1.5)
         }).toThrow()
       })
     })
@@ -86,19 +86,19 @@ describe('RecipeTypes', () => {
       })
 
       it('should validate GridWidth within range', () => {
-        const result = Schema.decodeSync(GridWidthSchema)(2)
+        const result = Schema.decodeUnknownSync(GridWidthSchema)(2)
         expect(result).toBe(2)
       })
 
       it('should reject invalid GridWidth', () => {
         // Zero
         expect(() => {
-          Schema.decodeSync(GridWidthSchema)(0)
+          Schema.decodeUnknownSync(GridWidthSchema)(0)
         }).toThrow()
 
         // Over 3
         expect(() => {
-          Schema.decodeSync(GridWidthSchema)(4)
+          Schema.decodeUnknownSync(GridWidthSchema)(4)
         }).toThrow()
       })
     })
@@ -110,19 +110,19 @@ describe('RecipeTypes', () => {
       })
 
       it('should validate GridHeight within range', () => {
-        const result = Schema.decodeSync(GridHeightSchema)(3)
+        const result = Schema.decodeUnknownSync(GridHeightSchema)(3)
         expect(result).toBe(3)
       })
 
       it('should reject invalid GridHeight', () => {
         // Zero
         expect(() => {
-          Schema.decodeSync(GridHeightSchema)(0)
+          Schema.decodeUnknownSync(GridHeightSchema)(0)
         }).toThrow()
 
         // Over 3
         expect(() => {
-          Schema.decodeSync(GridHeightSchema)(4)
+          Schema.decodeUnknownSync(GridHeightSchema)(4)
         }).toThrow()
       })
     })
@@ -136,7 +136,7 @@ describe('RecipeTypes', () => {
           itemId: 'diamond',
         }
 
-        const decoded = Schema.decodeSync(ItemMatcher)(matcher)
+        const decoded = Schema.decodeUnknownSync(ItemMatcher)(matcher)
         expect(decoded).toEqual(matcher)
       })
     })
@@ -148,7 +148,7 @@ describe('RecipeTypes', () => {
           tag: 'planks',
         }
 
-        const decoded = Schema.decodeSync(ItemMatcher)(matcher)
+        const decoded = Schema.decodeUnknownSync(ItemMatcher)(matcher)
         expect(decoded).toEqual(matcher)
       })
     })
@@ -161,9 +161,11 @@ describe('RecipeTypes', () => {
           predicate,
         }
 
-        const decoded = Schema.decodeSync(ItemMatcher)(matcher)
+        const decoded = Schema.decodeUnknownSync(ItemMatcher)(matcher)
         expect(decoded._tag).toBe('custom')
-        expect(decoded.predicate).toBe(predicate)
+        if (decoded._tag === 'custom') {
+          expect(decoded.predicate).toBe(predicate)
+        }
       })
     })
 
@@ -203,8 +205,8 @@ describe('RecipeTypes', () => {
         { _tag: 'stonecutting' },
       ]
 
-      categories.forEach(category => {
-        const decoded = Schema.decodeSync(RecipeCategory)(category)
+      categories.forEach((category) => {
+        const decoded = Schema.decodeUnknownSync(RecipeCategory)(category)
         expect(decoded).toEqual(category)
       })
     })
@@ -221,7 +223,7 @@ describe('RecipeTypes', () => {
             ['W', 'W'],
           ],
           ingredients: {
-            'W': { _tag: 'exact', itemId: 'wood' },
+            W: { _tag: 'exact', itemId: 'wood' },
           },
           result: {
             itemId: 'crafting_table',
@@ -230,7 +232,7 @@ describe('RecipeTypes', () => {
           category: { _tag: 'crafting' },
         }
 
-        const decoded = Schema.decodeSync(ShapedRecipe)(recipe)
+        const decoded = Schema.decodeUnknownSync(ShapedRecipe)(recipe)
         expect(decoded).toEqual(recipe)
       })
 
@@ -239,11 +241,11 @@ describe('RecipeTypes', () => {
           _tag: 'shaped',
           id: RecipeId('test_l_shape'),
           pattern: [
-            ['S', undefined],
+            ['S', null],
             ['S', 'S'],
           ],
           ingredients: {
-            'S': { _tag: 'exact', itemId: 'stick' },
+            S: { _tag: 'exact', itemId: 'stick' },
           },
           result: {
             itemId: 'hoe',
@@ -252,8 +254,8 @@ describe('RecipeTypes', () => {
           category: { _tag: 'crafting' },
         }
 
-        const decoded = Schema.decodeSync(ShapedRecipe)(recipe)
-        expect(decoded.pattern[0][1]).toBeUndefined()
+        const decoded = Schema.decodeUnknownSync(ShapedRecipe)(recipe)
+        expect(decoded.pattern[0]?.[1]).toBeNull()
       })
     })
 
@@ -274,7 +276,7 @@ describe('RecipeTypes', () => {
           category: { _tag: 'crafting' },
         }
 
-        const decoded = Schema.decodeSync(ShapelessRecipe)(recipe)
+        const decoded = Schema.decodeUnknownSync(ShapelessRecipe)(recipe)
         expect(decoded).toEqual(recipe)
       })
     })
@@ -285,7 +287,7 @@ describe('RecipeTypes', () => {
           _tag: 'shaped',
           id: RecipeId('shaped'),
           pattern: [['W']],
-          ingredients: { 'W': { _tag: 'exact', itemId: 'wood' } },
+          ingredients: { W: { _tag: 'exact', itemId: 'wood' } },
           result: { itemId: 'stick', count: ItemStackCount(4) },
           category: { _tag: 'crafting' },
         }
@@ -315,7 +317,7 @@ describe('RecipeTypes', () => {
           _tag: 'shaped',
           id: RecipeId('shaped'),
           pattern: [['W']],
-          ingredients: { 'W': { _tag: 'exact', itemId: 'wood' } },
+          ingredients: { W: { _tag: 'exact', itemId: 'wood' } },
           result: { itemId: 'stick', count: ItemStackCount(4) },
           category: { _tag: 'crafting' },
         }
@@ -333,17 +335,13 @@ describe('RecipeTypes', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            { itemId: 'wood', count: ItemStackCount(1) },
-            undefined,
-            undefined,
-          ],
-          [undefined, undefined, undefined],
-          [undefined, undefined, undefined],
+          [{ itemId: 'wood', count: ItemStackCount(1) }, null, null],
+          [null, null, null],
+          [null, null, null],
         ],
       }
 
-      const decoded = Schema.decodeSync(CraftingGrid)(grid)
+      const decoded = Schema.decodeUnknownSync(CraftingGrid)(grid)
       expect(decoded).toEqual(grid)
     })
 
@@ -355,7 +353,7 @@ describe('RecipeTypes', () => {
       expect(grid.height).toBe(2)
       expect(grid.slots).toHaveLength(2)
       expect(grid.slots[0]).toHaveLength(2)
-      expect(grid.slots[0][0]).toBeUndefined()
+      expect(grid.slots[0]?.[0]).toBeNull()
     })
 
     it('should handle item stacks with metadata', () => {
@@ -377,8 +375,8 @@ describe('RecipeTypes', () => {
         ],
       }
 
-      const decoded = Schema.decodeSync(CraftingGrid)(grid)
-      expect(decoded.slots[0][0]?.metadata).toEqual({
+      const decoded = Schema.decodeUnknownSync(CraftingGrid)(grid)
+      expect(decoded.slots[0]?.[0]?.metadata).toEqual({
         enchantment: 'sharpness',
         level: 5,
       })
@@ -403,13 +401,13 @@ describe('RecipeTypes', () => {
           _tag: 'shaped',
           id: RecipeId('diamond_sword'),
           pattern: [
-            [undefined, 'D', undefined],
-            [undefined, 'D', undefined],
-            [undefined, 'S', undefined],
+            [null, 'D', null],
+            [null, 'D', null],
+            [null, 'S', null],
           ],
           ingredients: {
-            'D': { _tag: 'exact', itemId: 'diamond' },
-            'S': { _tag: 'exact', itemId: 'stick' },
+            D: { _tag: 'exact', itemId: 'diamond' },
+            S: { _tag: 'exact', itemId: 'stick' },
           },
           result: {
             itemId: 'diamond_sword',
@@ -419,7 +417,7 @@ describe('RecipeTypes', () => {
         },
       }
 
-      const decoded = Schema.decodeSync(CraftingResult)(result)
+      const decoded = Schema.decodeUnknownSync(CraftingResult)(result)
       expect(decoded.success).toBe(true)
       expect(decoded.result?.itemId).toBe('diamond_sword')
     })
@@ -434,7 +432,7 @@ describe('RecipeTypes', () => {
         usedRecipe: undefined,
       }
 
-      const decoded = Schema.decodeSync(CraftingResult)(result)
+      const decoded = Schema.decodeUnknownSync(CraftingResult)(result)
       expect(decoded.success).toBe(false)
       expect(decoded.result).toBeUndefined()
       expect(decoded.usedRecipe).toBeUndefined()

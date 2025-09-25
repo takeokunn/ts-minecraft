@@ -1,12 +1,5 @@
 import { Effect, Array } from 'effect'
-import {
-  CraftingRecipe,
-  RecipeId,
-  ItemStackCount,
-  CraftingItemStack,
-  ItemMatcher,
-  RecipeCategory,
-} from './RecipeTypes'
+import { CraftingRecipe, RecipeId, ItemStackCount, CraftingItemStack, ItemMatcher, RecipeCategory } from './RecipeTypes'
 
 /**
  * Standard Minecraft Recipes
@@ -45,8 +38,8 @@ export const woodenPickaxeRecipe: CraftingRecipe = {
   id: createRecipeId('minecraft:wooden_pickaxe'),
   pattern: [
     ['W', 'W', 'W'],
-    [undefined, 'S', undefined],
-    [undefined, 'S', undefined],
+    [null, 'S', null],
+    [null, 'S', null],
   ],
   ingredients: {
     W: tagMatcher('minecraft:planks'),
@@ -62,7 +55,7 @@ export const woodenAxeRecipe: CraftingRecipe = {
   pattern: [
     ['W', 'W'],
     ['W', 'S'],
-    [undefined, 'S'],
+    [null, 'S'],
   ],
   ingredients: {
     W: tagMatcher('minecraft:planks'),
@@ -75,11 +68,7 @@ export const woodenAxeRecipe: CraftingRecipe = {
 export const woodenShovelRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:wooden_shovel'),
-  pattern: [
-    ['W'],
-    ['S'],
-    ['S'],
-  ],
+  pattern: [['W'], ['S'], ['S']],
   ingredients: {
     W: tagMatcher('minecraft:planks'),
     S: exactMatcher('minecraft:stick'),
@@ -91,11 +80,7 @@ export const woodenShovelRecipe: CraftingRecipe = {
 export const woodenSwordRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:wooden_sword'),
-  pattern: [
-    ['W'],
-    ['W'],
-    ['S'],
-  ],
+  pattern: [['W'], ['W'], ['S']],
   ingredients: {
     W: tagMatcher('minecraft:planks'),
     S: exactMatcher('minecraft:stick'),
@@ -107,10 +92,7 @@ export const woodenSwordRecipe: CraftingRecipe = {
 export const sticksRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:sticks'),
-  pattern: [
-    ['P'],
-    ['P'],
-  ],
+  pattern: [['P'], ['P']],
   ingredients: {
     P: tagMatcher('minecraft:planks'),
   },
@@ -151,8 +133,8 @@ export const stonePickaxeRecipe: CraftingRecipe = {
   id: createRecipeId('minecraft:stone_pickaxe'),
   pattern: [
     ['C', 'C', 'C'],
-    [undefined, 'S', undefined],
-    [undefined, 'S', undefined],
+    [null, 'S', null],
+    [null, 'S', null],
   ],
   ingredients: {
     C: tagMatcher('minecraft:stone'),
@@ -168,7 +150,7 @@ export const stoneAxeRecipe: CraftingRecipe = {
   pattern: [
     ['C', 'C'],
     ['C', 'S'],
-    [undefined, 'S'],
+    [null, 'S'],
   ],
   ingredients: {
     C: tagMatcher('minecraft:stone'),
@@ -181,11 +163,7 @@ export const stoneAxeRecipe: CraftingRecipe = {
 export const stoneShovelRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:stone_shovel'),
-  pattern: [
-    ['C'],
-    ['S'],
-    ['S'],
-  ],
+  pattern: [['C'], ['S'], ['S']],
   ingredients: {
     C: tagMatcher('minecraft:stone'),
     S: exactMatcher('minecraft:stick'),
@@ -197,11 +175,7 @@ export const stoneShovelRecipe: CraftingRecipe = {
 export const stoneSwordRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:stone_sword'),
-  pattern: [
-    ['C'],
-    ['C'],
-    ['S'],
-  ],
+  pattern: [['C'], ['C'], ['S']],
   ingredients: {
     C: tagMatcher('minecraft:stone'),
     S: exactMatcher('minecraft:stick'),
@@ -217,8 +191,8 @@ export const ironPickaxeRecipe: CraftingRecipe = {
   id: createRecipeId('minecraft:iron_pickaxe'),
   pattern: [
     ['I', 'I', 'I'],
-    [undefined, 'S', undefined],
-    [undefined, 'S', undefined],
+    [null, 'S', null],
+    [null, 'S', null],
   ],
   ingredients: {
     I: exactMatcher('minecraft:iron_ingot'),
@@ -234,7 +208,7 @@ export const ironAxeRecipe: CraftingRecipe = {
   pattern: [
     ['I', 'I'],
     ['I', 'S'],
-    [undefined, 'S'],
+    [null, 'S'],
   ],
   ingredients: {
     I: exactMatcher('minecraft:iron_ingot'),
@@ -247,11 +221,7 @@ export const ironAxeRecipe: CraftingRecipe = {
 export const ironShovelRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:iron_shovel'),
-  pattern: [
-    ['I'],
-    ['S'],
-    ['S'],
-  ],
+  pattern: [['I'], ['S'], ['S']],
   ingredients: {
     I: exactMatcher('minecraft:iron_ingot'),
     S: exactMatcher('minecraft:stick'),
@@ -263,11 +233,7 @@ export const ironShovelRecipe: CraftingRecipe = {
 export const ironSwordRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:iron_sword'),
-  pattern: [
-    ['I'],
-    ['I'],
-    ['S'],
-  ],
+  pattern: [['I'], ['I'], ['S']],
   ingredients: {
     I: exactMatcher('minecraft:iron_ingot'),
     S: exactMatcher('minecraft:stick'),
@@ -299,7 +265,7 @@ export const chestRecipe: CraftingRecipe = {
   id: createRecipeId('minecraft:chest'),
   pattern: [
     ['P', 'P', 'P'],
-    ['P', undefined, 'P'],
+    ['P', null, 'P'],
     ['P', 'P', 'P'],
   ],
   ingredients: {
@@ -314,10 +280,7 @@ export const chestRecipe: CraftingRecipe = {
 export const torchRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:torch'),
-  pattern: [
-    ['C'],
-    ['S'],
-  ],
+  pattern: [['C'], ['S']],
   ingredients: {
     C: exactMatcher('minecraft:coal'),
     S: exactMatcher('minecraft:stick'),
@@ -329,10 +292,7 @@ export const torchRecipe: CraftingRecipe = {
 export const charcoalTorchRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:torch_from_charcoal'),
-  pattern: [
-    ['C'],
-    ['S'],
-  ],
+  pattern: [['C'], ['S']],
   ingredients: {
     C: exactMatcher('minecraft:charcoal'),
     S: exactMatcher('minecraft:stick'),
@@ -348,7 +308,7 @@ export const furnaceRecipe: CraftingRecipe = {
   id: createRecipeId('minecraft:furnace'),
   pattern: [
     ['S', 'S', 'S'],
-    ['S', undefined, 'S'],
+    ['S', null, 'S'],
     ['S', 'S', 'S'],
   ],
   ingredients: {
@@ -364,9 +324,9 @@ export const ladderRecipe: CraftingRecipe = {
   _tag: 'shaped',
   id: createRecipeId('minecraft:ladder'),
   pattern: [
-    ['S', undefined, 'S'],
+    ['S', null, 'S'],
     ['S', 'S', 'S'],
-    ['S', undefined, 'S'],
+    ['S', null, 'S'],
   ],
   ingredients: {
     S: exactMatcher('minecraft:stick'),
@@ -428,7 +388,7 @@ export const redBedRecipe: CraftingRecipe = {
 
 // ===== Recipe Collection =====
 
-export const getAllStandardRecipes = (): Effect.Effect<Array.ReadonlyArray<CraftingRecipe>, never> =>
+export const getAllStandardRecipes = (): Effect.Effect<ReadonlyArray<CraftingRecipe>, never> =>
   Effect.succeed([
     // Wood tools
     woodenPickaxeRecipe,

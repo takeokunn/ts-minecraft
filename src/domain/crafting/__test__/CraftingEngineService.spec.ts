@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect, Option } from 'effect'
+import { Effect, Option, Either } from 'effect'
 import { CraftingEngineService, CraftingEngineServiceLive } from '../CraftingEngineService'
 import {
   CraftingGrid,
@@ -20,10 +20,10 @@ describe('CraftingEngineService', () => {
 
   beforeEach(() => {
     // Create service instance using Live implementation
-    const program = CraftingEngineServiceLive.pipe(
-      Effect.map((layer) => Effect.runSync(layer.build))
-    )
-    service = Effect.runSync(program)
+    const program = Effect.gen(function* () {
+      return yield* CraftingEngineService
+    })
+    service = Effect.runSync(program.pipe(Effect.provide(CraftingEngineServiceLive)))
   })
 
   describe('matchRecipe', () => {
@@ -33,17 +33,9 @@ describe('CraftingEngineService', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            { itemId: 'wood', count: ItemStackCount(1) },
-            { itemId: 'wood', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [
-            { itemId: 'wood', count: ItemStackCount(1) },
-            { itemId: 'wood', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [undefined, undefined, undefined],
+          [{ itemId: 'wood', count: ItemStackCount(1) }, { itemId: 'wood', count: ItemStackCount(1) }, null],
+          [{ itemId: 'wood', count: ItemStackCount(1) }, { itemId: 'wood', count: ItemStackCount(1) }, null],
+          [null, null, null],
         ],
       }
 
@@ -67,17 +59,9 @@ describe('CraftingEngineService', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            undefined,
-            { itemId: 'stick', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [
-            { itemId: 'coal', count: ItemStackCount(1) },
-            undefined,
-            undefined,
-          ],
-          [undefined, undefined, undefined],
+          [null, { itemId: 'stick', count: ItemStackCount(1) }, null],
+          [{ itemId: 'coal', count: ItemStackCount(1) }, null, null],
+          [null, null, null],
         ],
       }
 
@@ -114,7 +98,7 @@ describe('CraftingEngineService', () => {
           ['P', 'P'],
         ],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'crafting_table',
@@ -123,9 +107,7 @@ describe('CraftingEngineService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(
-        service.validateRecipeMatch(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.validateRecipeMatch(grid, recipe).pipe(Effect.either))
 
       // This should validate successfully
       expect(result._tag).toBe('Right')
@@ -159,7 +141,7 @@ describe('CraftingEngineService', () => {
           ['P', 'P'],
         ],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'crafting_table',
@@ -168,9 +150,7 @@ describe('CraftingEngineService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(
-        service.validateRecipeMatch(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.validateRecipeMatch(grid, recipe).pipe(Effect.either))
 
       // This should return false or error
       if (result._tag === 'Right') {
@@ -205,7 +185,7 @@ describe('CraftingEngineService', () => {
           ['P', 'P'],
         ],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'crafting_table',
@@ -214,9 +194,7 @@ describe('CraftingEngineService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(
-        service.executeCrafting(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.executeCrafting(grid, recipe).pipe(Effect.either))
 
       if (result._tag === 'Right') {
         const craftingResult = result.right
@@ -227,10 +205,10 @@ describe('CraftingEngineService', () => {
 
         // Check that grid slots are now empty
         const remainingGrid = craftingResult.remainingGrid
-        expect(remainingGrid.slots[0][0]).toBeUndefined()
-        expect(remainingGrid.slots[0][1]).toBeUndefined()
-        expect(remainingGrid.slots[1][0]).toBeUndefined()
-        expect(remainingGrid.slots[1][1]).toBeUndefined()
+        expect(remainingGrid.slots[0]?.[0]).toBeNull()
+        expect(remainingGrid.slots[0]?.[1]).toBeNull()
+        expect(remainingGrid.slots[1]?.[0]).toBeNull()
+        expect(remainingGrid.slots[1]?.[1]).toBeNull()
       }
     })
 
@@ -240,17 +218,9 @@ describe('CraftingEngineService', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            { itemId: 'stick', count: ItemStackCount(1) },
-            undefined,
-            undefined,
-          ],
-          [
-            undefined,
-            { itemId: 'coal', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [undefined, undefined, undefined],
+          [{ itemId: 'stick', count: ItemStackCount(1) }, null, null],
+          [null, { itemId: 'coal', count: ItemStackCount(1) }, null],
+          [null, null, null],
         ],
       }
 
@@ -268,9 +238,7 @@ describe('CraftingEngineService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(
-        service.executeCrafting(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.executeCrafting(grid, recipe).pipe(Effect.either))
 
       if (result._tag === 'Right') {
         const craftingResult = result.right
@@ -289,17 +257,9 @@ describe('CraftingEngineService', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            { itemId: 'planks', count: ItemStackCount(1) },
-            { itemId: 'planks', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [
-            undefined,
-            undefined,
-            undefined,
-          ],
-          [undefined, undefined, undefined],
+          [{ itemId: 'planks', count: ItemStackCount(1) }, { itemId: 'planks', count: ItemStackCount(1) }, null],
+          [null, null, null],
+          [null, null, null],
         ],
       }
 
@@ -326,17 +286,9 @@ describe('CraftingEngineService', () => {
         width: GridWidth(3),
         height: GridHeight(3),
         slots: [
-          [
-            { itemId: 'stick', count: ItemStackCount(1) },
-            undefined,
-            undefined,
-          ],
-          [
-            { itemId: 'stick', count: ItemStackCount(1) },
-            { itemId: 'stick', count: ItemStackCount(1) },
-            undefined,
-          ],
-          [undefined, undefined, undefined],
+          [{ itemId: 'stick', count: ItemStackCount(1) }, null, null],
+          [{ itemId: 'stick', count: ItemStackCount(1) }, { itemId: 'stick', count: ItemStackCount(1) }, null],
+          [null, null, null],
         ],
       }
 
@@ -345,10 +297,10 @@ describe('CraftingEngineService', () => {
         id: RecipeId('hoe'),
         pattern: [
           ['S', 'S'],
-          ['S', undefined],
+          ['S', null],
         ],
         ingredients: {
-          'S': { _tag: 'exact', itemId: 'stick' },
+          S: { _tag: 'exact', itemId: 'stick' },
         },
         result: {
           itemId: 'hoe_handle',
@@ -357,9 +309,7 @@ describe('CraftingEngineService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(
-        service.validateRecipeMatch(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.validateRecipeMatch(grid, recipe).pipe(Effect.either))
 
       // Pattern matching should handle rotation
       if (result._tag === 'Right') {
@@ -376,14 +326,14 @@ describe('CraftingEngineService', () => {
           [
             { itemId: 'oak_planks', count: ItemStackCount(1) },
             { itemId: 'birch_planks', count: ItemStackCount(1) },
-            undefined,
+            null,
           ],
           [
             { itemId: 'spruce_planks', count: ItemStackCount(1) },
             { itemId: 'jungle_planks', count: ItemStackCount(1) },
-            undefined,
+            null,
           ],
-          [undefined, undefined, undefined],
+          [null, null, null],
         ],
       }
 
@@ -395,7 +345,7 @@ describe('CraftingEngineService', () => {
           ['W', 'W'],
         ],
         ingredients: {
-          'W': { _tag: 'tag', tag: 'planks' },
+          W: { _tag: 'tag', tag: 'planks' },
         },
         result: {
           itemId: 'chest',
@@ -405,9 +355,7 @@ describe('CraftingEngineService', () => {
       }
 
       // This test demonstrates tag-based matching
-      const result = await Effect.runPromiseEither(
-        service.validateRecipeMatch(grid, recipe)
-      )
+      const result = await Effect.runPromise(service.validateRecipeMatch(grid, recipe).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
     })

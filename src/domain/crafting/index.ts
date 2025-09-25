@@ -27,10 +27,6 @@ export type {
   RecipePattern,
 } from './RecipeTypes'
 
-export type {
-  CraftingEngineService,
-} from './CraftingEngineService'
+export type { CraftingEngineService } from './CraftingEngineService'
 
-export type {
-  RecipeRegistryService,
-} from './RecipeRegistryService'
+export type { RecipeRegistryService } from './RecipeRegistryService'

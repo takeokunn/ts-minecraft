@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Either, Layer } from 'effect'
 import { RecipeRegistryService, RecipeRegistryServiceLive } from '../RecipeRegistryService'
 import { CraftingEngineService, CraftingEngineServiceLive } from '../CraftingEngineService'
 import {
@@ -18,15 +18,10 @@ describe('RecipeRegistryService', () => {
   beforeEach(() => {
     // Create service with dependencies
     const program = Effect.gen(function* () {
-      const layer = yield* RecipeRegistryServiceLive
-      const engineLayer = yield* CraftingEngineServiceLive
-
-      // Combine layers and build service
-      const combined = Effect.mergeAll([layer, engineLayer])
-      return yield* combined.build
+      return yield* RecipeRegistryService
     })
-
-    service = Effect.runSync(program)
+    const layers = RecipeRegistryServiceLive.pipe(Layer.provide(CraftingEngineServiceLive))
+    service = Effect.runSync(program.pipe(Effect.provide(layers)))
   })
 
   describe('register', () => {
@@ -34,12 +29,9 @@ describe('RecipeRegistryService', () => {
       const recipe: ShapedRecipe = {
         _tag: 'shaped',
         id: RecipeId('stick'),
-        pattern: [
-          ['P'],
-          ['P'],
-        ],
+        pattern: [['P'], ['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'stick',
@@ -48,7 +40,7 @@ describe('RecipeRegistryService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(service.register(recipe))
+      const result = await Effect.runPromise(service.register(recipe).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
     })
@@ -68,7 +60,7 @@ describe('RecipeRegistryService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(service.register(recipe))
+      const result = await Effect.runPromise(service.register(recipe).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
     })
@@ -79,7 +71,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('duplicate_test'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'item1',
@@ -93,7 +85,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('duplicate_test'),
         pattern: [['S']],
         ingredients: {
-          'S': { _tag: 'exact', itemId: 'stone' },
+          S: { _tag: 'exact', itemId: 'stone' },
         },
         result: {
           itemId: 'item2',
@@ -103,7 +95,7 @@ describe('RecipeRegistryService', () => {
       }
 
       await Effect.runPromise(service.register(recipe1))
-      const result = await Effect.runPromiseEither(service.register(recipe2))
+      const result = await Effect.runPromise(service.register(recipe2).pipe(Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -119,7 +111,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('test_unregister'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'test_item',
@@ -129,23 +121,17 @@ describe('RecipeRegistryService', () => {
       }
 
       await Effect.runPromise(service.register(recipe))
-      const result = await Effect.runPromiseEither(
-        service.unregister(RecipeId('test_unregister'))
-      )
+      const result = await Effect.runPromise(service.unregister(RecipeId('test_unregister')).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
 
       // Verify recipe is gone
-      const getResult = await Effect.runPromiseEither(
-        service.getById(RecipeId('test_unregister'))
-      )
+      const getResult = await Effect.runPromise(service.getById(RecipeId('test_unregister')).pipe(Effect.either))
       expect(getResult._tag).toBe('Left')
     })
 
     it('should fail when unregistering non-existent recipe', async () => {
-      const result = await Effect.runPromiseEither(
-        service.unregister(RecipeId('non_existent'))
-      )
+      const result = await Effect.runPromise(service.unregister(RecipeId('non_existent')).pipe(Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -161,7 +147,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('test_get'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'test_item',
@@ -171,7 +157,7 @@ describe('RecipeRegistryService', () => {
       }
 
       await Effect.runPromise(service.register(recipe))
-      const result = await Effect.runPromiseEither(service.getById(RecipeId('test_get')))
+      const result = await Effect.runPromise(service.getById(RecipeId('test_get')).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
       if (result._tag === 'Right') {
@@ -181,9 +167,7 @@ describe('RecipeRegistryService', () => {
     })
 
     it('should fail for non-existent recipe', async () => {
-      const result = await Effect.runPromiseEither(
-        service.getById(RecipeId('non_existent'))
-      )
+      const result = await Effect.runPromise(service.getById(RecipeId('non_existent')).pipe(Effect.either))
 
       expect(result._tag).toBe('Left')
       if (result._tag === 'Left') {
@@ -199,7 +183,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('crafting_recipe'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'item1',
@@ -211,9 +195,7 @@ describe('RecipeRegistryService', () => {
       const smeltingRecipe: ShapelessRecipe = {
         _tag: 'shapeless',
         id: RecipeId('smelting_recipe'),
-        ingredients: [
-          { _tag: 'exact', itemId: 'iron_ore' },
-        ],
+        ingredients: [{ _tag: 'exact', itemId: 'iron_ore' }],
         result: {
           itemId: 'iron_ingot',
           count: ItemStackCount(1),
@@ -224,21 +206,15 @@ describe('RecipeRegistryService', () => {
       await Effect.runPromise(service.register(craftingRecipe))
       await Effect.runPromise(service.register(smeltingRecipe))
 
-      const craftingResults = await Effect.runPromise(
-        service.getByCategory({ _tag: 'crafting' })
-      )
-      const smeltingResults = await Effect.runPromise(
-        service.getByCategory({ _tag: 'smelting' })
-      )
+      const craftingResults = await Effect.runPromise(service.getByCategory({ _tag: 'crafting' }))
+      const smeltingResults = await Effect.runPromise(service.getByCategory({ _tag: 'smelting' }))
 
       expect(craftingResults.length).toBeGreaterThanOrEqual(1)
       expect(smeltingResults.length).toBeGreaterThanOrEqual(1)
     })
 
     it('should return empty array for category with no recipes', async () => {
-      const results = await Effect.runPromise(
-        service.getByCategory({ _tag: 'smithing' })
-      )
+      const results = await Effect.runPromise(service.getByCategory({ _tag: 'smithing' }))
 
       expect(results).toEqual([])
     })
@@ -251,7 +227,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('recipe1'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'item1',
@@ -275,12 +251,12 @@ describe('RecipeRegistryService', () => {
       }
 
       await Effect.runPromise(service.register(recipe1))
-      await Effect.runPromise(service.register(recipe2))
+      await Effect.runPromise(service.register(recipe2).pipe(Effect.either))
 
       const allRecipes = await Effect.runPromise(service.getAllRecipes())
 
       expect(allRecipes.length).toBeGreaterThanOrEqual(2)
-      const ids = allRecipes.map(r => r.id)
+      const ids = allRecipes.map((r) => r.id)
       expect(ids).toContain(RecipeId('recipe1'))
       expect(ids).toContain(RecipeId('recipe2'))
     })
@@ -288,13 +264,10 @@ describe('RecipeRegistryService', () => {
     it('should return empty array when no recipes registered', async () => {
       // Create a fresh service instance
       const freshProgram = Effect.gen(function* () {
-        const layer = yield* RecipeRegistryServiceLive
-        const engineLayer = yield* CraftingEngineServiceLive
-        const combined = Effect.mergeAll([layer, engineLayer])
-        return yield* combined.build
+        return yield* RecipeRegistryService
       })
-
-      const freshService = Effect.runSync(freshProgram)
+      const freshLayers = RecipeRegistryServiceLive.pipe(Layer.provide(CraftingEngineServiceLive))
+      const freshService = Effect.runSync(freshProgram.pipe(Effect.provide(freshLayers)))
       const allRecipes = await Effect.runPromise(freshService.getAllRecipes())
 
       expect(allRecipes).toEqual([])
@@ -310,7 +283,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('count_test'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'test_item',
@@ -333,7 +306,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('exists_test'),
         pattern: [['P']],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'test_item',
@@ -362,7 +335,7 @@ describe('RecipeRegistryService', () => {
         id: RecipeId('planks_from_logs'),
         pattern: [['L']],
         ingredients: {
-          'L': { _tag: 'exact', itemId: 'oak_log' },
+          L: { _tag: 'exact', itemId: 'oak_log' },
         },
         result: {
           itemId: 'oak_planks',
@@ -374,9 +347,7 @@ describe('RecipeRegistryService', () => {
       const recipe2: ShapelessRecipe = {
         _tag: 'shapeless',
         id: RecipeId('planks_from_wood'),
-        ingredients: [
-          { _tag: 'exact', itemId: 'oak_wood' },
-        ],
+        ingredients: [{ _tag: 'exact', itemId: 'oak_wood' }],
         result: {
           itemId: 'oak_planks',
           count: ItemStackCount(4),
@@ -385,12 +356,12 @@ describe('RecipeRegistryService', () => {
       }
 
       await Effect.runPromise(service.register(recipe1))
-      await Effect.runPromise(service.register(recipe2))
+      await Effect.runPromise(service.register(recipe2).pipe(Effect.either))
 
       const recipes = await Effect.runPromise(service.getRecipesByResult('oak_planks'))
 
       expect(recipes.length).toBe(2)
-      const ids = recipes.map(r => r.id)
+      const ids = recipes.map((r) => r.id)
       expect(ids).toContain(RecipeId('planks_from_logs'))
       expect(ids).toContain(RecipeId('planks_from_wood'))
     })
@@ -412,7 +383,7 @@ describe('RecipeRegistryService', () => {
           ['P', 'P'],
         ],
         ingredients: {
-          'P': { _tag: 'exact', itemId: 'planks' },
+          P: { _tag: 'exact', itemId: 'planks' },
         },
         result: {
           itemId: 'crafting_table',
@@ -421,7 +392,7 @@ describe('RecipeRegistryService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(service.validateAndRegister(recipe))
+      const result = await Effect.runPromise(service.validateAndRegister(recipe).pipe(Effect.either))
 
       expect(result._tag).toBe('Right')
 
@@ -444,7 +415,7 @@ describe('RecipeRegistryService', () => {
         category: { _tag: 'crafting' },
       }
 
-      const result = await Effect.runPromiseEither(service.validateAndRegister(invalidRecipe))
+      const result = await Effect.runPromise(service.validateAndRegister(invalidRecipe).pipe(Effect.either))
 
       // Should fail validation
       if (result._tag === 'Left') {

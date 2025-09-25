@@ -23,10 +23,7 @@ export const GridHeight = Brand.nominal<GridHeight>()
 
 // ===== Schema Definitions =====
 
-export const RecipeIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.brand('RecipeId')
-)
+export const RecipeIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('RecipeId'))
 
 export const ItemStackCountSchema = Schema.Number.pipe(
   Schema.int(),
@@ -68,10 +65,10 @@ export const CustomItemMatcher = Schema.Struct({
 
 export const ItemMatcher = Schema.Union(ExactItemMatcher, TagItemMatcher, CustomItemMatcher)
 
-export interface ExactItemMatcher extends Schema.Schema.Type<typeof ExactItemMatcher> {}
-export interface TagItemMatcher extends Schema.Schema.Type<typeof TagItemMatcher> {}
-export interface CustomItemMatcher extends Schema.Schema.Type<typeof CustomItemMatcher> {}
-export interface ItemMatcher extends Schema.Schema.Type<typeof ItemMatcher> {}
+export type ExactItemMatcher = Schema.Schema.Type<typeof ExactItemMatcher>
+export type TagItemMatcher = Schema.Schema.Type<typeof TagItemMatcher>
+export type CustomItemMatcher = Schema.Schema.Type<typeof CustomItemMatcher>
+export type ItemMatcher = Schema.Schema.Type<typeof ItemMatcher>
 
 // ===== Recipe Categories =====
 
@@ -90,7 +87,7 @@ export const RecipeCategory = Schema.Union(
   })
 )
 
-export interface RecipeCategory extends Schema.Schema.Type<typeof RecipeCategory> {}
+export type RecipeCategory = Schema.Schema.Type<typeof RecipeCategory>
 
 // ===== Item Stack for Crafting =====
 
@@ -100,15 +97,13 @@ export const CraftingItemStack = Schema.Struct({
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
 })
 
-export interface CraftingItemStack extends Schema.Schema.Type<typeof CraftingItemStack> {}
+export type CraftingItemStack = Schema.Schema.Type<typeof CraftingItemStack>
 
 // ===== Recipe Pattern =====
 
-export const RecipePattern = Schema.Array(
-  Schema.Array(Schema.optional(Schema.String))
-)
+export const RecipePattern = Schema.Array(Schema.Array(Schema.NullOr(Schema.String)))
 
-export interface RecipePattern extends Schema.Schema.Type<typeof RecipePattern> {}
+export type RecipePattern = Schema.Schema.Type<typeof RecipePattern>
 
 // ===== Crafting Recipe =====
 
@@ -131,9 +126,9 @@ export const ShapelessRecipe = Schema.Struct({
 
 export const CraftingRecipe = Schema.Union(ShapedRecipe, ShapelessRecipe)
 
-export interface ShapedRecipe extends Schema.Schema.Type<typeof ShapedRecipe> {}
-export interface ShapelessRecipe extends Schema.Schema.Type<typeof ShapelessRecipe> {}
-export interface CraftingRecipe extends Schema.Schema.Type<typeof CraftingRecipe> {}
+export type ShapedRecipe = Schema.Schema.Type<typeof ShapedRecipe>
+export type ShapelessRecipe = Schema.Schema.Type<typeof ShapelessRecipe>
+export type CraftingRecipe = Schema.Schema.Type<typeof CraftingRecipe>
 
 // ===== Crafting Grid =====
 
@@ -141,10 +136,10 @@ export const CraftingGrid = Schema.Struct({
   _tag: Schema.Literal('CraftingGrid'),
   width: GridWidthSchema,
   height: GridHeightSchema,
-  slots: Schema.Array(Schema.Array(Schema.optional(CraftingItemStack))),
+  slots: Schema.Array(Schema.Array(Schema.NullOr(CraftingItemStack))),
 })
 
-export interface CraftingGrid extends Schema.Schema.Type<typeof CraftingGrid> {}
+export type CraftingGrid = Schema.Schema.Type<typeof CraftingGrid>
 
 // ===== Recipe Errors =====
 
@@ -175,7 +170,7 @@ export const RecipeValidationResult = Schema.Struct({
   errors: Schema.Array(Schema.Union(InvalidRecipeError, PatternMismatchError)),
 })
 
-export interface RecipeValidationResult extends Schema.Schema.Type<typeof RecipeValidationResult> {}
+export type RecipeValidationResult = Schema.Schema.Type<typeof RecipeValidationResult>
 
 // ===== Crafting Result =====
 
@@ -188,28 +183,23 @@ export const CraftingResult = Schema.Struct({
   usedRecipe: Schema.optional(CraftingRecipe),
 })
 
-export interface CraftingResult extends Schema.Schema.Type<typeof CraftingResult> {}
+export type CraftingResult = Schema.Schema.Type<typeof CraftingResult>
 
 // ===== Type Guards and Utilities =====
 
-export const isShapedRecipe = (recipe: CraftingRecipe): recipe is ShapedRecipe =>
-  recipe._tag === 'shaped'
+export const isShapedRecipe = (recipe: CraftingRecipe): recipe is ShapedRecipe => recipe._tag === 'shaped'
 
-export const isShapelessRecipe = (recipe: CraftingRecipe): recipe is ShapelessRecipe =>
-  recipe._tag === 'shapeless'
+export const isShapelessRecipe = (recipe: CraftingRecipe): recipe is ShapelessRecipe => recipe._tag === 'shapeless'
 
-export const isExactItemMatcher = (matcher: ItemMatcher): matcher is ExactItemMatcher =>
-  matcher._tag === 'exact'
+export const isExactItemMatcher = (matcher: ItemMatcher): matcher is ExactItemMatcher => matcher._tag === 'exact'
 
-export const isTagItemMatcher = (matcher: ItemMatcher): matcher is TagItemMatcher =>
-  matcher._tag === 'tag'
+export const isTagItemMatcher = (matcher: ItemMatcher): matcher is TagItemMatcher => matcher._tag === 'tag'
 
-export const isCustomItemMatcher = (matcher: ItemMatcher): matcher is CustomItemMatcher =>
-  matcher._tag === 'custom'
+export const isCustomItemMatcher = (matcher: ItemMatcher): matcher is CustomItemMatcher => matcher._tag === 'custom'
 
 export const createEmptyCraftingGrid = (width: GridWidth, height: GridHeight): CraftingGrid => ({
   _tag: 'CraftingGrid',
   width,
   height,
-  slots: Array.from({ length: height }, () => Array.from({ length: width }, () => undefined)),
+  slots: Array.from({ length: height }, () => Array.from({ length: width }, () => null)),
 })

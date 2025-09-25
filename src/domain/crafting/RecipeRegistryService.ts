@@ -33,14 +33,14 @@ export interface RecipeRegistryService {
 
   readonly hasRecipe: (recipeId: RecipeId) => Effect.Effect<boolean, never>
 
-  readonly validateAndRegister: (recipe: CraftingRecipe) => Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError>
+  readonly validateAndRegister: (
+    recipe: CraftingRecipe
+  ) => Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError>
 
   readonly getRecipesByResult: (itemId: string) => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
 }
 
-export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>(
-  '@minecraft/RecipeRegistryService'
-)
+export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>('@minecraft/RecipeRegistryService')
 
 // ===== Registry State =====
 
@@ -69,13 +69,10 @@ export const RecipeRegistryServiceLive = Layer.effect(
         recipe,
         Match.value,
         Match.tag('shaped', ({ pattern, ingredients }) => {
-          const patternKeys = new Set(
-            pattern.flat().filter((key): key is string => key !== undefined)
-          )
+          const patternKeys = new Set(pattern.flat().filter((key): key is string => key !== undefined))
           const ingredientKeys = new Set(Object.keys(ingredients))
 
-          return patternKeys.size === ingredientKeys.size &&
-                 Array.from(patternKeys).every(key => ingredientKeys.has(key))
+          return patternKeys.size === ingredientKeys.size && [...patternKeys].every((key) => ingredientKeys.has(key))
             ? Effect.void
             : Effect.fail(
                 new InvalidRecipeError({
@@ -142,7 +139,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
             existingCategory,
             Option.match({
               onNone: () => [],
-              onSome: (existing) => existing.filter(r => r.id !== recipe.id),
+              onSome: (existing) => existing.filter((r) => r.id !== recipe.id),
             })
           )
 
@@ -152,7 +149,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
             existingResult,
             Option.match({
               onNone: () => [],
-              onSome: (existing) => existing.filter(r => r.id !== recipe.id),
+              onSome: (existing) => existing.filter((r) => r.id !== recipe.id),
             })
           )
 
@@ -186,11 +183,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
             // 登録実行
             const newRecipes = HashMap.set(currentState.recipes, recipe.id, recipe)
-            const updatedState = updateIndexes(
-              { ...currentState, recipes: newRecipes },
-              recipe,
-              'add'
-            )
+            const updatedState = updateIndexes({ ...currentState, recipes: newRecipes }, recipe, 'add')
 
             yield* Effect.log(`Recipe registered: ${recipe.id}`)
             return updatedState
@@ -214,11 +207,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
             const recipe = existingRecipe.value
             const newRecipes = HashMap.remove(currentState.recipes, recipeId)
-            const updatedState = updateIndexes(
-              { ...currentState, recipes: newRecipes },
-              recipe,
-              'remove'
-            )
+            const updatedState = updateIndexes({ ...currentState, recipes: newRecipes }, recipe, 'remove')
 
             yield* Effect.log(`Recipe unregistered: ${recipeId}`)
             return updatedState
@@ -247,14 +236,14 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
         return pipe(
           recipes,
-          Option.getOrElse(() => [] as Array.ReadonlyArray<CraftingRecipe>)
+          Option.getOrElse(() => [] as ReadonlyArray<CraftingRecipe>)
         )
       })
 
     const getAllRecipes = (): Effect.Effect<ReadonlyArray<CraftingRecipe>, never> =>
       Effect.gen(function* () {
         const currentState = yield* SynchronizedRef.get(state)
-        return HashMap.values(currentState.recipes)
+        return [...HashMap.values(currentState.recipes)]
       })
 
     const getRecipeCount = (): Effect.Effect<number, never> =>
@@ -270,7 +259,9 @@ export const RecipeRegistryServiceLive = Layer.effect(
         return Option.isSome(recipe)
       })
 
-    const validateAndRegister = (recipe: CraftingRecipe): Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError> =>
+    const validateAndRegister = (
+      recipe: CraftingRecipe
+    ): Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError> =>
       Effect.gen(function* () {
         yield* Effect.log(`Validating and registering recipe: ${recipe.id}`)
         yield* register(recipe)
@@ -283,7 +274,7 @@ export const RecipeRegistryServiceLive = Layer.effect(
 
         return pipe(
           recipes,
-          Option.getOrElse(() => [] as Array.ReadonlyArray<CraftingRecipe>)
+          Option.getOrElse(() => [] as ReadonlyArray<CraftingRecipe>)
         )
       })
 
