@@ -231,7 +231,12 @@ const makeTerrainAdaptationService: Effect.Effect<
       // ブロックIDに基づいて地形特性を決定
       const properties = TERRAIN_PROPERTIES.get(blockType.id) ?? DEFAULT_TERRAIN_PROPERTIES
 
-      // ブロック物理特性も考慮
+      // 既に固有の地形特性が設定されている場合は、それを優先
+      if (TERRAIN_PROPERTIES.has(blockType.id)) {
+        return properties
+      }
+
+      // ブロック物理特性に基づく動的調整（固有の地形特性がない場合のみ）
       const adjustedProperties = yield* pipe(
         Match.value({
           isLiquid: !blockType.physics.solid && blockType.physics.gravity,
@@ -381,7 +386,7 @@ const makeTerrainAdaptationService: Effect.Effect<
               opacity: 15,
               flammable: false,
               replaceable: false,
-              waterloggable: false
+              waterloggable: false,
             },
             tool: 'none' as const,
             minToolLevel: 0,
@@ -389,7 +394,7 @@ const makeTerrainAdaptationService: Effect.Effect<
             sound: {
               break: 'block.stone.break',
               place: 'block.stone.place',
-              step: 'block.stone.step'
+              step: 'block.stone.step',
             },
             stackSize: 64,
           }
@@ -531,11 +536,15 @@ const makeTerrainAdaptationService: Effect.Effect<
           Effect.gen(function* () {
             const buoyancyForce = 0.8 * level // 浮力
             const waterResistance = 0.9 * level // 水の抵抗
+            
+            // 水没レベルが高いほど強い抵抗を適用
+            const horizontalResistance = 0.6 + (waterResistance * 0.4) // 0.6〜1.0の範囲
+            const verticalResistance = 0.4 + (waterResistance * 0.2) // 0.4〜0.6の範囲
 
             return {
-              x: currentVelocity.x * (1 - waterResistance * 0.8),
-              y: currentVelocity.y * (1 - waterResistance * 0.6) + buoyancyForce * 0.1,
-              z: currentVelocity.z * (1 - waterResistance * 0.8),
+              x: currentVelocity.x * (1 - horizontalResistance),
+              y: currentVelocity.y * (1 - verticalResistance) + buoyancyForce * 0.1,
+              z: currentVelocity.z * (1 - horizontalResistance),
             }
           })
         )
@@ -550,13 +559,14 @@ const makeTerrainAdaptationService: Effect.Effect<
     deltaTime: number
   ) =>
     Effect.gen(function* () {
-      const frictionFactor = 1 - terrainProperties.friction * deltaTime * 5
-      const clampedFriction = Math.max(0, Math.min(1, frictionFactor))
+      // 摩擦係数を0-1の範囲で計算（速度比率として）
+      const frictionReduction = terrainProperties.friction * deltaTime * 5
+      const frictionFactor = Math.max(0, Math.min(1, 1 - frictionReduction))
 
       return {
-        x: currentVelocity.x * clampedFriction,
+        x: currentVelocity.x * frictionFactor,
         y: currentVelocity.y, // Y軸は重力が管理
-        z: currentVelocity.z * clampedFriction,
+        z: currentVelocity.z * frictionFactor,
       }
     })
 

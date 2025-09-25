@@ -49,14 +49,15 @@ const MockCannonPhysicsService = Layer.succeed(CannonPhysicsService, {
   initializeWorld: () => Effect.void,
   createPlayerController: () => Effect.succeed('mock-body-id'),
   step: () => Effect.void,
-  getPlayerState: () => Effect.succeed({
-    position: { x: 0, y: 0, z: 0 },
-    velocity: { x: 0, y: 0, z: 0 },
-    angularVelocity: { x: 0, y: 0, z: 0 },
-    quaternion: { x: 0, y: 0, z: 0, w: 1 },
-    isOnGround: true,
-    isColliding: false,
-  }),
+  getPlayerState: () =>
+    Effect.succeed({
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      angularVelocity: { x: 0, y: 0, z: 0 },
+      quaternion: { x: 0, y: 0, z: 0, w: 1 },
+      isOnGround: true,
+      isColliding: false,
+    }),
   applyMovementForce: () => Effect.void,
   jumpPlayer: () => Effect.void,
   raycastGround: () => Effect.succeed(null),
@@ -66,41 +67,44 @@ const MockCannonPhysicsService = Layer.succeed(CannonPhysicsService, {
 })
 
 const MockPlayerPhysicsService = Layer.succeed(PlayerPhysicsService, {
-  initializePlayerPhysics: () => Effect.succeed({
-    playerId: 'test-player' as any,
-    bodyId: 'mock-body-id',
-    physicsState: {
-      position: { x: 0, y: 10, z: 0 },
-      velocity: { x: 0, y: 0, z: 0 },
-      angularVelocity: { x: 0, y: 0, z: 0 },
-      quaternion: { x: 0, y: 0, z: 0, w: 1 },
-      isOnGround: true,
-      isColliding: false,
-    },
-    movementConfig: {
-      moveForceMultiplier: 500.0,
-      jumpVelocity: 8.0,
-      maxSpeed: 5.612,
-      airControlFactor: 0.3,
-      groundFriction: 0.8,
-    },
-    lastGroundTime: Date.now(),
-    fallStartY: 10,
-  }),
-  movePlayer: (physicsState) => Effect.succeed({
-    ...physicsState,
-    physicsState: {
-      ...physicsState.physicsState,
-      position: { x: physicsState.physicsState.position.x, y: 10, z: physicsState.physicsState.position.z + 0.1 },
-    },
-  }),
-  jumpPlayer: (physicsState) => Effect.succeed({
-    ...physicsState,
-    physicsState: {
-      ...physicsState.physicsState,
-      velocity: { ...physicsState.physicsState.velocity, y: 8.0 },
-    },
-  }),
+  initializePlayerPhysics: () =>
+    Effect.succeed({
+      playerId: 'test-player' as any,
+      bodyId: 'mock-body-id',
+      physicsState: {
+        position: { x: 0, y: 10, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        angularVelocity: { x: 0, y: 0, z: 0 },
+        quaternion: { x: 0, y: 0, z: 0, w: 1 },
+        isOnGround: true,
+        isColliding: false,
+      },
+      movementConfig: {
+        moveForceMultiplier: 500.0,
+        jumpVelocity: 8.0,
+        maxSpeed: 5.612,
+        airControlFactor: 0.3,
+        groundFriction: 0.8,
+      },
+      lastGroundTime: Date.now(),
+      fallStartY: 10,
+    }),
+  movePlayer: (physicsState) =>
+    Effect.succeed({
+      ...physicsState,
+      physicsState: {
+        ...physicsState.physicsState,
+        position: { x: physicsState.physicsState.position.x, y: 10, z: physicsState.physicsState.position.z + 0.1 },
+      },
+    }),
+  jumpPlayer: (physicsState) =>
+    Effect.succeed({
+      ...physicsState,
+      physicsState: {
+        ...physicsState.physicsState,
+        velocity: { ...physicsState.physicsState.velocity, y: 8.0 },
+      },
+    }),
   syncPlayerState: (player) => Effect.succeed(player),
   calculateFallDamage: () => Effect.succeed({ damage: 0, newState: {} as any }),
   updatePlayerPhysics: (physicsState) => Effect.succeed(physicsState),
@@ -108,19 +112,8 @@ const MockPlayerPhysicsService = Layer.succeed(PlayerPhysicsService, {
 })
 
 const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
-  getTerrainProperties: () => Effect.succeed({
-    speedModifier: 1.0,
-    friction: 0.8,
-    jumpHeightModifier: 1.0,
-    stepHeight: 0.6,
-    airResistance: 0.02,
-    buoyancy: 0.0,
-    soundDamping: 0.1,
-  }),
-  initializePlayerTerrain: () => Effect.void,
-  adaptToTerrain: (playerId) => Effect.succeed({
-    playerId,
-    currentTerrain: {
+  getTerrainProperties: () =>
+    Effect.succeed({
       speedModifier: 1.0,
       friction: 0.8,
       jumpHeightModifier: 1.0,
@@ -128,173 +121,276 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
       airResistance: 0.02,
       buoyancy: 0.0,
       soundDamping: 0.1,
-    },
-    submersionLevel: 0.0,
-    isSwimming: false,
-    isClimbing: false,
-    lastTerrainChange: Date.now(),
-    adaptationBuffer: [],
-  }),
+    }),
+  initializePlayerTerrain: () => Effect.void,
+  adaptToTerrain: (playerId, position) => {
+    // Simulate water terrain at y=5 and below
+    const isInWater = position.y <= 5
+    
+    const waterTerrain = {
+      speedModifier: 0.3,
+      friction: 0.3,
+      jumpHeightModifier: 0.0,
+      stepHeight: 0.0,
+      airResistance: 0.8,
+      buoyancy: 1.2,
+      soundDamping: 0.7,
+    }
+    
+    const normalTerrain = {
+      speedModifier: 1.0,
+      friction: 0.8,
+      jumpHeightModifier: 1.0,
+      stepHeight: 0.6,
+      airResistance: 0.02,
+      buoyancy: 0.0,
+      soundDamping: 0.1,
+    }
+    
+    return Effect.succeed({
+      playerId,
+      currentTerrain: isInWater ? waterTerrain : normalTerrain,
+      submersionLevel: isInWater ? 1.0 : 0.0,
+      isSwimming: isInWater,
+      isClimbing: false,
+      lastTerrainChange: Date.now(),
+      adaptationBuffer: [],
+    })
+  },
   processStepUp: (playerId, position, velocity) => Effect.succeed({ position, velocity }),
   applySwimmingPhysics: (playerId, submersionLevel, velocity) => Effect.succeed(velocity),
   applyTerrainFriction: (playerId, terrainProperties, velocity) => Effect.succeed(velocity),
-  getPlayerTerrainState: (playerId) => Effect.succeed({
-    playerId,
-    currentTerrain: {
-      speedModifier: 1.0,
-      friction: 0.8,
-      jumpHeightModifier: 1.0,
-      stepHeight: 0.6,
-      airResistance: 0.02,
-      buoyancy: 0.0,
-      soundDamping: 0.1,
-    },
-    submersionLevel: 0.0,
-    isSwimming: false,
-    isClimbing: false,
-    lastTerrainChange: Date.now(),
-    adaptationBuffer: [],
-  }),
+  getPlayerTerrainState: (playerId) =>
+    Effect.succeed({
+      playerId,
+      currentTerrain: {
+        speedModifier: 1.0,
+        friction: 0.8,
+        jumpHeightModifier: 1.0,
+        stepHeight: 0.6,
+        airResistance: 0.02,
+        buoyancy: 0.0,
+        soundDamping: 0.1,
+      },
+      submersionLevel: 0.0,
+      isSwimming: false,
+      isClimbing: false,
+      lastTerrainChange: Date.now(),
+      adaptationBuffer: [],
+    }),
   cleanupPlayerTerrain: () => Effect.void,
 })
 
-const MockPhysicsPerformanceService = Layer.succeed(PhysicsPerformanceService, {
-  initializePerformanceMonitoring: () => Effect.void,
-  recordFrameMetrics: () => Effect.void,
-  getPerformanceState: () => Effect.succeed({
-    currentLevel: 'High' as const,
-    settings: {
-      targetFPS: 60,
-      maxPhysicsTime: 10.0,
-      collisionBatchSize: 80,
-      cullingDistance: 48.0,
-      updateFrequency: 60,
-      enableSpatialHashing: true,
-      enableLOD: true,
+const MockPhysicsPerformanceService = (() => {
+  let currentLevel = 'High' as const
+  let adaptiveMode = false
+  let metrics: any[] = []
+  
+  return Layer.succeed(PhysicsPerformanceService, {
+    initializePerformanceMonitoring: (level?: any) => 
+      Effect.sync(() => {
+        if (level) currentLevel = level
+      }),
+      
+    recordFrameMetrics: (frameTime: number, physicsTime: number, collisionChecks: number, activeObjects: number) =>
+      Effect.sync(() => {
+        metrics.push({ frameTime, physicsTime, collisionChecks, activeObjects, timestamp: Date.now() })
+        // Keep only last 10 metrics
+        if (metrics.length > 10) {
+          metrics = metrics.slice(-10)
+        }
+      }),
+      
+    getPerformanceState: () => {
+      const averageFrameTime = metrics.length > 0 
+        ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length 
+        : 16.67
+      const fps = averageFrameTime > 0 ? 1000 / averageFrameTime : 60
+      
+      return Effect.succeed({
+        currentLevel,
+        settings: {
+          targetFPS: 60,
+          maxPhysicsTime: 10.0,
+          collisionBatchSize: 80,
+          cullingDistance: 48.0,
+          updateFrequency: 60,
+          enableSpatialHashing: true,
+          enableLOD: true,
+        },
+        metrics,
+        averageMetrics: {
+          frameTime: averageFrameTime,
+          physicsTime: 5.0,
+          collisionChecks: 10,
+          activeObjects: 1,
+          memoryUsage: 50,
+          fps,
+          timestamp: Date.now(),
+        },
+        adaptiveMode,
+        lastOptimization: Date.now(),
+      })
     },
-    metrics: [],
-    averageMetrics: {
-      frameTime: 16.67,
-      physicsTime: 5.0,
-      collisionChecks: 10,
-      activeObjects: 1,
-      memoryUsage: 50,
-      fps: 60,
-      timestamp: Date.now(),
+    
+    setPerformanceLevel: (level: any) => 
+      Effect.sync(() => {
+        currentLevel = level
+      }),
+      
+    setAdaptiveMode: (enabled: boolean) => 
+      Effect.sync(() => {
+        adaptiveMode = enabled
+      }),
+      
+    analyzeAndOptimize: () => {
+      // Check if we have poor performance metrics
+      const averageFrameTime = metrics.length > 0 
+        ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length 
+        : 16.67
+      
+      const needsOptimization = averageFrameTime > 20 // worse than 50 FPS
+      
+      if (needsOptimization && adaptiveMode && currentLevel !== 'Low') {
+        // Downgrade performance level
+        const oldLevel = currentLevel
+        currentLevel = currentLevel === 'Ultra' ? 'High' : 'Medium'
+        return Effect.succeed({
+          optimizationApplied: true,
+          recommendations: [`Performance downgraded from ${oldLevel} to ${currentLevel} due to poor frame times`],
+        })
+      }
+      
+      return Effect.succeed({
+        optimizationApplied: false,
+        recommendations: ['Performance is stable'],
+      })
     },
-    adaptiveMode: true,
-    lastOptimization: Date.now(),
-  }),
-  setPerformanceLevel: () => Effect.void,
-  setAdaptiveMode: () => Effect.void,
-  analyzeAndOptimize: () => Effect.succeed({
-    optimizationApplied: false,
-    recommendations: ['Performance is stable'],
-  }),
-  monitorMemoryUsage: () => Effect.succeed(50),
-  resetStatistics: () => Effect.void,
-  getCurrentSettings: () => Effect.succeed({
-    targetFPS: 60,
-    maxPhysicsTime: 10.0,
-    collisionBatchSize: 80,
-    cullingDistance: 48.0,
-    updateFrequency: 60,
-    enableSpatialHashing: true,
-    enableLOD: true,
-  }),
-  now: () => performance.now(),
-})
+    
+    monitorMemoryUsage: () => Effect.succeed(50),
+    resetStatistics: () => 
+      Effect.sync(() => {
+        metrics = []
+      }),
+      
+    getCurrentSettings: () =>
+      Effect.succeed({
+        targetFPS: 60,
+        maxPhysicsTime: 10.0,
+        collisionBatchSize: 80,
+        cullingDistance: 48.0,
+        updateFrequency: 60,
+        enableSpatialHashing: true,
+        enableLOD: true,
+      }),
+      
+    now: () => performance.now(),
+  })
+})()
 
-const MockEnhancedPlayerMovementService = Layer.succeed(EnhancedPlayerMovementService, {
-  initializePlayer: () => Effect.void,
-  processMovementInput: (playerId) => Effect.succeed({
-    id: playerId,
-    entityId: 1,
-    name: 'TestPlayer',
-    position: { x: 0, y: 10, z: 0.1 },
-    rotation: { yaw: 0, pitch: 0, roll: 0 },
-    velocity: { x: 0, y: 0, z: 0.1 },
-    stats: {} as any,
-    gameMode: 'survival' as const,
-    abilities: {} as any,
-    inventory: { slots: [], selectedSlot: 0 },
-    equipment: { helmet: null, chestplate: null, leggings: null, boots: null, mainHand: null, offHand: null },
-    isOnGround: false,
-    isSneaking: false,
-    isSprinting: false,
-    lastUpdate: Date.now(),
-    createdAt: Date.now(),
-  }),
-  processJumpInput: (playerId) => Effect.succeed({
-    id: playerId,
-    entityId: 1,
-    name: 'TestPlayer',
-    position: { x: 0, y: 10, z: 0 },
-    rotation: { yaw: 0, pitch: 0, roll: 0 },
-    velocity: { x: 0, y: 8.0, z: 0 },
-    stats: {} as any,
-    gameMode: 'survival' as const,
-    abilities: {} as any,
-    inventory: { slots: [], selectedSlot: 0 },
-    equipment: { helmet: null, chestplate: null, leggings: null, boots: null, mainHand: null, offHand: null },
-    isOnGround: false,
-    isSneaking: false,
-    isSprinting: false,
-    lastUpdate: Date.now(),
-    createdAt: Date.now(),
-  }),
-  updatePhysics: () => Effect.void,
-  getPlayerState: (playerId) => Effect.succeed({
-    id: playerId,
-    entityId: 1,
-    name: 'TestPlayer',
-    position: { x: 0, y: 10, z: 0 },
-    rotation: { yaw: 0, pitch: 0, roll: 0 },
-    velocity: { x: 0, y: 0, z: 0 },
-    stats: {} as any,
-    gameMode: 'survival' as const,
-    abilities: {} as any,
-    inventory: { slots: [], selectedSlot: 0 },
-    equipment: { helmet: null, chestplate: null, leggings: null, boots: null, mainHand: null, offHand: null },
-    isOnGround: false,
-    isSneaking: false,
-    isSprinting: false,
-    lastUpdate: Date.now(),
-    createdAt: Date.now(),
-  }),
-  getAllPlayerStates: () => Effect.succeed([]),
-  removePlayer: () => Effect.void,
-  cleanup: () => Effect.void,
-})
+const MockEnhancedPlayerMovementService = (() => {
+  const playerStates = new Map<PlayerId, any>()
+  
+  return Layer.succeed(EnhancedPlayerMovementService, {
+    initializePlayer: (player: any) => 
+      Effect.sync(() => {
+        playerStates.set(player.id, player)
+      }),
+      
+    processMovementInput: (playerId) => {
+      const player = playerStates.get(playerId)
+      if (!player) {
+        return Effect.fail({
+          _tag: 'EnhancedMovementError',
+          reason: 'PlayerNotFound',
+          message: `Player ${playerId} not found`,
+          cause: null,
+        })
+      }
+      return Effect.succeed({
+        ...player,
+        position: { x: 0, y: 10, z: 0.1 },
+        velocity: { x: 0, y: 0, z: 0.1 },
+        lastUpdate: Date.now(),
+      })
+    },
+    
+    processJumpInput: (playerId) => {
+      const player = playerStates.get(playerId)
+      if (!player) {
+        return Effect.fail({
+          _tag: 'EnhancedMovementError',
+          reason: 'PlayerNotFound',
+          message: `Player ${playerId} not found`,
+          cause: null,
+        })
+      }
+      return Effect.succeed({
+        ...player,
+        velocity: { x: 0, y: 8.0, z: 0 },
+        lastUpdate: Date.now(),
+      })
+    },
+    
+    updatePhysics: () => Effect.void,
+    
+    getPlayerState: (playerId) => {
+      const player = playerStates.get(playerId)
+      if (!player) {
+        return Effect.fail({
+          _tag: 'EnhancedMovementError',
+          reason: 'PlayerNotFound',
+          message: `Player ${playerId} not found`,
+          cause: null,
+        })
+      }
+      return Effect.succeed(player)
+    },
+    
+    getAllPlayerStates: () => Effect.succeed(Array.from(playerStates.values())),
+    
+    removePlayer: (playerId) => 
+      Effect.sync(() => {
+        playerStates.delete(playerId)
+      }),
+      
+    cleanup: () => 
+      Effect.sync(() => {
+        playerStates.clear()
+      }),
+  })
+})()
 
 const MockMovementInputService = Layer.succeed(MovementInputService, {
   processInputEvent: () => Effect.void,
-  getMovementInput: () => Effect.succeed({
-    direction: {
-      forward: true,
-      backward: false,
-      left: false,
-      right: false,
-      jump: false,
-      sneak: false,
-      sprint: false,
-    },
-    mouseRotation: { deltaX: 0, deltaY: 0 },
-    jumpPressed: false,
-    timestamp: Date.now(),
-  }),
+  getMovementInput: () =>
+    Effect.succeed({
+      direction: {
+        forward: true,
+        backward: false,
+        left: false,
+        right: false,
+        jump: false,
+        sneak: false,
+        sprint: false,
+      },
+      mouseRotation: { deltaX: 0, deltaY: 0 },
+      jumpPressed: false,
+      timestamp: Date.now(),
+    }),
   setKeyBindings: () => Effect.void,
   setMouseSensitivity: () => Effect.void,
   resetInputState: () => Effect.void,
-  getRawInputState: () => Effect.succeed({
-    keyboard: new Map(),
-    mouse: {
-      deltaX: 0,
-      deltaY: 0,
-      buttons: new Map(),
-    },
-    lastUpdateTime: Date.now(),
-  }),
+  getRawInputState: () =>
+    Effect.succeed({
+      keyboard: new Map(),
+      mouse: {
+        deltaX: 0,
+        deltaY: 0,
+        buttons: new Map(),
+      },
+      lastUpdateTime: Date.now(),
+    }),
 })
 
 const TestLayer = Layer.mergeAll(
@@ -523,7 +619,7 @@ describe('Physics Integration Test Suite', () => {
         const optimizationResult = yield* performance.analyzeAndOptimize()
 
         expect(optimizationResult.optimizationApplied).toBe(true)
-        expect(optimizationResult.recommendations).toContain(expect.stringMatching(/downgraded|Performance/i))
+        expect(optimizationResult.recommendations[0]).toMatch(/downgraded|Performance/i)
 
         // パフォーマンスレベルが下がったことを確認
         const finalState = yield* performance.getPerformanceState()

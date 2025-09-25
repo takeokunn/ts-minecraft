@@ -101,12 +101,15 @@ const makePlayerRepository = (): Effect.Effect<PlayerRepository> =>
 
     const save = (player: Types.Player): Effect.Effect<void, Types.PlayerError> =>
       Ref.update(playersRef, (players) => HashMap.set(players, player.id, player)).pipe(
-        Effect.mapError(() => ({
-          _tag: 'PlayerError' as const,
-          reason: 'ValidationFailed' as const,
-          playerId: player.id,
-          message: 'Failed to save player',
-        } satisfies Types.PlayerError))
+        Effect.mapError(
+          () =>
+            ({
+              _tag: 'PlayerError' as const,
+              reason: 'ValidationFailed' as const,
+              playerId: player.id,
+              message: 'Failed to save player',
+            }) satisfies Types.PlayerError
+        )
       )
 
     const load = (playerId: Types.PlayerId): Effect.Effect<Types.Player, Types.PlayerError> =>
@@ -144,9 +147,7 @@ const makePlayerRepository = (): Effect.Effect<PlayerRepository> =>
       })
 
     const exists = (playerId: Types.PlayerId): Effect.Effect<boolean> =>
-      Ref.get(playersRef).pipe(
-        Effect.map((players) => HashMap.has(players, playerId))
-      )
+      Ref.get(playersRef).pipe(Effect.map((players) => HashMap.has(players, playerId)))
 
     const findAll = (): Effect.Effect<ReadonlyArray<Types.Player>> =>
       Ref.get(playersRef).pipe(
@@ -178,7 +179,11 @@ const makePlayerRepository = (): Effect.Effect<PlayerRepository> =>
 // State Manager Implementation
 // =========================================
 
-const makePlayerStateManager = (): Effect.Effect<PlayerStateManager, never, Scope.Scope | PlayerRepository | PlayerEventBus | EntityManager> =>
+const makePlayerStateManager = (): Effect.Effect<
+  PlayerStateManager,
+  never,
+  Scope.Scope | PlayerRepository | PlayerEventBus | EntityManager
+> =>
   Effect.gen(function* () {
     const repository = yield* PlayerRepository
     const eventBus = yield* PlayerEventBus
@@ -257,7 +262,10 @@ const makePlayerStateManager = (): Effect.Effect<PlayerStateManager, never, Scop
         return player
       })
 
-    const update = (playerId: Types.PlayerId, updater: (player: Types.Player) => Types.Player): Effect.Effect<Types.Player, Types.PlayerError> =>
+    const update = (
+      playerId: Types.PlayerId,
+      updater: (player: Types.Player) => Types.Player
+    ): Effect.Effect<Types.Player, Types.PlayerError> =>
       Effect.gen(function* () {
         const player = yield* repository.load(playerId)
         const updated = updater(player)
@@ -295,7 +303,8 @@ const makePlayerStateManager = (): Effect.Effect<PlayerStateManager, never, Scop
 
     const get = (playerId: Types.PlayerId): Effect.Effect<Types.Player, Types.PlayerError> => repository.load(playerId)
     const getAll = (): Effect.Effect<ReadonlyArray<Types.Player>> => repository.findAll()
-    const deletePlayer = (playerId: Types.PlayerId): Effect.Effect<void, Types.PlayerError> => repository.delete(playerId)
+    const deletePlayer = (playerId: Types.PlayerId): Effect.Effect<void, Types.PlayerError> =>
+      repository.delete(playerId)
 
     const manager: PlayerStateManager = {
       create,
@@ -325,7 +334,10 @@ const PHYSICS = {
 
 const makePlayerMovementSystem = (): Effect.Effect<PlayerMovementSystem> =>
   Effect.gen(function* () {
-    const move = (player: Types.Player, action: Types.PlayerAction & { _tag: 'Move' }): Effect.Effect<Types.Player, Types.PlayerError> =>
+    const move = (
+      player: Types.Player,
+      action: Types.PlayerAction & { _tag: 'Move' }
+    ): Effect.Effect<Types.Player, Types.PlayerError> =>
       Effect.gen(function* () {
         const { direction } = action
 
@@ -432,7 +444,10 @@ const makePlayerMovementSystem = (): Effect.Effect<PlayerMovementSystem> =>
         }
       })
 
-    const applyVelocity = (player: Types.Player, velocity: Types.Velocity): Effect.Effect<Types.Player, Types.PlayerError> =>
+    const applyVelocity = (
+      player: Types.Player,
+      velocity: Types.Velocity
+    ): Effect.Effect<Types.Player, Types.PlayerError> =>
       Effect.succeed({
         ...player,
         velocity,
@@ -452,12 +467,19 @@ const makePlayerMovementSystem = (): Effect.Effect<PlayerMovementSystem> =>
 // Action Processor with Pattern Matching
 // =========================================
 
-const makePlayerActionProcessor = (): Effect.Effect<PlayerActionProcessor, never, PlayerMovementSystem | PlayerStateManager> =>
+const makePlayerActionProcessor = (): Effect.Effect<
+  PlayerActionProcessor,
+  never,
+  PlayerMovementSystem | PlayerStateManager
+> =>
   Effect.gen(function* () {
     const movement = yield* PlayerMovementSystem
     const stateManager = yield* PlayerStateManager
 
-    const process = (player: Types.Player, action: Types.PlayerAction): Effect.Effect<Types.Player, Types.PlayerError> =>
+    const process = (
+      player: Types.Player,
+      action: Types.PlayerAction
+    ): Effect.Effect<Types.Player, Types.PlayerError> =>
       pipe(
         Match.value(action),
         Match.tag('Move', (act) => movement.move(player, act)),
