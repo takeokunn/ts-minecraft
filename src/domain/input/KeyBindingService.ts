@@ -279,13 +279,13 @@ export const makeKeyBindingService = Effect.gen(function* () {
     Effect.gen(function* () {
       // コンフリクト検出
       const conflicts = yield* detectConflicts(mapping)
-      yield* Effect.when(Effect.succeed(conflicts.length > 0), () =>
-        Effect.fail({
+      if (conflicts.length > 0) {
+        yield* Effect.fail({
           _tag: 'KeyBindingError' as const,
           message: `Binding conflicts detected`,
           conflictingAction: conflicts[0],
         })
-      )
+      }
 
       // マッピング追加
       yield* Ref.update(mappingsRef, (current) => ({

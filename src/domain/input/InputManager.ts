@@ -123,17 +123,16 @@ export const makeInputManager = Effect.gen(function* () {
         Match.exhaustive
       )
 
-      yield* Effect.unless(
-        Effect.succeed(state.enabledDeviceTypes.has(deviceType)),
-        () => Effect.void
-      )
+      // デバイスが無効な場合は早期リターン
+      if (!state.enabledDeviceTypes.has(deviceType)) {
+        return
+      }
 
       // コンテキストに基づいて処理するか判断
       const shouldProcess = yield* contextManager.shouldProcessInput(event, state.currentPriority)
-      yield* Effect.unless(
-        Effect.succeed(shouldProcess),
-        () => Effect.void
-      )
+      if (!shouldProcess) {
+        return
+      }
 
       // キューに追加
       yield* Queue.offer(inputQueue, event)
@@ -142,7 +141,9 @@ export const makeInputManager = Effect.gen(function* () {
       yield* updateInputState(event)
 
       // アクション解決
-      const actions = yield* keyBindingService.resolveActions(event)
+      const actions = yield* keyBindingService
+        .resolveActions(event)
+        .pipe(Effect.mapError((e) => ({ _tag: 'InputManagerError' as const, message: e.message, cause: e })))
       yield* Ref.update(stateRef, (s) => ({
         ...s,
         activeActions: new Set([...s.activeActions, ...actions]),
@@ -179,8 +180,13 @@ export const makeInputManager = Effect.gen(function* () {
             newInputState.gamepadButtons.delete(buttonId)
           }),
           Match.when({ _tag: 'GamepadAxisMove' }, ({ axisId, value }) => {
-            newInputState.gamepadAxes = [...newInputState.gamepadAxes]
-            newInputState.gamepadAxes[axisId] = value
+            const newAxes = [...newInputState.gamepadAxes]
+            // Extend array if necessary to accommodate axisId
+            while (newAxes.length <= axisId) {
+              newAxes.push(0)
+            }
+            newAxes[axisId] = value
+            newInputState.gamepadAxes = newAxes
           }),
           Match.when({ _tag: 'TouchStart' }, ({ touches }) => {
             newInputState.touchPoints = touches
@@ -237,12 +243,16 @@ export const makeInputManager = Effect.gen(function* () {
 
       // デバイス固有の初期化
       yield* Match.value(deviceType).pipe(
-        Match.when('Gamepad', () => gamepadService.initialize().pipe(
-          Effect.mapError(e => ({ _tag: 'InputManagerError' as const, message: e.message }))
-        )),
-        Match.when('TouchScreen', () => touchService.initialize().pipe(
-          Effect.mapError(e => ({ _tag: 'InputManagerError' as const, message: e.message }))
-        )),
+        Match.when('Gamepad', () =>
+          gamepadService
+            .initialize()
+            .pipe(Effect.mapError((e) => ({ _tag: 'InputManagerError' as const, message: e.message })))
+        ),
+        Match.when('TouchScreen', () =>
+          touchService
+            .initialize()
+            .pipe(Effect.mapError((e) => ({ _tag: 'InputManagerError' as const, message: e.message })))
+        ),
         Match.orElse(() => Effect.void)
       )
     })
@@ -258,12 +268,16 @@ export const makeInputManager = Effect.gen(function* () {
 
       // デバイス固有のクリーンアップ
       yield* Match.value(deviceType).pipe(
-        Match.when('Gamepad', () => gamepadService.cleanup().pipe(
-          Effect.mapError(e => ({ _tag: 'InputManagerError' as const, message: e.message }))
-        )),
-        Match.when('TouchScreen', () => touchService.cleanup().pipe(
-          Effect.mapError(e => ({ _tag: 'InputManagerError' as const, message: e.message }))
-        )),
+        Match.when('Gamepad', () =>
+          gamepadService
+            .cleanup()
+            .pipe(Effect.mapError((e) => ({ _tag: 'InputManagerError' as const, message: e.message })))
+        ),
+        Match.when('TouchScreen', () =>
+          touchService
+            .cleanup()
+            .pipe(Effect.mapError((e) => ({ _tag: 'InputManagerError' as const, message: e.message })))
+        ),
         Match.orElse(() => Effect.void)
       )
     })

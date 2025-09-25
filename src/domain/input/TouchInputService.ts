@@ -155,14 +155,34 @@ export const makeTouchInputService = Effect.gen(function* () {
   // 最後のタップ時刻（ダブルタップ検出用）
   const lastTapRef = yield* Ref.make<{ time: number; position: { x: number; y: number } } | null>(null)
 
+  // 距離計算
+  const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number =>
+    Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
+
+  // 角度計算
+  const calculateAngle = (p1: { x: number; y: number }, p2: { x: number; y: number }): number =>
+    (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI
+
+  // スワイプ方向判定
+  const determineSwipeDirection = (
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ): 'up' | 'down' | 'left' | 'right' => {
+    const deltaX = end.x - start.x
+    const deltaY = end.y - start.y
+    const horizontal = Math.abs(deltaX) > Math.abs(deltaY)
+
+    return pipe({ horizontal, deltaX, deltaY }, ({ horizontal, deltaX, deltaY }) =>
+      horizontal ? (deltaX > 0 ? 'right' : 'left') : deltaY > 0 ? 'down' : 'up'
+    )
+  }
+
   // 初期化
   const initialize = (): Effect.Effect<void, TouchInputError> =>
     Effect.gen(function* () {
       const hasSupport = yield* Effect.sync(() => 'ontouchstart' in window)
 
-      yield* Effect.when(Effect.succeed(!hasSupport), () =>
-        Effect.logWarning('Touch input not supported on this device')
-      )
+      yield* Effect.when(Effect.logWarning('Touch input not supported on this device'), () => !hasSupport)
 
       yield* Effect.logInfo('TouchInputService initialized')
     })
@@ -187,28 +207,6 @@ export const makeTouchInputService = Effect.gen(function* () {
   // 設定取得
   const getSettings = (): Effect.Effect<TouchSettings, TouchInputError> => Ref.get(settingsRef)
 
-  // 距離計算
-  const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number =>
-    Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
-
-  // 角度計算
-  const calculateAngle = (p1: { x: number; y: number }, p2: { x: number; y: number }): number =>
-    (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI
-
-  // スワイプ方向判定
-  const determineSwipeDirection = (
-    start: { x: number; y: number },
-    end: { x: number; y: number }
-  ): 'up' | 'down' | 'left' | 'right' => {
-    const deltaX = end.x - start.x
-    const deltaY = end.y - start.y
-    const horizontal = Math.abs(deltaX) > Math.abs(deltaY)
-
-    return pipe({ horizontal, deltaX, deltaY }, ({ horizontal, deltaX, deltaY }) =>
-      horizontal ? (deltaX > 0 ? 'right' : 'left') : deltaY > 0 ? 'down' : 'up'
-    )
-  }
-
   // ジェスチャー検出
   const detectGesture = (touches: ReadonlyArray<TouchPoint>): Effect.Effect<Gesture | null, TouchInputError> =>
     Effect.gen(function* () {
@@ -216,95 +214,107 @@ export const makeTouchInputService = Effect.gen(function* () {
       const tracking = yield* Ref.get(trackingRef)
       const currentTime = Date.now()
 
-      return yield* Match.value(touches.length).pipe(
+      return yield* pipe(
+        touches.length,
+        Match.value,
         Match.when(0, () =>
           Effect.gen(function* () {
             // タッチ終了時のジェスチャー判定
             const states = Array.from(tracking.values())
 
-            return yield* Match.value(states.length).pipe(
-              Match.when(0, () => Effect.succeed(null)),
+            return yield* pipe(
+              states.length,
+              Match.value,
               Match.when(1, () =>
                 Effect.gen(function* () {
                   const state = states[0]
-                  return yield* Effect.if(!state, {
-                    onTrue: () => Effect.succeed(null),
-                    onFalse: () => Effect.gen(function* () {
-                      const duration = currentTime - state!.startTime
-                      const distance = calculateDistance(state!.startPosition, state!.currentPosition)
+                  return yield* pipe(
+                    Option.fromNullable(state),
+                    Option.match({
+                      onNone: () => Effect.succeed(null),
+                      onSome: (s) =>
+                        Effect.gen(function* () {
+                          const duration = currentTime - s.startTime
+                          const distance = calculateDistance(s.startPosition, s.currentPosition)
 
-                      // ホールド判定
-                      yield* Effect.when(
-                    Effect.succeed(duration >= settings.holdThreshold && distance < settings.swipeThreshold),
-                    () =>
-                          Queue.offer(gestureQueue, {
-                            _tag: 'Hold',
-                            position: state!.startPosition,
-                        duration,
-                        timestamp: currentTime as InputTimestamp,
-                      })
-                  )
-
-                  // スワイプ判定
-                  yield* Effect.when(Effect.succeed(distance >= settings.swipeThreshold), () =>
-                    Queue.offer(gestureQueue, {
-                      _tag: 'Swipe',
-                      startPosition: state.startPosition,
-                      endPosition: state.currentPosition,
-                      direction: determineSwipeDirection(state.startPosition, state.currentPosition),
-                      velocity: distance / duration,
-                      distance,
-                      timestamp: currentTime as InputTimestamp,
-                    })
-                  )
-
-                  // タップ判定
-                  yield* Effect.when(
-                    Effect.succeed(duration < settings.tapThreshold && distance < settings.swipeThreshold),
-                    () =>
-                      Effect.gen(function* () {
-                        const lastTap = yield* Ref.get(lastTapRef)
-
-                        // ダブルタップ判定
-                        const isDoubleTap = yield* pipe(
-                          Option.fromNullable(lastTap),
-                          Option.match({
-                            onNone: () => Effect.succeed(false),
-                            onSome: (lt) =>
-                              Effect.succeed(
-                                currentTime - lt.time < settings.doubleTapThreshold &&
-                                  calculateDistance(lt.position, state.startPosition) < 30
-                              ),
-                          })
-                        )
-
-                        yield* Effect.if(isDoubleTap, {
-                          onTrue: () =>
+                          // ホールド判定
+                          const shouldHold = duration >= settings.holdThreshold && distance < settings.swipeThreshold
+                          yield* Effect.when(
                             Queue.offer(gestureQueue, {
-                              _tag: 'DoubleTap',
-                              position: state.startPosition,
-                              interval: currentTime - (lastTap?.time || 0),
+                              _tag: 'Hold',
+                              position: s.startPosition,
+                              duration,
                               timestamp: currentTime as InputTimestamp,
                             }),
-                          onFalse: () =>
-                            Effect.gen(function* () {
-                              yield* Queue.offer(gestureQueue, {
-                                _tag: 'Tap',
-                                position: state.startPosition,
-                                duration,
-                                timestamp: currentTime as InputTimestamp,
-                              })
-                              yield* Ref.set(lastTapRef, { time: currentTime, position: state.startPosition })
-                            }),
-                        })
-                      })
-                  )
+                            () => shouldHold
+                          )
 
-                      yield* Ref.set(trackingRef, new Map())
-                      return null
+                          // スワイプ判定
+                          const shouldSwipe = distance >= settings.swipeThreshold
+                          yield* Effect.when(
+                            Queue.offer(gestureQueue, {
+                              _tag: 'Swipe',
+                              startPosition: s.startPosition,
+                              endPosition: s.currentPosition,
+                              direction: determineSwipeDirection(s.startPosition, s.currentPosition),
+                              velocity: distance / duration,
+                              distance,
+                              timestamp: currentTime as InputTimestamp,
+                            }),
+                            () => shouldSwipe
+                          )
+
+                          // タップ判定
+                          const shouldTap = duration < settings.tapThreshold && distance < settings.swipeThreshold
+                          yield* Effect.when(
+                            Effect.gen(function* () {
+                              const lastTap = yield* Ref.get(lastTapRef)
+
+                              const isDoubleTap = yield* pipe(
+                                Option.fromNullable(lastTap),
+                                Option.match({
+                                  onNone: () => Effect.succeed(false),
+                                  onSome: (lt) =>
+                                    Effect.succeed(
+                                      currentTime - lt.time < settings.doubleTapThreshold &&
+                                        calculateDistance(lt.position, s.startPosition) < 30
+                                    ),
+                                })
+                              )
+
+                              yield* Effect.if(isDoubleTap, {
+                                onTrue: () =>
+                                  Queue.offer(gestureQueue, {
+                                    _tag: 'DoubleTap',
+                                    position: s.startPosition,
+                                    interval: currentTime - (lastTap?.time || 0),
+                                    timestamp: currentTime as InputTimestamp,
+                                  }),
+                                onFalse: () =>
+                                  Effect.gen(function* () {
+                                    yield* Queue.offer(gestureQueue, {
+                                      _tag: 'Tap',
+                                      position: s.startPosition,
+                                      duration,
+                                      timestamp: currentTime as InputTimestamp,
+                                    })
+                                    yield* Ref.set(lastTapRef, {
+                                      time: currentTime,
+                                      position: s.startPosition,
+                                    })
+                                  }),
+                              })
+                            }),
+                            () => shouldTap
+                          )
+
+                          yield* Ref.set(trackingRef, new Map())
+                          return null
+                        }),
                     })
-                  })
-                }),
+                  )
+                })
+              ),
               Match.orElse(() => Effect.succeed(null))
             )
           })
@@ -313,33 +323,34 @@ export const makeTouchInputService = Effect.gen(function* () {
           Effect.gen(function* () {
             // シングルタッチの追跡
             const touch = touches[0]
-            return yield* Effect.if(!touch, {
-              onTrue: () => Effect.succeed(null),
-              onFalse: () => Effect.gen(function* () {
-                const position = { x: touch.x, y: touch.y }
+            return yield* pipe(
+              Option.fromNullable(touch),
+              Option.match({
+                onNone: () => Effect.succeed(null),
+                onSome: (t) =>
+                  Effect.gen(function* () {
+                    const position = { x: t.x, y: t.y }
 
-            yield* Ref.update(trackingRef, (map) => {
-              const existing = map.get(touch.identifier)
-              return new Map(map).set(
-                touch.identifier,
-                existing
-                  ? {
-                      ...existing,
-                      currentPosition: position,
-                    }
-                  : {
-                      startTime: currentTime,
-                      startPosition: position,
-                      currentPosition: position,
-                      lastTapTime: 0,
-                      touchCount: 1,
-                    }
-              )
-            })
+                    yield* Ref.update(trackingRef, (map) => {
+                      const existing = map.get(t.identifier)
+                      return new Map(map).set(
+                        t.identifier,
+                        existing
+                          ? { ...existing, currentPosition: position }
+                          : {
+                              startTime: currentTime,
+                              startPosition: position,
+                              currentPosition: position,
+                              lastTapTime: 0,
+                              touchCount: 1,
+                            }
+                      )
+                    })
 
-                return null
+                    return null
+                  }),
               })
-            })
+            )
           })
         ),
         Match.when(2, () =>
@@ -347,68 +358,69 @@ export const makeTouchInputService = Effect.gen(function* () {
             // ピンチ/回転の検出
             const t1 = touches[0]
             const t2 = touches[1]
-            return yield* Effect.if(!t1 || !t2, {
-              onTrue: () => Effect.succeed(null),
-              onFalse: () => Effect.gen(function* () {
-                const center = {
-                  x: (t1!.x + t2!.x) / 2,
-                  y: (t1!.y + t2!.y) / 2,
-                }
-                const distance = calculateDistance({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
-                const angle = calculateAngle({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
 
-                const state = tracking.get(t1!.identifier)
+            const hasBothTouches = !!t1 && !!t2
+            return yield* Effect.if(hasBothTouches, {
+              onTrue: () =>
+                Effect.gen(function* () {
+                  const center = { x: (t1!.x + t2!.x) / 2, y: (t1!.y + t2!.y) / 2 }
+                  const distance = calculateDistance({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
+                  const angle = calculateAngle({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
+                  const state = tracking.get(t1!.identifier)
 
-            yield* pipe(
-              Option.fromNullable(state),
-              Option.match({
-                onNone: () =>
-                  Effect.gen(function* () {
-                    // 初回タッチ
-                    yield* Ref.update(trackingRef, (map) =>
-                      new Map(map).set(t1.identifier, {
-                        startTime: currentTime,
-                        startPosition: center,
-                        currentPosition: center,
-                        lastTapTime: 0,
-                        touchCount: 2,
-                        initialDistance: distance,
-                        initialAngle: angle,
-                      })
-                    )
-                  }),
-                onSome: (s) =>
-                  Effect.gen(function* () {
-                    // ピンチ判定
-                    const scaleDiff = Math.abs(distance - (s.initialDistance || distance))
-                    yield* Effect.when(Effect.succeed(scaleDiff > settings.pinchThreshold), () =>
-                      Queue.offer(gestureQueue, {
-                        _tag: 'Pinch',
-                        center,
-                        scale: distance / (s.initialDistance || distance),
-                        distance,
-                        timestamp: currentTime as InputTimestamp,
-                      })
-                    )
+                  yield* pipe(
+                    Option.fromNullable(state),
+                    Option.match({
+                      onNone: () =>
+                        Ref.update(trackingRef, (map) =>
+                          new Map(map).set(t1!.identifier, {
+                            startTime: currentTime,
+                            startPosition: center,
+                            currentPosition: center,
+                            lastTapTime: 0,
+                            touchCount: 2,
+                            initialDistance: distance,
+                            initialAngle: angle,
+                          })
+                        ),
+                      onSome: (s) =>
+                        Effect.gen(function* () {
+                          // ピンチ判定
+                          const scaleDiff = Math.abs(distance - (s.initialDistance || distance))
+                          const shouldPinch = scaleDiff > settings.pinchThreshold
+                          yield* Effect.when(
+                            Queue.offer(gestureQueue, {
+                              _tag: 'Pinch',
+                              center,
+                              scale: distance / (s.initialDistance || distance),
+                              distance,
+                              timestamp: currentTime as InputTimestamp,
+                            }),
+                            () => shouldPinch
+                          )
 
-                    // 回転判定
-                    const angleDiff = Math.abs(angle - (s.initialAngle || angle))
-                    yield* Effect.when(Effect.succeed(angleDiff > settings.rotateThreshold), () =>
-                      Queue.offer(gestureQueue, {
-                        _tag: 'Rotate',
-                        center,
-                        angle: angle - (s.initialAngle || angle),
-                        timestamp: currentTime as InputTimestamp,
-                      })
-                    )
-                  }),
-              })
-            )
+                          // 回転判定
+                          const angleDiff = Math.abs(angle - (s.initialAngle || angle))
+                          const shouldRotate = angleDiff > settings.rotateThreshold
+                          yield* Effect.when(
+                            Queue.offer(gestureQueue, {
+                              _tag: 'Rotate',
+                              center,
+                              angle: angle - (s.initialAngle || angle),
+                              timestamp: currentTime as InputTimestamp,
+                            }),
+                            () => shouldRotate
+                          )
+                        }),
+                    })
+                  )
 
-                return null
-              })
+                  return null
+                }),
+              onFalse: () => Effect.succeed(null),
             })
-          }),
+          })
+        ),
         Match.orElse(() => Effect.succeed(null))
       )
     })

@@ -23,34 +23,32 @@ describe('TouchInputService', () => {
     vi.clearAllMocks()
   })
 
-  it('正常に初期化できること', () =>
-    Effect.gen(function* () {
+  it('正常に初期化できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       yield* touchService.initialize()
 
       // エラーなく初期化完了することを確認
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('マルチタッチサポートを正しく検出できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('マルチタッチサポートを正しく検出できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       const isSupported = yield* touchService.isMultiTouchSupported()
 
       expect(isSupported).toBe(true)
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('設定を更新できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('設定を更新できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       const newSettings: TouchSettings = {
@@ -68,14 +66,13 @@ describe('TouchInputService', () => {
       const currentSettings = yield* touchService.getSettings()
       expect(currentSettings.tapThreshold).toBe(150)
       expect(currentSettings.holdThreshold).toBe(600)
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('タップジェスチャーを検出できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('タップジェスチャーを検出できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
       yield* touchService.initialize()
 
@@ -100,14 +97,13 @@ describe('TouchInputService', () => {
       const gestureEnd = yield* touchService.detectGesture([])
 
       // 実際の実装では内部状態によってタップが検出される
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('スワイプジェスチャーを検出できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('スワイプジェスチャーを検出できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
       yield* touchService.initialize()
 
@@ -144,14 +140,13 @@ describe('TouchInputService', () => {
       const gesture = yield* touchService.detectGesture([])
 
       // 実際の実装では右スワイプが検出される
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('ピンチジェスチャーを検出できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('ピンチジェスチャーを検出できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
       yield* touchService.initialize()
 
@@ -185,55 +180,51 @@ describe('TouchInputService', () => {
       const gesture = yield* touchService.detectGesture([touch1, touch2])
 
       // 実際の実装ではピンチの初期化や検出が行われる
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('ジェスチャーストリームを作成できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('ジェスチャーストリームを作成できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       const gestureStream = yield* touchService.createGestureStream()
 
       expect(gestureStream).toBeDefined()
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('現在のタッチポイントを取得できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('現在のタッチポイントを取得できること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
       yield* touchService.initialize()
 
       const touchPoints = yield* touchService.getTouchPoints()
 
       expect(Array.isArray(touchPoints)).toBe(true)
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('クリーンアップが正常に動作すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('クリーンアップが正常に動作すること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
       yield* touchService.initialize()
 
       yield* touchService.cleanup()
 
       // エラーなくクリーンアップが完了することを確認
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('不正な設定値でエラーが発生すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('不正な設定値でエラーが発生すること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       const invalidSettings = {
@@ -249,14 +240,13 @@ describe('TouchInputService', () => {
       const result = yield* Effect.either(touchService.updateSettings(invalidSettings))
 
       expect(result._tag).toBe('Left')
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('設定の境界値が正しく動作すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
+
+  it('設定の境界値が正しく動作すること', async () => {
+    const effect = Effect.gen(function* () {
       const touchService = yield* TouchInputService
 
       // 最小値
@@ -287,9 +277,8 @@ describe('TouchInputService', () => {
 
       const currentSettings = yield* touchService.getSettings()
       expect(currentSettings.tapThreshold).toBe(500)
-    }).pipe(
-      Effect.provide(TouchInputServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
+
+    await Effect.runPromise(effect.pipe(Effect.provide(TouchInputServiceLive)))
+  })
 })

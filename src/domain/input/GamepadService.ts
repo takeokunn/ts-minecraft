@@ -104,12 +104,12 @@ export const makeGamepadService = Effect.gen(function* () {
       // ブラウザサポート確認
       const hasSupport = yield* Effect.sync(() => 'getGamepads' in navigator)
 
-      yield* Effect.when(Effect.succeed(!hasSupport), () =>
-        Effect.fail({
+      if (!hasSupport) {
+        yield* Effect.fail({
           _tag: 'GamepadError' as const,
           message: 'Gamepad API is not supported in this browser',
         })
-      )
+      }
 
       // ポーリング開始
       yield* Ref.set(pollingActiveRef, true)
@@ -206,10 +206,10 @@ export const makeGamepadService = Effect.gen(function* () {
     Effect.gen(function* () {
       const settings = yield* Ref.get(settingsRef)
 
-      yield* Effect.when(
-        Effect.succeed(!settings.vibration),
-        () => Effect.void // 振動が無効なら何もしない
-      )
+      // 振動が無効なら何もしない
+      if (!settings.vibration) {
+        return yield* Effect.void
+      }
 
       const gamepads = yield* Effect.sync(() => navigator.getGamepads())
       const gamepad = gamepads[index]
@@ -255,29 +255,43 @@ export const makeGamepadService = Effect.gen(function* () {
     Effect.gen(function* () {
       const absValue = Math.abs(value)
 
-      return yield* Effect.if(absValue < threshold, {
-        onTrue: () => Effect.succeed(0),
-        onFalse: () => Effect.succeed(Math.sign(value) * ((absValue - threshold) / (1 - threshold))),
-      })
+      if (absValue < threshold) {
+        return yield* Effect.succeed(0)
+      } else {
+        return yield* Effect.succeed(Math.sign(value) * ((absValue - threshold) / (1 - threshold)))
+      }
     })
 
   // ポーリングストリーム作成
   const createPollingStream = (): Effect.Effect<Stream.Stream<GamepadState, GamepadError>, never> =>
-    Effect.gen(function* () {
-      return Stream.repeatEffect(
+    Effect.succeed(
+      Stream.repeatEffect(
         Effect.gen(function* () {
           const isActive = yield* Ref.get(pollingActiveRef)
 
-          yield* Effect.when(Effect.succeed(!isActive), () => Effect.interrupt)
+          if (!isActive) {
+            yield* Effect.interrupt
+          }
 
           const gamepads = yield* getConnectedGamepads()
-          return gamepads
-        }).pipe(
-          Stream.mapEffect((states) => Effect.succeed(states[0])) // 最初のゲームパッドのみ（拡張可能）
-        ),
+          // 最初のゲームパッドまたはデフォルト状態を返す
+          return (
+            gamepads[0] || {
+              _tag: 'GamepadState' as const,
+              index: 0,
+              connected: false,
+              id: '',
+              axes: [],
+              buttons: [],
+              vibrationActuator: false,
+              timestamp: Date.now(),
+            }
+          )
+        })
+      ).pipe(
         Stream.schedule(Schedule.fixed(Duration.millis(16))) // 60fps
       )
-    })
+    )
 
   return {
     initialize,

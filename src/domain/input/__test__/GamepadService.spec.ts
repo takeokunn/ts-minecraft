@@ -34,39 +34,37 @@ describe('GamepadService', () => {
     vi.clearAllMocks()
   })
 
-  it('正常に初期化できること', () =>
-    Effect.gen(function* () {
+  it('正常に初期化できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
 
       yield* gamepadService.initialize()
 
       // エラーなく初期化完了することを確認
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('接続されているゲームパッドを取得できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('接続されているゲームパッドを取得できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
       const gamepads = yield* gamepadService.getConnectedGamepads()
 
       expect(gamepads).toHaveLength(1)
-      expect(gamepads[0].id).toBe('Mock Xbox Controller')
-      expect(gamepads[0].connected).toBe(true)
-      expect(gamepads[0].buttons).toHaveLength(16)
-      expect(gamepads[0].axes).toHaveLength(4)
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+      expect(gamepads[0]?.id).toBe('Mock Xbox Controller')
+      expect(gamepads[0]?.connected).toBe(true)
+      expect(gamepads[0]?.buttons).toHaveLength(16)
+      expect(gamepads[0]?.axes).toHaveLength(4)
+    })
 
-  it('特定のゲームパッド状態を取得できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('特定のゲームパッド状態を取得できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
@@ -75,28 +73,26 @@ describe('GamepadService', () => {
       expect(gamepadState).toBeDefined()
       expect(gamepadState!.index).toBe(0)
       expect(gamepadState!.id).toBe('Mock Xbox Controller')
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('存在しないゲームパッドの場合nullを返すこと', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('存在しないゲームパッドの場合nullを返すこと', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
       const gamepadState = yield* gamepadService.getGamepadState(5)
 
       expect(gamepadState).toBeNull()
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('設定を更新できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('設定を更新できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
 
       const newSettings: GamepadSettings = {
@@ -118,14 +114,13 @@ describe('GamepadService', () => {
       expect(currentSettings.sensitivity).toBe(0.08)
       expect(currentSettings.invertX).toBe(true)
       expect(currentSettings.vibration).toBe(false)
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('デッドゾーンを正しく適用できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('デッドゾーンを正しく適用できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
 
       // デッドゾーン内の値
@@ -140,14 +135,13 @@ describe('GamepadService', () => {
       // 負の値
       const negativeValue = yield* gamepadService.applyDeadzone(-0.6, 0.15 as any)
       expect(negativeValue).toBeLessThan(0)
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('振動機能が正常に動作すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('振動機能が正常に動作すること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
@@ -155,19 +149,18 @@ describe('GamepadService', () => {
       yield* gamepadService.vibrate(0, 500, 0.8)
 
       // モックが呼ばれたことを確認
-      expect(mockGamepads[0].vibrationActuator.playEffect).toHaveBeenCalledWith('dual-rumble', {
+      expect(mockGamepads[0]?.vibrationActuator?.playEffect).toHaveBeenCalledWith('dual-rumble', {
         duration: 500,
         strongMagnitude: 0.8,
         weakMagnitude: 0.4,
       })
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('振動が無効な場合は振動しないこと', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('振動が無効な場合は振動しないこと', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
@@ -189,43 +182,40 @@ describe('GamepadService', () => {
       yield* gamepadService.vibrate(0, 500, 0.8)
 
       // 振動が実行されていないことを確認
-      expect(mockGamepads[0].vibrationActuator.playEffect).not.toHaveBeenCalled()
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+      expect(mockGamepads[0]?.vibrationActuator?.playEffect).not.toHaveBeenCalled()
+    })
 
-  it('ポーリングストリームを作成できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('ポーリングストリームを作成できること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
       const pollingStream = yield* gamepadService.createPollingStream()
 
       expect(pollingStream).toBeDefined()
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('クリーンアップが正常に動作すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('クリーンアップが正常に動作すること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
       yield* gamepadService.initialize()
 
       yield* gamepadService.cleanup()
 
       // エラーなくクリーンアップが完了することを確認
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('不正な設定値でエラーが発生すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
+
+  it('不正な設定値でエラーが発生すること', async () => {
+    const effect = Effect.gen(function* () {
       const gamepadService = yield* GamepadService
 
       const invalidSettings = {
@@ -244,9 +234,8 @@ describe('GamepadService', () => {
       const result = yield* Effect.either(gamepadService.updateSettings(invalidSettings))
 
       expect(result._tag).toBe('Left')
-    }).pipe(
-      Effect.provide(GamepadServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
+
+    await Effect.runPromise(effect.pipe(Effect.provide(GamepadServiceLive)))
+  })
 })

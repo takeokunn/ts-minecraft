@@ -4,26 +4,25 @@ import { KeyBindingService, makeKeyBindingService, KeyBindingServiceLive } from 
 import type { InputEvent, InputMapping, ControlScheme } from '../schemas'
 
 describe('KeyBindingService', () => {
-  it('デフォルトマッピングが正しく読み込まれること', () =>
-    Effect.gen(function* () {
+  it('デフォルトマッピングが正しく読み込まれること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const allBindings = yield* keyBindingService.getAllBindings()
 
-      expect(allBindings.moveForward).toBeDefined()
-      expect(allBindings.moveForward.keys).toContain('KeyW')
-      expect(allBindings.jump).toBeDefined()
-      expect(allBindings.jump.keys).toContain('Space')
-      expect(allBindings.hotbar1).toBeDefined()
-      expect(allBindings.hotbar1.keys).toContain('Digit1')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+      expect(allBindings['moveForward']).toBeDefined()
+      expect(allBindings['moveForward']?.keys).toContain('KeyW')
+      expect(allBindings['jump']).toBeDefined()
+      expect(allBindings['jump']?.keys).toContain('Space')
+      expect(allBindings['hotbar1']).toBeDefined()
+      expect(allBindings['hotbar1']?.keys).toContain('Digit1')
+    })
 
-  it('キー入力イベントからアクションを解決できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('キー入力イベントからアクションを解決できること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const keyEvent: InputEvent = {
@@ -41,14 +40,13 @@ describe('KeyBindingService', () => {
       const actions = yield* keyBindingService.resolveActions(keyEvent)
 
       expect(actions).toContain('moveForward')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('マウス入力イベントからアクションを解決できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('マウス入力イベントからアクションを解決できること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const mouseEvent: InputEvent = {
@@ -62,14 +60,13 @@ describe('KeyBindingService', () => {
       const actions = yield* keyBindingService.resolveActions(mouseEvent)
 
       expect(actions).toContain('attack')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('ゲームパッド入力イベントからアクションを解決できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('ゲームパッド入力イベントからアクションを解決できること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const gamepadEvent: InputEvent = {
@@ -82,14 +79,13 @@ describe('KeyBindingService', () => {
       const actions = yield* keyBindingService.resolveActions(gamepadEvent)
 
       expect(actions).toContain('jump')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('ゲームパッド軸入力からアクションを解決できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('ゲームパッド軸入力からアクションを解決できること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const axisEvent: InputEvent = {
@@ -102,14 +98,13 @@ describe('KeyBindingService', () => {
       const actions = yield* keyBindingService.resolveActions(axisEvent)
 
       expect(actions).toContain('moveForward')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('新しいアクションをバインドできること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('新しいアクションをバインドできること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const newMapping: InputMapping = {
@@ -126,28 +121,26 @@ describe('KeyBindingService', () => {
 
       const binding = yield* keyBindingService.getBinding('testAction')
       expect(binding?.keys).toContain('KeyT')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('アクションをアンバインドできること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('アクションをアンバインドできること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       yield* keyBindingService.unbindAction('moveForward')
 
       const binding = yield* keyBindingService.getBinding('moveForward')
       expect(binding).toBeNull()
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('キーバインドの競合を検出できること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('キーバインドの競合を検出できること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const conflictingMapping: InputMapping = {
@@ -162,14 +155,13 @@ describe('KeyBindingService', () => {
 
       const conflicts = yield* keyBindingService.detectConflicts(conflictingMapping)
       expect(conflicts).toContain('moveForward')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('競合するキーバインドは追加できないこと', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('競合するキーバインドは追加できないこと', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const conflictingMapping: InputMapping = {
@@ -182,19 +174,16 @@ describe('KeyBindingService', () => {
         touchGestures: [],
       }
 
-      const result = yield* Effect.either(
-        keyBindingService.bindAction('conflictAction', conflictingMapping)
-      )
+      const result = yield* Effect.either(keyBindingService.bindAction('conflictAction', conflictingMapping))
 
       expect(result._tag).toBe('Left')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('設定をデフォルトにリセットできること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('設定をデフォルトにリセットできること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       // カスタムバインドを追加
@@ -220,38 +209,35 @@ describe('KeyBindingService', () => {
       // デフォルトバインドが復元されていることを確認
       const defaultBinding = yield* keyBindingService.getBinding('moveForward')
       expect(defaultBinding?.keys).toContain('KeyW')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('複合アクション（同時押し）が正しく動作すること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('複合アクション（同時押し）が正しく動作すること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       // sprintJumpアクション（ControlLeft + Space）の確認
       const binding = yield* keyBindingService.getBinding('sprintJump')
       expect(binding?.keys).toContain('ControlLeft')
       expect(binding?.keys).toContain('Space')
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+    })
 
-  it('カメラ制御のアナログ入力が正しく設定されていること', () =>
-    Effect.gen(function* () {
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
+
+  it('カメラ制御のアナログ入力が正しく設定されていること', async () => {
+    const effect = Effect.gen(function* () {
       const keyBindingService = yield* KeyBindingService
 
       const lookUpBinding = yield* keyBindingService.getBinding('lookUp')
       expect(lookUpBinding?.gamepadAxes).toHaveLength(1)
-      expect(lookUpBinding?.gamepadAxes[0].axis).toBe(3) // 右スティック Y軸
-      expect(lookUpBinding?.gamepadAxes[0].direction).toBe('negative')
-      expect(lookUpBinding?.gamepadAxes[0].threshold).toBe(0.2)
-    }).pipe(
-      Effect.provide(KeyBindingServiceLive),
-      Effect.runPromise
-    )
-  )
+      expect(lookUpBinding?.gamepadAxes?.[0]?.axis).toBe(3) // 右スティック Y軸
+      expect(lookUpBinding?.gamepadAxes?.[0]?.direction).toBe('negative')
+      expect(lookUpBinding?.gamepadAxes?.[0]?.threshold).toBe(0.2)
+    })
+
+    await Effect.runPromise(effect.pipe(Effect.provide(KeyBindingServiceLive)))
+  })
 })

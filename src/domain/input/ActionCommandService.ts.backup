@@ -167,7 +167,8 @@ export const makeActionCommandService = Effect.gen(function* () {
       const sortedPriorities = Array.from(queues.keys()).sort((a, b) => b - a)
 
       const nextCommand = yield* pipe(
-        Effect.forEach(sortedPriorities, (priority) =>
+        sortedPriorities,
+        Effect.forEach((priority) =>
           pipe(
             Option.fromNullable(queues.get(priority)),
             Option.match({
@@ -178,7 +179,7 @@ export const makeActionCommandService = Effect.gen(function* () {
         ),
         Effect.map((results) => {
           const found = results.find(Option.isSome)
-          return found ? Option.getOrNull(found) : null
+          return found ? found._tag === 'Some' ? found.value : null : null
         })
       )
 
