@@ -14,6 +14,9 @@ importers:
       '@effect/schema':
         specifier: ^0.75.5
         version: 0.75.5(effect@3.17.14)
+      cannon-es:
+        specifier: ^0.20.0
+        version: 0.20.0
       effect:
         specifier: ^3.17.14
         version: 3.17.14
@@ -24,6 +27,9 @@ importers:
       '@effect/vitest':
         specifier: ^0.25.1
         version: 0.25.1(effect@3.17.14)(vitest@3.2.4)
+      '@types/cannon':
+        specifier: ^0.1.13
+        version: 0.1.13
       '@types/jsdom':
         specifier: ^21.1.7
         version: 21.1.7
@@ -476,6 +482,9 @@ packages:
   '@tweenjs/tween.js@23.1.3':
     resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
 
+  '@types/cannon@0.1.13':
+    resolution: {integrity: sha512-Yf5nvCblc/PHGA8/wtTOFd1AdS1EhFmHpyPL/tWRk1CRoFAb0M9Kj52dMUwxmNGAguAeS+9siiNi/hk03hhUEA==}
+
   '@types/chai@5.2.2':
     resolution: {integrity: sha512-8kB30R7Hwqf40JPiKhVzodJs2Qc1ZJ5zuT3uzw5Hq/dhNCl3G3l83jfpdI1e20BP348+fV7VIL/+FxaXkqBmWg==}
 
@@ -594,6 +603,9 @@ packages:
   cac@6.7.14:
     resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
     engines: {node: '>=8'}
+
+  cannon-es@0.20.0:
+    resolution: {integrity: sha512-eZhWTZIkFOnMAJOgfXJa9+b3kVlvG+FX4mdkpePev/w/rP5V8NRquGyEozcjPfEoXUlb+p7d9SUcmDSn14prOA==}
 
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
@@ -1436,6 +1448,8 @@ snapshots:
 
   '@tweenjs/tween.js@23.1.3': {}
 
+  '@types/cannon@0.1.13': {}
+
   '@types/chai@5.2.2':
     dependencies:
       '@types/deep-eql': 4.0.2
@@ -1581,6 +1595,8 @@ snapshots:
       balanced-match: 1.0.2
 
   cac@6.7.14: {}
+
+  cannon-es@0.20.0: {}
 
   chai@5.3.3:
     dependencies:

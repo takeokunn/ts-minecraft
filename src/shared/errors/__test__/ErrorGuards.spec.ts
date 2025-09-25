@@ -1,6 +1,7 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Schema, Stream, pipe } from 'effect'
+import { Effect, Either, Stream, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import { ErrorGuards, ErrorValidation } from '../ErrorGuards'
 
 describe('ErrorGuards', () => {

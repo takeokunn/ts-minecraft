@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Queue, Stream, Duration } from 'effect'
+import { Context, Effect, Layer, Match, Ref, pipe, Option, Queue, Stream, Duration } from 'effect'
+import { Schema } from '@effect/schema'
 import type { InputTimestamp } from './schemas'
 
 // タッチ入力エラー

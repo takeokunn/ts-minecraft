@@ -1,4 +1,4 @@
-import { Data, Schema, Predicate } from 'effect'
+import { Data, Predicate } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type { Vector3, ToolType, BlockFace } from './InteractionTypes'
 
