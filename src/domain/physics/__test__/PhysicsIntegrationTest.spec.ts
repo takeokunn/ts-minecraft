@@ -277,26 +277,26 @@ const MockEnhancedPlayerMovementService = (() => {
         createdAt: Date.now(),
       })
     },
-  processJumpInput: (playerId) =>
-    Effect.succeed({
-      id: playerId,
-      entityId: 1,
-      name: 'TestPlayer',
-      position: { x: 0, y: 10, z: 0 },
-      rotation: { yaw: 0, pitch: 0, roll: 0 },
-      velocity: { x: 0, y: 8.0, z: 0 },
-      stats: {} as any,
-      gameMode: 'survival' as const,
-      abilities: {} as any,
-      inventory: { slots: [], selectedSlot: 0 },
-      equipment: { helmet: null, chestplate: null, leggings: null, boots: null, mainHand: null, offHand: null },
-      isOnGround: false,
-      isSneaking: false,
-      isSprinting: false,
-      lastUpdate: Date.now(),
-      createdAt: Date.now(),
-    }),
-  updatePhysics: () => Effect.void,
+    processJumpInput: (playerId) =>
+      Effect.succeed({
+        id: playerId,
+        entityId: 1,
+        name: 'TestPlayer',
+        position: { x: 0, y: 10, z: 0 },
+        rotation: { yaw: 0, pitch: 0, roll: 0 },
+        velocity: { x: 0, y: 8.0, z: 0 },
+        stats: {} as any,
+        gameMode: 'survival' as const,
+        abilities: {} as any,
+        inventory: { slots: [], selectedSlot: 0 },
+        equipment: { helmet: null, chestplate: null, leggings: null, boots: null, mainHand: null, offHand: null },
+        isOnGround: false,
+        isSneaking: false,
+        isSprinting: false,
+        lastUpdate: Date.now(),
+        createdAt: Date.now(),
+      }),
+    updatePhysics: () => Effect.void,
     getPlayerState: (playerId: PlayerId) => {
       // removePlayerで削除されたプレイヤーまたは存在しないプレイヤーの場合
       if (!activePlayers.has(playerId)) {
