@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { Effect, pipe, Either } from 'effect'
+import { Effect, pipe, Either, Exit } from 'effect'
 import { Schema } from '@effect/schema'
 import {
   PlayerId,
@@ -30,7 +30,7 @@ describe('InventoryTypes', () => {
 
     it('should reject invalid PlayerId', () => {
       const playerIdSchema = Schema.String.pipe(Schema.fromBrand(PlayerId))
-      const result = Schema.decodeEither(playerIdSchema)(123)
+      const result = Schema.decodeEither(playerIdSchema)(123 as any) // number instead of string
       expect(Either.isLeft(result)).toBe(true)
     })
 
@@ -100,11 +100,11 @@ describe('InventoryTypes', () => {
     it('should validate valid inventory', () => {
       const playerId = 'player1' as PlayerId
       const inventory = createEmptyInventory(playerId)
-      const result = validateInventory(inventory)
+      const result = Effect.runSyncExit(validateInventory(inventory))
 
-      expect(Either.isRight(result)).toBe(true)
-      if (Either.isRight(result)) {
-        expect(result.right).toBe(true)
+      expect(Exit.isSuccess(result)).toBe(true)
+      if (Exit.isSuccess(result)) {
+        expect(result.value).toEqual(inventory)
       }
     })
 
@@ -153,7 +153,6 @@ describe('InventoryTypes', () => {
     })
   })
 
-
   describe('ItemMetadata', () => {
     it('should create valid metadata with enchantments', () => {
       const metadata: ItemMetadata = {
@@ -182,11 +181,8 @@ describe('InventoryTypes', () => {
     })
 
     it('should handle durability metadata', () => {
-      const metadata: ItemMetadata & { durability?: unknown } = {
-        durability: {
-          current: 100,
-          max: 200,
-        },
+      const metadata: ItemMetadata = {
+        durability: 150,
       }
 
       const result = Schema.decodeEither(ItemMetadata)(metadata)

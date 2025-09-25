@@ -195,8 +195,8 @@ export const useInventoryStore = create<InventoryZustandState>()(
           const state = get()
           if (!state.currentInventory) return
 
-          const item1 = state.currentInventory.slots[slot1]
-          const item2 = state.currentInventory.slots[slot2]
+          const item1 = state.currentInventory.slots[slot1] ?? null
+          const item2 = state.currentInventory.slots[slot2] ?? null
 
           state.updateSlot(slot1, item2)
           state.updateSlot(slot2, item1)
@@ -219,7 +219,7 @@ export const useInventoryStore = create<InventoryZustandState>()(
           if (!state.currentInventory) return null
 
           const selectedHotbarSlot = state.currentInventory.hotbar[state.currentInventory.selectedSlot]
-          return selectedHotbarSlot !== undefined ? state.currentInventory.slots[selectedHotbarSlot] : null
+          return selectedHotbarSlot !== undefined ? (state.currentInventory.slots[selectedHotbarSlot] ?? null) : null
         },
 
         getEmptySlotCount: () => {
@@ -346,7 +346,7 @@ export const useInventoryStore = create<InventoryZustandState>()(
         // Custom merge function to handle complex data
         merge: (persistedState, currentState) => ({
           ...currentState,
-          ...persistedState,
+          ...(persistedState || {}),
           // Always use current state for functions and computed values
           isLoading: false,
           error: null,

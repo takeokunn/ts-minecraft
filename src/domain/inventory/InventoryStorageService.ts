@@ -126,10 +126,10 @@ export const LocalStorageInventoryService = Layer.effect(
       saveInventoryState: (state: InventoryState) =>
         Effect.gen(function* () {
           // Validate state before saving
-          yield* Effect.tryPromise({
-            try: () => validateInventoryState(state),
-            catch: (error) => new StorageError('SAVE_FAILED', { reason: 'Invalid state', error }),
-          })
+          yield* pipe(
+            validateInventoryState(state),
+            Effect.mapError((error) => new StorageError('SAVE_FAILED', { reason: 'Invalid state', error }))
+          )
 
           yield* pipe(
             Match.value(isLocalStorageAvailable()),

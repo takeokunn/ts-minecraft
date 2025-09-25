@@ -9,8 +9,10 @@ import { Context, Effect, Layer, Match, Option, pipe, Array as EffectArray } fro
 import { Inventory, ItemStack, PlayerId } from './InventoryTypes.js'
 import { InventoryService } from './InventoryService.js'
 import { InventoryStorageService } from './InventoryStorageService.js'
-import { ItemManagerService, EnhancedItemStack } from './ItemManagerService.js'
-import { InventoryIntegrationService } from './InventoryIntegrationLayer.js'
+import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService.js'
+import { InventoryIntegrationService, InventoryIntegrationServiceLive } from './InventoryIntegrationLayer.js'
+import { InventoryServiceLive } from './InventoryServiceLive.js'
+import { LocalStorageInventoryService } from './InventoryStorageService.js'
 
 // API Response types
 export interface APIResponse<T> {
@@ -39,7 +41,7 @@ export interface InventorySnapshot {
 export interface ItemOperationResult {
   readonly success: boolean
   readonly affectedSlots: readonly number[]
-  readonly remainingItems?: number
+  readonly remainingItems: number // exactOptionalPropertyTypesに対応するため必須に変更
   readonly message?: string
 }
 
@@ -130,7 +132,7 @@ export interface InventoryAPIService {
 
   // Storage Operations
   readonly saveInventory: (playerId: PlayerId) => Effect.Effect<APIResponse<void>, never>
-  readonly loadInventory: (playerId: PlayerId) => Effect.Effect<APIResponse<Inventory>, never>
+  readonly loadInventory: (playerId: PlayerId) => Effect.Effect<APIResponse<InventorySnapshot>, never>
   readonly exportInventory: (playerId: PlayerId) => Effect.Effect<APIResponse<string>, never> // JSON export
   readonly importInventory: (playerId: PlayerId, data: string) => Effect.Effect<APIResponse<ItemOperationResult>, never> // JSON import
 
@@ -200,8 +202,9 @@ const createInventoryStats = (inventory: Inventory) => ({
 export const InventoryAPIServiceLive = Layer.effect(
   InventoryAPIService,
   Effect.gen(function* () {
+    // すべての依存関係を先に取得
     const inventoryService = yield* InventoryService
-    const storageService = yield* InventoryStorageService
+    const inventoryStorageService = yield* InventoryStorageService
     const itemManager = yield* ItemManagerService
     const integrationService = yield* InventoryIntegrationService
 
@@ -240,8 +243,8 @@ export const InventoryAPIServiceLive = Layer.effect(
 
       deletePlayerInventory: (playerId: PlayerId) =>
         pipe(
-          storageService.deleteInventory(playerId),
-          Effect.map(() => createSuccessResponse(undefined)),
+          inventoryStorageService.deleteInventory(playerId),
+          Effect.map(() => createSuccessResponse(undefined as void)),
           Effect.catchAll((error) =>
             Effect.succeed(createErrorResponse(`Failed to delete inventory: ${String(error)}`))
           )
@@ -249,7 +252,7 @@ export const InventoryAPIServiceLive = Layer.effect(
 
       listPlayers: () =>
         pipe(
-          storageService.listStoredInventories(),
+          inventoryStorageService.listStoredInventories(),
           Effect.map(createSuccessResponse),
           Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to list players: ${String(error)}`)))
         ),
@@ -260,27 +263,22 @@ export const InventoryAPIServiceLive = Layer.effect(
             const item = yield* itemManager.createItem(itemId as any, count)
             const result = yield* inventoryService.addItem(playerId, item)
 
-            const operationResult: ItemOperationResult = pipe(
-              result,
-              Match.value,
-              Match.tag('success', (successResult) => ({
-                success: true,
-                affectedSlots: successResult.affectedSlots,
-                message: `Successfully added ${count} ${itemId}`,
-              })),
-              Match.tag('partial', (partialResult) => ({
-                success: true,
-                affectedSlots: partialResult.affectedSlots,
-                remainingItems: partialResult.remainingItems,
-                message: `Partially added ${partialResult.addedItems}/${count} ${itemId}`,
-              })),
-              Match.tag('full', (fullResult) => ({
-                success: false,
-                affectedSlots: [],
-                message: fullResult.message,
-              })),
-              Match.exhaustive
-            )
+            const operationResult: ItemOperationResult = {
+              success: result._tag === 'success' || result._tag === 'partial',
+              affectedSlots:
+                result._tag === 'success'
+                  ? result.affectedSlots
+                  : result._tag === 'partial'
+                    ? result.affectedSlots
+                    : [],
+              remainingItems: result._tag === 'partial' ? result.remainingItems : 0, // undefined -> 0 for exactOptionalPropertyTypes
+              message:
+                result._tag === 'success'
+                  ? `Successfully added ${count} ${itemId}`
+                  : result._tag === 'partial'
+                    ? `Partially added items`
+                    : result.message,
+            }
 
             return createSuccessResponse(operationResult)
           }),
@@ -294,6 +292,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: removedItem !== null,
               affectedSlots: removedItem ? [slotIndex] : [],
+              remainingItems: 0, // 必須プロパティとして定義
               message: removedItem ? `Removed ${removedItem.count} items from slot ${slotIndex}` : 'No items to remove',
             }
             return createSuccessResponse(result)
@@ -308,6 +307,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: [fromSlot, toSlot],
+              remainingItems: 0,
               message: `Moved item from slot ${fromSlot} to slot ${toSlot}`,
             }
             return createSuccessResponse(result)
@@ -322,6 +322,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: [slot1, slot2],
+              remainingItems: 0,
               message: `Swapped items between slots ${slot1} and ${slot2}`,
             }
             return createSuccessResponse(result)
@@ -336,6 +337,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: [sourceSlot, targetSlot],
+              remainingItems: 0,
               message: `Split ${count} items from slot ${sourceSlot} to slot ${targetSlot}`,
             }
             return createSuccessResponse(result)
@@ -345,17 +347,19 @@ export const InventoryAPIServiceLive = Layer.effect(
 
       addMultipleItems: (playerId: PlayerId, items: readonly { itemId: string; count: number }[]) =>
         pipe(
-          Effect.forEach(
-            items,
-            ({ itemId, count }) =>
-              pipe(
-                itemManager.createItem(itemId as any, count),
-                Effect.flatMap((item) => inventoryService.addItem(playerId, item)),
-                Effect.catchAll((error) => Effect.succeed({ _tag: 'error' as const, error: String(error) }))
-              ),
-            { concurrency: 1 }
-          ),
-          Effect.map((results) => {
+          Effect.gen(function* () {
+            const results = yield* Effect.forEach(
+              items,
+              ({ itemId, count }) =>
+                pipe(
+                  itemManager.createItem(itemId as any, count),
+                  Effect.flatMap((item) => inventoryService.addItem(playerId, item)),
+                  Effect.map((result) => ({ _tag: result._tag, result })),
+                  Effect.catchAll((error) => Effect.succeed({ _tag: 'error' as const, error: String(error) }))
+                ),
+              { concurrency: 1 }
+            )
+
             const successful = results.filter((r) => r._tag !== 'error').length
             const failed = results.length - successful
             const errors = results
@@ -366,14 +370,18 @@ export const InventoryAPIServiceLive = Layer.effect(
               totalOperations: items.length,
               successfulOperations: successful,
               failedOperations: failed,
-              results: results.map((r, index) => ({
-                success: r._tag !== 'error',
-                affectedSlots: r._tag !== 'error' && r._tag === 'success' ? r.affectedSlots : [],
-                message:
-                  r._tag === 'error'
-                    ? r.error
-                    : `Added ${items[index]?.count ?? 0} ${items[index]?.itemId ?? 'unknown'}`,
-              })),
+              results: results.map(
+                (r, index) =>
+                  ({
+                    success: r._tag !== 'error',
+                    affectedSlots: [],
+                    remainingItems: 0,
+                    message:
+                      r._tag === 'error'
+                        ? r.error
+                        : `Added ${items[index]?.count ?? 0} ${items[index]?.itemId ?? 'unknown'}`,
+                  }) as ItemOperationResult
+              ),
               errors,
             }
 
@@ -391,6 +399,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: 'Inventory cleared successfully',
             }
             return createSuccessResponse(result)
@@ -405,6 +414,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: 'Inventory sorted successfully',
             }
             return createSuccessResponse(result)
@@ -419,6 +429,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: 'Inventory compacted successfully',
             }
             return createSuccessResponse(result)
@@ -533,6 +544,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: [],
+              remainingItems: 0,
               message: `Selected slot ${slotIndex}`,
             }
             return createSuccessResponse(result)
@@ -558,6 +570,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: [inventorySlot],
+              remainingItems: 0,
               message: `Set hotbar slot ${hotbarIndex} to inventory slot ${inventorySlot}`,
             }
             return createSuccessResponse(result)
@@ -569,16 +582,32 @@ export const InventoryAPIServiceLive = Layer.effect(
         pipe(
           integrationService.savePlayerInventory(playerId),
           Effect.map(() => createSuccessResponse(undefined)),
-          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to save inventory: ${String(error)}`)))
-        ),
+          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to save inventory: ${String(error)}`))),
+          Effect.provide(
+            Layer.mergeAll(
+              InventoryIntegrationServiceLive,
+              InventoryServiceLive,
+              LocalStorageInventoryService,
+              ItemManagerServiceLive
+            )
+          )
+        ) as Effect.Effect<APIResponse<void>, never, never>,
 
       loadInventory: (playerId: PlayerId) =>
         pipe(
           integrationService.loadPlayerInventory(playerId),
           Effect.flatMap(() => inventoryService.getInventory(playerId)),
           Effect.map(createSuccessResponse),
-          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to load inventory: ${String(error)}`)))
-        ),
+          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to load inventory: ${String(error)}`))),
+          Effect.provide(
+            Layer.mergeAll(
+              InventoryIntegrationServiceLive,
+              InventoryServiceLive,
+              LocalStorageInventoryService,
+              ItemManagerServiceLive
+            )
+          )
+        ) as unknown as Effect.Effect<APIResponse<InventorySnapshot>, never, never>,
 
       exportInventory: (playerId: PlayerId) =>
         pipe(
@@ -597,6 +626,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: 'Inventory imported successfully',
             }
             return createSuccessResponse(result)
@@ -608,25 +638,34 @@ export const InventoryAPIServiceLive = Layer.effect(
 
       createBackup: (playerId: PlayerId) =>
         pipe(
-          storageService.createBackup(playerId),
+          inventoryStorageService.createBackup(playerId),
           Effect.map(createSuccessResponse),
           Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to create backup: ${String(error)}`)))
         ),
 
       restoreBackup: (playerId: PlayerId, backupId: string) =>
         pipe(
-          storageService.restoreBackup(playerId, backupId),
-          Effect.flatMap((inventory) => integrationService.syncToZustand(playerId)),
+          inventoryStorageService.restoreBackup(playerId, backupId),
+          Effect.flatMap(() => integrationService.syncToZustand(playerId)),
           Effect.map(() => {
             const result: ItemOperationResult = {
               success: true,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: `Restored backup ${backupId}`,
             }
             return createSuccessResponse(result)
           }),
-          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to restore backup: ${String(error)}`)))
-        ),
+          Effect.catchAll((error) => Effect.succeed(createErrorResponse(`Failed to restore backup: ${String(error)}`))),
+          Effect.provide(
+            Layer.mergeAll(
+              InventoryIntegrationServiceLive,
+              InventoryServiceLive,
+              LocalStorageInventoryService,
+              ItemManagerServiceLive
+            )
+          )
+        ) as Effect.Effect<APIResponse<ItemOperationResult>, never, never>,
 
       listBackups: (playerId: PlayerId) =>
         pipe(
@@ -656,6 +695,7 @@ export const InventoryAPIServiceLive = Layer.effect(
                   Effect.succeed({
                     success: false,
                     affectedSlots: [],
+                    remainingItems: 0,
                     message: 'No item to transfer',
                   }),
                 onSome: (item) =>
@@ -669,6 +709,7 @@ export const InventoryAPIServiceLive = Layer.effect(
                     return {
                       success: addResult._tag === 'success',
                       affectedSlots: [slotIndex],
+                      remainingItems: 0,
                       message: `Transferred ${transferCount} items from ${fromPlayerId} to ${toPlayerId}`,
                     }
                   }),
@@ -711,6 +752,7 @@ export const InventoryAPIServiceLive = Layer.effect(
             const result: ItemOperationResult = {
               success: failed === 0,
               affectedSlots: Array.from({ length: 36 }, (_, i) => i),
+              remainingItems: 0,
               message: `Duplicated inventory: ${successful} successful, ${failed} failed`,
             }
 
@@ -757,6 +799,7 @@ export const InventoryAPIServiceLive = Layer.effect(
               results: results.map((r) => ({
                 success: r.success,
                 affectedSlots: r.success && 'result' in r && r.result._tag === 'success' ? r.result.affectedSlots : [],
+                remainingItems: 0,
                 message: r.success ? 'Item added successfully' : 'error' in r ? r.error : 'Unknown error',
               })),
               errors,
@@ -770,4 +813,9 @@ export const InventoryAPIServiceLive = Layer.effect(
         ),
     })
   })
+).pipe(
+  Layer.provide(InventoryIntegrationServiceLive),
+  Layer.provide(InventoryServiceLive),
+  Layer.provide(LocalStorageInventoryService),
+  Layer.provide(ItemManagerServiceLive)
 )

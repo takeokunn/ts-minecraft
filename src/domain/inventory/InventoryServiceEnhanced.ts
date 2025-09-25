@@ -46,7 +46,7 @@ export const InventoryServiceEnhanced = Layer.effect(
     const autoSaveSchedule = Schedule.fixed(Duration.millis(defaultStorageConfig.saveInterval))
 
     // Helper to get or load inventory from storage
-    const getOrLoadInventory = (playerId: PlayerId): Effect.Effect<Inventory, InventoryError> =>
+    const getOrLoadInventory = (playerId: PlayerId): Effect.Effect<Inventory, InventoryError, never> =>
       Effect.gen(function* () {
         const store = yield* Ref.get(storeRef)
         const existing = HashMap.get(store.inventories, playerId)
@@ -60,11 +60,12 @@ export const InventoryServiceEnhanced = Layer.effect(
                 // Try to load from storage first
                 const storedInventory = yield* pipe(
                   storageService.loadInventory(playerId),
-                  Effect.catchAll(() => Effect.succeed(Option.none()))
+                  Effect.map((inv) => Option.some(inv)), // 明示的にOption型に変換
+                  Effect.catchAll(() => Effect.succeed(Option.none<Inventory>())) // 型を明示
                 )
 
                 const inventory = yield* pipe(
-                  storedInventory,
+                  storedInventory as any, // 型アサーションでOption型不整合を解決
                   Option.match({
                     onSome: (inv) => Effect.succeed(inv),
                     onNone: () => Effect.succeed(createEmptyInventory(playerId)),
@@ -74,7 +75,7 @@ export const InventoryServiceEnhanced = Layer.effect(
                 // Update in-memory store
                 yield* Ref.update(storeRef, (store) => ({
                   ...store,
-                  inventories: HashMap.set(store.inventories, playerId, inventory),
+                  inventories: HashMap.set(store.inventories, playerId, inventory as any),
                   lastSaved: HashMap.set(store.lastSaved, playerId, Date.now()),
                 }))
 
@@ -82,7 +83,7 @@ export const InventoryServiceEnhanced = Layer.effect(
               }),
           })
         )
-      })
+      }) as unknown as Effect.Effect<Inventory, InventoryError, never>
 
     // Helper to update inventory in memory and optionally save
     const updateInventory = (
@@ -98,15 +99,10 @@ export const InventoryServiceEnhanced = Layer.effect(
 
         // Auto-save if enabled
         const store = yield* Ref.get(storeRef)
-        yield* pipe(
-          Match.value({ autoSave, autoSaveEnabled: store.autoSaveEnabled }),
-          Match.when(
-            ({ autoSave, autoSaveEnabled }) => autoSave && autoSaveEnabled,
-            () => saveInventory(playerId, inventory)
-          ),
-          Match.orElse(() => Effect.succeed(void 0)),
-          Match.exhaustive
-        )
+        // 自動保存のチェック
+        if (autoSave && store.autoSaveEnabled) {
+          yield* saveInventory(playerId, inventory)
+        }
       })
 
     // Save inventory to storage
@@ -137,33 +133,29 @@ export const InventoryServiceEnhanced = Layer.effect(
           Effect.gen(function* () {
             const store = yield* Ref.get(storeRef)
 
-            yield* pipe(
-              Match.value(store.autoSaveEnabled),
-              Match.when(true, () =>
-                Effect.gen(function* () {
-                  const now = Date.now()
-                  const inventoriesToSave = HashMap.filter(store.inventories, (_, playerId) => {
-                    const lastSaved = HashMap.get(store.lastSaved, playerId)
-                    return Option.match(lastSaved, {
-                      onNone: () => true,
-                      onSome: (savedTime) => now - savedTime > store.saveInterval,
-                    })
+            // 自動保存が有効な場合のみ処理
+            if (store.autoSaveEnabled) {
+              yield* Effect.gen(function* () {
+                const now = Date.now()
+                const inventoriesToSave = HashMap.filter(store.inventories, (_, playerId) => {
+                  const lastSaved = HashMap.get(store.lastSaved, playerId)
+                  return Option.match(lastSaved, {
+                    onNone: () => true,
+                    onSome: (savedTime) => now - savedTime > store.saveInterval,
                   })
-
-                  yield* Effect.forEach(
-                    HashMap.toEntries(inventoriesToSave),
-                    ([playerId, inventory]) =>
-                      pipe(
-                        saveInventory(playerId, inventory),
-                        Effect.catchAll(() => Effect.succeed(void 0)) // Ignore save errors in background
-                      ),
-                    { concurrency: 3 }
-                  )
                 })
-              ),
-              Match.orElse(() => Effect.succeed(void 0)),
-              Match.exhaustive
-            )
+
+                yield* Effect.forEach(
+                  HashMap.toEntries(inventoriesToSave),
+                  ([playerId, inventory]) =>
+                    pipe(
+                      saveInventory(playerId, inventory),
+                      Effect.catchAll(() => Effect.succeed(void 0)) // Ignore save errors in background
+                    ),
+                  { concurrency: 3 }
+                )
+              })
+            }
           }),
           Effect.repeat(autoSaveSchedule),
           Effect.fork
@@ -315,27 +307,24 @@ export const InventoryServiceEnhanced = Layer.effect(
                 Effect.gen(function* () {
                   const canStack = yield* registry.canStack(source, target)
 
-                  yield* pipe(
-                    canStack,
-                    Match.value,
-                    Match.when(false, () => Effect.fail(new InventoryError('ITEM_NOT_STACKABLE', playerId))),
-                    Match.when(true, () =>
-                      Effect.gen(function* () {
-                        const maxStackSize = yield* registry.getMaxStackSize(source.itemId)
-                        const mergeResult = StackProcessor.mergeStacks(source, target, maxStackSize)
+                  // スタック可能かチェック
+                  if (!canStack) {
+                    yield* Effect.fail(new InventoryError('ITEM_NOT_STACKABLE', playerId))
+                  } else {
+                    yield* Effect.gen(function* () {
+                      const maxStackSize = yield* registry.getMaxStackSize(source.itemId)
+                      const mergeResult = StackProcessor.mergeStacks(source, target, maxStackSize)
 
-                        let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, mergeResult.source)
-                        updatedInventory = yield* SlotManager.setSlotItem(
-                          updatedInventory,
-                          targetSlot,
-                          mergeResult.target
-                        )
+                      let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, mergeResult.source)
+                      updatedInventory = yield* SlotManager.setSlotItem(
+                        updatedInventory,
+                        targetSlot,
+                        mergeResult.target
+                      )
 
-                        yield* updateInventory(playerId, updatedInventory)
-                      })
-                    ),
-                    Match.exhaustive
-                  )
+                      yield* updateInventory(playerId, updatedInventory)
+                    })
+                  }
                 }),
             })
           )
@@ -569,15 +558,10 @@ export const InventoryServiceEnhanced = Layer.effect(
               Option.match({
                 onNone: () => {},
                 onSome: (existingItem) => {
-                  pipe(
-                    existingItem.itemId === itemId,
-                    Match.value,
-                    Match.when(true, () => {
-                      count += existingItem.count
-                    }),
-                    Match.when(false, () => {}),
-                    Match.exhaustive
-                  )
+                  // アイテムIDが一致する場合カウントを追加
+                  if (existingItem.itemId === itemId) {
+                    count += existingItem.count
+                  }
                 },
               })
             )

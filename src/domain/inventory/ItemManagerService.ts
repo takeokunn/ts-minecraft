@@ -7,7 +7,7 @@
 
 import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ItemId, ItemStack, ItemMetadata } from './InventoryTypes.js'
+import { ItemId, ItemStack, ItemMetadata } from './InventoryTypes.js'
 import type { ItemDefinition, ItemCategory } from './ItemRegistry.js'
 import { ItemRegistry } from './ItemRegistry.js'
 

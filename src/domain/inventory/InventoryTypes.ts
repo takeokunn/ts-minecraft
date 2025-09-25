@@ -28,6 +28,7 @@ export const ItemMetadata = Schema.Struct({
   customName: Schema.optional(Schema.String),
   lore: Schema.optional(Schema.Array(Schema.String)),
   damage: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
+  durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
 })
 export type ItemMetadata = Schema.Schema.Type<typeof ItemMetadata>
 

@@ -8,28 +8,61 @@
 import { Context, Effect, Layer, Match, Option, pipe, Ref, Schedule, Duration } from 'effect'
 import { Inventory, InventoryState, ItemStack, PlayerId } from './InventoryTypes.js'
 import { InventoryService } from './InventoryService.js'
-import { InventoryStorageService } from './InventoryStorageService.js'
-import { ItemManagerService, EnhancedItemStack } from './ItemManagerService.js'
+import { InventoryServiceLive } from './InventoryServiceLive.js'
+import { InventoryStorageService, LocalStorageInventoryService } from './InventoryStorageService.js'
+import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService.js'
+import { ItemRegistry } from './ItemRegistry.js'
 import { useInventoryStore, InventoryZustandEffects } from './InventoryZustandStore.js'
 import type { InventoryZustandState } from './InventoryZustandStore.js'
 
 // Integration service interface
 export interface InventoryIntegrationService {
   // Player inventory management
-  readonly loadPlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
-  readonly savePlayerInventory: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
-  readonly switchPlayer: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
+  readonly loadPlayerInventory: (
+    playerId: PlayerId
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
+  readonly savePlayerInventory: (
+    playerId: PlayerId
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
+  readonly switchPlayer: (
+    playerId: PlayerId
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
 
   // Inventory operations with auto-sync
-  readonly addItemWithSync: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<void, unknown, unknown>
-  readonly removeItemWithSync: (playerId: PlayerId, slotIndex: number, amount?: number) => Effect.Effect<void, unknown, unknown>
-  readonly moveItemWithSync: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<void, unknown, unknown>
+  readonly addItemWithSync: (
+    playerId: PlayerId,
+    itemStack: ItemStack
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
+  readonly removeItemWithSync: (
+    playerId: PlayerId,
+    slotIndex: number,
+    amount?: number
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
+  readonly moveItemWithSync: (
+    playerId: PlayerId,
+    fromSlot: number,
+    toSlot: number
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
 
   // State synchronization
-  readonly syncToZustand: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
-  readonly syncFromZustand: () => Effect.Effect<void, unknown, unknown>
-  readonly startAutoSync: () => Effect.Effect<void, unknown, unknown>
-  readonly stopAutoSync: () => Effect.Effect<void, unknown, unknown>
+  readonly syncToZustand: (
+    playerId: PlayerId
+  ) => Effect.Effect<void, unknown, InventoryService | InventoryStorageService | ItemManagerService>
+  readonly syncFromZustand: () => Effect.Effect<
+    void,
+    unknown,
+    InventoryService | InventoryStorageService | ItemManagerService
+  >
+  readonly startAutoSync: () => Effect.Effect<
+    void,
+    unknown,
+    InventoryService | InventoryStorageService | ItemManagerService
+  >
+  readonly stopAutoSync: () => Effect.Effect<
+    void,
+    unknown,
+    InventoryService | InventoryStorageService | ItemManagerService
+  >
 
   // Event handling
   readonly onInventoryChanged: (
@@ -44,7 +77,7 @@ export interface InventoryIntegrationService {
 
   // Batch operations
   readonly batchOperations: <T>(operations: Effect.Effect<T, never>[]) => Effect.Effect<T[], never>
-  readonly optimizedInventorySync: (playerId: PlayerId) => Effect.Effect<void, unknown, unknown>
+  readonly optimizedInventorySync: (playerId: PlayerId) => Effect.Effect<void, unknown, never>
 }
 
 // Context tag
@@ -162,9 +195,10 @@ export const InventoryIntegrationServiceLive = Layer.effect(
             loadedInventory,
             Option.match({
               onNone: () => Effect.succeed(void 0),
-              onSome: (inventory) => Effect.sync(() => {
-                useInventoryStore.getState().setCurrentInventory(playerId, inventory)
-              })
+              onSome: (inventory) =>
+                Effect.sync(() => {
+                  useInventoryStore.getState().setCurrentInventory(playerId, inventory)
+                }),
             })
           )
         }),
@@ -360,17 +394,15 @@ export const InventoryIntegrationServiceLive = Layer.effect(
           const now = Date.now()
 
           // Only sync if enough time has passed (throttling)
-          yield* pipe(
-            Match.value(now - lastSync > 1000), // 1 second throttle
-            Match.when(true, () => Effect.gen(function* () {
+          if (now - lastSync > 1000) {
+            // 1 second throttle
+            yield* Effect.gen(function* () {
               const inventory = yield* inventoryService.getInventory(playerId)
               yield* Effect.sync(() => {
                 useInventoryStore.getState().setCurrentInventory(playerId, inventory)
               })
-            })),
-            Match.when(false, () => Effect.succeed(void 0)),
-            Match.exhaustive
-          )
+            })
+          }
         }),
     })
   })
@@ -388,6 +420,12 @@ export const useInventoryIntegration = () => {
         pipe(
           InventoryIntegrationService,
           Effect.flatMap((service) => service.loadPlayerInventory(playerId))
+        ).pipe(
+          Effect.provide(InventoryIntegrationServiceLive),
+          Effect.provide(InventoryServiceLive),
+          Effect.provide(LocalStorageInventoryService),
+          Effect.provide(ItemManagerServiceLive),
+          Effect.provide(ItemRegistry.Default)
         )
       ),
 
@@ -396,6 +434,12 @@ export const useInventoryIntegration = () => {
         pipe(
           InventoryIntegrationService,
           Effect.flatMap((service) => service.savePlayerInventory(playerId))
+        ).pipe(
+          Effect.provide(InventoryIntegrationServiceLive),
+          Effect.provide(InventoryServiceLive),
+          Effect.provide(LocalStorageInventoryService),
+          Effect.provide(ItemManagerServiceLive),
+          Effect.provide(ItemRegistry.Default)
         )
       ),
 
@@ -404,6 +448,12 @@ export const useInventoryIntegration = () => {
         pipe(
           InventoryIntegrationService,
           Effect.flatMap((service) => service.addItemWithSync(playerId, itemStack))
+        ).pipe(
+          Effect.provide(InventoryIntegrationServiceLive),
+          Effect.provide(InventoryServiceLive),
+          Effect.provide(LocalStorageInventoryService),
+          Effect.provide(ItemManagerServiceLive),
+          Effect.provide(ItemRegistry.Default)
         )
       ),
 
@@ -412,6 +462,12 @@ export const useInventoryIntegration = () => {
         pipe(
           InventoryIntegrationService,
           Effect.flatMap((service) => service.removeItemWithSync(playerId, slotIndex, amount))
+        ).pipe(
+          Effect.provide(InventoryIntegrationServiceLive),
+          Effect.provide(InventoryServiceLive),
+          Effect.provide(LocalStorageInventoryService),
+          Effect.provide(ItemManagerServiceLive),
+          Effect.provide(ItemRegistry.Default)
         )
       ),
 
@@ -420,6 +476,12 @@ export const useInventoryIntegration = () => {
         pipe(
           InventoryIntegrationService,
           Effect.flatMap((service) => service.moveItemWithSync(playerId, fromSlot, toSlot))
+        ).pipe(
+          Effect.provide(InventoryIntegrationServiceLive),
+          Effect.provide(InventoryServiceLive),
+          Effect.provide(LocalStorageInventoryService),
+          Effect.provide(ItemManagerServiceLive),
+          Effect.provide(ItemRegistry.Default)
         )
       ),
   }

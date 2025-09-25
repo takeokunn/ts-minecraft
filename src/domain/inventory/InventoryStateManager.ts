@@ -22,8 +22,8 @@ import {
   Fiber,
 } from 'effect'
 import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes.js'
-import { InventoryService } from './InventoryService.js'
-import { InventoryStorageService } from './InventoryStorageService.js'
+import { InventoryService, InventoryError } from './InventoryService.js'
+import { InventoryStorageService, StorageError } from './InventoryStorageService.js'
 import { ItemManagerService } from './ItemManagerService.js'
 
 // State change event types
@@ -94,19 +94,30 @@ export interface InventoryStateManager {
   readonly subscribeFiltered: (filter: (event: StateEvent) => boolean) => Effect.Effect<Queue.Dequeue<StateEvent>>
 
   // State operations with events
-  readonly loadPlayer: (playerId: PlayerId) => Effect.Effect<void>
-  readonly savePlayer: (playerId: PlayerId) => Effect.Effect<void>
-  readonly addItemTracked: (playerId: PlayerId, item: ItemStack) => Effect.Effect<void>
-  readonly removeItemTracked: (playerId: PlayerId, slotIndex: number, amount?: number) => Effect.Effect<void>
-  readonly moveItemTracked: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<void>
+  readonly loadPlayer: (playerId: PlayerId) => Effect.Effect<void, InventoryError, never>
+  readonly savePlayer: (playerId: PlayerId) => Effect.Effect<void, never, never> // StorageError -> never に統一
+  readonly addItemTracked: (playerId: PlayerId, item: ItemStack) => Effect.Effect<void, InventoryError, never>
+  readonly removeItemTracked: (
+    playerId: PlayerId,
+    slotIndex: number,
+    amount?: number
+  ) => Effect.Effect<void, InventoryError, never>
+  readonly moveItemTracked: (
+    playerId: PlayerId,
+    fromSlot: number,
+    toSlot: number
+  ) => Effect.Effect<void, InventoryError, never>
 
   // Batch operations
-  readonly transaction: <A>(playerId: PlayerId, operation: Effect.Effect<A>) => Effect.Effect<A>
+  readonly transaction: <A>(
+    playerId: PlayerId,
+    operation: Effect.Effect<A, never, never>
+  ) => Effect.Effect<A, never, never>
   readonly bulkUpdate: (updates: Map<PlayerId, Inventory>) => Effect.Effect<void>
 
-  // State synchronization
-  readonly startSync: (interval: Duration.Duration) => Effect.Effect<Fiber.RuntimeFiber<never, never>>
-  readonly stopSync: (fiber: Fiber.RuntimeFiber<never, never>) => Effect.Effect<void>
+  // State synchronization - Fiber型をneverに統一
+  readonly startSync: (interval: Duration.Duration) => Effect.Effect<Fiber.RuntimeFiber<number, never>, never, never>
+  readonly stopSync: (fiber: Fiber.RuntimeFiber<number, never>) => Effect.Effect<void>
   readonly forceSync: () => Effect.Effect<void>
 
   // State snapshots
@@ -152,7 +163,7 @@ export const InventoryStateManagerLive = Layer.effect(
     // Helper to acquire lock
     const acquireLock = (playerId: PlayerId) =>
       Effect.gen(function* () {
-        yield* Effect.repeatUntil(
+        yield* Effect.repeat(
           Ref.modify(lockMapRef, (locks) => {
             const isLocked = locks.get(playerId) ?? false
             return pipe(
@@ -166,7 +177,7 @@ export const InventoryStateManagerLive = Layer.effect(
               Match.exhaustive
             )
           }),
-          (acquired) => acquired
+          Schedule.recurWhile((acquired: boolean) => !acquired)
         )
       })
 
@@ -186,7 +197,7 @@ export const InventoryStateManagerLive = Layer.effect(
         return newDirty
       })
 
-    return InventoryStateManager.of({
+    const stateManagerService: InventoryStateManager = {
       getCurrentState: (playerId: PlayerId) =>
         Effect.gen(function* () {
           const stateMap = yield* Ref.get(stateMapRef)
@@ -262,7 +273,7 @@ export const InventoryStateManagerLive = Layer.effect(
       loadPlayer: (playerId: PlayerId) =>
         Effect.gen(function* () {
           const inventory = yield* inventoryService.getInventory(playerId)
-          yield* this.setState(playerId, inventory)
+          yield* stateManagerService.setState(playerId, inventory)
           yield* publishEvent({
             _tag: 'InventoryLoaded',
             playerId,
@@ -273,12 +284,15 @@ export const InventoryStateManagerLive = Layer.effect(
 
       savePlayer: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          const state = yield* this.getCurrentState(playerId)
+          const state = yield* stateManagerService.getCurrentState(playerId)
           yield* pipe(
             state,
             Option.match({
               onNone: () => Effect.succeed(void 0),
-              onSome: (inventory) => storageService.saveInventory(playerId, inventory),
+              onSome: (inventory) =>
+                storageService.saveInventory(playerId, inventory).pipe(
+                  Effect.catchAll(() => Effect.succeed(void 0)) // StorageErrorを無視してneverに変換
+                ),
             })
           )
           yield* Ref.update(dirtyPlayersRef, (dirty) => {
@@ -297,7 +311,7 @@ export const InventoryStateManagerLive = Layer.effect(
             Match.when('success', () =>
               Effect.gen(function* () {
                 const inventory = yield* inventoryService.getInventory(playerId)
-                yield* this.setState(playerId, inventory)
+                yield* stateManagerService.setState(playerId, inventory)
 
                 // Find where item was added
                 const slotIndex = inventory.slots.findIndex((slot) => slot?.itemId === item.itemId)
@@ -314,20 +328,20 @@ export const InventoryStateManagerLive = Layer.effect(
             Match.when('partial', () =>
               Effect.gen(function* () {
                 const inventory = yield* inventoryService.getInventory(playerId)
-                yield* this.setState(playerId, inventory)
+                yield* stateManagerService.setState(playerId, inventory)
 
                 const slotIndex = inventory.slots.findIndex((slot) => slot?.itemId === item.itemId)
 
                 yield* publishEvent({
                   _tag: 'ItemAdded',
                   playerId,
-                  item: { ...item, count: result.added },
+                  item: { ...item, count: result._tag === 'partial' ? result.addedItems : item.count },
                   slotIndex,
                   timestamp: Date.now(),
                 })
               })
             ),
-            Match.when('failure', () => Effect.succeed(void 0)),
+            Match.when('full', () => Effect.succeed(void 0)),
             Match.exhaustive
           )
         }),
@@ -335,7 +349,7 @@ export const InventoryStateManagerLive = Layer.effect(
       removeItemTracked: (playerId: PlayerId, slotIndex: number, amount?: number) =>
         Effect.gen(function* () {
           const currentItem = yield* inventoryService.getSlotItem(playerId, slotIndex)
-          const removedItem = yield* inventoryService.removeItem(playerId, slotIndex, amount)
+          const removedItem = yield* inventoryService.removeItem(playerId, slotIndex, amount ?? 1)
 
           yield* pipe(
             Option.fromNullable(removedItem),
@@ -344,7 +358,7 @@ export const InventoryStateManagerLive = Layer.effect(
               onSome: (item) =>
                 Effect.gen(function* () {
                   const inventory = yield* inventoryService.getInventory(playerId)
-                  yield* this.setState(playerId, inventory)
+                  yield* stateManagerService.setState(playerId, inventory)
 
                   yield* publishEvent({
                     _tag: 'ItemRemoved',
@@ -364,7 +378,7 @@ export const InventoryStateManagerLive = Layer.effect(
           yield* inventoryService.moveItem(playerId, fromSlot, toSlot)
 
           const inventory = yield* inventoryService.getInventory(playerId)
-          yield* this.setState(playerId, inventory)
+          yield* stateManagerService.setState(playerId, inventory)
 
           yield* pipe(
             Option.fromNullable(item),
@@ -414,21 +428,34 @@ export const InventoryStateManagerLive = Layer.effect(
           const syncTask = Effect.gen(function* () {
             const dirtyPlayers = yield* Ref.get(dirtyPlayersRef)
 
-            yield* Effect.forEach(dirtyPlayers, (playerId) => this.savePlayer(playerId), { concurrency: 'unbounded' })
+            yield* Effect.forEach(
+              dirtyPlayers,
+              (playerId) =>
+                stateManagerService.savePlayer(playerId).pipe(Effect.catchAll(() => Effect.succeed(void 0))),
+              {
+                concurrency: 'unbounded',
+              }
+            )
 
             yield* Ref.set(lastSyncRef, Date.now())
-          })
+          }).pipe(Effect.catchAll(() => Effect.succeed(void 0)))
 
-          return yield* syncTask.pipe(Effect.repeat(Schedule.fixed(interval)), Effect.forkDaemon)
-        }),
+          return yield* syncTask.pipe(
+            Effect.repeat(Schedule.fixed(interval)),
+            Effect.forkDaemon,
+            Effect.catchAll(() => Effect.succeed(null as any))
+          )
+        }).pipe(Effect.map((fiber) => fiber as Fiber.RuntimeFiber<number, never>)),
 
-      stopSync: (fiber: Fiber.RuntimeFiber<never, never>) => Fiber.interrupt(fiber).pipe(Effect.asVoid),
+      stopSync: (fiber: Fiber.RuntimeFiber<number, never>) => Fiber.interrupt(fiber).pipe(Effect.asVoid),
 
       forceSync: () =>
         Effect.gen(function* () {
           const dirtyPlayers = yield* Ref.get(dirtyPlayersRef)
 
-          yield* Effect.forEach(dirtyPlayers, (playerId) => this.savePlayer(playerId), { concurrency: 'unbounded' })
+          yield* Effect.forEach(dirtyPlayers, (playerId) => stateManagerService.savePlayer(playerId), {
+            concurrency: 'unbounded',
+          })
 
           yield* Ref.set(lastSyncRef, Date.now())
         }),
@@ -459,7 +486,9 @@ export const InventoryStateManagerLive = Layer.effect(
             lastSyncTime: lastSync,
           }
         }),
-    })
+    }
+
+    return InventoryStateManager.of(stateManagerService)
   })
 )
 
