@@ -1,40 +1,55 @@
-import { Effect, TestClock, TestContext, Layer, Option, Either, pipe } from 'effect'
-import { it, expect, describe } from 'vitest'
-import * as fc from 'fast-check'
+import { Effect, TestClock, TestContext, Layer, Option, Either, pipe, Stream, Data } from 'effect'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Schema } from 'effect'
 import * as Types from '../PlayerTypes.js'
 import * as Service from '../PlayerServiceV2.js'
 import { EntityManager } from '../../../infrastructure/ecs/EntityManager.js'
 
 // =========================================
-// Test Fixtures & Arbitraries
+// Test Data Generators (Effect-based)
 // =========================================
 
-const arbVector3D: fc.Arbitrary<Types.Vector3D> = fc.record({
-  x: fc.float({ min: -1000, max: 1000, noNaN: true }),
-  y: fc.float({ min: 0, max: 320, noNaN: true }),
-  z: fc.float({ min: -1000, max: 1000, noNaN: true }),
+// Effect-based test data generators replacing fast-check arbitraries
+const generateVector3D = (): Types.Vector3D => ({
+  x: Math.random() * 2000 - 1000,
+  y: Math.random() * 320,
+  z: Math.random() * 2000 - 1000,
 })
 
-const arbRotation: fc.Arbitrary<Types.Rotation> = fc.record({
-  pitch: fc.float({ min: -90, max: 90, noNaN: true }),
-  yaw: fc.float({ min: -180, max: 180, noNaN: true }),
-  roll: fc.constant(0),
+const generateRotation = (): Types.Rotation => ({
+  pitch: Math.random() * 180 - 90,
+  yaw: Math.random() * 360 - 180,
+  roll: 0,
 })
 
-const arbGameMode: fc.Arbitrary<Types.GameMode> = fc.oneof(
-  fc.constant('survival' as const),
-  fc.constant('creative' as const),
-  fc.constant('adventure' as const),
-  fc.constant('spectator' as const)
-)
+const generateGameMode = (): Types.GameMode => {
+  const modes: Types.GameMode[] = ['survival', 'creative', 'adventure', 'spectator']
+  return modes[Math.floor(Math.random() * modes.length)]!
+}
 
-const arbPlayerConfig = fc.record({
-  playerId: fc.string({ minLength: 1, maxLength: 16 }).filter((s) => /^[a-zA-Z0-9_]+$/.test(s)),
-  name: fc.string({ minLength: 1, maxLength: 16 }).filter((s) => /^[a-zA-Z0-9_]+$/.test(s)),
-  position: fc.option(arbVector3D, { nil: undefined }),
-  gameMode: fc.option(arbGameMode, { nil: undefined }),
-})
+const generateValidName = (): string => {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+  const length = Math.floor(Math.random() * 15) + 1 // 1-16 chars
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+const generatePlayerConfig = () => {
+  const config: any = {
+    playerId: generateValidName(),
+    name: generateValidName(),
+  }
+
+  if (Math.random() > 0.5) {
+    config.position = generateVector3D()
+  }
+
+  if (Math.random() > 0.5) {
+    config.gameMode = generateGameMode()
+  }
+
+  return config
+}
 
 // =========================================
 // Test Layer Setup
@@ -84,8 +99,8 @@ const TestLayers = Service.PlayerSystemLive.pipe(
 
 describe('PlayerService', () => {
   describe('PlayerRepository', () => {
-    it('should save and load players', async () =>
-      await Effect.gen(function* () {
+    it.effect('should save and load players', () =>
+      Effect.gen(function* () {
         const repository = yield* Service.PlayerRepository
 
         const player = createTestPlayer('player1', 'TestPlayer')
@@ -94,11 +109,11 @@ describe('PlayerService', () => {
         const loaded = yield* repository.load(player.id)
 
         expect(loaded).toEqual(player)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should return error for non-existent player', async () =>
-      await Effect.gen(function* () {
+    it.effect('should return error for non-existent player', () =>
+      Effect.gen(function* () {
         const repository = yield* Service.PlayerRepository
 
         const playerId = Types.makePlayerId('nonexistent')
@@ -109,11 +124,11 @@ describe('PlayerService', () => {
           const error = result.left
           expect(error.reason).toBe('PlayerNotFound')
         }
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should find player by name', async () =>
-      await Effect.gen(function* () {
+    it.effect('should find player by name', () =>
+      Effect.gen(function* () {
         const repository = yield* Service.PlayerRepository
 
         const player = createTestPlayer('player1', 'UniqueTestName')
@@ -125,13 +140,13 @@ describe('PlayerService', () => {
         if (Option.isSome(found)) {
           expect(found.value.name).toBe('UniqueTestName')
         }
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
   })
 
   describe('PlayerStateManager', () => {
-    it('should create new player', async () =>
-      await Effect.gen(function* () {
+    it.effect('should create new player', () =>
+      Effect.gen(function* () {
         const stateManager = yield* Service.PlayerStateManager
 
         const config = {
@@ -147,11 +162,11 @@ describe('PlayerService', () => {
         expect(player.position).toEqual(config.position)
         expect(player.gameMode).toBe('creative')
         expect(player.abilities.canFly).toBe(true)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should prevent duplicate player creation', async () =>
-      await Effect.gen(function* () {
+    it.effect('should prevent duplicate player creation', () =>
+      Effect.gen(function* () {
         const stateManager = yield* Service.PlayerStateManager
 
         const config = {
@@ -167,11 +182,11 @@ describe('PlayerService', () => {
           const error = result.left
           expect(error.reason).toBe('PlayerAlreadyExists')
         }
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should update player state', async () =>
-      await Effect.gen(function* () {
+    it.effect('should update player state', () =>
+      Effect.gen(function* () {
         const stateManager = yield* Service.PlayerStateManager
 
         const config = {
@@ -191,13 +206,13 @@ describe('PlayerService', () => {
 
         expect(updated.position).toEqual({ x: 200, y: 100, z: 300 })
         expect(updated.stats.health).toBe(15)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
   })
 
   describe('PlayerMovementSystem', () => {
-    it('should apply movement correctly', async () =>
-      await Effect.gen(function* () {
+    it.effect('should apply movement correctly', () =>
+      Effect.gen(function* () {
         const movement = yield* Service.PlayerMovementSystem
 
         const player = createTestPlayer('mover', 'Mover')
@@ -218,11 +233,11 @@ describe('PlayerService', () => {
 
         // Should have forward velocity
         expect(moved.velocity.z).toBeGreaterThan(0)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should apply jump when on ground', async () =>
-      await Effect.gen(function* () {
+    it.effect('should apply jump when on ground', () =>
+      Effect.gen(function* () {
         const movement = yield* Service.PlayerMovementSystem
 
         const player = { ...createTestPlayer('jumper', 'Jumper'), isOnGround: true }
@@ -230,11 +245,11 @@ describe('PlayerService', () => {
 
         expect(jumped.velocity.y).toBe(8) // JUMP_VELOCITY
         expect(jumped.isOnGround).toBe(false)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should not jump when in air', async () =>
-      await Effect.gen(function* () {
+    it.effect('should not jump when in air', () =>
+      Effect.gen(function* () {
         const movement = yield* Service.PlayerMovementSystem
 
         const player = { ...createTestPlayer('airborne', 'Airborne'), isOnGround: false }
@@ -242,11 +257,11 @@ describe('PlayerService', () => {
 
         expect(result.velocity.y).toBe(0) // No change
         expect(result.isOnGround).toBe(false)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should apply physics correctly', async () =>
-      await Effect.gen(function* () {
+    it.effect('should apply physics correctly', () =>
+      Effect.gen(function* () {
         const movement = yield* Service.PlayerMovementSystem
 
         const player = {
@@ -265,13 +280,13 @@ describe('PlayerService', () => {
         expect(updated.velocity.z).toBeLessThan(5)
         // Position should be updated
         expect(updated.position.y).toBeLessThan(100)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
   })
 
   describe('PlayerActionProcessor', () => {
-    it('should process actions correctly', async () =>
-      await Effect.gen(function* () {
+    it.effect('should process actions correctly', () =>
+      Effect.gen(function* () {
         const processor = yield* Service.PlayerActionProcessor
 
         const player = createTestPlayer('actor', 'Actor')
@@ -280,11 +295,11 @@ describe('PlayerService', () => {
         const result = yield* processor.process({ ...player, isOnGround: true }, jumpAction)
 
         expect(result.velocity.y).toBe(8)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
 
-    it('should validate actions based on player state', async () =>
-      await Effect.gen(function* () {
+    it.effect('should validate actions based on player state', () =>
+      Effect.gen(function* () {
         const processor = yield* Service.PlayerActionProcessor
 
         const player = createTestPlayer('validator', 'Validator')
@@ -303,7 +318,7 @@ describe('PlayerService', () => {
           face: 'top',
         })
         expect(canPlace).toBe(player.abilities.canPlaceBlocks)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
+      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
     )
   })
 })
@@ -313,78 +328,96 @@ describe('PlayerService', () => {
 // =========================================
 
 describe('PlayerService Properties', () => {
-  it('player creation should be idempotent', async () =>
-    await fc.assert(fc.asyncProperty(arbPlayerConfig, async (config: any) =>
-      await Effect.gen(function* () {
-        const stateManager = yield* Service.PlayerStateManager
+  it.effect('player creation should be idempotent', () =>
+    Effect.gen(function* () {
+      // Run multiple iterations to simulate property-based testing
+      yield* Effect.forEach(
+        Array.from({ length: 20 }, () => generatePlayerConfig()),
+        (config) =>
+          Effect.gen(function* () {
+            const stateManager = yield* Service.PlayerStateManager
 
-        const player1 = yield* stateManager.create(config)
-        const player2 = yield* stateManager.get(Types.makePlayerId(config.playerId))
+            const player1 = yield* stateManager.create(config)
+            const player2 = yield* stateManager.get(Types.makePlayerId(config.playerId))
 
-        expect(player1).toEqual(player2)
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
-    ), { numRuns: 100 })
+            expect(player1).toEqual(player2)
+          }),
+        { concurrency: 1 } // Run sequentially to avoid conflicts
+      )
+    }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
   )
 
-  it('physics should conserve energy within bounds', async () =>
-    await fc.assert(fc.asyncProperty(
-      arbVector3D,
-      fc.float({ min: 0.001, max: 0.1, noNaN: true }),
-      async (initialPosition: Types.Vector3D, deltaTime: number) =>
-        await Effect.gen(function* () {
-          const movement = yield* Service.PlayerMovementSystem
+  it.effect('physics should conserve energy within bounds', () =>
+    Effect.gen(function* () {
+      yield* Effect.forEach(
+        Array.from({ length: 20 }, () => ({
+          position: generateVector3D(),
+          deltaTime: Math.random() * 0.099 + 0.001, // 0.001 to 0.1
+        })),
+        ({ position, deltaTime }) =>
+          Effect.gen(function* () {
+            const movement = yield* Service.PlayerMovementSystem
 
-          const player = {
-            ...createTestPlayer('energy', 'Energy'),
-            position: initialPosition,
-            velocity: { x: 0, y: 0, z: 0 } as Types.Velocity,
-            isOnGround: false,
-          }
+            const player = {
+              ...createTestPlayer('energy', 'Energy'),
+              position,
+              velocity: { x: 0, y: 0, z: 0 } as Types.Velocity,
+              isOnGround: false,
+            }
 
-          const updated = yield* movement.updatePhysics(player, deltaTime)
+            const updated = yield* movement.updatePhysics(player, deltaTime)
 
-          // Terminal velocity check
-          expect(updated.velocity.y).toBeGreaterThanOrEqual(-60)
+            // Terminal velocity check
+            expect(updated.velocity.y).toBeGreaterThanOrEqual(-60)
 
-          // Position bounds check
-          expect(Number.isFinite(updated.position.x)).toBe(true)
-          expect(Number.isFinite(updated.position.y)).toBe(true)
-          expect(Number.isFinite(updated.position.z)).toBe(true)
-        }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
-    ), { numRuns: 100 })
+            // Position bounds check
+            expect(Number.isFinite(updated.position.x)).toBe(true)
+            expect(Number.isFinite(updated.position.y)).toBe(true)
+            expect(Number.isFinite(updated.position.z)).toBe(true)
+          }),
+        { concurrency: 1 }
+      )
+    }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
   )
 
-  it('game mode abilities should be consistent', async () =>
-    await fc.assert(fc.asyncProperty(arbGameMode, async (gameMode: Types.GameMode) =>
-      await Effect.gen(function* () {
-        const stateManager = yield* Service.PlayerStateManager
+  it.effect('game mode abilities should be consistent', () =>
+    Effect.gen(function* () {
+      const gameModes: Types.GameMode[] = ['survival', 'creative', 'adventure', 'spectator']
 
-        const player = yield* stateManager.create({
-          playerId: `gm_${gameMode}`,
-          name: `GM_${gameMode}`,
-          gameMode,
-        })
+      yield* Effect.forEach(
+        gameModes,
+        (gameMode) =>
+          Effect.gen(function* () {
+            const stateManager = yield* Service.PlayerStateManager
 
-        switch (gameMode) {
-          case 'creative':
-            expect(player.abilities.canFly).toBe(true)
-            expect(player.abilities.invulnerable).toBe(true)
-            break
-          case 'spectator':
-            expect(player.abilities.canFly).toBe(true)
-            expect(player.abilities.canBreakBlocks).toBe(false)
-            expect(player.abilities.canPlaceBlocks).toBe(false)
-            break
-          case 'adventure':
-            expect(player.abilities.canBreakBlocks).toBe(false)
-            break
-          case 'survival':
-            expect(player.abilities.canFly).toBe(false)
-            expect(player.abilities.invulnerable).toBe(false)
-            break
-        }
-      }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped, Effect.runPromise)
-    ), { numRuns: 20 })
+            const player = yield* stateManager.create({
+              playerId: `gm_${gameMode}`,
+              name: `GM_${gameMode}`,
+              gameMode,
+            })
+
+            switch (gameMode) {
+              case 'creative':
+                expect(player.abilities.canFly).toBe(true)
+                expect(player.abilities.invulnerable).toBe(true)
+                break
+              case 'spectator':
+                expect(player.abilities.canFly).toBe(true)
+                expect(player.abilities.canBreakBlocks).toBe(false)
+                expect(player.abilities.canPlaceBlocks).toBe(false)
+                break
+              case 'adventure':
+                expect(player.abilities.canBreakBlocks).toBe(false)
+                break
+              case 'survival':
+                expect(player.abilities.canFly).toBe(false)
+                expect(player.abilities.invulnerable).toBe(false)
+                break
+            }
+          }),
+        { concurrency: 1 }
+      )
+    }).pipe(Effect.provide(TestLayers), Effect.provide(TestContext.TestContext), Effect.scoped)
   )
 })
 

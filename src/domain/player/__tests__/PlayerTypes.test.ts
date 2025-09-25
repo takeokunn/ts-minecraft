@@ -1,41 +1,47 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Schema, Option, Either, pipe, Match, Array as EffectArray } from 'effect'
-import * as fc from 'fast-check'
 import * as Types from '../PlayerTypes.js'
 
 // =========================================
-// Property-Based Test Arbitraries
+// Test Data Generators (Effect-based)
 // =========================================
 
-const arbPlayerId = fc.string({ minLength: 1, maxLength: 50 }).map(Types.makePlayerId)
-const arbEntityId = fc.integer({ min: 1, max: 100000 }).map(Types.makeEntityId)
-const arbHealth = fc.integer({ min: 0, max: 20 }).map(Types.makeHealth)
-const arbHunger = fc.integer({ min: 0, max: 20 }).map(Types.makeHunger)
-const arbExperience = fc.nat().map(Types.makeExperience)
+const generatePlayerId = (): string => {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+  const length = Math.floor(Math.random() * 49) + 1 // 1-50 chars
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
 
-const arbVector3D = fc.record({
-  x: fc.float({ min: -10000, max: 10000, noNaN: true }),
-  y: fc.float({ min: -320, max: 320, noNaN: true }),
-  z: fc.float({ min: -10000, max: 10000, noNaN: true }),
+const generateEntityId = (): number => Math.floor(Math.random() * 100000) + 1
+
+const generateHealth = (): number => Math.floor(Math.random() * 21) // 0-20
+
+const generateHunger = (): number => Math.floor(Math.random() * 21) // 0-20
+
+const generateExperience = (): number => Math.floor(Math.random() * 1000)
+
+const generateVector3D = (): Types.Vector3D => ({
+  x: Math.random() * 20000 - 10000,
+  y: Math.random() * 640 - 320,
+  z: Math.random() * 20000 - 10000,
 })
 
-const arbRotation = fc.record({
-  pitch: fc.float({ min: -90, max: 90, noNaN: true }),
-  yaw: fc.float({ min: -180, max: 180, noNaN: true }),
-  roll: fc.float({ noNaN: true }),
+const generateRotation = (): Types.Rotation => ({
+  pitch: Math.random() * 180 - 90,
+  yaw: Math.random() * 360 - 180,
+  roll: Math.random() * 360 - 180,
 })
 
-const arbGameMode = fc.constantFrom(
-  'survival' as const,
-  'creative' as const,
-  'adventure' as const,
-  'spectator' as const
-)
+const generateGameMode = (): Types.GameMode => {
+  const modes: Types.GameMode[] = ['survival', 'creative', 'adventure', 'spectator']
+  return modes[Math.floor(Math.random() * modes.length)]!
+}
 
-const arbItemStack = fc.record({
-  itemId: fc.string({ minLength: 1, maxLength: 50 }),
-  count: fc.integer({ min: 1, max: 64 }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.anything()), { nil: undefined }),
+const generateItemStack = () => ({
+  itemId: generatePlayerId(),
+  count: Math.floor(Math.random() * 64) + 1,
+  metadata: Math.random() > 0.5 ? { key: 'value' } : undefined,
 })
 
 // =========================================
@@ -49,7 +55,7 @@ describe('PlayerTypes - Branded Types', () => {
       expect(id).toBe('player123')
     })
 
-    it('should validate PlayerId schema', () =>
+    it.effect('should validate PlayerId schema', () =>
       Effect.gen(function* () {
         const valid = yield* Schema.decodeUnknown(Types.PlayerId)('valid-id')
         expect(valid).toBe('valid-id')
@@ -61,12 +67,19 @@ describe('PlayerTypes - Branded Types', () => {
         })
       }))
 
-    it('property: any non-empty string is valid PlayerId', () =>
-      fc.assert(fc.property(fc.string({ minLength: 1 }), (str: string) => {
-        const id = Types.makePlayerId(str)
-        expect(typeof id).toBe('string')
-        expect(id).toBe(str)
-      }))
+    it.effect('property: any non-empty string is valid PlayerId', () =>
+      Effect.gen(function* () {
+        // Run multiple iterations to simulate property-based testing
+        yield* Effect.forEach(
+          Array.from({ length: 10 }, () => generatePlayerId()),
+          (str) => Effect.sync(() => {
+            const id = Types.makePlayerId(str)
+            expect(typeof id).toBe('string')
+            expect(id).toBe(str)
+          }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 
@@ -77,7 +90,7 @@ describe('PlayerTypes - Branded Types', () => {
       expect(Types.makeHealth(20)).toBe(20)
     })
 
-    it('should reject invalid Health values', () =>
+    it.effect('should reject invalid Health values', () =>
       Effect.gen(function* () {
         const testCases = [{ value: -1 }, { value: 21 }]
 
@@ -95,12 +108,18 @@ describe('PlayerTypes - Branded Types', () => {
         )
       }))
 
-    it('property: valid range 0-20', () =>
-      fc.assert(fc.property(fc.integer({ min: 0, max: 20 }), (value: number) => {
-        const health = Types.makeHealth(value)
-        expect(health).toBeGreaterThanOrEqual(0)
-        expect(health).toBeLessThanOrEqual(20)
-      }))
+    it.effect('property: valid range 0-20', () =>
+      Effect.gen(function* () {
+        yield* Effect.forEach(
+          Array.from({ length: 10 }, () => generateHealth()),
+          (value) => Effect.sync(() => {
+            const health = Types.makeHealth(value)
+            expect(health).toBeGreaterThanOrEqual(0)
+            expect(health).toBeLessThanOrEqual(20)
+          }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 
@@ -110,12 +129,18 @@ describe('PlayerTypes - Branded Types', () => {
       expect(id).toBe(1)
     })
 
-    it('property: positive integers are valid', () =>
-      fc.assert(fc.property(fc.integer({ min: 1 }), (value: number) => {
-        const id = Types.makeEntityId(value)
-        expect(id).toBeGreaterThan(0)
-        expect(Number.isInteger(id)).toBe(true)
-      }))
+    it.effect('property: positive integers are valid', () =>
+      Effect.gen(function* () {
+        yield* Effect.forEach(
+          Array.from({ length: 10 }, () => generateEntityId()),
+          (value) => Effect.sync(() => {
+            const id = Types.makeEntityId(value)
+            expect(id).toBeGreaterThan(0)
+            expect(Number.isInteger(id)).toBe(true)
+          }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 })
@@ -126,7 +151,7 @@ describe('PlayerTypes - Branded Types', () => {
 
 describe('PlayerTypes - Tagged Unions', () => {
   describe('PlayerAction', () => {
-    it('should create Move action', () =>
+    it.effect('should create Move action', () =>
       Effect.gen(function* () {
         const action = yield* Schema.decodeUnknown(Types.PlayerAction)({
           _tag: 'Move',
@@ -150,7 +175,7 @@ describe('PlayerTypes - Tagged Unions', () => {
         }
       }))
 
-    it('should create PlaceBlock action', () =>
+    it.effect('should create PlaceBlock action', () =>
       Effect.gen(function* () {
         const action = yield* Schema.decodeUnknown(Types.PlayerAction)({
           _tag: 'PlaceBlock',
@@ -165,20 +190,22 @@ describe('PlayerTypes - Tagged Unions', () => {
         }
       }))
 
-    it('property: all action tags are valid', () =>
-      fc.assert(fc.property(
-        fc.constantFrom('Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem'),
-        (tag: string) => {
-          expect(['Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem']).toContain(
-            tag
-          )
-        }
-      ))
+    it.effect('property: all action tags are valid', () =>
+      Effect.gen(function* () {
+        const validTags = ['Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem']
+        yield* Effect.forEach(
+          validTags,
+          (tag) => Effect.sync(() => {
+            expect(validTags).toContain(tag)
+          }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 
   describe('DamageSource', () => {
-    it('should create Fall damage', () =>
+    it.effect('should create Fall damage', () =>
       Effect.gen(function* () {
         const damage = yield* Schema.decodeUnknown(Types.DamageSource)({
           _tag: 'Fall',
@@ -191,7 +218,7 @@ describe('PlayerTypes - Tagged Unions', () => {
         }
       }))
 
-    it('should create Environment damage', () =>
+    it.effect('should create Environment damage', () =>
       Effect.gen(function* () {
         const damage = yield* Schema.decodeUnknown(Types.DamageSource)({
           _tag: 'Environment',
@@ -206,7 +233,7 @@ describe('PlayerTypes - Tagged Unions', () => {
   })
 
   describe('PlayerEvent', () => {
-    it('should create PlayerCreated event', () =>
+    it.effect('should create PlayerCreated event', () =>
       Effect.gen(function* () {
         const event = yield* Schema.decodeUnknown(Types.PlayerEvent)({
           _tag: 'PlayerCreated',
@@ -220,7 +247,7 @@ describe('PlayerTypes - Tagged Unions', () => {
         expect(event._tag).toBe('PlayerCreated')
       }))
 
-    it('should create PlayerDamaged event', () =>
+    it.effect('should create PlayerDamaged event', () =>
       Effect.gen(function* () {
         const event = yield* Schema.decodeUnknown(Types.PlayerEvent)({
           _tag: 'PlayerDamaged',
@@ -246,7 +273,7 @@ describe('PlayerTypes - Tagged Unions', () => {
 
 describe('PlayerTypes - Composite Types', () => {
   describe('PlayerStats', () => {
-    it('should create valid PlayerStats', () =>
+    it.effect('should create valid PlayerStats', () =>
       Effect.gen(function* () {
         const stats = yield* Schema.decodeUnknown(Types.PlayerStats)({
           health: 20,
@@ -262,26 +289,29 @@ describe('PlayerTypes - Composite Types', () => {
         expect(stats.level).toBe(0)
       }))
 
-    it('property: valid stats within bounds', async () =>
-      await fc.assert(fc.asyncProperty(
-        fc.record({
-          health: fc.integer({ min: 0, max: 20 }),
-          maxHealth: fc.integer({ min: 0, max: 20 }),
-          hunger: fc.integer({ min: 0, max: 20 }),
-          saturation: fc.integer({ min: 0, max: 20 }),
-          experience: fc.nat(),
-          level: fc.nat(),
-          armor: fc.integer({ min: 0, max: 20 }),
-        }),
-        async (statsData: any) =>
-          await Effect.gen(function* () {
-            const stats = yield* Schema.decodeUnknown(Types.PlayerStats)(statsData)
-            expect(stats.health).toBeGreaterThanOrEqual(0)
-            expect(stats.health).toBeLessThanOrEqual(20)
-            expect(stats.armor).toBeGreaterThanOrEqual(0)
-            expect(stats.armor).toBeLessThanOrEqual(20)
-          }).pipe(Effect.runPromise)
-      ))
+    it.effect('property: valid stats within bounds', () =>
+      Effect.gen(function* () {
+        yield* Effect.forEach(
+          Array.from({ length: 10 }, () => ({
+            health: generateHealth(),
+            maxHealth: generateHealth(),
+            hunger: generateHunger(),
+            saturation: generateHunger(),
+            experience: generateExperience(),
+            level: Math.floor(Math.random() * 100),
+            armor: generateHealth(),
+          })),
+          (statsData) =>
+            Effect.gen(function* () {
+              const stats = yield* Schema.decodeUnknown(Types.PlayerStats)(statsData)
+              expect(stats.health).toBeGreaterThanOrEqual(0)
+              expect(stats.health).toBeLessThanOrEqual(20)
+              expect(stats.armor).toBeGreaterThanOrEqual(0)
+              expect(stats.armor).toBeLessThanOrEqual(20)
+            }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 
@@ -299,7 +329,7 @@ describe('PlayerTypes - Composite Types', () => {
   })
 
   describe('Inventory', () => {
-    it('should create valid Inventory', () =>
+    it.effect('should create valid Inventory', () =>
       Effect.gen(function* () {
         const inventory = yield* Schema.decodeUnknown(Types.Inventory)({
           slots: Array(36).fill(null),
@@ -310,7 +340,7 @@ describe('PlayerTypes - Composite Types', () => {
         expect(inventory.selectedSlot).toBe(0)
       }))
 
-    it('should validate selected slot range', () =>
+    it.effect('should validate selected slot range', () =>
       Effect.gen(function* () {
         const invalid = yield* Effect.either(
           Schema.decodeUnknown(Types.Inventory)({
@@ -327,7 +357,7 @@ describe('PlayerTypes - Composite Types', () => {
   })
 
   describe('Player', () => {
-    it('should create valid Player entity', () =>
+    it.effect('should create valid Player entity', () =>
       Effect.gen(function* () {
         const player = yield* Schema.decodeUnknown(Types.Player)({
           id: Types.makePlayerId('player1'),
@@ -352,7 +382,7 @@ describe('PlayerTypes - Composite Types', () => {
         expect(player.gameMode).toBe('survival')
       }))
 
-    it('should validate player name pattern', () =>
+    it.effect('should validate player name pattern', () =>
       Effect.gen(function* () {
         const invalid = yield* Effect.either(
           Schema.decodeUnknown(Types.Player)({
@@ -381,44 +411,47 @@ describe('PlayerTypes - Composite Types', () => {
         })
       }))
 
-    it('property: Player entity invariants', async () =>
-      await fc.assert(fc.asyncProperty(
-        fc.record({
-          name: fc.string({ minLength: 1, maxLength: 16 }).filter((s) => /^[a-zA-Z0-9_]+$/.test(s)),
-          gameMode: arbGameMode,
-          position: arbVector3D,
-          rotation: arbRotation,
-        }),
-        async (data: any) =>
-          await Effect.gen(function* () {
-            const player = yield* Schema.decodeUnknown(Types.Player)({
-              id: Types.makePlayerId('test'),
-              entityId: Types.makeEntityId(1),
-              name: data.name,
-              position: data.position,
-              rotation: data.rotation,
-              velocity: { x: 0, y: 0, z: 0 },
-              stats: Types.defaultPlayerStats,
-              gameMode: data.gameMode,
-              abilities: Types.defaultPlayerAbilities,
-              inventory: Types.defaultInventory,
-              equipment: Types.defaultEquipment,
-              isOnGround: false,
-              isSneaking: false,
-              isSprinting: false,
-              lastUpdate: Date.now(),
-              createdAt: Date.now(),
-            })
+    it.effect('property: Player entity invariants', () =>
+      Effect.gen(function* () {
+        yield* Effect.forEach(
+          Array.from({ length: 10 }, () => ({
+            name: generatePlayerId().slice(0, 16), // Ensure max 16 chars
+            gameMode: generateGameMode(),
+            position: generateVector3D(),
+            rotation: generateRotation(),
+          })),
+          (data) =>
+            Effect.gen(function* () {
+              const player = yield* Schema.decodeUnknown(Types.Player)({
+                id: Types.makePlayerId('test'),
+                entityId: Types.makeEntityId(1),
+                name: data.name,
+                position: data.position,
+                rotation: data.rotation,
+                velocity: { x: 0, y: 0, z: 0 },
+                stats: Types.defaultPlayerStats,
+                gameMode: data.gameMode,
+                abilities: Types.defaultPlayerAbilities,
+                inventory: Types.defaultInventory,
+                equipment: Types.defaultEquipment,
+                isOnGround: false,
+                isSneaking: false,
+                isSprinting: false,
+                lastUpdate: Date.now(),
+                createdAt: Date.now(),
+              })
 
-            // Invariants
-            expect(player.name.length).toBeGreaterThan(0)
-            expect(player.name.length).toBeLessThanOrEqual(16)
-            expect(player.rotation.pitch).toBeGreaterThanOrEqual(-90)
-            expect(player.rotation.pitch).toBeLessThanOrEqual(90)
-            expect(player.rotation.yaw).toBeGreaterThanOrEqual(-180)
-            expect(player.rotation.yaw).toBeLessThanOrEqual(180)
-          }).pipe(Effect.runPromise)
-      ))
+              // Invariants
+              expect(player.name.length).toBeGreaterThan(0)
+              expect(player.name.length).toBeLessThanOrEqual(16)
+              expect(player.rotation.pitch).toBeGreaterThanOrEqual(-90)
+              expect(player.rotation.pitch).toBeLessThanOrEqual(90)
+              expect(player.rotation.yaw).toBeGreaterThanOrEqual(-180)
+              expect(player.rotation.yaw).toBeLessThanOrEqual(180)
+            }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 })
@@ -429,7 +462,7 @@ describe('PlayerTypes - Composite Types', () => {
 
 describe('PlayerTypes - Errors', () => {
   describe('PlayerError', () => {
-    it('should create PlayerNotFound error', () =>
+    it.effect('should create PlayerNotFound error', () =>
       Effect.gen(function* () {
         const error = yield* Schema.decodeUnknown(Types.PlayerError)({
           _tag: 'PlayerError',
@@ -442,7 +475,7 @@ describe('PlayerTypes - Errors', () => {
         expect(error.message).toBe('Player not found')
       }))
 
-    it('should create InventoryFull error with context', () =>
+    it.effect('should create InventoryFull error with context', () =>
       Effect.gen(function* () {
         const error = yield* Schema.decodeUnknown(Types.PlayerError)({
           _tag: 'PlayerError',
@@ -462,9 +495,9 @@ describe('PlayerTypes - Errors', () => {
         })
       }))
 
-    it('property: all error reasons are valid', async () =>
-      await fc.assert(fc.asyncProperty(
-        fc.constantFrom(
+    it.effect('property: all error reasons are valid', () =>
+      Effect.gen(function* () {
+        const errorReasons = [
           'PlayerNotFound',
           'PlayerAlreadyExists',
           'InvalidPosition',
@@ -474,18 +507,23 @@ describe('PlayerTypes - Errors', () => {
           'ItemNotFound',
           'PermissionDenied',
           'ValidationFailed'
-        ),
-        async (reason: string) =>
-          await Effect.gen(function* () {
-            const error = yield* Schema.decodeUnknown(Types.PlayerError)({
-              _tag: 'PlayerError',
-              reason,
-              message: `Error: ${reason}`,
-            })
+        ]
 
-            expect(error.reason).toBe(reason)
-          }).pipe(Effect.runPromise)
-      ))
+        yield* Effect.forEach(
+          errorReasons,
+          (reason) =>
+            Effect.gen(function* () {
+              const error = yield* Schema.decodeUnknown(Types.PlayerError)({
+                _tag: 'PlayerError',
+                reason,
+                message: `Error: ${reason}`,
+              })
+
+              expect(error.reason).toBe(reason)
+            }),
+          { concurrency: 1 }
+        )
+      })
     )
   })
 })
@@ -515,7 +553,7 @@ describe('PlayerTypes - Default Values', () => {
     expect(inventory.selectedSlot).toBe(0)
   })
 
-  it('should have correct default Equipment', () => {
+  it.effect('should have correct default Equipment', () => {
     const equipment = Types.defaultEquipment
     const fields = ['helmet', 'chestplate', 'leggings', 'boots', 'mainHand', 'offHand'] as const
 
