@@ -20,7 +20,7 @@ export type DeadzoneValue = number & Brand.Brand<'DeadzoneValue'>
 export const DeadzoneValue = Brand.nominal<DeadzoneValue>()
 
 // デバイスタイプスキーマ
-export const DeviceTypeSchema = Schema.TaggedUnion('_tag', [
+export const DeviceTypeSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('Keyboard'),
     layout: Schema.Union(Schema.Literal('QWERTY'), Schema.Literal('AZERTY'), Schema.Literal('Dvorak')),
@@ -46,13 +46,13 @@ export const DeviceTypeSchema = Schema.TaggedUnion('_tag', [
     _tag: Schema.Literal('TouchScreen'),
     multiTouch: Schema.Boolean,
     maxTouchPoints: Schema.Number,
-  }),
-])
+  })
+)
 
 export type DeviceType = Schema.Schema.Type<typeof DeviceTypeSchema>
 
 // 入力イベントスキーマ
-export const InputEventSchema = Schema.TaggedUnion('_tag', [
+export const InputEventSchema = Schema.Union(
   // キーボードイベント
   Schema.Struct({
     _tag: Schema.Literal('KeyPressed'),
@@ -164,8 +164,8 @@ export const InputEventSchema = Schema.TaggedUnion('_tag', [
       })
     ),
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
-  }),
-])
+  })
+)
 
 export type InputEvent = Schema.Schema.Type<typeof InputEventSchema>
 
@@ -192,7 +192,7 @@ export const InputStateSchema = Schema.Struct({
 export type InputState = Schema.Schema.Type<typeof InputStateSchema>
 
 // ゲームアクションスキーマ
-export const GameActionSchema = Schema.TaggedUnion('_tag', [
+export const GameActionSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('MovementAction'),
     direction: Schema.Union(
@@ -235,8 +235,8 @@ export const GameActionSchema = Schema.TaggedUnion('_tag', [
   }),
   Schema.Struct({
     _tag: Schema.Literal('PauseAction'),
-  }),
-])
+  })
+)
 
 export type GameAction = Schema.Schema.Type<typeof GameActionSchema>
 
@@ -277,7 +277,7 @@ export const ControlSchemeSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.String,
   targetDevices: Schema.Array(DeviceTypeSchema),
-  mappings: Schema.Record(Schema.String, InputMappingSchema),
+  mappings: Schema.Record({ key: Schema.String, value: InputMappingSchema }),
   sensitivity: Schema.Struct({
     mouse: Schema.Number.pipe(Schema.brand('MouseSensitivity')),
     gamepad: Schema.Number.pipe(Schema.brand('GamepadSensitivity')),

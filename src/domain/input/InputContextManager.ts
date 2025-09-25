@@ -2,11 +2,11 @@ import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Order, Array 
 import type { InputEvent } from './schemas'
 
 // 入力コンテキストエラー
-export const InputContextErrorSchema = Schema.TaggedError('InputContextError', {
+export const InputContextErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('InputContextError'),
   message: Schema.String,
   context: Schema.optional(Schema.String),
 })
-export const InputContextError = Schema.TaggedError(InputContextErrorSchema)
 export type InputContextError = Schema.Schema.Type<typeof InputContextErrorSchema>
 
 // 入力優先度（高い値ほど優先）
@@ -103,13 +103,13 @@ export const makeInputContextManager = Effect.gen(function* () {
   const registerContext = (context: InputContext): Effect.Effect<void, InputContextError> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      yield* Effect.when(Effect.succeed(contexts.has(context.name)), () =>
-        Effect.fail(
-          InputContextError.make({
-            message: `Context already exists: ${context.name}`,
-            context: context.name,
-          }) as InputContextError
-        )
+      yield* Effect.when(
+        Effect.succeed(contexts.has(context.name)),
+        () => Effect.fail({
+          _tag: 'InputContextError' as const,
+          message: `Context already exists: ${context.name}`,
+          context: context.name,
+        })
       )
 
       yield* Ref.update(contextsRef, (map) => {
@@ -123,13 +123,13 @@ export const makeInputContextManager = Effect.gen(function* () {
   const unregisterContext = (name: string): Effect.Effect<void, InputContextError> =>
     Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
-      yield* Effect.when(Effect.succeed(!contexts.has(name)), () =>
-        Effect.fail(
-          InputContextError.make({
-            message: `Context not found: ${name}`,
-            context: name,
-          }) as InputContextError
-        )
+      yield* Effect.when(
+        Effect.succeed(!contexts.has(name)),
+        () => Effect.fail({
+          _tag: 'InputContextError' as const,
+          message: `Context not found: ${name}`,
+          context: name,
+        })
       )
 
       yield* Ref.update(contextsRef, (map) => {
@@ -185,7 +185,10 @@ export const makeInputContextManager = Effect.gen(function* () {
       const contexts = yield* Ref.get(contextsRef)
       const activeContexts = Array.from(contexts.values()).filter((ctx) => ctx.active)
 
-      yield* Effect.when(Effect.succeed(activeContexts.length === 0), () => Effect.succeed(true))
+      yield* Effect.when(
+        Effect.succeed(activeContexts.length === 0),
+        () => Effect.succeed(true)
+      )
 
       // 優先度でソート（高い順）
       const sortedContexts = activeContexts.sort((a, b) => PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority])
@@ -199,14 +202,13 @@ export const makeInputContextManager = Effect.gen(function* () {
             Effect.gen(function* () {
               // 現在の優先度より高い優先度のコンテキストがある場合
               const higherPriority = PRIORITY_VALUES[highestContext.priority] > PRIORITY_VALUES[currentPriority]
-              yield* Effect.when(Effect.succeed(higherPriority && highestContext.consumeInput), () =>
-                Effect.succeed(false)
-              )
 
-              // イベントタイプが許可されているか確認
-              return yield* Effect.if(highestContext.allowedEvents.length > 0, {
+              return yield* Effect.if(higherPriority && highestContext.consumeInput, {
+                onTrue: () => Effect.succeed(false),
+                onFalse: () => Effect.if(highestContext.allowedEvents.length > 0, {
                 onTrue: () => Effect.succeed(highestContext.allowedEvents.includes(event._tag)),
-                onFalse: () => Effect.succeed(true),
+                  onFalse: () => Effect.succeed(true),
+                })
               })
             }),
         })
@@ -231,7 +233,7 @@ export const makeInputContextManager = Effect.gen(function* () {
           onTrue: () => Effect.succeed(null),
           onFalse: () =>
             Effect.gen(function* () {
-              const sorted = activeContexts.sort((a, b) => PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority])
+              const sorted = [...activeContexts].sort((a, b) => PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority])
 
               return sorted[0] || null
             }),

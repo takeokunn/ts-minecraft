@@ -2,11 +2,11 @@ import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Stream, Sched
 import type { ButtonId, DeadzoneValue, GamepadSensitivity } from './schemas'
 
 // ゲームパッドエラー
-export const GamepadErrorSchema = Schema.TaggedError('GamepadError', {
+export const GamepadErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('GamepadError'),
   message: Schema.String,
   gamepadIndex: Schema.optional(Schema.Number),
 })
-export const GamepadError = Schema.TaggedError(GamepadErrorSchema)
 export type GamepadError = Schema.Schema.Type<typeof GamepadErrorSchema>
 
 // ゲームパッド状態
@@ -105,11 +105,10 @@ export const makeGamepadService = Effect.gen(function* () {
       const hasSupport = yield* Effect.sync(() => 'getGamepads' in navigator)
 
       yield* Effect.when(Effect.succeed(!hasSupport), () =>
-        Effect.fail(
-          GamepadError.make({
-            message: 'Gamepad API is not supported in this browser',
-          }) as GamepadError
-        )
+        Effect.fail({
+          _tag: 'GamepadError' as const,
+          message: 'Gamepad API is not supported in this browser',
+        })
       )
 
       // ポーリング開始
@@ -194,7 +193,7 @@ export const makeGamepadService = Effect.gen(function* () {
   const updateSettings = (settings: GamepadSettings): Effect.Effect<void, GamepadError> =>
     Effect.gen(function* () {
       const validated = yield* Schema.decode(GamepadSettingsSchema)(settings).pipe(
-        Effect.mapError((e) => GamepadError.make({ message: `Invalid settings: ${e}` }) as GamepadError)
+        Effect.mapError((e) => ({ _tag: 'GamepadError' as const, message: `Invalid settings: ${e}` }))
       )
       yield* Ref.set(settingsRef, validated)
     })
@@ -219,12 +218,11 @@ export const makeGamepadService = Effect.gen(function* () {
         Option.fromNullable(gamepad),
         Option.match({
           onNone: () =>
-            Effect.fail(
-              GamepadError.make({
-                message: `Gamepad ${index} not found`,
-                gamepadIndex: index,
-              }) as GamepadError
-            ),
+            Effect.fail({
+              _tag: 'GamepadError' as const,
+              message: `Gamepad ${index} not found`,
+              gamepadIndex: index,
+            }),
           onSome: (gp) =>
             Effect.gen(function* () {
               yield* pipe(
@@ -239,11 +237,11 @@ export const makeGamepadService = Effect.gen(function* () {
                           strongMagnitude: intensity,
                           weakMagnitude: intensity * 0.5,
                         }),
-                      catch: (e) =>
-                        GamepadError.make({
-                          message: `Vibration failed: ${e}`,
-                          gamepadIndex: index,
-                        }) as GamepadError,
+                      catch: (e) => ({
+                        _tag: 'GamepadError' as const,
+                        message: `Vibration failed: ${e}`,
+                        gamepadIndex: index,
+                      }),
                     }),
                 })
               )

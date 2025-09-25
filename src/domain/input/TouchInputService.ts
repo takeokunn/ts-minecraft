@@ -2,11 +2,11 @@ import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Queue, Stream
 import type { InputTimestamp } from './schemas'
 
 // タッチ入力エラー
-export const TouchInputErrorSchema = Schema.TaggedError('TouchInputError', {
+export const TouchInputErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('TouchInputError'),
   message: Schema.String,
   touchId: Schema.optional(Schema.Number),
 })
-export const TouchInputError = Schema.TaggedError(TouchInputErrorSchema)
 export type TouchInputError = Schema.Schema.Type<typeof TouchInputErrorSchema>
 
 // ジェスチャータイプ
@@ -44,7 +44,7 @@ export const TouchPointSchema = Schema.Struct({
 export type TouchPoint = Schema.Schema.Type<typeof TouchPointSchema>
 
 // ジェスチャー
-export const GestureSchema = Schema.TaggedUnion('_tag', [
+export const GestureSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('Tap'),
     position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
@@ -89,8 +89,8 @@ export const GestureSchema = Schema.TaggedUnion('_tag', [
     center: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
     angle: Schema.Number,
     timestamp: Schema.Number.pipe(Schema.brand('InputTimestamp')),
-  }),
-])
+  })
+)
 export type Gesture = Schema.Schema.Type<typeof GestureSchema>
 
 // タッチ入力設定
@@ -179,7 +179,7 @@ export const makeTouchInputService = Effect.gen(function* () {
   const updateSettings = (settings: TouchSettings): Effect.Effect<void, TouchInputError> =>
     Effect.gen(function* () {
       const validated = yield* Schema.decode(TouchSettingsSchema)(settings).pipe(
-        Effect.mapError((e) => TouchInputError.make({ message: `Invalid settings: ${e}` }) as TouchInputError)
+        Effect.mapError((e) => ({ _tag: 'TouchInputError' as const, message: `Invalid settings: ${e}` }))
       )
       yield* Ref.set(settingsRef, validated)
     })
@@ -227,16 +227,19 @@ export const makeTouchInputService = Effect.gen(function* () {
               Match.when(1, () =>
                 Effect.gen(function* () {
                   const state = states[0]
-                  const duration = currentTime - state.startTime
-                  const distance = calculateDistance(state.startPosition, state.currentPosition)
+                  return yield* Effect.if(!state, {
+                    onTrue: () => Effect.succeed(null),
+                    onFalse: () => Effect.gen(function* () {
+                      const duration = currentTime - state!.startTime
+                      const distance = calculateDistance(state!.startPosition, state!.currentPosition)
 
-                  // ホールド判定
-                  yield* Effect.when(
+                      // ホールド判定
+                      yield* Effect.when(
                     Effect.succeed(duration >= settings.holdThreshold && distance < settings.swipeThreshold),
                     () =>
-                      Queue.offer(gestureQueue, {
-                        _tag: 'Hold',
-                        position: state.startPosition,
+                          Queue.offer(gestureQueue, {
+                            _tag: 'Hold',
+                            position: state!.startPosition,
                         duration,
                         timestamp: currentTime as InputTimestamp,
                       })
@@ -297,10 +300,11 @@ export const makeTouchInputService = Effect.gen(function* () {
                       })
                   )
 
-                  yield* Ref.set(trackingRef, new Map())
-                  return null
-                })
-              ),
+                      yield* Ref.set(trackingRef, new Map())
+                      return null
+                    })
+                  })
+                }),
               Match.orElse(() => Effect.succeed(null))
             )
           })
@@ -309,7 +313,10 @@ export const makeTouchInputService = Effect.gen(function* () {
           Effect.gen(function* () {
             // シングルタッチの追跡
             const touch = touches[0]
-            const position = { x: touch.x, y: touch.y }
+            return yield* Effect.if(!touch, {
+              onTrue: () => Effect.succeed(null),
+              onFalse: () => Effect.gen(function* () {
+                const position = { x: touch.x, y: touch.y }
 
             yield* Ref.update(trackingRef, (map) => {
               const existing = map.get(touch.identifier)
@@ -330,21 +337,27 @@ export const makeTouchInputService = Effect.gen(function* () {
               )
             })
 
-            return null
+                return null
+              })
+            })
           })
         ),
         Match.when(2, () =>
           Effect.gen(function* () {
             // ピンチ/回転の検出
-            const [t1, t2] = touches
-            const center = {
-              x: (t1.x + t2.x) / 2,
-              y: (t1.y + t2.y) / 2,
-            }
-            const distance = calculateDistance({ x: t1.x, y: t1.y }, { x: t2.x, y: t2.y })
-            const angle = calculateAngle({ x: t1.x, y: t1.y }, { x: t2.x, y: t2.y })
+            const t1 = touches[0]
+            const t2 = touches[1]
+            return yield* Effect.if(!t1 || !t2, {
+              onTrue: () => Effect.succeed(null),
+              onFalse: () => Effect.gen(function* () {
+                const center = {
+                  x: (t1!.x + t2!.x) / 2,
+                  y: (t1!.y + t2!.y) / 2,
+                }
+                const distance = calculateDistance({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
+                const angle = calculateAngle({ x: t1!.x, y: t1!.y }, { x: t2!.x, y: t2!.y })
 
-            const state = tracking.get(t1.identifier)
+                const state = tracking.get(t1!.identifier)
 
             yield* pipe(
               Option.fromNullable(state),
@@ -392,9 +405,10 @@ export const makeTouchInputService = Effect.gen(function* () {
               })
             )
 
-            return null
-          })
-        ),
+                return null
+              })
+            })
+          }),
         Match.orElse(() => Effect.succeed(null))
       )
     })

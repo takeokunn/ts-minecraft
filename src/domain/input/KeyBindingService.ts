@@ -3,11 +3,11 @@ import type { InputEvent, InputMapping, ControlScheme, KeyCode, ButtonId } from 
 import { InputMappingSchema, ControlSchemeSchema } from './schemas'
 
 // キーバインディングエラー
-export const KeyBindingErrorSchema = Schema.TaggedError('KeyBindingError', {
+export const KeyBindingErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('KeyBindingError'),
   message: Schema.String,
   conflictingAction: Schema.optional(Schema.String),
 })
-export const KeyBindingError = Schema.TaggedError(KeyBindingErrorSchema)
 export type KeyBindingError = Schema.Schema.Type<typeof KeyBindingErrorSchema>
 
 // キーバインディングサービスインターフェース
@@ -129,7 +129,7 @@ export const makeKeyBindingService = Effect.gen(function* () {
     Effect.gen(function* () {
       // 検証
       const validated = yield* Schema.decode(ControlSchemeSchema)(scheme).pipe(
-        Effect.mapError((e) => KeyBindingError.make({ message: `Invalid scheme: ${e}` }) as KeyBindingError)
+        Effect.mapError((e) => ({ _tag: 'KeyBindingError' as const, message: `Invalid scheme: ${e}` }))
       )
 
       // マッピング更新
@@ -198,12 +198,11 @@ export const makeKeyBindingService = Effect.gen(function* () {
       // コンフリクト検出
       const conflicts = yield* detectConflicts(mapping)
       yield* Effect.when(Effect.succeed(conflicts.length > 0), () =>
-        Effect.fail(
-          KeyBindingError.make({
-            message: `Binding conflicts detected`,
-            conflictingAction: conflicts[0],
-          }) as KeyBindingError
-        )
+        Effect.fail({
+          _tag: 'KeyBindingError' as const,
+          message: `Binding conflicts detected`,
+          conflictingAction: conflicts[0],
+        })
       )
 
       // マッピング追加

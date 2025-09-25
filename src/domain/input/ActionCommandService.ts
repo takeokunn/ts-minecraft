@@ -3,11 +3,12 @@ import type { GameAction, InputEvent, InputTimestamp } from './schemas'
 import { GameActionSchema } from './schemas'
 
 // アクションコマンドエラー
-export const ActionCommandError = Schema.TaggedError<ActionCommandError>()('ActionCommandError', {
+export const ActionCommandErrorSchema = Schema.Struct({
+  _tag: Schema.Literal('ActionCommandError'),
   message: Schema.String,
   actionName: Schema.optional(Schema.String),
 })
-export type ActionCommandError = Schema.Schema.Type<typeof ActionCommandError>
+export type ActionCommandError = Schema.Schema.Type<typeof ActionCommandErrorSchema>
 
 // コマンド優先度
 export const CommandPrioritySchema = Schema.Number.pipe(Schema.between(0, 100), Schema.brand('CommandPriority'))
@@ -141,9 +142,10 @@ export const makeActionCommandService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              ActionCommandError.make({
+              {
+                _tag: 'ActionCommandError' as const,
                 message: `No queue for priority level ${queueLevel}`,
-              })
+              }
             ),
           onSome: (queue) =>
             Effect.gen(function* () {
@@ -211,17 +213,19 @@ export const makeActionCommandService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              ActionCommandError.make({
+              {
+                _tag: 'ActionCommandError' as const,
                 message: `Command ${commandId} not found`,
-              }) as ActionCommandError
+              }
             ),
           onSome: (cmd) =>
             Effect.gen(function* () {
               yield* Effect.unless(Effect.succeed(cmd.cancellable), () =>
                 Effect.fail(
-                  ActionCommandError.make({
+                  {
+                    _tag: 'ActionCommandError' as const,
                     message: `Command ${commandId} is not cancellable`,
-                  }) as ActionCommandError
+                  }
                 )
               )
 
@@ -282,7 +286,10 @@ export const makeActionCommandService = Effect.gen(function* () {
   const updateSettings = (settings: CommandQueueSettings): Effect.Effect<void, ActionCommandError> =>
     Effect.gen(function* () {
       const validated = yield* Schema.decode(CommandQueueSettingsSchema)(settings).pipe(
-        Effect.mapError((e) => ActionCommandError.make({ message: `Invalid settings: ${e}` }))
+        Effect.mapError((e) => ({
+          _tag: 'ActionCommandError' as const,
+          message: `Invalid settings: ${e}`,
+        }))
       )
       yield* Ref.set(settingsRef, validated)
     })
@@ -328,12 +335,11 @@ export const makeActionCommandService = Effect.gen(function* () {
               Effect.gen(function* () {
                 // 前のグループをマージして追加
                 yield* Effect.when(
-                  () => currentGroup.length > 0,
-                  () =>
-                    Effect.gen(function* () {
-                      const merged = yield* mergeActionGroup(currentGroup)
-                      mergedActions.push(merged)
-                    })
+                  Effect.succeed(currentGroup.length > 0),
+                  () => Effect.gen(function* () {
+                    const merged = yield* mergeActionGroup(currentGroup)
+                    mergedActions.push(merged)
+                  })
                 )
                 currentGroup = [action]
               }),
@@ -345,12 +351,11 @@ export const makeActionCommandService = Effect.gen(function* () {
 
       // 最後のグループを処理
       yield* Effect.when(
-        () => currentGroup.length > 0,
-        () =>
-          Effect.gen(function* () {
-            const merged = yield* mergeActionGroup(currentGroup)
-            mergedActions.push(merged)
-          })
+        Effect.succeed(currentGroup.length > 0),
+        () => Effect.gen(function* () {
+          const merged = yield* mergeActionGroup(currentGroup)
+          mergedActions.push(merged)
+        })
       )
 
       return mergedActions
@@ -359,9 +364,15 @@ export const makeActionCommandService = Effect.gen(function* () {
   // アクショングループをマージ
   const mergeActionGroup = (actions: GameAction[]): Effect.Effect<GameAction, never> =>
     Effect.gen(function* () {
-      const first = actions[0]
-
-      return yield* Match.value(first._tag).pipe(
+      return yield* Effect.if(actions.length === 0, {
+        onTrue: () => Effect.succeed({
+          _tag: 'MovementAction' as const,
+          direction: 'forward' as const,
+          intensity: 0,
+        }),
+        onFalse: () => Effect.gen(function* () {
+          const first = actions[0]!
+          return yield* Match.value(first._tag).pipe(
         Match.when('MovementAction', () =>
           Effect.gen(function* () {
             // 移動アクションをマージ（平均的な強度を計算）
@@ -385,8 +396,10 @@ export const makeActionCommandService = Effect.gen(function* () {
             }
           })
         ),
-        Match.orElse(() => Effect.succeed(first))
-      )
+            Match.orElse(() => Effect.succeed(first))
+          )
+        })
+      })
     })
 
   // コマンドストリーム作成
