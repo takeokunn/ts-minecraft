@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { Player } from '../entities/Player.js'
 import { Vector3Schema } from '../../shared/schemas/spatial.js'
 

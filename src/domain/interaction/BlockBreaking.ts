@@ -1,4 +1,4 @@
-import { Effect, Ref, Schema, Match, pipe, Option } from 'effect'
+import { Effect, Ref, Match, pipe, Option } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type { Timestamp } from '../../shared/types/time-brands'
 import { SessionId as SessionIdSchema, BlockPosition as BlockPositionSchema } from '../../shared/types/branded'

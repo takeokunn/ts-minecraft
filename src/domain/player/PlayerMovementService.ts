@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, pipe, Match, Schema } from 'effect'
+import { Effect, Context, Layer, pipe, Match } from 'effect'
+import { Schema } from '@effect/schema'
 import { Player } from '../entities/Player.js'
 import {
   Direction,
