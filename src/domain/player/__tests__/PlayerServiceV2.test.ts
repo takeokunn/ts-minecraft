@@ -57,41 +57,37 @@ const generatePlayerConfig = () => {
 
 // TestServices will be inferred by @effect/vitest from our test layers
 
-const TestEntityManager: Layer.Layer<EntityManager> = Layer.succeed(
-  EntityManager,
-  {
-    createEntity: (name?: string, tags?: ReadonlyArray<string>) =>
-      Effect.succeed(Math.floor(Math.random() * 10000) as Types.EntityId),
-    destroyEntity: () => Effect.succeed(undefined),
-    isEntityAlive: () => Effect.succeed(true),
-    getEntityMetadata: () => Effect.succeed(Option.none()),
-    setEntityActive: () => Effect.succeed(undefined),
-    addComponent: () => Effect.succeed(undefined),
-    removeComponent: () => Effect.succeed(undefined),
-    getComponent: () => Effect.succeed(Option.none()),
-    hasComponent: () => Effect.succeed(false),
-    getEntityComponents: () => Effect.succeed(new Map()),
-    getEntitiesWithComponent: () => Effect.succeed([]),
-    getEntitiesWithComponents: () => Effect.succeed([]),
-    getEntitiesByTag: () => Effect.succeed([]),
-    getAllEntities: () => Effect.succeed([]),
-    batchGetComponents: () => Effect.succeed([]),
-    iterateComponents: () => Effect.succeed(undefined),
-    update: () => Effect.succeed(undefined),
-    getStats: () => Effect.succeed({
+const TestEntityManager: Layer.Layer<EntityManager> = Layer.succeed(EntityManager, {
+  createEntity: (name?: string, tags?: ReadonlyArray<string>) =>
+    Effect.succeed(Math.floor(Math.random() * 10000) as Types.EntityId),
+  destroyEntity: () => Effect.succeed(undefined),
+  isEntityAlive: () => Effect.succeed(true),
+  getEntityMetadata: () => Effect.succeed(Option.none()),
+  setEntityActive: () => Effect.succeed(undefined),
+  addComponent: () => Effect.succeed(undefined),
+  removeComponent: () => Effect.succeed(undefined),
+  getComponent: () => Effect.succeed(Option.none()),
+  hasComponent: () => Effect.succeed(false),
+  getEntityComponents: () => Effect.succeed(new Map()),
+  getEntitiesWithComponent: () => Effect.succeed([]),
+  getEntitiesWithComponents: () => Effect.succeed([]),
+  getEntitiesByTag: () => Effect.succeed([]),
+  getAllEntities: () => Effect.succeed([]),
+  batchGetComponents: () => Effect.succeed([]),
+  iterateComponents: () => Effect.succeed(undefined),
+  update: () => Effect.succeed(undefined),
+  getStats: () =>
+    Effect.succeed({
       totalEntities: 0,
       activeEntities: 0,
       totalComponents: 0,
       componentTypes: 0,
       archetypeCount: 0,
     }),
-    clear: () => Effect.succeed(undefined),
-  } satisfies EntityManager
-)
+  clear: () => Effect.succeed(undefined),
+} satisfies EntityManager)
 
-const TestLayers = Service.PlayerSystemLive.pipe(
-  Layer.provide(TestEntityManager)
-)
+const TestLayers = Service.PlayerSystemLive.pipe(Layer.provide(TestEntityManager))
 
 // =========================================
 // Unit Tests

@@ -422,10 +422,12 @@ const makePlayerServiceLive = Effect.gen(function* () {
         { concurrency: 'unbounded' }
       )
 
-      return playerStates.flatMap(Option.match({
-        onNone: () => [],
-        onSome: (state) => [state],
-      }))
+      return playerStates.flatMap(
+        Option.match({
+          onNone: () => [],
+          onSome: (state) => [state],
+        })
+      )
     })
 
   // プレイヤーの存在確認

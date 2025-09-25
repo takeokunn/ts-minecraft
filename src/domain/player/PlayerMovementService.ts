@@ -190,32 +190,35 @@ const makePlayerMovementService: Effect.Effect<PlayerMovementService> = Effect.g
       { x: 0, y: 0, z: 0 } as MutableVector3D,
       // Forward/Backward movement
       (vec) => ({
-        x: vec.x
-          + (direction.forward ? -sinYaw * cosPitch * speed * deltaTime : 0)
-          + (direction.backward ? sinYaw * cosPitch * speed * deltaTime : 0),
-        y: vec.y
-          + (direction.forward ? -sinPitch * speed * deltaTime : 0)
-          + (direction.backward ? sinPitch * speed * deltaTime : 0),
-        z: vec.z
-          + (direction.forward ? cosYaw * cosPitch * speed * deltaTime : 0)
-          + (direction.backward ? -cosYaw * cosPitch * speed * deltaTime : 0),
+        x:
+          vec.x +
+          (direction.forward ? -sinYaw * cosPitch * speed * deltaTime : 0) +
+          (direction.backward ? sinYaw * cosPitch * speed * deltaTime : 0),
+        y:
+          vec.y +
+          (direction.forward ? -sinPitch * speed * deltaTime : 0) +
+          (direction.backward ? sinPitch * speed * deltaTime : 0),
+        z:
+          vec.z +
+          (direction.forward ? cosYaw * cosPitch * speed * deltaTime : 0) +
+          (direction.backward ? -cosYaw * cosPitch * speed * deltaTime : 0),
       }),
       // Strafe movement
       (vec) => ({
-        x: vec.x
-          + (direction.left ? -cosYaw * speed * deltaTime : 0)
-          + (direction.right ? cosYaw * speed * deltaTime : 0),
+        x:
+          vec.x +
+          (direction.left ? -cosYaw * speed * deltaTime : 0) +
+          (direction.right ? cosYaw * speed * deltaTime : 0),
         y: vec.y,
-        z: vec.z
-          + (direction.left ? -sinYaw * speed * deltaTime : 0)
-          + (direction.right ? sinYaw * speed * deltaTime : 0),
+        z:
+          vec.z +
+          (direction.left ? -sinYaw * speed * deltaTime : 0) +
+          (direction.right ? sinYaw * speed * deltaTime : 0),
       }),
       // Vertical movement
       (vec) => ({
         x: vec.x,
-        y: vec.y
-          + (direction.jump ? speed * deltaTime : 0)
-          + (direction.sneak ? -speed * deltaTime : 0),
+        y: vec.y + (direction.jump ? speed * deltaTime : 0) + (direction.sneak ? -speed * deltaTime : 0),
         z: vec.z,
       })
     )

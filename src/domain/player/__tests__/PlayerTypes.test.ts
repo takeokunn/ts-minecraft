@@ -63,20 +63,22 @@ describe('PlayerTypes - Branded Types', () => {
         const invalid = yield* Effect.either(Schema.decodeUnknown(Types.PlayerId)(123))
         yield* Effect.if(Either.isLeft(invalid), {
           onTrue: () => Effect.sync(() => expect(true).toBe(true)),
-          onFalse: () => Effect.fail('Should have failed')
+          onFalse: () => Effect.fail('Should have failed'),
         })
-      }))
+      })
+    )
 
     it.effect('property: any non-empty string is valid PlayerId', () =>
       Effect.gen(function* () {
         // Run multiple iterations to simulate property-based testing
         yield* Effect.forEach(
           Array.from({ length: 10 }, () => generatePlayerId()),
-          (str) => Effect.sync(() => {
-            const id = Types.makePlayerId(str)
-            expect(typeof id).toBe('string')
-            expect(id).toBe(str)
-          }),
+          (str) =>
+            Effect.sync(() => {
+              const id = Types.makePlayerId(str)
+              expect(typeof id).toBe('string')
+              expect(id).toBe(str)
+            }),
           { concurrency: 1 }
         )
       })
@@ -101,22 +103,24 @@ describe('PlayerTypes - Branded Types', () => {
             Effect.flatMap((result) =>
               Effect.if(Either.isLeft(result), {
                 onTrue: () => Effect.succeed('Invalid as expected'),
-                onFalse: () => Effect.fail(`Value ${value} should have been invalid`)
+                onFalse: () => Effect.fail(`Value ${value} should have been invalid`),
               })
             )
           )
         )
-      }))
+      })
+    )
 
     it.effect('property: valid range 0-20', () =>
       Effect.gen(function* () {
         yield* Effect.forEach(
           Array.from({ length: 10 }, () => generateHealth()),
-          (value) => Effect.sync(() => {
-            const health = Types.makeHealth(value)
-            expect(health).toBeGreaterThanOrEqual(0)
-            expect(health).toBeLessThanOrEqual(20)
-          }),
+          (value) =>
+            Effect.sync(() => {
+              const health = Types.makeHealth(value)
+              expect(health).toBeGreaterThanOrEqual(0)
+              expect(health).toBeLessThanOrEqual(20)
+            }),
           { concurrency: 1 }
         )
       })
@@ -133,11 +137,12 @@ describe('PlayerTypes - Branded Types', () => {
       Effect.gen(function* () {
         yield* Effect.forEach(
           Array.from({ length: 10 }, () => generateEntityId()),
-          (value) => Effect.sync(() => {
-            const id = Types.makeEntityId(value)
-            expect(id).toBeGreaterThan(0)
-            expect(Number.isInteger(id)).toBe(true)
-          }),
+          (value) =>
+            Effect.sync(() => {
+              const id = Types.makeEntityId(value)
+              expect(id).toBeGreaterThan(0)
+              expect(Number.isInteger(id)).toBe(true)
+            }),
           { concurrency: 1 }
         )
       })
@@ -173,7 +178,8 @@ describe('PlayerTypes - Tagged Unions', () => {
         } else {
           yield* Effect.fail('Expected Move action')
         }
-      }))
+      })
+    )
 
     it.effect('should create PlaceBlock action', () =>
       Effect.gen(function* () {
@@ -188,16 +194,18 @@ describe('PlayerTypes - Tagged Unions', () => {
           expect(action.position.x).toBe(100)
           expect(action.face).toBe('top')
         }
-      }))
+      })
+    )
 
     it.effect('property: all action tags are valid', () =>
       Effect.gen(function* () {
         const validTags = ['Move', 'Jump', 'Attack', 'UseItem', 'PlaceBlock', 'BreakBlock', 'OpenContainer', 'DropItem']
         yield* Effect.forEach(
           validTags,
-          (tag) => Effect.sync(() => {
-            expect(validTags).toContain(tag)
-          }),
+          (tag) =>
+            Effect.sync(() => {
+              expect(validTags).toContain(tag)
+            }),
           { concurrency: 1 }
         )
       })
@@ -216,7 +224,8 @@ describe('PlayerTypes - Tagged Unions', () => {
         if (damage._tag === 'Fall') {
           expect(damage.distance).toBe(10.5)
         }
-      }))
+      })
+    )
 
     it.effect('should create Environment damage', () =>
       Effect.gen(function* () {
@@ -229,7 +238,8 @@ describe('PlayerTypes - Tagged Unions', () => {
         if (damage._tag === 'Environment') {
           expect(damage.type).toBe('lava')
         }
-      }))
+      })
+    )
   })
 
   describe('PlayerEvent', () => {
@@ -245,7 +255,8 @@ describe('PlayerTypes - Tagged Unions', () => {
         })
 
         expect(event._tag).toBe('PlayerCreated')
-      }))
+      })
+    )
 
     it.effect('should create PlayerDamaged event', () =>
       Effect.gen(function* () {
@@ -263,7 +274,8 @@ describe('PlayerTypes - Tagged Unions', () => {
           expect(event.damage).toBe(5)
           expect(event.newHealth).toBe(15)
         }
-      }))
+      })
+    )
   })
 })
 
@@ -287,7 +299,8 @@ describe('PlayerTypes - Composite Types', () => {
 
         expect(stats.health).toBe(20)
         expect(stats.level).toBe(0)
-      }))
+      })
+    )
 
     it.effect('property: valid stats within bounds', () =>
       Effect.gen(function* () {
@@ -338,7 +351,8 @@ describe('PlayerTypes - Composite Types', () => {
 
         expect(inventory.slots.length).toBe(36)
         expect(inventory.selectedSlot).toBe(0)
-      }))
+      })
+    )
 
     it.effect('should validate selected slot range', () =>
       Effect.gen(function* () {
@@ -351,9 +365,10 @@ describe('PlayerTypes - Composite Types', () => {
 
         yield* Effect.if(Either.isLeft(invalid), {
           onTrue: () => Effect.succeed('Validation failed as expected'),
-          onFalse: () => Effect.fail('Should have failed validation')
+          onFalse: () => Effect.fail('Should have failed validation'),
         })
-      }))
+      })
+    )
   })
 
   describe('Player', () => {
@@ -380,7 +395,8 @@ describe('PlayerTypes - Composite Types', () => {
 
         expect(player.name).toBe('TestPlayer')
         expect(player.gameMode).toBe('survival')
-      }))
+      })
+    )
 
     it.effect('should validate player name pattern', () =>
       Effect.gen(function* () {
@@ -407,9 +423,10 @@ describe('PlayerTypes - Composite Types', () => {
 
         yield* Effect.if(Either.isLeft(invalid), {
           onTrue: () => Effect.succeed('Name validation failed correctly'),
-          onFalse: () => Effect.fail('Invalid name should have been rejected')
+          onFalse: () => Effect.fail('Invalid name should have been rejected'),
         })
-      }))
+      })
+    )
 
     it.effect('property: Player entity invariants', () =>
       Effect.gen(function* () {
@@ -473,7 +490,8 @@ describe('PlayerTypes - Errors', () => {
 
         expect(error.reason).toBe('PlayerNotFound')
         expect(error.message).toBe('Player not found')
-      }))
+      })
+    )
 
     it.effect('should create InventoryFull error with context', () =>
       Effect.gen(function* () {
@@ -493,7 +511,8 @@ describe('PlayerTypes - Errors', () => {
           itemId: 'diamond',
           count: 5,
         })
-      }))
+      })
+    )
 
     it.effect('property: all error reasons are valid', () =>
       Effect.gen(function* () {
@@ -506,7 +525,7 @@ describe('PlayerTypes - Errors', () => {
           'InventoryFull',
           'ItemNotFound',
           'PermissionDenied',
-          'ValidationFailed'
+          'ValidationFailed',
         ]
 
         yield* Effect.forEach(
@@ -561,7 +580,7 @@ describe('PlayerTypes - Default Values', () => {
       yield* Effect.forEach(fields, (field) =>
         Effect.if(equipment[field] === null, {
           onTrue: () => Effect.succeed(`${field} is correctly null`),
-          onFalse: () => Effect.fail(`${field} should be null`)
+          onFalse: () => Effect.fail(`${field} should be null`),
         })
       )
     })

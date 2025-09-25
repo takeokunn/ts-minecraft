@@ -247,31 +247,28 @@ const makePlayerECSSystem: Effect.Effect<PlayerECSSystem, never, PlayerMovementS
                       const sinYaw = Math.sin(yawRad)
 
                       // 移動ベクトル計算 - 関数型スタイル
-                      const moveVector = pipe(
-                        { x: 0, y: 0, z: 0 } as MutableVector3D,
-                        (vec) => ({
-                          x: vec.x
-                            + (input.forward ? -sinYaw * speed * deltaTime : 0)
-                            + (input.backward ? sinYaw * speed * deltaTime : 0)
-                            + (input.left ? -cosYaw * speed * deltaTime : 0)
-                            + (input.right ? cosYaw * speed * deltaTime : 0),
-                          y: vec.y,
-                          z: vec.z
-                            + (input.forward ? cosYaw * speed * deltaTime : 0)
-                            + (input.backward ? -cosYaw * speed * deltaTime : 0)
-                            + (input.left ? -sinYaw * speed * deltaTime : 0)
-                            + (input.right ? sinYaw * speed * deltaTime : 0),
-                        })
-                      )
+                      const moveVector = pipe({ x: 0, y: 0, z: 0 } as MutableVector3D, (vec) => ({
+                        x:
+                          vec.x +
+                          (input.forward ? -sinYaw * speed * deltaTime : 0) +
+                          (input.backward ? sinYaw * speed * deltaTime : 0) +
+                          (input.left ? -cosYaw * speed * deltaTime : 0) +
+                          (input.right ? cosYaw * speed * deltaTime : 0),
+                        y: vec.y,
+                        z:
+                          vec.z +
+                          (input.forward ? cosYaw * speed * deltaTime : 0) +
+                          (input.backward ? -cosYaw * speed * deltaTime : 0) +
+                          (input.left ? -sinYaw * speed * deltaTime : 0) +
+                          (input.right ? sinYaw * speed * deltaTime : 0),
+                      }))
 
                       // 位置更新
                       transform.position = VectorMath.add(transform.position, moveVector)
 
                       // ジャンプ処理 - 条件演算子を使用
                       const shouldJump = input.jump && physics.isOnGround
-                      physics.velocity = shouldJump
-                        ? { ...physics.velocity, y: 8.0 }
-                        : physics.velocity
+                      physics.velocity = shouldJump ? { ...physics.velocity, y: 8.0 } : physics.velocity
                       physics.isOnGround = shouldJump ? false : physics.isOnGround
                     }),
                 })
@@ -331,12 +328,8 @@ const makePlayerECSSystem: Effect.Effect<PlayerECSSystem, never, PlayerMovementS
 
                           // 地面判定（簡易版） - 条件演算子を使用
                           const hitGround = transform.position.y <= 64
-                          transform.position = hitGround
-                            ? { ...transform.position, y: 64 }
-                            : transform.position
-                          physics.velocity = hitGround
-                            ? { ...physics.velocity, y: 0 }
-                            : physics.velocity
+                          transform.position = hitGround ? { ...transform.position, y: 64 } : transform.position
+                          physics.velocity = hitGround ? { ...physics.velocity, y: 0 } : physics.velocity
                           physics.isOnGround = hitGround || physics.isOnGround
                         })
                       )
@@ -379,21 +372,17 @@ const makePlayerECSSystem: Effect.Effect<PlayerECSSystem, never, PlayerMovementS
                           stats.hunger = Math.max(0, stats.hunger - 0.005 * deltaTime)
 
                           // 飽和度減少 - 条件演算子使用
-                          stats.saturation = stats.hunger < 20
-                            ? Math.max(0, stats.saturation - 0.01 * deltaTime)
-                            : stats.saturation
+                          stats.saturation =
+                            stats.hunger < 20 ? Math.max(0, stats.saturation - 0.01 * deltaTime) : stats.saturation
 
                           // 自然回復（空腹度18以上）
                           const timeSinceLastHeal = Date.now() - stats.lastHealTime
-                          const shouldHeal = stats.hunger >= 18 && stats.health < stats.maxHealth && timeSinceLastHeal > 500
+                          const shouldHeal =
+                            stats.hunger >= 18 && stats.health < stats.maxHealth && timeSinceLastHeal > 500
 
-                          stats.health = shouldHeal
-                            ? Math.min(stats.maxHealth, stats.health + 1)
-                            : stats.health
+                          stats.health = shouldHeal ? Math.min(stats.maxHealth, stats.health + 1) : stats.health
                           stats.lastHealTime = shouldHeal ? Date.now() : stats.lastHealTime
-                          stats.saturation = shouldHeal
-                            ? Math.max(0, stats.saturation - 0.6)
-                            : stats.saturation
+                          stats.saturation = shouldHeal ? Math.max(0, stats.saturation - 0.6) : stats.saturation
 
                           // 餓死ダメージ（空腹度0）
                           const timeSinceLastDamage = Date.now() - stats.lastDamageTime
@@ -430,19 +419,21 @@ const makePlayerECSSystem: Effect.Effect<PlayerECSSystem, never, PlayerMovementS
                     onNone: () => Effect.succeed(Option.none<EntityId>()),
                     onSome: (transform) => {
                       const distance = VectorMath.distance(transform.position, center)
-                      return Effect.succeed(
-                        distance <= radius ? Option.some(entityId) : Option.none<EntityId>()
-                      )
+                      return Effect.succeed(distance <= radius ? Option.some(entityId) : Option.none<EntityId>())
                     },
                   })
                 )
               }),
             { concurrency: 'unbounded' }
           ),
-          Effect.map((results) => results.flatMap(Option.match({
-            onNone: () => [],
-            onSome: (id) => [id],
-          })))
+          Effect.map((results) =>
+            results.flatMap(
+              Option.match({
+                onNone: () => [],
+                onSome: (id) => [id],
+              })
+            )
+          )
         )
       })
 

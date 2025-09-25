@@ -139,12 +139,13 @@ const makePlayerRepository = Effect.gen(function* () {
           Match.value,
           Match.when(
             (hasPlayer) => !hasPlayer,
-            () => STM.fail({
-              _tag: 'PlayerError' as const,
-              reason: 'PlayerNotFound' as const,
-              playerId,
-              message: `Player ${playerId} not found`,
-            })
+            () =>
+              STM.fail({
+                _tag: 'PlayerError' as const,
+                reason: 'PlayerNotFound' as const,
+                playerId,
+                message: `Player ${playerId} not found`,
+              })
           ),
           Match.orElse(() => STM.succeed(undefined))
         )
@@ -224,13 +225,15 @@ const makePlayerStateManager = Effect.gen(function* () {
       // Create entity - map errors to PlayerError
       const entityId = yield* pipe(
         entityManager.createEntity(`Player-${playerId}`, ['player', 'entity']),
-        Effect.mapError((error): Types.PlayerError => ({
-          _tag: 'PlayerError',
-          reason: 'ValidationFailed',
-          playerId,
-          message: `Failed to create entity: ${error._tag === 'EntityPoolError' ? error.message : (error as any).message}`,
-          context: { originalError: error },
-        }))
+        Effect.mapError(
+          (error): Types.PlayerError => ({
+            _tag: 'PlayerError',
+            reason: 'ValidationFailed',
+            playerId,
+            message: `Failed to create entity: ${error._tag === 'EntityPoolError' ? error.message : (error as any).message}`,
+            context: { originalError: error },
+          })
+        )
       )
 
       // Create player
@@ -277,13 +280,15 @@ const makePlayerStateManager = Effect.gen(function* () {
       // Validate updated player - map ParseError to PlayerError
       const validated = yield* pipe(
         Schema.decode(Types.Player)(updated),
-        Effect.mapError((parseError): Types.PlayerError => ({
-          _tag: 'PlayerError',
-          reason: 'ValidationFailed',
-          playerId,
-          message: `Invalid player data: ${parseError.message}`,
-          context: { originalError: parseError },
-        }))
+        Effect.mapError(
+          (parseError): Types.PlayerError => ({
+            _tag: 'PlayerError',
+            reason: 'ValidationFailed',
+            playerId,
+            message: `Invalid player data: ${parseError.message}`,
+            context: { originalError: parseError },
+          })
+        )
       )
 
       // Save
@@ -295,13 +300,14 @@ const makePlayerStateManager = Effect.gen(function* () {
         Match.value,
         Match.when(
           (hasPositionChanged) => hasPositionChanged,
-          () => eventBus.publish({
-            _tag: 'PlayerMoved',
-            playerId,
-            from: player.position,
-            to: validated.position,
-            timestamp: Date.now(),
-          })
+          () =>
+            eventBus.publish({
+              _tag: 'PlayerMoved',
+              playerId,
+              from: player.position,
+              to: validated.position,
+              timestamp: Date.now(),
+            })
         ),
         Match.orElse(() => Effect.succeed(undefined))
       )
