@@ -1,60 +1,105 @@
 /**
- * InventoryService - Complete inventory management system
+ * Inventory Domain - Complete Inventory Core System
  *
- * Provides comprehensive inventory operations including:
- * - 36-slot inventory management
- * - Item stacking and merging
- * - Hotbar management (9 slots)
- * - Armor slots (4 pieces)
- * - Offhand slot
- * - Drag & drop support
- * - Persistence support
+ * Provides comprehensive inventory management system including:
+ * - 36-slot inventory management with persistence
+ * - Item stacking, merging, and advanced operations
+ * - Hotbar management (9 slots) with armor/offhand
+ * - Enhanced item system with rarity, quality, NBT data
+ * - Zustand state management integration
+ * - LocalStorage and IndexedDB persistence
+ * - High-level API for easy consumption
  */
 
-// Service interface
-export { InventoryService, InventoryError } from './InventoryService.js'
+// Core Types and Schemas
+export * from './InventoryTypes.js'
 
-// Service implementation
-export { InventoryServiceLive } from './InventoryServiceLive.js'
+// Basic Services
+export * from './InventoryService.js'
+export * from './InventoryServiceLive.js'
+export * from './ItemRegistry.js'
+export * from './SlotManager.js'
+export * from './StackProcessor.js'
 
-// Core types and schemas
-export {
-  ItemId,
-  PlayerId,
-  ItemMetadata,
-  ItemStack,
-  Inventory,
-  AddItemResult,
-  InventoryState,
-  InventoryErrorReason,
+// Enhanced Services
+export * from './InventoryServiceEnhanced.js'
+export * from './ItemManagerService.js'
+
+// Storage and Persistence
+export * from './InventoryStorageService.js'
+export * from './InventoryIndexedDBService.js'
+
+// State Management Integration
+export * from './InventoryZustandStore.js'
+export * from './InventoryIntegrationLayer.js'
+export * from './InventoryStateManager.js'
+export * from './InventoryReactiveSystem.js'
+
+// High-Level API
+export * from './InventoryAPIService.js'
+
+// Re-export commonly used utilities
+import { createEmptyInventory, validateInventory } from './InventoryTypes.js'
+import { ItemAttributesFactory } from './ItemManagerService.js'
+import { useInventoryStore, useCurrentInventory, useInventoryOperations } from './InventoryZustandStore.js'
+
+export const InventoryUtils = {
   createEmptyInventory,
-  validateItemStack,
   validateInventory,
-  validateAddItemResult,
-  validateInventoryState,
-} from './InventoryTypes.js'
+  ItemAttributesFactory,
+}
 
-// Type-only exports for schemas
-export type {
-  ItemMetadata as ItemMetadataType,
-  ItemStack as ItemStackType,
-  Inventory as InventoryType,
-  AddItemResult as AddItemResultType,
-  InventoryState as InventoryStateType,
-  InventoryErrorReason as InventoryErrorReasonType,
-} from './InventoryTypes.js'
+export const InventoryHooks = {
+  useInventoryStore,
+  useCurrentInventory,
+  useInventoryOperations,
+}
 
-// Item Registry
-export { ItemRegistry } from './ItemRegistry.js'
-export type { ItemDefinition, ItemCategory } from './ItemRegistry.js'
+// Layer composition helpers
+import { Layer } from 'effect'
+import { InventoryServiceEnhanced } from './InventoryServiceEnhanced.js'
+import { ItemManagerServiceLive } from './ItemManagerService.js'
+import { LocalStorageInventoryService } from './InventoryStorageService.js'
+import { HybridInventoryStorageService } from './InventoryIndexedDBService.js'
+import { InventoryIntegrationServiceLive } from './InventoryIntegrationLayer.js'
+import { InventoryAPIServiceLive } from './InventoryAPIService.js'
+import { ItemRegistry } from './ItemRegistry.js'
+import { InventoryStateManagerLive } from './InventoryStateManager.js'
+import { InventoryReactiveSystemLive } from './InventoryReactiveSystem.js'
 
-// Slot Manager (utility exports)
-export { SlotManager } from './SlotManager.js'
+// Complete inventory system layers
+export const InventoryCoreLayers = Layer.mergeAll(
+  ItemRegistry.Default,
+  LocalStorageInventoryService,
+  ItemManagerServiceLive,
+  InventoryServiceEnhanced
+)
 
-// Stack Processor (utility exports)
-export { StackProcessor } from './StackProcessor.js'
+export const InventoryIntegratedLayers = Layer.mergeAll(
+  InventoryCoreLayers,
+  InventoryIntegrationServiceLive,
+  InventoryAPIServiceLive
+)
 
-// Re-export commonly used functions
+export const InventoryGameLayers = Layer.mergeAll(
+  InventoryCoreLayers,
+  InventoryStateManagerLive,
+  InventoryReactiveSystemLive,
+  InventoryAPIServiceLive
+)
+
+export const InventoryProductionLayers = Layer.mergeAll(
+  ItemRegistry.Default,
+  HybridInventoryStorageService,
+  ItemManagerServiceLive,
+  InventoryServiceEnhanced,
+  InventoryIntegrationServiceLive,
+  InventoryStateManagerLive,
+  InventoryReactiveSystemLive,
+  InventoryAPIServiceLive
+)
+
+// Constants
 export const INVENTORY_CONSTANTS = {
   MAX_SLOTS: 36,
   HOTBAR_SIZE: 9,
@@ -63,4 +108,4 @@ export const INVENTORY_CONSTANTS = {
 } as const
 
 // Version info
-export const INVENTORY_VERSION = '1.0.0' as const
+export const INVENTORY_VERSION = '2.0.0' as const
