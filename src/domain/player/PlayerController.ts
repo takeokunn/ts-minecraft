@@ -1,4 +1,5 @@
-import { Effect, Context, Layer, Ref, Match, pipe, Stream, Option, Schema } from 'effect'
+import { Effect, Context, Layer, Ref, Match, pipe, Stream, Option } from 'effect'
+import { Schema } from '@effect/schema'
 import { Player, PlayerUpdateData } from '../entities/Player.js'
 import { PlayerAction, Direction, MOVEMENT_SPEEDS } from './PlayerState.js'
 import type { PlayerId } from '../../shared/types/branded.js'

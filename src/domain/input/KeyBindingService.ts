@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option } from 'effect'
+import { Context, Effect, Layer, Match, Ref, pipe, Option } from 'effect'
+import { Schema } from '@effect/schema'
 import type { InputEvent, InputMapping, ControlScheme, KeyCode, ButtonId } from './schemas'
 import { InputMappingSchema, ControlSchemeSchema } from './schemas'
 

@@ -1,7 +1,7 @@
 import { Effect, TestClock, TestContext, Layer, Option, Either, pipe, Stream, Data } from 'effect'
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import * as Types from '../PlayerTypes.js'
 import * as Service from '../PlayerServiceV2.js'
 import { EntityManager } from '../../../infrastructure/ecs/EntityManager.js'

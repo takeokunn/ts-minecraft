@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema } from 'effect'
+import { Effect } from 'effect'
 import { ErrorReporter } from '../ErrorReporter'
 
 describe('ErrorReporter', () => {
