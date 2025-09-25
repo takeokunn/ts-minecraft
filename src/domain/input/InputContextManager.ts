@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Order, Array as EffectArray } from 'effect'
+import { Context, Effect, Layer, Match, Ref, pipe, Option, Order, Array as EffectArray } from 'effect'
+import { Schema } from '@effect/schema'
 import type { InputEvent } from './schemas'
 
 // 入力コンテキストエラー

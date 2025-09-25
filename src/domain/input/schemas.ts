@@ -1,4 +1,5 @@
-import { Schema, Brand } from 'effect'
+import { Brand } from 'effect'
+import { Schema } from '@effect/schema'
 
 // ブランド型定義
 export type KeyCode = string & Brand.Brand<'KeyCode'>

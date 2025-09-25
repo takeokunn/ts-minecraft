@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import { ItemStack } from '../inventory/Inventory.js'
 
 // 装備スロット定義

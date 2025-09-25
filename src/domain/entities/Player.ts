@@ -1,5 +1,6 @@
-import { Schema } from 'effect'
-import type { PlayerId, EntityId } from '../../shared/types/branded.js'
+import { Schema } from '@effect/schema'
+import type { EntityId, PlayerId } from '../../shared/types/index.js'
+import { PlayerIdSchema } from '../../shared/types/index.js'
 import { Vector3Schema, RotationSchema } from '../../shared/schemas/spatial.js'
 import { InventorySchema } from '../inventory/Inventory.js'
 import { EquipmentSchema } from '../equipment/Equipment.js'
@@ -34,7 +35,7 @@ export type PlayerAbilities = Schema.Schema.Type<typeof PlayerAbilities>
 
 // プレイヤーエンティティ定義
 export const Player = Schema.Struct({
-  id: Schema.String,
+  id: PlayerIdSchema,
   entityId: Schema.Number,
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
   position: Vector3Schema,
@@ -55,7 +56,7 @@ export type Player = Schema.Schema.Type<typeof Player>
 
 // プレイヤー作成設定
 export const PlayerCreateConfig = Schema.Struct({
-  playerId: Schema.String,
+  playerId: PlayerIdSchema,
   name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(16)),
   initialPosition: Schema.optional(Vector3Schema),
   initialRotation: Schema.optional(RotationSchema),

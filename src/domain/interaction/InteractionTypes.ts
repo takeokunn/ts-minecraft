@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
 import type { Timestamp } from '../../shared/types/time-brands'
 import {

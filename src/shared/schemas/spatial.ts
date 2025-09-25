@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema } from '@effect/schema'
 
 // 3D座標
 export const Vector3Schema = Schema.Struct({

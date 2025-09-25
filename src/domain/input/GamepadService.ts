@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Ref, Schema, pipe, Option, Stream, Schedule, Duration } from 'effect'
+import { Context, Effect, Layer, Match, Ref, pipe, Option, Stream, Schedule, Duration } from 'effect'
+import { Schema } from '@effect/schema'
 import type { ButtonId, DeadzoneValue, GamepadSensitivity } from './schemas'
 
 // ゲームパッドエラー

@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Schema, Duration, Stream, pipe, Match } from 'effect'
+import { Effect, Duration, Stream, pipe, Match } from 'effect'
 import { ErrorRecovery } from '../ErrorRecovery'
 
 describe('ErrorRecovery', () => {

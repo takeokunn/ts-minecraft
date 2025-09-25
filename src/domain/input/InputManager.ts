@@ -1,4 +1,5 @@
-import { Context, Effect, Layer, Match, Option, Stream, Queue, Ref, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, Stream, Queue, Ref } from 'effect'
+import { Schema } from '@effect/schema'
 import type { InputSystemError } from './types'
 import type { InputEvent, InputState, DeviceType } from './schemas'
 import { InputEventSchema, DeviceTypeSchema, InputStateSchema } from './schemas'

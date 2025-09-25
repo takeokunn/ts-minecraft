@@ -1,4 +1,5 @@
-import { Schema, Brand, Data } from 'effect'
+import { Brand, Data } from 'effect'
+import { Schema } from '@effect/schema'
 import type * as Types from 'effect/Types'
 
 // =========================================
