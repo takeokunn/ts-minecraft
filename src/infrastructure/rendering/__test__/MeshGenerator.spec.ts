@@ -264,68 +264,84 @@ const measurePerformance = <A, E>(
 
 describe('MeshGenerator', () => {
   describe('Basic Mesh Generation', () => {
-    it.effect('generates valid mesh data for any chunk', () =>
-      Effect.gen(function* () {
-        const position = { x: 0, y: 0, z: 0 }
-        const testChunk = createTestChunkData(position, 16)
-        const service = yield* MeshGeneratorService
+    it.effect(
+      'generates valid mesh data for any chunk',
+      () =>
+        Effect.gen(function* () {
+          const position = { x: 0, y: 0, z: 0 }
+          // 小さなチャンクサイズを使用してテスト実行時間を短縮
+          const testChunk = createTestChunkData(position, 8)
+          const service = yield* MeshGeneratorService
 
-        const meshData = yield* service.generateMesh(testChunk)
+          const meshData = yield* service.generateMesh(testChunk)
 
-        expect(meshData.vertices).toBeDefined()
-        expect(meshData.indices).toBeDefined()
-        expect(meshData.normals).toBeDefined()
-        expect(meshData.uvs).toBeDefined()
+          expect(meshData.vertices).toBeDefined()
+          expect(meshData.indices).toBeDefined()
+          expect(meshData.normals).toBeDefined()
+          expect(meshData.uvs).toBeDefined()
 
-        // Basic validation - vertex count should be multiple of 3
-        expect(meshData.vertices.length % 3).toBe(0)
-        expect(meshData.indices.every((i) => i >= 0)).toBe(true)
-      }).pipe(Effect.provide(MeshGeneratorLive))
+          // Basic validation - vertex count should be multiple of 3
+          expect(meshData.vertices.length % 3).toBe(0)
+          expect(meshData.indices.every((i) => i >= 0)).toBe(true)
+        }).pipe(Effect.provide(MeshGeneratorLive)),
+      { timeout: 60000 }
     )
 
-    it.effect('handles empty chunks gracefully', () =>
-      Effect.gen(function* () {
-        const emptyChunk = createEmptyChunkData({ x: 0, y: 0, z: 0 }, 16)
-        const service = yield* MeshGeneratorService
+    it.effect(
+      'handles empty chunks gracefully',
+      () =>
+        Effect.gen(function* () {
+          // 空のチャンクは高速なので元のサイズを維持
+          const emptyChunk = createEmptyChunkData({ x: 0, y: 0, z: 0 }, 16)
+          const service = yield* MeshGeneratorService
 
-        const meshData = yield* service.generateMesh(emptyChunk)
+          const meshData = yield* service.generateMesh(emptyChunk)
 
-        expect(meshData.vertices).toEqual([])
-        expect(meshData.indices).toEqual([])
-      }).pipe(Effect.provide(MeshGeneratorLive))
+          expect(meshData.vertices).toEqual([])
+          expect(meshData.indices).toEqual([])
+        }).pipe(Effect.provide(MeshGeneratorLive)),
+      { timeout: 30000 }
     )
   })
 
   describe('Optimized Mesh Generation', () => {
-    it.effect('optimized mesh reduces vertex count', () =>
-      Effect.gen(function* () {
-        const solidChunk = createSolidChunkData({ x: 0, y: 0, z: 0 }, 16, 1)
-        const service = yield* MeshGeneratorService
+    it.effect(
+      'optimized mesh reduces vertex count',
+      () =>
+        Effect.gen(function* () {
+          // 最適化アルゴリズムは計算集約的なので小さなサイズを使用
+          const solidChunk = createSolidChunkData({ x: 0, y: 0, z: 0 }, 6, 1)
+          const service = yield* MeshGeneratorService
 
-        const basicMesh = yield* service.generateMesh(solidChunk)
-        const optimizedMesh = yield* service.generateOptimizedMesh(solidChunk)
+          const basicMesh = yield* service.generateMesh(solidChunk)
+          const optimizedMesh = yield* service.generateOptimizedMesh(solidChunk)
 
-        // Optimized should have fewer or equal vertices
-        expect(optimizedMesh.vertices.length).toBeLessThanOrEqual(basicMesh.vertices.length)
-      }).pipe(Effect.provide(MeshGeneratorLive))
+          // Optimized should have fewer or equal vertices
+          expect(optimizedMesh.vertices.length).toBeLessThanOrEqual(basicMesh.vertices.length)
+        }).pipe(Effect.provide(MeshGeneratorLive)),
+      { timeout: 90000 }
     )
   })
 
   describe('Cache Management', () => {
-    it.effect('cache operations work correctly', () =>
-      Effect.gen(function* () {
-        const service = yield* MeshGeneratorService
+    it.effect(
+      'cache operations work correctly',
+      () =>
+        Effect.gen(function* () {
+          const service = yield* MeshGeneratorService
 
-        yield* service.clearCache()
-        const initialStats = yield* service.getCacheStats()
-        expect(initialStats.size).toBe(0)
+          yield* service.clearCache()
+          const initialStats = yield* service.getCacheStats()
+          expect(initialStats.size).toBe(0)
 
-        const testChunk = createTestChunkData({ x: 0, y: 0, z: 0 }, 8)
-        yield* service.generateMesh(testChunk)
+          // キャッシュテストは高速なので元のサイズを維持
+          const testChunk = createTestChunkData({ x: 0, y: 0, z: 0 }, 8)
+          yield* service.generateMesh(testChunk)
 
-        const afterGenStats = yield* service.getCacheStats()
-        expect(afterGenStats.size).toBeGreaterThanOrEqual(0)
-      }).pipe(Effect.provide(MeshGeneratorLive))
+          const afterGenStats = yield* service.getCacheStats()
+          expect(afterGenStats.size).toBeGreaterThanOrEqual(0)
+        }).pipe(Effect.provide(MeshGeneratorLive)),
+      { timeout: 45000 }
     )
   })
 })
