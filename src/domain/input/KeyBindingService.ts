@@ -119,10 +119,92 @@ const DEFAULT_MAPPINGS: Record<string, InputMapping> = {
   },
 }
 
+// 高度なキーバインディング機能
+const ADVANCED_MAPPINGS: Record<string, InputMapping> = {
+  // ホットバー選択 (1-9)
+  hotbar1: {
+    _tag: 'InputMapping',
+    actionName: 'hotbar1',
+    keys: ['Digit1' as KeyCode],
+    gamepadButtons: [],
+    gamepadAxes: [],
+    mouseButtons: [],
+    touchGestures: [],
+  },
+  hotbar2: {
+    _tag: 'InputMapping',
+    actionName: 'hotbar2',
+    keys: ['Digit2' as KeyCode],
+    gamepadButtons: [],
+    gamepadAxes: [],
+    mouseButtons: [],
+    touchGestures: [],
+  },
+  hotbar3: {
+    _tag: 'InputMapping',
+    actionName: 'hotbar3',
+    keys: ['Digit3' as KeyCode],
+    gamepadButtons: [],
+    gamepadAxes: [],
+    mouseButtons: [],
+    touchGestures: [],
+  },
+  // カメラ制御
+  lookUp: {
+    _tag: 'InputMapping',
+    actionName: 'lookUp',
+    keys: [],
+    gamepadButtons: [],
+    gamepadAxes: [{ axis: 3, direction: 'negative', threshold: 0.2 }],
+    mouseButtons: [],
+    touchGestures: ['swipeUp'],
+  },
+  lookDown: {
+    _tag: 'InputMapping',
+    actionName: 'lookDown',
+    keys: [],
+    gamepadButtons: [],
+    gamepadAxes: [{ axis: 3, direction: 'positive', threshold: 0.2 }],
+    mouseButtons: [],
+    touchGestures: ['swipeDown'],
+  },
+  lookLeft: {
+    _tag: 'InputMapping',
+    actionName: 'lookLeft',
+    keys: [],
+    gamepadButtons: [],
+    gamepadAxes: [{ axis: 2, direction: 'negative', threshold: 0.2 }],
+    mouseButtons: [],
+    touchGestures: ['swipeLeft'],
+  },
+  lookRight: {
+    _tag: 'InputMapping',
+    actionName: 'lookRight',
+    keys: [],
+    gamepadButtons: [],
+    gamepadAxes: [{ axis: 2, direction: 'positive', threshold: 0.2 }],
+    mouseButtons: [],
+    touchGestures: ['swipeRight'],
+  },
+  // 複合アクション
+  sprintJump: {
+    _tag: 'InputMapping',
+    actionName: 'sprintJump',
+    keys: ['ControlLeft' as KeyCode, 'Space' as KeyCode], // 両方同時押し
+    gamepadButtons: [0 as ButtonId, 10 as ButtonId], // A + LS
+    gamepadAxes: [],
+    mouseButtons: [],
+    touchGestures: [],
+  },
+}
+
+// 全マッピングを統合
+const ALL_DEFAULT_MAPPINGS = { ...DEFAULT_MAPPINGS, ...ADVANCED_MAPPINGS }
+
 // キーバインディングサービス実装
 export const makeKeyBindingService = Effect.gen(function* () {
   // 現在のマッピング
-  const mappingsRef = yield* Ref.make<Record<string, InputMapping>>(DEFAULT_MAPPINGS)
+  const mappingsRef = yield* Ref.make<Record<string, InputMapping>>(ALL_DEFAULT_MAPPINGS)
 
   // スキーム読み込み
   const loadScheme = (scheme: ControlScheme): Effect.Effect<void, KeyBindingError> =>
@@ -266,7 +348,7 @@ export const makeKeyBindingService = Effect.gen(function* () {
     })
 
   // デフォルトにリセット
-  const resetToDefaults = (): Effect.Effect<void, KeyBindingError> => Ref.set(mappingsRef, DEFAULT_MAPPINGS)
+  const resetToDefaults = (): Effect.Effect<void, KeyBindingError> => Ref.set(mappingsRef, ALL_DEFAULT_MAPPINGS)
 
   return {
     loadScheme,
