@@ -182,7 +182,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
 })
 
 const MockPhysicsPerformanceService = (() => {
-  let currentLevel = 'High' as const
+  let currentLevel: 'Low' | 'Medium' | 'High' | 'Ultra' = 'High'
   let adaptiveMode = false
   let metrics: any[] = []
 
@@ -252,7 +252,7 @@ const MockPhysicsPerformanceService = (() => {
       if (needsOptimization && adaptiveMode && currentLevel !== 'Low') {
         // Downgrade performance level
         const oldLevel = currentLevel
-        currentLevel = currentLevel === 'Ultra' ? 'High' : 'Medium'
+        currentLevel = currentLevel === 'Ultra' ? 'High' : currentLevel === 'High' ? 'Medium' : 'Low'
         return Effect.succeed({
           optimizationApplied: true,
           recommendations: [`Performance downgraded from ${oldLevel} to ${currentLevel} due to poor frame times`],

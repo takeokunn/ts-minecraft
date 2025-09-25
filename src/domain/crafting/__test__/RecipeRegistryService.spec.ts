@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, expect, beforeEach } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Either, Layer } from 'effect'
 import { RecipeRegistryService, RecipeRegistryServiceLive } from '../RecipeRegistryService'
 import { CraftingEngineService, CraftingEngineServiceLive } from '../CraftingEngineService'
@@ -221,45 +222,49 @@ describe('RecipeRegistryService', () => {
   })
 
   describe('getAllRecipes', () => {
-    it('should retrieve all registered recipes', async () => {
-      const recipe1: ShapedRecipe = {
-        _tag: 'shaped',
-        id: RecipeId('recipe1'),
-        pattern: [['P']],
-        ingredients: {
-          P: { _tag: 'exact', itemId: 'planks' },
-        },
-        result: {
-          itemId: 'item1',
-          count: ItemStackCount(1),
-        },
-        category: { _tag: 'crafting' },
-      }
+    it.scoped('should retrieve all registered recipes', () =>
+      Effect.gen(function* () {
+        const registry = yield* RecipeRegistryService
 
-      const recipe2: ShapelessRecipe = {
-        _tag: 'shapeless',
-        id: RecipeId('recipe2'),
-        ingredients: [
-          { _tag: 'exact', itemId: 'sugar' },
-          { _tag: 'exact', itemId: 'paper' },
-        ],
-        result: {
-          itemId: 'item2',
-          count: ItemStackCount(1),
-        },
-        category: { _tag: 'crafting' },
-      }
+        const recipe1: ShapedRecipe = {
+          _tag: 'shaped',
+          id: RecipeId('recipe1'),
+          pattern: [['P']],
+          ingredients: {
+            P: { _tag: 'exact', itemId: 'planks' },
+          },
+          result: {
+            itemId: 'item1',
+            count: ItemStackCount(1),
+          },
+          category: { _tag: 'crafting' },
+        }
 
-      await Effect.runPromise(service.register(recipe1))
-      await Effect.runPromise(service.register(recipe2).pipe(Effect.either))
+        const recipe2: ShapelessRecipe = {
+          _tag: 'shapeless',
+          id: RecipeId('recipe2'),
+          ingredients: [
+            { _tag: 'exact', itemId: 'sugar' },
+            { _tag: 'exact', itemId: 'paper' },
+          ],
+          result: {
+            itemId: 'item2',
+            count: ItemStackCount(1),
+          },
+          category: { _tag: 'crafting' },
+        }
 
-      const allRecipes = await Effect.runPromise(service.getAllRecipes())
+        yield* registry.register(recipe1)
+        yield* registry.register(recipe2)
 
-      expect(allRecipes.length).toBeGreaterThanOrEqual(2)
-      const ids = allRecipes.map((r) => r.id)
-      expect(ids).toContain(RecipeId('recipe1'))
-      expect(ids).toContain(RecipeId('recipe2'))
-    })
+        const allRecipes = yield* registry.getAllRecipes()
+
+        expect(allRecipes.length).toBe(2)
+        const ids = allRecipes.map((r) => r.id)
+        expect(ids).toContain(RecipeId('recipe1'))
+        expect(ids).toContain(RecipeId('recipe2'))
+      }).pipe(Effect.provide(RecipeRegistryServiceLive.pipe(Layer.provide(CraftingEngineServiceLive))))
+    )
 
     it('should return empty array when no recipes registered', async () => {
       // Create a fresh service instance
@@ -275,28 +280,32 @@ describe('RecipeRegistryService', () => {
   })
 
   describe('getRecipeCount', () => {
-    it('should return correct recipe count', async () => {
-      const initialCount = await Effect.runPromise(service.getRecipeCount())
+    it.scoped('should return correct recipe count', () =>
+      Effect.gen(function* () {
+        const registry = yield* RecipeRegistryService
 
-      const recipe: ShapedRecipe = {
-        _tag: 'shaped',
-        id: RecipeId('count_test'),
-        pattern: [['P']],
-        ingredients: {
-          P: { _tag: 'exact', itemId: 'planks' },
-        },
-        result: {
-          itemId: 'test_item',
-          count: ItemStackCount(1),
-        },
-        category: { _tag: 'crafting' },
-      }
+        const initialCount = yield* registry.getRecipeCount()
 
-      await Effect.runPromise(service.register(recipe))
-      const newCount = await Effect.runPromise(service.getRecipeCount())
+        const recipe: ShapedRecipe = {
+          _tag: 'shaped',
+          id: RecipeId('count_test'),
+          pattern: [['P']],
+          ingredients: {
+            P: { _tag: 'exact', itemId: 'planks' },
+          },
+          result: {
+            itemId: 'test_item',
+            count: ItemStackCount(1),
+          },
+          category: { _tag: 'crafting' },
+        }
 
-      expect(newCount).toBe(initialCount + 1)
-    })
+        yield* registry.register(recipe)
+        const newCount = yield* registry.getRecipeCount()
+
+        expect(newCount).toBe(initialCount + 1)
+      }).pipe(Effect.provide(RecipeRegistryServiceLive.pipe(Layer.provide(CraftingEngineServiceLive))))
+    )
   })
 
   describe('hasRecipe', () => {
@@ -329,42 +338,46 @@ describe('RecipeRegistryService', () => {
   })
 
   describe('getRecipesByResult', () => {
-    it('should find all recipes that produce a specific item', async () => {
-      const recipe1: ShapedRecipe = {
-        _tag: 'shaped',
-        id: RecipeId('planks_from_logs'),
-        pattern: [['L']],
-        ingredients: {
-          L: { _tag: 'exact', itemId: 'oak_log' },
-        },
-        result: {
-          itemId: 'oak_planks',
-          count: ItemStackCount(4),
-        },
-        category: { _tag: 'crafting' },
-      }
+    it.scoped('should find all recipes that produce a specific item', () =>
+      Effect.gen(function* () {
+        const registry = yield* RecipeRegistryService
 
-      const recipe2: ShapelessRecipe = {
-        _tag: 'shapeless',
-        id: RecipeId('planks_from_wood'),
-        ingredients: [{ _tag: 'exact', itemId: 'oak_wood' }],
-        result: {
-          itemId: 'oak_planks',
-          count: ItemStackCount(4),
-        },
-        category: { _tag: 'crafting' },
-      }
+        const recipe1: ShapedRecipe = {
+          _tag: 'shaped',
+          id: RecipeId('planks_from_logs'),
+          pattern: [['L']],
+          ingredients: {
+            L: { _tag: 'exact', itemId: 'oak_log' },
+          },
+          result: {
+            itemId: 'oak_planks',
+            count: ItemStackCount(4),
+          },
+          category: { _tag: 'crafting' },
+        }
 
-      await Effect.runPromise(service.register(recipe1))
-      await Effect.runPromise(service.register(recipe2).pipe(Effect.either))
+        const recipe2: ShapelessRecipe = {
+          _tag: 'shapeless',
+          id: RecipeId('planks_from_wood'),
+          ingredients: [{ _tag: 'exact', itemId: 'oak_wood' }],
+          result: {
+            itemId: 'oak_planks',
+            count: ItemStackCount(4),
+          },
+          category: { _tag: 'crafting' },
+        }
 
-      const recipes = await Effect.runPromise(service.getRecipesByResult('oak_planks'))
+        yield* registry.register(recipe1)
+        yield* registry.register(recipe2)
 
-      expect(recipes.length).toBe(2)
-      const ids = recipes.map((r) => r.id)
-      expect(ids).toContain(RecipeId('planks_from_logs'))
-      expect(ids).toContain(RecipeId('planks_from_wood'))
-    })
+        const recipes = yield* registry.getRecipesByResult('oak_planks')
+
+        expect(recipes.length).toBe(2)
+        const ids = recipes.map((r) => r.id)
+        expect(ids).toContain(RecipeId('planks_from_logs'))
+        expect(ids).toContain(RecipeId('planks_from_wood'))
+      }).pipe(Effect.provide(RecipeRegistryServiceLive.pipe(Layer.provide(CraftingEngineServiceLive))))
+    )
 
     it('should return empty array for item with no recipes', async () => {
       const recipes = await Effect.runPromise(service.getRecipesByResult('unobtainium'))
