@@ -174,6 +174,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
       lastTerrainChange: Date.now(),
       adaptationBuffer: [],
     }),
+  cleanupPlayerTerrain: () => Effect.void,
 })
 
 const MockPhysicsPerformanceService = Layer.succeed(PhysicsPerformanceService, {
@@ -243,17 +244,17 @@ const MockEnhancedPlayerMovementService = (() => {
   const activePlayers = new Set<string>()
 
   return Layer.succeed(EnhancedPlayerMovementService, {
-    initializePlayer: (player: any) => {
+    initializePlayer: (player: Player) => {
       activePlayers.add(player.id)
       return Effect.void
     },
-    processMovementInput: (playerId: any) => {
+    processMovementInput: (playerId: PlayerId, input: any, deltaTime: number) => {
       if (typeof playerId === 'string' && playerId.includes('non-existent')) {
         return Effect.fail({
-          _tag: 'EnhancedMovementError',
+          _tag: 'EnhancedMovementError' as const,
           message: `Player not found: ${playerId}`,
-          playerId,
-          reason: 'PlayerNotFound',
+          playerId: playerId as PlayerId,
+          reason: 'PlayerNotFound' as const,
         })
       }
 
@@ -296,14 +297,14 @@ const MockEnhancedPlayerMovementService = (() => {
       createdAt: Date.now(),
     }),
   updatePhysics: () => Effect.void,
-    getPlayerState: (playerId: any) => {
+    getPlayerState: (playerId: PlayerId) => {
       // removePlayerで削除されたプレイヤーまたは存在しないプレイヤーの場合
       if (!activePlayers.has(playerId)) {
         return Effect.fail({
-          _tag: 'EnhancedMovementError',
+          _tag: 'EnhancedMovementError' as const,
           message: `Player state not found: ${playerId}`,
           playerId,
-          reason: 'PlayerNotFound',
+          reason: 'PlayerNotFound' as const,
         })
       }
 
@@ -327,7 +328,7 @@ const MockEnhancedPlayerMovementService = (() => {
       })
     },
     getAllPlayerStates: () => Effect.succeed([]),
-    removePlayer: (playerId: any) => {
+    removePlayer: (playerId: PlayerId) => {
       activePlayers.delete(playerId)
       return Effect.void
     },
