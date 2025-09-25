@@ -126,7 +126,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
   adaptToTerrain: (playerId, position) => {
     // Simulate water terrain at y=5 and below
     const isInWater = position.y <= 5
-    
+
     const waterTerrain = {
       speedModifier: 0.3,
       friction: 0.3,
@@ -136,7 +136,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
       buoyancy: 1.2,
       soundDamping: 0.7,
     }
-    
+
     const normalTerrain = {
       speedModifier: 1.0,
       friction: 0.8,
@@ -146,7 +146,7 @@ const MockTerrainAdaptationService = Layer.succeed(TerrainAdaptationService, {
       buoyancy: 0.0,
       soundDamping: 0.1,
     }
-    
+
     return Effect.succeed({
       playerId,
       currentTerrain: isInWater ? waterTerrain : normalTerrain,
@@ -185,13 +185,13 @@ const MockPhysicsPerformanceService = (() => {
   let currentLevel = 'High' as const
   let adaptiveMode = false
   let metrics: any[] = []
-  
+
   return Layer.succeed(PhysicsPerformanceService, {
-    initializePerformanceMonitoring: (level?: any) => 
+    initializePerformanceMonitoring: (level?: any) =>
       Effect.sync(() => {
         if (level) currentLevel = level
       }),
-      
+
     recordFrameMetrics: (frameTime: number, physicsTime: number, collisionChecks: number, activeObjects: number) =>
       Effect.sync(() => {
         metrics.push({ frameTime, physicsTime, collisionChecks, activeObjects, timestamp: Date.now() })
@@ -200,13 +200,12 @@ const MockPhysicsPerformanceService = (() => {
           metrics = metrics.slice(-10)
         }
       }),
-      
+
     getPerformanceState: () => {
-      const averageFrameTime = metrics.length > 0 
-        ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length 
-        : 16.67
+      const averageFrameTime =
+        metrics.length > 0 ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length : 16.67
       const fps = averageFrameTime > 0 ? 1000 / averageFrameTime : 60
-      
+
       return Effect.succeed({
         currentLevel,
         settings: {
@@ -232,25 +231,24 @@ const MockPhysicsPerformanceService = (() => {
         lastOptimization: Date.now(),
       })
     },
-    
-    setPerformanceLevel: (level: any) => 
+
+    setPerformanceLevel: (level: any) =>
       Effect.sync(() => {
         currentLevel = level
       }),
-      
-    setAdaptiveMode: (enabled: boolean) => 
+
+    setAdaptiveMode: (enabled: boolean) =>
       Effect.sync(() => {
         adaptiveMode = enabled
       }),
-      
+
     analyzeAndOptimize: () => {
       // Check if we have poor performance metrics
-      const averageFrameTime = metrics.length > 0 
-        ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length 
-        : 16.67
-      
+      const averageFrameTime =
+        metrics.length > 0 ? metrics.reduce((sum, m) => sum + m.frameTime, 0) / metrics.length : 16.67
+
       const needsOptimization = averageFrameTime > 20 // worse than 50 FPS
-      
+
       if (needsOptimization && adaptiveMode && currentLevel !== 'Low') {
         // Downgrade performance level
         const oldLevel = currentLevel
@@ -260,19 +258,19 @@ const MockPhysicsPerformanceService = (() => {
           recommendations: [`Performance downgraded from ${oldLevel} to ${currentLevel} due to poor frame times`],
         })
       }
-      
+
       return Effect.succeed({
         optimizationApplied: false,
         recommendations: ['Performance is stable'],
       })
     },
-    
+
     monitorMemoryUsage: () => Effect.succeed(50),
-    resetStatistics: () => 
+    resetStatistics: () =>
       Effect.sync(() => {
         metrics = []
       }),
-      
+
     getCurrentSettings: () =>
       Effect.succeed({
         targetFPS: 60,
@@ -283,20 +281,20 @@ const MockPhysicsPerformanceService = (() => {
         enableSpatialHashing: true,
         enableLOD: true,
       }),
-      
+
     now: () => performance.now(),
   })
 })()
 
 const MockEnhancedPlayerMovementService = (() => {
   const playerStates = new Map<PlayerId, any>()
-  
+
   return Layer.succeed(EnhancedPlayerMovementService, {
-    initializePlayer: (player: any) => 
+    initializePlayer: (player: any) =>
       Effect.sync(() => {
         playerStates.set(player.id, player)
       }),
-      
+
     processMovementInput: (playerId) => {
       const player = playerStates.get(playerId)
       if (!player) {
@@ -314,7 +312,7 @@ const MockEnhancedPlayerMovementService = (() => {
         lastUpdate: Date.now(),
       })
     },
-    
+
     processJumpInput: (playerId) => {
       const player = playerStates.get(playerId)
       if (!player) {
@@ -331,9 +329,9 @@ const MockEnhancedPlayerMovementService = (() => {
         lastUpdate: Date.now(),
       })
     },
-    
+
     updatePhysics: () => Effect.void,
-    
+
     getPlayerState: (playerId) => {
       const player = playerStates.get(playerId)
       if (!player) {
@@ -346,15 +344,15 @@ const MockEnhancedPlayerMovementService = (() => {
       }
       return Effect.succeed(player)
     },
-    
+
     getAllPlayerStates: () => Effect.succeed(Array.from(playerStates.values())),
-    
-    removePlayer: (playerId) => 
+
+    removePlayer: (playerId) =>
       Effect.sync(() => {
         playerStates.delete(playerId)
       }),
-      
-    cleanup: () => 
+
+    cleanup: () =>
       Effect.sync(() => {
         playerStates.clear()
       }),

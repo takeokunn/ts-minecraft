@@ -24,7 +24,7 @@ import type { BlockType } from '../../block/BlockType.js'
 // テスト用レイヤー - TerrainAdaptationService全体をモック化
 const MockTerrainAdaptationService = (() => {
   const playerStates = new Map<PlayerId, any>()
-  
+
   return Layer.succeed(TerrainAdaptationService, {
     getTerrainProperties: (blockType) =>
       Effect.gen(function* () {
@@ -49,21 +49,21 @@ const MockTerrainAdaptationService = (() => {
               soundDamping: 0.8,
             }
           : blockTypeStr === 'slippery' && blockType.physics.hardness < 0.5
-          ? {
-              ...DEFAULT_TERRAIN_PROPERTIES,
-              friction: Math.min(DEFAULT_TERRAIN_PROPERTIES.friction, 0.3),
-              speedModifier: Math.max(DEFAULT_TERRAIN_PROPERTIES.speedModifier, 1.1),
-            }
-          : blockType.physics.hardness < 1.0
-          ? {
-              ...DEFAULT_TERRAIN_PROPERTIES,
-              stepHeight: Math.max(DEFAULT_TERRAIN_PROPERTIES.stepHeight, 0.8),
-              soundDamping: Math.max(DEFAULT_TERRAIN_PROPERTIES.soundDamping, 0.3),
-            }
-          : DEFAULT_TERRAIN_PROPERTIES
+            ? {
+                ...DEFAULT_TERRAIN_PROPERTIES,
+                friction: Math.min(DEFAULT_TERRAIN_PROPERTIES.friction, 0.3),
+                speedModifier: Math.max(DEFAULT_TERRAIN_PROPERTIES.speedModifier, 1.1),
+              }
+            : blockType.physics.hardness < 1.0
+              ? {
+                  ...DEFAULT_TERRAIN_PROPERTIES,
+                  stepHeight: Math.max(DEFAULT_TERRAIN_PROPERTIES.stepHeight, 0.8),
+                  soundDamping: Math.max(DEFAULT_TERRAIN_PROPERTIES.soundDamping, 0.3),
+                }
+              : DEFAULT_TERRAIN_PROPERTIES
       }),
 
-    initializePlayerTerrain: (playerId) => 
+    initializePlayerTerrain: (playerId) =>
       Effect.sync(() => {
         playerStates.set(playerId, {
           playerId,
@@ -86,29 +86,29 @@ const MockTerrainAdaptationService = (() => {
           cause: null,
         })
       }
-      
+
       const existingBuffer = existingState.adaptationBuffer || []
-      
+
       // Add new entry to buffer (simulate terrain transition tracking)
       const newEntry = {
         position,
         terrain: DEFAULT_TERRAIN_PROPERTIES,
         timestamp: Date.now(),
       }
-      
+
       // Maintain buffer size limit of 5
       const updatedBuffer = [...existingBuffer, newEntry].slice(-5)
-      
+
       const terrainState = {
         ...existingState,
         currentTerrain: DEFAULT_TERRAIN_PROPERTIES,
         lastTerrainChange: Date.now(),
         adaptationBuffer: updatedBuffer,
       }
-      
+
       // Update player state
       playerStates.set(playerId, terrainState)
-      
+
       return Effect.succeed(terrainState)
     },
 
@@ -121,9 +121,9 @@ const MockTerrainAdaptationService = (() => {
     applySwimmingPhysics: (playerId, submersionLevel, velocity) =>
       submersionLevel > 0
         ? Effect.succeed({
-            x: velocity.x * (1 - (0.6 + (submersionLevel * 0.9 * 0.4))),
+            x: velocity.x * (1 - (0.6 + submersionLevel * 0.9 * 0.4)),
             y: velocity.y + submersionLevel * 0.8 * 0.1, // Add buoyancy, don't reduce y velocity
-            z: velocity.z * (1 - (0.6 + (submersionLevel * 0.9 * 0.4))),
+            z: velocity.z * (1 - (0.6 + submersionLevel * 0.9 * 0.4)),
           })
         : Effect.succeed(velocity),
 
@@ -147,7 +147,7 @@ const MockTerrainAdaptationService = (() => {
       return Effect.succeed(state)
     },
 
-    cleanupPlayerTerrain: (playerId) => 
+    cleanupPlayerTerrain: (playerId) =>
       Effect.sync(() => {
         playerStates.delete(playerId)
       }),

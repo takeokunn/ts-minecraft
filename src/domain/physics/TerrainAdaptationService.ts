@@ -536,10 +536,10 @@ const makeTerrainAdaptationService: Effect.Effect<
           Effect.gen(function* () {
             const buoyancyForce = 0.8 * level // 浮力
             const waterResistance = 0.9 * level // 水の抵抗
-            
+
             // 水没レベルが高いほど強い抵抗を適用
-            const horizontalResistance = 0.6 + (waterResistance * 0.4) // 0.6〜1.0の範囲
-            const verticalResistance = 0.4 + (waterResistance * 0.2) // 0.4〜0.6の範囲
+            const horizontalResistance = 0.6 + waterResistance * 0.4 // 0.6〜1.0の範囲
+            const verticalResistance = 0.4 + waterResistance * 0.2 // 0.4〜0.6の範囲
 
             return {
               x: currentVelocity.x * (1 - horizontalResistance),
