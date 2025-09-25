@@ -64,10 +64,10 @@ export const MouseInputLive = Layer.effect(
       Effect.try({
         try: () => {
           return pipe(
-            Predicate.isUndefined(document),
+            typeof document === 'undefined',
             Match.value,
             Match.when(true, () => {
-              throw new Error('Document is not available')
+              throw new Error('document is not defined')
             }),
             Match.orElse(() => operation())
           ) as T
@@ -143,7 +143,7 @@ export const MouseInputLive = Layer.effect(
     // ポインターロック状態変更リスナー
     const handlePointerLockChange = () => {
       const effect = Effect.gen(function* () {
-        const documentExists = !Predicate.isUndefined(document)
+        const documentExists = typeof document !== 'undefined'
 
         const isLocked = documentExists && document.pointerLockElement !== null
         const element = (documentExists && document.pointerLockElement?.id) || undefined
@@ -162,9 +162,9 @@ export const MouseInputLive = Layer.effect(
       )
     }
 
-    // イベントリスナーの設定
+    // イベントリスナーの設定（document存在チェック）
     yield* pipe(
-      !Predicate.isUndefined(document),
+      typeof document !== 'undefined',
       Match.value,
       Match.when(true, () =>
         safeDocumentAccess(() => {
