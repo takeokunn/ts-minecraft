@@ -30,6 +30,7 @@
     "effect": "^3.17.14",
     "framer-motion": "^12.23.22",
     "idb-keyval": "^6.2.2",
+    "nanoid": "^5.1.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",

@@ -9,7 +9,7 @@ export default defineConfig({
     testTimeout: 30000, // 30秒（パフォーマンステスト対応）
     hookTimeout: 20000, // フックのタイムアウト
 
-    include: ['src/**/__tests__/*.test.ts', 'src/**/*.spec.ts'],
+    include: ['src/**/__tests__/*.test.ts', 'src/**/__test__/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 
     pool: 'threads',

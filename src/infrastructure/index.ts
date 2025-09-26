@@ -7,3 +7,4 @@
 
 export * from './rendering'
 export * from './ecs'
+export * from './audio'
