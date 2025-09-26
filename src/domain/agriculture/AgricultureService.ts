@@ -27,36 +27,19 @@ export interface AgricultureService {
     planterId: PlayerId
   ) => Effect.Effect<Crop, AgricultureError>
 
-  readonly harvestCrop: (
-    cropId: CropId,
-    harvesterId: PlayerId
-  ) => Effect.Effect<CropDrops, AgricultureError>
+  readonly harvestCrop: (cropId: CropId, harvesterId: PlayerId) => Effect.Effect<CropDrops, AgricultureError>
 
-  readonly updateGrowth: (
-    cropId: CropId
-  ) => Effect.Effect<GrowthStage, AgricultureError>
+  readonly updateGrowth: (cropId: CropId) => Effect.Effect<GrowthStage, AgricultureError>
 
-  readonly fertilizeCrop: (
-    cropId: CropId,
-    fertilizerId: PlayerId
-  ) => Effect.Effect<void, AgricultureError>
+  readonly fertilizeCrop: (cropId: CropId, fertilizerId: PlayerId) => Effect.Effect<void, AgricultureError>
 
-  readonly checkGrowthConditions: (
-    cropId: CropId
-  ) => Effect.Effect<GrowthConditions, AgricultureError>
+  readonly checkGrowthConditions: (cropId: CropId) => Effect.Effect<GrowthConditions, AgricultureError>
 
-  readonly getCrop: (
-    cropId: CropId
-  ) => Effect.Effect<Crop, AgricultureError>
+  readonly getCrop: (cropId: CropId) => Effect.Effect<Crop, AgricultureError>
 
-  readonly getCropAt: (
-    position: { x: number; y: number; z: number }
-  ) => Effect.Effect<Crop | null, AgricultureError>
+  readonly getCropAt: (position: { x: number; y: number; z: number }) => Effect.Effect<Crop | null, AgricultureError>
 
-  readonly getCropsInChunk: (
-    chunkX: number,
-    chunkZ: number
-  ) => Effect.Effect<ReadonlyArray<Crop>, AgricultureError>
+  readonly getCropsInChunk: (chunkX: number, chunkZ: number) => Effect.Effect<ReadonlyArray<Crop>, AgricultureError>
 
   readonly destroyCrop: (
     cropId: CropId,
@@ -68,9 +51,7 @@ export interface AgricultureService {
     tramplerId: PlayerId
   ) => Effect.Effect<void, AgricultureError>
 
-  readonly hydrateFarmland: (
-    position: { x: number; y: number; z: number }
-  ) => Effect.Effect<Moisture, AgricultureError>
+  readonly hydrateFarmland: (position: { x: number; y: number; z: number }) => Effect.Effect<Moisture, AgricultureError>
 
   // Animal Management
   readonly breedAnimals: (
@@ -80,36 +61,20 @@ export interface AgricultureService {
     breederId: PlayerId
   ) => Effect.Effect<BreedingResult, AgricultureError>
 
-  readonly feedAnimal: (
-    animalId: string,
-    food: ItemStack,
-    feederId: PlayerId
-  ) => Effect.Effect<void, AgricultureError>
+  readonly feedAnimal: (animalId: string, food: ItemStack, feederId: PlayerId) => Effect.Effect<void, AgricultureError>
 
-  readonly tameAnimal: (
-    animalId: string,
-    tamerId: PlayerId,
-    food?: ItemStack
-  ) => Effect.Effect<void, AgricultureError>
+  readonly tameAnimal: (animalId: string, tamerId: PlayerId, food?: ItemStack) => Effect.Effect<void, AgricultureError>
 
-  readonly getAnimal: (
-    animalId: string
-  ) => Effect.Effect<FarmAnimal, AgricultureError>
+  readonly getAnimal: (animalId: string) => Effect.Effect<FarmAnimal, AgricultureError>
 
   readonly getAnimalsInRange: (
     position: { x: number; y: number; z: number },
     radius: number
   ) => Effect.Effect<ReadonlyArray<FarmAnimal>, AgricultureError>
 
-  readonly setLoveModeForAnimal: (
-    animalId: string,
-    duration: number
-  ) => Effect.Effect<void, AgricultureError>
+  readonly setLoveModeForAnimal: (animalId: string, duration: number) => Effect.Effect<void, AgricultureError>
 
-  readonly canBreedAnimals: (
-    animal1: string,
-    animal2: string
-  ) => Effect.Effect<boolean, AgricultureError>
+  readonly canBreedAnimals: (animal1: string, animal2: string) => Effect.Effect<boolean, AgricultureError>
 
   // Growth Ticking
   readonly tickGrowth: () => Effect.Effect<void, never>
@@ -119,15 +84,11 @@ export interface AgricultureService {
   // Statistics
   readonly getTotalCrops: () => Effect.Effect<number, never>
 
-  readonly getCropsByType: (
-    type: CropType
-  ) => Effect.Effect<ReadonlyArray<Crop>, never>
+  readonly getCropsByType: (type: CropType) => Effect.Effect<ReadonlyArray<Crop>, never>
 
   readonly getTotalAnimals: () => Effect.Effect<number, never>
 
-  readonly getAnimalsByType: (
-    type: AnimalType
-  ) => Effect.Effect<ReadonlyArray<FarmAnimal>, never>
+  readonly getAnimalsByType: (type: AnimalType) => Effect.Effect<ReadonlyArray<FarmAnimal>, never>
 }
 
 // ===================================
@@ -140,11 +101,7 @@ export const AgricultureService = Context.GenericTag<AgricultureService>('@minec
 // Service Helpers
 // ===================================
 
-export const plantCrop = (
-  position: { x: number; y: number; z: number },
-  cropType: CropType,
-  planterId: PlayerId
-) =>
+export const plantCrop = (position: { x: number; y: number; z: number }, cropType: CropType, planterId: PlayerId) =>
   Effect.gen(function* () {
     const service = yield* AgricultureService
     return yield* service.plantCrop(position, cropType, planterId)
@@ -192,10 +149,7 @@ export const getCropsInChunk = (chunkX: number, chunkZ: number) =>
     return yield* service.getCropsInChunk(chunkX, chunkZ)
   })
 
-export const destroyCrop = (
-  cropId: CropId,
-  reason?: 'player_break' | 'natural_decay' | 'trampled' | 'explosion'
-) =>
+export const destroyCrop = (cropId: CropId, reason?: 'player_break' | 'natural_decay' | 'trampled' | 'explosion') =>
   Effect.gen(function* () {
     const service = yield* AgricultureService
     return yield* service.destroyCrop(cropId, reason)
@@ -213,12 +167,7 @@ export const hydrateFarmland = (position: { x: number; y: number; z: number }) =
     return yield* service.hydrateFarmland(position)
   })
 
-export const breedAnimals = (
-  animal1: string,
-  animal2: string,
-  food: ItemStack,
-  breederId: PlayerId
-) =>
+export const breedAnimals = (animal1: string, animal2: string, food: ItemStack, breederId: PlayerId) =>
   Effect.gen(function* () {
     const service = yield* AgricultureService
     return yield* service.breedAnimals(animal1, animal2, food, breederId)

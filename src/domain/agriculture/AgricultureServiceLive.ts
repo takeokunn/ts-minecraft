@@ -1,5 +1,18 @@
-import { Effect, Layer, Ref, STM, Stream, Match, pipe, Schedule, Random, Duration, HashMap, Option, Chunk } from 'effect'
-import { ReadonlyArray } from 'effect'
+import {
+  Effect,
+  Layer,
+  Ref,
+  STM,
+  Stream,
+  Match,
+  pipe,
+  Schedule,
+  Random,
+  Duration,
+  HashMap,
+  Option,
+  Chunk,
+} from 'effect'
 import { AgricultureService } from './AgricultureService.js'
 import type { PlayerId, ItemId } from '../../shared/types/branded.js'
 import type { ItemStack } from '../inventory/InventoryTypes.js'
@@ -38,93 +51,99 @@ import {
 // Growth Requirements Configuration
 // ===================================
 
-const defaultGrowthRequirements: HashMap.HashMap<CropType, GrowthRequirements> = pipe(
-  HashMap.empty<CropType, GrowthRequirements>(),
-  HashMap.set('wheat', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 60000, // 1 minute
-    stages: 8,
-  }),
-  HashMap.set('carrot', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 80000,
-    stages: 8,
-  }),
-  HashMap.set('potato', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 80000,
-    stages: 8,
-  }),
-  HashMap.set('beetroot', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 90000,
-    stages: 4,
-  }),
-  HashMap.set('melon', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 120000,
-    stages: 8,
-  }),
-  HashMap.set('pumpkin', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(4),
-    baseGrowthTime: 120000,
-    stages: 8,
-  }),
-  HashMap.set('sugar_cane', {
-    minLightLevel: LightLevelBrand(8),
-    requiresWater: true,
-    waterRadius: WaterRadiusBrand(1), // Must be adjacent to water
-    baseGrowthTime: 120000,
-    stages: 16,
-  }),
-  HashMap.set('bamboo', {
-    minLightLevel: LightLevelBrand(9),
-    requiresWater: false,
-    waterRadius: WaterRadiusBrand(0),
-    baseGrowthTime: 60000,
-    stages: 16,
-  }),
-  HashMap.set('nether_wart', {
-    minLightLevel: LightLevelBrand(0),
-    requiresWater: false,
-    waterRadius: WaterRadiusBrand(0),
-    baseGrowthTime: 100000,
-    stages: 4,
-    canGrowInDark: true,
-  })
-)
+const defaultGrowthRequirements = (() => {
+  const map = HashMap.empty<CropType, GrowthRequirements>()
+  return pipe(
+    map,
+    HashMap.set('wheat' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 60000, // 1 minute
+      stages: 8,
+    } as GrowthRequirements),
+    HashMap.set('carrot' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 80000,
+      stages: 8,
+    } as GrowthRequirements),
+    HashMap.set('potato' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 80000,
+      stages: 8,
+    } as GrowthRequirements),
+    HashMap.set('beetroot' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 90000,
+      stages: 4,
+    } as GrowthRequirements),
+    HashMap.set('melon' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 120000,
+      stages: 8,
+    } as GrowthRequirements),
+    HashMap.set('pumpkin' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(4),
+      baseGrowthTime: 120000,
+      stages: 8,
+    } as GrowthRequirements),
+    HashMap.set('sugar_cane' as CropType, {
+      minLightLevel: LightLevelBrand(8),
+      requiresWater: true as boolean,
+      waterRadius: WaterRadiusBrand(1), // Must be adjacent to water
+      baseGrowthTime: 120000,
+      stages: 16,
+    } as GrowthRequirements),
+    HashMap.set('bamboo' as CropType, {
+      minLightLevel: LightLevelBrand(9),
+      requiresWater: false as boolean,
+      waterRadius: WaterRadiusBrand(0),
+      baseGrowthTime: 60000,
+      stages: 16,
+    } as GrowthRequirements),
+    HashMap.set('nether_wart' as CropType, {
+      minLightLevel: LightLevelBrand(0),
+      requiresWater: false as boolean,
+      waterRadius: WaterRadiusBrand(0),
+      baseGrowthTime: 100000,
+      stages: 4,
+      canGrowInDark: true,
+    } as GrowthRequirements)
+  )
+})()
 
 // ===================================
 // Animal Food Preferences
 // ===================================
 
-const animalFoodPreferences: HashMap.HashMap<AnimalType, ReadonlyArray<string>> = pipe(
-  HashMap.empty<AnimalType, ReadonlyArray<string>>(),
-  HashMap.set('cow', ['wheat']),
-  HashMap.set('pig', ['carrot', 'potato', 'beetroot']),
-  HashMap.set('sheep', ['wheat']),
-  HashMap.set('chicken', ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds']),
-  HashMap.set('horse', ['golden_apple', 'golden_carrot', 'apple', 'hay_block']),
-  HashMap.set('rabbit', ['carrot', 'golden_carrot', 'dandelion']),
-  HashMap.set('llama', ['hay_block']),
-  HashMap.set('cat', ['raw_fish', 'raw_salmon', 'raw_cod']),
-  HashMap.set('dog', ['bone', 'meat', 'chicken', 'mutton', 'porkchop', 'beef']),
-  HashMap.set('parrot', ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds']),
-  HashMap.set('bee', ['flower', 'poppy', 'dandelion', 'sunflower']),
-  HashMap.set('fox', ['sweet_berries', 'glow_berries'])
-)
+const animalFoodPreferences = (() => {
+  const map = HashMap.empty<AnimalType, string[]>()
+  return pipe(
+    map,
+    HashMap.set('cow' as AnimalType, ['wheat'] as string[]),
+    HashMap.set('pig' as AnimalType, ['carrot', 'potato', 'beetroot'] as string[]),
+    HashMap.set('sheep' as AnimalType, ['wheat'] as string[]),
+    HashMap.set('chicken' as AnimalType, ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]),
+    HashMap.set('horse' as AnimalType, ['golden_apple', 'golden_carrot', 'apple', 'hay_block'] as string[]),
+    HashMap.set('rabbit' as AnimalType, ['carrot', 'golden_carrot', 'dandelion'] as string[]),
+    HashMap.set('llama' as AnimalType, ['hay_block'] as string[]),
+    HashMap.set('cat' as AnimalType, ['raw_fish', 'raw_salmon', 'raw_cod'] as string[]),
+    HashMap.set('dog' as AnimalType, ['bone', 'meat', 'chicken', 'mutton', 'porkchop', 'beef'] as string[]),
+    HashMap.set('parrot' as AnimalType, ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]),
+    HashMap.set('bee' as AnimalType, ['flower', 'poppy', 'dandelion', 'sunflower'] as string[]),
+    HashMap.set('fox' as AnimalType, ['sweet_berries', 'glow_berries'] as string[])
+  )
+})()
 
 // ===================================
 // Helper Functions
@@ -170,11 +189,15 @@ const calculateDrops = (crop: Crop): Effect.Effect<ReadonlyArray<ItemStack>> =>
             count: potatoes,
             metadata: {},
           },
-          ...(poisonous ? [{
-            itemId: 'poisonous_potato' as ItemId,
-            count: poisonous,
-            metadata: {},
-          }] : []),
+          ...(poisonous
+            ? [
+                {
+                  itemId: 'poisonous_potato' as ItemId,
+                  count: poisonous,
+                  metadata: {},
+                },
+              ]
+            : []),
         ]
       }),
       Match.when('beetroot', () => [
@@ -238,7 +261,7 @@ const isValidFoodForAnimal = (animalType: AnimalType, foodId: string): boolean =
   const preferences = HashMap.get(animalFoodPreferences, animalType)
   return pipe(
     preferences,
-    Option.map(foods => ReadonlyArray.some(foods, food => food === foodId)),
+    Option.map((foods) => foods.some((food) => food === foodId)),
     Option.getOrElse(() => false)
   )
 }
@@ -253,16 +276,13 @@ const makeAgricultureService = Effect.gen(function* () {
   const farmAnimals = yield* Ref.make(HashMap.empty<string, FarmAnimal>())
 
   // Mock light level (in real implementation, would connect to lighting system)
-  const getLightLevel = (_position: { x: number; y: number; z: number }) =>
-    Effect.succeed(LightLevelBrand(15))
+  const getLightLevel = (_position: { x: number; y: number; z: number }) => Effect.succeed(LightLevelBrand(15))
 
   // Mock water check (in real implementation, would connect to water system)
-  const hasWaterNearby = (_position: { x: number; y: number; z: number }, _radius: number) =>
-    Effect.succeed(true)
+  const hasWaterNearby = (_position: { x: number; y: number; z: number }, _radius: number) => Effect.succeed(true)
 
   // Mock soil check (in real implementation, would connect to world manager)
-  const isFarmland = (_position: { x: number; y: number; z: number }) =>
-    Effect.succeed(true)
+  const isFarmland = (_position: { x: number; y: number; z: number }) => Effect.succeed(true)
 
   // Update crop growth
   const updateCropGrowth = (crop: Crop): Effect.Effect<GrowthStage> =>
@@ -286,10 +306,7 @@ const makeAgricultureService = Effect.gen(function* () {
       const growthChance = crop.fertilized ? 0.5 : 0.25
 
       if (random < growthChance) {
-        const newStage = Math.min(
-          requirements.stages - 1,
-          crop.growthStage + 1
-        ) as GrowthStage
+        const newStage = Math.min(requirements.stages - 1, crop.growthStage + 1) as GrowthStage
 
         const updatedCrop = { ...crop, growthStage: newStage, lastUpdate: Date.now() }
         yield* Ref.update(crops, HashMap.set(crop.id, updatedCrop))
@@ -302,16 +319,12 @@ const makeAgricultureService = Effect.gen(function* () {
 
   // Growth ticker
   const growthTicker = pipe(
-    Stream.repeat(Schedule.fixed(Duration.seconds(5))),
+    Stream.fromSchedule(Schedule.fixed(Duration.seconds(5))),
     Stream.mapEffect(() =>
       Effect.gen(function* () {
         const allCrops = yield* Ref.get(crops)
 
-        yield* Effect.forEach(
-          HashMap.values(allCrops),
-          (crop) => updateCropGrowth(crop),
-          { concurrency: 'unbounded' }
-        )
+        yield* Effect.forEach(HashMap.values(allCrops), (crop) => updateCropGrowth(crop), { concurrency: 'unbounded' })
       })
     ),
     Stream.runDrain,
@@ -337,12 +350,11 @@ const makeAgricultureService = Effect.gen(function* () {
       // Check for existing crop
       const existing = yield* Effect.gen(function* () {
         const allCrops = yield* Ref.get(crops)
-        return ReadonlyArray.findFirst(
-          HashMap.values(allCrops),
-          c => c.position.x === position.x &&
-              c.position.y === position.y &&
-              c.position.z === position.z
+        const values = Array.from(HashMap.values(allCrops))
+        const found = values.find(
+          (c) => c.position.x === position.x && c.position.y === position.y && c.position.z === position.z
         )
+        return found ? Option.some(found) : Option.none()
       })
 
       if (Option.isSome(existing)) {
@@ -368,17 +380,14 @@ const makeAgricultureService = Effect.gen(function* () {
       return crop
     })
 
-  const harvestCrop = (
-    cropId: CropId,
-    _harvesterId: PlayerId
-  ): Effect.Effect<CropDrops, AgricultureError> =>
+  const harvestCrop = (cropId: CropId, _harvesterId: PlayerId): Effect.Effect<CropDrops, AgricultureError> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
       const crop = pipe(
         HashMap.get(allCrops, cropId),
         Option.match({
           onNone: () => Effect.fail(CropNotFoundError(cropId)),
-          onSome: (c) => Effect.succeed(c)
+          onSome: (c) => Effect.succeed(c),
         })
       )
       const cropValue = yield* crop
@@ -411,24 +420,21 @@ const makeAgricultureService = Effect.gen(function* () {
         HashMap.get(allCrops, cropId),
         Option.match({
           onNone: () => Effect.fail(CropNotFoundError(cropId)),
-          onSome: (c) => Effect.succeed(c)
+          onSome: (c) => Effect.succeed(c),
         })
       )
       const cropValue = yield* crop
       return yield* updateCropGrowth(cropValue)
     })
 
-  const fertilizeCrop = (
-    cropId: CropId,
-    _fertilizerId: PlayerId
-  ): Effect.Effect<void, AgricultureError> =>
+  const fertilizeCrop = (cropId: CropId, _fertilizerId: PlayerId): Effect.Effect<void, AgricultureError> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
       const crop = pipe(
         HashMap.get(allCrops, cropId),
         Option.match({
           onNone: () => Effect.fail(CropNotFoundError(cropId)),
-          onSome: (c) => Effect.succeed(c)
+          onSome: (c) => Effect.succeed(c),
         })
       )
       const cropValue = yield* crop
@@ -444,7 +450,7 @@ const makeAgricultureService = Effect.gen(function* () {
         HashMap.get(allCrops, cropId),
         Option.match({
           onNone: () => Effect.fail(CropNotFoundError(cropId)),
-          onSome: (c) => Effect.succeed(c)
+          onSome: (c) => Effect.succeed(c),
         })
       )
       const cropValue = yield* crop
@@ -466,7 +472,7 @@ const makeAgricultureService = Effect.gen(function* () {
         HashMap.get(allCrops, cropId),
         Option.match({
           onNone: () => Effect.fail(CropNotFoundError(cropId)),
-          onSome: (c) => Effect.succeed(c)
+          onSome: (c) => Effect.succeed(c),
         })
       )
     })
@@ -474,15 +480,11 @@ const makeAgricultureService = Effect.gen(function* () {
   const getCropAt = (position: { x: number; y: number; z: number }): Effect.Effect<Crop | null, AgricultureError> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
-      return pipe(
-        HashMap.values(allCrops),
-        ReadonlyArray.findFirst(
-          c => c.position.x === position.x &&
-              c.position.y === position.y &&
-              c.position.z === position.z
-        ),
-        Option.getOrNull
+      const values = Array.from(HashMap.values(allCrops))
+      const found = values.find(
+        (c) => c.position.x === position.x && c.position.y === position.y && c.position.z === position.z
       )
+      return found || null
     })
 
   const getCropsInChunk = (chunkX: number, chunkZ: number): Effect.Effect<ReadonlyArray<Crop>, AgricultureError> =>
@@ -493,15 +495,15 @@ const makeAgricultureService = Effect.gen(function* () {
       const chunkMinZ = chunkZ * 16
       const chunkMaxZ = chunkMinZ + 15
 
-      return pipe(
-        HashMap.values(allCrops),
-        ReadonlyArray.filter(crop =>
+      const values = Array.from(HashMap.values(allCrops))
+      const filtered = values.filter(
+        (crop) =>
           crop.position.x >= chunkMinX &&
           crop.position.x <= chunkMaxX &&
           crop.position.z >= chunkMinZ &&
           crop.position.z <= chunkMaxZ
-        )
       )
+      return filtered as ReadonlyArray<Crop>
     })
 
   const destroyCrop = (
@@ -522,24 +524,17 @@ const makeAgricultureService = Effect.gen(function* () {
   ): Effect.Effect<void, AgricultureError> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
-      const cropAtPosition = pipe(
-        HashMap.values(allCrops),
-        ReadonlyArray.findFirst(
-          c => c.position.x === position.x &&
-              c.position.y === position.y &&
-              c.position.z === position.z
-        )
+      const values = Array.from(HashMap.values(allCrops))
+      const cropAtPosition = values.find(
+        (c) => c.position.x === position.x && c.position.y === position.y && c.position.z === position.z
       )
 
-      if (Option.isSome(cropAtPosition)) {
-        const crop = cropAtPosition.value
-        yield* Ref.update(crops, HashMap.remove(crop.id))
+      if (cropAtPosition) {
+        yield* Ref.update(crops, HashMap.remove(cropAtPosition.id))
       }
     })
 
-  const hydrateFarmland = (
-    _position: { x: number; y: number; z: number }
-  ): Effect.Effect<Moisture, AgricultureError> =>
+  const hydrateFarmland = (_position: { x: number; y: number; z: number }): Effect.Effect<Moisture, AgricultureError> =>
     Effect.succeed(MoistureBrand(7))
 
   // Animal management
@@ -555,14 +550,14 @@ const makeAgricultureService = Effect.gen(function* () {
         HashMap.get(animals, animal1Id),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animal1Id)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
       const a2 = pipe(
         HashMap.get(animals, animal2Id),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animal2Id)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
 
@@ -604,13 +599,12 @@ const makeAgricultureService = Effect.gen(function* () {
       }
 
       // Update parents and add baby
-      yield* Ref.update(
-        farmAnimals,
-        (animals) => pipe(
+      yield* Ref.update(farmAnimals, (animals) =>
+        pipe(
           animals,
           HashMap.set(babyId, baby),
-          HashMap.modify(animal1Id, a => ({ ...a, breedingCooldown: BreedingCooldownBrand(6000) })),
-          HashMap.modify(animal2Id, a => ({ ...a, breedingCooldown: BreedingCooldownBrand(6000) }))
+          HashMap.modify(animal1Id, (a) => ({ ...a, breedingCooldown: BreedingCooldownBrand(6000) })),
+          HashMap.modify(animal2Id, (a) => ({ ...a, breedingCooldown: BreedingCooldownBrand(6000) }))
         )
       )
 
@@ -621,18 +615,14 @@ const makeAgricultureService = Effect.gen(function* () {
       }
     })
 
-  const feedAnimal = (
-    animalId: string,
-    food: ItemStack,
-    _feederId: PlayerId
-  ): Effect.Effect<void, AgricultureError> =>
+  const feedAnimal = (animalId: string, food: ItemStack, _feederId: PlayerId): Effect.Effect<void, AgricultureError> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
       const animal = pipe(
         HashMap.get(animals, animalId),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animalId)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
       const animalValue = yield* animal
@@ -642,27 +632,23 @@ const makeAgricultureService = Effect.gen(function* () {
         return yield* Effect.fail(InvalidFoodError(animalValue.type, food.itemId))
       }
 
-      const fedAnimal = {
+      const fedAnimal: FarmAnimal = {
         ...animalValue,
         lastFed: Date.now(),
         health: Math.min(20, animalValue.health + 2),
       }
 
-      yield* Ref.update(farmAnimals, HashMap.set(animalId, fedAnimal))
+      yield* Ref.update(farmAnimals, (animals) => HashMap.set(animals, animalId, fedAnimal))
     })
 
-  const tameAnimal = (
-    animalId: string,
-    tamerId: PlayerId,
-    food?: ItemStack
-  ): Effect.Effect<void, AgricultureError> =>
+  const tameAnimal = (animalId: string, tamerId: PlayerId, food?: ItemStack): Effect.Effect<void, AgricultureError> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
       const animal = pipe(
         HashMap.get(animals, animalId),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animalId)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
       const animalValue = yield* animal
@@ -685,13 +671,13 @@ const makeAgricultureService = Effect.gen(function* () {
         }
       }
 
-      const tamedAnimal = {
+      const tamedAnimal: FarmAnimal = {
         ...animalValue,
         tamed: true,
         ownerId: tamerId,
       }
 
-      yield* Ref.update(farmAnimals, HashMap.set(animalId, tamedAnimal))
+      yield* Ref.update(farmAnimals, (animals) => HashMap.set(animals, animalId, tamedAnimal))
     })
 
   const getAnimal = (animalId: string): Effect.Effect<FarmAnimal, AgricultureError> =>
@@ -701,7 +687,7 @@ const makeAgricultureService = Effect.gen(function* () {
         HashMap.get(animals, animalId),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animalId)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
     })
@@ -712,51 +698,45 @@ const makeAgricultureService = Effect.gen(function* () {
   ): Effect.Effect<ReadonlyArray<FarmAnimal>, AgricultureError> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
-      // Simplified: return all animals
-      return HashMap.values(animals)
+      // Simplified: return all animals, convert IterableIterator to array
+      return Array.from(HashMap.values(animals)) as ReadonlyArray<FarmAnimal>
     })
 
-  const setLoveModeForAnimal = (
-    animalId: string,
-    duration: number
-  ): Effect.Effect<void, AgricultureError> =>
+  const setLoveModeForAnimal = (animalId: string, duration: number): Effect.Effect<void, AgricultureError> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
       const animal = pipe(
         HashMap.get(animals, animalId),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animalId)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
       const animalValue = yield* animal
 
-      const updatedAnimal = {
+      const updatedAnimal: FarmAnimal = {
         ...animalValue,
         loveModeTime: Date.now() + duration,
       }
 
-      yield* Ref.update(farmAnimals, HashMap.set(animalId, updatedAnimal))
+      yield* Ref.update(farmAnimals, (animals) => HashMap.set(animals, animalId, updatedAnimal))
     })
 
-  const canBreedAnimals = (
-    animal1Id: string,
-    animal2Id: string
-  ): Effect.Effect<boolean, AgricultureError> =>
+  const canBreedAnimals = (animal1Id: string, animal2Id: string): Effect.Effect<boolean, AgricultureError> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
       const a1 = pipe(
         HashMap.get(animals, animal1Id),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animal1Id)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
       const a2 = pipe(
         HashMap.get(animals, animal2Id),
         Option.match({
           onNone: () => Effect.fail(AnimalNotFoundError(animal2Id)),
-          onSome: (a) => Effect.succeed(a)
+          onSome: (a) => Effect.succeed(a),
         })
       )
 
@@ -775,11 +755,7 @@ const makeAgricultureService = Effect.gen(function* () {
   const tickGrowth = (): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
-      yield* Effect.forEach(
-        HashMap.values(allCrops),
-        (crop) => updateCropGrowth(crop),
-        { concurrency: 'unbounded' }
-      )
+      yield* Effect.forEach(HashMap.values(allCrops), (crop) => updateCropGrowth(crop), { concurrency: 'unbounded' })
     })
 
   const tickAnimals = (): Effect.Effect<void, never> =>
@@ -812,7 +788,7 @@ const makeAgricultureService = Effect.gen(function* () {
               updated = { ...updated, loveModeTime: undefined }
             }
 
-            yield* Ref.update(farmAnimals, HashMap.set(id, updated))
+            yield* Ref.update(farmAnimals, (animals) => HashMap.set(animals, id, updated))
           }),
         { concurrency: 'unbounded' }
       )
@@ -827,10 +803,9 @@ const makeAgricultureService = Effect.gen(function* () {
   const getCropsByType = (type: CropType): Effect.Effect<ReadonlyArray<Crop>, never> =>
     Effect.gen(function* () {
       const allCrops = yield* Ref.get(crops)
-      return pipe(
-        HashMap.values(allCrops),
-        ReadonlyArray.filter(crop => crop.type === type)
-      )
+      const values = Array.from(HashMap.values(allCrops))
+      const filtered = values.filter((crop: Crop) => crop.type === type)
+      return filtered as ReadonlyArray<Crop>
     })
 
   const getTotalAnimals = (): Effect.Effect<number, never> =>
@@ -842,10 +817,9 @@ const makeAgricultureService = Effect.gen(function* () {
   const getAnimalsByType = (type: AnimalType): Effect.Effect<ReadonlyArray<FarmAnimal>, never> =>
     Effect.gen(function* () {
       const animals = yield* Ref.get(farmAnimals)
-      return pipe(
-        HashMap.values(animals),
-        ReadonlyArray.filter(animal => animal.type === type)
-      )
+      const values = Array.from(HashMap.values(animals))
+      const filtered = values.filter((animal: FarmAnimal) => animal.type === type)
+      return filtered as ReadonlyArray<FarmAnimal>
     })
 
   return AgricultureService.of({
@@ -880,7 +854,4 @@ const makeAgricultureService = Effect.gen(function* () {
 // Layer
 // ===================================
 
-export const AgricultureServiceLive = Layer.effect(
-  AgricultureService,
-  makeAgricultureService
-)
+export const AgricultureServiceLive = Layer.effect(AgricultureService, makeAgricultureService)

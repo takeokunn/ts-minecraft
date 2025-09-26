@@ -1,6 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Brand, Match, pipe } from 'effect'
 import type { PlayerId, EntityId, ItemId } from '../../shared/types/branded.js'
+import { PlayerIdSchema } from '../../shared/types/branded.js'
 import type { BlockPosition } from '../../shared/types/branded.js'
 import type { ItemStack } from '../inventory/InventoryTypes.js'
 import type { Health } from '../player/PlayerTypes.js'
@@ -195,7 +196,7 @@ export const FarmAnimalSchema = Schema.Struct({
   lastFed: Schema.optional(Schema.Number),
   breedingCooldown: BreedingCooldownSchema,
   tamed: Schema.Boolean,
-  ownerId: Schema.optional(Schema.String),
+  ownerId: Schema.optional(PlayerIdSchema),
   loveModeTime: Schema.optional(Schema.Number),
 }).pipe(
   Schema.annotations({
@@ -307,11 +308,13 @@ export const AgricultureErrorSchema = Schema.Struct({
   _tag: Schema.Literal('AgricultureError'),
   reason: AgricultureErrorReasonSchema,
   message: Schema.String,
-  position: Schema.optional(Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
-  })),
+  position: Schema.optional(
+    Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number,
+    })
+  ),
   cropId: Schema.optional(CropIdSchema),
   animalId: Schema.optional(Schema.String),
   cause: Schema.optional(Schema.Unknown),
@@ -337,21 +340,19 @@ export const createAgricultureError = (
     cause?: unknown
   }
 ): AgricultureError => ({
-  _tag: 'AgricultureError',
+  _tag: 'AgricultureError' as const,
   reason,
   message,
-  ...(details?.position && { position: details.position }),
-  ...(details?.cropId && { cropId: details.cropId }),
-  ...(details?.animalId && { animalId: details.animalId }),
-  ...(details?.cause && { cause: details.cause }),
+  position: details?.position,
+  cropId: details?.cropId,
+  animalId: details?.animalId,
+  cause: details?.cause,
 })
 
 export const InvalidSoilError = (position: { x: number; y: number; z: number }) =>
-  createAgricultureError(
-    'INVALID_SOIL',
-    `Invalid soil at position (${position.x}, ${position.y}, ${position.z})`,
-    { position }
-  )
+  createAgricultureError('INVALID_SOIL', `Invalid soil at position (${position.x}, ${position.y}, ${position.z})`, {
+    position,
+  })
 
 export const CropAlreadyExistsError = (position: { x: number; y: number; z: number }) =>
   createAgricultureError(
@@ -384,10 +385,7 @@ export const AnimalNotFoundError = (animalId: string) =>
   createAgricultureError('ANIMAL_NOT_FOUND', `Animal ${animalId} not found`, { animalId })
 
 export const IncompatibleAnimalsError = (animal1: string, animal2: string) =>
-  createAgricultureError(
-    'INCOMPATIBLE_ANIMALS',
-    `Animals ${animal1} and ${animal2} are not compatible for breeding`
-  )
+  createAgricultureError('INCOMPATIBLE_ANIMALS', `Animals ${animal1} and ${animal2} are not compatible for breeding`)
 
 export const AnimalTooYoungError = (animalId: string) =>
   createAgricultureError('ANIMAL_TOO_YOUNG', `Animal ${animalId} is too young to breed`, { animalId })
@@ -419,11 +417,9 @@ export interface BreedingResult {
 }
 
 // Type guards
-export const isCrop = (value: unknown): value is Crop =>
-  Schema.is(CropSchema)(value)
+export const isCrop = (value: unknown): value is Crop => Schema.is(CropSchema)(value)
 
-export const isFarmAnimal = (value: unknown): value is FarmAnimal =>
-  Schema.is(FarmAnimalSchema)(value)
+export const isFarmAnimal = (value: unknown): value is FarmAnimal => Schema.is(FarmAnimalSchema)(value)
 
 export const isAgricultureError = (error: unknown): error is AgricultureError =>
   Schema.is(AgricultureErrorSchema)(error)

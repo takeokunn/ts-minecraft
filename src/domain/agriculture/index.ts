@@ -73,7 +73,7 @@ export {
 // Service Interface
 export {
   type AgricultureService,
-  AgricultureService,
+  AgricultureService as AgricultureServiceTag,
   // Helper functions
   plantCrop,
   harvestCrop,
@@ -102,6 +102,4 @@ export {
 } from './AgricultureService.js'
 
 // Service Implementation
-export {
-  AgricultureServiceLive,
-} from './AgricultureServiceLive.js'
+export { AgricultureServiceLive } from './AgricultureServiceLive.js'
