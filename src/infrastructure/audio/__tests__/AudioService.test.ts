@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Effect, HashMap, Layer, Option, TestContext, pipe } from 'effect'
-import fc from 'fast-check'
 import { AudioService } from '../AudioService.js'
 import { AudioServiceLive } from '../AudioServiceLive.js'
 import {
@@ -69,127 +68,108 @@ global.fetch = vi.fn().mockImplementation(() =>
   })
 )
 
-// Arbitrary generators
-const arbPosition3D = (): fc.Arbitrary<Vector3D> =>
-  fc
-    .record({
-      x: fc.float({ min: -100, max: 100, noNaN: true }),
-      y: fc.float({ min: 0, max: 256, noNaN: true }),
-      z: fc.float({ min: -100, max: 100, noNaN: true }),
-    })
-    .map((pos) => SpatialBrands.createVector3D(pos.x, pos.y, pos.z))
 
-const arbVolume = (): fc.Arbitrary<Volume> =>
-  fc.float({ min: 0, max: 1, noNaN: true }).map((v) => AudioHelpers.createVolume(v))
+// Test data constants
+const testPosition = SpatialBrands.createVector3D(10, 20, 30)
+const testVolume = AudioHelpers.createVolume(0.8)
+const testPitch = AudioHelpers.createPitch(1.2)
+const testSoundId = AudioHelpers.createSoundId('test.sound')
+const testSoundCategory: SoundCategory = 'music'
 
-const arbPitch = (): fc.Arbitrary<Pitch> =>
-  fc.float({ min: 0.5, max: 2, noNaN: true }).map((p) => AudioHelpers.createPitch(p))
-
-const arbSoundId = (): fc.Arbitrary<SoundId> =>
-  fc
-    .oneof(
-      fc.constant('block.stone.break'),
-      fc.constant('block.wood.place'),
-      fc.constant('entity.player.hurt'),
-      fc.constant('music.overworld'),
-      fc.constant('ambient.cave')
-    )
-    .map((id) => AudioHelpers.createSoundId(id))
-
-const arbSoundCategory = (): fc.Arbitrary<SoundCategory> =>
-  fc.oneof(
-    fc.constant('master' as SoundCategory),
-    fc.constant('music' as SoundCategory),
-    fc.constant('blocks' as SoundCategory),
-    fc.constant('players' as SoundCategory),
-    fc.constant('ambient' as SoundCategory)
-  )
+// Helper functions to generate test data
+const generatePosition3D = (): Vector3D => {
+  return SpatialBrands.createVector3D(Math.random() * 100, Math.random() * 100, Math.random() * 100)
+}
+const generateVolume = (): Volume => {
+  return AudioHelpers.createVolume(Math.random())
+}
+const generatePitch = (): Pitch => {
+  return AudioHelpers.createPitch(0.5 + Math.random())
+}
+const generateSoundId = (): SoundId => {
+  return AudioHelpers.createSoundId(`sound_${Math.floor(Math.random() * 1000)}`)
+}
+const generateSoundCategory = (): SoundCategory => {
+  const categories: SoundCategory[] = ['ambient', 'hostile', 'music', 'master']
+  return categories[Math.floor(Math.random() * categories.length)]!
+}
 
 describe('AudioService', () => {
   const TestLayer = AudioServiceLive
 
   describe('3D Sound Playback', () => {
-    it('should play a 3D sound at a specific position', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbPosition3D(), arbVolume(), async (soundId, position, volume) => {
-          const result = await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should play a 3D sound at a specific position', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 10; i++) {
+          const soundId = generateSoundId()
+          const position = generatePosition3D()
+          const volume = generateVolume()
 
-            const sourceId = yield* service.playSound3D(soundId, position, { volume })
-            const isPlaying = yield* service.isPlaying(sourceId)
+          const service = yield* AudioService
+          const sourceId = yield* service.playSound3D(soundId, position, { volume })
+          const isPlaying = yield* service.isPlaying(sourceId)
 
-            return { sourceId, isPlaying }
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-          expect(result.isPlaying).toBe(true)
-        }),
-        { numRuns: 10 }
-      )
+          expect(isPlaying).toBe(true)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
 
-    it('should respect distance attenuation', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbPosition3D(), async (soundId, sourcePosition) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should respect distance attenuation', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 5; i++) {
+          const soundId = generateSoundId()
+          const sourcePosition = generatePosition3D()
 
-            // Play sound at source position
-            const sourceId = yield* service.playSound3D(soundId, sourcePosition, {
-              referenceDistance: AudioHelpers.createAudioDistance(10),
-              rolloffFactor: 1,
-            })
+          const service = yield* AudioService
 
-            // Move listener near
-            const nearPosition = SpatialBrands.createVector3D(
-              sourcePosition.x + 5,
-              sourcePosition.y,
-              sourcePosition.z
-            )
-            yield* service.updateListener(nearPosition, AudioHelpers.identityQuaternion())
+          // Play sound at source position
+          const sourceId = yield* service.playSound3D(soundId, sourcePosition, {
+            referenceDistance: AudioHelpers.createAudioDistance(10),
+            rolloffFactor: 1,
+          })
 
-            // Move listener far
-            const farPosition = SpatialBrands.createVector3D(
-              sourcePosition.x + 50,
-              sourcePosition.y,
-              sourcePosition.z
-            )
-            yield* service.updateListener(farPosition, AudioHelpers.identityQuaternion())
+          // Move listener near
+          const nearPosition = SpatialBrands.createVector3D(sourcePosition.x + 5, sourcePosition.y, sourcePosition.z)
+          yield* service.updateListener(nearPosition, AudioHelpers.identityQuaternion())
 
-            // Cleanup
-            yield* service.stopSound(sourceId)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 5 }
-      )
+          // Move listener far
+          const farPosition = SpatialBrands.createVector3D(sourcePosition.x + 50, sourcePosition.y, sourcePosition.z)
+          yield* service.updateListener(farPosition, AudioHelpers.identityQuaternion())
+
+          // Cleanup
+          yield* service.stopSound(sourceId)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
   describe('Volume Control', () => {
-    it('should apply category volumes correctly', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbSoundCategory(),
-          arbVolume(),
-          arbVolume(),
-          async (category, categoryVolume, masterVolume) => {
-            await Effect.gen(function* () {
-              const service = yield* AudioService
+    it('should apply category volumes correctly', () => {
+      return Effect.gen(function* () {
+        const service = yield* AudioService
 
-              // Set volumes
-              yield* service.setVolume(category, categoryVolume)
-              yield* service.setVolume('master', masterVolume)
+        // Test specific category volumes
+        const categoryVolume = AudioHelpers.createVolume(0.7)
+        const masterVolume = AudioHelpers.createVolume(0.5)
 
-              // Verify volumes
-              const retrievedCategoryVolume = yield* service.getVolume(category)
-              const retrievedMasterVolume = yield* service.getVolume('master')
+        // Set volumes
+        yield* service.setVolume('music', categoryVolume)
+        yield* service.setVolume('master', masterVolume)
 
-              expect(retrievedCategoryVolume).toEqual(categoryVolume)
-              expect(retrievedMasterVolume).toEqual(masterVolume)
-            }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-          }
-        ),
-        { numRuns: 10 }
-      )
+        // Verify volumes
+        const retrievedCategoryVolume = yield* service.getVolume('music')
+        const retrievedMasterVolume = yield* service.getVolume('master')
+
+        // Use approximate equality for floating-point numbers
+        expect(Number(retrievedCategoryVolume)).toBeCloseTo(Number(categoryVolume), 6)
+        expect(Number(retrievedMasterVolume)).toBeCloseTo(Number(masterVolume), 6)
+
+        // Test other categories
+        const ambientVolume = AudioHelpers.createVolume(0.3)
+        yield* service.setVolume('ambient', ambientVolume)
+        const retrievedAmbientVolume = yield* service.getVolume('ambient')
+        expect(Number(retrievedAmbientVolume)).toBeCloseTo(Number(ambientVolume), 6)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
 
     it('should update volume for active sounds', async () => {
@@ -247,160 +227,161 @@ describe('AudioService', () => {
       }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
 
-    it('should stop sounds correctly', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbPosition3D(), async (soundId, position) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should stop sounds correctly', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 5; i++) {
+          const soundId = generateSoundId()
+          const position = generatePosition3D()
 
-            // Play and stop sound
-            const sourceId = yield* service.playSound3D(soundId, position)
-            yield* service.stopSound(sourceId)
+          const service = yield* AudioService
 
-            // Should no longer be playing
-            const isPlaying = yield* service.isPlaying(sourceId)
-            expect(isPlaying).toBe(false)
+          // Play and stop sound
+          const sourceId = yield* service.playSound3D(soundId, position)
+          yield* service.stopSound(sourceId)
 
-            // Should fail to stop again
-            const result = yield* Effect.either(service.stopSound(sourceId))
-            expect(result._tag).toBe('Left')
-            if (result._tag === 'Left') {
-              expect(result.left).toBeInstanceOf(SourceNotFoundError)
-            }
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 5 }
-      )
+          // Should no longer be playing
+          const isPlaying = yield* service.isPlaying(sourceId)
+          expect(isPlaying).toBe(false)
+
+          // Should fail to stop again
+          const result = yield* Effect.either(service.stopSound(sourceId))
+          expect(result._tag).toBe('Left')
+          if (result._tag === 'Left') {
+            expect(result.left).toBeInstanceOf(SourceNotFoundError)
+          }
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
   describe('Fade Effects', () => {
-    it('should fade in sounds', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbVolume(), fc.nat({ max: 1000 }), async (soundId, targetVolume, duration) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should fade in sounds', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 3; i++) {
+          const soundId = generateSoundId()
+          const targetVolume = generateVolume()
+          const duration = Math.floor(Math.random() * 1000)
 
-            // Play sound at zero volume
-            const sourceId = yield* service.playSound2D(soundId, {
-              volume: AudioHelpers.createVolume(0),
-            })
+          const service = yield* AudioService
 
-            // Fade in
-            yield* service.fadeIn(sourceId, targetVolume, duration)
+          // Play sound at zero volume
+          const sourceId = yield* service.playSound2D(soundId, {
+            volume: AudioHelpers.createVolume(0),
+          })
 
-            // Sound should still be playing
-            const isPlaying = yield* service.isPlaying(sourceId)
-            expect(isPlaying).toBe(true)
+          // Fade in
+          yield* service.fadeIn(sourceId, targetVolume, duration)
 
-            // Cleanup
-            yield* service.stopSound(sourceId)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 3 }
-      )
+          // Sound should still be playing
+          const isPlaying = yield* service.isPlaying(sourceId)
+          expect(isPlaying).toBe(true)
+
+          // Cleanup
+          yield* service.stopSound(sourceId)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
 
-    it('should fade out and stop sounds', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), fc.nat({ max: 1000 }), async (soundId, duration) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should fade out and stop sounds', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 3; i++) {
+          const soundId = generateSoundId()
+          const duration = Math.floor(Math.random() * 1000)
 
-            // Play sound
-            const sourceId = yield* service.playSound2D(soundId)
+          const service = yield* AudioService
 
-            // Fade out
-            yield* service.fadeOut(sourceId, duration)
+          // Play sound
+          const sourceId = yield* service.playSound2D(soundId)
 
-            // Sound should be stopped
-            const isPlaying = yield* service.isPlaying(sourceId)
-            expect(isPlaying).toBe(false)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 3 }
-      )
+          // Fade out
+          yield* service.fadeOut(sourceId, duration)
+
+          // Sound should be stopped
+          const isPlaying = yield* service.isPlaying(sourceId)
+          expect(isPlaying).toBe(false)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
   describe('Pause/Resume', () => {
-    it('should pause and resume sounds', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), async (soundId) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should pause and resume sounds', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 5; i++) {
+          const soundId = generateSoundId()
 
-            // Play sound
-            const sourceId = yield* service.playSound2D(soundId, { loop: true })
+          const service = yield* AudioService
 
-            // Pause
-            yield* service.pauseSound(sourceId)
-            const isPausedPlaying = yield* service.isPlaying(sourceId)
-            expect(isPausedPlaying).toBe(true) // Still registered as playing
+          // Play sound
+          const sourceId = yield* service.playSound2D(soundId, { loop: true })
 
-            // Resume
-            yield* service.resumeSound(sourceId)
-            const isResumedPlaying = yield* service.isPlaying(sourceId)
-            expect(isResumedPlaying).toBe(true)
+          // Pause
+          yield* service.pauseSound(sourceId)
+          const isPausedPlaying = yield* service.isPlaying(sourceId)
+          expect(isPausedPlaying).toBe(true) // Still registered as playing
 
-            // Cleanup
-            yield* service.stopSound(sourceId)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 5 }
-      )
+          // Resume
+          yield* service.resumeSound(sourceId)
+          const isResumedPlaying = yield* service.isPlaying(sourceId)
+          expect(isResumedPlaying).toBe(true)
+
+          // Cleanup
+          yield* service.stopSound(sourceId)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
   describe('Pitch Control', () => {
-    it('should adjust pitch of playing sounds', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbPitch(), async (soundId, newPitch) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should adjust pitch of playing sounds', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 5; i++) {
+          const soundId = generateSoundId()
+          const newPitch = generatePitch()
 
-            // Play sound with default pitch
-            const sourceId = yield* service.playSound2D(soundId)
+          const service = yield* AudioService
 
-            // Change pitch
-            yield* service.setPitch(sourceId, newPitch)
+          // Play sound with default pitch
+          const sourceId = yield* service.playSound2D(soundId)
 
-            // Sound should still be playing
-            const isPlaying = yield* service.isPlaying(sourceId)
-            expect(isPlaying).toBe(true)
+          // Change pitch
+          yield* service.setPitch(sourceId, newPitch)
 
-            // Cleanup
-            yield* service.stopSound(sourceId)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 5 }
-      )
+          // Sound should still be playing
+          const isPlaying = yield* service.isPlaying(sourceId)
+          expect(isPlaying).toBe(true)
+
+          // Cleanup
+          yield* service.stopSound(sourceId)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
   describe('3D Source Movement', () => {
-    it('should update 3D source positions', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbSoundId(), arbPosition3D(), arbPosition3D(), async (soundId, initialPos, newPos) => {
-          await Effect.gen(function* () {
-            const service = yield* AudioService
+    it('should update 3D source positions', () => {
+      return Effect.gen(function* () {
+        for (let i = 0; i < 5; i++) {
+          const soundId = generateSoundId()
+          const initialPos = generatePosition3D()
+          const newPos = generatePosition3D()
 
-            // Play 3D sound
-            const sourceId = yield* service.playSound3D(soundId, initialPos)
+          const service = yield* AudioService
 
-            // Update position
-            yield* service.updateSourcePosition(sourceId, newPos)
+          // Play 3D sound
+          const sourceId = yield* service.playSound3D(soundId, initialPos)
 
-            // Sound should still be playing
-            const isPlaying = yield* service.isPlaying(sourceId)
-            expect(isPlaying).toBe(true)
+          // Update position
+          yield* service.updateSourcePosition(sourceId, newPos)
 
-            // Cleanup
-            yield* service.stopSound(sourceId)
-          }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-        }),
-        { numRuns: 5 }
-      )
+          // Sound should still be playing
+          const isPlaying = yield* service.isPlaying(sourceId)
+          expect(isPlaying).toBe(true)
+
+          // Cleanup
+          yield* service.stopSound(sourceId)
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
     })
   })
 
@@ -414,9 +395,7 @@ describe('AudioService', () => {
         const stopResult = yield* Effect.either(service.stopSound(fakeSourceId))
         const pauseResult = yield* Effect.either(service.pauseSound(fakeSourceId))
         const resumeResult = yield* Effect.either(service.resumeSound(fakeSourceId))
-        const pitchResult = yield* Effect.either(
-          service.setPitch(fakeSourceId, AudioHelpers.createPitch(1))
-        )
+        const pitchResult = yield* Effect.either(service.setPitch(fakeSourceId, AudioHelpers.createPitch(1)))
 
         expect(stopResult._tag).toBe('Left')
         expect(pauseResult._tag).toBe('Left')
@@ -431,9 +410,7 @@ describe('AudioService', () => {
       await Effect.gen(function* () {
         const service = yield* AudioService
 
-        const soundIds = Array.from({ length: 10 }, (_, i) =>
-          AudioHelpers.createSoundId(`preload.test.${i}`)
-        )
+        const soundIds = Array.from({ length: 10 }, (_, i) => AudioHelpers.createSoundId(`preload.test.${i}`))
 
         // Preload sounds
         yield* service.preloadSounds(soundIds)

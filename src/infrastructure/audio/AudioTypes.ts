@@ -135,12 +135,7 @@ const ListenerMovedEvent = Schema.Struct({
   orientation: Quaternion,
 })
 
-export const AudioEvent = Schema.Union(
-  SoundPlayedEvent,
-  SoundStoppedEvent,
-  VolumeChangedEvent,
-  ListenerMovedEvent
-)
+export const AudioEvent = Schema.Union(SoundPlayedEvent, SoundStoppedEvent, VolumeChangedEvent, ListenerMovedEvent)
 export type AudioEvent = Schema.Schema.Type<typeof AudioEvent>
 
 // Weapon Types for combat sounds
@@ -156,16 +151,7 @@ export const ToolType = Schema.Literal('pickaxe', 'axe', 'shovel', 'shears', 'ha
 export type ToolType = Schema.Schema.Type<typeof ToolType>
 
 // Biome Types for ambient sounds
-export const BiomeType = Schema.Literal(
-  'plains',
-  'forest',
-  'desert',
-  'ocean',
-  'mountains',
-  'swamp',
-  'tundra',
-  'jungle'
-)
+export const BiomeType = Schema.Literal('plains', 'forest', 'desert', 'ocean', 'mountains', 'swamp', 'tundra', 'jungle')
 export type BiomeType = Schema.Schema.Type<typeof BiomeType>
 
 // Time of Day for ambient sounds
@@ -240,21 +226,15 @@ export class AudioError extends Schema.TaggedError<AudioError>()('AudioError', {
   message: Schema.String,
 }) {}
 
-export class SoundNotFoundError extends Schema.TaggedError<SoundNotFoundError>()(
-  'SoundNotFoundError',
-  {
-    soundId: SoundId,
-    message: Schema.String,
-  }
-) {}
+export class SoundNotFoundError extends Schema.TaggedError<SoundNotFoundError>()('SoundNotFoundError', {
+  soundId: SoundId,
+  message: Schema.String,
+}) {}
 
-export class SourceNotFoundError extends Schema.TaggedError<SourceNotFoundError>()(
-  'SourceNotFoundError',
-  {
-    sourceId: SourceId,
-    message: Schema.String,
-  }
-) {}
+export class SourceNotFoundError extends Schema.TaggedError<SourceNotFoundError>()('SourceNotFoundError', {
+  sourceId: SourceId,
+  message: Schema.String,
+}) {}
 
 export class AudioLoadError extends Schema.TaggedError<AudioLoadError>()('AudioLoadError', {
   soundId: SoundId,
@@ -262,12 +242,9 @@ export class AudioLoadError extends Schema.TaggedError<AudioLoadError>()('AudioL
   cause: Schema.optional(Schema.Unknown),
 }) {}
 
-export class AudioContextError extends Schema.TaggedError<AudioContextError>()(
-  'AudioContextError',
-  {
-    message: Schema.String,
-  }
-) {}
+export class AudioContextError extends Schema.TaggedError<AudioContextError>()('AudioContextError', {
+  message: Schema.String,
+}) {}
 
 // Helper functions for creating audio types
 export const AudioHelpers = {
@@ -278,16 +255,13 @@ export const AudioHelpers = {
     return pipe(normalized, Schema.decodeSync(Volume))
   },
 
-  createPitch: (value: number): Pitch =>
-    pipe(Math.max(0.5, Math.min(2, value)), Schema.decodeSync(Pitch)),
+  createPitch: (value: number): Pitch => pipe(Math.max(0.5, Math.min(2, value)), Schema.decodeSync(Pitch)),
 
-  createAudioDistance: (value: number): AudioDistance =>
-    pipe(Math.max(0, value), Schema.decodeSync(AudioDistance)),
+  createAudioDistance: (value: number): AudioDistance => pipe(Math.max(0, value), Schema.decodeSync(AudioDistance)),
 
   createSoundId: (value: string): SoundId => Schema.decodeSync(SoundId)(value),
 
   createSourceId: (value: string): SourceId => Schema.decodeSync(SourceId)(value),
 
-  identityQuaternion: (): Quaternion =>
-    Schema.decodeSync(Quaternion)({ x: 0, y: 0, z: 0, w: 1 }),
+  identityQuaternion: (): Quaternion => Schema.decodeSync(Quaternion)({ x: 0, y: 0, z: 0, w: 1 }),
 }

@@ -32,10 +32,7 @@ export interface AudioService {
   /**
    * Play a sound in 2D (no spatial positioning)
    */
-  readonly playSound2D: (
-    sound: SoundId,
-    options?: Partial<PlayOptions>
-  ) => Effect.Effect<SourceId, AudioError>
+  readonly playSound2D: (sound: SoundId, options?: Partial<PlayOptions>) => Effect.Effect<SourceId, AudioError>
 
   /**
    * Stop a playing sound
@@ -50,10 +47,7 @@ export interface AudioService {
   /**
    * Update the audio listener position and orientation
    */
-  readonly updateListener: (
-    position: Vector3D,
-    orientation: Quaternion
-  ) => Effect.Effect<void>
+  readonly updateListener: (position: Vector3D, orientation: Quaternion) => Effect.Effect<void>
 
   /**
    * Set the volume for a sound category
@@ -87,10 +81,7 @@ export interface AudioService {
   /**
    * Fade out a sound
    */
-  readonly fadeOut: (
-    sourceId: SourceId,
-    duration: number
-  ) => Effect.Effect<void, SourceNotFoundError>
+  readonly fadeOut: (sourceId: SourceId, duration: number) => Effect.Effect<void, SourceNotFoundError>
 
   /**
    * Check if a sound is currently playing
@@ -125,10 +116,7 @@ export interface AudioService {
   /**
    * Update the position of a 3D sound source
    */
-  readonly updateSourcePosition: (
-    sourceId: SourceId,
-    position: Vector3D
-  ) => Effect.Effect<void, SourceNotFoundError>
+  readonly updateSourcePosition: (sourceId: SourceId, position: Vector3D) => Effect.Effect<void, SourceNotFoundError>
 }
 
 /**

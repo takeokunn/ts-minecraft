@@ -1,16 +1,4 @@
-import {
-  Chunk,
-  Effect,
-  HashMap,
-  Layer,
-  Match,
-  Option,
-  Queue,
-  Ref,
-  Schedule,
-  Stream,
-  pipe,
-} from 'effect'
+import { Chunk, Effect, HashMap, Layer, Match, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
 import * as THREE from 'three'
 import { nanoid } from 'nanoid'
 import type { Vector3D } from '../../shared/types/spatial-brands.js'
@@ -134,7 +122,11 @@ const makeAudioService = Effect.gen(function* () {
     })
 
   // Play sound in 3D space
-  const playSound3D = (sound: SoundId, position: Vector3D, options?: Partial<PlayOptions>): Effect.Effect<SourceId, AudioError> =>
+  const playSound3D = (
+    sound: SoundId,
+    position: Vector3D,
+    options?: Partial<PlayOptions>
+  ): Effect.Effect<SourceId, AudioError> =>
     Effect.gen(function* () {
       // Get or load sound buffer
       const library = yield* Ref.get(soundLibrary)
@@ -149,14 +141,10 @@ const makeAudioService = Effect.gen(function* () {
       // Create 3D audio source
       const positionalAudio = new THREE.PositionalAudio(listener)
       positionalAudio.setBuffer(buffer)
-      positionalAudio.setRefDistance(
-        Number(options?.referenceDistance || AudioHelpers.createAudioDistance(10))
-      )
+      positionalAudio.setRefDistance(Number(options?.referenceDistance || AudioHelpers.createAudioDistance(10)))
       positionalAudio.setRolloffFactor(options?.rolloffFactor || 1)
       positionalAudio.setDistanceModel('exponential')
-      positionalAudio.setMaxDistance(
-        Number(options?.maxDistance || AudioHelpers.createAudioDistance(100))
-      )
+      positionalAudio.setMaxDistance(Number(options?.maxDistance || AudioHelpers.createAudioDistance(100)))
 
       // Set position
       positionalAudio.position.set(position.x, position.y, position.z)
@@ -205,14 +193,11 @@ const makeAudioService = Effect.gen(function* () {
             pipe(
               Ref.update(activeSources, HashMap.remove(sourceId)),
               Effect.zipRight(
-                Queue.offer(
-                  eventQueue,
-                  {
-                    _tag: 'SoundStopped' as const,
-                    sourceId,
-                    reason: 'finished' as StopReason,
-                  }
-                )
+                Queue.offer(eventQueue, {
+                  _tag: 'SoundStopped' as const,
+                  sourceId,
+                  reason: 'finished' as StopReason,
+                })
               )
             )
           )
@@ -220,27 +205,23 @@ const makeAudioService = Effect.gen(function* () {
       }
 
       // Emit event
-      yield* Queue.offer(
-        eventQueue,
-        {
-          _tag: 'SoundPlayed' as const,
-          source: {
-            soundId: sound,
-            position,
-            volume: baseVolume,
-            pitch,
-            referenceDistance:
-              options?.referenceDistance || AudioHelpers.createAudioDistance(10),
-            rolloffFactor: options?.rolloffFactor || 1,
-          },
-          timestamp: Date.now(),
-        }
-      )
+      yield* Queue.offer(eventQueue, {
+        _tag: 'SoundPlayed' as const,
+        source: {
+          soundId: sound,
+          position,
+          volume: baseVolume,
+          pitch,
+          referenceDistance: options?.referenceDistance || AudioHelpers.createAudioDistance(10),
+          rolloffFactor: options?.rolloffFactor || 1,
+        },
+        timestamp: Date.now(),
+      })
 
       return sourceId
     }).pipe(
       Effect.mapError((error): AudioError => {
-        if (error instanceof AudioLoadError || error instanceof AudioContextError) {
+        if (error._tag === 'AudioLoadError' || error._tag === 'AudioContextError') {
           return new AudioError({ message: error.message })
         }
         return new AudioError({ message: String(error) })
@@ -307,14 +288,11 @@ const makeAudioService = Effect.gen(function* () {
             pipe(
               Ref.update(activeSources, HashMap.remove(sourceId)),
               Effect.zipRight(
-                Queue.offer(
-                  eventQueue,
-                  {
-                    _tag: 'SoundStopped' as const,
-                    sourceId,
-                    reason: 'finished' as StopReason,
-                  }
-                )
+                Queue.offer(eventQueue, {
+                  _tag: 'SoundStopped' as const,
+                  sourceId,
+                  reason: 'finished' as StopReason,
+                })
               )
             )
           )
@@ -324,7 +302,7 @@ const makeAudioService = Effect.gen(function* () {
       return sourceId
     }).pipe(
       Effect.mapError((error): AudioError => {
-        if (error instanceof AudioLoadError || error instanceof AudioContextError) {
+        if (error._tag === 'AudioLoadError' || error._tag === 'AudioContextError') {
           return new AudioError({ message: error.message })
         }
         return new AudioError({ message: String(error) })
@@ -351,14 +329,11 @@ const makeAudioService = Effect.gen(function* () {
             Effect.gen(function* () {
               activeSource.audio.stop()
               yield* Ref.update(activeSources, HashMap.remove(sourceId))
-              yield* Queue.offer(
-                eventQueue,
-                {
-                  _tag: 'SoundStopped' as const,
-                  sourceId,
-                  reason: 'manual' as StopReason,
-                }
-              )
+              yield* Queue.offer(eventQueue, {
+                _tag: 'SoundStopped' as const,
+                sourceId,
+                reason: 'manual' as StopReason,
+              })
             }),
         })
       )
@@ -383,23 +358,15 @@ const makeAudioService = Effect.gen(function* () {
     Effect.gen(function* () {
       listener.position.set(position.x, position.y, position.z)
 
-      const quaternion = new THREE.Quaternion(
-        orientation.x,
-        orientation.y,
-        orientation.z,
-        orientation.w
-      )
+      const quaternion = new THREE.Quaternion(orientation.x, orientation.y, orientation.z, orientation.w)
       // Three.js rotation method
       ;(listener as any).setRotationFromQuaternion(quaternion)
 
-      yield* Queue.offer(
-        eventQueue,
-        {
-          _tag: 'ListenerMoved' as const,
-          position,
-          orientation,
-        }
-      )
+      yield* Queue.offer(eventQueue, {
+        _tag: 'ListenerMoved' as const,
+        position,
+        orientation,
+      })
     })
 
   // Set volume for a category
@@ -413,23 +380,16 @@ const makeAudioService = Effect.gen(function* () {
 
       yield* Effect.forEach(HashMap.values(sources), (source) =>
         Effect.sync(() => {
-          const finalVolume = calculateFinalVolume(
-            source.sourceState.baseVolume,
-            source.sourceState.category,
-            volumes
-          )
+          const finalVolume = calculateFinalVolume(source.sourceState.baseVolume, source.sourceState.category, volumes)
           source.audio.setVolume(finalVolume)
         })
       )
 
-      yield* Queue.offer(
-        eventQueue,
-        {
-          _tag: 'VolumeChanged' as const,
-          category,
-          newVolume: volume,
-        }
-      )
+      yield* Queue.offer(eventQueue, {
+        _tag: 'VolumeChanged' as const,
+        category,
+        newVolume: volume,
+      })
     })
 
   // Get volume for a category
@@ -473,10 +433,7 @@ const makeAudioService = Effect.gen(function* () {
               yield* Effect.repeat(
                 Effect.gen(function* () {
                   const currentVolume = activeSource.audio.getVolume()
-                  const nextVolume = Math.min(
-                    currentVolume + volumeStep,
-                    Number(targetVolume)
-                  )
+                  const nextVolume = Math.min(currentVolume + volumeStep, Number(targetVolume))
                   activeSource.audio.setVolume(nextVolume)
                 }),
                 Schedule.recurs(steps).pipe(Schedule.delayed(() => '50 millis'))
