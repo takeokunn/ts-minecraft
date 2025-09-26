@@ -60,3 +60,6 @@ export {
 
 // World Generation Domain
 export * from './world'
+
+// Combat System Domain
+export * from './combat'
