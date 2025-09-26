@@ -172,9 +172,9 @@ const makeHealthService = Effect.gen(function* () {
       // Handle death if occurred
       if (result.isDead) {
         // Get player position for death location
-        const playerState = yield* playerService.getPlayerState(playerId).pipe(
-          Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
-        )
+        const playerState = yield* playerService
+          .getPlayerState(playerId)
+          .pipe(Effect.mapError((playerError) => createHealthError.playerNotFound(playerId)))
         const deathEvent: HealthEvent = {
           _tag: 'Died',
           playerId,
@@ -311,9 +311,9 @@ const makeHealthService = Effect.gen(function* () {
         return yield* Effect.fail(createHealthError.playerNotFound(playerId))
       }
 
-      const playerState = yield* playerService.getPlayerState(playerId).pipe(
-        Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
-      )
+      const playerState = yield* playerService
+        .getPlayerState(playerId)
+        .pipe(Effect.mapError((playerError) => createHealthError.playerNotFound(playerId)))
 
       yield* updateHealthState(playerId, (state) => ({
         ...state,
@@ -358,9 +358,9 @@ const makeHealthService = Effect.gen(function* () {
       }))
 
       // Update player position
-      yield* playerService.setPlayerPosition(playerId, spawnLocation).pipe(
-        Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
-      )
+      yield* playerService
+        .setPlayerPosition(playerId, spawnLocation)
+        .pipe(Effect.mapError((playerError) => createHealthError.playerNotFound(playerId)))
 
       // Publish respawn event
       const respawnEvent: HealthEvent = {
