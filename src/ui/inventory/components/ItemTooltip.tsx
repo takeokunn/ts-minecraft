@@ -11,62 +11,54 @@ import type { ItemTooltipProps } from '../types.js'
 
 // Item name mapping (would normally come from localization)
 const ITEM_NAMES: Record<string, string> = {
-  'stone': 'Stone',
-  'dirt': 'Dirt',
-  'grass_block': 'Grass Block',
-  'wood': 'Wood',
-  'diamond': 'Diamond',
-  'iron_ingot': 'Iron Ingot',
-  'gold_ingot': 'Gold Ingot',
-  'coal': 'Coal',
-  'apple': 'Apple',
-  'bread': 'Bread',
-  'sword_iron': 'Iron Sword',
-  'sword_diamond': 'Diamond Sword',
-  'pickaxe_iron': 'Iron Pickaxe',
-  'pickaxe_diamond': 'Diamond Pickaxe',
-  'axe_iron': 'Iron Axe',
-  'shovel_iron': 'Iron Shovel',
-  'helmet_iron': 'Iron Helmet',
-  'chestplate_iron': 'Iron Chestplate',
-  'leggings_iron': 'Iron Leggings',
-  'boots_iron': 'Iron Boots',
-  'torch': 'Torch',
-  'crafting_table': 'Crafting Table',
-  'furnace': 'Furnace',
-  'chest': 'Chest',
-  'default': 'Unknown Item'
+  stone: 'Stone',
+  dirt: 'Dirt',
+  grass_block: 'Grass Block',
+  wood: 'Wood',
+  diamond: 'Diamond',
+  iron_ingot: 'Iron Ingot',
+  gold_ingot: 'Gold Ingot',
+  coal: 'Coal',
+  apple: 'Apple',
+  bread: 'Bread',
+  sword_iron: 'Iron Sword',
+  sword_diamond: 'Diamond Sword',
+  pickaxe_iron: 'Iron Pickaxe',
+  pickaxe_diamond: 'Diamond Pickaxe',
+  axe_iron: 'Iron Axe',
+  shovel_iron: 'Iron Shovel',
+  helmet_iron: 'Iron Helmet',
+  chestplate_iron: 'Iron Chestplate',
+  leggings_iron: 'Iron Leggings',
+  boots_iron: 'Iron Boots',
+  torch: 'Torch',
+  crafting_table: 'Crafting Table',
+  furnace: 'Furnace',
+  chest: 'Chest',
+  default: 'Unknown Item',
 }
 
 // Enchantment descriptions
 const ENCHANTMENT_NAMES: Record<string, string> = {
-  'sharpness': 'Sharpness',
-  'efficiency': 'Efficiency',
-  'unbreaking': 'Unbreaking',
-  'fortune': 'Fortune',
-  'protection': 'Protection',
-  'fire_protection': 'Fire Protection',
-  'blast_protection': 'Blast Protection',
-  'projectile_protection': 'Projectile Protection',
-  'respiration': 'Respiration',
-  'aqua_affinity': 'Aqua Affinity',
-  'thorns': 'Thorns'
+  sharpness: 'Sharpness',
+  efficiency: 'Efficiency',
+  unbreaking: 'Unbreaking',
+  fortune: 'Fortune',
+  protection: 'Protection',
+  fire_protection: 'Fire Protection',
+  blast_protection: 'Blast Protection',
+  projectile_protection: 'Projectile Protection',
+  respiration: 'Respiration',
+  aqua_affinity: 'Aqua Affinity',
+  thorns: 'Thorns',
 }
 
-export const ItemTooltip: React.FC<ItemTooltipProps> = ({
-  item,
-  position,
-  theme
-}) => {
-  const itemName = item.metadata?.customName ||
-                   ITEM_NAMES[item.itemId] ||
-                   ITEM_NAMES['default']
+export const ItemTooltip: React.FC<ItemTooltipProps> = ({ item, position, theme }) => {
+  const itemName = item.metadata?.customName || ITEM_NAMES[item.itemId] || ITEM_NAMES['default']
 
-  const hasEnchantments = item.metadata?.enchantments &&
-                          item.metadata.enchantments.length > 0
+  const hasEnchantments = item.metadata?.enchantments && item.metadata.enchantments.length > 0
 
-  const hasDurability = item.metadata?.durability !== undefined &&
-                        item.metadata.durability < 1
+  const hasDurability = item.metadata?.durability !== undefined && item.metadata.durability < 1
 
   return (
     <motion.div
@@ -90,7 +82,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
         whiteSpace: 'nowrap',
         zIndex: 10000,
         pointerEvents: 'none',
-        maxWidth: '300px'
+        maxWidth: '300px',
       }}
     >
       {/* Item Name */}
@@ -100,12 +92,17 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           fontWeight: 'bold',
           fontSize: '16px',
           marginBottom: '4px',
-          color: hasEnchantments ? '#b300ff' :
-                (item.metadata as any)?.rarity === 'legendary' ? '#ff8800' :
-                (item.metadata as any)?.rarity === 'epic' ? '#b300ff' :
-                (item.metadata as any)?.rarity === 'rare' ? '#0099ff' :
-                (item.metadata as any)?.rarity === 'uncommon' ? '#00ff00' :
-                '#ffffff'
+          color: hasEnchantments
+            ? '#b300ff'
+            : (item.metadata as any)?.rarity === 'legendary'
+              ? '#ff8800'
+              : (item.metadata as any)?.rarity === 'epic'
+                ? '#b300ff'
+                : (item.metadata as any)?.rarity === 'rare'
+                  ? '#0099ff'
+                  : (item.metadata as any)?.rarity === 'uncommon'
+                    ? '#00ff00'
+                    : '#ffffff',
         }}
       >
         {itemName}
@@ -118,11 +115,10 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             fontSize: '12px',
             color: '#999999',
-            marginBottom: '4px'
+            marginBottom: '4px',
           }}
         >
-          {(item.metadata as any).category.charAt(0).toUpperCase() +
-           (item.metadata as any).category.slice(1)}
+          {(item.metadata as any).category.charAt(0).toUpperCase() + (item.metadata as any).category.slice(1)}
         </div>
       )}
 
@@ -133,7 +129,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             fontSize: '12px',
             color: '#cccccc',
-            marginBottom: '4px'
+            marginBottom: '4px',
           }}
         >
           Stack Size: {item.count}/64
@@ -147,9 +143,8 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             fontSize: '12px',
             marginBottom: '4px',
-            color: item.metadata!.durability! > 0.3 ? '#00ff00' :
-                   item.metadata!.durability! > 0.1 ? '#ffff00' :
-                   '#ff0000'
+            color:
+              item.metadata!.durability! > 0.3 ? '#00ff00' : item.metadata!.durability! > 0.1 ? '#ffff00' : '#ff0000',
           }}
         >
           Durability: {Math.round(item.metadata!.durability! * 100)}%
@@ -163,7 +158,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             marginTop: '8px',
             paddingTop: '8px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+            borderTop: '1px solid rgba(255, 255, 255, 0.2)',
           }}
         >
           {item.metadata!.enchantments!.map((enchant, i) => {
@@ -175,7 +170,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
                 style={{
                   fontSize: '12px',
                   color: '#b300ff',
-                  marginBottom: '2px'
+                  marginBottom: '2px',
                 }}
               >
                 {ENCHANTMENT_NAMES[name] || name} {level && `${level}`}
@@ -196,7 +191,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
             fontSize: '12px',
             fontStyle: 'italic',
             color: '#aaaaaa',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
           }}
         >
           {item.metadata.lore.map((line, i) => (
@@ -212,7 +207,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             marginTop: '4px',
             fontSize: '12px',
-            color: '#ff9999'
+            color: '#ff9999',
           }}
         >
           Attack Damage: +{(item.metadata as any).damage}
@@ -225,7 +220,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
           style={{
             marginTop: '4px',
             fontSize: '12px',
-            color: '#9999ff'
+            color: '#9999ff',
           }}
         >
           Armor: +{(item.metadata as any).armor}
@@ -241,7 +236,7 @@ export const ItemTooltip: React.FC<ItemTooltipProps> = ({
             borderTop: '1px solid rgba(255, 255, 255, 0.2)',
             fontSize: '10px',
             color: '#666666',
-            fontFamily: 'monospace'
+            fontFamily: 'monospace',
           }}
         >
           ID: {item.itemId}

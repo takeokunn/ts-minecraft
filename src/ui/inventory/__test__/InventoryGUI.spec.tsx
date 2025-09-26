@@ -26,7 +26,7 @@ const mockItemStack: ItemStack = {
   metadata: {
     durability: 0.75,
     enchantments: [{ id: 'sharpness', level: 3 }],
-  }
+  },
 }
 
 const mockInventory: Inventory = {
@@ -38,7 +38,7 @@ const mockInventory: Inventory = {
     helmet: null,
     chestplate: null,
     leggings: null,
-    boots: null
+    boots: null,
   },
   offhand: null,
 }
@@ -90,9 +90,7 @@ describe('InventoryGUI Components', () => {
         />
       )
 
-      expect(mockOnEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ _tag: 'InventoryOpened' })
-      )
+      expect(mockOnEvent).toHaveBeenCalledWith(expect.objectContaining({ _tag: 'InventoryOpened' }))
     })
 
     it('should render correct number of slots', () => {
@@ -126,9 +124,7 @@ describe('InventoryGUI Components', () => {
 
       fireEvent.click(closeButton!)
 
-      expect(mockOnEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ _tag: 'InventoryClosed' })
-      )
+      expect(mockOnEvent).toHaveBeenCalledWith(expect.objectContaining({ _tag: 'InventoryClosed' }))
     })
   })
 
@@ -156,7 +152,7 @@ describe('InventoryGUI Components', () => {
             item: Option.none(),
             isHighlighted: false,
             isDisabled: false,
-            acceptsItem: () => true
+            acceptsItem: () => true,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -184,7 +180,7 @@ describe('InventoryGUI Components', () => {
             item: Option.some(mockItemStack),
             isHighlighted: false,
             isDisabled: false,
-            acceptsItem: () => true
+            acceptsItem: () => true,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -210,7 +206,7 @@ describe('InventoryGUI Components', () => {
             item: Option.some(mockItemStack),
             isHighlighted: false,
             isDisabled: false,
-            acceptsItem: () => true
+            acceptsItem: () => true,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -239,7 +235,7 @@ describe('InventoryGUI Components', () => {
             item: Option.some(mockItemStack),
             isHighlighted: false,
             isDisabled: false,
-            acceptsItem: () => true
+            acceptsItem: () => true,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -268,7 +264,7 @@ describe('InventoryGUI Components', () => {
             item: Option.some(mockItemStack),
             isHighlighted: true,
             isDisabled: false,
-            acceptsItem: () => true
+            acceptsItem: () => true,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -294,7 +290,7 @@ describe('InventoryGUI Components', () => {
             item: Option.none(),
             isHighlighted: false,
             isDisabled: true,
-            acceptsItem: () => false
+            acceptsItem: () => false,
           }}
           size={48}
           theme={defaultInventoryGUIConfig.theme}
@@ -314,13 +310,7 @@ describe('InventoryGUI Components', () => {
   describe('ItemIcon', () => {
     it('should render item icon', () => {
       const { container } = render(
-        <ItemIcon
-          item={mockItemStack}
-          size={40}
-          showCount={true}
-          showDurability={true}
-          animate={false}
-        />
+        <ItemIcon item={mockItemStack} size={40} showCount={true} showDurability={true} animate={false} />
       )
 
       expect(container.querySelector('.item-icon')).toBeTruthy()
@@ -329,13 +319,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show item count for stacks', () => {
       const { container } = render(
-        <ItemIcon
-          item={mockItemStack}
-          size={40}
-          showCount={true}
-          showDurability={false}
-          animate={false}
-        />
+        <ItemIcon item={mockItemStack} size={40} showCount={true} showDurability={false} animate={false} />
       )
 
       const countElement = container.querySelector('.item-count')
@@ -345,13 +329,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show durability bar', () => {
       const { container } = render(
-        <ItemIcon
-          item={mockItemStack}
-          size={40}
-          showCount={false}
-          showDurability={true}
-          animate={false}
-        />
+        <ItemIcon item={mockItemStack} size={40} showCount={false} showDurability={true} animate={false} />
       )
 
       expect(container.querySelector('.item-durability')).toBeTruthy()
@@ -360,13 +338,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show enchantment glow', () => {
       const { container } = render(
-        <ItemIcon
-          item={mockItemStack}
-          size={40}
-          showCount={false}
-          showDurability={false}
-          animate={false}
-        />
+        <ItemIcon item={mockItemStack} size={40} showCount={false} showDurability={false} animate={false} />
       )
 
       expect(container.querySelector('.enchantment-glow')).toBeTruthy()
@@ -375,17 +347,11 @@ describe('InventoryGUI Components', () => {
     it('should not show count for single items', () => {
       const singleItem: ItemStack = {
         ...mockItemStack,
-        count: 1
+        count: 1,
       }
 
       const { container } = render(
-        <ItemIcon
-          item={singleItem}
-          size={40}
-          showCount={true}
-          showDurability={false}
-          animate={false}
-        />
+        <ItemIcon item={singleItem} size={40} showCount={true} showDurability={false} animate={false} />
       )
 
       expect(container.querySelector('.item-count')).toBeFalsy()
@@ -395,11 +361,7 @@ describe('InventoryGUI Components', () => {
   describe('ItemTooltip', () => {
     it('should render tooltip with item name', () => {
       const { container } = render(
-        <ItemTooltip
-          item={mockItemStack}
-          position={[100, 100]}
-          theme={defaultInventoryGUIConfig.theme}
-        />
+        <ItemTooltip item={mockItemStack} position={[100, 100]} theme={defaultInventoryGUIConfig.theme} />
       )
 
       const tooltip = container.querySelector('.item-tooltip')
@@ -409,11 +371,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show enchantments', () => {
       const { container } = render(
-        <ItemTooltip
-          item={mockItemStack}
-          position={[100, 100]}
-          theme={defaultInventoryGUIConfig.theme}
-        />
+        <ItemTooltip item={mockItemStack} position={[100, 100]} theme={defaultInventoryGUIConfig.theme} />
       )
 
       expect(container.querySelector('.tooltip-enchantments')).toBeTruthy()
@@ -421,11 +379,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show durability', () => {
       const { container } = render(
-        <ItemTooltip
-          item={mockItemStack}
-          position={[100, 100]}
-          theme={defaultInventoryGUIConfig.theme}
-        />
+        <ItemTooltip item={mockItemStack} position={[100, 100]} theme={defaultInventoryGUIConfig.theme} />
       )
 
       expect(container.querySelector('.tooltip-durability')).toBeTruthy()
@@ -433,11 +387,7 @@ describe('InventoryGUI Components', () => {
 
     it('should show stack size for multiple items', () => {
       const { container } = render(
-        <ItemTooltip
-          item={mockItemStack}
-          position={[100, 100]}
-          theme={defaultInventoryGUIConfig.theme}
-        />
+        <ItemTooltip item={mockItemStack} position={[100, 100]} theme={defaultInventoryGUIConfig.theme} />
       )
 
       const countElement = container.querySelector('.tooltip-count')

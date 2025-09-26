@@ -21,43 +21,46 @@ export const useInventoryKeyboardShortcuts = ({
   onHotbarSelect,
   onQuickMove,
   onQuickDrop,
-  onClose
+  onClose,
 }: KeyboardShortcutsProps) => {
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (!enabled) return
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!enabled) return
 
-    // Hotbar selection (1-9 keys)
-    if (event.key >= '1' && event.key <= '9') {
-      const index = parseInt(event.key) - 1
-      onHotbarSelect(index)
-      event.preventDefault()
-      return
-    }
+      // Hotbar selection (1-9 keys)
+      if (event.key >= '1' && event.key <= '9') {
+        const index = parseInt(event.key) - 1
+        onHotbarSelect(index)
+        event.preventDefault()
+        return
+      }
 
-    // Close inventory (ESC or E)
-    if (event.key === 'Escape' || event.key.toLowerCase() === 'e') {
-      onClose()
-      event.preventDefault()
-      return
-    }
+      // Close inventory (ESC or E)
+      if (event.key === 'Escape' || event.key.toLowerCase() === 'e') {
+        onClose()
+        event.preventDefault()
+        return
+      }
 
-    // Quick move (Shift + Click is handled in component)
-    // But we can add Shift + Number for quick move from hotbar
-    if (event.shiftKey && event.key >= '1' && event.key <= '9') {
-      const slotIndex = parseInt(event.key) - 1
-      onQuickMove(slotIndex)
-      event.preventDefault()
-      return
-    }
+      // Quick move (Shift + Click is handled in component)
+      // But we can add Shift + Number for quick move from hotbar
+      if (event.shiftKey && event.key >= '1' && event.key <= '9') {
+        const slotIndex = parseInt(event.key) - 1
+        onQuickMove(slotIndex)
+        event.preventDefault()
+        return
+      }
 
-    // Quick drop (Q for single, Ctrl+Q for stack)
-    if (event.key.toLowerCase() === 'q') {
-      // This would need the currently hovered slot index
-      // For now, we'll handle this in the component
-      event.preventDefault()
-      return
-    }
-  }, [enabled, onHotbarSelect, onQuickMove, onQuickDrop, onClose])
+      // Quick drop (Q for single, Ctrl+Q for stack)
+      if (event.key.toLowerCase() === 'q') {
+        // This would need the currently hovered slot index
+        // For now, we'll handle this in the component
+        event.preventDefault()
+        return
+      }
+    },
+    [enabled, onHotbarSelect, onQuickMove, onQuickDrop, onClose]
+  )
 
   useEffect(() => {
     if (!enabled) return
@@ -70,7 +73,7 @@ export const useInventoryKeyboardShortcuts = ({
   }, [enabled, handleKeyDown])
 
   return {
-    handleKeyDown
+    handleKeyDown,
   }
 }
 
@@ -86,16 +89,13 @@ export const INVENTORY_SHORTCUTS = {
   SPLIT_STACK: 'Right Click',
   TAKE_HALF: 'Shift+Right Click',
   SPREAD_ITEMS: 'Left Click Drag',
-  SPREAD_SINGLE: 'Right Click Drag'
+  SPREAD_SINGLE: 'Right Click Drag',
 } as const
 
 /**
  * Helper to check if a keyboard event matches a shortcut
  */
-export const matchesShortcut = (
-  event: KeyboardEvent,
-  shortcut: keyof typeof INVENTORY_SHORTCUTS
-): boolean => {
+export const matchesShortcut = (event: KeyboardEvent, shortcut: keyof typeof INVENTORY_SHORTCUTS): boolean => {
   const shortcuts = INVENTORY_SHORTCUTS[shortcut]
 
   if (Array.isArray(shortcuts)) {

@@ -30,16 +30,10 @@ const ARMOR_SLOT_ICONS = {
   chestplate: '👔',
   leggings: '👖',
   boots: '👢',
-  offhand: '🛡️'
+  offhand: '🛡️',
 }
 
-export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
-  armor,
-  offhand,
-  theme,
-  slotSize,
-  onSlotClick
-}) => {
+export const ArmorSlots: React.FC<ArmorSlotsProps> = ({ armor, offhand, theme, slotSize, onSlotClick }) => {
   const armorSlots = [
     { type: 'armor-helmet' as const, item: armor.helmet, icon: ARMOR_SLOT_ICONS.helmet, index: 103 },
     { type: 'armor-chestplate' as const, item: armor.chestplate, icon: ARMOR_SLOT_ICONS.chestplate, index: 102 },
@@ -59,7 +53,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
         top: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px'
+        gap: '4px',
       }}
     >
       {/* Armor Slots */}
@@ -67,7 +61,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
         <div
           key={armorSlot.type}
           style={{
-            position: 'relative'
+            position: 'relative',
           }}
         >
           {/* Background Icon when empty */}
@@ -83,7 +77,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
                 fontSize: slotSize * 0.5,
                 opacity: 0.2,
                 pointerEvents: 'none',
-                userSelect: 'none'
+                userSelect: 'none',
               }}
             >
               {armorSlot.icon}
@@ -102,9 +96,8 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
               acceptsItem: (item) => {
                 // Validate armor type
                 const metadata = item.metadata as any
-                return metadata?.category === 'armor' &&
-                       metadata?.armorType === armorSlot.type.replace('armor-', '')
-              }
+                return metadata?.category === 'armor' && metadata?.armorType === armorSlot.type.replace('armor-', '')
+              },
             }}
             size={slotSize}
             theme={theme}
@@ -127,7 +120,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
               color: '#888888',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
-              userSelect: 'none'
+              userSelect: 'none',
             }}
           >
             {armorSlot.type.replace('armor-', '')}
@@ -140,7 +133,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
         style={{
           height: '1px',
           backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          margin: '8px 0'
+          margin: '8px 0',
         }}
       />
 
@@ -159,7 +152,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
               fontSize: slotSize * 0.5,
               opacity: 0.2,
               pointerEvents: 'none',
-              userSelect: 'none'
+              userSelect: 'none',
             }}
           >
             {ARMOR_SLOT_ICONS.offhand}
@@ -175,7 +168,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
             item: Option.fromNullable(offhand),
             isHighlighted: false,
             isDisabled: false,
-            acceptsItem: () => true // Offhand accepts any item
+            acceptsItem: () => true, // Offhand accepts any item
           }}
           size={slotSize}
           theme={theme}
@@ -198,7 +191,7 @@ export const ArmorSlots: React.FC<ArmorSlotsProps> = ({
             color: '#888888',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
-            userSelect: 'none'
+            userSelect: 'none',
           }}
         >
           offhand

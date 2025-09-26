@@ -22,17 +22,10 @@ export const DragItemId = Brand.nominal<DragItemId>()
 // GUI State Types
 // =========================================
 
-export const InventorySection = Schema.Literal(
-  'hotbar',
-  'main',
-  'armor',
-  'offhand',
-  'crafting',
-  'craftingResult'
-).pipe(
+export const InventorySection = Schema.Literal('hotbar', 'main', 'armor', 'offhand', 'crafting', 'craftingResult').pipe(
   Schema.annotations({
     identifier: 'InventorySection',
-    description: 'Different sections of the inventory GUI'
+    description: 'Different sections of the inventory GUI',
   })
 )
 export type InventorySection = Schema.Schema.Type<typeof InventorySection>
@@ -51,7 +44,7 @@ export const SlotType = Schema.Literal(
 ).pipe(
   Schema.annotations({
     identifier: 'SlotType',
-    description: 'Type of inventory slot with specific restrictions'
+    description: 'Type of inventory slot with specific restrictions',
   })
 )
 export type SlotType = Schema.Schema.Type<typeof SlotType>
@@ -220,8 +213,7 @@ export class InventoryGUIError {
 // Helper Functions (Pure)
 // =========================================
 
-export const createSlotPosition = (x: number, y: number): SlotPosition =>
-  SlotPosition([x, y] as const)
+export const createSlotPosition = (x: number, y: number): SlotPosition => SlotPosition([x, y] as const)
 
 export const getSlotGridPosition = (
   index: number,
@@ -236,17 +228,12 @@ export const getSlotGridPosition = (
   return createSlotPosition(x, y)
 }
 
-export const isValidSlotTransfer = (
-  sourceType: SlotType,
-  targetType: SlotType,
-  item: ItemStack
-): boolean => {
+export const isValidSlotTransfer = (sourceType: SlotType, targetType: SlotType, item: ItemStack): boolean => {
   // Armor slots validation
   if (targetType.startsWith('armor-')) {
     // Check if item has armor metadata
     const metadata = item.metadata as any
-    return metadata?.category === 'armor' &&
-           metadata?.armorType === targetType.replace('armor-', '')
+    return metadata?.category === 'armor' && metadata?.armorType === targetType.replace('armor-', '')
   }
 
   // Crafting output is read-only
@@ -286,6 +273,6 @@ export const defaultInventoryGUIConfig: InventoryGUIConfig = {
     itemCountColor: '#ffffff',
     itemDurabilityColor: '#00ff00',
     tooltipBackground: 'rgba(0, 0, 0, 0.9)',
-    tooltipText: '#ffffff'
-  }
+    tooltipText: '#ffffff',
+  },
 }

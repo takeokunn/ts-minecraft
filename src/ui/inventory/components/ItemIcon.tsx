@@ -11,55 +11,49 @@ import type { ItemIconProps } from '../types.js'
 
 // Item texture mapping (would normally load from texture atlas)
 const ITEM_TEXTURES: Record<string, string> = {
-  'stone': '🪨',
-  'dirt': '🟫',
-  'grass_block': '🟩',
-  'wood': '🪵',
-  'diamond': '💎',
-  'iron_ingot': '🔧',
-  'gold_ingot': '🟨',
-  'coal': '⚫',
-  'apple': '🍎',
-  'bread': '🍞',
-  'sword_iron': '🗡️',
-  'sword_diamond': '⚔️',
-  'pickaxe_iron': '⛏️',
-  'pickaxe_diamond': '⛏️',
-  'axe_iron': '🪓',
-  'shovel_iron': '🔨',
-  'helmet_iron': '🪖',
-  'chestplate_iron': '🛡️',
-  'leggings_iron': '👖',
-  'boots_iron': '👢',
-  'torch': '🔦',
-  'crafting_table': '🔨',
-  'furnace': '🔥',
-  'chest': '📦',
-  'bed': '🛏️',
-  'door': '🚪',
-  'ladder': '🪜',
-  'rail': '🛤️',
-  'minecart': '🚃',
-  'tnt': '🧨',
-  'emerald': '💚',
-  'book': '📖',
-  'paper': '📄',
-  'compass': '🧭',
-  'map': '🗺️',
-  'clock': '🕐',
-  'bucket': '🪣',
-  'water_bucket': '💧',
-  'lava_bucket': '🔥',
-  'default': '📦'
+  stone: '🪨',
+  dirt: '🟫',
+  grass_block: '🟩',
+  wood: '🪵',
+  diamond: '💎',
+  iron_ingot: '🔧',
+  gold_ingot: '🟨',
+  coal: '⚫',
+  apple: '🍎',
+  bread: '🍞',
+  sword_iron: '🗡️',
+  sword_diamond: '⚔️',
+  pickaxe_iron: '⛏️',
+  pickaxe_diamond: '⛏️',
+  axe_iron: '🪓',
+  shovel_iron: '🔨',
+  helmet_iron: '🪖',
+  chestplate_iron: '🛡️',
+  leggings_iron: '👖',
+  boots_iron: '👢',
+  torch: '🔦',
+  crafting_table: '🔨',
+  furnace: '🔥',
+  chest: '📦',
+  bed: '🛏️',
+  door: '🚪',
+  ladder: '🪜',
+  rail: '🛤️',
+  minecart: '🚃',
+  tnt: '🧨',
+  emerald: '💚',
+  book: '📖',
+  paper: '📄',
+  compass: '🧭',
+  map: '🗺️',
+  clock: '🕐',
+  bucket: '🪣',
+  water_bucket: '💧',
+  lava_bucket: '🔥',
+  default: '📦',
 }
 
-export const ItemIcon: React.FC<ItemIconProps> = ({
-  item,
-  size,
-  showCount,
-  showDurability,
-  animate
-}) => {
+export const ItemIcon: React.FC<ItemIconProps> = ({ item, size, showCount, showDurability, animate }) => {
   // =========================================
   // Compute Item Texture
   // =========================================
@@ -93,7 +87,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
   const animationVariants = {
     idle: {
       rotate: 0,
-      scale: 1
+      scale: 1,
     },
     hover: {
       rotate: [0, -5, 5, -5, 0],
@@ -102,18 +96,18 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
         rotate: {
           duration: 0.5,
           repeat: Infinity,
-          repeatType: 'reverse' as const
-        }
-      }
+          repeatType: 'reverse' as const,
+        },
+      },
     },
     selected: {
       scale: [1, 1.2, 1],
       transition: {
         duration: 0.3,
         repeat: Infinity,
-        repeatType: 'reverse' as const
-      }
-    }
+        repeatType: 'reverse' as const,
+      },
+    },
   }
 
   // =========================================
@@ -130,12 +124,12 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        userSelect: 'none'
+        userSelect: 'none',
       }}
       variants={animationVariants}
       initial="idle"
-      animate={animate ? "selected" : "idle"}
-      whileHover={!animate ? "hover" : undefined}
+      animate={animate ? 'selected' : 'idle'}
+      {...(!animate && { whileHover: 'hover' })}
     >
       {/* Item Texture/Icon */}
       <div
@@ -143,8 +137,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
         style={{
           fontSize: size * 0.7,
           lineHeight: 1,
-          filter: item.metadata?.enchantments?.length ?
-                 'drop-shadow(0 0 4px #b300ff)' : undefined
+          filter: item.metadata?.enchantments?.length ? 'drop-shadow(0 0 4px #b300ff)' : undefined,
         }}
       >
         {itemTexture}
@@ -162,7 +155,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
             fontWeight: 'bold',
             color: '#ffffff',
             textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
           }}
         >
           {item.count > 99 ? '99+' : item.count}
@@ -181,7 +174,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
             height: '3px',
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             borderRadius: '1px',
-            overflow: 'hidden'
+            overflow: 'hidden',
           }}
         >
           <motion.div
@@ -192,7 +185,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
             style={{
               height: '100%',
               backgroundColor: durabilityColor,
-              boxShadow: `0 0 4px ${durabilityColor}`
+              boxShadow: `0 0 4px ${durabilityColor}`,
             }}
           />
         </div>
@@ -208,7 +201,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
           transition={{
             duration: 2,
             repeat: Infinity,
-            repeatType: 'reverse'
+            repeatType: 'reverse',
           }}
           style={{
             position: 'absolute',
@@ -216,7 +209,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
             border: '2px solid #b300ff',
             borderRadius: '4px',
             pointerEvents: 'none',
-            filter: 'blur(2px)'
+            filter: 'blur(2px)',
           }}
         />
       )}
@@ -233,7 +226,7 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
             height: '6px',
             backgroundColor: '#00ff00',
             borderRadius: '50%',
-            boxShadow: '0 0 4px #00ff00'
+            boxShadow: '0 0 4px #00ff00',
           }}
         />
       )}

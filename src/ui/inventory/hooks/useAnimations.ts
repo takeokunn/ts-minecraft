@@ -28,7 +28,7 @@ export const useInventoryAnimations = ({
   slots,
   dragState,
   hoveredSlotIndex,
-  animationDuration
+  animationDuration,
 }: AnimationHookProps): AnimationHookResult => {
   const [slotAnimations, setSlotAnimations] = useState<Record<number, SlotAnimationState>>({})
   const [itemTransfers, setItemTransfers] = useState<ItemTransferAnimation[]>([])
@@ -40,7 +40,7 @@ export const useInventoryAnimations = ({
   const computedAnimations = useMemo(() => {
     const animations: Record<number, SlotAnimationState> = {}
 
-    slots.forEach(slot => {
+    slots.forEach((slot) => {
       let scale = 1
       let rotation = 0
       let opacity = 1
@@ -93,7 +93,7 @@ export const useInventoryAnimations = ({
         rotation,
         opacity,
         glow,
-        shake
+        shake,
       }
     })
 
@@ -104,101 +104,109 @@ export const useInventoryAnimations = ({
   // Animation Triggers
   // =========================================
 
-  const triggerPickupAnimation = useCallback((slotIndex: number) => {
-    setSlotAnimations(prev => ({
-      ...prev,
-      [slotIndex]: {
-        scale: 1.3,
-        rotation: 10,
-        opacity: 1,
-        glow: 0.8,
-        shake: 0
-      }
-    }))
+  const triggerPickupAnimation = useCallback(
+    (slotIndex: number) => {
+      setSlotAnimations((prev) => ({
+        ...prev,
+        [slotIndex]: {
+          scale: 1.3,
+          rotation: 10,
+          opacity: 1,
+          glow: 0.8,
+          shake: 0,
+        },
+      }))
 
-    // Reset after animation
-    setTimeout(() => {
-      setSlotAnimations(prev => {
-        const updated = { ...prev }
-        delete updated[slotIndex]
-        return updated
-      })
-    }, animationDuration)
-  }, [animationDuration])
+      // Reset after animation
+      setTimeout(() => {
+        setSlotAnimations((prev) => {
+          const updated = { ...prev }
+          delete updated[slotIndex]
+          return updated
+        })
+      }, animationDuration)
+    },
+    [animationDuration]
+  )
 
-  const triggerDropAnimation = useCallback((slotIndex: number) => {
-    setSlotAnimations(prev => ({
-      ...prev,
-      [slotIndex]: {
-        scale: 0.8,
-        rotation: -5,
-        opacity: 1,
-        glow: 0.5,
-        shake: 0
-      }
-    }))
+  const triggerDropAnimation = useCallback(
+    (slotIndex: number) => {
+      setSlotAnimations((prev) => ({
+        ...prev,
+        [slotIndex]: {
+          scale: 0.8,
+          rotation: -5,
+          opacity: 1,
+          glow: 0.5,
+          shake: 0,
+        },
+      }))
 
-    // Reset after animation
-    setTimeout(() => {
-      setSlotAnimations(prev => {
-        const updated = { ...prev }
-        delete updated[slotIndex]
-        return updated
-      })
-    }, animationDuration)
-  }, [animationDuration])
+      // Reset after animation
+      setTimeout(() => {
+        setSlotAnimations((prev) => {
+          const updated = { ...prev }
+          delete updated[slotIndex]
+          return updated
+        })
+      }, animationDuration)
+    },
+    [animationDuration]
+  )
 
-  const triggerErrorAnimation = useCallback((slotIndex: number) => {
-    setSlotAnimations(prev => ({
-      ...prev,
-      [slotIndex]: {
-        scale: 1,
-        rotation: 0,
-        opacity: 1,
-        glow: 0,
-        shake: 1
-      }
-    }))
+  const triggerErrorAnimation = useCallback(
+    (slotIndex: number) => {
+      setSlotAnimations((prev) => ({
+        ...prev,
+        [slotIndex]: {
+          scale: 1,
+          rotation: 0,
+          opacity: 1,
+          glow: 0,
+          shake: 1,
+        },
+      }))
 
-    // Reset after animation
-    setTimeout(() => {
-      setSlotAnimations(prev => {
-        const updated = { ...prev }
-        delete updated[slotIndex]
-        return updated
-      })
-    }, animationDuration * 2)
-  }, [animationDuration])
+      // Reset after animation
+      setTimeout(() => {
+        setSlotAnimations((prev) => {
+          const updated = { ...prev }
+          delete updated[slotIndex]
+          return updated
+        })
+      }, animationDuration * 2)
+    },
+    [animationDuration]
+  )
 
   // =========================================
   // Item Transfer Animations
   // =========================================
 
-  const addTransferAnimation = useCallback((
-    fromSlot: number,
-    toSlot: number,
-    itemStack: any
-  ) => {
-    const fromSlotData = slots.find(s => s.index === fromSlot)
-    const toSlotData = slots.find(s => s.index === toSlot)
+  const addTransferAnimation = useCallback(
+    (fromSlot: number, toSlot: number, itemStack: any) => {
+      const fromSlotData = slots.find((s) => s.index === fromSlot)
+      const toSlotData = slots.find((s) => s.index === toSlot)
 
-    if (!fromSlotData || !toSlotData) return
+      if (!fromSlotData || !toSlotData) return
 
-    const animation: ItemTransferAnimation = {
-      from: fromSlotData.position,
-      to: toSlotData.position,
-      item: itemStack,
-      duration: animationDuration,
-      easing: 'ease-in-out'
-    }
+      const animation: ItemTransferAnimation = {
+        from: fromSlotData.position,
+        to: toSlotData.position,
+        item: itemStack,
+        duration: animationDuration,
+        easing: 'ease-in-out',
+      }
 
-    setItemTransfers(prev => [...prev, animation])
+      setItemTransfers((prev) => [...prev, animation])
 
-    // Remove animation after completion
-    setTimeout(() => {
-      setItemTransfers(prev => prev.filter(a => a !== animation))
-    }, animationDuration)
-  }, [slots, animationDuration])
+      // Remove animation after completion
+      setTimeout(() => {
+        setItemTransfers((prev) => prev.filter((a) => a !== animation))
+      }, animationDuration)
+    },
+    [slots, animationDuration]
+  )
 
   // =========================================
   // Merge Computed and Manual Animations
@@ -207,7 +215,7 @@ export const useInventoryAnimations = ({
   const mergedAnimations = useMemo(() => {
     return {
       ...computedAnimations,
-      ...slotAnimations
+      ...slotAnimations,
     }
   }, [computedAnimations, slotAnimations])
 
@@ -216,7 +224,7 @@ export const useInventoryAnimations = ({
     itemTransfers,
     triggerPickupAnimation,
     triggerDropAnimation,
-    triggerErrorAnimation
+    triggerErrorAnimation,
   }
 }
 
@@ -227,48 +235,41 @@ export const ANIMATION_PRESETS = {
   PICKUP: {
     scale: [1, 1.3, 1],
     rotate: [0, 10, 0],
-    transition: { duration: 0.3 }
+    transition: { duration: 0.3 },
   },
   DROP: {
     scale: [1, 0.8, 1],
     rotate: [0, -5, 0],
-    transition: { duration: 0.3 }
+    transition: { duration: 0.3 },
   },
   SWAP: {
     scale: [1, 1.1, 0.9, 1],
-    transition: { duration: 0.4 }
+    transition: { duration: 0.4 },
   },
   ERROR: {
     x: [0, -5, 5, -5, 5, 0],
-    transition: { duration: 0.4 }
+    transition: { duration: 0.4 },
   },
   HIGHLIGHT: {
-    boxShadow: [
-      '0 0 0 rgba(255, 255, 0, 0)',
-      '0 0 20px rgba(255, 255, 0, 0.5)',
-      '0 0 0 rgba(255, 255, 0, 0)'
-    ],
-    transition: { duration: 1, repeat: Infinity }
-  }
+    boxShadow: ['0 0 0 rgba(255, 255, 0, 0)', '0 0 20px rgba(255, 255, 0, 0.5)', '0 0 0 rgba(255, 255, 0, 0)'],
+    transition: { duration: 1, repeat: Infinity },
+  },
 } as const
 
 /**
  * Helper to create slot pulse animation
  */
-export const createPulseAnimation = (
-  color: string = '#ffffff',
-  intensity: number = 0.5
-) => ({
+export const createPulseAnimation = (color: string = '#ffffff', intensity: number = 0.5) => ({
   boxShadow: [
     `0 0 0 rgba(${hexToRgb(color)}, 0)`,
     `0 0 ${20 * intensity}px rgba(${hexToRgb(color)}, ${intensity})`,
-    `0 0 0 rgba(${hexToRgb(color)}, 0)`
+    `0 0 0 rgba(${hexToRgb(color)}, 0)`,
   ],
   transition: {
     duration: 1,
     repeat: Infinity,
-    repeatType: 'reverse' as const
-  }
+    repeatType: 'reverse' as const,
+  },
 })
 
 /**
@@ -279,17 +280,13 @@ const hexToRgb = (hex: string | undefined): string => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   if (!result) return '255, 255, 255'
 
-  return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+  return `${parseInt(result[1]!, 16)}, ${parseInt(result[2]!, 16)}, ${parseInt(result[3]!, 16)}`
 }
 
 /**
  * Create stagger animation for slot grid
  */
-export const createStaggerAnimation = (
-  index: number,
-  columns: number,
-  baseDelay: number = 0.05
-) => {
+export const createStaggerAnimation = (index: number, columns: number, baseDelay: number = 0.05) => {
   const row = Math.floor(index / columns)
   const col = index % columns
   const delay = (row + col) * baseDelay
@@ -297,6 +294,6 @@ export const createStaggerAnimation = (
   return {
     initial: { opacity: 0, scale: 0.8 },
     animate: { opacity: 1, scale: 1 },
-    transition: { delay, duration: 0.3 }
+    transition: { delay, duration: 0.3 },
   }
 }

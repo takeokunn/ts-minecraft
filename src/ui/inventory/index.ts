@@ -37,7 +37,7 @@ export type {
   SlotAnimationState,
   ItemTransferAnimation,
   HotbarState,
-  InventoryGUIError
+  InventoryGUIError,
 } from './types.js'
 
 export {
@@ -46,5 +46,5 @@ export {
   getSlotGridPosition,
   isValidSlotTransfer,
   SlotPosition,
-  DragItemId
+  DragItemId,
 } from './types.js'

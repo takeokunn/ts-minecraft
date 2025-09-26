@@ -23,7 +23,7 @@ export const HotbarPanel: React.FC<HotbarPanelProps> = ({
   selectedIndex,
   config,
   onSlotClick,
-  onHotbarSelect
+  onHotbarSelect,
 }) => {
   return (
     <motion.div
@@ -38,14 +38,14 @@ export const HotbarPanel: React.FC<HotbarPanelProps> = ({
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
         borderRadius: '8px',
         border: '2px solid rgba(255, 255, 255, 0.2)',
-        marginTop: '10px'
+        marginTop: '10px',
       }}
     >
       {slots.map((slot, index) => (
         <div
           key={slot.index}
           style={{
-            position: 'relative'
+            position: 'relative',
           }}
         >
           {/* Slot Number Indicator */}
@@ -61,7 +61,7 @@ export const HotbarPanel: React.FC<HotbarPanelProps> = ({
               color: index === selectedIndex ? '#ffff00' : '#999999',
               textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
               pointerEvents: 'none',
-              userSelect: 'none'
+              userSelect: 'none',
             }}
           >
             {index + 1}
@@ -80,7 +80,7 @@ export const HotbarPanel: React.FC<HotbarPanelProps> = ({
                 border: '3px solid #ffff00',
                 borderRadius: '6px',
                 pointerEvents: 'none',
-                boxShadow: '0 0 10px rgba(255, 255, 0, 0.5)'
+                boxShadow: '0 0 10px rgba(255, 255, 0, 0.5)',
               }}
             />
           )}
@@ -89,7 +89,7 @@ export const HotbarPanel: React.FC<HotbarPanelProps> = ({
           <ItemSlot
             slot={{
               ...slot,
-              isHighlighted: index === selectedIndex
+              isHighlighted: index === selectedIndex,
             }}
             size={config.slotSize}
             theme={config.theme}

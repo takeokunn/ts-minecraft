@@ -20,13 +20,7 @@ import { useInventoryAnimations } from '../hooks/useAnimations.js'
 /**
  * Main inventory panel component
  */
-export const InventoryPanel: React.FC<InventoryPanelProps> = ({
-  playerId,
-  inventory,
-  isOpen,
-  config,
-  onEvent
-}) => {
+export const InventoryPanel: React.FC<InventoryPanelProps> = ({ playerId, inventory, isOpen, config, onEvent }) => {
   // =========================================
   // State Management
   // =========================================
@@ -36,7 +30,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
     draggedItem: Option.none(),
     sourceSlot: Option.none(),
     hoveredSlot: Option.none(),
-    dragMode: 'move'
+    dragMode: 'move',
   })
 
   const [selectedHotbarIndex, setSelectedHotbarIndex] = useState(0)
@@ -72,7 +66,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
         item: Option.fromNullable(inventory.slots[i + 9]),
         isHighlighted: false,
         isDisabled: false,
-        acceptsItem: () => true
+        acceptsItem: () => true,
       })
     }
 
@@ -87,7 +81,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
         item: Option.fromNullable(inventory.slots[i]),
         isHighlighted: i === selectedHotbarIndex,
         isDisabled: false,
-        acceptsItem: () => true
+        acceptsItem: () => true,
       })
     }
 
@@ -103,7 +97,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
       const event: InventoryGUIEvent = {
         _tag: 'SlotClicked',
         slot: slotIndex,
-        button
+        button,
       }
 
       Effect.runSync(onEvent(event))
@@ -111,90 +105,97 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
     [onEvent]
   )
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const slotIndex = Number(event.active.id)
-    const slot = slots.find(s => s.index === slotIndex)
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const slotIndex = Number(event.active.id)
+      const slot = slots.find((s) => s.index === slotIndex)
 
-    if (slot && Option.isSome(slot.item)) {
-      setDragState({
-        isDragging: true,
-        draggedItem: slot.item,
-        sourceSlot: Option.some(slotIndex),
-        hoveredSlot: Option.none(),
-        dragMode: event.activatorEvent && 'shiftKey' in event.activatorEvent &&
-                  (event.activatorEvent as KeyboardEvent).shiftKey ? 'split' : 'move'
-      })
+      if (slot && Option.isSome(slot.item)) {
+        setDragState({
+          isDragging: true,
+          draggedItem: slot.item,
+          sourceSlot: Option.some(slotIndex),
+          hoveredSlot: Option.none(),
+          dragMode:
+            event.activatorEvent &&
+            'shiftKey' in event.activatorEvent &&
+            (event.activatorEvent as KeyboardEvent).shiftKey
+              ? 'split'
+              : 'move',
+        })
 
-      const dragEvent: InventoryGUIEvent = {
-        _tag: 'ItemDragStart',
-        slot: slotIndex,
-        item: slot.item.value
+        const dragEvent: InventoryGUIEvent = {
+          _tag: 'ItemDragStart',
+          slot: slotIndex,
+          item: slot.item.value,
+        }
+
+        Effect.runSync(onEvent(dragEvent))
+      }
+    },
+    [slots, onEvent]
+  )
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      if (!dragState.isDragging || Option.isNone(dragState.sourceSlot)) {
+        return
       }
 
-      Effect.runSync(onEvent(dragEvent))
-    }
-  }, [slots, onEvent])
+      const sourceSlotIndex = dragState.sourceSlot.value
+      const targetSlotIndex = event.over ? Number(event.over.id) : null
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    if (!dragState.isDragging || Option.isNone(dragState.sourceSlot)) {
-      return
-    }
+      let dropResult: Option.Option<DropResult> = Option.none()
 
-    const sourceSlotIndex = dragState.sourceSlot.value
-    const targetSlotIndex = event.over ? Number(event.over.id) : null
+      if (targetSlotIndex !== null && targetSlotIndex !== sourceSlotIndex) {
+        const sourceSlot = slots.find((s) => s.index === sourceSlotIndex)
+        const targetSlot = slots.find((s) => s.index === targetSlotIndex)
 
-    let dropResult: Option.Option<DropResult> = Option.none()
+        if (sourceSlot && targetSlot && Option.isSome(dragState.draggedItem)) {
+          const canTransfer = isValidSlotTransfer(sourceSlot.type, targetSlot.type, dragState.draggedItem.value)
 
-    if (targetSlotIndex !== null && targetSlotIndex !== sourceSlotIndex) {
-      const sourceSlot = slots.find(s => s.index === sourceSlotIndex)
-      const targetSlot = slots.find(s => s.index === targetSlotIndex)
+          if (canTransfer) {
+            const action = Option.isSome(targetSlot.item) ? 'swap' : 'move'
 
-      if (sourceSlot && targetSlot && Option.isSome(dragState.draggedItem)) {
-        const canTransfer = isValidSlotTransfer(
-          sourceSlot.type,
-          targetSlot.type,
-          dragState.draggedItem.value
-        )
+            dropResult = Option.some({
+              accepted: true,
+              action,
+              sourceSlot: sourceSlotIndex,
+              targetSlot: targetSlotIndex,
+              amount:
+                dragState.dragMode === 'split'
+                  ? Math.ceil(dragState.draggedItem.value.count / 2)
+                  : dragState.draggedItem.value.count,
+            })
 
-        if (canTransfer) {
-          const action = Option.isSome(targetSlot.item) ? 'swap' : 'move'
+            const dropEvent: InventoryGUIEvent = {
+              _tag: 'ItemDropped',
+              sourceSlot: sourceSlotIndex,
+              targetSlot: targetSlotIndex,
+            }
 
-          dropResult = Option.some({
-            accepted: true,
-            action,
-            sourceSlot: sourceSlotIndex,
-            targetSlot: targetSlotIndex,
-            amount: dragState.dragMode === 'split' ?
-                    Math.ceil(dragState.draggedItem.value.count / 2) :
-                    dragState.draggedItem.value.count
-          })
-
-          const dropEvent: InventoryGUIEvent = {
-            _tag: 'ItemDropped',
-            sourceSlot: sourceSlotIndex,
-            targetSlot: targetSlotIndex
+            Effect.runSync(onEvent(dropEvent))
           }
-
-          Effect.runSync(onEvent(dropEvent))
         }
       }
-    }
 
-    const dragEndEvent: InventoryGUIEvent = {
-      _tag: 'ItemDragEnd',
-      result: dropResult
-    }
+      const dragEndEvent: InventoryGUIEvent = {
+        _tag: 'ItemDragEnd',
+        result: dropResult,
+      }
 
-    Effect.runSync(onEvent(dragEndEvent))
+      Effect.runSync(onEvent(dragEndEvent))
 
-    setDragState({
-      isDragging: false,
-      draggedItem: Option.none(),
-      sourceSlot: Option.none(),
-      hoveredSlot: Option.none(),
-      dragMode: 'move'
-    })
-  }, [dragState, slots, onEvent])
+      setDragState({
+        isDragging: false,
+        draggedItem: Option.none(),
+        sourceSlot: Option.none(),
+        hoveredSlot: Option.none(),
+        dragMode: 'move',
+      })
+    },
+    [dragState, slots, onEvent]
+  )
 
   // =========================================
   // Keyboard Shortcuts
@@ -206,14 +207,14 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
       setSelectedHotbarIndex(index)
       const event: InventoryGUIEvent = {
         _tag: 'HotbarSelected',
-        index
+        index,
       }
       Effect.runSync(onEvent(event))
     },
     onQuickMove: (slotIndex) => {
       const event: InventoryGUIEvent = {
         _tag: 'QuickMove',
-        slot: slotIndex
+        slot: slotIndex,
       }
       Effect.runSync(onEvent(event))
     },
@@ -221,16 +222,16 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
       const event: InventoryGUIEvent = {
         _tag: 'QuickDrop',
         slot: slotIndex,
-        all
+        all,
       }
       Effect.runSync(onEvent(event))
     },
     onClose: () => {
       const event: InventoryGUIEvent = {
-        _tag: 'InventoryClosed'
+        _tag: 'InventoryClosed',
       }
       Effect.runSync(onEvent(event))
-    }
+    },
   })
 
   // =========================================
@@ -241,7 +242,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
     slots,
     dragState,
     hoveredSlotIndex,
-    animationDuration: config.animationDuration
+    animationDuration: config.animationDuration,
   })
 
   // =========================================
@@ -277,22 +278,21 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           padding: '20px',
           borderRadius: '8px',
-          zIndex: 1000
+          zIndex: 1000,
         }}
       >
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           {/* Player Model Preview (optional) */}
-          <div className="inventory-player-preview" style={{
-            position: 'absolute',
-            left: '20px',
-            top: '20px',
-            width: '100px',
-            height: '200px'
-          }}>
+          <div
+            className="inventory-player-preview"
+            style={{
+              position: 'absolute',
+              left: '20px',
+              top: '20px',
+              width: '100px',
+              height: '200px',
+            }}
+          >
             {/* Player 3D model would go here */}
           </div>
 
@@ -306,35 +306,40 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
           />
 
           {/* Main Inventory Grid */}
-          <div className="inventory-main-grid" style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${config.columns}, ${config.slotSize}px)`,
-            gap: `${config.slotSpacing}px`,
-            marginBottom: '20px'
-          }}>
-            {slots.filter(slot => slot.section === 'main').map(slot => (
-              <ItemSlot
-                key={slot.index}
-                slot={slot}
-                size={config.slotSize}
-                theme={config.theme}
-                isDragOver={pipe(
-                  hoveredSlotIndex,
-                  Option.map(i => i === slot.index),
-                  Option.getOrElse(() => false)
-                )}
-                onSlotClick={(button) => handleSlotClick(slot.index, button)}
-                onDragStart={() => {}}
-                onDragEnd={() => {}}
-                onDrop={() => {}}
-                animation={slotAnimations[slot.index] || undefined}
-              />
-            ))}
+          <div
+            className="inventory-main-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${config.columns}, ${config.slotSize}px)`,
+              gap: `${config.slotSpacing}px`,
+              marginBottom: '20px',
+            }}
+          >
+            {slots
+              .filter((slot) => slot.section === 'main')
+              .map((slot) => (
+                <ItemSlot
+                  key={slot.index}
+                  slot={slot}
+                  size={config.slotSize}
+                  theme={config.theme}
+                  isDragOver={pipe(
+                    hoveredSlotIndex,
+                    Option.map((i) => i === slot.index),
+                    Option.getOrElse(() => false)
+                  )}
+                  onSlotClick={(button) => handleSlotClick(slot.index, button)}
+                  onDragStart={() => {}}
+                  onDragEnd={() => {}}
+                  onDrop={() => {}}
+                  animation={slotAnimations[slot.index] || undefined}
+                />
+              ))}
           </div>
 
           {/* Hotbar */}
           <HotbarPanel
-            slots={slots.filter(slot => slot.section === 'hotbar')}
+            slots={slots.filter((slot) => slot.section === 'hotbar')}
             selectedIndex={selectedHotbarIndex}
             config={config}
             onSlotClick={handleSlotClick}
@@ -342,7 +347,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
               setSelectedHotbarIndex(index)
               const event: InventoryGUIEvent = {
                 _tag: 'HotbarSelected',
-                index
+                index,
               }
               Effect.runSync(onEvent(event))
             }}
@@ -366,7 +371,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({
             border: 'none',
             color: '#ffffff',
             fontSize: '24px',
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           ×

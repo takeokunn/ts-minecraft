@@ -17,20 +17,13 @@ import { defaultInventoryGUIConfig } from './types.js'
 // =========================================
 
 export interface InventoryGUIService {
-  readonly handleGUIEvent: (
-    playerId: PlayerId,
-    event: InventoryGUIEvent
-  ) => Effect.Effect<void, never>
+  readonly handleGUIEvent: (playerId: PlayerId, event: InventoryGUIEvent) => Effect.Effect<void, never>
 
-  readonly watchInventory: (
-    playerId: PlayerId
-  ) => Stream.Stream<Inventory, never>
+  readonly watchInventory: (playerId: PlayerId) => Stream.Stream<Inventory, never>
 
   readonly getGUIConfig: () => Effect.Effect<InventoryGUIConfig, never>
 
-  readonly setGUIConfig: (
-    config: Partial<InventoryGUIConfig>
-  ) => Effect.Effect<void, never>
+  readonly setGUIConfig: (config: Partial<InventoryGUIConfig>) => Effect.Effect<void, never>
 
   readonly openInventory: (playerId: PlayerId) => Effect.Effect<void, never>
 
@@ -43,9 +36,7 @@ export interface InventoryGUIService {
 // Service Tag
 // =========================================
 
-export const InventoryGUIService = Context.GenericTag<InventoryGUIService>(
-  '@minecraft/InventoryGUIService'
-)
+export const InventoryGUIService = Context.GenericTag<InventoryGUIService>('@minecraft/InventoryGUIService')
 
 // =========================================
 // Service Implementation
@@ -122,37 +113,18 @@ export const InventoryGUIServiceLive = Layer.effect(
               yield* pipe(
                 Match.value(dropResult.action),
                 Match.when('move', () =>
-                  inventoryService.moveItem(
-                    playerId,
-                    dropResult.sourceSlot,
-                    dropResult.targetSlot
-                  )
+                  inventoryService.moveItem(playerId, dropResult.sourceSlot, dropResult.targetSlot)
                 ),
                 Match.when('swap', () =>
-                  inventoryService.swapItems(
-                    playerId,
-                    dropResult.sourceSlot,
-                    dropResult.targetSlot
-                  )
+                  inventoryService.swapItems(playerId, dropResult.sourceSlot, dropResult.targetSlot)
                 ),
                 Match.when('merge', () =>
-                  inventoryService.mergeStacks(
-                    playerId,
-                    dropResult.sourceSlot,
-                    dropResult.targetSlot
-                  )
+                  inventoryService.mergeStacks(playerId, dropResult.sourceSlot, dropResult.targetSlot)
                 ),
                 Match.when('split', () =>
-                  inventoryService.splitStack(
-                    playerId,
-                    dropResult.sourceSlot,
-                    dropResult.targetSlot,
-                    dropResult.amount
-                  )
+                  inventoryService.splitStack(playerId, dropResult.sourceSlot, dropResult.targetSlot, dropResult.amount)
                 ),
-                Match.when('rejected', () =>
-                  Effect.logDebug('Drop action rejected')
-                ),
+                Match.when('rejected', () => Effect.logDebug('Drop action rejected')),
                 Match.exhaustive
               )
             })
@@ -162,9 +134,7 @@ export const InventoryGUIServiceLive = Layer.effect(
             inventoryService.moveItem(playerId, sourceSlot, targetSlot)
           ),
 
-          Match.tag('HotbarSelected', ({ index }) =>
-            inventoryService.setSelectedSlot(playerId, index)
-          ),
+          Match.tag('HotbarSelected', ({ index }) => inventoryService.setSelectedSlot(playerId, index)),
 
           Match.tag('QuickMove', ({ slot }) =>
             Effect.gen(function* () {
@@ -193,9 +163,7 @@ export const InventoryGUIServiceLive = Layer.effect(
             })
           ),
 
-          Match.tag('QuickDrop', ({ slot, all }) =>
-            inventoryService.dropItem(playerId, slot, all ? undefined : 1)
-          ),
+          Match.tag('QuickDrop', ({ slot, all }) => inventoryService.dropItem(playerId, slot, all ? undefined : 1)),
 
           Match.tag('InventoryOpened', () =>
             Effect.sync(() => {
@@ -209,39 +177,26 @@ export const InventoryGUIServiceLive = Layer.effect(
             })
           ),
 
-          Match.tag('SlotHovered', ({ slot }) =>
-            Effect.logDebug(`Slot ${slot} hovered`)
-          ),
+          Match.tag('SlotHovered', ({ slot }) => Effect.logDebug(`Slot ${slot} hovered`)),
 
-          Match.tag('SlotUnhovered', ({ slot }) =>
-            Effect.logDebug(`Slot ${slot} unhovered`)
-          ),
+          Match.tag('SlotUnhovered', ({ slot }) => Effect.logDebug(`Slot ${slot} unhovered`)),
 
           Match.exhaustive
         )
-      }).pipe(
-        Effect.catchAll((error) =>
-          Effect.logError(`GUI event error: ${error}`)
-        )
-      )
+      }).pipe(Effect.catchAll((error) => Effect.logError(`GUI event error: ${error}`)))
 
     // =========================================
     // Inventory Watching
     // =========================================
 
     const watchInventory = (playerId: PlayerId) =>
-      Stream.repeatEffect(
-        inventoryService.getInventory(playerId)
-      ).pipe(
-        Stream.catchAll(() => Stream.empty)
-      )
+      Stream.repeatEffect(inventoryService.getInventory(playerId)).pipe(Stream.catchAll(() => Stream.empty))
 
     // =========================================
     // Configuration Management
     // =========================================
 
-    const getGUIConfig = () =>
-      Effect.succeed({ ...guiConfig })
+    const getGUIConfig = () => Effect.succeed({ ...guiConfig })
 
     const setGUIConfig = (config: Partial<InventoryGUIConfig>) =>
       Effect.sync(() => {
@@ -262,8 +217,7 @@ export const InventoryGUIServiceLive = Layer.effect(
         openInventories.delete(playerId)
       })
 
-    const isInventoryOpen = (playerId: PlayerId) =>
-      Effect.succeed(openInventories.has(playerId))
+    const isInventoryOpen = (playerId: PlayerId) => Effect.succeed(openInventories.has(playerId))
 
     return InventoryGUIService.of({
       handleGUIEvent,
@@ -272,9 +226,7 @@ export const InventoryGUIServiceLive = Layer.effect(
       setGUIConfig,
       openInventory,
       closeInventory,
-      isInventoryOpen
+      isInventoryOpen,
     })
   })
-).pipe(
-  Layer.provide(InventoryServiceLive)
-)
+).pipe(Layer.provide(InventoryServiceLive))
