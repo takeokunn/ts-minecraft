@@ -398,7 +398,7 @@ const makeAudioService = Effect.gen(function* () {
           _tag: 'ListenerMoved' as const,
           position,
           orientation,
-        })
+        }
       )
     })
 
@@ -428,7 +428,7 @@ const makeAudioService = Effect.gen(function* () {
           _tag: 'VolumeChanged' as const,
           category,
           newVolume: volume,
-        })
+        }
       )
     })
 
