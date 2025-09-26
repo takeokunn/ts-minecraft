@@ -386,7 +386,7 @@ describe('AgricultureService - Property Tests', () => {
     Effect.gen(function* () {
       const service = yield* AgricultureService
       const playerId = createTestPlayerId('test-player-1')
-      
+
       // Use hardcoded test values instead of Arbitrary sampling
       const cropType: CropType = 'wheat'
       const position = { x: 10, y: 64, z: 20 }
@@ -404,21 +404,25 @@ describe('AgricultureService - Property Tests', () => {
     Effect.gen(function* () {
       const service = yield* AgricultureService
       const playerId = createTestPlayerId('test-player-2')
-      
+
       // Use hardcoded test positions instead of Arbitrary sampling
       const positions = [
-        { x: 1, y: 64, z: 1 }, { x: 2, y: 64, z: 2 }, { x: 3, y: 64, z: 3 },
-        { x: 4, y: 64, z: 4 }, { x: 5, y: 64, z: 5 }, { x: 6, y: 64, z: 6 },
-        { x: 7, y: 64, z: 7 }, { x: 8, y: 64, z: 8 }, { x: 9, y: 64, z: 9 },
-        { x: 10, y: 64, z: 10 }
+        { x: 1, y: 64, z: 1 },
+        { x: 2, y: 64, z: 2 },
+        { x: 3, y: 64, z: 3 },
+        { x: 4, y: 64, z: 4 },
+        { x: 5, y: 64, z: 5 },
+        { x: 6, y: 64, z: 6 },
+        { x: 7, y: 64, z: 7 },
+        { x: 8, y: 64, z: 8 },
+        { x: 9, y: 64, z: 9 },
+        { x: 10, y: 64, z: 10 },
       ]
       const cropType = 'wheat' as CropType
 
       // Try to plant crops at all positions
       for (const position of positions) {
-        yield* service.plantCrop(position, cropType, playerId).pipe(
-          Effect.either
-        )
+        yield* service.plantCrop(position, cropType, playerId).pipe(Effect.either)
       }
 
       // At least some should succeed (assuming valid farmland)

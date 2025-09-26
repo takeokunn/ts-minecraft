@@ -55,70 +55,97 @@ const defaultGrowthRequirements = (() => {
   const map = HashMap.empty<CropType, GrowthRequirements>()
   return pipe(
     map,
-    HashMap.set('wheat' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 60000, // 1 minute
-      stages: 8,
-    } as GrowthRequirements),
-    HashMap.set('carrot' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 80000,
-      stages: 8,
-    } as GrowthRequirements),
-    HashMap.set('potato' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 80000,
-      stages: 8,
-    } as GrowthRequirements),
-    HashMap.set('beetroot' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 90000,
-      stages: 4,
-    } as GrowthRequirements),
-    HashMap.set('melon' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 120000,
-      stages: 8,
-    } as GrowthRequirements),
-    HashMap.set('pumpkin' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(4),
-      baseGrowthTime: 120000,
-      stages: 8,
-    } as GrowthRequirements),
-    HashMap.set('sugar_cane' as CropType, {
-      minLightLevel: LightLevelBrand(8),
-      requiresWater: true as boolean,
-      waterRadius: WaterRadiusBrand(1), // Must be adjacent to water
-      baseGrowthTime: 120000,
-      stages: 16,
-    } as GrowthRequirements),
-    HashMap.set('bamboo' as CropType, {
-      minLightLevel: LightLevelBrand(9),
-      requiresWater: false as boolean,
-      waterRadius: WaterRadiusBrand(0),
-      baseGrowthTime: 60000,
-      stages: 16,
-    } as GrowthRequirements),
-    HashMap.set('nether_wart' as CropType, {
-      minLightLevel: LightLevelBrand(0),
-      requiresWater: false as boolean,
-      waterRadius: WaterRadiusBrand(0),
-      baseGrowthTime: 100000,
-      stages: 4,
-      canGrowInDark: true,
-    } as GrowthRequirements)
+    HashMap.set(
+      'wheat' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 60000, // 1 minute
+        stages: 8,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'carrot' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 80000,
+        stages: 8,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'potato' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 80000,
+        stages: 8,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'beetroot' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 90000,
+        stages: 4,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'melon' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 120000,
+        stages: 8,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'pumpkin' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(4),
+        baseGrowthTime: 120000,
+        stages: 8,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'sugar_cane' as CropType,
+      {
+        minLightLevel: LightLevelBrand(8),
+        requiresWater: true as boolean,
+        waterRadius: WaterRadiusBrand(1), // Must be adjacent to water
+        baseGrowthTime: 120000,
+        stages: 16,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'bamboo' as CropType,
+      {
+        minLightLevel: LightLevelBrand(9),
+        requiresWater: false as boolean,
+        waterRadius: WaterRadiusBrand(0),
+        baseGrowthTime: 60000,
+        stages: 16,
+      } as GrowthRequirements
+    ),
+    HashMap.set(
+      'nether_wart' as CropType,
+      {
+        minLightLevel: LightLevelBrand(0),
+        requiresWater: false as boolean,
+        waterRadius: WaterRadiusBrand(0),
+        baseGrowthTime: 100000,
+        stages: 4,
+        canGrowInDark: true,
+      } as GrowthRequirements
+    )
   )
 })()
 
@@ -133,13 +160,19 @@ const animalFoodPreferences = (() => {
     HashMap.set('cow' as AnimalType, ['wheat'] as string[]),
     HashMap.set('pig' as AnimalType, ['carrot', 'potato', 'beetroot'] as string[]),
     HashMap.set('sheep' as AnimalType, ['wheat'] as string[]),
-    HashMap.set('chicken' as AnimalType, ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]),
+    HashMap.set(
+      'chicken' as AnimalType,
+      ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]
+    ),
     HashMap.set('horse' as AnimalType, ['golden_apple', 'golden_carrot', 'apple', 'hay_block'] as string[]),
     HashMap.set('rabbit' as AnimalType, ['carrot', 'golden_carrot', 'dandelion'] as string[]),
     HashMap.set('llama' as AnimalType, ['hay_block'] as string[]),
     HashMap.set('cat' as AnimalType, ['raw_fish', 'raw_salmon', 'raw_cod'] as string[]),
     HashMap.set('dog' as AnimalType, ['bone', 'meat', 'chicken', 'mutton', 'porkchop', 'beef'] as string[]),
-    HashMap.set('parrot' as AnimalType, ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]),
+    HashMap.set(
+      'parrot' as AnimalType,
+      ['seeds', 'wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds'] as string[]
+    ),
     HashMap.set('bee' as AnimalType, ['flower', 'poppy', 'dandelion', 'sunflower'] as string[]),
     HashMap.set('fox' as AnimalType, ['sweet_berries', 'glow_berries'] as string[])
   )
