@@ -12,7 +12,8 @@ import {
   BlastResistance,
   MaterialId,
   MiningSpeed,
-  MaterialCategory
+  MaterialCategory,
+  ToolType,
 } from './MaterialTypes'
 import { MaterialService } from './MaterialService'
 
@@ -28,167 +29,217 @@ const getToolHarvestLevel = (material: MaterialCategory): number =>
     Match.orElse(() => 0)
   )
 
-const blockIdToItemId = (blockId: BlockId): ItemId =>
-  blockId as unknown as ItemId // 実際にはより適切な変換が必要
+const blockIdToItemId = (blockId: BlockId): ItemId => blockId as unknown as ItemId // 実際にはより適切な変換が必要
 
 const makeMaterialService = Effect.gen(function* () {
   // マテリアルデータベース
   const materials = HashMap.make(
-    ['stone' as BlockId, {
-      id: 'stone' as MaterialId,
-      category: 'stone' as MaterialCategory,
-      hardness: 1.5 as Hardness,
-      blastResistance: 6 as BlastResistance,
-      isFlammable: false,
-      requiresTool: true,
-      preferredTool: 'pickaxe',
-      harvestLevel: 0,
-      drops: [{ itemId: 'cobblestone' as ItemId, amount: 1 }],
-      luminance: 0
-    }],
-    ['wood' as BlockId, {
-      id: 'wood' as MaterialId,
-      category: 'wood' as MaterialCategory,
-      hardness: 2 as Hardness,
-      blastResistance: 3 as BlastResistance,
-      isFlammable: true,
-      burnTime: 300 as BurnTime,
-      requiresTool: false,
-      preferredTool: 'axe',
-      harvestLevel: 0,
-      drops: [{ itemId: 'wood' as ItemId, amount: 1 }],
-      luminance: 0
-    }],
-    ['diamond_ore' as BlockId, {
-      id: 'diamond_ore' as MaterialId,
-      category: 'stone' as MaterialCategory,
-      hardness: 3 as Hardness,
-      blastResistance: 3 as BlastResistance,
-      isFlammable: false,
-      requiresTool: true,
-      preferredTool: 'pickaxe',
-      harvestLevel: 2, // Iron pickaxe required
-      drops: [{ itemId: 'diamond' as ItemId, amount: 1 }],
-      luminance: 0
-    }],
-    ['obsidian' as BlockId, {
-      id: 'obsidian' as MaterialId,
-      category: 'stone' as MaterialCategory,
-      hardness: 50 as Hardness,
-      blastResistance: 1200 as BlastResistance,
-      isFlammable: false,
-      requiresTool: true,
-      preferredTool: 'pickaxe',
-      harvestLevel: 3, // Diamond pickaxe required
-      drops: [{ itemId: 'obsidian' as ItemId, amount: 1 }],
-      luminance: 0
-    }],
-    ['sand' as BlockId, {
-      id: 'sand' as MaterialId,
-      category: 'sand' as MaterialCategory,
-      hardness: 0.5 as Hardness,
-      blastResistance: 0.5 as BlastResistance,
-      isFlammable: false,
-      requiresTool: false,
-      preferredTool: 'shovel',
-      harvestLevel: 0,
-      drops: [{ itemId: 'sand' as ItemId, amount: 1 }],
-      luminance: 0
-    }],
-    ['leaves' as BlockId, {
-      id: 'leaves' as MaterialId,
-      category: 'leaves' as MaterialCategory,
-      hardness: 0.2 as Hardness,
-      blastResistance: 0.2 as BlastResistance,
-      isFlammable: true,
-      burnTime: 100 as BurnTime,
-      requiresTool: false,
-      preferredTool: 'shears',
-      harvestLevel: 0,
-      drops: [], // 通常は何もドロップしない
-      luminance: 0
-    }]
+    [
+      'stone' as BlockId,
+      {
+        id: 'stone' as MaterialId,
+        category: 'stone' as MaterialCategory,
+        hardness: 1.5 as Hardness,
+        blastResistance: 6 as BlastResistance,
+        isFlammable: false,
+        requiresTool: true,
+        preferredTool: 'pickaxe' as ToolType,
+        harvestLevel: 0,
+        drops: [{ itemId: 'cobblestone' as ItemId, amount: 1 }],
+        luminance: 0,
+      },
+    ],
+    [
+      'wood' as BlockId,
+      {
+        id: 'wood' as MaterialId,
+        category: 'wood' as MaterialCategory,
+        hardness: 2 as Hardness,
+        blastResistance: 3 as BlastResistance,
+        isFlammable: true,
+        burnTime: 300 as BurnTime,
+        requiresTool: false,
+        preferredTool: 'axe' as ToolType,
+        harvestLevel: 0,
+        drops: [{ itemId: 'wood' as ItemId, amount: 1 }],
+        luminance: 0,
+      },
+    ],
+    [
+      'diamond_ore' as BlockId,
+      {
+        id: 'diamond_ore' as MaterialId,
+        category: 'stone' as MaterialCategory,
+        hardness: 3 as Hardness,
+        blastResistance: 3 as BlastResistance,
+        isFlammable: false,
+        requiresTool: true,
+        preferredTool: 'pickaxe' as ToolType,
+        harvestLevel: 2, // Iron pickaxe required
+        drops: [{ itemId: 'diamond' as ItemId, amount: 1 }],
+        luminance: 0,
+      },
+    ],
+    [
+      'obsidian' as BlockId,
+      {
+        id: 'obsidian' as MaterialId,
+        category: 'stone' as MaterialCategory,
+        hardness: 50 as Hardness,
+        blastResistance: 1200 as BlastResistance,
+        isFlammable: false,
+        requiresTool: true,
+        preferredTool: 'pickaxe' as ToolType,
+        harvestLevel: 3, // Diamond pickaxe required
+        drops: [{ itemId: 'obsidian' as ItemId, amount: 1 }],
+        luminance: 0,
+      },
+    ],
+    [
+      'sand' as BlockId,
+      {
+        id: 'sand' as MaterialId,
+        category: 'sand' as MaterialCategory,
+        hardness: 0.5 as Hardness,
+        blastResistance: 0.5 as BlastResistance,
+        isFlammable: false,
+        requiresTool: false,
+        preferredTool: 'shovel' as ToolType,
+        harvestLevel: 0,
+        drops: [{ itemId: 'sand' as ItemId, amount: 1 }],
+        luminance: 0,
+      },
+    ],
+    [
+      'leaves' as BlockId,
+      {
+        id: 'leaves' as MaterialId,
+        category: 'leaves' as MaterialCategory,
+        hardness: 0.2 as Hardness,
+        blastResistance: 0.2 as BlastResistance,
+        isFlammable: true,
+        burnTime: 100 as BurnTime,
+        requiresTool: false,
+        preferredTool: 'shears' as ToolType,
+        harvestLevel: 0,
+        drops: [], // 通常は何もドロップしない
+        luminance: 0,
+      },
+    ]
   )
 
   // ツール効率マトリックス
   const toolEfficiencyMatrix = HashMap.make(
-    ['pickaxe:diamond:stone', {
-      toolType: 'pickaxe',
-      toolMaterial: 'diamond',
-      targetMaterial: 'stone',
-      speedMultiplier: 8 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['pickaxe:iron:stone', {
-      toolType: 'pickaxe',
-      toolMaterial: 'iron',
-      targetMaterial: 'stone',
-      speedMultiplier: 6 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['pickaxe:stone:stone', {
-      toolType: 'pickaxe',
-      toolMaterial: 'stone',
-      targetMaterial: 'stone',
-      speedMultiplier: 4 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['pickaxe:wood:stone', {
-      toolType: 'pickaxe',
-      toolMaterial: 'wood',
-      targetMaterial: 'stone',
-      speedMultiplier: 2 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['axe:diamond:wood', {
-      toolType: 'axe',
-      toolMaterial: 'diamond',
-      targetMaterial: 'wood',
-      speedMultiplier: 8 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['axe:iron:wood', {
-      toolType: 'axe',
-      toolMaterial: 'iron',
-      targetMaterial: 'wood',
-      speedMultiplier: 6 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['axe:stone:wood', {
-      toolType: 'axe',
-      toolMaterial: 'stone',
-      targetMaterial: 'wood',
-      speedMultiplier: 4 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['axe:wood:wood', {
-      toolType: 'axe',
-      toolMaterial: 'wood',
-      targetMaterial: 'wood',
-      speedMultiplier: 2 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['shovel:diamond:sand', {
-      toolType: 'shovel',
-      toolMaterial: 'diamond',
-      targetMaterial: 'sand',
-      speedMultiplier: 8 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['shovel:iron:sand', {
-      toolType: 'shovel',
-      toolMaterial: 'iron',
-      targetMaterial: 'sand',
-      speedMultiplier: 6 as MiningSpeed,
-      canHarvest: true
-    }],
-    ['shears:iron:leaves', {
-      toolType: 'shears',
-      toolMaterial: 'iron',
-      targetMaterial: 'leaves',
-      speedMultiplier: 15 as MiningSpeed, // シアーズは非常に速い
-      canHarvest: true
-    }]
+    [
+      'pickaxe:diamond:stone',
+      {
+        toolType: 'pickaxe',
+        toolMaterial: 'diamond',
+        targetMaterial: 'stone',
+        speedMultiplier: 8 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'pickaxe:iron:stone',
+      {
+        toolType: 'pickaxe',
+        toolMaterial: 'iron',
+        targetMaterial: 'stone',
+        speedMultiplier: 6 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'pickaxe:stone:stone',
+      {
+        toolType: 'pickaxe',
+        toolMaterial: 'stone',
+        targetMaterial: 'stone',
+        speedMultiplier: 4 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'pickaxe:wood:stone',
+      {
+        toolType: 'pickaxe',
+        toolMaterial: 'wood',
+        targetMaterial: 'stone',
+        speedMultiplier: 2 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'axe:diamond:wood',
+      {
+        toolType: 'axe',
+        toolMaterial: 'diamond',
+        targetMaterial: 'wood',
+        speedMultiplier: 8 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'axe:iron:wood',
+      {
+        toolType: 'axe',
+        toolMaterial: 'iron',
+        targetMaterial: 'wood',
+        speedMultiplier: 6 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'axe:stone:wood',
+      {
+        toolType: 'axe',
+        toolMaterial: 'stone',
+        targetMaterial: 'wood',
+        speedMultiplier: 4 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'axe:wood:wood',
+      {
+        toolType: 'axe',
+        toolMaterial: 'wood',
+        targetMaterial: 'wood',
+        speedMultiplier: 2 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'shovel:diamond:sand',
+      {
+        toolType: 'shovel',
+        toolMaterial: 'diamond',
+        targetMaterial: 'sand',
+        speedMultiplier: 8 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'shovel:iron:sand',
+      {
+        toolType: 'shovel',
+        toolMaterial: 'iron',
+        targetMaterial: 'sand',
+        speedMultiplier: 6 as MiningSpeed,
+        canHarvest: true,
+      },
+    ],
+    [
+      'shears:iron:leaves',
+      {
+        toolType: 'shears',
+        toolMaterial: 'iron',
+        targetMaterial: 'leaves',
+        speedMultiplier: 15 as MiningSpeed, // シアーズは非常に速い
+        canHarvest: true,
+      },
+    ]
   )
 
   const getMaterial = (blockId: BlockId) =>
@@ -222,7 +273,7 @@ const makeMaterialService = Effect.gen(function* () {
 
       const speedMultiplier = pipe(
         efficiency,
-        Option.map(e => e.speedMultiplier),
+        Option.map((e) => e.speedMultiplier),
         Option.getOrElse(() => 1 as MiningSpeed)
       )
 
@@ -234,7 +285,7 @@ const makeMaterialService = Effect.gen(function* () {
         Option.getOrElse(() => 0)
       )
 
-      const enchantmentBonus = 1 + (efficiencyEnchantLevel * 0.3)
+      const enchantmentBonus = 1 + efficiencyEnchantLevel * 0.3
 
       const finalTime = baseTime / (speedMultiplier * enchantmentBonus)
       return Duration.seconds(finalTime)
@@ -254,9 +305,7 @@ const makeMaterialService = Effect.gen(function* () {
       // Silk Touch エンチャントの適用
       const hasSilkTouch = pipe(
         tool,
-        Option.flatMap(t =>
-          Array.findFirst(t.enchantments, (e: any) => e.type === 'silk_touch')
-        ),
+        Option.flatMap((t) => Array.findFirst(t.enchantments, (e: any) => e.type === 'silk_touch')),
         Option.isSome
       )
 
@@ -310,15 +359,13 @@ const makeMaterialService = Effect.gen(function* () {
         pipe(
           HashMap.values(materials),
           Array.fromIterable,
-          Array.findFirst((m: any) =>
-            m.drops.some((drop: any) => drop.itemId === itemId)
-          )
+          Array.findFirst((m: Material) => m.drops.some((drop: any) => drop.itemId === itemId))
         )
       )
 
       return pipe(
         material,
-        Option.flatMap(m => Option.fromNullable(m.burnTime))
+        Option.flatMap((m: Material) => Option.fromNullable(m.burnTime))
       )
     })
 
@@ -327,11 +374,8 @@ const makeMaterialService = Effect.gen(function* () {
     calculateMiningTime,
     getDrops,
     canHarvest,
-    getBurnTime
+    getBurnTime,
   })
 })
 
-export const MaterialServiceLive = Layer.effect(
-  MaterialService,
-  makeMaterialService
-)
+export const MaterialServiceLive = Layer.effect(MaterialService, makeMaterialService)

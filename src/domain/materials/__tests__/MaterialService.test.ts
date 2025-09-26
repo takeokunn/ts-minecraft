@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Option, Duration, Layer } from 'effect'
-import {
-  Tool,
-  BlockId,
-  ItemId
-} from '../MaterialTypes'
+import { Tool, BlockId, ItemId } from '../MaterialTypes'
 import { MaterialService } from '../MaterialService'
 import { MaterialServiceLive } from '../MaterialServiceLive'
 
@@ -29,7 +25,7 @@ describe('MaterialService', () => {
       const diamondPickaxe: Tool = {
         type: 'pickaxe',
         material: 'diamond',
-        enchantments: []
+        enchantments: [],
       }
       const time = yield* service.calculateMiningTime(stone, Option.some(diamondPickaxe))
       const seconds = Duration.toSeconds(time)
@@ -45,7 +41,7 @@ describe('MaterialService', () => {
       const enchantedPickaxe: Tool = {
         type: 'pickaxe',
         material: 'diamond',
-        enchantments: [{ type: 'efficiency', level: 3 }]
+        enchantments: [{ type: 'efficiency', level: 3 }],
       }
       const time = yield* service.calculateMiningTime(stone, Option.some(enchantedPickaxe))
       const seconds = Duration.toSeconds(time)
@@ -75,7 +71,7 @@ describe('MaterialService', () => {
       const woodPickaxe: Tool = {
         type: 'pickaxe',
         material: 'wood',
-        enchantments: []
+        enchantments: [],
       }
       const canHarvestWood = yield* service.canHarvest(diamondOre, Option.some(woodPickaxe))
       expect(canHarvestWood).toBe(false)
@@ -84,7 +80,7 @@ describe('MaterialService', () => {
       const ironPickaxe: Tool = {
         type: 'pickaxe',
         material: 'iron',
-        enchantments: []
+        enchantments: [],
       }
       const canHarvestIron = yield* service.canHarvest(diamondOre, Option.some(ironPickaxe))
       expect(canHarvestIron).toBe(true)
@@ -97,7 +93,7 @@ describe('MaterialService', () => {
       const diamondPickaxe: Tool = {
         type: 'pickaxe',
         material: 'diamond',
-        enchantments: []
+        enchantments: [],
       }
       const canHarvestObsidianDiamond = yield* service.canHarvest(obsidian, Option.some(diamondPickaxe))
       expect(canHarvestObsidianDiamond).toBe(true)
@@ -113,21 +109,21 @@ describe('MaterialService', () => {
       const normalPickaxe: Tool = {
         type: 'pickaxe',
         material: 'iron',
-        enchantments: []
+        enchantments: [],
       }
       const normalDrops = yield* service.getDrops(stone, Option.some(normalPickaxe), 0)
       expect(normalDrops).toHaveLength(1)
-      expect(normalDrops[0].itemId).toBe('cobblestone')
+      expect(normalDrops[0]?.itemId).toBe('cobblestone')
 
       // Silk touch drops (stone itself)
       const silkTouchPickaxe: Tool = {
         type: 'pickaxe',
         material: 'iron',
-        enchantments: [{ type: 'silk_touch', level: 1 }]
+        enchantments: [{ type: 'silk_touch', level: 1 }],
       }
       const silkDrops = yield* service.getDrops(stone, Option.some(silkTouchPickaxe), 0)
       expect(silkDrops).toHaveLength(1)
-      expect(silkDrops[0].itemId).toBe('stone')
+      expect(silkDrops[0]?.itemId).toBe('stone')
     }).pipe(Effect.provide(TestLayer), Effect.runPromise)
   })
 
@@ -140,7 +136,7 @@ describe('MaterialService', () => {
       const axe: Tool = {
         type: 'axe',
         material: 'diamond',
-        enchantments: []
+        enchantments: [],
       }
       const drops = yield* service.getDrops(diamondOre, Option.some(axe), 0)
       expect(drops).toHaveLength(0)
