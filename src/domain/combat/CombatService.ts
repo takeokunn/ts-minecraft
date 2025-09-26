@@ -11,6 +11,8 @@ import type {
   KnockbackForce,
   KnockbackError,
   EntityNotFoundError,
+  AttackOnCooldownError,
+  TargetNotFoundError,
   DefenseValue,
   DamageSource,
 } from './CombatTypes.js'
@@ -37,7 +39,7 @@ export interface CombatService {
     attackerId: EntityId,
     targetId: EntityId,
     attackType: AttackType
-  ) => Effect.Effect<CombatResult, CombatError>
+  ) => Effect.Effect<CombatResult, AttackOnCooldownError | TargetNotFoundError | KnockbackError>
 
   /**
    * Calculate final damage after armor reduction
@@ -84,10 +86,7 @@ export interface CombatService {
   /**
    * Set entity health
    */
-  readonly setHealth: (
-    entityId: EntityId,
-    health: number
-  ) => Effect.Effect<EntityHealth, EntityNotFoundError>
+  readonly setHealth: (entityId: EntityId, health: number) => Effect.Effect<EntityHealth, EntityNotFoundError>
 
   /**
    * Check if entity is alive
@@ -102,10 +101,7 @@ export interface CombatService {
   /**
    * Set attack cooldown
    */
-  readonly setAttackCooldown: (
-    attackerId: EntityId,
-    attackType: AttackType
-  ) => Effect.Effect<void, never>
+  readonly setAttackCooldown: (attackerId: EntityId, attackType: AttackType) => Effect.Effect<void, never>
 
   /**
    * Check remaining cooldown

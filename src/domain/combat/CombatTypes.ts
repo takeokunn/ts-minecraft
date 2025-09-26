@@ -254,17 +254,12 @@ export class KnockbackError extends Schema.TaggedError<KnockbackError>()('Knockb
 // Helper Functions
 // ================================
 
-export const createAttackDamage = (damage: number): AttackDamage =>
-  Schema.decodeSync(AttackDamage)(damage)
+export const createAttackDamage = (damage: number): AttackDamage => Schema.decodeSync(AttackDamage)(damage)
 
-export const createDefenseValue = (defense: number): DefenseValue =>
-  Schema.decodeSync(DefenseValue)(defense)
+export const createDefenseValue = (defense: number): DefenseValue => Schema.decodeSync(DefenseValue)(defense)
 
-export const createKnockbackForce = (force: number): KnockbackForce =>
-  Schema.decodeSync(KnockbackForce)(force)
+export const createKnockbackForce = (force: number): KnockbackForce => Schema.decodeSync(KnockbackForce)(force)
 
-export const createAttackCooldown = (cooldown: number): AttackCooldown =>
-  Schema.decodeSync(AttackCooldown)(cooldown)
+export const createAttackCooldown = (cooldown: number): AttackCooldown => Schema.decodeSync(AttackCooldown)(cooldown)
 
-export const createDurability = (durability: number): Durability =>
-  Schema.decodeSync(Durability)(durability)
+export const createDurability = (durability: number): Durability => Schema.decodeSync(Durability)(durability)

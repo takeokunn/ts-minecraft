@@ -63,10 +63,7 @@ const calculateMeleeDamage = (weapon: Option.Option<import('./CombatTypes.js').W
     return createAttackDamage(Math.max(1, charged))
   })
 
-const calculateRangedDamage = (
-  projectileType: import('./CombatTypes.js').ProjectileType,
-  power: number
-) =>
+const calculateRangedDamage = (projectileType: import('./CombatTypes.js').ProjectileType, power: number) =>
   Effect.gen(function* () {
     let baseDamage = 2
     switch (projectileType) {
@@ -152,7 +149,7 @@ const calculateKnockback = (attackType: AttackType): Effect.Effect<KnockbackForc
     switch (attackType._tag) {
       case 'Melee':
         baseKnockback = pipe(
-          attackType.weapon,
+          Option.fromNullable(attackType.weapon),
           Option.match({
             onNone: () => 0.5,
             onSome: (w: import('./CombatTypes.js').Weapon) => w.knockback as number,
@@ -257,10 +254,7 @@ const makeCombatService = Effect.gen(function* () {
       let baseDamage: AttackDamage
       switch (attackType._tag) {
         case 'Melee':
-          baseDamage = yield* calculateMeleeDamage(
-            Option.fromNullable(attackType.weapon),
-            attackType.chargeTime
-          )
+          baseDamage = yield* calculateMeleeDamage(Option.fromNullable(attackType.weapon), attackType.chargeTime)
           break
         case 'Ranged':
           baseDamage = yield* calculateRangedDamage(attackType.projectileType, attackType.power)
@@ -306,11 +300,11 @@ const makeCombatService = Effect.gen(function* () {
       })
 
       // Apply damage to target
-      const targetHealth = yield* applyDamage(
-        targetId,
-        finalDamage.damage,
-        { _tag: 'Mob', mobId: attackerId, weaponType: Option.some(attackType) } as DamageSource
-      )
+      const targetHealth = yield* applyDamage(targetId, finalDamage.damage, {
+        _tag: 'Mob',
+        mobId: attackerId,
+        weaponType: attackType,
+      } as DamageSource)
 
       // Calculate and apply knockback
       const knockbackForce = yield* calculateKnockback(attackType)
@@ -334,7 +328,7 @@ const makeCombatService = Effect.gen(function* () {
         yield* eventBus.publish({
           _tag: 'EntityKilled',
           entityId: targetId,
-          killerId: Option.some(attackerId),
+          killerId: attackerId,
           timestamp: Date.now(),
         } as CombatEvent)
       }
@@ -391,7 +385,15 @@ const makeCombatService = Effect.gen(function* () {
 
       // Apply force through physics engine
       const bodyId = `entity_${targetId}` // Convert EntityId to body ID
-      yield* physicsService.applyMovementForce(bodyId, normalizedForce)
+      yield* physicsService.applyMovementForce(bodyId, normalizedForce).pipe(
+        Effect.mapError(
+          (physicsError) =>
+            new KnockbackError({
+              message: `Failed to apply knockback: ${physicsError.message}`,
+              targetId,
+            })
+        )
+      )
 
       // Publish knockback event
       yield* eventBus.publish({
@@ -514,22 +516,24 @@ const EventBusDefault = Layer.succeed(
 const CannonPhysicsServiceDefault = Layer.succeed(
   CannonPhysicsService,
   CannonPhysicsService.of({
+    initializeWorld: () => Effect.succeed(undefined),
     createPlayerController: () => Effect.succeed('body_1'),
-    removePlayerController: () => Effect.succeed(undefined),
-    applyMovementForce: () => Effect.succeed(undefined),
-    getBodyState: () =>
+    step: () => Effect.succeed(undefined),
+    getPlayerState: () =>
       Effect.succeed({
         position: SpatialBrands.createVector3D(0, 64, 0),
         velocity: SpatialBrands.createVector3D(0, 0, 0),
         angularVelocity: SpatialBrands.createVector3D(0, 0, 0),
         quaternion: { x: 0, y: 0, z: 0, w: 1 },
-        isGrounded: true,
+        isOnGround: true,
+        isColliding: false,
       }),
+    applyMovementForce: () => Effect.succeed(undefined),
+    jumpPlayer: () => Effect.succeed(undefined),
     raycastGround: () => Effect.succeed(null),
     addStaticBlock: () => Effect.succeed('block_1'),
-    removeStaticBlock: () => Effect.succeed(undefined),
-    step: () => Effect.succeed(undefined),
-    reset: () => Effect.succeed(undefined),
+    removeBody: () => Effect.succeed(undefined),
+    cleanup: () => Effect.succeed(undefined),
   })
 )
 
