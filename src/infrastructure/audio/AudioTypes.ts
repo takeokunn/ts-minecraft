@@ -271,8 +271,12 @@ export class AudioContextError extends Schema.TaggedError<AudioContextError>()(
 
 // Helper functions for creating audio types
 export const AudioHelpers = {
-  createVolume: (value: number): Volume =>
-    pipe(Math.max(0, Math.min(1, value)), Schema.decodeSync(Volume)),
+  createVolume: (value: number): Volume => {
+    const clamped = Math.max(0, Math.min(1, value))
+    // Handle very small numbers that may cause precision issues
+    const normalized = clamped < 0.0001 ? 0 : clamped
+    return pipe(normalized, Schema.decodeSync(Volume))
+  },
 
   createPitch: (value: number): Pitch =>
     pipe(Math.max(0.5, Math.min(2, value)), Schema.decodeSync(Pitch)),
