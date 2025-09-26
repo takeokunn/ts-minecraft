@@ -1,12 +1,19 @@
 import React, { useState, useCallback, useMemo } from 'react'
-import { Effect, Option, pipe, ReadonlyArray, Match } from 'effect'
-import type { CraftingRecipe, ShapedRecipe, ShapelessRecipe, CraftingItemStack, ItemMatcher } from '../../../domain/crafting/RecipeTypes'
+import { Effect, Option, pipe, Array, Match } from 'effect'
+import type {
+  CraftingRecipe,
+  ShapedRecipe,
+  ShapelessRecipe,
+  CraftingItemStack,
+  ItemMatcher,
+} from '../../../domain/crafting/RecipeTypes'
+import { GridWidth, GridHeight } from '../../../domain/crafting/RecipeTypes'
 import type { RecipeFilterConfig, RecipeDisplayMode, CraftingGUIEvent } from '../CraftingGUITypes'
 import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
 
 interface RecipeDisplayProps {
-  recipes: ReadonlyArray<CraftingRecipe>
-  selectedRecipe?: string
+  recipes: readonly CraftingRecipe[]
+  selectedRecipe?: string | undefined
   filterConfig?: RecipeFilterConfig
   displayMode?: RecipeDisplayMode
   onRecipeSelect?: (event: CraftingGUIEvent) => void
@@ -22,12 +29,7 @@ interface RecipeCardProps {
   displayMode: RecipeDisplayMode
 }
 
-const RecipeCard: React.FC<RecipeCardProps> = ({
-  recipe,
-  isSelected,
-  onClick,
-  displayMode
-}) => {
+const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, isSelected, onClick, displayMode }) => {
   const [isHovered, setIsHovered] = useState(false)
 
   const renderRecipePattern = useCallback(() => {
@@ -35,15 +37,15 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       const shapedRecipe = recipe as ShapedRecipe
       const grid = {
         _tag: 'CraftingGrid' as const,
-        width: shapedRecipe.pattern[0]?.length || 3,
-        height: shapedRecipe.pattern.length,
-        slots: shapedRecipe.pattern.map(row =>
-          row.map(key => {
-            if (!key) return undefined
+        width: GridWidth(shapedRecipe.pattern[0]?.length || 3),
+        height: GridHeight(shapedRecipe.pattern.length),
+        slots: shapedRecipe.pattern.map((row) =>
+          row.map((key) => {
+            if (!key) return null
             const matcher = shapedRecipe.ingredients[key]
-            return mockItemFromMatcher(matcher)
+            return matcher ? mockItemFromMatcher(matcher) : null
           })
-        )
+        ),
       }
       return <CraftingGrid grid={grid} isReadOnly={true} className="recipe-preview-grid" />
     } else {
@@ -51,9 +53,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       const items = shapelessRecipe.ingredients.map(mockItemFromMatcher)
       const grid = {
         _tag: 'CraftingGrid' as const,
-        width: 3,
-        height: 3,
-        slots: distributeItemsInGrid(items, 3, 3)
+        width: GridWidth(3),
+        height: GridHeight(3),
+        slots: distributeItemsInGrid(items, 3, 3),
       }
       return <CraftingGrid grid={grid} isReadOnly={true} className="recipe-preview-grid" />
     }
@@ -65,32 +67,33 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         _tag: 'CraftingItemStack' as const,
         itemId,
         count: 1 as any,
-        metadata: {}
+        metadata: {},
       })),
       Match.tag('tag', ({ tag }) => ({
         _tag: 'CraftingItemStack' as const,
         itemId: tag as any,
         count: 1 as any,
-        metadata: {}
+        metadata: {},
       })),
       Match.tag('custom', () => ({
         _tag: 'CraftingItemStack' as const,
         itemId: 'custom:item' as any,
         count: 1 as any,
-        metadata: {}
+        metadata: {},
       })),
       Match.exhaustive
     )
   }
 
   const distributeItemsInGrid = (items: CraftingItemStack[], width: number, height: number) => {
-    const grid: (CraftingItemStack | undefined)[][] = Array(height).fill(null).map(() =>
-      Array(width).fill(undefined)
-    )
+    const grid: (CraftingItemStack | null)[][] = globalThis
+      .Array(height)
+      .fill(null)
+      .map(() => globalThis.Array(width).fill(null))
     let index = 0
     for (let y = 0; y < height && index < items.length; y++) {
       for (let x = 0; x < width && index < items.length; x++) {
-        grid[y][x] = items[index++]
+        grid[y]![x] = items[index++]!
       }
     }
     return grid
@@ -147,15 +150,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         <span className="recipe-type">{recipe._tag}</span>
       </div>
       <div className="recipe-content">
-        <div className="recipe-pattern">
-          {renderRecipePattern()}
-        </div>
+        <div className="recipe-pattern">{renderRecipePattern()}</div>
         <div className="recipe-arrow">→</div>
         <div className="recipe-result">
           <div className="result-item">
-            <span className="result-icon">
-              {recipe.result.itemId.split(':').pop()?.charAt(0).toUpperCase()}
-            </span>
+            <span className="result-icon">{recipe.result.itemId.split(':').pop()?.charAt(0).toUpperCase()}</span>
             <span className="result-count">×{recipe.result.count}</span>
           </div>
         </div>
@@ -175,21 +174,21 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
   onRecipeSelect,
   onSearch,
   onCategoryChange,
-  className = ''
+  className = '',
 }) => {
   const [searchQuery, setSearchQuery] = useState(filterConfig?.searchQuery || '')
   const [selectedCategory, setSelectedCategory] = useState(filterConfig?.categories[0] || 'all')
 
   const categories = useMemo(() => {
     const cats = new Set<string>(['all'])
-    recipes.forEach(recipe => cats.add(recipe.category._tag))
-    return Array.from(cats)
+    recipes.forEach((recipe: CraftingRecipe) => cats.add(recipe.category._tag))
+    return globalThis.Array.from(cats)
   }, [recipes])
 
   const filteredRecipes = useMemo(() => {
     return pipe(
       recipes,
-      ReadonlyArray.filter(recipe => {
+      Array.filter((recipe: CraftingRecipe) => {
         if (selectedCategory !== 'all' && recipe.category._tag !== selectedCategory) {
           return false
         }
@@ -203,38 +202,47 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
     )
   }, [recipes, searchQuery, selectedCategory])
 
-  const handleRecipeClick = useCallback((recipeId: string) => {
-    if (onRecipeSelect) {
-      const event: CraftingGUIEvent = {
-        _tag: 'RecipeSelected',
-        recipeId
+  const handleRecipeClick = useCallback(
+    (recipeId: string) => {
+      if (onRecipeSelect) {
+        const event: CraftingGUIEvent = {
+          _tag: 'RecipeSelected',
+          recipeId,
+        }
+        onRecipeSelect(event)
       }
-      onRecipeSelect(event)
-    }
-  }, [onRecipeSelect])
+    },
+    [onRecipeSelect]
+  )
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value
-    setSearchQuery(query)
-    if (onSearch) {
-      const event: CraftingGUIEvent = {
-        _tag: 'RecipeSearch',
-        query
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const query = e.target.value
+      setSearchQuery(query)
+      if (onSearch) {
+        const event: CraftingGUIEvent = {
+          _tag: 'RecipeSearch',
+          query,
+        }
+        onSearch(event)
       }
-      onSearch(event)
-    }
-  }, [onSearch])
+    },
+    [onSearch]
+  )
 
-  const handleCategoryChange = useCallback((category: string) => {
-    setSelectedCategory(category)
-    if (onCategoryChange) {
-      const event: CraftingGUIEvent = {
-        _tag: 'CategorySelected',
-        category
+  const handleCategoryChange = useCallback(
+    (category: string) => {
+      setSelectedCategory(category)
+      if (onCategoryChange) {
+        const event: CraftingGUIEvent = {
+          _tag: 'CategorySelected',
+          category,
+        }
+        onCategoryChange(event)
       }
-      onCategoryChange(event)
-    }
-  }, [onCategoryChange])
+    },
+    [onCategoryChange]
+  )
 
   return (
     <div className={`recipe-display ${className}`}>
@@ -250,7 +258,7 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
           />
         </div>
         <div className="recipe-categories">
-          {categories.map(category => (
+          {categories.map((category) => (
             <button
               key={category}
               className={`category-button ${selectedCategory === category ? 'active' : ''}`}
@@ -262,7 +270,7 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({
         </div>
       </div>
       <div className={`recipe-list recipe-list-${displayMode}`}>
-        {filteredRecipes.map(recipe => (
+        {filteredRecipes.map((recipe: CraftingRecipe) => (
           <RecipeCard
             key={recipe.id}
             recipe={recipe}

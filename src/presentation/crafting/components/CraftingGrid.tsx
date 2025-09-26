@@ -39,80 +39,98 @@ const CraftingSlot: React.FC<SlotProps> = ({
   onDragStart,
   onDragEnd,
   onDragOver,
-  onDrop
+  onDrop,
 }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const slotRef = useRef<HTMLDivElement>(null)
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (isReadOnly || !onSlotClick) return
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (isReadOnly || !onSlotClick) return
 
-    const button = e.button === 0 ? 'left' : 'right'
-    const event: CraftingGUIEvent = {
-      _tag: 'SlotClicked',
-      slotIndex: index,
-      position,
-      button: button as 'left' | 'right',
-      shiftKey: e.shiftKey,
-      ctrlKey: e.ctrlKey
-    }
-    onSlotClick(event)
-  }, [index, position, isReadOnly, onSlotClick])
-
-  const handleDragStart = useCallback((e: React.DragEvent) => {
-    if (isReadOnly || !item || !onDragStart) return
-
-    setIsDragging(true)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      slotIndex: index,
-      item
-    }))
-
-    const event: CraftingGUIEvent = {
-      _tag: 'ItemDragStart',
-      slotIndex: index,
-      item
-    }
-    onDragStart(event)
-  }, [index, item, isReadOnly, onDragStart])
-
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    setIsDragging(false)
-    if (!onDragEnd) return
-
-    const event: CraftingGUIEvent = {
-      _tag: 'ItemDragEnd',
-      targetSlotIndex: undefined
-    }
-    onDragEnd(event)
-  }, [onDragEnd])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (isReadOnly) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (onDragOver) onDragOver(e)
-  }, [isReadOnly, onDragOver])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    if (isReadOnly || !onDrop) return
-
-    try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      const button = e.button === 0 ? 'left' : 'right'
       const event: CraftingGUIEvent = {
-        _tag: 'ItemDrop',
-        sourceSlot: data.slotIndex,
-        targetSlot: index,
-        item: data.item
+        _tag: 'SlotClicked',
+        slotIndex: index,
+        position,
+        button: button as 'left' | 'right',
+        shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey,
       }
-      onDrop(event)
-    } catch (error) {
-      console.error('Failed to parse drag data:', error)
-    }
-  }, [index, isReadOnly, onDrop])
+      onSlotClick(event)
+    },
+    [index, position, isReadOnly, onSlotClick]
+  )
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      if (isReadOnly || !item || !onDragStart) return
+
+      setIsDragging(true)
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData(
+        'application/json',
+        JSON.stringify({
+          slotIndex: index,
+          item,
+        })
+      )
+
+      const event: CraftingGUIEvent = {
+        _tag: 'ItemDragStart',
+        slotIndex: index,
+        item,
+      }
+      onDragStart(event)
+    },
+    [index, item, isReadOnly, onDragStart]
+  )
+
+  const handleDragEnd = useCallback(
+    (e: React.DragEvent) => {
+      setIsDragging(false)
+      if (!onDragEnd) return
+
+      const event: CraftingGUIEvent = {
+        _tag: 'ItemDragEnd',
+        targetSlotIndex: null,
+      }
+      onDragEnd(event)
+    },
+    [onDragEnd]
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (isReadOnly) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      if (onDragOver) onDragOver(e)
+    },
+    [isReadOnly, onDragOver]
+  )
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      if (isReadOnly || !onDrop) return
+
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'))
+        const event: CraftingGUIEvent = {
+          _tag: 'ItemDrop',
+          sourceSlot: data.slotIndex,
+          targetSlot: index,
+          item: data.item,
+        }
+        onDrop(event)
+      } catch (error) {
+        console.error('Failed to parse drag data:', error)
+      }
+    },
+    [index, isReadOnly, onDrop]
+  )
 
   return (
     <div
@@ -126,7 +144,10 @@ const CraftingSlot: React.FC<SlotProps> = ({
         ${isReadOnly ? 'readonly' : ''}
       `}
       onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); handleClick(e as any) }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        handleClick(e as any)
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onDragStart={handleDragStart}
@@ -143,9 +164,7 @@ const CraftingSlot: React.FC<SlotProps> = ({
             {/* Item icon would be rendered here */}
             <span className="item-placeholder">{item.itemId.split(':').pop()?.charAt(0).toUpperCase()}</span>
           </div>
-          {item.count > 1 && (
-            <span className="item-count">{item.count}</span>
-          )}
+          {item.count > 1 && <span className="item-count">{item.count}</span>}
         </div>
       )}
     </div>
@@ -154,33 +173,37 @@ const CraftingSlot: React.FC<SlotProps> = ({
 
 export const CraftingGrid: React.FC<CraftingGridProps> = ({
   grid,
+  highlightPattern,
   onSlotClick,
-  onItemDrop,
   onItemDragStart,
   onItemDragEnd,
+  onItemDrop,
   isReadOnly = false,
-  showTooltips = true,
-  highlightPattern,
-  className = ''
 }) => {
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null)
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    const target = e.target as HTMLElement
-    const slotElement = target.closest('[data-slot-index]')
-    if (slotElement) {
-      const index = parseInt(slotElement.getAttribute('data-slot-index') || '0')
-      setDragOverSlot(index)
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    // slotIndexはCraftingSlotコンポーネントから取得される
+    const slotIndex = parseInt((e.target as HTMLElement).getAttribute('data-slot-index') || '-1', 10)
+    if (slotIndex >= 0) {
+      setDragOverSlot(slotIndex)
     }
-  }, [])
+  }
 
-  const handleDragLeave = useCallback(() => {
-    setDragOverSlot(null)
-  }, [])
+  const handleDragLeave = (e: React.DragEvent) => {
+    // グリッド外に出た場合のみリセット
+    const rect = e.currentTarget.getBoundingClientRect()
+    const { clientX, clientY } = e
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      setDragOverSlot(null)
+    }
+  }
 
   return (
     <div
-      className={`crafting-grid ${className}`}
+      className="crafting-grid"
+      onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       style={{
         display: 'grid',
@@ -190,7 +213,7 @@ export const CraftingGrid: React.FC<CraftingGridProps> = ({
         padding: '8px',
         background: 'rgba(139, 69, 19, 0.8)',
         borderRadius: '4px',
-        border: '2px solid #4a2511'
+        border: '2px solid #4a2511',
       }}
     >
       {grid.slots.map((row, y) =>
@@ -199,21 +222,20 @@ export const CraftingGrid: React.FC<CraftingGridProps> = ({
           const isHighlighted = highlightPattern?.[y]?.[x] || false
           const isDragTarget = dragOverSlot === index
 
-          return (
-            <CraftingSlot
-              key={`slot-${x}-${y}`}
-              item={item}
-              index={index}
-              position={{ x, y }}
-              isHighlighted={isHighlighted || isDragTarget}
-              isReadOnly={isReadOnly}
-              onSlotClick={onSlotClick}
-              onDragStart={onItemDragStart}
-              onDragEnd={onItemDragEnd}
-              onDragOver={handleDragOver}
-              onDrop={onItemDrop}
-            />
-          )
+          const slotProps: SlotProps = {
+            index,
+            position: { x, y },
+            isHighlighted: isHighlighted || isDragTarget,
+            isReadOnly,
+            ...(item && { item }),
+            ...(onSlotClick && { onSlotClick }),
+            ...(onItemDragStart && { onDragStart: onItemDragStart }),
+            ...(onItemDragEnd && { onDragEnd: onItemDragEnd }),
+            ...(handleDragOver && { onDragOver: handleDragOver }),
+            ...(onItemDrop && { onDrop: onItemDrop }),
+          }
+
+          return <CraftingSlot key={`slot-${x}-${y}`} {...slotProps} />
         })
       )}
     </div>
@@ -320,6 +342,4 @@ const styles = `
 `
 
 // Export styles as a component for injection
-export const CraftingGridStyles = () => (
-  <style dangerouslySetInnerHTML={{ __html: styles }} />
-)
+export const CraftingGridStyles = () => <style dangerouslySetInnerHTML={{ __html: styles }} />

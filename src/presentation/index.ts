@@ -29,5 +29,5 @@ export {
   CraftingGridStyles,
   RecipeDisplay,
   RecipeBook,
-  CraftingResult
+  CraftingResult,
 } from './crafting'

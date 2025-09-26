@@ -16,84 +16,84 @@ export const CraftingSlotState = Schema.Struct({
   index: Schema.Number,
   position: Schema.Struct({
     x: Schema.Number,
-    y: Schema.Number
+    y: Schema.Number,
   }),
-  item: Schema.optional(Schema.Unknown), // CraftingItemStack
+  item: Schema.NullOr(Schema.Unknown), // CraftingItemStack
   isHovered: Schema.Boolean,
   isDragging: Schema.Boolean,
-  isDropTarget: Schema.Boolean
+  isDropTarget: Schema.Boolean,
 })
 export interface CraftingSlotState extends Schema.Schema.Type<typeof CraftingSlotState> {}
 
 export const CraftingGUIState = Schema.Struct({
   _tag: Schema.Literal('CraftingGUIState'),
   sessionId: Schema.String,
-  craftingGrid: Schema.Array(Schema.Array(Schema.optional(Schema.Unknown))), // CraftingItemStack
-  resultSlot: Schema.optional(Schema.Unknown), // CraftingItemStack
-  selectedRecipe: Schema.optional(Schema.String), // RecipeId
+  craftingGrid: Schema.Array(Schema.Array(Schema.NullOr(Schema.Unknown))), // CraftingItemStack
+  resultSlot: Schema.NullOr(Schema.Unknown), // CraftingItemStack
+  selectedRecipe: Schema.NullOr(Schema.String), // RecipeId
   availableRecipes: Schema.Array(Schema.Unknown), // CraftingRecipe[]
   isProcessing: Schema.Boolean,
   isDragging: Schema.Boolean,
-  draggedItem: Schema.optional(Schema.Unknown), // CraftingItemStack
-  draggedFromSlot: Schema.optional(Schema.Number),
-  hoveredSlot: Schema.optional(Schema.Number),
+  draggedItem: Schema.NullOr(Schema.Unknown), // CraftingItemStack
+  draggedFromSlot: Schema.NullOr(Schema.Number),
+  hoveredSlot: Schema.NullOr(Schema.Number),
   searchQuery: Schema.String,
   selectedCategory: Schema.String,
   showRecipeBook: Schema.Boolean,
-  animations: Schema.Record(Schema.String, Schema.Boolean)
+  animations: Schema.Record({ key: Schema.String, value: Schema.Boolean }),
 })
 export interface CraftingGUIState extends Schema.Schema.Type<typeof CraftingGUIState> {}
 
-// UIイベントのTaggedUnion
-export const CraftingGUIEvent = Schema.TaggedUnion('_tag', {
-  SlotClicked: Schema.Struct({
+// UIイベントのUnion
+export const CraftingGUIEvent = Schema.Union(
+  Schema.Struct({
     _tag: Schema.Literal('SlotClicked'),
     slotIndex: Schema.Number,
     position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
     button: Schema.Union(Schema.Literal('left'), Schema.Literal('right')),
     shiftKey: Schema.Boolean,
-    ctrlKey: Schema.Boolean
+    ctrlKey: Schema.Boolean,
   }),
-  ItemDragStart: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('ItemDragStart'),
     slotIndex: Schema.Number,
-    item: Schema.Unknown // CraftingItemStack
+    item: Schema.Unknown, // CraftingItemStack
   }),
-  ItemDragEnd: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('ItemDragEnd'),
-    targetSlotIndex: Schema.optional(Schema.Number)
+    targetSlotIndex: Schema.NullOr(Schema.Number),
   }),
-  ItemDrop: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('ItemDrop'),
     sourceSlot: Schema.Number,
     targetSlot: Schema.Number,
-    item: Schema.Unknown // CraftingItemStack
+    item: Schema.Unknown, // CraftingItemStack
   }),
-  RecipeSelected: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('RecipeSelected'),
-    recipeId: Schema.String
+    recipeId: Schema.String,
   }),
-  RecipeSearch: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('RecipeSearch'),
-    query: Schema.String
+    query: Schema.String,
   }),
-  CategorySelected: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('CategorySelected'),
-    category: Schema.String
+    category: Schema.String,
   }),
-  CraftingRequested: Schema.Struct({
+  Schema.Struct({
     _tag: Schema.Literal('CraftingRequested'),
-    recipeId: Schema.optional(Schema.String),
-    quantity: Schema.Number
+    recipeId: Schema.NullOr(Schema.String),
+    quantity: Schema.Number,
   }),
-  GridCleared: Schema.Struct({
-    _tag: Schema.Literal('GridCleared')
+  Schema.Struct({
+    _tag: Schema.Literal('GridCleared'),
   }),
-  RecipeBookToggled: Schema.Struct({
-    _tag: Schema.Literal('RecipeBookToggled')
+  Schema.Struct({
+    _tag: Schema.Literal('RecipeBookToggled'),
   })
-})
-export interface CraftingGUIEvent extends Schema.Schema.Type<typeof CraftingGUIEvent> {}
+)
+export type CraftingGUIEvent = Schema.Schema.Type<typeof CraftingGUIEvent>
 
 // アニメーション設定
 export const AnimationConfig = Schema.Struct({
@@ -105,16 +105,12 @@ export const AnimationConfig = Schema.Struct({
     Schema.Literal('ease-out'),
     Schema.Literal('ease-in-out')
   ),
-  delay: Schema.optional(Schema.Number)
+  delay: Schema.NullOr(Schema.Number),
 })
 export interface AnimationConfig extends Schema.Schema.Type<typeof AnimationConfig> {}
 
 // レシピ表示モード
-export const RecipeDisplayMode = Schema.Union(
-  Schema.Literal('grid'),
-  Schema.Literal('list'),
-  Schema.Literal('compact')
-)
+export const RecipeDisplayMode = Schema.Union(Schema.Literal('grid'), Schema.Literal('list'), Schema.Literal('compact'))
 export type RecipeDisplayMode = Schema.Schema.Type<typeof RecipeDisplayMode>
 
 // フィルタ設定
@@ -129,7 +125,7 @@ export const RecipeFilterConfig = Schema.Struct({
     Schema.Literal('recently-used'),
     Schema.Literal('most-crafted')
   ),
-  displayMode: RecipeDisplayMode
+  displayMode: RecipeDisplayMode,
 })
 export interface RecipeFilterConfig extends Schema.Schema.Type<typeof RecipeFilterConfig> {}
 
@@ -137,9 +133,9 @@ export interface RecipeFilterConfig extends Schema.Schema.Type<typeof RecipeFilt
 export const DragDropState = Schema.Struct({
   _tag: Schema.Literal('DragDropState'),
   isDragging: Schema.Boolean,
-  draggedItem: Schema.optional(Schema.Unknown), // CraftingItemStack
-  sourceSlot: Schema.optional(Schema.Number),
-  targetSlot: Schema.optional(Schema.Number),
+  draggedItem: Schema.NullOr(Schema.Unknown), // CraftingItemStack
+  sourceSlot: Schema.NullOr(Schema.Number),
+  targetSlot: Schema.NullOr(Schema.Number),
   dropEffect: Schema.Union(
     Schema.Literal('none'),
     Schema.Literal('move'),
@@ -148,8 +144,8 @@ export const DragDropState = Schema.Struct({
   ),
   cursorPosition: Schema.Struct({
     x: Schema.Number,
-    y: Schema.Number
-  })
+    y: Schema.Number,
+  }),
 })
 export interface DragDropState extends Schema.Schema.Type<typeof DragDropState> {}
 
@@ -161,7 +157,7 @@ export const CraftingResultDisplay = Schema.Struct({
   canCraft: Schema.Boolean,
   missingIngredients: Schema.Array(Schema.Unknown), // CraftingItemStack[]
   craftCount: Schema.Number,
-  showAnimation: Schema.Boolean
+  showAnimation: Schema.Boolean,
 })
 export interface CraftingResultDisplay extends Schema.Schema.Type<typeof CraftingResultDisplay> {}
 
@@ -170,7 +166,7 @@ export const CraftingUIConfig = Schema.Struct({
   _tag: Schema.Literal('CraftingUIConfig'),
   gridSize: Schema.Struct({
     width: Schema.Number,
-    height: Schema.Number
+    height: Schema.Number,
   }),
   slotSize: Schema.Number,
   slotSpacing: Schema.Number,
@@ -178,11 +174,7 @@ export const CraftingUIConfig = Schema.Struct({
   enableSounds: Schema.Boolean,
   enableTooltips: Schema.Boolean,
   enableKeyboardShortcuts: Schema.Boolean,
-  theme: Schema.Union(
-    Schema.Literal('default'),
-    Schema.Literal('dark'),
-    Schema.Literal('compact')
-  )
+  theme: Schema.Union(Schema.Literal('default'), Schema.Literal('dark'), Schema.Literal('compact')),
 })
 export interface CraftingUIConfig extends Schema.Schema.Type<typeof CraftingUIConfig> {}
 
@@ -196,7 +188,7 @@ export const TooltipInfo = Schema.Struct({
   stackSize: Schema.optional(Schema.Number),
   durability: Schema.optional(Schema.Number),
   enchantments: Schema.optional(Schema.Array(Schema.String)),
-  tags: Schema.optional(Schema.Array(Schema.String))
+  tags: Schema.optional(Schema.Array(Schema.String)),
 })
 export interface TooltipInfo extends Schema.Schema.Type<typeof TooltipInfo> {}
 
@@ -204,14 +196,11 @@ export interface TooltipInfo extends Schema.Schema.Type<typeof TooltipInfo> {}
 export const KeyboardShortcut = Schema.Struct({
   _tag: Schema.Literal('KeyboardShortcut'),
   key: Schema.String,
-  modifiers: Schema.Array(Schema.Union(
-    Schema.Literal('ctrl'),
-    Schema.Literal('alt'),
-    Schema.Literal('shift'),
-    Schema.Literal('meta')
-  )),
+  modifiers: Schema.Array(
+    Schema.Union(Schema.Literal('ctrl'), Schema.Literal('alt'), Schema.Literal('shift'), Schema.Literal('meta'))
+  ),
   action: Schema.String,
-  description: Schema.String
+  description: Schema.String,
 })
 export interface KeyboardShortcut extends Schema.Schema.Type<typeof KeyboardShortcut> {}
 
@@ -230,15 +219,17 @@ export const CraftingSession = Schema.Struct({
     Schema.Literal('smithing-table')
   ),
   grid: Schema.Unknown, // CraftingGrid
-  history: Schema.Array(Schema.Struct({
-    timestamp: Schema.Number,
-    action: Schema.String,
-    recipe: Schema.optional(Schema.String)
-  })),
+  history: Schema.Array(
+    Schema.Struct({
+      timestamp: Schema.Number,
+      action: Schema.String,
+      recipe: Schema.optional(Schema.String),
+    })
+  ),
   stats: Schema.Struct({
     itemsCrafted: Schema.Number,
     recipesUsed: Schema.Number,
-    materialsConsumed: Schema.Number
-  })
+    materialsConsumed: Schema.Number,
+  }),
 })
 export interface CraftingSession extends Schema.Schema.Type<typeof CraftingSession> {}

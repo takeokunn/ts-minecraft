@@ -14,7 +14,7 @@ export const CraftingResult: React.FC<CraftingResultProps> = ({
   onCraft,
   isProcessing,
   showAnimation,
-  className = ''
+  className = '',
 }) => {
   const [isAnimating, setIsAnimating] = useState(false)
   const [showParticles, setShowParticles] = useState(false)
@@ -41,27 +41,29 @@ export const CraftingResult: React.FC<CraftingResultProps> = ({
     <div className={`crafting-result ${className}`}>
       <h3>Result</h3>
 
-      <div className={`
+      <div
+        className={`
         result-slot
         ${hasResult ? 'has-result' : 'empty'}
         ${canCraft ? 'can-craft' : ''}
         ${isAnimating ? 'animating' : ''}
         ${isProcessing ? 'processing' : ''}
-      `}>
+      `}
+      >
         {hasResult && result?.result && (
           <>
             <div className="result-item">
               <div className="item-icon">
                 <span>{(result.result as any).itemId.split(':').pop()?.charAt(0).toUpperCase()}</span>
               </div>
-              {(result.result as any).count > 1 && (
-                <span className="item-count">×{(result.result as any).count}</span>
-              )}
+              {(result.result as any).count > 1 && <span className="item-count">×{(result.result as any).count}</span>}
             </div>
             {showParticles && (
               <div className="craft-particles">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className={`particle particle-${i}`}>✨</div>
+                  <div key={i} className={`particle particle-${i}`}>
+                    ✨
+                  </div>
                 ))}
               </div>
             )}
@@ -74,15 +76,8 @@ export const CraftingResult: React.FC<CraftingResultProps> = ({
         )}
       </div>
 
-      <button
-        className={`craft-button ${canCraft ? 'enabled' : 'disabled'}`}
-        onClick={onCraft}
-        disabled={!canCraft}
-      >
-        {isProcessing ? 'Crafting...' :
-         !hasResult ? 'No Recipe' :
-         !result?.canCraft ? 'Missing Items' :
-         'Craft'}
+      <button className={`craft-button ${canCraft ? 'enabled' : 'disabled'}`} onClick={onCraft} disabled={!canCraft}>
+        {isProcessing ? 'Crafting...' : !hasResult ? 'No Recipe' : !result?.canCraft ? 'Missing Items' : 'Craft'}
       </button>
 
       {result?.missingIngredients && result.missingIngredients.length > 0 && (
@@ -91,9 +86,7 @@ export const CraftingResult: React.FC<CraftingResultProps> = ({
           <div className="missing-list">
             {result.missingIngredients.map((item: any, index) => (
               <div key={index} className="missing-item">
-                <span className="missing-icon">
-                  {item.itemId.split(':').pop()?.charAt(0).toUpperCase()}
-                </span>
+                <span className="missing-icon">{item.itemId.split(':').pop()?.charAt(0).toUpperCase()}</span>
                 <span className="missing-count">×{item.count}</span>
               </div>
             ))}
@@ -101,16 +94,12 @@ export const CraftingResult: React.FC<CraftingResultProps> = ({
         </div>
       )}
 
-      {result?.recipe && (
+      {result?.recipe ? (
         <div className="recipe-info">
-          <span className="recipe-name">
-            {(result.recipe as any).result.itemId.split(':').pop()}
-          </span>
-          <span className="recipe-type">
-            {(result.recipe as any)._tag}
-          </span>
+          <span className="recipe-name">{(result.recipe as any).result.itemId.split(':').pop()}</span>
+          <span className="recipe-type">{(result.recipe as any)._tag}</span>
         </div>
-      )}
+      ) : null}
 
       <style>{`
         .crafting-result {

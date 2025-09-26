@@ -1,14 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { Effect, pipe, Option, Match, Runtime, Layer, Exit, Cause } from 'effect'
+import { Effect, pipe, Option, Match, Runtime, Layer, Exit, Cause, ManagedRuntime, Stream } from 'effect'
 import type {
   CraftingGUIState,
   CraftingGUIEvent,
   CraftingSession,
   CraftingResultDisplay,
-  RecipeFilterConfig
+  RecipeFilterConfig,
 } from '../CraftingGUITypes'
-import type { CraftingGrid as CraftingGridType, CraftingRecipe, CraftingItemStack } from '../../../domain/crafting/RecipeTypes'
+import type {
+  CraftingGrid as CraftingGridType,
+  CraftingRecipe,
+  CraftingItemStack,
+} from '../../../domain/crafting/RecipeTypes'
 import { CraftingGUIService, CraftingGUIServiceLive } from '../CraftingGUIService'
+import { CraftingEngineService } from '../../../domain/crafting/CraftingEngineService'
+import { RecipeRegistryService } from '../../../domain/crafting/RecipeRegistryService'
+import { InventoryService } from '../../../domain/inventory/InventoryService'
+import { ItemRegistry } from '../../../domain/inventory/ItemRegistry'
 import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
 import { RecipeDisplay } from './RecipeDisplay'
 import { RecipeBook } from './RecipeBook'
@@ -17,6 +25,7 @@ import { CraftingEngineServiceLive } from '../../../domain/crafting/CraftingEngi
 import { RecipeRegistryServiceLive } from '../../../domain/crafting/RecipeRegistryService'
 import { InventoryServiceLive } from '../../../domain/inventory/InventoryServiceLive'
 import { Brand } from 'effect'
+import { GridWidth, GridHeight } from '../../../domain/crafting/RecipeTypes'
 
 interface CraftingTableGUIProps {
   playerId: string
@@ -28,51 +37,51 @@ interface CraftingTableGUIProps {
 // Create runtime with all required services
 const createCraftingRuntime = () => {
   const MainLayer = Layer.mergeAll(
+    ItemRegistry.Default,
     RecipeRegistryServiceLive,
     CraftingEngineServiceLive,
-    InventoryServiceLive
-  ).pipe(
-    Layer.provide(CraftingGUIServiceLive)
+    InventoryServiceLive,
+    CraftingGUIServiceLive
   )
 
-  return Runtime.make(MainLayer)
+  return ManagedRuntime.make(MainLayer as any)
 }
 
 export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
   playerId,
   tableType = 'workbench',
   onClose,
-  className = ''
+  className = '',
 }) => {
   const [state, setState] = useState<CraftingGUIState>({
     _tag: 'CraftingGUIState',
     sessionId: '',
     craftingGrid: [
-      [undefined, undefined, undefined],
-      [undefined, undefined, undefined],
-      [undefined, undefined, undefined]
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
     ],
-    resultSlot: undefined,
-    selectedRecipe: undefined,
+    resultSlot: null,
+    selectedRecipe: null,
     availableRecipes: [],
     isProcessing: false,
     isDragging: false,
-    draggedItem: undefined,
-    draggedFromSlot: undefined,
-    hoveredSlot: undefined,
+    draggedItem: null,
+    draggedFromSlot: null,
+    hoveredSlot: null,
     searchQuery: '',
     selectedCategory: 'all',
     showRecipeBook: true,
-    animations: {}
+    animations: {},
   })
 
   const [session, setSession] = useState<CraftingSession | null>(null)
   const [craftingResult, setCraftingResult] = useState<CraftingResultDisplay | null>(null)
-  const [recipes, setRecipes] = useState<ReadonlyArray<CraftingRecipe>>([])
+  const [recipes, setRecipes] = useState<readonly CraftingRecipe[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const runtimeRef = useRef<Runtime.Runtime<CraftingGUIService> | null>(null)
+  const runtimeRef = useRef<ManagedRuntime.ManagedRuntime<any, any> | null>(null)
   const serviceRef = useRef<CraftingGUIService | null>(null)
   const updateStreamRef = useRef<any>(null)
 
@@ -80,37 +89,36 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
   useEffect(() => {
     const initService = async () => {
       try {
-        const runtime = await Effect.runPromise(createCraftingRuntime())
+        const runtime = createCraftingRuntime()
         runtimeRef.current = runtime
 
-        const service = Runtime.runSync(runtime)(CraftingGUIService)
+        // Get the service from runtime - ManagedRuntime provides service access
+        const serviceEffect = Effect.gen(function* () {
+          return yield* CraftingGUIService
+        })
+        const service = await runtime.runPromise(serviceEffect)
         serviceRef.current = service
 
         // Initialize session
         const sessionEffect = service.initializeSession(playerId, tableType)
-        const sessionResult = await Effect.runPromise(Runtime.runPromise(runtime)(sessionEffect))
+        const sessionResult = await runtime.runPromise(sessionEffect)
         setSession(sessionResult)
 
         // Get initial state
         const stateEffect = service.getState()
-        const initialState = await Effect.runPromise(Runtime.runPromise(runtime)(stateEffect))
+        const initialState = await runtime.runPromise(stateEffect)
         setState(initialState)
 
         // Load recipes
         const recipesEffect = service.getAvailableRecipes()
-        const availableRecipes = await Effect.runPromise(Runtime.runPromise(runtime)(recipesEffect))
+        const availableRecipes = await runtime.runPromise(recipesEffect)
         setRecipes(availableRecipes)
 
         // Subscribe to updates
         const updateStream = service.subscribeToUpdates()
-        updateStreamRef.current = Effect.runFork(Runtime.runFork(runtime)(
-          Effect.gen(function* () {
-            const stream = yield* updateStream
-            yield* Effect.forEach(stream, (newState) =>
-              Effect.sync(() => setState(newState))
-            )
-          })
-        ))
+        updateStreamRef.current = runtime.runFork(
+          Stream.runForEach(updateStream, (newState: CraftingGUIState) => Effect.sync(() => setState(newState)))
+        )
 
         setIsInitialized(true)
       } catch (err) {
@@ -128,7 +136,7 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
       }
       if (serviceRef.current && runtimeRef.current) {
         const disposeEffect = serviceRef.current.dispose()
-        Effect.runPromise(Runtime.runPromise(runtimeRef.current)(disposeEffect))
+        runtimeRef.current.runPromise(disposeEffect)
       }
     }
   }, [playerId, tableType])
@@ -138,9 +146,9 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
     if (!serviceRef.current || !runtimeRef.current) return
 
     try {
-      setState(prev => ({ ...prev, isProcessing: true }))
+      setState((prev) => ({ ...prev, isProcessing: true }))
       const effect = serviceRef.current.handleEvent(event)
-      await Effect.runPromise(Runtime.runPromise(runtimeRef.current)(effect))
+      await runtimeRef.current.runPromise(effect)
 
       // Update crafting result if grid changed
       if (event._tag === 'ItemDrop' || event._tag === 'SlotClicked' || event._tag === 'GridCleared') {
@@ -150,7 +158,7 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
       console.error('Error handling event:', err)
       setError(`Failed to handle ${event._tag}`)
     } finally {
-      setState(prev => ({ ...prev, isProcessing: false }))
+      setState((prev) => ({ ...prev, isProcessing: false }))
     }
   }, [])
 
@@ -160,12 +168,12 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
     try {
       const grid: CraftingGridType = {
         _tag: 'CraftingGrid',
-        width: 3,
-        height: 3,
-        slots: state.craftingGrid
+        width: GridWidth(3),
+        height: GridHeight(3),
+        slots: state.craftingGrid as readonly (readonly (CraftingItemStack | null)[])[],
       }
       const effect = serviceRef.current.updateGrid(grid)
-      const result = await Effect.runPromise(Runtime.runPromise(runtimeRef.current)(effect))
+      const result = await runtimeRef.current.runPromise(effect)
       setCraftingResult(result)
     } catch (err) {
       console.error('Error updating crafting result:', err)
@@ -176,25 +184,25 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
     if (!serviceRef.current || !runtimeRef.current || !craftingResult?.canCraft) return
 
     try {
-      setState(prev => ({ ...prev, isProcessing: true }))
+      setState((prev) => ({ ...prev, isProcessing: true }))
 
       // Trigger crafting animation
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        animations: { ...prev.animations, crafting: true }
+        animations: { ...prev.animations, crafting: true },
       }))
 
       const effect = serviceRef.current.craftItem(
-        craftingResult.recipe ? Brand.nominal(craftingResult.recipe.id) : undefined,
+        craftingResult.recipe ? (craftingResult.recipe as any).id : undefined,
         1
       )
-      const result = await Effect.runPromise(Runtime.runPromise(runtimeRef.current)(effect))
+      const result = await runtimeRef.current.runPromise(effect)
 
       // Show success animation
       setTimeout(() => {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
-          animations: { ...prev.animations, crafting: false }
+          animations: { ...prev.animations, crafting: false },
         }))
       }, 500)
 
@@ -204,7 +212,7 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
       console.error('Error crafting item:', err)
       setError('Failed to craft item')
     } finally {
-      setState(prev => ({ ...prev, isProcessing: false }))
+      setState((prev) => ({ ...prev, isProcessing: false }))
     }
   }, [craftingResult])
 
@@ -218,14 +226,17 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
     handleEvent(event)
   }, [handleEvent])
 
-  const handleQuickCraft = useCallback((recipeId: string, quantity: number) => {
-    const event: CraftingGUIEvent = {
-      _tag: 'CraftingRequested',
-      recipeId,
-      quantity
-    }
-    handleEvent(event)
-  }, [handleEvent])
+  const handleQuickCraft = useCallback(
+    (recipeId: string, quantity: number) => {
+      const event: CraftingGUIEvent = {
+        _tag: 'CraftingRequested',
+        recipeId,
+        quantity,
+      }
+      handleEvent(event)
+    },
+    [handleEvent]
+  )
 
   if (!isInitialized) {
     return (
@@ -244,298 +255,92 @@ export const CraftingTableGUI: React.FC<CraftingTableGUIProps> = ({
     )
   }
 
-  return (
-    <div className={`crafting-table-gui ${className} ${state.animations.crafting ? 'crafting-animation' : ''}`}>
-      <CraftingGridStyles />
-      <div className="crafting-header">
-        <h2 className="crafting-title">
-          {tableType === 'workbench' ? 'Crafting Table' :
-           tableType === 'furnace' ? 'Furnace' :
-           tableType === 'player-inventory' ? 'Crafting' :
-           'Special Crafting'}
-        </h2>
-        {onClose && (
-          <button className="close-button" onClick={onClose}>×</button>
-        )}
-      </div>
+  const gridProps = {
+    _tag: 'CraftingGrid' as const,
+    width: GridWidth(3),
+    height: GridHeight(3),
+    slots: state.craftingGrid as readonly (readonly (CraftingItemStack | null)[])[],
+  }
 
-      <div className="crafting-body">
+  return (
+    <div className={`crafting-table-gui ${className}`}>
+      <div className="crafting-interface">
+        {/* Main crafting area */}
         <div className="crafting-main">
-          <div className="crafting-grid-section">
-            <h3>Crafting Grid</h3>
+          <div className="crafting-grid-container">
+            <h3>Crafting Table</h3>
             <CraftingGrid
-              grid={{
-                _tag: 'CraftingGrid',
-                width: 3,
-                height: 3,
-                slots: state.craftingGrid
-              }}
-              onSlotClick={handleEvent}
-              onItemDrop={handleEvent}
-              onItemDragStart={handleEvent}
-              onItemDragEnd={handleEvent}
-              isReadOnly={state.isProcessing}
+              grid={gridProps}
+              onSlotClick={(event) => handleEvent(event)}
+              onItemDragStart={(event) => handleEvent(event)}
+              onItemDragEnd={(event) => handleEvent(event)}
+              onItemDrop={(event) => handleEvent(event)}
             />
-            <div className="grid-controls">
-              <button
-                className="clear-button"
-                onClick={handleClearGrid}
-                disabled={state.isProcessing}
-              >
-                Clear Grid
-              </button>
-            </div>
           </div>
 
-          <div className="crafting-result-section">
+          <div className="crafting-result-container">
             <CraftingResult
               result={craftingResult}
               onCraft={handleCraft}
               isProcessing={state.isProcessing}
-              showAnimation={state.animations.crafting || false}
+              showAnimation={!!state.animations?.['crafting']}
             />
           </div>
         </div>
 
+        {/* Recipe book sidebar */}
         {state.showRecipeBook && (
-          <div className="recipe-book-section">
+          <div className="recipe-book-container">
             <RecipeBook
               recipes={recipes}
-              selectedRecipe={state.selectedRecipe}
-              onRecipeSelect={handleEvent}
-              onSearch={handleEvent}
-              onCategoryChange={handleEvent}
-              onQuickCraft={handleQuickCraft}
+              {...(state.selectedRecipe && { selectedRecipe: state.selectedRecipe })}
               filterConfig={{
                 _tag: 'RecipeFilterConfig',
-                categories: [],
+                categories: [state.selectedCategory],
                 searchQuery: state.searchQuery,
-                showCraftableOnly: false,
+                showCraftableOnly: true,
                 sortBy: 'name',
-                displayMode: 'grid'
+                displayMode: 'grid',
               }}
+              onRecipeSelect={(event: CraftingGUIEvent) => {
+                handleEvent(event)
+              }}
+              onSearch={(event: CraftingGUIEvent) => {
+                handleEvent(event)
+              }}
+              onCategoryChange={(event: CraftingGUIEvent) => {
+                handleEvent(event)
+              }}
+              onQuickCraft={handleQuickCraft}
             />
           </div>
         )}
       </div>
 
-      <div className="crafting-footer">
-        <button
-          className="toggle-recipes-button"
-          onClick={handleToggleRecipeBook}
-        >
+      {/* Control buttons */}
+      <div className="crafting-controls">
+        <button onClick={handleToggleRecipeBook} className="toggle-recipe-book">
           {state.showRecipeBook ? 'Hide' : 'Show'} Recipe Book
         </button>
-        {session && (
-          <div className="crafting-stats">
-            <span>Items Crafted: {session.stats.itemsCrafted}</span>
-            <span>Recipes Used: {session.stats.recipesUsed}</span>
-          </div>
+        <button onClick={handleClearGrid} className="clear-grid" disabled={state.isProcessing}>
+          Clear Grid
+        </button>
+        {onClose && (
+          <button onClick={onClose} className="close-crafting">
+            Close
+          </button>
         )}
       </div>
 
-      <style>{`
-        .crafting-table-gui {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: linear-gradient(135deg, #2c1810 0%, #1a0f08 100%);
-          border: 3px solid #4a2511;
-          border-radius: 8px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-          color: white;
-          font-family: 'Minecraft', monospace;
-          max-width: 90vw;
-          max-height: 90vh;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .crafting-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px;
-          background: rgba(0, 0, 0, 0.3);
-          border-bottom: 2px solid #4a2511;
-        }
-
-        .crafting-title {
-          margin: 0;
-          font-size: 24px;
-          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        .close-button {
-          width: 32px;
-          height: 32px;
-          background: rgba(255, 0, 0, 0.2);
-          border: 1px solid rgba(255, 0, 0, 0.4);
-          border-radius: 4px;
-          color: white;
-          font-size: 20px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .close-button:hover {
-          background: rgba(255, 0, 0, 0.4);
-          transform: scale(1.1);
-        }
-
-        .crafting-body {
-          flex: 1;
-          display: flex;
-          gap: 24px;
-          padding: 24px;
-          overflow: auto;
-        }
-
-        .crafting-main {
-          display: flex;
-          gap: 24px;
-          align-items: flex-start;
-        }
-
-        .crafting-grid-section {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .crafting-grid-section h3 {
-          margin: 0;
-          font-size: 18px;
-          color: #ffc107;
-        }
-
-        .grid-controls {
-          display: flex;
-          justify-content: center;
-          margin-top: 8px;
-        }
-
-        .clear-button {
-          padding: 8px 16px;
-          background: rgba(255, 87, 34, 0.2);
-          border: 1px solid rgba(255, 87, 34, 0.4);
-          border-radius: 4px;
-          color: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .clear-button:hover:not(:disabled) {
-          background: rgba(255, 87, 34, 0.4);
-          transform: scale(1.05);
-        }
-
-        .clear-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .crafting-result-section {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          min-width: 200px;
-        }
-
-        .recipe-book-section {
-          flex: 1;
-          min-width: 350px;
-          max-width: 500px;
-        }
-
-        .crafting-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px;
-          background: rgba(0, 0, 0, 0.3);
-          border-top: 2px solid #4a2511;
-        }
-
-        .toggle-recipes-button {
-          padding: 8px 16px;
-          background: rgba(76, 175, 80, 0.2);
-          border: 1px solid rgba(76, 175, 80, 0.4);
-          border-radius: 4px;
-          color: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .toggle-recipes-button:hover {
-          background: rgba(76, 175, 80, 0.4);
-          transform: scale(1.05);
-        }
-
-        .crafting-stats {
-          display: flex;
-          gap: 24px;
-          color: rgba(255, 255, 255, 0.7);
-          font-size: 14px;
-        }
-
-        .crafting-table-loading,
-        .crafting-table-error {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: rgba(0, 0, 0, 0.9);
-          border: 2px solid #4a2511;
-          border-radius: 8px;
-          padding: 32px;
-          color: white;
-          text-align: center;
-        }
-
-        .loading-spinner {
-          font-size: 18px;
-          animation: pulse 1.5s infinite;
-        }
-
-        .error-message {
-          color: #ff5252;
-          margin-bottom: 16px;
-        }
-
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-
-        .crafting-animation {
-          animation: craftingFlash 0.5s ease-in-out;
-        }
-
-        @keyframes craftingFlash {
-          0%, 100% { filter: brightness(1); }
-          50% { filter: brightness(1.3); }
-        }
-
-        /* Responsive design */
-        @media (max-width: 768px) {
-          .crafting-body {
-            flex-direction: column;
-          }
-
-          .crafting-main {
-            flex-direction: column;
-            align-items: center;
-          }
-
-          .recipe-book-section {
-            max-width: 100%;
-          }
-        }
-      `}</style>
+      {/* Session info */}
+      {session && (
+        <div className="session-info">
+          <small>
+            Session: {session.id} | Items crafted: {session.stats.itemsCrafted} | Recipes used:{' '}
+            {session.stats.recipesUsed}
+          </small>
+        </div>
+      )}
     </div>
   )
 }
