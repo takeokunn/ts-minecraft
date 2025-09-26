@@ -215,6 +215,7 @@ const makeAudioService = Effect.gen(function* () {
                 )
               )
             )
+          )
         }
       }
 
@@ -316,6 +317,7 @@ const makeAudioService = Effect.gen(function* () {
                 )
               )
             )
+          )
         }
       }
 
