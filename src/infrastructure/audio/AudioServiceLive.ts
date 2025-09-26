@@ -211,11 +211,10 @@ const makeAudioService = Effect.gen(function* () {
                     _tag: 'SoundStopped' as const,
                     sourceId,
                     reason: 'finished' as StopReason,
-                  })
+                  }
                 )
               )
             )
-          )
         }
       }
 
@@ -234,7 +233,7 @@ const makeAudioService = Effect.gen(function* () {
             rolloffFactor: options?.rolloffFactor || 1,
           },
           timestamp: Date.now(),
-        })
+        }
       )
 
       return sourceId
@@ -313,11 +312,10 @@ const makeAudioService = Effect.gen(function* () {
                     _tag: 'SoundStopped' as const,
                     sourceId,
                     reason: 'finished' as StopReason,
-                  })
+                  }
                 )
               )
             )
-          )
         }
       }
 
@@ -354,10 +352,10 @@ const makeAudioService = Effect.gen(function* () {
               yield* Queue.offer(
                 eventQueue,
                 {
-                  _tag: 'SoundStopped',
+                  _tag: 'SoundStopped' as const,
                   sourceId,
                   reason: 'manual' as StopReason,
-                })
+                }
               )
             }),
         })
