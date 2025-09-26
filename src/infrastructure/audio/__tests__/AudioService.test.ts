@@ -68,7 +68,6 @@ global.fetch = vi.fn().mockImplementation(() =>
   })
 )
 
-
 // Test data constants
 const testPosition = SpatialBrands.createVector3D(10, 20, 30)
 const testVolume = AudioHelpers.createVolume(0.8)
