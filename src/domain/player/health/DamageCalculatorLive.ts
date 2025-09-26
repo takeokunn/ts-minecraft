@@ -13,7 +13,4 @@ const defaultDamageConfig = {
   explosionBaseDamage: 7,
 }
 
-export const DamageCalculatorLive = Layer.succeed(
-  DamageCalculator,
-  makeDamageCalculator(defaultDamageConfig)
-)
+export const DamageCalculatorLive = Layer.succeed(DamageCalculator, makeDamageCalculator(defaultDamageConfig))

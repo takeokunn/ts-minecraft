@@ -2,7 +2,7 @@ import { Schema } from '@effect/schema'
 import { Brand, Data } from 'effect'
 import { PlayerId, EntityId } from '../PlayerTypes.js'
 import type { Vector3D } from '../../../shared/schemas/spatial.js'
-import { Vector3D as Vector3DSchema } from '../../../shared/schemas/spatial.js'
+import { Vector3Schema } from '../../../shared/schemas/spatial.js'
 
 // =======================================
 // Branded Types for Health Domain
@@ -171,13 +171,13 @@ export const HealthEvent = Schema.Union(
     _tag: Schema.Literal('Died'),
     playerId: PlayerId,
     source: DamageSource,
-    deathLocation: Vector3DSchema,
+    deathLocation: Vector3Schema,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('Respawned'),
     playerId: PlayerId,
-    spawnLocation: Vector3DSchema,
+    spawnLocation: Vector3Schema,
     timestamp: Schema.Number,
   })
 )

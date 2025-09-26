@@ -7,38 +7,14 @@ import type { DamageSource, DamageAmount } from './HealthTypes.js'
 // =======================================
 
 export const DamageConfig = Schema.Struct({
-  fallDamageThreshold: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 3 })
-  ),
-  fallDamageMultiplier: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 1 })
-  ),
-  lavaDamagePerSecond: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 4 })
-  ),
-  drowningDamagePerSecond: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 2 })
-  ),
-  fireDamagePerSecond: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 1 })
-  ),
-  hungerDamage: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 1 })
-  ),
-  voidDamage: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 4 })
-  ),
-  explosionBaseDamage: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ default: 7 })
-  ),
+  fallDamageThreshold: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 3 })),
+  fallDamageMultiplier: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 1 })),
+  lavaDamagePerSecond: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 4 })),
+  drowningDamagePerSecond: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 2 })),
+  fireDamagePerSecond: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 1 })),
+  hungerDamage: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 1 })),
+  voidDamage: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 4 })),
+  explosionBaseDamage: Schema.Number.pipe(Schema.positive(), Schema.annotations({ default: 7 })),
 })
 
 export type DamageConfig = Schema.Schema.Type<typeof DamageConfig>
@@ -47,16 +23,10 @@ export type DamageConfig = Schema.Schema.Type<typeof DamageConfig>
 // Armor & Protection
 // =======================================
 
-export const ArmorValue = Schema.Number.pipe(
-  Schema.between(0, 20),
-  Schema.brand('ArmorValue')
-)
+export const ArmorValue = Schema.Number.pipe(Schema.between(0, 20), Schema.brand('ArmorValue'))
 export type ArmorValue = Schema.Schema.Type<typeof ArmorValue>
 
-export const ProtectionLevel = Schema.Number.pipe(
-  Schema.between(0, 4),
-  Schema.brand('ProtectionLevel')
-)
+export const ProtectionLevel = Schema.Number.pipe(Schema.between(0, 4), Schema.brand('ProtectionLevel'))
 export type ProtectionLevel = Schema.Schema.Type<typeof ProtectionLevel>
 
 // =======================================
@@ -70,27 +40,15 @@ export interface DamageCalculator {
     protectionLevel?: ProtectionLevel
   ) => Effect.Effect<DamageAmount>
 
-  readonly calculateFallDamage: (
-    height: number
-  ) => Effect.Effect<DamageAmount>
+  readonly calculateFallDamage: (height: number) => Effect.Effect<DamageAmount>
 
-  readonly calculateLavaDamage: (
-    duration: number
-  ) => Effect.Effect<DamageAmount>
+  readonly calculateLavaDamage: (duration: number) => Effect.Effect<DamageAmount>
 
-  readonly calculateDrowningDamage: (
-    duration: number
-  ) => Effect.Effect<DamageAmount>
+  readonly calculateDrowningDamage: (duration: number) => Effect.Effect<DamageAmount>
 
-  readonly calculateExplosionDamage: (
-    power: number,
-    distance: number
-  ) => Effect.Effect<DamageAmount>
+  readonly calculateExplosionDamage: (power: number, distance: number) => Effect.Effect<DamageAmount>
 
-  readonly calculateMobDamage: (
-    mobId: unknown,
-    weaponType?: string
-  ) => Effect.Effect<DamageAmount>
+  readonly calculateMobDamage: (mobId: unknown, weaponType?: string) => Effect.Effect<DamageAmount>
 
   readonly applyArmorReduction: (
     damage: DamageAmount,
@@ -105,26 +63,25 @@ export const DamageCalculator = Context.GenericTag<DamageCalculator>('@minecraft
 // DamageCalculator Implementation
 // =======================================
 
-export const makeDamageCalculator = (config: DamageConfig = {
-  fallDamageThreshold: 3,
-  fallDamageMultiplier: 1,
-  lavaDamagePerSecond: 4,
-  drowningDamagePerSecond: 2,
-  fireDamagePerSecond: 1,
-  hungerDamage: 1,
-  voidDamage: 4,
-  explosionBaseDamage: 7,
-}): DamageCalculator => {
-
+export const makeDamageCalculator = (
+  config: DamageConfig = {
+    fallDamageThreshold: 3,
+    fallDamageMultiplier: 1,
+    lavaDamagePerSecond: 4,
+    drowningDamagePerSecond: 2,
+    fireDamagePerSecond: 1,
+    hungerDamage: 1,
+    voidDamage: 4,
+    explosionBaseDamage: 7,
+  }
+): DamageCalculator => {
   const calculateFallDamage = (height: number) =>
     Effect.gen(function* () {
       if (height <= config.fallDamageThreshold) {
         return 0 as DamageAmount
       }
 
-      const damage = Math.floor(
-        (height - config.fallDamageThreshold) * config.fallDamageMultiplier
-      )
+      const damage = Math.floor((height - config.fallDamageThreshold) * config.fallDamageMultiplier)
 
       return Math.min(damage, 20) as DamageAmount
     })
@@ -149,10 +106,8 @@ export const makeDamageCalculator = (config: DamageConfig = {
         return 0 as DamageAmount
       }
 
-      const distanceRatio = 1 - (distance / maxDistance)
-      const damage = Math.floor(
-        config.explosionBaseDamage * power * distanceRatio
-      )
+      const distanceRatio = 1 - distance / maxDistance
+      const damage = Math.floor(config.explosionBaseDamage * power * distanceRatio)
 
       return Math.min(damage, 20) as DamageAmount
     })
@@ -163,8 +118,7 @@ export const makeDamageCalculator = (config: DamageConfig = {
       let baseDamage = 2
 
       // Weapon modifier
-      const weaponModifier = weaponType === 'sword' ? 1.5 :
-                           weaponType === 'axe' ? 1.3 : 1
+      const weaponModifier = weaponType === 'sword' ? 1.5 : weaponType === 'axe' ? 1.3 : 1
 
       const damage = Math.floor(baseDamage * weaponModifier)
       return Math.min(damage, 20) as DamageAmount
@@ -225,10 +179,7 @@ export const makeDamageCalculator = (config: DamageConfig = {
 
       // Apply armor reduction for physical damage
       const isPhysicalDamage =
-        source._tag === 'Fall' ||
-        source._tag === 'Mob' ||
-        source._tag === 'Player' ||
-        source._tag === 'Explosion'
+        source._tag === 'Fall' || source._tag === 'Mob' || source._tag === 'Player' || source._tag === 'Explosion'
 
       if (isPhysicalDamage && armor > 0) {
         return yield* applyArmorReduction(baseDamage, armor, protectionLevel)

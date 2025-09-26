@@ -48,7 +48,7 @@ const makeHealthService = Effect.gen(function* () {
             playerId: event.playerId,
             damage: event.amount,
             source: event.source as any,
-            newHealth: event.newHealth as Health,
+            newHealth: event.newHealth as unknown as Health,
             timestamp: event.timestamp,
           })
         } else if (event._tag === 'Died') {
@@ -100,10 +100,7 @@ const makeHealthService = Effect.gen(function* () {
       const currentState = yield* getOrCreateHealthState(playerId)
       const newState = updater(currentState)
 
-      yield* Ref.update(
-        healthStates,
-        (states) => HashMap.set(states, playerId, newState)
-      )
+      yield* Ref.update(healthStates, (states) => HashMap.set(states, playerId, newState))
 
       return newState
     })
@@ -175,7 +172,9 @@ const makeHealthService = Effect.gen(function* () {
       // Handle death if occurred
       if (result.isDead) {
         // Get player position for death location
-        const playerState = yield* playerService.getPlayerState(playerId)
+        const playerState = yield* playerService.getPlayerState(playerId).pipe(
+          Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
+        )
         const deathEvent: HealthEvent = {
           _tag: 'Died',
           playerId,
@@ -312,7 +311,9 @@ const makeHealthService = Effect.gen(function* () {
         return yield* Effect.fail(createHealthError.playerNotFound(playerId))
       }
 
-      const playerState = yield* playerService.getPlayerState(playerId)
+      const playerState = yield* playerService.getPlayerState(playerId).pipe(
+        Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
+      )
 
       yield* updateHealthState(playerId, (state) => ({
         ...state,
@@ -357,7 +358,9 @@ const makeHealthService = Effect.gen(function* () {
       }))
 
       // Update player position
-      yield* playerService.setPlayerPosition(playerId, spawnLocation)
+      yield* playerService.setPlayerPosition(playerId, spawnLocation).pipe(
+        Effect.mapError((playerError) => createHealthError.playerNotFound(playerId))
+      )
 
       // Publish respawn event
       const respawnEvent: HealthEvent = {
@@ -391,35 +394,28 @@ const makeHealthService = Effect.gen(function* () {
     maxHealth: MaxHealth = HEALTH_CONSTANTS.DEFAULT_MAX_HEALTH
   ) =>
     Effect.gen(function* () {
-      yield* Ref.update(
-        healthStates,
-        (states) => {
-          const newState: HealthState = {
-            playerId,
-            currentHealth: initialHealth,
-            maxHealth,
-            isDead: false,
-            lastDamageSource: undefined,
-            lastDamageTime: undefined,
-            invulnerabilityEndTime: undefined,
-          }
-          return HashMap.set(states, playerId, newState)
+      yield* Ref.update(healthStates, (states) => {
+        const newState: HealthState = {
+          playerId,
+          currentHealth: initialHealth,
+          maxHealth,
+          isDead: false,
+          lastDamageSource: undefined,
+          lastDamageTime: undefined,
+          invulnerabilityEndTime: undefined,
         }
-      )
+        return HashMap.set(states, playerId, newState)
+      })
     })
 
   // Remove player
   const removePlayer = (playerId: PlayerId) =>
     Effect.gen(function* () {
-      yield* Ref.update(
-        healthStates,
-        (states) => HashMap.remove(states, playerId)
-      )
+      yield* Ref.update(healthStates, (states) => HashMap.remove(states, playerId))
     })
 
   // Apply natural regeneration
-  const applyNaturalRegeneration = (playerId: PlayerId) =>
-    heal(playerId, { _tag: 'NaturalRegeneration' })
+  const applyNaturalRegeneration = (playerId: PlayerId) => heal(playerId, { _tag: 'NaturalRegeneration' })
 
   // Check invulnerability
   const isInvulnerable = (playerId: PlayerId) =>
@@ -456,7 +452,4 @@ const makeHealthService = Effect.gen(function* () {
 // Layer Definition
 // =======================================
 
-export const HealthServiceLive = Layer.effect(
-  HealthService,
-  makeHealthService
-)
+export const HealthServiceLive = Layer.effect(HealthService, makeHealthService)
