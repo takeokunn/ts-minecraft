@@ -1,16 +1,7 @@
 import { Context, Effect } from 'effect'
 import type { PlayerId } from '@/shared/types/branded'
 import type { Vector3D } from '@/shared/types/spatial-brands'
-import {
-  Bed,
-  BedId,
-  BedColor,
-  Sign,
-  SignId,
-  WrittenBook,
-  Direction,
-  FurnitureError
-} from './FurnitureTypes'
+import { Bed, BedId, BedColor, Sign, SignId, WrittenBook, Direction, FurnitureError } from './FurnitureTypes'
 
 export interface FurnitureService {
   readonly placeBed: (
@@ -20,19 +11,11 @@ export interface FurnitureService {
     placerId: PlayerId
   ) => Effect.Effect<Bed, FurnitureError>
 
-  readonly sleepInBed: (
-    bedId: BedId,
-    playerId: PlayerId
-  ) => Effect.Effect<void, FurnitureError>
+  readonly sleepInBed: (bedId: BedId, playerId: PlayerId) => Effect.Effect<void, FurnitureError>
 
-  readonly wakeUp: (
-    playerId: PlayerId
-  ) => Effect.Effect<void, FurnitureError>
+  readonly wakeUp: (playerId: PlayerId) => Effect.Effect<void, FurnitureError>
 
-  readonly setSpawnPoint: (
-    playerId: PlayerId,
-    position: Vector3D
-  ) => Effect.Effect<void, never>
+  readonly setSpawnPoint: (playerId: PlayerId, position: Vector3D) => Effect.Effect<void, never>
 
   readonly placeSign: (
     position: Vector3D,
@@ -53,21 +36,13 @@ export interface FurnitureService {
     authorId: PlayerId
   ) => Effect.Effect<WrittenBook, FurnitureError>
 
-  readonly getSign: (
-    signId: SignId
-  ) => Effect.Effect<Sign, FurnitureError>
+  readonly getSign: (signId: SignId) => Effect.Effect<Sign, FurnitureError>
 
-  readonly getBed: (
-    bedId: BedId
-  ) => Effect.Effect<Bed, FurnitureError>
+  readonly getBed: (bedId: BedId) => Effect.Effect<Bed, FurnitureError>
 
-  readonly removeBed: (
-    bedId: BedId
-  ) => Effect.Effect<void, FurnitureError>
+  readonly removeBed: (bedId: BedId) => Effect.Effect<void, FurnitureError>
 
-  readonly removeSign: (
-    signId: SignId
-  ) => Effect.Effect<void, FurnitureError>
+  readonly removeSign: (signId: SignId) => Effect.Effect<void, FurnitureError>
 }
 
 export const FurnitureService = Context.GenericTag<FurnitureService>('@minecraft/FurnitureService')

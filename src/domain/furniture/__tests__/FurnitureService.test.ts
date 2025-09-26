@@ -18,10 +18,7 @@ describe('FurnitureService Basic Tests', () => {
         expect(typeof service.placeSign).toBe('function')
         expect(typeof service.editSign).toBe('function')
         expect(typeof service.writeBook).toBe('function')
-      }).pipe(
-        Effect.provide(FurnitureServiceLive),
-        Effect.runPromise
-      )
+      }).pipe(Effect.provide(FurnitureServiceLive), Effect.runPromise)
     })
 
     it('should fail with proper error types', async () => {
@@ -32,12 +29,7 @@ describe('FurnitureService Basic Tests', () => {
         const playerId = 'test-player' as PlayerId
 
         // Test bed placement failure
-        const bedResult = yield* service.placeBed(
-          position,
-          'red',
-          'north',
-          playerId
-        ).pipe(Effect.either)
+        const bedResult = yield* service.placeBed(position, 'red', 'north', playerId).pipe(Effect.either)
 
         expect(Either.isLeft(bedResult)).toBe(true)
         if (Either.isLeft(bedResult)) {
@@ -45,10 +37,7 @@ describe('FurnitureService Basic Tests', () => {
           expect(typeof bedResult.left.reason).toBe('string')
           expect(typeof bedResult.left.message).toBe('string')
         }
-      }).pipe(
-        Effect.provide(FurnitureServiceLive),
-        Effect.runPromise
-      )
+      }).pipe(Effect.provide(FurnitureServiceLive), Effect.runPromise)
     })
 
     it('should handle spawn point setting without errors', async () => {
@@ -60,10 +49,7 @@ describe('FurnitureService Basic Tests', () => {
 
         // This should succeed (no-op in our stub)
         yield* service.setSpawnPoint(playerId, position)
-      }).pipe(
-        Effect.provide(FurnitureServiceLive),
-        Effect.runPromise
-      )
+      }).pipe(Effect.provide(FurnitureServiceLive), Effect.runPromise)
     })
   })
 })

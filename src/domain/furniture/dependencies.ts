@@ -17,7 +17,7 @@ export const EventBusLive = Layer.succeed(
   EventBus,
   EventBus.of({
     publish: () => Effect.void,
-    subscribe: () => Effect.void
+    subscribe: () => Effect.void,
   })
 )
 
@@ -39,7 +39,7 @@ export const WorldManagerLive = Layer.succeed(
     setBlock: () => Effect.void,
     getNearbyHostileMobs: () => Effect.succeed([]),
     isThunderstorm: () => Effect.succeed(false),
-    clearWeather: () => Effect.void
+    clearWeather: () => Effect.void,
   })
 )
 
@@ -55,7 +55,7 @@ export const TimeSystemLive = Layer.succeed(
   TimeSystem,
   TimeSystem.of({
     getCurrentTime: () => Effect.succeed(13000), // Default to night time
-    setTime: () => Effect.void
+    setTime: () => Effect.void,
   })
 )
 
@@ -75,6 +75,6 @@ export const PlayerManagerLive = Layer.succeed(
     getOnlinePlayerCount: () => Effect.succeed(1),
     setPosition: () => Effect.void,
     setPose: () => Effect.void,
-    getPlayerName: (playerId) => Effect.succeed(`Player_${playerId}`)
+    getPlayerName: (playerId) => Effect.succeed(`Player_${playerId}`),
   })
 )
