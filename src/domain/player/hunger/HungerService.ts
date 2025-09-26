@@ -36,40 +36,30 @@ export interface HungerService {
   /**
    * プレイヤーの現在の空腹状態を取得
    */
-  readonly getHungerState: (
-    playerId: PlayerId
-  ) => Effect.Effect<HungerState, PlayerNotFoundError>
+  readonly getHungerState: (playerId: PlayerId) => Effect.Effect<HungerState, PlayerNotFoundError>
 
   /**
    * プレイヤーの空腹状態を初期化
    */
-  readonly initializePlayer: (
-    playerId: PlayerId
-  ) => Effect.Effect<HungerState, never>
+  readonly initializePlayer: (playerId: PlayerId) => Effect.Effect<HungerState, never>
 
   /**
    * スプリント可能かどうかを判定
    * 空腹度が7以上の場合にtrue
    */
-  readonly canSprint: (
-    playerId: PlayerId
-  ) => Effect.Effect<boolean, PlayerNotFoundError>
+  readonly canSprint: (playerId: PlayerId) => Effect.Effect<boolean, PlayerNotFoundError>
 
   /**
    * 自然回復が可能かどうかを判定
    * 空腹度が18以上の場合にtrue
    */
-  readonly shouldRegenerateHealth: (
-    playerId: PlayerId
-  ) => Effect.Effect<boolean, PlayerNotFoundError>
+  readonly shouldRegenerateHealth: (playerId: PlayerId) => Effect.Effect<boolean, PlayerNotFoundError>
 
   /**
    * 飢餓状態かどうかを判定
    * 空腹度が0の場合にtrue
    */
-  readonly isStarving: (
-    playerId: PlayerId
-  ) => Effect.Effect<boolean, PlayerNotFoundError>
+  readonly isStarving: (playerId: PlayerId) => Effect.Effect<boolean, PlayerNotFoundError>
 
   /**
    * 疲労度を増加させる

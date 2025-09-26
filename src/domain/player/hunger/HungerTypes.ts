@@ -73,9 +73,12 @@ export const FoodItem = Schema.Struct({
   nutrition: NutritionValue,
   saturation: SaturationLevel,
   effects: Schema.Array(StatusEffect),
-  eatTime: Schema.Number.pipe(Schema.positive(), Schema.annotations({
-    description: 'Time in milliseconds to consume the food',
-  })),
+  eatTime: Schema.Number.pipe(
+    Schema.positive(),
+    Schema.annotations({
+      description: 'Time in milliseconds to consume the food',
+    })
+  ),
 })
 export type FoodItem = Schema.Schema.Type<typeof FoodItem>
 

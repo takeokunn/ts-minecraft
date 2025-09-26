@@ -5,13 +5,7 @@ import { Schema } from '@effect/schema'
 import type { PlayerId, ItemId } from '../../../../shared/types/index.js'
 import { HungerService } from '../HungerService.js'
 import { HungerServiceLive } from '../HungerServiceLive.js'
-import type {
-  FoodItem,
-  HungerLevel,
-  SaturationLevel,
-  HungerDecreaseReason,
-  StatusEffect,
-} from '../HungerTypes.js'
+import type { FoodItem, HungerLevel, SaturationLevel, HungerDecreaseReason, StatusEffect } from '../HungerTypes.js'
 import { HUNGER_CONSTANTS } from '../HungerTypes.js'
 
 // =========================================
@@ -33,7 +27,7 @@ const generateItemId = (): ItemId => {
 const generateFoodItem = (): FoodItem => ({
   itemId: generateItemId(),
   nutrition: (Math.floor(Math.random() * 10) + 1) as any,
-  saturation: (Math.floor(Math.random() * 10)) as SaturationLevel,
+  saturation: Math.floor(Math.random() * 10) as SaturationLevel,
   effects: [],
   eatTime: 1600, // Standard eating time
 })
@@ -60,10 +54,7 @@ const generateHungerDecreaseReason = (): HungerDecreaseReason => {
 // Test Layers
 // =========================================
 
-const TestLayers = Layer.mergeAll(
-  HungerServiceLive,
-  TestContext.TestContext
-)
+const TestLayers = Layer.mergeAll(HungerServiceLive, TestContext.TestContext)
 
 // =========================================
 // Test Suite
@@ -91,9 +82,7 @@ describe('HungerService', () => {
         const service = yield* HungerService
         const playerIds = Array.from({ length: 5 }, generatePlayerId)
 
-        const states = yield* Effect.all(
-          playerIds.map((id) => service.initializePlayer(id))
-        )
+        const states = yield* Effect.all(playerIds.map((id) => service.initializePlayer(id)))
 
         expect(states.length).toBe(5)
         states.forEach((state) => {
@@ -185,6 +174,12 @@ describe('HungerService', () => {
         yield* service.initializePlayer(playerId)
         const initialState = yield* service.getHungerState(playerId)
 
+        // First deplete all saturation (5 * 4 = 20 exhaustion)
+        yield* service.addExhaustion(playerId, 20)
+        const noSaturationState = yield* service.getHungerState(playerId)
+        expect(noSaturationState.hunger).toBe(initialState.hunger)
+        expect(noSaturationState.saturation).toBe(0)
+
         // Add exhaustion just below and then above threshold
         yield* service.addExhaustion(playerId, 3.5)
         const midState = yield* service.getHungerState(playerId)
@@ -232,7 +227,7 @@ describe('HungerService', () => {
         expect(canSprintFull).toBe(true)
 
         // Reduce hunger below sprint threshold
-        yield* service.addExhaustion(playerId, 52) // Reduce to 6 or less
+        yield* service.addExhaustion(playerId, 76) // Reduce to 6 (5 saturation + 14 hunger = 76 exhaustion)
         const canSprintLow = yield* service.canSprint(playerId)
         expect(canSprintLow).toBe(false)
 
@@ -266,7 +261,7 @@ describe('HungerService', () => {
         expect(shouldRegenFull).toBe(true)
 
         // Reduce hunger below regeneration threshold
-        yield* service.addExhaustion(playerId, 12) // Reduce to 17
+        yield* service.addExhaustion(playerId, 32) // Reduce to 17 (5 saturation + 3 hunger = 32 exhaustion)
         const shouldRegenLow = yield* service.shouldRegenerateHealth(playerId)
         expect(shouldRegenLow).toBe(false)
       }).pipe(Effect.provide(TestLayers) as any)
@@ -325,9 +320,7 @@ describe('HungerService', () => {
         const playerId = generatePlayerId()
         const foodItem = generateFoodItem()
 
-        const result = yield* Effect.either(
-          service.consumeFood(playerId, foodItem)
-        )
+        const result = yield* Effect.either(service.consumeFood(playerId, foodItem))
 
         expect(Either.isLeft(result)).toBe(true)
         if (Either.isLeft(result)) {
