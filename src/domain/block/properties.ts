@@ -1,6 +1,6 @@
 import { pipe, Predicate } from 'effect'
-import type { BlockPhysics, BlockSound, BlockTexture, ItemDrop, ToolType } from './BlockType'
-import { createDefaultPhysics, createDefaultSound } from './BlockType'
+import type { BlockPhysics, BlockSound, BlockTexture, ItemDrop, ToolType } from './types'
+import { createDefaultPhysics, createDefaultSound } from './helper'
 
 // ブロックプロパティの型
 export interface BlockProperties {

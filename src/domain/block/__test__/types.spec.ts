@@ -2,6 +2,7 @@ import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
 import { Effect, Either, pipe } from 'effect'
 import { describe, expect } from 'vitest'
+import type { BlockPhysics, BlockSound, BlockType } from '../types'
 import {
   BlockCategorySchema,
   BlockId,
@@ -9,16 +10,12 @@ import {
   BlockSoundSchema,
   BlockTextureSchema,
   BlockTypeSchema,
-  createDefaultPhysics,
-  createDefaultSound,
   ItemDropSchema,
   TextureFacesSchema,
   TextureId,
   ToolTypeSchema,
-  type BlockPhysics,
-  type BlockSound,
-  type BlockType,
-} from '../BlockType'
+} from '../types'
+import { createDefaultPhysics, createDefaultSound } from '../helper'
 
 describe('BlockType', () => {
   describe('Branded Types', () => {

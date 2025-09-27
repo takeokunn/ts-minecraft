@@ -32,7 +32,7 @@ import {
   withWaterloggable,
   woodProperties,
   woolProperties,
-} from '../BlockProperties'
+} from '../properties'
 
 describe('BlockProperties', () => {
   describe('defaultBlockProperties', () => {

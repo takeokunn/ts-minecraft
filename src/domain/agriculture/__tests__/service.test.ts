@@ -1,11 +1,10 @@
 import type { ItemId, PlayerId } from '@domain/core/types/brands'
-import { Arbitrary, Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
 import { Duration, Effect, Either, TestClock, TestContext } from 'effect'
 import type { ItemStack } from '../../inventory/InventoryTypes'
 import { AgricultureService } from '../service'
 import { AgricultureServiceLive } from '../live'
-import { AnimalTypeSchema, CropTypeSchema, type CropType, type FarmAnimal } from '../types'
+import type { CropType, FarmAnimal } from '../types'
 
 // ===================================
 // Test Helpers
@@ -17,17 +16,6 @@ const createTestItemStack = (itemId: string, count: number = 1): ItemStack => ({
   count,
   metadata: {},
 })
-
-// Schema-based Arbitrary generators
-const arbCropType = Arbitrary.make(CropTypeSchema)
-const arbAnimalType = Arbitrary.make(AnimalTypeSchema)
-const arbPosition = Arbitrary.make(
-  Schema.Struct({
-    x: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000)),
-    y: Schema.Number.pipe(Schema.int(), Schema.between(0, 256)),
-    z: Schema.Number.pipe(Schema.int(), Schema.between(-1000, 1000)),
-  })
-)
 
 // Test Layer - AgricultureServiceLive without TestContext (will be provided separately)
 const TestLayers = AgricultureServiceLive
@@ -435,7 +423,7 @@ describe('AgricultureService - Edge Cases', () => {
       const crop = yield* service.plantCrop(position, 'nether_wart', createTestPlayerId('test'))
 
       // Nether wart can grow in dark conditions
-      const conditions = yield* service.checkGrowthConditions(crop.id)
+      yield* service.checkGrowthConditions(crop.id)
 
       // Even with low light, nether wart should be able to grow
       expect(crop.type).toBe('nether_wart')

@@ -22,8 +22,8 @@ import {
   withTool,
   woodProperties,
   woolProperties,
-} from './BlockProperties'
-import type { BlockType } from './BlockType'
+} from './properties'
+import type { BlockType } from './types'
 
 // 自然ブロック (Natural Blocks)
 export const stoneBlock: BlockType = {
@@ -687,6 +687,3 @@ export const allBlocks: BlockType[] = [
   redstoneBlock,
   pistonBlock,
 ]
-
-// ブロック数の確認（50種類以上）
-console.log(`Total blocks defined: ${allBlocks.length}`)

@@ -1,6 +1,6 @@
 import { BlockId, BrandedTypes } from '@domain/core/types/brands'
 import { Context, Effect, Array as EffectArray, HashMap, Layer, Match, Option, pipe, Predicate } from 'effect'
-import type { BlockCategory, BlockType } from './BlockType'
+import type { BlockCategory, BlockType } from './types'
 import { allBlocks } from './blocks'
 
 // エラー定義（Data.TaggedErrorを使用）

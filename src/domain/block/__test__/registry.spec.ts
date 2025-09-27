@@ -15,7 +15,7 @@ import {
   isBlockRegistered,
   registerBlock,
   searchBlocks,
-} from '../BlockRegistry'
+} from '../registry'
 import { createTestBlock } from './test-helpers'
 
 describe('BlockRegistry', () => {

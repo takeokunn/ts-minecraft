@@ -1,6 +1,6 @@
 import { Effect, Exit, pipe } from 'effect'
 import { expect } from 'vitest'
-import type { BlockType } from '../BlockType'
+import type { BlockType } from '../types'
 
 // Effect-TS用の共通テストヘルパー - 最新理想系パターン
 export const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSyncExit(effect)

@@ -24,7 +24,7 @@ import {
   torchBlock,
   waterBlock,
 } from '../blocks'
-import type { BlockCategory } from '../BlockType'
+import type { BlockCategory } from '../types'
 
 describe('blocks', () => {
   describe('Block definitions', () => {
