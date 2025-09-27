@@ -18,7 +18,7 @@ export default defineConfig({
         maxThreads: 4,
         minThreads: 1,
         isolate: true,
-        useAtomics: true,
+        useAtomics: false,
       },
     },
     coverage: {
