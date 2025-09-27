@@ -3,7 +3,7 @@ import type { Vector3D } from '@domain/core/types/spatial'
 import { SpatialBrands } from '@domain/core/types/spatial'
 import { EventBus } from '@infrastructure/events/EventBus'
 import { Effect, HashMap, Layer, Option, pipe, Ref } from 'effect'
-import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
+import { CannonPhysicsService } from '../physics/CannonPhysicsService'
 import type {
   Armor,
   AttackDamage,
@@ -13,15 +13,20 @@ import type {
   DamageSource,
   EnchantmentType,
   KnockbackForce,
-} from '../types/CombatTypes'
+  ProjectileType,
+  Weapon,
+  SpellType
+} from './types'
 import {
   AttackOnCooldownError,
+  KnockbackError,
+} from './types'
+import {
   createAttackDamage,
   createDefenseValue,
   createKnockbackForce,
-  KnockbackError,
-} from '../types/CombatTypes'
-import { CombatService, type EntityHealth } from './CombatService'
+} from './helper'
+import { CombatService, type EntityHealth } from './service'
 
 // ================================
 // Constants
@@ -43,13 +48,13 @@ const COMBAT_CONSTANTS = {
 // Helper Functions
 // ================================
 
-const calculateMeleeDamage = (weapon: Option.Option<import('../types/CombatTypes').Weapon>, chargeTime: number) =>
+const calculateMeleeDamage = (weapon: Option.Option<Weapon>, chargeTime: number) =>
   Effect.gen(function* () {
     const baseDamage = pipe(
       weapon,
       Option.match({
         onNone: () => COMBAT_CONSTANTS.MELEE_BASE_DAMAGE,
-        onSome: (w: import('../types/CombatTypes').Weapon) => w.baseDamage as number,
+        onSome: (w: Weapon) => w.baseDamage as number,
       })
     )
     // Apply charge time multiplier (0 to 1)
@@ -57,7 +62,7 @@ const calculateMeleeDamage = (weapon: Option.Option<import('../types/CombatTypes
     return createAttackDamage(Math.max(1, charged))
   })
 
-const calculateRangedDamage = (projectileType: import('../types/CombatTypes').ProjectileType, power: number) =>
+const calculateRangedDamage = (projectileType: ProjectileType, power: number) =>
   Effect.gen(function* () {
     let baseDamage = 2
     switch (projectileType) {
@@ -81,7 +86,7 @@ const calculateRangedDamage = (projectileType: import('../types/CombatTypes').Pr
     return createAttackDamage(Math.max(1, powered))
   })
 
-const calculateMagicDamage = (spellType: import('../types/CombatTypes').SpellType) =>
+const calculateMagicDamage = (spellType: SpellType) =>
   Effect.gen(function* () {
     let baseDamage = 0
     switch (spellType) {
@@ -146,7 +151,7 @@ const calculateKnockback = (attackType: AttackType): Effect.Effect<KnockbackForc
           Option.fromNullable(attackType.weapon),
           Option.match({
             onNone: () => 0.5,
-            onSome: (w: import('../types/CombatTypes').Weapon) => w.knockback as number,
+            onSome: (w: Weapon) => w.knockback as number,
           })
         )
         break

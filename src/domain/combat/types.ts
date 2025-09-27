@@ -247,17 +247,3 @@ export class KnockbackError extends Schema.TaggedError<KnockbackError>()('Knockb
   message: Schema.String,
   targetId: EntityIdSchema,
 }) {}
-
-// ================================
-// Helper Functions
-// ================================
-
-export const createAttackDamage = (damage: number): AttackDamage => Schema.decodeSync(AttackDamage)(damage)
-
-export const createDefenseValue = (defense: number): DefenseValue => Schema.decodeSync(DefenseValue)(defense)
-
-export const createKnockbackForce = (force: number): KnockbackForce => Schema.decodeSync(KnockbackForce)(force)
-
-export const createAttackCooldown = (cooldown: number): AttackCooldown => Schema.decodeSync(AttackCooldown)(cooldown)
-
-export const createDurability = (durability: number): Durability => Schema.decodeSync(Durability)(durability)

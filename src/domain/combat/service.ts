@@ -14,7 +14,7 @@ import type {
   KnockbackError,
   KnockbackForce,
   TargetNotFoundError,
-} from '../types/CombatTypes'
+} from './types'
 
 // ================================
 // Health Management (Simple)

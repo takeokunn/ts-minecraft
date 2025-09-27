@@ -4,19 +4,21 @@ import { describe, expect, it } from '@effect/vitest'
 import { EventBus } from '@infrastructure/events/EventBus'
 import { Array, Effect, Layer, Random } from 'effect'
 import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
-import { CombatService } from '../services/CombatService'
-import { CombatServiceLive } from '../services/CombatServiceLive'
+import { CombatService } from '../service'
+import { CombatServiceLive } from '../live'
+import { AttackOnCooldownError } from '../types'
+import type {
+  Armor,
+  AttackType,
+  EnchantmentType,
+  Weapon,
+} from '../types'
 import {
-  AttackOnCooldownError,
   createAttackDamage,
   createDefenseValue,
   createDurability,
   createKnockbackForce,
-  type Armor,
-  type AttackType,
-  type EnchantmentType,
-  type Weapon,
-} from '../types/CombatTypes'
+} from '../helper'
 
 // ================================
 // Test Data Generators
@@ -226,7 +228,6 @@ describe('CombatService', () => {
     it.effect('should apply critical damage multiplier', () =>
       Effect.gen(function* () {
         const service = yield* CombatService
-        const attackerId = BrandedTypes.createEntityId('attacker')
         const targetId = BrandedTypes.createEntityId('target')
 
         // Run a single attack multiple times with different attackers to avoid cooldown
