@@ -1,8 +1,8 @@
 import { Context, Effect, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
-import type { EntityId } from '../../infrastructure/ecs/Entity.js'
-import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager.js'
-import type { PlayerId, Timestamp, Health, Vector3D, Rotation3D } from '../../shared/types/index.js'
+import type { EntityId } from '../../infrastructure/ecs/Entity'
+import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager'
+import type { PlayerId, Timestamp, Health, Vector3D, Rotation3D } from '../../shared/types/index'
 import {
   PlayerIdSchema,
   TimestampSchema,
@@ -11,7 +11,7 @@ import {
   Rotation3DSchema,
   BrandedTypes,
   SpatialBrands,
-} from '../../shared/types/index.js'
+} from '../../shared/types/index'
 
 /**
  * プレイヤーの位置情報（Vector3Dベース）

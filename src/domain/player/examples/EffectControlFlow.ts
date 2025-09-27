@@ -1,6 +1,6 @@
 import { Effect, Match, pipe, Option, Either, Array as EffectArray, Stream } from 'effect'
 import { Schema } from '@effect/schema'
-import * as Types from '../PlayerTypes.js'
+import * as Types from '../PlayerTypes'
 
 // =========================================
 // 制御フロー変換パターン集

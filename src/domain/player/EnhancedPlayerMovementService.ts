@@ -1,15 +1,11 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import { Player } from '../entities/Player.js'
-import { Direction, MOVEMENT_SPEEDS, JUMP_VELOCITY } from './PlayerState.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import type { Vector3D } from '../../shared/schemas/spatial.js'
-import {
-  PlayerPhysicsService,
-  type PlayerPhysicsState,
-  type PlayerPhysicsError,
-} from '../physics/PlayerPhysicsService.js'
-import { CannonPhysicsService } from '../physics/CannonPhysicsService.js'
-import { TerrainAdaptationService } from '../physics/TerrainAdaptationService.js'
+import { Player } from '../entities/Player'
+import { Direction, MOVEMENT_SPEEDS, JUMP_VELOCITY } from './PlayerState'
+import type { PlayerId } from '../../shared/types/branded'
+import type { Vector3D } from '../../shared/schemas/spatial'
+import { PlayerPhysicsService, type PlayerPhysicsState, type PlayerPhysicsError } from '../physics/PlayerPhysicsService'
+import { CannonPhysicsService } from '../physics/CannonPhysicsService'
+import { TerrainAdaptationService } from '../physics/TerrainAdaptationService'
 
 /**
  * Enhanced Player Movement Service

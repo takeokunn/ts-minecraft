@@ -1,8 +1,8 @@
 import { Chunk, Effect, HashMap, Layer, Match, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
 import * as THREE from 'three'
 import { nanoid } from 'nanoid'
-import type { Vector3D } from '../../shared/types/spatial-brands.js'
-import { AudioService } from './AudioService.js'
+import type { Vector3D } from '@shared/types/spatial-brands'
+import { AudioService } from './AudioService'
 import {
   AudioContextError,
   AudioError,
@@ -20,7 +20,7 @@ import {
   StopReason,
   type Volume,
   type Pitch,
-} from './AudioTypes.js'
+} from './AudioTypes'
 
 interface ActiveSource {
   audio: THREE.PositionalAudio | THREE.Audio

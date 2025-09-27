@@ -2,7 +2,7 @@ import { Effect, Context, Layer, Ref, Option, Match, pipe, Array as A, Predicate
 import { Schema } from '@effect/schema'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
-import { UVCoordinate, BrandedTypes } from '../../shared/types/branded'
+import { UVCoordinate, BrandedTypes } from '@shared/types/branded'
 
 // ========================================
 // Type Definitions

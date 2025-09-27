@@ -6,9 +6,9 @@
  */
 
 import { Effect, Option, pipe, Match, Stream } from 'effect'
-import { AddItemResult, Inventory, ItemStack } from './InventoryTypes.js'
-import { SlotManager } from './SlotManager.js'
-import { InventoryError } from './InventoryService.js'
+import { AddItemResult, Inventory, ItemStack } from './InventoryTypes'
+import { SlotManager } from './SlotManager'
+import { InventoryError } from './InventoryService'
 
 // Registry service interface for dependency injection
 export interface RegistryService {

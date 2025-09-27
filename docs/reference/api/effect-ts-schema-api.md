@@ -613,7 +613,7 @@ export interface StandardPlayerService {
     data: UpdatePlayerData
   ) => Effect.Effect<Player, PlayerNotFoundError | ValidationError>
 }
-export const StandardPlayerService = Context.GenericTag<StandardPlayerService>('@minecraft/PlayerService')
+export const StandardPlayerService = Context.GenericTag<StandardPlayerService>('@minecraft/domain/PlayerService')
 
 // ✅ Layer構築の標準パターン
 export const StandardPlayerServiceLive = Layer.effect(

@@ -1,3 +1,3 @@
-export * from './AudioTypes.js'
-export * from './AudioService.js'
-export * from './AudioServiceLive.js'
+export * from './AudioTypes'
+export * from './AudioService'
+export * from './AudioServiceLive'

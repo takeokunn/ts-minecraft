@@ -7,9 +7,9 @@
 
 import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { ItemId, ItemStack, ItemMetadata } from './InventoryTypes.js'
-import type { ItemDefinition, ItemCategory } from './ItemRegistry.js'
-import { ItemRegistry } from './ItemRegistry.js'
+import { ItemId, ItemStack, ItemMetadata } from './InventoryTypes'
+import type { ItemDefinition, ItemCategory } from './ItemRegistry'
+import { ItemRegistry } from './ItemRegistry'
 
 // Extended item properties
 export const ItemRarity = Schema.Literal('common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic')

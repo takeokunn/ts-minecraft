@@ -24,8 +24,8 @@ import {
   isEmpty,
   getMemoryUsage,
   resetChunkData,
-} from '../ChunkData.js'
-import type { ChunkPosition } from '../ChunkPosition.js'
+} from '../ChunkData'
+import type { ChunkPosition } from '../ChunkPosition'
 
 describe('ChunkData', () => {
   let testPosition: ChunkPosition

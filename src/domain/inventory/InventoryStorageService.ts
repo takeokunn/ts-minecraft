@@ -7,7 +7,7 @@
 
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { Inventory, InventoryState, PlayerId, validateInventoryState } from './InventoryTypes.js'
+import { Inventory, InventoryState, PlayerId, validateInventoryState } from './InventoryTypes'
 
 // Storage configuration schema
 export const StorageConfig = Schema.Struct({

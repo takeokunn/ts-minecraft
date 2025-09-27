@@ -1,7 +1,7 @@
 import { it, expect, describe } from '@effect/vitest'
 import { Effect, Layer, TestClock, TestContext, Option, Random, Array } from 'effect'
-import { CombatService } from '../CombatService.js'
-import { CombatServiceLive } from '../CombatServiceLive.js'
+import { CombatService } from '../services/CombatService'
+import { CombatServiceLive } from '../services/CombatServiceLive'
 import {
   createAttackDamage,
   createDefenseValue,
@@ -12,11 +12,11 @@ import {
   type Weapon,
   type Armor,
   type EnchantmentType,
-} from '../CombatTypes.js'
-import { BrandedTypes } from '../../../shared/types/branded.js'
-import { SpatialBrands } from '../../../shared/types/spatial-brands.js'
-import { EventBus } from '../../../infrastructure/events/EventBus.js'
-import { CannonPhysicsService } from '../../physics/CannonPhysicsService.js'
+} from '../types/CombatTypes'
+import { BrandedTypes } from '@shared/types/branded'
+import { SpatialBrands } from '@shared/types/spatial-brands'
+import { EventBus } from '@infrastructure/events/EventBus'
+import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 
 // ================================
 // Test Data Generators

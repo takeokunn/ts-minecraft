@@ -19,8 +19,8 @@ import {
   pipe,
 } from 'effect'
 import { Schema } from '@effect/schema'
-import * as Types from './PlayerTypes.js'
-import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
+import * as Types from './PlayerTypes'
+import { EntityManager } from '../../infrastructure/ecs/EntityManager'
 
 // =========================================
 // Service Interfaces (Context.Tag Pattern)

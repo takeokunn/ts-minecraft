@@ -51,8 +51,8 @@ pnpm test
 **実行結果例**:
 
 ```
-✓ src/core/schema/position.test.ts (5)
-✓ src/core/world/chunk.test.ts (12)
+✓ src/bootstrap/schemas/position.test.ts (5)
+✓ src/domain/world/chunk.test.ts (12)
 ✓ src/domain/player/player.test.ts (8)
 ✓ src/infrastructure/renderer/three.test.ts (15)
 
@@ -120,8 +120,8 @@ pnpm test:coverage
 ```
 File                     | % Stmts | % Branch | % Funcs | % Lines
 -------------------------|---------|----------|---------|--------
-src/core/schema/         |   95.12 |    88.46 |   94.73 |   95.12
-src/core/world/          |   87.34 |    76.92 |   89.47 |   87.34
+src/bootstrap/schemas/   |   95.12 |    88.46 |   94.73 |   95.12
+src/domain/world/        |   87.34 |    76.92 |   89.47 |   87.34
 src/domain/player/       |   92.15 |    85.71 |   91.66 |   92.15
 All files                |   91.54 |    83.69 |   91.95 |   91.54
 ```
@@ -136,7 +136,7 @@ All files                |   91.54 |    83.69 |   91.95 |   91.54
 
 ```bash
 # 特定ディレクトリのカバレッジ
-pnpm test:coverage -- src/core/
+pnpm test:coverage -- src/bootstrap/
 
 # 最低カバレッジ閾値設定
 pnpm test:coverage -- --coverage.threshold.statements 90

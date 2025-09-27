@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import type { PlayerId } from '../../shared/types/branded.js'
-import type { Vector3D } from '../../shared/schemas/spatial.js'
-import type { BlockType } from '../block/BlockType.js'
-import { WorldCollisionService, type CollisionResult } from './WorldCollisionService.js'
-import { CannonPhysicsService } from './CannonPhysicsService.js'
+import type { PlayerId } from '../../shared/types/branded'
+import type { Vector3D } from '../../shared/schemas/spatial'
+import type { BlockType } from '../block/BlockType'
+import { WorldCollisionService, type CollisionResult } from './WorldCollisionService'
+import { CannonPhysicsService } from './CannonPhysicsService'
 
 /**
  * Terrain Adaptation Service

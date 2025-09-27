@@ -2,20 +2,20 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, Layer, Option, Either, pipe, TestContext, Duration, Match } from 'effect'
-import { PlayerServiceLive } from '../PlayerServiceLive.js'
-import { PlayerService } from '../PlayerService.js'
-import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/EntityManager.js'
-import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
-import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
-import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded.js'
-import { SpatialBrands } from '../../../shared/types/spatial-brands.js'
+import { PlayerServiceLive } from '../PlayerServiceLive'
+import { PlayerService } from '../PlayerService'
+import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/EntityManager'
+import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
+import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
+import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded'
+import { SpatialBrands } from '../../../shared/types/spatial-brands'
 import {
   createPlayerError,
   type PlayerPosition,
   type PlayerRotation,
   type PlayerState,
   DEFAULT_PLAYER_CONFIG,
-} from '../PlayerService.js'
+} from '../PlayerService'
 
 /**
  * PlayerService Integration Tests

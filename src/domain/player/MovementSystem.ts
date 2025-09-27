@@ -1,13 +1,13 @@
 import { Effect, Context, pipe, Match } from 'effect'
 import { Schema } from '@effect/schema'
-import type { EntityId } from '../../infrastructure/ecs/Entity.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService.js'
-import { createPlayerError } from './PlayerService.js'
+import type { EntityId } from '../../infrastructure/ecs/Entity'
+import type { PlayerId } from '../../shared/types/branded'
+import type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService'
+import { createPlayerError } from './PlayerService'
 
 // Re-export types and functions needed by MovementSystem consumers
-export type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService.js'
-export { createPlayerError } from './PlayerService.js'
+export type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService'
+export { createPlayerError } from './PlayerService'
 
 /**
  * 物理定数

@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { EntityId } from '../../shared/types/branded.js'
-import type { Vector3D } from '../../shared/types/spatial-brands.js'
+import type { EntityId } from '@shared/types/branded'
+import type { Vector3D } from '@shared/types/spatial-brands'
 import type {
   AttackType,
   CombatResult,
@@ -15,7 +15,7 @@ import type {
   TargetNotFoundError,
   DefenseValue,
   DamageSource,
-} from './CombatTypes.js'
+} from '../types/CombatTypes'
 
 // ================================
 // Health Management (Simple)

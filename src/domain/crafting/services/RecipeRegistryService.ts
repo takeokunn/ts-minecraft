@@ -7,7 +7,7 @@ import {
   InvalidRecipeError,
   RecipeNotFoundError,
   RecipeIdSchema,
-} from './RecipeTypes'
+} from '../types/RecipeTypes'
 
 /**
  * Recipe Registry Service

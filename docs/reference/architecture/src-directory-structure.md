@@ -26,9 +26,9 @@ src/
 ├── infrastructure/              # インフラストラクチャ層（ECS・レンダリング）
 ├── presentation/                # プレゼンテーション層（UI・入力制御）
 ├── shared/                      # 共有コンポーネント（横断的関心事）
+├── bootstrap/                   # アプリケーションブートストラップ（初期化・設定）
 ├── types/                       # TypeScript型定義
-├── workers/                     # Web Workers（並行処理）
-└── config/                      # 設定・環境変数
+└── workers/                     # Web Workers（並行処理）
 ```
 
 ## レイヤー詳細設計
@@ -265,7 +265,7 @@ export interface PlayerMovement {
   readonly validateMovement: (from: Position, to: Position) => Effect.Effect<boolean, MovementError>
 }
 
-export const PlayerMovement = Context.GenericTag<PlayerMovement>('PlayerMovement')
+export const PlayerMovement = Context.GenericTag<PlayerMovement>('@minecraft/domain/PlayerMovement')
 
 // 実装例
 export const PlayerMovementLive = Layer.effect(
@@ -391,24 +391,37 @@ src/infrastructure/
 
 ### 4. Presentation層 (`src/presentation/`)
 
-UI、入力制御、ユーザーインタラクション。
+UI、入力制御、ユーザーインタラクション。すべてのGUIコンポーネントは`gui/`配下に統合。
 
 ```
 src/presentation/
 ├── index.ts                     # プレゼンテーション層エクスポート統合
-├── ui/                          # ユーザーインターフェース
-│   ├── components/             # UIコンポーネント
-│   │   ├── HUD.ts              # ヘッドアップディスプレイ
-│   │   ├── Inventory.ts        # インベントリUI
-│   │   ├── HealthBar.ts        # 体力バー
-│   │   ├── Hotbar.ts           # ホットバー
-│   │   └── Menu.ts             # メニュー
-│   ├── layouts/                # レイアウト
-│   │   ├── GameLayout.ts       # ゲーム画面レイアウト
-│   │   └── MenuLayout.ts       # メニュー画面レイアウト
-│   └── styles/                 # スタイル定義
-│       ├── game.css            # ゲーム画面スタイル
-│       └── menu.css            # メニュー画面スタイル
+├── gui/                         # 統合GUIコンポーネント
+│   ├── inventory/              # インベントリGUI
+│   │   ├── InventoryGUIService.ts  # インベントリGUIサービス
+│   │   ├── components/         # インベントリUIコンポーネント
+│   │   │   ├── InventoryPanel.tsx  # インベントリパネル
+│   │   │   ├── ItemSlot.tsx   # アイテムスロット
+│   │   │   ├── HotbarPanel.tsx # ホットバー
+│   │   │   └── ArmorSlots.tsx # 防具スロット
+│   │   └── types.ts            # インベントリGUI型定義
+│   ├── crafting/               # クラフティングGUI
+│   │   ├── CraftingGUIService.ts   # クラフティングGUIサービス
+│   │   ├── components/         # クラフティングUIコンポーネント
+│   │   │   ├── CraftingTableGUI.tsx # クラフトテーブルUI
+│   │   │   ├── CraftingGrid.tsx    # クラフトグリッド
+│   │   │   ├── RecipeBook.tsx      # レシピブック
+│   │   │   └── CraftingResult.tsx  # クラフト結果表示
+│   │   └── CraftingGUITypes.ts # クラフティングGUI型定義
+│   ├── hud/                    # HUD要素
+│   │   ├── HealthBar.tsx       # 体力バー
+│   │   ├── HungerBar.tsx       # 満腹度バー
+│   │   ├── ExperienceBar.tsx   # 経験値バー
+│   │   └── Crosshair.tsx       # クロスヘア
+│   └── menu/                   # メニューシステム
+│       ├── MainMenu.tsx        # メインメニュー
+│       ├── PauseMenu.tsx       # ポーズメニュー
+│       └── SettingsMenu.tsx    # 設定メニュー
 ├── input/                       # 入力制御
 │   ├── KeyboardInput.ts        # キーボード入力
 │   ├── MouseInput.ts           # マウス入力
@@ -483,18 +496,29 @@ src/workers/
 └── asset-loader.worker.ts      # アセット読み込みワーカー
 ```
 
-### 8. Config層 (`src/config/`)
+### 8. Bootstrap層 (`src/bootstrap/`)
 
-設定管理、環境変数、初期化処理。
+アプリケーションブートストラップ、初期化、設定管理。旧`src/bootstrap/`および`src/config/`から統合。
 
 ```
-src/config/
-├── index.ts                     # 設定エクスポート統合
-├── env.ts                      # 環境変数管理
-├── game-config.ts              # ゲーム設定
-├── render-config.ts            # レンダリング設定
-├── physics-config.ts           # 物理演算設定
-└── development-config.ts       # 開発環境専用設定
+src/bootstrap/
+├── index.ts                     # ブートストラップエクスポート統合
+├── README.md                    # ブートストラップ層の説明
+├── config/                      # 設定管理
+│   ├── config.ts               # 設定サービス実装
+│   ├── index.ts                # 設定エクスポート
+│   └── __test__/               # 設定テスト
+│       └── config.spec.ts      # 設定テストスイート
+├── layers/                      # Effectレイヤー定義
+│   ├── MainLayer.ts            # メインアプリケーションレイヤー
+│   └── __test__/               # レイヤーテスト
+│       └── MainLayer.spec.ts   # レイヤーテストスイート
+├── services/                    # ブートストラップサービス
+│   └── AppService.ts           # アプリケーションサービス
+├── schemas/                     # 設定スキーマ定義
+│   └── Config.ts               # 設定スキーマ
+└── errors/                      # エラー定義
+    └── AppError.ts             # アプリケーションエラー
 ```
 
 ## パスエイリアス設定
@@ -513,7 +537,7 @@ TypeScript設定（`tsconfig.json`）でのパスエイリアス：
       "@/shared/*": ["src/shared/*"],
       "@/types/*": ["src/types/*"],
       "@/workers/*": ["src/workers/*"],
-      "@/config/*": ["src/config/*"]
+      "@/bootstrap/*": ["src/bootstrap/*"]
     }
   }
 }
@@ -528,13 +552,13 @@ TypeScript設定（`tsconfig.json`）でのパスエイリアス：
 export interface WorldGenerator {
   readonly generateChunk: (coordinate: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
 }
-export const WorldGenerator = Context.GenericTag<WorldGenerator>('WorldGenerator')
+export const WorldGenerator = Context.GenericTag<WorldGenerator>('@minecraft/domain/WorldGenerator')
 
 // src/infrastructure/ecs/World.ts
 export interface ECSWorld {
   readonly addEntity: (entity: Entity) => Effect.Effect<EntityId, ECSError>
 }
-export const ECSWorld = Context.GenericTag<ECSWorld>('ECSWorld')
+export const ECSWorld = Context.GenericTag<ECSWorld>('@minecraft/infrastructure/ECSWorld')
 ```
 
 ### Schema.Struct使用例
@@ -587,11 +611,11 @@ export type ChunkError = Schema.Schema.Type<typeof ChunkNotFoundError> | Schema.
    - `src/application/use-cases/`
 
 3. **Phase 3**: Presentation + Advanced Features
-   - `src/presentation/ui/`, `src/presentation/input/`
+   - `src/presentation/gui/`, `src/presentation/input/`
    - `src/workers/`
 
 4. **Phase 4**: Polish + Optimization
-   - `src/shared/utils/`, `src/config/`
+   - `src/shared/utils/`, `src/bootstrap/`
    - パフォーマンス最適化、品質向上
 
 ## 品質ゲート

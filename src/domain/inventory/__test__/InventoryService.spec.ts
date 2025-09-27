@@ -7,10 +7,10 @@
 import { describe, expect, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
-import { InventoryService } from '../InventoryService.js'
-import { InventoryServiceLive } from '../InventoryServiceLive.js'
-import { ItemRegistry } from '../ItemRegistry.js'
-import { ItemStack, PlayerId, ItemId, createEmptyInventory } from '../InventoryTypes.js'
+import { InventoryService } from '../InventoryService'
+import { InventoryServiceLive } from '../InventoryServiceLive'
+import { ItemRegistry } from '../ItemRegistry'
+import { ItemStack, PlayerId, ItemId, createEmptyInventory } from '../InventoryTypes'
 
 describe('InventoryService', () => {
   const testPlayerId = PlayerId('player-test-001')

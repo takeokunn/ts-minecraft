@@ -13,9 +13,9 @@ import {
   Option,
   Chunk,
 } from 'effect'
-import { AgricultureService } from './AgricultureService.js'
-import type { PlayerId, ItemId } from '../../shared/types/branded.js'
-import type { ItemStack } from '../inventory/InventoryTypes.js'
+import { AgricultureService } from './AgricultureService'
+import type { PlayerId, ItemId } from '@shared/types/branded'
+import type { ItemStack } from '../../inventory/InventoryTypes'
 import {
   type Crop,
   type CropId,
@@ -45,7 +45,7 @@ import {
   BreedingCooldownError,
   InvalidFoodError,
   createAgricultureError,
-} from './AgricultureTypes.js'
+} from '../types/AgricultureTypes'
 
 // ===================================
 // Growth Requirements Configuration

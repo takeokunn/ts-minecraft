@@ -12,8 +12,8 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { Effect, Option, pipe, Match } from 'effect'
 import { get, set, del, createStore } from 'idb-keyval'
 import type { UseStore } from 'idb-keyval'
-import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes.js'
-import { EnhancedItemStack } from './ItemManagerService.js'
+import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes'
+import { EnhancedItemStack } from './ItemManagerService'
 
 // Zustand store state interface
 export interface InventoryZustandState {

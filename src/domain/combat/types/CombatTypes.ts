@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect'
-import type { EntityId, ItemId } from '../../shared/types/branded.js'
-import { EntityId as EntityIdSchema, ItemId as ItemIdSchema } from '../../shared/types/branded.js'
-import { Vector3DSchema, type Vector3D } from '../../shared/types/spatial-brands.js'
+import type { EntityId, ItemId } from '@shared/types/branded'
+import { EntityId as EntityIdSchema, ItemId as ItemIdSchema } from '@shared/types/branded'
+import { Vector3DSchema, type Vector3D } from '@shared/types/spatial-brands'
 
 // ================================
 // Branded Types

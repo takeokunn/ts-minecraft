@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Effect, Option, Either } from 'effect'
-import { CraftingEngineService, CraftingEngineServiceLive } from '../CraftingEngineService'
+import { CraftingEngineService, CraftingEngineServiceLive } from '../services/CraftingEngineService'
 import {
   CraftingGrid,
   CraftingRecipe,
@@ -13,7 +13,7 @@ import {
   ItemStackCount,
   RecipeId,
   createEmptyCraftingGrid,
-} from '../RecipeTypes'
+} from '../types/RecipeTypes'
 
 describe('CraftingEngineService', () => {
   let service: CraftingEngineService

@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Option, Either, pipe, Match, Array as EffectArray } from 'effect'
 import { Schema } from '@effect/schema'
-import * as Types from '../PlayerTypes.js'
+import * as Types from '../PlayerTypes'
 
 // =========================================
 // Test Data Generators (Effect-based)

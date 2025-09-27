@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Either } from 'effect'
 import type { PlayerId } from '@/shared/types/branded'
 import type { Vector3D } from '@/shared/types/spatial-brands'
-import { FurnitureService } from '../FurnitureService'
-import { FurnitureServiceLive } from '../FurnitureServiceLive'
+import { FurnitureService } from '../services/FurnitureService'
+import { FurnitureServiceLive } from '../services/FurnitureServiceLive'
 
 describe('FurnitureService Basic Tests', () => {
   describe('Type Safety and Structure', () => {

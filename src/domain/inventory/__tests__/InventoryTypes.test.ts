@@ -15,7 +15,7 @@ import {
   createEmptyInventory,
   validateInventory,
   ItemMetadata,
-} from '../InventoryTypes.js'
+} from '../InventoryTypes'
 
 describe('InventoryTypes', () => {
   describe('Basic Types', () => {

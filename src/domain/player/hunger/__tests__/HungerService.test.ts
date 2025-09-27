@@ -2,11 +2,11 @@ import { Effect, TestClock, TestContext, Layer, Option, Either, pipe } from 'eff
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
-import type { PlayerId, ItemId } from '../../../../shared/types/index.js'
-import { HungerService } from '../HungerService.js'
-import { HungerServiceLive } from '../HungerServiceLive.js'
-import type { FoodItem, HungerLevel, SaturationLevel, HungerDecreaseReason, StatusEffect } from '../HungerTypes.js'
-import { HUNGER_CONSTANTS } from '../HungerTypes.js'
+import type { PlayerId, ItemId } from '../../../../shared/types/index'
+import { HungerService } from '../HungerService'
+import { HungerServiceLive } from '../HungerServiceLive'
+import type { FoodItem, HungerLevel, SaturationLevel, HungerDecreaseReason, StatusEffect } from '../HungerTypes'
+import { HUNGER_CONSTANTS } from '../HungerTypes'
 
 // =========================================
 // Test Data Generators (Effect-based)

@@ -85,7 +85,7 @@ Minecraftのゲームワールドにおける基本ブロックシステムを�
 
 ```typescript
 // Service設計
-const BlockService = Context.GenericTag<BlockService>('@minecraft/BlockService')
+const BlockService = Context.GenericTag<BlockService>('@minecraft/domain/BlockService')
 
 // Schema設計
 const BlockSchema = Schema.Struct({
@@ -194,7 +194,7 @@ const BlockConfigSchema = Schema.Struct({
 
 ```typescript
 // 実装済み Service定義
-export const BlockService = Context.GenericTag<BlockService>('@minecraft/BlockService')
+export const BlockService = Context.GenericTag<BlockService>('@minecraft/domain/BlockService')
 
 export interface BlockService {
   readonly placeBlock: (type: BlockType, position: Vector3) => Effect.Effect<Block, BlockError>
@@ -602,7 +602,7 @@ content: |
   # ブロックシステム実装パターン
 
   ## Service/Layer構成
-  - Context.GenericTag: @minecraft/BlockService
+  - Context.GenericTag: @minecraft/domain/BlockService
   - Schema.Struct: BlockSchema, BlockConfigSchema, BlockComponent
   - Layer.effect: 依存注入（Logger, Config, WorldStorage）
 

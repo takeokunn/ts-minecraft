@@ -6,13 +6,13 @@
  */
 
 import { Context, Effect, Layer, Match, Option, pipe, Array as EffectArray } from 'effect'
-import { Inventory, ItemStack, PlayerId } from './InventoryTypes.js'
-import { InventoryService } from './InventoryService.js'
-import { InventoryStorageService } from './InventoryStorageService.js'
-import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService.js'
-import { InventoryIntegrationService, InventoryIntegrationServiceLive } from './InventoryIntegrationLayer.js'
-import { InventoryServiceLive } from './InventoryServiceLive.js'
-import { LocalStorageInventoryService } from './InventoryStorageService.js'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
+import { InventoryService } from './InventoryService'
+import { InventoryStorageService } from './InventoryStorageService'
+import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService'
+import { InventoryIntegrationService, InventoryIntegrationServiceLive } from './InventoryIntegrationLayer'
+import { InventoryServiceLive } from './InventoryServiceLive'
+import { LocalStorageInventoryService } from './InventoryStorageService'
 
 // API Response types
 export interface APIResponse<T> {

@@ -149,11 +149,11 @@ export type WorldService = Schema.Schema.Type<typeof WorldServiceSchema>
  * WorldService Context Tag
  * @usage const worldService = yield* WorldService
  */
-export const WorldService = Context.GenericTag<WorldService>("@minecraft/WorldService")
-export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/PlayerService")
-export const BlockService = Context.GenericTag<BlockService>("@minecraft/BlockService")
-export const EntityService = Context.GenericTag<EntityService>("@minecraft/EntityService")
-export const GameService = Context.GenericTag<GameService>("@minecraft/GameService")
+export const WorldService = Context.GenericTag<WorldService>("@minecraft/domain/WorldService")
+export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/domain/PlayerService")
+export const BlockService = Context.GenericTag<BlockService>("@minecraft/domain/BlockService")
+export const EntityService = Context.GenericTag<EntityService>("@minecraft/domain/EntityService")
+export const GameService = Context.GenericTag<GameService>("@minecraft/domain/GameService")
 
 ### 📋 World基本データ構造
 
@@ -719,7 +719,7 @@ export interface WorldServiceImpl {
   readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>('@app/WorldService')
+export const WorldService = Context.GenericTag<WorldService>('@minecraft/domain/WorldService')
 
 // 実装例
 export const WorldServiceLive = Layer.effect(
@@ -1208,7 +1208,7 @@ export const PlayerServiceSchema = Schema.Struct({
 })
 export type PlayerService = Schema.Schema.Type<typeof PlayerServiceSchema>
 
-export const PlayerService = Context.GenericTag<PlayerService>('@app/PlayerService')
+export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/domain/PlayerService')
 
 // 実装
 export const PlayerServiceLive = Layer.effect(

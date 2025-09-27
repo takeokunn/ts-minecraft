@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Either, Stream, pipe } from 'effect'
-import { defaultConfig, loadConfig, validateConfig } from '../config.js'
+import { defaultConfig, loadConfig, validateConfig } from '../config'
 
 describe('defaultConfig', () => {
   it('should provide valid default configuration', () => {

@@ -1,7 +1,7 @@
 import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match, Predicate } from 'effect'
 import type { BlockType, BlockCategory } from './BlockType'
 import { allBlocks } from './blocks'
-import { BlockId, BrandedTypes } from '../../shared/types/branded.js'
+import { BlockId, BrandedTypes } from '../../shared/types/branded'
 
 // エラー定義（Data.TaggedErrorを使用）
 export interface BlockNotFoundError {

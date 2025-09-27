@@ -27,7 +27,7 @@ import {
   isTagItemMatcher,
   isCustomItemMatcher,
   createEmptyCraftingGrid,
-} from '../RecipeTypes'
+} from '../types/RecipeTypes'
 
 describe('RecipeTypes', () => {
   describe('Brand Types', () => {

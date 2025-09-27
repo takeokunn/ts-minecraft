@@ -1,9 +1,9 @@
 // Service exports
-export { GameLoopService } from './GameLoopService'
-export { GameLoopServiceLive } from './GameLoopServiceLive'
+export { GameLoopService } from './services/GameLoopService'
+export { GameLoopServiceLive } from './services/GameLoopServiceLive'
 
 // Type exports
-export type { GameLoopState, FrameInfo, PerformanceMetrics, GameLoopConfig } from './types'
+export type { GameLoopState, FrameInfo, PerformanceMetrics, GameLoopConfig } from './types/types'
 
 export {
   GameLoopStateSchema,
@@ -11,7 +11,7 @@ export {
   PerformanceMetricsSchema,
   GameLoopConfigSchema,
   DEFAULT_GAME_LOOP_CONFIG,
-} from './types'
+} from './types/types'
 
 // Error exports
 export {

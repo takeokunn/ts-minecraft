@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
 import * as CANNON from 'cannon-es'
-import type { Vector3D } from '../../shared/schemas/spatial.js'
-import type { BlockTypeId } from '../../shared/types/branded.js'
-import { CannonPhysicsService } from './CannonPhysicsService.js'
+import type { Vector3D } from '../../shared/schemas/spatial'
+import type { BlockTypeId } from '../../shared/types/branded'
+import { CannonPhysicsService } from './CannonPhysicsService'
 
 /**
  * World Collision Service

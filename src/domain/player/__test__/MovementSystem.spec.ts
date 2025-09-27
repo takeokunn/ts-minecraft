@@ -2,14 +2,14 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { it as effectIt } from '@effect/vitest'
 import { Effect, Layer, pipe, Duration } from 'effect'
-import { MovementSystemLive } from '../MovementSystemLive.js'
-import { MovementSystem } from '../MovementSystem.js'
-import { PlayerServiceLive } from '../PlayerServiceLive.js'
-import { PlayerService } from '../PlayerService.js'
-import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager.js'
-import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity.js'
-import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry.js'
-import { BrandedTypes, SpatialBrands } from '../../../shared/types/index.js'
+import { MovementSystemLive } from '../MovementSystemLive'
+import { MovementSystem } from '../MovementSystem'
+import { PlayerServiceLive } from '../PlayerServiceLive'
+import { PlayerService } from '../PlayerService'
+import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager'
+import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
+import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
+import { BrandedTypes, SpatialBrands } from '../../../shared/types/index'
 import {
   PHYSICS_CONSTANTS,
   PhysicsUtils,
@@ -21,7 +21,7 @@ import {
   type VelocityVector,
   type PlayerPosition,
   type PlayerRotation,
-} from '../MovementSystem.js'
+} from '../MovementSystem'
 
 /**
  * MovementSystem Physics and Performance Tests

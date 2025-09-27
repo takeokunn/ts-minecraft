@@ -9,7 +9,7 @@
  */
 
 // Service interface
-export { PlayerService } from './PlayerService.js'
+export { PlayerService } from './PlayerService'
 
 // Type-only exports
 export type {
@@ -19,7 +19,7 @@ export type {
   PlayerPosition,
   PlayerRotation,
   PlayerState,
-} from './PlayerService.js'
+} from './PlayerService'
 
 // Schema and validation exports (runtime values)
 export {
@@ -35,7 +35,7 @@ export {
   validatePlayerRotation,
   validatePlayerUpdateData,
   DEFAULT_PLAYER_CONFIG,
-} from './PlayerService.js'
+} from './PlayerService'
 
 // Type-only exports for schemas
 export type {
@@ -46,20 +46,14 @@ export type {
   PlayerError as PlayerErrorType,
   PlayerErrorReason as PlayerErrorReasonType,
   PlayerUpdateData as PlayerUpdateDataType,
-} from './PlayerService.js'
+} from './PlayerService'
 
 // Service implementation
-export { PlayerServiceLive } from './PlayerServiceLive.js'
+export { PlayerServiceLive } from './PlayerServiceLive'
 
 // Movement System exports
-export { MovementSystem } from './MovementSystem.js'
-export type {
-  MovementInput,
-  VelocityVector,
-  MovementState,
-  PhysicsResult,
-  MovementDirection,
-} from './MovementSystem.js'
+export { MovementSystem } from './MovementSystem'
+export type { MovementInput, VelocityVector, MovementState, PhysicsResult, MovementDirection } from './MovementSystem'
 export {
   PHYSICS_CONSTANTS,
   PhysicsUtils,
@@ -68,5 +62,5 @@ export {
   validateMovementState,
   validateVelocityVector,
   DEFAULT_MOVEMENT_STATE,
-} from './MovementSystem.js'
-export { MovementSystemLive } from './MovementSystemLive.js'
+} from './MovementSystem'
+export { MovementSystemLive } from './MovementSystemLive'

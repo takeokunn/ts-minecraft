@@ -21,7 +21,7 @@ import {
   isExactItemMatcher,
   isTagItemMatcher,
   isCustomItemMatcher,
-} from './RecipeTypes'
+} from '../types/RecipeTypes'
 
 /**
  * Crafting Engine Service

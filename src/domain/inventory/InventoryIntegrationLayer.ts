@@ -6,14 +6,14 @@
  */
 
 import { Context, Effect, Layer, Match, Option, pipe, Ref, Schedule, Duration } from 'effect'
-import { Inventory, InventoryState, ItemStack, PlayerId } from './InventoryTypes.js'
-import { InventoryService } from './InventoryService.js'
-import { InventoryServiceLive } from './InventoryServiceLive.js'
-import { InventoryStorageService, LocalStorageInventoryService } from './InventoryStorageService.js'
-import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService.js'
-import { ItemRegistry } from './ItemRegistry.js'
-import { useInventoryStore, InventoryZustandEffects } from './InventoryZustandStore.js'
-import type { InventoryZustandState } from './InventoryZustandStore.js'
+import { Inventory, InventoryState, ItemStack, PlayerId } from './InventoryTypes'
+import { InventoryService } from './InventoryService'
+import { InventoryServiceLive } from './InventoryServiceLive'
+import { InventoryStorageService, LocalStorageInventoryService } from './InventoryStorageService'
+import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService'
+import { ItemRegistry } from './ItemRegistry'
+import { useInventoryStore, InventoryZustandEffects } from './InventoryZustandStore'
+import type { InventoryZustandState } from './InventoryZustandStore'
 
 // Integration service interface
 export interface InventoryIntegrationService {

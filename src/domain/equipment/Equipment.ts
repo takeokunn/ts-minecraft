@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import { ItemStack } from '../inventory/Inventory.js'
+import { ItemStack } from '../inventory/Inventory'
 
 // 装備スロット定義
 export const EquipmentSlot = Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainHand', 'offHand')

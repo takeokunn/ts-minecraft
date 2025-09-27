@@ -1,9 +1,9 @@
 import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate, Either } from 'effect'
-import { PlayerService } from './PlayerService.js'
-import { EntityManager } from '../../infrastructure/ecs/EntityManager.js'
-import type { EntityId } from '../../infrastructure/ecs/Entity.js'
-import type { PlayerId, ComponentTypeName } from '../../shared/types/branded.js'
-import { GameBrands, TimeBrands, SpatialBrands } from '../../shared/types/index.js'
+import { PlayerService } from './PlayerService'
+import { EntityManager } from '../../infrastructure/ecs/EntityManager'
+import type { EntityId } from '../../infrastructure/ecs/Entity'
+import type { PlayerId, ComponentTypeName } from '../../shared/types/branded'
+import { GameBrands, TimeBrands, SpatialBrands } from '../../shared/types/index'
 import {
   type PlayerConfig,
   type PlayerState,
@@ -20,7 +20,7 @@ import {
   validatePlayerRotation,
   validatePlayerUpdateData,
   DEFAULT_PLAYER_CONFIG,
-} from './PlayerService.js'
+} from './PlayerService'
 
 /**
  * プレイヤーの内部状態管理

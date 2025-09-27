@@ -1,8 +1,8 @@
 import { Effect, Layer, Ref, pipe, HashMap, Option, Match } from 'effect'
-import { MovementSystem } from './MovementSystem.js'
-import { PlayerService } from './PlayerService.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import { SpatialBrands } from '../../shared/types/spatial-brands.js'
+import { MovementSystem } from './MovementSystem'
+import { PlayerService } from './PlayerService'
+import type { PlayerId } from '../../shared/types/branded'
+import { SpatialBrands } from '../../shared/types/spatial-brands'
 import {
   type MovementInput,
   type MovementState,
@@ -16,7 +16,7 @@ import {
   PhysicsUtils,
   InputUtils,
   createPlayerError,
-} from './MovementSystem.js'
+} from './MovementSystem'
 
 /**
  * パフォーマンス統計
