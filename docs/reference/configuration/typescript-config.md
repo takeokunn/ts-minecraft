@@ -151,7 +151,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
   /* === プロジェクト参照（モノレポ対応） === */
   "references": [
     {
-      "path": "./packages/core"
+      "path": "./packages/bootstrap"
     },
     {
       "path": "./packages/renderer"
@@ -700,7 +700,7 @@ import { DatabaseLayer } from '@/infrastructure/database/DatabaseLayer'
 {
   "files": [],
   "references": [
-    { "path": "./packages/core" },
+    { "path": "./packages/bootstrap" },
     { "path": "./packages/renderer" },
     { "path": "./packages/ui" },
     { "path": "./apps/game" }
@@ -713,7 +713,7 @@ import { DatabaseLayer } from '@/infrastructure/database/DatabaseLayer'
   }
 }
 
-// packages/core/tsconfig.json - コアパッケージ
+// packages/bootstrap/tsconfig.json - ブートストラップパッケージ
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
@@ -737,7 +737,7 @@ import { DatabaseLayer } from '@/infrastructure/database/DatabaseLayer'
   },
   "include": ["src/**/*"],
   "references": [
-    { "path": "../core" }                     // coreパッケージに依存
+    { "path": "../bootstrap" }                     // bootstrapパッケージに依存
   ]
 }
 ```

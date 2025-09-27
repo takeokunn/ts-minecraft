@@ -1,10 +1,10 @@
 // Type exports
-export * from './HealthTypes.js'
+export * from './HealthTypes'
 
 // Service exports
-export { HealthService } from './HealthService.js'
-export { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator.js'
+export { HealthService } from './HealthService'
+export { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator'
 
 // Layer exports
-export { HealthServiceLive } from './HealthServiceLive.js'
-export { DamageCalculatorLive } from './DamageCalculatorLive.js'
+export { HealthServiceLive } from './HealthServiceLive'
+export { DamageCalculatorLive } from './DamageCalculatorLive'

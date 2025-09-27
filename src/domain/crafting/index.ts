@@ -5,11 +5,11 @@
  */
 
 // ===== Types =====
-export * from './RecipeTypes'
+export * from './types/RecipeTypes'
 
 // ===== Services =====
-export * from './CraftingEngineService'
-export * from './RecipeRegistryService'
+export * from './services/CraftingEngineService'
+export * from './services/RecipeRegistryService'
 
 // ===== Data =====
 export * from './StandardRecipes'
@@ -25,8 +25,8 @@ export type {
   RecipeId,
   ItemStackCount,
   RecipePattern,
-} from './RecipeTypes'
+} from './types/RecipeTypes'
 
-export type { CraftingEngineService } from './CraftingEngineService'
+export type { CraftingEngineService } from './services/CraftingEngineService'
 
-export type { RecipeRegistryService } from './RecipeRegistryService'
+export type { RecipeRegistryService } from './services/RecipeRegistryService'

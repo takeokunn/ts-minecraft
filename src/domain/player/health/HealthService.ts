@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId } from '../PlayerTypes.js'
-import type { Vector3D } from '../../../shared/schemas/spatial.js'
+import type { PlayerId } from '../PlayerTypes'
+import type { Vector3D } from '../../../shared/schemas/spatial'
 import type {
   CurrentHealth,
   MaxHealth,
@@ -9,8 +9,8 @@ import type {
   HealAmount,
   HealthState,
   HealthError,
-} from './HealthTypes.js'
-import type { ArmorValue, ProtectionLevel } from './DamageCalculator.js'
+} from './HealthTypes'
+import type { ArmorValue, ProtectionLevel } from './DamageCalculator'
 
 // =======================================
 // Health Service Interface

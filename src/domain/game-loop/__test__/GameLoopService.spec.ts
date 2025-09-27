@@ -2,10 +2,10 @@ import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either, Layer, TestClock, TestContext, pipe } from 'effect'
 import * as Match from 'effect/Match'
-import { GameLoopService } from '../GameLoopService'
-import type { FrameInfo, GameLoopConfig } from '../types'
+import { GameLoopService } from '../services/GameLoopService'
+import type { FrameInfo, GameLoopConfig } from '../types/types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@shared/types/branded'
 
 describe('GameLoopService', () => {
   // Mock GameLoopService for testing the interface contract

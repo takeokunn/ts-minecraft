@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, pipe, Match, Ref, Schedule } from 'effect'
-import type { PlayerId } from '../../shared/types/branded.js'
+import type { PlayerId } from '../../shared/types/branded'
 
 /**
  * Physics Performance Service

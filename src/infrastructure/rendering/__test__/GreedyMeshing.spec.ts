@@ -10,7 +10,7 @@ import {
 } from '../GreedyMeshing'
 import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@shared/types/branded'
 
 // ========================================
 // Test Helpers

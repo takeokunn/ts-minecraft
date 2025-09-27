@@ -1,6 +1,6 @@
 import { Context, Effect, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import type { DamageSource, DamageAmount } from './HealthTypes.js'
+import type { DamageSource, DamageAmount } from './HealthTypes'
 
 // =======================================
 // Damage Calculation Configuration

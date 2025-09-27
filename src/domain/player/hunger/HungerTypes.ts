@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect'
-import type { PlayerId, ItemId, Health } from '../../../shared/types/index.js'
-import { PlayerIdSchema, ItemId as ItemIdSchema, HealthSchema } from '../../../shared/types/index.js'
+import type { PlayerId, ItemId, Health } from '../../../shared/types/index'
+import { PlayerIdSchema, ItemId as ItemIdSchema, HealthSchema } from '../../../shared/types/index'
 
 /**
  * Hunger System用の型定義

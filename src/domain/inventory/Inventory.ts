@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import type { ItemId } from '../../shared/types/branded.js'
+import type { ItemId } from '../../shared/types/branded'
 
 // アイテムスタック定義
 export const ItemStack = Schema.Struct({

@@ -6,18 +6,11 @@
  */
 
 import { Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
-import {
-  AddItemResult,
-  Inventory,
-  InventoryState,
-  ItemStack,
-  PlayerId,
-  createEmptyInventory,
-} from './InventoryTypes.js'
-import { InventoryError, InventoryService } from './InventoryService.js'
-import { ItemRegistry } from './ItemRegistry.js'
-import { SlotManager } from './SlotManager.js'
-import { StackProcessor } from './StackProcessor.js'
+import { AddItemResult, Inventory, InventoryState, ItemStack, PlayerId, createEmptyInventory } from './InventoryTypes'
+import { InventoryError, InventoryService } from './InventoryService'
+import { ItemRegistry } from './ItemRegistry'
+import { SlotManager } from './SlotManager'
+import { StackProcessor } from './StackProcessor'
 
 interface InventoryStore {
   inventories: HashMap.HashMap<PlayerId, Inventory>

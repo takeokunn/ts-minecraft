@@ -2,11 +2,11 @@
 # Generated on Wed Sep 24 10:05:54 AM JST 2025
 # These files can be re-enabled after manual migration
 
-src/core/errors/__test__/AppError.effect-schema.spec.ts
-src/core/errors/__test__/AppError.spec.ts
-src/core/schemas/__test__/Config.effect-schema.spec.ts
-src/core/schemas/__test__/Config.spec.ts
-src/core/services/__test__/AppService.spec.ts
+src/bootstrap/errors/__test__/AppError.effect-schema.spec.ts
+src/bootstrap/errors/__test__/AppError.spec.ts
+src/bootstrap/schemas/__test__/Config.effect-schema.spec.ts
+src/bootstrap/schemas/__test__/Config.spec.ts
+src/bootstrap/services/__test__/AppService.spec.ts
 src/domain/chunk/__test__/Chunk.spec.ts
 src/domain/world/__test__/BiomeGenerator.spec.ts
 src/domain/world/__test__/CaveGenerator.spec.ts

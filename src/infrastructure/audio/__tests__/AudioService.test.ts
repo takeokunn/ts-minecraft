@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Effect, HashMap, Layer, Option, TestContext, pipe } from 'effect'
-import { AudioService } from '../AudioService.js'
-import { AudioServiceLive } from '../AudioServiceLive.js'
+import { AudioService } from '../AudioService'
+import { AudioServiceLive } from '../AudioServiceLive'
 import {
   AudioHelpers,
   type SoundCategory,
@@ -10,9 +10,9 @@ import {
   type Volume,
   type Pitch,
   SourceNotFoundError,
-} from '../AudioTypes.js'
-import { SpatialBrands } from '../../../shared/types/spatial-brands.js'
-import type { Vector3D } from '../../../shared/types/spatial-brands.js'
+} from '../AudioTypes'
+import { SpatialBrands } from '@shared/types/spatial-brands'
+import type { Vector3D } from '@shared/types/spatial-brands'
 
 // Mock Three.js
 vi.mock('three', () => ({

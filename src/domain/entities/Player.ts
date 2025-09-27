@@ -1,9 +1,9 @@
 import { Schema } from '@effect/schema'
-import type { EntityId, PlayerId } from '../../shared/types/index.js'
-import { PlayerIdSchema } from '../../shared/types/index.js'
-import { Vector3Schema, RotationSchema } from '../../shared/schemas/spatial.js'
-import { InventorySchema } from '../inventory/Inventory.js'
-import { EquipmentSchema } from '../equipment/Equipment.js'
+import type { EntityId, PlayerId } from '../../shared/types/index'
+import { PlayerIdSchema } from '../../shared/types/index'
+import { Vector3Schema, RotationSchema } from '../../shared/schemas/spatial'
+import { InventorySchema } from '../inventory/Inventory'
+import { EquipmentSchema } from '../equipment/Equipment'
 
 // ゲームモード定義
 export const GameMode = Schema.Literal('survival', 'creative', 'adventure', 'spectator')

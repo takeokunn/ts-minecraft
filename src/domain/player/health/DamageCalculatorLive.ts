@@ -1,5 +1,5 @@
 import { Layer } from 'effect'
-import { DamageCalculator, makeDamageCalculator } from './DamageCalculator.js'
+import { DamageCalculator, makeDamageCalculator } from './DamageCalculator'
 
 // Default configuration for damage calculation
 const defaultDamageConfig = {

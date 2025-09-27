@@ -1,6 +1,6 @@
 import { Brand, Context, Data, Effect, Layer, Option, pipe, Match } from 'effect'
 import { Schema } from '@effect/schema'
-import { BrandedTypes, EntityCount, EntityCapacity } from '../../shared/types/branded'
+import { BrandedTypes, EntityCount, EntityCapacity } from '@shared/types/branded'
 
 // =====================================
 // Entity ID Type

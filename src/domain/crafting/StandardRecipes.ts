@@ -1,5 +1,12 @@
 import { Effect, Array } from 'effect'
-import { CraftingRecipe, RecipeId, ItemStackCount, CraftingItemStack, ItemMatcher, RecipeCategory } from './RecipeTypes'
+import {
+  CraftingRecipe,
+  RecipeId,
+  ItemStackCount,
+  CraftingItemStack,
+  ItemMatcher,
+  RecipeCategory,
+} from './types/RecipeTypes'
 
 /**
  * Standard Minecraft Recipes

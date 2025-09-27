@@ -1,12 +1,12 @@
 import { Effect, Layer, HashMap, Option, Queue, Match, pipe, Ref } from 'effect'
 import { Schema } from '@effect/schema'
-import { HealthService } from './HealthService.js'
-import { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator.js'
-import type { PlayerId } from '../PlayerTypes.js'
-import { PlayerEventBus } from '../PlayerServiceV2.js'
-import { Health } from '../PlayerTypes.js'
-import { PlayerService } from '../PlayerService.js'
-import type { Vector3D } from '../../../shared/schemas/spatial.js'
+import { HealthService } from './HealthService'
+import { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator'
+import type { PlayerId } from '../PlayerTypes'
+import { PlayerEventBus } from '../PlayerServiceV2'
+import { Health } from '../PlayerTypes'
+import { PlayerService } from '../PlayerService'
+import type { Vector3D } from '../../../shared/schemas/spatial'
 import {
   type CurrentHealth,
   type MaxHealth,
@@ -17,7 +17,7 @@ import {
   type HealAmount,
   createHealthError,
   HEALTH_CONSTANTS,
-} from './HealthTypes.js'
+} from './HealthTypes'
 
 // =======================================
 // HealthService Live Implementation

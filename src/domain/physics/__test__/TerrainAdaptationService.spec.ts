@@ -6,11 +6,11 @@ import {
   TerrainAdaptationServiceLive,
   TERRAIN_PROPERTIES,
   DEFAULT_TERRAIN_PROPERTIES,
-} from '../TerrainAdaptationService.js'
-import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService.js'
-import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService.js'
-import type { PlayerId } from '../../../shared/types/branded.js'
-import type { BlockType } from '../../block/BlockType.js'
+} from '../TerrainAdaptationService'
+import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService'
+import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService'
+import type { PlayerId } from '../../../shared/types/branded'
+import type { BlockType } from '../../block/BlockType'
 
 /**
  * Terrain Adaptation Service Unit Tests

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Ref, pipe, Match, Option, Predicate } from 'effect'
 import { GameApplication } from './GameApplication'
-import { BrandedTypes } from '../shared/types/branded'
+import { BrandedTypes } from '@shared/types/branded'
 import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
@@ -15,10 +15,10 @@ import {
 } from './errors'
 
 // 依存サービスの型インポート
-import { GameLoopService } from '../domain/game-loop/GameLoopService'
-import { SceneManager } from '../domain/scene/SceneManager'
-import { ThreeRenderer } from '../infrastructure/rendering/ThreeRenderer'
-import { InputService } from '../domain/input/InputService'
+import { GameLoopService } from '@domain/game-loop/services/GameLoopService'
+import { SceneManager } from '@domain/scene/SceneManager'
+import { ThreeRenderer } from '@infrastructure/rendering/ThreeRenderer'
+import { InputService } from '@domain/input/InputService'
 
 /**
  * GameApplicationLive - ゲームアプリケーション統合サービスの実装

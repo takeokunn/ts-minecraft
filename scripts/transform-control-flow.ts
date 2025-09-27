@@ -242,7 +242,7 @@ const main = async () => {
   console.log('🚀 Starting Effect-TS control flow transformation...\n')
 
   const directories = [
-    'src/core',
+    'src/bootstrap',
     'src/shared',
     'src/domain',
     'src/infrastructure',

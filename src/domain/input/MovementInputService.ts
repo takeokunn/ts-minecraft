@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import { Direction } from '../player/PlayerState.js'
+import { Direction } from '../player/PlayerState'
 
 /**
  * Movement Input Service

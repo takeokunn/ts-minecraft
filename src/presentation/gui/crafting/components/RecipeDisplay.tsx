@@ -6,8 +6,8 @@ import type {
   ShapelessRecipe,
   CraftingItemStack,
   ItemMatcher,
-} from '../../../../domain/crafting/RecipeTypes'
-import { GridWidth, GridHeight } from '../../../../domain/crafting/RecipeTypes'
+} from '@domain/crafting/types/RecipeTypes'
+import { GridWidth, GridHeight } from '@domain/crafting/types/RecipeTypes'
 import type { RecipeFilterConfig, RecipeDisplayMode, CraftingGUIEvent } from '../CraftingGUITypes'
 import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
 

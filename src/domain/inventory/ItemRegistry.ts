@@ -6,7 +6,7 @@
  */
 
 import { Context, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
-import { ItemId, ItemStack } from './InventoryTypes.js'
+import { ItemId, ItemStack } from './InventoryTypes'
 
 // Item category types
 export type ItemCategory = 'block' | 'tool' | 'weapon' | 'armor' | 'food' | 'material' | 'special'

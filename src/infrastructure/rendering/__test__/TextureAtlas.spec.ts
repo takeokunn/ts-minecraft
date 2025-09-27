@@ -18,7 +18,7 @@ import {
   BlockTextureSchema,
 } from '../TextureAtlas'
 import type { BlockType } from '../MeshGenerator'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@shared/types/branded'
 
 // ========================================
 // Test Helpers

@@ -1,5 +1,5 @@
 import { Context, Effect, Stream } from 'effect'
-import type { Vector3D } from '../../shared/types/spatial-brands.js'
+import type { Vector3D } from '@shared/types/spatial-brands'
 import type {
   AudioDistance,
   AudioError,
@@ -13,7 +13,7 @@ import type {
   SourceId,
   SourceNotFoundError,
   Volume,
-} from './AudioTypes.js'
+} from './AudioTypes'
 
 /**
  * AudioService Interface

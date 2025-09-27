@@ -21,10 +21,10 @@ import {
   Exit,
   Fiber,
 } from 'effect'
-import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes.js'
-import { InventoryService, InventoryError } from './InventoryService.js'
-import { InventoryStorageService, StorageError } from './InventoryStorageService.js'
-import { ItemManagerService } from './ItemManagerService.js'
+import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes'
+import { InventoryService, InventoryError } from './InventoryService'
+import { InventoryStorageService, StorageError } from './InventoryStorageService'
+import { ItemManagerService } from './ItemManagerService'
 
 // State change event types
 export interface InventoryStateEvent {

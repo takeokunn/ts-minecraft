@@ -6,10 +6,10 @@
 
 import { describe, it, expect } from 'vitest'
 import { Effect, Exit, Layer, pipe } from 'effect'
-import { InventoryService, InventoryError } from '../InventoryService.js'
-import { InventoryServiceLive } from '../InventoryServiceLive.js'
-import { createEmptyInventory, PlayerId, ItemId, ItemStack } from '../InventoryTypes.js'
-import { ItemRegistry } from '../ItemRegistry.js'
+import { InventoryService, InventoryError } from '../InventoryService'
+import { InventoryServiceLive } from '../InventoryServiceLive'
+import { createEmptyInventory, PlayerId, ItemId, ItemStack } from '../InventoryTypes'
+import { ItemRegistry } from '../ItemRegistry'
 
 describe('InventoryService', () => {
   const testLayer = pipe(InventoryServiceLive, Layer.provide(ItemRegistry.Default))

@@ -1,9 +1,9 @@
 import { Effect, Context, Layer, Ref, Match, pipe, Stream, Option } from 'effect'
 import { Schema } from '@effect/schema'
-import { Player, PlayerUpdateData } from '../entities/Player.js'
-import { PlayerAction, Direction, MOVEMENT_SPEEDS } from './PlayerState.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import { type Vector3D, type MutableVector3D } from '../../shared/schemas/spatial.js'
+import { Player, PlayerUpdateData } from '../entities/Player'
+import { PlayerAction, Direction, MOVEMENT_SPEEDS } from './PlayerState'
+import type { PlayerId } from '../../shared/types/branded'
+import { type Vector3D, type MutableVector3D } from '../../shared/schemas/spatial'
 
 // 入力イベント定義
 export const InputEvent = Schema.Union(

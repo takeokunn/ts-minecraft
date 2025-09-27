@@ -81,7 +81,7 @@ export const EntityManagerService = Context.GenericTag<{
   readonly despawn: (entityId: EntityId) => Effect.Effect<void, DespawnError>
   readonly move: (entityId: EntityId, newPosition: GamePosition) => Effect.Effect<void, MoveError>
   readonly getPosition: (entityId: EntityId) => Effect.Effect<Option.Option<GamePosition>, never>
-}>('@minecraft/EntityManagerService')
+}>('@minecraft/domain/EntityManagerService')
 
 // 実装でのBrand型活用
 export const EntityManagerServiceLive = Layer.effect(
@@ -135,7 +135,7 @@ import { Effect, Layer, Context } from 'effect'
 // 複数の依存関係を持つ高度なサービス
 export const AdvancedGameService = Context.GenericTag<{
   readonly processComplexGameLogic: (input: GameInput) => Effect.Effect<GameResult, GameError>
-}>('@minecraft/AdvancedGameService')
+}>('@minecraft/application/AdvancedGameService')
 
 // 複数Layer合成による高度な依存性注入
 export const AdvancedGameServiceLive = Layer.effect(

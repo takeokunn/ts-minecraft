@@ -25,9 +25,13 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
       "@config/*": ["src/config/*"],
-      "@docs/*": ["docs/*"]
+      "@domain/*": ["src/domain/*"],
+      "@application/*": ["src/application/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@presentation/*": ["src/presentation/*"],
+      "@shared/*": ["src/shared/*"],
+      "@bootstrap/*": ["src/bootstrap/*"]
     },
     "types": ["vitest/globals", "node"],
     "downlevelIteration": true

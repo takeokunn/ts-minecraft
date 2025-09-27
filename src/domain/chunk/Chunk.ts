@@ -1,6 +1,6 @@
 import { Effect, Match, Option, pipe, Predicate } from 'effect'
-import type { ChunkPosition } from './ChunkPosition.js'
-import type { ChunkData, ChunkMetadata } from './ChunkData.js'
+import type { ChunkPosition } from './ChunkPosition'
+import type { ChunkData, ChunkMetadata } from './ChunkData'
 import {
   getBlockIndex,
   getBlockCoords,

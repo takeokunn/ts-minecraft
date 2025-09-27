@@ -12,36 +12,36 @@
  */
 
 // Core Types and Schemas
-export * from './InventoryTypes.js'
+export * from './InventoryTypes'
 
 // Basic Services
-export * from './InventoryService.js'
-export * from './InventoryServiceLive.js'
-export * from './ItemRegistry.js'
-export * from './SlotManager.js'
-export * from './StackProcessor.js'
+export * from './InventoryService'
+export * from './InventoryServiceLive'
+export * from './ItemRegistry'
+export * from './SlotManager'
+export * from './StackProcessor'
 
 // Enhanced Services
-export * from './InventoryServiceEnhanced.js'
-export * from './ItemManagerService.js'
+export * from './InventoryServiceEnhanced'
+export * from './ItemManagerService'
 
 // Storage and Persistence
-export * from './InventoryStorageService.js'
-export * from './InventoryIndexedDBService.js'
+export * from './InventoryStorageService'
+export * from './InventoryIndexedDBService'
 
 // State Management Integration
-export * from './InventoryZustandStore.js'
-export * from './InventoryIntegrationLayer.js'
-export * from './InventoryStateManager.js'
-export * from './InventoryReactiveSystem.js'
+export * from './InventoryZustandStore'
+export * from './InventoryIntegrationLayer'
+export * from './InventoryStateManager'
+export * from './InventoryReactiveSystem'
 
 // High-Level API
-export * from './InventoryAPIService.js'
+export * from './InventoryAPIService'
 
 // Re-export commonly used utilities
-import { createEmptyInventory, validateInventory } from './InventoryTypes.js'
-import { ItemAttributesFactory } from './ItemManagerService.js'
-import { useInventoryStore, useCurrentInventory, useInventoryOperations } from './InventoryZustandStore.js'
+import { createEmptyInventory, validateInventory } from './InventoryTypes'
+import { ItemAttributesFactory } from './ItemManagerService'
+import { useInventoryStore, useCurrentInventory, useInventoryOperations } from './InventoryZustandStore'
 
 export const InventoryUtils = {
   createEmptyInventory,
@@ -57,15 +57,15 @@ export const InventoryHooks = {
 
 // Layer composition helpers
 import { Layer } from 'effect'
-import { InventoryServiceEnhanced } from './InventoryServiceEnhanced.js'
-import { ItemManagerServiceLive } from './ItemManagerService.js'
-import { LocalStorageInventoryService } from './InventoryStorageService.js'
-import { HybridInventoryStorageService } from './InventoryIndexedDBService.js'
-import { InventoryIntegrationServiceLive } from './InventoryIntegrationLayer.js'
-import { InventoryAPIServiceLive } from './InventoryAPIService.js'
-import { ItemRegistry } from './ItemRegistry.js'
-import { InventoryStateManagerLive } from './InventoryStateManager.js'
-import { InventoryReactiveSystemLive } from './InventoryReactiveSystem.js'
+import { InventoryServiceEnhanced } from './InventoryServiceEnhanced'
+import { ItemManagerServiceLive } from './ItemManagerService'
+import { LocalStorageInventoryService } from './InventoryStorageService'
+import { HybridInventoryStorageService } from './InventoryIndexedDBService'
+import { InventoryIntegrationServiceLive } from './InventoryIntegrationLayer'
+import { InventoryAPIServiceLive } from './InventoryAPIService'
+import { ItemRegistry } from './ItemRegistry'
+import { InventoryStateManagerLive } from './InventoryStateManager'
+import { InventoryReactiveSystemLive } from './InventoryReactiveSystem'
 
 // Complete inventory system layers
 export const InventoryCoreLayers = Layer.mergeAll(

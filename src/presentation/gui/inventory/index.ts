@@ -6,19 +6,19 @@
  */
 
 // Components
-export { InventoryPanel } from './components/InventoryPanel.js'
-export { ItemSlot } from './components/ItemSlot.js'
-export { ItemIcon } from './components/ItemIcon.js'
-export { ItemTooltip } from './components/ItemTooltip.js'
-export { HotbarPanel } from './components/HotbarPanel.js'
-export { ArmorSlots } from './components/ArmorSlots.js'
+export { InventoryPanel } from './components/InventoryPanel'
+export { ItemSlot } from './components/ItemSlot'
+export { ItemIcon } from './components/ItemIcon'
+export { ItemTooltip } from './components/ItemTooltip'
+export { HotbarPanel } from './components/HotbarPanel'
+export { ArmorSlots } from './components/ArmorSlots'
 
 // Hooks
-export { useInventoryKeyboardShortcuts, INVENTORY_SHORTCUTS } from './hooks/useKeyboardShortcuts.js'
-export { useInventoryAnimations, ANIMATION_PRESETS } from './hooks/useAnimations.js'
+export { useInventoryKeyboardShortcuts, INVENTORY_SHORTCUTS } from './hooks/useKeyboardShortcuts'
+export { useInventoryAnimations, ANIMATION_PRESETS } from './hooks/useAnimations'
 
 // Service
-export { InventoryGUIService, InventoryGUIServiceLive } from './InventoryGUIService.js'
+export { InventoryGUIService, InventoryGUIServiceLive } from './InventoryGUIService'
 
 // Types
 export type {
@@ -38,7 +38,7 @@ export type {
   ItemTransferAnimation,
   HotbarState,
   InventoryGUIError,
-} from './types.js'
+} from './types'
 
 export {
   defaultInventoryGUIConfig,
@@ -47,4 +47,4 @@ export {
   isValidSlotTransfer,
   SlotPosition,
   DragItemId,
-} from './types.js'
+} from './types'

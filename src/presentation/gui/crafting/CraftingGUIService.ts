@@ -8,11 +8,11 @@ import type {
   CraftingResultDisplay,
   TooltipInfo,
 } from './CraftingGUITypes'
-import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '../../../domain/crafting/RecipeTypes'
-import { GridWidth, GridHeight, ItemStackCount } from '../../../domain/crafting/RecipeTypes'
-import { RecipeRegistryService } from '../../../domain/crafting/RecipeRegistryService'
-import { CraftingEngineService } from '../../../domain/crafting/CraftingEngineService'
-import { InventoryService } from '../../../domain/inventory/InventoryService'
+import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
+import { GridWidth, GridHeight, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
+import { RecipeRegistryService } from '@domain/crafting/services/RecipeRegistryService'
+import { CraftingEngineService } from '@domain/crafting/services/CraftingEngineService'
+import { InventoryService } from '@domain/inventory/InventoryService'
 import { Brand } from 'effect'
 
 // エラー定義

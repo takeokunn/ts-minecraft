@@ -2,8 +2,8 @@
 // These should be replaced with actual implementations from other domains
 
 import { Context, Effect, Layer } from 'effect'
-import type { PlayerId } from '@/shared/types/branded'
-import type { Vector3D } from '@/shared/types/spatial-brands'
+import type { PlayerId } from '@shared/types/branded'
+import type { Vector3D } from '@shared/types/spatial-brands'
 
 // EventBus stub
 export interface EventBus {

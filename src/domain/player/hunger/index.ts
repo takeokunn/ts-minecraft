@@ -4,11 +4,11 @@
  */
 
 // Types
-export * from './HungerTypes.js'
+export * from './HungerTypes'
 
 // Service Interface
-export { HungerService } from './HungerService.js'
-export type { HungerService as IHungerService } from './HungerService.js'
+export { HungerService } from './HungerService'
+export type { HungerService as IHungerService } from './HungerService'
 
 // Service Implementation
-export { HungerServiceLive } from './HungerServiceLive.js'
+export { HungerServiceLive } from './HungerServiceLive'

@@ -1,6 +1,6 @@
 import { Effect, Layer, Stream, Match, pipe, Schedule, HashMap, Option, Ref } from 'effect'
-import type { PlayerId } from '../../../shared/types/index.js'
-import { HungerService } from './HungerService.js'
+import type { PlayerId } from '../../../shared/types/index'
+import { HungerService } from './HungerService'
 import type {
   HungerState,
   FoodItem,
@@ -10,8 +10,8 @@ import type {
   HungerDecreaseReason,
   HungerEvent,
   StatusEffect,
-} from './HungerTypes.js'
-import { ConsumeError, HungerError, PlayerNotFoundError, HUNGER_CONSTANTS } from './HungerTypes.js'
+} from './HungerTypes'
+import { ConsumeError, HungerError, PlayerNotFoundError, HUNGER_CONSTANTS } from './HungerTypes'
 
 /**
  * HungerServiceLive Implementation

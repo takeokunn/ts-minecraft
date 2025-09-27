@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Option, pipe, Match } from 'effect'
-import type { InventorySlot, DragState, SlotAnimationState, ItemTransferAnimation } from '../types.js'
+import type { InventorySlot, DragState, SlotAnimationState, ItemTransferAnimation } from '../types'
 
 interface AnimationHookProps {
   readonly slots: ReadonlyArray<InventorySlot>

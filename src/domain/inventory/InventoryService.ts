@@ -6,14 +6,7 @@
  */
 
 import { Context, Effect } from 'effect'
-import {
-  AddItemResult,
-  Inventory,
-  InventoryErrorReason,
-  InventoryState,
-  ItemStack,
-  PlayerId,
-} from './InventoryTypes.js'
+import { AddItemResult, Inventory, InventoryErrorReason, InventoryState, ItemStack, PlayerId } from './InventoryTypes'
 
 // Error definition
 export class InventoryError extends Error {

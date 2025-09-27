@@ -11,8 +11,8 @@
  */
 
 // Service exports
-export { CombatService, type EntityHealth } from './CombatService.js'
-export { CombatServiceLive } from './CombatServiceLive.js'
+export { CombatService, type EntityHealth } from './services/CombatService'
+export { CombatServiceLive } from './services/CombatServiceLive'
 
 // Type exports
 export {
@@ -65,4 +65,4 @@ export {
   TargetNotFoundError,
   EntityNotFoundError,
   KnockbackError,
-} from './CombatTypes.js'
+} from './types/CombatTypes'

@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Either, Option, TestClock, Random, Duration, Layer, pipe, TestContext } from 'effect'
 import { Arbitrary, Schema } from '@effect/schema'
-import { AgricultureService } from '../AgricultureService.js'
-import { AgricultureServiceLive } from '../AgricultureServiceLive.js'
+import { AgricultureService } from '../services/AgricultureService'
+import { AgricultureServiceLive } from '../services/AgricultureServiceLive'
 import {
   CropTypeSchema,
   AnimalTypeSchema,
@@ -12,9 +12,9 @@ import {
   type AnimalType,
   type Crop,
   type FarmAnimal,
-} from '../AgricultureTypes.js'
-import type { PlayerId, ItemId } from '../../../shared/types/branded.js'
-import type { ItemStack } from '../../inventory/InventoryTypes.js'
+} from '../types/AgricultureTypes'
+import type { PlayerId, ItemId } from '@shared/types/branded'
+import type { ItemStack } from '../../inventory/InventoryTypes'
 
 // ===================================
 // Test Helpers

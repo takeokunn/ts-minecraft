@@ -14,7 +14,7 @@ import {
   MiningSpeed,
   MaterialCategory,
   ToolType,
-} from './MaterialTypes'
+} from '../types/MaterialTypes'
 import { MaterialService } from './MaterialService'
 
 // ヘルパー関数

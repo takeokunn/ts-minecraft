@@ -6,11 +6,11 @@
  */
 
 import { Context, Effect, Layer, Option, pipe, Match, Stream } from 'effect'
-import { InventoryService } from '../../../domain/inventory/InventoryService.js'
-import { InventoryServiceLive } from '../../../domain/inventory/InventoryServiceLive.js'
-import type { PlayerId, ItemStack, Inventory } from '../../../domain/inventory/InventoryTypes.js'
-import type { InventoryGUIEvent, DropResult, InventoryGUIConfig } from './types.js'
-import { defaultInventoryGUIConfig } from './types.js'
+import { InventoryService } from '@domain/inventory/InventoryService'
+import { InventoryServiceLive } from '@domain/inventory/InventoryServiceLive'
+import type { PlayerId, ItemStack, Inventory } from '@domain/inventory/InventoryTypes'
+import type { InventoryGUIEvent, DropResult, InventoryGUIConfig } from './types'
+import { defaultInventoryGUIConfig } from './types'
 
 // =========================================
 // Service Interface

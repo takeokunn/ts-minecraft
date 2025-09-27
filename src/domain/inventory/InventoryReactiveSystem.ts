@@ -20,10 +20,10 @@ import {
   Queue,
   Ref,
 } from 'effect'
-import { Inventory, PlayerId, ItemStack } from './InventoryTypes.js'
-import { InventoryStateManager, type StateEvent } from './InventoryStateManager.js'
-import { InventoryService } from './InventoryService.js'
-import { InventoryAPIService } from './InventoryAPIService.js'
+import { Inventory, PlayerId, ItemStack } from './InventoryTypes'
+import { InventoryStateManager, type StateEvent } from './InventoryStateManager'
+import { InventoryService } from './InventoryService'
+import { InventoryAPIService } from './InventoryAPIService'
 
 // Reactive update types
 export interface InventoryUpdate {

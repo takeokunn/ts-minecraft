@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
-import type { FrameInfo, GameLoopConfig, GameLoopState, PerformanceMetrics } from './types'
-import type { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from './errors'
-import type { DeltaTime } from '../../shared/types/branded'
+import type { FrameInfo, GameLoopConfig, GameLoopState, PerformanceMetrics } from '../types/types'
+import type { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
+import type { DeltaTime } from '@shared/types/branded'
 
 // ゲームループサービスのインターフェース
 export interface GameLoopService {

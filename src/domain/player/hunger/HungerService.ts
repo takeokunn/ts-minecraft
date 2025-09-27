@@ -1,5 +1,5 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId } from '../../../shared/types/index.js'
+import type { PlayerId } from '../../../shared/types/index'
 import type {
   HungerState,
   FoodItem,
@@ -8,7 +8,7 @@ import type {
   ConsumeError,
   HungerError,
   PlayerNotFoundError,
-} from './HungerTypes.js'
+} from './HungerTypes'
 
 /**
  * HungerService Interface

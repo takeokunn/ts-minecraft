@@ -8,9 +8,9 @@
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { get, set, del, keys, values, clear, createStore } from 'idb-keyval'
 import type { UseStore } from 'idb-keyval'
-import { Inventory, InventoryState, PlayerId } from './InventoryTypes.js'
-import { StorageError, InventoryStorageService } from './InventoryStorageService.js'
-import { LocalStorageInventoryService } from './InventoryStorageService.js'
+import { Inventory, InventoryState, PlayerId } from './InventoryTypes'
+import { StorageError, InventoryStorageService } from './InventoryStorageService'
+import { LocalStorageInventoryService } from './InventoryStorageService'
 
 // IndexedDB-specific configuration
 export interface IndexedDBConfig {

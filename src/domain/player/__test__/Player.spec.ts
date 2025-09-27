@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either, pipe, Predicate, Match } from 'effect'
 import { Schema } from '@effect/schema'
-import type { PlayerPosition, PlayerRotation, PlayerState } from '../PlayerService.js'
+import type { PlayerPosition, PlayerRotation, PlayerState } from '../PlayerService'
 import {
   PlayerConfig,
   PlayerUpdateData,
@@ -16,9 +16,9 @@ import {
   validatePlayerRotation,
   validatePlayerUpdateData,
   DEFAULT_PLAYER_CONFIG,
-} from '../PlayerService.js'
-import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService.js'
-import { BrandedTypes, GameBrands, SpatialBrands, TimeBrands } from '../../../shared/types/index.js'
+} from '../PlayerService'
+import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService'
+import { BrandedTypes, GameBrands, SpatialBrands, TimeBrands } from '../../../shared/types/index'
 
 /**
  * Player Entity System - Component Tests

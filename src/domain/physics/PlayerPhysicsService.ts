@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, pipe, Match } from 'effect'
-import { Player } from '../entities/Player.js'
-import { Direction, MOVEMENT_SPEEDS, JUMP_VELOCITY } from '../player/PlayerState.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import type { Vector3D } from '../../shared/schemas/spatial.js'
-import { CannonPhysicsService, type PhysicsBodyState } from './CannonPhysicsService.js'
+import { Player } from '../entities/Player'
+import { Direction, MOVEMENT_SPEEDS, JUMP_VELOCITY } from '../player/PlayerState'
+import type { PlayerId } from '../../shared/types/branded'
+import type { Vector3D } from '../../shared/schemas/spatial'
+import { CannonPhysicsService, type PhysicsBodyState } from './CannonPhysicsService'
 
 /**
  * Player Physics Service

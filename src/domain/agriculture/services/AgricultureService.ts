@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId } from '../../shared/types/branded.js'
-import type { ItemStack } from '../inventory/InventoryTypes.js'
+import type { PlayerId } from '@shared/types/branded'
+import type { ItemStack } from '../../inventory/InventoryTypes'
 import type {
   Crop,
   CropId,
@@ -13,7 +13,7 @@ import type {
   CropDrops,
   BreedingResult,
   Moisture,
-} from './AgricultureTypes.js'
+} from '../types/AgricultureTypes'
 
 // ===================================
 // Service Interface

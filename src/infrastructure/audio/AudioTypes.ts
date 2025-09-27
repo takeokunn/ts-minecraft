@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Brand, pipe } from 'effect'
-import type { Vector3D } from '../../shared/types/spatial-brands.js'
+import type { Vector3D } from '@shared/types/spatial-brands'
 // Using string types for PlayerId and BlockTypeId to avoid circular dependencies
 
 // Audio Branded Types

@@ -8,13 +8,13 @@ import {
   DragDropError,
 } from '../CraftingGUIService'
 import type { CraftingGUIState, CraftingGUIEvent, CraftingSession } from '../CraftingGUITypes'
-import { RecipeRegistryService, RecipeRegistryServiceLive } from '../../../../domain/crafting/RecipeRegistryService'
-import { CraftingEngineService, CraftingEngineServiceLive } from '../../../../domain/crafting/CraftingEngineService'
-import { InventoryService } from '../../../../domain/inventory/InventoryService'
-import { InventoryServiceLive } from '../../../../domain/inventory/InventoryServiceLive'
-import { ItemRegistry } from '../../../../domain/inventory/ItemRegistry'
-import type { CraftingGrid, CraftingRecipe, RecipeId } from '../../../../domain/crafting/RecipeTypes'
-import { GridWidth, GridHeight, ItemStackCount } from '../../../../domain/crafting/RecipeTypes'
+import { RecipeRegistryService, RecipeRegistryServiceLive } from '@domain/crafting/services/RecipeRegistryService'
+import { CraftingEngineService, CraftingEngineServiceLive } from '@domain/crafting/services/CraftingEngineService'
+import { InventoryService } from '@domain/inventory/InventoryService'
+import { InventoryServiceLive } from '@domain/inventory/InventoryServiceLive'
+import { ItemRegistry } from '@domain/inventory/ItemRegistry'
+import type { CraftingGrid, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
+import { GridWidth, GridHeight, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
 
 describe('CraftingGUIService', () => {
   // Complete test layer with all required dependencies using proper layer composition

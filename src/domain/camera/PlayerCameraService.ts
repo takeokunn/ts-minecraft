@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
 import * as THREE from 'three'
-import type { Vector3D } from '../../shared/schemas/spatial.js'
-import type { PlayerId } from '../../shared/types/branded.js'
-import { Player } from '../entities/Player.js'
+import type { Vector3D } from '../../shared/schemas/spatial'
+import type { PlayerId } from '../../shared/types/branded'
+import { Player } from '../entities/Player'
 
 /**
  * Player Camera Service

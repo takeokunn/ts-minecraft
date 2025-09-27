@@ -1,19 +1,19 @@
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer, pipe, TestContext } from 'effect'
-import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService.js'
-import { PlayerPhysicsService, PlayerPhysicsServiceLive } from '../PlayerPhysicsService.js'
-import { TerrainAdaptationService, TerrainAdaptationServiceLive } from '../TerrainAdaptationService.js'
-import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService.js'
-import { PhysicsPerformanceService, PhysicsPerformanceServiceLive } from '../PhysicsPerformanceService.js'
+import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService'
+import { PlayerPhysicsService, PlayerPhysicsServiceLive } from '../PlayerPhysicsService'
+import { TerrainAdaptationService, TerrainAdaptationServiceLive } from '../TerrainAdaptationService'
+import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService'
+import { PhysicsPerformanceService, PhysicsPerformanceServiceLive } from '../PhysicsPerformanceService'
 import {
   EnhancedPlayerMovementService,
   EnhancedPlayerMovementServiceLive,
-} from '../../player/EnhancedPlayerMovementService.js'
-import { MovementInputService, MovementInputServiceLive } from '../../input/MovementInputService.js'
-import type { Player } from '../../entities/Player.js'
-import { DEFAULT_PLAYER_STATS, DEFAULT_PLAYER_ABILITIES } from '../../entities/Player.js'
-import { BrandedTypes, type PlayerId } from '../../../shared/types/branded.js'
+} from '../../player/EnhancedPlayerMovementService'
+import { MovementInputService, MovementInputServiceLive } from '../../input/MovementInputService'
+import type { Player } from '../../entities/Player'
+import { DEFAULT_PLAYER_STATS, DEFAULT_PLAYER_ABILITIES } from '../../entities/Player'
+import { BrandedTypes, type PlayerId } from '../../../shared/types/branded'
 
 /**
  * Physics Integration Tests
