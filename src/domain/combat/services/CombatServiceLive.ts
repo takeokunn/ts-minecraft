@@ -22,9 +22,9 @@ import {
   createKnockbackForce,
   createAttackCooldown,
 } from '../types/CombatTypes'
-import type { EntityId } from '@shared/types/branded'
-import type { Vector3D } from '@shared/types/spatial-brands'
-import { SpatialBrands } from '@shared/types/spatial-brands'
+import type { EntityId } from '@domain/core/types/brands'
+import type { Vector3D } from '@domain/core/types/spatial'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 import { EventBus } from '@infrastructure/events/EventBus'
 import { Context } from 'effect'

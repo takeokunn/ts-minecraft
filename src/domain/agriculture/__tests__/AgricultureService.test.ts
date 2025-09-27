@@ -13,7 +13,7 @@ import {
   type Crop,
   type FarmAnimal,
 } from '../types/AgricultureTypes'
-import type { PlayerId, ItemId } from '@shared/types/branded'
+import type { PlayerId, ItemId } from '@domain/core/types/brands'
 import type { ItemStack } from '../../inventory/InventoryTypes'
 
 // ===================================

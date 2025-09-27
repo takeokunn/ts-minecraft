@@ -1,5 +1,5 @@
 import { Effect, Layer, Stream, Match, pipe, Schedule, HashMap, Option, Ref } from 'effect'
-import type { PlayerId } from '../../../shared/types/index'
+import type { PlayerId } from '@domain/core/types/brands'
 import { HungerService } from './HungerService'
 import type {
   HungerState,

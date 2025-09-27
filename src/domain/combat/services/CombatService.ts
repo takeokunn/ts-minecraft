@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { EntityId } from '@shared/types/branded'
-import type { Vector3D } from '@shared/types/spatial-brands'
+import type { EntityId } from '@domain/core/types/brands'
+import type { Vector3D } from '@domain/core/types/spatial'
 import type {
   AttackType,
   CombatResult,

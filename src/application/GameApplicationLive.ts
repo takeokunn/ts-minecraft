@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Ref, pipe, Match, Option, Predicate } from 'effect'
 import { GameApplication } from './GameApplication'
-import { BrandedTypes } from '@shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'

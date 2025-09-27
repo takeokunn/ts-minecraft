@@ -2,8 +2,9 @@ import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate, Either } f
 import { PlayerService } from './PlayerService'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
-import type { PlayerId, ComponentTypeName } from '../../shared/types/branded'
-import { GameBrands, TimeBrands, SpatialBrands } from '../../shared/types/index'
+import type { PlayerId, ComponentTypeName } from '@domain/core/types/brands'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import {
   type PlayerConfig,
   type PlayerState,
@@ -71,8 +72,8 @@ const makePlayerServiceLive = Effect.gen(function* () {
   // Helper: プレイヤーコンポーネントの作成
   const createPlayerComponent = (playerId: PlayerId, health: number): PlayerComponent => ({
     playerId,
-    health: GameBrands.createHealth(health),
-    lastUpdate: TimeBrands.createTimestamp(),
+    health: BrandedTypes.createHealth(health),
+    lastUpdate: BrandedTypes.createTimestamp(Date.now()),
   })
 
   // Helper: 位置コンポーネントの作成

@@ -45,6 +45,22 @@ export const BoundingBox = Schema.Struct({
 })
 export type BoundingBox = Schema.Schema.Type<typeof BoundingBox>
 
+// 空間関連Brand型の安全な作成ヘルパー（spatial-brands互換）
+export const SpatialBrands = {
+  Vector3D: Vector3Schema,
+
+  // 作成ヘルパー関数
+  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3Schema)({ x, y, z }),
+
+  zeroVector: (): Vector3D => Schema.decodeSync(Vector3Schema)({ x: 0, y: 0, z: 0 }),
+
+  unitX: (): Vector3D => Schema.decodeSync(Vector3Schema)({ x: 1, y: 0, z: 0 }),
+
+  unitY: (): Vector3D => Schema.decodeSync(Vector3Schema)({ x: 0, y: 1, z: 0 }),
+
+  unitZ: (): Vector3D => Schema.decodeSync(Vector3Schema)({ x: 0, y: 0, z: 1 }),
+}
+
 // ベクトル演算ヘルパー
 export const VectorMath = {
   add: (a: Vector3D, b: Vector3D): Vector3D => ({

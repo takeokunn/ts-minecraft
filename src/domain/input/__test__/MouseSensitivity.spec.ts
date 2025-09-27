@@ -1,7 +1,7 @@
 import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either, Layer, pipe } from 'effect'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 import {
   MouseSensitivity,
   MouseSensitivityError,

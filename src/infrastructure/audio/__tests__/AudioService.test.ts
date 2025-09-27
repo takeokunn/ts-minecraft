@@ -11,8 +11,8 @@ import {
   type Pitch,
   SourceNotFoundError,
 } from '../AudioTypes'
-import { SpatialBrands } from '@shared/types/spatial-brands'
-import type { Vector3D } from '@shared/types/spatial-brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
+import type { Vector3D } from '@domain/core/types/spatial'
 
 // Mock Three.js
 vi.mock('three', () => ({

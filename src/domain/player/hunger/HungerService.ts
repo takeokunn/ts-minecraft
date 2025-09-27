@@ -1,5 +1,5 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId } from '../../../shared/types/index'
+import type { PlayerId } from '@domain/core/types/brands'
 import type {
   HungerState,
   FoodItem,

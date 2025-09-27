@@ -18,7 +18,7 @@ import {
 } from '../BlockRegistry'
 import type { BlockType } from '../BlockType'
 import { createTestBlock } from './test-helpers'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 describe('BlockRegistry', () => {
   ;(describe('getBlock', () => {

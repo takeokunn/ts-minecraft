@@ -1,5 +1,5 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId } from '@shared/types/branded'
+import type { PlayerId } from '@domain/core/types/brands'
 import type { ItemStack } from '../../inventory/InventoryTypes'
 import type {
   Crop,

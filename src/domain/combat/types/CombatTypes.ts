@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect'
-import type { EntityId, ItemId } from '@shared/types/branded'
-import { EntityId as EntityIdSchema, ItemId as ItemIdSchema } from '@shared/types/branded'
-import { Vector3DSchema, type Vector3D } from '@shared/types/spatial-brands'
+import type { EntityId, ItemId } from '@domain/core/types/brands'
+import { EntityIdSchema, ItemId as ItemIdSchema } from '@domain/core/types/brands'
+import { Vector3Schema, type Vector3D } from '@domain/core/types/spatial'
 
 // ================================
 // Branded Types
@@ -137,7 +137,7 @@ export const CombatEvent = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('KnockbackApplied'),
     targetId: EntityIdSchema,
-    force: Vector3DSchema,
+    force: Vector3Schema,
     sourceId: EntityIdSchema,
   }),
   Schema.Struct({

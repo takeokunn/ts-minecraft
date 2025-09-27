@@ -9,7 +9,8 @@ import { PlayerService } from '../PlayerService'
 import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager'
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
-import { BrandedTypes, SpatialBrands } from '../../../shared/types/index'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { VectorMath, SpatialBrands } from '@domain/core/types/spatial'
 import {
   PHYSICS_CONSTANTS,
   PhysicsUtils,

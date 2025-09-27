@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { Schema } from '@effect/schema'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 import {
   NoiseGeneratorLive,
   NoiseGeneratorLiveDefault,

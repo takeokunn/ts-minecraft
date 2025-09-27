@@ -2,21 +2,15 @@ import { Context, Effect, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager'
-import type { PlayerId, Timestamp, Health, Vector3D, Rotation3D } from '../../shared/types/index'
-import {
-  PlayerIdSchema,
-  TimestampSchema,
-  HealthSchema,
-  Vector3DSchema,
-  Rotation3DSchema,
-  BrandedTypes,
-  SpatialBrands,
-} from '../../shared/types/index'
+import type { PlayerId, Timestamp, Health } from '@domain/core/types/brands'
+import { PlayerIdSchema, TimestampSchema, HealthSchema, BrandedTypes } from '@domain/core/types/brands'
+import type { Vector3D, Rotation } from '@domain/core/types/spatial'
+import { Vector3Schema, RotationSchema, SpatialBrands } from '@domain/core/types/spatial'
 
 /**
  * プレイヤーの位置情報（Vector3Dベース）
  */
-export const PlayerPositionSchema = Vector3DSchema.pipe(
+export const PlayerPositionSchema = Vector3Schema.pipe(
   Schema.annotations({
     title: 'PlayerPosition',
     description: 'Player position in 3D world space',
@@ -175,7 +169,7 @@ export const PlayerComponentSchema = Schema.Struct({
 )
 export type PlayerComponent = Schema.Schema.Type<typeof PlayerComponentSchema>
 
-export const PositionComponentSchema = Vector3DSchema.pipe(
+export const PositionComponentSchema = Vector3Schema.pipe(
   Schema.annotations({
     title: 'PositionComponent',
     description: 'ECS Position component using Vector3D',

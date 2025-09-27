@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
-import type { EntityId, PlayerId } from '../../shared/types/index'
-import { PlayerIdSchema } from '../../shared/types/index'
-import { Vector3Schema, RotationSchema } from '../../shared/schemas/spatial'
+import type { EntityId, PlayerId } from '@domain/core/types/brands'
+import { PlayerIdSchema } from '@domain/core/types/brands'
+import { Vector3Schema, RotationSchema } from '@domain/core/types/spatial'
 import { InventorySchema } from '../inventory/Inventory'
 import { EquipmentSchema } from '../equipment/Equipment'
 

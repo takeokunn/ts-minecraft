@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Match, Option } from 'effect'
-import { type WorldCoordinate, BrandedTypes } from '../../shared/types/branded'
+import { type WorldCoordinate, BrandedTypes } from '@domain/core/types/brands'
 
 /**
  * チャンク座標のスキーマ定義

@@ -4,7 +4,7 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkData } from '../chunk/ChunkData'
 import type { Vector3 } from './types'
-import { BrandedTypes } from '../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 /**
  * 洞窟生成の設定

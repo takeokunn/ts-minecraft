@@ -1,8 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Brand } from 'effect'
-import type { PlayerId } from '@shared/types/branded'
 import type { ItemId } from '@domain/inventory/InventoryTypes'
-import type { Vector3D } from '@shared/types/spatial-brands'
+import type { PlayerId, Vector3D } from './brands'
 
 // Branded Types
 export const BedId = Schema.String.pipe(Schema.brand('BedId'))

@@ -7,14 +7,19 @@ export default defineConfig({
     environment: 'jsdom',
     testTimeout: 30000,
     hookTimeout: 20000,
-    include: ['src/shared/**/__test__/*.spec.ts'],
+    include: ['src/domain/camera/__test__/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
   },
 
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
-      '@test': resolve(__dirname, 'src/test'),
+      '@config': resolve(__dirname, './src/config'),
+      '@domain': resolve(__dirname, './src/domain'),
+      '@application': resolve(__dirname, './src/application'),
+      '@infrastructure': resolve(__dirname, './src/infrastructure'),
+      '@presentation': resolve(__dirname, './src/presentation'),
+      '@shared': resolve(__dirname, './src/shared'),
+      '@bootstrap': resolve(__dirname, './src/bootstrap'),
     },
   },
 })

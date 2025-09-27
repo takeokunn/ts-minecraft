@@ -5,7 +5,7 @@ import * as Match from 'effect/Match'
 import { GameLoopService } from '../services/GameLoopService'
 import type { FrameInfo, GameLoopConfig } from '../types/types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
-import { BrandedTypes } from '@shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 describe('GameLoopService', () => {
   // Mock GameLoopService for testing the interface contract

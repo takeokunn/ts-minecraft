@@ -2,7 +2,7 @@ import { Effect, TestClock, TestContext, Layer, Option, Either, pipe } from 'eff
 import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
-import type { PlayerId, ItemId } from '../../../../shared/types/index'
+import type { PlayerId, ItemId } from '@domain/core/types/brands'
 import { HungerService } from '../HungerService'
 import { HungerServiceLive } from '../HungerServiceLive'
 import type { FoodItem, HungerLevel, SaturationLevel, HungerDecreaseReason, StatusEffect } from '../HungerTypes'

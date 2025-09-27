@@ -1,8 +1,8 @@
 import { Effect, Layer, Ref, pipe, HashMap, Option, Match } from 'effect'
 import { MovementSystem } from './MovementSystem'
 import { PlayerService } from './PlayerService'
-import type { PlayerId } from '../../shared/types/branded'
-import { SpatialBrands } from '../../shared/types/spatial-brands'
+import type { PlayerId } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import {
   type MovementInput,
   type MovementState,

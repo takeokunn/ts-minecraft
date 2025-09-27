@@ -10,7 +10,7 @@ import {
   CHUNK_MIN_Y,
   CHUNK_MAX_Y,
 } from './ChunkData'
-import { BrandedTypes } from '../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 /**
  * チャンク操作のエラー型

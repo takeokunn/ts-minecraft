@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
 import * as THREE from 'three'
-import type { Vector3D } from '../../shared/schemas/spatial'
-import type { PlayerId } from '../../shared/types/branded'
+import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId } from '@domain/core/types/brands'
 import { Player } from '../entities/Player'
 
 /**

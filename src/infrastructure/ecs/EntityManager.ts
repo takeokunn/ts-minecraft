@@ -12,7 +12,7 @@ import {
   createArchetypeManager,
   type ArchetypeManager,
 } from './Entity'
-import { ComponentTypeName, BrandedTypes } from '@shared/types/branded'
+import { ComponentTypeName, BrandedTypes } from '@domain/core/types/brands'
 
 // =====================================
 // Entity Manager Errors

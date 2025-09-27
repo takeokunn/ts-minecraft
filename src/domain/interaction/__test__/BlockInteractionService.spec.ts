@@ -3,7 +3,7 @@ import { it } from '@effect/vitest'
 import { Effect, Either, Option, Match, pipe, Exit, TestContext } from 'effect'
 import { BlockInteractionService, BlockInteractionServiceLive, INTERACTION_CONSTANTS } from '../index'
 import type { Vector3, BlockFace, ToolType } from '../InteractionTypes'
-import type { BlockId, BlockPosition, PlayerId } from '../../../shared/types/branded'
+import type { BlockId, BlockPosition, PlayerId } from '@domain/core/types/brands'
 import { clearAllBreakingSessions } from '../BlockBreaking'
 // Use type assertions for test values (simpler approach)
 

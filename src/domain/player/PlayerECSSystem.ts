@@ -3,8 +3,8 @@ import { Player } from '../entities/Player'
 import { PlayerMovementService } from './PlayerMovementService'
 import { PlayerController } from './PlayerController'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
-import type { PlayerId, ComponentTypeName } from '../../shared/types/branded'
-import { type Vector3D, VectorMath, type MutableVector3D } from '../../shared/schemas/spatial'
+import type { PlayerId, ComponentTypeName } from '@domain/core/types/brands'
+import { type Vector3D, VectorMath, type MutableVector3D } from '@domain/core/types/spatial'
 
 // ECS Component定義
 export const PlayerECSComponents = {

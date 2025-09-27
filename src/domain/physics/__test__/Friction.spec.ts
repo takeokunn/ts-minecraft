@@ -3,7 +3,7 @@ import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { Friction } from '../Friction'
 import { BLOCK_FRICTION } from '../types'
-import type { BlockTypeId } from '../../../shared/types/branded'
+import type { BlockTypeId } from '@domain/core/types/brands'
 
 describe('Friction System', () => {
   describe('getFrictionCoefficient', () => {

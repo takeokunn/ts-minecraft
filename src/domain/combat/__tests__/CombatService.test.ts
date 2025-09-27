@@ -13,8 +13,8 @@ import {
   type Armor,
   type EnchantmentType,
 } from '../types/CombatTypes'
-import { BrandedTypes } from '@shared/types/branded'
-import { SpatialBrands } from '@shared/types/spatial-brands'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import { EventBus } from '@infrastructure/events/EventBus'
 import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 

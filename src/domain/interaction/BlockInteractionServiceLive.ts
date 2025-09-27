@@ -1,5 +1,5 @@
 import { Effect, Layer, Match, pipe } from 'effect'
-import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
+import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
 import type {
   Vector3,
   BlockFace,

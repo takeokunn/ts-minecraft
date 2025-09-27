@@ -1,7 +1,7 @@
 import { Effect, Context, pipe, Match } from 'effect'
 import { Schema } from '@effect/schema'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
-import type { PlayerId } from '../../shared/types/branded'
+import type { PlayerId } from '@domain/core/types/brands'
 import type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService'
 import { createPlayerError } from './PlayerService'
 

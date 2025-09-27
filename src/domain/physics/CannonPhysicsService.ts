@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, pipe, Match } from 'effect'
 import * as CANNON from 'cannon-es'
-import type { Vector3D } from '../../shared/schemas/spatial'
-import type { PlayerId } from '../../shared/types/branded'
+import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId } from '@domain/core/types/brands'
 
 /**
  * Cannon-es物理エンジン統合サービス

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { NoiseCoordinate, NoiseValue, BrandedTypes } from '../../shared/types/branded'
+import { NoiseCoordinate, NoiseValue, BrandedTypes } from '@domain/core/types/brands'
 
 /**
  * ノイズ生成の設定オプション

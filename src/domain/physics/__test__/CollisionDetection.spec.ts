@@ -4,7 +4,7 @@ import { Effect, Match, pipe } from 'effect'
 import { it as effectIt } from '@effect/vitest'
 import { CollisionDetection } from '../CollisionDetection'
 import type { AABB } from '../types'
-import type { BlockTypeId } from '../../../shared/types/branded'
+import type { BlockTypeId } from '@domain/core/types/brands'
 
 describe('CollisionDetection', () => {
   const createAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): AABB =>

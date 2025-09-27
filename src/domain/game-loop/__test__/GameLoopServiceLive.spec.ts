@@ -4,7 +4,7 @@ import { GameLoopService } from '../services/GameLoopService'
 import { GameLoopServiceLive } from '../services/GameLoopServiceLive'
 import type { FrameInfo, GameLoopConfig } from '../types/types'
 import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
-import { BrandedTypes } from '@shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 describe('GameLoopServiceLive', () => {
   // Mock requestAnimationFrame for testing
