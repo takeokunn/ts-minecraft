@@ -11,7 +11,7 @@ export interface EventBus {
   readonly subscribe: (handler: (event: any) => void) => Effect.Effect<void, never>
 }
 
-export const EventBus = Context.GenericTag<EventBus>('@minecraft/EventBus')
+export const EventBus = Context.GenericTag<EventBus>('@minecraft/domain/EventBus')
 
 export const EventBusLive = Layer.succeed(
   EventBus,
@@ -30,7 +30,7 @@ export interface WorldManager {
   readonly clearWeather: () => Effect.Effect<void, never>
 }
 
-export const WorldManager = Context.GenericTag<WorldManager>('@minecraft/WorldManager')
+export const WorldManager = Context.GenericTag<WorldManager>('@minecraft/domain/WorldManager')
 
 export const WorldManagerLive = Layer.succeed(
   WorldManager,
@@ -49,7 +49,7 @@ export interface TimeSystem {
   readonly setTime: (time: number) => Effect.Effect<void, never>
 }
 
-export const TimeSystem = Context.GenericTag<TimeSystem>('@minecraft/TimeSystem')
+export const TimeSystem = Context.GenericTag<TimeSystem>('@minecraft/domain/TimeSystem')
 
 export const TimeSystemLive = Layer.succeed(
   TimeSystem,
@@ -67,7 +67,7 @@ export interface PlayerManager {
   readonly getPlayerName: (playerId: PlayerId) => Effect.Effect<string, never>
 }
 
-export const PlayerManager = Context.GenericTag<PlayerManager>('@minecraft/PlayerManager')
+export const PlayerManager = Context.GenericTag<PlayerManager>('@minecraft/domain/PlayerManager')
 
 export const PlayerManagerLive = Layer.succeed(
   PlayerManager,

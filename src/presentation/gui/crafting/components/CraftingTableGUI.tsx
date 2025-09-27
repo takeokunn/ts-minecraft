@@ -11,21 +11,21 @@ import type {
   CraftingGrid as CraftingGridType,
   CraftingRecipe,
   CraftingItemStack,
-} from '../../../domain/crafting/RecipeTypes'
+} from '../../../../domain/crafting/RecipeTypes'
 import { CraftingGUIService, CraftingGUIServiceLive } from '../CraftingGUIService'
-import { CraftingEngineService } from '../../../domain/crafting/CraftingEngineService'
-import { RecipeRegistryService } from '../../../domain/crafting/RecipeRegistryService'
-import { InventoryService } from '../../../domain/inventory/InventoryService'
-import { ItemRegistry } from '../../../domain/inventory/ItemRegistry'
+import { CraftingEngineService } from '../../../../domain/crafting/CraftingEngineService'
+import { RecipeRegistryService } from '../../../../domain/crafting/RecipeRegistryService'
+import { InventoryService } from '../../../../domain/inventory/InventoryService'
+import { ItemRegistry } from '../../../../domain/inventory/ItemRegistry'
 import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
 import { RecipeDisplay } from './RecipeDisplay'
 import { RecipeBook } from './RecipeBook'
 import { CraftingResult } from './CraftingResult'
-import { CraftingEngineServiceLive } from '../../../domain/crafting/CraftingEngineService'
-import { RecipeRegistryServiceLive } from '../../../domain/crafting/RecipeRegistryService'
-import { InventoryServiceLive } from '../../../domain/inventory/InventoryServiceLive'
+import { CraftingEngineServiceLive } from '../../../../domain/crafting/CraftingEngineService'
+import { RecipeRegistryServiceLive } from '../../../../domain/crafting/RecipeRegistryService'
+import { InventoryServiceLive } from '../../../../domain/inventory/InventoryServiceLive'
 import { Brand } from 'effect'
-import { GridWidth, GridHeight } from '../../../domain/crafting/RecipeTypes'
+import { GridWidth, GridHeight } from '../../../../domain/crafting/RecipeTypes'
 
 interface CraftingTableGUIProps {
   playerId: string

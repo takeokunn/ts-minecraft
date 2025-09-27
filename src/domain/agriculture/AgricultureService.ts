@@ -95,7 +95,7 @@ export interface AgricultureService {
 // Service Tag
 // ===================================
 
-export const AgricultureService = Context.GenericTag<AgricultureService>('@minecraft/AgricultureService')
+export const AgricultureService = Context.GenericTag<AgricultureService>('@minecraft/domain/AgricultureService')
 
 // ===================================
 // Service Helpers

@@ -35,7 +35,7 @@ export interface PlayerRepository {
   readonly findByName: (name: string) => Effect.Effect<Option.Option<Types.Player>, Types.PlayerError>
 }
 
-export const PlayerRepository = Context.GenericTag<PlayerRepository>('@app/PlayerRepository')
+export const PlayerRepository = Context.GenericTag<PlayerRepository>('@minecraft/domain/PlayerRepository')
 
 export interface PlayerStateManager {
   readonly create: (config: {
@@ -55,7 +55,7 @@ export interface PlayerStateManager {
   readonly delete: (playerId: Types.PlayerId) => Effect.Effect<void, Types.PlayerError>
 }
 
-export const PlayerStateManager = Context.GenericTag<PlayerStateManager>('@app/PlayerStateManager')
+export const PlayerStateManager = Context.GenericTag<PlayerStateManager>('@minecraft/domain/PlayerStateManager')
 
 export interface PlayerMovementSystem {
   readonly move: (
@@ -73,7 +73,7 @@ export interface PlayerMovementSystem {
   ) => Effect.Effect<Types.Player, Types.PlayerError>
 }
 
-export const PlayerMovementSystem = Context.GenericTag<PlayerMovementSystem>('@app/PlayerMovementSystem')
+export const PlayerMovementSystem = Context.GenericTag<PlayerMovementSystem>('@minecraft/domain/PlayerMovementSystem')
 
 export interface PlayerActionProcessor {
   readonly process: (player: Types.Player, action: Types.PlayerAction) => Effect.Effect<Types.Player, Types.PlayerError>
@@ -81,7 +81,9 @@ export interface PlayerActionProcessor {
   readonly validate: (player: Types.Player, action: Types.PlayerAction) => Effect.Effect<boolean>
 }
 
-export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessor>('@app/PlayerActionProcessor')
+export const PlayerActionProcessor = Context.GenericTag<PlayerActionProcessor>(
+  '@minecraft/domain/PlayerActionProcessor'
+)
 
 export interface PlayerEventBus {
   readonly publish: (event: Types.PlayerEvent) => Effect.Effect<void>
@@ -89,7 +91,7 @@ export interface PlayerEventBus {
   readonly subscribeFiltered: (predicate: (event: Types.PlayerEvent) => boolean) => Stream.Stream<Types.PlayerEvent>
 }
 
-export const PlayerEventBus = Context.GenericTag<PlayerEventBus>('@app/PlayerEventBus')
+export const PlayerEventBus = Context.GenericTag<PlayerEventBus>('@minecraft/domain/PlayerEventBus')
 
 // =========================================
 // Repository Implementation

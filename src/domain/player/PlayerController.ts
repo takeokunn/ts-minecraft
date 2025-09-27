@@ -90,7 +90,7 @@ export interface PlayerController {
 }
 
 // Context Tag定義 - 関数型スタイル
-export const PlayerController = Context.GenericTag<PlayerController>('@app/PlayerController')
+export const PlayerController = Context.GenericTag<PlayerController>('@minecraft/domain/PlayerController')
 
 // PlayerController実装
 const makePlayerController: Effect.Effect<PlayerController> = Effect.gen(function* () {

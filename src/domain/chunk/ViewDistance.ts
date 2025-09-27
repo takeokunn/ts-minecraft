@@ -420,7 +420,7 @@ export interface ViewDistance {
   readonly updateConfig: (newConfig: Partial<ViewDistanceConfig>) => Effect.Effect<void, never>
 }
 
-export const ViewDistance = Context.GenericTag<ViewDistance>('ViewDistance')
+export const ViewDistance = Context.GenericTag<ViewDistance>('@minecraft/domain/ViewDistance')
 
 // =============================================================================
 // Service Implementation

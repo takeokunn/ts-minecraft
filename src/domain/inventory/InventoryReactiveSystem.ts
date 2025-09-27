@@ -93,7 +93,9 @@ export interface InventoryReactiveSystem {
 }
 
 // Context tag
-export const InventoryReactiveSystem = Context.GenericTag<InventoryReactiveSystem>('@minecraft/InventoryReactiveSystem')
+export const InventoryReactiveSystem = Context.GenericTag<InventoryReactiveSystem>(
+  '@minecraft/domain/InventoryReactiveSystem'
+)
 
 // Implementation
 export const InventoryReactiveSystemLive = Layer.effect(

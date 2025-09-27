@@ -9,7 +9,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Option } from 'effect'
 import type { InventoryTheme } from '../types.js'
-import type { ItemStack } from '../../../domain/inventory/InventoryTypes.js'
+import type { ItemStack } from '../../../../domain/inventory/InventoryTypes.js'
 import { ItemSlot } from './ItemSlot.js'
 
 interface ArmorSlotsProps {

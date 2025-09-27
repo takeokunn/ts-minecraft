@@ -82,7 +82,7 @@ export interface System {
 /**
  * システムサービス - DIコンテナ用のタグ
  */
-export const System = Context.GenericTag<System>('@minecraft/ecs/System')
+export const System = Context.GenericTag<System>('@minecraft/infrastructure/System')
 
 /**
  * システム作成ヘルパー

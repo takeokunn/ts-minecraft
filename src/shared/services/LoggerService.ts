@@ -41,7 +41,7 @@ export interface LoggerService {
 }
 
 // Context タグ
-export const LoggerService = Context.GenericTag<LoggerService>('@app/services/LoggerService')
+export const LoggerService = Context.GenericTag<LoggerService>('@minecraft/shared/LoggerService')
 
 // 共通ユーティリティ関数
 

@@ -32,7 +32,7 @@ export interface SceneManager {
 }
 
 // SceneManagerサービスのコンテキスト
-export const SceneManager = Context.GenericTag<SceneManager>('@domain/scene/SceneManager')
+export const SceneManager = Context.GenericTag<SceneManager>('@minecraft/domain/SceneManager')
 
 // Match.valueを使った型安全なシーン処理
 export const processSceneType = <A>(

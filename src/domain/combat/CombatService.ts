@@ -113,4 +113,4 @@ export interface CombatService {
 // Service Tag
 // ================================
 
-export const CombatService = Context.GenericTag<CombatService>('@minecraft/CombatService')
+export const CombatService = Context.GenericTag<CombatService>('@minecraft/domain/CombatService')

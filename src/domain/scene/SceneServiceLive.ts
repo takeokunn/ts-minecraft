@@ -34,7 +34,7 @@ interface WorldManager {
   readonly serializeWorld: (worldId: WorldId) => Effect.Effect<unknown>
 }
 
-const WorldManager = Context.GenericTag<WorldManager>('@minecraft/WorldManager')
+const WorldManager = Context.GenericTag<WorldManager>('@minecraft/domain/WorldManager')
 
 // Temporary SaveManager interface
 interface SaveManager {
@@ -43,14 +43,14 @@ interface SaveManager {
   readonly autoSave: (worldId: WorldId) => Effect.Effect<void>
 }
 
-const SaveManager = Context.GenericTag<SaveManager>('@minecraft/SaveManager')
+const SaveManager = Context.GenericTag<SaveManager>('@minecraft/domain/SaveManager')
 
 // Temporary PlayerManager interface
 interface PlayerManager {
   readonly serializePlayer: (playerState: PlayerState) => Effect.Effect<unknown>
 }
 
-const PlayerManager = Context.GenericTag<PlayerManager>('@minecraft/PlayerManager')
+const PlayerManager = Context.GenericTag<PlayerManager>('@minecraft/domain/PlayerManager')
 
 const makeSceneService: Effect.Effect<
   SceneService,

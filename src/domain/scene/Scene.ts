@@ -76,4 +76,4 @@ export interface Scene {
 }
 
 // シーンサービスのコンテキスト
-export const Scene = Context.GenericTag<Scene>('@domain/scene/Scene')
+export const Scene = Context.GenericTag<Scene>('@minecraft/domain/Scene')

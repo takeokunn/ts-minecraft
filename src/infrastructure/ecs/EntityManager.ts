@@ -671,7 +671,7 @@ export const EntityManagerLive = Effect.gen(function* () {
   } satisfies EntityManager
 })
 
-export const EntityManager = Context.GenericTag<EntityManager>('@minecraft/ecs/EntityManager')
+export const EntityManager = Context.GenericTag<EntityManager>('@minecraft/infrastructure/EntityManager')
 
 // Convert EntityManager implementation to Layer
 export const EntityManagerLayer = Layer.effect(EntityManager, EntityManagerLive)

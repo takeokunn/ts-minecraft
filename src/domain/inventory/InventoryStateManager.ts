@@ -134,7 +134,9 @@ export interface InventoryStateManager {
 }
 
 // Context tag
-export const InventoryStateManager = Context.GenericTag<InventoryStateManager>('@minecraft/InventoryStateManager')
+export const InventoryStateManager = Context.GenericTag<InventoryStateManager>(
+  '@minecraft/domain/InventoryStateManager'
+)
 
 // State Manager Implementation
 export const InventoryStateManagerLive = Layer.effect(

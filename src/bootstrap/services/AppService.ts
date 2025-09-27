@@ -6,7 +6,7 @@ export interface AppService {
   readonly getReadyStatus: () => Effect.Effect<{ ready: boolean }>
 }
 
-export const AppService = Context.GenericTag<AppService>('@app/services/AppService')
+export const AppService = Context.GenericTag<AppService>('@minecraft/bootstrap/AppService')
 
 // Service実装
 export const AppServiceLive = Layer.succeed(

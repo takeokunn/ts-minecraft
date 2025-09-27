@@ -57,7 +57,7 @@ export interface DamageCalculator {
   ) => Effect.Effect<DamageAmount>
 }
 
-export const DamageCalculator = Context.GenericTag<DamageCalculator>('@minecraft/DamageCalculator')
+export const DamageCalculator = Context.GenericTag<DamageCalculator>('@minecraft/domain/DamageCalculator')
 
 // =======================================
 // DamageCalculator Implementation

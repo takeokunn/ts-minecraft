@@ -40,4 +40,4 @@ export interface GameLoopService {
 }
 
 // Context.GenericTagを使用したサービスタグ
-export const GameLoopService = Context.GenericTag<GameLoopService>('@app/services/GameLoopService')
+export const GameLoopService = Context.GenericTag<GameLoopService>('@minecraft/domain/GameLoopService')

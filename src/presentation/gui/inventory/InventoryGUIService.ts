@@ -6,9 +6,9 @@
  */
 
 import { Context, Effect, Layer, Option, pipe, Match, Stream } from 'effect'
-import { InventoryService } from '../../domain/inventory/InventoryService.js'
-import { InventoryServiceLive } from '../../domain/inventory/InventoryServiceLive.js'
-import type { PlayerId, ItemStack, Inventory } from '../../domain/inventory/InventoryTypes.js'
+import { InventoryService } from '../../../domain/inventory/InventoryService.js'
+import { InventoryServiceLive } from '../../../domain/inventory/InventoryServiceLive.js'
+import type { PlayerId, ItemStack, Inventory } from '../../../domain/inventory/InventoryTypes.js'
 import type { InventoryGUIEvent, DropResult, InventoryGUIConfig } from './types.js'
 import { defaultInventoryGUIConfig } from './types.js'
 
@@ -36,7 +36,9 @@ export interface InventoryGUIService {
 // Service Tag
 // =========================================
 
-export const InventoryGUIService = Context.GenericTag<InventoryGUIService>('@minecraft/InventoryGUIService')
+export const InventoryGUIService = Context.GenericTag<InventoryGUIService>(
+  '@minecraft/presentation/InventoryGUIService'
+)
 
 // =========================================
 // Service Implementation

@@ -192,7 +192,7 @@ export interface World {
 /**
  * ワールドサービスタグ
  */
-export const World = Context.GenericTag<World>('@minecraft/ecs/World')
+export const World = Context.GenericTag<World>('@minecraft/infrastructure/World')
 
 /**
  * ワールドサービスの実装

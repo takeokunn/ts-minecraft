@@ -1,4 +1,4 @@
-import { Config } from '../core/schemas/Config'
+import { Config } from '../schemas/Config'
 import { Effect } from 'effect'
 import { Schema } from '@effect/schema'
 

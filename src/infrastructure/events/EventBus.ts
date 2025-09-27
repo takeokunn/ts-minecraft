@@ -10,7 +10,7 @@ export interface EventBusService {
   ) => Effect.Effect<{ close: () => Effect.Effect<void> }>
 }
 
-export const EventBus = Context.GenericTag<EventBusService>('@minecraft/EventBus')
+export const EventBus = Context.GenericTag<EventBusService>('@minecraft/infrastructure/EventBus')
 
 // Default implementation
 export const EventBusDefault = Layer.succeed(EventBus, {

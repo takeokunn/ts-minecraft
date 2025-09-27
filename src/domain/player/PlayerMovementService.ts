@@ -52,7 +52,9 @@ export interface PlayerMovementService {
 }
 
 // Context Tag定義
-export const PlayerMovementService = Context.GenericTag<PlayerMovementService>('PlayerMovementService')
+export const PlayerMovementService = Context.GenericTag<PlayerMovementService>(
+  '@minecraft/domain/PlayerMovementService'
+)
 
 // PlayerMovementService実装
 const makePlayerMovementService: Effect.Effect<PlayerMovementService> = Effect.gen(function* () {

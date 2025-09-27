@@ -75,4 +75,4 @@ export interface HungerService {
  * HungerService Tag
  * 依存性注入用のタグ定義
  */
-export const HungerService = Context.GenericTag<HungerService>('@minecraft/HungerService')
+export const HungerService = Context.GenericTag<HungerService>('@minecraft/domain/HungerService')

@@ -43,7 +43,7 @@ export interface BlockRegistry {
 }
 
 // BlockRegistryサービスタグ
-export const BlockRegistry = Context.GenericTag<BlockRegistry>('@minecraft/BlockRegistry')
+export const BlockRegistry = Context.GenericTag<BlockRegistry>('@minecraft/domain/BlockRegistry')
 
 // BlockRegistryの実装
 export const BlockRegistryLive = Layer.effect(

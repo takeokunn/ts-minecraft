@@ -2,7 +2,7 @@ import { Option, Match, pipe, Effect, Either, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
 import { GameErrorUnion, type AnyGameError } from './GameErrors'
 import { NetworkErrorUnion, type AnyNetworkError } from './NetworkErrors'
-import { AppErrorUnion, type AnyAppError } from '../../core/errors/AppError'
+import { AppErrorUnion, type AnyAppError } from '../../bootstrap/errors/AppError'
 
 // 全エラー型の統合スキーマ
 const AllErrorsUnion = Schema.Union(GameErrorUnion, NetworkErrorUnion, AppErrorUnion)
