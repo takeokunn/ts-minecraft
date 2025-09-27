@@ -5,22 +5,13 @@ import { cpus } from 'os'
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'happy-dom',
+    environment: 'node',
     testTimeout: 30000, // 30秒（パフォーマンステスト対応）
     hookTimeout: 20000, // フックのタイムアウト
 
     include: ['src/**/__tests__/*.test.ts', 'src/**/__test__/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
 
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        maxThreads: 4,
-        minThreads: 1,
-        isolate: true,
-        useAtomics: false,
-      },
-    },
     coverage: {
       enabled: false,
       provider: 'v8',
@@ -65,16 +56,18 @@ export default defineConfig({
       ignoreEmptyLines: true,
     },
 
-    reporters: [
-      'default',
-      ['html', { outputFile: './test-results/index.html' }],
-      ['json', { outputFile: './test-results/results.json' }],
-    ],
+    reporters: process.env.CI
+      ? ['default']
+      : [
+          'default',
+          ['html', { outputFile: './test-results/index.html' }],
+          ['json', { outputFile: './test-results/results.json' }],
+        ],
 
     sequence: {
       concurrent: true,
-      shuffle: true,
-      hooks: 'parallel',
+      shuffle: false,
+      hooks: 'stack',
     },
 
     maxConcurrency: Math.min(8, cpus().length),
