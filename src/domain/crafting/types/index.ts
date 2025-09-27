@@ -1,7 +1,7 @@
 /**
  * Crafting Type Definitions
  *
- * ¯éÕÆ£ó°·¹Æàn‹š©¨¯¹ÝüÈ
+ * ï¿½ï¿½ï¿½Æ£ó°·¹ï¿½ï¿½nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 
 export * from './RecipeTypes'

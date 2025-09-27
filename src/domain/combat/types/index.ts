@@ -1,7 +1,7 @@
 /**
  * Combat Type Definitions
  *
- * &Ø·¹Æàn‹š©¨¯¹ÝüÈ
+ * &Ø·ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 
 export * from './CombatTypes'
