@@ -1,8 +1,8 @@
 import { Duration, Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
-import { MaterialService } from '../services/MaterialService'
-import { MaterialServiceLive } from '../services/MaterialServiceLive'
-import { BlockId, ItemId, Tool } from '../types/MaterialTypes'
+import { MaterialService } from '../service'
+import { MaterialServiceLive } from '../live'
+import type { BlockId, ItemId, Tool } from '../types'
 
 // Test layer
 const TestLayer = MaterialServiceLive

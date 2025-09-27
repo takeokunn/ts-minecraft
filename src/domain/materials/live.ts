@@ -1,5 +1,5 @@
-import { Array, Duration, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
-import {
+import { Array, Duration, Effect, HashMap, Layer, Option, pipe } from 'effect'
+import type {
   BlastResistance,
   BlockId,
   BurnTime,
@@ -8,26 +8,13 @@ import {
   Material,
   MaterialCategory,
   MaterialId,
-  MaterialNotFoundError,
   MiningSpeed,
   Tool,
   ToolType,
-} from '../types/MaterialTypes'
-import { MaterialService } from './MaterialService'
-
-// ヘルパー関数
-const getToolHarvestLevel = (material: MaterialCategory): number =>
-  Match.value(material).pipe(
-    Match.when('wood', () => 0),
-    Match.when('stone', () => 1),
-    Match.when('iron', () => 2),
-    Match.when('gold', () => 0), // ゴールドは特殊
-    Match.when('diamond', () => 3),
-    Match.when('netherite', () => 4),
-    Match.orElse(() => 0)
-  )
-
-const blockIdToItemId = (blockId: BlockId): ItemId => blockId as unknown as ItemId // 実際にはより適切な変換が必要
+} from './types'
+import { MaterialNotFoundError } from './types'
+import { MaterialService } from './service'
+import { getToolHarvestLevel, blockIdToItemId } from './helper'
 
 const makeMaterialService = Effect.gen(function* () {
   // マテリアルデータベース

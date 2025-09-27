@@ -1,5 +1,5 @@
 import { Context, Duration, Effect, Option } from 'effect'
-import { BlockId, BurnTime, ItemId, ItemStack, Material, MaterialNotFoundError, Tool } from '../types/MaterialTypes'
+import { BlockId, BurnTime, ItemId, ItemStack, Material, MaterialNotFoundError, Tool } from './types'
 
 export interface MaterialService {
   readonly getMaterial: (blockId: BlockId) => Effect.Effect<Material, MaterialNotFoundError>
