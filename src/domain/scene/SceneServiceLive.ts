@@ -1,4 +1,6 @@
 import { Effect, Layer, Ref, Queue, Stream, Match, pipe, Schedule, Fiber, HashMap, Duration, Context } from 'effect'
+import type { EventBusService } from '../../infrastructure/events/EventBus'
+import { EventBus } from '../../infrastructure/events/EventBus'
 import { SceneService } from './SceneService'
 import {
   SceneType,
@@ -13,18 +15,12 @@ import {
   SaveId,
   PlayerState,
   PreloadedResource,
-  ErrorInfo
+  ErrorInfo,
 } from './SceneTypes'
 import { RendererService } from '../../infrastructure/rendering/RendererService'
 import { RendererServiceLive } from '../../infrastructure/rendering/RendererServiceLive'
 
-// Temporary EventBus interface until we have the actual one
-interface EventBus {
-  readonly publish: (event: SceneEvent) => Effect.Effect<void>
-  readonly subscribe: () => Stream.Stream<SceneEvent>
-}
-
-const EventBus = Context.GenericTag<EventBus>('@minecraft/EventBus')
+// Using standard EventBusService interface for scene events
 
 // Temporary WorldManager interface
 interface WorldManager {
@@ -56,7 +52,11 @@ interface PlayerManager {
 
 const PlayerManager = Context.GenericTag<PlayerManager>('@minecraft/PlayerManager')
 
-const makeSceneService = Effect.gen(function* () {
+const makeSceneService: Effect.Effect<
+  SceneService,
+  never,
+  EventBusService | RendererService | WorldManager | SaveManager | PlayerManager
+> = Effect.gen(function* () {
   const eventBus = yield* EventBus
   const renderEngine = yield* RendererService
   const worldManager = yield* WorldManager
@@ -66,25 +66,25 @@ const makeSceneService = Effect.gen(function* () {
   // 現在のシーン状態
   const currentScene = yield* Ref.make<SceneType>({
     _tag: 'MainMenu',
-    selectedOption: undefined
-  } as SceneType)
+    selectedOption: undefined,
+  })
 
   // 遷移中フラグ
   const isTransitioning = yield* Ref.make(false)
 
   // プリロード済みリソース
-  const preloadedResources = yield* Ref.make(
-    HashMap.empty<string, PreloadedResource>()
-  )
+  const preloadedResources = yield* Ref.make(HashMap.empty<string, PreloadedResource>())
 
-  const getTransitionDuration = (effect: TransitionEffect): TransitionDuration =>
-    pipe(
-      Match.value(effect),
-      Match.tag('Fade', ({ duration }) => duration),
-      Match.tag('Slide', ({ duration }) => duration),
-      Match.tag('Instant', () => 0 as TransitionDuration),
-      Match.exhaustive
-    )
+  const getTransitionDuration = (effect: TransitionEffect): TransitionDuration => {
+    switch (effect._tag) {
+      case 'Fade':
+        return effect.duration
+      case 'Slide':
+        return effect.duration
+      case 'Instant':
+        return 0 as TransitionDuration
+    }
+  }
 
   const executeFadeTransition = (duration: TransitionDuration) =>
     Effect.gen(function* () {
@@ -105,7 +105,7 @@ const makeSceneService = Effect.gen(function* () {
         { name: 'Loading entities', weight: 0.2, task: worldManager.loadEntities(worldId) },
         { name: 'Loading inventory', weight: 0.1, task: worldManager.loadInventory(playerState) },
         { name: 'Generating terrain', weight: 0.2, task: worldManager.generateTerrain(worldId) },
-        { name: 'Initializing physics', weight: 0.1, task: worldManager.initPhysics() }
+        { name: 'Initializing physics', weight: 0.1, task: worldManager.initPhysics() },
       ]
 
       let totalProgress = 0
@@ -117,203 +117,225 @@ const makeSceneService = Effect.gen(function* () {
             yield* eventBus.publish({
               _tag: 'LoadingProgress',
               progress: totalProgress,
-              message: name
-            } as SceneEvent)
+              message: name,
+            })
 
             yield* task
             totalProgress += weight
 
-            yield* Ref.update(currentScene, scene =>
-              pipe(
-                Match.value(scene),
-                Match.tag('Loading', (loading) => ({
-                  ...loading,
-                  progress: totalProgress
-                })),
-                Match.orElse(() => scene)
-              )
-            )
+            yield* Ref.update(currentScene, (scene) => {
+              if (scene._tag === 'Loading') {
+                return {
+                  ...scene,
+                  progress: totalProgress,
+                }
+              }
+              return scene
+            })
           }),
         { discard: true }
       )
     })
 
-  const transitionTo = (scene: SceneType, effect: TransitionEffect = { _tag: 'Fade', duration: 500 as TransitionDuration }) =>
+  const transitionTo = (
+    scene: SceneType,
+    effect: TransitionEffect = { _tag: 'Fade', duration: 500 as TransitionDuration }
+  ): Effect.Effect<void, TransitionError, never> =>
     Effect.gen(function* () {
       // 遷移中チェック
       const transitioning = yield* Ref.get(isTransitioning)
       if (transitioning) {
         return yield* Effect.fail({
-          _tag: 'TransitionInProgressError',
-          message: 'Another scene transition is already in progress'
-        } as TransitionError)
+          _tag: 'TransitionInProgressError' as const,
+          message: 'Another scene transition is already in progress',
+        })
       }
 
       yield* Ref.set(isTransitioning, true)
 
-      const fromScene = yield* Ref.get(currentScene)
+      // 遷移処理をensureingで包み、必ずフラグをリセット
+      yield* Effect.ensuring(
+        Effect.gen(function* () {
+          const fromScene = yield* Ref.get(currentScene)
 
-      // イベント発行
-      yield* eventBus.publish({
-        _tag: 'TransitionStarted',
-        from: fromScene,
-        to: scene,
-        duration: getTransitionDuration(effect)
-      } as SceneEvent)
-
-      // シーンごとのクリーンアップ処理
-      yield* pipe(
-        Match.value(fromScene),
-        Match.tag('GameWorld', ({ worldId }) =>
-          Effect.gen(function* () {
-            yield* saveManager.autoSave(worldId)
-            yield* worldManager.pauseWorld(worldId)
+          // イベント発行
+          yield* eventBus.publish({
+            _tag: 'TransitionStarted',
+            from: fromScene,
+            to: scene,
+            duration: getTransitionDuration(effect),
           })
-        ),
-        Match.tag('MainMenu', () => Effect.void),
-        Match.tag('Settings', () => Effect.void),
-        Match.tag('Loading', () => Effect.void),
-        Match.tag('Error', () => Effect.void),
-        Match.exhaustive
+
+          // シーンごとのクリーンアップ処理
+          yield* pipe(
+            fromScene,
+            Match.value,
+            Match.when({ _tag: 'GameWorld' }, (gameScene) =>
+              Effect.gen(function* () {
+                const typedScene = gameScene as any
+                yield* saveManager.autoSave(typedScene.worldId)
+                yield* worldManager.pauseWorld(typedScene.worldId)
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          )
+
+          // トランジション効果の実行
+          yield* pipe(
+            effect,
+            Match.value,
+            Match.when({ _tag: 'Fade' }, (fadeEffect) => executeFadeTransition(fadeEffect.duration)),
+            Match.when({ _tag: 'Slide' }, (slideEffect) =>
+              executeSlideTransition(slideEffect.direction, slideEffect.duration)
+            ),
+            Match.when({ _tag: 'Instant' }, () => Effect.void),
+            Match.orElse(() => Effect.void)
+          )
+
+          // 新しいシーンの初期化
+          yield* pipe(
+            scene,
+            Match.value,
+            Match.when({ _tag: 'GameWorld' }, (gameScene) =>
+              Effect.gen(function* () {
+                const typedScene = gameScene as any
+                // ローディング画面を表示
+                yield* Ref.set(currentScene, {
+                  _tag: 'Loading',
+                  targetScene: scene,
+                  progress: 0,
+                })
+
+                // ワールドロード
+                yield* loadWorldWithProgress(typedScene.worldId, typedScene.playerState)
+
+                // ワールド開始
+                yield* worldManager.startWorld(typedScene.worldId)
+              })
+            ),
+            Match.when({ _tag: 'MainMenu' }, () =>
+              Effect.gen(function* () {
+                yield* renderEngine.setClearColor(0x000000, 1)
+                // メインメニューの表示処理
+              })
+            ),
+            Match.when({ _tag: 'Settings' }, () => Effect.void),
+            Match.when({ _tag: 'Loading' }, () => Effect.void),
+            Match.when({ _tag: 'Error' }, (errorScene) =>
+              Effect.gen(function* () {
+                const typedScene = errorScene as any
+                // エラー画面の表示処理
+                if (!typedScene.recoverable) {
+                  yield* Effect.logError('Unrecoverable error', typedScene.error)
+                }
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          )
+
+          // 遷移完了
+          yield* Ref.set(currentScene, scene)
+
+          // イベント発行
+          yield* eventBus.publish({
+            _tag: 'TransitionCompleted',
+            scene,
+          })
+        }),
+        // 必ずisTransitioningをfalseにリセット
+        Ref.set(isTransitioning, false)
       )
-
-      // トランジション効果の実行
-      yield* pipe(
-        Match.value(effect),
-        Match.tag('Fade', ({ duration }) =>
-          executeFadeTransition(duration)
-        ),
-        Match.tag('Slide', ({ direction, duration }) =>
-          executeSlideTransition(direction, duration)
-        ),
-        Match.tag('Instant', () => Effect.void),
-        Match.exhaustive
-      )
-
-      // 新しいシーンの初期化
-      yield* pipe(
-        Match.value(scene),
-        Match.tag('GameWorld', ({ worldId, playerState }) =>
-          Effect.gen(function* () {
-            // ローディング画面を表示
-            yield* Ref.set(currentScene, {
-              _tag: 'Loading',
-              targetScene: scene,
-              progress: 0
-            } as SceneType)
-
-            // ワールドロード
-            yield* loadWorldWithProgress(worldId, playerState)
-
-            // ワールド開始
-            yield* worldManager.startWorld(worldId)
-          })
-        ),
-        Match.tag('MainMenu', () =>
-          Effect.gen(function* () {
-            yield* renderEngine.setClearColor(0x000000, 1)
-            // メインメニューの表示処理
-          })
-        ),
-        Match.tag('Settings', () =>
-          Effect.void // 設定画面の表示処理
-        ),
-        Match.tag('Loading', () => Effect.void),
-        Match.tag('Error', ({ error, recoverable }) =>
-          Effect.gen(function* () {
-            // エラー画面の表示処理
-            if (!recoverable) {
-              yield* Effect.logError('Unrecoverable error', error)
-            }
-          })
-        ),
-        Match.exhaustive
-      )
-
-      // 遷移完了
-      yield* Ref.set(currentScene, scene)
-      yield* Ref.set(isTransitioning, false)
-
-      // イベント発行
-      yield* eventBus.publish({
-        _tag: 'TransitionCompleted',
-        scene
-      } as SceneEvent)
     })
 
-  const getCurrentScene = () => Ref.get(currentScene)
+  const getCurrentScene = (): Effect.Effect<SceneType, never> => Ref.get(currentScene)
 
-  const saveState = () =>
+  const saveState = (): Effect.Effect<void, SaveError> =>
     Effect.gen(function* () {
       const scene = yield* Ref.get(currentScene)
 
       const saveData = yield* pipe(
-        Match.value(scene),
-        Match.tag('GameWorld', ({ worldId, playerState }) =>
+        scene,
+        Match.value,
+        Match.when({ _tag: 'GameWorld' }, (gameScene) =>
           Effect.gen(function* () {
-            const worldData = yield* worldManager.serializeWorld(worldId)
-            const playerData = yield* playerManager.serializePlayer(playerState)
+            const typedScene = gameScene as any
+            const worldData = yield* worldManager.serializeWorld(typedScene.worldId)
+            const playerData = yield* playerManager.serializePlayer(typedScene.playerState)
             return {
               scene: 'GameWorld',
               worldData,
               playerData,
-              timestamp: Date.now()
+              timestamp: Date.now(),
             }
           })
         ),
         Match.orElse(() =>
           Effect.succeed({
             scene: scene._tag,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
         )
       )
 
       yield* saveManager.save(saveData).pipe(
-        Effect.mapError(() => ({
-          _tag: 'SaveFailedError',
-          message: 'Failed to save game state'
-        } as SaveError))
+        Effect.mapError(
+          () =>
+            ({
+              _tag: 'SaveFailedError',
+              message: 'Failed to save game state',
+            }) as SaveError
+        )
       )
 
       yield* eventBus.publish({
         _tag: 'StateSnapshot',
         scene,
-        timestamp: Date.now()
-      } as SceneEvent)
+        timestamp: Date.now(),
+      })
     })
 
-  const loadState = (saveId: SaveId) =>
+  const loadState = (saveId: SaveId): Effect.Effect<void, LoadError> =>
     Effect.gen(function* () {
       const saveData = yield* saveManager.load(saveId).pipe(
-        Effect.mapError(() => ({
-          _tag: 'SaveNotFoundError',
-          saveId,
-          message: `Save file ${saveId} not found`
-        } as LoadError))
+        Effect.mapError(
+          () =>
+            ({
+              _tag: 'SaveNotFoundError',
+              saveId,
+              message: `Save file ${saveId} not found`,
+            }) as LoadError
+        )
       )
 
       // セーブデータから適切なシーンを復元
       // この実装は簡略化されており、実際にはより詳細な復元処理が必要
       yield* transitionTo({
-        _tag: 'MainMenu'
-      } as SceneType)
+        _tag: 'MainMenu',
+        selectedOption: undefined,
+      }).pipe(
+        Effect.mapError(
+          () =>
+            ({
+              _tag: 'LoadFailedError',
+              saveId,
+              message: 'Failed to restore scene from save data',
+            }) as LoadError
+        )
+      )
     })
 
   const isRecoverableError = (error: unknown): Effect.Effect<boolean> =>
     Effect.succeed(
       error instanceof Error &&
-      (error.message.includes('network') ||
-       error.message.includes('timeout') ||
-       error.message.includes('temporary'))
+        (error.message.includes('network') || error.message.includes('timeout') || error.message.includes('temporary'))
     )
 
-  const handleError = (error: unknown) =>
+  const handleError = (error: unknown): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       const errorInfo: ErrorInfo = {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       // エラーの種類に応じて回復可能か判定
@@ -323,17 +345,18 @@ const makeSceneService = Effect.gen(function* () {
         {
           _tag: 'Error',
           error: errorInfo,
-          recoverable
-        } as SceneType,
+          recoverable,
+        },
         { _tag: 'Instant' }
-      )
+      ).pipe(Effect.orDie)
 
       if (recoverable) {
         // 自動リトライのスケジューリング
         yield* Effect.schedule(
           transitionTo({
-            _tag: 'MainMenu'
-          } as SceneType),
+            _tag: 'MainMenu',
+            selectedOption: undefined,
+          }),
           Schedule.exponential(Duration.seconds(1))
         ).pipe(
           Effect.fork // バックグラウンドで実行
@@ -341,20 +364,14 @@ const makeSceneService = Effect.gen(function* () {
       }
     })
 
-  const preloadScene = (scene: SceneType) =>
+  const preloadScene = (scene: SceneType): Effect.Effect<void, PreloadError> =>
     Effect.gen(function* () {
       // シーンに必要なリソースのプリロード
       const resources = pipe(
-        Match.value(scene),
-        Match.tag('GameWorld', () => [
-          'textures/blocks.png',
-          'models/player.obj',
-          'sounds/ambient.mp3'
-        ]),
-        Match.tag('MainMenu', () => [
-          'textures/menu-bg.png',
-          'sounds/menu-music.mp3'
-        ]),
+        scene,
+        Match.value,
+        Match.when({ _tag: 'GameWorld' }, () => ['textures/blocks.png', 'models/player.obj', 'sounds/ambient.mp3']),
+        Match.when({ _tag: 'MainMenu' }, () => ['textures/menu-bg.png', 'sounds/menu-music.mp3']),
         Match.orElse(() => [] as string[])
       )
 
@@ -369,26 +386,30 @@ const makeSceneService = Effect.gen(function* () {
           Effect.gen(function* () {
             const resource: PreloadedResource = {
               id: resourcePath,
-              type: resourcePath.endsWith('.png') ? 'texture' :
-                    resourcePath.endsWith('.obj') ? 'model' :
-                    resourcePath.endsWith('.mp3') ? 'sound' : 'data',
+              type: resourcePath.endsWith('.png')
+                ? 'texture'
+                : resourcePath.endsWith('.obj')
+                  ? 'model'
+                  : resourcePath.endsWith('.mp3')
+                    ? 'sound'
+                    : 'data',
               data: null, // 実際のデータロード処理
               size: 0,
-              loadedAt: Date.now()
+              loadedAt: Date.now(),
             }
 
-            yield* Ref.update(
-              preloadedResources,
-              HashMap.set(resourcePath, resource)
-            )
+            yield* Ref.update(preloadedResources, (map) => HashMap.set(map, resourcePath, resource))
           }),
         { discard: true }
       ).pipe(
-        Effect.mapError(() => ({
-          _tag: 'PreloadFailedError',
-          message: 'Failed to preload scene resources',
-          resources
-        } as PreloadError))
+        Effect.mapError(
+          () =>
+            ({
+              _tag: 'PreloadFailedError',
+              message: 'Failed to preload scene resources',
+              resources,
+            }) as PreloadError
+        )
       )
     })
 
@@ -398,53 +419,41 @@ const makeSceneService = Effect.gen(function* () {
     saveState,
     loadState,
     handleError,
-    preloadScene
+    preloadScene,
   } satisfies SceneService
 })
 
 // Mock implementations for testing
-const EventBusLive = Layer.succeed(
-  EventBus,
-  {
-    publish: () => Effect.void,
-    subscribe: () => Stream.empty
-  }
-)
+const EventBusLive = Layer.succeed(EventBus, {
+  publish: <T>() => Effect.void,
+  subscribe: <T>() =>
+    Effect.succeed({
+      close: () => Effect.void,
+    }),
+})
 
-const WorldManagerLive = Layer.succeed(
-  WorldManager,
-  {
-    loadChunks: () => Effect.void,
-    loadEntities: () => Effect.void,
-    loadInventory: () => Effect.void,
-    generateTerrain: () => Effect.void,
-    initPhysics: () => Effect.void,
-    pauseWorld: () => Effect.void,
-    startWorld: () => Effect.void,
-    serializeWorld: () => Effect.succeed({})
-  }
-)
+const WorldManagerLive = Layer.succeed(WorldManager, {
+  loadChunks: () => Effect.void,
+  loadEntities: () => Effect.void,
+  loadInventory: () => Effect.void,
+  generateTerrain: () => Effect.void,
+  initPhysics: () => Effect.void,
+  pauseWorld: () => Effect.void,
+  startWorld: () => Effect.void,
+  serializeWorld: () => Effect.succeed({}),
+})
 
-const SaveManagerLive = Layer.succeed(
-  SaveManager,
-  {
-    save: () => Effect.void,
-    load: () => Effect.succeed({}),
-    autoSave: () => Effect.void
-  }
-)
+const SaveManagerLive = Layer.succeed(SaveManager, {
+  save: () => Effect.void,
+  load: () => Effect.succeed({}),
+  autoSave: () => Effect.void,
+})
 
-const PlayerManagerLive = Layer.succeed(
-  PlayerManager,
-  {
-    serializePlayer: () => Effect.succeed({})
-  }
-)
+const PlayerManagerLive = Layer.succeed(PlayerManager, {
+  serializePlayer: () => Effect.succeed({}),
+})
 
-export const SceneServiceLive = Layer.effect(
-  SceneService,
-  makeSceneService
-).pipe(
+export const SceneServiceLive = Layer.effect(SceneService, makeSceneService).pipe(
   Layer.provide(EventBusLive),
   Layer.provide(RendererServiceLive),
   Layer.provide(WorldManagerLive),
