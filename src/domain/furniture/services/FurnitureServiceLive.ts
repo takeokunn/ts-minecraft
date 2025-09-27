@@ -1,6 +1,6 @@
 import { Effect, Layer, Context } from 'effect'
-import type { PlayerId } from '@/shared/types/branded'
-import type { Vector3D } from '@/shared/types/spatial-brands'
+import type { PlayerId } from '@shared/types/branded'
+import type { Vector3D } from '@shared/types/spatial-brands'
 import type {
   Bed,
   BedId,

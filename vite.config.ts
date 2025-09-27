@@ -7,9 +7,13 @@ export default defineConfig({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
       '@config': resolve(__dirname, './src/config'),
-      '@docs': resolve(__dirname, './docs'),
+      '@domain': resolve(__dirname, './src/domain'),
+      '@application': resolve(__dirname, './src/application'),
+      '@infrastructure': resolve(__dirname, './src/infrastructure'),
+      '@presentation': resolve(__dirname, './src/presentation'),
+      '@shared': resolve(__dirname, './src/shared'),
+      '@bootstrap': resolve(__dirname, './src/bootstrap'),
     },
   },
   server: {
