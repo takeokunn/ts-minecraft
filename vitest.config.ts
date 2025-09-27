@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
-import { cpus } from 'os'
 
 export default defineConfig({
   test: {
@@ -10,9 +9,6 @@ export default defineConfig({
     hookTimeout: 20000,
     include: ['src/**/__tests__/*.test.ts', 'src/**/__test__/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
-    maxConcurrency: Math.min(8, cpus().length),
-    minWorkers: 1,
-    maxWorkers: Math.min(4, cpus().length),
   },
 
   resolve: {
