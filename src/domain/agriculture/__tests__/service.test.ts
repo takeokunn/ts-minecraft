@@ -3,9 +3,9 @@ import { Arbitrary, Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
 import { Duration, Effect, Either, TestClock, TestContext } from 'effect'
 import type { ItemStack } from '../../inventory/InventoryTypes'
-import { AgricultureService } from '../services/AgricultureService'
-import { AgricultureServiceLive } from '../services/AgricultureServiceLive'
-import { AnimalTypeSchema, CropTypeSchema, type CropType, type FarmAnimal } from '../types/AgricultureTypes'
+import { AgricultureService } from '../service'
+import { AgricultureServiceLive } from '../live'
+import { AnimalTypeSchema, CropTypeSchema, type CropType, type FarmAnimal } from '../types'
 
 // ===================================
 // Test Helpers

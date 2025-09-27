@@ -1,6 +1,6 @@
 import type { PlayerId } from '@domain/core/types/brands'
 import { Context, Effect } from 'effect'
-import type { ItemStack } from '../../inventory/InventoryTypes'
+import type { ItemStack } from '../inventory/InventoryTypes'
 import type {
   AgricultureError,
   AnimalType,
@@ -13,7 +13,7 @@ import type {
   GrowthConditions,
   GrowthStage,
   Moisture,
-} from '../types/AgricultureTypes'
+} from './types'
 
 // ===================================
 // Service Interface
