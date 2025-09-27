@@ -56,7 +56,9 @@ export interface GreedyMeshingService {
   readonly optimizeMesh: (meshData: MeshData) => Effect.Effect<MeshData, GreedyMeshingError, never>
 }
 
-export const GreedyMeshingService = Context.GenericTag<GreedyMeshingService>('@minecraft/GreedyMeshingService')
+export const GreedyMeshingService = Context.GenericTag<GreedyMeshingService>(
+  '@minecraft/infrastructure/GreedyMeshingService'
+)
 
 // ========================================
 // Helper Functions (Pure Functions)

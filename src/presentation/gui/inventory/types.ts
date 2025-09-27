@@ -6,7 +6,7 @@
  */
 
 import { Schema, Brand, Option, Either, Effect } from 'effect'
-import type { ItemStack, PlayerId, Inventory } from '../../domain/inventory/InventoryTypes.js'
+import type { ItemStack, PlayerId, Inventory } from '../../../domain/inventory/InventoryTypes.js'
 
 // =========================================
 // Branded Types for GUI

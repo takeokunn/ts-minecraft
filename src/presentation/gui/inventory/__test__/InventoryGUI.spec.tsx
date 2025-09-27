@@ -13,7 +13,7 @@ import { InventoryPanel } from '../components/InventoryPanel.js'
 import { ItemSlot } from '../components/ItemSlot.js'
 import { ItemIcon } from '../components/ItemIcon.js'
 import { ItemTooltip } from '../components/ItemTooltip.js'
-import type { Inventory, ItemStack, PlayerId } from '../../../domain/inventory/InventoryTypes.js'
+import type { Inventory, ItemStack, PlayerId } from '../../../../domain/inventory/InventoryTypes.js'
 import type { InventoryGUIEvent } from '../types.js'
 import { defaultInventoryGUIConfig } from '../types.js'
 

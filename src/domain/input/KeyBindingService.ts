@@ -24,7 +24,7 @@ export interface KeyBindingService {
   readonly resetToDefaults: () => Effect.Effect<void, KeyBindingError>
 }
 
-export const KeyBindingService = Context.GenericTag<KeyBindingService>('@minecraft/KeyBindingService')
+export const KeyBindingService = Context.GenericTag<KeyBindingService>('@minecraft/domain/KeyBindingService')
 
 // デフォルトキーバインディング
 const DEFAULT_MAPPINGS: Record<string, InputMapping> = {

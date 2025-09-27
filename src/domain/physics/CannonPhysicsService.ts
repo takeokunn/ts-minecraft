@@ -109,7 +109,7 @@ export interface CannonPhysicsService {
 }
 
 // Context Tag定義
-export const CannonPhysicsService = Context.GenericTag<CannonPhysicsService>('@minecraft/CannonPhysicsService')
+export const CannonPhysicsService = Context.GenericTag<CannonPhysicsService>('@minecraft/domain/CannonPhysicsService')
 
 // Cannon-es物理サービス実装
 const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen(function* () {

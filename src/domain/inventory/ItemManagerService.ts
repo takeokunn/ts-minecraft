@@ -150,7 +150,7 @@ export interface ItemManagerService {
 }
 
 // Context tag
-export const ItemManagerService = Context.GenericTag<ItemManagerService>('@minecraft/ItemManagerService')
+export const ItemManagerService = Context.GenericTag<ItemManagerService>('@minecraft/domain/ItemManagerService')
 
 // Default item attributes
 const createDefaultAttributes = (): ItemAttributes => ({

@@ -66,7 +66,7 @@ export interface FaceCullingService {
   ) => Effect.Effect<readonly [number, number, number, FaceVisibility][], FaceCullingError, never>
 }
 
-export const FaceCullingService = Context.GenericTag<FaceCullingService>('@minecraft/FaceCullingService')
+export const FaceCullingService = Context.GenericTag<FaceCullingService>('@minecraft/infrastructure/FaceCullingService')
 
 // ========================================
 // Helper Functions (Pure Functions)

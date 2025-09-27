@@ -64,7 +64,7 @@ export interface CaveGenerator {
   readonly getConfig: () => CaveConfig
 }
 
-export const CaveGeneratorTag = Context.GenericTag<CaveGenerator>('domain/world/CaveGenerator')
+export const CaveGeneratorTag = Context.GenericTag<CaveGenerator>('@minecraft/domain/CaveGenerator')
 
 /**
  * CaveGeneratorの実装

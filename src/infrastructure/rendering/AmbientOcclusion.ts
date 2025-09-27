@@ -74,7 +74,9 @@ export interface AmbientOcclusionService {
   readonly applyAOToChunk: (chunkData: ChunkData) => Effect.Effect<readonly AOVertex[], AmbientOcclusionError, never>
 }
 
-export const AmbientOcclusionService = Context.GenericTag<AmbientOcclusionService>('@minecraft/AmbientOcclusionService')
+export const AmbientOcclusionService = Context.GenericTag<AmbientOcclusionService>(
+  '@minecraft/infrastructure/AmbientOcclusionService'
+)
 
 // ========================================
 // Helper Functions (Pure Functions)

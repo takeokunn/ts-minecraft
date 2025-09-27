@@ -15,4 +15,4 @@ export interface SceneService {
   readonly preloadScene: (scene: SceneType) => Effect.Effect<void, PreloadError>
 }
 
-export const SceneService = Context.GenericTag<SceneService>('@minecraft/SceneService')
+export const SceneService = Context.GenericTag<SceneService>('@minecraft/domain/SceneService')

@@ -123,7 +123,7 @@ export interface PlayerECSSystem {
 }
 
 // Context Tag定義
-export const PlayerECSSystem = Context.GenericTag<PlayerECSSystem>('PlayerECSSystem')
+export const PlayerECSSystem = Context.GenericTag<PlayerECSSystem>('@minecraft/domain/PlayerECSSystem')
 
 // PlayerECSSystem実装
 const makePlayerECSSystem: Effect.Effect<PlayerECSSystem, never, PlayerMovementService | PlayerController> = Effect.gen(

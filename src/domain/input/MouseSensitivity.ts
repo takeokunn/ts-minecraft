@@ -65,7 +65,7 @@ export interface MouseSensitivity {
   readonly resetToDefault: () => Effect.Effect<void, MouseSensitivityError>
 }
 
-export const MouseSensitivity = Context.GenericTag<MouseSensitivity>('@minecraft/MouseSensitivity')
+export const MouseSensitivity = Context.GenericTag<MouseSensitivity>('@minecraft/domain/MouseSensitivity')
 
 // デフォルト設定
 export const defaultSensitivityConfig: MouseSensitivityConfig = {

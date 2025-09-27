@@ -45,4 +45,4 @@ export interface FurnitureService {
   readonly removeSign: (signId: SignId) => Effect.Effect<void, FurnitureError>
 }
 
-export const FurnitureService = Context.GenericTag<FurnitureService>('@minecraft/FurnitureService')
+export const FurnitureService = Context.GenericTag<FurnitureService>('@minecraft/domain/FurnitureService')

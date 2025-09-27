@@ -75,7 +75,7 @@ export interface GamepadService {
   readonly createPollingStream: () => Effect.Effect<Stream.Stream<GamepadState, GamepadError>, never>
 }
 
-export const GamepadService = Context.GenericTag<GamepadService>('@minecraft/GamepadService')
+export const GamepadService = Context.GenericTag<GamepadService>('@minecraft/domain/GamepadService')
 
 // デフォルト設定
 const DEFAULT_SETTINGS: GamepadSettings = {

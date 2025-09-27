@@ -47,7 +47,9 @@ export interface CraftingEngineService {
   readonly findMatchingRecipes: (grid: CraftingGrid) => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
 }
 
-export const CraftingEngineService = Context.GenericTag<CraftingEngineService>('@minecraft/CraftingEngineService')
+export const CraftingEngineService = Context.GenericTag<CraftingEngineService>(
+  '@minecraft/domain/CraftingEngineService'
+)
 
 // ===== Service Implementation =====
 

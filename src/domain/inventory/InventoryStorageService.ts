@@ -52,7 +52,9 @@ export interface InventoryStorageService {
 }
 
 // Context tag
-export const InventoryStorageService = Context.GenericTag<InventoryStorageService>('@minecraft/InventoryStorageService')
+export const InventoryStorageService = Context.GenericTag<InventoryStorageService>(
+  '@minecraft/domain/InventoryStorageService'
+)
 
 // LocalStorage implementation
 export const LocalStorageInventoryService = Layer.effect(

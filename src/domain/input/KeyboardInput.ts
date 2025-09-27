@@ -30,7 +30,7 @@ export interface KeyboardInput {
 }
 
 // Context定義
-export const KeyboardInput = Context.GenericTag<KeyboardInput>('@minecraft/KeyboardInput')
+export const KeyboardInput = Context.GenericTag<KeyboardInput>('@minecraft/domain/KeyboardInput')
 
 // キーボード入力サービスの実装
 export const KeyboardInputLive = Layer.effect(

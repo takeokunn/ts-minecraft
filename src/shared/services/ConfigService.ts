@@ -56,7 +56,7 @@ export interface ConfigService {
 export type ConfigKey = keyof Pick<ConfigService, 'gameConfig' | 'renderConfig' | 'debugConfig'>
 
 // Context定義
-export const ConfigService = Context.GenericTag<ConfigService>('@app/services/ConfigService')
+export const ConfigService = Context.GenericTag<ConfigService>('@minecraft/shared/ConfigService')
 
 // デフォルト設定値
 const defaultGameConfig: GameConfig = {

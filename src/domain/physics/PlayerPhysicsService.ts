@@ -101,7 +101,7 @@ export interface PlayerPhysicsService {
 }
 
 // Context Tag定義
-export const PlayerPhysicsService = Context.GenericTag<PlayerPhysicsService>('@minecraft/PlayerPhysicsService')
+export const PlayerPhysicsService = Context.GenericTag<PlayerPhysicsService>('@minecraft/domain/PlayerPhysicsService')
 
 // Player Physics Service実装
 const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, CannonPhysicsService> = Effect.gen(

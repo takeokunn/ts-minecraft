@@ -122,4 +122,4 @@ export interface AudioService {
 /**
  * AudioService Context Tag
  */
-export const AudioService = Context.GenericTag<AudioService>('@minecraft/AudioService')
+export const AudioService = Context.GenericTag<AudioService>('@minecraft/infrastructure/AudioService')

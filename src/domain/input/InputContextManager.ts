@@ -43,7 +43,7 @@ export interface InputContextManager {
   readonly setContextPriority: (name: string, priority: InputPriority) => Effect.Effect<void, InputContextError>
 }
 
-export const InputContextManager = Context.GenericTag<InputContextManager>('@minecraft/InputContextManager')
+export const InputContextManager = Context.GenericTag<InputContextManager>('@minecraft/domain/InputContextManager')
 
 // 優先度の数値マッピング
 const PRIORITY_VALUES: Record<InputPriority, number> = {

@@ -44,7 +44,7 @@ export interface MouseInput {
   readonly resetDelta: () => Effect.Effect<void, MouseInputError>
 }
 
-export const MouseInput = Context.GenericTag<MouseInput>('@minecraft/MouseInput')
+export const MouseInput = Context.GenericTag<MouseInput>('@minecraft/domain/MouseInput')
 
 // マウス入力の実装
 export const MouseInputLive = Layer.effect(

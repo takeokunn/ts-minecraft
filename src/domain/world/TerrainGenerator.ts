@@ -65,7 +65,7 @@ export interface TerrainGenerator {
   readonly getConfig: () => TerrainConfig
 }
 
-export const TerrainGeneratorTag = Context.GenericTag<TerrainGenerator>('domain/world/TerrainGenerator')
+export const TerrainGeneratorTag = Context.GenericTag<TerrainGenerator>('@minecraft/domain/TerrainGenerator')
 
 /**
  * TerrainGeneratorの実装

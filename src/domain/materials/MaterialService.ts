@@ -20,4 +20,4 @@ export interface MaterialService {
   readonly getBurnTime: (itemId: ItemId) => Effect.Effect<Option.Option<BurnTime>, never>
 }
 
-export const MaterialService = Context.GenericTag<MaterialService>('@minecraft/MaterialService')
+export const MaterialService = Context.GenericTag<MaterialService>('@minecraft/domain/MaterialService')

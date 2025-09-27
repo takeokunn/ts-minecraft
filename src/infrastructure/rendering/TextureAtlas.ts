@@ -108,7 +108,9 @@ export interface TextureAtlasService {
   readonly registerBlockTexture: (blockTexture: BlockTexture) => Effect.Effect<void, TextureAtlasError, never>
 }
 
-export const TextureAtlasService = Context.GenericTag<TextureAtlasService>('@minecraft/TextureAtlasService')
+export const TextureAtlasService = Context.GenericTag<TextureAtlasService>(
+  '@minecraft/infrastructure/TextureAtlasService'
+)
 
 // ========================================
 // Helper Functions (Pure Functions)

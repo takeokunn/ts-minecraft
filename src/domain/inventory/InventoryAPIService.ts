@@ -164,7 +164,7 @@ export interface InventoryAPIService {
 }
 
 // Context tag
-export const InventoryAPIService = Context.GenericTag<InventoryAPIService>('@minecraft/InventoryAPIService')
+export const InventoryAPIService = Context.GenericTag<InventoryAPIService>('@minecraft/domain/InventoryAPIService')
 
 // Helper functions
 const createSuccessResponse = <T>(data: T): APIResponse<T> => ({

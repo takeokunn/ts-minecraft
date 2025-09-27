@@ -171,7 +171,7 @@ export interface ChunkLoader {
   readonly cancelAllLoads: () => Effect.Effect<void, never>
 }
 
-export const ChunkLoader = Context.GenericTag<ChunkLoader>('ChunkLoader')
+export const ChunkLoader = Context.GenericTag<ChunkLoader>('@minecraft/domain/ChunkLoader')
 
 // =============================================================================
 // Utilities

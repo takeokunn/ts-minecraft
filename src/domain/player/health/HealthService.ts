@@ -92,4 +92,4 @@ export interface HealthService {
   readonly isInvulnerable: (playerId: PlayerId) => Effect.Effect<boolean, HealthError>
 }
 
-export const HealthService = Context.GenericTag<HealthService>('@minecraft/HealthService')
+export const HealthService = Context.GenericTag<HealthService>('@minecraft/domain/HealthService')

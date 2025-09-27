@@ -252,7 +252,9 @@ export interface WorldCollisionService {
 }
 
 // Context Tag定義
-export const WorldCollisionService = Context.GenericTag<WorldCollisionService>('@minecraft/WorldCollisionService')
+export const WorldCollisionService = Context.GenericTag<WorldCollisionService>(
+  '@minecraft/domain/WorldCollisionService'
+)
 
 // World Collision Service実装
 const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, CannonPhysicsService> = Effect.gen(

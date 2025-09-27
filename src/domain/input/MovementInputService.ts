@@ -105,7 +105,7 @@ export interface MovementInputService {
 }
 
 // Context Tag定義
-export const MovementInputService = Context.GenericTag<MovementInputService>('@minecraft/MovementInputService')
+export const MovementInputService = Context.GenericTag<MovementInputService>('@minecraft/domain/MovementInputService')
 
 // Movement Input Service実装
 const makeMovementInputService: Effect.Effect<MovementInputService> = Effect.gen(function* () {

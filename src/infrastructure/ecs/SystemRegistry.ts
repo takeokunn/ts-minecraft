@@ -117,7 +117,9 @@ export interface SystemRegistryService {
 /**
  * システムレジストリサービスタグ
  */
-export const SystemRegistryService = Context.GenericTag<SystemRegistryService>('@minecraft/ecs/SystemRegistryService')
+export const SystemRegistryService = Context.GenericTag<SystemRegistryService>(
+  '@minecraft/infrastructure/SystemRegistryService'
+)
 
 /**
  * 実行順序を計算

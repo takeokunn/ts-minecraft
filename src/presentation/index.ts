@@ -5,6 +5,9 @@
  * ユーザーとの対話を管理します。
  */
 
+// Inventory GUI exports
+export * from './gui/inventory'
+
 // Crafting GUI exports
 export {
   // Types
@@ -30,4 +33,4 @@ export {
   RecipeDisplay,
   RecipeBook,
   CraftingResult,
-} from './crafting'
+} from './gui/crafting'

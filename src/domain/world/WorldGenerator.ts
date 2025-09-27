@@ -154,4 +154,4 @@ export type GeneratorMetadata = Schema.Schema.Type<typeof GeneratorMetadataSchem
 /**
  * WorldGenerator Context Tag
  */
-export const WorldGeneratorTag = Context.GenericTag<WorldGenerator>('domain/world/WorldGenerator')
+export const WorldGeneratorTag = Context.GenericTag<WorldGenerator>('@minecraft/domain/WorldGenerator')

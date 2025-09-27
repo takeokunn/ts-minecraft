@@ -110,7 +110,9 @@ export interface MeshGeneratorService {
   readonly getCacheStats: () => Effect.Effect<{ size: number; hits: number; misses: number }, never, never>
 }
 
-export const MeshGeneratorService = Context.GenericTag<MeshGeneratorService>('@minecraft/MeshGeneratorService')
+export const MeshGeneratorService = Context.GenericTag<MeshGeneratorService>(
+  '@minecraft/infrastructure/MeshGeneratorService'
+)
 
 // ========================================
 // Cache State

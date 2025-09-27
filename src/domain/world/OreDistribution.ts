@@ -74,7 +74,7 @@ export interface OreDistribution {
   readonly getConfig: () => OreDistributionConfig
 }
 
-export const OreDistributionTag = Context.GenericTag<OreDistribution>('domain/world/OreDistribution')
+export const OreDistributionTag = Context.GenericTag<OreDistribution>('@minecraft/domain/OreDistribution')
 
 /**
  * 鉱石密度を計算する内部関数

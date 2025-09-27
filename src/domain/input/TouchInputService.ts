@@ -118,7 +118,7 @@ export interface TouchInputService {
   readonly isMultiTouchSupported: () => Effect.Effect<boolean, never>
 }
 
-export const TouchInputService = Context.GenericTag<TouchInputService>('@minecraft/TouchInputService')
+export const TouchInputService = Context.GenericTag<TouchInputService>('@minecraft/domain/TouchInputService')
 
 // デフォルト設定
 const DEFAULT_SETTINGS: TouchSettings = {

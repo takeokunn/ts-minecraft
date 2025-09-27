@@ -60,7 +60,7 @@ export interface BiomeGenerator {
   readonly getConfig: () => BiomeConfig
 }
 
-export const BiomeGeneratorTag = Context.GenericTag<BiomeGenerator>('domain/world/BiomeGenerator')
+export const BiomeGeneratorTag = Context.GenericTag<BiomeGenerator>('@minecraft/domain/BiomeGenerator')
 
 /**
  * BiomeGeneratorの実装

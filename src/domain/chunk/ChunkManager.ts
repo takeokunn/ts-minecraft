@@ -163,7 +163,7 @@ export interface ChunkManager {
   readonly getCachedChunkCount: () => Effect.Effect<number, never>
 }
 
-export const ChunkManager = Context.GenericTag<ChunkManager>('ChunkManager')
+export const ChunkManager = Context.GenericTag<ChunkManager>('@minecraft/domain/ChunkManager')
 
 // =============================================================================
 // Utilities

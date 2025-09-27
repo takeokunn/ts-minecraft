@@ -34,7 +34,7 @@ export interface InputManager {
   readonly disableDevice: (deviceType: DeviceType['_tag']) => Effect.Effect<void, InputManagerError>
 }
 
-export const InputManager = Context.GenericTag<InputManager>('@minecraft/InputManager')
+export const InputManager = Context.GenericTag<InputManager>('@minecraft/domain/InputManager')
 
 // 内部状態管理
 interface InputManagerState {

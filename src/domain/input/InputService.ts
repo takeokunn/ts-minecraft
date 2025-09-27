@@ -11,4 +11,4 @@ export interface InputService {
 }
 
 // InputServiceのコンテキストタグ
-export const InputService = Context.GenericTag<InputService>('@minecraft/InputService')
+export const InputService = Context.GenericTag<InputService>('@minecraft/domain/InputService')

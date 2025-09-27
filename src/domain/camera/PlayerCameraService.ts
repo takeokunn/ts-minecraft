@@ -152,7 +152,7 @@ export interface PlayerCameraService {
 }
 
 // Context Tag定義
-export const PlayerCameraService = Context.GenericTag<PlayerCameraService>('@minecraft/PlayerCameraService')
+export const PlayerCameraService = Context.GenericTag<PlayerCameraService>('@minecraft/domain/PlayerCameraService')
 
 // Player Camera Service実装
 const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(function* () {

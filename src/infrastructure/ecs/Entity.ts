@@ -388,7 +388,7 @@ export const EntityPoolLive = Effect.gen(function* () {
   } satisfies EntityPool
 })
 
-export const EntityPool = Context.GenericTag<EntityPool>('@minecraft/ecs/EntityPool')
+export const EntityPool = Context.GenericTag<EntityPool>('@minecraft/infrastructure/EntityPool')
 
 // Convert EntityPool implementation to Layer
 export const EntityPoolLayer = Layer.effect(EntityPool, EntityPoolLive)

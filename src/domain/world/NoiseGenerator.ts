@@ -60,7 +60,7 @@ export interface NoiseGenerator {
   readonly getConfig: () => NoiseConfig
 }
 
-export const NoiseGeneratorTag = Context.GenericTag<NoiseGenerator>('domain/world/NoiseGenerator')
+export const NoiseGeneratorTag = Context.GenericTag<NoiseGenerator>('@minecraft/domain/NoiseGenerator')
 
 /**
  * Perlin Noise用の順列テーブル生成

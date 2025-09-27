@@ -39,7 +39,9 @@ export interface RecipeRegistryService {
   readonly getRecipesByResult: (itemId: string) => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
 }
 
-export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>('@minecraft/RecipeRegistryService')
+export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>(
+  '@minecraft/domain/RecipeRegistryService'
+)
 
 // ===== Registry State =====
 

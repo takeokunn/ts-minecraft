@@ -8,11 +8,11 @@ import type {
   CraftingResultDisplay,
   TooltipInfo,
 } from './CraftingGUITypes'
-import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '../../domain/crafting/RecipeTypes'
-import { GridWidth, GridHeight, ItemStackCount } from '../../domain/crafting/RecipeTypes'
-import { RecipeRegistryService } from '../../domain/crafting/RecipeRegistryService'
-import { CraftingEngineService } from '../../domain/crafting/CraftingEngineService'
-import { InventoryService } from '../../domain/inventory/InventoryService'
+import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '../../../domain/crafting/RecipeTypes'
+import { GridWidth, GridHeight, ItemStackCount } from '../../../domain/crafting/RecipeTypes'
+import { RecipeRegistryService } from '../../../domain/crafting/RecipeRegistryService'
+import { CraftingEngineService } from '../../../domain/crafting/CraftingEngineService'
+import { InventoryService } from '../../../domain/inventory/InventoryService'
 import { Brand } from 'effect'
 
 // エラー定義
@@ -68,7 +68,7 @@ export interface CraftingGUIService {
   readonly dispose: () => Effect.Effect<void>
 }
 
-export const CraftingGUIService = Context.GenericTag<CraftingGUIService>('@minecraft/CraftingGUIService')
+export const CraftingGUIService = Context.GenericTag<CraftingGUIService>('@minecraft/presentation/CraftingGUIService')
 
 // Crafting GUI Service実装
 export const CraftingGUIServiceLive = Layer.effect(
