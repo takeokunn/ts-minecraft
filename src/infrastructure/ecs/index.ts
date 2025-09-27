@@ -9,17 +9,17 @@ export * from './Component'
 export * from './ComponentRegistry'
 // Entity.tsからのエクスポート（EntityIdとEntityMetadataを含む）
 export {
+  EntityPool,
+  EntityPoolError,
+  EntityPoolLive,
+  createArchetypeManager,
+  createComponentStorage,
+  type Archetype,
+  type ArchetypeManager,
+  type ComponentStorage,
   type EntityId,
   type EntityMetadata,
-  EntityPoolError,
-  EntityPool,
   type EntityPoolStats,
-  EntityPoolLive,
-  createComponentStorage,
-  type ComponentStorage,
-  type Archetype,
-  createArchetypeManager,
-  type ArchetypeManager,
 } from './Entity'
 export * from './EntityManager'
 export * from './System'

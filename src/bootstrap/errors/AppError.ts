@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import { Data, Match, Predicate, pipe } from 'effect'
+import { Match, Predicate, pipe } from 'effect'
 
 /**
  * 初期化エラー

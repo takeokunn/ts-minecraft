@@ -1,13 +1,12 @@
-import { Effect, Context, pipe, Match } from 'effect'
-import { Schema } from '@effect/schema'
-import type { EntityId } from '../../infrastructure/ecs/Entity'
 import type { PlayerId } from '@domain/core/types/brands'
-import type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService'
+import { Schema } from '@effect/schema'
+import { Context, Effect, Match, pipe } from 'effect'
+import type { PlayerError, PlayerPosition, PlayerRotation } from './PlayerService'
 import { createPlayerError } from './PlayerService'
 
 // Re-export types and functions needed by MovementSystem consumers
-export type { PlayerPosition, PlayerRotation, PlayerError } from './PlayerService'
 export { createPlayerError } from './PlayerService'
+export type { PlayerError, PlayerPosition, PlayerRotation } from './PlayerService'
 
 /**
  * 物理定数

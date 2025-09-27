@@ -1,5 +1,4 @@
 import * as S from '@effect/schema/Schema'
-import { Brand } from 'effect'
 
 // Branded Types
 export const SceneId = S.String.pipe(S.brand('SceneId'))

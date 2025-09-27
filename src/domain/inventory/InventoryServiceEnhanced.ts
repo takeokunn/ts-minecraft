@@ -5,13 +5,13 @@
  * 自動保存、状態管理、バックアップ機能を含む
  */
 
-import { Effect, HashMap, Layer, Match, Option, pipe, Ref, Schedule, Duration } from 'effect'
-import { AddItemResult, Inventory, InventoryState, ItemStack, PlayerId, createEmptyInventory } from './InventoryTypes'
+import { Duration, Effect, HashMap, Layer, Option, pipe, Ref, Schedule } from 'effect'
 import { InventoryError, InventoryService } from './InventoryService'
+import { defaultStorageConfig, InventoryStorageService } from './InventoryStorageService'
+import { createEmptyInventory, Inventory, InventoryState, ItemStack, PlayerId } from './InventoryTypes'
 import { ItemRegistry } from './ItemRegistry'
 import { SlotManager } from './SlotManager'
 import { StackProcessor } from './StackProcessor'
-import { InventoryStorageService, defaultStorageConfig, StorageConfig } from './InventoryStorageService'
 
 interface EnhancedInventoryStore {
   inventories: HashMap.HashMap<PlayerId, Inventory>

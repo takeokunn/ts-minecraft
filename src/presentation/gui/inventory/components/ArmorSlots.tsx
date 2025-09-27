@@ -5,11 +5,11 @@
  * Plus offhand slot with type validation
  */
 
-import React from 'react'
-import { motion } from 'framer-motion'
-import { Option } from 'effect'
-import type { InventoryTheme } from '../types.js'
 import type { ItemStack } from '@domain/inventory/InventoryTypes.js'
+import { Option } from 'effect'
+import { motion } from 'framer-motion'
+import React from 'react'
+import type { InventoryTheme } from '../types.js'
 import { ItemSlot } from './ItemSlot.js'
 
 interface ArmorSlotsProps {

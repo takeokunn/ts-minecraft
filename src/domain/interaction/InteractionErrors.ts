@@ -1,6 +1,6 @@
-import { Data, Predicate } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
-import type { Vector3, ToolType, BlockFace } from './InteractionTypes'
+import { Data, Predicate } from 'effect'
+import type { BlockFace, ToolType, Vector3 } from './InteractionTypes'
 
 // =============================================================================
 // Base Interaction Error Schema

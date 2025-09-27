@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
-import { Player } from '../entities/Player'
 import { Vector3Schema } from '@domain/core/types/spatial'
+import { Schema } from '@effect/schema'
 
 // 移動方向の入力状態
 export const Direction = Schema.Struct({

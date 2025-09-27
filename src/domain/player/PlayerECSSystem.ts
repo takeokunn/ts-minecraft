@@ -1,10 +1,10 @@
-import { Effect, Context, Layer, pipe, Array as EffectArray, Option, Match } from 'effect'
-import { Player } from '../entities/Player'
-import { PlayerMovementService } from './PlayerMovementService'
-import { PlayerController } from './PlayerController'
+import type { ComponentTypeName, PlayerId } from '@domain/core/types/brands'
+import { VectorMath, type MutableVector3D, type Vector3D } from '@domain/core/types/spatial'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
-import type { PlayerId, ComponentTypeName } from '@domain/core/types/brands'
-import { type Vector3D, VectorMath, type MutableVector3D } from '@domain/core/types/spatial'
+import { Player } from '../entities/Player'
+import { PlayerController } from './PlayerController'
+import { PlayerMovementService } from './PlayerMovementService'
 
 // ECS Component定義
 export const PlayerECSComponents = {

@@ -5,10 +5,10 @@
  * Displays item icon, count, and durability with animations
  */
 
-import React, { useCallback, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { Option, pipe } from 'effect'
+import { Option } from 'effect'
+import { motion } from 'framer-motion'
+import React, { useCallback, useState } from 'react'
 import type { ItemSlotProps, SlotAnimationState } from '../types.js'
 import { ItemIcon } from './ItemIcon.js'
 import { ItemTooltip } from './ItemTooltip.js'

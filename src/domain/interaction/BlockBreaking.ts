@@ -1,10 +1,8 @@
-import { Effect, Ref, Match, pipe, Option } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
 import type { Timestamp } from '@domain/core/types/time'
-import { SessionId as SessionIdSchema, BlockPosition as BlockPositionSchema } from '@domain/core/types/brands'
-import { TimestampSchema } from '@domain/core/types/time'
-import type { ToolType, BreakingSession, BreakingProgress } from './InteractionTypes'
+import { Effect, Match, Option, pipe } from 'effect'
 import { createBlockBreakingError, createBreakingSessionError, type InteractionError } from './InteractionErrors'
+import type { BreakingProgress, BreakingSession, ToolType } from './InteractionTypes'
 
 // =============================================================================
 // Block Hardness Database

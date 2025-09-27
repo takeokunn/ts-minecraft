@@ -26,22 +26,22 @@ export * from './InventoryServiceEnhanced'
 export * from './ItemManagerService'
 
 // Storage and Persistence
-export * from './InventoryStorageService'
 export * from './InventoryIndexedDBService'
+export * from './InventoryStorageService'
 
 // State Management Integration
-export * from './InventoryZustandStore'
 export * from './InventoryIntegrationLayer'
-export * from './InventoryStateManager'
 export * from './InventoryReactiveSystem'
+export * from './InventoryStateManager'
+export * from './InventoryZustandStore'
 
 // High-Level API
 export * from './InventoryAPIService'
 
 // Re-export commonly used utilities
 import { createEmptyInventory, validateInventory } from './InventoryTypes'
+import { useCurrentInventory, useInventoryOperations, useInventoryStore } from './InventoryZustandStore'
 import { ItemAttributesFactory } from './ItemManagerService'
-import { useInventoryStore, useCurrentInventory, useInventoryOperations } from './InventoryZustandStore'
 
 export const InventoryUtils = {
   createEmptyInventory,
@@ -57,15 +57,15 @@ export const InventoryHooks = {
 
 // Layer composition helpers
 import { Layer } from 'effect'
-import { InventoryServiceEnhanced } from './InventoryServiceEnhanced'
-import { ItemManagerServiceLive } from './ItemManagerService'
-import { LocalStorageInventoryService } from './InventoryStorageService'
+import { InventoryAPIServiceLive } from './InventoryAPIService'
 import { HybridInventoryStorageService } from './InventoryIndexedDBService'
 import { InventoryIntegrationServiceLive } from './InventoryIntegrationLayer'
-import { InventoryAPIServiceLive } from './InventoryAPIService'
-import { ItemRegistry } from './ItemRegistry'
-import { InventoryStateManagerLive } from './InventoryStateManager'
 import { InventoryReactiveSystemLive } from './InventoryReactiveSystem'
+import { InventoryServiceEnhanced } from './InventoryServiceEnhanced'
+import { InventoryStateManagerLive } from './InventoryStateManager'
+import { LocalStorageInventoryService } from './InventoryStorageService'
+import { ItemManagerServiceLive } from './ItemManagerService'
+import { ItemRegistry } from './ItemRegistry'
 
 // Complete inventory system layers
 export const InventoryCoreLayers = Layer.mergeAll(

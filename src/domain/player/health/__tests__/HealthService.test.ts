@@ -1,16 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Either, Option, STM, pipe } from 'effect'
-import { Schema } from '@effect/schema'
-import { HealthService, HealthServiceLive, DamageCalculatorLive } from '../index'
+import { Effect, Either, Layer } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { EntityPoolLayer } from '../../../../infrastructure/ecs/Entity'
+import { EntityManagerLayer } from '../../../../infrastructure/ecs/EntityManager'
+import { SystemRegistryServiceLive } from '../../../../infrastructure/ecs/SystemRegistry'
 import { PlayerService } from '../../PlayerService'
 import { PlayerServiceLive } from '../../PlayerServiceLive'
 import { PlayerEventBus } from '../../PlayerServiceV2'
-import { EntityManager } from '../../../../infrastructure/ecs/EntityManager'
-import { EntityManagerLayer } from '../../../../infrastructure/ecs/EntityManager'
-import { EntityPoolLayer } from '../../../../infrastructure/ecs/Entity'
-import { SystemRegistryServiceLive } from '../../../../infrastructure/ecs/SystemRegistry'
 import * as Types from '../../PlayerTypes'
 import * as HealthTypes from '../HealthTypes'
+import { DamageCalculatorLive, HealthService, HealthServiceLive } from '../index'
 
 // =======================================
 // Test Helpers

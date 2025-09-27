@@ -1,17 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect, Option, Either } from 'effect'
+import { Effect, Option } from 'effect'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { CraftingEngineService, CraftingEngineServiceLive } from '../services/CraftingEngineService'
 import {
   CraftingGrid,
-  CraftingRecipe,
-  ShapedRecipe,
-  ShapelessRecipe,
-  CraftingItemStack,
-  ItemMatcher,
-  GridWidth,
   GridHeight,
+  GridWidth,
   ItemStackCount,
   RecipeId,
+  ShapedRecipe,
+  ShapelessRecipe,
   createEmptyCraftingGrid,
 } from '../types/RecipeTypes'
 

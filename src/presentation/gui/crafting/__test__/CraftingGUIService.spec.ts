@@ -1,20 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { Effect, Layer, Option, Exit, pipe, Brand } from 'effect'
-import {
-  CraftingGUIService,
-  CraftingGUIServiceLive,
-  CraftingGUIError,
-  InvalidSlotError,
-  DragDropError,
-} from '../CraftingGUIService'
-import type { CraftingGUIState, CraftingGUIEvent, CraftingSession } from '../CraftingGUITypes'
-import { RecipeRegistryService, RecipeRegistryServiceLive } from '@domain/crafting/services/RecipeRegistryService'
 import { CraftingEngineService, CraftingEngineServiceLive } from '@domain/crafting/services/CraftingEngineService'
+import { RecipeRegistryService, RecipeRegistryServiceLive } from '@domain/crafting/services/RecipeRegistryService'
+import type { CraftingGrid } from '@domain/crafting/types/RecipeTypes'
+import { GridHeight, GridWidth, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
 import { InventoryService } from '@domain/inventory/InventoryService'
 import { InventoryServiceLive } from '@domain/inventory/InventoryServiceLive'
 import { ItemRegistry } from '@domain/inventory/ItemRegistry'
-import type { CraftingGrid, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
-import { GridWidth, GridHeight, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
+import { Effect, Layer, Option } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { CraftingGUIService, CraftingGUIServiceLive } from '../CraftingGUIService'
+import type { CraftingGUIEvent } from '../CraftingGUITypes'
 
 describe('CraftingGUIService', () => {
   // Complete test layer with all required dependencies using proper layer composition

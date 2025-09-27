@@ -1,25 +1,21 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Either, pipe, Predicate, Match } from 'effect'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import { Schema } from '@effect/schema'
-import type { PlayerPosition, PlayerRotation, PlayerState } from '../PlayerService'
+import { it } from '@effect/vitest'
+import { Effect, Either, Predicate } from 'effect'
+import { describe, expect } from 'vitest'
+import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService'
 import {
-  PlayerConfig,
-  PlayerUpdateData,
-  PlayerError,
-  PlayerErrorReason,
   createPlayerError,
+  DEFAULT_PLAYER_CONFIG,
   isPlayerError,
+  PlayerErrorReason,
   validatePlayerConfig,
-  validatePlayerState,
   validatePlayerPosition,
   validatePlayerRotation,
+  validatePlayerState,
   validatePlayerUpdateData,
-  DEFAULT_PLAYER_CONFIG,
 } from '../PlayerService'
-import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService'
-import { BrandedTypes } from '@domain/core/types/brands'
-import { VectorMath, SpatialBrands } from '@domain/core/types/spatial'
 
 /**
  * Player Entity System - Component Tests

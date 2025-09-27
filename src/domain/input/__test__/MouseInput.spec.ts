@@ -1,10 +1,9 @@
-import { describe, expect, it as vitestIt, beforeEach, afterEach, vi } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext, TestClock, Ref, pipe, Match, Either, Predicate } from 'effect'
-import { MouseInput, MouseInputError, MockMouseInput, MouseInputLive } from '../MouseInput'
-import type { MousePosition, PointerLockState } from '../MouseInput'
-import { MouseDelta } from '../types'
+import { Effect, Either, Layer, Predicate, Ref, TestClock, TestContext, pipe } from 'effect'
 import { JSDOM } from 'jsdom'
+import { afterEach, beforeEach, describe, expect, vi, it as vitestIt } from 'vitest'
+import type { MousePosition, PointerLockState } from '../MouseInput'
+import { MockMouseInput, MouseInput, MouseInputError, MouseInputLive } from '../MouseInput'
 
 describe('MouseInput', () => {
   // DOM環境のセットアップ

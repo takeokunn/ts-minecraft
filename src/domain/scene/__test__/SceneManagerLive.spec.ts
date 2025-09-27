@@ -1,10 +1,7 @@
-import { Effect, Fiber, TestContext, TestClock, Either, Option, Layer, Ref } from 'effect'
-import { describe, it, expect } from '@effect/vitest'
-import { SceneManagerLive } from '../SceneManagerLive'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Fiber, Option, TestContext } from 'effect'
 import { SceneManager } from '../SceneManager'
-import { Scene } from '../Scene'
-import { SceneTransitionError } from '../Scene'
-import { TestErrorSceneWithInitError, TestErrorSceneWithCleanupError } from './TestErrorScene'
+import { SceneManagerLive } from '../SceneManagerLive'
 
 describe('SceneManagerLive', () => {
   describe('初期化', () => {

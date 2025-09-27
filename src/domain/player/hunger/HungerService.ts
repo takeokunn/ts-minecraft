@@ -1,12 +1,12 @@
-import { Context, Effect } from 'effect'
 import type { PlayerId } from '@domain/core/types/brands'
+import { Context, Effect } from 'effect'
 import type {
-  HungerState,
-  FoodItem,
-  HungerLevel,
-  HungerDecreaseReason,
   ConsumeError,
+  FoodItem,
+  HungerDecreaseReason,
   HungerError,
+  HungerLevel,
+  HungerState,
   PlayerNotFoundError,
 } from './HungerTypes'
 

@@ -1,28 +1,11 @@
-import { describe, it, expect, beforeEach } from '@effect/vitest'
 import * as Arbitrary from '@effect/schema/Arbitrary'
-import * as FastCheck from '@effect/schema/FastCheck'
-import * as Schema from '@effect/schema/Schema'
-import * as TestClock from 'effect/TestClock'
-import { Effect, Either, Fiber, Ref, Stream, Layer, Duration, Context } from 'effect'
-import { SceneService } from '../SceneService'
-import { SceneServiceLive } from '../SceneServiceLive'
-import {
-  SceneType,
-  TransitionEffect,
-  TransitionError,
-  SceneEvent,
-  TransitionDuration,
-  WorldId,
-  PlayerState,
-  ErrorInfo,
-  SaveError,
-  LoadError,
-  PreloadError,
-  SaveId,
-} from '../SceneTypes'
-import { RendererService } from '../../../infrastructure/rendering/RendererService'
+import { describe, expect, it } from '@effect/vitest'
+import { Duration, Effect, Either, Fiber, Layer, Ref } from 'effect'
 import type { EventBusService } from '../../../infrastructure/events/EventBus'
 import { EventBus } from '../../../infrastructure/events/EventBus'
+import { RendererService } from '../../../infrastructure/rendering/RendererService'
+import { SceneService } from '../SceneService'
+import { PlayerState, SceneType, TransitionDuration, TransitionEffect, WorldId } from '../SceneTypes'
 
 // Schema-based Arbitrary generators
 const arbSceneType = Arbitrary.make(SceneType)

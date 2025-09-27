@@ -1,20 +1,19 @@
-import { Context, Effect } from 'effect'
 import type { EntityId } from '@domain/core/types/brands'
 import type { Vector3D } from '@domain/core/types/spatial'
+import { Context, Effect } from 'effect'
 import type {
+  Armor,
+  AttackDamage,
+  AttackOnCooldownError,
   AttackType,
   CombatResult,
-  CombatError,
-  AttackDamage,
-  Armor,
-  EnchantmentType,
-  KnockbackForce,
-  KnockbackError,
-  EntityNotFoundError,
-  AttackOnCooldownError,
-  TargetNotFoundError,
-  DefenseValue,
   DamageSource,
+  DefenseValue,
+  EnchantmentType,
+  EntityNotFoundError,
+  KnockbackError,
+  KnockbackForce,
+  TargetNotFoundError,
 } from '../types/CombatTypes'
 
 // ================================

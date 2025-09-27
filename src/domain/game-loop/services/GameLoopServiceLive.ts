@@ -1,8 +1,7 @@
-import { Effect, Layer, Ref, Option, pipe, Match, Array as A } from 'effect'
-import { GameLoopService } from './GameLoopService'
-import type { FrameInfo, GameLoopConfig, PerformanceMetrics, GameLoopState } from '../types/types'
+import { Array as A, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
+import type { FrameInfo, GameLoopConfig, GameLoopState, PerformanceMetrics } from '../types/types'
 import { DEFAULT_GAME_LOOP_CONFIG } from '../types/types'
-import type { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
+import { GameLoopService } from './GameLoopService'
 
 interface GameLoopInternalState {
   state: GameLoopState

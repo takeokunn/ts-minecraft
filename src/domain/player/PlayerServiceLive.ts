@@ -1,26 +1,24 @@
-import { Effect, Layer, Ref, pipe, Option, HashMap, Match, Predicate, Either } from 'effect'
-import { PlayerService } from './PlayerService'
-import { EntityManager } from '../../infrastructure/ecs/EntityManager'
-import type { EntityId } from '../../infrastructure/ecs/Entity'
-import type { PlayerId, ComponentTypeName } from '@domain/core/types/brands'
+import type { ComponentTypeName, PlayerId } from '@domain/core/types/brands'
 import { BrandedTypes } from '@domain/core/types/brands'
 import { SpatialBrands } from '@domain/core/types/spatial'
+import { Effect, Either, HashMap, Layer, Match, Option, Predicate, Ref, pipe } from 'effect'
+import type { EntityId } from '../../infrastructure/ecs/Entity'
+import { EntityManager } from '../../infrastructure/ecs/EntityManager'
 import {
-  type PlayerConfig,
-  type PlayerState,
+  type PlayerComponent,
   type PlayerPosition,
   type PlayerRotation,
-  type PlayerUpdateData,
-  type PlayerComponent,
+  type PlayerState,
   type PositionComponent,
   type RotationComponent,
+  DEFAULT_PLAYER_CONFIG,
   PlayerError,
+  PlayerService,
   createPlayerError,
   validatePlayerConfig,
   validatePlayerPosition,
   validatePlayerRotation,
   validatePlayerUpdateData,
-  DEFAULT_PLAYER_CONFIG,
 } from './PlayerService'
 
 /**

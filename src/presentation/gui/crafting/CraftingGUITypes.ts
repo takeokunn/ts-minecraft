@@ -1,5 +1,4 @@
-import { Schema, Brand, Option } from 'effect'
-import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
+import { Brand, Schema } from 'effect'
 
 // ブランド型定義
 export type SlotIndex = number & Brand.Brand<'SlotIndex'>

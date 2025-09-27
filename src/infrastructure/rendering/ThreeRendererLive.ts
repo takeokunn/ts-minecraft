@@ -1,8 +1,8 @@
-import { Effect, Layer, Option, Ref, pipe, Match, Predicate } from 'effect'
+import { Effect, Layer, Match, Option, Predicate, Ref, pipe } from 'effect'
 import * as THREE from 'three'
 import { ThreeRenderer } from './ThreeRenderer'
 import type { RenderError } from './types'
-import { RenderInitError, RenderExecutionError, ContextLostError } from './types'
+import { ContextLostError, RenderExecutionError, RenderInitError } from './types'
 
 /**
  * パフォーマンス統計の内部型

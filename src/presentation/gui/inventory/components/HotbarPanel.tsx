@@ -5,9 +5,9 @@
  * Supports keyboard navigation and selection highlighting
  */
 
-import React from 'react'
 import { motion } from 'framer-motion'
-import type { InventorySlot, InventoryGUIConfig } from '../types.js'
+import React from 'react'
+import type { InventoryGUIConfig, InventorySlot } from '../types.js'
 import { ItemSlot } from './ItemSlot.js'
 
 interface HotbarPanelProps {

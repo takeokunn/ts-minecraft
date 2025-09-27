@@ -1,11 +1,11 @@
-import { Effect, Array } from 'effect'
+import { Effect } from 'effect'
 import {
-  CraftingRecipe,
-  RecipeId,
-  ItemStackCount,
   CraftingItemStack,
+  CraftingRecipe,
   ItemMatcher,
+  ItemStackCount,
   RecipeCategory,
+  RecipeId,
 } from './types/RecipeTypes'
 
 /**

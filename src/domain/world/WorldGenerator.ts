@@ -4,12 +4,12 @@
  * @module domain/world/WorldGenerator
  */
 
-import { Effect, Context, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
-import type { Chunk, ChunkData } from '../chunk/index'
+import { Context, Effect, Predicate } from 'effect'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { ChunkData } from '../chunk/index'
 import type { GeneratorOptions, StructureType } from './GeneratorOptions'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
 
 /**
  * ワールド生成エラーの定義

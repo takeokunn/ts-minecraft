@@ -3,7 +3,7 @@
  */
 
 import { Predicate } from 'effect'
-import type { Vector3, BlockFace, ToolType } from './InteractionTypes'
+import type { BlockFace, ToolType, Vector3 } from './InteractionTypes'
 
 // =============================================================================
 // Module Constants
@@ -130,6 +130,6 @@ export const InteractionTypeGuards = {
 /**
  * 最も頻繁に使用される機能の便利なエイリアス
  */
-export { performDDARaycast as raycast, performPlayerRaycast as playerRaycast } from './Raycast'
 export { startBlockBreaking as breakBlock } from './BlockBreaking'
 export { placeBlock as placeBlockAt } from './BlockPlacement'
+export { performPlayerRaycast as playerRaycast, performDDARaycast as raycast } from './Raycast'

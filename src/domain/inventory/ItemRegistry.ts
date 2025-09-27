@@ -5,7 +5,7 @@
  * Integrates with block system for block items
  */
 
-import { Context, Effect, HashMap, Layer, Option, pipe, Match } from 'effect'
+import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import { ItemId, ItemStack } from './InventoryTypes'
 
 // Item category types

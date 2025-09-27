@@ -1,24 +1,23 @@
-import { Effect, Layer, Ref, Queue, Stream, Match, pipe, Schedule, Fiber, HashMap, Duration, Context } from 'effect'
+import { Context, Duration, Effect, HashMap, Layer, Match, pipe, Ref, Schedule } from 'effect'
 import type { EventBusService } from '../../infrastructure/events/EventBus'
 import { EventBus } from '../../infrastructure/events/EventBus'
-import { SceneService } from './SceneService'
-import {
-  SceneType,
-  TransitionEffect,
-  TransitionError,
-  SaveError,
-  LoadError,
-  PreloadError,
-  SceneEvent,
-  TransitionDuration,
-  WorldId,
-  SaveId,
-  PlayerState,
-  PreloadedResource,
-  ErrorInfo,
-} from './SceneTypes'
 import { RendererService } from '../../infrastructure/rendering/RendererService'
 import { RendererServiceLive } from '../../infrastructure/rendering/RendererServiceLive'
+import { SceneService } from './SceneService'
+import {
+  ErrorInfo,
+  LoadError,
+  PlayerState,
+  PreloadedResource,
+  PreloadError,
+  SaveError,
+  SaveId,
+  SceneType,
+  TransitionDuration,
+  TransitionEffect,
+  TransitionError,
+  WorldId,
+} from './SceneTypes'
 
 // Using standard EventBusService interface for scene events
 

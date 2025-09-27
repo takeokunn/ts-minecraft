@@ -5,17 +5,17 @@
  * Implements responsive grid layout with drag & drop support
  */
 
+import { DndContext, type DragEndEvent, type DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { Effect, Option, pipe } from 'effect'
+import { AnimatePresence, motion } from 'framer-motion'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { DndContext, type DragEndEvent, type DragStartEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core'
-import { Effect, Option, pipe, Match } from 'effect'
-import type { InventoryPanelProps, InventorySlot, DragState, DropResult, InventoryGUIEvent } from '../types.js'
-import { ItemSlot } from './ItemSlot.js'
-import { HotbarPanel } from './HotbarPanel.js'
-import { ArmorSlots } from './ArmorSlots.js'
-import { createSlotPosition, getSlotGridPosition, isValidSlotTransfer } from '../types.js'
-import { useInventoryKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { useInventoryAnimations } from '../hooks/useAnimations.js'
+import { useInventoryKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
+import type { DragState, DropResult, InventoryGUIEvent, InventoryPanelProps, InventorySlot } from '../types.js'
+import { createSlotPosition, getSlotGridPosition, isValidSlotTransfer } from '../types.js'
+import { ArmorSlots } from './ArmorSlots.js'
+import { HotbarPanel } from './HotbarPanel.js'
+import { ItemSlot } from './ItemSlot.js'
 
 /**
  * Main inventory panel component

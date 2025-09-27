@@ -1,10 +1,10 @@
-import { describe, expect, beforeEach, afterEach } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Either, Option, Match, pipe, Exit, TestContext } from 'effect'
-import { BlockInteractionService, BlockInteractionServiceLive, INTERACTION_CONSTANTS } from '../index'
-import type { Vector3, BlockFace, ToolType } from '../InteractionTypes'
 import type { BlockId, BlockPosition, PlayerId } from '@domain/core/types/brands'
+import { it } from '@effect/vitest'
+import { Effect, Either } from 'effect'
+import { afterEach, beforeEach, describe, expect } from 'vitest'
 import { clearAllBreakingSessions } from '../BlockBreaking'
+import { BlockInteractionService, BlockInteractionServiceLive, INTERACTION_CONSTANTS } from '../index'
+import type { BlockFace, ToolType, Vector3 } from '../InteractionTypes'
 // Use type assertions for test values (simpler approach)
 
 // =============================================================================

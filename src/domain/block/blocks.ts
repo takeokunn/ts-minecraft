@@ -1,31 +1,29 @@
 import { pipe } from 'effect'
-import type { BlockType } from './BlockType'
 import {
   defaultBlockProperties,
-  stoneProperties,
   dirtProperties,
-  woodProperties,
-  leavesProperties,
   glassProperties,
-  oreProperties,
+  leavesProperties,
   liquidProperties,
+  oreProperties,
   plantProperties,
+  stoneProperties,
   unbreakableProperties,
-  woolProperties,
-  withHardness,
-  withResistance,
-  withGravity,
-  withSoundGroup,
   withDrop,
-  withDropSelf,
-  withNoDrops,
+  withFlammable,
+  withGravity,
+  withHardness,
   withLuminance,
   withOpacity,
-  withFlammable,
+  withResistance,
   withSolid,
-  withTool,
+  withSoundGroup,
   withTexture,
+  withTool,
+  woodProperties,
+  woolProperties,
 } from './BlockProperties'
+import type { BlockType } from './BlockType'
 
 // 自然ブロック (Natural Blocks)
 export const stoneBlock: BlockType = {

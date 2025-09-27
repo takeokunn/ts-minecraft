@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from '@effect/vitest'
+import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { Effect, Stream, pipe } from 'effect'
 import { initApp } from '../app'
 

@@ -19,39 +19,39 @@ export { GameApplicationLive } from './GameApplicationLive'
 
 // ===== 型定義 =====
 export type {
+  ApplicationLifecycleState,
+  ECSState,
   GameApplicationConfig,
   GameApplicationState,
-  ApplicationLifecycleState,
-  SystemStatus,
   GameLoopState,
+  InputState,
   RendererState,
   SceneState,
-  InputState,
-  ECSState,
   SystemHealthCheck,
+  SystemStatus,
 } from './types'
 
 export { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 
 // ===== エラー定義 =====
 export type {
+  CanvasNotFoundError,
+  ConfigurationValidationError,
+  ECSInitializationFailedError,
+  FrameProcessingError,
   GameApplicationInitError,
   GameApplicationRuntimeError,
   GameApplicationStateError,
   GameLoopInitializationFailedError,
+  InputInitializationFailedError,
+  InvalidStateTransitionError,
+  MemoryLeakError,
+  PerformanceDegradationError,
   RendererInitializationFailedError,
   SceneInitializationFailedError,
-  InputInitializationFailedError,
-  ECSInitializationFailedError,
-  CanvasNotFoundError,
   SystemCommunicationError,
-  FrameProcessingError,
-  PerformanceDegradationError,
-  MemoryLeakError,
-  WebGLContextLostError,
-  InvalidStateTransitionError,
-  ConfigurationValidationError,
   SystemSynchronizationError,
+  WebGLContextLostError,
 } from './errors'
 
 export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'

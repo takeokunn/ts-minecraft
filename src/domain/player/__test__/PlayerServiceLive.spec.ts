@@ -1,21 +1,13 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { it as effectIt } from '@effect/vitest'
-import { Effect, Layer, Option, Either, pipe, TestContext, Duration, Match } from 'effect'
-import { PlayerServiceLive } from '../PlayerServiceLive'
-import { PlayerService } from '../PlayerService'
-import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/EntityManager'
-import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
-import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
 import { BrandedTypes, type ComponentTypeName } from '@domain/core/types/brands'
 import { SpatialBrands } from '@domain/core/types/spatial'
-import {
-  createPlayerError,
-  type PlayerPosition,
-  type PlayerRotation,
-  type PlayerState,
-  DEFAULT_PLAYER_CONFIG,
-} from '../PlayerService'
+import { it as effectIt } from '@effect/vitest'
+import { Effect, Either, Layer, Option } from 'effect'
+import { describe, expect } from 'vitest'
+import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
+import { EntityManager, EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager'
+import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
+import { DEFAULT_PLAYER_CONFIG, PlayerService, type PlayerPosition } from '../PlayerService'
+import { PlayerServiceLive } from '../PlayerServiceLive'
 
 /**
  * PlayerService Integration Tests

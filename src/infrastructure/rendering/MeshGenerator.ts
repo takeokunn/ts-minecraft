@@ -1,9 +1,9 @@
-import { Effect, Context, Layer, Ref, Option, Match, pipe, Predicate, Stream } from 'effect'
 import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Option, pipe, Predicate, Ref, Stream } from 'effect'
 import * as THREE from 'three'
-import { GreedyMeshingService, GreedyMeshingLive } from './GreedyMeshing'
-import { FaceCullingService, FaceCullingLive } from './FaceCulling'
-import { AmbientOcclusionService, AmbientOcclusionLive } from './AmbientOcclusion'
+import { AmbientOcclusionLive, AmbientOcclusionService } from './AmbientOcclusion'
+import { FaceCullingLive, FaceCullingService } from './FaceCulling'
+import { GreedyMeshingLive, GreedyMeshingService } from './GreedyMeshing'
 
 // ========================================
 // Schema Definitions

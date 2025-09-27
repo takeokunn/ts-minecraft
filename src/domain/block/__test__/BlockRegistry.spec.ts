@@ -1,24 +1,22 @@
-import { describe, expect } from 'vitest'
+import { BrandedTypes } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
-import { Effect, Option, Either, pipe } from 'effect'
+import { Effect, Either, Option, pipe } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  BlockNotFoundError,
   BlockAlreadyRegisteredError,
-  isBlockNotFoundError,
-  isBlockAlreadyRegisteredError,
-  BlockRegistryLive,
+  BlockNotFoundError,
   BlockRegistry,
-  registerBlock,
-  isBlockRegistered,
-  searchBlocks,
+  BlockRegistryLive,
+  getAllBlocks,
+  getBlock,
   getBlocksByCategory,
   getBlocksByTag,
-  getBlock,
-  getAllBlocks,
+  isBlockNotFoundError,
+  isBlockRegistered,
+  registerBlock,
+  searchBlocks,
 } from '../BlockRegistry'
-import type { BlockType } from '../BlockType'
 import { createTestBlock } from './test-helpers'
-import { BrandedTypes } from '@domain/core/types/brands'
 
 describe('BlockRegistry', () => {
   ;(describe('getBlock', () => {

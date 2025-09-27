@@ -1,12 +1,12 @@
-import { Effect, Layer, pipe, Match } from 'effect'
-import type { Vector3 } from '../world/types'
 import type { BlockTypeId } from '@domain/core/types/brands'
-import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from './types'
-import { PhysicsService } from './PhysicsService'
-import { Gravity } from './Gravity'
+import { Effect, Layer, Match, pipe } from 'effect'
+import type { Vector3 } from '../world/types'
 import { CollisionDetection } from './CollisionDetection'
-import { Friction } from './Friction'
 import { FluidPhysics } from './FluidPhysics'
+import { Friction } from './Friction'
+import { Gravity } from './Gravity'
+import { PhysicsService } from './PhysicsService'
+import type { AABB, FluidType, PhysicsError } from './types'
 
 /**
  * 物理システム実装

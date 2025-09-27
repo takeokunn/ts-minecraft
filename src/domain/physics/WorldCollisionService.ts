@@ -1,7 +1,6 @@
-import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import * as CANNON from 'cannon-es'
-import type { Vector3D } from '@domain/core/types/spatial'
 import type { BlockTypeId } from '@domain/core/types/brands'
+import type { Vector3D } from '@domain/core/types/spatial'
+import { Context, Effect, Layer, pipe, Ref } from 'effect'
 import { CannonPhysicsService } from './CannonPhysicsService'
 
 /**

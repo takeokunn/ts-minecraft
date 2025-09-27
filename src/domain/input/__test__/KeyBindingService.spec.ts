@@ -1,7 +1,7 @@
-import { Effect, Layer, TestContext } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { KeyBindingService, makeKeyBindingService, KeyBindingServiceLive } from '../KeyBindingService'
-import type { InputEvent, InputMapping, ControlScheme } from '../schemas'
+import { Effect } from 'effect'
+import { describe, expect, it } from 'vitest'
+import { KeyBindingService, KeyBindingServiceLive } from '../KeyBindingService'
+import type { InputEvent, InputMapping } from '../schemas'
 
 describe('KeyBindingService', () => {
   it('デフォルトマッピングが正しく読み込まれること', async () => {

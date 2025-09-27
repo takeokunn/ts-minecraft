@@ -3,25 +3,24 @@
  * 1対1対応テストファイル
  */
 
-import { describe, expect, beforeEach, vi } from 'vitest'
-import { it } from '@effect/vitest'
-import { it as effectIt } from '@effect/vitest'
-import { Effect, TestContext, Layer, Fiber } from 'effect'
+import { it as effectIt, it } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
+import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index'
+import { WorldGeneratorTag } from '../../world/index'
 import {
   ChunkLoader,
   ChunkLoaderLive,
   calculatePriorityScore,
-  sortRequestsByPriority,
-  createChunkLoadRequest,
   chunkLoadRequestToKey,
-  isLoadExpired,
+  createChunkLoadRequest,
   defaultChunkLoaderConfig,
-  type ChunkLoadRequest,
+  isLoadExpired,
+  sortRequestsByPriority,
   type ChunkLoadPriority,
+  type ChunkLoadRequest,
 } from '../ChunkLoader'
 import type { ChunkPosition } from '../ChunkPosition'
-import type { WorldGenerator as WorldGeneratorInterface } from '../../world/index'
-import { WorldGeneratorTag } from '../../world/index'
 
 // =============================================================================
 // Mock WorldGenerator

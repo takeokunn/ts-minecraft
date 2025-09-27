@@ -5,19 +5,8 @@
   "statistics": {
     "total_textures": 166,
     "total_sounds": 34,
-    "texture_categories": [
-      "blocks"
-    ],
-    "sound_categories": [
-      "blocks",
-      "misc",
-      "music",
-      "ui",
-      "note",
-      "entity",
-      "ambient",
-      "redstone"
-    ]
+    "texture_categories": ["blocks"],
+    "sound_categories": ["blocks", "misc", "music", "ui", "note", "entity", "ambient", "redstone"]
   },
   "textures": {
     "blocks": {
@@ -274,25 +263,18 @@
           "name": "OpenGameArt.org",
           "url": "https://opengameart.org/",
           "description": "Community-contributed game art",
-          "assets": [
-            "Various block textures from multiple artists"
-          ]
+          "assets": ["Various block textures from multiple artists"]
         },
         {
           "name": "Pixabay",
           "url": "https://pixabay.com/",
           "description": "Stock images and textures",
-          "assets": [
-            "Additional texture resources"
-          ]
+          "assets": ["Additional texture resources"]
         },
         {
           "name": "Generated",
           "description": "Programmatically generated textures",
-          "assets": [
-            "Ore textures",
-            "Special blocks (bedrock, wood, etc.)"
-          ]
+          "assets": ["Ore textures", "Special blocks (bedrock, wood, etc.)"]
         }
       ],
       "attribution": "No attribution required (CC0), but we thank the community artists",
@@ -305,28 +287,13 @@
           "name": "Freesound.org",
           "url": "https://freesound.org/",
           "description": "Community sound library",
-          "assets": [
-            "Block sounds",
-            "Ambient sounds",
-            "Menu music"
-          ],
-          "contributors": [
-            "spookymodem",
-            "OwlStorm",
-            "klankbeeld",
-            "Migfus20",
-            "others"
-          ]
+          "assets": ["Block sounds", "Ambient sounds", "Menu music"],
+          "contributors": ["spookymodem", "OwlStorm", "klankbeeld", "Migfus20", "others"]
         },
         {
           "name": "Generated",
           "description": "Programmatically generated audio",
-          "assets": [
-            "UI sounds",
-            "Entity sounds",
-            "Note blocks",
-            "Additional footsteps"
-          ]
+          "assets": ["UI sounds", "Entity sounds", "Note blocks", "Additional footsteps"]
         }
       ],
       "attribution": "No attribution required (CC0)",

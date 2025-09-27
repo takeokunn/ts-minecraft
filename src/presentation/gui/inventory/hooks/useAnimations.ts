@@ -5,9 +5,9 @@
  * Uses framer-motion and Effect-TS for animation orchestration
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Option, pipe, Match } from 'effect'
-import type { InventorySlot, DragState, SlotAnimationState, ItemTransferAnimation } from '../types'
+import { Option } from 'effect'
+import { useCallback, useMemo, useState } from 'react'
+import type { DragState, InventorySlot, ItemTransferAnimation, SlotAnimationState } from '../types'
 
 interface AnimationHookProps {
   readonly slots: ReadonlyArray<InventorySlot>

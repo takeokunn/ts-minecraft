@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Match, Ref, pipe, Option } from 'effect'
 import { Schema } from '@effect/schema'
-import type { InputEvent, InputMapping, ControlScheme, KeyCode, ButtonId } from './schemas'
-import { InputMappingSchema, ControlSchemeSchema } from './schemas'
+import { Context, Effect, Layer, Match, Option, Ref } from 'effect'
+import type { ButtonId, ControlScheme, InputEvent, InputMapping, KeyCode } from './schemas'
+import { ControlSchemeSchema } from './schemas'
 
 // キーバインディングエラー
 export const KeyBindingErrorSchema = Schema.Struct({

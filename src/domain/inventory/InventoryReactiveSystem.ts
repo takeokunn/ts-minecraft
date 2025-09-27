@@ -6,24 +6,24 @@
  */
 
 import {
+  Chunk,
   Context,
+  Duration,
   Effect,
+  Fiber,
   Layer,
   Match,
   Option,
   pipe,
-  Stream,
-  Fiber,
-  Schedule,
-  Duration,
-  Chunk,
   Queue,
   Ref,
+  Schedule,
+  Stream,
 } from 'effect'
-import { Inventory, PlayerId, ItemStack } from './InventoryTypes'
-import { InventoryStateManager, type StateEvent } from './InventoryStateManager'
-import { InventoryService } from './InventoryService'
 import { InventoryAPIService } from './InventoryAPIService'
+import { InventoryService } from './InventoryService'
+import { InventoryStateManager } from './InventoryStateManager'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
 
 // Reactive update types
 export interface InventoryUpdate {

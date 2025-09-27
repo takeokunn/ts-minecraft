@@ -1,11 +1,10 @@
-import { Effect, TestClock, TestContext, Layer, Option, Either, pipe } from 'effect'
-import { describe, expect } from 'vitest'
+import type { ItemId, PlayerId } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
-import { Schema } from '@effect/schema'
-import type { PlayerId, ItemId } from '@domain/core/types/brands'
+import { Effect, Either, Layer, Option, TestContext } from 'effect'
+import { describe, expect } from 'vitest'
 import { HungerService } from '../HungerService'
 import { HungerServiceLive } from '../HungerServiceLive'
-import type { FoodItem, HungerLevel, SaturationLevel, HungerDecreaseReason, StatusEffect } from '../HungerTypes'
+import type { FoodItem, HungerDecreaseReason, SaturationLevel, StatusEffect } from '../HungerTypes'
 import { HUNGER_CONSTANTS } from '../HungerTypes'
 
 // =========================================

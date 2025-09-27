@@ -4,10 +4,10 @@
  * コンポーネント管理システムの型安全性とシリアライズ対応を検証
  */
 
-import { describe, expect } from 'vitest'
-import { Effect } from 'effect'
-import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import { ComponentRegistry, ComponentUnion } from '../ComponentRegistry'
 
 describe('ECS Component Registry', () => {

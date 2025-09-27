@@ -1,7 +1,7 @@
-import { Context, Effect, Option, HashMap, Array as EffectArray, pipe, Data, Layer, Match, Predicate } from 'effect'
-import type { BlockType, BlockCategory } from './BlockType'
-import { allBlocks } from './blocks'
 import { BlockId, BrandedTypes } from '@domain/core/types/brands'
+import { Context, Effect, Array as EffectArray, HashMap, Layer, Match, Option, pipe, Predicate } from 'effect'
+import type { BlockCategory, BlockType } from './BlockType'
+import { allBlocks } from './blocks'
 
 // エラー定義（Data.TaggedErrorを使用）
 export interface BlockNotFoundError {

@@ -1,9 +1,8 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import * as THREE from 'three'
-import { MeshGeneratorService, MeshGeneratorLive } from '../MeshGenerator'
+import { it } from '@effect/vitest'
+import { Effect, Match, Option, pipe } from 'effect'
+import { describe, expect } from 'vitest'
+import { MeshGeneratorLive, MeshGeneratorService } from '../MeshGenerator'
 
 // ★ Schema-first approach for mesh generation data
 const ChunkPositionSchema = Schema.Struct({

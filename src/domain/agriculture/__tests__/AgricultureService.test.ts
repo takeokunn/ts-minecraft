@@ -1,20 +1,11 @@
-import { describe, it, expect } from '@effect/vitest'
-import { Effect, Either, Option, TestClock, Random, Duration, Layer, pipe, TestContext } from 'effect'
+import type { ItemId, PlayerId } from '@domain/core/types/brands'
 import { Arbitrary, Schema } from '@effect/schema'
+import { describe, expect, it } from '@effect/vitest'
+import { Duration, Effect, Either, TestClock, TestContext } from 'effect'
+import type { ItemStack } from '../../inventory/InventoryTypes'
 import { AgricultureService } from '../services/AgricultureService'
 import { AgricultureServiceLive } from '../services/AgricultureServiceLive'
-import {
-  CropTypeSchema,
-  AnimalTypeSchema,
-  CropId as CropIdBrand,
-  GrowthStage as GrowthStageBrand,
-  type CropType,
-  type AnimalType,
-  type Crop,
-  type FarmAnimal,
-} from '../types/AgricultureTypes'
-import type { PlayerId, ItemId } from '@domain/core/types/brands'
-import type { ItemStack } from '../../inventory/InventoryTypes'
+import { AnimalTypeSchema, CropTypeSchema, type CropType, type FarmAnimal } from '../types/AgricultureTypes'
 
 // ===================================
 // Test Helpers

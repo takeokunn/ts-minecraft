@@ -1,10 +1,7 @@
-import { Schema } from '@effect/schema'
-import { Brand, Match, pipe } from 'effect'
-import type { PlayerId, EntityId, ItemId } from '@domain/core/types/brands'
 import { PlayerIdSchema } from '@domain/core/types/brands'
-import type { BlockPosition } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
+import { Brand } from 'effect'
 import type { ItemStack } from '../../inventory/InventoryTypes'
-import type { Health } from '../../player/PlayerTypes'
 
 // ===================================
 // Branded Types

@@ -1,24 +1,22 @@
-import { describe, expect, vi } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Layer, Option, Match, Predicate } from 'effect'
+import { BrandedTypes } from '@domain/core/types/brands'
 import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect, Exit, Match, Option, pipe, Predicate } from 'effect'
 import * as THREE from 'three'
-import type { Material as ThreeMaterial } from 'three'
+import { describe, expect, vi } from 'vitest'
+import type { BlockType } from '../MeshGenerator'
 import {
-  type TextureRegion,
-  type BlockTexture,
   type AtlasConfig,
-  type AtlasMetadata,
-  TextureAtlasError,
-  TextureAtlasService,
-  TextureAtlasLive,
+  type BlockTexture,
+  BlockTextureSchema,
   calculateAtlasEfficiency,
   getOptimalAtlasSize,
+  TextureAtlasError,
+  TextureAtlasLive,
+  TextureAtlasService,
+  type TextureRegion,
   TextureRegionSchema,
-  BlockTextureSchema,
 } from '../TextureAtlas'
-import type { BlockType } from '../MeshGenerator'
-import { BrandedTypes } from '@domain/core/types/brands'
 
 // ========================================
 // Test Helpers

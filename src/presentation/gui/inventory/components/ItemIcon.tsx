@@ -5,8 +5,8 @@
  * Supports animations and custom item textures
  */
 
-import React, { useMemo } from 'react'
 import { motion } from 'framer-motion'
+import React, { useMemo } from 'react'
 import type { ItemIconProps } from '../types.js'
 
 // Item texture mapping (would normally load from texture atlas)

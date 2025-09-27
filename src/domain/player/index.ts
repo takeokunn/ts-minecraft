@@ -14,37 +14,37 @@ export { PlayerService } from './PlayerService'
 // Type-only exports
 export type {
   PlayerComponent,
-  PositionComponent,
-  RotationComponent,
   PlayerPosition,
   PlayerRotation,
   PlayerState,
+  PositionComponent,
+  RotationComponent,
 } from './PlayerService'
 
 // Schema and validation exports (runtime values)
 export {
+  DEFAULT_PLAYER_CONFIG,
   PlayerConfig,
-  PlayerUpdateData,
-  PlayerErrorReason,
   PlayerError,
+  PlayerErrorReason,
+  PlayerUpdateData,
   createPlayerError,
   isPlayerError,
   validatePlayerConfig,
-  validatePlayerState,
   validatePlayerPosition,
   validatePlayerRotation,
+  validatePlayerState,
   validatePlayerUpdateData,
-  DEFAULT_PLAYER_CONFIG,
 } from './PlayerService'
 
 // Type-only exports for schemas
 export type {
+  PlayerConfig as PlayerConfigType,
+  PlayerErrorReason as PlayerErrorReasonType,
+  PlayerError as PlayerErrorType,
   PlayerPosition as PlayerPositionType,
   PlayerRotation as PlayerRotationType,
   PlayerState as PlayerStateType,
-  PlayerConfig as PlayerConfigType,
-  PlayerError as PlayerErrorType,
-  PlayerErrorReason as PlayerErrorReasonType,
   PlayerUpdateData as PlayerUpdateDataType,
 } from './PlayerService'
 
@@ -52,15 +52,15 @@ export type {
 export { PlayerServiceLive } from './PlayerServiceLive'
 
 // Movement System exports
-export { MovementSystem } from './MovementSystem'
-export type { MovementInput, VelocityVector, MovementState, PhysicsResult, MovementDirection } from './MovementSystem'
 export {
+  DEFAULT_MOVEMENT_STATE,
+  InputUtils,
+  MovementSystem,
   PHYSICS_CONSTANTS,
   PhysicsUtils,
-  InputUtils,
   validateMovementInput,
   validateMovementState,
   validateVelocityVector,
-  DEFAULT_MOVEMENT_STATE,
 } from './MovementSystem'
+export type { MovementDirection, MovementInput, MovementState, PhysicsResult, VelocityVector } from './MovementSystem'
 export { MovementSystemLive } from './MovementSystemLive'

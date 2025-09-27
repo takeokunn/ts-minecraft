@@ -1,31 +1,20 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { Effect, pipe, Option, Match, Runtime, Layer, Exit, Cause, ManagedRuntime, Stream } from 'effect'
-import type {
-  CraftingGUIState,
-  CraftingGUIEvent,
-  CraftingSession,
-  CraftingResultDisplay,
-  RecipeFilterConfig,
-} from '../CraftingGUITypes'
-import type {
-  CraftingGrid as CraftingGridType,
-  CraftingRecipe,
-  CraftingItemStack,
-} from '@domain/crafting/types/RecipeTypes'
-import { CraftingGUIService, CraftingGUIServiceLive } from '../CraftingGUIService'
-import { CraftingEngineService } from '@domain/crafting/services/CraftingEngineService'
-import { RecipeRegistryService } from '@domain/crafting/services/RecipeRegistryService'
-import { InventoryService } from '@domain/inventory/InventoryService'
-import { ItemRegistry } from '@domain/inventory/ItemRegistry'
-import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
-import { RecipeDisplay } from './RecipeDisplay'
-import { RecipeBook } from './RecipeBook'
-import { CraftingResult } from './CraftingResult'
 import { CraftingEngineServiceLive } from '@domain/crafting/services/CraftingEngineService'
 import { RecipeRegistryServiceLive } from '@domain/crafting/services/RecipeRegistryService'
+import type {
+  CraftingGrid as CraftingGridType,
+  CraftingItemStack,
+  CraftingRecipe,
+} from '@domain/crafting/types/RecipeTypes'
+import { GridHeight, GridWidth } from '@domain/crafting/types/RecipeTypes'
 import { InventoryServiceLive } from '@domain/inventory/InventoryServiceLive'
-import { Brand } from 'effect'
-import { GridWidth, GridHeight } from '@domain/crafting/types/RecipeTypes'
+import { ItemRegistry } from '@domain/inventory/ItemRegistry'
+import { Effect, Layer, ManagedRuntime, Stream } from 'effect'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { CraftingGUIService, CraftingGUIServiceLive } from '../CraftingGUIService'
+import type { CraftingGUIEvent, CraftingGUIState, CraftingResultDisplay, CraftingSession } from '../CraftingGUITypes'
+import { CraftingGrid } from './CraftingGrid'
+import { CraftingResult } from './CraftingResult'
+import { RecipeBook } from './RecipeBook'
 
 interface CraftingTableGUIProps {
   playerId: string

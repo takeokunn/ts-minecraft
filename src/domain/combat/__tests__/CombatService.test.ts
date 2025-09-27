@@ -1,22 +1,22 @@
-import { it, expect, describe } from '@effect/vitest'
-import { Effect, Layer, TestClock, TestContext, Option, Random, Array } from 'effect'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
+import { describe, expect, it } from '@effect/vitest'
+import { EventBus } from '@infrastructure/events/EventBus'
+import { Array, Effect, Layer, Random } from 'effect'
+import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 import { CombatService } from '../services/CombatService'
 import { CombatServiceLive } from '../services/CombatServiceLive'
 import {
+  AttackOnCooldownError,
   createAttackDamage,
   createDefenseValue,
-  createKnockbackForce,
   createDurability,
-  AttackOnCooldownError,
-  type AttackType,
-  type Weapon,
+  createKnockbackForce,
   type Armor,
+  type AttackType,
   type EnchantmentType,
+  type Weapon,
 } from '../types/CombatTypes'
-import { BrandedTypes } from '@domain/core/types/brands'
-import { SpatialBrands } from '@domain/core/types/spatial'
-import { EventBus } from '@infrastructure/events/EventBus'
-import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 
 // ================================
 // Test Data Generators

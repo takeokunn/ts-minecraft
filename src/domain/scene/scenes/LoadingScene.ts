@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, Match, pipe } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Effect, Layer, Match, pipe, Ref } from 'effect'
+import { Scene, SceneCleanupError, SceneData, SceneInitializationError } from '../Scene'
 
 // ローディング状態の定義
 interface LoadingState {

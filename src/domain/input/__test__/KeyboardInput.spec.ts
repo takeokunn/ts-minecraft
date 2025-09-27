@@ -1,7 +1,7 @@
-import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, Either, pipe } from 'effect'
-import { KeyboardInput, KeyboardInputLive, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
+import { Effect, Either, Layer, pipe } from 'effect'
+import { describe, expect } from 'vitest'
+import { KeyboardInput, KeyboardInputError, MockKeyboardInput } from '../KeyboardInput'
 import { DefaultKeyMap, KeyMappingError } from '../KeyMapping'
 
 describe('KeyboardInput', () => {

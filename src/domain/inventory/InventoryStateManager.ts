@@ -7,23 +7,22 @@
 
 import {
   Context,
+  Duration,
   Effect,
+  Fiber,
   Layer,
   Match,
   Option,
   pipe,
-  Ref,
   PubSub,
-  Stream,
   Queue,
-  Duration,
+  Ref,
   Schedule,
-  Exit,
-  Fiber,
+  Stream,
 } from 'effect'
-import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes'
-import { InventoryService, InventoryError } from './InventoryService'
-import { InventoryStorageService, StorageError } from './InventoryStorageService'
+import { InventoryError, InventoryService } from './InventoryService'
+import { InventoryStorageService } from './InventoryStorageService'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
 import { ItemManagerService } from './ItemManagerService'
 
 // State change event types

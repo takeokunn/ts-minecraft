@@ -5,10 +5,10 @@
  * and validation of item stacks
  */
 
-import { Effect, Option, pipe, Match, Stream } from 'effect'
+import { Effect, Match, Option, pipe, Stream } from 'effect'
+import { InventoryError } from './InventoryService'
 import { AddItemResult, Inventory, ItemStack } from './InventoryTypes'
 import { SlotManager } from './SlotManager'
-import { InventoryError } from './InventoryService'
 
 // Registry service interface for dependency injection
 export interface RegistryService {

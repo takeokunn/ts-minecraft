@@ -1,8 +1,8 @@
-import { Effect, Layer, Ref, Queue, Stream, Schedule, Duration } from 'effect'
+import { Duration, Effect, Layer, Queue, Ref, Schedule, Stream } from 'effect'
 import { InputService } from './InputService'
+import type { ButtonId, InputEvent, InputState, InputTimestamp, KeyCode } from './schemas'
 import type { MouseDelta } from './types'
-import { InputSystemError, InputHandlerRegistrationError } from './types'
-import type { InputEvent, InputState, KeyCode, ButtonId, InputTimestamp } from './schemas'
+import { InputHandlerRegistrationError, InputSystemError } from './types'
 
 /**
  * InputServiceLive - 入力サービスの仮実装

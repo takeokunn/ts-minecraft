@@ -1,18 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Effect, HashMap, Layer, Option, TestContext, pipe } from 'effect'
+import type { Vector3D } from '@domain/core/types/spatial'
+import { SpatialBrands } from '@domain/core/types/spatial'
+import { Effect } from 'effect'
+import { describe, expect, it, vi } from 'vitest'
 import { AudioService } from '../AudioService'
 import { AudioServiceLive } from '../AudioServiceLive'
 import {
   AudioHelpers,
+  type Pitch,
   type SoundCategory,
   type SoundId,
   type SourceId,
-  type Volume,
-  type Pitch,
   SourceNotFoundError,
+  type Volume,
 } from '../AudioTypes'
-import { SpatialBrands } from '@domain/core/types/spatial'
-import type { Vector3D } from '@domain/core/types/spatial'
 
 // Mock Three.js
 vi.mock('three', () => ({

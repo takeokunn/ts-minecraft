@@ -1,8 +1,8 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
+import { AppService } from '../../services/AppService'
 import { MainLayer } from '../MainLayer'
-import { AppServiceLive, AppService } from '../../services/AppService'
 
 describe('MainLayer', () => {
   describe('Layer Structure', () => {

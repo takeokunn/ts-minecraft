@@ -5,8 +5,8 @@ export * from './CraftingGUITypes'
 export { CraftingGUIService, CraftingGUIServiceLive } from './CraftingGUIService'
 
 // Export React components
-export { CraftingTableGUI } from './components/CraftingTableGUI'
 export { CraftingGrid, CraftingGridStyles } from './components/CraftingGrid'
-export { RecipeDisplay } from './components/RecipeDisplay'
-export { RecipeBook } from './components/RecipeBook'
 export { CraftingResult } from './components/CraftingResult'
+export { CraftingTableGUI } from './components/CraftingTableGUI'
+export { RecipeBook } from './components/RecipeBook'
+export { RecipeDisplay } from './components/RecipeDisplay'

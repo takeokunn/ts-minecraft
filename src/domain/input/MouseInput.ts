@@ -1,6 +1,6 @@
-import { Context, Effect, Exit, Layer, Ref, Option, Match, pipe, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
-import { MouseDelta, MouseButtonState, InputSystemError } from './types'
+import { Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
+import { MouseButtonState, MouseDelta } from './types'
 
 // マウス位置
 export const MousePosition = Schema.Struct({

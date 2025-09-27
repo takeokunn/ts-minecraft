@@ -1,12 +1,12 @@
+import { GameApplicationLive } from '@application/GameApplicationLive'
 import { Layer } from 'effect'
 import { AppServiceLive } from '../services/AppService'
-import { GameApplicationLive } from '@application/GameApplicationLive'
 
 // 依存サービスのLive実装
 import { GameLoopServiceLive } from '@domain/game-loop/services/GameLoopServiceLive'
+import { InputServiceLive } from '@domain/input/InputServiceLive'
 import { SceneManagerLive } from '@domain/scene/SceneManagerLive'
 import { ThreeRendererLive } from '@infrastructure/rendering/ThreeRendererLive'
-import { InputServiceLive } from '@domain/input/InputServiceLive'
 
 /**
  * MainLayer - アプリケーション全体の統合レイヤー

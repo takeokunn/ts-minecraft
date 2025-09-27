@@ -23,39 +23,39 @@ export * from './block'
 
 // Chunk System Domain - selective exports to avoid conflicts
 export {
-  // ChunkPosition exports
-  ChunkPositionSchema,
-  type ChunkPosition,
-  chunkToBlockCoords,
-  blockToChunkCoords,
-  chunkPositionToId,
-  chunkIdToPosition,
-  chunkPositionEquals,
-  chunkPositionDistance,
+  CHUNK_HEIGHT,
+  CHUNK_MAX_Y,
+  CHUNK_MIN_Y,
   // ChunkData exports
   CHUNK_SIZE,
-  CHUNK_HEIGHT,
   CHUNK_VOLUME,
-  CHUNK_MIN_Y,
-  CHUNK_MAX_Y,
-  ChunkMetadataSchema,
-  type ChunkMetadata,
-  type ChunkData,
-  getBlockIndex,
-  getBlockCoords,
-  createChunkData,
-  // Note: getBlock is excluded to avoid conflict with block domain
-  setBlock,
-  resetChunkData,
-  updateHeightMap,
-  getHeight,
-  isEmpty,
-  getMemoryUsage,
   // Chunk interface exports
   ChunkBoundsError,
+  ChunkMetadataSchema,
+  // ChunkPosition exports
+  ChunkPositionSchema,
   ChunkSerializationError,
-  type Chunk,
+  blockToChunkCoords,
+  chunkIdToPosition,
+  chunkPositionDistance,
+  chunkPositionEquals,
+  chunkPositionToId,
+  chunkToBlockCoords,
   createChunk,
+  createChunkData,
+  getBlockCoords,
+  getBlockIndex,
+  getHeight,
+  getMemoryUsage,
+  isEmpty,
+  resetChunkData,
+  // Note: getBlock is excluded to avoid conflict with block domain
+  setBlock,
+  updateHeightMap,
+  type Chunk,
+  type ChunkData,
+  type ChunkMetadata,
+  type ChunkPosition,
 } from './chunk'
 
 // World Generation Domain

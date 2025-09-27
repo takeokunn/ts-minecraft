@@ -1,10 +1,9 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
+import type { BlockTypeId } from '@domain/core/types/brands'
+import { it as effectIt, it } from '@effect/vitest'
 import { Effect, Match, pipe } from 'effect'
-import { it as effectIt } from '@effect/vitest'
+import { describe, expect } from 'vitest'
 import { CollisionDetection } from '../CollisionDetection'
 import type { AABB } from '../types'
-import type { BlockTypeId } from '@domain/core/types/brands'
 
 describe('CollisionDetection', () => {
   const createAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): AABB =>

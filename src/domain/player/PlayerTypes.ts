@@ -1,6 +1,4 @@
-import { Brand, Data } from 'effect'
 import { Schema } from '@effect/schema'
-import type * as Types from 'effect/Types'
 
 // =========================================
 // Branded Types & Opaque Types

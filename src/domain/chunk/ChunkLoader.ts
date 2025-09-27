@@ -3,12 +3,12 @@
  * 非同期チャンクロード・優先度管理（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Queue, Fiber, Layer, Exit, Option, Match, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ChunkPosition, Chunk } from './index'
-import { createChunk } from './Chunk'
-import type { WorldGenerator as WorldGeneratorInterface, GenerationError } from '../world/index'
+import { Context, Effect, Exit, Fiber, Layer, Match, Option, pipe, Queue, Ref } from 'effect'
+import type { GenerationError, WorldGenerator as WorldGeneratorInterface } from '../world/index'
 import { WorldGeneratorTag } from '../world/index'
+import { createChunk } from './Chunk'
+import type { Chunk, ChunkPosition } from './index'
 
 // チャンクローダー用タイムスタンプ生成ユーティリティ
 const getCurrentTimestamp = (): number => Date.now()

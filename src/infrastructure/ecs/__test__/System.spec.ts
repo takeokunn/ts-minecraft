@@ -1,15 +1,14 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Cause, Chunk, pipe, Exit, Match } from 'effect'
+import { Cause, Chunk, Effect, Exit, Match, pipe } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  createSystem,
   createMockSystem,
+  createSystem,
+  isSystemError,
+  priorityToNumber,
   runSystems,
   runSystemWithMetrics,
   SystemError,
-  priorityToNumber,
-  SystemPriority,
-  isSystemError,
 } from '../System'
 import type { World } from '../World'
 

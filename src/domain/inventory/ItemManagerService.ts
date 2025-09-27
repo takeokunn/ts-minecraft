@@ -5,10 +5,10 @@
  * メタデータ、NBTタグ、複雑なアイテム操作に対応
  */
 
-import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { ItemId, ItemStack, ItemMetadata } from './InventoryTypes'
-import type { ItemDefinition, ItemCategory } from './ItemRegistry'
+import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
+import { ItemId, ItemMetadata } from './InventoryTypes'
+import type { ItemCategory, ItemDefinition } from './ItemRegistry'
 import { ItemRegistry } from './ItemRegistry'
 
 // Extended item properties

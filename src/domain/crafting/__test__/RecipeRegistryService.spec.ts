@@ -1,16 +1,15 @@
-import { describe, expect, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Either, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
+import { beforeEach, describe, expect } from 'vitest'
+import { CraftingEngineServiceLive } from '../services/CraftingEngineService'
 import { RecipeRegistryService, RecipeRegistryServiceLive } from '../services/RecipeRegistryService'
-import { CraftingEngineService, CraftingEngineServiceLive } from '../services/CraftingEngineService'
 import {
-  CraftingRecipe,
+  DuplicateRecipeError,
+  ItemStackCount,
+  RecipeId,
+  RecipeNotFoundError,
   ShapedRecipe,
   ShapelessRecipe,
-  RecipeId,
-  ItemStackCount,
-  DuplicateRecipeError,
-  RecipeNotFoundError,
 } from '../types/RecipeTypes'
 
 describe('RecipeRegistryService', () => {

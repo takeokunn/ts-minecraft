@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react'
-import { pipe, Array } from 'effect'
 import type { CraftingRecipe } from '@domain/crafting/types/RecipeTypes'
+import React, { useCallback, useMemo, useState } from 'react'
 import type { CraftingGUIEvent, RecipeFilterConfig } from '../CraftingGUITypes'
 
 interface RecipeBookProps {

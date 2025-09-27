@@ -4,7 +4,7 @@
  * @module domain/world/types
  */
 
-import { Schema, ParseResult } from '@effect/schema'
+import { ParseResult, Schema } from '@effect/schema'
 import { Either, Match, Option, pipe, Predicate } from 'effect'
 
 /**

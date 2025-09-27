@@ -1,19 +1,19 @@
-import { describe, expect } from 'vitest'
+import { BrandedTypes } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Layer, Match, Option } from 'effect'
+import { Effect, Exit, Layer, Match, pipe } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  type AOVertex,
-  type AOFace,
   type AOConfig,
+  type AOFace,
+  type AOVertex,
   AmbientOcclusionError,
-  isAmbientOcclusionError,
-  AmbientOcclusionService,
   AmbientOcclusionLive,
+  AmbientOcclusionService,
   blendAOColors,
   getAOQualitySettings,
+  isAmbientOcclusionError,
 } from '../AmbientOcclusion'
 import type { ChunkData } from '../MeshGenerator'
-import { BrandedTypes } from '@domain/core/types/brands'
 
 // ========================================
 // Test Helpers

@@ -5,8 +5,8 @@
  * Shows name, description, enchantments, and metadata
  */
 
-import React from 'react'
 import { motion } from 'framer-motion'
+import React from 'react'
 import type { ItemTooltipProps } from '../types.js'
 
 // Item name mapping (would normally come from localization)

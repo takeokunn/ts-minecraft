@@ -1,16 +1,8 @@
+import type { Vector3D } from '@domain/core/types/spatial'
 import { Context, Effect } from 'effect'
 import type { PlayerId } from '../PlayerTypes'
-import type { Vector3D } from '@domain/core/types/spatial'
-import type {
-  CurrentHealth,
-  MaxHealth,
-  DamageSource,
-  HealingSource,
-  HealAmount,
-  HealthState,
-  HealthError,
-} from './HealthTypes'
 import type { ArmorValue, ProtectionLevel } from './DamageCalculator'
+import type { CurrentHealth, DamageSource, HealingSource, HealthError, HealthState, MaxHealth } from './HealthTypes'
 
 // =======================================
 // Health Service Interface

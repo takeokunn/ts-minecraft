@@ -1,6 +1,6 @@
-import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
+import { describe, expect, it as vitestIt } from 'vitest'
 import { SceneManager, processSceneType } from '../SceneManager'
 import { SceneManagerLive } from '../SceneManagerLive'
 

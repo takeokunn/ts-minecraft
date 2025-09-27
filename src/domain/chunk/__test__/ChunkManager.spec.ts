@@ -3,20 +3,20 @@
  * 1対1対応テストファイル
  */
 
-import { describe, expect, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, TestContext } from 'effect'
+import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import {
+  chunkDistance,
   ChunkManager,
   ChunkManagerLive,
+  chunkPositionToKey,
   createLRUCache,
+  defaultChunkManagerConfig,
+  generateLoadOrder,
   lruGet,
   lruPut,
-  chunkPositionToKey,
   worldToChunkPosition,
-  chunkDistance,
-  generateLoadOrder,
-  defaultChunkManagerConfig,
 } from '../ChunkManager'
 import type { ChunkPosition } from '../ChunkPosition'
 

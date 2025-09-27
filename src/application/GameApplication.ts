@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState } from './types'
 import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
+import type { ApplicationLifecycleState, GameApplicationConfig, GameApplicationState } from './types'
 
 /**
  * GameApplication - ゲームアプリケーション統合サービス

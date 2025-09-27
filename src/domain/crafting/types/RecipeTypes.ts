@@ -1,5 +1,5 @@
-import { Brand } from 'effect'
 import { Schema } from '@effect/schema'
+import { Brand } from 'effect'
 
 /**
  * Recipe System Core Types

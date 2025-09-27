@@ -2,24 +2,23 @@
  * WorldGenerator インターフェースのテスト
  * Issue #164対応 - World Generator Interface実装
  */
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
+import { type ChunkPosition } from '../../chunk/ChunkPosition'
+import { BiomeGeneratorLive } from '../BiomeGenerator'
+import { CaveGeneratorLive } from '../CaveGenerator'
 import {
   createWorldGenerator,
   GenerationError,
   StructureGenerationError,
   type GeneratorOptions,
-  type WorldGenerator,
-  type Vector3,
   type StructureType,
+  type Vector3,
 } from '../index'
-import { type ChunkPosition } from '../../chunk/ChunkPosition'
 import { NoiseGeneratorLive } from '../NoiseGenerator'
+import { defaultOreConfigs, OreDistributionLive } from '../OreDistribution'
 import { TerrainGeneratorLive } from '../TerrainGenerator'
-import { BiomeGeneratorLive } from '../BiomeGenerator'
-import { CaveGeneratorLive } from '../CaveGenerator'
-import { OreDistributionLive, defaultOreConfigs } from '../OreDistribution'
 
 // ================================================================================
 // Test Layers - Layer-based DI Pattern

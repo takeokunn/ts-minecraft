@@ -1,6 +1,6 @@
-import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Predicate } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ChunkData, BlockType } from './MeshGenerator'
+import { Array as A, Context, Effect, Layer, Match, Option, pipe, Predicate, Record as R } from 'effect'
+import type { BlockType, ChunkData } from './MeshGenerator'
 
 // ========================================
 // Type Definitions

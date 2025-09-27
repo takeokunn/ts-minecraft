@@ -1,18 +1,16 @@
-import { Effect, Layer, HashMap, Match, pipe, Duration, Option, Array } from 'effect'
+import { Array, Duration, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
 import {
-  Material,
-  MaterialNotFoundError,
-  BlockId,
-  ItemId,
-  BurnTime,
-  ItemStack,
-  Tool,
-  ToolEfficiency,
-  Hardness,
   BlastResistance,
-  MaterialId,
-  MiningSpeed,
+  BlockId,
+  BurnTime,
+  Hardness,
+  ItemId,
+  Material,
   MaterialCategory,
+  MaterialId,
+  MaterialNotFoundError,
+  MiningSpeed,
+  Tool,
   ToolType,
 } from '../types/MaterialTypes'
 import { MaterialService } from './MaterialService'

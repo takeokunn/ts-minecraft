@@ -6,11 +6,11 @@
 // Barrel Exports
 // =============================================================================
 
+export * from './BlockBreaking'
 export * from './BlockInteractionService'
 export * from './BlockInteractionServiceLive'
-export * from './InteractionTypes'
-export * from './InteractionErrors'
-export * from './Raycast'
-export * from './BlockBreaking'
 export * from './BlockPlacement'
 export * from './InteractionConstants'
+export * from './InteractionErrors'
+export * from './InteractionTypes'
+export * from './Raycast'

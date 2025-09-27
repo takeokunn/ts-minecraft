@@ -1,5 +1,4 @@
 import { Schema } from '@effect/schema'
-import type { ItemId } from '@domain/core/types/brands'
 
 // アイテムスタック定義
 export const ItemStack = Schema.Struct({

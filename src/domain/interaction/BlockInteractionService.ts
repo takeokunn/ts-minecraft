@@ -1,16 +1,16 @@
-import { Context, Effect, Match, pipe } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
-import type {
-  Vector3,
-  BlockFace,
-  ToolType,
-  RaycastResult,
-  BreakingSession,
-  BreakingProgress,
-  PlacementResult,
-  InteractableBlock,
-} from './InteractionTypes'
+import { Context, Effect } from 'effect'
 import type { InteractionError } from './InteractionErrors'
+import type {
+  BlockFace,
+  BreakingProgress,
+  BreakingSession,
+  InteractableBlock,
+  PlacementResult,
+  RaycastResult,
+  ToolType,
+  Vector3,
+} from './InteractionTypes'
 
 // =============================================================================
 // BlockInteractionService Interface
@@ -271,12 +271,12 @@ export const BlockInteractionService = Context.GenericTag<BlockInteractionServic
 
 export type { InteractionError } from './InteractionErrors'
 export type {
-  Vector3,
   BlockFace,
-  ToolType,
-  RaycastResult,
-  BreakingSession,
   BreakingProgress,
-  PlacementResult,
+  BreakingSession,
   InteractableBlock,
+  PlacementResult,
+  RaycastResult,
+  ToolType,
+  Vector3,
 } from './InteractionTypes'

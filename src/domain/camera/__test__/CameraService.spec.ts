@@ -3,23 +3,20 @@
  * Context7準拠のEffect-TS v3.17+最新パターン使用
  */
 
-import { it, expect } from '@effect/vitest'
-import { Effect, Layer, Exit, pipe, TestContext, Match, Option } from 'effect'
-import * as Predicate from 'effect/Predicate'
 import { Schema } from '@effect/schema'
+import { expect, it } from '@effect/vitest'
+import { Effect, Exit, Layer, Match, pipe, TestContext } from 'effect'
+import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
 import {
-  CameraService,
-  CameraError,
   CameraConfig,
+  CameraService,
+  createCameraError,
   DEFAULT_CAMERA_CONFIG,
   validateCameraConfig,
-  validateCameraState,
   validateCameraMode,
-  createCameraError,
+  validateCameraState,
 } from '../CameraService'
-import { FirstPersonCameraLive } from '../FirstPersonCamera'
-import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 
 // ================================================================================
 // Predicate Functions - Type Guards

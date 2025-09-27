@@ -1,13 +1,11 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Layer, Cause, Chunk } from 'effect'
-import { World, WorldLive, WorldError } from '../World'
-import { EntityPoolLayer, createEntityId } from '../Entity'
-import type { EntityId } from '../Entity'
-import { createSystem, SystemError } from '../System'
-import { PositionComponent, VelocityComponent } from '../Component'
-import { EntityManager, EntityManagerLive } from '../EntityManager'
+import { Cause, Chunk, Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
+import { PositionComponent } from '../Component'
+import { createEntityId } from '../Entity'
+import { createSystem } from '../System'
 import { SystemRegistryServiceLive } from '../SystemRegistry'
+import { World, WorldLive } from '../World'
 
 describe('World', () => {
   const TestLayer = Layer.provide(WorldLive, SystemRegistryServiceLive)

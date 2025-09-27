@@ -1,11 +1,9 @@
-import { Context, Effect, Layer, Match, Option, Stream, Queue, Ref } from 'effect'
 import { Schema } from '@effect/schema'
-import type { InputSystemError } from './types'
-import type { InputEvent, InputState, DeviceType } from './schemas'
-import { InputEventSchema, DeviceTypeSchema, InputStateSchema } from './schemas'
-import { KeyBindingService, KeyBindingServiceLive } from './KeyBindingService'
-import { InputContextManager, InputContextManagerLive } from './InputContextManager'
+import { Context, Effect, Layer, Match, Queue, Ref, Stream } from 'effect'
 import { GamepadService, GamepadServiceLive } from './GamepadService'
+import { InputContextManager, InputContextManagerLive } from './InputContextManager'
+import { KeyBindingService, KeyBindingServiceLive } from './KeyBindingService'
+import type { DeviceType, InputEvent, InputState } from './schemas'
 import { TouchInputService, TouchInputServiceLive } from './TouchInputService'
 
 // 入力マネージャーのエラー定義

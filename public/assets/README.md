@@ -37,12 +37,13 @@ Assets are automatically loaded via the manifest.json file. The AssetManager ser
 
 ```typescript
 // Assets are accessed through the manifest
-import manifest from './public/assets/manifest.json';
+import manifest from './public/assets/manifest.json'
 ```
 
 ## Contributing
 
 When adding new assets:
+
 1. Place files in appropriate directories
 2. Run `python3 create_asset_manifest.py` to update manifest
 3. Ensure all assets are CC0 or appropriately licensed

@@ -1,10 +1,9 @@
-import { Effect, TestClock, TestContext, Layer, Option, Either, pipe, Stream, Data } from 'effect'
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Schema } from '@effect/schema'
-import * as Types from '../PlayerTypes'
-import * as Service from '../PlayerServiceV2'
+import { Effect, Either, Layer, Option, TestContext } from 'effect'
+import { describe, expect } from 'vitest'
 import { EntityManager } from '../../../infrastructure/ecs/EntityManager'
+import * as Service from '../PlayerServiceV2'
+import * as Types from '../PlayerTypes'
 
 // =========================================
 // Test Data Generators (Effect-based)

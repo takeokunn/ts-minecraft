@@ -1,7 +1,6 @@
-import { Effect, Context, Layer, Option, Match, pipe, Array as A, Record as R, Number as N, Predicate } from 'effect'
-import { Schema } from '@effect/schema'
-import type { ChunkData, BlockType } from './MeshGenerator'
 import { AOValue, BrandedTypes } from '@domain/core/types/brands'
+import { Array as A, Context, Effect, Layer, Match, Number as N, Option, pipe, Predicate } from 'effect'
+import type { BlockType, ChunkData } from './MeshGenerator'
 
 // ========================================
 // Type Definitions

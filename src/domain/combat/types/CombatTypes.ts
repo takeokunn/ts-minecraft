@@ -1,8 +1,6 @@
-import { Schema } from '@effect/schema'
-import { pipe } from 'effect'
-import type { EntityId, ItemId } from '@domain/core/types/brands'
 import { EntityIdSchema, ItemId as ItemIdSchema } from '@domain/core/types/brands'
-import { Vector3Schema, type Vector3D } from '@domain/core/types/spatial'
+import { Vector3Schema } from '@domain/core/types/spatial'
+import { Schema } from '@effect/schema'
 
 // ================================
 // Branded Types

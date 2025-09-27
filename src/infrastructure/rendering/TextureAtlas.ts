@@ -1,8 +1,8 @@
-import { Effect, Context, Layer, Ref, Option, Match, pipe, Array as A, Predicate } from 'effect'
+import { BrandedTypes, UVCoordinate } from '@domain/core/types/brands'
 import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
 import * as THREE from 'three'
 import type { BlockType } from './MeshGenerator'
-import { UVCoordinate, BrandedTypes } from '@domain/core/types/brands'
 
 // ========================================
 // Type Definitions

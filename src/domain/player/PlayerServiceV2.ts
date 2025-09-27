@@ -1,26 +1,21 @@
+import { Schema } from '@effect/schema'
 import {
-  Effect,
+  Chunk,
   Context,
-  Layer,
-  Ref,
-  Queue,
+  Effect,
   FiberRef,
+  HashMap,
+  Layer,
   Match,
   Option,
-  Either,
-  Scope,
-  HashMap,
-  HashSet,
-  Chunk,
-  Stream,
-  Schedule,
-  Cause,
-  Exit,
   pipe,
+  Queue,
+  Ref,
+  Scope,
+  Stream,
 } from 'effect'
-import { Schema } from '@effect/schema'
-import * as Types from './PlayerTypes'
 import { EntityManager } from '../../infrastructure/ecs/EntityManager'
+import * as Types from './PlayerTypes'
 
 // =========================================
 // Service Interfaces (Context.Tag Pattern)

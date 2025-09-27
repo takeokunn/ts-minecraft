@@ -4,21 +4,21 @@
  * @module domain/world/createWorldGenerator
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
-import { createChunkData } from '../chunk/ChunkData'
-import type { ChunkData } from '../chunk/ChunkData'
-import type { ChunkPosition } from '../chunk/ChunkPosition'
 import { BrandedTypes } from '@domain/core/types/brands'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
-import type { ChunkGenerationResult, GenerationError, GeneratorState, WorldGenerator } from './WorldGenerator'
-import { StructureGenerationError } from './WorldGenerator'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
+import type { ChunkData } from '../chunk/ChunkData'
+import { createChunkData } from '../chunk/ChunkData'
+import type { ChunkPosition } from '../chunk/ChunkPosition'
+import { BiomeGeneratorLive, BiomeGeneratorTag } from './BiomeGenerator'
+import { CaveGeneratorLive, CaveGeneratorTag } from './CaveGenerator'
 import type { GeneratorOptions, StructureType } from './GeneratorOptions'
 import { createGeneratorOptions } from './GeneratorOptions'
-import { NoiseGeneratorTag, NoiseGeneratorLive } from './NoiseGenerator'
-import { TerrainGeneratorTag, TerrainGeneratorLive } from './TerrainGenerator'
-import { BiomeGeneratorTag, BiomeGeneratorLive } from './BiomeGenerator'
-import { CaveGeneratorTag, CaveGeneratorLive } from './CaveGenerator'
-import { OreDistributionTag, OreDistributionLive, defaultOreConfigs } from './OreDistribution'
+import { NoiseGeneratorLive } from './NoiseGenerator'
+import { OreDistributionLive, OreDistributionTag, defaultOreConfigs } from './OreDistribution'
+import { TerrainGeneratorLive, TerrainGeneratorTag } from './TerrainGenerator'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { ChunkGenerationResult, GenerationError, WorldGenerator } from './WorldGenerator'
+import { StructureGenerationError } from './WorldGenerator'
 
 /**
  * 空のチャンクを生成（仮実装）

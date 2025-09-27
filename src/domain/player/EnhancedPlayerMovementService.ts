@@ -1,11 +1,10 @@
-import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import { Player } from '../entities/Player'
-import { Direction, MOVEMENT_SPEEDS, JUMP_VELOCITY } from './PlayerState'
 import type { PlayerId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
-import { PlayerPhysicsService, type PlayerPhysicsState, type PlayerPhysicsError } from '../physics/PlayerPhysicsService'
+import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
+import { Player } from '../entities/Player'
 import { CannonPhysicsService } from '../physics/CannonPhysicsService'
+import { PlayerPhysicsService, type PlayerPhysicsState } from '../physics/PlayerPhysicsService'
 import { TerrainAdaptationService } from '../physics/TerrainAdaptationService'
+import { Direction } from './PlayerState'
 
 /**
  * Enhanced Player Movement Service

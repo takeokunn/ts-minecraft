@@ -1,33 +1,27 @@
-import { Effect, Layer, Match, pipe, Ref, HashMap, Option, Duration } from 'effect'
-import { CombatService, type EntityHealth } from './CombatService'
-import type {
-  AttackType,
-  CombatResult,
-  CombatError,
-  AttackDamage,
-  Armor,
-  EnchantmentType,
-  KnockbackForce,
-  DefenseValue,
-  DamageSource,
-  CombatEvent,
-} from '../types/CombatTypes'
-import {
-  AttackOnCooldownError,
-  TargetNotFoundError,
-  EntityNotFoundError,
-  KnockbackError,
-  createAttackDamage,
-  createDefenseValue,
-  createKnockbackForce,
-  createAttackCooldown,
-} from '../types/CombatTypes'
 import type { EntityId } from '@domain/core/types/brands'
 import type { Vector3D } from '@domain/core/types/spatial'
 import { SpatialBrands } from '@domain/core/types/spatial'
-import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
 import { EventBus } from '@infrastructure/events/EventBus'
-import { Context } from 'effect'
+import { Effect, HashMap, Layer, Option, pipe, Ref } from 'effect'
+import { CannonPhysicsService } from '../../physics/CannonPhysicsService'
+import type {
+  Armor,
+  AttackDamage,
+  AttackType,
+  CombatEvent,
+  CombatResult,
+  DamageSource,
+  EnchantmentType,
+  KnockbackForce,
+} from '../types/CombatTypes'
+import {
+  AttackOnCooldownError,
+  createAttackDamage,
+  createDefenseValue,
+  createKnockbackForce,
+  KnockbackError,
+} from '../types/CombatTypes'
+import { CombatService, type EntityHealth } from './CombatService'
 
 // ================================
 // Constants

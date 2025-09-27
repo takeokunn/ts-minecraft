@@ -1,7 +1,7 @@
-import { describe, it, expect } from '@effect/vitest'
-import { Effect, Layer, Context, Predicate } from 'effect'
-import { CameraSystemLive } from '../CameraSystemLive'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Predicate } from 'effect'
 import { CameraService } from '../CameraService'
+import { CameraSystemLive } from '../CameraSystemLive'
 
 describe('CameraSystemLive', () => {
   describe('Layer構成', () => {

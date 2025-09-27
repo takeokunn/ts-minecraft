@@ -1,7 +1,7 @@
-import { Brand, Context, Data, Effect, Layer, Option, pipe, Match } from 'effect'
-import { Schema } from '@effect/schema'
-import type { EntityCount, EntityCapacity } from '@domain/core/types/brands'
+import type { EntityCapacity, EntityCount } from '@domain/core/types/brands'
 import { BrandedTypes } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 
 // =====================================
 // Entity ID Type

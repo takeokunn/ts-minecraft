@@ -1,14 +1,14 @@
-import React, { useState, useCallback, useMemo } from 'react'
-import { Effect, Option, pipe, Array, Match } from 'effect'
 import type {
+  CraftingItemStack,
   CraftingRecipe,
+  ItemMatcher,
   ShapedRecipe,
   ShapelessRecipe,
-  CraftingItemStack,
-  ItemMatcher,
 } from '@domain/crafting/types/RecipeTypes'
-import { GridWidth, GridHeight } from '@domain/crafting/types/RecipeTypes'
-import type { RecipeFilterConfig, RecipeDisplayMode, CraftingGUIEvent } from '../CraftingGUITypes'
+import { GridHeight, GridWidth } from '@domain/crafting/types/RecipeTypes'
+import { Array, Match, pipe } from 'effect'
+import React, { useCallback, useMemo, useState } from 'react'
+import type { CraftingGUIEvent, RecipeDisplayMode, RecipeFilterConfig } from '../CraftingGUITypes'
 import { CraftingGrid, CraftingGridStyles } from './CraftingGrid'
 
 interface RecipeDisplayProps {

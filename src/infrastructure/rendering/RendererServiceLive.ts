@@ -1,8 +1,8 @@
-import { Effect, Layer, Ref, pipe, Match, Option, Predicate } from 'effect'
+import { Effect, Layer, Match, Option, Predicate, Ref, pipe } from 'effect'
 import * as THREE from 'three'
 import type { RendererService } from './RendererService'
 import { RendererService as RendererServiceTag } from './RendererService'
-import { RenderInitError, RenderExecutionError, ContextLostError, type RenderError } from './types'
+import { ContextLostError, RenderExecutionError, RenderInitError, type RenderError } from './types'
 
 /**
  * WebGLコンテキストロストのハンドリング

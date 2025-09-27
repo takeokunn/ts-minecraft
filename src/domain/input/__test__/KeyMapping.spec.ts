@@ -1,12 +1,12 @@
-import { describe, expect } from 'vitest'
-import { Effect } from 'effect'
-import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import {
+  CustomKeyMapping,
+  DefaultKeyMap,
   KeyAction,
   KeyMappingConfig,
-  DefaultKeyMap,
-  CustomKeyMapping,
   KeyMappingError,
   KeyMappingErrorSchema,
 } from '../KeyMapping'

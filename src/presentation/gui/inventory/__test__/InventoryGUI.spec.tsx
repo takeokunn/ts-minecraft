@@ -5,16 +5,14 @@
  * Using vitest and @testing-library/react
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Effect, Option } from 'effect'
-import React from 'react'
-import { InventoryPanel } from '../components/InventoryPanel.js'
-import { ItemSlot } from '../components/ItemSlot.js'
-import { ItemIcon } from '../components/ItemIcon.js'
-import { ItemTooltip } from '../components/ItemTooltip.js'
 import type { Inventory, ItemStack, PlayerId } from '@domain/inventory/InventoryTypes.js'
-import type { InventoryGUIEvent } from '../types.js'
+import { fireEvent, render } from '@testing-library/react'
+import { Effect, Option } from 'effect'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { InventoryPanel } from '../components/InventoryPanel.js'
+import { ItemIcon } from '../components/ItemIcon.js'
+import { ItemSlot } from '../components/ItemSlot.js'
+import { ItemTooltip } from '../components/ItemTooltip.js'
 import { defaultInventoryGUIConfig } from '../types.js'
 
 // Mock data

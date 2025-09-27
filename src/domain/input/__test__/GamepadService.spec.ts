@@ -1,7 +1,7 @@
-import { Effect, Layer, Stream, TestContext } from 'effect'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { GamepadService, GamepadServiceLive, makeGamepadService } from '../GamepadService'
+import { Effect, Layer } from 'effect'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GamepadSettings } from '../GamepadService'
+import { GamepadService, makeGamepadService } from '../GamepadService'
 
 // Navigator.getGamepads() のモック
 let mockGamepads: (Gamepad | null)[]

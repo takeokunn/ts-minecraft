@@ -4,11 +4,11 @@
  * 基本的なインベントリ操作のテスト
  */
 
-import { describe, it, expect } from 'vitest'
 import { Effect, Exit, Layer, pipe } from 'effect'
-import { InventoryService, InventoryError } from '../InventoryService'
+import { describe, expect, it } from 'vitest'
+import { InventoryService } from '../InventoryService'
 import { InventoryServiceLive } from '../InventoryServiceLive'
-import { createEmptyInventory, PlayerId, ItemId, ItemStack } from '../InventoryTypes'
+import { ItemId, ItemStack, PlayerId } from '../InventoryTypes'
 import { ItemRegistry } from '../ItemRegistry'
 
 describe('InventoryService', () => {

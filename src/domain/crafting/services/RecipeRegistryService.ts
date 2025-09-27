@@ -1,12 +1,11 @@
-import { Context, Effect, Match, Option, pipe, HashMap, Layer, SynchronizedRef } from 'effect'
+import { Context, Effect, HashMap, Layer, Match, pipe } from 'effect'
 import {
   CraftingRecipe,
-  RecipeId,
-  RecipeCategory,
   DuplicateRecipeError,
   InvalidRecipeError,
+  RecipeCategory,
+  RecipeId,
   RecipeNotFoundError,
-  RecipeIdSchema,
 } from '../types/RecipeTypes'
 
 /**

@@ -1,34 +1,21 @@
-import { Effect, Layer, Match, pipe } from 'effect'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
-import type {
-  Vector3,
-  BlockFace,
-  ToolType,
-  RaycastResult,
-  BreakingSession,
-  BreakingProgress,
-  PlacementResult,
-  InteractableBlock,
-} from './InteractionTypes'
-import type { InteractionError } from './InteractionErrors'
-import {
-  BlockInteractionService,
-  type BlockInteractionService as IBlockInteractionService,
-} from './BlockInteractionService'
+import { Effect, Layer, Match, pipe } from 'effect'
+import { BlockInteractionService } from './BlockInteractionService'
+import type { BlockFace, InteractableBlock, ToolType, Vector3 } from './InteractionTypes'
 
 // Import implementation modules
-import { performDDARaycast, performPlayerRaycast } from './Raycast'
 import {
   calculateBlockBreakTime,
-  startBlockBreaking,
-  updateBlockBreaking,
-  getBreakingSession,
-  getPlayerBreakingSession,
   cancelBreakingSession,
   getAllBreakingSessions,
+  getBreakingSession,
+  getPlayerBreakingSession,
+  startBlockBreaking,
+  updateBlockBreaking,
 } from './BlockBreaking'
-import { placeBlock, checkPlacementViability } from './BlockPlacement'
-import { createRaycastError, createInteractionValidationError } from './InteractionErrors'
+import { placeBlock } from './BlockPlacement'
+import { createInteractionValidationError, createRaycastError } from './InteractionErrors'
+import { performDDARaycast } from './Raycast'
 
 // =============================================================================
 // BlockInteractionServiceLive Implementation

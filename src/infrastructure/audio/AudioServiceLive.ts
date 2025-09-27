@@ -1,7 +1,7 @@
-import { Chunk, Effect, HashMap, Layer, Match, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
-import * as THREE from 'three'
-import { nanoid } from 'nanoid'
 import type { Vector3D } from '@domain/core/types/spatial'
+import { Effect, HashMap, Layer, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
+import { nanoid } from 'nanoid'
+import * as THREE from 'three'
 import { AudioService } from './AudioService'
 import {
   AudioContextError,
@@ -10,6 +10,7 @@ import {
   AudioHelpers,
   AudioLoadError,
   AudioSourceState,
+  type Pitch,
   type PlayOptions,
   type Quaternion,
   type SoundCategory,
@@ -19,7 +20,6 @@ import {
   SourceNotFoundError,
   StopReason,
   type Volume,
-  type Pitch,
 } from './AudioTypes'
 
 interface ActiveSource {

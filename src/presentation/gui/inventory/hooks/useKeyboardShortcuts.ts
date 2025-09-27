@@ -5,8 +5,7 @@
  * Follows Effect-TS patterns for event handling
  */
 
-import { useEffect, useCallback } from 'react'
-import { Effect } from 'effect'
+import { useCallback, useEffect } from 'react'
 
 interface KeyboardShortcutsProps {
   readonly enabled: boolean

@@ -1,13 +1,6 @@
-import { Schema } from '@effect/schema'
 import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
 import type { Timestamp } from '@domain/core/types/time'
-import {
-  SessionId as SessionIdSchema,
-  BlockPosition as BlockPositionSchema,
-  BlockId as BlockIdSchema,
-} from '@domain/core/types/brands'
-import { TimestampSchema } from '@domain/core/types/time'
-import type { PlayerId as PlayerIdSchema } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
 
 // =============================================================================
 // Vector3 Schema

@@ -1,26 +1,20 @@
-import { Context, Effect, Match, Option, Array, pipe, Layer } from 'effect'
+import { Context, Effect, Layer, Option, pipe } from 'effect'
 import {
+  CraftingGrid,
+  CraftingItemStack,
   CraftingRecipe,
+  CraftingResult,
+  ItemMatcher,
+  ItemStackCount,
+  PatternMismatchError,
+  RecipePattern,
   ShapedRecipe,
   ShapelessRecipe,
-  CraftingGrid,
-  CraftingResult,
-  CraftingItemStack,
-  RecipeNotFoundError,
-  PatternMismatchError,
-  ItemMatcher,
-  ExactItemMatcher,
-  TagItemMatcher,
-  CustomItemMatcher,
-  RecipePattern,
-  GridWidth,
-  GridHeight,
-  ItemStackCount,
+  isCustomItemMatcher,
+  isExactItemMatcher,
   isShapedRecipe,
   isShapelessRecipe,
-  isExactItemMatcher,
   isTagItemMatcher,
-  isCustomItemMatcher,
 } from '../types/RecipeTypes'
 
 /**

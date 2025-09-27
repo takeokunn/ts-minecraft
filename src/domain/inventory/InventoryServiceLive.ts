@@ -6,8 +6,8 @@
  */
 
 import { Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
-import { AddItemResult, Inventory, InventoryState, ItemStack, PlayerId, createEmptyInventory } from './InventoryTypes'
 import { InventoryError, InventoryService } from './InventoryService'
+import { Inventory, InventoryState, ItemStack, PlayerId, createEmptyInventory } from './InventoryTypes'
 import { ItemRegistry } from './ItemRegistry'
 import { SlotManager } from './SlotManager'
 import { StackProcessor } from './StackProcessor'

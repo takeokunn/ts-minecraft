@@ -3,22 +3,21 @@
  * 1対1対応テストファイル
  */
 
-import { describe, expect, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, TestContext, TestClock } from 'effect'
+import { Effect, TestClock } from 'effect'
+import { describe, expect } from 'vitest'
+import type { ChunkPosition } from '../ChunkPosition'
 import {
   ViewDistance,
   ViewDistanceLive,
-  calculateAverageMetrics,
   analyzePerformanceTrend,
-  calculateOptimalViewDistance,
-  getVisibleChunkPositions,
+  calculateAverageMetrics,
   calculateChunkPriority,
+  calculateOptimalViewDistance,
   defaultViewDistanceConfig,
+  getVisibleChunkPositions,
   type PerformanceMetrics,
-  type ViewDistanceConfig,
 } from '../ViewDistance'
-import type { ChunkPosition } from '../ChunkPosition'
 
 // =============================================================================
 // Test Utilities

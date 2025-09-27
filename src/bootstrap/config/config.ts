@@ -1,6 +1,6 @@
-import { Config } from '../schemas/Config'
-import { Effect } from 'effect'
 import { Schema } from '@effect/schema'
+import { Effect } from 'effect'
+import { Config } from '../schemas/Config'
 
 // デフォルト設定
 export const defaultConfig: Config = {

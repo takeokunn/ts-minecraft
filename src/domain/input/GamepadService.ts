@@ -1,6 +1,6 @@
-import { Context, Effect, Layer, Match, Ref, pipe, Option, Stream, Schedule, Duration } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ButtonId, DeadzoneValue, GamepadSensitivity } from './schemas'
+import { Context, Duration, Effect, Layer, Option, Ref, Schedule, Stream, pipe } from 'effect'
+import type { DeadzoneValue, GamepadSensitivity } from './schemas'
 
 // ゲームパッドエラー
 export const GamepadErrorSchema = Schema.Struct({

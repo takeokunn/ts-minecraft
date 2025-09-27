@@ -1,15 +1,4 @@
-import { Effect, Layer, Context } from 'effect'
-import type { PlayerId, Vector3D } from '../types/brands'
-import type {
-  Bed,
-  BedId,
-  BedColor,
-  Sign,
-  SignId,
-  WrittenBook,
-  Direction,
-  FurnitureError,
-} from '../types/FurnitureTypes'
+import { Effect, Layer } from 'effect'
 
 import { FurnitureService } from './FurnitureService'
 

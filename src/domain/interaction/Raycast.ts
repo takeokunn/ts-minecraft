@@ -1,8 +1,8 @@
-import { Effect, Match, pipe } from 'effect'
 import type { BlockPosition } from '@domain/core/types/brands'
-import type { Vector3, BlockFace, RaycastResult } from './InteractionTypes'
-import { createEmptyRaycastResult, createHitRaycastResult } from './InteractionTypes'
+import { Effect, Match, pipe } from 'effect'
 import { createRaycastError, type InteractionError } from './InteractionErrors'
+import type { BlockFace, RaycastResult, Vector3 } from './InteractionTypes'
+import { createEmptyRaycastResult, createHitRaycastResult } from './InteractionTypes'
 
 // =============================================================================
 // Raycast Algorithm - DDA (Digital Differential Analyzer)

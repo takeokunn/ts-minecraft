@@ -1,8 +1,8 @@
-import { Effect, Either, pipe } from 'effect'
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { GameScene } from '../GameScene'
+import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import { Scene } from '../../Scene'
+import { GameScene } from '../GameScene'
 
 describe('GameScene', () => {
   // Helper function to create a fresh scene instance for each test

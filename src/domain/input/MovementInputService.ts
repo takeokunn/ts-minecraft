@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import { Direction } from '../player/PlayerState'
 
 /**

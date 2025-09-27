@@ -1,17 +1,17 @@
-import { describe, expect } from 'vitest'
-import { Effect } from 'effect'
-import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  MouseDelta,
-  KeyState,
-  MouseButtonState,
-  InputEventType,
   InputEvent,
-  InputSystemError,
-  InputSystemErrorSchema,
+  InputEventType,
   InputHandlerRegistrationError,
   InputHandlerRegistrationErrorSchema,
+  InputSystemError,
+  InputSystemErrorSchema,
+  KeyState,
+  MouseButtonState,
+  MouseDelta,
 } from '../types'
 
 describe('Input Types', () => {

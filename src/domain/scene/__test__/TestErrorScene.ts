@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, pipe } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Effect, Layer, Ref } from 'effect'
+import { Scene, SceneCleanupError, SceneData, SceneInitializationError } from '../Scene'
 
 /**
  * テスト専用のエラー発生シーン

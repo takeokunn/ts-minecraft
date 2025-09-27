@@ -1,11 +1,10 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
 import { it as itEffect } from '@effect/vitest'
-import { Effect, Option, pipe, Match } from 'effect'
+import { Effect, Option, pipe } from 'effect'
+import { describe, expect } from 'vitest'
+import type { ChunkPosition } from '../../chunk/ChunkPosition'
 import { createWorldGenerator } from '../createWorldGenerator'
 import type { GeneratorOptions, StructureType } from '../GeneratorOptions'
-import type { ChunkPosition } from '../../chunk/ChunkPosition'
-import type { Vector3, BiomeType } from '../types'
+import type { Vector3 } from '../types'
 
 describe('createWorldGenerator', () => {
   const defaultOptions: Partial<GeneratorOptions> = {

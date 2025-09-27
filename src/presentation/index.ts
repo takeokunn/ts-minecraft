@@ -10,27 +10,25 @@ export * from './gui/inventory'
 
 // Crafting GUI exports
 export {
-  // Types
-  type CraftingGUIState,
-  type CraftingGUIEvent,
-  type CraftingSession,
-  type CraftingResultDisplay,
-  type RecipeFilterConfig,
-  type DragDropState,
-  type TooltipInfo,
-  type CraftingUIConfig,
-  type KeyboardShortcut,
-  type RecipeDisplayMode,
-
   // Service
   CraftingGUIService,
   CraftingGUIServiceLive,
-
-  // React Components
-  CraftingTableGUI,
   CraftingGrid,
   CraftingGridStyles,
-  RecipeDisplay,
-  RecipeBook,
   CraftingResult,
+  // React Components
+  CraftingTableGUI,
+  RecipeBook,
+  RecipeDisplay,
+  type CraftingGUIEvent,
+  // Types
+  type CraftingGUIState,
+  type CraftingResultDisplay,
+  type CraftingSession,
+  type CraftingUIConfig,
+  type DragDropState,
+  type KeyboardShortcut,
+  type RecipeDisplayMode,
+  type RecipeFilterConfig,
+  type TooltipInfo,
 } from './gui/crafting'

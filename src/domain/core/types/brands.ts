@@ -1,5 +1,4 @@
 import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
 
 /**
  * coreドメイン用のブランド型定義

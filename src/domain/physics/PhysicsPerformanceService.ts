@@ -1,5 +1,4 @@
-import { Context, Effect, Layer, pipe, Match, Ref, Schedule } from 'effect'
-import type { PlayerId } from '@domain/core/types/brands'
+import { Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
 
 /**
  * Physics Performance Service

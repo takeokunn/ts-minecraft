@@ -1,6 +1,6 @@
-import { describe, expect, it as vitestIt } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { describe, expect } from 'vitest'
 import { InputService } from '../InputService'
 import { InputServiceLive } from '../InputServiceLive'
 

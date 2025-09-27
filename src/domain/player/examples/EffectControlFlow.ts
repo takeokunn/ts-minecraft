@@ -1,5 +1,5 @@
-import { Effect, Match, pipe, Option, Either, Array as EffectArray, Stream } from 'effect'
 import { Schema } from '@effect/schema'
+import { Effect, Array as EffectArray, Match, Option, pipe, Stream } from 'effect'
 import * as Types from '../PlayerTypes'
 
 // =========================================

@@ -1,10 +1,8 @@
-import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Ref, Exit, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import * as THREE from 'three'
-import { RendererServiceLive } from '../RendererServiceLive'
+import { beforeEach, describe, expect, vi } from 'vitest'
 import { RendererService } from '../RendererService'
-import { RenderInitError, RenderExecutionError, ContextLostError } from '../types'
 
 // WebGLモックテストレイヤーの作成
 const WebGLTestLayer = Layer.succeed(

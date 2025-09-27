@@ -1,5 +1,5 @@
-import { Effect, Layer, Ref, pipe, Match } from 'effect'
-import { Scene, SceneData, SceneCleanupError, SceneInitializationError } from '../Scene'
+import { Effect, Layer, Match, Ref, pipe } from 'effect'
+import { Scene, SceneCleanupError, SceneData, SceneInitializationError } from '../Scene'
 
 // ゲーム状態の定義
 interface GameState {

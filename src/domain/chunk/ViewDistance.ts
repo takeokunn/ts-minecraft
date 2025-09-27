@@ -3,10 +3,10 @@
  * 描画距離の動的調整とパフォーマンス最適化（クラス使用禁止）
  */
 
-import { Context, Effect, Ref, Layer, pipe, Match, Option, Clock } from 'effect'
 import { Schema } from '@effect/schema'
-import type { ChunkPosition } from './index'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { Vector3 } from '../world/index'
+import type { ChunkPosition } from './index'
 
 // =============================================================================
 // Types & Schemas

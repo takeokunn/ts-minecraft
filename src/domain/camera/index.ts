@@ -1,11 +1,11 @@
 // カメラシステムのメインエクスポート
 export {
+  CameraConfig,
+  CameraError,
+  CameraMode,
   // CameraService
   CameraService,
-  CameraMode,
-  CameraConfig,
   CameraState,
-  CameraError,
   DEFAULT_CAMERA_CONFIG,
 } from './CameraService'
 

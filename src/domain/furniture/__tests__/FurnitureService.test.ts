@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
 import { Effect, Either } from 'effect'
-import type { PlayerId, Vector3D } from '../types/brands'
+import { describe, expect, it } from 'vitest'
 import { FurnitureService } from '../services/FurnitureService'
 import { FurnitureServiceLive } from '../services/FurnitureServiceLive'
+import type { PlayerId, Vector3D } from '../types/brands'
 
 describe('FurnitureService Basic Tests', () => {
   describe('Type Safety and Structure', () => {

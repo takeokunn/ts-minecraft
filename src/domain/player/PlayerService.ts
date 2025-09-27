@@ -1,11 +1,10 @@
-import { Context, Effect, pipe, Predicate } from 'effect'
+import type { PlayerId } from '@domain/core/types/brands'
+import { BrandedTypes, HealthSchema, PlayerIdSchema, TimestampSchema } from '@domain/core/types/brands'
+import { SpatialBrands, Vector3Schema } from '@domain/core/types/spatial'
 import { Schema } from '@effect/schema'
+import { Context, Effect, pipe, Predicate } from 'effect'
 import type { EntityId } from '../../infrastructure/ecs/Entity'
 import type { EntityManagerError } from '../../infrastructure/ecs/EntityManager'
-import type { PlayerId, Timestamp, Health } from '@domain/core/types/brands'
-import { PlayerIdSchema, TimestampSchema, HealthSchema, BrandedTypes } from '@domain/core/types/brands'
-import type { Vector3D, Rotation } from '@domain/core/types/spatial'
-import { Vector3Schema, RotationSchema, SpatialBrands } from '@domain/core/types/spatial'
 
 /**
  * プレイヤーの位置情報（Vector3Dベース）

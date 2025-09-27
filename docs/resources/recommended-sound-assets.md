@@ -1,6 +1,7 @@
 # 推奨音源アセットリスト
 
 ## 📋 概要
+
 TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー音源のキュレーションリストです。
 全て商用利用可能なCC0ライセンスまたは帰属表示不要の素材を厳選しています。
 
@@ -9,6 +10,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ### 1. ブロック破壊音
 
 #### Freesound.org
+
 - **石ブロック破壊音**
   - URL: https://freesound.org/people/ryanconway/sounds/240801/
   - ライセンス: 要確認
@@ -20,12 +22,14 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
   - 説明: Bricks/Stones/Rocks/Gravel Falling - 石や砂利の落下音（破壊音として利用可能）
 
 #### Pixabay
+
 - **ブロック破壊汎用**
   - URL: https://pixabay.com/sound-effects/search/block/
   - ライセンス: 商用利用無料・帰属表示不要
   - 説明: ブロック関連の効果音コレクション
 
 #### OpenGameArt.org
+
 - **100 CC0 SFX #2**
   - URL: https://opengameart.org/content/100-cc0-sfx-2
   - ライセンス: CC0
@@ -34,6 +38,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ### 2. ブロック設置音
 
 #### Pixabay
+
 - **木材ブロック設置**
   - URL: https://pixabay.com/sound-effects/search/wood-block/
   - ライセンス: 商用利用無料・帰属表示不要
@@ -45,6 +50,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
   - 説明: 石の設置・衝撃音
 
 #### OpenGameArt.org
+
 - **100 CC0 metal and wood SFX**
   - URL: https://opengameart.org/content/100-cc0-metal-and-wood-sfx
   - ライセンス: CC0
@@ -53,12 +59,14 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ### 3. 足音
 
 #### Freesound.org
+
 - **Minecraft関連ダウンロード済み音源**
   - URL: https://freesound.org/people/minecraft/downloaded_sounds/
   - ライセンス: 個別確認必要
   - 説明: Minecraftユーザーがダウンロードした音源リスト（参考用）
 
 #### Pixabay
+
 - **石の足音**
   - URL: https://pixabay.com/sound-effects/search/footsteps%20on%20stones/
   - ライセンス: 商用利用無料・帰属表示不要
@@ -80,6 +88,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
   - 説明: 様々な材質の足音
 
 #### OpenGameArt.org
+
 - **Different steps on wood, stone, leaves, gravel and mud**
   - URL: https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
   - ライセンス: CC0
@@ -99,12 +108,14 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ### 4. アンビエント・BGM
 
 #### Pixabay
+
 - **ゲーム音楽・アンビエント**
   - URL: https://pixabay.com/music/
   - ライセンス: 商用利用無料・帰属表示不要
   - 説明: ループ可能なBGM、アンビエント音楽
 
 #### OpenGameArt.org
+
 - **CC0 Sounds Library**
   - URL: https://opengameart.org/content/cc0-sounds-library
   - ライセンス: CC0
@@ -113,6 +124,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ### 5. その他の効果音
 
 #### itch.io
+
 - **CC0 Game Assets**
   - URL: https://itch.io/game-assets/free/tag-cc0
   - ライセンス: CC0
@@ -121,11 +133,13 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ## 🛠️ 実装推奨事項
 
 ### ダウンロード手順
+
 1. 各URLにアクセスして音源をダウンロード
 2. ファイル形式を`.ogg`に統一（Web Audio API推奨形式）
 3. `public/assets/sounds/`以下の適切なディレクトリに配置
 
 ### ファイル命名規則
+
 ```
 {material}.{action}.ogg
 
@@ -138,6 +152,7 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ```
 
 ### 品質チェックリスト
+
 - [ ] ファイルサイズ: 100KB以下推奨
 - [ ] サンプルレート: 44.1kHz推奨
 - [ ] ビットレート: 128kbps以上
@@ -169,10 +184,12 @@ TypeScript Minecraft Cloneプロジェクトで使用可能な高品質フリー
 ## 🔗 追加リソース
 
 ### 音源編集ツール（無料）
+
 - **Audacity**: https://www.audacityteam.org/
 - **ocenaudio**: https://www.ocenaudio.com/
 
 ### フォーマット変換
+
 - **CloudConvert**: https://cloudconvert.com/mp3-to-ogg
 - **FFmpeg**: コマンドライン変換ツール
 

@@ -1,8 +1,8 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Either, pipe } from 'effect'
-import { PlayerService, createPlayerError, validatePlayerConfig } from '../index'
 import { BrandedTypes } from '@domain/core/types/brands'
+import { it } from '@effect/vitest'
+import { Effect, Either } from 'effect'
+import { describe, expect } from 'vitest'
+import { PlayerService, createPlayerError, validatePlayerConfig } from '../index'
 
 /**
  * PlayerService テスト

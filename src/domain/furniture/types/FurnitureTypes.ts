@@ -1,7 +1,4 @@
 import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
-import type { ItemId } from '@domain/inventory/InventoryTypes'
-import type { PlayerId, Vector3D } from './brands'
 
 // Branded Types
 export const BedId = Schema.String.pipe(Schema.brand('BedId'))

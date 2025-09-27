@@ -4,13 +4,13 @@
  * Comprehensive tests for inventory management functionality
  */
 
-import { describe, expect, beforeEach } from 'vitest'
 import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
 import { InventoryService } from '../InventoryService'
 import { InventoryServiceLive } from '../InventoryServiceLive'
+import { ItemId, ItemStack, PlayerId } from '../InventoryTypes'
 import { ItemRegistry } from '../ItemRegistry'
-import { ItemStack, PlayerId, ItemId, createEmptyInventory } from '../InventoryTypes'
 
 describe('InventoryService', () => {
   const testPlayerId = PlayerId('player-test-001')

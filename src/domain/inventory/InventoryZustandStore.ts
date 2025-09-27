@@ -5,15 +5,13 @@
  * リアクティブなUI更新と型安全な状態管理を提供
  */
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { StateStorage } from 'zustand/middleware'
-import { subscribeWithSelector } from 'zustand/middleware'
-import { Effect, Option, pipe, Match } from 'effect'
-import { get, set, del, createStore } from 'idb-keyval'
+import { Effect, Option } from 'effect'
 import type { UseStore } from 'idb-keyval'
-import { Inventory, InventoryState, PlayerId, ItemStack } from './InventoryTypes'
-import { EnhancedItemStack } from './ItemManagerService'
+import { createStore, del, get, set } from 'idb-keyval'
+import { create } from 'zustand'
+import type { StateStorage } from 'zustand/middleware'
+import { createJSONStorage, persist, subscribeWithSelector } from 'zustand/middleware'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
 
 // Zustand store state interface
 export interface InventoryZustandState {

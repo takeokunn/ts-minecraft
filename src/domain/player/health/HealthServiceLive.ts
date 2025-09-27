@@ -1,22 +1,21 @@
-import { Effect, Layer, HashMap, Option, Queue, Match, pipe, Ref } from 'effect'
-import { Schema } from '@effect/schema'
-import { HealthService } from './HealthService'
-import { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator'
-import type { PlayerId } from '../PlayerTypes'
-import { PlayerEventBus } from '../PlayerServiceV2'
-import { Health } from '../PlayerTypes'
-import { PlayerService } from '../PlayerService'
 import type { Vector3D } from '@domain/core/types/spatial'
+import { Effect, HashMap, Layer, Option, pipe, Queue, Ref } from 'effect'
+import { PlayerService } from '../PlayerService'
+import { PlayerEventBus } from '../PlayerServiceV2'
+import type { PlayerId } from '../PlayerTypes'
+import { Health } from '../PlayerTypes'
+import { DamageCalculator, type ArmorValue, type ProtectionLevel } from './DamageCalculator'
+import { HealthService } from './HealthService'
 import {
-  type CurrentHealth,
-  type MaxHealth,
-  type DamageSource,
-  type HealingSource,
-  type HealthState,
-  type HealthEvent,
-  type HealAmount,
   createHealthError,
   HEALTH_CONSTANTS,
+  type CurrentHealth,
+  type DamageSource,
+  type HealAmount,
+  type HealingSource,
+  type HealthEvent,
+  type HealthState,
+  type MaxHealth,
 } from './HealthTypes'
 
 // =======================================

@@ -1,16 +1,9 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { Effect, Layer, TestContext, pipe } from 'effect'
-import {
-  TerrainAdaptationService,
-  TerrainAdaptationServiceLive,
-  TERRAIN_PROPERTIES,
-  DEFAULT_TERRAIN_PROPERTIES,
-} from '../TerrainAdaptationService'
-import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService'
-import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService'
 import type { PlayerId } from '@domain/core/types/brands'
+import { it } from '@effect/vitest'
+import { Effect, Layer, TestContext } from 'effect'
+import { describe, expect } from 'vitest'
 import type { BlockType } from '../../block/BlockType'
+import { DEFAULT_TERRAIN_PROPERTIES, TerrainAdaptationService } from '../TerrainAdaptationService'
 
 /**
  * Terrain Adaptation Service Unit Tests

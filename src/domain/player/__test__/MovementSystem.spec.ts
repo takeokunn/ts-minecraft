@@ -1,28 +1,26 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
-import { it as effectIt } from '@effect/vitest'
-import { Effect, Layer, pipe, Duration } from 'effect'
-import { MovementSystemLive } from '../MovementSystemLive'
-import { MovementSystem } from '../MovementSystem'
-import { PlayerServiceLive } from '../PlayerServiceLive'
-import { PlayerService } from '../PlayerService'
-import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager'
-import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
-import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
 import { BrandedTypes } from '@domain/core/types/brands'
-import { VectorMath, SpatialBrands } from '@domain/core/types/spatial'
+import { SpatialBrands } from '@domain/core/types/spatial'
+import { it as effectIt, it } from '@effect/vitest'
+import { Effect, Layer } from 'effect'
+import { describe, expect } from 'vitest'
+import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
+import { EntityManagerLayer } from '../../../infrastructure/ecs/EntityManager'
+import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
 import {
+  DEFAULT_MOVEMENT_STATE,
+  InputUtils,
+  MovementSystem,
   PHYSICS_CONSTANTS,
   PhysicsUtils,
-  InputUtils,
   validateMovementInput,
-  validateMovementState,
-  DEFAULT_MOVEMENT_STATE,
   type MovementInput,
-  type VelocityVector,
   type PlayerPosition,
   type PlayerRotation,
+  type VelocityVector,
 } from '../MovementSystem'
+import { MovementSystemLive } from '../MovementSystemLive'
+import { PlayerService } from '../PlayerService'
+import { PlayerServiceLive } from '../PlayerServiceLive'
 
 /**
  * MovementSystem Physics and Performance Tests

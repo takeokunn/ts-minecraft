@@ -1,17 +1,17 @@
-import { Effect, Layer, Stream, Match, pipe, Schedule, HashMap, Option, Ref } from 'effect'
 import type { PlayerId } from '@domain/core/types/brands'
+import { Effect, HashMap, Layer, Option, Ref, Stream } from 'effect'
 import { HungerService } from './HungerService'
 import type {
-  HungerState,
-  FoodItem,
-  HungerLevel,
-  SaturationLevel,
   ExhaustionLevel,
+  FoodItem,
   HungerDecreaseReason,
   HungerEvent,
+  HungerLevel,
+  HungerState,
+  SaturationLevel,
   StatusEffect,
 } from './HungerTypes'
-import { ConsumeError, HungerError, PlayerNotFoundError, HUNGER_CONSTANTS } from './HungerTypes'
+import { HUNGER_CONSTANTS, PlayerNotFoundError } from './HungerTypes'
 
 /**
  * HungerServiceLive Implementation

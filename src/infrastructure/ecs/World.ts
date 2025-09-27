@@ -5,14 +5,13 @@
  * パフォーマンス最適化のためのStructure of Arrays (SoA)パターンを採用
  */
 
-import { Context, Data, Effect, Layer, Ref, Match, Option, pipe, Predicate, Stream } from 'effect'
 import { Schema } from '@effect/schema'
-import { EntityManager } from './EntityManager'
-import { SystemRegistryService, SystemRegistryServiceLive, SystemRegistryError } from './SystemRegistry'
-import type { System, SystemPriority } from './System'
-import { SystemError } from './System'
+import { Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
 import type { EntityId } from './Entity'
 import { createEntityId } from './Entity'
+import type { System, SystemPriority } from './System'
+import { SystemError } from './System'
+import { SystemRegistryError, SystemRegistryService } from './SystemRegistry'
 
 // EntityIdを再エクスポート
 export { type EntityId } from './Entity'

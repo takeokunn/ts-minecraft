@@ -6,8 +6,8 @@
  */
 
 import { Effect, Match, Option, pipe } from 'effect'
-import { Inventory, ItemStack } from './InventoryTypes'
 import { InventoryError } from './InventoryService'
+import { Inventory, ItemStack } from './InventoryTypes'
 
 export class SlotManager {
   static readonly INVENTORY_SIZE = 36

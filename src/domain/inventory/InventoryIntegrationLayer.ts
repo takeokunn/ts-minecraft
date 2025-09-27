@@ -5,15 +5,14 @@
  * 双方向同期とリアクティブな状態管理を提供
  */
 
-import { Context, Effect, Layer, Match, Option, pipe, Ref, Schedule, Duration } from 'effect'
-import { Inventory, InventoryState, ItemStack, PlayerId } from './InventoryTypes'
+import { Context, Effect, Layer, Option, pipe, Ref } from 'effect'
 import { InventoryService } from './InventoryService'
 import { InventoryServiceLive } from './InventoryServiceLive'
 import { InventoryStorageService, LocalStorageInventoryService } from './InventoryStorageService'
-import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
+import { InventoryZustandEffects, useInventoryStore } from './InventoryZustandStore'
+import { ItemManagerService, ItemManagerServiceLive } from './ItemManagerService'
 import { ItemRegistry } from './ItemRegistry'
-import { useInventoryStore, InventoryZustandEffects } from './InventoryZustandStore'
-import type { InventoryZustandState } from './InventoryZustandStore'
 
 // Integration service interface
 export interface InventoryIntegrationService {

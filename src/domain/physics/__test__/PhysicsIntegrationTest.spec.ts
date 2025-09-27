@@ -1,19 +1,15 @@
-import { describe, expect } from 'vitest'
+import { BrandedTypes, type PlayerId } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
 import { Effect, Layer, pipe, TestContext } from 'effect'
-import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService'
-import { PlayerPhysicsService, PlayerPhysicsServiceLive } from '../PlayerPhysicsService'
-import { TerrainAdaptationService, TerrainAdaptationServiceLive } from '../TerrainAdaptationService'
-import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService'
-import { PhysicsPerformanceService, PhysicsPerformanceServiceLive } from '../PhysicsPerformanceService'
-import {
-  EnhancedPlayerMovementService,
-  EnhancedPlayerMovementServiceLive,
-} from '../../player/EnhancedPlayerMovementService'
-import { MovementInputService, MovementInputServiceLive } from '../../input/MovementInputService'
+import { describe, expect } from 'vitest'
 import type { Player } from '../../entities/Player'
-import { DEFAULT_PLAYER_STATS, DEFAULT_PLAYER_ABILITIES } from '../../entities/Player'
-import { BrandedTypes, type PlayerId } from '@domain/core/types/brands'
+import { DEFAULT_PLAYER_ABILITIES, DEFAULT_PLAYER_STATS } from '../../entities/Player'
+import { MovementInputService } from '../../input/MovementInputService'
+import { EnhancedPlayerMovementService } from '../../player/EnhancedPlayerMovementService'
+import { CannonPhysicsService } from '../CannonPhysicsService'
+import { PhysicsPerformanceService } from '../PhysicsPerformanceService'
+import { PlayerPhysicsService } from '../PlayerPhysicsService'
+import { TerrainAdaptationService } from '../TerrainAdaptationService'
 
 /**
  * Physics Integration Tests

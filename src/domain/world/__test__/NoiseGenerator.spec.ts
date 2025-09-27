@@ -1,15 +1,15 @@
-import { describe, expect } from 'vitest'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { Schema } from '@effect/schema'
-import { BrandedTypes } from '@domain/core/types/brands'
+import { describe, expect } from 'vitest'
 import {
+  NoiseConfigSchema,
   NoiseGeneratorLive,
   NoiseGeneratorLiveDefault,
   NoiseGeneratorTag,
-  NoiseConfigSchema,
-  type NoiseGenerator,
   type NoiseConfig,
+  type NoiseGenerator,
 } from '../NoiseGenerator'
 
 /**

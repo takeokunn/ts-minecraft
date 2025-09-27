@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { Effect, Either, Stream, pipe } from 'effect'
 import { defaultConfig, loadConfig, validateConfig } from '../config'
 

@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Ref, Match, pipe, Option } from 'effect'
-import { Schema } from '@effect/schema'
-import { MouseDelta } from './types'
 import { SensitivityValue } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
+import { MouseDelta } from './types'
 
 // 感度プリセット
 export const SensitivityPreset = Schema.Literal('low', 'medium', 'high', 'gaming', 'precision', 'custom')

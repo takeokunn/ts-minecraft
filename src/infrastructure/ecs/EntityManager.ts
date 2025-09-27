@@ -1,18 +1,17 @@
-import { Context, Data, Effect, HashMap, Layer, Option, pipe, Match, Stream, Predicate } from 'effect'
+import { ComponentTypeName } from '@domain/core/types/brands'
 import { Schema } from '@effect/schema'
-import type { SystemError } from './System'
-import { SystemRegistryService, type SystemRegistryError } from './SystemRegistry'
+import { Context, Effect, Layer, Match, Option, pipe, Predicate, Stream } from 'effect'
 import {
+  createArchetypeManager,
+  createComponentStorage,
+  EntityPool,
+  type ComponentStorage,
   type EntityId,
   type EntityMetadata,
-  EntityPool,
   type EntityPoolError,
-  createComponentStorage,
-  type ComponentStorage,
-  createArchetypeManager,
-  type ArchetypeManager,
 } from './Entity'
-import { ComponentTypeName, BrandedTypes } from '@domain/core/types/brands'
+import type { SystemError } from './System'
+import { SystemRegistryService } from './SystemRegistry'
 
 // =====================================
 // Entity Manager Errors

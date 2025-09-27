@@ -1,31 +1,30 @@
-import { describe, expect } from 'vitest'
-import { Effect } from 'effect'
 import { it } from '@effect/vitest'
-import { pipe, Array as EffectArray, Match, Predicate } from 'effect'
+import { Effect, Array as EffectArray, Match, pipe, Predicate } from 'effect'
+import { describe, expect } from 'vitest'
 import {
   allBlocks,
-  stoneBlock,
-  dirtBlock,
-  grassBlock,
-  cobblestoneBlock,
-  sandBlock,
-  gravelBlock,
   bedrockBlock,
+  chestBlock,
+  coalOreBlock,
+  cobblestoneBlock,
+  craftingTableBlock,
+  diamondOreBlock,
+  dirtBlock,
+  furnaceBlock,
+  glassBlock,
+  goldOreBlock,
+  grassBlock,
+  gravelBlock,
+  ironOreBlock,
+  lavaBlock,
   oakLogBlock,
   oakPlanksBlock,
-  coalOreBlock,
-  ironOreBlock,
-  goldOreBlock,
-  diamondOreBlock,
-  glassBlock,
+  sandBlock,
+  stoneBlock,
   torchBlock,
   waterBlock,
-  lavaBlock,
-  furnaceBlock,
-  craftingTableBlock,
-  chestBlock,
 } from '../blocks'
-import type { BlockType, BlockCategory } from '../BlockType'
+import type { BlockCategory } from '../BlockType'
 
 describe('blocks', () => {
   describe('Block definitions', () => {

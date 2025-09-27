@@ -1,29 +1,27 @@
-import { describe, expect, beforeEach, vi } from 'vitest'
-import { Effect } from 'effect'
-import { it } from '@effect/vitest'
-import { Schema } from '@effect/schema'
-import { pipe } from 'effect/Function'
-import * as Match from 'effect/Match'
 import { BrandedTypes } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { beforeEach, describe, expect } from 'vitest'
 import {
-  CHUNK_SIZE,
   CHUNK_HEIGHT,
-  CHUNK_VOLUME,
-  CHUNK_MIN_Y,
   CHUNK_MAX_Y,
+  CHUNK_MIN_Y,
+  CHUNK_SIZE,
+  CHUNK_VOLUME,
   ChunkMetadataSchema,
-  type ChunkMetadata,
-  type ChunkData,
-  getBlockIndex,
-  getBlockCoords,
   createChunkData,
   getBlock,
+  getBlockCoords,
+  getBlockIndex,
+  getHeight,
+  getMemoryUsage,
+  isEmpty,
+  resetChunkData,
   setBlock,
   updateHeightMap,
-  getHeight,
-  isEmpty,
-  getMemoryUsage,
-  resetChunkData,
+  type ChunkData,
+  type ChunkMetadata,
 } from '../ChunkData'
 import type { ChunkPosition } from '../ChunkPosition'
 

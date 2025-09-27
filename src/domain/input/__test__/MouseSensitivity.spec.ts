@@ -1,16 +1,16 @@
-import { describe, expect, it as vitestIt } from 'vitest'
+import { BrandedTypes } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
 import { Effect, Either, Layer, pipe } from 'effect'
-import { BrandedTypes } from '@domain/core/types/brands'
+import { describe, expect, it as vitestIt } from 'vitest'
+import type { AdjustedMouseDelta, MouseSensitivityConfig } from '../MouseSensitivity'
 import {
+  MockMouseSensitivity,
   MouseSensitivity,
   MouseSensitivityError,
   MouseSensitivityLive,
-  MockMouseSensitivity,
   defaultSensitivityConfig,
   sensitivityPresets,
 } from '../MouseSensitivity'
-import type { MouseSensitivityConfig, AdjustedMouseDelta } from '../MouseSensitivity'
 import { MouseDelta } from '../types'
 
 // テストヘルパー関数

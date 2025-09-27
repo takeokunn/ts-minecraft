@@ -16,53 +16,49 @@ export { CombatServiceLive } from './services/CombatServiceLive'
 
 // Type exports
 export {
-  // Branded types
-  type AttackDamage,
-  type DefenseValue,
-  type KnockbackForce,
-  type AttackCooldown,
-  type Durability,
-  createAttackDamage,
-  createDefenseValue,
-  createKnockbackForce,
-  createAttackCooldown,
-  createDurability,
-
-  // Schemas
-  AttackDamage as AttackDamageSchema,
-  DefenseValue as DefenseValueSchema,
-  KnockbackForce as KnockbackForceSchema,
-  AttackCooldown as AttackCooldownSchema,
-  Durability as DurabilitySchema,
-
-  // Combat types
-  type Weapon,
-  type Armor,
-  type ArmorSlot,
-  type EnchantmentType,
-  type AttackType,
-  type ProjectileType,
-  type SpellType,
-  type DamageSource,
-  type CombatEvent,
-  type CombatResult,
-
-  // Schemas
-  Weapon as WeaponSchema,
   Armor as ArmorSchema,
   ArmorSlot as ArmorSlotSchema,
-  EnchantmentType as EnchantmentTypeSchema,
+  AttackCooldown as AttackCooldownSchema,
+  // Schemas
+  AttackDamage as AttackDamageSchema,
+  AttackOnCooldownError,
   AttackType as AttackTypeSchema,
-  ProjectileType as ProjectileTypeSchema,
-  SpellType as SpellTypeSchema,
-  DamageSource as DamageSourceSchema,
-  CombatEvent as CombatEventSchema,
-  CombatResult as CombatResultSchema,
-
   // Errors
   CombatError,
-  AttackOnCooldownError,
-  TargetNotFoundError,
+  CombatEvent as CombatEventSchema,
+  CombatResult as CombatResultSchema,
+  DamageSource as DamageSourceSchema,
+  DefenseValue as DefenseValueSchema,
+  Durability as DurabilitySchema,
+  EnchantmentType as EnchantmentTypeSchema,
   EntityNotFoundError,
   KnockbackError,
+  KnockbackForce as KnockbackForceSchema,
+  ProjectileType as ProjectileTypeSchema,
+  SpellType as SpellTypeSchema,
+  TargetNotFoundError,
+  // Schemas
+  Weapon as WeaponSchema,
+  createAttackCooldown,
+  createAttackDamage,
+  createDefenseValue,
+  createDurability,
+  createKnockbackForce,
+  type Armor,
+  type ArmorSlot,
+  type AttackCooldown,
+  // Branded types
+  type AttackDamage,
+  type AttackType,
+  type CombatEvent,
+  type CombatResult,
+  type DamageSource,
+  type DefenseValue,
+  type Durability,
+  type EnchantmentType,
+  type KnockbackForce,
+  type ProjectileType,
+  type SpellType,
+  // Combat types
+  type Weapon,
 } from './types/CombatTypes'

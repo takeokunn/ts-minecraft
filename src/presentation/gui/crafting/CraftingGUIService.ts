@@ -1,19 +1,18 @@
-import { Effect, Context, Layer, Option, Match, pipe, Stream, Queue, Ref, Fiber, Array } from 'effect'
+import { CraftingEngineService } from '@domain/crafting/services/CraftingEngineService'
+import { RecipeRegistryService } from '@domain/crafting/services/RecipeRegistryService'
+import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
+import { GridHeight, GridWidth, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
+import { InventoryService } from '@domain/inventory/InventoryService'
+import { Array, Context, Effect, Layer, Match, Option, pipe, Queue, Ref, Stream } from 'effect'
 import type {
-  CraftingGUIState,
   CraftingGUIEvent,
-  CraftingSession,
-  RecipeFilterConfig,
-  DragDropState,
+  CraftingGUIState,
   CraftingResultDisplay,
+  CraftingSession,
+  DragDropState,
+  RecipeFilterConfig,
   TooltipInfo,
 } from './CraftingGUITypes'
-import type { CraftingGrid, CraftingItemStack, CraftingRecipe, RecipeId } from '@domain/crafting/types/RecipeTypes'
-import { GridWidth, GridHeight, ItemStackCount } from '@domain/crafting/types/RecipeTypes'
-import { RecipeRegistryService } from '@domain/crafting/services/RecipeRegistryService'
-import { CraftingEngineService } from '@domain/crafting/services/CraftingEngineService'
-import { InventoryService } from '@domain/inventory/InventoryService'
-import { Brand } from 'effect'
 
 // エラー定義
 export class CraftingGUIError extends Error {

@@ -1,16 +1,8 @@
-import { Effect, Context, Layer, pipe, Match } from 'effect'
+import { VectorMath, type MutableVector3D, type Vector3D } from '@domain/core/types/spatial'
 import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../entities/Player'
-import {
-  Direction,
-  PlayerPhysicsState,
-  DEFAULT_PHYSICS_STATE,
-  MOVEMENT_SPEEDS,
-  JUMP_VELOCITY,
-  PHYSICS_CONSTANTS,
-} from './PlayerState'
-import type { PlayerId } from '@domain/core/types/brands'
-import { type Vector3D, VectorMath, type MutableVector3D } from '@domain/core/types/spatial'
+import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS, PHYSICS_CONSTANTS } from './PlayerState'
 
 // 移動エラー定義 - 関数型スタイル
 export const MovementError = Schema.TaggedStruct('MovementError', {

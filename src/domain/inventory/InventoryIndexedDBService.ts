@@ -5,12 +5,11 @@
  * 大量データや複雑なクエリに対応
  */
 
-import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
-import { get, set, del, keys, values, clear, createStore } from 'idb-keyval'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
 import type { UseStore } from 'idb-keyval'
+import { clear, createStore, del, get, keys, set, values } from 'idb-keyval'
+import { InventoryStorageService, StorageError } from './InventoryStorageService'
 import { Inventory, InventoryState, PlayerId } from './InventoryTypes'
-import { StorageError, InventoryStorageService } from './InventoryStorageService'
-import { LocalStorageInventoryService } from './InventoryStorageService'
 
 // IndexedDB-specific configuration
 export interface IndexedDBConfig {

@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import * as THREE from 'three'
-import type { Vector3D } from '@domain/core/types/spatial'
 import type { PlayerId } from '@domain/core/types/brands'
+import type { Vector3D } from '@domain/core/types/spatial'
+import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
+import * as THREE from 'three'
 import { Player } from '../entities/Player'
 
 /**

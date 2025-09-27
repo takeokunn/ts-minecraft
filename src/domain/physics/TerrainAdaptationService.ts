@@ -1,9 +1,9 @@
-import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
 import type { PlayerId } from '@domain/core/types/brands'
 import type { Vector3D } from '@domain/core/types/spatial'
+import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import type { BlockType } from '../block/BlockType'
-import { WorldCollisionService, type CollisionResult } from './WorldCollisionService'
 import { CannonPhysicsService } from './CannonPhysicsService'
+import { WorldCollisionService } from './WorldCollisionService'
 
 /**
  * Terrain Adaptation Service

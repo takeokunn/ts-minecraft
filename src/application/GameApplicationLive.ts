@@ -1,24 +1,15 @@
-import { Context, Effect, Layer, Ref, pipe, Match, Option, Predicate } from 'effect'
-import { GameApplication } from './GameApplication'
 import { BrandedTypes } from '@domain/core/types/brands'
-import type { GameApplicationConfig, GameApplicationState, ApplicationLifecycleState, SystemHealthCheck } from './types'
+import { Effect, Layer, Match, Option, Predicate, Ref, pipe } from 'effect'
+import { createErrorContext } from './errors'
+import { GameApplication } from './GameApplication'
+import type { ApplicationLifecycleState, GameApplicationConfig, GameApplicationState } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
-import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
-import {
-  createErrorContext,
-  CanvasNotFoundError,
-  InvalidStateTransitionError,
-  ConfigurationValidationError,
-  SystemCommunicationError,
-  FrameProcessingError,
-  PerformanceDegradationError,
-} from './errors'
 
 // 依存サービスの型インポート
 import { GameLoopService } from '@domain/game-loop/services/GameLoopService'
+import { InputService } from '@domain/input/InputService'
 import { SceneManager } from '@domain/scene/SceneManager'
 import { ThreeRenderer } from '@infrastructure/rendering/ThreeRenderer'
-import { InputService } from '@domain/input/InputService'
 
 /**
  * GameApplicationLive - ゲームアプリケーション統合サービスの実装

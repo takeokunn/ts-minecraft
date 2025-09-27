@@ -3,28 +3,23 @@
  * Context7準拠のEffect-TS v3.17+最新パターン使用
  */
 
+import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
-import * as Option from 'effect/Option'
 import * as Layer from 'effect/Layer'
-import * as TestContext from 'effect/TestContext'
-import { Schema } from '@effect/schema'
-import { pipe } from 'effect/Function'
-import * as Match from 'effect/Match'
+import * as Option from 'effect/Option'
 import * as Predicate from 'effect/Predicate'
+import * as TestContext from 'effect/TestContext'
 import type { EntityId } from '../Entity'
 import {
-  createEntityId,
-  EntityPoolError,
-  EntityPoolLive,
-  EntityPoolLayer,
-  EntityPool,
-  createComponentStorage,
   createArchetypeManager,
-  type EntityMetadata,
+  createComponentStorage,
+  createEntityId,
+  EntityPool,
+  EntityPoolError,
+  EntityPoolLayer,
 } from '../Entity'
-import * as Exit from 'effect/Exit'
 
 // ================================================================================
 // Schema Definitions - Schema-First Approach

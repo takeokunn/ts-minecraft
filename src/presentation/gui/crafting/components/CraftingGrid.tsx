@@ -1,8 +1,6 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react'
-import { Effect, pipe, Option } from 'effect'
-import type { CraftingItemStack, CraftingGrid as CraftingGridType } from '@domain/crafting/types/RecipeTypes'
-import type { CraftingSlotState, CraftingGUIEvent } from '../CraftingGUITypes'
-import { Brand } from 'effect'
+import type { CraftingGrid as CraftingGridType, CraftingItemStack } from '@domain/crafting/types/RecipeTypes'
+import React, { useCallback, useRef, useState } from 'react'
+import type { CraftingGUIEvent } from '../CraftingGUITypes'
 
 interface CraftingGridProps {
   grid: CraftingGridType

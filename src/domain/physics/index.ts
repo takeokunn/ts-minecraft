@@ -10,10 +10,10 @@
  * @module domain/physics
  */
 
-export * from './types'
+export * from './CollisionDetection'
+export * from './FluidPhysics'
+export * from './Friction'
+export * from './Gravity'
 export * from './PhysicsService'
 export * from './PhysicsSystem'
-export * from './Gravity'
-export * from './CollisionDetection'
-export * from './Friction'
-export * from './FluidPhysics'
+export * from './types'

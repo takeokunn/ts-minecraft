@@ -1,11 +1,11 @@
-import { Effect, Layer, Queue, Ref, TestContext } from 'effect'
-import { describe, it, expect } from 'vitest'
-import { InputManager, makeInputManager } from '../InputManager'
-import { KeyBindingService } from '../KeyBindingService'
-import { InputContextManager } from '../InputContextManager'
+import { Effect, Layer } from 'effect'
+import { describe, expect, it } from 'vitest'
 import { GamepadService } from '../GamepadService'
+import { InputContextManager } from '../InputContextManager'
+import { makeInputManager } from '../InputManager'
+import { KeyBindingService } from '../KeyBindingService'
 import { TouchInputService } from '../TouchInputService'
-import type { InputEvent, DeviceType } from '../schemas'
+import type { DeviceType, InputEvent } from '../schemas'
 
 // モックサービス
 const MockKeyBindingService = Layer.succeed(

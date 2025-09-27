@@ -1,15 +1,15 @@
-import { describe, expect } from 'vitest'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Match, Option } from 'effect'
+import { Effect, Exit, Match, pipe } from 'effect'
+import { describe, expect } from 'vitest'
+import type { CullingConfig, FaceVisibility } from '../FaceCulling'
 import {
   FaceCullingError,
-  isFaceCullingError,
-  FaceCullingService,
   FaceCullingLive,
+  FaceCullingService,
   calculateFaceCullingStats,
+  isFaceCullingError,
   optimizeFaceVisibility,
 } from '../FaceCulling'
-import type { FaceVisibility, CullingConfig } from '../FaceCulling'
 import type { ChunkData } from '../MeshGenerator'
 
 // ========================================

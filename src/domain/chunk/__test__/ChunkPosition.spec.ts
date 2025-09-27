@@ -1,20 +1,18 @@
-import { describe, expect } from 'vitest'
-import { Effect } from 'effect'
-import { it } from '@effect/vitest'
-import { Schema } from '@effect/schema'
-import { Option } from 'effect'
-import { pipe } from 'effect/Function'
-import * as Match from 'effect/Match'
 import { BrandedTypes } from '@domain/core/types/brands'
+import { Schema } from '@effect/schema'
+import { it } from '@effect/vitest'
+import { Effect, Option } from 'effect'
+import { pipe } from 'effect/Function'
+import { describe, expect } from 'vitest'
 import {
-  ChunkPositionSchema,
-  type ChunkPosition,
-  chunkToBlockCoords,
   blockToChunkCoords,
-  chunkPositionToId,
   chunkIdToPosition,
-  chunkPositionEquals,
   chunkPositionDistance,
+  chunkPositionEquals,
+  ChunkPositionSchema,
+  chunkPositionToId,
+  chunkToBlockCoords,
+  type ChunkPosition,
 } from '../ChunkPosition'
 
 describe('ChunkPosition', () => {

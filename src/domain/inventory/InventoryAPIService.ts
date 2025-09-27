@@ -5,14 +5,13 @@
  * 使いやすいインベントリ操作インターフェースを提供
  */
 
-import { Context, Effect, Layer, Match, Option, pipe, Array as EffectArray } from 'effect'
-import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
-import { InventoryService } from './InventoryService'
-import { InventoryStorageService } from './InventoryStorageService'
-import { ItemManagerService, ItemManagerServiceLive, EnhancedItemStack } from './ItemManagerService'
+import { Context, Effect, Layer, Option, pipe } from 'effect'
 import { InventoryIntegrationService, InventoryIntegrationServiceLive } from './InventoryIntegrationLayer'
+import { InventoryService } from './InventoryService'
 import { InventoryServiceLive } from './InventoryServiceLive'
-import { LocalStorageInventoryService } from './InventoryStorageService'
+import { InventoryStorageService, LocalStorageInventoryService } from './InventoryStorageService'
+import { Inventory, ItemStack, PlayerId } from './InventoryTypes'
+import { ItemManagerService, ItemManagerServiceLive } from './ItemManagerService'
 
 // API Response types
 export interface APIResponse<T> {

@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, pipe, Match, Option, Either } from 'effect'
+import { Effect, Either, Layer, Match, Option, Ref, pipe } from 'effect'
 import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
 import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
 

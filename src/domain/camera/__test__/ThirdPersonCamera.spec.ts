@@ -3,15 +3,15 @@
  * Context7準拠のEffect-TS v3.17+最新パターン使用
  */
 
-import { it, expect } from '@effect/vitest'
-import { Effect, Layer, TestContext } from 'effect'
-import * as Predicate from 'effect/Predicate'
 import { Schema } from '@effect/schema'
+import { expect, it } from '@effect/vitest'
+import { Effect, Layer, TestContext } from 'effect'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
+import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
-import { CameraService, CameraError, CameraConfig, DEFAULT_CAMERA_CONFIG } from '../CameraService'
+import { CameraConfig, CameraService, DEFAULT_CAMERA_CONFIG } from '../CameraService'
 import { ThirdPersonCameraLive } from '../ThirdPersonCamera'
 
 // ================================================================================

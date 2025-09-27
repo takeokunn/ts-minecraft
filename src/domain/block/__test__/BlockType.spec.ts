@@ -1,24 +1,23 @@
-import { describe, expect } from 'vitest'
-import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
-import { Either, pipe, Effect } from 'effect'
+import { it } from '@effect/vitest'
+import { Effect, Either, pipe } from 'effect'
+import { describe, expect } from 'vitest'
 import {
-  BlockId,
-  TextureId,
-  ToolTypeSchema,
-  TextureFacesSchema,
-  SimpleTextureSchema,
-  BlockTextureSchema,
-  ItemDropSchema,
-  BlockSoundSchema,
-  BlockPhysicsSchema,
   BlockCategorySchema,
+  BlockId,
+  BlockPhysicsSchema,
+  BlockSoundSchema,
+  BlockTextureSchema,
   BlockTypeSchema,
   createDefaultPhysics,
   createDefaultSound,
-  type BlockType,
+  ItemDropSchema,
+  TextureFacesSchema,
+  TextureId,
+  ToolTypeSchema,
   type BlockPhysics,
   type BlockSound,
+  type BlockType,
 } from '../BlockType'
 
 describe('BlockType', () => {

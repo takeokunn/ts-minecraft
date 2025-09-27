@@ -16,14 +16,14 @@ export * from './StandardRecipes'
 
 // ===== Re-exports for convenience =====
 export type {
-  CraftingRecipe,
   CraftingGrid,
   CraftingItemStack,
+  CraftingRecipe,
   CraftingResult,
   ItemMatcher,
+  ItemStackCount,
   RecipeCategory,
   RecipeId,
-  ItemStackCount,
   RecipePattern,
 } from './types/RecipeTypes'
 

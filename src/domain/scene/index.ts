@@ -11,6 +11,6 @@ export * from './SceneManager'
 export * from './SceneManagerLive'
 
 // Scene implementations
-export { MainMenuScene } from './scenes/MainMenuScene'
 export { GameScene } from './scenes/GameScene'
 export { LoadingScene } from './scenes/LoadingScene'
+export { MainMenuScene } from './scenes/MainMenuScene'

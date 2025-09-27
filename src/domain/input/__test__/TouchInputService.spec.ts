@@ -1,7 +1,7 @@
-import { Effect, Queue, Stream } from 'effect'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { Effect } from 'effect'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TouchPoint, TouchSettings } from '../TouchInputService'
 import { TouchInputService, TouchInputServiceLive } from '../TouchInputService'
-import type { TouchSettings, TouchPoint } from '../TouchInputService'
 
 // Touch APIのモック
 Object.defineProperty(global, 'window', {

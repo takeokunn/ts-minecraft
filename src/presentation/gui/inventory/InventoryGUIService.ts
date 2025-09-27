@@ -5,11 +5,11 @@
  * Handles GUI events and translates them to service calls
  */
 
-import { Context, Effect, Layer, Option, pipe, Match, Stream } from 'effect'
 import { InventoryService } from '@domain/inventory/InventoryService'
 import { InventoryServiceLive } from '@domain/inventory/InventoryServiceLive'
-import type { PlayerId, ItemStack, Inventory } from '@domain/inventory/InventoryTypes'
-import type { InventoryGUIEvent, DropResult, InventoryGUIConfig } from './types'
+import type { Inventory, PlayerId } from '@domain/inventory/InventoryTypes'
+import { Context, Effect, Layer, Match, Option, pipe, Stream } from 'effect'
+import type { InventoryGUIConfig, InventoryGUIEvent } from './types'
 import { defaultInventoryGUIConfig } from './types'
 
 // =========================================

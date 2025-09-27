@@ -5,8 +5,8 @@
  * Zustand persistとの統合も含む
  */
 
-import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { Schema } from '@effect/schema'
+import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import { Inventory, InventoryState, PlayerId, validateInventoryState } from './InventoryTypes'
 
 // Storage configuration schema

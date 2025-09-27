@@ -1,16 +1,16 @@
-import { describe, expect } from 'vitest'
+import { BrandedTypes } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
-import { Effect, Exit, pipe, Match } from 'effect'
+import { Effect, Exit, Match, pipe } from 'effect'
+import { describe, expect } from 'vitest'
+import type { GreedyMeshingConfig, Quad } from '../GreedyMeshing'
 import {
   GreedyMeshingError,
-  isGreedyMeshingError,
-  GreedyMeshingService,
   GreedyMeshingLive,
+  GreedyMeshingService,
   calculateVertexReduction,
+  isGreedyMeshingError,
 } from '../GreedyMeshing'
-import type { Quad, GreedyMeshingConfig } from '../GreedyMeshing'
 import type { ChunkData, MeshData } from '../MeshGenerator'
-import { BrandedTypes } from '@domain/core/types/brands'
 
 // ========================================
 // Test Helpers

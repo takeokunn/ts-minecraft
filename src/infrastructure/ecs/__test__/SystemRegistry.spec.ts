@@ -4,21 +4,19 @@
  */
 
 import { it } from '@effect/vitest'
-import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
 import * as Cause from 'effect/Cause'
 import * as Chunk from 'effect/Chunk'
-import * as TestContext from 'effect/TestContext'
+import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
+import { createSystem, SystemError } from '../System'
 import {
+  isSystemRegistryError,
+  SystemRegistryError,
   SystemRegistryService,
   SystemRegistryServiceLive,
-  SystemRegistryError,
-  isSystemRegistryError,
 } from '../SystemRegistry'
-import { createSystem, SystemError } from '../System'
 import type { World } from '../World'
 
 // ================================================================================
