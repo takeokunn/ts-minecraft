@@ -4,7 +4,7 @@ import { it } from '@effect/vitest'
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 import {
   CHUNK_SIZE,
   CHUNK_HEIGHT,

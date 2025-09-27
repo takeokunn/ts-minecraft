@@ -4,8 +4,8 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { ChunkPosition } from '../chunk/ChunkPosition'
 import type { ChunkData } from '../chunk/ChunkData'
-import { Height, BrandedTypes } from '../../shared/types/branded'
-import type { WorldCoordinate } from '../../shared/types/branded'
+import { Height, BrandedTypes } from '@domain/core/types/brands'
+import type { WorldCoordinate } from '@domain/core/types/brands'
 import { getBlockIndex as getChunkBlockIndex } from '../chunk/ChunkData'
 
 /**

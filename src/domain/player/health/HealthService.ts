@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
 import type { PlayerId } from '../PlayerTypes'
-import type { Vector3D } from '../../../shared/schemas/spatial'
+import type { Vector3D } from '@domain/core/types/spatial'
 import type {
   CurrentHealth,
   MaxHealth,

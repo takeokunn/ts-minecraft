@@ -13,7 +13,7 @@ import {
   getAOQualitySettings,
 } from '../AmbientOcclusion'
 import type { ChunkData } from '../MeshGenerator'
-import { BrandedTypes } from '@shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 // ========================================
 // Test Helpers

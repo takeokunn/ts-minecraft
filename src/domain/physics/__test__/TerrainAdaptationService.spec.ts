@@ -9,7 +9,7 @@ import {
 } from '../TerrainAdaptationService'
 import { WorldCollisionService, WorldCollisionServiceLive } from '../WorldCollisionService'
 import { CannonPhysicsService, CannonPhysicsServiceLive } from '../CannonPhysicsService'
-import type { PlayerId } from '../../../shared/types/branded'
+import type { PlayerId } from '@domain/core/types/brands'
 import type { BlockType } from '../../block/BlockType'
 
 /**

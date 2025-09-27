@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { pipe } from 'effect'
-import type { PlayerId, ItemId, Health } from '../../../shared/types/index'
-import { PlayerIdSchema, ItemId as ItemIdSchema, HealthSchema } from '../../../shared/types/index'
+import type { PlayerId, ItemId, Health } from '@domain/core/types/brands'
+import { PlayerIdSchema, ItemId as ItemIdSchema, HealthSchema } from '@domain/core/types/brands'
 
 /**
  * Hunger System用の型定義

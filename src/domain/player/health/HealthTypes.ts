@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { Brand, Data } from 'effect'
 import { PlayerId, EntityId } from '../PlayerTypes'
-import type { Vector3D } from '../../../shared/schemas/spatial'
-import { Vector3Schema } from '../../../shared/schemas/spatial'
+import type { Vector3D } from '@domain/core/types/spatial'
+import { Vector3Schema } from '@domain/core/types/spatial'
 
 // =======================================
 // Branded Types for Health Domain

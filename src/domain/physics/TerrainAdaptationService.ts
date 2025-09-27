@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, pipe, Match, Ref } from 'effect'
-import type { PlayerId } from '../../shared/types/branded'
-import type { Vector3D } from '../../shared/schemas/spatial'
+import type { PlayerId } from '@domain/core/types/brands'
+import type { Vector3D } from '@domain/core/types/spatial'
 import type { BlockType } from '../block/BlockType'
 import { WorldCollisionService, type CollisionResult } from './WorldCollisionService'
 import { CannonPhysicsService } from './CannonPhysicsService'

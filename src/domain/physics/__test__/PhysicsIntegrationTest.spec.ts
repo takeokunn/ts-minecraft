@@ -13,7 +13,7 @@ import {
 import { MovementInputService, MovementInputServiceLive } from '../../input/MovementInputService'
 import type { Player } from '../../entities/Player'
 import { DEFAULT_PLAYER_STATS, DEFAULT_PLAYER_ABILITIES } from '../../entities/Player'
-import { BrandedTypes, type PlayerId } from '../../../shared/types/branded'
+import { BrandedTypes, type PlayerId } from '@domain/core/types/brands'
 
 /**
  * Physics Integration Tests

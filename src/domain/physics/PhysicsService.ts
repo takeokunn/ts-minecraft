@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
 import type { Vector3 } from '../world/types'
-import type { BlockTypeId } from '../../shared/types/branded'
+import type { BlockTypeId } from '@domain/core/types/brands'
 import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from './types'
 
 /**

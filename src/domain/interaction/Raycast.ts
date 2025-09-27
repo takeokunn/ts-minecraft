@@ -1,5 +1,5 @@
 import { Effect, Match, pipe } from 'effect'
-import type { BlockPosition } from '../../shared/types/branded'
+import type { BlockPosition } from '@domain/core/types/brands'
 import type { Vector3, BlockFace, RaycastResult } from './InteractionTypes'
 import { createEmptyRaycastResult, createHitRaycastResult } from './InteractionTypes'
 import { createRaycastError, type InteractionError } from './InteractionErrors'

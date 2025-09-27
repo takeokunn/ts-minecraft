@@ -1,6 +1,6 @@
 import { Effect, pipe, Match, Stream, Option } from 'effect'
 import type { Vector3 } from '../world/types'
-import type { BlockTypeId } from '../../shared/types/branded'
+import type { BlockTypeId } from '@domain/core/types/brands'
 import type { AABB, CollisionResult } from './types'
 
 /**

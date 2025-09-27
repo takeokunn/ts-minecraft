@@ -6,7 +6,7 @@ import type { PlayerId } from '../PlayerTypes'
 import { PlayerEventBus } from '../PlayerServiceV2'
 import { Health } from '../PlayerTypes'
 import { PlayerService } from '../PlayerService'
-import type { Vector3D } from '../../../shared/schemas/spatial'
+import type { Vector3D } from '@domain/core/types/spatial'
 import {
   type CurrentHealth,
   type MaxHealth,

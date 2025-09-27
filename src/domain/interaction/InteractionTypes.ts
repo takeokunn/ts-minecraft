@@ -1,13 +1,13 @@
 import { Schema } from '@effect/schema'
-import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
-import type { Timestamp } from '../../shared/types/time-brands'
+import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
+import type { Timestamp } from '@domain/core/types/time'
 import {
   SessionId as SessionIdSchema,
   BlockPosition as BlockPositionSchema,
   BlockId as BlockIdSchema,
-} from '../../shared/types/branded'
-import { TimestampSchema } from '../../shared/types/time-brands'
-import type { PlayerId as PlayerIdSchema } from '../../shared/types/branded'
+} from '@domain/core/types/brands'
+import { TimestampSchema } from '@domain/core/types/time'
+import type { PlayerId as PlayerIdSchema } from '@domain/core/types/brands'
 
 // =============================================================================
 // Vector3 Schema

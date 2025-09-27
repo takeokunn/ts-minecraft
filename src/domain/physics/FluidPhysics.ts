@@ -1,6 +1,6 @@
 import { Effect, pipe, Match } from 'effect'
 import type { Vector3 } from '../world/types'
-import type { BlockTypeId } from '../../shared/types/branded'
+import type { BlockTypeId } from '@domain/core/types/brands'
 import type { FluidType, FluidPhysicsResult } from './types'
 import { PHYSICS_CONSTANTS } from './types'
 

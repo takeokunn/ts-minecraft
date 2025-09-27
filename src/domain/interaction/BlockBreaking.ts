@@ -1,8 +1,8 @@
 import { Effect, Ref, Match, pipe, Option } from 'effect'
-import type { BlockId, BlockPosition, PlayerId, SessionId } from '../../shared/types/branded'
-import type { Timestamp } from '../../shared/types/time-brands'
-import { SessionId as SessionIdSchema, BlockPosition as BlockPositionSchema } from '../../shared/types/branded'
-import { TimestampSchema } from '../../shared/types/time-brands'
+import type { BlockId, BlockPosition, PlayerId, SessionId } from '@domain/core/types/brands'
+import type { Timestamp } from '@domain/core/types/time'
+import { SessionId as SessionIdSchema, BlockPosition as BlockPositionSchema } from '@domain/core/types/brands'
+import { TimestampSchema } from '@domain/core/types/time'
 import type { ToolType, BreakingSession, BreakingProgress } from './InteractionTypes'
 import { createBlockBreakingError, createBreakingSessionError, type InteractionError } from './InteractionErrors'
 

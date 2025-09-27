@@ -1,7 +1,7 @@
 import { Chunk, Effect, HashMap, Layer, Match, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
 import * as THREE from 'three'
 import { nanoid } from 'nanoid'
-import type { Vector3D } from '@shared/types/spatial-brands'
+import type { Vector3D } from '@domain/core/types/spatial'
 import { AudioService } from './AudioService'
 import {
   AudioContextError,

@@ -1,5 +1,5 @@
 import { Effect, Match, pipe, Predicate } from 'effect'
-import type { BlockId, BlockPosition, PlayerId } from '../../shared/types/branded'
+import type { BlockId, BlockPosition, PlayerId } from '@domain/core/types/brands'
 import type { Vector3, BlockFace, PlacementResult } from './InteractionTypes'
 import { createSuccessfulPlacement, createFailedPlacement } from './InteractionTypes'
 import { createBlockPlacementError, type InteractionError } from './InteractionErrors'

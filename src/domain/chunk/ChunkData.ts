@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match, Option } from 'effect'
 import { ChunkPositionSchema, type ChunkPosition } from './ChunkPosition'
-import { type WorldCoordinate, BrandedTypes } from '../../shared/types/branded'
+import { type WorldCoordinate, BrandedTypes } from '@domain/core/types/brands'
 
 // チャンクサイズ定数
 export const CHUNK_SIZE = 16 // X, Z軸のサイズ

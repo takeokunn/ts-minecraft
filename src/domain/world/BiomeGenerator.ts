@@ -4,7 +4,7 @@ import type { NoiseGenerator } from './NoiseGenerator'
 import { NoiseGeneratorTag } from './NoiseGenerator'
 import type { BiomeType } from './types'
 import type { Vector3 } from './types'
-import { BrandedTypes } from '../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 
 /**
  * バイオーム生成の設定

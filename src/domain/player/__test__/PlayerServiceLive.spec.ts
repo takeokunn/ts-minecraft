@@ -7,8 +7,8 @@ import { PlayerService } from '../PlayerService'
 import { EntityManagerLayer, EntityManager } from '../../../infrastructure/ecs/EntityManager'
 import { EntityPoolLayer } from '../../../infrastructure/ecs/Entity'
 import { SystemRegistryServiceLive } from '../../../infrastructure/ecs/SystemRegistry'
-import { BrandedTypes, type ComponentTypeName } from '../../../shared/types/branded'
-import { SpatialBrands } from '../../../shared/types/spatial-brands'
+import { BrandedTypes, type ComponentTypeName } from '@domain/core/types/brands'
+import { SpatialBrands } from '@domain/core/types/spatial'
 import {
   createPlayerError,
   type PlayerPosition,

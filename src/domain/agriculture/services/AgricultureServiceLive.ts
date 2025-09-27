@@ -14,7 +14,7 @@ import {
   Chunk,
 } from 'effect'
 import { AgricultureService } from './AgricultureService'
-import type { PlayerId, ItemId } from '@shared/types/branded'
+import type { PlayerId, ItemId } from '@domain/core/types/brands'
 import type { ItemStack } from '../../inventory/InventoryTypes'
 import {
   type Crop,

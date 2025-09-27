@@ -18,7 +18,8 @@ import {
   DEFAULT_PLAYER_CONFIG,
 } from '../PlayerService'
 import type { PlayerComponent, PositionComponent, RotationComponent } from '../PlayerService'
-import { BrandedTypes, GameBrands, SpatialBrands, TimeBrands } from '../../../shared/types/index'
+import { BrandedTypes } from '@domain/core/types/brands'
+import { VectorMath, SpatialBrands } from '@domain/core/types/spatial'
 
 /**
  * Player Entity System - Component Tests
@@ -481,8 +482,8 @@ describe('Player Entity System - Component Tests', () => {
       Effect.gen(function* () {
         const playerComponent: PlayerComponent = {
           playerId: BrandedTypes.createPlayerId('component-test'),
-          health: GameBrands.createHealth(85),
-          lastUpdate: TimeBrands.createTimestamp(),
+          health: BrandedTypes.createHealth(85),
+          lastUpdate: BrandedTypes.createTimestamp(Date.now()),
         }
 
         expect(playerComponent.playerId).toBeDefined()

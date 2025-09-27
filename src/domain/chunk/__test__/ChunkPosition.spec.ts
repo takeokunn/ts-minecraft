@@ -5,7 +5,7 @@ import { Schema } from '@effect/schema'
 import { Option } from 'effect'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
-import { BrandedTypes } from '../../../shared/types/branded'
+import { BrandedTypes } from '@domain/core/types/brands'
 import {
   ChunkPositionSchema,
   type ChunkPosition,

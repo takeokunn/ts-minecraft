@@ -9,8 +9,8 @@ import {
   JUMP_VELOCITY,
   PHYSICS_CONSTANTS,
 } from './PlayerState'
-import type { PlayerId } from '../../shared/types/branded'
-import { type Vector3D, VectorMath, type MutableVector3D } from '../../shared/schemas/spatial'
+import type { PlayerId } from '@domain/core/types/brands'
+import { type Vector3D, VectorMath, type MutableVector3D } from '@domain/core/types/spatial'
 
 // 移動エラー定義 - 関数型スタイル
 export const MovementError = Schema.TaggedStruct('MovementError', {
