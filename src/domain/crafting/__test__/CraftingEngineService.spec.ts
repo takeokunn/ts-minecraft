@@ -10,7 +10,7 @@ import {
   ShapedRecipe,
   ShapelessRecipe,
   createEmptyCraftingGrid,
-} from '../types/RecipeTypes'
+} from '../types'
 
 describe('CraftingEngineService', () => {
   let service: CraftingEngineService

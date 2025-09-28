@@ -6,7 +6,7 @@ import {
   RecipeCategory,
   RecipeId,
   RecipeNotFoundError,
-} from '../types/RecipeTypes'
+} from '../types'
 
 /**
  * Recipe Registry Service

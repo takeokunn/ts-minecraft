@@ -2,7 +2,7 @@
 // These should be replaced with actual implementations from other domains
 
 import { Context, Effect, Layer } from 'effect'
-import type { PlayerId, Vector3D } from './types/brands'
+import type { PlayerId, Vector3D } from './types'
 
 // EventBus stub
 export interface EventBus {

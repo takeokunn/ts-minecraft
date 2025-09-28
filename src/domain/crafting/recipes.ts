@@ -6,7 +6,7 @@ import {
   ItemStackCount,
   RecipeCategory,
   RecipeId,
-} from './types/RecipeTypes'
+} from './types'
 
 /**
  * Standard Minecraft Recipes

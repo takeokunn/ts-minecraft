@@ -26,7 +26,7 @@ import {
   ShapedRecipe,
   ShapelessRecipe,
   TagItemMatcher,
-} from '../types/RecipeTypes'
+} from '../types'
 
 describe('RecipeTypes', () => {
   describe('Brand Types', () => {

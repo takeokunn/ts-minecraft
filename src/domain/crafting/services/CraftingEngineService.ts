@@ -15,7 +15,7 @@ import {
   isShapedRecipe,
   isShapelessRecipe,
   isTagItemMatcher,
-} from '../types/RecipeTypes'
+} from '../types'
 
 /**
  * Crafting Engine Service

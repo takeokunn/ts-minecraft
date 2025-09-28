@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect'
 
-import { FurnitureService } from './FurnitureService'
+import { FurnitureService } from './service'
 
 // Basic implementation for now
 const makeFurnitureService = (): FurnitureService => ({

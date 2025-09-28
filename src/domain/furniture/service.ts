@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
-import type { PlayerId, Vector3D } from '../types/brands'
-import { Bed, BedColor, BedId, Direction, FurnitureError, Sign, SignId, WrittenBook } from '../types/FurnitureTypes'
+import type { PlayerId, Vector3D } from './types'
+import { Bed, BedColor, BedId, Direction, FurnitureError, Sign, SignId, WrittenBook } from './types'
 
 export interface FurnitureService {
   readonly placeBed: (

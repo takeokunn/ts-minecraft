@@ -10,7 +10,7 @@ import {
   RecipeNotFoundError,
   ShapedRecipe,
   ShapelessRecipe,
-} from '../types/RecipeTypes'
+} from '../types'
 
 describe('RecipeRegistryService', () => {
   let service: RecipeRegistryService
