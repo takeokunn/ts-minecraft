@@ -1,8 +1,8 @@
 import { PlayerIdSchema } from '@domain/core/types/brands'
 import { RotationSchema, Vector3Schema } from '@domain/core/types/spatial'
 import { Schema } from '@effect/schema'
-import { EquipmentSchema } from '../equipment/Equipment'
-import { InventorySchema } from '../inventory/Inventory'
+import { EquipmentSchema } from '@domain/equipment'
+import { InventorySchema } from '@domain/inventory'
 
 // ゲームモード定義
 export const GameMode = Schema.Literal('survival', 'creative', 'adventure', 'spectator')
@@ -76,53 +76,3 @@ export const PlayerUpdateData = Schema.Struct({
   isSprinting: Schema.optional(Schema.Boolean),
 })
 export type PlayerUpdateData = Schema.Schema.Type<typeof PlayerUpdateData>
-
-// デフォルト値定義
-export const DEFAULT_PLAYER_STATS: PlayerStats = {
-  health: 20,
-  maxHealth: 20,
-  hunger: 20,
-  saturation: 20,
-  experience: 0,
-  level: 0,
-  armor: 0,
-}
-
-export const DEFAULT_PLAYER_ABILITIES: PlayerAbilities = {
-  canFly: false,
-  isFlying: false,
-  canBreakBlocks: true,
-  canPlaceBlocks: true,
-  invulnerable: false,
-  walkSpeed: 4.317, // Minecraft default walk speed (blocks/second)
-  flySpeed: 10.92, // Minecraft default fly speed
-}
-
-// ゲームモード別能力設定
-export const getAbilitiesForGameMode = (gameMode: GameMode): PlayerAbilities => {
-  switch (gameMode) {
-    case 'creative':
-      return {
-        ...DEFAULT_PLAYER_ABILITIES,
-        canFly: true,
-        invulnerable: true,
-      }
-    case 'spectator':
-      return {
-        ...DEFAULT_PLAYER_ABILITIES,
-        canFly: true,
-        isFlying: true,
-        canBreakBlocks: false,
-        canPlaceBlocks: false,
-        invulnerable: true,
-      }
-    case 'adventure':
-      return {
-        ...DEFAULT_PLAYER_ABILITIES,
-        canBreakBlocks: false,
-      }
-    case 'survival':
-    default:
-      return DEFAULT_PLAYER_ABILITIES
-  }
-}
