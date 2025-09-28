@@ -1,6 +1,6 @@
 import { Effect, Either, Layer, Match, Option, Ref, pipe } from 'effect'
-import { Scene, SceneTransition, SceneTransitionError, SceneType } from './Scene'
-import { SceneManager, SceneManagerState, processSceneType } from './SceneManager'
+import { Scene, SceneTransition, SceneTransitionError, SceneType } from '../scenes/base'
+import { SceneManager, SceneManagerState, processSceneType } from './service'
 
 /**
  * 遷移中かチェックするヘルパー
@@ -80,17 +80,17 @@ export const SceneManagerLive = Layer.effect(
         const sceneFactory: Effect.Effect<Scene, SceneTransitionError> = processSceneType(sceneType, {
           MainMenu: () =>
             Effect.gen(function* () {
-              const { MainMenuScene } = yield* Effect.promise(() => import('./scenes/MainMenuScene'))
+              const { MainMenuScene } = yield* Effect.promise(() => import('../scenes/main_menu'))
               return yield* Scene.pipe(Effect.provide(MainMenuScene))
             }),
           Game: () =>
             Effect.gen(function* () {
-              const { GameScene } = yield* Effect.promise(() => import('./scenes/GameScene'))
+              const { GameScene } = yield* Effect.promise(() => import('../scenes/game'))
               return yield* Scene.pipe(Effect.provide(GameScene))
             }),
           Loading: () =>
             Effect.gen(function* () {
-              const { LoadingScene } = yield* Effect.promise(() => import('./scenes/LoadingScene'))
+              const { LoadingScene } = yield* Effect.promise(() => import('../scenes/loading'))
               return yield* Scene.pipe(Effect.provide(LoadingScene))
             }),
           Pause: (): Effect.Effect<Scene, SceneTransitionError> =>

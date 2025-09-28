@@ -1,8 +1,8 @@
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import { Scene } from '../../Scene'
-import { MainMenuScene } from '../MainMenuScene'
+import { Scene } from '../base'
+import { MainMenuScene } from '../main_menu'
 
 describe('MainMenuScene', () => {
   // ヘルパー関数: 新しいシーンインスタンスを作成

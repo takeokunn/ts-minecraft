@@ -12,7 +12,7 @@ import {
   SceneTransitionError,
   SceneTransitionErrorSchema,
   SceneType,
-} from '../Scene'
+} from '../scenes/base'
 
 describe('Scene', () => {
   describe('SceneType', () => {

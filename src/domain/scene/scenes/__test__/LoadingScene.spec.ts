@@ -1,8 +1,8 @@
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import { Scene } from '../../Scene'
-import { LoadingScene } from '../LoadingScene'
+import { Scene } from '../base'
+import { LoadingScene } from '../loading'
 
 // Effect-TSパターンを使用したテストヘルパー
 const createFreshScene = () =>

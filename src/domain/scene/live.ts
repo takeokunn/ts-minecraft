@@ -3,7 +3,7 @@ import type { EventBusService } from '../../infrastructure/events/EventBus'
 import { EventBus } from '../../infrastructure/events/EventBus'
 import { RendererService } from '../../infrastructure/rendering/RendererService'
 import { RendererServiceLive } from '../../infrastructure/rendering/RendererServiceLive'
-import { SceneService } from './SceneService'
+import { SceneService } from './service'
 import {
   ErrorInfo,
   LoadError,
@@ -17,7 +17,7 @@ import {
   TransitionEffect,
   TransitionError,
   WorldId,
-} from './SceneTypes'
+} from './types'
 
 // Using standard EventBusService interface for scene events
 

@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Context, Effect, Match, pipe } from 'effect'
-import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from './Scene'
+import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from '../scenes/base'
 
 // シーンスタック管理用のスキーマ
 export const SceneStack = Schema.Array(SceneData)
