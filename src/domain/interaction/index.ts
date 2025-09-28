@@ -1,11 +1,3 @@
-/**
- * @fileoverview Block Interaction Domain Module - Barrel Export
- */
-
-// =============================================================================
-// Barrel Exports
-// =============================================================================
-
 export * from './BlockBreaking'
 export * from './BlockInteractionService'
 export * from './BlockInteractionServiceLive'
