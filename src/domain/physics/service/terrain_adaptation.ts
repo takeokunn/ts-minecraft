@@ -1,9 +1,9 @@
 import type { PlayerId } from '@domain/core/types/brands'
 import type { Vector3D } from '@domain/core/types/spatial'
 import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
-import type { BlockType } from '../block/BlockType'
-import { CannonPhysicsService } from './CannonPhysicsService'
-import { WorldCollisionService } from './WorldCollisionService'
+import type { BlockType } from '../../block/types'
+import { CannonPhysicsService } from './cannon'
+import { WorldCollisionService } from './world_collision'
 
 /**
  * Terrain Adaptation Service
@@ -14,7 +14,7 @@ import { WorldCollisionService } from './WorldCollisionService'
  */
 
 // 地形移動特性定義
-export interface TerrainMovementProperties {
+interface TerrainMovementProperties {
   readonly friction: number // 摩擦係数 (0.0-2.0)
   readonly speedModifier: number // 移動速度倍率 (0.1-2.0)
   readonly jumpHeightModifier: number // ジャンプ高さ倍率 (0.0-2.0)

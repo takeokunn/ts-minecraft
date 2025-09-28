@@ -2,7 +2,7 @@ import type { BlockTypeId } from '@domain/core/types/brands'
 import { it as effectIt, it } from '@effect/vitest'
 import { Effect, Match, pipe } from 'effect'
 import { describe, expect } from 'vitest'
-import { CollisionDetection } from '../CollisionDetection'
+import { CollisionDetection } from '../system/collision_detection'
 import type { AABB } from '../types'
 
 describe('CollisionDetection', () => {

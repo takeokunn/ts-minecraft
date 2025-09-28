@@ -1,8 +1,8 @@
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import { Gravity } from '../Gravity'
-import { PHYSICS_CONSTANTS } from '../types'
+import { Gravity } from '../system/gravity'
+import { PHYSICS_CONSTANTS } from '../constant'
 
 describe('Gravity System', () => {
   describe('apply', () => {

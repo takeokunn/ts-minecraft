@@ -1,7 +1,7 @@
 import type { BlockTypeId } from '@domain/core/types/brands'
 import type { Vector3D } from '@domain/core/types/spatial'
 import { Context, Effect, Layer, pipe, Ref } from 'effect'
-import { CannonPhysicsService } from './CannonPhysicsService'
+import { CannonPhysicsService } from './cannon'
 
 /**
  * World Collision Service
@@ -36,7 +36,7 @@ export interface RaycastHit {
 }
 
 // 衝突検知結果
-export interface CollisionResult {
+interface CollisionResult {
   readonly hasCollision: boolean
   readonly blocks: Array<{
     readonly id: string

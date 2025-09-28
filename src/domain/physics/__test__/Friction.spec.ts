@@ -2,8 +2,8 @@ import type { BlockTypeId } from '@domain/core/types/brands'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import { Friction } from '../Friction'
-import { BLOCK_FRICTION } from '../types'
+import { Friction } from '../system/friction'
+import { BLOCK_FRICTION } from '../constant'
 
 describe('Friction System', () => {
   describe('getFrictionCoefficient', () => {

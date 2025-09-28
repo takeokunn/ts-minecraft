@@ -1,7 +1,7 @@
 import type { BlockTypeId } from '@domain/core/types/brands'
 import { Effect, Match, Option, pipe, Stream } from 'effect'
-import type { Vector3 } from '../world/types'
-import type { AABB, CollisionResult } from './types'
+import type { Vector3 } from '../../world/types'
+import type { AABB, CollisionResult } from '../types'
 
 /**
  * AABB衝突検出システム

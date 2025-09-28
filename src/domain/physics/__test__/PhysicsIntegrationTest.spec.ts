@@ -6,10 +6,7 @@ import type { Player } from '../../entities/Player'
 import { DEFAULT_PLAYER_ABILITIES, DEFAULT_PLAYER_STATS } from '../../entities/Player'
 import { MovementInputService } from '../../input/MovementInputService'
 import { EnhancedPlayerMovementService } from '../../player/EnhancedPlayerMovementService'
-import { CannonPhysicsService } from '../CannonPhysicsService'
-import { PhysicsPerformanceService } from '../PhysicsPerformanceService'
-import { PlayerPhysicsService } from '../PlayerPhysicsService'
-import { TerrainAdaptationService } from '../TerrainAdaptationService'
+import { CannonPhysicsService, PhysicsPerformanceService, PlayerPhysicsService, TerrainAdaptationService } from '../service'
 
 /**
  * Physics Integration Tests
