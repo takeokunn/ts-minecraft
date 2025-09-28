@@ -9,14 +9,16 @@ import { Effect, Exit, Layer, Match, pipe, TestContext } from 'effect'
 import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
 import {
-  CameraConfig,
   CameraService,
+} from '../service'
+import {
   createCameraError,
-  DEFAULT_CAMERA_CONFIG,
   validateCameraConfig,
   validateCameraMode,
-  validateCameraState,
-} from '../CameraService'
+  validateCameraState
+} from '../helper'
+import { CameraConfig } from '../types'
+import { DEFAULT_CAMERA_CONFIG } from '../constant'
 
 // ================================================================================
 // Predicate Functions - Type Guards

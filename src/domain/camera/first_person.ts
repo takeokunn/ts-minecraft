@@ -1,18 +1,15 @@
 import * as Schema from '@effect/schema/Schema'
 import { Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import * as THREE from 'three'
-import type { Vector3 } from './CameraService'
+import { Vector3Schema } from './types'
+import type { Vector3, CameraConfig, CameraState, CameraError } from './types'
+import { CameraService } from './service'
+import { DEFAULT_CAMERA_CONFIG } from './constant'
 import {
-  CameraConfig,
-  CameraError,
-  CameraService,
-  CameraState,
   createCameraError,
-  DEFAULT_CAMERA_CONFIG,
   validateCameraConfig,
   validateCameraMode,
-  Vector3Schema,
-} from './CameraService'
+} from './helper'
 
 /**
  * 一人称カメラの内部状態

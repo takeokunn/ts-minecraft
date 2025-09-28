@@ -1,25 +1,5 @@
-// カメラシステムのメインエクスポート
-export {
-  CameraConfig,
-  CameraError,
-  CameraMode,
-  // CameraService
-  CameraService,
-  CameraState,
-  DEFAULT_CAMERA_CONFIG,
-} from './CameraService'
-
-export {
-  // FirstPersonCamera
-  FirstPersonCameraLive,
-} from './FirstPersonCamera'
-
-export {
-  // ThirdPersonCamera
-  ThirdPersonCameraLive,
-} from './ThirdPersonCamera'
-
-export {
-  // CameraSystemLive
-  CameraSystemLive,
-} from './CameraSystemLive'
+export * from './service'
+export * from './live'
+export * from './first_person'
+export * from './third_person'
+export * from './player'
