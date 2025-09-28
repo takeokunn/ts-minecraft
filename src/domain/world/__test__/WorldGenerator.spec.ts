@@ -6,19 +6,15 @@ import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { describe, expect } from 'vitest'
 import { type ChunkPosition } from '../../chunk/ChunkPosition'
-import { BiomeGeneratorLive } from '../BiomeGenerator'
-import { CaveGeneratorLive } from '../CaveGenerator'
-import {
-  createWorldGenerator,
-  GenerationError,
-  StructureGenerationError,
-  type GeneratorOptions,
-  type StructureType,
-  type Vector3,
-} from '../index'
-import { NoiseGeneratorLive } from '../NoiseGenerator'
-import { defaultOreConfigs, OreDistributionLive } from '../OreDistribution'
-import { TerrainGeneratorLive } from '../TerrainGenerator'
+import { BiomeGeneratorLive } from '../generator/biome'
+import { CaveGeneratorLive } from '../generator/cave'
+import { StructureGenerationError, GenerationError } from '../generator/base'
+import type { Vector3 } from '../types'
+import { StructureType, type GeneratorOptions } from '../options'
+import { createWorldGenerator } from '../create'
+import { NoiseGeneratorLive } from '../generator/noise'
+import { defaultOreConfigs, OreDistributionLive } from '../generator/ore'
+import { TerrainGeneratorLive } from '../generator/terrian'
 
 // ================================================================================
 // Test Layers - Layer-based DI Pattern

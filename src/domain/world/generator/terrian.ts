@@ -2,11 +2,11 @@ import type { WorldCoordinate } from '@domain/core/types/brands'
 import { BrandedTypes, Height } from '@domain/core/types/brands'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { ChunkData } from '../chunk/ChunkData'
-import { getBlockIndex as getChunkBlockIndex } from '../chunk/ChunkData'
-import type { ChunkPosition } from '../chunk/ChunkPosition'
-import type { NoiseGenerator } from './NoiseGenerator'
-import { NoiseGeneratorTag } from './NoiseGenerator'
+import type { ChunkData } from '../../chunk/ChunkData'
+import { getBlockIndex as getChunkBlockIndex } from '../../chunk/ChunkData'
+import type { ChunkPosition } from '../../chunk/ChunkPosition'
+import type { NoiseGenerator } from './noise'
+import { NoiseGeneratorTag } from './noise'
 
 /**
  * 地形生成の設定

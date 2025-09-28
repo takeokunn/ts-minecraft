@@ -10,7 +10,7 @@ import {
   NoiseGeneratorTag,
   type NoiseConfig,
   type NoiseGenerator,
-} from '../NoiseGenerator'
+} from '../generator/noise'
 
 /**
  * NoiseGenerator専用のテストヘルパー

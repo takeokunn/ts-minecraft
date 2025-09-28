@@ -6,10 +6,10 @@
 
 import { Schema } from '@effect/schema'
 import { Context, Effect, Predicate } from 'effect'
-import type { ChunkPosition } from '../chunk/ChunkPosition'
-import type { ChunkData } from '../chunk/index'
-import type { GeneratorOptions, StructureType } from './GeneratorOptions'
-import type { BiomeInfo, BiomeType, Structure, Vector3 } from './types'
+import type { ChunkPosition } from '../../chunk/ChunkPosition'
+import type { ChunkData } from '../../chunk/index'
+import type { GeneratorOptions, StructureType } from '../options'
+import type { BiomeInfo, BiomeType, Structure, Vector3 } from '../types'
 
 /**
  * ワールド生成エラーの定義

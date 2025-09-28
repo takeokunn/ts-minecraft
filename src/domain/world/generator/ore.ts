@@ -1,10 +1,10 @@
 import { BrandedTypes } from '@domain/core/types/brands'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer, Match, Option, pipe, Stream } from 'effect'
-import type { ChunkData } from '../chunk/ChunkData'
-import type { NoiseGenerator } from './NoiseGenerator'
-import { NoiseGeneratorTag } from './NoiseGenerator'
-import type { Vector3 } from './types'
+import type { ChunkData } from '../../chunk/ChunkData'
+import type { NoiseGenerator } from './noise'
+import { NoiseGeneratorTag } from './noise'
+import type { Vector3 } from '../types'
 
 /**
  * 鉱石の種類
