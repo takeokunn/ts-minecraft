@@ -3,9 +3,9 @@ import { it } from '@effect/vitest'
 import { Effect, Layer, pipe } from 'effect'
 import * as Match from 'effect/Match'
 import { describe, expect } from 'vitest'
-import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../errors'
-import { GameLoopService } from '../services/GameLoopService'
-import type { FrameInfo, GameLoopConfig } from '../types/types'
+import { GameLoopInitError, GameLoopPerformanceError, GameLoopRuntimeError, GameLoopStateError } from '../types'
+import { GameLoopService } from '../service'
+import type { FrameInfo, GameLoopConfig } from '../types'
 
 describe('GameLoopService', () => {
   // Mock GameLoopService for testing the interface contract

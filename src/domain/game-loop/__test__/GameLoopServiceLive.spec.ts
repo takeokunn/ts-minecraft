@@ -1,9 +1,9 @@
 import { BrandedTypes } from '@domain/core/types/brands'
 import { afterEach, beforeEach, describe, expect, it, vi } from '@effect/vitest'
 import { Effect, Either, Option, pipe } from 'effect'
-import { GameLoopService } from '../services/GameLoopService'
-import { GameLoopServiceLive } from '../services/GameLoopServiceLive'
-import type { FrameInfo, GameLoopConfig } from '../types/types'
+import { GameLoopService } from '../service'
+import { GameLoopServiceLive } from '../live'
+import type { FrameInfo, GameLoopConfig } from '../types'
 
 describe('GameLoopServiceLive', () => {
   // Mock requestAnimationFrame for testing
