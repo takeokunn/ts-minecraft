@@ -1,4 +1,4 @@
-import { Context, Effect, HashMap, Layer, Match, pipe } from 'effect'
+import { Effect, Layer, Match, pipe } from 'effect'
 import {
   CraftingRecipe,
   DuplicateRecipeError,
@@ -7,56 +7,7 @@ import {
   RecipeId,
   RecipeNotFoundError,
 } from '../types'
-
-/**
- * Recipe Registry Service
- *
- * レシピの登録・検索・管理を行う中央レジストリ
- */
-
-// ===== Service Interface =====
-
-export interface RecipeRegistryService {
-  readonly register: (recipe: CraftingRecipe) => Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError>
-
-  readonly unregister: (recipeId: RecipeId) => Effect.Effect<void, RecipeNotFoundError>
-
-  readonly getById: (recipeId: RecipeId) => Effect.Effect<CraftingRecipe, RecipeNotFoundError>
-
-  readonly getByCategory: (category: RecipeCategory) => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
-
-  readonly getAllRecipes: () => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
-
-  readonly getRecipeCount: () => Effect.Effect<number, never>
-
-  readonly hasRecipe: (recipeId: RecipeId) => Effect.Effect<boolean, never>
-
-  readonly validateAndRegister: (
-    recipe: CraftingRecipe
-  ) => Effect.Effect<void, DuplicateRecipeError | InvalidRecipeError>
-
-  readonly getRecipesByResult: (itemId: string) => Effect.Effect<ReadonlyArray<CraftingRecipe>, never>
-}
-
-export const RecipeRegistryService = Context.GenericTag<RecipeRegistryService>(
-  '@minecraft/domain/RecipeRegistryService'
-)
-
-// ===== Registry State =====
-
-interface RegistryState {
-  readonly recipes: HashMap.HashMap<RecipeId, CraftingRecipe>
-  readonly byCategory: HashMap.HashMap<string, ReadonlyArray<CraftingRecipe>>
-  readonly byResult: HashMap.HashMap<string, ReadonlyArray<CraftingRecipe>>
-}
-
-const createEmptyState = (): RegistryState => ({
-  recipes: HashMap.empty(),
-  byCategory: HashMap.empty(),
-  byResult: HashMap.empty(),
-})
-
-// ===== Service Implementation =====
+import { RecipeRegistryService } from './service'
 
 export const RecipeRegistryServiceLive = Layer.effect(
   RecipeRegistryService,
