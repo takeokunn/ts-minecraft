@@ -24,7 +24,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@effect/platform": "^0.90.10",
     "@effect/schema": "^0.75.5",
-    "@types/react": "^19.1.13",
+    "@types/react": "^19.1.15",
     "@types/react-dom": "^19.1.9",
     "cannon-es": "^0.20.0",
     "effect": "^3.17.14",
