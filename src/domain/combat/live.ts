@@ -1,14 +1,19 @@
 import { Context, Effect, HashMap, Layer, Random, Ref } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 import { pipe } from 'effect/Function'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
-  AttackCommand,
-  AttackContext,
-  resolveAttack,
-  decayCooldowns,
-} from './service'
+  CombatSession,
+  CombatSessionBlueprint,
+  Combatant,
+  CombatantBlueprint,
+  createSession as createCombatSession,
+  createCombatant,
+  insertCombatant,
+} from './model'
+import { AttackCommand, AttackContext, decayCooldowns, resolveAttack } from './service'
 import {
   CombatDomainError,
+  CombatError,
   CombatEvent,
   CombatantId,
   SessionId,
@@ -16,21 +21,9 @@ import {
   makeCooldown,
   makeCriticalChance,
 } from './types'
-import {
-  CombatSession,
-  Combatant,
-  CombatSessionBlueprint,
-  CombatantBlueprint,
-  createCombatant,
-  createSession as createCombatSession,
-  insertCombatant,
-} from './model'
-import { CombatError } from './types'
 
 export interface CombatService {
-  readonly createSession: (
-    blueprint: CombatSessionBlueprint
-  ) => Effect.Effect<SessionId, CombatDomainError>
+  readonly createSession: (blueprint: CombatSessionBlueprint) => Effect.Effect<SessionId, CombatDomainError>
   readonly registerCombatant: (
     sessionId: SessionId,
     blueprint: CombatantBlueprint
@@ -43,27 +36,18 @@ export interface CombatService {
     sessionId: SessionId,
     elapsedMilliseconds: number
   ) => Effect.Effect<void, CombatDomainError>
-  readonly getCombatant: (
-    sessionId: SessionId,
-    combatantId: CombatantId
-  ) => Effect.Effect<Combatant, CombatDomainError>
-  readonly timeline: (
-    sessionId: SessionId
-  ) => Effect.Effect<ReadonlyArray<CombatEvent>, CombatDomainError>
+  readonly getCombatant: (sessionId: SessionId, combatantId: CombatantId) => Effect.Effect<Combatant, CombatDomainError>
+  readonly timeline: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<CombatEvent>, CombatDomainError>
 }
 
-export const CombatServiceTag = Context.GenericTag<CombatService>(
-  '@domain/combat/CombatService'
-)
+export const CombatServiceTag = Context.GenericTag<CombatService>('@domain/combat/CombatService')
 
 export const CombatServiceLive = Layer.effect(
   CombatServiceTag,
   Effect.gen(function* () {
     const stateRef = yield* Ref.make(HashMap.empty<SessionId, CombatSession>())
 
-    const getSession = (
-      sessionId: SessionId
-    ): Effect.Effect<CombatSession, CombatDomainError> =>
+    const getSession = (sessionId: SessionId): Effect.Effect<CombatSession, CombatDomainError> =>
       Ref.get(stateRef).pipe(
         Effect.flatMap((state) =>
           pipe(
@@ -75,9 +59,7 @@ export const CombatServiceLive = Layer.effect(
 
     const modifySession = <A>(
       sessionId: SessionId,
-      fn: (
-        session: CombatSession
-      ) => Effect.Effect<readonly [A, CombatSession], CombatDomainError>
+      fn: (session: CombatSession) => Effect.Effect<readonly [A, CombatSession], CombatDomainError>
     ): Effect.Effect<A, CombatDomainError> =>
       Ref.modifyEffect(stateRef, (state) =>
         pipe(
@@ -87,10 +69,7 @@ export const CombatServiceLive = Layer.effect(
             fn(session).pipe(
               Effect.map(([result, nextSession]) => {
                 const nextState = HashMap.set(state, sessionId, nextSession)
-                return [result, nextState] satisfies readonly [
-                  A,
-                  HashMap.HashMap<SessionId, CombatSession>
-                ]
+                return [result, nextState] satisfies readonly [A, HashMap.HashMap<SessionId, CombatSession>]
               })
             )
           )
@@ -104,10 +83,7 @@ export const CombatServiceLive = Layer.effect(
         return session.id
       })
 
-    const registerCombatant: CombatService['registerCombatant'] = (
-      sessionId,
-      blueprint
-    ) =>
+    const registerCombatant: CombatService['registerCombatant'] = (sessionId, blueprint) =>
       modifySession(sessionId, (session) =>
         Effect.gen(function* () {
           const combatant = yield* createCombatant(blueprint)
@@ -116,10 +92,7 @@ export const CombatServiceLive = Layer.effect(
         })
       )
 
-    const executeAttack: CombatService['executeAttack'] = (
-      sessionId,
-      command
-    ) =>
+    const executeAttack: CombatService['executeAttack'] = (sessionId, command) =>
       modifySession(sessionId, (session) =>
         Effect.gen(function* () {
           const randomValue = yield* Random.next
@@ -127,17 +100,11 @@ export const CombatServiceLive = Layer.effect(
           const timestamp = yield* currentTimestamp
           const context: AttackContext = { timestamp, criticalRoll: roll }
           const outcome = yield* resolveAttack(session, command, context)
-          return [outcome.event, outcome.session] satisfies readonly [
-            CombatEvent,
-            CombatSession
-          ]
+          return [outcome.event, outcome.session] satisfies readonly [CombatEvent, CombatSession]
         })
       )
 
-    const advanceCooldowns: CombatService['advanceCooldowns'] = (
-      sessionId,
-      elapsedMilliseconds
-    ) =>
+    const advanceCooldowns: CombatService['advanceCooldowns'] = (sessionId, elapsedMilliseconds) =>
       modifySession(sessionId, (session) =>
         Effect.gen(function* () {
           const elapsed = yield* makeCooldown(elapsedMilliseconds)

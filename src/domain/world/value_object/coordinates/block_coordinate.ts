@@ -5,10 +5,9 @@
  * ワールド座標との完全な変換保証とブロック境界の厳密な管理
  */
 
-import { Schema } from 'effect'
-import { Brand } from 'effect'
-import { taggedUnion } from '../../utils/schema'
 import type { Brand as BrandType } from 'effect'
+import { Schema } from 'effect'
+import { taggedUnion } from '../../utils/schema'
 
 /**
  * ブロック座標系のBrand型
@@ -22,11 +21,11 @@ export type BlockZ = number & BrandType.Brand<'BlockZ'>
  */
 export const BLOCK_COORDINATE_LIMITS = {
   MIN_X: -30000000,
-  MAX_X: 29999999,  // 包括的上限
+  MAX_X: 29999999, // 包括的上限
   MIN_Y: -2048,
   MAX_Y: 2047,
   MIN_Z: -30000000,
-  MAX_Z: 29999999
+  MAX_Z: 29999999,
 } as const
 
 /**
@@ -41,7 +40,7 @@ export const BlockXSchema = Schema.Number.pipe(
     identifier: 'BlockX',
     title: 'Block X Coordinate',
     description: 'X coordinate of individual block in world',
-    examples: [0, 100, -50, 12345]
+    examples: [0, 100, -50, 12345],
   })
 )
 
@@ -57,7 +56,7 @@ export const BlockYSchema = Schema.Number.pipe(
     identifier: 'BlockY',
     title: 'Block Y Coordinate',
     description: 'Y coordinate (height) of individual block',
-    examples: [0, 64, 128, 256, -64]
+    examples: [0, 64, 128, 256, -64],
   })
 )
 
@@ -73,7 +72,7 @@ export const BlockZSchema = Schema.Number.pipe(
     identifier: 'BlockZ',
     title: 'Block Z Coordinate',
     description: 'Z coordinate of individual block in world',
-    examples: [0, 100, -50, 12345]
+    examples: [0, 100, -50, 12345],
   })
 )
 
@@ -83,12 +82,12 @@ export const BlockZSchema = Schema.Number.pipe(
 export const BlockCoordinateSchema = Schema.Struct({
   x: BlockXSchema,
   y: BlockYSchema,
-  z: BlockZSchema
+  z: BlockZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'BlockCoordinate',
     title: 'Block 3D Coordinate',
-    description: 'Precise coordinate of individual block in world space'
+    description: 'Precise coordinate of individual block in world space',
   })
 )
 
@@ -99,12 +98,12 @@ export type BlockCoordinate = typeof BlockCoordinateSchema.Type
  */
 export const BlockCoordinate2DSchema = Schema.Struct({
   x: BlockXSchema,
-  z: BlockZSchema
+  z: BlockZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'BlockCoordinate2D',
     title: 'Block 2D Coordinate',
-    description: '2D coordinate of block in X-Z plane'
+    description: '2D coordinate of block in X-Z plane',
   })
 )
 
@@ -113,12 +112,10 @@ export type BlockCoordinate2D = typeof BlockCoordinate2DSchema.Type
 /**
  * ブロック面方向
  */
-export const BlockFaceSchema = Schema.Literal(
-  'north', 'south', 'east', 'west', 'up', 'down'
-).pipe(
+export const BlockFaceSchema = Schema.Literal('north', 'south', 'east', 'west', 'up', 'down').pipe(
   Schema.annotations({
     title: 'Block Face',
-    description: 'The six faces of a cubic block'
+    description: 'The six faces of a cubic block',
   })
 )
 
@@ -130,12 +127,12 @@ export type BlockFace = typeof BlockFaceSchema.Type
 export const BlockRelativePositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.between(0, 1)),
   y: Schema.Number.pipe(Schema.between(0, 1)),
-  z: Schema.Number.pipe(Schema.between(0, 1))
+  z: Schema.Number.pipe(Schema.between(0, 1)),
 }).pipe(
   Schema.annotations({
     identifier: 'BlockRelativePosition',
     title: 'Block Relative Position',
-    description: 'Relative position within a block (0.0 to 1.0 for each axis)'
+    description: 'Relative position within a block (0.0 to 1.0 for each axis)',
   })
 )
 
@@ -146,12 +143,12 @@ export type BlockRelativePosition = typeof BlockRelativePositionSchema.Type
  */
 export const DetailedBlockPositionSchema = Schema.Struct({
   block: BlockCoordinateSchema,
-  relative: BlockRelativePositionSchema
+  relative: BlockRelativePositionSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'DetailedBlockPosition',
     title: 'Detailed Block Position',
-    description: 'Precise position combining block coordinate and relative offset'
+    description: 'Precise position combining block coordinate and relative offset',
   })
 )
 
@@ -162,12 +159,12 @@ export type DetailedBlockPosition = typeof DetailedBlockPositionSchema.Type
  */
 export const BlockRangeSchema = Schema.Struct({
   min: BlockCoordinateSchema,
-  max: BlockCoordinateSchema
+  max: BlockCoordinateSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'BlockRange',
     title: 'Block Range',
-    description: 'Rectangular region defined by minimum and maximum block coordinates'
+    description: 'Rectangular region defined by minimum and maximum block coordinates',
   })
 )
 
@@ -179,7 +176,7 @@ export type BlockRange = typeof BlockRangeSchema.Type
 export const CreateBlockCoordinateParamsSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export type CreateBlockCoordinateParams = typeof CreateBlockCoordinateParamsSchema.Type
@@ -194,19 +191,19 @@ export const BlockCoordinateErrorSchema = taggedUnion('_tag', [
     value: Schema.Number,
     min: Schema.Number,
     max: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidBlockCoordinate'),
     coordinate: Schema.Unknown,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidBlockRange'),
     range: Schema.Unknown,
     reason: Schema.String,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type BlockCoordinateError = typeof BlockCoordinateErrorSchema.Type
@@ -221,11 +218,11 @@ export const NeighborPatternSchema = Schema.Literal(
   'manhattan_1', // マンハッタン距離1
   'manhattan_2', // マンハッタン距離2
   'euclidean_1', // ユークリッド距離1
-  'euclidean_2'  // ユークリッド距離2
+  'euclidean_2' // ユークリッド距離2
 ).pipe(
   Schema.annotations({
     title: 'Neighbor Pattern',
-    description: 'Pattern for selecting neighboring blocks'
+    description: 'Pattern for selecting neighboring blocks',
   })
 )
 
@@ -237,12 +234,12 @@ export type NeighborPattern = typeof NeighborPatternSchema.Type
 export const BlockNeighborhoodSchema = Schema.Struct({
   center: BlockCoordinateSchema,
   pattern: NeighborPatternSchema,
-  neighbors: Schema.Array(BlockCoordinateSchema)
+  neighbors: Schema.Array(BlockCoordinateSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'BlockNeighborhood',
     title: 'Block Neighborhood',
-    description: 'Collection of neighboring blocks around a center block'
+    description: 'Collection of neighboring blocks around a center block',
   })
 )
 

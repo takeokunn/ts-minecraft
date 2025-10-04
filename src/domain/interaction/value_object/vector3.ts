@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Either, Effect } from 'effect'
+import { Data, Effect, Either } from 'effect'
 import { pipe } from 'effect/Function'
 
 const ComponentSchema = Schema.Number.pipe(
@@ -38,19 +38,12 @@ const toSchemaViolation = (error: Schema.ParseError) =>
   Vector3Error.SchemaViolation({ message: formatParseError(error) })
 
 export const fromNumbers = (x: number, y: number, z: number) =>
-  pipe(
-    Schema.decode(Vector3Schema)({ x, y, z }),
-    Effect.mapError(toSchemaViolation)
-  )
+  pipe(Schema.decode(Vector3Schema)({ x, y, z }), Effect.mapError(toSchemaViolation))
 
 export const fromNumbersEither = (x: number, y: number, z: number) =>
-  pipe(
-    Schema.decodeEither(Vector3Schema)({ x, y, z }),
-    Either.mapLeft(toSchemaViolation)
-  )
+  pipe(Schema.decodeEither(Vector3Schema)({ x, y, z }), Either.mapLeft(toSchemaViolation))
 
-export const magnitude = (vector: Vector3) =>
-  Effect.succeed(Math.hypot(vector.x, vector.y, vector.z))
+export const magnitude = (vector: Vector3) => Effect.succeed(Math.hypot(vector.x, vector.y, vector.z))
 
 const ensureNonZeroMagnitude = (length: number) =>
   pipe(
@@ -74,8 +67,7 @@ export const normalize = (vector: Vector3) =>
     Effect.mapError(toSchemaViolation)
   )
 
-export const dot = (a: Vector3, b: Vector3) =>
-  Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z)
+export const dot = (a: Vector3, b: Vector3) => Effect.succeed(a.x * b.x + a.y * b.y + a.z * b.z)
 
 export const translate = (origin: Vector3, offset: Vector3) =>
   pipe(

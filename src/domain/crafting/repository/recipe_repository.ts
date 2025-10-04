@@ -9,9 +9,7 @@ export interface RecipeRepository {
   readonly list: () => Effect.Effect<ReadonlyArray<RecipeAggregate>, never>
 }
 
-export const RecipeRepository = Context.GenericTag<RecipeRepository>(
-  '@minecraft/domain/crafting/RecipeRepository'
-)
+export const RecipeRepository = Context.GenericTag<RecipeRepository>('@minecraft/domain/crafting/RecipeRepository')
 
 export const RecipeRepositoryLive = Layer.scoped(
   RecipeRepository,

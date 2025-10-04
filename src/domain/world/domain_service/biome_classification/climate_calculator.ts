@@ -6,24 +6,10 @@
  * 温度・湿度・降水量・日照時間の複合的解析
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate2D,
-  WorldCoordinate3D,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  TemperatureRange,
-} from '../../value_object/biome_properties/temperature_range.js'
-import type {
-  HumidityLevels,
-} from '../../value_object/biome_properties/humidity_levels.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { WorldCoordinate2D } from '../../value_object/coordinates/world_coordinate.js'
+import type { WorldSeed } from '../../value_object/world_seed/seed.js'
 
 /**
  * 気候データスキーマ
@@ -48,13 +34,8 @@ export const ClimateDataSchema = Schema.Struct({
 
   // 高度な気候指標
   coordinate: Schema.Unknown, // WorldCoordinate2D
-  elevation: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-2048, 2047)
-  ),
-  latitude: Schema.Number.pipe(
-    Schema.between(-90, 90)
-  ).pipe(Schema.optional),
+  elevation: Schema.Number.pipe(Schema.finite(), Schema.between(-2048, 2047)),
+  latitude: Schema.Number.pipe(Schema.between(-90, 90)).pipe(Schema.optional),
 
   // 季節変動
   temperatureAmplitude: Schema.Number.pipe(
@@ -77,31 +58,22 @@ export const ClimateDataSchema = Schema.Struct({
   ),
 
   // 生態学的指標
-  growingDegreeDays: Schema.Number.pipe(
-    Schema.nonNegative()
-  ),
-  frostFreeDays: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(0, 365)
-  ),
-  potentialEvapotranspiration: Schema.Number.pipe(
-    Schema.nonNegative()
-  ),
+  growingDegreeDays: Schema.Number.pipe(Schema.nonNegative()),
+  frostFreeDays: Schema.Number.pipe(Schema.int(), Schema.between(0, 365)),
+  potentialEvapotranspiration: Schema.Number.pipe(Schema.nonNegative()),
 
   // メタデータ
-  dataQuality: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
+  dataQuality: Schema.Number.pipe(Schema.between(0, 1)),
   computationMetadata: Schema.Struct({
     calculationTime: Schema.Number.pipe(Schema.optional),
     algorithmVersion: Schema.String.pipe(Schema.optional),
-    noiseInfluence: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    noiseInfluence: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'ClimateData',
     title: 'Climate Data',
-    description: 'Comprehensive climate information for biome classification'
+    description: 'Comprehensive climate information for biome classification',
   })
 )
 
@@ -113,11 +85,37 @@ export type ClimateData = typeof ClimateDataSchema.Type
 export const ClimateClassificationSchema = Schema.Struct({
   // Köppen-Geiger分類
   koppenClass: Schema.Literal(
-    'Af', 'Am', 'Aw', 'As', // 熱帯
-    'BWh', 'BWk', 'BSh', 'BSk', // 乾燥
-    'Cfa', 'Cfb', 'Cfc', 'Csa', 'Csb', 'Csc', 'Cwa', 'Cwb', 'Cwc', // 温帯
-    'Dfa', 'Dfb', 'Dfc', 'Dfd', 'Dsa', 'Dsb', 'Dsc', 'Dsd', 'Dwa', 'Dwb', 'Dwc', 'Dwd', // 冷帯
-    'ET', 'EF' // 寒帯
+    'Af',
+    'Am',
+    'Aw',
+    'As', // 熱帯
+    'BWh',
+    'BWk',
+    'BSh',
+    'BSk', // 乾燥
+    'Cfa',
+    'Cfb',
+    'Cfc',
+    'Csa',
+    'Csb',
+    'Csc',
+    'Cwa',
+    'Cwb',
+    'Cwc', // 温帯
+    'Dfa',
+    'Dfb',
+    'Dfc',
+    'Dfd',
+    'Dsa',
+    'Dsb',
+    'Dsc',
+    'Dsd',
+    'Dwa',
+    'Dwb',
+    'Dwc',
+    'Dwd', // 冷帯
+    'ET',
+    'EF' // 寒帯
   ),
 
   // Whittaker生物群系
@@ -135,21 +133,17 @@ export const ClimateClassificationSchema = Schema.Struct({
   ),
 
   // 信頼性指標
-  confidence: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
-  ambiguity: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
+  confidence: Schema.Number.pipe(Schema.between(0, 1)),
+  ambiguity: Schema.Number.pipe(Schema.between(0, 1)),
 
   // 境界条件
-  borderDistance: Schema.Number.pipe(
-    Schema.nonNegative()
+  borderDistance: Schema.Number.pipe(Schema.nonNegative()).pipe(Schema.optional),
+  alternativeClassifications: Schema.Array(
+    Schema.Struct({
+      classification: Schema.String,
+      probability: Schema.Number.pipe(Schema.between(0, 1)),
+    })
   ).pipe(Schema.optional),
-  alternativeClassifications: Schema.Array(Schema.Struct({
-    classification: Schema.String,
-    probability: Schema.Number.pipe(Schema.between(0, 1))
-  })).pipe(Schema.optional),
 
   // 入力データ
   climateData: ClimateDataSchema,
@@ -160,13 +154,13 @@ export const ClimateClassificationSchema = Schema.Struct({
     precipitationFactor: Schema.Number.pipe(Schema.between(0, 1)),
     seasonalityFactor: Schema.Number.pipe(Schema.between(0, 1)),
     elevationAdjustment: Schema.Number.pipe(Schema.finite()),
-    uncertaintyFactors: Schema.Array(Schema.String).pipe(Schema.optional)
-  })
+    uncertaintyFactors: Schema.Array(Schema.String).pipe(Schema.optional),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'ClimateClassification',
     title: 'Climate Classification',
-    description: 'Complete climate classification with confidence metrics'
+    description: 'Complete climate classification with confidence metrics',
   })
 )
 
@@ -191,9 +185,7 @@ export interface ClimateCalculatorService {
   /**
    * 気候データに基づくバイオーム分類
    */
-  readonly classifyClimate: (
-    climateData: ClimateData
-  ) => Effect.Effect<ClimateClassification, GenerationError>
+  readonly classifyClimate: (climateData: ClimateData) => Effect.Effect<ClimateClassification, GenerationError>
 
   /**
    * 季節変動を考慮した気候計算
@@ -236,12 +228,15 @@ export interface ClimateCalculatorService {
     coordinate: WorldCoordinate2D,
     elevation: number,
     season: number // 0-3
-  ) => Effect.Effect<{
-    windSpeed: number
-    windDirection: number
-    precipitationModifier: number
-    temperatureModifier: number
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      windSpeed: number
+      windDirection: number
+      precipitationModifier: number
+      temperatureModifier: number
+    },
+    GenerationError
+  >
 
   /**
    * 気候境界の検出
@@ -250,11 +245,14 @@ export interface ClimateCalculatorService {
     centerCoordinate: WorldCoordinate2D,
     searchRadius: number,
     seed: WorldSeed
-  ) => Effect.Effect<ReadonlyArray<{
-    coordinate: WorldCoordinate2D
-    boundaryType: string
-    sharpness: number
-  }>, GenerationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      coordinate: WorldCoordinate2D
+      boundaryType: string
+      sharpness: number
+    }>,
+    GenerationError
+  >
 
   /**
    * 気候安定性の評価
@@ -263,11 +261,14 @@ export interface ClimateCalculatorService {
     coordinate: WorldCoordinate2D,
     timespan: number, // 年数
     seed: WorldSeed
-  ) => Effect.Effect<{
-    stability: number
-    variability: number
-    trends: ReadonlyArray<string>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      stability: number
+      variability: number
+      trends: ReadonlyArray<string>
+    },
+    GenerationError
+  >
 }
 
 /**
@@ -300,11 +301,7 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         const humidity = yield* calculateHumidity(baseTemperature, precipitation, elevation)
 
         // 4. 蒸発散量の計算（Penman-Monteith式）
-        const evapotranspiration = yield* calculateEvapotranspiration(
-          baseTemperature,
-          humidity,
-          elevation
-        )
+        const evapotranspiration = yield* calculateEvapotranspiration(baseTemperature, humidity, elevation)
 
         // 5. 高度な気候指標の計算
         const temperatureAmplitude = yield* calculateTemperatureAmplitude(coordinate, seed)
@@ -320,9 +317,7 @@ export const ClimateCalculatorServiceLive = Layer.effect(
 
         // 7. 生態学的指標
         const growingDegreeDays = Math.max(0, (baseTemperature - 5) * 365) // 積算温度
-        const frostFreeDays = Math.max(0, Math.min(365,
-          365 * (1 - Math.exp(-Math.max(0, baseTemperature + 5) / 10))
-        ))
+        const frostFreeDays = Math.max(0, Math.min(365, 365 * (1 - Math.exp(-Math.max(0, baseTemperature + 5) / 10))))
         const potentialEvapotranspiration = evapotranspiration * 1.2
 
         const calculationTime = performance.now() - startTime
@@ -346,8 +341,8 @@ export const ClimateCalculatorServiceLive = Layer.effect(
           computationMetadata: {
             calculationTime,
             algorithmVersion: 'v2.0',
-            noiseInfluence: 0.1
-          }
+            noiseInfluence: 0.1,
+          },
         } satisfies ClimateData
       }),
 
@@ -382,8 +377,8 @@ export const ClimateCalculatorServiceLive = Layer.effect(
             precipitationFactor: climateData.precipitation / 3000,
             seasonalityFactor: climateData.precipitationSeasonality,
             elevationAdjustment: climateData.elevation * 0.006, // 6°C/km
-            uncertaintyFactors: climateData.dataQuality < 0.8 ? ['low_data_quality'] : undefined
-          }
+            uncertaintyFactors: climateData.dataQuality < 0.8 ? ['low_data_quality'] : undefined,
+          },
         } satisfies ClimateClassification
       }),
 
@@ -393,28 +388,23 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         const baseClimate = yield* ClimateCalculatorService.calculateClimate(coordinate, elevation, seed)
 
         // 季節変動の適用
-        const seasonalFactor = Math.cos(2 * Math.PI * (dayOfYear - 172) / 365) // 夏至を基準
+        const seasonalFactor = Math.cos((2 * Math.PI * (dayOfYear - 172)) / 365) // 夏至を基準
 
         // 温度の季節変動
-        const seasonalTemperature = baseClimate.temperature +
-          seasonalFactor * baseClimate.temperatureAmplitude
+        const seasonalTemperature = baseClimate.temperature + seasonalFactor * baseClimate.temperatureAmplitude
 
         // 降水量の季節変動
-        const seasonalPrecipitation = baseClimate.precipitation *
-          (1 + seasonalFactor * baseClimate.precipitationSeasonality * 0.5)
+        const seasonalPrecipitation =
+          baseClimate.precipitation * (1 + seasonalFactor * baseClimate.precipitationSeasonality * 0.5)
 
         // 湿度の再計算
-        const seasonalHumidity = yield* calculateHumidity(
-          seasonalTemperature,
-          seasonalPrecipitation,
-          elevation
-        )
+        const seasonalHumidity = yield* calculateHumidity(seasonalTemperature, seasonalPrecipitation, elevation)
 
         return {
           ...baseClimate,
           temperature: seasonalTemperature,
           precipitation: seasonalPrecipitation,
-          humidity: seasonalHumidity
+          humidity: seasonalHumidity,
         }
       }),
 
@@ -429,16 +419,14 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         const adjustedPrecipitation = baseClimate.precipitation * precipitationMultiplier
 
         // 標高による湿度変化
-        const adjustedHumidity = Math.max(10, Math.min(100,
-          baseClimate.humidity * (1 - elevation * 0.00005)
-        ))
+        const adjustedHumidity = Math.max(10, Math.min(100, baseClimate.humidity * (1 - elevation * 0.00005)))
 
         return {
           ...baseClimate,
           temperature: adjustedTemperature,
           precipitation: adjustedPrecipitation,
           humidity: adjustedHumidity,
-          elevation
+          elevation,
         }
       }),
 
@@ -448,40 +436,37 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         const latitudeEffect = -Math.abs(latitude) * 0.4
 
         // 緯度による降水量パターン
-        const precipitationEffect = Math.cos(latitude * Math.PI / 180) * 0.5 + 0.5
+        const precipitationEffect = Math.cos((latitude * Math.PI) / 180) * 0.5 + 0.5
 
         return {
           ...baseClimate,
           temperature: baseClimate.temperature + latitudeEffect,
           precipitation: baseClimate.precipitation * precipitationEffect,
-          latitude
+          latitude,
         }
       }),
 
     calculateContinentality: (coordinate, distanceToOcean) =>
-      Effect.succeed(
-        Math.min(1, Math.max(0, (distanceToOcean - 100) / 1000))
-      ),
+      Effect.succeed(Math.min(1, Math.max(0, (distanceToOcean - 100) / 1000))),
 
     calculateWindEffects: (coordinate, elevation, season) =>
       Effect.gen(function* () {
         // 季節による風向・風速の変化
-        const seasonalWindDirection = (season * 90 +
-          Math.sin(coordinate.x * 0.001) * 30 +
-          Math.cos(coordinate.z * 0.001) * 30) % 360
+        const seasonalWindDirection =
+          (season * 90 + Math.sin(coordinate.x * 0.001) * 30 + Math.cos(coordinate.z * 0.001) * 30) % 360
 
         // 標高による風速増加
         const windSpeed = Math.max(1, 5 + elevation * 0.002 + Math.random() * 3)
 
         // 風による降水・温度修正
-        const precipitationModifier = 1 + Math.sin(seasonalWindDirection * Math.PI / 180) * 0.3
+        const precipitationModifier = 1 + Math.sin((seasonalWindDirection * Math.PI) / 180) * 0.3
         const temperatureModifier = -windSpeed * 0.1
 
         return {
           windSpeed,
           windDirection: seasonalWindDirection,
           precipitationModifier,
-          temperatureModifier
+          temperatureModifier,
         }
       }),
 
@@ -497,26 +482,28 @@ export const ClimateCalculatorServiceLive = Layer.effect(
 
         // 8方向での境界検出
         for (let angle = 0; angle < 360; angle += 45) {
-          const rad = angle * Math.PI / 180
+          const rad = (angle * Math.PI) / 180
           const testCoordinate: WorldCoordinate2D = {
             x: centerCoordinate.x + Math.cos(rad) * searchRadius,
-            z: centerCoordinate.z + Math.sin(rad) * searchRadius
+            z: centerCoordinate.z + Math.sin(rad) * searchRadius,
           }
 
           const testClimate = yield* ClimateCalculatorService.calculateClimate(testCoordinate, 0, seed)
           const testClassification = yield* ClimateCalculatorService.classifyClimate(testClimate)
 
           // 境界の検出
-          if (testClassification.koppenClass !== centerClassification.koppenClass ||
-              testClassification.whittakerBiome !== centerClassification.whittakerBiome) {
-
-            const sharpness = Math.abs(testClimate.temperature - centerClimate.temperature) / 10 +
-                            Math.abs(testClimate.precipitation - centerClimate.precipitation) / 1000
+          if (
+            testClassification.koppenClass !== centerClassification.koppenClass ||
+            testClassification.whittakerBiome !== centerClassification.whittakerBiome
+          ) {
+            const sharpness =
+              Math.abs(testClimate.temperature - centerClimate.temperature) / 10 +
+              Math.abs(testClimate.precipitation - centerClimate.precipitation) / 1000
 
             boundaries.push({
               coordinate: testCoordinate,
               boundaryType: `${centerClassification.koppenClass}_to_${testClassification.koppenClass}`,
-              sharpness
+              sharpness,
             })
           }
         }
@@ -533,21 +520,17 @@ export const ClimateCalculatorServiceLive = Layer.effect(
           const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
           const modifiedSeed = BigInt(Number(seed) + year)
 
-          const climate = yield* ClimateCalculatorService.calculateClimate(
-            coordinate,
-            0,
-            modifiedSeed as WorldSeed
-          )
+          const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed as WorldSeed)
 
           climateHistory.push({
             temperature: climate.temperature * (1 + yearlyVariation),
-            precipitation: climate.precipitation * (1 + yearlyVariation * 0.5)
+            precipitation: climate.precipitation * (1 + yearlyVariation * 0.5),
           })
         }
 
         // 安定性指標の計算
-        const tempVariation = calculateVariation(climateHistory.map(c => c.temperature))
-        const precVariation = calculateVariation(climateHistory.map(c => c.precipitation))
+        const tempVariation = calculateVariation(climateHistory.map((c) => c.temperature))
+        const precVariation = calculateVariation(climateHistory.map((c) => c.precipitation))
 
         const stability = 1 - (tempVariation + precVariation) / 2
         const variability = (tempVariation + precVariation) / 2
@@ -560,9 +543,9 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         return {
           stability,
           variability,
-          trends
+          trends,
         }
-      })
+      }),
   })
 )
 
@@ -739,14 +722,14 @@ const calculateAlternativeClassifications = (
 ): Effect.Effect<ReadonlyArray<{ classification: string; probability: number }>, GenerationError> =>
   Effect.succeed([
     { classification: 'alternative_1', probability: 0.2 },
-    { classification: 'alternative_2', probability: 0.1 }
+    { classification: 'alternative_2', probability: 0.1 },
   ])
 
 /**
  * 海洋距離の推定
  */
 const estimateDistanceToOcean = (coordinate: WorldCoordinate2D): number =>
-  Math.min(1000, Math.abs(coordinate.x % 2000 - 1000))
+  Math.min(1000, Math.abs((coordinate.x % 2000) - 1000))
 
 /**
  * 変動係数の計算
@@ -765,5 +748,5 @@ export const DEFAULT_CLIMATE_CONFIG = {
   precipitationNoiseFrequency: 0.0005,
   elevationLapseRate: 0.0065,
   oceanEffectRadius: 500,
-  continentalityThreshold: 1000
+  continentalityThreshold: 1000,
 } as const

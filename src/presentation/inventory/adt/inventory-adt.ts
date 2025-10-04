@@ -21,11 +21,7 @@ export const ItemIdSchema = Schema.String.pipe(
 export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
 export const parseItemId = decode(ItemIdSchema)
 
-export const SlotIndexSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('SlotIndex')
-)
+export const SlotIndexSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotIndex'))
 export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 export const parseSlotIndex = decode(SlotIndexSchema)
 export const slotIndexToNumber = (value: SlotIndex): number => value
@@ -35,13 +31,9 @@ export const SlotPositionSchema = Schema.Struct({
   y: Schema.Number,
 }).pipe(Schema.brand('SlotPosition'))
 export interface SlotPosition extends Schema.Schema.Type<typeof SlotPositionSchema> {}
-export const slotPositionFromCoordinates = (x: number, y: number) =>
-  decode(SlotPositionSchema)({ x, y })
+export const slotPositionFromCoordinates = (x: number, y: number) => decode(SlotPositionSchema)({ x, y })
 
-export const DragItemIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.brand('DragItemId')
-)
+export const DragItemIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('DragItemId'))
 export type DragItemId = Schema.Schema.Type<typeof DragItemIdSchema>
 export const parseDragItemId = decode(DragItemIdSchema)
 
@@ -85,14 +77,7 @@ export const ItemStackSchema = Schema.Struct({
 export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 export const parseItemStack = decode(ItemStackSchema)
 
-export const InventorySectionSchema = Schema.Literal(
-  'hotbar',
-  'main',
-  'armor',
-  'offhand',
-  'crafting',
-  'craftingResult'
-)
+export const InventorySectionSchema = Schema.Literal('hotbar', 'main', 'armor', 'offhand', 'crafting', 'craftingResult')
 export type InventorySection = Schema.Schema.Type<typeof InventorySectionSchema>
 
 export const SlotTypeSchema = Schema.Literal(
@@ -126,17 +111,15 @@ export interface InventorySlot {
   readonly visual: SlotVisualState
 }
 
-export const makeInventorySlot = (
-  input: {
-    readonly index: SlotIndex
-    readonly section: InventorySection
-    readonly slotType: SlotType
-    readonly position: SlotPosition
-    readonly item: Option.Option<ItemStack>
-    readonly isHighlighted?: boolean
-    readonly isDisabled?: boolean
-  }
-): InventorySlot => ({
+export const makeInventorySlot = (input: {
+  readonly index: SlotIndex
+  readonly section: InventorySection
+  readonly slotType: SlotType
+  readonly position: SlotPosition
+  readonly item: Option.Option<ItemStack>
+  readonly isHighlighted?: boolean
+  readonly isDisabled?: boolean
+}): InventorySlot => ({
   index: input.index,
   section: input.section,
   slotType: input.slotType,
@@ -377,20 +360,16 @@ export type InventoryGUIError =
 
 export type InventoryEventHandler = (event: InventoryGUIEvent) => Effect.Effect<void, InventoryGUIError>
 
-export const slotGridPosition = (
-  options: {
-    readonly index: number
-    readonly columns: number
-    readonly spacing: number
-    readonly slotSize: number
-  }
-) =>
+export const slotGridPosition = (options: {
+  readonly index: number
+  readonly columns: number
+  readonly spacing: number
+  readonly slotSize: number
+}) =>
   pipe(
     Effect.Do,
     Effect.bind('column', () => Effect.succeed(options.index % options.columns)),
-    Effect.bind('row', ({ column }) =>
-      Effect.succeed(Math.floor((options.index - column) / options.columns))
-    ),
+    Effect.bind('row', ({ column }) => Effect.succeed(Math.floor((options.index - column) / options.columns))),
     Effect.flatMap(({ column, row }) =>
       slotPositionFromCoordinates(
         column * (options.slotSize + options.spacing),
@@ -399,10 +378,7 @@ export const slotGridPosition = (
     )
   )
 
-const armorSlotMatches = (
-  slotType: SlotType,
-  metadata: Option.Option<ItemMetadata>
-) =>
+const armorSlotMatches = (slotType: SlotType, metadata: Option.Option<ItemMetadata>) =>
   pipe(
     metadata,
     Option.flatMap((meta) => Option.fromNullable(meta.equipSlot)),
@@ -422,11 +398,12 @@ const armorSlotMatches = (
 const isFuel = (metadata: Option.Option<ItemMetadata>) =>
   pipe(
     metadata,
-    Option.exists((meta) =>
-      pipe(
-        Option.fromNullable(meta.category),
-        Option.exists((category) => category === 'fuel')
-      ) || (meta.fuelTicks ?? 0) > 0
+    Option.exists(
+      (meta) =>
+        pipe(
+          Option.fromNullable(meta.category),
+          Option.exists((category) => category === 'fuel')
+        ) || (meta.fuelTicks ?? 0) > 0
     )
   )
 
@@ -451,16 +428,14 @@ export const slotAcceptsItem = (slot: InventorySlot, item: ItemStack) =>
   )
 
 const capitalize = (chunk: string) =>
-  pipe(
-    decodeSync(Schema.String)(chunk),
-    (value) =>
-      pipe(
-        Option.fromNullable(value.at(0)),
-        Option.match({
-          onNone: () => value,
-          onSome: (first) => `${first.toUpperCase()}${value.slice(1)}`,
-        })
-      )
+  pipe(decodeSync(Schema.String)(chunk), (value) =>
+    pipe(
+      Option.fromNullable(value.at(0)),
+      Option.match({
+        onNone: () => value,
+        onSome: (first) => `${first.toUpperCase()}${value.slice(1)}`,
+      })
+    )
   )
 
 export const formatItemName = (item: ItemStack) =>

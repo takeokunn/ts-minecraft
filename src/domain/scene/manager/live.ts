@@ -20,9 +20,10 @@ const toActiveScene = (scene: SceneState) =>
     Match.exhaustive
   )
 
-const ensureTransitionable = (
-  requested: ActiveScene
-): ((state: SceneManagerState) => Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT>) =>
+const ensureTransitionable =
+  (
+    requested: ActiveScene
+  ): ((state: SceneManagerState) => Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT>) =>
   (state) =>
     Match.value(state.isTransitioning).pipe(
       Match.when(true, () =>
@@ -85,7 +86,7 @@ const withTransition = <A>(
   ref: Ref.Ref<SceneManagerState>,
   resolver: (state: SceneManagerState) => Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT>,
   use: (state: SceneManagerState, target: ActiveScene) => Effect.Effect<A, TransitionErrorADT>
-) =>
+): Effect.Effect<A, TransitionErrorADT> =>
   Effect.acquireUseRelease(
     Effect.gen(function* () {
       const current = yield* Ref.get(ref)
@@ -93,8 +94,8 @@ const withTransition = <A>(
       yield* Ref.set(ref, updated)
       return { state: updated, target }
     }),
-    () => Ref.update(ref, (state) => ({ ...state, isTransitioning: false })),
-    ({ state, target }) => use(state, target)
+    ({ state, target }) => use(state, target),
+    ({ state }) => Ref.update(ref, (current) => ({ ...current, isTransitioning: false }))
   )
 
 const appendHistory = (state: SceneManagerState, next: SceneState): SceneManagerState => ({
@@ -109,8 +110,7 @@ const pushStack = (stack: ReadonlyArray<ActiveScene>, previous: Option.Option<Ac
     onSome: (scene) => [...stack, scene],
   })
 
-const dropLast = (stack: ReadonlyArray<ActiveScene>) =>
-  stack.slice(0, Math.max(0, stack.length - 1))
+const dropLast = (stack: ReadonlyArray<ActiveScene>) => stack.slice(0, Math.max(0, stack.length - 1))
 
 export const SceneManagerLive = Layer.effect(
   SceneManager,
@@ -123,22 +123,16 @@ export const SceneManagerLive = Layer.effect(
 
     const stateRef = yield* Ref.make(initialState)
 
-    const transition = (
-      scene: ActiveScene,
-      effect?: TransitionEffect
-    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+    const transition = (scene: ActiveScene, effect?: TransitionEffect): Effect.Effect<SceneState, TransitionErrorADT> =>
       withTransition(stateRef, ensureTransitionable(scene), (_, target) =>
-        sceneService.transitionTo(target, effect).pipe(
-          Effect.tap((next) =>
-            Ref.update(stateRef, (state) => appendHistory({ ...state, isTransitioning: true }, next))
-          )
-        )
+        Effect.gen(function* () {
+          const nextScene = yield* sceneService.transitionTo(target, effect)
+          yield* Ref.update(stateRef, (state) => appendHistory({ ...state, isTransitioning: true }, nextScene))
+          return nextScene
+        })
       )
 
-    const push = (
-      scene: ActiveScene,
-      effect?: TransitionEffect
-    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+    const push = (scene: ActiveScene, effect?: TransitionEffect): Effect.Effect<SceneState, TransitionErrorADT> =>
       withTransition(stateRef, ensureTransitionable(scene), (lockedState, target) =>
         Effect.gen(function* () {
           const active = toActiveScene(lockedState.current)
@@ -151,29 +145,25 @@ export const SceneManagerLive = Layer.effect(
         })
       )
 
-    const pop = (
-      effect?: TransitionEffect
-    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+    const pop = (effect?: TransitionEffect): Effect.Effect<SceneState, TransitionErrorADT> =>
       withTransition(stateRef, ensurePopTarget, (_, target) =>
-        sceneService.transitionTo(target, effect).pipe(
-          Effect.tap((next) =>
-            Ref.update(stateRef, (state) => ({
-              ...appendHistory(state, next),
-              stack: dropLast(state.stack),
-            }))
-          )
-        )
+        Effect.gen(function* () {
+          const nextScene = yield* sceneService.transitionTo(target, effect)
+          yield* Ref.update(stateRef, (state) => ({
+            ...appendHistory(state, nextScene),
+            stack: dropLast(state.stack),
+          }))
+          return nextScene
+        })
       )
 
-    const reset = (
-      scene: ActiveScene = Scenes.MainMenu()
-    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+    const reset = (scene: ActiveScene = Scenes.MainMenu()): Effect.Effect<SceneState, TransitionErrorADT> =>
       withTransition(stateRef, ensureTransitionable(scene), () =>
-        sceneService.transitionTo(scene, TransitionEffect.Instant({})).pipe(
-          Effect.tap((next) =>
-            Ref.set(stateRef, sceneManagerState.make({ current: next }))
-          )
-        )
+        Effect.gen(function* () {
+          const nextScene = yield* sceneService.transitionTo(scene, TransitionEffect.Instant({}))
+          yield* Ref.set(stateRef, sceneManagerState.make({ current: nextScene }))
+          return nextScene
+        })
       )
 
     const preload = (scene: ActiveScene): Effect.Effect<void, PreloadError> => sceneService.preload(scene)

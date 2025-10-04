@@ -1,11 +1,11 @@
+import * as Clock from 'effect/Clock'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
+import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Number from 'effect/Number'
-import { pipe } from 'effect/Function'
 import * as Schema from 'effect/Schema'
-import * as Clock from 'effect/Clock'
 
 /**
  * GameLoop ドメインの基本的なブランド型とスキーマ定義
@@ -82,10 +82,7 @@ export const DefaultGameLoopConfig: GameLoopConfig = {
 /**
  * フレーム ID ブランド
  */
-export const FrameIdSchema = Schema.String.pipe(
-  Schema.pattern(/^frame_[0-9]+$/u),
-  Schema.brand('FrameId')
-)
+export const FrameIdSchema = Schema.String.pipe(Schema.pattern(/^frame_[0-9]+$/u), Schema.brand('FrameId'))
 export type FrameId = Schema.Schema.Type<typeof FrameIdSchema>
 
 /**
@@ -134,9 +131,7 @@ export const makeFrameId = (input: number | string): Either.Either<Schema.ParseE
     Match.orElse(() => Schema.decodeEither(FrameIdSchema)(String(input)))
   )
 
-export const makeConfig = (
-  partial: Partial<GameLoopConfig>
-): Either.Either<Schema.ParseError, GameLoopConfig> =>
+export const makeConfig = (partial: Partial<GameLoopConfig>): Either.Either<Schema.ParseError, GameLoopConfig> =>
   Schema.decodeEither(GameLoopConfigSchema)({ ...DefaultGameLoopConfig, ...partial })
 
 /**
@@ -166,9 +161,7 @@ export const reconcileFrameTiming = (
   pipe(
     Number.lessThan(previous)(current),
     Match.value,
-    Match.when(true, () =>
-      Either.left(NonMonotonicTimestamp({ previous, current }))
-    ),
+    Match.when(true, () => Either.left(NonMonotonicTimestamp({ previous, current }))),
     Match.orElse(() => {
       const previousMillis = timestampToNumber(previous)
       const currentMillis = timestampToNumber(current)
@@ -181,16 +174,14 @@ export const reconcileFrameTiming = (
 /**
  * 安全な FrameInfo を構築
  */
-export const makeFrameInfo = (
-  parameters: {
-    readonly frameId: FrameId
-    readonly frameCount: FrameCount
-    readonly timestamp: Timestamp
-    readonly delta: FrameDuration
-    readonly fps: FramesPerSecond
-    readonly skipped: boolean
-  }
-): Either.Either<Schema.ParseError, FrameInfo> => Schema.decodeEither(FrameInfoSchema)(parameters)
+export const makeFrameInfo = (parameters: {
+  readonly frameId: FrameId
+  readonly frameCount: FrameCount
+  readonly timestamp: Timestamp
+  readonly delta: FrameDuration
+  readonly fps: FramesPerSecond
+  readonly skipped: boolean
+}): Either.Either<Schema.ParseError, FrameInfo> => Schema.decodeEither(FrameInfoSchema)(parameters)
 
 export const timestampToNumber = Schema.encodeSync(TimestampSchema)
 export const frameDurationToNumber = Schema.encodeSync(FrameDurationSchema)

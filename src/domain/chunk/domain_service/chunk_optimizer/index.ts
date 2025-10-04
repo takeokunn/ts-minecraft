@@ -6,11 +6,11 @@
  */
 
 export {
-  type ChunkOptimizationService,
   ChunkOptimizationService,
   ChunkOptimizationServiceLive,
-  type OptimizationStrategy,
   OptimizationStrategy,
+  type ChunkOptimizationService,
   type OptimizationMetrics,
-  type OptimizationResult
+  type OptimizationResult,
+  type OptimizationStrategy,
 } from './service'

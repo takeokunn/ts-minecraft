@@ -9,11 +9,11 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/InventoryTypes'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/inventory-types'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory/inventory-types'
 import type { StorageError } from '../storage-service'
 import {
   InventoryStorageService,
-  Milliseconds,
   MillisecondsSchema,
   StorageBackendSchema,
   StorageConfig,
@@ -25,7 +25,6 @@ import {
   toNotAvailable,
   toSaveFailed,
 } from '../storage-service'
-import { InventoryStateSchema, InventorySchema, PlayerIdSchema } from '../../../domain/inventory/InventoryTypes'
 
 const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
 
@@ -86,8 +85,7 @@ const readItem = <A>(key: string, schema: Schema.Schema<A>, context: string) =>
         Option.fromNullable(raw),
         Option.match({
           onNone: () => Effect.succeed(Option.none<A>()),
-          onSome: (value) =>
-            decodeJson(value, schema, context).pipe(Effect.map((decoded) => Option.some(decoded))),
+          onSome: (value) => decodeJson(value, schema, context).pipe(Effect.map((decoded) => Option.some(decoded))),
         })
       )
     )
@@ -104,12 +102,15 @@ const writeItem = <A>(key: string, value: A, schema: Schema.Schema<A>, context: 
   )
 
 const removeItems = (keys: ReadonlyArray<string>, context: string) =>
-  Effect.forEach(keys, (key) =>
-    Effect.try({
-      try: () => localStorage.removeItem(key),
-      catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
-    })
-  , { concurrency: 'unbounded' }).pipe(Effect.asVoid)
+  Effect.forEach(
+    keys,
+    (key) =>
+      Effect.try({
+        try: () => localStorage.removeItem(key),
+        catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
+      }),
+    { concurrency: 'unbounded' }
+  ).pipe(Effect.asVoid)
 
 const decodePlayerIdFromKey = (key: string): Effect.Effect<PlayerId, StorageError> =>
   pipe(
@@ -131,21 +132,20 @@ const gatherKeys = (prefix: string): Effect.Effect<ReadonlyArray<string>, Storag
     yield* requireAvailability
     const length = localStorage.length
     const indices = Array.from({ length }, (_, index) => index)
-    const rawKeys = yield* Effect.forEach(indices, (index) =>
-      Effect.try({
-        try: () => localStorage.key(index),
-        catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
-      })
-    , { concurrency: 'unbounded' })
+    const rawKeys = yield* Effect.forEach(
+      indices,
+      (index) =>
+        Effect.try({
+          try: () => localStorage.key(index),
+          catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
+        }),
+      { concurrency: 'unbounded' }
+    )
 
     return rawKeys.filter((maybeKey): maybeKey is string => typeof maybeKey === 'string' && maybeKey.startsWith(prefix))
   })
 
-const snapshotPayload = (
-  inventory: Inventory,
-  key: string,
-  context: string
-): Effect.Effect<Inventory, StorageError> =>
+const snapshotPayload = (inventory: Inventory, key: string, context: string): Effect.Effect<Inventory, StorageError> =>
   writeItem(key, inventory, InventorySchema, context).pipe(Effect.as(inventory))
 
 const randomNonce = Effect.gen(function* () {
@@ -222,7 +222,9 @@ export const LocalStorageInventoryService = Layer.effect(
               onSome: (inventory) =>
                 Effect.gen(function* () {
                   const millisValue = yield* Clock.currentTimeMillis.pipe(
-                    Effect.mapError((cause) => toLoadFailed(backend, 'backup-clock', 'Failed to obtain timestamp', cause))
+                    Effect.mapError((cause) =>
+                      toLoadFailed(backend, 'backup-clock', 'Failed to obtain timestamp', cause)
+                    )
                   )
                   const millis = yield* Schema.decodeUnknown(MillisecondsSchema)(millisValue).pipe(
                     Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
@@ -262,18 +264,21 @@ export const LocalStorageInventoryService = Layer.effect(
         Effect.gen(function* () {
           yield* requireAvailability
           const keys = yield* gatherKeys(inventoryPrefix)
-          const bytes = yield* Effect.forEach(keys, (key) =>
-            Effect.try({
-              try: () => {
-                const value = localStorage.getItem(key)
-                return Option.fromNullable(value).pipe(
-                  Option.map((v) => new Blob([v]).size),
-                  Option.getOrElse(() => 0)
-                )
-              },
-              catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
-            })
-          , { concurrency: 'unbounded' })
+          const bytes = yield* Effect.forEach(
+            keys,
+            (key) =>
+              Effect.try({
+                try: () => {
+                  const value = localStorage.getItem(key)
+                  return Option.fromNullable(value).pipe(
+                    Option.map((v) => new Blob([v]).size),
+                    Option.getOrElse(() => 0)
+                  )
+                },
+                catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
+              }),
+            { concurrency: 'unbounded' }
+          )
 
           const totalSize = bytes.reduce((acc, current) => acc + current, 0)
           const availableSpace = Number.POSITIVE_INFINITY

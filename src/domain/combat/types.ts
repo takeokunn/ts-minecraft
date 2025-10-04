@@ -6,14 +6,7 @@ import { pipe } from 'effect/Function'
 // Error Types
 // ============================================================
 
-export type StatField =
-  | 'health'
-  | 'damage'
-  | 'defense'
-  | 'criticalChance'
-  | 'cooldown'
-  | 'range'
-  | 'timestamp'
+export type StatField = 'health' | 'damage' | 'defense' | 'criticalChance' | 'cooldown' | 'range' | 'timestamp'
 
 export interface InvalidIdentifierError {
   readonly kind: 'InvalidIdentifier'
@@ -90,11 +83,7 @@ export const CombatError = {
     details,
   }),
 
-  cooldownViolation: (
-    combatant: CombatantId,
-    attack: AttackLabel,
-    remaining: Cooldown
-  ): CooldownViolationError => ({
+  cooldownViolation: (combatant: CombatantId, attack: AttackLabel, remaining: Cooldown): CooldownViolationError => ({
     kind: 'CooldownViolation',
     combatant,
     attack,
@@ -111,10 +100,7 @@ export const CombatError = {
     session,
   }),
 
-  duplicateCombatant: (
-    session: SessionId,
-    combatant: CombatantId
-  ): DuplicateCombatantError => ({
+  duplicateCombatant: (session: SessionId, combatant: CombatantId): DuplicateCombatantError => ({
     kind: 'DuplicateCombatant',
     session,
     combatant,
@@ -164,51 +150,38 @@ const identifierPipeline = (
     Either.filterOrElseWith(
       (input) => /^[a-z0-9_-]+$/i.test(input),
       (input) =>
-        CombatError.invalidIdentifier(
-          entity,
-          input,
-          'accepts only alphanumeric characters, underscore, or hyphen'
-        )
+        CombatError.invalidIdentifier(entity, input, 'accepts only alphanumeric characters, underscore, or hyphen')
     ),
     Either.map((input) => input.toLowerCase()),
     Effect.fromEither
   )
 
-const createNumericFactory = <A>(options: {
-  readonly field: StatField
-  readonly min: number
-  readonly max: number
-  readonly brand: (value: number) => A
-}): ((value: number) => Effect.Effect<A, CombatDomainError>) => (value) => {
-  const validated = pipe(
-    value,
-    Either.right<number, CombatDomainError>,
-    Either.filterOrElseWith(
-      Number.isFinite,
-      (invalid) => CombatError.invalidStat(options.field, invalid, 'finite number required')
-    ),
-    Either.filterOrElseWith(
-      (numeric) => numeric >= options.min,
-      (invalid) =>
-        CombatError.invalidStat(
-          options.field,
-          invalid,
-          `value must be >= ${String(options.min)}`
-        )
-    ),
-    Either.filterOrElseWith(
-      (numeric) => numeric <= options.max,
-      (invalid) =>
-        CombatError.invalidStat(
-          options.field,
-          invalid,
-          `value must be <= ${String(options.max)}`
-        )
-    ),
-    Effect.fromEither
-  )
-  return validated.pipe(Effect.map(options.brand))
-}
+const createNumericFactory =
+  <A>(options: {
+    readonly field: StatField
+    readonly min: number
+    readonly max: number
+    readonly brand: (value: number) => A
+  }): ((value: number) => Effect.Effect<A, CombatDomainError>) =>
+  (value) => {
+    const validated = pipe(
+      value,
+      Either.right<number, CombatDomainError>,
+      Either.filterOrElseWith(Number.isFinite, (invalid) =>
+        CombatError.invalidStat(options.field, invalid, 'finite number required')
+      ),
+      Either.filterOrElseWith(
+        (numeric) => numeric >= options.min,
+        (invalid) => CombatError.invalidStat(options.field, invalid, `value must be >= ${String(options.min)}`)
+      ),
+      Either.filterOrElseWith(
+        (numeric) => numeric <= options.max,
+        (invalid) => CombatError.invalidStat(options.field, invalid, `value must be <= ${String(options.max)}`)
+      ),
+      Effect.fromEither
+    )
+    return validated.pipe(Effect.map(options.brand))
+  }
 
 export const makeCombatantId = (value: string): Effect.Effect<CombatantId, CombatDomainError> =>
   identifierPipeline(value, 'combatantId').pipe(Effect.map(CombatantIdBrand))
@@ -341,10 +314,7 @@ export interface CooldownUpdatedEvent {
   readonly timestamp: Timestamp
 }
 
-export type CombatEvent =
-  | AttackResolvedEvent
-  | CombatantDefeatedEvent
-  | CooldownUpdatedEvent
+export type CombatEvent = AttackResolvedEvent | CombatantDefeatedEvent | CooldownUpdatedEvent
 
 export const CombatEventFactory = {
   attackResolved: (
@@ -363,10 +333,7 @@ export const CombatEventFactory = {
     timestamp,
     critical,
   }),
-  combatantDefeated: (
-    combatant: CombatantId,
-    timestamp: Timestamp
-  ): CombatantDefeatedEvent => ({
+  combatantDefeated: (combatant: CombatantId, timestamp: Timestamp): CombatantDefeatedEvent => ({
     kind: 'CombatantDefeated',
     combatant,
     timestamp,

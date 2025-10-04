@@ -5,10 +5,9 @@
  * 熱力学的整合性と季節変動の正確な表現
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 摂氏温度Brand型（-50℃から60℃）
@@ -41,7 +40,7 @@ export const TemperatureCelsiusSchema = Schema.Number.pipe(
     identifier: 'TemperatureCelsius',
     title: 'Temperature in Celsius',
     description: 'Temperature in Celsius degrees (-50°C to 60°C)',
-    examples: [-40, -10, 0, 20, 35, 50]
+    examples: [-40, -10, 0, 20, 35, 50],
   })
 )
 
@@ -57,7 +56,7 @@ export const TemperatureDeltaSchema = Schema.Number.pipe(
     identifier: 'TemperatureDelta',
     title: 'Temperature Difference',
     description: 'Temperature difference in Celsius (0°C to 110°C)',
-    examples: [5, 10, 20, 30, 50]
+    examples: [5, 10, 20, 30, 50],
   })
 )
 
@@ -72,7 +71,7 @@ export const HeatIndexSchema = Schema.Number.pipe(
     identifier: 'HeatIndex',
     title: 'Heat Index',
     description: 'Perceived temperature considering humidity (-60°C to 80°C)',
-    examples: [-40, 0, 25, 35, 45]
+    examples: [-40, 0, 25, 35, 45],
   })
 )
 
@@ -87,7 +86,7 @@ export const WindChillIndexSchema = Schema.Number.pipe(
     identifier: 'WindChillIndex',
     title: 'Wind Chill Index',
     description: 'Perceived temperature considering wind speed (-80°C to 20°C)',
-    examples: [-60, -30, -10, 0, 10]
+    examples: [-60, -30, -10, 0, 10],
   })
 )
 
@@ -95,16 +94,16 @@ export const WindChillIndexSchema = Schema.Number.pipe(
  * 季節タイプ
  */
 export const SeasonTypeSchema = Schema.Literal(
-  'spring',       // 春
-  'summer',       // 夏
-  'autumn',       // 秋
-  'winter',       // 冬
-  'wet_season',   // 雨季
-  'dry_season'    // 乾季
+  'spring', // 春
+  'summer', // 夏
+  'autumn', // 秋
+  'winter', // 冬
+  'wet_season', // 雨季
+  'dry_season' // 乾季
 ).pipe(
   Schema.annotations({
     title: 'Season Type',
-    description: 'Type of season affecting temperature patterns'
+    description: 'Type of season affecting temperature patterns',
   })
 )
 
@@ -114,20 +113,20 @@ export type SeasonType = typeof SeasonTypeSchema.Type
  * 気候分類
  */
 export const ClimateClassificationSchema = Schema.Literal(
-  'tropical',         // 熱帯
-  'arid',             // 乾燥帯
-  'temperate',        // 温帯
-  'continental',      // 大陸性
-  'polar',            // 寒帯
-  'highland',         // 高地
-  'mediterranean',    // 地中海性
-  'oceanic',          // 海洋性
-  'subarctic',        // 亜寒帯
-  'desert'            // 砂漠
+  'tropical', // 熱帯
+  'arid', // 乾燥帯
+  'temperate', // 温帯
+  'continental', // 大陸性
+  'polar', // 寒帯
+  'highland', // 高地
+  'mediterranean', // 地中海性
+  'oceanic', // 海洋性
+  'subarctic', // 亜寒帯
+  'desert' // 砂漠
 ).pipe(
   Schema.annotations({
     title: 'Climate Classification',
-    description: 'Köppen climate classification system'
+    description: 'Köppen climate classification system',
   })
 )
 
@@ -161,12 +160,12 @@ export const DiurnalTemperatureVariationSchema = Schema.Struct({
     Schema.int(),
     Schema.between(0, 23),
     Schema.annotations({ description: 'Hour of minimum temperature (0-23)' })
-  )
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'DiurnalTemperatureVariation',
     title: 'Daily Temperature Variation',
-    description: 'Temperature changes throughout a 24-hour period'
+    description: 'Temperature changes throughout a 24-hour period',
   })
 )
 
@@ -195,7 +194,7 @@ export const SeasonalTemperatureVariationSchema = Schema.Struct({
       Schema.nonNegative(),
       Schema.between(0, 30),
       Schema.annotations({ description: 'Temperature standard deviation' })
-    )
+    ),
   }),
 
   // 変化率（日平均）
@@ -207,20 +206,20 @@ export const SeasonalTemperatureVariationSchema = Schema.Struct({
     cooling: Schema.Number.pipe(
       Schema.between(-2.0, 2.0),
       Schema.annotations({ description: 'Daily cooling rate in °C/day' })
-    )
+    ),
   }),
 
   // 極値発生確率
   extremeEvents: Schema.Struct({
     heatWaveProbability: Schema.Number.pipe(Schema.between(0, 1)),
     coldSnapProbability: Schema.Number.pipe(Schema.between(0, 1)),
-    frostProbability: Schema.Number.pipe(Schema.between(0, 1))
-  }).pipe(Schema.optional)
+    frostProbability: Schema.Number.pipe(Schema.between(0, 1)),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'SeasonalTemperatureVariation',
     title: 'Seasonal Temperature Variation',
-    description: 'Temperature patterns and statistics for a specific season'
+    description: 'Temperature patterns and statistics for a specific season',
   })
 )
 
@@ -262,13 +261,13 @@ export const AltitudeTemperatureEffectSchema = Schema.Struct({
     enabled: Schema.Boolean,
     baseAltitude: Schema.Number.pipe(Schema.between(0, 3000)),
     topAltitude: Schema.Number.pipe(Schema.between(100, 5000)),
-    strength: Schema.Number.pipe(Schema.between(0, 20))
-  }).pipe(Schema.optional)
+    strength: Schema.Number.pipe(Schema.between(0, 20)),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'AltitudeTemperatureEffect',
     title: 'Altitude Temperature Effect',
-    description: 'Temperature variation with altitude (lapse rate effects)'
+    description: 'Temperature variation with altitude (lapse rate effects)',
   })
 )
 
@@ -302,7 +301,7 @@ export const TemperatureRangeSchema = Schema.Struct({
     mean: TemperatureCelsiusSchema,
     minimum: TemperatureCelsiusSchema,
     maximum: TemperatureCelsiusSchema,
-    range: TemperatureDeltaSchema
+    range: TemperatureDeltaSchema,
   }),
 
   // 季節変動
@@ -324,15 +323,15 @@ export const TemperatureRangeSchema = Schema.Struct({
     heatIndex: Schema.Struct({
       enabled: Schema.Boolean,
       humidityThreshold: Schema.Number.pipe(Schema.between(40, 100)),
-      temperatureThreshold: TemperatureCelsiusSchema
+      temperatureThreshold: TemperatureCelsiusSchema,
     }),
 
     // 冷風指数計算設定
     windChill: Schema.Struct({
       enabled: Schema.Boolean,
       windSpeedThreshold: Schema.Number.pipe(Schema.between(0, 50)),
-      temperatureThreshold: TemperatureCelsiusSchema
-    })
+      temperatureThreshold: TemperatureCelsiusSchema,
+    }),
   }).pipe(Schema.optional),
 
   // 極値・異常気象
@@ -351,7 +350,7 @@ export const TemperatureRangeSchema = Schema.Struct({
 
     // 霜・凍結
     frostThreshold: TemperatureCelsiusSchema.pipe(Schema.optional),
-    freezingThreshold: TemperatureCelsiusSchema.pipe(Schema.optional)
+    freezingThreshold: TemperatureCelsiusSchema.pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 気候変動効果
@@ -364,7 +363,7 @@ export const TemperatureRangeSchema = Schema.Struct({
     variabilityChange: Schema.Number.pipe(
       Schema.between(-50, 50),
       Schema.annotations({ description: 'Change in temperature variability (%)' })
-    )
+    ),
   }).pipe(Schema.optional),
 
   // 地理的修正因子
@@ -388,17 +387,19 @@ export const TemperatureRangeSchema = Schema.Struct({
     ).pipe(Schema.optional),
 
     // 局地効果
-    localEffects: Schema.Array(Schema.Struct({
-      type: Schema.Literal('urban_heat', 'cold_air_pooling', 'lake_effect', 'mountain_shadow'),
-      strength: Schema.Number.pipe(Schema.between(-10, 10)),
-      description: Schema.String
-    })).pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    localEffects: Schema.Array(
+      Schema.Struct({
+        type: Schema.Literal('urban_heat', 'cold_air_pooling', 'lake_effect', 'mountain_shadow'),
+        strength: Schema.Number.pipe(Schema.between(-10, 10)),
+        description: Schema.String,
+      })
+    ).pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'TemperatureRange',
     title: 'Complete Temperature Range Configuration',
-    description: 'Comprehensive temperature range with realistic climate modeling'
+    description: 'Comprehensive temperature range with realistic climate modeling',
   })
 )
 
@@ -412,7 +413,7 @@ export const CreateTemperatureRangeParamsSchema = Schema.Struct({
   latitude: Schema.Number.pipe(Schema.between(-90, 90)).pipe(Schema.optional),
   altitude: Schema.Number.pipe(Schema.between(-500, 9000)).pipe(Schema.optional),
   continentality: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional),
-  customSeasons: Schema.Array(SeasonTypeSchema).pipe(Schema.optional)
+  customSeasons: Schema.Array(SeasonTypeSchema).pipe(Schema.optional),
 })
 
 export type CreateTemperatureRangeParams = typeof CreateTemperatureRangeParamsSchema.Type
@@ -425,20 +426,20 @@ export const TemperatureRangeErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidTemperatureRange'),
     minimum: Schema.Number,
     maximum: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('SeasonalInconsistency'),
     season: SeasonTypeSchema,
     conflict: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PhysicallyImpossible'),
     parameter: Schema.String,
     value: Schema.Number,
     physicalLimit: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ClimateClassificationMismatch'),
@@ -446,8 +447,8 @@ export const TemperatureRangeErrorSchema = taggedUnion('_tag', [
     temperatureCharacteristic: Schema.String,
     expectedRange: Schema.String,
     actualValue: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type TemperatureRangeError = typeof TemperatureRangeErrorSchema.Type
@@ -460,39 +461,39 @@ export const CLIMATE_TEMPERATURE_PRESETS = {
     description: 'Tropical climate (hot and humid)',
     annual: { mean: 26, minimum: 18, maximum: 35, range: 17 },
     seasonalVariation: 5, // low seasonal variation
-    diurnalVariation: 12
+    diurnalVariation: 12,
   },
   ARID: {
     description: 'Arid/desert climate (hot and dry)',
     annual: { mean: 24, minimum: -5, maximum: 48, range: 53 },
     seasonalVariation: 20, // moderate seasonal variation
-    diurnalVariation: 25 // high diurnal variation
+    diurnalVariation: 25, // high diurnal variation
   },
   TEMPERATE: {
     description: 'Temperate climate (moderate temperatures)',
     annual: { mean: 12, minimum: -10, maximum: 30, range: 40 },
     seasonalVariation: 25, // high seasonal variation
-    diurnalVariation: 10
+    diurnalVariation: 10,
   },
   CONTINENTAL: {
     description: 'Continental climate (extreme seasonal variation)',
     annual: { mean: 6, minimum: -35, maximum: 35, range: 70 },
     seasonalVariation: 40, // very high seasonal variation
-    diurnalVariation: 15
+    diurnalVariation: 15,
   },
   POLAR: {
     description: 'Polar climate (very cold)',
     annual: { mean: -15, minimum: -45, maximum: 10, range: 55 },
     seasonalVariation: 30, // high seasonal variation
-    diurnalVariation: 5 // low diurnal variation
+    diurnalVariation: 5, // low diurnal variation
   },
   HIGHLAND: {
     description: 'Highland climate (altitude-modified)',
     annual: { mean: 8, minimum: -20, maximum: 25, range: 45 },
     seasonalVariation: 20,
     diurnalVariation: 18, // high diurnal variation due to thin air
-    altitudeFactor: -0.0065 // standard lapse rate
-  }
+    altitudeFactor: -0.0065, // standard lapse rate
+  },
 } as const
 
 /**
@@ -512,5 +513,5 @@ export const BIOME_TEMPERATURE_MAPPING = {
   WARM_OCEAN: { mean: 24, range: 8, climate: 'tropical' },
   DESERT: { mean: 28, range: 35, climate: 'arid' },
   SAVANNA: { mean: 26, range: 15, climate: 'tropical' },
-  JUNGLE: { mean: 27, range: 8, climate: 'tropical' }
+  JUNGLE: { mean: 27, range: 8, climate: 'tropical' },
 } as const

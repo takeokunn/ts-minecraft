@@ -1,21 +1,15 @@
 import { Effect, Match, pipe } from 'effect'
+import { CHUNK_MIN_Y, CHUNK_SIZE } from '../../types/core'
+import type { HeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkData } from '../chunk_data/types'
 import { ChunkDataOptics } from './optics'
-import type { HeightValue } from '../../value_object/chunk_metadata'
-import { CHUNK_MIN_Y, CHUNK_SIZE } from '../../types/core'
 
 const blocksPerLayer = CHUNK_SIZE * CHUNK_SIZE
 
-const modifyBlocks = (
-  chunk: ChunkData,
-  mapper: (block: number, index: number) => number
-): ChunkData =>
+const modifyBlocks = (chunk: ChunkData, mapper: (block: number, index: number) => number): ChunkData =>
   ChunkDataOptics.blocks.modify((blocks) => blocks.map(mapper))(chunk)
 
-const modifyHeightMap = (
-  chunk: ChunkData,
-  mapper: (height: HeightValue, index: number) => HeightValue
-): ChunkData =>
+const modifyHeightMap = (chunk: ChunkData, mapper: (height: HeightValue, index: number) => HeightValue): ChunkData =>
   ChunkDataOptics.metadata.modify((metadata) => ({
     ...metadata,
     heightMap: metadata.heightMap.map((height, index) => mapper(height as HeightValue, index)),
@@ -35,26 +29,32 @@ const indexToCoordinates = (index: number) => {
 
 const withinRegion = (
   coords: { readonly x: number; readonly y: number; readonly z: number },
-  region: { readonly x1: number; readonly x2: number; readonly y1: number; readonly y2: number; readonly z1: number; readonly z2: number }
+  region: {
+    readonly x1: number
+    readonly x2: number
+    readonly y1: number
+    readonly y2: number
+    readonly z1: number
+    readonly z2: number
+  }
 ): boolean =>
-  coords.x >= region.x1 && coords.x <= region.x2 &&
-  coords.y >= region.y1 && coords.y <= region.y2 &&
-  coords.z >= region.z1 && coords.z <= region.z2
+  coords.x >= region.x1 &&
+  coords.x <= region.x2 &&
+  coords.y >= region.y1 &&
+  coords.y <= region.y2 &&
+  coords.z >= region.z1 &&
+  coords.z <= region.z2
 
 export const ChunkTraversalOperations = {
-  mapAllBlocks: (
-    chunk: ChunkData,
-    transform: (blockId: number, index: number) => number
-  ): ChunkData => modifyBlocks(chunk, transform),
+  mapAllBlocks: (chunk: ChunkData, transform: (blockId: number, index: number) => number): ChunkData =>
+    modifyBlocks(chunk, transform),
 
   mapBlocksWhere: (
     chunk: ChunkData,
     predicate: (blockId: number, index: number) => boolean,
     transform: (blockId: number, index: number) => number
   ): ChunkData =>
-    modifyBlocks(chunk, (blockId, index) =>
-      predicate(blockId, index) ? transform(blockId, index) : blockId
-    ),
+    modifyBlocks(chunk, (blockId, index) => (predicate(blockId, index) ? transform(blockId, index) : blockId)),
 
   mapHeightMapRange: (
     chunk: ChunkData,
@@ -62,41 +62,19 @@ export const ChunkTraversalOperations = {
     end: number,
     transform: (height: HeightValue, index: number) => HeightValue
   ): ChunkData =>
-    modifyHeightMap(chunk, (height, index) =>
-      index >= start && index < end ? transform(height, index) : height
-    ),
+    modifyHeightMap(chunk, (height, index) => (index >= start && index < end ? transform(height, index) : height)),
 
-  mapBlocksAtY: (
-    chunk: ChunkData,
-    y: number,
-    transform: (blockId: number, index: number) => number
-  ): ChunkData =>
-    ChunkTraversalOperations.mapBlocksWhere(
-      chunk,
-      (_, index) => indexToCoordinates(index).y === y,
-      transform
-    ),
+  mapBlocksAtY: (chunk: ChunkData, y: number, transform: (blockId: number, index: number) => number): ChunkData =>
+    ChunkTraversalOperations.mapBlocksWhere(chunk, (_, index) => indexToCoordinates(index).y === y, transform),
 
   mapBlocksByType: (
     chunk: ChunkData,
     blockType: number,
     transform: (blockId: number, index: number) => number
-  ): ChunkData =>
-    ChunkTraversalOperations.mapBlocksWhere(
-      chunk,
-      (blockId) => blockId === blockType,
-      transform
-    ),
+  ): ChunkData => ChunkTraversalOperations.mapBlocksWhere(chunk, (blockId) => blockId === blockType, transform),
 
-  mapNonEmptyBlocks: (
-    chunk: ChunkData,
-    transform: (blockId: number, index: number) => number
-  ): ChunkData =>
-    ChunkTraversalOperations.mapBlocksWhere(
-      chunk,
-      (blockId) => blockId !== 0,
-      transform
-    ),
+  mapNonEmptyBlocks: (chunk: ChunkData, transform: (blockId: number, index: number) => number): ChunkData =>
+    ChunkTraversalOperations.mapBlocksWhere(chunk, (blockId) => blockId !== 0, transform),
 
   mapBlocksInRegion: (
     chunk: ChunkData,
@@ -119,41 +97,30 @@ export const ChunkTraversalOperations = {
     predicate: (height: HeightValue, index: number) => boolean,
     transform: (height: HeightValue, index: number) => HeightValue
   ): ChunkData =>
-    modifyHeightMap(chunk, (height, index) =>
-      predicate(height, index) ? transform(height, index) : height
-    ),
+    modifyHeightMap(chunk, (height, index) => (predicate(height, index) ? transform(height, index) : height)),
 } as const
 
 const applyBlockUpdates = (
   chunk: ChunkData,
   updates: ReadonlyArray<{ readonly index: number; readonly blockId: number }>
-): ChunkData =>
-  updates.reduce(
-    (acc, { index, blockId }) => ChunkDataOptics.blockAt(index).replace(blockId)(acc),
-    chunk
-  )
+): ChunkData => updates.reduce((acc, { index, blockId }) => ChunkDataOptics.blockAt(index).replace(blockId)(acc), chunk)
 
 const applyHeightUpdates = (
   chunk: ChunkData,
   updates: ReadonlyArray<{ readonly index: number; readonly height: HeightValue }>
 ): ChunkData =>
-  updates.reduce(
-    (acc, { index, height }) => ChunkDataOptics.heightMapAt(index).replace(height)(acc),
-    chunk
-  )
+  updates.reduce((acc, { index, height }) => ChunkDataOptics.heightMapAt(index).replace(height)(acc), chunk)
 
 export const ParallelChunkTraversalOptics = {
   parallelBlockUpdate: (
     chunk: ChunkData,
     updates: ReadonlyArray<{ readonly index: number; readonly blockId: number }>
-  ): Effect.Effect<ChunkData> =>
-    Effect.succeed(applyBlockUpdates(chunk, updates)),
+  ): Effect.Effect<ChunkData> => Effect.succeed(applyBlockUpdates(chunk, updates)),
 
   parallelHeightMapUpdate: (
     chunk: ChunkData,
     updates: ReadonlyArray<{ readonly index: number; readonly height: HeightValue }>
-  ): Effect.Effect<ChunkData> =>
-    Effect.succeed(applyHeightUpdates(chunk, updates)),
+  ): Effect.Effect<ChunkData> => Effect.succeed(applyHeightUpdates(chunk, updates)),
 
   parallelBlockTransform: (
     chunk: ChunkData,
@@ -162,16 +129,14 @@ export const ParallelChunkTraversalOptics = {
   ): Effect.Effect<ChunkData> =>
     pipe(
       Array.from(chunk.blocks)
-        .flatMap((blockId, index) =>
-          predicate(blockId, index)
-            ? [{ index, blockId: transform(blockId, index) }]
-            : []
-        )
+        .flatMap((blockId, index) => (predicate(blockId, index) ? [{ index, blockId: transform(blockId, index) }] : []))
         .filter(({ blockId, index }) => blockId !== chunk.blocks[index]),
       (updates) => ParallelChunkTraversalOptics.parallelBlockUpdate(chunk, updates)
     ),
 
-  parallelBlockStatistics: (chunk: ChunkData): Effect.Effect<{
+  parallelBlockStatistics: (
+    chunk: ChunkData
+  ): Effect.Effect<{
     readonly totalBlocks: number
     readonly emptyBlocks: number
     readonly uniqueBlockTypes: number
@@ -236,10 +201,8 @@ export const ParallelChunkTraversalOptics = {
 } as const
 
 export const ChunkTraversalComposers = {
-  sequence: (
-    chunk: ChunkData,
-    operations: ReadonlyArray<(chunk: ChunkData) => ChunkData>
-  ): ChunkData => operations.reduce((acc, operation) => operation(acc), chunk),
+  sequence: (chunk: ChunkData, operations: ReadonlyArray<(chunk: ChunkData) => ChunkData>): ChunkData =>
+    operations.reduce((acc, operation) => operation(acc), chunk),
 
   parallel: (
     chunk: ChunkData,
@@ -265,56 +228,41 @@ export const ChunkTraversalComposers = {
 } as const
 
 export const ChunkTraversalOptics = {
-  allBlocks: (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapAllBlocks(chunk, transform),
+  allBlocks: (transform: (blockId: number, index: number) => number) => (chunk: ChunkData) =>
+    ChunkTraversalOperations.mapAllBlocks(chunk, transform),
 
-  blocksWhere: (
-    predicate: (blockId: number, index: number) => boolean
-  ) => (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapBlocksWhere(chunk, predicate, transform),
+  blocksWhere:
+    (predicate: (blockId: number, index: number) => boolean) =>
+    (transform: (blockId: number, index: number) => number) =>
+    (chunk: ChunkData) =>
+      ChunkTraversalOperations.mapBlocksWhere(chunk, predicate, transform),
 
-  nonEmptyBlocks: (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapNonEmptyBlocks(chunk, transform),
+  nonEmptyBlocks: (transform: (blockId: number, index: number) => number) => (chunk: ChunkData) =>
+    ChunkTraversalOperations.mapNonEmptyBlocks(chunk, transform),
 
-  blocksByType: (
-    blockType: number
-  ) => (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapBlocksByType(chunk, blockType, transform),
+  blocksByType: (blockType: number) => (transform: (blockId: number, index: number) => number) => (chunk: ChunkData) =>
+    ChunkTraversalOperations.mapBlocksByType(chunk, blockType, transform),
 
-  blocksAtY: (
-    y: number
-  ) => (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapBlocksAtY(chunk, y, transform),
+  blocksAtY: (y: number) => (transform: (blockId: number, index: number) => number) => (chunk: ChunkData) =>
+    ChunkTraversalOperations.mapBlocksAtY(chunk, y, transform),
 
-  blocksInRegion: (
-    x1: number,
-    y1: number,
-    z1: number,
-    x2: number,
-    y2: number,
-    z2: number
-  ) => (
-    transform: (blockId: number, index: number) => number
-  ) => (chunk: ChunkData) =>
-    ChunkTraversalOperations.mapBlocksInRegion(chunk, x1, y1, z1, x2, y2, z2, transform),
+  blocksInRegion:
+    (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) =>
+    (transform: (blockId: number, index: number) => number) =>
+    (chunk: ChunkData) =>
+      ChunkTraversalOperations.mapBlocksInRegion(chunk, x1, y1, z1, x2, y2, z2, transform),
 
-  heightMapRange: (
-    start: number,
-    end: number
-  ) => (
-    transform: (height: HeightValue, index: number) => HeightValue
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapHeightMapRange(chunk, start, end, transform),
+  heightMapRange:
+    (start: number, end: number) =>
+    (transform: (height: HeightValue, index: number) => HeightValue) =>
+    (chunk: ChunkData) =>
+      ChunkTraversalOperations.mapHeightMapRange(chunk, start, end, transform),
 
-  heightMapWhere: (
-    predicate: (height: HeightValue, index: number) => boolean
-  ) => (
-    transform: (height: HeightValue, index: number) => HeightValue
-  ) => (chunk: ChunkData) => ChunkTraversalOperations.mapHeightMapWhere(chunk, predicate, transform),
+  heightMapWhere:
+    (predicate: (height: HeightValue, index: number) => boolean) =>
+    (transform: (height: HeightValue, index: number) => HeightValue) =>
+    (chunk: ChunkData) =>
+      ChunkTraversalOperations.mapHeightMapWhere(chunk, predicate, transform),
 } as const
 
 export type ChunkTraversalOperation<A> = (chunk: ChunkData) => ChunkData

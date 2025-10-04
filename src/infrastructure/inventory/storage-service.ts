@@ -13,8 +13,8 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Option, pipe } from 'effect'
-import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory/InventoryTypes'
-import { PlayerIdSchema } from '../../domain/inventory/InventoryTypes'
+import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory/inventory-types'
+import { PlayerIdSchema } from '../../domain/inventory/inventory-types'
 
 // =============================================================================
 // ストレージ種別とキー定義
@@ -47,18 +47,10 @@ export const BackupKeySchema = Schema.String.pipe(
 )
 export type BackupKey = Schema.Schema.Type<typeof BackupKeySchema>
 
-export const MillisecondsSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand('Milliseconds')
-)
+export const MillisecondsSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('Milliseconds'))
 export type Milliseconds = Schema.Schema.Type<typeof MillisecondsSchema>
 
-const BackupSlotSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(1, 10),
-  Schema.brand('BackupSlotCount')
-)
+const BackupSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(1, 10), Schema.brand('BackupSlotCount'))
 export type BackupSlotCount = Schema.Schema.Type<typeof BackupSlotSchema>
 
 export const StorageConfigSchema = Schema.Struct({
@@ -67,10 +59,7 @@ export const StorageConfigSchema = Schema.Struct({
   saveInterval: MillisecondsSchema,
   backupSlots: BackupSlotSchema,
   compression: Schema.Boolean,
-}).pipe(
-  Schema.brand('InventoryStorageConfig'),
-  Schema.annotations({ title: 'InventoryStorageConfig' })
-)
+}).pipe(Schema.brand('InventoryStorageConfig'), Schema.annotations({ title: 'InventoryStorageConfig' }))
 
 export type StorageConfig = Schema.Schema.Type<typeof StorageConfigSchema>
 
@@ -193,10 +182,7 @@ export interface InventoryStorageService {
   readonly createBackup: (
     playerId: PlayerId
   ) => Effect.Effect<BackupSnapshot & { readonly payload: Inventory }, StorageError>
-  readonly restoreBackup: (
-    playerId: PlayerId,
-    snapshot: BackupSnapshot
-  ) => Effect.Effect<Inventory, StorageError>
+  readonly restoreBackup: (playerId: PlayerId, snapshot: BackupSnapshot) => Effect.Effect<Inventory, StorageError>
   readonly clearAllData: () => Effect.Effect<void, StorageError>
   readonly getStorageInfo: () => Effect.Effect<StorageInfo, StorageError>
 }
@@ -209,7 +195,12 @@ export const InventoryStorageService = Context.GenericTag<InventoryStorageServic
 // 共通ユーティリティ
 // =============================================================================
 
-const decode = <A>(schema: Schema.Schema<A>, value: unknown, backend: StorageBackend, context: string): Effect.Effect<A, StorageError> =>
+const decode = <A>(
+  schema: Schema.Schema<A>,
+  value: unknown,
+  backend: StorageBackend,
+  context: string
+): Effect.Effect<A, StorageError> =>
   pipe(
     Schema.decodeUnknown(schema)(value),
     Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))

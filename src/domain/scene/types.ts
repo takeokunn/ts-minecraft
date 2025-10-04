@@ -1,5 +1,4 @@
-import { Schema } from 'effect'
-import { Data, Option } from 'effect'
+import { Data, Option, Schema } from 'effect'
 
 // ===== Brand 定義 =====
 
@@ -18,10 +17,7 @@ export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 export const SaveIdSchema = Schema.String.pipe(Schema.brand('SaveId'))
 export type SaveId = Schema.Schema.Type<typeof SaveIdSchema>
 
-export const SceneTimestampSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('SceneTimestamp')
-)
+export const SceneTimestampSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('SceneTimestamp'))
 export type SceneTimestamp = Schema.Schema.Type<typeof SceneTimestampSchema>
 
 export const SceneProgressSchema = Schema.Number.pipe(
@@ -31,10 +27,7 @@ export const SceneProgressSchema = Schema.Number.pipe(
 )
 export type SceneProgress = Schema.Schema.Type<typeof SceneProgressSchema>
 
-export const ResourceSizeSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('ResourceSize')
-)
+export const ResourceSizeSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('ResourceSize'))
 export type ResourceSize = Schema.Schema.Type<typeof ResourceSizeSchema>
 
 // ===== 値オブジェクト =====
@@ -112,9 +105,7 @@ export const GameWorldSceneSchema = Schema.Struct({
 })
 export const SettingsSceneSchema = Schema.Struct({
   _tag: Schema.Literal('Settings'),
-  returnTo: Schema.OptionFromSelf(
-    Schema.Literal('MainMenu', 'GameWorld', 'Settings', 'Error')
-  ),
+  returnTo: Schema.OptionFromSelf(Schema.Literal('MainMenu', 'GameWorld', 'Settings', 'Error')),
 })
 export const ErrorSceneSchema = Schema.Struct({
   _tag: Schema.Literal('Error'),
@@ -138,24 +129,11 @@ export const LoadingSceneSchema = Schema.Struct({
 export const SceneStateSchema = Schema.Union(ActiveSceneSchema, LoadingSceneSchema)
 
 interface SceneStateConstructors {
-  readonly MainMenu: (
-    selectedOption?: Option.Option<MenuOption>
-  ) => MainMenuScene
-  readonly GameWorld: (params: {
-    readonly worldId: WorldId
-    readonly playerState: PlayerState
-  }) => GameWorldScene
-  readonly Settings: (
-    returnTo?: Option.Option<ActiveSceneKind>
-  ) => SettingsScene
-  readonly Error: (params: {
-    readonly error: ErrorInfo
-    readonly recoverable: boolean
-  }) => ErrorScene
-  readonly Loading: (params: {
-    readonly target: ActiveScene
-    readonly progress?: SceneProgress
-  }) => LoadingScene
+  readonly MainMenu: (selectedOption?: Option.Option<MenuOption>) => MainMenuScene
+  readonly GameWorld: (params: { readonly worldId: WorldId; readonly playerState: PlayerState }) => GameWorldScene
+  readonly Settings: (returnTo?: Option.Option<ActiveSceneKind>) => SettingsScene
+  readonly Error: (params: { readonly error: ErrorInfo; readonly recoverable: boolean }) => ErrorScene
+  readonly Loading: (params: { readonly target: ActiveScene; readonly progress?: SceneProgress }) => LoadingScene
 }
 
 export const SceneState: SceneStateConstructors = {

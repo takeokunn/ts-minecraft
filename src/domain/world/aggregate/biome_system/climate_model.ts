@@ -2,9 +2,9 @@
  * @fileoverview Climate Model - 気候モデル管理
  */
 
-import { Effect, Schema } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
+import { Effect, Schema } from 'effect'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
 
 export const ClimateModelSchema = Schema.Struct({
   globalSettings: Schema.Struct({
@@ -15,18 +15,20 @@ export const ClimateModelSchema = Schema.Struct({
     enableSeasonalCycles: Schema.Boolean,
     seasonalIntensity: Schema.Number,
   }),
-  regionalModifiers: Schema.Array(Schema.Struct({
-    region: Schema.Struct({
-      centerX: Schema.Number,
-      centerZ: Schema.Number,
-      radius: Schema.Number,
-    }),
-    modifiers: Schema.Struct({
-      temperatureModifier: Schema.Number,
-      humidityModifier: Schema.Number,
-      elevationModifier: Schema.Number,
-    }),
-  })),
+  regionalModifiers: Schema.Array(
+    Schema.Struct({
+      region: Schema.Struct({
+        centerX: Schema.Number,
+        centerZ: Schema.Number,
+        radius: Schema.Number,
+      }),
+      modifiers: Schema.Struct({
+        temperatureModifier: Schema.Number,
+        humidityModifier: Schema.Number,
+        elevationModifier: Schema.Number,
+      }),
+    })
+  ),
   noiseFactors: Schema.Struct({
     temperatureNoise: Schema.Struct({
       scale: Schema.Number,
@@ -57,18 +59,21 @@ export const create = (
 export const calculateClimateFactors = (
   model: ClimateModel,
   coordinate: Coordinates.ChunkCoordinate
-): Effect.Effect<{
-  temperature: number
-  humidity: number
-  elevation: number
-  windPattern: "calm" | "gentle" | "moderate" | "strong"
-  seasonalVariation: number
-}, never> =>
+): Effect.Effect<
+  {
+    temperature: number
+    humidity: number
+    elevation: number
+    windPattern: 'calm' | 'gentle' | 'moderate' | 'strong'
+    seasonalVariation: number
+  },
+  never
+> =>
   Effect.succeed({
     temperature: 15,
     humidity: 50,
     elevation: 64,
-    windPattern: "gentle",
+    windPattern: 'gentle',
     seasonalVariation: 0.1,
   })
 
@@ -76,5 +81,4 @@ export const update = (
   model: ClimateModel,
   globalFactors?: any,
   regionalFactors?: any
-): Effect.Effect<ClimateModel, never> =>
-  Effect.succeed(model)
+): Effect.Effect<ClimateModel, never> => Effect.succeed(model)

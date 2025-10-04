@@ -1,18 +1,17 @@
 import { Effect, Layer, Ref } from 'effect'
-import { ChunkQueryRepository } from './interface'
-import type { ChunkRepository } from '../chunk_repository/interface'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkId } from '../../value_object/chunk_id'
+import type { ChunkRepository } from '../chunk_repository/interface'
 import type { RepositoryError } from '../types/repository_error'
 import { RepositoryErrors } from '../types/repository_error'
 import type {
-  ChunkSearchCriteria,
   ChunkAnalytics,
-  ChunkPerformanceStats,
+  ChunkHeatmapData,
   ChunkNeighborhood,
-  ChunkHeatmapData
+  ChunkPerformanceStats,
+  ChunkSearchCriteria,
 } from './interface'
+import { ChunkQueryRepository } from './interface'
 
 /**
  * ChunkQueryRepository Implementation
@@ -47,11 +46,8 @@ const calculateDistance = (pos1: ChunkPosition, pos2: ChunkPosition): number =>
 /**
  * 範囲内チェック
  */
-const isInRange = (
-  position: ChunkPosition,
-  center: ChunkPosition,
-  radius: number
-): boolean => calculateDistance(position, center) <= radius
+const isInRange = (position: ChunkPosition, center: ChunkPosition, radius: number): boolean =>
+  calculateDistance(position, center) <= radius
 
 /**
  * バウンディングボックス内チェック
@@ -59,48 +55,33 @@ const isInRange = (
 const isInBoundingBox = (
   position: ChunkPosition,
   box: { minX: number; maxX: number; minZ: number; maxZ: number }
-): boolean =>
-  position.x >= box.minX &&
-  position.x <= box.maxX &&
-  position.z >= box.minZ &&
-  position.z <= box.maxZ
+): boolean => position.x >= box.minX && position.x <= box.maxX && position.z >= box.minZ && position.z <= box.maxZ
 
 /**
  * チャンクフィルタリング
  */
-const applyFilters = (
-  chunks: ReadonlyArray<ChunkData>,
-  criteria: ChunkSearchCriteria
-): ReadonlyArray<ChunkData> => {
+const applyFilters = (chunks: ReadonlyArray<ChunkData>, criteria: ChunkSearchCriteria): ReadonlyArray<ChunkData> => {
   let filtered = chunks
 
   // 座標フィルタ
   if (criteria.positions) {
-    const positionSet = new Set(
-      criteria.positions.map(p => `${p.x},${p.z}`)
-    )
-    filtered = filtered.filter(chunk =>
-      positionSet.has(`${chunk.position.x},${chunk.position.z}`)
-    )
+    const positionSet = new Set(criteria.positions.map((p) => `${p.x},${p.z}`))
+    filtered = filtered.filter((chunk) => positionSet.has(`${chunk.position.x},${chunk.position.z}`))
   }
 
   // バウンディングボックスフィルタ
   if (criteria.boundingBox) {
-    filtered = filtered.filter(chunk =>
-      isInBoundingBox(chunk.position, criteria.boundingBox!)
-    )
+    filtered = filtered.filter((chunk) => isInBoundingBox(chunk.position, criteria.boundingBox!))
   }
 
   // 半径フィルタ
   if (criteria.radius) {
-    filtered = filtered.filter(chunk =>
-      isInRange(chunk.position, criteria.radius!.center, criteria.radius!.distance)
-    )
+    filtered = filtered.filter((chunk) => isInRange(chunk.position, criteria.radius!.center, criteria.radius!.distance))
   }
 
   // 時間範囲フィルタ（メタデータベース）
   if (criteria.timeRange) {
-    filtered = filtered.filter(chunk => {
+    filtered = filtered.filter((chunk) => {
       // チャンクにタイムスタンプがある場合の処理
       // 実際の実装では chunk.metadata.timestamp などを参照
       return true // プレースホルダー
@@ -109,7 +90,7 @@ const applyFilters = (
 
   // バイオームフィルタ
   if (criteria.biomeTypes && criteria.biomeTypes.length > 0) {
-    filtered = filtered.filter(chunk => {
+    filtered = filtered.filter((chunk) => {
       // チャンクのバイオーム情報を確認
       // 実際の実装では chunk.metadata.biome などを参照
       return true // プレースホルダー
@@ -118,7 +99,7 @@ const applyFilters = (
 
   // ブロック型フィルタ
   if (criteria.hasBlocks && criteria.hasBlocks.length > 0) {
-    filtered = filtered.filter(chunk => {
+    filtered = filtered.filter((chunk) => {
       // チャンクに特定のブロックが含まれるかチェック
       // 実際の実装では chunk.blocks を検索
       return true // プレースホルダー
@@ -206,17 +187,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
     const cacheRef = yield* Ref.make<Map<string, CacheEntry<unknown>>>(new Map())
 
     // キャッシュヘルパー
-    const getCached = <T>(
-      key: string,
-      ttlMs: number = 60000
-    ): Effect.Effect<T | null, never> =>
+    const getCached = <T>(key: string, ttlMs: number = 60000): Effect.Effect<T | null, never> =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(cacheRef)
         const entry = cache.get(key) as CacheEntry<T> | undefined
 
         if (entry && Date.now() - entry.timestamp < ttlMs) {
           // ヒット数更新
-          yield* Ref.update(cacheRef, currentCache => {
+          yield* Ref.update(cacheRef, (currentCache) => {
             const newCache = new Map(currentCache)
             newCache.set(key, { ...entry, hitCount: entry.hitCount + 1 })
             return newCache
@@ -228,12 +206,12 @@ export const ChunkQueryRepositoryLive = Layer.effect(
       })
 
     const setCache = <T>(key: string, data: T): Effect.Effect<void, never> =>
-      Ref.update(cacheRef, cache => {
+      Ref.update(cacheRef, (cache) => {
         const newCache = new Map(cache)
         newCache.set(key, {
           data,
           timestamp: Date.now(),
-          hitCount: 0
+          hitCount: 0,
         })
         return newCache
       })
@@ -253,14 +231,12 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             minX: Math.floor(center.x - radius),
             maxX: Math.ceil(center.x + radius),
             minZ: Math.floor(center.z - radius),
-            maxZ: Math.ceil(center.z + radius)
+            maxZ: Math.ceil(center.z + radius),
           }
 
           const regionChunks = yield* chunkRepo.findByRegion(region)
 
-          const result = regionChunks.filter(chunk =>
-            isInRange(chunk.position, center, radius)
-          )
+          const result = regionChunks.filter((chunk) => isInRange(chunk.position, center, radius))
 
           yield* setCache(cacheKey, result)
           return result
@@ -268,18 +244,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
       findEmptyChunks: (region) =>
         Effect.gen(function* () {
-          const cacheKey = region
-            ? `empty_${region.minX}_${region.maxX}_${region.minZ}_${region.maxZ}`
-            : 'empty_all'
+          const cacheKey = region ? `empty_${region.minX}_${region.maxX}_${region.minZ}_${region.maxZ}` : 'empty_all'
 
           const cached = yield* getCached<ReadonlyArray<ChunkPosition>>(cacheKey)
           if (cached) return cached
 
           // 全チャンクから空のチャンクを検索
           // 実際の実装では、チャンクの中身をチェックして空かどうかを判定
-          const allChunks = region
-            ? yield* chunkRepo.findByRegion(region)
-            : yield* chunkRepo.findByQuery({})
+          const allChunks = region ? yield* chunkRepo.findByRegion(region) : yield* chunkRepo.findByQuery({})
 
           const emptyPositions: ChunkPosition[] = []
 
@@ -304,7 +276,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
           const allChunks = yield* chunkRepo.findByQuery({})
 
-          const result = allChunks.filter(chunk => {
+          const result = allChunks.filter((chunk) => {
             // チャンクのバイオーム情報をチェック
             // 実際の実装では chunk.metadata.biome を参照
             return true // プレースホルダー
@@ -324,10 +296,12 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const allChunks = yield* chunkRepo.findByQuery({})
 
           // アクセス回数でソート（メタデータベース）
-          const sorted = [...allChunks].sort((a, b) => {
-            // 実際の実装では chunk.metadata.accessCount を使用
-            return 0 // プレースホルダー
-          }).slice(0, limit)
+          const sorted = [...allChunks]
+            .sort((a, b) => {
+              // 実際の実装では chunk.metadata.accessCount を使用
+              return 0 // プレースホルダー
+            })
+            .slice(0, limit)
 
           return sorted
         }),
@@ -340,7 +314,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
           const allChunks = yield* chunkRepo.findByQuery({})
 
-          const result = allChunks.filter(chunk => {
+          const result = allChunks.filter((chunk) => {
             // チャンクに特定のブロックタイプが含まれるかチェック
             // 実際の実装では chunk.blocks を検索
             return true // プレースホルダー
@@ -368,7 +342,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const allChunks = yield* chunkRepo.findByQuery({})
 
           // メタデータ内での全文検索
-          const result = allChunks.filter(chunk => {
+          const result = allChunks.filter((chunk) => {
             const searchableText = JSON.stringify(chunk).toLowerCase()
             return searchableText.includes(query.toLowerCase())
           })
@@ -379,17 +353,17 @@ export const ChunkQueryRepositoryLive = Layer.effect(
       findNearbyChunks: (position: ChunkPosition, maxDistance: number, filters) =>
         Effect.gen(function* () {
           const nearbyChunks = yield* Effect.succeed([]).pipe(
-            Effect.flatMap(() => chunkRepo.findByRegion({
-              minX: Math.floor(position.x - maxDistance),
-              maxX: Math.ceil(position.x + maxDistance),
-              minZ: Math.floor(position.z - maxDistance),
-              maxZ: Math.ceil(position.z + maxDistance)
-            }))
+            Effect.flatMap(() =>
+              chunkRepo.findByRegion({
+                minX: Math.floor(position.x - maxDistance),
+                maxX: Math.ceil(position.x + maxDistance),
+                minZ: Math.floor(position.z - maxDistance),
+                maxZ: Math.ceil(position.z + maxDistance),
+              })
+            )
           )
 
-          let filtered = nearbyChunks.filter(chunk =>
-            calculateDistance(chunk.position, position) <= maxDistance
-          )
+          let filtered = nearbyChunks.filter((chunk) => calculateDistance(chunk.position, position) <= maxDistance)
 
           if (filters) {
             filtered = applyFilters(filtered, filters)
@@ -403,9 +377,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const centerChunk = yield* chunkRepo.findByPosition(position)
 
           if (!centerChunk._tag || centerChunk._tag !== 'Some') {
-            return yield* Effect.fail(
-              RepositoryErrors.chunkNotFound(`${position.x},${position.z}`)
-            )
+            return yield* Effect.fail(RepositoryErrors.chunkNotFound(`${position.x},${position.z}`))
           }
 
           const center = centerChunk.value
@@ -419,7 +391,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             northeast: yield* chunkRepo.findByPosition({ x: position.x + 1, z: position.z + 1 }),
             northwest: yield* chunkRepo.findByPosition({ x: position.x - 1, z: position.z + 1 }),
             southeast: yield* chunkRepo.findByPosition({ x: position.x + 1, z: position.z - 1 }),
-            southwest: yield* chunkRepo.findByPosition({ x: position.x - 1, z: position.z - 1 })
+            southwest: yield* chunkRepo.findByPosition({ x: position.x - 1, z: position.z - 1 }),
           }
 
           // 半径2、3の範囲のチャンクを取得
@@ -427,14 +399,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             minX: position.x - 2,
             maxX: position.x + 2,
             minZ: position.z - 2,
-            maxZ: position.z + 2
+            maxZ: position.z + 2,
           })
 
           const radius3Chunks = yield* chunkRepo.findByRegion({
             minX: position.x - 3,
             maxX: position.x + 3,
             minZ: position.z - 3,
-            maxZ: position.z + 3
+            maxZ: position.z + 3,
           })
 
           const neighborhood: ChunkNeighborhood = {
@@ -447,10 +419,10 @@ export const ChunkQueryRepositoryLive = Layer.effect(
               northeast: neighbors.northeast._tag === 'Some' ? neighbors.northeast.value : undefined,
               northwest: neighbors.northwest._tag === 'Some' ? neighbors.northwest.value : undefined,
               southeast: neighbors.southeast._tag === 'Some' ? neighbors.southeast.value : undefined,
-              southwest: neighbors.southwest._tag === 'Some' ? neighbors.southwest.value : undefined
+              southwest: neighbors.southwest._tag === 'Some' ? neighbors.southwest.value : undefined,
             },
             radius2: radius2Chunks,
-            radius3: radius3Chunks
+            radius3: radius3Chunks,
           }
 
           return neighborhood
@@ -471,7 +443,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             averageLoadTime: stats.averageLoadTime,
             memoryUsageByRegion: [], // 実際の実装では地域別に計算
             accessPatterns: [], // 実際の実装では使用パターンを分析
-            biomeDistribution: [] // 実際の実装ではバイオーム分布を計算
+            biomeDistribution: [], // 実際の実装ではバイオーム分布を計算
           }
 
           return analytics
@@ -482,22 +454,22 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const metrics = yield* Ref.get(performanceMetricsRef)
 
           const stats: ChunkPerformanceStats = {
-            queryExecutionTimes: metrics.map(m => ({
+            queryExecutionTimes: metrics.map((m) => ({
               query: m.queryName,
               executionTimeMs: m.executionTimeMs,
-              timestamp: m.timestamp
+              timestamp: m.timestamp,
             })),
             cacheHitRates: [], // 実際の実装ではキャッシュ統計を計算
             memoryPressure: {
               currentUsageMB: 0, // 実際の実装ではメモリ使用量を測定
               maxUsageMB: 1024,
-              pressureLevel: 'low'
+              pressureLevel: 'low',
             },
             ioPerformance: {
               averageReadTimeMs: 10,
               averageWriteTimeMs: 15,
-              queueDepth: 0
-            }
+              queueDepth: 0,
+            },
           }
 
           return stats
@@ -516,7 +488,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
               chunkCount: chunks.length,
               loadedCount,
               memoryUsage: chunks.length * 64 * 1024, // 簡易推定
-              averageAccessTime: 10 // 簡易推定
+              averageAccessTime: 10, // 簡易推定
             })
           }
 
@@ -527,7 +499,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const chunks = yield* chunkRepo.findByRegion(region)
 
-          const data = chunks.map(chunk => {
+          const data = chunks.map((chunk) => {
             let value = 0
 
             switch (metric) {
@@ -552,12 +524,12 @@ export const ChunkQueryRepositoryLive = Layer.effect(
               metadata: {
                 loadTime: 10,
                 accessCount: 1,
-                lastModified: Date.now()
-              }
+                lastModified: Date.now(),
+              },
             }
           })
 
-          const values = data.map(d => d.value)
+          const values = data.map((d) => d.value)
           const min = Math.min(...values)
           const max = Math.max(...values)
 
@@ -567,8 +539,8 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             scale: {
               min,
               max,
-              unit: metric === 'size' ? 'bytes' : metric === 'loadTime' ? 'ms' : 'count'
-            }
+              unit: metric === 'size' ? 'bytes' : metric === 'loadTime' ? 'ms' : 'count',
+            },
           }
 
           return heatmap
@@ -578,16 +550,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
       getBiomeDistribution: (region) =>
         Effect.gen(function* () {
-          const chunks = region
-            ? yield* chunkRepo.findByRegion(region)
-            : yield* chunkRepo.findByQuery({})
+          const chunks = region ? yield* chunkRepo.findByRegion(region) : yield* chunkRepo.findByQuery({})
 
           // バイオーム分布計算（プレースホルダー）
           const distribution = [
             { biomeType: 'plains', chunkCount: Math.floor(chunks.length * 0.4), percentage: 40 },
             { biomeType: 'forest', chunkCount: Math.floor(chunks.length * 0.3), percentage: 30 },
             { biomeType: 'mountains', chunkCount: Math.floor(chunks.length * 0.2), percentage: 20 },
-            { biomeType: 'desert', chunkCount: Math.floor(chunks.length * 0.1), percentage: 10 }
+            { biomeType: 'desert', chunkCount: Math.floor(chunks.length * 0.1), percentage: 10 },
           ]
 
           return distribution
@@ -595,15 +565,13 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
       getBlockTypeDistribution: (region) =>
         Effect.gen(function* () {
-          const chunks = region
-            ? yield* chunkRepo.findByRegion(region)
-            : yield* chunkRepo.findByQuery({})
+          const chunks = region ? yield* chunkRepo.findByRegion(region) : yield* chunkRepo.findByQuery({})
 
           // ブロック型分布計算（プレースホルダー）
           const distribution = [
             { blockType: 'stone', count: chunks.length * 1000, percentage: 50 },
             { blockType: 'dirt', count: chunks.length * 600, percentage: 30 },
-            { blockType: 'grass', count: chunks.length * 400, percentage: 20 }
+            { blockType: 'grass', count: chunks.length * 400, percentage: 20 },
           ]
 
           return distribution
@@ -618,7 +586,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           for (let time = timeRange.from; time <= timeRange.to; time += intervalMs) {
             stats.push({
               timestamp: time,
-              value: Math.floor(Math.random() * 100) // プレースホルダー
+              value: Math.floor(Math.random() * 100), // プレースホルダー
             })
           }
 
@@ -631,11 +599,13 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const allChunks = yield* chunkRepo.findByQuery({})
 
-          const candidates = allChunks.map(chunk => ({
-            chunk,
-            reason: 'メモリ使用量が高い', // 実際の実装では分析ロジック
-            priority: Math.floor(Math.random() * 10) + 1 // 実際の実装では優先度計算
-          })).filter(c => c.priority > 5)
+          const candidates = allChunks
+            .map((chunk) => ({
+              chunk,
+              reason: 'メモリ使用量が高い', // 実際の実装では分析ロジック
+              priority: Math.floor(Math.random() * 10) + 1, // 実際の実装では優先度計算
+            }))
+            .filter((c) => c.priority > 5)
 
           return candidates
         }),
@@ -652,10 +622,11 @@ export const ChunkQueryRepositoryLive = Layer.effect(
               minX: chunk.position.x - 1,
               maxX: chunk.position.x + 1,
               minZ: chunk.position.z - 1,
-              maxZ: chunk.position.z + 1
+              maxZ: chunk.position.z + 1,
             })
 
-            if (neighbors.length === 1) { // 自分だけ
+            if (neighbors.length === 1) {
+              // 自分だけ
               orphaned.push(chunk)
             }
           }
@@ -667,14 +638,16 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const allChunks = yield* chunkRepo.findByQuery({})
 
-          const causes = allChunks.map(chunk => {
-            const memoryUsage = JSON.stringify(chunk).length
-            return {
-              chunk,
-              memoryUsage,
-              reason: memoryUsage > 10000 ? '大きなデータサイズ' : '正常'
-            }
-          }).filter(c => c.memoryUsage > 5000)
+          const causes = allChunks
+            .map((chunk) => {
+              const memoryUsage = JSON.stringify(chunk).length
+              return {
+                chunk,
+                memoryUsage,
+                reason: memoryUsage > 10000 ? '大きなデータサイズ' : '正常',
+              }
+            })
+            .filter((c) => c.memoryUsage > 5000)
 
           return causes
         }),
@@ -685,19 +658,16 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const recentChunks = yield* chunkRepo.findRecentlyLoaded(50)
 
-          const active = recentChunks.map(chunk => ({
+          const active = recentChunks.map((chunk) => ({
             chunk,
             lastActivity: Date.now(),
-            activityType: 'load' // 実際の実装では活動タイプを判定
+            activityType: 'load', // 実際の実装では活動タイプを判定
           }))
 
           return active
         }),
 
-      measureQueryPerformance: <T>(
-        queryName: string,
-        query: Effect.Effect<T, RepositoryError>
-      ) =>
+      measureQueryPerformance: <T>(queryName: string, query: Effect.Effect<T, RepositoryError>) =>
         Effect.gen(function* () {
           const startTime = Date.now()
           const startMemory = process.memoryUsage().heapUsed
@@ -711,22 +681,22 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const memoryUsed = endMemory - startMemory
 
           // パフォーマンスメトリクスを記録
-          yield* Ref.update(performanceMetricsRef, metrics => [
+          yield* Ref.update(performanceMetricsRef, (metrics) => [
             ...metrics.slice(-99), // 最新100件を保持
             {
               queryName,
               executionTimeMs,
               timestamp: Date.now(),
-              memoryUsed
-            }
+              memoryUsed,
+            },
           ])
 
           return {
             result,
             executionTimeMs,
-            memoryUsed
+            memoryUsed,
           }
-        })
+        }),
     }
   })
 )

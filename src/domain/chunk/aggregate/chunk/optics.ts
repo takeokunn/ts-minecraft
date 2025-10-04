@@ -1,14 +1,10 @@
 import { Schema } from '@effect/schema'
 import { Effect, Option, pipe } from 'effect'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import { type ChunkMetadata, type HeightValue, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data/types'
 import { ChunkDataSchema, ChunkDataValidationError } from '../chunk_data/types'
-import {
-  type ChunkMetadata,
-  type HeightValue,
-  HeightValue as MakeHeightValue,
-} from '../../value_object/chunk_metadata'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 /**
  * Lens定義
@@ -27,28 +23,21 @@ type IndexedLens<A> = {
 
 const decodeChunk = Schema.decodeUnknownSync(ChunkDataSchema)
 
-const rebuild = (chunk: ChunkData, updates: Partial<ChunkData>): ChunkData =>
-  decodeChunk({ ...chunk, ...updates })
+const rebuild = (chunk: ChunkData, updates: Partial<ChunkData>): ChunkData => decodeChunk({ ...chunk, ...updates })
 
 const safeBlockIndex = (index: number): Option<number> =>
   Number.isInteger(index) && index >= 0 && index < CHUNK_VOLUME ? Option.some(index) : Option.none()
 
 const safeHeightIndex = (index: number): Option<number> =>
-  Number.isInteger(index) && index >= 0 && index < CHUNK_SIZE * CHUNK_SIZE
-    ? Option.some(index)
-    : Option.none()
+  Number.isInteger(index) && index >= 0 && index < CHUNK_SIZE * CHUNK_SIZE ? Option.some(index) : Option.none()
 
-const withBlocks = (chunk: ChunkData, blocks: Uint16Array): ChunkData =>
-  rebuild(chunk, { blocks })
+const withBlocks = (chunk: ChunkData, blocks: Uint16Array): ChunkData => rebuild(chunk, { blocks })
 
-const withMetadata = (chunk: ChunkData, metadata: ChunkMetadata): ChunkData =>
-  rebuild(chunk, { metadata })
+const withMetadata = (chunk: ChunkData, metadata: ChunkMetadata): ChunkData => rebuild(chunk, { metadata })
 
-const withPosition = (chunk: ChunkData, position: ChunkPosition): ChunkData =>
-  rebuild(chunk, { position })
+const withPosition = (chunk: ChunkData, position: ChunkPosition): ChunkData => rebuild(chunk, { position })
 
-const withDirty = (chunk: ChunkData, isDirty: boolean): ChunkData =>
-  rebuild(chunk, { isDirty })
+const withDirty = (chunk: ChunkData, isDirty: boolean): ChunkData => rebuild(chunk, { isDirty })
 
 const invalidIndexError = (field: 'block' | 'height', index: number): ChunkDataValidationError =>
   ChunkDataValidationError({
@@ -57,11 +46,7 @@ const invalidIndexError = (field: 'block' | 'height', index: number): ChunkDataV
     value: index,
   })
 
-const updateBlocksAt = (
-  chunk: ChunkData,
-  index: number,
-  transform: (current: number) => number
-): ChunkData =>
+const updateBlocksAt = (chunk: ChunkData, index: number, transform: (current: number) => number): ChunkData =>
   pipe(
     safeBlockIndex(index),
     Option.map((validatedIndex) => {
@@ -72,11 +57,7 @@ const updateBlocksAt = (
     Option.getOrElse(() => chunk)
   )
 
-const updateHeightAt = (
-  chunk: ChunkData,
-  index: number,
-  transform: (current: HeightValue) => HeightValue
-): ChunkData =>
+const updateHeightAt = (chunk: ChunkData, index: number, transform: (current: HeightValue) => HeightValue): ChunkData =>
   pipe(
     safeHeightIndex(index),
     Option.map((validatedIndex) => {
@@ -91,10 +72,7 @@ const updateHeightAt = (
     Option.getOrElse(() => chunk)
   )
 
-const lens = <A>(
-  getter: (chunk: ChunkData) => A,
-  setter: (chunk: ChunkData, value: A) => ChunkData
-): Lens<A> => ({
+const lens = <A>(getter: (chunk: ChunkData) => A, setter: (chunk: ChunkData, value: A) => ChunkData): Lens<A> => ({
   get: getter,
   replace: (value) => (chunk) => setter(chunk, value),
   modify: (f) => (chunk) => setter(chunk, f(getter(chunk))),
@@ -201,22 +179,13 @@ export const ChunkDataOptics = {
 export const ChunkDataOpticsHelpers = {
   setBlock: (chunk: ChunkData, index: number, blockId: number): ChunkData =>
     updateBlocksAt(chunk, index, () => blockId),
-  modifyBlock: (
-    chunk: ChunkData,
-    index: number,
-    transform: (value: number) => number
-  ): ChunkData => updateBlocksAt(chunk, index, transform),
+  modifyBlock: (chunk: ChunkData, index: number, transform: (value: number) => number): ChunkData =>
+    updateBlocksAt(chunk, index, transform),
   setHeight: (chunk: ChunkData, index: number, height: HeightValue): ChunkData =>
     updateHeightAt(chunk, index, () => height),
-  modifyHeight: (
-    chunk: ChunkData,
-    index: number,
-    transform: (value: HeightValue) => HeightValue
-  ): ChunkData => updateHeightAt(chunk, index, transform),
-  updateMetadata: (
-    chunk: ChunkData,
-    updates: Partial<ChunkMetadata> | undefined
-  ): ChunkData =>
+  modifyHeight: (chunk: ChunkData, index: number, transform: (value: HeightValue) => HeightValue): ChunkData =>
+    updateHeightAt(chunk, index, transform),
+  updateMetadata: (chunk: ChunkData, updates: Partial<ChunkMetadata> | undefined): ChunkData =>
     pipe(
       Option.fromNullable(updates),
       Option.match({
@@ -228,8 +197,7 @@ export const ChunkDataOpticsHelpers = {
           }),
       })
     ),
-  setPosition: (chunk: ChunkData, position: ChunkPosition): ChunkData =>
-    withPosition(chunk, position),
+  setPosition: (chunk: ChunkData, position: ChunkPosition): ChunkData => withPosition(chunk, position),
   setDirty: (chunk: ChunkData, isDirty: boolean): ChunkData => withDirty(chunk, isDirty),
   markDirty: (chunk: ChunkData): ChunkData => withDirty(chunk, true),
   markClean: (chunk: ChunkData): ChunkData => withDirty(chunk, false),
@@ -248,25 +216,17 @@ export const ChunkDataMultiAccessOptics = {
       },
       (chunk, values) => {
         const length = Math.min(values.length, CHUNK_VOLUME)
-        return values.slice(0, length).reduce(
-          (current, value, offset) => updateBlocksAt(current, start + offset, () => value ?? 0),
-          chunk
-        )
+        return values
+          .slice(0, length)
+          .reduce((current, value, offset) => updateBlocksAt(current, start + offset, () => value ?? 0), chunk)
       }
     ),
-  blocksInRegion: (
-    startX: number,
-    startZ: number,
-    width: number,
-    depth: number,
-    baseY: number
-  ) =>
+  blocksInRegion: (startX: number, startZ: number, width: number, depth: number, baseY: number) =>
     lens(
       (chunk) => {
         return Array.from({ length: depth }, (_, dz) => dz).flatMap((dz) =>
           Array.from({ length: width }, (_, dx) => {
-            const index =
-              baseY * CHUNK_SIZE * CHUNK_SIZE + (startZ + dz) * CHUNK_SIZE + (startX + dx)
+            const index = baseY * CHUNK_SIZE * CHUNK_SIZE + (startZ + dz) * CHUNK_SIZE + (startX + dx)
             return ChunkDataOptics.blockAt(index).get(chunk)
           })
         )
@@ -278,20 +238,13 @@ export const ChunkDataMultiAccessOptics = {
 
         return regionCoordinates.reduce((current, coordinate, index) => {
           const blockIndex =
-            baseY * CHUNK_SIZE * CHUNK_SIZE +
-            (startZ + coordinate.dz) * CHUNK_SIZE +
-            (startX + coordinate.dx)
+            baseY * CHUNK_SIZE * CHUNK_SIZE + (startZ + coordinate.dz) * CHUNK_SIZE + (startX + coordinate.dx)
           const nextValue = values[index] ?? 0
           return updateBlocksAt(current, blockIndex, () => nextValue)
         }, chunk)
       }
     ),
-  heightMapRegion: (
-    startX: number,
-    startZ: number,
-    width: number,
-    depth: number
-  ) =>
+  heightMapRegion: (startX: number, startZ: number, width: number, depth: number) =>
     lens(
       (chunk) => {
         return Array.from({ length: depth }, (_, dz) => dz).flatMap((dz) =>

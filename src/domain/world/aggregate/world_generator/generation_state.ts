@@ -7,21 +7,21 @@
  * - パフォーマンス最適化のための統計情報
  */
 
-import { Effect, Schema, Brand, HashMap, Option } from "effect"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Effect, Option, Schema } from 'effect'
+import type * as WorldTypes from '../../types/core/world_types.js'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
 
 // ================================
 // Generation Status
 // ================================
 
 export const GenerationStatusSchema = Schema.Literal(
-  "idle",        // 待機中
-  "generating",  // 生成中
-  "completed",   // 完了
-  "failed",      // 失敗
-  "cancelled"    // キャンセル
+  'idle', // 待機中
+  'generating', // 生成中
+  'completed', // 完了
+  'failed', // 失敗
+  'cancelled' // キャンセル
 )
 
 export type GenerationStatus = typeof GenerationStatusSchema.Type
@@ -69,14 +69,14 @@ export const GenerationStateSchema = Schema.Struct({
   status: GenerationStatusSchema,
   activeGenerations: Schema.Record({
     key: Schema.String, // ChunkCoordinate文字列表現
-    value: ChunkGenerationInfoSchema
+    value: ChunkGenerationInfoSchema,
   }),
   completedChunks: Schema.Record({
     key: Schema.String, // ChunkCoordinate文字列表現
     value: Schema.Struct({
       info: ChunkGenerationInfoSchema,
       dataHash: Schema.String, // 生成されたデータのハッシュ
-    })
+    }),
   }),
   statistics: GenerationStatisticsSchema,
   lastActivity: Schema.DateTimeUtc,
@@ -92,7 +92,7 @@ export type GenerationState = typeof GenerationStateSchema.Type
  * 初期状態作成
  */
 export const createInitial = (): GenerationState => ({
-  status: "idle",
+  status: 'idle',
   activeGenerations: {},
   completedChunks: {},
   statistics: {
@@ -122,20 +122,16 @@ export const startChunkGeneration = (
 
     // 既に生成中または完了済みかチェック
     if (coordinateKey in state.activeGenerations) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`Chunk ${coordinateKey} is already being generated`)
-      )
+      return yield* Effect.fail(GenerationErrors.createStateError(`Chunk ${coordinateKey} is already being generated`))
     }
 
     if (coordinateKey in state.completedChunks) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`Chunk ${coordinateKey} is already completed`)
-      )
+      return yield* Effect.fail(GenerationErrors.createStateError(`Chunk ${coordinateKey} is already completed`))
     }
 
     const generationInfo: ChunkGenerationInfo = {
       coordinate,
-      status: "generating",
+      status: 'generating',
       priority,
       startedAt: now,
       attempts: 1,
@@ -145,7 +141,7 @@ export const startChunkGeneration = (
 
     const updatedState: GenerationState = {
       ...state,
-      status: "generating",
+      status: 'generating',
       activeGenerations: {
         ...state.activeGenerations,
         [coordinateKey]: generationInfo,
@@ -153,10 +149,7 @@ export const startChunkGeneration = (
       statistics: {
         ...state.statistics,
         concurrentGenerations: newConcurrentCount,
-        peakConcurrentGenerations: Math.max(
-          state.statistics.peakConcurrentGenerations,
-          newConcurrentCount
-        ),
+        peakConcurrentGenerations: Math.max(state.statistics.peakConcurrentGenerations, newConcurrentCount),
       },
       lastActivity: now,
     }
@@ -184,18 +177,14 @@ export const completeChunkGeneration = (
     }
 
     // 生成時間計算
-    const duration = activeGeneration.startedAt
-      ? now.getTime() - activeGeneration.startedAt.getTime()
-      : 0
+    const duration = activeGeneration.startedAt ? now.getTime() - activeGeneration.startedAt.getTime() : 0
 
     // データハッシュ計算 (簡易実装)
-    const dataHash = yield* Effect.sync(() =>
-      calculateChunkDataHash(chunkData)
-    )
+    const dataHash = yield* Effect.sync(() => calculateChunkDataHash(chunkData))
 
     const completedInfo: ChunkGenerationInfo = {
       ...activeGeneration,
-      status: "completed",
+      status: 'completed',
       completedAt: now,
       actualDuration: duration,
     }
@@ -212,7 +201,7 @@ export const completeChunkGeneration = (
 
     const updatedState: GenerationState = {
       ...state,
-      status: Object.keys(remainingActiveGenerations).length > 0 ? "generating" : "idle",
+      status: Object.keys(remainingActiveGenerations).length > 0 ? 'generating' : 'idle',
       activeGenerations: remainingActiveGenerations,
       completedChunks: {
         ...state.completedChunks,
@@ -256,7 +245,7 @@ export const failChunkGeneration = (
 
     const failedInfo: ChunkGenerationInfo = {
       ...activeGeneration,
-      status: "failed",
+      status: 'failed',
       completedAt: now,
       lastError: error,
     }
@@ -270,7 +259,7 @@ export const failChunkGeneration = (
 
     const updatedState: GenerationState = {
       ...state,
-      status: Object.keys(remainingActiveGenerations).length > 0 ? "generating" : "idle",
+      status: Object.keys(remainingActiveGenerations).length > 0 ? 'generating' : 'idle',
       activeGenerations: remainingActiveGenerations,
       statistics: {
         ...state.statistics,
@@ -287,9 +276,7 @@ export const failChunkGeneration = (
 /**
  * 現在の生成負荷取得
  */
-export const getCurrentGenerationLoad = (
-  state: GenerationState
-): Effect.Effect<number, never> =>
+export const getCurrentGenerationLoad = (state: GenerationState): Effect.Effect<number, never> =>
   Effect.succeed(state.statistics.concurrentGenerations)
 
 /**
@@ -297,13 +284,16 @@ export const getCurrentGenerationLoad = (
  */
 export const getGenerationProgress = (
   state: GenerationState
-): Effect.Effect<{
-  activeCount: number
-  completedCount: number
-  failedCount: number
-  averageTime: number
-  successRate: number
-}, never> =>
+): Effect.Effect<
+  {
+    activeCount: number
+    completedCount: number
+    failedCount: number
+    averageTime: number
+    successRate: number
+  },
+  never
+> =>
   Effect.succeed({
     activeCount: Object.keys(state.activeGenerations).length,
     completedCount: state.statistics.totalChunksGenerated,
@@ -354,8 +344,7 @@ export const getChunkGenerationStatus = (
 /**
  * 座標を文字列キーに変換
  */
-const coordinateToKey = (coordinate: Coordinates.ChunkCoordinate): string =>
-  `${coordinate.x},${coordinate.z}`
+const coordinateToKey = (coordinate: Coordinates.ChunkCoordinate): string => `${coordinate.x},${coordinate.z}`
 
 /**
  * チャンクデータのハッシュ計算 (簡易実装)
@@ -372,7 +361,7 @@ const calculateChunkDataHash = (chunkData: WorldTypes.ChunkData): string => {
   let hash = 0
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash // 32bit整数に変換
   }
   return hash.toString(36)
@@ -382,8 +371,4 @@ const calculateChunkDataHash = (chunkData: WorldTypes.ChunkData): string => {
 // Exports
 // ================================
 
-export {
-  type GenerationStatus,
-  type ChunkGenerationInfo,
-  type GenerationStatistics,
-}
+export { type ChunkGenerationInfo, type GenerationStatistics, type GenerationStatus }

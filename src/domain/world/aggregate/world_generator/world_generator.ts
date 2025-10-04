@@ -8,18 +8,17 @@
  * - Effect-TS 3.17+の最新パターン活用
  */
 
-import { Context, Effect, Schema, STM, Brand } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import * as GenerationEvents from "./events.js"
-import * as BusinessRules from "./business_rules.js"
-import * as GenerationState from "./generation_state.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationTypes from "../../types/core/generation_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Brand, Context, Effect, Schema, STM } from 'effect'
+import type * as WorldTypes from '../../types/core/world_types.js'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
+import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
+import * as BusinessRules from './business_rules.js'
+import * as GenerationEvents from './events.js'
+import * as GenerationState from './generation_state.js'
 
 // ================================
 // Aggregate Root Identifier
@@ -37,7 +36,7 @@ export const WorldGeneratorIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'WorldGeneratorId',
     description: 'Unique identifier for WorldGenerator aggregate root',
-    examples: ['wg_12345678-1234-5678-9abc-123456789abc']
+    examples: ['wg_12345678-1234-5678-9abc-123456789abc'],
   })
 )
 
@@ -107,11 +106,13 @@ export type WorldGenerator = typeof WorldGeneratorSchema.Type
 export const GenerateChunkCommandSchema = Schema.Struct({
   coordinate: Coordinates.ChunkCoordinateSchema,
   priority: Schema.Number.pipe(Schema.between(1, 10)),
-  options: Schema.optional(Schema.Struct({
-    includeStructures: Schema.Boolean,
-    includeCaves: Schema.Boolean,
-    includeOres: Schema.Boolean,
-  }))
+  options: Schema.optional(
+    Schema.Struct({
+      includeStructures: Schema.Boolean,
+      includeCaves: Schema.Boolean,
+      includeOres: Schema.Boolean,
+    })
+  ),
 })
 
 export type GenerateChunkCommand = typeof GenerateChunkCommandSchema.Type
@@ -151,9 +152,7 @@ export const create = (
     }
 
     // 作成イベント発行
-    yield* GenerationEvents.publish(
-      GenerationEvents.createWorldGeneratorCreated(id, context)
-    )
+    yield* GenerationEvents.publish(GenerationEvents.createWorldGeneratorCreated(id, context))
 
     return generator
   })
@@ -165,26 +164,17 @@ export const create = (
 export const generateChunk = (
   generator: WorldGenerator,
   command: GenerateChunkCommand
-): STM.STM<
-  [WorldGenerator, WorldTypes.ChunkData],
-  GenerationErrors.GenerationError
-> =>
+): STM.STM<[WorldGenerator, WorldTypes.ChunkData], GenerationErrors.GenerationError> =>
   STM.gen(function* () {
     // 並行性制御 - 同時生成制限チェック
-    const currentLoad = yield* STM.fromEffect(
-      GenerationState.getCurrentGenerationLoad(generator.state)
-    )
+    const currentLoad = yield* STM.fromEffect(GenerationState.getCurrentGenerationLoad(generator.state))
 
     if (currentLoad >= BusinessRules.MAX_CONCURRENT_GENERATIONS) {
-      return yield* STM.fail(
-        GenerationErrors.createGenerationOverloadError(currentLoad)
-      )
+      return yield* STM.fail(GenerationErrors.createGenerationOverloadError(currentLoad))
     }
 
     // ビジネスルール検証
-    yield* STM.fromEffect(
-      BusinessRules.validateChunkGenerationRequest(generator, command)
-    )
+    yield* STM.fromEffect(BusinessRules.validateChunkGenerationRequest(generator, command))
 
     // 状態更新 - 生成開始
     const updatedState = yield* STM.fromEffect(
@@ -192,9 +182,7 @@ export const generateChunk = (
     )
 
     // チャンクデータ生成 (実際の生成ロジックはDomain Serviceに委譲)
-    const chunkData = yield* STM.fromEffect(
-      generateChunkData(generator.context, command)
-    )
+    const chunkData = yield* STM.fromEffect(generateChunkData(generator.context, command))
 
     // 状態更新 - 生成完了
     const finalState = yield* STM.fromEffect(
@@ -210,9 +198,7 @@ export const generateChunk = (
 
     // 完了イベント発行
     yield* STM.fromEffect(
-      GenerationEvents.publish(
-        GenerationEvents.createChunkGenerated(generator.id, command.coordinate, chunkData)
-      )
+      GenerationEvents.publish(GenerationEvents.createChunkGenerated(generator.id, command.coordinate, chunkData))
     )
 
     return [updatedGenerator, chunkData]
@@ -244,9 +230,7 @@ export const updateSettings = (
     }
 
     // 設定更新イベント発行
-    yield* GenerationEvents.publish(
-      GenerationEvents.createSettingsUpdated(generator.id, command)
-    )
+    yield* GenerationEvents.publish(GenerationEvents.createSettingsUpdated(generator.id, command))
 
     return updatedGenerator
   })
@@ -338,8 +322,4 @@ export const WorldGeneratorLive = WorldGeneratorTag.of({
 // Exports
 // ================================
 
-export {
-  type GenerationContext,
-  type GenerateChunkCommand,
-  type UpdateSettingsCommand,
-}
+export { type GenerateChunkCommand, type GenerationContext, type UpdateSettingsCommand }

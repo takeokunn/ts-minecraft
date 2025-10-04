@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { DEFAULT_CAMERA_CONFIG } from './constant'
 import { createCameraError, validateCameraConfig, validateCameraMode } from './helper'
 import type { CameraService } from './service'
-import type { CameraError, Vector3, CameraConfig, CameraState } from './types'
+import type { CameraConfig, CameraError, CameraState, Vector3 } from './types'
 import { Vector3Schema } from './types'
 import type { CameraMode } from './types/constants.js'
 

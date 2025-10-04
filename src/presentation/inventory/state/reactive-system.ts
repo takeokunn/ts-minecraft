@@ -1,16 +1,4 @@
-
-import {
-  Context,
-  Duration,
-  Effect,
-  Fiber,
-  HashSet,
-  Layer,
-  Ref,
-  Schedule,
-  Stream,
-  pipe,
-} from 'effect'
+import { Context, Duration, Effect, Fiber, HashSet, Layer, Ref, Schedule, Stream } from 'effect'
 import type { InventoryGUIError, PlayerId } from '../adt/inventory-adt'
 import { InventoryViewModelTag } from '../view-model/inventory-view-model'
 import { InventoryStateStoreTag } from './store'
@@ -35,9 +23,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
     const trackedRef = yield* Ref.make(HashSet.empty<PlayerId>())
 
     const syncPlayer = (playerId: PlayerId) =>
-      viewModel.viewOf(playerId).pipe(
-        Effect.tap((view) => stateStore.set(playerId, view))
-      )
+      viewModel.viewOf(playerId).pipe(Effect.tap((view) => stateStore.set(playerId, view)))
 
     const syncAll = () =>
       Ref.get(trackedRef).pipe(
@@ -50,9 +36,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
       )
 
     const register = (playerId: PlayerId) =>
-      Ref.update(trackedRef, (set) => HashSet.add(set, playerId)).pipe(
-        Effect.flatMap(() => syncPlayer(playerId))
-      )
+      Ref.update(trackedRef, (set) => HashSet.add(set, playerId)).pipe(Effect.flatMap(() => syncPlayer(playerId)))
 
     const unregister = (playerId: PlayerId) =>
       Ref.update(trackedRef, (set) => HashSet.remove(set, playerId)).pipe(
@@ -62,14 +46,11 @@ export const InventoryReactiveSystemLive = Layer.effect(
 
     const start = (tickMillis: number) =>
       Stream.repeatEffect(syncAll)
-        .pipe(
-          Stream.schedule(Schedule.spaced(Duration.millis(tickMillis)))
-        )
+        .pipe(Stream.schedule(Schedule.spaced(Duration.millis(tickMillis))))
         .pipe(Stream.runDrain)
         .pipe(Effect.fork)
 
-    const stop = (fiber: Fiber.RuntimeFiber<void, InventoryGUIError>) =>
-      Fiber.interrupt(fiber)
+    const stop = (fiber: Fiber.RuntimeFiber<void, InventoryGUIError>) => Fiber.interrupt(fiber)
 
     const forceSync = () => syncAll()
 

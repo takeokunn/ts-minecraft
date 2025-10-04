@@ -6,17 +6,17 @@
  */
 
 export {
+  ChunkQueryRepository,
+  type ChunkAnalytics,
+  type ChunkHeatmapData,
+  type ChunkNeighborhood,
+  type ChunkPerformanceStats,
   // Interface
   type ChunkQueryRepository,
-  ChunkQueryRepository,
   type ChunkQueryRepositoryEffect,
 
   // Types
   type ChunkSearchCriteria,
-  type ChunkAnalytics,
-  type ChunkPerformanceStats,
-  type ChunkNeighborhood,
-  type ChunkHeatmapData,
 } from './interface'
 
 export {

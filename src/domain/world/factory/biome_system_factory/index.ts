@@ -3,51 +3,45 @@
  */
 
 export {
-  // Main Factory Interface
-  type BiomeSystemFactory,
-  BiomeSystemFactoryTag,
-  BiomeSystemFactoryLive,
-
-  // Factory Parameters
-  type CreateBiomeSystemParams,
-
-  // Advanced Types
-  type BiomePresetType,
-  type PerformanceProfile,
-  type OptimizationTarget,
-  type ValidationLevel,
-  type ValidationIssue,
-  type ValidationResult,
-
-  // Schemas
-  BiomePresetTypeSchema,
-  PerformanceProfileSchema,
-  OptimizationTargetSchema,
-  ValidationLevelSchema,
-  ValidationIssueSchema,
-  ValidationResultSchema,
-
+  assembleEcosystem,
   // Error Types
   BiomeFactoryError,
   BiomeFactoryErrorSchema,
-
-  // Builder Pattern
-  type BiomeSystemBuilder,
-  createBiomeSystemBuilder,
-
+  // Schemas
+  BiomePresetTypeSchema,
+  BiomeSystemFactoryLive,
+  BiomeSystemFactoryTag,
   // Helper Functions
   calculateClimate,
-  assembleEcosystem,
+  createBiomeSystemBuilder,
+  OptimizationTargetSchema,
+  PerformanceProfileSchema,
+  ValidationIssueSchema,
+  ValidationLevelSchema,
+  ValidationResultSchema,
+  // Advanced Types
+  type BiomePresetType,
+  // Builder Pattern
+  type BiomeSystemBuilder,
+  // Main Factory Interface
+  type BiomeSystemFactory,
+  // Factory Parameters
+  type CreateBiomeSystemParams,
+  type OptimizationTarget,
+  type PerformanceProfile,
+  type ValidationIssue,
+  type ValidationLevel,
+  type ValidationResult,
 } from './factory.js'
 
 // ================================
 // Convenience Functions
 // ================================
 
-import { Effect } from "effect"
-import { createBiomeSystemBuilder } from './factory.js'
+import { Effect } from 'effect'
 import type * as BiomeSystem from '../../aggregate/biome_system/biome_system.js'
-import type { PerformanceProfile, BiomePresetType } from './factory.js'
+import type { BiomePresetType, PerformanceProfile } from './factory.js'
+import { createBiomeSystemBuilder } from './factory.js'
 
 export const createDefaultBiomeSystem = (): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
   createBiomeSystemBuilder()
@@ -69,7 +63,9 @@ export const createSimpleBiomeSystem = (): Effect.Effect<BiomeSystem.BiomeSystem
     .build()
     .pipe(Effect.orDie)
 
-export const createOptimizedBiomeSystem = (profile: PerformanceProfile): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
+export const createOptimizedBiomeSystem = (
+  profile: PerformanceProfile
+): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
   createBiomeSystemBuilder()
     .withPerformance(profile)
     .withCaching(profile !== 'fast')
@@ -79,10 +75,7 @@ export const createOptimizedBiomeSystem = (profile: PerformanceProfile): Effect.
     .pipe(Effect.orDie)
 
 export const createPresetBiomeSystem = (preset: BiomePresetType): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
-  createBiomeSystemBuilder()
-    .withPreset(preset)
-    .build()
-    .pipe(Effect.orDie)
+  createBiomeSystemBuilder().withPreset(preset).build().pipe(Effect.orDie)
 
 export const createCustomBiomeSystem = (
   customBiomes: readonly BiomeSystem.BiomeType[],

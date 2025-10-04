@@ -1,22 +1,21 @@
+import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect } from 'effect'
 import { pipe } from 'effect/Function'
-import * as Schema from '@effect/schema/Schema'
+import { frustumComputedEvent, summarizeFrustum } from './frustum.js'
+import { createViewDistanceToolkit, ViewDistanceToolkit } from './frustum_factory.js'
 import {
-  InvalidConfigurationError,
+  deriveCullableFromManaged,
   LODBatchEvaluatedEvent,
   ManagedObject,
   ObjectsCulledEvent,
+  toEpochMillis,
   ViewControlConfig,
+  ViewControlContext,
   ViewControlResult,
   ViewControlResultSchema,
-  ViewControlContext,
   ViewDistanceError,
   ViewDistanceEvent,
-  deriveCullableFromManaged,
-  toEpochMillis,
 } from './types.js'
-import { summarizeFrustum, frustumComputedEvent } from './frustum.js'
-import { createViewDistanceToolkit, ViewDistanceToolkit } from './frustum_factory.js'
 
 export interface ViewController {
   readonly updateViewSystem: (
@@ -29,9 +28,7 @@ export interface ViewController {
     },
     ViewDistanceError
   >
-  readonly applyNewSettings: (
-    config: ViewControlConfig
-  ) => Effect.Effect<ViewControlConfig, ViewDistanceError>
+  readonly applyNewSettings: (config: ViewControlConfig) => Effect.Effect<ViewControlConfig, ViewDistanceError>
 }
 
 const makeController = (toolkit: ViewDistanceToolkit): ViewController => ({
@@ -43,9 +40,7 @@ const makeController = (toolkit: ViewDistanceToolkit): ViewController => ({
       const lodDecisions = yield* toolkit.lodSelector.selectBatch(objects, lodContext)
       const now = yield* Clock.currentTimeMillis
       const timestamp = yield* toEpochMillis(now)
-      const cullableObjects = yield* Effect.forEach(objects, (object) =>
-        deriveCullableFromManaged(object, timestamp)
-      )
+      const cullableObjects = yield* Effect.forEach(objects, (object) => deriveCullableFromManaged(object, timestamp))
       const cullingDecisions = yield* toolkit.cullingStrategy.cull(cullableObjects, frustum)
       const summary = yield* summarizeFrustum(frustum)
 

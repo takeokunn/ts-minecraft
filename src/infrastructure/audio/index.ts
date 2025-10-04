@@ -1,3 +1,3 @@
-export * from './AudioService'
-export * from './AudioServiceLive'
-export * from './AudioTypes'
+export * from './audio-service'
+export * from './audio-service-live'
+export * from './audio-types'

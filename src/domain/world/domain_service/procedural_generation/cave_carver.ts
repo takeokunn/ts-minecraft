@@ -5,63 +5,56 @@
  * 物理法則に基づいた洞窟構造とMinecraft互換性を両立
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate,
-  WorldCoordinate2D,
-  BoundingBox,
-  BoundingSphere,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  AdvancedNoiseSettings,
-} from '../../value_object/noise_configuration/noise_settings.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { BoundingBox, WorldCoordinate } from '../../value_object/coordinates/world_coordinate.js'
+import type { WorldSeed } from '../../value_object/world_seed/seed.js'
 
 /**
  * 洞窟ネットワーク - 連結された洞窟システム
  */
 export const CaveNetworkSchema = Schema.Struct({
   id: Schema.String,
-  caves: Schema.Array(Schema.Struct({
-    id: Schema.String,
-    center: Schema.Unknown, // WorldCoordinateSchema参照
-    radius: Schema.Number.pipe(Schema.positive()),
-    depth: Schema.Number.pipe(Schema.positive()),
-    connections: Schema.Array(Schema.String), // 他の洞窟への接続ID
-    caveType: Schema.Literal('cavern', 'tunnel', 'chamber', 'chasm', 'grotto')
-  })),
-  tunnels: Schema.Array(Schema.Struct({
-    id: Schema.String,
-    startCave: Schema.String,
-    endCave: Schema.String,
-    path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
-    width: Schema.Number.pipe(Schema.positive()),
-    height: Schema.Number.pipe(Schema.positive()),
-    tunnelType: Schema.Literal('main', 'branch', 'connection', 'emergency')
-  })),
-  waterSources: Schema.Array(Schema.Struct({
-    coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-    flowRate: Schema.Number.pipe(Schema.nonNegative()),
-    depth: Schema.Number.pipe(Schema.positive()),
-    sourceType: Schema.Literal('spring', 'seep', 'underground_river', 'lake')
-  })),
+  caves: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      center: Schema.Unknown, // WorldCoordinateSchema参照
+      radius: Schema.Number.pipe(Schema.positive()),
+      depth: Schema.Number.pipe(Schema.positive()),
+      connections: Schema.Array(Schema.String), // 他の洞窟への接続ID
+      caveType: Schema.Literal('cavern', 'tunnel', 'chamber', 'chasm', 'grotto'),
+    })
+  ),
+  tunnels: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      startCave: Schema.String,
+      endCave: Schema.String,
+      path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
+      width: Schema.Number.pipe(Schema.positive()),
+      height: Schema.Number.pipe(Schema.positive()),
+      tunnelType: Schema.Literal('main', 'branch', 'connection', 'emergency'),
+    })
+  ),
+  waterSources: Schema.Array(
+    Schema.Struct({
+      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      flowRate: Schema.Number.pipe(Schema.nonNegative()),
+      depth: Schema.Number.pipe(Schema.positive()),
+      sourceType: Schema.Literal('spring', 'seep', 'underground_river', 'lake'),
+    })
+  ),
   metadata: Schema.Struct({
     totalVolume: Schema.Number.pipe(Schema.positive()),
     complexity: Schema.Number.pipe(Schema.between(0, 1)),
     accessibility: Schema.Number.pipe(Schema.between(0, 1)),
-    structuralIntegrity: Schema.Number.pipe(Schema.between(0, 1))
-  })
+    structuralIntegrity: Schema.Number.pipe(Schema.between(0, 1)),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'CaveNetwork',
     title: 'Cave Network System',
-    description: 'Complete interconnected cave system with tunnels and chambers'
+    description: 'Complete interconnected cave system with tunnels and chambers',
   })
 )
 
@@ -87,7 +80,7 @@ export const CaveCarveConfigSchema = Schema.Struct({
   maxDepth: Schema.Number.pipe(Schema.int()),
   preferredDepthRange: Schema.Struct({
     min: Schema.Number.pipe(Schema.int()),
-    max: Schema.Number.pipe(Schema.int())
+    max: Schema.Number.pipe(Schema.int()),
   }),
 
   // ノイズ設定
@@ -110,12 +103,12 @@ export const CaveCarveConfigSchema = Schema.Struct({
   // パフォーマンス
   maxCavesPerChunk: Schema.Number.pipe(Schema.int(), Schema.positive()),
   generationRadius: Schema.Number.pipe(Schema.positive()),
-  simplificationThreshold: Schema.Number.pipe(Schema.between(0, 1))
+  simplificationThreshold: Schema.Number.pipe(Schema.between(0, 1)),
 }).pipe(
   Schema.annotations({
     identifier: 'CaveCarveConfig',
     title: 'Cave Carving Configuration',
-    description: 'Complete configuration for cave generation and carving'
+    description: 'Complete configuration for cave generation and carving',
   })
 )
 
@@ -126,40 +119,46 @@ export type CaveCarveConfig = typeof CaveCarveConfigSchema.Type
  */
 export const CaveCarveResultSchema = Schema.Struct({
   network: CaveNetworkSchema,
-  carvedBlocks: Schema.Array(Schema.Struct({
-    coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-    originalMaterial: Schema.String,
-    carveReason: Schema.Literal('cave', 'tunnel', 'water_erosion', 'structural'),
-    confidence: Schema.Number.pipe(Schema.between(0, 1))
-  })),
-  addedBlocks: Schema.Array(Schema.Struct({
-    coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-    material: Schema.String,
-    placementReason: Schema.Literal('support', 'decoration', 'water', 'minerals')
-  })),
-  flowPaths: Schema.Array(Schema.Struct({
-    sourceId: Schema.String,
-    path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
-    flowType: Schema.Literal('water', 'air', 'lava'),
-    volume: Schema.Number.pipe(Schema.positive())
-  })),
+  carvedBlocks: Schema.Array(
+    Schema.Struct({
+      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      originalMaterial: Schema.String,
+      carveReason: Schema.Literal('cave', 'tunnel', 'water_erosion', 'structural'),
+      confidence: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ),
+  addedBlocks: Schema.Array(
+    Schema.Struct({
+      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      material: Schema.String,
+      placementReason: Schema.Literal('support', 'decoration', 'water', 'minerals'),
+    })
+  ),
+  flowPaths: Schema.Array(
+    Schema.Struct({
+      sourceId: Schema.String,
+      path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
+      flowType: Schema.Literal('water', 'air', 'lava'),
+      volume: Schema.Number.pipe(Schema.positive()),
+    })
+  ),
   statistics: Schema.Struct({
     totalVolume: Schema.Number.pipe(Schema.positive()),
     carvedBlocks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     generationTime: Schema.Number.pipe(Schema.positive()),
     memoryUsed: Schema.Number.pipe(Schema.positive()),
-    complexityScore: Schema.Number.pipe(Schema.between(0, 1))
+    complexityScore: Schema.Number.pipe(Schema.between(0, 1)),
   }),
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
   debugInfo: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown
-  }).pipe(Schema.optional)
+    value: Schema.Unknown,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'CaveCarveResult',
     title: 'Cave Carving Result',
-    description: 'Complete result of cave carving process'
+    description: 'Complete result of cave carving process',
   })
 )
 
@@ -201,10 +200,13 @@ export interface CaveCarverService {
     radius: number,
     config: CaveCarveConfig,
     seed: WorldSeed
-  ) => Effect.Effect<{
-    carvedCoordinates: ReadonlyArray<WorldCoordinate>
-    supportStructure: ReadonlyArray<WorldCoordinate>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      carvedCoordinates: ReadonlyArray<WorldCoordinate>
+      supportStructure: ReadonlyArray<WorldCoordinate>
+    },
+    GenerationError
+  >
 
   /**
    * トンネル生成（洞窟間接続）
@@ -223,11 +225,14 @@ export interface CaveCarverService {
   readonly validateStructuralIntegrity: (
     network: CaveNetwork,
     config: CaveCarveConfig
-  ) => Effect.Effect<{
-    isStable: boolean
-    weakPoints: ReadonlyArray<WorldCoordinate>
-    recommendations: ReadonlyArray<string>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      isStable: boolean
+      weakPoints: ReadonlyArray<WorldCoordinate>
+      recommendations: ReadonlyArray<string>
+    },
+    GenerationError
+  >
 
   /**
    * 水流シミュレーション
@@ -235,19 +240,20 @@ export interface CaveCarverService {
   readonly simulateWaterFlow: (
     network: CaveNetwork,
     waterSources: ReadonlyArray<WorldCoordinate>
-  ) => Effect.Effect<ReadonlyArray<{
-    path: ReadonlyArray<WorldCoordinate>
-    volume: number
-    poolingAreas: ReadonlyArray<WorldCoordinate>
-  }>, GenerationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      path: ReadonlyArray<WorldCoordinate>
+      volume: number
+      poolingAreas: ReadonlyArray<WorldCoordinate>
+    }>,
+    GenerationError
+  >
 }
 
 /**
  * CaveCarver Context Tag
  */
-export const CaveCarverService = Context.GenericTag<CaveCarverService>(
-  '@minecraft/domain/world/CaveCarver'
-)
+export const CaveCarverService = Context.GenericTag<CaveCarverService>('@minecraft/domain/world/CaveCarver')
 
 /**
  * CaveCarver Live Implementation
@@ -284,7 +290,7 @@ export const CaveCarverServiceLive = Layer.effect(
           caves: sizedCaves,
           tunnels,
           waterSources,
-          metadata
+          metadata,
         }
       }),
 
@@ -316,7 +322,7 @@ export const CaveCarverServiceLive = Layer.effect(
           carvedBlocks: caveCarves.length + tunnelCarves.length + waterCarves.length,
           generationTime: Date.now() - startTime,
           memoryUsed: estimateMemoryUsage(caveCarves, tunnelCarves, supportBlocks),
-          complexityScore: calculateComplexityScore(network)
+          complexityScore: calculateComplexityScore(network),
         }
 
         return {
@@ -329,8 +335,8 @@ export const CaveCarverServiceLive = Layer.effect(
           debugInfo: {
             caveCount: network.caves.length,
             tunnelCount: network.tunnels.length,
-            waterSourceCount: network.waterSources.length
-          }
+            waterSourceCount: network.waterSources.length,
+          },
         }
       }),
 
@@ -342,17 +348,10 @@ export const CaveCarverServiceLive = Layer.effect(
         const baseCoordinates = yield* generateSphericalCoordinates(center, radius)
 
         // 2. ノイズによる自然化
-        const naturalizedCoordinates = yield* applyNaturalizationNoise(
-          baseCoordinates,
-          config.primaryNoise,
-          seed
-        )
+        const naturalizedCoordinates = yield* applyNaturalizationNoise(baseCoordinates, config.primaryNoise, seed)
 
         // 3. 構造支持の計算
-        const supportStructure = yield* calculateCaveSupports(
-          naturalizedCoordinates,
-          config
-        )
+        const supportStructure = yield* calculateCaveSupports(naturalizedCoordinates, config)
 
         // 4. 重力による自然な形状調整
         const gravityAdjusted = config.enableGravity
@@ -361,7 +360,7 @@ export const CaveCarverServiceLive = Layer.effect(
 
         return {
           carvedCoordinates: gravityAdjusted,
-          supportStructure
+          supportStructure,
         }
       }),
 
@@ -379,10 +378,7 @@ export const CaveCarverServiceLive = Layer.effect(
         const tunnelCoordinates = yield* expandPathToTunnel(curvedPath, width, height)
 
         // 4. 地質による調整
-        const geologicallyAdjusted = yield* applyGeologicalConstraints(
-          tunnelCoordinates,
-          config
-        )
+        const geologicallyAdjusted = yield* applyGeologicalConstraints(tunnelCoordinates, config)
 
         return geologicallyAdjusted
       }),
@@ -401,22 +397,15 @@ export const CaveCarverServiceLive = Layer.effect(
         const overallStability = yield* validateOverallStability(network, config)
 
         // 4. 弱点の特定
-        const weakPoints = yield* identifyWeakPoints(
-          caveStability,
-          tunnelStability,
-          overallStability
-        )
+        const weakPoints = yield* identifyWeakPoints(caveStability, tunnelStability, overallStability)
 
         // 5. 改善提案の生成
-        const recommendations = yield* generateStabilityRecommendations(
-          weakPoints,
-          config
-        )
+        const recommendations = yield* generateStabilityRecommendations(weakPoints, config)
 
         return {
           isStable: weakPoints.length === 0,
           weakPoints,
-          recommendations
+          recommendations,
         }
       }),
 
@@ -443,12 +432,12 @@ export const CaveCarverServiceLive = Layer.effect(
           flowResults.push({
             path: flowPath,
             volume,
-            poolingAreas
+            poolingAreas,
           })
         }
 
         return flowResults
-      })
+      }),
   })
 )
 
@@ -493,8 +482,7 @@ const determineCaveSizes = (
   Effect.succeed(
     candidates.map((coord, index) => {
       const sizeNoise = Math.sin(index + Number(seed)) * 0.5 + 0.5
-      const radius = config.minCaveRadius +
-        (config.maxCaveRadius - config.minCaveRadius) * sizeNoise
+      const radius = config.minCaveRadius + (config.maxCaveRadius - config.minCaveRadius) * sizeNoise
 
       const caveTypes = ['cavern', 'tunnel', 'chamber', 'chasm', 'grotto'] as const
       const typeIndex = Math.floor(sizeNoise * caveTypes.length)
@@ -505,7 +493,7 @@ const determineCaveSizes = (
         radius,
         depth: radius * 0.8,
         connections: [],
-        caveType: caveTypes[typeIndex] || 'cavern'
+        caveType: caveTypes[typeIndex] || 'cavern',
       }
     })
   )
@@ -516,8 +504,7 @@ const determineCaveSizes = (
 const calculateCaveConnections = (
   caves: ReadonlyArray<any>,
   config: CaveCarveConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
-  Effect.succeed([]) // 簡略化実装
+): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
 
 /**
  * 接続トンネルの生成
@@ -525,8 +512,7 @@ const calculateCaveConnections = (
 const generateConnectingTunnels = (
   connections: ReadonlyArray<any>,
   config: CaveCarveConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
-  Effect.succeed([]) // 簡略化実装
+): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
 
 /**
  * 水源の配置
@@ -535,8 +521,7 @@ const placeWaterSources = (
   caves: ReadonlyArray<any>,
   config: CaveCarveConfig,
   seed: WorldSeed
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
-  Effect.succeed([]) // 簡略化実装
+): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
 
 /**
  * ネットワーク統計の計算
@@ -547,10 +532,10 @@ const calculateNetworkMetadata = (
   waterSources: ReadonlyArray<any>
 ): Effect.Effect<any, GenerationError> =>
   Effect.succeed({
-    totalVolume: caves.reduce((sum, cave) => sum + (cave.radius ** 3 * Math.PI * 4/3), 0),
+    totalVolume: caves.reduce((sum, cave) => sum + (cave.radius ** 3 * Math.PI * 4) / 3, 0),
     complexity: Math.min(caves.length / 10, 1),
     accessibility: caves.length > 0 ? tunnels.length / caves.length : 0,
-    structuralIntegrity: 1.0 // 簡略化
+    structuralIntegrity: 1.0, // 簡略化
   })
 
 // その他のヘルパー関数（実装の詳細は省略）
@@ -581,9 +566,7 @@ const calculateWaterPath = (source: any, network: any) => Effect.succeed([])
 const calculateFlowVolume = (source: any, path: any) => Effect.succeed(100)
 const identifyPoolingAreas = (path: any, network: any) => Effect.succeed([])
 const calculateBoundsVolume = (bounds: BoundingBox) =>
-  Math.abs(bounds.max.x - bounds.min.x) *
-  Math.abs(bounds.max.y - bounds.min.y) *
-  Math.abs(bounds.max.z - bounds.min.z)
+  Math.abs(bounds.max.x - bounds.min.x) * Math.abs(bounds.max.y - bounds.min.y) * Math.abs(bounds.max.z - bounds.min.z)
 
 /**
  * デフォルト洞窟彫刻設定
@@ -612,5 +595,5 @@ export const DEFAULT_CAVE_CONFIG: CaveCarveConfig = {
   structureBuffer: 5,
   maxCavesPerChunk: 5,
   generationRadius: 100,
-  simplificationThreshold: 0.1
+  simplificationThreshold: 0.1,
 }

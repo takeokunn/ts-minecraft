@@ -1,12 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Clock, Effect, Match } from 'effect'
-import {
-  CpuPercentage,
-  MemoryBytes,
-  Milliseconds,
-  Timestamp,
-  ErrorSeverity,
-} from './types'
+import { ErrorSeverity, MemoryBytes, Milliseconds, Timestamp } from './types'
 
 // ===== JSON表現 =====
 
@@ -180,10 +174,7 @@ export type GameApplicationInitError =
   | CanvasNotFoundError
   | ConfigurationValidationError
 
-export type GameApplicationError =
-  | GameApplicationInitError
-  | GameApplicationRuntimeError
-  | GameApplicationStateError
+export type GameApplicationError = GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
 
 // ===== エラーヘルパー関数 =====
 

@@ -8,29 +8,29 @@
 
 // === Metrics Collector ===
 export {
+  AlertThreshold,
+  DEFAULT_METRICS_CONFIG,
+  MetricAggregation,
+  MetricsCollectorError,
   MetricsCollectorService,
   MetricsCollectorServiceLive,
-  MetricsCollectorError,
+  MetricsConfiguration,
   MetricValue,
   PerformanceMetrics,
-  MetricAggregation,
-  AlertThreshold,
-  MetricsConfiguration,
-  DEFAULT_METRICS_CONFIG,
 } from './metrics_collector.js'
 
 export type {
+  AlertThresholdType,
+  MetricAggregationType,
   MetricsCollectorErrorType,
+  MetricsConfigurationType,
   MetricValueType,
   PerformanceMetricsType,
-  MetricAggregationType,
-  AlertThresholdType,
-  MetricsConfigurationType,
 } from './metrics_collector.js'
 
 // === Integrated Performance Monitoring Service ===
 
-import { Context, Effect, Layer, Schema, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import { MetricsCollectorService } from './metrics_collector.js'
 
 /**
@@ -45,26 +45,27 @@ export const PerformanceMonitoringError = Schema.TaggedError<PerformanceMonitori
   }
 )
 
-export interface PerformanceMonitoringErrorType
-  extends Schema.Schema.Type<typeof PerformanceMonitoringError> {}
+export interface PerformanceMonitoringErrorType extends Schema.Schema.Type<typeof PerformanceMonitoringError> {}
 
 /**
  * Bottleneck Detection Result
  */
 export const BottleneckDetectionResult = Schema.Struct({
   _tag: Schema.Literal('BottleneckDetectionResult'),
-  detectedBottlenecks: Schema.Array(Schema.Struct({
-    component: Schema.String,
-    severity: Schema.Union(
-      Schema.Literal('low'),
-      Schema.Literal('medium'),
-      Schema.Literal('high'),
-      Schema.Literal('critical'),
-    ),
-    description: Schema.String,
-    impact: Schema.Number.pipe(Schema.between(0, 1)),
-    suggestions: Schema.Array(Schema.String),
-  })),
+  detectedBottlenecks: Schema.Array(
+    Schema.Struct({
+      component: Schema.String,
+      severity: Schema.Union(
+        Schema.Literal('low'),
+        Schema.Literal('medium'),
+        Schema.Literal('high'),
+        Schema.Literal('critical')
+      ),
+      description: Schema.String,
+      impact: Schema.Number.pipe(Schema.between(0, 1)),
+      suggestions: Schema.Array(Schema.String),
+    })
+  ),
   overallHealth: Schema.Number.pipe(Schema.between(0, 1)),
   timestamp: Schema.Number,
 })
@@ -79,22 +80,18 @@ export const OptimizationRecommendation = Schema.Struct({
     Schema.Literal('cpu'),
     Schema.Literal('io'),
     Schema.Literal('cache'),
-    Schema.Literal('algorithm'),
+    Schema.Literal('algorithm')
   ),
   priority: Schema.Union(
     Schema.Literal('low'),
     Schema.Literal('medium'),
     Schema.Literal('high'),
-    Schema.Literal('critical'),
+    Schema.Literal('critical')
   ),
   title: Schema.String,
   description: Schema.String,
   expectedImprovement: Schema.String,
-  implementationEffort: Schema.Union(
-    Schema.Literal('low'),
-    Schema.Literal('medium'),
-    Schema.Literal('high'),
-  ),
+  implementationEffort: Schema.Union(Schema.Literal('low'), Schema.Literal('medium'), Schema.Literal('high')),
   estimatedImpact: Schema.Number.pipe(Schema.between(0, 1)),
 })
 
@@ -162,19 +159,20 @@ export interface PerformanceMonitoringService {
   /**
    * パフォーマンスレポートを生成します
    */
-  readonly generatePerformanceReport: (
-    timeRange?: { start: number; end: number }
-  ) => Effect.Effect<{
-    summary: {
-      overallHealth: number
-      avgResponseTime: number
-      throughput: number
-      errorRate: number
-    }
-    bottlenecks: Schema.Schema.Type<typeof BottleneckDetectionResult>
-    recommendations: Schema.Schema.Type<typeof OptimizationRecommendation>[]
-    trends: Array<{ metric: string; trend: 'improving' | 'stable' | 'degrading' }>
-  }, PerformanceMonitoringErrorType>
+  readonly generatePerformanceReport: (timeRange?: { start: number; end: number }) => Effect.Effect<
+    {
+      summary: {
+        overallHealth: number
+        avgResponseTime: number
+        throughput: number
+        errorRate: number
+      }
+      bottlenecks: Schema.Schema.Type<typeof BottleneckDetectionResult>
+      recommendations: Schema.Schema.Type<typeof OptimizationRecommendation>[]
+      trends: Array<{ metric: string; trend: 'improving' | 'stable' | 'degrading' }>
+    },
+    PerformanceMonitoringErrorType
+  >
 
   /**
    * アラートルールを設定します
@@ -191,11 +189,14 @@ export interface PerformanceMonitoringService {
   /**
    * リアルタイムメトリクスを取得します
    */
-  readonly getRealTimeMetrics: () => Effect.Effect<{
-    timestamp: number
-    metrics: Record<string, number>
-    health: number
-  }, PerformanceMonitoringErrorType>
+  readonly getRealTimeMetrics: () => Effect.Effect<
+    {
+      timestamp: number
+      metrics: Record<string, number>
+      health: number
+    },
+    PerformanceMonitoringErrorType
+  >
 }
 
 // === Live Implementation ===
@@ -269,26 +270,19 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
           severity: 'high' as const,
           description: `CPU使用率が高すぎます: ${(snapshot.cpuUsage * 100).toFixed(1)}%`,
           impact: Math.min(snapshot.cpuUsage, 1.0),
-          suggestions: [
-            'チャンク生成の並列度を下げる',
-            'テレインジェネレーションの最適化',
-            '不要な計算の削減',
-          ],
+          suggestions: ['チャンク生成の並列度を下げる', 'テレインジェネレーションの最適化', '不要な計算の削減'],
         })
       }
 
       // メモリ使用量チェック
-      if (snapshot.memoryUsage > 6 * 1024 * 1024 * 1024) { // 6GB
+      if (snapshot.memoryUsage > 6 * 1024 * 1024 * 1024) {
+        // 6GB
         bottlenecks.push({
           component: 'Memory',
           severity: 'medium' as const,
           description: `メモリ使用量が高いです: ${(snapshot.memoryUsage / (1024 * 1024 * 1024)).toFixed(1)}GB`,
           impact: 0.6,
-          suggestions: [
-            'チャンクキャッシュサイズの調整',
-            'ガベージコレクションの実行',
-            'メモリプールの最適化',
-          ],
+          suggestions: ['チャンクキャッシュサイズの調整', 'ガベージコレクションの実行', 'メモリプールの最適化'],
         })
       }
 
@@ -299,11 +293,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
           severity: 'medium' as const,
           description: `キャッシュヒット率が低いです: ${(snapshot.cacheHitRate * 100).toFixed(1)}%`,
           impact: 1.0 - snapshot.cacheHitRate,
-          suggestions: [
-            'プリローディング戦略の見直し',
-            'キャッシュサイズの増加',
-            'エビクションポリシーの調整',
-          ],
+          suggestions: ['プリローディング戦略の見直し', 'キャッシュサイズの増加', 'エビクションポリシーの調整'],
         })
       }
 
@@ -314,15 +304,11 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
           severity: 'low' as const,
           description: `ディスクI/O負荷が高いです: ${snapshot.diskIOPS} IOPS`,
           impact: 0.3,
-          suggestions: [
-            'SSDへの移行検討',
-            'I/Oバッファリングの最適化',
-            '非同期書き込みの活用',
-          ],
+          suggestions: ['SSDへの移行検討', 'I/Oバッファリングの最適化', '非同期書き込みの活用'],
         })
       }
 
-      const overallHealth = 1.0 - (bottlenecks.reduce((sum, b) => sum + b.impact, 0) / Math.max(bottlenecks.length, 1))
+      const overallHealth = 1.0 - bottlenecks.reduce((sum, b) => sum + b.impact, 0) / Math.max(bottlenecks.length, 1)
 
       const result: Schema.Schema.Type<typeof BottleneckDetectionResult> = {
         _tag: 'BottleneckDetectionResult',
@@ -331,7 +317,9 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
         timestamp: Date.now(),
       }
 
-      yield* Effect.logInfo(`ボトルネック検出完了: ${bottlenecks.length}個検出, 健全性: ${(overallHealth * 100).toFixed(1)}%`)
+      yield* Effect.logInfo(
+        `ボトルネック検出完了: ${bottlenecks.length}個検出, 健全性: ${(overallHealth * 100).toFixed(1)}%`
+      )
       return result
     })
 
@@ -343,7 +331,8 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
       const recommendations: Schema.Schema.Type<typeof OptimizationRecommendation>[] = []
 
       // メモリ最適化提案
-      if (snapshot.memoryUsage > 4 * 1024 * 1024 * 1024) { // 4GB
+      if (snapshot.memoryUsage > 4 * 1024 * 1024 * 1024) {
+        // 4GB
         recommendations.push({
           _tag: 'OptimizationRecommendation',
           category: 'memory',
@@ -453,7 +442,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
 
       yield* Effect.logInfo(
         `ベンチマーク完了: ${benchmarkName} - ${result.operationsPerSecond.toFixed(1)} ops/sec, ` +
-        `平均レイテンシ: ${result.averageLatency.toFixed(1)}ms`
+          `平均レイテンシ: ${result.averageLatency.toFixed(1)}ms`
       )
 
       return result
@@ -494,12 +483,14 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
       return report
     })
 
-  const configureAlerts = (rules: Array<{
-    metricName: string
-    threshold: number
-    operator: 'greater_than' | 'less_than'
-    severity: 'info' | 'warning' | 'error' | 'critical'
-  }>) =>
+  const configureAlerts = (
+    rules: Array<{
+      metricName: string
+      threshold: number
+      operator: 'greater_than' | 'less_than'
+      severity: 'info' | 'warning' | 'error' | 'critical'
+    }>
+  ) =>
     Effect.gen(function* () {
       for (const rule of rules) {
         yield* metricsCollector.setAlertThreshold({
@@ -557,9 +548,7 @@ export const PerformanceMonitoringService = Context.GenericTag<PerformanceMonito
 export const PerformanceMonitoringServiceLive = Layer.effect(
   PerformanceMonitoringService,
   makePerformanceMonitoringService
-).pipe(
-  Layer.provide(MetricsCollectorServiceLive)
-)
+).pipe(Layer.provide(MetricsCollectorServiceLive))
 
 // === Complete Service Layer ===
 
@@ -574,18 +563,13 @@ export const PerformanceMonitoringUtils = {
   /**
    * パフォーマンススコアを計算
    */
-  calculatePerformanceScore: (
-    cpuUsage: number,
-    memoryUsage: number,
-    cacheHitRate: number,
-    errorRate: number
-  ) => {
+  calculatePerformanceScore: (cpuUsage: number, memoryUsage: number, cacheHitRate: number, errorRate: number) => {
     const cpuScore = Math.max(0, 1 - cpuUsage)
-    const memoryScore = Math.max(0, 1 - (memoryUsage / (8 * 1024 * 1024 * 1024)))
+    const memoryScore = Math.max(0, 1 - memoryUsage / (8 * 1024 * 1024 * 1024))
     const cacheScore = cacheHitRate
     const errorScore = Math.max(0, 1 - errorRate)
 
-    return (cpuScore * 0.3 + memoryScore * 0.25 + cacheScore * 0.25 + errorScore * 0.2)
+    return cpuScore * 0.3 + memoryScore * 0.25 + cacheScore * 0.25 + errorScore * 0.2
   },
 
   /**
@@ -595,7 +579,8 @@ export const PerformanceMonitoringUtils = {
     baseline: Schema.Schema.Type<typeof BenchmarkResult>,
     current: Schema.Schema.Type<typeof BenchmarkResult>
   ) => {
-    const throughputImprovement = (current.operationsPerSecond - baseline.operationsPerSecond) / baseline.operationsPerSecond
+    const throughputImprovement =
+      (current.operationsPerSecond - baseline.operationsPerSecond) / baseline.operationsPerSecond
     const latencyImprovement = (baseline.averageLatency - current.averageLatency) / baseline.averageLatency
     const memoryImprovement = (baseline.memoryUsage - current.memoryUsage) / baseline.memoryUsage
 
@@ -621,8 +606,8 @@ export const PerformanceMonitoringUtils = {
 }
 
 export type {
-  PerformanceMonitoringErrorType,
+  BenchmarkResult as BenchmarkResultType,
   BottleneckDetectionResult as BottleneckDetectionResultType,
   OptimizationRecommendation as OptimizationRecommendationType,
-  BenchmarkResult as BenchmarkResultType,
+  PerformanceMonitoringErrorType,
 } from './index.js'

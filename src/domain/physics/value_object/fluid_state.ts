@@ -1,12 +1,5 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import {
-  UnitInterval,
-  parseUnitInterval,
-  unitInterval,
-  Vector3,
-  parseVector3,
-  vector3,
-} from '../types/core'
+import { Vector3, parseUnitInterval, parseVector3, unitInterval } from '../types/core'
 import type { PhysicsError } from '../types/errors'
 
 const FluidKindSchema = Schema.Literal('none', 'water', 'lava')

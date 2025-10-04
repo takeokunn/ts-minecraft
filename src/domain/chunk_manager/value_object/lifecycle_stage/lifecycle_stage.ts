@@ -1,5 +1,4 @@
-import { Schema } from 'effect'
-import { Effect, Match } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import {
   ChunkLifetimeSchema,
   LifecycleStageSchema,
@@ -8,10 +7,7 @@ import {
   type LifecycleStage,
   type Timestamp,
 } from '../../types/core'
-import {
-  ActivationFailure,
-  DeactivationFailure,
-} from '../../types/errors'
+import { ActivationFailure, DeactivationFailure } from '../../types/errors'
 
 const decodeStage = Schema.decodeUnknownSync(LifecycleStageSchema)
 const decodeLifetime = Schema.decodeUnknownSync(ChunkLifetimeSchema)
@@ -75,10 +71,7 @@ export const destroyStage = (
     Match.orElse(() => Effect.fail<DeactivationFailure>({ _tag: 'LifecycleViolation', stage: stage._tag }))
   )
 
-export const updateIdleDuration = (
-  stage: LifecycleStage,
-  idleTime: ChunkLifetime
-): LifecycleStage =>
+export const updateIdleDuration = (stage: LifecycleStage, idleTime: ChunkLifetime): LifecycleStage =>
   Match.value(stage).pipe(
     Match.tag('Inactive', (inactive) =>
       decodeStage({

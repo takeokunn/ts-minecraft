@@ -1,5 +1,5 @@
 import type { ParseError } from '@effect/schema/ParseResult'
-import { Context, Either, Effect, pipe } from 'effect'
+import { Context, Effect, Either } from 'effect'
 import * as Match from 'effect/Match'
 import {
   AppError,
@@ -11,17 +11,17 @@ import {
   LifecycleSnapshot,
   LifecycleState,
   appErrorStage,
+  ensureReadySnapshot as ensureReadySnapshotSchema,
   initializationProjection,
   makeConfigError,
   makeLifecycleError,
   makeLifecycleSnapshot,
-  readinessProjection,
-  resolveInitializedAt,
-  toConfigIssueList,
-  ensureReadySnapshot as ensureReadySnapshotSchema,
-  resetInitializedAt as resetInitializedAtSchema,
   markInitializedAt as markInitializedAtSchema,
+  readinessProjection,
+  resetInitializedAt as resetInitializedAtSchema,
+  resolveInitializedAt,
   reviveEpochZero as reviveEpochZeroValue,
+  toConfigIssueList,
 } from './domain'
 
 type LifecycleCases<A> = {
@@ -30,10 +30,7 @@ type LifecycleCases<A> = {
   readonly onUninitialized: () => Effect.Effect<A, AppError>
 }
 
-const matchLifecycleState = <A>(
-  snapshot: LifecycleSnapshot,
-  cases: LifecycleCases<A>
-): Effect.Effect<A, AppError> =>
+const matchLifecycleState = <A>(snapshot: LifecycleSnapshot, cases: LifecycleCases<A>): Effect.Effect<A, AppError> =>
   Match.value(snapshot.state).pipe(
     Match.when(Match.is('ready'), cases.onReady),
     Match.when(Match.is('initializing'), cases.onInitializing),
@@ -78,12 +75,9 @@ export const instantiateLifecycleSnapshot = (params: {
   readonly updatedAt: EpochMilliseconds
   readonly config: BootstrapConfig
   readonly initializedAt?: EpochMilliseconds
-}): Effect.Effect<LifecycleSnapshot, AppError> =>
-  withSchemaFailure(makeLifecycleSnapshot(params))
+}): Effect.Effect<LifecycleSnapshot, AppError> => withSchemaFailure(makeLifecycleSnapshot(params))
 
-export const projectReadiness = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<AppReadiness, AppError> =>
+export const projectReadiness = (snapshot: LifecycleSnapshot): Effect.Effect<AppReadiness, AppError> =>
   matchLifecycleState(snapshot, {
     onReady: () => withSchemaFailure(readinessProjection(snapshot, true)),
     onInitializing: () =>
@@ -109,8 +103,7 @@ export const projectInitialization = (
   fresh: boolean
 ): Effect.Effect<AppInitializationResult, AppError> =>
   matchLifecycleState(snapshot, {
-    onReady: () =>
-      withSchemaFailure(initializationProjection(snapshot, fresh)),
+    onReady: () => withSchemaFailure(initializationProjection(snapshot, fresh)),
     onInitializing: () =>
       Effect.fail(
         makeLifecycleError({
@@ -129,36 +122,28 @@ export const projectInitialization = (
       ),
   })
 
-export const ensureReadySnapshot = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<LifecycleSnapshot, AppError> =>
+export const ensureReadySnapshot = (snapshot: LifecycleSnapshot): Effect.Effect<LifecycleSnapshot, AppError> =>
   withSchemaFailure(ensureReadySnapshotSchema(snapshot))
 
-export const resetInitializedAt = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<LifecycleSnapshot, AppError> =>
+export const resetInitializedAt = (snapshot: LifecycleSnapshot): Effect.Effect<LifecycleSnapshot, AppError> =>
   withSchemaFailure(resetInitializedAtSchema(snapshot))
 
 export const markInitializedAt = (
   snapshot: LifecycleSnapshot,
   initializedAt: EpochMilliseconds
-): Effect.Effect<LifecycleSnapshot, AppError> =>
-  withSchemaFailure(markInitializedAtSchema(snapshot, initializedAt))
+): Effect.Effect<LifecycleSnapshot, AppError> => withSchemaFailure(markInitializedAtSchema(snapshot, initializedAt))
 
 export const stageFromAppError = appErrorStage
 
 export const reviveEpochZero = (): EpochMilliseconds => reviveEpochZeroValue()
 
-export const readinessResult = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<Either.Either<AppError, AppReadiness>> => toEither(projectReadiness(snapshot))
+export const readinessResult = (snapshot: LifecycleSnapshot): Effect.Effect<Either.Either<AppError, AppReadiness>> =>
+  toEither(projectReadiness(snapshot))
 
 export const initializationResult = (
   snapshot: LifecycleSnapshot,
   fresh: boolean
-): Effect.Effect<Either.Either<AppError, AppInitializationResult>> =>
-  toEither(projectInitialization(snapshot, fresh))
+): Effect.Effect<Either.Either<AppError, AppInitializationResult>> => toEither(projectInitialization(snapshot, fresh))
 
-export const resolveLifecycleInitialization = (
-  snapshot: LifecycleSnapshot
-): EpochMilliseconds => resolveInitializedAt(snapshot)
+export const resolveLifecycleInitialization = (snapshot: LifecycleSnapshot): EpochMilliseconds =>
+  resolveInitializedAt(snapshot)

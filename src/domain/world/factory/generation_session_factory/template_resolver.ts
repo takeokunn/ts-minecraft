@@ -13,11 +13,10 @@
  * - 設定バリデーション
  */
 
-import { Effect, Schema, Match, Function, Option, Array as EffectArray } from "effect"
-import type * as GenerationSession from "../../aggregate/generation_session/generation_session.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import type { CreateSessionParams, SessionTemplateType, SessionFactoryError } from "./factory.js"
-import type { ConfigurationProfile } from "./configuration.js"
+import { Effect, Function, Match, Option, Schema } from 'effect'
+import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
+import type { ConfigurationProfile } from './configuration.js'
+import type { SessionFactoryError, SessionTemplateType } from './factory.js'
 
 // ================================
 // Template Definition Types
@@ -37,13 +36,15 @@ export const SessionTemplateDefinitionSchema = Schema.Struct({
   executionMode: Schema.Literal('sync', 'async', 'streaming'),
 
   // デフォルトオプション
-  defaultOptions: Schema.optional(Schema.Struct({
-    includeStructures: Schema.Boolean,
-    includeCaves: Schema.Boolean,
-    includeOres: Schema.Boolean,
-    generateVegetation: Schema.Boolean,
-    applyPostProcessing: Schema.Boolean
-  })),
+  defaultOptions: Schema.optional(
+    Schema.Struct({
+      includeStructures: Schema.Boolean,
+      includeCaves: Schema.Boolean,
+      includeOres: Schema.Boolean,
+      generateVegetation: Schema.Boolean,
+      applyPostProcessing: Schema.Boolean,
+    })
+  ),
 
   // 推奨使用ケース
   useCases: Schema.Array(Schema.String),
@@ -53,7 +54,7 @@ export const SessionTemplateDefinitionSchema = Schema.Struct({
     expectedCpuUsage: Schema.Literal('low', 'medium', 'high'),
     expectedMemoryUsage: Schema.Literal('low', 'medium', 'high'),
     expectedDuration: Schema.Literal('fast', 'normal', 'slow'),
-    scalability: Schema.Literal('poor', 'fair', 'good', 'excellent')
+    scalability: Schema.Literal('poor', 'fair', 'good', 'excellent'),
   }),
 
   // 制約と要件
@@ -61,7 +62,7 @@ export const SessionTemplateDefinitionSchema = Schema.Struct({
     minCpuCores: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
     minMemoryMB: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
     supportedProfiles: Schema.Array(Schema.String),
-    dependencies: Schema.Array(Schema.String)
+    dependencies: Schema.Array(Schema.String),
   }),
 
   // メタデータ
@@ -70,8 +71,8 @@ export const SessionTemplateDefinitionSchema = Schema.Struct({
     tags: Schema.Array(Schema.String),
     stability: Schema.Literal('experimental', 'beta', 'stable', 'deprecated'),
     lastModified: Schema.DateTimeUtc,
-    compatibilityVersion: Schema.String
-  })
+    compatibilityVersion: Schema.String,
+  }),
 })
 
 export type SessionTemplateDefinition = typeof SessionTemplateDefinitionSchema.Type
@@ -84,10 +85,10 @@ export const TemplateResolutionResultSchema = Schema.Struct({
   resolvedConfiguration: GenerationSession.SessionConfigurationSchema,
   appliedCustomizations: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown
+    value: Schema.Unknown,
   }),
   warnings: Schema.Array(Schema.String),
-  recommendations: Schema.Array(Schema.String)
+  recommendations: Schema.Array(Schema.String),
 })
 
 export type TemplateResolutionResult = typeof TemplateResolutionResultSchema.Type
@@ -140,44 +141,42 @@ class SessionTemplateRegistry {
       .filter(([_, template]) => {
         // ユースケースフィルタ
         if (query.useCases) {
-          const hasMatchingUseCase = query.useCases.some(useCase =>
-            template.useCases.some(templateUseCase =>
-              templateUseCase.toLowerCase().includes(useCase.toLowerCase())
-            )
+          const hasMatchingUseCase = query.useCases.some((useCase) =>
+            template.useCases.some((templateUseCase) => templateUseCase.toLowerCase().includes(useCase.toLowerCase()))
           )
           if (!hasMatchingUseCase) return false
         }
 
         // パフォーマンスフィルタ
         if (query.performance) {
-          if (query.performance.expectedCpuUsage &&
-              template.performance.expectedCpuUsage !== query.performance.expectedCpuUsage) {
+          if (
+            query.performance.expectedCpuUsage &&
+            template.performance.expectedCpuUsage !== query.performance.expectedCpuUsage
+          ) {
             return false
           }
-          if (query.performance.expectedMemoryUsage &&
-              template.performance.expectedMemoryUsage !== query.performance.expectedMemoryUsage) {
+          if (
+            query.performance.expectedMemoryUsage &&
+            template.performance.expectedMemoryUsage !== query.performance.expectedMemoryUsage
+          ) {
             return false
           }
         }
 
         // 要件フィルタ
         if (query.requirements) {
-          if (query.requirements.minCpuCores &&
-              template.requirements.minCpuCores > query.requirements.minCpuCores) {
+          if (query.requirements.minCpuCores && template.requirements.minCpuCores > query.requirements.minCpuCores) {
             return false
           }
-          if (query.requirements.minMemoryMB &&
-              template.requirements.minMemoryMB > query.requirements.minMemoryMB) {
+          if (query.requirements.minMemoryMB && template.requirements.minMemoryMB > query.requirements.minMemoryMB) {
             return false
           }
         }
 
         // タグフィルタ
         if (query.tags) {
-          const hasMatchingTag = query.tags.some(tag =>
-            template.metadata.tags.some(templateTag =>
-              templateTag.toLowerCase().includes(tag.toLowerCase())
-            )
+          const hasMatchingTag = query.tags.some((tag) =>
+            template.metadata.tags.some((templateTag) => templateTag.toLowerCase().includes(tag.toLowerCase()))
           )
           if (!hasMatchingTag) return false
         }
@@ -211,18 +210,18 @@ const defineTemplates = (): void => {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 5000
+        maxDelayMs: 5000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 60000,
-        gracefulShutdownMs: 5000
+        gracefulShutdownMs: 5000,
       },
       priorityPolicy: {
         enablePriorityQueuing: false,
         priorityThreshold: 5,
-        highPriorityWeight: 1.0
-      }
+        highPriorityWeight: 1.0,
+      },
     },
     executionMode: 'sync',
     defaultOptions: {
@@ -230,28 +229,28 @@ const defineTemplates = (): void => {
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
+      applyPostProcessing: true,
     },
     useCases: ['block placement', 'structure building', 'detailed generation'],
     performance: {
       expectedCpuUsage: 'low',
       expectedMemoryUsage: 'low',
       expectedDuration: 'fast',
-      scalability: 'poor'
+      scalability: 'poor',
     },
     requirements: {
       minCpuCores: 1,
       minMemoryMB: 512,
       supportedProfiles: ['development', 'testing', 'production'],
-      dependencies: []
+      dependencies: [],
     },
     metadata: {
       author: 'minecraft-core',
       tags: ['basic', 'single', 'quality'],
       stability: 'stable',
       lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0'
-    }
+      compatibilityVersion: '1.0.0',
+    },
   })
 
   // Area Generation Template
@@ -267,18 +266,18 @@ const defineTemplates = (): void => {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 10000
+        maxDelayMs: 10000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000
+        gracefulShutdownMs: 5000,
       },
       priorityPolicy: {
         enablePriorityQueuing: true,
         priorityThreshold: 5,
-        highPriorityWeight: 2.0
-      }
+        highPriorityWeight: 2.0,
+      },
     },
     executionMode: 'async',
     defaultOptions: {
@@ -286,28 +285,28 @@ const defineTemplates = (): void => {
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
+      applyPostProcessing: true,
     },
     useCases: ['world exploration', 'base building', 'resource gathering'],
     performance: {
       expectedCpuUsage: 'medium',
       expectedMemoryUsage: 'medium',
       expectedDuration: 'normal',
-      scalability: 'good'
+      scalability: 'good',
     },
     requirements: {
       minCpuCores: 2,
       minMemoryMB: 1024,
       supportedProfiles: ['development', 'staging', 'production'],
-      dependencies: []
+      dependencies: [],
     },
     metadata: {
       author: 'minecraft-core',
       tags: ['area', 'exploration', 'balanced'],
       stability: 'stable',
       lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0'
-    }
+      compatibilityVersion: '1.0.0',
+    },
   })
 
   // World Exploration Template
@@ -323,18 +322,18 @@ const defineTemplates = (): void => {
         maxAttempts: 2,
         backoffStrategy: 'linear',
         baseDelayMs: 500,
-        maxDelayMs: 2000
+        maxDelayMs: 2000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 10000,
         sessionTimeoutMs: 300000,
-        gracefulShutdownMs: 2000
+        gracefulShutdownMs: 2000,
       },
       priorityPolicy: {
         enablePriorityQueuing: true,
         priorityThreshold: 7,
-        highPriorityWeight: 3.0
-      }
+        highPriorityWeight: 3.0,
+      },
     },
     executionMode: 'streaming',
     defaultOptions: {
@@ -342,28 +341,28 @@ const defineTemplates = (): void => {
       includeCaves: false,
       includeOres: false,
       generateVegetation: false,
-      applyPostProcessing: false
+      applyPostProcessing: false,
     },
     useCases: ['player movement', 'real-time exploration', 'streaming'],
     performance: {
       expectedCpuUsage: 'high',
       expectedMemoryUsage: 'medium',
       expectedDuration: 'fast',
-      scalability: 'excellent'
+      scalability: 'excellent',
     },
     requirements: {
       minCpuCores: 4,
       minMemoryMB: 2048,
       supportedProfiles: ['production', 'high_performance'],
-      dependencies: []
+      dependencies: [],
     },
     metadata: {
       author: 'minecraft-core',
       tags: ['exploration', 'streaming', 'performance'],
       stability: 'stable',
       lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0'
-    }
+      compatibilityVersion: '1.0.0',
+    },
   })
 
   // Structure Placement Template
@@ -379,18 +378,18 @@ const defineTemplates = (): void => {
         maxAttempts: 5,
         backoffStrategy: 'exponential',
         baseDelayMs: 2000,
-        maxDelayMs: 30000
+        maxDelayMs: 30000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 60000,
         sessionTimeoutMs: 1800000,
-        gracefulShutdownMs: 10000
+        gracefulShutdownMs: 10000,
       },
       priorityPolicy: {
         enablePriorityQueuing: true,
         priorityThreshold: 3,
-        highPriorityWeight: 5.0
-      }
+        highPriorityWeight: 5.0,
+      },
     },
     executionMode: 'async',
     defaultOptions: {
@@ -398,28 +397,28 @@ const defineTemplates = (): void => {
       includeCaves: false,
       includeOres: false,
       generateVegetation: false,
-      applyPostProcessing: true
+      applyPostProcessing: true,
     },
     useCases: ['village generation', 'dungeon placement', 'custom structures'],
     performance: {
       expectedCpuUsage: 'medium',
       expectedMemoryUsage: 'high',
       expectedDuration: 'slow',
-      scalability: 'fair'
+      scalability: 'fair',
     },
     requirements: {
       minCpuCores: 2,
       minMemoryMB: 2048,
       supportedProfiles: ['staging', 'production'],
-      dependencies: ['structure_generator']
+      dependencies: ['structure_generator'],
     },
     metadata: {
       author: 'minecraft-core',
       tags: ['structures', 'precision', 'quality'],
       stability: 'stable',
       lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0'
-    }
+      compatibilityVersion: '1.0.0',
+    },
   })
 
   // 他のテンプレート定義も同様に追加...
@@ -453,14 +452,12 @@ export interface SessionTemplateResolver {
   /**
    * 推奨テンプレート取得
    */
-  readonly recommend: (
-    criteria: {
-      chunkCount?: number
-      useCases?: string[]
-      performance?: 'speed' | 'quality' | 'memory'
-      profile?: ConfigurationProfile
-    }
-  ) => Effect.Effect<readonly SessionTemplateType[], SessionFactoryError>
+  readonly recommend: (criteria: {
+    chunkCount?: number
+    useCases?: string[]
+    performance?: 'speed' | 'quality' | 'memory'
+    profile?: ConfigurationProfile
+  }) => Effect.Effect<readonly SessionTemplateType[], SessionFactoryError>
 
   /**
    * テンプレート検索
@@ -472,10 +469,7 @@ export interface SessionTemplateResolver {
   /**
    * テンプレート作成
    */
-  readonly create: (
-    name: string,
-    definition: SessionTemplateDefinition
-  ) => Effect.Effect<void, SessionFactoryError>
+  readonly create: (name: string, definition: SessionTemplateDefinition) => Effect.Effect<void, SessionFactoryError>
 
   /**
    * テンプレート合成
@@ -496,10 +490,12 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const template = registry.get(type)
 
       if (Option.isNone(template)) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Unknown template type: ${type}`
-        }))
+        return yield* Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: `Unknown template type: ${type}`,
+          })
+        )
       }
 
       const templateDef = template.value
@@ -527,7 +523,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         resolvedConfiguration,
         appliedCustomizations: customizations ?? {},
         warnings,
-        recommendations
+        recommendations,
       }
     }),
 
@@ -536,10 +532,12 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const template = registry.getCustom(name)
 
       if (Option.isNone(template)) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Unknown custom template: ${name}`
-        }))
+        return yield* Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: `Unknown custom template: ${name}`,
+          })
+        )
       }
 
       const templateDef = template.value
@@ -554,7 +552,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         resolvedConfiguration,
         appliedCustomizations: customizations ?? {},
         warnings: [],
-        recommendations: []
+        recommendations: [],
       }
     }),
 
@@ -573,14 +571,17 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         // チャンク数に基づくスコアリング
         if (criteria.chunkCount) {
           const optimalConcurrency = templateDef.configuration.maxConcurrentChunks
-          const efficiencyScore = Math.min(criteria.chunkCount / optimalConcurrency, optimalConcurrency / criteria.chunkCount)
+          const efficiencyScore = Math.min(
+            criteria.chunkCount / optimalConcurrency,
+            optimalConcurrency / criteria.chunkCount
+          )
           score += efficiencyScore * 30
         }
 
         // ユースケース一致度
         if (criteria.useCases) {
-          const matchingUseCases = criteria.useCases.filter(useCase =>
-            templateDef.useCases.some(templateUseCase =>
+          const matchingUseCases = criteria.useCases.filter((useCase) =>
+            templateDef.useCases.some((templateUseCase) =>
               templateUseCase.toLowerCase().includes(useCase.toLowerCase())
             )
           )
@@ -591,9 +592,9 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         if (criteria.performance) {
           const performanceMatch = Function.pipe(
             Match.value(criteria.performance),
-            Match.when('speed', () => templateDef.performance.expectedDuration === 'fast' ? 20 : 0),
-            Match.when('quality', () => templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0),
-            Match.when('memory', () => templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0),
+            Match.when('speed', () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)),
+            Match.when('quality', () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)),
+            Match.when('memory', () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)),
             Match.orElse(() => 0)
           )
           score += performanceMatch
@@ -615,8 +616,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         .slice(0, 5) // 上位5つ
     }),
 
-  search: (query) =>
-    Effect.succeed(registry.search(query)),
+  search: (query) => Effect.succeed(registry.search(query)),
 
   create: (name: string, definition: SessionTemplateDefinition) =>
     Effect.sync(() => {
@@ -628,10 +628,12 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const baseTemplate = registry.get(baseType)
 
       if (Option.isNone(baseTemplate)) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Unknown base template type: ${baseType}`
-        }))
+        return yield* Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: `Unknown base template type: ${baseType}`,
+          })
+        )
       }
 
       return {
@@ -639,15 +641,15 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         ...modifications,
         configuration: {
           ...baseTemplate.value.configuration,
-          ...modifications.configuration
+          ...modifications.configuration,
         },
         metadata: {
           ...baseTemplate.value.metadata,
           ...modifications.metadata,
-          lastModified: new Date()
-        }
+          lastModified: new Date(),
+        },
       }
-    })
+    }),
 })
 
 // ================================
@@ -679,27 +681,30 @@ export const getTemplate = (type: SessionTemplateType): Effect.Effect<SessionTem
   Function.pipe(
     registry.get(type),
     Option.match({
-      onNone: () => Effect.fail(new SessionFactoryError({
-        category: 'configuration_invalid',
-        message: `Template not found: ${type}`
-      })),
-      onSome: (template) => Effect.succeed(template)
+      onNone: () =>
+        Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: `Template not found: ${type}`,
+          })
+        ),
+      onSome: (template) => Effect.succeed(template),
     })
   )
 
-export const listTemplates = (): readonly SessionTemplateType[] =>
-  registry.list()
+export const listTemplates = (): readonly SessionTemplateType[] => registry.list()
 
-export const searchTemplates = (query: Parameters<SessionTemplateRegistry['search']>[0]): readonly SessionTemplateType[] =>
-  registry.search(query)
+export const searchTemplates = (
+  query: Parameters<SessionTemplateRegistry['search']>[0]
+): readonly SessionTemplateType[] => registry.search(query)
 
 // ================================
 // Exports
 // ================================
 
 export {
-  type SessionTemplateDefinition,
-  type TemplateResolutionResult,
-  type SessionTemplateResolver,
   registry as SessionTemplateRegistry,
+  type SessionTemplateDefinition,
+  type SessionTemplateResolver,
+  type TemplateResolutionResult,
 }

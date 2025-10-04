@@ -1,11 +1,11 @@
-import { Context, Effect, Layer, pipe } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import type { AABB, PhysicsWorld, RigidBody, Vector3 } from '../types/core'
 import { parsePositiveFloat } from '../types/core'
-import { GravityVector } from '../value_object/gravity_vector'
+import type { PhysicsError } from '../types/errors'
 import { FluidState } from '../value_object/fluid_state'
 import { FrictionCoefficient } from '../value_object/friction_coefficient'
+import { GravityVector } from '../value_object/gravity_vector'
 import { CollisionService } from './collision_service'
-import type { PhysicsError } from '../types/errors'
 
 export interface SimulationContext {
   readonly world: PhysicsWorld
@@ -77,7 +77,10 @@ export const PhysicsSimulationServiceLive = Layer.effect(
           context.inputVelocity
         )
 
-        const clampedVelocity = FrictionCoefficient.clampHorizontal(velocityAfterFriction, context.world.config.timeStep * 60)
+        const clampedVelocity = FrictionCoefficient.clampHorizontal(
+          velocityAfterFriction,
+          context.world.config.timeStep * 60
+        )
 
         return {
           position: collisionResult.position,

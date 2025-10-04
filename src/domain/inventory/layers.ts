@@ -9,32 +9,25 @@ import { Layer } from 'effect'
 
 // ===== Domain Services Layer =====
 import {
-  ItemRegistryServiceLive,
-  TransferServiceLive,
-  StackingServiceLive,
-  ValidationServiceLive,
   CraftingIntegrationServiceLive,
+  ItemRegistryServiceLive,
+  StackingServiceLive,
+  TransferServiceLive,
+  ValidationServiceLive,
 } from './domain_service/index.js'
 
 // ===== Application Services Layer =====
 import {
-  InventoryManagerServiceLive,
   ContainerManagerServiceLive,
+  InventoryManagerServiceLive,
   TransactionManagerServiceLive,
 } from './application_service/index.js'
 
 // ===== Factory Layer =====
-import {
-  InventoryFactoryLive,
-  ContainerFactoryLive,
-  ItemStackFactoryLive,
-  ItemFactoryLive,
-} from './factory/index.js'
+import { ContainerFactoryLive, InventoryFactoryLive, ItemFactoryLive, ItemStackFactoryLive } from './factory/index.js'
 
 // ===== Repository Layer =====
-import {
-  InventoryRepositoryLayer,
-} from './repository/index.js'
+import { InventoryRepositoryLayer } from './repository/index.js'
 
 /**
  * Inventory Domain Services Layer
@@ -81,10 +74,7 @@ export const InventoryFactoryLayer = Layer.mergeAll(
  * ドメインサービス群とファクトリー群を統合したレイヤー。
  * 純粋なドメインロジックを提供。
  */
-export const InventoryDomainLayer = Layer.mergeAll(
-  InventoryDomainServicesLayer,
-  InventoryFactoryLayer
-)
+export const InventoryDomainLayer = Layer.mergeAll(InventoryDomainServicesLayer, InventoryFactoryLayer)
 
 /**
  * Inventory Application Layer
@@ -92,10 +82,7 @@ export const InventoryDomainLayer = Layer.mergeAll(
  * アプリケーションサービス群とドメイン層を統合したレイヤー。
  * ユースケース実行に必要な全要素を提供。
  */
-export const InventoryApplicationLayer = Layer.mergeAll(
-  InventoryDomainLayer,
-  InventoryApplicationServicesLayer
-)
+export const InventoryApplicationLayer = Layer.mergeAll(InventoryDomainLayer, InventoryApplicationServicesLayer)
 
 /**
  * Inventory Infrastructure Layer
@@ -103,9 +90,7 @@ export const InventoryApplicationLayer = Layer.mergeAll(
  * リポジトリレイヤーを統合。
  * 永続化・技術的詳細を分離。
  */
-export const InventoryInfrastructureLayer = Layer.mergeAll(
-  InventoryRepositoryLayer
-)
+export const InventoryInfrastructureLayer = Layer.mergeAll(InventoryRepositoryLayer)
 
 /**
  * Inventory Complete Layer
@@ -119,10 +104,7 @@ export const InventoryInfrastructureLayer = Layer.mergeAll(
  * - 全ファクトリー
  * - 全リポジトリ
  */
-export const InventoryCompleteLayer = Layer.mergeAll(
-  InventoryApplicationLayer,
-  InventoryInfrastructureLayer
-)
+export const InventoryCompleteLayer = Layer.mergeAll(InventoryApplicationLayer, InventoryInfrastructureLayer)
 
 /**
  * Inventory Test Layer

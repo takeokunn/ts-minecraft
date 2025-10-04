@@ -1,14 +1,7 @@
 import { Array as Arr, Context, Effect, Layer, Match, Ref, pipe } from 'effect'
-import type {
-  AABB,
-  PhysicsConfig,
-  PhysicsWorld,
-  PhysicsWorldId,
-  RigidBody,
-  RigidBodyId,
-} from '../types/core'
 import { PhysicsWorldAggregate } from '../aggregate/physics_world'
 import { PhysicsSimulationService } from '../domain_service/physics_simulation_service'
+import type { AABB, PhysicsConfig, PhysicsWorld, PhysicsWorldId, RigidBody, RigidBodyId } from '../types/core'
 import type { PhysicsError } from '../types/errors'
 import { PhysicsError as PhysicsErrorConstructors } from '../types/errors'
 
@@ -30,7 +23,14 @@ export interface PhysicsSimulationOrchestratorService {
     worldId: PhysicsWorldId,
     bodies: ReadonlyArray<RigidBody>,
     options: StepOptions
-  ) => Effect.Effect<ReadonlyArray<{ readonly bodyId: RigidBodyId; readonly position: AABB['min']; readonly velocity: RigidBody['motion']['velocity'] }>, PhysicsError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly bodyId: RigidBodyId
+      readonly position: AABB['min']
+      readonly velocity: RigidBody['motion']['velocity']
+    }>,
+    PhysicsError
+  >
 }
 
 export const PhysicsSimulationOrchestratorService = Context.Tag<PhysicsSimulationOrchestratorService>(
@@ -71,9 +71,10 @@ export const PhysicsSimulationOrchestratorServiceLive = Layer.effect(
           Match.value,
           Match.when(
             (value) => value === undefined,
-            () => Effect.fail<PhysicsWorld, PhysicsError>(
-              PhysicsErrorConstructors.NotFound({ entity: 'PhysicsWorld', reference: worldId })
-            )
+            () =>
+              Effect.fail<PhysicsWorld, PhysicsError>(
+                PhysicsErrorConstructors.NotFound({ entity: 'PhysicsWorld', reference: worldId })
+              )
           ),
           Match.orElse((value) => Effect.succeed(value))
         )

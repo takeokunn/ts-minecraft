@@ -1,17 +1,6 @@
 export * from './types'
 
-export {
-  createEntity,
-  updateEntity,
-  markDespawned,
-  recordEvent,
-  integrateTick,
-} from './model/entity'
-export type { EntityState, EntityCreateInput, EntityUpdateInput, EntityTickInput } from './model/entity'
+export { createEntity, integrateTick, markDespawned, recordEvent, updateEntity } from './model/entity'
+export type { EntityCreateInput, EntityState, EntityTickInput, EntityUpdateInput } from './model/entity'
 
-export {
-  changeGameMode,
-  applyExperienceGain,
-  applyPlayerUpdate,
-  normaliseAbilities,
-} from './model/player'
+export { applyExperienceGain, applyPlayerUpdate, changeGameMode, normaliseAbilities } from './model/player'

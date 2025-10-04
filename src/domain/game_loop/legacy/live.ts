@@ -1,11 +1,11 @@
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
+import { pipe } from 'effect/Function'
 import * as Layer from 'effect/Layer'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
-import { pipe } from 'effect/Function'
 
 import {
   DefaultGameLoopConfig,
@@ -22,16 +22,16 @@ import {
   PerformanceMetrics,
   Timestamp,
   currentTimestamp,
+  effectFromEither,
   fpsToNumber,
   frameCountToNumber,
   frameDurationToNumber,
-  effectFromEither,
   makeConfig,
+  makeFps,
   makeFrameCount,
   makeFrameDuration,
   makeFrameId,
   makeFrameInfo,
-  makeFps,
   makeTimestamp,
   reconcileFrameTiming,
 } from '../types/core'
@@ -43,12 +43,7 @@ import {
   toRuntimeCallbackError,
   toStateTransitionError,
 } from '../types/errors'
-import type {
-  FrameCallback,
-  FrameCallbackContext,
-  FrameCallbackRegistration,
-  GameLoopService,
-} from './service'
+import type { FrameCallback, FrameCallbackContext, FrameCallbackRegistration, GameLoopService } from './service'
 import { GameLoopService as GameLoopServiceTag } from './service'
 
 interface InternalState {
@@ -82,21 +77,14 @@ const deriveMetrics = (state: InternalState): PerformanceMetrics => ({
 const parseErrorToInitialization = (error: Schema.ParseError): InitializationError =>
   InitializationError({ reason: Schema.formatError(error) })
 
-const parseErrorToRuntime = (
-  id: string,
-  error: Schema.ParseError,
-  at: Timestamp
-): RuntimeCallbackError =>
+const parseErrorToRuntime = (id: string, error: Schema.ParseError, at: Timestamp): RuntimeCallbackError =>
   toRuntimeCallbackError({
     callbackId: id,
     causeMessage: Schema.formatError(error),
     occurredAt: at,
   })
 
-const computeSkipped = (
-  config: GameLoopConfig,
-  delta: FrameDuration
-): boolean =>
+const computeSkipped = (config: GameLoopConfig, delta: FrameDuration): boolean =>
   pipe(
     frameDurationToNumber(delta) > (1000 / fpsToNumber(config.targetFps)) * (config.maxFrameSkip + 1),
     Match.value,
@@ -138,9 +126,8 @@ export const GameLoopServiceLive: Layer.Layer<GameLoopService> = Layer.scoped(
 
     const stateRef = yield* SynchronizedRef.make(initialState)
 
-    const updateState = (
-      mutate: (current: InternalState) => InternalState
-    ): Effect.Effect<void> => SynchronizedRef.update(stateRef, mutate)
+    const updateState = (mutate: (current: InternalState) => InternalState): Effect.Effect<void> =>
+      SynchronizedRef.update(stateRef, mutate)
 
     const ensureState = <A>(
       expected: ReadonlyArray<GameLoopState>,
@@ -378,10 +365,7 @@ export const GameLoopServiceLive: Layer.Layer<GameLoopService> = Layer.scoped(
                 metrics: deriveMetrics(updatedState),
               }
 
-              return [
-                { info: frameInfo, callbacks: updatedState.callbacks, context },
-                updatedState,
-              ] as const
+              return [{ info: frameInfo, callbacks: updatedState.callbacks, context }, updatedState] as const
             })
           )
 
@@ -390,7 +374,7 @@ export const GameLoopServiceLive: Layer.Layer<GameLoopService> = Layer.scoped(
           )
 
           return frameComputation.info
-        })
+        }),
     }
 
     return GameLoopServiceTag.of(service)

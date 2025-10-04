@@ -193,7 +193,10 @@ const makeBuilder = (config: ItemBuilderConfig): ItemBuilder => {
       update((current) => ({
         ...current,
         durability,
-        maxDurability: pipe(Option.fromNullable(maxDurability), Option.getOrElse(() => current.maxDurability)),
+        maxDurability: pipe(
+          Option.fromNullable(maxDurability),
+          Option.getOrElse(() => current.maxDurability)
+        ),
       })),
     withCustomName: (name) => update((current) => ({ ...current, customName: name })),
     withLore: (lore) => update((current) => ({ ...current, lore })),
@@ -207,7 +210,10 @@ const makeBuilder = (config: ItemBuilderConfig): ItemBuilder => {
       update((current) => ({
         ...current,
         stackable,
-        maxStackSize: pipe(Option.fromNullable(maxStackSize), Option.getOrElse(() => (stackable ? 64 : 1))),
+        maxStackSize: pipe(
+          Option.fromNullable(maxStackSize),
+          Option.getOrElse(() => (stackable ? 64 : 1))
+        ),
       })),
     addEnchantment: (enchantment) =>
       update((current) => ({
@@ -353,9 +359,7 @@ export const customItemBuilder = (
           ),
           pipe(
             Option.fromNullable(customizations.durability),
-            Option.map((value) => (current: ItemBuilder) =>
-              current.withDurability(value, customizations.maxDurability)
-            )
+            Option.map((value) => (current: ItemBuilder) => current.withDurability(value, customizations.maxDurability))
           ),
           pipe(
             Option.fromNullable(customizations.customName),
@@ -371,9 +375,7 @@ export const customItemBuilder = (
           ),
           pipe(
             Option.fromNullable(customizations.stackable),
-            Option.map((value) => (current: ItemBuilder) =>
-              current.withStackable(value, customizations.maxStackSize)
-            )
+            Option.map((value) => (current: ItemBuilder) => current.withStackable(value, customizations.maxStackSize))
           ),
         ],
         RA.filterMap(Function.identity),
@@ -421,8 +423,7 @@ export const ItemBuilderFactoryLive: ItemBuilderFactory = {
   fromConfig: (config) => createItemBuilder(config),
 
   // デフォルト付きビルダー作成
-  createWithDefaults: (category) =>
-    Effect.succeed(createItemBuilder(getCategoryDefaultConfig(category))),
+  createWithDefaults: (category) => Effect.succeed(createItemBuilder(getCategoryDefaultConfig(category))),
 }
 
 // Layer.effect による依存性注入実装

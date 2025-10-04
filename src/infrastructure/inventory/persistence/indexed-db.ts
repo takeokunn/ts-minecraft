@@ -7,13 +7,12 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
-import type { UseStore } from 'idb-keyval'
 import { clear, createStore, del, get, keys, set } from 'idb-keyval'
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/InventoryTypes'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/inventory-types'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory/inventory-types'
 import type { StorageError } from '../storage-service'
 import {
   InventoryStorageService,
-  Milliseconds,
   MillisecondsSchema,
   StorageBackendSchema,
   StorageConfig,
@@ -27,7 +26,6 @@ import {
   toNotAvailable,
   toSaveFailed,
 } from '../storage-service'
-import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory/InventoryTypes'
 
 const backend = Schema.decodeUnknownSync(StorageBackendSchema)('indexedDB')
 
@@ -88,8 +86,7 @@ const readInventory = (playerId: PlayerId) =>
       Option.fromNullable(raw),
       Option.match({
         onNone: () => Effect.succeed(Option.none<Inventory>()),
-        onSome: (value) =>
-          decodeFromStore(value, InventorySchema, 'inventory-decode').pipe(Effect.map(Option.some)),
+        onSome: (value) => decodeFromStore(value, InventorySchema, 'inventory-decode').pipe(Effect.map(Option.some)),
       })
     )
   })
@@ -138,14 +135,17 @@ const deleteInventoryRecord = (playerId: PlayerId) =>
 const gatherPlayerIds = () =>
   tryPromise('load', 'list-keys', () => keys(inventoryStore)).pipe(
     Effect.flatMap((rawKeys) =>
-      Effect.forEach(rawKeys, (key) =>
-        Effect.gen(function* () {
-          const storageKey = yield* Schema.decodeUnknown(StorageKeySchema)(key).pipe(
-            Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
-          )
-          return yield* decodePlayerIdFromStorageKey(storageKey)
-        })
-      , { concurrency: 'unbounded' })
+      Effect.forEach(
+        rawKeys,
+        (key) =>
+          Effect.gen(function* () {
+            const storageKey = yield* Schema.decodeUnknown(StorageKeySchema)(key).pipe(
+              Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+            )
+            return yield* decodePlayerIdFromStorageKey(storageKey)
+          }),
+        { concurrency: 'unbounded' }
+      )
     )
   )
 
@@ -163,11 +163,9 @@ const decodePlayerIdFromStorageKey = (storageKey: StorageKey): Effect.Effect<Pla
     Match.exhaustive
   )
 
-const decodeBackupPayload = (value: unknown) =>
-  decodeFromStore(value, InventorySchema, 'backup-decode')
+const decodeBackupPayload = (value: unknown) => decodeFromStore(value, InventorySchema, 'backup-decode')
 
-const encodeBackupPayload = (inventory: Inventory) =>
-  encodeToStore(inventory, InventorySchema, 'backup-encode')
+const encodeBackupPayload = (inventory: Inventory) => encodeToStore(inventory, InventorySchema, 'backup-encode')
 
 export const IndexedDBInventoryService = Layer.effect(
   InventoryStorageService,
@@ -272,9 +270,11 @@ export const IndexedDBInventoryService = Layer.effect(
         Effect.gen(function* () {
           yield* requireAvailability
           const allKeys = yield* tryPromise('load', 'inventory-keys', () => keys(inventoryStore))
-          const encoded = yield* Effect.forEach(allKeys, (key) =>
-            tryPromise('load', 'inventory', () => get(key, inventoryStore))
-          , { concurrency: 'unbounded' })
+          const encoded = yield* Effect.forEach(
+            allKeys,
+            (key) => tryPromise('load', 'inventory', () => get(key, inventoryStore)),
+            { concurrency: 'unbounded' }
+          )
           const sizes = encoded.map((value) =>
             pipe(
               Option.fromNullable(value),
@@ -283,7 +283,11 @@ export const IndexedDBInventoryService = Layer.effect(
             )
           )
           const totalSize = sizes.reduce((acc, size) => acc + size, 0)
-          return { totalSize, availableSpace: Number.POSITIVE_INFINITY, itemCount: allKeys.length } satisfies StorageInfo
+          return {
+            totalSize,
+            availableSpace: Number.POSITIVE_INFINITY,
+            itemCount: allKeys.length,
+          } satisfies StorageInfo
         }),
     }
 

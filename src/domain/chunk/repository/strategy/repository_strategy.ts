@@ -1,7 +1,7 @@
 import { Effect, Layer, Match, pipe } from 'effect'
+import { IndexedDBChunkRepositoryLive } from '../chunk_repository/indexeddb_implementation'
 import { ChunkRepository } from '../chunk_repository/interface'
 import { InMemoryChunkRepositoryLive } from '../chunk_repository/memory_implementation'
-import { IndexedDBChunkRepositoryLive } from '../chunk_repository/indexeddb_implementation'
 import { WebWorkerChunkRepositoryLive } from '../chunk_repository/webworker_implementation'
 import type { RepositoryError } from '../types/repository_error'
 import { RepositoryErrors } from '../types/repository_error'
@@ -18,12 +18,7 @@ import { RepositoryErrors } from '../types/repository_error'
 /**
  * Repository戦略タイプ
  */
-export type RepositoryStrategyType =
-  | 'memory'
-  | 'indexeddb'
-  | 'webworker'
-  | 'hybrid'
-  | 'auto'
+export type RepositoryStrategyType = 'memory' | 'indexeddb' | 'webworker' | 'hybrid' | 'auto'
 
 /**
  * 環境情報
@@ -132,7 +127,7 @@ export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryEr
         hasFileSystem,
         memoryConstraints,
         performanceProfile,
-        concurrencySupport
+        concurrencySupport,
       }
 
       return envInfo
@@ -203,7 +198,7 @@ export const autoSelectStrategy = (
       memoryBudget: 256,
       concurrentOperations: 5,
       dataConsistency: 'eventual',
-      durability: 'session'
+      durability: 'session',
     }
 
     const finalRequirements = { ...defaultRequirements, ...requirements }
@@ -237,13 +232,9 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
     ChunkRepository,
     Effect.gen(function* () {
       // メモリ + IndexedDBのハイブリッド実装
-      const memoryRepo = yield* Effect.service(ChunkRepository).pipe(
-        Effect.provide(InMemoryChunkRepositoryLive)
-      )
+      const memoryRepo = yield* Effect.service(ChunkRepository).pipe(Effect.provide(InMemoryChunkRepositoryLive))
 
-      const persistentRepo = yield* Effect.service(ChunkRepository).pipe(
-        Effect.provide(IndexedDBChunkRepositoryLive)
-      )
+      const persistentRepo = yield* Effect.service(ChunkRepository).pipe(Effect.provide(IndexedDBChunkRepositoryLive))
 
       return {
         // 読み取りはメモリから高速実行
@@ -269,11 +260,9 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
 
             // バックグラウンドで永続化（エラーがあってもメイン処理は続行）
             yield* Effect.fork(
-              persistentRepo.save(chunk).pipe(
-                Effect.catchAll((error) =>
-                  Effect.logWarning(`Persistent save failed: ${JSON.stringify(error)}`)
-                )
-              )
+              persistentRepo
+                .save(chunk)
+                .pipe(Effect.catchAll((error) => Effect.logWarning(`Persistent save failed: ${JSON.stringify(error)}`)))
             )
 
             return result
@@ -286,11 +275,13 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
 
             // バックグラウンドで永続化
             yield* Effect.fork(
-              persistentRepo.saveAll(chunks).pipe(
-                Effect.catchAll((error) =>
-                  Effect.logWarning(`Persistent batch save failed: ${JSON.stringify(error)}`)
+              persistentRepo
+                .saveAll(chunks)
+                .pipe(
+                  Effect.catchAll((error) =>
+                    Effect.logWarning(`Persistent batch save failed: ${JSON.stringify(error)}`)
+                  )
                 )
-              )
             )
 
             return result
@@ -300,31 +291,31 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
         delete: (id) =>
           Effect.gen(function* () {
             yield* memoryRepo.delete(id)
-            yield* persistentRepo.delete(id).pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent delete failed: ${JSON.stringify(error)}`)
-              )
-            )
+            yield* persistentRepo
+              .delete(id)
+              .pipe(Effect.catchAll((error) => Effect.logWarning(`Persistent delete failed: ${JSON.stringify(error)}`)))
           }),
 
         deleteByPosition: (position) =>
           Effect.gen(function* () {
             yield* memoryRepo.deleteByPosition(position)
-            yield* persistentRepo.deleteByPosition(position).pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent delete by position failed: ${JSON.stringify(error)}`)
+            yield* persistentRepo
+              .deleteByPosition(position)
+              .pipe(
+                Effect.catchAll((error) =>
+                  Effect.logWarning(`Persistent delete by position failed: ${JSON.stringify(error)}`)
+                )
               )
-            )
           }),
 
         deleteAll: (ids) =>
           Effect.gen(function* () {
             yield* memoryRepo.deleteAll(ids)
-            yield* persistentRepo.deleteAll(ids).pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent delete all failed: ${JSON.stringify(error)}`)
+            yield* persistentRepo
+              .deleteAll(ids)
+              .pipe(
+                Effect.catchAll((error) => Effect.logWarning(`Persistent delete all failed: ${JSON.stringify(error)}`))
               )
-            )
           }),
 
         // バッチ操作
@@ -335,21 +326,19 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
         initialize: () =>
           Effect.gen(function* () {
             yield* memoryRepo.initialize()
-            yield* persistentRepo.initialize().pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent initialize failed: ${JSON.stringify(error)}`)
+            yield* persistentRepo
+              .initialize()
+              .pipe(
+                Effect.catchAll((error) => Effect.logWarning(`Persistent initialize failed: ${JSON.stringify(error)}`))
               )
-            )
           }),
 
         clear: () =>
           Effect.gen(function* () {
             yield* memoryRepo.clear()
-            yield* persistentRepo.clear().pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent clear failed: ${JSON.stringify(error)}`)
-              )
-            )
+            yield* persistentRepo
+              .clear()
+              .pipe(Effect.catchAll((error) => Effect.logWarning(`Persistent clear failed: ${JSON.stringify(error)}`)))
           }),
 
         validateIntegrity: memoryRepo.validateIntegrity,
@@ -357,22 +346,22 @@ const createHybridRepository = (): Layer.Layer<ChunkRepository, RepositoryError>
         clearCache: () =>
           Effect.gen(function* () {
             yield* memoryRepo.clearCache()
-            yield* persistentRepo.clearCache().pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent cache clear failed: ${JSON.stringify(error)}`)
+            yield* persistentRepo
+              .clearCache()
+              .pipe(
+                Effect.catchAll((error) => Effect.logWarning(`Persistent cache clear failed: ${JSON.stringify(error)}`))
               )
-            )
           }),
 
         cleanup: () =>
           Effect.gen(function* () {
             yield* memoryRepo.cleanup()
-            yield* persistentRepo.cleanup().pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(`Persistent cleanup failed: ${JSON.stringify(error)}`)
+            yield* persistentRepo
+              .cleanup()
+              .pipe(
+                Effect.catchAll((error) => Effect.logWarning(`Persistent cleanup failed: ${JSON.stringify(error)}`))
               )
-            )
-          })
+          }),
       }
     })
   )
@@ -389,14 +378,10 @@ const createAutoRepository = (): Layer.Layer<ChunkRepository, RepositoryError> =
       // 再帰的に適切な戦略のRepositoryを作成
       if (strategy === 'auto') {
         // 無限再帰防止：autoが選ばれた場合はmemoryにフォールバック
-        return yield* Effect.service(ChunkRepository).pipe(
-          Effect.provide(InMemoryChunkRepositoryLive)
-        )
+        return yield* Effect.service(ChunkRepository).pipe(Effect.provide(InMemoryChunkRepositoryLive))
       }
 
-      return yield* Effect.service(ChunkRepository).pipe(
-        Effect.provide(createRepositoryLayer(strategy))
-      )
+      return yield* Effect.service(ChunkRepository).pipe(Effect.provide(createRepositoryLayer(strategy)))
     })
   )
 
@@ -427,7 +412,7 @@ export class RepositoryConfigBuilder {
     this.config.options = {
       ...this.config.options,
       enableWebWorkers: enable,
-      maxWorkers: maxWorkers
+      maxWorkers: maxWorkers,
     }
     return this
   }
@@ -466,8 +451,7 @@ export class RepositoryConfigBuilder {
 /**
  * 設定ビルダーを作成
  */
-export const configureRepository = (): RepositoryConfigBuilder =>
-  new RepositoryConfigBuilder()
+export const configureRepository = (): RepositoryConfigBuilder => new RepositoryConfigBuilder()
 
 /**
  * 環境に最適化されたRepository Layerを作成
@@ -479,9 +463,7 @@ export const createOptimizedRepositoryLayer = (
     ChunkRepository,
     Effect.gen(function* () {
       const strategy = yield* autoSelectStrategy(requirements)
-      return yield* Effect.service(ChunkRepository).pipe(
-        Effect.provide(createRepositoryLayer(strategy))
-      )
+      return yield* Effect.service(ChunkRepository).pipe(Effect.provide(createRepositoryLayer(strategy)))
     })
   )
 
@@ -503,5 +485,5 @@ export const ProductionRepositoryLayer = createOptimizedRepositoryLayer({
   durability: 'persistent',
   memoryBudget: 512,
   maxLatency: 50,
-  minThroughput: 100
+  minThroughput: 100,
 })

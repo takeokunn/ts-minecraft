@@ -1,4 +1,4 @@
-import type { PhysicsMaterial, UnitInterval, Vector3, PositiveFloat } from './core'
+import type { PhysicsMaterial, PositiveFloat, UnitInterval, Vector3 } from './core'
 import { positiveFloat, unitInterval, vector3 } from './core'
 
 export interface PhysicsConstants {

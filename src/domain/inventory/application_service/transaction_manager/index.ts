@@ -4,6 +4,6 @@
  * エクスポートモジュール
  */
 
+export { TransactionManagerApplicationServiceLive } from './live'
 export * from './service'
 export * from './workflows'
-export { TransactionManagerApplicationServiceLive } from './live'

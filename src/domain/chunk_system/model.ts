@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import { Array as ReadonlyArray, Clock, Effect, Match, pipe } from 'effect'
+import { Clock, Effect, Match, pipe, Array as ReadonlyArray } from 'effect'
 import { ChunkCommand } from './commands.js'
 import { ChunkEvent } from './events.js'
 import {
@@ -21,7 +21,8 @@ export interface TransitionResult {
 
 const noEvents: ReadonlyArray<ChunkEvent> = []
 
-const decodeWith = <A>(schema: Schema.Schema<A>) =>
+const decodeWith =
+  <A>(schema: Schema.Schema<A>) =>
   (input: unknown) =>
     pipe(
       Schema.decodeUnknown(schema)(input),
@@ -47,10 +48,7 @@ const ensureCapacity = (state: ChunkSystemState, request: ChunkRequest) =>
     () => ChunkSystemError.ResourceBudgetExceeded({ request, budget: state.budget })
   )
 
-const extractRequest = (
-  collection: ReadonlyArray<ChunkRequest>,
-  id: ChunkRequest['id']
-) =>
+const extractRequest = (collection: ReadonlyArray<ChunkRequest>, id: ChunkRequest['id']) =>
   pipe(
     collection,
     ReadonlyArray.findFirst((candidate) => candidate.id === id),
@@ -100,16 +98,9 @@ const updatePerformance = (state: ChunkSystemState, deltaActive: number) =>
     const activeCount = state.active.length + deltaActive
     const total = activeCount + state.delayed.length
     const successRatio = yield* successRatioFor(activeCount, total)
-    const operationsPerSecond = Math.max(activeCount, 0) /
-      (state.performance.window.windowMs / 1_000)
-    const rollingAverage = Math.max(
-      state.performance.window.rollingAverage * 0.8 + activeCount * 0.2,
-      0
-    )
-    const percentile95 = Math.max(
-      state.performance.window.percentile95 * 0.9 + activeCount * 0.1,
-      0
-    )
+    const operationsPerSecond = Math.max(activeCount, 0) / (state.performance.window.windowMs / 1_000)
+    const rollingAverage = Math.max(state.performance.window.rollingAverage * 0.8 + activeCount * 0.2, 0)
+    const percentile95 = Math.max(state.performance.window.percentile95 * 0.9 + activeCount * 0.1, 0)
     return yield* decodePerformance({
       capturedAt,
       window: {
@@ -126,11 +117,7 @@ const updatePerformance = (state: ChunkSystemState, deltaActive: number) =>
 
 const nextTick = (tick: ChunkSystemState['tick']) => decodeTick(tick + 1)
 
-const enqueueRequest = (
-  state: ChunkSystemState,
-  request: ChunkRequest,
-  expired: boolean
-) =>
+const enqueueRequest = (state: ChunkSystemState, request: ChunkRequest, expired: boolean) =>
   Match.value(expired).pipe(
     Match.when(true, () => ({
       active: state.active,
@@ -180,27 +167,32 @@ const applyLocated = <A>(
   onActive: () => A,
   onDelayed: () => A
 ) =>
-  Match.value(located.source).pipe(
-    Match.when('active', onActive),
-    Match.when('delayed', onDelayed),
-    Match.exhaustive
-  )
+  Match.value(located.source).pipe(Match.when('active', onActive), Match.when('delayed', onDelayed), Match.exhaustive)
 
-const complete = (
-  state: ChunkSystemState,
-  command: Extract<ChunkCommand, { readonly _tag: 'Complete' }>
-) =>
+const complete = (state: ChunkSystemState, command: Extract<ChunkCommand, { readonly _tag: 'Complete' }>) =>
   Effect.gen(function* () {
     const located = yield* locateRequest(state, command.requestId)
     const performance = yield* updatePerformance(
       state,
-      applyLocated(located, () => -1, () => 0)
+      applyLocated(
+        located,
+        () => -1,
+        () => 0
+      )
     )
     const tick = yield* nextTick(state.tick)
     return {
       state: yield* decodeState({
-        active: applyLocated(located, () => located.restActive, () => state.active),
-        delayed: applyLocated(located, () => state.delayed, () => located.restDelayed),
+        active: applyLocated(
+          located,
+          () => located.restActive,
+          () => state.active
+        ),
+        delayed: applyLocated(
+          located,
+          () => state.delayed,
+          () => located.restDelayed
+        ),
         budget: state.budget,
         strategy: state.strategy,
         performance,
@@ -215,21 +207,30 @@ const complete = (
     }
   })
 
-const fail = (
-  state: ChunkSystemState,
-  command: Extract<ChunkCommand, { readonly _tag: 'Fail' }>
-) =>
+const fail = (state: ChunkSystemState, command: Extract<ChunkCommand, { readonly _tag: 'Fail' }>) =>
   Effect.gen(function* () {
     const located = yield* locateRequest(state, command.requestId)
     const performance = yield* updatePerformance(
       state,
-      applyLocated(located, () => -1, () => 0)
+      applyLocated(
+        located,
+        () => -1,
+        () => 0
+      )
     )
     const tick = yield* nextTick(state.tick)
     return {
       state: yield* decodeState({
-        active: applyLocated(located, () => located.restActive, () => state.active),
-        delayed: applyLocated(located, () => state.delayed, () => located.restDelayed),
+        active: applyLocated(
+          located,
+          () => located.restActive,
+          () => state.active
+        ),
+        delayed: applyLocated(
+          located,
+          () => state.delayed,
+          () => located.restDelayed
+        ),
         budget: state.budget,
         strategy: state.strategy,
         performance,
@@ -245,10 +246,7 @@ const fail = (
     }
   })
 
-const reprioritize = (
-  state: ChunkSystemState,
-  command: Extract<ChunkCommand, { readonly _tag: 'Reprioritize' }>
-) =>
+const reprioritize = (state: ChunkSystemState, command: Extract<ChunkCommand, { readonly _tag: 'Reprioritize' }>) =>
   Effect.gen(function* () {
     const located = yield* locateRequest(state, command.requestId)
     const updatedRequest = {
@@ -280,10 +278,7 @@ const reprioritize = (
     }
   })
 
-const switchStrategy = (
-  state: ChunkSystemState,
-  command: Extract<ChunkCommand, { readonly _tag: 'SwitchStrategy' }>
-) =>
+const switchStrategy = (state: ChunkSystemState, command: Extract<ChunkCommand, { readonly _tag: 'SwitchStrategy' }>) =>
   Effect.gen(function* () {
     const changed = state.strategy !== command.strategy
     const performance = yield* updatePerformance(state, 0)
@@ -326,9 +321,7 @@ export const applyCommand = (
     Match.exhaustive
   )
 
-export const makeInitialState = (
-  config: ChunkSystemConfig
-): Effect.Effect<ChunkSystemState, ChunkSystemError> =>
+export const makeInitialState = (config: ChunkSystemConfig): Effect.Effect<ChunkSystemState, ChunkSystemError> =>
   Effect.gen(function* () {
     const parsedConfig = yield* pipe(
       Schema.decodeUnknown(ChunkSystemConfigSchema)(config),

@@ -5,10 +5,9 @@
  * 型安全性とオーバーフロー防止を完全実装
  */
 
-import { Schema } from 'effect'
-import { Brand } from 'effect'
-import { taggedUnion } from '../../utils/schema'
 import type { Brand as BrandType } from 'effect'
+import { Schema } from 'effect'
+import { taggedUnion } from '../../utils/schema'
 
 /**
  * World座標系の各軸のBrand型
@@ -26,7 +25,7 @@ export const WORLD_COORDINATE_LIMITS = {
   MIN_Y: -2048,
   MAX_Y: 2047,
   MIN_Z: -30000000,
-  MAX_Z: 30000000
+  MAX_Z: 30000000,
 } as const
 
 /**
@@ -41,7 +40,7 @@ export const WorldXSchema = Schema.Number.pipe(
     identifier: 'WorldX',
     title: 'World X Coordinate',
     description: 'X coordinate in world space (-30M to +30M)',
-    examples: [0, 1000, -5000, 12345678]
+    examples: [0, 1000, -5000, 12345678],
   })
 )
 
@@ -57,7 +56,7 @@ export const WorldYSchema = Schema.Number.pipe(
     identifier: 'WorldY',
     title: 'World Y Coordinate (Height)',
     description: 'Y coordinate (height) in world space (-2048 to +2047)',
-    examples: [0, 64, 128, 256, -64]
+    examples: [0, 64, 128, 256, -64],
   })
 )
 
@@ -73,7 +72,7 @@ export const WorldZSchema = Schema.Number.pipe(
     identifier: 'WorldZ',
     title: 'World Z Coordinate',
     description: 'Z coordinate in world space (-30M to +30M)',
-    examples: [0, 1000, -5000, 12345678]
+    examples: [0, 1000, -5000, 12345678],
   })
 )
 
@@ -83,12 +82,12 @@ export const WorldZSchema = Schema.Number.pipe(
 export const WorldCoordinateSchema = Schema.Struct({
   x: WorldXSchema,
   y: WorldYSchema,
-  z: WorldZSchema
+  z: WorldZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'WorldCoordinate',
     title: 'World 3D Coordinate',
-    description: 'Immutable 3D coordinate in world space with overflow protection'
+    description: 'Immutable 3D coordinate in world space with overflow protection',
   })
 )
 
@@ -99,12 +98,12 @@ export type WorldCoordinate = typeof WorldCoordinateSchema.Type
  */
 export const WorldCoordinate2DSchema = Schema.Struct({
   x: WorldXSchema,
-  z: WorldZSchema
+  z: WorldZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'WorldCoordinate2D',
     title: 'World 2D Coordinate',
-    description: '2D coordinate in world space (X-Z plane)'
+    description: '2D coordinate in world space (X-Z plane)',
   })
 )
 
@@ -116,7 +115,7 @@ export type WorldCoordinate2D = typeof WorldCoordinate2DSchema.Type
 export const CreateWorldCoordinateParamsSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export type CreateWorldCoordinateParams = typeof CreateWorldCoordinateParamsSchema.Type
@@ -131,19 +130,19 @@ export const WorldCoordinateErrorSchema = taggedUnion('_tag', [
     value: Schema.Number,
     min: Schema.Number,
     max: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidCoordinate'),
     coordinate: Schema.Unknown,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('OverflowError'),
     operation: Schema.String,
     values: Schema.Array(Schema.Number),
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type WorldCoordinateError = typeof WorldCoordinateErrorSchema.Type
@@ -152,13 +151,20 @@ export type WorldCoordinateError = typeof WorldCoordinateErrorSchema.Type
  * 方向列挙型
  */
 export const DirectionSchema = Schema.Literal(
-  'north', 'south', 'east', 'west',
-  'up', 'down',
-  'northeast', 'northwest', 'southeast', 'southwest'
+  'north',
+  'south',
+  'east',
+  'west',
+  'up',
+  'down',
+  'northeast',
+  'northwest',
+  'southeast',
+  'southwest'
 ).pipe(
   Schema.annotations({
     title: 'Cardinal Direction',
-    description: 'Primary and intermediate directions in 3D space'
+    description: 'Primary and intermediate directions in 3D space',
   })
 )
 
@@ -173,7 +179,7 @@ export const DistanceSchema = Schema.Number.pipe(
   Schema.brand('Distance'),
   Schema.annotations({
     title: 'Euclidean Distance',
-    description: 'Non-negative distance between two points'
+    description: 'Non-negative distance between two points',
   })
 )
 
@@ -184,12 +190,12 @@ export type Distance = typeof DistanceSchema.Type
  */
 export const BoundingBoxSchema = Schema.Struct({
   min: WorldCoordinateSchema,
-  max: WorldCoordinateSchema
+  max: WorldCoordinateSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'BoundingBox',
     title: 'World Bounding Box',
-    description: 'Axis-aligned bounding box in world coordinates'
+    description: 'Axis-aligned bounding box in world coordinates',
   })
 )
 
@@ -200,12 +206,12 @@ export type BoundingBox = typeof BoundingBoxSchema.Type
  */
 export const BoundingSphereSchema = Schema.Struct({
   center: WorldCoordinateSchema,
-  radius: DistanceSchema
+  radius: DistanceSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'BoundingSphere',
     title: 'World Bounding Sphere',
-    description: 'Spherical bounding volume in world coordinates'
+    description: 'Spherical bounding volume in world coordinates',
   })
 )
 

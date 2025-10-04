@@ -1,8 +1,8 @@
-import { Data, Effect, Schema } from 'effect'
 import type { Brand } from 'effect'
+import { Data, Effect, Schema } from 'effect'
 import { DomainClock } from '../../shared/effect'
-import type { ChunkPosition } from '../value_object/chunk_position'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
+import type { ChunkPosition } from '../value_object/chunk_position'
 
 /**
  * Chunk Domain Core Constants & ADT Types
@@ -23,9 +23,7 @@ export const CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
  */
 export type ChunkDataBytes = Uint8Array & Brand.Brand<'ChunkDataBytes'>
 
-export const ChunkDataBytesSchema = Schema.instanceOf(Uint8Array).pipe(
-  Schema.brand('ChunkDataBytes')
-)
+export const ChunkDataBytesSchema = Schema.instanceOf(Uint8Array).pipe(Schema.brand('ChunkDataBytes'))
 
 /**
  * チャンクのロード進行度 (0-100)
@@ -43,32 +41,21 @@ export const LoadProgressSchema = Schema.Number.pipe(
  */
 export type ChangeSetId = string & Brand.Brand<'ChangeSetId'>
 
-export const ChangeSetIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.brand('ChangeSetId')
-)
+export const ChangeSetIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('ChangeSetId'))
 
 /**
  * リトライ回数
  */
 export type RetryCount = number & Brand.Brand<'RetryCount'>
 
-export const RetryCountSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('RetryCount')
-)
+export const RetryCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('RetryCount'))
 
 /**
  * チャンクのタイムスタンプ
  */
 export type ChunkTimestamp = number & Brand.Brand<'ChunkTimestamp'>
 
-export const ChunkTimestampSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand('ChunkTimestamp')
-)
+export const ChunkTimestampSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('ChunkTimestamp'))
 
 // ===== ADT Types ===== //
 
@@ -89,14 +76,16 @@ export interface ChangeSet {
 
 export const ChangeSetSchema = Schema.Struct({
   id: ChangeSetIdSchema,
-  blocks: Schema.Array(Schema.Struct({
-    x: Schema.Number.pipe(Schema.int()),
-    y: Schema.Number.pipe(Schema.int()),
-    z: Schema.Number.pipe(Schema.int()),
-    blockId: Schema.String.pipe(Schema.minLength(1)),
-    metadata: Schema.optional(Schema.Unknown)
-  })),
-  timestamp: ChunkTimestampSchema
+  blocks: Schema.Array(
+    Schema.Struct({
+      x: Schema.Number.pipe(Schema.int()),
+      y: Schema.Number.pipe(Schema.int()),
+      z: Schema.Number.pipe(Schema.int()),
+      blockId: Schema.String.pipe(Schema.minLength(1)),
+      metadata: Schema.optional(Schema.Unknown),
+    })
+  ),
+  timestamp: ChunkTimestampSchema,
 })
 
 /**
@@ -276,43 +265,43 @@ export const ChunkStates = {
   loading: (progress: LoadProgress): ChunkState =>
     ChunkState.Loading({
       progress,
-      startTime: 0 as ChunkTimestamp
+      startTime: 0 as ChunkTimestamp,
     }),
 
   loaded: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Loaded({
       data,
       loadTime: 0 as ChunkTimestamp,
-      metadata
+      metadata,
     }),
 
   failed: (error: string, retryCount: RetryCount = 0 as RetryCount): ChunkState =>
     ChunkState.Failed({
       error,
       retryCount,
-      lastAttempt: 0 as ChunkTimestamp
+      lastAttempt: 0 as ChunkTimestamp,
     }),
 
   dirty: (data: ChunkDataBytes, changes: ChangeSet, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Dirty({
       data,
       changes,
-      metadata
+      metadata,
     }),
 
   saving: (data: ChunkDataBytes, progress: LoadProgress, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Saving({
       data,
       progress,
-      metadata
+      metadata,
     }),
 
   cached: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Cached({
       data,
       cacheTime: 0 as ChunkTimestamp,
-      metadata
-    })
+      metadata,
+    }),
 } as const
 
 export const ChunkStatesEffect = {
@@ -360,14 +349,12 @@ export const ChunkStatesEffect = {
  * ChunkOperation ファクトリ関数
  */
 export const ChunkOperations = {
-  read: (position: ChunkPosition): ChunkOperation =>
-    ChunkOperation.Read({ position }),
+  read: (position: ChunkPosition): ChunkOperation => ChunkOperation.Read({ position }),
 
   write: (position: ChunkPosition, data: ChunkDataBytes, metadata: ChunkMetadata): ChunkOperation =>
     ChunkOperation.Write({ position, data, metadata }),
 
-  delete: (position: ChunkPosition): ChunkOperation =>
-    ChunkOperation.Delete({ position }),
+  delete: (position: ChunkPosition): ChunkOperation => ChunkOperation.Delete({ position }),
 
   validate: (position: ChunkPosition, expectedChecksum?: string): ChunkOperation =>
     ChunkOperation.Validate({ position, expectedChecksum }),
@@ -376,7 +363,7 @@ export const ChunkOperations = {
     ChunkOperation.Optimize({ position, strategy }),
 
   serialize: (data: ChunkDataBytes, format: SerializationFormat, metadata: ChunkMetadata): ChunkOperation =>
-    ChunkOperation.Serialize({ data, format, metadata })
+    ChunkOperation.Serialize({ data, format, metadata }),
 } as const
 
 /**
@@ -392,12 +379,9 @@ export const ChunkErrors = {
   serialization: (format: string, originalError: unknown): ChunkError =>
     ChunkError.SerializationError({ format, originalError }),
 
-  corruption: (checksum: string, expected: string): ChunkError =>
-    ChunkError.CorruptionError({ checksum, expected }),
+  corruption: (checksum: string, expected: string): ChunkError => ChunkError.CorruptionError({ checksum, expected }),
 
-  timeout: (operation: string, duration: number): ChunkError =>
-    ChunkError.TimeoutError({ operation, duration }),
+  timeout: (operation: string, duration: number): ChunkError => ChunkError.TimeoutError({ operation, duration }),
 
-  network: (url: string, status: number): ChunkError =>
-    ChunkError.NetworkError({ url, status })
+  network: (url: string, status: number): ChunkError => ChunkError.NetworkError({ url, status }),
 } as const

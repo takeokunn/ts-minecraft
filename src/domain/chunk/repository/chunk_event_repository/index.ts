@@ -6,33 +6,30 @@
  */
 
 export {
-  // Interface
-  type ChunkEventRepository,
   ChunkEventRepository,
-  type ChunkEventRepositoryEffect,
-
   // Event Types
   type BaseChunkEvent,
-  type ChunkEvent,
-  type ChunkCreatedEvent,
-  type ChunkLoadedEvent,
-  type ChunkUnloadedEvent,
-  type ChunkModifiedEvent,
-  type ChunkSavedEvent,
-  type ChunkDeletedEvent,
   type BlockChangedEvent,
-  type ChunkOptimizedEvent,
-  type ChunkValidatedEvent,
   type ChunkCorruptedEvent,
-
-  // Stream Types
-  type EventStream,
-  type EventProjection,
+  type ChunkCreatedEvent,
+  type ChunkDeletedEvent,
+  type ChunkEvent,
+  // Interface
+  type ChunkEventRepository,
+  type ChunkEventRepositoryEffect,
+  type ChunkLoadedEvent,
+  type ChunkModifiedEvent,
+  type ChunkOptimizedEvent,
+  type ChunkSavedEvent,
   type ChunkSnapshot,
-  type EventQuery,
-
+  type ChunkUnloadedEvent,
+  type ChunkValidatedEvent,
   // Type Helpers
   type EventFactory,
+  type EventProjection,
+  type EventQuery,
+  // Stream Types
+  type EventStream,
 } from './interface'
 
 // Note: Implementation will be added in a separate task

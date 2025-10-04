@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import * as Context from 'effect/Context'
+import { describe, expect, it } from 'vitest'
 
-import { GameLoopService } from './legacy/service'
 import { GameLoopDomainLive } from './layer'
+import { GameLoopService } from './legacy/service'
 
 describe('GameLoopDomainLive', () => {
   it('exposes GameLoopService through the layer', async () => {

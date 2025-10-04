@@ -6,23 +6,18 @@ export * from './interfaces'
 
 // Re-export ADT types for convenience
 export type {
-  ChunkState,
-  ChunkOperation,
-  ChunkError,
-  OptimizationStrategy,
-  SerializationFormat,
   ChangeSet,
-  ChunkDataBytes,
-  LoadProgress,
   ChangeSetId,
+  ChunkDataBytes,
+  ChunkError,
+  ChunkOperation,
+  ChunkState,
+  ChunkTimestamp,
+  LoadProgress,
+  OptimizationStrategy,
   RetryCount,
-  ChunkTimestamp
+  SerializationFormat,
 } from './core'
 
 // Re-export ADT factories
-export {
-  ChunkStates,
-  ChunkStatesEffect,
-  ChunkOperations,
-  ChunkErrors
-} from './core'
+export { ChunkErrors, ChunkOperations, ChunkStates, ChunkStatesEffect } from './core'

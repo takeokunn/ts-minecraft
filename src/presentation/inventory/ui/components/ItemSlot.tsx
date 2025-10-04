@@ -9,10 +9,7 @@ export interface ItemSlotVisualStyle {
   readonly opacity: number
 }
 
-const backgroundColorOf = (
-  slot: InventorySlot,
-  theme: InventoryTheme
-): Effect.Effect<string> =>
+const backgroundColorOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
   pipe(
     slot.visual.isDisabled,
     Match.value,
@@ -27,10 +24,7 @@ const backgroundColorOf = (
     )
   )
 
-const borderOf = (
-  slot: InventorySlot,
-  theme: InventoryTheme
-): Effect.Effect<string> =>
+const borderOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
   pipe(
     slot.visual.isHighlighted,
     Match.value,

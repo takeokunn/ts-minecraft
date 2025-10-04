@@ -1,11 +1,6 @@
 import { Context, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
-import {
-  type ChunkData,
-  ChunkBoundsError,
-  ChunkSerializationError,
-} from '../../aggregate/chunk'
+import { type ChunkData, ChunkBoundsError, ChunkDataSchema, ChunkSerializationError } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
-import { ChunkDataSchema } from '../../aggregate/chunk'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
 import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
 
@@ -30,13 +25,35 @@ export const SerializationFormat = {
 }
 
 export interface ChunkSerializationService {
-  readonly serialize: (chunk: ChunkData, format: SerializationFormat) => Effect.Effect<Uint8Array, ChunkSerializationError>
-  readonly deserialize: (data: Uint8Array, format: SerializationFormat) => Effect.Effect<ChunkData, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
-  readonly compress: (data: Uint8Array, algorithm?: 'gzip' | 'deflate' | 'brotli') => Effect.Effect<Uint8Array, ChunkSerializationError>
-  readonly decompress: (data: Uint8Array, algorithm?: 'gzip' | 'deflate' | 'brotli') => Effect.Effect<Uint8Array, ChunkSerializationError>
-  readonly calculateChecksum: (data: Uint8Array, algorithm?: 'SHA-256' | 'SHA-1' | 'MD5') => Effect.Effect<string, ChunkSerializationError>
-  readonly estimateSize: (chunk: ChunkData, format: SerializationFormat) => Effect.Effect<number, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
-  readonly validateSerialization: (original: ChunkData, serialized: Uint8Array, format: SerializationFormat) => Effect.Effect<boolean, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
+  readonly serialize: (
+    chunk: ChunkData,
+    format: SerializationFormat
+  ) => Effect.Effect<Uint8Array, ChunkSerializationError>
+  readonly deserialize: (
+    data: Uint8Array,
+    format: SerializationFormat
+  ) => Effect.Effect<ChunkData, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
+  readonly compress: (
+    data: Uint8Array,
+    algorithm?: 'gzip' | 'deflate' | 'brotli'
+  ) => Effect.Effect<Uint8Array, ChunkSerializationError>
+  readonly decompress: (
+    data: Uint8Array,
+    algorithm?: 'gzip' | 'deflate' | 'brotli'
+  ) => Effect.Effect<Uint8Array, ChunkSerializationError>
+  readonly calculateChecksum: (
+    data: Uint8Array,
+    algorithm?: 'SHA-256' | 'SHA-1' | 'MD5'
+  ) => Effect.Effect<string, ChunkSerializationError>
+  readonly estimateSize: (
+    chunk: ChunkData,
+    format: SerializationFormat
+  ) => Effect.Effect<number, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
+  readonly validateSerialization: (
+    original: ChunkData,
+    serialized: Uint8Array,
+    format: SerializationFormat
+  ) => Effect.Effect<boolean, ChunkSerializationError | ChunkDataValidationError | ChunkBoundsError>
 }
 
 export const ChunkSerializationService = Context.GenericTag<ChunkSerializationService>('ChunkSerializationService')
@@ -84,12 +101,17 @@ const encodeBinary = (chunk: ChunkData): Effect.Effect<Uint8Array, ChunkSerializ
     return result
   })
 
-const decodeBinary = (data: Uint8Array): Effect.Effect<{
-  readonly position: { readonly x: number; readonly z: number }
-  readonly metadata: unknown
-  readonly isDirty: boolean
-  readonly blocks: Uint16Array
-}, ChunkSerializationError> =>
+const decodeBinary = (
+  data: Uint8Array
+): Effect.Effect<
+  {
+    readonly position: { readonly x: number; readonly z: number }
+    readonly metadata: unknown
+    readonly isDirty: boolean
+    readonly blocks: Uint16Array
+  },
+  ChunkSerializationError
+> =>
   Effect.sync(() => {
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
     let offset = 0
@@ -130,7 +152,7 @@ const maybeCompress = (
   data: Uint8Array,
   compression: boolean | undefined,
   algorithm: 'gzip' | 'deflate' | 'brotli',
-  compress: ChunkSerializationService['compress'],
+  compress: ChunkSerializationService['compress']
 ): Effect.Effect<Uint8Array, ChunkSerializationError> =>
   pipe(
     Option.fromNullable(compression),
@@ -145,7 +167,7 @@ const maybeDecompress = (
   data: Uint8Array,
   compression: boolean | undefined,
   algorithm: 'gzip' | 'deflate' | 'brotli',
-  decompress: ChunkSerializationService['decompress'],
+  decompress: ChunkSerializationService['decompress']
 ): Effect.Effect<Uint8Array, ChunkSerializationError> =>
   pipe(
     Option.fromNullable(compression),
@@ -156,14 +178,12 @@ const maybeDecompress = (
     })
   )
 
-const decodeChunk = (
-  payload: {
-    readonly position: { readonly x: number; readonly z: number }
-    readonly metadata: unknown
-    readonly isDirty: boolean
-    readonly blocks: Uint16Array
-  }
-): Effect.Effect<ChunkData, ChunkDataValidationError | ChunkBoundsError> =>
+const decodeChunk = (payload: {
+  readonly position: { readonly x: number; readonly z: number }
+  readonly metadata: unknown
+  readonly isDirty: boolean
+  readonly blocks: Uint16Array
+}): Effect.Effect<ChunkData, ChunkDataValidationError | ChunkBoundsError> =>
   Effect.gen(function* () {
     const position = yield* pipe(
       Schema.decodeEffect(ChunkPositionSchema)(payload.position),
@@ -361,15 +381,12 @@ export const ChunkSerializationServiceLive = Layer.effect(
           service.deserialize(serialized, format),
           Effect.flatMap((deserialized) =>
             pipe(
-              deserialized.blocks.length === original.blocks.length &&
-                deserialized.isDirty === original.isDirty,
+              deserialized.blocks.length === original.blocks.length && deserialized.isDirty === original.isDirty,
               Match.value,
               Match.when(true, () =>
                 Effect.all({
                   serializedChecksum: service.calculateChecksum(serialized),
-                  originalChecksum: service.calculateChecksum(
-                    new Uint8Array(original.blocks.buffer.slice(0))
-                  ),
+                  originalChecksum: service.calculateChecksum(new Uint8Array(original.blocks.buffer.slice(0))),
                 })
               ),
               Match.orElse(() =>

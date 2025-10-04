@@ -8,43 +8,39 @@
 
 // === Cache Manager ===
 export {
-  CacheManagerService,
-  CacheManagerServiceLive,
-  CacheManagerError,
+  CacheConfiguration,
   CacheEntry,
   CacheLayer,
-  CacheConfiguration,
+  CacheManagerError,
+  CacheManagerService,
+  CacheManagerServiceLive,
   CacheStatistics,
   DEFAULT_CACHE_CONFIG,
 } from './cache_manager.js'
 
 export type {
-  CacheManagerErrorType,
+  CacheConfigurationType,
   CacheEntryType,
   CacheLayerType,
-  CacheConfigurationType,
+  CacheManagerErrorType,
   CacheStatisticsType,
 } from './cache_manager.js'
 
 // === Integrated Cache Optimization Service ===
 
-import { Context, Effect, Layer, Schema, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import { CacheManagerService } from './cache_manager.js'
 
 /**
  * Cache Optimization Service Error
  */
-export const CacheOptimizationError = Schema.TaggedError<CacheOptimizationErrorType>()(
-  'CacheOptimizationError',
-  {
-    message: Schema.String,
-    optimizerId: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const CacheOptimizationError = Schema.TaggedError<CacheOptimizationErrorType>()('CacheOptimizationError', {
+  message: Schema.String,
+  optimizerId: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface CacheOptimizationErrorType
-  extends Schema.Schema.Type<typeof CacheOptimizationError> {}
+export interface CacheOptimizationErrorType extends Schema.Schema.Type<typeof CacheOptimizationError> {}
 
 /**
  * Preloading Strategy Configuration
@@ -54,11 +50,7 @@ export const PreloadingStrategy = Schema.Struct({
   enabled: Schema.Boolean,
   predictiveDistance: Schema.Number.pipe(Schema.positive()),
   maxPreloadChunks: Schema.Number.pipe(Schema.positive(), Schema.int()),
-  preloadPriority: Schema.Union(
-    Schema.Literal('high'),
-    Schema.Literal('medium'),
-    Schema.Literal('low'),
-  ),
+  preloadPriority: Schema.Union(Schema.Literal('high'), Schema.Literal('medium'), Schema.Literal('low')),
   adaptivePreloading: Schema.Boolean,
 })
 
@@ -94,10 +86,13 @@ export interface CacheOptimizationService {
   /**
    * メモリ断片化を解消します
    */
-  readonly defragmentMemory: () => Effect.Effect<{
-    freedMemory: number
-    compactedEntries: number
-  }, CacheOptimizationErrorType>
+  readonly defragmentMemory: () => Effect.Effect<
+    {
+      freedMemory: number
+      compactedEntries: number
+    },
+    CacheOptimizationErrorType
+  >
 
   /**
    * プリローディング戦略を更新します
@@ -109,12 +104,15 @@ export interface CacheOptimizationService {
   /**
    * キャッシュ効率レポートを取得します
    */
-  readonly getEfficiencyReport: () => Effect.Effect<{
-    hitRate: number
-    memoryUsage: number
-    fragmentationLevel: number
-    recommendations: string[]
-  }, CacheOptimizationErrorType>
+  readonly getEfficiencyReport: () => Effect.Effect<
+    {
+      hitRate: number
+      memoryUsage: number
+      fragmentationLevel: number
+      recommendations: string[]
+    },
+    CacheOptimizationErrorType
+  >
 }
 
 // === Live Implementation ===
@@ -213,7 +211,7 @@ const makeCacheOptimizationService = Effect.gen(function* () {
 
   const updatePreloadingStrategy = (strategyUpdate: Partial<Schema.Schema.Type<typeof PreloadingStrategy>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(preloadingStrategy, current => ({ ...current, ...strategyUpdate }))
+      yield* Ref.update(preloadingStrategy, (current) => ({ ...current, ...strategyUpdate }))
       yield* Effect.logInfo('プリローディング戦略更新完了')
     })
 
@@ -228,7 +226,8 @@ const makeCacheOptimizationService = Effect.gen(function* () {
         recommendations.push('キャッシュヒット率が低いです。プリローディング戦略を見直してください。')
       }
 
-      if (totalSize > 500 * 1024 * 1024) { // 500MB
+      if (totalSize > 500 * 1024 * 1024) {
+        // 500MB
         recommendations.push('メモリ使用量が高いです。エビクション設定を調整してください。')
       }
 
@@ -286,19 +285,13 @@ export const CacheOptimizationService = Context.GenericTag<CacheOptimizationServ
 
 // === Layer ===
 
-export const CacheOptimizationServiceLive = Layer.effect(
-  CacheOptimizationService,
-  makeCacheOptimizationService
-).pipe(
+export const CacheOptimizationServiceLive = Layer.effect(CacheOptimizationService, makeCacheOptimizationService).pipe(
   Layer.provide(CacheManagerServiceLive)
 )
 
 // === Complete Service Layer ===
 
-export const CacheOptimizationServicesLayer = Layer.mergeAll(
-  CacheManagerServiceLive,
-  CacheOptimizationServiceLive
-)
+export const CacheOptimizationServicesLayer = Layer.mergeAll(CacheManagerServiceLive, CacheOptimizationServiceLive)
 
 // === Default Configuration ===
 
@@ -357,7 +350,4 @@ export const CacheOptimizationUtils = {
   },
 }
 
-export type {
-  CacheOptimizationErrorType,
-  PreloadingStrategy as PreloadingStrategyType,
-} from './index.js'
+export type { CacheOptimizationErrorType, PreloadingStrategy as PreloadingStrategyType } from './index.js'

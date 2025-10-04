@@ -1,11 +1,8 @@
-import { Effect, Match, Option, Random, Schema } from 'effect'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { WorldFactories } from './factory'
-import {
-  WorldApplicationService,
-  type WorldApplicationServiceErrorType,
-} from './application_service'
+import { Effect, Match, Option, Random, Schema } from 'effect'
+import { WorldApplicationService, type WorldApplicationServiceErrorType } from './application_service'
 import { WorldDomainConfig, defaultWorldDomainConfig } from './config'
+import { WorldFactories } from './factory'
 import { WorldClock } from './time'
 import { WorldSeedFactory } from './value_object/world_seed/index.js'
 import type { WorldSeed } from './value_object/world_seed/seed.js'
@@ -70,27 +67,33 @@ const validateWorldDataInternal = (data: unknown): Effect.Effect<WorldDataValida
   })
 
 const optimizeWorldSettingsInternal = (config: Partial<WorldDomainConfig>) =>
-  Effect.map(
-    Schema.decodeUnknown(WorldDomainDataSchema)({ ...defaultWorldDomainConfig, ...config }),
-    (fullConfig) =>
-      Match.value(fullConfig.performanceMode).pipe(
-        Match.when('performance', () => ({
-          ...fullConfig,
-          enableDomainValidation: false,
-          enableFactoryValidation: false,
-          repository: {
-            ...fullConfig.repository,
-            implementation: 'memory' as const,
-          },
-        } satisfies WorldDomainConfig)),
-        Match.when('quality', () => ({
-          ...fullConfig,
-          enableDomainValidation: true,
-          enableFactoryValidation: true,
-          debugMode: true,
-        } satisfies WorldDomainConfig)),
-        Match.orElse(() => fullConfig)
-      )
+  Effect.map(Schema.decodeUnknown(WorldDomainDataSchema)({ ...defaultWorldDomainConfig, ...config }), (fullConfig) =>
+    Match.value(fullConfig.performanceMode).pipe(
+      Match.when(
+        'performance',
+        () =>
+          ({
+            ...fullConfig,
+            enableDomainValidation: false,
+            enableFactoryValidation: false,
+            repository: {
+              ...fullConfig.repository,
+              implementation: 'memory' as const,
+            },
+          }) satisfies WorldDomainConfig
+      ),
+      Match.when(
+        'quality',
+        () =>
+          ({
+            ...fullConfig,
+            enableDomainValidation: true,
+            enableFactoryValidation: true,
+            debugMode: true,
+          }) satisfies WorldDomainConfig
+      ),
+      Match.orElse(() => fullConfig)
+    )
   )
 
 const exportWorldMetadataInternal = (world: unknown) =>
@@ -131,7 +134,7 @@ const exportWorldMetadataInternal = (world: unknown) =>
         type: 'invalid',
         chunks: 0,
         biomes: 0,
-      })),
+      }))
     )
   })
 

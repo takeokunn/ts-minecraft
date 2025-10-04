@@ -9,9 +9,7 @@ export interface EquipmentAnalysisSummary {
   readonly occupiedSlots: number
 }
 
-export const analyseEquipmentSet = (
-  set: EquipmentSet
-): Effect.Effect<EquipmentAnalysisSummary> =>
+export const analyseEquipmentSet = (set: EquipmentSet): Effect.Effect<EquipmentAnalysisSummary> =>
   Effect.gen(function* () {
     const pieces = equipmentSlotLiterals
       .map((slot) => set.slots[slot])

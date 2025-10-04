@@ -1,13 +1,8 @@
-import { Effect, Ref } from 'effect'
-import { pipe } from 'effect/Function'
-import {
-  InvalidConfigurationError,
-  ViewControlConfig,
-  ViewControlConfigSchema,
-  ViewDistanceError,
-} from './types.js'
 import * as Schema from '@effect/schema/Schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { Effect, Ref } from 'effect'
+import { pipe } from 'effect/Function'
+import { InvalidConfigurationError, ViewControlConfig, ViewControlConfigSchema, ViewDistanceError } from './types.js'
 
 export interface ViewSettingsRepository {
   readonly load: () => Effect.Effect<ViewControlConfig, ViewDistanceError>
@@ -20,14 +15,10 @@ interface SettingsState {
   readonly history: readonly ViewControlConfig[]
 }
 
-const validateConfig = (
-  config: ViewControlConfig
-): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
+const validateConfig = (config: ViewControlConfig): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ViewControlConfigSchema)(config),
-    Effect.mapError((error) =>
-      InvalidConfigurationError({ issues: TreeFormatter.formatErrorSync(error).split('\n') })
-    )
+    Effect.mapError((error) => InvalidConfigurationError({ issues: TreeFormatter.formatErrorSync(error).split('\n') }))
   )
 
 export const createViewSettingsRepository = (
@@ -40,9 +31,7 @@ export const createViewSettingsRepository = (
     const load = (): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
       Ref.get(state).pipe(Effect.map((snapshot) => snapshot.current))
 
-    const save = (
-      config: ViewControlConfig
-    ): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
+    const save = (config: ViewControlConfig): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
       pipe(
         validateConfig(config),
         Effect.flatMap((validated) =>

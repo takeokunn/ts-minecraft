@@ -116,10 +116,7 @@ export {
 } from './constants.js'
 
 // Schema Factory Functions
-export {
-  createBrandedNumberSchema,
-  // createBrandedStructSchema, // Temporarily disabled due to type constraints
-} from './constants.js'
+export { createBrandedNumberSchema } from './constants.js'
 
 // ========================================
 // Events Export

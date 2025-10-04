@@ -96,14 +96,14 @@ export const RepositoryErrors = {
     RepositoryError.ChunkNotFound({
       chunkId,
       message: message ?? `Chunk not found: ${chunkId}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   duplicateChunk: (chunkId: string, message?: string): RepositoryError =>
     RepositoryError.DuplicateChunk({
       chunkId,
       message: message ?? `Duplicate chunk: ${chunkId}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   storage: (operation: string, reason: string, originalError?: unknown): RepositoryError =>
@@ -111,7 +111,7 @@ export const RepositoryErrors = {
       operation,
       reason,
       originalError: originalError ?? 'Unknown error',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   validation: (field: string, value: unknown, constraint: string): RepositoryError =>
@@ -119,7 +119,7 @@ export const RepositoryErrors = {
       field,
       value,
       constraint,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   dataIntegrity: (expected: string, actual: string, checksum?: string): RepositoryError =>
@@ -127,7 +127,7 @@ export const RepositoryErrors = {
       expected,
       actual,
       checksum,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   network: (url: string, status: number, message: string): RepositoryError =>
@@ -135,7 +135,7 @@ export const RepositoryErrors = {
       url,
       status,
       message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   timeout: (operation: string, duration: number, threshold: number): RepositoryError =>
@@ -143,7 +143,7 @@ export const RepositoryErrors = {
       operation,
       duration,
       threshold,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   permission: (operation: string, resource: string, requiredPermission: string): RepositoryError =>
@@ -151,7 +151,7 @@ export const RepositoryErrors = {
       operation,
       resource,
       requiredPermission,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }),
 
   resourceLimit: (resource: string, limit: number, current: number): RepositoryError =>
@@ -159,8 +159,8 @@ export const RepositoryErrors = {
       resource,
       limit,
       current,
-      timestamp: Date.now()
-    })
+      timestamp: Date.now(),
+    }),
 } as const
 
 // ===== Error Schema Definitions ===== //
@@ -187,8 +187,9 @@ export const isStorageError = (error: RepositoryError): error is RepositoryError
 export const isValidationError = (error: RepositoryError): error is RepositoryError & { _tag: 'ValidationError' } =>
   error._tag === 'ValidationError'
 
-export const isDataIntegrityError = (error: RepositoryError): error is RepositoryError & { _tag: 'DataIntegrityError' } =>
-  error._tag === 'DataIntegrityError'
+export const isDataIntegrityError = (
+  error: RepositoryError
+): error is RepositoryError & { _tag: 'DataIntegrityError' } => error._tag === 'DataIntegrityError'
 
 export const isNetworkError = (error: RepositoryError): error is RepositoryError & { _tag: 'NetworkError' } =>
   error._tag === 'NetworkError'
@@ -199,8 +200,9 @@ export const isTimeoutError = (error: RepositoryError): error is RepositoryError
 export const isPermissionError = (error: RepositoryError): error is RepositoryError & { _tag: 'PermissionError' } =>
   error._tag === 'PermissionError'
 
-export const isResourceLimitError = (error: RepositoryError): error is RepositoryError & { _tag: 'ResourceLimitError' } =>
-  error._tag === 'ResourceLimitError'
+export const isResourceLimitError = (
+  error: RepositoryError
+): error is RepositoryError & { _tag: 'ResourceLimitError' } => error._tag === 'ResourceLimitError'
 
 // ===== Error Recovery Utilities ===== //
 

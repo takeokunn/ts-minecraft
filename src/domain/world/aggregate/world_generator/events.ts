@@ -7,10 +7,10 @@
  * - 型安全なイベント発行・購読
  */
 
-import { Context, Effect, Schema, Brand, Queue, Stream } from "effect"
-import type { WorldGeneratorId, GenerationContext, UpdateSettingsCommand } from "./world_generator.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
+import { Brand, Context, Effect, Schema, Stream } from 'effect'
+import type * as WorldTypes from '../../types/core/world_types.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './world_generator.js'
 
 // ================================
 // Event Base Schema
@@ -38,14 +38,16 @@ export type BaseEvent = typeof BaseEventSchema.Type
  * WorldGenerator作成イベント
  */
 export const WorldGeneratorCreatedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('WorldGeneratorCreated'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      context: Schema.Unknown, // GenerationContextSchema
-      metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('WorldGeneratorCreated'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        context: Schema.Unknown, // GenerationContextSchema
+        metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+      }),
+    })
+  )
 )
 
 export type WorldGeneratorCreated = typeof WorldGeneratorCreatedSchema.Type
@@ -54,16 +56,18 @@ export type WorldGeneratorCreated = typeof WorldGeneratorCreatedSchema.Type
  * チャンク生成開始イベント
  */
 export const ChunkGenerationStartedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('ChunkGenerationStarted'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      coordinate: Schema.Unknown, // ChunkCoordinateSchema
-      priority: Schema.Number.pipe(Schema.between(1, 10)),
-      options: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-      estimatedDuration: Schema.optional(Schema.Number),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('ChunkGenerationStarted'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        coordinate: Schema.Unknown, // ChunkCoordinateSchema
+        priority: Schema.Number.pipe(Schema.between(1, 10)),
+        options: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+        estimatedDuration: Schema.optional(Schema.Number),
+      }),
+    })
+  )
 )
 
 export type ChunkGenerationStarted = typeof ChunkGenerationStartedSchema.Type
@@ -72,16 +76,18 @@ export type ChunkGenerationStarted = typeof ChunkGenerationStartedSchema.Type
  * チャンク生成完了イベント
  */
 export const ChunkGeneratedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('ChunkGenerated'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      coordinate: Schema.Unknown, // ChunkCoordinateSchema
-      chunkData: Schema.Unknown, // ChunkDataSchema
-      actualDuration: Schema.Number,
-      performanceMetrics: Schema.Record({ key: Schema.String, value: Schema.Number }),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('ChunkGenerated'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        coordinate: Schema.Unknown, // ChunkCoordinateSchema
+        chunkData: Schema.Unknown, // ChunkDataSchema
+        actualDuration: Schema.Number,
+        performanceMetrics: Schema.Record({ key: Schema.String, value: Schema.Number }),
+      }),
+    })
+  )
 )
 
 export type ChunkGenerated = typeof ChunkGeneratedSchema.Type
@@ -90,20 +96,22 @@ export type ChunkGenerated = typeof ChunkGeneratedSchema.Type
  * チャンク生成失敗イベント
  */
 export const ChunkGenerationFailedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('ChunkGenerationFailed'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      coordinate: Schema.Unknown, // ChunkCoordinateSchema
-      error: Schema.Struct({
-        code: Schema.String,
-        message: Schema.String,
-        details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('ChunkGenerationFailed'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        coordinate: Schema.Unknown, // ChunkCoordinateSchema
+        error: Schema.Struct({
+          code: Schema.String,
+          message: Schema.String,
+          details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+        }),
+        attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
+        willRetry: Schema.Boolean,
       }),
-      attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
-      willRetry: Schema.Boolean,
-    }),
-  }))
+    })
+  )
 )
 
 export type ChunkGenerationFailed = typeof ChunkGenerationFailedSchema.Type
@@ -112,16 +120,18 @@ export type ChunkGenerationFailed = typeof ChunkGenerationFailedSchema.Type
  * 設定更新イベント
  */
 export const SettingsUpdatedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SettingsUpdated'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      changes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-      previousVersion: Schema.Number.pipe(Schema.int()),
-      newVersion: Schema.Number.pipe(Schema.int()),
-      reason: Schema.optional(Schema.String),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SettingsUpdated'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        changes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+        previousVersion: Schema.Number.pipe(Schema.int()),
+        newVersion: Schema.Number.pipe(Schema.int()),
+        reason: Schema.optional(Schema.String),
+      }),
+    })
+  )
 )
 
 export type SettingsUpdated = typeof SettingsUpdatedSchema.Type
@@ -130,15 +140,17 @@ export type SettingsUpdated = typeof SettingsUpdatedSchema.Type
  * ジェネレータ一時停止イベント
  */
 export const GeneratorPausedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('GeneratorPaused'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      reason: Schema.String,
-      activeGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
-      resumeAt: Schema.optional(Schema.DateTimeUtc),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('GeneratorPaused'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        reason: Schema.String,
+        activeGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
+        resumeAt: Schema.optional(Schema.DateTimeUtc),
+      }),
+    })
+  )
 )
 
 export type GeneratorPaused = typeof GeneratorPausedSchema.Type
@@ -147,14 +159,16 @@ export type GeneratorPaused = typeof GeneratorPausedSchema.Type
  * ジェネレータ再開イベント
  */
 export const GeneratorResumedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('GeneratorResumed'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      pausedDuration: Schema.Number, // ミリ秒
-      restoredGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('GeneratorResumed'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        pausedDuration: Schema.Number, // ミリ秒
+        restoredGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
+      }),
+    })
+  )
 )
 
 export type GeneratorResumed = typeof GeneratorResumedSchema.Type
@@ -163,15 +177,17 @@ export type GeneratorResumed = typeof GeneratorResumedSchema.Type
  * 統計更新イベント
  */
 export const StatisticsUpdatedSchema = BaseEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('StatisticsUpdated'),
-    payload: Schema.Struct({
-      generatorId: Schema.String, // WorldGeneratorId
-      statistics: Schema.Record({ key: Schema.String, value: Schema.Number }),
-      deltaStatistics: Schema.Record({ key: Schema.String, value: Schema.Number }),
-      updateTrigger: Schema.String, // 更新トリガーの説明
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('StatisticsUpdated'),
+      payload: Schema.Struct({
+        generatorId: Schema.String, // WorldGeneratorId
+        statistics: Schema.Record({ key: Schema.String, value: Schema.Number }),
+        deltaStatistics: Schema.Record({ key: Schema.String, value: Schema.Number }),
+        updateTrigger: Schema.String, // 更新トリガーの説明
+      }),
+    })
+  )
 )
 
 export type StatisticsUpdated = typeof StatisticsUpdatedSchema.Type
@@ -370,20 +386,13 @@ export const createSettingsUpdated = (
  * イベントストアインターフェース
  */
 export interface EventStore {
-  readonly save: (
-    events: readonly WorldGeneratorEvent[]
-  ) => Effect.Effect<void, Error>
+  readonly save: (events: readonly WorldGeneratorEvent[]) => Effect.Effect<void, Error>
 
-  readonly load: (
-    aggregateId: string,
-    fromVersion?: number
-  ) => Stream.Stream<WorldGeneratorEvent, Error>
+  readonly load: (aggregateId: string, fromVersion?: number) => Stream.Stream<WorldGeneratorEvent, Error>
 
   readonly loadAll: () => Stream.Stream<WorldGeneratorEvent, Error>
 
-  readonly getSnapshot: (
-    aggregateId: string
-  ) => Effect.Effect<WorldGeneratorEvent | null, Error>
+  readonly getSnapshot: (aggregateId: string) => Effect.Effect<WorldGeneratorEvent | null, Error>
 }
 
 export const EventStoreTag = Context.GenericTag<EventStore>('@minecraft/domain/world/EventStore')
@@ -397,9 +406,7 @@ export const EventStoreTag = Context.GenericTag<EventStore>('@minecraft/domain/w
  */
 export interface EventPublisher {
   readonly publish: (event: WorldGeneratorEvent) => Effect.Effect<void, Error>
-  readonly subscribe: (
-    eventType: WorldGeneratorEvent['eventType']
-  ) => Stream.Stream<WorldGeneratorEvent, Error>
+  readonly subscribe: (eventType: WorldGeneratorEvent['eventType']) => Stream.Stream<WorldGeneratorEvent, Error>
 }
 
 export const EventPublisherTag = Context.GenericTag<EventPublisher>('@minecraft/domain/world/EventPublisher')
@@ -411,9 +418,7 @@ export const EventPublisherTag = Context.GenericTag<EventPublisher>('@minecraft/
 /**
  * イベント発行
  */
-export const publish = (
-  event: WorldGeneratorEvent
-): Effect.Effect<void, Error> =>
+export const publish = (event: WorldGeneratorEvent): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     const publisher = yield* EventPublisherTag
     yield* publisher.publish(event)
@@ -433,9 +438,7 @@ export const subscribe = (
 /**
  * イベント保存
  */
-export const saveEvents = (
-  events: readonly WorldGeneratorEvent[]
-): Effect.Effect<void, Error> =>
+export const saveEvents = (events: readonly WorldGeneratorEvent[]): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     const store = yield* EventStoreTag
     yield* store.save(events)
@@ -468,14 +471,11 @@ export const InMemoryEventStore: EventStore = {
       yield* Effect.log(`Saving ${events.length} events`)
     }),
 
-  load: (aggregateId, fromVersion) =>
-    Stream.empty, // プレースホルダー実装
+  load: (aggregateId, fromVersion) => Stream.empty, // プレースホルダー実装
 
-  loadAll: () =>
-    Stream.empty, // プレースホルダー実装
+  loadAll: () => Stream.empty, // プレースホルダー実装
 
-  getSnapshot: (aggregateId) =>
-    Effect.succeed(null), // プレースホルダー実装
+  getSnapshot: (aggregateId) => Effect.succeed(null), // プレースホルダー実装
 }
 
 /**
@@ -487,16 +487,11 @@ export const InMemoryEventPublisher: EventPublisher = {
       yield* Effect.log(`Publishing event: ${event.eventType}`)
     }),
 
-  subscribe: (eventType) =>
-    Stream.empty, // プレースホルダー実装
+  subscribe: (eventType) => Stream.empty, // プレースホルダー実装
 }
 
 // ================================
 // Exports
 // ================================
 
-export {
-  type BaseEvent,
-  type EventStore,
-  type EventPublisher,
-}
+export { type BaseEvent, type EventPublisher, type EventStore }

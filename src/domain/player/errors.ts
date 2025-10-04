@@ -96,14 +96,11 @@ export type PlayerConstantError = Data.TaggedEnum.Infer<typeof PlayerConstantErr
  * PlayerErrorビルダー関数
  */
 export const PlayerErrorBuilders = {
-  identity: (reason: string, value: string) =>
-    PlayerError.IdentityViolation({ reason, value }),
+  identity: (reason: string, value: string) => PlayerError.IdentityViolation({ reason, value }),
   constraint: (reason: string, details: ReadonlyMap<string, unknown>) =>
     PlayerError.ConstraintViolation({ reason, details }),
-  invalidTransition: (params: TransitionShape) =>
-    PlayerError.InvalidTransition(params),
-  missing: (entity: string, identifier: string) =>
-    PlayerError.MissingEntity({ entity, identifier }),
+  invalidTransition: (params: TransitionShape) => PlayerError.InvalidTransition(params),
+  missing: (entity: string, identifier: string) => PlayerError.MissingEntity({ entity, identifier }),
   persistence: (operation: string, cause?: unknown) =>
     PlayerError.PersistenceFailure({ operation, cause: Option.fromNullable(cause) }),
   clock: (cause?: unknown) => PlayerError.ClockFailure({ cause: Option.fromNullable(cause) }),
@@ -112,6 +109,5 @@ export const PlayerErrorBuilders = {
 export const PlayerConstantErrorBuilders = {
   outOfRange: (constant: string, value: number, requirement: string) =>
     PlayerConstantError.OutOfRange({ constant, value, requirement }),
-  notFinite: (constant: string, value: number) =>
-    PlayerConstantError.NotFinite({ constant, value }),
+  notFinite: (constant: string, value: number) => PlayerConstantError.NotFinite({ constant, value }),
 }

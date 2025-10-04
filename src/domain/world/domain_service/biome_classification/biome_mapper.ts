@@ -6,21 +6,11 @@
  * 遷移領域とエコトーンの適切な処理
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate2D,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  ClimateData,
-  ClimateClassification,
-} from './climate_calculator.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { WorldCoordinate2D } from '../../value_object/coordinates/world_coordinate.js'
+import type { WorldSeed } from '../../value_object/world_seed/seed.js'
+import type { ClimateData } from './climate_calculator.js'
 
 /**
  * Minecraftバイオーム種別
@@ -113,20 +103,22 @@ export const BiomeMappingResultSchema = Schema.Struct({
   subBiomes: Schema.Array(MinecraftBiomeTypeSchema).pipe(Schema.optional),
 
   // 遷移情報
-  transitionBiomes: Schema.Array(Schema.Struct({
-    biome: MinecraftBiomeTypeSchema,
-    distance: Schema.Number.pipe(Schema.nonNegative()),
-    transitionType: Schema.Literal('gradual', 'sharp', 'ecotone', 'edge')
-  })).pipe(Schema.optional),
+  transitionBiomes: Schema.Array(
+    Schema.Struct({
+      biome: MinecraftBiomeTypeSchema,
+      distance: Schema.Number.pipe(Schema.nonNegative()),
+      transitionType: Schema.Literal('gradual', 'sharp', 'ecotone', 'edge'),
+    })
+  ).pipe(Schema.optional),
 
   // 信頼性指標
-  mappingConfidence: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
-  alternativeBiomes: Schema.Array(Schema.Struct({
-    biome: MinecraftBiomeTypeSchema,
-    probability: Schema.Number.pipe(Schema.between(0, 1))
-  })).pipe(Schema.optional),
+  mappingConfidence: Schema.Number.pipe(Schema.between(0, 1)),
+  alternativeBiomes: Schema.Array(
+    Schema.Struct({
+      biome: MinecraftBiomeTypeSchema,
+      probability: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ).pipe(Schema.optional),
 
   // 位置情報
   coordinate: Schema.Unknown, // WorldCoordinate2D
@@ -138,20 +130,22 @@ export const BiomeMappingResultSchema = Schema.Struct({
     continentalness: Schema.Number.pipe(Schema.between(0, 1)),
     erosion: Schema.Number.pipe(Schema.between(0, 1)),
     depth: Schema.Number.pipe(Schema.finite()),
-    weirdness: Schema.Number.pipe(Schema.finite())
+    weirdness: Schema.Number.pipe(Schema.finite()),
   }),
 
   // 特殊特徴
-  specialFeatures: Schema.Array(Schema.Literal(
-    'rare_variant',
-    'modified_biome',
-    'hills_variant',
-    'edge_biome',
-    'river_biome',
-    'ocean_biome',
-    'mountain_biome',
-    'cave_biome'
-  )).pipe(Schema.optional),
+  specialFeatures: Schema.Array(
+    Schema.Literal(
+      'rare_variant',
+      'modified_biome',
+      'hills_variant',
+      'edge_biome',
+      'river_biome',
+      'ocean_biome',
+      'mountain_biome',
+      'cave_biome'
+    )
+  ).pipe(Schema.optional),
 
   // 入力データ
   sourceClimate: Schema.Unknown, // ClimateData
@@ -163,13 +157,13 @@ export const BiomeMappingResultSchema = Schema.Struct({
     noiseInfluence: Schema.Number.pipe(Schema.between(0, 1)),
     randomSeed: Schema.BigInt,
     computationTime: Schema.Number.pipe(Schema.optional),
-    qualityScore: Schema.Number.pipe(Schema.between(0, 1))
-  })
+    qualityScore: Schema.Number.pipe(Schema.between(0, 1)),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'BiomeMappingResult',
     title: 'Biome Mapping Result',
-    description: 'Complete biome mapping with transition and variant information'
+    description: 'Complete biome mapping with transition and variant information',
   })
 )
 
@@ -207,13 +201,16 @@ export interface BiomeMapperService {
     centerCoordinate: WorldCoordinate2D,
     searchRadius: number,
     seed: WorldSeed
-  ) => Effect.Effect<ReadonlyArray<{
-    fromBiome: MinecraftBiomeType
-    toBiome: MinecraftBiomeType
-    transitionDistance: number
-    transitionSharpness: number
-    ecotoneCharacteristics: ReadonlyArray<string>
-  }>, GenerationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      fromBiome: MinecraftBiomeType
+      toBiome: MinecraftBiomeType
+      transitionDistance: number
+      transitionSharpness: number
+      ecotoneCharacteristics: ReadonlyArray<string>
+    }>,
+    GenerationError
+  >
 
   /**
    * 希少バイオームの生成判定
@@ -222,12 +219,15 @@ export interface BiomeMapperService {
     coordinate: WorldCoordinate2D,
     baseBiome: MinecraftBiomeType,
     seed: WorldSeed
-  ) => Effect.Effect<{
-    hasRareBiome: boolean
-    rareBiomeType: MinecraftBiomeType | null
-    rarity: number
-    conditions: ReadonlyArray<string>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      hasRareBiome: boolean
+      rareBiomeType: MinecraftBiomeType | null
+      rarity: number
+      conditions: ReadonlyArray<string>
+    },
+    GenerationError
+  >
 
   /**
    * 高度帯によるバイオーム変化
@@ -236,11 +236,14 @@ export interface BiomeMapperService {
     coordinate: WorldCoordinate2D,
     elevationProfile: ReadonlyArray<number>,
     seed: WorldSeed
-  ) => Effect.Effect<ReadonlyArray<{
-    elevation: number
-    biome: MinecraftBiomeType
-    transitionType: string
-  }>, GenerationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      elevation: number
+      biome: MinecraftBiomeType
+      transitionType: string
+    }>,
+    GenerationError
+  >
 
   /**
    * 海洋バイオームの特別処理
@@ -282,9 +285,7 @@ export interface BiomeMapperService {
 /**
  * Biome Mapper Service Context Tag
  */
-export const BiomeMapperService = Context.GenericTag<BiomeMapperService>(
-  '@minecraft/domain/world/BiomeMapper'
-)
+export const BiomeMapperService = Context.GenericTag<BiomeMapperService>('@minecraft/domain/world/BiomeMapper')
 
 /**
  * Biome Mapper Service Live Implementation
@@ -309,31 +310,16 @@ export const BiomeMapperServiceLive = Layer.effect(
         const variants = yield* determineVariants(primaryBiome, biomeParameters, seed)
 
         // 4. 遷移バイオームの検出
-        const transitionBiomes = yield* detectTransitionBiomes(
-          coordinate,
-          primaryBiome,
-          biomeParameters,
-          seed
-        )
+        const transitionBiomes = yield* detectTransitionBiomes(coordinate, primaryBiome, biomeParameters, seed)
 
         // 5. 信頼性の評価
-        const mappingConfidence = yield* calculateMappingConfidence(
-          biomeParameters,
-          climateData
-        )
+        const mappingConfidence = yield* calculateMappingConfidence(biomeParameters, climateData)
 
         // 6. 代替バイオームの計算
-        const alternativeBiomes = yield* calculateAlternativeBiomes(
-          biomeParameters,
-          primaryBiome
-        )
+        const alternativeBiomes = yield* calculateAlternativeBiomes(biomeParameters, primaryBiome)
 
         // 7. 特殊特徴の判定
-        const specialFeatures = yield* identifySpecialFeatures(
-          primaryBiome,
-          biomeParameters,
-          coordinate
-        )
+        const specialFeatures = yield* identifySpecialFeatures(primaryBiome, biomeParameters, coordinate)
 
         const computationTime = performance.now() - startTime
 
@@ -354,8 +340,8 @@ export const BiomeMapperServiceLive = Layer.effect(
             noiseInfluence: 0.3,
             randomSeed: seed,
             computationTime,
-            qualityScore: mappingConfidence
-          }
+            qualityScore: mappingConfidence,
+          },
         } satisfies BiomeMappingResult
       }),
 
@@ -385,7 +371,7 @@ export const BiomeMapperServiceLive = Layer.effect(
               growingDegreeDays: 2000,
               frostFreeDays: 200,
               potentialEvapotranspiration: 700,
-              dataQuality: 0.9
+              dataQuality: 0.9,
             } as ClimateData
 
             const biomeResult = yield* BiomeMapperService.mapPrimaryBiome(
@@ -406,28 +392,20 @@ export const BiomeMapperServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 中心バイオームの取得
         const centerClimate = createSimpleClimate(centerCoordinate)
-        const centerBiome = yield* BiomeMapperService.mapPrimaryBiome(
-          centerClimate,
-          centerCoordinate,
-          seed
-        )
+        const centerBiome = yield* BiomeMapperService.mapPrimaryBiome(centerClimate, centerCoordinate, seed)
 
         const transitions = []
 
         // 8方向での遷移解析
         for (let angle = 0; angle < 360; angle += 45) {
-          const rad = angle * Math.PI / 180
+          const rad = (angle * Math.PI) / 180
           const testCoordinate: WorldCoordinate2D = {
             x: centerCoordinate.x + Math.cos(rad) * searchRadius,
-            z: centerCoordinate.z + Math.sin(rad) * searchRadius
+            z: centerCoordinate.z + Math.sin(rad) * searchRadius,
           }
 
           const testClimate = createSimpleClimate(testCoordinate)
-          const testBiome = yield* BiomeMapperService.mapPrimaryBiome(
-            testClimate,
-            testCoordinate,
-            seed
-          )
+          const testBiome = yield* BiomeMapperService.mapPrimaryBiome(testClimate, testCoordinate, seed)
 
           if (testBiome.primaryBiome !== centerBiome.primaryBiome) {
             transitions.push({
@@ -435,7 +413,7 @@ export const BiomeMapperServiceLive = Layer.effect(
               toBiome: testBiome.primaryBiome,
               transitionDistance: searchRadius,
               transitionSharpness: Math.random(), // 簡略化
-              ecotoneCharacteristics: ['temperature_gradient', 'moisture_change']
+              ecotoneCharacteristics: ['temperature_gradient', 'moisture_change'],
             })
           }
         }
@@ -462,7 +440,7 @@ export const BiomeMapperServiceLive = Layer.effect(
           hasRareBiome,
           rareBiomeType,
           rarity,
-          conditions
+          conditions,
         }
       }),
 
@@ -478,7 +456,7 @@ export const BiomeMapperServiceLive = Layer.effect(
           zones.push({
             elevation,
             biome,
-            transitionType
+            transitionType,
           })
         }
 
@@ -510,7 +488,7 @@ export const BiomeMapperServiceLive = Layer.effect(
             continentalness: 0.0,
             erosion: 0.1,
             depth: -depth,
-            weirdness: 0.0
+            weirdness: 0.0,
           },
           mappingConfidence: 0.9,
           sourceClimate: createSimpleClimate(coordinate),
@@ -518,8 +496,8 @@ export const BiomeMapperServiceLive = Layer.effect(
             mappingAlgorithm: 'ocean_specific',
             noiseInfluence: 0.1,
             randomSeed: seed,
-            qualityScore: 0.9
-          }
+            qualityScore: 0.9,
+          },
         } satisfies BiomeMappingResult
       }),
 
@@ -545,7 +523,7 @@ export const BiomeMapperServiceLive = Layer.effect(
             continentalness: 0.5,
             erosion: 0.8,
             depth,
-            weirdness: 0.5
+            weirdness: 0.5,
           },
           mappingConfidence: 0.8,
           sourceClimate: createSimpleClimate(coordinate),
@@ -554,37 +532,33 @@ export const BiomeMapperServiceLive = Layer.effect(
             mappingAlgorithm: 'cave_specific',
             noiseInfluence: 0.4,
             randomSeed: seed,
-            qualityScore: 0.8
-          }
+            qualityScore: 0.8,
+          },
         } satisfies BiomeMappingResult
       }),
 
     optimizeBiomeBoundaries: (biomeMap, smoothingFactor) =>
       Effect.gen(function* () {
         // 簡単なバイオーム境界平滑化
-        const optimizedMap = biomeMap.map(row => [...row])
+        const optimizedMap = biomeMap.map((row) => [...row])
 
         for (let x = 1; x < biomeMap.length - 1; x++) {
           for (let z = 1; z < biomeMap[x].length - 1; z++) {
-            const neighbors = [
-              biomeMap[x-1][z], biomeMap[x+1][z],
-              biomeMap[x][z-1], biomeMap[x][z+1]
-            ]
+            const neighbors = [biomeMap[x - 1][z], biomeMap[x + 1][z], biomeMap[x][z - 1], biomeMap[x][z + 1]]
 
             // 多数決による平滑化
             const biomeCounts = new Map<MinecraftBiomeType, number>()
-            neighbors.forEach(neighbor => {
+            neighbors.forEach((neighbor) => {
               const count = biomeCounts.get(neighbor.primaryBiome) || 0
               biomeCounts.set(neighbor.primaryBiome, count + 1)
             })
 
-            const mostCommonBiome = Array.from(biomeCounts.entries())
-              .sort((a, b) => b[1] - a[1])[0]?.[0]
+            const mostCommonBiome = Array.from(biomeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
 
             if (mostCommonBiome && Math.random() < smoothingFactor) {
               optimizedMap[x][z] = {
                 ...optimizedMap[x][z],
-                primaryBiome: mostCommonBiome
+                primaryBiome: mostCommonBiome,
               }
             }
           }
@@ -597,7 +571,7 @@ export const BiomeMapperServiceLive = Layer.effect(
       Effect.gen(function* () {
         // カスタムバイオーム適用（簡略化）
         return baseMappingResult
-      })
+      }),
   })
 )
 
@@ -610,21 +584,24 @@ const calculateBiomeParameters = (
   climateData: ClimateData,
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<{
-  temperature: number
-  humidity: number
-  continentalness: number
-  erosion: number
-  depth: number
-  weirdness: number
-}, GenerationError> =>
+): Effect.Effect<
+  {
+    temperature: number
+    humidity: number
+    continentalness: number
+    erosion: number
+    depth: number
+    weirdness: number
+  },
+  GenerationError
+> =>
   Effect.succeed({
     temperature: climateData.temperature / 30, // -1 to 1
     humidity: climateData.humidity / 100, // 0 to 1
     continentalness: climateData.continentality,
     erosion: Math.random(), // 簡略化
     depth: climateData.elevation / 100, // 正規化
-    weirdness: Math.sin(Number(seed) + coordinate.x * 0.001) * 0.5
+    weirdness: Math.sin(Number(seed) + coordinate.x * 0.001) * 0.5,
   })
 
 /**
@@ -634,25 +611,27 @@ const determinePrimaryBiome = (
   params: any,
   climateData: ClimateData
 ): Effect.Effect<MinecraftBiomeType, GenerationError> =>
-  Effect.succeed((() => {
-    const temp = params.temperature
-    const humidity = params.humidity
+  Effect.succeed(
+    (() => {
+      const temp = params.temperature
+      const humidity = params.humidity
 
-    // 簡略化されたバイオーム決定ロジック
-    if (temp > 0.8) {
-      if (humidity > 0.8) return 'jungle'
-      if (humidity > 0.4) return 'plains'
-      return 'desert'
-    } else if (temp > 0.2) {
-      if (humidity > 0.6) return 'forest'
-      return 'plains'
-    } else if (temp > -0.5) {
-      if (humidity > 0.5) return 'taiga'
-      return 'snowy_taiga'
-    } else {
-      return 'snowy_tundra'
-    }
-  })())
+      // 簡略化されたバイオーム決定ロジック
+      if (temp > 0.8) {
+        if (humidity > 0.8) return 'jungle'
+        if (humidity > 0.4) return 'plains'
+        return 'desert'
+      } else if (temp > 0.2) {
+        if (humidity > 0.6) return 'forest'
+        return 'plains'
+      } else if (temp > -0.5) {
+        if (humidity > 0.5) return 'taiga'
+        return 'snowy_taiga'
+      } else {
+        return 'snowy_tundra'
+      }
+    })()
+  )
 
 /**
  * バリアント・サブバイオームの決定
@@ -662,18 +641,20 @@ const determineVariants = (
   params: any,
   seed: WorldSeed
 ): Effect.Effect<{ variant?: string; subBiomes?: MinecraftBiomeType[] }, GenerationError> =>
-  Effect.succeed((() => {
-    const variants: { variant?: string; subBiomes?: MinecraftBiomeType[] } = {}
+  Effect.succeed(
+    (() => {
+      const variants: { variant?: string; subBiomes?: MinecraftBiomeType[] } = {}
 
-    // バイオーム固有のバリアント
-    if (primaryBiome === 'forest' && Math.random() < 0.2) {
-      variants.variant = 'birch'
-    } else if (primaryBiome === 'desert' && Math.random() < 0.1) {
-      variants.variant = 'temple'
-    }
+      // バイオーム固有のバリアント
+      if (primaryBiome === 'forest' && Math.random() < 0.2) {
+        variants.variant = 'birch'
+      } else if (primaryBiome === 'desert' && Math.random() < 0.1) {
+        variants.variant = 'temple'
+      }
 
-    return variants
-  })())
+      return variants
+    })()
+  )
 
 /**
  * 遷移バイオームの検出
@@ -683,20 +664,19 @@ const detectTransitionBiomes = (
   primaryBiome: MinecraftBiomeType,
   params: any,
   seed: WorldSeed
-): Effect.Effect<ReadonlyArray<{
-  biome: MinecraftBiomeType
-  distance: number
-  transitionType: 'gradual' | 'sharp' | 'ecotone' | 'edge'
-}>, GenerationError> =>
-  Effect.succeed([])
+): Effect.Effect<
+  ReadonlyArray<{
+    biome: MinecraftBiomeType
+    distance: number
+    transitionType: 'gradual' | 'sharp' | 'ecotone' | 'edge'
+  }>,
+  GenerationError
+> => Effect.succeed([])
 
 /**
  * マッピング信頼度の計算
  */
-const calculateMappingConfidence = (
-  params: any,
-  climateData: ClimateData
-): Effect.Effect<number, GenerationError> =>
+const calculateMappingConfidence = (params: any, climateData: ClimateData): Effect.Effect<number, GenerationError> =>
   Effect.succeed(climateData.dataQuality * 0.9)
 
 /**
@@ -715,8 +695,7 @@ const identifySpecialFeatures = (
   primaryBiome: MinecraftBiomeType,
   params: any,
   coordinate: WorldCoordinate2D
-): Effect.Effect<ReadonlyArray<string>, GenerationError> =>
-  Effect.succeed([])
+): Effect.Effect<ReadonlyArray<string>, GenerationError> => Effect.succeed([])
 
 /**
  * 簡単な気候データ作成
@@ -736,7 +715,7 @@ const createSimpleClimate = (coordinate: WorldCoordinate2D): ClimateData => ({
   growingDegreeDays: 2000,
   frostFreeDays: 200,
   potentialEvapotranspiration: 700,
-  dataQuality: 0.9
+  dataQuality: 0.9,
 })
 
 /**
@@ -744,10 +723,10 @@ const createSimpleClimate = (coordinate: WorldCoordinate2D): ClimateData => ({
  */
 const selectRareBiome = (baseBiome: MinecraftBiomeType): MinecraftBiomeType => {
   const rareVariants: Record<string, MinecraftBiomeType> = {
-    'forest': 'flower_forest',
-    'plains': 'flower_forest',
-    'desert': 'eroded_badlands',
-    'ocean': 'mushroom_fields'
+    forest: 'flower_forest',
+    plains: 'flower_forest',
+    desert: 'eroded_badlands',
+    ocean: 'mushroom_fields',
   }
   return rareVariants[baseBiome] || baseBiome
 }
@@ -760,12 +739,14 @@ const getBiomeForElevation = (
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
 ): Effect.Effect<MinecraftBiomeType, GenerationError> =>
-  Effect.succeed((() => {
-    if (elevation > 150) return 'stony_peaks'
-    if (elevation > 100) return 'windswept_hills'
-    if (elevation > 80) return 'meadow'
-    return 'plains'
-  })())
+  Effect.succeed(
+    (() => {
+      if (elevation > 150) return 'stony_peaks'
+      if (elevation > 100) return 'windswept_hills'
+      if (elevation > 80) return 'meadow'
+      return 'plains'
+    })()
+  )
 
 /**
  * 遷移タイプ取得

@@ -1,6 +1,6 @@
-import { Either, Option } from 'effect'
 import * as Schema from '@effect/schema/Schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { Either, Option } from 'effect'
 
 // ===== Brand Types =====
 
@@ -18,11 +18,7 @@ export const PlayerIdSchema = Schema.String.pipe(
 )
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
-export const TickSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('GameTick')
-)
+export const TickSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('GameTick'))
 export type GameTick = Schema.Schema.Type<typeof TickSchema>
 
 // ===== Value Objects =====
@@ -61,11 +57,7 @@ export const BookCategorySchema = Schema.Union(
 ).pipe(Schema.brand('BookCategory'))
 export type BookCategory = Schema.Schema.Type<typeof BookCategorySchema>
 
-export const DurabilitySchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 100),
-  Schema.brand('Durability')
-)
+export const DurabilitySchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 100), Schema.brand('Durability'))
 export type Durability = Schema.Schema.Type<typeof DurabilitySchema>
 
 export const CoordinatesSchema = Schema.Struct({
@@ -80,24 +72,13 @@ export const SleepEnvironmentSchema = Schema.Struct({
   noiseLevel: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
   monstersNearby: Schema.Boolean,
   isNightTime: Schema.Boolean,
-  weather: Schema.Union(
-    Schema.Literal('clear'),
-    Schema.Literal('rain'),
-    Schema.Literal('thunder')
-  ),
+  weather: Schema.Union(Schema.Literal('clear'), Schema.Literal('rain'), Schema.Literal('thunder')),
 })
 export type SleepEnvironment = Schema.Schema.Type<typeof SleepEnvironmentSchema>
 
 export const SignTextSchema = Schema.Struct({
-  lines: Schema.Array(Schema.String.pipe(Schema.maxLength(40))).pipe(
-    Schema.minItems(1),
-    Schema.maxItems(4)
-  ),
-  alignment: Schema.Union(
-    Schema.Literal('left'),
-    Schema.Literal('center'),
-    Schema.Literal('right')
-  ),
+  lines: Schema.Array(Schema.String.pipe(Schema.maxLength(40))).pipe(Schema.minItems(1), Schema.maxItems(4)),
+  alignment: Schema.Union(Schema.Literal('left'), Schema.Literal('center'), Schema.Literal('right')),
 })
 export type SignText = Schema.Schema.Type<typeof SignTextSchema>
 
@@ -141,10 +122,7 @@ export const BookSchema = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(32)),
   category: BookCategorySchema,
   createdBy: PlayerIdSchema,
-  pages: Schema.Array(BookPageSchema).pipe(
-    Schema.minItems(1),
-    Schema.maxItems(50)
-  ),
+  pages: Schema.Array(BookPageSchema).pipe(Schema.minItems(1), Schema.maxItems(50)),
   state: BookStateSchema,
 })
 export type Book = Schema.Schema.Type<typeof BookSchema>
@@ -267,8 +245,7 @@ export const formatParseError = (error: Schema.ParseError) =>
     includeStackTrace: false,
   })
 
-export const toValidationError = (error: Schema.ParseError) =>
-  FurnitureError.validation([formatParseError(error)])
+export const toValidationError = (error: Schema.ParseError) => FurnitureError.validation([formatParseError(error)])
 
 export const optionFromNullable = <A>(value: A | null | undefined) =>
   value === null || value === undefined ? Option.none<A>() : Option.some(value)

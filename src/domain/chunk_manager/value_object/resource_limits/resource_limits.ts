@@ -1,23 +1,13 @@
 import { Effect } from 'effect'
-import {
-  AutoManagementConfig,
-  SystemLoad,
-} from '../../types/interfaces'
-import {
-  MaxActiveChunks,
-  ResourceUsagePercent,
-  makeMaxActiveChunks,
-  makeResourceUsagePercent,
-} from '../../types/core'
+import { MaxActiveChunks, ResourceUsagePercent, makeMaxActiveChunks, makeResourceUsagePercent } from '../../types/core'
+import { AutoManagementConfig, SystemLoad } from '../../types/interfaces'
 
 export const shouldThrottleActivations = (
   config: AutoManagementConfig,
   systemLoad: SystemLoad,
   activeChunks: number
 ): Effect.Effect<boolean, never> =>
-  Effect.succeed(
-    activeChunks >= Number(config.maxActiveChunks) || systemLoad.memory >= config.memoryThreshold
-  )
+  Effect.succeed(activeChunks >= Number(config.maxActiveChunks) || systemLoad.memory >= config.memoryThreshold)
 
 export const shouldEvictChunks = (
   config: AutoManagementConfig,
@@ -25,8 +15,7 @@ export const shouldEvictChunks = (
   activeChunks: number
 ): Effect.Effect<boolean, never> =>
   Effect.succeed(
-    config.enabled &&
-      (activeChunks > Number(config.maxActiveChunks) || systemLoad.memory >= config.memoryThreshold)
+    config.enabled && (activeChunks > Number(config.maxActiveChunks) || systemLoad.memory >= config.memoryThreshold)
   )
 
 export const computeTargetActiveChunks = (
@@ -41,18 +30,12 @@ export const computeTargetActiveChunks = (
           Number(config.maxActiveChunks) *
             Math.min(
               1,
-              Math.max(
-                0.2,
-                1 - systemLoad.memory / Math.max(Number(config.memoryThreshold), Number.EPSILON) / 2
-              )
+              Math.max(0.2, 1 - systemLoad.memory / Math.max(Number(config.memoryThreshold), Number.EPSILON) / 2)
             )
         )
       )
     )
   )
 
-export const blendMemoryPressure = (
-  current: ResourceUsagePercent,
-  load: SystemLoad
-): ResourceUsagePercent =>
+export const blendMemoryPressure = (current: ResourceUsagePercent, load: SystemLoad): ResourceUsagePercent =>
   makeResourceUsagePercent((current + load.memory) / 2)

@@ -423,7 +423,10 @@ export const createCameraApplicationError = {
       expectedFormat,
     }),
 
-  configurationValidationFailed: (config: unknown, validationErrors: Array.ReadonlyArray<string>): CameraApplicationError =>
+  configurationValidationFailed: (
+    config: unknown,
+    validationErrors: Array.ReadonlyArray<string>
+  ): CameraApplicationError =>
     Data.struct({
       _tag: 'ConfigurationValidationFailed' as const,
       config,

@@ -12,115 +12,115 @@
 // ===== Core Repository ===== //
 
 export {
-  // ChunkRepository (Command Side)
-  type ChunkRepository,
   ChunkRepository,
-  type ChunkRepositoryEffect,
-  type ChunkQuery,
-  type ChunkRegion,
-  type ChunkStatistics,
-  type BatchOperationResult,
-  type ChunkOption,
-  type ChunkArray,
   InMemoryChunkRepositoryLive,
   IndexedDBChunkRepositoryLive,
+  WORKER_SCRIPT_TEMPLATE,
   WebWorkerChunkRepositoryLive,
   createWebWorkerChunkRepository,
-  WORKER_SCRIPT_TEMPLATE,
+  type BatchOperationResult,
+  type ChunkArray,
+  type ChunkOption,
+  type ChunkQuery,
+  type ChunkRegion,
+  // ChunkRepository (Command Side)
+  type ChunkRepository,
+  type ChunkRepositoryEffect,
+  type ChunkStatistics,
 } from './chunk_repository'
 
 // ===== Query Repository (CQRS) ===== //
 
 export {
+  ChunkQueryRepository,
+  ChunkQueryRepositoryLive,
+  type ChunkAnalytics,
+  type ChunkHeatmapData,
+  type ChunkNeighborhood,
+  type ChunkPerformanceStats,
   // ChunkQueryRepository (Query Side)
   type ChunkQueryRepository,
-  ChunkQueryRepository,
   type ChunkQueryRepositoryEffect,
   type ChunkSearchCriteria,
-  type ChunkAnalytics,
-  type ChunkPerformanceStats,
-  type ChunkNeighborhood,
-  type ChunkHeatmapData,
-  ChunkQueryRepositoryLive,
 } from './chunk_query_repository'
 
 // ===== Event Repository (Event Sourcing) ===== //
 
 export {
+  ChunkEventRepository,
+  type BaseChunkEvent,
+  type BlockChangedEvent,
+  type ChunkCorruptedEvent,
+  type ChunkCreatedEvent,
+  type ChunkDeletedEvent,
+  type ChunkEvent,
   // ChunkEventRepository (Event Sourcing)
   type ChunkEventRepository,
-  ChunkEventRepository,
   type ChunkEventRepositoryEffect,
-  type BaseChunkEvent,
-  type ChunkEvent,
-  type ChunkCreatedEvent,
   type ChunkLoadedEvent,
-  type ChunkUnloadedEvent,
   type ChunkModifiedEvent,
-  type ChunkSavedEvent,
-  type ChunkDeletedEvent,
-  type BlockChangedEvent,
   type ChunkOptimizedEvent,
-  type ChunkValidatedEvent,
-  type ChunkCorruptedEvent,
-  type EventStream,
-  type EventProjection,
+  type ChunkSavedEvent,
   type ChunkSnapshot,
-  type EventQuery,
+  type ChunkUnloadedEvent,
+  type ChunkValidatedEvent,
   type EventFactory,
+  type EventProjection,
+  type EventQuery,
+  type EventStream,
 } from './chunk_event_repository'
 
 // ===== Error Handling ===== //
 
 export {
-  // Repository Errors
-  type RepositoryError,
   RepositoryError,
-  RepositoryErrors,
   RepositoryErrorSchema,
+  RepositoryErrors,
+  getRetryDelay,
   isChunkNotFoundError,
-  isDuplicateChunkError,
-  isStorageError,
-  isValidationError,
   isDataIntegrityError,
+  isDuplicateChunkError,
   isNetworkError,
-  isTimeoutError,
   isPermissionError,
   isResourceLimitError,
   isRetryableError,
+  isStorageError,
+  isTimeoutError,
   isTransientError,
-  getRetryDelay,
+  isValidationError,
+  // Repository Errors
+  type RepositoryError,
 } from './types'
 
 // ===== Strategy Pattern ===== //
 
 export {
-  // Repository Strategy
-  type RepositoryStrategyType,
-  type EnvironmentInfo,
-  type RepositoryConfig,
-  type PerformanceRequirements,
-  detectEnvironment,
-  selectOptimalStrategy,
-  autoSelectStrategy,
-  createRepositoryLayer,
+  DevelopmentRepositoryLayer,
+  ProductionRepositoryLayer,
   RepositoryConfigBuilder,
+  TestRepositoryLayer,
+  autoSelectStrategy,
   configureRepository,
   createOptimizedRepositoryLayer,
-  DevelopmentRepositoryLayer,
-  TestRepositoryLayer,
-  ProductionRepositoryLayer,
+  createRepositoryLayer,
+  detectEnvironment,
+  selectOptimalStrategy,
+  type EnvironmentInfo,
+  type PerformanceRequirements,
+  type RepositoryConfig,
+  // Repository Strategy
+  type RepositoryStrategyType,
 } from './strategy'
 
 // ===== CQRS Layers ===== //
 
 export {
-  // CQRS Integration
-  type ChunkCQRSRepositories,
-  type ChunkEventSourcingRepositories,
   ChunkCQRSRepositoryLayer,
   ChunkEventSourcingCQRSLayer,
   ChunkReadOnlyLayer,
+  // CQRS Integration
+  type ChunkCQRSRepositories,
+  type ChunkEventSourcingRepositories,
 } from './cqrs'
 
 // ===== Convenience Functions ===== //

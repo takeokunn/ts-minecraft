@@ -7,45 +7,45 @@
 
 // === Core Orchestrator ===
 export {
-  WorldGenerationOrchestrator,
-  WorldGenerationOrchestratorError,
-  GenerateWorldCommand,
-  GenerateChunkCommand,
-  UpdateSettingsCommand,
-  GetProgressQuery,
   CancelGenerationCommand,
-  WorldGenerationResult,
   ChunkGenerationResult,
+  GenerateChunkCommand,
+  GenerateWorldCommand,
   GenerationProgress,
   GenerationStage,
+  GetProgressQuery,
   PipelineContext,
+  UpdateSettingsCommand,
+  WorldGenerationOrchestrator,
+  WorldGenerationOrchestratorError,
   WorldGenerationOrchestratorHelpers,
+  WorldGenerationResult,
 } from './orchestrator.js'
 
 export type {
-  WorldGenerationOrchestratorErrorType,
-  GenerateWorldCommandType,
-  GenerateChunkCommandType,
-  UpdateSettingsCommandType,
-  GetProgressQueryType,
   CancelGenerationCommandType,
-  WorldGenerationResultType,
   ChunkGenerationResultType,
+  GenerateChunkCommandType,
+  GenerateWorldCommandType,
   GenerationProgressType,
   GenerationStageType,
+  GetProgressQueryType,
   PipelineContextType,
+  UpdateSettingsCommandType,
+  WorldGenerationOrchestratorErrorType,
+  WorldGenerationResultType,
 } from './orchestrator.js'
 
 // === Generation Pipeline ===
 export {
+  DEFAULT_PIPELINE_CONFIG,
+  GenerationPipelineError,
   GenerationPipelineService,
   GenerationPipelineServiceLive,
-  GenerationPipelineError,
   PipelineConfiguration,
+  PipelineStageConfig,
   PipelineState,
   StageExecutionResult,
-  PipelineStageConfig,
-  DEFAULT_PIPELINE_CONFIG,
 } from './generation_pipeline.js'
 
 export type {
@@ -57,70 +57,65 @@ export type {
 
 // === Dependency Coordinator ===
 export {
-  DependencyCoordinatorService,
-  DependencyCoordinatorServiceLive,
-  DependencyCoordinatorError,
-  DependencyNode,
-  DependencyGraph,
-  ResourcePool,
-  ResourceAllocation,
   CoordinationConfig,
   DEFAULT_COORDINATION_CONFIG,
+  DependencyCoordinatorError,
+  DependencyCoordinatorService,
+  DependencyCoordinatorServiceLive,
+  DependencyGraph,
+  DependencyNode,
+  ResourceAllocation,
+  ResourcePool,
 } from './dependency_coordinator.js'
 
 export type {
-  DependencyCoordinatorErrorType,
-  DependencyNodeType,
-  DependencyGraphType,
-  ResourcePoolType,
-  ResourceAllocationType,
   CoordinationConfigType,
+  DependencyCoordinatorErrorType,
+  DependencyGraphType,
+  DependencyNodeType,
+  ResourceAllocationType,
+  ResourcePoolType,
 } from './dependency_coordinator.js'
 
 // === Error Recovery ===
 export {
-  ErrorRecoveryService,
-  ErrorRecoveryServiceLive,
-  ErrorRecoveryServiceError,
-  RecoveryStrategy,
-  RecoveryAction,
-  ErrorContext,
-  RecoveryConfiguration,
   CircuitBreaker,
   DEFAULT_RECOVERY_CONFIG,
+  ErrorContext,
+  ErrorRecoveryService,
+  ErrorRecoveryServiceError,
+  ErrorRecoveryServiceLive,
+  RecoveryAction,
+  RecoveryConfiguration,
+  RecoveryStrategy,
 } from './error_recovery.js'
 
 export type {
-  ErrorRecoveryServiceErrorType,
-  RecoveryStrategyType,
-  RecoveryActionType,
-  ErrorContextType,
-  RecoveryConfigurationType,
   CircuitBreakerType,
+  ErrorContextType,
+  ErrorRecoveryServiceErrorType,
+  RecoveryActionType,
+  RecoveryConfigurationType,
+  RecoveryStrategyType,
 } from './error_recovery.js'
 
 // === Live Implementation ===
 
-import { Context, Effect, Layer } from 'effect'
-import { GenerationPipelineServiceLive } from './generation_pipeline.js'
-import { DependencyCoordinatorServiceLive } from './dependency_coordinator.js'
-import { ErrorRecoveryServiceLive } from './error_recovery.js'
+import { Effect, Layer } from 'effect'
+import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator.js'
+import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery.js'
+import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline.js'
 import {
   WorldGenerationOrchestrator,
-  type GenerateWorldCommand,
-  type GenerateChunkCommand,
-  type UpdateSettingsCommand,
-  type GetProgressQuery,
   type CancelGenerationCommand,
-  type WorldGenerationResult,
   type ChunkGenerationResult,
+  type GenerateChunkCommand,
+  type GenerateWorldCommand,
   type GenerationProgress,
-  WorldGenerationOrchestratorError,
-  type WorldGenerationOrchestratorErrorType,
+  type GetProgressQuery,
+  type UpdateSettingsCommand,
+  type WorldGenerationResult,
 } from './orchestrator.js'
-import { GenerationPipelineService } from './generation_pipeline.js'
-import { DependencyCoordinatorService } from './dependency_coordinator.js'
-import { ErrorRecoveryService } from './error_recovery.js'
 
 /**
  * World Generation Orchestrator Live Implementation
@@ -274,8 +269,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
         const progress: Schema.Schema.Type<typeof GenerationProgress> = {
           _tag: 'GenerationProgress',
           generationId: query.generationId,
-          stage: pipelineState.currentStage ?
-            (pipelineState.currentStage as any) : 'initializing',
+          stage: pipelineState.currentStage ? (pipelineState.currentStage as any) : 'initializing',
           progress: pipelineState.progress,
           chunksProcessed: pipelineState.completedStages.length,
           totalChunks: 10, // プレースホルダー
@@ -403,11 +397,9 @@ export const WorldGenerationOrchestratorUtils = {
     Effect.gen(function* () {
       const orchestrator = yield* WorldGenerationOrchestrator
 
-      return yield* Effect.forEach(
-        commands,
-        (command) => orchestrator.generateChunk(command),
-        { concurrency: 'unbounded' }
-      )
+      return yield* Effect.forEach(commands, (command) => orchestrator.generateChunk(command), {
+        concurrency: 'unbounded',
+      })
     }),
 
   /**

@@ -15,11 +15,11 @@
  * - 高度なバリデーションシステム
  */
 
-import { Context, Effect, Schema, Layer, Match, Function } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
+import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
+import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
 
 // ================================
 // Factory Error Types
@@ -28,10 +28,13 @@ import * as NoiseConfiguration from "../../value_object/noise_configuration/inde
 export const ConfigurationFactoryErrorSchema = Schema.TaggedError('ConfigurationFactoryError', {
   category: Schema.Literal('configuration_invalid', 'preset_not_found', 'compatibility_error'),
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown)
+  context: Schema.optional(Schema.Unknown),
 })
 
-export class ConfigurationFactoryError extends Schema.TaggedError<typeof ConfigurationFactoryErrorSchema>()('ConfigurationFactoryError', ConfigurationFactoryErrorSchema) {}
+export class ConfigurationFactoryError extends Schema.TaggedError<typeof ConfigurationFactoryErrorSchema>()(
+  'ConfigurationFactoryError',
+  ConfigurationFactoryErrorSchema
+) {}
 
 // ================================
 // Configuration Types
@@ -42,10 +45,12 @@ export const WorldConfigurationSchema = Schema.Struct({
   parameters: GenerationParameters.GenerationParametersSchema,
   biomeConfig: BiomeProperties.BiomeConfigurationSchema,
   noiseConfig: NoiseConfiguration.NoiseConfigurationSchema,
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 export type WorldConfiguration = typeof WorldConfigurationSchema.Type
@@ -55,25 +60,28 @@ export type WorldConfiguration = typeof WorldConfigurationSchema.Type
 // ================================
 
 export const ConfigurationPresetTypeSchema = Schema.Literal(
-  'default', 'survival', 'creative', 'peaceful', 'hardcore',
-  'custom', 'experimental', 'debug', 'performance',
-  'memory_optimized', 'quality_focused', 'balanced'
+  'default',
+  'survival',
+  'creative',
+  'peaceful',
+  'hardcore',
+  'custom',
+  'experimental',
+  'debug',
+  'performance',
+  'memory_optimized',
+  'quality_focused',
+  'balanced'
 )
 export type ConfigurationPresetType = typeof ConfigurationPresetTypeSchema.Type
 
-export const OptimizationModeSchema = Schema.Literal(
-  'memory', 'speed', 'quality', 'balanced', 'adaptive'
-)
+export const OptimizationModeSchema = Schema.Literal('memory', 'speed', 'quality', 'balanced', 'adaptive')
 export type OptimizationMode = typeof OptimizationModeSchema.Type
 
-export const ValidationStrictnessSchema = Schema.Literal(
-  'lenient', 'standard', 'strict', 'pedantic'
-)
+export const ValidationStrictnessSchema = Schema.Literal('lenient', 'standard', 'strict', 'pedantic')
 export type ValidationStrictness = typeof ValidationStrictnessSchema.Type
 
-export const ConfigurationComplexitySchema = Schema.Literal(
-  'minimal', 'simple', 'standard', 'complex', 'enterprise'
-)
+export const ConfigurationComplexitySchema = Schema.Literal('minimal', 'simple', 'standard', 'complex', 'enterprise')
 export type ConfigurationComplexity = typeof ConfigurationComplexitySchema.Type
 
 export const CreateConfigurationParamsSchema = Schema.Struct({
@@ -87,12 +95,14 @@ export const CreateConfigurationParamsSchema = Schema.Struct({
   enableCaching: Schema.optional(Schema.Boolean),
   enableParallelProcessing: Schema.optional(Schema.Boolean),
   memoryBudget: Schema.optional(Schema.Number.pipe(Schema.positive())),
-  customParameters: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  })),
+  customParameters: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
   target: Schema.optional(Schema.Literal('client', 'server', 'hybrid')),
-  features: Schema.optional(Schema.Array(Schema.String))
+  features: Schema.optional(Schema.Array(Schema.String)),
 })
 
 export type CreateConfigurationParams = typeof CreateConfigurationParamsSchema.Type
@@ -107,7 +117,7 @@ export const ConfigurationValidationIssueSchema = Schema.Struct({
   message: Schema.String,
   field: Schema.optional(Schema.String),
   suggestion: Schema.optional(Schema.String),
-  autoFixable: Schema.optional(Schema.Boolean)
+  autoFixable: Schema.optional(Schema.Boolean),
 })
 export type ConfigurationValidationIssue = typeof ConfigurationValidationIssueSchema.Type
 
@@ -119,9 +129,9 @@ export const ConfigurationValidationResultSchema = Schema.Struct({
     estimatedMemoryUsage: Schema.Number,
     estimatedProcessingTime: Schema.Number,
     cacheEfficiency: Schema.Number,
-    parallelizationPotential: Schema.Number
+    parallelizationPotential: Schema.Number,
   }),
-  recommendations: Schema.Array(Schema.String)
+  recommendations: Schema.Array(Schema.String),
 })
 export type ConfigurationValidationResult = typeof ConfigurationValidationResultSchema.Type
 
@@ -131,14 +141,35 @@ export type ConfigurationValidationResult = typeof ConfigurationValidationResult
 
 export interface WorldConfigurationFactory {
   readonly create: (params: CreateConfigurationParams) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
-  readonly createFromPreset: (preset: ConfigurationPresetType) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
-  readonly createOptimized: (mode: OptimizationMode, baseConfig?: WorldConfiguration) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
-  readonly createBatch: (requests: readonly CreateConfigurationParams[]) => Effect.Effect<readonly WorldConfiguration[], ConfigurationFactoryError>
-  readonly merge: (configs: readonly WorldConfiguration[]) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
-  readonly validate: (config: WorldConfiguration, strictness?: ValidationStrictness) => Effect.Effect<ConfigurationValidationResult, ConfigurationFactoryError>
-  readonly optimize: (config: WorldConfiguration, target: OptimizationMode) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
-  readonly compare: (config1: WorldConfiguration, config2: WorldConfiguration) => Effect.Effect<ConfigurationComparisonResult, ConfigurationFactoryError>
-  readonly autoFix: (config: WorldConfiguration, issues: readonly ConfigurationValidationIssue[]) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
+  readonly createFromPreset: (
+    preset: ConfigurationPresetType
+  ) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
+  readonly createOptimized: (
+    mode: OptimizationMode,
+    baseConfig?: WorldConfiguration
+  ) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
+  readonly createBatch: (
+    requests: readonly CreateConfigurationParams[]
+  ) => Effect.Effect<readonly WorldConfiguration[], ConfigurationFactoryError>
+  readonly merge: (
+    configs: readonly WorldConfiguration[]
+  ) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
+  readonly validate: (
+    config: WorldConfiguration,
+    strictness?: ValidationStrictness
+  ) => Effect.Effect<ConfigurationValidationResult, ConfigurationFactoryError>
+  readonly optimize: (
+    config: WorldConfiguration,
+    target: OptimizationMode
+  ) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
+  readonly compare: (
+    config1: WorldConfiguration,
+    config2: WorldConfiguration
+  ) => Effect.Effect<ConfigurationComparisonResult, ConfigurationFactoryError>
+  readonly autoFix: (
+    config: WorldConfiguration,
+    issues: readonly ConfigurationValidationIssue[]
+  ) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
   readonly template: (template: ConfigurationTemplate) => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
 }
 
@@ -147,14 +178,16 @@ export interface WorldConfigurationFactory {
 // ================================
 
 export const ConfigurationComparisonResultSchema = Schema.Struct({
-  differences: Schema.Array(Schema.Struct({
-    field: Schema.String,
-    value1: Schema.Unknown,
-    value2: Schema.Unknown,
-    impact: Schema.Literal('low', 'medium', 'high', 'critical')
-  })),
+  differences: Schema.Array(
+    Schema.Struct({
+      field: Schema.String,
+      value1: Schema.Unknown,
+      value2: Schema.Unknown,
+      impact: Schema.Literal('low', 'medium', 'high', 'critical'),
+    })
+  ),
   similarity: Schema.Number.pipe(Schema.between(0, 1)),
-  recommendation: Schema.String
+  recommendation: Schema.String,
 })
 export type ConfigurationComparisonResult = typeof ConfigurationComparisonResultSchema.Type
 
@@ -164,7 +197,7 @@ export const ConfigurationTemplateSchema = Schema.Struct({
   basePreset: ConfigurationPresetTypeSchema,
   overrides: Schema.Partial(WorldConfigurationSchema),
   requiredFeatures: Schema.optional(Schema.Array(Schema.String)),
-  minimumComplexity: Schema.optional(ConfigurationComplexitySchema)
+  minimumComplexity: Schema.optional(ConfigurationComplexitySchema),
 })
 export type ConfigurationTemplate = typeof ConfigurationTemplateSchema.Type
 
@@ -189,9 +222,7 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
         : baseConfig
 
       // シードの適用
-      const configWithSeed = validatedParams.seed
-        ? { ...optimizedConfig, seed: validatedParams.seed }
-        : optimizedConfig
+      const configWithSeed = validatedParams.seed ? { ...optimizedConfig, seed: validatedParams.seed } : optimizedConfig
 
       // オーバーライドの適用
       const configWithOverrides = validatedParams.overrides
@@ -209,20 +240,21 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
           finalConfig,
           validatedParams.validationStrictness ?? 'standard'
         )
-        if (!validation.isValid && validation.issues.some(i => i.severity === 'critical')) {
-          return yield* Effect.fail(new ConfigurationFactoryError({
-            category: 'compatibility_error',
-            message: 'Configuration validation failed with critical issues',
-            context: { validation }
-          }))
+        if (!validation.isValid && validation.issues.some((i) => i.severity === 'critical')) {
+          return yield* Effect.fail(
+            new ConfigurationFactoryError({
+              category: 'compatibility_error',
+              message: 'Configuration validation failed with critical issues',
+              context: { validation },
+            })
+          )
         }
       }
 
       return finalConfig
     }),
 
-  createFromPreset: (preset: ConfigurationPresetType) =>
-    loadPresetConfiguration(preset),
+  createFromPreset: (preset: ConfigurationPresetType) => loadPresetConfiguration(preset),
 
   createOptimized: (mode: OptimizationMode, baseConfig?: WorldConfiguration) =>
     Effect.gen(function* () {
@@ -234,7 +266,7 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
     Effect.gen(function* () {
       // 並列処理で効率化
       const results = yield* Effect.all(
-        requests.map(params => createWorldConfigurationFactory().create(params)),
+        requests.map((params) => createWorldConfigurationFactory().create(params)),
         { concurrency: 4 }
       )
       return results
@@ -257,24 +289,23 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
   validate: (config: WorldConfiguration, strictness?: ValidationStrictness) =>
     validateConfigurationAdvanced(config, strictness ?? 'standard'),
 
-  optimize: (config: WorldConfiguration, target: OptimizationMode) =>
-    applyOptimization(config, target),
+  optimize: (config: WorldConfiguration, target: OptimizationMode) => applyOptimization(config, target),
 
-  compare: (config1: WorldConfiguration, config2: WorldConfiguration) =>
-    compareConfigurations(config1, config2),
+  compare: (config1: WorldConfiguration, config2: WorldConfiguration) => compareConfigurations(config1, config2),
 
   autoFix: (config: WorldConfiguration, issues: readonly ConfigurationValidationIssue[]) =>
     autoFixConfiguration(config, issues),
 
-  template: (template: ConfigurationTemplate) =>
-    createFromTemplate(template)
+  template: (template: ConfigurationTemplate) => createFromTemplate(template),
 })
 
 // ================================
 // Preset Manager
 // ================================
 
-const loadPresetConfiguration = (preset: ConfigurationPresetType): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
+const loadPresetConfiguration = (
+  preset: ConfigurationPresetType
+): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Function.pipe(
     Match.value(preset),
     Match.when('default', () => createDefaultConfiguration()),
@@ -289,10 +320,14 @@ const loadPresetConfiguration = (preset: ConfigurationPresetType): Effect.Effect
     Match.when('memory_optimized', () => createMemoryOptimizedConfiguration()),
     Match.when('quality_focused', () => createQualityFocusedConfiguration()),
     Match.when('balanced', () => createBalancedConfiguration()),
-    Match.orElse(() => Effect.fail(new ConfigurationFactoryError({
-      category: 'preset_not_found',
-      message: `Unknown preset: ${preset}`
-    })))
+    Match.orElse(() =>
+      Effect.fail(
+        new ConfigurationFactoryError({
+          category: 'preset_not_found',
+          message: `Unknown preset: ${preset}`,
+        })
+      )
+    )
   )
 
 const createDefaultConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -300,7 +335,7 @@ const createDefaultConfiguration = (): Effect.Effect<WorldConfiguration, Configu
     seed: WorldSeed.createRandom(),
     parameters: GenerationParameters.createDefault(),
     biomeConfig: BiomeProperties.createDefaultConfiguration(),
-    noiseConfig: NoiseConfiguration.createDefault()
+    noiseConfig: NoiseConfiguration.createDefault(),
   })
 
 const createSurvivalConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -308,7 +343,7 @@ const createSurvivalConfiguration = (): Effect.Effect<WorldConfiguration, Config
     seed: WorldSeed.createRandom(),
     parameters: GenerationParameters.createSurvivalOptimized(),
     biomeConfig: BiomeProperties.createDiverseConfiguration(),
-    noiseConfig: NoiseConfiguration.createRealistic()
+    noiseConfig: NoiseConfiguration.createRealistic(),
   })
 
 const createCreativeConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -316,7 +351,7 @@ const createCreativeConfiguration = (): Effect.Effect<WorldConfiguration, Config
     seed: WorldSeed.createRandom(),
     parameters: GenerationParameters.createCreativeOptimized(),
     biomeConfig: BiomeProperties.createSimpleConfiguration(),
-    noiseConfig: NoiseConfiguration.createFast()
+    noiseConfig: NoiseConfiguration.createFast(),
   })
 
 const createCustomConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -325,7 +360,7 @@ const createCustomConfiguration = (): Effect.Effect<WorldConfiguration, Configur
     parameters: GenerationParameters.createDefault(),
     biomeConfig: BiomeProperties.createDefaultConfiguration(),
     noiseConfig: NoiseConfiguration.createDefault(),
-    metadata: { configType: 'custom' }
+    metadata: { configType: 'custom' },
   })
 
 const createPeacefulConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -334,7 +369,7 @@ const createPeacefulConfiguration = (): Effect.Effect<WorldConfiguration, Config
     parameters: GenerationParameters.createPeacefulOptimized(),
     biomeConfig: BiomeProperties.createPeacefulConfiguration(),
     noiseConfig: NoiseConfiguration.createSimple(),
-    metadata: { configType: 'peaceful', hostileSpawning: false }
+    metadata: { configType: 'peaceful', hostileSpawning: false },
   })
 
 const createHardcoreConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -343,7 +378,7 @@ const createHardcoreConfiguration = (): Effect.Effect<WorldConfiguration, Config
     parameters: GenerationParameters.createHardcoreOptimized(),
     biomeConfig: BiomeProperties.createChallengeConfiguration(),
     noiseConfig: NoiseConfiguration.createRealistic(),
-    metadata: { configType: 'hardcore', difficulty: 'hard', oneLife: true }
+    metadata: { configType: 'hardcore', difficulty: 'hard', oneLife: true },
   })
 
 const createExperimentalConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -352,7 +387,7 @@ const createExperimentalConfiguration = (): Effect.Effect<WorldConfiguration, Co
     parameters: GenerationParameters.createExperimental(),
     biomeConfig: BiomeProperties.createExperimentalConfiguration(),
     noiseConfig: NoiseConfiguration.createExperimental(),
-    metadata: { configType: 'experimental', unstable: true }
+    metadata: { configType: 'experimental', unstable: true },
   })
 
 const createDebugConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -361,7 +396,7 @@ const createDebugConfiguration = (): Effect.Effect<WorldConfiguration, Configura
     parameters: GenerationParameters.createDebug(),
     biomeConfig: BiomeProperties.createDebugConfiguration(),
     noiseConfig: NoiseConfiguration.createDebug(),
-    metadata: { configType: 'debug', logging: 'verbose', deterministic: true }
+    metadata: { configType: 'debug', logging: 'verbose', deterministic: true },
   })
 
 const createPerformanceConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -370,7 +405,7 @@ const createPerformanceConfiguration = (): Effect.Effect<WorldConfiguration, Con
     parameters: GenerationParameters.createFastOptimized(),
     biomeConfig: BiomeProperties.createSimpleConfiguration(),
     noiseConfig: NoiseConfiguration.createFast(),
-    metadata: { configType: 'performance', optimization: 'speed' }
+    metadata: { configType: 'performance', optimization: 'speed' },
   })
 
 const createMemoryOptimizedConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -379,7 +414,7 @@ const createMemoryOptimizedConfiguration = (): Effect.Effect<WorldConfiguration,
     parameters: GenerationParameters.createMemoryOptimized(),
     biomeConfig: BiomeProperties.createMinimalConfiguration(),
     noiseConfig: NoiseConfiguration.createMemoryEfficient(),
-    metadata: { configType: 'memory_optimized', optimization: 'memory' }
+    metadata: { configType: 'memory_optimized', optimization: 'memory' },
   })
 
 const createQualityFocusedConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -388,7 +423,7 @@ const createQualityFocusedConfiguration = (): Effect.Effect<WorldConfiguration, 
     parameters: GenerationParameters.createQualityOptimized(),
     biomeConfig: BiomeProperties.createHighQualityConfiguration(),
     noiseConfig: NoiseConfiguration.createHighQuality(),
-    metadata: { configType: 'quality_focused', optimization: 'quality' }
+    metadata: { configType: 'quality_focused', optimization: 'quality' },
   })
 
 const createBalancedConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -397,7 +432,7 @@ const createBalancedConfiguration = (): Effect.Effect<WorldConfiguration, Config
     parameters: GenerationParameters.createBalanced(),
     biomeConfig: BiomeProperties.createBalancedConfiguration(),
     noiseConfig: NoiseConfiguration.createBalanced(),
-    metadata: { configType: 'balanced', optimization: 'balanced' }
+    metadata: { configType: 'balanced', optimization: 'balanced' },
   })
 
 // ================================
@@ -411,7 +446,7 @@ const applyOverrides = (
   Effect.succeed({
     ...baseConfig,
     ...overrides,
-    metadata: { ...baseConfig.metadata, ...overrides.metadata }
+    metadata: { ...baseConfig.metadata, ...overrides.metadata },
   })
 
 const mergeConfigurations = (
@@ -423,7 +458,7 @@ const mergeConfigurations = (
     parameters: GenerationParameters.merge(config1.parameters, config2.parameters),
     biomeConfig: BiomeProperties.merge(config1.biomeConfig, config2.biomeConfig),
     noiseConfig: NoiseConfiguration.merge(config1.noiseConfig, config2.noiseConfig),
-    metadata: { ...config1.metadata, ...config2.metadata }
+    metadata: { ...config1.metadata, ...config2.metadata },
   })
 
 // ================================
@@ -461,19 +496,23 @@ const validateCreateParams = (
 
       // ビジネスルール検証
       if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
-        return yield* Effect.fail(new ConfigurationFactoryError({
-          category: 'configuration_invalid',
-          message: 'Memory budget must be positive'
-        }))
+        return yield* Effect.fail(
+          new ConfigurationFactoryError({
+            category: 'configuration_invalid',
+            message: 'Memory budget must be positive',
+          })
+        )
       }
 
       return validatedParams
     } catch (error) {
-      return yield* Effect.fail(new ConfigurationFactoryError({
-        category: 'configuration_invalid',
-        message: 'Invalid parameters',
-        context: { error, params }
-      }))
+      return yield* Effect.fail(
+        new ConfigurationFactoryError({
+          category: 'configuration_invalid',
+          message: 'Invalid parameters',
+          context: { error, params },
+        })
+      )
     }
   })
 
@@ -483,41 +522,51 @@ const applyOptimization = (
 ): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Function.pipe(
     Match.value(mode),
-    Match.when('memory', () => Effect.succeed({
-      ...config,
-      parameters: GenerationParameters.optimizeForMemory(config.parameters),
-      biomeConfig: BiomeProperties.optimizeForMemory(config.biomeConfig),
-      noiseConfig: NoiseConfiguration.optimizeForMemory(config.noiseConfig),
-      metadata: { ...config.metadata, optimization: 'memory' }
-    })),
-    Match.when('speed', () => Effect.succeed({
-      ...config,
-      parameters: GenerationParameters.optimizeForSpeed(config.parameters),
-      biomeConfig: BiomeProperties.optimizeForSpeed(config.biomeConfig),
-      noiseConfig: NoiseConfiguration.optimizeForSpeed(config.noiseConfig),
-      metadata: { ...config.metadata, optimization: 'speed' }
-    })),
-    Match.when('quality', () => Effect.succeed({
-      ...config,
-      parameters: GenerationParameters.optimizeForQuality(config.parameters),
-      biomeConfig: BiomeProperties.optimizeForQuality(config.biomeConfig),
-      noiseConfig: NoiseConfiguration.optimizeForQuality(config.noiseConfig),
-      metadata: { ...config.metadata, optimization: 'quality' }
-    })),
-    Match.when('balanced', () => Effect.succeed({
-      ...config,
-      parameters: GenerationParameters.optimizeForBalance(config.parameters),
-      biomeConfig: BiomeProperties.optimizeForBalance(config.biomeConfig),
-      noiseConfig: NoiseConfiguration.optimizeForBalance(config.noiseConfig),
-      metadata: { ...config.metadata, optimization: 'balanced' }
-    })),
-    Match.when('adaptive', () => Effect.succeed({
-      ...config,
-      parameters: GenerationParameters.optimizeAdaptive(config.parameters),
-      biomeConfig: BiomeProperties.optimizeAdaptive(config.biomeConfig),
-      noiseConfig: NoiseConfiguration.optimizeAdaptive(config.noiseConfig),
-      metadata: { ...config.metadata, optimization: 'adaptive' }
-    })),
+    Match.when('memory', () =>
+      Effect.succeed({
+        ...config,
+        parameters: GenerationParameters.optimizeForMemory(config.parameters),
+        biomeConfig: BiomeProperties.optimizeForMemory(config.biomeConfig),
+        noiseConfig: NoiseConfiguration.optimizeForMemory(config.noiseConfig),
+        metadata: { ...config.metadata, optimization: 'memory' },
+      })
+    ),
+    Match.when('speed', () =>
+      Effect.succeed({
+        ...config,
+        parameters: GenerationParameters.optimizeForSpeed(config.parameters),
+        biomeConfig: BiomeProperties.optimizeForSpeed(config.biomeConfig),
+        noiseConfig: NoiseConfiguration.optimizeForSpeed(config.noiseConfig),
+        metadata: { ...config.metadata, optimization: 'speed' },
+      })
+    ),
+    Match.when('quality', () =>
+      Effect.succeed({
+        ...config,
+        parameters: GenerationParameters.optimizeForQuality(config.parameters),
+        biomeConfig: BiomeProperties.optimizeForQuality(config.biomeConfig),
+        noiseConfig: NoiseConfiguration.optimizeForQuality(config.noiseConfig),
+        metadata: { ...config.metadata, optimization: 'quality' },
+      })
+    ),
+    Match.when('balanced', () =>
+      Effect.succeed({
+        ...config,
+        parameters: GenerationParameters.optimizeForBalance(config.parameters),
+        biomeConfig: BiomeProperties.optimizeForBalance(config.biomeConfig),
+        noiseConfig: NoiseConfiguration.optimizeForBalance(config.noiseConfig),
+        metadata: { ...config.metadata, optimization: 'balanced' },
+      })
+    ),
+    Match.when('adaptive', () =>
+      Effect.succeed({
+        ...config,
+        parameters: GenerationParameters.optimizeAdaptive(config.parameters),
+        biomeConfig: BiomeProperties.optimizeAdaptive(config.biomeConfig),
+        noiseConfig: NoiseConfiguration.optimizeAdaptive(config.noiseConfig),
+        metadata: { ...config.metadata, optimization: 'adaptive' },
+      })
+    ),
     Match.orElse(() => Effect.succeed(config))
   )
 
@@ -530,8 +579,8 @@ const applyCustomParameters = (
     metadata: {
       ...config.metadata,
       customParameters: customParams,
-      customized: true
-    }
+      customized: true,
+    },
   })
 
 const validateConfigurationAdvanced = (
@@ -551,20 +600,21 @@ const validateConfigurationAdvanced = (
         category: 'syntax',
         message: 'Configuration schema validation failed',
         suggestion: 'Check configuration structure',
-        autoFixable: false
+        autoFixable: false,
       })
       score -= 30
     }
 
     // パフォーマンス検証
     const memoryUsage = estimateMemoryUsage(config)
-    if (memoryUsage > 512) { // MB
+    if (memoryUsage > 512) {
+      // MB
       issues.push({
         severity: strictness === 'pedantic' ? 'error' : 'warning',
         category: 'memory',
         message: `High memory usage estimated: ${memoryUsage}MB`,
         suggestion: 'Consider memory optimization',
-        autoFixable: true
+        autoFixable: true,
       })
       score -= strictness === 'pedantic' ? 20 : 10
     }
@@ -579,7 +629,7 @@ const validateConfigurationAdvanced = (
           category: 'compatibility',
           message: 'Some features may not be compatible',
           suggestion: 'Review configuration parameters',
-          autoFixable: false
+          autoFixable: false,
         })
         score -= 15
       }
@@ -589,17 +639,17 @@ const validateConfigurationAdvanced = (
       estimatedMemoryUsage: memoryUsage,
       estimatedProcessingTime: estimateProcessingTime(config),
       cacheEfficiency: calculateCacheEfficiency(config),
-      parallelizationPotential: calculateParallelizationPotential(config)
+      parallelizationPotential: calculateParallelizationPotential(config),
     }
 
     const recommendations = generateRecommendations(issues, config, performance)
 
     return {
-      isValid: issues.filter(i => i.severity === 'error' || i.severity === 'critical').length === 0,
+      isValid: issues.filter((i) => i.severity === 'error' || i.severity === 'critical').length === 0,
       issues,
       score: Math.max(0, score),
       performance,
-      recommendations
+      recommendations,
     }
   })
 
@@ -616,17 +666,18 @@ const compareConfigurations = (
         field: 'seed',
         value1: config1.seed,
         value2: config2.seed,
-        impact: 'high'
+        impact: 'high',
       })
     }
 
     // 他の設定比較...
-    const similarity = 1 - (differences.length / 10) // 簡単な類似度計算
+    const similarity = 1 - differences.length / 10 // 簡単な類似度計算
 
     return {
       differences,
       similarity: Math.max(0, similarity),
-      recommendation: similarity > 0.8 ? 'Configurations are very similar' : 'Configurations have significant differences'
+      recommendation:
+        similarity > 0.8 ? 'Configurations are very similar' : 'Configurations have significant differences',
     }
   })
 
@@ -637,7 +688,7 @@ const autoFixConfiguration = (
   Effect.gen(function* () {
     let fixedConfig = config
 
-    for (const issue of issues.filter(i => i.autoFixable)) {
+    for (const issue of issues.filter((i) => i.autoFixable)) {
       if (issue.category === 'memory' && issue.message.includes('High memory usage')) {
         fixedConfig = yield* applyOptimization(fixedConfig, 'memory')
       }
@@ -659,8 +710,8 @@ const createFromTemplate = (
       metadata: {
         ...configWithOverrides.metadata,
         template: template.name,
-        templateDescription: template.description
-      }
+        templateDescription: template.description,
+      },
     }
   })
 
@@ -675,18 +726,18 @@ const estimateMemoryUsage = (config: WorldConfiguration): number => {
   const biomeComplexity = getBiomeComplexity(config.biomeConfig)
   const noiseComplexity = getNoiseComplexity(config.noiseConfig)
 
-  return baseUsage + (parameterComplexity * 10) + (biomeComplexity * 15) + (noiseComplexity * 20)
+  return baseUsage + parameterComplexity * 10 + biomeComplexity * 15 + noiseComplexity * 20
 }
 
 const estimateProcessingTime = (config: WorldConfiguration): number => {
   // 処理時間推定（ミリ秒）
   const complexityFactor = getOverallComplexity(config)
-  return 100 + (complexityFactor * 50)
+  return 100 + complexityFactor * 50
 }
 
 const calculateCacheEfficiency = (config: WorldConfiguration): number => {
   // キャッシュ効率計算（0-1）
-  const simplicity = 1 - (getOverallComplexity(config) / 10)
+  const simplicity = 1 - getOverallComplexity(config) / 10
   return Math.max(0.1, Math.min(0.95, simplicity))
 }
 
@@ -696,8 +747,7 @@ const calculateParallelizationPotential = (config: WorldConfiguration): number =
   return complexity > 5 ? 0.8 : 0.4
 }
 
-const checkAdvancedCompatibility = (config: WorldConfiguration): Effect.Effect<boolean, never> =>
-  Effect.succeed(true) // 簡単な実装
+const checkAdvancedCompatibility = (config: WorldConfiguration): Effect.Effect<boolean, never> => Effect.succeed(true) // 簡単な実装
 
 const generateRecommendations = (
   issues: readonly ConfigurationValidationIssue[],
@@ -710,7 +760,7 @@ const generateRecommendations = (
     recommendations.push('Consider using memory optimization mode')
   }
 
-  if (issues.some(i => i.category === 'performance')) {
+  if (issues.some((i) => i.category === 'performance')) {
     recommendations.push('Enable performance optimization for better results')
   }
 
@@ -761,26 +811,27 @@ class WorldConfigurationBuilderImpl implements WorldConfigurationBuilder {
   withMetadata(metadata: Record<string, unknown>): WorldConfigurationBuilder {
     return new WorldConfigurationBuilderImpl({
       ...this.config,
-      metadata: { ...this.config.metadata, ...metadata }
+      metadata: { ...this.config.metadata, ...metadata },
     })
   }
 
   build(): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> {
-    return Effect.gen(function* () {
-      const defaultConfig = yield* createDefaultConfiguration()
-      return {
-        seed: this.config.seed ?? defaultConfig.seed,
-        parameters: this.config.parameters ?? defaultConfig.parameters,
-        biomeConfig: this.config.biomeConfig ?? defaultConfig.biomeConfig,
-        noiseConfig: this.config.noiseConfig ?? defaultConfig.noiseConfig,
-        metadata: this.config.metadata
-      }
-    }.bind(this))
+    return Effect.gen(
+      function* () {
+        const defaultConfig = yield* createDefaultConfiguration()
+        return {
+          seed: this.config.seed ?? defaultConfig.seed,
+          parameters: this.config.parameters ?? defaultConfig.parameters,
+          biomeConfig: this.config.biomeConfig ?? defaultConfig.biomeConfig,
+          noiseConfig: this.config.noiseConfig ?? defaultConfig.noiseConfig,
+          metadata: this.config.metadata,
+        }
+      }.bind(this)
+    )
   }
 }
 
-export const createWorldConfigurationBuilder = (): WorldConfigurationBuilder =>
-  new WorldConfigurationBuilderImpl()
+export const createWorldConfigurationBuilder = (): WorldConfigurationBuilder => new WorldConfigurationBuilderImpl()
 
 // ================================
 // Context.GenericTag
@@ -804,29 +855,27 @@ export const WorldConfigurationFactoryLive = Layer.succeed(
 // ================================
 
 export {
-  // Main Types
-  type WorldConfiguration,
-  type CreateConfigurationParams,
-  type WorldConfigurationFactory,
-  type WorldConfigurationBuilder,
-
-  // Advanced Types
-  type ConfigurationPresetType,
-  type OptimizationMode,
-  type ValidationStrictness,
-  type ConfigurationComplexity,
-  type ConfigurationValidationIssue,
-  type ConfigurationValidationResult,
-  type ConfigurationComparisonResult,
-  type ConfigurationTemplate,
-
+  ConfigurationComparisonResultSchema,
+  ConfigurationComplexitySchema,
   // Schemas
   ConfigurationPresetTypeSchema,
-  OptimizationModeSchema,
-  ValidationStrictnessSchema,
-  ConfigurationComplexitySchema,
+  ConfigurationTemplateSchema,
   ConfigurationValidationIssueSchema,
   ConfigurationValidationResultSchema,
-  ConfigurationComparisonResultSchema,
-  ConfigurationTemplateSchema,
+  OptimizationModeSchema,
+  ValidationStrictnessSchema,
+  type ConfigurationComparisonResult,
+  type ConfigurationComplexity,
+  // Advanced Types
+  type ConfigurationPresetType,
+  type ConfigurationTemplate,
+  type ConfigurationValidationIssue,
+  type ConfigurationValidationResult,
+  type CreateConfigurationParams,
+  type OptimizationMode,
+  type ValidationStrictness,
+  // Main Types
+  type WorldConfiguration,
+  type WorldConfigurationBuilder,
+  type WorldConfigurationFactory,
 }

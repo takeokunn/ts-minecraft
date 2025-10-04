@@ -1,5 +1,13 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match } from 'effect'
+import type {
+  EquipmentDescription,
+  EquipmentDomainError,
+  EquipmentId,
+  EquipmentName,
+  UnixTime,
+  WeightKg,
+} from '../types/core'
 import {
   EquipmentDescriptionSchema,
   EquipmentIdSchema,
@@ -9,15 +17,6 @@ import {
   makeRequirementViolation,
   makeSchemaViolation,
 } from '../types/core'
-import type {
-  EquipmentDescription,
-  EquipmentDomainError,
-  EquipmentId,
-  EquipmentName,
-  UnixTime,
-  WeightKg,
-} from '../types/core'
-import { ensureSlotAllowed, EquipmentSlotSchema, getSlotCategory, type EquipmentSlot } from '../value_object/slot'
 import {
   EquipmentStatsSchema,
   EquipmentTierSchema,
@@ -26,6 +25,7 @@ import {
   type EquipmentStats,
   type EquipmentTier,
 } from '../value_object/item_attributes'
+import { EquipmentSlotSchema, ensureSlotAllowed, getSlotCategory, type EquipmentSlot } from '../value_object/slot'
 
 export const EquipmentTagSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+(?::[a-z_]+)?$/i),
@@ -65,8 +65,7 @@ export interface EquipmentPieceComponents {
 const decodePiece = Schema.decodeUnknown(EquipmentPieceSchema)
 const decodePieceSync = Schema.decodeUnknownSync(EquipmentPieceSchema)
 
-const pieceError = (message: string): EquipmentDomainError =>
-  makeSchemaViolation({ field: 'EquipmentPiece', message })
+const pieceError = (message: string): EquipmentDomainError => makeSchemaViolation({ field: 'EquipmentPiece', message })
 
 export const createEquipmentPiece = (
   components: EquipmentPieceComponents
@@ -87,24 +86,16 @@ export const createEquipmentPiece = (
     }).pipe(Effect.mapError(() => pieceError('invalid equipment piece components')))
   })
 
-export const withUpdatedTimestamp = (
-  piece: EquipmentPiece,
-  timestamp: UnixTime
-): EquipmentPiece => decodePieceSync({ ...piece, updatedAt: timestamp })
+export const withUpdatedTimestamp = (piece: EquipmentPiece, timestamp: UnixTime): EquipmentPiece =>
+  decodePieceSync({ ...piece, updatedAt: timestamp })
 
-export const assignBonusStats = (
-  piece: EquipmentPiece,
-  bonus: EquipmentStats
-): EquipmentPiece =>
+export const assignBonusStats = (piece: EquipmentPiece, bonus: EquipmentStats): EquipmentPiece =>
   decodePieceSync({
     ...piece,
     stats: mergeStats([piece.stats, bonus]),
   })
 
-export const promoteTier = (
-  piece: EquipmentPiece,
-  nextTier: EquipmentTier
-): EquipmentPiece =>
+export const promoteTier = (piece: EquipmentPiece, nextTier: EquipmentTier): EquipmentPiece =>
   decodePieceSync({
     ...piece,
     tier: nextTier,

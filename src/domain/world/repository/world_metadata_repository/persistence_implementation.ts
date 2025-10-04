@@ -6,48 +6,41 @@
  * 高度なバックアップとバージョン管理
  */
 
-import { Context, Effect, Option, ReadonlyArray, Ref, Layer } from 'effect'
-import { WorldClock } from '../../time'
 import * as Schema from '@effect/schema/Schema'
+import * as crypto from 'crypto'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import * as crypto from 'crypto'
 import { WorldGeneratorIdSchema } from '../../aggregate/world_generator'
-import {
-  WorldIdSchema,
-  WorldSeedSchema,
-  WorldCoordinateSchema,
-} from '../../types/core/world_types'
-import type {
-  WorldId,
-} from '../../types'
+import { WorldClock } from '../../time'
+import type { WorldId } from '../../types'
+import { WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '../../types/core/world_types'
 import type { AllRepositoryErrors } from '../types'
 import {
-  createRepositoryError,
+  createCompressionError,
   createDataIntegrityError,
+  createRepositoryError,
   createStorageError,
   createVersioningError,
-  createCompressionError,
 } from '../types'
 import type {
-  WorldMetadataRepository,
-  WorldMetadataRepositoryConfig,
-  WorldMetadata,
-  WorldSettings,
-  WorldStatistics,
-  MetadataVersion,
-  MetadataChange,
-  VersionHistory,
-  CompressionConfig,
-  CompressionStatistics,
-  MetadataQuery,
-  MetadataSearchResult,
   BackupConfig,
   BackupInfo,
   calculateMetadataChecksum,
-  generateVersionString,
+  CompressionConfig,
+  CompressionStatistics,
   estimateMetadataSize,
+  generateVersionString,
+  MetadataChange,
+  MetadataQuery,
+  MetadataSearchResult,
+  MetadataVersion,
+  WorldMetadata,
+  WorldMetadataRepository,
+  WorldMetadataRepositoryConfig,
+  WorldSettings,
+  WorldStatistics,
 } from './interface'
 
 // === Persistence Configuration ===
@@ -103,8 +96,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const currentMillis = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentMillis)
     const currentDate = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentDate)
 
-    const isCacheExpired = (now: number, timestamp: number): boolean =>
-      now - timestamp > ttlMilliseconds
+    const isCacheExpired = (now: number, timestamp: number): boolean => now - timestamp > ttlMilliseconds
 
     const updateChecksum = (metadata: WorldMetadata): Effect.Effect<WorldMetadata> =>
       Effect.map(currentDate, (now) => ({
@@ -243,7 +235,6 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     })
     const EMPTY_WORLD_ID = Schema.decodeSync(WorldIdSchema)('world_placeholder')
 
-
     // Initialize storage directories
     const directories = [
       persistenceConfig.dataPath,
@@ -253,23 +244,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     ]
 
     for (const dir of directories) {
-      yield* Effect.promise(() =>
-        fs.promises.mkdir(dir, { recursive: true })
-      ).pipe(
+      yield* Effect.promise(() => fs.promises.mkdir(dir, { recursive: true })).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createStorageError(
-            `Failed to create directory ${dir}: ${error}`,
-            'initialize',
-            error
-          ))
+          Effect.fail(createStorageError(`Failed to create directory ${dir}: ${error}`, 'initialize', error))
         )
       )
     }
 
     // === File Operations ===
 
-    const getMetadataFilePath = (worldId: WorldId): string =>
-      path.join(persistenceConfig.dataPath, `${worldId}.json`)
+    const getMetadataFilePath = (worldId: WorldId): string => path.join(persistenceConfig.dataPath, `${worldId}.json`)
 
     const getVersionFilePath = (worldId: WorldId): string =>
       path.join(persistenceConfig.versionPath, `${worldId}_versions.json`)
@@ -277,8 +261,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const getBackupFilePath = (backupId: string): string =>
       path.join(persistenceConfig.backupPath, `${backupId}.backup`)
 
-    const getIndexFilePath = (indexName: string): string =>
-      path.join(persistenceConfig.indexPath, `${indexName}.index`)
+    const getIndexFilePath = (indexName: string): string => path.join(persistenceConfig.indexPath, `${indexName}.index`)
 
     const encryptData = (data: string, key: string): string => {
       const cipher = crypto.createCipher('aes-256-cbc', key)
@@ -295,47 +278,33 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     }
 
     const compressData = (data: string): Effect.Effect<Buffer, AllRepositoryErrors> =>
-      Effect.promise(() =>
-        new Promise<Buffer>((resolve, reject) => {
-          zlib.gzip(data, (err, result) => {
-            if (err) reject(err)
-            else resolve(result)
+      Effect.promise(
+        () =>
+          new Promise<Buffer>((resolve, reject) => {
+            zlib.gzip(data, (err, result) => {
+              if (err) reject(err)
+              else resolve(result)
+            })
           })
-        })
-      ).pipe(
-        Effect.catchAll((error) =>
-          Effect.fail(createCompressionError(
-            '',
-            `Compression failed: ${error}`,
-            error
-          ))
-        )
-      )
+      ).pipe(Effect.catchAll((error) => Effect.fail(createCompressionError('', `Compression failed: ${error}`, error))))
 
     const decompressData = (compressedData: Buffer): Effect.Effect<string, AllRepositoryErrors> =>
-      Effect.promise(() =>
-        new Promise<string>((resolve, reject) => {
-          zlib.gunzip(compressedData, (err, result) => {
-            if (err) reject(err)
-            else resolve(result.toString('utf8'))
+      Effect.promise(
+        () =>
+          new Promise<string>((resolve, reject) => {
+            zlib.gunzip(compressedData, (err, result) => {
+              if (err) reject(err)
+              else resolve(result.toString('utf8'))
+            })
           })
-        })
       ).pipe(
-        Effect.catchAll((error) =>
-          Effect.fail(createCompressionError(
-            '',
-            `Decompression failed: ${error}`,
-            error
-          ))
-        )
+        Effect.catchAll((error) => Effect.fail(createCompressionError('', `Decompression failed: ${error}`, error)))
       )
 
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
-        yield* Effect.promise(() =>
-          fs.promises.mkdir(directory, { recursive: true })
-        )
+        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true }))
 
         let content = JSON.stringify(data, null, 2)
 
@@ -347,35 +316,36 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         // Apply compression if enabled
         if (persistenceConfig.enableCompression) {
           const compressed = yield* compressData(content)
-          yield* Effect.promise(() =>
-            fs.promises.writeFile(filePath + '.gz', compressed)
-          )
+          yield* Effect.promise(() => fs.promises.writeFile(filePath + '.gz', compressed))
         } else {
-          yield* Effect.promise(() =>
-            fs.promises.writeFile(filePath, content, 'utf8')
-          )
+          yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8'))
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createStorageError(
-            `Failed to write file ${filePath}: ${error}`,
-            'writeFile',
-            error
-          ))
+          Effect.fail(createStorageError(`Failed to write file ${filePath}: ${error}`, 'writeFile', error))
         )
       )
 
-    const readFile = <T>(filePath: string, schema: Schema.Schema<T, unknown>): Effect.Effect<Option.Option<T>, AllRepositoryErrors> =>
+    const readFile = <T>(
+      filePath: string,
+      schema: Schema.Schema<T, unknown>
+    ): Effect.Effect<Option.Option<T>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const compressedPath = filePath + '.gz'
         const fileExists = yield* Effect.promise(() =>
-          fs.promises.access(compressedPath).then(() => true).catch(() => false)
+          fs.promises
+            .access(compressedPath)
+            .then(() => true)
+            .catch(() => false)
         )
         const useCompression = persistenceConfig.enableCompression && fileExists
 
         const actualPath = useCompression ? compressedPath : filePath
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(actualPath).then(() => true).catch(() => false)
+          fs.promises
+            .access(actualPath)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) {
@@ -385,14 +355,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         let content: string
 
         if (useCompression) {
-          const compressedBuffer = yield* Effect.promise(() =>
-            fs.promises.readFile(actualPath)
-          )
+          const compressedBuffer = yield* Effect.promise(() => fs.promises.readFile(actualPath))
           content = yield* decompressData(compressedBuffer)
         } else {
-          content = yield* Effect.promise(() =>
-            fs.promises.readFile(actualPath, 'utf8')
-          )
+          content = yield* Effect.promise(() => fs.promises.readFile(actualPath, 'utf8'))
         }
 
         // Apply decryption if enabled
@@ -403,22 +369,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         const parsed = JSON.parse(content)
         const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
           Effect.catchAll((error) =>
-            Effect.fail(createDataIntegrityError(
-              `Schema validation failed for ${filePath}: ${error}`,
-              'readFile',
-              error
-            ))
+            Effect.fail(
+              createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
+            )
           )
         )
 
         return Option.some(decoded)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createStorageError(
-            `Failed to read file ${filePath}: ${error}`,
-            'readFile',
-            error
-          ))
+          Effect.fail(createStorageError(`Failed to read file ${filePath}: ${error}`, 'readFile', error))
         )
       )
 
@@ -427,14 +387,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const loadAllMetadata = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(persistenceConfig.dataPath).then(() => true).catch(() => false)
+          fs.promises
+            .access(persistenceConfig.dataPath)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) return
 
-        const files = yield* Effect.promise(() =>
-          fs.promises.readdir(persistenceConfig.dataPath)
-        ).pipe(
+        const files = yield* Effect.promise(() => fs.promises.readdir(persistenceConfig.dataPath)).pipe(
           Effect.catchAll(() => Effect.succeed([]))
         )
 
@@ -459,14 +420,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const loadVersionHistory = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(persistenceConfig.versionPath).then(() => true).catch(() => false)
+          fs.promises
+            .access(persistenceConfig.versionPath)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) return
 
-        const files = yield* Effect.promise(() =>
-          fs.promises.readdir(persistenceConfig.versionPath)
-        ).pipe(
+        const files = yield* Effect.promise(() => fs.promises.readdir(persistenceConfig.versionPath)).pipe(
           Effect.catchAll(() => Effect.succeed([]))
         )
 
@@ -497,14 +459,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const loadBackups = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(persistenceConfig.backupPath).then(() => true).catch(() => false)
+          fs.promises
+            .access(persistenceConfig.backupPath)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) return
 
-        const files = yield* Effect.promise(() =>
-          fs.promises.readdir(persistenceConfig.backupPath)
-        ).pipe(
+        const files = yield* Effect.promise(() => fs.promises.readdir(persistenceConfig.backupPath)).pipe(
           Effect.catchAll(() => Effect.succeed([]))
         )
 
@@ -539,11 +502,17 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         lastAccessed: metadata.lastAccessed.toISOString(),
       })
 
-    const persistVersionHistory = (worldId: WorldId, versions: Map<string, MetadataVersion>): Effect.Effect<void, AllRepositoryErrors> =>
-      writeFile(getVersionFilePath(worldId), Array.from(versions.values()).map(v => ({
-        ...v,
-        timestamp: v.timestamp.toISOString(),
-      })))
+    const persistVersionHistory = (
+      worldId: WorldId,
+      versions: Map<string, MetadataVersion>
+    ): Effect.Effect<void, AllRepositoryErrors> =>
+      writeFile(
+        getVersionFilePath(worldId),
+        Array.from(versions.values()).map((v) => ({
+          ...v,
+          timestamp: v.timestamp.toISOString(),
+        }))
+      )
 
     const persistBackup = (backup: BackupInfo): Effect.Effect<void, AllRepositoryErrors> =>
       writeFile(getBackupFilePath(backup.backupId), {
@@ -587,14 +556,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: store.has(metadata.id) ? 'update' : 'create',
-              path: 'metadata',
-              oldValue: store.get(metadata.id),
-              newValue: updatedMetadata,
-              timestamp,
-              reason: 'Automatic versioning on save',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: store.has(metadata.id) ? 'update' : 'create',
+                path: 'metadata',
+                oldValue: store.get(metadata.id),
+                newValue: updatedMetadata,
+                timestamp,
+                reason: 'Automatic versioning on save',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(metadata.id, changes, 'Auto-save'))
           }
@@ -610,7 +581,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             if (cached) {
               const now = yield* currentMillis
               if (!isCacheExpired(now, cached.timestamp)) {
-                yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
+                yield* Ref.update(cacheStats, (stats) => ({ ...stats, hitCount: stats.hitCount + 1 }))
                 return Option.some(cached.metadata)
               }
             }
@@ -620,7 +591,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const store = yield* Ref.get(metadataStore)
           const metadata = store.get(worldId)
 
-          yield* Ref.update(cacheStats, stats => ({ ...stats, missCount: stats.missCount + 1 }))
+          yield* Ref.update(cacheStats, (stats) => ({ ...stats, missCount: stats.missCount + 1 }))
 
           if (metadata && config.cache.enabled) {
             // Update cache
@@ -648,11 +619,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const store = yield* Ref.get(metadataStore)
 
           if (!store.has(metadata.id)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${metadata.id}`,
-              'updateMetadata',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${metadata.id}`, 'updateMetadata', null)
+            )
           }
 
           const oldMetadata = store.get(metadata.id)!
@@ -679,14 +648,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: 'update',
-              path: 'metadata',
-              oldValue: oldMetadata,
-              newValue: updatedMetadata,
-              timestamp,
-              reason: 'Automatic versioning on update',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: 'update',
+                path: 'metadata',
+                oldValue: oldMetadata,
+                newValue: updatedMetadata,
+                timestamp,
+                reason: 'Automatic versioning on update',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(metadata.id, changes, 'Auto-update'))
           }
@@ -697,11 +668,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const store = yield* Ref.get(metadataStore)
 
           if (!store.has(worldId)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'deleteMetadata',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'deleteMetadata', null)
+            )
           }
 
           const oldMetadata = store.get(worldId)!
@@ -711,12 +680,8 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Delete file
           const filePath = getMetadataFilePath(worldId)
-          yield* Effect.promise(() =>
-            fs.promises.unlink(filePath).catch(() => {})
-          )
-          yield* Effect.promise(() =>
-            fs.promises.unlink(filePath + '.gz').catch(() => {})
-          )
+          yield* Effect.promise(() => fs.promises.unlink(filePath).catch(() => {}))
+          yield* Effect.promise(() => fs.promises.unlink(filePath + '.gz').catch(() => {}))
 
           // Remove from cache
           if (config.cache.enabled) {
@@ -729,14 +694,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           // Create deletion version
           if (config.versioning.enabled) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: 'delete',
-              path: 'metadata',
-              oldValue: oldMetadata,
-              newValue: undefined,
-              timestamp,
-              reason: 'Metadata deletion',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: 'delete',
+                path: 'metadata',
+                oldValue: oldMetadata,
+                newValue: undefined,
+                timestamp,
+                reason: 'Metadata deletion',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(worldId, changes, 'Deletion'))
           }
@@ -749,19 +716,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Apply filters (same as memory implementation)
           if (query.worldId) {
-            candidates = candidates.filter(m => m.id === query.worldId)
+            candidates = candidates.filter((m) => m.id === query.worldId)
           }
 
           if (query.name) {
-            candidates = candidates.filter(m =>
-              m.name.toLowerCase().includes(query.name!.toLowerCase())
-            )
+            candidates = candidates.filter((m) => m.name.toLowerCase().includes(query.name!.toLowerCase()))
           }
 
           if (query.tags && query.tags.length > 0) {
-            candidates = candidates.filter(m =>
-              query.tags!.some(tag => m.tags.includes(tag))
-            )
+            candidates = candidates.filter((m) => query.tags!.some((tag) => m.tags.includes(tag)))
           }
 
           // ... (other filters from memory implementation)
@@ -797,7 +760,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             candidates = candidates.slice(0, query.limit)
           }
 
-          const results: MetadataSearchResult[] = candidates.map(metadata => ({
+          const results: MetadataSearchResult[] = candidates.map((metadata) => ({
             metadata,
             relevanceScore: 1.0,
             matchedFields: ['name'],
@@ -814,11 +777,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'updateSettings',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'updateSettings', null)
+            )
           }
 
           const updatedMetadata = {
@@ -832,7 +793,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       getSettings: (worldId: WorldId) =>
         Effect.gen(function* () {
           const metadata = yield* this.findMetadata(worldId)
-          return Option.map(metadata, m => m.settings)
+          return Option.map(metadata, (m) => m.settings)
         }),
 
       setGameRule: (worldId: WorldId, rule: string, value: boolean | number | string) =>
@@ -840,11 +801,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const settings = yield* this.getSettings(worldId)
 
           if (Option.isNone(settings)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World settings not found: ${worldId}`,
-              'setGameRule',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World settings not found: ${worldId}`, 'setGameRule', null)
+            )
           }
 
           const updatedGameRules = { ...settings.value.gameRules, [rule]: value }
@@ -869,11 +828,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'updateStatistics',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'updateStatistics', null)
+            )
           }
 
           const lastUpdated = yield* currentDate
@@ -888,7 +845,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       getStatistics: (worldId: WorldId) =>
         Effect.gen(function* () {
           const metadata = yield* this.findMetadata(worldId)
-          return Option.map(metadata, m => m.statistics)
+          return Option.map(metadata, (m) => m.statistics)
         }),
 
       recordPerformanceMetric: (worldId: WorldId, metric: string, value: number, timestamp?: Date) =>
@@ -896,11 +853,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const currentStats = yield* this.getStatistics(worldId)
 
           if (Option.isNone(currentStats)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World statistics not found: ${worldId}`,
-              'recordPerformanceMetric',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World statistics not found: ${worldId}`, 'recordPerformanceMetric', null)
+            )
           }
 
           const updatedPerformance = {
@@ -918,11 +873,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const currentStats = yield* this.getStatistics(worldId)
 
           if (Option.isNone(currentStats)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World statistics not found: ${worldId}`,
-              'updateContentStatistics',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World statistics not found: ${worldId}`, 'updateContentStatistics', null)
+            )
           }
 
           const currentContent = currentStats.value.content
@@ -960,11 +913,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       createVersion: (worldId: WorldId, changes: ReadonlyArray<MetadataChange>, description?: string) =>
         Effect.gen(function* () {
           if (!config.versioning.enabled) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              'Versioning is disabled',
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, 'Versioning is disabled', null))
           }
 
           const version = yield* nextVersionId()
@@ -984,8 +933,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Check version limit
           if (worldVersions.size >= config.versioning.maxVersionsPerWorld) {
-            const oldest = Array.from(worldVersions.entries())
-              .sort(([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime())[0]
+            const oldest = Array.from(worldVersions.entries()).sort(
+              ([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime()
+            )[0]
             worldVersions.delete(oldest[0])
           }
 
@@ -1048,17 +998,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const versionData = yield* this.getVersion(worldId, version)
 
           if (Option.isNone(versionData)) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              `Version not found: ${version}`,
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, `Version not found: ${version}`, null))
           }
 
           // Apply changes in reverse
           const changes = versionData.value.changes
           const timestamp = yield* currentDate
-          const restorationChanges: MetadataChange[] = changes.map(change => ({
+          const restorationChanges: MetadataChange[] = changes.map((change) => ({
             ...change,
             type: change.type === 'create' ? 'delete' : change.type === 'delete' ? 'create' : 'update',
             oldValue: change.newValue,
@@ -1076,11 +1022,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const v2 = yield* this.getVersion(worldId, version2)
 
           if (Option.isNone(v1) || Option.isNone(v2)) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              'One or both versions not found',
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, 'One or both versions not found', null))
           }
 
           const combinedChanges = [...v1.value.changes, ...v2.value.changes]
@@ -1135,11 +1077,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createCompressionError(
-              worldId,
-              'Metadata not found for compression',
-              null
-            ))
+            return yield* Effect.fail(createCompressionError(worldId, 'Metadata not found for compression', null))
           }
 
           const serialized = JSON.stringify(metadata.value)
@@ -1174,11 +1112,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const compressionMap = yield* Ref.get(compressionStore)
 
           if (!compressionMap.has(worldId)) {
-            return yield* Effect.fail(createCompressionError(
-              worldId,
-              'No compression data found',
-              null
-            ))
+            return yield* Effect.fail(createCompressionError(worldId, 'No compression data found', null))
           }
 
           const updated = new Map(compressionMap)
@@ -1192,11 +1126,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           return Option.fromNullable(compressionMap.get(worldId))
         }),
 
-      updateCompressionConfig: (worldId: WorldId, compressionConfig: CompressionConfig) =>
-        Effect.succeed(undefined),
+      updateCompressionConfig: (worldId: WorldId, compressionConfig: CompressionConfig) => Effect.succeed(undefined),
 
-      enableAutoCompression: (worldId: WorldId, threshold: number) =>
-        Effect.succeed(undefined),
+      enableAutoCompression: (worldId: WorldId, threshold: number) => Effect.succeed(undefined),
 
       // === Backup System ===
 
@@ -1205,11 +1137,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'createBackup',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'createBackup', null)
+            )
           }
 
           const millis = yield* currentMillis
@@ -1243,7 +1173,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         Effect.gen(function* () {
           const backupMap = yield* Ref.get(backupStore)
           const worldBackups = Array.from(backupMap.values())
-            .filter(backup => backup.worldId === worldId)
+            .filter((backup) => backup.worldId === worldId)
             .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
           return worldBackups
@@ -1255,22 +1185,22 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const backup = backupMap.get(backupId)
 
           if (!backup || backup.worldId !== worldId) {
-            return yield* Effect.fail(createRepositoryError(
-              `Backup not found or not associated with world: ${backupId}`,
-              'restoreBackup',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`Backup not found or not associated with world: ${backupId}`, 'restoreBackup', null)
+            )
           }
 
           const timestamp = yield* currentDate
-          const changes: MetadataChange[] = [{
-            type: 'update',
-            path: 'metadata',
-            oldValue: undefined,
-            newValue: backup,
-            timestamp,
-            reason: `Restore from backup ${backupId}`,
-          }]
+          const changes: MetadataChange[] = [
+            {
+              type: 'update',
+              path: 'metadata',
+              oldValue: undefined,
+              newValue: backup,
+              timestamp,
+              reason: `Restore from backup ${backupId}`,
+            },
+          ]
 
           yield* this.createVersion(worldId, changes, `Restore from backup ${backupId}`)
         }),
@@ -1281,11 +1211,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const backup = backupMap.get(backupId)
 
           if (!backup) {
-            return yield* Effect.fail(createRepositoryError(
-              `Backup not found: ${backupId}`,
-              'deleteBackup',
-              null
-            ))
+            return yield* Effect.fail(createRepositoryError(`Backup not found: ${backupId}`, 'deleteBackup', null))
           }
 
           const updatedBackupMap = new Map(backupMap)
@@ -1294,12 +1220,8 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Delete backup file
           const filePath = getBackupFilePath(backupId)
-          yield* Effect.promise(() =>
-            fs.promises.unlink(filePath).catch(() => {})
-          )
-          yield* Effect.promise(() =>
-            fs.promises.unlink(filePath + '.gz').catch(() => {})
-          )
+          yield* Effect.promise(() => fs.promises.unlink(filePath).catch(() => {}))
+          yield* Effect.promise(() => fs.promises.unlink(filePath + '.gz').catch(() => {}))
         }),
 
       verifyBackup: (backupId: string) =>
@@ -1317,7 +1239,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           // Verify file exists
           const filePath = getBackupFilePath(backupId)
           const exists = yield* Effect.promise(() =>
-            fs.promises.access(filePath).then(() => true).catch(() => false)
+            fs.promises
+              .access(filePath)
+              .then(() => true)
+              .catch(() => false)
           )
 
           const issues: string[] = []
@@ -1331,8 +1256,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           }
         }),
 
-      configureAutoBackup: (worldId: WorldId, backupConfig: BackupConfig) =>
-        Effect.succeed(undefined),
+      configureAutoBackup: (worldId: WorldId, backupConfig: BackupConfig) => Effect.succeed(undefined),
 
       // === Index Management ===
 
@@ -1551,12 +1475,18 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             // Validate file exists
             const filePath = getMetadataFilePath(worldId)
             const exists = yield* Effect.promise(() =>
-              fs.promises.access(filePath).then(() => true).catch(() => false)
+              fs.promises
+                .access(filePath)
+                .then(() => true)
+                .catch(() => false)
             )
 
             if (!exists) {
               const existsGz = yield* Effect.promise(() =>
-                fs.promises.access(filePath + '.gz').then(() => true).catch(() => false)
+                fs.promises
+                  .access(filePath + '.gz')
+                  .then(() => true)
+                  .catch(() => false)
               )
 
               if (!existsGz) {
@@ -1616,8 +1546,4 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 export const WorldMetadataRepositoryPersistenceLive = (
   config: WorldMetadataRepositoryConfig,
   persistenceConfig?: PersistenceConfig
-) =>
-  Layer.effect(
-    WorldMetadataRepository,
-    WorldMetadataRepositoryPersistenceImplementation(config, persistenceConfig)
-  )
+) => Layer.effect(WorldMetadataRepository, WorldMetadataRepositoryPersistenceImplementation(config, persistenceConfig))

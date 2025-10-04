@@ -1,13 +1,9 @@
 import { Effect, Layer, Match } from 'effect'
+import { WorldAggregateLive, WorldEventPublishersLive } from './aggregate'
+import { WorldDomainApplicationServiceLayer } from './application_service'
+import { defaultWorldDomainConfig, selectWorldDomainConfig, type WorldDomainConfig } from './config'
 import { WorldDomainServiceLayer } from './domain_service'
 import { WorldDomainFactoryLayer } from './factory'
-import {
-  WorldDomainApplicationServiceLayer,
-} from './application_service'
-import {
-  WorldAggregateLive,
-  WorldEventPublishersLive,
-} from './aggregate'
 import {
   WorldRepositoryLayer,
   WorldRepositoryMemoryLayer,
@@ -15,11 +11,6 @@ import {
   WorldRepositoryPersistenceLayer,
   type WorldRepositoryLayerConfig,
 } from './repository'
-import {
-  defaultWorldDomainConfig,
-  selectWorldDomainConfig,
-  type WorldDomainConfig,
-} from './config'
 
 const composeRepositoryLayer = (config: WorldRepositoryLayerConfig) =>
   Match.value(config.implementation).pipe(
@@ -42,11 +33,7 @@ const composeApplicationLayer = (config: WorldDomainConfig, aggregateLayer: Laye
   )
 
 const baseWorldLayer = (config: WorldDomainConfig) =>
-  Layer.mergeAll(
-    composeRepositoryLayer(config.repository),
-    WorldDomainServiceLayer,
-    WorldDomainFactoryLayer
-  )
+  Layer.mergeAll(composeRepositoryLayer(config.repository), WorldDomainServiceLayer, WorldDomainFactoryLayer)
 
 export const WorldDomainLayer = (config: WorldDomainConfig = defaultWorldDomainConfig) =>
   composeApplicationLayer(config, composeAggregateLayer(config, baseWorldLayer(config)))

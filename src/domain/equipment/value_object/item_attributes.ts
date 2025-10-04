@@ -44,10 +44,8 @@ export const mergeStats = (stats: ReadonlyArray<EquipmentStats>): EquipmentStats
     { attack: 0, defense: 0, durability: 0, criticalChance: 0 }
   )
 
-export const applyTierWeight = (
-  tier: EquipmentTier,
-  weight: WeightKg
-): WeightKg => decodeWeight(Number(weight) * getTierMultiplier(tier))
+export const applyTierWeight = (tier: EquipmentTier, weight: WeightKg): WeightKg =>
+  decodeWeight(Number(weight) * getTierMultiplier(tier))
 
 export const ensureWeightWithinLimit = (
   limit: WeightKg,

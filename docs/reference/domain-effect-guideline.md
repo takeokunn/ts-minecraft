@@ -3,13 +3,7 @@ title: 'Domain Effect-TS 移行ガイドライン'
 description: 'ドメイン層全体を Effect-TS ベースの純粋関数型アーキテクチャへ再構築するための分析結果と実行規約'
 category: 'reference'
 difficulty: 'advanced'
-tags:
-  [
-    'domain-layer',
-    'effect-ts',
-    'functional-architecture',
-    'refactoring-guide',
-  ]
+tags: ['domain-layer', 'effect-ts', 'functional-architecture', 'refactoring-guide']
 related_docs:
   [
     '../how-to/development/development-conventions.md',
@@ -49,18 +43,22 @@ related_docs:
 ## サブドメイン別アクションプラン
 
 ### world
+
 - Repository 実装が命令的構文の最大ホットスポット。`WorldMetadataRepository` から着手し、Effect レイヤ構成と Schema バリデーションを導入する。
 - `value_object/coordinates`・`factory/world_generator_factory` は `try/catch`・`class` が集中。`Effect.try` と ADT を適用する。
 
 ### inventory
+
 - Factory / Domain Service の `class` と `for` が多い。`ContainerFactory`, `TransferService`, `InventoryServiceLive` を先行リファクタし、`Layer` + `Effect.gen` + `Schema` に変換する。
 - `value_object` 系は既に Schema を使用しているため、ブランド型の共通ユーティリティを抽出して再利用する。
 
 ### camera / chunk
+
 - テスト・実装ともに `switch` と `for` が多い。`Match` を活用した ADT 変換と、`Chunk` 系の非同期パスを `Effect` に揃える。
 - `chunk` の try/catch はシリアライザ周辺に集中。`ChunkSerializationError` を ADT 化し、エラーチャネルで扱う。
 
 ### physics / others
+
 - `physics` は Effect 変換途中で `Not a valid effect` エラーが発生している。`provide` の渡し方と `Layer` 設計の再確認が必須。
 - `player`, `entities`, `equipment` に残る `for` や `class` は少量。基盤が整い次第で対応。
 

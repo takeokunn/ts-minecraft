@@ -1,11 +1,5 @@
 import { Effect, Match, Option, pipe } from 'effect'
-import type {
-  ChunkLoadProgress,
-  ChunkLoadRequest,
-  LoadProgress,
-  SessionId,
-  Timestamp,
-} from '../types/interfaces'
+import type { ChunkLoadProgress, ChunkLoadRequest, LoadProgress, SessionId, Timestamp } from '../types/interfaces'
 import { LoadError, LoadPhase, progressFromPhase, withProgress } from '../types/interfaces'
 
 export interface SessionState {
@@ -39,10 +33,7 @@ export const createSession = (
     }
   })
 
-const resolveCacheHit = (
-  current: SessionState,
-  phase: LoadPhase
-): boolean =>
+const resolveCacheHit = (current: SessionState, phase: LoadPhase): boolean =>
   pipe(
     Match.value(phase),
     Match.when({ _tag: 'Completed' }, (completed) => completed.cacheHit),
@@ -90,10 +81,7 @@ export const markCacheHit = (state: SessionState): SessionState => ({
   cacheHit: true,
 })
 
-export const touch = (
-  state: SessionState,
-  timestamp: Timestamp
-): SessionState => ({
+export const touch = (state: SessionState, timestamp: Timestamp): SessionState => ({
   sessionId: state.sessionId,
   request: state.request,
   startedAt: state.startedAt,
@@ -124,28 +112,19 @@ export const terminate = (
     (phase) => transition(state, phase, timestamp)
   )
 
-export const recalculateAverage = (
-  previousAverage: number,
-  previousCount: number,
-  sample: number
-): number =>
+export const recalculateAverage = (previousAverage: number, previousCount: number, sample: number): number =>
   pipe(
     Match.value(previousCount > 0),
     Match.when(true, () => (previousAverage * previousCount + sample) / (previousCount + 1)),
     Match.orElse(() => sample)
   )
 
-export const cacheHitRatio = (
-  hits: number,
-  total: number
-): number =>
+export const cacheHitRatio = (hits: number, total: number): number =>
   pipe(
     Match.value(total === 0),
     Match.when(true, () => 0),
     Match.orElse(() => hits / total)
   )
 
-export const nextTimestamp = (
-  hint: Option.Option<Timestamp>,
-  fallback: Timestamp
-): Timestamp => Option.getOrElse(hint, () => fallback)
+export const nextTimestamp = (hint: Option.Option<Timestamp>, fallback: Timestamp): Timestamp =>
+  Option.getOrElse(hint, () => fallback)

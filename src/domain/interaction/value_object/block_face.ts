@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Either, Match, Option } from 'effect'
+import { Data, Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
 import { Vector3, Vector3Error, fromNumbers, normalize } from './vector3'
 
@@ -27,8 +27,7 @@ export type BlockFaceError = typeof BlockFaceError.Type
 const decodeFaceEffect = Schema.decode(BlockFaceSchema)
 const decodeFaceEither = Schema.decodeEither(BlockFaceSchema)
 
-const formatParseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, { includeStackTrace: false })
+const formatParseError = (error: Schema.ParseError) => TreeFormatter.formatError(error, { includeStackTrace: false })
 
 const toSchemaViolation = (error: Schema.ParseError) =>
   BlockFaceError.SchemaViolation({ message: formatParseError(error) })
@@ -63,16 +62,13 @@ const selectDominantFace = (cands: ReadonlyArray<Candidate>) =>
         Effect.reduce(cands.slice(1), initial, (best, candidate) =>
           pipe(
             Effect.succeed(Math.abs(candidate.strength) > Math.abs(best.strength)),
-            Effect.flatMap((useCandidate) =>
-              useCandidate ? Effect.succeed(candidate) : Effect.succeed(best)
-            )
+            Effect.flatMap((useCandidate) => (useCandidate ? Effect.succeed(candidate) : Effect.succeed(best)))
           )
         ),
     })
   )
 
-const fromLiteral = (literal: BlockFaceLiteral) =>
-  pipe(decodeFaceEffect(literal), Effect.mapError(toSchemaViolation))
+const fromLiteral = (literal: BlockFaceLiteral) => pipe(decodeFaceEffect(literal), Effect.mapError(toSchemaViolation))
 
 const opposites: Record<BlockFaceLiteral, BlockFaceLiteral> = {
   north: 'south',
@@ -114,14 +110,9 @@ export const fromNormalVector = (vector: Vector3) =>
     )
   )
 
-export const safeFromNormalVector = (vector: Vector3) =>
-  Effect.runSync(Effect.either(fromNormalVector(vector)))
+export const safeFromNormalVector = (vector: Vector3) => Effect.runSync(Effect.either(fromNormalVector(vector)))
 
-export const opposite = (face: BlockFace) =>
-  pipe(
-    Effect.succeed(opposites[face]),
-    Effect.flatMap(fromLiteral)
-  )
+export const opposite = (face: BlockFace) => pipe(Effect.succeed(opposites[face]), Effect.flatMap(fromLiteral))
 
 export const toUnitNormal = (face: BlockFace) =>
   pipe(

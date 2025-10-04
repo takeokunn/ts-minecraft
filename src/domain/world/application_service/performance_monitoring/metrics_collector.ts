@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref, STM } from 'effect'
+import { Context, Effect, Layer, Match, Ref, Schema } from 'effect'
 
 /**
  * Metrics Collector Service
@@ -14,7 +14,7 @@ export const MetricType = Schema.Union(
   Schema.Literal('gauge'), // ゲージメトリクス
   Schema.Literal('histogram'), // ヒストグラムメトリクス
   Schema.Literal('summary'), // サマリーメトリクス
-  Schema.Literal('timer'), // タイマーメトリクス
+  Schema.Literal('timer') // タイマーメトリクス
 )
 
 export const MetricValue = Schema.Struct({
@@ -74,7 +74,7 @@ export const MetricAggregation = Schema.Struct({
     Schema.Literal('min'),
     Schema.Literal('max'),
     Schema.Literal('count'),
-    Schema.Literal('percentile'),
+    Schema.Literal('percentile')
   ),
   value: Schema.Number,
   sampleCount: Schema.Number.pipe(Schema.nonNegativeInteger()),
@@ -88,14 +88,14 @@ export const AlertThreshold = Schema.Struct({
     Schema.Literal('greater_than'),
     Schema.Literal('less_than'),
     Schema.Literal('equals'),
-    Schema.Literal('not_equals'),
+    Schema.Literal('not_equals')
   ),
   threshold: Schema.Number,
   severity: Schema.Union(
     Schema.Literal('info'),
     Schema.Literal('warning'),
     Schema.Literal('error'),
-    Schema.Literal('critical'),
+    Schema.Literal('critical')
   ),
   enabled: Schema.Boolean,
 })
@@ -109,37 +109,25 @@ export const MetricsConfiguration = Schema.Struct({
   aggregationEnabled: Schema.Boolean,
   alertingEnabled: Schema.Boolean,
   exportEnabled: Schema.Boolean,
-  exportFormat: Schema.Union(
-    Schema.Literal('prometheus'),
-    Schema.Literal('json'),
-    Schema.Literal('csv'),
-  ),
+  exportFormat: Schema.Union(Schema.Literal('prometheus'), Schema.Literal('json'), Schema.Literal('csv')),
   thresholds: Schema.Array(AlertThreshold),
   sampling: Schema.Struct({
     enabled: Schema.Boolean,
     rate: Schema.Number.pipe(Schema.between(0, 1)),
-    strategy: Schema.Union(
-      Schema.Literal('uniform'),
-      Schema.Literal('adaptive'),
-      Schema.Literal('weighted'),
-    ),
+    strategy: Schema.Union(Schema.Literal('uniform'), Schema.Literal('adaptive'), Schema.Literal('weighted')),
   }),
 })
 
 // === Metrics Collector Error ===
 
-export const MetricsCollectorError = Schema.TaggedError<MetricsCollectorErrorType>()(
-  'MetricsCollectorError',
-  {
-    message: Schema.String,
-    collectorId: Schema.String,
-    metric: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const MetricsCollectorError = Schema.TaggedError<MetricsCollectorErrorType>()('MetricsCollectorError', {
+  message: Schema.String,
+  collectorId: Schema.String,
+  metric: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface MetricsCollectorErrorType
-  extends Schema.Schema.Type<typeof MetricsCollectorError> {}
+export interface MetricsCollectorErrorType extends Schema.Schema.Type<typeof MetricsCollectorError> {}
 
 // === Service Interface ===
 
@@ -193,9 +181,7 @@ export interface MetricsCollectorService {
   /**
    * タイマーを停止し、経過時間を記録します
    */
-  readonly stopTimer: (
-    timerId: string
-  ) => Effect.Effect<number, MetricsCollectorErrorType> // 経過時間（ミリ秒）
+  readonly stopTimer: (timerId: string) => Effect.Effect<number, MetricsCollectorErrorType> // 経過時間（ミリ秒）
 
   /**
    * パフォーマンススナップショットを取得します
@@ -239,12 +225,15 @@ export interface MetricsCollectorService {
   /**
    * メトリクス統計を取得します
    */
-  readonly getMetricsStatistics: () => Effect.Effect<{
-    totalMetrics: number
-    activeTimers: number
-    memoryUsage: number
-    lastCollection: number
-  }, MetricsCollectorErrorType>
+  readonly getMetricsStatistics: () => Effect.Effect<
+    {
+      totalMetrics: number
+      activeTimers: number
+      memoryUsage: number
+      lastCollection: number
+    },
+    MetricsCollectorErrorType
+  >
 }
 
 // === Live Implementation ===
@@ -254,7 +243,9 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   const configuration = yield* Ref.make<Schema.Schema.Type<typeof MetricsConfiguration>>(DEFAULT_METRICS_CONFIG)
   const isCollecting = yield* Ref.make<boolean>(false)
   const metrics = yield* Ref.make<Map<string, Schema.Schema.Type<typeof MetricValue>[]>>(new Map())
-  const activeTimers = yield* Ref.make<Map<string, { name: string; startTime: number; labels?: Record<string, string> }>>(new Map())
+  const activeTimers = yield* Ref.make<
+    Map<string, { name: string; startTime: number; labels?: Record<string, string> }>
+  >(new Map())
   const alertThresholds = yield* Ref.make<Map<string, Schema.Schema.Type<typeof AlertThreshold>>>(new Map())
 
   const startCollection = () =>
@@ -333,7 +324,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         labels,
       }
 
-      yield* Ref.update(activeTimers, map => map.set(timerId, timer))
+      yield* Ref.update(activeTimers, (map) => map.set(timerId, timer))
       yield* Effect.logDebug(`タイマー開始: ${name} (${timerId})`)
 
       return timerId
@@ -358,7 +349,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       yield* recordHistogram(timer.name, elapsedTime, undefined, timer.labels)
 
       // アクティブタイマーから削除
-      yield* Ref.update(activeTimers, map => {
+      yield* Ref.update(activeTimers, (map) => {
         map.delete(timerId)
         return map
       })
@@ -411,7 +402,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const metricData = metricsMap.get(metricName) || []
 
       const now = Date.now()
-      const filteredData = metricData.filter(m => now - m.timestamp <= timeWindow)
+      const filteredData = metricData.filter((m) => now - m.timestamp <= timeWindow)
 
       if (filteredData.length === 0) {
         return {
@@ -424,7 +415,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         }
       }
 
-      const values = filteredData.map(m => m.value)
+      const values = filteredData.map((m) => m.value)
       let aggregatedValue: number
 
       switch (aggregationType) {
@@ -463,14 +454,11 @@ const makeMetricsCollectorService = Effect.gen(function* () {
 
   const setAlertThreshold = (threshold: Schema.Schema.Type<typeof AlertThreshold>) =>
     Effect.gen(function* () {
-      yield* Ref.update(alertThresholds, map => map.set(threshold.metricName, threshold))
+      yield* Ref.update(alertThresholds, (map) => map.set(threshold.metricName, threshold))
       yield* Effect.logInfo(`アラート閾値設定: ${threshold.metricName} ${threshold.operator} ${threshold.threshold}`)
     })
 
-  const exportMetrics = (
-    format: 'prometheus' | 'json' | 'csv',
-    timeRange?: { start: number; end: number }
-  ) =>
+  const exportMetrics = (format: 'prometheus' | 'json' | 'csv', timeRange?: { start: number; end: number }) =>
     Effect.gen(function* () {
       const metricsMap = yield* Ref.get(metrics)
 
@@ -478,9 +466,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
 
       if (timeRange) {
         for (const [name, metricList] of metricsMap) {
-          const filtered = metricList.filter(m =>
-            m.timestamp >= timeRange.start && m.timestamp <= timeRange.end
-          )
+          const filtered = metricList.filter((m) => m.timestamp >= timeRange.start && m.timestamp <= timeRange.end)
           filteredMetrics.set(name, filtered)
         }
       }
@@ -495,7 +481,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof MetricsConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(configuration, current => ({ ...current, ...configUpdate }))
+      yield* Ref.update(configuration, (current) => ({ ...current, ...configUpdate }))
       yield* Effect.logInfo('メトリクス設定更新完了')
     })
 
@@ -504,8 +490,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const metricsMap = yield* Ref.get(metrics)
       const timers = yield* Ref.get(activeTimers)
 
-      const totalMetrics = Array.from(metricsMap.values())
-        .reduce((sum, metricList) => sum + metricList.length, 0)
+      const totalMetrics = Array.from(metricsMap.values()).reduce((sum, metricList) => sum + metricList.length, 0)
 
       const memoryUsage = estimateMemoryUsage(metricsMap)
 
@@ -542,7 +527,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
 
   const addMetric = (name: string, metric: Schema.Schema.Type<typeof MetricValue>) =>
     Effect.gen(function* () {
-      yield* Ref.update(metrics, map => {
+      yield* Ref.update(metrics, (map) => {
         const existing = map.get(name) || []
         map.set(name, [...existing, metric])
         return map
@@ -591,9 +576,9 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const cutoffTime = Date.now() - config.retentionPeriod
 
-      yield* Ref.update(metrics, map => {
+      yield* Ref.update(metrics, (map) => {
         for (const [name, metricList] of map) {
-          const filtered = metricList.filter(m => m.timestamp >= cutoffTime)
+          const filtered = metricList.filter((m) => m.timestamp >= cutoffTime)
           map.set(name, filtered)
         }
         return map
@@ -682,10 +667,7 @@ export const MetricsCollectorService = Context.GenericTag<MetricsCollectorServic
 
 // === Layer ===
 
-export const MetricsCollectorServiceLive = Layer.effect(
-  MetricsCollectorService,
-  makeMetricsCollectorService
-)
+export const MetricsCollectorServiceLive = Layer.effect(MetricsCollectorService, makeMetricsCollectorService)
 
 // === Default Configuration ===
 
@@ -706,9 +688,9 @@ export const DEFAULT_METRICS_CONFIG: Schema.Schema.Type<typeof MetricsConfigurat
 }
 
 export type {
+  AlertThreshold as AlertThresholdType,
+  MetricAggregation as MetricAggregationType,
+  MetricsConfiguration as MetricsConfigurationType,
   MetricValue as MetricValueType,
   PerformanceMetrics as PerformanceMetricsType,
-  MetricAggregation as MetricAggregationType,
-  AlertThreshold as AlertThresholdType,
-  MetricsConfiguration as MetricsConfigurationType,
 } from './metrics_collector.js'

@@ -1,12 +1,6 @@
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
-import { CraftingGrid, CraftingRecipe, ShapedRecipe, ShapelessRecipe } from '../types'
-import {
-  RecipeAggregate,
-  canCraftWithGrid,
-  matchShapedRecipe,
-  matchShapelessRecipe,
-} from '../aggregate/recipe'
-import { PatternMismatchError } from '../types'
+import { RecipeAggregate, canCraftWithGrid, matchShapedRecipe, matchShapelessRecipe } from '../aggregate/recipe'
+import { CraftingGrid, CraftingRecipe, PatternMismatchError } from '../types'
 
 export interface PatternMatchOutcome {
   readonly matched: boolean
@@ -14,10 +8,7 @@ export interface PatternMatchOutcome {
 }
 
 export interface PatternMatchingService {
-  readonly matchRecipe: (
-    recipe: CraftingRecipe,
-    grid: CraftingGrid
-  ) => Effect.Effect<boolean, never>
+  readonly matchRecipe: (recipe: CraftingRecipe, grid: CraftingGrid) => Effect.Effect<boolean, never>
 
   readonly matchAggregate: (
     aggregate: RecipeAggregate,
@@ -64,9 +55,7 @@ export const PatternMatchingServiceLive = Layer.effect(
               })
             ),
         })
-      ).pipe(
-        Effect.map((aggregate) => ({ matched: Option.isSome(aggregate), aggregate }))
-      )
+      ).pipe(Effect.map((aggregate) => ({ matched: Option.isSome(aggregate), aggregate })))
 
     return {
       matchRecipe,

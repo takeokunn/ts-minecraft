@@ -7,13 +7,7 @@
  */
 
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
-import type {
-  WorldId,
-  WorldSeed,
-  ChunkPosition,
-  WorldCoordinate,
-  WorldGeneratorId,
-} from '../../types'
+import type { WorldCoordinate, WorldGeneratorId, WorldId, WorldSeed } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 
 // === Metadata Core Types ===
@@ -279,14 +273,19 @@ export interface WorldMetadataRepository {
   /**
    * メタデータ検索
    */
-  readonly searchMetadata: (query: MetadataQuery) => Effect.Effect<ReadonlyArray<MetadataSearchResult>, AllRepositoryErrors>
+  readonly searchMetadata: (
+    query: MetadataQuery
+  ) => Effect.Effect<ReadonlyArray<MetadataSearchResult>, AllRepositoryErrors>
 
   // === Settings Management ===
 
   /**
    * ワールド設定更新
    */
-  readonly updateSettings: (worldId: WorldId, settings: Partial<WorldSettings>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateSettings: (
+    worldId: WorldId,
+    settings: Partial<WorldSettings>
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * ワールド設定取得
@@ -296,19 +295,29 @@ export interface WorldMetadataRepository {
   /**
    * ゲームルール設定
    */
-  readonly setGameRule: (worldId: WorldId, rule: string, value: boolean | number | string) => Effect.Effect<void, AllRepositoryErrors>
+  readonly setGameRule: (
+    worldId: WorldId,
+    rule: string,
+    value: boolean | number | string
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * ゲームルール取得
    */
-  readonly getGameRule: (worldId: WorldId, rule: string) => Effect.Effect<Option.Option<boolean | number | string>, AllRepositoryErrors>
+  readonly getGameRule: (
+    worldId: WorldId,
+    rule: string
+  ) => Effect.Effect<Option.Option<boolean | number | string>, AllRepositoryErrors>
 
   // === Statistics Management ===
 
   /**
    * 統計情報更新
    */
-  readonly updateStatistics: (worldId: WorldId, statistics: Partial<WorldStatistics>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateStatistics: (
+    worldId: WorldId,
+    statistics: Partial<WorldStatistics>
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * 統計情報取得
@@ -318,24 +327,40 @@ export interface WorldMetadataRepository {
   /**
    * パフォーマンス統計記録
    */
-  readonly recordPerformanceMetric: (worldId: WorldId, metric: string, value: number, timestamp?: Date) => Effect.Effect<void, AllRepositoryErrors>
+  readonly recordPerformanceMetric: (
+    worldId: WorldId,
+    metric: string,
+    value: number,
+    timestamp?: Date
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * コンテンツ統計更新
    */
-  readonly updateContentStatistics: (worldId: WorldId, contentType: string, count: number) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateContentStatistics: (
+    worldId: WorldId,
+    contentType: string,
+    count: number
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   // === Versioning System ===
 
   /**
    * バージョン作成
    */
-  readonly createVersion: (worldId: WorldId, changes: ReadonlyArray<MetadataChange>, description?: string) => Effect.Effect<string, AllRepositoryErrors>
+  readonly createVersion: (
+    worldId: WorldId,
+    changes: ReadonlyArray<MetadataChange>,
+    description?: string
+  ) => Effect.Effect<string, AllRepositoryErrors>
 
   /**
    * バージョン取得
    */
-  readonly getVersion: (worldId: WorldId, version: string) => Effect.Effect<Option.Option<MetadataVersion>, AllRepositoryErrors>
+  readonly getVersion: (
+    worldId: WorldId,
+    version: string
+  ) => Effect.Effect<Option.Option<MetadataVersion>, AllRepositoryErrors>
 
   /**
    * バージョン履歴取得
@@ -350,19 +375,29 @@ export interface WorldMetadataRepository {
   /**
    * バージョン比較
    */
-  readonly compareVersions: (worldId: WorldId, version1: string, version2: string) => Effect.Effect<ReadonlyArray<MetadataChange>, AllRepositoryErrors>
+  readonly compareVersions: (
+    worldId: WorldId,
+    version1: string,
+    version2: string
+  ) => Effect.Effect<ReadonlyArray<MetadataChange>, AllRepositoryErrors>
 
   /**
    * 古いバージョンクリーンアップ
    */
-  readonly cleanupOldVersions: (worldId: WorldId, retentionPolicy: { maxVersions?: number; maxAgeDays?: number }) => Effect.Effect<number, AllRepositoryErrors>
+  readonly cleanupOldVersions: (
+    worldId: WorldId,
+    retentionPolicy: { maxVersions?: number; maxAgeDays?: number }
+  ) => Effect.Effect<number, AllRepositoryErrors>
 
   // === Compression System ===
 
   /**
    * メタデータ圧縮
    */
-  readonly compressMetadata: (worldId: WorldId, config?: CompressionConfig) => Effect.Effect<CompressionStatistics, AllRepositoryErrors>
+  readonly compressMetadata: (
+    worldId: WorldId,
+    config?: CompressionConfig
+  ) => Effect.Effect<CompressionStatistics, AllRepositoryErrors>
 
   /**
    * メタデータ展開
@@ -372,12 +407,17 @@ export interface WorldMetadataRepository {
   /**
    * 圧縮統計取得
    */
-  readonly getCompressionStatistics: (worldId: WorldId) => Effect.Effect<Option.Option<CompressionStatistics>, AllRepositoryErrors>
+  readonly getCompressionStatistics: (
+    worldId: WorldId
+  ) => Effect.Effect<Option.Option<CompressionStatistics>, AllRepositoryErrors>
 
   /**
    * 圧縮設定更新
    */
-  readonly updateCompressionConfig: (worldId: WorldId, config: CompressionConfig) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateCompressionConfig: (
+    worldId: WorldId,
+    config: CompressionConfig
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * 自動圧縮有効化
@@ -389,7 +429,11 @@ export interface WorldMetadataRepository {
   /**
    * バックアップ作成
    */
-  readonly createBackup: (worldId: WorldId, type: 'full' | 'incremental', description?: string) => Effect.Effect<BackupInfo, AllRepositoryErrors>
+  readonly createBackup: (
+    worldId: WorldId,
+    type: 'full' | 'incremental',
+    description?: string
+  ) => Effect.Effect<BackupInfo, AllRepositoryErrors>
 
   /**
    * バックアップ一覧取得
@@ -409,7 +453,9 @@ export interface WorldMetadataRepository {
   /**
    * バックアップ検証
    */
-  readonly verifyBackup: (backupId: string) => Effect.Effect<{ isValid: boolean; issues: ReadonlyArray<string> }, AllRepositoryErrors>
+  readonly verifyBackup: (
+    backupId: string
+  ) => Effect.Effect<{ isValid: boolean; issues: ReadonlyArray<string> }, AllRepositoryErrors>
 
   /**
    * 自動バックアップ設定
@@ -426,17 +472,23 @@ export interface WorldMetadataRepository {
   /**
    * インデックス最適化
    */
-  readonly optimizeIndexes: () => Effect.Effect<{ beforeSize: number; afterSize: number; improvementRatio: number }, AllRepositoryErrors>
+  readonly optimizeIndexes: () => Effect.Effect<
+    { beforeSize: number; afterSize: number; improvementRatio: number },
+    AllRepositoryErrors
+  >
 
   /**
    * インデックス統計取得
    */
-  readonly getIndexStatistics: () => Effect.Effect<{
-    readonly totalIndexes: number
-    readonly totalSize: number
-    readonly fragmentationRatio: number
-    readonly lastOptimized: Date
-  }, AllRepositoryErrors>
+  readonly getIndexStatistics: () => Effect.Effect<
+    {
+      readonly totalIndexes: number
+      readonly totalSize: number
+      readonly fragmentationRatio: number
+      readonly lastOptimized: Date
+    },
+    AllRepositoryErrors
+  >
 
   // === Cache Management ===
 
@@ -453,13 +505,16 @@ export interface WorldMetadataRepository {
   /**
    * キャッシュ統計取得
    */
-  readonly getCacheStatistics: () => Effect.Effect<{
-    readonly hitRate: number
-    readonly missRate: number
-    readonly size: number
-    readonly maxSize: number
-    readonly evictionCount: number
-  }, AllRepositoryErrors>
+  readonly getCacheStatistics: () => Effect.Effect<
+    {
+      readonly hitRate: number
+      readonly missRate: number
+      readonly size: number
+      readonly maxSize: number
+      readonly evictionCount: number
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * キャッシュウォームアップ
@@ -471,16 +526,21 @@ export interface WorldMetadataRepository {
   /**
    * 複数メタデータ保存
    */
-  readonly saveMultipleMetadata: (metadataList: ReadonlyArray<WorldMetadata>) => Effect.Effect<{
-    readonly successful: number
-    readonly failed: number
-    readonly errors: ReadonlyArray<AllRepositoryErrors>
-  }, AllRepositoryErrors>
+  readonly saveMultipleMetadata: (metadataList: ReadonlyArray<WorldMetadata>) => Effect.Effect<
+    {
+      readonly successful: number
+      readonly failed: number
+      readonly errors: ReadonlyArray<AllRepositoryErrors>
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * 複数メタデータ更新
    */
-  readonly updateMultipleMetadata: (updates: ReadonlyArray<{ worldId: WorldId; metadata: Partial<WorldMetadata> }>) => Effect.Effect<number, AllRepositoryErrors>
+  readonly updateMultipleMetadata: (
+    updates: ReadonlyArray<{ worldId: WorldId; metadata: Partial<WorldMetadata> }>
+  ) => Effect.Effect<number, AllRepositoryErrors>
 
   /**
    * 複数メタデータ削除
@@ -490,7 +550,10 @@ export interface WorldMetadataRepository {
   /**
    * 一括圧縮
    */
-  readonly bulkCompress: (worldIds: ReadonlyArray<WorldId>, config?: CompressionConfig) => Effect.Effect<ReadonlyArray<CompressionStatistics>, AllRepositoryErrors>
+  readonly bulkCompress: (
+    worldIds: ReadonlyArray<WorldId>,
+    config?: CompressionConfig
+  ) => Effect.Effect<ReadonlyArray<CompressionStatistics>, AllRepositoryErrors>
 
   // === Repository Management ===
 
@@ -507,25 +570,31 @@ export interface WorldMetadataRepository {
   /**
    * データ整合性検証
    */
-  readonly validateIntegrity: () => Effect.Effect<{
-    readonly isValid: boolean
-    readonly errors: ReadonlyArray<string>
-    readonly warnings: ReadonlyArray<string>
-    readonly corruptedMetadata: ReadonlyArray<WorldId>
-  }, AllRepositoryErrors>
+  readonly validateIntegrity: () => Effect.Effect<
+    {
+      readonly isValid: boolean
+      readonly errors: ReadonlyArray<string>
+      readonly warnings: ReadonlyArray<string>
+      readonly corruptedMetadata: ReadonlyArray<WorldId>
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * リポジトリ統計取得
    */
-  readonly getRepositoryStatistics: () => Effect.Effect<{
-    readonly totalWorlds: number
-    readonly totalSize: number
-    readonly averageWorldSize: number
-    readonly compressionRatio: number
-    readonly oldestWorld: Date
-    readonly newestWorld: Date
-    readonly mostActiveWorld: WorldId
-  }, AllRepositoryErrors>
+  readonly getRepositoryStatistics: () => Effect.Effect<
+    {
+      readonly totalWorlds: number
+      readonly totalSize: number
+      readonly averageWorldSize: number
+      readonly compressionRatio: number
+      readonly oldestWorld: Date
+      readonly newestWorld: Date
+      readonly mostActiveWorld: WorldId
+    },
+    AllRepositoryErrors
+  >
 }
 
 // === Context Tag Definition ===
@@ -647,7 +716,7 @@ export const calculateMetadataChecksum = (metadata: WorldMetadata): string => {
   let hash = 0
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash // Convert to 32-bit integer
   }
   return hash.toString(16)
@@ -673,17 +742,17 @@ export const estimateMetadataSize = (metadata: WorldMetadata): number => {
 // === Type Exports ===
 
 export type {
-  WorldMetadata,
-  WorldSettings,
-  WorldStatistics,
-  MetadataVersion,
-  MetadataChange,
-  VersionHistory,
-  CompressionConfig,
-  CompressionStatistics,
-  MetadataQuery,
-  MetadataSearchResult,
   BackupConfig,
   BackupInfo,
+  CompressionConfig,
+  CompressionStatistics,
+  MetadataChange,
+  MetadataQuery,
+  MetadataSearchResult,
+  MetadataVersion,
+  VersionHistory,
+  WorldMetadata,
   WorldMetadataRepositoryConfig,
+  WorldSettings,
+  WorldStatistics,
 }

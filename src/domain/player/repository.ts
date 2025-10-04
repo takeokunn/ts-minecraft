@@ -1,15 +1,11 @@
 import { Context, Effect, Layer, Option, Ref, pipe } from 'effect'
 import { PlayerErrorBuilders } from './errors'
-import type { PlayerId, PlayerAggregate } from './types'
+import type { PlayerAggregate, PlayerId } from './types'
 
 export interface PlayerRepositoryService {
   readonly upsert: (aggregate: PlayerAggregate) => Effect.Effect<void, never>
-  readonly findById: (
-    id: PlayerId
-  ) => Effect.Effect<PlayerAggregate, ReturnType<typeof PlayerErrorBuilders.missing>>
-  readonly remove: (
-    id: PlayerId
-  ) => Effect.Effect<boolean, ReturnType<typeof PlayerErrorBuilders.missing>>
+  readonly findById: (id: PlayerId) => Effect.Effect<PlayerAggregate, ReturnType<typeof PlayerErrorBuilders.missing>>
+  readonly remove: (id: PlayerId) => Effect.Effect<boolean, ReturnType<typeof PlayerErrorBuilders.missing>>
   readonly list: Effect.Effect<ReadonlyArray<PlayerAggregate>, never>
   readonly exists: (id: PlayerId) => Effect.Effect<boolean, never>
 }
@@ -34,10 +30,7 @@ const makeRepository = Effect.gen(function* () {
         pipe(
           Option.fromNullable(maybeAggregate),
           Option.match({
-            onNone: () =>
-              Effect.fail(
-                PlayerErrorBuilders.missing('PlayerAggregate', id)
-              ),
+            onNone: () => Effect.fail(PlayerErrorBuilders.missing('PlayerAggregate', id)),
             onSome: (aggregate) => Effect.succeed(aggregate),
           })
         )

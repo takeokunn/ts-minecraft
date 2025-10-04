@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
-import { Effect } from 'effect'
 import { ParseResult } from '@effect/schema/ParseResult'
+import { Effect } from 'effect'
 import { CraftingDifficulty, CraftingDifficultySchema } from '../aggregate/recipe'
 
 export const create = (value: number): Effect.Effect<CraftingDifficulty, ParseResult.ParseError> =>

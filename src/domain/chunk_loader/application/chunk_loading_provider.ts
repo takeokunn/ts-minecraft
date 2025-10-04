@@ -1,14 +1,5 @@
-import {
-  Clock,
-  Effect,
-  HashMap,
-  Layer,
-  Match,
-  Option,
-  Random,
-  SynchronizedRef,
-  pipe,
-} from 'effect'
+import { Clock, Effect, HashMap, Layer, Match, Option, Random, SynchronizedRef, pipe } from 'effect'
+import { SessionState, createSession, transition } from '../domain/session'
 import {
   CacheStatus,
   ChunkId,
@@ -28,7 +19,6 @@ import {
   normalizeTimestamp,
   progressFromPhase,
 } from '../types/interfaces'
-import { SessionState, createSession, transition } from '../domain/session'
 
 interface MetricsState {
   readonly activeSessions: number
@@ -64,8 +54,7 @@ const metricsToStats = (metrics: MetricsState): PerformanceStats => ({
   activeSessions: metrics.activeSessions,
   completedSessions: metrics.completedSessions,
   failedSessions: metrics.failedSessions,
-  averageLatency:
-    metrics.completedSessions === 0 ? 0 : metrics.totalLatency / metrics.completedSessions,
+  averageLatency: metrics.completedSessions === 0 ? 0 : metrics.totalLatency / metrics.completedSessions,
   cacheHitRate: metrics.totalLoads === 0 ? 0 : metrics.cacheHits / metrics.totalLoads,
 })
 
@@ -124,10 +113,7 @@ const computeCacheHit = (request: ChunkLoadRequest, entropy: number): boolean =>
     Match.orElse(() => entropy % 4 === 0)
   )
 
-const planPhases = (
-  request: ChunkLoadRequest,
-  entropy: number
-): ReadonlyArray<LoadPhase> => {
+const planPhases = (request: ChunkLoadRequest, entropy: number): ReadonlyArray<LoadPhase> => {
   const base: ReadonlyArray<LoadPhase> = [
     LoadPhase.Fetching({ stage: 'network' }),
     LoadPhase.Fetching({ stage: 'decode' }),
@@ -138,108 +124,101 @@ const planPhases = (
   const outcome = computeOutcome(entropy)
   return pipe(
     Match.value(outcome),
-    Match.when('success', () =>
-      base.concat([LoadPhase.Completed({ cacheHit: computeCacheHit(request, entropy) })])
-    ),
-    Match.when('failure', () =>
-      base.concat([LoadPhase.Failed({ reason: 'simulated-load-failure' })])
-    ),
+    Match.when('success', () => base.concat([LoadPhase.Completed({ cacheHit: computeCacheHit(request, entropy) })])),
+    Match.when('failure', () => base.concat([LoadPhase.Failed({ reason: 'simulated-load-failure' })])),
     Match.exhaustive
   )
 }
 
 export const makeChunkLoadingProvider = (): Effect.Effect<ChunkLoadingProvider, LoadError> =>
   Effect.gen(function* () {
-  const stateRef = yield* SynchronizedRef.make(initialState)
+    const stateRef = yield* SynchronizedRef.make(initialState)
 
-  const enqueue = (input: ChunkLoadRequestInput): Effect.Effect<SessionId, LoadError> =>
-    Effect.gen(function* () {
-      const parsedRequest = yield* createRequest(input)
-      const currentMillis = Math.floor(yield* Clock.currentTimeMillis)
-      const timestamp = yield* normalizeTimestamp(currentMillis)
-      const randomInt = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
-      const entropy = randomInt.toString(16).padStart(16, '0').slice(-16)
-      const sessionId = yield* makeSessionId(timestamp, entropy)
-      const initialSession = yield* createSession(sessionId, parsedRequest, timestamp)
-      const phases = planPhases(parsedRequest, randomInt)
+    const enqueue = (input: ChunkLoadRequestInput): Effect.Effect<SessionId, LoadError> =>
+      Effect.gen(function* () {
+        const parsedRequest = yield* createRequest(input)
+        const currentMillis = Math.floor(yield* Clock.currentTimeMillis)
+        const timestamp = yield* normalizeTimestamp(currentMillis)
+        const randomInt = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
+        const entropy = randomInt.toString(16).padStart(16, '0').slice(-16)
+        const sessionId = yield* makeSessionId(timestamp, entropy)
+        const initialSession = yield* createSession(sessionId, parsedRequest, timestamp)
+        const phases = planPhases(parsedRequest, randomInt)
 
-      const finalSession = yield* Effect.reduce(
-        phases,
-        initialSession,
-        (state, phase, index) =>
+        const finalSession = yield* Effect.reduce(phases, initialSession, (state, phase, index) =>
           pipe(
             normalizeTimestamp(currentMillis + index + 1),
             Effect.flatMap((ts) => transition(state, phase, ts))
           )
+        )
+
+        const outcome = computeOutcome(randomInt)
+        const latency = Number(finalSession.updatedAt) - Number(initialSession.startedAt)
+
+        yield* SynchronizedRef.update(stateRef, (current) => ({
+          sessions: HashMap.set(current.sessions, sessionId, finalSession),
+          cache: updateCache(current.cache, outcome, parsedRequest, finalSession.cacheHit),
+          metrics: finalizeMetrics(current.metrics, outcome, latency, finalSession.cacheHit),
+        }))
+
+        return sessionId
+      })
+
+    const observe = (
+      sessionId: SessionId
+    ): Effect.Effect<
+      {
+        readonly sessionId: SessionId
+        readonly phase: LoadPhase
+        readonly progress: LoadProgress
+        readonly updatedAt: Timestamp
+      },
+      SessionNotFoundError
+    > =>
+      Effect.gen(function* () {
+        const state = yield* SynchronizedRef.get(stateRef)
+        const sessionOption = HashMap.get(state.sessions, sessionId)
+
+        return yield* Option.match(sessionOption, {
+          onNone: () => Effect.fail(SessionNotFoundError.create(sessionId)),
+          onSome: (session) =>
+            pipe(
+              progressFromPhase(session.phase),
+              Effect.mapError(() => SessionNotFoundError.create(sessionId)),
+              Effect.map((progress) => ({
+                sessionId,
+                phase: session.phase,
+                progress,
+                updatedAt: session.updatedAt,
+              }))
+            ),
+        })
+      })
+
+    const metrics = (): Effect.Effect<PerformanceStats> =>
+      pipe(
+        SynchronizedRef.get(stateRef),
+        Effect.map((state) => metricsToStats(state.metrics))
       )
 
-      const outcome = computeOutcome(randomInt)
-      const latency = Number(finalSession.updatedAt) - Number(initialSession.startedAt)
+    const cacheStatus = (chunkId: ChunkId): Effect.Effect<CacheStatus> =>
+      pipe(
+        SynchronizedRef.get(stateRef),
+        Effect.map((state) => cacheStatusFallback(HashMap.get(state.cache, chunkId)))
+      )
 
-      yield* SynchronizedRef.update(stateRef, (current) => ({
-        sessions: HashMap.set(current.sessions, sessionId, finalSession),
-        cache: updateCache(current.cache, outcome, parsedRequest, finalSession.cacheHit),
-        metrics: finalizeMetrics(current.metrics, outcome, latency, finalSession.cacheHit),
-      }))
-
-      return sessionId
-    })
-
-  const observe = (
-    sessionId: SessionId
-  ): Effect.Effect<
-    {
-      readonly sessionId: SessionId
-      readonly phase: LoadPhase
-      readonly progress: LoadProgress
-      readonly updatedAt: Timestamp
-    },
-    SessionNotFoundError
-  > =>
-    Effect.gen(function* () {
-      const state = yield* SynchronizedRef.get(stateRef)
-      const sessionOption = HashMap.get(state.sessions, sessionId)
-
-      return yield* Option.match(sessionOption, {
-        onNone: () => Effect.fail(SessionNotFoundError.create(sessionId)),
-        onSome: (session) =>
-          pipe(
-            progressFromPhase(session.phase),
-            Effect.mapError(() => SessionNotFoundError.create(sessionId)),
-            Effect.map((progress) => ({
-              sessionId,
-              phase: session.phase,
-              progress,
-              updatedAt: session.updatedAt,
-            }))
-          )
+    const evict = (chunkId: ChunkId): Effect.Effect<CacheStatus> =>
+      SynchronizedRef.modify(stateRef, (state) => {
+        const status = cacheStatusFallback(HashMap.get(state.cache, chunkId))
+        return [
+          status,
+          {
+            sessions: state.sessions,
+            cache: HashMap.remove(state.cache, chunkId),
+            metrics: state.metrics,
+          },
+        ] as const
       })
-    })
-
-  const metrics = (): Effect.Effect<PerformanceStats> =>
-    pipe(
-      SynchronizedRef.get(stateRef),
-      Effect.map((state) => metricsToStats(state.metrics))
-    )
-
-  const cacheStatus = (chunkId: ChunkId): Effect.Effect<CacheStatus> =>
-    pipe(
-      SynchronizedRef.get(stateRef),
-      Effect.map((state) => cacheStatusFallback(HashMap.get(state.cache, chunkId)))
-    )
-
-  const evict = (chunkId: ChunkId): Effect.Effect<CacheStatus> =>
-    SynchronizedRef.modify(stateRef, (state) => {
-      const status = cacheStatusFallback(HashMap.get(state.cache, chunkId))
-      return [
-        status,
-        {
-          sessions: state.sessions,
-          cache: HashMap.remove(state.cache, chunkId),
-          metrics: state.metrics,
-        },
-      ] as const
-    })
 
     return { enqueue, observe, metrics, cacheStatus, evict }
   })

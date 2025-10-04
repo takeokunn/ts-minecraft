@@ -4,7 +4,7 @@
  */
 
 import { Data, Schema } from 'effect'
-import { WorldId, ChunkPosition, DimensionId, Vector3D } from '../core/world_types'
+import { ChunkPosition, DimensionId, Vector3D, WorldId } from '../core/world_types'
 
 // === 基本エラー情報型 ===
 
@@ -22,10 +22,12 @@ export interface ErrorContext {
 
 export const ErrorContextSchema = Schema.Struct({
   timestamp: Schema.DateFromSelf,
-  worldId: Schema.optional(Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema))),
-  position: Schema.optional(Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema))),
-  chunkPosition: Schema.optional(Schema.suspend(() => import('../core/world_types').then(m => m.ChunkPositionSchema))),
-  dimensionId: Schema.optional(Schema.suspend(() => import('../core/world_types').then(m => m.DimensionIdSchema))),
+  worldId: Schema.optional(Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema))),
+  position: Schema.optional(Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema))),
+  chunkPosition: Schema.optional(
+    Schema.suspend(() => import('../core/world_types').then((m) => m.ChunkPositionSchema))
+  ),
+  dimensionId: Schema.optional(Schema.suspend(() => import('../core/world_types').then((m) => m.DimensionIdSchema))),
   operationId: Schema.optional(Schema.String),
   userId: Schema.optional(Schema.String),
   additionalData: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
@@ -50,7 +52,7 @@ export class WorldNotFoundError extends Data.TaggedError('WorldNotFoundError')<{
 }
 
 export const WorldNotFoundErrorSchema = Schema.TaggedStruct('WorldNotFoundError', {
-  worldId: Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema)),
+  worldId: Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema)),
   context: ErrorContextSchema,
   suggestedAction: Schema.optional(Schema.String),
 }).pipe(
@@ -73,7 +75,7 @@ export class WorldCreationError extends Data.TaggedError('WorldCreationError')<{
 }
 
 export const WorldCreationErrorSchema = Schema.TaggedStruct('WorldCreationError', {
-  worldId: Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema)),
+  worldId: Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema)),
   reason: Schema.String,
   context: ErrorContextSchema,
   cause: Schema.optional(Schema.Unknown),
@@ -98,7 +100,7 @@ export class WorldLoadError extends Data.TaggedError('WorldLoadError')<{
 }
 
 export const WorldLoadErrorSchema = Schema.TaggedStruct('WorldLoadError', {
-  worldId: Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema)),
+  worldId: Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema)),
   stage: Schema.Literal('initialization', 'chunk_loading', 'player_spawn', 'world_generation'),
   reason: Schema.String,
   context: ErrorContextSchema,
@@ -124,8 +126,8 @@ export class WorldSaveError extends Data.TaggedError('WorldSaveError')<{
 }
 
 export const WorldSaveErrorSchema = Schema.TaggedStruct('WorldSaveError', {
-  worldId: Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema)),
-  affectedChunks: Schema.Array(Schema.suspend(() => import('../core/world_types').then(m => m.ChunkPositionSchema))),
+  worldId: Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema)),
+  affectedChunks: Schema.Array(Schema.suspend(() => import('../core/world_types').then((m) => m.ChunkPositionSchema))),
   reason: Schema.String,
   context: ErrorContextSchema,
   dataLoss: Schema.Boolean,
@@ -151,12 +153,14 @@ export class InvalidCoordinateError extends Data.TaggedError('InvalidCoordinateE
 }
 
 export const InvalidCoordinateErrorSchema = Schema.TaggedStruct('InvalidCoordinateError', {
-  coordinate: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
+  coordinate: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
   reason: Schema.String,
-  validRange: Schema.optional(Schema.Struct({
-    min: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
-    max: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
-  })),
+  validRange: Schema.optional(
+    Schema.Struct({
+      min: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
+      max: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
+    })
+  ),
   context: ErrorContextSchema,
 }).pipe(
   Schema.annotations({
@@ -178,13 +182,13 @@ export class OutOfWorldBoundsError extends Data.TaggedError('OutOfWorldBoundsErr
 }
 
 export const OutOfWorldBoundsErrorSchema = Schema.TaggedStruct('OutOfWorldBoundsError', {
-  position: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
+  position: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
   worldBounds: Schema.Struct({
-    min: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
-    max: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
+    min: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
+    max: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
   }),
   context: ErrorContextSchema,
-  autoCorrect: Schema.optional(Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema))),
+  autoCorrect: Schema.optional(Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Out Of World Bounds Error',
@@ -204,8 +208,8 @@ export class OutOfChunkBoundsError extends Data.TaggedError('OutOfChunkBoundsErr
 }
 
 export const OutOfChunkBoundsErrorSchema = Schema.TaggedStruct('OutOfChunkBoundsError', {
-  position: Schema.suspend(() => import('../core/world_types').then(m => m.Vector3DSchema)),
-  chunkPosition: Schema.suspend(() => import('../core/world_types').then(m => m.ChunkPositionSchema)),
+  position: Schema.suspend(() => import('../core/world_types').then((m) => m.Vector3DSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/world_types').then((m) => m.ChunkPositionSchema)),
   context: ErrorContextSchema,
 }).pipe(
   Schema.annotations({
@@ -229,10 +233,12 @@ export class DimensionNotFoundError extends Data.TaggedError('DimensionNotFoundE
 }
 
 export const DimensionNotFoundErrorSchema = Schema.TaggedStruct('DimensionNotFoundError', {
-  dimensionId: Schema.suspend(() => import('../core/world_types').then(m => m.DimensionIdSchema)),
-  worldId: Schema.suspend(() => import('../core/world_types').then(m => m.WorldIdSchema)),
+  dimensionId: Schema.suspend(() => import('../core/world_types').then((m) => m.DimensionIdSchema)),
+  worldId: Schema.suspend(() => import('../core/world_types').then((m) => m.WorldIdSchema)),
   context: ErrorContextSchema,
-  availableDimensions: Schema.Array(Schema.suspend(() => import('../core/world_types').then(m => m.DimensionIdSchema))),
+  availableDimensions: Schema.Array(
+    Schema.suspend(() => import('../core/world_types').then((m) => m.DimensionIdSchema))
+  ),
 }).pipe(
   Schema.annotations({
     title: 'Dimension Not Found Error',
@@ -254,8 +260,8 @@ export class DimensionSwitchError extends Data.TaggedError('DimensionSwitchError
 }
 
 export const DimensionSwitchErrorSchema = Schema.TaggedStruct('DimensionSwitchError', {
-  fromDimension: Schema.suspend(() => import('../core/world_types').then(m => m.DimensionIdSchema)),
-  toDimension: Schema.suspend(() => import('../core/world_types').then(m => m.DimensionIdSchema)),
+  fromDimension: Schema.suspend(() => import('../core/world_types').then((m) => m.DimensionIdSchema)),
+  toDimension: Schema.suspend(() => import('../core/world_types').then((m) => m.DimensionIdSchema)),
   playerId: Schema.String,
   reason: Schema.String,
   context: ErrorContextSchema,
@@ -388,9 +394,7 @@ export const WorldDomainErrorSchema = Schema.Union(
 // === エラー作成ヘルパー関数 ===
 
 /** ErrorContext作成ヘルパー */
-export const createErrorContext = (
-  overrides: Partial<ErrorContext> = {}
-): ErrorContext => ({
+export const createErrorContext = (overrides: Partial<ErrorContext> = {}): ErrorContext => ({
   timestamp: new Date(),
   ...overrides,
 })

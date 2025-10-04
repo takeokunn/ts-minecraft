@@ -40,11 +40,26 @@ export type GrowthStageState =
 const describeStageType = (stage: number): GrowthStageType =>
   pipe(
     Match.value(stage),
-    Match.when((value) => value === DomainConstants.growthStage.min, () => 'seed' as const),
-    Match.when((value) => value <= 2, () => 'germination' as const),
-    Match.when((value) => value <= 6, () => 'seedling' as const),
-    Match.when((value) => value <= 10, () => 'growing' as const),
-    Match.when((value) => value <= 14, () => 'mature' as const),
+    Match.when(
+      (value) => value === DomainConstants.growthStage.min,
+      () => 'seed' as const
+    ),
+    Match.when(
+      (value) => value <= 2,
+      () => 'germination' as const
+    ),
+    Match.when(
+      (value) => value <= 6,
+      () => 'seedling' as const
+    ),
+    Match.when(
+      (value) => value <= 10,
+      () => 'growing' as const
+    ),
+    Match.when(
+      (value) => value <= 14,
+      () => 'mature' as const
+    ),
     Match.orElse(() => 'harvestable' as const)
   )
 
@@ -66,26 +81,37 @@ const describeStageState = (stage: number): GrowthStageState => {
   }
 }
 
-export const describeGrowthStage = (stage: GrowthStage): { readonly type: GrowthStageType; readonly state: GrowthStageState } => ({
+export const describeGrowthStage = (
+  stage: GrowthStage
+): { readonly type: GrowthStageType; readonly state: GrowthStageState } => ({
   type: describeStageType(stage),
-  state: describeStageState(stage)
+  state: describeStageState(stage),
 })
 
-export const advanceGrowthStage = (params: { readonly stage: GrowthStage; readonly steps: number }): Effect.Effect<GrowthStage, DomainError> =>
+export const advanceGrowthStage = (params: {
+  readonly stage: GrowthStage
+  readonly steps: number
+}): Effect.Effect<GrowthStage, DomainError> =>
   pipe(
     Number(params.stage) + Math.max(0, params.steps),
     (value) => Math.min(value, DomainConstants.growthStage.max),
     makeGrowthStage
   )
 
-export const adjustMoistureLevel = (params: { readonly level: MoistureLevel; readonly delta: number }): Effect.Effect<MoistureLevel, DomainError> =>
+export const adjustMoistureLevel = (params: {
+  readonly level: MoistureLevel
+  readonly delta: number
+}): Effect.Effect<MoistureLevel, DomainError> =>
   pipe(
     Number(params.level) + params.delta,
     (value) => Math.max(DomainConstants.moistureLevel.min, Math.min(DomainConstants.moistureLevel.max, value)),
     makeMoistureLevel
   )
 
-export const adjustSoilQuality = (params: { readonly quality: SoilQuality; readonly delta: number }): Effect.Effect<SoilQuality, DomainError> =>
+export const adjustSoilQuality = (params: {
+  readonly quality: SoilQuality
+  readonly delta: number
+}): Effect.Effect<SoilQuality, DomainError> =>
   pipe(
     Number(params.quality) + params.delta,
     (value) => Math.max(DomainConstants.soilQuality.min, Math.min(DomainConstants.soilQuality.max, value)),
@@ -105,10 +131,22 @@ export const HydrationState = Data.taggedEnum<HydrationState>()
 export const describeMoisture = (level: MoistureLevel): HydrationState =>
   pipe(
     Match.value(Number(level)),
-    Match.when((value) => value === 0, () => HydrationState.Parched({})),
-    Match.when((value) => value <= 2, () => HydrationState.Dry({})),
-    Match.when((value) => value <= 4, () => HydrationState.Balanced({})),
-    Match.when((value) => value <= 6, () => HydrationState.Moist({})),
+    Match.when(
+      (value) => value === 0,
+      () => HydrationState.Parched({})
+    ),
+    Match.when(
+      (value) => value <= 2,
+      () => HydrationState.Dry({})
+    ),
+    Match.when(
+      (value) => value <= 4,
+      () => HydrationState.Balanced({})
+    ),
+    Match.when(
+      (value) => value <= 6,
+      () => HydrationState.Moist({})
+    ),
     Match.orElse(() => HydrationState.Saturated({}))
   )
 
@@ -125,10 +163,22 @@ export const SoilCondition = Data.taggedEnum<SoilCondition>()
 export const describeSoil = (quality: SoilQuality): SoilCondition =>
   pipe(
     Match.value(Number(quality)),
-    Match.when((value) => value < 20, () => SoilCondition.Depleted({ severity: value / DomainConstants.soilQuality.max })),
-    Match.when((value) => value < 50, () => SoilCondition.Suboptimal({ severity: value / DomainConstants.soilQuality.max })),
-    Match.when((value) => value < 80, () => SoilCondition.Healthy({})),
-    Match.when((value) => value < 95, () => SoilCondition.Fertile({ bonus: value / DomainConstants.soilQuality.max })),
+    Match.when(
+      (value) => value < 20,
+      () => SoilCondition.Depleted({ severity: value / DomainConstants.soilQuality.max })
+    ),
+    Match.when(
+      (value) => value < 50,
+      () => SoilCondition.Suboptimal({ severity: value / DomainConstants.soilQuality.max })
+    ),
+    Match.when(
+      (value) => value < 80,
+      () => SoilCondition.Healthy({})
+    ),
+    Match.when(
+      (value) => value < 95,
+      () => SoilCondition.Fertile({ bonus: value / DomainConstants.soilQuality.max })
+    ),
     Match.orElse(() => SoilCondition.Exceptional({ bonus: 1 }))
   )
 
@@ -138,22 +188,44 @@ export type BreedingStats = {
   readonly harmony: number
 }
 
-export const makeBreedingStats = (input: { readonly fertility: number; readonly resilience: number; readonly harmony: number }): Effect.Effect<BreedingStats, DomainError> =>
+export const makeBreedingStats = (input: {
+  readonly fertility: number
+  readonly resilience: number
+  readonly harmony: number
+}): Effect.Effect<BreedingStats, DomainError> =>
   Effect.gen(function* () {
-    const fertility = yield* makeBoundedNumber({ field: 'fertility', range: DomainConstants.breedingFactor, value: input.fertility })
-    const resilience = yield* makeBoundedNumber({ field: 'resilience', range: DomainConstants.breedingFactor, value: input.resilience })
-    const harmony = yield* makeBoundedNumber({ field: 'harmony', range: DomainConstants.breedingFactor, value: input.harmony })
+    const fertility = yield* makeBoundedNumber({
+      field: 'fertility',
+      range: DomainConstants.breedingFactor,
+      value: input.fertility,
+    })
+    const resilience = yield* makeBoundedNumber({
+      field: 'resilience',
+      range: DomainConstants.breedingFactor,
+      value: input.resilience,
+    })
+    const harmony = yield* makeBoundedNumber({
+      field: 'harmony',
+      range: DomainConstants.breedingFactor,
+      value: input.harmony,
+    })
     return { fertility, resilience, harmony }
   })
 
-export const makeBreedingStatsEither = (input: { readonly fertility: number; readonly resilience: number; readonly harmony: number }) =>
-  Effect.runSync(Effect.either(makeBreedingStats(input)))
+export const makeBreedingStatsEither = (input: {
+  readonly fertility: number
+  readonly resilience: number
+  readonly harmony: number
+}) => Effect.runSync(Effect.either(makeBreedingStats(input)))
 
-export const mergeBreedingStats = (current: BreedingStats, partner: BreedingStats): Effect.Effect<BreedingStats, DomainError> =>
+export const mergeBreedingStats = (
+  current: BreedingStats,
+  partner: BreedingStats
+): Effect.Effect<BreedingStats, DomainError> =>
   makeBreedingStats({
     fertility: (current.fertility + partner.fertility) / 2,
     resilience: (current.resilience + partner.resilience) / 2,
-    harmony: (current.harmony + partner.harmony) / 2
+    harmony: (current.harmony + partner.harmony) / 2,
   })
 
 export type BreedingOutcome = Data.TaggedEnum<{
@@ -164,14 +236,19 @@ export type BreedingOutcome = Data.TaggedEnum<{
 
 export const BreedingOutcome = Data.taggedEnum<BreedingOutcome>()
 
-const breedingScore = (stats: BreedingStats): number =>
-  (stats.fertility + stats.resilience + stats.harmony) / 3
+const breedingScore = (stats: BreedingStats): number => (stats.fertility + stats.resilience + stats.harmony) / 3
 
 export const evaluateBreedingOutcome = (stats: BreedingStats): BreedingOutcome =>
   pipe(
     Match.value(breedingScore(stats)),
-    Match.when((score) => score >= 0.8, () => BreedingOutcome.Elite({ score })),
-    Match.when((score) => score >= 0.5, () => BreedingOutcome.Stable({ score })),
+    Match.when(
+      (score) => score >= 0.8,
+      () => BreedingOutcome.Elite({ score })
+    ),
+    Match.when(
+      (score) => score >= 0.5,
+      () => BreedingOutcome.Stable({ score })
+    ),
     Match.orElse(() => BreedingOutcome.Fragile({ score: breedingScore(stats) }))
   )
 
@@ -189,5 +266,5 @@ export const summarizeValueObjects = (
   stage: describeGrowthStage(stage),
   hydration: describeMoisture(moisture),
   soilCondition: describeSoil(soil),
-  outcome: evaluateBreedingOutcome(stats)
+  outcome: evaluateBreedingOutcome(stats),
 })

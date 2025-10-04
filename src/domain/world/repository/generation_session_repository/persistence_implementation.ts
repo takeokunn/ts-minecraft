@@ -6,41 +6,31 @@
  * セッション復旧・チェックポイント・履歴管理機能
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref, Schedule } from 'effect'
-import { Schema } from 'effect'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import type {
-  GenerationSessionId,
-  WorldId,
-  ChunkPosition,
-  GenerationSettings,
-} from '../../types'
+import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
+import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 import {
-  createRepositoryError,
-  createPersistenceError,
-  createGenerationSessionNotFoundError,
   createDataIntegrityError,
+  createGenerationSessionNotFoundError,
+  createPersistenceError,
+  createRepositoryError,
 } from '../types'
 import type {
-  GenerationSessionRepository,
-  GenerationSession,
-  SessionState,
-  GenerationProgress,
   ChunkGenerationTask,
+  GenerationProgress,
+  GenerationSession,
   GenerationSessionMetadata,
-  SessionQuery,
-  SessionStatistics,
-  SessionRecoveryInfo,
-  SessionBatchResult,
+  GenerationSessionRepository,
   GenerationSessionRepositoryConfig,
+  SessionBatchResult,
+  SessionQuery,
+  SessionRecoveryInfo,
+  SessionState,
+  SessionStatistics,
 } from './interface'
-import {
-  defaultGenerationSessionRepositoryConfig,
-  calculateProgress,
-  createDefaultSessionMetadata,
-} from './interface'
+import { createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './interface'
 
 // === Persistence Schema ===
 
@@ -100,17 +90,15 @@ const calculateChecksum = (data: string): string => {
   let hash = 0
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash
   }
   return hash.toString(16)
 }
 
-const compressData = (data: string): Effect.Effect<string, AllRepositoryErrors> =>
-  Effect.succeed(data) // Mock implementation
+const compressData = (data: string): Effect.Effect<string, AllRepositoryErrors> => Effect.succeed(data) // Mock implementation
 
-const decompressData = (data: string): Effect.Effect<string, AllRepositoryErrors> =>
-  Effect.succeed(data) // Mock implementation
+const decompressData = (data: string): Effect.Effect<string, AllRepositoryErrors> => Effect.succeed(data) // Mock implementation
 
 // === Persistence Implementation ===
 
@@ -146,11 +134,7 @@ const makeGenerationSessionRepositoryPersistence = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to create directory: ${dirPath}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to create directory: ${dirPath}`, 'filesystem', error))
         )
       )
 
@@ -182,29 +166,25 @@ const makeGenerationSessionRepositoryPersistence = (
             const actualChecksum = calculateChecksum(content)
 
             if (metadata.checksum !== actualChecksum) {
-              return yield* Effect.fail(createDataIntegrityError(
-                'Session data checksum mismatch - file may be corrupted',
-                ['checksum'],
-                metadata.checksum,
-                actualChecksum
-              ))
+              return yield* Effect.fail(
+                createDataIntegrityError(
+                  'Session data checksum mismatch - file may be corrupted',
+                  ['checksum'],
+                  metadata.checksum,
+                  actualChecksum
+                )
+              )
             }
           }
         }
 
-        const decompressed = config.enableCompression
-          ? yield* decompressData(content)
-          : content
+        const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
         const parsedData = JSON.parse(decompressed)
         return Schema.decodeUnknownSync(PersistenceSessionSchema)(parsedData)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to load sessions from file: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to load sessions from file: ${error}`, 'filesystem', error))
         )
       )
 
@@ -215,9 +195,7 @@ const makeGenerationSessionRepositoryPersistence = (
         const content = JSON.stringify(data, null, 2)
 
         // Compress if enabled
-        const compressedContent = config.enableCompression
-          ? yield* compressData(content)
-          : content
+        const compressedContent = config.enableCompression ? yield* compressData(content) : content
 
         // Calculate checksum
         if (config.enableChecksums) {
@@ -240,11 +218,7 @@ const makeGenerationSessionRepositoryPersistence = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to save sessions to file: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to save sessions to file: ${error}`, 'filesystem', error))
         )
       )
 
@@ -317,7 +291,9 @@ const makeGenerationSessionRepositoryPersistence = (
         return session
       })
 
-    const findById = (sessionId: GenerationSessionId): Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors> =>
+    const findById = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         // Check cache first
         const cache = yield* Ref.get(sessionCacheRef)
@@ -339,7 +315,9 @@ const makeGenerationSessionRepositoryPersistence = (
         return Option.none()
       })
 
-    const findManyByIds = (sessionIds: ReadonlyArray<GenerationSessionId>): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
+    const findManyByIds = (
+      sessionIds: ReadonlyArray<GenerationSessionId>
+    ): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const results: GenerationSession[] = []
         for (const id of sessionIds) {
@@ -355,7 +333,7 @@ const makeGenerationSessionRepositoryPersistence = (
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
         const sessions = Object.values(data.sessions) as GenerationSession[]
-        return sessions.filter(session => session.worldId === worldId)
+        return sessions.filter((session) => session.worldId === worldId)
       })
 
     const findByQuery = (query: SessionQuery): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
@@ -364,11 +342,11 @@ const makeGenerationSessionRepositoryPersistence = (
         let sessions = Object.values(data.sessions) as GenerationSession[]
 
         // Apply filters (same logic as memory implementation)
-        if (query.worldId) sessions = sessions.filter(s => s.worldId === query.worldId)
-        if (query.state) sessions = sessions.filter(s => s.state === query.state)
-        if (query.priority) sessions = sessions.filter(s => s.metadata.priority === query.priority)
-        if (query.createdAfter) sessions = sessions.filter(s => s.createdAt >= query.createdAfter!)
-        if (query.createdBefore) sessions = sessions.filter(s => s.createdAt <= query.createdBefore!)
+        if (query.worldId) sessions = sessions.filter((s) => s.worldId === query.worldId)
+        if (query.state) sessions = sessions.filter((s) => s.state === query.state)
+        if (query.priority) sessions = sessions.filter((s) => s.metadata.priority === query.priority)
+        if (query.createdAfter) sessions = sessions.filter((s) => s.createdAt >= query.createdAfter!)
+        if (query.createdBefore) sessions = sessions.filter((s) => s.createdAt <= query.createdBefore!)
 
         // Apply sorting and pagination
         if (query.sortBy) {
@@ -453,7 +431,9 @@ const makeGenerationSessionRepositoryPersistence = (
         yield* saveSessionsToFile(updatedData)
       })
 
-    const deleteSessions = (sessionIds: ReadonlyArray<GenerationSessionId>): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
+    const deleteSessions = (
+      sessionIds: ReadonlyArray<GenerationSessionId>
+    ): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const successful: GenerationSessionId[] = []
         const failed: { sessionId: GenerationSessionId; error: AllRepositoryErrors }[] = []
@@ -465,11 +445,7 @@ const makeGenerationSessionRepositoryPersistence = (
           } catch (error) {
             failed.push({
               sessionId,
-              error: createRepositoryError(
-                `Failed to delete session: ${error}`,
-                'deleteSessions',
-                error
-              ),
+              error: createRepositoryError(`Failed to delete session: ${error}`, 'deleteSessions', error),
             })
           }
         }
@@ -483,7 +459,10 @@ const makeGenerationSessionRepositoryPersistence = (
 
     // === Session State Management ===
 
-    const updateSessionState = (sessionId: GenerationSessionId, state: SessionState): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateSessionState = (
+      sessionId: GenerationSessionId,
+      state: SessionState
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
         if (Option.isNone(sessionOpt)) {
@@ -497,13 +476,17 @@ const makeGenerationSessionRepositoryPersistence = (
           state,
           lastActivityAt: now,
           startedAt: state === 'active' && !session.startedAt ? now : session.startedAt,
-          completedAt: (state === 'completed' || state === 'failed') && !session.completedAt ? now : session.completedAt,
+          completedAt:
+            (state === 'completed' || state === 'failed') && !session.completedAt ? now : session.completedAt,
         }
 
         yield* updateSession(updatedSession)
       })
 
-    const updateProgress = (sessionId: GenerationSessionId, progress: Partial<GenerationProgress>): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateProgress = (
+      sessionId: GenerationSessionId,
+      progress: Partial<GenerationProgress>
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
         if (Option.isNone(sessionOpt)) {
@@ -544,39 +527,33 @@ const makeGenerationSessionRepositoryPersistence = (
         }
 
         const content = JSON.stringify(checkpointData, null, 2)
-        const compressedContent = config.enableCompression
-          ? yield* compressData(content)
-          : content
+        const compressedContent = config.enableCompression ? yield* compressData(content) : content
 
         yield* fs.writeFileString(checkpointFile, compressedContent)
 
         return checkpointId
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to create checkpoint: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to create checkpoint: ${error}`, 'filesystem', error))
         )
       )
 
-    const restoreFromCheckpoint = (sessionId: GenerationSessionId, checkpointId: string): Effect.Effect<void, AllRepositoryErrors> =>
+    const restoreFromCheckpoint = (
+      sessionId: GenerationSessionId,
+      checkpointId: string
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const checkpointFile = path.join(checkpointPath, `${sessionId}-${checkpointId}.json`)
         const exists = yield* fs.exists(checkpointFile)
 
         if (!exists) {
-          return yield* Effect.fail(createRepositoryError(
-            `Checkpoint not found: ${checkpointId}`,
-            'restoreFromCheckpoint'
-          ))
+          return yield* Effect.fail(
+            createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')
+          )
         }
 
         const content = yield* fs.readFileString(checkpointFile)
-        const decompressed = config.enableCompression
-          ? yield* decompressData(content)
-          : content
+        const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
         const checkpointData = JSON.parse(decompressed)
         const restoredSession: GenerationSession = {
@@ -587,20 +564,21 @@ const makeGenerationSessionRepositoryPersistence = (
         yield* updateSession(restoredSession)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to restore from checkpoint: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to restore from checkpoint: ${error}`, 'filesystem', error))
         )
       )
 
-    const listCheckpoints = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<{
-      readonly id: string
-      readonly createdAt: Date
-      readonly size: number
-      readonly chunkCount: number
-    }>, AllRepositoryErrors> =>
+    const listCheckpoints = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<
+      ReadonlyArray<{
+        readonly id: string
+        readonly createdAt: Date
+        readonly size: number
+        readonly chunkCount: number
+      }>,
+      AllRepositoryErrors
+    > =>
       Effect.gen(function* () {
         const pattern = `${sessionId}-checkpoint-*.json`
         // Mock implementation - in production would use glob pattern matching
@@ -615,19 +593,21 @@ const makeGenerationSessionRepositoryPersistence = (
         const sessions = Object.values(data.sessions) as GenerationSession[]
 
         const totalSessions = sessions.length
-        const activeSessions = sessions.filter(s => s.state === 'active').length
-        const completedSessions = sessions.filter(s => s.state === 'completed').length
-        const failedSessions = sessions.filter(s => s.state === 'failed').length
+        const activeSessions = sessions.filter((s) => s.state === 'active').length
+        const completedSessions = sessions.filter((s) => s.state === 'completed').length
+        const failedSessions = sessions.filter((s) => s.state === 'failed').length
 
-        const completedSessionsWithTiming = sessions.filter(s =>
-          s.state === 'completed' && s.startedAt && s.completedAt
+        const completedSessionsWithTiming = sessions.filter(
+          (s) => s.state === 'completed' && s.startedAt && s.completedAt
         )
 
-        const averageCompletionTime = completedSessionsWithTiming.length > 0
-          ? completedSessionsWithTiming.reduce((sum, s) =>
-              sum + (s.completedAt!.getTime() - s.startedAt!.getTime()), 0
-            ) / completedSessionsWithTiming.length
-          : 0
+        const averageCompletionTime =
+          completedSessionsWithTiming.length > 0
+            ? completedSessionsWithTiming.reduce(
+                (sum, s) => sum + (s.completedAt!.getTime() - s.startedAt!.getTime()),
+                0
+              ) / completedSessionsWithTiming.length
+            : 0
 
         const totalChunksGenerated = sessions.reduce((sum, s) => sum + s.progress.completedChunks, 0)
         const failureRate = totalSessions > 0 ? failedSessions / totalSessions : 0
@@ -665,7 +645,11 @@ const makeGenerationSessionRepositoryPersistence = (
 
     // Initialize with empty implementations for other methods
     const addChunkTask = (sessionId: GenerationSessionId, task: ChunkGenerationTask) => Effect.void
-    const updateChunkTask = (sessionId: GenerationSessionId, position: ChunkPosition, update: Partial<ChunkGenerationTask>) => Effect.void
+    const updateChunkTask = (
+      sessionId: GenerationSessionId,
+      position: ChunkPosition,
+      update: Partial<ChunkGenerationTask>
+    ) => Effect.void
     const getCompletedChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
     const getFailedChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
     const getPendingChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
@@ -675,11 +659,12 @@ const makeGenerationSessionRepositoryPersistence = (
     const archiveCompletedSessions = (olderThan: Date) => Effect.succeed(0)
     const cleanupOldCheckpoints = (sessionId: GenerationSessionId, keepCount?: number) => Effect.succeed(0)
     const findOrphanedSessions = () => Effect.succeed([])
-    const healthCheck = (sessionId: GenerationSessionId) => Effect.succeed({
-      isHealthy: true,
-      issues: [],
-      recommendations: [],
-    })
+    const healthCheck = (sessionId: GenerationSessionId) =>
+      Effect.succeed({
+        isHealthy: true,
+        issues: [],
+        recommendations: [],
+      })
 
     const initialize = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
@@ -689,8 +674,8 @@ const makeGenerationSessionRepositoryPersistence = (
 
         // Load initial data to cache
         const data = yield* loadSessionsFromFile()
-        const sessions = Object.entries(data.sessions).map(([id, session]) =>
-          [id, session as GenerationSession] as const
+        const sessions = Object.entries(data.sessions).map(
+          ([id, session]) => [id, session as GenerationSession] as const
         )
         yield* Ref.set(sessionCacheRef, new Map(sessions))
       })
@@ -700,11 +685,14 @@ const makeGenerationSessionRepositoryPersistence = (
         yield* Ref.set(sessionCacheRef, new Map())
       })
 
-    const validateIntegrity = (): Effect.Effect<{
-      readonly isValid: boolean
-      readonly errors: ReadonlyArray<string>
-      readonly warnings: ReadonlyArray<string>
-    }, AllRepositoryErrors> =>
+    const validateIntegrity = (): Effect.Effect<
+      {
+        readonly isValid: boolean
+        readonly errors: ReadonlyArray<string>
+        readonly warnings: ReadonlyArray<string>
+      },
+      AllRepositoryErrors
+    > =>
       Effect.succeed({
         isValid: true,
         errors: [],
@@ -763,7 +751,4 @@ export const GenerationSessionRepositoryPersistence = Layer.effect(
  * Configurable Generation Session Repository Persistence Implementation Layer
  */
 export const GenerationSessionRepositoryPersistenceWith = (config: SessionPersistenceConfig) =>
-  Layer.effect(
-    GenerationSessionRepository,
-    makeGenerationSessionRepositoryPersistence(config)
-  )
+  Layer.effect(GenerationSessionRepository, makeGenerationSessionRepositoryPersistence(config))

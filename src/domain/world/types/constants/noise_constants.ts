@@ -364,9 +364,7 @@ export const ValidSeedSchema = Schema.Number.pipe(
 )
 
 /** ノイズ演算タイプ検証スキーマ */
-export const ValidNoiseOperationSchema = Schema.Literal(
-  ...Object.values(NOISE_OPERATIONS)
-).pipe(
+export const ValidNoiseOperationSchema = Schema.Literal(...Object.values(NOISE_OPERATIONS)).pipe(
   Schema.annotations({
     title: 'Valid Noise Operation',
     description: 'A valid noise operation type',

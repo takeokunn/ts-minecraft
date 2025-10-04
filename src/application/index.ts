@@ -1,12 +1,12 @@
-export { GameApplication } from './GameApplication'
-export { GameApplicationLive } from './GameApplicationLive'
 export { mergeConfig } from './config'
 export type { GameApplicationConfigPatch, GameApplicationConfigPatchInput } from './config'
+export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'
+export { GameApplication } from './game-application'
+export { GameApplicationLive } from './game-application-live'
+export * from './inventory'
 export { guardLifecycleTransition, permittedTargets } from './lifecycle'
 export { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, tickState, withStartTime } from './state'
 export { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
-export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'
-export * from './inventory'
 
 export type {
   ApplicationLifecycleState,

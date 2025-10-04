@@ -6,12 +6,12 @@
  * Effect-TSによる関数型プログラミング実装
  */
 
-import { Context, Effect, pipe } from 'effect'
-import type { InventoryCommand, InventoryQuery } from '../../types/commands'
-import type { QueryResult } from '../../types/queries'
-import type { InventoryId, PlayerId } from '../../types/core'
+import { Context, Effect } from 'effect'
 import type { Inventory } from '../../aggregate/inventory/types'
 import type { ItemStack } from '../../aggregate/item_stack/types'
+import type { InventoryCommand, InventoryQuery } from '../../types/commands'
+import type { InventoryId, PlayerId } from '../../types/core'
+import type { QueryResult } from '../../types/queries'
 import type { InventoryApplicationError } from '../types/errors'
 
 /**
@@ -29,9 +29,7 @@ export interface InventoryManagerApplicationService {
    * @param command - 実行するコマンド
    * @returns コマンド実行結果
    */
-  readonly executeCommand: (
-    command: InventoryCommand
-  ) => Effect.Effect<void, InventoryApplicationError>
+  readonly executeCommand: (command: InventoryCommand) => Effect.Effect<void, InventoryApplicationError>
 
   /**
    * インベントリクエリを実行します
@@ -123,9 +121,7 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns インベントリ
    */
-  readonly getInventory: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<Inventory, InventoryApplicationError>
+  readonly getInventory: (inventoryId: InventoryId) => Effect.Effect<Inventory, InventoryApplicationError>
 
   /**
    * プレイヤーのインベントリを取得します
@@ -133,9 +129,7 @@ export interface InventoryManagerApplicationService {
    * @param playerId - プレイヤーID
    * @returns プレイヤーのインベントリ
    */
-  readonly getPlayerInventory: (
-    playerId: PlayerId
-  ) => Effect.Effect<Inventory, InventoryApplicationError>
+  readonly getPlayerInventory: (playerId: PlayerId) => Effect.Effect<Inventory, InventoryApplicationError>
 
   /**
    * インベントリ内のアイテム数をカウントします
@@ -144,10 +138,7 @@ export interface InventoryManagerApplicationService {
    * @param itemId - アイテムID（オプション、省略時は全アイテム）
    * @returns アイテム数
    */
-  readonly countItems: (
-    inventoryId: InventoryId,
-    itemId?: string
-  ) => Effect.Effect<number, InventoryApplicationError>
+  readonly countItems: (inventoryId: InventoryId, itemId?: string) => Effect.Effect<number, InventoryApplicationError>
 
   /**
    * インベントリ内のアイテムを検索します
@@ -164,10 +155,13 @@ export interface InventoryManagerApplicationService {
       readonly maxQuantity?: number
       readonly hasMetadata?: boolean
     }
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly slotIndex: number
-    readonly itemStack: ItemStack
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly slotIndex: number
+      readonly itemStack: ItemStack
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * インベントリ内の空きスロットを検索します
@@ -187,16 +181,17 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns インベントリ統計
    */
-  readonly getInventoryStats: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<{
-    readonly totalSlots: number
-    readonly usedSlots: number
-    readonly emptySlots: number
-    readonly totalItems: number
-    readonly uniqueItemTypes: number
-    readonly utilizationPercentage: number
-  }, InventoryApplicationError>
+  readonly getInventoryStats: (inventoryId: InventoryId) => Effect.Effect<
+    {
+      readonly totalSlots: number
+      readonly usedSlots: number
+      readonly emptySlots: number
+      readonly totalItems: number
+      readonly uniqueItemTypes: number
+      readonly utilizationPercentage: number
+    },
+    InventoryApplicationError
+  >
 
   /**
    * 複数のインベントリ操作をバッチ処理します
@@ -214,13 +209,14 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns 検証結果
    */
-  readonly verifyIntegrity: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<{
-    readonly isValid: boolean
-    readonly errors: ReadonlyArray<string>
-    readonly warnings: ReadonlyArray<string>
-  }, InventoryApplicationError>
+  readonly verifyIntegrity: (inventoryId: InventoryId) => Effect.Effect<
+    {
+      readonly isValid: boolean
+      readonly errors: ReadonlyArray<string>
+      readonly warnings: ReadonlyArray<string>
+    },
+    InventoryApplicationError
+  >
 
   /**
    * インベントリをロックします
@@ -229,10 +225,7 @@ export interface InventoryManagerApplicationService {
    * @param reason - ロック理由
    * @returns ロック処理の結果
    */
-  readonly lockInventory: (
-    inventoryId: InventoryId,
-    reason: string
-  ) => Effect.Effect<void, InventoryApplicationError>
+  readonly lockInventory: (inventoryId: InventoryId, reason: string) => Effect.Effect<void, InventoryApplicationError>
 
   /**
    * インベントリのロックを解除します
@@ -240,9 +233,7 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns アンロック処理の結果
    */
-  readonly unlockInventory: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<void, InventoryApplicationError>
+  readonly unlockInventory: (inventoryId: InventoryId) => Effect.Effect<void, InventoryApplicationError>
 
   /**
    * インベントリを同期します
@@ -250,9 +241,7 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns 同期処理の結果
    */
-  readonly syncInventory: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<void, InventoryApplicationError>
+  readonly syncInventory: (inventoryId: InventoryId) => Effect.Effect<void, InventoryApplicationError>
 
   /**
    * パフォーマンス最適化を実行します
@@ -260,16 +249,17 @@ export interface InventoryManagerApplicationService {
    * @param targetMetrics - 目標パフォーマンス指標
    * @returns 最適化結果
    */
-  readonly optimizePerformance: (
-    targetMetrics: {
-      readonly maxCommandExecutionTime: number
-      readonly maxQueryExecutionTime: number
-      readonly maxMemoryUsage: number
-    }
-  ) => Effect.Effect<{
-    readonly optimizationsApplied: ReadonlyArray<string>
-    readonly performanceImprovement: number
-  }, InventoryApplicationError>
+  readonly optimizePerformance: (targetMetrics: {
+    readonly maxCommandExecutionTime: number
+    readonly maxQueryExecutionTime: number
+    readonly maxMemoryUsage: number
+  }) => Effect.Effect<
+    {
+      readonly optimizationsApplied: ReadonlyArray<string>
+      readonly performanceImprovement: number
+    },
+    InventoryApplicationError
+  >
 
   /**
    * デバッグ情報を取得します
@@ -277,18 +267,19 @@ export interface InventoryManagerApplicationService {
    * @param inventoryId - インベントリID
    * @returns デバッグ情報
    */
-  readonly getDebugInfo: (
-    inventoryId: InventoryId
-  ) => Effect.Effect<{
-    readonly inventoryState: Inventory
-    readonly recentCommands: ReadonlyArray<InventoryCommand>
-    readonly recentQueries: ReadonlyArray<InventoryQuery>
-    readonly performanceMetrics: {
-      readonly averageCommandTime: number
-      readonly averageQueryTime: number
-      readonly memoryUsage: number
-    }
-  }, InventoryApplicationError>
+  readonly getDebugInfo: (inventoryId: InventoryId) => Effect.Effect<
+    {
+      readonly inventoryState: Inventory
+      readonly recentCommands: ReadonlyArray<InventoryCommand>
+      readonly recentQueries: ReadonlyArray<InventoryQuery>
+      readonly performanceMetrics: {
+        readonly averageCommandTime: number
+        readonly averageQueryTime: number
+        readonly memoryUsage: number
+      }
+    },
+    InventoryApplicationError
+  >
 }
 
 /**

@@ -1,14 +1,5 @@
 import { Schema } from '@effect/schema'
-import {
-  Array,
-  Clock,
-  Effect,
-  HashSet,
-  Match,
-  Option,
-  Record,
-  pipe,
-} from 'effect'
+import { Array, Clock, Effect, HashSet, Match, Option, Record, pipe } from 'effect'
 import {
   CraftingGrid,
   CraftingItemStack,
@@ -17,6 +8,7 @@ import {
   ItemMatcher,
   ItemTag,
   ItemTagSchema,
+  PatternMismatchError,
   RecipeId,
   RecipePatternKey,
   RecipeValidationIssue,
@@ -24,7 +16,6 @@ import {
   ShapelessRecipe,
   slotAt,
 } from '../types'
-import { PatternMismatchError } from '../types'
 
 /**
  * ### ブランド値オブジェクト
@@ -118,9 +109,7 @@ export const createRecipeAggregate = (
 /**
  * ### レシピ構造検証
  */
-export const validateRecipeStructure = (
-  recipe: CraftingRecipe
-): Effect.Effect<void, InvalidRecipeError> => {
+export const validateRecipeStructure = (recipe: CraftingRecipe): Effect.Effect<void, InvalidRecipeError> => {
   const issues = collectRecipeIssues(recipe)
   return Effect.if(Effect.succeed(Array.isEmptyReadonlyArray(issues)), {
     onTrue: () => Effect.void,
@@ -142,9 +131,7 @@ export interface RecipeValidationReport {
   readonly issues: ReadonlyArray<RecipeValidationIssue>
 }
 
-export const validateRecipe = (
-  recipe: CraftingRecipe
-): Effect.Effect<RecipeValidationReport, never> =>
+export const validateRecipe = (recipe: CraftingRecipe): Effect.Effect<RecipeValidationReport, never> =>
   pipe(
     collectRecipeIssues(recipe),
     (issues) => ({
@@ -196,10 +183,7 @@ export const updateSuccessRate = (
     }))
   )
 
-export const addTag = (
-  aggregate: RecipeAggregate,
-  tag: ItemTag
-): Effect.Effect<RecipeAggregate, never> =>
+export const addTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effect<RecipeAggregate, never> =>
   Effect.if(Effect.succeed(Array.contains(tag)(aggregate.metadata.tags)), {
     onTrue: () => Effect.succeed(aggregate),
     onFalse: () =>
@@ -215,10 +199,7 @@ export const addTag = (
       ),
   })
 
-export const removeTag = (
-  aggregate: RecipeAggregate,
-  tag: ItemTag
-): Effect.Effect<RecipeAggregate, never> =>
+export const removeTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effect<RecipeAggregate, never> =>
   Effect.if(Effect.succeed(Array.contains(tag)(aggregate.metadata.tags)), {
     onTrue: () =>
       pipe(
@@ -383,9 +364,7 @@ const collectShapedRecipeIssues = (recipe: ShapedRecipe): ReadonlyArray<RecipeVa
     Array.groupBy(recipe.ingredients, (ingredient) => ingredient.key),
     Record.toEntries,
     Array.filterMap(([key, group]) =>
-      group.length <= 1
-        ? Option.none()
-        : Option.some(issue('duplicate ingredient key detected', ['ingredients', key]))
+      group.length <= 1 ? Option.none() : Option.some(issue('duplicate ingredient key detected', ['ingredients', key]))
     )
   )
 
@@ -395,9 +374,7 @@ const collectShapedRecipeIssues = (recipe: ShapedRecipe): ReadonlyArray<RecipeVa
   )
 }
 
-const collectShapelessRecipeIssues = (
-  recipe: ShapelessRecipe
-): ReadonlyArray<RecipeValidationIssue> =>
+const collectShapelessRecipeIssues = (recipe: ShapelessRecipe): ReadonlyArray<RecipeValidationIssue> =>
   pipe(
     Array.groupBy(recipe.ingredients, (matcher) =>
       matcher._tag === 'exact' ? matcher.item.itemId : `tag:${matcher.tag}`
@@ -475,7 +452,9 @@ export const matchShapedRecipe = (recipe: ShapedRecipe, grid: CraftingGrid): boo
 export const matchShapelessRecipe = (recipe: ShapelessRecipe, grid: CraftingGrid): boolean => {
   const stacks = pipe(
     grid.slots,
-    Array.filterMap((slot) => (slot._tag === 'OccupiedSlot' ? Option.some(slot.stack) : Option.none<CraftingItemStack>()))
+    Array.filterMap((slot) =>
+      slot._tag === 'OccupiedSlot' ? Option.some(slot.stack) : Option.none<CraftingItemStack>()
+    )
   )
 
   return pipe(
@@ -508,11 +487,7 @@ const removeFirstMatching = <A>(
     (state) => (state.removed ? Option.some({ rest: state.acc }) : Option.none())
   )
 
-const matchesIngredientByKey = (
-  recipe: ShapedRecipe,
-  key: RecipePatternKey,
-  stack: CraftingItemStack
-): boolean =>
+const matchesIngredientByKey = (recipe: ShapedRecipe, key: RecipePatternKey, stack: CraftingItemStack): boolean =>
   pipe(
     recipe.ingredients,
     Array.findFirst((ingredient) => ingredient.key === key),

@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Option, Random, Schema, pipe } from 'effect'
 import { ParseResult } from '@effect/schema/ParseResult'
+import { Context, Effect, Layer, Random, Schema, pipe } from 'effect'
 import {
   CraftingDifficulty,
   CraftingDifficultySchema,

@@ -5,17 +5,15 @@
  * 分散トランザクション・デッドロック検出・2フェーズコミット対応
  */
 
-import { Context, Effect, Layer, Ref } from 'effect'
-import { TransactionManagerApplicationService } from './service'
-import { makeTransactionWorkflows } from './workflows'
-import type { InventoryService } from '../../service'
+import { Effect, Layer, Ref } from 'effect'
 import type { TransferService } from '../../domain_service/transfer_service/service'
 import type { ValidationService } from '../../domain_service/validation_service/service'
-import type { InventoryRepository } from '../../repository/inventory_repository/interface'
 import type { ContainerRepository } from '../../repository/container_repository/interface'
-import type { InventoryId, ContainerId, PlayerId, ItemId } from '../../types/core'
-import type { ItemStack } from '../../aggregate/item_stack/types'
+import type { InventoryRepository } from '../../repository/inventory_repository/interface'
+import type { InventoryService } from '../../service'
 import type { InventoryApplicationError } from '../types/errors'
+import { TransactionManagerApplicationService } from './service'
+import { makeTransactionWorkflows } from './workflows'
 
 /**
  * TransactionManagerApplicationService Live実装
@@ -38,11 +36,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
     const containerRepository = yield* ContainerRepository
 
     // ワークフロー初期化
-    const workflows = makeTransactionWorkflows(
-      inventoryService,
-      transferService,
-      validationService
-    )
+    const workflows = makeTransactionWorkflows(inventoryService, transferService, validationService)
 
     // トランザクション状態管理
     const transactionStates = yield* Ref.make<Map<string, any>>(new Map())
@@ -51,7 +45,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
       totalTransactions: 0,
       successfulTransactions: 0,
       failedTransactions: 0,
-      averageLatency: 0
+      averageLatency: 0,
     })
 
     yield* Effect.logInfo('TransactionManagerApplicationService initialized with advanced features')
@@ -63,7 +57,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
           yield* Effect.logInfo('Executing atomic transfers', {
             transactionId: txId,
-            transferCount: transfers.length
+            transferCount: transfers.length,
           })
 
           const startTime = Date.now()
@@ -95,13 +89,13 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
               yield* Effect.logInfo('Atomic transfers completed successfully', {
                 transactionId: txId,
-                completedTransfers
+                completedTransfers,
               })
 
               return {
                 transactionId: txId,
                 completedTransfers,
-                totalTransfers: transfers.length
+                totalTransfers: transfers.length,
               }
             } finally {
               // ロック解放
@@ -113,7 +107,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
             yield* Effect.logError('Atomic transfers failed', {
               transactionId: txId,
-              error: String(error)
+              error: String(error),
             })
 
             throw error
@@ -124,7 +118,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* Effect.logInfo('Executing crafting transaction', {
             playerId: craftingOperation.playerId,
-            recipeId: craftingOperation.recipeId
+            recipeId: craftingOperation.recipeId,
           })
 
           const startTime = Date.now()
@@ -140,7 +134,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           yield* Effect.logInfo('Executing trade transaction', {
             tradeId: tradeOperation.tradeId,
             player1Id: tradeOperation.player1Id,
-            player2Id: tradeOperation.player2Id
+            player2Id: tradeOperation.player2Id,
           })
 
           const startTime = Date.now()
@@ -156,7 +150,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           yield* Effect.logInfo('Executing bulk distribution', {
             sourceInventoryId: distributionOperation.sourceInventoryId,
             targetCount: distributionOperation.targetInventories.length,
-            itemCount: distributionOperation.itemsToDistribute.length
+            itemCount: distributionOperation.itemsToDistribute.length,
           })
 
           const startTime = Date.now()
@@ -172,7 +166,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           yield* Effect.logInfo('Executing inventory merge', {
             sourceCount: mergeOperation.sourceInventories.length,
             targetInventoryId: mergeOperation.targetInventoryId,
-            strategy: mergeOperation.mergeStrategy
+            strategy: mergeOperation.mergeStrategy,
           })
 
           const startTime = Date.now()
@@ -188,7 +182,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           yield* Effect.logInfo('Executing auto refill', {
             targetInventoryId: refillOperation.targetInventoryId,
             sourceCount: refillOperation.sourceInventories.length,
-            ruleCount: refillOperation.refillRules.length
+            ruleCount: refillOperation.refillRules.length,
           })
 
           const startTime = Date.now()
@@ -207,11 +201,13 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const transactionState = states.get(transactionId)
 
           if (!transactionState) {
-            return yield* Effect.fail(new InventoryApplicationError({
-              _tag: 'TRANSACTION_NOT_FOUND',
-              message: 'Transaction not found',
-              transactionId
-            }))
+            return yield* Effect.fail(
+              new InventoryApplicationError({
+                _tag: 'TRANSACTION_NOT_FOUND',
+                message: 'Transaction not found',
+                transactionId,
+              })
+            )
           }
 
           return transactionState
@@ -225,18 +221,17 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const transactionState = states.get(transactionId)
 
           if (!transactionState) {
-            return yield* Effect.fail(new InventoryApplicationError({
-              _tag: 'TRANSACTION_NOT_FOUND',
-              message: 'Transaction not found for rollback',
-              transactionId
-            }))
+            return yield* Effect.fail(
+              new InventoryApplicationError({
+                _tag: 'TRANSACTION_NOT_FOUND',
+                message: 'Transaction not found for rollback',
+                transactionId,
+              })
+            )
           }
 
           // ロールバック操作実行
-          const rollbackResults = yield* executeTransactionRollback(
-            transactionState,
-            reason
-          )
+          const rollbackResults = yield* executeTransactionRollback(transactionState, reason)
 
           // トランザクション状態更新
           yield* Ref.update(transactionStates, (states) => {
@@ -244,14 +239,14 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
               ...transactionState,
               status: 'rolled_back' as const,
               rollbackReason: reason,
-              endTime: new Date()
+              endTime: new Date(),
             }
             return new Map(states).set(transactionId, updatedState)
           })
 
           yield* Effect.logInfo('Transaction rollback completed', {
             transactionId,
-            rollbackOperations: rollbackResults.restoredOperations.length
+            rollbackOperations: rollbackResults.restoredOperations.length,
           })
 
           return rollbackResults
@@ -269,12 +264,12 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
               deadlocksDetected: 0,
               deadlocksResolved: 0,
               affectedTransactions: [],
-              resolutionStrategy: 'none'
+              resolutionStrategy: 'none',
             }
           }
 
           yield* Effect.logWarning('Deadlocks detected', {
-            deadlockCount: deadlocks.length
+            deadlockCount: deadlocks.length,
           })
 
           // デッドロック解決戦略実行
@@ -282,14 +277,14 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
           yield* Effect.logInfo('Deadlock resolution completed', {
             resolvedCount: resolutionResult.resolvedCount,
-            strategy: resolutionResult.strategy
+            strategy: resolutionResult.strategy,
           })
 
           return {
             deadlocksDetected: deadlocks.length,
             deadlocksResolved: resolutionResult.resolvedCount,
             affectedTransactions: resolutionResult.affectedTransactions,
-            resolutionStrategy: resolutionResult.strategy
+            resolutionStrategy: resolutionResult.strategy,
           }
         }),
 
@@ -308,7 +303,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
       handleTransactionTimeouts: (timeoutThreshold) =>
         Effect.gen(function* () {
           yield* Effect.logInfo('Handling transaction timeouts', {
-            timeoutThreshold
+            timeoutThreshold,
           })
 
           const states = yield* Ref.get(transactionStates)
@@ -341,20 +336,20 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           yield* Effect.logInfo('Transaction timeout handling completed', {
             timedOutCount: timedOutTransactions.length,
             autoRolledBackCount: automaticallyRolledBack.length,
-            manualInterventionCount: manualInterventionRequired.length
+            manualInterventionCount: manualInterventionRequired.length,
           })
 
           return {
             timedOutTransactions,
             automaticallyRolledBack,
-            manualInterventionRequired
+            manualInterventionRequired,
           }
         }),
 
       archiveTransactionLogs: (archiveThreshold) =>
         Effect.gen(function* () {
           yield* Effect.logInfo('Starting transaction log archival', {
-            archiveThreshold
+            archiveThreshold,
           })
 
           // 実装では実際のログアーカイブ処理
@@ -362,7 +357,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
           yield* Effect.logInfo('Transaction log archival completed', {
             archivedCount: archiveResult.archivedTransactions,
-            compressionRatio: archiveResult.compressionRatio
+            compressionRatio: archiveResult.compressionRatio,
           })
 
           return archiveResult
@@ -372,7 +367,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* Effect.logInfo('Executing distributed transaction', {
             coordinatorNode: distributedOperation.coordinatorNode,
-            participantCount: distributedOperation.participantNodes.length
+            participantCount: distributedOperation.participantNodes.length,
           })
 
           // 2フェーズコミットプロトコル実装
@@ -380,7 +375,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
           yield* Effect.logInfo('Distributed transaction completed', {
             transactionId: result.transactionId,
-            result: result.overallResult
+            result: result.overallResult,
           })
 
           return result
@@ -390,14 +385,14 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* Effect.logInfo('Managing transaction priorities', {
             highPriorityPlayerCount: priorityConfig.highPriorityPlayers.length,
-            lockTimeout: priorityConfig.resourceLockTimeout
+            lockTimeout: priorityConfig.resourceLockTimeout,
           })
 
           const managementResult = yield* executePriorityManagement(priorityConfig)
 
           yield* Effect.logInfo('Priority management completed', {
             activeTransactions: managementResult.activeTransactions,
-            priorityAdjustments: managementResult.priorityAdjustments
+            priorityAdjustments: managementResult.priorityAdjustments,
           })
 
           return managementResult
@@ -410,14 +405,13 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const debugInfo = yield* collectTransactionDebugInfo(transactionId)
 
           return debugInfo
-        })
+        }),
     })
   })
 )
 
 // ヘルパー関数群
-const generateTransactionId = (): Effect.Effect<string, never> =>
-  Effect.sync(() => `tx-${crypto.randomUUID()}`)
+const generateTransactionId = (): Effect.Effect<string, never> => Effect.sync(() => `tx-${crypto.randomUUID()}`)
 
 const validateAtomicTransferPreconditions = (
   transfers: ReadonlyArray<any>
@@ -425,7 +419,7 @@ const validateAtomicTransferPreconditions = (
   Effect.gen(function* () {
     // 前提条件チェック（インベントリ存在、権限、容量等）
     yield* Effect.logDebug('Validating atomic transfer preconditions', {
-      transferCount: transfers.length
+      transferCount: transfers.length,
     })
 
     // 実装では詳細なバリデーション
@@ -438,27 +432,23 @@ const acquireTransferLocks = (
   Effect.gen(function* () {
     yield* Effect.logDebug('Acquiring transfer locks', {
       transactionId,
-      transferCount: transfers.length
+      transferCount: transfers.length,
     })
 
     // 実装では実際のロック獲得
     return []
   })
 
-const releaseLocks = (
-  lockIds: string[]
-): Effect.Effect<void, InventoryApplicationError> =>
+const releaseLocks = (lockIds: string[]): Effect.Effect<void, InventoryApplicationError> =>
   Effect.gen(function* () {
     yield* Effect.logDebug('Releasing locks', {
-      lockCount: lockIds.length
+      lockCount: lockIds.length,
     })
 
     // 実装では実際のロック解放
   })
 
-const updateSuccessMetrics = (
-  startTime: number
-): Effect.Effect<void, never> =>
+const updateSuccessMetrics = (startTime: number): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const endTime = Date.now()
     const latency = endTime - startTime
@@ -467,9 +457,7 @@ const updateSuccessMetrics = (
     yield* Effect.logDebug('Updated success metrics', { latency })
   })
 
-const updateFailureMetrics = (
-  startTime: number
-): Effect.Effect<void, never> =>
+const updateFailureMetrics = (startTime: number): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const endTime = Date.now()
     const latency = endTime - startTime
@@ -481,20 +469,23 @@ const updateFailureMetrics = (
 const executeTransactionRollback = (
   transactionState: any,
   reason: string
-): Effect.Effect<{
-  readonly transactionId: string
-  readonly rollbackCompleted: boolean
-  readonly restoredOperations: ReadonlyArray<{
-    readonly operationType: string
-    readonly operationId: string
-    readonly restored: boolean
-  }>
-  readonly rollbackErrors: ReadonlyArray<string>
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly transactionId: string
+    readonly rollbackCompleted: boolean
+    readonly restoredOperations: ReadonlyArray<{
+      readonly operationType: string
+      readonly operationId: string
+      readonly restored: boolean
+    }>
+    readonly rollbackErrors: ReadonlyArray<string>
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     yield* Effect.logInfo('Executing transaction rollback', {
       transactionId: transactionState.transactionId,
-      reason
+      reason,
     })
 
     // 実装では実際のロールバック処理
@@ -502,16 +493,14 @@ const executeTransactionRollback = (
       transactionId: transactionState.transactionId,
       rollbackCompleted: true,
       restoredOperations: [],
-      rollbackErrors: []
+      rollbackErrors: [],
     }
   })
 
-const detectDeadlocks = (
-  locks: Map<string, any>
-): Effect.Effect<any[], InventoryApplicationError> =>
+const detectDeadlocks = (locks: Map<string, any>): Effect.Effect<any[], InventoryApplicationError> =>
   Effect.gen(function* () {
     yield* Effect.logDebug('Detecting deadlocks', {
-      lockCount: locks.size
+      lockCount: locks.size,
     })
 
     // 実装では実際のデッドロック検出アルゴリズム
@@ -520,28 +509,28 @@ const detectDeadlocks = (
 
 const resolveDeadlocks = (
   deadlocks: any[]
-): Effect.Effect<{
-  readonly resolvedCount: number
-  readonly strategy: string
-  readonly affectedTransactions: string[]
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly resolvedCount: number
+    readonly strategy: string
+    readonly affectedTransactions: string[]
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     yield* Effect.logInfo('Resolving deadlocks', {
-      deadlockCount: deadlocks.length
+      deadlockCount: deadlocks.length,
     })
 
     // 実装では実際のデッドロック解決
     return {
       resolvedCount: deadlocks.length,
       strategy: 'youngest_first',
-      affectedTransactions: []
+      affectedTransactions: [],
     }
   })
 
-const calculateEnhancedMetrics = (
-  basicMetrics: any,
-  timeRange?: any
-): Effect.Effect<any, InventoryApplicationError> =>
+const calculateEnhancedMetrics = (basicMetrics: any, timeRange?: any): Effect.Effect<any, InventoryApplicationError> =>
   Effect.gen(function* () {
     // 実装では詳細な統計計算
     return {
@@ -555,14 +544,12 @@ const calculateEnhancedMetrics = (
         throughputPerSecond: 10,
         averageLatency: basicMetrics.averageLatency,
         p95Latency: basicMetrics.averageLatency * 1.5,
-        p99Latency: basicMetrics.averageLatency * 2
-      }
+        p99Latency: basicMetrics.averageLatency * 2,
+      },
     }
   })
 
-const canAutomaticallyRollback = (
-  transactionState: any
-): Effect.Effect<boolean, InventoryApplicationError> =>
+const canAutomaticallyRollback = (transactionState: any): Effect.Effect<boolean, InventoryApplicationError> =>
   Effect.succeed(true)
 
 const executeAutomaticRollback = (
@@ -576,44 +563,50 @@ const executeAutomaticRollback = (
 
 const performLogArchival = (
   archiveThreshold: number
-): Effect.Effect<{
-  readonly archivedTransactions: number
-  readonly compressedLogSize: number
-  readonly archiveLocation: string
-  readonly compressionRatio: number
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly archivedTransactions: number
+    readonly compressedLogSize: number
+    readonly archiveLocation: string
+    readonly compressionRatio: number
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     // 実装では実際のログアーカイブ処理
     return {
       archivedTransactions: 100,
       compressedLogSize: 1024 * 1024,
       archiveLocation: '/archive/transactions',
-      compressionRatio: 0.3
+      compressionRatio: 0.3,
     }
   })
 
 const executeTwoPhaseCommit = (
   distributedOperation: any
-): Effect.Effect<{
-  readonly transactionId: string
-  readonly phase1Results: ReadonlyArray<{
-    readonly nodeId: string
-    readonly prepared: boolean
-    readonly error?: string
-  }>
-  readonly phase2Results: ReadonlyArray<{
-    readonly nodeId: string
-    readonly committed: boolean
-    readonly error?: string
-  }>
-  readonly overallResult: 'committed' | 'aborted'
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly transactionId: string
+    readonly phase1Results: ReadonlyArray<{
+      readonly nodeId: string
+      readonly prepared: boolean
+      readonly error?: string
+    }>
+    readonly phase2Results: ReadonlyArray<{
+      readonly nodeId: string
+      readonly committed: boolean
+      readonly error?: string
+    }>
+    readonly overallResult: 'committed' | 'aborted'
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     const transactionId = yield* generateTransactionId()
 
     yield* Effect.logInfo('Starting two-phase commit', {
       transactionId,
-      coordinatorNode: distributedOperation.coordinatorNode
+      coordinatorNode: distributedOperation.coordinatorNode,
     })
 
     // 実装では実際の2PCプロトコル
@@ -621,50 +614,56 @@ const executeTwoPhaseCommit = (
       transactionId,
       phase1Results: [],
       phase2Results: [],
-      overallResult: 'committed' as const
+      overallResult: 'committed' as const,
     }
   })
 
 const executePriorityManagement = (
   priorityConfig: any
-): Effect.Effect<{
-  readonly activeTransactions: number
-  readonly priorityAdjustments: number
-  readonly resourceContentions: number
-  readonly averageWaitTime: number
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly activeTransactions: number
+    readonly priorityAdjustments: number
+    readonly resourceContentions: number
+    readonly averageWaitTime: number
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     // 実装では実際の優先度管理
     return {
       activeTransactions: 50,
       priorityAdjustments: 5,
       resourceContentions: 2,
-      averageWaitTime: 100
+      averageWaitTime: 100,
     }
   })
 
 const collectTransactionDebugInfo = (
   transactionId: string
-): Effect.Effect<{
-  readonly transactionState: any
-  readonly lockHierarchy: ReadonlyArray<{
-    readonly resourceId: string
-    readonly lockType: 'read' | 'write'
-    readonly acquiredAt: Date
-    readonly holdingTransaction: string
-  }>
-  readonly dependencyGraph: ReadonlyArray<{
-    readonly fromTransaction: string
-    readonly toTransaction: string
-    readonly waitingFor: string
-  }>
-  readonly performanceProfile: {
-    readonly cpuTime: number
-    readonly memoryUsage: number
-    readonly networkCalls: number
-    readonly diskOperations: number
-  }
-}, InventoryApplicationError> =>
+): Effect.Effect<
+  {
+    readonly transactionState: any
+    readonly lockHierarchy: ReadonlyArray<{
+      readonly resourceId: string
+      readonly lockType: 'read' | 'write'
+      readonly acquiredAt: Date
+      readonly holdingTransaction: string
+    }>
+    readonly dependencyGraph: ReadonlyArray<{
+      readonly fromTransaction: string
+      readonly toTransaction: string
+      readonly waitingFor: string
+    }>
+    readonly performanceProfile: {
+      readonly cpuTime: number
+      readonly memoryUsage: number
+      readonly networkCalls: number
+      readonly diskOperations: number
+    }
+  },
+  InventoryApplicationError
+> =>
   Effect.gen(function* () {
     // 実装では実際のデバッグ情報収集
     return {
@@ -675,7 +674,7 @@ const collectTransactionDebugInfo = (
         cpuTime: 50,
         memoryUsage: 1024,
         networkCalls: 5,
-        diskOperations: 2
-      }
+        diskOperations: 2,
+      },
     }
   })

@@ -1,9 +1,9 @@
-import { pipe } from 'effect/Function'
 import * as Array from 'effect/Array'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as Schema from 'effect/Schema'
+import { pipe } from 'effect/Function'
 import type { ParseError } from 'effect/ParseResult'
+import * as Schema from 'effect/Schema'
 
 // =============================================================================
 // Brand Schemas
@@ -72,7 +72,10 @@ export type BlockIdentityError = Data.TaggedEnum<{
   BlockIdInvalid: { readonly input: string; readonly issues: ParseError }
   BlockNameInvalid: { readonly input: string; readonly issues: ParseError }
   BlockTagInvalid: { readonly input: string; readonly issues: ParseError }
-  BlockPositionInvalid: { readonly input: { readonly x: number; readonly y: number; readonly z: number }; readonly issues: ParseError }
+  BlockPositionInvalid: {
+    readonly input: { readonly x: number; readonly y: number; readonly z: number }
+    readonly issues: ParseError
+  }
 }>
 
 export const BlockIdentityError = Data.taggedEnum<BlockIdentityError>()
@@ -81,10 +84,8 @@ export const BlockIdentityError = Data.taggedEnum<BlockIdentityError>()
 // Constructors
 // =============================================================================
 
-const decodeWith = <A>(
-  schema: Schema.Schema<A, string>,
-  toError: (issues: ParseError, input: string) => BlockIdentityError
-) =>
+const decodeWith =
+  <A>(schema: Schema.Schema<A, string>, toError: (issues: ParseError, input: string) => BlockIdentityError) =>
   (input: string) =>
     pipe(
       Schema.decode(schema)(input),
@@ -103,9 +104,7 @@ export const makeBlockTag = decodeWith(BlockTagSchema, (issues, input) =>
   BlockIdentityError.BlockTagInvalid({ input, issues })
 )
 
-export const makeBlockPosition = (
-  input: { readonly x: number; readonly y: number; readonly z: number }
-) =>
+export const makeBlockPosition = (input: { readonly x: number; readonly y: number; readonly z: number }) =>
   pipe(
     Schema.decode(BlockPositionSchema)(input),
     Effect.mapError((issues) => BlockIdentityError.BlockPositionInvalid({ input, issues }))
@@ -135,13 +134,11 @@ export type BlockIdentity = {
   readonly tags: ReadonlyArray<BlockTag>
 }
 
-export const assembleIdentity = (
-  input: {
-    readonly id: string
-    readonly name: string
-    readonly tags?: Iterable<string>
-  }
-) =>
+export const assembleIdentity = (input: {
+  readonly id: string
+  readonly name: string
+  readonly tags?: Iterable<string>
+}) =>
   Effect.gen(function* () {
     const id = yield* makeBlockId(input.id)
     const name = yield* makeBlockName(input.name)

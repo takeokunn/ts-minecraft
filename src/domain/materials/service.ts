@@ -1,15 +1,5 @@
 import { Context, Duration, Effect, Option } from 'effect'
-import type {
-  BlockId,
-  BurnTime,
-  FortuneLevel,
-  ItemId,
-  ItemStack,
-  Material,
-  MaterialError,
-  MaterialEvent,
-  Tool,
-} from './types'
+import type { BlockId, BurnTime, ItemId, ItemStack, Material, MaterialError, MaterialEvent, Tool } from './types'
 
 export interface MaterialService {
   readonly getMaterial: (blockId: BlockId) => Effect.Effect<Material, MaterialError>

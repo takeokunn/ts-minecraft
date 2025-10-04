@@ -5,10 +5,9 @@
  * ベジェ曲線・スプライン補間による滑らかな変化制御
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 正規化時間Brand型（0.0から1.0）
@@ -41,7 +40,7 @@ export const NormalizedTimeSchema = Schema.Number.pipe(
     identifier: 'NormalizedTime',
     title: 'Normalized Time',
     description: 'Time parameter normalized to 0.0-1.0 range',
-    examples: [0.0, 0.25, 0.5, 0.75, 1.0]
+    examples: [0.0, 0.25, 0.5, 0.75, 1.0],
   })
 )
 
@@ -56,7 +55,7 @@ export const ControlPointValueSchema = Schema.Number.pipe(
     identifier: 'ControlPointValue',
     title: 'Control Point Value',
     description: 'Value at curve control point (-10.0 to 10.0)',
-    examples: [-2.0, -1.0, 0.0, 1.0, 2.0]
+    examples: [-2.0, -1.0, 0.0, 1.0, 2.0],
   })
 )
 
@@ -71,7 +70,7 @@ export const CurveTensionSchema = Schema.Number.pipe(
     identifier: 'CurveTension',
     title: 'Curve Tension',
     description: 'Tension parameter for curve interpolation (0.0 to 1.0)',
-    examples: [0.0, 0.25, 0.5, 0.75, 1.0]
+    examples: [0.0, 0.25, 0.5, 0.75, 1.0],
   })
 )
 
@@ -86,7 +85,7 @@ export const SmoothingStrengthSchema = Schema.Number.pipe(
     identifier: 'SmoothingStrength',
     title: 'Smoothing Strength',
     description: 'Strength of curve smoothing (0.0 = no smoothing, 1.0 = maximum)',
-    examples: [0.0, 0.2, 0.5, 0.8, 1.0]
+    examples: [0.0, 0.2, 0.5, 0.8, 1.0],
   })
 )
 
@@ -94,23 +93,23 @@ export const SmoothingStrengthSchema = Schema.Number.pipe(
  * カーブタイプ
  */
 export const CurveTypeSchema = Schema.Literal(
-  'linear',           // 線形補間
-  'bezier',           // ベジェ曲線
-  'hermite',          // エルミート補間
-  'catmull_rom',      // Catmull-Rom スプライン
-  'b_spline',         // Bスプライン
-  'nurbs',            // NURBS
-  'polynomial',       // 多項式補間
-  'exponential',      // 指数関数
-  'logarithmic',      // 対数関数
-  'trigonometric',    // 三角関数
-  'gaussian',         // ガウシアン
-  'sigmoid',          // シグモイド
-  'custom'            // カスタム関数
+  'linear', // 線形補間
+  'bezier', // ベジェ曲線
+  'hermite', // エルミート補間
+  'catmull_rom', // Catmull-Rom スプライン
+  'b_spline', // Bスプライン
+  'nurbs', // NURBS
+  'polynomial', // 多項式補間
+  'exponential', // 指数関数
+  'logarithmic', // 対数関数
+  'trigonometric', // 三角関数
+  'gaussian', // ガウシアン
+  'sigmoid', // シグモイド
+  'custom' // カスタム関数
 ).pipe(
   Schema.annotations({
     title: 'Curve Type',
-    description: 'Type of mathematical curve for amplitude interpolation'
+    description: 'Type of mathematical curve for amplitude interpolation',
   })
 )
 
@@ -143,17 +142,17 @@ export const ControlPointSchema = Schema.Struct({
     outMagnitude: Schema.Number.pipe(
       Schema.nonNegative(),
       Schema.annotations({ description: 'Outgoing tangent magnitude' })
-    ).pipe(Schema.optional)
+    ).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 制御点属性
   locked: Schema.Boolean.pipe(Schema.optional),
-  weight: Schema.Number.pipe(Schema.between(0.0, 1.0)).pipe(Schema.optional)
+  weight: Schema.Number.pipe(Schema.between(0.0, 1.0)).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'ControlPoint',
     title: 'Curve Control Point',
-    description: 'Single control point defining curve shape'
+    description: 'Single control point defining curve shape',
   })
 )
 
@@ -182,20 +181,20 @@ export const CurveSegmentSchema = Schema.Struct({
       Schema.int(),
       Schema.between(2, 1000),
       Schema.annotations({ description: 'Number of interpolation points' })
-    ).pipe(Schema.optional)
+    ).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 最適化設定
   optimization: Schema.Struct({
     enabled: Schema.Boolean,
     tolerance: Schema.Number.pipe(Schema.positive()),
-    maxIterations: Schema.Number.pipe(Schema.int(), Schema.positive())
-  }).pipe(Schema.optional)
+    maxIterations: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'CurveSegment',
     title: 'Amplitude Curve Segment',
-    description: 'Individual segment of amplitude curve between two control points'
+    description: 'Individual segment of amplitude curve between two control points',
   })
 )
 
@@ -236,55 +235,59 @@ export const AmplitudeCurveSchema = Schema.Struct({
     // 範囲設定
     inputRange: Schema.Struct({
       min: Schema.Number,
-      max: Schema.Number
+      max: Schema.Number,
     }),
     outputRange: Schema.Struct({
       min: ControlPointValueSchema,
-      max: ControlPointValueSchema
+      max: ControlPointValueSchema,
     }),
 
     // スムージング
     smoothing: Schema.Struct({
       enabled: Schema.Boolean,
       strength: SmoothingStrengthSchema,
-      iterations: Schema.Number.pipe(Schema.int(), Schema.between(1, 10))
+      iterations: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
     }).pipe(Schema.optional),
 
     // 正規化
     normalization: Schema.Struct({
       enabled: Schema.Boolean,
       method: Schema.Literal('min_max', 'z_score', 'unit_vector'),
-      preserveShape: Schema.Boolean
-    }).pipe(Schema.optional)
+      preserveShape: Schema.Boolean,
+    }).pipe(Schema.optional),
   }),
 
   // 動的制御
   animation: Schema.Struct({
     enabled: Schema.Boolean,
-    keyframes: Schema.Array(Schema.Struct({
-      time: Schema.Number.pipe(Schema.nonNegative()),
-      curve: Schema.Array(ControlPointSchema),
-      easing: Schema.Literal('linear', 'ease_in', 'ease_out', 'ease_in_out')
-    })),
+    keyframes: Schema.Array(
+      Schema.Struct({
+        time: Schema.Number.pipe(Schema.nonNegative()),
+        curve: Schema.Array(ControlPointSchema),
+        easing: Schema.Literal('linear', 'ease_in', 'ease_out', 'ease_in_out'),
+      })
+    ),
     looping: Schema.Boolean,
-    duration: Schema.Number.pipe(Schema.positive())
+    duration: Schema.Number.pipe(Schema.positive()),
   }).pipe(Schema.optional),
 
   // 条件付き変調
   modulation: Schema.Struct({
     enabled: Schema.Boolean,
-    modulators: Schema.Array(Schema.Struct({
-      parameter: Schema.String,
-      influence: Schema.Number.pipe(Schema.between(0.0, 1.0)),
-      mapping: Schema.Literal('linear', 'exponential', 'logarithmic', 'custom')
-    }))
+    modulators: Schema.Array(
+      Schema.Struct({
+        parameter: Schema.String,
+        influence: Schema.Number.pipe(Schema.between(0.0, 1.0)),
+        mapping: Schema.Literal('linear', 'exponential', 'logarithmic', 'custom'),
+      })
+    ),
   }).pipe(Schema.optional),
 
   // パフォーマンス設定
   performance: Schema.Struct({
     cacheEnabled: Schema.Boolean,
     precalculateSteps: Schema.Number.pipe(Schema.int(), Schema.positive()).pipe(Schema.optional),
-    approximationLevel: Schema.Literal('none', 'low', 'medium', 'high').pipe(Schema.optional)
+    approximationLevel: Schema.Literal('none', 'low', 'medium', 'high').pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 解析・デバッグ
@@ -292,13 +295,13 @@ export const AmplitudeCurveSchema = Schema.Struct({
     enabled: Schema.Boolean,
     outputStatistics: Schema.Boolean,
     visualize: Schema.Boolean,
-    exportPoints: Schema.Boolean
-  }).pipe(Schema.optional)
+    exportPoints: Schema.Boolean,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'AmplitudeCurve',
     title: 'Complete Amplitude Curve Configuration',
-    description: 'Comprehensive amplitude curve with mathematical interpolation'
+    description: 'Comprehensive amplitude curve with mathematical interpolation',
   })
 )
 
@@ -308,17 +311,21 @@ export type AmplitudeCurve = typeof AmplitudeCurveSchema.Type
  * 振幅カーブ作成パラメータ
  */
 export const CreateAmplitudeCurveParamsSchema = Schema.Struct({
-  preset: Schema.Literal('linear', 'exponential', 'logarithmic', 'bell', 'sawtooth', 'square', 'custom').pipe(Schema.optional),
+  preset: Schema.Literal('linear', 'exponential', 'logarithmic', 'bell', 'sawtooth', 'square', 'custom').pipe(
+    Schema.optional
+  ),
   pointCount: Schema.Number.pipe(Schema.int(), Schema.between(2, 50)).pipe(Schema.optional),
   curveType: CurveTypeSchema.pipe(Schema.optional),
   valueRange: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }).pipe(Schema.optional),
-  customPoints: Schema.Array(Schema.Struct({
-    time: Schema.Number,
-    value: Schema.Number
-  })).pipe(Schema.optional)
+  customPoints: Schema.Array(
+    Schema.Struct({
+      time: Schema.Number,
+      value: Schema.Number,
+    })
+  ).pipe(Schema.optional),
 })
 
 export type CreateAmplitudeCurveParams = typeof CreateAmplitudeCurveParamsSchema.Type
@@ -333,27 +340,27 @@ export const AmplitudeCurveErrorSchema = taggedUnion('_tag', [
     time: Schema.Number,
     value: Schema.Number,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('CurveDiscontinuity'),
     segmentIndex: Schema.Number,
     discontinuityType: Schema.Literal('position', 'tangent', 'curvature'),
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InterpolationError'),
     curveType: CurveTypeSchema,
     error: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InsufficientControlPoints'),
     required: Schema.Number,
     provided: Schema.Number,
     curveType: CurveTypeSchema,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type AmplitudeCurveError = typeof AmplitudeCurveErrorSchema.Type
@@ -366,8 +373,8 @@ export const AMPLITUDE_CURVE_PRESETS = {
     description: 'Simple linear amplitude progression',
     points: [
       { time: 0.0, value: 0.0 },
-      { time: 1.0, value: 1.0 }
-    ]
+      { time: 1.0, value: 1.0 },
+    ],
   },
   EXPONENTIAL: {
     description: 'Exponential growth curve',
@@ -376,8 +383,8 @@ export const AMPLITUDE_CURVE_PRESETS = {
       { time: 0.25, value: 0.0625 },
       { time: 0.5, value: 0.25 },
       { time: 0.75, value: 0.5625 },
-      { time: 1.0, value: 1.0 }
-    ]
+      { time: 1.0, value: 1.0 },
+    ],
   },
   BELL: {
     description: 'Bell-shaped amplitude curve',
@@ -386,8 +393,8 @@ export const AMPLITUDE_CURVE_PRESETS = {
       { time: 0.25, value: 0.5 },
       { time: 0.5, value: 1.0 },
       { time: 0.75, value: 0.5 },
-      { time: 1.0, value: 0.0 }
-    ]
+      { time: 1.0, value: 0.0 },
+    ],
   },
   SAWTOOTH: {
     description: 'Sawtooth wave pattern',
@@ -395,8 +402,8 @@ export const AMPLITUDE_CURVE_PRESETS = {
       { time: 0.0, value: 0.0 },
       { time: 0.5, value: 1.0 },
       { time: 0.51, value: 0.0 },
-      { time: 1.0, value: 1.0 }
-    ]
+      { time: 1.0, value: 1.0 },
+    ],
   },
   TERRAIN_FALLOFF: {
     description: 'Natural terrain amplitude falloff',
@@ -405,9 +412,9 @@ export const AMPLITUDE_CURVE_PRESETS = {
       { time: 0.3, value: 0.8 },
       { time: 0.6, value: 0.4 },
       { time: 0.8, value: 0.1 },
-      { time: 1.0, value: 0.0 }
-    ]
-  }
+      { time: 1.0, value: 0.0 },
+    ],
+  },
 } as const
 
 /**
@@ -418,5 +425,5 @@ export const TERRAIN_AMPLITUDE_MAPPING = {
   DETAIL_INTENSITY: 'Controls fine detail amplitude',
   EROSION_PATTERN: 'Controls erosion effect intensity',
   VEGETATION_DENSITY: 'Controls vegetation amplitude variation',
-  MOISTURE_GRADIENT: 'Controls moisture level variation'
+  MOISTURE_GRADIENT: 'Controls moisture level variation',
 } as const

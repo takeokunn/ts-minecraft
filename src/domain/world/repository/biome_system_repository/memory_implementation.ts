@@ -7,36 +7,21 @@
  */
 
 import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type {
-  BiomeId,
-  BiomeDefinition,
-  ClimateData,
-  WorldCoordinate,
-} from '../../types'
+import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createBiomeNotFoundError,
-  createBiomeSpatialIndexError,
-} from '../types'
+import { createBiomeSpatialIndexError, createRepositoryError } from '../types'
 import type {
-  BiomeSystemRepository,
-  SpatialCoordinate,
-  SpatialBounds,
   BiomePlacement,
-  SpatialQueryResult,
-  ClimateGrid,
-  BiomeQuery,
-  SpatialQuery,
   BiomeStatistics,
+  BiomeSystemRepository,
   BiomeSystemRepositoryConfig,
+  ClimateGrid,
+  SpatialBounds,
+  SpatialCoordinate,
+  SpatialQuery,
+  SpatialQueryResult,
 } from './interface'
-import {
-  defaultBiomeSystemRepositoryConfig,
-  coordinateToKey,
-  calculateDistance,
-  coordinateInBounds,
-} from './interface'
+import { calculateDistance, coordinateInBounds, coordinateToKey, defaultBiomeSystemRepositoryConfig } from './interface'
 
 // === QuadTree Implementation ===
 
@@ -90,8 +75,8 @@ class QuadTree {
 
   private splitNode(node: QuadTreeNode, depth: number): void {
     const { bounds } = node
-    const midX = (bounds.minX + bounds.maxX) / 2 as WorldCoordinate
-    const midZ = (bounds.minZ + bounds.maxZ) / 2 as WorldCoordinate
+    const midX = ((bounds.minX + bounds.maxX) / 2) as WorldCoordinate
+    const midZ = ((bounds.minZ + bounds.maxZ) / 2) as WorldCoordinate
 
     const children: [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode] = [
       // NW
@@ -224,26 +209,20 @@ const makeBiomeSystemRepositoryMemory = (
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to save biome definition: ${error}`,
-            'saveBiomeDefinition',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to save biome definition: ${error}`, 'saveBiomeDefinition', error))
         )
       )
 
-    const findBiomeDefinition = (biomeId: BiomeId): Effect.Effect<Option.Option<BiomeDefinition>, AllRepositoryErrors> =>
+    const findBiomeDefinition = (
+      biomeId: BiomeId
+    ): Effect.Effect<Option.Option<BiomeDefinition>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const biome = storage.biomeDefinitions.get(biomeId)
         return biome ? Option.some(biome) : Option.none()
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find biome definition: ${error}`,
-            'findBiomeDefinition',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find biome definition: ${error}`, 'findBiomeDefinition', error))
         )
       )
 
@@ -258,7 +237,11 @@ const makeBiomeSystemRepositoryMemory = (
     const placeBiome = (placement: BiomePlacement): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         yield* Ref.update(storageRef, (storage) => {
-          const newIndex = new QuadTree(worldBounds, config.spatialIndex.maxDepth, config.spatialIndex.maxEntriesPerNode)
+          const newIndex = new QuadTree(
+            worldBounds,
+            config.spatialIndex.maxDepth,
+            config.spatialIndex.maxEntriesPerNode
+          )
 
           // Copy existing placements
           const existingPlacements = storage.spatialIndex.query(worldBounds)
@@ -289,12 +272,9 @@ const makeBiomeSystemRepositoryMemory = (
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createBiomeSpatialIndexError(
-            'quadtree',
-            'insert',
-            placement.coordinate,
-            `Failed to place biome: ${error}`
-          ))
+          Effect.fail(
+            createBiomeSpatialIndexError('quadtree', 'insert', placement.coordinate, `Failed to place biome: ${error}`)
+          )
         )
       )
 
@@ -348,20 +328,18 @@ const makeBiomeSystemRepositoryMemory = (
         return Option.none()
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to get biome at coordinate: ${error}`,
-            'getBiomeAt',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to get biome at coordinate: ${error}`, 'getBiomeAt', error))
         )
       )
 
-    const getBiomesInBounds = (bounds: SpatialBounds): Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors> =>
+    const getBiomesInBounds = (
+      bounds: SpatialBounds
+    ): Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const placements = storage.spatialIndex.query(bounds)
 
-        const results: SpatialQueryResult[] = placements.map(placement => ({
+        const results: SpatialQueryResult[] = placements.map((placement) => ({
           biomeId: placement.biomeId,
           coordinate: placement.coordinate,
           distance: 0, // Distance from bounds center could be calculated
@@ -371,15 +349,14 @@ const makeBiomeSystemRepositoryMemory = (
         return results
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to get biomes in bounds: ${error}`,
-            'getBiomesInBounds',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to get biomes in bounds: ${error}`, 'getBiomesInBounds', error))
         )
       )
 
-    const findBiomesInRadius = (center: SpatialCoordinate, radius: number): Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors> =>
+    const findBiomesInRadius = (
+      center: SpatialCoordinate,
+      radius: number
+    ): Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const bounds: SpatialBounds = {
           minX: (center.x - radius) as WorldCoordinate,
@@ -391,18 +368,23 @@ const makeBiomeSystemRepositoryMemory = (
         const biomes = yield* getBiomesInBounds(bounds)
 
         // Filter by actual distance
-        const results = biomes.filter(biome => {
-          const distance = calculateDistance(center, biome.coordinate)
-          return distance <= radius
-        }).map(biome => ({
-          ...biome,
-          distance: calculateDistance(center, biome.coordinate),
-        }))
+        const results = biomes
+          .filter((biome) => {
+            const distance = calculateDistance(center, biome.coordinate)
+            return distance <= radius
+          })
+          .map((biome) => ({
+            ...biome,
+            distance: calculateDistance(center, biome.coordinate),
+          }))
 
         return results.sort((a, b) => a.distance - b.distance)
       })
 
-    const findNearestBiome = (coordinate: SpatialCoordinate, biomeType?: BiomeId): Effect.Effect<Option.Option<SpatialQueryResult>, AllRepositoryErrors> =>
+    const findNearestBiome = (
+      coordinate: SpatialCoordinate,
+      biomeType?: BiomeId
+    ): Effect.Effect<Option.Option<SpatialQueryResult>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const nearest = storage.spatialIndex.findNearestBiome(coordinate)
@@ -430,83 +412,90 @@ const makeBiomeSystemRepositoryMemory = (
     const createClimateGrid = (bounds: SpatialBounds, resolution: number) => Effect.succeed({} as ClimateGrid)
     const setClimateTransition = (transition: any) => Effect.void
     const rebuildSpatialIndex = () => Effect.void
-    const getIndexStatistics = () => Effect.succeed({
-      totalEntries: 0,
-      indexDepth: 0,
-      leafNodes: 0,
-      averageEntriesPerNode: 0,
-      spatialCoverage: worldBounds,
-    })
+    const getIndexStatistics = () =>
+      Effect.succeed({
+        totalEntries: 0,
+        indexDepth: 0,
+        leafNodes: 0,
+        averageEntriesPerNode: 0,
+        spatialCoverage: worldBounds,
+      })
     const optimizeIndex = () => Effect.succeed({ beforeNodes: 0, afterNodes: 0, improvementRatio: 1.0 })
     const updateBiomeCache = (coordinate: SpatialCoordinate, biomeId: BiomeId, ttl?: number) => Effect.void
     const clearCache = (bounds?: SpatialBounds) => Effect.void
 
-    const getCacheStatistics = () => Effect.gen(function* () {
-      const storage = yield* Ref.get(storageRef)
-      const { hits, misses, evictions } = storage.cache.statistics
-      const total = hits + misses
+    const getCacheStatistics = () =>
+      Effect.gen(function* () {
+        const storage = yield* Ref.get(storageRef)
+        const { hits, misses, evictions } = storage.cache.statistics
+        const total = hits + misses
 
-      return {
-        hitRate: total > 0 ? hits / total : 0,
-        missRate: total > 0 ? misses / total : 0,
-        size: storage.cache.biomeCache.size,
-        maxSize: config.cache.maxSize,
-        evictionCount: evictions,
-        averageAccessTime: 0,
-      }
-    })
+        return {
+          hitRate: total > 0 ? hits / total : 0,
+          missRate: total > 0 ? misses / total : 0,
+          size: storage.cache.biomeCache.size,
+          maxSize: config.cache.maxSize,
+          evictionCount: evictions,
+          averageAccessTime: 0,
+        }
+      })
 
     const warmupCache = (bounds: SpatialBounds) => Effect.void
-    const placeBiomes = (placements: ReadonlyArray<BiomePlacement>) => Effect.succeed({
-      successful: placements.length,
-      failed: 0,
-      errors: [],
-    })
+    const placeBiomes = (placements: ReadonlyArray<BiomePlacement>) =>
+      Effect.succeed({
+        successful: placements.length,
+        failed: 0,
+        errors: [],
+      })
     const updateBiomesInBounds = (bounds: SpatialBounds, biomeId: BiomeId) => Effect.succeed(0)
     const clearBiomesInBounds = (bounds: SpatialBounds) => Effect.succeed(0)
 
-    const getStatistics = (bounds?: SpatialBounds) => Effect.gen(function* () {
-      const storage = yield* Ref.get(storageRef)
-      const biomes = Array.from(storage.biomeDefinitions.values())
+    const getStatistics = (bounds?: SpatialBounds) =>
+      Effect.gen(function* () {
+        const storage = yield* Ref.get(storageRef)
+        const biomes = Array.from(storage.biomeDefinitions.values())
 
-      return {
-        totalBiomes: biomes.length,
-        uniqueBiomeTypes: biomes.length,
-        coverage: {},
-        dominantBiome: biomes[0]?.id || 'plains' as BiomeId,
-        raresBiomes: [],
-        averageTemperature: 0.5 as any,
-        averageHumidity: 0.5 as any,
-        spatialDistribution: { clustered: 0.3, dispersed: 0.4, random: 0.3 },
-      } as BiomeStatistics
-    })
+        return {
+          totalBiomes: biomes.length,
+          uniqueBiomeTypes: biomes.length,
+          coverage: {},
+          dominantBiome: biomes[0]?.id || ('plains' as BiomeId),
+          raresBiomes: [],
+          averageTemperature: 0.5 as any,
+          averageHumidity: 0.5 as any,
+          spatialDistribution: { clustered: 0.3, dispersed: 0.4, random: 0.3 },
+        } as BiomeStatistics
+      })
 
-    const analyzeBiomeDistribution = (bounds: SpatialBounds) => Effect.succeed({
-      entropy: 0.8,
-      uniformity: 0.6,
-      clustering: 0.4,
-      diversity: 0.7,
-      fragmentation: 0.3,
-    })
+    const analyzeBiomeDistribution = (bounds: SpatialBounds) =>
+      Effect.succeed({
+        entropy: 0.8,
+        uniformity: 0.6,
+        clustering: 0.4,
+        diversity: 0.7,
+        fragmentation: 0.3,
+      })
 
     const analyzeTransitions = (bounds: SpatialBounds) => Effect.succeed([])
     const exportBiomeData = (bounds: SpatialBounds, format: any) => Effect.succeed(new Uint8Array())
     const importBiomeData = (data: Uint8Array, format: any, bounds: SpatialBounds) => Effect.void
-    const generateBiomeMap = (bounds: SpatialBounds, resolution: number) => Effect.succeed({
-      imageData: new Uint8Array(),
-      width: 0,
-      height: 0,
-      legend: {},
-    })
+    const generateBiomeMap = (bounds: SpatialBounds, resolution: number) =>
+      Effect.succeed({
+        imageData: new Uint8Array(),
+        width: 0,
+        height: 0,
+        legend: {},
+      })
 
     const initialize = () => Effect.void
     const cleanup = () => Effect.void
-    const validateIntegrity = () => Effect.succeed({
-      isValid: true,
-      errors: [],
-      warnings: [],
-      spatialErrors: [],
-    })
+    const validateIntegrity = () =>
+      Effect.succeed({
+        isValid: true,
+        errors: [],
+        warnings: [],
+        spatialErrors: [],
+      })
 
     return {
       saveBiomeDefinition,
@@ -549,13 +538,7 @@ const makeBiomeSystemRepositoryMemory = (
 
 // === Layer Creation ===
 
-export const BiomeSystemRepositoryMemory = Layer.effect(
-  BiomeSystemRepository,
-  makeBiomeSystemRepositoryMemory()
-)
+export const BiomeSystemRepositoryMemory = Layer.effect(BiomeSystemRepository, makeBiomeSystemRepositoryMemory())
 
 export const BiomeSystemRepositoryMemoryWith = (config: BiomeSystemRepositoryConfig) =>
-  Layer.effect(
-    BiomeSystemRepository,
-    makeBiomeSystemRepositoryMemory(config)
-  )
+  Layer.effect(BiomeSystemRepository, makeBiomeSystemRepositoryMemory(config))

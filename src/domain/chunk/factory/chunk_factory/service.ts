@@ -2,19 +2,19 @@ import { Clock, Context, Effect, Layer, Match, Option, Schema, pipe } from 'effe
 import {
   type ChunkAggregate,
   ChunkBoundsError,
-  ChunkSerializationError,
   type ChunkData,
+  ChunkSerializationError,
   createChunkAggregate,
 } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
-import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
 import {
   ChunkOptimizationService,
   ChunkSerializationService,
   ChunkValidationService,
   type SerializationFormat,
 } from '../../domain_service'
+import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
+import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
 
 export interface ChunkFactoryService {
   readonly createValidatedChunk: (
@@ -39,7 +39,9 @@ export interface ChunkFactoryService {
     original: ChunkData,
     options?: { readonly validate?: boolean; readonly optimize?: boolean }
   ) => Effect.Effect<ChunkData, ChunkDataValidationError>
-  readonly createChunkAggregate: (chunkData: ChunkData) => Effect.Effect<ChunkAggregate, ChunkBoundsError | ChunkDataValidationError | ChunkSerializationError>
+  readonly createChunkAggregate: (
+    chunkData: ChunkData
+  ) => Effect.Effect<ChunkAggregate, ChunkBoundsError | ChunkDataValidationError | ChunkSerializationError>
   readonly createBatchChunks: (
     specifications: ReadonlyArray<{
       readonly position: Schema.Schema.Input<typeof ChunkPositionSchema>
@@ -76,16 +78,14 @@ const ensureIntegrity = (validation: ChunkValidationService, chunk: ChunkData) =
     )
   )
 
-const newBlocks = (fill: number) => Effect.sync(() => {
-  const blocks = new Uint16Array(CHUNK_VOLUME)
-  blocks.fill(fill)
-  return blocks
-})
+const newBlocks = (fill: number) =>
+  Effect.sync(() => {
+    const blocks = new Uint16Array(CHUNK_VOLUME)
+    blocks.fill(fill)
+    return blocks
+  })
 
-const withTimestamp = (
-  metadata: Schema.Schema.Input<typeof ChunkMetadataSchema>,
-  timestamp: number
-) => ({
+const withTimestamp = (metadata: Schema.Schema.Input<typeof ChunkMetadataSchema>, timestamp: number) => ({
   ...metadata,
   lastUpdate: timestamp,
 })

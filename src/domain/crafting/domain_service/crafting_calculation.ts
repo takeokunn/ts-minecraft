@@ -10,20 +10,11 @@ import {
 } from '../aggregate/recipe'
 
 export interface CraftingCalculationService {
-  readonly computeCraftingTime: (
-    aggregate: RecipeAggregate,
-    multiplier: number
-  ) => Effect.Effect<CraftingTime, never>
+  readonly computeCraftingTime: (aggregate: RecipeAggregate, multiplier: number) => Effect.Effect<CraftingTime, never>
 
-  readonly computeSuccessRate: (
-    aggregate: RecipeAggregate,
-    adjustment: number
-  ) => Effect.Effect<SuccessRate, never>
+  readonly computeSuccessRate: (aggregate: RecipeAggregate, adjustment: number) => Effect.Effect<SuccessRate, never>
 
-  readonly adjustDifficulty: (
-    difficulty: CraftingDifficulty,
-    delta: number
-  ) => Effect.Effect<CraftingDifficulty, never>
+  readonly adjustDifficulty: (difficulty: CraftingDifficulty, delta: number) => Effect.Effect<CraftingDifficulty, never>
 }
 
 export const CraftingCalculationService = Context.GenericTag<CraftingCalculationService>(
@@ -39,7 +30,6 @@ export const CraftingCalculationServiceLive = Layer.effect(
     computeSuccessRate: (aggregate, adjustment) =>
       Schema.decodeEffect(SuccessRateSchema)(aggregate.successRate + adjustment),
 
-    adjustDifficulty: (difficulty, delta) =>
-      Schema.decodeEffect(CraftingDifficultySchema)(difficulty + delta),
+    adjustDifficulty: (difficulty, delta) => Schema.decodeEffect(CraftingDifficultySchema)(difficulty + delta),
   })
 )

@@ -1,6 +1,6 @@
+import { Schema } from '@effect/schema'
 import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Schema } from '@effect/schema'
 import { Data, Option, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as Match from 'effect/Match'
@@ -68,8 +68,7 @@ export const makeConfigIssue = (params: {
   message: normalizeMessage(params.message),
 })
 
-export const makeConfigError = (issues: ConfigIssueList): AppError =>
-  AppError.Config({ issues })
+export const makeConfigError = (issues: ConfigIssueList): AppError => AppError.Config({ issues })
 
 export const makeInitializationError = (params: {
   readonly stage: InitializationStage
@@ -95,17 +94,12 @@ export const makeLifecycleError = (params: {
 
 const renderParseError = (error: ParseError | Error | string): NormalizedMessage =>
   Match.value(error).pipe(
-    Match.when(
-      (value): value is string => typeof value === 'string',
-      normalizeMessage
-    ),
+    Match.when((value): value is string => typeof value === 'string', normalizeMessage),
     Match.when(
       (value): value is Error => value instanceof Error,
       (value) => normalizeMessage(value.message)
     ),
-    Match.orElse((value) =>
-      pipe(value, TreeFormatter.formatErrorSync, normalizeMessage)
-    )
+    Match.orElse((value) => pipe(value, TreeFormatter.formatErrorSync, normalizeMessage))
   )
 
 export const toConfigIssueList = (error: ParseError | Error | string): ConfigIssueList => {
@@ -122,8 +116,7 @@ export const formatAppError = (error: AppError): string =>
             issue.path,
             ReadonlyArray.match({
               onEmpty: () => `config => ${issue.message}`,
-              onNonEmpty: (segments) =>
-                `config:${segments.join('.')} => ${issue.message}`,
+              onNonEmpty: (segments) => `config:${segments.join('.')} => ${issue.message}`,
             })
           )
         )

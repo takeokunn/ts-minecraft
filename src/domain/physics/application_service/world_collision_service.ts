@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Match, pipe } from 'effect'
+import { Context, Effect, Layer } from 'effect'
+import { CollisionService } from '../domain_service/collision_service'
 import type { AABB, PhysicsWorldId, Vector3 } from '../types/core'
 import { vector3 } from '../types/core'
-import { CollisionService } from '../domain_service/collision_service'
 import type { PhysicsError } from '../types/errors'
 
 export interface BlockPlacementContext {

@@ -21,21 +21,11 @@ export type SceneManagerState = Schema.Schema.Type<typeof SceneManagerStateSchem
 export interface SceneManager {
   readonly current: () => Effect.Effect<SceneState>
   readonly state: () => Effect.Effect<SceneManagerState>
-  readonly transitionTo: (
-    scene: ActiveScene,
-    effect?: TransitionEffect
-  ) => Effect.Effect<SceneState, TransitionError>
-  readonly push: (
-    scene: ActiveScene,
-    effect?: TransitionEffect
-  ) => Effect.Effect<SceneState, TransitionError>
-  readonly pop: (
-    effect?: TransitionEffect
-  ) => Effect.Effect<SceneState, TransitionError>
+  readonly transitionTo: (scene: ActiveScene, effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>
+  readonly push: (scene: ActiveScene, effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>
+  readonly pop: (effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>
   readonly preload: (scene: ActiveScene) => Effect.Effect<void, PreloadError>
-  readonly reset: (
-    scene?: ActiveScene
-  ) => Effect.Effect<SceneState, TransitionError>
+  readonly reset: (scene?: ActiveScene) => Effect.Effect<SceneState, TransitionError>
   readonly history: () => Effect.Effect<ReadonlyArray<SceneState>>
 }
 

@@ -5,46 +5,36 @@
  * 一元的なレイヤー管理と依存性注入を提供します。
  */
 
-import { Layer, Effect } from 'effect'
-import {
-  ChunkValidationService,
-  ChunkValidationServiceLive
-} from './chunk_validator'
-import {
-  ChunkSerializationService,
-  ChunkSerializationServiceLive
-} from './chunk_serializer'
-import {
-  ChunkOptimizationService,
-  ChunkOptimizationServiceLive,
-  type OptimizationResult
-} from './chunk_optimizer'
+import { Effect, Layer } from 'effect'
 import { ChunkData } from '../aggregate/chunk'
 import { ChunkDataValidationError } from '../aggregate/chunk_data'
+import { ChunkOptimizationService, ChunkOptimizationServiceLive } from './chunk_optimizer'
+import { ChunkSerializationService, ChunkSerializationServiceLive } from './chunk_serializer'
+import { ChunkValidationService, ChunkValidationServiceLive } from './chunk_validator'
 
 // 個別サービスの再エクスポート
 export {
   ChunkValidationService,
   ChunkValidationServiceLive,
-  type ChunkValidationService as ChunkValidationServiceType
+  type ChunkValidationService as ChunkValidationServiceType,
 } from './chunk_validator'
 
 export {
   ChunkSerializationService,
   ChunkSerializationServiceLive,
+  SerializationFormat,
   type ChunkSerializationService as ChunkSerializationServiceType,
   type SerializationFormat,
-  SerializationFormat
 } from './chunk_serializer'
 
 export {
   ChunkOptimizationService,
   ChunkOptimizationServiceLive,
-  type ChunkOptimizationService as ChunkOptimizationServiceType,
-  type OptimizationStrategy,
   OptimizationStrategy,
+  type ChunkOptimizationService as ChunkOptimizationServiceType,
   type OptimizationMetrics,
-  type OptimizationResult
+  type OptimizationResult,
+  type OptimizationStrategy,
 } from './chunk_optimizer'
 
 /**
@@ -80,7 +70,7 @@ export const performCompleteChunkValidation = (chunk: ChunkData) =>
       return yield* Effect.fail(
         new ChunkDataValidationError({
           message: 'チャンクの整合性検証に失敗しました',
-          data: chunk
+          data: chunk,
         })
       )
     }
@@ -92,7 +82,7 @@ export const performCompleteChunkValidation = (chunk: ChunkData) =>
     return {
       isValid: isChecksumValid,
       checksum,
-      integrityValid: isIntegrityValid
+      integrityValid: isIntegrityValid,
     }
   })
 
@@ -109,7 +99,7 @@ export const optimizeAndValidateChunk = (chunk: ChunkData) =>
 
     const { optimizedChunk, results } = yield* Effect.reduce(
       strategies,
-      { optimizedChunk: chunk, results: [] as Array<typeof strategies[number]> },
+      { optimizedChunk: chunk, results: [] as Array<(typeof strategies)[number]> },
       (state, strategy) =>
         pipe(
           optimization.applyOptimization(state.optimizedChunk, strategy),
@@ -156,7 +146,7 @@ export const serializeWithIntegrityCheck = (chunk: ChunkData, format: any) =>
       return yield* Effect.fail(
         new ChunkDataValidationError({
           message: 'シリアライゼーション後の整合性検証に失敗しました',
-          data: chunk
+          data: chunk,
         })
       )
     }
@@ -169,7 +159,7 @@ export const serializeWithIntegrityCheck = (chunk: ChunkData, format: any) =>
       checksum,
       format,
       size: serialized.byteLength,
-      isValid
+      isValid,
     }
   })
 
@@ -186,24 +176,22 @@ export const processChunkCompletely = (chunk: ChunkData, serializationFormat: an
       serializationFormat
     )
     const serialization = yield* ChunkSerializationService
-    const finalChecksum = yield* serialization.calculateChecksum(
-      serializationResult.serializedData
-    )
+    const finalChecksum = yield* serialization.calculateChecksum(serializationResult.serializedData)
 
     return {
       pipeline: {
         initialValidation,
         optimization: optimizationResult,
         serialization: serializationResult,
-        finalChecksum
+        finalChecksum,
       },
       summary: {
         originalSize: chunk.blocks.byteLength,
         optimizedSize: optimizationResult.optimizedChunk.blocks.byteLength,
         serializedSize: serializationResult.serializedData.byteLength,
         totalCompressionRatio: serializationResult.serializedData.byteLength / chunk.blocks.byteLength,
-        isValid: serializationResult.isValid && initialValidation.isValid
-      }
+        isValid: serializationResult.isValid && initialValidation.isValid,
+      },
     }
   })
 
@@ -212,11 +200,9 @@ export const processChunkCompletely = (chunk: ChunkData, serializationFormat: an
  */
 export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializationFormat: any) =>
   Effect.gen(function* () {
-    const results = yield* Effect.forEach(
-      chunks,
-      (chunk) => processChunkCompletely(chunk, serializationFormat),
-      { concurrency: 'unbounded' }
-    )
+    const results = yield* Effect.forEach(chunks, (chunk) => processChunkCompletely(chunk, serializationFormat), {
+      concurrency: 'unbounded',
+    })
 
     const { totalOriginalSize, totalSerializedSize, successCount } = results.reduce(
       (acc, result) => ({

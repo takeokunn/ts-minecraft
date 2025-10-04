@@ -1,11 +1,11 @@
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import * as HashSet from 'effect/HashSet'
 import * as Order from 'effect/Order'
-import * as ReadonlyArray from 'effect/Array'
-import type { Inventory, PlayerId } from '../../domain/inventory/InventoryTypes'
-import { InventoryService } from '../../domain/inventory/InventoryService'
-import type { InventoryServiceError } from '../../domain/inventory/InventoryService'
+import type { InventoryServiceError } from '../../domain/inventory/inventory-service'
+import { InventoryService } from '../../domain/inventory/inventory-service'
+import type { Inventory, PlayerId } from '../../domain/inventory/inventory-types'
 
 // ================================================================
 // アプリケーション固有のADT
@@ -57,9 +57,7 @@ const encodeSnapshot = Schema.encodeSync(InventorySnapshotSchema)
 // ================================================================
 
 export interface InventoryAPIService {
-  readonly execute: (
-    command: InventoryCommand
-  ) => Effect.Effect<InventorySnapshot, InventoryApiError, InventoryService>
+  readonly execute: (command: InventoryCommand) => Effect.Effect<InventorySnapshot, InventoryApiError, InventoryService>
 }
 
 export const InventoryAPIService = Context.GenericTag<InventoryAPIService>(
@@ -70,29 +68,23 @@ export const InventoryAPIService = Context.GenericTag<InventoryAPIService>(
 // 実装ヘルパ
 // ================================================================
 
-const aggregateSlots = (
-  inventory: Inventory
-): { readonly used: number; readonly unique: HashSet.HashSet<string> } =>
+const aggregateSlots = (inventory: Inventory): { readonly used: number; readonly unique: HashSet.HashSet<string> } =>
   pipe(
     inventory.slots,
-    ReadonlyArray.reduce(
-      { used: 0, unique: HashSet.empty<string>() },
-      (accumulator, slot) =>
-        Option.fromNullable(slot).pipe(
-          Option.match({
-            onNone: () => accumulator,
-            onSome: (value) => ({
-              used: accumulator.used + 1,
-              unique: HashSet.add(accumulator.unique, value.itemId),
-            }),
-          })
-        )
+    ReadonlyArray.reduce({ used: 0, unique: HashSet.empty<string>() }, (accumulator, slot) =>
+      Option.fromNullable(slot).pipe(
+        Option.match({
+          onNone: () => accumulator,
+          onSome: (value) => ({
+            used: accumulator.used + 1,
+            unique: HashSet.add(accumulator.unique, value.itemId),
+          }),
+        })
+      )
     )
   )
 
-const materializeInventory = (
-  inventory: Inventory
-): Effect.Effect<InventorySnapshot, never, never> =>
+const materializeInventory = (inventory: Inventory): Effect.Effect<InventorySnapshot, never, never> =>
   Effect.gen(function* () {
     const aggregates = aggregateSlots(inventory)
 

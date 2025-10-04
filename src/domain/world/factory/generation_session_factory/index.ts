@@ -36,21 +36,19 @@
 // ================================
 
 export {
-  // Main Factory Interface
-  type GenerationSessionFactory,
-  GenerationSessionFactoryTag,
   GenerationSessionFactoryLive,
-
-  // Factory Parameters
-  type CreateSessionParams,
-  type CreateBatchSessionParams,
-  type CreateFromTemplateParams,
-  type RecoverSessionParams,
-  type SessionTemplateType,
-
+  GenerationSessionFactoryTag,
   // Error Types
   SessionFactoryError,
   SessionFactoryErrorSchema,
+  type CreateBatchSessionParams,
+  type CreateFromTemplateParams,
+  // Factory Parameters
+  type CreateSessionParams,
+  // Main Factory Interface
+  type GenerationSessionFactory,
+  type RecoverSessionParams,
+  type SessionTemplateType,
 } from './factory.js'
 
 // ================================
@@ -58,16 +56,15 @@ export {
 // ================================
 
 export {
+  // Builder Factory Functions
+  createSessionBuilder,
+  createSessionBuilderForArea,
+  createSessionBuilderForCoordinates,
+  createSessionBuilderFromTemplate,
   // Builder Interface
   type GenerationSessionBuilder,
   type SessionBuilderState,
   type SessionValidationState,
-
-  // Builder Factory Functions
-  createSessionBuilder,
-  createSessionBuilderForCoordinates,
-  createSessionBuilderForArea,
-  createSessionBuilderFromTemplate,
 } from './session_builder.js'
 
 // ================================
@@ -75,19 +72,18 @@ export {
 // ================================
 
 export {
-  // Configuration Types
-  type ConfigurationProfile,
-  type HardwareSpec,
-  type LoadCondition,
-  type OptimizationParams,
-  type SessionConfigurationBuilder,
-
   // Configuration API
   createConfigurationBuilder,
   createConfigurationBuilderForProfile,
   createOptimizedConfiguration,
   detectHardwareSpec,
   getCurrentLoadCondition,
+  // Configuration Types
+  type ConfigurationProfile,
+  type HardwareSpec,
+  type LoadCondition,
+  type OptimizationParams,
+  type SessionConfigurationBuilder,
 } from './configuration.js'
 
 // ================================
@@ -95,31 +91,30 @@ export {
 // ================================
 
 export {
-  // Template Types
-  type SessionTemplateDefinition,
-  type TemplateResolutionResult,
-  type SessionTemplateResolver,
+  getTemplate,
+  listTemplates,
+  searchTemplates,
   SessionTemplateRegistry,
 
   // Template API
   SessionTemplateResolverLive,
-  getTemplate,
-  listTemplates,
-  searchTemplates,
+  // Template Types
+  type SessionTemplateDefinition,
+  type SessionTemplateResolver,
+  type TemplateResolutionResult,
 } from './template_resolver.js'
 
 // ================================
 // Convenience Functions
 // ================================
 
-import { Effect, Layer, Duration } from "effect"
-import { GenerationSessionFactoryTag, GenerationSessionFactoryLive } from './factory.js'
-import { createSessionBuilder } from './session_builder.js'
-import { createOptimizedConfiguration } from './configuration.js'
-import { getTemplate } from './template_resolver.js'
-import type { SessionTemplateType } from './factory.js'
+import { Duration, Effect, Layer } from 'effect'
 import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
 import * as Coordinates from '../../value_object/coordinates/index.js'
+import { createOptimizedConfiguration } from './configuration.js'
+import type { SessionTemplateType } from './factory.js'
+import { GenerationSessionFactoryLive, GenerationSessionFactoryTag } from './factory.js'
+import { createSessionBuilder } from './session_builder.js'
 
 /**
  * 簡単なGenerationSession作成
@@ -142,11 +137,7 @@ export const createFromTemplate = (
   template: SessionTemplateType,
   coordinates: readonly Coordinates.ChunkCoordinate[]
 ): Effect.Effect<GenerationSession.GenerationSession, never> =>
-  createSessionBuilder()
-    .forCoordinates(coordinates)
-    .applyTemplate(template)
-    .build()
-    .pipe(Effect.orDie)
+  createSessionBuilder().forCoordinates(coordinates).applyTemplate(template).build().pipe(Effect.orDie)
 
 /**
  * 単一チャンク用Session作成
@@ -154,11 +145,7 @@ export const createFromTemplate = (
 export const createSingleChunkSession = (
   coordinate: Coordinates.ChunkCoordinate
 ): Effect.Effect<GenerationSession.GenerationSession, never> =>
-  createSessionBuilder()
-    .addCoordinate(coordinate)
-    .applyTemplate('single_chunk')
-    .build()
-    .pipe(Effect.orDie)
+  createSessionBuilder().addCoordinate(coordinate).applyTemplate('single_chunk').build().pipe(Effect.orDie)
 
 /**
  * エリア生成用Session作成
@@ -264,7 +251,7 @@ export const createAdaptiveSession = (
       storageSpeedMBps: 100,
       networkLatencyMs: 50,
       hasSSE: true,
-      hasSIMD: true
+      hasSIMD: true,
     })
 
     // 負荷状況検出
@@ -273,7 +260,7 @@ export const createAdaptiveSession = (
       currentMemoryUsage: 40,
       activeConnections: 0,
       queuedRequests: 0,
-      networkThroughput: 0
+      networkThroughput: 0,
     })
 
     // 最適化設定作成
@@ -281,7 +268,7 @@ export const createAdaptiveSession = (
       profile,
       hardwareSpec,
       loadCondition,
-      prioritizeFor: 'speed'
+      prioritizeFor: 'speed',
     }).pipe(Effect.orDie)
 
     return yield* createSessionBuilder()
@@ -319,7 +306,7 @@ export const createResilientSession = (
  * 全ての依存関係を含む完全なLayer
  */
 export const GenerationSessionFactoryCompleteLayer = Layer.mergeAll(
-  GenerationSessionFactoryLive,
+  GenerationSessionFactoryLive
   // 他の必要な依存関係をここに追加
 )
 
@@ -339,7 +326,7 @@ export const defaultGenerationSessionFactoryConfig: GenerationSessionFactoryConf
   enableBuilder: true,
   enableValidation: true,
   defaultTemplate: 'area_generation',
-  enableMetrics: true
+  enableMetrics: true,
 }
 
 /**
@@ -352,49 +339,55 @@ export const createGenerationSessionFactoryLayer = (
 
   return Layer.succeed(GenerationSessionFactoryTag, {
     create: (params) => {
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.create(params))
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.create(params))
     },
 
     createBatch: (params) => {
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.createBatch(params))
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.createBatch(params))
     },
 
     createFromTemplate: (params) => {
       if (!finalConfig.enableTemplates) {
         return Effect.fail(new Error('Templates are disabled'))
       }
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.createFromTemplate(params))
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.createFromTemplate(params))
     },
 
     recover: (params) => {
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.recover(params))
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.recover(params))
     },
 
     createStreaming: (params) => {
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.createStreaming(params))
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.createStreaming(params))
     },
 
     createPriority: (params, priority) => {
-      const factory = GenerationSessionFactoryLive.pipe(Layer.build, Effect.flatMap(layer =>
-        Effect.provide(GenerationSessionFactoryTag, layer)
-      ))
-      return Effect.flatMap(factory, service => service.createPriority(params, priority))
-    }
+      const factory = GenerationSessionFactoryLive.pipe(
+        Layer.build,
+        Effect.flatMap((layer) => Effect.provide(GenerationSessionFactoryTag, layer))
+      )
+      return Effect.flatMap(factory, (service) => service.createPriority(params, priority))
+    },
   })
 }
 
@@ -405,28 +398,26 @@ export const createGenerationSessionFactoryLayer = (
 /**
  * テスト用ダミーFactory
  */
-export const createTestGenerationSessionFactory = () => Layer.succeed(
-  GenerationSessionFactoryTag,
-  {
+export const createTestGenerationSessionFactory = () =>
+  Layer.succeed(GenerationSessionFactoryTag, {
     create: (params) => Effect.succeed({} as GenerationSession.GenerationSession),
     createBatch: (params) => Effect.succeed({} as GenerationSession.GenerationSession),
     createFromTemplate: (params) => Effect.succeed({} as GenerationSession.GenerationSession),
     recover: (params) => Effect.succeed({} as GenerationSession.GenerationSession),
     createStreaming: (params) => Effect.succeed({} as GenerationSession.GenerationSession),
     createPriority: (params, priority) => Effect.succeed({} as GenerationSession.GenerationSession),
-  }
-)
+  })
 
 // ================================
 // Re-export Types for Convenience
 // ================================
 
 export type {
+  GenerationRequest,
   // Core types from aggregates
   GenerationSession,
   GenerationSessionId,
   SessionConfiguration,
-  GenerationRequest,
 } from '../../aggregate/generation_session/generation_session.js'
 
 // ================================
@@ -441,7 +432,7 @@ export const SUPPORTED_TEMPLATES = [
   'structure_placement',
   'terrain_modification',
   'bulk_generation',
-  'streaming_generation'
+  'streaming_generation',
 ] as const
 export const FACTORY_FEATURES = [
   'Template System',
@@ -451,5 +442,5 @@ export const FACTORY_FEATURES = [
   'Progress Tracking',
   'Error Recovery',
   'Batch Processing',
-  'Streaming Support'
+  'Streaming Support',
 ] as const

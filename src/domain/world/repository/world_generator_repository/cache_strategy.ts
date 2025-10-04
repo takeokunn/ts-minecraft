@@ -7,7 +7,7 @@
  */
 
 import { Effect, Option, ReadonlyArray, Ref, Schedule } from 'effect'
-import type { WorldId, WorldGenerator } from '../../types'
+import type { WorldGenerator, WorldId } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 import { createRepositoryError } from '../types'
 
@@ -64,7 +64,7 @@ export const makeLRUCacheStrategy = <K, V>(
     const updateAccessOrder = (key: K): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         yield* Ref.update(accessOrderRef, (order) => {
-          const filtered = order.filter(k => k !== key)
+          const filtered = order.filter((k) => k !== key)
           return [...filtered, key]
         })
       })
@@ -152,11 +152,7 @@ export const makeLRUCacheStrategy = <K, V>(
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `LRU cache get operation failed: ${error}`,
-            'cache_get',
-            error
-          ))
+          Effect.fail(createRepositoryError(`LRU cache get operation failed: ${error}`, 'cache_get', error))
         )
       )
 
@@ -180,11 +176,7 @@ export const makeLRUCacheStrategy = <K, V>(
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `LRU cache set operation failed: ${error}`,
-            'cache_set',
-            error
-          ))
+          Effect.fail(createRepositoryError(`LRU cache set operation failed: ${error}`, 'cache_set', error))
         )
       )
 
@@ -199,17 +191,13 @@ export const makeLRUCacheStrategy = <K, V>(
             newMap.delete(key)
             return newMap
           })
-          yield* Ref.update(accessOrderRef, (order) => order.filter(k => k !== key))
+          yield* Ref.update(accessOrderRef, (order) => order.filter((k) => k !== key))
         }
 
         return existed
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `LRU cache delete operation failed: ${error}`,
-            'cache_delete',
-            error
-          ))
+          Effect.fail(createRepositoryError(`LRU cache delete operation failed: ${error}`, 'cache_delete', error))
         )
       )
 
@@ -223,11 +211,7 @@ export const makeLRUCacheStrategy = <K, V>(
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `LRU cache clear operation failed: ${error}`,
-            'cache_clear',
-            error
-          ))
+          Effect.fail(createRepositoryError(`LRU cache clear operation failed: ${error}`, 'cache_clear', error))
         )
       )
 
@@ -237,8 +221,7 @@ export const makeLRUCacheStrategy = <K, V>(
         return entries.size
       })
 
-    const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> =>
-      Ref.get(statisticsRef)
+    const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> => Ref.get(statisticsRef)
 
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
@@ -277,8 +260,7 @@ export const makeTTLCacheStrategy = <K, V>(
       averageAccessTime: 0,
     })
 
-    const isExpired = (entry: CacheEntry<V>): boolean =>
-      Date.now() - entry.timestamp > ttlMs
+    const isExpired = (entry: CacheEntry<V>): boolean => Date.now() - entry.timestamp > ttlMs
 
     const cleanupExpired = (): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
@@ -407,8 +389,7 @@ export const makeTTLCacheStrategy = <K, V>(
         return entries.size
       })
 
-    const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> =>
-      Ref.get(statisticsRef)
+    const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> => Ref.get(statisticsRef)
 
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
@@ -446,21 +427,13 @@ export const makeWorldGeneratorCache = (
       return makeLRUCacheStrategy<WorldId, WorldGenerator>(maxSize, estimateSize)
 
     case 'ttl':
-      return makeTTLCacheStrategy<WorldId, WorldGenerator>(
-        ttlSeconds * 1000,
-        maxSize,
-        estimateSize
-      )
+      return makeTTLCacheStrategy<WorldId, WorldGenerator>(ttlSeconds * 1000, maxSize, estimateSize)
 
     case 'hybrid':
       // Hybrid strategy combining LRU with TTL
       return Effect.gen(function* () {
         const lruCache = yield* makeLRUCacheStrategy<WorldId, WorldGenerator>(maxSize, estimateSize)
-        const ttlCache = yield* makeTTLCacheStrategy<WorldId, WorldGenerator>(
-          ttlSeconds * 1000,
-          maxSize,
-          estimateSize
-        )
+        const ttlCache = yield* makeTTLCacheStrategy<WorldId, WorldGenerator>(ttlSeconds * 1000, maxSize, estimateSize)
 
         return {
           get: (key: WorldId) =>

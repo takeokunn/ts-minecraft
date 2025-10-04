@@ -8,91 +8,88 @@
 
 // === World Generation Orchestrator ===
 export {
+  ChunkGenerationCommand,
+  DEFAULT_GENERATION_SETTINGS,
+  GenerationProgress,
+  GenerationSettings,
+  GenerationStatistics,
+  WorldGenerationCommand,
+  WorldGenerationError,
   WorldGenerationOrchestrator,
   WorldGenerationOrchestratorLive,
-  WorldGenerationError,
-  WorldGenerationCommand,
-  ChunkGenerationCommand,
-  GenerationProgress,
-  GenerationStatistics,
-  GenerationSettings,
-  DEFAULT_GENERATION_SETTINGS,
   WorldGenerationOrchestratorUtils,
 } from './world_generation_orchestrator/index.js'
 
 export type {
-  WorldGenerationErrorType,
-  WorldGenerationCommandType,
   ChunkGenerationCommandType,
   GenerationProgressType,
-  GenerationStatisticsType,
   GenerationSettingsType,
+  GenerationStatisticsType,
+  WorldGenerationCommandType,
+  WorldGenerationErrorType,
 } from './world_generation_orchestrator/index.js'
 
 // === Progressive Loading Service ===
 export {
-  ProgressiveLoadingService,
-  ProgressiveLoadingServiceLive,
-  ProgressiveLoadingError,
-  LoadingSchedulerService,
-  LoadingSchedulerServiceLive,
-  PriorityCalculatorService,
-  PriorityCalculatorServiceLive,
-  MemoryMonitorService,
-  MemoryMonitorServiceLive,
   AdaptiveQualityService,
   AdaptiveQualityServiceLive,
+  LoadingSchedulerService,
+  LoadingSchedulerServiceLive,
+  MemoryMonitorService,
+  MemoryMonitorServiceLive,
+  PriorityCalculatorService,
+  PriorityCalculatorServiceLive,
+  ProgressiveLoadingError,
+  ProgressiveLoadingService,
+  ProgressiveLoadingServiceLive,
   ProgressiveLoadingUtils,
 } from './progressive_loading/index.js'
 
 export type {
-  ProgressiveLoadingErrorType,
-  LoadingSchedulerErrorType,
-  PriorityCalculatorErrorType,
-  MemoryMonitorErrorType,
   AdaptiveQualityErrorType,
+  LoadingSchedulerErrorType,
+  MemoryMonitorErrorType,
+  PriorityCalculatorErrorType,
+  ProgressiveLoadingErrorType,
 } from './progressive_loading/index.js'
 
 // === Cache Optimization Service ===
 export {
-  CacheOptimizationService,
-  CacheOptimizationServiceLive,
-  CacheOptimizationError,
   CacheManagerService,
   CacheManagerServiceLive,
-  PreloadingStrategy,
-  DEFAULT_PRELOADING_STRATEGY,
+  CacheOptimizationError,
+  CacheOptimizationService,
+  CacheOptimizationServiceLive,
   CacheOptimizationUtils,
+  DEFAULT_PRELOADING_STRATEGY,
+  PreloadingStrategy,
 } from './cache_optimization/index.js'
 
 export type {
-  CacheOptimizationErrorType,
   CacheManagerErrorType,
+  CacheOptimizationErrorType,
   PreloadingStrategyType,
 } from './cache_optimization/index.js'
 
 // === Performance Monitoring Service ===
 export {
-  PerformanceMonitoringService,
-  PerformanceMonitoringServiceLive,
-  PerformanceMonitoringError,
   MetricsCollectorService,
   MetricsCollectorServiceLive,
+  PerformanceMonitoringError,
+  PerformanceMonitoringService,
+  PerformanceMonitoringServiceLive,
   PerformanceMonitoringUtils,
 } from './performance_monitoring/index.js'
 
-export type {
-  PerformanceMonitoringErrorType,
-  MetricsCollectorErrorType,
-} from './performance_monitoring/index.js'
+export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from './performance_monitoring/index.js'
 
 // === Integrated World Application Service ===
 
-import { Context, Effect, Layer, Schema, Ref, STM } from 'effect'
-import { WorldGenerationOrchestrator } from './world_generation_orchestrator/index.js'
-import { ProgressiveLoadingService } from './progressive_loading/index.js'
+import { Context, Effect, Layer, Ref, Schema, STM } from 'effect'
 import { CacheOptimizationService } from './cache_optimization/index.js'
 import { PerformanceMonitoringService } from './performance_monitoring/index.js'
+import { ProgressiveLoadingService } from './progressive_loading/index.js'
+import { WorldGenerationOrchestrator } from './world_generation_orchestrator/index.js'
 
 /**
  * World Application Service Error
@@ -106,14 +103,13 @@ export const WorldApplicationServiceError = Schema.TaggedError<WorldApplicationS
       Schema.Literal('loading'),
       Schema.Literal('cache'),
       Schema.Literal('monitoring'),
-      Schema.Literal('integration'),
+      Schema.Literal('integration')
     ),
     cause: Schema.optional(Schema.Unknown),
   }
 )
 
-export interface WorldApplicationServiceErrorType
-  extends Schema.Schema.Type<typeof WorldApplicationServiceError> {}
+export interface WorldApplicationServiceErrorType extends Schema.Schema.Type<typeof WorldApplicationServiceError> {}
 
 /**
  * World System Configuration
@@ -123,11 +119,7 @@ export const WorldSystemConfiguration = Schema.Struct({
   generation: Schema.Struct({
     enabled: Schema.Boolean,
     maxConcurrentChunks: Schema.Number.pipe(Schema.positive(), Schema.int()),
-    performanceMode: Schema.Union(
-      Schema.Literal('quality'),
-      Schema.Literal('balanced'),
-      Schema.Literal('performance'),
-    ),
+    performanceMode: Schema.Union(Schema.Literal('quality'), Schema.Literal('balanced'), Schema.Literal('performance')),
   }),
   loading: Schema.Struct({
     enabled: Schema.Boolean,
@@ -135,7 +127,7 @@ export const WorldSystemConfiguration = Schema.Struct({
     memoryManagement: Schema.Union(
       Schema.Literal('conservative'),
       Schema.Literal('balanced'),
-      Schema.Literal('aggressive'),
+      Schema.Literal('aggressive')
     ),
   }),
   cache: Schema.Struct({
@@ -143,7 +135,7 @@ export const WorldSystemConfiguration = Schema.Struct({
     preloadingStrategy: Schema.Union(
       Schema.Literal('minimal'),
       Schema.Literal('balanced'),
-      Schema.Literal('aggressive'),
+      Schema.Literal('aggressive')
     ),
     autoOptimization: Schema.Boolean,
   }),
@@ -222,62 +214,66 @@ export interface WorldApplicationService {
   /**
    * プレイヤーの追跡を停止します
    */
-  readonly stopPlayerTracking: (
-    playerId: string
-  ) => Effect.Effect<void, WorldApplicationServiceErrorType>
+  readonly stopPlayerTracking: (playerId: string) => Effect.Effect<void, WorldApplicationServiceErrorType>
 
   /**
    * システム全体の状態を取得します
    */
-  readonly getSystemStatus: () => Effect.Effect<{
-    generation: {
-      activeChunks: number
-      queuedChunks: number
-      generatedChunks: number
-      averageGenerationTime: number
-    }
-    loading: {
-      pendingRequests: number
-      inProgressRequests: number
-      completedRequests: number
-      hitRate: number
-    }
-    cache: {
-      size: number
-      hitRate: number
-      evictionCount: number
-      memoryUsage: number
-    }
-    monitoring: {
-      overallHealth: 'excellent' | 'good' | 'warning' | 'critical'
-      averageFPS: number
-      memoryPressure: string
-      recommendations: string[]
-    }
-    system: {
-      uptime: number
-      totalRequests: number
-      errorRate: number
-      warnings: string[]
-      errors: string[]
-    }
-  }, WorldApplicationServiceErrorType>
+  readonly getSystemStatus: () => Effect.Effect<
+    {
+      generation: {
+        activeChunks: number
+        queuedChunks: number
+        generatedChunks: number
+        averageGenerationTime: number
+      }
+      loading: {
+        pendingRequests: number
+        inProgressRequests: number
+        completedRequests: number
+        hitRate: number
+      }
+      cache: {
+        size: number
+        hitRate: number
+        evictionCount: number
+        memoryUsage: number
+      }
+      monitoring: {
+        overallHealth: 'excellent' | 'good' | 'warning' | 'critical'
+        averageFPS: number
+        memoryPressure: string
+        recommendations: string[]
+      }
+      system: {
+        uptime: number
+        totalRequests: number
+        errorRate: number
+        warnings: string[]
+        errors: string[]
+      }
+    },
+    WorldApplicationServiceErrorType
+  >
 
   /**
    * パフォーマンス最適化を実行します
    */
-  readonly optimizePerformance: () => Effect.Effect<{
-    cacheOptimization: {
-      freedMemory: number
-      compactedEntries: number
-    }
-    memoryDefragmentation: {
-      beforeUsage: number
-      afterUsage: number
-      improvement: number
-    }
-    recommendations: string[]
-  }, WorldApplicationServiceErrorType>
+  readonly optimizePerformance: () => Effect.Effect<
+    {
+      cacheOptimization: {
+        freedMemory: number
+        compactedEntries: number
+      }
+      memoryDefragmentation: {
+        beforeUsage: number
+        afterUsage: number
+        improvement: number
+      }
+      recommendations: string[]
+    },
+    WorldApplicationServiceErrorType
+  >
 
   /**
    * システム設定を更新します
@@ -289,47 +285,53 @@ export interface WorldApplicationService {
   /**
    * 詳細なパフォーマンスレポートを生成します
    */
-  readonly generatePerformanceReport: () => Effect.Effect<{
-    timestamp: number
-    duration: number
-    metrics: {
-      generation: object
-      loading: object
-      cache: object
-      memory: object
-    }
-    bottlenecks: Array<{
-      component: string
-      severity: 'low' | 'medium' | 'high' | 'critical'
-      description: string
-      recommendation: string
-    }>
-    recommendations: string[]
-  }, WorldApplicationServiceErrorType>
+  readonly generatePerformanceReport: () => Effect.Effect<
+    {
+      timestamp: number
+      duration: number
+      metrics: {
+        generation: object
+        loading: object
+        cache: object
+        memory: object
+      }
+      bottlenecks: Array<{
+        component: string
+        severity: 'low' | 'medium' | 'high' | 'critical'
+        description: string
+        recommendation: string
+      }>
+      recommendations: string[]
+    },
+    WorldApplicationServiceErrorType
+  >
 
   /**
    * システムの健全性チェックを実行します
    */
-  readonly performHealthCheck: () => Effect.Effect<{
-    overall: 'healthy' | 'degraded' | 'unhealthy'
-    services: {
-      generation: boolean
-      loading: boolean
-      cache: boolean
-      monitoring: boolean
-    }
-    issues: Array<{
-      service: string
-      severity: 'info' | 'warning' | 'error' | 'critical'
-      message: string
-      suggestion: string
-    }>
-    systemLoad: {
-      cpu: number
-      memory: number
-      io: number
-    }
-  }, WorldApplicationServiceErrorType>
+  readonly performHealthCheck: () => Effect.Effect<
+    {
+      overall: 'healthy' | 'degraded' | 'unhealthy'
+      services: {
+        generation: boolean
+        loading: boolean
+        cache: boolean
+        monitoring: boolean
+      }
+      issues: Array<{
+        service: string
+        severity: 'info' | 'warning' | 'error' | 'critical'
+        message: string
+        suggestion: string
+      }>
+      systemLoad: {
+        cpu: number
+        memory: number
+        io: number
+      }
+    },
+    WorldApplicationServiceErrorType
+  >
 }
 
 // === Live Implementation ===
@@ -340,21 +342,18 @@ const makeWorldApplicationService = Effect.gen(function* () {
   const cacheOptimization = yield* CacheOptimizationService
   const performanceMonitoring = yield* PerformanceMonitoringService
 
-  const systemConfiguration = yield* Ref.make<Schema.Schema.Type<typeof WorldSystemConfiguration>>(
-    DEFAULT_SYSTEM_CONFIGURATION
-  )
+  const systemConfiguration =
+    yield* Ref.make<Schema.Schema.Type<typeof WorldSystemConfiguration>>(DEFAULT_SYSTEM_CONFIGURATION)
   const systemState = yield* STM.TRef.make<'stopped' | 'starting' | 'running' | 'stopping'>('stopped')
   const systemStartTime = yield* Ref.make<number>(0)
 
-  const initialize = (
-    configuration?: Partial<Schema.Schema.Type<typeof WorldSystemConfiguration>>
-  ) =>
+  const initialize = (configuration?: Partial<Schema.Schema.Type<typeof WorldSystemConfiguration>>) =>
     Effect.gen(function* () {
       yield* Effect.logInfo('World Application Service システム初期化開始')
 
       // 設定を更新
       if (configuration) {
-        yield* Ref.update(systemConfiguration, current => ({ ...current, ...configuration }))
+        yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...configuration }))
       }
 
       const config = yield* Ref.get(systemConfiguration)
@@ -556,7 +555,9 @@ const makeWorldApplicationService = Effect.gen(function* () {
           memoryUsage: cacheReport.memoryUsage,
         },
         monitoring: {
-          overallHealth: monitoringMetrics.overall.healthy ? 'good' : 'warning' as 'excellent' | 'good' | 'warning' | 'critical',
+          overallHealth: monitoringMetrics.overall.healthy
+            ? 'good'
+            : ('warning' as 'excellent' | 'good' | 'warning' | 'critical'),
           averageFPS: monitoringMetrics.currentFPS,
           memoryPressure: loadingStatus.memory.pressureLevel,
           recommendations: cacheReport.recommendations,
@@ -605,11 +606,9 @@ const makeWorldApplicationService = Effect.gen(function* () {
       return result
     })
 
-  const updateConfiguration = (
-    updates: Partial<Schema.Schema.Type<typeof WorldSystemConfiguration>>
-  ) =>
+  const updateConfiguration = (updates: Partial<Schema.Schema.Type<typeof WorldSystemConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(systemConfiguration, current => ({ ...current, ...updates }))
+      yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...updates }))
 
       // 各サービスの設定を更新
       if (updates.loading) {
@@ -689,7 +688,7 @@ const makeWorldApplicationService = Effect.gen(function* () {
       }
 
       const healthCheck = {
-        overall: overallHealthy ? 'healthy' : 'degraded' as 'healthy' | 'degraded' | 'unhealthy',
+        overall: overallHealthy ? 'healthy' : ('degraded' as 'healthy' | 'degraded' | 'unhealthy'),
         services,
         issues,
         systemLoad: {
@@ -727,10 +726,7 @@ export const WorldApplicationService = Context.GenericTag<WorldApplicationServic
 
 // === Integrated Layer ===
 
-export const WorldApplicationServiceLive = Layer.effect(
-  WorldApplicationService,
-  makeWorldApplicationService
-).pipe(
+export const WorldApplicationServiceLive = Layer.effect(WorldApplicationService, makeWorldApplicationService).pipe(
   Layer.provide(WorldGenerationOrchestrator),
   Layer.provide(ProgressiveLoadingService),
   Layer.provide(CacheOptimizationService),
@@ -741,21 +737,25 @@ export const WorldApplicationServiceLive = Layer.effect(
 
 export const WorldDomainApplicationServiceLayer = Layer.mergeAll(
   // World Generation Orchestrator層
-  Layer.mergeAll(
+  Layer
+    .mergeAll
     // Generation Pipeline, Dependency Coordinator, Error Recoveryの統合
-  ),
+    (),
   // Progressive Loading Service層
-  Layer.mergeAll(
+  Layer
+    .mergeAll
     // Loading Scheduler, Priority Calculator, Memory Monitor, Adaptive Qualityの統合
-  ),
+    (),
   // Cache Optimization Service層
-  Layer.mergeAll(
+  Layer
+    .mergeAll
     // Cache Manager, Preloading Strategyの統合
-  ),
+    (),
   // Performance Monitoring Service層
-  Layer.mergeAll(
+  Layer
+    .mergeAll
     // Metrics Collector, Bottleneck Detectorの統合
-  ),
+    (),
   // 統合アプリケーションサービス
   WorldApplicationServiceLive
 )
@@ -898,9 +898,9 @@ export const WorldApplicationServiceUtils = {
 
           yield* Effect.logInfo(
             `ワールド生成進捗 ${worldId}: ` +
-            `アクティブ=${status.generation.activeChunks}, ` +
-            `キュー=${status.generation.queuedChunks}, ` +
-            `完了=${status.generation.generatedChunks}`
+              `アクティブ=${status.generation.activeChunks}, ` +
+              `キュー=${status.generation.queuedChunks}, ` +
+              `完了=${status.generation.generatedChunks}`
           )
 
           // 生成完了チェック

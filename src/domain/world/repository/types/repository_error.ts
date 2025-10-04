@@ -7,11 +7,7 @@
  */
 
 import { Data } from 'effect'
-import type {
-  WorldId,
-  GenerationSessionId,
-  BiomeId,
-} from '../types'
+import type { BiomeId, GenerationSessionId, WorldId } from '../types'
 
 // === Core Repository Errors ===
 
@@ -218,11 +214,7 @@ export type AllRepositoryErrors =
 /**
  * Repository基底エラー作成
  */
-export const createRepositoryError = (
-  message: string,
-  operation: string,
-  cause?: unknown
-): RepositoryError =>
+export const createRepositoryError = (message: string, operation: string, cause?: unknown): RepositoryError =>
   new RepositoryError({
     message,
     operation,
@@ -265,10 +257,7 @@ export const createDataIntegrityError = (
 /**
  * World Generator未発見エラー作成
  */
-export const createWorldGeneratorNotFoundError = (
-  worldId: WorldId,
-  message?: string
-): WorldGeneratorNotFoundError =>
+export const createWorldGeneratorNotFoundError = (worldId: WorldId, message?: string): WorldGeneratorNotFoundError =>
   new WorldGeneratorNotFoundError({
     worldId,
     message: message ?? `World generator not found for world: ${worldId}`,
@@ -323,14 +312,11 @@ export const createMetadataNotFoundError = (
 /**
  * Repository関連エラーの型ガード
  */
-export const isRepositoryError = (error: unknown): error is RepositoryError =>
-  error instanceof RepositoryError
+export const isRepositoryError = (error: unknown): error is RepositoryError => error instanceof RepositoryError
 
-export const isPersistenceError = (error: unknown): error is PersistenceError =>
-  error instanceof PersistenceError
+export const isPersistenceError = (error: unknown): error is PersistenceError => error instanceof PersistenceError
 
-export const isDataIntegrityError = (error: unknown): error is DataIntegrityError =>
-  error instanceof DataIntegrityError
+export const isDataIntegrityError = (error: unknown): error is DataIntegrityError => error instanceof DataIntegrityError
 
 export const isWorldGeneratorNotFoundError = (error: unknown): error is WorldGeneratorNotFoundError =>
   error instanceof WorldGeneratorNotFoundError
@@ -338,8 +324,7 @@ export const isWorldGeneratorNotFoundError = (error: unknown): error is WorldGen
 export const isGenerationSessionNotFoundError = (error: unknown): error is GenerationSessionNotFoundError =>
   error instanceof GenerationSessionNotFoundError
 
-export const isBiomeNotFoundError = (error: unknown): error is BiomeNotFoundError =>
-  error instanceof BiomeNotFoundError
+export const isBiomeNotFoundError = (error: unknown): error is BiomeNotFoundError => error instanceof BiomeNotFoundError
 
 export const isMetadataNotFoundError = (error: unknown): error is MetadataNotFoundError =>
   error instanceof MetadataNotFoundError
@@ -356,8 +341,12 @@ export const categorizeRepositoryError = (error: AllRepositoryErrors) => {
   if (isDataIntegrityError(error)) {
     return 'data_quality'
   }
-  if (isWorldGeneratorNotFoundError(error) || isGenerationSessionNotFoundError(error) ||
-      isBiomeNotFoundError(error) || isMetadataNotFoundError(error)) {
+  if (
+    isWorldGeneratorNotFoundError(error) ||
+    isGenerationSessionNotFoundError(error) ||
+    isBiomeNotFoundError(error) ||
+    isMetadataNotFoundError(error)
+  ) {
     return 'not_found'
   }
   return 'unknown'

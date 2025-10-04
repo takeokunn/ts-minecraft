@@ -1,9 +1,9 @@
 import { Schema } from '@effect/schema'
-import { Array as RA, Brand, Data, Effect, Match, Option, pipe } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
+import { Brand, Data, Effect } from 'effect'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
-import { ChunkPositionSchema } from '../../value_object/chunk_position'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk_position'
+import { ChunkPositionSchema } from '../../value_object/chunk_position'
 
 /**
  * ブランド型
@@ -88,9 +88,7 @@ export interface ChunkAggregate {
   ) => Effect.Effect<ChunkAggregate, ChunkBoundsError>
   readonly markDirty: () => Effect.Effect<ChunkAggregate>
   readonly markClean: () => Effect.Effect<ChunkAggregate>
-  readonly updateMetadata: (
-    metadata: Partial<ChunkMetadata>
-  ) => Effect.Effect<ChunkAggregate>
+  readonly updateMetadata: (metadata: Partial<ChunkMetadata>) => Effect.Effect<ChunkAggregate>
   readonly isEmpty: () => boolean
   readonly getMemoryUsage: () => number
   readonly clone: () => Effect.Effect<ChunkAggregate>

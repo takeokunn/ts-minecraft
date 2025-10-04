@@ -2,8 +2,6 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFace, BlockFaceSchema } from '../value_object/block_face'
-import { Vector3, Vector3Schema } from '../value_object/vector3'
 import {
   BlockId,
   BlockIdSchema,
@@ -19,6 +17,8 @@ import {
   SessionIdSchema,
   TimestampSchema,
 } from '../types'
+import { BlockFace, BlockFaceSchema } from '../value_object/block_face'
+import { Vector3, Vector3Schema } from '../value_object/vector3'
 
 const SessionStateSchema = Schema.Union(
   Schema.Struct({
@@ -53,8 +53,7 @@ export const BreakingSessionError = Data.taggedEnum({
 
 export type BreakingSessionError = typeof BreakingSessionError.Type
 
-const parseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, { includeStackTrace: false })
+const parseError = (error: Schema.ParseError) => TreeFormatter.formatError(error, { includeStackTrace: false })
 
 const toSchemaViolation = (sessionId: SessionId) => (error: Schema.ParseError) =>
   BreakingSessionError.SchemaViolation({ message: `${sessionId}: ${parseError(error)}` })
@@ -205,8 +204,10 @@ export const recordProgress = (
 export const completeImmediately = (
   session: BreakingSession,
   timestamp: EpochMilliseconds
-): Effect.Effect<{
-  readonly session: BreakingSession
-  readonly events: ReadonlyArray<InteractionEvent>
-}, BreakingSessionError | InteractionError> =>
-  recordProgress(session, 1, timestamp)
+): Effect.Effect<
+  {
+    readonly session: BreakingSession
+    readonly events: ReadonlyArray<InteractionEvent>
+  },
+  BreakingSessionError | InteractionError
+> => recordProgress(session, 1, timestamp)

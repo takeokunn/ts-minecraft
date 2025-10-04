@@ -6,21 +6,11 @@
  * 高度な復旧戦略と安全性保証
  */
 
-import { Effect, Option, ReadonlyArray } from 'effect'
-import type {
-  GenerationSessionId,
-  ChunkPosition,
-} from '../../types'
+import { Effect, ReadonlyArray } from 'effect'
+import type { GenerationSessionId } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createSessionRecoveryError,
-} from '../types'
-import type {
-  GenerationSession,
-  ChunkGenerationTask,
-  SessionRecoveryInfo,
-} from './interface'
+import { createRepositoryError, createSessionRecoveryError } from '../types'
+import type { GenerationSession, SessionRecoveryInfo } from './interface'
 
 // === Recovery Strategy Types ===
 
@@ -53,26 +43,21 @@ export const analyzeSessionRecovery = (
   session: GenerationSession
 ): Effect.Effect<SessionRecoveryInfo, AllRepositoryErrors> =>
   Effect.gen(function* () {
-    const corruptedChunks = session.chunks.filter(chunk =>
-      chunk.status === 'failed' ||
-      (chunk.error !== null && chunk.retryCount >= 3)
-    ).map(chunk => chunk.position)
+    const corruptedChunks = session.chunks
+      .filter((chunk) => chunk.status === 'failed' || (chunk.error !== null && chunk.retryCount >= 3))
+      .map((chunk) => chunk.position)
 
-    const recoverableChunks = session.chunks.filter(chunk =>
-      chunk.status === 'completed' ||
-      (chunk.status === 'failed' && chunk.retryCount < 3)
-    ).map(chunk => chunk.position)
+    const recoverableChunks = session.chunks
+      .filter((chunk) => chunk.status === 'completed' || (chunk.status === 'failed' && chunk.retryCount < 3))
+      .map((chunk) => chunk.position)
 
-    const corruptionRate = session.chunks.length > 0
-      ? corruptedChunks.length / session.chunks.length
-      : 0
+    const corruptionRate = session.chunks.length > 0 ? corruptedChunks.length / session.chunks.length : 0
 
-    const estimatedRecoveryTime = corruptedChunks.length * 2000 + // 2 seconds per corrupted chunk
-                                  (session.chunks.length - corruptedChunks.length) * 500 // 0.5 seconds per recoverable chunk
+    const estimatedRecoveryTime =
+      corruptedChunks.length * 2000 + // 2 seconds per corrupted chunk
+      (session.chunks.length - corruptedChunks.length) * 500 // 0.5 seconds per recoverable chunk
 
-    const riskLevel: 'low' | 'medium' | 'high' =
-      corruptionRate < 0.1 ? 'low' :
-      corruptionRate < 0.3 ? 'medium' : 'high'
+    const riskLevel: 'low' | 'medium' | 'high' = corruptionRate < 0.1 ? 'low' : corruptionRate < 0.3 ? 'medium' : 'high'
 
     const recommendations: string[] = []
     if (corruptionRate > 0.5) {
@@ -97,11 +82,9 @@ export const analyzeSessionRecovery = (
     }
   }).pipe(
     Effect.catchAll((error) =>
-      Effect.fail(createRepositoryError(
-        `Failed to analyze session recovery: ${error}`,
-        'analyzeSessionRecovery',
-        error
-      ))
+      Effect.fail(
+        createRepositoryError(`Failed to analyze session recovery: ${error}`, 'analyzeSessionRecovery', error)
+      )
     )
   )
 
@@ -127,11 +110,9 @@ export const executeSessionRecovery = (
     const analysis = yield* analyzeSessionRecovery(session)
 
     if (!analysis.canRecover) {
-      return yield* Effect.fail(createSessionRecoveryError(
-        session.id,
-        'Session cannot be recovered in current state',
-        null
-      ))
+      return yield* Effect.fail(
+        createSessionRecoveryError(session.id, 'Session cannot be recovered in current state', null)
+      )
     }
 
     // Execute recovery based on strategy
@@ -191,11 +172,7 @@ export const executeSessionRecovery = (
     }
   }).pipe(
     Effect.catchAll((error) =>
-      Effect.fail(createSessionRecoveryError(
-        session.id,
-        `Recovery execution failed: ${error}`,
-        null
-      ))
+      Effect.fail(createSessionRecoveryError(session.id, `Recovery execution failed: ${error}`, null))
     )
   )
 
@@ -243,9 +220,8 @@ export const estimateRecoverySuccess = (
   strategy: RecoveryStrategy
 ): Effect.Effect<number, never> => // Returns probability 0.0 - 1.0
   Effect.gen(function* () {
-    const corruptionRate = session.chunks.length > 0
-      ? session.chunks.filter(c => c.status === 'failed').length / session.chunks.length
-      : 0
+    const corruptionRate =
+      session.chunks.length > 0 ? session.chunks.filter((c) => c.status === 'failed').length / session.chunks.length : 0
 
     const baseSuccess = 1.0 - corruptionRate
 
@@ -264,11 +240,14 @@ export const estimateRecoverySuccess = (
 export const validateRecoveredSession = (
   originalSession: GenerationSession,
   recoveredSession: GenerationSession
-): Effect.Effect<{
-  readonly isValid: boolean
-  readonly issues: ReadonlyArray<string>
-  readonly confidence: number
-}, AllRepositoryErrors> =>
+): Effect.Effect<
+  {
+    readonly isValid: boolean
+    readonly issues: ReadonlyArray<string>
+    readonly confidence: number
+  },
+  AllRepositoryErrors
+> =>
   Effect.gen(function* () {
     const issues: string[] = []
     let confidence = 1.0
@@ -285,8 +264,8 @@ export const validateRecoveredSession = (
     }
 
     // Check chunk integrity
-    const originalCompletedChunks = originalSession.chunks.filter(c => c.status === 'completed').length
-    const recoveredCompletedChunks = recoveredSession.chunks.filter(c => c.status === 'completed').length
+    const originalCompletedChunks = originalSession.chunks.filter((c) => c.status === 'completed').length
+    const recoveredCompletedChunks = recoveredSession.chunks.filter((c) => c.status === 'completed').length
 
     if (recoveredCompletedChunks < originalCompletedChunks * 0.8) {
       issues.push('Significant chunk loss detected')

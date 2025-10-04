@@ -6,9 +6,9 @@
  */
 
 export {
-  type ChunkSerializationService,
   ChunkSerializationService,
   ChunkSerializationServiceLive,
+  SerializationFormat,
+  type ChunkSerializationService,
   type SerializationFormat,
-  SerializationFormat
 } from './service'

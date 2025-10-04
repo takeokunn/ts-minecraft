@@ -6,16 +6,16 @@
  */
 
 export {
-  // Interface
-  type ChunkRepository,
   ChunkRepository,
-  type ChunkRepositoryEffect,
+  type BatchOperationResult,
+  type ChunkArray,
+  type ChunkOption,
   type ChunkQuery,
   type ChunkRegion,
+  // Interface
+  type ChunkRepository,
+  type ChunkRepositoryEffect,
   type ChunkStatistics,
-  type BatchOperationResult,
-  type ChunkOption,
-  type ChunkArray,
 } from './interface'
 
 export {
@@ -29,8 +29,8 @@ export {
 } from './indexeddb_implementation'
 
 export {
+  WORKER_SCRIPT_TEMPLATE,
   // WebWorker Implementation
   WebWorkerChunkRepositoryLive,
   createWebWorkerChunkRepository,
-  WORKER_SCRIPT_TEMPLATE,
 } from './webworker_implementation'

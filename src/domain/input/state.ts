@@ -1,5 +1,4 @@
 import { HashMap, HashSet, Match, Option, pipe } from 'effect'
-import { InputTimestamp, MouseDelta, Vector2 } from './model'
 import type {
   AxisId,
   AxisValue,
@@ -9,6 +8,7 @@ import type {
   MouseButton,
   Vector2 as Vector2Type,
 } from './model'
+import { InputTimestamp, MouseDelta, Vector2 } from './model'
 
 export type AxisState = HashMap.HashMap<AxisId, AxisValue>
 
@@ -76,15 +76,9 @@ export const applyEvent = (snapshot: InputSnapshot, event: InputEvent): InputSna
   pipe(
     event,
     Match.value,
-    Match.tag('KeyPressed', ({ key, timestamp }) =>
-      withTimestamp(pressKey(snapshot, key), timestamp)
-    ),
-    Match.tag('KeyReleased', ({ key, timestamp }) =>
-      withTimestamp(releaseKey(snapshot, key), timestamp)
-    ),
-    Match.tag('MouseButtonPressed', ({ button, timestamp }) =>
-      withTimestamp(pressMouse(snapshot, button), timestamp)
-    ),
+    Match.tag('KeyPressed', ({ key, timestamp }) => withTimestamp(pressKey(snapshot, key), timestamp)),
+    Match.tag('KeyReleased', ({ key, timestamp }) => withTimestamp(releaseKey(snapshot, key), timestamp)),
+    Match.tag('MouseButtonPressed', ({ button, timestamp }) => withTimestamp(pressMouse(snapshot, button), timestamp)),
     Match.tag('MouseButtonReleased', ({ button, timestamp }) =>
       withTimestamp(releaseMouse(snapshot, button), timestamp)
     ),
@@ -97,15 +91,12 @@ export const applyEvent = (snapshot: InputSnapshot, event: InputEvent): InputSna
     Match.exhaustive
   )
 
-export const isKeyActive = (snapshot: InputSnapshot, key: KeyCode): boolean =>
-  HashSet.has(snapshot.keys, key)
+export const isKeyActive = (snapshot: InputSnapshot, key: KeyCode): boolean => HashSet.has(snapshot.keys, key)
 
 export const isMouseButtonActive = (snapshot: InputSnapshot, button: MouseButton): boolean =>
   HashSet.has(snapshot.mouseButtons, button)
 
-export const axisValue = (
-  snapshot: InputSnapshot,
-  axis: AxisId
-): Option.Option<AxisValue> => HashMap.get(snapshot.axes, axis)
+export const axisValue = (snapshot: InputSnapshot, axis: AxisId): Option.Option<AxisValue> =>
+  HashMap.get(snapshot.axes, axis)
 
 export const zeroSnapshot = makeSnapshot(InputTimestamp(0))

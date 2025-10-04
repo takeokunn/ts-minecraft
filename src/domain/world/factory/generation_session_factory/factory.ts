@@ -19,13 +19,10 @@
  * - Chunk による効率的なバッチ処理
  */
 
-import { Context, Effect, Schema, Layer, Match, Function, STM, Duration, Chunk, Brand } from "effect"
-import type * as GenerationSession from "../../aggregate/generation_session/generation_session.js"
-import type * as WorldGenerator from "../../aggregate/world_generator/world_generator.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
+import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
+import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
 
 // ================================
 // Factory Error Types
@@ -42,10 +39,13 @@ export const SessionFactoryErrorSchema = Schema.TaggedError('SessionFactoryError
   message: Schema.String,
   sessionId: Schema.optional(GenerationSession.GenerationSessionIdSchema),
   context: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 })
 
-export class SessionFactoryError extends Schema.TaggedError<typeof SessionFactoryErrorSchema>()('SessionFactoryError', SessionFactoryErrorSchema) {}
+export class SessionFactoryError extends Schema.TaggedError<typeof SessionFactoryErrorSchema>()(
+  'SessionFactoryError',
+  SessionFactoryErrorSchema
+) {}
 
 // ================================
 // Factory Parameters
@@ -78,10 +78,12 @@ export const CreateSessionParamsSchema = Schema.Struct({
   checkpointInterval: Schema.optional(Duration.DurationSchema),
 
   // カスタム設定
-  customOptions: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  customOptions: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 export type CreateSessionParams = typeof CreateSessionParamsSchema.Type
@@ -93,7 +95,7 @@ export const CreateBatchSessionParamsSchema = Schema.Struct({
   requests: Schema.Array(GenerationSession.GenerationRequestSchema),
   batchSize: Schema.optional(Schema.Number.pipe(Schema.between(1, 100))),
   processingStrategy: Schema.optional(Schema.Literal('parallel', 'sequential', 'mixed')),
-  configuration: Schema.optional(GenerationSession.SessionConfigurationSchema)
+  configuration: Schema.optional(GenerationSession.SessionConfigurationSchema),
 })
 
 export type CreateBatchSessionParams = typeof CreateBatchSessionParamsSchema.Type
@@ -116,10 +118,12 @@ export type SessionTemplateType = typeof SessionTemplateTypeSchema.Type
 export const CreateFromTemplateParamsSchema = Schema.Struct({
   template: SessionTemplateTypeSchema,
   coordinates: Schema.Array(Coordinates.ChunkCoordinateSchema),
-  customizations: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  customizations: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 export type CreateFromTemplateParams = typeof CreateFromTemplateParamsSchema.Type
@@ -131,7 +135,7 @@ export const RecoverSessionParamsSchema = Schema.Struct({
   sessionId: GenerationSession.GenerationSessionIdSchema,
   recoveryStrategy: Schema.Literal('resume', 'restart', 'partial'),
   preserveProgress: Schema.optional(Schema.Boolean),
-  skipFailedChunks: Schema.optional(Schema.Boolean)
+  skipFailedChunks: Schema.optional(Schema.Boolean),
 })
 
 export type RecoverSessionParams = typeof RecoverSessionParamsSchema.Type
@@ -215,12 +219,13 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       // GenerationSession作成
       const session = yield* Effect.tryPromise({
         try: () => GenerationSession.create(sessionId, resolvedParams.request, configuration),
-        catch: (error) => new SessionFactoryError({
-          category: 'session_creation',
-          message: 'Failed to create GenerationSession',
-          sessionId,
-          cause: error
-        })
+        catch: (error) =>
+          new SessionFactoryError({
+            category: 'session_creation',
+            message: 'Failed to create GenerationSession',
+            sessionId,
+            cause: error,
+          }),
       })
 
       // 後処理セットアップ
@@ -233,10 +238,12 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
     Effect.gen(function* () {
       // バッチサイズ検証
       if (params.requests.length === 0) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: 'Empty batch request provided'
-        }))
+        return yield* Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: 'Empty batch request provided',
+          })
+        )
       }
 
       // バッチ処理戦略適用
@@ -258,7 +265,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
         configuration: batchConfiguration,
         executionMode: 'async',
         enableProgressTracking: true,
-        enableMetrics: true
+        enableMetrics: true,
       }
 
       return yield* createGenerationSessionFactory().create(sessionParams)
@@ -280,7 +287,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
         request: customizedRequest,
         configuration: templateConfig.configuration,
         executionMode: templateConfig.executionMode,
-        enableProgressTracking: templateConfig.enableProgressTracking
+        enableProgressTracking: templateConfig.enableProgressTracking,
       }
 
       return yield* createGenerationSessionFactory().create(sessionParams)
@@ -315,11 +322,11 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
           timeoutPolicy: {
             chunkTimeoutMs: 5000,
             sessionTimeoutMs: 300000,
-            gracefulShutdownMs: 2000
-          }
+            gracefulShutdownMs: 2000,
+          },
         },
         enableProgressTracking: true,
-        enableDetailedLogging: true
+        enableDetailedLogging: true,
       }
 
       return yield* createGenerationSessionFactory().create(streamingParams)
@@ -329,10 +336,12 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
     Effect.gen(function* () {
       // 優先度検証
       if (priority < 1 || priority > 10) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: 'Priority must be between 1 and 10'
-        }))
+        return yield* Effect.fail(
+          new SessionFactoryError({
+            category: 'configuration_invalid',
+            message: 'Priority must be between 1 and 10',
+          })
+        )
       }
 
       // 優先度特化設定
@@ -344,14 +353,14 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
           priorityPolicy: {
             enablePriorityQueuing: true,
             priorityThreshold: priority,
-            highPriorityWeight: priority >= 8 ? 5.0 : 2.0
-          }
+            highPriorityWeight: priority >= 8 ? 5.0 : 2.0,
+          },
         },
-        enableMetrics: true
+        enableMetrics: true,
       }
 
       return yield* createGenerationSessionFactory().create(priorityParams)
-    })
+    }),
 })
 
 // ================================
@@ -366,11 +375,13 @@ const validateSessionParams = (params: CreateSessionParams): Effect.Effect<void,
     try {
       Schema.decodeSync(CreateSessionParamsSchema)(params)
     } catch (error) {
-      return yield* Effect.fail(new SessionFactoryError({
-        category: 'configuration_invalid',
-        message: 'Invalid session parameters',
-        cause: error
-      }))
+      return yield* Effect.fail(
+        new SessionFactoryError({
+          category: 'configuration_invalid',
+          message: 'Invalid session parameters',
+          cause: error,
+        })
+      )
     }
   })
 
@@ -387,14 +398,15 @@ const applySessionDefaults = (params: CreateSessionParams): Effect.Effect<Create
     enableDetailedLogging: params.enableDetailedLogging ?? false,
     enableMetrics: params.enableMetrics ?? true,
     enableAutoRecovery: params.enableAutoRecovery ?? true,
-    checkpointInterval: params.checkpointInterval ?? Duration.seconds(30)
+    checkpointInterval: params.checkpointInterval ?? Duration.seconds(30),
   })
 
 /**
  * セッション設定構築
  */
-const buildSessionConfiguration = (params: CreateSessionParams): Effect.Effect<GenerationSession.SessionConfiguration, SessionFactoryError> =>
-  Effect.succeed(params.configuration!)
+const buildSessionConfiguration = (
+  params: CreateSessionParams
+): Effect.Effect<GenerationSession.SessionConfiguration, SessionFactoryError> => Effect.succeed(params.configuration!)
 
 /**
  * セッション依存関係解決
@@ -408,9 +420,7 @@ const resolveSessionDependencies = (params: CreateSessionParams): Effect.Effect<
  * セッションID生成
  */
 const generateSessionId = (): Effect.Effect<GenerationSession.GenerationSessionId, SessionFactoryError> =>
-  Effect.sync(() =>
-    GenerationSession.createGenerationSessionId(`gs_${crypto.randomUUID()}`)
-  )
+  Effect.sync(() => GenerationSession.createGenerationSessionId(`gs_${crypto.randomUUID()}`))
 
 /**
  * セッションインフラ設定
@@ -433,18 +443,18 @@ const createDefaultSessionConfiguration = (): GenerationSession.SessionConfigura
     maxAttempts: 3,
     backoffStrategy: 'exponential',
     baseDelayMs: 1000,
-    maxDelayMs: 10000
+    maxDelayMs: 10000,
   },
   timeoutPolicy: {
     chunkTimeoutMs: 30000,
     sessionTimeoutMs: 600000,
-    gracefulShutdownMs: 5000
+    gracefulShutdownMs: 5000,
   },
   priorityPolicy: {
     enablePriorityQueuing: false,
     priorityThreshold: 5,
-    highPriorityWeight: 2.0
-  }
+    highPriorityWeight: 2.0,
+  },
 })
 
 /**
@@ -458,7 +468,7 @@ const createRequestBatches = (
     Chunk.fromIterable(requests)
       .pipe(Chunk.chunksOf(batchSize))
       .pipe(Chunk.toReadonlyArray)
-      .map(chunk => Chunk.toReadonlyArray(chunk))
+      .map((chunk) => Chunk.toReadonlyArray(chunk))
   )
 
 /**
@@ -468,10 +478,10 @@ const mergeRequests = (
   requests: readonly GenerationSession.GenerationRequest[]
 ): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> =>
   Effect.succeed({
-    coordinates: requests.flatMap(r => r.coordinates),
-    priority: Math.max(...requests.map(r => r.priority)),
+    coordinates: requests.flatMap((r) => r.coordinates),
+    priority: Math.max(...requests.map((r) => r.priority)),
     options: requests[0]?.options,
-    metadata: requests.reduce((acc, r) => ({ ...acc, ...r.metadata }), {})
+    metadata: requests.reduce((acc, r) => ({ ...acc, ...r.metadata }), {}),
   })
 
 /**
@@ -490,7 +500,7 @@ const buildBatchConfiguration = (
       Match.when('sequential', () => 1),
       Match.when('mixed', () => 4),
       Match.orElse(() => 4)
-    )
+    ),
   })
 
 /**
@@ -506,10 +516,14 @@ const loadSessionTemplate = (template: SessionTemplateType): Effect.Effect<Sessi
     Match.when('terrain_modification', () => createTerrainModificationTemplate()),
     Match.when('bulk_generation', () => createBulkGenerationTemplate()),
     Match.when('streaming_generation', () => createStreamingGenerationTemplate()),
-    Match.orElse(() => Effect.fail(new SessionFactoryError({
-      category: 'configuration_invalid',
-      message: `Unknown session template: ${template}`
-    })))
+    Match.orElse(() =>
+      Effect.fail(
+        new SessionFactoryError({
+          category: 'configuration_invalid',
+          message: `Unknown session template: ${template}`,
+        })
+      )
+    )
   )
 
 /**
@@ -528,7 +542,7 @@ const createSingleChunkTemplate = (): Effect.Effect<SessionTemplate, SessionFact
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 1,
-      chunkBatchSize: 1
+      chunkBatchSize: 1,
     },
     executionMode: 'sync',
     enableProgressTracking: false,
@@ -537,8 +551,8 @@ const createSingleChunkTemplate = (): Effect.Effect<SessionTemplate, SessionFact
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
-    }
+      applyPostProcessing: true,
+    },
   })
 
 const createAreaGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -546,7 +560,7 @@ const createAreaGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionF
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 4,
-      chunkBatchSize: 16
+      chunkBatchSize: 16,
     },
     executionMode: 'async',
     enableProgressTracking: true,
@@ -555,8 +569,8 @@ const createAreaGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionF
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
-    }
+      applyPostProcessing: true,
+    },
   })
 
 const createWorldExplorationTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -564,7 +578,7 @@ const createWorldExplorationTemplate = (): Effect.Effect<SessionTemplate, Sessio
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 8,
-      chunkBatchSize: 4
+      chunkBatchSize: 4,
     },
     executionMode: 'streaming',
     enableProgressTracking: true,
@@ -573,8 +587,8 @@ const createWorldExplorationTemplate = (): Effect.Effect<SessionTemplate, Sessio
       includeCaves: false,
       includeOres: false,
       generateVegetation: false,
-      applyPostProcessing: false
-    }
+      applyPostProcessing: false,
+    },
   })
 
 const createStructurePlacementTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -582,7 +596,7 @@ const createStructurePlacementTemplate = (): Effect.Effect<SessionTemplate, Sess
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 2,
-      chunkBatchSize: 8
+      chunkBatchSize: 8,
     },
     executionMode: 'async',
     enableProgressTracking: true,
@@ -591,8 +605,8 @@ const createStructurePlacementTemplate = (): Effect.Effect<SessionTemplate, Sess
       includeCaves: false,
       includeOres: false,
       generateVegetation: false,
-      applyPostProcessing: true
-    }
+      applyPostProcessing: true,
+    },
   })
 
 const createTerrainModificationTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -600,7 +614,7 @@ const createTerrainModificationTemplate = (): Effect.Effect<SessionTemplate, Ses
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 1,
-      chunkBatchSize: 1
+      chunkBatchSize: 1,
     },
     executionMode: 'sync',
     enableProgressTracking: true,
@@ -609,8 +623,8 @@ const createTerrainModificationTemplate = (): Effect.Effect<SessionTemplate, Ses
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
-    }
+      applyPostProcessing: true,
+    },
   })
 
 const createBulkGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -618,7 +632,7 @@ const createBulkGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionF
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 16,
-      chunkBatchSize: 32
+      chunkBatchSize: 32,
     },
     executionMode: 'async',
     enableProgressTracking: true,
@@ -627,8 +641,8 @@ const createBulkGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionF
       includeCaves: false,
       includeOres: false,
       generateVegetation: false,
-      applyPostProcessing: false
-    }
+      applyPostProcessing: false,
+    },
   })
 
 const createStreamingGenerationTemplate = (): Effect.Effect<SessionTemplate, SessionFactoryError> =>
@@ -636,7 +650,7 @@ const createStreamingGenerationTemplate = (): Effect.Effect<SessionTemplate, Ses
     configuration: {
       ...createDefaultSessionConfiguration(),
       maxConcurrentChunks: 2,
-      chunkBatchSize: 1
+      chunkBatchSize: 1,
     },
     executionMode: 'streaming',
     enableProgressTracking: true,
@@ -645,8 +659,8 @@ const createStreamingGenerationTemplate = (): Effect.Effect<SessionTemplate, Ses
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: false
-    }
+      applyPostProcessing: false,
+    },
   })
 
 // その他のヘルパー関数（実装簡略化）
@@ -657,22 +671,19 @@ const buildRequestFromCoordinates = (
   Effect.succeed({
     coordinates: [...coordinates],
     priority: 5,
-    options: template.defaultOptions
+    options: template.defaultOptions,
   })
 
 const applyRequestCustomizations = (
   request: GenerationSession.GenerationRequest,
   customizations: Record<string, unknown> | undefined
-): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> =>
-  Effect.succeed(request)
+): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> => Effect.succeed(request)
 
 const loadExistingSession = (sessionId: GenerationSession.GenerationSessionId) =>
   Effect.succeed({} as GenerationSession.GenerationSession)
 
-const applyRecoveryStrategy = (
-  existingSession: GenerationSession.GenerationSession,
-  params: RecoverSessionParams
-) => Effect.succeed(existingSession)
+const applyRecoveryStrategy = (existingSession: GenerationSession.GenerationSession, params: RecoverSessionParams) =>
+  Effect.succeed(existingSession)
 
 const restoreProgress = (
   recoveredSession: GenerationSession.GenerationSession,
@@ -691,20 +702,17 @@ export const GenerationSessionFactoryTag = Context.GenericTag<GenerationSessionF
 // Layer Implementation
 // ================================
 
-export const GenerationSessionFactoryLive = Layer.succeed(
-  GenerationSessionFactoryTag,
-  createGenerationSessionFactory()
-)
+export const GenerationSessionFactoryLive = Layer.succeed(GenerationSessionFactoryTag, createGenerationSessionFactory())
 
 // ================================
 // Exports
 // ================================
 
 export {
-  type CreateSessionParams,
   type CreateBatchSessionParams,
   type CreateFromTemplateParams,
+  type CreateSessionParams,
+  type GenerationSessionFactory,
   type RecoverSessionParams,
   type SessionTemplateType,
-  type GenerationSessionFactory,
 }

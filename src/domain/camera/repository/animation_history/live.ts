@@ -118,7 +118,10 @@ const StorageOps = {
   /**
    * 時間範囲でフィルタリング
    */
-  filterByTimeRange: (records: Array.ReadonlyArray<AnimationRecord>, timeRange: TimeRange): Array.ReadonlyArray<AnimationRecord> =>
+  filterByTimeRange: (
+    records: Array.ReadonlyArray<AnimationRecord>,
+    timeRange: TimeRange
+  ): Array.ReadonlyArray<AnimationRecord> =>
     records.filter((record) => record.startTime >= timeRange.startTime && record.endTime <= timeRange.endTime),
 
   /**

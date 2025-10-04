@@ -1,5 +1,5 @@
-import baseConfig from './vitest.config.ts'
 import { defineConfig } from 'vitest/config'
+import baseConfig from './vitest.config.ts'
 
 export default defineConfig({
   ...baseConfig,
@@ -11,10 +11,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text'],
       include: ['src/domain/view_distance/**/*.ts'],
-      exclude: [
-        'src/domain/view_distance/__test__/**/*.test.ts',
-        'src/domain/view_distance/index.ts',
-      ],
+      exclude: ['src/domain/view_distance/__test__/**/*.test.ts', 'src/domain/view_distance/index.ts'],
       thresholds: {
         global: {
           branches: 100,

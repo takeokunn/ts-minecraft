@@ -1,6 +1,16 @@
 import { Context, Effect, Layer, pipe } from 'effect'
 import { PlayerErrorBuilders } from './errors'
 import {
+  applyCommand,
+  createPlayer,
+  snapshot as createSnapshot,
+  regenerateHunger,
+  transitionState,
+  updatePosition,
+} from './operations'
+import { PlayerRepository } from './repository'
+import { PlayerClock } from './time'
+import {
   PlayerAggregate,
   PlayerCommand,
   PlayerCreationInput,
@@ -11,16 +21,6 @@ import {
   PlayerSnapshot,
   PlayerUpdateContext,
 } from './types'
-import { PlayerRepository } from './repository'
-import { PlayerClock } from './time'
-import {
-  applyCommand,
-  createPlayer,
-  regenerateHunger,
-  snapshot as createSnapshot,
-  transitionState,
-  updatePosition,
-} from './operations'
 
 type ConstraintError = ReturnType<typeof PlayerErrorBuilders.constraint>
 type TransitionError = ReturnType<typeof PlayerErrorBuilders.invalidTransition>
@@ -54,9 +54,7 @@ export interface PlayerDomainService {
     to: PlayerLifecycleState,
     context?: Partial<PlayerUpdateContext>
   ) => Effect.Effect<PlayerAggregate, ConstraintError | TransitionError | MissingError | ClockError>
-  readonly snapshot: (
-    id: PlayerId
-  ) => Effect.Effect<PlayerSnapshot, ConstraintError | MissingError | ClockError>
+  readonly snapshot: (id: PlayerId) => Effect.Effect<PlayerSnapshot, ConstraintError | MissingError | ClockError>
   readonly list: Effect.Effect<ReadonlyArray<PlayerAggregate>, never>
 }
 
@@ -70,9 +68,7 @@ const makeService = Effect.gen(function* () {
     pipe(
       override,
       Effect.succeed,
-      Effect.flatMap((value) =>
-        value === undefined ? clock.current : clock.fromUnix(value)
-      )
+      Effect.flatMap((value) => (value === undefined ? clock.current : clock.fromUnix(value)))
     )
 
   const spawn: PlayerDomainService['spawn'] = (input) =>
@@ -111,11 +107,7 @@ const makeService = Effect.gen(function* () {
     Effect.gen(function* () {
       const aggregate = yield* repository.findById(id)
       const timestamp = yield* resolveTimestamp(context.timestamp)
-      const result = yield* updatePosition(
-        aggregate,
-        { position, motion: aggregate.motion },
-        { timestamp }
-      )
+      const result = yield* updatePosition(aggregate, { position, motion: aggregate.motion }, { timestamp })
       yield* repository.upsert(result.aggregate)
       return result.aggregate
     })
@@ -124,12 +116,7 @@ const makeService = Effect.gen(function* () {
     Effect.gen(function* () {
       const aggregate = yield* repository.findById(id)
       const timestamp = yield* resolveTimestamp(context.timestamp)
-      const result = yield* transitionState(
-        aggregate,
-        to,
-        { timestamp },
-        `${aggregate.state}->${to}`
-      )
+      const result = yield* transitionState(aggregate, to, { timestamp }, `${aggregate.state}->${to}`)
       yield* repository.upsert(result.aggregate)
       return result.aggregate
     })

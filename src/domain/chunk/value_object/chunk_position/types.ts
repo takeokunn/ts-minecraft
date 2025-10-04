@@ -16,10 +16,7 @@ export const ChunkZ = Brand.refined<ChunkZ>(
   (value) => Brand.error(`整数値が必要です: ${value}`)
 )
 
-const integerCoordinate = Schema.Number.pipe(
-  Schema.int(),
-  Schema.brand('ChunkCoordinate')
-)
+const integerCoordinate = Schema.Number.pipe(Schema.int(), Schema.brand('ChunkCoordinate'))
 
 /**
  * チャンク座標のスキーマ定義
@@ -93,9 +90,7 @@ export const worldToChunkPosition = (worldX: number, worldZ: number): ChunkPosit
 /**
  * チャンク座標からワールド座標へ変換
  */
-export const chunkToWorldPosition = (
-  position: ChunkPosition
-): { readonly x: number; readonly z: number } => ({
+export const chunkToWorldPosition = (position: ChunkPosition): { readonly x: number; readonly z: number } => ({
   x: position.x * 16,
   z: position.z * 16,
 })
@@ -103,10 +98,7 @@ export const chunkToWorldPosition = (
 /**
  * チャンク距離を計算
  */
-export const calculateChunkDistance = (
-  from: ChunkPosition,
-  to: ChunkPosition
-): ChunkDistance => {
+export const calculateChunkDistance = (from: ChunkPosition, to: ChunkPosition): ChunkDistance => {
   const dx = to.x - from.x
   const dz = to.z - from.z
   return ChunkDistance(Math.hypot(dx, dz))

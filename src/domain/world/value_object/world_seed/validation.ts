@@ -4,17 +4,9 @@
  * DDD原則に基づく自己検証機能とドメイン固有の制約実装
  */
 
-import { Effect, Match } from 'effect'
-import { Schema } from 'effect'
-import {
-  WorldSeed,
-  WorldSeedError,
-  WorldSeedErrorSchema,
-  SeedQuality,
-  EntropyLevel,
-  type WorldSeedBrand
-} from './seed.js'
+import { Effect, Match, Schema } from 'effect'
 import { WorldSeedOps } from './operations.js'
+import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema } from './seed.js'
 
 /**
  * 検証結果型
@@ -23,7 +15,7 @@ export const ValidationResultSchema = Schema.Struct({
   isValid: Schema.Boolean,
   errors: Schema.Array(WorldSeedErrorSchema),
   warnings: Schema.Array(Schema.String),
-  suggestions: Schema.Array(Schema.String)
+  suggestions: Schema.Array(Schema.String),
 })
 
 export type ValidationResult = typeof ValidationResultSchema.Type
@@ -35,7 +27,7 @@ export const ValidationOptionsSchema = Schema.Struct({
   strictMode: Schema.Boolean.pipe(Schema.optional),
   checkQuality: Schema.Boolean.pipe(Schema.optional),
   allowLowEntropy: Schema.Boolean.pipe(Schema.optional),
-  customRules: Schema.Array(Schema.String).pipe(Schema.optional)
+  customRules: Schema.Array(Schema.String).pipe(Schema.optional),
 })
 
 export type ValidationOptions = typeof ValidationOptionsSchema.Type
@@ -48,7 +40,11 @@ const FORBIDDEN_SEEDS = new Set([
   -1, // 一般的なエラー値
   2147483647, // MAX_INT
   -2147483648, // MIN_INT
-  1, 2, 3, 4, 5 // 単純すぎる値
+  1,
+  2,
+  3,
+  4,
+  5, // 単純すぎる値
 ])
 
 /**
@@ -59,7 +55,7 @@ const QUALITY_THRESHOLDS = {
   RECOMMENDED_SCORE: 50,
   EXCELLENT_SCORE: 80,
   MINIMUM_UNIFORMITY: 0.2,
-  MINIMUM_COMPLEXITY: 0.2
+  MINIMUM_COMPLEXITY: 0.2,
 } as const
 
 /**
@@ -104,7 +100,7 @@ export const WorldSeedValidation = {
         isValid: errors.length === 0,
         errors,
         warnings,
-        suggestions
+        suggestions,
       }
 
       return result
@@ -122,7 +118,10 @@ export const WorldSeedValidation = {
   /**
    * 品質スコア検証
    */
-  validateQuality: (seed: WorldSeed, minScore: number = QUALITY_THRESHOLDS.MINIMUM_SCORE): Effect.Effect<boolean, WorldSeedError> =>
+  validateQuality: (
+    seed: WorldSeed,
+    minScore: number = QUALITY_THRESHOLDS.MINIMUM_SCORE
+  ): Effect.Effect<boolean, WorldSeedError> =>
     Effect.gen(function* () {
       const quality = yield* WorldSeedOps.evaluateQuality(seed)
       return quality.score >= minScore
@@ -137,14 +136,17 @@ export const WorldSeedValidation = {
   /**
    * 範囲検証
    */
-  validateRange: (seed: WorldSeed, min: number = -2147483648, max: number = 2147483647): Effect.Effect<boolean, never> =>
-    Effect.succeed(seed.value >= min && seed.value <= max),
+  validateRange: (
+    seed: WorldSeed,
+    min: number = -2147483648,
+    max: number = 2147483647
+  ): Effect.Effect<boolean, never> => Effect.succeed(seed.value >= min && seed.value <= max),
 
   /**
    * 重複検証 - 既存シードとの重複チェック
    */
   validateUniqueness: (seed: WorldSeed, existingSeeds: readonly WorldSeed[]): Effect.Effect<boolean, never> =>
-    Effect.succeed(!existingSeeds.some(existing => WorldSeedOps.equals(seed, existing))),
+    Effect.succeed(!existingSeeds.some((existing) => WorldSeedOps.equals(seed, existing))),
 
   /**
    * 本番環境適合性検証
@@ -153,7 +155,7 @@ export const WorldSeedValidation = {
     WorldSeedValidation.validate(seed, {
       strictMode: true,
       checkQuality: true,
-      allowLowEntropy: false
+      allowLowEntropy: false,
     }),
 
   /**
@@ -163,8 +165,8 @@ export const WorldSeedValidation = {
     WorldSeedValidation.validate(seed, {
       strictMode: false,
       checkQuality: false,
-      allowLowEntropy: true
-    })
+      allowLowEntropy: true,
+    }),
 }
 
 /**
@@ -180,11 +182,13 @@ const validateStructure = (seed: WorldSeed): Effect.Effect<ValidationResult, nev
 
     // Schemaによる基本検証
     const schemaValidation = yield* Effect.either(
-      Schema.decodeUnknown(Schema.Struct({
-        value: Schema.Number,
-        timestamp: Schema.Number,
-        entropy: Schema.Literal('low', 'medium', 'high')
-      }))(seed)
+      Schema.decodeUnknown(
+        Schema.Struct({
+          value: Schema.Number,
+          timestamp: Schema.Number,
+          entropy: Schema.Literal('low', 'medium', 'high'),
+        })
+      )(seed)
     )
 
     if (schemaValidation._tag === 'Left') {
@@ -192,7 +196,7 @@ const validateStructure = (seed: WorldSeed): Effect.Effect<ValidationResult, nev
         _tag: 'ValidationError',
         field: 'structure',
         value: seed,
-        message: 'Invalid seed structure'
+        message: 'Invalid seed structure',
       })
     }
 
@@ -200,14 +204,17 @@ const validateStructure = (seed: WorldSeed): Effect.Effect<ValidationResult, nev
       isValid: errors.length === 0,
       errors,
       warnings: [],
-      suggestions: []
+      suggestions: [],
     }
   })
 
 /**
  * ビジネスルール検証
  */
-const validateBusinessRules = (seed: WorldSeed, options: ValidationOptions): Effect.Effect<{
+const validateBusinessRules = (
+  seed: WorldSeed,
+  options: ValidationOptions
+): Effect.Effect<{
   errors: WorldSeedError[]
   warnings: string[]
 }> =>
@@ -221,7 +228,7 @@ const validateBusinessRules = (seed: WorldSeed, options: ValidationOptions): Eff
         errors.push({
           _tag: 'InvalidSeedValue',
           value: seed.value,
-          message: `Forbidden seed value: ${seed.value}`
+          message: `Forbidden seed value: ${seed.value}`,
         })
       } else {
         warnings.push(`Warning: Using potentially problematic seed value: ${seed.value}`)
@@ -245,7 +252,7 @@ const validateBusinessRules = (seed: WorldSeed, options: ValidationOptions): Eff
         errors.push({
           _tag: 'InvalidSeedValue',
           value: seed.value,
-          message: 'Low entropy seeds not allowed in strict mode'
+          message: 'Low entropy seeds not allowed in strict mode',
         })
       } else {
         warnings.push('Low entropy seed may produce predictable results')
@@ -258,7 +265,10 @@ const validateBusinessRules = (seed: WorldSeed, options: ValidationOptions): Eff
 /**
  * 品質検証
  */
-const validateQuality = (seed: WorldSeed, options: ValidationOptions): Effect.Effect<{
+const validateQuality = (
+  seed: WorldSeed,
+  options: ValidationOptions
+): Effect.Effect<{
   warnings: string[]
   suggestions: string[]
 }> =>
@@ -299,7 +309,10 @@ const validateQuality = (seed: WorldSeed, options: ValidationOptions): Effect.Ef
 /**
  * カスタムルール検証
  */
-const validateCustomRules = (seed: WorldSeed, rules: readonly string[]): Effect.Effect<{
+const validateCustomRules = (
+  seed: WorldSeed,
+  rules: readonly string[]
+): Effect.Effect<{
   errors: WorldSeedError[]
   warnings: string[]
 }> =>
@@ -323,7 +336,10 @@ const validateCustomRules = (seed: WorldSeed, rules: readonly string[]): Effect.
 /**
  * カスタムルール適用
  */
-const applyCustomRule = (seed: WorldSeed, rule: string): Effect.Effect<{
+const applyCustomRule = (
+  seed: WorldSeed,
+  rule: string
+): Effect.Effect<{
   error?: WorldSeedError
   warning?: string
 }> =>
@@ -331,31 +347,33 @@ const applyCustomRule = (seed: WorldSeed, rule: string): Effect.Effect<{
     return Match.value(rule).pipe(
       Match.when('no-even', () =>
         seed.value % 2 === 0
-          ? { error: {
-              _tag: 'ValidationError' as const,
-              field: 'value',
-              value: seed.value,
-              message: 'Even numbers not allowed'
-            }}
+          ? {
+              error: {
+                _tag: 'ValidationError' as const,
+                field: 'value',
+                value: seed.value,
+                message: 'Even numbers not allowed',
+              },
+            }
           : {}
       ),
       Match.when('no-negative', () =>
         seed.value < 0
-          ? { error: {
-              _tag: 'ValidationError' as const,
-              field: 'value',
-              value: seed.value,
-              message: 'Negative values not allowed'
-            }}
+          ? {
+              error: {
+                _tag: 'ValidationError' as const,
+                field: 'value',
+                value: seed.value,
+                message: 'Negative values not allowed',
+              },
+            }
           : {}
       ),
       Match.when('warn-common', () =>
-        isCommonSeed(seed.value)
-          ? { warning: 'This is a commonly used seed value' }
-          : {}
+        isCommonSeed(seed.value) ? { warning: 'This is a commonly used seed value' } : {}
       ),
       Match.orElse(() => ({
-        warning: `Unknown validation rule: ${rule}`
+        warning: `Unknown validation rule: ${rule}`,
       }))
     )
   })
@@ -372,9 +390,6 @@ const compareEntropyLevel = (level1: EntropyLevel, level2: EntropyLevel): number
  * 一般的なシード値判定
  */
 const isCommonSeed = (value: number): boolean => {
-  const commonSeeds = [
-    123, 456, 789, 1234, 5678, 9999,
-    12345, 54321, 11111, 22222, 33333
-  ]
+  const commonSeeds = [123, 456, 789, 1234, 5678, 9999, 12345, 54321, 11111, 22222, 33333]
   return commonSeeds.includes(value)
 }

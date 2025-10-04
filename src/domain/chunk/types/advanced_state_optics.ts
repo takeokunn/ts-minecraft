@@ -5,29 +5,10 @@
  * 複雑な状態遷移、並列処理、キャッシュ機能を実現
  */
 
-import {
-  Optic,
-  Effect,
-  Match,
-  pipe,
-  Option,
-  Either,
-  Array as EffectArray,
-  Chunk as EffectChunk,
-  Cache,
-  Duration,
-  Schedule
-} from 'effect'
-import type {
-  ChunkState,
-  ChunkTimestamp,
-  LoadProgress,
-  RetryCount,
-  ChangeSet,
-  ChunkDataBytes
-} from './core'
+import { Cache, Duration, Effect, Chunk as EffectChunk, Either, Match, Optic, Option, pipe, Schedule } from 'effect'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
-import { ChunkStateOptics, ChunkStateOpticsHelpers, ChunkStateGuards } from './state_optics'
+import type { ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from './core'
+import { ChunkStateGuards } from './state_optics'
 
 /**
  * 高度なChunkState操作用のOptics拡張
@@ -46,7 +27,7 @@ export const AdvancedChunkStateOptics = {
     whenFalse: Optic.Optic<ChunkState, ChunkState, A, A>
   ) =>
     Optic.id<ChunkState>().pipe(
-      Optic.when((state) => condition(state) ? Option.some(whenTrue) : Option.some(whenFalse))
+      Optic.when((state) => (condition(state) ? Option.some(whenTrue) : Option.some(whenFalse)))
     ),
 
   /**
@@ -55,9 +36,7 @@ export const AdvancedChunkStateOptics = {
    */
   anyStateData: pipe(
     Optic.id<ChunkState>(),
-    Optic.when((state): state is Extract<ChunkState, { data: ChunkDataBytes }> =>
-      ChunkStateGuards.hasData(state)
-    ),
+    Optic.when((state): state is Extract<ChunkState, { data: ChunkDataBytes }> => ChunkStateGuards.hasData(state)),
     Optic.at('data')
   ),
 
@@ -104,9 +83,7 @@ export const AdvancedChunkStateOptics = {
   conditionalProperty: <K extends keyof ChunkState>(propertyName: K) =>
     pipe(
       Optic.id<ChunkState>(),
-      Optic.when((state): state is ChunkState & Record<K, unknown> =>
-        propertyName in state
-      ),
+      Optic.when((state): state is ChunkState & Record<K, unknown> => propertyName in state),
       Optic.at(propertyName)
     ),
 } as const
@@ -122,11 +99,12 @@ export const ChunkStateTransitionOptics = {
    * @param toState - 遷移先状態
    * @param validation - 遷移条件の検証関数
    */
-  safeTransition: <TFrom extends ChunkState['_tag'], TTo extends ChunkState>(
-    fromState: TFrom,
-    toState: TTo,
-    validation?: (state: Extract<ChunkState, { _tag: TFrom }>) => boolean
-  ) =>
+  safeTransition:
+    <TFrom extends ChunkState['_tag'], TTo extends ChunkState>(
+      fromState: TFrom,
+      toState: TTo,
+      validation?: (state: Extract<ChunkState, { _tag: TFrom }>) => boolean
+    ) =>
     (state: ChunkState): Either.Either<TTo, string> => {
       if (state._tag !== fromState) {
         return Either.left(`Invalid transition: expected ${fromState}, got ${state._tag}`)
@@ -143,12 +121,13 @@ export const ChunkStateTransitionOptics = {
    * 条件付き状態遷移
    * @param conditions - 状態遷移の条件マップ
    */
-  conditionalTransition: (
-    conditions: ReadonlyArray<{
-      condition: (state: ChunkState) => boolean
-      transition: (state: ChunkState) => ChunkState
-    }>
-  ) =>
+  conditionalTransition:
+    (
+      conditions: ReadonlyArray<{
+        condition: (state: ChunkState) => boolean
+        transition: (state: ChunkState) => ChunkState
+      }>
+    ) =>
     (state: ChunkState): ChunkState => {
       for (const { condition, transition } of conditions) {
         if (condition(state)) {
@@ -163,10 +142,11 @@ export const ChunkStateTransitionOptics = {
    * @param transition - 状態遷移関数
    * @param rollbackCondition - ロールバック条件
    */
-  transitionWithRollback: (
-    transition: (state: ChunkState) => ChunkState,
-    rollbackCondition: (newState: ChunkState, oldState: ChunkState) => boolean
-  ) =>
+  transitionWithRollback:
+    (
+      transition: (state: ChunkState) => ChunkState,
+      rollbackCondition: (newState: ChunkState, oldState: ChunkState) => boolean
+    ) =>
     (state: ChunkState): ChunkState => {
       const newState = transition(state)
       return rollbackCondition(newState, state) ? state : newState
@@ -177,10 +157,11 @@ export const ChunkStateTransitionOptics = {
    * @param transition - 非同期状態遷移
    * @param timeoutMs - タイムアウト時間（ミリ秒）
    */
-  transitionWithTimeout: (
-    transition: (state: ChunkState) => Effect.Effect<ChunkState>,
-    timeoutMs: number
-  ): ((state: ChunkState) => Effect.Effect<ChunkState, string>) =>
+  transitionWithTimeout:
+    (
+      transition: (state: ChunkState) => Effect.Effect<ChunkState>,
+      timeoutMs: number
+    ): ((state: ChunkState) => Effect.Effect<ChunkState, string>) =>
     (state: ChunkState) =>
       pipe(
         transition(state),
@@ -202,8 +183,7 @@ export const ParallelChunkStateOptics = {
   parallelUpdate: (
     states: ReadonlyArray<ChunkState>,
     operation: (state: ChunkState, index: number) => Effect.Effect<ChunkState>
-  ): Effect.Effect<ReadonlyArray<ChunkState>> =>
-    Effect.all(states.map(operation)),
+  ): Effect.Effect<ReadonlyArray<ChunkState>> => Effect.all(states.map(operation)),
 
   /**
    * 状態フィルタリング付き並列更新
@@ -216,11 +196,7 @@ export const ParallelChunkStateOptics = {
     filter: (state: ChunkState) => boolean,
     operation: (state: ChunkState) => Effect.Effect<ChunkState>
   ): Effect.Effect<ReadonlyArray<ChunkState>> =>
-    Effect.all(
-      states.map((state) =>
-        filter(state) ? operation(state) : Effect.succeed(state)
-      )
-    ),
+    Effect.all(states.map((state) => (filter(state) ? operation(state) : Effect.succeed(state)))),
 
   /**
    * バッチサイズ制限付き並列処理
@@ -239,9 +215,7 @@ export const ParallelChunkStateOptics = {
       const results: ChunkState[] = []
 
       for (const batch of batches) {
-        const batchResults = yield* Effect.all(
-          EffectChunk.toReadonlyArray(batch).map(operation)
-        )
+        const batchResults = yield* Effect.all(EffectChunk.toReadonlyArray(batch).map(operation))
         results.push(...batchResults)
       }
 
@@ -268,7 +242,7 @@ export const ParallelChunkStateOptics = {
             tag: state._tag,
             hasData: ChunkStateGuards.hasData(state),
             hasProgress: ChunkStateGuards.hasProgress(state),
-            hasError: ChunkStateGuards.isFailed(state)
+            hasError: ChunkStateGuards.isFailed(state),
           }))
         )
       )
@@ -290,7 +264,7 @@ export const ParallelChunkStateOptics = {
         byState: byState as Record<ChunkState['_tag'], number>,
         hasData,
         hasProgress,
-        hasErrors
+        hasErrors,
       }
     }),
 } as const
@@ -313,7 +287,7 @@ export const CachedChunkStateOptics = {
     Cache.make({
       capacity: cacheConfig.capacity || 100,
       timeToLive: cacheConfig.timeToLive || Duration.minutes(5),
-      lookup: (state: ChunkState) => Effect.succeed(extractor(state))
+      lookup: (state: ChunkState) => Effect.succeed(extractor(state)),
     }),
 
   /**
@@ -350,17 +324,16 @@ export const ReactiveChunkStateOptics = {
    * 状態変更監視器の作成
    * @param onStateChange - 状態変更コールバック
    */
-  createStateWatcher: (
-    onStateChange: (oldState: ChunkState, newState: ChunkState) => Effect.Effect<void>
-  ) =>
+  createStateWatcher:
+    (onStateChange: (oldState: ChunkState, newState: ChunkState) => Effect.Effect<void>) =>
     (state: ChunkState) =>
-      (newState: ChunkState) =>
-        Effect.gen(function* () {
-          if (state._tag !== newState._tag) {
-            yield* onStateChange(state, newState)
-          }
-          return newState
-        }),
+    (newState: ChunkState) =>
+      Effect.gen(function* () {
+        if (state._tag !== newState._tag) {
+          yield* onStateChange(state, newState)
+        }
+        return newState
+      }),
 
   /**
    * 特定状態遷移の監視
@@ -378,10 +351,7 @@ export const ReactiveChunkStateOptics = {
   ) =>
     ReactiveChunkStateOptics.createStateWatcher((oldState, newState) =>
       oldState._tag === fromState && newState._tag === toState
-        ? callback(
-            oldState as Extract<ChunkState, { _tag: TFrom }>,
-            newState as Extract<ChunkState, { _tag: TTo }>
-          )
+        ? callback(oldState as Extract<ChunkState, { _tag: TFrom }>, newState as Extract<ChunkState, { _tag: TTo }>)
         : Effect.void
     ),
 
@@ -389,22 +359,16 @@ export const ReactiveChunkStateOptics = {
    * エラー状態の自動監視
    * @param onError - エラー検出時のコールバック
    */
-  watchErrors: (
-    onError: (failedState: Extract<ChunkState, { _tag: 'Failed' }>) => Effect.Effect<void>
-  ) =>
+  watchErrors: (onError: (failedState: Extract<ChunkState, { _tag: 'Failed' }>) => Effect.Effect<void>) =>
     ReactiveChunkStateOptics.createStateWatcher((_, newState) =>
-      ChunkStateGuards.isFailed(newState)
-        ? onError(newState as Extract<ChunkState, { _tag: 'Failed' }>)
-        : Effect.void
+      ChunkStateGuards.isFailed(newState) ? onError(newState as Extract<ChunkState, { _tag: 'Failed' }>) : Effect.void
     ),
 
   /**
    * 進行度変更の監視
    * @param onProgressChange - 進行度変更時のコールバック
    */
-  watchProgress: (
-    onProgressChange: (progress: LoadProgress, state: ChunkState) => Effect.Effect<void>
-  ) =>
+  watchProgress: (onProgressChange: (progress: LoadProgress, state: ChunkState) => Effect.Effect<void>) =>
     ReactiveChunkStateOptics.createStateWatcher((oldState, newState) => {
       const oldProgress = ChunkStateGuards.hasProgress(oldState)
         ? AdvancedChunkStateOptics.anyStateProgress.get(oldState)
@@ -429,15 +393,13 @@ export const SafeChunkStateOptics = {
    * @param optic - アクセス用Optic
    * @param fallback - アクセス失敗時のフォールバック値
    */
-  safeGet: <A>(
-    optic: Optic.Optic<ChunkState, ChunkState, A, A>,
-    fallback: A
-  ) =>
+  safeGet:
+    <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, fallback: A) =>
     (state: ChunkState): A =>
       pipe(
         Effect.try({
           try: () => optic.get(state) ?? fallback,
-          catch: () => fallback
+          catch: () => fallback,
         }),
         Effect.runSync
       ),
@@ -447,15 +409,13 @@ export const SafeChunkStateOptics = {
    * @param optic - 更新用Optic
    * @param value - 新しい値
    */
-  safeSet: <A>(
-    optic: Optic.Optic<ChunkState, ChunkState, A, A>,
-    value: A
-  ) =>
+  safeSet:
+    <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, value: A) =>
     (state: ChunkState): Either.Either<ChunkState, string> =>
       pipe(
         Effect.try({
           try: () => optic.replace(value)(state),
-          catch: (error) => `Failed to set state property: ${error}`
+          catch: (error) => `Failed to set state property: ${error}`,
         }),
         Effect.either,
         Effect.runSync
@@ -466,25 +426,18 @@ export const SafeChunkStateOptics = {
    * @param operation - 実行する操作
    * @param maxRetries - 最大リトライ回数
    */
-  withRetry: <A>(
-    operation: (state: ChunkState) => Effect.Effect<A>,
-    maxRetries: number = 3
-  ) =>
+  withRetry:
+    <A>(operation: (state: ChunkState) => Effect.Effect<A>, maxRetries: number = 3) =>
     (state: ChunkState): Effect.Effect<A> =>
-      pipe(
-        operation(state),
-        Effect.retry(Schedule.recurs(maxRetries))
-      ),
+      pipe(operation(state), Effect.retry(Schedule.recurs(maxRetries))),
 
   /**
    * タイムアウト付き安全操作
    * @param operation - 実行する操作
    * @param timeoutMs - タイムアウト時間
    */
-  withTimeout: <A>(
-    operation: (state: ChunkState) => Effect.Effect<A>,
-    timeoutMs: number
-  ) =>
+  withTimeout:
+    <A>(operation: (state: ChunkState) => Effect.Effect<A>, timeoutMs: number) =>
     (state: ChunkState): Effect.Effect<A, string> =>
       pipe(
         operation(state),
@@ -497,9 +450,11 @@ export const SafeChunkStateOptics = {
  * 高度なChunkState操作用の型定義
  */
 export type AdvancedStateOptic<A> = Optic.Optic<ChunkState, ChunkState, A, A>
-export type StateTransition<TFrom extends ChunkState, TTo extends ChunkState> =
-  (state: TFrom) => Either.Either<TTo, string>
-export type AsyncStateTransition<TFrom extends ChunkState, TTo extends ChunkState> =
-  (state: TFrom) => Effect.Effect<TTo, string>
+export type StateTransition<TFrom extends ChunkState, TTo extends ChunkState> = (
+  state: TFrom
+) => Either.Either<TTo, string>
+export type AsyncStateTransition<TFrom extends ChunkState, TTo extends ChunkState> = (
+  state: TFrom
+) => Effect.Effect<TTo, string>
 export type StateWatcher = (oldState: ChunkState, newState: ChunkState) => Effect.Effect<void>
 export type ProgressWatcher = (progress: LoadProgress, state: ChunkState) => Effect.Effect<void>

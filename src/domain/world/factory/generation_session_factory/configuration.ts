@@ -13,9 +13,9 @@
  * - 環境適応型設定
  */
 
-import { Effect, Schema, Match, Function, Duration, Option } from "effect"
-import type * as GenerationSession from "../../aggregate/generation_session/generation_session.js"
-import type { SessionFactoryError } from "./factory.js"
+import { Effect, Function, Match, Schema } from 'effect'
+import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
+import type { SessionFactoryError } from './factory.js'
 
 // ================================
 // Configuration Types
@@ -43,7 +43,7 @@ export const HardwareSpecSchema = Schema.Struct({
   storageSpeedMBps: Schema.Number.pipe(Schema.greaterThan(0)),
   networkLatencyMs: Schema.Number.pipe(Schema.greaterThan(0)),
   hasSSE: Schema.Boolean,
-  hasSIMD: Schema.Boolean
+  hasSIMD: Schema.Boolean,
 })
 
 export type HardwareSpec = typeof HardwareSpecSchema.Type
@@ -56,7 +56,7 @@ export const LoadConditionSchema = Schema.Struct({
   currentMemoryUsage: Schema.Number.pipe(Schema.between(0, 100)),
   activeConnections: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   queuedRequests: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  networkThroughput: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0))
+  networkThroughput: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
 })
 
 export type LoadCondition = typeof LoadConditionSchema.Type
@@ -65,16 +65,27 @@ export type LoadCondition = typeof LoadConditionSchema.Type
  * 設定最適化パラメータ
  */
 export const OptimizationParamsSchema = Schema.Struct({
-  profile: Schema.Literal('development', 'testing', 'staging', 'production', 'high_performance', 'memory_constrained', 'low_latency', 'batch_processing'),
+  profile: Schema.Literal(
+    'development',
+    'testing',
+    'staging',
+    'production',
+    'high_performance',
+    'memory_constrained',
+    'low_latency',
+    'batch_processing'
+  ),
   hardwareSpec: Schema.optional(HardwareSpecSchema),
   loadCondition: Schema.optional(LoadConditionSchema),
   prioritizeFor: Schema.optional(Schema.Literal('speed', 'memory', 'stability', 'quality')),
-  constraints: Schema.optional(Schema.Struct({
-    maxMemoryMB: Schema.Number,
-    maxCpuUsage: Schema.Number,
-    maxConcurrentOperations: Schema.Number,
-    maxExecutionTimeMs: Schema.Number
-  }))
+  constraints: Schema.optional(
+    Schema.Struct({
+      maxMemoryMB: Schema.Number,
+      maxCpuUsage: Schema.Number,
+      maxConcurrentOperations: Schema.Number,
+      maxExecutionTimeMs: Schema.Number,
+    })
+  ),
 })
 
 export type OptimizationParams = typeof OptimizationParamsSchema.Type
@@ -122,11 +133,7 @@ export interface SessionConfigurationBuilder {
   /**
    * 優先度設定
    */
-  readonly withPriority: (
-    enableQueuing: boolean,
-    threshold?: number,
-    weight?: number
-  ) => SessionConfigurationBuilder
+  readonly withPriority: (enableQueuing: boolean, threshold?: number, weight?: number) => SessionConfigurationBuilder
 
   /**
    * 制約適用
@@ -149,9 +156,7 @@ export interface SessionConfigurationBuilder {
 // ================================
 
 class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
-  constructor(
-    private readonly config: Partial<GenerationSession.SessionConfiguration> = {}
-  ) {}
+  constructor(private readonly config: Partial<GenerationSession.SessionConfiguration> = {}) {}
 
   applyProfile(profile: ConfigurationProfile): SessionConfigurationBuilder {
     const profileConfig = Function.pipe(
@@ -169,7 +174,7 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
 
     return new SessionConfigurationBuilderImpl({
       ...this.config,
-      ...profileConfig
+      ...profileConfig,
     })
   }
 
@@ -191,8 +196,8 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         chunkTimeoutMs: baseTimeout,
         sessionTimeoutMs: baseTimeout * 20,
         gracefulShutdownMs: Math.min(5000, baseTimeout / 3),
-        ...this.config.timeoutPolicy
-      }
+        ...this.config.timeoutPolicy,
+      },
     })
   }
 
@@ -203,9 +208,7 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
 
     const adjustment = Math.min(cpuAdjustment, memoryAdjustment)
 
-    const adjustedConcurrency = Math.max(1,
-      Math.floor((this.config.maxConcurrentChunks ?? 4) * adjustment)
-    )
+    const adjustedConcurrency = Math.max(1, Math.floor((this.config.maxConcurrentChunks ?? 4) * adjustment))
 
     // ネットワーク遅延に基づくタイムアウト調整
     const timeoutMultiplier = Math.max(1, condition.networkLatencyMs / 100)
@@ -217,8 +220,8 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         chunkTimeoutMs: Math.floor((this.config.timeoutPolicy?.chunkTimeoutMs ?? 30000) * timeoutMultiplier),
         sessionTimeoutMs: Math.floor((this.config.timeoutPolicy?.sessionTimeoutMs ?? 600000) * timeoutMultiplier),
         gracefulShutdownMs: this.config.timeoutPolicy?.gracefulShutdownMs ?? 5000,
-        ...this.config.timeoutPolicy
-      }
+        ...this.config.timeoutPolicy,
+      },
     })
   }
 
@@ -226,7 +229,7 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
     return new SessionConfigurationBuilderImpl({
       ...this.config,
       maxConcurrentChunks: Math.max(1, Math.min(16, maxChunks)),
-      chunkBatchSize: Math.max(1, Math.min(64, batchSize))
+      chunkBatchSize: Math.max(1, Math.min(64, batchSize)),
     })
   }
 
@@ -236,8 +239,8 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
       timeoutPolicy: {
         chunkTimeoutMs: Math.max(1000, chunk),
         sessionTimeoutMs: Math.max(chunk * 2, session),
-        gracefulShutdownMs: shutdown ?? Math.min(5000, chunk / 2)
-      }
+        gracefulShutdownMs: shutdown ?? Math.min(5000, chunk / 2),
+      },
     })
   }
 
@@ -253,23 +256,19 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: Math.max(1, Math.min(10, maxAttempts)),
         backoffStrategy: strategy,
         baseDelayMs: Math.max(100, baseDelay),
-        maxDelayMs: maxDelay ?? Math.max(baseDelay * 10, 30000)
-      }
+        maxDelayMs: maxDelay ?? Math.max(baseDelay * 10, 30000),
+      },
     })
   }
 
-  withPriority(
-    enableQueuing: boolean,
-    threshold: number = 5,
-    weight: number = 2.0
-  ): SessionConfigurationBuilder {
+  withPriority(enableQueuing: boolean, threshold: number = 5, weight: number = 2.0): SessionConfigurationBuilder {
     return new SessionConfigurationBuilderImpl({
       ...this.config,
       priorityPolicy: {
         enablePriorityQueuing: enableQueuing,
         priorityThreshold: Math.max(1, Math.min(10, threshold)),
-        highPriorityWeight: Math.max(1.0, Math.min(10.0, weight))
-      }
+        highPriorityWeight: Math.max(1.0, Math.min(10.0, weight)),
+      },
     })
   }
 
@@ -292,37 +291,39 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         ...this.config.timeoutPolicy,
         chunkTimeoutMs: chunkTimeout ?? 30000,
         sessionTimeoutMs: this.config.timeoutPolicy?.sessionTimeoutMs ?? 600000,
-        gracefulShutdownMs: this.config.timeoutPolicy?.gracefulShutdownMs ?? 5000
-      }
+        gracefulShutdownMs: this.config.timeoutPolicy?.gracefulShutdownMs ?? 5000,
+      },
     })
   }
 
   optimize(params: OptimizationParams): Effect.Effect<SessionConfigurationBuilder, SessionFactoryError> {
-    return Effect.gen(function* () {
-      let builder = this.applyProfile(params.profile)
+    return Effect.gen(
+      function* () {
+        let builder = this.applyProfile(params.profile)
 
-      // ハードウェア適応
-      if (params.hardwareSpec) {
-        builder = builder.adaptToHardware(params.hardwareSpec)
-      }
+        // ハードウェア適応
+        if (params.hardwareSpec) {
+          builder = builder.adaptToHardware(params.hardwareSpec)
+        }
 
-      // 負荷適応
-      if (params.loadCondition) {
-        builder = builder.adaptToLoad(params.loadCondition)
-      }
+        // 負荷適応
+        if (params.loadCondition) {
+          builder = builder.adaptToLoad(params.loadCondition)
+        }
 
-      // 優先化適用
-      if (params.prioritizeFor) {
-        builder = yield* this.applyPrioritization(builder, params.prioritizeFor)
-      }
+        // 優先化適用
+        if (params.prioritizeFor) {
+          builder = yield* this.applyPrioritization(builder, params.prioritizeFor)
+        }
 
-      // 制約適用
-      if (params.constraints) {
-        builder = builder.withConstraints(params.constraints)
-      }
+        // 制約適用
+        if (params.constraints) {
+          builder = builder.withConstraints(params.constraints)
+        }
 
-      return builder
-    }.bind(this))
+        return builder
+      }.bind(this)
+    )
   }
 
   build(): Effect.Effect<GenerationSession.SessionConfiguration, SessionFactoryError> {
@@ -333,18 +334,18 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 10000
+        maxDelayMs: 10000,
       },
       timeoutPolicy: this.config.timeoutPolicy ?? {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000
+        gracefulShutdownMs: 5000,
       },
       priorityPolicy: this.config.priorityPolicy ?? {
         enablePriorityQueuing: false,
         priorityThreshold: 5,
-        highPriorityWeight: 2.0
-      }
+        highPriorityWeight: 2.0,
+      },
     })
   }
 
@@ -357,13 +358,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 2,
         backoffStrategy: 'linear',
         baseDelayMs: 500,
-        maxDelayMs: 2000
+        maxDelayMs: 2000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 60000,
         sessionTimeoutMs: 300000,
-        gracefulShutdownMs: 10000
-      }
+        gracefulShutdownMs: 10000,
+      },
     }
   }
 
@@ -375,13 +376,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 1,
         backoffStrategy: 'constant',
         baseDelayMs: 100,
-        maxDelayMs: 100
+        maxDelayMs: 100,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 10000,
         sessionTimeoutMs: 60000,
-        gracefulShutdownMs: 1000
-      }
+        gracefulShutdownMs: 1000,
+      },
     }
   }
 
@@ -393,13 +394,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 5000
+        maxDelayMs: 5000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000
-      }
+        gracefulShutdownMs: 5000,
+      },
     }
   }
 
@@ -411,18 +412,18 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 10000
+        maxDelayMs: 10000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000
+        gracefulShutdownMs: 5000,
       },
       priorityPolicy: {
         enablePriorityQueuing: true,
         priorityThreshold: 7,
-        highPriorityWeight: 3.0
-      }
+        highPriorityWeight: 3.0,
+      },
     }
   }
 
@@ -434,13 +435,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 2,
         backoffStrategy: 'linear',
         baseDelayMs: 200,
-        maxDelayMs: 1000
+        maxDelayMs: 1000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 10000,
         sessionTimeoutMs: 300000,
-        gracefulShutdownMs: 2000
-      }
+        gracefulShutdownMs: 2000,
+      },
     }
   }
 
@@ -452,13 +453,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 5,
         backoffStrategy: 'exponential',
         baseDelayMs: 2000,
-        maxDelayMs: 30000
+        maxDelayMs: 30000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 60000,
         sessionTimeoutMs: 1800000,
-        gracefulShutdownMs: 15000
-      }
+        gracefulShutdownMs: 15000,
+      },
     }
   }
 
@@ -470,13 +471,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 1,
         backoffStrategy: 'constant',
         baseDelayMs: 50,
-        maxDelayMs: 50
+        maxDelayMs: 50,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 5000,
         sessionTimeoutMs: 30000,
-        gracefulShutdownMs: 500
-      }
+        gracefulShutdownMs: 500,
+      },
     }
   }
 
@@ -488,13 +489,13 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
         maxAttempts: 5,
         backoffStrategy: 'exponential',
         baseDelayMs: 5000,
-        maxDelayMs: 60000
+        maxDelayMs: 60000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 120000,
         sessionTimeoutMs: 3600000,
-        gracefulShutdownMs: 30000
-      }
+        gracefulShutdownMs: 30000,
+      },
     }
   }
 
@@ -505,31 +506,28 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
   ): Effect.Effect<SessionConfigurationBuilder, SessionFactoryError> {
     return Function.pipe(
       Match.value(prioritizeFor),
-      Match.when('speed', () => Effect.succeed(
-        builder
-          .withConcurrency(16, 32)
-          .withTimeouts(5000, 60000, 1000)
-          .withRetry(1, 'constant', 100)
-      )),
-      Match.when('memory', () => Effect.succeed(
-        builder
-          .withConcurrency(1, 2)
-          .withTimeouts(60000, 1800000, 15000)
-          .withRetry(5, 'exponential', 2000, 30000)
-      )),
-      Match.when('stability', () => Effect.succeed(
-        builder
-          .withConcurrency(2, 4)
-          .withTimeouts(45000, 900000, 10000)
-          .withRetry(5, 'exponential', 2000, 30000)
-          .withPriority(true, 3, 4.0)
-      )),
-      Match.when('quality', () => Effect.succeed(
-        builder
-          .withConcurrency(1, 1)
-          .withTimeouts(120000, 3600000, 30000)
-          .withRetry(3, 'exponential', 3000, 60000)
-      )),
+      Match.when('speed', () =>
+        Effect.succeed(builder.withConcurrency(16, 32).withTimeouts(5000, 60000, 1000).withRetry(1, 'constant', 100))
+      ),
+      Match.when('memory', () =>
+        Effect.succeed(
+          builder.withConcurrency(1, 2).withTimeouts(60000, 1800000, 15000).withRetry(5, 'exponential', 2000, 30000)
+        )
+      ),
+      Match.when('stability', () =>
+        Effect.succeed(
+          builder
+            .withConcurrency(2, 4)
+            .withTimeouts(45000, 900000, 10000)
+            .withRetry(5, 'exponential', 2000, 30000)
+            .withPriority(true, 3, 4.0)
+        )
+      ),
+      Match.when('quality', () =>
+        Effect.succeed(
+          builder.withConcurrency(1, 1).withTimeouts(120000, 3600000, 30000).withRetry(3, 'exponential', 3000, 60000)
+        )
+      ),
       Match.orElse(() => Effect.succeed(builder))
     )
   }
@@ -542,15 +540,12 @@ class SessionConfigurationBuilderImpl implements SessionConfigurationBuilder {
 /**
  * 新しい設定ビルダー作成
  */
-export const createConfigurationBuilder = (): SessionConfigurationBuilder =>
-  new SessionConfigurationBuilderImpl()
+export const createConfigurationBuilder = (): SessionConfigurationBuilder => new SessionConfigurationBuilderImpl()
 
 /**
  * プロファイルベース設定ビルダー作成
  */
-export const createConfigurationBuilderForProfile = (
-  profile: ConfigurationProfile
-): SessionConfigurationBuilder =>
+export const createConfigurationBuilderForProfile = (profile: ConfigurationProfile): SessionConfigurationBuilder =>
   new SessionConfigurationBuilderImpl().applyProfile(profile)
 
 /**
@@ -574,7 +569,7 @@ export const detectHardwareSpec = (): Effect.Effect<HardwareSpec, SessionFactory
     storageSpeedMBps: 100, // デフォルト値
     networkLatencyMs: 50, // デフォルト値
     hasSSE: true, // 仮定
-    hasSIMD: true // 仮定
+    hasSIMD: true, // 仮定
   }))
 
 /**
@@ -586,7 +581,7 @@ export const getCurrentLoadCondition = (): Effect.Effect<LoadCondition, SessionF
     currentMemoryUsage: 40, // デフォルト値
     activeConnections: 0, // デフォルト値
     queuedRequests: 0, // デフォルト値
-    networkThroughput: 0 // デフォルト値
+    networkThroughput: 0, // デフォルト値
   }))
 
 // ================================

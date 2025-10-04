@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
 import * as FastCheck from 'effect/FastCheck'
-import * as Schema from 'effect/Schema'
 import { pipe } from 'effect/Function'
+import * as Schema from 'effect/Schema'
+import { describe, expect, it } from 'vitest'
 
 import {
   DefaultGameLoopConfig,
@@ -13,15 +13,14 @@ import {
   fpsToNumber,
   frameCountToNumber,
   makeConfig,
+  makeFps,
   makeFrameCount,
   makeFrameDuration,
   makeFrameId,
   makeFrameInfo,
-  makeFps,
   makeTimestamp,
   reconcileFrameTiming,
   timestampToNumber,
-  TimestampSchema,
 } from './core'
 
 describe('Game loop core types', () => {
@@ -78,7 +77,9 @@ describe('Game loop core types', () => {
         ),
         skipped: false,
       }),
-      Either.getOrElse((error) => { throw new Error(Schema.formatError(error)) })
+      Either.getOrElse((error) => {
+        throw new Error(Schema.formatError(error))
+      })
     )
     expect(frameCountToNumber(frameInfo.frameCount)).toBe(1)
   })
@@ -86,7 +87,9 @@ describe('Game loop core types', () => {
   it('merges partial config with defaults', () => {
     const config = pipe(
       makeConfig({ maxFrameSkip: 3 }),
-      Either.getOrElse((error) => { throw new Error(Schema.formatError(error)) })
+      Either.getOrElse((error) => {
+        throw new Error(Schema.formatError(error))
+      })
     )
     expect(config.maxFrameSkip).toBe(3)
     expect(fpsToNumber(config.targetFps)).toBe(fpsToNumber(DefaultGameLoopConfig.targetFps))

@@ -4,35 +4,20 @@ import { Schema } from 'effect'
 // 時刻・期間系ブランド型
 // =============================================================================
 
-export const TimestampSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('Timestamp')
-)
+export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
 export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
 
-export const DurationMsSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('DurationMs')
-)
+export const DurationMsSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('DurationMs'))
 export type DurationMs = Schema.Schema.Type<typeof DurationMsSchema>
 
 // =============================================================================
 // 識別子・数値ブランド型
 // =============================================================================
 
-export const ChunkPoolIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.brand('ChunkPoolId')
-)
+export const ChunkPoolIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('ChunkPoolId'))
 export type ChunkPoolId = Schema.Schema.Type<typeof ChunkPoolIdSchema>
 
-export const MemoryBytesSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('MemoryBytes')
-)
+export const MemoryBytesSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('MemoryBytes'))
 export type MemoryBytes = Schema.Schema.Type<typeof MemoryBytesSchema>
 
 export const ChunkPrioritySchema = Schema.Number.pipe(
@@ -42,17 +27,10 @@ export const ChunkPrioritySchema = Schema.Number.pipe(
 )
 export type ChunkPriority = Schema.Schema.Type<typeof ChunkPrioritySchema>
 
-export const GCIntervalSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.brand('GCIntervalMs')
-)
+export const GCIntervalSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('GCIntervalMs'))
 export type GCInterval = Schema.Schema.Type<typeof GCIntervalSchema>
 
-export const ResourceUsagePercentSchema = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand('ResourceUsagePercent')
-)
+export const ResourceUsagePercentSchema = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('ResourceUsagePercent'))
 export type ResourceUsagePercent = Schema.Schema.Type<typeof ResourceUsagePercentSchema>
 
 export const ChunkLifetimeSchema = Schema.Number.pipe(
@@ -62,11 +40,7 @@ export const ChunkLifetimeSchema = Schema.Number.pipe(
 )
 export type ChunkLifetime = Schema.Schema.Type<typeof ChunkLifetimeSchema>
 
-export const ChunkDistanceSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('ChunkDistance')
-)
+export const ChunkDistanceSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('ChunkDistance'))
 export type ChunkDistance = Schema.Schema.Type<typeof ChunkDistanceSchema>
 
 export const MaxActiveChunksSchema = Schema.Number.pipe(
@@ -224,7 +198,8 @@ export const makeResourceUsagePercent = (value: number): ResourceUsagePercent =>
   Schema.decodeUnknownSync(ResourceUsagePercentSchema)(value)
 export const makeChunkLifetime = (value: number): ChunkLifetime => Schema.decodeUnknownSync(ChunkLifetimeSchema)(value)
 export const makeChunkDistance = (value: number): ChunkDistance => Schema.decodeUnknownSync(ChunkDistanceSchema)(value)
-export const makeMaxActiveChunks = (value: number): MaxActiveChunks => Schema.decodeUnknownSync(MaxActiveChunksSchema)(value)
+export const makeMaxActiveChunks = (value: number): MaxActiveChunks =>
+  Schema.decodeUnknownSync(MaxActiveChunksSchema)(value)
 
 export const makeChunkManagerConfig = (config: ChunkManagerConfig): ChunkManagerConfig =>
   Schema.decodeUnknownSync(ChunkManagerConfigSchema)(config)

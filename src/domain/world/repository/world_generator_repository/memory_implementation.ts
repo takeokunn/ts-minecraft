@@ -6,28 +6,18 @@
  * Effect-TS 3.17+ Layer パターンによる依存性注入対応
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref, STM, TRef } from 'effect'
-import type {
-  WorldId,
-  WorldSeed,
-  GenerationSettings,
-  WorldGenerator,
-  PerformanceMetrics,
-} from '../../types'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
+import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createWorldGeneratorNotFoundError,
-  createDataIntegrityError,
-} from '../types'
+import { createRepositoryError, createWorldGeneratorNotFoundError } from '../types'
 import {
   WorldGeneratorRepository,
-  type WorldGeneratorRepository as WorldGeneratorRepositoryService,
-  type WorldGeneratorQuery,
-  type WorldGeneratorStatistics,
-  type WorldGeneratorBatchResult,
   type CacheConfiguration,
+  type WorldGeneratorBatchResult,
+  type WorldGeneratorQuery,
   type WorldGeneratorRepositoryConfig,
+  type WorldGeneratorRepository as WorldGeneratorRepositoryService,
+  type WorldGeneratorStatistics,
 } from './interface'
 
 // === Memory Storage State ===
@@ -101,9 +91,7 @@ const makeWorldGeneratorRepositoryMemory = (
   Effect.gen(function* () {
     const storageRef = yield* Ref.make(createInitialMemoryStorage())
 
-    const updateStatistics = (
-      fn: (stats: MemoryStorage['statistics']) => MemoryStorage['statistics']
-    ) =>
+    const updateStatistics = (fn: (stats: MemoryStorage['statistics']) => MemoryStorage['statistics']) =>
       Ref.update(storageRef, (storage) => ({
         ...storage,
         statistics: fn(storage.statistics),
@@ -141,11 +129,7 @@ const makeWorldGeneratorRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to save world generator: ${error}`,
-            'save',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to save world generator: ${error}`, 'save', error))
         )
       )
 
@@ -165,67 +149,59 @@ const makeWorldGeneratorRepositoryMemory = (
         return generator ? Option.some(generator) : Option.none()
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find world generator by ID: ${error}`,
-            'findById',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find world generator by ID: ${error}`, 'findById', error))
         )
       )
 
     const findBySeed = (seed: WorldSeed): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const generators = Array.from(storage.generators.values())
-          .filter(generator => generator.seed === seed)
+        const generators = Array.from(storage.generators.values()).filter((generator) => generator.seed === seed)
 
         return generators
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find world generators by seed: ${error}`,
-            'findBySeed',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find world generators by seed: ${error}`, 'findBySeed', error))
         )
       )
 
-    const findBySettings = (settings: Partial<GenerationSettings>): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findBySettings = (
+      settings: Partial<GenerationSettings>
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const generators = Array.from(storage.generators.values())
-          .filter(generator => {
-            return Object.entries(settings).every(([key, value]) => {
-              const generatorValue = (generator.settings as any)[key]
-              return generatorValue === value
-            })
+        const generators = Array.from(storage.generators.values()).filter((generator) => {
+          return Object.entries(settings).every(([key, value]) => {
+            const generatorValue = (generator.settings as any)[key]
+            return generatorValue === value
           })
+        })
 
         return generators
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find world generators by settings: ${error}`,
-            'findBySettings',
-            error
-          ))
+          Effect.fail(
+            createRepositoryError(`Failed to find world generators by settings: ${error}`, 'findBySettings', error)
+          )
         )
       )
 
-    const findByQuery = (query: WorldGeneratorQuery): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findByQuery = (
+      query: WorldGeneratorQuery
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         let generators = Array.from(storage.generators.values())
 
         // Apply filters
         if (query.worldId) {
-          generators = generators.filter(g => g.worldId === query.worldId)
+          generators = generators.filter((g) => g.worldId === query.worldId)
         }
         if (query.seed) {
-          generators = generators.filter(g => g.seed === query.seed)
+          generators = generators.filter((g) => g.seed === query.seed)
         }
         if (query.settings) {
-          generators = generators.filter(g => {
+          generators = generators.filter((g) => {
             return Object.entries(query.settings!).every(([key, value]) => {
               const generatorValue = (g.settings as any)[key]
               return generatorValue === value
@@ -233,7 +209,7 @@ const makeWorldGeneratorRepositoryMemory = (
           })
         }
         if (query.active !== undefined) {
-          generators = generators.filter(g => g.isActive === query.active)
+          generators = generators.filter((g) => g.isActive === query.active)
         }
 
         // Apply pagination
@@ -243,15 +219,14 @@ const makeWorldGeneratorRepositoryMemory = (
         return generators.slice(offset, offset + limit)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find world generators by query: ${error}`,
-            'findByQuery',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find world generators by query: ${error}`, 'findByQuery', error))
         )
       )
 
-    const findAll = (limit?: number, offset?: number): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findAll = (
+      limit?: number,
+      offset?: number
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const generators = Array.from(storage.generators.values())
@@ -261,11 +236,7 @@ const makeWorldGeneratorRepositoryMemory = (
         return generators.slice(startIndex, endIndex)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find all world generators: ${error}`,
-            'findAll',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find all world generators: ${error}`, 'findAll', error))
         )
       )
 
@@ -293,11 +264,7 @@ const makeWorldGeneratorRepositoryMemory = (
         })
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to delete world generator: ${error}`,
-            'delete',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to delete world generator: ${error}`, 'delete', error))
         )
       )
 
@@ -307,17 +274,15 @@ const makeWorldGeneratorRepositoryMemory = (
         return storage.generators.has(worldId)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to check world generator existence: ${error}`,
-            'exists',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to check world generator existence: ${error}`, 'exists', error))
         )
       )
 
     // === Batch Operations ===
 
-    const saveMany = (generators: ReadonlyArray<WorldGenerator>): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
+    const saveMany = (
+      generators: ReadonlyArray<WorldGenerator>
+    ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const newGenerators = new Map(storage.generators)
@@ -331,11 +296,7 @@ const makeWorldGeneratorRepositoryMemory = (
           } catch (error) {
             failed.push({
               worldId: generator.worldId,
-              error: createRepositoryError(
-                `Failed to save generator: ${error}`,
-                'saveMany',
-                error
-              ),
+              error: createRepositoryError(`Failed to save generator: ${error}`, 'saveMany', error),
             })
           }
         }
@@ -354,15 +315,13 @@ const makeWorldGeneratorRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to save multiple world generators: ${error}`,
-            'saveMany',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to save multiple world generators: ${error}`, 'saveMany', error))
         )
       )
 
-    const deleteMany = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
+    const deleteMany = (
+      worldIds: ReadonlyArray<WorldId>
+    ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const newGenerators = new Map(storage.generators)
@@ -395,29 +354,27 @@ const makeWorldGeneratorRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to delete multiple world generators: ${error}`,
-            'deleteMany',
-            error
-          ))
+          Effect.fail(
+            createRepositoryError(`Failed to delete multiple world generators: ${error}`, 'deleteMany', error)
+          )
         )
       )
 
-    const findManyByIds = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findManyByIds = (
+      worldIds: ReadonlyArray<WorldId>
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const generators = worldIds
-          .map(id => storage.generators.get(id))
+          .map((id) => storage.generators.get(id))
           .filter((generator): generator is WorldGenerator => generator !== undefined)
 
         return generators
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find multiple world generators: ${error}`,
-            'findManyByIds',
-            error
-          ))
+          Effect.fail(
+            createRepositoryError(`Failed to find multiple world generators: ${error}`, 'findManyByIds', error)
+          )
         )
       )
 
@@ -427,7 +384,7 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const generators = Array.from(storage.generators.values())
-        const activeGenerators = generators.filter(g => g.isActive).length
+        const activeGenerators = generators.filter((g) => g.isActive).length
 
         return {
           totalGenerators: generators.length,
@@ -440,11 +397,7 @@ const makeWorldGeneratorRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to get statistics: ${error}`,
-            'getStatistics',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to get statistics: ${error}`, 'getStatistics', error))
         )
       )
 
@@ -459,11 +412,7 @@ const makeWorldGeneratorRepositoryMemory = (
         return generators.length
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to count world generators: ${error}`,
-            'count',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to count world generators: ${error}`, 'count', error))
         )
       )
 
@@ -480,11 +429,9 @@ const makeWorldGeneratorRepositoryMemory = (
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to update cache configuration: ${error}`,
-            'updateCacheConfiguration',
-            error
-          ))
+          Effect.fail(
+            createRepositoryError(`Failed to update cache configuration: ${error}`, 'updateCacheConfiguration', error)
+          )
         )
       )
 
@@ -499,21 +446,20 @@ const makeWorldGeneratorRepositoryMemory = (
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to clear cache: ${error}`,
-            'clearCache',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to clear cache: ${error}`, 'clearCache', error))
         )
       )
 
-    const getCacheStatistics = (): Effect.Effect<{
-      readonly hitRate: number
-      readonly missRate: number
-      readonly size: number
-      readonly maxSize: number
-      readonly evictionCount: number
-    }, AllRepositoryErrors> =>
+    const getCacheStatistics = (): Effect.Effect<
+      {
+        readonly hitRate: number
+        readonly missRate: number
+        readonly size: number
+        readonly maxSize: number
+        readonly evictionCount: number
+      },
+      AllRepositoryErrors
+    > =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const { hits, misses, evictions } = storage.cache.statistics
@@ -528,11 +474,7 @@ const makeWorldGeneratorRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to get cache statistics: ${error}`,
-            'getCacheStatistics',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to get cache statistics: ${error}`, 'getCacheStatistics', error))
         )
       )
 
@@ -541,11 +483,11 @@ const makeWorldGeneratorRepositoryMemory = (
     const getLastGenerationTime = (worldId: WorldId): Effect.Effect<Option.Option<Date>, AllRepositoryErrors> =>
       Effect.succeed(Option.fromNullable(null)) // Mock implementation
 
-    const getPerformanceMetrics = (worldId: WorldId): Effect.Effect<Option.Option<PerformanceMetrics>, AllRepositoryErrors> =>
-      Effect.succeed(Option.none()) // Mock implementation
+    const getPerformanceMetrics = (
+      worldId: WorldId
+    ): Effect.Effect<Option.Option<PerformanceMetrics>, AllRepositoryErrors> => Effect.succeed(Option.none()) // Mock implementation
 
-    const warmupCache = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<void, AllRepositoryErrors> =>
-      Effect.void // Mock implementation
+    const warmupCache = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<void, AllRepositoryErrors> => Effect.void // Mock implementation
 
     const createBackup = (worldId?: WorldId): Effect.Effect<string, AllRepositoryErrors> =>
       Effect.succeed(`backup-${Date.now()}`) // Mock implementation
@@ -553,44 +495,49 @@ const makeWorldGeneratorRepositoryMemory = (
     const restoreFromBackup = (backupId: string, worldId?: WorldId): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.void // Mock implementation
 
-    const listBackups = (): Effect.Effect<ReadonlyArray<{
-      readonly id: string
-      readonly worldId: WorldId | null
-      readonly createdAt: Date
-      readonly size: number
-    }>, AllRepositoryErrors> =>
-      Effect.succeed([]) // Mock implementation
+    const listBackups = (): Effect.Effect<
+      ReadonlyArray<{
+        readonly id: string
+        readonly worldId: WorldId | null
+        readonly createdAt: Date
+        readonly size: number
+      }>,
+      AllRepositoryErrors
+    > => Effect.succeed([]) // Mock implementation
 
-    const cleanupOldBackups = (keepCount?: number): Effect.Effect<number, AllRepositoryErrors> =>
-      Effect.succeed(0) // Mock implementation
+    const cleanupOldBackups = (keepCount?: number): Effect.Effect<number, AllRepositoryErrors> => Effect.succeed(0) // Mock implementation
 
-    const validateIntegrity = (): Effect.Effect<{
-      readonly isValid: boolean
-      readonly errors: ReadonlyArray<string>
-      readonly warnings: ReadonlyArray<string>
-    }, AllRepositoryErrors> =>
+    const validateIntegrity = (): Effect.Effect<
+      {
+        readonly isValid: boolean
+        readonly errors: ReadonlyArray<string>
+        readonly warnings: ReadonlyArray<string>
+      },
+      AllRepositoryErrors
+    > =>
       Effect.succeed({
         isValid: true,
         errors: [],
         warnings: [],
       }) // Mock implementation
 
-    const optimize = (): Effect.Effect<{
-      readonly beforeSize: number
-      readonly afterSize: number
-      readonly optimizationTime: number
-    }, AllRepositoryErrors> =>
+    const optimize = (): Effect.Effect<
+      {
+        readonly beforeSize: number
+        readonly afterSize: number
+        readonly optimizationTime: number
+      },
+      AllRepositoryErrors
+    > =>
       Effect.succeed({
         beforeSize: 0,
         afterSize: 0,
         optimizationTime: 0,
       }) // Mock implementation
 
-    const initialize = (): Effect.Effect<void, AllRepositoryErrors> =>
-      Effect.void
+    const initialize = (): Effect.Effect<void, AllRepositoryErrors> => Effect.void
 
-    const cleanup = (): Effect.Effect<void, AllRepositoryErrors> =>
-      Effect.void
+    const cleanup = (): Effect.Effect<void, AllRepositoryErrors> => Effect.void
 
     return {
       save,
@@ -637,7 +584,4 @@ export const WorldGeneratorRepositoryMemory = Layer.effect(
  * Configurable World Generator Repository Memory Implementation Layer
  */
 export const WorldGeneratorRepositoryMemoryWith = (config: WorldGeneratorRepositoryConfig) =>
-  Layer.effect(
-    WorldGeneratorRepository,
-    makeWorldGeneratorRepositoryMemory(config)
-  )
+  Layer.effect(WorldGeneratorRepository, makeWorldGeneratorRepositoryMemory(config))

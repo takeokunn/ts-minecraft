@@ -2,7 +2,7 @@
  * Generation Validator Service - 生成検証ドメインサービス
  */
 
-import { Effect, Context, Schema, Layer } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '../../types/errors/generation_errors.js'
 
 export interface GenerationValidatorService {
@@ -16,6 +16,6 @@ export const GenerationValidatorService = Context.GenericTag<GenerationValidator
 export const GenerationValidatorServiceLive = Layer.effect(
   GenerationValidatorService,
   Effect.succeed({
-    validateGeneration: (data) => Effect.succeed(true)
+    validateGeneration: (data) => Effect.succeed(true),
   })
 )

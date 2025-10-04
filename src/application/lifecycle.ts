@@ -1,14 +1,17 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match, Option, pipe } from 'effect'
-import * as HashMap from 'effect/HashMap'
 import * as ReadonlyArray from 'effect/Array'
+import * as HashMap from 'effect/HashMap'
 import { InvalidStateTransitionError, JsonValue, createErrorContext } from './errors'
 import type { ApplicationLifecycleState } from './types'
 
 const lifecycleArray = Schema.decodeSync(Schema.Array(Schema.String))
 const decodeJsonValue = Schema.decodeUnknownSync(JsonValue)
 
-const allowedTransitions = HashMap.fromIterable<ApplicationLifecycleState, ReadonlyArray.ReadonlyArray<ApplicationLifecycleState>>([
+const allowedTransitions = HashMap.fromIterable<
+  ApplicationLifecycleState,
+  ReadonlyArray.ReadonlyArray<ApplicationLifecycleState>
+>([
   ['Uninitialized', ['Initializing']],
   ['Initializing', ['Initialized', 'Error']],
   ['Initialized', ['Starting', 'Error']],

@@ -7,10 +7,10 @@
  * - エラー・回復イベント
  */
 
-import { Context, Effect, Schema, Brand, Stream } from "effect"
-import type { GenerationSessionId, GenerationRequest } from "./generation_session.js"
-import type { SessionError } from "./error_handling.js"
-import type { ProgressStatistics } from "./progress_tracking.js"
+import { Brand, Context, Effect, Schema, Stream } from 'effect'
+import type { SessionError } from './error_handling.js'
+import type { GenerationRequest, GenerationSessionId } from './generation_session.js'
+import type { ProgressStatistics } from './progress_tracking.js'
 
 // ================================
 // Base Event Schema
@@ -35,19 +35,23 @@ export type BaseSessionEvent = typeof BaseSessionEventSchema.Type
  * セッション作成イベント
  */
 export const SessionCreatedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionCreated'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      worldGeneratorId: Schema.String,
-      request: Schema.Unknown, // GenerationRequestSchema
-      configuration: Schema.Unknown, // SessionConfigurationSchema
-      metadata: Schema.optional(Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown
-      })),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionCreated'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        worldGeneratorId: Schema.String,
+        request: Schema.Unknown, // GenerationRequestSchema
+        configuration: Schema.Unknown, // SessionConfigurationSchema
+        metadata: Schema.optional(
+          Schema.Record({
+            key: Schema.String,
+            value: Schema.Unknown,
+          })
+        ),
+      }),
+    })
+  )
 )
 
 export type SessionCreated = typeof SessionCreatedSchema.Type
@@ -56,15 +60,17 @@ export type SessionCreated = typeof SessionCreatedSchema.Type
  * セッション開始イベント
  */
 export const SessionStartedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionStarted'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      totalBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-      totalChunks: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-      estimatedDuration: Schema.optional(Schema.Number), // ミリ秒
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionStarted'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        totalBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+        totalChunks: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+        estimatedDuration: Schema.optional(Schema.Number), // ミリ秒
+      }),
+    })
+  )
 )
 
 export type SessionStarted = typeof SessionStartedSchema.Type
@@ -73,15 +79,17 @@ export type SessionStarted = typeof SessionStartedSchema.Type
  * セッション一時停止イベント
  */
 export const SessionPausedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionPaused'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      reason: Schema.String,
-      activeBatches: Schema.Array(Schema.String), // バッチID配列
-      progress: Schema.Unknown, // ProgressStatistics
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionPaused'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        reason: Schema.String,
+        activeBatches: Schema.Array(Schema.String), // バッチID配列
+        progress: Schema.Unknown, // ProgressStatistics
+      }),
+    })
+  )
 )
 
 export type SessionPaused = typeof SessionPausedSchema.Type
@@ -90,14 +98,16 @@ export type SessionPaused = typeof SessionPausedSchema.Type
  * セッション再開イベント
  */
 export const SessionResumedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionResumed'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      pausedDuration: Schema.Number, // ミリ秒
-      remainingBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionResumed'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        pausedDuration: Schema.Number, // ミリ秒
+        remainingBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+      }),
+    })
+  )
 )
 
 export type SessionResumed = typeof SessionResumedSchema.Type
@@ -106,22 +116,24 @@ export type SessionResumed = typeof SessionResumedSchema.Type
  * セッション完了イベント
  */
 export const SessionCompletedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionCompleted'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      finalStatistics: Schema.Unknown, // ProgressStatistics
-      totalDuration: Schema.Number, // ミリ秒
-      successRate: Schema.Number.pipe(Schema.between(0, 1)),
-      summary: Schema.Struct({
-        totalChunks: Schema.Number.pipe(Schema.int()),
-        successfulChunks: Schema.Number.pipe(Schema.int()),
-        failedChunks: Schema.Number.pipe(Schema.int()),
-        totalBatches: Schema.Number.pipe(Schema.int()),
-        failedBatches: Schema.Number.pipe(Schema.int()),
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionCompleted'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        finalStatistics: Schema.Unknown, // ProgressStatistics
+        totalDuration: Schema.Number, // ミリ秒
+        successRate: Schema.Number.pipe(Schema.between(0, 1)),
+        summary: Schema.Struct({
+          totalChunks: Schema.Number.pipe(Schema.int()),
+          successfulChunks: Schema.Number.pipe(Schema.int()),
+          failedChunks: Schema.Number.pipe(Schema.int()),
+          totalBatches: Schema.Number.pipe(Schema.int()),
+          failedBatches: Schema.Number.pipe(Schema.int()),
+        }),
       }),
-    }),
-  }))
+    })
+  )
 )
 
 export type SessionCompleted = typeof SessionCompletedSchema.Type
@@ -130,18 +142,20 @@ export type SessionCompleted = typeof SessionCompletedSchema.Type
  * セッション失敗イベント
  */
 export const SessionFailedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('SessionFailed'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      error: Schema.Unknown, // SessionError
-      progress: Schema.Unknown, // ProgressStatistics
-      partialResults: Schema.Struct({
-        completedBatches: Schema.Number.pipe(Schema.int()),
-        completedChunks: Schema.Number.pipe(Schema.int()),
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('SessionFailed'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        error: Schema.Unknown, // SessionError
+        progress: Schema.Unknown, // ProgressStatistics
+        partialResults: Schema.Struct({
+          completedBatches: Schema.Number.pipe(Schema.int()),
+          completedChunks: Schema.Number.pipe(Schema.int()),
+        }),
       }),
-    }),
-  }))
+    })
+  )
 )
 
 export type SessionFailed = typeof SessionFailedSchema.Type
@@ -154,16 +168,18 @@ export type SessionFailed = typeof SessionFailedSchema.Type
  * バッチ開始イベント
  */
 export const BatchStartedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BatchStarted'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      batchId: Schema.String,
-      chunkCount: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-      priority: Schema.Number.pipe(Schema.between(1, 10)),
-      attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BatchStarted'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        batchId: Schema.String,
+        chunkCount: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+        priority: Schema.Number.pipe(Schema.between(1, 10)),
+        attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+      }),
+    })
+  )
 )
 
 export type BatchStarted = typeof BatchStartedSchema.Type
@@ -172,19 +188,21 @@ export type BatchStarted = typeof BatchStartedSchema.Type
  * バッチ完了イベント
  */
 export const BatchCompletedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BatchCompleted'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      batchId: Schema.String,
-      chunksGenerated: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-      duration: Schema.Number, // ミリ秒
-      performanceMetrics: Schema.Record({
-        key: Schema.String,
-        value: Schema.Number
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BatchCompleted'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        batchId: Schema.String,
+        chunksGenerated: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+        duration: Schema.Number, // ミリ秒
+        performanceMetrics: Schema.Record({
+          key: Schema.String,
+          value: Schema.Number,
+        }),
       }),
-    }),
-  }))
+    })
+  )
 )
 
 export type BatchCompleted = typeof BatchCompletedSchema.Type
@@ -193,17 +211,19 @@ export type BatchCompleted = typeof BatchCompletedSchema.Type
  * バッチ失敗イベント
  */
 export const BatchFailedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BatchFailed'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      batchId: Schema.String,
-      error: Schema.Unknown, // SessionError
-      attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-      willRetry: Schema.Boolean,
-      retryScheduledAt: Schema.optional(Schema.DateTimeUtc),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BatchFailed'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        batchId: Schema.String,
+        error: Schema.Unknown, // SessionError
+        attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+        willRetry: Schema.Boolean,
+        retryScheduledAt: Schema.optional(Schema.DateTimeUtc),
+      }),
+    })
+  )
 )
 
 export type BatchFailed = typeof BatchFailedSchema.Type
@@ -212,16 +232,18 @@ export type BatchFailed = typeof BatchFailedSchema.Type
  * バッチリトライイベント
  */
 export const BatchRetriedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BatchRetried'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      batchId: Schema.String,
-      retryAttempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(1)),
-      previousError: Schema.Unknown, // SessionError
-      retryDelay: Schema.Number, // ミリ秒
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BatchRetried'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        batchId: Schema.String,
+        retryAttempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(1)),
+        previousError: Schema.Unknown, // SessionError
+        retryDelay: Schema.Number, // ミリ秒
+      }),
+    })
+  )
 )
 
 export type BatchRetried = typeof BatchRetriedSchema.Type
@@ -234,18 +256,22 @@ export type BatchRetried = typeof BatchRetriedSchema.Type
  * 進捗更新イベント
  */
 export const ProgressUpdatedSchema = BaseSessionEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('ProgressUpdated'),
-    payload: Schema.Struct({
-      sessionId: Schema.String, // GenerationSessionId
-      progress: Schema.Unknown, // ProgressStatistics
-      milestone: Schema.optional(Schema.Struct({
-        percentage: Schema.Number.pipe(Schema.between(0, 100)),
-        description: Schema.String,
-      })),
-      eta: Schema.optional(Schema.DateTimeUtc),
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('ProgressUpdated'),
+      payload: Schema.Struct({
+        sessionId: Schema.String, // GenerationSessionId
+        progress: Schema.Unknown, // ProgressStatistics
+        milestone: Schema.optional(
+          Schema.Struct({
+            percentage: Schema.Number.pipe(Schema.between(0, 100)),
+            description: Schema.String,
+          })
+        ),
+        eta: Schema.optional(Schema.DateTimeUtc),
+      }),
+    })
+  )
 )
 
 export type ProgressUpdated = typeof ProgressUpdatedSchema.Type
@@ -496,19 +522,17 @@ export const createBatchFailed = (
  */
 export interface SessionEventPublisher {
   readonly publish: (event: SessionEvent) => Effect.Effect<void, Error>
-  readonly subscribe: (
-    eventType: SessionEvent['eventType']
-  ) => Stream.Stream<SessionEvent, Error>
+  readonly subscribe: (eventType: SessionEvent['eventType']) => Stream.Stream<SessionEvent, Error>
 }
 
-export const SessionEventPublisherTag = Context.GenericTag<SessionEventPublisher>('@minecraft/domain/world/SessionEventPublisher')
+export const SessionEventPublisherTag = Context.GenericTag<SessionEventPublisher>(
+  '@minecraft/domain/world/SessionEventPublisher'
+)
 
 /**
  * イベント発行
  */
-export const publish = (
-  event: SessionEvent
-): Effect.Effect<void, Error> =>
+export const publish = (event: SessionEvent): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     const publisher = yield* SessionEventPublisherTag
     yield* publisher.publish(event)
@@ -535,15 +559,11 @@ export const InMemorySessionEventPublisher: SessionEventPublisher = {
       yield* Effect.log(`Publishing session event: ${event.eventType} for session ${event.sessionId}`)
     }),
 
-  subscribe: (eventType) =>
-    Stream.empty, // プレースホルダー実装
+  subscribe: (eventType) => Stream.empty, // プレースホルダー実装
 }
 
 // ================================
 // Exports
 // ================================
 
-export {
-  type BaseSessionEvent,
-  type SessionEventPublisher,
-}
+export { type BaseSessionEvent, type SessionEventPublisher }

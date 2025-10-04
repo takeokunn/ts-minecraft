@@ -5,10 +5,9 @@
  * 相対湿度・絶対湿度・露点温度の正確な計算
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 相対湿度Brand型（0%から100%）
@@ -41,7 +40,7 @@ export const RelativeHumiditySchema = Schema.Number.pipe(
     identifier: 'RelativeHumidity',
     title: 'Relative Humidity',
     description: 'Relative humidity percentage (0% to 100%)',
-    examples: [30, 50, 70, 85, 95]
+    examples: [30, 50, 70, 85, 95],
   })
 )
 
@@ -57,7 +56,7 @@ export const AbsoluteHumiditySchema = Schema.Number.pipe(
     identifier: 'AbsoluteHumidity',
     title: 'Absolute Humidity',
     description: 'Absolute humidity in grams per cubic meter (0 to 100 g/m³)',
-    examples: [5, 10, 15, 25, 35]
+    examples: [5, 10, 15, 25, 35],
   })
 )
 
@@ -72,7 +71,7 @@ export const DewPointSchema = Schema.Number.pipe(
     identifier: 'DewPoint',
     title: 'Dew Point Temperature',
     description: 'Dew point temperature in Celsius (-50°C to 40°C)',
-    examples: [-20, -5, 5, 15, 25]
+    examples: [-20, -5, 5, 15, 25],
   })
 )
 
@@ -88,7 +87,7 @@ export const VaporPressureSchema = Schema.Number.pipe(
     identifier: 'VaporPressure',
     title: 'Water Vapor Pressure',
     description: 'Water vapor pressure in hectopascals (0 to 100 hPa)',
-    examples: [5, 10, 20, 35, 50]
+    examples: [5, 10, 20, 35, 50],
   })
 )
 
@@ -96,16 +95,16 @@ export const VaporPressureSchema = Schema.Number.pipe(
  * 湿度分類
  */
 export const HumidityClassificationSchema = Schema.Literal(
-  'arid',         // 乾燥（RH < 30%）
-  'semi_arid',    // 半乾燥（RH 30-50%）
-  'moderate',     // 適度（RH 50-70%）
-  'humid',        // 湿潤（RH 70-85%）
-  'very_humid',   // 非常に湿潤（RH 85-95%）
-  'saturated'     // 飽和（RH > 95%）
+  'arid', // 乾燥（RH < 30%）
+  'semi_arid', // 半乾燥（RH 30-50%）
+  'moderate', // 適度（RH 50-70%）
+  'humid', // 湿潤（RH 70-85%）
+  'very_humid', // 非常に湿潤（RH 85-95%）
+  'saturated' // 飽和（RH > 95%）
 ).pipe(
   Schema.annotations({
     title: 'Humidity Classification',
-    description: 'Classification of humidity levels based on relative humidity'
+    description: 'Classification of humidity levels based on relative humidity',
   })
 )
 
@@ -115,20 +114,20 @@ export type HumidityClassification = typeof HumidityClassificationSchema.Type
  * 降水タイプ
  */
 export const PrecipitationTypeSchema = Schema.Literal(
-  'none',         // なし
-  'drizzle',      // 霧雨
-  'light_rain',   // 小雨
+  'none', // なし
+  'drizzle', // 霧雨
+  'light_rain', // 小雨
   'moderate_rain', // 中雨
-  'heavy_rain',   // 大雨
-  'snow',         // 雪
-  'sleet',        // みぞれ
-  'hail',         // 雹
-  'fog',          // 霧
-  'mist'          // 靄
+  'heavy_rain', // 大雨
+  'snow', // 雪
+  'sleet', // みぞれ
+  'hail', // 雹
+  'fog', // 霧
+  'mist' // 靄
 ).pipe(
   Schema.annotations({
     title: 'Precipitation Type',
-    description: 'Type of precipitation associated with humidity conditions'
+    description: 'Type of precipitation associated with humidity conditions',
   })
 )
 
@@ -151,10 +150,10 @@ export const AtmosphericHumidityStatsSchema = Schema.Struct({
   // 分位数
   percentiles: Schema.Struct({
     p25: RelativeHumiditySchema,
-    p50: RelativeHumiditySchema,  // median
+    p50: RelativeHumiditySchema, // median
     p75: RelativeHumiditySchema,
     p90: RelativeHumiditySchema,
-    p95: RelativeHumiditySchema
+    p95: RelativeHumiditySchema,
   }),
 
   // 変動特性
@@ -168,13 +167,13 @@ export const AtmosphericHumidityStatsSchema = Schema.Struct({
       Schema.nonNegative(),
       Schema.between(0, 100),
       Schema.annotations({ description: 'Interquartile range in humidity percentage' })
-    )
-  })
+    ),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'AtmosphericHumidityStats',
     title: 'Atmospheric Humidity Statistics',
-    description: 'Statistical analysis of atmospheric humidity measurements'
+    description: 'Statistical analysis of atmospheric humidity measurements',
   })
 )
 
@@ -212,23 +211,25 @@ export const DiurnalHumidityPatternSchema = Schema.Struct({
 
   // 変化パターン
   pattern: Schema.Literal(
-    'regular',      // 規則的変化
-    'irregular',    // 不規則変化
-    'bimodal',      // 二峰性
-    'plateau'       // 平坦
+    'regular', // 規則的変化
+    'irregular', // 不規則変化
+    'bimodal', // 二峰性
+    'plateau' // 平坦
   ),
 
   // 時間別湿度（24時間）
-  hourlyValues: Schema.Array(RelativeHumiditySchema).pipe(
-    Schema.minItems(24),
-    Schema.maxItems(24),
-    Schema.annotations({ description: 'Hourly humidity values for 24-hour period' })
-  ).pipe(Schema.optional)
+  hourlyValues: Schema.Array(RelativeHumiditySchema)
+    .pipe(
+      Schema.minItems(24),
+      Schema.maxItems(24),
+      Schema.annotations({ description: 'Hourly humidity values for 24-hour period' })
+    )
+    .pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'DiurnalHumidityPattern',
     title: 'Daily Humidity Pattern',
-    description: 'Humidity changes throughout a 24-hour period'
+    description: 'Humidity changes throughout a 24-hour period',
   })
 )
 
@@ -251,7 +252,7 @@ export const SeasonalHumidityVariationSchema = Schema.Struct({
       Schema.annotations({ description: 'Probability of precipitation (0-1)' })
     ),
     typicalType: PrecipitationTypeSchema,
-    intensity: Schema.Literal('none', 'light', 'moderate', 'heavy', 'extreme')
+    intensity: Schema.Literal('none', 'light', 'moderate', 'heavy', 'extreme'),
   }),
 
   // 蒸発散
@@ -265,7 +266,7 @@ export const SeasonalHumidityVariationSchema = Schema.Struct({
       Schema.nonNegative(),
       Schema.between(0, 300),
       Schema.annotations({ description: 'Actual evapotranspiration (mm/month)' })
-    )
+    ),
   }).pipe(Schema.optional),
 
   // 土壌水分
@@ -281,13 +282,13 @@ export const SeasonalHumidityVariationSchema = Schema.Struct({
     wiltingPoint: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Wilting point ratio (0-1)' })
-    )
-  }).pipe(Schema.optional)
+    ),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'SeasonalHumidityVariation',
     title: 'Seasonal Humidity Variation',
-    description: 'Humidity patterns and characteristics for a specific season'
+    description: 'Humidity patterns and characteristics for a specific season',
   })
 )
 
@@ -327,12 +328,12 @@ export const WaterVaporCharacteristicsSchema = Schema.Struct({
     Schema.nonNegative(),
     Schema.between(0, 50),
     Schema.annotations({ description: 'Specific humidity (g/kg)' })
-  ).pipe(Schema.optional)
+  ).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'WaterVaporCharacteristics',
     title: 'Water Vapor Characteristics',
-    description: 'Comprehensive water vapor properties and measurements'
+    description: 'Comprehensive water vapor properties and measurements',
   })
 )
 
@@ -392,7 +393,7 @@ export const HumidityLevelsSchema = Schema.Struct({
     pressureHumidityCoefficient: Schema.Number.pipe(
       Schema.between(-0.5, 0.5),
       Schema.annotations({ description: 'Humidity change per hPa pressure change' })
-    )
+    ),
   }).pipe(Schema.optional),
 
   // 風の影響
@@ -420,8 +421,8 @@ export const HumidityLevelsSchema = Schema.Struct({
     landSeaBreeze: Schema.Struct({
       enabled: Schema.Boolean,
       moistureTransport: Schema.Number.pipe(Schema.between(0, 1)),
-      timingOffset: Schema.Number.pipe(Schema.between(0, 12))
-    }).pipe(Schema.optional)
+      timingOffset: Schema.Number.pipe(Schema.between(0, 12)),
+    }).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 凝結・降水条件
@@ -442,15 +443,15 @@ export const HumidityLevelsSchema = Schema.Struct({
       windSpeedLimit: Schema.Number.pipe(
         Schema.between(0, 10),
         Schema.annotations({ description: 'Maximum wind speed for fog formation' })
-      )
+      ),
     }).pipe(Schema.optional),
 
     // 露・霜形成
     dewFrostFormation: Schema.Struct({
       dewPointThreshold: DewPointSchema,
       radiativeCooling: Schema.Boolean,
-      surfaceType: Schema.Literal('grass', 'pavement', 'water', 'soil')
-    }).pipe(Schema.optional)
+      surfaceType: Schema.Literal('grass', 'pavement', 'water', 'soil'),
+    }).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 健康・快適性指標
@@ -471,13 +472,13 @@ export const HumidityLevelsSchema = Schema.Struct({
     ).pipe(Schema.optional),
 
     // カビ・細菌リスク
-    microbiologyRisk: Schema.Literal('low', 'moderate', 'high', 'extreme').pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    microbiologyRisk: Schema.Literal('low', 'moderate', 'high', 'extreme').pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'HumidityLevels',
     title: 'Complete Humidity Levels Configuration',
-    description: 'Comprehensive humidity levels with atmospheric modeling'
+    description: 'Comprehensive humidity levels with atmospheric modeling',
   })
 )
 
@@ -492,7 +493,7 @@ export const CreateHumidityLevelsParamsSchema = Schema.Struct({
   coastalDistance: Schema.Number.pipe(Schema.nonNegative()).pipe(Schema.optional),
   elevation: Schema.Number.pipe(Schema.between(-500, 9000)).pipe(Schema.optional),
   seasonalVariation: Schema.Literal('low', 'moderate', 'high').pipe(Schema.optional),
-  precipitationPattern: Schema.Literal('even', 'seasonal', 'monsoon', 'arid').pipe(Schema.optional)
+  precipitationPattern: Schema.Literal('even', 'seasonal', 'monsoon', 'arid').pipe(Schema.optional),
 })
 
 export type CreateHumidityLevelsParams = typeof CreateHumidityLevelsParamsSchema.Type
@@ -505,29 +506,29 @@ export const HumidityLevelsErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidHumidityRange'),
     minimum: Schema.Number,
     maximum: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ThermodynamicInconsistency'),
     temperature: Schema.Number,
     humidity: Schema.Number,
     dewPoint: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('SeasonalLogicError'),
     season: Schema.String,
     parameter: Schema.String,
     conflict: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PhysicalLimitExceeded'),
     parameter: Schema.String,
     value: Schema.Number,
     physicalLimit: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type HumidityLevelsError = typeof HumidityLevelsErrorSchema.Type
@@ -541,43 +542,43 @@ export const HUMIDITY_PRESETS = {
     classification: 'arid',
     annual: { mean: 25, minimum: 10, maximum: 45 },
     diurnalVariation: 35, // high variation due to lack of moisture buffer
-    seasonalVariation: 15
+    seasonalVariation: 15,
   },
   TEMPERATE_FOREST: {
     description: 'Temperate forest conditions',
     classification: 'moderate',
     annual: { mean: 65, minimum: 40, maximum: 85 },
     diurnalVariation: 20,
-    seasonalVariation: 25
+    seasonalVariation: 25,
   },
   TROPICAL_RAINFOREST: {
     description: 'Tropical rainforest conditions',
     classification: 'very_humid',
     annual: { mean: 88, minimum: 75, maximum: 98 },
     diurnalVariation: 15, // low variation due to abundant moisture
-    seasonalVariation: 10
+    seasonalVariation: 10,
   },
   MEDITERRANEAN: {
     description: 'Mediterranean climate',
     classification: 'moderate',
     annual: { mean: 60, minimum: 35, maximum: 80 },
     diurnalVariation: 25,
-    seasonalVariation: 30 // dry summers, wet winters
+    seasonalVariation: 30, // dry summers, wet winters
   },
   POLAR: {
     description: 'Polar/arctic conditions',
     classification: 'moderate',
     annual: { mean: 70, minimum: 50, maximum: 95 },
     diurnalVariation: 10,
-    seasonalVariation: 20
+    seasonalVariation: 20,
   },
   COASTAL: {
     description: 'Coastal oceanic conditions',
     classification: 'humid',
     annual: { mean: 75, minimum: 60, maximum: 90 },
     diurnalVariation: 15, // moderated by ocean
-    seasonalVariation: 15
-  }
+    seasonalVariation: 15,
+  },
 } as const
 
 /**
@@ -595,5 +596,5 @@ export const BIOME_HUMIDITY_MAPPING = {
   OCEAN: { mean: 75, range: 20, classification: 'humid' },
   FROZEN_OCEAN: { mean: 70, range: 25, classification: 'moderate' },
   MOUNTAINS: { mean: 55, range: 35, classification: 'moderate' },
-  ICE_SPIKES: { mean: 65, range: 30, classification: 'moderate' }
+  ICE_SPIKES: { mean: 65, range: 30, classification: 'moderate' },
 } as const

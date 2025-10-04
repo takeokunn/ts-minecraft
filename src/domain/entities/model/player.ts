@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Match } from 'effect'
-import { pipe } from 'effect/Function'
 import * as Either from 'effect/Either'
+import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import {
   GameMode,
@@ -10,7 +10,6 @@ import {
   PlayerAbilities,
   PlayerAbilitiesSchema,
   PlayerStats,
-  PlayerStatsSchema,
   PlayerUpdateData,
   PlayerUpdateDataSchema,
 } from '../types/core'
@@ -72,10 +71,7 @@ const levelFromExperience = (experience: number): number =>
     Match.orElse(() => Math.floor(Math.sqrt(experience + 9) - 3))
   )
 
-export const changeGameMode = (
-  player: Player,
-  next: GameMode
-): Effect.Effect<Player, EntityValidationError> =>
+export const changeGameMode = (player: Player, next: GameMode): Effect.Effect<Player, EntityValidationError> =>
   Effect.gen(function* () {
     const decodedMode = yield* pipe(
       Schema.decodeUnknownEither(GameModeSchema)(next),
@@ -102,10 +98,7 @@ export const changeGameMode = (
     }
   })
 
-export const applyExperienceGain = (
-  player: Player,
-  amount: number
-): Effect.Effect<Player, EntityUpdateError> =>
+export const applyExperienceGain = (player: Player, amount: number): Effect.Effect<Player, EntityUpdateError> =>
   Effect.gen(function* () {
     const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
     const experience = player.stats.experience + amount
@@ -165,7 +158,9 @@ export const applyPlayerUpdate = (
       Option.fromNullable(payload.health),
       Option.map((health) => ({ ...player.stats, health })),
       Option.orElse(() => Option.fromNullable(payload.hunger).map((hunger) => ({ ...player.stats, hunger }))),
-      Option.orElse(() => Option.fromNullable(payload.saturation).map((saturation) => ({ ...player.stats, saturation }))),
+      Option.orElse(() =>
+        Option.fromNullable(payload.saturation).map((saturation) => ({ ...player.stats, saturation }))
+      ),
       Option.getOrElse(() => player.stats)
     )
 
@@ -185,9 +180,7 @@ export const applyPlayerUpdate = (
     }
   })
 
-export const normaliseAbilities = (
-  abilities: PlayerAbilities
-): Effect.Effect<PlayerAbilities, EntityValidationError> =>
+export const normaliseAbilities = (abilities: PlayerAbilities): Effect.Effect<PlayerAbilities, EntityValidationError> =>
   Effect.gen(function* () {
     const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 

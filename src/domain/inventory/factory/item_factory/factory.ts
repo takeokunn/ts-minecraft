@@ -8,6 +8,7 @@
 import { Effect, Match, Option, pipe } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
 import {
+  ItemCreationError as CreationError,
   EnchantmentDefinition,
   ItemCategory,
   ItemConfig,
@@ -15,14 +16,11 @@ import {
   ItemFactory,
   ItemQuality,
   ItemStackError,
+  ItemStackError as StackError,
   StackingRules,
+  ItemValidationError as ValidationError,
   defaultItemConfig,
   defaultStackingRules,
-} from './interface'
-import {
-  ItemCreationError as CreationError,
-  ItemStackError as StackError,
-  ItemValidationError as ValidationError,
 } from './interface'
 
 // ===== 内部ヘルパー関数（Pure Functions） =====
@@ -44,7 +42,7 @@ const filterMapArray = <A, B>(
 
 const getNonEmptyOrUndefined = <K extends PropertyKey, V>(
   entries: ReadonlyArray<readonly [K, V]>
-): Record<K, V> | undefined => (entries.length === 0 ? undefined : Object.fromEntries(entries) as Record<K, V>)
+): Record<K, V> | undefined => (entries.length === 0 ? undefined : (Object.fromEntries(entries) as Record<K, V>))
 
 // カテゴリ別デフォルト設定（Match.valueパターン）
 const getCategoryDefaults = (category: ItemCategory): Partial<ItemConfig> =>
@@ -152,10 +150,7 @@ const whenInvalid = (condition: boolean, message: string): Option.Option<string>
 
 const validateItemConfig = (config: ItemConfig): Effect.Effect<void, ItemCreationError> => {
   const baseErrors = collectSome([
-    whenInvalid(
-      !(typeof config.itemId === 'string' && config.itemId.trim().length > 0),
-      'itemId is required'
-    ),
+    whenInvalid(!(typeof config.itemId === 'string' && config.itemId.trim().length > 0), 'itemId is required'),
     pipe(
       Option.fromNullable(config.count),
       Option.flatMap((value) => whenInvalid(value < 1 || value > 64, 'count must be between 1 and 64'))
@@ -205,11 +200,8 @@ const createItemMetadata = (config: ItemConfig): ItemMetadata | undefined => {
     pipe(
       Option.fromNullable(config.enchantments),
       Option.filter((items) => items.length > 0),
-      Option.map((items) =>
-        [
-          'enchantments',
-          items.map((enchant) => ({ id: enchant.id, level: enchant.level })),
-        ] as const
+      Option.map(
+        (items) => ['enchantments', items.map((enchant) => ({ id: enchant.id, level: enchant.level }))] as const
       )
     ),
     pipe(
@@ -234,11 +226,12 @@ const createItemMetadata = (config: ItemConfig): ItemMetadata | undefined => {
       pipe(
         Option.fromNullable(config.durability),
         Option.filter((ratio) => ratio !== 1.0),
-        Option.map((ratio) =>
-          [
-            ['damage', Math.floor((1 - ratio) * maxDurability)] as const,
-            ['durability', maxDurability] as const,
-          ] satisfies ReadonlyArray<readonly [string, unknown]>
+        Option.map(
+          (ratio) =>
+            [
+              ['damage', Math.floor((1 - ratio) * maxDurability)] as const,
+              ['durability', maxDurability] as const,
+            ] satisfies ReadonlyArray<readonly [string, unknown]>
         )
       )
     ),
@@ -479,7 +472,7 @@ export const ItemFactoryLive: ItemFactory = {
                       metadata: normalizeMetadata(metadata),
                     }),
                 })
-              ),
+              )
           ),
       })
     ),
@@ -504,19 +497,19 @@ export const ItemFactoryLive: ItemFactory = {
             context: { stack },
           })
       ),
-      Effect.map(({ stack, amount }) => [
-        { ...stack, count: stack.count - amount },
-        { ...stack, count: amount },
-      ] as const)
+      Effect.map(
+        ({ stack, amount }) =>
+          [
+            { ...stack, count: stack.count - amount },
+            { ...stack, count: amount },
+          ] as const
+      )
     ),
 
   validateItemStack: (item) =>
     pipe(
       collectSome([
-        whenInvalid(
-          !(typeof item.itemId === 'string' && item.itemId.trim().length > 0),
-          'itemId is required'
-        ),
+        whenInvalid(!(typeof item.itemId === 'string' && item.itemId.trim().length > 0), 'itemId is required'),
         whenInvalid(item.count < 1 || item.count > 64, 'count must be between 1 and 64'),
         pipe(
           Option.fromNullable(item.durability),

@@ -25,7 +25,7 @@ export const WorldClockLive = Layer.effect(
   WorldClock,
   Effect.succeed<WorldClock>({
     currentMillis: Clock.currentTimeMillis,
-    currentDate: Effect.map(Clock.currentTimeMillis, (now) => new Date(now))
+    currentDate: Effect.map(Clock.currentTimeMillis, (now) => new Date(now)),
   })
 )
 
@@ -35,5 +35,5 @@ export const WorldClockLive = Layer.effect(
 export const makeWorldClockTestLayer = (fixedMillis: number) =>
   Layer.succeed(WorldClock, {
     currentMillis: Effect.succeed(fixedMillis),
-    currentDate: Effect.succeed(new Date(fixedMillis))
+    currentDate: Effect.succeed(new Date(fixedMillis)),
   } satisfies WorldClock)

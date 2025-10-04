@@ -6,8 +6,8 @@
  */
 
 // アプリケーションサービス
-export * from './inventory_manager'
 export * from './container_manager'
+export * from './inventory_manager'
 export * from './transaction_manager'
 
 // 型定義
@@ -15,8 +15,8 @@ export * from './types/errors'
 
 // Layer統合
 import { Layer } from 'effect'
-import { InventoryManagerApplicationServiceLive } from './inventory_manager'
 import { ContainerManagerApplicationServiceLive } from './container_manager'
+import { InventoryManagerApplicationServiceLive } from './inventory_manager'
 import { TransactionManagerApplicationServiceLive } from './transaction_manager'
 
 /**

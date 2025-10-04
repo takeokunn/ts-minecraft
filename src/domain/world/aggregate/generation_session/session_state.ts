@@ -7,24 +7,24 @@
  * - 並行処理制御
  */
 
-import { Effect, Schema, Brand } from "effect"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Effect, Schema } from 'effect'
+import type * as WorldTypes from '../../types/core/world_types.js'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
 
 // ================================
 // Session Status
 // ================================
 
 export const SessionStatusSchema = Schema.Literal(
-  "created",    // 作成済み
-  "starting",   // 開始中
-  "running",    // 実行中
-  "paused",     // 一時停止
-  "completing", // 完了処理中
-  "completed",  // 完了
-  "failed",     // 失敗
-  "cancelled"   // キャンセル
+  'created', // 作成済み
+  'starting', // 開始中
+  'running', // 実行中
+  'paused', // 一時停止
+  'completing', // 完了処理中
+  'completed', // 完了
+  'failed', // 失敗
+  'cancelled' // キャンセル
 )
 
 export type SessionStatus = typeof SessionStatusSchema.Type
@@ -34,13 +34,13 @@ export type SessionStatus = typeof SessionStatusSchema.Type
 // ================================
 
 export const BatchStatusSchema = Schema.Literal(
-  "pending",    // 待機中
-  "queued",     // キュー中
-  "running",    // 実行中
-  "completed",  // 完了
-  "failed",     // 失敗
-  "retrying",   // リトライ中
-  "cancelled"   // キャンセル
+  'pending', // 待機中
+  'queued', // キュー中
+  'running', // 実行中
+  'completed', // 完了
+  'failed', // 失敗
+  'retrying', // リトライ中
+  'cancelled' // キャンセル
 )
 
 export type BatchStatus = typeof BatchStatusSchema.Type
@@ -74,7 +74,7 @@ export type ChunkBatch = typeof ChunkBatchSchema.Type
 export const ExecutionContextSchema = Schema.Struct({
   activeBatches: Schema.Record({
     key: Schema.String, // Batch ID
-    value: ChunkBatchSchema
+    value: ChunkBatchSchema,
   }),
   queuedBatches: Schema.Array(Schema.String), // Batch IDs in queue order
   completedBatches: Schema.Array(Schema.String), // Completed batch IDs
@@ -95,12 +95,14 @@ export const SessionStateSchema = Schema.Struct({
   pauseReason: Schema.optional(Schema.String),
   cancellationToken: Schema.optional(Schema.String),
   lastStateChange: Schema.DateTimeUtc,
-  stateHistory: Schema.Array(Schema.Struct({
-    fromStatus: SessionStatusSchema,
-    toStatus: SessionStatusSchema,
-    timestamp: Schema.DateTimeUtc,
-    reason: Schema.optional(Schema.String),
-  })),
+  stateHistory: Schema.Array(
+    Schema.Struct({
+      fromStatus: SessionStatusSchema,
+      toStatus: SessionStatusSchema,
+      timestamp: Schema.DateTimeUtc,
+      reason: Schema.optional(Schema.String),
+    })
+  ),
 })
 
 export type SessionState = typeof SessionStateSchema.Type
@@ -113,7 +115,7 @@ export type SessionState = typeof SessionStateSchema.Type
  * 初期状態作成
  */
 export const createInitial = (): SessionState => ({
-  status: "created",
+  status: 'created',
   executionContext: {
     activeBatches: {},
     queuedBatches: [],
@@ -129,18 +131,15 @@ export const createInitial = (): SessionState => ({
 /**
  * セッション開始
  */
-export const startSession = (
-  state: SessionState,
-  batches: readonly ChunkBatch[]
-): SessionState => {
+export const startSession = (state: SessionState, batches: readonly ChunkBatch[]): SessionState => {
   const now = new Date()
 
   // バッチをキューに追加
-  const queuedBatchIds = batches.map(batch => batch.id)
+  const queuedBatchIds = batches.map((batch) => batch.id)
 
   const newState: SessionState = {
     ...state,
-    status: "running",
+    status: 'running',
     executionContext: {
       ...state.executionContext,
       queuedBatches: queuedBatchIds,
@@ -150,9 +149,9 @@ export const startSession = (
       ...state.stateHistory,
       {
         fromStatus: state.status,
-        toStatus: "running",
+        toStatus: 'running',
         timestamp: now,
-        reason: "Session started",
+        reason: 'Session started',
       },
     ],
   }
@@ -172,18 +171,20 @@ export const startBatch = (
     // 並行性チェック
     if (state.executionContext.currentConcurrency >= state.executionContext.maxConcurrentBatches) {
       return yield* Effect.fail(
-        GenerationErrors.createStateError(`Maximum concurrent batches (${state.executionContext.maxConcurrentBatches}) exceeded`)
+        GenerationErrors.createStateError(
+          `Maximum concurrent batches (${state.executionContext.maxConcurrentBatches}) exceeded`
+        )
       )
     }
 
     // キューからバッチを削除
-    const queuedBatches = state.executionContext.queuedBatches.filter(id => id !== batchId)
+    const queuedBatches = state.executionContext.queuedBatches.filter((id) => id !== batchId)
 
     const now = yield* Effect.sync(() => new Date())
 
     const startedBatch: ChunkBatch = {
       ...batch,
-      status: "running",
+      status: 'running',
       startedAt: now,
       attempts: batch.attempts + 1,
     }
@@ -216,21 +217,17 @@ export const completeBatch = (
   Effect.gen(function* () {
     const activeBatch = state.executionContext.activeBatches[batchId]
     if (!activeBatch) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`)
-      )
+      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
     const now = yield* Effect.sync(() => new Date())
 
     const completedBatch: ChunkBatch = {
       ...activeBatch,
-      status: "completed",
+      status: 'completed',
       completedAt: now,
       results,
-      actualDuration: activeBatch.startedAt
-        ? now.getTime() - activeBatch.startedAt.getTime()
-        : undefined,
+      actualDuration: activeBatch.startedAt ? now.getTime() - activeBatch.startedAt.getTime() : undefined,
     }
 
     // アクティブバッチから削除し、完了バッチに追加
@@ -261,16 +258,14 @@ export const failBatch = (
   Effect.gen(function* () {
     const activeBatch = state.executionContext.activeBatches[batchId]
     if (!activeBatch) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`)
-      )
+      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
     const now = yield* Effect.sync(() => new Date())
 
     const failedBatch: ChunkBatch = {
       ...activeBatch,
-      status: "failed",
+      status: 'failed',
       completedAt: now,
       lastError: error.message || 'Unknown error',
     }
@@ -303,9 +298,7 @@ export const scheduleRetry = (
   Effect.gen(function* () {
     const activeBatch = state.executionContext.activeBatches[batchId]
     if (!activeBatch) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`)
-      )
+      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
     const now = yield* Effect.sync(() => new Date())
@@ -313,7 +306,7 @@ export const scheduleRetry = (
 
     const retryingBatch: ChunkBatch = {
       ...activeBatch,
-      status: "retrying",
+      status: 'retrying',
       retryScheduledAt: scheduleTime,
     }
 
@@ -337,22 +330,19 @@ export const scheduleRetry = (
 /**
  * セッション一時停止
  */
-export const pauseSession = (
-  state: SessionState,
-  reason: string
-): SessionState => {
+export const pauseSession = (state: SessionState, reason: string): SessionState => {
   const now = new Date()
 
   return {
     ...state,
-    status: "paused",
+    status: 'paused',
     pauseReason: reason,
     lastStateChange: now,
     stateHistory: [
       ...state.stateHistory,
       {
         fromStatus: state.status,
-        toStatus: "paused",
+        toStatus: 'paused',
         timestamp: now,
         reason,
       },
@@ -368,16 +358,16 @@ export const resumeSession = (state: SessionState): SessionState => {
 
   return {
     ...state,
-    status: "running",
+    status: 'running',
     pauseReason: undefined,
     lastStateChange: now,
     stateHistory: [
       ...state.stateHistory,
       {
         fromStatus: state.status,
-        toStatus: "running",
+        toStatus: 'running',
         timestamp: now,
-        reason: "Session resumed",
+        reason: 'Session resumed',
       },
     ],
   }
@@ -391,15 +381,15 @@ export const completeSession = (state: SessionState): SessionState => {
 
   return {
     ...state,
-    status: "completed",
+    status: 'completed',
     lastStateChange: now,
     stateHistory: [
       ...state.stateHistory,
       {
         fromStatus: state.status,
-        toStatus: "completed",
+        toStatus: 'completed',
         timestamp: now,
-        reason: "All batches completed",
+        reason: 'All batches completed',
       },
     ],
   }
@@ -408,16 +398,12 @@ export const completeSession = (state: SessionState): SessionState => {
 /**
  * セッションキャンセル
  */
-export const cancelSession = (
-  state: SessionState,
-  reason: string,
-  cancellationToken: string
-): SessionState => {
+export const cancelSession = (state: SessionState, reason: string, cancellationToken: string): SessionState => {
   const now = new Date()
 
   return {
     ...state,
-    status: "cancelled",
+    status: 'cancelled',
     pauseReason: reason,
     cancellationToken,
     lastStateChange: now,
@@ -425,7 +411,7 @@ export const cancelSession = (
       ...state.stateHistory,
       {
         fromStatus: state.status,
-        toStatus: "cancelled",
+        toStatus: 'cancelled',
         timestamp: now,
         reason,
       },
@@ -440,19 +426,14 @@ export const cancelSession = (
 /**
  * バッチ取得
  */
-export const getBatch = (
-  state: SessionState,
-  batchId: string
-): ChunkBatch | null => {
+export const getBatch = (state: SessionState, batchId: string): ChunkBatch | null => {
   return state.executionContext.activeBatches[batchId] || null
 }
 
 /**
  * 実行可能なバッチ取得
  */
-export const getNextExecutableBatch = (
-  state: SessionState
-): string | null => {
+export const getNextExecutableBatch = (state: SessionState): string | null => {
   if (state.executionContext.currentConcurrency >= state.executionContext.maxConcurrentBatches) {
     return null
   }
@@ -463,7 +444,9 @@ export const getNextExecutableBatch = (
 /**
  * 進捗統計取得
  */
-export const getProgressStatistics = (state: SessionState): {
+export const getProgressStatistics = (
+  state: SessionState
+): {
   totalBatches: number
   completedBatches: number
   failedBatches: number
@@ -502,8 +485,4 @@ export const isSessionCompleted = (state: SessionState): boolean => {
 // Exports
 // ================================
 
-export {
-  type SessionStatus,
-  type BatchStatus,
-  type ExecutionContext,
-}
+export { type BatchStatus, type ExecutionContext, type SessionStatus }

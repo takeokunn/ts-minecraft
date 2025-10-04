@@ -8,8 +8,8 @@
  * - 統計データ収集
  */
 
-import { Effect, Schema } from "effect"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Effect, Schema } from 'effect'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
 
 // ================================
 // Progress Statistics
@@ -52,11 +52,13 @@ export const TimeTrackingSchema = Schema.Struct({
   pausedTime: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)), // ミリ秒
   activeTime: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)), // ミリ秒
   lastUpdateTime: Schema.DateTimeUtc,
-  milestones: Schema.Array(Schema.Struct({
-    percentage: Schema.Number.pipe(Schema.between(0, 100)),
-    timestamp: Schema.DateTimeUtc,
-    chunksCompleted: Schema.Number.pipe(Schema.int()),
-  })),
+  milestones: Schema.Array(
+    Schema.Struct({
+      percentage: Schema.Number.pipe(Schema.between(0, 100)),
+      timestamp: Schema.DateTimeUtc,
+      chunksCompleted: Schema.Number.pipe(Schema.int()),
+    })
+  ),
 })
 
 export type TimeTracking = typeof TimeTrackingSchema.Type
@@ -70,11 +72,13 @@ export const ProgressDataSchema = Schema.Struct({
   performance: PerformanceMetricsSchema,
   timeTracking: TimeTrackingSchema,
   isTrackingActive: Schema.Boolean,
-  trackingHistory: Schema.Array(Schema.Struct({
-    timestamp: Schema.DateTimeUtc,
-    statistics: ProgressStatisticsSchema,
-    performance: PerformanceMetricsSchema,
-  })),
+  trackingHistory: Schema.Array(
+    Schema.Struct({
+      timestamp: Schema.DateTimeUtc,
+      statistics: ProgressStatisticsSchema,
+      performance: PerformanceMetricsSchema,
+    })
+  ),
 })
 
 export type ProgressData = typeof ProgressDataSchema.Type
@@ -148,9 +152,8 @@ export const updateProgress = (
     const newCompleted = data.statistics.completedChunks + completedDelta
     const newFailed = data.statistics.failedChunks + failedDelta
     const newRemaining = data.statistics.totalChunks - newCompleted - newFailed
-    const newCompletionPercentage = data.statistics.totalChunks > 0
-      ? (newCompleted / data.statistics.totalChunks) * 100
-      : 0
+    const newCompletionPercentage =
+      data.statistics.totalChunks > 0 ? (newCompleted / data.statistics.totalChunks) * 100 : 0
     const totalProcessed = newCompleted + newFailed
     const newSuccessRate = totalProcessed > 0 ? newCompleted / totalProcessed : 1.0
 
@@ -168,19 +171,14 @@ export const updateProgress = (
       ? now.getTime() - data.timeTracking.startTime.getTime() - data.timeTracking.pausedTime
       : 0
 
-    const updatedPerformance = yield* calculatePerformanceMetrics(
-      data.performance,
-      updatedStatistics,
-      elapsedTime,
-      now
-    )
+    const updatedPerformance = yield* calculatePerformanceMetrics(data.performance, updatedStatistics, elapsedTime, now)
 
     // マイルストーン記録
     const milestones = [...data.timeTracking.milestones]
     const milestoneThresholds = [10, 25, 50, 75, 90, 95]
 
     for (const threshold of milestoneThresholds) {
-      const alreadyRecorded = milestones.some(m => m.percentage === threshold)
+      const alreadyRecorded = milestones.some((m) => m.percentage === threshold)
       if (!alreadyRecorded && newCompletionPercentage >= threshold) {
         milestones.push({
           percentage: threshold,
@@ -286,13 +284,16 @@ export const isCompleted = (data: ProgressData): boolean => {
  */
 export const generateProgressReport = (
   data: ProgressData
-): Effect.Effect<{
-  summary: string
-  statistics: ProgressStatistics
-  performance: PerformanceMetrics
-  eta: string | null
-  recommendations: string[]
-}, never> =>
+): Effect.Effect<
+  {
+    summary: string
+    statistics: ProgressStatistics
+    performance: PerformanceMetrics
+    eta: string | null
+    recommendations: string[]
+  },
+  never
+> =>
   Effect.gen(function* () {
     const { statistics, performance } = data
 
@@ -300,23 +301,21 @@ export const generateProgressReport = (
     const summary = `${statistics.completedChunks}/${statistics.totalChunks} chunks completed (${statistics.completionPercentage.toFixed(1)}%)`
 
     // ETA計算
-    const eta = performance.estimatedCompletionTime
-      ? performance.estimatedCompletionTime.toISOString()
-      : null
+    const eta = performance.estimatedCompletionTime ? performance.estimatedCompletionTime.toISOString() : null
 
     // 推奨事項
     const recommendations: string[] = []
 
     if (statistics.successRate < 0.9) {
-      recommendations.push("Success rate is low - consider checking error logs")
+      recommendations.push('Success rate is low - consider checking error logs')
     }
 
     if (performance.chunksPerSecond < 1.0 && statistics.totalChunks > 100) {
-      recommendations.push("Generation speed is slow - consider optimizing parameters")
+      recommendations.push('Generation speed is slow - consider optimizing parameters')
     }
 
     if (performance.averageConcurrency < 2.0) {
-      recommendations.push("Low concurrency detected - consider increasing parallel processing")
+      recommendations.push('Low concurrency detected - consider increasing parallel processing')
     }
 
     return {
@@ -343,13 +342,9 @@ const calculatePerformanceMetrics = (
 ): Effect.Effect<PerformanceMetrics, never> =>
   Effect.gen(function* () {
     // 基本計算
-    const chunksPerSecond = elapsedTime > 0
-      ? (statistics.completedChunks / elapsedTime) * 1000
-      : 0
+    const chunksPerSecond = elapsedTime > 0 ? (statistics.completedChunks / elapsedTime) * 1000 : 0
 
-    const averageChunkTime = statistics.completedChunks > 0
-      ? elapsedTime / statistics.completedChunks
-      : 0
+    const averageChunkTime = statistics.completedChunks > 0 ? elapsedTime / statistics.completedChunks : 0
 
     // ETA計算
     let estimatedTimeRemaining: number | undefined
@@ -374,10 +369,7 @@ const calculatePerformanceMetrics = (
 /**
  * 履歴記録判定
  */
-const shouldAddToHistory = (
-  history: readonly any[],
-  now: Date
-): boolean => {
+const shouldAddToHistory = (history: readonly any[], now: Date): boolean => {
   if (history.length === 0) return true
 
   const lastEntry = history[history.length - 1]
@@ -394,7 +386,9 @@ const shouldAddToHistory = (
 /**
  * 進捗速度取得
  */
-export const getProgressVelocity = (data: ProgressData): {
+export const getProgressVelocity = (
+  data: ProgressData
+): {
   recentChunksPerSecond: number
   trendDirection: 'up' | 'down' | 'stable'
   confidence: number
@@ -409,14 +403,13 @@ export const getProgressVelocity = (data: ProgressData): {
 
   // 最近の5エントリで速度計算
   const recentEntries = data.trackingHistory.slice(-5)
-  const speeds = recentEntries.map(entry => entry.performance.chunksPerSecond)
+  const speeds = recentEntries.map((entry) => entry.performance.chunksPerSecond)
 
   const recentSpeed = speeds[speeds.length - 1]
   const previousSpeed = speeds[0]
 
   const trendDirection: 'up' | 'down' | 'stable' =
-    recentSpeed > previousSpeed * 1.1 ? 'up' :
-    recentSpeed < previousSpeed * 0.9 ? 'down' : 'stable'
+    recentSpeed > previousSpeed * 1.1 ? 'up' : recentSpeed < previousSpeed * 0.9 ? 'down' : 'stable'
 
   const confidence = Math.min(recentEntries.length / 5, 1)
 
@@ -430,7 +423,9 @@ export const getProgressVelocity = (data: ProgressData): {
 /**
  * マイルストーン達成チェック
  */
-export const getAchievedMilestones = (data: ProgressData): readonly {
+export const getAchievedMilestones = (
+  data: ProgressData
+): readonly {
   percentage: number
   timestamp: Date
   chunksCompleted: number
@@ -442,8 +437,4 @@ export const getAchievedMilestones = (data: ProgressData): readonly {
 // Exports
 // ================================
 
-export {
-  type ProgressStatistics,
-  type PerformanceMetrics,
-  type TimeTracking,
-}
+export { type PerformanceMetrics, type ProgressStatistics, type TimeTracking }

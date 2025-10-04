@@ -1,6 +1,6 @@
+import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import type { ActionId } from './model'
-import type { ParseError } from '@effect/schema/ParseResult'
 
 export type InputDomainError =
   | { readonly _tag: 'InvalidEvent'; readonly issues: ReadonlyArray<string> }
@@ -25,8 +25,7 @@ export const fromParseError = (error: ParseError): InputDomainError =>
 export const unexpectedHandlerFailure = (action: ActionId, issue: string): InputDomainError =>
   InputDomainErrorConstructors.handlerFailure(action, issue)
 
-export const queueOverflow = (pending: number): InputDomainError =>
-  InputDomainErrorConstructors.queueOverflow(pending)
+export const queueOverflow = (pending: number): InputDomainError => InputDomainErrorConstructors.queueOverflow(pending)
 
 export const clockUnavailable = (detail: string): InputDomainError =>
   InputDomainErrorConstructors.clockUnavailable(detail)

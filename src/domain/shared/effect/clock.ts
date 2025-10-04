@@ -1,14 +1,10 @@
-import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import type { Brand } from 'effect'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 
 export type EpochMillis = number & Brand<'EpochMillis'>
 
-const EpochMillisSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('EpochMillis')
-)
+const EpochMillisSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('EpochMillis'))
 
 export interface DomainClock {
   readonly now: () => Effect.Effect<EpochMillis, Schema.ParseError>

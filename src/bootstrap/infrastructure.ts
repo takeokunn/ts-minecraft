@@ -1,13 +1,19 @@
-import { GameApplicationLive } from '@application/GameApplicationLive'
-import { Clock, Config as EffectConfig, ConfigProvider, Effect, Either, Layer } from 'effect'
-import { pipe } from 'effect/Function'
+import { GameApplicationLive } from '@application/game-application-live'
+import { GameLoopServiceLive } from '@domain/game_loop/legacy'
+import { InputServiceLive } from '@domain/input/input-service-live'
+import { InteractionDomainLive } from '@domain/interaction'
+import { SceneManagerLive } from '@domain/scene/manager/live'
+import { Clock, ConfigProvider, Effect, Config as EffectConfig, Either, Layer } from 'effect'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
-import { GameLoopServiceLive } from '@domain/game_loop/legacy'
-import { InputServiceLive } from '@domain/input/InputServiceLive'
-import { InteractionDomainLive } from '@domain/interaction'
-import { SceneManagerLive } from '@domain/scene/manager/live'
+import {
+  AppServiceTag,
+  ConfigServiceTag,
+  instantiateLifecycleSnapshot,
+  projectInitialization,
+  projectReadiness,
+} from './application'
 import {
   AppError,
   BootstrapConfig,
@@ -25,20 +31,11 @@ import {
   reviveEpochZero,
   toConfigIssueList,
 } from './domain'
-import {
-  AppServiceTag,
-  ConfigServiceTag,
-  instantiateLifecycleSnapshot,
-  projectInitialization,
-  projectReadiness,
-} from './application'
 
 const toEither = <A>(effect: Effect.Effect<A, AppError>) => Effect.either(effect)
 
 const acquireProvider = Effect.serviceOption(ConfigProvider.ConfigProvider).pipe(
-  Effect.map(
-    Option.getOrElse(() => ConfigProvider.fromEnv({ pathDelim: '_', seqDelim: ',' }))
-  )
+  Effect.map(Option.getOrElse(() => ConfigProvider.fromEnv({ pathDelim: '_', seqDelim: ',' })))
 )
 
 const configDescriptor = EffectConfig.all({
@@ -75,10 +72,7 @@ const materializeSnapshot = (config: BootstrapConfig): Effect.Effect<BootstrapCo
 const hydrateSnapshot = (provider: ConfigProvider.ConfigProvider) =>
   hydrateConfig(provider).pipe(Effect.flatMap(materializeSnapshot))
 
-const initializedTimestamp = (
-  state: LifecycleState,
-  timestamp: EpochMilliseconds
-): EpochMilliseconds =>
+const initializedTimestamp = (state: LifecycleState, timestamp: EpochMilliseconds): EpochMilliseconds =>
   Match.value(state).pipe(
     Match.when(Match.is('ready'), () => Option.some(timestamp)),
     Match.orElse(() => Option.none<EpochMilliseconds>()),
@@ -101,16 +95,11 @@ const createLifecycleSnapshot = (state: LifecycleState, config: BootstrapConfig)
 export const makeConfigService = Effect.gen(function* () {
   const provider = yield* acquireProvider
 
-  const initialSnapshot = materializeConfigSnapshot(
-    BootstrapConfigDefaults,
-    reviveEpochZero()
-  )
+  const initialSnapshot = materializeConfigSnapshot(BootstrapConfigDefaults, reviveEpochZero())
 
   const state = yield* SynchronizedRef.make(initialSnapshot)
 
-  const reloadSnapshot = hydrateSnapshot(provider).pipe(
-    Effect.tap((snapshot) => SynchronizedRef.set(state, snapshot))
-  )
+  const reloadSnapshot = hydrateSnapshot(provider).pipe(Effect.tap((snapshot) => SynchronizedRef.set(state, snapshot)))
 
   yield* reloadSnapshot.pipe(Effect.catchAll(() => Effect.void))
 
@@ -122,9 +111,7 @@ export const makeConfigService = Effect.gen(function* () {
     Effect.map((snapshot) => Either.right<AppError, BootstrapConfigSnapshot>(snapshot))
   )
 
-  const currentResult = currentConfig.pipe(
-    Effect.map((config) => Either.right<AppError, BootstrapConfig>(config))
-  )
+  const currentResult = currentConfig.pipe(Effect.map((config) => Either.right<AppError, BootstrapConfig>(config)))
 
   const reloadResult = toEither(reloadSnapshot)
   const refreshResult = toEither(refreshConfig)
@@ -202,12 +189,7 @@ export const makeAppService = Effect.gen(function* () {
 
 export const AppServiceLayer = Layer.scoped(AppServiceTag, makeAppService)
 
-const BaseServicesLayer = Layer.mergeAll(
-  GameLoopServiceLive,
-  SceneManagerLive,
-  InputServiceLive,
-  InteractionDomainLive
-)
+const BaseServicesLayer = Layer.mergeAll(GameLoopServiceLive, SceneManagerLive, InputServiceLive, InteractionDomainLive)
 
 const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 

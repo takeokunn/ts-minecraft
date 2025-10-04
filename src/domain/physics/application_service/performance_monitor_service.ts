@@ -1,7 +1,7 @@
 import { Array as Arr, Context, Effect, Layer, Match, Ref, pipe } from 'effect'
+import { PERFORMANCE_THRESHOLDS } from '../types/constants'
 import type { PhysicsWorldId } from '../types/core'
 import type { PhysicsError } from '../types/errors'
-import { PERFORMANCE_THRESHOLDS } from '../types/constants'
 
 export interface PerformanceSample {
   readonly worldId: PhysicsWorldId
@@ -53,9 +53,11 @@ export const PerformanceMonitorApplicationServiceLive = Layer.effect(
     const store = yield* Ref.make<ReadonlyArray<PerformanceSample>>([])
 
     const record: PerformanceMonitorApplicationService['record'] = (sample) =>
-      Ref.update(store, (current) => (
-        pipe(current, Arr.append(sample), (updated) => (updated.length > 120 ? updated.slice(updated.length - 120) : updated))
-      ))
+      Ref.update(store, (current) =>
+        pipe(current, Arr.append(sample), (updated) =>
+          updated.length > 120 ? updated.slice(updated.length - 120) : updated
+        )
+      )
 
     const report: PerformanceMonitorApplicationService['report'] = () =>
       Effect.map(Ref.get(store), (samples) => {

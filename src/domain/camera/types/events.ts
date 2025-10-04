@@ -4,16 +4,11 @@ import type {
   CameraDistance,
   CameraMode,
   FOV,
-  PitchAngle,
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
   Sensitivity,
-  YawAngle,
 } from './constants.js'
-import {
-  Position3DSchema,
-  Rotation2DSchema,
-} from './constants.js'
+import { Position3DSchema, Rotation2DSchema } from './constants.js'
 
 // ========================================
 // Event Base Types

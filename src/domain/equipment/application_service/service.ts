@@ -1,9 +1,8 @@
 import { Context, Effect, Layer } from 'effect'
-import type { EquipmentRepository } from '../repository/memory'
-import { EquipmentRepositoryTag } from '../repository/memory'
-import type { EquipmentOwnerId, EquipmentSetId, UnixTime } from '../types/core'
 import type { EquipmentPiece } from '../aggregate/equipment_piece'
 import type { EquipmentSet } from '../aggregate/equipment_set'
+import { EquipmentRepositoryTag } from '../repository/memory'
+import type { EquipmentOwnerId, EquipmentSetId, UnixTime } from '../types/core'
 import type { EquipmentSlot } from '../value_object/slot'
 
 export interface EquipmentService {
@@ -13,9 +12,7 @@ export interface EquipmentService {
   readonly unequip: (id: EquipmentSetId, slot: EquipmentSlot, timestamp: UnixTime) => Effect.Effect<EquipmentSet>
 }
 
-export const EquipmentServiceTag = Context.Tag<EquipmentService>(
-  '@domain/equipment/EquipmentService'
-)
+export const EquipmentServiceTag = Context.Tag<EquipmentService>('@domain/equipment/EquipmentService')
 
 const makeEquipmentService = Effect.gen(function* () {
   const repository = yield* EquipmentRepositoryTag

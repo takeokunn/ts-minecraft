@@ -5,10 +5,9 @@
  * Minecraft準拠の生態学的妥当性と気候データ管理
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 温度値Brand型（摂氏-50度から50度）
@@ -41,7 +40,7 @@ export const TemperatureSchema = Schema.Number.pipe(
     identifier: 'Temperature',
     title: 'Biome Temperature',
     description: 'Temperature in Celsius (-50°C to +50°C)',
-    examples: [20, -10, 35, 0]
+    examples: [20, -10, 35, 0],
   })
 )
 
@@ -56,7 +55,7 @@ export const HumiditySchema = Schema.Number.pipe(
     identifier: 'Humidity',
     title: 'Relative Humidity',
     description: 'Relative humidity from 0.0 (dry) to 1.0 (saturated)',
-    examples: [0.3, 0.7, 0.9, 0.1]
+    examples: [0.3, 0.7, 0.9, 0.1],
   })
 )
 
@@ -72,7 +71,7 @@ export const ElevationSchema = Schema.Number.pipe(
     identifier: 'Elevation',
     title: 'Biome Elevation',
     description: 'Elevation in meters (-2048m to +2047m)',
-    examples: [64, 128, 256, -64, 0]
+    examples: [64, 128, 256, -64, 0],
   })
 )
 
@@ -88,7 +87,7 @@ export const PrecipitationSchema = Schema.Number.pipe(
     identifier: 'Precipitation',
     title: 'Annual Precipitation',
     description: 'Annual precipitation in millimeters (0-2000mm)',
-    examples: [500, 1200, 100, 1800]
+    examples: [500, 1200, 100, 1800],
   })
 )
 
@@ -129,7 +128,7 @@ export const BiomeTypeSchema = Schema.Literal(
 ).pipe(
   Schema.annotations({
     title: 'Biome Type',
-    description: 'Standard Minecraft biome types'
+    description: 'Standard Minecraft biome types',
   })
 )
 
@@ -139,20 +138,20 @@ export type BiomeType = typeof BiomeTypeSchema.Type
  * バイオーム気候帯
  */
 export const ClimateZoneSchema = Schema.Literal(
-  'arctic',      // 北極圏（-30°C以下）
-  'subarctic',   // 亜北極圏（-30°C～0°C）
-  'temperate',   // 温帯（0°C～20°C）
+  'arctic', // 北極圏（-30°C以下）
+  'subarctic', // 亜北極圏（-30°C～0°C）
+  'temperate', // 温帯（0°C～20°C）
   'subtropical', // 亜熱帯（20°C～30°C）
-  'tropical',    // 熱帯（30°C以上）
-  'alpine',      // 高山帯（標高による）
-  'coastal',     // 沿岸部（海洋影響）
+  'tropical', // 熱帯（30°C以上）
+  'alpine', // 高山帯（標高による）
+  'coastal', // 沿岸部（海洋影響）
   'continental', // 大陸性（内陸部）
-  'desert',      // 砂漠性（低湿度）
-  'monsoon'      // モンスーン（季節的変化）
+  'desert', // 砂漠性（低湿度）
+  'monsoon' // モンスーン（季節的変化）
 ).pipe(
   Schema.annotations({
     title: 'Climate Zone',
-    description: 'Climatic classification of biome'
+    description: 'Climatic classification of biome',
   })
 )
 
@@ -169,7 +168,7 @@ export const VegetationDensitySchema = Schema.Number.pipe(
   Schema.brand('VegetationDensity'),
   Schema.annotations({
     title: 'Vegetation Density',
-    description: 'Density of vegetation from 0.0 (barren) to 1.0 (dense forest)'
+    description: 'Density of vegetation from 0.0 (barren) to 1.0 (dense forest)',
   })
 )
 
@@ -183,7 +182,7 @@ export const BiomeConfigSchema = Schema.Struct({
     Schema.minLength(1),
     Schema.maxLength(50),
     Schema.annotations({
-      description: 'Human-readable biome name'
+      description: 'Human-readable biome name',
     })
   ),
 
@@ -197,8 +196,8 @@ export const BiomeConfigSchema = Schema.Struct({
     // 季節変動（オプション）
     seasonalVariation: Schema.Struct({
       temperatureRange: Schema.Number.pipe(Schema.nonNegative()),
-      precipitationVariation: Schema.Number.pipe(Schema.between(0, 1))
-    }).pipe(Schema.optional)
+      precipitationVariation: Schema.Number.pipe(Schema.between(0, 1)),
+    }).pipe(Schema.optional),
   }),
 
   // 地形パラメータ
@@ -212,8 +211,8 @@ export const BiomeConfigSchema = Schema.Struct({
       lakes: Schema.Number.pipe(Schema.between(0, 1)),
       rivers: Schema.Number.pipe(Schema.between(0, 1)),
       caves: Schema.Number.pipe(Schema.between(0, 1)),
-      ravines: Schema.Number.pipe(Schema.between(0, 1))
-    }).pipe(Schema.optional)
+      ravines: Schema.Number.pipe(Schema.between(0, 1)),
+    }).pipe(Schema.optional),
   }),
 
   // 生態系パラメータ
@@ -221,7 +220,7 @@ export const BiomeConfigSchema = Schema.Struct({
     vegetationDensity: VegetationDensitySchema,
     primaryVegetation: Schema.Array(Schema.String),
     animalDensity: Schema.Number.pipe(Schema.between(0, 1)),
-    foodChainComplexity: Schema.Number.pipe(Schema.between(0, 1))
+    foodChainComplexity: Schema.Number.pipe(Schema.between(0, 1)),
   }),
 
   // 資源生成パラメータ
@@ -229,15 +228,17 @@ export const BiomeConfigSchema = Schema.Struct({
     // 鉱石生成頻度
     oreFrequency: Schema.Record({
       key: Schema.String, // 鉱石名
-      value: Schema.Number.pipe(Schema.between(0, 1))
+      value: Schema.Number.pipe(Schema.between(0, 1)),
     }),
 
     // 特殊ブロック生成
-    specialBlocks: Schema.Array(Schema.Struct({
-      blockType: Schema.String,
-      frequency: Schema.Number.pipe(Schema.between(0, 1)),
-      conditions: Schema.Array(Schema.String).pipe(Schema.optional)
-    }))
+    specialBlocks: Schema.Array(
+      Schema.Struct({
+        blockType: Schema.String,
+        frequency: Schema.Number.pipe(Schema.between(0, 1)),
+        conditions: Schema.Array(Schema.String).pipe(Schema.optional),
+      })
+    ),
   }),
 
   // 構造物生成設定
@@ -245,7 +246,7 @@ export const BiomeConfigSchema = Schema.Struct({
     villages: Schema.Number.pipe(Schema.between(0, 1)),
     dungeons: Schema.Number.pipe(Schema.between(0, 1)),
     temples: Schema.Number.pipe(Schema.between(0, 1)),
-    strongholds: Schema.Number.pipe(Schema.between(0, 1))
+    strongholds: Schema.Number.pipe(Schema.between(0, 1)),
   }),
 
   // Minecraft固有設定
@@ -276,13 +277,13 @@ export const BiomeConfigSchema = Schema.Struct({
       Schema.annotations({ description: 'Hex color code for fog' })
     ).pipe(Schema.optional),
 
-    fogDensity: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional)
-  })
+    fogDensity: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'BiomeConfig',
     title: 'Biome Configuration',
-    description: 'Complete biome configuration with climate, terrain, and ecosystem parameters'
+    description: 'Complete biome configuration with climate, terrain, and ecosystem parameters',
   })
 )
 
@@ -299,8 +300,8 @@ export const CreateBiomeConfigParamsSchema = Schema.Struct({
   elevation: Schema.Number.pipe(Schema.optional),
   customSettings: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown
-  }).pipe(Schema.optional)
+    value: Schema.Unknown,
+  }).pipe(Schema.optional),
 })
 
 export type CreateBiomeConfigParams = typeof CreateBiomeConfigParamsSchema.Type
@@ -314,18 +315,18 @@ export const BiomeConfigErrorSchema = taggedUnion('_tag', [
     parameter: Schema.String,
     value: Schema.Unknown,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('EcosystemInconsistency'),
     conflicts: Schema.Array(Schema.String),
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('UnsupportedBiomeType'),
     biomeType: Schema.String,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type BiomeConfigError = typeof BiomeConfigErrorSchema.Type

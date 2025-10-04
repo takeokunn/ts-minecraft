@@ -2,10 +2,7 @@ import { Schema } from '@effect/schema'
 
 // ===== ブランド定義 =====
 
-export const FramesPerSecond = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('FramesPerSecond')
-)
+export const FramesPerSecond = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('FramesPerSecond'))
 export type FramesPerSecond = Schema.Schema.Type<typeof FramesPerSecond>
 
 export const TargetFramesPerSecond = Schema.Number.pipe(
@@ -15,49 +12,25 @@ export const TargetFramesPerSecond = Schema.Number.pipe(
 )
 export type TargetFramesPerSecond = Schema.Schema.Type<typeof TargetFramesPerSecond>
 
-export const FrameCount = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('FrameCount')
-)
+export const FrameCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('FrameCount'))
 export type FrameCount = Schema.Schema.Type<typeof FrameCount>
 
-export const Milliseconds = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('Milliseconds')
-)
+export const Milliseconds = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Milliseconds'))
 export type Milliseconds = Schema.Schema.Type<typeof Milliseconds>
 
-export const MemoryBytes = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('MemoryBytes')
-)
+export const MemoryBytes = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('MemoryBytes'))
 export type MemoryBytes = Schema.Schema.Type<typeof MemoryBytes>
 
-export const CpuPercentage = Schema.Number.pipe(
-  Schema.between(0, 100),
-  Schema.brand('CpuPercentage')
-)
+export const CpuPercentage = Schema.Number.pipe(Schema.between(0, 100), Schema.brand('CpuPercentage'))
 export type CpuPercentage = Schema.Schema.Type<typeof CpuPercentage>
 
-export const ResourcePercentage = Schema.Number.pipe(
-  Schema.between(0, 1),
-  Schema.brand('ResourcePercentage')
-)
+export const ResourcePercentage = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('ResourcePercentage'))
 export type ResourcePercentage = Schema.Schema.Type<typeof ResourcePercentage>
 
-export const Timestamp = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('Timestamp')
-)
+export const Timestamp = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
 export type Timestamp = Schema.Schema.Type<typeof Timestamp>
 
-export const SlotCount = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('SlotCount')
-)
+export const SlotCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotCount'))
 export type SlotCount = Schema.Schema.Type<typeof SlotCount>
 
 // ===== アプリケーションライフサイクル =====

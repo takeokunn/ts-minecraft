@@ -5,10 +5,9 @@
  * チャンク境界の正確な計算と変換を保証
  */
 
-import { Schema } from 'effect'
-import { Brand } from 'effect'
-import { taggedUnion } from '../../utils/schema'
 import type { Brand as BrandType } from 'effect'
+import { Schema } from 'effect'
+import { taggedUnion } from '../../utils/schema'
 
 /**
  * チャンク座標系のBrand型
@@ -25,7 +24,7 @@ export const CHUNK_CONSTANTS = {
   MIN_Y: -64,
   MAX_Y: 319,
   SECTION_HEIGHT: 16, // セクション高さ
-  SECTIONS_PER_CHUNK: 24 // 総セクション数
+  SECTIONS_PER_CHUNK: 24, // 総セクション数
 } as const
 
 /**
@@ -33,9 +32,9 @@ export const CHUNK_CONSTANTS = {
  */
 export const CHUNK_COORDINATE_LIMITS = {
   MIN_X: -1875000, // -30M / 16
-  MAX_X: 1875000,  // +30M / 16
+  MAX_X: 1875000, // +30M / 16
   MIN_Z: -1875000,
-  MAX_Z: 1875000
+  MAX_Z: 1875000,
 } as const
 
 /**
@@ -50,7 +49,7 @@ export const ChunkXSchema = Schema.Number.pipe(
     identifier: 'ChunkX',
     title: 'Chunk X Coordinate',
     description: 'X coordinate in chunk space',
-    examples: [0, 10, -5, 1000]
+    examples: [0, 10, -5, 1000],
   })
 )
 
@@ -66,7 +65,7 @@ export const ChunkZSchema = Schema.Number.pipe(
     identifier: 'ChunkZ',
     title: 'Chunk Z Coordinate',
     description: 'Z coordinate in chunk space',
-    examples: [0, 10, -5, 1000]
+    examples: [0, 10, -5, 1000],
   })
 )
 
@@ -75,12 +74,12 @@ export const ChunkZSchema = Schema.Number.pipe(
  */
 export const ChunkCoordinateSchema = Schema.Struct({
   x: ChunkXSchema,
-  z: ChunkZSchema
+  z: ChunkZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'ChunkCoordinate',
     title: 'Chunk 2D Coordinate',
-    description: 'Immutable 2D coordinate identifying a chunk'
+    description: 'Immutable 2D coordinate identifying a chunk',
   })
 )
 
@@ -95,7 +94,7 @@ export const LocalXSchema = Schema.Number.pipe(
   Schema.brand('LocalX'),
   Schema.annotations({
     title: 'Local X Coordinate',
-    description: 'X coordinate within a chunk (0-15)'
+    description: 'X coordinate within a chunk (0-15)',
   })
 )
 
@@ -105,7 +104,7 @@ export const LocalZSchema = Schema.Number.pipe(
   Schema.brand('LocalZ'),
   Schema.annotations({
     title: 'Local Z Coordinate',
-    description: 'Z coordinate within a chunk (0-15)'
+    description: 'Z coordinate within a chunk (0-15)',
   })
 )
 
@@ -117,12 +116,12 @@ export type LocalZ = typeof LocalZSchema.Type
  */
 export const LocalCoordinateSchema = Schema.Struct({
   x: LocalXSchema,
-  z: LocalZSchema
+  z: LocalZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'LocalCoordinate',
     title: 'Chunk Local Coordinate',
-    description: 'Local coordinate within a chunk (0-15, 0-15)'
+    description: 'Local coordinate within a chunk (0-15, 0-15)',
   })
 )
 
@@ -137,7 +136,7 @@ export const ChunkSectionYSchema = Schema.Number.pipe(
   Schema.brand('ChunkSectionY'),
   Schema.annotations({
     title: 'Chunk Section Y',
-    description: 'Y coordinate of chunk section (-4 to 19)'
+    description: 'Y coordinate of chunk section (-4 to 19)',
   })
 )
 
@@ -149,12 +148,12 @@ export type ChunkSectionY = typeof ChunkSectionYSchema.Type
 export const ChunkSectionCoordinateSchema = Schema.Struct({
   x: ChunkXSchema,
   y: ChunkSectionYSchema,
-  z: ChunkZSchema
+  z: ChunkZSchema,
 }).pipe(
   Schema.annotations({
     identifier: 'ChunkSectionCoordinate',
     title: 'Chunk Section 3D Coordinate',
-    description: '3D coordinate identifying a chunk section'
+    description: '3D coordinate identifying a chunk section',
   })
 )
 
@@ -165,7 +164,7 @@ export type ChunkSectionCoordinate = typeof ChunkSectionCoordinateSchema.Type
  */
 export const CreateChunkCoordinateParamsSchema = Schema.Struct({
   x: Schema.Number,
-  z: Schema.Number
+  z: Schema.Number,
 })
 
 export type CreateChunkCoordinateParams = typeof CreateChunkCoordinateParamsSchema.Type
@@ -180,18 +179,18 @@ export const ChunkCoordinateErrorSchema = taggedUnion('_tag', [
     value: Schema.Number,
     min: Schema.Number,
     max: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidChunkCoordinate'),
     coordinate: Schema.Unknown,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('SectionOutOfBounds'),
     sectionY: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type ChunkCoordinateError = typeof ChunkCoordinateErrorSchema.Type
@@ -203,17 +202,17 @@ export const ChunkBoundsSchema = Schema.Struct({
   chunk: ChunkCoordinateSchema,
   worldMin: Schema.Struct({
     x: Schema.Number,
-    z: Schema.Number
+    z: Schema.Number,
   }),
   worldMax: Schema.Struct({
     x: Schema.Number,
-    z: Schema.Number
-  })
+    z: Schema.Number,
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'ChunkBounds',
     title: 'Chunk Boundary Information',
-    description: 'Defines the world coordinate boundaries of a chunk'
+    description: 'Defines the world coordinate boundaries of a chunk',
   })
 )
 
@@ -224,13 +223,22 @@ export type ChunkBounds = typeof ChunkBoundsSchema.Type
  */
 export const ChunkRelativePositionSchema = Schema.Literal(
   'center',
-  'north', 'south', 'east', 'west',
-  'northeast', 'northwest', 'southeast', 'southwest',
-  'corner_nw', 'corner_ne', 'corner_sw', 'corner_se'
+  'north',
+  'south',
+  'east',
+  'west',
+  'northeast',
+  'northwest',
+  'southeast',
+  'southwest',
+  'corner_nw',
+  'corner_ne',
+  'corner_sw',
+  'corner_se'
 ).pipe(
   Schema.annotations({
     title: 'Chunk Relative Position',
-    description: 'Relative position within or around a chunk'
+    description: 'Relative position within or around a chunk',
   })
 )
 

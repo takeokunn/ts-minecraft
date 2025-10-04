@@ -1,24 +1,12 @@
-import {
-  Schema,
-  Clock,
-  Context,
-  Duration,
-  Effect,
-  HashMap,
-  Layer,
-  Match,
-  Option,
-  Ref,
-  pipe,
-} from 'effect'
-import type { EventBusService } from '../../infrastructure/events/EventBus'
-import { EventBus } from '../../infrastructure/events/EventBus'
+import { Clock, Context, Duration, Effect, HashMap, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
+import type { EventBusService } from '../../infrastructure/events/event-bus'
+import { EventBus } from '../../infrastructure/events/event-bus'
 import {
   RendererService,
   parseAlpha as parseRendererAlpha,
   parseRgbColor,
-} from '../../infrastructure/rendering/RendererService'
-import { RendererServiceLive } from '../../infrastructure/rendering/RendererServiceLive'
+} from '../../infrastructure/rendering/renderer-service'
+import { RendererServiceLive } from '../../infrastructure/rendering/renderer-service-live'
 import { SceneService } from './service'
 import {
   ActiveScene,
@@ -34,9 +22,9 @@ import {
   SceneProgressSchema,
   SceneState,
   SceneStateSchema,
-  SceneState as Scenes,
   SceneTimestamp,
   SceneTimestampSchema,
+  SceneState as Scenes,
   TransitionDurationSchema,
   TransitionEffect,
   TransitionError as TransitionErrorADT,
@@ -78,7 +66,6 @@ export interface SaveManager {
 
 export const SaveManager = Context.GenericTag<SaveManager>('@minecraft/domain/scene/SaveManager')
 
-
 export const parseTransitionDuration = Schema.decodeUnknownSync(TransitionDurationSchema)
 export const parseSceneProgress = Schema.decodeUnknownSync(SceneProgressSchema)
 export const parseTimestamp = Schema.decodeUnknownSync(SceneTimestampSchema)
@@ -93,9 +80,18 @@ const errorClearColor = parseRgbColor(0x440000)
 
 const resourceKindFromPath = (path: string): ResourceKind =>
   Match.value(path).pipe(
-    Match.when((value: string) => value.endsWith('.png'), () => 'texture'),
-    Match.when((value: string) => value.endsWith('.obj'), () => 'model'),
-    Match.when((value: string) => value.endsWith('.mp3'), () => 'sound'),
+    Match.when(
+      (value: string) => value.endsWith('.png'),
+      () => 'texture'
+    ),
+    Match.when(
+      (value: string) => value.endsWith('.obj'),
+      () => 'model'
+    ),
+    Match.when(
+      (value: string) => value.endsWith('.mp3'),
+      () => 'sound'
+    ),
     Match.orElse(() => 'data'),
     Match.exhaustive
   )
@@ -116,8 +112,7 @@ const executeTransitionEffect = (effect: TransitionEffect) =>
     Match.exhaustive
   )
 
-const clampProgress = (value: number): SceneProgress =>
-  parseSceneProgress(Math.min(1, Math.max(0, value)))
+const clampProgress = (value: number): SceneProgress => parseSceneProgress(Math.min(1, Math.max(0, value)))
 
 const toSnapshot = (params: {
   readonly scene: SceneState
@@ -160,15 +155,10 @@ const withTransitionLock = <A>(params: {
 
 const publishEvent = (bus: EventBusService, event: SceneEvent) => bus.publish(event)
 
-const mergeResource = (
-  ref: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>,
-  resource: PreloadedResource
-) => Ref.update(ref, (map) => HashMap.set(map, resource.id, resource))
+const mergeResource = (ref: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>, resource: PreloadedResource) =>
+  Ref.update(ref, (map) => HashMap.set(map, resource.id, resource))
 
-const preloadResource = (
-  resources: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>,
-  path: string
-) =>
+const preloadResource = (resources: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>, path: string) =>
   Clock.currentTimeMillis.pipe(
     Effect.map(parseTimestamp),
     Effect.flatMap((timestamp) =>
@@ -203,11 +193,7 @@ export const makeSceneService = Effect.gen(function* () {
   const transitionFlag = yield* Ref.make(false)
   const resourcesRef = yield* Ref.make(HashMap.empty<string, PreloadedResource>())
 
-  const emitTransitionStarted = (
-    fromScene: SceneState,
-    toScene: ActiveScene,
-    effect: TransitionEffect
-  ) =>
+  const emitTransitionStarted = (fromScene: SceneState, toScene: ActiveScene, effect: TransitionEffect) =>
     publishEvent(eventBus, {
       _tag: 'TransitionStarted',
       from: Option.some(fromScene),
@@ -430,10 +416,7 @@ export const makeSceneService = Effect.gen(function* () {
           },
           recoverable: false,
         })
-        return Ref.set(currentScene, scene).pipe(
-          Effect.zipRight(emitTransitionCompleted(scene)),
-          Effect.as(scene)
-        )
+        return Ref.set(currentScene, scene).pipe(Effect.zipRight(emitTransitionCompleted(scene)), Effect.as(scene))
       })
     )
 

@@ -1,4 +1,6 @@
-import { Effect, Clock, Match, Schema, pipe } from 'effect'
+import { Clock, Effect, Match, Schema, pipe } from 'effect'
+import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import {
   type BlockId,
   type ChunkAggregate,
@@ -6,20 +8,17 @@ import {
   type ChunkId,
   type ChunkPosition,
   type WorldCoordinate,
-  BlockId as MakeBlockId,
   ChunkBoundsError,
-  ChunkSerializationError,
   ChunkDataSchema,
+  ChunkSerializationError,
+  BlockId as MakeBlockId,
   ChunkId as MakeChunkId,
 } from './types'
-import type { ChunkMetadata } from '../../value_object/chunk_metadata'
-import { CHUNK_HEIGHT, CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>
   start > end ? [] : Array.from({ length: end - start + 1 }, (_, index) => start + index)
 
-const buildChunkId = (position: ChunkPosition): ChunkId =>
-  MakeChunkId(`${position.x}_${position.z}`)
+const buildChunkId = (position: ChunkPosition): ChunkId => MakeChunkId(`${position.x}_${position.z}`)
 
 const getBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y - CHUNK_MIN_Y
@@ -33,12 +32,15 @@ const ensureCoordinateBounds = (
   x: WorldCoordinate,
   y: WorldCoordinate,
   z: WorldCoordinate
-): Effect.Effect<{
-  readonly x: WorldCoordinate
-  readonly y: WorldCoordinate
-  readonly z: WorldCoordinate
-  readonly index: number
-}, ChunkBoundsError> =>
+): Effect.Effect<
+  {
+    readonly x: WorldCoordinate
+    readonly y: WorldCoordinate
+    readonly z: WorldCoordinate
+    readonly index: number
+  },
+  ChunkBoundsError
+> =>
   pipe(
     Effect.succeed({ x, y, z }),
     Effect.filterOrFail(
@@ -56,12 +58,7 @@ const ensureCoordinateBounds = (
     Effect.map((coords) => ({ ...coords, index: getBlockIndex(coords.x, coords.y, coords.z) }))
   )
 
-const computeNormalizedBounds = (
-  start: WorldCoordinate,
-  end: WorldCoordinate,
-  min: number,
-  max: number
-) => {
+const computeNormalizedBounds = (start: WorldCoordinate, end: WorldCoordinate, min: number, max: number) => {
   const low = Math.max(min, Math.min(start, end))
   const high = Math.min(max, Math.max(start, end))
   return { low, high }
@@ -89,8 +86,7 @@ const regionRanges = (
   return pipe(
     Effect.succeed({ minX, maxX, minY, maxY, minZ, maxZ }),
     Effect.filterOrFail(
-      ({ minX: x0, maxX: x1, minY: y0, maxY: y1, minZ: z0, maxZ: z1 }) =>
-        x0 <= x1 && y0 <= y1 && z0 <= z1,
+      ({ minX: x0, maxX: x1, minY: y0, maxY: y1, minZ: z0, maxZ: z1 }) => x0 <= x1 && y0 <= y1 && z0 <= z1,
       () =>
         ChunkBoundsError({
           message: `領域が無効です: (${startX},${startY},${startZ}) -> (${endX},${endY},${endZ})`,
@@ -104,10 +100,7 @@ const regionRanges = (
   )
 }
 
-const updateTimestamp = (
-  metadata: ChunkMetadata,
-  timestamp: number
-): ChunkMetadata => ({
+const updateTimestamp = (metadata: ChunkMetadata, timestamp: number): ChunkMetadata => ({
   ...metadata,
   isModified: true,
   lastUpdate: timestamp,
@@ -143,15 +136,7 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
       )
     )
 
-  const fillRegionOperation: ChunkAggregate['fillRegion'] = (
-    startX,
-    startY,
-    startZ,
-    endX,
-    endY,
-    endZ,
-    blockId
-  ) =>
+  const fillRegionOperation: ChunkAggregate['fillRegion'] = (startX, startY, startZ, endX, endY, endZ, blockId) =>
     pipe(
       regionRanges(startX, startY, startZ, endX, endY, endZ),
       Effect.flatMap(({ xRange, yRange, zRange }) =>
@@ -159,19 +144,23 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
           const newBlocks = new Uint16Array(state.blocks)
           const timestamp = yield* Clock.currentTimeMillis
 
-          yield* Effect.forEach(xRange, (x) =>
-            Effect.forEach(yRange, (y) =>
+          yield* Effect.forEach(
+            xRange,
+            (x) =>
               Effect.forEach(
-                zRange,
-                (z) =>
-                  Effect.sync(() => {
-                    const index = getBlockIndex(x, y, z)
-                    newBlocks[index] = blockId
-                  }),
+                yRange,
+                (y) =>
+                  Effect.forEach(
+                    zRange,
+                    (z) =>
+                      Effect.sync(() => {
+                        const index = getBlockIndex(x, y, z)
+                        newBlocks[index] = blockId
+                      }),
+                    { concurrency: 'unbounded' }
+                  ),
                 { concurrency: 'unbounded' }
               ),
-              { concurrency: 'unbounded' }
-            ),
             { concurrency: 'unbounded' }
           )
 

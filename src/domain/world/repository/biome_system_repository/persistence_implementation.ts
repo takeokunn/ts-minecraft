@@ -6,40 +6,27 @@
  * 空間インデックス・気候データの永続化
  */
 
-import { Context, Effect, Option, ReadonlyArray, Ref, Layer } from 'effect'
 import * as Schema from '@effect/schema/Schema'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import type {
-  BiomeId,
-  BiomeDefinition,
-  ClimateData,
-  WorldCoordinate,
-} from '../../types'
+import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createDataIntegrityError,
-  createStorageError,
-} from '../types'
+import { createDataIntegrityError, createRepositoryError, createStorageError } from '../types'
 import type {
+  BiomePlacement,
   BiomeSystemRepository,
   BiomeSystemRepositoryConfig,
-  SpatialCoordinate,
-  SpatialBounds,
-  BiomePlacement,
-  SpatialQueryResult,
-  ClimateGrid,
+  calculateDistance,
   ClimateTransition,
-  BiomeQuery,
-  SpatialQuery,
-  BiomeStatistics,
+  coordinateInBounds,
   coordinateToKey,
   keyToCoordinate,
-  boundsIntersect,
-  coordinateInBounds,
-  calculateDistance,
+  SpatialBounds,
+  SpatialCoordinate,
+  SpatialQuery,
+  SpatialQueryResult,
 } from './interface'
 
 // === Configuration Types ===
@@ -118,15 +105,9 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     })
 
     // Initialize storage directories
-    yield* Effect.promise(() =>
-      fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true })
-    ).pipe(
+    yield* Effect.promise(() => fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true })).pipe(
       Effect.catchAll((error) =>
-        Effect.fail(createStorageError(
-          `Failed to create data directory: ${error}`,
-          'initialize',
-          error
-        ))
+        Effect.fail(createStorageError(`Failed to create data directory: ${error}`, 'initialize', error))
       )
     )
 
@@ -142,60 +123,58 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
-        yield* Effect.promise(() =>
-          fs.promises.mkdir(directory, { recursive: true })
-        )
+        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true }))
 
         let content = JSON.stringify(data, null, 2)
 
         if (persistenceConfig.compressionEnabled) {
-          const compressed = yield* Effect.promise(() =>
-            new Promise<Buffer>((resolve, reject) => {
-              zlib.gzip(content, (err, result) => {
-                if (err) reject(err)
-                else resolve(result)
+          const compressed = yield* Effect.promise(
+            () =>
+              new Promise<Buffer>((resolve, reject) => {
+                zlib.gzip(content, (err, result) => {
+                  if (err) reject(err)
+                  else resolve(result)
+                })
               })
-            })
           )
           content = compressed.toString('base64')
         }
 
-        yield* Effect.promise(() =>
-          fs.promises.writeFile(filePath, content, 'utf8')
-        )
+        yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8'))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createStorageError(
-            `Failed to write file ${filePath}: ${error}`,
-            'writeFile',
-            error
-          ))
+          Effect.fail(createStorageError(`Failed to write file ${filePath}: ${error}`, 'writeFile', error))
         )
       )
 
-    const readFile = <T>(filePath: string, schema: Schema.Schema<T, unknown>): Effect.Effect<Option.Option<T>, AllRepositoryErrors> =>
+    const readFile = <T>(
+      filePath: string,
+      schema: Schema.Schema<T, unknown>
+    ): Effect.Effect<Option.Option<T>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(filePath).then(() => true).catch(() => false)
+          fs.promises
+            .access(filePath)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) {
           return Option.none()
         }
 
-        let content = yield* Effect.promise(() =>
-          fs.promises.readFile(filePath, 'utf8')
-        )
+        let content = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8'))
 
         if (persistenceConfig.compressionEnabled) {
-          const decompressed = yield* Effect.promise(() =>
-            new Promise<string>((resolve, reject) => {
-              const buffer = Buffer.from(content, 'base64')
-              zlib.gunzip(buffer, (err, result) => {
-                if (err) reject(err)
-                else resolve(result.toString('utf8'))
+          const decompressed = yield* Effect.promise(
+            () =>
+              new Promise<string>((resolve, reject) => {
+                const buffer = Buffer.from(content, 'base64')
+                zlib.gunzip(buffer, (err, result) => {
+                  if (err) reject(err)
+                  else resolve(result.toString('utf8'))
+                })
               })
-            })
           )
           content = decompressed
         }
@@ -203,22 +182,16 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const parsed = JSON.parse(content)
         const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
           Effect.catchAll((error) =>
-            Effect.fail(createDataIntegrityError(
-              `Schema validation failed for ${filePath}: ${error}`,
-              'readFile',
-              error
-            ))
+            Effect.fail(
+              createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
+            )
           )
         )
 
         return Option.some(decoded)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createStorageError(
-            `Failed to read file ${filePath}: ${error}`,
-            'readFile',
-            error
-          ))
+          Effect.fail(createStorageError(`Failed to read file ${filePath}: ${error}`, 'readFile', error))
         )
       )
 
@@ -229,16 +202,17 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const biomesDir = getFilePath('biomes')
 
         const exists = yield* Effect.promise(() =>
-          fs.promises.access(biomesDir).then(() => true).catch(() => false)
+          fs.promises
+            .access(biomesDir)
+            .then(() => true)
+            .catch(() => false)
         )
 
         if (!exists) {
           return
         }
 
-        const files = yield* Effect.promise(() =>
-          fs.promises.readdir(biomesDir)
-        ).pipe(
+        const files = yield* Effect.promise(() => fs.promises.readdir(biomesDir)).pipe(
           Effect.catchAll(() => Effect.succeed([]))
         )
 
@@ -269,7 +243,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const placements = yield* readFile(placementsFile, Schema.Array(StoredBiomePlacement))
 
         if (Option.isSome(placements)) {
-          const converted = placements.value.map(p => ({
+          const converted = placements.value.map((p) => ({
             ...p,
             biomeId: p.biomeId as BiomeId,
             coordinate: {
@@ -325,7 +299,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const persistBiomePlacements = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const placements = yield* Ref.get(biomePlacements)
-        const serializable = placements.map(p => ({
+        const serializable = placements.map((p) => ({
           ...p,
           placedAt: p.placedAt.toISOString(),
         }))
@@ -335,7 +309,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const persistClimateData = (): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const climate = yield* Ref.get(climateData)
-        const serializable = Array.from(climate.values()).map(c => ({
+        const serializable = Array.from(climate.values()).map((c) => ({
           ...c,
           timestamp: c.timestamp.toISOString(),
         }))
@@ -377,11 +351,9 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         Effect.gen(function* () {
           const definitions = yield* Ref.get(biomeDefinitions)
           if (!definitions.has(biome.id)) {
-            return yield* Effect.fail(createRepositoryError(
-              `Biome definition not found: ${biome.id}`,
-              'updateBiomeDefinition',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`Biome definition not found: ${biome.id}`, 'updateBiomeDefinition', null)
+            )
           }
           const updated = new Map(definitions)
           updated.set(biome.id, biome)
@@ -396,20 +368,16 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           const deleted = updated.delete(biomeId)
 
           if (!deleted) {
-            return yield* Effect.fail(createRepositoryError(
-              `Biome definition not found: ${biomeId}`,
-              'deleteBiomeDefinition',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`Biome definition not found: ${biomeId}`, 'deleteBiomeDefinition', null)
+            )
           }
 
           yield* Ref.set(biomeDefinitions, updated)
 
           // Delete file
           const filePath = getFilePath('biomes', biomeId)
-          yield* Effect.promise(() =>
-            fs.promises.unlink(filePath).catch(() => {})
-          )
+          yield* Effect.promise(() => fs.promises.unlink(filePath).catch(() => {}))
         }),
 
       // === Spatial Biome Placement ===
@@ -615,13 +583,11 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           }
         }),
 
-      setClimateTransition: (transition: ClimateTransition) =>
-        Effect.succeed(undefined), // Mock implementation
+      setClimateTransition: (transition: ClimateTransition) => Effect.succeed(undefined), // Mock implementation
 
       // === Spatial Indexing ===
 
-      rebuildSpatialIndex: () =>
-        Effect.succeed(undefined), // Mock implementation
+      rebuildSpatialIndex: () => Effect.succeed(undefined), // Mock implementation
 
       getIndexStatistics: () =>
         Effect.gen(function* () {
@@ -685,8 +651,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           }
         }),
 
-      warmupCache: (bounds: SpatialBounds) =>
-        Effect.succeed(undefined),
+      warmupCache: (bounds: SpatialBounds) => Effect.succeed(undefined),
 
       // === Bulk Operations ===
 
@@ -709,7 +674,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           const placements = yield* Ref.get(biomePlacements)
           let updatedCount = 0
 
-          const updated = placements.map(placement => {
+          const updated = placements.map((placement) => {
             if (coordinateInBounds(placement.coordinate, bounds)) {
               updatedCount++
               return { ...placement, biomeId }
@@ -726,7 +691,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       clearBiomesInBounds: (bounds: SpatialBounds) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
-          const filtered = placements.filter(placement => !coordinateInBounds(placement.coordinate, bounds))
+          const filtered = placements.filter((placement) => !coordinateInBounds(placement.coordinate, bounds))
           const removedCount = placements.length - filtered.length
 
           yield* Ref.set(biomePlacements, filtered)
@@ -743,7 +708,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           const definitions = yield* Ref.get(biomeDefinitions)
 
           const relevantPlacements = bounds
-            ? placements.filter(p => coordinateInBounds(p.coordinate, bounds))
+            ? placements.filter((p) => coordinateInBounds(p.coordinate, bounds))
             : placements
 
           const biomeTypeCounts = new Map<BiomeId, number>()
@@ -765,8 +730,8 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             coverage[biomeId] = relevantPlacements.length > 0 ? (count / relevantPlacements.length) * 100 : 0
           }
 
-          const dominantBiome = Array.from(biomeTypeCounts.entries())
-            .sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown' as BiomeId
+          const dominantBiome =
+            Array.from(biomeTypeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || ('unknown' as BiomeId)
 
           return {
             totalBiomes: relevantPlacements.length,
@@ -776,8 +741,10 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             raresBiomes: Array.from(biomeTypeCounts.entries())
               .filter(([_, count]) => count === 1)
               .map(([biomeId]) => biomeId),
-            averageTemperature: relevantPlacements.length > 0 ? (totalTemp / relevantPlacements.length) as any : 15 as any,
-            averageHumidity: relevantPlacements.length > 0 ? (totalHumidity / relevantPlacements.length) as any : 0.5 as any,
+            averageTemperature:
+              relevantPlacements.length > 0 ? ((totalTemp / relevantPlacements.length) as any) : (15 as any),
+            averageHumidity:
+              relevantPlacements.length > 0 ? ((totalHumidity / relevantPlacements.length) as any) : (0.5 as any),
             spatialDistribution: {
               clustered: 0.3,
               dispersed: 0.5,
@@ -797,15 +764,14 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           },
         ]),
 
-      analyzeTransitions: (bounds: SpatialBounds) =>
-        Effect.succeed([]),
+      analyzeTransitions: (bounds: SpatialBounds) => Effect.succeed([]),
 
       // === Data Export/Import ===
 
       exportBiomeData: (bounds: SpatialBounds, format: 'json' | 'binary' | 'image') =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
-          const filtered = placements.filter(p => coordinateInBounds(p.coordinate, bounds))
+          const filtered = placements.filter((p) => coordinateInBounds(p.coordinate, bounds))
 
           const data = JSON.stringify(filtered)
           return new TextEncoder().encode(data)
@@ -819,7 +785,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           imageData: new Uint8Array(1024),
           width: 32,
           height: 32,
-          legend: { 'forest': '#228B22' } as Record<BiomeId, string>,
+          legend: { forest: '#228B22' } as Record<BiomeId, string>,
         }),
 
       // === Repository Management ===
@@ -874,8 +840,4 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 export const BiomeSystemRepositoryPersistenceLive = (
   config: BiomeSystemRepositoryConfig,
   persistenceConfig?: PersistenceConfig
-) =>
-  Layer.effect(
-    BiomeSystemRepository,
-    BiomeSystemRepositoryPersistenceImplementation(config, persistenceConfig)
-  )
+) => Layer.effect(BiomeSystemRepository, BiomeSystemRepositoryPersistenceImplementation(config, persistenceConfig))

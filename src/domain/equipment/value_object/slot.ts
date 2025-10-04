@@ -60,9 +60,8 @@ const slotCategoryTable: Record<EquipmentSlotLiteral, SlotCategory> = {
 
 const toLiteral = (slot: EquipmentSlot): EquipmentSlotLiteral => encodeSlot(slot)
 
-export const getSlotCategory = (
-  slot: EquipmentSlot
-): Effect.Effect<SlotCategory> => Effect.succeed(slotCategoryTable[toLiteral(slot)])
+export const getSlotCategory = (slot: EquipmentSlot): Effect.Effect<SlotCategory> =>
+  Effect.succeed(slotCategoryTable[toLiteral(slot)])
 
 export const ensureSlotAllowed = (
   slot: EquipmentSlot,

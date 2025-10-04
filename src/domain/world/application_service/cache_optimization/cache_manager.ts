@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref, STM } from 'effect'
+import { Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
 
 /**
  * Cache Manager Service
@@ -14,7 +14,7 @@ export const CacheStrategy = Schema.Union(
   Schema.Literal('lfu'), // Least Frequently Used
   Schema.Literal('ttl'), // Time To Live
   Schema.Literal('adaptive'), // 適応的戦略
-  Schema.Literal('hybrid'), // ハイブリッド戦略
+  Schema.Literal('hybrid') // ハイブリッド戦略
 )
 
 export const CacheEntry = Schema.Struct({
@@ -37,7 +37,7 @@ export const CacheLayer = Schema.Struct({
     Schema.Literal('l1_memory'), // L1メモリキャッシュ
     Schema.Literal('l2_memory'), // L2メモリキャッシュ
     Schema.Literal('l3_disk'), // L3ディスクキャッシュ
-    Schema.Literal('network'), // ネットワークキャッシュ
+    Schema.Literal('network') // ネットワークキャッシュ
   ),
   maxSize: Schema.Number.pipe(Schema.positive()),
   currentSize: Schema.Number.pipe(Schema.nonNegativeInteger()),
@@ -59,11 +59,7 @@ export const CacheConfiguration = Schema.Struct({
   }),
   compression: Schema.Struct({
     enabled: Schema.Boolean,
-    algorithm: Schema.Union(
-      Schema.Literal('gzip'),
-      Schema.Literal('lz4'),
-      Schema.Literal('brotli'),
-    ),
+    algorithm: Schema.Union(Schema.Literal('gzip'), Schema.Literal('lz4'), Schema.Literal('brotli')),
     threshold: Schema.Number.pipe(Schema.positive()), // 圧縮開始サイズ
   }),
   persistence: Schema.Struct({
@@ -80,12 +76,15 @@ export const CacheStatistics = Schema.Struct({
   totalHits: Schema.Number.pipe(Schema.nonNegativeInteger()),
   totalMisses: Schema.Number.pipe(Schema.nonNegativeInteger()),
   hitRate: Schema.Number.pipe(Schema.between(0, 1)),
-  layerStatistics: Schema.Record(Schema.String, Schema.Struct({
-    hits: Schema.Number.pipe(Schema.nonNegativeInteger()),
-    misses: Schema.Number.pipe(Schema.nonNegativeInteger()),
-    evictions: Schema.Number.pipe(Schema.nonNegativeInteger()),
-    size: Schema.Number.pipe(Schema.nonNegativeInteger()),
-  })),
+  layerStatistics: Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      hits: Schema.Number.pipe(Schema.nonNegativeInteger()),
+      misses: Schema.Number.pipe(Schema.nonNegativeInteger()),
+      evictions: Schema.Number.pipe(Schema.nonNegativeInteger()),
+      size: Schema.Number.pipe(Schema.nonNegativeInteger()),
+    })
+  ),
   evictionCount: Schema.Number.pipe(Schema.nonNegativeInteger()),
   compressionRatio: Schema.Number.pipe(Schema.positive()),
   averageAccessTime: Schema.Number.pipe(Schema.positive()),
@@ -93,18 +92,14 @@ export const CacheStatistics = Schema.Struct({
 
 // === Cache Manager Error ===
 
-export const CacheManagerError = Schema.TaggedError<CacheManagerErrorType>()(
-  'CacheManagerError',
-  {
-    message: Schema.String,
-    managerId: Schema.String,
-    operation: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const CacheManagerError = Schema.TaggedError<CacheManagerErrorType>()('CacheManagerError', {
+  message: Schema.String,
+  managerId: Schema.String,
+  operation: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface CacheManagerErrorType
-  extends Schema.Schema.Type<typeof CacheManagerError> {}
+export interface CacheManagerErrorType extends Schema.Schema.Type<typeof CacheManagerError> {}
 
 // === Service Interface ===
 
@@ -143,10 +138,7 @@ export interface CacheManagerService {
   /**
    * 手動でエビクションを実行します
    */
-  readonly evict: (
-    strategy?: CacheStrategy,
-    targetSize?: number
-  ) => Effect.Effect<number, CacheManagerErrorType> // 削除されたエントリ数
+  readonly evict: (strategy?: CacheStrategy, targetSize?: number) => Effect.Effect<number, CacheManagerErrorType> // 削除されたエントリ数
 
   /**
    * キャッシュを最適化します
@@ -228,7 +220,7 @@ const makeCacheManagerService = Effect.gen(function* () {
         accessCount: entry.accessCount + 1,
       }
 
-      yield* Ref.update(cacheEntries, map => map.set(key, updatedEntry))
+      yield* Ref.update(cacheEntries, (map) => map.set(key, updatedEntry))
       yield* recordHit()
 
       const value = entry.value
@@ -266,13 +258,13 @@ const makeCacheManagerService = Effect.gen(function* () {
         yield* evictToMakeSpace(entry.size)
       }
 
-      yield* Ref.update(cacheEntries, map => map.set(key, entry))
+      yield* Ref.update(cacheEntries, (map) => map.set(key, entry))
       yield* Effect.logDebug(`キャッシュエントリ設定: ${key} (${entry.size}バイト)`)
     })
 
   const deleteInternal = (key: string) =>
     Effect.gen(function* () {
-      const deleted = yield* Ref.modify(cacheEntries, map => {
+      const deleted = yield* Ref.modify(cacheEntries, (map) => {
         const hadKey = map.has(key)
         map.delete(key)
         return [hadKey, map]
@@ -284,7 +276,7 @@ const makeCacheManagerService = Effect.gen(function* () {
   const clear = (layerId?: string) =>
     Effect.gen(function* () {
       if (layerId) {
-        yield* Ref.update(cacheEntries, map => {
+        yield* Ref.update(cacheEntries, (map) => {
           for (const [key, entry] of map) {
             if (entry.metadata.layer === layerId) {
               map.delete(key)
@@ -321,7 +313,7 @@ const makeCacheManagerService = Effect.gen(function* () {
         evictedCount++
       }
 
-      yield* Ref.update(globalStats, stats => ({
+      yield* Ref.update(globalStats, (stats) => ({
         ...stats,
         totalEvictions: stats.totalEvictions + evictedCount,
       }))
@@ -430,17 +422,15 @@ const makeCacheManagerService = Effect.gen(function* () {
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof CacheConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(configuration, current => ({ ...current, ...configUpdate }))
+      yield* Ref.update(configuration, (current) => ({ ...current, ...configUpdate }))
       yield* Effect.logInfo('キャッシュ設定更新完了')
     })
 
   // === Helper Functions ===
 
-  const recordHit = () =>
-    Ref.update(globalStats, stats => ({ ...stats, totalHits: stats.totalHits + 1 }))
+  const recordHit = () => Ref.update(globalStats, (stats) => ({ ...stats, totalHits: stats.totalHits + 1 }))
 
-  const recordMiss = () =>
-    Ref.update(globalStats, stats => ({ ...stats, totalMisses: stats.totalMisses + 1 }))
+  const recordMiss = () => Ref.update(globalStats, (stats) => ({ ...stats, totalMisses: stats.totalMisses + 1 }))
 
   const calculateTotalSize = () =>
     Effect.gen(function* () {
@@ -454,21 +444,12 @@ const makeCacheManagerService = Effect.gen(function* () {
       yield* evict(config.globalStrategy, requiredSize)
     })
 
-  const selectEvictionCandidates = (
-    entries: Schema.Schema.Type<typeof CacheEntry>[],
-    strategy: CacheStrategy
-  ) =>
+  const selectEvictionCandidates = (entries: Schema.Schema.Type<typeof CacheEntry>[], strategy: CacheStrategy) =>
     Effect.gen(function* () {
       return Match.value(strategy).pipe(
-        Match.when('lru', () =>
-          [...entries].sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)
-        ),
-        Match.when('lfu', () =>
-          [...entries].sort((a, b) => a.accessCount - b.accessCount)
-        ),
-        Match.when('ttl', () =>
-          [...entries].filter(e => e.ttl).sort((a, b) => a.createdAt - b.createdAt)
-        ),
+        Match.when('lru', () => [...entries].sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)),
+        Match.when('lfu', () => [...entries].sort((a, b) => a.accessCount - b.accessCount)),
+        Match.when('ttl', () => [...entries].filter((e) => e.ttl).sort((a, b) => a.createdAt - b.createdAt)),
         Match.when('adaptive', () => {
           // 複合スコアによる選択
           return [...entries].sort((a, b) => {
@@ -503,10 +484,7 @@ const makeCacheManagerService = Effect.gen(function* () {
     const priorityScore = 1 - entry.priority
 
     return (
-      normalizedAge * ageWeight +
-      accessScore * accessWeight +
-      sizeScore * sizeWeight +
-      priorityScore * priorityWeight
+      normalizedAge * ageWeight + accessScore * accessWeight + sizeScore * sizeWeight + priorityScore * priorityWeight
     )
   }
 
@@ -568,10 +546,7 @@ export const CacheManagerService = Context.GenericTag<CacheManagerService>(
 
 // === Layer ===
 
-export const CacheManagerServiceLive = Layer.effect(
-  CacheManagerService,
-  makeCacheManagerService
-)
+export const CacheManagerServiceLive = Layer.effect(CacheManagerService, makeCacheManagerService)
 
 // === Default Configuration ===
 
@@ -622,8 +597,8 @@ export const DEFAULT_CACHE_CONFIG: Schema.Schema.Type<typeof CacheConfiguration>
 }
 
 export type {
+  CacheConfiguration as CacheConfigurationType,
   CacheEntry as CacheEntryType,
   CacheLayer as CacheLayerType,
-  CacheConfiguration as CacheConfigurationType,
   CacheStatistics as CacheStatisticsType,
 } from './cache_manager.js'

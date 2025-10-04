@@ -1,8 +1,8 @@
-import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Schema } from '@effect/schema'
+import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match } from 'effect'
-import { pipe } from 'effect/Function'
 import * as Either from 'effect/Either'
+import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import {
   ENTITY_PRIORITY,
@@ -26,31 +26,16 @@ import {
 } from '../types/core'
 import {
   EntityCollisionError,
-  EntityCollisionErrorSchema,
   EntityDomainError,
   EntityNotFoundError,
-  EntityNotFoundErrorSchema,
   EntityUpdateError,
-  EntityUpdateErrorSchema,
   EntityValidationError,
-  EntityValidationErrorSchema,
   makeEntityCollisionError,
   makeEntityNotFoundError,
   makeEntityUpdateError,
   makeEntityValidationError,
 } from '../types/errors'
-import {
-  EntityDespawnedEvent,
-  EntityDespawnedEventSchema,
-  EntityEvent,
-  EntitySpawnedEvent,
-  EntitySpawnedEventSchema,
-  EntityUpdatedEvent,
-  EntityUpdatedEventSchema,
-  makeEntityDespawnedEvent,
-  makeEntitySpawnedEvent,
-  makeEntityUpdatedEvent,
-} from '../types/events'
+import { EntityEvent, makeEntityDespawnedEvent, makeEntitySpawnedEvent, makeEntityUpdatedEvent } from '../types/events'
 
 interface EntityCoreState {
   readonly id: EntityId
@@ -115,10 +100,8 @@ export type EntityTickInput = Schema.Schema.Type<typeof EntityTickSchema>
 
 export type EntityState = EntityCoreState
 
-const decodeOrValidationError = <A>(
-  schema: Schema.Schema<A>,
-  transform: (message: string) => EntityValidationError
-) =>
+const decodeOrValidationError =
+  <A>(schema: Schema.Schema<A>, transform: (message: string) => EntityValidationError) =>
   (input: unknown) =>
     pipe(
       Schema.decodeUnknownEither(schema)(input),
@@ -128,9 +111,7 @@ const decodeOrValidationError = <A>(
       })
     )
 
-export const createEntity = (
-  input: EntityCreateInput
-): Effect.Effect<EntityState, EntityValidationError> =>
+export const createEntity = (input: EntityCreateInput): Effect.Effect<EntityState, EntityValidationError> =>
   Effect.gen(function* () {
     const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
@@ -183,18 +164,12 @@ export const createEntity = (
     return state
   })
 
-export const recordEvent = (
-  state: EntityState,
-  event: EntityEvent
-): EntityState => ({
+export const recordEvent = (state: EntityState, event: EntityEvent): EntityState => ({
   ...state,
   events: [...state.events, event],
 })
 
-const applyUpdates = (
-  state: EntityState,
-  update: EntityUpdateInput
-): Effect.Effect<EntityState, EntityUpdateError> => {
+const applyUpdates = (state: EntityState, update: EntityUpdateInput): Effect.Effect<EntityState, EntityUpdateError> => {
   const collectModifier = <A>(option: Option.Option<A>, mapper: (value: A) => (current: EntityState) => EntityState) =>
     Option.match(option, {
       onNone: () => [] as ReadonlyArray<(current: EntityState) => EntityState>,
@@ -226,9 +201,7 @@ const applyUpdates = (
         })
       )
     ),
-    Match.orElse(() =>
-      Effect.succeed(modifiers.reduce((current, modifier) => modifier(current), state))
-    )
+    Match.orElse(() => Effect.succeed(modifiers.reduce((current, modifier) => modifier(current), state)))
   )
 }
 

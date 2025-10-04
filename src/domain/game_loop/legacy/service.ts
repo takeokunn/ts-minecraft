@@ -1,33 +1,25 @@
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import { pipe } from 'effect/Function'
 
 import type {
+  FrameCount,
   FrameDuration,
   FrameId,
   FrameInfo,
-  FrameCount,
   FramesPerSecond,
   GameLoopConfig,
   GameLoopState,
   PerformanceMetrics,
   Timestamp,
 } from '../types/core'
-import {
-  InitializationError,
-  PerformanceError,
-  RuntimeCallbackError,
-  StateTransitionError,
-} from '../types/errors'
+import { InitializationError, PerformanceError, RuntimeCallbackError, StateTransitionError } from '../types/errors'
 
 /**
  * ゲームループサービスインターフェース
  */
 export interface GameLoopService {
-  readonly configure: (
-    input: Partial<GameLoopConfig>
-  ) => Effect.Effect<GameLoopConfig, InitializationError>
+  readonly configure: (input: Partial<GameLoopConfig>) => Effect.Effect<GameLoopConfig, InitializationError>
 
   readonly initialize: Effect.Effect<GameLoopState, InitializationError>
 
@@ -43,13 +35,9 @@ export interface GameLoopService {
 
   readonly metrics: Effect.Effect<PerformanceMetrics>
 
-  readonly nextFrame: (
-    timestamp?: Timestamp
-  ) => Effect.Effect<FrameInfo, PerformanceError | RuntimeCallbackError>
+  readonly nextFrame: (timestamp?: Timestamp) => Effect.Effect<FrameInfo, PerformanceError | RuntimeCallbackError>
 
-  readonly registerFrameCallback: (
-    callback: FrameCallback
-  ) => Effect.Effect<FrameCallbackRegistration>
+  readonly registerFrameCallback: (callback: FrameCallback) => Effect.Effect<FrameCallbackRegistration>
 
   readonly fps: Effect.Effect<FramesPerSecond>
 
@@ -74,8 +62,6 @@ export interface FrameCallbackRegistration {
   readonly unregister: Effect.Effect<void>
 }
 
-export const GameLoopService = Context.GenericTag<GameLoopService>(
-  '@minecraft/domain/GameLoopService'
-)
+export const GameLoopService = Context.GenericTag<GameLoopService>('@minecraft/domain/GameLoopService')
 
 export type GameLoopServiceLayer = Layer.Layer<GameLoopService>

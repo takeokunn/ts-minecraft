@@ -1,14 +1,10 @@
-import { Cache, Chunk as EffectChunk, Duration, Either, Effect, Match, Option, pipe } from 'effect'
-import type { ChunkData } from '../chunk_data/types'
-import { ChunkDataOptics } from './optics'
+import { Cache, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
+import type { ChunkTimestamp } from '../../types/core'
+import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types/core'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkTimestamp } from '../../types/core'
-import {
-  CHUNK_HEIGHT,
-  CHUNK_MIN_Y,
-  CHUNK_SIZE,
-} from '../../types/core'
+import type { ChunkData } from '../chunk_data/types'
+import { ChunkDataOptics } from './optics'
 
 const rangeFromOffset = (start: number, size: number): ReadonlyArray<number> =>
   size <= 0 ? [] : Array.from({ length: size }, (_, index) => start + index)
@@ -27,46 +23,34 @@ const heightMapIndex = (x: number, z: number): number => z * CHUNK_SIZE + x
 const applyBlockUpdates = (
   chunk: ChunkData,
   updates: ReadonlyArray<{ readonly index: number; readonly blockId: number }>
-): ChunkData =>
-  updates.reduce(
-    (acc, { index, blockId }) => ChunkDataOptics.blockAt(index).replace(blockId)(acc),
-    chunk
-  )
+): ChunkData => updates.reduce((acc, { index, blockId }) => ChunkDataOptics.blockAt(index).replace(blockId)(acc), chunk)
 
 const applyHeightUpdates = (
   chunk: ChunkData,
   updates: ReadonlyArray<{ readonly index: number; readonly height: HeightValue }>
 ): ChunkData =>
-  updates.reduce(
-    (acc, { index, height }) => ChunkDataOptics.heightMapAt(index).replace(height)(acc),
-    chunk
-  )
+  updates.reduce((acc, { index, height }) => ChunkDataOptics.heightMapAt(index).replace(height)(acc), chunk)
 
-const markDirtyAt = (timestamp: ChunkTimestamp) =>
+const markDirtyAt =
+  (timestamp: ChunkTimestamp) =>
   (chunk: ChunkData): ChunkData =>
-    pipe(
-      chunk,
-      ChunkDataOptics.isDirty.replace(true),
-      ChunkDataOptics.metadataTimestamp.replace(timestamp)
-    )
+    pipe(chunk, ChunkDataOptics.isDirty.replace(true), ChunkDataOptics.metadataTimestamp.replace(timestamp))
 
-const recalculateLightLevel = (
-  currentLevel: number,
-  blockIndex: number,
-  newBlockId: number
-): number => {
+const recalculateLightLevel = (currentLevel: number, blockIndex: number, newBlockId: number): number => {
   const blockOpacity = getBlockOpacity(newBlockId)
   const lightReduction = blockOpacity > 0 ? Math.min(currentLevel, blockOpacity) : 0
   return Math.max(0, currentLevel - lightReduction)
 }
 
 const getBlockOpacity = (blockId: number): number =>
-  ({
-    0: 0,
-    1: 15,
-    2: 15,
-    3: 0,
-  } satisfies Record<number, number>)[blockId] ?? 0
+  (
+    ({
+      0: 0,
+      1: 15,
+      2: 15,
+      3: 0,
+    }) satisfies Record<number, number>
+  )[blockId] ?? 0
 
 const recalculatePositionalMetadata = (
   position: ChunkPosition,
@@ -82,17 +66,18 @@ const calculateBiomeFromPosition = (position: ChunkPosition): string =>
   pipe(
     position,
     Match.value,
-    Match.when((pos) => Math.abs(pos.x) + Math.abs(pos.z) < 10, () => 'plains'),
-    Match.when((pos) => pos.x < 0 && pos.z < 0, () => 'forest'),
+    Match.when(
+      (pos) => Math.abs(pos.x) + Math.abs(pos.z) < 10,
+      () => 'plains'
+    ),
+    Match.when(
+      (pos) => pos.x < 0 && pos.z < 0,
+      () => 'forest'
+    ),
     Match.orElse(() => 'desert')
   )
 
-const recalculateHeight = (
-  chunk: ChunkData,
-  x: number,
-  z: number,
-  startY: number
-): number =>
+const recalculateHeight = (chunk: ChunkData, x: number, z: number, startY: number): number =>
   pipe(
     inclusiveRange(CHUNK_MIN_Y, startY - 1)
       .slice()
@@ -115,15 +100,20 @@ export const ChunkCompositeOperations = {
     pipe(
       chunk,
       ChunkDataOptics.blockAt(blockIndex).replace(blockId),
-      ChunkDataOptics.metadataLightLevel.modify((level) =>
-        recalculateLightLevel(level, blockIndex, blockId)
-      ),
+      ChunkDataOptics.metadataLightLevel.modify((level) => recalculateLightLevel(level, blockIndex, blockId)),
       markDirtyAt(updateTime)
     ),
 
   setBlockRegionWithHeightMap: (
     chunk: ChunkData,
-    region: { readonly x: number; readonly y: number; readonly z: number; readonly width: number; readonly height: number; readonly depth: number },
+    region: {
+      readonly x: number
+      readonly y: number
+      readonly z: number
+      readonly width: number
+      readonly height: number
+      readonly depth: number
+    },
     blockId: number,
     updateTime: ChunkTimestamp
   ): Effect.Effect<ChunkData> =>
@@ -132,13 +122,9 @@ export const ChunkCompositeOperations = {
       const ys = rangeFromOffset(region.y, region.height)
       const zs = rangeFromOffset(region.z, region.depth)
 
-      const coordinates = xs.flatMap((x) =>
-        ys.flatMap((y) => zs.map((z) => ({ x, y, z })))
-      )
+      const coordinates = xs.flatMap((x) => ys.flatMap((y) => zs.map((z) => ({ x, y, z }))))
 
-      const validCoordinates = coordinates.filter(({ x, y, z }) =>
-        isWithinChunkVolume(x, y, z)
-      )
+      const validCoordinates = coordinates.filter(({ x, y, z }) => isWithinChunkVolume(x, y, z))
 
       const blockUpdates = validCoordinates.map(({ x, y, z }) => ({
         index: localBlockIndex(x, y, z),
@@ -233,18 +219,10 @@ export const ChunkCompositeOperations = {
 
 export const ChunkStateCompositeOperations = {
   initializeLoading: (chunk: ChunkData, loadingStartTime: ChunkTimestamp): ChunkData =>
-    pipe(
-      chunk,
-      ChunkDataOptics.isDirty.replace(false),
-      ChunkDataOptics.metadataTimestamp.replace(loadingStartTime)
-    ),
+    pipe(chunk, ChunkDataOptics.isDirty.replace(false), ChunkDataOptics.metadataTimestamp.replace(loadingStartTime)),
 
   completeSaving: (chunk: ChunkData, saveTime: ChunkTimestamp): ChunkData =>
-    pipe(
-      chunk,
-      ChunkDataOptics.isDirty.replace(false),
-      ChunkDataOptics.metadataTimestamp.replace(saveTime)
-    ),
+    pipe(chunk, ChunkDataOptics.isDirty.replace(false), ChunkDataOptics.metadataTimestamp.replace(saveTime)),
 
   markError: (chunk: ChunkData, errorTime: ChunkTimestamp): ChunkData =>
     ChunkDataOptics.metadataTimestamp.replace(errorTime)(chunk),
@@ -254,30 +232,25 @@ export const ChunkBatchCompositeOperations = {
   batchSyncUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     operation: (chunk: ChunkData, index: number) => ChunkData
-  ): ReadonlyArray<ChunkData> =>
-    chunks.map(operation),
+  ): ReadonlyArray<ChunkData> => chunks.map(operation),
 
   batchAsyncUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     operation: (chunk: ChunkData, index: number) => Effect.Effect<ChunkData>
-  ): Effect.Effect<ReadonlyArray<ChunkData>> =>
-    Effect.forEach(chunks, operation, { concurrency: 'unbounded' }),
+  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: 'unbounded' }),
 
   conditionalBatchUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     predicate: (chunk: ChunkData, index: number) => boolean,
     operation: (chunk: ChunkData, index: number) => ChunkData
   ): ReadonlyArray<ChunkData> =>
-    chunks.map((chunk, index) =>
-      predicate(chunk, index) ? operation(chunk, index) : chunk
-    ),
+    chunks.map((chunk, index) => (predicate(chunk, index) ? operation(chunk, index) : chunk)),
 
   parallelBatchUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     operation: (chunk: ChunkData, index: number) => Effect.Effect<ChunkData>,
     maxConcurrency: number = 4
-  ): Effect.Effect<ReadonlyArray<ChunkData>> =>
-    Effect.forEach(chunks, operation, { concurrency: maxConcurrency }),
+  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: maxConcurrency }),
 } as const
 
 export const ChunkTransactionalOperations = {
@@ -293,8 +266,7 @@ export const ChunkTransactionalOperations = {
   asyncTransactionalUpdate: (
     chunk: ChunkData,
     operations: ReadonlyArray<(chunk: ChunkData) => Effect.Effect<ChunkData, string>>
-  ): Effect.Effect<ChunkData, string> =>
-    Effect.reduce(operations, chunk, (current, operation) => operation(current)),
+  ): Effect.Effect<ChunkData, string> => Effect.reduce(operations, chunk, (current, operation) => operation(current)),
 
   savepointTransactionalUpdate: (
     chunk: ChunkData,
@@ -303,28 +275,28 @@ export const ChunkTransactionalOperations = {
       readonly savepoint?: boolean
     }>
   ): Either.Either<ChunkData, { readonly error: string; readonly rollbackTo?: ChunkData }> =>
-    operations.reduce<
-      Either.Either<
-        { readonly current: ChunkData; readonly savepoint: ChunkData },
-        { readonly error: string; readonly rollbackTo?: ChunkData }
-      >
-    >(
-      (acc, { operation, savepoint }) =>
-        pipe(
-          acc,
-          Either.flatMap(({ current, savepoint: currentSavepoint }) => {
-            const nextSavepoint = savepoint ? current : currentSavepoint
-            return pipe(
-              operation(current),
-              Either.map((updated) => ({ current: updated, savepoint: nextSavepoint })),
-              Either.mapError((error) => ({ error, rollbackTo: nextSavepoint }))
-            )
-          })
-        ),
-      Either.right({ current: chunk, savepoint: chunk })
-    ).pipe(
-      Either.map(({ current }) => current)
-    ),
+    operations
+      .reduce<
+        Either.Either<
+          { readonly current: ChunkData; readonly savepoint: ChunkData },
+          { readonly error: string; readonly rollbackTo?: ChunkData }
+        >
+      >(
+        (acc, { operation, savepoint }) =>
+          pipe(
+            acc,
+            Either.flatMap(({ current, savepoint: currentSavepoint }) => {
+              const nextSavepoint = savepoint ? current : currentSavepoint
+              return pipe(
+                operation(current),
+                Either.map((updated) => ({ current: updated, savepoint: nextSavepoint })),
+                Either.mapError((error) => ({ error, rollbackTo: nextSavepoint }))
+              )
+            })
+          ),
+        Either.right({ current: chunk, savepoint: chunk })
+      )
+      .pipe(Either.map(({ current }) => current)),
 } as const
 
 export const CachedChunkOptics = {
@@ -470,19 +442,10 @@ export const StreamingChunkOptics = {
 } as const
 
 export const MemoryOptimizedOptics = {
-  copyOnWrite: <T>(
-    chunk: ChunkData,
-    updateFunction: (chunk: ChunkData) => ChunkData
-  ): ChunkData =>
-    pipe(
-      updateFunction(chunk),
-      (updated) => (updated === chunk ? chunk : updated)
-    ),
+  copyOnWrite: <T>(chunk: ChunkData, updateFunction: (chunk: ChunkData) => ChunkData): ChunkData =>
+    pipe(updateFunction(chunk), (updated) => (updated === chunk ? chunk : updated)),
 
-  structuralSharing: (
-    chunk: ChunkData,
-    changes: Partial<ChunkData>
-  ): ChunkData =>
+  structuralSharing: (chunk: ChunkData, changes: Partial<ChunkData>): ChunkData =>
     pipe(
       Object.keys(changes).length === 0,
       Match.value,
@@ -497,8 +460,7 @@ export const MemoryOptimizedOptics = {
     Effect.gen(function* () {
       yield* Effect.sync(() =>
         pipe(
-          typeof global !== 'undefined' &&
-            typeof (global as typeof globalThis & { gc?: () => void }).gc === 'function',
+          typeof global !== 'undefined' && typeof (global as typeof globalThis & { gc?: () => void }).gc === 'function',
           Match.value,
           Match.when(true, () => (global as typeof globalThis & { gc?: () => void }).gc?.()),
           Match.orElse(() => undefined)
@@ -509,8 +471,7 @@ export const MemoryOptimizedOptics = {
 
       yield* Effect.sync(() =>
         pipe(
-          typeof global !== 'undefined' &&
-            typeof (global as typeof globalThis & { gc?: () => void }).gc === 'function',
+          typeof global !== 'undefined' && typeof (global as typeof globalThis & { gc?: () => void }).gc === 'function',
           Match.value,
           Match.when(true, () => (global as typeof globalThis & { gc?: () => void }).gc?.()),
           Match.orElse(() => undefined)
@@ -522,10 +483,7 @@ export const MemoryOptimizedOptics = {
 } as const
 
 export const PerformanceMonitoring = {
-  measureOperation: <A>(
-    operationName: string,
-    operation: Effect.Effect<A>
-  ): Effect.Effect<A> =>
+  measureOperation: <A>(operationName: string, operation: Effect.Effect<A>): Effect.Effect<A> =>
     Effect.gen(function* () {
       const startTime = yield* Effect.sync(() => performance.now())
       const result = yield* operation
@@ -544,7 +502,9 @@ export const PerformanceMonitoring = {
         afterMemory - beforeMemory,
         (diff) => diff > 1024 * 1024,
         Match.value,
-        Match.when(true, () => Effect.sync(() => console.warn(`Memory usage increased by ${(afterMemory - beforeMemory) / 1024 / 1024}MB`))),
+        Match.when(true, () =>
+          Effect.sync(() => console.warn(`Memory usage increased by ${(afterMemory - beforeMemory) / 1024 / 1024}MB`))
+        ),
         Match.orElse(() => Effect.unit)
       )
 

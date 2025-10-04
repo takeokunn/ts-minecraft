@@ -1,27 +1,27 @@
 import { Match, Option, ReadonlyArray } from 'effect'
-import * as Order from 'effect/Order'
 import { pipe } from 'effect/Function'
+import * as Order from 'effect/Order'
 import {
+  calculateChunkDistance,
   type ChunkDistance,
   ChunkDistance as ChunkDistanceBrand,
   type ChunkPosition,
+  chunkToWorldPosition,
   createChunkPosition,
   createChunkPositionSync,
-  worldToChunkPosition,
-  chunkToWorldPosition,
-  calculateChunkDistance,
   getChunkHash,
   parseChunkHash,
+  worldToChunkPosition,
 } from './types'
 
 export {
+  calculateChunkDistance,
+  chunkToWorldPosition,
   createChunkPosition,
   createChunkPositionSync,
-  worldToChunkPosition,
-  chunkToWorldPosition,
-  calculateChunkDistance,
   getChunkHash,
   parseChunkHash,
+  worldToChunkPosition,
 }
 
 const makeOffsets = (radius: number): ReadonlyArray<number> =>
@@ -81,7 +81,10 @@ export const getChunksInRectangle = (
   return pipe(
     xs,
     ReadonlyArray.flatMap((x) =>
-      pipe(zs, ReadonlyArray.map((z) => createChunkPositionSync(x, z)))
+      pipe(
+        zs,
+        ReadonlyArray.map((z) => createChunkPositionSync(x, z))
+      )
     )
   )
 }
@@ -129,7 +132,9 @@ export const sortChunksByDistance = (
 ): ReadonlyArray<ChunkPosition> =>
   pipe(
     chunks,
-    ReadonlyArray.sort(Order.mapInput(Order.number, (chunk: ChunkPosition) => calculateChunkDistance(chunk, referencePoint)))
+    ReadonlyArray.sort(
+      Order.mapInput(Order.number, (chunk: ChunkPosition) => calculateChunkDistance(chunk, referencePoint))
+    )
   )
 
 /**
@@ -147,5 +152,4 @@ export const isWithinBounds = (
   minZ: number,
   maxX: number,
   maxZ: number
-): boolean =>
-  position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ
+): boolean => position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ

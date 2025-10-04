@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
-import { EntityIdSchema, PlayerIdSchema, Vector3Schema } from './core'
 import { EntityStatusSchema, EntityTypeSchema } from './constants'
+import { EntityIdSchema, PlayerIdSchema, Vector3Schema } from './core'
 
 const baseEventFields = {
   eventId: Schema.String.pipe(Schema.minLength(1)),

@@ -1,4 +1,4 @@
-import { Array, Context, Effect, Layer, Option, Ref, pipe } from 'effect'
+import { Context, Effect, Layer, Ref, pipe } from 'effect'
 import { CraftingResult } from '../application_service/crafting_engine'
 import { RecipeId } from '../types'
 
@@ -17,8 +17,7 @@ export const CraftingHistoryRepositoryLive = Layer.scoped(
   Effect.gen(function* () {
     const state = yield* Ref.make<ReadonlyArray<CraftingResult>>([])
 
-    const append: CraftingHistoryRepository['append'] = (result) =>
-      Ref.update(state, (current) => [...current, result])
+    const append: CraftingHistoryRepository['append'] = (result) => Ref.update(state, (current) => [...current, result])
 
     const recent: CraftingHistoryRepository['recent'] = (limit) =>
       pipe(

@@ -2,7 +2,7 @@
  * Constraint Enforcer Service - 制約強制ドメインサービス
  */
 
-import { Effect, Context, Schema, Layer } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '../../types/errors/generation_errors.js'
 
 export interface ConstraintEnforcerService {
@@ -16,6 +16,6 @@ export const ConstraintEnforcerService = Context.GenericTag<ConstraintEnforcerSe
 export const ConstraintEnforcerServiceLive = Layer.effect(
   ConstraintEnforcerService,
   Effect.succeed({
-    enforceConstraints: (data) => Effect.succeed(data)
+    enforceConstraints: (data) => Effect.succeed(data),
   })
 )

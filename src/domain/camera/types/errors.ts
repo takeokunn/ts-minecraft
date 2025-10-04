@@ -145,20 +145,17 @@ export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
     InitializationFailed({ message, cause: Option.fromNullable(cause) }),
 
-  notInitialized: (operation: string) =>
-    CameraNotInitialized({ operation }),
+  notInitialized: (operation: string) => CameraNotInitialized({ operation }),
 
   invalidConfiguration: (message: string, config?: unknown) =>
     InvalidConfiguration({ message, config: Option.fromNullable(config) }),
 
-  invalidMode: (mode: string, validModes: readonly string[]) =>
-    InvalidMode({ mode, validModes }),
+  invalidMode: (mode: string, validModes: readonly string[]) => InvalidMode({ mode, validModes }),
 
   invalidParameter: (parameter: string, value: unknown, expected?: string) =>
     InvalidParameter({ parameter, value, expected: Option.fromNullable(expected) }),
 
-  resourceError: (message: string, cause?: unknown) =>
-    ResourceError({ message, cause: Option.fromNullable(cause) }),
+  resourceError: (message: string, cause?: unknown) => ResourceError({ message, cause: Option.fromNullable(cause) }),
 
   animationError: (message: string, context?: unknown) =>
     AnimationError({ message, context: Option.fromNullable(context) }),
@@ -171,8 +168,7 @@ export const createCameraError = {
  * 位置エラーファクトリー
  */
 export const createPositionError = {
-  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) =>
-    InvalidPosition({ axis, value, reason }),
+  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) => InvalidPosition({ axis, value, reason }),
 
   outOfBounds: (
     position: { x: number; y: number; z: number },
@@ -203,14 +199,11 @@ export const createRotationError = {
  * 設定エラーファクトリー
  */
 export const createSettingsError = {
-  invalidFOV: (value: number, min: number, max: number) =>
-    InvalidFOV({ value, min, max }),
+  invalidFOV: (value: number, min: number, max: number) => InvalidFOV({ value, min, max }),
 
-  invalidSensitivity: (value: number, min: number, max: number) =>
-    InvalidSensitivity({ value, min, max }),
+  invalidSensitivity: (value: number, min: number, max: number) => InvalidSensitivity({ value, min, max }),
 
-  invalidDistance: (value: number, min: number, max: number) =>
-    InvalidDistance({ value, min, max }),
+  invalidDistance: (value: number, min: number, max: number) => InvalidDistance({ value, min, max }),
 } as const
 
 // ========================================
@@ -221,14 +214,14 @@ export const createSettingsError = {
  * カメラエラーADTコンストラクタ（外部用エクスポート）
  */
 export {
-  InitializationFailed,
+  AnimationError,
   CameraNotInitialized,
+  CollisionError,
+  InitializationFailed,
   InvalidConfiguration,
   InvalidMode,
   InvalidParameter,
   ResourceError,
-  AnimationError,
-  CollisionError,
 }
 
 /**
@@ -244,7 +237,7 @@ export { InvalidRotation, RotationLimitExceeded }
 /**
  * 設定エラーADTコンストラクタ（外部用エクスポート）
  */
-export { InvalidFOV, InvalidSensitivity, InvalidDistance }
+export { InvalidDistance, InvalidFOV, InvalidSensitivity }
 
 // ========================================
 // Backward Compatibility Aliases

@@ -8,16 +8,14 @@
  * - 生態系シミュレーション
  */
 
-import { Context, Effect, Schema, STM, Brand, HashMap, ReadonlyArray } from "effect"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as BiomeRegistry from "./biome_registry.js"
-import * as BiomeTransitions from "./biome_transitions.js"
-import * as ClimateModel from "./climate_model.js"
-import * as BiomeEvents from "./events.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Brand, Context, Effect, Schema, STM } from 'effect'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
+import * as BiomeRegistry from './biome_registry.js'
+import * as BiomeTransitions from './biome_transitions.js'
+import * as ClimateModel from './climate_model.js'
+import * as BiomeEvents from './events.js'
 
 // ================================
 // Biome System Identifier
@@ -31,12 +29,11 @@ export const BiomeSystemIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'BiomeSystemId',
     description: 'Unique identifier for biome system aggregate',
-    examples: ['bs_12345678-1234-5678-9abc-123456789abc']
+    examples: ['bs_12345678-1234-5678-9abc-123456789abc'],
   })
 )
 
-export const createBiomeSystemId = (value: string): BiomeSystemId =>
-  Schema.decodeSync(BiomeSystemIdSchema)(value)
+export const createBiomeSystemId = (value: string): BiomeSystemId => Schema.decodeSync(BiomeSystemIdSchema)(value)
 
 // ================================
 // Biome Distribution Map
@@ -47,19 +44,21 @@ export const BiomeDistributionSchema = Schema.Struct({
   dominantBiome: Schema.String, // BiomeType
   biomeDistribution: Schema.Record({
     key: Schema.String, // BiomeType
-    value: Schema.Number.pipe(Schema.between(0, 1)) // 割合
+    value: Schema.Number.pipe(Schema.between(0, 1)), // 割合
   }),
-  transitionZones: Schema.Array(Schema.Struct({
-    fromBiome: Schema.String,
-    toBiome: Schema.String,
-    transitionStrength: Schema.Number.pipe(Schema.between(0, 1)),
-    boundaryType: Schema.Literal("smooth", "sharp", "gradient"),
-  })),
+  transitionZones: Schema.Array(
+    Schema.Struct({
+      fromBiome: Schema.String,
+      toBiome: Schema.String,
+      transitionStrength: Schema.Number.pipe(Schema.between(0, 1)),
+      boundaryType: Schema.Literal('smooth', 'sharp', 'gradient'),
+    })
+  ),
   climateFactors: Schema.Struct({
     temperature: Schema.Number.pipe(Schema.between(-50, 60)), // 摂氏
     humidity: Schema.Number.pipe(Schema.between(0, 100)), // パーセント
     elevation: Schema.Number.pipe(Schema.between(-100, 500)), // 海抜メートル
-    windPattern: Schema.Literal("calm", "gentle", "moderate", "strong"),
+    windPattern: Schema.Literal('calm', 'gentle', 'moderate', 'strong'),
     seasonalVariation: Schema.Number.pipe(Schema.between(0, 1)),
   }),
   lastUpdated: Schema.DateTimeUtc,
@@ -89,7 +88,7 @@ export const BiomeSystemConfigurationSchema = Schema.Struct({
   distributionSettings: Schema.Struct({
     biomeScarcity: Schema.Record({
       key: Schema.String, // BiomeType
-      value: Schema.Number.pipe(Schema.between(0, 1))
+      value: Schema.Number.pipe(Schema.between(0, 1)),
     }),
     clusteringIntensity: Schema.Number.pipe(Schema.between(0, 1)),
     diversityTarget: Schema.Number.pipe(Schema.between(0, 1)),
@@ -117,7 +116,7 @@ export const BiomeSystemSchema = Schema.Struct({
   climateModel: ClimateModel.ClimateModelSchema,
   distributionCache: Schema.Record({
     key: Schema.String, // ChunkCoordinate文字列
-    value: BiomeDistributionSchema
+    value: BiomeDistributionSchema,
   }),
   transitionRules: Schema.Array(BiomeTransitions.TransitionRuleSchema),
   version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
@@ -140,34 +139,42 @@ export type BiomeSystem = typeof BiomeSystemSchema.Type
 
 export const GenerateBiomeDistributionCommandSchema = Schema.Struct({
   coordinate: Coordinates.ChunkCoordinateSchema,
-  options: Schema.optional(Schema.Struct({
-    forceRegeneration: Schema.Boolean,
-    useDetailedAnalysis: Schema.Boolean,
-    considerNeighbors: Schema.Boolean,
-    applySmoothing: Schema.Boolean,
-  }))
+  options: Schema.optional(
+    Schema.Struct({
+      forceRegeneration: Schema.Boolean,
+      useDetailedAnalysis: Schema.Boolean,
+      considerNeighbors: Schema.Boolean,
+      applySmoothing: Schema.Boolean,
+    })
+  ),
 })
 
 export type GenerateBiomeDistributionCommand = typeof GenerateBiomeDistributionCommandSchema.Type
 
 export const UpdateClimateModelCommandSchema = Schema.Struct({
-  globalFactors: Schema.optional(Schema.Struct({
-    temperatureShift: Schema.Number.pipe(Schema.between(-10, 10)),
-    humidityShift: Schema.Number.pipe(Schema.between(-20, 20)),
-    seasonalIntensityChange: Schema.Number.pipe(Schema.between(-0.5, 0.5)),
-  })),
-  regionalFactors: Schema.optional(Schema.Array(Schema.Struct({
-    region: Schema.Struct({
-      centerX: Schema.Number,
-      centerZ: Schema.Number,
-      radius: Schema.Number.pipe(Schema.greaterThan(0)),
-    }),
-    climateModifiers: Schema.Struct({
-      temperatureModifier: Schema.Number.pipe(Schema.between(-20, 20)),
-      humidityModifier: Schema.Number.pipe(Schema.between(-50, 50)),
-      elevationModifier: Schema.Number.pipe(Schema.between(-200, 200)),
-    }),
-  }))),
+  globalFactors: Schema.optional(
+    Schema.Struct({
+      temperatureShift: Schema.Number.pipe(Schema.between(-10, 10)),
+      humidityShift: Schema.Number.pipe(Schema.between(-20, 20)),
+      seasonalIntensityChange: Schema.Number.pipe(Schema.between(-0.5, 0.5)),
+    })
+  ),
+  regionalFactors: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        region: Schema.Struct({
+          centerX: Schema.Number,
+          centerZ: Schema.Number,
+          radius: Schema.Number.pipe(Schema.greaterThan(0)),
+        }),
+        climateModifiers: Schema.Struct({
+          temperatureModifier: Schema.Number.pipe(Schema.between(-20, 20)),
+          humidityModifier: Schema.Number.pipe(Schema.between(-50, 50)),
+          elevationModifier: Schema.Number.pipe(Schema.between(-200, 200)),
+        }),
+      })
+    )
+  ),
 })
 
 export type UpdateClimateModelCommand = typeof UpdateClimateModelCommandSchema.Type
@@ -205,10 +212,10 @@ export const create = (
       },
       distributionSettings: {
         biomeScarcity: {
-          "desert": 0.15,
-          "jungle": 0.10,
-          "ice_plains": 0.08,
-          "mushroom_island": 0.02,
+          desert: 0.15,
+          jungle: 0.1,
+          ice_plains: 0.08,
+          mushroom_island: 0.02,
         },
         clusteringIntensity: 0.6,
         diversityTarget: 0.4,
@@ -252,9 +259,7 @@ export const create = (
     }
 
     // 作成イベント発行
-    yield* BiomeEvents.publish(
-      BiomeEvents.createBiomeSystemCreated(id, worldSeed, mergedConfig)
-    )
+    yield* BiomeEvents.publish(BiomeEvents.createBiomeSystemCreated(id, worldSeed, mergedConfig))
 
     return biomeSystem
   })
@@ -278,25 +283,15 @@ export const generateBiomeDistribution = (
 
     // 気候因子計算
     const climateFactors = yield* STM.fromEffect(
-      ClimateModel.calculateClimateFactors(
-        system.climateModel,
-        command.coordinate
-      )
+      ClimateModel.calculateClimateFactors(system.climateModel, command.coordinate)
     )
 
     // バイオーム選択
-    const biomeSelection = yield* STM.fromEffect(
-      selectOptimalBiomes(system.registry, climateFactors, command.options)
-    )
+    const biomeSelection = yield* STM.fromEffect(selectOptimalBiomes(system.registry, climateFactors, command.options))
 
     // 遷移ゾーン計算
     const transitionZones = yield* STM.fromEffect(
-      calculateTransitionZones(
-        system,
-        command.coordinate,
-        biomeSelection.dominantBiome,
-        command.options
-      )
+      calculateTransitionZones(system, command.coordinate, biomeSelection.dominantBiome, command.options)
     )
 
     const distribution: BiomeDistribution = {
@@ -337,13 +332,7 @@ export const generateBiomeDistribution = (
 
     // 生成イベント発行
     yield* STM.fromEffect(
-      BiomeEvents.publish(
-        BiomeEvents.createBiomeDistributionGenerated(
-          system.id,
-          command.coordinate,
-          distribution
-        )
-      )
+      BiomeEvents.publish(BiomeEvents.createBiomeDistributionGenerated(system.id, command.coordinate, distribution))
     )
 
     return [updatedSystem, distribution]
@@ -358,11 +347,7 @@ export const updateClimateModel = (
 ): Effect.Effect<BiomeSystem, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // 気候モデルの更新
-    const updatedModel = yield* ClimateModel.update(
-      system.climateModel,
-      command.globalFactors,
-      command.regionalFactors
-    )
+    const updatedModel = yield* ClimateModel.update(system.climateModel, command.globalFactors, command.regionalFactors)
 
     // 影響を受けるキャッシュをクリア
     const affectedKeys = yield* calculateAffectedCacheKeys(system, command)
@@ -381,9 +366,7 @@ export const updateClimateModel = (
     }
 
     // 更新イベント発行
-    yield* BiomeEvents.publish(
-      BiomeEvents.createClimateModelUpdated(system.id, command)
-    )
+    yield* BiomeEvents.publish(BiomeEvents.createClimateModelUpdated(system.id, command))
 
     return updatedSystem
   })
@@ -421,9 +404,7 @@ export const addTransitionRule = (
 /**
  * 最適化実行
  */
-export const optimize = (
-  system: BiomeSystem
-): Effect.Effect<BiomeSystem, GenerationErrors.OptimizationError> =>
+export const optimize = (system: BiomeSystem): Effect.Effect<BiomeSystem, GenerationErrors.OptimizationError> =>
   Effect.gen(function* () {
     if (!system.configuration.optimizationSettings.enableDynamicOptimization) {
       return system
@@ -464,8 +445,7 @@ export const optimize = (
 /**
  * 座標をキー文字列に変換
  */
-const coordinateToKey = (coordinate: Coordinates.ChunkCoordinate): string =>
-  `${coordinate.x},${coordinate.z}`
+const coordinateToKey = (coordinate: Coordinates.ChunkCoordinate): string => `${coordinate.x},${coordinate.z}`
 
 /**
  * 最適なバイオーム選択
@@ -474,10 +454,13 @@ const selectOptimalBiomes = (
   registry: BiomeRegistry.BiomeRegistry,
   climateFactors: BiomeDistribution['climateFactors'],
   options?: GenerateBiomeDistributionCommand['options']
-): Effect.Effect<{
-  dominantBiome: string
-  distribution: Record<string, number>
-}, GenerationErrors.GenerationError> =>
+): Effect.Effect<
+  {
+    dominantBiome: string
+    distribution: Record<string, number>
+  },
+  GenerationErrors.GenerationError
+> =>
   Effect.gen(function* () {
     // 気候適合性による候補選択
     const candidates = yield* BiomeRegistry.findCompatibleBiomes(registry, climateFactors)
@@ -539,22 +522,17 @@ const calculateTransitionZones = (
 const performDetailedBiomeAnalysis = (
   candidates: readonly string[],
   climateFactors: BiomeDistribution['climateFactors']
-): Effect.Effect<readonly string[], never> =>
-  Effect.succeed(candidates) // プレースホルダー実装
+): Effect.Effect<readonly string[], never> => Effect.succeed(candidates) // プレースホルダー実装
 
 /**
  * 支配的バイオーム選択
  */
-const selectDominantBiome = (candidates: readonly string[]): string =>
-  candidates[0] || 'plains' // 簡易実装
+const selectDominantBiome = (candidates: readonly string[]): string => candidates[0] || 'plains' // 簡易実装
 
 /**
  * バイオーム分布計算
  */
-const calculateBiomeDistribution = (
-  candidates: readonly string[],
-  dominantBiome: string
-): Record<string, number> => {
+const calculateBiomeDistribution = (candidates: readonly string[], dominantBiome: string): Record<string, number> => {
   const distribution: Record<string, number> = {}
 
   if (candidates.length === 1) {
@@ -578,17 +556,12 @@ const calculateBiomeDistribution = (
 const getNeighborBiomes = (
   system: BiomeSystem,
   coordinate: Coordinates.ChunkCoordinate
-): Effect.Effect<readonly string[], never> =>
-  Effect.succeed(['plains']) // プレースホルダー実装
+): Effect.Effect<readonly string[], never> => Effect.succeed(['plains']) // プレースホルダー実装
 
 /**
  * 平均生成時間更新
  */
-const updateAverageGenerationTime = (
-  currentAverage: number,
-  newTime: number,
-  sampleCount: number
-): number => {
+const updateAverageGenerationTime = (currentAverage: number, newTime: number, sampleCount: number): number => {
   return (currentAverage * (sampleCount - 1) + newTime) / sampleCount
 }
 
@@ -598,8 +571,7 @@ const updateAverageGenerationTime = (
 const calculateAffectedCacheKeys = (
   system: BiomeSystem,
   command: UpdateClimateModelCommand
-): Effect.Effect<readonly string[], never> =>
-  Effect.succeed(Object.keys(system.distributionCache)) // 簡易実装：全キャッシュクリア
+): Effect.Effect<readonly string[], never> => Effect.succeed(Object.keys(system.distributionCache)) // 簡易実装：全キャッシュクリア
 
 /**
  * キャッシュエントリクリア
@@ -622,8 +594,7 @@ const clearCacheEntries = (
 const checkRuleConflicts = (
   existingRules: readonly BiomeTransitions.TransitionRule[],
   newRule: BiomeTransitions.TransitionRule
-): Effect.Effect<void, GenerationErrors.ValidationError> =>
-  Effect.succeed(void 0) // プレースホルダー実装
+): Effect.Effect<void, GenerationErrors.ValidationError> => Effect.succeed(void 0) // プレースホルダー実装
 
 /**
  * キャッシュ最適化
@@ -639,9 +610,7 @@ const optimizeCache = (
     }
 
     // LRU風の削除（最後更新時刻でソート）
-    const sortedEntries = entries.sort((a, b) =>
-      b[1].lastUpdated.getTime() - a[1].lastUpdated.getTime()
-    )
+    const sortedEntries = entries.sort((a, b) => b[1].lastUpdated.getTime() - a[1].lastUpdated.getTime())
 
     return Object.fromEntries(sortedEntries.slice(0, maxSize))
   })
@@ -672,9 +641,7 @@ export const BiomeSystemTag = Context.GenericTag<{
     rule: BiomeTransitions.TransitionRule
   ) => Effect.Effect<BiomeSystem, GenerationErrors.ValidationError>
 
-  readonly optimize: (
-    system: BiomeSystem
-  ) => Effect.Effect<BiomeSystem, GenerationErrors.OptimizationError>
+  readonly optimize: (system: BiomeSystem) => Effect.Effect<BiomeSystem, GenerationErrors.OptimizationError>
 }>('@minecraft/domain/world/aggregate/BiomeSystem')
 
 // ================================

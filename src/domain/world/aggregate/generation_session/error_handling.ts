@@ -8,23 +8,23 @@
  * - 診断情報の収集
  */
 
-import { Effect, Schema, Duration } from "effect"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Effect, Schema } from 'effect'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
 
 // ================================
 // Error Categories
 // ================================
 
 export const ErrorCategorySchema = Schema.Literal(
-  "transient",      // 一時的エラー (ネットワーク等)
-  "resource",       // リソース不足
-  "configuration",  // 設定エラー
-  "data",          // データ不整合
-  "system",        // システムエラー
-  "validation",    // バリデーションエラー
-  "timeout",       // タイムアウト
-  "cancelled",     // キャンセル
-  "unknown"        // 未分類
+  'transient', // 一時的エラー (ネットワーク等)
+  'resource', // リソース不足
+  'configuration', // 設定エラー
+  'data', // データ不整合
+  'system', // システムエラー
+  'validation', // バリデーションエラー
+  'timeout', // タイムアウト
+  'cancelled', // キャンセル
+  'unknown' // 未分類
 )
 
 export type ErrorCategory = typeof ErrorCategorySchema.Type
@@ -34,10 +34,10 @@ export type ErrorCategory = typeof ErrorCategorySchema.Type
 // ================================
 
 export const ErrorSeveritySchema = Schema.Literal(
-  "low",      // 情報レベル
-  "medium",   // 警告レベル
-  "high",     // エラーレベル
-  "critical"  // 致命的レベル
+  'low', // 情報レベル
+  'medium', // 警告レベル
+  'high', // エラーレベル
+  'critical' // 致命的レベル
 )
 
 export type ErrorSeverity = typeof ErrorSeveritySchema.Type
@@ -48,7 +48,7 @@ export type ErrorSeverity = typeof ErrorSeveritySchema.Type
 
 export const RetryStrategySchema = Schema.Struct({
   maxAttempts: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
-  backoffStrategy: Schema.Literal("linear", "exponential", "constant"),
+  backoffStrategy: Schema.Literal('linear', 'exponential', 'constant'),
   baseDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
   maxDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
   jitterEnabled: Schema.Boolean,
@@ -68,10 +68,12 @@ export const SessionErrorSchema = Schema.Struct({
   severity: ErrorSeveritySchema,
   code: Schema.String,
   message: Schema.String,
-  details: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  })),
+  details: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
   stackTrace: Schema.optional(Schema.String),
   timestamp: Schema.DateTimeUtc,
   context: Schema.Struct({
@@ -79,17 +81,21 @@ export const SessionErrorSchema = Schema.Struct({
     chunkCoordinate: Schema.optional(Schema.String),
     attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
     operation: Schema.String,
-    additionalInfo: Schema.optional(Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown
-    })),
+    additionalInfo: Schema.optional(
+      Schema.Record({
+        key: Schema.String,
+        value: Schema.Unknown,
+      })
+    ),
   }),
-  resolution: Schema.optional(Schema.Struct({
-    strategy: Schema.Literal("retry", "skip", "abort", "fallback"),
-    appliedAt: Schema.DateTimeUtc,
-    successful: Schema.Boolean,
-    notes: Schema.optional(Schema.String),
-  })),
+  resolution: Schema.optional(
+    Schema.Struct({
+      strategy: Schema.Literal('retry', 'skip', 'abort', 'fallback'),
+      appliedAt: Schema.DateTimeUtc,
+      successful: Schema.Boolean,
+      notes: Schema.optional(Schema.String),
+    })
+  ),
 })
 
 export type SessionError = typeof SessionErrorSchema.Type
@@ -102,20 +108,22 @@ export const ErrorAnalysisSchema = Schema.Struct({
   totalErrors: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   errorsByCategory: Schema.Record({
     key: ErrorCategorySchema,
-    value: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+    value: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   }),
   errorsBySeverity: Schema.Record({
     key: ErrorSeveritySchema,
-    value: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+    value: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   }),
-  mostCommonError: Schema.optional(Schema.Struct({
-    code: Schema.String,
-    message: Schema.String,
-    occurrences: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-  })),
+  mostCommonError: Schema.optional(
+    Schema.Struct({
+      code: Schema.String,
+      message: Schema.String,
+      occurrences: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+    })
+  ),
   errorRate: Schema.Number.pipe(Schema.between(0, 1)),
   criticalErrorCount: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  recentErrorTrend: Schema.Literal("increasing", "decreasing", "stable"),
+  recentErrorTrend: Schema.Literal('increasing', 'decreasing', 'stable'),
 })
 
 export type ErrorAnalysis = typeof ErrorAnalysisSchema.Type
@@ -162,10 +170,7 @@ export const createSessionError = (
 /**
  * リトライ判定
  */
-export const shouldRetryBatch = (
-  retryStrategy: RetryStrategy,
-  error: SessionError
-): Effect.Effect<boolean, never> =>
+export const shouldRetryBatch = (retryStrategy: RetryStrategy, error: SessionError): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
     // 最大試行回数チェック
     if (error.context.attempt >= retryStrategy.maxAttempts) {
@@ -178,17 +183,12 @@ export const shouldRetryBatch = (
     }
 
     // 重要度による判定
-    if (error.severity === "critical") {
+    if (error.severity === 'critical') {
       return false
     }
 
     // 特定エラーコードの判定
-    const nonRetryableCodes = [
-      'VALIDATION_ERROR',
-      'CONFIGURATION_ERROR',
-      'PERMISSION_DENIED',
-      'INVALID_REQUEST',
-    ]
+    const nonRetryableCodes = ['VALIDATION_ERROR', 'CONFIGURATION_ERROR', 'PERMISSION_DENIED', 'INVALID_REQUEST']
 
     if (nonRetryableCodes.includes(error.code)) {
       return false
@@ -200,21 +200,18 @@ export const shouldRetryBatch = (
 /**
  * リトライ遅延計算
  */
-export const calculateRetryDelay = (
-  retryStrategy: RetryStrategy,
-  attempt: number
-): Effect.Effect<number, never> =>
+export const calculateRetryDelay = (retryStrategy: RetryStrategy, attempt: number): Effect.Effect<number, never> =>
   Effect.gen(function* () {
     let delay: number
 
     switch (retryStrategy.backoffStrategy) {
-      case "linear":
+      case 'linear':
         delay = retryStrategy.baseDelayMs * attempt
         break
-      case "exponential":
+      case 'exponential':
         delay = retryStrategy.baseDelayMs * Math.pow(2, attempt - 1)
         break
-      case "constant":
+      case 'constant':
       default:
         delay = retryStrategy.baseDelayMs
         break
@@ -235,9 +232,7 @@ export const calculateRetryDelay = (
 /**
  * エラー分析実行
  */
-export const analyzeErrors = (
-  errors: readonly SessionError[]
-): Effect.Effect<ErrorAnalysis, never> =>
+export const analyzeErrors = (errors: readonly SessionError[]): Effect.Effect<ErrorAnalysis, never> =>
   Effect.gen(function* () {
     const totalErrors = errors.length
 
@@ -275,10 +270,11 @@ export const analyzeErrors = (
     // 最頻出エラー
     let mostCommonError: ErrorAnalysis['mostCommonError']
     if (Object.keys(errorCounts).length > 0) {
-      const [code, occurrences] = Object.entries(errorCounts)
-        .reduce((max, current) => current[1] > max[1] ? current : max)
+      const [code, occurrences] = Object.entries(errorCounts).reduce((max, current) =>
+        current[1] > max[1] ? current : max
+      )
 
-      const sampleError = errors.find(e => e.code === code)
+      const sampleError = errors.find((e) => e.code === code)
       if (sampleError) {
         mostCommonError = {
           code,
@@ -315,14 +311,17 @@ export const analyzeErrors = (
 export const suggestRecoveryStrategy = (
   error: SessionError,
   analysis: ErrorAnalysis
-): Effect.Effect<{
-  strategy: 'retry' | 'skip' | 'abort' | 'fallback'
-  reason: string
-  confidence: number
-}, never> =>
+): Effect.Effect<
+  {
+    strategy: 'retry' | 'skip' | 'abort' | 'fallback'
+    reason: string
+    confidence: number
+  },
+  never
+> =>
   Effect.gen(function* () {
     // 重要度による判定
-    if (error.severity === "critical") {
+    if (error.severity === 'critical') {
       return {
         strategy: 'abort',
         reason: 'Critical error detected - aborting session',
@@ -332,14 +331,14 @@ export const suggestRecoveryStrategy = (
 
     // カテゴリによる判定
     switch (error.category) {
-      case "transient":
+      case 'transient':
         return {
           strategy: 'retry',
           reason: 'Transient error - likely to succeed on retry',
           confidence: 0.8,
         }
 
-      case "resource":
+      case 'resource':
         if (analysis.errorsByCategory.resource > 5) {
           return {
             strategy: 'abort',
@@ -353,21 +352,21 @@ export const suggestRecoveryStrategy = (
           confidence: 0.6,
         }
 
-      case "configuration":
+      case 'configuration':
         return {
           strategy: 'abort',
           reason: 'Configuration error - manual intervention required',
           confidence: 0.9,
         }
 
-      case "validation":
+      case 'validation':
         return {
           strategy: 'skip',
           reason: 'Validation error - skip invalid chunk',
           confidence: 0.8,
         }
 
-      case "timeout":
+      case 'timeout':
         return {
           strategy: 'retry',
           reason: 'Timeout error - may succeed with retry',
@@ -398,18 +397,30 @@ const categorizeError = (error: GenerationErrors.GenerationError): ErrorCategory
     return 'timeout'
   }
 
-  if (code.includes('network') || message.includes('network') ||
-      code.includes('connection') || message.includes('connection')) {
+  if (
+    code.includes('network') ||
+    message.includes('network') ||
+    code.includes('connection') ||
+    message.includes('connection')
+  ) {
     return 'transient'
   }
 
-  if (code.includes('memory') || message.includes('memory') ||
-      code.includes('resource') || message.includes('resource')) {
+  if (
+    code.includes('memory') ||
+    message.includes('memory') ||
+    code.includes('resource') ||
+    message.includes('resource')
+  ) {
     return 'resource'
   }
 
-  if (code.includes('validation') || message.includes('validation') ||
-      code.includes('invalid') || message.includes('invalid')) {
+  if (
+    code.includes('validation') ||
+    message.includes('validation') ||
+    code.includes('invalid') ||
+    message.includes('invalid')
+  ) {
     return 'validation'
   }
 
@@ -417,8 +428,12 @@ const categorizeError = (error: GenerationErrors.GenerationError): ErrorCategory
     return 'configuration'
   }
 
-  if (code.includes('data') || message.includes('data') ||
-      code.includes('corruption') || message.includes('corruption')) {
+  if (
+    code.includes('data') ||
+    message.includes('data') ||
+    code.includes('corruption') ||
+    message.includes('corruption')
+  ) {
     return 'data'
   }
 
@@ -436,10 +451,7 @@ const categorizeError = (error: GenerationErrors.GenerationError): ErrorCategory
 /**
  * 重要度判定
  */
-const determineSeverity = (
-  error: GenerationErrors.GenerationError,
-  category: ErrorCategory
-): ErrorSeverity => {
+const determineSeverity = (error: GenerationErrors.GenerationError, category: ErrorCategory): ErrorSeverity => {
   // カテゴリベースの重要度
   switch (category) {
     case 'critical':
@@ -466,15 +478,11 @@ const determineSeverity = (
 /**
  * エラートレンド分析
  */
-const analyzeErrorTrend = (
-  errors: readonly SessionError[]
-): 'increasing' | 'decreasing' | 'stable' => {
+const analyzeErrorTrend = (errors: readonly SessionError[]): 'increasing' | 'decreasing' | 'stable' => {
   if (errors.length < 4) return 'stable'
 
   // 最近のエラーを時間順にソート
-  const sortedErrors = [...errors].sort((a, b) =>
-    a.timestamp.getTime() - b.timestamp.getTime()
-  )
+  const sortedErrors = [...errors].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 
   // 前半と後半で比較
   const midpoint = Math.floor(sortedErrors.length / 2)
@@ -494,9 +502,4 @@ const analyzeErrorTrend = (
 // Exports
 // ================================
 
-export {
-  type ErrorCategory,
-  type ErrorSeverity,
-  type RetryStrategy,
-  type ErrorAnalysis,
-}
+export { type ErrorAnalysis, type ErrorCategory, type ErrorSeverity, type RetryStrategy }

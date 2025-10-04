@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Either, Effect, Match } from 'effect'
+import { Data, Effect, Either, Match } from 'effect'
 import { pipe } from 'effect/Function'
 import { BlockFaceSchema } from '../value_object/block_face'
 import { Vector3Schema } from '../value_object/vector3'
@@ -50,8 +50,7 @@ export const ProgressSchema = Schema.Number.pipe(
 
 export type Progress = Schema.Schema.Type<typeof ProgressSchema>
 
-const parseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, { includeStackTrace: false })
+const parseError = (error: Schema.ParseError) => TreeFormatter.formatError(error, { includeStackTrace: false })
 
 export const decodeBlockId = Schema.decode(BlockIdSchema)
 export const decodePlayerId = Schema.decode(PlayerIdSchema)
@@ -144,8 +143,7 @@ export const InteractionError = Data.taggedEnum({
 
 export type InteractionError = typeof InteractionError.Type
 
-const toInvalidCommand = (error: Schema.ParseError) =>
-  InteractionError.InvalidCommand({ message: parseError(error) })
+const toInvalidCommand = (error: Schema.ParseError) => InteractionError.InvalidCommand({ message: parseError(error) })
 
 export const parseCommand = (input: unknown) =>
   pipe(Schema.decode(InteractionCommandSchema)(input), Effect.mapError(toInvalidCommand))

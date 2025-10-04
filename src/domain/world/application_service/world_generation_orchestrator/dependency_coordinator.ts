@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, STM, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Schema } from 'effect'
 
 /**
  * Dependency Coordinator Service
@@ -16,7 +16,7 @@ export const DependencyNode = Schema.Struct({
     Schema.Literal('service'),
     Schema.Literal('resource'),
     Schema.Literal('data'),
-    Schema.Literal('computation'),
+    Schema.Literal('computation')
   ),
   dependencies: Schema.Array(Schema.String),
   dependents: Schema.Array(Schema.String),
@@ -25,7 +25,7 @@ export const DependencyNode = Schema.Struct({
     Schema.Literal('ready'),
     Schema.Literal('running'),
     Schema.Literal('completed'),
-    Schema.Literal('failed'),
+    Schema.Literal('failed')
   ),
   priority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
   estimatedDuration: Schema.Number.pipe(Schema.positive()),
@@ -40,16 +40,14 @@ export const DependencyNode = Schema.Struct({
 export const DependencyGraph = Schema.Struct({
   _tag: Schema.Literal('DependencyGraph'),
   nodes: Schema.Record(Schema.String, DependencyNode),
-  edges: Schema.Array(Schema.Struct({
-    from: Schema.String,
-    to: Schema.String,
-    weight: Schema.Number.pipe(Schema.positive()),
-    type: Schema.Union(
-      Schema.Literal('hard'),
-      Schema.Literal('soft'),
-      Schema.Literal('optional'),
-    ),
-  })),
+  edges: Schema.Array(
+    Schema.Struct({
+      from: Schema.String,
+      to: Schema.String,
+      weight: Schema.Number.pipe(Schema.positive()),
+      type: Schema.Union(Schema.Literal('hard'), Schema.Literal('soft'), Schema.Literal('optional')),
+    })
+  ),
   cycles: Schema.Array(Schema.Array(Schema.String)),
   criticalPath: Schema.Array(Schema.String),
 })
@@ -62,12 +60,15 @@ export const ResourcePool = Schema.Struct({
   memoryCapacity: Schema.Number.pipe(Schema.positive()),
   ioCapacity: Schema.Number.pipe(Schema.between(0, 1)),
   activeTasks: Schema.Array(Schema.String),
-  reservations: Schema.Record(Schema.String, Schema.Struct({
-    cpu: Schema.Number,
-    memory: Schema.Number,
-    io: Schema.Number,
-    duration: Schema.Number,
-  })),
+  reservations: Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      cpu: Schema.Number,
+      memory: Schema.Number,
+      io: Schema.Number,
+      duration: Schema.Number,
+    })
+  ),
 })
 
 export const ResourceAllocation = Schema.Struct({
@@ -86,7 +87,7 @@ export const CoordinationStrategy = Schema.Union(
   Schema.Literal('sequential'), // 順次実行
   Schema.Literal('parallel'), // 並列実行
   Schema.Literal('pipeline'), // パイプライン実行
-  Schema.Literal('adaptive'), // 適応的実行
+  Schema.Literal('adaptive') // 適応的実行
 )
 
 export const CoordinationConfig = Schema.Struct({
@@ -102,7 +103,7 @@ export const CoordinationConfig = Schema.Struct({
   deadlockResolution: Schema.Union(
     Schema.Literal('abort'),
     Schema.Literal('backtrack'),
-    Schema.Literal('priority_override'),
+    Schema.Literal('priority_override')
   ),
   loadBalancing: Schema.Boolean,
   adaptiveScheduling: Schema.Boolean,
@@ -121,8 +122,7 @@ export const DependencyCoordinatorError = Schema.TaggedError<DependencyCoordinat
   }
 )
 
-export interface DependencyCoordinatorErrorType
-  extends Schema.Schema.Type<typeof DependencyCoordinatorError> {}
+export interface DependencyCoordinatorErrorType extends Schema.Schema.Type<typeof DependencyCoordinatorError> {}
 
 // === Service Interface ===
 
@@ -162,9 +162,7 @@ export interface DependencyCoordinatorService {
   /**
    * リソースを解放します
    */
-  readonly releaseResources: (
-    taskId: string
-  ) => Effect.Effect<void, DependencyCoordinatorErrorType>
+  readonly releaseResources: (taskId: string) => Effect.Effect<void, DependencyCoordinatorErrorType>
 
   /**
    * デッドロックを検出します
@@ -183,7 +181,10 @@ export interface DependencyCoordinatorService {
   /**
    * 現在のリソース使用状況を取得します
    */
-  readonly getResourceUsage: () => Effect.Effect<Schema.Schema.Type<typeof ResourcePool>, DependencyCoordinatorErrorType>
+  readonly getResourceUsage: () => Effect.Effect<
+    Schema.Schema.Type<typeof ResourcePool>,
+    DependencyCoordinatorErrorType
+  >
 
   /**
    * 実行統計を取得します
@@ -205,7 +206,8 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
   })
 
   const activeAllocations = yield* Ref.make<Map<string, Schema.Schema.Type<typeof ResourceAllocation>>>(new Map())
-  const executionHistory = yield* Ref.make<Array<{ taskId: string; startTime: number; endTime: number; result: any }>([])
+  const executionHistory = yield* Ref.make <
+    Array<{ taskId: string; startTime: number; endTime: number; result: any }>([])
 
   const buildDependencyGraph = (
     nodes: Schema.Schema.Type<typeof DependencyNode>[],
@@ -214,7 +216,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`依存関係グラフ構築開始: ${nodes.length}ノード`)
 
-      const nodeMap = new Map(nodes.map(node => [node.id, node]))
+      const nodeMap = new Map(nodes.map((node) => [node.id, node]))
       const edges = []
 
       // エッジ構築
@@ -269,10 +271,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return optimizedPlan
     })
 
-  const coordinateExecution = (
-    executionPlan: string[],
-    taskExecutors: Record<string, Effect.Effect<any, any>>
-  ) =>
+  const coordinateExecution = (executionPlan: string[], taskExecutors: Record<string, Effect.Effect<any, any>>) =>
     Effect.gen(function* () {
       yield* Effect.logInfo(`調整実行開始: ${executionPlan.length}タスク`)
 
@@ -301,10 +300,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
           results[taskId] = result
 
           // 実行履歴記録
-          yield* Ref.update(executionHistory, history => [
-            ...history,
-            { taskId, startTime, endTime, result }
-          ])
+          yield* Ref.update(executionHistory, (history) => [...history, { taskId, startTime, endTime, result }])
 
           yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
         } finally {
@@ -325,9 +321,11 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       const currentPool = yield* Ref.get(resourcePool)
 
       // リソース可用性チェック
-      if (currentPool.cpuCapacity < requirements.cpu ||
-          currentPool.memoryCapacity < requirements.memory ||
-          currentPool.ioCapacity < requirements.io) {
+      if (
+        currentPool.cpuCapacity < requirements.cpu ||
+        currentPool.memoryCapacity < requirements.memory ||
+        currentPool.ioCapacity < requirements.io
+      ) {
         return yield* Effect.fail({
           _tag: 'DependencyCoordinatorError' as const,
           message: `リソース不足: ${taskId}`,
@@ -347,7 +345,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       }
 
       // リソース予約
-      yield* Ref.update(resourcePool, pool => ({
+      yield* Ref.update(resourcePool, (pool) => ({
         ...pool,
         cpuCapacity: pool.cpuCapacity - requirements.cpu,
         memoryCapacity: pool.memoryCapacity - requirements.memory,
@@ -355,7 +353,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         activeTasks: [...pool.activeTasks, taskId],
       }))
 
-      yield* Ref.update(activeAllocations, allocs => allocs.set(taskId, allocation))
+      yield* Ref.update(activeAllocations, (allocs) => allocs.set(taskId, allocation))
 
       yield* Effect.logDebug(`リソース割り当て: ${taskId} - CPU:${requirements.cpu}, MEM:${requirements.memory}MB`)
       return allocation
@@ -372,15 +370,15 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       }
 
       // リソース解放
-      yield* Ref.update(resourcePool, pool => ({
+      yield* Ref.update(resourcePool, (pool) => ({
         ...pool,
         cpuCapacity: pool.cpuCapacity + allocation.allocatedCpu,
         memoryCapacity: pool.memoryCapacity + allocation.allocatedMemory,
         ioCapacity: pool.ioCapacity + allocation.allocatedIo,
-        activeTasks: pool.activeTasks.filter(id => id !== taskId),
+        activeTasks: pool.activeTasks.filter((id) => id !== taskId),
       }))
 
-      yield* Ref.update(activeAllocations, allocs => {
+      yield* Ref.update(activeAllocations, (allocs) => {
         allocs.delete(taskId)
         return allocs
       })
@@ -410,9 +408,8 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return {
         totalExecutions: history.length,
         activeAllocations: allocs.size,
-        averageExecutionTime: history.length > 0 ?
-          history.reduce((sum, h) => sum + (h.endTime - h.startTime), 0) / history.length :
-          0,
+        averageExecutionTime:
+          history.length > 0 ? history.reduce((sum, h) => sum + (h.endTime - h.startTime), 0) / history.length : 0,
         resourceUtilization: {
           cpu: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedCpu, 0),
           memory: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedMemory, 0),
@@ -423,10 +420,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
 
   // === Helper Functions ===
 
-  const detectCycles = (
-    nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>,
-    edges: any[]
-  ) =>
+  const detectCycles = (nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>, edges: any[]) =>
     Effect.gen(function* () {
       const visited = new Set<string>()
       const recursionStack = new Set<string>()
@@ -464,10 +458,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return cycles
     })
 
-  const calculateCriticalPathInternal = (
-    nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>,
-    edges: any[]
-  ) =>
+  const calculateCriticalPathInternal = (nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>, edges: any[]) =>
     Effect.gen(function* () {
       // 最長経路計算（簡略化）
       const durations = new Map<string, number>()
@@ -575,9 +566,9 @@ export const DEFAULT_COORDINATION_CONFIG: Schema.Schema.Type<typeof Coordination
 }
 
 export type {
+  CoordinationConfig as CoordinationConfigType,
   DependencyGraph as DependencyGraphType,
   DependencyNode as DependencyNodeType,
-  ResourcePool as ResourcePoolType,
   ResourceAllocation as ResourceAllocationType,
-  CoordinationConfig as CoordinationConfigType,
+  ResourcePool as ResourcePoolType,
 } from './dependency_coordinator.js'

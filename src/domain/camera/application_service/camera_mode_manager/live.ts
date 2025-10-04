@@ -81,7 +81,11 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
         }),
 
       getAvailableViewModes: (cameraId, context) =>
-        Effect.succeed([{ _tag: 'FirstPerson' }, { _tag: 'ThirdPerson' }, { _tag: 'Spectator' }] as Array.ReadonlyArray<any>),
+        Effect.succeed([
+          { _tag: 'FirstPerson' },
+          { _tag: 'ThirdPerson' },
+          { _tag: 'Spectator' },
+        ] as Array.ReadonlyArray<any>),
 
       optimizeViewModeForContext: (cameraId, context, playerPreferences) =>
         Effect.succeed({

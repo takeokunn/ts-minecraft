@@ -6,10 +6,10 @@ import {
   describeAggregateSummary,
   enrichSoilForCrop,
   hydrateCrop,
-  projectCropTrajectory
+  projectCropTrajectory,
 } from './aggregates'
-import { BreedingStats, HydrationState, SoilCondition } from './value_objects'
 import { DomainError } from './types'
+import { BreedingStats, HydrationState, SoilCondition } from './value_objects'
 
 export type SimulationEvent = Data.TaggedEnum<{
   Hydrated: { readonly hydration: HydrationState }
@@ -50,7 +50,7 @@ export const simulateCropCycle = (params: {
     return {
       aggregate: advanced,
       timeline,
-      projection
+      projection,
     }
   })
 
@@ -65,8 +65,14 @@ export const OptimizationStrategy = Data.taggedEnum<OptimizationStrategy>()
 export const planOptimizationStrategy = (stats: BreedingStats): OptimizationStrategy =>
   pipe(
     Match.value(stats.fertility + stats.resilience + stats.harmony),
-    Match.when((score: number) => score >= 2.4, () => OptimizationStrategy.HydrationFocus({ hydrationDelta: 3 })),
-    Match.when((score: number) => score <= 1.2, () => OptimizationStrategy.SoilFocus({ soilDelta: 5 })),
+    Match.when(
+      (score: number) => score >= 2.4,
+      () => OptimizationStrategy.HydrationFocus({ hydrationDelta: 3 })
+    ),
+    Match.when(
+      (score: number) => score <= 1.2,
+      () => OptimizationStrategy.SoilFocus({ soilDelta: 5 })
+    ),
     Match.orElse(() => OptimizationStrategy.Balanced({ hydrationDelta: 2, soilDelta: 3 }))
   )
 
@@ -76,13 +82,11 @@ export const batchSimulate = (params: {
   readonly soilDelta: number
   readonly growthSteps: number
 }): Effect.Effect<ReadonlyArray<CropSimulationResult>, DomainError> =>
-  Effect.forEach(
-    params.aggregates,
-    (aggregate) =>
-      simulateCropCycle({
-        aggregate,
-        hydrationDelta: params.hydrationDelta,
-        soilDelta: params.soilDelta,
-        growthSteps: params.growthSteps
-      })
+  Effect.forEach(params.aggregates, (aggregate) =>
+    simulateCropCycle({
+      aggregate,
+      hydrationDelta: params.hydrationDelta,
+      soilDelta: params.soilDelta,
+      growthSteps: params.growthSteps,
+    })
   )

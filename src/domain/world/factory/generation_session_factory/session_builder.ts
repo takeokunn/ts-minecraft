@@ -12,11 +12,11 @@
  * - リアルタイム検証
  */
 
-import { Effect, Schema, Match, Function, Duration, Array as EffectArray, Chunk } from "effect"
-import type * as GenerationSession from "../../aggregate/generation_session/generation_session.js"
-import type * as WorldGenerator from "../../aggregate/world_generator/world_generator.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import type { CreateSessionParams, SessionTemplateType, SessionFactoryError } from "./factory.js"
+import { Duration, Effect, Function, Match } from 'effect'
+import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
+import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './factory.js'
 
 // ================================
 // Builder State Management
@@ -59,7 +59,10 @@ export interface GenerationSessionBuilder {
   readonly forCoordinates: (coordinates: readonly Coordinates.ChunkCoordinate[]) => GenerationSessionBuilder
   readonly addCoordinate: (coordinate: Coordinates.ChunkCoordinate) => GenerationSessionBuilder
   readonly addArea: (center: Coordinates.ChunkCoordinate, radius: number) => GenerationSessionBuilder
-  readonly addGrid: (topLeft: Coordinates.ChunkCoordinate, bottomRight: Coordinates.ChunkCoordinate) => GenerationSessionBuilder
+  readonly addGrid: (
+    topLeft: Coordinates.ChunkCoordinate,
+    bottomRight: Coordinates.ChunkCoordinate
+  ) => GenerationSessionBuilder
 
   // 実行設定
   readonly withExecutionMode: (mode: 'sync' | 'async' | 'streaming') => GenerationSessionBuilder
@@ -115,8 +118,14 @@ export interface GenerationSessionBuilder {
   readonly withCustomOptions: (options: Record<string, unknown>) => GenerationSessionBuilder
 
   // 条件設定
-  readonly when: (condition: boolean, configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder) => GenerationSessionBuilder
-  readonly unless: (condition: boolean, configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder) => GenerationSessionBuilder
+  readonly when: (
+    condition: boolean,
+    configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder
+  ) => GenerationSessionBuilder
+  readonly unless: (
+    condition: boolean,
+    configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder
+  ) => GenerationSessionBuilder
 
   // 検証
   readonly validate: () => Effect.Effect<SessionValidationState, SessionFactoryError>
@@ -145,14 +154,14 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   forCoordinates(coordinates: readonly Coordinates.ChunkCoordinate[]): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      coordinates: [...coordinates]
+      coordinates: [...coordinates],
     })
   }
 
   addCoordinate(coordinate: Coordinates.ChunkCoordinate): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      coordinates: [...(this.state.coordinates ?? []), coordinate]
+      coordinates: [...(this.state.coordinates ?? []), coordinate],
     })
   }
 
@@ -160,7 +169,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
     const areaCoordinates = generateAreaCoordinates(center, radius)
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      coordinates: [...(this.state.coordinates ?? []), ...areaCoordinates]
+      coordinates: [...(this.state.coordinates ?? []), ...areaCoordinates],
     })
   }
 
@@ -168,7 +177,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
     const gridCoordinates = generateGridCoordinates(topLeft, bottomRight)
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      coordinates: [...(this.state.coordinates ?? []), ...gridCoordinates]
+      coordinates: [...(this.state.coordinates ?? []), ...gridCoordinates],
     })
   }
 
@@ -176,21 +185,21 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   withExecutionMode(mode: 'sync' | 'async' | 'streaming'): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      executionMode: mode
+      executionMode: mode,
     })
   }
 
   withPriority(priority: number): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      priority: Math.max(1, Math.min(10, priority))
+      priority: Math.max(1, Math.min(10, priority)),
     })
   }
 
   withGenerator(generatorId: WorldGenerator.WorldGeneratorId): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      generatorId
+      generatorId,
     })
   }
 
@@ -198,7 +207,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   withConfiguration(config: GenerationSession.SessionConfiguration): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      configuration: config
+      configuration: config,
     })
   }
 
@@ -208,8 +217,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       configuration: {
         ...this.getDefaultConfiguration(),
         ...this.state.configuration,
-        maxConcurrentChunks: Math.max(1, Math.min(16, count))
-      }
+        maxConcurrentChunks: Math.max(1, Math.min(16, count)),
+      },
     })
   }
 
@@ -219,8 +228,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       configuration: {
         ...this.getDefaultConfiguration(),
         ...this.state.configuration,
-        chunkBatchSize: Math.max(1, Math.min(64, size))
-      }
+        chunkBatchSize: Math.max(1, Math.min(64, size)),
+      },
     })
   }
 
@@ -233,9 +242,9 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         timeoutPolicy: {
           chunkTimeoutMs: Math.max(1000, chunkTimeoutMs),
           sessionTimeoutMs: sessionTimeoutMs ?? Math.max(60000, chunkTimeoutMs * 10),
-          gracefulShutdownMs: Math.min(5000, chunkTimeoutMs / 2)
-        }
-      }
+          gracefulShutdownMs: Math.min(5000, chunkTimeoutMs / 2),
+        },
+      },
     })
   }
 
@@ -254,9 +263,9 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
           maxAttempts: Math.max(1, Math.min(10, maxAttempts)),
           backoffStrategy: strategy,
           baseDelayMs: Math.max(100, baseDelayMs),
-          maxDelayMs: Math.max(baseDelayMs * 2, 30000)
-        }
-      }
+          maxDelayMs: Math.max(baseDelayMs * 2, 30000),
+        },
+      },
     })
   }
 
@@ -270,9 +279,9 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         priorityPolicy: {
           enablePriorityQueuing: true,
           priorityThreshold: Math.max(1, Math.min(10, threshold)),
-          highPriorityWeight: Math.max(1.0, Math.min(10.0, weight))
-        }
-      }
+          highPriorityWeight: Math.max(1.0, Math.min(10.0, weight)),
+        },
+      },
     })
   }
 
@@ -285,9 +294,9 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         priorityPolicy: {
           enablePriorityQueuing: false,
           priorityThreshold: 5,
-          highPriorityWeight: 1.0
-        }
-      }
+          highPriorityWeight: 1.0,
+        },
+      },
     })
   }
 
@@ -295,7 +304,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   withOptions(options: GenerationSession.GenerationRequest['options']): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      options
+      options,
     })
   }
 
@@ -305,8 +314,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       options: {
         ...this.getDefaultOptions(),
         ...this.state.options,
-        includeStructures: enable
-      }
+        includeStructures: enable,
+      },
     })
   }
 
@@ -316,8 +325,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       options: {
         ...this.getDefaultOptions(),
         ...this.state.options,
-        includeCaves: enable
-      }
+        includeCaves: enable,
+      },
     })
   }
 
@@ -327,8 +336,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       options: {
         ...this.getDefaultOptions(),
         ...this.state.options,
-        includeOres: enable
-      }
+        includeOres: enable,
+      },
     })
   }
 
@@ -338,8 +347,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       options: {
         ...this.getDefaultOptions(),
         ...this.state.options,
-        generateVegetation: enable
-      }
+        generateVegetation: enable,
+      },
     })
   }
 
@@ -349,8 +358,8 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       options: {
         ...this.getDefaultOptions(),
         ...this.state.options,
-        applyPostProcessing: enable
-      }
+        applyPostProcessing: enable,
+      },
     })
   }
 
@@ -358,21 +367,21 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   enableProgressTracking(enable: boolean = true): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      enableProgressTracking: enable
+      enableProgressTracking: enable,
     })
   }
 
   enableDetailedLogging(enable: boolean = true): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      enableDetailedLogging: enable
+      enableDetailedLogging: enable,
     })
   }
 
   enableMetrics(enable: boolean = true): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      enableMetrics: enable
+      enableMetrics: enable,
     })
   }
 
@@ -381,7 +390,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
       enableAutoRecovery: enable,
-      checkpointInterval: checkpointInterval ?? Duration.seconds(30)
+      checkpointInterval: checkpointInterval ?? Duration.seconds(30),
     })
   }
 
@@ -413,7 +422,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       enableMetrics: config.enableMetrics ?? this.state.enableMetrics,
       enableAutoRecovery: config.enableAutoRecovery ?? this.state.enableAutoRecovery,
       checkpointInterval: config.checkpointInterval ?? this.state.checkpointInterval,
-      customOptions: { ...this.state.customOptions, ...config.customOptions }
+      customOptions: { ...this.state.customOptions, ...config.customOptions },
     })
   }
 
@@ -426,7 +435,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         ...this.getDefaultConfiguration(),
         ...this.state.configuration,
         maxConcurrentChunks: 8,
-        chunkBatchSize: 16
+        chunkBatchSize: 16,
       },
       options: {
         ...this.getDefaultOptions(),
@@ -435,10 +444,10 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         includeCaves: false,
         includeOres: false,
         generateVegetation: false,
-        applyPostProcessing: false
+        applyPostProcessing: false,
       },
       enableProgressTracking: false,
-      enableDetailedLogging: false
+      enableDetailedLogging: false,
     })
   }
 
@@ -450,7 +459,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         ...this.getDefaultConfiguration(),
         ...this.state.configuration,
         maxConcurrentChunks: 1,
-        chunkBatchSize: 1
+        chunkBatchSize: 1,
       },
       options: {
         ...this.getDefaultOptions(),
@@ -459,10 +468,10 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         includeCaves: true,
         includeOres: true,
         generateVegetation: true,
-        applyPostProcessing: true
+        applyPostProcessing: true,
       },
       enableProgressTracking: true,
-      enableDetailedLogging: true
+      enableDetailedLogging: true,
     })
   }
 
@@ -473,10 +482,10 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         ...this.getDefaultConfiguration(),
         ...this.state.configuration,
         maxConcurrentChunks: 2,
-        chunkBatchSize: 4
+        chunkBatchSize: 4,
       },
       enableAutoRecovery: true,
-      checkpointInterval: Duration.seconds(15)
+      checkpointInterval: Duration.seconds(15),
     })
   }
 
@@ -491,12 +500,12 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
           maxAttempts: 5,
           backoffStrategy: 'exponential',
           baseDelayMs: 2000,
-          maxDelayMs: 30000
-        }
+          maxDelayMs: 30000,
+        },
       },
       enableAutoRecovery: true,
       enableProgressTracking: true,
-      checkpointInterval: Duration.seconds(10)
+      checkpointInterval: Duration.seconds(10),
     })
   }
 
@@ -504,67 +513,77 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   withMetadata(metadata: Record<string, unknown>): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      metadata: { ...this.state.metadata, ...metadata }
+      metadata: { ...this.state.metadata, ...metadata },
     })
   }
 
   withCustomOption(key: string, value: unknown): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      customOptions: { ...this.state.customOptions, [key]: value }
+      customOptions: { ...this.state.customOptions, [key]: value },
     })
   }
 
   withCustomOptions(options: Record<string, unknown>): GenerationSessionBuilder {
     return new GenerationSessionBuilderImpl({
       ...this.state,
-      customOptions: { ...this.state.customOptions, ...options }
+      customOptions: { ...this.state.customOptions, ...options },
     })
   }
 
   // 条件設定
-  when(condition: boolean, configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder): GenerationSessionBuilder {
+  when(
+    condition: boolean,
+    configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder
+  ): GenerationSessionBuilder {
     return condition ? configureFn(this) : this
   }
 
-  unless(condition: boolean, configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder): GenerationSessionBuilder {
+  unless(
+    condition: boolean,
+    configureFn: (builder: GenerationSessionBuilder) => GenerationSessionBuilder
+  ): GenerationSessionBuilder {
     return !condition ? configureFn(this) : this
   }
 
   // 検証
   validate(): Effect.Effect<SessionValidationState, SessionFactoryError> {
-    return Effect.gen(function* () {
-      const errors: string[] = []
-      const warnings: string[] = []
+    return Effect.gen(
+      function* () {
+        const errors: string[] = []
+        const warnings: string[] = []
 
-      // 座標チェック
-      if (!this.state.coordinates || this.state.coordinates.length === 0) {
-        errors.push('No coordinates specified for generation')
-      }
+        // 座標チェック
+        if (!this.state.coordinates || this.state.coordinates.length === 0) {
+          errors.push('No coordinates specified for generation')
+        }
 
-      // 設定一貫性チェック
-      if (this.state.executionMode === 'sync' &&
+        // 設定一貫性チェック
+        if (
+          this.state.executionMode === 'sync' &&
           this.state.configuration?.maxConcurrentChunks &&
-          this.state.configuration.maxConcurrentChunks > 1) {
-        warnings.push('Sync execution mode with multiple concurrent chunks may not be optimal')
-      }
+          this.state.configuration.maxConcurrentChunks > 1
+        ) {
+          warnings.push('Sync execution mode with multiple concurrent chunks may not be optimal')
+        }
 
-      // リソース推定
-      const estimatedResourceUsage = yield* this.estimateResources()
-      const estimatedDuration = calculateEstimatedDuration(this.state)
+        // リソース推定
+        const estimatedResourceUsage = yield* this.estimateResources()
+        const estimatedDuration = calculateEstimatedDuration(this.state)
 
-      if (estimatedResourceUsage.memory > 1024) {
-        warnings.push('High memory usage estimated')
-      }
+        if (estimatedResourceUsage.memory > 1024) {
+          warnings.push('High memory usage estimated')
+        }
 
-      return {
-        isValid: errors.length === 0,
-        errors,
-        warnings,
-        estimatedDuration,
-        estimatedResourceUsage
-      }
-    }.bind(this))
+        return {
+          isValid: errors.length === 0,
+          errors,
+          warnings,
+          estimatedDuration,
+          estimatedResourceUsage,
+        }
+      }.bind(this)
+    )
   }
 
   isValid(): Effect.Effect<boolean, SessionFactoryError> {
@@ -588,50 +607,56 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
     const storagePerChunk = 1 // MB
 
     return Effect.succeed({
-      memory: baseMemory + (memoryPerChunk * Math.min(chunkCount, batchSize)) + memoryConcurrency,
+      memory: baseMemory + memoryPerChunk * Math.min(chunkCount, batchSize) + memoryConcurrency,
       cpu: Math.min(100, baseCpu + cpuPerChunk + cpuConcurrency),
-      storage: chunkCount * storagePerChunk
+      storage: chunkCount * storagePerChunk,
     })
   }
 
   // 構築
   build(): Effect.Effect<GenerationSession.GenerationSession, SessionFactoryError> {
-    return Effect.gen(function* () {
-      const validation = yield* this.validate()
-      if (!validation.isValid) {
-        return yield* Effect.fail(new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Session validation failed: ${validation.errors.join(', ')}`
-        }))
-      }
+    return Effect.gen(
+      function* () {
+        const validation = yield* this.validate()
+        if (!validation.isValid) {
+          return yield* Effect.fail(
+            new SessionFactoryError({
+              category: 'configuration_invalid',
+              message: `Session validation failed: ${validation.errors.join(', ')}`,
+            })
+          )
+        }
 
-      const params = yield* this.buildParams()
+        const params = yield* this.buildParams()
 
-      const { GenerationSessionFactoryTag } = await import('./factory.js')
-      const factory = yield* Effect.service(GenerationSessionFactoryTag)
+        const { GenerationSessionFactoryTag } = await import('./factory.js')
+        const factory = yield* Effect.service(GenerationSessionFactoryTag)
 
-      return yield* factory.create(params)
-    }.bind(this))
+        return yield* factory.create(params)
+      }.bind(this)
+    )
   }
 
   buildParams(): Effect.Effect<CreateSessionParams, SessionFactoryError> {
-    return Effect.gen(function* () {
-      const request = yield* this.buildRequest()
+    return Effect.gen(
+      function* () {
+        const request = yield* this.buildRequest()
 
-      return {
-        request,
-        configuration: this.state.configuration,
-        generatorId: this.state.generatorId,
-        executionMode: this.state.executionMode,
-        priority: this.state.priority,
-        enableProgressTracking: this.state.enableProgressTracking,
-        enableDetailedLogging: this.state.enableDetailedLogging,
-        enableMetrics: this.state.enableMetrics,
-        enableAutoRecovery: this.state.enableAutoRecovery,
-        checkpointInterval: this.state.checkpointInterval,
-        customOptions: this.state.customOptions
-      }
-    }.bind(this))
+        return {
+          request,
+          configuration: this.state.configuration,
+          generatorId: this.state.generatorId,
+          executionMode: this.state.executionMode,
+          priority: this.state.priority,
+          enableProgressTracking: this.state.enableProgressTracking,
+          enableDetailedLogging: this.state.enableDetailedLogging,
+          enableMetrics: this.state.enableMetrics,
+          enableAutoRecovery: this.state.enableAutoRecovery,
+          checkpointInterval: this.state.checkpointInterval,
+          customOptions: this.state.customOptions,
+        }
+      }.bind(this)
+    )
   }
 
   buildRequest(): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> {
@@ -639,7 +664,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       coordinates: this.state.coordinates ?? [],
       priority: this.state.priority ?? 5,
       options: this.state.options,
-      metadata: this.state.metadata
+      metadata: this.state.metadata,
     })
   }
 
@@ -665,18 +690,18 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
         baseDelayMs: 1000,
-        maxDelayMs: 10000
+        maxDelayMs: 10000,
       },
       timeoutPolicy: {
         chunkTimeoutMs: 30000,
         sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000
+        gracefulShutdownMs: 5000,
       },
       priorityPolicy: {
         enablePriorityQueuing: false,
         priorityThreshold: 5,
-        highPriorityWeight: 2.0
-      }
+        highPriorityWeight: 2.0,
+      },
     }
   }
 
@@ -686,30 +711,21 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
       includeCaves: true,
       includeOres: true,
       generateVegetation: true,
-      applyPostProcessing: true
+      applyPostProcessing: true,
     }
   }
 
   // テンプレート適用メソッド
   private applySingleChunkTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('sync')
-      .withMaxConcurrentChunks(1)
-      .withBatchSize(1)
-      .enableProgressTracking(false)
+    return this.withExecutionMode('sync').withMaxConcurrentChunks(1).withBatchSize(1).enableProgressTracking(false)
   }
 
   private applyAreaGenerationTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('async')
-      .withMaxConcurrentChunks(4)
-      .withBatchSize(16)
-      .enableProgressTracking(true)
+    return this.withExecutionMode('async').withMaxConcurrentChunks(4).withBatchSize(16).enableProgressTracking(true)
   }
 
   private applyWorldExplorationTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('streaming')
+    return this.withExecutionMode('streaming')
       .withMaxConcurrentChunks(8)
       .withBatchSize(4)
       .enableStructures(true)
@@ -720,8 +736,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   }
 
   private applyStructurePlacementTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('async')
+    return this.withExecutionMode('async')
       .withMaxConcurrentChunks(2)
       .withBatchSize(8)
       .enableStructures(true)
@@ -731,8 +746,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   }
 
   private applyTerrainModificationTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('sync')
+    return this.withExecutionMode('sync')
       .withMaxConcurrentChunks(1)
       .withBatchSize(1)
       .enableStructures(false)
@@ -742,16 +756,11 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
   }
 
   private applyBulkGenerationTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('async')
-      .withMaxConcurrentChunks(16)
-      .withBatchSize(32)
-      .optimizeForSpeed()
+    return this.withExecutionMode('async').withMaxConcurrentChunks(16).withBatchSize(32).optimizeForSpeed()
   }
 
   private applyStreamingGenerationTemplate(): GenerationSessionBuilder {
-    return this
-      .withExecutionMode('streaming')
+    return this.withExecutionMode('streaming')
       .withMaxConcurrentChunks(2)
       .withBatchSize(1)
       .enableProgressTracking(true)
@@ -772,12 +781,7 @@ function generateAreaCoordinates(center: Coordinates.ChunkCoordinate, radius: nu
   for (let x = -radius; x <= radius; x++) {
     for (let z = -radius; z <= radius; z++) {
       if (x * x + z * z <= radius * radius) {
-        coordinates.push(
-          Coordinates.createChunkCoordinate(
-            center.x + x,
-            center.z + z
-          )
-        )
+        coordinates.push(Coordinates.createChunkCoordinate(center.x + x, center.z + z))
       }
     }
   }
@@ -821,31 +825,22 @@ function calculateEstimatedDuration(state: SessionBuilderState): Duration.Durati
 // Factory Functions
 // ================================
 
-export const createSessionBuilder = (): GenerationSessionBuilder =>
-  new GenerationSessionBuilderImpl()
+export const createSessionBuilder = (): GenerationSessionBuilder => new GenerationSessionBuilderImpl()
 
 export const createSessionBuilderForCoordinates = (
   coordinates: readonly Coordinates.ChunkCoordinate[]
-): GenerationSessionBuilder =>
-  new GenerationSessionBuilderImpl().forCoordinates(coordinates)
+): GenerationSessionBuilder => new GenerationSessionBuilderImpl().forCoordinates(coordinates)
 
 export const createSessionBuilderForArea = (
   center: Coordinates.ChunkCoordinate,
   radius: number
-): GenerationSessionBuilder =>
-  new GenerationSessionBuilderImpl().addArea(center, radius)
+): GenerationSessionBuilder => new GenerationSessionBuilderImpl().addArea(center, radius)
 
-export const createSessionBuilderFromTemplate = (
-  template: SessionTemplateType
-): GenerationSessionBuilder =>
+export const createSessionBuilderFromTemplate = (template: SessionTemplateType): GenerationSessionBuilder =>
   new GenerationSessionBuilderImpl().applyTemplate(template)
 
 // ================================
 // Exports
 // ================================
 
-export {
-  type GenerationSessionBuilder,
-  type SessionBuilderState,
-  type SessionValidationState,
-}
+export { type GenerationSessionBuilder, type SessionBuilderState, type SessionValidationState }

@@ -41,68 +41,60 @@ export * from './layers.js'
 
 // 集約ルート
 export type {
-  // Inventory Aggregate
-  InventoryAggregate,
-  InventoryId,
-  InventoryDomainEvent,
-  InventoryBusinessRule,
-
   // Container Aggregate
   ContainerAggregate,
+  ContainerDomainEvent,
   ContainerId,
   ContainerType,
-  ContainerDomainEvent,
-
+  // Inventory Aggregate
+  InventoryAggregate,
+  InventoryBusinessRule,
+  InventoryDomainEvent,
+  InventoryId,
+  ItemStackDomainEvent,
   // ItemStack Entity
   ItemStackEntity,
   ItemStackId,
-  ItemStackDomainEvent,
 } from './aggregate/index.js'
 
 // 値オブジェクト
 export type {
+  InventoryType,
   // Core Value Objects
   ItemId,
+  ItemMetadata,
+  Slot,
   SlotPosition,
   StackSize,
-  ItemMetadata,
-  InventoryType,
-  Slot,
 } from './value_object/index.js'
 
 // ドメインサービス
 export {
-  // Item Registry
-  ItemRegistryService,
-  ItemRegistryServiceLive,
-
-  // Transfer Service
-  TransferService,
-  TransferServiceLive,
-
-  // Stacking Service
-  StackingService,
-  StackingServiceLive,
-
-  // Validation Service
-  ValidationService,
-  ValidationServiceLive,
-
   // Crafting Integration
   CraftingIntegrationService,
   CraftingIntegrationServiceLive,
+  // Item Registry
+  ItemRegistryService,
+  ItemRegistryServiceLive,
+  // Stacking Service
+  StackingService,
+  StackingServiceLive,
+  // Transfer Service
+  TransferService,
+  TransferServiceLive,
+  // Validation Service
+  ValidationService,
+  ValidationServiceLive,
 } from './domain_service/index.js'
 
 // アプリケーションサービス
 export {
-  // Inventory Manager
-  InventoryManagerService,
-  InventoryManagerServiceLive,
-
   // Container Manager
   ContainerManagerService,
   ContainerManagerServiceLive,
-
+  // Inventory Manager
+  InventoryManagerService,
+  InventoryManagerServiceLive,
   // Transaction Manager
   TransactionManagerService,
   TransactionManagerServiceLive,
@@ -110,43 +102,40 @@ export {
 
 // ファクトリー
 export {
+  ContainerFactory,
+  ContainerFactoryLive,
   // Aggregate Factories
   InventoryFactory,
   InventoryFactoryLive,
-  ContainerFactory,
-  ContainerFactoryLive,
-  ItemStackFactory,
-  ItemStackFactoryLive,
-
   // Utility Factories
   ItemFactory,
   ItemFactoryLive,
+  ItemStackFactory,
+  ItemStackFactoryLive,
 } from './factory/index.js'
 
 // リポジトリ
 export {
+  ContainerRepository,
+  ContainerRepositoryMemory,
+  ContainerRepositoryPersistent,
   // Repository Interfaces
   InventoryRepository,
-  ContainerRepository,
-  ItemDefinitionRepository,
-
+  // Repository Layers
+  InventoryRepositoryLayer,
   // Repository Implementations
   InventoryRepositoryMemory,
   InventoryRepositoryPersistent,
-  ContainerRepositoryMemory,
-  ContainerRepositoryPersistent,
-  ItemDefinitionRepositoryMemory,
+  ItemDefinitionRepository,
   ItemDefinitionRepositoryJsonFile,
-
-  // Repository Layers
-  InventoryRepositoryLayer,
+  ItemDefinitionRepositoryMemory,
 } from './repository/index.js'
 
 // ドメインエラー
 export {
+  ContainerError,
   // Core Domain Errors
   InventoryAggregateError,
-  ContainerError,
   ItemStackError,
 
   // Repository Errors
@@ -155,8 +144,8 @@ export {
 
 // ドメイン定数
 export {
+  CONTAINER_CONSTANTS,
   // Business Constants
   INVENTORY_CONSTANTS,
-  CONTAINER_CONSTANTS,
   ITEM_STACK_CONSTANTS,
 } from './types/index.js'

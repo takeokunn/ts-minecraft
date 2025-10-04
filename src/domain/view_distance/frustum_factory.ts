@@ -1,15 +1,10 @@
 import { Effect } from 'effect'
-import {
-  ViewControlConfig,
-  ViewDistance,
-  ViewDistanceError,
-  ViewControlContext,
-} from './types.js'
+import { createCullingStrategy, CullingStrategy } from './culling.js'
 import { createViewFrustum, ViewFrustum } from './frustum.js'
 import { createLODSelector, LODSelectionContext, LODSelector } from './lod.js'
-import { createCullingStrategy, CullingStrategy } from './culling.js'
-import { createViewSettingsRepository, ViewSettingsRepository } from './view_settings_repository.js'
 import type { CameraState, ManagedObject } from './types.js'
+import { ViewControlConfig, ViewControlContext, ViewDistance, ViewDistanceError } from './types.js'
+import { createViewSettingsRepository, ViewSettingsRepository } from './view_settings_repository.js'
 
 export interface ViewDistanceToolkit {
   readonly computeFrustum: (
@@ -33,8 +28,7 @@ export const createViewDistanceToolkit = (
     const lodSelector = createLODSelector()
     const cullingStrategy = createCullingStrategy()
 
-    const computeFrustum = (camera: CameraState, viewDistance: ViewDistance) =>
-      createViewFrustum(camera, viewDistance)
+    const computeFrustum = (camera: CameraState, viewDistance: ViewDistance) => createViewFrustum(camera, viewDistance)
 
     return {
       computeFrustum,

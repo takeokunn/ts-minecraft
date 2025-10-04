@@ -1,9 +1,5 @@
 import { Context, Effect, Layer } from 'effect'
-import type { ChunkLifecycleProvider } from '../types/interfaces'
-import {
-  AutoManagementConfig,
-  ChunkLifecycleProvider as ChunkLifecycleProviderTag,
-} from '../types/interfaces'
+import { makeChunkPool } from '../aggregate/chunk_pool'
 import {
   ChunkManagerConfig,
   DefaultChunkManagerConfig,
@@ -11,7 +7,8 @@ import {
   makeMaxActiveChunks,
   makeResourceUsagePercent,
 } from '../types/core'
-import { makeChunkPool } from '../aggregate/chunk_pool'
+import type { ChunkLifecycleProvider } from '../types/interfaces'
+import { AutoManagementConfig, ChunkLifecycleProvider as ChunkLifecycleProviderTag } from '../types/interfaces'
 
 const fallbackAutoConfig: AutoManagementConfig = {
   enabled: true,
@@ -22,10 +19,12 @@ const fallbackAutoConfig: AutoManagementConfig = {
   performanceThreshold: makeResourceUsagePercent(0.85),
 }
 
-export const createChunkLifecycleProvider = (params: {
-  readonly coreConfig?: ChunkManagerConfig
-  readonly autoConfig?: AutoManagementConfig
-} = {}): Effect.Effect<ChunkLifecycleProvider> =>
+export const createChunkLifecycleProvider = (
+  params: {
+    readonly coreConfig?: ChunkManagerConfig
+    readonly autoConfig?: AutoManagementConfig
+  } = {}
+): Effect.Effect<ChunkLifecycleProvider> =>
   Effect.map(
     makeChunkPool({
       coreConfig: params.coreConfig ?? DefaultChunkManagerConfig,
@@ -41,9 +40,6 @@ export const createChunkLifecycleProvider = (params: {
     })
   )
 
-export const ChunkLifecycleProviderLive = Layer.effect(
-  ChunkLifecycleProviderTag,
-  createChunkLifecycleProvider()
-)
+export const ChunkLifecycleProviderLive = Layer.effect(ChunkLifecycleProviderTag, createChunkLifecycleProvider())
 
 export const getChunkLifecycleProvider = () => Context.get(ChunkLifecycleProviderTag)

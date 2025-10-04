@@ -5,5 +5,5 @@
  * ピュアな状態遷移でレンダラー状態を管理する。
  */
 
-export * from './RendererService'
-export * from './RendererServiceLive'
+export * from './renderer-service'
+export * from './renderer-service-live'

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema, Either, pipe } from 'effect'
+import { Context, Effect, Either, Layer, pipe, Schema } from 'effect'
 import { PlayerErrorBuilders } from './errors'
 import { PlayerTimestamp, TimestampSchema } from './types'
 

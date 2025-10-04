@@ -138,7 +138,10 @@ export const changeSelectedHotbarSlot = (
   })
 
 export const getItemCount = (aggregate: InventoryAggregate, itemId: ItemId): number =>
-  aggregate.slots.reduce((total, slot) => (slot?.itemStack?.itemId === itemId ? total + slot.itemStack.count : total), 0)
+  aggregate.slots.reduce(
+    (total, slot) => (slot?.itemStack?.itemId === itemId ? total + slot.itemStack.count : total),
+    0
+  )
 
 export const removeAllItems = (
   aggregate: InventoryAggregate,

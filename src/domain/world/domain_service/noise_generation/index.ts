@@ -6,24 +6,15 @@
  */
 
 // Core Noise Algorithms
+export * from './fractal_noise_service.js'
 export * from './perlin_noise_service.js'
 export * from './simplex_noise_service.js'
-export * from './fractal_noise_service.js'
 
 // Unified Noise Generation Layer
 import { Layer } from 'effect'
-import {
-  PerlinNoiseServiceLive,
-  PerlinNoiseService
-} from './perlin_noise_service.js'
-import {
-  SimplexNoiseServiceLive,
-  SimplexNoiseService
-} from './simplex_noise_service.js'
-import {
-  FractalNoiseServiceLive,
-  FractalNoiseService
-} from './fractal_noise_service.js'
+import { FractalNoiseService, FractalNoiseServiceLive } from './fractal_noise_service.js'
+import { PerlinNoiseService, PerlinNoiseServiceLive } from './perlin_noise_service.js'
+import { SimplexNoiseService, SimplexNoiseServiceLive } from './simplex_noise_service.js'
 
 /**
  * ノイズ生成統合レイヤー
@@ -65,7 +56,7 @@ export const NoiseFactory = {
     enableAntiAliasing: true,
     enableOctaveWeighting: true,
     enableSpectralControl: false,
-    enableClamping: true
+    enableClamping: true,
   }),
 
   /**
@@ -85,7 +76,7 @@ export const NoiseFactory = {
     warpStrength: 0.15,
     ridgeOffset: 1.0,
     enableAntiAliasing: true,
-    enableClamping: true
+    enableClamping: true,
   }),
 
   /**
@@ -103,7 +94,7 @@ export const NoiseFactory = {
     baseNoiseType: 'simplex' as const,
     enableDomainWarping: false,
     enableAntiAliasing: true,
-    enableClamping: true
+    enableClamping: true,
   }),
 
   /**
@@ -122,7 +113,7 @@ export const NoiseFactory = {
     enableDomainWarping: false,
     enableAntiAliasing: true,
     enableSpectralControl: true,
-    enableClamping: true
+    enableClamping: true,
   }),
 
   /**
@@ -137,6 +128,6 @@ export const NoiseFactory = {
     seed: 24680n,
     gradientMode: 'improved' as const,
     interpolation: 'quintic' as const,
-    enableVectorization: true
-  })
+    enableVectorization: true,
+  }),
 } as const

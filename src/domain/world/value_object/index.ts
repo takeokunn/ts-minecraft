@@ -7,400 +7,369 @@
 
 // ワールドシード管理
 export {
-  // 型エクスポート
-  type WorldSeed,
-  type SeedEntropy,
-  type SeedQuality,
-  type SeedGenerationParams,
-  type SeedValidationResult,
-  type SeedConversionParams,
-  type SeedError,
-
-  // スキーマエクスポート
-  WorldSeedSchema,
-  SeedEntropySchema,
-  SeedQualitySchema,
-  SeedGenerationParamsSchema,
-  SeedValidationResultSchema,
+  SEED_QUALITY_PRESETS,
   SeedConversionParamsSchema,
+  SeedEntropySchema,
   SeedErrorSchema,
-
+  SeedGenerationParamsSchema,
+  SeedQualitySchema,
+  SeedValidationResultSchema,
   // 定数・プリセット
   WORLD_SEED_CONSTANTS,
-  SEED_QUALITY_PRESETS,
-
   // 操作関数（型安全な関数形式）
-  WorldSeedOperations
+  WorldSeedOperations,
+  // スキーマエクスポート
+  WorldSeedSchema,
+  type SeedConversionParams,
+  type SeedEntropy,
+  type SeedError,
+  type SeedGenerationParams,
+  type SeedQuality,
+  type SeedValidationResult,
+  // 型エクスポート
+  type WorldSeed,
 } from './world_seed/index.js'
 
 // 3D座標系管理
 export {
-  // 座標型エクスポート
-  type WorldX,
-  type WorldY,
-  type WorldZ,
-  type ChunkX,
-  type ChunkY,
-  type ChunkZ,
-  type BlockX,
-  type BlockY,
-  type BlockZ,
-  type WorldCoordinate,
-  type ChunkCoordinate,
-  type BlockCoordinate,
-  type CoordinateError,
-
+  BLOCK_COORDINATE_LIMITS,
+  BlockCoordinateSchema,
+  BlockXSchema,
+  BlockYSchema,
+  BlockZSchema,
+  CHUNK_COORDINATE_LIMITS,
+  ChunkCoordinateSchema,
+  ChunkXSchema,
+  ChunkYSchema,
+  ChunkZSchema,
+  CoordinateErrorSchema,
+  // 変換操作
+  CoordinateTransforms,
+  // 定数・制限値
+  WORLD_COORDINATE_LIMITS,
+  WorldCoordinateSchema,
   // スキーマエクスポート
   WorldXSchema,
   WorldYSchema,
   WorldZSchema,
-  ChunkXSchema,
-  ChunkYSchema,
-  ChunkZSchema,
-  BlockXSchema,
-  BlockYSchema,
-  BlockZSchema,
-  WorldCoordinateSchema,
-  ChunkCoordinateSchema,
-  BlockCoordinateSchema,
-  CoordinateErrorSchema,
-
-  // 定数・制限値
-  WORLD_COORDINATE_LIMITS,
-  CHUNK_COORDINATE_LIMITS,
-  BLOCK_COORDINATE_LIMITS,
-
-  // 変換操作
-  CoordinateTransforms
+  type BlockCoordinate,
+  type BlockX,
+  type BlockY,
+  type BlockZ,
+  type ChunkCoordinate,
+  type ChunkX,
+  type ChunkY,
+  type ChunkZ,
+  type CoordinateError,
+  type WorldCoordinate,
+  // 座標型エクスポート
+  type WorldX,
+  type WorldY,
+  type WorldZ,
 } from './coordinates/index.js'
 
 // 世界生成パラメータ
 export {
+  // 定数・プリセット
+  BIOME_DEFAULTS,
+  BiomeConfigErrorSchema,
+  BiomeConfigurationSchema,
+  BiomeElevationSchema,
+  BiomeHumiditySchema,
+  // スキーマエクスポート
+  BiomeTemperatureSchema,
+  BorderConfigErrorSchema,
+  BorderConfigurationSchema,
+  CreateBiomeConfigParamsSchema,
+  CreateBorderConfigParamsSchema,
+  CreateOreConfigParamsSchema,
+  CreateStructureConfigParamsSchema,
+  // ファクトリ関数
+  GenerationParametersFactory,
+  MINECRAFT_WORLD_PRESETS,
+  ORE_GENERATION_PRESETS,
+  OreAbundanceSchema,
+  OreConfigErrorSchema,
+  OreConfigurationSchema,
+  OreDepthSchema,
+  PrecipitationTypeSchema,
+  STRUCTURE_DEFAULTS,
+  StructureConfigErrorSchema,
+  StructureConfigurationSchema,
+  StructureDensitySchema,
+  StructureSizeSchema,
+  StructureSpacingSchema,
+  VeinSizeSchema,
+  WORLD_BORDER_PRESETS,
+  WorldBorderRadiusSchema,
+  type BiomeConfigError,
+  type BiomeConfiguration,
+  type BiomeElevation,
+  type BiomeHumidity,
   // バイオーム設定
   type BiomeTemperature,
-  type BiomeHumidity,
-  type BiomeElevation,
-  type PrecipitationType,
-  type BiomeConfiguration,
+  type BorderConfigError,
+  type BorderConfiguration,
   type CreateBiomeConfigParams,
-  type BiomeConfigError,
-
+  type CreateBorderConfigParams,
+  type CreateOreConfigParams,
+  type CreateStructureConfigParams,
+  // 鉱石生成設定
+  type OreAbundance,
+  type OreConfigError,
+  type OreConfiguration,
+  type OreDepth,
+  type PrecipitationType,
+  type StructureConfigError,
+  type StructureConfiguration,
   // 構造物生成設定
   type StructureDensity,
   type StructureSize,
   type StructureSpacing,
-  type StructureConfiguration,
-  type CreateStructureConfigParams,
-  type StructureConfigError,
-
-  // 鉱石生成設定
-  type OreAbundance,
   type VeinSize,
-  type OreDepth,
-  type OreConfiguration,
-  type CreateOreConfigParams,
-  type OreConfigError,
-
   // ワールド境界設定
   type WorldBorderRadius,
-  type BorderConfiguration,
-  type CreateBorderConfigParams,
-  type BorderConfigError,
-
-  // スキーマエクスポート
-  BiomeTemperatureSchema,
-  BiomeHumiditySchema,
-  BiomeElevationSchema,
-  PrecipitationTypeSchema,
-  BiomeConfigurationSchema,
-  CreateBiomeConfigParamsSchema,
-  BiomeConfigErrorSchema,
-  StructureDensitySchema,
-  StructureSizeSchema,
-  StructureSpacingSchema,
-  StructureConfigurationSchema,
-  CreateStructureConfigParamsSchema,
-  StructureConfigErrorSchema,
-  OreAbundanceSchema,
-  VeinSizeSchema,
-  OreDepthSchema,
-  OreConfigurationSchema,
-  CreateOreConfigParamsSchema,
-  OreConfigErrorSchema,
-  WorldBorderRadiusSchema,
-  BorderConfigurationSchema,
-  CreateBorderConfigParamsSchema,
-  BorderConfigErrorSchema,
-
-  // 定数・プリセット
-  BIOME_DEFAULTS,
-  STRUCTURE_DEFAULTS,
-  ORE_GENERATION_PRESETS,
-  WORLD_BORDER_PRESETS,
-  MINECRAFT_WORLD_PRESETS,
-
-  // ファクトリ関数
-  GenerationParametersFactory
 } from './generation_parameters/index.js'
 
 // ノイズ設定
 export {
-  // ノイズ基本設定
-  type Frequency,
-  type Amplitude,
-  type Lacunarity,
-  type Persistence,
-  type Octaves,
-  type Scale,
-  type NoiseType,
-  type Interpolation,
-  type NoiseDimension,
-  type NoiseQuality,
-  type BasicNoiseSettings,
-  type AdvancedNoiseSettings,
-  type CreateNoiseSettingsParams,
-  type NoiseSettingsError,
-
-  // オクターブ設定
-  type OctaveIndex,
-  type Weight,
-  type Phase,
-  type OctaveType,
-  type IndividualOctaveConfig,
-  type CompleteOctaveConfig,
-  type OctaveCombination,
-  type CreateOctaveConfigParams,
-  type OctaveConfigError,
-
-  // 周波数帯域設定
-  type FrequencyValue,
-  type Bandwidth,
-  type Gain,
-  type QFactor,
-  type FilterType,
-  type FrequencyBandClass,
-  type IndividualFrequencyBand,
-  type FrequencyBandCollection,
-  type CreateFrequencyBandsParams,
-  type FrequencyBandsError,
-
-  // 振幅カーブ設定
-  type NormalizedTime,
-  type ControlPointValue,
-  type CurveTension,
-  type SmoothingStrength,
-  type CurveType,
-  type ControlPoint,
-  type CurveSegment,
-  type AmplitudeCurve,
-  type CreateAmplitudeCurveParams,
-  type AmplitudeCurveError,
-
-  // スキーマエクスポート
-  FrequencySchema,
-  AmplitudeSchema,
-  LacunaritySchema,
-  PersistenceSchema,
-  OctavesSchema,
-  ScaleSchema,
-  NoiseTypeSchema,
-  InterpolationSchema,
-  NoiseDimensionSchema,
-  NoiseQualitySchema,
-  BasicNoiseSettingsSchema,
+  AMPLITUDE_CURVE_PRESETS,
   AdvancedNoiseSettingsSchema,
-  CreateNoiseSettingsParamsSchema,
-  NoiseSettingsErrorSchema,
-
-  OctaveIndexSchema,
-  WeightSchema,
-  PhaseSchema,
-  OctaveTypeSchema,
-  IndividualOctaveConfigSchema,
-  CompleteOctaveConfigSchema,
-  OctaveCombinationSchema,
-  CreateOctaveConfigParamsSchema,
-  OctaveConfigErrorSchema,
-
-  FrequencyValueSchema,
+  AmplitudeCurveErrorSchema,
+  AmplitudeCurveSchema,
+  AmplitudeSchema,
   BandwidthSchema,
-  GainSchema,
-  QFactorSchema,
+  BasicNoiseSettingsSchema,
+  CompleteOctaveConfigSchema,
+  ControlPointSchema,
+  ControlPointValueSchema,
+  CreateAmplitudeCurveParamsSchema,
+  CreateFrequencyBandsParamsSchema,
+  CreateNoiseSettingsParamsSchema,
+  CreateOctaveConfigParamsSchema,
+  CurveSegmentSchema,
+  CurveTensionSchema,
+  CurveTypeSchema,
+  FREQUENCY_BAND_PRESETS,
   FilterTypeSchema,
   FrequencyBandClassSchema,
-  IndividualFrequencyBandSchema,
   FrequencyBandCollectionSchema,
-  CreateFrequencyBandsParamsSchema,
   FrequencyBandsErrorSchema,
-
-  NormalizedTimeSchema,
-  ControlPointValueSchema,
-  CurveTensionSchema,
-  SmoothingStrengthSchema,
-  CurveTypeSchema,
-  ControlPointSchema,
-  CurveSegmentSchema,
-  AmplitudeCurveSchema,
-  CreateAmplitudeCurveParamsSchema,
-  AmplitudeCurveErrorSchema,
-
+  // スキーマエクスポート
+  FrequencySchema,
+  FrequencyValueSchema,
+  GainSchema,
+  IndividualFrequencyBandSchema,
+  IndividualOctaveConfigSchema,
+  InterpolationSchema,
+  LacunaritySchema,
   // 定数・プリセット
   NOISE_PRESETS,
-  OCTAVE_PRESETS,
-  OCTAVE_OPTIMIZATION_HINTS,
-  FREQUENCY_BAND_PRESETS,
-  TERRAIN_FREQUENCY_MAPPING,
-  AMPLITUDE_CURVE_PRESETS,
-  TERRAIN_AMPLITUDE_MAPPING,
-
+  NoiseConfigurationConstants,
   // ファクトリ・検証・型ガード
   NoiseConfigurationFactory,
-  NoiseConfigurationConstants,
+  NoiseConfigurationTypeGuards,
   NoiseConfigurationValidation,
-  NoiseConfigurationTypeGuards
+  NoiseDimensionSchema,
+  NoiseQualitySchema,
+  NoiseSettingsErrorSchema,
+  NoiseTypeSchema,
+  NormalizedTimeSchema,
+  OCTAVE_OPTIMIZATION_HINTS,
+  OCTAVE_PRESETS,
+  OctaveCombinationSchema,
+  OctaveConfigErrorSchema,
+  OctaveIndexSchema,
+  OctaveTypeSchema,
+  OctavesSchema,
+  PersistenceSchema,
+  PhaseSchema,
+  QFactorSchema,
+  ScaleSchema,
+  SmoothingStrengthSchema,
+  TERRAIN_AMPLITUDE_MAPPING,
+  TERRAIN_FREQUENCY_MAPPING,
+  WeightSchema,
+  type AdvancedNoiseSettings,
+  type Amplitude,
+  type AmplitudeCurve,
+  type AmplitudeCurveError,
+  type Bandwidth,
+  type BasicNoiseSettings,
+  type CompleteOctaveConfig,
+  type ControlPoint,
+  type ControlPointValue,
+  type CreateAmplitudeCurveParams,
+  type CreateFrequencyBandsParams,
+  type CreateNoiseSettingsParams,
+  type CreateOctaveConfigParams,
+  type CurveSegment,
+  type CurveTension,
+  type CurveType,
+  type FilterType,
+  // ノイズ基本設定
+  type Frequency,
+  type FrequencyBandClass,
+  type FrequencyBandCollection,
+  type FrequencyBandsError,
+  // 周波数帯域設定
+  type FrequencyValue,
+  type Gain,
+  type IndividualFrequencyBand,
+  type IndividualOctaveConfig,
+  type Interpolation,
+  type Lacunarity,
+  type NoiseDimension,
+  type NoiseQuality,
+  type NoiseSettingsError,
+  type NoiseType,
+  // 振幅カーブ設定
+  type NormalizedTime,
+  type OctaveCombination,
+  type OctaveConfigError,
+  // オクターブ設定
+  type OctaveIndex,
+  type OctaveType,
+  type Octaves,
+  type Persistence,
+  type Phase,
+  type QFactor,
+  type Scale,
+  type SmoothingStrength,
+  type Weight,
 } from './noise_configuration/index.js'
 
 // バイオーム特性
 export {
-  // 温度範囲設定
-  type TemperatureCelsius,
-  type TemperatureDelta,
-  type HeatIndex,
-  type WindChillIndex,
-  type SeasonType,
-  type ClimateClassification,
-  type DiurnalTemperatureVariation,
-  type SeasonalTemperatureVariation,
-  type AltitudeTemperatureEffect,
-  type TemperatureRange,
-  type CreateTemperatureRangeParams,
-  type TemperatureRangeError,
-
-  // 湿度レベル設定
-  type RelativeHumidity,
-  type AbsoluteHumidity,
-  type DewPoint,
-  type VaporPressure,
-  type HumidityClassification,
-  type PrecipitationType as BiomePrecipitationType,
-  type AtmosphericHumidityStats,
-  type DiurnalHumidityPattern,
-  type SeasonalHumidityVariation,
-  type WaterVaporCharacteristics,
-  type HumidityLevels,
-  type CreateHumidityLevelsParams,
-  type HumidityLevelsError,
-
-  // 植生密度設定
-  type VegetationDensity,
-  type Biomass,
-  type CoverageRatio,
-  type SpeciesDiversityIndex,
-  type VegetationType,
-  type GrowthStage,
-  type DistributionPattern,
-  type VegetationLayer,
-  type VegetationInteraction,
-  type EnvironmentalResponse,
-  type VegetationDensityConfig,
-  type CreateVegetationDensityParams,
-  type VegetationDensityError,
-
-  // 土壌組成設定
-  type ParticleRatio,
-  type SoilPH,
-  type OrganicMatterContent,
-  type ElectricConductivity,
-  type SoilTexture,
-  type SoilDrainage,
-  type SoilStructure,
-  type ParticleSizeDistribution,
-  type SoilChemistry,
-  type OrganicMatterComposition,
-  type SoilPhysicalProperties,
-  type SoilComposition,
-  type CreateSoilCompositionParams,
-  type SoilCompositionError,
-
-  // 統合バイオーム特性
-  type BiomePropertiesBundle,
-  type EnvironmentalParameters,
-
+  AbsoluteHumiditySchema,
+  AltitudeTemperatureEffectSchema,
+  AtmosphericHumidityStatsSchema,
+  BIOME_HUMIDITY_MAPPING,
+  BIOME_SOIL_MAPPING,
+  BIOME_TEMPERATURE_MAPPING,
+  BIOME_VEGETATION_MAPPING,
+  BiomassSchema,
+  BiomePropertiesConstants,
+  // ファクトリ・検証・型ガード
+  BiomePropertiesFactory,
+  BiomePropertiesTypeGuards,
+  BiomePropertiesValidation,
+  // 定数・プリセット
+  CLIMATE_TEMPERATURE_PRESETS,
+  ClimateClassificationSchema,
+  CoverageRatioSchema,
+  CreateHumidityLevelsParamsSchema,
+  CreateSoilCompositionParamsSchema,
+  CreateTemperatureRangeParamsSchema,
+  CreateVegetationDensityParamsSchema,
+  DewPointSchema,
+  DistributionPatternSchema,
+  DiurnalHumidityPatternSchema,
+  DiurnalTemperatureVariationSchema,
+  ElectricConductivitySchema,
+  EnvironmentalResponseSchema,
+  GrowthStageSchema,
+  HUMIDITY_PRESETS,
+  HeatIndexSchema,
+  HumidityClassificationSchema,
+  HumidityLevelsErrorSchema,
+  HumidityLevelsSchema,
+  OrganicMatterCompositionSchema,
+  OrganicMatterContentSchema,
+  // スキーマエクスポート（土壌）
+  ParticleRatioSchema,
+  ParticleSizeDistributionSchema,
+  PrecipitationTypeSchema,
+  // スキーマエクスポート（湿度）
+  RelativeHumiditySchema,
+  SOIL_COMPOSITION_PRESETS,
+  SeasonTypeSchema,
+  SeasonalHumidityVariationSchema,
+  SeasonalTemperatureVariationSchema,
+  SoilChemistrySchema,
+  SoilCompositionErrorSchema,
+  SoilCompositionSchema,
+  SoilDrainageSchema,
+  SoilPHSchema,
+  SoilPhysicalPropertiesSchema,
+  SoilStructureSchema,
+  SoilTextureSchema,
+  SpeciesDiversityIndexSchema,
   // スキーマエクスポート（温度）
   TemperatureCelsiusSchema,
   TemperatureDeltaSchema,
-  HeatIndexSchema,
-  WindChillIndexSchema,
-  SeasonTypeSchema,
-  ClimateClassificationSchema,
-  DiurnalTemperatureVariationSchema,
-  SeasonalTemperatureVariationSchema,
-  AltitudeTemperatureEffectSchema,
-  TemperatureRangeSchema,
-  CreateTemperatureRangeParamsSchema,
   TemperatureRangeErrorSchema,
-
-  // スキーマエクスポート（湿度）
-  RelativeHumiditySchema,
-  AbsoluteHumiditySchema,
-  DewPointSchema,
+  TemperatureRangeSchema,
+  VEGETATION_DENSITY_PRESETS,
   VaporPressureSchema,
-  HumidityClassificationSchema,
-  PrecipitationTypeSchema,
-  AtmosphericHumidityStatsSchema,
-  DiurnalHumidityPatternSchema,
-  SeasonalHumidityVariationSchema,
-  WaterVaporCharacteristicsSchema,
-  HumidityLevelsSchema,
-  CreateHumidityLevelsParamsSchema,
-  HumidityLevelsErrorSchema,
-
+  VegetationDensityConfigSchema,
+  VegetationDensityErrorSchema,
   // スキーマエクスポート（植生）
   VegetationDensitySchema,
-  BiomassSchema,
-  CoverageRatioSchema,
-  SpeciesDiversityIndexSchema,
-  VegetationTypeSchema,
-  GrowthStageSchema,
-  DistributionPatternSchema,
-  VegetationLayerSchema,
   VegetationInteractionSchema,
-  EnvironmentalResponseSchema,
-  VegetationDensityConfigSchema,
-  CreateVegetationDensityParamsSchema,
-  VegetationDensityErrorSchema,
-
-  // スキーマエクスポート（土壌）
-  ParticleRatioSchema,
-  SoilPHSchema,
-  OrganicMatterContentSchema,
-  ElectricConductivitySchema,
-  SoilTextureSchema,
-  SoilDrainageSchema,
-  SoilStructureSchema,
-  ParticleSizeDistributionSchema,
-  SoilChemistrySchema,
-  OrganicMatterCompositionSchema,
-  SoilPhysicalPropertiesSchema,
-  SoilCompositionSchema,
-  CreateSoilCompositionParamsSchema,
-  SoilCompositionErrorSchema,
-
-  // 定数・プリセット
-  CLIMATE_TEMPERATURE_PRESETS,
-  BIOME_TEMPERATURE_MAPPING,
-  HUMIDITY_PRESETS,
-  BIOME_HUMIDITY_MAPPING,
-  VEGETATION_DENSITY_PRESETS,
-  BIOME_VEGETATION_MAPPING,
-  SOIL_COMPOSITION_PRESETS,
-  BIOME_SOIL_MAPPING,
-
-  // ファクトリ・検証・型ガード
-  BiomePropertiesFactory,
-  BiomePropertiesConstants,
-  BiomePropertiesValidation,
-  BiomePropertiesTypeGuards
+  VegetationLayerSchema,
+  VegetationTypeSchema,
+  WaterVaporCharacteristicsSchema,
+  WindChillIndexSchema,
+  type AbsoluteHumidity,
+  type AltitudeTemperatureEffect,
+  type AtmosphericHumidityStats,
+  type Biomass,
+  type PrecipitationType as BiomePrecipitationType,
+  // 統合バイオーム特性
+  type BiomePropertiesBundle,
+  type ClimateClassification,
+  type CoverageRatio,
+  type CreateHumidityLevelsParams,
+  type CreateSoilCompositionParams,
+  type CreateTemperatureRangeParams,
+  type CreateVegetationDensityParams,
+  type DewPoint,
+  type DistributionPattern,
+  type DiurnalHumidityPattern,
+  type DiurnalTemperatureVariation,
+  type ElectricConductivity,
+  type EnvironmentalParameters,
+  type EnvironmentalResponse,
+  type GrowthStage,
+  type HeatIndex,
+  type HumidityClassification,
+  type HumidityLevels,
+  type HumidityLevelsError,
+  type OrganicMatterComposition,
+  type OrganicMatterContent,
+  // 土壌組成設定
+  type ParticleRatio,
+  type ParticleSizeDistribution,
+  // 湿度レベル設定
+  type RelativeHumidity,
+  type SeasonType,
+  type SeasonalHumidityVariation,
+  type SeasonalTemperatureVariation,
+  type SoilChemistry,
+  type SoilComposition,
+  type SoilCompositionError,
+  type SoilDrainage,
+  type SoilPH,
+  type SoilPhysicalProperties,
+  type SoilStructure,
+  type SoilTexture,
+  type SpeciesDiversityIndex,
+  // 温度範囲設定
+  type TemperatureCelsius,
+  type TemperatureDelta,
+  type TemperatureRange,
+  type TemperatureRangeError,
+  type VaporPressure,
+  // 植生密度設定
+  type VegetationDensity,
+  type VegetationDensityConfig,
+  type VegetationDensityError,
+  type VegetationInteraction,
+  type VegetationLayer,
+  type VegetationType,
+  type WaterVaporCharacteristics,
+  type WindChillIndex,
 } from './biome_properties/index.js'
 
 /**
@@ -415,11 +384,11 @@ export const WorldValueObjectFactory = {
       seed: WorldSeedOperations.generateRandomSeed(),
       coordinates: {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
-        worldBorder: WORLD_COORDINATE_LIMITS
+        worldBorder: WORLD_COORDINATE_LIMITS,
       },
       generation: GenerationParametersFactory.createMinecraftDefault(),
       noise: NoiseConfigurationFactory.createTerrainNoise(),
-      biome: BiomePropertiesFactory.createTemperateForest()
+      biome: BiomePropertiesFactory.createTemperateForest(),
     }
   },
 
@@ -431,11 +400,11 @@ export const WorldValueObjectFactory = {
       seed: params.seed || WorldSeedOperations.generateRandomSeed(),
       coordinates: params.coordinates || {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
-        worldBorder: WORLD_COORDINATE_LIMITS
+        worldBorder: WORLD_COORDINATE_LIMITS,
       },
       generation: params.generation || GenerationParametersFactory.createMinecraftDefault(),
       noise: params.noise || NoiseConfigurationFactory.createTerrainNoise(),
-      biome: params.biome || BiomePropertiesFactory.createTemperateForest()
+      biome: params.biome || BiomePropertiesFactory.createTemperateForest(),
     }
   },
 
@@ -465,13 +434,13 @@ export const WorldValueObjectFactory = {
       seed: WorldSeedOperations.generateRandomSeed(),
       coordinates: {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
-        worldBorder: WORLD_COORDINATE_LIMITS
+        worldBorder: WORLD_COORDINATE_LIMITS,
       },
       generation: GenerationParametersFactory.createForClimate(climate),
       noise: NoiseConfigurationFactory.createTerrainNoise(),
-      biome: BiomePropertiesFactory.createFromClimate(climate)
+      biome: BiomePropertiesFactory.createFromClimate(climate),
     }
-  }
+  },
 } as const
 
 /**
@@ -504,7 +473,7 @@ export const WorldValueObjectConstants = {
     MAJOR: 1,
     MINOR: 0,
     PATCH: 0,
-    BUILD: '2024-001'
+    BUILD: '2024-001',
   },
 
   /**
@@ -515,7 +484,7 @@ export const WorldValueObjectConstants = {
     E: Math.E,
     GOLDEN_RATIO: (1 + Math.sqrt(5)) / 2,
     SQRT_2: Math.sqrt(2),
-    SQRT_3: Math.sqrt(3)
+    SQRT_3: Math.sqrt(3),
   },
 
   /**
@@ -525,7 +494,7 @@ export const WorldValueObjectConstants = {
     EARTH_RADIUS_KM: 6371,
     GRAVITY_MS2: 9.80665,
     STEFAN_BOLTZMANN: 5.670374419e-8,
-    AVOGADRO: 6.02214076e23
+    AVOGADRO: 6.02214076e23,
   },
 
   /**
@@ -537,8 +506,8 @@ export const WorldValueObjectConstants = {
     WORLD_HEIGHT_BLOCKS: 384,
     BEDROCK_LEVEL: -64,
     SEA_LEVEL: 63,
-    CLOUD_LEVEL: 192
-  }
+    CLOUD_LEVEL: 192,
+  },
 } as const
 
 /**
@@ -600,9 +569,9 @@ export const WorldValueObjectValidation = {
     return {
       level: complexity < 0.3 ? 'low' : complexity < 0.6 ? 'medium' : 'high',
       score: complexity,
-      recommendations: generatePerformanceRecommendations(complexity)
+      recommendations: generatePerformanceRecommendations(complexity),
     }
-  }
+  },
 } as const
 
 /**
@@ -629,13 +598,7 @@ export const WorldValueObjectTypeGuards = {
    * WorldCoordinateの型ガード
    */
   isWorldCoordinate: (value: unknown): value is WorldCoordinate => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'x' in value &&
-      'y' in value &&
-      'z' in value
-    )
+    return typeof value === 'object' && value !== null && 'x' in value && 'y' in value && 'z' in value
   },
 
   /**
@@ -651,7 +614,7 @@ export const WorldValueObjectTypeGuards = {
       'noise' in value &&
       'biome' in value
     )
-  }
+  },
 } as const
 
 /**
@@ -663,11 +626,11 @@ function createFlatWorld(): any {
     seed: WorldSeedOperations.fromString('flat_world'),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 4, 0),
-      worldBorder: WORLD_COORDINATE_LIMITS
+      worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createFlat(),
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: 0.1 as Amplitude },
-    biome: BiomePropertiesFactory.createTemperateForest()
+    biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }
 
@@ -676,11 +639,11 @@ function createAmplifiedWorld(): any {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 128, 0),
-      worldBorder: WORLD_COORDINATE_LIMITS
+      worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createAmplified(),
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: 500 as Amplitude },
-    biome: BiomePropertiesFactory.createTemperateForest()
+    biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }
 
@@ -689,11 +652,11 @@ function createLargeBiomesWorld(): any {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
-      worldBorder: WORLD_COORDINATE_LIMITS
+      worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createLargeBiomes(),
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), scale: 4.0 as Scale },
-    biome: BiomePropertiesFactory.createTemperateForest()
+    biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }
 
@@ -702,11 +665,11 @@ function createIslandWorld(): any {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
-      worldBorder: { ...WORLD_COORDINATE_LIMITS, MAX_X: 10000, MAX_Z: 10000, MIN_X: -10000, MIN_Z: -10000 }
+      worldBorder: { ...WORLD_COORDINATE_LIMITS, MAX_X: 10000, MAX_Z: 10000, MIN_X: -10000, MIN_Z: -10000 },
     },
     generation: GenerationParametersFactory.createIsland(),
     noise: NoiseConfigurationFactory.createTerrainNoise(),
-    biome: BiomePropertiesFactory.createTropicalRainforest()
+    biome: BiomePropertiesFactory.createTropicalRainforest(),
   }
 }
 

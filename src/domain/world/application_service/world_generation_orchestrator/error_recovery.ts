@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref, STM } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
 
 /**
  * Error Recovery Service
@@ -14,7 +14,7 @@ export const RecoveryStrategy = Schema.Union(
   Schema.Literal('fallback'), // フォールバック実行
   Schema.Literal('skip'), // スキップして続行
   Schema.Literal('abort'), // 処理中断
-  Schema.Literal('checkpoint_restore'), // チェックポイント復元
+  Schema.Literal('checkpoint_restore') // チェックポイント復元
 )
 
 export const RecoveryAction = Schema.Struct({
@@ -33,7 +33,7 @@ export const ErrorClassification = Schema.Union(
   Schema.Literal('resource'), // リソース不足エラー
   Schema.Literal('validation'), // 検証エラー
   Schema.Literal('timeout'), // タイムアウトエラー
-  Schema.Literal('unknown'), // 未分類エラー
+  Schema.Literal('unknown') // 未分類エラー
 )
 
 export const ErrorContext = Schema.Struct({
@@ -44,22 +44,20 @@ export const ErrorContext = Schema.Struct({
     Schema.Literal('low'),
     Schema.Literal('medium'),
     Schema.Literal('high'),
-    Schema.Literal('critical'),
+    Schema.Literal('critical')
   ),
   stage: Schema.String,
   timestamp: Schema.Number,
   retryCount: Schema.Number.pipe(Schema.nonNegativeInteger()),
-  previousAttempts: Schema.Array(Schema.Struct({
-    attempt: Schema.Number,
-    strategy: RecoveryStrategy,
-    result: Schema.Union(
-      Schema.Literal('success'),
-      Schema.Literal('failure'),
-      Schema.Literal('partial'),
-    ),
-    duration: Schema.Number,
-    errorMessage: Schema.optional(Schema.String),
-  })),
+  previousAttempts: Schema.Array(
+    Schema.Struct({
+      attempt: Schema.Number,
+      strategy: RecoveryStrategy,
+      result: Schema.Union(Schema.Literal('success'), Schema.Literal('failure'), Schema.Literal('partial')),
+      duration: Schema.Number,
+      errorMessage: Schema.optional(Schema.String),
+    })
+  ),
   metadata: Schema.Record(Schema.String, Schema.Unknown),
 })
 
@@ -83,7 +81,7 @@ export const RecoveryConfiguration = Schema.Struct({
       Schema.Literal('low'),
       Schema.Literal('medium'),
       Schema.Literal('high'),
-      Schema.Literal('critical'),
+      Schema.Literal('critical')
     ),
     channels: Schema.Array(Schema.String),
   }),
@@ -94,7 +92,7 @@ export const RecoveryConfiguration = Schema.Struct({
 export const CircuitBreakerState = Schema.Union(
   Schema.Literal('closed'), // 正常状態
   Schema.Literal('open'), // 遮断状態
-  Schema.Literal('half_open'), // 半開状態
+  Schema.Literal('half_open') // 半開状態
 )
 
 export const CircuitBreaker = Schema.Struct({
@@ -119,8 +117,7 @@ export const ErrorRecoveryServiceError = Schema.TaggedError<ErrorRecoveryService
   }
 )
 
-export interface ErrorRecoveryServiceErrorType
-  extends Schema.Schema.Type<typeof ErrorRecoveryServiceError> {}
+export interface ErrorRecoveryServiceErrorType extends Schema.Schema.Type<typeof ErrorRecoveryServiceError> {}
 
 // === Service Interface ===
 
@@ -160,9 +157,7 @@ export interface ErrorRecoveryService {
   /**
    * チェックポイントから復元します
    */
-  readonly restoreFromCheckpoint: (
-    id: string
-  ) => Effect.Effect<Record<string, any>, ErrorRecoveryServiceErrorType>
+  readonly restoreFromCheckpoint: (id: string) => Effect.Effect<Record<string, any>, ErrorRecoveryServiceErrorType>
 
   /**
    * サーキットブレーカーの状態を取得します
@@ -207,10 +202,22 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
       // エラーメッセージパターンマッチング
       const classification = Match.value(error.message).pipe(
-        Match.when(msg => msg.includes('timeout'), () => 'timeout' as const),
-        Match.when(msg => msg.includes('memory'), () => 'resource' as const),
-        Match.when(msg => msg.includes('validation'), () => 'validation' as const),
-        Match.when(msg => msg.includes('network'), () => 'transient' as const),
+        Match.when(
+          (msg) => msg.includes('timeout'),
+          () => 'timeout' as const
+        ),
+        Match.when(
+          (msg) => msg.includes('memory'),
+          () => 'resource' as const
+        ),
+        Match.when(
+          (msg) => msg.includes('validation'),
+          () => 'validation' as const
+        ),
+        Match.when(
+          (msg) => msg.includes('network'),
+          () => 'transient' as const
+        ),
         Match.orElse(() => 'unknown' as const)
       )
 
@@ -278,12 +285,12 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             strategy: recoveryAction.strategy,
             result: 'success',
             duration,
-          }
-        ]
+          },
+        ],
       }
 
-      yield* Ref.update(errorHistory, history =>
-        history.map(ctx => ctx.errorId === errorContext.errorId ? updatedContext : ctx)
+      yield* Ref.update(errorHistory, (history) =>
+        history.map((ctx) => (ctx.errorId === errorContext.errorId ? updatedContext : ctx))
       )
 
       yield* Effect.logInfo(`回復試行完了: ${recoveryAction.strategy} (${duration}ms)`)
@@ -292,7 +299,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
   const createCheckpoint = (id: string, state: Record<string, any>) =>
     Effect.gen(function* () {
-      yield* Ref.update(checkpoints, map => map.set(id, structuredClone(state)))
+      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state)))
       yield* Effect.logDebug(`チェックポイント作成: ${id}`)
     })
 
@@ -326,7 +333,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
           failureCount: 0,
           successCount: 0,
         }
-        yield* Ref.update(circuitBreakers, map => map.set(id, newBreaker))
+        yield* Ref.update(circuitBreakers, (map) => map.set(id, newBreaker))
         return newBreaker
       }
 
@@ -362,7 +369,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             yield* updateCircuitBreakerState(id, {
               state: 'closed',
               failureCount: 0,
-              successCount: 0
+              successCount: 0,
             })
           } else {
             yield* updateCircuitBreakerState(id, { successCount: newSuccessCount })
@@ -378,7 +385,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             state: 'open',
             failureCount: newFailureCount,
             lastFailureTime: Date.now(),
-            nextRetryTime: Date.now() + config.circuitBreakerConfig.recoveryTimeout
+            nextRetryTime: Date.now() + config.circuitBreakerConfig.recoveryTimeout,
           })
         } else {
           yield* updateCircuitBreakerState(id, { failureCount: newFailureCount })
@@ -395,18 +402,24 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
       const stats = {
         totalErrors: history.length,
-        errorsByClassification: history.reduce((acc, ctx) => {
-          acc[ctx.classification] = (acc[ctx.classification] || 0) + 1
-          return acc
-        }, {} as Record<string, number>),
-        averageRetryCount: history.length > 0 ?
-          history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0,
-        circuitBreakerStates: Array.from(breakers.values()).reduce((acc, breaker) => {
-          acc[breaker.state] = (acc[breaker.state] || 0) + 1
-          return acc
-        }, {} as Record<string, number>),
-        successfulRecoveries: history.filter(ctx =>
-          ctx.previousAttempts.some(attempt => attempt.result === 'success')
+        errorsByClassification: history.reduce(
+          (acc, ctx) => {
+            acc[ctx.classification] = (acc[ctx.classification] || 0) + 1
+            return acc
+          },
+          {} as Record<string, number>
+        ),
+        averageRetryCount:
+          history.length > 0 ? history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0,
+        circuitBreakerStates: Array.from(breakers.values()).reduce(
+          (acc, breaker) => {
+            acc[breaker.state] = (acc[breaker.state] || 0) + 1
+            return acc
+          },
+          {} as Record<string, number>
+        ),
+        successfulRecoveries: history.filter((ctx) =>
+          ctx.previousAttempts.some((attempt) => attempt.result === 'success')
         ).length,
       }
 
@@ -422,7 +435,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   // === Helper Functions ===
 
   const updateCircuitBreakerState = (id: string, update: Partial<Schema.Schema.Type<typeof CircuitBreaker>>) =>
-    Ref.update(circuitBreakers, map => {
+    Ref.update(circuitBreakers, (map) => {
       const current = map.get(id)
       if (current) {
         map.set(id, { ...current, ...update })
@@ -435,7 +448,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       task,
       Effect.retry({
         times: action.maxAttempts - 1,
-        schedule: Effect.Schedule.exponential(`${action.backoffMs} millis`)
+        schedule: Effect.Schedule.exponential(`${action.backoffMs} millis`),
       })
     )
 
@@ -490,10 +503,7 @@ export const ErrorRecoveryService = Context.GenericTag<ErrorRecoveryService>(
 
 // === Layer ===
 
-export const ErrorRecoveryServiceLive = Layer.effect(
-  ErrorRecoveryService,
-  makeErrorRecoveryService
-)
+export const ErrorRecoveryServiceLive = Layer.effect(ErrorRecoveryService, makeErrorRecoveryService)
 
 // === Default Configuration ===
 
@@ -502,13 +512,13 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
   globalMaxRetries: 5,
   globalTimeout: 60000, // 1分
   errorClassificationRules: {
-    'timeout': 'timeout',
-    'memory': 'resource',
-    'validation': 'validation',
-    'network': 'transient',
+    timeout: 'timeout',
+    memory: 'resource',
+    validation: 'validation',
+    network: 'transient',
   },
   recoveryStrategies: {
-    'transient': {
+    transient: {
       _tag: 'RecoveryAction',
       strategy: 'retry',
       maxAttempts: 3,
@@ -516,7 +526,7 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
       conditions: [],
       timeout: 30000,
     },
-    'resource': {
+    resource: {
       _tag: 'RecoveryAction',
       strategy: 'fallback',
       maxAttempts: 2,
@@ -524,7 +534,7 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
       conditions: [],
       timeout: 45000,
     },
-    'validation': {
+    validation: {
       _tag: 'RecoveryAction',
       strategy: 'skip',
       maxAttempts: 1,
@@ -532,7 +542,7 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
       conditions: [],
       timeout: 10000,
     },
-    'timeout': {
+    timeout: {
       _tag: 'RecoveryAction',
       strategy: 'retry',
       maxAttempts: 2,
@@ -540,7 +550,7 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
       conditions: [],
       timeout: 60000,
     },
-    'permanent': {
+    permanent: {
       _tag: 'RecoveryAction',
       strategy: 'abort',
       maxAttempts: 1,
@@ -548,7 +558,7 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
       conditions: [],
       timeout: 5000,
     },
-    'unknown': {
+    unknown: {
       _tag: 'RecoveryAction',
       strategy: 'checkpoint_restore',
       maxAttempts: 1,
@@ -571,9 +581,9 @@ export const DEFAULT_RECOVERY_CONFIG: Schema.Schema.Type<typeof RecoveryConfigur
 }
 
 export type {
-  RecoveryStrategy as RecoveryStrategyType,
-  RecoveryAction as RecoveryActionType,
-  ErrorContext as ErrorContextType,
-  RecoveryConfiguration as RecoveryConfigurationType,
   CircuitBreaker as CircuitBreakerType,
+  ErrorContext as ErrorContextType,
+  RecoveryAction as RecoveryActionType,
+  RecoveryConfiguration as RecoveryConfigurationType,
+  RecoveryStrategy as RecoveryStrategyType,
 } from './error_recovery.js'

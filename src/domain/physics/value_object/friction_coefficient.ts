@@ -1,13 +1,6 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import {
-  PhysicsMaterialSchema,
-  Vector3,
-  parseUnitInterval,
-  parseVector3,
-  UnitInterval,
-  vector3,
-} from '../types/core'
 import { MATERIAL_FRICTION } from '../types/constants'
+import { PhysicsMaterialSchema, UnitInterval, Vector3, parseUnitInterval, parseVector3, vector3 } from '../types/core'
 import type { PhysicsError } from '../types/errors'
 
 const FrictionSchema = Schema.Struct({
@@ -41,10 +34,7 @@ const fromMaterial = (material: Schema.Schema.Type<typeof PhysicsMaterialSchema>
     Match.orElse(() => Effect.runSync(create(material, 0.5)))
   )
 
-const mix = (
-  surface: FrictionCoefficient,
-  modifier: UnitInterval
-): Effect.Effect<FrictionCoefficient, PhysicsError> =>
+const mix = (surface: FrictionCoefficient, modifier: UnitInterval): Effect.Effect<FrictionCoefficient, PhysicsError> =>
   Effect.map(parseUnitInterval(surface.coefficient * modifier), (coefficient) => ({
     material: surface.material,
     coefficient,

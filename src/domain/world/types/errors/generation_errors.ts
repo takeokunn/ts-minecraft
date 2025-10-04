@@ -4,14 +4,14 @@
  */
 
 import { Data, Schema } from 'effect'
-import { ErrorContext } from './world_errors'
 import {
-  GenerationSessionId,
-  GenerationRequestId,
-  GenerationStage,
   ChunkPosition,
-  NoiseParameters
+  GenerationRequestId,
+  GenerationSessionId,
+  GenerationStage,
+  NoiseParameters,
 } from '../core/generation_types'
+import { ErrorContext } from './world_errors'
 
 // === 生成プロセスエラー ===
 
@@ -31,11 +31,11 @@ export class ChunkGenerationError extends Data.TaggedError('ChunkGenerationError
 }
 
 export const ChunkGenerationErrorSchema = Schema.TaggedStruct('ChunkGenerationError', {
-  requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-  stage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
+  requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+  stage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   retryable: Schema.Boolean,
   partialResult: Schema.optional(Schema.Boolean),
 }).pipe(
@@ -59,10 +59,12 @@ export class GenerationSessionError extends Data.TaggedError('GenerationSessionE
 }
 
 export const GenerationSessionErrorSchema = Schema.TaggedStruct('GenerationSessionError', {
-  sessionId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationSessionIdSchema)),
-  activeRequests: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema))),
+  sessionId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationSessionIdSchema)),
+  activeRequests: Schema.Array(
+    Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema))
+  ),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   recovery: Schema.Literal('restart', 'continue', 'abort'),
 }).pipe(
   Schema.annotations({
@@ -87,12 +89,12 @@ export class GenerationTimeoutError extends Data.TaggedError('GenerationTimeoutE
 }
 
 export const GenerationTimeoutErrorSchema = Schema.TaggedStruct('GenerationTimeoutError', {
-  requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-  stage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
+  requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+  stage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
   timeoutMs: Schema.Number.pipe(Schema.int(), Schema.positive()),
   elapsedMs: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   canRetry: Schema.Boolean,
 }).pipe(
   Schema.annotations({
@@ -117,11 +119,13 @@ export class InvalidNoiseParametersError extends Data.TaggedError('InvalidNoiseP
 }
 
 export const InvalidNoiseParametersErrorSchema = Schema.TaggedStruct('InvalidNoiseParametersError', {
-  parameters: Schema.suspend(() => import('../core/generation_types').then(m => m.NoiseParametersSchema)),
+  parameters: Schema.suspend(() => import('../core/generation_types').then((m) => m.NoiseParametersSchema)),
   invalidFields: Schema.Array(Schema.String),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
-  suggestedFix: Schema.optional(Schema.suspend(() => import('../core/generation_types').then(m => m.NoiseParametersSchema))),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
+  suggestedFix: Schema.optional(
+    Schema.suspend(() => import('../core/generation_types').then((m) => m.NoiseParametersSchema))
+  ),
 }).pipe(
   Schema.annotations({
     title: 'Invalid Noise Parameters Error',
@@ -149,9 +153,9 @@ export const NoiseGenerationErrorSchema = Schema.TaggedStruct('NoiseGenerationEr
     y: Schema.optional(Schema.Number),
     z: Schema.Number,
   }),
-  parameters: Schema.suspend(() => import('../core/generation_types').then(m => m.NoiseParametersSchema)),
+  parameters: Schema.suspend(() => import('../core/generation_types').then((m) => m.NoiseParametersSchema)),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
 }).pipe(
   Schema.annotations({
     title: 'Noise Generation Error',
@@ -174,9 +178,9 @@ export class HeightMapGenerationError extends Data.TaggedError('HeightMapGenerat
 }
 
 export const HeightMapGenerationErrorSchema = Schema.TaggedStruct('HeightMapGenerationError', {
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   affectedArea: Schema.Struct({
     minX: Schema.Number.pipe(Schema.int()),
     maxX: Schema.Number.pipe(Schema.int()),
@@ -204,15 +208,17 @@ export class TerrainShapeError extends Data.TaggedError('TerrainShapeError')<{
 }
 
 export const TerrainShapeErrorSchema = Schema.TaggedStruct('TerrainShapeError', {
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
   stage: Schema.Literal('surface', 'underground', 'bedrock', 'caves'),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
-  corruptedBlocks: Schema.Array(Schema.Struct({
-    x: Schema.Number.pipe(Schema.int()),
-    y: Schema.Number.pipe(Schema.int()),
-    z: Schema.Number.pipe(Schema.int()),
-  })),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
+  corruptedBlocks: Schema.Array(
+    Schema.Struct({
+      x: Schema.Number.pipe(Schema.int()),
+      y: Schema.Number.pipe(Schema.int()),
+      z: Schema.Number.pipe(Schema.int()),
+    })
+  ),
 }).pipe(
   Schema.annotations({
     title: 'Terrain Shape Error',
@@ -236,13 +242,13 @@ export class BiomeAssignmentError extends Data.TaggedError('BiomeAssignmentError
 }
 
 export const BiomeAssignmentErrorSchema = Schema.TaggedStruct('BiomeAssignmentError', {
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
   climateData: Schema.Struct({
     temperature: Schema.Number,
     humidity: Schema.Number,
   }),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   fallbackBiome: Schema.optional(Schema.String),
 }).pipe(
   Schema.annotations({
@@ -271,7 +277,7 @@ export const ClimateDataErrorSchema = Schema.TaggedStruct('ClimateDataError', {
   }),
   parameter: Schema.Literal('temperature', 'humidity', 'continentalness', 'erosion', 'depth', 'weirdness'),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   fallbackValue: Schema.optional(Schema.Number),
 }).pipe(
   Schema.annotations({
@@ -303,7 +309,7 @@ export const StructurePlacementErrorSchema = Schema.TaggedStruct('StructurePlace
     z: Schema.Number.pipe(Schema.int()),
   }),
   reason: Schema.String,
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   conflicts: Schema.Array(Schema.String),
 }).pipe(
   Schema.annotations({
@@ -328,10 +334,10 @@ export class GenerationDependencyError extends Data.TaggedError('GenerationDepen
 }
 
 export const GenerationDependencyErrorSchema = Schema.TaggedStruct('GenerationDependencyError', {
-  requiredStage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
-  currentStage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
-  chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-  context: Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema)),
+  requiredStage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
+  currentStage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
+  chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+  context: Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema)),
   canSkip: Schema.Boolean,
 }).pipe(
   Schema.annotations({
@@ -356,7 +362,7 @@ export class GenerationError extends Data.TaggedError('GenerationError')<{
 export const GenerationErrorSchema = Schema.TaggedStruct('GenerationError', {
   type: Schema.Literal('NoiseError', 'BiomeError', 'MathematicalError', 'ValidationError', 'StatisticalError'),
   message: Schema.String,
-  context: Schema.optional(Schema.suspend(() => import('./world_errors').then(m => m.ErrorContextSchema))),
+  context: Schema.optional(Schema.suspend(() => import('./world_errors').then((m) => m.ErrorContextSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Generation Error',

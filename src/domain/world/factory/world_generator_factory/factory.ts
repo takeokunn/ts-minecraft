@@ -19,17 +19,13 @@
  * - STM による並行制御対応
  */
 
-import { Context, Effect, Schema, Layer, Match, Function, STM, Brand } from "effect"
-import type * as WorldGenerator from "../../aggregate/world_generator/world_generator.js"
-import type * as GenerationSession from "../../aggregate/generation_session/generation_session.js"
-import type * as BiomeSystem from "../../aggregate/biome_system/biome_system.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import * as WorldDomainServices from "../../domain_service/index.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
+import * as WorldDomainServices from '../../domain_service/index.js'
+import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
+import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
 
 // ================================
 // Factory Error Types
@@ -45,7 +41,7 @@ export const FactoryErrorSchema = Schema.TaggedError('FactoryError', {
   ),
   message: Schema.String,
   context: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 })
 
 export class FactoryError extends Schema.TaggedError<typeof FactoryErrorSchema>()('FactoryError', FactoryErrorSchema) {}
@@ -81,7 +77,7 @@ export const CreateWorldGeneratorParamsSchema = Schema.Struct({
 
   // デバッグ設定
   enableDebugMode: Schema.optional(Schema.Boolean),
-  logLevel: Schema.optional(Schema.Literal('error', 'warn', 'info', 'debug'))
+  logLevel: Schema.optional(Schema.Literal('error', 'warn', 'info', 'debug')),
 })
 
 export type CreateWorldGeneratorParams = typeof CreateWorldGeneratorParamsSchema.Type
@@ -107,10 +103,12 @@ export type PresetType = typeof PresetTypeSchema.Type
 export const CreateFromPresetParamsSchema = Schema.Struct({
   preset: PresetTypeSchema,
   seed: Schema.optional(WorldSeed.WorldSeedSchema),
-  customizations: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  }))
+  customizations: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 export type CreateFromPresetParams = typeof CreateFromPresetParamsSchema.Type
@@ -121,7 +119,7 @@ export type CreateFromPresetParams = typeof CreateFromPresetParamsSchema.Type
 export const CreateFromSeedParamsSchema = Schema.Struct({
   seed: WorldSeed.WorldSeedSchema,
   preset: Schema.optional(PresetTypeSchema),
-  overrides: Schema.optional(CreateWorldGeneratorParamsSchema)
+  overrides: Schema.optional(CreateWorldGeneratorParamsSchema),
 })
 
 export type CreateFromSeedParams = typeof CreateFromSeedParamsSchema.Type
@@ -133,7 +131,7 @@ export const CloneParamsSchema = Schema.Struct({
   source: WorldGenerator.WorldGeneratorSchema,
   modifications: Schema.optional(CreateWorldGeneratorParamsSchema),
   preserveState: Schema.optional(Schema.Boolean),
-  newId: Schema.optional(Schema.Boolean)
+  newId: Schema.optional(Schema.Boolean),
 })
 
 export type CloneParams = typeof CloneParamsSchema.Type
@@ -147,9 +145,7 @@ export interface WorldGeneratorFactory {
    * 標準WorldGenerator作成
    * パラメータベースの詳細制御
    */
-  readonly create: (
-    params: CreateWorldGeneratorParams
-  ) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
+  readonly create: (params: CreateWorldGeneratorParams) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
 
   /**
    * プリセットベースWorldGenerator作成
@@ -163,17 +159,13 @@ export interface WorldGeneratorFactory {
    * シードベースWorldGenerator作成
    * 再現性重視の生成
    */
-  readonly createFromSeed: (
-    params: CreateFromSeedParams
-  ) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
+  readonly createFromSeed: (params: CreateFromSeedParams) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
 
   /**
    * 既存WorldGeneratorクローン
    * 設定変更による派生生成
    */
-  readonly clone: (
-    params: CloneParams
-  ) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
+  readonly clone: (params: CloneParams) => Effect.Effect<WorldGenerator.WorldGenerator, FactoryError>
 
   /**
    * バッチ生成
@@ -221,11 +213,12 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       // WorldGenerator作成
       const generator = yield* Effect.tryPromise({
         try: () => WorldGenerator.create(id, context),
-        catch: (error) => new FactoryError({
-          category: 'resource_allocation',
-          message: 'Failed to create WorldGenerator',
-          cause: error
-        })
+        catch: (error) =>
+          new FactoryError({
+            category: 'resource_allocation',
+            message: 'Failed to create WorldGenerator',
+            cause: error,
+          }),
       })
 
       // 後処理
@@ -255,9 +248,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       const seedBasedConfig = yield* generateConfigFromSeed(params.seed)
 
       // プリセット適用（オプション）
-      const withPreset = params.preset
-        ? yield* mergeWithPreset(seedBasedConfig, params.preset)
-        : seedBasedConfig
+      const withPreset = params.preset ? yield* mergeWithPreset(seedBasedConfig, params.preset) : seedBasedConfig
 
       // オーバーライド適用
       const finalConfig = yield* applyOverrides(withPreset, params.overrides)
@@ -274,9 +265,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       const cloneConfig = yield* buildCloneConfiguration(params)
 
       // 新しいID生成（必要に応じて）
-      const newId = params.newId
-        ? yield* generateWorldGeneratorId()
-        : params.source.id
+      const newId = params.newId ? yield* generateWorldGeneratorId() : params.source.id
 
       // 状態保持/リセット処理
       const context = params.preserveState
@@ -284,17 +273,16 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
         : yield* resetGenerationContext(params.source.context)
 
       // 修正適用
-      const modifiedContext = params.modifications
-        ? yield* applyModifications(context, params.modifications)
-        : context
+      const modifiedContext = params.modifications ? yield* applyModifications(context, params.modifications) : context
 
       return yield* Effect.tryPromise({
         try: () => WorldGenerator.create(newId, modifiedContext),
-        catch: (error) => new FactoryError({
-          category: 'resource_allocation',
-          message: 'Failed to clone WorldGenerator',
-          cause: error
-        })
+        catch: (error) =>
+          new FactoryError({
+            category: 'resource_allocation',
+            message: 'Failed to clone WorldGenerator',
+            cause: error,
+          }),
       })
     }),
 
@@ -302,22 +290,26 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
     Effect.gen(function* () {
       // バッチサイズ検証
       if (configs.length === 0) {
-        return yield* Effect.fail(new FactoryError({
-          category: 'parameter_validation',
-          message: 'Empty configuration array provided'
-        }))
+        return yield* Effect.fail(
+          new FactoryError({
+            category: 'parameter_validation',
+            message: 'Empty configuration array provided',
+          })
+        )
       }
 
       if (configs.length > 10) {
-        return yield* Effect.fail(new FactoryError({
-          category: 'performance_constraint',
-          message: 'Batch size exceeds maximum limit (10)'
-        }))
+        return yield* Effect.fail(
+          new FactoryError({
+            category: 'performance_constraint',
+            message: 'Batch size exceeds maximum limit (10)',
+          })
+        )
       }
 
       // 並列生成
       const generators = yield* Effect.all(
-        configs.map(config => createWorldGeneratorFactory().create(config)),
+        configs.map((config) => createWorldGeneratorFactory().create(config)),
         { concurrency: 4 }
       )
 
@@ -336,7 +328,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       yield* performPostValidation(generator, validationLevel)
 
       return generator
-    })
+    }),
 })
 
 // ================================
@@ -351,11 +343,13 @@ const validateCreateParams = (params: CreateWorldGeneratorParams): Effect.Effect
     try {
       Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
     } catch (error) {
-      return yield* Effect.fail(new FactoryError({
-        category: 'parameter_validation',
-        message: 'Invalid create parameters',
-        cause: error
-      }))
+      return yield* Effect.fail(
+        new FactoryError({
+          category: 'parameter_validation',
+          message: 'Invalid create parameters',
+          cause: error,
+        })
+      )
     }
   })
 
@@ -375,7 +369,7 @@ const applyDefaults = (params: CreateWorldGeneratorParams): Effect.Effect<Create
     enableOres: params.enableOres ?? true,
     qualityLevel: params.qualityLevel ?? 'balanced',
     enableDebugMode: params.enableDebugMode ?? false,
-    logLevel: params.logLevel ?? 'info'
+    logLevel: params.logLevel ?? 'info',
   })
 
 /**
@@ -403,16 +397,14 @@ const buildGenerationContext = (
     seed: params.seed!,
     parameters: params.parameters!,
     biomeConfig: params.biomeConfig!,
-    noiseConfig: params.noiseConfig!
+    noiseConfig: params.noiseConfig!,
   })
 
 /**
  * WorldGenerator ID生成
  */
 const generateWorldGeneratorId = (): Effect.Effect<WorldGenerator.WorldGeneratorId, FactoryError> =>
-  Effect.sync(() =>
-    WorldGenerator.createWorldGeneratorId(`wg_${crypto.randomUUID()}`)
-  )
+  Effect.sync(() => WorldGenerator.createWorldGeneratorId(`wg_${crypto.randomUUID()}`))
 
 /**
  * 後処理セットアップ
@@ -441,10 +433,14 @@ const loadPresetConfiguration = (preset: PresetType): Effect.Effect<CreateWorldG
     Match.when('debug', () => createDebugPreset()),
     Match.when('custom', () => createCustomPreset()),
     Match.when('experimental', () => createExperimentalPreset()),
-    Match.orElse(() => Effect.fail(new FactoryError({
-      category: 'parameter_validation',
-      message: `Unknown preset type: ${preset}`
-    })))
+    Match.orElse(() =>
+      Effect.fail(
+        new FactoryError({
+          category: 'parameter_validation',
+          message: `Unknown preset type: ${preset}`,
+        })
+      )
+    )
   )
 
 // プリセット生成関数群
@@ -453,7 +449,7 @@ const createDefaultPreset = (): Effect.Effect<CreateWorldGeneratorParams, Factor
     qualityLevel: 'balanced',
     enableStructures: true,
     enableCaves: true,
-    enableOres: true
+    enableOres: true,
   })
 
 const createSurvivalPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -462,7 +458,7 @@ const createSurvivalPreset = (): Effect.Effect<CreateWorldGeneratorParams, Facto
     enableStructures: true,
     enableCaves: true,
     enableOres: true,
-    maxConcurrentGenerations: 2
+    maxConcurrentGenerations: 2,
   })
 
 const createCreativePreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -471,7 +467,7 @@ const createCreativePreset = (): Effect.Effect<CreateWorldGeneratorParams, Facto
     enableStructures: true,
     enableCaves: false,
     enableOres: false,
-    maxConcurrentGenerations: 8
+    maxConcurrentGenerations: 8,
   })
 
 const createPeacefulPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -479,7 +475,7 @@ const createPeacefulPreset = (): Effect.Effect<CreateWorldGeneratorParams, Facto
     qualityLevel: 'balanced',
     enableStructures: false,
     enableCaves: true,
-    enableOres: true
+    enableOres: true,
   })
 
 const createHardcorePreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -488,7 +484,7 @@ const createHardcorePreset = (): Effect.Effect<CreateWorldGeneratorParams, Facto
     enableStructures: true,
     enableCaves: true,
     enableOres: true,
-    maxConcurrentGenerations: 1
+    maxConcurrentGenerations: 1,
   })
 
 const createSuperflatPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -496,7 +492,7 @@ const createSuperflatPreset = (): Effect.Effect<CreateWorldGeneratorParams, Fact
     qualityLevel: 'fast',
     enableStructures: false,
     enableCaves: false,
-    enableOres: false
+    enableOres: false,
   })
 
 const createAmplifiedPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -505,7 +501,7 @@ const createAmplifiedPreset = (): Effect.Effect<CreateWorldGeneratorParams, Fact
     enableStructures: true,
     enableCaves: true,
     enableOres: true,
-    maxConcurrentGenerations: 1
+    maxConcurrentGenerations: 1,
   })
 
 const createDebugPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
@@ -515,11 +511,10 @@ const createDebugPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryE
     enableCaves: false,
     enableOres: false,
     enableDebugMode: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
   })
 
-const createCustomPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
-  Effect.succeed({})
+const createCustomPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> => Effect.succeed({})
 
 const createExperimentalPreset = (): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
   Effect.succeed({
@@ -527,7 +522,7 @@ const createExperimentalPreset = (): Effect.Effect<CreateWorldGeneratorParams, F
     enableStructures: true,
     enableCaves: true,
     enableOres: true,
-    enableDebugMode: true
+    enableDebugMode: true,
   })
 
 // その他のヘルパー関数（実装を簡略化）
@@ -537,8 +532,7 @@ const applyCustomizations = (config: CreateWorldGeneratorParams, customizations?
 const applySeedOverride = (config: CreateWorldGeneratorParams, seed?: WorldSeed.WorldSeed) =>
   Effect.succeed(seed ? { ...config, seed } : config)
 
-const generateConfigFromSeed = (seed: WorldSeed.WorldSeed) =>
-  Effect.succeed({ seed } as CreateWorldGeneratorParams)
+const generateConfigFromSeed = (seed: WorldSeed.WorldSeed) => Effect.succeed({ seed } as CreateWorldGeneratorParams)
 
 const mergeWithPreset = (config: CreateWorldGeneratorParams, preset: PresetType) =>
   Effect.gen(function* () {
@@ -549,23 +543,18 @@ const mergeWithPreset = (config: CreateWorldGeneratorParams, preset: PresetType)
 const applyOverrides = (config: CreateWorldGeneratorParams, overrides?: CreateWorldGeneratorParams) =>
   Effect.succeed(overrides ? { ...config, ...overrides } : config)
 
-const validateSourceGenerator = (source: WorldGenerator.WorldGenerator) =>
-  Effect.succeed(undefined)
+const validateSourceGenerator = (source: WorldGenerator.WorldGenerator) => Effect.succeed(undefined)
 
-const buildCloneConfiguration = (params: CloneParams) =>
-  Effect.succeed(params)
+const buildCloneConfiguration = (params: CloneParams) => Effect.succeed(params)
 
-const resetGenerationContext = (context: WorldGenerator.GenerationContext) =>
-  Effect.succeed(context)
+const resetGenerationContext = (context: WorldGenerator.GenerationContext) => Effect.succeed(context)
 
 const applyModifications = (context: WorldGenerator.GenerationContext, modifications: CreateWorldGeneratorParams) =>
   Effect.succeed(context)
 
-const performPreValidation = (params: CreateWorldGeneratorParams, level: string) =>
-  Effect.succeed(undefined)
+const performPreValidation = (params: CreateWorldGeneratorParams, level: string) => Effect.succeed(undefined)
 
-const performPostValidation = (generator: WorldGenerator.WorldGenerator, level: string) =>
-  Effect.succeed(undefined)
+const performPostValidation = (generator: WorldGenerator.WorldGenerator, level: string) => Effect.succeed(undefined)
 
 // ================================
 // Context.GenericTag
@@ -579,20 +568,17 @@ export const WorldGeneratorFactoryTag = Context.GenericTag<WorldGeneratorFactory
 // Layer Implementation
 // ================================
 
-export const WorldGeneratorFactoryLive = Layer.succeed(
-  WorldGeneratorFactoryTag,
-  createWorldGeneratorFactory()
-)
+export const WorldGeneratorFactoryLive = Layer.succeed(WorldGeneratorFactoryTag, createWorldGeneratorFactory())
 
 // ================================
 // Exports
 // ================================
 
 export {
-  type CreateWorldGeneratorParams,
+  type CloneParams,
   type CreateFromPresetParams,
   type CreateFromSeedParams,
-  type CloneParams,
+  type CreateWorldGeneratorParams,
   type PresetType,
   type WorldGeneratorFactory,
 }

@@ -1,6 +1,6 @@
-import { Schema } from 'effect'
-import { ChunkIdSchema } from '@domain/chunk/value_object/chunk_id/types'
 import type { ChunkId } from '@domain/chunk/value_object/chunk_id/types'
+import { ChunkIdSchema } from '@domain/chunk/value_object/chunk_id/types'
+import { Schema } from 'effect'
 import {
   ChunkLifetimeSchema,
   ChunkPoolIdSchema,
@@ -183,10 +183,4 @@ export const makeLifecycleStatsError = (failure: LifecycleStatsFailure): Lifecyc
   failure,
 })
 
-export type {
-  ChunkId,
-  ChunkLifetime,
-  ChunkPoolId,
-  MemoryBytes,
-  ResourceUsagePercent,
-}
+export type { ChunkId, ChunkLifetime, ChunkPoolId, MemoryBytes, ResourceUsagePercent }

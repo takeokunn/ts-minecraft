@@ -1,6 +1,14 @@
-import { TreeFormatter } from '@effect/schema/TreeFormatter'
 import type { ParseError } from '@effect/schema/ParseResult'
-import { Effect, Match, ReadonlyArray, Schema, Either, pipe } from 'effect'
+import { TreeFormatter } from '@effect/schema/TreeFormatter'
+import { Effect, Either, Match, pipe, ReadonlyArray, Schema } from 'effect'
+import {
+  HEALTH_CONSTANTS,
+  HUNGER_CONSTANTS,
+  JUMP_VELOCITY,
+  MOVEMENT_SPEEDS,
+  PHYSICS_CONSTANTS,
+  SATURATION_CONSTANTS,
+} from './constants'
 import { PlayerErrorBuilders } from './errors'
 import {
   PlayerAggregate,
@@ -13,7 +21,6 @@ import {
   PlayerEventSchema,
   PlayerGameMode,
   PlayerLifecycleState,
-  PlayerLifecycleStateSchema,
   PlayerMotionSchema,
   PlayerPosition,
   PlayerPositionSchema,
@@ -23,14 +30,6 @@ import {
   PlayerUpdateContextSchema,
   PlayerVitalsSchema,
 } from './types'
-import {
-  HEALTH_CONSTANTS,
-  HUNGER_CONSTANTS,
-  JUMP_VELOCITY,
-  MOVEMENT_SPEEDS,
-  PHYSICS_CONSTANTS,
-  SATURATION_CONSTANTS,
-} from './constants'
 
 // -----------------------------------------------------------------------------
 // 型エイリアス
@@ -158,9 +157,7 @@ export interface PlayerOperationResult {
 // プレイヤー作成
 // -----------------------------------------------------------------------------
 
-export const createPlayer = (
-  input: PlayerCreationInput
-): Effect.Effect<PlayerOperationResult, ConstraintError> =>
+export const createPlayer = (input: PlayerCreationInput): Effect.Effect<PlayerOperationResult, ConstraintError> =>
   pipe(
     decodeWith(PlayerCreationInputSchema, 'PlayerCreationInput', input),
     Effect.zipWith(stationaryMotion, (payload, motion) => ({ payload, motion })),
@@ -238,10 +235,11 @@ export const updatePosition = (
     ensureTimestampOrder(aggregate, context),
     Effect.flatMap((timestamp) =>
       decodeWith(PlayerMotionSchema, 'PlayerMotion', params.motion).pipe(
-        Effect.zipWith(
-          decodeWith(PlayerPositionSchema, 'PlayerPosition', params.position),
-          (motion, position) => ({ motion, position, timestamp })
-        )
+        Effect.zipWith(decodeWith(PlayerPositionSchema, 'PlayerPosition', params.position), (motion, position) => ({
+          motion,
+          position,
+          timestamp,
+        }))
       )
     ),
     Effect.flatMap(({ motion, position, timestamp }) =>
@@ -303,26 +301,13 @@ export const applyCommand = (
       pipe(
         Match.value(validated),
         Match.tag('UpdateVitals', ({ health, hunger, saturation, experienceLevel, timestamp }) =>
-          updateVitals(
-            aggregate,
-            { health, hunger, saturation, experienceLevel },
-            { timestamp }
-          )
+          updateVitals(aggregate, { health, hunger, saturation, experienceLevel }, { timestamp })
         ),
         Match.tag('UpdatePosition', ({ position, motion, timestamp }) =>
-          updatePosition(
-            aggregate,
-            { position, motion },
-            { timestamp }
-          )
+          updatePosition(aggregate, { position, motion }, { timestamp })
         ),
         Match.tag('TransitionState', ({ to, timestamp, from }) =>
-          transitionState(
-            aggregate,
-            to,
-            { timestamp },
-            `${from}->${to}`
-          )
+          transitionState(aggregate, to, { timestamp }, `${from}->${to}`)
         ),
         Match.tag('CreatePlayer', () =>
           Effect.fail(
@@ -354,9 +339,7 @@ export const snapshot = (
 // ドメイン固有ユーティリティ
 // -----------------------------------------------------------------------------
 
-export const computeJumpVelocity = (
-  mode: PlayerGameMode
-): Effect.Effect<number, never> =>
+export const computeJumpVelocity = (mode: PlayerGameMode): Effect.Effect<number, never> =>
   pipe(
     Match.value(mode),
     Match.when('creative', () => JUMP_VELOCITY * 1.2),
@@ -365,21 +348,22 @@ export const computeJumpVelocity = (
     Effect.succeed
   )
 
-export const maxHorizontalSpeed = (
-  isSprinting: boolean,
-  isSneaking: boolean
-): Effect.Effect<number, never> =>
+export const maxHorizontalSpeed = (isSprinting: boolean, isSneaking: boolean): Effect.Effect<number, never> =>
   pipe(
     Match.value(true),
-    Match.when(() => isSprinting, () => MOVEMENT_SPEEDS.sprint),
-    Match.when(() => isSneaking, () => MOVEMENT_SPEEDS.crouch),
+    Match.when(
+      () => isSprinting,
+      () => MOVEMENT_SPEEDS.sprint
+    ),
+    Match.when(
+      () => isSneaking,
+      () => MOVEMENT_SPEEDS.crouch
+    ),
     Match.orElse(() => MOVEMENT_SPEEDS.walk),
     Effect.succeed
   )
 
-export const computeFallDamage = (
-  fallDistance: number
-): Effect.Effect<number, never> =>
+export const computeFallDamage = (fallDistance: number): Effect.Effect<number, never> =>
   pipe(
     Effect.succeed(Math.max(0, fallDistance - 3)),
     Effect.map((adjusted) => adjusted * PHYSICS_CONSTANTS.gravity * -1)

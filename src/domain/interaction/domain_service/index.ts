@@ -2,21 +2,9 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFace, BlockFaceError, fromNormalVector, toUnitNormal } from '../value_object/block_face'
-import {
-  Vector3,
-  Vector3Error,
-  clamp,
-  dot,
-  fromNumbers,
-  magnitude,
-  normalize,
-  translate,
-} from '../value_object/vector3'
-import {
-  InteractionError,
-  ProgressSchema,
-} from '../types'
+import { InteractionError } from '../types'
+import { BlockFace, BlockFaceError, toUnitNormal } from '../value_object/block_face'
+import { Vector3, Vector3Error, dot, fromNumbers, magnitude, normalize, translate } from '../value_object/vector3'
 
 const PositiveNumberSchema = Schema.Number.pipe(
   Schema.greaterThan(0, { message: (value) => `正の数が必要です: ${value}` })
@@ -26,11 +14,9 @@ const NonNegativeNumberSchema = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0, { message: (value) => `0以上の数が必要です: ${value}` })
 )
 
-const parseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, { includeStackTrace: false })
+const parseError = (error: Schema.ParseError) => TreeFormatter.formatError(error, { includeStackTrace: false })
 
-const toInvalidCommand = (message: string) =>
-  InteractionError.InvalidCommand({ message })
+const toInvalidCommand = (message: string) => InteractionError.InvalidCommand({ message })
 
 const fromVectorError = (error: Vector3Error) =>
   pipe(

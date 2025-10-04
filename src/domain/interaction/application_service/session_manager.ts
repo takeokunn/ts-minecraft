@@ -2,7 +2,8 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Context, Effect, Layer, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import { createSession, recordProgress, completeImmediately, BreakingSessionError } from '../aggregate/breaking_session'
+import { BreakingSessionError, completeImmediately, createSession, recordProgress } from '../aggregate/breaking_session'
+import { validatePlacement } from '../domain_service'
 import { SessionStore, SessionStoreTag } from '../repository/session_store'
 import {
   InteractionCommand,
@@ -12,10 +13,8 @@ import {
   ProgressSchema,
   decodeSessionId,
 } from '../types'
-import { validatePlacement } from '../domain_service'
 
-const parseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, { includeStackTrace: false })
+const parseError = (error: Schema.ParseError) => TreeFormatter.formatError(error, { includeStackTrace: false })
 
 const toInvalidCommand = (message: string) => InteractionError.InvalidCommand({ message })
 
@@ -48,7 +47,10 @@ const zeroProgress = pipe(
   Effect.mapError((error) => toInvalidCommand(parseError(error)))
 )
 
-const handleStartBreaking = (command: Extract<InteractionCommand, { readonly _tag: 'StartBreaking' }>, store: SessionStore) =>
+const handleStartBreaking = (
+  command: Extract<InteractionCommand, { readonly _tag: 'StartBreaking' }>,
+  store: SessionStore
+) =>
   Effect.gen(function* () {
     const sessionId = yield* generateSessionId(command.playerId)
     const timestamp = yield* Clock.currentTimeMillis
@@ -103,9 +105,7 @@ const handleCompleteBreaking = (
     return result.events
   })
 
-const handlePlaceBlock = (
-  command: Extract<InteractionCommand, { readonly _tag: 'PlaceBlock' }>
-) =>
+const handlePlaceBlock = (command: Extract<InteractionCommand, { readonly _tag: 'PlaceBlock' }>) =>
   Effect.gen(function* () {
     yield* validatePlacement({
       face: command.face,

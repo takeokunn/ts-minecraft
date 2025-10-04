@@ -7,12 +7,12 @@
  * - 型安全な設定操作
  */
 
-import { Effect, Schema, Brand } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Brand, Effect, Schema } from 'effect'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
+import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
 
 // ================================
 // Generation Context ID
@@ -37,9 +37,9 @@ export const ContextMetadataSchema = Schema.Struct({
   name: Schema.String.pipe(Schema.nonEmptyString()),
   description: Schema.optional(Schema.String),
   tags: Schema.Array(Schema.String),
-  difficulty: Schema.Literal("peaceful", "easy", "normal", "hard"),
-  gameMode: Schema.Literal("survival", "creative", "adventure", "spectator"),
-  worldType: Schema.Literal("default", "flat", "largeBiomes", "amplified", "buffet"),
+  difficulty: Schema.Literal('peaceful', 'easy', 'normal', 'hard'),
+  gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
+  worldType: Schema.Literal('default', 'flat', 'largeBiomes', 'amplified', 'buffet'),
 })
 
 export type ContextMetadata = typeof ContextMetadataSchema.Type
@@ -209,9 +209,7 @@ export const createPreset = (
 
   const params = presets[presetName]
   if (!params) {
-    return Effect.fail(
-      GenerationErrors.createValidationError(`Unknown preset: ${presetName}`)
-    )
+    return Effect.fail(GenerationErrors.createValidationError(`Unknown preset: ${presetName}`))
   }
 
   return create(params)
@@ -241,26 +239,22 @@ const validateContextConsistency = (config: {
     // バイオーム設定と地形パラメータの一貫性
     const maxElevation = Math.max(...Object.values(config.biomeConfig.elevationRanges))
     if (maxElevation > config.parameters.terrain.maxHeight) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Biome elevation exceeds terrain max height')
-      )
+      return yield* Effect.fail(GenerationErrors.createValidationError('Biome elevation exceeds terrain max height'))
     }
 
     // 構造物密度の妥当性
-    const totalStructureDensity = Object.values(config.parameters.structures.density)
-      .reduce((sum, density) => sum + density, 0)
+    const totalStructureDensity = Object.values(config.parameters.structures.density).reduce(
+      (sum, density) => sum + density,
+      0
+    )
 
     if (totalStructureDensity > 1.0) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Total structure density exceeds 100%')
-      )
+      return yield* Effect.fail(GenerationErrors.createValidationError('Total structure density exceeds 100%'))
     }
 
     // ノイズ設定の数値範囲検証
     if (config.noiseConfig.baseSettings.scale <= 0) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Noise scale must be positive')
-      )
+      return yield* Effect.fail(GenerationErrors.createValidationError('Noise scale must be positive'))
     }
   })
 
@@ -275,9 +269,7 @@ export const validateGenerationCompatibility = (
     if (context.metadata.worldType === 'flat') {
       // フラットワールドでは地形生成パラメータを無視
       if (context.parameters.terrain.generateCaves || context.parameters.terrain.generateRavines) {
-        return yield* Effect.fail(
-          GenerationErrors.createValidationError('Flat world cannot have caves or ravines')
-        )
+        return yield* Effect.fail(GenerationErrors.createValidationError('Flat world cannot have caves or ravines'))
       }
     }
 
@@ -298,7 +290,4 @@ export const validateGenerationCompatibility = (
 // Exports
 // ================================
 
-export {
-  type ContextMetadata,
-  type CreateContextParams,
-}
+export { type ContextMetadata, type CreateContextParams }

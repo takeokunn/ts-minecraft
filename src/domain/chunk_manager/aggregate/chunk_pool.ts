@@ -1,11 +1,5 @@
-import { Clock, Effect, HashMap, Match, Option, Ref, pipe } from 'effect'
 import type { ChunkId } from '@domain/chunk/value_object/chunk_id/types'
-import {
-  AutoManagementConfig,
-  LifecycleStats,
-  PoolMetrics,
-  makeAutoManagementConfig,
-} from '../types/interfaces'
+import { Clock, Effect, HashMap, Match, Option, Ref, pipe } from 'effect'
 import {
   DefaultChunkManagerConfig,
   makeChunkDistance,
@@ -14,10 +8,9 @@ import {
   makeMemoryBytes,
   makeResourceUsagePercent,
   makeTimestamp,
-  type ChunkManagerConfig,
   type ChunkLifetime,
+  type ChunkManagerConfig,
   type LifecycleStage,
-  type Timestamp,
 } from '../types/core'
 import {
   makeActivationError,
@@ -28,11 +21,8 @@ import {
   type DeactivationError,
   type PoolMetricsError,
 } from '../types/errors'
-import {
-  createInitializedStage,
-  activateStage,
-  deactivateStage,
-} from '../value_object/lifecycle_stage/lifecycle_stage'
+import { AutoManagementConfig, LifecycleStats, PoolMetrics, makeAutoManagementConfig } from '../types/interfaces'
+import { activateStage, createInitializedStage, deactivateStage } from '../value_object/lifecycle_stage/lifecycle_stage'
 import {
   averageActivationDuration,
   averageDeactivationDuration,
@@ -41,13 +31,12 @@ import {
   recordDeactivation,
   setMemoryPressure,
   toLifecycleStats,
-  type LifecycleAccumulator,
 } from '../value_object/lifecycle_stage/lifecycle_stats'
 import {
+  computeMemoryPressure,
   makeMemoryUsage,
   makePerformanceMetrics,
   makePoolMetrics,
-  computeMemoryPressure,
 } from '../value_object/pool_metrics/pool_metrics'
 
 const bytesPerChunk = 262_144
@@ -79,10 +68,12 @@ export interface ChunkPool {
   readonly snapshotStats: () => Effect.Effect<LifecycleStats, never>
 }
 
-export const makeChunkPool = (params: {
-  readonly coreConfig?: ChunkManagerConfig
-  readonly autoConfig?: AutoManagementConfig
-} = {}): Effect.Effect<ChunkPool> =>
+export const makeChunkPool = (
+  params: {
+    readonly coreConfig?: ChunkManagerConfig
+    readonly autoConfig?: AutoManagementConfig
+  } = {}
+): Effect.Effect<ChunkPool> =>
   Effect.gen(function* () {
     const now = yield* currentTimestamp
     const lifecycleRef = yield* Ref.make(HashMap.empty<ChunkId, LifecycleStage>())
@@ -140,11 +131,11 @@ export const makeChunkPool = (params: {
 
         const lifetime = yield* Match.value(currentStage).pipe(
           Match.tag('Active', (active) =>
-            Effect.succeed(
-              makeChunkLifetime(Math.max(0, Math.round(nowTs - active.activatedAt)))
-            )
+            Effect.succeed(makeChunkLifetime(Math.max(0, Math.round(nowTs - active.activatedAt))))
           ),
-          Match.orElse(() => Effect.fail(makeDeactivationError(chunkId, { _tag: 'LifecycleViolation', stage: currentStage._tag })))
+          Match.orElse(() =>
+            Effect.fail(makeDeactivationError(chunkId, { _tag: 'LifecycleViolation', stage: currentStage._tag }))
+          )
         )
 
         const nextStage = yield* deactivateStage(currentStage, nowTs).pipe(
@@ -184,9 +175,7 @@ export const makeChunkPool = (params: {
 
         const memoryPressure = computeMemoryPressure(memoryUsage)
 
-        const updatedStats = yield* Ref.updateAndGet(statsRef, (current) =>
-          setMemoryPressure(current, memoryPressure)
-        )
+        const updatedStats = yield* Ref.updateAndGet(statsRef, (current) => setMemoryPressure(current, memoryPressure))
 
         const performance = makePerformanceMetrics({
           activationTime: averageActivationDuration(updatedStats),
@@ -203,9 +192,7 @@ export const makeChunkPool = (params: {
         })
       })
 
-    const configure = (
-      config: AutoManagementConfig
-    ): Effect.Effect<void, ConfigError> =>
+    const configure = (config: AutoManagementConfig): Effect.Effect<void, ConfigError> =>
       Effect.gen(function* () {
         yield* Match.value(Number(config.activationDistance) <= Number(config.deactivationDistance)).pipe(
           Match.when(true, () => Effect.void),

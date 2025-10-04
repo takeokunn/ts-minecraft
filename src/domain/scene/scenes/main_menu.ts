@@ -1,7 +1,19 @@
-
-import { Effect, Match, Option, pipe } from 'effect'
+import { Effect, Match, Option } from 'effect'
+import { pipe } from 'effect/Function'
 import { MenuOption, SceneState as Scenes } from '../types'
-import { SceneBlueprint, SceneController, SceneControllerError, createSceneController, makeBlueprint } from './base'
+import {
+  SceneBlueprint,
+  SceneCleanupError,
+  SceneContext,
+  SceneController,
+  SceneControllerError,
+  SceneDefinition,
+  SceneInitializationError,
+  SceneLifecycleError,
+  createSceneController,
+  createSceneRuntime,
+  mapControllerFailure,
+} from './base'
 
 const menuOptions: ReadonlyArray<MenuOption> = ['NewGame', 'LoadGame', 'Settings', 'Exit']
 
@@ -22,12 +34,15 @@ const ensureOption = (option: MenuOption) =>
 
 const optionIndex = (option: MenuOption) =>
   Match.value(menuOptions.findIndex((candidate) => candidate === option)).pipe(
-    Match.when((index) => index < 0, () => Option.none<number>()),
-    Match.orElse((index) => Option.some(index))
+    Match.when(
+      (index) => index < 0,
+      () => Option.none<number>()
+    ),
+    Match.orElse((index) => Option.some(index)),
+    Match.exhaustive
   )
 
-const wrapIndex = (index: number) =>
-  ((index % menuOptions.length) + menuOptions.length) % menuOptions.length
+const wrapIndex = (index: number) => ((index % menuOptions.length) + menuOptions.length) % menuOptions.length
 
 const ensureSelection = (selection: Option.Option<MenuOption>) =>
   Option.match(selection, {
@@ -43,7 +58,7 @@ const ensureSelection = (selection: Option.Option<MenuOption>) =>
 export interface MainMenuController extends SceneController<ReturnType<typeof Scenes.MainMenu>> {
   readonly selectOption: (option: MenuOption) => Effect.Effect<MenuOption, SceneControllerError>
   readonly cycle: (direction: 'next' | 'previous') => Effect.Effect<MenuOption, SceneControllerError>
-  readonly clearSelection: () => Effect.Effect<void>
+  readonly clearSelection: () => Effect.Effect<void, SceneControllerError>
 }
 
 export const createMainMenuController = (): Effect.Effect<MainMenuController> =>
@@ -101,6 +116,70 @@ export const createMainMenuController = (): Effect.Effect<MainMenuController> =>
     })
   )
 
-export const MainMenuBlueprint: SceneBlueprint<ReturnType<typeof Scenes.MainMenu>> = makeBlueprint(
-  Scenes.MainMenu()
-)
+type MainMenuState = ReturnType<typeof Scenes.MainMenu>
+
+type MainMenuSceneContext = SceneContext<MainMenuState, MainMenuController>
+
+interface MainMenuMetadata {
+  readonly title: string
+  readonly version: string
+  readonly menuItems: ReadonlyArray<string>
+}
+
+const metadata: Readonly<MainMenuMetadata> = {
+  title: 'TypeScript Minecraft Clone',
+  version: '1.0.0',
+  menuItems: ['新しいゲーム', '設定', '終了'],
+}
+
+const handleLifecycleFailure = (phase: SceneLifecycleError['phase']) => (reason: string): SceneLifecycleError =>
+  SceneLifecycleError({ sceneType: 'MainMenu', phase, message: reason })
+
+const handleInitializationFailure = (reason: string): SceneInitializationError =>
+  SceneInitializationError({ sceneType: 'MainMenu', message: reason })
+
+const handleCleanupFailure = (reason: string): SceneCleanupError =>
+  SceneCleanupError({ sceneType: 'MainMenu', message: reason })
+
+const MainMenuBlueprint: SceneBlueprint<MainMenuState, MainMenuController> = {
+  initial: Scenes.MainMenu(),
+  controller: createMainMenuController(),
+}
+
+const setDefaultSelection = (context: MainMenuSceneContext) =>
+  mapControllerFailure(context.controller.selectOption('NewGame'), handleInitializationFailure)
+
+const ensureSelectionExists = (context: MainMenuSceneContext) =>
+  Effect.gen(function* () {
+    const current = yield* context.controller.current()
+    yield* Option.match(current.selectedOption, {
+      onNone: () =>
+        mapControllerFailure(
+          context.controller.selectOption('NewGame'),
+          handleLifecycleFailure('enter')
+        ),
+      onSome: () => Effect.void,
+    })
+    return undefined
+  })
+
+const mainMenuDefinition: SceneDefinition<MainMenuState, MainMenuController> = {
+  id: 'main-menu-001',
+  type: 'MainMenu',
+  metadata,
+  blueprint: MainMenuBlueprint,
+  onInitialize: (context) =>
+    Effect.gen(function* () {
+      yield* context.controller.reset()
+      yield* setDefaultSelection(context)
+      return undefined
+    }),
+  onEnter: (context) => ensureSelectionExists(context),
+  onCleanup: (context) =>
+    mapControllerFailure(context.controller.clearSelection(), handleCleanupFailure).pipe(Effect.asVoid),
+}
+
+export const MainMenuScene = createSceneRuntime(mainMenuDefinition)
+
+export { MainMenuBlueprint }
+export const MainMenuDefinition = mainMenuDefinition

@@ -1,9 +1,9 @@
-import { pipe } from 'effect/Function'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
+import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
-import * as Schema from 'effect/Schema'
 import type { ParseError } from 'effect/ParseResult'
+import * as Schema from 'effect/Schema'
 import type { BlockIdentity, BlockIdentityError } from '../value_object/block_identity'
 import { assembleIdentity } from '../value_object/block_identity'
 import type { BlockProperties } from './block_properties'
@@ -57,14 +57,12 @@ export const BlockDefinitionError = Data.taggedEnum<BlockDefinitionError>()
 // Constructors
 // =============================================================================
 
-export const makeStandardBlock = (
-  input: {
-    readonly id: string
-    readonly name: string
-    readonly tags?: Iterable<string>
-    readonly properties?: Parameters<typeof makeBlockProperties>[0]
-  }
-) =>
+export const makeStandardBlock = (input: {
+  readonly id: string
+  readonly name: string
+  readonly tags?: Iterable<string>
+  readonly properties?: Parameters<typeof makeBlockProperties>[0]
+}) =>
   Effect.gen(function* () {
     const identityInput = {
       id: input.id,
@@ -72,32 +70,27 @@ export const makeStandardBlock = (
       ...(input.tags ? { tags: input.tags } : {}),
     } as const
 
-    const identity = yield* Effect.mapError(
-      assembleIdentity(identityInput),
-      (cause) => BlockDefinitionError.IdentityError({ cause })
+    const identity = yield* Effect.mapError(assembleIdentity(identityInput), (cause) =>
+      BlockDefinitionError.IdentityError({ cause })
     )
 
-    const properties = yield* Effect.mapError(
-      makeBlockProperties(input.properties),
-      (cause) => BlockDefinitionError.PropertyError({ cause })
+    const properties = yield* Effect.mapError(makeBlockProperties(input.properties), (cause) =>
+      BlockDefinitionError.PropertyError({ cause })
     )
 
     return BlockDefinition.Standard({ identity, properties })
   })
 
-const mapBlockPropertiesError = (error: BlockPropertiesError) =>
-  BlockDefinitionError.PropertyError({ cause: error })
+const mapBlockPropertiesError = (error: BlockPropertiesError) => BlockDefinitionError.PropertyError({ cause: error })
 
-export const makeLiquidBlock = (
-  input: {
-    readonly id: string
-    readonly name: string
-    readonly tags?: Iterable<string>
-    readonly properties?: Parameters<typeof makeBlockProperties>[0]
-    readonly viscosity: number
-    readonly flowRange: number
-  }
-) =>
+export const makeLiquidBlock = (input: {
+  readonly id: string
+  readonly name: string
+  readonly tags?: Iterable<string>
+  readonly properties?: Parameters<typeof makeBlockProperties>[0]
+  readonly viscosity: number
+  readonly flowRange: number
+}) =>
   Effect.gen(function* () {
     const identityInput = {
       id: input.id,
@@ -105,9 +98,8 @@ export const makeLiquidBlock = (
       ...(input.tags ? { tags: input.tags } : {}),
     } as const
 
-    const identity = yield* Effect.mapError(
-      assembleIdentity(identityInput),
-      (cause) => BlockDefinitionError.IdentityError({ cause })
+    const identity = yield* Effect.mapError(assembleIdentity(identityInput), (cause) =>
+      BlockDefinitionError.IdentityError({ cause })
     )
 
     const propertiesInput: Parameters<typeof makeBlockProperties>[0] = {
@@ -121,10 +113,7 @@ export const makeLiquidBlock = (
       },
     }
 
-    const properties = yield* Effect.mapError(
-      makeBlockProperties(propertiesInput),
-      mapBlockPropertiesError
-    )
+    const properties = yield* Effect.mapError(makeBlockProperties(propertiesInput), mapBlockPropertiesError)
 
     const liquid = yield* pipe(
       Schema.decode(LiquidSchema)({
@@ -142,16 +131,14 @@ export const makeLiquidBlock = (
     })
   })
 
-export const makeInteractiveBlock = (
-  input: {
-    readonly id: string
-    readonly name: string
-    readonly tags?: Iterable<string>
-    readonly properties?: Parameters<typeof makeBlockProperties>[0]
-    readonly interactionId: string
-    readonly inventorySize?: number
-  }
-) =>
+export const makeInteractiveBlock = (input: {
+  readonly id: string
+  readonly name: string
+  readonly tags?: Iterable<string>
+  readonly properties?: Parameters<typeof makeBlockProperties>[0]
+  readonly interactionId: string
+  readonly inventorySize?: number
+}) =>
   Effect.gen(function* () {
     const identityInput = {
       id: input.id,
@@ -159,15 +146,11 @@ export const makeInteractiveBlock = (
       ...(input.tags ? { tags: input.tags } : {}),
     } as const
 
-    const identity = yield* Effect.mapError(
-      assembleIdentity(identityInput),
-      (cause) => BlockDefinitionError.IdentityError({ cause })
+    const identity = yield* Effect.mapError(assembleIdentity(identityInput), (cause) =>
+      BlockDefinitionError.IdentityError({ cause })
     )
 
-    const properties = yield* Effect.mapError(
-      makeBlockProperties(input.properties),
-      mapBlockPropertiesError
-    )
+    const properties = yield* Effect.mapError(makeBlockProperties(input.properties), mapBlockPropertiesError)
 
     const interactive = yield* pipe(
       Schema.decode(InteractiveSchema)({
@@ -181,9 +164,7 @@ export const makeInteractiveBlock = (
       identity,
       properties,
       interactionId: interactive.interactionId,
-      ...(interactive.inventorySize !== undefined
-        ? { inventorySize: interactive.inventorySize }
-        : {}),
+      ...(interactive.inventorySize !== undefined ? { inventorySize: interactive.inventorySize } : {}),
     } as const
 
     return BlockDefinition.Interactive(interactivePayload)

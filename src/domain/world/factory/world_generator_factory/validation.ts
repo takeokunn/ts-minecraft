@@ -18,12 +18,9 @@
  * - Configuration Conflicts: 設定競合
  */
 
-import { Effect, Schema, Match, Function, Array as EffectArray, Option } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import type { CreateWorldGeneratorParams, PresetType, FactoryError } from "./factory.js"
+import { Effect, Function, Match, Schema } from 'effect'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
+import type { CreateWorldGeneratorParams, FactoryError } from './factory.js'
 
 // ================================
 // Validation Result Types
@@ -67,7 +64,7 @@ export const ValidationIssueSchema = Schema.Struct({
   expectedValue: Schema.optional(Schema.Unknown),
   actualValue: Schema.optional(Schema.Unknown),
   suggestion: Schema.optional(Schema.String),
-  code: Schema.optional(Schema.String)
+  code: Schema.optional(Schema.String),
 })
 
 export type ValidationIssue = typeof ValidationIssueSchema.Type
@@ -84,14 +81,14 @@ export const ValidationResultSchema = Schema.Struct({
     errors: Schema.Number,
     warnings: Schema.Number,
     infos: Schema.Number,
-    criticals: Schema.Number
+    criticals: Schema.Number,
   }),
   recommendations: Schema.Array(Schema.String),
   estimatedPerformance: Schema.Struct({
     cpuUsage: Schema.Literal('low', 'medium', 'high'),
     memoryUsage: Schema.Literal('low', 'medium', 'high'),
-    generationSpeed: Schema.Literal('slow', 'normal', 'fast')
-  })
+    generationSpeed: Schema.Literal('slow', 'normal', 'fast'),
+  }),
 })
 
 export type ValidationResult = typeof ValidationResultSchema.Type
@@ -161,7 +158,7 @@ export const validateParams = (
 
     // 並列検証実行
     const ruleResults = yield* Effect.all(
-      rules.map(rule => rule(params)),
+      rules.map((rule) => rule(params)),
       { concurrency: 'unbounded' }
     )
 
@@ -178,9 +175,7 @@ export const validateParams = (
 /**
  * 高速検証（基本チェックのみ）
  */
-export const validateParamsQuick = (
-  params: CreateWorldGeneratorParams
-): Effect.Effect<boolean, FactoryError> =>
+export const validateParamsQuick = (params: CreateWorldGeneratorParams): Effect.Effect<boolean, FactoryError> =>
   Effect.gen(function* () {
     const result = yield* validateParams(params, 'basic')
     return result.isValid
@@ -198,7 +193,7 @@ export const validateWithPerformanceAnalysis = (
 
     return {
       ...validation,
-      performanceReport
+      performanceReport,
     }
   })
 
@@ -214,14 +209,16 @@ function validateRequiredParameters(params: CreateWorldGeneratorParams): Effect.
 
   // seedは必須ではないが、指定された場合は有効である必要がある
   if (params.seed && !isValidSeed(params.seed)) {
-    issues.push(createIssue({
-      severity: 'error',
-      category: 'parameter_invalid',
-      message: 'Invalid seed value provided',
-      field: 'seed',
-      actualValue: params.seed,
-      suggestion: 'Provide a valid WorldSeed or omit to generate random seed'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'error',
+        category: 'parameter_invalid',
+        message: 'Invalid seed value provided',
+        field: 'seed',
+        actualValue: params.seed,
+        suggestion: 'Provide a valid WorldSeed or omit to generate random seed',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -238,12 +235,14 @@ function validateParameterTypes(params: CreateWorldGeneratorParams): Effect.Effe
     const { CreateWorldGeneratorParamsSchema } = require('./factory.js')
     Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
   } catch (error) {
-    issues.push(createIssue({
-      severity: 'error',
-      category: 'parameter_invalid',
-      message: 'Parameter type validation failed',
-      suggestion: 'Check parameter types match expected schema'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'error',
+        category: 'parameter_invalid',
+        message: 'Parameter type validation failed',
+        suggestion: 'Check parameter types match expected schema',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -258,30 +257,34 @@ function validateBasicConstraints(params: CreateWorldGeneratorParams): Effect.Ef
   // 並行生成数制約
   if (params.maxConcurrentGenerations !== undefined) {
     if (params.maxConcurrentGenerations < 1 || params.maxConcurrentGenerations > 16) {
-      issues.push(createIssue({
-        severity: 'error',
-        category: 'constraint_violation',
-        message: 'Maximum concurrent generations must be between 1 and 16',
-        field: 'maxConcurrentGenerations',
-        actualValue: params.maxConcurrentGenerations,
-        expectedValue: '1-16',
-        suggestion: 'Set value between 1 and 16 based on system capabilities'
-      }))
+      issues.push(
+        createIssue({
+          severity: 'error',
+          category: 'constraint_violation',
+          message: 'Maximum concurrent generations must be between 1 and 16',
+          field: 'maxConcurrentGenerations',
+          actualValue: params.maxConcurrentGenerations,
+          expectedValue: '1-16',
+          suggestion: 'Set value between 1 and 16 based on system capabilities',
+        })
+      )
     }
   }
 
   // キャッシュサイズ制約
   if (params.cacheSize !== undefined) {
     if (params.cacheSize < 100 || params.cacheSize > 10000) {
-      issues.push(createIssue({
-        severity: 'error',
-        category: 'constraint_violation',
-        message: 'Cache size must be between 100 and 10000',
-        field: 'cacheSize',
-        actualValue: params.cacheSize,
-        expectedValue: '100-10000',
-        suggestion: 'Adjust cache size based on available memory'
-      }))
+      issues.push(
+        createIssue({
+          severity: 'error',
+          category: 'constraint_violation',
+          message: 'Cache size must be between 100 and 10000',
+          field: 'cacheSize',
+          actualValue: params.cacheSize,
+          expectedValue: '100-10000',
+          suggestion: 'Adjust cache size based on available memory',
+        })
+      )
     }
   }
 
@@ -296,23 +299,26 @@ function validatePerformanceSettings(params: CreateWorldGeneratorParams): Effect
 
   // 品質レベルと並行数の整合性
   if (params.qualityLevel === 'quality' && params.maxConcurrentGenerations && params.maxConcurrentGenerations > 4) {
-    issues.push(createIssue({
-      severity: 'warning',
-      category: 'performance_concern',
-      message: 'High quality level with many concurrent generations may impact performance',
-      suggestion: 'Consider reducing concurrent generations for quality mode'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'warning',
+        category: 'performance_concern',
+        message: 'High quality level with many concurrent generations may impact performance',
+        suggestion: 'Consider reducing concurrent generations for quality mode',
+      })
+    )
   }
 
   // 高速モードと機能有効化の整合性
-  if (params.qualityLevel === 'fast' &&
-      (params.enableStructures || params.enableCaves || params.enableOres)) {
-    issues.push(createIssue({
-      severity: 'info',
-      category: 'performance_concern',
-      message: 'Fast quality mode with complex features enabled',
-      suggestion: 'Disable complex features for maximum performance in fast mode'
-    }))
+  if (params.qualityLevel === 'fast' && (params.enableStructures || params.enableCaves || params.enableOres)) {
+    issues.push(
+      createIssue({
+        severity: 'info',
+        category: 'performance_concern',
+        message: 'Fast quality mode with complex features enabled',
+        suggestion: 'Disable complex features for maximum performance in fast mode',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -326,13 +332,16 @@ function validateResourceLimits(params: CreateWorldGeneratorParams): Effect.Effe
 
   // メモリ使用量推定
   const estimatedMemory = estimateMemoryUsage(params)
-  if (estimatedMemory > 1024) { // 1GB
-    issues.push(createIssue({
-      severity: 'warning',
-      category: 'resource_limit',
-      message: `High estimated memory usage: ${estimatedMemory}MB`,
-      suggestion: 'Consider reducing cache size or concurrent generations'
-    }))
+  if (estimatedMemory > 1024) {
+    // 1GB
+    issues.push(
+      createIssue({
+        severity: 'warning',
+        category: 'resource_limit',
+        message: `High estimated memory usage: ${estimatedMemory}MB`,
+        suggestion: 'Consider reducing cache size or concurrent generations',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -346,12 +355,14 @@ function validateFeatureCompatibility(params: CreateWorldGeneratorParams): Effec
 
   // デバッグモードと品質レベルの整合性
   if (params.enableDebugMode && params.qualityLevel === 'quality') {
-    issues.push(createIssue({
-      severity: 'info',
-      category: 'configuration_conflict',
-      message: 'Debug mode enabled with quality level - may impact performance',
-      suggestion: 'Use fast or balanced quality for debugging'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'info',
+        category: 'configuration_conflict',
+        message: 'Debug mode enabled with quality level - may impact performance',
+        suggestion: 'Use fast or balanced quality for debugging',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -365,12 +376,14 @@ function validateBusinessRules(params: CreateWorldGeneratorParams): Effect.Effec
 
   // 構造物なしでも洞窟・鉱石は有効化推奨
   if (!params.enableStructures && !params.enableCaves && !params.enableOres) {
-    issues.push(createIssue({
-      severity: 'warning',
-      category: 'business_rule_violation',
-      message: 'All generation features disabled - world may be too simple',
-      suggestion: 'Enable at least caves or ores for interesting terrain'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'warning',
+        category: 'business_rule_violation',
+        message: 'All generation features disabled - world may be too simple',
+        suggestion: 'Enable at least caves or ores for interesting terrain',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -385,12 +398,14 @@ function validateOptimizationRules(params: CreateWorldGeneratorParams): Effect.E
   // CPU使用率最適化チェック
   const cpuScore = calculateCpuUsageScore(params)
   if (cpuScore > 80) {
-    issues.push(createIssue({
-      severity: 'warning',
-      category: 'performance_concern',
-      message: 'High CPU usage configuration detected',
-      suggestion: 'Reduce quality level or concurrent generations for better performance'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'warning',
+        category: 'performance_concern',
+        message: 'High CPU usage configuration detected',
+        suggestion: 'Reduce quality level or concurrent generations for better performance',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -403,15 +418,21 @@ function validateAdvancedConstraints(params: CreateWorldGeneratorParams): Effect
   const issues: ValidationIssue[] = []
 
   // 複雑な制約チェック
-  if (params.qualityLevel === 'quality' &&
-      params.maxConcurrentGenerations && params.maxConcurrentGenerations > 1 &&
-      params.cacheSize && params.cacheSize > 3000) {
-    issues.push(createIssue({
-      severity: 'info',
-      category: 'performance_concern',
-      message: 'Resource-intensive configuration may require high-end hardware',
-      suggestion: 'Monitor system performance and adjust if needed'
-    }))
+  if (
+    params.qualityLevel === 'quality' &&
+    params.maxConcurrentGenerations &&
+    params.maxConcurrentGenerations > 1 &&
+    params.cacheSize &&
+    params.cacheSize > 3000
+  ) {
+    issues.push(
+      createIssue({
+        severity: 'info',
+        category: 'performance_concern',
+        message: 'Resource-intensive configuration may require high-end hardware',
+        suggestion: 'Monitor system performance and adjust if needed',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -425,12 +446,14 @@ function validateConfigurationConsistency(params: CreateWorldGeneratorParams): E
 
   // ログレベルとデバッグモードの整合性
   if (!params.enableDebugMode && params.logLevel === 'debug') {
-    issues.push(createIssue({
-      severity: 'info',
-      category: 'configuration_conflict',
-      message: 'Debug log level without debug mode',
-      suggestion: 'Enable debug mode or use info log level'
-    }))
+    issues.push(
+      createIssue({
+        severity: 'info',
+        category: 'configuration_conflict',
+        message: 'Debug log level without debug mode',
+        suggestion: 'Enable debug mode or use info log level',
+      })
+    )
   }
 
   return Effect.succeed(issues)
@@ -443,7 +466,9 @@ function validateConfigurationConsistency(params: CreateWorldGeneratorParams): E
 /**
  * 検証問題作成ヘルパー
  */
-function createIssue(issue: Partial<ValidationIssue> & Pick<ValidationIssue, 'severity' | 'category' | 'message'>): ValidationIssue {
+function createIssue(
+  issue: Partial<ValidationIssue> & Pick<ValidationIssue, 'severity' | 'category' | 'message'>
+): ValidationIssue {
   return {
     severity: issue.severity,
     category: issue.category,
@@ -452,7 +477,7 @@ function createIssue(issue: Partial<ValidationIssue> & Pick<ValidationIssue, 'se
     expectedValue: issue.expectedValue,
     actualValue: issue.actualValue,
     suggestion: issue.suggestion,
-    code: issue.code
+    code: issue.code,
   }
 }
 
@@ -461,20 +486,18 @@ function createIssue(issue: Partial<ValidationIssue> & Pick<ValidationIssue, 'se
  */
 function buildValidationResult(issues: ValidationIssue[], level: ValidationLevel): ValidationResult {
   const summary = {
-    criticals: issues.filter(i => i.severity === 'critical').length,
-    errors: issues.filter(i => i.severity === 'error').length,
-    warnings: issues.filter(i => i.severity === 'warning').length,
-    infos: issues.filter(i => i.severity === 'info').length
+    criticals: issues.filter((i) => i.severity === 'critical').length,
+    errors: issues.filter((i) => i.severity === 'error').length,
+    warnings: issues.filter((i) => i.severity === 'warning').length,
+    infos: issues.filter((i) => i.severity === 'info').length,
   }
 
   const isValid = summary.criticals === 0 && summary.errors === 0
 
   // スコア計算（criticals: -50, errors: -20, warnings: -5, infos: -1）
-  const score = Math.max(0, 100 -
-    (summary.criticals * 50) -
-    (summary.errors * 20) -
-    (summary.warnings * 5) -
-    (summary.infos * 1)
+  const score = Math.max(
+    0,
+    100 - summary.criticals * 50 - summary.errors * 20 - summary.warnings * 5 - summary.infos * 1
   )
 
   const recommendations = generateRecommendations(issues)
@@ -489,8 +512,8 @@ function buildValidationResult(issues: ValidationIssue[], level: ValidationLevel
     estimatedPerformance: {
       cpuUsage: 'medium',
       memoryUsage: 'medium',
-      generationSpeed: 'normal'
-    }
+      generationSpeed: 'normal',
+    },
   }
 }
 
@@ -499,8 +522,8 @@ function buildValidationResult(issues: ValidationIssue[], level: ValidationLevel
  */
 function generateRecommendations(issues: ValidationIssue[]): string[] {
   return issues
-    .filter(issue => issue.suggestion)
-    .map(issue => issue.suggestion!)
+    .filter((issue) => issue.suggestion)
+    .map((issue) => issue.suggestion!)
     .filter((suggestion, index, array) => array.indexOf(suggestion) === index) // 重複削除
 }
 
@@ -604,7 +627,7 @@ function analyzePerformanceImpact(params: CreateWorldGeneratorParams): Effect.Ef
     estimatedCpuUsage,
     recommendedThreads,
     bottlenecks,
-    optimizations
+    optimizations,
   })
 }
 
@@ -622,9 +645,9 @@ function calculateRecommendedThreads(params: CreateWorldGeneratorParams): number
 // ================================
 
 export {
-  type ValidationIssue,
-  type ValidationResult,
-  type ValidationLevel,
-  type ValidationSeverity,
   type ValidationCategory,
+  type ValidationIssue,
+  type ValidationLevel,
+  type ValidationResult,
+  type ValidationSeverity,
 }

@@ -5,10 +5,9 @@
  * 実験的機能と安定機能の管理
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * フラグ重要度Brand型（1-10）
@@ -31,7 +30,7 @@ export const FlagPrioritySchema = Schema.Number.pipe(
     identifier: 'FlagPriority',
     title: 'Feature Flag Priority',
     description: 'Priority level of feature flag (1=low, 10=critical)',
-    examples: [1, 5, 8, 10]
+    examples: [1, 5, 8, 10],
   })
 )
 
@@ -45,7 +44,7 @@ export const VersionNumberSchema = Schema.String.pipe(
     identifier: 'VersionNumber',
     title: 'Version Number',
     description: 'Semantic version number for feature compatibility',
-    examples: ['1.0.0', '2.1.3', '3.0.0-beta', '1.5.2-alpha']
+    examples: ['1.0.0', '2.1.3', '3.0.0-beta', '1.5.2-alpha'],
   })
 )
 
@@ -53,24 +52,24 @@ export const VersionNumberSchema = Schema.String.pipe(
  * 機能カテゴリ
  */
 export const FeatureCategorySchema = Schema.Literal(
-  'terrain',      // 地形生成
-  'biomes',       // バイオーム
-  'structures',   // 構造物
-  'ores',         // 鉱石
-  'caves',        // 洞窟
-  'water',        // 水系
-  'vegetation',   // 植生
-  'weather',      // 天候
-  'lighting',     // 光源
-  'physics',      // 物理演算
-  'performance',  // パフォーマンス
+  'terrain', // 地形生成
+  'biomes', // バイオーム
+  'structures', // 構造物
+  'ores', // 鉱石
+  'caves', // 洞窟
+  'water', // 水系
+  'vegetation', // 植生
+  'weather', // 天候
+  'lighting', // 光源
+  'physics', // 物理演算
+  'performance', // パフォーマンス
   'experimental', // 実験的機能
-  'debug',        // デバッグ
+  'debug', // デバッグ
   'compatibility' // 互換性
 ).pipe(
   Schema.annotations({
     title: 'Feature Category',
-    description: 'Category classification of feature'
+    description: 'Category classification of feature',
   })
 )
 
@@ -80,17 +79,17 @@ export type FeatureCategory = typeof FeatureCategorySchema.Type
  * 機能状態
  */
 export const FeatureStateSchema = Schema.Literal(
-  'enabled',      // 有効
-  'disabled',     // 無効
-  'deprecated',   // 非推奨
+  'enabled', // 有効
+  'disabled', // 無効
+  'deprecated', // 非推奨
   'experimental', // 実験的
-  'beta',         // ベータ
-  'stable',       // 安定
-  'legacy'        // レガシー
+  'beta', // ベータ
+  'stable', // 安定
+  'legacy' // レガシー
 ).pipe(
   Schema.annotations({
     title: 'Feature State',
-    description: 'Current state of feature flag'
+    description: 'Current state of feature flag',
   })
 )
 
@@ -111,7 +110,7 @@ export const ConditionOperatorSchema = Schema.Literal(
 ).pipe(
   Schema.annotations({
     title: 'Condition Operator',
-    description: 'Operator for conditional feature activation'
+    description: 'Operator for conditional feature activation',
   })
 )
 
@@ -124,12 +123,12 @@ export const FeatureConditionSchema = Schema.Struct({
   property: Schema.String,
   operator: ConditionOperatorSchema,
   value: Schema.Unknown,
-  description: Schema.String.pipe(Schema.optional)
+  description: Schema.String.pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'FeatureCondition',
     title: 'Feature Activation Condition',
-    description: 'Condition that must be met for feature activation'
+    description: 'Condition that must be met for feature activation',
   })
 )
 
@@ -139,16 +138,16 @@ export type FeatureCondition = typeof FeatureConditionSchema.Type
  * パフォーマンス影響度
  */
 export const PerformanceImpactSchema = Schema.Literal(
-  'none',      // 影響なし
-  'minimal',   // 最小限
-  'low',       // 低
-  'moderate',  // 中程度
-  'high',      // 高
-  'severe'     // 深刻
+  'none', // 影響なし
+  'minimal', // 最小限
+  'low', // 低
+  'moderate', // 中程度
+  'high', // 高
+  'severe' // 深刻
 ).pipe(
   Schema.annotations({
     title: 'Performance Impact',
-    description: 'Expected performance impact of feature'
+    description: 'Expected performance impact of feature',
   })
 )
 
@@ -188,14 +187,14 @@ export const FeatureFlagConfigSchema = Schema.Struct({
     introduced: VersionNumberSchema,
     lastModified: VersionNumberSchema,
     deprecated: VersionNumberSchema.pipe(Schema.optional),
-    removed: VersionNumberSchema.pipe(Schema.optional)
+    removed: VersionNumberSchema.pipe(Schema.optional),
   }),
 
   // 依存関係
   dependencies: Schema.Struct({
     requires: Schema.Array(Schema.String).pipe(Schema.optional),
     conflicts: Schema.Array(Schema.String).pipe(Schema.optional),
-    suggests: Schema.Array(Schema.String).pipe(Schema.optional)
+    suggests: Schema.Array(Schema.String).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 条件付き有効化
@@ -206,18 +205,13 @@ export const FeatureFlagConfigSchema = Schema.Struct({
     impact: PerformanceImpactSchema,
     cpuUsage: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional),
     memoryUsage: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
-    diskUsage: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional)
+    diskUsage: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 設定パラメータ
   parameters: Schema.Record({
     key: Schema.String,
-    value: Schema.Union(
-      Schema.Boolean,
-      Schema.Number,
-      Schema.String,
-      Schema.Array(Schema.Unknown)
-    )
+    value: Schema.Union(Schema.Boolean, Schema.Number, Schema.String, Schema.Array(Schema.Unknown)),
   }).pipe(Schema.optional),
 
   // メタデータ
@@ -225,13 +219,13 @@ export const FeatureFlagConfigSchema = Schema.Struct({
     author: Schema.String.pipe(Schema.optional),
     tags: Schema.Array(Schema.String).pipe(Schema.optional),
     documentation: Schema.String.pipe(Schema.optional),
-    issues: Schema.Array(Schema.String).pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    issues: Schema.Array(Schema.String).pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'FeatureFlagConfig',
     title: 'Individual Feature Flag Configuration',
-    description: 'Complete configuration for a specific feature flag'
+    description: 'Complete configuration for a specific feature flag',
   })
 )
 
@@ -247,13 +241,13 @@ export const FeatureFlagsSchema = Schema.Struct({
     strictMode: Schema.Boolean,
     logLevel: Schema.Literal('none', 'error', 'warn', 'info', 'debug'),
     cacheEnabled: Schema.Boolean,
-    validationEnabled: Schema.Boolean
+    validationEnabled: Schema.Boolean,
   }),
 
   // フラグ定義
   flags: Schema.Record({
     key: Schema.String,
-    value: FeatureFlagConfigSchema
+    value: FeatureFlagConfigSchema,
   }),
 
   // プリセット設定
@@ -264,9 +258,9 @@ export const FeatureFlagsSchema = Schema.Struct({
       description: Schema.String,
       flagOverrides: Schema.Record({
         key: Schema.String,
-        value: Schema.Boolean
-      })
-    })
+        value: Schema.Boolean,
+      }),
+    }),
   }).pipe(Schema.optional),
 
   // 環境別設定
@@ -276,8 +270,8 @@ export const FeatureFlagsSchema = Schema.Struct({
       defaultState: FeatureStateSchema,
       allowedStates: Schema.Array(FeatureStateSchema),
       autoEnable: Schema.Array(Schema.String),
-      autoDisable: Schema.Array(Schema.String)
-    })
+      autoDisable: Schema.Array(Schema.String),
+    }),
   }).pipe(Schema.optional),
 
   // 実験設定
@@ -285,7 +279,7 @@ export const FeatureFlagsSchema = Schema.Struct({
     enabled: Schema.Boolean,
     maxConcurrent: Schema.Number.pipe(Schema.int(), Schema.positive()),
     rolloutPercentage: Schema.Number.pipe(Schema.between(0, 100)),
-    targetAudience: Schema.Array(Schema.String)
+    targetAudience: Schema.Array(Schema.String),
   }).pipe(Schema.optional),
 
   // 監視・分析
@@ -294,13 +288,13 @@ export const FeatureFlagsSchema = Schema.Struct({
     metricsCollection: Schema.Boolean,
     errorReporting: Schema.Boolean,
     usageAnalytics: Schema.Boolean,
-    performanceMonitoring: Schema.Boolean
-  }).pipe(Schema.optional)
+    performanceMonitoring: Schema.Boolean,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'FeatureFlags',
     title: 'Complete Feature Flags Configuration',
-    description: 'Full feature flags system configuration'
+    description: 'Full feature flags system configuration',
   })
 )
 
@@ -315,8 +309,8 @@ export const CreateFeatureFlagsParamsSchema = Schema.Struct({
   environment: Schema.Literal('development', 'testing', 'staging', 'production').pipe(Schema.optional),
   customFlags: Schema.Record({
     key: Schema.String,
-    value: Schema.Boolean
-  }).pipe(Schema.optional)
+    value: Schema.Boolean,
+  }).pipe(Schema.optional),
 })
 
 export type CreateFeatureFlagsParams = typeof CreateFeatureFlagsParamsSchema.Type
@@ -329,29 +323,29 @@ export const FeatureFlagsErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidFlagName'),
     name: Schema.String,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('DependencyConflict'),
     flag: Schema.String,
     dependencies: Schema.Array(Schema.String),
     conflicts: Schema.Array(Schema.String),
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('VersionCompatibilityError'),
     flag: Schema.String,
     requiredVersion: VersionNumberSchema,
     currentVersion: VersionNumberSchema,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ConditionEvaluationError'),
     flag: Schema.String,
     condition: FeatureConditionSchema,
     error: Schema.String,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type FeatureFlagsError = typeof FeatureFlagsErrorSchema.Type
@@ -388,5 +382,5 @@ export const STANDARD_FEATURE_FLAGS = {
   // 実験的
   EXPERIMENTAL_FEATURES: 'experimental_features',
   BETA_TERRAIN: 'beta_terrain',
-  FUTURE_COMPATIBILITY: 'future_compatibility'
+  FUTURE_COMPATIBILITY: 'future_compatibility',
 } as const

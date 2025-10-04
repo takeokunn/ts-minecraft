@@ -160,6 +160,7 @@ export const sortByTimestamp = (events: ReadonlyArray<InputEvent>): ReadonlyArra
   pipe(events, ReadonlyArray.sort(orderByTimestamp))
 
 export const latestTimestamp = (events: ReadonlyArray<InputEvent>): Option.Option<InputTimestamp> =>
-  pipe(events, ReadonlyArray.reduce<Option.Option<InputTimestamp>>(Option.none(), (_acc, event) =>
-    Option.some(event.timestamp)
-  ))
+  pipe(
+    events,
+    ReadonlyArray.reduce<Option.Option<InputTimestamp>>(Option.none(), (_acc, event) => Option.some(event.timestamp))
+  )

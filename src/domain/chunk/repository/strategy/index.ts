@@ -6,31 +6,27 @@
  */
 
 export {
-  // Strategy Types
-  type RepositoryStrategyType,
-  type EnvironmentInfo,
-  type RepositoryConfig,
-  type PerformanceRequirements,
+  // Environment-specific Layers
+  DevelopmentRepositoryLayer,
+  ProductionRepositoryLayer,
+  // Configuration Builder
+  RepositoryConfigBuilder,
+  TestRepositoryLayer,
+  autoSelectStrategy,
+  configureRepository,
 
+  // Convenience Functions
+  createOptimizedRepositoryLayer,
+  // Strategy Factory
+  createRepositoryLayer,
   // Environment Detection
   detectEnvironment,
 
   // Strategy Selection
   selectOptimalStrategy,
-  autoSelectStrategy,
-
-  // Strategy Factory
-  createRepositoryLayer,
-
-  // Configuration Builder
-  RepositoryConfigBuilder,
-  configureRepository,
-
-  // Convenience Functions
-  createOptimizedRepositoryLayer,
-
-  // Environment-specific Layers
-  DevelopmentRepositoryLayer,
-  TestRepositoryLayer,
-  ProductionRepositoryLayer,
+  type EnvironmentInfo,
+  type PerformanceRequirements,
+  type RepositoryConfig,
+  // Strategy Types
+  type RepositoryStrategyType,
 } from './repository_strategy'

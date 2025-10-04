@@ -1,24 +1,14 @@
-
-import { Context, Effect, HashMap, Layer, Option, Ref, Stream, SubscriptionRef, pipe } from 'effect'
+import { Context, Effect, HashMap, Layer, Option, Ref, Stream, SubscriptionRef } from 'effect'
 import type { InventoryView, PlayerId } from '../adt/inventory-adt'
 
 export interface InventoryStateStore {
-  readonly get: (
-    playerId: PlayerId
-  ) => Effect.Effect<Option.Option<InventoryView>>
-  readonly set: (
-    playerId: PlayerId,
-    view: InventoryView
-  ) => Effect.Effect<void>
-  readonly remove: (
-    playerId: PlayerId
-  ) => Effect.Effect<void>
+  readonly get: (playerId: PlayerId) => Effect.Effect<Option.Option<InventoryView>>
+  readonly set: (playerId: PlayerId, view: InventoryView) => Effect.Effect<void>
+  readonly remove: (playerId: PlayerId) => Effect.Effect<void>
   readonly clear: () => Effect.Effect<void>
   readonly snapshot: () => Effect.Effect<HashMap.HashMap<PlayerId, InventoryView>>
   readonly streamAll: () => Stream.Stream<HashMap.HashMap<PlayerId, InventoryView>>
-  readonly streamByPlayer: (
-    playerId: PlayerId
-  ) => Stream.Stream<InventoryView>
+  readonly streamByPlayer: (playerId: PlayerId) => Stream.Stream<InventoryView>
 }
 
 export const InventoryStateStoreTag = Context.GenericTag<InventoryStateStore>(
@@ -31,23 +21,15 @@ export const InventoryStateStoreLive = Layer.effect(
     const stateRef = yield* Ref.make(HashMap.empty<PlayerId, InventoryView>())
     const subscription = yield* SubscriptionRef.make(HashMap.empty<PlayerId, InventoryView>())
 
-    const publish = (map: HashMap.HashMap<PlayerId, InventoryView>) =>
-      SubscriptionRef.set(subscription, map)
+    const publish = (map: HashMap.HashMap<PlayerId, InventoryView>) => SubscriptionRef.set(subscription, map)
 
-    const get = (playerId: PlayerId) =>
-      Ref.get(stateRef).pipe(Effect.map((map) => HashMap.get(map, playerId)))
+    const get = (playerId: PlayerId) => Ref.get(stateRef).pipe(Effect.map((map) => HashMap.get(map, playerId)))
 
     const set = (playerId: PlayerId, view: InventoryView) =>
-      Ref.updateAndGet(stateRef, (map) => HashMap.set(map, playerId, view)).pipe(
-        Effect.flatMap(publish),
-        Effect.asVoid
-      )
+      Ref.updateAndGet(stateRef, (map) => HashMap.set(map, playerId, view)).pipe(Effect.flatMap(publish), Effect.asVoid)
 
     const remove = (playerId: PlayerId) =>
-      Ref.updateAndGet(stateRef, (map) => HashMap.remove(map, playerId)).pipe(
-        Effect.flatMap(publish),
-        Effect.asVoid
-      )
+      Ref.updateAndGet(stateRef, (map) => HashMap.remove(map, playerId)).pipe(Effect.flatMap(publish), Effect.asVoid)
 
     const clear = () =>
       Ref.set(stateRef, HashMap.empty<PlayerId, InventoryView>()).pipe(
@@ -60,9 +42,7 @@ export const InventoryStateStoreLive = Layer.effect(
     const streamAll = () => subscription.changes
 
     const streamByPlayer = (playerId: PlayerId) =>
-      streamAll().pipe(
-        Stream.filterMap((map) => HashMap.get(map, playerId))
-      )
+      streamAll().pipe(Stream.filterMap((map) => HashMap.get(map, playerId)))
 
     return InventoryStateStoreTag.of({
       get,

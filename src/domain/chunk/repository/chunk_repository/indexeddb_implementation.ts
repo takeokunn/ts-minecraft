@@ -1,9 +1,15 @@
-import { Clock, Effect, Layer, Match, Option, pipe } from 'effect'
-import { ChunkRepository, type BatchOperationResult, type ChunkQuery, type ChunkRegion, type ChunkStatistics } from './interface'
+import { Clock, Effect, Layer, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkId } from '../../value_object/chunk_id'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import { RepositoryErrors, type RepositoryError } from '../types/repository_error'
+import {
+  ChunkRepository,
+  type BatchOperationResult,
+  type ChunkQuery,
+  type ChunkRegion,
+  type ChunkStatistics,
+} from './interface'
 
 const DB_NAME = 'MinecraftChunkStorage'
 const DB_VERSION = 1
@@ -35,11 +41,7 @@ const openDatabase = (): Effect.Effect<IDBDatabase, RepositoryError> =>
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
-      resume(
-        Effect.fail(
-          RepositoryErrors.storage('openDatabase', 'Failed to open IndexedDB', request.error)
-        )
-      )
+      resume(Effect.fail(RepositoryErrors.storage('openDatabase', 'Failed to open IndexedDB', request.error)))
     }
 
     request.onsuccess = () => {
@@ -100,7 +102,8 @@ const matchesQuery = (record: ChunkRecord, query: ChunkQuery): boolean => {
     Option.fromNullable(query.positions),
     Option.match({
       onNone: () => true,
-      onSome: (positions) => positions.some((pos) => pos.x === record.chunkData.position.x && pos.z === record.chunkData.position.z),
+      onSome: (positions) =>
+        positions.some((pos) => pos.x === record.chunkData.position.x && pos.z === record.chunkData.position.z),
     })
   )
 
@@ -166,9 +169,7 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
         Effect.flatMap(
           transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
             requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-              tx.objectStore(CHUNK_STORE)
-                .index('position')
-                .getAll([position.x, position.z])
+              tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z])
             )
           ),
           (records) =>
@@ -185,11 +186,12 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
         ).pipe(
           Effect.map((records: ReadonlyArray<ChunkRecord>) =>
             records
-              .filter((record) =>
-                record.chunkData.position.x >= region.minX &&
-                record.chunkData.position.x <= region.maxX &&
-                record.chunkData.position.z >= region.minZ &&
-                record.chunkData.position.z <= region.maxZ
+              .filter(
+                (record) =>
+                  record.chunkData.position.x >= region.minX &&
+                  record.chunkData.position.x <= region.maxX &&
+                  record.chunkData.position.z >= region.minZ &&
+                  record.chunkData.position.z <= region.maxZ
               )
               .map((record) => record.chunkData)
           )
@@ -198,26 +200,16 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       findByIds: (ids: ReadonlyArray<ChunkId>) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
           Promise.all(ids.map((id) => requestToPromise(() => tx.objectStore(CHUNK_STORE).get(idKey(id)))))
-        ).pipe(
-          Effect.map((records) => records.flatMap((record) => (record ? [record.chunkData] : [])))
-        ),
+        ).pipe(Effect.map((records) => records.flatMap((record) => (record ? [record.chunkData] : [])))),
 
       findByPositions: (positions: ReadonlyArray<ChunkPosition>) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
           Promise.all(
             positions.map((position) =>
-              requestToPromise(() =>
-                tx.objectStore(CHUNK_STORE)
-                  .index('position')
-                  .getAll([position.x, position.z])
-              )
+              requestToPromise(() => tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z]))
             )
           )
-        ).pipe(
-          Effect.map((records) =>
-            records.flatMap((record) => record?.map((entry) => entry.chunkData) ?? [])
-          )
-        ),
+        ).pipe(Effect.map((records) => records.flatMap((record) => record?.map((entry) => entry.chunkData) ?? []))),
 
       save: (chunk: ChunkData) =>
         Effect.flatMap(toRecord(chunk), (record) =>
@@ -232,15 +224,17 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
             const store = tx.objectStore(CHUNK_STORE)
             await Promise.all(
               chunks.map((chunk) =>
-                requestToPromise(() => store.put({
-                  id: positionKey(chunk.position),
-                  chunkData: chunk,
-                  createdAt: timestamp,
-                  modifiedAt: timestamp,
-                  accessCount: 0,
-                  lastAccessAt: timestamp,
-                  size: estimateChunkSize(chunk),
-                }))
+                requestToPromise(() =>
+                  store.put({
+                    id: positionKey(chunk.position),
+                    chunkData: chunk,
+                    createdAt: timestamp,
+                    modifiedAt: timestamp,
+                    accessCount: 0,
+                    lastAccessAt: timestamp,
+                    size: estimateChunkSize(chunk),
+                  })
+                )
               )
             )
             return chunks
@@ -274,28 +268,23 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
         ).pipe(Effect.map((key) => key !== undefined)),
 
       count: () =>
-        transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).count())
-        ),
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) => requestToPromise(() => tx.objectStore(CHUNK_STORE).count())),
 
       countByRegion: (region: ChunkRegion) =>
         transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-            tx.objectStore(CHUNK_STORE).getAll()
-          )
-          return records.filter((record) =>
-            record.chunkData.position.x >= region.minX &&
-            record.chunkData.position.x <= region.maxX &&
-            record.chunkData.position.z >= region.minZ &&
-            record.chunkData.position.z <= region.maxZ
+          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() => tx.objectStore(CHUNK_STORE).getAll())
+          return records.filter(
+            (record) =>
+              record.chunkData.position.x >= region.minX &&
+              record.chunkData.position.x <= region.maxX &&
+              record.chunkData.position.z >= region.minZ &&
+              record.chunkData.position.z <= region.maxZ
           ).length
         }),
 
       findByQuery: (query: ChunkQuery) =>
         transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-            tx.objectStore(CHUNK_STORE).getAll()
-          )
+          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() => tx.objectStore(CHUNK_STORE).getAll())
           const filtered = records.filter((record) => matchesQuery(record, query))
           const offset = query.offset ?? 0
           return sliceWithLimit(filtered, offset, query.limit).map((record) => record.chunkData)
@@ -304,18 +293,14 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       findRecentlyLoaded: (limit: number) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
           requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-            tx.objectStore(CHUNK_STORE)
-              .index('createdAt')
-              .getAll(undefined, limit)
+            tx.objectStore(CHUNK_STORE).index('createdAt').getAll(undefined, limit)
           )
         ).pipe(Effect.map((records) => records.map((record) => record.chunkData))),
 
       findModified: (since: number) =>
         transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
           const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-            tx.objectStore(CHUNK_STORE)
-              .index('modifiedAt')
-              .getAll(IDBKeyRange.lowerBound(since))
+            tx.objectStore(CHUNK_STORE).index('modifiedAt').getAll(IDBKeyRange.lowerBound(since))
           )
           return records.map((record) => record.chunkData)
         }),
@@ -339,10 +324,14 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
         }),
 
       batchSave: (chunks) =>
-        Effect.map(service.saveAll(chunks), (saved) => ({
-          successful: saved,
-          failed: [] as ReadonlyArray<{ readonly item: ChunkData; readonly error: RepositoryError }>,
-        } satisfies BatchOperationResult<ChunkData>)),
+        Effect.map(
+          service.saveAll(chunks),
+          (saved) =>
+            ({
+              successful: saved,
+              failed: [] as ReadonlyArray<{ readonly item: ChunkData; readonly error: RepositoryError }>,
+            }) satisfies BatchOperationResult<ChunkData>
+        ),
 
       batchDelete: (ids) =>
         Effect.map(
@@ -351,10 +340,11 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
             await Promise.all(ids.map((id) => requestToPromise(() => store.delete(idKey(id)))))
             return ids
           }),
-          (deleted) => ({
-            successful: deleted,
-            failed: [] as ReadonlyArray<{ readonly item: ChunkId; readonly error: RepositoryError }>,
-          } satisfies BatchOperationResult<ChunkId>)
+          (deleted) =>
+            ({
+              successful: deleted,
+              failed: [] as ReadonlyArray<{ readonly item: ChunkId; readonly error: RepositoryError }>,
+            }) satisfies BatchOperationResult<ChunkId>
         ),
 
       initialize: () =>

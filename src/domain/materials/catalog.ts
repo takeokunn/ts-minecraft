@@ -6,9 +6,9 @@ import type {
   BurnTime,
   ItemId,
   Material,
+  MaterialCollection,
   ToolEfficiency,
   ToolEfficiencyCollection,
-  MaterialCollection,
 } from './types'
 import {
   MaterialCollection as MaterialCollectionSchema,
@@ -32,9 +32,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['pickaxe'],
       minimumLevel: 0,
     },
-    drops: [
-      { itemId: 'minecraft:cobblestone', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:cobblestone', amount: 1 }],
     tags: ['overworld', 'solid'],
   },
   {
@@ -50,9 +48,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['axe'],
       minimumLevel: 0,
     },
-    drops: [
-      { itemId: 'minecraft:oak_log', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:oak_log', amount: 1 }],
     burnTime: 300,
     tags: ['overworld', 'flammable'],
   },
@@ -69,9 +65,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['pickaxe'],
       minimumLevel: 2,
     },
-    drops: [
-      { itemId: 'minecraft:diamond', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:diamond', amount: 1 }],
     tags: ['overworld', 'ore'],
   },
   {
@@ -87,9 +81,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['pickaxe'],
       minimumLevel: 3,
     },
-    drops: [
-      { itemId: 'minecraft:obsidian', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:obsidian', amount: 1 }],
     tags: ['overworld', 'portal'],
   },
   {
@@ -105,9 +97,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['shovel'],
       minimumLevel: 0,
     },
-    drops: [
-      { itemId: 'minecraft:sand', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:sand', amount: 1 }],
     tags: ['overworld', 'gravity'],
   },
   {
@@ -123,9 +113,7 @@ const materialsSource: MaterialCollection = decodeMaterials([
       preferredTypes: ['shears'],
       minimumLevel: 0,
     },
-    drops: [
-      { itemId: 'minecraft:oak_sapling', amount: 1 },
-    ],
+    drops: [{ itemId: 'minecraft:oak_sapling', amount: 1 }],
     burnTime: 100,
     tags: ['overworld', 'foliage'],
   },
@@ -264,19 +252,9 @@ export const materialCatalog = materialsSource
 
 export const materialByBlockId = HashMap.fromIterable(pipe(materialCatalog, Array_.map(toBlockEntry)))
 
-export const burnTimeByItemId = HashMap.fromIterable(
-  pipe(
-    materialCatalog,
-    Array_.flatMap(toBurnEntry)
-  )
-)
+export const burnTimeByItemId = HashMap.fromIterable(pipe(materialCatalog, Array_.flatMap(toBurnEntry)))
 
-export const toolEfficiencyByKey = HashMap.fromIterable(
-  pipe(
-    efficiencySource,
-    Array_.map(toEfficiencyEntry)
-  )
-)
+export const toolEfficiencyByKey = HashMap.fromIterable(pipe(efficiencySource, Array_.map(toEfficiencyEntry)))
 
 export const getEfficiencyKey = (
   toolType: ToolEfficiency['toolType'],

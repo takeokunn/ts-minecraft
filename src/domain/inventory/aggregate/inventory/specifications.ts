@@ -22,19 +22,21 @@ export class CanAddItemSpecification implements InventorySpecification {
   constructor(private readonly itemStack: ItemStack) {}
 
   isSatisfiedBy(aggregate: InventoryAggregate): Effect.Effect<boolean, InventoryAggregateError> {
-    return Effect.gen(function* () {
-      for (const slot of aggregate.slots) {
-        if (
-          slot?.itemStack &&
-          slot.itemStack.itemId === this.itemStack.itemId &&
-          slot.itemStack.count + this.itemStack.count <= INVENTORY_CONSTANTS.MAX_STACK_SIZE
-        ) {
-          return true
+    return Effect.gen(
+      function* () {
+        for (const slot of aggregate.slots) {
+          if (
+            slot?.itemStack &&
+            slot.itemStack.itemId === this.itemStack.itemId &&
+            slot.itemStack.count + this.itemStack.count <= INVENTORY_CONSTANTS.MAX_STACK_SIZE
+          ) {
+            return true
+          }
         }
-      }
 
-      return aggregate.slots.some((slot) => slot === null)
-    }.bind(this))
+        return aggregate.slots.some((slot) => slot === null)
+      }.bind(this)
+    )
   }
 }
 
@@ -42,24 +44,29 @@ export class HasSufficientSpaceSpecification implements InventorySpecification {
   readonly name = 'HasSufficientSpace'
   readonly description = '指定された数のアイテムを格納する十分なスペースがあるかを判定'
 
-  constructor(private readonly itemId: ItemId, private readonly requiredQuantity: number) {}
+  constructor(
+    private readonly itemId: ItemId,
+    private readonly requiredQuantity: number
+  ) {}
 
   isSatisfiedBy(aggregate: InventoryAggregate): Effect.Effect<boolean, InventoryAggregateError> {
-    return Effect.gen(function* () {
-      let availableSpace = 0
+    return Effect.gen(
+      function* () {
+        let availableSpace = 0
 
-      for (const slot of aggregate.slots) {
-        if (slot?.itemStack?.itemId === this.itemId) {
-          const remaining = INVENTORY_CONSTANTS.MAX_STACK_SIZE - slot.itemStack.count
-          availableSpace += remaining
+        for (const slot of aggregate.slots) {
+          if (slot?.itemStack?.itemId === this.itemId) {
+            const remaining = INVENTORY_CONSTANTS.MAX_STACK_SIZE - slot.itemStack.count
+            availableSpace += remaining
+          }
         }
-      }
 
-      const emptySlots = aggregate.slots.filter((slot) => slot === null).length
-      availableSpace += emptySlots * INVENTORY_CONSTANTS.MAX_STACK_SIZE
+        const emptySlots = aggregate.slots.filter((slot) => slot === null).length
+        availableSpace += emptySlots * INVENTORY_CONSTANTS.MAX_STACK_SIZE
 
-      return availableSpace >= this.requiredQuantity
-    }.bind(this))
+        return availableSpace >= this.requiredQuantity
+      }.bind(this)
+    )
   }
 }
 
@@ -67,19 +74,24 @@ export class CanRemoveItemSpecification implements InventorySpecification {
   readonly name = 'CanRemoveItem'
   readonly description = '指定されたアイテムを削除できるかどうかを判定'
 
-  constructor(private readonly itemId: ItemId, private readonly requiredQuantity: number) {}
+  constructor(
+    private readonly itemId: ItemId,
+    private readonly requiredQuantity: number
+  ) {}
 
   isSatisfiedBy(aggregate: InventoryAggregate): Effect.Effect<boolean, InventoryAggregateError> {
-    return Effect.gen(function* () {
-      const total = aggregate.slots.reduce((acc, slot) => {
-        if (slot?.itemStack?.itemId === this.itemId) {
-          return acc + slot.itemStack.count
-        }
-        return acc
-      }, 0)
+    return Effect.gen(
+      function* () {
+        const total = aggregate.slots.reduce((acc, slot) => {
+          if (slot?.itemStack?.itemId === this.itemId) {
+            return acc + slot.itemStack.count
+          }
+          return acc
+        }, 0)
 
-      return total >= this.requiredQuantity
-    }.bind(this))
+        return total >= this.requiredQuantity
+      }.bind(this)
+    )
   }
 }
 
@@ -98,8 +110,7 @@ export class ValidStackSizeSpecification implements InventorySpecification<ItemS
 
   isSatisfiedBy(itemStack: ItemStack): Effect.Effect<boolean, InventoryAggregateError> {
     return Effect.succeed(
-      itemStack.count >= INVENTORY_CONSTANTS.MIN_STACK_SIZE &&
-        itemStack.count <= INVENTORY_CONSTANTS.MAX_STACK_SIZE
+      itemStack.count >= INVENTORY_CONSTANTS.MIN_STACK_SIZE && itemStack.count <= INVENTORY_CONSTANTS.MAX_STACK_SIZE
     )
   }
 }

@@ -36,8 +36,7 @@ const encodeConfigSync = Schema.encodeSync(GameApplicationConfigSchema)
 const decodeConfigEither = Schema.decodeUnknownEither(GameApplicationConfigSchema)
 const decodePatchEither = Schema.decodeUnknownEither(GameApplicationConfigPatch)
 
-const formatParseError = (error: Schema.DecodeUnknownError): string =>
-  TreeFormatter.formatErrorSync(error)
+const formatParseError = (error: Schema.DecodeUnknownError): string => TreeFormatter.formatErrorSync(error)
 
 type DecodeError = Schema.DecodeUnknownError
 
@@ -109,8 +108,7 @@ const mergeInput = (
   gameLoop: {
     updateInterval: patch.gameLoop?.updateInterval ?? base.gameLoop.updateInterval,
     maxDeltaTime: patch.gameLoop?.maxDeltaTime ?? base.gameLoop.maxDeltaTime,
-    enableFixedTimeStep:
-      patch.gameLoop?.enableFixedTimeStep ?? base.gameLoop.enableFixedTimeStep,
+    enableFixedTimeStep: patch.gameLoop?.enableFixedTimeStep ?? base.gameLoop.enableFixedTimeStep,
     fixedTimeStep: patch.gameLoop?.fixedTimeStep ?? base.gameLoop.fixedTimeStep,
   },
   input: {
@@ -126,8 +124,7 @@ const mergeInput = (
   debug: {
     enableLogging: patch.debug?.enableLogging ?? base.debug.enableLogging,
     logLevel: patch.debug?.logLevel ?? base.debug.logLevel,
-    showPerformanceStats:
-      patch.debug?.showPerformanceStats ?? base.debug.showPerformanceStats,
+    showPerformanceStats: patch.debug?.showPerformanceStats ?? base.debug.showPerformanceStats,
     enableHotReload: patch.debug?.enableHotReload ?? base.debug.enableHotReload,
   },
 })

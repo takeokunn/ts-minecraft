@@ -6,50 +6,21 @@
  * Minecraft互換のハッシュ関数とグラデーション実装
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate2D,
-  WorldCoordinate3D,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  BasicNoiseSettings,
-  AdvancedNoiseSettings,
-} from '../../value_object/noise_configuration/noise_settings.js'
-import type {
-  OctaveConfig,
-} from '../../value_object/noise_configuration/octave_config.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { WorldCoordinate2D, WorldCoordinate3D } from '../../value_object/coordinates/world_coordinate.js'
+import type { OctaveConfig } from '../../value_object/noise_configuration/octave_config.js'
 
 /**
  * パーリンノイズ設定スキーマ
  */
 export const PerlinNoiseConfigSchema = Schema.Struct({
   // 基本パラメータ
-  frequency: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(1000)
-  ),
-  amplitude: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-1000, 1000)
-  ),
-  octaves: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 16)
-  ),
-  persistence: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
-  lacunarity: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(10)
-  ),
+  frequency: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1000)),
+  amplitude: Schema.Number.pipe(Schema.finite(), Schema.between(-1000, 1000)),
+  octaves: Schema.Number.pipe(Schema.int(), Schema.between(1, 16)),
+  persistence: Schema.Number.pipe(Schema.between(0, 1)),
+  lacunarity: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(10)),
 
   // 高度な設定
   seed: Schema.BigInt,
@@ -63,21 +34,15 @@ export const PerlinNoiseConfigSchema = Schema.Struct({
 
   // 性能設定
   enableVectorization: Schema.Boolean,
-  precisionBits: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(16, 64)
-  ).pipe(Schema.optional),
+  precisionBits: Schema.Number.pipe(Schema.int(), Schema.between(16, 64)).pipe(Schema.optional),
 
   // ハッシュテーブル設定
-  permutationSize: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(256, 4096)
-  ).pipe(Schema.optional)
+  permutationSize: Schema.Number.pipe(Schema.int(), Schema.between(256, 4096)).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'PerlinNoiseConfig',
     title: 'Perlin Noise Configuration',
-    description: 'Complete configuration for Perlin noise generation'
+    description: 'Complete configuration for Perlin noise generation',
   })
 )
 
@@ -87,22 +52,19 @@ export type PerlinNoiseConfig = typeof PerlinNoiseConfigSchema.Type
  * ノイズサンプリング結果
  */
 export const NoiseSampleSchema = Schema.Struct({
-  value: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-1, 1)
-  ),
+  value: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
   coordinate: Schema.Unknown, // WorldCoordinate2D/3D
   metadata: Schema.Struct({
     octaveContributions: Schema.Array(Schema.Number),
     totalOctaves: Schema.Number.pipe(Schema.int()),
     finalAmplitude: Schema.Number,
-    computationTime: Schema.Number.pipe(Schema.optional)
-  })
+    computationTime: Schema.Number.pipe(Schema.optional),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'NoiseSample',
     title: 'Noise Sample Result',
-    description: 'Result of noise sampling at specific coordinate'
+    description: 'Result of noise sampling at specific coordinate',
   })
 )
 
@@ -120,19 +82,19 @@ export const NoiseFieldSchema = Schema.Struct({
     maxValue: Schema.Number,
     averageValue: Schema.Number,
     standardDeviation: Schema.Number,
-    totalSamples: Schema.Number.pipe(Schema.int())
+    totalSamples: Schema.Number.pipe(Schema.int()),
   }),
   generationMetadata: Schema.Struct({
     config: PerlinNoiseConfigSchema,
     generationTime: Schema.Number,
     memoryUsed: Schema.Number.pipe(Schema.optional),
-    cacheHitRate: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional)
-  })
+    cacheHitRate: Schema.Number.pipe(Schema.between(0, 1)).pipe(Schema.optional),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'NoiseField',
     title: 'Noise Field',
-    description: 'Two-dimensional noise field with statistical information'
+    description: 'Two-dimensional noise field with statistical information',
   })
 )
 
@@ -199,17 +161,13 @@ export interface PerlinNoiseService {
   /**
    * ノイズ設定の検証
    */
-  readonly validateConfig: (
-    config: PerlinNoiseConfig
-  ) => Effect.Effect<ReadonlyArray<string>, GenerationError>
+  readonly validateConfig: (config: PerlinNoiseConfig) => Effect.Effect<ReadonlyArray<string>, GenerationError>
 }
 
 /**
  * Perlin Noise Service Context Tag
  */
-export const PerlinNoiseService = Context.GenericTag<PerlinNoiseService>(
-  '@minecraft/domain/world/PerlinNoise'
-)
+export const PerlinNoiseService = Context.GenericTag<PerlinNoiseService>('@minecraft/domain/world/PerlinNoise')
 
 /**
  * Perlin Noise Service Live Implementation
@@ -274,8 +232,8 @@ export const PerlinNoiseServiceLive = Layer.effect(
             octaveContributions: [clampedValue],
             totalOctaves: 1,
             finalAmplitude: config.amplitude,
-            computationTime
-          }
+            computationTime,
+          },
         } satisfies NoiseSample
       }),
 
@@ -348,8 +306,8 @@ export const PerlinNoiseServiceLive = Layer.effect(
             octaveContributions: [clampedValue],
             totalOctaves: 1,
             finalAmplitude: config.amplitude,
-            computationTime
-          }
+            computationTime,
+          },
         } satisfies NoiseSample
       }),
 
@@ -366,10 +324,7 @@ export const PerlinNoiseServiceLive = Layer.effect(
             const worldX = bounds.min.x + (x / (resolution - 1)) * (bounds.max.x - bounds.min.x)
             const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
 
-            const sample = yield* PerlinNoiseService.sample2D(
-              { x: worldX, z: worldZ } as WorldCoordinate2D,
-              config
-            )
+            const sample = yield* PerlinNoiseService.sample2D({ x: worldX, z: worldZ } as WorldCoordinate2D, config)
 
             row.push(sample)
             flatSamples.push(sample.value)
@@ -396,13 +351,13 @@ export const PerlinNoiseServiceLive = Layer.effect(
             maxValue,
             averageValue,
             standardDeviation,
-            totalSamples: flatSamples.length
+            totalSamples: flatSamples.length,
           },
           generationMetadata: {
             config,
             generationTime,
-            memoryUsed: estimateFieldMemoryUsage(resolution, samples)
-          }
+            memoryUsed: estimateFieldMemoryUsage(resolution, samples),
+          },
         } satisfies NoiseField
       }),
 
@@ -417,7 +372,7 @@ export const PerlinNoiseServiceLive = Layer.effect(
           const octaveNoiseConfig: PerlinNoiseConfig = {
             ...baseConfig,
             frequency: baseConfig.frequency * octaveConfig.frequency,
-            amplitude: baseConfig.amplitude * octaveConfig.amplitude
+            amplitude: baseConfig.amplitude * octaveConfig.amplitude,
           }
 
           const octaveSample = yield* PerlinNoiseService.sample2D(coordinate, octaveNoiseConfig)
@@ -438,8 +393,8 @@ export const PerlinNoiseServiceLive = Layer.effect(
           metadata: {
             octaveContributions,
             totalOctaves: octaveConfigs.length,
-            finalAmplitude: totalAmplitude
-          }
+            finalAmplitude: totalAmplitude,
+          },
         } satisfies NoiseSample
       }),
 
@@ -463,8 +418,8 @@ export const PerlinNoiseServiceLive = Layer.effect(
           metadata: {
             octaveContributions: [clampedValue],
             totalOctaves: 1,
-            finalAmplitude: config.amplitude
-          }
+            finalAmplitude: config.amplitude,
+          },
         } satisfies NoiseSample
       }),
 
@@ -485,8 +440,8 @@ export const PerlinNoiseServiceLive = Layer.effect(
           metadata: {
             octaveContributions: [clampedValue],
             totalOctaves: 1,
-            finalAmplitude: config.amplitude
-          }
+            finalAmplitude: config.amplitude,
+          },
         } satisfies NoiseSample
       }),
 
@@ -515,7 +470,7 @@ export const PerlinNoiseServiceLive = Layer.effect(
         }
 
         return warnings
-      })
+      }),
   })
 )
 
@@ -529,11 +484,15 @@ const calculateInterpolationWeight = (
   mode: 'linear' | 'cosine' | 'cubic' | 'quintic'
 ): Effect.Effect<number, GenerationError> =>
   Effect.succeed(
-    mode === 'linear' ? t :
-    mode === 'cosine' ? (1 - Math.cos(t * Math.PI)) * 0.5 :
-    mode === 'cubic' ? t * t * (3 - 2 * t) :
-    mode === 'quintic' ? t * t * t * (t * (t * 6 - 15) + 10) :
-    t
+    mode === 'linear'
+      ? t
+      : mode === 'cosine'
+        ? (1 - Math.cos(t * Math.PI)) * 0.5
+        : mode === 'cubic'
+          ? t * t * (3 - 2 * t)
+          : mode === 'quintic'
+            ? t * t * t * (t * (t * 6 - 15) + 10)
+            : t
   )
 
 /**
@@ -544,19 +503,26 @@ const calculateGradient2D = (
   z: number,
   config: PerlinNoiseConfig
 ): Effect.Effect<{ x: number; z: number }, GenerationError> =>
-  Effect.succeed((() => {
-    // Ken Perlinの改良版グラデーション選択
-    const hash = permutation[(permutation[x & 255] + z) & 255]
-    const gradientIndex = hash & 3
+  Effect.succeed(
+    (() => {
+      // Ken Perlinの改良版グラデーション選択
+      const hash = permutation[(permutation[x & 255] + z) & 255]
+      const gradientIndex = hash & 3
 
-    switch (gradientIndex) {
-      case 0: return { x: 1, z: 1 }
-      case 1: return { x: -1, z: 1 }
-      case 2: return { x: 1, z: -1 }
-      case 3: return { x: -1, z: -1 }
-      default: return { x: 0, z: 0 }
-    }
-  })())
+      switch (gradientIndex) {
+        case 0:
+          return { x: 1, z: 1 }
+        case 1:
+          return { x: -1, z: 1 }
+        case 2:
+          return { x: 1, z: -1 }
+        case 3:
+          return { x: -1, z: -1 }
+        default:
+          return { x: 0, z: 0 }
+      }
+    })()
+  )
 
 /**
  * 3Dグラデーションベクトルの計算
@@ -567,53 +533,59 @@ const calculateGradient3D = (
   z: number,
   config: PerlinNoiseConfig
 ): Effect.Effect<{ x: number; y: number; z: number }, GenerationError> =>
-  Effect.succeed((() => {
-    const hash = permutation[(permutation[(permutation[x & 255] + y) & 255] + z) & 255]
-    const gradientIndex = hash & 15
+  Effect.succeed(
+    (() => {
+      const hash = permutation[(permutation[(permutation[x & 255] + y) & 255] + z) & 255]
+      const gradientIndex = hash & 15
 
-    // Ken Perlinの12個のグラデーションベクトル
-    const gradients = [
-      { x: 1, y: 1, z: 0 }, { x: -1, y: 1, z: 0 }, { x: 1, y: -1, z: 0 }, { x: -1, y: -1, z: 0 },
-      { x: 1, y: 0, z: 1 }, { x: -1, y: 0, z: 1 }, { x: 1, y: 0, z: -1 }, { x: -1, y: 0, z: -1 },
-      { x: 0, y: 1, z: 1 }, { x: 0, y: -1, z: 1 }, { x: 0, y: 1, z: -1 }, { x: 0, y: -1, z: -1 },
-      { x: 1, y: 1, z: 0 }, { x: -1, y: 1, z: 0 }, { x: 0, y: -1, z: 1 }, { x: 0, y: -1, z: -1 }
-    ]
+      // Ken Perlinの12個のグラデーションベクトル
+      const gradients = [
+        { x: 1, y: 1, z: 0 },
+        { x: -1, y: 1, z: 0 },
+        { x: 1, y: -1, z: 0 },
+        { x: -1, y: -1, z: 0 },
+        { x: 1, y: 0, z: 1 },
+        { x: -1, y: 0, z: 1 },
+        { x: 1, y: 0, z: -1 },
+        { x: -1, y: 0, z: -1 },
+        { x: 0, y: 1, z: 1 },
+        { x: 0, y: -1, z: 1 },
+        { x: 0, y: 1, z: -1 },
+        { x: 0, y: -1, z: -1 },
+        { x: 1, y: 1, z: 0 },
+        { x: -1, y: 1, z: 0 },
+        { x: 0, y: -1, z: 1 },
+        { x: 0, y: -1, z: -1 },
+      ]
 
-    return gradients[gradientIndex] || { x: 0, y: 0, z: 0 }
-  })())
+      return gradients[gradientIndex] || { x: 0, y: 0, z: 0 }
+    })()
+  )
 
 /**
  * 線形補間関数
  */
-const lerp = (a: number, b: number, t: number): number =>
-  a + t * (b - a)
+const lerp = (a: number, b: number, t: number): number => a + t * (b - a)
 
 /**
  * メモリ使用量の推定
  */
-const estimateFieldMemoryUsage = (resolution: number, samples: any[][]): number =>
-  resolution * resolution * 128 // 128バイト/サンプルと仮定
+const estimateFieldMemoryUsage = (resolution: number, samples: any[][]): number => resolution * resolution * 128 // 128バイト/サンプルと仮定
 
 /**
  * Ken Perlinの排列テーブル（簡略版）
  */
 const permutation = [
-  151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
-  140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
-  247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
-  57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
-  74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
-  60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
-  65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
-  200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
-  52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
-  207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
-  119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
-  129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
-  218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
-  81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
-  184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
-  222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180
+  151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21,
+  10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149,
+  56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229,
+  122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209,
+  76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217,
+  226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42,
+  223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98,
+  108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179,
+  162, 241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50,
+  45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
 ]
 
 /**
@@ -629,5 +601,5 @@ export const DEFAULT_PERLIN_CONFIG: PerlinNoiseConfig = {
   gradientMode: 'improved',
   interpolation: 'quintic',
   enableVectorization: true,
-  precisionBits: 32
+  precisionBits: 32,
 }

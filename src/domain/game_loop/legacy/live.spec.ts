@@ -1,23 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
 import * as Layer from 'effect/Layer'
 import * as Ref from 'effect/Ref'
-import * as Context from 'effect/Context'
 import * as Schema from 'effect/Schema'
+import { describe, expect, it } from 'vitest'
 
-import { GameLoopService } from './service'
-import { GameLoopServiceLive } from './live'
 import { makeTimestamp } from '../types/core'
+import { GameLoopServiceLive } from './live'
+import { GameLoopService } from './service'
 
-const withService = <A>(
-  use: (service: GameLoopService) => Effect.Effect<A>
-): Effect.Effect<A> =>
-  Effect.scoped(
-    Effect.flatMap(Layer.build(GameLoopServiceLive), (ctx) =>
-      use(Context.get(ctx, GameLoopService))
-    )
-  )
+const withService = <A>(use: (service: GameLoopService) => Effect.Effect<A>): Effect.Effect<A> =>
+  Effect.scoped(Effect.flatMap(Layer.build(GameLoopServiceLive), (ctx) => use(Context.get(ctx, GameLoopService))))
 
 describe('GameLoopServiceLive', () => {
   it('initializes and starts the loop', async () => {
@@ -40,9 +34,7 @@ describe('GameLoopServiceLive', () => {
           yield* service.initialize
           yield* service.start
           const counter = yield* Ref.make(0)
-          const registration = yield* service.registerFrameCallback((_, __) =>
-            Ref.update(counter, (n) => n + 1)
-          )
+          const registration = yield* service.registerFrameCallback((_, __) => Ref.update(counter, (n) => n + 1))
 
           const firstTimestamp = Either.getOrElse(makeTimestamp(1_000), (error) => {
             throw new Error(Schema.formatError(error))

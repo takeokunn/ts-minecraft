@@ -1,6 +1,6 @@
+import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect, Match, Random } from 'effect'
 import { pipe } from 'effect/Function'
-import * as Schema from '@effect/schema/Schema'
 import {
   CameraDistance,
   CameraDistanceSchema,
@@ -24,15 +24,20 @@ export interface ViewFrustum {
   readonly timestamp: EpochMillis
 }
 
-const decodeCameraDistance = (value: number) =>
-  Schema.decodeUnknown(CameraDistanceSchema)(Math.max(0, value))
+const decodeCameraDistance = (value: number) => Schema.decodeUnknown(CameraDistanceSchema)(Math.max(0, value))
 
 const selectProjectionFar = (camera: CameraState): number =>
   pipe(
     camera.projection,
     Match.value,
-    Match.when((projection) => projection.type === 'perspective', (projection) => projection.far),
-    Match.when((projection) => projection.type === 'orthographic', (projection) => projection.far),
+    Match.when(
+      (projection) => projection.type === 'perspective',
+      (projection) => projection.far
+    ),
+    Match.when(
+      (projection) => projection.type === 'orthographic',
+      (projection) => projection.far
+    ),
     Match.exhaustive
   )
 
@@ -40,8 +45,14 @@ const selectProjectionNear = (camera: CameraState): number =>
   pipe(
     camera.projection,
     Match.value,
-    Match.when((projection) => projection.type === 'perspective', (projection) => projection.near),
-    Match.when((projection) => projection.type === 'orthographic', (projection) => projection.near),
+    Match.when(
+      (projection) => projection.type === 'perspective',
+      (projection) => projection.near
+    ),
+    Match.when(
+      (projection) => projection.type === 'orthographic',
+      (projection) => projection.near
+    ),
     Match.exhaustive
   )
 
@@ -56,9 +67,7 @@ export const createViewFrustum = (
     const projectionFar = selectProjectionFar(camera)
     const projectionNear = selectProjectionNear(camera)
 
-    const farDistance = yield* decodeCameraDistance(
-      Math.min(Number(viewDistance), projectionFar)
-    )
+    const farDistance = yield* decodeCameraDistance(Math.min(Number(viewDistance), projectionFar))
 
     const nearDistance = yield* decodeCameraDistance(projectionNear)
 
@@ -102,9 +111,7 @@ export const updateViewFrustum = (
     Effect.map((updated) => ({ ...updated, id: current.id }))
   )
 
-export const summarizeFrustum = (
-  frustum: ViewFrustum
-): Effect.Effect<FrustumSummary, never> =>
+export const summarizeFrustum = (frustum: ViewFrustum): Effect.Effect<FrustumSummary, never> =>
   Effect.sync(() =>
     Schema.decodeUnknownSync(FrustumSummarySchema)({
       id: frustum.id,

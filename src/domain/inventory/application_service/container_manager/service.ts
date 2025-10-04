@@ -5,10 +5,9 @@
  * チェスト、樽、エンダーチェスト等の管理に特化
  */
 
-import { Context, Effect, pipe } from 'effect'
-import type { PlayerId, ItemId } from '../../types/core'
+import { Context, Effect } from 'effect'
 import type { ContainerAggregate, ContainerId } from '../../aggregate/container'
-import type { ItemStack } from '../../types/core'
+import type { ItemId, ItemStack, PlayerId } from '../../types/core'
 import type { InventoryApplicationError } from '../types/errors'
 
 /**
@@ -181,10 +180,13 @@ export interface ContainerManagerApplicationService {
     containerId: ContainerId,
     itemId: ItemId,
     playerId: PlayerId
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly slotIndex: number
-    readonly itemStack: ItemStack
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly slotIndex: number
+      readonly itemStack: ItemStack
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * 複数のコンテナを検索します
@@ -198,13 +200,16 @@ export interface ContainerManagerApplicationService {
     itemId: ItemId,
     playerId: PlayerId,
     searchRadius?: number
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly containerId: ContainerId
-    readonly containerType: string
-    readonly position: { readonly x: number; readonly y: number; readonly z: number }
-    readonly slotIndex: number
-    readonly itemStack: ItemStack
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly containerId: ContainerId
+      readonly containerType: string
+      readonly position: { readonly x: number; readonly y: number; readonly z: number }
+      readonly slotIndex: number
+      readonly itemStack: ItemStack
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * コンテナの自動補充を設定します
@@ -238,16 +243,19 @@ export interface ContainerManagerApplicationService {
   readonly getContainerStats: (
     containerId: ContainerId,
     playerId: PlayerId
-  ) => Effect.Effect<{
-    readonly totalSlots: number
-    readonly usedSlots: number
-    readonly emptySlots: number
-    readonly uniqueItemTypes: number
-    readonly totalValue: number
-    readonly utilizationPercentage: number
-    readonly lastAccessed: Date
-    readonly accessCount: number
-  }, InventoryApplicationError>
+  ) => Effect.Effect<
+    {
+      readonly totalSlots: number
+      readonly usedSlots: number
+      readonly emptySlots: number
+      readonly uniqueItemTypes: number
+      readonly totalValue: number
+      readonly utilizationPercentage: number
+      readonly lastAccessed: Date
+      readonly accessCount: number
+    },
+    InventoryApplicationError
+  >
 
   /**
    * プレイヤーのコンテナ一覧を取得します
@@ -259,13 +267,16 @@ export interface ContainerManagerApplicationService {
   readonly getPlayerContainers: (
     playerId: PlayerId,
     includeShared: boolean
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly containerId: ContainerId
-    readonly containerType: string
-    readonly position: { readonly x: number; readonly y: number; readonly z: number }
-    readonly accessLevel: 'read' | 'write' | 'admin'
-    readonly isOwner: boolean
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly containerId: ContainerId
+      readonly containerType: string
+      readonly position: { readonly x: number; readonly y: number; readonly z: number }
+      readonly accessLevel: 'read' | 'write' | 'admin'
+      readonly isOwner: boolean
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * コンテナをロックします
@@ -309,14 +320,17 @@ export interface ContainerManagerApplicationService {
     containerId: ContainerId,
     playerId: PlayerId,
     limit?: number
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly timestamp: Date
-    readonly playerId: PlayerId
-    readonly action: 'open' | 'close' | 'store' | 'retrieve' | 'transfer'
-    readonly itemId?: ItemId
-    readonly quantity?: number
-    readonly details: string
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly timestamp: Date
+      readonly playerId: PlayerId
+      readonly action: 'open' | 'close' | 'store' | 'retrieve' | 'transfer'
+      readonly itemId?: ItemId
+      readonly quantity?: number
+      readonly details: string
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * 大容量操作をバッチ処理します
@@ -335,11 +349,14 @@ export interface ContainerManagerApplicationService {
       readonly quantity?: number
     }>,
     playerId: PlayerId
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly success: boolean
-    readonly operation: any
-    readonly error?: string
-  }>, InventoryApplicationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly success: boolean
+      readonly operation: any
+      readonly error?: string
+    }>,
+    InventoryApplicationError
+  >
 
   /**
    * デバッグ情報を取得します
@@ -347,19 +364,20 @@ export interface ContainerManagerApplicationService {
    * @param containerId - コンテナID
    * @returns デバッグ情報
    */
-  readonly getDebugInfo: (
-    containerId: ContainerId
-  ) => Effect.Effect<{
-    readonly containerState: ContainerAggregate
-    readonly permissions: any
-    readonly lockStatus: any
-    readonly recentOperations: ReadonlyArray<any>
-    readonly performanceMetrics: {
-      readonly averageOperationTime: number
-      readonly totalOperations: number
-      readonly errorRate: number
-    }
-  }, InventoryApplicationError>
+  readonly getDebugInfo: (containerId: ContainerId) => Effect.Effect<
+    {
+      readonly containerState: ContainerAggregate
+      readonly permissions: any
+      readonly lockStatus: any
+      readonly recentOperations: ReadonlyArray<any>
+      readonly performanceMetrics: {
+        readonly averageOperationTime: number
+        readonly totalOperations: number
+        readonly errorRate: number
+      }
+    },
+    InventoryApplicationError
+  >
 }
 
 /**

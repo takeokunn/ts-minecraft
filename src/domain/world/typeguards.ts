@@ -11,9 +11,7 @@ export const WorldDomainTypeGuards = {
   isWorldDomainConfig: (value: unknown): value is WorldDomainConfig =>
     Schema.decodeUnknownEither(WorldDomainConfigSchema)(value)._tag === 'Right',
 
-  isValidWorldData: (value: unknown): boolean =>
-    Schema.decodeUnknownEither(WorldDataSchema)(value)._tag === 'Right',
+  isValidWorldData: (value: unknown): boolean => Schema.decodeUnknownEither(WorldDataSchema)(value)._tag === 'Right',
 
-  isWorldDomainLayer: (value: unknown): boolean =>
-    typeof value === 'object' && value !== null && '_tag' in value,
+  isWorldDomainLayer: (value: unknown): boolean => typeof value === 'object' && value !== null && '_tag' in value,
 } as const

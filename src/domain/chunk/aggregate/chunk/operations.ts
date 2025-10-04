@@ -1,32 +1,18 @@
 import { Effect, Match, Option, pipe } from 'effect'
+import type { ChangeSet, ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from '../../types/core'
+import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE, ChunkStatesEffect } from '../../types/core'
+import { ChunkStateGuards, ChunkStateOptics, ChunkStateOpticsHelpers } from '../../types/state_optics'
+import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data/types'
 import { ChunkDataOptics, ChunkDataOpticsHelpers } from './optics'
-import type {
-  ChangeSet,
-  ChunkDataBytes,
-  ChunkState,
-  ChunkTimestamp,
-  LoadProgress,
-} from '../../types/core'
-import {
-  ChunkStates,
-  ChunkStatesEffect,
-  CHUNK_SIZE,
-  CHUNK_HEIGHT,
-  CHUNK_MIN_Y,
-} from '../../types/core'
-import { ChunkStateOptics, ChunkStateOpticsHelpers, ChunkStateGuards } from '../../types/state_optics'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
 import { ChunkBoundsError } from './types'
 
 const localBlockIndex = (x: number, y: number, z: number): number =>
   (y - CHUNK_MIN_Y) * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>
-  start > end
-    ? []
-    : Array.from({ length: end - start + 1 }, (_, index) => start + index)
+  start > end ? [] : Array.from({ length: end - start + 1 }, (_, index) => start + index)
 
 /**
  * ChunkData複合操作
@@ -103,11 +89,7 @@ export const ChunkOperations = {
       chunk
     ),
 
-  relocateChunk: (
-    chunk: ChunkData,
-    newPosition: ChunkPosition,
-    updateTime: ChunkTimestamp
-  ): ChunkData =>
+  relocateChunk: (chunk: ChunkData, newPosition: ChunkPosition, updateTime: ChunkTimestamp): ChunkData =>
     pipe(
       chunk,
       ChunkDataOpticsHelpers.setPosition(newPosition),
@@ -116,17 +98,9 @@ export const ChunkOperations = {
     ),
 
   replaceMetadata: (chunk: ChunkData, newMetadata: ChunkMetadata): ChunkData =>
-    pipe(
-      chunk,
-      ChunkDataOptics.metadata.replace(newMetadata),
-      ChunkDataOpticsHelpers.markDirty
-    ),
+    pipe(chunk, ChunkDataOptics.metadata.replace(newMetadata), ChunkDataOpticsHelpers.markDirty),
 
-  initializeChunk: (
-    chunk: ChunkData,
-    position: ChunkPosition,
-    metadata: ChunkMetadata
-  ): ChunkData =>
+  initializeChunk: (chunk: ChunkData, position: ChunkPosition, metadata: ChunkMetadata): ChunkData =>
     pipe(
       chunk,
       ChunkDataOpticsHelpers.setPosition(position),
@@ -151,18 +125,16 @@ export const ChunkStateOperations = {
         return pipe(
           Option.fromNullable(onComplete),
           Option.filter(() => newProgress >= 100),
-          Option.flatMap((complete) => Option.some(Effect.runSync(ChunkStatesEffect.loaded(complete.data, complete.metadata)))),
+          Option.flatMap((complete) =>
+            Option.some(Effect.runSync(ChunkStatesEffect.loaded(complete.data, complete.metadata)))
+          ),
           Option.getOrElse(() => progressed)
         )
       }),
       Match.orElse(() => state)
     ),
 
-  updateFailureInfo: (
-    state: ChunkState,
-    newError: string,
-    newTimestamp: ChunkTimestamp
-  ): ChunkState =>
+  updateFailureInfo: (state: ChunkState, newError: string, newTimestamp: ChunkTimestamp): ChunkState =>
     pipe(
       Match.value(state),
       Match.when(ChunkStateGuards.isFailed, (failedState) =>
@@ -195,11 +167,7 @@ export const ChunkStateOperations = {
       Match.orElse(() => state)
     ),
 
-  updateSavingProgress: (
-    state: ChunkState,
-    newProgress: LoadProgress,
-    newData?: ChunkDataBytes
-  ): ChunkState =>
+  updateSavingProgress: (state: ChunkState, newProgress: LoadProgress, newData?: ChunkDataBytes): ChunkState =>
     pipe(
       Match.value(state),
       Match.when(ChunkStateGuards.isSaving, (savingState) => {
@@ -216,9 +184,8 @@ export const ChunkStateOperations = {
           Option.flatMap(() =>
             pipe(
               Option.fromNullable(ChunkStateOptics.savingData.get(withData)),
-              Option.zipWith(
-                Option.fromNullable(ChunkStateOptics.savingMetadata.get(withData)),
-                (data, metadata) => Effect.runSync(ChunkStatesEffect.loaded(data, metadata))
+              Option.zipWith(Option.fromNullable(ChunkStateOptics.savingMetadata.get(withData)), (data, metadata) =>
+                Effect.runSync(ChunkStatesEffect.loaded(data, metadata))
               )
             )
           ),
@@ -246,9 +213,7 @@ export const ChunkEffectOperations = {
         Effect.succeed({ x, y, z }),
         Effect.filterOrFail(
           ({ x, y, z }) =>
-            x >= 0 && x < CHUNK_SIZE &&
-            y >= CHUNK_MIN_Y && y < CHUNK_MIN_Y + CHUNK_HEIGHT &&
-            z >= 0 && z < CHUNK_SIZE,
+            x >= 0 && x < CHUNK_SIZE && y >= CHUNK_MIN_Y && y < CHUNK_MIN_Y + CHUNK_HEIGHT && z >= 0 && z < CHUNK_SIZE,
           ({ x, y, z }) =>
             ChunkBoundsError({
               message: `座標がチャンク範囲外です: (${x}, ${y}, ${z})`,
@@ -272,10 +237,7 @@ export const ChunkEffectOperations = {
       return ChunkOperations.setBlockAt3D(chunk, x, y, z, blockId, updateTime)
     }),
 
-  initializeChunkAsync: (
-    position: ChunkPosition,
-    metadata: ChunkMetadata
-  ): Effect.Effect<ChunkData> =>
+  initializeChunkAsync: (position: ChunkPosition, metadata: ChunkMetadata): Effect.Effect<ChunkData> =>
     Effect.sync(() => {
       const blocks = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
       const chunkData: ChunkData = {
@@ -294,14 +256,7 @@ export const ChunkEffectOperations = {
     updateTime: ChunkTimestamp
   ): Effect.Effect<ChunkData, ChunkBoundsError> =>
     Effect.reduce(updates, chunk, (acc, update) =>
-      ChunkEffectOperations.safeSetBlockAt3D(
-        acc,
-        update.x,
-        update.y,
-        update.z,
-        update.blockId,
-        updateTime
-      )
+      ChunkEffectOperations.safeSetBlockAt3D(acc, update.x, update.y, update.z, update.blockId, updateTime)
     ),
 } as const
 
@@ -326,16 +281,17 @@ export const ChunkOptimizedOperations = {
     updateTime: ChunkTimestamp
   ): ChunkData =>
     pipe(
-      Array.from(blockUpdates.entries()).reduce((blocks, [index, blockId]) =>
-        pipe(
-          index >= 0 && index < blocks.length,
-          Match.value,
-          Match.when(true, () => {
-            blocks[index] = blockId
-            return blocks
-          }),
-          Match.orElse(() => blocks)
-        ),
+      Array.from(blockUpdates.entries()).reduce(
+        (blocks, [index, blockId]) =>
+          pipe(
+            index >= 0 && index < blocks.length,
+            Match.value,
+            Match.when(true, () => {
+              blocks[index] = blockId
+              return blocks
+            }),
+            Match.orElse(() => blocks)
+          ),
         new Uint16Array(chunk.blocks)
       ),
       (blocks) =>
@@ -348,12 +304,7 @@ export const ChunkOptimizedOperations = {
     ),
 } as const
 
-const recalculateHeight = (
-  chunk: ChunkData,
-  x: number,
-  z: number,
-  startY: number
-): number =>
+const recalculateHeight = (chunk: ChunkData, x: number, z: number, startY: number): number =>
   pipe(
     inclusiveRange(CHUNK_MIN_Y, startY - 1)
       .slice()

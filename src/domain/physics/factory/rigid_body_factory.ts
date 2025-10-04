@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import type { PhysicsWorldId, RigidBody, RigidBodyType, Vector3 } from '../types/core'
 import { RigidBodyAggregate } from '../aggregate/rigid_body'
+import type { PhysicsWorldId, RigidBody, RigidBodyType, Vector3 } from '../types/core'
 import type { PhysicsError } from '../types/errors'
 
 export interface RigidBodyCreationOptions {

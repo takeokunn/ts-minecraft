@@ -1,9 +1,9 @@
 import { Schema } from '@effect/schema'
 import { Brand, Data, Effect } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
-import { ChunkPositionSchema } from '../../value_object/chunk_position'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk_position'
+import { ChunkPositionSchema } from '../../value_object/chunk_position'
 
 /**
  * ブランド型
@@ -57,8 +57,13 @@ export interface ChunkDataAggregate {
   readonly getBlock: (index: number) => number
   readonly setBlock: (index: number, blockId: number) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
   readonly fillBlocks: (blockId: number) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
-  readonly updateMetadata: (metadata: Partial<ChunkMetadata>) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
-  readonly updateHeightMap: (index: number, height: HeightValue) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
+  readonly updateMetadata: (
+    metadata: Partial<ChunkMetadata>
+  ) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
+  readonly updateHeightMap: (
+    index: number,
+    height: HeightValue
+  ) => Effect.Effect<ChunkDataAggregate, ChunkDataValidationError>
   readonly getHeightAt: (index: number) => HeightValue
   readonly markDirty: () => Effect.Effect<ChunkDataAggregate>
   readonly markClean: () => Effect.Effect<ChunkDataAggregate>

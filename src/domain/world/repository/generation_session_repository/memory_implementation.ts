@@ -6,54 +6,50 @@
  * セッション管理・復旧・履歴機能を完全サポート
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref, Schedule } from 'effect'
-import type {
-  GenerationSessionId,
-  WorldId,
-  ChunkPosition,
-  GenerationSettings,
-} from '../../types'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
+import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createGenerationSessionNotFoundError,
-  createDataIntegrityError,
-} from '../types'
+import { createGenerationSessionNotFoundError, createRepositoryError } from '../types'
 import type {
-  GenerationSessionRepository,
-  GenerationSession,
-  SessionState,
-  GenerationProgress,
   ChunkGenerationTask,
+  GenerationProgress,
+  GenerationSession,
   GenerationSessionMetadata,
-  SessionQuery,
-  SessionStatistics,
-  SessionRecoveryInfo,
-  SessionBatchResult,
+  GenerationSessionRepository,
   GenerationSessionRepositoryConfig,
+  SessionBatchResult,
+  SessionQuery,
+  SessionRecoveryInfo,
+  SessionState,
+  SessionStatistics,
 } from './interface'
-import {
-  defaultGenerationSessionRepositoryConfig,
-  calculateProgress,
-  createDefaultSessionMetadata,
-} from './interface'
+import { calculateProgress, createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './interface'
 
 // === Memory Storage State ===
 
 interface MemoryStorage {
   readonly sessions: Map<GenerationSessionId, GenerationSession>
-  readonly checkpoints: Map<GenerationSessionId, Map<string, {
-    readonly id: string
-    readonly data: GenerationSession
-    readonly createdAt: Date
-    readonly size: number
-  }>>
-  readonly history: Map<GenerationSessionId, Array<{
-    readonly timestamp: Date
-    readonly action: string
-    readonly details: unknown
-    readonly actor: string
-  }>>
+  readonly checkpoints: Map<
+    GenerationSessionId,
+    Map<
+      string,
+      {
+        readonly id: string
+        readonly data: GenerationSession
+        readonly createdAt: Date
+        readonly size: number
+      }
+    >
+  >
+  readonly history: Map<
+    GenerationSessionId,
+    Array<{
+      readonly timestamp: Date
+      readonly action: string
+      readonly details: unknown
+      readonly actor: string
+    }>
+  >
   readonly statistics: {
     readonly totalChunksGenerated: number
     readonly totalSessionsCreated: number
@@ -169,15 +165,13 @@ const makeGenerationSessionRepositoryMemory = (
         return session
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to create session: ${error}`,
-            'createSession',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to create session: ${error}`, 'createSession', error))
         )
       )
 
-    const findById = (sessionId: GenerationSessionId): Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors> =>
+    const findById = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const session = storage.sessions.get(sessionId)
@@ -185,46 +179,35 @@ const makeGenerationSessionRepositoryMemory = (
         return session ? Option.some(session) : Option.none()
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find session by ID: ${error}`,
-            'findById',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find session by ID: ${error}`, 'findById', error))
         )
       )
 
-    const findManyByIds = (sessionIds: ReadonlyArray<GenerationSessionId>): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
+    const findManyByIds = (
+      sessionIds: ReadonlyArray<GenerationSessionId>
+    ): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const sessions = sessionIds
-          .map(id => storage.sessions.get(id))
+          .map((id) => storage.sessions.get(id))
           .filter((session): session is GenerationSession => session !== undefined)
 
         return sessions
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find sessions by IDs: ${error}`,
-            'findManyByIds',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find sessions by IDs: ${error}`, 'findManyByIds', error))
         )
       )
 
     const findByWorldId = (worldId: WorldId): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const sessions = Array.from(storage.sessions.values())
-          .filter(session => session.worldId === worldId)
+        const sessions = Array.from(storage.sessions.values()).filter((session) => session.worldId === worldId)
 
         return sessions
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find sessions by world ID: ${error}`,
-            'findByWorldId',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find sessions by world ID: ${error}`, 'findByWorldId', error))
         )
       )
 
@@ -235,30 +218,27 @@ const makeGenerationSessionRepositoryMemory = (
 
         // Apply filters
         if (query.worldId) {
-          sessions = sessions.filter(s => s.worldId === query.worldId)
+          sessions = sessions.filter((s) => s.worldId === query.worldId)
         }
         if (query.state) {
-          sessions = sessions.filter(s => s.state === query.state)
+          sessions = sessions.filter((s) => s.state === query.state)
         }
         if (query.priority) {
-          sessions = sessions.filter(s => s.metadata.priority === query.priority)
+          sessions = sessions.filter((s) => s.metadata.priority === query.priority)
         }
         if (query.createdAfter) {
-          sessions = sessions.filter(s => s.createdAt >= query.createdAfter!)
+          sessions = sessions.filter((s) => s.createdAt >= query.createdAfter!)
         }
         if (query.createdBefore) {
-          sessions = sessions.filter(s => s.createdAt <= query.createdBefore!)
+          sessions = sessions.filter((s) => s.createdAt <= query.createdBefore!)
         }
         if (query.hasFailedChunks !== undefined) {
-          sessions = sessions.filter(s => query.hasFailedChunks
-            ? s.progress.failedChunks > 0
-            : s.progress.failedChunks === 0
+          sessions = sessions.filter((s) =>
+            query.hasFailedChunks ? s.progress.failedChunks > 0 : s.progress.failedChunks === 0
           )
         }
         if (query.tags && query.tags.length > 0) {
-          sessions = sessions.filter(s =>
-            query.tags!.some(tag => s.metadata.tags.includes(tag))
-          )
+          sessions = sessions.filter((s) => query.tags!.some((tag) => s.metadata.tags.includes(tag)))
         }
 
         // Apply sorting
@@ -295,11 +275,7 @@ const makeGenerationSessionRepositoryMemory = (
         return sessions.slice(offset, offset + limit)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to find sessions by query: ${error}`,
-            'findByQuery',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to find sessions by query: ${error}`, 'findByQuery', error))
         )
       )
 
@@ -331,11 +307,7 @@ const makeGenerationSessionRepositoryMemory = (
         }))
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to update session: ${error}`,
-            'updateSession',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to update session: ${error}`, 'updateSession', error))
         )
       )
 
@@ -368,15 +340,13 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'session_deleted', {})
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to delete session: ${error}`,
-            'deleteSession',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to delete session: ${error}`, 'deleteSession', error))
         )
       )
 
-    const deleteSessions = (sessionIds: ReadonlyArray<GenerationSessionId>): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
+    const deleteSessions = (
+      sessionIds: ReadonlyArray<GenerationSessionId>
+    ): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const successful: GenerationSessionId[] = []
         const failed: { sessionId: GenerationSessionId; error: AllRepositoryErrors }[] = []
@@ -388,11 +358,7 @@ const makeGenerationSessionRepositoryMemory = (
           } catch (error) {
             failed.push({
               sessionId,
-              error: createRepositoryError(
-                `Failed to delete session: ${error}`,
-                'deleteSessions',
-                error
-              ),
+              error: createRepositoryError(`Failed to delete session: ${error}`, 'deleteSessions', error),
             })
           }
         }
@@ -404,17 +370,16 @@ const makeGenerationSessionRepositoryMemory = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to delete multiple sessions: ${error}`,
-            'deleteSessions',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to delete multiple sessions: ${error}`, 'deleteSessions', error))
         )
       )
 
     // === Session State Management ===
 
-    const updateSessionState = (sessionId: GenerationSessionId, state: SessionState): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateSessionState = (
+      sessionId: GenerationSessionId,
+      state: SessionState
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const session = storage.sessions.get(sessionId)
@@ -429,7 +394,8 @@ const makeGenerationSessionRepositoryMemory = (
           state,
           lastActivityAt: now,
           startedAt: state === 'active' && !session.startedAt ? now : session.startedAt,
-          completedAt: (state === 'completed' || state === 'failed') && !session.completedAt ? now : session.completedAt,
+          completedAt:
+            (state === 'completed' || state === 'failed') && !session.completedAt ? now : session.completedAt,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -440,15 +406,14 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'state_changed', { from: session.state, to: state })
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to update session state: ${error}`,
-            'updateSessionState',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to update session state: ${error}`, 'updateSessionState', error))
         )
       )
 
-    const updateProgress = (sessionId: GenerationSessionId, progress: Partial<GenerationProgress>): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateProgress = (
+      sessionId: GenerationSessionId,
+      progress: Partial<GenerationProgress>
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const session = storage.sessions.get(sessionId)
@@ -471,11 +436,7 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'progress_updated', progress)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createRepositoryError(
-            `Failed to update session progress: ${error}`,
-            'updateProgress',
-            error
-          ))
+          Effect.fail(createRepositoryError(`Failed to update session progress: ${error}`, 'updateProgress', error))
         )
       )
 
@@ -491,7 +452,10 @@ const makeGenerationSessionRepositoryMemory = (
     // === Mock implementations for other required methods ===
     // (These would be fully implemented in a production system)
 
-    const addChunkTask = (sessionId: GenerationSessionId, task: ChunkGenerationTask): Effect.Effect<void, AllRepositoryErrors> =>
+    const addChunkTask = (
+      sessionId: GenerationSessionId,
+      task: ChunkGenerationTask
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const session = storage.sessions.get(sessionId)
@@ -515,7 +479,11 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'chunk_task_added', { position: task.position })
       })
 
-    const updateChunkTask = (sessionId: GenerationSessionId, position: ChunkPosition, update: Partial<ChunkGenerationTask>): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateChunkTask = (
+      sessionId: GenerationSessionId,
+      position: ChunkPosition,
+      update: Partial<ChunkGenerationTask>
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const session = storage.sessions.get(sessionId)
@@ -524,15 +492,12 @@ const makeGenerationSessionRepositoryMemory = (
           return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
         }
 
-        const chunkIndex = session.chunks.findIndex(c =>
-          c.position.x === position.x && c.position.z === position.z
-        )
+        const chunkIndex = session.chunks.findIndex((c) => c.position.x === position.x && c.position.z === position.z)
 
         if (chunkIndex === -1) {
-          return yield* Effect.fail(createRepositoryError(
-            `Chunk task not found at position: ${position.x}, ${position.z}`,
-            'updateChunkTask'
-          ))
+          return yield* Effect.fail(
+            createRepositoryError(`Chunk task not found at position: ${position.x}, ${position.z}`, 'updateChunkTask')
+          )
         }
 
         const updatedChunks = [...session.chunks]
@@ -553,31 +518,37 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'chunk_task_updated', { position, update })
       })
 
-    const getCompletedChunks = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
+    const getCompletedChunks = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
         if (Option.isNone(sessionOpt)) {
           return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
         }
-        return sessionOpt.value.chunks.filter(c => c.status === 'completed')
+        return sessionOpt.value.chunks.filter((c) => c.status === 'completed')
       })
 
-    const getFailedChunks = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
+    const getFailedChunks = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
         if (Option.isNone(sessionOpt)) {
           return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
         }
-        return sessionOpt.value.chunks.filter(c => c.status === 'failed')
+        return sessionOpt.value.chunks.filter((c) => c.status === 'failed')
       })
 
-    const getPendingChunks = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
+    const getPendingChunks = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
         if (Option.isNone(sessionOpt)) {
           return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
         }
-        return sessionOpt.value.chunks.filter(c => c.status === 'pending' || c.status === 'running')
+        return sessionOpt.value.chunks.filter((c) => c.status === 'pending' || c.status === 'running')
       })
 
     // === Checkpoint & Recovery mock implementations ===
@@ -612,7 +583,10 @@ const makeGenerationSessionRepositoryMemory = (
         return checkpointId
       })
 
-    const restoreFromCheckpoint = (sessionId: GenerationSessionId, checkpointId: string): Effect.Effect<void, AllRepositoryErrors> =>
+    const restoreFromCheckpoint = (
+      sessionId: GenerationSessionId,
+      checkpointId: string
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const sessionCheckpoints = storage.checkpoints.get(sessionId)
@@ -623,10 +597,9 @@ const makeGenerationSessionRepositoryMemory = (
 
         const checkpoint = sessionCheckpoints.get(checkpointId)
         if (!checkpoint) {
-          return yield* Effect.fail(createRepositoryError(
-            `Checkpoint not found: ${checkpointId}`,
-            'restoreFromCheckpoint'
-          ))
+          return yield* Effect.fail(
+            createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')
+          )
         }
 
         const restoredSession: GenerationSession = {
@@ -642,12 +615,17 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'checkpoint_restored', { checkpointId })
       })
 
-    const listCheckpoints = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<{
-      readonly id: string
-      readonly createdAt: Date
-      readonly size: number
-      readonly chunkCount: number
-    }>, AllRepositoryErrors> =>
+    const listCheckpoints = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<
+      ReadonlyArray<{
+        readonly id: string
+        readonly createdAt: Date
+        readonly size: number
+        readonly chunkCount: number
+      }>,
+      AllRepositoryErrors
+    > =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const sessionCheckpoints = storage.checkpoints.get(sessionId)
@@ -656,7 +634,7 @@ const makeGenerationSessionRepositoryMemory = (
           return []
         }
 
-        return Array.from(sessionCheckpoints.values()).map(checkpoint => ({
+        return Array.from(sessionCheckpoints.values()).map((checkpoint) => ({
           id: checkpoint.id,
           createdAt: checkpoint.createdAt,
           size: checkpoint.size,
@@ -672,28 +650,29 @@ const makeGenerationSessionRepositoryMemory = (
         const sessions = Array.from(storage.sessions.values())
 
         const totalSessions = sessions.length
-        const activeSessions = sessions.filter(s => s.state === 'active').length
-        const completedSessions = sessions.filter(s => s.state === 'completed').length
-        const failedSessions = sessions.filter(s => s.state === 'failed').length
+        const activeSessions = sessions.filter((s) => s.state === 'active').length
+        const completedSessions = sessions.filter((s) => s.state === 'completed').length
+        const failedSessions = sessions.filter((s) => s.state === 'failed').length
 
-        const completedSessionsWithTiming = sessions.filter(s =>
-          s.state === 'completed' && s.startedAt && s.completedAt
+        const completedSessionsWithTiming = sessions.filter(
+          (s) => s.state === 'completed' && s.startedAt && s.completedAt
         )
 
-        const averageCompletionTime = completedSessionsWithTiming.length > 0
-          ? completedSessionsWithTiming.reduce((sum, s) =>
-              sum + (s.completedAt!.getTime() - s.startedAt!.getTime()), 0
-            ) / completedSessionsWithTiming.length
-          : 0
+        const averageCompletionTime =
+          completedSessionsWithTiming.length > 0
+            ? completedSessionsWithTiming.reduce(
+                (sum, s) => sum + (s.completedAt!.getTime() - s.startedAt!.getTime()),
+                0
+              ) / completedSessionsWithTiming.length
+            : 0
 
         const totalChunksGenerated = sessions.reduce((sum, s) => sum + s.progress.completedChunks, 0)
-        const totalSessionTime = completedSessionsWithTiming.reduce((sum, s) =>
-          sum + (s.completedAt!.getTime() - s.startedAt!.getTime()), 0
+        const totalSessionTime = completedSessionsWithTiming.reduce(
+          (sum, s) => sum + (s.completedAt!.getTime() - s.startedAt!.getTime()),
+          0
         )
 
-        const averageChunksPerSecond = totalSessionTime > 0
-          ? (totalChunksGenerated * 1000) / totalSessionTime
-          : 0
+        const averageChunksPerSecond = totalSessionTime > 0 ? (totalChunksGenerated * 1000) / totalSessionTime : 0
 
         const failureRate = totalSessions > 0 ? failedSessions / totalSessions : 0
 
@@ -734,11 +713,14 @@ const makeGenerationSessionRepositoryMemory = (
         yield* Ref.set(storageRef, createInitialMemoryStorage())
       })
 
-    const validateIntegrity = (): Effect.Effect<{
-      readonly isValid: boolean
-      readonly errors: ReadonlyArray<string>
-      readonly warnings: ReadonlyArray<string>
-    }, AllRepositoryErrors> =>
+    const validateIntegrity = (): Effect.Effect<
+      {
+        readonly isValid: boolean
+        readonly errors: ReadonlyArray<string>
+        readonly warnings: ReadonlyArray<string>
+      },
+      AllRepositoryErrors
+    > =>
       Effect.succeed({
         isValid: true,
         errors: [],
@@ -755,14 +737,14 @@ const makeGenerationSessionRepositoryMemory = (
         }
 
         const session = sessionOpt.value
-        const corruptedChunks = session.chunks.filter(c => c.status === 'failed').map(c => c.position)
+        const corruptedChunks = session.chunks.filter((c) => c.status === 'failed').map((c) => c.position)
 
         return {
           sessionId,
           canRecover: session.state === 'failed' || session.state === 'cancelled',
           lastCheckpoint: new Date(),
           corruptedChunks,
-          recoverableChunks: session.chunks.filter(c => c.status === 'completed').map(c => c.position),
+          recoverableChunks: session.chunks.filter((c) => c.status === 'completed').map((c) => c.position),
           estimatedRecoveryTime: corruptedChunks.length * 1000, // 1 second per chunk
           riskLevel: corruptedChunks.length > session.chunks.length * 0.5 ? 'high' : 'low',
           recommendations: corruptedChunks.length > 0 ? ['Consider regenerating failed chunks'] : [],
@@ -778,32 +760,43 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(sessionId, 'session_recovered', options)
       })
 
-    const getSessionHistory = (sessionId: GenerationSessionId): Effect.Effect<ReadonlyArray<{
-      readonly timestamp: Date
-      readonly action: string
-      readonly details: unknown
-      readonly actor: string
-    }>, AllRepositoryErrors> =>
+    const getSessionHistory = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<
+      ReadonlyArray<{
+        readonly timestamp: Date
+        readonly action: string
+        readonly details: unknown
+        readonly actor: string
+      }>,
+      AllRepositoryErrors
+    > =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const history = storage.history.get(sessionId) || []
         return history
       })
 
-    const archiveCompletedSessions = (olderThan: Date): Effect.Effect<number, AllRepositoryErrors> =>
-      Effect.succeed(0) // Mock implementation
+    const archiveCompletedSessions = (olderThan: Date): Effect.Effect<number, AllRepositoryErrors> => Effect.succeed(0) // Mock implementation
 
-    const cleanupOldCheckpoints = (sessionId: GenerationSessionId, keepCount?: number): Effect.Effect<number, AllRepositoryErrors> =>
-      Effect.succeed(0) // Mock implementation
+    const cleanupOldCheckpoints = (
+      sessionId: GenerationSessionId,
+      keepCount?: number
+    ): Effect.Effect<number, AllRepositoryErrors> => Effect.succeed(0) // Mock implementation
 
     const findOrphanedSessions = (): Effect.Effect<ReadonlyArray<GenerationSessionId>, AllRepositoryErrors> =>
       Effect.succeed([]) // Mock implementation
 
-    const healthCheck = (sessionId: GenerationSessionId): Effect.Effect<{
-      readonly isHealthy: boolean
-      readonly issues: readonly string[]
-      readonly recommendations: readonly string[]
-    }, AllRepositoryErrors> =>
+    const healthCheck = (
+      sessionId: GenerationSessionId
+    ): Effect.Effect<
+      {
+        readonly isHealthy: boolean
+        readonly issues: readonly string[]
+        readonly recommendations: readonly string[]
+      },
+      AllRepositoryErrors
+    > =>
       Effect.succeed({
         isHealthy: true,
         issues: [],
@@ -862,7 +855,4 @@ export const GenerationSessionRepositoryMemory = Layer.effect(
  * Configurable Generation Session Repository Memory Implementation Layer
  */
 export const GenerationSessionRepositoryMemoryWith = (config: GenerationSessionRepositoryConfig) =>
-  Layer.effect(
-    GenerationSessionRepository,
-    makeGenerationSessionRepositoryMemory(config)
-  )
+  Layer.effect(GenerationSessionRepository, makeGenerationSessionRepositoryMemory(config))

@@ -1,5 +1,4 @@
-import { Context, Effect, Layer, Option, Schema, Array, pipe } from 'effect'
-import { CraftingGrid, CraftingItemStack, ItemTag } from '../types'
+import { Array, Context, Effect, Layer, Option, Schema, pipe } from 'effect'
 import {
   RecipeAggregate,
   SuccessRateSchema,
@@ -8,7 +7,7 @@ import {
   updateDescription,
   updateSuccessRate,
 } from '../aggregate/recipe'
-import { PatternMismatchError } from '../types'
+import { CraftingGrid, CraftingItemStack, ItemTag, PatternMismatchError } from '../types'
 
 export interface CraftingResult {
   readonly success: boolean
@@ -34,10 +33,7 @@ export interface CraftingEngineService {
     tag: ItemTag
   ) => Effect.Effect<RecipeAggregate, never>
 
-  readonly adjustSuccessRate: (
-    aggregate: RecipeAggregate,
-    delta: number
-  ) => Effect.Effect<RecipeAggregate, never>
+  readonly adjustSuccessRate: (aggregate: RecipeAggregate, delta: number) => Effect.Effect<RecipeAggregate, never>
 }
 
 export const CraftingEngineService = Context.GenericTag<CraftingEngineService>(
@@ -47,7 +43,9 @@ export const CraftingEngineService = Context.GenericTag<CraftingEngineService>(
 const gatherConsumedStacks = (grid: CraftingGrid): ReadonlyArray<CraftingItemStack> =>
   pipe(
     grid.slots,
-    Array.filterMap((slot) => (slot._tag === 'OccupiedSlot' ? Option.some(slot.stack) : Option.none<CraftingItemStack>()))
+    Array.filterMap((slot) =>
+      slot._tag === 'OccupiedSlot' ? Option.some(slot.stack) : Option.none<CraftingItemStack>()
+    )
   )
 
 export const CraftingEngineServiceLive = Layer.effect(

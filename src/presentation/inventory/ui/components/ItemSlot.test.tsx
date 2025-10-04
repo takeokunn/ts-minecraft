@@ -1,16 +1,15 @@
-
 import { describe, expect, it } from '@effect/vitest'
 import { fireEvent, render } from '@testing-library/react'
-import * as FastCheck from 'effect/FastCheck'
 import { Data, Effect, Match, Option, Ref, Schema, pipe } from 'effect'
-import { ItemSlot, deriveItemSlotVisualStyle } from './ItemSlot'
+import * as FastCheck from 'effect/FastCheck'
 import {
+  SlotIndexSchema,
+  SlotTypeSchema,
   makeInventorySlot,
   slotGridPosition,
   slotIndexToNumber,
-  SlotIndexSchema,
-  SlotTypeSchema,
 } from '../../adt/inventory-adt'
+import { ItemSlot, deriveItemSlotVisualStyle } from './ItemSlot'
 
 const makeTheme = () => ({
   slotBackground: '#222222',
@@ -57,17 +56,14 @@ describe('presentation/inventory/ui/ItemSlot', () => {
       const slot = yield* makeSlot({ isHighlighted: true })
       const theme = makeTheme()
       const selections = yield* Ref.make<ReadonlyArray<number>>([])
-      const recordSelection = (index: number) =>
-        Ref.update(selections, (current) => [...current, index])
+      const recordSelection = (index: number) => Ref.update(selections, (current) => [...current, index])
 
       const { container, unmount } = yield* Effect.sync(() =>
         render(
           <ItemSlot
             slot={slot}
             theme={theme}
-            onSelect={(current) =>
-              Effect.runSync(recordSelection(slotIndexToNumber(current.index)))
-            }
+            onSelect={(current) => Effect.runSync(recordSelection(slotIndexToNumber(current.index)))}
           />
         )
       )
@@ -126,6 +122,5 @@ describe('presentation/inventory/ui/ItemSlot', () => {
         }),
         { numRuns: 64 }
       )
-    )
-  )
+    ))
 })

@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Match, pipe } from 'effect'
-import { FluidState } from '../value_object/fluid_state'
-import type { FluidState as FluidStateState } from '../value_object/fluid_state'
 import type { PhysicsError } from '../types/errors'
+import type { FluidState as FluidStateState } from '../value_object/fluid_state'
+import { FluidState } from '../value_object/fluid_state'
 
 export interface TerrainContext {
   readonly feetBlock: number | null
@@ -51,7 +51,7 @@ const classifySurface = (context: TerrainContext): 'air' | 'solid' | 'liquid' =>
     Match.orElse(() => (isSolid(context.feetBlock) ? Surface.solid : Surface.air))
   )
 
-export const TerrainAdaptationService = Context.Tag<TerrainAdaptationService>(
+export const TerrainAdaptationService = Context.GenericTag<TerrainAdaptationService>(
   '@minecraft/physics/TerrainAdaptationService'
 )
 

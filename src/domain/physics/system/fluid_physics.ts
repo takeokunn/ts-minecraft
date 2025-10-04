@@ -1,8 +1,8 @@
 import type { BlockTypeId } from '@domain/core/types/brands'
 import { Effect, Match, pipe } from 'effect'
 import type { Vector3 } from '../../world/types'
-import type { FluidPhysicsResult, FluidType } from '../types'
 import { PHYSICS_CONSTANTS } from '../constant'
+import type { FluidPhysicsResult, FluidType } from '../types'
 
 /**
  * 流体物理システム

@@ -11,10 +11,7 @@ import {
 } from './types'
 
 export interface SceneService {
-  readonly transitionTo: (
-    scene: ActiveScene,
-    effect?: TransitionEffect
-  ) => Effect.Effect<SceneState, TransitionError>
+  readonly transitionTo: (scene: ActiveScene, effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>
 
   readonly current: () => Effect.Effect<SceneState>
 

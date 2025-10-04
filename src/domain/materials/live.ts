@@ -6,15 +6,14 @@ import { MaterialRepository, MaterialRepositoryLayer } from './repository'
 import type { MaterialService as MaterialServiceInterface } from './service'
 import { MaterialService as MaterialServiceTag } from './service'
 import {
-  BlockId,
   BurnTime,
   FortuneLevel,
   ItemId,
   ItemStack,
   Material,
   MaterialError,
-  Tool,
   MaterialEvent as MaterialEventConstructor,
+  Tool,
 } from './types'
 
 const ensureToolPresence = (
@@ -84,7 +83,7 @@ const validateTool = (
               ensureHarvestLevel(material, tool),
               Either.flatMap((validTool) => ensureToolType(material, validTool)),
               Either.map((validTool) => Option.some(validTool))
-            )
+            ),
         })
       )
     )
@@ -109,7 +108,13 @@ const computeToolEfficiency = (material: Material, tool: Option.Option<Tool>): n
 const computeEnchantmentMultiplier = (tool: Option.Option<Tool>): number =>
   pipe(
     tool,
-    Option.map((provided) => pipe(provided.enchantments, Array_.filter((enchantment) => enchantment.type === 'efficiency'), Array_.reduce(1, (accumulator, enchantment) => accumulator + enchantment.level * 0.3))),
+    Option.map((provided) =>
+      pipe(
+        provided.enchantments,
+        Array_.filter((enchantment) => enchantment.type === 'efficiency'),
+        Array_.reduce(1, (accumulator, enchantment) => accumulator + enchantment.level * 0.3)
+      )
+    ),
     Option.getOrElse(() => 1)
   )
 
@@ -117,20 +122,23 @@ const computeSpeed = (material: Material, tool: Option.Option<Tool>): number =>
   computeToolEfficiency(material, tool) * computeEnchantmentMultiplier(tool)
 
 const miningDurationFor = (material: Material, tool: Option.Option<Tool>): Duration.Duration =>
-  pipe(
-    computeSpeed(material, tool),
-    (speed) =>
-      pipe(
-        Match.value(speed <= 0),
-        Match.when(true, () => Duration.infinity),
-        Match.orElse(() => Duration.millis((material.hardness * 1.5) / speed * 50))
-      )
+  pipe(computeSpeed(material, tool), (speed) =>
+    pipe(
+      Match.value(speed <= 0),
+      Match.when(true, () => Duration.infinity),
+      Match.orElse(() => Duration.millis(((material.hardness * 1.5) / speed) * 50))
+    )
   )
 
 const hasSilkTouch = (tool: Option.Option<Tool>): boolean =>
   pipe(
     tool,
-    Option.exists((provided) => pipe(provided.enchantments, Array_.some((enchantment) => enchantment.type === 'silk_touch')))
+    Option.exists((provided) =>
+      pipe(
+        provided.enchantments,
+        Array_.some((enchantment) => enchantment.type === 'silk_touch')
+      )
+    )
   )
 
 const silkTouchDrops = (material: Material): ReadonlyArray.ReadonlyArray<ItemStack> => [
@@ -146,7 +154,10 @@ const applyFortune = (
     Array_.some(material.tags, (tag) => tag === 'ore') && fortune > 0,
     Match.value,
     Match.when(true, () =>
-      pipe(drops, Array_.map((drop) => ({ itemId: drop.itemId, amount: Math.max(1, drop.amount * (fortune + 1)) })))
+      pipe(
+        drops,
+        Array_.map((drop) => ({ itemId: drop.itemId, amount: Math.max(1, drop.amount * (fortune + 1)) }))
+      )
     ),
     Match.orElse(() => drops)
   )

@@ -5,10 +5,9 @@
  * 決定論的生成とパフォーマンス最適化の両立
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 周波数Brand型（正の数値）
@@ -52,7 +51,7 @@ export const FrequencySchema = Schema.Number.pipe(
     identifier: 'Frequency',
     title: 'Noise Frequency',
     description: 'Frequency of noise oscillation (0.0001 to 1000)',
-    examples: [0.01, 0.1, 1.0, 10.0]
+    examples: [0.01, 0.1, 1.0, 10.0],
   })
 )
 
@@ -68,7 +67,7 @@ export const AmplitudeSchema = Schema.Number.pipe(
     identifier: 'Amplitude',
     title: 'Noise Amplitude',
     description: 'Amplitude of noise signal (0.001 to 1000)',
-    examples: [0.5, 1.0, 2.0, 10.0]
+    examples: [0.5, 1.0, 2.0, 10.0],
   })
 )
 
@@ -84,7 +83,7 @@ export const LacunaritySchema = Schema.Number.pipe(
     identifier: 'Lacunarity',
     title: 'Lacunarity',
     description: 'Frequency multiplier between octaves (1.0 to 10.0)',
-    examples: [2.0, 2.5, 3.0, 4.0]
+    examples: [2.0, 2.5, 3.0, 4.0],
   })
 )
 
@@ -99,7 +98,7 @@ export const PersistenceSchema = Schema.Number.pipe(
     identifier: 'Persistence',
     title: 'Persistence',
     description: 'Amplitude multiplier between octaves (0.0 to 1.0)',
-    examples: [0.3, 0.5, 0.7, 0.9]
+    examples: [0.3, 0.5, 0.7, 0.9],
   })
 )
 
@@ -116,7 +115,7 @@ export const OctavesSchema = Schema.Number.pipe(
     identifier: 'Octaves',
     title: 'Octaves',
     description: 'Number of noise octaves (1 to 16)',
-    examples: [4, 6, 8, 12]
+    examples: [4, 6, 8, 12],
   })
 )
 
@@ -132,7 +131,7 @@ export const ScaleSchema = Schema.Number.pipe(
     identifier: 'Scale',
     title: 'Noise Scale',
     description: 'Overall scale of noise generation (0.001 to 10000)',
-    examples: [0.1, 1.0, 10.0, 100.0]
+    examples: [0.1, 1.0, 10.0, 100.0],
   })
 )
 
@@ -140,20 +139,20 @@ export const ScaleSchema = Schema.Number.pipe(
  * ノイズタイプ列挙
  */
 export const NoiseTypeSchema = Schema.Literal(
-  'perlin',       // Perlinノイズ
-  'simplex',      // Simplexノイズ
-  'value',        // Valueノイズ
-  'worley',       // Worleyノイズ（セル状）
-  'ridge',        // Ridgeノイズ（稜線）
-  'billow',       // Billowノイズ（雲状）
-  'fBm',          // Fractional Brownian Motion
-  'turbulence',   // タービュランス
-  'domain_warp',  // ドメイン歪み
-  'custom'        // カスタムノイズ
+  'perlin', // Perlinノイズ
+  'simplex', // Simplexノイズ
+  'value', // Valueノイズ
+  'worley', // Worleyノイズ（セル状）
+  'ridge', // Ridgeノイズ（稜線）
+  'billow', // Billowノイズ（雲状）
+  'fBm', // Fractional Brownian Motion
+  'turbulence', // タービュランス
+  'domain_warp', // ドメイン歪み
+  'custom' // カスタムノイズ
 ).pipe(
   Schema.annotations({
     title: 'Noise Type',
-    description: 'Type of noise generation algorithm'
+    description: 'Type of noise generation algorithm',
   })
 )
 
@@ -163,17 +162,17 @@ export type NoiseType = typeof NoiseTypeSchema.Type
  * 補間方法
  */
 export const InterpolationSchema = Schema.Literal(
-  'linear',       // 線形補間
-  'cosine',       // コサイン補間
-  'cubic',        // 三次補間
-  'quintic',      // 五次補間
-  'hermite',      // エルミート補間
-  'catmull_rom',  // Catmull-Rom補間
-  'bezier'        // ベジエ補間
+  'linear', // 線形補間
+  'cosine', // コサイン補間
+  'cubic', // 三次補間
+  'quintic', // 五次補間
+  'hermite', // エルミート補間
+  'catmull_rom', // Catmull-Rom補間
+  'bezier' // ベジエ補間
 ).pipe(
   Schema.annotations({
     title: 'Interpolation Method',
-    description: 'Method for value interpolation between noise points'
+    description: 'Method for value interpolation between noise points',
   })
 )
 
@@ -185,7 +184,7 @@ export type Interpolation = typeof InterpolationSchema.Type
 export const NoiseDimensionSchema = Schema.Literal(1, 2, 3, 4).pipe(
   Schema.annotations({
     title: 'Noise Dimension',
-    description: 'Dimensional space for noise generation (1D, 2D, 3D, 4D)'
+    description: 'Dimensional space for noise generation (1D, 2D, 3D, 4D)',
   })
 )
 
@@ -195,14 +194,14 @@ export type NoiseDimension = typeof NoiseDimensionSchema.Type
  * ノイズ品質設定
  */
 export const NoiseQualitySchema = Schema.Literal(
-  'fast',         // 高速（低品質）
-  'standard',     // 標準（バランス）
-  'high',         // 高品質（低速）
-  'ultra'         // 最高品質（最低速）
+  'fast', // 高速（低品質）
+  'standard', // 標準（バランス）
+  'high', // 高品質（低速）
+  'ultra' // 最高品質（最低速）
 ).pipe(
   Schema.annotations({
     title: 'Noise Quality',
-    description: 'Quality vs performance tradeoff setting'
+    description: 'Quality vs performance tradeoff setting',
   })
 )
 
@@ -235,23 +234,23 @@ export const BasicNoiseSettingsSchema = Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
     z: Schema.Number.pipe(Schema.optional),
-    w: Schema.Number.pipe(Schema.optional)
+    w: Schema.Number.pipe(Schema.optional),
   }),
 
   // 出力調整
   outputRange: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }),
 
   // 正規化設定
   normalize: Schema.Boolean,
-  clamp: Schema.Boolean
+  clamp: Schema.Boolean,
 }).pipe(
   Schema.annotations({
     identifier: 'BasicNoiseSettings',
     title: 'Basic Noise Configuration',
-    description: 'Fundamental noise generation parameters'
+    description: 'Fundamental noise generation parameters',
   })
 )
 
@@ -269,29 +268,33 @@ export const AdvancedNoiseSettingsSchema = Schema.Struct({
     enabled: Schema.Boolean,
     strength: Schema.Number.pipe(Schema.between(0, 10)),
     frequency: FrequencySchema,
-    octaves: OctavesSchema.pipe(Schema.optional)
+    octaves: OctavesSchema.pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // フィルター設定
-  filters: Schema.Array(Schema.Struct({
-    type: Schema.Literal('blur', 'sharpen', 'smooth', 'contrast', 'gamma'),
-    strength: Schema.Number.pipe(Schema.between(0, 2)),
-    radius: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional)
-  })).pipe(Schema.optional),
+  filters: Schema.Array(
+    Schema.Struct({
+      type: Schema.Literal('blur', 'sharpen', 'smooth', 'contrast', 'gamma'),
+      strength: Schema.Number.pipe(Schema.between(0, 2)),
+      radius: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
+    })
+  ).pipe(Schema.optional),
 
   // カスケード設定（複数ノイズの組み合わせ）
-  cascade: Schema.Array(Schema.Struct({
-    operation: Schema.Literal('add', 'multiply', 'subtract', 'divide', 'min', 'max', 'blend'),
-    noise: BasicNoiseSettingsSchema,
-    weight: Schema.Number.pipe(Schema.between(0, 1))
-  })).pipe(Schema.optional),
+  cascade: Schema.Array(
+    Schema.Struct({
+      operation: Schema.Literal('add', 'multiply', 'subtract', 'divide', 'min', 'max', 'blend'),
+      noise: BasicNoiseSettingsSchema,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ).pipe(Schema.optional),
 
   // 条件付き変調
   modulation: Schema.Struct({
     enabled: Schema.Boolean,
     modulatorNoise: BasicNoiseSettingsSchema.pipe(Schema.optional),
     modulationStrength: Schema.Number.pipe(Schema.between(0, 1)),
-    modulationType: Schema.Literal('amplitude', 'frequency', 'phase')
+    modulationType: Schema.Literal('amplitude', 'frequency', 'phase'),
   }).pipe(Schema.optional),
 
   // セルラーオートマタ設定（Worleyノイズ用）
@@ -299,7 +302,7 @@ export const AdvancedNoiseSettingsSchema = Schema.Struct({
     cellSize: Schema.Number.pipe(Schema.positive()),
     distanceFunction: Schema.Literal('euclidean', 'manhattan', 'chebyshev', 'minkowski'),
     returnType: Schema.Literal('distance', 'distance2', 'cell_value', 'border'),
-    jitter: Schema.Number.pipe(Schema.between(0, 1))
+    jitter: Schema.Number.pipe(Schema.between(0, 1)),
   }).pipe(Schema.optional),
 
   // パフォーマンス設定
@@ -307,13 +310,13 @@ export const AdvancedNoiseSettingsSchema = Schema.Struct({
     cacheEnabled: Schema.Boolean,
     multiThreaded: Schema.Boolean,
     approximation: Schema.Boolean,
-    chunkSize: Schema.Number.pipe(Schema.int(), Schema.positive()).pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    chunkSize: Schema.Number.pipe(Schema.int(), Schema.positive()).pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'AdvancedNoiseSettings',
     title: 'Advanced Noise Configuration',
-    description: 'Comprehensive noise generation with advanced features'
+    description: 'Comprehensive noise generation with advanced features',
   })
 )
 
@@ -330,8 +333,8 @@ export const CreateNoiseSettingsParamsSchema = Schema.Struct({
   performance: Schema.Literal('fast', 'balanced', 'quality').pipe(Schema.optional),
   customParameters: Schema.Record({
     key: Schema.String,
-    value: Schema.Number
-  }).pipe(Schema.optional)
+    value: Schema.Number,
+  }).pipe(Schema.optional),
 })
 
 export type CreateNoiseSettingsParams = typeof CreateNoiseSettingsParamsSchema.Type
@@ -344,27 +347,27 @@ export const NoiseSettingsErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidFrequency'),
     frequency: Schema.Number,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('OctaveOverflow'),
     octaves: Schema.Number,
     maxAllowed: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ParameterConflict'),
     parameter1: Schema.String,
     parameter2: Schema.String,
     conflict: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('UnsupportedCombination'),
     noiseType: NoiseTypeSchema,
     feature: Schema.String,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type NoiseSettingsError = typeof NoiseSettingsErrorSchema.Type
@@ -379,7 +382,7 @@ export const NOISE_PRESETS = {
     amplitude: 100,
     octaves: 6,
     persistence: 0.5,
-    lacunarity: 2.0
+    lacunarity: 2.0,
   },
   CAVES: {
     description: 'Cave generation',
@@ -387,7 +390,7 @@ export const NOISE_PRESETS = {
     amplitude: 1,
     octaves: 4,
     persistence: 0.6,
-    lacunarity: 2.5
+    lacunarity: 2.5,
   },
   TEMPERATURE: {
     description: 'Temperature variation',
@@ -395,7 +398,7 @@ export const NOISE_PRESETS = {
     amplitude: 30,
     octaves: 3,
     persistence: 0.7,
-    lacunarity: 2.0
+    lacunarity: 2.0,
   },
   HUMIDITY: {
     description: 'Humidity variation',
@@ -403,6 +406,6 @@ export const NOISE_PRESETS = {
     amplitude: 1,
     octaves: 4,
     persistence: 0.5,
-    lacunarity: 1.8
-  }
+    lacunarity: 1.8,
+  },
 } as const

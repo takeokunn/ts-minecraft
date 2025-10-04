@@ -8,18 +8,10 @@ import { Array, Effect, Option, pipe } from 'effect'
  * - ItemTag: アイテムタグ
  * - ItemQuantity: スタックの数量 (1-64)
  */
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(128),
-  Schema.brand('ItemId')
-)
+export const ItemIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(128), Schema.brand('ItemId'))
 export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
 
-export const ItemTagSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.brand('ItemTag')
-)
+export const ItemTagSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64), Schema.brand('ItemTag'))
 export type ItemTag = Schema.Schema.Type<typeof ItemTagSchema>
 
 export const ItemQuantitySchema = Schema.Number.pipe(
@@ -174,9 +166,10 @@ export const RecipeIngredientSchema = Schema.Struct({
 })
 export type RecipeIngredient = Schema.Schema.Type<typeof RecipeIngredientSchema>
 
-export const RecipePatternRowSchema = Schema.Array(
-  Schema.Union(RecipePatternKeySchema, Schema.Null)
-).pipe(Schema.minItems(1), Schema.maxItems(3))
+export const RecipePatternRowSchema = Schema.Array(Schema.Union(RecipePatternKeySchema, Schema.Null)).pipe(
+  Schema.minItems(1),
+  Schema.maxItems(3)
+)
 export type RecipePatternRow = Schema.Schema.Type<typeof RecipePatternRowSchema>
 
 export const RecipePatternSchema = Schema.Array(RecipePatternRowSchema).pipe(Schema.minItems(1), Schema.maxItems(3))
@@ -239,10 +232,7 @@ export const decodeItemStack = Schema.decodeEffect(CraftingItemStackSchema)
 export const decodeRecipe = Schema.decodeEffect(CraftingRecipeSchema)
 export const decodeGrid = Schema.decodeEffect(CraftingGridSchema)
 
-export const buildEmptyGrid = (
-  width: GridWidth,
-  height: GridHeight
-): Effect.Effect<CraftingGrid, never> => {
+export const buildEmptyGrid = (width: GridWidth, height: GridHeight): Effect.Effect<CraftingGrid, never> => {
   const size = { width: Number(width), height: Number(height) }
   return Effect.succeed({
     width,
@@ -262,19 +252,13 @@ export const buildEmptyGrid = (
   })
 }
 
-export const slotAt = (
-  grid: CraftingGrid,
-  coordinate: GridCoordinate
-): Option.Option<GridSlot> =>
+export const slotAt = (grid: CraftingGrid, coordinate: GridCoordinate): Option.Option<GridSlot> =>
   pipe(
     grid.slots,
     Array.findFirst((slot) => slot.coordinate.x === coordinate.x && slot.coordinate.y === coordinate.y)
   )
 
-export const replaceSlot = (
-  grid: CraftingGrid,
-  slot: GridSlot
-): CraftingGrid => ({
+export const replaceSlot = (grid: CraftingGrid, slot: GridSlot): CraftingGrid => ({
   ...grid,
   slots: pipe(
     grid.slots,

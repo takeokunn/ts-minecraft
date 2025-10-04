@@ -105,10 +105,10 @@ export {
 
 // ===== 統一Layer Export（全ItemFactoryの組み合わせ） =====
 import { Effect, Layer, Option, pipe } from 'effect'
+import { parseDurability, parseItemId, parseItemQuantity } from '../../types'
 import { ItemBuilderFactoryLayer } from './builders'
 import { ItemFactoryLayer } from './factory'
 import { ItemBuilderFactory, ItemCreationError, ItemFactory } from './interface'
-import { parseDurability, parseItemId, parseItemQuantity } from '../../types'
 
 /**
  * 全ItemFactoryサービスを統合したLayer
@@ -121,11 +121,7 @@ export const ItemFactoryAllLayer = Layer.mergeAll(
 
 // ===== 便利なヘルパー関数（Function.flowパターン） =====
 
-const toCreationError = (
-  reason: string,
-  invalidFields: ReadonlyArray<string>,
-  context: Record<string, unknown>
-) =>
+const toCreationError = (reason: string, invalidFields: ReadonlyArray<string>, context: Record<string, unknown>) =>
   new ItemCreationError({
     reason,
     invalidFields: [...invalidFields],
@@ -134,9 +130,7 @@ const toCreationError = (
 
 const decodeItemId = (itemId: string) =>
   parseItemId(itemId).pipe(
-    Effect.mapError((error) =>
-      toCreationError('itemId parsing failed', ['itemId'], { itemId, error })
-    )
+    Effect.mapError((error) => toCreationError('itemId parsing failed', ['itemId'], { itemId, error }))
   )
 
 const decodeOptionalCount = (count: number | undefined) =>
@@ -147,9 +141,7 @@ const decodeOptionalCount = (count: number | undefined) =>
       onSome: (value) =>
         parseItemQuantity(value).pipe(
           Effect.map(Option.some),
-          Effect.mapError((error) =>
-            toCreationError('count validation failed', ['count'], { count: value, error })
-          )
+          Effect.mapError((error) => toCreationError('count validation failed', ['count'], { count: value, error }))
         ),
     })
   )
@@ -172,11 +164,7 @@ const decodeOptionalDurability = (durability: number | undefined) =>
     })
   )
 
-const applyOptional = <A, B>(
-  option: Option.Option<A>,
-  onSome: (value: A) => B,
-  onNone: () => B
-) =>
+const applyOptional = <A, B>(option: Option.Option<A>, onSome: (value: A) => B, onNone: () => B) =>
   pipe(
     option,
     Option.match({

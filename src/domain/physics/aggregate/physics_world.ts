@@ -1,26 +1,24 @@
 import { Clock, Effect, Match, pipe } from 'effect'
+import { PHYSICS_CONSTANTS } from '../types/constants'
 import {
-  PhysicsWorld,
-  PhysicsWorldSchema,
-  PhysicsWorldState,
-  PhysicsWorldStateSchema,
-  PhysicsConfig,
-  PhysicsConfigSchema,
-  Vector3,
   EpochMillis,
   EpochMillisSchema,
+  PhysicsConfig,
+  PhysicsConfigSchema,
+  PhysicsWorld,
   PhysicsWorldId,
   PhysicsWorldIdSchema,
-  decodeWith,
+  PhysicsWorldSchema,
+  PhysicsWorldStateSchema,
+  Vector3,
   decodeConstant,
-  positiveFloat,
-  unitInterval,
-  vector3,
+  decodeWith,
+  parseNonNegativeFloat,
   parsePositiveFloat,
   parseVector3,
-  parseNonNegativeFloat,
+  positiveFloat,
+  unitInterval,
 } from '../types/core'
-import { PHYSICS_CONSTANTS } from '../types/constants'
 import type { PhysicsError } from '../types/errors'
 
 const defaultConfig: PhysicsConfig = decodeConstant(PhysicsConfigSchema)({
@@ -47,10 +45,12 @@ const generateId = (prefix: string): Effect.Effect<PhysicsWorldId, PhysicsError>
 const now = (): Effect.Effect<EpochMillis, PhysicsError> =>
   Effect.flatMap(Clock.currentTimeMillis, (millis) => decodeWith(EpochMillisSchema)(millis))
 
-const create = (params: {
-  readonly config?: Partial<PhysicsConfig>
-  readonly gravity?: Vector3
-} = {}): Effect.Effect<PhysicsWorld, PhysicsError> =>
+const create = (
+  params: {
+    readonly config?: Partial<PhysicsConfig>
+    readonly gravity?: Vector3
+  } = {}
+): Effect.Effect<PhysicsWorld, PhysicsError> =>
   Effect.gen(function* () {
     const id = yield* generateId('world')
     const createdAt = yield* now()
@@ -136,10 +136,7 @@ const step = (
     }
   })
 
-const updateConfig = (
-  world: PhysicsWorld,
-  patch: Partial<PhysicsConfig>
-): Effect.Effect<PhysicsWorld, PhysicsError> =>
+const updateConfig = (world: PhysicsWorld, patch: Partial<PhysicsConfig>): Effect.Effect<PhysicsWorld, PhysicsError> =>
   Effect.gen(function* () {
     const merged = { ...world.config, ...patch }
     const config = yield* decodeWith(PhysicsConfigSchema)(merged)
@@ -149,10 +146,7 @@ const updateConfig = (
     }
   })
 
-const updateGravity = (
-  world: PhysicsWorld,
-  vector: Vector3
-): Effect.Effect<PhysicsWorld, PhysicsError> =>
+const updateGravity = (world: PhysicsWorld, vector: Vector3): Effect.Effect<PhysicsWorld, PhysicsError> =>
   Effect.map(parseVector3(vector), (gravity) => ({
     ...world,
     gravity,

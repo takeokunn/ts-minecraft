@@ -17,13 +17,11 @@ export type EpochMillisecondsInput = Schema.Schema.From<typeof EpochMilliseconds
 const decodeEpochMilliseconds = Schema.decode(EpochMillisecondsSchema)
 const decodeEpochMillisecondsSync = Schema.decodeSync(EpochMillisecondsSchema)
 
-export const epochMilliseconds = (
-  value: EpochMillisecondsInput
-): Effect.Effect<EpochMilliseconds> => decodeEpochMilliseconds(value)
+export const epochMilliseconds = (value: EpochMillisecondsInput): Effect.Effect<EpochMilliseconds> =>
+  decodeEpochMilliseconds(value)
 
-export const unsafeEpochMilliseconds = (
-  value: EpochMillisecondsInput
-): EpochMilliseconds => decodeEpochMillisecondsSync(value)
+export const unsafeEpochMilliseconds = (value: EpochMillisecondsInput): EpochMilliseconds =>
+  decodeEpochMillisecondsSync(value)
 
 const epochZero: EpochMilliseconds = decodeEpochMillisecondsSync(0)
 

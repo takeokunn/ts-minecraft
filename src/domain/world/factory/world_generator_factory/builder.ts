@@ -12,13 +12,13 @@
  * - エラーハンドリングの一元化
  */
 
-import { Effect, Schema, Match, Function, Option } from "effect"
-import type * as WorldGenerator from "../../aggregate/world_generator/world_generator.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import type { CreateWorldGeneratorParams, PresetType, FactoryError } from "./factory.js"
+import { Effect, Function, Match } from 'effect'
+import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
+import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
+import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
+import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './factory.js'
 
 // ================================
 // Builder State Management
@@ -98,8 +98,14 @@ export interface WorldGeneratorBuilder {
   readonly optimizeForDevelopment: () => WorldGeneratorBuilder
 
   // 条件設定
-  readonly when: (condition: boolean, configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder) => WorldGeneratorBuilder
-  readonly unless: (condition: boolean, configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder) => WorldGeneratorBuilder
+  readonly when: (
+    condition: boolean,
+    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
+  ) => WorldGeneratorBuilder
+  readonly unless: (
+    condition: boolean,
+    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
+  ) => WorldGeneratorBuilder
 
   // 検証
   readonly validate: () => Effect.Effect<ValidationState, FactoryError>
@@ -134,14 +140,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
 
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      seed: resolvedSeed
+      seed: resolvedSeed,
     })
   }
 
   withRandomSeed(): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      seed: WorldSeed.createRandom()
+      seed: WorldSeed.createRandom(),
     })
   }
 
@@ -149,14 +155,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   withParameters(parameters: GenerationParameters.GenerationParameters): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      parameters
+      parameters,
     })
   }
 
   withDefaultParameters(): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      parameters: GenerationParameters.createDefault()
+      parameters: GenerationParameters.createDefault(),
     })
   }
 
@@ -164,14 +170,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   withBiomeConfig(config: BiomeProperties.BiomeConfiguration): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      biomeConfig: config
+      biomeConfig: config,
     })
   }
 
   withDefaultBiomes(): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      biomeConfig: BiomeProperties.createDefaultConfiguration()
+      biomeConfig: BiomeProperties.createDefaultConfiguration(),
     })
   }
 
@@ -179,14 +185,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   withNoiseConfig(config: NoiseConfiguration.NoiseConfiguration): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      noiseConfig: config
+      noiseConfig: config,
     })
   }
 
   withDefaultNoise(): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      noiseConfig: NoiseConfiguration.createDefault()
+      noiseConfig: NoiseConfiguration.createDefault(),
     })
   }
 
@@ -194,14 +200,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   withMaxConcurrentGenerations(count: number): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      maxConcurrentGenerations: Math.max(1, Math.min(16, count))
+      maxConcurrentGenerations: Math.max(1, Math.min(16, count)),
     })
   }
 
   withCacheSize(size: number): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      cacheSize: Math.max(100, Math.min(10000, size))
+      cacheSize: Math.max(100, Math.min(10000, size)),
     })
   }
 
@@ -209,21 +215,21 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   enableStructures(enable = true): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      enableStructures: enable
+      enableStructures: enable,
     })
   }
 
   enableCaves(enable = true): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      enableCaves: enable
+      enableCaves: enable,
     })
   }
 
   enableOres(enable = true): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      enableOres: enable
+      enableOres: enable,
     })
   }
 
@@ -231,7 +237,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   withQualityLevel(level: 'fast' | 'balanced' | 'quality'): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      qualityLevel: level
+      qualityLevel: level,
     })
   }
 
@@ -239,14 +245,14 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   enableDebugMode(enable = true): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      enableDebugMode: enable
+      enableDebugMode: enable,
     })
   }
 
   withLogLevel(level: 'error' | 'warn' | 'info' | 'debug'): WorldGeneratorBuilder {
     return new WorldGeneratorBuilderImpl({
       ...this.state,
-      logLevel: level
+      logLevel: level,
     })
   }
 
@@ -277,7 +283,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       qualityLevel: 'fast',
       maxConcurrentGenerations: 8,
       cacheSize: 2000,
-      enableDebugMode: false
+      enableDebugMode: false,
     })
   }
 
@@ -287,7 +293,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       qualityLevel: 'quality',
       maxConcurrentGenerations: 2,
       cacheSize: 5000,
-      enableDebugMode: false
+      enableDebugMode: false,
     })
   }
 
@@ -298,7 +304,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       maxConcurrentGenerations: 4,
       cacheSize: 1000,
       enableDebugMode: true,
-      logLevel: 'debug'
+      logLevel: 'debug',
     })
   }
 
@@ -309,7 +315,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       qualityLevel: 'balanced',
       maxConcurrentGenerations: 4,
       cacheSize: 1000,
-      enableDebugMode: false
+      enableDebugMode: false,
     })
   }
 
@@ -318,50 +324,58 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       ...this.state,
       enableStructures: false,
       enableCaves: false,
-      enableOres: false
+      enableOres: false,
     })
   }
 
   // 条件設定
-  when(condition: boolean, configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder): WorldGeneratorBuilder {
+  when(
+    condition: boolean,
+    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
+  ): WorldGeneratorBuilder {
     return condition ? configureFn(this) : this
   }
 
-  unless(condition: boolean, configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder): WorldGeneratorBuilder {
+  unless(
+    condition: boolean,
+    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
+  ): WorldGeneratorBuilder {
     return !condition ? configureFn(this) : this
   }
 
   // 検証
   validate(): Effect.Effect<ValidationState, FactoryError> {
-    return Effect.gen(function* () {
-      const errors: string[] = []
-      const warnings: string[] = []
+    return Effect.gen(
+      function* () {
+        const errors: string[] = []
+        const warnings: string[] = []
 
-      // 必須設定のチェック
-      if (!this.state.seed) {
-        warnings.push('No seed specified, random seed will be generated')
-      }
+        // 必須設定のチェック
+        if (!this.state.seed) {
+          warnings.push('No seed specified, random seed will be generated')
+        }
 
-      // パフォーマンス設定の妥当性チェック
-      if (this.state.maxConcurrentGenerations && this.state.maxConcurrentGenerations > 8) {
-        warnings.push('High concurrent generation count may impact performance')
-      }
+        // パフォーマンス設定の妥当性チェック
+        if (this.state.maxConcurrentGenerations && this.state.maxConcurrentGenerations > 8) {
+          warnings.push('High concurrent generation count may impact performance')
+        }
 
-      if (this.state.cacheSize && this.state.cacheSize > 5000) {
-        warnings.push('Large cache size may consume significant memory')
-      }
+        if (this.state.cacheSize && this.state.cacheSize > 5000) {
+          warnings.push('Large cache size may consume significant memory')
+        }
 
-      // 設定の整合性チェック
-      if (this.state.qualityLevel === 'fast' && this.state.maxConcurrentGenerations === 1) {
-        warnings.push('Fast quality with single thread may not be optimal')
-      }
+        // 設定の整合性チェック
+        if (this.state.qualityLevel === 'fast' && this.state.maxConcurrentGenerations === 1) {
+          warnings.push('Fast quality with single thread may not be optimal')
+        }
 
-      return {
-        isValid: errors.length === 0,
-        errors,
-        warnings
-      }
-    }.bind(this))
+        return {
+          isValid: errors.length === 0,
+          errors,
+          warnings,
+        }
+      }.bind(this)
+    )
   }
 
   isValid(): Effect.Effect<boolean, FactoryError> {
@@ -370,30 +384,33 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
 
   // 構築
   build(): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> {
-    return Effect.gen(function* () {
-      // 検証
-      const validation = yield* this.validate()
-      if (!validation.isValid) {
-        return yield* Effect.fail(new FactoryError({
-          category: 'parameter_validation',
-          message: `Builder validation failed: ${validation.errors.join(', ')}`
-        }))
-      }
+    return Effect.gen(
+      function* () {
+        // 検証
+        const validation = yield* this.validate()
+        if (!validation.isValid) {
+          return yield* Effect.fail(
+            new FactoryError({
+              category: 'parameter_validation',
+              message: `Builder validation failed: ${validation.errors.join(', ')}`,
+            })
+          )
+        }
 
-      // パラメータ構築
-      const params = yield* this.buildParams()
+        // パラメータ構築
+        const params = yield* this.buildParams()
 
-      // ファクトリを使用してWorldGenerator作成
-      const { WorldGeneratorFactoryTag } = await import('./factory.js')
-      const factory = yield* Effect.service(WorldGeneratorFactoryTag)
+        // ファクトリを使用してWorldGenerator作成
+        const { WorldGeneratorFactoryTag } = await import('./factory.js')
+        const factory = yield* Effect.service(WorldGeneratorFactoryTag)
 
-      return yield* factory.create(params)
-    }.bind(this))
+        return yield* factory.create(params)
+      }.bind(this)
+    )
   }
 
   buildWithDefaults(): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> {
-    return this
-      .withRandomSeed()
+    return this.withRandomSeed()
       .withDefaultParameters()
       .withDefaultBiomes()
       .withDefaultNoise()
@@ -414,7 +431,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
       enableOres: this.state.enableOres,
       qualityLevel: this.state.qualityLevel,
       enableDebugMode: this.state.enableDebugMode,
-      logLevel: this.state.logLevel
+      logLevel: this.state.logLevel,
     })
   }
 
@@ -439,8 +456,7 @@ class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
 /**
  * 新しいWorldGeneratorBuilder作成
  */
-export const createBuilder = (): WorldGeneratorBuilder =>
-  new WorldGeneratorBuilderImpl()
+export const createBuilder = (): WorldGeneratorBuilder => new WorldGeneratorBuilderImpl()
 
 /**
  * 既存設定から新しいBuilder作成
@@ -456,7 +472,7 @@ export const createBuilderFromGenerator = (generator: WorldGenerator.WorldGenera
     seed: generator.context.seed,
     parameters: generator.context.parameters,
     biomeConfig: generator.context.biomeConfig,
-    noiseConfig: generator.context.noiseConfig
+    noiseConfig: generator.context.noiseConfig,
   })
 
 /**
@@ -473,43 +489,29 @@ export const createBuilderFromPreset = (preset: PresetType): WorldGeneratorBuild
  * 開発者向け高速設定Builder
  */
 export const createFastBuilder = (): WorldGeneratorBuilder =>
-  createBuilder()
-    .optimizeForPerformance()
-    .enableDebugMode()
-    .withLogLevel('debug')
+  createBuilder().optimizeForPerformance().enableDebugMode().withLogLevel('debug')
 
 /**
  * 品質重視Builder
  */
 export const createQualityBuilder = (): WorldGeneratorBuilder =>
-  createBuilder()
-    .optimizeForQuality()
-    .enableStructures()
-    .enableCaves()
-    .enableOres()
+  createBuilder().optimizeForQuality().enableStructures().enableCaves().enableOres()
 
 /**
  * バランス型Builder
  */
 export const createBalancedBuilder = (): WorldGeneratorBuilder =>
-  createBuilder()
-    .optimizeForBalance()
-    .enableStructures()
-    .enableCaves()
-    .enableOres()
+  createBuilder().optimizeForBalance().enableStructures().enableCaves().enableOres()
 
 /**
  * カスタム設定Builder
  */
-export const createCustomBuilder = (configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder): WorldGeneratorBuilder =>
-  configureFn(createBuilder())
+export const createCustomBuilder = (
+  configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
+): WorldGeneratorBuilder => configureFn(createBuilder())
 
 // ================================
 // Exports
 // ================================
 
-export {
-  type WorldGeneratorBuilder,
-  type BuilderState,
-  type ValidationState,
-}
+export { type BuilderState, type ValidationState, type WorldGeneratorBuilder }

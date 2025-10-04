@@ -68,19 +68,17 @@ const average = (sum: number, count: number): number => (count <= 0 ? 0 : sum / 
 export const toLifecycleStats = (accumulator: LifecycleAccumulator): LifecycleStats => ({
   totalActivations: accumulator.totalActivations,
   totalDeactivations: accumulator.totalDeactivations,
-  averageLifetime: makeChunkLifetime(Math.round(average(accumulator.accumulatedLifetime, accumulator.totalDeactivations))),
+  averageLifetime: makeChunkLifetime(
+    Math.round(average(accumulator.accumulatedLifetime, accumulator.totalDeactivations))
+  ),
   memoryEfficiency: makeResourceUsagePercent(Math.max(0, 1 - accumulator.memoryPressure)),
   cacheHitRate: accumulator.cacheHitRate,
   errorRate: accumulator.errorRate,
   lastUpdated: accumulator.lastUpdated,
 })
 
-export const averageActivationDuration = (
-  accumulator: LifecycleAccumulator
-): ChunkLifetime =>
+export const averageActivationDuration = (accumulator: LifecycleAccumulator): ChunkLifetime =>
   makeChunkLifetime(Math.round(average(accumulator.activationDurationSum, accumulator.totalActivations)))
 
-export const averageDeactivationDuration = (
-  accumulator: LifecycleAccumulator
-): ChunkLifetime =>
+export const averageDeactivationDuration = (accumulator: LifecycleAccumulator): ChunkLifetime =>
   makeChunkLifetime(Math.round(average(accumulator.deactivationDurationSum, accumulator.totalDeactivations)))

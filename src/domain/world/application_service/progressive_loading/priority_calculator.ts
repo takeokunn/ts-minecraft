@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Schema } from 'effect'
 
 /**
  * Priority Calculator Service
@@ -37,24 +37,22 @@ export const PriorityContext = Schema.Struct({
     Schema.Literal('survival'),
     Schema.Literal('creative'),
     Schema.Literal('adventure'),
-    Schema.Literal('spectator'),
+    Schema.Literal('spectator')
   ),
   timeOfDay: Schema.Number.pipe(Schema.between(0, 24000)), // Minecraft ticks
-  weather: Schema.Union(
-    Schema.Literal('clear'),
-    Schema.Literal('rain'),
-    Schema.Literal('storm'),
-  ),
+  weather: Schema.Union(Schema.Literal('clear'), Schema.Literal('rain'), Schema.Literal('storm')),
   performanceMetrics: Schema.Struct({
     fps: Schema.Number.pipe(Schema.positive()),
     memoryUsage: Schema.Number.pipe(Schema.between(0, 1)),
     renderDistance: Schema.Number.pipe(Schema.positive()),
   }),
-  biomeInfo: Schema.optional(Schema.Struct({
-    biomeType: Schema.String,
-    complexity: Schema.Number.pipe(Schema.between(0, 1)),
-    structureDensity: Schema.Number.pipe(Schema.between(0, 1)),
-  })),
+  biomeInfo: Schema.optional(
+    Schema.Struct({
+      biomeType: Schema.String,
+      complexity: Schema.Number.pipe(Schema.between(0, 1)),
+      structureDensity: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ),
 })
 
 export const PriorityCalculationResult = Schema.Struct({
@@ -65,7 +63,7 @@ export const PriorityCalculationResult = Schema.Struct({
     Schema.Literal('high'),
     Schema.Literal('normal'),
     Schema.Literal('low'),
-    Schema.Literal('background'),
+    Schema.Literal('background')
   ),
   factors: Schema.Array(PriorityFactor),
   reasoning: Schema.String,
@@ -75,7 +73,7 @@ export const PriorityCalculationResult = Schema.Struct({
     Schema.Literal('load_soon'),
     Schema.Literal('load_when_available'),
     Schema.Literal('defer_loading'),
-    Schema.Literal('skip_loading'),
+    Schema.Literal('skip_loading')
   ),
 })
 
@@ -86,7 +84,7 @@ export const CalculationStrategy = Schema.Union(
   Schema.Literal('movement_prediction'), // 移動予測ベース
   Schema.Literal('performance_adaptive'), // パフォーマンス適応
   Schema.Literal('content_aware'), // コンテンツ認識
-  Schema.Literal('machine_learning'), // 機械学習ベース
+  Schema.Literal('machine_learning') // 機械学習ベース
 )
 
 export const PriorityConfiguration = Schema.Struct({
@@ -137,17 +135,13 @@ export const MLModelPrediction = Schema.Struct({
 
 // === Calculator Error ===
 
-export const PriorityCalculatorError = Schema.TaggedError<PriorityCalculatorErrorType>()(
-  'PriorityCalculatorError',
-  {
-    message: Schema.String,
-    context: Schema.optional(Schema.Unknown),
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const PriorityCalculatorError = Schema.TaggedError<PriorityCalculatorErrorType>()('PriorityCalculatorError', {
+  message: Schema.String,
+  context: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface PriorityCalculatorErrorType
-  extends Schema.Schema.Type<typeof PriorityCalculatorError> {}
+export interface PriorityCalculatorErrorType extends Schema.Schema.Type<typeof PriorityCalculatorError> {}
 
 // === Service Interface ===
 
@@ -205,11 +199,13 @@ export interface PriorityCalculatorService {
 const makePriorityCalculatorService = Effect.gen(function* () {
   // 内部状態管理
   const configuration = yield* Ref.make<Schema.Schema.Type<typeof PriorityConfiguration>>(DEFAULT_PRIORITY_CONFIG)
-  const calculationHistory = yield* Ref.make<Array<{
-    context: Schema.Schema.Type<typeof PriorityContext>
-    result: Schema.Schema.Type<typeof PriorityCalculationResult>
-    timestamp: number
-  }>>([])
+  const calculationHistory = yield* Ref.make<
+    Array<{
+      context: Schema.Schema.Type<typeof PriorityContext>
+      result: Schema.Schema.Type<typeof PriorityCalculationResult>
+      timestamp: number
+    }>
+  >([])
   const performanceStats = yield* Ref.make<Record<string, number>>({})
 
   const calculatePriority = (context: Schema.Schema.Type<typeof PriorityContext>) =>
@@ -247,9 +243,9 @@ const makePriorityCalculatorService = Effect.gen(function* () {
       }
 
       // 履歴記録
-      yield* Ref.update(calculationHistory, history => [
+      yield* Ref.update(calculationHistory, (history) => [
         ...history.slice(-99), // 最新100件を保持
-        { context, result, timestamp: Date.now() }
+        { context, result, timestamp: Date.now() },
       ])
 
       yield* Effect.logDebug(`優先度計算完了: ${finalPriority} (${priorityLevel})`)
@@ -260,11 +256,9 @@ const makePriorityCalculatorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`一括優先度計算開始: ${contexts.length}チャンク`)
 
-      const results = yield* Effect.forEach(
-        contexts,
-        (context) => calculatePriority(context),
-        { concurrency: 'unbounded' }
-      )
+      const results = yield* Effect.forEach(contexts, (context) => calculatePriority(context), {
+        concurrency: 'unbounded',
+      })
 
       yield* Effect.logInfo(`一括優先度計算完了: ${results.length}件`)
       return results
@@ -272,7 +266,7 @@ const makePriorityCalculatorService = Effect.gen(function* () {
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof PriorityConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(configuration, current => ({ ...current, ...configUpdate }))
+      yield* Ref.update(configuration, (current) => ({ ...current, ...configUpdate }))
       yield* Effect.logInfo('優先度計算設定更新完了')
     })
 
@@ -293,14 +287,17 @@ const makePriorityCalculatorService = Effect.gen(function* () {
 
       const calculationStats = {
         totalCalculations: history.length,
-        averagePriority: history.length > 0 ?
-          history.reduce((sum, h) => sum + h.result.finalPriority, 0) / history.length : 0,
-        priorityDistribution: history.reduce((dist, h) => {
-          dist[h.result.priorityLevel] = (dist[h.result.priorityLevel] || 0) + 1
-          return dist
-        }, {} as Record<string, number>),
-        averageConfidence: history.length > 0 ?
-          history.reduce((sum, h) => sum + h.result.confidence, 0) / history.length : 0,
+        averagePriority:
+          history.length > 0 ? history.reduce((sum, h) => sum + h.result.finalPriority, 0) / history.length : 0,
+        priorityDistribution: history.reduce(
+          (dist, h) => {
+            dist[h.result.priorityLevel] = (dist[h.result.priorityLevel] || 0) + 1
+            return dist
+          },
+          {} as Record<string, number>
+        ),
+        averageConfidence:
+          history.length > 0 ? history.reduce((sum, h) => sum + h.result.confidence, 0) / history.length : 0,
         ...stats,
       }
 
@@ -337,9 +334,9 @@ const makePriorityCalculatorService = Effect.gen(function* () {
 
 主要要因:
 ${result.factors
-  .sort((a, b) => (b.weight * b.value) - (a.weight * a.value))
+  .sort((a, b) => b.weight * b.value - a.weight * a.value)
   .slice(0, 3)
-  .map(f => `- ${f.name}: ${(f.weight * f.value * 100).toFixed(1)}% (重み: ${f.weight}, 値: ${f.value})`)
+  .map((f) => `- ${f.name}: ${(f.weight * f.value * 100).toFixed(1)}% (重み: ${f.weight}, 値: ${f.value})`)
   .join('\n')}
 
 推奨アクション: ${result.recommendedAction}
@@ -398,8 +395,8 @@ ${result.factors
     config: Schema.Schema.Type<typeof PriorityConfiguration>
   ): Schema.Schema.Type<typeof PriorityFactor> => {
     const chunkSize = 16
-    const dx = (context.chunkPosition.x * chunkSize + 8) - context.playerPosition.x
-    const dz = (context.chunkPosition.z * chunkSize + 8) - context.playerPosition.z
+    const dx = context.chunkPosition.x * chunkSize + 8 - context.playerPosition.x
+    const dz = context.chunkPosition.z * chunkSize + 8 - context.playerPosition.z
     const distance = Math.sqrt(dx * dx + dz * dz)
 
     const maxDistance = config.distanceWeighting.maxInfluenceDistance
@@ -424,9 +421,7 @@ ${result.factors
     const chunkCenterZ = context.chunkPosition.z * chunkSize + 8
 
     // プレイヤーの移動方向ベクトル
-    const velMag = Math.sqrt(
-      context.playerMovement.velocity.x ** 2 + context.playerMovement.velocity.z ** 2
-    )
+    const velMag = Math.sqrt(context.playerMovement.velocity.x ** 2 + context.playerMovement.velocity.z ** 2)
 
     if (velMag < 0.1) {
       return {
@@ -444,8 +439,9 @@ ${result.factors
     const toChunkMag = Math.sqrt(toChunkX ** 2 + toChunkZ ** 2)
 
     // 内積による方向性計算
-    const dotProduct = (context.playerMovement.velocity.x * toChunkX +
-      context.playerMovement.velocity.z * toChunkZ) / (velMag * toChunkMag)
+    const dotProduct =
+      (context.playerMovement.velocity.x * toChunkX + context.playerMovement.velocity.z * toChunkZ) /
+      (velMag * toChunkMag)
 
     const movementValue = Math.max(0, dotProduct) // 0-1に正規化
 
@@ -515,8 +511,8 @@ ${result.factors
     context: Schema.Schema.Type<typeof PriorityContext>
   ): Schema.Schema.Type<typeof PriorityFactor> => {
     const chunkSize = 16
-    const dx = (context.chunkPosition.x * chunkSize + 8) - context.playerPosition.x
-    const dz = (context.chunkPosition.z * chunkSize + 8) - context.playerPosition.z
+    const dx = context.chunkPosition.x * chunkSize + 8 - context.playerPosition.x
+    const dz = context.chunkPosition.z * chunkSize + 8 - context.playerPosition.z
     const distance = Math.sqrt(dx * dx + dz * dz)
 
     const visibilityValue = distance <= context.viewDistance ? 1.0 : 0.2
@@ -537,7 +533,8 @@ ${result.factors
 
     // 夜間は可視性が下がるため優先度調整
     const dayTime = context.timeOfDay % 24000
-    if (dayTime > 13000 && dayTime < 23000) { // 夜間
+    if (dayTime > 13000 && dayTime < 23000) {
+      // 夜間
       environmentalValue *= 0.8
     }
 
@@ -562,7 +559,7 @@ ${result.factors
     config: Schema.Schema.Type<typeof PriorityConfiguration>
   ) =>
     Effect.gen(function* () {
-      const weightedSum = factors.reduce((sum, factor) => sum + (factor.weight * factor.value), 0)
+      const weightedSum = factors.reduce((sum, factor) => sum + factor.weight * factor.value, 0)
       const totalWeight = factors.reduce((sum, factor) => sum + factor.weight, 0)
 
       const normalizedPriority = totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0
@@ -613,31 +610,24 @@ ${result.factors
     return Math.min(1.0, confidence)
   }
 
-  const generateReasoning = (
-    factors: Schema.Schema.Type<typeof PriorityFactor>[],
-    finalPriority: number
-  ) => {
-    const topFactors = factors
-      .sort((a, b) => (b.weight * b.value) - (a.weight * a.value))
-      .slice(0, 2)
+  const generateReasoning = (factors: Schema.Schema.Type<typeof PriorityFactor>[], finalPriority: number) => {
+    const topFactors = factors.sort((a, b) => b.weight * b.value - a.weight * a.value).slice(0, 2)
 
-    return `主要要因: ${topFactors.map(f => f.name).join(', ')}による優先度 ${finalPriority.toFixed(1)}`
+    return `主要要因: ${topFactors.map((f) => f.name).join(', ')}による優先度 ${finalPriority.toFixed(1)}`
   }
 
   const extractMLFeatures = (context: Schema.Schema.Type<typeof PriorityContext>) => {
     const chunkSize = 16
-    const dx = (context.chunkPosition.x * chunkSize + 8) - context.playerPosition.x
-    const dz = (context.chunkPosition.z * chunkSize + 8) - context.playerPosition.z
+    const dx = context.chunkPosition.x * chunkSize + 8 - context.playerPosition.x
+    const dz = context.chunkPosition.z * chunkSize + 8 - context.playerPosition.z
 
     return {
       distance: Math.sqrt(dx * dx + dz * dz),
-      velocityMagnitude: Math.sqrt(
-        context.playerMovement.velocity.x ** 2 + context.playerMovement.velocity.z ** 2
-      ),
+      velocityMagnitude: Math.sqrt(context.playerMovement.velocity.x ** 2 + context.playerMovement.velocity.z ** 2),
       fps: context.performanceMetrics.fps,
       memoryUsage: context.performanceMetrics.memoryUsage,
       timeOfDay: context.timeOfDay,
-      isNight: (context.timeOfDay % 24000) > 13000 && (context.timeOfDay % 24000) < 23000 ? 1 : 0,
+      isNight: context.timeOfDay % 24000 > 13000 && context.timeOfDay % 24000 < 23000 ? 1 : 0,
       isRaining: context.weather === 'rain' || context.weather === 'storm' ? 1 : 0,
     }
   }
@@ -648,7 +638,7 @@ ${result.factors
     const performanceWeight = features.fps / 60
     const timeWeight = features.isNight ? 0.8 : 1.0
 
-    const priority = (distanceWeight * 0.5 + performanceWeight * 0.3 + timeWeight * 0.2)
+    const priority = distanceWeight * 0.5 + performanceWeight * 0.3 + timeWeight * 0.2
     const confidence = 0.75 + Math.random() * 0.2 // 0.75-0.95の範囲
 
     return {
@@ -679,10 +669,7 @@ export const PriorityCalculatorService = Context.GenericTag<PriorityCalculatorSe
 
 // === Layer ===
 
-export const PriorityCalculatorServiceLive = Layer.effect(
-  PriorityCalculatorService,
-  makePriorityCalculatorService
-)
+export const PriorityCalculatorServiceLive = Layer.effect(PriorityCalculatorService, makePriorityCalculatorService)
 
 // === Default Configuration ===
 
@@ -722,9 +709,9 @@ export const DEFAULT_PRIORITY_CONFIG: Schema.Schema.Type<typeof PriorityConfigur
 }
 
 export type {
-  PriorityFactor as PriorityFactorType,
-  PriorityContext as PriorityContextType,
+  MLModelPrediction as MLModelPredictionType,
   PriorityCalculationResult as PriorityCalculationResultType,
   PriorityConfiguration as PriorityConfigurationType,
-  MLModelPrediction as MLModelPredictionType,
+  PriorityContext as PriorityContextType,
+  PriorityFactor as PriorityFactorType,
 } from './priority_calculator.js'

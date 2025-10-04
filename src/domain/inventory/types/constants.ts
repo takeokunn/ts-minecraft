@@ -1,5 +1,7 @@
 import { Schema } from 'effect'
 import {
+  Durability,
+  DurabilitySchema,
   EnchantmentLevel,
   EnchantmentLevelSchema,
   InventoryType,
@@ -8,12 +10,9 @@ import {
   ItemQuantitySchema,
   SlotType,
   SlotTypeSchema,
-  Durability,
-  DurabilitySchema,
 } from './core'
 
-const decode = <A>(schema: Schema.Schema<A>, value: unknown): A =>
-  Schema.decodeUnknownSync(schema)(value)
+const decode = <A>(schema: Schema.Schema<A>, value: unknown): A => Schema.decodeUnknownSync(schema)(value)
 
 const itemQuantity = (value: number): ItemQuantity => decode(ItemQuantitySchema, value)
 const enchantmentLevel = (value: number): EnchantmentLevel => decode(EnchantmentLevelSchema, value)
@@ -382,8 +381,7 @@ export const ItemConstraintsSchema = Schema.Struct({
 type InventorySizeValue = InventorySizes[keyof InventorySizes]
 const inventorySizeSet = new Set<number>(Object.values(INVENTORY_SIZES))
 
-export const isValidInventorySize = (size: number): size is InventorySizeValue =>
-  inventorySizeSet.has(size)
+export const isValidInventorySize = (size: number): size is InventorySizeValue => inventorySizeSet.has(size)
 
 type SlotRangeValue = SlotRanges[keyof SlotRanges]
 const isSlotRangeObject = Schema.is(SlotRangeSchema)

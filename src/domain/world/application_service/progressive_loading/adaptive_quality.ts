@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref } from 'effect'
+import { Context, Effect, Layer, Option, Ref, Schema } from 'effect'
 
 /**
  * Adaptive Quality Service
@@ -14,7 +14,7 @@ export const QualityLevel = Schema.Union(
   Schema.Literal('high'), // 高品質
   Schema.Literal('medium'), // 中品質
   Schema.Literal('low'), // 低品質
-  Schema.Literal('minimal'), // 最低品質
+  Schema.Literal('minimal') // 最低品質
 )
 
 export const QualityProfile = Schema.Struct({
@@ -29,7 +29,7 @@ export const QualityProfile = Schema.Struct({
       Schema.Literal('2k'),
       Schema.Literal('1k'),
       Schema.Literal('512'),
-      Schema.Literal('256'),
+      Schema.Literal('256')
     ),
     meshDetailLevel: Schema.Number.pipe(Schema.between(0, 1)),
     shadowQuality: QualityLevel,
@@ -62,18 +62,14 @@ export const PerformanceSnapshot = Schema.Struct({
     Schema.Literal('normal'),
     Schema.Literal('warm'),
     Schema.Literal('hot'),
-    Schema.Literal('critical'),
+    Schema.Literal('critical')
   ),
 })
 
 export const PerformanceTrend = Schema.Struct({
   _tag: Schema.Literal('PerformanceTrend'),
   metric: Schema.String,
-  direction: Schema.Union(
-    Schema.Literal('improving'),
-    Schema.Literal('stable'),
-    Schema.Literal('degrading'),
-  ),
+  direction: Schema.Union(Schema.Literal('improving'), Schema.Literal('stable'), Schema.Literal('degrading')),
   rate: Schema.Number, // 変化率（毎秒）
   confidence: Schema.Number.pipe(Schema.between(0, 1)),
   samples: Schema.Array(Schema.Number),
@@ -86,7 +82,7 @@ export const AdaptationStrategy = Schema.Union(
   Schema.Literal('balanced'), // バランス重視
   Schema.Literal('aggressive'), // 積極的調整
   Schema.Literal('performance_first'), // パフォーマンス優先
-  Schema.Literal('quality_first'), // 品質優先
+  Schema.Literal('quality_first') // 品質優先
 )
 
 export const AdaptationConfiguration = Schema.Struct({
@@ -125,16 +121,14 @@ export const QualityAdjustment = Schema.Struct({
   fromProfile: Schema.String,
   toProfile: Schema.String,
   reason: Schema.String,
-  changes: Schema.Array(Schema.Struct({
-    setting: Schema.String,
-    fromValue: Schema.Unknown,
-    toValue: Schema.Unknown,
-    impact: Schema.Union(
-      Schema.Literal('major'),
-      Schema.Literal('moderate'),
-      Schema.Literal('minor'),
-    ),
-  })),
+  changes: Schema.Array(
+    Schema.Struct({
+      setting: Schema.String,
+      fromValue: Schema.Unknown,
+      toValue: Schema.Unknown,
+      impact: Schema.Union(Schema.Literal('major'), Schema.Literal('moderate'), Schema.Literal('minor')),
+    })
+  ),
   expectedImprovement: Schema.Struct({
     fpsGain: Schema.Number,
     memoryReduction: Schema.Number,
@@ -145,17 +139,13 @@ export const QualityAdjustment = Schema.Struct({
 
 // === Adaptive Quality Error ===
 
-export const AdaptiveQualityError = Schema.TaggedError<AdaptiveQualityErrorType>()(
-  'AdaptiveQualityError',
-  {
-    message: Schema.String,
-    adapterId: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const AdaptiveQualityError = Schema.TaggedError<AdaptiveQualityErrorType>()('AdaptiveQualityError', {
+  message: Schema.String,
+  adapterId: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface AdaptiveQualityErrorType
-  extends Schema.Schema.Type<typeof AdaptiveQualityError> {}
+export interface AdaptiveQualityErrorType extends Schema.Schema.Type<typeof AdaptiveQualityError> {}
 
 // === Service Interface ===
 
@@ -229,9 +219,7 @@ export interface AdaptiveQualityService {
   /**
    * 品質調整を一時的に無効にします
    */
-  readonly pauseAdaptation: (
-    durationMs: number
-  ) => Effect.Effect<void, AdaptiveQualityErrorType>
+  readonly pauseAdaptation: (durationMs: number) => Effect.Effect<void, AdaptiveQualityErrorType>
 
   /**
    * 最後の品質調整をロールバックします
@@ -276,8 +264,9 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const recordPerformance = (snapshot: Schema.Schema.Type<typeof PerformanceSnapshot>) =>
     Effect.gen(function* () {
-      yield* Ref.update(performanceHistory, history =>
-        [...history.slice(-99), snapshot] // 最新100件を保持
+      yield* Ref.update(
+        performanceHistory,
+        (history) => [...history.slice(-99), snapshot] // 最新100件を保持
       )
 
       yield* Effect.logDebug(`パフォーマンス記録: FPS=${snapshot.fps}, CPU=${(snapshot.cpuUsage * 100).toFixed(1)}%`)
@@ -296,7 +285,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       const adjustment = yield* createQualityAdjustment(current, targetProfile, `手動調整: ${targetLevel}`)
 
       yield* Ref.set(currentProfile, targetProfile)
-      yield* Ref.update(adjustmentHistory, history => [...history.slice(-49), adjustment])
+      yield* Ref.update(adjustmentHistory, (history) => [...history.slice(-49), adjustment])
 
       yield* Effect.logInfo(`品質調整実行: ${current.overallLevel} → ${targetLevel}`)
       return adjustment
@@ -338,10 +327,13 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       const current = yield* Ref.get(currentProfile)
 
       // パフォーマンス評価
-      const fpsScore = currentMetrics.fps >= config.performanceThresholds.fpsTarget ? 1.0 :
-        currentMetrics.fps / config.performanceThresholds.fpsTarget
+      const fpsScore =
+        currentMetrics.fps >= config.performanceThresholds.fpsTarget
+          ? 1.0
+          : currentMetrics.fps / config.performanceThresholds.fpsTarget
 
-      const memoryScore = currentMetrics.memoryUsage <= (8 * 1024 * 1024 * 1024 * config.performanceThresholds.memoryMax) ? 1.0 : 0.5
+      const memoryScore =
+        currentMetrics.memoryUsage <= 8 * 1024 * 1024 * 1024 * config.performanceThresholds.memoryMax ? 1.0 : 0.5
       const cpuScore = currentMetrics.cpuUsage <= config.performanceThresholds.cpuMax ? 1.0 : 0.5
 
       const overallScore = (fpsScore + memoryScore + cpuScore) / 3
@@ -376,7 +368,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof AdaptationConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(configuration, current => ({ ...current, ...configUpdate }))
+      yield* Ref.update(configuration, (current) => ({ ...current, ...configUpdate }))
       yield* Effect.logInfo('適応的品質設定更新完了')
     })
 
@@ -447,10 +439,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       )
     })
 
-  const checkStability = (
-    history: Schema.Schema.Type<typeof PerformanceSnapshot>[],
-    thresholdMs: number
-  ) =>
+  const checkStability = (history: Schema.Schema.Type<typeof PerformanceSnapshot>[], thresholdMs: number) =>
     Effect.gen(function* () {
       if (history.length < 2) return false
 
@@ -510,7 +499,9 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       return adjustment
     })
 
-  const createNoChangeAdjustment = (profile: Schema.Schema.Type<typeof QualityProfile>): Schema.Schema.Type<typeof QualityAdjustment> => ({
+  const createNoChangeAdjustment = (
+    profile: Schema.Schema.Type<typeof QualityProfile>
+  ): Schema.Schema.Type<typeof QualityAdjustment> => ({
     _tag: 'QualityAdjustment',
     adjustmentId: `no_change_${Date.now()}`,
     timestamp: Date.now(),
@@ -562,34 +553,48 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     }
   }
 
-  const estimateFPSGain = (from: Schema.Schema.Type<typeof QualityProfile>, to: Schema.Schema.Type<typeof QualityProfile>) => {
+  const estimateFPSGain = (
+    from: Schema.Schema.Type<typeof QualityProfile>,
+    to: Schema.Schema.Type<typeof QualityProfile>
+  ) => {
     const qualityImpact = getQualityImpact(to.overallLevel) - getQualityImpact(from.overallLevel)
     return qualityImpact * 15 // 推定FPS影響
   }
 
-  const estimateMemoryReduction = (from: Schema.Schema.Type<typeof QualityProfile>, to: Schema.Schema.Type<typeof QualityProfile>) => {
+  const estimateMemoryReduction = (
+    from: Schema.Schema.Type<typeof QualityProfile>,
+    to: Schema.Schema.Type<typeof QualityProfile>
+  ) => {
     const renderDistanceRatio = to.settings.renderDistance / from.settings.renderDistance
     return (1 - renderDistanceRatio) * 512 * 1024 * 1024 // 推定メモリ削減（バイト）
   }
 
-  const estimateCPUReduction = (from: Schema.Schema.Type<typeof QualityProfile>, to: Schema.Schema.Type<typeof QualityProfile>) => {
+  const estimateCPUReduction = (
+    from: Schema.Schema.Type<typeof QualityProfile>,
+    to: Schema.Schema.Type<typeof QualityProfile>
+  ) => {
     const qualityImpact = getQualityImpact(from.overallLevel) - getQualityImpact(to.overallLevel)
     return qualityImpact * 0.1 // 推定CPU削減率
   }
 
   const getQualityImpact = (level: QualityLevel) => {
     switch (level) {
-      case 'ultra': return 1.0
-      case 'high': return 0.8
-      case 'medium': return 0.6
-      case 'low': return 0.4
-      case 'minimal': return 0.2
+      case 'ultra':
+        return 1.0
+      case 'high':
+        return 0.8
+      case 'medium':
+        return 0.6
+      case 'low':
+        return 0.4
+      case 'minimal':
+        return 0.2
     }
   }
 
   const findProfileByName = (name: string): Schema.Schema.Type<typeof QualityProfile> | null => {
     const profiles = Object.values(DEFAULT_QUALITY_PROFILES)
-    return profiles.find(p => p.profileName === name) || null
+    return profiles.find((p) => p.profileName === name) || null
   }
 
   return AdaptiveQualityService.of({
@@ -616,10 +621,7 @@ export const AdaptiveQualityService = Context.GenericTag<AdaptiveQualityService>
 
 // === Layer ===
 
-export const AdaptiveQualityServiceLive = Layer.effect(
-  AdaptiveQualityService,
-  makeAdaptiveQualityService
-)
+export const AdaptiveQualityServiceLive = Layer.effect(AdaptiveQualityService, makeAdaptiveQualityService)
 
 // === Default Configurations ===
 
@@ -764,9 +766,9 @@ export const DEFAULT_QUALITY_PROFILES: Record<QualityLevel, Schema.Schema.Type<t
 }
 
 export type {
-  QualityProfile as QualityProfileType,
+  AdaptationConfiguration as AdaptationConfigurationType,
   PerformanceSnapshot as PerformanceSnapshotType,
   PerformanceTrend as PerformanceTrendType,
-  AdaptationConfiguration as AdaptationConfigurationType,
   QualityAdjustment as QualityAdjustmentType,
+  QualityProfile as QualityProfileType,
 } from './adaptive_quality.js'

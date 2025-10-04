@@ -1,11 +1,6 @@
 import { Context, Effect, Layer } from 'effect'
-import { CraftingRecipe } from '../types'
-import {
-  RecipeValidationReport,
-  validateRecipe,
-  validateRecipeStructure,
-} from '../aggregate/recipe'
-import { InvalidRecipeError } from '../types'
+import { RecipeValidationReport, validateRecipe, validateRecipeStructure } from '../aggregate/recipe'
+import { CraftingRecipe, InvalidRecipeError } from '../types'
 
 export interface RecipeValidationService {
   readonly validate: (recipe: CraftingRecipe) => Effect.Effect<RecipeValidationReport, never>

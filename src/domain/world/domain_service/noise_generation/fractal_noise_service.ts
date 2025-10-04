@@ -6,43 +6,22 @@
  * 自然現象の複雑性と自己相似性を表現
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate2D,
-  WorldCoordinate3D,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  AdvancedNoiseSettings,
-} from '../../value_object/noise_configuration/noise_settings.js'
-import type {
-  OctaveConfig,
-} from '../../value_object/noise_configuration/octave_config.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
-import {
-  PerlinNoiseService,
-  type NoiseSample,
-  type NoiseField,
-} from './perlin_noise_service.js'
-import {
-  SimplexNoiseService,
-} from './simplex_noise_service.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { WorldCoordinate2D, WorldCoordinate3D } from '../../value_object/coordinates/world_coordinate.js'
+import { PerlinNoiseService } from './perlin_noise_service.js'
+import { SimplexNoiseService } from './simplex_noise_service.js'
 
 /**
  * フラクタルノイズ種別
  */
 export const FractalTypeSchema = Schema.Literal(
-  'brownian_motion',     // ブラウン運動
-  'turbulence',          // 乱流
+  'brownian_motion', // ブラウン運動
+  'turbulence', // 乱流
   'ridged_multifractal', // リッジ付きマルチフラクタル
-  'warped',              // ワープ
-  'cellular',            // セルラー
-  'hybrid_multifractal'  // ハイブリッドマルチフラクタル
+  'warped', // ワープ
+  'cellular', // セルラー
+  'hybrid_multifractal' // ハイブリッドマルチフラクタル
 )
 
 export type FractalType = typeof FractalTypeSchema.Type
@@ -53,31 +32,14 @@ export type FractalType = typeof FractalTypeSchema.Type
 export const FractalNoiseConfigSchema = Schema.Struct({
   // 基本パラメータ
   type: FractalTypeSchema,
-  baseFrequency: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(1000)
-  ),
-  baseAmplitude: Schema.Number.pipe(
-    Schema.finite(),
-    Schema.between(-1000, 1000)
-  ),
+  baseFrequency: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1000)),
+  baseAmplitude: Schema.Number.pipe(Schema.finite(), Schema.between(-1000, 1000)),
 
   // オクターブ設定
-  octaves: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 16)
-  ),
-  lacunarity: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(10)
-  ),
-  persistence: Schema.Number.pipe(
-    Schema.between(0, 1)
-  ),
-  gain: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.lessThanOrEqualTo(2)
-  ),
+  octaves: Schema.Number.pipe(Schema.int(), Schema.between(1, 16)),
+  lacunarity: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(10)),
+  persistence: Schema.Number.pipe(Schema.between(0, 1)),
+  gain: Schema.Number.pipe(Schema.positive(), Schema.lessThanOrEqualTo(2)),
 
   // フラクタル固有設定
   seed: Schema.BigInt,
@@ -86,15 +48,9 @@ export const FractalNoiseConfigSchema = Schema.Struct({
   offsetZ: Schema.Number.pipe(Schema.finite()).pipe(Schema.optional),
 
   // 高度な設定
-  dimension: Schema.Number.pipe(
-    Schema.between(0, 3)
-  ).pipe(Schema.optional), // フラクタル次元
-  ridgeOffset: Schema.Number.pipe(
-    Schema.finite()
-  ).pipe(Schema.optional), // リッジオフセット
-  warpStrength: Schema.Number.pipe(
-    Schema.nonNegative()
-  ).pipe(Schema.optional), // ワープ強度
+  dimension: Schema.Number.pipe(Schema.between(0, 3)).pipe(Schema.optional), // フラクタル次元
+  ridgeOffset: Schema.Number.pipe(Schema.finite()).pipe(Schema.optional), // リッジオフセット
+  warpStrength: Schema.Number.pipe(Schema.nonNegative()).pipe(Schema.optional), // ワープ強度
 
   // 基底ノイズ設定
   baseNoiseType: Schema.Literal('perlin', 'simplex'),
@@ -104,24 +60,17 @@ export const FractalNoiseConfigSchema = Schema.Struct({
   // 品質・性能設定
   enableOctaveWeighting: Schema.Boolean,
   enableSpectralControl: Schema.Boolean,
-  maxIterations: Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive()
-  ).pipe(Schema.optional),
+  maxIterations: Schema.Number.pipe(Schema.int(), Schema.positive()).pipe(Schema.optional),
 
   // 出力制御
-  outputScale: Schema.Number.pipe(
-    Schema.positive()
-  ).pipe(Schema.optional),
-  outputBias: Schema.Number.pipe(
-    Schema.finite()
-  ).pipe(Schema.optional),
-  enableClamping: Schema.Boolean
+  outputScale: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
+  outputBias: Schema.Number.pipe(Schema.finite()).pipe(Schema.optional),
+  enableClamping: Schema.Boolean,
 }).pipe(
   Schema.annotations({
     identifier: 'FractalNoiseConfig',
     title: 'Fractal Noise Configuration',
-    description: 'Complete configuration for fractal noise generation'
+    description: 'Complete configuration for fractal noise generation',
   })
 )
 
@@ -137,17 +86,19 @@ export const FractalStatisticsSchema = Schema.Struct({
   persistenceVariation: Schema.Number,
   selfSimilarity: Schema.Number.pipe(Schema.between(0, 1)),
   roughness: Schema.Number.pipe(Schema.nonNegative()),
-  octaveContributions: Schema.Array(Schema.Struct({
-    octave: Schema.Number.pipe(Schema.int()),
-    frequency: Schema.Number,
-    amplitude: Schema.Number,
-    contribution: Schema.Number.pipe(Schema.between(0, 1))
-  }))
+  octaveContributions: Schema.Array(
+    Schema.Struct({
+      octave: Schema.Number.pipe(Schema.int()),
+      frequency: Schema.Number,
+      amplitude: Schema.Number,
+      contribution: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'FractalStatistics',
     title: 'Fractal Noise Statistics',
-    description: 'Statistical analysis of fractal noise properties'
+    description: 'Statistical analysis of fractal noise properties',
   })
 )
 
@@ -157,32 +108,36 @@ export type FractalStatistics = typeof FractalStatisticsSchema.Type
  * フラクタルノイズサンプル
  */
 export const FractalNoiseSampleSchema = Schema.extend(
-  Schema.pick(Schema.Struct({
-    value: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
-    coordinate: Schema.Unknown
-  })),
+  Schema.pick(
+    Schema.Struct({
+      value: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
+      coordinate: Schema.Unknown,
+    })
+  ),
   Schema.Struct({
     fractalType: FractalTypeSchema,
-    octaveDetails: Schema.Array(Schema.Struct({
-      octave: Schema.Number.pipe(Schema.int()),
-      frequency: Schema.Number,
-      amplitude: Schema.Number,
-      contribution: Schema.Number,
-      noiseValue: Schema.Number
-    })),
+    octaveDetails: Schema.Array(
+      Schema.Struct({
+        octave: Schema.Number.pipe(Schema.int()),
+        frequency: Schema.Number,
+        amplitude: Schema.Number,
+        contribution: Schema.Number,
+        noiseValue: Schema.Number,
+      })
+    ),
     statistics: FractalStatisticsSchema.pipe(Schema.optional),
     metadata: Schema.Struct({
       totalOctaves: Schema.Number.pipe(Schema.int()),
       computationTime: Schema.Number.pipe(Schema.optional),
       iterations: Schema.Number.pipe(Schema.int()).pipe(Schema.optional),
-      convergence: Schema.Boolean.pipe(Schema.optional)
-    })
+      convergence: Schema.Boolean.pipe(Schema.optional),
+    }),
   })
 ).pipe(
   Schema.annotations({
     identifier: 'FractalNoiseSample',
     title: 'Fractal Noise Sample',
-    description: 'Detailed fractal noise sample with octave breakdown'
+    description: 'Detailed fractal noise sample with octave breakdown',
   })
 )
 
@@ -277,9 +232,7 @@ export interface FractalNoiseService {
 /**
  * Fractal Noise Service Context Tag
  */
-export const FractalNoiseService = Context.GenericTag<FractalNoiseService>(
-  '@minecraft/domain/world/FractalNoise'
-)
+export const FractalNoiseService = Context.GenericTag<FractalNoiseService>('@minecraft/domain/world/FractalNoise')
 
 /**
  * Fractal Noise Service Live Implementation
@@ -324,7 +277,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           return {
             ...baseSample,
             value: clampedValue,
-            coordinate
+            coordinate,
           }
         }),
 
@@ -348,18 +301,19 @@ export const FractalNoiseServiceLive = Layer.effect(
               seed: config.seed,
               gradientMode: 'improved' as const,
               interpolation: 'quintic' as const,
-              enableVectorization: true
+              enableVectorization: true,
             }
 
-            const noiseSample = config.baseNoiseType === 'perlin'
-              ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-              : yield* simplexNoise.sample2D(coordinate, {
-                  ...baseNoiseConfig,
-                  gradientSelection: 'simplex' as const,
-                  enableAntiAliasing: true,
-                  enableSIMD: true,
-                  cachingEnabled: true
-                })
+            const noiseSample =
+              config.baseNoiseType === 'perlin'
+                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                : yield* simplexNoise.sample2D(coordinate, {
+                    ...baseNoiseConfig,
+                    gradientSelection: 'simplex' as const,
+                    enableAntiAliasing: true,
+                    enableSIMD: true,
+                    cachingEnabled: true,
+                  })
 
             const contribution = noiseSample.value * amplitude
             totalValue += contribution
@@ -370,7 +324,7 @@ export const FractalNoiseServiceLive = Layer.effect(
               frequency,
               amplitude,
               contribution,
-              noiseValue: noiseSample.value
+              noiseValue: noiseSample.value,
             })
 
             // 次のオクターブの準備
@@ -381,9 +335,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           // 正規化
           const normalizedValue = totalAmplitude > 0 ? totalValue / totalAmplitude : 0
           const scaledValue = normalizedValue * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
-          const finalValue = config.enableClamping
-            ? Math.max(-1, Math.min(1, scaledValue))
-            : scaledValue
+          const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
           const computationTime = performance.now() - startTime
 
@@ -394,8 +346,8 @@ export const FractalNoiseServiceLive = Layer.effect(
             octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
-              computationTime
-            }
+              computationTime,
+            },
           } satisfies FractalNoiseSample
         }),
 
@@ -419,18 +371,19 @@ export const FractalNoiseServiceLive = Layer.effect(
               seed: config.seed,
               gradientMode: 'improved' as const,
               interpolation: 'quintic' as const,
-              enableVectorization: true
+              enableVectorization: true,
             }
 
-            const noiseSample = config.baseNoiseType === 'perlin'
-              ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-              : yield* simplexNoise.sample2D(coordinate, {
-                  ...baseNoiseConfig,
-                  gradientSelection: 'simplex' as const,
-                  enableAntiAliasing: true,
-                  enableSIMD: true,
-                  cachingEnabled: true
-                })
+            const noiseSample =
+              config.baseNoiseType === 'perlin'
+                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                : yield* simplexNoise.sample2D(coordinate, {
+                    ...baseNoiseConfig,
+                    gradientSelection: 'simplex' as const,
+                    enableAntiAliasing: true,
+                    enableSIMD: true,
+                    cachingEnabled: true,
+                  })
 
             // 乱流効果：絶対値を取る
             const turbulentValue = Math.abs(noiseSample.value)
@@ -443,7 +396,7 @@ export const FractalNoiseServiceLive = Layer.effect(
               frequency,
               amplitude,
               contribution,
-              noiseValue: turbulentValue
+              noiseValue: turbulentValue,
             })
 
             frequency *= config.lacunarity
@@ -452,9 +405,7 @@ export const FractalNoiseServiceLive = Layer.effect(
 
           const normalizedValue = totalAmplitude > 0 ? totalValue / totalAmplitude : 0
           const scaledValue = normalizedValue * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
-          const finalValue = config.enableClamping
-            ? Math.max(-1, Math.min(1, scaledValue))
-            : scaledValue
+          const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
           const computationTime = performance.now() - startTime
 
@@ -465,8 +416,8 @@ export const FractalNoiseServiceLive = Layer.effect(
             octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
-              computationTime
-            }
+              computationTime,
+            },
           } satisfies FractalNoiseSample
         }),
 
@@ -491,18 +442,19 @@ export const FractalNoiseServiceLive = Layer.effect(
               seed: config.seed,
               gradientMode: 'improved' as const,
               interpolation: 'quintic' as const,
-              enableVectorization: true
+              enableVectorization: true,
             }
 
-            const noiseSample = config.baseNoiseType === 'perlin'
-              ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-              : yield* simplexNoise.sample2D(coordinate, {
-                  ...baseNoiseConfig,
-                  gradientSelection: 'simplex' as const,
-                  enableAntiAliasing: true,
-                  enableSIMD: true,
-                  cachingEnabled: true
-                })
+            const noiseSample =
+              config.baseNoiseType === 'perlin'
+                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                : yield* simplexNoise.sample2D(coordinate, {
+                    ...baseNoiseConfig,
+                    gradientSelection: 'simplex' as const,
+                    enableAntiAliasing: true,
+                    enableSIMD: true,
+                    cachingEnabled: true,
+                  })
 
             // リッジ関数の適用
             let noiseValue = Math.abs(noiseSample.value)
@@ -521,7 +473,7 @@ export const FractalNoiseServiceLive = Layer.effect(
               frequency,
               amplitude,
               contribution,
-              noiseValue
+              noiseValue,
             })
 
             frequency *= config.lacunarity
@@ -529,9 +481,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           }
 
           const scaledValue = signal * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
-          const finalValue = config.enableClamping
-            ? Math.max(-1, Math.min(1, scaledValue))
-            : scaledValue
+          const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
           const computationTime = performance.now() - startTime
 
@@ -542,8 +492,8 @@ export const FractalNoiseServiceLive = Layer.effect(
             octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
-              computationTime
-            }
+              computationTime,
+            },
           } satisfies FractalNoiseSample
         }),
 
@@ -564,7 +514,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           // ワープされた座標
           const warpedCoordinate: WorldCoordinate2D = {
             x: coordinate.x + warpX.value * warpStrength,
-            z: coordinate.z + warpY.value * warpStrength
+            z: coordinate.z + warpY.value * warpStrength,
           }
 
           // ワープされた座標でノイズをサンプリング
@@ -573,7 +523,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           return {
             ...warpedSample,
             fractalType: 'warped' as const,
-            coordinate: warpedCoordinate
+            coordinate: warpedCoordinate,
           }
         }),
 
@@ -609,8 +559,8 @@ export const FractalNoiseServiceLive = Layer.effect(
               octave: i,
               frequency: config.baseFrequency * Math.pow(config.lacunarity, i),
               amplitude: config.baseAmplitude * Math.pow(config.persistence, i),
-              contribution: Math.pow(config.persistence, i)
-            }))
+              contribution: Math.pow(config.persistence, i),
+            })),
           } satisfies FractalStatistics
         }),
 
@@ -622,9 +572,10 @@ export const FractalNoiseServiceLive = Layer.effect(
 
           // 離散フーリエ変換の近似
           for (let k = 0; k < n / 2; k++) {
-            let real = 0, imag = 0
+            let real = 0,
+              imag = 0
             for (let n_idx = 0; n_idx < n; n_idx++) {
-              const angle = -2 * Math.PI * k * n_idx / n
+              const angle = (-2 * Math.PI * k * n_idx) / n
               real += samples[n_idx] * Math.cos(angle)
               imag += samples[n_idx] * Math.sin(angle)
             }
@@ -647,7 +598,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           // 詳細レベル（detail）の最適化
           if (targetProperties.detail !== undefined) {
             optimizedConfig.octaves = Math.max(1, Math.round(4 + targetProperties.detail * 8))
-            optimizedConfig.baseFrequency *= (1 + targetProperties.detail * 0.5)
+            optimizedConfig.baseFrequency *= 1 + targetProperties.detail * 0.5
           }
 
           // 自然性（naturalness）の最適化
@@ -663,7 +614,7 @@ export const FractalNoiseServiceLive = Layer.effect(
           }
 
           return optimizedConfig
-        })
+        }),
     }
   })
 )
@@ -687,5 +638,5 @@ export const DEFAULT_FRACTAL_CONFIG: FractalNoiseConfig = {
   enableSpectralControl: false,
   enableClamping: true,
   outputScale: 1.0,
-  outputBias: 0.0
+  outputBias: 0.0,
 }

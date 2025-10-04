@@ -1,7 +1,6 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import { AABB, Vector3, parseAABB, parsePositiveFloat, parseVector3, vector3 } from '../types/core'
+import { AABB, Vector3, Vector3Schema, parseAABB, parsePositiveFloat, parseVector3, vector3 } from '../types/core'
 import type { PhysicsError } from '../types/errors'
-import { Vector3Schema } from '../types/core'
 
 const CollidedAxesSchema = Schema.Struct({
   x: Schema.Boolean,
@@ -79,35 +78,33 @@ const detect = (params: {
       { axis: 'z', velocity: params.velocity.z },
     ] satisfies ReadonlyArray<{ readonly axis: keyof CollidedAxes; readonly velocity: number }>
 
-    const collidedAxes = pipe(
-      axisEntries,
-      (axes) =>
-        axes.reduce<CollidedAxes>(
-          (state, entry) =>
-            pipe(
-              collisionCount,
-              Match.value,
-              Match.when(
-                (count) => count === 0,
-                () => state
-              ),
-              Match.orElse(() =>
-                pipe(
-                  entry.velocity,
-                  Match.value,
-                  Match.when(
-                    (component) => component === 0,
-                    () => state
-                  ),
-                  Match.orElse(() => ({
-                    ...state,
-                    [entry.axis]: true,
-                  }))
-                )
-              )
+    const collidedAxes = pipe(axisEntries, (axes) =>
+      axes.reduce<CollidedAxes>(
+        (state, entry) =>
+          pipe(
+            collisionCount,
+            Match.value,
+            Match.when(
+              (count) => count === 0,
+              () => state
             ),
-          { x: false, y: false, z: false }
-        )
+            Match.orElse(() =>
+              pipe(
+                entry.velocity,
+                Match.value,
+                Match.when(
+                  (component) => component === 0,
+                  () => state
+                ),
+                Match.orElse(() => ({
+                  ...state,
+                  [entry.axis]: true,
+                }))
+              )
+            )
+          ),
+        { x: false, y: false, z: false }
+      )
     )
 
     const resolvedPosition = pipe(

@@ -7,15 +7,7 @@
  */
 
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
-import type {
-  WorldId,
-  WorldSeed,
-  GenerationSettings,
-  WorldGenerator,
-  ChunkPosition,
-  ChunkGenerationResult,
-  PerformanceMetrics,
-} from '../../types'
+import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 
 // === World Generator Query Types ===
@@ -108,17 +100,24 @@ export interface WorldGeneratorRepository {
   /**
    * 設定による World Generator検索
    */
-  readonly findBySettings: (settings: Partial<GenerationSettings>) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
+  readonly findBySettings: (
+    settings: Partial<GenerationSettings>
+  ) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
 
   /**
    * クエリによる World Generator検索
    */
-  readonly findByQuery: (query: WorldGeneratorQuery) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
+  readonly findByQuery: (
+    query: WorldGeneratorQuery
+  ) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
 
   /**
    * 全 World Generator取得
    */
-  readonly findAll: (limit?: number, offset?: number) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
+  readonly findAll: (
+    limit?: number,
+    offset?: number
+  ) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
 
   /**
    * World Generator削除
@@ -128,7 +127,9 @@ export interface WorldGeneratorRepository {
   /**
    * 複数 World Generator削除
    */
-  readonly deleteMany: (worldIds: ReadonlyArray<WorldId>) => Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors>
+  readonly deleteMany: (
+    worldIds: ReadonlyArray<WorldId>
+  ) => Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors>
 
   /**
    * World Generator存在確認
@@ -140,12 +141,16 @@ export interface WorldGeneratorRepository {
   /**
    * 複数 World Generator保存
    */
-  readonly saveMany: (generators: ReadonlyArray<WorldGenerator>) => Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors>
+  readonly saveMany: (
+    generators: ReadonlyArray<WorldGenerator>
+  ) => Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors>
 
   /**
    * 複数 World Generator取得
    */
-  readonly findManyByIds: (worldIds: ReadonlyArray<WorldId>) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
+  readonly findManyByIds: (
+    worldIds: ReadonlyArray<WorldId>
+  ) => Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors>
 
   // === Statistics & Monitoring ===
 
@@ -167,7 +172,9 @@ export interface WorldGeneratorRepository {
   /**
    * パフォーマンスメトリクス取得
    */
-  readonly getPerformanceMetrics: (worldId: WorldId) => Effect.Effect<Option.Option<PerformanceMetrics>, AllRepositoryErrors>
+  readonly getPerformanceMetrics: (
+    worldId: WorldId
+  ) => Effect.Effect<Option.Option<PerformanceMetrics>, AllRepositoryErrors>
 
   // === Cache Management ===
 
@@ -184,13 +191,16 @@ export interface WorldGeneratorRepository {
   /**
    * キャッシュ統計取得
    */
-  readonly getCacheStatistics: () => Effect.Effect<{
-    readonly hitRate: number
-    readonly missRate: number
-    readonly size: number
-    readonly maxSize: number
-    readonly evictionCount: number
-  }, AllRepositoryErrors>
+  readonly getCacheStatistics: () => Effect.Effect<
+    {
+      readonly hitRate: number
+      readonly missRate: number
+      readonly size: number
+      readonly maxSize: number
+      readonly evictionCount: number
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * キャッシュウォームアップ
@@ -212,12 +222,15 @@ export interface WorldGeneratorRepository {
   /**
    * バックアップリスト取得
    */
-  readonly listBackups: () => Effect.Effect<ReadonlyArray<{
-    readonly id: string
-    readonly worldId: WorldId | null
-    readonly createdAt: Date
-    readonly size: number
-  }>, AllRepositoryErrors>
+  readonly listBackups: () => Effect.Effect<
+    ReadonlyArray<{
+      readonly id: string
+      readonly worldId: WorldId | null
+      readonly createdAt: Date
+      readonly size: number
+    }>,
+    AllRepositoryErrors
+  >
 
   /**
    * 古いバックアップ削除
@@ -229,20 +242,26 @@ export interface WorldGeneratorRepository {
   /**
    * データ整合性チェック
    */
-  readonly validateIntegrity: () => Effect.Effect<{
-    readonly isValid: boolean
-    readonly errors: ReadonlyArray<string>
-    readonly warnings: ReadonlyArray<string>
-  }, AllRepositoryErrors>
+  readonly validateIntegrity: () => Effect.Effect<
+    {
+      readonly isValid: boolean
+      readonly errors: ReadonlyArray<string>
+      readonly warnings: ReadonlyArray<string>
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * データ最適化（デフラグメンテーション等）
    */
-  readonly optimize: () => Effect.Effect<{
-    readonly beforeSize: number
-    readonly afterSize: number
-    readonly optimizationTime: number
-  }, AllRepositoryErrors>
+  readonly optimize: () => Effect.Effect<
+    {
+      readonly beforeSize: number
+      readonly afterSize: number
+      readonly optimizationTime: number
+    },
+    AllRepositoryErrors
+  >
 
   /**
    * リポジトリ初期化
@@ -288,9 +307,7 @@ export interface WorldGeneratorRepositoryConfig {
 /**
  * Repository実装ファクトリー
  */
-export type WorldGeneratorRepositoryFactory = (
-  config: WorldGeneratorRepositoryConfig
-) => WorldGeneratorRepository
+export type WorldGeneratorRepositoryFactory = (config: WorldGeneratorRepositoryConfig) => WorldGeneratorRepository
 
 // === Repository Creation Helpers ===
 
@@ -336,11 +353,11 @@ export const defaultWorldGeneratorRepositoryConfig: WorldGeneratorRepositoryConf
 // === Type Exports ===
 
 export type {
-  WorldGeneratorQuery,
-  WorldGeneratorStatistics,
-  WorldGeneratorBatchResult,
-  CacheConfiguration,
   BackupConfiguration,
+  CacheConfiguration,
+  WorldGeneratorBatchResult,
+  WorldGeneratorQuery,
   WorldGeneratorRepositoryConfig,
   WorldGeneratorRepositoryFactory,
+  WorldGeneratorStatistics,
 }

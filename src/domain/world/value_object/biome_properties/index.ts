@@ -7,130 +7,130 @@
 
 // 温度範囲設定
 export {
-  type TemperatureCelsius,
-  type TemperatureDelta,
-  type HeatIndex,
-  type WindChillIndex,
-  type SeasonType,
-  type ClimateClassification,
-  type DiurnalTemperatureVariation,
-  type SeasonalTemperatureVariation,
-  type AltitudeTemperatureEffect,
-  type TemperatureRange,
-  type CreateTemperatureRangeParams,
-  type TemperatureRangeError,
+  AltitudeTemperatureEffectSchema,
+  BIOME_TEMPERATURE_MAPPING,
+  CLIMATE_TEMPERATURE_PRESETS,
+  ClimateClassificationSchema,
+  CreateTemperatureRangeParamsSchema,
+  DiurnalTemperatureVariationSchema,
+  HeatIndexSchema,
+  SeasonTypeSchema,
+  SeasonalTemperatureVariationSchema,
   TemperatureCelsiusSchema,
   TemperatureDeltaSchema,
-  HeatIndexSchema,
-  WindChillIndexSchema,
-  SeasonTypeSchema,
-  ClimateClassificationSchema,
-  DiurnalTemperatureVariationSchema,
-  SeasonalTemperatureVariationSchema,
-  AltitudeTemperatureEffectSchema,
-  TemperatureRangeSchema,
-  CreateTemperatureRangeParamsSchema,
   TemperatureRangeErrorSchema,
-  CLIMATE_TEMPERATURE_PRESETS,
-  BIOME_TEMPERATURE_MAPPING
+  TemperatureRangeSchema,
+  WindChillIndexSchema,
+  type AltitudeTemperatureEffect,
+  type ClimateClassification,
+  type CreateTemperatureRangeParams,
+  type DiurnalTemperatureVariation,
+  type HeatIndex,
+  type SeasonType,
+  type SeasonalTemperatureVariation,
+  type TemperatureCelsius,
+  type TemperatureDelta,
+  type TemperatureRange,
+  type TemperatureRangeError,
+  type WindChillIndex,
 } from './temperature_range.js'
 
 // 湿度レベル設定
 export {
-  type RelativeHumidity,
-  type AbsoluteHumidity,
-  type DewPoint,
-  type VaporPressure,
-  type HumidityClassification,
-  type PrecipitationType,
-  type AtmosphericHumidityStats,
-  type DiurnalHumidityPattern,
-  type SeasonalHumidityVariation,
-  type WaterVaporCharacteristics,
-  type HumidityLevels,
-  type CreateHumidityLevelsParams,
-  type HumidityLevelsError,
-  RelativeHumiditySchema,
   AbsoluteHumiditySchema,
-  DewPointSchema,
-  VaporPressureSchema,
-  HumidityClassificationSchema,
-  PrecipitationTypeSchema,
   AtmosphericHumidityStatsSchema,
-  DiurnalHumidityPatternSchema,
-  SeasonalHumidityVariationSchema,
-  WaterVaporCharacteristicsSchema,
-  HumidityLevelsSchema,
+  BIOME_HUMIDITY_MAPPING,
   CreateHumidityLevelsParamsSchema,
-  HumidityLevelsErrorSchema,
+  DewPointSchema,
+  DiurnalHumidityPatternSchema,
   HUMIDITY_PRESETS,
-  BIOME_HUMIDITY_MAPPING
+  HumidityClassificationSchema,
+  HumidityLevelsErrorSchema,
+  HumidityLevelsSchema,
+  PrecipitationTypeSchema,
+  RelativeHumiditySchema,
+  SeasonalHumidityVariationSchema,
+  VaporPressureSchema,
+  WaterVaporCharacteristicsSchema,
+  type AbsoluteHumidity,
+  type AtmosphericHumidityStats,
+  type CreateHumidityLevelsParams,
+  type DewPoint,
+  type DiurnalHumidityPattern,
+  type HumidityClassification,
+  type HumidityLevels,
+  type HumidityLevelsError,
+  type PrecipitationType,
+  type RelativeHumidity,
+  type SeasonalHumidityVariation,
+  type VaporPressure,
+  type WaterVaporCharacteristics,
 } from './humidity_levels.js'
 
 // 植生密度設定
 export {
-  type VegetationDensity,
-  type Biomass,
-  type CoverageRatio,
-  type SpeciesDiversityIndex,
-  type VegetationType,
-  type GrowthStage,
-  type DistributionPattern,
-  type VegetationLayer,
-  type VegetationInteraction,
-  type EnvironmentalResponse,
-  type VegetationDensityConfig,
-  type CreateVegetationDensityParams,
-  type VegetationDensityError,
-  VegetationDensitySchema,
+  BIOME_VEGETATION_MAPPING,
   BiomassSchema,
   CoverageRatioSchema,
-  SpeciesDiversityIndexSchema,
-  VegetationTypeSchema,
-  GrowthStageSchema,
-  DistributionPatternSchema,
-  VegetationLayerSchema,
-  VegetationInteractionSchema,
-  EnvironmentalResponseSchema,
-  VegetationDensityConfigSchema,
   CreateVegetationDensityParamsSchema,
-  VegetationDensityErrorSchema,
+  DistributionPatternSchema,
+  EnvironmentalResponseSchema,
+  GrowthStageSchema,
+  SpeciesDiversityIndexSchema,
   VEGETATION_DENSITY_PRESETS,
-  BIOME_VEGETATION_MAPPING
+  VegetationDensityConfigSchema,
+  VegetationDensityErrorSchema,
+  VegetationDensitySchema,
+  VegetationInteractionSchema,
+  VegetationLayerSchema,
+  VegetationTypeSchema,
+  type Biomass,
+  type CoverageRatio,
+  type CreateVegetationDensityParams,
+  type DistributionPattern,
+  type EnvironmentalResponse,
+  type GrowthStage,
+  type SpeciesDiversityIndex,
+  type VegetationDensity,
+  type VegetationDensityConfig,
+  type VegetationDensityError,
+  type VegetationInteraction,
+  type VegetationLayer,
+  type VegetationType,
 } from './vegetation_density.js'
 
 // 土壌組成設定
 export {
-  type ParticleRatio,
-  type SoilPH,
-  type OrganicMatterContent,
+  BIOME_SOIL_MAPPING,
+  CreateSoilCompositionParamsSchema,
+  ElectricConductivitySchema,
+  OrganicMatterCompositionSchema,
+  OrganicMatterContentSchema,
+  ParticleRatioSchema,
+  ParticleSizeDistributionSchema,
+  SOIL_COMPOSITION_PRESETS,
+  SoilChemistrySchema,
+  SoilCompositionErrorSchema,
+  SoilCompositionSchema,
+  SoilDrainageSchema,
+  SoilPHSchema,
+  SoilPhysicalPropertiesSchema,
+  SoilStructureSchema,
+  SoilTextureSchema,
+  type CreateSoilCompositionParams,
   type ElectricConductivity,
-  type SoilTexture,
-  type SoilDrainage,
-  type SoilStructure,
+  type OrganicMatterComposition,
+  type OrganicMatterContent,
+  type ParticleRatio,
   type ParticleSizeDistribution,
   type SoilChemistry,
-  type OrganicMatterComposition,
-  type SoilPhysicalProperties,
   type SoilComposition,
-  type CreateSoilCompositionParams,
   type SoilCompositionError,
-  ParticleRatioSchema,
-  SoilPHSchema,
-  OrganicMatterContentSchema,
-  ElectricConductivitySchema,
-  SoilTextureSchema,
-  SoilDrainageSchema,
-  SoilStructureSchema,
-  ParticleSizeDistributionSchema,
-  SoilChemistrySchema,
-  OrganicMatterCompositionSchema,
-  SoilPhysicalPropertiesSchema,
-  SoilCompositionSchema,
-  CreateSoilCompositionParamsSchema,
-  SoilCompositionErrorSchema,
-  SOIL_COMPOSITION_PRESETS,
-  BIOME_SOIL_MAPPING
+  type SoilDrainage,
+  type SoilPH,
+  type SoilPhysicalProperties,
+  type SoilStructure,
+  type SoilTexture,
 } from './soil_composition.js'
 
 /**
@@ -184,7 +184,7 @@ export const BiomePropertiesFactory = {
    */
   createFromEnvironment: (params: EnvironmentalParameters): BiomePropertiesBundle => {
     return createBiomeFromEnvironment(params)
-  }
+  },
 } as const
 
 /**
@@ -220,18 +220,18 @@ export const BiomePropertiesConstants = {
     TROPICAL_MIN: 18.0,
     TEMPERATE_RANGE: [-3.0, 18.0],
     BOREAL_RANGE: [-50.0, -3.0],
-    POLAR_MAX: -3.0
+    POLAR_MAX: -3.0,
   },
 
   /**
    * 標準降水量分類
    */
   PRECIPITATION_CLASSES: {
-    ARID: 250,        // < 250mm
-    SEMI_ARID: 500,   // 250-500mm
-    SUBHUMID: 1000,   // 500-1000mm
-    HUMID: 2000,      // 1000-2000mm
-    VERY_HUMID: 2000  // > 2000mm
+    ARID: 250, // < 250mm
+    SEMI_ARID: 500, // 250-500mm
+    SUBHUMID: 1000, // 500-1000mm
+    HUMID: 2000, // 1000-2000mm
+    VERY_HUMID: 2000, // > 2000mm
   },
 
   /**
@@ -241,7 +241,7 @@ export const BiomePropertiesConstants = {
     DESERT: 0.05,
     GRASSLAND: 0.6,
     FOREST: 0.8,
-    RAINFOREST: 1.0
+    RAINFOREST: 1.0,
   },
 
   /**
@@ -254,8 +254,8 @@ export const BiomePropertiesConstants = {
     NEUTRAL: [6.8, 7.2],
     SLIGHTLY_ALKALINE: [7.2, 8.0],
     MODERATELY_ALKALINE: [8.0, 9.0],
-    STRONGLY_ALKALINE: [9.0, 10.0]
-  }
+    STRONGLY_ALKALINE: [9.0, 10.0],
+  },
 } as const
 
 /**
@@ -295,10 +295,7 @@ export const BiomePropertiesValidation = {
   /**
    * 気候分類との整合性確認
    */
-  validateClimateClassification: (
-    bundle: BiomePropertiesBundle,
-    expectedClimate: ClimateClassification
-  ): boolean => {
+  validateClimateClassification: (bundle: BiomePropertiesBundle, expectedClimate: ClimateClassification): boolean => {
     const temp = bundle.temperature.annual.mean
     const precip = bundle.humidity.annual.mean
 
@@ -324,7 +321,7 @@ export const BiomePropertiesValidation = {
     const maxCapacity = vegetation.carryingCapacity.maxBiomass
 
     return totalBiomass <= maxCapacity
-  }
+  },
 } as const
 
 /**
@@ -335,13 +332,7 @@ export const BiomePropertiesTypeGuards = {
    * TemperatureRangeの型ガード
    */
   isTemperatureRange: (value: unknown): value is TemperatureRange => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'climate' in value &&
-      'annual' in value &&
-      'seasonal' in value
-    )
+    return typeof value === 'object' && value !== null && 'climate' in value && 'annual' in value && 'seasonal' in value
   },
 
   /**
@@ -381,7 +372,7 @@ export const BiomePropertiesTypeGuards = {
       'chemistry' in value &&
       'physicalProperties' in value
     )
-  }
+  },
 } as const
 
 /**
@@ -398,7 +389,7 @@ function createTropicalRainforestProperties(): BiomePropertiesBundle {
     temperature: createTemperatureFromPreset(temperaturePreset),
     humidity: createHumidityFromPreset(humidityPreset),
     vegetation: createVegetationFromPreset(vegetationPreset),
-    soil: createSoilFromPreset(soilPreset)
+    soil: createSoilFromPreset(soilPreset),
   }
 }
 
@@ -412,7 +403,7 @@ function createTemperateForestProperties(): BiomePropertiesBundle {
     temperature: createTemperatureFromPreset(temperaturePreset),
     humidity: createHumidityFromPreset(humidityPreset),
     vegetation: createVegetationFromPreset(vegetationPreset),
-    soil: createSoilFromPreset(soilPreset)
+    soil: createSoilFromPreset(soilPreset),
   }
 }
 
@@ -426,7 +417,7 @@ function createDesertProperties(): BiomePropertiesBundle {
     temperature: createTemperatureFromPreset(temperaturePreset),
     humidity: createHumidityFromPreset(humidityPreset),
     vegetation: createVegetationFromPreset(vegetationPreset),
-    soil: createSoilFromPreset(soilPreset)
+    soil: createSoilFromPreset(soilPreset),
   }
 }
 
@@ -440,7 +431,7 @@ function createSavannaProperties(): BiomePropertiesBundle {
     temperature: createTemperatureFromPreset(temperaturePreset),
     humidity: createHumidityFromPreset(humidityPreset),
     vegetation: createVegetationFromPreset(vegetationPreset),
-    soil: createSoilFromPreset(soilPreset)
+    soil: createSoilFromPreset(soilPreset),
   }
 }
 
@@ -454,7 +445,7 @@ function createTundraProperties(): BiomePropertiesBundle {
     temperature: createTemperatureFromPreset(temperaturePreset),
     humidity: createHumidityFromPreset(humidityPreset),
     vegetation: createVegetationFromPreset(vegetationPreset),
-    soil: createSoilFromPreset(soilPreset)
+    soil: createSoilFromPreset(soilPreset),
   }
 }
 
@@ -498,7 +489,7 @@ function createTemperatureFromPreset(preset: any): TemperatureRange {
       mean: preset.annual.mean as TemperatureCelsius,
       minimum: preset.annual.minimum as TemperatureCelsius,
       maximum: preset.annual.maximum as TemperatureCelsius,
-      range: preset.annual.range as TemperatureDelta
+      range: preset.annual.range as TemperatureDelta,
     },
     seasonal: [],
     diurnal: {
@@ -507,32 +498,32 @@ function createTemperatureFromPreset(preset: any): TemperatureRange {
       average: preset.annual.mean as TemperatureCelsius,
       amplitude: 10 as TemperatureDelta,
       peakHour: 14,
-      minimumHour: 6
+      minimumHour: 6,
     },
     environmentalResponse: {
       temperatureResponse: {
         optimalRange: { minimum: preset.annual.mean - 10, maximum: preset.annual.mean + 10 },
         toleranceRange: { minimum: preset.annual.minimum, maximum: preset.annual.maximum },
-        growthCurve: 'bell_curve'
+        growthCurve: 'bell_curve',
       },
       moistureResponse: {
         optimalMoisture: 0.6,
         droughtTolerance: 0.3,
         floodTolerance: 0.2,
-        waterUseEfficiency: 5.0
+        waterUseEfficiency: 5.0,
       },
       lightResponse: {
         lightRequirement: 'intermediate',
         lightSaturationPoint: 800,
-        lightCompensationPoint: 20
+        lightCompensationPoint: 20,
       },
       soilResponse: {
         pHOptimal: 6.5,
         pHTolerance: { minimum: 5.5, maximum: 7.5 },
         nutrientRequirement: 'moderate',
-        saltTolerance: 0.3
-      }
-    }
+        saltTolerance: 0.3,
+      },
+    },
   } as TemperatureRange
 }
 
@@ -551,12 +542,12 @@ function createHumidityFromPreset(preset: any): HumidityLevels {
         p50: preset.annual.mean as RelativeHumidity,
         p75: (preset.annual.mean + 15) as RelativeHumidity,
         p90: (preset.annual.mean + 20) as RelativeHumidity,
-        p95: (preset.annual.mean + 25) as RelativeHumidity
+        p95: (preset.annual.mean + 25) as RelativeHumidity,
       },
       variability: {
         coefficientOfVariation: 0.2,
-        interquartileRange: 30
-      }
+        interquartileRange: 30,
+      },
     },
     seasonal: [],
     diurnal: {
@@ -566,14 +557,14 @@ function createHumidityFromPreset(preset: any): HumidityLevels {
       minimumHour: 14,
       average: preset.annual.mean as RelativeHumidity,
       amplitude: 40,
-      pattern: 'regular'
+      pattern: 'regular',
     },
     waterVapor: {
       absoluteHumidity: 15 as AbsoluteHumidity,
       vaporPressure: 20 as VaporPressure,
       saturationVaporPressure: 25 as VaporPressure,
-      dewPoint: 10 as DewPoint
-    }
+      dewPoint: 10 as DewPoint,
+    },
   } as HumidityLevels
 }
 
@@ -585,7 +576,7 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
       totalDensity: preset.density as VegetationDensity,
       totalBiomass: preset.biomass as Biomass,
       totalCoverage: preset.coverage as CoverageRatio,
-      speciesDiversity: preset.diversity as SpeciesDiversityIndex
+      speciesDiversity: preset.diversity as SpeciesDiversityIndex,
     },
     layers: [
       {
@@ -596,39 +587,39 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
         density: preset.density as VegetationDensity,
         coverage: preset.coverage as CoverageRatio,
         biomass: preset.biomass as Biomass,
-        distribution: { pattern: 'random' }
-      }
+        distribution: { pattern: 'random' },
+      },
     ],
     environmentalResponse: {
       temperatureResponse: {
         optimalRange: { minimum: 15, maximum: 25 },
         toleranceRange: { minimum: -10, maximum: 40 },
-        growthCurve: 'bell_curve'
+        growthCurve: 'bell_curve',
       },
       moistureResponse: {
         optimalMoisture: 0.6,
         droughtTolerance: 0.3,
         floodTolerance: 0.2,
-        waterUseEfficiency: 5.0
+        waterUseEfficiency: 5.0,
       },
       lightResponse: {
         lightRequirement: 'intermediate',
         lightSaturationPoint: 800,
-        lightCompensationPoint: 20
+        lightCompensationPoint: 20,
       },
       soilResponse: {
         pHOptimal: 6.5,
         pHTolerance: { minimum: 5.5, maximum: 7.5 },
-        nutrientRequirement: 'moderate'
-      }
+        nutrientRequirement: 'moderate',
+      },
     },
     carryingCapacity: {
       maxBiomass: (preset.biomass * 1.5) as Biomass,
       maxDensity: (preset.density * 1.2) as VegetationDensity,
       limitingFactors: ['light', 'water', 'nutrients'],
       growthRate: 0.1,
-      carryingCapacityModel: 'logistic'
-    }
+      carryingCapacityModel: 'logistic',
+    },
   } as VegetationDensityConfig
 }
 
@@ -642,7 +633,7 @@ function createSoilFromPreset(preset: any): SoilComposition {
       fineSand: (preset.particles?.sand * 0.2 || 0.1) as ParticleRatio,
       silt: (preset.particles?.silt || 0.3) as ParticleRatio,
       clay: (preset.particles?.clay || 0.2) as ParticleRatio,
-      total: 1.0
+      total: 1.0,
     },
     chemistry: {
       pH: preset.pH as SoilPH,
@@ -652,14 +643,14 @@ function createSoilFromPreset(preset: any): SoilComposition {
       macronutrients: {
         nitrogen: 1000,
         phosphorus: 50,
-        potassium: 200
-      }
+        potassium: 200,
+      },
     },
     organicMatter: {
       totalOrganicMatter: preset.organicMatter as OrganicMatterContent,
       organicCarbon: preset.organicMatter * 58,
       carbonNitrogenRatio: 12,
-      decompositionStage: 'well_decomposed'
+      decompositionStage: 'well_decomposed',
     },
     physicalProperties: {
       texture: preset.texture,
@@ -670,10 +661,10 @@ function createSoilFromPreset(preset: any): SoilComposition {
         fieldCapacity: 0.25,
         wiltingPoint: 0.12,
         availableWater: 0.13,
-        saturatedConductivity: 10
+        saturatedConductivity: 10,
       },
       drainage: preset.drainage,
-      permeability: 'moderate'
-    }
+      permeability: 'moderate',
+    },
   } as SoilComposition
 }

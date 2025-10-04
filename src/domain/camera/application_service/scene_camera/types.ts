@@ -691,7 +691,10 @@ export const createSceneCameraApplicationError = {
       sequenceId,
     }),
 
-  invalidCameraSetup: (setup: SceneCameraSetup, validationErrors: Array.ReadonlyArray<string>): SceneCameraApplicationError =>
+  invalidCameraSetup: (
+    setup: SceneCameraSetup,
+    validationErrors: Array.ReadonlyArray<string>
+  ): SceneCameraApplicationError =>
     Data.struct({
       _tag: 'InvalidCameraSetup' as const,
       setup,

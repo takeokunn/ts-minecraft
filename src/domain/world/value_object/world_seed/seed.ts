@@ -5,9 +5,8 @@
  * Effect-TS 3.17+ Schema + Brand型による完全型安全実装
  */
 
-import { Schema } from 'effect'
-import { Brand } from 'effect'
 import type { Brand as BrandType } from 'effect'
+import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
 
 /**
@@ -32,7 +31,7 @@ export const WorldSeedSchema = Schema.Number.pipe(
     identifier: 'WorldSeed',
     title: 'World Generation Seed',
     description: 'A deterministic seed value for world generation ensuring reproducible results',
-    examples: [123456789, -987654321, 0]
+    examples: [123456789, -987654321, 0],
   })
 )
 
@@ -42,7 +41,7 @@ export const WorldSeedSchema = Schema.Number.pipe(
 export const EntropyLevelSchema = Schema.Literal('low', 'medium', 'high').pipe(
   Schema.annotations({
     title: 'Entropy Level',
-    description: 'Represents the complexity and randomness of the seed'
+    description: 'Represents the complexity and randomness of the seed',
   })
 )
 
@@ -56,7 +55,7 @@ export const TimestampSchema = Schema.Number.pipe(
   Schema.brand('Timestamp'),
   Schema.annotations({
     title: 'Creation Timestamp',
-    description: 'Unix timestamp when the seed was created'
+    description: 'Unix timestamp when the seed was created',
   })
 )
 
@@ -75,15 +74,15 @@ export const WorldSeedValueObjectSchema = Schema.Struct({
     Schema.minLength(1),
     Schema.maxLength(100),
     Schema.annotations({
-      description: 'Human-readable representation of the seed (optional)'
+      description: 'Human-readable representation of the seed (optional)',
     })
   ).pipe(Schema.optional),
 
   // 生成コンテキスト
   context: Schema.Struct({
     generator: Schema.Literal('random', 'timestamp', 'string', 'custom'),
-    source: Schema.String.pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    source: Schema.String.pipe(Schema.optional),
+  }).pipe(Schema.optional),
 })
 
 export type WorldSeed = typeof WorldSeedValueObjectSchema.Type
@@ -95,7 +94,7 @@ export const CreateWorldSeedParamsSchema = Schema.Struct({
   value: Schema.Union(Schema.Number, Schema.String).pipe(Schema.optional),
   humanReadable: Schema.String.pipe(Schema.optional),
   generator: Schema.Literal('random', 'timestamp', 'string', 'custom').pipe(Schema.optional),
-  source: Schema.String.pipe(Schema.optional)
+  source: Schema.String.pipe(Schema.optional),
 })
 
 export type CreateWorldSeedParams = typeof CreateWorldSeedParamsSchema.Type
@@ -107,19 +106,19 @@ export const WorldSeedErrorSchema = taggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('InvalidSeedValue'),
     value: Schema.Unknown,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('SeedGenerationError'),
     cause: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ValidationError'),
     field: Schema.String,
     value: Schema.Unknown,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type WorldSeedError = typeof WorldSeedErrorSchema.Type
@@ -132,9 +131,9 @@ export const SeedQualitySchema = Schema.Struct({
   entropy: EntropyLevelSchema,
   distribution: Schema.Struct({
     uniformity: Schema.Number.pipe(Schema.between(0, 1)),
-    complexity: Schema.Number.pipe(Schema.between(0, 1))
+    complexity: Schema.Number.pipe(Schema.between(0, 1)),
   }),
-  recommendations: Schema.Array(Schema.String)
+  recommendations: Schema.Array(Schema.String),
 })
 
 export type SeedQuality = typeof SeedQualitySchema.Type

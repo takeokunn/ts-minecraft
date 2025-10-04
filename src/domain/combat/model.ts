@@ -2,7 +2,6 @@ import { Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
-  AttackKind,
   AttackLabel,
   CombatDomainError,
   CombatError,
@@ -61,9 +60,7 @@ export interface CombatSession {
 
 const emptyCooldowns: ReadonlyArray<CooldownState> = []
 
-export const createSession = (
-  blueprint: CombatSessionBlueprint
-): Effect.Effect<CombatSession, CombatDomainError> =>
+export const createSession = (blueprint: CombatSessionBlueprint): Effect.Effect<CombatSession, CombatDomainError> =>
   Effect.gen(function* () {
     const id = yield* makeSessionId(blueprint.id)
     return {
@@ -73,9 +70,7 @@ export const createSession = (
     }
   })
 
-export const createCombatant = (
-  blueprint: CombatantBlueprint
-): Effect.Effect<Combatant, CombatDomainError> =>
+export const createCombatant = (blueprint: CombatantBlueprint): Effect.Effect<Combatant, CombatDomainError> =>
   Effect.gen(function* () {
     const id = yield* makeCombatantId(blueprint.id)
     const maxHealth = yield* pipe(
@@ -105,10 +100,7 @@ export const createCombatant = (
     }
   })
 
-const replaceCombatant = (
-  combatants: ReadonlyArray<Combatant>,
-  updated: Combatant
-): ReadonlyArray<Combatant> =>
+const replaceCombatant = (combatants: ReadonlyArray<Combatant>, updated: Combatant): ReadonlyArray<Combatant> =>
   pipe(
     combatants,
     ReadonlyArray.map((candidate) =>
@@ -157,10 +149,7 @@ export const updateCombatant = (
     )
   )
 
-export const appendEvent = (
-  session: CombatSession,
-  event: CombatEvent
-): CombatSession => ({
+export const appendEvent = (session: CombatSession, event: CombatEvent): CombatSession => ({
   id: session.id,
   combatants: session.combatants,
   timeline: ReadonlyArray.append(session.timeline, event),
@@ -177,29 +166,19 @@ const upsertCooldown = (
     (rest) => ReadonlyArray.append(rest, { attack, remaining })
   )
 
-export const setCooldown = (
-  combatant: Combatant,
-  attack: AttackLabel,
-  remaining: Cooldown
-): Combatant => ({
+export const setCooldown = (combatant: Combatant, attack: AttackLabel, remaining: Cooldown): Combatant => ({
   ...combatant,
   cooldowns: upsertCooldown(combatant.cooldowns, attack, remaining),
 })
 
-export const getCooldown = (
-  combatant: Combatant,
-  attack: AttackLabel
-): Option.Option<Cooldown> =>
+export const getCooldown = (combatant: Combatant, attack: AttackLabel): Option.Option<Cooldown> =>
   pipe(
     combatant.cooldowns,
     ReadonlyArray.findFirst((entry) => entry.attack === attack),
     Option.map((entry) => entry.remaining)
   )
 
-export const applyDamage = (
-  combatant: Combatant,
-  damage: Damage
-): Effect.Effect<Combatant, CombatDomainError> =>
+export const applyDamage = (combatant: Combatant, damage: Damage): Effect.Effect<Combatant, CombatDomainError> =>
   Effect.gen(function* () {
     const numeric = combatant.health - damage
     const safe = Math.max(0, numeric)
@@ -210,21 +189,14 @@ export const applyDamage = (
     }
   })
 
-export const resolveDefeat = (
-  session: CombatSession,
-  target: Combatant,
-  timestamp: Timestamp
-): CombatSession =>
+export const resolveDefeat = (session: CombatSession, target: Combatant, timestamp: Timestamp): CombatSession =>
   Match.value(target.health > 0).pipe(
     Match.when(true, () => session),
     Match.when(false, () => appendEvent(session, CombatEventFactory.combatantDefeated(target.id, timestamp))),
     Match.exhaustive
   )
 
-export const replaceCombatants = (
-  session: CombatSession,
-  combatants: ReadonlyArray<Combatant>
-): CombatSession => ({
+export const replaceCombatants = (session: CombatSession, combatants: ReadonlyArray<Combatant>): CombatSession => ({
   id: session.id,
   combatants,
   timeline: session.timeline,
@@ -261,7 +233,5 @@ export const advanceCooldowns = (
       cooldowns: updated,
     }
   })
-export const timelineWithEvent = (
-  session: CombatSession,
-  event: CombatEvent
-): CombatSession => appendEvent(session, event)
+export const timelineWithEvent = (session: CombatSession, event: CombatEvent): CombatSession =>
+  appendEvent(session, event)

@@ -1,34 +1,26 @@
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import { type ChunkMetadata, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
+import { type ChunkPosition } from '../../value_object/chunk_position'
 import {
   type ChunkData,
   type ChunkDataAggregate,
   type ChunkDataId,
-  ChunkDataId as MakeChunkDataId,
   ChunkDataSchema,
   ChunkDataValidationError,
+  ChunkDataId as MakeChunkDataId,
 } from './types'
-import { type ChunkPosition } from '../../value_object/chunk_position'
-import {
-  type ChunkMetadata,
-  type HeightValue,
-  HeightValue as MakeHeightValue,
-} from '../../value_object/chunk_metadata'
-import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 const heightMapSize = CHUNK_SIZE * CHUNK_SIZE
 
-const createId = (position: ChunkPosition): ChunkDataId =>
-  MakeChunkDataId(`chunk_data_${position.x}_${position.z}`)
+const createId = (position: ChunkPosition): ChunkDataId => MakeChunkDataId(`chunk_data_${position.x}_${position.z}`)
 
 const cloneMetadata = (metadata: ChunkMetadata): ChunkMetadata => ({
   ...metadata,
   heightMap: [...metadata.heightMap],
 })
 
-const withTimestamp = (
-  metadata: ChunkMetadata,
-  timestamp: number
-): ChunkMetadata => ({
+const withTimestamp = (metadata: ChunkMetadata, timestamp: number): ChunkMetadata => ({
   ...metadata,
   isModified: true,
   lastUpdate: timestamp,
@@ -43,24 +35,16 @@ const invalidIndex = (index: number): ChunkDataValidationError =>
 const ensureBlockIndex = (index: number) =>
   pipe(
     Effect.succeed(index),
-    Effect.filterOrFail(
-      (value) => Number.isInteger(value) && value >= 0 && value < CHUNK_VOLUME,
-      invalidIndex
-    )
+    Effect.filterOrFail((value) => Number.isInteger(value) && value >= 0 && value < CHUNK_VOLUME, invalidIndex)
   )
 
 const ensureHeightIndex = (index: number) =>
   pipe(
     Effect.succeed(index),
-    Effect.filterOrFail(
-      (value) => Number.isInteger(value) && value >= 0 && value < heightMapSize,
-      invalidIndex
-    )
+    Effect.filterOrFail((value) => Number.isInteger(value) && value >= 0 && value < heightMapSize, invalidIndex)
   )
 
-const buildAggregate = (
-  state: ChunkData
-): ChunkDataAggregate => {
+const buildAggregate = (state: ChunkData): ChunkDataAggregate => {
   const getBlock: ChunkDataAggregate['getBlock'] = (index) => state.blocks[index] ?? 0
 
   const setBlock: ChunkDataAggregate['setBlock'] = (index, blockId) =>
@@ -261,10 +245,7 @@ export const createChunkDataAggregate = (
       buildAggregate({
         ...validated,
         id: validated.id ?? createId(validated.position),
-        blocks:
-          validated.blocks instanceof Uint16Array
-            ? validated.blocks
-            : new Uint16Array(validated.blocks),
+        blocks: validated.blocks instanceof Uint16Array ? validated.blocks : new Uint16Array(validated.blocks),
         metadata: cloneMetadata(validated.metadata),
       })
     )
@@ -302,9 +283,7 @@ export const createEmptyChunkDataAggregate = (
 /**
  * チャンクデータの検証ユーティリティ
  */
-export const validateChunkData = (
-  data: unknown
-): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+export const validateChunkData = (data: unknown): Effect.Effect<ChunkData, ChunkDataValidationError> =>
   pipe(
     Schema.decodeEffect(ChunkDataSchema)(data),
     Effect.mapError((error) =>

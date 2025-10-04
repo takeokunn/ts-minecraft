@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Ref, STM } from 'effect'
+import { Context, Effect, Layer, Ref, Schema } from 'effect'
 
 /**
  * Memory Monitor Service
@@ -27,7 +27,7 @@ export const MemoryPressureLevel = Schema.Union(
   Schema.Literal('low'), // 50-70%
   Schema.Literal('medium'), // 70-85%
   Schema.Literal('high'), // 85-95%
-  Schema.Literal('critical'), // 95%+
+  Schema.Literal('critical') // 95%+
 )
 
 export const MemoryAlert = Schema.Struct({
@@ -46,7 +46,7 @@ export const MemoryManagementStrategy = Schema.Union(
   Schema.Literal('conservative'), // 保守的管理
   Schema.Literal('balanced'), // バランス重視
   Schema.Literal('aggressive'), // 積極的解放
-  Schema.Literal('adaptive'), // 適応的管理
+  Schema.Literal('adaptive') // 適応的管理
 )
 
 export const MemoryConfiguration = Schema.Struct({
@@ -80,7 +80,7 @@ export const MemoryPool = Schema.Struct({
     Schema.Literal('texture_cache'),
     Schema.Literal('mesh_buffer'),
     Schema.Literal('audio_buffer'),
-    Schema.Literal('general'),
+    Schema.Literal('general')
   ),
   maxSize: Schema.Number.pipe(Schema.positive()),
   currentSize: Schema.Number.pipe(Schema.nonNegativeInteger()),
@@ -98,19 +98,19 @@ export const AllocationRequest = Schema.Struct({
     Schema.Literal('texture_cache'),
     Schema.Literal('mesh_buffer'),
     Schema.Literal('audio_buffer'),
-    Schema.Literal('general'),
+    Schema.Literal('general')
   ),
   size: Schema.Number.pipe(Schema.positive()),
   priority: Schema.Union(
     Schema.Literal('critical'),
     Schema.Literal('high'),
     Schema.Literal('normal'),
-    Schema.Literal('low'),
+    Schema.Literal('low')
   ),
   lifetime: Schema.Union(
     Schema.Literal('temporary'), // 短期間
     Schema.Literal('session'), // セッション間
-    Schema.Literal('permanent'), // 永続的
+    Schema.Literal('permanent') // 永続的
   ),
 })
 
@@ -131,17 +131,13 @@ export const MemoryStatistics = Schema.Struct({
 
 // === Memory Monitor Error ===
 
-export const MemoryMonitorError = Schema.TaggedError<MemoryMonitorErrorType>()(
-  'MemoryMonitorError',
-  {
-    message: Schema.String,
-    monitorId: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const MemoryMonitorError = Schema.TaggedError<MemoryMonitorErrorType>()('MemoryMonitorError', {
+  message: Schema.String,
+  monitorId: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface MemoryMonitorErrorType
-  extends Schema.Schema.Type<typeof MemoryMonitorError> {}
+export interface MemoryMonitorErrorType extends Schema.Schema.Type<typeof MemoryMonitorError> {}
 
 // === Service Interface ===
 
@@ -176,9 +172,7 @@ export interface MemoryMonitorService {
   /**
    * メモリを解放します
    */
-  readonly deallocateMemory: (
-    allocationId: string
-  ) => Effect.Effect<void, MemoryMonitorErrorType>
+  readonly deallocateMemory: (allocationId: string) => Effect.Effect<void, MemoryMonitorErrorType>
 
   /**
    * ガベージコレクションを実行します
@@ -219,9 +213,7 @@ export interface MemoryMonitorService {
   /**
    * メモリ使用量予測を取得します
    */
-  readonly predictMemoryUsage: (
-    timeframeSeconds: number
-  ) => Effect.Effect<number, MemoryMonitorErrorType>
+  readonly predictMemoryUsage: (timeframeSeconds: number) => Effect.Effect<number, MemoryMonitorErrorType>
 }
 
 // === Live Implementation ===
@@ -232,7 +224,9 @@ const makeMemoryMonitorService = Effect.gen(function* () {
   const isMonitoring = yield* Ref.make<boolean>(false)
   const currentMetrics = yield* Ref.make<Schema.Schema.Type<typeof MemoryMetrics>>(createInitialMetrics())
   const memoryPools = yield* Ref.make<Map<string, Schema.Schema.Type<typeof MemoryPool>>>(new Map())
-  const allocations = yield* Ref.make<Map<string, { request: Schema.Schema.Type<typeof AllocationRequest>; timestamp: number }>>(new Map())
+  const allocations = yield* Ref.make<
+    Map<string, { request: Schema.Schema.Type<typeof AllocationRequest>; timestamp: number }>
+  >(new Map())
   const alertHistory = yield* Ref.make<Schema.Schema.Type<typeof MemoryAlert>[]>([])
   const statistics = yield* Ref.make<Schema.Schema.Type<typeof MemoryStatistics>>(createInitialStatistics())
 
@@ -294,15 +288,13 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       }
 
       // 割り当て記録
-      yield* Ref.update(allocations, map =>
-        map.set(allocationId, { request, timestamp: Date.now() })
-      )
+      yield* Ref.update(allocations, (map) => map.set(allocationId, { request, timestamp: Date.now() }))
 
       // プール更新
       yield* updatePoolAllocation(request.poolType, request.size, true)
 
       // 統計更新
-      yield* Ref.update(statistics, stats => ({
+      yield* Ref.update(statistics, (stats) => ({
         ...stats,
         totalAllocations: stats.totalAllocations + 1,
       }))
@@ -325,13 +317,13 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       yield* updatePoolAllocation(allocation.request.poolType, allocation.request.size, false)
 
       // 割り当て記録削除
-      yield* Ref.update(allocations, map => {
+      yield* Ref.update(allocations, (map) => {
         map.delete(allocationId)
         return map
       })
 
       // 統計更新
-      yield* Ref.update(statistics, stats => ({
+      yield* Ref.update(statistics, (stats) => ({
         ...stats,
         totalDeallocations: stats.totalDeallocations + 1,
       }))
@@ -347,7 +339,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       yield* Effect.sleep('100 millis')
 
       // 統計更新
-      yield* Ref.update(statistics, stats => ({
+      yield* Ref.update(statistics, (stats) => ({
         ...stats,
         gcTriggerCount: stats.gcTriggerCount + 1,
       }))
@@ -379,8 +371,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
       // 低優先度割り当ての強制解放
       const allocMap = yield* Ref.get(allocations)
-      const lowPriorityAllocs = Array.from(allocMap.entries())
-        .filter(([_, alloc]) => alloc.request.priority === 'low')
+      const lowPriorityAllocs = Array.from(allocMap.entries()).filter(([_, alloc]) => alloc.request.priority === 'low')
 
       for (const [allocId, _] of lowPriorityAllocs) {
         yield* deallocateMemory(allocId)
@@ -388,8 +379,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       }
 
       // 一時的割り当ての強制解放
-      const tempAllocs = Array.from(allocMap.entries())
-        .filter(([_, alloc]) => alloc.request.lifetime === 'temporary')
+      const tempAllocs = Array.from(allocMap.entries()).filter(([_, alloc]) => alloc.request.lifetime === 'temporary')
 
       for (const [allocId, _] of tempAllocs) {
         yield* deallocateMemory(allocId)
@@ -413,7 +403,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof MemoryConfiguration>>) =>
     Effect.gen(function* () {
-      yield* Ref.update(configuration, current => ({ ...current, ...configUpdate }))
+      yield* Ref.update(configuration, (current) => ({ ...current, ...configUpdate }))
       yield* Effect.logInfo('メモリ監視設定更新完了')
     })
 
@@ -423,11 +413,9 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       const stats = yield* getStatistics()
 
       // 簡易予測（線形近似）
-      const allocationRate = stats.totalAllocations > 0 ?
-        currentMetrics.usedMemory / stats.totalAllocations : 0
+      const allocationRate = stats.totalAllocations > 0 ? currentMetrics.usedMemory / stats.totalAllocations : 0
 
-      const predictedUsage = currentMetrics.usedMemory +
-        (allocationRate * timeframeSeconds * 0.1) // 0.1は推定係数
+      const predictedUsage = currentMetrics.usedMemory + allocationRate * timeframeSeconds * 0.1 // 0.1は推定係数
 
       return Math.min(predictedUsage, currentMetrics.totalMemory)
     })
@@ -507,7 +495,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
         suggestedActions: getSuggestedActions(level),
       }
 
-      yield* Ref.update(alertHistory, alerts => [...alerts.slice(-99), alert])
+      yield* Ref.update(alertHistory, (alerts) => [...alerts.slice(-99), alert])
       yield* Effect.logWarning(`メモリアラート: ${alert.message}`)
     })
 
@@ -532,7 +520,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     allocate: boolean
   ) =>
     Effect.gen(function* () {
-      yield* Ref.update(memoryPools, pools => {
+      yield* Ref.update(memoryPools, (pools) => {
         const poolId = `pool_${poolType}`
         const pool = pools.get(poolId) || createDefaultPool(poolId, poolType)
 
@@ -544,8 +532,10 @@ const makeMemoryMonitorService = Effect.gen(function* () {
         }
 
         // 断片化率更新
-        updatedPool.fragmentationRatio = updatedPool.allocatedItems > 0 ?
-          1 - (updatedPool.freeItems / (updatedPool.allocatedItems + updatedPool.freeItems)) : 0
+        updatedPool.fragmentationRatio =
+          updatedPool.allocatedItems > 0
+            ? 1 - updatedPool.freeItems / (updatedPool.allocatedItems + updatedPool.freeItems)
+            : 0
 
         pools.set(poolId, updatedPool)
         return pools
@@ -556,7 +546,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`メモリプールコンパクション: ${poolId}`)
 
-      yield* Ref.update(memoryPools, pools => {
+      yield* Ref.update(memoryPools, (pools) => {
         const pool = pools.get(poolId)
         if (pool) {
           pools.set(poolId, {
@@ -637,10 +627,7 @@ export const MemoryMonitorService = Context.GenericTag<MemoryMonitorService>(
 
 // === Layer ===
 
-export const MemoryMonitorServiceLive = Layer.effect(
-  MemoryMonitorService,
-  makeMemoryMonitorService
-)
+export const MemoryMonitorServiceLive = Layer.effect(MemoryMonitorService, makeMemoryMonitorService)
 
 // === Default Configuration ===
 
@@ -666,10 +653,10 @@ export const DEFAULT_MEMORY_CONFIG: Schema.Schema.Type<typeof MemoryConfiguratio
 }
 
 export type {
-  MemoryMetrics as MemoryMetricsType,
+  AllocationRequest as AllocationRequestType,
   MemoryAlert as MemoryAlertType,
   MemoryConfiguration as MemoryConfigurationType,
+  MemoryMetrics as MemoryMetricsType,
   MemoryPool as MemoryPoolType,
-  AllocationRequest as AllocationRequestType,
   MemoryStatistics as MemoryStatisticsType,
 } from './memory_monitor.js'

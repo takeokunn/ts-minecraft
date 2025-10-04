@@ -5,13 +5,13 @@
  * クラフティング、取引、分散処理等の高レベル操作
  */
 
-import { Effect, Match, pipe, Array as EffectArray } from 'effect'
-import type { InventoryId, ContainerId, PlayerId, ItemId } from '../../types/core'
+import { Effect, Array as EffectArray } from 'effect'
 import type { ItemStack } from '../../aggregate/item_stack/types'
-import type { InventoryApplicationError } from '../types/errors'
-import type { InventoryService } from '../../service'
 import type { TransferService } from '../../domain_service/transfer_service/service'
 import type { ValidationService } from '../../domain_service/validation_service/service'
+import type { InventoryService } from '../../service'
+import type { InventoryId, ItemId, PlayerId } from '../../types/core'
+import type { InventoryApplicationError } from '../types/errors'
 
 /**
  * ワークフロー実装
@@ -31,9 +31,7 @@ export interface TransactionWorkflows {
   /**
    * 取引ワークフローを実行します
    */
-  readonly executeTradeWorkflow: (
-    operation: TradeOperation
-  ) => Effect.Effect<TradeResult, InventoryApplicationError>
+  readonly executeTradeWorkflow: (operation: TradeOperation) => Effect.Effect<TradeResult, InventoryApplicationError>
 
   /**
    * 自動補充ワークフローを実行します
@@ -241,7 +239,7 @@ const executeCraftingWorkflowImpl = (
     yield* Effect.logInfo('Starting crafting workflow', {
       transactionId,
       playerId: operation.playerId,
-      recipeId: operation.recipeId
+      recipeId: operation.recipeId,
     })
 
     // フェーズ1: 材料検証
@@ -259,11 +257,7 @@ const executeCraftingWorkflowImpl = (
 
       // フェーズ4: 材料消費
       yield* Effect.logDebug('Phase 4: Consuming materials')
-      const consumedMaterials = yield* consumeCraftingMaterials(
-        operation,
-        reservedMaterials,
-        inventoryService
-      )
+      const consumedMaterials = yield* consumeCraftingMaterials(operation, reservedMaterials, inventoryService)
 
       // フェーズ5: 結果アイテム生成
       yield* Effect.logDebug('Phase 5: Producing result item')
@@ -279,7 +273,7 @@ const executeCraftingWorkflowImpl = (
       yield* Effect.logInfo('Crafting workflow completed successfully', {
         transactionId,
         producedItem: operation.resultItem.itemId,
-        experienceGained
+        experienceGained,
       })
 
       return {
@@ -289,13 +283,13 @@ const executeCraftingWorkflowImpl = (
         producedItem: operation.resultItem,
         resultSlot,
         experienceGained,
-        byproducts
+        byproducts,
       }
     } catch (error) {
       // エラー時のロールバック
       yield* Effect.logError('Crafting workflow failed, rolling back', {
         transactionId,
-        error: String(error)
+        error: String(error),
       })
 
       yield* rollbackCraftingMaterials(reservedMaterials, inventoryService)
@@ -320,7 +314,7 @@ const executeTradeWorkflowImpl = (
       transactionId,
       tradeId: operation.tradeId,
       player1Id: operation.player1Id,
-      player2Id: operation.player2Id
+      player2Id: operation.player2Id,
     })
 
     // フェーズ1: 取引前提条件チェック
@@ -335,7 +329,7 @@ const executeTradeWorkflowImpl = (
         player1Received: [],
         player2Received: [],
         tradeValue: { player1Value: 0, player2Value: 0 },
-        completedAt: new Date()
+        completedAt: new Date(),
       }
     }
 
@@ -349,29 +343,29 @@ const executeTradeWorkflowImpl = (
       yield* Effect.logDebug('Phase 4: Executing item transfers')
 
       // プレイヤー1 → プレイヤー2
-      const player2Received = yield* EffectArray.forEach(
-        operation.player1Offers,
-        (offer) =>
-          transferService.transferItem(
+      const player2Received = yield* EffectArray.forEach(operation.player1Offers, (offer) =>
+        transferService
+          .transferItem(
             offer.inventoryId,
             operation.player2Id, // 簡略化：プレイヤー2のインベントリIDを取得
             offer.slotIndex,
             undefined, // 自動スロット選択
             offer.itemStack.quantity
-          ).pipe(Effect.map(() => offer.itemStack))
+          )
+          .pipe(Effect.map(() => offer.itemStack))
       )
 
       // プレイヤー2 → プレイヤー1
-      const player1Received = yield* EffectArray.forEach(
-        operation.player2Offers,
-        (offer) =>
-          transferService.transferItem(
+      const player1Received = yield* EffectArray.forEach(operation.player2Offers, (offer) =>
+        transferService
+          .transferItem(
             offer.inventoryId,
             operation.player1Id, // 簡略化：プレイヤー1のインベントリIDを取得
             offer.slotIndex,
             undefined, // 自動スロット選択
             offer.itemStack.quantity
-          ).pipe(Effect.map(() => offer.itemStack))
+          )
+          .pipe(Effect.map(() => offer.itemStack))
       )
 
       // フェーズ5: 取引価値計算
@@ -381,7 +375,7 @@ const executeTradeWorkflowImpl = (
         transactionId,
         tradeId: operation.tradeId,
         player1ReceivedCount: player1Received.length,
-        player2ReceivedCount: player2Received.length
+        player2ReceivedCount: player2Received.length,
       })
 
       return {
@@ -390,13 +384,13 @@ const executeTradeWorkflowImpl = (
         player1Received,
         player2Received,
         tradeValue,
-        completedAt: new Date()
+        completedAt: new Date(),
       }
     } catch (error) {
       // エラー時のロールバック
       yield* Effect.logError('Trade workflow failed, rolling back', {
         transactionId,
-        error: String(error)
+        error: String(error),
       })
 
       yield* rollbackTradeItems([...player1Items, ...player2Items], inventoryService)
@@ -421,7 +415,7 @@ const executeAutoRefillWorkflowImpl = (
       transactionId,
       targetInventoryId: operation.targetInventoryId,
       sourceCount: operation.sourceInventories.length,
-      ruleCount: operation.refillRules.length
+      ruleCount: operation.refillRules.length,
     })
 
     // フェーズ1: 補充対象インベントリの現在状態確認
@@ -431,61 +425,44 @@ const executeAutoRefillWorkflowImpl = (
 
     // フェーズ2: 補充必要量計算
     yield* Effect.logDebug('Phase 2: Calculating refill requirements')
-    const refillRequirements = yield* calculateRefillRequirements(
-      currentQuantities,
-      operation.refillRules
-    )
+    const refillRequirements = yield* calculateRefillRequirements(currentQuantities, operation.refillRules)
 
     // フェーズ3: ソースインベントリの可用性チェック
     yield* Effect.logDebug('Phase 3: Checking source availability')
-    const availabilityResults = yield* EffectArray.forEach(
-      refillRequirements,
-      (requirement) =>
-        checkSourceAvailability(
-          requirement,
-          operation.sourceInventories,
-          inventoryService
-        )
+    const availabilityResults = yield* EffectArray.forEach(refillRequirements, (requirement) =>
+      checkSourceAvailability(requirement, operation.sourceInventories, inventoryService)
     )
 
     // フェーズ4: 補充実行
     yield* Effect.logDebug('Phase 4: Executing refill transfers')
     const refillResults = yield* EffectArray.forEach(
-      availabilityResults.filter(result => result.available),
-      (result) =>
-        executeRefillTransfer(
-          result,
-          operation.targetInventoryId,
-          transferService
-        ),
+      availabilityResults.filter((result) => result.available),
+      (result) => executeRefillTransfer(result, operation.targetInventoryId, transferService),
       { concurrency: 'bounded', batchSize: 3 }
     )
 
     // フェーズ5: 未充足要求の分析
     const unfulfilledRequests = availabilityResults
-      .filter(result => !result.available)
-      .map(result => ({
+      .filter((result) => !result.available)
+      .map((result) => ({
         itemId: result.itemId,
         missingQuantity: result.requestedQuantity - result.availableQuantity,
-        reason: result.unavailableReason || 'Insufficient quantity'
+        reason: result.unavailableReason || 'Insufficient quantity',
       }))
 
-    const totalItemsTransferred = refillResults.reduce(
-      (sum, result) => sum + result.actualQuantity,
-      0
-    )
+    const totalItemsTransferred = refillResults.reduce((sum, result) => sum + result.actualQuantity, 0)
 
     yield* Effect.logInfo('Auto refill workflow completed', {
       transactionId,
       totalTransferred: totalItemsTransferred,
-      unfulfilledCount: unfulfilledRequests.length
+      unfulfilledCount: unfulfilledRequests.length,
     })
 
     return {
       transactionId,
       refillResults,
       unfulfilledRequests,
-      totalItemsTransferred
+      totalItemsTransferred,
     }
   })
 
@@ -505,7 +482,7 @@ const executeBulkDistributionWorkflowImpl = (
       transactionId,
       sourceInventoryId: operation.sourceInventoryId,
       targetCount: operation.targetInventories.length,
-      itemCount: operation.itemsToDistribute.length
+      itemCount: operation.itemsToDistribute.length,
     })
 
     // フェーズ1: 分散計画作成
@@ -520,16 +497,12 @@ const executeBulkDistributionWorkflowImpl = (
     yield* Effect.logDebug('Phase 3: Executing distribution')
     const distributionResults = yield* EffectArray.forEach(
       distributionPlan,
-      (plan) =>
-        executeDistributionPlan(plan, transferService),
+      (plan) => executeDistributionPlan(plan, transferService),
       { concurrency: 'bounded', batchSize: 5 }
     )
 
     // フェーズ4: 残余アイテム処理
-    const remainingItems = yield* calculateRemainingItems(
-      operation.itemsToDistribute,
-      distributionResults
-    )
+    const remainingItems = yield* calculateRemainingItems(operation.itemsToDistribute, distributionResults)
 
     // フェーズ5: 分散効率計算
     const distributionEfficiency = yield* calculateDistributionEfficiency(
@@ -540,14 +513,14 @@ const executeBulkDistributionWorkflowImpl = (
     yield* Effect.logInfo('Bulk distribution workflow completed', {
       transactionId,
       distributionEfficiency,
-      remainingItemCount: remainingItems.length
+      remainingItemCount: remainingItems.length,
     })
 
     return {
       transactionId,
       distributionResults,
       remainingItems,
-      distributionEfficiency
+      distributionEfficiency,
     }
   })
 
@@ -567,7 +540,7 @@ const executeInventoryMergeWorkflowImpl = (
       transactionId,
       sourceCount: operation.sourceInventories.length,
       targetInventoryId: operation.targetInventoryId,
-      mergeStrategy: operation.mergeStrategy
+      mergeStrategy: operation.mergeStrategy,
     })
 
     // フェーズ1: ソースインベントリ分析
@@ -588,11 +561,7 @@ const executeInventoryMergeWorkflowImpl = (
 
     // フェーズ4: 統合実行
     yield* Effect.logDebug('Phase 4: Executing merge operations')
-    const mergeResults = yield* executeMergeOperations(
-      mergeStrategy,
-      capacityValidation,
-      transferService
-    )
+    const mergeResults = yield* executeMergeOperations(mergeStrategy, capacityValidation, transferService)
 
     // フェーズ5: 競合・オーバーフロー処理
     const { conflictItems, overflowItems } = yield* handleMergeConflicts(
@@ -602,17 +571,14 @@ const executeInventoryMergeWorkflowImpl = (
     )
 
     // フェーズ6: 統合効率計算
-    const mergeEfficiency = yield* calculateMergeEfficiency(
-      sourceAnalysis,
-      mergeResults
-    )
+    const mergeEfficiency = yield* calculateMergeEfficiency(sourceAnalysis, mergeResults)
 
     yield* Effect.logInfo('Inventory merge workflow completed', {
       transactionId,
       mergedItemCount: mergeResults.length,
       conflictItemCount: conflictItems.length,
       overflowItemCount: overflowItems.length,
-      mergeEfficiency
+      mergeEfficiency,
     })
 
     return {
@@ -620,72 +586,65 @@ const executeInventoryMergeWorkflowImpl = (
       mergedItems: mergeResults,
       overflowItems,
       conflictItems,
-      mergeEfficiency
+      mergeEfficiency,
     }
   })
 
 // ヘルパー関数群（実装の詳細は省略、インターフェースのみ提供）
-const generateTransactionId = (): Effect.Effect<string, never> =>
-  Effect.sync(() => `tx-${crypto.randomUUID()}`)
+const generateTransactionId = (): Effect.Effect<string, never> => Effect.sync(() => `tx-${crypto.randomUUID()}`)
 
 const validateCraftingMaterials = (
   operation: CraftingOperation,
   validationService: ValidationService
-): Effect.Effect<void, InventoryApplicationError> =>
-  Effect.logDebug('Validating crafting materials (mock)')
+): Effect.Effect<void, InventoryApplicationError> => Effect.logDebug('Validating crafting materials (mock)')
 
 const reserveCraftingMaterials = (
   operation: CraftingOperation,
   inventoryService: InventoryService
-): Effect.Effect<any[], InventoryApplicationError> =>
-  Effect.succeed([])
+): Effect.Effect<any[], InventoryApplicationError> => Effect.succeed([])
 
 const ensureResultItemSpace = (
   operation: CraftingOperation,
   inventoryService: InventoryService
-): Effect.Effect<number, InventoryApplicationError> =>
-  Effect.succeed(operation.resultSlot ?? 0)
+): Effect.Effect<number, InventoryApplicationError> => Effect.succeed(operation.resultSlot ?? 0)
 
 const consumeCraftingMaterials = (
   operation: CraftingOperation,
   reservedMaterials: any[],
   inventoryService: InventoryService
-): Effect.Effect<any[], InventoryApplicationError> =>
-  Effect.succeed([])
+): Effect.Effect<any[], InventoryApplicationError> => Effect.succeed([])
 
 const produceResultItem = (
   operation: CraftingOperation,
   resultSlot: number,
   inventoryService: InventoryService
-): Effect.Effect<void, InventoryApplicationError> =>
-  Effect.unit
+): Effect.Effect<void, InventoryApplicationError> => Effect.unit
 
 const handleCraftingByproducts = (
   operation: CraftingOperation,
   inventoryService: InventoryService
-): Effect.Effect<ItemStack[], InventoryApplicationError> =>
-  Effect.succeed([])
+): Effect.Effect<ItemStack[], InventoryApplicationError> => Effect.succeed([])
 
-const calculateCraftingExperience = (
-  operation: CraftingOperation
-): Effect.Effect<number, InventoryApplicationError> =>
+const calculateCraftingExperience = (operation: CraftingOperation): Effect.Effect<number, InventoryApplicationError> =>
   Effect.succeed(10)
 
 const rollbackCraftingMaterials = (
   reservedMaterials: any[],
   inventoryService: InventoryService
-): Effect.Effect<void, InventoryApplicationError> =>
-  Effect.unit
+): Effect.Effect<void, InventoryApplicationError> => Effect.unit
 
 // その他のヘルパー関数も同様に定義（実装は省略）
 const validateTradeConditions = (operation: TradeOperation, validationService: ValidationService) => Effect.unit
 const reserveTradeItems = (offers: any[], inventoryService: InventoryService) => Effect.succeed([])
 const rollbackTradeItems = (items: any[], inventoryService: InventoryService) => Effect.unit
-const calculateTradeValue = (items1: ItemStack[], items2: ItemStack[]) => Effect.succeed({ player1Value: 0, player2Value: 0 })
+const calculateTradeValue = (items1: ItemStack[], items2: ItemStack[]) =>
+  Effect.succeed({ player1Value: 0, player2Value: 0 })
 const analyzeCurrentQuantities = (inventory: any, rules: any[]) => Effect.succeed({})
 const calculateRefillRequirements = (quantities: any, rules: any[]) => Effect.succeed([])
-const checkSourceAvailability = (requirement: any, sources: any[], service: any) => Effect.succeed({ available: true, itemId: '', requestedQuantity: 0, availableQuantity: 0 })
-const executeRefillTransfer = (result: any, targetId: any, service: any) => Effect.succeed({ itemId: '', requestedQuantity: 0, actualQuantity: 0, sourceInventoryId: '', targetSlot: 0 })
+const checkSourceAvailability = (requirement: any, sources: any[], service: any) =>
+  Effect.succeed({ available: true, itemId: '', requestedQuantity: 0, availableQuantity: 0 })
+const executeRefillTransfer = (result: any, targetId: any, service: any) =>
+  Effect.succeed({ itemId: '', requestedQuantity: 0, actualQuantity: 0, sourceInventoryId: '', targetSlot: 0 })
 const createDistributionPlan = (operation: any, service: any) => Effect.succeed([])
 const validateTargetCapacities = (plan: any[], service: any) => Effect.unit
 const executeDistributionPlan = (plan: any, service: any) => Effect.succeed({ inventoryId: '', receivedItems: [] })
@@ -695,5 +654,6 @@ const analyzeSourceInventories = (sources: any[], service: any) => Effect.succee
 const createMergeStrategy = (operation: any, analysis: any) => Effect.succeed({})
 const validateMergeCapacity = (targetId: any, strategy: any, service: any) => Effect.succeed({})
 const executeMergeOperations = (strategy: any, validation: any, service: any) => Effect.succeed([])
-const handleMergeConflicts = (results: any, resolution: string, service: any) => Effect.succeed({ conflictItems: [], overflowItems: [] })
+const handleMergeConflicts = (results: any, resolution: string, service: any) =>
+  Effect.succeed({ conflictItems: [], overflowItems: [] })
 const calculateMergeEfficiency = (analysis: any, results: any[]) => Effect.succeed(100)

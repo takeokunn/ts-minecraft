@@ -5,20 +5,19 @@
  * 不変性を保証する関数型プログラミングパターンを採用
  */
 
-import { Effect, Match, Equal, Hash } from 'effect'
-import { Schema } from 'effect'
+import { Effect, Equal, Hash, Schema } from 'effect'
 import {
-  WorldSeed,
-  WorldSeedSchema,
-  WorldSeedValueObjectSchema,
   CreateWorldSeedParams,
   CreateWorldSeedParamsSchema,
-  WorldSeedError,
   EntropyLevel,
   SeedQuality,
   SeedQualitySchema,
   TimestampSchema,
-  type WorldSeedBrand
+  WorldSeed,
+  WorldSeedError,
+  WorldSeedSchema,
+  WorldSeedValueObjectSchema,
+  type WorldSeedBrand,
 } from './seed.js'
 
 /**
@@ -45,10 +44,12 @@ export const WorldSeedOps = {
         timestamp: Schema.decodeSync(TimestampSchema)(Date.now()),
         entropy,
         humanReadable: validatedParams.humanReadable,
-        context: validatedParams.generator ? {
-          generator: validatedParams.generator,
-          source: validatedParams.source
-        } : undefined
+        context: validatedParams.generator
+          ? {
+              generator: validatedParams.generator,
+              source: validatedParams.source,
+            }
+          : undefined,
       }
 
       // 最終検証
@@ -65,8 +66,8 @@ export const WorldSeedOps = {
         catch: (error) => ({
           _tag: 'InvalidSeedValue' as const,
           value,
-          message: `Invalid seed number: ${error}`
-        })
+          message: `Invalid seed number: ${error}`,
+        }),
       })
 
       return yield* WorldSeedOps.create({ value: seedValue })
@@ -81,7 +82,7 @@ export const WorldSeedOps = {
         return yield* Effect.fail({
           _tag: 'InvalidSeedValue' as const,
           value: input,
-          message: 'Seed string cannot be empty'
+          message: 'Seed string cannot be empty',
         })
       }
 
@@ -92,7 +93,7 @@ export const WorldSeedOps = {
         value: hash,
         humanReadable: input.trim(),
         generator: 'string',
-        source: input
+        source: input,
       })
     }),
 
@@ -105,7 +106,7 @@ export const WorldSeedOps = {
 
       return yield* WorldSeedOps.create({
         value: randomValue,
-        generator: 'random'
+        generator: 'random',
       })
     }),
 
@@ -115,32 +116,29 @@ export const WorldSeedOps = {
   fromTimestamp: (): Effect.Effect<WorldSeed, WorldSeedError> =>
     Effect.gen(function* () {
       const timestamp = Date.now()
-      const seedValue = timestamp % 4294967296 - 2147483648
+      const seedValue = (timestamp % 4294967296) - 2147483648
 
       return yield* WorldSeedOps.create({
         value: seedValue,
         generator: 'timestamp',
-        source: timestamp.toString()
+        source: timestamp.toString(),
       })
     }),
 
   /**
    * 等価性判定 - 値による比較
    */
-  equals: (a: WorldSeed, b: WorldSeed): boolean =>
-    Equal.equals(a.value, b.value),
+  equals: (a: WorldSeed, b: WorldSeed): boolean => Equal.equals(a.value, b.value),
 
   /**
    * ハッシュ値計算
    */
-  hash: (seed: WorldSeed): number =>
-    Hash.hash(seed.value),
+  hash: (seed: WorldSeed): number => Hash.hash(seed.value),
 
   /**
    * 文字列表現
    */
-  toString: (seed: WorldSeed): string =>
-    seed.humanReadable ?? seed.value.toString(),
+  toString: (seed: WorldSeed): string => seed.humanReadable ?? seed.value.toString(),
 
   /**
    * JSON形式変換
@@ -151,7 +149,7 @@ export const WorldSeedOps = {
       timestamp: seed.timestamp,
       entropy: seed.entropy,
       humanReadable: seed.humanReadable,
-      context: seed.context
+      context: seed.context,
     }),
 
   /**
@@ -165,8 +163,8 @@ export const WorldSeedOps = {
           _tag: 'ValidationError' as const,
           field: 'json',
           value: json,
-          message: `Invalid JSON: ${error}`
-        })
+          message: `Invalid JSON: ${error}`,
+        }),
       })
 
       return yield* Schema.decodeUnknown(WorldSeedValueObjectSchema)(parsed)
@@ -196,9 +194,9 @@ export const WorldSeedOps = {
         entropy: seed.entropy,
         distribution: {
           uniformity,
-          complexity
+          complexity,
         },
-        recommendations
+        recommendations,
       }
 
       return yield* Schema.decodeUnknown(SeedQualitySchema)(quality)
@@ -210,13 +208,13 @@ export const WorldSeedOps = {
   derive: (seed: WorldSeed, offset: number): Effect.Effect<WorldSeed, WorldSeedError> =>
     Effect.gen(function* () {
       // 安全な加算（オーバーフロー対応）
-      const newValue = ((seed.value + offset) % 4294967296 + 4294967296) % 4294967296 - 2147483648
+      const newValue = ((((seed.value + offset) % 4294967296) + 4294967296) % 4294967296) - 2147483648
 
       return yield* WorldSeedOps.create({
         value: newValue,
         humanReadable: `${WorldSeedOps.toString(seed)}+${offset}`,
         generator: 'custom',
-        source: `derived from ${seed.value} + ${offset}`
+        source: `derived from ${seed.value} + ${offset}`,
       })
     }),
 
@@ -230,7 +228,7 @@ export const WorldSeedOps = {
           _tag: 'ValidationError' as const,
           field: 'count',
           value: count,
-          message: 'Count must be between 1 and 1000'
+          message: 'Count must be between 1 and 1000',
         })
       }
 
@@ -242,7 +240,7 @@ export const WorldSeedOps = {
       }
 
       return seeds
-    })
+    }),
 }
 
 /**

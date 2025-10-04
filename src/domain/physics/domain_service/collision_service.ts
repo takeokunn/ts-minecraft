@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 import type { AABB, PhysicsWorldId, Vector3 } from '../types/core'
-import { CollisionResult } from '../value_object/collision_result'
 import type { PhysicsError } from '../types/errors'
+import { CollisionResult } from '../value_object/collision_result'
 
 export interface CollisionQuery {
   readonly worldId: PhysicsWorldId
@@ -16,9 +16,7 @@ export interface CollisionService {
   readonly detect: (query: CollisionQuery) => Effect.Effect<CollisionResult, PhysicsError>
 }
 
-export const CollisionService = Context.GenericTag<CollisionService>(
-  '@minecraft/physics/CollisionService'
-)
+export const CollisionService = Context.GenericTag<CollisionService>('@minecraft/physics/CollisionService')
 
 export const CollisionServiceLive = Layer.succeed(CollisionService, {
   detect: (query) =>

@@ -6,36 +6,29 @@
  * メタデータ管理・バージョニング・圧縮システム
  */
 
-import { Effect, Option, ReadonlyArray, Ref, Layer } from 'effect'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import { WorldClock } from '../../time'
-import type {
-  WorldId,
-} from '../../types'
+import type { WorldId } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createDataIntegrityError,
-  createVersioningError,
-  createCompressionError,
-} from '../types'
+import { createCompressionError, createRepositoryError, createVersioningError } from '../types'
 import type {
-  WorldMetadataRepository,
-  WorldMetadataRepositoryConfig,
-  WorldMetadata,
-  WorldSettings,
-  WorldStatistics,
-  MetadataVersion,
-  MetadataChange,
-  VersionHistory,
-  CompressionConfig,
-  CompressionStatistics,
-  MetadataQuery,
-  MetadataSearchResult,
   BackupConfig,
   BackupInfo,
   calculateMetadataChecksum,
-  generateVersionString,
+  CompressionConfig,
+  CompressionStatistics,
   estimateMetadataSize,
+  generateVersionString,
+  MetadataChange,
+  MetadataQuery,
+  MetadataSearchResult,
+  MetadataVersion,
+  VersionHistory,
+  WorldMetadata,
+  WorldMetadataRepository,
+  WorldMetadataRepositoryConfig,
+  WorldSettings,
+  WorldStatistics,
 } from './interface'
 
 // === Implementation ===
@@ -72,8 +65,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
     const currentMillis = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentMillis)
     const currentDate = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentDate)
 
-    const isCacheExpired = (now: number, timestamp: number): boolean =>
-      now - timestamp > ttlMilliseconds
+    const isCacheExpired = (now: number, timestamp: number): boolean => now - timestamp > ttlMilliseconds
 
     const updateChecksum = (metadata: WorldMetadata): Effect.Effect<WorldMetadata> =>
       Effect.map(currentDate, (now) => ({
@@ -114,10 +106,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         }
       })
 
-    const simulateCompression = (
-      data: unknown,
-      compressionConfig: CompressionConfig
-    ): CompressionStatistics => {
+    const simulateCompression = (data: unknown, compressionConfig: CompressionConfig): CompressionStatistics => {
       const serialized = JSON.stringify(data)
       const originalSize = new TextEncoder().encode(serialized).length
 
@@ -173,14 +162,16 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           // Create version if versioning is enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: store.has(metadata.id) ? 'update' : 'create',
-              path: 'metadata',
-              oldValue: store.get(metadata.id),
-              newValue: updatedMetadata,
-              timestamp,
-              reason: 'Automatic versioning on save',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: store.has(metadata.id) ? 'update' : 'create',
+                path: 'metadata',
+                oldValue: store.get(metadata.id),
+                newValue: updatedMetadata,
+                timestamp,
+                reason: 'Automatic versioning on save',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(metadata.id, changes, 'Auto-save'))
           }
@@ -196,7 +187,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             if (cached) {
               const now = yield* currentMillis
               if (!isCacheExpired(now, cached.timestamp)) {
-                yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
+                yield* Ref.update(cacheStats, (stats) => ({ ...stats, hitCount: stats.hitCount + 1 }))
                 return Option.some(cached.metadata)
               }
             }
@@ -206,7 +197,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const store = yield* Ref.get(metadataStore)
           const metadata = store.get(worldId)
 
-          yield* Ref.update(cacheStats, stats => ({ ...stats, missCount: stats.missCount + 1 }))
+          yield* Ref.update(cacheStats, (stats) => ({ ...stats, missCount: stats.missCount + 1 }))
 
           if (metadata && config.cache.enabled) {
             // Update cache
@@ -234,11 +225,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const store = yield* Ref.get(metadataStore)
 
           if (!store.has(metadata.id)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${metadata.id}`,
-              'updateMetadata',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${metadata.id}`, 'updateMetadata', null)
+            )
           }
 
           const oldMetadata = store.get(metadata.id)!
@@ -262,14 +251,16 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: 'update',
-              path: 'metadata',
-              oldValue: oldMetadata,
-              newValue: updatedMetadata,
-              timestamp,
-              reason: 'Automatic versioning on update',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: 'update',
+                path: 'metadata',
+                oldValue: oldMetadata,
+                newValue: updatedMetadata,
+                timestamp,
+                reason: 'Automatic versioning on update',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(metadata.id, changes, 'Auto-update'))
           }
@@ -280,11 +271,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const store = yield* Ref.get(metadataStore)
 
           if (!store.has(worldId)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'deleteMetadata',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'deleteMetadata', null)
+            )
           }
 
           const oldMetadata = store.get(worldId)!
@@ -314,14 +303,16 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           // Create deletion version
           if (config.versioning.enabled) {
             const timestamp = yield* currentDate
-            const changes: MetadataChange[] = [{
-              type: 'delete',
-              path: 'metadata',
-              oldValue: oldMetadata,
-              newValue: undefined,
-              timestamp,
-              reason: 'Metadata deletion',
-            }]
+            const changes: MetadataChange[] = [
+              {
+                type: 'delete',
+                path: 'metadata',
+                oldValue: oldMetadata,
+                newValue: undefined,
+                timestamp,
+                reason: 'Metadata deletion',
+              },
+            ]
 
             yield* Effect.ignore(this.createVersion(worldId, changes, 'Deletion'))
           }
@@ -345,63 +336,55 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           // Apply filters
           if (query.worldId) {
-            candidates = candidates.filter(m => m.id === query.worldId)
+            candidates = candidates.filter((m) => m.id === query.worldId)
           }
 
           if (query.name) {
-            candidates = candidates.filter(m =>
-              m.name.toLowerCase().includes(query.name!.toLowerCase())
-            )
+            candidates = candidates.filter((m) => m.name.toLowerCase().includes(query.name!.toLowerCase()))
           }
 
           if (query.tags && query.tags.length > 0) {
-            candidates = candidates.filter(m =>
-              query.tags!.some(tag => m.tags.includes(tag))
-            )
+            candidates = candidates.filter((m) => query.tags!.some((tag) => m.tags.includes(tag)))
           }
 
           if (query.generatorId) {
-            candidates = candidates.filter(m => m.generatorId === query.generatorId)
+            candidates = candidates.filter((m) => m.generatorId === query.generatorId)
           }
 
           if (query.gameMode) {
-            candidates = candidates.filter(m => m.settings.gameMode === query.gameMode)
+            candidates = candidates.filter((m) => m.settings.gameMode === query.gameMode)
           }
 
           if (query.difficulty) {
-            candidates = candidates.filter(m => m.settings.difficulty === query.difficulty)
+            candidates = candidates.filter((m) => m.settings.difficulty === query.difficulty)
           }
 
           if (query.worldType) {
-            candidates = candidates.filter(m => m.settings.worldType === query.worldType)
+            candidates = candidates.filter((m) => m.settings.worldType === query.worldType)
           }
 
           if (query.createdAfter) {
-            candidates = candidates.filter(m => m.createdAt >= query.createdAfter!)
+            candidates = candidates.filter((m) => m.createdAt >= query.createdAfter!)
           }
 
           if (query.createdBefore) {
-            candidates = candidates.filter(m => m.createdAt <= query.createdBefore!)
+            candidates = candidates.filter((m) => m.createdAt <= query.createdBefore!)
           }
 
           if (query.modifiedAfter) {
-            candidates = candidates.filter(m => m.lastModified >= query.modifiedAfter!)
+            candidates = candidates.filter((m) => m.lastModified >= query.modifiedAfter!)
           }
 
           if (query.modifiedBefore) {
-            candidates = candidates.filter(m => m.lastModified <= query.modifiedBefore!)
+            candidates = candidates.filter((m) => m.lastModified <= query.modifiedBefore!)
           }
 
           if (query.minSize !== undefined) {
-            candidates = candidates.filter(m =>
-              m.statistics.size.uncompressedSize >= query.minSize!
-            )
+            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize >= query.minSize!)
           }
 
           if (query.maxSize !== undefined) {
-            candidates = candidates.filter(m =>
-              m.statistics.size.uncompressedSize <= query.maxSize!
-            )
+            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize <= query.maxSize!)
           }
 
           // Sort results
@@ -437,7 +420,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           }
 
           // Create search results
-          const results: MetadataSearchResult[] = candidates.map(metadata => ({
+          const results: MetadataSearchResult[] = candidates.map((metadata) => ({
             metadata,
             relevanceScore: 1.0, // Simplified scoring
             matchedFields: ['name'], // Simplified field matching
@@ -455,11 +438,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const metadata = store.get(worldId)
 
           if (!metadata) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'updateSettings',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'updateSettings', null)
+            )
           }
 
           const updatedMetadata = yield* updateChecksum({
@@ -523,11 +504,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const settings = yield* this.getSettings(worldId)
 
           if (Option.isNone(settings)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World settings not found: ${worldId}`,
-              'setGameRule',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World settings not found: ${worldId}`, 'setGameRule', null)
+            )
           }
 
           const updatedGameRules = { ...settings.value.gameRules, [rule]: value }
@@ -553,11 +532,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const metadata = store.get(worldId)
 
           if (!metadata) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'updateStatistics',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'updateStatistics', null)
+            )
           }
 
           const lastUpdated = yield* currentDate
@@ -622,11 +599,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const currentStats = yield* this.getStatistics(worldId)
 
           if (Option.isNone(currentStats)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World statistics not found: ${worldId}`,
-              'recordPerformanceMetric',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World statistics not found: ${worldId}`, 'recordPerformanceMetric', null)
+            )
           }
 
           // Simple implementation - would be more sophisticated in real implementation
@@ -645,16 +620,19 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const currentStats = yield* this.getStatistics(worldId)
 
           if (Option.isNone(currentStats)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World statistics not found: ${worldId}`,
-              'updateContentStatistics',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World statistics not found: ${worldId}`, 'updateContentStatistics', null)
+            )
           }
 
           const updatedContent = {
             ...currentStats.value.content,
-            [`${contentType}Count`]: { ...currentStats.value.content[`${contentType}Count` as keyof typeof currentStats.value.content] as Record<string, number>, [contentType]: count },
+            [`${contentType}Count`]: {
+              ...(currentStats.value.content[
+                `${contentType}Count` as keyof typeof currentStats.value.content
+              ] as Record<string, number>),
+              [contentType]: count,
+            },
           }
 
           yield* this.updateStatistics(worldId, {
@@ -667,11 +645,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       createVersion: (worldId: WorldId, changes: ReadonlyArray<MetadataChange>, description?: string) =>
         Effect.gen(function* () {
           if (!config.versioning.enabled) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              'Versioning is disabled',
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, 'Versioning is disabled', null))
           }
 
           const version = yield* createMetadataVersion(worldId, changes, description)
@@ -682,8 +656,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           // Check version limit
           if (worldVersions.size >= config.versioning.maxVersionsPerWorld) {
             // Remove oldest version
-            const oldest = Array.from(worldVersions.entries())
-              .sort(([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime())[0]
+            const oldest = Array.from(worldVersions.entries()).sort(
+              ([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime()
+            )[0]
             worldVersions.delete(oldest[0])
           }
 
@@ -751,17 +726,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const versionData = yield* this.getVersion(worldId, version)
 
           if (Option.isNone(versionData)) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              `Version not found: ${version}`,
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, `Version not found: ${version}`, null))
           }
 
           // Apply changes in reverse (simplified implementation)
           const changes = versionData.value.changes
           const timestamp = yield* currentDate
-          const restorationChanges: MetadataChange[] = changes.map(change => ({
+          const restorationChanges: MetadataChange[] = changes.map((change) => ({
             ...change,
             type: change.type === 'create' ? 'delete' : change.type === 'delete' ? 'create' : 'update',
             oldValue: change.newValue,
@@ -779,11 +750,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const v2 = yield* this.getVersion(worldId, version2)
 
           if (Option.isNone(v1) || Option.isNone(v2)) {
-            return yield* Effect.fail(createVersioningError(
-              worldId,
-              'One or both versions not found',
-              null
-            ))
+            return yield* Effect.fail(createVersioningError(worldId, 'One or both versions not found', null))
           }
 
           // Simplified comparison - return combined changes
@@ -837,11 +804,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createCompressionError(
-              worldId,
-              'Metadata not found for compression',
-              null
-            ))
+            return yield* Effect.fail(createCompressionError(worldId, 'Metadata not found for compression', null))
           }
 
           const compressionStats = simulateCompression(metadata.value, compressionConfig)
@@ -859,11 +822,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const compressionMap = yield* Ref.get(compressionStore)
 
           if (!compressionMap.has(worldId)) {
-            return yield* Effect.fail(createCompressionError(
-              worldId,
-              'No compression data found',
-              null
-            ))
+            return yield* Effect.fail(createCompressionError(worldId, 'No compression data found', null))
           }
 
           // Simulate decompression
@@ -878,11 +837,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           return Option.fromNullable(compressionMap.get(worldId))
         }),
 
-      updateCompressionConfig: (worldId: WorldId, compressionConfig: CompressionConfig) =>
-        Effect.succeed(undefined), // Mock implementation
+      updateCompressionConfig: (worldId: WorldId, compressionConfig: CompressionConfig) => Effect.succeed(undefined), // Mock implementation
 
-      enableAutoCompression: (worldId: WorldId, threshold: number) =>
-        Effect.succeed(undefined), // Mock implementation
+      enableAutoCompression: (worldId: WorldId, threshold: number) => Effect.succeed(undefined), // Mock implementation
 
       // === Backup System ===
 
@@ -891,11 +848,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const metadata = yield* this.findMetadata(worldId)
 
           if (Option.isNone(metadata)) {
-            return yield* Effect.fail(createRepositoryError(
-              `World metadata not found: ${worldId}`,
-              'createBackup',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`World metadata not found: ${worldId}`, 'createBackup', null)
+            )
           }
 
           const millis = yield* currentMillis
@@ -937,7 +892,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           const backupIds = worldBackupMap.get(worldId) || []
           const backups = backupIds
-            .map(id => backupMap.get(id))
+            .map((id) => backupMap.get(id))
             .filter((backup): backup is BackupInfo => backup !== undefined)
 
           return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
@@ -949,23 +904,23 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const backup = backupMap.get(backupId)
 
           if (!backup || backup.worldId !== worldId) {
-            return yield* Effect.fail(createRepositoryError(
-              `Backup not found or not associated with world: ${backupId}`,
-              'restoreBackup',
-              null
-            ))
+            return yield* Effect.fail(
+              createRepositoryError(`Backup not found or not associated with world: ${backupId}`, 'restoreBackup', null)
+            )
           }
 
           // Mock restoration - in real implementation would restore actual data
           const timestamp = yield* currentDate
-          const changes: MetadataChange[] = [{
-            type: 'update',
-            path: 'metadata',
-            oldValue: undefined,
-            newValue: backup,
-            timestamp,
-            reason: `Restore from backup ${backupId}`,
-          }]
+          const changes: MetadataChange[] = [
+            {
+              type: 'update',
+              path: 'metadata',
+              oldValue: undefined,
+              newValue: backup,
+              timestamp,
+              reason: `Restore from backup ${backupId}`,
+            },
+          ]
 
           yield* this.createVersion(worldId, changes, `Restore from backup ${backupId}`)
         }),
@@ -976,11 +931,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const backup = backupMap.get(backupId)
 
           if (!backup) {
-            return yield* Effect.fail(createRepositoryError(
-              `Backup not found: ${backupId}`,
-              'deleteBackup',
-              null
-            ))
+            return yield* Effect.fail(createRepositoryError(`Backup not found: ${backupId}`, 'deleteBackup', null))
           }
 
           const updatedBackupMap = new Map(backupMap)
@@ -990,7 +941,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           // Remove from world backup list
           const worldBackupMap = yield* Ref.get(worldBackupsStore)
           const currentBackups = worldBackupMap.get(backup.worldId) || []
-          const filteredBackups = currentBackups.filter(id => id !== backupId)
+          const filteredBackups = currentBackups.filter((id) => id !== backupId)
 
           const updatedWorldBackupMap = new Map(worldBackupMap)
           updatedWorldBackupMap.set(backup.worldId, filteredBackups)
@@ -1016,18 +967,16 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           }
         }),
 
-      configureAutoBackup: (worldId: WorldId, backupConfig: BackupConfig) =>
-        Effect.succeed(undefined), // Mock implementation
+      configureAutoBackup: (worldId: WorldId, backupConfig: BackupConfig) => Effect.succeed(undefined), // Mock implementation
 
       // === Index Management ===
 
-      rebuildIndexes: (worldId?: WorldId) =>
-        Effect.succeed(undefined), // Mock implementation
+      rebuildIndexes: (worldId?: WorldId) => Effect.succeed(undefined), // Mock implementation
 
       optimizeIndexes: () =>
         Effect.succeed({
           beforeSize: 1024 * 1024, // 1MB
-          afterSize: 800 * 1024,   // 800KB
+          afterSize: 800 * 1024, // 800KB
           improvementRatio: 0.2,
         }),
 
@@ -1278,7 +1227,4 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 // === Layer ===
 
 export const WorldMetadataRepositoryMemoryLive = (config: WorldMetadataRepositoryConfig) =>
-  Layer.effect(
-    WorldMetadataRepository,
-    WorldMetadataRepositoryMemoryImplementation(config)
-  )
+  Layer.effect(WorldMetadataRepository, WorldMetadataRepositoryMemoryImplementation(config))

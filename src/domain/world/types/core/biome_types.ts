@@ -5,7 +5,7 @@
 
 import { Brand, Schema } from 'effect'
 import { BIOME_CONSTANTS } from '../constants/biome_constants'
-import { BlockPosition, CircularArea, RectangularArea } from './coordinate_types'
+import { RectangularArea } from './coordinate_types'
 
 // === バイオーム識別子型 ===
 
@@ -23,11 +23,9 @@ export const BiomeIdSchema = Schema.String.pipe(
 )
 
 /** バイオームカテゴリ */
-export type BiomeCategory = typeof BIOME_CONSTANTS.CATEGORIES[keyof typeof BIOME_CONSTANTS.CATEGORIES]
+export type BiomeCategory = (typeof BIOME_CONSTANTS.CATEGORIES)[keyof typeof BIOME_CONSTANTS.CATEGORIES]
 
-export const BiomeCategorySchema = Schema.Literal(
-  ...Object.values(BIOME_CONSTANTS.CATEGORIES)
-).pipe(
+export const BiomeCategorySchema = Schema.Literal(...Object.values(BIOME_CONSTANTS.CATEGORIES)).pipe(
   Schema.annotations({
     title: 'Biome Category',
     description: 'High-level biome categorization',
@@ -152,19 +150,19 @@ export const ClimateDataSchema = Schema.Struct({
 
 /** バイオーム色彩情報 */
 export interface BiomeColors {
-  readonly grass: number    // 16進数RGB
-  readonly foliage: number  // 16進数RGB
-  readonly water: number    // 16進数RGB
-  readonly fog: number      // 16進数RGB
-  readonly sky: number      // 16進数RGB
+  readonly grass: number // 16進数RGB
+  readonly foliage: number // 16進数RGB
+  readonly water: number // 16進数RGB
+  readonly fog: number // 16進数RGB
+  readonly sky: number // 16進数RGB
 }
 
 export const BiomeColorsSchema = Schema.Struct({
-  grass: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xFFFFFF)),
-  foliage: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xFFFFFF)),
-  water: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xFFFFFF)),
-  fog: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xFFFFFF)),
-  sky: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xFFFFFF)),
+  grass: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff)),
+  foliage: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff)),
+  water: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff)),
+  fog: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff)),
+  sky: Schema.Number.pipe(Schema.int(), Schema.between(0, 0xffffff)),
 }).pipe(
   Schema.annotations({
     title: 'Biome Colors',
@@ -193,22 +191,28 @@ export interface BiomeSounds {
 }
 
 export const BiomeSoundsSchema = Schema.Struct({
-  ambient: Schema.optional(Schema.Struct({
-    sound: Schema.String,
-    volume: Schema.Number.pipe(Schema.between(0, 1)),
-    pitch: Schema.Number.pipe(Schema.between(0, 2)),
-  })),
-  music: Schema.optional(Schema.Struct({
-    sound: Schema.String,
-    volume: Schema.Number.pipe(Schema.between(0, 1)),
-    minDelay: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    maxDelay: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  })),
-  mood: Schema.optional(Schema.Struct({
-    sound: Schema.String,
-    volume: Schema.Number.pipe(Schema.between(0, 1)),
-    offset: Schema.Number.pipe(Schema.nonNegative()),
-  })),
+  ambient: Schema.optional(
+    Schema.Struct({
+      sound: Schema.String,
+      volume: Schema.Number.pipe(Schema.between(0, 1)),
+      pitch: Schema.Number.pipe(Schema.between(0, 2)),
+    })
+  ),
+  music: Schema.optional(
+    Schema.Struct({
+      sound: Schema.String,
+      volume: Schema.Number.pipe(Schema.between(0, 1)),
+      minDelay: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+      maxDelay: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    })
+  ),
+  mood: Schema.optional(
+    Schema.Struct({
+      sound: Schema.String,
+      volume: Schema.Number.pipe(Schema.between(0, 1)),
+      offset: Schema.Number.pipe(Schema.nonNegative()),
+    })
+  ),
 }).pipe(
   Schema.annotations({
     title: 'Biome Sounds',
@@ -448,7 +452,7 @@ export interface BiomeTransitionRule {
 export const BiomeTransitionRuleSchema = Schema.Struct({
   from: BiomeIdSchema,
   to: BiomeIdSchema,
-  transitionZone: Schema.suspend(() => import('./coordinate_types').then(m => m.RectangularAreaSchema)),
+  transitionZone: Schema.suspend(() => import('./coordinate_types').then((m) => m.RectangularAreaSchema)),
   blendFunction: Schema.Literal('linear', 'smooth', 'step'),
   blendDistance: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 }).pipe(
@@ -461,16 +465,13 @@ export const BiomeTransitionRuleSchema = Schema.Struct({
 // === 作成ヘルパー関数 ===
 
 /** BiomeId作成ヘルパー */
-export const createBiomeId = (id: string): BiomeId =>
-  Schema.decodeSync(BiomeIdSchema)(id)
+export const createBiomeId = (id: string): BiomeId => Schema.decodeSync(BiomeIdSchema)(id)
 
 /** Temperature作成ヘルパー */
-export const createTemperature = (value: number): Temperature =>
-  Schema.decodeSync(TemperatureSchema)(value)
+export const createTemperature = (value: number): Temperature => Schema.decodeSync(TemperatureSchema)(value)
 
 /** Humidity作成ヘルパー */
-export const createHumidity = (value: number): Humidity =>
-  Schema.decodeSync(HumiditySchema)(value)
+export const createHumidity = (value: number): Humidity => Schema.decodeSync(HumiditySchema)(value)
 
 /** ClimateData作成ヘルパー */
 export const createClimateData = (

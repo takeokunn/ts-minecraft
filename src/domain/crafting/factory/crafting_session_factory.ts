@@ -1,7 +1,7 @@
-import { Array, Context, Effect, Layer, Random, Ref, pipe } from 'effect'
-import { CraftingGrid } from '../types'
-import { CraftingEngineService } from '../application_service/crafting_engine'
+import { Array, Context, Effect, Layer, Random, pipe } from 'effect'
 import { RecipeAggregate } from '../aggregate/recipe'
+import { CraftingEngineService } from '../application_service/crafting_engine'
+import { CraftingGrid } from '../types'
 
 export interface CraftingSession {
   readonly sessionId: string
@@ -41,10 +41,7 @@ export const CraftingSessionFactoryLive = Layer.effect(
       }))
 
     const evaluate: CraftingSessionFactory['evaluate'] = (session, grid, engine) =>
-      pipe(
-        engine.matchAggregate(session.registered, grid),
-        Effect.map(Option.isSome)
-      )
+      pipe(engine.matchAggregate(session.registered, grid), Effect.map(Option.isSome))
 
     return {
       create,

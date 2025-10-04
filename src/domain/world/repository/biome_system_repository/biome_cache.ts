@@ -6,20 +6,17 @@
  * バイオームクエリの最適化とメモリ効率
  */
 
-import { Effect, Option, Ref, STM } from 'effect'
-import type {
-  BiomeId,
-  WorldCoordinate,
-} from '../../types'
+import { Effect, Option, Ref } from 'effect'
+import type { BiomeId, WorldCoordinate } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 import { createCacheError } from '../types'
 import type {
-  SpatialCoordinate,
   SpatialBounds,
+  SpatialCoordinate,
   SpatialQueryResult,
-  coordinateToKey,
   calculateDistance,
   coordinateInBounds,
+  coordinateToKey,
 } from './interface'
 
 // === Cache Configuration ===
@@ -107,18 +104,41 @@ export interface BiomeCacheStatistics {
 export interface BiomeCache {
   // === Spatial Caching ===
   readonly getBiomeAt: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<BiomeId>, AllRepositoryErrors>
-  readonly setBiomeAt: (coordinate: SpatialCoordinate, biomeId: BiomeId, confidence?: number) => Effect.Effect<void, AllRepositoryErrors>
-  readonly getBiomesInBounds: (bounds: SpatialBounds) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
-  readonly setBiomesInBounds: (bounds: SpatialBounds, results: ReadonlyArray<SpatialQueryResult>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly setBiomeAt: (
+    coordinate: SpatialCoordinate,
+    biomeId: BiomeId,
+    confidence?: number
+  ) => Effect.Effect<void, AllRepositoryErrors>
+  readonly getBiomesInBounds: (
+    bounds: SpatialBounds
+  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
+  readonly setBiomesInBounds: (
+    bounds: SpatialBounds,
+    results: ReadonlyArray<SpatialQueryResult>
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   // === Query Caching ===
-  readonly getCachedQuery: (queryHash: string) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
-  readonly setCachedQuery: (queryHash: string, results: ReadonlyArray<SpatialQueryResult>, bounds: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
+  readonly getCachedQuery: (
+    queryHash: string
+  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
+  readonly setCachedQuery: (
+    queryHash: string,
+    results: ReadonlyArray<SpatialQueryResult>,
+    bounds: SpatialBounds
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   // === Spatial Clustering ===
-  readonly getCluster: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<SpatialCluster>, AllRepositoryErrors>
-  readonly updateCluster: (coordinate: SpatialCoordinate, biomeDistribution: Map<BiomeId, number>) => Effect.Effect<void, AllRepositoryErrors>
-  readonly getNearbyCluster: (coordinate: SpatialCoordinate, radius: number) => Effect.Effect<ReadonlyArray<SpatialCluster>, AllRepositoryErrors>
+  readonly getCluster: (
+    coordinate: SpatialCoordinate
+  ) => Effect.Effect<Option.Option<SpatialCluster>, AllRepositoryErrors>
+  readonly updateCluster: (
+    coordinate: SpatialCoordinate,
+    biomeDistribution: Map<BiomeId, number>
+  ) => Effect.Effect<void, AllRepositoryErrors>
+  readonly getNearbyCluster: (
+    coordinate: SpatialCoordinate,
+    radius: number
+  ) => Effect.Effect<ReadonlyArray<SpatialCluster>, AllRepositoryErrors>
 
   // === Cache Management ===
   readonly clear: (bounds?: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
@@ -128,12 +148,17 @@ export interface BiomeCache {
 
   // === Preloading & Warmup ===
   readonly warmupRegion: (bounds: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
-  readonly preloadCluster: (centerCoordinate: SpatialCoordinate, radius: number) => Effect.Effect<void, AllRepositoryErrors>
+  readonly preloadCluster: (
+    centerCoordinate: SpatialCoordinate,
+    radius: number
+  ) => Effect.Effect<void, AllRepositoryErrors>
 }
 
 // === Cache Implementation ===
 
-export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheConfig): Effect.Effect<BiomeCache, AllRepositoryErrors> =>
+export const createBiomeCache = (
+  config: BiomeCacheConfig = defaultBiomeCacheConfig
+): Effect.Effect<BiomeCache, AllRepositoryErrors> =>
   Effect.gen(function* () {
     // Cache state references
     const spatialCache = yield* Ref.make(new Map<string, BiomeCacheEntry>())
@@ -161,8 +186,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
 
     const getCurrentTimestamp = (): number => Date.now()
 
-    const isExpired = (timestamp: number): boolean =>
-      getCurrentTimestamp() - timestamp > config.ttlSeconds * 1000
+    const isExpired = (timestamp: number): boolean => getCurrentTimestamp() - timestamp > config.ttlSeconds * 1000
 
     const getGridKey = (coordinate: SpatialCoordinate): string => {
       const gridX = Math.floor(coordinate.x / config.spatialGridSize) * config.spatialGridSize
@@ -176,7 +200,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
       let hash = 0
       for (let i = 0; i < data.length; i++) {
         const char = data.charCodeAt(i)
-        hash = ((hash << 5) - hash) + char
+        hash = (hash << 5) - hash + char
         hash = hash & hash // Convert to 32-bit integer
       }
       return hash.toString()
@@ -200,7 +224,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
         }
 
         yield* Ref.set(spatialCache, updated)
-        yield* Ref.update(spatialStats, stats => ({
+        yield* Ref.update(spatialStats, (stats) => ({
           ...stats,
           evictionCount: stats.evictionCount + toEvict.length,
         }))
@@ -222,7 +246,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
         }
 
         yield* Ref.set(queryCache, updated)
-        yield* Ref.update(queryStats, stats => ({
+        yield* Ref.update(queryStats, (stats) => ({
           ...stats,
           evictionCount: stats.evictionCount + toEvict.length,
         }))
@@ -250,7 +274,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
             })
             yield* Ref.set(spatialCache, updated)
 
-            yield* Ref.update(spatialStats, stats => ({
+            yield* Ref.update(spatialStats, (stats) => ({
               ...stats,
               hitCount: stats.hitCount + 1,
               totalAccessTime: stats.totalAccessTime + (getCurrentTimestamp() - startTime),
@@ -260,7 +284,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
             return Option.some(entry.biomeId)
           }
 
-          yield* Ref.update(spatialStats, stats => ({
+          yield* Ref.update(spatialStats, (stats) => ({
             ...stats,
             missCount: stats.missCount + 1,
             totalAccessTime: stats.totalAccessTime + (getCurrentTimestamp() - startTime),
@@ -357,7 +381,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
             })
             yield* Ref.set(queryCache, updated)
 
-            yield* Ref.update(queryStats, stats => ({
+            yield* Ref.update(queryStats, (stats) => ({
               ...stats,
               hitCount: stats.hitCount + 1,
             }))
@@ -365,7 +389,7 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
             return Option.some(entry.results)
           }
 
-          yield* Ref.update(queryStats, stats => ({
+          yield* Ref.update(queryStats, (stats) => ({
             ...stats,
             missCount: stats.missCount + 1,
           }))
@@ -432,8 +456,10 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
 
           const cluster: SpatialCluster = {
             centerCoordinate: {
-              x: Math.floor(coordinate.x / config.spatialGridSize) * config.spatialGridSize + config.spatialGridSize / 2 as WorldCoordinate,
-              z: Math.floor(coordinate.z / config.spatialGridSize) * config.spatialGridSize + config.spatialGridSize / 2 as WorldCoordinate,
+              x: (Math.floor(coordinate.x / config.spatialGridSize) * config.spatialGridSize +
+                config.spatialGridSize / 2) as WorldCoordinate,
+              z: (Math.floor(coordinate.z / config.spatialGridSize) * config.spatialGridSize +
+                config.spatialGridSize / 2) as WorldCoordinate,
             },
             radius: config.spatialGridSize / 2,
             dominantBiome,
@@ -461,9 +487,9 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
             }
           }
 
-          return nearby.sort((a, b) =>
-            calculateDistance(coordinate, a.centerCoordinate) -
-            calculateDistance(coordinate, b.centerCoordinate)
+          return nearby.sort(
+            (a, b) =>
+              calculateDistance(coordinate, a.centerCoordinate) - calculateDistance(coordinate, b.centerCoordinate)
           )
         }),
 
@@ -634,19 +660,13 @@ export const createBiomeCache = (config: BiomeCacheConfig = defaultBiomeCacheCon
 
       // === Preloading & Warmup ===
 
-      warmupRegion: (bounds: SpatialBounds) =>
-        Effect.succeed(undefined), // Mock implementation
+      warmupRegion: (bounds: SpatialBounds) => Effect.succeed(undefined), // Mock implementation
 
-      preloadCluster: (centerCoordinate: SpatialCoordinate, radius: number) =>
-        Effect.succeed(undefined), // Mock implementation
+      preloadCluster: (centerCoordinate: SpatialCoordinate, radius: number) => Effect.succeed(undefined), // Mock implementation
     }
   }).pipe(
     Effect.catchAll((error) =>
-      Effect.fail(createCacheError(
-        `Failed to create biome cache: ${error}`,
-        'createBiomeCache',
-        error
-      ))
+      Effect.fail(createCacheError(`Failed to create biome cache: ${error}`, 'createBiomeCache', error))
     )
   )
 

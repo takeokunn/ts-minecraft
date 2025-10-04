@@ -5,10 +5,9 @@
  * バランス調整とパフォーマンス最適化を両立
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 密度値Brand型（0.0から1.0）
@@ -36,7 +35,7 @@ export const DensityValueSchema = Schema.Number.pipe(
     identifier: 'DensityValue',
     title: 'Structure Density',
     description: 'Density value from 0.0 (no structures) to 1.0 (maximum density)',
-    examples: [0.1, 0.5, 0.8, 0.05]
+    examples: [0.1, 0.5, 0.8, 0.05],
   })
 )
 
@@ -53,7 +52,7 @@ export const SpacingValueSchema = Schema.Number.pipe(
     identifier: 'SpacingValue',
     title: 'Structure Spacing',
     description: 'Minimum spacing between structures in chunks',
-    examples: [8, 16, 32, 64]
+    examples: [8, 16, 32, 64],
   })
 )
 
@@ -68,7 +67,7 @@ export const ProbabilityValueSchema = Schema.Number.pipe(
     identifier: 'ProbabilityValue',
     title: 'Generation Probability',
     description: 'Probability of structure generation at valid location',
-    examples: [0.01, 0.1, 0.25, 0.5]
+    examples: [0.01, 0.1, 0.25, 0.5],
   })
 )
 
@@ -114,7 +113,7 @@ export const StructureTypeSchema = Schema.Literal(
 ).pipe(
   Schema.annotations({
     title: 'Structure Type',
-    description: 'Type of generated structure'
+    description: 'Type of generated structure',
   })
 )
 
@@ -124,15 +123,15 @@ export type StructureType = typeof StructureTypeSchema.Type
  * 構造物サイズ分類
  */
 export const StructureSizeSchema = Schema.Literal(
-  'tiny',    // 1-4チャンク
-  'small',   // 4-16チャンク
-  'medium',  // 16-64チャンク
-  'large',   // 64-256チャンク
-  'massive'  // 256+チャンク
+  'tiny', // 1-4チャンク
+  'small', // 4-16チャンク
+  'medium', // 16-64チャンク
+  'large', // 64-256チャンク
+  'massive' // 256+チャンク
 ).pipe(
   Schema.annotations({
     title: 'Structure Size',
-    description: 'Size classification of structure'
+    description: 'Size classification of structure',
   })
 )
 
@@ -157,12 +156,12 @@ export const GenerationConditionSchema = Schema.Struct({
 
   // 近接制限
   minDistanceFromOtherStructures: SpacingValueSchema.pipe(Schema.optional),
-  conflictingStructures: Schema.Array(StructureTypeSchema).pipe(Schema.optional)
+  conflictingStructures: Schema.Array(StructureTypeSchema).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'GenerationCondition',
     title: 'Structure Generation Condition',
-    description: 'Conditions that must be met for structure generation'
+    description: 'Conditions that must be met for structure generation',
   })
 )
 
@@ -197,20 +196,20 @@ export const StructureDensityConfigSchema = Schema.Struct({
     enabled: Schema.Boolean,
     clusterSize: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
     clusterRadius: SpacingValueSchema,
-    clusterProbability: ProbabilityValueSchema
+    clusterProbability: ProbabilityValueSchema,
   }).pipe(Schema.optional),
 
   // パフォーマンス設定
   performance: Schema.Struct({
     maxPerChunk: Schema.Number.pipe(Schema.int(), Schema.between(0, 10)),
     generationPriority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
-    cacheEnabled: Schema.Boolean
-  }).pipe(Schema.optional)
+    cacheEnabled: Schema.Boolean,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'StructureDensityConfig',
     title: 'Individual Structure Density Configuration',
-    description: 'Complete density configuration for a specific structure type'
+    description: 'Complete density configuration for a specific structure type',
   })
 )
 
@@ -231,7 +230,7 @@ export const OverallStructureDensitySchema = Schema.Struct({
   // 個別構造物設定
   structures: Schema.Record({
     key: StructureTypeSchema,
-    value: StructureDensityConfigSchema
+    value: StructureDensityConfigSchema,
   }),
 
   // バイオーム固有の調整
@@ -240,8 +239,8 @@ export const OverallStructureDensitySchema = Schema.Struct({
     value: Schema.Struct({
       densityMultiplier: DensityValueSchema,
       disabledStructures: Schema.Array(StructureTypeSchema),
-      bonusStructures: Schema.Array(StructureTypeSchema)
-    })
+      bonusStructures: Schema.Array(StructureTypeSchema),
+    }),
   }).pipe(Schema.optional),
 
   // 距離による調整
@@ -250,7 +249,7 @@ export const OverallStructureDensitySchema = Schema.Struct({
     originX: Schema.Number,
     originZ: Schema.Number,
     scalingFactor: Schema.Number.pipe(Schema.positive()),
-    maxDistance: Schema.Number.pipe(Schema.positive())
+    maxDistance: Schema.Number.pipe(Schema.positive()),
   }).pipe(Schema.optional),
 
   // 世代管理（バージョン互換性）
@@ -263,13 +262,13 @@ export const OverallStructureDensitySchema = Schema.Struct({
   performanceLimits: Schema.Struct({
     maxStructuresPerSecond: Schema.Number.pipe(Schema.positive()),
     maxMemoryUsageMB: Schema.Number.pipe(Schema.positive()),
-    enableAsyncGeneration: Schema.Boolean
-  }).pipe(Schema.optional)
+    enableAsyncGeneration: Schema.Boolean,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'OverallStructureDensity',
     title: 'Overall Structure Density Configuration',
-    description: 'Complete structure density configuration for world generation'
+    description: 'Complete structure density configuration for world generation',
   })
 )
 
@@ -284,8 +283,8 @@ export const CreateStructureDensityParamsSchema = Schema.Struct({
   enabledStructures: Schema.Array(StructureTypeSchema).pipe(Schema.optional),
   customSettings: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown
-  }).pipe(Schema.optional)
+    value: Schema.Unknown,
+  }).pipe(Schema.optional),
 })
 
 export type CreateStructureDensityParams = typeof CreateStructureDensityParamsSchema.Type
@@ -299,21 +298,21 @@ export const StructureDensityErrorSchema = taggedUnion('_tag', [
     structure: StructureTypeSchema,
     parameter: Schema.String,
     value: Schema.Unknown,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ConflictingStructures'),
     structures: Schema.Array(StructureTypeSchema),
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PerformanceLimitExceeded'),
     limit: Schema.String,
     currentValue: Schema.Number,
     maxValue: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type StructureDensityError = typeof StructureDensityErrorSchema.Type
@@ -324,18 +323,18 @@ export type StructureDensityError = typeof StructureDensityErrorSchema.Type
 export const DENSITY_PRESETS = {
   SPARSE: {
     globalMultiplier: 0.3,
-    description: 'Minimal structure generation for exploration-focused gameplay'
+    description: 'Minimal structure generation for exploration-focused gameplay',
   },
   NORMAL: {
     globalMultiplier: 1.0,
-    description: 'Balanced structure generation matching vanilla Minecraft'
+    description: 'Balanced structure generation matching vanilla Minecraft',
   },
   DENSE: {
     globalMultiplier: 2.0,
-    description: 'Increased structure density for adventure-focused gameplay'
+    description: 'Increased structure density for adventure-focused gameplay',
   },
   EXTREME: {
     globalMultiplier: 4.0,
-    description: 'Maximum structure density for creative or testing purposes'
-  }
+    description: 'Maximum structure density for creative or testing purposes',
+  },
 } as const

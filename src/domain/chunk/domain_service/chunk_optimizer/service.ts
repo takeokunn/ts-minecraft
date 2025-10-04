@@ -1,7 +1,7 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
-import { CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_VOLUME } from '../../types/core'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 export type OptimizationStrategy =
   | { readonly _tag: 'MemoryOptimization'; readonly aggressive: boolean }
@@ -49,15 +49,31 @@ export interface OptimizationResult {
 
 export interface ChunkOptimizationService {
   readonly optimizeMemory: (chunk: ChunkData) => Effect.Effect<ChunkData, ChunkDataValidationError>
-  readonly optimizeCompression: (chunk: ChunkData, algorithm?: 'rle' | 'delta' | 'palette') => Effect.Effect<ChunkData, ChunkDataValidationError>
+  readonly optimizeCompression: (
+    chunk: ChunkData,
+    algorithm?: 'rle' | 'delta' | 'palette'
+  ) => Effect.Effect<ChunkData, ChunkDataValidationError>
   readonly optimizeAccess: (
     chunk: ChunkData,
-    accessPatterns?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number; readonly frequency: number }>
+    accessPatterns?: ReadonlyArray<{
+      readonly x: number
+      readonly y: number
+      readonly z: number
+      readonly frequency: number
+    }>
   ) => Effect.Effect<ChunkData, ChunkDataValidationError>
   readonly analyzeEfficiency: (chunk: ChunkData) => Effect.Effect<OptimizationMetrics, ChunkDataValidationError>
-  readonly suggestOptimizations: (metrics: OptimizationMetrics) => Effect.Effect<ReadonlyArray<OptimizationStrategy>, ChunkDataValidationError>
-  readonly applyOptimization: (chunk: ChunkData, strategy: OptimizationStrategy) => Effect.Effect<OptimizationResult, ChunkDataValidationError>
-  readonly eliminateRedundancy: (chunk: ChunkData, threshold?: number) => Effect.Effect<ChunkData, ChunkDataValidationError>
+  readonly suggestOptimizations: (
+    metrics: OptimizationMetrics
+  ) => Effect.Effect<ReadonlyArray<OptimizationStrategy>, ChunkDataValidationError>
+  readonly applyOptimization: (
+    chunk: ChunkData,
+    strategy: OptimizationStrategy
+  ) => Effect.Effect<OptimizationResult, ChunkDataValidationError>
+  readonly eliminateRedundancy: (
+    chunk: ChunkData,
+    threshold?: number
+  ) => Effect.Effect<ChunkData, ChunkDataValidationError>
   readonly defragment: (chunk: ChunkData) => Effect.Effect<ChunkData, ChunkDataValidationError>
 }
 
@@ -76,10 +92,7 @@ const toFrequencyMap = (blocks: Uint16Array): Map<number, number> =>
 const sortedByFrequency = (frequencyMap: Map<number, number>): ReadonlyArray<[number, number]> =>
   Array.from(frequencyMap.entries()).sort(([, a], [, b]) => b - a)
 
-const computeOptimizationMetadata = (
-  chunk: ChunkData,
-  optimizedBlocks: ReadonlyArray<number>
-) => ({
+const computeOptimizationMetadata = (chunk: ChunkData, optimizedBlocks: ReadonlyArray<number>) => ({
   ...chunk,
   blocks: Uint16Array.from(optimizedBlocks),
   metadata: {
@@ -118,33 +131,34 @@ const runLengthEncode = (blockArray: ReadonlyArray<number>): ReadonlyArray<numbe
     last: Option.none<{ readonly blockId: number; readonly count: number }>(),
   }
 
-  const state = blockArray.reduce((current, blockId) =>
-    pipe(
-      current.last,
-      Option.flatMap((lastEntry) =>
-        pipe(
-          lastEntry.blockId === blockId && lastEntry.count < 65535,
-          Match.value,
-          Match.when(true, () =>
-            Option.some<{ readonly blockId: number; readonly count: number }>({
-              blockId,
-              count: lastEntry.count + 1,
-            })
-          ),
-          Match.orElse(() => Option.none<{ readonly blockId: number; readonly count: number }>() )
-        )
+  const state = blockArray.reduce(
+    (current, blockId) =>
+      pipe(
+        current.last,
+        Option.flatMap((lastEntry) =>
+          pipe(
+            lastEntry.blockId === blockId && lastEntry.count < 65535,
+            Match.value,
+            Match.when(true, () =>
+              Option.some<{ readonly blockId: number; readonly count: number }>({
+                blockId,
+                count: lastEntry.count + 1,
+              })
+            ),
+            Match.orElse(() => Option.none<{ readonly blockId: number; readonly count: number }>())
+          )
+        ),
+        Option.match({
+          onSome: (updated) => ({
+            encoded: [...current.encoded.slice(0, -1), updated],
+            last: Option.some(updated),
+          }),
+          onNone: () => ({
+            encoded: [...current.encoded, { blockId, count: 1 }],
+            last: Option.some({ blockId, count: 1 }),
+          }),
+        })
       ),
-      Option.match({
-        onSome: (updated) => ({
-          encoded: [...current.encoded.slice(0, -1), updated],
-          last: Option.some(updated),
-        }),
-        onNone: () => ({
-          encoded: [...current.encoded, { blockId, count: 1 }],
-          last: Option.some({ blockId, count: 1 }),
-        }),
-      })
-    ),
     initialState
   )
 
@@ -175,10 +189,8 @@ const applyRunLengthEncoding = (chunk: ChunkData): Effect.Effect<ChunkData> =>
 const applyDeltaCompression = (chunk: ChunkData): Effect.Effect<ChunkData> =>
   Effect.sync(() => {
     const blockArray = Array.from(chunk.blocks)
-    const deltas = blockArray.reduce<ReadonlyArray<number>>((acc, blockId, index) =>
-      index === 0
-        ? [...acc, blockId]
-        : [...acc, blockId - blockArray[index - 1]!] ,
+    const deltas = blockArray.reduce<ReadonlyArray<number>>(
+      (acc, blockId, index) => (index === 0 ? [...acc, blockId] : [...acc, blockId - blockArray[index - 1]!]),
       []
     )
 
@@ -197,7 +209,12 @@ const applyPaletteCompression = (chunk: ChunkData): Effect.Effect<ChunkData> =>
 
 const accessOptimization = (
   chunk: ChunkData,
-  accessPatterns: ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number; readonly frequency: number }>,
+  accessPatterns: ReadonlyArray<{
+    readonly x: number
+    readonly y: number
+    readonly z: number
+    readonly frequency: number
+  }>,
   cacheSize?: number
 ): Effect.Effect<ChunkData> =>
   Effect.sync(() => {
@@ -209,8 +226,9 @@ const accessOptimization = (
       return acc
     }, new Map<number, number>())
 
-    const sortedIndices = Array.from({ length: chunk.blocks.length }, (_, index) => index)
-      .sort((a, b) => (frequencyMap.get(b) ?? 0) - (frequencyMap.get(a) ?? 0))
+    const sortedIndices = Array.from({ length: chunk.blocks.length }, (_, index) => index).sort(
+      (a, b) => (frequencyMap.get(b) ?? 0) - (frequencyMap.get(a) ?? 0)
+    )
 
     const optimized = sortedIndices.map((originIndex) => chunk.blocks[originIndex]!)
 
@@ -278,12 +296,7 @@ const suggestOptimizations = (metrics: OptimizationMetrics): Effect.Effect<Reado
       Match.orElse((): ReadonlyArray<OptimizationStrategy> => [])
     )
 
-    return [
-      ...redundancySuggestions,
-      ...compressionSuggestions,
-      ...accessSuggestions,
-      ...memorySuggestions,
-    ]
+    return [...redundancySuggestions, ...compressionSuggestions, ...accessSuggestions, ...memorySuggestions]
   })
 
 const eliminateRedundancy = (chunk: ChunkData, threshold: number): Effect.Effect<ChunkData> =>
@@ -350,12 +363,8 @@ export const ChunkOptimizationServiceLive = Layer.effect(
             Match.when({ _tag: 'CompressionOptimization' }, ({ algorithm }) =>
               compressionOptimization(chunk, algorithm)
             ),
-            Match.when({ _tag: 'AccessOptimization' }, ({ cacheSize }) =>
-              accessOptimization(chunk, [], cacheSize)
-            ),
-            Match.when({ _tag: 'RedundancyElimination' }, ({ threshold }) =>
-              eliminateRedundancy(chunk, threshold)
-            ),
+            Match.when({ _tag: 'AccessOptimization' }, ({ cacheSize }) => accessOptimization(chunk, [], cacheSize)),
+            Match.when({ _tag: 'RedundancyElimination' }, ({ threshold }) => eliminateRedundancy(chunk, threshold)),
             Match.exhaustive
           )
 
@@ -363,8 +372,7 @@ export const ChunkOptimizationServiceLive = Layer.effect(
           const originalSize = chunk.blocks.byteLength
           const qualityLoss = Math.max(
             0,
-            (new Set(chunk.blocks).size - new Set(optimizedChunk.blocks).size) /
-              Math.max(1, new Set(chunk.blocks).size)
+            (new Set(chunk.blocks).size - new Set(optimizedChunk.blocks).size) / Math.max(1, new Set(chunk.blocks).size)
           )
           const endTime = yield* Clock.currentTimeMillis
 
@@ -379,8 +387,7 @@ export const ChunkOptimizationServiceLive = Layer.effect(
           }
         }),
 
-      eliminateRedundancy: (chunk, threshold = DEFAULT_REDUNDANCY_THRESHOLD) =>
-        eliminateRedundancy(chunk, threshold),
+      eliminateRedundancy: (chunk, threshold = DEFAULT_REDUNDANCY_THRESHOLD) => eliminateRedundancy(chunk, threshold),
 
       defragment: (chunk) => defragment(chunk),
     }

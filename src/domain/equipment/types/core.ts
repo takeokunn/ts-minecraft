@@ -29,11 +29,7 @@ export const EquipmentDescriptionSchema = Schema.String.pipe(
 )
 export type EquipmentDescription = Schema.Schema.Type<typeof EquipmentDescriptionSchema>
 
-export const UnixTimeSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('UnixTime')
-)
+export const UnixTimeSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('UnixTime'))
 export type UnixTime = Schema.Schema.Type<typeof UnixTimeSchema>
 
 export const EquipmentSetVersionSchema = Schema.Number.pipe(
@@ -50,10 +46,7 @@ export const EquipmentOwnerIdSchema = Schema.String.pipe(
 )
 export type EquipmentOwnerId = Schema.Schema.Type<typeof EquipmentOwnerIdSchema>
 
-export const WeightSchema = Schema.Number.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.brand('WeightKg')
-)
+export const WeightSchema = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.brand('WeightKg'))
 export type WeightKg = Schema.Schema.Type<typeof WeightSchema>
 
 export type SchemaViolation = {
@@ -80,9 +73,7 @@ export const makeSchemaViolation = (params: Omit<SchemaViolation, '_tag'>): Sche
   ...params,
 })
 
-export const makeRequirementViolation = (
-  params: Omit<RequirementViolation, '_tag'>
-): RequirementViolation => ({
+export const makeRequirementViolation = (params: Omit<RequirementViolation, '_tag'>): RequirementViolation => ({
   _tag: 'RequirementViolation',
   ...params,
 })

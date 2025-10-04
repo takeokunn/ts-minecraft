@@ -37,7 +37,6 @@ export {
   withProgress,
 } from './types/interfaces'
 
-export type { SessionState } from './domain/session'
 export {
   cacheHitRatio,
   createSession,
@@ -49,9 +48,10 @@ export {
   touch,
   transition,
 } from './domain/session'
+export type { SessionState } from './domain/session'
 
 export {
-  ChunkLoadingProviderLive,
   ChunkLoaderDomainLive,
+  ChunkLoadingProviderLive,
   makeChunkLoadingProvider,
 } from './application/chunk_loading_provider'

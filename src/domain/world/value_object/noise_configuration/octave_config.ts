@@ -5,10 +5,9 @@
  * 数学的精度とパフォーマンスの最適化
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * オクターブインデックスBrand型（0以上）
@@ -38,7 +37,7 @@ export const OctaveIndexSchema = Schema.Number.pipe(
     identifier: 'OctaveIndex',
     title: 'Octave Index',
     description: 'Zero-based index of noise octave (0 to 15)',
-    examples: [0, 1, 4, 7]
+    examples: [0, 1, 4, 7],
   })
 )
 
@@ -53,7 +52,7 @@ export const WeightSchema = Schema.Number.pipe(
     identifier: 'Weight',
     title: 'Octave Weight',
     description: 'Relative weight of octave contribution (0.0 to 1.0)',
-    examples: [0.1, 0.5, 0.8, 1.0]
+    examples: [0.1, 0.5, 0.8, 1.0],
   })
 )
 
@@ -68,7 +67,7 @@ export const PhaseSchema = Schema.Number.pipe(
     identifier: 'Phase',
     title: 'Phase Offset',
     description: 'Phase offset in radians (0.0 to 2π)',
-    examples: [0, Math.PI / 4, Math.PI / 2, Math.PI]
+    examples: [0, Math.PI / 4, Math.PI / 2, Math.PI],
   })
 )
 
@@ -76,17 +75,17 @@ export const PhaseSchema = Schema.Number.pipe(
  * オクターブタイプ
  */
 export const OctaveTypeSchema = Schema.Literal(
-  'base',         // 基本オクターブ
-  'detail',       // 詳細オクターブ
-  'roughness',    // 粗さオクターブ
-  'distortion',   // 歪みオクターブ
-  'modulation',   // 変調オクターブ
-  'mask',         // マスクオクターブ
-  'custom'        // カスタムオクターブ
+  'base', // 基本オクターブ
+  'detail', // 詳細オクターブ
+  'roughness', // 粗さオクターブ
+  'distortion', // 歪みオクターブ
+  'modulation', // 変調オクターブ
+  'mask', // マスクオクターブ
+  'custom' // カスタムオクターブ
 ).pipe(
   Schema.annotations({
     title: 'Octave Type',
-    description: 'Functional role of the octave in noise generation'
+    description: 'Functional role of the octave in noise generation',
   })
 )
 
@@ -102,14 +101,8 @@ export const IndividualOctaveConfigSchema = Schema.Struct({
   enabled: Schema.Boolean,
 
   // 数学的パラメータ
-  frequency: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ description: 'Frequency for this octave' })
-  ),
-  amplitude: Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ description: 'Amplitude for this octave' })
-  ),
+  frequency: Schema.Number.pipe(Schema.positive(), Schema.annotations({ description: 'Frequency for this octave' })),
+  amplitude: Schema.Number.pipe(Schema.positive(), Schema.annotations({ description: 'Amplitude for this octave' })),
   weight: WeightSchema,
 
   // 位相・オフセット
@@ -117,7 +110,7 @@ export const IndividualOctaveConfigSchema = Schema.Struct({
   offset: Schema.Struct({
     x: Schema.Number,
     y: Schema.Number,
-    z: Schema.Number.pipe(Schema.optional)
+    z: Schema.Number.pipe(Schema.optional),
   }),
 
   // 変換設定
@@ -126,42 +119,44 @@ export const IndividualOctaveConfigSchema = Schema.Struct({
     scale: Schema.Struct({
       x: Schema.Number.pipe(Schema.positive()),
       y: Schema.Number.pipe(Schema.positive()),
-      z: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional)
+      z: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
     }),
 
     // 回転変換（度数）
     rotation: Schema.Struct({
       x: Schema.Number.pipe(Schema.between(-360, 360)),
       y: Schema.Number.pipe(Schema.between(-360, 360)),
-      z: Schema.Number.pipe(Schema.between(-360, 360)).pipe(Schema.optional)
+      z: Schema.Number.pipe(Schema.between(-360, 360)).pipe(Schema.optional),
     }).pipe(Schema.optional),
 
     // 歪み変換
     distortion: Schema.Struct({
       strength: Schema.Number.pipe(Schema.between(0, 10)),
-      frequency: Schema.Number.pipe(Schema.positive())
-    }).pipe(Schema.optional)
+      frequency: Schema.Number.pipe(Schema.positive()),
+    }).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // フィルタリング
   filter: Schema.Struct({
     type: Schema.Literal('none', 'lowpass', 'highpass', 'bandpass', 'notch'),
     cutoffFrequency: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
-    resonance: Schema.Number.pipe(Schema.between(0, 10)).pipe(Schema.optional)
+    resonance: Schema.Number.pipe(Schema.between(0, 10)).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 条件付き有効化
-  conditions: Schema.Array(Schema.Struct({
-    parameter: Schema.String,
-    operator: Schema.Literal('>', '<', '>=', '<=', '==', '!='),
-    value: Schema.Number,
-    action: Schema.Literal('enable', 'disable', 'modify_weight')
-  })).pipe(Schema.optional)
+  conditions: Schema.Array(
+    Schema.Struct({
+      parameter: Schema.String,
+      operator: Schema.Literal('>', '<', '>=', '<=', '==', '!='),
+      value: Schema.Number,
+      action: Schema.Literal('enable', 'disable', 'modify_weight'),
+    })
+  ).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'IndividualOctaveConfig',
     title: 'Individual Octave Configuration',
-    description: 'Complete configuration for a single noise octave'
+    description: 'Complete configuration for a single noise octave',
   })
 )
 
@@ -173,13 +168,13 @@ export type IndividualOctaveConfig = typeof IndividualOctaveConfigSchema.Type
 export const OctaveCombinationSchema = Schema.Struct({
   // 基本組み合わせ方法
   method: Schema.Literal(
-    'linear',       // 線形結合
+    'linear', // 線形結合
     'multiplicative', // 乗算結合
-    'max',          // 最大値
-    'min',          // 最小値
-    'rms',          // RMS結合
+    'max', // 最大値
+    'min', // 最小値
+    'rms', // RMS結合
     'weighted_sum', // 重み付き和
-    'custom'        // カスタム関数
+    'custom' // カスタム関数
   ),
 
   // 正規化設定
@@ -188,8 +183,8 @@ export const OctaveCombinationSchema = Schema.Struct({
     method: Schema.Literal('min_max', 'z_score', 'sigmoid', 'tanh'),
     range: Schema.Struct({
       min: Schema.Number,
-      max: Schema.Number
-    }).pipe(Schema.optional)
+      max: Schema.Number,
+    }).pipe(Schema.optional),
   }),
 
   // 重み付け戦略
@@ -197,8 +192,8 @@ export const OctaveCombinationSchema = Schema.Struct({
     strategy: Schema.Literal('equal', 'exponential', 'logarithmic', 'custom'),
     parameters: Schema.Record({
       key: Schema.String,
-      value: Schema.Number
-    }).pipe(Schema.optional)
+      value: Schema.Number,
+    }).pipe(Schema.optional),
   }),
 
   // 閾値処理
@@ -206,13 +201,13 @@ export const OctaveCombinationSchema = Schema.Struct({
     enabled: Schema.Boolean,
     lowerThreshold: Schema.Number.pipe(Schema.optional),
     upperThreshold: Schema.Number.pipe(Schema.optional),
-    behavior: Schema.Literal('clamp', 'wrap', 'mirror', 'zero')
-  }).pipe(Schema.optional)
+    behavior: Schema.Literal('clamp', 'wrap', 'mirror', 'zero'),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'OctaveCombination',
     title: 'Octave Combination Strategy',
-    description: 'Method for combining multiple octaves into final result'
+    description: 'Method for combining multiple octaves into final result',
   })
 )
 
@@ -242,8 +237,8 @@ export const CompleteOctaveConfigSchema = Schema.Struct({
     optimization: Schema.Struct({
       skipZeroWeightOctaves: Schema.Boolean,
       earlyTermination: Schema.Boolean,
-      maxContribution: Schema.Number.pipe(Schema.between(0, 1))
-    })
+      maxContribution: Schema.Number.pipe(Schema.between(0, 1)),
+    }),
   }),
 
   // パフォーマンス制限
@@ -251,7 +246,7 @@ export const CompleteOctaveConfigSchema = Schema.Struct({
     maxActiveOctaves: Schema.Number.pipe(Schema.int(), Schema.between(1, 16)),
     computationBudget: Schema.Number.pipe(Schema.positive()),
     cacheEnabled: Schema.Boolean,
-    parallelProcessing: Schema.Boolean
+    parallelProcessing: Schema.Boolean,
   }).pipe(Schema.optional),
 
   // 品質管理
@@ -259,7 +254,7 @@ export const CompleteOctaveConfigSchema = Schema.Struct({
     samplingRate: Schema.Number.pipe(Schema.positive()),
     interpolationQuality: Schema.Literal('linear', 'cubic', 'quintic'),
     antiAliasing: Schema.Boolean,
-    errorTolerance: Schema.Number.pipe(Schema.positive())
+    errorTolerance: Schema.Number.pipe(Schema.positive()),
   }).pipe(Schema.optional),
 
   // デバッグ・解析
@@ -267,13 +262,13 @@ export const CompleteOctaveConfigSchema = Schema.Struct({
     enabled: Schema.Boolean,
     outputStatistics: Schema.Boolean,
     visualizeOctaves: Schema.Boolean,
-    measurePerformance: Schema.Boolean
-  }).pipe(Schema.optional)
+    measurePerformance: Schema.Boolean,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'CompleteOctaveConfig',
     title: 'Complete Octave Configuration',
-    description: 'Comprehensive configuration for all noise octaves'
+    description: 'Comprehensive configuration for all noise octaves',
   })
 )
 
@@ -288,11 +283,13 @@ export const CreateOctaveConfigParamsSchema = Schema.Struct({
   lacunarity: Schema.Number.pipe(Schema.optional),
   persistence: Schema.Number.pipe(Schema.optional),
   enableAdvanced: Schema.Boolean.pipe(Schema.optional),
-  customOctaves: Schema.Array(Schema.Struct({
-    frequency: Schema.Number,
-    amplitude: Schema.Number,
-    weight: Schema.Number.pipe(Schema.optional)
-  })).pipe(Schema.optional)
+  customOctaves: Schema.Array(
+    Schema.Struct({
+      frequency: Schema.Number,
+      amplitude: Schema.Number,
+      weight: Schema.Number.pipe(Schema.optional),
+    })
+  ).pipe(Schema.optional),
 })
 
 export type CreateOctaveConfigParams = typeof CreateOctaveConfigParamsSchema.Type
@@ -305,29 +302,29 @@ export const OctaveConfigErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidOctaveIndex'),
     index: Schema.Number,
     maxAllowed: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('IncompatibleOctaveTypes'),
     octave1: OctaveTypeSchema,
     octave2: OctaveTypeSchema,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('CombinationError'),
     method: Schema.String,
     octaveCount: Schema.Number,
     reason: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PerformanceExceeded'),
     limit: Schema.String,
     requested: Schema.Number,
     maximum: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type OctaveConfigError = typeof OctaveConfigErrorSchema.Type
@@ -340,26 +337,26 @@ export const OCTAVE_PRESETS = {
     description: 'Simple 4-octave configuration',
     octaveCount: 4,
     lacunarity: 2.0,
-    persistence: 0.5
+    persistence: 0.5,
   },
   STANDARD: {
     description: 'Standard 6-octave configuration',
     octaveCount: 6,
     lacunarity: 2.0,
-    persistence: 0.5
+    persistence: 0.5,
   },
   DETAILED: {
     description: 'Detailed 8-octave configuration',
     octaveCount: 8,
     lacunarity: 2.1,
-    persistence: 0.45
+    persistence: 0.45,
   },
   EXTREME: {
     description: 'Maximum detail 12-octave configuration',
     octaveCount: 12,
     lacunarity: 2.2,
-    persistence: 0.4
-  }
+    persistence: 0.4,
+  },
 } as const
 
 /**
@@ -369,16 +366,16 @@ export const OCTAVE_OPTIMIZATION_HINTS = {
   PERFORMANCE: {
     maxOctaves: 6,
     skipSmallContributions: true,
-    useApproximation: true
+    useApproximation: true,
   },
   QUALITY: {
     maxOctaves: 12,
     skipSmallContributions: false,
-    useApproximation: false
+    useApproximation: false,
   },
   BALANCED: {
     maxOctaves: 8,
     skipSmallContributions: true,
-    useApproximation: false
-  }
+    useApproximation: false,
+  },
 } as const

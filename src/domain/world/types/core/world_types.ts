@@ -56,10 +56,7 @@ export const DimensionIdSchema = Schema.String.pipe(
 export type WorldCoordinate = number & Brand.Brand<'WorldCoordinate'>
 
 export const WorldCoordinateSchema = Schema.Number.pipe(
-  Schema.between(
-    WORLD_CONSTANTS.BORDER.MAX_SIZE * -0.5,
-    WORLD_CONSTANTS.BORDER.MAX_SIZE * 0.5
-  ),
+  Schema.between(WORLD_CONSTANTS.BORDER.MAX_SIZE * -0.5, WORLD_CONSTANTS.BORDER.MAX_SIZE * 0.5),
   Schema.brand('WorldCoordinate'),
   Schema.annotations({
     title: 'World Coordinate',
@@ -190,9 +187,7 @@ export interface WorldBorder {
 
 export const WorldBorderSchema = Schema.Struct({
   center: Vector2DSchema,
-  size: Schema.Number.pipe(
-    Schema.between(WORLD_CONSTANTS.BORDER.MIN_SIZE, WORLD_CONSTANTS.BORDER.MAX_SIZE)
-  ),
+  size: Schema.Number.pipe(Schema.between(WORLD_CONSTANTS.BORDER.MIN_SIZE, WORLD_CONSTANTS.BORDER.MAX_SIZE)),
   damageBuffer: Schema.Number.pipe(Schema.nonNegative()),
   damageAmount: Schema.Number.pipe(Schema.nonNegative()),
   warningTime: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -261,11 +256,7 @@ export const GameModeSchema = Schema.Literal('survival', 'creative', 'adventure'
 /** ゲームルール値の型 */
 export type GameRuleValue = boolean | number | string
 
-export const GameRuleValueSchema = Schema.Union(
-  Schema.Boolean,
-  Schema.Number,
-  Schema.String
-).pipe(
+export const GameRuleValueSchema = Schema.Union(Schema.Boolean, Schema.Number, Schema.String).pipe(
   Schema.annotations({
     title: 'Game Rule Value',
     description: 'Value for a game rule (boolean, number, or string)',
@@ -415,9 +406,7 @@ export const createChunkPosition = (x: number, z: number): ChunkPosition =>
   })
 
 /** WorldId作成ヘルパー */
-export const createWorldId = (id: string): WorldId =>
-  Schema.decodeSync(WorldIdSchema)(id)
+export const createWorldId = (id: string): WorldId => Schema.decodeSync(WorldIdSchema)(id)
 
 /** WorldSeed作成ヘルパー */
-export const createWorldSeed = (seed: number): WorldSeed =>
-  Schema.decodeSync(WorldSeedSchema)(seed)
+export const createWorldSeed = (seed: number): WorldSeed => Schema.decodeSync(WorldSeedSchema)(seed)

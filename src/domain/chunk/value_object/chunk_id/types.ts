@@ -13,10 +13,7 @@ export const ChunkId = Brand.refined<ChunkId>(
 /**
  * チャンクIDのスキーマ定義
  */
-export const ChunkIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('ChunkId')
-)
+export const ChunkIdSchema = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('ChunkId'))
 
 /**
  * チャンクIDエラー型（ADT）
@@ -43,7 +40,6 @@ export const ChunkIdVersion = Brand.refined<ChunkIdVersion>(
  */
 export type ChunkUUID = string & Brand.Brand<'ChunkUUID'>
 export const ChunkUUID = Brand.refined<ChunkUUID>(
-  (value): value is ChunkUUID =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value),
+  (value): value is ChunkUUID => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value),
   (value) => Brand.error(`UUID形式ではありません: ${value}`)
 )

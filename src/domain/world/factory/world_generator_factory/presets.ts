@@ -18,12 +18,8 @@
  * - Experimental: 実験的機能設定
  */
 
-import { Effect, Schema, Match, Function, Option } from "effect"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as GenerationParameters from "../../value_object/generation_parameters/index.js"
-import * as BiomeProperties from "../../value_object/biome_properties/index.js"
-import * as NoiseConfiguration from "../../value_object/noise_configuration/index.js"
-import type { CreateWorldGeneratorParams, PresetType, FactoryError } from "./factory.js"
+import { Effect, Function, Option, Schema } from 'effect'
+import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './factory.js'
 
 // ================================
 // Preset Definition Schema
@@ -40,27 +36,27 @@ export const PresetDefinitionSchema = Schema.Struct({
   compatibility: Schema.Struct({
     minecraftVersion: Schema.String,
     modSupport: Schema.Boolean,
-    experimentalFeatures: Schema.Boolean
+    experimentalFeatures: Schema.Boolean,
   }),
   performance: Schema.Struct({
     cpuUsage: Schema.Literal('low', 'medium', 'high'),
     memoryUsage: Schema.Literal('low', 'medium', 'high'),
-    recommendedThreads: Schema.Number.pipe(Schema.between(1, 16))
+    recommendedThreads: Schema.Number.pipe(Schema.between(1, 16)),
   }),
   features: Schema.Struct({
     structures: Schema.Boolean,
     caves: Schema.Boolean,
     ores: Schema.Boolean,
     villages: Schema.Boolean,
-    dungeons: Schema.Boolean
+    dungeons: Schema.Boolean,
   }),
   generation: CreateWorldGeneratorParams,
   metadata: Schema.Struct({
     author: Schema.String,
     version: Schema.String,
     createdAt: Schema.DateTimeUtc,
-    updatedAt: Schema.DateTimeUtc
-  })
+    updatedAt: Schema.DateTimeUtc,
+  }),
 })
 
 export type PresetDefinition = typeof PresetDefinitionSchema.Type
@@ -112,19 +108,19 @@ const defaultPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'medium',
     memoryUsage: 'medium',
-    recommendedThreads: 4
+    recommendedThreads: 4,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {
     qualityLevel: 'balanced',
@@ -134,14 +130,14 @@ const defaultPreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: false,
-    logLevel: 'info'
+    logLevel: 'info',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -155,19 +151,19 @@ const survivalPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'high',
     memoryUsage: 'high',
-    recommendedThreads: 2
+    recommendedThreads: 2,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {
     qualityLevel: 'quality',
@@ -177,14 +173,14 @@ const survivalPreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: false,
-    logLevel: 'warn'
+    logLevel: 'warn',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -198,19 +194,19 @@ const creativePreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'low',
     memoryUsage: 'medium',
-    recommendedThreads: 8
+    recommendedThreads: 8,
   },
   features: {
     structures: true,
     caves: false,
     ores: false,
     villages: true,
-    dungeons: false
+    dungeons: false,
   },
   generation: {
     qualityLevel: 'fast',
@@ -220,14 +216,14 @@ const creativePreset: PresetDefinition = {
     enableCaves: false,
     enableOres: false,
     enableDebugMode: false,
-    logLevel: 'error'
+    logLevel: 'error',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -241,19 +237,19 @@ const peacefulPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'medium',
     memoryUsage: 'medium',
-    recommendedThreads: 4
+    recommendedThreads: 4,
   },
   features: {
     structures: false,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: false
+    dungeons: false,
   },
   generation: {
     qualityLevel: 'balanced',
@@ -263,14 +259,14 @@ const peacefulPreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: false,
-    logLevel: 'info'
+    logLevel: 'info',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -284,19 +280,19 @@ const hardcorePreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'high',
     memoryUsage: 'high',
-    recommendedThreads: 1
+    recommendedThreads: 1,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {
     qualityLevel: 'quality',
@@ -306,14 +302,14 @@ const hardcorePreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: false,
-    logLevel: 'warn'
+    logLevel: 'warn',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 // ================================
@@ -331,19 +327,19 @@ const superflatPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: false,
-    experimentalFeatures: false
+    experimentalFeatures: false,
   },
   performance: {
     cpuUsage: 'low',
     memoryUsage: 'low',
-    recommendedThreads: 8
+    recommendedThreads: 8,
   },
   features: {
     structures: false,
     caves: false,
     ores: false,
     villages: false,
-    dungeons: false
+    dungeons: false,
   },
   generation: {
     qualityLevel: 'fast',
@@ -353,14 +349,14 @@ const superflatPreset: PresetDefinition = {
     enableCaves: false,
     enableOres: false,
     enableDebugMode: false,
-    logLevel: 'error'
+    logLevel: 'error',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -374,19 +370,19 @@ const amplifiedPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: true
+    experimentalFeatures: true,
   },
   performance: {
     cpuUsage: 'high',
     memoryUsage: 'high',
-    recommendedThreads: 1
+    recommendedThreads: 1,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {
     qualityLevel: 'quality',
@@ -396,14 +392,14 @@ const amplifiedPreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: false,
-    logLevel: 'info'
+    logLevel: 'info',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 // ================================
@@ -421,19 +417,19 @@ const debugPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: true
+    experimentalFeatures: true,
   },
   performance: {
     cpuUsage: 'low',
     memoryUsage: 'medium',
-    recommendedThreads: 4
+    recommendedThreads: 4,
   },
   features: {
     structures: false,
     caves: false,
     ores: false,
     villages: false,
-    dungeons: false
+    dungeons: false,
   },
   generation: {
     qualityLevel: 'fast',
@@ -443,14 +439,14 @@ const debugPreset: PresetDefinition = {
     enableCaves: false,
     enableOres: false,
     enableDebugMode: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
   },
   metadata: {
     author: 'minecraft-core',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -464,27 +460,27 @@ const customPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.20+',
     modSupport: true,
-    experimentalFeatures: true
+    experimentalFeatures: true,
   },
   performance: {
     cpuUsage: 'medium',
     memoryUsage: 'medium',
-    recommendedThreads: 4
+    recommendedThreads: 4,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {},
   metadata: {
     author: 'user',
     version: '1.0.0',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 /**
@@ -498,19 +494,19 @@ const experimentalPreset: PresetDefinition = {
   compatibility: {
     minecraftVersion: '1.21+',
     modSupport: true,
-    experimentalFeatures: true
+    experimentalFeatures: true,
   },
   performance: {
     cpuUsage: 'high',
     memoryUsage: 'high',
-    recommendedThreads: 2
+    recommendedThreads: 2,
   },
   features: {
     structures: true,
     caves: true,
     ores: true,
     villages: true,
-    dungeons: true
+    dungeons: true,
   },
   generation: {
     qualityLevel: 'quality',
@@ -520,14 +516,14 @@ const experimentalPreset: PresetDefinition = {
     enableCaves: true,
     enableOres: true,
     enableDebugMode: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
   },
   metadata: {
     author: 'minecraft-experimental',
     version: '1.0.0-alpha',
     createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  }
+    updatedAt: new Date('2025-01-01'),
+  },
 }
 
 // ================================
@@ -557,11 +553,14 @@ export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, Fac
   Function.pipe(
     registry.get(type),
     Option.match({
-      onNone: () => Effect.fail(new FactoryError({
-        category: 'parameter_validation',
-        message: `Unknown preset type: ${type}`
-      })),
-      onSome: (preset) => Effect.succeed(preset)
+      onNone: () =>
+        Effect.fail(
+          new FactoryError({
+            category: 'parameter_validation',
+            message: `Unknown preset type: ${type}`,
+          })
+        ),
+      onSome: (preset) => Effect.succeed(preset),
     })
   )
 
@@ -574,8 +573,7 @@ export const getPresetParams = (type: PresetType): Effect.Effect<CreateWorldGene
 /**
  * 利用可能プリセット一覧
  */
-export const listPresets = (): readonly PresetType[] =>
-  registry.list()
+export const listPresets = (): readonly PresetType[] => registry.list()
 
 /**
  * カテゴリ別プリセット一覧
@@ -604,8 +602,7 @@ export const checkPresetCompatibility = (
     const preset = yield* getPreset(type)
 
     // バージョンチェック（簡易実装）
-    if (requirements.minecraftVersion &&
-        preset.compatibility.minecraftVersion !== requirements.minecraftVersion) {
+    if (requirements.minecraftVersion && preset.compatibility.minecraftVersion !== requirements.minecraftVersion) {
       return false
     }
 
@@ -625,19 +622,17 @@ export const checkPresetCompatibility = (
 /**
  * 推奨プリセット取得
  */
-export const getRecommendedPreset = (
-  requirements: {
-    performance: 'low' | 'medium' | 'high'
-    quality: 'fast' | 'balanced' | 'quality'
-    features: string[]
-  }
-): Effect.Effect<PresetType, FactoryError> =>
+export const getRecommendedPreset = (requirements: {
+  performance: 'low' | 'medium' | 'high'
+  quality: 'fast' | 'balanced' | 'quality'
+  features: string[]
+}): Effect.Effect<PresetType, FactoryError> =>
   Effect.gen(function* () {
     const allPresets = listPresets()
 
     // 要件に基づくスコアリング
     const scores = yield* Effect.all(
-      allPresets.map(type =>
+      allPresets.map((type) =>
         Effect.gen(function* () {
           const preset = yield* getPreset(type)
           let score = 0
@@ -653,8 +648,7 @@ export const getRecommendedPreset = (
             .filter(([_, enabled]) => enabled)
             .map(([feature, _]) => feature)
 
-          const matchingFeatures = requirements.features
-            .filter(feature => availableFeatures.includes(feature))
+          const matchingFeatures = requirements.features.filter((feature) => availableFeatures.includes(feature))
 
           score += matchingFeatures.length
 
@@ -664,15 +658,15 @@ export const getRecommendedPreset = (
     )
 
     // 最高スコアのプリセットを返す
-    const best = scores.reduce((max, current) =>
-      current.score > max.score ? current : max
-    )
+    const best = scores.reduce((max, current) => (current.score > max.score ? current : max))
 
     if (best.score === 0) {
-      return yield* Effect.fail(new FactoryError({
-        category: 'parameter_validation',
-        message: 'No suitable preset found for requirements'
-      }))
+      return yield* Effect.fail(
+        new FactoryError({
+          category: 'parameter_validation',
+          message: 'No suitable preset found for requirements',
+        })
+      )
     }
 
     return best.type
@@ -693,34 +687,31 @@ export const createCustomPreset = (
     compatibility: {
       minecraftVersion: '1.20+',
       modSupport: true,
-      experimentalFeatures: false
+      experimentalFeatures: false,
     },
     performance: {
       cpuUsage: 'medium',
       memoryUsage: 'medium',
-      recommendedThreads: 4
+      recommendedThreads: 4,
     },
     features: {
       structures: params.enableStructures ?? true,
       caves: params.enableCaves ?? true,
       ores: params.enableOres ?? true,
       villages: true,
-      dungeons: true
+      dungeons: true,
     },
     generation: params,
     metadata: {
       author: 'user',
       version: '1.0.0',
       createdAt: new Date(),
-      updatedAt: new Date()
-    }
+      updatedAt: new Date(),
+    },
   })
 
 // ================================
 // Exports
 // ================================
 
-export {
-  type PresetDefinition,
-  registry as PresetRegistry,
-}
+export { registry as PresetRegistry, type PresetDefinition }

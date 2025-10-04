@@ -27,27 +27,27 @@ export * from './world_metadata_repository'
 
 import { Layer } from 'effect'
 import type {
-  WorldGeneratorRepositoryConfig,
-  WorldGeneratorRepository,
-  WorldGeneratorRepositoryMemoryLive,
-  WorldGeneratorRepositoryPersistenceLive,
-  WorldGeneratorRepositoryCacheLive,
-} from './world_generator_repository'
-import type {
-  GenerationSessionRepositoryConfig,
-  GenerationSessionRepository,
-  GenerationSessionRepositoryMemoryLive,
-  GenerationSessionRepositoryPersistenceLive,
-} from './generation_session_repository'
-import type {
-  BiomeSystemRepositoryConfig,
   BiomeSystemRepository,
+  BiomeSystemRepositoryConfig,
   BiomeSystemRepositoryMemoryLive,
   BiomeSystemRepositoryPersistenceLive,
 } from './biome_system_repository'
 import type {
-  WorldMetadataRepositoryConfig,
+  GenerationSessionRepository,
+  GenerationSessionRepositoryConfig,
+  GenerationSessionRepositoryMemoryLive,
+  GenerationSessionRepositoryPersistenceLive,
+} from './generation_session_repository'
+import type {
+  WorldGeneratorRepository,
+  WorldGeneratorRepositoryCacheLive,
+  WorldGeneratorRepositoryConfig,
+  WorldGeneratorRepositoryMemoryLive,
+  WorldGeneratorRepositoryPersistenceLive,
+} from './world_generator_repository'
+import type {
   WorldMetadataRepository,
+  WorldMetadataRepositoryConfig,
   WorldMetadataRepositoryMemoryLive,
   WorldMetadataRepositoryPersistenceLive,
 } from './world_metadata_repository'
@@ -90,10 +90,36 @@ export const defaultWorldRepositoryLayerConfig: WorldRepositoryLayerConfig = {
   },
   worldMetadata: {
     storage: { type: 'memory', maxWorlds: 1000, enableEncryption: false },
-    compression: { algorithm: 'gzip', level: 6, chunkSize: 64 * 1024, enableDictionary: true, enableStreaming: false, enableDeduplication: true },
-    versioning: { enabled: true, maxVersionsPerWorld: 10, automaticVersioning: true, versioningStrategy: 'change-based' },
-    backup: { enabled: true, retentionDays: 30, compressionEnabled: true, encryptionEnabled: false, incrementalBackup: true, scheduleInterval: 24 * 60 * 60 * 1000, maxBackupSize: 100 * 1024 * 1024, excludePatterns: [] },
-    indexing: { enabled: true, indexTypes: ['name', 'tags', 'created', 'modified', 'size'], rebuildInterval: 7 * 24 * 60 * 60 * 1000, optimizationInterval: 24 * 60 * 60 * 1000 },
+    compression: {
+      algorithm: 'gzip',
+      level: 6,
+      chunkSize: 64 * 1024,
+      enableDictionary: true,
+      enableStreaming: false,
+      enableDeduplication: true,
+    },
+    versioning: {
+      enabled: true,
+      maxVersionsPerWorld: 10,
+      automaticVersioning: true,
+      versioningStrategy: 'change-based',
+    },
+    backup: {
+      enabled: true,
+      retentionDays: 30,
+      compressionEnabled: true,
+      encryptionEnabled: false,
+      incrementalBackup: true,
+      scheduleInterval: 24 * 60 * 60 * 1000,
+      maxBackupSize: 100 * 1024 * 1024,
+      excludePatterns: [],
+    },
+    indexing: {
+      enabled: true,
+      indexTypes: ['name', 'tags', 'created', 'modified', 'size'],
+      rebuildInterval: 7 * 24 * 60 * 60 * 1000,
+      optimizationInterval: 24 * 60 * 60 * 1000,
+    },
     cache: { enabled: true, maxSize: 1000, ttlSeconds: 600, enableStatisticsCache: true, enableSettingsCache: true },
     performance: { enableProfiling: false, enableMetrics: true, batchSize: 100, concurrencyLimit: 10 },
   },
@@ -118,7 +144,9 @@ export const WorldRepositoryMemoryLayer = (config: WorldRepositoryLayerConfig = 
 /**
  * 全Repository Persistence実装Layer
  */
-export const WorldRepositoryPersistenceLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) =>
+export const WorldRepositoryPersistenceLayer = (
+  config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig
+) =>
   Layer.mergeAll(
     WorldGeneratorRepositoryPersistenceLive(config.worldGenerator),
     GenerationSessionRepositoryPersistenceLive(config.generationSession),
@@ -273,7 +301,4 @@ export const collectRepositoryMetrics = (services: WorldRepositoryServices) => (
 
 // === Type Exports ===
 
-export type {
-  WorldRepositoryLayerConfig,
-  WorldRepositoryServices,
-}
+export type { WorldRepositoryLayerConfig, WorldRepositoryServices }

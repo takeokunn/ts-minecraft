@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { Effect, Option, pipe } from 'effect'
 import * as Match from 'effect/Match'
-import { BootstrapConfigSchema, BootstrapConfig } from './config'
-import { EpochMillisecondsSchema, EpochMilliseconds } from './value'
+import { BootstrapConfig, BootstrapConfigSchema } from './config'
+import { EpochMilliseconds, EpochMillisecondsSchema } from './value'
 
 export const LifecycleStateSchema = Schema.Literal('uninitialized', 'initializing', 'ready')
 export type LifecycleState = Schema.Schema.Type<typeof LifecycleStateSchema>
@@ -49,17 +49,13 @@ const makeReadySnapshot = (snapshot: LifecycleSnapshot) =>
     config: snapshot.config,
   })
 
-export const ensureReadySnapshot = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<LifecycleSnapshot> =>
+export const ensureReadySnapshot = (snapshot: LifecycleSnapshot): Effect.Effect<LifecycleSnapshot> =>
   Match.value(snapshot.state).pipe(
     Match.when(Match.is('ready'), () => Effect.succeed(snapshot)),
     Match.orElse(() => makeReadySnapshot(snapshot))
   )
 
-export const resetInitializedAt = (
-  snapshot: LifecycleSnapshot
-): Effect.Effect<LifecycleSnapshot> =>
+export const resetInitializedAt = (snapshot: LifecycleSnapshot): Effect.Effect<LifecycleSnapshot> =>
   makeReadySnapshot(snapshot)
 
 export const markInitializedAt = (
@@ -86,10 +82,7 @@ export type AppReadinessInput = Schema.Schema.From<typeof AppReadinessSchema>
 
 const decodeAppReadiness = Schema.decode(AppReadinessSchema)
 
-export const readinessProjection = (
-  snapshot: LifecycleSnapshot,
-  ready: boolean
-): Effect.Effect<AppReadiness> =>
+export const readinessProjection = (snapshot: LifecycleSnapshot, ready: boolean): Effect.Effect<AppReadiness> =>
   decodeAppReadiness({
     ready,
     state: snapshot.state,

@@ -2,11 +2,7 @@ import { Effect, Schema } from 'effect'
 import type { Simplify } from 'effect/Types'
 import { PhysicsError, fromParseError } from './errors'
 
-const PositiveFloatSchema = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.greaterThan(0),
-  Schema.brand('PositiveFloat')
-)
+const PositiveFloatSchema = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0), Schema.brand('PositiveFloat'))
 
 const NonNegativeFloatSchema = Schema.Number.pipe(
   Schema.finite(),
@@ -14,11 +10,7 @@ const NonNegativeFloatSchema = Schema.Number.pipe(
   Schema.brand('NonNegativeFloat')
 )
 
-const UnitIntervalSchema = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.between(0, 1),
-  Schema.brand('UnitInterval')
-)
+const UnitIntervalSchema = Schema.Number.pipe(Schema.finite(), Schema.between(0, 1), Schema.brand('UnitInterval'))
 
 export type PositiveFloat = Schema.Schema.Type<typeof PositiveFloatSchema>
 export type NonNegativeFloat = Schema.Schema.Type<typeof NonNegativeFloatSchema>
@@ -116,12 +108,15 @@ export const PhysicsWorldSchema = Schema.Struct({
 }).pipe(Schema.brand('PhysicsWorld'))
 export type PhysicsWorld = Schema.Schema.Type<typeof PhysicsWorldSchema>
 
-export const decodeWith = <A, I, R>(schema: Schema.Schema<A, I, R>) =>
+export const decodeWith =
+  <A, I, R>(schema: Schema.Schema<A, I, R>) =>
   (input: unknown): Effect.Effect<A, PhysicsError, R> =>
     Effect.mapError(Schema.decodeUnknown(schema)(input), fromParseError)
 
-export const decodeConstant = <A, I, R>(schema: Schema.Schema<A, I, R>) =>
-  (input: unknown): A => Effect.runSync(decodeWith(schema)(input))
+export const decodeConstant =
+  <A, I, R>(schema: Schema.Schema<A, I, R>) =>
+  (input: unknown): A =>
+    Effect.runSync(decodeWith(schema)(input))
 
 export type WithMotion<T extends { motion: MotionState }> = Simplify<T>
 

@@ -1,9 +1,7 @@
-
 import { describe, expect, it } from '@effect/vitest'
 import { fireEvent, render } from '@testing-library/react'
-import * as FastCheck from 'effect/FastCheck'
 import { Data, Effect, Match, Option, Ref, Schema, pipe } from 'effect'
-import { InventoryPanel } from './InventoryPanel'
+import * as FastCheck from 'effect/FastCheck'
 import {
   InventoryEventHandler,
   InventoryGUIEvent,
@@ -16,6 +14,7 @@ import {
   parsePlayerId,
   slotGridPosition,
 } from '../../adt/inventory-adt'
+import { InventoryPanel } from './InventoryPanel'
 
 const createModel = (
   options: {
@@ -29,9 +28,7 @@ const createModel = (
 
   const slots = sections.map((section, index) => {
     const slotIndex = Effect.runSync(Schema.decode(SlotIndexSchema)(index))
-    const position = Effect.runSync(
-      slotGridPosition({ index, columns: 9, spacing: 2, slotSize: 32 })
-    )
+    const position = Effect.runSync(slotGridPosition({ index, columns: 9, spacing: 2, slotSize: 32 }))
     return makeInventorySlot({
       index: slotIndex,
       section,
@@ -43,9 +40,7 @@ const createModel = (
     })
   })
 
-  const hotbar = slots
-    .filter((slot) => slot.section === 'hotbar')
-    .map((slot) => slot.index)
+  const hotbar = slots.filter((slot) => slot.section === 'hotbar').map((slot) => slot.index)
 
   const selectedSlot = slots[0]?.index ?? Effect.runSync(Schema.decode(SlotIndexSchema)(0))
 
@@ -82,8 +77,10 @@ const selectElement = <T extends Element>(root: HTMLElement, selector: string) =
     })
   )
 
-const recordHandler = (ref: Ref.Ref<ReadonlyArray<string>>): InventoryEventHandler => (event: InventoryGUIEvent) =>
-  Ref.update(ref, (current) => [...current, event._tag])
+const recordHandler =
+  (ref: Ref.Ref<ReadonlyArray<string>>): InventoryEventHandler =>
+  (event: InventoryGUIEvent) =>
+    Ref.update(ref, (current) => [...current, event._tag])
 
 describe('presentation/inventory/ui/InventoryPanel', () => {
   it.effect('emits events for slot interaction and toggling', () =>
@@ -100,16 +97,10 @@ describe('presentation/inventory/ui/InventoryPanel', () => {
                 render(<InventoryPanel model={model} onEvent={handler} />)
               )
 
-              const mainButton = yield* selectElement<HTMLButtonElement>(
-                container,
-                '[data-slot-section="main"] button'
-              )
+              const mainButton = yield* selectElement<HTMLButtonElement>(container, '[data-slot-section="main"] button')
               yield* Effect.sync(() => fireEvent.click(mainButton))
 
-              const hotbarWrapper = yield* selectElement<HTMLElement>(
-                container,
-                '[data-slot-section="hotbar"]'
-              )
+              const hotbarWrapper = yield* selectElement<HTMLElement>(container, '[data-slot-section="hotbar"]')
               yield* Effect.sync(() => fireEvent.doubleClick(hotbarWrapper))
 
               const toggleLabel = pipe(
@@ -119,9 +110,7 @@ describe('presentation/inventory/ui/InventoryPanel', () => {
                 Match.orElse(() => 'Open')
               )
 
-              yield* Effect.sync(() =>
-                fireEvent.click(getByRole('button', { name: toggleLabel }))
-              )
+              yield* Effect.sync(() => fireEvent.click(getByRole('button', { name: toggleLabel })))
 
               const recorded = yield* Ref.get(events)
               expect(recorded).toContain('SlotClicked')
@@ -146,42 +135,36 @@ describe('presentation/inventory/ui/InventoryPanel', () => {
   it.effect('partitions slots between main grid and hotbar (property)', () =>
     Effect.sync(() =>
       FastCheck.assert(
-        FastCheck.property(
-          FastCheck.array(FastCheck.boolean(), { minLength: 1, maxLength: 6 }),
-          (flags) => {
-            const sections = flags.map((flag) => (flag ? 'hotbar' : 'main'))
-            const model = createModel({ sections })
-            Effect.runSync(
-              Effect.gen(function* () {
-                const { container, unmount } = yield* Effect.sync(() =>
-                  render(<InventoryPanel model={model} onEvent={() => Effect.unit} />)
-                )
+        FastCheck.property(FastCheck.array(FastCheck.boolean(), { minLength: 1, maxLength: 6 }), (flags) => {
+          const sections = flags.map((flag) => (flag ? 'hotbar' : 'main'))
+          const model = createModel({ sections })
+          Effect.runSync(
+            Effect.gen(function* () {
+              const { container, unmount } = yield* Effect.sync(() =>
+                render(<InventoryPanel model={model} onEvent={() => Effect.unit} />)
+              )
 
-                const mainNodes = container.querySelectorAll('[data-slot-section="main"] button')
-                const hotbarNodes = container.querySelectorAll('[data-slot-section="hotbar"] button')
-                const expectedMain = flags.filter((flag) => !flag).length
-                const expectedHotbar = flags.filter((flag) => flag).length
-                expect(mainNodes.length).toBe(expectedMain)
-                expect(hotbarNodes.length).toBe(expectedHotbar)
+              const mainNodes = container.querySelectorAll('[data-slot-section="main"] button')
+              const hotbarNodes = container.querySelectorAll('[data-slot-section="hotbar"] button')
+              const expectedMain = flags.filter((flag) => !flag).length
+              const expectedHotbar = flags.filter((flag) => flag).length
+              expect(mainNodes.length).toBe(expectedMain)
+              expect(hotbarNodes.length).toBe(expectedHotbar)
 
-                const hotbarGrid = yield* selectElement<HTMLElement>(
-                  container,
-                  '[data-testid="inventory-hotbar-grid"]'
-                )
-                const template = hotbarGrid.style.gridTemplateColumns
-                const expectedColumns = pipe(
-                  expectedHotbar,
-                  Match.value,
-                  Match.when(0, () => 1),
-                  Match.orElse((count) => count)
-                )
-                expect(template).toContain(`${expectedColumns}`)
+              const hotbarGrid = yield* selectElement<HTMLElement>(container, '[data-testid="inventory-hotbar-grid"]')
+              const template = hotbarGrid.style.gridTemplateColumns
+              const expectedColumns = pipe(
+                expectedHotbar,
+                Match.value,
+                Match.when(0, () => 1),
+                Match.orElse((count) => count)
+              )
+              expect(template).toContain(`${expectedColumns}`)
 
-                yield* Effect.sync(() => unmount())
-              })
-            )
-          }
-        ),
+              yield* Effect.sync(() => unmount())
+            })
+          )
+        }),
         { numRuns: 24 }
       )
     )

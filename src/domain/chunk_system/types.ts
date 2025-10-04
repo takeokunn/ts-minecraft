@@ -1,5 +1,5 @@
 import { Schema } from '@effect/schema'
-import { Brand, Data, Equal, Hash } from 'effect'
+import { Data, Equal, Hash } from 'effect'
 
 // ============================================================================
 // 基本ブランド型
@@ -22,10 +22,7 @@ export const ChunkIdSchema = Schema.String.pipe(
 
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 
-export const RequestIdSchema = Schema.String.pipe(
-  Schema.uuid(),
-  Schema.brand('RequestId')
-)
+export const RequestIdSchema = Schema.String.pipe(Schema.uuid(), Schema.brand('RequestId'))
 
 export type RequestId = Schema.Schema.Type<typeof RequestIdSchema>
 
@@ -37,19 +34,11 @@ export const StrategyIdSchema = Schema.String.pipe(
 
 export type StrategyId = Schema.Schema.Type<typeof StrategyIdSchema>
 
-export const BudgetIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.brand('BudgetId')
-)
+export const BudgetIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64), Schema.brand('BudgetId'))
 
 export type BudgetId = Schema.Schema.Type<typeof BudgetIdSchema>
 
-export const TickSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0),
-  Schema.brand('Tick')
-)
+export const TickSchema = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0), Schema.brand('Tick'))
 
 export type Tick = Schema.Schema.Type<typeof TickSchema>
 
@@ -93,10 +82,7 @@ export type PerformanceWindow = Schema.Schema.Type<typeof PerformanceWindowSchem
 
 export const ThroughputSummarySchema = Schema.Struct({
   operationsPerSecond: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
-  successRatio: Schema.Number.pipe(
-    Schema.greaterThanOrEqualTo(0),
-    Schema.lessThanOrEqualTo(1)
-  ),
+  successRatio: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1)),
 })
 
 export type ThroughputSummary = Schema.Schema.Type<typeof ThroughputSummarySchema>
@@ -116,13 +102,12 @@ export const ChunkRequestSchema = Schema.Struct({
   action: ChunkActionSchema,
   createdAt: EpochMillisecondsSchema,
   deadline: EpochMillisecondsSchema,
-})
-  .pipe(
-    Schema.refine((request) => request.createdAt <= request.deadline, {
-      message: 'createdAt must be earlier than or equal to deadline',
-      identifier: 'ChunkRequestDeadline',
-    })
-  )
+}).pipe(
+  Schema.refine((request) => request.createdAt <= request.deadline, {
+    message: 'createdAt must be earlier than or equal to deadline',
+    identifier: 'ChunkRequestDeadline',
+  })
+)
 
 export type ChunkRequest = Schema.Schema.Type<typeof ChunkRequestSchema>
 
@@ -145,8 +130,7 @@ export type ChunkSystemState = Schema.Schema.Type<typeof ChunkSystemStateSchema>
 // ドメインエラー
 // ============================================================================
 
-export interface ChunkSystemErrorTags
-  extends Record<string, Data.Case & Hash.Hash & Equal.Equal> {}
+export interface ChunkSystemErrorTags extends Record<string, Data.Case & Hash.Hash & Equal.Equal> {}
 
 export const ChunkSystemError = Data.taggedEnum({
   ResourceBudgetExceeded: Data.tagged<{
@@ -154,9 +138,7 @@ export const ChunkSystemError = Data.taggedEnum({
     readonly request: ChunkRequest
     readonly budget: ResourceBudget
   }>('ResourceBudgetExceeded'),
-  RequestNotFound: Data.tagged<{ readonly _tag: 'RequestNotFound'; readonly id: RequestId }>(
-    'RequestNotFound'
-  ),
+  RequestNotFound: Data.tagged<{ readonly _tag: 'RequestNotFound'; readonly id: RequestId }>('RequestNotFound'),
   RepositoryFailure: Data.tagged<{
     readonly _tag: 'RepositoryFailure'
     readonly reason: string

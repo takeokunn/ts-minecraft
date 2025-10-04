@@ -5,36 +5,33 @@
 
 // Chunk Aggregate
 export {
-  type ChunkId,
-  type BlockId,
-  type WorldCoordinate,
-  type ChunkAggregate,
-  ChunkId,
   BlockId,
-  WorldCoordinate,
   ChunkBoundsError,
+  ChunkId,
   ChunkSerializationError,
+  WorldCoordinate,
   createChunkAggregate,
   createEmptyChunkAggregate,
+  type BlockId,
+  type ChunkAggregate,
+  type ChunkId,
+  type WorldCoordinate,
 } from './chunk'
 
 // ChunkData Aggregate (ChunkDataAggregateと命名して区別)
 export {
-  type ChunkDataId,
-  type ChunkDataAggregate,
-  type BiomeType,
-  type LightLevel,
-  type Timestamp,
-  type HeightValue,
+  ChunkDataCorruptionError,
   ChunkDataId,
   ChunkDataValidationError,
-  ChunkDataCorruptionError,
   createChunkDataAggregate,
   createEmptyChunkDataAggregate,
+  type BiomeType,
+  type ChunkDataAggregate,
+  type ChunkDataId,
+  type HeightValue,
+  type LightLevel,
+  type Timestamp,
 } from './chunk_data'
 
 // 共用のChunkData型はchunkからのみエクスポート
-export {
-  type ChunkData,
-  ChunkDataSchema,
-} from './chunk'
+export { ChunkDataSchema, type ChunkData } from './chunk'

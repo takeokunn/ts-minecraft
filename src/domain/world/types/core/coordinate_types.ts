@@ -248,9 +248,7 @@ export const CircularAreaSchema = Schema.Struct({
 /** 基本方向 */
 export type Direction = 'north' | 'south' | 'east' | 'west' | 'up' | 'down'
 
-export const DirectionSchema = Schema.Literal(
-  'north', 'south', 'east', 'west', 'up', 'down'
-).pipe(
+export const DirectionSchema = Schema.Literal('north', 'south', 'east', 'west', 'up', 'down').pipe(
   Schema.annotations({
     title: 'Direction',
     description: 'Cardinal direction or vertical direction',
@@ -260,9 +258,7 @@ export const DirectionSchema = Schema.Literal(
 /** 水平方向 */
 export type HorizontalDirection = 'north' | 'south' | 'east' | 'west'
 
-export const HorizontalDirectionSchema = Schema.Literal(
-  'north', 'south', 'east', 'west'
-).pipe(
+export const HorizontalDirectionSchema = Schema.Literal('north', 'south', 'east', 'west').pipe(
   Schema.annotations({
     title: 'Horizontal Direction',
     description: 'Cardinal horizontal direction',
@@ -295,9 +291,9 @@ export const RotationRadiansSchema = Schema.Number.pipe(
 
 /** 3D回転 */
 export interface Rotation3D {
-  readonly yaw: RotationDegrees    // Y軸回転（水平）
-  readonly pitch: RotationDegrees  // X軸回転（上下）
-  readonly roll: RotationDegrees   // Z軸回転（傾き）
+  readonly yaw: RotationDegrees // Y軸回転（水平）
+  readonly pitch: RotationDegrees // X軸回転（上下）
+  readonly roll: RotationDegrees // Z軸回転（傾き）
 }
 
 export const Rotation3DSchema = Schema.Struct({
@@ -329,7 +325,10 @@ export interface CoordinateTransforms {
 
   // ローカル ⟷ ワールド変換
   readonly localToWorld: (local: ChunkLocalPosition, chunkPos: import('./world_types').ChunkPosition) => BlockPosition
-  readonly worldToLocal: (world: BlockPosition) => { local: ChunkLocalPosition; chunkPos: import('./world_types').ChunkPosition }
+  readonly worldToLocal: (world: BlockPosition) => {
+    local: ChunkLocalPosition
+    chunkPos: import('./world_types').ChunkPosition
+  }
 
   // 角度変換
   readonly degreesToRadians: (degrees: RotationDegrees) => RotationRadians
@@ -398,8 +397,12 @@ export const createChunkLocalPosition = (x: number, y: number, z: number): Chunk
 
 /** IntBoundingBox作成ヘルパー */
 export const createIntBoundingBox = (
-  minX: number, minY: number, minZ: number,
-  maxX: number, maxY: number, maxZ: number
+  minX: number,
+  minY: number,
+  minZ: number,
+  maxX: number,
+  maxY: number,
+  maxZ: number
 ): IntBoundingBox =>
   Schema.decodeSync(IntBoundingBoxSchema)({
     minX: minX as BlockCoordinate,

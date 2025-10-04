@@ -6,7 +6,6 @@ import { createCameraError, validateCameraConfig, validateCameraMode } from './h
 import type { CameraService } from './service'
 import type { CameraConfig, CameraError, CameraState, Vector3 } from './types'
 import { Vector3Schema } from './types'
-import type { CameraMode } from './types/constants.js'
 
 /**
  * 一人称カメラの内部状態

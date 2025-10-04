@@ -2,8 +2,10 @@ import { Schema } from '@effect/schema'
 import { Effect, pipe, Predicate } from 'effect'
 import type {
   AnimationDuration,
+  CameraConfig,
   CameraDistance,
   CameraError,
+  CameraState,
   DeltaTime,
   FOV,
   MouseDelta,
@@ -12,17 +14,15 @@ import type {
   Rotation2D,
   Sensitivity,
   YawAngle,
-  CameraConfig,
-  CameraState,
 } from './types/index.js'
 import {
   AnimationDurationSchema,
   CameraDistanceSchema,
+  CameraModeSchema,
   createCameraError,
   DeltaTimeSchema,
   FOVSchema,
   MouseDeltaSchema,
-  CameraModeSchema,
   PitchAngleSchema,
   Position3DSchema,
   Rotation2DSchema,

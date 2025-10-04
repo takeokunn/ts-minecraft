@@ -1,32 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema } from 'effect'
-import type {
-  WorldSeed,
-  BiomeProperties,
-  GenerationParameters,
-  NoiseConfiguration,
-  WorldCoordinate,
-  ChunkCoordinate,
-} from '../../value_object/index.js'
-import type {
-  WorldGenerator,
-  GenerationSession,
-  BiomeSystem,
-} from '../../aggregate/index.js'
-import type {
-  TerrainGeneratorService,
-  CaveCarverService,
-  StructureSpawnerService,
-  OrePlacerService,
-} from '../../domain_service/procedural_generation/index.js'
-import type {
-  GenerationValidatorService,
-  ConsistencyCheckerService,
-} from '../../domain_service/world_validation/index.js'
-import type {
-  WorldGeneratorRepository,
-  GenerationSessionRepository,
-  BiomeSystemRepository,
-} from '../../repository/index.js'
+import { Context, Effect, pipe, Schema } from 'effect'
 
 /**
  * World Generation Orchestrator Application Service
@@ -59,18 +31,17 @@ export const GenerateWorldCommand = Schema.Struct({
   worldName: Schema.String.pipe(Schema.minLength(1)),
   seed: Schema.Unknown, // WorldSeed
   parameters: Schema.Unknown, // GenerationParameters
-  bounds: Schema.optional(Schema.Struct({
-    minX: Schema.Number,
-    maxX: Schema.Number,
-    minZ: Schema.Number,
-    maxZ: Schema.Number,
-  })),
-  priority: Schema.optional(Schema.Union(
-    Schema.Literal('low'),
-    Schema.Literal('normal'),
-    Schema.Literal('high'),
-    Schema.Literal('critical')
-  )),
+  bounds: Schema.optional(
+    Schema.Struct({
+      minX: Schema.Number,
+      maxX: Schema.Number,
+      minZ: Schema.Number,
+      maxZ: Schema.Number,
+    })
+  ),
+  priority: Schema.optional(
+    Schema.Union(Schema.Literal('low'), Schema.Literal('normal'), Schema.Literal('high'), Schema.Literal('critical'))
+  ),
 })
 
 export const GenerateChunkCommand = Schema.Struct({
@@ -108,11 +79,7 @@ export const WorldGenerationResult = Schema.Struct({
   _tag: Schema.Literal('WorldGenerationResult'),
   generationId: Schema.String,
   worldName: Schema.String,
-  status: Schema.Union(
-    Schema.Literal('completed'),
-    Schema.Literal('partial'),
-    Schema.Literal('failed')
-  ),
+  status: Schema.Union(Schema.Literal('completed'), Schema.Literal('partial'), Schema.Literal('failed')),
   chunksGenerated: Schema.Number.pipe(Schema.nonNegativeInteger()),
   totalChunks: Schema.Number.pipe(Schema.nonNegativeInteger()),
   duration: Schema.Number.pipe(Schema.positive()),
@@ -123,11 +90,7 @@ export const WorldGenerationResult = Schema.Struct({
 export const ChunkGenerationResult = Schema.Struct({
   _tag: Schema.Literal('ChunkGenerationResult'),
   chunkPosition: Schema.Unknown, // ChunkCoordinate
-  status: Schema.Union(
-    Schema.Literal('success'),
-    Schema.Literal('partial'),
-    Schema.Literal('failed')
-  ),
+  status: Schema.Union(Schema.Literal('success'), Schema.Literal('partial'), Schema.Literal('failed')),
   generationTime: Schema.Number.pipe(Schema.positive()),
   features: Schema.Array(Schema.String),
   biomes: Schema.Array(Schema.Unknown), // BiomeId[]
@@ -167,7 +130,7 @@ export const GenerationStage = Schema.Union(
   Schema.Literal('ore_placement'),
   Schema.Literal('structure_spawning'),
   Schema.Literal('post_processing'),
-  Schema.Literal('validation'),
+  Schema.Literal('validation')
 )
 
 export interface GenerationStageType extends Schema.Schema.Type<typeof GenerationStage> {}
@@ -252,19 +215,18 @@ export const WorldGenerationOrchestratorHelpers = {
       const worldResult = yield* orchestrator.generateWorld(worldCommand)
 
       // チャンク範囲計算
-      const chunks = worldCommand.bounds ?
-        calculateChunksInBounds(worldCommand.bounds) :
-        []
+      const chunks = worldCommand.bounds ? calculateChunksInBounds(worldCommand.bounds) : []
 
       // 各チャンクを生成
       const chunkResults = yield* Effect.forEach(
         chunks,
-        (chunkPos) => orchestrator.generateChunk({
-          _tag: 'GenerateChunkCommand',
-          chunkPosition: chunkPos,
-          worldSeed: worldCommand.seed,
-          parameters: worldCommand.parameters,
-        }),
+        (chunkPos) =>
+          orchestrator.generateChunk({
+            _tag: 'GenerateChunkCommand',
+            chunkPosition: chunkPos,
+            worldSeed: worldCommand.seed,
+            parameters: worldCommand.parameters,
+          }),
         { concurrency: 'unbounded' }
       )
 
@@ -272,7 +234,7 @@ export const WorldGenerationOrchestratorHelpers = {
         worldResult,
         chunkResults,
         totalChunks: chunks.length,
-        successfulChunks: chunkResults.filter(r => r.status === 'success').length,
+        successfulChunks: chunkResults.filter((r) => r.status === 'success').length,
       }
     }),
 
@@ -287,9 +249,7 @@ export const WorldGenerationOrchestratorHelpers = {
       const orchestrator = yield* WorldGenerationOrchestrator
 
       // 生成開始
-      const generationFiber = yield* Effect.fork(
-        orchestrator.generateWorld(worldCommand)
-      )
+      const generationFiber = yield* Effect.fork(orchestrator.generateWorld(worldCommand))
 
       // 進捗監視
       const progressFiber = yield* Effect.fork(
@@ -318,21 +278,16 @@ export const WorldGenerationOrchestratorHelpers = {
   /**
    * エラー回復付きチャンク生成
    */
-  generateChunkWithRetry: (
-    command: Schema.Schema.Type<typeof GenerateChunkCommand>,
-    maxRetries: number = 3
-  ) =>
+  generateChunkWithRetry: (command: Schema.Schema.Type<typeof GenerateChunkCommand>, maxRetries: number = 3) =>
     Effect.gen(function* () {
       const orchestrator = yield* WorldGenerationOrchestrator
 
       return yield* pipe(
         orchestrator.generateChunk(command),
-        Effect.retry(Effect.Schedule.exponential('100 millis').pipe(
-          Effect.Schedule.compose(Effect.Schedule.recurs(maxRetries))
-        )),
-        Effect.tapError((error) =>
-          Effect.logError(`チャンク生成に失敗しました: ${error.message}`)
-        )
+        Effect.retry(
+          Effect.Schedule.exponential('100 millis').pipe(Effect.Schedule.compose(Effect.Schedule.recurs(maxRetries)))
+        ),
+        Effect.tapError((error) => Effect.logError(`チャンク生成に失敗しました: ${error.message}`))
       )
     }),
 }
@@ -353,13 +308,13 @@ function calculateChunksInBounds(bounds: { minX: number; maxX: number; minZ: num
 }
 
 export type {
-  GenerateWorldCommand as GenerateWorldCommandType,
-  GenerateChunkCommand as GenerateChunkCommandType,
-  UpdateSettingsCommand as UpdateSettingsCommandType,
-  GetProgressQuery as GetProgressQueryType,
   CancelGenerationCommand as CancelGenerationCommandType,
-  WorldGenerationResult as WorldGenerationResultType,
   ChunkGenerationResult as ChunkGenerationResultType,
+  GenerateChunkCommand as GenerateChunkCommandType,
+  GenerateWorldCommand as GenerateWorldCommandType,
   GenerationProgress as GenerationProgressType,
+  GetProgressQuery as GetProgressQueryType,
   PipelineContext as PipelineContextType,
+  UpdateSettingsCommand as UpdateSettingsCommandType,
+  WorldGenerationResult as WorldGenerationResultType,
 } from './orchestrator.js'

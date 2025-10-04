@@ -1,7 +1,7 @@
 import { Duration, Effect, Layer, Queue, Ref, Stream } from 'effect'
 import { ChunkEvent } from './events.js'
-import { ChunkSystemError, ChunkSystemState } from './types.js'
 import { ChunkSystemRepository } from './repository.js'
+import { ChunkSystemError, ChunkSystemState } from './types.js'
 
 const wrapRepository = <A>(effect: Effect.Effect<A, unknown>) =>
   effect.pipe(
@@ -20,9 +20,7 @@ const broadcastAll = (queue: Queue.Queue<ChunkEvent>, events: ReadonlyArray<Chun
 const simulateLatency = <A>(effect: Effect.Effect<A, unknown>) =>
   Effect.sleep(Duration.millis(2)).pipe(Effect.zipRight(effect))
 
-export const indexedDbRepositoryLayer = (
-  initial: ChunkSystemState
-): Layer.Layer<ChunkSystemRepository> =>
+export const indexedDbRepositoryLayer = (initial: ChunkSystemState): Layer.Layer<ChunkSystemRepository> =>
   Layer.scoped(
     ChunkSystemRepository,
     Effect.gen(function* () {
@@ -35,13 +33,7 @@ export const indexedDbRepositoryLayer = (
         save: (state, events) =>
           wrapRepository(
             simulateLatency(
-              Effect.all(
-                [
-                  Ref.set(persistedRef, state),
-                  broadcastAll(eventQueue, events),
-                ],
-                { discard: true }
-              )
+              Effect.all([Ref.set(persistedRef, state), broadcastAll(eventQueue, events)], { discard: true })
             )
           ),
         observe,

@@ -12,24 +12,14 @@ import {
   EquipmentOwnerIdSchema,
   EquipmentSetIdSchema,
   EquipmentSetVersionSchema,
-  makeRequirementViolation,
-  makeSchemaViolation,
   UnixTimeSchema,
   WeightSchema,
+  makeRequirementViolation,
+  makeSchemaViolation,
 } from '../types/core'
-import {
-  EquipmentPieceSchema,
-  ensureFitsSlot,
-  withUpdatedTimestamp,
-  type EquipmentPiece,
-} from './equipment_piece'
-import {
-  EquipmentSlotSchema,
-  equipmentSlotLiterals,
-  type EquipmentSlot,
-  type EquipmentSlotLiteral,
-} from '../value_object/slot'
 import { ensureWeightWithinLimit } from '../value_object/item_attributes'
+import { equipmentSlotLiterals, type EquipmentSlot, type EquipmentSlotLiteral } from '../value_object/slot'
+import { EquipmentPieceSchema, ensureFitsSlot, withUpdatedTimestamp, type EquipmentPiece } from './equipment_piece'
 
 const optionalPiece = Schema.optional(EquipmentPieceSchema)
 
@@ -79,8 +69,7 @@ const emptySlots = (): Slots =>
     belt: undefined,
   })
 
-const setError = (message: string): EquipmentDomainError =>
-  makeSchemaViolation({ field: 'EquipmentSet', message })
+const setError = (message: string): EquipmentDomainError => makeSchemaViolation({ field: 'EquipmentSet', message })
 
 const slotKey = (slot: EquipmentSlot): EquipmentSlotLiteral => slot as unknown as EquipmentSlotLiteral
 
@@ -120,8 +109,7 @@ export const createEquipmentSet = (
     }).pipe(Effect.mapError(() => setError('invalid equipment set components')))
   })
 
-const slotOccupied = (set: EquipmentSet, slot: EquipmentSlot): boolean =>
-  set.slots[slotKey(slot)] !== undefined
+const slotOccupied = (set: EquipmentSet, slot: EquipmentSlot): boolean => set.slots[slotKey(slot)] !== undefined
 
 const buildSlots = (base: Slots, updates: Record<EquipmentSlotLiteral, EquipmentPiece | undefined>): Slots =>
   decodeSlotsSync({ ...base, ...updates })
@@ -158,11 +146,7 @@ export const equipPiece = (
     })
   })
 
-export const unequipSlot = (
-  set: EquipmentSet,
-  slot: EquipmentSlot,
-  timestamp: UnixTime
-): EquipmentSet => {
+export const unequipSlot = (set: EquipmentSet, slot: EquipmentSlot, timestamp: UnixTime): EquipmentSet => {
   const literal = slotKey(slot)
   const slots = buildSlots(set.slots, {
     [literal]: undefined,
@@ -176,18 +160,13 @@ export const unequipSlot = (
   })
 }
 
-export const findPiece = (
-  set: EquipmentSet,
-  slot: EquipmentSlot
-): EquipmentPiece | undefined => set.slots[slotKey(slot)]
+export const findPiece = (set: EquipmentSet, slot: EquipmentSlot): EquipmentPiece | undefined =>
+  set.slots[slotKey(slot)]
 
 export const carriedWeightPercentage = (set: EquipmentSet): number =>
   set.carriedWeight === 0 ? 0 : (set.carriedWeight / set.weightLimit) * 100
 
-export const updatePieces = (
-  set: EquipmentSet,
-  updater: (piece: EquipmentPiece) => EquipmentPiece
-): EquipmentSet => {
+export const updatePieces = (set: EquipmentSet, updater: (piece: EquipmentPiece) => EquipmentPiece): EquipmentSet => {
   const entries = Object.fromEntries(
     equipmentSlotLiterals.map((literal) => {
       const piece = set.slots[literal]

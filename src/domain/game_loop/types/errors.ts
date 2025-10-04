@@ -39,11 +39,7 @@ export interface RuntimeCallbackError {
 }
 export const RuntimeCallbackError = Data.tagged<RuntimeCallbackError>('RuntimeCallbackError')
 
-export type GameLoopError =
-  | InitializationError
-  | StateTransitionError
-  | PerformanceError
-  | RuntimeCallbackError
+export type GameLoopError = InitializationError | StateTransitionError | PerformanceError | RuntimeCallbackError
 
 export const InitializationErrorSchema = Schema.Struct({
   _tag: Schema.Literal('InitializationError'),
@@ -78,15 +74,13 @@ export const GameLoopErrorSchema = Schema.Union(
   RuntimeCallbackErrorSchema
 )
 
-export const toInitializationError = (reason: string): InitializationError =>
-  InitializationError({ reason })
+export const toInitializationError = (reason: string): InitializationError => InitializationError({ reason })
 
 export const toStateTransitionError = (parameters: {
   readonly from: string
   readonly to: string
   readonly message: string
-}): StateTransitionError =>
-  StateTransitionError(parameters)
+}): StateTransitionError => StateTransitionError(parameters)
 
 export const toPerformanceError = (parameters: {
   readonly target: FramesPerSecond
@@ -100,9 +94,8 @@ export const toRuntimeCallbackError = (parameters: {
   readonly occurredAt: Timestamp
 }): RuntimeCallbackError => RuntimeCallbackError(parameters)
 
-export const decodeGameLoopError = (
-  input: unknown
-): Either.Either<Schema.ParseError, GameLoopError> => Schema.decodeEither(GameLoopErrorSchema)(input)
+export const decodeGameLoopError = (input: unknown): Either.Either<Schema.ParseError, GameLoopError> =>
+  Schema.decodeEither(GameLoopErrorSchema)(input)
 
 export const stringifyGameLoopError = (error: GameLoopError): string =>
   pipe(

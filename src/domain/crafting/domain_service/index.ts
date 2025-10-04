@@ -4,10 +4,7 @@ export * from './recipe_discovery'
 export * from './recipe_validation'
 
 import { Layer } from 'effect'
-import {
-  CraftingCalculationService,
-  CraftingCalculationServiceLive,
-} from './crafting_calculation'
+import { CraftingCalculationService, CraftingCalculationServiceLive } from './crafting_calculation'
 import { PatternMatchingService, PatternMatchingServiceLive } from './pattern_matching'
 import { RecipeDiscoveryService, RecipeDiscoveryServiceLive } from './recipe_discovery'
 import { RecipeValidationService, RecipeValidationServiceLive } from './recipe_validation'

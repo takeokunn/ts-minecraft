@@ -1,17 +1,17 @@
 import { Effect, Match, Schema, pipe } from 'effect'
+import { PHYSICS_CONSTANTS } from '../types/constants'
 import {
-  Vector3Schema,
-  parsePositiveFloat,
-  parseUnitInterval,
-  parseVector3,
-  vector3,
   PositiveFloat,
   UnitInterval,
   Vector3,
-  positiveFloat,
+  Vector3Schema,
   nonNegativeFloat,
+  parsePositiveFloat,
+  parseUnitInterval,
+  parseVector3,
+  positiveFloat,
+  vector3,
 } from '../types/core'
-import { PHYSICS_CONSTANTS } from '../types/constants'
 import type { PhysicsError } from '../types/errors'
 
 const GravityVectorSchema = Schema.Struct({
@@ -55,14 +55,11 @@ const make = (params: {
   readonly terminalVelocity?: unknown
 }): Effect.Effect<GravityVector, PhysicsError> =>
   Effect.gen(function* () {
-    const direction = yield* pipe(
-      params.direction ?? vector3({ x: 0, y: -1, z: 0 }),
-      parseVector3
-    )
+    const direction = yield* pipe(params.direction ?? vector3({ x: 0, y: -1, z: 0 }), parseVector3)
     const normalizedDirection = yield* normalize(direction)
     const magnitude = yield* parsePositiveFloat(params.magnitude ?? PHYSICS_CONSTANTS.gravity.y * -1)
     const terminalVelocity = yield* parsePositiveFloat(params.terminalVelocity ?? PHYSICS_CONSTANTS.terminalVelocity)
-  const multiplier = yield* parseUnitInterval(params.multiplier ?? 1)
+    const multiplier = yield* parseUnitInterval(params.multiplier ?? 1)
 
     return yield* decodeWith(GravityVectorSchema)({
       direction: normalizedDirection,
@@ -128,10 +125,7 @@ const forMedium = (inFluid: boolean): GravityVector =>
     )
   )
 
-const withMultiplier = (
-  gravity: GravityVector,
-  multiplier: UnitInterval
-): GravityVector =>
+const withMultiplier = (gravity: GravityVector, multiplier: UnitInterval): GravityVector =>
   Effect.runSync(
     decodeWith(GravityVectorSchema)({
       direction: gravity.direction,

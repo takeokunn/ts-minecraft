@@ -1,6 +1,6 @@
+import * as Schema from '@effect/schema/Schema'
 import { Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import * as Schema from '@effect/schema/Schema'
 import {
   InvalidConfigurationError,
   LODDecision,
@@ -41,8 +41,7 @@ const decodeLODDecision = (decision: {
   readonly objectId: string
   readonly level: LODLevel
   readonly confidence: number
-}) =>
-  Effect.sync(() => Schema.decodeUnknownSync(LODDecisionSchema)(decision))
+}) => Effect.sync(() => Schema.decodeUnknownSync(LODDecisionSchema)(decision))
 
 const squaredDistance = (a: Vector3, b: Vector3): number => {
   const dx = a.x - b.x
@@ -67,8 +66,14 @@ const adjustForPerformance = (
   const adjustment = pipe(
     performance.frameRate,
     Match.value,
-    Match.when((rate) => rate < 30, () => 1),
-    Match.when((rate) => rate > 90, () => -1),
+    Match.when(
+      (rate) => rate < 30,
+      () => 1
+    ),
+    Match.when(
+      (rate) => rate > 90,
+      () => -1
+    ),
     Match.orElse(() => 0)
   )
 

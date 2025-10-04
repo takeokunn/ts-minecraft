@@ -1,7 +1,7 @@
 import { Context, Effect, Option } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { RepositoryError } from '../types/repository_error'
 
 /**
@@ -97,7 +97,9 @@ export interface ChunkRepository {
   /**
    * 複数のチャンクを座標で検索
    */
-  readonly findByPositions: (positions: ReadonlyArray<ChunkPosition>) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly findByPositions: (
+    positions: ReadonlyArray<ChunkPosition>
+  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * チャンクを保存
@@ -173,7 +175,9 @@ export interface ChunkRepository {
   /**
    * バッチ保存（部分失敗対応）
    */
-  readonly batchSave: (chunks: ReadonlyArray<ChunkData>) => Effect.Effect<BatchOperationResult<ChunkData>, RepositoryError>
+  readonly batchSave: (
+    chunks: ReadonlyArray<ChunkData>
+  ) => Effect.Effect<BatchOperationResult<ChunkData>, RepositoryError>
 
   /**
    * バッチ削除（部分失敗対応）

@@ -3,13 +3,13 @@
  */
 
 export * from './consistency_checker.js'
-export * from './generation_validator.js'
 export * from './constraint_enforcer.js'
+export * from './generation_validator.js'
 
 import { Layer } from 'effect'
-import { ConsistencyCheckerServiceLive, ConsistencyCheckerService } from './consistency_checker.js'
-import { GenerationValidatorServiceLive, GenerationValidatorService } from './generation_validator.js'
-import { ConstraintEnforcerServiceLive, ConstraintEnforcerService } from './constraint_enforcer.js'
+import { ConsistencyCheckerService, ConsistencyCheckerServiceLive } from './consistency_checker.js'
+import { ConstraintEnforcerService, ConstraintEnforcerServiceLive } from './constraint_enforcer.js'
+import { GenerationValidatorService, GenerationValidatorServiceLive } from './generation_validator.js'
 
 export const WorldValidationLayer = Layer.mergeAll(
   ConsistencyCheckerServiceLive,

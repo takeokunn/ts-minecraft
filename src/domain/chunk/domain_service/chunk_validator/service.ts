@@ -1,25 +1,22 @@
 import { Context, Effect, Layer, Match, Schema, pipe } from 'effect'
-import {
-  type ChunkAggregate,
-  ChunkBoundsError,
-  type ChunkData,
-  ChunkDataSchema,
-} from '../../aggregate/chunk'
+import { type ChunkAggregate, ChunkBoundsError, type ChunkData, ChunkDataSchema } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
+import { type ChunkMetadata, ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
 import type { ChunkPosition } from '../../value_object/chunk_position/types'
-import {
-  type ChunkMetadata,
-  ChunkMetadataSchema,
-} from '../../value_object/chunk_metadata/types'
 
 export interface ChunkValidationService {
   readonly validatePosition: (position: ChunkPosition) => Effect.Effect<ChunkPosition, ChunkBoundsError>
   readonly validateData: (data: Uint16Array) => Effect.Effect<Uint16Array, ChunkDataValidationError>
   readonly validateMetadata: (metadata: ChunkMetadata) => Effect.Effect<ChunkMetadata, ChunkDataValidationError>
   readonly validateIntegrity: (chunk: ChunkData) => Effect.Effect<boolean, ChunkDataValidationError | ChunkBoundsError>
-  readonly validateChecksum: (data: Uint16Array, expectedChecksum: string) => Effect.Effect<boolean, ChunkDataValidationError>
+  readonly validateChecksum: (
+    data: Uint16Array,
+    expectedChecksum: string
+  ) => Effect.Effect<boolean, ChunkDataValidationError>
   readonly validateChunkBounds: (x: number, y: number, z: number) => Effect.Effect<boolean, ChunkBoundsError>
-  readonly validateChunkAggregate: (aggregate: ChunkAggregate) => Effect.Effect<boolean, ChunkBoundsError | ChunkDataValidationError>
+  readonly validateChunkAggregate: (
+    aggregate: ChunkAggregate
+  ) => Effect.Effect<boolean, ChunkBoundsError | ChunkDataValidationError>
 }
 
 export const ChunkValidationService = Context.GenericTag<ChunkValidationService>('ChunkValidationService')
@@ -33,7 +30,7 @@ const MAX_CHUNK_COORDINATE = 2147483647
 const ensureCoordinateInRange = (
   axis: 'x' | 'z',
   value: number,
-  position: ChunkPosition,
+  position: ChunkPosition
 ): Effect.Effect<number, ChunkBoundsError> =>
   pipe(
     Effect.succeed(value),
@@ -51,10 +48,7 @@ const ensureCoordinateInRange = (
     )
   )
 
-const ensureArrayLength = (
-  data: Uint16Array,
-  expected: number,
-): Effect.Effect<Uint16Array, ChunkDataValidationError> =>
+const ensureArrayLength = (data: Uint16Array, expected: number): Effect.Effect<Uint16Array, ChunkDataValidationError> =>
   pipe(
     Effect.succeed(data),
     Effect.filterOrFail(
@@ -73,7 +67,7 @@ const ensureChunkCoordinate = (
   min: number,
   max: number,
   axis: 'x' | 'y' | 'z',
-  coordinates: { x: number; y: number; z: number },
+  coordinates: { x: number; y: number; z: number }
 ): Effect.Effect<number, ChunkBoundsError> =>
   pipe(
     Effect.succeed(coordinate),

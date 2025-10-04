@@ -440,8 +440,16 @@ describe('PlayerService', () => {
 ### 1. 命名規則の統一
 
 ```typescript
-// ✅ ファイル命名: kebab-case
+// ✅ ファイル命名: kebab-case（厳守）
 // player-service.ts, world-generator.ts, chunk-loader.ts
+// game-application.ts, input-service.ts, audio-service.ts
+
+// ✅ テストファイル: .spec.ts + __tests__ ディレクトリ
+// src/domain/player/__tests__/player-service.spec.ts
+// src/infrastructure/audio/__tests__/audio-service.spec.ts
+
+// ✅ ディレクトリ命名: snake_case（DDDレイヤー構造）
+// value_object/, application_service/, domain_service/
 
 // ✅ 型命名: PascalCase
 type PlayerService = {

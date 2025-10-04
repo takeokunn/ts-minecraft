@@ -9,10 +9,7 @@ const ChunkCoordinateSchema = Schema.Struct({
   y: IntSchema,
   z: IntSchema,
 })
-const ChunkIdSchema = Schema.String.pipe(
-  Schema.pattern(/^chunk_-?\d+_-?\d+_-?\d+$/),
-  Schema.brand('ChunkId')
-)
+const ChunkIdSchema = Schema.String.pipe(Schema.pattern(/^chunk_-?\d+_-?\d+_-?\d+$/), Schema.brand('ChunkId'))
 const SessionIdSchema = Schema.String.pipe(
   Schema.pattern(/^session_[0-9a-f]{16}_[0-9a-f]{16}$/),
   Schema.brand('SessionId')
@@ -76,8 +73,7 @@ export type LoadError =
   | ReturnType<typeof ConflictError>
   | ReturnType<typeof InternalError>
 
-const formatParseError = (error: ParseResult.ParseError): string =>
-  ParseResult.TreeFormatter.formatErrorSync(error)
+const formatParseError = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
 
 const toValidationError = (error: ParseResult.ParseError): LoadError =>
   ValidationError({ message: formatParseError(error) })
@@ -91,15 +87,10 @@ export const LoadError = {
   Internal: (message: string): LoadError => InternalError({ message }),
 }
 
-const makeDecoder = <A>(
-  schema: Schema.Schema<A, any, never>,
-  onError: (error: ParseResult.ParseError) => LoadError
-) =>
+const makeDecoder =
+  <A>(schema: Schema.Schema<A, any, never>, onError: (error: ParseResult.ParseError) => LoadError) =>
   (value: unknown): Effect.Effect<A, LoadError> =>
-    pipe(
-      Schema.decodeUnknown(schema)(value),
-      Effect.mapError(onError)
-    )
+    pipe(Schema.decodeUnknown(schema)(value), Effect.mapError(onError))
 
 const decodeCoordinates = makeDecoder(ChunkCoordinateSchema, toValidationError)
 const decodePriority = makeDecoder(PrioritySchema, toValidationError)
@@ -130,30 +121,17 @@ export const ChunkLoadingProviderTag = Context.Tag<ChunkLoadingProvider>(
 
 export const ChunkLoadingProvider = ChunkLoadingProviderTag
 
-export const makeChunkId = (
-  coordinates: ChunkCoordinates
-): Effect.Effect<ChunkId, LoadError> =>
-  pipe(
-    decodeChunkId(`chunk_${coordinates.x}_${coordinates.y}_${coordinates.z}`)
-  )
+export const makeChunkId = (coordinates: ChunkCoordinates): Effect.Effect<ChunkId, LoadError> =>
+  pipe(decodeChunkId(`chunk_${coordinates.x}_${coordinates.y}_${coordinates.z}`))
 
-export const makeSessionId = (
-  timestamp: Timestamp,
-  entropy: string
-): Effect.Effect<SessionId, LoadError> =>
+export const makeSessionId = (timestamp: Timestamp, entropy: string): Effect.Effect<SessionId, LoadError> =>
   decodeSessionId(`session_${timestamp.toString(16).padStart(16, '0')}_${entropy}`)
 
-export const normalizePriority = (
-  priority: number
-): Effect.Effect<ChunkPriority, LoadError> => decodePriority(priority)
+export const normalizePriority = (priority: number): Effect.Effect<ChunkPriority, LoadError> => decodePriority(priority)
 
-export const normalizeTimestamp = (
-  value: number
-): Effect.Effect<Timestamp, LoadError> => decodeTimestamp(value)
+export const normalizeTimestamp = (value: number): Effect.Effect<Timestamp, LoadError> => decodeTimestamp(value)
 
-export const createRequest = (
-  input: ChunkLoadRequestInput
-): Effect.Effect<ChunkLoadRequest, LoadError> =>
+export const createRequest = (input: ChunkLoadRequestInput): Effect.Effect<ChunkLoadRequest, LoadError> =>
   Effect.gen(function* () {
     const coordinates = yield* decodeCoordinates(input.coordinates)
     const priority = yield* decodePriority(input.priority)
@@ -170,9 +148,7 @@ export const createRequest = (
     }
   })
 
-export const progressFromPhase = (
-  phase: LoadPhase
-): Effect.Effect<LoadProgress, LoadError> =>
+export const progressFromPhase = (phase: LoadPhase): Effect.Effect<LoadProgress, LoadError> =>
   pipe(
     Match.value(phase._tag),
     Match.when('Queued', () => 0),
@@ -200,7 +176,9 @@ export const withProgress = (
     }))
   )
 
-const PreloadFailure = Data.tagged<{ readonly _tag: 'PreloadFailure'; readonly reasons: ReadonlyArray<string> }>('PreloadFailure')
+const PreloadFailure = Data.tagged<{ readonly _tag: 'PreloadFailure'; readonly reasons: ReadonlyArray<string> }>(
+  'PreloadFailure'
+)
 
 export type PreloadError = ReturnType<typeof PreloadFailure>
 
@@ -231,6 +209,5 @@ export const formatLoadError = (error: LoadError): string =>
     Match.exhaustive
   )
 
-export const cacheStatusFallback = (
-  status: Option.Option<CacheStatus>
-): CacheStatus => Option.getOrElse(status, () => 'miss')
+export const cacheStatusFallback = (status: Option.Option<CacheStatus>): CacheStatus =>
+  Option.getOrElse(status, () => 'miss')

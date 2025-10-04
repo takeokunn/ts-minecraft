@@ -5,21 +5,18 @@
  * DDD Application層のライブ実装
  */
 
-import { Context, Effect, Layer, pipe } from 'effect'
-import { InventoryManagerApplicationService } from './service'
-import { makeCommandHandlers } from './commands'
-import { makeQueryHandlers } from './queries'
-import type { InventoryService } from '../../service'
+import { Effect, Layer, pipe } from 'effect'
+import type { ItemStack } from '../../aggregate/item_stack/types'
+import type { StackingService } from '../../domain_service/stacking_service/service'
 import type { TransferService } from '../../domain_service/transfer_service/service'
 import type { ValidationService } from '../../domain_service/validation_service/service'
-import type { StackingService } from '../../domain_service/stacking_service/service'
 import type { InventoryRepository } from '../../repository/inventory_repository/interface'
+import type { InventoryService } from '../../service'
 import type { InventoryCommand, InventoryQuery } from '../../types/commands'
-import type { QueryResult } from '../../types/queries'
-import type { InventoryApplicationError } from '../types/errors'
 import type { InventoryId, PlayerId } from '../../types/core'
-import type { Inventory } from '../../aggregate/inventory/types'
-import type { ItemStack } from '../../aggregate/item_stack/types'
+import { makeCommandHandlers } from './commands'
+import { makeQueryHandlers } from './queries'
+import { InventoryManagerApplicationService } from './service'
 
 /**
  * InventoryManagerApplicationService Live実装
@@ -46,11 +43,7 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
       inventoryRepository
     )
 
-    const queryHandlers = makeQueryHandlers(
-      inventoryService,
-      inventoryRepository,
-      validationService
-    )
+    const queryHandlers = makeQueryHandlers(inventoryService, inventoryRepository, validationService)
 
     yield* Effect.logInfo('InventoryManagerApplicationService initialized')
 
@@ -64,11 +57,11 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
             Effect.gen(function* () {
               yield* Effect.logError('Command execution failed', {
                 commandId: command.commandId,
-                error: error.message
-})
+                error: error.message,
+              })
 
-// Legacy alias for compatibility
-export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLive
+              // Legacy alias for compatibility
+              export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLive
               return yield* Effect.fail(error)
             })
           )
@@ -77,15 +70,17 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
       executeQuery: <TResult>(query: InventoryQuery) =>
         pipe(
           queryHandlers.handleQuery<TResult>(query),
-          Effect.tap((result) => Effect.logDebug('Query executed', {
-            queryId: query.queryId,
-            resultCount: result.metadata.resultCount
-          })),
+          Effect.tap((result) =>
+            Effect.logDebug('Query executed', {
+              queryId: query.queryId,
+              resultCount: result.metadata.resultCount,
+            })
+          ),
           Effect.catchAll((error) =>
             Effect.gen(function* () {
               yield* Effect.logError('Query execution failed', {
                 queryId: query.queryId,
-                error: error.message
+                error: error.message,
               })
               return yield* Effect.fail(error)
             })
@@ -97,7 +92,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
         Effect.gen(function* () {
           yield* Effect.logInfo('Initializing player inventory', {
             playerId,
-            inventoryType
+            inventoryType,
           })
 
           const inventoryId = yield* inventoryService.generateInventoryId()
@@ -112,7 +107,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
 
           yield* Effect.logInfo('Player inventory initialized', {
             playerId,
-            inventoryId
+            inventoryId,
           })
 
           return inventoryId
@@ -124,25 +119,17 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
             inventoryId,
             itemId: itemStack.itemId,
             quantity: itemStack.quantity,
-            slotIndex
+            slotIndex,
           })
 
           // バリデーション
           yield* validationService.validateAddItem(inventoryId, itemStack, slotIndex)
 
           // スタッキング可能性チェック
-          const stackingResult = yield* stackingService.canStack(
-            inventoryId,
-            itemStack,
-            slotIndex
-          )
+          const stackingResult = yield* stackingService.canStack(inventoryId, itemStack, slotIndex)
 
           if (stackingResult.canStack) {
-            yield* inventoryService.stackItem(
-              inventoryId,
-              stackingResult.targetSlot,
-              itemStack.quantity
-            )
+            yield* inventoryService.stackItem(inventoryId, stackingResult.targetSlot, itemStack.quantity)
           } else {
             yield* inventoryService.addItem(inventoryId, itemStack, slotIndex)
           }
@@ -155,7 +142,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
           yield* Effect.logDebug('Removing item', {
             inventoryId,
             slotIndex,
-            quantity
+            quantity,
           })
 
           yield* validationService.validateRemoveItem(inventoryId, slotIndex, quantity)
@@ -170,7 +157,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
             inventoryId,
             fromSlot,
             toSlot,
-            quantity
+            quantity,
           })
 
           yield* validationService.validateMoveItem(inventoryId, fromSlot, toSlot, quantity)
@@ -192,7 +179,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
             targetInventoryId,
             sourceSlot,
             targetSlot,
-            quantity
+            quantity,
           })
 
           yield* validationService.validateTransferItem(
@@ -203,13 +190,7 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
             quantity
           )
 
-          yield* transferService.transferItem(
-            sourceInventoryId,
-            targetInventoryId,
-            sourceSlot,
-            targetSlot,
-            quantity
-          )
+          yield* transferService.transferItem(sourceInventoryId, targetInventoryId, sourceSlot, targetSlot, quantity)
 
           yield* Effect.logDebug('Item transferred successfully')
         }),
@@ -253,18 +234,16 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
       batchExecuteCommands: (commands) =>
         Effect.gen(function* () {
           yield* Effect.logInfo('Executing batch commands', {
-            commandCount: commands.length
+            commandCount: commands.length,
           })
 
-          const results = yield* Effect.forEach(
-            commands,
-            (command) => commandHandlers.handleCommand(command),
-            { concurrency: 'unbounded' }
-          )
+          const results = yield* Effect.forEach(commands, (command) => commandHandlers.handleCommand(command), {
+            concurrency: 'unbounded',
+          })
 
           yield* Effect.logInfo('Batch commands completed', {
             commandCount: commands.length,
-            successCount: results.length
+            successCount: results.length,
           })
 
           return results
@@ -315,31 +294,34 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
           let performanceImprovement = 0
 
           // メモリ使用量チェック
-          if (targetMetrics.maxMemoryUsage < 1000000) { // 1MB
+          if (targetMetrics.maxMemoryUsage < 1000000) {
+            // 1MB
             optimizations.push('Memory optimization enabled')
             performanceImprovement += 15
           }
 
           // コマンド実行時間最適化
-          if (targetMetrics.maxCommandExecutionTime < 100) { // 100ms
+          if (targetMetrics.maxCommandExecutionTime < 100) {
+            // 100ms
             optimizations.push('Command execution optimization enabled')
             performanceImprovement += 10
           }
 
           // クエリ実行時間最適化
-          if (targetMetrics.maxQueryExecutionTime < 50) { // 50ms
+          if (targetMetrics.maxQueryExecutionTime < 50) {
+            // 50ms
             optimizations.push('Query execution optimization enabled')
             performanceImprovement += 8
           }
 
           yield* Effect.logInfo('Performance optimization completed', {
             optimizationsApplied: optimizations,
-            performanceImprovement
+            performanceImprovement,
           })
 
           return {
             optimizationsApplied: optimizations,
-            performanceImprovement
+            performanceImprovement,
           }
         }),
 
@@ -357,10 +339,10 @@ export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLiv
             performanceMetrics: {
               averageCommandTime: 50, // 実装では実際の計測値
               averageQueryTime: 25, // 実装では実際の計測値
-              memoryUsage: 500000 // 実装では実際の使用量
-            }
+              memoryUsage: 500000, // 実装では実際の使用量
+            },
           }
-        })
+        }),
     })
   })
 )

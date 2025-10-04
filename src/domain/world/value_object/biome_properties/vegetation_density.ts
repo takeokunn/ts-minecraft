@@ -5,10 +5,9 @@
  * キャリング・キャパシティと競争原理に基づく実装
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 植生密度Brand型（0.0から1.0）
@@ -41,7 +40,7 @@ export const VegetationDensitySchema = Schema.Number.pipe(
     identifier: 'VegetationDensity',
     title: 'Vegetation Density',
     description: 'Relative vegetation density from sparse (0.0) to dense (1.0)',
-    examples: [0.1, 0.3, 0.6, 0.8, 1.0]
+    examples: [0.1, 0.3, 0.6, 0.8, 1.0],
   })
 )
 
@@ -57,7 +56,7 @@ export const BiomassSchema = Schema.Number.pipe(
     identifier: 'Biomass',
     title: 'Biomass Density',
     description: 'Biomass density in kilograms per square meter (0 to 100 kg/m²)',
-    examples: [0.5, 2.0, 5.0, 15.0, 50.0]
+    examples: [0.5, 2.0, 5.0, 15.0, 50.0],
   })
 )
 
@@ -72,7 +71,7 @@ export const CoverageRatioSchema = Schema.Number.pipe(
     identifier: 'CoverageRatio',
     title: 'Vegetation Coverage Ratio',
     description: 'Fraction of ground covered by vegetation (0.0 to 1.0)',
-    examples: [0.05, 0.25, 0.5, 0.75, 0.95]
+    examples: [0.05, 0.25, 0.5, 0.75, 0.95],
   })
 )
 
@@ -88,7 +87,7 @@ export const SpeciesDiversityIndexSchema = Schema.Number.pipe(
     identifier: 'SpeciesDiversityIndex',
     title: 'Species Diversity Index',
     description: 'Shannon-Wiener diversity index (0.0 to 5.0)',
-    examples: [0.5, 1.2, 2.0, 3.1, 4.2]
+    examples: [0.5, 1.2, 2.0, 3.1, 4.2],
   })
 )
 
@@ -96,22 +95,22 @@ export const SpeciesDiversityIndexSchema = Schema.Number.pipe(
  * 植生タイプ
  */
 export const VegetationTypeSchema = Schema.Literal(
-  'trees',            // 高木
-  'shrubs',           // 低木
-  'grasses',          // 草本
-  'herbs',            // ハーブ類
-  'ferns',            // シダ類
-  'mosses',           // コケ類
-  'lichens',          // 地衣類
-  'fungi',            // 菌類
-  'aquatic_plants',   // 水生植物
-  'epiphytes',        // 着生植物
+  'trees', // 高木
+  'shrubs', // 低木
+  'grasses', // 草本
+  'herbs', // ハーブ類
+  'ferns', // シダ類
+  'mosses', // コケ類
+  'lichens', // 地衣類
+  'fungi', // 菌類
+  'aquatic_plants', // 水生植物
+  'epiphytes', // 着生植物
   'parasitic_plants', // 寄生植物
   'carnivorous_plants' // 食虫植物
 ).pipe(
   Schema.annotations({
     title: 'Vegetation Type',
-    description: 'Functional type of vegetation'
+    description: 'Functional type of vegetation',
   })
 )
 
@@ -121,16 +120,16 @@ export type VegetationType = typeof VegetationTypeSchema.Type
  * 成長段階
  */
 export const GrowthStageSchema = Schema.Literal(
-  'seedling',     // 実生
-  'juvenile',     // 幼体
-  'mature',       // 成体
+  'seedling', // 実生
+  'juvenile', // 幼体
+  'mature', // 成体
   'reproductive', // 繁殖期
-  'senescent',    // 老齢
-  'dead'          // 枯死
+  'senescent', // 老齢
+  'dead' // 枯死
 ).pipe(
   Schema.annotations({
     title: 'Growth Stage',
-    description: 'Life cycle stage of vegetation'
+    description: 'Life cycle stage of vegetation',
   })
 )
 
@@ -140,17 +139,17 @@ export type GrowthStage = typeof GrowthStageSchema.Type
  * 分布パターン
  */
 export const DistributionPatternSchema = Schema.Literal(
-  'random',       // ランダム分布
-  'uniform',      // 均等分布
-  'clustered',    // クラスター分布
-  'linear',       // 線形分布
-  'patchy',       // パッチ状分布
-  'gradient',     // 勾配分布
-  'mosaic'        // モザイク分布
+  'random', // ランダム分布
+  'uniform', // 均等分布
+  'clustered', // クラスター分布
+  'linear', // 線形分布
+  'patchy', // パッチ状分布
+  'gradient', // 勾配分布
+  'mosaic' // モザイク分布
 ).pipe(
   Schema.annotations({
     title: 'Distribution Pattern',
-    description: 'Spatial distribution pattern of vegetation'
+    description: 'Spatial distribution pattern of vegetation',
   })
 )
 
@@ -189,7 +188,7 @@ export const VegetationLayerSchema = Schema.Struct({
       Schema.nonNegative(),
       Schema.between(0, 100),
       Schema.annotations({ description: 'Average height in meters' })
-    )
+    ),
   }),
 
   // 密度特性
@@ -209,7 +208,7 @@ export const VegetationLayerSchema = Schema.Struct({
       Schema.positive(),
       Schema.between(0.1, 100),
       Schema.annotations({ description: 'Average spacing between individuals in meters' })
-    ).pipe(Schema.optional)
+    ).pipe(Schema.optional),
   }),
 
   // 年齢構造
@@ -218,7 +217,7 @@ export const VegetationLayerSchema = Schema.Struct({
     juveniles: Schema.Number.pipe(Schema.between(0, 1)),
     mature: Schema.Number.pipe(Schema.between(0, 1)),
     reproductive: Schema.Number.pipe(Schema.between(0, 1)),
-    senescent: Schema.Number.pipe(Schema.between(0, 1))
+    senescent: Schema.Number.pipe(Schema.between(0, 1)),
   }).pipe(Schema.optional),
 
   // 季節変動
@@ -243,20 +242,22 @@ export const VegetationLayerSchema = Schema.Struct({
         Schema.int(),
         Schema.between(1, 365),
         Schema.annotations({ description: 'Day of year for senescence' })
-      ).pipe(Schema.optional)
+      ).pipe(Schema.optional),
     }),
 
     // 季節バイオマス変動
-    biomassCycle: Schema.Array(Schema.Struct({
-      month: Schema.Number.pipe(Schema.int(), Schema.between(1, 12)),
-      biomassRatio: Schema.Number.pipe(Schema.between(0, 2))
-    })).pipe(Schema.optional)
-  }).pipe(Schema.optional)
+    biomassCycle: Schema.Array(
+      Schema.Struct({
+        month: Schema.Number.pipe(Schema.int(), Schema.between(1, 12)),
+        biomassRatio: Schema.Number.pipe(Schema.between(0, 2)),
+      })
+    ).pipe(Schema.optional),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'VegetationLayer',
     title: 'Individual Vegetation Layer',
-    description: 'Configuration for a single vegetation layer or stratum'
+    description: 'Configuration for a single vegetation layer or stratum',
   })
 )
 
@@ -290,7 +291,7 @@ export const VegetationInteractionSchema = Schema.Struct({
     spaceCompetition: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Space competition intensity (0-1)' })
-    )
+    ),
   }),
 
   // 協力関係
@@ -311,7 +312,7 @@ export const VegetationInteractionSchema = Schema.Struct({
     microclimateImprovement: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Microclimate improvement benefit (0-1)' })
-    )
+    ),
   }).pipe(Schema.optional),
 
   // アレロパシー（化学的阻害）
@@ -321,13 +322,13 @@ export const VegetationInteractionSchema = Schema.Struct({
       Schema.annotations({ description: 'Allelopathic inhibition strength (0-1)' })
     ),
     affectedSpecies: Schema.Array(Schema.String),
-    chemicalType: Schema.Literal('phenolic', 'terpene', 'alkaloid', 'organic_acid', 'other')
-  }).pipe(Schema.optional)
+    chemicalType: Schema.Literal('phenolic', 'terpene', 'alkaloid', 'organic_acid', 'other'),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'VegetationInteraction',
     title: 'Vegetation Interaction Relationships',
-    description: 'Competition, facilitation, and allelopathy between vegetation types'
+    description: 'Competition, facilitation, and allelopathy between vegetation types',
   })
 )
 
@@ -341,13 +342,13 @@ export const EnvironmentalResponseSchema = Schema.Struct({
   temperatureResponse: Schema.Struct({
     optimalRange: Schema.Struct({
       minimum: Schema.Number.pipe(Schema.between(-50, 60)),
-      maximum: Schema.Number.pipe(Schema.between(-50, 60))
+      maximum: Schema.Number.pipe(Schema.between(-50, 60)),
     }),
     toleranceRange: Schema.Struct({
       minimum: Schema.Number.pipe(Schema.between(-60, 50)),
-      maximum: Schema.Number.pipe(Schema.between(-40, 70))
+      maximum: Schema.Number.pipe(Schema.between(-40, 70)),
     }),
-    growthCurve: Schema.Literal('linear', 'exponential', 'logarithmic', 'sigmoid', 'bell_curve')
+    growthCurve: Schema.Literal('linear', 'exponential', 'logarithmic', 'sigmoid', 'bell_curve'),
   }),
 
   // 水分応答
@@ -368,7 +369,7 @@ export const EnvironmentalResponseSchema = Schema.Struct({
       Schema.positive(),
       Schema.between(0.1, 50),
       Schema.annotations({ description: 'Water use efficiency (g biomass/kg water)' })
-    )
+    ),
   }),
 
   // 光応答
@@ -381,30 +382,27 @@ export const EnvironmentalResponseSchema = Schema.Struct({
     lightCompensationPoint: Schema.Number.pipe(
       Schema.between(1, 100),
       Schema.annotations({ description: 'Light compensation point (μmol/m²/s)' })
-    )
+    ),
   }),
 
   // 土壌応答
   soilResponse: Schema.Struct({
-    pHOptimal: Schema.Number.pipe(
-      Schema.between(3, 10),
-      Schema.annotations({ description: 'Optimal soil pH' })
-    ),
+    pHOptimal: Schema.Number.pipe(Schema.between(3, 10), Schema.annotations({ description: 'Optimal soil pH' })),
     pHTolerance: Schema.Struct({
       minimum: Schema.Number.pipe(Schema.between(2, 9)),
-      maximum: Schema.Number.pipe(Schema.between(4, 11))
+      maximum: Schema.Number.pipe(Schema.between(4, 11)),
     }),
     nutrientRequirement: Schema.Literal('low', 'moderate', 'high', 'very_high'),
     saltTolerance: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Salt tolerance level (0-1)' })
-    ).pipe(Schema.optional)
-  })
+    ).pipe(Schema.optional),
+  }),
 }).pipe(
   Schema.annotations({
     identifier: 'EnvironmentalResponse',
     title: 'Environmental Response Characteristics',
-    description: 'How vegetation responds to environmental conditions'
+    description: 'How vegetation responds to environmental conditions',
   })
 )
 
@@ -439,7 +437,7 @@ export const VegetationDensityConfigSchema = Schema.Struct({
     evenness: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Species evenness index (0-1)' })
-    ).pipe(Schema.optional)
+    ).pipe(Schema.optional),
   }),
 
   // 植生層構造
@@ -450,11 +448,13 @@ export const VegetationDensityConfigSchema = Schema.Struct({
   ),
 
   // 層間相互作用
-  interactions: Schema.Array(Schema.Struct({
-    layer1Id: Schema.String,
-    layer2Id: Schema.String,
-    interaction: VegetationInteractionSchema
-  })).pipe(Schema.optional),
+  interactions: Schema.Array(
+    Schema.Struct({
+      layer1Id: Schema.String,
+      layer2Id: Schema.String,
+      interaction: VegetationInteractionSchema,
+    })
+  ).pipe(Schema.optional),
 
   // 環境応答
   environmentalResponse: EnvironmentalResponseSchema,
@@ -463,14 +463,14 @@ export const VegetationDensityConfigSchema = Schema.Struct({
   carryingCapacity: Schema.Struct({
     maxBiomass: BiomassSchema,
     maxDensity: VegetationDensitySchema,
-    limitingFactors: Schema.Array(Schema.Literal(
-      'light', 'water', 'nutrients', 'space', 'temperature', 'herbivory', 'disease'
-    )),
+    limitingFactors: Schema.Array(
+      Schema.Literal('light', 'water', 'nutrients', 'space', 'temperature', 'herbivory', 'disease')
+    ),
     growthRate: Schema.Number.pipe(
       Schema.between(-1, 5),
       Schema.annotations({ description: 'Intrinsic growth rate per year' })
     ),
-    carryingCapacityModel: Schema.Literal('logistic', 'exponential', 'gompertz', 'custom')
+    carryingCapacityModel: Schema.Literal('logistic', 'exponential', 'gompertz', 'custom'),
   }),
 
   // 動態・遷移
@@ -485,8 +485,8 @@ export const VegetationDensityConfigSchema = Schema.Struct({
       fire: Schema.Literal('killed', 'resprouter', 'seeder', 'resistant'),
       drought: Schema.Literal('sensitive', 'tolerant', 'dormant'),
       flooding: Schema.Literal('sensitive', 'tolerant', 'aquatic'),
-      herbivory: Schema.Literal('avoided', 'tolerated', 'preferred')
-    }).pipe(Schema.optional)
+      herbivory: Schema.Literal('avoided', 'tolerated', 'preferred'),
+    }).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 繁殖・散布
@@ -506,27 +506,29 @@ export const VegetationDensityConfigSchema = Schema.Struct({
     germinationRate: Schema.Number.pipe(
       Schema.between(0, 1),
       Schema.annotations({ description: 'Seed germination rate (0-1)' })
-    ).pipe(Schema.optional)
+    ).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 撹乱履歴
-  disturbanceHistory: Schema.Array(Schema.Struct({
-    type: Schema.Literal('fire', 'flood', 'drought', 'storm', 'disease', 'herbivory', 'human'),
-    severity: Schema.Literal('low', 'moderate', 'high', 'severe'),
-    frequency: Schema.Number.pipe(
-      Schema.positive(),
-      Schema.annotations({ description: 'Average return interval in years' })
-    ),
-    lastOccurrence: Schema.Number.pipe(
-      Schema.nonNegative(),
-      Schema.annotations({ description: 'Years since last occurrence' })
-    ).pipe(Schema.optional)
-  })).pipe(Schema.optional)
+  disturbanceHistory: Schema.Array(
+    Schema.Struct({
+      type: Schema.Literal('fire', 'flood', 'drought', 'storm', 'disease', 'herbivory', 'human'),
+      severity: Schema.Literal('low', 'moderate', 'high', 'severe'),
+      frequency: Schema.Number.pipe(
+        Schema.positive(),
+        Schema.annotations({ description: 'Average return interval in years' })
+      ),
+      lastOccurrence: Schema.Number.pipe(
+        Schema.nonNegative(),
+        Schema.annotations({ description: 'Years since last occurrence' })
+      ).pipe(Schema.optional),
+    })
+  ).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'VegetationDensityConfig',
     title: 'Complete Vegetation Density Configuration',
-    description: 'Comprehensive vegetation density with ecological modeling'
+    description: 'Comprehensive vegetation density with ecological modeling',
   })
 )
 
@@ -536,21 +538,21 @@ export type VegetationDensityConfig = typeof VegetationDensityConfigSchema.Type
  * 植生密度作成パラメータ
  */
 export const CreateVegetationDensityParamsSchema = Schema.Struct({
-  biomeType: Schema.Literal(
-    'forest', 'grassland', 'desert', 'wetland', 'tundra', 'savanna', 'shrubland'
-  ).pipe(Schema.optional),
+  biomeType: Schema.Literal('forest', 'grassland', 'desert', 'wetland', 'tundra', 'savanna', 'shrubland').pipe(
+    Schema.optional
+  ),
   climateConditions: Schema.Struct({
     temperature: Schema.Number.pipe(Schema.between(-50, 50)),
     precipitation: Schema.Number.pipe(Schema.between(0, 5000)),
-    humidity: Schema.Number.pipe(Schema.between(0, 100))
+    humidity: Schema.Number.pipe(Schema.between(0, 100)),
   }).pipe(Schema.optional),
   soilConditions: Schema.Struct({
     fertility: Schema.Literal('poor', 'moderate', 'rich'),
     drainage: Schema.Literal('poor', 'moderate', 'good'),
-    pH: Schema.Number.pipe(Schema.between(3, 10))
+    pH: Schema.Number.pipe(Schema.between(3, 10)),
   }).pipe(Schema.optional),
   disturbanceRegime: Schema.Literal('none', 'low', 'moderate', 'high').pipe(Schema.optional),
-  managementIntensity: Schema.Literal('none', 'extensive', 'intensive').pipe(Schema.optional)
+  managementIntensity: Schema.Literal('none', 'extensive', 'intensive').pipe(Schema.optional),
 })
 
 export type CreateVegetationDensityParams = typeof CreateVegetationDensityParamsSchema.Type
@@ -564,14 +566,14 @@ export const VegetationDensityErrorSchema = taggedUnion('_tag', [
     parameter1: Schema.String,
     parameter2: Schema.String,
     conflict: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('CarryingCapacityExceeded'),
     requestedDensity: Schema.Number,
     maxCapacity: Schema.Number,
     limitingFactor: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('SpeciesInteractionConflict'),
@@ -579,15 +581,15 @@ export const VegetationDensityErrorSchema = taggedUnion('_tag', [
     species2: Schema.String,
     interactionType: Schema.String,
     conflict: Schema.String,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('EnvironmentalLimitExceeded'),
     environmentalFactor: Schema.String,
     currentValue: Schema.Number,
     toleranceLimit: Schema.Number,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type VegetationDensityError = typeof VegetationDensityErrorSchema.Type
@@ -601,57 +603,57 @@ export const VEGETATION_DENSITY_PRESETS = {
     density: 0.05,
     biomass: 0.1,
     coverage: 0.02,
-    diversity: 0.8
+    diversity: 0.8,
   },
   GRASSLAND: {
     description: 'Temperate grassland',
     density: 0.6,
     biomass: 2.5,
     coverage: 0.85,
-    diversity: 2.1
+    diversity: 2.1,
   },
   SAVANNA: {
     description: 'Tropical savanna',
     density: 0.4,
     biomass: 5.0,
-    coverage: 0.60,
-    diversity: 2.8
+    coverage: 0.6,
+    diversity: 2.8,
   },
   TEMPERATE_FOREST: {
     description: 'Temperate deciduous forest',
     density: 0.8,
     biomass: 25.0,
     coverage: 0.95,
-    diversity: 3.2
+    diversity: 3.2,
   },
   TROPICAL_RAINFOREST: {
     description: 'Tropical rainforest',
     density: 1.0,
     biomass: 45.0,
     coverage: 0.98,
-    diversity: 4.5
+    diversity: 4.5,
   },
   BOREAL_FOREST: {
     description: 'Boreal/taiga forest',
     density: 0.7,
     biomass: 15.0,
-    coverage: 0.90,
-    diversity: 1.8
+    coverage: 0.9,
+    diversity: 1.8,
   },
   ALPINE_TUNDRA: {
     description: 'Alpine tundra',
     density: 0.3,
     biomass: 1.0,
-    coverage: 0.40,
-    diversity: 2.0
+    coverage: 0.4,
+    diversity: 2.0,
   },
   WETLAND: {
     description: 'Freshwater wetland',
     density: 0.9,
     biomass: 8.0,
     coverage: 0.85,
-    diversity: 2.5
-  }
+    diversity: 2.5,
+  },
 } as const
 
 /**
@@ -667,5 +669,5 @@ export const BIOME_VEGETATION_MAPPING = {
   SWAMP: { density: 0.9, biomass: 8.0, layers: ['trees', 'aquatic_plants', 'mosses'] },
   TUNDRA: { density: 0.3, biomass: 1.0, layers: ['low_shrubs', 'grasses', 'mosses', 'lichens'] },
   MOUNTAINS: { density: 0.5, biomass: 8.0, layers: ['alpine_plants', 'shrubs'] },
-  ICE_SPIKES: { density: 0.01, biomass: 0.01, layers: ['lichens'] }
+  ICE_SPIKES: { density: 0.01, biomass: 0.01, layers: ['lichens'] },
 } as const

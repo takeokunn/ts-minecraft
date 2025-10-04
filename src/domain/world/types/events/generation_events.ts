@@ -4,17 +4,17 @@
  */
 
 import { Schema } from 'effect'
-import { EventMetadata } from './world_events'
 import {
-  GenerationSessionId,
-  GenerationRequestId,
-  GenerationStage,
-  ChunkPosition,
-  HeightMap,
   BiomeGenerationData,
+  ChunkPosition,
+  GenerationPerformanceStats,
+  GenerationRequestId,
+  GenerationSessionId,
+  GenerationStage,
+  HeightMap,
   StructureInfo,
-  GenerationPerformanceStats
 } from '../core/generation_types'
+import { EventMetadata } from './world_events'
 
 // === 生成セッションイベント ===
 
@@ -33,9 +33,9 @@ export interface GenerationSessionStartedEvent {
 
 export const GenerationSessionStartedEventSchema = Schema.Struct({
   type: Schema.Literal('GenerationSessionStarted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    sessionId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationSessionIdSchema)),
+    sessionId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationSessionIdSchema)),
     worldId: Schema.String,
     totalChunksRequested: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     settings: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
@@ -64,14 +64,16 @@ export interface GenerationSessionCompletedEvent {
 
 export const GenerationSessionCompletedEventSchema = Schema.Struct({
   type: Schema.Literal('GenerationSessionCompleted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    sessionId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationSessionIdSchema)),
+    sessionId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationSessionIdSchema)),
     totalDuration: Schema.Number.pipe(Schema.nonNegative()),
     chunksGenerated: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     chunksSkipped: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     chunksFailed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    performanceStats: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationPerformanceStatsSchema)),
+    performanceStats: Schema.suspend(() =>
+      import('../core/generation_types').then((m) => m.GenerationPerformanceStatsSchema)
+    ),
   }),
 }).pipe(
   Schema.annotations({
@@ -96,13 +98,15 @@ export interface GenerationSessionFailedEvent {
 
 export const GenerationSessionFailedEventSchema = Schema.Struct({
   type: Schema.Literal('GenerationSessionFailed'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    sessionId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationSessionIdSchema)),
+    sessionId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationSessionIdSchema)),
     reason: Schema.String,
     failedAfter: Schema.Number.pipe(Schema.nonNegative()),
     completedChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    failedChunks: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema))),
+    failedChunks: Schema.Array(
+      Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema))
+    ),
     recoveryAction: Schema.Literal('retry', 'skip', 'abort'),
   }),
 }).pipe(
@@ -129,13 +133,15 @@ export interface ChunkGenerationStartedEvent {
 
 export const ChunkGenerationStartedEventSchema = Schema.Struct({
   type: Schema.Literal('ChunkGenerationStarted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+    requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
     priority: Schema.Number.pipe(Schema.int(), Schema.between(0, 10)),
     requestedBy: Schema.String,
-    expectedStages: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema))),
+    expectedStages: Schema.Array(
+      Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema))
+    ),
   }),
 }).pipe(
   Schema.annotations({
@@ -161,14 +167,16 @@ export interface ChunkGenerationCompletedEvent {
 
 export const ChunkGenerationCompletedEventSchema = Schema.Struct({
   type: Schema.Literal('ChunkGenerationCompleted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+    requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
     generationTime: Schema.Number.pipe(Schema.nonNegative()),
-    completedStages: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema))),
-    heightMap: Schema.suspend(() => import('../core/generation_types').then(m => m.HeightMapSchema)),
-    biomeData: Schema.suspend(() => import('../core/generation_types').then(m => m.BiomeGenerationDataSchema)),
+    completedStages: Schema.Array(
+      Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema))
+    ),
+    heightMap: Schema.suspend(() => import('../core/generation_types').then((m) => m.HeightMapSchema)),
+    biomeData: Schema.suspend(() => import('../core/generation_types').then((m) => m.BiomeGenerationDataSchema)),
     memoryUsed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   }),
 }).pipe(
@@ -195,11 +203,11 @@ export interface ChunkGenerationFailedEvent {
 
 export const ChunkGenerationFailedEventSchema = Schema.Struct({
   type: Schema.Literal('ChunkGenerationFailed'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    failedStage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
+    requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    failedStage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
     reason: Schema.String,
     retryCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     canRetry: Schema.Boolean,
@@ -229,13 +237,15 @@ export interface GenerationStageStartedEvent {
 
 export const GenerationStageStartedEventSchema = Schema.Struct({
   type: Schema.Literal('GenerationStageStarted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    stage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
+    requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    stage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
     estimatedDuration: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
-    dependencies: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema))),
+    dependencies: Schema.Array(
+      Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema))
+    ),
   }),
 }).pipe(
   Schema.annotations({
@@ -260,14 +270,16 @@ export interface GenerationStageCompletedEvent {
 
 export const GenerationStageCompletedEventSchema = Schema.Struct({
   type: Schema.Literal('GenerationStageCompleted'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    requestId: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationRequestIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    stage: Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema)),
+    requestId: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationRequestIdSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    stage: Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema)),
     actualDuration: Schema.Number.pipe(Schema.nonNegative()),
     outputData: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    nextStages: Schema.Array(Schema.suspend(() => import('../core/generation_types').then(m => m.GenerationStageSchema))),
+    nextStages: Schema.Array(
+      Schema.suspend(() => import('../core/generation_types').then((m) => m.GenerationStageSchema))
+    ),
   }),
 }).pipe(
   Schema.annotations({
@@ -292,10 +304,10 @@ export interface HeightMapGeneratedEvent {
 
 export const HeightMapGeneratedEventSchema = Schema.Struct({
   type: Schema.Literal('HeightMapGenerated'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    heightMap: Schema.suspend(() => import('../core/generation_types').then(m => m.HeightMapSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    heightMap: Schema.suspend(() => import('../core/generation_types').then((m) => m.HeightMapSchema)),
     generationTime: Schema.Number.pipe(Schema.nonNegative()),
     noiseParameters: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   }),
@@ -320,9 +332,9 @@ export interface TerrainShapedEvent {
 
 export const TerrainShapedEventSchema = Schema.Struct({
   type: Schema.Literal('TerrainShaped'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
     layersGenerated: Schema.Array(Schema.String),
     blocksPlaced: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     generationTime: Schema.Number.pipe(Schema.nonNegative()),
@@ -350,10 +362,10 @@ export interface BiomesAssignedEvent {
 
 export const BiomesAssignedEventSchema = Schema.Struct({
   type: Schema.Literal('BiomesAssigned'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    biomeData: Schema.suspend(() => import('../core/generation_types').then(m => m.BiomeGenerationDataSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    biomeData: Schema.suspend(() => import('../core/generation_types').then((m) => m.BiomeGenerationDataSchema)),
     assignmentTime: Schema.Number.pipe(Schema.nonNegative()),
     blendingApplied: Schema.Boolean,
   }),
@@ -380,10 +392,10 @@ export interface StructurePlacedEvent {
 
 export const StructurePlacedEventSchema = Schema.Struct({
   type: Schema.Literal('StructurePlaced'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
-    structure: Schema.suspend(() => import('../core/generation_types').then(m => m.StructureInfoSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
+    structure: Schema.suspend(() => import('../core/generation_types').then((m) => m.StructureInfoSchema)),
     placementTime: Schema.Number.pipe(Schema.nonNegative()),
     conflictsResolved: Schema.Array(Schema.String),
   }),
@@ -409,9 +421,9 @@ export interface StructurePlacementFailedEvent {
 
 export const StructurePlacementFailedEventSchema = Schema.Struct({
   type: Schema.Literal('StructurePlacementFailed'),
-  metadata: Schema.suspend(() => import('./world_events').then(m => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => import('./world_events').then((m) => m.EventMetadataSchema)),
   payload: Schema.Struct({
-    chunkPosition: Schema.suspend(() => import('../core/generation_types').then(m => m.ChunkPositionSchema)),
+    chunkPosition: Schema.suspend(() => import('../core/generation_types').then((m) => m.ChunkPositionSchema)),
     structureType: Schema.String,
     attemptedPosition: Schema.Struct({
       x: Schema.Number.pipe(Schema.int()),

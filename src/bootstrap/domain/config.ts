@@ -2,10 +2,10 @@ import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
 import {
   DebugModeSchema,
+  EpochMilliseconds,
+  EpochMillisecondsSchema,
   FramesPerSecondSchema,
   MemoryMegabytesSchema,
-  EpochMillisecondsSchema,
-  EpochMilliseconds,
 } from './value'
 
 export const BootstrapConfigSchema = Schema.Struct({
@@ -25,9 +25,8 @@ export type BootstrapConfigInput = Schema.Schema.From<typeof BootstrapConfigSche
 const decodeBootstrapConfig = Schema.decode(BootstrapConfigSchema)
 const decodeBootstrapConfigSync = Schema.decodeSync(BootstrapConfigSchema)
 
-export const bootstrapConfig = (
-  input: BootstrapConfigInput
-): Effect.Effect<BootstrapConfig> => decodeBootstrapConfig(input)
+export const bootstrapConfig = (input: BootstrapConfigInput): Effect.Effect<BootstrapConfig> =>
+  decodeBootstrapConfig(input)
 
 const bootstrapDefaultsInput: BootstrapConfigInput = {
   debug: false,
@@ -35,9 +34,7 @@ const bootstrapDefaultsInput: BootstrapConfigInput = {
   memoryLimit: 2048,
 }
 
-export const BootstrapConfigDefaults: BootstrapConfig = decodeBootstrapConfigSync(
-  bootstrapDefaultsInput
-)
+export const BootstrapConfigDefaults: BootstrapConfig = decodeBootstrapConfigSync(bootstrapDefaultsInput)
 
 export const BootstrapConfigSnapshotSchema = Schema.Struct({
   config: BootstrapConfigSchema,
@@ -54,9 +51,8 @@ export type BootstrapConfigSnapshotInput = Schema.Schema.From<typeof BootstrapCo
 
 const decodeSnapshot = Schema.decode(BootstrapConfigSnapshotSchema)
 
-export const bootstrapConfigSnapshot = (
-  input: BootstrapConfigSnapshotInput
-): Effect.Effect<BootstrapConfigSnapshot> => decodeSnapshot(input)
+export const bootstrapConfigSnapshot = (input: BootstrapConfigSnapshotInput): Effect.Effect<BootstrapConfigSnapshot> =>
+  decodeSnapshot(input)
 
 export const materializeConfigSnapshot = (
   config: BootstrapConfig,

@@ -1,14 +1,11 @@
-import { Data, Effect } from 'effect'
-import { pipe } from 'effect/Function'
 import * as Schema from '@effect/schema/Schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { Data, Effect } from 'effect'
+import { pipe } from 'effect/Function'
 
 const finiteNumber = Schema.Number.pipe(Schema.finite())
 
-export const CameraDistanceSchema = finiteNumber.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.brand('CameraDistance')
-)
+export const CameraDistanceSchema = finiteNumber.pipe(Schema.greaterThanOrEqualTo(0), Schema.brand('CameraDistance'))
 export type CameraDistance = Schema.Schema.Type<typeof CameraDistanceSchema>
 
 export const ViewDistanceSchema = Schema.Number.pipe(
@@ -33,9 +30,7 @@ export const RenderPrioritySchema = finiteNumber.pipe(
 )
 export type RenderPriority = Schema.Schema.Type<typeof RenderPrioritySchema>
 
-export const LODLevelSchema = Schema.Literal(0, 1, 2, 3, 4).pipe(
-  Schema.brand('LODLevel')
-)
+export const LODLevelSchema = Schema.Literal(0, 1, 2, 3, 4).pipe(Schema.brand('LODLevel'))
 export type LODLevel = Schema.Schema.Type<typeof LODLevelSchema>
 
 const vectorComponentSchema = finiteNumber
@@ -197,7 +192,10 @@ export type ViewDistanceEvent =
 type ParseErrorInput = Parameters<typeof TreeFormatter.formatErrorSync>[0]
 
 const formatIssues = (error: ParseErrorInput): readonly string[] =>
-  TreeFormatter.formatErrorSync(error).split('\n').map((line) => line.trim()).filter((line) => line.length > 0)
+  TreeFormatter.formatErrorSync(error)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 
 export const decodeCameraState = (input: unknown): Effect.Effect<CameraState, ViewDistanceError> =>
   pipe(
@@ -205,9 +203,7 @@ export const decodeCameraState = (input: unknown): Effect.Effect<CameraState, Vi
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodeViewControlConfig = (
-  input: unknown
-): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
+export const decodeViewControlConfig = (input: unknown): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ViewControlConfigSchema)(input),
     Effect.flatMap((config) =>
@@ -226,41 +222,31 @@ export const decodeViewControlConfig = (
     )
   )
 
-export const decodeManagedObject = (
-  input: unknown
-): Effect.Effect<ManagedObject, ViewDistanceError> =>
+export const decodeManagedObject = (input: unknown): Effect.Effect<ManagedObject, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ManagedObjectSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodeCullableObject = (
-  input: unknown
-): Effect.Effect<CullableObject, ViewDistanceError> =>
+export const decodeCullableObject = (input: unknown): Effect.Effect<CullableObject, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(CullableObjectSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodePerformanceMetrics = (
-  input: unknown
-): Effect.Effect<PerformanceMetrics, ViewDistanceError> =>
+export const decodePerformanceMetrics = (input: unknown): Effect.Effect<PerformanceMetrics, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(PerformanceMetricsSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const toViewDistance = (
-  value: number
-): Effect.Effect<ViewDistance, ViewDistanceError> =>
+export const toViewDistance = (value: number): Effect.Effect<ViewDistance, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ViewDistanceSchema)(value),
     Effect.mapError(() => InvalidDistanceError({ input: value, minimum: 1, maximum: 64 }))
   )
 
-export const toRenderPriority = (
-  value: number
-): Effect.Effect<RenderPriority, ViewDistanceError> =>
+export const toRenderPriority = (value: number): Effect.Effect<RenderPriority, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(RenderPrioritySchema)(Math.min(1, Math.max(0, value))),
     Effect.mapError(() =>
@@ -268,28 +254,22 @@ export const toRenderPriority = (
     )
   )
 
-export const toEpochMillis = (
-  value: number
-): Effect.Effect<EpochMillis, ViewDistanceError> =>
+export const toEpochMillis = (value: number): Effect.Effect<EpochMillis, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(EpochMillisSchema)(Math.round(value)),
-    Effect.mapError(() =>
-      CalculationFailedError({ reason: `invalid epoch milliseconds value received: ${value}` })
-    )
+    Effect.mapError(() => CalculationFailedError({ reason: `invalid epoch milliseconds value received: ${value}` }))
   )
 
 export const clampViewDistance = (
   value: number,
   min: ViewDistance,
   max: ViewDistance
-): Effect.Effect<ViewDistance, ViewDistanceError> =>
-  toViewDistance(Math.min(Math.max(value, min), max))
+): Effect.Effect<ViewDistance, ViewDistanceError> => toViewDistance(Math.min(Math.max(value, min), max))
 
 export const adjustRenderPriority = (
   priority: RenderPriority,
   delta: number
-): Effect.Effect<RenderPriority, ViewDistanceError> =>
-  toRenderPriority(Number(priority) + delta)
+): Effect.Effect<RenderPriority, ViewDistanceError> => toRenderPriority(Number(priority) + delta)
 
 export const deriveCullableFromManaged = (
   object: ManagedObject,

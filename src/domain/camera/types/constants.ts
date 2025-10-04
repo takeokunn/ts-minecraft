@@ -225,8 +225,7 @@ export const isValidMouseDelta = (value: number): value is MouseDelta =>
 /**
  * 有効なデルタ時間かチェック
  */
-export const isValidDeltaTime = (value: number): value is DeltaTime =>
-  value >= 0 && !isNaN(value) && isFinite(value)
+export const isValidDeltaTime = (value: number): value is DeltaTime => value >= 0 && !isNaN(value) && isFinite(value)
 
 /**
  * 有効な3D位置かチェック

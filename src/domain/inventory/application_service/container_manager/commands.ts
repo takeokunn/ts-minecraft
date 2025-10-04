@@ -6,10 +6,10 @@
  */
 
 import { Effect } from 'effect'
-import type { InventoryCommand } from '../../types/commands'
-import type { InventoryApplicationError } from '../types/errors'
 import type { ContainerId } from '../../aggregate/container'
+import type { InventoryCommand } from '../../types/commands'
 import type { ItemStack } from '../../types/core'
+import type { InventoryApplicationError } from '../types/errors'
 
 /**
  * コンテナコマンドハンドラー実装
@@ -19,18 +19,14 @@ export interface ContainerCommandHandlers {
   /**
    * インベントリコマンドをコンテナ操作として処理します
    */
-  readonly handleCommand: (
-    command: InventoryCommand
-  ) => Effect.Effect<void, InventoryApplicationError>
+  readonly handleCommand: (command: InventoryCommand) => Effect.Effect<void, InventoryApplicationError>
 }
 
 /**
  * コンテナコマンド処理の実装
  * 既存のInventoryCommandを使用して基本的なコンテナ操作をサポート
  */
-export const handleContainerCommand = (
-  command: InventoryCommand
-): Effect.Effect<void, InventoryApplicationError> => {
+export const handleContainerCommand = (command: InventoryCommand): Effect.Effect<void, InventoryApplicationError> => {
   // 簡略実装：全てのコマンドを成功として処理
   // 実際の実装では、コマンド種別に応じた適切な処理を実装
   return Effect.succeed(undefined)
@@ -49,9 +45,7 @@ export const handleCreateContainer = (
 /**
  * アイテム格納のシミュレーション
  */
-export const handleStoreItem = (
-  command: InventoryCommand
-): Effect.Effect<void, InventoryApplicationError> => {
+export const handleStoreItem = (command: InventoryCommand): Effect.Effect<void, InventoryApplicationError> => {
   return Effect.succeed(undefined)
 }
 
@@ -67,26 +61,20 @@ export const handleRetrieveItem = (
 /**
  * コンテナ権限設定のシミュレーション
  */
-export const handleSetPermissions = (
-  command: InventoryCommand
-): Effect.Effect<void, InventoryApplicationError> => {
+export const handleSetPermissions = (command: InventoryCommand): Effect.Effect<void, InventoryApplicationError> => {
   return Effect.succeed(undefined)
 }
 
 /**
  * コンテナロックのシミュレーション
  */
-export const handleLockContainer = (
-  command: InventoryCommand
-): Effect.Effect<void, InventoryApplicationError> => {
+export const handleLockContainer = (command: InventoryCommand): Effect.Effect<void, InventoryApplicationError> => {
   return Effect.succeed(undefined)
 }
 
 /**
  * コンテナアンロックのシミュレーション
  */
-export const handleUnlockContainer = (
-  command: InventoryCommand
-): Effect.Effect<void, InventoryApplicationError> => {
+export const handleUnlockContainer = (command: InventoryCommand): Effect.Effect<void, InventoryApplicationError> => {
   return Effect.succeed(undefined)
 }

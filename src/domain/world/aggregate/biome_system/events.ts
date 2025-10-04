@@ -2,10 +2,10 @@
  * @fileoverview Biome System Events - バイオームシステムイベント
  */
 
-import { Context, Effect, Schema, Brand, Stream } from "effect"
-import type { BiomeSystemId, BiomeSystemConfiguration, BiomeDistribution } from "./biome_system.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as Coordinates from "../../value_object/coordinates/index.js"
+import { Brand, Context, Effect, Schema } from 'effect'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import * as WorldSeed from '../../value_object/world_seed/index.js'
+import type { BiomeDistribution, BiomeSystemConfiguration, BiomeSystemId } from './biome_system.js'
 
 export const BaseBiomeEventSchema = Schema.Struct({
   eventId: Schema.String.pipe(Schema.brand('BiomeEventId')),
@@ -15,32 +15,38 @@ export const BaseBiomeEventSchema = Schema.Struct({
 })
 
 export const BiomeSystemCreatedSchema = BaseBiomeEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BiomeSystemCreated'),
-    payload: Schema.Struct({
-      worldSeed: WorldSeed.WorldSeedSchema,
-      configuration: Schema.Unknown,
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BiomeSystemCreated'),
+      payload: Schema.Struct({
+        worldSeed: WorldSeed.WorldSeedSchema,
+        configuration: Schema.Unknown,
+      }),
+    })
+  )
 )
 
 export const BiomeDistributionGeneratedSchema = BaseBiomeEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('BiomeDistributionGenerated'),
-    payload: Schema.Struct({
-      coordinate: Coordinates.ChunkCoordinateSchema,
-      distribution: Schema.Unknown,
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('BiomeDistributionGenerated'),
+      payload: Schema.Struct({
+        coordinate: Coordinates.ChunkCoordinateSchema,
+        distribution: Schema.Unknown,
+      }),
+    })
+  )
 )
 
 export const ClimateModelUpdatedSchema = BaseBiomeEventSchema.pipe(
-  Schema.extend(Schema.Struct({
-    eventType: Schema.Literal('ClimateModelUpdated'),
-    payload: Schema.Struct({
-      updateCommand: Schema.Unknown,
-    }),
-  }))
+  Schema.extend(
+    Schema.Struct({
+      eventType: Schema.Literal('ClimateModelUpdated'),
+      payload: Schema.Struct({
+        updateCommand: Schema.Unknown,
+      }),
+    })
+  )
 )
 
 export type BiomeSystemCreated = typeof BiomeSystemCreatedSchema.Type
@@ -114,7 +120,9 @@ interface BiomeEventPublisher {
   readonly publish: (event: any) => Effect.Effect<void, Error>
 }
 
-export const BiomeEventPublisherTag = Context.GenericTag<BiomeEventPublisher>('@minecraft/domain/world/BiomeEventPublisher')
+export const BiomeEventPublisherTag = Context.GenericTag<BiomeEventPublisher>(
+  '@minecraft/domain/world/BiomeEventPublisher'
+)
 
 export const publish = (event: any): Effect.Effect<void, Error> =>
   Effect.gen(function* () {

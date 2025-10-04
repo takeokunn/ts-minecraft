@@ -123,7 +123,7 @@ export interface HeightMap {
 }
 
 export const HeightMapSchema = Schema.Struct({
-  chunkPosition: Schema.suspend(() => import('./world_types').then(m => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema)),
   heights: Schema.Array(Schema.Array(HeightMapValueSchema)),
   averageHeight: HeightMapValueSchema,
   minHeight: HeightMapValueSchema,
@@ -169,9 +169,7 @@ export const GenerationStageSchema = Schema.Literal(
 /** 生成段階の状態 */
 export type GenerationStageStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
 
-export const GenerationStageStatusSchema = Schema.Literal(
-  'pending', 'in_progress', 'completed', 'failed'
-).pipe(
+export const GenerationStageStatusSchema = Schema.Literal('pending', 'in_progress', 'completed', 'failed').pipe(
   Schema.annotations({
     title: 'Generation Stage Status',
     description: 'Status of a generation stage',
@@ -218,7 +216,7 @@ export interface GenerationSettings {
 }
 
 export const GenerationSettingsSchema = Schema.Struct({
-  seed: Schema.suspend(() => import('./world_types').then(m => m.WorldSeedSchema)),
+  seed: Schema.suspend(() => import('./world_types').then((m) => m.WorldSeedSchema)),
   generateStructures: Schema.Boolean,
   generateCaves: Schema.Boolean,
   generateOres: Schema.Boolean,
@@ -251,7 +249,7 @@ export interface ChunkGenerationResult {
 
 export const ChunkGenerationResultSchema = Schema.Struct({
   requestId: GenerationRequestIdSchema,
-  chunkPosition: Schema.suspend(() => import('./world_types').then(m => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema)),
   stages: Schema.Array(GenerationStageProgressSchema),
   heightMap: HeightMapSchema,
   biomeData: BiomeGenerationDataSchema,
@@ -341,7 +339,7 @@ export interface StructureInfo {
 
 export const StructureInfoSchema = Schema.Struct({
   type: StructureTypeSchema,
-  position: Schema.suspend(() => import('./world_types').then(m => m.Vector3DSchema)),
+  position: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
   rotation: Schema.Number.pipe(Schema.between(0, 360)),
   boundingBox: BoundingBoxSchema,
   variant: Schema.optional(Schema.String),
@@ -360,8 +358,8 @@ export interface BoundingBox {
 }
 
 export const BoundingBoxSchema = Schema.Struct({
-  min: Schema.suspend(() => import('./world_types').then(m => m.Vector3DSchema)),
-  max: Schema.suspend(() => import('./world_types').then(m => m.Vector3DSchema)),
+  min: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
+  max: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
 }).pipe(
   Schema.annotations({
     title: 'Bounding Box',
@@ -415,11 +413,11 @@ export interface GenerationContext {
 export const GenerationContextSchema = Schema.Struct({
   sessionId: GenerationSessionIdSchema,
   settings: GenerationSettingsSchema,
-  seed: Schema.suspend(() => import('./world_types').then(m => m.WorldSeedSchema)),
+  seed: Schema.suspend(() => import('./world_types').then((m) => m.WorldSeedSchema)),
   noiseParams: NoiseParametersSchema,
   performanceStats: GenerationPerformanceStatsSchema,
   activeRequests: Schema.Array(GenerationRequestIdSchema),
-  completedChunks: Schema.Array(Schema.suspend(() => import('./world_types').then(m => m.ChunkPositionSchema))),
+  completedChunks: Schema.Array(Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Generation Context',
@@ -430,16 +428,14 @@ export const GenerationContextSchema = Schema.Struct({
 // === 作成ヘルパー関数 ===
 
 /** NoiseValue作成ヘルパー */
-export const createNoiseValue = (value: number): NoiseValue =>
-  Schema.decodeSync(NoiseValueSchema)(value)
+export const createNoiseValue = (value: number): NoiseValue => Schema.decodeSync(NoiseValueSchema)(value)
 
 /** NormalizedNoiseValue作成ヘルパー */
 export const createNormalizedNoiseValue = (value: number): NormalizedNoiseValue =>
   Schema.decodeSync(NormalizedNoiseValueSchema)(value)
 
 /** HeightMapValue作成ヘルパー */
-export const createHeightMapValue = (value: number): HeightMapValue =>
-  Schema.decodeSync(HeightMapValueSchema)(value)
+export const createHeightMapValue = (value: number): HeightMapValue => Schema.decodeSync(HeightMapValueSchema)(value)
 
 /** GenerationSessionId作成ヘルパー */
 export const createGenerationSessionId = (): GenerationSessionId =>

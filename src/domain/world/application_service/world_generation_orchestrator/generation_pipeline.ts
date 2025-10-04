@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, pipe, Schema, Fiber, STM } from 'effect'
+import { Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
 import type { GenerationStageType, PipelineContextType } from './orchestrator.js'
 
 /**
@@ -19,7 +19,7 @@ export const PipelineStageConfig = Schema.Struct({
     Schema.Literal('ore_placement'),
     Schema.Literal('structure_spawning'),
     Schema.Literal('post_processing'),
-    Schema.Literal('validation'),
+    Schema.Literal('validation')
   ),
   enabled: Schema.Boolean,
   priority: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
@@ -48,7 +48,7 @@ export const PipelineConfiguration = Schema.Struct({
   errorStrategy: Schema.Union(
     Schema.Literal('fail_fast'),
     Schema.Literal('continue_on_error'),
-    Schema.Literal('retry_failed'),
+    Schema.Literal('retry_failed')
   ),
 })
 
@@ -68,7 +68,7 @@ export const PipelineState = Schema.Struct({
     Schema.Literal('paused'),
     Schema.Literal('completed'),
     Schema.Literal('failed'),
-    Schema.Literal('cancelled'),
+    Schema.Literal('cancelled')
   ),
   progress: Schema.Number.pipe(Schema.between(0, 100)),
   metrics: Schema.Record(Schema.String, Schema.Number),
@@ -81,11 +81,7 @@ export const PipelineState = Schema.Struct({
 export const StageExecutionResult = Schema.Struct({
   _tag: Schema.Literal('StageExecutionResult'),
   stage: Schema.String,
-  status: Schema.Union(
-    Schema.Literal('success'),
-    Schema.Literal('failed'),
-    Schema.Literal('skipped'),
-  ),
+  status: Schema.Union(Schema.Literal('success'), Schema.Literal('failed'), Schema.Literal('skipped')),
   duration: Schema.Number.pipe(Schema.positive()),
   output: Schema.Unknown,
   metrics: Schema.Record(Schema.String, Schema.Number),
@@ -96,19 +92,15 @@ export const StageExecutionResult = Schema.Struct({
 
 // === Pipeline Error ===
 
-export const GenerationPipelineError = Schema.TaggedError<GenerationPipelineErrorType>()(
-  'GenerationPipelineError',
-  {
-    message: Schema.String,
-    pipelineId: Schema.String,
-    stage: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
-    recovery: Schema.optional(Schema.String),
-  }
-)
+export const GenerationPipelineError = Schema.TaggedError<GenerationPipelineErrorType>()('GenerationPipelineError', {
+  message: Schema.String,
+  pipelineId: Schema.String,
+  stage: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+  recovery: Schema.optional(Schema.String),
+})
 
-export interface GenerationPipelineErrorType
-  extends Schema.Schema.Type<typeof GenerationPipelineError> {}
+export interface GenerationPipelineErrorType extends Schema.Schema.Type<typeof GenerationPipelineError> {}
 
 // === Service Interface ===
 
@@ -140,24 +132,17 @@ export interface GenerationPipelineService {
   /**
    * パイプラインを一時停止します
    */
-  readonly pausePipeline: (
-    pipelineId: string
-  ) => Effect.Effect<void, GenerationPipelineErrorType>
+  readonly pausePipeline: (pipelineId: string) => Effect.Effect<void, GenerationPipelineErrorType>
 
   /**
    * パイプラインを再開します
    */
-  readonly resumePipeline: (
-    pipelineId: string
-  ) => Effect.Effect<void, GenerationPipelineErrorType>
+  readonly resumePipeline: (pipelineId: string) => Effect.Effect<void, GenerationPipelineErrorType>
 
   /**
    * パイプラインをキャンセルします
    */
-  readonly cancelPipeline: (
-    pipelineId: string,
-    graceful: boolean
-  ) => Effect.Effect<void, GenerationPipelineErrorType>
+  readonly cancelPipeline: (pipelineId: string, graceful: boolean) => Effect.Effect<void, GenerationPipelineErrorType>
 
   /**
    * パイプライン状態を取得します
@@ -225,15 +210,16 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   const executePipeline = (pipelineId: string) =>
     Effect.gen(function* () {
       const config = yield* Effect.flatMap(
-        STM.commit(STM.flatMap(STM.get(configurations), (map) =>
-          STM.succeed(Option.fromNullable(map.get(pipelineId)))
-        )),
+        STM.commit(
+          STM.flatMap(STM.get(configurations), (map) => STM.succeed(Option.fromNullable(map.get(pipelineId))))
+        ),
         Option.match({
-          onNone: () => Effect.fail({
-            _tag: 'GenerationPipelineError' as const,
-            message: `パイプライン設定が見つかりません: ${pipelineId}`,
-            pipelineId,
-          }),
+          onNone: () =>
+            Effect.fail({
+              _tag: 'GenerationPipelineError' as const,
+              message: `パイプライン設定が見つかりません: ${pipelineId}`,
+              pipelineId,
+            }),
           onSome: Effect.succeed,
         })
       )
@@ -241,9 +227,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
       // パイプライン実行開始
       yield* updatePipelineState(pipelineId, { status: 'running' })
 
-      const sortedStages = config.stages
-        .sort((a, b) => a.priority - b.priority)
-        .filter(stage => stage.enabled)
+      const sortedStages = config.stages.sort((a, b) => a.priority - b.priority).filter((stage) => stage.enabled)
 
       // 段階的実行
       let completedStages: string[] = []
@@ -251,14 +235,10 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
       for (const stageConfig of sortedStages) {
         // 依存関係チェック
-        const dependenciesMet = stageConfig.dependencies.every(dep =>
-          completedStages.includes(dep)
-        )
+        const dependenciesMet = stageConfig.dependencies.every((dep) => completedStages.includes(dep))
 
         if (!dependenciesMet) {
-          yield* Effect.logWarning(
-            `ステージ ${stageConfig.stage} の依存関係が満たされていません`
-          )
+          yield* Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
           continue
         }
 
@@ -369,10 +349,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
   // === Helper Functions ===
 
-  const updatePipelineState = (
-    pipelineId: string,
-    update: Partial<Schema.Schema.Type<typeof PipelineState>>
-  ) =>
+  const updatePipelineState = (pipelineId: string, update: Partial<Schema.Schema.Type<typeof PipelineState>>) =>
     STM.commit(
       STM.modify(pipelines, (map) => {
         const current = map.get(pipelineId)
@@ -389,15 +366,14 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
   const getCurrentState = (pipelineId: string) =>
     Effect.flatMap(
-      STM.commit(STM.flatMap(STM.get(pipelines), (map) =>
-        STM.succeed(Option.fromNullable(map.get(pipelineId)))
-      )),
+      STM.commit(STM.flatMap(STM.get(pipelines), (map) => STM.succeed(Option.fromNullable(map.get(pipelineId))))),
       Option.match({
-        onNone: () => Effect.fail({
-          _tag: 'GenerationPipelineError' as const,
-          message: `パイプライン状態が見つかりません: ${pipelineId}`,
-          pipelineId,
-        }),
+        onNone: () =>
+          Effect.fail({
+            _tag: 'GenerationPipelineError' as const,
+            message: `パイプライン状態が見つかりません: ${pipelineId}`,
+            pipelineId,
+          }),
         onSome: Effect.succeed,
       })
     )
@@ -515,10 +491,7 @@ export const GenerationPipelineService = Context.GenericTag<GenerationPipelineSe
 
 // === Layer ===
 
-export const GenerationPipelineServiceLive = Layer.effect(
-  GenerationPipelineService,
-  makeGenerationPipelineService
-)
+export const GenerationPipelineServiceLive = Layer.effect(GenerationPipelineService, makeGenerationPipelineService)
 
 // === Default Configurations ===
 

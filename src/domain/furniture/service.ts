@@ -1,5 +1,17 @@
-import { Clock, Effect, Match } from 'effect'
 import * as Schema from '@effect/schema/Schema'
+import { Clock, Effect, Match } from 'effect'
+import {
+  appendPage,
+  beginSleep,
+  createBed,
+  createBook,
+  createSign,
+  finishSleep,
+  publishBook,
+  updateSignText,
+} from './operations.js'
+import type { FurnitureRepository } from './repository.js'
+import { createFurnitureRepository } from './repository.js'
 import {
   Bed,
   Book,
@@ -16,18 +28,6 @@ import {
   TickSchema,
   toValidationError,
 } from './types.js'
-import {
-  appendPage,
-  beginSleep,
-  createBed,
-  createBook,
-  createSign,
-  finishSleep,
-  publishBook,
-  updateSignText,
-} from './operations.js'
-import type { FurnitureRepository } from './repository.js'
-import { createFurnitureRepository } from './repository.js'
 
 export interface SleepRequest {
   readonly bedId: FurnitureId
@@ -64,9 +64,7 @@ export interface FurnitureApplicationService {
 
 const toTickEffect = Effect.gen(function* () {
   const millis = yield* Clock.currentTimeMillis
-  return yield* Schema.decode(TickSchema)(Math.floor(millis / 50)).pipe(
-    Effect.mapError(toValidationError)
-  )
+  return yield* Schema.decode(TickSchema)(Math.floor(millis / 50)).pipe(Effect.mapError(toValidationError))
 })
 
 const expectBed = (entity: unknown, id: FurnitureId) =>
@@ -87,9 +85,7 @@ const expectSign = (entity: unknown, id: FurnitureId) =>
     Match.orElse(() => Effect.fail(FurnitureError.validation([`Furniture ${id} is not a sign`])))
   )
 
-export const makeFurnitureApplicationService = (
-  repository: FurnitureRepository
-): FurnitureApplicationService => {
+export const makeFurnitureApplicationService = (repository: FurnitureRepository): FurnitureApplicationService => {
   const placeBed: FurnitureApplicationService['placeBed'] = (input) =>
     Effect.gen(function* () {
       const bed = yield* createBed(input)

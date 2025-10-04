@@ -1,9 +1,14 @@
 import { Clock, Effect, Layer, Option, Ref, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkId } from '../../value_object/chunk_id'
-import { ChunkRepository, type BatchOperationResult, type ChunkQuery, type ChunkRegion, type ChunkStatistics } from './interface'
-import type { RepositoryError } from '../types/repository_error'
+import type { ChunkPosition } from '../../value_object/chunk_position'
+import {
+  ChunkRepository,
+  type BatchOperationResult,
+  type ChunkQuery,
+  type ChunkRegion,
+  type ChunkStatistics,
+} from './interface'
 
 interface ChunkEntry {
   readonly chunk: ChunkData
@@ -40,17 +45,15 @@ const touchEntry = (entry: ChunkEntry, timestamp: number, update?: ChunkData): C
 })
 
 const isWithinRegion = (position: ChunkPosition, region: ChunkRegion): boolean =>
-  position.x >= region.minX &&
-  position.x <= region.maxX &&
-  position.z >= region.minZ &&
-  position.z <= region.maxZ
+  position.x >= region.minX && position.x <= region.maxX && position.z >= region.minZ && position.z <= region.maxZ
 
 const matchesQuery = (entry: ChunkEntry, query: ChunkQuery): boolean => {
   const byPosition = pipe(
     Option.fromNullable(query.positions),
     Option.match({
       onNone: () => true,
-      onSome: (positions) => positions.some((pos) => pos.x === entry.chunk.position.x && pos.z === entry.chunk.position.z),
+      onSome: (positions) =>
+        positions.some((pos) => pos.x === entry.chunk.position.x && pos.z === entry.chunk.position.z),
     })
   )
 
@@ -88,18 +91,14 @@ const emptyState: RepositoryState = {
   cacheMisses: 0,
 }
 
-const updateStatistics = (
-  state: RepositoryState,
-  { hit }: { readonly hit: boolean }
-): RepositoryState => ({
+const updateStatistics = (state: RepositoryState, { hit }: { readonly hit: boolean }): RepositoryState => ({
   ...state,
   totalOperations: state.totalOperations + 1,
   cacheHits: state.cacheHits + (hit ? 1 : 0),
   cacheMisses: state.cacheMisses + (hit ? 0 : 1),
 })
 
-const mapSet = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V): ReadonlyMap<K, V> =>
-  new Map(map).set(key, value)
+const mapSet = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V): ReadonlyMap<K, V> => new Map(map).set(key, value)
 
 const mapDelete = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {
   const next = new Map(map)
@@ -107,8 +106,7 @@ const mapDelete = <K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> => {
   return next
 }
 
-const collectChunks = (state: RepositoryState): ReadonlyArray<ChunkEntry> =>
-  Array.from(state.chunks.values())
+const collectChunks = (state: RepositoryState): ReadonlyArray<ChunkEntry> => Array.from(state.chunks.values())
 
 const selectByQuery = (state: RepositoryState, query: ChunkQuery): ReadonlyArray<ChunkData> => {
   const filtered = collectChunks(state).filter((entry) => matchesQuery(entry, query))
@@ -178,8 +176,7 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
           return entry ? Option.some(entry.chunk) : Option.none()
         }),
 
-      findByRegion: (region: ChunkRegion) =>
-        Effect.map(Ref.get(stateRef), (state) => regionChunks(state, region)),
+      findByRegion: (region: ChunkRegion) => Effect.map(Ref.get(stateRef), (state) => regionChunks(state, region)),
 
       findByIds: (ids: ReadonlyArray<ChunkId>) =>
         Effect.map(Ref.get(stateRef), (state) =>
@@ -236,10 +233,7 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
       deleteAll: (ids: ReadonlyArray<ChunkId>) =>
         Ref.update(stateRef, (state) => ({
           ...state,
-          chunks: ids.reduce<ReadonlyMap<string, ChunkEntry>>(
-            (acc, id) => mapDelete(acc, idKey(id)),
-            state.chunks
-          ),
+          chunks: ids.reduce<ReadonlyMap<string, ChunkEntry>>((acc, id) => mapDelete(acc, idKey(id)), state.chunks),
         })),
 
       exists: (id: ChunkId) => Effect.map(Ref.get(stateRef), (state) => state.chunks.has(idKey(id))),
@@ -252,8 +246,7 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
       countByRegion: (region: ChunkRegion) =>
         Effect.map(Ref.get(stateRef), (state) => regionChunks(state, region).length),
 
-      findByQuery: (query: ChunkQuery) =>
-        Effect.map(Ref.get(stateRef), (state) => selectByQuery(state, query)),
+      findByQuery: (query: ChunkQuery) => Effect.map(Ref.get(stateRef), (state) => selectByQuery(state, query)),
 
       findRecentlyLoaded: (limit: number) =>
         Effect.map(Ref.get(stateRef), (state) =>
@@ -283,9 +276,10 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
             loadedChunks,
             modifiedChunks,
             memoryUsage,
-            averageLoadTime: loadedChunks === 0
-              ? 0
-              : entries.reduce((sum, entry) => sum + (entry.lastAccessAt - entry.createdAt), 0) / loadedChunks,
+            averageLoadTime:
+              loadedChunks === 0
+                ? 0
+                : entries.reduce((sum, entry) => sum + (entry.lastAccessAt - entry.createdAt), 0) / loadedChunks,
             cacheHitRate,
           } satisfies ChunkStatistics
         }),
@@ -314,10 +308,7 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           yield* Ref.update(stateRef, (state) => ({
             ...state,
-            chunks: ids.reduce<ReadonlyMap<string, ChunkEntry>>(
-              (acc, id) => mapDelete(acc, idKey(id)),
-              state.chunks
-            ),
+            chunks: ids.reduce<ReadonlyMap<string, ChunkEntry>>((acc, id) => mapDelete(acc, idKey(id)), state.chunks),
           }))
 
           return {

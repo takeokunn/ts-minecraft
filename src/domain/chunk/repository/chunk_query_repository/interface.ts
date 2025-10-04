@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { RepositoryError } from '../types/repository_error'
 
 /**
@@ -161,53 +161,44 @@ export interface ChunkQueryRepository {
   /**
    * 空のチャンク座標を検索
    */
-  readonly findEmptyChunks: (
-    region?: { minX: number; maxX: number; minZ: number; maxZ: number }
-  ) => Effect.Effect<ReadonlyArray<ChunkPosition>, RepositoryError>
+  readonly findEmptyChunks: (region?: {
+    minX: number
+    maxX: number
+    minZ: number
+    maxZ: number
+  }) => Effect.Effect<ReadonlyArray<ChunkPosition>, RepositoryError>
 
   /**
    * バイオーム別チャンク検索
    */
-  readonly findChunksByBiome: (
-    biomeType: string
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly findChunksByBiome: (biomeType: string) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * 変更されたチャンクを検索
    */
-  readonly findModifiedChunks: (
-    since: number
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly findModifiedChunks: (since: number) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * 最頻アクセスチャンクを検索
    */
-  readonly findMostAccessedChunks: (
-    limit: number
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly findMostAccessedChunks: (limit: number) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * 特定ブロックを含むチャンクを検索
    */
-  readonly findChunksContainingBlock: (
-    blockType: string
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly findChunksContainingBlock: (blockType: string) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   // ===== Advanced Search Operations ===== //
 
   /**
    * 複合条件によるチャンク検索
    */
-  readonly searchChunks: (
-    criteria: ChunkSearchCriteria
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly searchChunks: (criteria: ChunkSearchCriteria) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * 全文検索（メタデータ対象）
    */
-  readonly fullTextSearch: (
-    query: string
-  ) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
+  readonly fullTextSearch: (query: string) => Effect.Effect<ReadonlyArray<ChunkData>, RepositoryError>
 
   /**
    * 地理的近接検索
@@ -231,9 +222,7 @@ export interface ChunkQueryRepository {
   /**
    * チャンク分析データを取得
    */
-  readonly getAnalytics: (
-    timeRange?: { from: number; to: number }
-  ) => Effect.Effect<ChunkAnalytics, RepositoryError>
+  readonly getAnalytics: (timeRange?: { from: number; to: number }) => Effect.Effect<ChunkAnalytics, RepositoryError>
 
   /**
    * パフォーマンス統計を取得
@@ -245,13 +234,16 @@ export interface ChunkQueryRepository {
    */
   readonly getRegionalStatistics: (
     regions: ReadonlyArray<{ minX: number; maxX: number; minZ: number; maxZ: number }>
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly region: { minX: number; maxX: number; minZ: number; maxZ: number }
-    readonly chunkCount: number
-    readonly loadedCount: number
-    readonly memoryUsage: number
-    readonly averageAccessTime: number
-  }>, RepositoryError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly region: { minX: number; maxX: number; minZ: number; maxZ: number }
+      readonly chunkCount: number
+      readonly loadedCount: number
+      readonly memoryUsage: number
+      readonly averageAccessTime: number
+    }>,
+    RepositoryError
+  >
 
   /**
    * チャンクヒートマップデータを生成
@@ -266,24 +258,31 @@ export interface ChunkQueryRepository {
   /**
    * バイオーム分布を取得
    */
-  readonly getBiomeDistribution: (
-    region?: { minX: number; maxX: number; minZ: number; maxZ: number }
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly biomeType: string
-    readonly chunkCount: number
-    readonly percentage: number
-  }>, RepositoryError>
+  readonly getBiomeDistribution: (region?: { minX: number; maxX: number; minZ: number; maxZ: number }) => Effect.Effect<
+    ReadonlyArray<{
+      readonly biomeType: string
+      readonly chunkCount: number
+      readonly percentage: number
+    }>,
+    RepositoryError
+  >
 
   /**
    * ブロック型分布を取得
    */
-  readonly getBlockTypeDistribution: (
-    region?: { minX: number; maxX: number; minZ: number; maxZ: number }
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly blockType: string
-    readonly count: number
-    readonly percentage: number
-  }>, RepositoryError>
+  readonly getBlockTypeDistribution: (region?: {
+    minX: number
+    maxX: number
+    minZ: number
+    maxZ: number
+  }) => Effect.Effect<
+    ReadonlyArray<{
+      readonly blockType: string
+      readonly count: number
+      readonly percentage: number
+    }>,
+    RepositoryError
+  >
 
   /**
    * 時系列統計を取得
@@ -292,21 +291,27 @@ export interface ChunkQueryRepository {
     metric: 'loadCount' | 'accessCount' | 'modificationCount',
     interval: 'hourly' | 'daily' | 'weekly',
     timeRange: { from: number; to: number }
-  ) => Effect.Effect<ReadonlyArray<{
-    readonly timestamp: number
-    readonly value: number
-  }>, RepositoryError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      readonly timestamp: number
+      readonly value: number
+    }>,
+    RepositoryError
+  >
 
   // ===== Optimization and Maintenance Queries ===== //
 
   /**
    * 最適化候補チャンクを検索
    */
-  readonly findOptimizationCandidates: () => Effect.Effect<ReadonlyArray<{
-    readonly chunk: ChunkData
-    readonly reason: string
-    readonly priority: number
-  }>, RepositoryError>
+  readonly findOptimizationCandidates: () => Effect.Effect<
+    ReadonlyArray<{
+      readonly chunk: ChunkData
+      readonly reason: string
+      readonly priority: number
+    }>,
+    RepositoryError
+  >
 
   /**
    * 孤立チャンクを検索
@@ -316,22 +321,28 @@ export interface ChunkQueryRepository {
   /**
    * メモリ圧迫原因チャンクを検索
    */
-  readonly findMemoryPressureCauses: () => Effect.Effect<ReadonlyArray<{
-    readonly chunk: ChunkData
-    readonly memoryUsage: number
-    readonly reason: string
-  }>, RepositoryError>
+  readonly findMemoryPressureCauses: () => Effect.Effect<
+    ReadonlyArray<{
+      readonly chunk: ChunkData
+      readonly memoryUsage: number
+      readonly reason: string
+    }>,
+    RepositoryError
+  >
 
   // ===== Real-time Monitoring ===== //
 
   /**
    * アクティブチャンクを監視
    */
-  readonly monitorActiveChunks: () => Effect.Effect<ReadonlyArray<{
-    readonly chunk: ChunkData
-    readonly lastActivity: number
-    readonly activityType: string
-  }>, RepositoryError>
+  readonly monitorActiveChunks: () => Effect.Effect<
+    ReadonlyArray<{
+      readonly chunk: ChunkData
+      readonly lastActivity: number
+      readonly activityType: string
+    }>,
+    RepositoryError
+  >
 
   /**
    * クエリパフォーマンスを測定
@@ -339,11 +350,14 @@ export interface ChunkQueryRepository {
   readonly measureQueryPerformance: <T>(
     queryName: string,
     query: Effect.Effect<T, RepositoryError>
-  ) => Effect.Effect<{
-    readonly result: T
-    readonly executionTimeMs: number
-    readonly memoryUsed: number
-  }, RepositoryError>
+  ) => Effect.Effect<
+    {
+      readonly result: T
+      readonly executionTimeMs: number
+      readonly memoryUsed: number
+    },
+    RepositoryError
+  >
 }
 
 // ===== Context Tag ===== //

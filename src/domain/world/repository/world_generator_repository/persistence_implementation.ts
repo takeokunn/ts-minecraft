@@ -6,31 +6,19 @@
  * JSON形式でのデータ保存・読み込み・バックアップ対応
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import { Schema } from 'effect'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import type {
-  WorldId,
-  WorldSeed,
-  GenerationSettings,
-  WorldGenerator,
-  PerformanceMetrics,
-} from '../../types'
+import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
+import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '../../types'
 import type { AllRepositoryErrors } from '../types'
-import {
-  createRepositoryError,
-  createPersistenceError,
-  createWorldGeneratorNotFoundError,
-  createDataIntegrityError,
-} from '../types'
+import { createDataIntegrityError, createPersistenceError, createWorldGeneratorNotFoundError } from '../types'
 import type {
-  WorldGeneratorRepository,
-  WorldGeneratorQuery,
-  WorldGeneratorStatistics,
-  WorldGeneratorBatchResult,
   CacheConfiguration,
+  WorldGeneratorBatchResult,
+  WorldGeneratorQuery,
+  WorldGeneratorRepository,
   WorldGeneratorRepositoryConfig,
+  WorldGeneratorStatistics,
 } from './interface'
 
 // === Persistence Storage Schema ===
@@ -110,7 +98,7 @@ const calculateChecksum = (data: string): string => {
   let hash = 0
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash // Convert to 32-bit integer
   }
   return hash.toString(16)
@@ -162,11 +150,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to create directory: ${dirPath}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to create directory: ${dirPath}`, 'filesystem', error))
         )
       )
 
@@ -201,12 +185,14 @@ const makeWorldGeneratorRepositoryPersistence = (
             const actualChecksum = calculateChecksum(content)
 
             if (metadata.checksum !== actualChecksum) {
-              return yield* Effect.fail(createDataIntegrityError(
-                'Data checksum mismatch - file may be corrupted',
-                ['checksum'],
-                metadata.checksum,
-                actualChecksum
-              ))
+              return yield* Effect.fail(
+                createDataIntegrityError(
+                  'Data checksum mismatch - file may be corrupted',
+                  ['checksum'],
+                  metadata.checksum,
+                  actualChecksum
+                )
+              )
             }
           }
         }
@@ -215,11 +201,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         return Schema.decodeUnknownSync(PersistenceDataSchema)(parsedData)
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to load data from file: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to load data from file: ${error}`, 'filesystem', error))
         )
       )
 
@@ -254,11 +236,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         }
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to save data to file: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to save data to file: ${error}`, 'filesystem', error))
         )
       )
 
@@ -289,11 +267,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         return backupId
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to create backup: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to create backup: ${error}`, 'filesystem', error))
         )
       )
 
@@ -346,7 +320,10 @@ const makeWorldGeneratorRepositoryPersistence = (
         return Option.none()
       })
 
-    const findAll = (limit?: number, offset?: number): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findAll = (
+      limit?: number,
+      offset?: number
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadDataFromFile()
         const generators = Object.values(data.generators) as WorldGenerator[]
@@ -405,26 +382,26 @@ const makeWorldGeneratorRepositoryPersistence = (
     const findBySeed = (seed: WorldSeed): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const all = yield* findAll()
-        return all.filter(g => g.seed === seed)
+        return all.filter((g) => g.seed === seed)
       })
 
-    const findBySettings = (settings: Partial<GenerationSettings>): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findBySettings = (
+      settings: Partial<GenerationSettings>
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const all = yield* findAll()
-        return all.filter(g =>
-          Object.entries(settings).every(([key, value]) =>
-            (g.settings as any)[key] === value
-          )
-        )
+        return all.filter((g) => Object.entries(settings).every(([key, value]) => (g.settings as any)[key] === value))
       })
 
-    const findByQuery = (query: WorldGeneratorQuery): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findByQuery = (
+      query: WorldGeneratorQuery
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         let generators = yield* findAll()
 
-        if (query.worldId) generators = generators.filter(g => g.worldId === query.worldId)
-        if (query.seed) generators = generators.filter(g => g.seed === query.seed)
-        if (query.active !== undefined) generators = generators.filter(g => g.isActive === query.active)
+        if (query.worldId) generators = generators.filter((g) => g.worldId === query.worldId)
+        if (query.seed) generators = generators.filter((g) => g.seed === query.seed)
+        if (query.active !== undefined) generators = generators.filter((g) => g.isActive === query.active)
 
         const offset = query.offset ?? 0
         const limit = query.limit ?? generators.length
@@ -432,21 +409,27 @@ const makeWorldGeneratorRepositoryPersistence = (
       })
 
     // Mock implementations for remaining methods
-    const saveMany = (generators: ReadonlyArray<WorldGenerator>): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
+    const saveMany = (
+      generators: ReadonlyArray<WorldGenerator>
+    ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
       Effect.succeed({
-        successful: generators.map(g => g.worldId),
+        successful: generators.map((g) => g.worldId),
         failed: [],
         totalProcessed: generators.length,
       })
 
-    const deleteMany = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
+    const deleteMany = (
+      worldIds: ReadonlyArray<WorldId>
+    ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
       Effect.succeed({
         successful: [...worldIds],
         failed: [],
         totalProcessed: worldIds.length,
       })
 
-    const findManyByIds = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
+    const findManyByIds = (
+      worldIds: ReadonlyArray<WorldId>
+    ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const results: WorldGenerator[] = []
         for (const id of worldIds) {
@@ -466,8 +449,8 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         return {
           totalGenerators: all.length,
-          activeGenerators: all.filter(g => g.isActive).length,
-          inactiveGenerators: all.filter(g => !g.isActive).length,
+          activeGenerators: all.filter((g) => g.isActive).length,
+          inactiveGenerators: all.filter((g) => !g.isActive).length,
           averageChunkGenerationTime: 0,
           totalChunksGenerated: stats.totalChunksGenerated,
           lastGenerationTime: stats.lastGenerationTime,
@@ -502,13 +485,16 @@ const makeWorldGeneratorRepositoryPersistence = (
         }
       })
 
-    const getCacheStatistics = (): Effect.Effect<{
-      readonly hitRate: number
-      readonly missRate: number
-      readonly size: number
-      readonly maxSize: number
-      readonly evictionCount: number
-    }, AllRepositoryErrors> =>
+    const getCacheStatistics = (): Effect.Effect<
+      {
+        readonly hitRate: number
+        readonly missRate: number
+        readonly size: number
+        readonly maxSize: number
+        readonly evictionCount: number
+      },
+      AllRepositoryErrors
+    > =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(cacheRef)
         return {
@@ -538,21 +524,19 @@ const makeWorldGeneratorRepositoryPersistence = (
         yield* Ref.set(cacheRef, new Map()) // Clear cache to force reload
       }).pipe(
         Effect.catchAll((error) =>
-          Effect.fail(createPersistenceError(
-            `Failed to restore from backup: ${error}`,
-            'filesystem',
-            error
-          ))
+          Effect.fail(createPersistenceError(`Failed to restore from backup: ${error}`, 'filesystem', error))
         )
       )
 
-    const listBackups = (): Effect.Effect<ReadonlyArray<{
-      readonly id: string
-      readonly worldId: WorldId | null
-      readonly createdAt: Date
-      readonly size: number
-    }>, AllRepositoryErrors> =>
-      Effect.succeed([]) // Mock implementation
+    const listBackups = (): Effect.Effect<
+      ReadonlyArray<{
+        readonly id: string
+        readonly worldId: WorldId | null
+        readonly createdAt: Date
+        readonly size: number
+      }>,
+      AllRepositoryErrors
+    > => Effect.succeed([]) // Mock implementation
 
     // Mock implementations for remaining methods
     const getLastGenerationTime = (worldId: WorldId) => Effect.succeed(Option.none<Date>())
@@ -623,7 +607,4 @@ export const WorldGeneratorRepositoryPersistence = Layer.effect(
  * Configurable World Generator Repository Persistence Implementation Layer
  */
 export const WorldGeneratorRepositoryPersistenceWith = (config: PersistenceConfig) =>
-  Layer.effect(
-    WorldGeneratorRepository,
-    makeWorldGeneratorRepositoryPersistence(config)
-  )
+  Layer.effect(WorldGeneratorRepository, makeWorldGeneratorRepositoryPersistence(config))

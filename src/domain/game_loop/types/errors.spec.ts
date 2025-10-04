@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
 import * as Either from 'effect/Either'
 import * as FastCheck from 'effect/FastCheck'
 import * as Schema from 'effect/Schema'
+import { describe, expect, it } from 'vitest'
 
+import { makeFps, makeTimestamp } from './core'
 import {
   InitializationError,
   decodeGameLoopError,
@@ -11,7 +12,6 @@ import {
   toRuntimeCallbackError,
   toStateTransitionError,
 } from './errors'
-import { makeFps, makeTimestamp } from './core'
 
 describe('error ADT', () => {
   it('constructs initialization error', () => {
@@ -25,9 +25,11 @@ describe('error ADT', () => {
     })
     const error = toPerformanceError({ metric: 'fps', target: fps, observed: fps })
     const decoded = decodeGameLoopError(error)
-    expect(Either.getOrElse(decoded, (parseError) => {
-      throw new Error(Schema.formatError(parseError))
-    })).toEqual(error)
+    expect(
+      Either.getOrElse(decoded, (parseError) => {
+        throw new Error(Schema.formatError(parseError))
+      })
+    ).toEqual(error)
   })
 
   it('stringifies runtime callback errors and preserves context', async () => {

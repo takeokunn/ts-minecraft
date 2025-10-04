@@ -7,104 +7,104 @@
 
 // === Loading Scheduler ===
 export {
+  DEFAULT_SCHEDULER_CONFIG,
+  LoadingBatch,
+  LoadingQueueState,
+  LoadingRequest,
+  LoadingSchedulerError,
   LoadingSchedulerService,
   LoadingSchedulerServiceLive,
-  LoadingSchedulerError,
-  LoadingRequest,
-  LoadingBatch,
-  SchedulerConfiguration,
-  PlayerMovementState,
-  LoadingQueueState,
   MovementVector,
-  DEFAULT_SCHEDULER_CONFIG,
+  PlayerMovementState,
+  SchedulerConfiguration,
 } from './loading_scheduler.js'
 
 export type {
-  LoadingSchedulerErrorType,
-  LoadingRequestType,
   LoadingBatchType,
-  SchedulerConfigurationType,
-  PlayerMovementStateType,
   LoadingQueueStateType,
+  LoadingRequestType,
+  LoadingSchedulerErrorType,
   MovementVectorType,
+  PlayerMovementStateType,
+  SchedulerConfigurationType,
 } from './loading_scheduler.js'
 
 // === Priority Calculator ===
 export {
+  DEFAULT_PRIORITY_CONFIG,
+  MLModelPrediction,
+  PriorityCalculationResult,
+  PriorityCalculatorError,
   PriorityCalculatorService,
   PriorityCalculatorServiceLive,
-  PriorityCalculatorError,
-  PriorityFactor,
-  PriorityContext,
-  PriorityCalculationResult,
   PriorityConfiguration,
-  MLModelPrediction,
-  DEFAULT_PRIORITY_CONFIG,
+  PriorityContext,
+  PriorityFactor,
 } from './priority_calculator.js'
 
 export type {
-  PriorityCalculatorErrorType,
-  PriorityFactorType,
-  PriorityContextType,
-  PriorityCalculationResultType,
-  PriorityConfigurationType,
   MLModelPredictionType,
+  PriorityCalculationResultType,
+  PriorityCalculatorErrorType,
+  PriorityConfigurationType,
+  PriorityContextType,
+  PriorityFactorType,
 } from './priority_calculator.js'
 
 // === Memory Monitor ===
 export {
-  MemoryMonitorService,
-  MemoryMonitorServiceLive,
-  MemoryMonitorError,
-  MemoryMetrics,
+  AllocationRequest,
+  DEFAULT_MEMORY_CONFIG,
   MemoryAlert,
   MemoryConfiguration,
+  MemoryMetrics,
+  MemoryMonitorError,
+  MemoryMonitorService,
+  MemoryMonitorServiceLive,
   MemoryPool,
-  AllocationRequest,
   MemoryStatistics,
-  DEFAULT_MEMORY_CONFIG,
 } from './memory_monitor.js'
 
 export type {
-  MemoryMonitorErrorType,
-  MemoryMetricsType,
+  AllocationRequestType,
   MemoryAlertType,
   MemoryConfigurationType,
+  MemoryMetricsType,
+  MemoryMonitorErrorType,
   MemoryPoolType,
-  AllocationRequestType,
   MemoryStatisticsType,
 } from './memory_monitor.js'
 
 // === Adaptive Quality ===
 export {
+  AdaptationConfiguration,
+  AdaptiveQualityError,
   AdaptiveQualityService,
   AdaptiveQualityServiceLive,
-  AdaptiveQualityError,
-  QualityProfile,
-  PerformanceSnapshot,
-  PerformanceTrend,
-  AdaptationConfiguration,
-  QualityAdjustment,
   DEFAULT_ADAPTATION_CONFIG,
   DEFAULT_QUALITY_PROFILES,
+  PerformanceSnapshot,
+  PerformanceTrend,
+  QualityAdjustment,
+  QualityProfile,
 } from './adaptive_quality.js'
 
 export type {
+  AdaptationConfigurationType,
   AdaptiveQualityErrorType,
-  QualityProfileType,
   PerformanceSnapshotType,
   PerformanceTrendType,
-  AdaptationConfigurationType,
   QualityAdjustmentType,
+  QualityProfileType,
 } from './adaptive_quality.js'
 
 // === Integrated Progressive Loading Service ===
 
 import { Context, Effect, Layer, Schema } from 'effect'
-import { LoadingSchedulerService } from './loading_scheduler.js'
-import { PriorityCalculatorService } from './priority_calculator.js'
-import { MemoryMonitorService } from './memory_monitor.js'
 import { AdaptiveQualityService } from './adaptive_quality.js'
+import { LoadingSchedulerService } from './loading_scheduler.js'
+import { MemoryMonitorService } from './memory_monitor.js'
+import { PriorityCalculatorService } from './priority_calculator.js'
 
 /**
  * Progressive Loading Application Service
@@ -112,17 +112,13 @@ import { AdaptiveQualityService } from './adaptive_quality.js'
  * 段階的読み込みの統合サービスインターフェース
  */
 
-export const ProgressiveLoadingError = Schema.TaggedError<ProgressiveLoadingErrorType>()(
-  'ProgressiveLoadingError',
-  {
-    message: Schema.String,
-    serviceId: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const ProgressiveLoadingError = Schema.TaggedError<ProgressiveLoadingErrorType>()('ProgressiveLoadingError', {
+  message: Schema.String,
+  serviceId: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+})
 
-export interface ProgressiveLoadingErrorType
-  extends Schema.Schema.Type<typeof ProgressiveLoadingError> {}
+export interface ProgressiveLoadingErrorType extends Schema.Schema.Type<typeof ProgressiveLoadingError> {}
 
 export interface ProgressiveLoadingService {
   /**
@@ -162,28 +158,31 @@ export interface ProgressiveLoadingService {
   /**
    * 統合システム状態を取得します
    */
-  readonly getSystemStatus: () => Effect.Effect<{
-    scheduler: {
-      pendingRequests: number
-      inProgressRequests: number
-      totalProcessed: number
-    }
-    memory: {
-      usagePercentage: number
-      pressureLevel: string
-      totalAllocations: number
-    }
-    quality: {
-      currentLevel: string
-      lastAdjustment: string
-      adaptationActive: boolean
-    }
-    overall: {
-      healthy: boolean
-      warnings: string[]
-      errors: string[]
-    }
-  }, ProgressiveLoadingErrorType>
+  readonly getSystemStatus: () => Effect.Effect<
+    {
+      scheduler: {
+        pendingRequests: number
+        inProgressRequests: number
+        totalProcessed: number
+      }
+      memory: {
+        usagePercentage: number
+        pressureLevel: string
+        totalAllocations: number
+      }
+      quality: {
+        currentLevel: string
+        lastAdjustment: string
+        adaptationActive: boolean
+      }
+      overall: {
+        healthy: boolean
+        warnings: string[]
+        errors: string[]
+      }
+    },
+    ProgressiveLoadingErrorType
+  >
 
   /**
    * 優先度付きでチャンク読み込みをリクエストします
@@ -207,14 +206,12 @@ export interface ProgressiveLoadingService {
   /**
    * システム設定を更新します
    */
-  readonly updateSettings: (
-    settings: {
-      maxConcurrentLoads?: number
-      adaptiveQuality?: boolean
-      memoryManagement?: 'conservative' | 'balanced' | 'aggressive'
-      qualityStrategy?: 'performance_first' | 'quality_first' | 'balanced'
-    }
-  ) => Effect.Effect<void, ProgressiveLoadingErrorType>
+  readonly updateSettings: (settings: {
+    maxConcurrentLoads?: number
+    adaptiveQuality?: boolean
+    memoryManagement?: 'conservative' | 'balanced' | 'aggressive'
+    qualityStrategy?: 'performance_first' | 'quality_first' | 'balanced'
+  }) => Effect.Effect<void, ProgressiveLoadingErrorType>
 }
 
 // === Live Implementation ===
@@ -274,7 +271,7 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
           _tag: 'MovementVector' as const,
           velocity,
           acceleration: { x: 0, z: 0 }, // 簡略化
-          direction: Math.atan2(velocity.z, velocity.x) * 180 / Math.PI,
+          direction: (Math.atan2(velocity.z, velocity.x) * 180) / Math.PI,
           confidence: velocity.x !== 0 || velocity.z !== 0 ? 0.8 : 0.5,
         },
         viewDistance,
@@ -331,7 +328,7 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
         overall: {
           healthy: memoryPressure !== 'critical' && queueState.failed.length < 5,
           warnings: [],
-          errors: queueState.failed.map(f => f.error),
+          errors: queueState.failed.map((f) => f.error),
         },
       }
 
@@ -543,6 +540,4 @@ export const ProgressiveLoadingUtils = {
     }),
 }
 
-export type {
-  ProgressiveLoadingErrorType,
-} from './index.js'
+export type { ProgressiveLoadingErrorType } from './index.js'

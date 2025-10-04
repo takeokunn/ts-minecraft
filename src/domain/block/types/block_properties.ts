@@ -1,9 +1,9 @@
-import { pipe } from 'effect/Function'
 import * as Array from 'effect/Array'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as Schema from 'effect/Schema'
+import { pipe } from 'effect/Function'
 import type { ParseError } from 'effect/ParseResult'
+import * as Schema from 'effect/Schema'
 import type { BlockTag } from '../value_object/block_identity'
 
 // =============================================================================
@@ -22,11 +22,7 @@ export type ToolType = Data.TaggedEnum<{
 
 export const ToolType = Data.taggedEnum<ToolType>()
 
-const toolLevelSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(4)
-)
+const toolLevelSchema = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(4))
 
 export const ToolTypeSchema = Schema.Union(
   Schema.Struct({ _tag: Schema.Literal('None') }),
@@ -145,15 +141,8 @@ const defaultDropInput: Schema.Schema.Encoded<typeof ItemDropSchema> = {
 // Constructors
 // =============================================================================
 
-const decode = <A, I>(
-  schema: Schema.Schema<A, I>,
-  input: I,
-  onError: (issues: ParseError) => BlockPropertiesError
-) =>
-  pipe(
-    Schema.decode(schema)(input),
-    Effect.mapError(onError)
-  )
+const decode = <A, I>(schema: Schema.Schema<A, I>, input: I, onError: (issues: ParseError) => BlockPropertiesError) =>
+  pipe(Schema.decode(schema)(input), Effect.mapError(onError))
 
 export type BlockPropertiesError = Data.TaggedEnum<{
   InvalidPhysics: { readonly issues: ParseError }
@@ -177,19 +166,15 @@ export type BlockPropertiesInput = {
 export const makePhysics = (
   overrides?: Partial<Schema.Schema.Encoded<typeof BlockPhysicsSchema>>
 ): Effect.Effect<BlockPhysics, BlockPropertiesError> =>
-  decode(
-    BlockPhysicsSchema,
-    { ...defaultPhysicsInput, ...(overrides ?? {}) },
-    (issues) => BlockPropertiesError.InvalidPhysics({ issues })
+  decode(BlockPhysicsSchema, { ...defaultPhysicsInput, ...(overrides ?? {}) }, (issues) =>
+    BlockPropertiesError.InvalidPhysics({ issues })
   )
 
 export const makeSound = (
   overrides?: Partial<Schema.Schema.Encoded<typeof BlockSoundSchema>>
 ): Effect.Effect<BlockSound, BlockPropertiesError> =>
-  decode(
-    BlockSoundSchema,
-    { ...defaultSoundInput, ...(overrides ?? {}) },
-    (issues) => BlockPropertiesError.InvalidSound({ issues })
+  decode(BlockSoundSchema, { ...defaultSoundInput, ...(overrides ?? {}) }, (issues) =>
+    BlockPropertiesError.InvalidSound({ issues })
   )
 
 export const makeDrop = (
@@ -214,11 +199,7 @@ export const makeDrops = (
 export const makeTool = (
   tool?: Schema.Schema.Encoded<typeof ToolTypeSchema>
 ): Effect.Effect<ToolType, BlockPropertiesError> =>
-  decode(
-    ToolTypeSchema,
-    tool ?? ToolType.None(),
-    (issues) => BlockPropertiesError.InvalidTool({ issues })
-  )
+  decode(ToolTypeSchema, tool ?? ToolType.None(), (issues) => BlockPropertiesError.InvalidTool({ issues }))
 
 export const makeBlockProperties = (
   input?: BlockPropertiesInput
@@ -231,9 +212,7 @@ export const makeBlockProperties = (
     const tags = Array.fromIterable(input?.tags ?? [])
     const stackSize = input?.stackSize ?? 64
 
-    return yield* decode(
-      BlockPropertiesSchema,
-      { physics, sound, tool, drops, tags, stackSize },
-      (issues) => BlockPropertiesError.InvalidProperties({ issues })
+    return yield* decode(BlockPropertiesSchema, { physics, sound, tool, drops, tags, stackSize }, (issues) =>
+      BlockPropertiesError.InvalidProperties({ issues })
     )
   })

@@ -1,5 +1,5 @@
-import { Clock, Data, DateTime, Either, Effect, Match, pipe } from 'effect'
-import { DomainError, SchemaViolation, makeIdentifier, Identifier } from './types'
+import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
+import { DomainError, Identifier, SchemaViolation, makeIdentifier } from './types'
 import {
   BreedingOutcome,
   BreedingStats,
@@ -8,9 +8,9 @@ import {
   MoistureLevel,
   SoilCondition,
   SoilQuality,
-  advanceGrowthStage,
   adjustMoistureLevel,
   adjustSoilQuality,
+  advanceGrowthStage,
   describeGrowthStage,
   describeMoisture,
   describeSoil,
@@ -20,18 +20,14 @@ import {
   makeMoistureLevel,
   makeSoilQuality,
   mergeBreedingStats,
-  summarizeValueObjects
+  summarizeValueObjects,
 } from './value_objects'
 
 export type Timestamp = DateTime.Utc
 
-const fromEpochMillis = (millis: number): Timestamp =>
-  DateTime.unsafeFromDate(new Date(millis))
+const fromEpochMillis = (millis: number): Timestamp => DateTime.unsafeFromDate(new Date(millis))
 
-const currentTimestamp: Effect.Effect<Timestamp> = pipe(
-  Clock.currentTimeMillis,
-  Effect.map(fromEpochMillis)
-)
+const currentTimestamp: Effect.Effect<Timestamp> = pipe(Clock.currentTimeMillis, Effect.map(fromEpochMillis))
 
 export interface CropAggregate {
   readonly id: Identifier
@@ -59,13 +55,9 @@ export interface CropAggregateSnapshot {
   }
 }
 
-const invalidStructure = (field: string, detail: string): DomainError =>
-  SchemaViolation({ field, message: detail })
+const invalidStructure = (field: string, detail: string): DomainError => SchemaViolation({ field, message: detail })
 
-const ensureRecord = (
-  value: unknown,
-  field: string
-): Effect.Effect<Record<string, unknown>, DomainError> =>
+const ensureRecord = (value: unknown, field: string): Effect.Effect<Record<string, unknown>, DomainError> =>
   typeof value === 'object' && value !== null
     ? Effect.succeed(value as Record<string, unknown>)
     : Effect.fail(invalidStructure(field, 'object expected'))
@@ -127,7 +119,7 @@ export const makeCropAggregate = (input: {
       soil,
       stats,
       plantedAt: timestamp,
-      updatedAt: timestamp
+      updatedAt: timestamp,
     }
 
     return aggregate
@@ -139,8 +131,7 @@ export const makeCropAggregateEither = (input: {
   readonly moisture: number
   readonly soil: number
   readonly stats: { readonly fertility: number; readonly resilience: number; readonly harmony: number }
-}): Effect.Effect<Either.Either<CropAggregate, DomainError>, never> =>
-  Effect.either(makeCropAggregate(input))
+}): Effect.Effect<Either.Either<CropAggregate, DomainError>, never> => Effect.either(makeCropAggregate(input))
 
 const refreshUpdatedAt = (crop: CropAggregate): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
@@ -148,31 +139,45 @@ const refreshUpdatedAt = (crop: CropAggregate): Effect.Effect<CropAggregate, Dom
     return { ...crop, updatedAt: timestamp }
   })
 
-export const advanceCropGrowth = (params: { readonly crop: CropAggregate; readonly steps: number }): Effect.Effect<CropAggregate, DomainError> =>
+export const advanceCropGrowth = (params: {
+  readonly crop: CropAggregate
+  readonly steps: number
+}): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
     const advancedStage = yield* advanceGrowthStage({ stage: params.crop.stage, steps: params.steps })
     return yield* refreshUpdatedAt({ ...params.crop, stage: advancedStage })
   })
 
-export const hydrateCrop = (params: { readonly crop: CropAggregate; readonly delta: number }): Effect.Effect<CropAggregate, DomainError> =>
+export const hydrateCrop = (params: {
+  readonly crop: CropAggregate
+  readonly delta: number
+}): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
     const level = yield* adjustMoistureLevel({ level: params.crop.moisture, delta: params.delta })
     return yield* refreshUpdatedAt({ ...params.crop, moisture: level })
   })
 
-export const enrichSoilForCrop = (params: { readonly crop: CropAggregate; readonly delta: number }): Effect.Effect<CropAggregate, DomainError> =>
+export const enrichSoilForCrop = (params: {
+  readonly crop: CropAggregate
+  readonly delta: number
+}): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
     const quality = yield* adjustSoilQuality({ quality: params.crop.soil, delta: params.delta })
     return yield* refreshUpdatedAt({ ...params.crop, soil: quality })
   })
 
-export const breedCrop = (params: { readonly crop: CropAggregate; readonly partner: BreedingStats }): Effect.Effect<CropAggregate, DomainError> =>
+export const breedCrop = (params: {
+  readonly crop: CropAggregate
+  readonly partner: BreedingStats
+}): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
     const merged = yield* mergeBreedingStats(params.crop.stats, params.partner)
     return yield* refreshUpdatedAt({ ...params.crop, stats: merged })
   })
 
-export const describeCrop = (crop: CropAggregate): Readonly<{
+export const describeCrop = (
+  crop: CropAggregate
+): Readonly<{
   readonly growth: ReturnType<typeof describeGrowthStage>
   readonly hydration: HydrationState
   readonly soil: SoilCondition
@@ -181,7 +186,7 @@ export const describeCrop = (crop: CropAggregate): Readonly<{
   growth: describeGrowthStage(crop.stage),
   hydration: describeMoisture(crop.moisture),
   soil: describeSoil(crop.soil),
-  breeding: evaluateBreedingOutcome(crop.stats)
+  breeding: evaluateBreedingOutcome(crop.stats),
 })
 
 export const snapshotCrop = (crop: CropAggregate): Effect.Effect<CropAggregateSnapshot> =>
@@ -199,8 +204,8 @@ export const snapshotCrop = (crop: CropAggregate): Effect.Effect<CropAggregateSn
         growthType: description.growth.type,
         hydrationTag: description.hydration._tag,
         soilTag: description.soil._tag,
-        breedingTag: description.breeding._tag
-      }
+        breedingTag: description.breeding._tag,
+      },
     }
   })
 
@@ -224,7 +229,9 @@ export const validateCropAggregate = (input: unknown): Effect.Effect<CropAggrega
     const identifier = yield* makeIdentifier(idValue)
 
     const stage = yield* ensureNumber(record['stage'], 'cropAggregate.stage').pipe(Effect.flatMap(makeGrowthStage))
-    const moisture = yield* ensureNumber(record['moisture'], 'cropAggregate.moisture').pipe(Effect.flatMap(makeMoistureLevel))
+    const moisture = yield* ensureNumber(record['moisture'], 'cropAggregate.moisture').pipe(
+      Effect.flatMap(makeMoistureLevel)
+    )
     const soil = yield* ensureNumber(record['soil'], 'cropAggregate.soil').pipe(Effect.flatMap(makeSoilQuality))
     const stats = yield* parseStats(record['stats'])
     const plantedAt = yield* ensureTimestamp(record['plantedAt'], 'cropAggregate.plantedAt')
@@ -237,12 +244,13 @@ export const validateCropAggregate = (input: unknown): Effect.Effect<CropAggrega
       soil,
       stats,
       plantedAt,
-      updatedAt
+      updatedAt,
     }
   })
 
-export const validateCropAggregateEither = (input: unknown): Effect.Effect<Either.Either<CropAggregate, DomainError>, never> =>
-  Effect.either(validateCropAggregate(input))
+export const validateCropAggregateEither = (
+  input: unknown
+): Effect.Effect<Either.Either<CropAggregate, DomainError>, never> => Effect.either(validateCropAggregate(input))
 
 export const describeAggregateSummary = (crop: CropAggregate) =>
   summarizeValueObjects(crop.stage, crop.moisture, crop.soil, crop.stats)
@@ -255,14 +263,20 @@ export type CropProjection = Data.TaggedEnum<{
 
 export const CropProjection = Data.taggedEnum<CropProjection>()
 
-export const projectCropTrajectory = (params: { readonly crop: CropAggregate; readonly steps: number }): Effect.Effect<CropProjection, DomainError> =>
+export const projectCropTrajectory = (params: {
+  readonly crop: CropAggregate
+  readonly steps: number
+}): Effect.Effect<CropProjection, DomainError> =>
   Effect.gen(function* () {
     const timestamp = yield* currentTimestamp
     const advanced = yield* advanceGrowthStage({ stage: params.crop.stage, steps: params.steps })
     return pipe(
       Match.value(Number(advanced) - Number(params.crop.stage)),
       Match.when(0, () => CropProjection.Stable({ remainAt: timestamp })),
-      Match.when((delta) => delta > 0, () => CropProjection.Improving({ projectedStage: advanced, at: timestamp })),
+      Match.when(
+        (delta) => delta > 0,
+        () => CropProjection.Improving({ projectedStage: advanced, at: timestamp })
+      ),
       Match.orElse(() => CropProjection.Degrading({ projectedStage: advanced, at: timestamp }))
     )
   })

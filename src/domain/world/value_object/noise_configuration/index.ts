@@ -7,111 +7,111 @@
 
 // ノイズ基本設定
 export {
-  type BasicNoiseSettings,
-  type AdvancedNoiseSettings,
-  type Frequency,
-  type Amplitude,
-  type Lacunarity,
-  type Persistence,
-  type Octaves,
-  type Scale,
-  type NoiseType,
-  type Interpolation,
-  type NoiseDimension,
-  type NoiseQuality,
-  type NoiseSettingsError,
-  BasicNoiseSettingsSchema,
   AdvancedNoiseSettingsSchema,
-  FrequencySchema,
   AmplitudeSchema,
-  LacunaritySchema,
-  PersistenceSchema,
-  OctavesSchema,
-  ScaleSchema,
-  NoiseTypeSchema,
+  BasicNoiseSettingsSchema,
+  CreateNoiseSettingsParamsSchema,
+  FrequencySchema,
   InterpolationSchema,
+  LacunaritySchema,
+  NOISE_PRESETS,
   NoiseDimensionSchema,
   NoiseQualitySchema,
   NoiseSettingsErrorSchema,
-  CreateNoiseSettingsParamsSchema,
+  NoiseTypeSchema,
+  OctavesSchema,
+  PersistenceSchema,
+  ScaleSchema,
+  type AdvancedNoiseSettings,
+  type Amplitude,
+  type BasicNoiseSettings,
   type CreateNoiseSettingsParams,
-  NOISE_PRESETS
+  type Frequency,
+  type Interpolation,
+  type Lacunarity,
+  type NoiseDimension,
+  type NoiseQuality,
+  type NoiseSettingsError,
+  type NoiseType,
+  type Octaves,
+  type Persistence,
+  type Scale,
 } from './noise_settings.js'
 
 // オクターブ設定
 export {
-  type IndividualOctaveConfig,
-  type CompleteOctaveConfig,
-  type OctaveCombination,
-  type OctaveIndex,
-  type Weight,
-  type Phase,
-  type OctaveType,
-  type OctaveConfigError,
-  IndividualOctaveConfigSchema,
   CompleteOctaveConfigSchema,
-  OctaveCombinationSchema,
-  OctaveIndexSchema,
-  WeightSchema,
-  PhaseSchema,
-  OctaveTypeSchema,
-  OctaveConfigErrorSchema,
   CreateOctaveConfigParamsSchema,
-  type CreateOctaveConfigParams,
+  IndividualOctaveConfigSchema,
+  OCTAVE_OPTIMIZATION_HINTS,
   OCTAVE_PRESETS,
-  OCTAVE_OPTIMIZATION_HINTS
+  OctaveCombinationSchema,
+  OctaveConfigErrorSchema,
+  OctaveIndexSchema,
+  OctaveTypeSchema,
+  PhaseSchema,
+  WeightSchema,
+  type CompleteOctaveConfig,
+  type CreateOctaveConfigParams,
+  type IndividualOctaveConfig,
+  type OctaveCombination,
+  type OctaveConfigError,
+  type OctaveIndex,
+  type OctaveType,
+  type Phase,
+  type Weight,
 } from './octave_config.js'
 
 // 周波数帯域設定
 export {
-  type IndividualFrequencyBand,
-  type FrequencyBandCollection,
-  type FrequencyValue,
-  type Bandwidth,
-  type Gain,
-  type QFactor,
-  type FilterType,
-  type FrequencyBandClass,
-  type FrequencyBandsError,
-  IndividualFrequencyBandSchema,
-  FrequencyBandCollectionSchema,
-  FrequencyValueSchema,
   BandwidthSchema,
-  GainSchema,
-  QFactorSchema,
+  CreateFrequencyBandsParamsSchema,
+  FREQUENCY_BAND_PRESETS,
   FilterTypeSchema,
   FrequencyBandClassSchema,
+  FrequencyBandCollectionSchema,
   FrequencyBandsErrorSchema,
-  CreateFrequencyBandsParamsSchema,
+  FrequencyValueSchema,
+  GainSchema,
+  IndividualFrequencyBandSchema,
+  QFactorSchema,
+  TERRAIN_FREQUENCY_MAPPING,
+  type Bandwidth,
   type CreateFrequencyBandsParams,
-  FREQUENCY_BAND_PRESETS,
-  TERRAIN_FREQUENCY_MAPPING
+  type FilterType,
+  type FrequencyBandClass,
+  type FrequencyBandCollection,
+  type FrequencyBandsError,
+  type FrequencyValue,
+  type Gain,
+  type IndividualFrequencyBand,
+  type QFactor,
 } from './frequency_bands.js'
 
 // 振幅カーブ設定
 export {
-  type AmplitudeCurve,
-  type ControlPoint,
-  type CurveSegment,
-  type NormalizedTime,
-  type ControlPointValue,
-  type CurveTension,
-  type SmoothingStrength,
-  type CurveType,
-  type AmplitudeCurveError,
+  AMPLITUDE_CURVE_PRESETS,
+  AmplitudeCurveErrorSchema,
   AmplitudeCurveSchema,
   ControlPointSchema,
-  CurveSegmentSchema,
-  NormalizedTimeSchema,
   ControlPointValueSchema,
-  CurveTensionSchema,
-  SmoothingStrengthSchema,
-  CurveTypeSchema,
-  AmplitudeCurveErrorSchema,
   CreateAmplitudeCurveParamsSchema,
+  CurveSegmentSchema,
+  CurveTensionSchema,
+  CurveTypeSchema,
+  NormalizedTimeSchema,
+  SmoothingStrengthSchema,
+  TERRAIN_AMPLITUDE_MAPPING,
+  type AmplitudeCurve,
+  type AmplitudeCurveError,
+  type ControlPoint,
+  type ControlPointValue,
   type CreateAmplitudeCurveParams,
-  AMPLITUDE_CURVE_PRESETS,
-  TERRAIN_AMPLITUDE_MAPPING
+  type CurveSegment,
+  type CurveTension,
+  type CurveType,
+  type NormalizedTime,
+  type SmoothingStrength,
 } from './amplitude_curves.js'
 
 /**
@@ -165,7 +165,7 @@ export const NoiseConfigurationFactory = {
    */
   createStandardAmplitudeCurve: (preset: keyof typeof AMPLITUDE_CURVE_PRESETS): AmplitudeCurve => {
     return createAmplitudeCurveFromPreset(preset)
-  }
+  },
 } as const
 
 /**
@@ -180,7 +180,7 @@ export const NoiseConfigurationConstants = {
     REGIONAL: 0.001,
     LOCAL: 0.01,
     DETAIL: 0.1,
-    FINE: 1.0
+    FINE: 1.0,
   },
 
   /**
@@ -190,7 +190,7 @@ export const NoiseConfigurationConstants = {
     LARGE_SCALE: 1000,
     MEDIUM_SCALE: 100,
     SMALL_SCALE: 10,
-    FINE_SCALE: 1
+    FINE_SCALE: 1,
   },
 
   /**
@@ -200,7 +200,7 @@ export const NoiseConfigurationConstants = {
     SMOOTH: 1.5,
     STANDARD: 2.0,
     ROUGH: 2.5,
-    CHAOTIC: 3.0
+    CHAOTIC: 3.0,
   },
 
   /**
@@ -210,7 +210,7 @@ export const NoiseConfigurationConstants = {
     SMOOTH: 0.3,
     BALANCED: 0.5,
     DETAILED: 0.7,
-    CHAOTIC: 0.9
+    CHAOTIC: 0.9,
   },
 
   /**
@@ -220,8 +220,8 @@ export const NoiseConfigurationConstants = {
     MINIMAL: 3,
     STANDARD: 6,
     DETAILED: 8,
-    MAXIMUM: 12
-  }
+    MAXIMUM: 12,
+  },
 } as const
 
 /**
@@ -237,7 +237,8 @@ export const NoiseConfigurationValidation = {
       settings.amplitude > 0 &&
       settings.octaves >= 1 &&
       settings.lacunarity >= 1.0 &&
-      settings.persistence >= 0.0 && settings.persistence <= 1.0
+      settings.persistence >= 0.0 &&
+      settings.persistence <= 1.0
     )
   },
 
@@ -245,10 +246,7 @@ export const NoiseConfigurationValidation = {
    * オクターブ設定の妥当性検証
    */
   validateOctaveConfig: (config: CompleteOctaveConfig): boolean => {
-    return (
-      config.octaves.length > 0 &&
-      config.octaves.every(octave => octave.weight >= 0 && octave.weight <= 1)
-    )
+    return config.octaves.length > 0 && config.octaves.every((octave) => octave.weight >= 0 && octave.weight <= 1)
   },
 
   /**
@@ -271,7 +269,7 @@ export const NoiseConfigurationValidation = {
       }
     }
     return false // 重複なし
-  }
+  },
 } as const
 
 /**
@@ -316,7 +314,7 @@ export const NoiseConfigurationTypeGuards = {
       'controlPoints' in value &&
       Array.isArray((value as any).controlPoints)
     )
-  }
+  },
 } as const
 
 /**
@@ -339,7 +337,7 @@ function createTerrainNoiseConfig(): AdvancedNoiseSettings {
     offset: { x: 0, y: 0, z: 0 },
     outputRange: { min: -1, max: 1 },
     normalize: true,
-    clamp: false
+    clamp: false,
   } as AdvancedNoiseSettings
 }
 
@@ -359,7 +357,7 @@ function createCaveNoiseConfig(): AdvancedNoiseSettings {
     offset: { x: 0, y: 0, z: 0 },
     outputRange: { min: 0, max: 1 },
     normalize: true,
-    clamp: true
+    clamp: true,
   } as AdvancedNoiseSettings
 }
 
@@ -379,7 +377,7 @@ function createTemperatureNoiseConfig(): BasicNoiseSettings {
     offset: { x: 0, y: 0 },
     outputRange: { min: -30, max: 50 },
     normalize: false,
-    clamp: true
+    clamp: true,
   } as BasicNoiseSettings
 }
 
@@ -399,7 +397,7 @@ function createHumidityNoiseConfig(): BasicNoiseSettings {
     offset: { x: 0, y: 0 },
     outputRange: { min: 0, max: 1 },
     normalize: true,
-    clamp: true
+    clamp: true,
   } as BasicNoiseSettings
 }
 
@@ -412,7 +410,7 @@ function createStandardOctaveConfig(octaveCount: number): CompleteOctaveConfig {
     amplitude: Math.pow(0.5, i),
     weight: Math.pow(0.5, i) as Weight,
     phase: 0 as Phase,
-    offset: { x: 0, y: 0, z: 0 }
+    offset: { x: 0, y: 0, z: 0 },
   }))
 
   return {
@@ -421,11 +419,11 @@ function createStandardOctaveConfig(octaveCount: number): CompleteOctaveConfig {
       method: 'linear',
       normalization: {
         enabled: true,
-        method: 'min_max'
+        method: 'min_max',
       },
       weighting: {
-        strategy: 'exponential'
-      }
+        strategy: 'exponential',
+      },
     },
     global: {
       baseLacunarity: 2.0,
@@ -435,9 +433,9 @@ function createStandardOctaveConfig(octaveCount: number): CompleteOctaveConfig {
       optimization: {
         skipZeroWeightOctaves: true,
         earlyTermination: true,
-        maxContribution: 0.01
-      }
-    }
+        maxContribution: 0.01,
+      },
+    },
   } as CompleteOctaveConfig
 }
 
@@ -455,8 +453,8 @@ function createTerrainFrequencyBands(): FrequencyBandCollection {
     filter: {
       type: 'bandpass' as FilterType,
       order: 4,
-      rolloff: 24
-    }
+      rolloff: 24,
+    },
   }))
 
   return {
@@ -466,17 +464,17 @@ function createTerrainFrequencyBands(): FrequencyBandCollection {
       crossover: {
         enabled: true,
         type: 'linkwitz_riley',
-        slope: 24
-      }
-    }
+        slope: 24,
+      },
+    },
   } as FrequencyBandCollection
 }
 
 function createAmplitudeCurveFromPreset(preset: keyof typeof AMPLITUDE_CURVE_PRESETS): AmplitudeCurve {
   const presetData = AMPLITUDE_CURVE_PRESETS[preset]
-  const controlPoints = presetData.points.map(point => ({
+  const controlPoints = presetData.points.map((point) => ({
     time: point.time as NormalizedTime,
-    value: point.value as ControlPointValue
+    value: point.value as ControlPointValue,
   }))
 
   return {
@@ -487,9 +485,9 @@ function createAmplitudeCurveFromPreset(preset: keyof typeof AMPLITUDE_CURVE_PRE
       defaultType: 'linear',
       inputRange: { min: 0, max: 1 },
       outputRange: {
-        min: Math.min(...presetData.points.map(p => p.value)) as ControlPointValue,
-        max: Math.max(...presetData.points.map(p => p.value)) as ControlPointValue
-      }
-    }
+        min: Math.min(...presetData.points.map((p) => p.value)) as ControlPointValue,
+        max: Math.max(...presetData.points.map((p) => p.value)) as ControlPointValue,
+      },
+    },
   } as AmplitudeCurve
 }

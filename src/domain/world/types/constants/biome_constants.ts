@@ -232,41 +232,41 @@ export const BIOME_GENERATION_FEATURES = {
 export const BIOME_COLORS = {
   // 草の色（16進数）
   GRASS_COLORS: {
-    [BIOME_IDS.PLAINS]: 0x91BD59,
-    [BIOME_IDS.FOREST]: 0x79C05A,
-    [BIOME_IDS.DESERT]: 0xBFB755,
-    [BIOME_IDS.TAIGA]: 0x86B783,
-    [BIOME_IDS.SWAMP]: 0x6A7039,
-    [BIOME_IDS.JUNGLE]: 0x59C93C,
+    [BIOME_IDS.PLAINS]: 0x91bd59,
+    [BIOME_IDS.FOREST]: 0x79c05a,
+    [BIOME_IDS.DESERT]: 0xbfb755,
+    [BIOME_IDS.TAIGA]: 0x86b783,
+    [BIOME_IDS.SWAMP]: 0x6a7039,
+    [BIOME_IDS.JUNGLE]: 0x59c93c,
   },
 
   // 葉の色（16進数）
   FOLIAGE_COLORS: {
-    [BIOME_IDS.PLAINS]: 0x77AB2F,
-    [BIOME_IDS.FOREST]: 0x59AE30,
-    [BIOME_IDS.DESERT]: 0xAEA42A,
-    [BIOME_IDS.TAIGA]: 0x68A464,
-    [BIOME_IDS.SWAMP]: 0x6A7039,
-    [BIOME_IDS.JUNGLE]: 0x30BB0B,
+    [BIOME_IDS.PLAINS]: 0x77ab2f,
+    [BIOME_IDS.FOREST]: 0x59ae30,
+    [BIOME_IDS.DESERT]: 0xaea42a,
+    [BIOME_IDS.TAIGA]: 0x68a464,
+    [BIOME_IDS.SWAMP]: 0x6a7039,
+    [BIOME_IDS.JUNGLE]: 0x30bb0b,
   },
 
   // 水の色（16進数）
   WATER_COLORS: {
-    [BIOME_IDS.PLAINS]: 0x3F76E4,
-    [BIOME_IDS.FOREST]: 0x3F76E4,
-    [BIOME_IDS.DESERT]: 0x32A598,
+    [BIOME_IDS.PLAINS]: 0x3f76e4,
+    [BIOME_IDS.FOREST]: 0x3f76e4,
+    [BIOME_IDS.DESERT]: 0x32a598,
     [BIOME_IDS.TAIGA]: 0x287082,
-    [BIOME_IDS.SWAMP]: 0x617B64,
-    [BIOME_IDS.OCEAN]: 0x3F76E4,
+    [BIOME_IDS.SWAMP]: 0x617b64,
+    [BIOME_IDS.OCEAN]: 0x3f76e4,
   },
 
   // 霧の色（16進数）
   FOG_COLORS: {
-    [BIOME_IDS.PLAINS]: 0xC0D8FF,
-    [BIOME_IDS.FOREST]: 0xC0D8FF,
-    [BIOME_IDS.DESERT]: 0xFFE87A,
+    [BIOME_IDS.PLAINS]: 0xc0d8ff,
+    [BIOME_IDS.FOREST]: 0xc0d8ff,
+    [BIOME_IDS.DESERT]: 0xffe87a,
     [BIOME_IDS.NETHER_WASTES]: 0x330808,
-    [BIOME_IDS.THE_END]: 0xA080A0,
+    [BIOME_IDS.THE_END]: 0xa080a0,
   },
 } as const
 
@@ -310,9 +310,7 @@ export const BIOME_CONSTANTS = {
 // === 検証用スキーマ ===
 
 /** バイオームID検証スキーマ */
-export const ValidBiomeIdSchema = Schema.Literal(
-  ...Object.values(BIOME_IDS)
-).pipe(
+export const ValidBiomeIdSchema = Schema.Literal(...Object.values(BIOME_IDS)).pipe(
   Schema.annotations({
     title: 'Valid Biome ID',
     description: 'A valid Minecraft biome identifier',
@@ -320,9 +318,7 @@ export const ValidBiomeIdSchema = Schema.Literal(
 )
 
 /** バイオームカテゴリ検証スキーマ */
-export const ValidBiomeCategorySchema = Schema.Literal(
-  ...Object.values(BIOME_CATEGORIES)
-).pipe(
+export const ValidBiomeCategorySchema = Schema.Literal(...Object.values(BIOME_CATEGORIES)).pipe(
   Schema.annotations({
     title: 'Valid Biome Category',
     description: 'A valid biome category',
@@ -330,9 +326,7 @@ export const ValidBiomeCategorySchema = Schema.Literal(
 )
 
 /** 降水タイプ検証スキーマ */
-export const ValidPrecipitationTypeSchema = Schema.Literal(
-  'none', 'rain', 'snow'
-).pipe(
+export const ValidPrecipitationTypeSchema = Schema.Literal('none', 'rain', 'snow').pipe(
   Schema.annotations({
     title: 'Valid Precipitation Type',
     description: 'A valid precipitation type',

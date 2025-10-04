@@ -1,20 +1,19 @@
 import { Clock, Effect, Match, Random, pipe } from 'effect'
 import {
+  EpochMillisSchema,
   MotionState,
   MotionStateSchema,
   PhysicsWorldId,
   RigidBody,
-  RigidBodySchema,
-  RigidBodyType,
   RigidBodyId,
   RigidBodyIdSchema,
+  RigidBodySchema,
+  RigidBodyType,
   Vector3,
-  EpochMillis,
-  EpochMillisSchema,
   decodeWith,
   parsePositiveFloat,
-  parseVector3,
   parseUnitInterval,
+  parseVector3,
   vector3,
 } from '../types/core'
 import type { PhysicsError } from '../types/errors'
@@ -63,10 +62,7 @@ const create = (params: {
       ),
       Match.orElse((value) => parseUnitInterval(value))
     )
-    const restitution = yield* pipe(
-      params.restitution ?? 0.3,
-      parseUnitInterval
-    )
+    const restitution = yield* pipe(params.restitution ?? 0.3, parseUnitInterval)
 
     return yield* decodeWith(RigidBodySchema)({
       id,
@@ -83,11 +79,7 @@ const create = (params: {
     })
   })
 
-const updateMotion = (
-  body: RigidBody,
-  position: Vector3,
-  velocity: Vector3
-): Effect.Effect<RigidBody, PhysicsError> =>
+const updateMotion = (body: RigidBody, position: Vector3, velocity: Vector3): Effect.Effect<RigidBody, PhysicsError> =>
   Effect.gen(function* () {
     const motion = yield* decodeWith(MotionStateSchema)({
       position,
@@ -100,11 +92,7 @@ const updateMotion = (
     }
   })
 
-const applyForce = (
-  body: RigidBody,
-  force: Vector3,
-  deltaTime: unknown
-): Effect.Effect<RigidBody, PhysicsError> =>
+const applyForce = (body: RigidBody, force: Vector3, deltaTime: unknown): Effect.Effect<RigidBody, PhysicsError> =>
   Effect.gen(function* () {
     const dt = yield* parsePositiveFloat(deltaTime)
     const acceleration = {
@@ -125,10 +113,7 @@ const applyForce = (
     return yield* updateMotion(body, position, velocity)
   })
 
-const dampenVelocity = (
-  body: RigidBody,
-  coefficient: number
-): Effect.Effect<RigidBody, PhysicsError> =>
+const dampenVelocity = (body: RigidBody, coefficient: number): Effect.Effect<RigidBody, PhysicsError> =>
   Effect.map(
     parseVector3({
       x: body.motion.velocity.x * coefficient,

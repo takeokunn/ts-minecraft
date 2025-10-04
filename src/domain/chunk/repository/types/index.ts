@@ -5,25 +5,24 @@
  */
 
 export {
-  // Repository Errors
-  type RepositoryError,
   RepositoryError,
-  RepositoryErrors,
   RepositoryErrorSchema,
-
+  RepositoryErrors,
+  getRetryDelay,
   // Type Guards
   isChunkNotFoundError,
-  isDuplicateChunkError,
-  isStorageError,
-  isValidationError,
   isDataIntegrityError,
+  isDuplicateChunkError,
   isNetworkError,
-  isTimeoutError,
   isPermissionError,
   isResourceLimitError,
 
   // Error Recovery Utilities
   isRetryableError,
+  isStorageError,
+  isTimeoutError,
   isTransientError,
-  getRetryDelay,
+  isValidationError,
+  // Repository Errors
+  type RepositoryError,
 } from './repository_error'

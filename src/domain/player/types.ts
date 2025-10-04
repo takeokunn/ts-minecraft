@@ -80,18 +80,11 @@ export const VelocitySchema = Schema.Number.pipe(
 
 export type PlayerVelocity = Schema.Schema.Type<typeof VelocitySchema>
 
-export const SpeedSchema = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.positive(),
-  Schema.brand('PlayerSpeed')
-)
+export const SpeedSchema = Schema.Number.pipe(Schema.finite(), Schema.positive(), Schema.brand('PlayerSpeed'))
 
 export type PlayerSpeed = Schema.Schema.Type<typeof SpeedSchema>
 
-export const AccelerationSchema = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.brand('PlayerAcceleration')
-)
+export const AccelerationSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('PlayerAcceleration'))
 
 export type PlayerAcceleration = Schema.Schema.Type<typeof AccelerationSchema>
 
@@ -157,12 +150,7 @@ export const PlayerLifecycleStateSchema = Schema.Literal(
 
 export type PlayerLifecycleState = Schema.Schema.Type<typeof PlayerLifecycleStateSchema>
 
-export const PlayerGameModeSchema = Schema.Literal(
-  'survival',
-  'creative',
-  'adventure',
-  'spectator'
-)
+export const PlayerGameModeSchema = Schema.Literal('survival', 'creative', 'adventure', 'spectator')
 
 export type PlayerGameMode = Schema.Schema.Type<typeof PlayerGameModeSchema>
 

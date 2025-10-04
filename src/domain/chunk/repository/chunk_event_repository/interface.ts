@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
+import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { RepositoryError } from '../types/repository_error'
 
 /**
@@ -293,12 +293,15 @@ export interface ChunkEventRepository {
   /**
    * イベントストリームの統計を取得
    */
-  readonly getStreamStatistics: (streamId: string) => Effect.Effect<{
-    readonly eventCount: number
-    readonly firstEventTimestamp: number
-    readonly lastEventTimestamp: number
-    readonly averageEventSize: number
-  }, RepositoryError>
+  readonly getStreamStatistics: (streamId: string) => Effect.Effect<
+    {
+      readonly eventCount: number
+      readonly firstEventTimestamp: number
+      readonly lastEventTimestamp: number
+      readonly averageEventSize: number
+    },
+    RepositoryError
+  >
 
   // ===== Snapshot Operations ===== //
 
@@ -327,10 +330,7 @@ export interface ChunkEventRepository {
   /**
    * 古いスナップショットを削除
    */
-  readonly cleanupOldSnapshots: (
-    aggregateId: ChunkId,
-    keepCount: number
-  ) => Effect.Effect<void, RepositoryError>
+  readonly cleanupOldSnapshots: (aggregateId: ChunkId, keepCount: number) => Effect.Effect<void, RepositoryError>
 
   // ===== Replay and Projection Operations ===== //
 
@@ -342,18 +342,12 @@ export interface ChunkEventRepository {
   /**
    * 指定時点での状態復元
    */
-  readonly replayToTimestamp: (
-    aggregateId: ChunkId,
-    timestamp: number
-  ) => Effect.Effect<ChunkData, RepositoryError>
+  readonly replayToTimestamp: (aggregateId: ChunkId, timestamp: number) => Effect.Effect<ChunkData, RepositoryError>
 
   /**
    * 指定バージョンでの状態復元
    */
-  readonly replayToVersion: (
-    aggregateId: ChunkId,
-    version: number
-  ) => Effect.Effect<ChunkData, RepositoryError>
+  readonly replayToVersion: (aggregateId: ChunkId, version: number) => Effect.Effect<ChunkData, RepositoryError>
 
   /**
    * イベント投影を作成
@@ -377,35 +371,42 @@ export interface ChunkEventRepository {
   /**
    * イベント統計を取得
    */
-  readonly getEventStatistics: (
-    timeRange?: { from: number; to: number }
-  ) => Effect.Effect<{
-    readonly totalEvents: number
-    readonly eventsByType: ReadonlyArray<{ readonly type: string; readonly count: number }>
-    readonly eventsPerSecond: number
-    readonly averageEventSize: number
-  }, RepositoryError>
+  readonly getEventStatistics: (timeRange?: { from: number; to: number }) => Effect.Effect<
+    {
+      readonly totalEvents: number
+      readonly eventsByType: ReadonlyArray<{ readonly type: string; readonly count: number }>
+      readonly eventsPerSecond: number
+      readonly averageEventSize: number
+    },
+    RepositoryError
+  >
 
   /**
    * 集約統計を取得
    */
-  readonly getAggregateStatistics: () => Effect.Effect<{
-    readonly totalAggregates: number
-    readonly averageEventsPerAggregate: number
-    readonly largestEventStream: { readonly aggregateId: ChunkId; readonly eventCount: number }
-    readonly oldestEvent: ChunkEvent
-    readonly newestEvent: ChunkEvent
-  }, RepositoryError>
+  readonly getAggregateStatistics: () => Effect.Effect<
+    {
+      readonly totalAggregates: number
+      readonly averageEventsPerAggregate: number
+      readonly largestEventStream: { readonly aggregateId: ChunkId; readonly eventCount: number }
+      readonly oldestEvent: ChunkEvent
+      readonly newestEvent: ChunkEvent
+    },
+    RepositoryError
+  >
 
   /**
    * パフォーマンス監視
    */
-  readonly getPerformanceMetrics: () => Effect.Effect<{
-    readonly appendLatency: ReadonlyArray<{ readonly timestamp: number; readonly latencyMs: number }>
-    readonly queryLatency: ReadonlyArray<{ readonly timestamp: number; readonly latencyMs: number }>
-    readonly storageSize: number
-    readonly indexSize: number
-  }, RepositoryError>
+  readonly getPerformanceMetrics: () => Effect.Effect<
+    {
+      readonly appendLatency: ReadonlyArray<{ readonly timestamp: number; readonly latencyMs: number }>
+      readonly queryLatency: ReadonlyArray<{ readonly timestamp: number; readonly latencyMs: number }>
+      readonly storageSize: number
+      readonly indexSize: number
+    },
+    RepositoryError
+  >
 
   // ===== Maintenance Operations ===== //
 
@@ -422,10 +423,13 @@ export interface ChunkEventRepository {
   /**
    * イベントストアの整合性チェック
    */
-  readonly validateConsistency: () => Effect.Effect<{
-    readonly isConsistent: boolean
-    readonly issues: ReadonlyArray<string>
-  }, RepositoryError>
+  readonly validateConsistency: () => Effect.Effect<
+    {
+      readonly isConsistent: boolean
+      readonly issues: ReadonlyArray<string>
+    },
+    RepositoryError
+  >
 
   /**
    * 古いイベントのアーカイブ

@@ -54,29 +54,23 @@ export interface InventoryApplicationError {
 /**
  * インベントリが見つからないエラー
  */
-export const InventoryNotFoundError = (
-  inventoryId: string,
-  playerId?: string
-): InventoryApplicationError => ({
+export const InventoryNotFoundError = (inventoryId: string, playerId?: string): InventoryApplicationError => ({
   _tag: 'INVENTORY_NOT_FOUND',
   message: `Inventory not found: ${inventoryId}`,
   inventoryId,
   playerId,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
  * コンテナが見つからないエラー
  */
-export const ContainerNotFoundError = (
-  containerId: string,
-  playerId?: string
-): InventoryApplicationError => ({
+export const ContainerNotFoundError = (containerId: string, playerId?: string): InventoryApplicationError => ({
   _tag: 'CONTAINER_NOT_FOUND',
   message: `Container not found: ${containerId}`,
   containerId,
   playerId,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -90,7 +84,7 @@ export const ContainerPositionOccupiedError = (
   message: `Position already occupied by container at (${position.x}, ${position.y}, ${position.z})`,
   position,
   containerId: existingContainerId,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -106,7 +100,7 @@ export const ContainerAccessDeniedError = (
   containerId,
   playerId,
   details: { requiredPermission },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -122,7 +116,7 @@ export const ContainerLockedError = (
   containerId,
   lockType,
   playerId,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -138,19 +132,17 @@ export const ContainerUnlockFailedError = (
   containerId,
   playerId,
   details: { reason },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
  * トランザクションが見つからないエラー
  */
-export const TransactionNotFoundError = (
-  transactionId: string
-): InventoryApplicationError => ({
+export const TransactionNotFoundError = (transactionId: string): InventoryApplicationError => ({
   _tag: 'TRANSACTION_NOT_FOUND',
   message: `Transaction not found: ${transactionId}`,
   transactionId,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -166,21 +158,18 @@ export const TransactionFailedError = (
   transactionId,
   details: { reason },
   cause,
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
  * トランザクションタイムアウトエラー
  */
-export const TransactionTimeoutError = (
-  transactionId: string,
-  timeoutMs: number
-): InventoryApplicationError => ({
+export const TransactionTimeoutError = (transactionId: string, timeoutMs: number): InventoryApplicationError => ({
   _tag: 'TRANSACTION_TIMEOUT',
   message: `Transaction ${transactionId} timed out after ${timeoutMs}ms`,
   transactionId,
   details: { timeoutMs },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -193,21 +182,17 @@ export const TransactionDeadlockError = (
   _tag: 'TRANSACTION_DEADLOCK',
   message: `Deadlock detected involving transactions: ${transactionIds.join(', ')}`,
   details: { transactionIds, resourceIds },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
  * 無効な操作エラー
  */
-export const InvalidOperationError = (
-  operation: string,
-  reason: string,
-  context?: any
-): InventoryApplicationError => ({
+export const InvalidOperationError = (operation: string, reason: string, context?: any): InventoryApplicationError => ({
   _tag: 'INVALID_OPERATION',
   message: `Invalid operation '${operation}': ${reason}`,
   details: { operation, reason, context },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -222,7 +207,7 @@ export const PermissionDeniedError = (
   message: `Player ${playerId} does not have permission to ${action} on ${resource}`,
   playerId,
   details: { action, resource },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -236,7 +221,7 @@ export const ResourceBusyError = (
   _tag: 'RESOURCE_BUSY',
   message: `Resource ${resourceType}:${resourceId} is currently busy`,
   details: { resourceId, resourceType, busyUntil },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -250,7 +235,7 @@ export const ValidationFailedError = (
   _tag: 'VALIDATION_FAILED',
   message: `Validation failed. Violated rules: ${violatedRules.join(', ')}`,
   details: { validationRules, violatedRules, context },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -263,7 +248,7 @@ export const ConcurrencyConflictError = (
   _tag: 'CONCURRENCY_CONFLICT',
   message: `Concurrency conflict on resource ${resource}`,
   details: { resource, conflictingOperations },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -278,7 +263,7 @@ export const DistributedTransactionFailedError = (
   message: `Distributed transaction ${transactionId} failed in phase ${phase}`,
   transactionId,
   details: { failedNodes, phase },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -294,7 +279,7 @@ export const AutoRefillFailedError = (
   inventoryId,
   playerId,
   details: { failedItems },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -309,7 +294,7 @@ export const BulkOperationFailedError = (
   _tag: 'BULK_OPERATION_FAILED',
   message: `Bulk ${operationType} failed: ${failedOperations}/${totalOperations} operations failed`,
   details: { operationType, totalOperations, failedOperations, errors },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -326,7 +311,7 @@ export const MergeOperationFailedError = (
   inventoryId: targetInventoryId,
   playerId,
   details: { sourceInventories, reason },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -344,7 +329,7 @@ export const CraftingFailedError = (
   playerId,
   inventoryId,
   details: { reason },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -360,7 +345,7 @@ export const TradeFailedError = (
   message: `Trade ${tradeId} failed: ${reason}`,
   tradeId,
   details: { player1Id, player2Id, reason },
-  timestamp: new Date()
+  timestamp: new Date(),
 })
 
 /**
@@ -400,21 +385,22 @@ export const InventoryApplicationErrorSchema = Schema.Struct({
   transactionId: Schema.optional(Schema.String),
   itemId: Schema.optional(Schema.String),
   slotIndex: Schema.optional(Schema.Number),
-  position: Schema.optional(Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number
-  })),
+  position: Schema.optional(
+    Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number,
+    })
+  ),
   lockType: Schema.optional(Schema.String),
   tradeId: Schema.optional(Schema.String),
-  recipeId: Schema.optional(Schema.String)
+  recipeId: Schema.optional(Schema.String),
 })
 
 /**
  * エラーのシリアライゼーション/デシリアライゼーション
  */
-export const serializeError = (error: InventoryApplicationError): string =>
-  JSON.stringify(error)
+export const serializeError = (error: InventoryApplicationError): string => JSON.stringify(error)
 
 export const deserializeError = (serialized: string): InventoryApplicationError =>
   JSON.parse(serialized) as InventoryApplicationError
@@ -422,9 +408,7 @@ export const deserializeError = (serialized: string): InventoryApplicationError 
 /**
  * エラーレベルの判定
  */
-export const getErrorSeverity = (
-  error: InventoryApplicationError
-): 'low' | 'medium' | 'high' | 'critical' => {
+export const getErrorSeverity = (error: InventoryApplicationError): 'low' | 'medium' | 'high' | 'critical' => {
   switch (error._tag) {
     case 'TRANSACTION_DEADLOCK':
     case 'DISTRIBUTED_TRANSACTION_FAILED':
@@ -451,15 +435,13 @@ export const getErrorSeverity = (
 /**
  * エラーの回復可能性判定
  */
-export const isRecoverableError = (
-  error: InventoryApplicationError
-): boolean => {
+export const isRecoverableError = (error: InventoryApplicationError): boolean => {
   const nonRecoverableErrors = [
     'INVENTORY_NOT_FOUND',
     'CONTAINER_NOT_FOUND',
     'CONTAINER_POSITION_OCCUPIED',
     'PERMISSION_DENIED',
-    'VALIDATION_FAILED'
+    'VALIDATION_FAILED',
   ]
 
   return !nonRecoverableErrors.includes(error._tag)
@@ -468,10 +450,7 @@ export const isRecoverableError = (
 /**
  * エラーメッセージの国際化対応
  */
-export const getLocalizedErrorMessage = (
-  error: InventoryApplicationError,
-  locale: string = 'en'
-): string => {
+export const getLocalizedErrorMessage = (error: InventoryApplicationError, locale: string = 'en'): string => {
   // 実装では実際の国際化ライブラリを使用
   return error.message // 簡略実装
 }

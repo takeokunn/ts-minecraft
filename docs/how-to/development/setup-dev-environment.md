@@ -3,24 +3,11 @@ title: '開発環境セットアップ - devenv + pnpm 実行手順完全ガイ�
 description: 'プロジェクト同梱の devenv プロファイルを利用して TypeScript 型チェックと Vitest 実行を安定させるための実践的セットアップ手順'
 category: 'how-to'
 difficulty: 'beginner'
-tags:
-  [
-    'setup',
-    'devenv',
-    'pnpm',
-    'typescript',
-    'vitest',
-    'effect-ts',
-  ]
+tags: ['setup', 'devenv', 'pnpm', 'typescript', 'vitest', 'effect-ts']
 prerequisites: ['basic-typescript']
 estimated_reading_time: '5分'
 related_patterns: ['effect-ts-project-bootstrap']
-related_docs:
-  [
-    './development-conventions.md',
-    './entry-points.md',
-    '../testing/testing-guide.md',
-  ]
+related_docs: ['./development-conventions.md', './entry-points.md', '../testing/testing-guide.md']
 ai_context:
   primary_concepts: ['devenv', 'environment-setup', 'pnpm', 'typecheck', 'vitest']
   prerequisite_knowledge: ['shell-basics']

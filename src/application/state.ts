@@ -1,5 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Match } from 'effect'
+import type { SystemStatus as Status } from './types'
 import {
   ApplicationLifecycleState,
   CpuPercentage,
@@ -8,16 +9,15 @@ import {
   FramesPerSecond,
   GameApplicationConfig,
   GameApplicationState,
+  HealthStatusValues,
   MemoryBytes,
   Milliseconds,
   ResourcePercentage,
   SlotCount,
   SystemHealthCheck,
-  HealthStatusValues,
   SystemStatusValues,
   Timestamp,
 } from './types'
-import type { SystemStatus as Status } from './types'
 
 const ensureState = Schema.decodeSync(GameApplicationState)
 const toFramesPerSecond = Schema.decodeSync(FramesPerSecond)
@@ -159,19 +159,13 @@ export const synchronizeLifecycle = (
   systems: mapSystemStatus(state, lifecycle),
 })
 
-export const withStartTime = (
-  state: GameApplicationState,
-  timestamp: number
-): GameApplicationState => ({
+export const withStartTime = (state: GameApplicationState, timestamp: number): GameApplicationState => ({
   ...state,
   startTime: toTimestamp(timestamp),
   uptime: toMilliseconds(0),
 })
 
-export const tickState = (
-  state: GameApplicationState,
-  delta: Milliseconds
-): GameApplicationState =>
+export const tickState = (state: GameApplicationState, delta: Milliseconds): GameApplicationState =>
   Match.value(state.lifecycle).pipe(
     Match.when('Running', () => {
       const nextFrameCount = toFrameCount(state.systems.gameLoop.frameCount + 1)
@@ -204,10 +198,7 @@ export const tickState = (
     Match.orElse(() => state)
   )
 
-export const applyConfig = (
-  state: GameApplicationState,
-  config: GameApplicationConfig
-): GameApplicationState => ({
+export const applyConfig = (state: GameApplicationState, config: GameApplicationConfig): GameApplicationState => ({
   ...state,
   config,
   systems: {

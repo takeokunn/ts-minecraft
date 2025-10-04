@@ -5,10 +5,9 @@
  * 現実的な地質学原理とゲームバランスの両立
  */
 
+import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { taggedUnion } from '../../utils/schema'
-import { Brand } from 'effect'
-import type { Brand as BrandType } from 'effect'
 
 /**
  * 濃度値Brand型（0.0から1.0）
@@ -41,7 +40,7 @@ export const ConcentrationSchema = Schema.Number.pipe(
     identifier: 'Concentration',
     title: 'Ore Concentration',
     description: 'Concentration of ore in deposits (0.0 to 1.0)',
-    examples: [0.05, 0.2, 0.8, 0.95]
+    examples: [0.05, 0.2, 0.8, 0.95],
   })
 )
 
@@ -58,7 +57,7 @@ export const VeinSizeSchema = Schema.Number.pipe(
     identifier: 'VeinSize',
     title: 'Ore Vein Size',
     description: 'Size of ore veins in blocks',
-    examples: [4, 8, 16, 32]
+    examples: [4, 8, 16, 32],
   })
 )
 
@@ -73,7 +72,7 @@ export const RaritySchema = Schema.Number.pipe(
     identifier: 'Rarity',
     title: 'Ore Rarity',
     description: 'Rarity factor (0.0 = extremely rare, 1.0 = very common)',
-    examples: [0.01, 0.1, 0.5, 0.9]
+    examples: [0.01, 0.1, 0.5, 0.9],
   })
 )
 
@@ -89,7 +88,7 @@ export const DepthSchema = Schema.Number.pipe(
     identifier: 'Depth',
     title: 'Depth Level',
     description: 'Y-coordinate depth for ore generation',
-    examples: [16, 64, -32, -64]
+    examples: [16, 64, -32, -64],
   })
 )
 
@@ -123,7 +122,7 @@ export const OreTypeSchema = Schema.Literal(
 ).pipe(
   Schema.annotations({
     title: 'Ore Type',
-    description: 'Type of ore to be generated'
+    description: 'Type of ore to be generated',
   })
 )
 
@@ -133,18 +132,18 @@ export type OreType = typeof OreTypeSchema.Type
  * 分布パターン
  */
 export const DistributionPatternSchema = Schema.Literal(
-  'uniform',      // 均等分布
-  'clustered',    // クラスター分布
-  'layered',      // 層状分布
-  'gradient',     // 勾配分布
-  'scattered',    // 散在分布
-  'vein',         // 鉱脈分布
-  'pocket',       // ポケット分布
-  'concentrated'  // 集中分布
+  'uniform', // 均等分布
+  'clustered', // クラスター分布
+  'layered', // 層状分布
+  'gradient', // 勾配分布
+  'scattered', // 散在分布
+  'vein', // 鉱脈分布
+  'pocket', // ポケット分布
+  'concentrated' // 集中分布
 ).pipe(
   Schema.annotations({
     title: 'Distribution Pattern',
-    description: 'Spatial distribution pattern of ore'
+    description: 'Spatial distribution pattern of ore',
   })
 )
 
@@ -154,19 +153,19 @@ export type DistributionPattern = typeof DistributionPatternSchema.Type
  * 地質環境
  */
 export const GeologicalEnvironmentSchema = Schema.Literal(
-  'igneous',      // 火成岩環境
-  'sedimentary',  // 堆積岩環境
-  'metamorphic',  // 変成岩環境
-  'volcanic',     // 火山環境
+  'igneous', // 火成岩環境
+  'sedimentary', // 堆積岩環境
+  'metamorphic', // 変成岩環境
+  'volcanic', // 火山環境
   'hydrothermal', // 熱水環境
-  'surface',      // 地表環境
-  'deep',         // 深部環境
-  'cave',         // 洞窟環境
-  'ocean'         // 海底環境
+  'surface', // 地表環境
+  'deep', // 深部環境
+  'cave', // 洞窟環境
+  'ocean' // 海底環境
 ).pipe(
   Schema.annotations({
     title: 'Geological Environment',
-    description: 'Geological environment favorable for ore formation'
+    description: 'Geological environment favorable for ore formation',
   })
 )
 
@@ -185,13 +184,13 @@ export const DepthDistributionSchema = Schema.Struct({
   depthFalloff: Schema.Struct({
     enabled: Schema.Boolean,
     rate: Schema.Number.pipe(Schema.between(0, 1)),
-    pattern: Schema.Literal('linear', 'exponential', 'bell_curve', 'step')
-  }).pipe(Schema.optional)
+    pattern: Schema.Literal('linear', 'exponential', 'bell_curve', 'step'),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'DepthDistribution',
     title: 'Depth-based Ore Distribution',
-    description: 'Distribution parameters for specific depth ranges'
+    description: 'Distribution parameters for specific depth ranges',
   })
 )
 
@@ -226,13 +225,13 @@ export const OreDistributionConfigSchema = Schema.Struct({
     // 温度・湿度条件
     temperatureRange: Schema.Struct({
       min: Schema.Number,
-      max: Schema.Number
+      max: Schema.Number,
     }).pipe(Schema.optional),
 
     // 近接制限
     avoidWater: Schema.Boolean.pipe(Schema.optional),
     avoidAir: Schema.Boolean.pipe(Schema.optional),
-    requiresBedrock: Schema.Boolean.pipe(Schema.optional)
+    requiresBedrock: Schema.Boolean.pipe(Schema.optional),
   }),
 
   // 関連性設定
@@ -244,21 +243,23 @@ export const OreDistributionConfigSchema = Schema.Struct({
     antagonistic: Schema.Array(OreTypeSchema).pipe(Schema.optional),
 
     // 母鉱石（この鉱石の近くに出現）
-    parentOres: Schema.Array(OreTypeSchema).pipe(Schema.optional)
+    parentOres: Schema.Array(OreTypeSchema).pipe(Schema.optional),
   }).pipe(Schema.optional),
 
   // 品質グレード
-  qualityGrades: Schema.Array(Schema.Struct({
-    grade: Schema.String,
-    probability: Schema.Number.pipe(Schema.between(0, 1)),
-    multiplier: Schema.Number.pipe(Schema.positive()),
-    specialProperties: Schema.Array(Schema.String).pipe(Schema.optional)
-  })).pipe(Schema.optional)
+  qualityGrades: Schema.Array(
+    Schema.Struct({
+      grade: Schema.String,
+      probability: Schema.Number.pipe(Schema.between(0, 1)),
+      multiplier: Schema.Number.pipe(Schema.positive()),
+      specialProperties: Schema.Array(Schema.String).pipe(Schema.optional),
+    })
+  ).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'OreDistributionConfig',
     title: 'Individual Ore Distribution Configuration',
-    description: 'Complete distribution configuration for a specific ore type'
+    description: 'Complete distribution configuration for a specific ore type',
   })
 )
 
@@ -277,19 +278,21 @@ export const OverallOreDistributionSchema = Schema.Struct({
   // 個別鉱石設定
   ores: Schema.Record({
     key: OreTypeSchema,
-    value: OreDistributionConfigSchema
+    value: OreDistributionConfigSchema,
   }),
 
   // 地質層設定
-  geologicalLayers: Schema.Array(Schema.Struct({
-    name: Schema.String,
-    minDepth: DepthSchema,
-    maxDepth: DepthSchema,
-    rockType: Schema.String,
-    hardness: Schema.Number.pipe(Schema.between(0, 10)),
-    favoredOres: Schema.Array(OreTypeSchema),
-    oreMultiplier: Schema.Number.pipe(Schema.positive())
-  })),
+  geologicalLayers: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      minDepth: DepthSchema,
+      maxDepth: DepthSchema,
+      rockType: Schema.String,
+      hardness: Schema.Number.pipe(Schema.between(0, 10)),
+      favoredOres: Schema.Array(OreTypeSchema),
+      oreMultiplier: Schema.Number.pipe(Schema.positive()),
+    })
+  ),
 
   // 特殊地形での調整
   terrainModifiers: Schema.Struct({
@@ -297,7 +300,7 @@ export const OverallOreDistributionSchema = Schema.Struct({
     valleys: Schema.Number.pipe(Schema.positive()),
     underground: Schema.Number.pipe(Schema.positive()),
     nearWater: Schema.Number.pipe(Schema.positive()),
-    nearLava: Schema.Number.pipe(Schema.positive())
+    nearLava: Schema.Number.pipe(Schema.positive()),
   }).pipe(Schema.optional),
 
   // 季節・時間変動
@@ -305,20 +308,20 @@ export const OverallOreDistributionSchema = Schema.Struct({
     enabled: Schema.Boolean,
     seasonalEffect: Schema.Number.pipe(Schema.between(0, 1)),
     lunarEffect: Schema.Number.pipe(Schema.between(0, 1)),
-    weatherEffect: Schema.Number.pipe(Schema.between(0, 1))
+    weatherEffect: Schema.Number.pipe(Schema.between(0, 1)),
   }).pipe(Schema.optional),
 
   // パフォーマンス制限
   performanceSettings: Schema.Struct({
     maxOresPerChunk: Schema.Number.pipe(Schema.int(), Schema.positive()),
     generationTimeout: Schema.Number.pipe(Schema.positive()),
-    cacheSize: Schema.Number.pipe(Schema.int(), Schema.positive())
-  }).pipe(Schema.optional)
+    cacheSize: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'OverallOreDistribution',
     title: 'Overall Ore Distribution Configuration',
-    description: 'Complete ore distribution configuration for world generation'
+    description: 'Complete ore distribution configuration for world generation',
   })
 )
 
@@ -335,9 +338,9 @@ export const CreateOreDistributionParamsSchema = Schema.Struct({
     key: OreTypeSchema,
     value: Schema.Struct({
       min: Schema.Number,
-      max: Schema.Number
-    })
-  }).pipe(Schema.optional)
+      max: Schema.Number,
+    }),
+  }).pipe(Schema.optional),
 })
 
 export type CreateOreDistributionParams = typeof CreateOreDistributionParamsSchema.Type
@@ -351,21 +354,21 @@ export const OreDistributionErrorSchema = taggedUnion('_tag', [
     ore: OreTypeSchema,
     minDepth: Schema.Number,
     maxDepth: Schema.Number,
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('ConflictingAssociations'),
     ore: OreTypeSchema,
     conflicts: Schema.Array(OreTypeSchema),
-    message: Schema.String
+    message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('GeologicalInconsistency'),
     ore: OreTypeSchema,
     environment: GeologicalEnvironmentSchema,
     reason: Schema.String,
-    message: Schema.String
-  })
+    message: Schema.String,
+  }),
 ])
 
 export type OreDistributionError = typeof OreDistributionErrorSchema.Type
@@ -376,18 +379,18 @@ export type OreDistributionError = typeof OreDistributionErrorSchema.Type
 export const ORE_DISTRIBUTION_PRESETS = {
   REALISTIC: {
     description: 'Realistic geological distribution based on real-world patterns',
-    globalMultiplier: 0.8
+    globalMultiplier: 0.8,
   },
   BALANCED: {
     description: 'Balanced distribution for normal gameplay',
-    globalMultiplier: 1.0
+    globalMultiplier: 1.0,
   },
   ABUNDANT: {
     description: 'Increased ore availability for creative gameplay',
-    globalMultiplier: 2.0
+    globalMultiplier: 2.0,
   },
   SCARCE: {
     description: 'Reduced ore availability for survival challenge',
-    globalMultiplier: 0.4
-  }
+    globalMultiplier: 0.4,
+  },
 } as const

@@ -2,6 +2,15 @@ import { Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
+  CombatSession,
+  Combatant,
+  applyDamage,
+  getCooldown,
+  overwriteSession,
+  resolveDefeat,
+  setCooldown,
+} from './model'
+import {
   AttackKind,
   CombatDomainError,
   CombatError,
@@ -15,15 +24,6 @@ import {
   makeCooldown,
   makeDamage,
 } from './types'
-import {
-  CombatSession,
-  Combatant,
-  applyDamage,
-  getCooldown,
-  overwriteSession,
-  resolveDefeat,
-  setCooldown,
-} from './model'
 
 export interface AttackCommand {
   readonly attacker: CombatantId
@@ -43,10 +43,7 @@ export interface AttackResolution {
   readonly target: Combatant
 }
 
-const findCombatant = (
-  session: CombatSession,
-  id: CombatantId
-): Effect.Effect<Combatant, CombatDomainError> =>
+const findCombatant = (session: CombatSession, id: CombatantId): Effect.Effect<Combatant, CombatDomainError> =>
   pipe(
     session.combatants,
     ReadonlyArray.findFirst((combatant) => combatant.id === id),
@@ -63,10 +60,7 @@ const ensureDistinctParticipants = (
     () => CombatError.invalidAttack('attacker and target must differ')
   )
 
-const ensureCooldownReady = (
-  combatant: Combatant,
-  attack: AttackKind
-): Effect.Effect<void, CombatDomainError> =>
+const ensureCooldownReady = (combatant: Combatant, attack: AttackKind): Effect.Effect<void, CombatDomainError> =>
   pipe(
     getCooldown(combatant, attack.tag),
     Option.match({
@@ -80,14 +74,9 @@ const ensureCooldownReady = (
     })
   )
 
-const calculateBaseDamage = (
-  attacker: Combatant,
-  attack: AttackKind
-): Effect.Effect<Damage, CombatDomainError> =>
+const calculateBaseDamage = (attacker: Combatant, attack: AttackKind): Effect.Effect<Damage, CombatDomainError> =>
   Match.value(attack).pipe(
-    Match.when({ tag: 'Melee' }, (melee) =>
-      makeDamage(attacker.attack + melee.baseDamage)
-    ),
+    Match.when({ tag: 'Melee' }, (melee) => makeDamage(attacker.attack + melee.baseDamage)),
     Match.when({ tag: 'Ranged' }, (ranged) => {
       const multiplier = Math.max(0.6, 1 - ranged.range / 600)
       return makeDamage((attacker.attack + ranged.baseDamage) * multiplier)
@@ -99,10 +88,7 @@ const calculateBaseDamage = (
     Match.exhaustive
   )
 
-const applyDefenseMitigation = (
-  damage: Damage,
-  defense: Defense
-): Effect.Effect<Damage, CombatDomainError> => {
+const applyDefenseMitigation = (damage: Damage, defense: Defense): Effect.Effect<Damage, CombatDomainError> => {
   const mitigation = Math.max(0.25, 1 - defense / (defense + 800))
   return makeDamage(damage * mitigation)
 }
@@ -113,9 +99,7 @@ const applyCriticalStrike = (
   roll: CriticalChance
 ): Effect.Effect<{ readonly damage: Damage; readonly critical: boolean }, CombatDomainError> =>
   Match.value(roll <= chance).pipe(
-    Match.when(true, () =>
-      makeDamage(damage * 1.5).pipe(Effect.map((next) => ({ damage: next, critical: true })))
-    ),
+    Match.when(true, () => makeDamage(damage * 1.5).pipe(Effect.map((next) => ({ damage: next, critical: true })))),
     Match.when(false, () => Effect.succeed({ damage, critical: false })),
     Match.exhaustive
   )
@@ -176,10 +160,7 @@ export const resolveAttack = (
     }
   })
 
-export const decayCooldowns = (
-  combatant: Combatant,
-  elapsed: Cooldown
-): Effect.Effect<Combatant, CombatDomainError> =>
+export const decayCooldowns = (combatant: Combatant, elapsed: Cooldown): Effect.Effect<Combatant, CombatDomainError> =>
   Effect.gen(function* () {
     const decayAmount = yield* makeCooldown(elapsed)
     const nextCooldowns = yield* Effect.forEach(

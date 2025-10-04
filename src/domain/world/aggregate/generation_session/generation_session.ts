@@ -8,15 +8,14 @@
  * - グレースフルな中断・再開
  */
 
-import { Context, Effect, Schema, STM, Brand, Chunk, Duration } from "effect"
-import * as Coordinates from "../../value_object/coordinates/index.js"
-import * as WorldSeed from "../../value_object/world_seed/index.js"
-import * as SessionState from "./session_state.js"
-import * as ProgressTracking from "./progress_tracking.js"
-import * as ErrorHandling from "./error_handling.js"
-import * as SessionEvents from "./events.js"
-import type * as WorldTypes from "../../types/core/world_types.js"
-import type * as GenerationErrors from "../../types/errors/generation_errors.js"
+import { Brand, Chunk, Context, Effect, Schema, STM } from 'effect'
+import type * as WorldTypes from '../../types/core/world_types.js'
+import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import * as Coordinates from '../../value_object/coordinates/index.js'
+import * as ErrorHandling from './error_handling.js'
+import * as SessionEvents from './events.js'
+import * as ProgressTracking from './progress_tracking.js'
+import * as SessionState from './session_state.js'
 
 // ================================
 // Session Identifier
@@ -30,7 +29,7 @@ export const GenerationSessionIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'GenerationSessionId',
     description: 'Unique identifier for generation session',
-    examples: ['gs_12345678-1234-5678-9abc-123456789abc']
+    examples: ['gs_12345678-1234-5678-9abc-123456789abc'],
   })
 )
 
@@ -45,16 +44,16 @@ export const SessionConfigurationSchema = Schema.Struct({
   maxConcurrentChunks: Schema.Number.pipe(
     Schema.int(),
     Schema.between(1, 16),
-    Schema.annotations({ description: "Maximum chunks to generate simultaneously" })
+    Schema.annotations({ description: 'Maximum chunks to generate simultaneously' })
   ),
   chunkBatchSize: Schema.Number.pipe(
     Schema.int(),
     Schema.between(1, 64),
-    Schema.annotations({ description: "Number of chunks to process in one batch" })
+    Schema.annotations({ description: 'Number of chunks to process in one batch' })
   ),
   retryPolicy: Schema.Struct({
     maxAttempts: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
-    backoffStrategy: Schema.Literal("linear", "exponential", "constant"),
+    backoffStrategy: Schema.Literal('linear', 'exponential', 'constant'),
     baseDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
     maxDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
   }),
@@ -79,17 +78,21 @@ export type SessionConfiguration = typeof SessionConfigurationSchema.Type
 export const GenerationRequestSchema = Schema.Struct({
   coordinates: Schema.Array(Coordinates.ChunkCoordinateSchema),
   priority: Schema.Number.pipe(Schema.between(1, 10)),
-  options: Schema.optional(Schema.Struct({
-    includeStructures: Schema.Boolean,
-    includeCaves: Schema.Boolean,
-    includeOres: Schema.Boolean,
-    generateVegetation: Schema.Boolean,
-    applyPostProcessing: Schema.Boolean,
-  })),
-  metadata: Schema.optional(Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown
-  })),
+  options: Schema.optional(
+    Schema.Struct({
+      includeStructures: Schema.Boolean,
+      includeCaves: Schema.Boolean,
+      includeOres: Schema.Boolean,
+      generateVegetation: Schema.Boolean,
+      applyPostProcessing: Schema.Boolean,
+    })
+  ),
+  metadata: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    })
+  ),
 })
 
 export type GenerationRequest = typeof GenerationRequestSchema.Type
@@ -137,7 +140,7 @@ export const create = (
       chunkBatchSize: 16,
       retryPolicy: {
         maxAttempts: 3,
-        backoffStrategy: "exponential",
+        backoffStrategy: 'exponential',
         baseDelayMs: 1000,
         maxDelayMs: 30000,
       },
@@ -176,9 +179,7 @@ export const create = (
     }
 
     // 作成イベント発行
-    yield* SessionEvents.publish(
-      SessionEvents.createSessionCreated(id, worldGeneratorId, request)
-    )
+    yield* SessionEvents.publish(SessionEvents.createSessionCreated(id, worldGeneratorId, request))
 
     return session
   })
@@ -186,12 +187,10 @@ export const create = (
 /**
  * セッション開始
  */
-export const start = (
-  session: GenerationSession
-): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
+export const start = (session: GenerationSession): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
     // 状態チェック
-    if (session.state.status !== "created") {
+    if (session.state.status !== 'created') {
       return yield* STM.fail(
         GenerationErrors.createSessionError(`Cannot start session in ${session.state.status} state`)
       )
@@ -215,11 +214,7 @@ export const start = (
     }
 
     // 開始イベント発行
-    yield* STM.fromEffect(
-      SessionEvents.publish(
-        SessionEvents.createSessionStarted(session.id, batches.length)
-      )
-    )
+    yield* STM.fromEffect(SessionEvents.publish(SessionEvents.createSessionStarted(session.id, batches.length)))
 
     return updatedSession
   })
@@ -234,14 +229,10 @@ export const completeBatch = (
 ): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
     // バッチ状態更新
-    const updatedState = yield* STM.fromEffect(
-      SessionState.completeBatch(session.state, batchId, results)
-    )
+    const updatedState = yield* STM.fromEffect(SessionState.completeBatch(session.state, batchId, results))
 
     // 進捗更新
-    const updatedProgress = yield* STM.fromEffect(
-      ProgressTracking.updateProgress(session.progress, results.length, 0)
-    )
+    const updatedProgress = yield* STM.fromEffect(ProgressTracking.updateProgress(session.progress, results.length, 0))
 
     const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
 
@@ -260,9 +251,7 @@ export const completeBatch = (
 
     // バッチ完了イベント発行
     yield* STM.fromEffect(
-      SessionEvents.publish(
-        SessionEvents.createBatchCompleted(session.id, batchId, results.length)
-      )
+      SessionEvents.publish(SessionEvents.createBatchCompleted(session.id, batchId, results.length))
     )
 
     return updatedSession
@@ -293,14 +282,10 @@ export const failBatch = (
 
     if (shouldRetry) {
       // リトライスケジュール
-      updatedState = yield* STM.fromEffect(
-        SessionState.scheduleRetry(session.state, batchId)
-      )
+      updatedState = yield* STM.fromEffect(SessionState.scheduleRetry(session.state, batchId))
     } else {
       // バッチ失敗として記録
-      updatedState = yield* STM.fromEffect(
-        SessionState.failBatch(session.state, batchId, sessionError)
-      )
+      updatedState = yield* STM.fromEffect(SessionState.failBatch(session.state, batchId, sessionError))
 
       // 進捗更新 (失敗として)
       const batch = SessionState.getBatch(session.state, batchId)
@@ -322,9 +307,7 @@ export const failBatch = (
 
     // 失敗イベント発行
     yield* STM.fromEffect(
-      SessionEvents.publish(
-        SessionEvents.createBatchFailed(session.id, batchId, sessionError, shouldRetry)
-      )
+      SessionEvents.publish(SessionEvents.createBatchFailed(session.id, batchId, sessionError, shouldRetry))
     )
 
     return updatedSession
@@ -338,7 +321,7 @@ export const pause = (
   reason: string
 ): Effect.Effect<GenerationSession, GenerationErrors.SessionError> =>
   Effect.gen(function* () {
-    if (session.state.status !== "running") {
+    if (session.state.status !== 'running') {
       return yield* Effect.fail(
         GenerationErrors.createSessionError(`Cannot pause session in ${session.state.status} state`)
       )
@@ -358,9 +341,7 @@ export const pause = (
     }
 
     // 一時停止イベント発行
-    yield* SessionEvents.publish(
-      SessionEvents.createSessionPaused(session.id, reason)
-    )
+    yield* SessionEvents.publish(SessionEvents.createSessionPaused(session.id, reason))
 
     return updatedSession
   })
@@ -368,11 +349,9 @@ export const pause = (
 /**
  * セッション再開
  */
-export const resume = (
-  session: GenerationSession
-): Effect.Effect<GenerationSession, GenerationErrors.SessionError> =>
+export const resume = (session: GenerationSession): Effect.Effect<GenerationSession, GenerationErrors.SessionError> =>
   Effect.gen(function* () {
-    if (session.state.status !== "paused") {
+    if (session.state.status !== 'paused') {
       return yield* Effect.fail(
         GenerationErrors.createSessionError(`Cannot resume session in ${session.state.status} state`)
       )
@@ -392,9 +371,7 @@ export const resume = (
     }
 
     // 再開イベント発行
-    yield* SessionEvents.publish(
-      SessionEvents.createSessionResumed(session.id)
-    )
+    yield* SessionEvents.publish(SessionEvents.createSessionResumed(session.id))
 
     return updatedSession
   })
@@ -402,9 +379,7 @@ export const resume = (
 /**
  * セッション完了処理
  */
-const completeSession = (
-  session: GenerationSession
-): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
+const completeSession = (session: GenerationSession): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
     const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
 
@@ -422,9 +397,7 @@ const completeSession = (
 
     // 完了イベント発行
     yield* STM.fromEffect(
-      SessionEvents.publish(
-        SessionEvents.createSessionCompleted(session.id, updatedProgress.statistics)
-      )
+      SessionEvents.publish(SessionEvents.createSessionCompleted(session.id, updatedProgress.statistics))
     )
 
     return completedSession
@@ -461,7 +434,7 @@ const createChunkBatches = (
         id: batchId,
         coordinates: Chunk.toReadonlyArray(batchChunk),
         priority: session.request.priority,
-        status: "pending",
+        status: 'pending',
         createdAt: new Date(),
         attempts: 0,
       }
@@ -474,9 +447,7 @@ const createChunkBatches = (
 /**
  * 生成要求の検証
  */
-const validateGenerationRequest = (
-  request: GenerationRequest
-): Effect.Effect<void, GenerationErrors.ValidationError> =>
+const validateGenerationRequest = (request: GenerationRequest): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     if (request.coordinates.length === 0) {
       return yield* Effect.fail(
@@ -491,9 +462,7 @@ const validateGenerationRequest = (
     }
 
     // 重複座標チェック
-    const uniqueCoords = new Set(
-      request.coordinates.map(coord => `${coord.x},${coord.z}`)
-    )
+    const uniqueCoords = new Set(request.coordinates.map((coord) => `${coord.x},${coord.z}`))
 
     if (uniqueCoords.size !== request.coordinates.length) {
       return yield* Effect.fail(
@@ -505,14 +474,10 @@ const validateGenerationRequest = (
 /**
  * 設定の検証
  */
-const validateConfiguration = (
-  config: SessionConfiguration
-): Effect.Effect<void, GenerationErrors.ValidationError> =>
+const validateConfiguration = (config: SessionConfiguration): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     if (config.retryPolicy.baseDelayMs > config.retryPolicy.maxDelayMs) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Base delay cannot be greater than max delay')
-      )
+      return yield* Effect.fail(GenerationErrors.createValidationError('Base delay cannot be greater than max delay'))
     }
 
     if (config.timeoutPolicy.chunkTimeoutMs > config.timeoutPolicy.sessionTimeoutMs) {
@@ -534,9 +499,7 @@ export const GenerationSessionTag = Context.GenericTag<{
     configuration?: Partial<SessionConfiguration>
   ) => Effect.Effect<GenerationSession, GenerationErrors.CreationError>
 
-  readonly start: (
-    session: GenerationSession
-  ) => STM.STM<GenerationSession, GenerationErrors.SessionError>
+  readonly start: (session: GenerationSession) => STM.STM<GenerationSession, GenerationErrors.SessionError>
 
   readonly completeBatch: (
     session: GenerationSession,
@@ -555,9 +518,7 @@ export const GenerationSessionTag = Context.GenericTag<{
     reason: string
   ) => Effect.Effect<GenerationSession, GenerationErrors.SessionError>
 
-  readonly resume: (
-    session: GenerationSession
-  ) => Effect.Effect<GenerationSession, GenerationErrors.SessionError>
+  readonly resume: (session: GenerationSession) => Effect.Effect<GenerationSession, GenerationErrors.SessionError>
 }>('@minecraft/domain/world/aggregate/GenerationSession')
 
 // ================================
@@ -577,7 +538,4 @@ export const GenerationSessionLive = GenerationSessionTag.of({
 // Exports
 // ================================
 
-export {
-  type SessionConfiguration,
-  type GenerationRequest,
-}
+export { type GenerationRequest, type SessionConfiguration }

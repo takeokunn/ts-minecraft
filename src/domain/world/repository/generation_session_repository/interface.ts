@@ -8,13 +8,13 @@
 
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
 import type {
-  GenerationSessionId,
-  WorldId,
+  ChunkGenerationResult,
   ChunkPosition,
+  GenerationSessionId,
+  GenerationSettings,
   GenerationStage,
   GenerationStageStatus,
-  GenerationSettings,
-  ChunkGenerationResult,
+  WorldId,
 } from '../../types'
 import type { AllRepositoryErrors } from '../types'
 
@@ -174,12 +174,16 @@ export interface GenerationSessionRepository {
   /**
    * セッション取得
    */
-  readonly findById: (sessionId: GenerationSessionId) => Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors>
+  readonly findById: (
+    sessionId: GenerationSessionId
+  ) => Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors>
 
   /**
    * 複数セッション取得
    */
-  readonly findManyByIds: (sessionIds: ReadonlyArray<GenerationSessionId>) => Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors>
+  readonly findManyByIds: (
+    sessionIds: ReadonlyArray<GenerationSessionId>
+  ) => Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors>
 
   /**
    * ワールド別セッション取得
@@ -209,19 +213,27 @@ export interface GenerationSessionRepository {
   /**
    * 複数セッション削除
    */
-  readonly deleteSessions: (sessionIds: ReadonlyArray<GenerationSessionId>) => Effect.Effect<SessionBatchResult, AllRepositoryErrors>
+  readonly deleteSessions: (
+    sessionIds: ReadonlyArray<GenerationSessionId>
+  ) => Effect.Effect<SessionBatchResult, AllRepositoryErrors>
 
   // === Session State Management ===
 
   /**
    * セッション状態更新
    */
-  readonly updateSessionState: (sessionId: GenerationSessionId, state: SessionState) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateSessionState: (
+    sessionId: GenerationSessionId,
+    state: SessionState
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * セッション進捗更新
    */
-  readonly updateProgress: (sessionId: GenerationSessionId, progress: Partial<GenerationProgress>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateProgress: (
+    sessionId: GenerationSessionId,
+    progress: Partial<GenerationProgress>
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * セッション一時停止
@@ -243,27 +255,40 @@ export interface GenerationSessionRepository {
   /**
    * チャンクタスク追加
    */
-  readonly addChunkTask: (sessionId: GenerationSessionId, task: ChunkGenerationTask) => Effect.Effect<void, AllRepositoryErrors>
+  readonly addChunkTask: (
+    sessionId: GenerationSessionId,
+    task: ChunkGenerationTask
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * チャンクタスク更新
    */
-  readonly updateChunkTask: (sessionId: GenerationSessionId, position: ChunkPosition, update: Partial<ChunkGenerationTask>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateChunkTask: (
+    sessionId: GenerationSessionId,
+    position: ChunkPosition,
+    update: Partial<ChunkGenerationTask>
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * 完了チャンクタスク取得
    */
-  readonly getCompletedChunks: (sessionId: GenerationSessionId) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
+  readonly getCompletedChunks: (
+    sessionId: GenerationSessionId
+  ) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
 
   /**
    * 失敗チャンクタスク取得
    */
-  readonly getFailedChunks: (sessionId: GenerationSessionId) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
+  readonly getFailedChunks: (
+    sessionId: GenerationSessionId
+  ) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
 
   /**
    * 保留中チャンクタスク取得
    */
-  readonly getPendingChunks: (sessionId: GenerationSessionId) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
+  readonly getPendingChunks: (
+    sessionId: GenerationSessionId
+  ) => Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors>
 
   // === Checkpoint & Recovery ===
 
@@ -275,17 +300,23 @@ export interface GenerationSessionRepository {
   /**
    * チェックポイント復元
    */
-  readonly restoreFromCheckpoint: (sessionId: GenerationSessionId, checkpointId: string) => Effect.Effect<void, AllRepositoryErrors>
+  readonly restoreFromCheckpoint: (
+    sessionId: GenerationSessionId,
+    checkpointId: string
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   /**
    * チェックポイント一覧取得
    */
-  readonly listCheckpoints: (sessionId: GenerationSessionId) => Effect.Effect<ReadonlyArray<{
-    readonly id: string
-    readonly createdAt: Date
-    readonly size: number
-    readonly chunkCount: number
-  }>, AllRepositoryErrors>
+  readonly listCheckpoints: (sessionId: GenerationSessionId) => Effect.Effect<
+    ReadonlyArray<{
+      readonly id: string
+      readonly createdAt: Date
+      readonly size: number
+      readonly chunkCount: number
+    }>,
+    AllRepositoryErrors
+  >
 
   /**
    * セッション復旧可能性分析
@@ -295,23 +326,29 @@ export interface GenerationSessionRepository {
   /**
    * セッション復旧実行
    */
-  readonly recoverSession: (sessionId: GenerationSessionId, options?: {
-    readonly strategy?: 'conservative' | 'aggressive'
-    readonly skipCorrupted?: boolean
-    readonly maxRetries?: number
-  }) => Effect.Effect<void, AllRepositoryErrors>
+  readonly recoverSession: (
+    sessionId: GenerationSessionId,
+    options?: {
+      readonly strategy?: 'conservative' | 'aggressive'
+      readonly skipCorrupted?: boolean
+      readonly maxRetries?: number
+    }
+  ) => Effect.Effect<void, AllRepositoryErrors>
 
   // === Session History & Cleanup ===
 
   /**
    * セッション履歴取得
    */
-  readonly getSessionHistory: (sessionId: GenerationSessionId) => Effect.Effect<ReadonlyArray<{
-    readonly timestamp: Date
-    readonly action: string
-    readonly details: unknown
-    readonly actor: string
-  }>, AllRepositoryErrors>
+  readonly getSessionHistory: (sessionId: GenerationSessionId) => Effect.Effect<
+    ReadonlyArray<{
+      readonly timestamp: Date
+      readonly action: string
+      readonly details: unknown
+      readonly actor: string
+    }>,
+    AllRepositoryErrors
+  >
 
   /**
    * 完了セッションアーカイブ
@@ -321,7 +358,10 @@ export interface GenerationSessionRepository {
   /**
    * 古いチェックポイント削除
    */
-  readonly cleanupOldCheckpoints: (sessionId: GenerationSessionId, keepCount?: number) => Effect.Effect<number, AllRepositoryErrors>
+  readonly cleanupOldCheckpoints: (
+    sessionId: GenerationSessionId,
+    keepCount?: number
+  ) => Effect.Effect<number, AllRepositoryErrors>
 
   /**
    * 孤立セッション検出
@@ -343,11 +383,14 @@ export interface GenerationSessionRepository {
   /**
    * セッション健全性チェック
    */
-  readonly healthCheck: (sessionId: GenerationSessionId) => Effect.Effect<{
-    readonly isHealthy: boolean
-    readonly issues: readonly string[]
-    readonly recommendations: readonly string[]
-  }, AllRepositoryErrors>
+  readonly healthCheck: (sessionId: GenerationSessionId) => Effect.Effect<
+    {
+      readonly isHealthy: boolean
+      readonly issues: readonly string[]
+      readonly recommendations: readonly string[]
+    },
+    AllRepositoryErrors
+  >
 
   // === Repository Management ===
 
@@ -364,11 +407,14 @@ export interface GenerationSessionRepository {
   /**
    * データ整合性検証
    */
-  readonly validateIntegrity: () => Effect.Effect<{
-    readonly isValid: boolean
-    readonly errors: ReadonlyArray<string>
-    readonly warnings: ReadonlyArray<string>
-  }, AllRepositoryErrors>
+  readonly validateIntegrity: () => Effect.Effect<
+    {
+      readonly isValid: boolean
+      readonly errors: ReadonlyArray<string>
+      readonly warnings: ReadonlyArray<string>
+    },
+    AllRepositoryErrors
+  >
 }
 
 // === Context Tag Definition ===
@@ -443,28 +489,24 @@ export const defaultGenerationSessionRepositoryConfig: GenerationSessionReposito
  */
 export const calculateProgress = (chunks: ReadonlyArray<ChunkGenerationTask>): GenerationProgress => {
   const totalChunks = chunks.length
-  const completedChunks = chunks.filter(c => c.status === 'completed').length
-  const failedChunks = chunks.filter(c => c.status === 'failed').length
-  const pendingChunks = chunks.filter(c => c.status === 'pending' || c.status === 'running').length
+  const completedChunks = chunks.filter((c) => c.status === 'completed').length
+  const failedChunks = chunks.filter((c) => c.status === 'failed').length
+  const pendingChunks = chunks.filter((c) => c.status === 'pending' || c.status === 'running').length
 
   const overallProgress = totalChunks > 0 ? completedChunks / totalChunks : 0
 
   // Calculate timing statistics
-  const completedChunksWithTiming = chunks.filter(c =>
-    c.status === 'completed' && c.startedAt && c.completedAt
+  const completedChunksWithTiming = chunks.filter((c) => c.status === 'completed' && c.startedAt && c.completedAt)
+
+  const totalTime = completedChunksWithTiming.reduce(
+    (sum, chunk) => sum + (chunk.completedAt!.getTime() - chunk.startedAt!.getTime()),
+    0
   )
 
-  const totalTime = completedChunksWithTiming.reduce((sum, chunk) =>
-    sum + (chunk.completedAt!.getTime() - chunk.startedAt!.getTime()), 0
-  )
+  const chunksPerSecond =
+    completedChunksWithTiming.length > 0 ? (completedChunksWithTiming.length * 1000) / totalTime : 0
 
-  const chunksPerSecond = completedChunksWithTiming.length > 0
-    ? (completedChunksWithTiming.length * 1000) / totalTime
-    : 0
-
-  const estimatedTimeRemaining = chunksPerSecond > 0
-    ? (pendingChunks / chunksPerSecond) * 1000
-    : null
+  const estimatedTimeRemaining = chunksPerSecond > 0 ? (pendingChunks / chunksPerSecond) * 1000 : null
 
   return {
     totalChunks,
@@ -502,14 +544,14 @@ export const createDefaultSessionMetadata = (
 // === Type Exports ===
 
 export type {
-  SessionState,
-  GenerationSession,
-  GenerationProgress,
   ChunkGenerationTask,
+  GenerationProgress,
+  GenerationSession,
   GenerationSessionMetadata,
-  SessionQuery,
-  SessionStatistics,
-  SessionRecoveryInfo,
-  SessionBatchResult,
   GenerationSessionRepositoryConfig,
+  SessionBatchResult,
+  SessionQuery,
+  SessionRecoveryInfo,
+  SessionState,
+  SessionStatistics,
 }

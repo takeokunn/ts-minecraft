@@ -5,44 +5,33 @@
  * 地質学的原理とゲームバランスを両立した鉱脈生成
  */
 
-import { Effect, Context, Schema, Layer, pipe } from 'effect'
-import type {
-  WorldCoordinate,
-  BoundingBox,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type {
-  AdvancedNoiseSettings,
-} from '../../value_object/noise_configuration/noise_settings.js'
-import type {
-  WorldSeed,
-} from '../../value_object/world_seed/seed.js'
-import {
-  GenerationErrorSchema,
-  type GenerationError,
-} from '../../types/errors/generation_errors.js'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { type GenerationError } from '../../types/errors/generation_errors.js'
+import type { BoundingBox, WorldCoordinate } from '../../value_object/coordinates/world_coordinate.js'
+import type { WorldSeed } from '../../value_object/world_seed/seed.js'
 
 /**
  * 鉱石タイプ定義
  */
 export const OreTypeSchema = Schema.Literal(
-  'coal',         // 石炭
-  'iron',         // 鉄
-  'gold',         // 金
-  'diamond',      // ダイヤモンド
-  'emerald',      // エメラルド
-  'redstone',     // レッドストーン
-  'lapis',        // ラピスラズリ
-  'copper',       // 銅
-  'tin',          // 錫（MOD対応）
-  'silver',       // 銀（MOD対応）
-  'uranium',      // ウラン（MOD対応）
-  'quartz',       // クォーツ
-  'obsidian',     // 黒曜石
-  'rare_earth'    // 希土類
+  'coal', // 石炭
+  'iron', // 鉄
+  'gold', // 金
+  'diamond', // ダイヤモンド
+  'emerald', // エメラルド
+  'redstone', // レッドストーン
+  'lapis', // ラピスラズリ
+  'copper', // 銅
+  'tin', // 錫（MOD対応）
+  'silver', // 銀（MOD対応）
+  'uranium', // ウラン（MOD対応）
+  'quartz', // クォーツ
+  'obsidian', // 黒曜石
+  'rare_earth' // 希土類
 ).pipe(
   Schema.annotations({
     title: 'Ore Type',
-    description: 'Types of ores that can be generated in the world'
+    description: 'Types of ores that can be generated in the world',
   })
 )
 
@@ -59,9 +48,9 @@ export const OreDensityProfileSchema = Schema.Struct({
     optimalDepth: Schema.Number.pipe(Schema.int()),
     depthRange: Schema.Struct({
       min: Schema.Number.pipe(Schema.int()),
-      max: Schema.Number.pipe(Schema.int())
+      max: Schema.Number.pipe(Schema.int()),
     }),
-    depthFalloff: Schema.Number.pipe(Schema.between(0, 1)) // 最適深度からの減衰率
+    depthFalloff: Schema.Number.pipe(Schema.between(0, 1)), // 最適深度からの減衰率
   }),
 
   // 確率分布
@@ -73,7 +62,7 @@ export const OreDensityProfileSchema = Schema.Struct({
   clusterSize: Schema.Struct({
     min: Schema.Number.pipe(Schema.int(), Schema.positive()),
     max: Schema.Number.pipe(Schema.int(), Schema.positive()),
-    average: Schema.Number.pipe(Schema.positive())
+    average: Schema.Number.pipe(Schema.positive()),
   }),
 
   // 地質的制約
@@ -87,18 +76,18 @@ export const OreDensityProfileSchema = Schema.Struct({
   requiresAir: Schema.Boolean.pipe(Schema.optional),
   temperatureRange: Schema.Struct({
     min: Schema.Number,
-    max: Schema.Number
+    max: Schema.Number,
   }).pipe(Schema.optional),
 
   // ゲームバランス
   economicValue: Schema.Number.pipe(Schema.between(0, 100)),
   renewability: Schema.Boolean,
-  processingDifficulty: Schema.Number.pipe(Schema.between(1, 10))
+  processingDifficulty: Schema.Number.pipe(Schema.between(1, 10)),
 }).pipe(
   Schema.annotations({
     identifier: 'OreDensityProfile',
     title: 'Ore Density Profile',
-    description: 'Complete density and distribution profile for a specific ore type'
+    description: 'Complete density and distribution profile for a specific ore type',
   })
 )
 
@@ -115,8 +104,8 @@ export const OreVeinSchema = Schema.Struct({
   centerCoordinate: Schema.Unknown, // WorldCoordinateSchema参照
   orientation: Schema.Struct({
     strike: Schema.Number.pipe(Schema.between(0, 360)), // 走向（度）
-    dip: Schema.Number.pipe(Schema.between(0, 90)),     // 傾斜（度）
-    plunge: Schema.Number.pipe(Schema.between(0, 180)) // プランジ（度）
+    dip: Schema.Number.pipe(Schema.between(0, 90)), // 傾斜（度）
+    plunge: Schema.Number.pipe(Schema.between(0, 180)), // プランジ（度）
   }),
 
   // サイズ・形状
@@ -126,11 +115,13 @@ export const OreVeinSchema = Schema.Struct({
   shape: Schema.Literal('tabular', 'lenticular', 'irregular', 'pipe', 'stratiform'),
 
   // 品位分布
-  gradeDistribution: Schema.Array(Schema.Struct({
-    coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-    grade: Schema.Number.pipe(Schema.between(0, 1)), // 品位（0-1）
-    confidence: Schema.Number.pipe(Schema.between(0, 1))
-  })),
+  gradeDistribution: Schema.Array(
+    Schema.Struct({
+      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      grade: Schema.Number.pipe(Schema.between(0, 1)), // 品位（0-1）
+      confidence: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  ),
 
   // 地質情報
   hostRock: Schema.String,
@@ -139,12 +130,12 @@ export const OreVeinSchema = Schema.Struct({
 
   // 関連鉱脈
   relatedVeins: Schema.Array(Schema.String).pipe(Schema.optional),
-  generation: Schema.Number.pipe(Schema.int(), Schema.positive()) // 形成世代
+  generation: Schema.Number.pipe(Schema.int(), Schema.positive()), // 形成世代
 }).pipe(
   Schema.annotations({
     identifier: 'OreVein',
     title: 'Ore Vein Structure',
-    description: 'Geological ore vein with spatial and compositional information'
+    description: 'Geological ore vein with spatial and compositional information',
   })
 )
 
@@ -169,8 +160,8 @@ export const OrePlacementConfigSchema = Schema.Struct({
 
   // ノイズ設定
   distributionNoise: Schema.Unknown, // AdvancedNoiseSettingsSchema参照
-  gradeNoise: Schema.Unknown,        // 品位分布用ノイズ
-  structuralNoise: Schema.Unknown,   // 構造制御用ノイズ
+  gradeNoise: Schema.Unknown, // 品位分布用ノイズ
+  structuralNoise: Schema.Unknown, // 構造制御用ノイズ
 
   // 生成制約
   avoidCaves: Schema.Boolean,
@@ -186,12 +177,12 @@ export const OrePlacementConfigSchema = Schema.Struct({
   // パフォーマンス
   maxVeinsPerChunk: Schema.Number.pipe(Schema.int(), Schema.positive()),
   generationRadius: Schema.Number.pipe(Schema.positive()),
-  qualityThreshold: Schema.Number.pipe(Schema.between(0, 1))
+  qualityThreshold: Schema.Number.pipe(Schema.between(0, 1)),
 }).pipe(
   Schema.annotations({
     identifier: 'OrePlacementConfig',
     title: 'Ore Placement Configuration',
-    description: 'Complete configuration for ore generation and placement'
+    description: 'Complete configuration for ore generation and placement',
   })
 )
 
@@ -203,28 +194,30 @@ export type OrePlacementConfig = typeof OrePlacementConfigSchema.Type
 export const OrePlacementResultSchema = Schema.Struct({
   veins: Schema.Array(OreVeinSchema),
 
-  orePlacements: Schema.Array(Schema.Struct({
-    coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-    oreType: OreTypeSchema,
-    grade: Schema.Number.pipe(Schema.between(0, 1)),
-    veinId: Schema.String.pipe(Schema.optional),
-    placementReason: Schema.Literal('vein', 'cluster', 'scatter', 'replacement')
-  })),
+  orePlacements: Schema.Array(
+    Schema.Struct({
+      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      oreType: OreTypeSchema,
+      grade: Schema.Number.pipe(Schema.between(0, 1)),
+      veinId: Schema.String.pipe(Schema.optional),
+      placementReason: Schema.Literal('vein', 'cluster', 'scatter', 'replacement'),
+    })
+  ),
 
   geochemistry: Schema.Struct({
     totalOreVolume: Schema.Number.pipe(Schema.positive()),
     averageGrade: Schema.Record({
       key: OreTypeSchema,
-      value: Schema.Number.pipe(Schema.between(0, 1))
+      value: Schema.Number.pipe(Schema.between(0, 1)),
     }),
     spatialDistribution: Schema.Record({
       key: OreTypeSchema,
-      value: Schema.Number.pipe(Schema.positive())
+      value: Schema.Number.pipe(Schema.positive()),
     }),
     correlationMatrix: Schema.Record({
       key: Schema.String,
-      value: Schema.Number.pipe(Schema.between(-1, 1))
-    })
+      value: Schema.Number.pipe(Schema.between(-1, 1)),
+    }),
   }),
 
   statistics: Schema.Struct({
@@ -233,19 +226,19 @@ export const OrePlacementResultSchema = Schema.Struct({
     averageVeinSize: Schema.Number.pipe(Schema.positive()),
     generationTime: Schema.Number.pipe(Schema.positive()),
     memoryUsed: Schema.Number.pipe(Schema.positive()),
-    economicValue: Schema.Number.pipe(Schema.positive())
+    economicValue: Schema.Number.pipe(Schema.positive()),
   }),
 
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
   debugInfo: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown
-  }).pipe(Schema.optional)
+    value: Schema.Unknown,
+  }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'OrePlacementResult',
     title: 'Ore Placement Result',
-    description: 'Complete result of ore placement and vein generation'
+    description: 'Complete result of ore placement and vein generation',
   })
 )
 
@@ -289,10 +282,13 @@ export interface OrePlacerService {
     oreType: OreType,
     clusterSize: number,
     grade: number
-  ) => Effect.Effect<ReadonlyArray<{
-    coordinate: WorldCoordinate
-    grade: number
-  }>, GenerationError>
+  ) => Effect.Effect<
+    ReadonlyArray<{
+      coordinate: WorldCoordinate
+      grade: number
+    }>,
+    GenerationError
+  >
 
   /**
    * 地質的妥当性の検証
@@ -300,11 +296,14 @@ export interface OrePlacerService {
   readonly validateGeologicalPlausibility: (
     result: OrePlacementResult,
     config: OrePlacementConfig
-  ) => Effect.Effect<{
-    isPlausible: boolean
-    issues: ReadonlyArray<string>
-    suggestions: ReadonlyArray<string>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      isPlausible: boolean
+      issues: ReadonlyArray<string>
+      suggestions: ReadonlyArray<string>
+    },
+    GenerationError
+  >
 
   /**
    * 経済性評価
@@ -312,11 +311,14 @@ export interface OrePlacerService {
   readonly evaluateEconomicViability: (
     result: OrePlacementResult,
     config: OrePlacementConfig
-  ) => Effect.Effect<{
-    totalValue: number
-    viableDeposits: ReadonlyArray<string>
-    extractionDifficulty: Record<OreType, number>
-  }, GenerationError>
+  ) => Effect.Effect<
+    {
+      totalValue: number
+      viableDeposits: ReadonlyArray<string>
+      extractionDifficulty: Record<OreType, number>
+    },
+    GenerationError
+  >
 
   /**
    * 鉱石品位の計算
@@ -332,9 +334,7 @@ export interface OrePlacerService {
 /**
  * OrePlacer Context Tag
  */
-export const OrePlacerService = Context.GenericTag<OrePlacerService>(
-  '@minecraft/domain/world/OrePlacer'
-)
+export const OrePlacerService = Context.GenericTag<OrePlacerService>('@minecraft/domain/world/OrePlacer')
 
 /**
  * OrePlacer Live Implementation
@@ -362,27 +362,23 @@ export const OrePlacerServiceLive = Layer.effect(
 
         // 5. 地質的制約の適用
         const validatedPlacements = yield* applyGeologicalConstraints(
-          [...generatedVeins.flatMap(v => veinToOrePlacements(v)),
-           ...clusterPlacements,
-           ...scatterPlacements],
+          [...generatedVeins.flatMap((v) => veinToOrePlacements(v)), ...clusterPlacements, ...scatterPlacements],
           config,
           existingTerrain
         )
 
         // 6. 地化学的分析
-        const geochemistry = yield* performGeochemicalAnalysis(
-          validatedPlacements,
-          generatedVeins
-        )
+        const geochemistry = yield* performGeochemicalAnalysis(validatedPlacements, generatedVeins)
 
         // 7. 統計計算
         const statistics = {
           totalPlacements: validatedPlacements.length,
           veinCount: generatedVeins.length,
-          averageVeinSize: generatedVeins.reduce((sum, v) => sum + v.length * v.width * v.thickness, 0) / generatedVeins.length,
+          averageVeinSize:
+            generatedVeins.reduce((sum, v) => sum + v.length * v.width * v.thickness, 0) / generatedVeins.length,
           generationTime: Date.now() - startTime,
           memoryUsed: estimateMemoryUsage(validatedPlacements, generatedVeins),
-          economicValue: calculateTotalEconomicValue(validatedPlacements, config)
+          economicValue: calculateTotalEconomicValue(validatedPlacements, config),
         }
 
         return {
@@ -392,10 +388,10 @@ export const OrePlacerServiceLive = Layer.effect(
           statistics,
           warnings: yield* validatePlacementWarnings(validatedPlacements, config),
           debugInfo: {
-            veinTypes: Array.from(new Set(generatedVeins.map(v => v.oreType))),
+            veinTypes: Array.from(new Set(generatedVeins.map((v) => v.oreType))),
             averageDepth: validatedPlacements.reduce((sum, p) => sum + p.coordinate.y, 0) / validatedPlacements.length,
-            totalVolume: calculateBoundsVolume(bounds)
-          }
+            totalVolume: calculateBoundsVolume(bounds),
+          },
         }
       }),
 
@@ -413,13 +409,7 @@ export const OrePlacerServiceLive = Layer.effect(
         const shape = yield* determineVeinShape(oreType, profile, seed)
 
         // 4. 品位分布の計算
-        const gradeDistribution = yield* calculateVeinGradeDistribution(
-          center,
-          dimensions,
-          orientation,
-          profile,
-          seed
-        )
+        const gradeDistribution = yield* calculateVeinGradeDistribution(center, dimensions, orientation, profile, seed)
 
         // 5. 地質情報の設定
         const geologicalInfo = yield* determineGeologicalInfo(center, oreType, profile)
@@ -434,7 +424,7 @@ export const OrePlacerServiceLive = Layer.effect(
           gradeDistribution,
           ...geologicalInfo,
           relatedVeins: [],
-          generation: 1
+          generation: 1,
         }
       }),
 
@@ -446,25 +436,26 @@ export const OrePlacerServiceLive = Layer.effect(
         }> = []
 
         // 球状クラスターの生成
-        const radius = Math.cbrt(clusterSize / (4 * Math.PI / 3))
+        const radius = Math.cbrt(clusterSize / ((4 * Math.PI) / 3))
 
         for (let x = -radius; x <= radius; x++) {
           for (let y = -radius; y <= radius; y++) {
             for (let z = -radius; z <= radius; z++) {
-              const distance = Math.sqrt(x*x + y*y + z*z)
+              const distance = Math.sqrt(x * x + y * y + z * z)
               if (distance <= radius) {
                 // 中心からの距離に基づく品位減衰
                 const gradeModifier = 1 - (distance / radius) * 0.5
                 const finalGrade = grade * gradeModifier
 
-                if (finalGrade > 0.1) { // 最低品位閾値
+                if (finalGrade > 0.1) {
+                  // 最低品位閾値
                   cluster.push({
                     coordinate: {
                       x: center.x + x,
                       y: center.y + y,
-                      z: center.z + z
+                      z: center.z + z,
                     } as WorldCoordinate,
-                    grade: finalGrade
+                    grade: finalGrade,
                   })
                 }
               }
@@ -482,13 +473,17 @@ export const OrePlacerServiceLive = Layer.effect(
 
         // 1. 深度分布の検証
         for (const vein of result.veins) {
-          const profile = config.oreProfiles.find(p => p.oreType === vein.oreType)
+          const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
           if (profile) {
             const veinDepth = vein.centerCoordinate.y
-            if (veinDepth < profile.depthDistribution.depthRange.min ||
-                veinDepth > profile.depthDistribution.depthRange.max) {
+            if (
+              veinDepth < profile.depthDistribution.depthRange.min ||
+              veinDepth > profile.depthDistribution.depthRange.max
+            ) {
               issues.push(`${vein.oreType} vein at inappropriate depth: ${veinDepth}`)
-              suggestions.push(`Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`)
+              suggestions.push(
+                `Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`
+              )
             }
           }
         }
@@ -500,7 +495,7 @@ export const OrePlacerServiceLive = Layer.effect(
         return {
           isPlausible: issues.length === 0,
           issues,
-          suggestions
+          suggestions,
         }
       }),
 
@@ -512,7 +507,7 @@ export const OrePlacerServiceLive = Layer.effect(
 
         // 各鉱脈の経済性評価
         for (const vein of result.veins) {
-          const profile = config.oreProfiles.find(p => p.oreType === vein.oreType)
+          const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
           if (profile) {
             const veinValue = calculateVeinValue(vein, profile)
             const difficulty = calculateExtractionDifficulty(vein, profile)
@@ -520,7 +515,8 @@ export const OrePlacerServiceLive = Layer.effect(
             totalValue += veinValue
             extractionDifficulty[vein.oreType] = difficulty
 
-            if (veinValue / difficulty > 1.0) { // 採算性閾値
+            if (veinValue / difficulty > 1.0) {
+              // 採算性閾値
               viableDeposits.push(vein.id)
             }
           }
@@ -529,7 +525,7 @@ export const OrePlacerServiceLive = Layer.effect(
         return {
           totalValue,
           viableDeposits,
-          extractionDifficulty
+          extractionDifficulty,
         }
       }),
 
@@ -550,7 +546,7 @@ export const OrePlacerServiceLive = Layer.effect(
         const finalGrade = Math.max(0, Math.min(1, baseGrade * geologicalModifier * noiseModifier))
 
         return finalGrade
-      })
+      }),
   })
 )
 
@@ -560,32 +556,39 @@ const generateAllVeins = (placements: any, config: any, seed: any) => Effect.suc
 const determineClusterPlacements = (bounds: any, config: any, seed: any) => Effect.succeed([])
 const determineScatterPlacements = (bounds: any, config: any, seed: any) => Effect.succeed([])
 const applyGeologicalConstraints = (placements: any, config: any, terrain: any) => Effect.succeed(placements)
-const performGeochemicalAnalysis = (placements: any, veins: any) => Effect.succeed({
-  totalOreVolume: 1000,
-  averageGrade: {},
-  spatialDistribution: {},
-  correlationMatrix: {}
-})
+const performGeochemicalAnalysis = (placements: any, veins: any) =>
+  Effect.succeed({
+    totalOreVolume: 1000,
+    averageGrade: {},
+    spatialDistribution: {},
+    correlationMatrix: {},
+  })
 const estimateMemoryUsage = (...args: any[]) => 1024
 const calculateTotalEconomicValue = (placements: any, config: any) => 10000
 const validatePlacementWarnings = (placements: any, config: any) => Effect.succeed([])
 const calculateBoundsVolume = (bounds: BoundingBox) =>
-  Math.abs(bounds.max.x - bounds.min.x) *
-  Math.abs(bounds.max.y - bounds.min.y) *
-  Math.abs(bounds.max.z - bounds.min.z)
+  Math.abs(bounds.max.x - bounds.min.x) * Math.abs(bounds.max.y - bounds.min.y) * Math.abs(bounds.max.z - bounds.min.z)
 const veinToOrePlacements = (vein: any) => []
-const determineVeinOrientation = (center: any, oreType: any, seed: any) => Effect.succeed({
-  strike: 45, dip: 30, plunge: 60
-})
-const determineVeinDimensions = (profile: any, seed: any) => Effect.succeed({
-  length: 50, width: 10, thickness: 2
-})
+const determineVeinOrientation = (center: any, oreType: any, seed: any) =>
+  Effect.succeed({
+    strike: 45,
+    dip: 30,
+    plunge: 60,
+  })
+const determineVeinDimensions = (profile: any, seed: any) =>
+  Effect.succeed({
+    length: 50,
+    width: 10,
+    thickness: 2,
+  })
 const determineVeinShape = (oreType: any, profile: any, seed: any) => Effect.succeed('tabular' as const)
-const calculateVeinGradeDistribution = (center: any, dimensions: any, orientation: any, profile: any, seed: any) => Effect.succeed([])
-const determineGeologicalInfo = (center: any, oreType: any, profile: any) => Effect.succeed({
-  hostRock: 'granite',
-  alterationZone: 5
-})
+const calculateVeinGradeDistribution = (center: any, dimensions: any, orientation: any, profile: any, seed: any) =>
+  Effect.succeed([])
+const determineGeologicalInfo = (center: any, oreType: any, profile: any) =>
+  Effect.succeed({
+    hostRock: 'granite',
+    alterationZone: 5,
+  })
 const calculateVeinValue = (vein: any, profile: any) => 1000
 const calculateExtractionDifficulty = (vein: any, profile: any) => 0.5
 const calculateBaseGrade = (coordinate: any, oreType: any, profile: any, seed: any) => Effect.succeed(0.5)
@@ -601,7 +604,7 @@ export const DEFAULT_ORE_PROFILES: ReadonlyArray<OreDensityProfile> = [
     depthDistribution: {
       optimalDepth: -30,
       depthRange: { min: -100, max: 20 },
-      depthFalloff: 0.7
+      depthFalloff: 0.7,
     },
     rarity: 0.8,
     clusterProbability: 0.9,
@@ -611,14 +614,14 @@ export const DEFAULT_ORE_PROFILES: ReadonlyArray<OreDensityProfile> = [
     avoidMaterials: ['granite', 'basalt'],
     economicValue: 10,
     renewability: false,
-    processingDifficulty: 2
+    processingDifficulty: 2,
   },
   {
     oreType: 'iron',
     depthDistribution: {
       optimalDepth: -50,
       depthRange: { min: -200, max: 50 },
-      depthFalloff: 0.6
+      depthFalloff: 0.6,
     },
     rarity: 0.6,
     clusterProbability: 0.7,
@@ -628,14 +631,14 @@ export const DEFAULT_ORE_PROFILES: ReadonlyArray<OreDensityProfile> = [
     avoidMaterials: ['limestone', 'sandstone'],
     economicValue: 25,
     renewability: false,
-    processingDifficulty: 4
+    processingDifficulty: 4,
   },
   {
     oreType: 'diamond',
     depthDistribution: {
       optimalDepth: -500,
       depthRange: { min: -1000, max: -200 },
-      depthFalloff: 0.9
+      depthFalloff: 0.9,
     },
     rarity: 0.05,
     clusterProbability: 0.1,
@@ -646,6 +649,6 @@ export const DEFAULT_ORE_PROFILES: ReadonlyArray<OreDensityProfile> = [
     requiresProximity: ['ultramafic'],
     economicValue: 100,
     renewability: false,
-    processingDifficulty: 8
-  }
+    processingDifficulty: 8,
+  },
 ] as const

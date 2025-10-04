@@ -1,15 +1,15 @@
-
-import {
-  InventoryService,
-} from '@domain/inventory/InventoryService'
+import { InventoryService } from '@domain/inventory/inventory-service'
 import {
   PlayerId as DomainPlayerIdFactory,
   type Inventory as DomainInventory,
   type ItemStack as DomainItemStack,
   type PlayerId as DomainPlayerId,
-} from '@domain/inventory/InventoryTypes'
+} from '@domain/inventory/inventory-types'
+import type { ParseError } from '@effect/schema/ParseResult'
+import { Context, Duration, Effect, HashSet, Layer, Match, Option, Ref, Schedule, Schema, Stream, pipe } from 'effect'
 import {
   DomainFailureError,
+  InvalidDropError,
   InventoryEventHandler,
   InventoryGUIConfig,
   InventoryGUIConfigSchema,
@@ -17,7 +17,6 @@ import {
   InventoryGUIEvent,
   InventoryPanelModel,
   InventoryView,
-  InvalidDropError,
   ItemDragEnd,
   ItemDropped,
   QuickDrop,
@@ -34,48 +33,21 @@ import {
   slotGridPosition,
   slotIndexToNumber,
 } from '../adt/inventory-adt'
-import {
-  Context,
-  Duration,
-  Effect,
-  HashSet,
-  Layer,
-  Match,
-  Option,
-  Ref,
-  Schedule,
-  Schema,
-  Stream,
-  pipe,
-} from 'effect'
-import type { ParseError } from '@effect/schema/ParseResult'
 
 export interface InventoryViewModel {
   readonly handleEvent: (
     playerId: InventoryView['playerId'],
     event: InventoryGUIEvent
   ) => Effect.Effect<void, InventoryGUIError>
-  readonly viewOf: (
-    playerId: InventoryView['playerId']
-  ) => Effect.Effect<InventoryView, InventoryGUIError>
-  readonly streamOf: (
-    playerId: InventoryView['playerId']
-  ) => Stream.Stream<InventoryView, InventoryGUIError>
-  readonly panelModel: (
-    playerId: InventoryView['playerId']
-  ) => Effect.Effect<InventoryPanelModel, InventoryGUIError>
+  readonly viewOf: (playerId: InventoryView['playerId']) => Effect.Effect<InventoryView, InventoryGUIError>
+  readonly streamOf: (playerId: InventoryView['playerId']) => Stream.Stream<InventoryView, InventoryGUIError>
+  readonly panelModel: (playerId: InventoryView['playerId']) => Effect.Effect<InventoryPanelModel, InventoryGUIError>
   readonly getConfig: () => Effect.Effect<InventoryGUIConfig>
-  readonly setConfig: (
-    patch: Partial<InventoryGUIConfig>
-  ) => Effect.Effect<void, InventoryGUIError>
+  readonly setConfig: (patch: Partial<InventoryGUIConfig>) => Effect.Effect<void, InventoryGUIError>
   readonly open: (playerId: InventoryView['playerId']) => Effect.Effect<void>
   readonly close: (playerId: InventoryView['playerId']) => Effect.Effect<void>
-  readonly isOpen: (
-    playerId: InventoryView['playerId']
-  ) => Effect.Effect<boolean>
-  readonly handler: (
-    playerId: InventoryView['playerId']
-  ) => InventoryEventHandler
+  readonly isOpen: (playerId: InventoryView['playerId']) => Effect.Effect<boolean>
+  readonly handler: (playerId: InventoryView['playerId']) => InventoryEventHandler
 }
 
 export const InventoryViewModelTag = Context.GenericTag<InventoryViewModel>(
@@ -93,28 +65,21 @@ const failureMessage = (error: FailureInput): string =>
         ? JSON.stringify(error)
         : JSON.stringify(error)
 
-const renderSchemaError = (error: FailureInput) =>
-  RenderFailureError({ message: failureMessage(error) })
+const renderSchemaError = (error: FailureInput) => RenderFailureError({ message: failureMessage(error) })
 
-const toDomainFailure = (error: FailureInput) =>
-  DomainFailureError({ message: failureMessage(error) })
+const toDomainFailure = (error: FailureInput) => DomainFailureError({ message: failureMessage(error) })
 
 const toDomainPlayerId = (playerId: InventoryView['playerId']): DomainPlayerId =>
   DomainPlayerIdFactory(playerIdToString(playerId))
 
-const parseHotbarIndex = (value: number) =>
-  parseSlotIndex(value)
+const parseHotbarIndex = (value: number) => parseSlotIndex(value)
 
 const optionItemStack = (stack: DomainItemStack | null) =>
   pipe(
     Option.fromNullable(stack),
     Option.match({
       onNone: () => Effect.succeed(Option.none()),
-      onSome: (value) =>
-        parseItemStack(value).pipe(
-          Effect.map(Option.some),
-          Effect.mapError(renderSchemaError)
-        ),
+      onSome: (value) => parseItemStack(value).pipe(Effect.map(Option.some), Effect.mapError(renderSchemaError)),
     })
   )
 
@@ -126,10 +91,7 @@ const collectArmor = (inventory: DomainInventory) =>
     boots: optionItemStack(inventory.armor.boots),
   })
 
-const selectSlotIndex = (
-  inventory: DomainInventory,
-  hotbarIndices: ReadonlyArray<number>
-) =>
+const selectSlotIndex = (inventory: DomainInventory, hotbarIndices: ReadonlyArray<number>) =>
   pipe(
     Option.fromNullable(hotbarIndices.at(inventory.selectedSlot)),
     Option.match({
@@ -187,17 +149,13 @@ const toInventoryView = (
   config: InventoryGUIConfig
 ): Effect.Effect<InventoryView, InventoryGUIError> =>
   Effect.gen(function* () {
-    const playerId = yield* parsePlayerId(playerIdToString(inventory.playerId)).pipe(
-      Effect.mapError(renderSchemaError)
-    )
+    const playerId = yield* parsePlayerId(playerIdToString(inventory.playerId)).pipe(Effect.mapError(renderSchemaError))
     const hotbar = yield* Effect.forEach(
       inventory.hotbar,
       (slot) => parseHotbarIndex(slot).pipe(Effect.mapError(renderSchemaError)),
       { concurrency: 'unbounded' }
     )
-    const selectedSlot = yield* selectSlotIndex(inventory, inventory.hotbar).pipe(
-      Effect.mapError(renderSchemaError)
-    )
+    const selectedSlot = yield* selectSlotIndex(inventory, inventory.hotbar).pipe(Effect.mapError(renderSchemaError))
     const slots = yield* buildInventorySlots(inventory, inventory.hotbar, config, selectedSlot)
     const armor = yield* collectArmor(inventory)
     const offhand = yield* optionItemStack(inventory.offhand)
@@ -223,33 +181,15 @@ const applyConfigPatch = (
     Effect.mapError(renderSchemaError)
   )
 
-const handleSlotClicked = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  event: SlotClicked
-) =>
+const handleSlotClicked = (service: InventoryService, playerId: DomainPlayerId, event: SlotClicked) =>
+  service.setSelectedSlot(playerId, slotIndexToNumber(event.slot)).pipe(Effect.mapError(toDomainFailure))
+
+const handleItemDropped = (service: InventoryService, playerId: DomainPlayerId, event: ItemDropped) =>
   service
-    .setSelectedSlot(playerId, slotIndexToNumber(event.slot))
+    .moveItem(playerId, slotIndexToNumber(event.sourceSlot), slotIndexToNumber(event.targetSlot))
     .pipe(Effect.mapError(toDomainFailure))
 
-const handleItemDropped = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  event: ItemDropped
-) =>
-  service
-    .moveItem(
-      playerId,
-      slotIndexToNumber(event.sourceSlot),
-      slotIndexToNumber(event.targetSlot)
-    )
-    .pipe(Effect.mapError(toDomainFailure))
-
-const handleDragEnd = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  event: ItemDragEnd
-) =>
+const handleDragEnd = (service: InventoryService, playerId: DomainPlayerId, event: ItemDragEnd) =>
   pipe(
     event.result,
     Option.match({
@@ -273,20 +213,12 @@ const handleDragEnd = (
               ),
               Match.when('swap', () =>
                 service
-                  .swapItems(
-                    playerId,
-                    slotIndexToNumber(drop.sourceSlot),
-                    slotIndexToNumber(drop.targetSlot)
-                  )
+                  .swapItems(playerId, slotIndexToNumber(drop.sourceSlot), slotIndexToNumber(drop.targetSlot))
                   .pipe(Effect.mapError(toDomainFailure))
               ),
               Match.when('merge', () =>
                 service
-                  .mergeStacks(
-                    playerId,
-                    slotIndexToNumber(drop.sourceSlot),
-                    slotIndexToNumber(drop.targetSlot)
-                  )
+                  .mergeStacks(playerId, slotIndexToNumber(drop.sourceSlot), slotIndexToNumber(drop.targetSlot))
                   .pipe(Effect.mapError(toDomainFailure))
               ),
               Match.when('split', () =>
@@ -300,9 +232,7 @@ const handleDragEnd = (
                   .pipe(Effect.mapError(toDomainFailure))
               ),
               Match.when('rejected', () =>
-                Effect.fail<InventoryGUIError>(
-                  InvalidDropError({ reason: 'Drop rejected' })
-                )
+                Effect.fail<InventoryGUIError>(InvalidDropError({ reason: 'Drop rejected' }))
               ),
               Match.exhaustive
             )
@@ -323,9 +253,7 @@ const findEmptyHotbarSlot = (
     Match.orElse(() =>
       Effect.gen(function* () {
         const [head, ...tail] = indices
-        const slotItem = yield* service
-          .getSlotItem(playerId, head)
-          .pipe(Effect.mapError(toDomainFailure))
+        const slotItem = yield* service.getSlotItem(playerId, head).pipe(Effect.mapError(toDomainFailure))
         return yield* pipe(
           Option.fromNullable(slotItem),
           Option.match({
@@ -337,11 +265,7 @@ const findEmptyHotbarSlot = (
     )
   )
 
-const handleQuickMove = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  event: QuickMove
-) =>
+const handleQuickMove = (service: InventoryService, playerId: DomainPlayerId, event: QuickMove) =>
   Effect.gen(function* () {
     const inventory = yield* service.getInventory(playerId)
     const candidate = yield* findEmptyHotbarSlot(service, playerId, inventory.hotbar)
@@ -355,50 +279,28 @@ const handleQuickMove = (
       Option.match({
         onNone: () =>
           service
-            .transferToHotbar(
-              playerId,
-              slotIndexToNumber(event.slot),
-              fallbackHotbarIndex
-            )
+            .transferToHotbar(playerId, slotIndexToNumber(event.slot), fallbackHotbarIndex)
             .pipe(Effect.mapError(toDomainFailure)),
         onSome: (index) =>
           service
-            .transferToHotbar(
-              playerId,
-              slotIndexToNumber(event.slot),
-              index
-            )
+            .transferToHotbar(playerId, slotIndexToNumber(event.slot), index)
             .pipe(Effect.mapError(toDomainFailure)),
       })
     )
   })
 
-const handleQuickDrop = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  event: QuickDrop
-) =>
+const handleQuickDrop = (service: InventoryService, playerId: DomainPlayerId, event: QuickDrop) =>
   pipe(
     event.all,
     Match.value,
-    Match.when(true, () =>
-      service.dropAllItems(playerId).pipe(Effect.mapError(toDomainFailure), Effect.asVoid)
-    ),
+    Match.when(true, () => service.dropAllItems(playerId).pipe(Effect.mapError(toDomainFailure), Effect.asVoid)),
     Match.orElse(() =>
-      service
-        .dropItem(playerId, slotIndexToNumber(event.slot))
-        .pipe(Effect.mapError(toDomainFailure), Effect.asVoid)
+      service.dropItem(playerId, slotIndexToNumber(event.slot)).pipe(Effect.mapError(toDomainFailure), Effect.asVoid)
     )
   )
 
-const handleHotbarSelected = (
-  service: InventoryService,
-  playerId: DomainPlayerId,
-  slot: SlotClicked['slot']
-) =>
-  service
-    .setSelectedSlot(playerId, slotIndexToNumber(slot))
-    .pipe(Effect.mapError(toDomainFailure))
+const handleHotbarSelected = (service: InventoryService, playerId: DomainPlayerId, slot: SlotClicked['slot']) =>
+  service.setSelectedSlot(playerId, slotIndexToNumber(slot)).pipe(Effect.mapError(toDomainFailure))
 
 export const InventoryViewModelLive = Layer.effect(
   InventoryViewModelTag,
@@ -445,10 +347,7 @@ export const InventoryViewModelLive = Layer.effect(
       )
 
     const streamOf = (playerId: InventoryView['playerId']) =>
-      Stream.repeatEffectWith(
-        viewOf(playerId),
-        Schedule.spaced(Duration.millis(100))
-      )
+      Stream.repeatEffectWith(viewOf(playerId), Schedule.spaced(Duration.millis(100)))
 
     const handleEvent = (
       playerId: InventoryView['playerId'],
