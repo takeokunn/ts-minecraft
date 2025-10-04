@@ -46,7 +46,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
             concurrency: 'unbounded',
           })
         ),
-        Effect.asUnit
+        Effect.asVoid
       )
 
     const register = (playerId: PlayerId) =>
@@ -57,7 +57,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
     const unregister = (playerId: PlayerId) =>
       Ref.update(trackedRef, (set) => HashSet.remove(set, playerId)).pipe(
         Effect.tap(() => stateStore.remove(playerId)),
-        Effect.asUnit
+        Effect.asVoid
       )
 
     const start = (tickMillis: number) =>

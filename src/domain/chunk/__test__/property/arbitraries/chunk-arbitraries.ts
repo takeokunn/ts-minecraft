@@ -5,7 +5,7 @@
  * 高度なSchema統合・ADT対応・型安全Arbitrary生成器
  */
 
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { Effect, Schema } from 'effect'
 import type {
   ChunkState,

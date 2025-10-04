@@ -102,6 +102,7 @@ performance_benchmark:
 
 - [src/ディレクトリ構造設計](./architecture/src-directory-structure.md)
 - [アーキテクチャパターン集](./architecture-patterns.md) - DDD・ECS・Effect-TS統合パターン
+- [Domain Effect-TS 移行ガイドライン](./domain-effect-guideline.md)
 
 ### ⚙️ [Configuration](./configuration/README.md)
 

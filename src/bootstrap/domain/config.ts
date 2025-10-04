@@ -20,21 +20,24 @@ export const BootstrapConfigSchema = Schema.Struct({
 )
 
 export type BootstrapConfig = Schema.Schema.Type<typeof BootstrapConfigSchema>
+export type BootstrapConfigInput = Schema.Schema.From<typeof BootstrapConfigSchema>
 
-const decodeBootstrapConfig = Schema.decodeUnknown(BootstrapConfigSchema)
+const decodeBootstrapConfig = Schema.decode(BootstrapConfigSchema)
+const decodeBootstrapConfigSync = Schema.decodeSync(BootstrapConfigSchema)
 
-export const bootstrapConfig = (input: unknown): Effect.Effect<BootstrapConfig> =>
-  decodeBootstrapConfig(input)
+export const bootstrapConfig = (
+  input: BootstrapConfigInput
+): Effect.Effect<BootstrapConfig> => decodeBootstrapConfig(input)
 
-const bootstrapDefaultsInput = {
+const bootstrapDefaultsInput: BootstrapConfigInput = {
   debug: false,
   fps: 60,
   memoryLimit: 2048,
 }
 
-export const BootstrapConfigDefaults: BootstrapConfig = Schema.decodeUnknownSync(
-  BootstrapConfigSchema
-)(bootstrapDefaultsInput)
+export const BootstrapConfigDefaults: BootstrapConfig = decodeBootstrapConfigSync(
+  bootstrapDefaultsInput
+)
 
 export const BootstrapConfigSnapshotSchema = Schema.Struct({
   config: BootstrapConfigSchema,
@@ -47,11 +50,12 @@ export const BootstrapConfigSnapshotSchema = Schema.Struct({
 )
 
 export type BootstrapConfigSnapshot = Schema.Schema.Type<typeof BootstrapConfigSnapshotSchema>
+export type BootstrapConfigSnapshotInput = Schema.Schema.From<typeof BootstrapConfigSnapshotSchema>
 
-const decodeSnapshot = Schema.decodeUnknown(BootstrapConfigSnapshotSchema)
+const decodeSnapshot = Schema.decode(BootstrapConfigSnapshotSchema)
 
 export const bootstrapConfigSnapshot = (
-  input: unknown
+  input: BootstrapConfigSnapshotInput
 ): Effect.Effect<BootstrapConfigSnapshot> => decodeSnapshot(input)
 
 export const materializeConfigSnapshot = (

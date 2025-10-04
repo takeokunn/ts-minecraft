@@ -90,7 +90,7 @@ export const createMainMenuController = (): Effect.Effect<MainMenuController> =>
             ...state,
             selectedOption: Option.none(),
           }))
-          .pipe(Effect.asUnit)
+          .pipe(Effect.asVoid)
 
       return {
         ...controller,

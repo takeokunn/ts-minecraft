@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import * as FastCheck from 'effect/FastCheck'
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Match, Option, Schema, pipe } from 'effect'
 import {
   DropResultSchema,
   InventoryGUIConfigSchema,
@@ -23,13 +23,16 @@ import {
 } from './inventory-adt'
 import type { ItemStack, SlotIndex, SlotType } from './inventory-adt'
 
-const runSuccess = <A>(program: Effect.Effect<A>): A => {
-  const exit = Effect.runSyncExit(program)
-  if (exit._tag === 'Failure') {
-    throw exit.error
-  }
-  return exit.value
-}
+const runSuccess = <A>(program: Effect.Effect<A>): A =>
+  pipe(
+    Effect.runSyncExit(program),
+    Match.value,
+    Match.tag('Success', (exit) => exit.value),
+    Match.tag('Failure', (exit) => {
+      throw exit.error
+    }),
+    Match.exhaustive
+  )
 
 const expectFailure = <A>(program: Effect.Effect<A>) => {
   const exit = Effect.runSyncExit(program)
@@ -300,28 +303,34 @@ describe('presentation/inventory/adt', () => {
       const pickDifferentEquip = (current: 'helmet' | 'chestplate' | 'leggings' | 'boots') =>
         current === 'helmet' ? 'boots' : 'helmet'
 
-      for (const { slotType, equipSlot } of armorCases) {
-        const armorSlot = createSlot(slotType)
-        const matching = createStack({
-          itemId: `minecraft:iron_${equipSlot}`,
-          count: 1,
-          metadata: {
-            equipSlot,
-            category: 'armor',
-          },
-        })
-        expect(slotAcceptsItem(armorSlot, matching)).toBe(true)
+      pipe(
+        armorCases,
+        Effect.forEach(({ slotType, equipSlot }) =>
+          Effect.sync(() => {
+            const armorSlot = createSlot(slotType)
+            const matching = createStack({
+              itemId: `minecraft:iron_${equipSlot}`,
+              count: 1,
+              metadata: {
+                equipSlot,
+                category: 'armor',
+              },
+            })
+            expect(slotAcceptsItem(armorSlot, matching)).toBe(true)
 
-        const mismatched = createStack({
-          itemId: 'minecraft:iron_boots',
-          count: 1,
-          metadata: {
-            equipSlot: pickDifferentEquip(equipSlot),
-            category: 'armor',
-          },
-        })
-        expect(slotAcceptsItem(armorSlot, mismatched)).toBe(false)
-      }
+            const mismatched = createStack({
+              itemId: 'minecraft:iron_boots',
+              count: 1,
+              metadata: {
+                equipSlot: pickDifferentEquip(equipSlot),
+                category: 'armor',
+              },
+            })
+            expect(slotAcceptsItem(armorSlot, mismatched)).toBe(false)
+          })
+        ),
+        Effect.runSync
+      )
 
       const armorSlotWithoutMeta = createSlot('armor-helmet')
       expect(

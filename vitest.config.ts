@@ -8,7 +8,11 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 10000,
     deps: {
-      inline: ['fast-check']
+      optimizer: {
+        web: {
+          include: ['fast-check'],
+        },
+      },
     },
     include: [
       'src/application/**/*.test.ts',
@@ -40,6 +44,7 @@ export default defineConfig({
       'src/domain/world/**/*.test.ts',
       'src/domain/scene/**/*.test.ts',
       'src/infrastructure/**/__test__/**/*.spec.ts',
+      'src/infrastructure/**/*.test.ts',
       'src/bootstrap/**/__test__/**/*.spec.ts',
       'src/bootstrap/**/*.test.ts',
       'src/presentation/**/*.test.ts',

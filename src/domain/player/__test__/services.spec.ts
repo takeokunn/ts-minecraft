@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { Effect, Layer } from 'effect'
 import { provideLayers } from '../../testing/effect'
 import { PlayerDomainService, PlayerDomainServiceLive } from '../services'

@@ -5,7 +5,7 @@
  */
 
 import { Effect, Either, Match, pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import {

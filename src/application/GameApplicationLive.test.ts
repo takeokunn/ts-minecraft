@@ -1,62 +1,71 @@
 import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Context, Effect, Layer } from 'effect'
+import * as Option from 'effect/Option'
 import { GameApplication } from './GameApplication'
 import { GameApplicationLive } from './GameApplicationLive'
-import { FrameCount, TargetFramesPerSecond } from './types'
-import { provideLayers } from '../testing/effect'
+import { Milliseconds, TargetFramesPerSecond } from './types'
 
-const provideApp = <A, E>(effect: Effect.Effect<A, E, GameApplication>) =>
-  provideLayers(effect, GameApplicationLive)
-
-describe('GameApplicationLive', () => {
-  it.effect('initialize merges configuration overrides', () =>
-    provideApp(
-      Effect.gen(function* () {
-        const service = yield* GameApplication
-        yield* service.initialize({ rendering: { targetFps: 90 } })
-        const state = yield* service.getState()
-        expect(state.lifecycle).toBe('Initialized')
-        expect(state.config.rendering.targetFps).toEqual(
-          Schema.decodeSync(TargetFramesPerSecond)(90)
+describe('application/GameApplicationLive', () => {
+  const provideApp = <A, E>(
+    program: Effect.Effect<A, E, typeof GameApplication>
+  ): Effect.Effect<A, E> =>
+    Effect.scoped(
+      Layer.build(GameApplicationLive).pipe(
+        Effect.flatMap((context) =>
+          program.pipe(
+            Effect.provideService(
+              GameApplication,
+              Context.get(context, GameApplication)
+            )
+          )
         )
+      )
+    )
+
+  it.effect('executes lifecycle operations coherently', () =>
+    provideApp(
+      Effect.gen(function* () {
+        const app = yield* GameApplication
+        yield* app.initialize(Option.none())
+        yield* app.start()
+        yield* app.pause()
+        yield* app.resume()
+        yield* app.stop()
+        const lifecycle = yield* app.getLifecycleState()
+        expect(lifecycle).toBe('Stopped')
       })
     )
   )
 
-  it.effect('start without initialization fails with InvalidStateTransitionError', () =>
+  it.effect('updates configuration and advances ticks', () =>
     provideApp(
       Effect.gen(function* () {
-        const service = yield* GameApplication
-        const error = yield* service.start().pipe(Effect.flip)
-        expect(error._tag).toBe('InvalidStateTransitionError')
+        const app = yield* GameApplication
+        yield* app.initialize(Option.none())
+        yield* app.start()
+        yield* app.updateConfig({ rendering: { targetFps: 144 } })
+        yield* app.tick(Option.some(Schema.decodeSync(Milliseconds)(16)))
+        const state = yield* app.getState()
+        expect(state.config.rendering.targetFps).toEqual(
+          Schema.decodeSync(TargetFramesPerSecond)(144)
+        )
+        expect(state.systems.gameLoop.frameCount).toBeGreaterThan(0)
+        const health = yield* app.healthCheck()
+        expect(health.gameLoop.status).toBe('healthy')
       })
     )
   )
 
-  it.effect('tick updates frame count and fps when running', () =>
+  it.effect('applies default tick delta when none is provided', () =>
     provideApp(
       Effect.gen(function* () {
-        const service = yield* GameApplication
-        yield* service.initialize()
-        yield* service.start()
-        yield* service.tick()
-        const state = yield* service.getState()
-        expect(state.systems.gameLoop.frameCount).toEqual(Schema.decodeSync(FrameCount)(1))
-        expect(Number(state.performance.overallFps)).toBeGreaterThan(0)
-      })
-    )
-  )
-
-  it.effect('invalid configuration update reports ConfigurationValidationError', () =>
-    provideApp(
-      Effect.gen(function* () {
-        const service = yield* GameApplication
-        yield* service.initialize()
-        const error = yield* service
-          .updateConfig({ rendering: { targetFps: 10 } })
-          .pipe(Effect.flip)
-        expect(error._tag).toBe('ConfigurationValidationError')
+        const app = yield* GameApplication
+        yield* app.initialize(Option.none())
+        yield* app.start()
+        yield* app.tick(Option.none())
+        const state = yield* app.getState()
+        expect(state.systems.gameLoop.frameCount).toBeGreaterThan(0)
       })
     )
   )

@@ -26,7 +26,7 @@ describe('domain/scene/types', () => {
 
   it('Loading progress is branded within [0,1]', () => {
     fc.assert(
-      fc.property(fc.float({ min: 0, max: 1 }), (value) => {
+      fc.property(fc.double({ min: 0, max: 1, noNaN: true }), (value) => {
         const progress = Effect.runSync(Schema.decode(SceneProgressSchema)(value))
         const loadingScene = Scenes.Loading({ target: Scenes.MainMenu(), progress })
         const decoded = Effect.runSync(Schema.decode(SceneStateSchema)(loadingScene))
@@ -42,7 +42,7 @@ describe('domain/scene/types', () => {
 
   it('TransitionEffect.Fade stores branded durations', () => {
     fc.assert(
-      fc.property(fc.float({ min: 0, max: 10 }), (durationValue) => {
+      fc.property(fc.double({ min: 0, max: 10, noNaN: true }), (durationValue) => {
         const duration = Effect.runSync(Schema.decode(TransitionDurationSchema)(durationValue))
         const fade = TransitionEffect.Fade({ duration })
         const decodedDuration = Effect.runSync(Schema.decode(TransitionDurationSchema)(fade.duration))

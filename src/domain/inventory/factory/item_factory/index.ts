@@ -104,10 +104,11 @@ export {
 } from './presets'
 
 // ===== 統一Layer Export（全ItemFactoryの組み合わせ） =====
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option, pipe } from 'effect'
 import { ItemBuilderFactoryLayer } from './builders'
 import { ItemFactoryLayer } from './factory'
-import { ItemBuilderFactory, ItemFactory } from './interface'
+import { ItemBuilderFactory, ItemCreationError, ItemFactory } from './interface'
+import { parseDurability, parseItemId, parseItemQuantity } from '../../types'
 
 /**
  * 全ItemFactoryサービスを統合したLayer
@@ -120,6 +121,70 @@ export const ItemFactoryAllLayer = Layer.mergeAll(
 
 // ===== 便利なヘルパー関数（Function.flowパターン） =====
 
+const toCreationError = (
+  reason: string,
+  invalidFields: ReadonlyArray<string>,
+  context: Record<string, unknown>
+) =>
+  new ItemCreationError({
+    reason,
+    invalidFields: [...invalidFields],
+    context,
+  })
+
+const decodeItemId = (itemId: string) =>
+  parseItemId(itemId).pipe(
+    Effect.mapError((error) =>
+      toCreationError('itemId parsing failed', ['itemId'], { itemId, error })
+    )
+  )
+
+const decodeOptionalCount = (count: number | undefined) =>
+  pipe(
+    Option.fromNullable(count),
+    Option.match({
+      onNone: () => Effect.succeed(Option.none<number>()),
+      onSome: (value) =>
+        parseItemQuantity(value).pipe(
+          Effect.map(Option.some),
+          Effect.mapError((error) =>
+            toCreationError('count validation failed', ['count'], { count: value, error })
+          )
+        ),
+    })
+  )
+
+const decodeOptionalDurability = (durability: number | undefined) =>
+  pipe(
+    Option.fromNullable(durability),
+    Option.match({
+      onNone: () => Effect.succeed(Option.none<number>()),
+      onSome: (value) =>
+        parseDurability(value).pipe(
+          Effect.map(Option.some),
+          Effect.mapError((error) =>
+            toCreationError('durability validation failed', ['durability'], {
+              durability: value,
+              error,
+            })
+          )
+        ),
+    })
+  )
+
+const applyOptional = <A, B>(
+  option: Option.Option<A>,
+  onSome: (value: A) => B,
+  onNone: () => B
+) =>
+  pipe(
+    option,
+    Option.match({
+      onNone,
+      onSome,
+    })
+  )
+
 /**
  * 関数型ItemFactoryのワンライナー生成
  */
@@ -127,78 +192,102 @@ export const ItemFactoryHelpers = {
   // 最も一般的なユースケース
   createBasic: (itemId: string, count?: number) =>
     Effect.gen(function* () {
-      const factory = yield* ItemFactory
-      return yield* factory.createBasic(itemId as any, count) // Brand typeへの変換
+      const { factory, id, quantity } = yield* Effect.all({
+        factory: ItemFactory,
+        id: decodeItemId(itemId),
+        quantity: decodeOptionalCount(count),
+      })
+      return yield* factory.createBasic(id, Option.getOrUndefined(quantity))
     }),
 
   createTool: (itemId: string, durability?: number) =>
     Effect.gen(function* () {
-      const factory = yield* ItemFactory
-      return yield* factory.createTool(itemId as any, durability)
+      const { factory, id, ratio } = yield* Effect.all({
+        factory: ItemFactory,
+        id: decodeItemId(itemId),
+        ratio: decodeOptionalDurability(durability),
+      })
+      return yield* factory.createTool(id, Option.getOrUndefined(ratio))
     }),
 
   createWeapon: (itemId: string, durability?: number) =>
     Effect.gen(function* () {
-      const factory = yield* ItemFactory
-      return yield* factory.createWeapon(itemId as any, durability)
+      const { factory, id, ratio } = yield* Effect.all({
+        factory: ItemFactory,
+        id: decodeItemId(itemId),
+        ratio: decodeOptionalDurability(durability),
+      })
+      return yield* factory.createWeapon(id, Option.getOrUndefined(ratio))
     }),
 
   createFood: (itemId: string, count?: number) =>
     Effect.gen(function* () {
-      const factory = yield* ItemFactory
-      return yield* factory.createFood(itemId as any, count)
+      const { factory, id, quantity } = yield* Effect.all({
+        factory: ItemFactory,
+        id: decodeItemId(itemId),
+        quantity: decodeOptionalCount(count),
+      })
+      return yield* factory.createFood(id, Option.getOrUndefined(quantity))
     }),
 
   createBlock: (itemId: string, count?: number) =>
     Effect.gen(function* () {
-      const factory = yield* ItemFactory
-      return yield* factory.createBlock(itemId as any, count)
+      const { factory, id, quantity } = yield* Effect.all({
+        factory: ItemFactory,
+        id: decodeItemId(itemId),
+        quantity: decodeOptionalCount(count),
+      })
+      return yield* factory.createBlock(id, Option.getOrUndefined(quantity))
     }),
 
   // Builder Pattern ワンライナー
   buildTool: (itemId: string) =>
     Effect.gen(function* () {
-      const builderFactory = yield* ItemBuilderFactory
-      const builder = builderFactory.create()
-      return yield* builder
-        .withItemId(itemId as any)
-        .withCategory('tool')
-        .build()
+      const { factory, id } = yield* Effect.all({
+        factory: ItemBuilderFactory,
+        id: decodeItemId(itemId),
+      })
+      return yield* factory.create().withItemId(id).withCategory('tool').build()
     }),
 
   buildWeapon: (itemId: string) =>
     Effect.gen(function* () {
-      const builderFactory = yield* ItemBuilderFactory
-      const builder = builderFactory.create()
-      return yield* builder
-        .withItemId(itemId as any)
-        .withCategory('weapon')
-        .build()
+      const { factory, id } = yield* Effect.all({
+        factory: ItemBuilderFactory,
+        id: decodeItemId(itemId),
+      })
+      return yield* factory.create().withItemId(id).withCategory('weapon').build()
     }),
 
   buildFood: (itemId: string, count?: number) =>
     Effect.gen(function* () {
-      const builderFactory = yield* ItemBuilderFactory
-      const builder = builderFactory.create()
-      let configuredBuilder = builder.withItemId(itemId as any).withCategory('food')
-
-      if (count) {
-        configuredBuilder = configuredBuilder.withCount(count)
-      }
-
-      return yield* configuredBuilder.build()
+      const { factory, id, quantity } = yield* Effect.all({
+        factory: ItemBuilderFactory,
+        id: decodeItemId(itemId),
+        quantity: decodeOptionalCount(count),
+      })
+      const baseBuilder = factory.create().withItemId(id).withCategory('food')
+      const configured = applyOptional(
+        quantity,
+        (value) => baseBuilder.withCount(value),
+        () => baseBuilder
+      )
+      return yield* configured.build()
     }),
 
   buildBlock: (itemId: string, count?: number) =>
     Effect.gen(function* () {
-      const builderFactory = yield* ItemBuilderFactory
-      const builder = builderFactory.create()
-      let configuredBuilder = builder.withItemId(itemId as any).withCategory('block')
-
-      if (count) {
-        configuredBuilder = configuredBuilder.withCount(count)
-      }
-
-      return yield* configuredBuilder.build()
+      const { factory, id, quantity } = yield* Effect.all({
+        factory: ItemBuilderFactory,
+        id: decodeItemId(itemId),
+        quantity: decodeOptionalCount(count),
+      })
+      const baseBuilder = factory.create().withItemId(id).withCategory('block')
+      const configured = applyOptional(
+        quantity,
+        (value) => baseBuilder.withCount(value),
+        () => baseBuilder
+      )
+      return yield* configured.build()
     }),
 } as const

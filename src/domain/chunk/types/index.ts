@@ -22,6 +22,7 @@ export type {
 // Re-export ADT factories
 export {
   ChunkStates,
+  ChunkStatesEffect,
   ChunkOperations,
   ChunkErrors
 } from './core'

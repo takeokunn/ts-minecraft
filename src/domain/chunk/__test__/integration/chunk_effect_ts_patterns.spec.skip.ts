@@ -1,7 +1,7 @@
 import { it } from '@effect/vitest'
 import { Effect, Layer, TestContext, TestClock, Random, Schema } from 'effect'
 import { describe, expect } from 'vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 
 /**
  * Chunk System - Effect-TS統合テストパターン実装例

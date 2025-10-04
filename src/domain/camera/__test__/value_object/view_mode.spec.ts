@@ -6,7 +6,7 @@
  */
 
 import { Effect, Match, pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { ViewMode, ViewModeError, type AnimationTimeline } from '../../value_object/view_mode/types'

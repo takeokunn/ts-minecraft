@@ -5,7 +5,7 @@
  */
 
 import { Brand, Data, Effect, Either, Match, Option, pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 // Camera Aggregateの実装（実際のインポートパスに合わせて調整）

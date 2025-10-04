@@ -5,7 +5,7 @@
  */
 
 import { Effect, Match, pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { RotationError } from '../../value_object/camera_rotation/types'

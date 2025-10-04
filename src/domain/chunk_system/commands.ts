@@ -104,7 +104,7 @@ export const decodeCommand = (input: unknown) =>
     ),
     Effect.mapError((issue) =>
       ChunkSystemError.ValidationError({
-        message: Schema.formatIssueSync(issue),
+        message: issue.message,
       })
     )
   )
@@ -113,7 +113,7 @@ export const parseChunkRequest = (input: unknown) =>
   Schema.decodeUnknown(ChunkRequestSchema)(input).pipe(
     Effect.mapError((issue) =>
       ChunkSystemError.ValidationError({
-        message: Schema.formatIssueSync(issue),
+        message: issue.message,
       })
     )
   )
@@ -122,7 +122,7 @@ export const parseStrategy = (input: unknown) =>
   Schema.decodeUnknown(StrategyIdSchema)(input).pipe(
     Effect.mapError((issue) =>
       ChunkSystemError.ValidationError({
-        message: Schema.formatIssueSync(issue),
+        message: issue.message,
       })
     )
   )

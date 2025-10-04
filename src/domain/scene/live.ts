@@ -13,8 +13,12 @@ import {
 } from 'effect'
 import type { EventBusService } from '../../infrastructure/events/EventBus'
 import { EventBus } from '../../infrastructure/events/EventBus'
-import { RendererService } from '../../infrastructure/rendering.disabled/RendererService'
-import { RendererServiceLive } from '../../infrastructure/rendering.disabled/RendererServiceLive'
+import {
+  RendererService,
+  parseAlpha as parseRendererAlpha,
+  parseRgbColor,
+} from '../../infrastructure/rendering/RendererService'
+import { RendererServiceLive } from '../../infrastructure/rendering/RendererServiceLive'
 import { SceneService } from './service'
 import {
   ActiveScene,
@@ -82,6 +86,10 @@ export const parseTimestamp = Schema.decodeUnknownSync(SceneTimestampSchema)
 const defaultTransitionEffect = TransitionEffect.Fade({ duration: parseTransitionDuration(500) })
 const zeroProgress = parseSceneProgress(0)
 const fullProgress = parseSceneProgress(1)
+const opaqueAlpha = parseRendererAlpha(1)
+const mainMenuClearColor = parseRgbColor(0x000000)
+const settingsClearColor = parseRgbColor(0x202020)
+const errorClearColor = parseRgbColor(0x440000)
 
 const resourceKindFromPath = (path: string): ResourceKind =>
   Match.value(path).pipe(
@@ -180,7 +188,7 @@ const ensureSceneValid = (scene: ActiveScene) =>
     Effect.mapError((issue) =>
       TransitionErrorADT.InvalidScene({
         requested: scene,
-        reason: Schema.formatIssueSync(issue),
+        reason: issue.message,
       })
     )
   )
@@ -241,9 +249,9 @@ export const makeSceneService = Effect.gen(function* () {
 
   const initializeScene = (scene: ActiveScene) =>
     Match.value(scene).pipe(
-      Match.tag('MainMenu', () => renderer.setClearColor(0x000000, 1)),
-      Match.tag('Settings', () => renderer.setClearColor(0x202020, 1)),
-      Match.tag('Error', () => renderer.setClearColor(0x440000, 1)),
+      Match.tag('MainMenu', () => renderer.setClearColor(mainMenuClearColor, opaqueAlpha)),
+      Match.tag('Settings', () => renderer.setClearColor(settingsClearColor, opaqueAlpha)),
+      Match.tag('Error', () => renderer.setClearColor(errorClearColor, opaqueAlpha)),
       Match.tag('GameWorld', ({ worldId, playerState }) =>
         Effect.gen(function* () {
           const tasks: ReadonlyArray<{

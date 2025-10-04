@@ -6,7 +6,7 @@ const decodeEpoch = (value: number) =>
   Schema.decodeUnknown(EpochMillisecondsSchema)(value).pipe(
     Effect.mapError((issue) =>
       ChunkSystemError.ValidationError({
-        message: Schema.formatIssueSync(issue),
+        message: issue.message,
       })
     )
   )

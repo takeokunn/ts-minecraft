@@ -21,7 +21,7 @@ infrastructure/
 ├── audio/               # AudioService ポートのアダプタ
 ├── ecs/                 # Entity / System / World 実装
 ├── inventory/           # 永続化ストレージ (localStorage / IndexedDB)
-├── rendering.disabled/  # 一時的に無効化された Three.js 実装
+├── rendering/           # Three.js レンダリング実装
 └── README.md
 ```
 

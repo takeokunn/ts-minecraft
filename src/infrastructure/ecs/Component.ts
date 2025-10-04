@@ -6,34 +6,42 @@
  */
 
 import { Schema } from '@effect/schema'
+import { ComponentTypeNameSchema } from '@domain/entities/types'
+import { makeComponentDefinition } from './component-definition'
+
+const toComponentType = Schema.decodeUnknownSync(ComponentTypeNameSchema)
 
 /**
  * 位置コンポーネント - 3D空間内の座標
  */
-export const PositionComponent = Schema.Struct({
+export const PositionComponentSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
   z: Schema.Number,
-})
+}).pipe(
+  Schema.annotations({
+    identifier: 'PositionComponent',
+    description: '3次元空間におけるワールド座標',
+  })
+)
+export type PositionComponent = Schema.Schema.Type<typeof PositionComponentSchema>
+export const PositionComponent = PositionComponentSchema
 
 /**
  * 速度コンポーネント - 3D空間内の移動速度
  */
-export const VelocityComponent = Schema.Struct({
+export const VelocityComponentSchema = Schema.Struct({
   vx: Schema.Number,
   vy: Schema.Number,
   vz: Schema.Number,
-})
-
-/**
- * 位置コンポーネントの型定義
- */
-export type PositionComponent = Schema.Schema.Type<typeof PositionComponent>
-
-/**
- * 速度コンポーネントの型定義
- */
-export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponent>
+}).pipe(
+  Schema.annotations({
+    identifier: 'VelocityComponent',
+    description: '3次元空間での速度ベクトル',
+  })
+)
+export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponentSchema>
+export const VelocityComponent = VelocityComponentSchema
 
 /**
  * 移動コンポーネント - プレイヤー移動関連のプロパティ
@@ -48,10 +56,6 @@ export const MovementComponent = Schema.Struct({
   /** プレイヤーの向き（ピッチ角、度） */
   pitch: Schema.Number,
 })
-
-/**
- * 移動コンポーネントの型定義
- */
 export type MovementComponent = Schema.Schema.Type<typeof MovementComponent>
 
 /**
@@ -71,8 +75,30 @@ export const PlayerComponent = Schema.Struct({
   /** 経験値 */
   experiencePoints: Schema.Number.pipe(Schema.nonNegative()),
 })
+export type PlayerComponent = Schema.Schema.Type<typeof PlayerComponent>
 
 /**
- * プレイヤーコンポーネントの型定義
+ * Positionコンポーネント定義
  */
-export type PlayerComponent = Schema.Schema.Type<typeof PlayerComponent>
+export const PositionComponentDefinition = makeComponentDefinition({
+  type: toComponentType('position'),
+  schema: PositionComponentSchema,
+  description: 'ワールド座標を正規化するPositionコンポーネント',
+})
+
+/**
+ * Velocityコンポーネント定義
+ */
+export const VelocityComponentDefinition = makeComponentDefinition({
+  type: toComponentType('velocity'),
+  schema: VelocityComponentSchema,
+  description: '移動速度を正規化するVelocityコンポーネント',
+})
+
+/**
+ * レジストリへ提供する全コンポーネント定義
+ */
+export const AllComponentDefinitions = [
+  PositionComponentDefinition,
+  VelocityComponentDefinition,
+] as const

@@ -7,7 +7,7 @@
 
 import { Brand, Effect, Either, Option, ParseResult, pipe, Schema } from 'effect'
 import { expect, it } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import {
   fovArbitrary,
   sensitivityArbitrary,

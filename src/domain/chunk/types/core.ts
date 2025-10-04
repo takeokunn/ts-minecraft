@@ -1,5 +1,6 @@
-import { Data, Schema } from 'effect'
+import { Data, Effect, Schema } from 'effect'
 import type { Brand } from 'effect'
+import { DomainClock } from '../../shared/effect'
 import type { ChunkPosition } from '../value_object/chunk_position'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
 
@@ -275,13 +276,13 @@ export const ChunkStates = {
   loading: (progress: LoadProgress): ChunkState =>
     ChunkState.Loading({
       progress,
-      startTime: Date.now() as ChunkTimestamp
+      startTime: 0 as ChunkTimestamp
     }),
 
   loaded: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Loaded({
       data,
-      loadTime: Date.now() as ChunkTimestamp,
+      loadTime: 0 as ChunkTimestamp,
       metadata
     }),
 
@@ -289,7 +290,7 @@ export const ChunkStates = {
     ChunkState.Failed({
       error,
       retryCount,
-      lastAttempt: Date.now() as ChunkTimestamp
+      lastAttempt: 0 as ChunkTimestamp
     }),
 
   dirty: (data: ChunkDataBytes, changes: ChangeSet, metadata: ChunkMetadata): ChunkState =>
@@ -309,9 +310,50 @@ export const ChunkStates = {
   cached: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Cached({
       data,
-      cacheTime: Date.now() as ChunkTimestamp,
+      cacheTime: 0 as ChunkTimestamp,
       metadata
     })
+} as const
+
+export const ChunkStatesEffect = {
+  loading: (progress: LoadProgress) =>
+    Effect.gen(function* () {
+      const clock = yield* Effect.service(DomainClock)
+      const epochMillis = yield* clock.now()
+      const startTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      return ChunkState.Loading({ progress, startTime })
+    }),
+
+  loaded: (data: ChunkDataBytes, metadata: ChunkMetadata) =>
+    Effect.gen(function* () {
+      const clock = yield* Effect.service(DomainClock)
+      const epochMillis = yield* clock.now()
+      const loadTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      return ChunkState.Loaded({ data, loadTime, metadata })
+    }),
+
+  failed: (error: string, retryCount = 0) =>
+    Effect.gen(function* () {
+      const clock = yield* Effect.service(DomainClock)
+      const epochMillis = yield* clock.now()
+      const lastAttempt = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      const safeRetryCount = yield* Schema.decodeEffect(RetryCountSchema)(retryCount)
+      return ChunkState.Failed({ error, retryCount: safeRetryCount, lastAttempt })
+    }),
+
+  dirty: (data: ChunkDataBytes, changes: ChangeSet, metadata: ChunkMetadata) =>
+    Effect.succeed(ChunkStates.dirty(data, changes, metadata)),
+
+  saving: (data: ChunkDataBytes, progress: LoadProgress, metadata: ChunkMetadata) =>
+    Effect.succeed(ChunkStates.saving(data, progress, metadata)),
+
+  cached: (data: ChunkDataBytes, metadata: ChunkMetadata) =>
+    Effect.gen(function* () {
+      const clock = yield* Effect.service(DomainClock)
+      const epochMillis = yield* clock.now()
+      const cacheTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      return ChunkState.Cached({ data, cacheTime, metadata })
+    }),
 } as const
 
 /**

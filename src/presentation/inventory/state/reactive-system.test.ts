@@ -1,6 +1,6 @@
 
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Layer, Option, Ref, Stream } from 'effect'
+import { Effect, Layer, Match, Option, Stream, pipe } from 'effect'
 import { InventoryReactiveSystemLive, InventoryReactiveSystemTag } from './reactive-system'
 import {
   InventoryEventHandler,
@@ -15,7 +15,8 @@ import {
 } from '../adt/inventory-adt'
 import { InventoryViewModelTag } from '../view-model/inventory-view-model'
 import { InventoryStateStoreLive, InventoryStateStoreTag } from './store'
-import { Schema } from 'effect'
+import { Context, Schema } from 'effect'
+import * as FastCheck from 'effect/FastCheck'
 
 const sampleViewEffect = Effect.gen(function* () {
   const playerId = yield* parsePlayerId('player-reactive')
@@ -68,38 +69,116 @@ describe('presentation/inventory/state/reactive-system', () => {
       isOpen: () => Effect.succeed(true),
       handler: (): InventoryEventHandler => () => Effect.unit,
     })
-    const layer = Layer.mergeAll(InventoryStateStoreLive, viewModelLayer, InventoryReactiveSystemLive)
-    return { layer, playerId }
+    return { viewModelLayer, playerId }
   })
 
   it.effect('registers players and synchronizes views', () =>
     makeLayer.pipe(
-      Effect.flatMap(({ layer, playerId }) =>
-        Effect.gen(function* () {
-          const system = yield* InventoryReactiveSystemTag
-          const store = yield* InventoryStateStoreTag
-          yield* system.register(playerId)
-          yield* system.forceSync()
-          const snapshot = yield* store.get(playerId)
-          expect(Option.isSome(snapshot)).toBe(true)
-        }).pipe(Effect.provideLayer(layer))
+      Effect.flatMap(({ viewModelLayer, playerId }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const storeLayer = InventoryStateStoreLive
+            const systemLayer = InventoryReactiveSystemLive.pipe(
+              Layer.provide(storeLayer),
+              Layer.provide(viewModelLayer)
+            )
+            const context = yield* Layer.build(Layer.mergeAll(storeLayer, systemLayer))
+            const system = Context.get(context, InventoryReactiveSystemTag)
+            const store = Context.get(context, InventoryStateStoreTag)
+            yield* system.register(playerId)
+            yield* system.forceSync()
+            const snapshot = yield* store.get(playerId)
+            expect(Option.isSome(snapshot)).toBe(true)
+          })
+        )
       )
     )
   )
 
   it.effect('unregister removes state after sync', () =>
     makeLayer.pipe(
-      Effect.flatMap(({ layer, playerId }) =>
+      Effect.flatMap(({ viewModelLayer, playerId }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const storeLayer = InventoryStateStoreLive
+            const systemLayer = InventoryReactiveSystemLive.pipe(
+              Layer.provide(storeLayer),
+              Layer.provide(viewModelLayer)
+            )
+            const context = yield* Layer.build(Layer.mergeAll(storeLayer, systemLayer))
+            const system = Context.get(context, InventoryReactiveSystemTag)
+            const store = Context.get(context, InventoryStateStoreTag)
+            yield* system.register(playerId)
+            yield* system.forceSync()
+            yield* system.unregister(playerId)
+            yield* system.forceSync()
+            const snapshot = yield* store.get(playerId)
+            expect(Option.isNone(snapshot)).toBe(true)
+          })
+        )
+      )
+    )
+  )
+
+  it.effect('registration workflow maintains membership invariants (property)', () =>
+    makeLayer.pipe(
+      Effect.flatMap(({ viewModelLayer, playerId }) =>
         Effect.gen(function* () {
-          const system = yield* InventoryReactiveSystemTag
-          const store = yield* InventoryStateStoreTag
-          yield* system.register(playerId)
-          yield* system.forceSync()
-          yield* system.unregister(playerId)
-          yield* system.forceSync()
-          const snapshot = yield* store.get(playerId)
-          expect(Option.isNone(snapshot)).toBe(true)
-        }).pipe(Effect.provideLayer(layer))
+          const togglesArb = FastCheck.array(FastCheck.boolean(), {
+            minLength: 1,
+            maxLength: 12,
+          })
+
+          yield* Effect.sync(() =>
+            FastCheck.assert(
+              FastCheck.property(togglesArb, (toggles) => {
+                const exit = Effect.runSyncExit(
+                  Effect.scoped(
+                    Effect.gen(function* () {
+                      const storeLayer = InventoryStateStoreLive
+                      const systemLayer = InventoryReactiveSystemLive.pipe(
+                        Layer.provide(storeLayer),
+                        Layer.provide(viewModelLayer)
+                      )
+                      const context = yield* Layer.build(Layer.mergeAll(storeLayer, systemLayer))
+                      const system = Context.get(context, InventoryReactiveSystemTag)
+                      const store = Context.get(context, InventoryStateStoreTag)
+                      yield* system.forceSync()
+                      yield* Effect.forEach(toggles, (flag) =>
+                        pipe(
+                          flag,
+                          Match.value,
+                          Match.when(true, () => system.register(playerId)),
+                          Match.orElse(() => system.unregister(playerId))
+                        )
+                      )
+                      yield* system.forceSync()
+                      return yield* store.get(playerId)
+                    })
+                  )
+                )
+                expect(exit._tag).toBe('Success')
+                const expectedPresent = toggles.reduce(
+                  (_present, flag) =>
+                    pipe(
+                      flag,
+                      Match.value,
+                      Match.when(true, () => true),
+                      Match.orElse(() => false)
+                    ),
+                  false
+                )
+                pipe(
+                  expectedPresent,
+                  Match.value,
+                  Match.when(true, () => expect(Option.isSome(exit.value)).toBe(true)),
+                  Match.orElse(() => expect(Option.isNone(exit.value)).toBe(true))
+                )
+              }),
+              { numRuns: 50 }
+            )
+          )
+        })
       )
     )
   )

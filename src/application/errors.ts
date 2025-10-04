@@ -1,6 +1,12 @@
 import { Schema } from '@effect/schema'
 import { Clock, Effect, Match } from 'effect'
-import { CpuPercentage, MemoryBytes, Milliseconds, Timestamp } from './types'
+import {
+  CpuPercentage,
+  MemoryBytes,
+  Milliseconds,
+  Timestamp,
+  ErrorSeverity,
+} from './types'
 
 // ===== JSON表現 =====
 
@@ -57,7 +63,9 @@ export type SceneInitializationFailedError = Schema.Schema.Type<typeof SceneInit
 
 export const InputInitializationFailedError = Schema.TaggedStruct('InputInitializationFailedError', {
   context: ErrorContext,
-  deviceType: Schema.optional(Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))),
+  deviceType: Schema.optional(
+    Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))
+  ),
   cause: Schema.String,
 })
 export type InputInitializationFailedError = Schema.Schema.Type<typeof InputInitializationFailedError>
@@ -200,50 +208,40 @@ export const createErrorContext = ({
     }
   })
 
-const decodeSeverity = Schema.decodeSync(Schema.Literal('low', 'medium', 'high', 'critical'))
-
-const Severity = {
-  critical: decodeSeverity('critical'),
-  high: decodeSeverity('high'),
-  medium: decodeSeverity('medium'),
-  low: decodeSeverity('low'),
+const Severity: Record<'critical' | 'high' | 'medium' | 'low', ErrorSeverity> = {
+  critical: 'critical',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
 }
 
-const decodeString = Schema.decodeSync(Schema.String)
-const decodeBoolean = Schema.decodeSync(Schema.Boolean)
-
-export const getErrorSeverity = (
-  error: GameApplicationError
-): 'low' | 'medium' | 'high' | 'critical' =>
-  Match.value(decodeTag(error)).pipe(
-    Match.when('CanvasNotFoundError', () => Severity.critical),
-    Match.when('RendererInitializationFailedError', () => Severity.critical),
-    Match.when('WebGLContextLostError', () => Severity.critical),
-    Match.when('MemoryLeakError', () => Severity.critical),
-    Match.when('GameLoopInitializationFailedError', () => Severity.high),
-    Match.when('SystemCommunicationError', () => Severity.high),
-    Match.when('FrameProcessingError', () => Severity.high),
-    Match.when('InvalidStateTransitionError', () => Severity.high),
-    Match.when('SceneInitializationFailedError', () => Severity.medium),
-    Match.when('InputInitializationFailedError', () => Severity.medium),
-    Match.when('ECSInitializationFailedError', () => Severity.medium),
-    Match.when('SystemSynchronizationError', () => Severity.medium),
-    Match.when('PerformanceDegradationError', () => Severity.low),
-    Match.when('ConfigurationValidationError', () => Severity.low),
+export const getErrorSeverity = (error: GameApplicationError): ErrorSeverity =>
+  Match.value(error).pipe(
+    Match.tag('CanvasNotFoundError', () => Severity.critical),
+    Match.tag('RendererInitializationFailedError', () => Severity.critical),
+    Match.tag('WebGLContextLostError', () => Severity.critical),
+    Match.tag('MemoryLeakError', () => Severity.critical),
+    Match.tag('GameLoopInitializationFailedError', () => Severity.high),
+    Match.tag('SystemCommunicationError', () => Severity.high),
+    Match.tag('FrameProcessingError', () => Severity.high),
+    Match.tag('InvalidStateTransitionError', () => Severity.high),
+    Match.tag('SceneInitializationFailedError', () => Severity.medium),
+    Match.tag('InputInitializationFailedError', () => Severity.medium),
+    Match.tag('ECSInitializationFailedError', () => Severity.medium),
+    Match.tag('SystemSynchronizationError', () => Severity.medium),
+    Match.tag('PerformanceDegradationError', () => Severity.low),
+    Match.tag('ConfigurationValidationError', () => Severity.low),
     Match.orElse(() => Severity.medium)
   )
 
 export const isRecoverable = (error: GameApplicationError): boolean =>
-  Match.value(decodeTag(error)).pipe(
-    Match.when('CanvasNotFoundError', () => false),
-    Match.when('MemoryLeakError', () => false),
-    Match.when('PerformanceDegradationError', () => true),
-    Match.when('ConfigurationValidationError', () => true),
-    Match.when('SystemSynchronizationError', () => true),
-    Match.when('WebGLContextLostError', () => decodeBoolean(Reflect.get(error, 'recoverable'))),
-    Match.when('GameLoopInitializationFailedError', () => decodeBoolean(Reflect.get(error, 'retryable'))),
+  Match.value(error).pipe(
+    Match.tag('CanvasNotFoundError', () => false),
+    Match.tag('MemoryLeakError', () => false),
+    Match.tag('PerformanceDegradationError', () => true),
+    Match.tag('ConfigurationValidationError', () => true),
+    Match.tag('SystemSynchronizationError', () => true),
+    Match.tag('WebGLContextLostError', ({ recoverable }) => recoverable),
+    Match.tag('GameLoopInitializationFailedError', ({ retryable }) => retryable),
     Match.orElse(() => true)
   )
-
-const decodeTag = (error: GameApplicationError): string =>
-  decodeString(Reflect.get(error, '_tag'))

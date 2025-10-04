@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option, Schema, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/ReadonlyArray'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import {
   AppendPageCommand,
   CreateBedInput,

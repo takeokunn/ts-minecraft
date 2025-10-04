@@ -15,6 +15,7 @@ describe('ECS Components', () => {
     it.effect('should create valid position component', () =>
       Effect.gen(function* () {
         const position = { x: 10, y: 20, z: 30 }
+        expect(PositionComponent).toBeDefined()
         const result = Schema.decodeUnknownSync(PositionComponent)(position)
 
         expect(result).toEqual(position)

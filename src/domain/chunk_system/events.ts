@@ -106,7 +106,7 @@ export const decodeEvent = (input: ChunkEventInput) =>
     ),
     Effect.mapError((issue) =>
       ChunkSystemError.ValidationError({
-        message: Schema.formatIssueSync(issue),
+        message: issue.message,
       })
     )
   )

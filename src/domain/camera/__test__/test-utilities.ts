@@ -10,7 +10,7 @@
 
 import { Brand, Data, Effect, Either, Exit, Match, Option, pipe, Ref, Schema } from 'effect'
 import { expect } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 
 // ================================================================================
 // Effect-TS Testing Utilities

@@ -345,6 +345,11 @@ const handleQuickMove = (
   Effect.gen(function* () {
     const inventory = yield* service.getInventory(playerId)
     const candidate = yield* findEmptyHotbarSlot(service, playerId, inventory.hotbar)
+    const fallbackHotbarIndex = pipe(
+      inventory.hotbar.at(0),
+      Option.fromNullable,
+      Option.getOrElse(() => 0)
+    )
     return yield* pipe(
       candidate,
       Option.match({
@@ -353,7 +358,7 @@ const handleQuickMove = (
             .transferToHotbar(
               playerId,
               slotIndexToNumber(event.slot),
-              inventory.hotbar.at(0) ?? 0
+              fallbackHotbarIndex
             )
             .pipe(Effect.mapError(toDomainFailure)),
         onSome: (index) =>
@@ -377,12 +382,12 @@ const handleQuickDrop = (
     event.all,
     Match.value,
     Match.when(true, () =>
-      service.dropAllItems(playerId).pipe(Effect.mapError(toDomainFailure), Effect.asUnit)
+      service.dropAllItems(playerId).pipe(Effect.mapError(toDomainFailure), Effect.asVoid)
     ),
     Match.orElse(() =>
       service
         .dropItem(playerId, slotIndexToNumber(event.slot))
-        .pipe(Effect.mapError(toDomainFailure), Effect.asUnit)
+        .pipe(Effect.mapError(toDomainFailure), Effect.asVoid)
     )
   )
 
@@ -426,10 +431,10 @@ export const InventoryViewModelLive = Layer.effect(
       Ref.get(openPlayersRef).pipe(Effect.map((set) => HashSet.has(set, playerId)))
 
     const openInventory = (playerId: InventoryView['playerId']) =>
-      Ref.update(openPlayersRef, (set) => HashSet.add(set, playerId)).pipe(Effect.asUnit)
+      Ref.update(openPlayersRef, (set) => HashSet.add(set, playerId)).pipe(Effect.asVoid)
 
     const closeInventory = (playerId: InventoryView['playerId']) =>
-      Ref.update(openPlayersRef, (set) => HashSet.remove(set, playerId)).pipe(Effect.asUnit)
+      Ref.update(openPlayersRef, (set) => HashSet.remove(set, playerId)).pipe(Effect.asVoid)
 
     const getConfig = () => Ref.get(configRef)
 
@@ -451,7 +456,8 @@ export const InventoryViewModelLive = Layer.effect(
     ): Effect.Effect<void, InventoryGUIError> =>
       pipe(
         event,
-        Match.tag({
+        Match.value,
+        Match.tags({
           SlotClicked: (payload) => handleSlotClicked(service, toDomainPlayerId(playerId), payload),
           SlotHovered: () => Effect.unit,
           SlotUnhovered: () => Effect.unit,

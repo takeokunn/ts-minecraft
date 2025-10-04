@@ -12,16 +12,20 @@ export const EpochMillisecondsSchema = Schema.Number.pipe(
 )
 
 export type EpochMilliseconds = Schema.Schema.Type<typeof EpochMillisecondsSchema>
+export type EpochMillisecondsInput = Schema.Schema.From<typeof EpochMillisecondsSchema>
 
-const decodeEpochMilliseconds = Schema.decodeUnknown(EpochMillisecondsSchema)
+const decodeEpochMilliseconds = Schema.decode(EpochMillisecondsSchema)
+const decodeEpochMillisecondsSync = Schema.decodeSync(EpochMillisecondsSchema)
 
-export const epochMilliseconds = (value: number): Effect.Effect<EpochMilliseconds> =>
-  decodeEpochMilliseconds(value)
+export const epochMilliseconds = (
+  value: EpochMillisecondsInput
+): Effect.Effect<EpochMilliseconds> => decodeEpochMilliseconds(value)
 
-export const unsafeEpochMilliseconds = (value: number): EpochMilliseconds =>
-  Schema.decodeUnknownSync(EpochMillisecondsSchema)(value)
+export const unsafeEpochMilliseconds = (
+  value: EpochMillisecondsInput
+): EpochMilliseconds => decodeEpochMillisecondsSync(value)
 
-const epochZero: EpochMilliseconds = unsafeEpochMilliseconds(0)
+const epochZero: EpochMilliseconds = decodeEpochMillisecondsSync(0)
 
 export const reviveEpochZero = (): EpochMilliseconds => epochZero
 
@@ -34,6 +38,7 @@ export const DebugModeSchema = Schema.Boolean.pipe(
 )
 
 export type DebugMode = Schema.Schema.Type<typeof DebugModeSchema>
+export type DebugModeInput = Schema.Schema.From<typeof DebugModeSchema>
 
 export const FramesPerSecondSchema = Schema.Number.pipe(
   Schema.int(),
@@ -49,6 +54,7 @@ export const FramesPerSecondSchema = Schema.Number.pipe(
 )
 
 export type FramesPerSecond = Schema.Schema.Type<typeof FramesPerSecondSchema>
+export type FramesPerSecondInput = Schema.Schema.From<typeof FramesPerSecondSchema>
 
 export const MemoryMegabytesSchema = Schema.Number.pipe(
   Schema.int(),
@@ -64,3 +70,4 @@ export const MemoryMegabytesSchema = Schema.Number.pipe(
 )
 
 export type MemoryMegabytes = Schema.Schema.Type<typeof MemoryMegabytesSchema>
+export type MemoryMegabytesInput = Schema.Schema.From<typeof MemoryMegabytesSchema>

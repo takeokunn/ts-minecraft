@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { Effect, Schema } from 'effect'
 import {
   applyCommand,

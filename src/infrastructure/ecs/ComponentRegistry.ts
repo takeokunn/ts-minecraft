@@ -1,32 +1,53 @@
-/**
- * ECS Component Registry - コンポーネント管理システム
- *
- * 全コンポーネントの登録・管理・型安全性確保を担当
- * シリアライズ・デシリアライズ機能付き
- */
-
 import { Schema } from '@effect/schema'
-import { PositionComponent, VelocityComponent } from './Component'
+import { Context, Effect, Layer, Option, pipe } from 'effect'
+import * as HashMap from 'effect/HashMap'
+import type { ComponentTypeName } from '@domain/entities/types'
+import {
+  AllComponentDefinitions,
+  PositionComponent,
+  VelocityComponent,
+} from './Component'
+import type { ComponentDefinition } from './component-definition'
 
 /**
- * 登録済みコンポーネント一覧
+ * コンポーネントスナップショット用スキーマ
  */
-export const ComponentRegistry = Schema.Struct({
+export const ComponentRegistrySchema = Schema.Struct({
   position: Schema.optional(PositionComponent),
   velocity: Schema.optional(VelocityComponent),
 })
+export type ComponentRegistrySnapshot = Schema.Schema.Type<typeof ComponentRegistrySchema>
 
 /**
- * コンポーネントレジストリの型定義
- */
-export type ComponentRegistry = Schema.Schema.Type<typeof ComponentRegistry>
-
-/**
- * 個別コンポーネント型のUnion定義
+ * コンポーネントUnion
  */
 export const ComponentUnion = Schema.Union(PositionComponent, VelocityComponent)
-
-/**
- * コンポーネントUnionの型定義
- */
 export type ComponentUnion = Schema.Schema.Type<typeof ComponentUnion>
+
+export interface ComponentRegistryPort {
+  readonly definitions: Effect.Effect<ReadonlyArray<ComponentDefinition<unknown>>, never>
+  readonly definitionFor: <A>(
+    type: ComponentTypeName
+  ) => Effect.Effect<Option.Option<ComponentDefinition<A>>, never>
+}
+
+export const ComponentRegistryService = Context.GenericTag<ComponentRegistryPort>(
+  '@minecraft/infrastructure/ecs/ComponentRegistryService'
+)
+
+const definitionIndex = HashMap.fromIterable(
+  AllComponentDefinitions.map((definition) => [definition.type, definition] as const)
+)
+
+const live: ComponentRegistryPort = {
+  definitions: Effect.succeed(Array.from(AllComponentDefinitions)),
+  definitionFor: (type) =>
+    Effect.succeed(
+      pipe(
+        HashMap.get(definitionIndex, type),
+        Option.map((definition) => definition as ComponentDefinition<any>)
+      )
+    ),
+}
+
+export const ComponentRegistryLive = Layer.succeed(ComponentRegistryService, live)

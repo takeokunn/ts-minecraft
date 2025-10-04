@@ -1,9 +1,5 @@
 import { Data, Effect, Ref, Schema } from 'effect'
-import {
-  ActiveScene,
-  ActiveSceneSchema,
-  SceneState,
-} from '../types'
+import { ActiveSceneSchema, SceneState, SceneStateSchema } from '../types'
 
 export type SceneControllerError = Data.TaggedEnum<{
   InvalidMutation: { readonly reason: string }
@@ -11,7 +7,7 @@ export type SceneControllerError = Data.TaggedEnum<{
 
 export const SceneControllerError = Data.taggedEnum<SceneControllerError>()
 
-export interface SceneController<A extends ActiveScene> {
+export interface SceneController<A extends SceneState> {
   readonly current: () => Effect.Effect<A>
   readonly update: (
     updater: (scene: A) => A
@@ -20,20 +16,19 @@ export interface SceneController<A extends ActiveScene> {
   readonly reset: () => Effect.Effect<A>
 }
 
-const decodeActive = Schema.decode(ActiveSceneSchema)
+const decodeScene = Schema.decode(SceneStateSchema)
 
-const formatIssue = (issue: Schema.ParseError): string =>
-  Schema.formatIssueSync(issue)
+const formatIssue = (issue: Schema.ParseError): string => issue.message
 
-const validate = <A extends ActiveScene>(scene: A): Effect.Effect<A, SceneControllerError> =>
-  decodeActive(scene).pipe(
+const validate = <A extends SceneState>(scene: A): Effect.Effect<A, SceneControllerError> =>
+  decodeScene(scene).pipe(
     Effect.map(() => scene),
     Effect.mapError((issue) =>
       SceneControllerError.InvalidMutation({ reason: formatIssue(issue) })
     )
   )
 
-export const createSceneController = <A extends ActiveScene>(
+export const createSceneController = <A extends SceneState>(
   initial: A
 ): Effect.Effect<SceneController<A>> =>
   Effect.gen(function* () {

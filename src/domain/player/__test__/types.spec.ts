@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { Schema } from 'effect'
 import { PlayerAggregateSchema, PlayerCommandSchema, PlayerSnapshotSchema } from '../types'
 import { aggregateArb, commandArb, snapshotArb } from './generators'

@@ -10,6 +10,7 @@ import type {
 } from '../../types/core'
 import {
   ChunkStates,
+  ChunkStatesEffect,
   CHUNK_SIZE,
   CHUNK_HEIGHT,
   CHUNK_MIN_Y,
@@ -150,7 +151,7 @@ export const ChunkStateOperations = {
         return pipe(
           Option.fromNullable(onComplete),
           Option.filter(() => newProgress >= 100),
-          Option.map((complete) => ChunkStates.loaded(complete.data, complete.metadata)),
+          Option.flatMap((complete) => Option.some(Effect.runSync(ChunkStatesEffect.loaded(complete.data, complete.metadata)))),
           Option.getOrElse(() => progressed)
         )
       }),
@@ -217,7 +218,7 @@ export const ChunkStateOperations = {
               Option.fromNullable(ChunkStateOptics.savingData.get(withData)),
               Option.zipWith(
                 Option.fromNullable(ChunkStateOptics.savingMetadata.get(withData)),
-                (data, metadata) => ChunkStates.loaded(data, metadata)
+                (data, metadata) => Effect.runSync(ChunkStatesEffect.loaded(data, metadata))
               )
             )
           ),

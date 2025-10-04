@@ -18,8 +18,9 @@ export const LifecycleSnapshotSchema = Schema.Struct({
 })
 
 export type LifecycleSnapshot = Schema.Schema.Type<typeof LifecycleSnapshotSchema>
+export type LifecycleSnapshotInput = Schema.Schema.From<typeof LifecycleSnapshotSchema>
 
-const decodeLifecycleSnapshot = Schema.decodeUnknown(LifecycleSnapshotSchema)
+const decodeLifecycleSnapshot = Schema.decode(LifecycleSnapshotSchema)
 
 export const makeLifecycleSnapshot = (params: {
   readonly state: LifecycleState
@@ -81,8 +82,9 @@ export const AppReadinessSchema = Schema.Struct({
 })
 
 export type AppReadiness = Schema.Schema.Type<typeof AppReadinessSchema>
+export type AppReadinessInput = Schema.Schema.From<typeof AppReadinessSchema>
 
-const decodeAppReadiness = Schema.decodeUnknown(AppReadinessSchema)
+const decodeAppReadiness = Schema.decode(AppReadinessSchema)
 
 export const readinessProjection = (
   snapshot: LifecycleSnapshot,
@@ -106,8 +108,9 @@ export const AppInitializationResultSchema = Schema.Struct({
 })
 
 export type AppInitializationResult = Schema.Schema.Type<typeof AppInitializationResultSchema>
+export type AppInitializationResultInput = Schema.Schema.From<typeof AppInitializationResultSchema>
 
-const decodeInitializationResult = Schema.decodeUnknown(AppInitializationResultSchema)
+const decodeInitializationResult = Schema.decode(AppInitializationResultSchema)
 
 export const initializationProjection = (
   snapshot: LifecycleSnapshot,

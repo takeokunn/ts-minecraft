@@ -117,8 +117,9 @@ export const SceneManagerLive = Layer.effect(
   Effect.gen(function* () {
     const sceneService = yield* SceneService
     const initialScene = yield* sceneService.current()
-    const decoded = Schema.decodeEither(SceneManagerStateSchema)(sceneManagerState.make({ current: initialScene }))
-    const initialState = yield* Effect.fromEither(decoded)
+    const initialState = yield* Schema.decode(SceneManagerStateSchema)(
+      sceneManagerState.make({ current: initialScene })
+    )
 
     const stateRef = yield* Ref.make(initialState)
 

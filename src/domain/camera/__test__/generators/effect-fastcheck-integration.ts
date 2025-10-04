@@ -8,7 +8,7 @@
  */
 
 import { Brand, Data, Effect, Option, pipe } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import type {
   CameraDistance,
   Position3D,

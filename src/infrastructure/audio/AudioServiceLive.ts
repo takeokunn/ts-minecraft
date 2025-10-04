@@ -320,23 +320,18 @@ const makeAudioService = Effect.gen(function* () {
         reason: 'finished',
       } satisfies AudioEvent
 
-      yield* pipe(
-        shouldLoop,
-        Match.value,
-        Match.when(false, () =>
-          Effect.sync(() => {
-            audio.onEnded = () => {
-              Effect.runSync(
-                pipe(
-                  Ref.update(activeSources, HashMap.remove(sourceId)),
-                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
-                )
+      yield* Effect.when(
+        Effect.sync(() => {
+          audio.onEnded = () => {
+            Effect.runSync(
+              pipe(
+                Ref.update(activeSources, HashMap.remove(sourceId)),
+                Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
               )
-            }
-          })
-        ),
-        Match.when(true, () => Effect.unit),
-        Match.exhaustive
+            )
+          }
+        }),
+        () => shouldLoop === false
       )
 
       return sourceId

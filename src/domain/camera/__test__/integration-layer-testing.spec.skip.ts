@@ -9,7 +9,7 @@
 
 import { Context, Effect, Layer, pipe, Ref } from 'effect'
 import { expect, it } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import * as THREE from 'three'
 import {
   position3DArbitrary,

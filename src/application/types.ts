@@ -79,51 +79,51 @@ export type ApplicationLifecycleState = Schema.Schema.Type<typeof ApplicationLif
 
 // ===== アプリケーション設定 =====
 
-const RenderingConfig = Schema.Struct({
+export const RenderingConfigSchema = Schema.Struct({
   targetFps: TargetFramesPerSecond,
   enableVSync: Schema.Boolean,
   antialiasing: Schema.Boolean,
   shadowMapping: Schema.Boolean,
   webgl2: Schema.Boolean,
 })
-export type RenderingConfig = Schema.Schema.Type<typeof RenderingConfig>
+export type RenderingConfig = Schema.Schema.Type<typeof RenderingConfigSchema>
 
-const GameLoopConfig = Schema.Struct({
+export const GameLoopConfigSchema = Schema.Struct({
   updateInterval: Milliseconds,
   maxDeltaTime: Milliseconds,
   enableFixedTimeStep: Schema.Boolean,
   fixedTimeStep: Milliseconds,
 })
-export type GameLoopConfig = Schema.Schema.Type<typeof GameLoopConfig>
+export type GameLoopConfig = Schema.Schema.Type<typeof GameLoopConfigSchema>
 
-const InputConfig = Schema.Struct({
+export const InputConfigSchema = Schema.Struct({
   mouseSensitivity: Schema.Number.pipe(Schema.between(0.1, 10)),
   keyRepeatDelay: Milliseconds,
   enableGamepad: Schema.Boolean,
 })
-export type InputConfig = Schema.Schema.Type<typeof InputConfig>
+export type InputConfig = Schema.Schema.Type<typeof InputConfigSchema>
 
-const PerformanceConfig = Schema.Struct({
+export const PerformanceConfigSchema = Schema.Struct({
   enableMetrics: Schema.Boolean,
   memoryLimit: MemoryBytes,
   gcThreshold: ResourcePercentage,
 })
-export type PerformanceConfig = Schema.Schema.Type<typeof PerformanceConfig>
+export type PerformanceConfig = Schema.Schema.Type<typeof PerformanceConfigSchema>
 
-const DebugConfig = Schema.Struct({
+export const DebugConfigSchema = Schema.Struct({
   enableLogging: Schema.Boolean,
   logLevel: Schema.Literal('debug', 'info', 'warn', 'error'),
   showPerformanceStats: Schema.Boolean,
   enableHotReload: Schema.Boolean,
 })
-export type DebugConfig = Schema.Schema.Type<typeof DebugConfig>
+export type DebugConfig = Schema.Schema.Type<typeof DebugConfigSchema>
 
 export const GameApplicationConfig = Schema.Struct({
-  rendering: RenderingConfig,
-  gameLoop: GameLoopConfig,
-  input: InputConfig,
-  performance: PerformanceConfig,
-  debug: DebugConfig,
+  rendering: RenderingConfigSchema,
+  gameLoop: GameLoopConfigSchema,
+  input: InputConfigSchema,
+  performance: PerformanceConfigSchema,
+  debug: DebugConfigSchema,
 })
 export type GameApplicationConfig = Schema.Schema.Type<typeof GameApplicationConfig>
 export type GameApplicationConfigInput = Schema.Schema.Input<typeof GameApplicationConfig>

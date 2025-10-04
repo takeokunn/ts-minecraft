@@ -7,7 +7,7 @@
 
 import { Data, Effect, Either, Match, Option, pipe } from 'effect'
 import { expect, it } from '@effect/vitest'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import {
   cameraErrorArbitrary,
   viewModeArbitrary,

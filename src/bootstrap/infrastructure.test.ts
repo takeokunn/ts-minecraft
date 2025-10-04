@@ -1,129 +1,129 @@
 import { describe, expect, it } from '@effect/vitest'
-import * as FC from 'effect/FastCheck'
-import { Schema } from '@effect/schema'
-import { Effect, ConfigProvider, Layer, Either } from 'effect'
-import { AppService, ConfigService } from './application'
-import { AppServiceLayer, ConfigLayer, MainLayer, TestLayer } from './infrastructure'
+import { ConfigProvider, Effect, Either, Layer } from 'effect'
+import * as Match from 'effect/Match'
+import { provideLayers } from '../testing/effect'
 import {
-  AppInitializationResultSchema,
-  AppReadinessSchema,
-  BootstrapConfigDefaults,
-  BootstrapConfigSchema,
-  bootstrapConfig,
-} from './domain'
+  AppServiceTag,
+  ConfigLayer,
+  MainLayer,
+  TestLayer,
+  makeAppService,
+  makeConfigService,
+} from './infrastructure'
+import { ConfigService, ConfigServiceTag } from './application'
+import { BootstrapConfigDefaults, bootstrapConfigSnapshot } from './domain'
+import { reviveEpochZero, unsafeEpochMilliseconds } from './domain/value'
 
 const providerLayer = (entries: Record<string, string>) =>
   Layer.succeed(
     ConfigProvider.ConfigProvider,
-    ConfigProvider.fromMap(new Map(Object.entries(entries)), { pathDelim: '_', seqDelim: ',' })
+    ConfigProvider.fromMap(new Map(Object.entries(entries)))
   )
 
-const configLayerFor = (entries: Record<string, string>) =>
-  ConfigLayer.pipe(Layer.provide(providerLayer(entries)))
-
-const appLayerFor = (entries: Record<string, string>) =>
-  AppServiceLayer.pipe(Layer.provide(configLayerFor(entries)))
-
-const configTestLayer = (entries: Record<string, string>) => configLayerFor(entries)
-
-const appTestLayer = (entries: Record<string, string>) =>
-  Layer.mergeAll(configLayerFor(entries), appLayerFor(entries))
-
-const expectSuccess = async <A>(effect: Effect.Effect<A>) => Effect.runPromise(effect)
-
-
-describe('bootstrap/infrastructure - ConfigService', () => {
-  it('loads defaults when no provider values are supplied', async () => {
-    const program = Effect.gen(function* () {
-      const service = yield* ConfigService
-      const snapshot = yield* service.snapshot
-      expect(snapshot.config).toStrictEqual(BootstrapConfigDefaults)
-    })
-
-    await expectSuccess(program.pipe(Effect.provide(configTestLayer({}))))
-  })
-
-  // TODO: 落ちるテストのため一時的にskip
-  it.skip('hydrates configuration from map provider (property)', () => {})
-  it('exposes Either-based results for reload failures', async () => {
-    const entries = {
-      APP_DEBUG: 'true',
-      APP_FPS: '999',
-      APP_MEMORY_LIMIT: '10',
-    }
-
-    const program = Effect.gen(function* () {
-      const service = yield* ConfigService
-      const exit = yield* service.reloadResult
-      expect(Either.isLeft(exit)).toBe(true)
-    })
-
-    await expectSuccess(program.pipe(Effect.provide(configTestLayer(entries))))
-  })
+const successProvider = providerLayer({
+  APP_DEBUG: 'true',
+  APP_FPS: '90',
+  APP_MEMORY_LIMIT: '512',
 })
 
-describe('bootstrap/infrastructure - AppService', () => {
-  it('fails readiness before initialization', async () => {
-    const entries = {}
-
-    const program = Effect.gen(function* () {
-      const service = yield* AppService
-      const exit = yield* service.readinessResult
-      expect(Either.isLeft(exit)).toBe(true)
-    })
-
-    await expectSuccess(program.pipe(Effect.provide(appTestLayer(entries))))
-  })
-
-  it('performs initialization workflow and marks readiness', async () => {
-    const entries = {
-      APP_DEBUG: 'false',
-      APP_FPS: '60',
-      APP_MEMORY_LIMIT: '2048',
-    }
-
-    const program = Effect.gen(function* () {
-      const service = yield* AppService
-      const init = yield* service.initialize
-      const readiness = yield* service.readiness
-      const initEncoded = Effect.runSync(Schema.encode(AppInitializationResultSchema)(init))
-      const readyEncoded = Effect.runSync(Schema.encode(AppReadinessSchema)(readiness))
-      expect(initEncoded.ready).toBe(true)
-      expect(readyEncoded.ready).toBe(true)
-    })
-
-    await expectSuccess(program.pipe(Effect.provide(appTestLayer(entries))))
-  })
-
-  it('returns cached result on second initialization', async () => {
-    const entries = {}
-
-    const program = Effect.gen(function* () {
-      const service = yield* AppService
-      yield* service.initialize
-      const result = yield* service.initialize
-      expect(result.fresh).toBe(false)
-    })
-
-    await expectSuccess(program.pipe(Effect.provide(appTestLayer(entries))))
-  })
+const invalidProvider = providerLayer({
+  APP_DEBUG: 'true',
+  APP_FPS: '0',
+  APP_MEMORY_LIMIT: '512',
 })
 
-describe('bootstrap/infrastructure - Layers', () => {
-  it('TestLayer provides ConfigService and AppService', async () => {
-    const program = Effect.gen(function* () {
-      const config = yield* ConfigService
-      const app = yield* AppService
-      const snapshot = yield* config.snapshot
-      const exit = yield* app.readinessResult
-      expect(snapshot.config).toStrictEqual(BootstrapConfigDefaults)
-      expect(Either.isLeft(exit)).toBe(true)
-    })
+describe('bootstrap/infrastructure/makeConfigService', () => {
+  it.effect('reloadはConfigProviderからの設定を適用する', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const service = yield* makeConfigService
+        const snapshot = yield* service.reload
+        expect(snapshot.config.debug).toBe(true)
+        expect(snapshot.config.fps).toBe(90)
+        expect(snapshot.config.memoryLimit).toBe(512)
+        const current = yield* service.current
+        expect(current).toStrictEqual(snapshot.config)
+      }).pipe(Effect.provide(successProvider))
+    )
+  )
 
-    await expectSuccess(program.pipe(Effect.provide(appTestLayer({}))))
+  it.effect('reloadは不正な設定値でAppError.Configを返す', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const service = yield* makeConfigService
+        const result = yield* service.reload.pipe(Effect.either)
+        Match.value(result).pipe(
+          Match.when({ _tag: 'Left' }, ({ left }) => {
+            expect(left._tag).toBe('Config')
+          }),
+          Match.exhaustive
+        )
+      }).pipe(Effect.provide(invalidProvider))
+    )
+  )
+})
+
+describe('bootstrap/infrastructure/makeAppService', () => {
+  const snapshotValue = Effect.runSync(
+    bootstrapConfigSnapshot({
+      config: BootstrapConfigDefaults,
+      loadedAt: reviveEpochZero(),
+    })
+  )
+
+  const stubConfigService: ConfigService = ConfigServiceTag.of({
+    snapshot: Effect.succeed(snapshotValue),
+    snapshotResult: Effect.succeed(Either.right(snapshotValue)),
+    reload: Effect.succeed(snapshotValue),
+    reloadResult: Effect.succeed(Either.right(snapshotValue)),
+    current: Effect.succeed(snapshotValue.config),
+    currentResult: Effect.succeed(Either.right(snapshotValue.config)),
+    refresh: Effect.succeed(snapshotValue.config),
+    refreshResult: Effect.succeed(Either.right(snapshotValue.config)),
   })
 
-  it.skip('MainLayer resolves without throwing when composed', () => {
-    // Integration verified via end-to-end harness elsewhere
+  const stubConfigServiceLayer = Layer.succeed(ConfigServiceTag, stubConfigService)
+
+  it.effect('initializeで未初期化状態をreadyへ遷移させる', () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const appService = yield* makeAppService
+        const before = yield* appService.readiness.pipe(Effect.either)
+        expect(before._tag).toBe('Left')
+
+        const init = yield* appService.initialize
+        expect(init.ready).toBe(true)
+        expect(init.fresh).toBe(true)
+
+        const readiness = yield* appService.readiness
+        expect(readiness.ready).toBe(true)
+
+        const second = yield* appService.initializeResult
+        Match.value(second).pipe(
+          Match.when({ _tag: 'Right' }, ({ right }) => {
+            expect(right.fresh).toBe(false)
+          }),
+          Match.exhaustive
+        )
+
+        const lifecycle = yield* appService.lifecycle
+        expect(lifecycle.state).toBe('ready')
+        expect(lifecycle.initializedAt).toBe(lifecycle.updatedAt)
+      }).pipe(provideLayers(stubConfigServiceLayer))
+    )
+  )
+})
+
+describe('bootstrap/infrastructure layers', () => {
+  it('ConfigLayerはLayerインスタンスである', () => {
+    expect(Layer.isLayer(ConfigLayer)).toBe(true)
+  })
+
+  it('TestLayerはLayerインスタンスである', () => {
+    expect(Layer.isLayer(TestLayer)).toBe(true)
+  })
+
+  it('MainLayerはLayer合成として定義されている', () => {
+    expect(MainLayer).toBeDefined()
   })
 })

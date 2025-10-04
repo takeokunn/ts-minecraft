@@ -8,4 +8,4 @@
 export * from './audio'
 export * from './ecs'
 export * from './inventory'
-// export * from './rendering' // Temporarily disabled for chunk_loader integration
+export * from './rendering'

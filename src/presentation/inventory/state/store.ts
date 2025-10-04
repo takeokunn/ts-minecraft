@@ -1,15 +1,5 @@
 
-import {
-  Context,
-  Effect,
-  HashMap,
-  Layer,
-  Option,
-  Ref,
-  Stream,
-  SubscriptionRef,
-  pipe,
-} from 'effect'
+import { Context, Effect, HashMap, Layer, Option, Ref, Stream, SubscriptionRef, pipe } from 'effect'
 import type { InventoryView, PlayerId } from '../adt/inventory-adt'
 
 export interface InventoryStateStore {
@@ -50,29 +40,28 @@ export const InventoryStateStoreLive = Layer.effect(
     const set = (playerId: PlayerId, view: InventoryView) =>
       Ref.updateAndGet(stateRef, (map) => HashMap.set(map, playerId, view)).pipe(
         Effect.flatMap(publish),
-        Effect.asUnit
+        Effect.asVoid
       )
 
     const remove = (playerId: PlayerId) =>
       Ref.updateAndGet(stateRef, (map) => HashMap.remove(map, playerId)).pipe(
         Effect.flatMap(publish),
-        Effect.asUnit
+        Effect.asVoid
       )
 
     const clear = () =>
       Ref.set(stateRef, HashMap.empty<PlayerId, InventoryView>()).pipe(
         Effect.tap(() => publish(HashMap.empty<PlayerId, InventoryView>())),
-        Effect.asUnit
+        Effect.asVoid
       )
 
     const snapshot = () => Ref.get(stateRef)
 
-    const streamAll = () => Stream.fromSubscriptionRef(subscription)
+    const streamAll = () => subscription.changes
 
     const streamByPlayer = (playerId: PlayerId) =>
       streamAll().pipe(
-        Stream.map((map) => HashMap.get(map, playerId)),
-        Stream.collectSome
+        Stream.filterMap((map) => HashMap.get(map, playerId))
       )
 
     return InventoryStateStoreTag.of({

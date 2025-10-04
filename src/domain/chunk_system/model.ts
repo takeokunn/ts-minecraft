@@ -27,7 +27,7 @@ const decodeWith = <A>(schema: Schema.Schema<A>) =>
       Schema.decodeUnknown(schema)(input),
       Effect.mapError((issue) =>
         ChunkSystemError.ValidationError({
-          message: Schema.formatIssueSync(issue),
+          message: issue.message,
         })
       )
     )
@@ -334,7 +334,7 @@ export const makeInitialState = (
       Schema.decodeUnknown(ChunkSystemConfigSchema)(config),
       Effect.mapError((issue) =>
         ChunkSystemError.ValidationError({
-          message: Schema.formatIssueSync(issue),
+          message: issue.message,
         })
       )
     )

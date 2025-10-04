@@ -5,9 +5,9 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, Option, pipe } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
-import type {
+import {
   EnchantmentDefinition,
   ItemCategory,
   ItemConfig,
@@ -26,6 +26,25 @@ import {
 } from './interface'
 
 // ===== 内部ヘルパー関数（Pure Functions） =====
+
+const collectSome = <A>(inputs: ReadonlyArray<Option.Option<A>>): Array<A> => {
+  const collected: Array<A> = []
+  for (const option of inputs) {
+    if (Option.isSome(option)) {
+      collected.push(option.value)
+    }
+  }
+  return collected
+}
+
+const filterMapArray = <A, B>(
+  items: ReadonlyArray<A>,
+  project: (value: A, index: number) => Option.Option<B>
+): Array<B> => collectSome(items.map(project))
+
+const getNonEmptyOrUndefined = <K extends PropertyKey, V>(
+  entries: ReadonlyArray<readonly [K, V]>
+): Record<K, V> | undefined => (entries.length === 0 ? undefined : Object.fromEntries(entries) as Record<K, V>)
 
 // カテゴリ別デフォルト設定（Match.valueパターン）
 const getCategoryDefaults = (category: ItemCategory): Partial<ItemConfig> =>
@@ -128,106 +147,156 @@ const applyRarityModifiers = (config: ItemConfig): ItemConfig =>
   )
 
 // ItemConfig検証（Pure Function with Effect Error Handling）
-const validateItemConfig = (config: ItemConfig): Effect.Effect<void, ItemCreationError> =>
-  Effect.gen(function* () {
-    const errors: string[] = []
+const whenInvalid = (condition: boolean, message: string): Option.Option<string> =>
+  condition ? Option.some(message) : Option.none()
 
-    if (!config.itemId || config.itemId.trim() === '') {
-      errors.push('itemId is required')
-    }
+const validateItemConfig = (config: ItemConfig): Effect.Effect<void, ItemCreationError> => {
+  const baseErrors = collectSome([
+    whenInvalid(
+      !(typeof config.itemId === 'string' && config.itemId.trim().length > 0),
+      'itemId is required'
+    ),
+    pipe(
+      Option.fromNullable(config.count),
+      Option.flatMap((value) => whenInvalid(value < 1 || value > 64, 'count must be between 1 and 64'))
+    ),
+    pipe(
+      Option.fromNullable(config.durability),
+      Option.flatMap((value) => whenInvalid(value < 0 || value > 1, 'durability must be between 0 and 1'))
+    ),
+    pipe(
+      Option.fromNullable(config.maxStackSize),
+      Option.flatMap((value) => whenInvalid(value < 1 || value > 64, 'maxStackSize must be between 1 and 64'))
+    ),
+  ])
 
-    if (config.count !== undefined && (config.count < 1 || config.count > 64)) {
-      errors.push('count must be between 1 and 64')
-    }
+  const enchantmentErrors = pipe(
+    Option.fromNullable(config.enchantments),
+    Option.match({
+      onNone: () => [] as string[],
+      onSome: (enchantments) =>
+        filterMapArray(enchantments, (enchant) =>
+          whenInvalid(
+            enchant.level < 1 || enchant.level > enchant.maxLevel,
+            `enchantment ${enchant.id} level ${enchant.level} exceeds max level ${enchant.maxLevel}`
+          )
+        ),
+    })
+  )
 
-    if (config.durability !== undefined && (config.durability < 0 || config.durability > 1)) {
-      errors.push('durability must be between 0 and 1')
-    }
+  const errors = [...baseErrors, ...enchantmentErrors]
 
-    if (config.maxStackSize !== undefined && (config.maxStackSize < 1 || config.maxStackSize > 64)) {
-      errors.push('maxStackSize must be between 1 and 64')
-    }
+  if (errors.length === 0) {
+    return Effect.void
+  }
 
-    if (config.enchantments) {
-      for (const enchant of config.enchantments) {
-        if (enchant.level < 1 || enchant.level > enchant.maxLevel) {
-          errors.push(`enchantment ${enchant.id} level ${enchant.level} exceeds max level ${enchant.maxLevel}`)
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(
-        new CreationError({
-          reason: 'Invalid item configuration',
-          invalidFields: errors,
-          context: { config },
-        })
-      )
-    }
-
-    return yield* Effect.void
-  })
+  return Effect.fail(
+    new CreationError({
+      reason: 'Invalid item configuration',
+      invalidFields: [...errors],
+      context: { config },
+    })
+  )
+}
 
 // ItemMetadata生成（Pure Function）
 const createItemMetadata = (config: ItemConfig): ItemMetadata | undefined => {
-  const metadata: Partial<ItemMetadata> = {}
+  const baseEntries = collectSome([
+    pipe(
+      Option.fromNullable(config.enchantments),
+      Option.filter((items) => items.length > 0),
+      Option.map((items) =>
+        [
+          'enchantments',
+          items.map((enchant) => ({ id: enchant.id, level: enchant.level })),
+        ] as const
+      )
+    ),
+    pipe(
+      Option.fromNullable(config.customName),
+      Option.map((value) => ['customName', value] as const)
+    ),
+    pipe(
+      Option.fromNullable(config.lore),
+      Option.filter((lore) => lore.length > 0),
+      Option.map((value) => ['lore', [...value]] as const)
+    ),
+    pipe(
+      Option.fromNullable(config.nbtData),
+      Option.filter((data) => Object.keys(data).length > 0),
+      Option.map((value) => ['nbtData', value] as const)
+    ),
+  ])
 
-  if (config.enchantments && config.enchantments.length > 0) {
-    metadata.enchantments = config.enchantments.map((enchant) => ({
-      id: enchant.id,
-      level: enchant.level,
-    }))
-  }
+  const durabilityEntries = pipe(
+    Option.fromNullable(config.maxDurability),
+    Option.flatMap((maxDurability) =>
+      pipe(
+        Option.fromNullable(config.durability),
+        Option.filter((ratio) => ratio !== 1.0),
+        Option.map((ratio) =>
+          [
+            ['damage', Math.floor((1 - ratio) * maxDurability)] as const,
+            ['durability', maxDurability] as const,
+          ] satisfies ReadonlyArray<readonly [string, unknown]>
+        )
+      )
+    ),
+    Option.getOrElse(() => [] as ReadonlyArray<readonly [string, unknown]>)
+  )
 
-  if (config.customName) {
-    metadata.customName = config.customName
-  }
+  const allEntries = [...baseEntries, ...durabilityEntries]
 
-  if (config.lore && config.lore.length > 0) {
-    metadata.lore = [...config.lore]
-  }
-
-  if (config.maxDurability && config.durability !== 1.0) {
-    metadata.damage = Math.floor((1 - (config.durability || 1.0)) * config.maxDurability)
-    metadata.durability = config.maxDurability
-  }
-
-  // 空のメタデータは undefined を返す
-  return Object.keys(metadata).length > 0 ? (metadata as ItemMetadata) : undefined
+  return getNonEmptyOrUndefined(allEntries) as ItemMetadata | undefined
 }
+
+const normalizeMetadata = (metadata?: ItemMetadata): ItemMetadata | undefined =>
+  pipe(
+    Option.fromNullable(metadata),
+    Option.filter((meta) => Object.values(meta).some((value) => value !== undefined)),
+    Option.getOrUndefined
+  )
 
 // エンチャント競合チェック（Pure Function）
 const checkEnchantmentConflicts = (
   enchantments: ReadonlyArray<EnchantmentDefinition>
-): Effect.Effect<void, ItemCreationError> =>
-  Effect.gen(function* () {
-    const conflicts: string[] = []
+): Effect.Effect<void, ItemCreationError> => {
+  const conflicts = enchantments.flatMap((outer, index) =>
+    pipe(
+      Option.fromNullable(outer.conflictsWith),
+      Option.match({
+        onNone: () => [] as string[],
+        onSome: (conflictsWith) =>
+          enchantments
+            .slice(index + 1)
+            .filter((inner) => conflictsWith.includes(inner.id))
+            .map((inner) => `${outer.id} conflicts with ${inner.id}`),
+      })
+    )
+  )
 
-    for (let i = 0; i < enchantments.length; i++) {
-      const enchant1 = enchantments[i]
-      if (!enchant1.conflictsWith) continue
+  if (conflicts.length === 0) {
+    return Effect.void
+  }
 
-      for (let j = i + 1; j < enchantments.length; j++) {
-        const enchant2 = enchantments[j]
-        if (enchant1.conflictsWith.includes(enchant2.id)) {
-          conflicts.push(`${enchant1.id} conflicts with ${enchant2.id}`)
-        }
-      }
-    }
+  return Effect.fail(
+    new CreationError({
+      reason: 'Enchantment conflicts detected',
+      invalidFields: [...conflicts],
+      context: { enchantments },
+    })
+  )
+}
 
-    if (conflicts.length > 0) {
-      return yield* Effect.fail(
-        new CreationError({
-          reason: 'Enchantment conflicts detected',
-          invalidFields: conflicts,
-          context: { enchantments },
-        })
-      )
-    }
-
-    return yield* Effect.void
-  })
+const ensureNoEnchantmentConflicts = (config: ItemConfig): Effect.Effect<ItemConfig, ItemCreationError> =>
+  pipe(
+    Option.fromNullable(config.enchantments),
+    Option.filter((items) => items.length > 0),
+    Option.match({
+      onNone: () => Effect.succeed(config),
+      onSome: (enchantments) => checkEnchantmentConflicts(enchantments).pipe(Effect.as(config)),
+    })
+  )
 
 // スタック結合の検証（Pure Function with Effect）
 const validateStackCombination = (
@@ -235,298 +304,254 @@ const validateStackCombination = (
   stack2: ItemStack,
   rules: StackingRules = defaultStackingRules
 ): Effect.Effect<void, ItemStackError> =>
-  Effect.gen(function* () {
-    if (!rules.canStack(stack1, stack2)) {
-      return yield* Effect.fail(
+  pipe(
+    Effect.succeed({ stack1, stack2, rules }),
+    Effect.filterOrFail(
+      ({ stack1, stack2, rules }) => rules.canStack(stack1, stack2),
+      ({ stack1, stack2 }) =>
         new StackError({
           reason: 'Items cannot be stacked together',
           stackingRules: { rule: 'canStack', result: false },
           context: { stack1, stack2 },
         })
+    ),
+    Effect.flatMap(({ stack1, stack2, rules }) =>
+      pipe(
+        Effect.succeed({
+          stack1,
+          stack2,
+          maxSize: rules.maxStackSize(stack1),
+          combinedCount: stack1.count + stack2.count,
+        }),
+        Effect.filterOrFail(
+          ({ combinedCount, maxSize }) => combinedCount <= maxSize,
+          ({ stack1, stack2, maxSize, combinedCount }) =>
+            new StackError({
+              reason: 'Combined count exceeds maximum stack size',
+              stackingRules: { maxStackSize: maxSize, attempted: combinedCount },
+              context: { stack1, stack2 },
+            })
+        ),
+        Effect.asVoid
       )
-    }
-
-    const combinedCount = stack1.count + stack2.count
-    const maxSize = rules.maxStackSize(stack1)
-
-    if (combinedCount > maxSize) {
-      return yield* Effect.fail(
-        new StackError({
-          reason: 'Combined count exceeds maximum stack size',
-          stackingRules: { maxStackSize: maxSize, attempted: combinedCount },
-          context: { stack1, stack2 },
-        })
-      )
-    }
-
-    return yield* Effect.void
-  })
+    )
+  )
 
 // ===== Factory実装（Function.flowとEffect.genパターン） =====
 
 export const ItemFactoryLive: ItemFactory = {
-  // 基本生成（Pure Function Factory）
   createBasic: (itemId, count = 1) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        count,
-        ...defaultItemConfig,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      ...defaultItemConfig,
+      itemId,
+      count,
     }),
 
-  // 設定ベース生成（Configuration Pattern）
   createWithConfig: (config) =>
-    Effect.gen(function* () {
-      yield* validateItemConfig(config)
+    pipe(
+      Effect.succeed(config),
+      Effect.tap(validateItemConfig),
+      Effect.map((input) => ({
+        ...defaultItemConfig,
+        ...(input.category ? getCategoryDefaults(input.category) : {}),
+        ...input,
+      })),
+      Effect.map(applyRarityModifiers),
+      Effect.flatMap(ensureNoEnchantmentConflicts),
+      Effect.flatMap((normalized) =>
+        pipe(
+          Option.fromNullable(normalized.itemId),
+          Option.match({
+            onNone: () =>
+              Effect.fail(
+                new CreationError({
+                  reason: 'Invalid item configuration',
+                  invalidFields: ['itemId is required'],
+                  context: { config: normalized },
+                })
+              ),
+            onSome: (itemId) => Effect.succeed({ normalized, itemId }),
+          })
+        )
+      ),
+      Effect.map(({ normalized, itemId }) => ({
+        itemId,
+        count: normalized.count ?? 1,
+        metadata: createItemMetadata(normalized),
+        durability: normalized.durability,
+      }))
+    ),
 
-      // カテゴリ別デフォルトの適用
-      const categoryDefaults = config.category ? getCategoryDefaults(config.category) : {}
-      let mergedConfig = { ...defaultItemConfig, ...categoryDefaults, ...config }
-
-      // レアリティ修正の適用
-      mergedConfig = applyRarityModifiers(mergedConfig)
-
-      // エンチャント競合チェック
-      if (mergedConfig.enchantments && mergedConfig.enchantments.length > 0) {
-        yield* checkEnchantmentConflicts(mergedConfig.enchantments)
-      }
-
-      // ItemMetadata生成
-      const metadata = createItemMetadata(mergedConfig)
-
-      const itemStack: ItemStack = {
-        itemId: mergedConfig.itemId!,
-        count: mergedConfig.count || 1,
-        metadata,
-        durability: mergedConfig.durability,
-      }
-
-      return yield* Effect.succeed(itemStack)
-    }),
-
-  // ツール生成
   createTool: (itemId, durability = 1.0, enchantments = []) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        category: 'tool',
-        durability,
-        enchantments,
-        count: 1,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      itemId,
+      category: 'tool',
+      durability,
+      enchantments,
+      count: 1,
     }),
 
-  // 武器生成
   createWeapon: (itemId, durability = 1.0, enchantments = []) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        category: 'weapon',
-        durability,
-        enchantments,
-        count: 1,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      itemId,
+      category: 'weapon',
+      durability,
+      enchantments,
+      count: 1,
     }),
 
-  // 防具生成
   createArmor: (itemId, durability = 1.0, enchantments = []) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        category: 'armor',
-        durability,
-        enchantments,
-        count: 1,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      itemId,
+      category: 'armor',
+      durability,
+      enchantments,
+      count: 1,
     }),
 
-  // 食料生成
   createFood: (itemId, count = 1, customEffects = {}) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        category: 'food',
-        count,
-        nbtData: Object.keys(customEffects).length > 0 ? customEffects : undefined,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      itemId,
+      category: 'food',
+      count,
+      nbtData: pipe(
+        Option.fromPredicate((record: Record<string, unknown>) => Object.keys(record).length > 0)(customEffects),
+        Option.getOrUndefined
+      ),
     }),
 
-  // ブロック生成
   createBlock: (itemId, count = 1) =>
-    Effect.gen(function* () {
-      const config: ItemConfig = {
-        itemId,
-        category: 'block',
-        count,
-      }
-
-      return yield* ItemFactoryLive.createWithConfig(config)
+    ItemFactoryLive.createWithConfig({
+      itemId,
+      category: 'block',
+      count,
     }),
 
-  // エンチャント追加
   addEnchantment: (item, enchantment) =>
-    Effect.gen(function* () {
-      const currentEnchantments = item.metadata?.enchantments || []
-      const newEnchantments = [
-        ...currentEnchantments.filter((e) => e.id !== enchantment.id), // 既存の同じエンチャントを削除
-        { id: enchantment.id, level: enchantment.level },
-      ]
-
-      const allEnchantments = [
+    pipe(
+      [
         enchantment,
-        ...currentEnchantments.map((e) => ({ ...enchantment, id: e.id, level: e.level })),
-      ]
-      yield* checkEnchantmentConflicts(allEnchantments)
+        ...((item.metadata?.enchantments ?? []).map((existing) => ({
+          ...enchantment,
+          id: existing.id,
+          level: existing.level,
+        })) as ReadonlyArray<EnchantmentDefinition>),
+      ],
+      checkEnchantmentConflicts,
+      Effect.map(() => {
+        const existingEnchantments = item.metadata?.enchantments ?? []
+        const filtered = existingEnchantments.filter((entry) => entry.id !== enchantment.id)
+        const nextEnchantments = [...filtered, { id: enchantment.id, level: enchantment.level }]
 
-      const updatedMetadata: ItemMetadata = {
-        ...item.metadata,
-        enchantments: newEnchantments,
-      }
+        const updatedMetadata: ItemMetadata = {
+          ...item.metadata,
+          enchantments: nextEnchantments,
+        }
 
-      return yield* Effect.succeed({
-        ...item,
-        metadata: updatedMetadata,
+        return {
+          ...item,
+          metadata: updatedMetadata,
+        }
       })
-    }),
+    ),
 
-  // エンチャント削除
   removeEnchantment: (item, enchantmentId) =>
-    Effect.gen(function* () {
-      if (!item.metadata?.enchantments) {
-        return yield* Effect.succeed(item)
-      }
-
-      const filteredEnchantments = item.metadata.enchantments.filter((e) => e.id !== enchantmentId)
-
-      const updatedMetadata: ItemMetadata = {
-        ...item.metadata,
-        enchantments: filteredEnchantments.length > 0 ? filteredEnchantments : undefined,
-      }
-
-      // メタデータが空になった場合は undefined に
-      const finalMetadata = Object.values(updatedMetadata).some((v) => v !== undefined) ? updatedMetadata : undefined
-
-      return yield* Effect.succeed({
-        ...item,
-        metadata: finalMetadata,
+    pipe(
+      Option.fromNullable(item.metadata?.enchantments),
+      Option.match({
+        onNone: () => Effect.succeed(item),
+        onSome: (enchantments) =>
+          pipe(
+            enchantments,
+            (entries) => entries.filter((entry) => entry.id !== enchantmentId),
+            (remaining) =>
+              pipe(
+                Option.fromNullable(item.metadata),
+                Option.map((metadata) => ({
+                  ...metadata,
+                  enchantments: remaining.length === 0 ? undefined : remaining,
+                })),
+                Option.match({
+                  onNone: () => Effect.succeed(item),
+                  onSome: (metadata) =>
+                    Effect.succeed({
+                      ...item,
+                      metadata: normalizeMetadata(metadata),
+                    }),
+                })
+              ),
+          ),
       })
-    }),
+    ),
 
-  // スタック結合
   combineStacks: (stack1, stack2) =>
-    Effect.gen(function* () {
-      yield* validateStackCombination(stack1, stack2)
-
-      const combinedStack: ItemStack = {
+    validateStackCombination(stack1, stack2).pipe(
+      Effect.as({
         ...stack1,
         count: stack1.count + stack2.count,
-      }
+      })
+    ),
 
-      return yield* Effect.succeed(combinedStack)
-    }),
-
-  // スタック分割
   splitStack: (stack, amount) =>
-    Effect.gen(function* () {
-      if (amount <= 0 || amount >= stack.count) {
-        return yield* Effect.fail(
+    pipe(
+      Effect.succeed({ stack, amount }),
+      Effect.filterOrFail(
+        ({ stack, amount }) => amount > 0 && amount < stack.count,
+        ({ stack, amount }) =>
           new StackError({
             reason: 'Invalid split amount',
             stackingRules: { originalCount: stack.count, splitAmount: amount },
             context: { stack },
           })
-        )
-      }
+      ),
+      Effect.map(({ stack, amount }) => [
+        { ...stack, count: stack.count - amount },
+        { ...stack, count: amount },
+      ] as const)
+    ),
 
-      const remainingStack: ItemStack = {
-        ...stack,
-        count: stack.count - amount,
-      }
-
-      const splitStack: ItemStack = {
-        ...stack,
-        count: amount,
-      }
-
-      return yield* Effect.succeed([remainingStack, splitStack] as const)
-    }),
-
-  // ItemStack検証
   validateItemStack: (item) =>
-    Effect.gen(function* () {
-      const errors: string[] = []
+    pipe(
+      collectSome([
+        whenInvalid(
+          !(typeof item.itemId === 'string' && item.itemId.trim().length > 0),
+          'itemId is required'
+        ),
+        whenInvalid(item.count < 1 || item.count > 64, 'count must be between 1 and 64'),
+        pipe(
+          Option.fromNullable(item.durability),
+          Option.flatMap((value) => whenInvalid(value < 0 || value > 1, 'durability must be between 0 and 1'))
+        ),
+      ]),
+      (errors) =>
+        errors.length === 0
+          ? Effect.void
+          : Effect.fail(
+              new ValidationError({
+                reason: 'ItemStack validation failed',
+                missingFields: [...errors],
+                context: { item },
+              })
+            )
+    ),
 
-      if (!item.itemId || item.itemId.trim() === '') {
-        errors.push('itemId is required')
-      }
-
-      if (item.count < 1 || item.count > 64) {
-        errors.push('count must be between 1 and 64')
-      }
-
-      if (item.durability !== undefined && (item.durability < 0 || item.durability > 1)) {
-        errors.push('durability must be between 0 and 1')
-      }
-
-      if (errors.length > 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            reason: 'ItemStack validation failed',
-            missingFields: errors,
-            context: { item },
-          })
-        )
-      }
-
-      return yield* Effect.void
-    }),
-
-  // ItemStack最適化
   optimizeItemStack: (item) =>
-    Effect.gen(function* () {
-      yield* ItemFactoryLive.validateItemStack(item)
-
-      // メタデータの最適化（空の場合は削除）
-      let optimizedMetadata = item.metadata
-      if (optimizedMetadata) {
-        const hasContent = Object.values(optimizedMetadata).some(
-          (value) => value !== undefined && value !== null && (Array.isArray(value) ? value.length > 0 : true)
-        )
-        if (!hasContent) {
-          optimizedMetadata = undefined
-        }
-      }
-
-      return yield* Effect.succeed({
+    ItemFactoryLive.validateItemStack(item).pipe(
+      Effect.map(() => ({
         ...item,
-        metadata: optimizedMetadata,
-      })
-    }),
+        metadata: normalizeMetadata(item.metadata),
+      }))
+    ),
 
-  // アイテムクローン
-  cloneItem: (item, newCount) =>
-    Effect.gen(function* () {
-      const clonedItem: ItemStack = {
-        ...item,
-        count: newCount ?? item.count,
-        metadata: item.metadata ? { ...item.metadata } : undefined,
-      }
+  cloneItem: (item, newCount) => {
+    const clonedItem: ItemStack = {
+      ...item,
+      count: newCount ?? item.count,
+      metadata: item.metadata ? { ...item.metadata } : undefined,
+    }
 
-      yield* ItemFactoryLive.validateItemStack(clonedItem)
-
-      return yield* Effect.succeed(clonedItem)
-    }),
+    return ItemFactoryLive.validateItemStack(clonedItem).pipe(Effect.as(clonedItem))
+  },
 }
 
 // Layer.effect による依存性注入実装

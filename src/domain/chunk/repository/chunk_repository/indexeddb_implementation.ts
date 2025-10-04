@@ -250,18 +250,18 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       delete: (id: ChunkId) =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
           requestToPromise(() => tx.objectStore(CHUNK_STORE).delete(idKey(id)))
-        ).pipe(Effect.asUnit),
+        ).pipe(Effect.asVoid),
 
       deleteByPosition: (position: ChunkPosition) =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
           requestToPromise(() => tx.objectStore(CHUNK_STORE).delete(positionKey(position)))
-        ).pipe(Effect.asUnit),
+        ).pipe(Effect.asVoid),
 
       deleteAll: (ids: ReadonlyArray<ChunkId>) =>
         transaction(db, [CHUNK_STORE], 'readwrite', async (tx) => {
           const store = tx.objectStore(CHUNK_STORE)
           await Promise.all(ids.map((id) => requestToPromise(() => store.delete(idKey(id)))))
-        }).pipe(Effect.asUnit),
+        }).pipe(Effect.asVoid),
 
       exists: (id: ChunkId) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
@@ -361,12 +361,12 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
         transaction(db, [CHUNK_STORE, METADATA_STORE], 'readwrite', async (tx) => {
           await requestToPromise(() => tx.objectStore(CHUNK_STORE).clear())
           await requestToPromise(() => tx.objectStore(METADATA_STORE).clear())
-        }).pipe(Effect.asUnit),
+        }).pipe(Effect.asVoid),
 
       clear: () =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
           requestToPromise(() => tx.objectStore(CHUNK_STORE).clear())
-        ).pipe(Effect.asUnit),
+        ).pipe(Effect.asVoid),
 
       validateIntegrity: () => Effect.succeed(true),
     }

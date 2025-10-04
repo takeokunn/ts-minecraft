@@ -1,12 +1,17 @@
 import { Context, Effect } from 'effect'
-import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
+import type { Option as EffectOption } from 'effect/Option'
+import type {
+  GameApplicationInitError,
+  GameApplicationRuntimeError,
+  GameApplicationStateError,
+} from './errors'
 import type {
   ApplicationLifecycleState,
   GameApplicationConfig,
-  GameApplicationConfigInput,
   GameApplicationState,
   Milliseconds,
 } from './types'
+import type { GameApplicationConfigPatchInput } from './config'
 
 /**
  * GameApplication - ゲームアプリケーション統合サービス
@@ -37,7 +42,7 @@ export interface GameApplication {
    * - Camera → Input連携の確立
    */
   readonly initialize: (
-    config?: Partial<GameApplicationConfigInput>
+    config: EffectOption<GameApplicationConfigPatchInput>
   ) => Effect.Effect<void, GameApplicationInitError, never>
 
   /**
@@ -75,7 +80,7 @@ export interface GameApplication {
    * - レンダリングの停止
    * - リソースの解放
    */
-  readonly stop: () => Effect.Effect<void, GameApplicationRuntimeError, never>
+  readonly stop: () => Effect.Effect<void, GameApplicationStateError, never>
 
   /**
    * 現在のアプリケーション状態の取得
@@ -99,7 +104,9 @@ export interface GameApplication {
    * - Sceneの更新
    * - レンダリングの実行
    */
-  readonly tick: (deltaTime?: Milliseconds) => Effect.Effect<void, GameApplicationRuntimeError, never>
+  readonly tick: (
+    deltaTime: EffectOption<Milliseconds>
+  ) => Effect.Effect<void, GameApplicationRuntimeError, never>
 
   /**
    * 設定の更新
@@ -107,7 +114,7 @@ export interface GameApplication {
    * 実行時のアプリケーション設定変更
    */
   readonly updateConfig: (
-    config: Partial<GameApplicationConfigInput>
+    config: GameApplicationConfigPatchInput
   ) => Effect.Effect<void, GameApplicationStateError, never>
 
   /**

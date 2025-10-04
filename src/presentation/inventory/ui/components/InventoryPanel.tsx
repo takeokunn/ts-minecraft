@@ -10,6 +10,7 @@ import {
   QuickMove,
   SlotClicked,
   slotIndexToNumber,
+  type InventorySlot,
 } from '../../adt/inventory-adt'
 import { ItemSlot } from './ItemSlot'
 
@@ -20,10 +21,11 @@ interface InventoryPanelProps {
 
 const emit = (handler: InventoryEventHandler, event: InventoryGUIEvent) =>
   handler(event)
-    .pipe(Effect.catchAll((error) => Effect.logError(error)))
-    .pipe(Effect.runFork)
-
-const isHotbarSlot = (slotType: SlotType) => slotType === 'normal'
+    .pipe(
+      Effect.catchAllCause((cause) => Effect.logError(cause)),
+      Effect.asVoid,
+      Effect.runSync
+    )
 
 const toggleEvent = (model: InventoryPanelModel) =>
   pipe(
@@ -33,35 +35,47 @@ const toggleEvent = (model: InventoryPanelModel) =>
     Match.orElse(() => InventoryOpened({}))
   )
 
-const partitionSlots = (model: InventoryPanelModel) => {
-  const main: typeof model.inventory.slots = []
-  const hotbar: typeof model.inventory.slots = []
-
-  model.inventory.slots.forEach((slot) => {
-    const target = pipe(
-      slot.section,
-      Match.value,
-      Match.when('hotbar', () => hotbar),
-      Match.orElse(() => main)
-    )
-    target.push(slot)
-  })
-
-  return { main, hotbar }
+type PartitionedSlots = {
+  readonly main: ReadonlyArray<InventorySlot>
+  readonly hotbar: ReadonlyArray<InventorySlot>
 }
+
+const partitionSlots = (model: InventoryPanelModel): PartitionedSlots =>
+  model.inventory.slots.reduce<PartitionedSlots>(
+    (acc, slot) =>
+      pipe(
+        slot.section,
+        Match.value,
+        Match.when('hotbar', () => ({
+          main: acc.main,
+          hotbar: [...acc.hotbar, slot],
+        })),
+        Match.orElse(() => ({
+          main: [...acc.main, slot],
+          hotbar: acc.hotbar,
+        }))
+      ),
+    { main: [], hotbar: [] }
+  )
 
 const slotKey = (slotIndex: number) => `slot-${slotIndex}`
 
 export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Element => {
   const { main, hotbar } = partitionSlots(model)
 
-  const handleSelect = (slot: typeof model.inventory.slots[number]) =>
+  const handleSelect = (slot: InventorySlot) =>
     emit(onEvent, SlotClicked({ slot: slot.index, button: 'left' }))
 
-  const handleQuickMove = (slot: typeof model.inventory.slots[number]) =>
+  const handleQuickMove = (slot: InventorySlot) =>
     emit(onEvent, QuickMove({ slot: slot.index }))
 
   const columns = `repeat(${model.config.columns}, 1fr)`
+  const hotbarColumns = pipe(
+    hotbar.length,
+    Match.value,
+    Match.when(0, () => 1),
+    Match.orElse((count) => count)
+  )
 
   return (
     <section
@@ -103,6 +117,7 @@ export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Ele
       </header>
 
       <div
+        data-testid="inventory-main-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: columns,
@@ -110,16 +125,20 @@ export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Ele
         }}
       >
         {main.map((slot) => (
-          <div key={slotKey(slotIndexToNumber(slot.index))}>
+          <div
+            key={slotKey(slotIndexToNumber(slot.index))}
+            data-slot-section="main"
+          >
             <ItemSlot slot={slot} theme={model.config.theme} onSelect={handleSelect} />
           </div>
         ))}
       </div>
 
       <div
+        data-testid="inventory-hotbar-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${hotbar.length || 1}, 1fr)`,
+          gridTemplateColumns: `repeat(${hotbarColumns}, 1fr)`,
           gap: `${model.config.slotSpacing}px`,
           borderTop: `1px solid ${model.config.theme.slotBorder}`,
           paddingTop: '1rem',
@@ -128,6 +147,7 @@ export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Ele
         {hotbar.map((slot) => (
           <div
             key={slotKey(slotIndexToNumber(slot.index))}
+            data-slot-section="hotbar"
             onDoubleClick={() => handleQuickMove(slot)}
           >
             <ItemSlot slot={slot} theme={model.config.theme} onSelect={handleSelect} />

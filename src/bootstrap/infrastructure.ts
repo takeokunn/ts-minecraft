@@ -1,5 +1,6 @@
 import { GameApplicationLive } from '@application/GameApplicationLive'
-import { Clock, Config as EffectConfig, ConfigProvider, Effect, Either, Layer, Option, pipe } from 'effect'
+import { Clock, Config as EffectConfig, ConfigProvider, Effect, Either, Layer } from 'effect'
+import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
@@ -7,12 +8,13 @@ import { GameLoopServiceLive } from '@domain/game_loop/legacy'
 import { InputServiceLive } from '@domain/input/InputServiceLive'
 import { InteractionDomainLive } from '@domain/interaction'
 import { SceneManagerLive } from '@domain/scene/manager/live'
-import { ThreeRendererLive } from '@infrastructure/rendering.disabled/ThreeRendererLive'
 import {
   AppError,
   BootstrapConfig,
   BootstrapConfigDefaults,
+  BootstrapConfigInput,
   BootstrapConfigSnapshot,
+  EpochMilliseconds,
   LifecycleState,
   bootstrapConfig,
   epochMilliseconds,
@@ -47,11 +49,8 @@ const configDescriptor = EffectConfig.all({
   ),
 })
 
-const decodeConfig = (input: unknown) =>
-  pipe(
-    bootstrapConfig(input),
-    Effect.mapError((error) => makeConfigError(toConfigIssueList(error)))
-  )
+const decodeConfig = (input: BootstrapConfigInput) =>
+  bootstrapConfig(input).pipe(Effect.mapError((error) => makeConfigError(toConfigIssueList(error))))
 
 const loadFromProvider = (provider: ConfigProvider.ConfigProvider) =>
   provider.load(configDescriptor).pipe(
@@ -76,6 +75,16 @@ const materializeSnapshot = (config: BootstrapConfig): Effect.Effect<BootstrapCo
 const hydrateSnapshot = (provider: ConfigProvider.ConfigProvider) =>
   hydrateConfig(provider).pipe(Effect.flatMap(materializeSnapshot))
 
+const initializedTimestamp = (
+  state: LifecycleState,
+  timestamp: EpochMilliseconds
+): EpochMilliseconds =>
+  Match.value(state).pipe(
+    Match.when(Match.is('ready'), () => Option.some(timestamp)),
+    Match.orElse(() => Option.none<EpochMilliseconds>()),
+    Option.getOrElse(() => reviveEpochZero())
+  )
+
 const createLifecycleSnapshot = (state: LifecycleState, config: BootstrapConfig) =>
   Clock.currentTimeMillis.pipe(
     Effect.flatMap(epochMilliseconds),
@@ -83,12 +92,7 @@ const createLifecycleSnapshot = (state: LifecycleState, config: BootstrapConfig)
       instantiateLifecycleSnapshot({
         state,
         updatedAt: timestamp,
-        initializedAt: pipe(
-          Match.value(state),
-          Match.when(Match.is('ready'), () => Option.some(timestamp)),
-          Match.orElse(() => Option.none<number>()),
-          Option.getOrElse(() => reviveEpochZero())
-        ),
+        initializedAt: initializedTimestamp(state, timestamp),
         config,
       })
     )
@@ -112,7 +116,6 @@ export const makeConfigService = Effect.gen(function* () {
 
   const snapshotEffect = SynchronizedRef.get(state)
   const currentConfig = snapshotEffect.pipe(Effect.map((snapshot) => snapshot.config))
-
   const refreshConfig = reloadSnapshot.pipe(Effect.map((snapshot) => snapshot.config))
 
   const snapshotResult = snapshotEffect.pipe(
@@ -202,7 +205,6 @@ export const AppServiceLayer = Layer.scoped(AppServiceTag, makeAppService)
 const BaseServicesLayer = Layer.mergeAll(
   GameLoopServiceLive,
   SceneManagerLive,
-  ThreeRendererLive,
   InputServiceLive,
   InteractionDomainLive
 )

@@ -3,7 +3,7 @@ import { SceneProgressSchema, SceneState as Scenes } from '../types'
 import { SceneBlueprint, SceneController, SceneControllerError, createSceneController, makeBlueprint } from './base'
 
 const decodeProgress = Schema.decode(SceneProgressSchema)
-const formatIssue = (issue: Schema.ParseError) => Schema.formatIssueSync(issue)
+const formatIssue = (issue: Schema.ParseError) => issue.message
 
 const clampProgress = (value: number) =>
   decodeProgress(value).pipe(

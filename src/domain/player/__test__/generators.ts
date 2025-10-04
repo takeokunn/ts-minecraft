@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import {
   PlayerAggregateSchema,
   PlayerCommandSchema,

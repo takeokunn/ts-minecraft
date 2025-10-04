@@ -357,49 +357,51 @@ export const WorldLive = Layer.effect(
      */
     const removeComponent = (entityId: EntityId, componentType: string) =>
       Effect.gen(function* () {
-        yield* Ref.update(stateRef, (state) => {
-          const storage = state.components.get(componentType)
-
-          return pipe(
-            Option.fromNullable(storage),
-            Option.flatMap((storage) =>
-              pipe(
-                storage.data.has(entityId),
-                Match.value,
-                Match.when(false, () => Option.none()),
-                Match.orElse(() => Option.some(storage))
-              )
-            ),
+        yield* Ref.update(stateRef, (state) =>
+          pipe(
+            state.components.get(componentType),
+            Option.fromNullable,
+            Option.filter((storage) => storage.data.has(entityId)),
             Option.match({
               onNone: () => state,
               onSome: (storage) => {
-                const newData = new Map(storage.data)
-                newData.delete(entityId)
+                const baseComponents = new Map(state.components)
+                const nextData = new Map(storage.data)
+                nextData.delete(entityId)
 
-                const newComponents = new Map(state.components)
-                if (newData.size === 0) {
-                  newComponents.delete(componentType)
-                } else {
-                  newComponents.set(componentType, { ...storage, data: newData })
-                }
+                const updatedComponents = pipe(
+                  nextData.size === 0 ? Option.some(true) : Option.none<boolean>(),
+                  Option.match({
+                    onSome: () => {
+                      const components = new Map(baseComponents)
+                      components.delete(componentType)
+                      return components
+                    },
+                    onNone: () => {
+                      const components = new Map(baseComponents)
+                      components.set(componentType, { ...storage, data: nextData })
+                      return components
+                    },
+                  })
+                )
 
-                const totalComponents = Array.from(newComponents.values()).reduce(
+                const componentCount = Array.from(updatedComponents.values()).reduce(
                   (count, stor) => count + stor.data.size,
                   0
                 )
 
                 return {
                   ...state,
-                  components: newComponents,
+                  components: updatedComponents,
                   stats: {
                     ...state.stats,
-                    componentCount: totalComponents,
+                    componentCount,
                   },
                 }
               },
             })
           )
-        })
+        )
       })
 
     /**

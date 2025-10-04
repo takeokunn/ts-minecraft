@@ -1,0 +1,1 @@
+import './InventoryPanel.test.tsx'

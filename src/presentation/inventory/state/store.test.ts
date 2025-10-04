@@ -1,10 +1,10 @@
 
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Fiber, HashMap, Option, Schema, Stream } from 'effect'
+import { Chunk, Effect, Fiber, HashMap, Match, Option, Schema, Stream, pipe } from 'effect'
+import * as FastCheck from 'effect/FastCheck'
 import { InventoryStateStoreLive, InventoryStateStoreTag } from './store'
 import {
   InventoryView,
-  defaultInventoryGUIConfig,
   makeInventorySlot,
   parsePlayerId,
   slotGridPosition,
@@ -54,7 +54,7 @@ describe('presentation/inventory/state/store', () => {
           expect(result.value.selectedSlot).toStrictEqual(view.selectedSlot)
         })
       ),
-      Effect.provideLayer(InventoryStateStoreLive)
+      Effect.provide(InventoryStateStoreLive)
     )
   )
 
@@ -63,15 +63,21 @@ describe('presentation/inventory/state/store', () => {
       Effect.flatMap(({ playerId, view }) =>
         Effect.gen(function* () {
           const store = yield* InventoryStateStoreTag
-          const collectedFiber = yield* store
+          const fiber = yield* store
             .streamByPlayer(playerId)
-            .pipe(Stream.take(1), Stream.runCollect, Effect.forkScoped)
+            .pipe(Stream.take(1), Stream.runCollect, Effect.fork)
           yield* store.set(playerId, view)
-          const chunk = yield* Fiber.join(collectedFiber)
-          expect(chunk[0]?.playerId).toStrictEqual(playerId)
+          const chunk = yield* Fiber.join(fiber)
+          const first = pipe(
+            Chunk.head(chunk),
+            Option.getOrElse(() => {
+              throw new Error('no emission received')
+            })
+          )
+          expect(first.playerId).toStrictEqual(playerId)
         })
       ),
-      Effect.provideLayer(InventoryStateStoreLive)
+      Effect.provide(InventoryStateStoreLive)
     )
   )
 
@@ -89,7 +95,49 @@ describe('presentation/inventory/state/store', () => {
           expect(HashMap.size(snapshot)).toBe(0)
         })
       ),
-      Effect.provideLayer(InventoryStateStoreLive)
+      Effect.provide(InventoryStateStoreLive)
+    )
+  )
+
+  it.effect('clear eliminates residual state regardless of operation sequences (property)', () =>
+    sampleView.pipe(
+      Effect.flatMap(({ playerId, view }) =>
+        Effect.gen(function* () {
+          const operationsArb = FastCheck.array(FastCheck.boolean(), {
+            minLength: 1,
+            maxLength: 12,
+          })
+
+          yield* Effect.sync(() =>
+            FastCheck.assert(
+              FastCheck.property(operationsArb, (toggles) => {
+                const exit = Effect.runSyncExit(
+                  pipe(
+                    Effect.gen(function* () {
+                      const store = yield* InventoryStateStoreTag
+                      yield* store.clear()
+                      yield* Effect.forEach(toggles, (flag) =>
+                        pipe(
+                          flag,
+                          Match.value,
+                          Match.when(true, () => store.set(playerId, view)),
+                          Match.orElse(() => store.remove(playerId))
+                        )
+                      )
+                      yield* store.clear()
+                      return yield* store.snapshot()
+                    }),
+                    Effect.provide(InventoryStateStoreLive)
+                  )
+                )
+                expect(exit._tag).toBe('Success')
+                expect(HashMap.size(exit.value)).toBe(0)
+              }),
+              { numRuns: 50 }
+            )
+          )
+        })
+      )
     )
   )
 })

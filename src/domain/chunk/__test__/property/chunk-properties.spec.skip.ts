@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { Effect, TestClock, TestContext, Duration, Ref, Fiber, Stream } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import { ChunkArbitraries } from './arbitraries/chunk-arbitraries'
 import {
   ChunkStates,

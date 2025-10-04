@@ -6,7 +6,7 @@
  */
 
 import { Brand, Effect } from 'effect'
-import * as fc from 'fast-check'
+import * as fc from 'effect/FastCheck'
 import type {
   Axis,
   BoundingBox,

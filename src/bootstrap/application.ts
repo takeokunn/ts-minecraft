@@ -17,12 +17,36 @@ import {
   makeLifecycleSnapshot,
   readinessProjection,
   resolveInitializedAt,
-  reviveEpochZero as reviveEpochZeroValue,
   toConfigIssueList,
+  ensureReadySnapshot as ensureReadySnapshotSchema,
+  resetInitializedAt as resetInitializedAtSchema,
+  markInitializedAt as markInitializedAtSchema,
+  reviveEpochZero as reviveEpochZeroValue,
 } from './domain'
 
+type LifecycleCases<A> = {
+  readonly onReady: () => Effect.Effect<A, AppError>
+  readonly onInitializing: () => Effect.Effect<A, AppError>
+  readonly onUninitialized: () => Effect.Effect<A, AppError>
+}
+
+const matchLifecycleState = <A>(
+  snapshot: LifecycleSnapshot,
+  cases: LifecycleCases<A>
+): Effect.Effect<A, AppError> =>
+  Match.value(snapshot.state).pipe(
+    Match.when(Match.is('ready'), cases.onReady),
+    Match.when(Match.is('initializing'), cases.onInitializing),
+    Match.when(Match.is('uninitialized'), cases.onUninitialized),
+    Match.exhaustive
+  )
+
 const toEither = <A>(effect: Effect.Effect<A, AppError>) => Effect.either(effect)
+
 const schemaFailure = (error: ParseError): AppError => makeConfigError(toConfigIssueList(error))
+
+const withSchemaFailure = <A>(effect: Effect.Effect<A, ParseError>): Effect.Effect<A, AppError> =>
+  effect.pipe(Effect.mapError(schemaFailure))
 
 export interface ConfigService {
   readonly snapshot: Effect.Effect<BootstrapConfigSnapshot>
@@ -55,100 +79,71 @@ export const instantiateLifecycleSnapshot = (params: {
   readonly config: BootstrapConfig
   readonly initializedAt?: EpochMilliseconds
 }): Effect.Effect<LifecycleSnapshot, AppError> =>
-  pipe(makeLifecycleSnapshot(params), Effect.mapError(schemaFailure))
+  withSchemaFailure(makeLifecycleSnapshot(params))
 
 export const projectReadiness = (
   snapshot: LifecycleSnapshot
 ): Effect.Effect<AppReadiness, AppError> =>
-  Match.value(snapshot.state).pipe(
-    Match.when(Match.is('ready'), () =>
-      pipe(readinessProjection(snapshot, true), Effect.mapError(schemaFailure))
-    ),
-    Match.when(Match.is('initializing'), () =>
+  matchLifecycleState(snapshot, {
+    onReady: () => withSchemaFailure(readinessProjection(snapshot, true)),
+    onInitializing: () =>
       Effect.fail(
         makeLifecycleError({
           current: 'initializing',
           requested: 'status',
           message: 'Bootstrapは初期化処理の完了待ちです',
         })
-      )
-    ),
-    Match.when(Match.is('uninitialized'), () =>
+      ),
+    onUninitialized: () =>
       Effect.fail(
         makeLifecycleError({
           current: 'uninitialized',
           requested: 'status',
           message: 'Bootstrapはまだ初期化されていません',
         })
-      )
-    ),
-    Match.exhaustive
-  )
+      ),
+  })
 
 export const projectInitialization = (
   snapshot: LifecycleSnapshot,
   fresh: boolean
 ): Effect.Effect<AppInitializationResult, AppError> =>
-  Match.value(snapshot.state).pipe(
-    Match.when(Match.is('ready'), () =>
-      pipe(initializationProjection(snapshot, fresh), Effect.mapError(schemaFailure))
-    ),
-    Match.when(Match.is('initializing'), () =>
+  matchLifecycleState(snapshot, {
+    onReady: () =>
+      withSchemaFailure(initializationProjection(snapshot, fresh)),
+    onInitializing: () =>
       Effect.fail(
         makeLifecycleError({
           current: 'initializing',
           requested: 'initialize',
           message: 'Bootstrap初期化が既に進行中です',
         })
-      )
-    ),
-    Match.when(Match.is('uninitialized'), () =>
+      ),
+    onUninitialized: () =>
       Effect.fail(
         makeLifecycleError({
           current: 'uninitialized',
           requested: 'initialize',
           message: 'Bootstrapはまだ初期化されていません',
         })
-      )
-    ),
-    Match.exhaustive
-  )
+      ),
+  })
 
 export const ensureReadySnapshot = (
   snapshot: LifecycleSnapshot
 ): Effect.Effect<LifecycleSnapshot, AppError> =>
-  Match.value(snapshot.state).pipe(
-    Match.when(Match.is('ready'), () => Effect.succeed(snapshot)),
-    Match.orElse(() =>
-      instantiateLifecycleSnapshot({
-        state: 'ready',
-        updatedAt: snapshot.updatedAt,
-        initializedAt: snapshot.updatedAt,
-        config: snapshot.config,
-      })
-    )
-  )
+  withSchemaFailure(ensureReadySnapshotSchema(snapshot))
 
 export const resetInitializedAt = (
   snapshot: LifecycleSnapshot
 ): Effect.Effect<LifecycleSnapshot, AppError> =>
-  instantiateLifecycleSnapshot({
-    state: snapshot.state,
-    updatedAt: snapshot.updatedAt,
-    initializedAt: snapshot.updatedAt,
-    config: snapshot.config,
-  })
+  withSchemaFailure(resetInitializedAtSchema(snapshot))
 
 export const markInitializedAt = (
   snapshot: LifecycleSnapshot,
   initializedAt: EpochMilliseconds
 ): Effect.Effect<LifecycleSnapshot, AppError> =>
-  instantiateLifecycleSnapshot({
-    state: snapshot.state,
-    updatedAt: snapshot.updatedAt,
-    initializedAt,
-    config: snapshot.config,
-  })
+  withSchemaFailure(markInitializedAtSchema(snapshot, initializedAt))
 
 export const stageFromAppError = appErrorStage
 
