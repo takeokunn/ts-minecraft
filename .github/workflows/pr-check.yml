@@ -36,6 +36,36 @@ jobs:
         run: pnpm typecheck
         continue-on-error: true
 
+      - name: Dependency rule check
+        id: lint-deps
+        run: pnpm lint:deps
+        continue-on-error: true
+
+      - name: Domain tests
+        id: test-domain
+        run: pnpm test:domain
+        continue-on-error: true
+
+      - name: Application legacy tests
+        id: test-application-legacy
+        run: pnpm test:application:legacy
+        continue-on-error: true
+
+      - name: Application new tests
+        id: test-application-new
+        run: pnpm test:application:new
+        continue-on-error: true
+
+      - name: Interface tests
+        id: test-interface
+        run: pnpm test:interface
+        continue-on-error: true
+
+      - name: Integration tests
+        id: test-integration
+        run: pnpm test:integration
+        continue-on-error: true
+
       - name: Run tests with coverage
         id: test-coverage
         run: pnpm test:coverage
@@ -99,6 +129,36 @@ jobs:
                 name: 'TypeScript type checking',
                 outcome: '${{ steps.typecheck.outcome }}',
                 conclusion: '${{ steps.typecheck.conclusion }}'
+              },
+              'lint-deps': {
+                name: 'Dependency rule check',
+                outcome: '${{ steps.lint-deps.outcome }}',
+                conclusion: '${{ steps.lint-deps.conclusion }}'
+              },
+              'test-domain': {
+                name: 'Domain tests',
+                outcome: '${{ steps['test-domain'].outcome }}',
+                conclusion: '${{ steps['test-domain'].conclusion }}'
+              },
+              'test-application-legacy': {
+                name: 'Application legacy tests',
+                outcome: '${{ steps['test-application-legacy'].outcome }}',
+                conclusion: '${{ steps['test-application-legacy'].conclusion }}'
+              },
+              'test-application-new': {
+                name: 'Application new tests',
+                outcome: '${{ steps['test-application-new'].outcome }}',
+                conclusion: '${{ steps['test-application-new'].conclusion }}'
+              },
+              'test-interface': {
+                name: 'Interface tests',
+                outcome: '${{ steps['test-interface'].outcome }}',
+                conclusion: '${{ steps['test-interface'].conclusion }}'
+              },
+              'test-integration': {
+                name: 'Integration tests',
+                outcome: '${{ steps['test-integration'].outcome }}',
+                conclusion: '${{ steps['test-integration'].conclusion }}'
               },
               'test-coverage': {
                 name: 'Unit tests execution with coverage',

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "domain",
+    "tests": 155
+  },
+  {
+    "name": "application",
+    "tests": 3
+  },
+  {
+    "name": "infrastructure",
+    "tests": 10
+  },
+  {
+    "name": "presentation",
+    "tests": 4
+  },
+  {
+    "name": "bounded-contexts",
+    "tests": 0
+  }
+]

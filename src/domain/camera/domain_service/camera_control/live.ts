@@ -7,14 +7,14 @@
  */
 
 import { Effect, Layer } from 'effect'
-import type { CameraDistance, CameraError, CameraRotation, Position3D, Vector3D } from '../../value_object'
+import type { CameraDistance, CameraError, CameraRotation, Position3D, Vector3D } from '../../value-object'
 import {
   AngleConversion,
   CameraRotationOps,
   createDirection3D,
   createPosition3D,
   Position3DOps,
-} from '../../value_object'
+} from '../../value-object'
 import type { BoundingBox, SphericalCoordinate, ViewBounds } from './service'
 import { CameraControlService } from './service'
 

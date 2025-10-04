@@ -5,9 +5,9 @@
  */
 
 // Property-based Testing Suites
-export * from './camera_position.spec'
-export * from './camera_rotation.spec'
-export * from './view_mode.spec'
+export * from './camera-position.spec'
+export * from './camera-rotation.spec'
+export * from './view-mode.spec'
 
 // Value Object Tests統合
 // 個別スペックファイルのテストが自動で実行される

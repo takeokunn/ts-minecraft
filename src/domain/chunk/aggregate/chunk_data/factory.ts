@@ -7,12 +7,12 @@ import {
   ChunkDataSchema,
   ChunkDataValidationError,
 } from './types'
-import { type ChunkPosition } from '../../value_object/chunk_position'
+import { type ChunkPosition } from '../../value_object/chunk-position'
 import {
   type ChunkMetadata,
   type HeightValue,
   HeightValue as MakeHeightValue,
-} from '../../value_object/chunk_metadata'
+} from '../../value_object/chunk-metadata'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 const heightMapSize = CHUNK_SIZE * CHUNK_SIZE

@@ -1,6 +1,6 @@
 import { Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as ReadonlyArray from 'effect/Array'
 import {
   AttackKind,
   AttackLabel,

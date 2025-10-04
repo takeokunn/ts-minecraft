@@ -17,7 +17,7 @@ import type {
   FOV,
   Position3D,
   Timestamp,
-} from '../../value_object'
+} from '../../value-object'
 
 /**
  * アニメーションエンジンドメインサービスの型定義

@@ -1,7 +1,14 @@
-import { describe, expect, it, prop } from '@effect/vitest'
-import * as FC from 'effect/FastCheck'
+import { describe, expect, it } from '@effect/vitest'
 import { Either } from 'effect'
-import { InputTimestamp, KeyCode, MouseButton, decodeInputEvent, decodeKeyCode, decodeMouseButton } from '../model'
+import {
+  AxisValue,
+  InputTimestamp,
+  KeyCode,
+  MouseButton,
+  decodeInputEvent,
+  decodeKeyCode,
+  decodeMouseButton,
+} from '../model'
 
 describe('model', () => {
   it('decodes known key codes', () => {
@@ -21,8 +28,14 @@ describe('model', () => {
     expect(Either.getOrElse(result, () => MouseButton('left'))).toEqual(MouseButton('left'))
   })
 
-  // TODO: 落ちるテストのため一時的にskip
-  it.skip('AxisValue schema constrains values to [-1, 1]', () => {})
+  it('AxisValue schema constrains values to [-1, 1]', () => {
+    expect(AxisValue(-1)).toBe(-1)
+    expect(AxisValue(0)).toBe(0)
+    expect(AxisValue(1)).toBe(1)
+
+    expect(() => AxisValue(-1.01)).toThrow()
+    expect(() => AxisValue(1.01)).toThrow()
+  })
 
   it('decodes input events structurally', () => {
     const event = {

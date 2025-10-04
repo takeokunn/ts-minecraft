@@ -1,9 +1,9 @@
 import { Schema } from '@effect/schema'
 import { Brand, Data, Effect } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
-import { ChunkPositionSchema } from '../../value_object/chunk_position'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk-position'
+import type { ChunkMetadata, HeightValue } from '../../value_object/chunk-metadata'
+import { ChunkPositionSchema } from '../../value_object/chunk-position'
+import { ChunkMetadataSchema } from '../../value_object/chunk-metadata'
 
 /**
  * ブランド型

@@ -18,8 +18,8 @@ import type {
   QualityLevel,
   Sensitivity,
   ViewModeSettings,
-} from '../../value_object'
-import { CameraSettingsOps, SettingsValidation } from '../../value_object'
+} from '../../value-object'
+import { CameraSettingsOps, SettingsValidation } from '../../value-object'
 import type {
   AnimationValidationResult,
   CompatibilityIssue,

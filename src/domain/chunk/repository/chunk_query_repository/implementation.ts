@@ -1,11 +1,11 @@
 import { Effect, Layer, Ref } from 'effect'
 import { ChunkQueryRepository } from './interface'
 import type { ChunkRepository } from '../chunk_repository/interface'
-import type { ChunkData } from '../../aggregate/chunk_data'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkId } from '../../value_object/chunk_id'
-import type { RepositoryError } from '../types/repository_error'
-import { RepositoryErrors } from '../types/repository_error'
+import type { ChunkData } from '../../aggregate/chunk-data'
+import type { ChunkPosition } from '../../value_object/chunk-position'
+import type { ChunkId } from '../../value_object/chunk-id'
+import type { RepositoryError } from '../types/repository-error'
+import { RepositoryErrors } from '../types/repository-error'
 import type {
   ChunkSearchCriteria,
   ChunkAnalytics,

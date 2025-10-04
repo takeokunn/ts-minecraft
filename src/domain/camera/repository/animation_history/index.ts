@@ -358,7 +358,7 @@ export type { EasingType, ViewMode } from '../../value_object/index.js'
  *
  * ## 使用例
  * ```typescript
- * import { AnimationHistoryRepository, AnimationHistoryRepositoryLive } from './animation_history'
+ * import { AnimationHistoryRepository, AnimationHistoryRepositoryLive } from './animation-history'
  * import { Effect, Layer } from 'effect'
  *
  * // アニメーション記録

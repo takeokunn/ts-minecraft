@@ -1,4 +1,4 @@
-import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
+import { Effect, Either, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
 import { SceneService } from '../service'
 import {
   ActiveScene,
@@ -93,8 +93,8 @@ const withTransition = <A>(
       yield* Ref.set(ref, updated)
       return { state: updated, target }
     }),
-    () => Ref.update(ref, (state) => ({ ...state, isTransitioning: false })),
-    ({ state, target }) => use(state, target)
+    ({ state, target }) => use(state, target),
+    (_resource, _exit) => Ref.update(ref, (current) => ({ ...current, isTransitioning: false }))
   )
 
 const appendHistory = (state: SceneManagerState, next: SceneState): SceneManagerState => ({
@@ -112,13 +112,22 @@ const pushStack = (stack: ReadonlyArray<ActiveScene>, previous: Option.Option<Ac
 const dropLast = (stack: ReadonlyArray<ActiveScene>) =>
   stack.slice(0, Math.max(0, stack.length - 1))
 
+const fromEither = <E, A>(either: Either.Either<E, A>): Effect.Effect<A, E> =>
+  pipe(
+    either,
+    Either.match({
+      onLeft: (error) => Effect.fail(error),
+      onRight: (value) => Effect.succeed(value),
+    })
+  )
+
 export const SceneManagerLive = Layer.effect(
   SceneManager,
   Effect.gen(function* () {
     const sceneService = yield* SceneService
     const initialScene = yield* sceneService.current()
     const decoded = Schema.decodeEither(SceneManagerStateSchema)(sceneManagerState.make({ current: initialScene }))
-    const initialState = yield* Effect.fromEither(decoded)
+    const initialState = yield* fromEither(decoded)
 
     const stateRef = yield* Ref.make(initialState)
 

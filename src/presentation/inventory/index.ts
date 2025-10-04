@@ -1,5 +1,5 @@
 export * from './adt'
 export * from './config'
 export * from './state'
-export * from './view-model'
+export * from '@mc/bc-inventory/interface/view-models'
 export * from './ui'

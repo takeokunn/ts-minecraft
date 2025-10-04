@@ -6,8 +6,8 @@ import {
   type ChunkMetadata,
   type HeightValue,
   HeightValue as MakeHeightValue,
-} from '../../value_object/chunk_metadata'
-import type { ChunkPosition } from '../../value_object/chunk_position'
+} from '../../value_object/chunk-metadata'
+import type { ChunkPosition } from '../../value_object/chunk-position'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 /**

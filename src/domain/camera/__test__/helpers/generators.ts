@@ -20,7 +20,7 @@ import type {
 import type { Angle, CameraRotation, Pitch, Yaw } from '../../value_object/camera_rotation/types'
 import type { ViewMode as ViewModeType } from '../../value_object/view_mode/types'
 // 値として使用するものは通常のimportに変更
-import { ViewMode, PositionError, ViewModeError } from '../../value_object'
+import { ViewMode, PositionError, ViewModeError } from '../../value-object'
 
 /**
  * === Position3D Generators ===

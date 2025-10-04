@@ -54,4 +54,4 @@ export {
   ChunkLoadingProviderLive,
   ChunkLoaderDomainLive,
   makeChunkLoadingProvider,
-} from './application/chunk_loading_provider'
+} from './application/chunk-loading-provider'

@@ -1,9 +1,9 @@
 import { Schema } from '@effect/schema'
 import { Array as RA, Brand, Data, Effect, Match, Option, pipe } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkMetadata } from '../../value_object/chunk_metadata'
-import { ChunkPositionSchema } from '../../value_object/chunk_position'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import type { ChunkPosition } from '../../value_object/chunk-position'
+import type { ChunkMetadata } from '../../value_object/chunk-metadata'
+import { ChunkPositionSchema } from '../../value_object/chunk-position'
+import { ChunkMetadataSchema } from '../../value_object/chunk-metadata'
 
 /**
  * ブランド型

@@ -4,41 +4,28 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "moduleResolution": "bundler",
     "strict": true,
-    "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true,
-    "allowSyntheticDefaultImports": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noFallthroughCasesInSwitch": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@config/*": ["src/config/*"],
-      "@domain/*": ["src/domain/*"],
+      "@domain/inventory": ["src/bounded-contexts/inventory/domain/index.ts"],
+      "@domain/inventory/*": ["src/bounded-contexts/inventory/domain/*"],
+      "@domain/world": ["src/bounded-contexts/world/domain/index.ts"],
+      "@domain/world/*": ["src/bounded-contexts/world/domain/*"],
       "@application/*": ["src/application/*"],
-      "@infrastructure/*": ["src/infrastructure/*"],
+      "@domain/*": ["src/domain/*"],
       "@presentation/*": ["src/presentation/*"],
-      "@shared/*": ["src/shared/*"],
-      "@bootstrap/*": ["src/bootstrap/*"]
+      "@mc/bc-world/*": ["src/bounded-contexts/world/*"],
+      "@mc/bc-inventory/*": ["src/bounded-contexts/inventory/*"]
     },
     "types": ["vitest/globals", "node"],
-    "downlevelIteration": true
+    "noEmit": true
   },
-  "include": [
-    "src/domain/block/**/*",
-    "vitest.config.ts"
-  ],
-  "exclude": ["node_modules", "dist", "**/__test__/**", "**/*.test.ts"]
+  "include": ["src", "vite.config.ts", "vitest.config.ts"],
+  "exclude": ["dist", "dist-types", "node_modules"]
 }

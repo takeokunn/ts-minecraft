@@ -1,6 +1,6 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk'
-import { ChunkDataValidationError } from '../../aggregate/chunk_data'
+import { ChunkDataValidationError } from '../../aggregate/chunk-data'
 import { CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_VOLUME } from '../../types/core'
 
 export type OptimizationStrategy =

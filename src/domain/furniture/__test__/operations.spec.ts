@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option, Schema, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as ReadonlyArray from 'effect/Array'
 import * as fc from 'fast-check'
 import {
   AppendPageCommand,

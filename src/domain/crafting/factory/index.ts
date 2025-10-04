@@ -1,2 +1,2 @@
-export * from './crafting_session_factory'
-export * from './recipe_factory'
+export * from './crafting-session-factory'
+export * from './recipe-factory'

@@ -39,8 +39,14 @@ describe('vector3', () => {
     })
   })
 
-  // TODO: プロパティテストの高速化後にskipを解除する
-  it.effect.skip('normalization produces unit vectors', () => Effect.unit)
+  it.effect.prop('normalization produces unit vectors', [nonDegenerateVector], ([components]) =>
+    Effect.gen(function* () {
+      const vector = yield* fromNumbers(...components)
+      const unit = yield* normalize(vector)
+      const length = yield* magnitude(unit)
+      expect(length).toBeCloseTo(1, 5)
+    })
+  )
 
   it.effect('translation composes additively', () =>
     Effect.gen(function* () {

@@ -33,4 +33,4 @@ export {
   DevelopmentRepositoryLayer,
   TestRepositoryLayer,
   ProductionRepositoryLayer,
-} from './repository_strategy'
+} from './repository-strategy'

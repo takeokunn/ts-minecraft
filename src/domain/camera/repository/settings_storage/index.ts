@@ -285,7 +285,7 @@ export type { ViewMode } from '../../value_object/index.js'
  *
  * ## 使用例
  * ```typescript
- * import { SettingsStorageRepository, SettingsStorageRepositoryLive } from './settings_storage'
+ * import { SettingsStorageRepository, SettingsStorageRepositoryLive } from './settings-storage'
  * import { Effect, Layer } from 'effect'
  *
  * // プレイヤー設定保存

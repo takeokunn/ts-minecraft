@@ -35,6 +35,12 @@ export const makeIdentifier = (value: string): Effect.Effect<Identifier, DomainE
   Effect.gen(function* () {
     const trimmed = value.trim()
 
+    if (trimmed !== value) {
+      return yield* Effect.fail(
+        ValidationError({ field: 'identifier', message: 'identifier must not contain surrounding whitespace' })
+      )
+    }
+
     if (trimmed.length < 3) {
       return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'length must be >= 3' }))
     }

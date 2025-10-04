@@ -1,7 +1,7 @@
 import { Effect, Match, pipe } from 'effect'
 import type { ChunkData } from '../chunk_data/types'
 import { ChunkDataOptics } from './optics'
-import type { HeightValue } from '../../value_object/chunk_metadata'
+import type { HeightValue } from '../../value_object/chunk-metadata'
 import { CHUNK_MIN_Y, CHUNK_SIZE } from '../../types/core'
 
 const blocksPerLayer = CHUNK_SIZE * CHUNK_SIZE

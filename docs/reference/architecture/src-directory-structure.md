@@ -340,54 +340,23 @@ src/application/
     └── ApplicationError.ts      # アプリケーション層エラー
 ```
 
-### 3. Infrastructure層 (`src/infrastructure/`)
+### 3. Infrastructure層（`src/bounded-contexts/<context>/infrastructure`）
 
-ECS実装、レンダリング、外部システム統合。
+技術的な Adapter や Effect Layer は Bounded Context ごとに配置します。旧 `src/infrastructure` はレガシー参照のみを残しており、新規実装は以下の構成を基準としてください。
 
-```
-src/infrastructure/
-├── index.ts                     # インフラストラクチャ層エクスポート統合
-├── ecs/                         # ECS（Entity Component System）実装
-│   ├── World.ts                # ECSワールド
-│   ├── Entity.ts               # エンティティ管理
-│   ├── ComponentManager.ts     # コンポーネント管理
-│   ├── SystemManager.ts        # システム管理
-│   ├── QueryManager.ts         # クエリ管理
-│   └── components/             # ECSコンポーネント定義
-│       ├── Transform.ts        # 変換コンポーネント
-│       ├── Mesh.ts             # メッシュコンポーネント
-│       ├── Physics.ts          # 物理コンポーネント
-│       ├── Collider.ts         # コライダーコンポーネント
-│       └── PlayerController.ts # プレイヤーコントローラー
-├── rendering/                   # レンダリングシステム
-│   ├── ThreeJSRenderer.ts      # Three.jsレンダラー
-│   ├── ChunkRenderer.ts        # チャンクレンダラー
-│   ├── BlockRenderer.ts        # ブロックレンダラー
-│   ├── PlayerRenderer.ts       # プレイヤーレンダラー
-│   ├── ParticleRenderer.ts     # パーティクルレンダラー
-│   ├── shaders/                # シェーダー
-│   │   ├── block.vert.glsl     # ブロック頂点シェーダー
-│   │   ├── block.frag.glsl     # ブロックフラグメントシェーダー
-│   │   ├── water.vert.glsl     # 水頂点シェーダー
-│   │   └── water.frag.glsl     # 水フラグメントシェーダー
-│   └── materials/              # マテリアル定義
-│       ├── BlockMaterial.ts    # ブロックマテリアル
-│       └── WaterMaterial.ts    # 水マテリアル
-├── storage/                     # データ永続化
-│   ├── WorldStorage.ts         # ワールドデータ保存
-│   ├── PlayerStorage.ts        # プレイヤーデータ保存
-│   ├── ChunkStorage.ts         # チャンクデータ保存
-│   └── GameStorage.ts          # ゲームデータ保存
-├── physics/                     # 物理演算
-│   ├── PhysicsEngine.ts        # 物理エンジン
-│   ├── CollisionDetection.ts   # 衝突判定
-│   ├── RigidBody.ts            # 剛体
-│   └── CollisionShapes.ts      # 衝突形状
-└── audio/                       # オーディオシステム
-    ├── AudioManager.ts         # オーディオ管理
-    ├── SoundEffects.ts         # 効果音
-    └── BackgroundMusic.ts      # BGM
-```
+````
+src/bounded-contexts/world/infrastructure/
+├── audio/
+├── ecs/
+├── events/
+├── rendering/
+└── scene/
+
+src/bounded-contexts/inventory/infrastructure/
+└── persistence/
+````
+
+ユースケース層からポートを介して利用し、他コンテキストへの直接依存を避けます。
 
 ### 4. Presentation層 (`src/presentation/`)
 

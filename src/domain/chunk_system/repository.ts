@@ -11,6 +11,6 @@ export interface ChunkSystemRepository {
   readonly observe: Stream.Stream<ChunkEvent, ChunkSystemError>
 }
 
-export const ChunkSystemRepository = Context.Tag<ChunkSystemRepository>(
+export const ChunkSystemRepository = Context.GenericTag<ChunkSystemRepository>(
   '@minecraft/domain/chunk_system/ChunkSystemRepository'
 )

@@ -7,7 +7,7 @@ export interface PlayerClockService {
   readonly fromUnix: (millis: number) => Effect.Effect<PlayerTimestamp, ReturnType<typeof PlayerErrorBuilders.clock>>
 }
 
-export const PlayerClock = Context.Tag<PlayerClockService>('@domain/player/clock')
+export const PlayerClock = Context.GenericTag<PlayerClockService>('@domain/player/clock')
 
 const decodeTimestamp = (value: unknown) =>
   pipe(

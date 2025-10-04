@@ -1,17 +1,19 @@
 import { describe, it, expect } from '@effect/vitest'
 import * as fc from 'effect/FastCheck'
+import * as Arbitrary from 'effect/Arbitrary'
 import { Effect, Either, Match } from 'effect'
 import { pipe } from 'effect/Function'
 import {
   InteractionCommand,
   InteractionError,
+  InteractionCommandSchema,
   matchInteractionError,
   parseCommand,
   parseEvent,
   decodeSessionIdEither,
 } from '../../types'
 import { fromNumbers } from '../../value_object/vector3'
-import { fromNormalVector } from '../../value_object/block_face'
+import { fromNormalVector } from '../../value_object/block-face'
 
 describe('types', () => {
   it.effect('parses valid commands', () =>
@@ -45,6 +47,10 @@ describe('types', () => {
     expect(message).toBe('oops')
   })
 
-  // TODO: プロパティテストの高速化後にskipを解除する
-  it.effect.skip('command schema round-trips', () => Effect.unit)
+  const commandArbitrary = Arbitrary.make(InteractionCommandSchema)
+
+  it.prop('command schema round-trips', [commandArbitrary], ([command]) => {
+    const parsed = Effect.runSync(parseCommand(command))
+    expect(parsed._tag).toBe(command._tag)
+  })
 })

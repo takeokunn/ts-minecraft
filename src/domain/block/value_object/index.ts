@@ -1,1 +1,1 @@
-export * from './block_identity'
+export * from './block-identity'

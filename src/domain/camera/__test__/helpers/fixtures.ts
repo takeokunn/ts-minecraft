@@ -24,7 +24,7 @@ import type {
   ThirdPersonSettings,
   ViewMode as ViewModeType,
 } from '../../value_object/view_mode/types'
-import { ViewMode } from '../../value_object/view_mode'
+import { ViewMode } from '../../value_object/view-mode'
 
 /**
  * === 基本的なFixture定数 ===

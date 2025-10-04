@@ -11,7 +11,7 @@ export * from './generators'
 export * from './fixtures'
 
 // Test Layer
-export * from './test_layer'
+export * from './test-layer'
 
 // Re-export frequently used testing utilities
 export {
@@ -29,7 +29,7 @@ export {
   runIntegrationTest,
   runPerformanceTest,
   runTest,
-} from './test_layer'
+} from './test-layer'
 
 export {
   DEFAULT_ANIMATION_TIMELINE,

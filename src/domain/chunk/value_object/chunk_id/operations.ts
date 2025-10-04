@@ -1,5 +1,5 @@
 import { Clock, Effect, Match, Option, Random, Schema, pipe } from 'effect'
-import { createChunkPosition, type ChunkPosition } from '../chunk_position'
+import { createChunkPosition, type ChunkPosition } from '../chunk-position'
 import {
   type ChunkId,
   type ChunkIdVersion,

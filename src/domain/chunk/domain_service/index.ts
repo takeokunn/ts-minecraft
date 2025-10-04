@@ -9,25 +9,25 @@ import { Layer, Effect } from 'effect'
 import {
   ChunkValidationService,
   ChunkValidationServiceLive
-} from './chunk_validator'
+} from './chunk-validator'
 import {
   ChunkSerializationService,
   ChunkSerializationServiceLive
-} from './chunk_serializer'
+} from './chunk-serializer'
 import {
   ChunkOptimizationService,
   ChunkOptimizationServiceLive,
   type OptimizationResult
-} from './chunk_optimizer'
+} from './chunk-optimizer'
 import { ChunkData } from '../aggregate/chunk'
-import { ChunkDataValidationError } from '../aggregate/chunk_data'
+import { ChunkDataValidationError } from '../aggregate/chunk-data'
 
 // 個別サービスの再エクスポート
 export {
   ChunkValidationService,
   ChunkValidationServiceLive,
   type ChunkValidationService as ChunkValidationServiceType
-} from './chunk_validator'
+} from './chunk-validator'
 
 export {
   ChunkSerializationService,
@@ -35,7 +35,7 @@ export {
   type ChunkSerializationService as ChunkSerializationServiceType,
   type SerializationFormat,
   SerializationFormat
-} from './chunk_serializer'
+} from './chunk-serializer'
 
 export {
   ChunkOptimizationService,
@@ -45,7 +45,7 @@ export {
   OptimizationStrategy,
   type OptimizationMetrics,
   type OptimizationResult
-} from './chunk_optimizer'
+} from './chunk-optimizer'
 
 /**
  * 全てのチャンクドメインサービスを統合したレイヤー

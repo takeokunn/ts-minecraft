@@ -14,9 +14,9 @@ import {
   CHUNK_HEIGHT,
   CHUNK_MIN_Y,
 } from '../../types/core'
-import { ChunkStateOptics, ChunkStateOpticsHelpers, ChunkStateGuards } from '../../types/state_optics'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import { ChunkStateOptics, ChunkStateOpticsHelpers, ChunkStateGuards } from '../../types/state-optics'
+import type { ChunkPosition } from '../../value_object/chunk-position'
+import type { ChunkMetadata, HeightValue } from '../../value_object/chunk-metadata'
 import { ChunkBoundsError } from './types'
 
 const localBlockIndex = (x: number, y: number, z: number): number =>

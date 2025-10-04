@@ -1,13 +1,16 @@
-import { GameApplicationLive } from '@application/GameApplicationLive'
+import { GameApplicationLive } from '@application/game-application-live'
 import { Clock, Config as EffectConfig, ConfigProvider, Effect, Either, Layer, Option, pipe } from 'effect'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 import { GameLoopServiceLive } from '@domain/game_loop/legacy'
-import { InputServiceLive } from '@domain/input/InputServiceLive'
+import { InputServiceLive } from '@domain/input/input-service-live'
 import { InteractionDomainLive } from '@domain/interaction'
 import { SceneManagerLive } from '@domain/scene/manager/live'
-import { ThreeRendererLive } from '@infrastructure/rendering.disabled/ThreeRendererLive'
+import { SceneServiceLive } from '@mc/bc-world/infrastructure/scene/scene-service-live'
+import { RendererServiceLive } from '@mc/bc-world/infrastructure/rendering/disabled/renderer-service-live'
+import { ThreeRendererLive } from '@mc/bc-world/infrastructure/rendering/disabled/three-renderer-live'
+import { TimeLive } from '@shared-kernel/time'
 import {
   AppError,
   BootstrapConfig,
@@ -199,16 +202,24 @@ export const makeAppService = Effect.gen(function* () {
 
 export const AppServiceLayer = Layer.scoped(AppServiceTag, makeAppService)
 
+const SceneManagerLayer = Layer.provideMerge(SceneServiceLive)(SceneManagerLive)
+
 const BaseServicesLayer = Layer.mergeAll(
+  SceneManagerLayer,
   GameLoopServiceLive,
-  SceneManagerLive,
+  RendererServiceLive,
   ThreeRendererLive,
   InputServiceLive,
-  InteractionDomainLive
+  InteractionDomainLive,
+  TimeLive
 )
 
 const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 
-export const MainLayer = Layer.mergeAll(BaseServicesLayer, ApplicationLayer, ConfigLayer, AppServiceLayer)
+const ConfiguredAppLayer = Layer.provideMerge(ConfigLayer)(AppServiceLayer)
 
-export const TestLayer = Layer.mergeAll(ConfigLayer, AppServiceLayer)
+export const MainLayer = Layer.provideMerge(ConfiguredAppLayer)(
+  Layer.mergeAll(BaseServicesLayer, ApplicationLayer)
+)
+
+export const TestLayer = Layer.provideMerge(ConfigLayer)(AppServiceLayer)

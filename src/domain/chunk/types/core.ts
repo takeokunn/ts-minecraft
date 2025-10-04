@@ -1,7 +1,7 @@
 import { Data, Schema } from 'effect'
 import type { Brand } from 'effect'
-import type { ChunkPosition } from '../value_object/chunk_position'
-import type { ChunkMetadata } from '../value_object/chunk_metadata'
+import type { ChunkPosition } from '../value_object/chunk-position'
+import type { ChunkMetadata } from '../value_object/chunk-metadata'
 
 /**
  * Chunk Domain Core Constants & ADT Types

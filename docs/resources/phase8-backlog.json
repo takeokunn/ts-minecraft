@@ -1,0 +1,32 @@
+[
+  {
+    "phase": 3,
+    "task": "GameApplicationLive.ts の Layer 合成をユースケース別モジュールへ分割",
+    "status": "done"
+  },
+  {
+    "phase": 4,
+    "task": "src/infrastructure/inventory/persistence を bounded-contexts/inventory/infrastructure/persistence へ移動",
+    "status": "done"
+  },
+  {
+    "phase": 4,
+    "task": "src/infrastructure/audio/* / ecs/* / events/* / rendering.disabled/* を bounded-contexts/world/infrastructure/ へ移行",
+    "status": "done"
+  },
+  {
+    "phase": 5,
+    "task": "Inventory ViewModel を DTO 化して bounded-contexts/inventory/interface/view-models に移設",
+    "status": "done"
+  },
+  {
+    "phase": 6,
+    "task": "dependency-cruiser.config.cjs を導入し CI に追加",
+    "status": "done"
+  },
+  {
+    "phase": 7,
+    "task": "CI ワークフローを更新し test:domain / test:interface を追加",
+    "status": "done"
+  }
+]

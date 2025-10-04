@@ -1,2 +1,2 @@
-export * from './block_properties'
-export * from './block_definition'
+export * from './block-properties'
+export * from './block-definition'

@@ -1,1 +1,1 @@
-export * from './block_factory'
+export * from './block-factory'

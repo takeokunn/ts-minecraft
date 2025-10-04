@@ -1,0 +1,14 @@
+[
+  {
+    "file": "inventory/ui/components/ItemSlot.test.tsx",
+    "spec": "../../adt/inventory-adt"
+  },
+  {
+    "file": "inventory/ui/components/ItemSlot.tsx",
+    "spec": "../../adt/inventory-adt"
+  },
+  {
+    "file": "inventory/view-model/inventory-view-model.test.ts",
+    "spec": "@domain/inventory/InventoryService"
+  }
+]

@@ -2,7 +2,7 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Either, Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFaceSchema } from '../value_object/block_face'
+import { BlockFaceSchema } from '../value_object/block-face'
 import { Vector3Schema } from '../value_object/vector3'
 
 const IdentifierSchema = Schema.String.pipe(

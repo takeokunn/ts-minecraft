@@ -18,6 +18,8 @@ status: 'complete'
 
 TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳しく解説します。厳格な型チェック、Effect-TS最適化、パフォーマンス調整、Three.js統合など、実用的な設定例を豊富に提供します。
 
+> **Note:** インフラ層のモジュールは `@mc/bc-*/infrastructure/*` エイリアスへ移行済みです。旧 `@/infrastructure/*` エイリアスはレガシー互換用としてのみ利用してください。
+
 ## 基本設定
 
 ### 完全なtsconfig.json設定例

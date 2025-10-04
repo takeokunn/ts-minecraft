@@ -15,6 +15,7 @@ import type {
   CameraConfig,
   CameraState,
 } from './types/index.js'
+import { CameraConfig as CameraConfigSchema, CameraState as CameraStateSchema } from './types.js'
 import {
   AnimationDurationSchema,
   CameraDistanceSchema,
@@ -52,7 +53,7 @@ export { createCameraError }
  */
 export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfig, CameraError> =>
   pipe(
-    Schema.decodeUnknown(CameraConfig)(config),
+    Schema.decodeUnknown(CameraConfigSchema)(config),
     Effect.mapError((parseError) =>
       createCameraError.invalidConfiguration(`カメラ設定の検証に失敗しました: ${parseError.message}`, config)
     )
@@ -63,7 +64,7 @@ export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfi
  */
 export const validateCameraState = (state: unknown): Effect.Effect<CameraState, CameraError> =>
   pipe(
-    Schema.decodeUnknown(CameraState)(state),
+    Schema.decodeUnknown(CameraStateSchema)(state),
     Effect.mapError((parseError) =>
       createCameraError.invalidParameter('カメラ状態', state, `Valid CameraState: ${parseError.message}`)
     )

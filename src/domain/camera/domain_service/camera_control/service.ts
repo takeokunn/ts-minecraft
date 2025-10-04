@@ -14,7 +14,7 @@ import type {
   Position3D,
   SmoothingFactor,
   Vector3D,
-} from '../../value_object'
+} from '../../value-object'
 
 /**
  * カメラ制御ドメインサービスの型定義

@@ -7,7 +7,7 @@
  */
 
 import { Context, Data, Effect, Option } from 'effect'
-import type { BoundingBox, CameraError, Position3D, Vector3D } from '../../value_object'
+import type { BoundingBox, CameraError, Position3D, Vector3D } from '../../value-object'
 
 /**
  * 衝突検出ドメインサービスの型定義

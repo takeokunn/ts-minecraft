@@ -6,11 +6,21 @@ const decodeProgress = Schema.decode(SceneProgressSchema)
 const formatIssue = (issue: Schema.ParseError) => Schema.formatIssueSync(issue)
 
 const clampProgress = (value: number) =>
-  decodeProgress(value).pipe(
-    Effect.mapError((issue) =>
-      SceneControllerError.InvalidMutation({ reason: formatIssue(issue) })
+  Effect.gen(function* () {
+    if (!Number.isFinite(value)) {
+      return yield* Effect.fail(
+        SceneControllerError.InvalidMutation({ reason: '進捗には有限値が必要です' })
+      )
+    }
+
+    const normalized = Math.max(0, Math.min(1, value))
+
+    return yield* decodeProgress(normalized).pipe(
+      Effect.mapError((issue) =>
+        SceneControllerError.InvalidMutation({ reason: formatIssue(issue) })
+      )
     )
-  )
+  })
 
 export interface LoadingSceneController extends SceneController<ReturnType<typeof Scenes.Loading>> {
   readonly advance: (delta: number) => Effect.Effect<number, SceneControllerError>

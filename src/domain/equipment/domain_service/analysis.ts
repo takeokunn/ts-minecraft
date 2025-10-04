@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import type { EquipmentSet } from '../aggregate/equipment_set'
+import type { EquipmentSet } from '../aggregate/equipment-set'
 import { equipmentSlotLiterals } from '../value_object/slot'
 
 export interface EquipmentAnalysisSummary {

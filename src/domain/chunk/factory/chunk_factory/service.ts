@@ -6,7 +6,7 @@ import {
   type ChunkData,
   createChunkAggregate,
 } from '../../aggregate/chunk'
-import { ChunkDataValidationError } from '../../aggregate/chunk_data'
+import { ChunkDataValidationError } from '../../aggregate/chunk-data'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
 import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
 import {
@@ -14,7 +14,7 @@ import {
   ChunkSerializationService,
   ChunkValidationService,
   type SerializationFormat,
-} from '../../domain_service'
+} from '../../domain-service'
 
 export interface ChunkFactoryService {
   readonly createValidatedChunk: (
@@ -187,7 +187,7 @@ export const ChunkFactoryServiceLive = Layer.effect(
             shouldValidate,
             Match.value,
             Match.when(true, () => ensureIntegrity(validation, cloned)),
-            Match.orElse(() => Effect.unit)
+            Match.orElse(() => Effect.void)
           )
 
           return yield* pipe(

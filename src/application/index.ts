@@ -1,5 +1,5 @@
-export { GameApplication } from './GameApplication'
-export { GameApplicationLive } from './GameApplicationLive'
+export { GameApplication } from './game-application'
+export { GameApplicationLive } from './game-application-live'
 export { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'
 export * from './inventory'

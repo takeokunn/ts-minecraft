@@ -1,2 +1,2 @@
-export * from './InventoryPanel'
-export * from './ItemSlot'
+export * from './inventory-panel'
+export * from './item-slot'

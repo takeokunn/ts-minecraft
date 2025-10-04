@@ -7,8 +7,8 @@
  */
 
 import { Effect, Layer, Match, Option, pipe } from 'effect'
-import type { BoundingBox, CameraError, Position3D, Vector3D } from '../../value_object'
-import { Position3DOps, createDirection3D, createPosition3D } from '../../value_object'
+import type { BoundingBox, CameraError, Position3D, Vector3D } from '../../value-object'
+import { Position3DOps, createDirection3D, createPosition3D } from '../../value-object'
 import type {
   CollisionMaterial,
   CollisionMaterialType,

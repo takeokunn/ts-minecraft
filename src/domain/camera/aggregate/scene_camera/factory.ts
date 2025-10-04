@@ -19,7 +19,7 @@ import {
   SceneCamera,
   SceneId,
   TargetStrategy,
-} from './scene_camera.js'
+} from './scene-camera.js'
 
 /**
  * SceneCamera Factory Namespace

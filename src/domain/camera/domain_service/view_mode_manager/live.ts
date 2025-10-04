@@ -16,7 +16,7 @@ import type {
   EasingType,
   Position3D,
   ViewMode,
-} from '../../value_object'
+} from '../../value-object'
 import {
   AnimationValueFactory,
   CameraOps,
@@ -24,7 +24,7 @@ import {
   Position3DOps,
   ViewModeFactory,
   ViewModeOps,
-} from '../../value_object'
+} from '../../value-object'
 import type {
   CameraPath,
   EnvironmentState,

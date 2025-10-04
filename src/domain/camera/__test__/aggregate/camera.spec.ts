@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 
 // Camera Aggregateの実装（実際のインポートパスに合わせて調整）
 
-import type { CameraDistance, CameraRotation, Position3D, ViewOffset, ViewMode } from '../../value_object'
+import type { CameraDistance, CameraRotation, Position3D, ViewOffset, ViewMode } from '../../value-object'
 
 import {
   createCameraRotation,

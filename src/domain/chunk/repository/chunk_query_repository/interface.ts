@@ -1,8 +1,8 @@
 import { Context, Effect } from 'effect'
-import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkData } from '../../aggregate/chunk_data'
-import type { ChunkId } from '../../value_object/chunk_id'
-import type { RepositoryError } from '../types/repository_error'
+import type { ChunkPosition } from '../../value_object/chunk-position'
+import type { ChunkData } from '../../aggregate/chunk-data'
+import type { ChunkId } from '../../value_object/chunk-id'
+import type { RepositoryError } from '../types/repository-error'
 
 /**
  * Chunk Query Repository Interface

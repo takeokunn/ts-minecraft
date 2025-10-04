@@ -10,3 +10,6 @@ __snapshots__/
 src/**/*.js
 /test-results/
 /html/
+
+dist-types/
+*.tsbuildinfo

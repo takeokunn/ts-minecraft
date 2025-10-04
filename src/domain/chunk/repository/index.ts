@@ -27,7 +27,7 @@ export {
   WebWorkerChunkRepositoryLive,
   createWebWorkerChunkRepository,
   WORKER_SCRIPT_TEMPLATE,
-} from './chunk_repository'
+} from './chunk-repository'
 
 // ===== Query Repository (CQRS) ===== //
 
@@ -42,7 +42,7 @@ export {
   type ChunkNeighborhood,
   type ChunkHeatmapData,
   ChunkQueryRepositoryLive,
-} from './chunk_query_repository'
+} from './chunk-query-repository'
 
 // ===== Event Repository (Event Sourcing) ===== //
 
@@ -68,7 +68,7 @@ export {
   type ChunkSnapshot,
   type EventQuery,
   type EventFactory,
-} from './chunk_event_repository'
+} from './chunk-event-repository'
 
 // ===== Error Handling ===== //
 

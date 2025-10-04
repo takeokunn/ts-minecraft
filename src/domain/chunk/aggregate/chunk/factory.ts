@@ -12,7 +12,7 @@ import {
   ChunkDataSchema,
   ChunkId as MakeChunkId,
 } from './types'
-import type { ChunkMetadata } from '../../value_object/chunk_metadata'
+import type { ChunkMetadata } from '../../value_object/chunk-metadata'
 import { CHUNK_HEIGHT, CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>

@@ -1,5 +1,6 @@
-// アプリケーションエントリーポイント
-import { initApp } from './app'
-
-// アプリケーションを初期化
-initApp()
+export * from './application'
+export * from './bootstrap'
+export * from './domain'
+export * from './platform'
+export * from './presentation'
+export * from './shared-kernel'

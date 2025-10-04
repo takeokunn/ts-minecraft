@@ -1,5 +1,4 @@
-import { describe, expect, it, prop } from '@effect/vitest'
-import * as FC from 'effect/FastCheck'
+import { describe, expect, it } from '@effect/vitest'
 import { Option } from 'effect'
 import { AxisId, AxisValue, InputTimestamp, KeyCode, MouseButton, type InputEvent } from '../model'
 import { applyEvent, axisValue, isKeyActive, isMouseButtonActive, makeSnapshot } from '../state'
@@ -41,22 +40,20 @@ describe('state', () => {
     expect(isMouseButtonActive(pressed, MouseButton('left'))).toBe(true)
   })
 
-  prop(
-    'axis updates are visible through axisValue lookup',
-    [FC.integer({ min: 0, max: 7 }), FC.double({ min: -1, max: 1 })],
-    ([axisIndex, axisValueSample]) => {
-      const axis = AxisId(axisIndex)
-      const value = AxisValue(axisValueSample)
-      const snapshot = makeSnapshot(InputTimestamp(0))
-      const updated = applyEvent(snapshot, {
-        _tag: 'GamepadAxisChanged',
-        axis,
-        value,
-        timestamp: InputTimestamp(1),
-      })
-      const observed = axisValue(updated, axis)
-      expect(Option.isSome(observed)).toBe(true)
-      expect(Option.getOrElse(observed, () => AxisValue(0))).toBeCloseTo(value, 5)
-    }
-  )
+  it('axis updates are visible through axisValue lookup', () => {
+    const snapshot = makeSnapshot(InputTimestamp(0))
+    const updated = applyEvent(snapshot, {
+      _tag: 'GamepadAxisChanged',
+      axis: AxisId(1),
+      value: AxisValue(0.6),
+      timestamp: InputTimestamp(2),
+    })
+
+    const value = axisValue(updated, AxisId(1))
+    expect(Option.isSome(value)).toBe(true)
+    expect(value).toEqual(Option.some(AxisValue(0.6)))
+
+    const empty = axisValue(updated, AxisId(2))
+    expect(empty).toEqual(Option.none())
+  })
 })

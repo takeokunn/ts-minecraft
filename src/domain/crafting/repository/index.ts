@@ -1,2 +1,2 @@
-export * from './crafting_history_repository'
-export * from './recipe_repository'
+export * from './crafting-history-repository'
+export * from './recipe-repository'

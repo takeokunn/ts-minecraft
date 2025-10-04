@@ -6,15 +6,15 @@
  */
 
 import { Layer } from 'effect'
-import { ChunkFactoryService, ChunkFactoryServiceLive } from './chunk_factory'
-import { ChunkDomainServices } from '../domain_service'
+import { ChunkFactoryService, ChunkFactoryServiceLive } from './chunk-factory'
+import { ChunkDomainServices } from '../domain-service'
 
 // 個別ファクトリーの再エクスポート
 export {
   ChunkFactoryService,
   ChunkFactoryServiceLive,
   type ChunkFactoryService as ChunkFactoryServiceType
-} from './chunk_factory'
+} from './chunk-factory'
 
 /**
  * Domain Serviceと統合したファクトリーレイヤー

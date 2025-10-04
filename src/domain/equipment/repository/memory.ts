@@ -2,9 +2,9 @@ import { Context, Effect, Layer, Ref } from 'effect'
 import type { EquipmentSetId, EquipmentOwnerId, UnixTime } from '../types/core'
 import type { NotFound } from '../types/core'
 import { makeNotFound } from '../types/core'
-import type { EquipmentPiece } from '../aggregate/equipment_piece'
-import type { EquipmentSet } from '../aggregate/equipment_set'
-import { equipPiece, unequipSlot } from '../aggregate/equipment_set'
+import type { EquipmentPiece } from '../aggregate/equipment-piece'
+import type { EquipmentSet } from '../aggregate/equipment-set'
+import { equipPiece, unequipSlot } from '../aggregate/equipment-set'
 import type { EquipmentSlot } from '../value_object/slot'
 
 export interface EquipmentRepository {
@@ -15,7 +15,7 @@ export interface EquipmentRepository {
   readonly unequip: (id: EquipmentSetId, slot: EquipmentSlot, timestamp: UnixTime) => Effect.Effect<EquipmentSet, NotFound>
 }
 
-export const EquipmentRepositoryTag = Context.Tag<EquipmentRepository>(
+export const EquipmentRepositoryTag = Context.GenericTag<EquipmentRepository>(
   '@domain/equipment/EquipmentRepository'
 )
 

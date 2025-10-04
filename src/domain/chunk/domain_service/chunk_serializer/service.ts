@@ -4,7 +4,7 @@ import {
   ChunkBoundsError,
   ChunkSerializationError,
 } from '../../aggregate/chunk'
-import { ChunkDataValidationError } from '../../aggregate/chunk_data'
+import { ChunkDataValidationError } from '../../aggregate/chunk-data'
 import { ChunkDataSchema } from '../../aggregate/chunk'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
 import { ChunkPositionSchema } from '../../value_object/chunk_position/types'

@@ -11,7 +11,7 @@ import { CameraId } from '../../types/events.js'
 import { CameraDistance, MouseDelta, MouseSensitivity, Position3D, Smoothing } from '../../value_object/index.js'
 import { Camera } from '../camera/camera.js'
 import { CameraFactory } from '../camera/factory.js'
-import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './player_camera.js'
+import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './player-camera.js'
 
 /**
  * PlayerCamera Factory Namespace

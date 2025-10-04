@@ -31,7 +31,7 @@ export {
   ChunkDataCorruptionError,
   createChunkDataAggregate,
   createEmptyChunkDataAggregate,
-} from './chunk_data'
+} from './chunk-data'
 
 // 共用のChunkData型はchunkからのみエクスポート
 export {

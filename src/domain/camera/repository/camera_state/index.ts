@@ -121,7 +121,7 @@ export type { ViewMode } from '../../value_object/index.js'
  *
  * ## 使用例
  * ```typescript
- * import { CameraStateRepository, CameraStateRepositoryLive } from './camera_state'
+ * import { CameraStateRepository, CameraStateRepositoryLive } from './camera-state'
  * import { Effect, Layer } from 'effect'
  *
  * // Repository使用

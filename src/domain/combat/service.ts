@@ -1,6 +1,6 @@
 import { Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as ReadonlyArray from 'effect/Array'
 import {
   AttackKind,
   CombatDomainError,
@@ -70,7 +70,7 @@ const ensureCooldownReady = (
   pipe(
     getCooldown(combatant, attack.tag),
     Option.match({
-      onNone: () => Effect.unit,
+      onNone: () => Effect.void,
       onSome: (remaining) =>
         Effect.filterOrFail(
           Effect.succeed(remaining),

@@ -1,8 +1,10 @@
 import { Data, Effect, Ref, Schema } from 'effect'
+import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import {
   ActiveScene,
   ActiveSceneSchema,
   SceneState,
+  SceneStateSchema,
 } from '../types'
 
 export type SceneControllerError = Data.TaggedEnum<{
@@ -11,7 +13,7 @@ export type SceneControllerError = Data.TaggedEnum<{
 
 export const SceneControllerError = Data.taggedEnum<SceneControllerError>()
 
-export interface SceneController<A extends ActiveScene> {
+export interface SceneController<A extends SceneState> {
   readonly current: () => Effect.Effect<A>
   readonly update: (
     updater: (scene: A) => A
@@ -20,20 +22,20 @@ export interface SceneController<A extends ActiveScene> {
   readonly reset: () => Effect.Effect<A>
 }
 
-const decodeActive = Schema.decode(ActiveSceneSchema)
+const decodeScene = Schema.decode(SceneStateSchema)
 
 const formatIssue = (issue: Schema.ParseError): string =>
-  Schema.formatIssueSync(issue)
+  TreeFormatter.formatErrorSync(issue)
 
-const validate = <A extends ActiveScene>(scene: A): Effect.Effect<A, SceneControllerError> =>
-  decodeActive(scene).pipe(
+const validate = <A extends SceneState>(scene: A): Effect.Effect<A, SceneControllerError> =>
+  decodeScene(scene).pipe(
     Effect.map(() => scene),
     Effect.mapError((issue) =>
       SceneControllerError.InvalidMutation({ reason: formatIssue(issue) })
     )
   )
 
-export const createSceneController = <A extends ActiveScene>(
+export const createSceneController = <A extends SceneState>(
   initial: A
 ): Effect.Effect<SceneController<A>> =>
   Effect.gen(function* () {
@@ -59,12 +61,12 @@ export const createSceneController = <A extends ActiveScene>(
     }
   })
 
-export type SceneBlueprint<A extends ActiveScene> = {
+export type SceneBlueprint<A extends SceneState> = {
   readonly initial: A
   readonly controller: Effect.Effect<SceneController<A>>
 }
 
-export const makeBlueprint = <A extends ActiveScene>(
+export const makeBlueprint = <A extends SceneState>(
   initial: A
 ): SceneBlueprint<A> => ({
   initial,

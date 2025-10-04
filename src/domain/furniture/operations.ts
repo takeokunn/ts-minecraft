@@ -24,7 +24,7 @@ import {
 } from './types.js'
 
 import * as Match from 'effect/Match'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as ReadonlyArray from 'effect/Array'
 type BedAggregate = Extract<Furniture, { _tag: 'Bed' }>
 type BookAggregate = Extract<Furniture, { _tag: 'Book' }>
 type DraftState = Extract<BookAggregate['state'], { _tag: 'Draft' }>

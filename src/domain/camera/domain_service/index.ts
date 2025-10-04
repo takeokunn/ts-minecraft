@@ -10,31 +10,31 @@
  * Camera Control Domain Service
  * カメラ制御に関する純粋なドメインロジック
  */
-export * from './camera_control'
+export * from './camera-control'
 
 /**
  * Animation Engine Domain Service
  * カメラアニメーション制御に関するドメインロジック
  */
-export * from './animation_engine'
+export * from './animation-engine'
 
 /**
  * Collision Detection Domain Service
  * カメラ衝突検出に関するドメインロジック
  */
-export * from './collision_detection'
+export * from './collision-detection'
 
 /**
  * Settings Validator Domain Service
  * カメラ設定検証に関するドメインロジック
  */
-export * from './settings_validator'
+export * from './settings-validator'
 
 /**
  * View Mode Manager Domain Service
  * ビューモード管理に関するドメインロジック
  */
-export * from './view_mode_manager'
+export * from './view-mode-manager'
 
 /**
  * 統合型定義エクスポート
@@ -49,12 +49,12 @@ export {
   CollisionDetectionService as CollisionDetectionTag,
   SettingsValidatorService as SettingsValidatorTag,
   ViewModeManagerService as ViewModeManagerTag,
-} from './camera_control'
+} from './camera-control'
 
-export { AnimationEngineService } from './animation_engine'
-export { CollisionDetectionService } from './collision_detection'
-export { SettingsValidatorService } from './settings_validator'
-export { ViewModeManagerService } from './view_mode_manager'
+export { AnimationEngineService } from './animation-engine'
+export { CollisionDetectionService } from './collision-detection'
+export { SettingsValidatorService } from './settings-validator'
+export { ViewModeManagerService } from './view-mode-manager'
 
 // Live Implementations for Layer composition
 export {
@@ -63,7 +63,7 @@ export {
   CollisionDetectionServiceLive,
   SettingsValidatorServiceLive,
   ViewModeManagerServiceLive,
-} from './camera_control'
+} from './camera-control'
 
 /**
  * 統合Layer定義
@@ -77,7 +77,7 @@ import {
   CollisionDetectionServiceLive,
   SettingsValidatorServiceLive,
   ViewModeManagerServiceLive,
-} from './camera_control'
+} from './camera-control'
 
 /**
  * 全カメラドメインサービスの統合Layer
@@ -104,7 +104,7 @@ export type {
   CollisionDetectionService,
   SettingsValidatorService,
   ViewModeManagerService,
-} from './camera_control'
+} from './camera-control'
 
 /**
  * 主要なドメインエラー型の再エクスポート
@@ -114,7 +114,7 @@ export type {
   CompatibilityResult,
   SettingsValidationError,
   TransitionExecutionResult,
-} from './camera_control'
+} from './camera-control'
 
 /**
  * 使用例:

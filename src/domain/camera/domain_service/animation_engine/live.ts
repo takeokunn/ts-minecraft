@@ -15,7 +15,7 @@ import type {
   EasingType,
   Position3D,
   Timestamp,
-} from '../../value_object'
+} from '../../value-object'
 import {
   AnimationStateOps,
   AnimationValueFactory,
@@ -23,7 +23,7 @@ import {
   EasingFunctions,
   InterpolationOps,
   Position3DOps,
-} from '../../value_object'
+} from '../../value-object'
 import type {
   AnimationKeyframe,
   AnimationStateUnion,

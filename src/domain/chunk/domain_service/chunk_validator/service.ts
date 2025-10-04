@@ -5,7 +5,7 @@ import {
   type ChunkData,
   ChunkDataSchema,
 } from '../../aggregate/chunk'
-import { ChunkDataValidationError } from '../../aggregate/chunk_data'
+import { ChunkDataValidationError } from '../../aggregate/chunk-data'
 import type { ChunkPosition } from '../../value_object/chunk_position/types'
 import {
   type ChunkMetadata,

@@ -1,8 +1,8 @@
 // Camera Domain Services
-export * from './first_person'
+export * from './first-person'
 export * from './live'
 export * from './service'
-export * from './third_person'
+export * from './third-person'
 
 // New Types System (main exports)
 export * from './types/index'
@@ -22,7 +22,7 @@ export {
   createCameraDistance as createCameraDistanceVO,
   createCameraRotation as createCameraRotationVO,
   createPosition3D as createPosition3DVO,
-} from './value_object'
+} from './value-object'
 
 // Legacy exports for backward compatibility (explicit re-exports to avoid conflicts)
 export {

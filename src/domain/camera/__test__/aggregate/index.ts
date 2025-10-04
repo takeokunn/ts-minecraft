@@ -7,7 +7,7 @@
 
 // Aggregate Root Tests
 export * from './camera.spec'
-export * from './player_camera.spec'
+export * from './player-camera.spec'
 
 // Aggregate Tests統合
 // 個別スペックファイルのテストが自動で実行される

@@ -124,7 +124,7 @@ export interface ChunkLoadingProvider {
   readonly evict: (chunkId: ChunkId) => Effect.Effect<CacheStatus>
 }
 
-export const ChunkLoadingProviderTag = Context.Tag<ChunkLoadingProvider>(
+export const ChunkLoadingProviderTag = Context.GenericTag<ChunkLoadingProvider>(
   '@minecraft/domain/chunk_loader/ChunkLoadingProvider'
 )
 

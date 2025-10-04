@@ -2,19 +2,19 @@ import { Effect, Schema } from 'effect'
 import type { Simplify } from 'effect/Types'
 import { PhysicsError, fromParseError } from './errors'
 
-const PositiveFloatSchema = Schema.Number.pipe(
+export const PositiveFloatSchema = Schema.Number.pipe(
   Schema.finite(),
   Schema.greaterThan(0),
   Schema.brand('PositiveFloat')
 )
 
-const NonNegativeFloatSchema = Schema.Number.pipe(
+export const NonNegativeFloatSchema = Schema.Number.pipe(
   Schema.finite(),
   Schema.greaterThanOrEqualTo(0),
   Schema.brand('NonNegativeFloat')
 )
 
-const UnitIntervalSchema = Schema.Number.pipe(
+export const UnitIntervalSchema = Schema.Number.pipe(
   Schema.finite(),
   Schema.between(0, 1),
   Schema.brand('UnitInterval')
@@ -38,10 +38,24 @@ export const Vector3Schema = Schema.Struct({
 }).pipe(Schema.brand('Vector3'))
 export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 
-export const AABBSchema = Schema.Struct({
+const AABBSchemaBase = Schema.Struct({
   min: Vector3Schema,
   max: Vector3Schema,
-}).pipe(Schema.brand('AxisAlignedBoundingBox'))
+})
+
+export const AABBSchema = AABBSchemaBase.pipe(
+  Schema.filter(
+    (box): box is typeof box =>
+      box.max.x >= box.min.x &&
+      box.max.y >= box.min.y &&
+      box.max.z >= box.min.z,
+    {
+      identifier: 'AxisAlignedBoundingBox.Order',
+      message: () => 'max座標はmin座標以上である必要があります',
+    }
+  ),
+  Schema.brand('AxisAlignedBoundingBox')
+)
 export type AABB = Schema.Schema.Type<typeof AABBSchema>
 
 export const PhysicsMaterialSchema = Schema.Literal(

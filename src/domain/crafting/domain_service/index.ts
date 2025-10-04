@@ -1,16 +1,16 @@
-export * from './crafting_calculation'
-export * from './pattern_matching'
-export * from './recipe_discovery'
-export * from './recipe_validation'
+export * from './crafting-calculation'
+export * from './pattern-matching'
+export * from './recipe-discovery'
+export * from './recipe-validation'
 
 import { Layer } from 'effect'
 import {
   CraftingCalculationService,
   CraftingCalculationServiceLive,
-} from './crafting_calculation'
-import { PatternMatchingService, PatternMatchingServiceLive } from './pattern_matching'
-import { RecipeDiscoveryService, RecipeDiscoveryServiceLive } from './recipe_discovery'
-import { RecipeValidationService, RecipeValidationServiceLive } from './recipe_validation'
+} from './crafting-calculation'
+import { PatternMatchingService, PatternMatchingServiceLive } from './pattern-matching'
+import { RecipeDiscoveryService, RecipeDiscoveryServiceLive } from './recipe-discovery'
+import { RecipeValidationService, RecipeValidationServiceLive } from './recipe-validation'
 
 export const CraftingDomainServicesLayer = Layer.mergeAll(
   CraftingCalculationServiceLive,

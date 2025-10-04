@@ -71,7 +71,7 @@ export {
   type BlockMetadata,
   BlockDataError,
   BlockDataCorruptionError,
-} from './value_object'
+} from './value-object'
 
 // 型定義（Types） - 定数・エラー・イベント
 export {
@@ -97,10 +97,10 @@ export {
 } from './types'
 
 // ドメインサービス（Domain Services）
-// export * from './domain_service'
+// export * from './domain-service'
 
 // アプリケーションサービス（Application Services）
-// export * from './application_service'
+// export * from './application-service'
 
 // リポジトリ（Repositories）
 // export * from './repository'

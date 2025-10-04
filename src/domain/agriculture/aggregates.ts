@@ -21,7 +21,7 @@ import {
   makeSoilQuality,
   mergeBreedingStats,
   summarizeValueObjects
-} from './value_objects'
+} from './value-objects'
 
 export type Timestamp = DateTime.Utc
 

@@ -14,7 +14,7 @@ export interface PlayerRepositoryService {
   readonly exists: (id: PlayerId) => Effect.Effect<boolean, never>
 }
 
-export const PlayerRepository = Context.Tag<PlayerRepositoryService>('@domain/player/repository')
+export const PlayerRepository = Context.GenericTag<PlayerRepositoryService>('@domain/player/repository')
 
 const makeRepository = Effect.gen(function* () {
   const store = yield* Ref.make<Map<PlayerId, PlayerAggregate>>(new Map())

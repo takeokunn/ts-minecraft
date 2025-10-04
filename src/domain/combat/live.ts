@@ -1,5 +1,5 @@
 import { Context, Effect, HashMap, Layer, Random, Ref } from 'effect'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as ReadonlyArray from 'effect/Array'
 import { pipe } from 'effect/Function'
 import {
   AttackCommand,

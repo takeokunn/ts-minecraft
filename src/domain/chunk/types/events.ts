@@ -1,7 +1,7 @@
 import { Data } from 'effect'
 import { type BlockId } from '../aggregate/chunk'
-import { type ChunkId } from '../value_object/chunk_id'
-import { type ChunkPosition } from '../value_object/chunk_position'
+import { type ChunkId } from '../value_object/chunk-id'
+import { type ChunkPosition } from '../value_object/chunk-position'
 
 /**
  * チャンク関連イベント（Event Sourcingパターン）

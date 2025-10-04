@@ -16,7 +16,7 @@ import type {
   EasingType,
   Position3D,
   ViewMode,
-} from '../../value_object'
+} from '../../value-object'
 
 /**
  * ビューモード管理ドメインサービスの型定義

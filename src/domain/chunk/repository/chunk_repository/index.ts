@@ -21,16 +21,16 @@ export {
 export {
   // In-Memory Implementation
   InMemoryChunkRepositoryLive,
-} from './memory_implementation'
+} from './memory-implementation'
 
 export {
   // IndexedDB Implementation
   IndexedDBChunkRepositoryLive,
-} from './indexeddb_implementation'
+} from './indexeddb-implementation'
 
 export {
   // WebWorker Implementation
   WebWorkerChunkRepositoryLive,
   createWebWorkerChunkRepository,
   WORKER_SCRIPT_TEMPLATE,
-} from './webworker_implementation'
+} from './webworker-implementation'

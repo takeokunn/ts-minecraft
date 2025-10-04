@@ -12,7 +12,7 @@ import {
   pipe,
 } from 'effect'
 import type { InventoryGUIError, PlayerId } from '../adt/inventory-adt'
-import { InventoryViewModelTag } from '../view-model/inventory-view-model'
+import { InventoryViewModelTag } from '@mc/bc-inventory/interface/view-models/inventory-view-model'
 import { InventoryStateStoreTag } from './store'
 
 export interface InventoryReactiveSystem {
@@ -46,7 +46,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
             concurrency: 'unbounded',
           })
         ),
-        Effect.asUnit
+        Effect.andThen(Effect.void)
       )
 
     const register = (playerId: PlayerId) =>
@@ -57,7 +57,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
     const unregister = (playerId: PlayerId) =>
       Ref.update(trackedRef, (set) => HashSet.remove(set, playerId)).pipe(
         Effect.tap(() => stateStore.remove(playerId)),
-        Effect.asUnit
+        Effect.andThen(Effect.void)
       )
 
     const start = (tickMillis: number) =>

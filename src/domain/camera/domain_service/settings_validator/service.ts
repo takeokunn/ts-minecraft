@@ -18,7 +18,7 @@ import type {
   QualityLevel,
   Sensitivity,
   ViewModeSettings,
-} from '../../value_object'
+} from '../../value-object'
 
 /**
  * 設定検証ドメインサービスの型定義

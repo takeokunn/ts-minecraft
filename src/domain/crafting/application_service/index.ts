@@ -1,3 +1,3 @@
 // DDD Application Service Layer Exports
-export * from './crafting_engine'
-export * from './recipe_registry'
+export * from './crafting-engine'
+export * from './recipe-registry'

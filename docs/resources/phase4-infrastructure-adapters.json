@@ -1,0 +1,53 @@
+{
+  "audio": [
+    "audio/AudioService.ts",
+    "audio/AudioServiceLive.ts",
+    "audio/AudioTypes.ts",
+    "audio/__tests__/AudioService.test.ts",
+    "audio/index.ts"
+  ],
+  "ecs": [
+    "ecs/Component.ts",
+    "ecs/ComponentRegistry.ts",
+    "ecs/Entity.ts",
+    "ecs/EntityManager.ts",
+    "ecs/System.ts",
+    "ecs/SystemRegistry.ts",
+    "ecs/World.ts",
+    "ecs/__test__/Component.spec.ts",
+    "ecs/__test__/ComponentRegistry.spec.ts",
+    "ecs/__test__/Entity.spec.ts",
+    "ecs/__test__/System.spec.ts",
+    "ecs/__test__/SystemRegistry.spec.ts",
+    "ecs/__test__/World.spec.ts",
+    "ecs/index.ts"
+  ],
+  "events": [
+    "events/EventBus.ts"
+  ],
+  ".": [
+    "index.ts"
+  ],
+  "inventory": [
+    "inventory/__test__/storage-service.spec.ts",
+    "inventory/index.ts",
+    "inventory/persistence/__test__/indexed-db.spec.ts",
+    "inventory/persistence/__test__/local-storage.spec.ts",
+    "inventory/persistence/indexed-db.ts",
+    "inventory/persistence/local-storage.ts",
+    "inventory/storage-service.ts"
+  ],
+  "rendering.disabled": [
+    "rendering.disabled/AmbientOcclusion.ts",
+    "rendering.disabled/FaceCulling.ts",
+    "rendering.disabled/GreedyMeshing.ts",
+    "rendering.disabled/RendererService.ts",
+    "rendering.disabled/RendererServiceLive.ts",
+    "rendering.disabled/TextureAtlas.ts",
+    "rendering.disabled/ThreeRenderer.ts",
+    "rendering.disabled/ThreeRendererLive.ts",
+    "rendering.disabled/index.ts",
+    "rendering.disabled/types/index.ts",
+    "rendering.disabled/types.ts"
+  ]
+}

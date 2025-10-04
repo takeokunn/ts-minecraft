@@ -9,22 +9,22 @@ import { describe, it, expect } from 'vitest'
 import { Effect, pipe } from 'effect'
 import { ChunkDataOptics, ChunkDataOpticsHelpers } from '../../aggregate/chunk/optics'
 import { ChunkTraversalOptics, ParallelChunkTraversalOptics } from '../../aggregate/chunk/traversal'
-import { OptimizedChunkOptics, PerformanceMonitoring } from '../../aggregate/chunk/performance_optics'
-import { ChunkCompositeOperations } from '../../aggregate/chunk/composite_operations'
+import { OptimizedChunkOptics, PerformanceMonitoring } from '../../aggregate/chunk/performance-optics'
+import { ChunkCompositeOperations } from '../../aggregate/chunk/composite-operations'
 import {
   ChunkStateOptics,
   ChunkStateOpticsHelpers,
   ChunkStateGuards
-} from '../../types/state_optics'
+} from '../../types/state-optics'
 import {
   AdvancedChunkStateOptics,
   ParallelChunkStateOptics,
   ReactiveChunkStateOptics
-} from '../../types/advanced_state_optics'
+} from '../../types/advanced-state-optics'
 import type { ChunkData } from '../../aggregate/chunk_data/types'
 import type { ChunkState, ChunkTimestamp, LoadProgress } from '../../types/core'
-import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
-import type { ChunkPosition } from '../../value_object/chunk_position'
+import type { ChunkMetadata, HeightValue } from '../../value_object/chunk-metadata'
+import type { ChunkPosition } from '../../value_object/chunk-position'
 
 // リアルなシナリオデータの作成
 const createRealisticChunk = (): ChunkData => {

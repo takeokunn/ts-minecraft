@@ -592,7 +592,7 @@ export type { ViewMode } from '../../value_object/index.js'
  *
  * ## 使用例
  * ```typescript
- * import { ViewModePreferencesRepository, ViewModePreferencesRepositoryLive } from './view_mode_preferences'
+ * import { ViewModePreferencesRepository, ViewModePreferencesRepositoryLive } from './view-mode-preferences'
  * import { Effect, Layer } from 'effect'
  *
  * // プレイヤー設定管理

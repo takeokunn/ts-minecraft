@@ -1,8 +1,8 @@
 import { Schema } from '@effect/schema'
 import { Context, Data, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { Inventory, PlayerId } from '../../domain/inventory/InventoryTypes'
-import { InventoryService } from '../../domain/inventory/InventoryService'
-import type { InventoryServiceError } from '../../domain/inventory/InventoryService'
+import type { Inventory, PlayerId } from '@mc/bc-inventory/domain/inventory-types'
+import { InventoryService } from '@mc/bc-inventory/domain/inventory-service'
+import type { InventoryServiceError } from '@mc/bc-inventory/domain/inventory-service'
 
 // ================================================================
 // アプリケーション固有のADT
@@ -16,7 +16,7 @@ const InventoryApiError = Data.taggedEnum('InventoryApiError')({
   DomainFailure: Data.struct<{ readonly cause: InventoryServiceError }>(),
 })
 
-export type InventoryApiError = Data.TaggedEnum.Infer<typeof InventoryApiError>
+export type InventoryApiError = ReturnType<(typeof InventoryApiError)['DomainFailure']>
 
 const fromDomainError = (cause: InventoryServiceError): InventoryApiError =>
   InventoryApiError.DomainFailure({ cause })
@@ -55,7 +55,7 @@ const encodeSnapshot = Schema.encodeSync(InventorySnapshotSchema)
 export interface InventoryAPIService {
   readonly execute: (
     command: InventoryCommand
-  ) => Effect.Effect<InventorySnapshot, InventoryApiError, InventoryService>
+  ) => Effect.Effect<InventorySnapshot, InventoryApiError>
 }
 
 export const InventoryAPIService = Context.GenericTag<InventoryAPIService>(
@@ -68,33 +68,33 @@ export const InventoryAPIService = Context.GenericTag<InventoryAPIService>(
 
 const materializeInventory = (
   inventory: Inventory
-): Effect.Effect<InventorySnapshot, never, never> =>
-  Effect.gen(function* () {
-    const stats = inventory.slots.reduce(
+): Effect.Effect<InventorySnapshot> =>
+  Effect.sync(() => {
+    const summary = inventory.slots.reduce(
       (acc, slot) =>
         Option.fromNullable(slot).pipe(
           Option.match({
             onNone: () => acc,
             onSome: (value) => ({
               total: acc.total + 1,
-              unique: new Set([...acc.unique, value.itemId]),
+              items: acc.items.add(value.itemId),
             }),
           })
         ),
-      { total: 0, unique: new Set<string>() }
+      { total: 0, items: new Set<string>() }
     )
 
     return encodeSnapshot({
       playerId: inventory.playerId,
       stats: {
         totalSlots: inventory.slots.length,
-        usedSlots: stats.total,
-        emptySlots: inventory.slots.length - stats.total,
-        uniqueItems: stats.unique.size,
+        usedSlots: summary.total,
+        emptySlots: inventory.slots.length - summary.total,
+        uniqueItems: summary.items.size,
       },
       slotCount: inventory.slots.length,
       hotbarSelection: inventory.selectedSlot,
-      uniqueItemIds: Array.from(stats.unique.values()),
+      uniqueItemIds: Array.from(summary.items.values()),
       version: inventory.version,
       lastUpdated: inventory.metadata.lastUpdated,
       checksum: inventory.metadata.checksum,
@@ -133,9 +133,11 @@ export const InventoryAPIServiceLive = Layer.effect(
   Effect.gen(function* () {
     const inventoryService = yield* InventoryService
 
-    return InventoryAPIService.of({
+    const service: InventoryAPIService = {
       execute: (command) => processCommand(command, inventoryService),
-    })
+    }
+
+    return service
   })
 )
 

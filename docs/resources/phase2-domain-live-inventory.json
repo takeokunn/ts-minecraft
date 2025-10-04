@@ -1,0 +1,244 @@
+[
+  {
+    "file": "camera/application_service/camera_mode_manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/application_service/camera_system_orchestrator/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/application_service/player_camera/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/application_service/scene_camera/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/domain_service/animation_engine/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/domain_service/camera_control/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/domain_service/collision_detection/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/domain_service/settings_validator/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/domain_service/view_mode_manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/repository/animation_history/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/repository/camera_state/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/repository/settings_storage/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "camera/repository/view_mode_preferences/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "combat/live.ts",
+    "effect": [
+      "effect",
+      "effect/ReadonlyArray",
+      "effect/Function"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "game_loop/legacy/live.ts",
+    "effect": [
+      "effect/Effect",
+      "effect/Either",
+      "effect/Layer",
+      "effect/Match",
+      "effect/Option",
+      "effect/Schema",
+      "effect/SynchronizedRef",
+      "effect/Function"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "input/InputServiceLive.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/InventoryServiceLive.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": [
+      "@effect/schema"
+    ]
+  },
+  {
+    "file": "inventory/application_service/container_manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/application_service/inventory_manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/application_service/transaction_manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/domain_service/crafting_integration/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/domain_service/item_registry/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/domain_service/stacking_service/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/domain_service/transfer_service/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "inventory/domain_service/validation_service/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "materials/live.ts",
+    "effect": [
+      "effect",
+      "effect/Array"
+    ],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "scene/live.ts",
+    "effect": [],
+    "infrastructure": [],
+    "other": []
+  },
+  {
+    "file": "scene/manager/live.ts",
+    "effect": [
+      "effect"
+    ],
+    "infrastructure": [],
+    "other": []
+  }
+]

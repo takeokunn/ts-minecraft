@@ -17,7 +17,7 @@ export {
   applyTierWeight,
   ensureWeightWithinLimit,
   parseWeight,
-} from './value_object/item_attributes'
+} from './value_object/item-attributes'
 export {
   EquipmentPieceSchema,
   type EquipmentPiece,
@@ -28,7 +28,7 @@ export {
   promoteTier,
   ensureFitsSlot,
   withUpdatedTimestamp,
-} from './aggregate/equipment_piece'
+} from './aggregate/equipment-piece'
 export {
   EquipmentSetSchema,
   type EquipmentSet,
@@ -40,7 +40,7 @@ export {
   emptyEquipmentSet,
   carriedWeightPercentage,
   findPiece,
-} from './aggregate/equipment_set'
+} from './aggregate/equipment-set'
 export {
   analyseEquipmentSet,
   type EquipmentAnalysisSummary,

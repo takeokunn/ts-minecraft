@@ -1,5 +1,5 @@
-export * from './value_object'
+export * from './value-object'
 export * from './types'
 export * from './factory'
 export * from './repository'
-export * from './domain_service'
+export * from './domain-service'

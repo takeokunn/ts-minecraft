@@ -2,7 +2,7 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFace, BlockFaceError, fromNormalVector, toUnitNormal } from '../value_object/block_face'
+import { BlockFace, BlockFaceError, fromNormalVector, toUnitNormal } from '../value_object/block-face'
 import {
   Vector3,
   Vector3Error,

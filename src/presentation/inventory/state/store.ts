@@ -49,31 +49,28 @@ export const InventoryStateStoreLive = Layer.effect(
 
     const set = (playerId: PlayerId, view: InventoryView) =>
       Ref.updateAndGet(stateRef, (map) => HashMap.set(map, playerId, view)).pipe(
-        Effect.flatMap(publish),
-        Effect.asUnit
+        Effect.tap(publish),
+        Effect.andThen(Effect.void)
       )
 
     const remove = (playerId: PlayerId) =>
       Ref.updateAndGet(stateRef, (map) => HashMap.remove(map, playerId)).pipe(
-        Effect.flatMap(publish),
-        Effect.asUnit
+        Effect.tap(publish),
+        Effect.andThen(Effect.void)
       )
 
     const clear = () =>
       Ref.set(stateRef, HashMap.empty<PlayerId, InventoryView>()).pipe(
         Effect.tap(() => publish(HashMap.empty<PlayerId, InventoryView>())),
-        Effect.asUnit
+        Effect.andThen(Effect.void)
       )
 
     const snapshot = () => Ref.get(stateRef)
 
-    const streamAll = () => Stream.fromSubscriptionRef(subscription)
+    const streamAll = () => subscription.changes
 
     const streamByPlayer = (playerId: PlayerId) =>
-      streamAll().pipe(
-        Stream.map((map) => HashMap.get(map, playerId)),
-        Stream.collectSome
-      )
+      streamAll().pipe(Stream.filterMap((map) => HashMap.get(map, playerId)))
 
     return InventoryStateStoreTag.of({
       get,

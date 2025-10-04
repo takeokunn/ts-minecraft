@@ -9,9 +9,9 @@ import {
   processBatchChunks,
   SerializationFormat
 } from '../index'
-import { ChunkValidationService } from '../chunk_validator'
-import { ChunkSerializationService } from '../chunk_serializer'
-import { ChunkOptimizationService } from '../chunk_optimizer'
+import { ChunkValidationService } from '../chunk-validator'
+import { ChunkSerializationService } from '../chunk-serializer'
+import { ChunkOptimizationService } from '../chunk-optimizer'
 
 // テストデータファクトリー
 const createTestChunkData = () => ({
@@ -308,7 +308,7 @@ describe('Domain Services Integration', () => {
       // 不完全なレイヤー（一部のサービスが欠如）を提供
       const incompleteLayer = Layer.mergeAll(
         // ChunkValidationServiceLiveのみ（他のサービスなし）
-        import('../chunk_validator').then(m => m.ChunkValidationServiceLive)
+        import('../chunk-validator').then(m => m.ChunkValidationServiceLive)
       )
 
       const result = await performCompleteChunkValidation(chunk)

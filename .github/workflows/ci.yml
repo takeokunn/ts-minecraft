@@ -29,6 +29,9 @@ jobs:
       - name: Run TypeScript type checking
         run: pnpm typecheck
 
+      - name: Dependency rule check
+        run: pnpm lint:deps
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -49,6 +52,21 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Run domain tests
+        run: pnpm test:domain
+
+      - name: Run application legacy tests
+        run: pnpm test:application:legacy
+
+      - name: Run application new tests
+        run: pnpm test:application:new
+
+      - name: Run interface tests
+        run: pnpm test:interface
+
+      - name: Run integration tests
+        run: pnpm test:integration
 
       - name: Run tests with coverage
         run: pnpm test:coverage

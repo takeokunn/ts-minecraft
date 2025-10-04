@@ -1,0 +1,129 @@
+[
+  {
+    "name": "core",
+    "contexts": [
+      "chunk",
+      "chunk_manager",
+      "entities",
+      "equipment",
+      "game_loop",
+      "inventory",
+      "physics"
+    ],
+    "weight": 7
+  },
+  {
+    "name": "errors",
+    "contexts": [
+      "camera",
+      "chunk",
+      "chunk_manager",
+      "entities",
+      "game_loop",
+      "inventory",
+      "physics"
+    ],
+    "weight": 7
+  },
+  {
+    "name": "events",
+    "contexts": [
+      "camera",
+      "chunk",
+      "chunk_manager",
+      "entities",
+      "inventory",
+      "physics"
+    ],
+    "weight": 6
+  },
+  {
+    "name": "constants",
+    "contexts": [
+      "camera",
+      "entities",
+      "inventory",
+      "physics"
+    ],
+    "weight": 4
+  },
+  {
+    "name": "interfaces",
+    "contexts": [
+      "chunk",
+      "chunk_loader",
+      "chunk_manager",
+      "inventory"
+    ],
+    "weight": 4
+  },
+  {
+    "name": "operations",
+    "contexts": [
+      "camera",
+      "chunk",
+      "inventory",
+      "world"
+    ],
+    "weight": 4
+  },
+  {
+    "name": "repository_error",
+    "contexts": [
+      "block",
+      "chunk",
+      "inventory",
+      "world"
+    ],
+    "weight": 4
+  },
+  {
+    "name": "types",
+    "contexts": [
+      "camera",
+      "chunk",
+      "inventory"
+    ],
+    "weight": 3
+  },
+  {
+    "name": "core.spec",
+    "contexts": [
+      "entities",
+      "game_loop"
+    ],
+    "weight": 2
+  },
+  {
+    "name": "core.test",
+    "contexts": [
+      "chunk_manager",
+      "equipment"
+    ],
+    "weight": 2
+  },
+  {
+    "name": "errors.spec",
+    "contexts": [
+      "entities",
+      "game_loop"
+    ],
+    "weight": 2
+  },
+  {
+    "name": "errors.test",
+    "contexts": [
+      "chunk_manager",
+      "physics"
+    ],
+    "weight": 2
+  },
+  {
+    "name": "schema",
+    "contexts": [
+      "camera",
+      "inventory"
+    ],
+    "weight": 2
+  }
+]

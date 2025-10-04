@@ -6,6 +6,8 @@
  * 純粋な関数型プログラミングで実装されます。
  */
 
+export * from './public'
+
 // Scene Management Domain
 export * from './scene'
 
@@ -23,12 +25,12 @@ export * from './block'
 
 // Chunk System Domain - New DDD Structure
 export * from './chunk/aggregate'
-export * from './chunk/application_service'
-export * from './chunk/domain_service'
+export * from './chunk/application-service'
+export * from './chunk/domain-service'
 export * from './chunk/factory'
 export * from './chunk/repository'
 export * from './chunk/types'
-export * from './chunk/value_object'
+export * from './chunk/value-object'
 
 // 後方互換性のための型エイリアス
 export type { ChunkDataAggregate as ChunkData, ChunkId, ChunkPosition } from './chunk'
@@ -46,4 +48,4 @@ export * from './combat'
 // export * from './agriculture'
 
 // Chunk Loader Domain - New DDD Structure
-export * from './chunk_loader'
+export * from './chunk-loader'

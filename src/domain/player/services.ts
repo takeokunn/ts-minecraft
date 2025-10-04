@@ -60,7 +60,7 @@ export interface PlayerDomainService {
   readonly list: Effect.Effect<ReadonlyArray<PlayerAggregate>, never>
 }
 
-export const PlayerDomainService = Context.Tag<PlayerDomainService>('@domain/player/service')
+export const PlayerDomainService = Context.GenericTag<PlayerDomainService>('@domain/player/service')
 
 const makeService = Effect.gen(function* () {
   const repository = yield* PlayerRepository

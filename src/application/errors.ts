@@ -1,19 +1,10 @@
 import { Schema } from '@effect/schema'
-import { Clock, Effect, Match } from 'effect'
+import { Clock, Effect, Match, pipe } from 'effect'
 import { CpuPercentage, MemoryBytes, Milliseconds, Timestamp } from './types'
 
 // ===== JSON表現 =====
 
-export const JsonValue = Schema.suspend(() =>
-  Schema.Union(
-    Schema.Null,
-    Schema.Boolean,
-    Schema.Number,
-    Schema.String,
-    Schema.Array(JsonValue),
-    Schema.Record({ key: Schema.String, value: JsonValue })
-  )
-)
+export const JsonValue = Schema.Json
 export type JsonValue = Schema.Schema.Type<typeof JsonValue>
 
 const ErrorDetail = Schema.Struct({
@@ -190,15 +181,16 @@ export const createErrorContext = ({
   readonly operation: string
   readonly details?: ReadonlyArray<{ readonly key: string; readonly value: JsonValue }>
 }): Effect.Effect<ErrorContext> =>
-  Effect.gen(function* () {
-    const timestamp = ensureTimestamp(yield* Clock.currentTimeMillis)
-    return {
+  pipe(
+    Clock.currentTimeMillis,
+    Effect.map(ensureTimestamp),
+    Effect.map((timestamp) => ({
       timestamp,
       system,
       operation,
       details: details?.map(({ key, value }) => ({ key, value })),
-    }
-  })
+    }))
+  )
 
 const decodeSeverity = Schema.decodeSync(Schema.Literal('low', 'medium', 'high', 'critical'))
 
