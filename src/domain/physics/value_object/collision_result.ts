@@ -22,13 +22,16 @@ const CollisionResultSchema = Schema.Struct({
 
 export type CollisionResult = Schema.Schema.Type<typeof CollisionResultSchema>
 
-const intersects = (a: AABB, b: AABB): boolean =>
-  a.min.x < b.max.x &&
-  a.max.x > b.min.x &&
-  a.min.y < b.max.y &&
-  a.max.y > b.min.y &&
-  a.min.z < b.max.z &&
-  a.max.z > b.min.z
+const intersects = (a: AABB, b: AABB): boolean => {
+  const overlaps = (minA: number, maxA: number, minB: number, maxB: number) =>
+    minA <= maxB + Number.EPSILON && maxA >= minB - Number.EPSILON
+
+  return (
+    overlaps(a.min.x, a.max.x, b.min.x, b.max.x) &&
+    overlaps(a.min.y, a.max.y, b.min.y, b.max.y) &&
+    overlaps(a.min.z, a.max.z, b.min.z, b.max.z)
+  )
+}
 
 const translate = (box: AABB, offset: Vector3): Effect.Effect<AABB, PhysicsError> =>
   parseAABB({

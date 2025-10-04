@@ -74,40 +74,52 @@ const makeService = Effect.gen(function* () {
   const repository = yield* BlockRepository
 
   const registerStandard: BlockRegistryService['registerStandard'] = (config) =>
-    pipe(
-      factory.standard(config),
-      Effect.mapError(wrapDefinitionError),
-      Effect.flatMap((definition) =>
-        pipe(repository.insert(definition), Effect.mapError(wrapRepositoryError))
+    Effect.gen(function* () {
+      const definition = yield* pipe(
+        factory.standard(config),
+        Effect.mapError(wrapDefinitionError)
       )
-    )
+      return yield* pipe(
+        repository.insert(definition),
+        Effect.mapError(wrapRepositoryError)
+      )
+    })
 
   const registerLiquid: BlockRegistryService['registerLiquid'] = (config) =>
-    pipe(
-      factory.liquid(config),
-      Effect.mapError(wrapDefinitionError),
-      Effect.flatMap((definition) =>
-        pipe(repository.insert(definition), Effect.mapError(wrapRepositoryError))
+    Effect.gen(function* () {
+      const definition = yield* pipe(
+        factory.liquid(config),
+        Effect.mapError(wrapDefinitionError)
       )
-    )
+      return yield* pipe(
+        repository.insert(definition),
+        Effect.mapError(wrapRepositoryError)
+      )
+    })
 
   const registerInteractive: BlockRegistryService['registerInteractive'] = (config) =>
-    pipe(
-      factory.interactive(config),
-      Effect.mapError(wrapDefinitionError),
-      Effect.flatMap((definition) =>
-        pipe(repository.insert(definition), Effect.mapError(wrapRepositoryError))
+    Effect.gen(function* () {
+      const definition = yield* pipe(
+        factory.interactive(config),
+        Effect.mapError(wrapDefinitionError)
       )
-    )
+      return yield* pipe(
+        repository.insert(definition),
+        Effect.mapError(wrapRepositoryError)
+      )
+    })
 
   const register: BlockRegistryService['register'] = (config) =>
-    pipe(
-      factory.fromKind(config),
-      Effect.mapError(wrapDefinitionError),
-      Effect.flatMap((definition) =>
-        pipe(repository.insert(definition), Effect.mapError(wrapRepositoryError))
+    Effect.gen(function* () {
+      const definition = yield* pipe(
+        factory.fromKind(config),
+        Effect.mapError(wrapDefinitionError)
       )
-    )
+      return yield* pipe(
+        repository.insert(definition),
+        Effect.mapError(wrapRepositoryError)
+      )
+    })
 
   const get: BlockRegistryService['get'] = (id) =>
     pipe(repository.get(id), Effect.mapError(wrapRepositoryError))
@@ -130,4 +142,9 @@ const makeService = Effect.gen(function* () {
   })
 })
 
-export const BlockRegistryLayer = Layer.mergeAll(BlockFactoryLive, BlockRepositoryLayer, Layer.effect(BlockRegistryService, makeService))
+const BlockRegistryCore = Layer.effect(BlockRegistryService, makeService)
+
+export const BlockRegistryLayer = BlockRegistryCore.pipe(
+  Layer.provide(BlockFactoryLive),
+  Layer.provide(BlockRepositoryLayer)
+)

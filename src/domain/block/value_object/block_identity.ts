@@ -2,8 +2,8 @@ import { pipe } from 'effect/Function'
 import * as Array from 'effect/Array'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as Schema from '@effect/schema/Schema'
-import { ParseResult } from '@effect/schema/ParseResult'
+import * as Schema from 'effect/Schema'
+import type { ParseError } from 'effect/ParseResult'
 
 // =============================================================================
 // Brand Schemas
@@ -18,7 +18,6 @@ export const BlockIdSchema = Schema.String.pipe(
   Schema.annotations({
     title: 'BlockId',
     description: '小文字・数字・アンダースコアのみ許容されるブロックID',
-    examples: ['stone', 'oak_log'],
   })
 )
 
@@ -70,10 +69,10 @@ export type BlockPosition = Schema.Schema.Type<typeof BlockPositionSchema>
 // =============================================================================
 
 export type BlockIdentityError = Data.TaggedEnum<{
-  BlockIdInvalid: { readonly input: string; readonly issues: Schema.ParseError }
-  BlockNameInvalid: { readonly input: string; readonly issues: Schema.ParseError }
-  BlockTagInvalid: { readonly input: string; readonly issues: Schema.ParseError }
-  BlockPositionInvalid: { readonly input: { readonly x: number; readonly y: number; readonly z: number }; readonly issues: Schema.ParseError }
+  BlockIdInvalid: { readonly input: string; readonly issues: ParseError }
+  BlockNameInvalid: { readonly input: string; readonly issues: ParseError }
+  BlockTagInvalid: { readonly input: string; readonly issues: ParseError }
+  BlockPositionInvalid: { readonly input: { readonly x: number; readonly y: number; readonly z: number }; readonly issues: ParseError }
 }>
 
 export const BlockIdentityError = Data.taggedEnum<BlockIdentityError>()
@@ -84,11 +83,11 @@ export const BlockIdentityError = Data.taggedEnum<BlockIdentityError>()
 
 const decodeWith = <A>(
   schema: Schema.Schema<A, string>,
-  toError: (issues: ParseResult.ParseError, input: string) => BlockIdentityError
+  toError: (issues: ParseError, input: string) => BlockIdentityError
 ) =>
   (input: string) =>
     pipe(
-      Schema.decodeEffect(schema)(input),
+      Schema.decode(schema)(input),
       Effect.mapError((issues) => toError(issues, input))
     )
 
@@ -108,7 +107,7 @@ export const makeBlockPosition = (
   input: { readonly x: number; readonly y: number; readonly z: number }
 ) =>
   pipe(
-    Schema.decodeEffect(BlockPositionSchema)(input),
+    Schema.decode(BlockPositionSchema)(input),
     Effect.mapError((issues) => BlockIdentityError.BlockPositionInvalid({ input, issues }))
   )
 
@@ -117,7 +116,14 @@ export const makeBlockPosition = (
 // =============================================================================
 
 export const makeBlockTags = (inputs: Iterable<string>) =>
-  pipe(inputs, Array.fromIterable, Array.map(makeBlockTag), Effect.all)
+  Effect.gen(function* () {
+    const resolved: BlockTag[] = []
+    for (const candidate of Array.fromIterable(inputs)) {
+      const tag = yield* makeBlockTag(candidate)
+      resolved.push(tag)
+    }
+    return resolved as ReadonlyArray<BlockTag>
+  })
 
 // =============================================================================
 // Aggregate Helper
@@ -136,10 +142,9 @@ export const assembleIdentity = (
     readonly tags?: Iterable<string>
   }
 ) =>
-  Effect.all({
-    id: makeBlockId(input.id),
-    name: makeBlockName(input.name),
-    tags: makeBlockTags(input.tags ?? []),
-  }).pipe(
-    Effect.map(({ id, name, tags }) => ({ id, name, tags } satisfies BlockIdentity))
-  )
+  Effect.gen(function* () {
+    const id = yield* makeBlockId(input.id)
+    const name = yield* makeBlockName(input.name)
+    const tags = yield* makeBlockTags(input.tags ?? [])
+    return { id, name, tags } satisfies BlockIdentity
+  })

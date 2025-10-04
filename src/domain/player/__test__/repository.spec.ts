@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import * as fc from 'fast-check'
 import { Effect } from 'effect'
+import { provideLayers } from '../../testing/effect'
 import { PlayerRepository, PlayerRepositoryLive } from '../repository'
 import { aggregateArb } from './generators'
 
 const runWithRepository = <A>(effect: Effect.Effect<A>) =>
-  Effect.runPromise(
-    Effect.scoped(Effect.provideLayer(effect, PlayerRepositoryLive))
-  )
+  Effect.runPromise(provideLayers(effect, PlayerRepositoryLive))
 
 describe('PlayerRepository', () => {
   it('upsert後にfindByIdで同じ集約を取得できる', async () => {

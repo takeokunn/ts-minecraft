@@ -8,7 +8,7 @@ export interface PhysicsWorldRepository {
   readonly remove: (worldId: PhysicsWorldId) => Effect.Effect<void, PhysicsError>
 }
 
-export const PhysicsWorldRepository = Context.Tag<PhysicsWorldRepository>(
+export const PhysicsWorldRepository = Context.GenericTag<PhysicsWorldRepository>(
   '@minecraft/physics/PhysicsWorldRepository'
 )
 

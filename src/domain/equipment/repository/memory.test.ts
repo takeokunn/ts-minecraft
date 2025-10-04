@@ -14,6 +14,7 @@ import {
   WeightSchema,
   type UnixTime,
 } from '../types/core'
+import { provideLayers } from '../../../testing/effect'
 
 const makeTestPiece = Effect.gen(function* () {
   const id = yield* Schema.decodeUnknown(EquipmentIdSchema)('sword_test')
@@ -43,7 +44,8 @@ const makeTestPiece = Effect.gen(function* () {
 
 describe('equipment/repository/memory', () => {
   it.effect('persists equipment sets in memory', () =>
-    Effect.gen(function* () {
+    provideLayers(
+      Effect.gen(function* () {
       const repo = yield* EquipmentRepositoryTag
       const id = yield* Schema.decodeUnknown(EquipmentSetIdSchema)('set_01')
       const owner = yield* Schema.decodeUnknown(EquipmentOwnerIdSchema)('player_repo')
@@ -53,11 +55,14 @@ describe('equipment/repository/memory', () => {
       yield* repo.save(set)
       const loaded = yield* repo.load(id)
       expect(loaded.id).toBe(id)
-    }).pipe(Effect.provideLayer(InMemoryEquipmentRepository))
+      }),
+      InMemoryEquipmentRepository
+    )
   )
 
   it.effect('equips piece through repository API', () =>
-    Effect.gen(function* () {
+    provideLayers(
+      Effect.gen(function* () {
       const repo = yield* EquipmentRepositoryTag
       const id = yield* Schema.decodeUnknown(EquipmentSetIdSchema)('set_02')
       const owner = yield* Schema.decodeUnknown(EquipmentOwnerIdSchema)('player_repo')
@@ -68,6 +73,8 @@ describe('equipment/repository/memory', () => {
       const piece = yield* makeTestPiece
       const updated = yield* repo.equip(id, piece, (timestamp + 1) as UnixTime)
       expect(updated.slots[piece.slot as EquipmentSlotLiteral]?.id).toBe(piece.id)
-    }).pipe(Effect.provideLayer(InMemoryEquipmentRepository))
+      }),
+      InMemoryEquipmentRepository
+    )
   )
 })

@@ -5,32 +5,30 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
-import { Context, Effect, Either, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
-import type { System, SystemMetadata, SystemPriority } from './System'
-import { isSystemError, priorityToNumber, SystemError, SystemExecutionState } from './System'
+import { Clock, Context, Data, Effect, Layer, Match, Option, Ref, pipe } from 'effect'
+import type { System, SystemError, SystemMetadata, SystemPriority } from './System'
+import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './System'
 import type { World } from './World'
 
 /**
  * システムレジストリエラー
  */
-export interface SystemRegistryError {
-  readonly _tag: 'SystemRegistryError'
+export const SystemRegistryError = Data.tagged<{
   readonly message: string
-  readonly systemName?: string
-  readonly cause?: unknown
-}
+  readonly systemName: Option.Option<string>
+  readonly cause: Option.Option<unknown>
+}>('SystemRegistryError')
 
-export const SystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError => ({
-  _tag: 'SystemRegistryError',
-  message,
-  ...(systemName !== undefined && { systemName }),
-  ...(cause !== undefined && { cause }),
-})
+export type SystemRegistryError = ReturnType<typeof SystemRegistryError>
 
-export const isSystemRegistryError: Predicate.Refinement<unknown, SystemRegistryError> = (
-  error
-): error is SystemRegistryError =>
-  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'SystemRegistryError'
+export const makeSystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError =>
+  SystemRegistryError({
+    message,
+    systemName: Option.fromNullable(systemName),
+    cause: Option.fromNullable(cause),
+  })
+
+export const isSystemRegistryError = (error: unknown): error is SystemRegistryError => SystemRegistryError.is(error)
 
 /**
  * 登録されたシステムのエントリ
@@ -219,7 +217,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         yield* pipe(
           state.systems.has(name),
           Match.value,
-          Match.when(false, () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name))),
+          Match.when(false, () => Effect.fail(makeSystemRegistryError(`System not found: ${name}`, name))),
           Match.when(true, () => Effect.succeed(undefined)),
           Match.exhaustive
         )
@@ -319,108 +317,103 @@ export const SystemRegistryServiceLive = Layer.effect(
         .map((entry) => entry.system)
     })
 
+    const recordFailure = (systemName: string, error: SystemError) =>
+      Ref.update(stateRef, (state) =>
+        pipe(
+          Option.fromNullable(state.systems.get(systemName)),
+          Option.match({
+            onNone: () => state,
+            onSome: (entry) => {
+              const errorMessage = error.message
+              const newExecutionState: SystemExecutionState = {
+                ...entry.executionState,
+                errors: [...entry.executionState.errors, errorMessage].slice(-10),
+              }
+
+              const newEntry: SystemEntry = {
+                ...entry,
+                executionState: newExecutionState,
+              }
+
+              const newSystems = new Map(state.systems)
+              newSystems.set(systemName, newEntry)
+
+              return { ...state, systems: newSystems }
+            },
+          })
+        )
+      ).pipe(Effect.zipRight(Effect.logError(`System ${error.systemName} failed: ${error.message}`)))
+
+    const recordSuccess = (systemName: string, duration: number, completedAt: number) =>
+      Ref.update(stateRef, (state) =>
+        pipe(
+          Option.fromNullable(state.systems.get(systemName)),
+          Option.match({
+            onNone: () => state,
+            onSome: (entry) => {
+              const stats = entry.executionState
+              const newCount = stats.executionCount + 1
+              const newTotal = stats.totalDuration + duration
+
+              const newExecutionState: SystemExecutionState = {
+                ...stats,
+                executionCount: newCount,
+                totalDuration: newTotal,
+                averageDuration: newTotal / newCount,
+                maxDuration: Math.max(stats.maxDuration, duration),
+                lastExecutionTime: completedAt,
+              }
+
+              const newEntry: SystemEntry = {
+                ...entry,
+                executionState: newExecutionState,
+              }
+
+              const newSystems = new Map(state.systems)
+              newSystems.set(systemName, newEntry)
+
+              return { ...state, systems: newSystems }
+            },
+          })
+        )
+      )
+
     /**
      * すべての有効なシステムを実行
      */
     const update = (world: World, deltaTime: number) =>
       Effect.gen(function* () {
-        const state = yield* Ref.get(stateRef)
+        const currentState = yield* Ref.get(stateRef)
+        if (!currentState.globalEnabled) {
+          return
+        }
 
-        // グローバル無効時は早期リターン using Match.value with early return effect
-        const isEnabled = state.globalEnabled
-        return yield* pipe(
-          Match.value(isEnabled),
-          Match.when(false, () => Effect.void),
-          Match.when(true, () =>
+        const systems = yield* getOrderedSystems
+
+        yield* Effect.forEach(
+          systems,
+          (system) =>
             Effect.gen(function* () {
-              const systems = yield* getOrderedSystems
+              const startTime = yield* Clock.currentTimeMillis
 
-              // 各システムを実行し、統計を更新
-              for (const system of systems) {
-                const startTime = Date.now()
-
-                const result = yield* Effect.either(system.update(world, deltaTime))
-                const duration = Date.now() - startTime
-
-                yield* pipe(
-                  result,
-                  Either.match({
-                    onLeft: (error) =>
-                      Effect.gen(function* () {
-                        // エラー時: エラーを記録して再度スロー
-                        yield* Ref.update(stateRef, (s) => {
-                          const entry = s.systems.get(system.name)
-                          return pipe(
-                            Option.fromNullable(entry),
-                            Option.match({
-                              onNone: () => s,
-                              onSome: (entry) => {
-                                const errorMessage = isSystemError(error)
-                                  ? `${error.systemName}: ${error.message}`
-                                  : String(error)
-
-                                const newExecutionState: SystemExecutionState = {
-                                  ...entry.executionState,
-                                  errors: [...entry.executionState.errors, errorMessage].slice(-10), // 最新10件のエラーを保持
-                                }
-
-                                const newEntry: SystemEntry = {
-                                  ...entry,
-                                  executionState: newExecutionState,
-                                }
-
-                                const newSystems = new Map(s.systems)
-                                newSystems.set(system.name, newEntry)
-
-                                return { ...s, systems: newSystems }
-                              },
-                            })
-                          )
-                        })
-
-                        yield* Effect.fail(error)
-                      }),
-                    onRight: () =>
-                      // 成功時: 統計を更新
-                      Ref.update(stateRef, (s) => {
-                        const entry = s.systems.get(system.name)
-                        return pipe(
-                          Option.fromNullable(entry),
-                          Option.match({
-                            onNone: () => s,
-                            onSome: (entry) => {
-                              const newState = entry.executionState
-                              const newCount = newState.executionCount + 1
-                              const newTotal = newState.totalDuration + duration
-
-                              const newExecutionState: SystemExecutionState = {
-                                ...newState,
-                                executionCount: newCount,
-                                totalDuration: newTotal,
-                                averageDuration: newTotal / newCount,
-                                maxDuration: Math.max(newState.maxDuration, duration),
-                                lastExecutionTime: Date.now(),
-                              }
-
-                              const newEntry: SystemEntry = {
-                                ...entry,
-                                executionState: newExecutionState,
-                              }
-
-                              const newSystems = new Map(s.systems)
-                              newSystems.set(system.name, newEntry)
-
-                              return { ...s, systems: newSystems }
-                            },
-                          })
-                        )
-                      }),
-                  })
+              yield* system
+                .update(world, deltaTime)
+                .pipe(
+                  Effect.mapError((error) =>
+                    isSystemError(error)
+                      ? error
+                      : makeSystemError(system.name, 'Unknown error in system execution', error)
+                  ),
+                  Effect.tap(() =>
+                    Effect.gen(function* () {
+                      const endTime = yield* Clock.currentTimeMillis
+                      yield* recordSuccess(system.name, endTime - startTime, endTime)
+                    })
+                  ),
+                  Effect.tapError((error) => recordFailure(system.name, error))
                 )
-              }
-            })
-          ),
-          Match.exhaustive
+            }),
+          { concurrency: 1 }
         )
       })
 
@@ -435,7 +428,7 @@ export const SystemRegistryServiceLive = Layer.effect(
         return yield* pipe(
           Option.fromNullable(entry),
           Option.match({
-            onNone: () => Effect.fail(SystemRegistryError(`System not found: ${name}`, name)),
+            onNone: () => Effect.fail(makeSystemRegistryError(`System not found: ${name}`, name)),
             onSome: (entry) => Effect.succeed(entry.executionState),
           })
         )

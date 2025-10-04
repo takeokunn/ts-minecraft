@@ -5,6 +5,7 @@ import {
   createMockSystem,
   createSystem,
   isSystemError,
+  makeSystemError,
   priorityToNumber,
   runSystems,
   runSystemWithMetrics,
@@ -69,7 +70,7 @@ describe('System', () => {
       Effect.gen(function* () {
         const system1 = createSystem('System1', () => Effect.void)
 
-        const system2 = createSystem('System2', () => Effect.fail(SystemError('System2', 'Test error')))
+        const system2 = createSystem('System2', () => Effect.fail(makeSystemError('System2', 'Test error')))
 
         const result = Effect.runSyncExit(runSystems([system1, system2], {} as World, 16))
 
@@ -84,7 +85,9 @@ describe('System', () => {
               const failures = Chunk.toArray(Cause.failures(error))
               expect(failures).toHaveLength(1)
               expect(isSystemError(failures[0])).toBe(true)
-              expect((failures[0] as SystemError).systemName).toBe('System2')
+              if (isSystemError(failures[0])) {
+                expect(failures[0].systemName).toBe('System2')
+              }
             }
           ),
           Match.orElse(() => {
@@ -96,7 +99,9 @@ describe('System', () => {
 
     it.effect('未知のエラーをSystemErrorにラップする', () =>
       Effect.gen(function* () {
-        const system = createSystem('FailingSystem', () => Effect.fail('Unknown error' as unknown as SystemError))
+        const system = createSystem('FailingSystem', () =>
+          Effect.fail(makeSystemError('FailingSystem', 'Unexpected failure', 'Unknown error'))
+        )
 
         const result = Effect.runSyncExit(runSystems([system], {} as World, 16))
 
@@ -111,7 +116,9 @@ describe('System', () => {
               const failures = Chunk.toArray(Cause.failures(error))
               expect(failures).toHaveLength(1)
               expect(isSystemError(failures[0])).toBe(true)
-              expect((failures[0] as SystemError).systemName).toBe('FailingSystem')
+              if (isSystemError(failures[0])) {
+                expect(failures[0].systemName).toBe('FailingSystem')
+              }
             }
           ),
           Match.orElse(() => {
@@ -204,7 +211,7 @@ describe('System', () => {
 
     it.effect('エラーを返すモックシステムを作成できる', () =>
       Effect.gen(function* () {
-        const error = SystemError('MockSystem', 'Mock error')
+        const error = makeSystemError('MockSystem', 'Mock error')
 
         const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
 

@@ -7,11 +7,18 @@
  */
 
 import { Context, Effect, Option, ReadonlyArray, Ref, Layer } from 'effect'
+import { WorldClock } from '../../time'
 import * as Schema from '@effect/schema/Schema'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
 import * as crypto from 'crypto'
+import { WorldGeneratorIdSchema } from '../../aggregate/world_generator'
+import {
+  WorldIdSchema,
+  WorldSeedSchema,
+  WorldCoordinateSchema,
+} from '../../types/core/world_types'
 import type {
   WorldId,
 } from '../../types'
@@ -59,46 +66,6 @@ interface PersistenceConfig {
 
 // === Storage Schema ===
 
-const StoredWorldMetadata = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  description: Schema.String,
-  seed: Schema.String,
-  generatorId: Schema.String,
-  version: Schema.String,
-  gameVersion: Schema.String,
-  createdAt: Schema.DateFromString,
-  lastModified: Schema.DateFromString,
-  lastAccessed: Schema.DateFromString,
-  tags: Schema.Array(Schema.String),
-  properties: Schema.Record(Schema.String, Schema.Unknown),
-  settings: Schema.Unknown,
-  statistics: Schema.Unknown,
-  checksum: Schema.String,
-})
-
-const StoredMetadataVersion = Schema.Struct({
-  version: Schema.String,
-  timestamp: Schema.DateFromString,
-  changes: Schema.Array(Schema.Unknown),
-  checksum: Schema.String,
-  size: Schema.Number,
-  parentVersion: Schema.Optional(Schema.String),
-})
-
-const StoredBackupInfo = Schema.Struct({
-  backupId: Schema.String,
-  worldId: Schema.String,
-  timestamp: Schema.DateFromString,
-  type: Schema.Literal('full', 'incremental', 'differential'),
-  size: Schema.Number,
-  compressedSize: Schema.Number,
-  checksum: Schema.String,
-  isEncrypted: Schema.Boolean,
-  parentBackupId: Schema.Optional(Schema.String),
-  description: Schema.Optional(Schema.String),
-})
-
 // === Implementation ===
 
 export const WorldMetadataRepositoryPersistenceImplementation = (
@@ -129,6 +96,153 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       missCount: 0,
       evictionCount: 0,
     })
+    const versionSequence = yield* Ref.make(0)
+
+    const ttlMilliseconds = config.cache.ttlSeconds * 1000
+
+    const currentMillis = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentMillis)
+    const currentDate = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentDate)
+
+    const isCacheExpired = (now: number, timestamp: number): boolean =>
+      now - timestamp > ttlMilliseconds
+
+    const updateChecksum = (metadata: WorldMetadata): Effect.Effect<WorldMetadata> =>
+      Effect.map(currentDate, (now) => ({
+        ...metadata,
+        checksum: calculateMetadataChecksum(metadata),
+        lastModified: now,
+      }))
+
+    const nextVersionId = () =>
+      Effect.gen(function* () {
+        const millis = yield* currentMillis
+        const sequence = yield* Ref.modify(versionSequence, (current) => [current, current + 1])
+        return generateVersionString(millis, sequence)
+      })
+
+    const checksumFromString = (input: string): string => {
+      let hash = 0
+      for (const char of input) {
+        hash = (hash << 5) - hash + char.charCodeAt(0)
+        hash |= 0
+      }
+      return hash.toString(16)
+    }
+
+    const MetadataChangePersistenceSchema = Schema.Struct({
+      type: Schema.Literal('create', 'update', 'delete'),
+      path: Schema.String,
+      oldValue: Schema.optional(Schema.Unknown),
+      newValue: Schema.optional(Schema.Unknown),
+      timestamp: Schema.DateFromString,
+      reason: Schema.optional(Schema.String),
+    })
+
+    const SpawnLocationPersistenceSchema = Schema.Struct({
+      playerId: Schema.String,
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number,
+    })
+
+    const WorldSettingsPersistenceSchema = Schema.Struct({
+      gameMode: Schema.Literal('survival', 'creative', 'adventure', 'spectator'),
+      difficulty: Schema.Literal('peaceful', 'easy', 'normal', 'hard'),
+      worldType: Schema.Literal('default', 'superflat', 'amplified', 'customized'),
+      generateStructures: Schema.Boolean,
+      generateBonusChest: Schema.Boolean,
+      allowCheats: Schema.Boolean,
+      hardcore: Schema.Boolean,
+      pvp: Schema.Boolean,
+      spawnProtection: Schema.Number,
+      worldBorder: Schema.Struct({
+        centerX: WorldCoordinateSchema,
+        centerZ: WorldCoordinateSchema,
+        size: Schema.Number,
+        warningBlocks: Schema.Number,
+        warningTime: Schema.Number,
+        damageAmount: Schema.Number,
+        damageBuffer: Schema.Number,
+      }),
+      gameRules: Schema.Record(Schema.String, Schema.Union(Schema.Boolean, Schema.Number, Schema.String)),
+      dataPackSettings: Schema.Struct({
+        enabled: Schema.Array(Schema.String),
+        disabled: Schema.Array(Schema.String),
+        available: Schema.Array(Schema.String),
+      }),
+    })
+
+    const WorldStatisticsPersistenceSchema = Schema.Struct({
+      size: Schema.Struct({
+        totalChunks: Schema.Number,
+        loadedChunks: Schema.Number,
+        generatedChunks: Schema.Number,
+        compressedSize: Schema.Number,
+        uncompressedSize: Schema.Number,
+      }),
+      performance: Schema.Struct({
+        averageGenerationTime: Schema.Number,
+        averageLoadTime: Schema.Number,
+        totalGenerationTime: Schema.Number,
+        cacheHitRate: Schema.Number,
+        compressionRatio: Schema.Number,
+      }),
+      content: Schema.Struct({
+        biomeCount: Schema.Record(Schema.String, Schema.Number),
+        structureCount: Schema.Record(Schema.String, Schema.Number),
+        entityCount: Schema.Record(Schema.String, Schema.Number),
+        tileEntityCount: Schema.Record(Schema.String, Schema.Number),
+      }),
+      player: Schema.Struct({
+        playerCount: Schema.Number,
+        totalPlayTime: Schema.Number,
+        lastPlayerActivity: Schema.DateFromString,
+        spawnLocations: Schema.Array(SpawnLocationPersistenceSchema),
+      }),
+      lastUpdated: Schema.DateFromString,
+    })
+
+    const StoredWorldMetadata = Schema.Struct({
+      id: WorldIdSchema,
+      name: Schema.String,
+      description: Schema.String,
+      seed: WorldSeedSchema,
+      generatorId: WorldGeneratorIdSchema,
+      version: Schema.String,
+      gameVersion: Schema.String,
+      createdAt: Schema.DateFromString,
+      lastModified: Schema.DateFromString,
+      lastAccessed: Schema.DateFromString,
+      tags: Schema.Array(Schema.String),
+      properties: Schema.Record(Schema.String, Schema.Unknown),
+      settings: WorldSettingsPersistenceSchema,
+      statistics: WorldStatisticsPersistenceSchema,
+      checksum: Schema.String,
+    })
+
+    const StoredMetadataVersion = Schema.Struct({
+      version: Schema.String,
+      timestamp: Schema.DateFromString,
+      changes: Schema.Array(MetadataChangePersistenceSchema),
+      checksum: Schema.String,
+      size: Schema.Number,
+      parentVersion: Schema.Optional(Schema.String),
+    })
+
+    const StoredBackupInfo = Schema.Struct({
+      backupId: Schema.String,
+      worldId: WorldIdSchema,
+      timestamp: Schema.DateFromString,
+      type: Schema.Literal('full', 'incremental', 'differential'),
+      size: Schema.Number,
+      compressedSize: Schema.Number,
+      checksum: Schema.String,
+      isEncrypted: Schema.Boolean,
+      parentBackupId: Schema.Optional(Schema.String),
+      description: Schema.Optional(Schema.String),
+    })
+    const EMPTY_WORLD_ID = Schema.decodeSync(WorldIdSchema)('world_placeholder')
+
 
     // Initialize storage directories
     const directories = [
@@ -329,19 +443,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         for (const file of files) {
           if (!file.endsWith('.json') && !file.endsWith('.json.gz')) continue
 
-          const worldId = file.replace(/\.(json|json\.gz)$/, '') as WorldId
+          const rawId = file.replace(/\.(json|json\.gz)$/, '')
+          const worldId = Schema.decodeSync(WorldIdSchema)(rawId)
           const filePath = getMetadataFilePath(worldId)
           const metadata = yield* readFile(filePath, StoredWorldMetadata)
 
           if (Option.isSome(metadata)) {
-            metadataMap.set(worldId, {
-              ...metadata.value,
-              id: worldId,
-              seed: metadata.value.seed as any,
-              generatorId: metadata.value.generatorId as any,
-              settings: metadata.value.settings as WorldSettings,
-              statistics: metadata.value.statistics as WorldStatistics,
-            })
+            metadataMap.set(worldId, metadata.value)
           }
         }
 
@@ -367,7 +475,8 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         for (const file of files) {
           if (!file.endsWith('_versions.json') && !file.endsWith('_versions.json.gz')) continue
 
-          const worldId = file.replace(/_versions\.(json|json\.gz)$/, '') as WorldId
+          const rawId = file.replace(/_versions\.(json|json\.gz)$/, '')
+          const worldId = Schema.decodeSync(WorldIdSchema)(rawId)
           const filePath = getVersionFilePath(worldId)
           const versions = yield* readFile(filePath, Schema.Array(StoredMetadataVersion))
 
@@ -375,10 +484,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             const worldVersionMap = new Map<string, MetadataVersion>()
 
             for (const version of versions.value) {
-              worldVersionMap.set(version.version, {
-                ...version,
-                changes: version.changes as ReadonlyArray<MetadataChange>,
-              })
+              worldVersionMap.set(version.version, version)
             }
 
             versionMap.set(worldId, worldVersionMap)
@@ -412,9 +518,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const backup = yield* readFile(filePath, StoredBackupInfo)
 
           if (Option.isSome(backup)) {
+            const worldId = Schema.decodeSync(WorldIdSchema)(backup.value.worldId)
             backupMap.set(backupId, {
               ...backup.value,
-              worldId: backup.value.worldId as WorldId,
+              worldId,
             })
           }
         }
@@ -457,11 +564,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       saveMetadata: (metadata: WorldMetadata) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(metadataStore)
-          const updatedMetadata = {
-            ...metadata,
-            checksum: calculateMetadataChecksum(metadata),
-            lastModified: new Date(),
-          }
+          const updatedMetadata = yield* updateChecksum(metadata)
 
           const updated = new Map(store)
           updated.set(metadata.id, updatedMetadata)
@@ -473,21 +576,23 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           if (config.cache.enabled) {
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(metadata.id, {
               metadata: updatedMetadata,
-              timestamp: Date.now(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
 
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: store.has(metadata.id) ? 'update' : 'create',
               path: 'metadata',
               oldValue: store.get(metadata.id),
               newValue: updatedMetadata,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Automatic versioning on save',
             }]
 
@@ -502,9 +607,12 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             const cache = yield* Ref.get(metadataCache)
             const cached = cache.get(worldId)
 
-            if (cached && Date.now() - cached.timestamp < config.cache.ttlSeconds * 1000) {
-              yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
-              return Option.some(cached.metadata)
+            if (cached) {
+              const now = yield* currentMillis
+              if (!isCacheExpired(now, cached.timestamp)) {
+                yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
+                return Option.some(cached.metadata)
+              }
             }
           }
 
@@ -518,9 +626,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             // Update cache
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               metadata,
-              timestamp: Date.now(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
@@ -547,11 +656,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           }
 
           const oldMetadata = store.get(metadata.id)!
-          const updatedMetadata = {
-            ...metadata,
-            checksum: calculateMetadataChecksum(metadata),
-            lastModified: new Date(),
-          }
+          const updatedMetadata = yield* updateChecksum(metadata)
 
           const updated = new Map(store)
           updated.set(metadata.id, updatedMetadata)
@@ -563,21 +668,23 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           if (config.cache.enabled) {
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(metadata.id, {
               metadata: updatedMetadata,
-              timestamp: Date.now(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
 
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: 'update',
               path: 'metadata',
               oldValue: oldMetadata,
               newValue: updatedMetadata,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Automatic versioning on update',
             }]
 
@@ -621,12 +728,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Create deletion version
           if (config.versioning.enabled) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: 'delete',
               path: 'metadata',
               oldValue: oldMetadata,
               newValue: undefined,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Metadata deletion',
             }]
 
@@ -768,9 +876,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ))
           }
 
+          const lastUpdated = yield* currentDate
           const updatedMetadata = {
             ...metadata.value,
-            statistics: { ...metadata.value.statistics, ...statistics, lastUpdated: new Date() },
+            statistics: { ...metadata.value.statistics, ...statistics, lastUpdated },
           }
 
           yield* this.updateMetadata(updatedMetadata)
@@ -816,13 +925,33 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ))
           }
 
-          const updatedContent = {
-            ...currentStats.value.content,
-            [`${contentType}Count`]: { ...currentStats.value.content[`${contentType}Count` as keyof typeof currentStats.value.content] as Record<string, number>, [contentType]: count },
+          const currentContent = currentStats.value.content
+          const updateCounter = (source: Record<string, number>) => ({
+            ...source,
+            [contentType]: count,
+          })
+
+          const nextContent = (() => {
+            switch (contentType) {
+              case 'biome':
+                return { ...currentContent, biomeCount: updateCounter(currentContent.biomeCount) }
+              case 'structure':
+                return { ...currentContent, structureCount: updateCounter(currentContent.structureCount) }
+              case 'entity':
+                return { ...currentContent, entityCount: updateCounter(currentContent.entityCount) }
+              case 'tileEntity':
+                return { ...currentContent, tileEntityCount: updateCounter(currentContent.tileEntityCount) }
+              default:
+                return currentContent
+            }
+          })()
+
+          if (nextContent === currentContent) {
+            return
           }
 
           yield* this.updateStatistics(worldId, {
-            content: updatedContent,
+            content: nextContent,
           })
         }),
 
@@ -838,15 +967,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ))
           }
 
-          const version = generateVersionString()
-          const timestamp = new Date()
+          const version = yield* nextVersionId()
+          const timestamp = yield* currentDate
+          const serializedChanges = JSON.stringify(changes)
 
           const metadataVersion: MetadataVersion = {
             version,
             timestamp,
             changes,
-            checksum: calculateMetadataChecksum({ changes } as any),
-            size: new TextEncoder().encode(JSON.stringify(changes)).length,
+            checksum: checksumFromString(serializedChanges),
+            size: new TextEncoder().encode(serializedChanges).length,
           }
 
           const versionMap = yield* Ref.get(versionStore)
@@ -927,12 +1057,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           // Apply changes in reverse
           const changes = versionData.value.changes
+          const timestamp = yield* currentDate
           const restorationChanges: MetadataChange[] = changes.map(change => ({
             ...change,
             type: change.type === 'create' ? 'delete' : change.type === 'delete' ? 'create' : 'update',
             oldValue: change.newValue,
             newValue: change.oldValue,
-            timestamp: new Date(),
+            timestamp,
             reason: `Restore to version ${version}`,
           }))
 
@@ -975,7 +1106,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           }
 
           if (retentionPolicy.maxAgeDays) {
-            const cutoffDate = new Date(Date.now() - retentionPolicy.maxAgeDays * 24 * 60 * 60 * 1000)
+            const now = yield* currentMillis
+            const cutoffMillis = now - retentionPolicy.maxAgeDays * 24 * 60 * 60 * 1000
+            const cutoffDate = new Date(cutoffMillis)
             const oldVersions = versions.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
             versionsToDelete = [...new Set([...versionsToDelete, ...oldVersions])]
           }
@@ -1079,16 +1212,18 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ))
           }
 
-          const backupId = `backup_${worldId}_${Date.now()}`
+          const millis = yield* currentMillis
+          const backupId = `backup_${worldId}_${millis}`
+          const timestamp = yield* currentDate
+          const size = estimateMetadataSize(metadata.value)
+          const compressedSize = config.backup.compressionEnabled ? Math.floor(size * 0.3) : size
           const backupInfo: BackupInfo = {
             backupId,
             worldId,
-            timestamp: new Date(),
+            timestamp,
             type,
-            size: estimateMetadataSize(metadata.value),
-            compressedSize: config.backup.compressionEnabled
-              ? Math.floor(estimateMetadataSize(metadata.value) * 0.3)
-              : estimateMetadataSize(metadata.value),
+            size,
+            compressedSize,
             checksum: calculateMetadataChecksum(metadata.value),
             isEncrypted: config.backup.encryptionEnabled,
             description,
@@ -1127,12 +1262,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ))
           }
 
+          const timestamp = yield* currentDate
           const changes: MetadataChange[] = [{
             type: 'update',
             path: 'metadata',
             oldValue: undefined,
             newValue: backup,
-            timestamp: new Date(),
+            timestamp,
             reason: `Restore from backup ${backupId}`,
           }]
 
@@ -1244,12 +1380,14 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       getIndexStatistics: () =>
         Effect.gen(function* () {
           const indexMap = yield* Ref.get(indexStore)
+          const now = yield* currentMillis
+          const lastOptimizedMillis = now - 24 * 60 * 60 * 1000
 
           return {
             totalIndexes: indexMap.size,
             totalSize: Array.from(indexMap.values()).reduce((sum, ids) => sum + ids.length * 32, 0), // Rough estimate
             fragmentationRatio: 0.15,
-            lastOptimized: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            lastOptimized: new Date(lastOptimizedMillis),
           }
         }),
 
@@ -1261,9 +1399,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
           const cache = yield* Ref.get(metadataCache)
           const updated = new Map(cache)
+          const timestamp = yield* currentMillis
           updated.set(worldId, {
             metadata,
-            timestamp: Date.now(),
+            timestamp,
           })
           yield* Ref.set(metadataCache, updated)
         }),
@@ -1441,14 +1580,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const metadataList = Array.from(store.values())
 
           if (metadataList.length === 0) {
+            const now = yield* currentDate
             return {
               totalWorlds: 0,
               totalSize: 0,
               averageWorldSize: 0,
               compressionRatio: 1.0,
-              oldestWorld: new Date(),
-              newestWorld: new Date(),
-              mostActiveWorld: '' as WorldId,
+              oldestWorld: now,
+              newestWorld: now,
+              mostActiveWorld: EMPTY_WORLD_ID,
             }
           }
 

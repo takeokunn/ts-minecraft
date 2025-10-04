@@ -31,19 +31,46 @@ export type PhysicsErrorUnion =
 
 const Constructors = Data.taggedEnum<PhysicsErrorUnion>()
 
+type SchemaViolation = Extract<PhysicsErrorUnion, { readonly _tag: 'SchemaViolation' }>
+type ConstraintViolation = Extract<PhysicsErrorUnion, { readonly _tag: 'ConstraintViolation' }>
+type NotFound = Extract<PhysicsErrorUnion, { readonly _tag: 'NotFound' }>
+type TemporalAnomaly = Extract<PhysicsErrorUnion, { readonly _tag: 'TemporalAnomaly' }>
+type InvalidTransition = Extract<PhysicsErrorUnion, { readonly _tag: 'InvalidTransition' }>
+
+type MatchCases<A> = {
+  readonly SchemaViolation: (error: SchemaViolation) => A
+  readonly ConstraintViolation: (error: ConstraintViolation) => A
+  readonly NotFound: (error: NotFound) => A
+  readonly TemporalAnomaly: (error: TemporalAnomaly) => A
+  readonly InvalidTransition: (error: InvalidTransition) => A
+}
+
 export const PhysicsError = {
   SchemaViolation: Constructors.SchemaViolation,
   ConstraintViolation: Constructors.ConstraintViolation,
   NotFound: Constructors.NotFound,
   TemporalAnomaly: Constructors.TemporalAnomaly,
   InvalidTransition: Constructors.InvalidTransition,
-  match: Constructors.match,
+  match<A>(error: PhysicsError, cases: MatchCases<A>): A {
+    switch (error._tag) {
+      case 'SchemaViolation':
+        return cases.SchemaViolation(error)
+      case 'ConstraintViolation':
+        return cases.ConstraintViolation(error)
+      case 'NotFound':
+        return cases.NotFound(error)
+      case 'TemporalAnomaly':
+        return cases.TemporalAnomaly(error)
+      case 'InvalidTransition':
+        return cases.InvalidTransition(error)
+    }
+  },
 }
 
 export type PhysicsError = ReturnType<(typeof Constructors)[keyof typeof Constructors]>
 
 export const fromParseError = (error: ParseResult.ParseError): PhysicsError =>
   Constructors.SchemaViolation({
-    message: ParseResult.formatErrorSync(error),
+    message: ParseResult.TreeFormatter.formatErrorSync(error),
     issue: error.issue,
   })

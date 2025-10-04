@@ -1,31 +1,38 @@
 import { Schema } from '@effect/schema'
-import { Match } from 'effect'
+import { Clock, Effect, Match } from 'effect'
+import { CpuPercentage, MemoryBytes, Milliseconds, Timestamp } from './types'
 
-/**
- * Application Layer Errors - ゲームアプリケーション統合のエラー定義
- *
- * Issue #176: Application Layer Integration
- * Effect-TS TaggedErrorによる構造化エラーハンドリング
- */
+// ===== JSON表現 =====
+
+export const JsonValue = Schema.suspend(() =>
+  Schema.Union(
+    Schema.Null,
+    Schema.Boolean,
+    Schema.Number,
+    Schema.String,
+    Schema.Array(JsonValue),
+    Schema.Record({ key: Schema.String, value: JsonValue })
+  )
+)
+export type JsonValue = Schema.Schema.Type<typeof JsonValue>
+
+const ErrorDetail = Schema.Struct({
+  key: Schema.String,
+  value: JsonValue,
+})
 
 // ===== 基本エラー情報 =====
 
-/**
- * エラーコンテキスト - エラー発生時の詳細情報
- */
 export const ErrorContext = Schema.Struct({
-  timestamp: Schema.Number,
+  timestamp: Timestamp,
   system: Schema.String,
   operation: Schema.String,
-  details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  details: Schema.optional(Schema.Array(ErrorDetail)),
 })
 export type ErrorContext = Schema.Schema.Type<typeof ErrorContext>
 
 // ===== アプリケーション初期化エラー =====
 
-/**
- * GameLoopサービス初期化失敗
- */
 export const GameLoopInitializationFailedError = Schema.TaggedStruct('GameLoopInitializationFailedError', {
   context: ErrorContext,
   cause: Schema.String,
@@ -33,9 +40,6 @@ export const GameLoopInitializationFailedError = Schema.TaggedStruct('GameLoopIn
 })
 export type GameLoopInitializationFailedError = Schema.Schema.Type<typeof GameLoopInitializationFailedError>
 
-/**
- * Rendererサービス初期化失敗
- */
 export const RendererInitializationFailedError = Schema.TaggedStruct('RendererInitializationFailedError', {
   context: ErrorContext,
   cause: Schema.String,
@@ -44,9 +48,6 @@ export const RendererInitializationFailedError = Schema.TaggedStruct('RendererIn
 })
 export type RendererInitializationFailedError = Schema.Schema.Type<typeof RendererInitializationFailedError>
 
-/**
- * Sceneサービス初期化失敗
- */
 export const SceneInitializationFailedError = Schema.TaggedStruct('SceneInitializationFailedError', {
   context: ErrorContext,
   sceneType: Schema.optional(Schema.String),
@@ -54,21 +55,13 @@ export const SceneInitializationFailedError = Schema.TaggedStruct('SceneInitiali
 })
 export type SceneInitializationFailedError = Schema.Schema.Type<typeof SceneInitializationFailedError>
 
-/**
- * Inputサービス初期化失敗
- */
 export const InputInitializationFailedError = Schema.TaggedStruct('InputInitializationFailedError', {
   context: ErrorContext,
-  deviceType: Schema.optional(
-    Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))
-  ),
+  deviceType: Schema.optional(Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))),
   cause: Schema.String,
 })
 export type InputInitializationFailedError = Schema.Schema.Type<typeof InputInitializationFailedError>
 
-/**
- * ECSサービス初期化失敗
- */
 export const ECSInitializationFailedError = Schema.TaggedStruct('ECSInitializationFailedError', {
   context: ErrorContext,
   component: Schema.optional(Schema.String),
@@ -77,9 +70,6 @@ export const ECSInitializationFailedError = Schema.TaggedStruct('ECSInitializati
 })
 export type ECSInitializationFailedError = Schema.Schema.Type<typeof ECSInitializationFailedError>
 
-/**
- * Canvas要素が見つからない
- */
 export const CanvasNotFoundError = Schema.TaggedStruct('CanvasNotFoundError', {
   context: ErrorContext,
   canvasId: Schema.optional(Schema.String),
@@ -87,22 +77,8 @@ export const CanvasNotFoundError = Schema.TaggedStruct('CanvasNotFoundError', {
 })
 export type CanvasNotFoundError = Schema.Schema.Type<typeof CanvasNotFoundError>
 
-/**
- * 統合初期化エラー（複合エラー）
- */
-export type GameApplicationInitError =
-  | GameLoopInitializationFailedError
-  | RendererInitializationFailedError
-  | SceneInitializationFailedError
-  | InputInitializationFailedError
-  | ECSInitializationFailedError
-  | CanvasNotFoundError
-
 // ===== ランタイムエラー =====
 
-/**
- * システム間通信エラー
- */
 export const SystemCommunicationError = Schema.TaggedStruct('SystemCommunicationError', {
   context: ErrorContext,
   sourceSystem: Schema.String,
@@ -112,13 +88,10 @@ export const SystemCommunicationError = Schema.TaggedStruct('SystemCommunication
 })
 export type SystemCommunicationError = Schema.Schema.Type<typeof SystemCommunicationError>
 
-/**
- * フレーム処理エラー
- */
 export const FrameProcessingError = Schema.TaggedStruct('FrameProcessingError', {
   context: ErrorContext,
   frameNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  deltaTime: Schema.Number,
+  deltaTime: Milliseconds,
   stage: Schema.Union(
     Schema.Literal('update'),
     Schema.Literal('render'),
@@ -129,9 +102,6 @@ export const FrameProcessingError = Schema.TaggedStruct('FrameProcessingError', 
 })
 export type FrameProcessingError = Schema.Schema.Type<typeof FrameProcessingError>
 
-/**
- * パフォーマンス劣化エラー
- */
 export const PerformanceDegradationError = Schema.TaggedStruct('PerformanceDegradationError', {
   context: ErrorContext,
   metric: Schema.Union(Schema.Literal('fps'), Schema.Literal('memory'), Schema.Literal('cpu'), Schema.Literal('gpu')),
@@ -141,20 +111,14 @@ export const PerformanceDegradationError = Schema.TaggedStruct('PerformanceDegra
 })
 export type PerformanceDegradationError = Schema.Schema.Type<typeof PerformanceDegradationError>
 
-/**
- * メモリリークエラー
- */
 export const MemoryLeakError = Schema.TaggedStruct('MemoryLeakError', {
   context: ErrorContext,
-  memoryUsage: Schema.Number,
-  memoryLimit: Schema.Number,
+  memoryUsage: MemoryBytes,
+  memoryLimit: MemoryBytes,
   leakSource: Schema.optional(Schema.String),
 })
 export type MemoryLeakError = Schema.Schema.Type<typeof MemoryLeakError>
 
-/**
- * WebGLコンテキスト喪失エラー
- */
 export const WebGLContextLostError = Schema.TaggedStruct('WebGLContextLostError', {
   context: ErrorContext,
   recoverable: Schema.Boolean,
@@ -162,9 +126,6 @@ export const WebGLContextLostError = Schema.TaggedStruct('WebGLContextLostError'
 })
 export type WebGLContextLostError = Schema.Schema.Type<typeof WebGLContextLostError>
 
-/**
- * ランタイムエラー（複合エラー）
- */
 export type GameApplicationRuntimeError =
   | SystemCommunicationError
   | FrameProcessingError
@@ -174,9 +135,6 @@ export type GameApplicationRuntimeError =
 
 // ===== 状態管理エラー =====
 
-/**
- * 不正な状態遷移エラー
- */
 export const InvalidStateTransitionError = Schema.TaggedStruct('InvalidStateTransitionError', {
   context: ErrorContext,
   currentState: Schema.String,
@@ -185,106 +143,107 @@ export const InvalidStateTransitionError = Schema.TaggedStruct('InvalidStateTran
 })
 export type InvalidStateTransitionError = Schema.Schema.Type<typeof InvalidStateTransitionError>
 
-/**
- * 設定検証エラー
- */
 export const ConfigurationValidationError = Schema.TaggedStruct('ConfigurationValidationError', {
   context: ErrorContext,
   field: Schema.String,
-  value: Schema.Unknown,
+  value: JsonValue,
   constraint: Schema.String,
 })
 export type ConfigurationValidationError = Schema.Schema.Type<typeof ConfigurationValidationError>
 
-/**
- * システム同期エラー
- */
 export const SystemSynchronizationError = Schema.TaggedStruct('SystemSynchronizationError', {
   context: ErrorContext,
   outOfSyncSystems: Schema.Array(Schema.String),
-  timeDrift: Schema.Number,
+  timeDrift: Milliseconds,
 })
 export type SystemSynchronizationError = Schema.Schema.Type<typeof SystemSynchronizationError>
 
-/**
- * 状態管理エラー（複合エラー）
- */
 export type GameApplicationStateError =
   | InvalidStateTransitionError
   | ConfigurationValidationError
   | SystemSynchronizationError
 
+export type GameApplicationInitError =
+  | GameLoopInitializationFailedError
+  | RendererInitializationFailedError
+  | SceneInitializationFailedError
+  | InputInitializationFailedError
+  | ECSInitializationFailedError
+  | CanvasNotFoundError
+  | ConfigurationValidationError
+
+export type GameApplicationError =
+  | GameApplicationInitError
+  | GameApplicationRuntimeError
+  | GameApplicationStateError
+
 // ===== エラーヘルパー関数 =====
 
-/**
- * エラーコンテキストの作成
- */
-export const createErrorContext = (
-  system: string,
-  operation: string,
-  details?: Record<string, unknown>
-): ErrorContext => ({
-  timestamp: Date.now(),
+const ensureTimestamp = Schema.decodeSync(Timestamp)
+
+export const createErrorContext = ({
   system,
   operation,
   details,
-})
+}: {
+  readonly system: string
+  readonly operation: string
+  readonly details?: ReadonlyArray<{ readonly key: string; readonly value: JsonValue }>
+}): Effect.Effect<ErrorContext> =>
+  Effect.gen(function* () {
+    const timestamp = ensureTimestamp(yield* Clock.currentTimeMillis)
+    return {
+      timestamp,
+      system,
+      operation,
+      details: details?.map(({ key, value }) => ({ key, value })),
+    }
+  })
 
-/**
- * エラーの重要度判定
- */
-export const getErrorSeverity = (
-  error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
-): 'low' | 'medium' | 'high' | 'critical' => {
-  return Match.value(error['_tag']).pipe(
-    // 致命的エラー
-    Match.when('CanvasNotFoundError', () => 'critical' as const),
-    Match.when('RendererInitializationFailedError', () => 'critical' as const),
-    Match.when('WebGLContextLostError', () => 'critical' as const),
-    Match.when('MemoryLeakError', () => 'critical' as const),
+const decodeSeverity = Schema.decodeSync(Schema.Literal('low', 'medium', 'high', 'critical'))
 
-    // 高重要度エラー
-    Match.when('GameLoopInitializationFailedError', () => 'high' as const),
-    Match.when('SystemCommunicationError', () => 'high' as const),
-    Match.when('FrameProcessingError', () => 'high' as const),
-    Match.when('InvalidStateTransitionError', () => 'high' as const),
-
-    // 中重要度エラー
-    Match.when('SceneInitializationFailedError', () => 'medium' as const),
-    Match.when('InputInitializationFailedError', () => 'medium' as const),
-    Match.when('ECSInitializationFailedError', () => 'medium' as const),
-    Match.when('SystemSynchronizationError', () => 'medium' as const),
-
-    // 低重要度エラー
-    Match.when('PerformanceDegradationError', () => 'low' as const),
-    Match.when('ConfigurationValidationError', () => 'low' as const),
-
-    // デフォルト: 網羅的パターンマッチのためのフォールバック
-    Match.orElse(() => 'medium' as const)
-  )
+const Severity = {
+  critical: decodeSeverity('critical'),
+  high: decodeSeverity('high'),
+  medium: decodeSeverity('medium'),
+  low: decodeSeverity('low'),
 }
 
-/**
- * エラーの回復可能性判定
- */
-export const isRecoverable = (
-  error: GameApplicationInitError | GameApplicationRuntimeError | GameApplicationStateError
-): boolean => {
-  return Match.value(error['_tag']).pipe(
-    // 回復不可能
+const decodeString = Schema.decodeSync(Schema.String)
+const decodeBoolean = Schema.decodeSync(Schema.Boolean)
+
+export const getErrorSeverity = (
+  error: GameApplicationError
+): 'low' | 'medium' | 'high' | 'critical' =>
+  Match.value(decodeTag(error)).pipe(
+    Match.when('CanvasNotFoundError', () => Severity.critical),
+    Match.when('RendererInitializationFailedError', () => Severity.critical),
+    Match.when('WebGLContextLostError', () => Severity.critical),
+    Match.when('MemoryLeakError', () => Severity.critical),
+    Match.when('GameLoopInitializationFailedError', () => Severity.high),
+    Match.when('SystemCommunicationError', () => Severity.high),
+    Match.when('FrameProcessingError', () => Severity.high),
+    Match.when('InvalidStateTransitionError', () => Severity.high),
+    Match.when('SceneInitializationFailedError', () => Severity.medium),
+    Match.when('InputInitializationFailedError', () => Severity.medium),
+    Match.when('ECSInitializationFailedError', () => Severity.medium),
+    Match.when('SystemSynchronizationError', () => Severity.medium),
+    Match.when('PerformanceDegradationError', () => Severity.low),
+    Match.when('ConfigurationValidationError', () => Severity.low),
+    Match.orElse(() => Severity.medium)
+  )
+
+export const isRecoverable = (error: GameApplicationError): boolean =>
+  Match.value(decodeTag(error)).pipe(
     Match.when('CanvasNotFoundError', () => false),
     Match.when('MemoryLeakError', () => false),
-
-    // 回復可能
     Match.when('PerformanceDegradationError', () => true),
     Match.when('ConfigurationValidationError', () => true),
     Match.when('SystemSynchronizationError', () => true),
-
-    // 条件付き回復可能
-    Match.when('WebGLContextLostError', () => (error as any).recoverable),
-    Match.when('GameLoopInitializationFailedError', () => (error as any).retryable),
-
-    // デフォルトは回復可能（網羅的パターンマッチ）
+    Match.when('WebGLContextLostError', () => decodeBoolean(Reflect.get(error, 'recoverable'))),
+    Match.when('GameLoopInitializationFailedError', () => decodeBoolean(Reflect.get(error, 'retryable'))),
     Match.orElse(() => true)
   )
-}
+
+const decodeTag = (error: GameApplicationError): string =>
+  decodeString(Reflect.get(error, '_tag'))

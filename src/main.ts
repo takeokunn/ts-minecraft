@@ -1,12 +1,12 @@
 import { Effect, ManagedRuntime } from 'effect'
-import { MainLayer } from './bootstrap/layers/MainLayer'
-import { AppService } from './bootstrap/services/AppService'
+import { AppService, MainLayer } from './bootstrap'
 
 const program = Effect.gen(function* () {
   const app = yield* AppService
-  yield* app.initialize()
-  const status = yield* app.getReadyStatus()
-  console.log('App initialized:', status)
+  const initResult = yield* app.initialize
+  const status = yield* app.readiness
+  console.log('App initialized:', initResult)
+  console.log('App readiness status:', status)
   return status
 })
 

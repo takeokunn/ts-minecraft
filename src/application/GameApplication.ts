@@ -1,6 +1,12 @@
 import { Context, Effect } from 'effect'
 import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
-import type { ApplicationLifecycleState, GameApplicationConfig, GameApplicationState } from './types'
+import type {
+  ApplicationLifecycleState,
+  GameApplicationConfig,
+  GameApplicationConfigInput,
+  GameApplicationState,
+  Milliseconds,
+} from './types'
 
 /**
  * GameApplication - ゲームアプリケーション統合サービス
@@ -30,7 +36,9 @@ export interface GameApplication {
    * - Chunk → Mesh → Renderer連携の確立
    * - Camera → Input連携の確立
    */
-  readonly initialize: (config?: Partial<GameApplicationConfig>) => Effect.Effect<void, GameApplicationInitError, never>
+  readonly initialize: (
+    config?: Partial<GameApplicationConfigInput>
+  ) => Effect.Effect<void, GameApplicationInitError, never>
 
   /**
    * ゲームアプリケーションの開始
@@ -91,7 +99,7 @@ export interface GameApplication {
    * - Sceneの更新
    * - レンダリングの実行
    */
-  readonly tick: (deltaTime?: number) => Effect.Effect<void, GameApplicationRuntimeError, never>
+  readonly tick: (deltaTime?: Milliseconds) => Effect.Effect<void, GameApplicationRuntimeError, never>
 
   /**
    * 設定の更新
@@ -99,7 +107,7 @@ export interface GameApplication {
    * 実行時のアプリケーション設定変更
    */
   readonly updateConfig: (
-    config: Partial<GameApplicationConfig>
+    config: Partial<GameApplicationConfigInput>
   ) => Effect.Effect<void, GameApplicationStateError, never>
 
   /**

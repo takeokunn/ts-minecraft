@@ -1,7 +1,8 @@
 import type { Vector3D } from '@domain/entities/types'
 import { BrandedTypes } from '@domain/entities/types'
-import { Effect } from 'effect'
-import { describe, expect, it, vi } from 'vitest'
+import { it } from '@effect/vitest'
+import { Effect, Option } from 'effect'
+import { describe, expect, vi } from 'vitest'
 import { AudioService } from '../AudioService'
 import { AudioServiceLive } from '../AudioServiceLive'
 import {
@@ -97,85 +98,86 @@ describe('AudioService', () => {
   const TestLayer = AudioServiceLive
 
   describe('3D Sound Playback', () => {
-    it('should play a 3D sound at a specific position', () => {
-      return Effect.gen(function* () {
-        for (let i = 0; i < 10; i++) {
-          const soundId = generateSoundId()
-          const position = generatePosition3D()
-          const volume = generateVolume()
+    it.effect('should play a 3D sound at a specific position', () =>
+      Effect.gen(function* () {
+        const service = yield* AudioService
+        const iterations = Array.from({ length: 10 })
 
-          const service = yield* AudioService
-          const sourceId = yield* service.playSound3D(soundId, position, { volume })
-          const isPlaying = yield* service.isPlaying(sourceId)
+        yield* Effect.forEach(
+          iterations,
+          () =>
+            Effect.gen(function* () {
+              const soundId = generateSoundId()
+              const position = generatePosition3D()
+              const volume = generateVolume()
 
-          expect(isPlaying).toBe(true)
-        }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-    })
+              const sourceId = yield* service.playSound3D(soundId, position, { volume })
+              const isPlaying = yield* service.isPlaying(sourceId)
 
-    it('should respect distance attenuation', () => {
-      return Effect.gen(function* () {
-        for (let i = 0; i < 5; i++) {
-          const soundId = generateSoundId()
-          const sourcePosition = generatePosition3D()
+              expect(isPlaying).toBe(true)
+            }),
+          { concurrency: 'unbounded' }
+        )
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-          const service = yield* AudioService
+    it.effect('should respect distance attenuation', () =>
+      Effect.gen(function* () {
+        const service = yield* AudioService
 
-          // Play sound at source position
-          const sourceId = yield* service.playSound3D(soundId, sourcePosition, {
-            referenceDistance: AudioHelpers.createAudioDistance(10),
-            rolloffFactor: 1,
-          })
+        yield* Effect.forEach(
+          Array.from({ length: 5 }),
+          () =>
+            Effect.gen(function* () {
+              const soundId = generateSoundId()
+              const sourcePosition = generatePosition3D()
 
-          // Move listener near
-          const nearPosition = BrandedTypes.createVector3D(sourcePosition.x + 5, sourcePosition.y, sourcePosition.z)
-          yield* service.updateListener(nearPosition, AudioHelpers.identityQuaternion())
+              const sourceId = yield* service.playSound3D(soundId, sourcePosition, {
+                referenceDistance: AudioHelpers.createAudioDistance(10),
+                rolloffFactor: 1,
+              })
 
-          // Move listener far
-          const farPosition = BrandedTypes.createVector3D(sourcePosition.x + 50, sourcePosition.y, sourcePosition.z)
-          yield* service.updateListener(farPosition, AudioHelpers.identityQuaternion())
+              const nearPosition = BrandedTypes.createVector3D(sourcePosition.x + 5, sourcePosition.y, sourcePosition.z)
+              yield* service.updateListener(nearPosition, AudioHelpers.identityQuaternion())
 
-          // Cleanup
-          yield* service.stopSound(sourceId)
-        }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-    })
+              const farPosition = BrandedTypes.createVector3D(sourcePosition.x + 50, sourcePosition.y, sourcePosition.z)
+              yield* service.updateListener(farPosition, AudioHelpers.identityQuaternion())
+
+              yield* service.stopSound(sourceId)
+            }),
+          { concurrency: 1 }
+        )
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Volume Control', () => {
-    it('should apply category volumes correctly', () => {
-      return Effect.gen(function* () {
+    it.effect('should apply category volumes correctly', () =>
+      Effect.gen(function* () {
         const service = yield* AudioService
-
-        // Test specific category volumes
         const categoryVolume = AudioHelpers.createVolume(0.7)
         const masterVolume = AudioHelpers.createVolume(0.5)
 
-        // Set volumes
         yield* service.setVolume('music', categoryVolume)
         yield* service.setVolume('master', masterVolume)
 
-        // Verify volumes
         const retrievedCategoryVolume = yield* service.getVolume('music')
         const retrievedMasterVolume = yield* service.getVolume('master')
 
-        // Use approximate equality for floating-point numbers
         expect(Number(retrievedCategoryVolume)).toBeCloseTo(Number(categoryVolume), 6)
         expect(Number(retrievedMasterVolume)).toBeCloseTo(Number(masterVolume), 6)
 
-        // Test other categories
         const ambientVolume = AudioHelpers.createVolume(0.3)
         yield* service.setVolume('ambient', ambientVolume)
         const retrievedAmbientVolume = yield* service.getVolume('ambient')
         expect(Number(retrievedAmbientVolume)).toBeCloseTo(Number(ambientVolume), 6)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should update volume for active sounds', async () => {
-      await Effect.gen(function* () {
+    it.effect('should update volume for active sounds', () =>
+      Effect.gen(function* () {
         const service = yield* AudioService
 
-        // Play multiple sounds
         const musicId = yield* service.playSound2D(AudioHelpers.createSoundId('music.overworld'), {
           loop: true,
         })
@@ -184,20 +186,17 @@ describe('AudioService', () => {
           BrandedTypes.createVector3D(10, 64, 10)
         )
 
-        // Change master volume
         yield* service.setVolume('master', AudioHelpers.createVolume(0.5))
 
-        // Both sounds should still be playing
         const musicPlaying = yield* service.isPlaying(musicId)
         const blockPlaying = yield* service.isPlaying(blockId)
 
         expect(musicPlaying).toBe(true)
         expect(blockPlaying).toBe(true)
 
-        // Cleanup
         yield* service.stopAllSounds()
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Sound Management', () => {
@@ -223,7 +222,7 @@ describe('AudioService', () => {
 
         // Cleanup
         yield* service.stopAllSounds()
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
 
     it('should stop sounds correctly', () => {
@@ -249,7 +248,7 @@ describe('AudioService', () => {
             expect(result.left).toBeInstanceOf(SourceNotFoundError)
           }
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -278,7 +277,7 @@ describe('AudioService', () => {
           // Cleanup
           yield* service.stopSound(sourceId)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
 
     it('should fade out and stop sounds', () => {
@@ -299,7 +298,7 @@ describe('AudioService', () => {
           const isPlaying = yield* service.isPlaying(sourceId)
           expect(isPlaying).toBe(false)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -327,7 +326,7 @@ describe('AudioService', () => {
           // Cleanup
           yield* service.stopSound(sourceId)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -353,7 +352,7 @@ describe('AudioService', () => {
           // Cleanup
           yield* service.stopSound(sourceId)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -380,7 +379,7 @@ describe('AudioService', () => {
           // Cleanup
           yield* service.stopSound(sourceId)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -400,7 +399,7 @@ describe('AudioService', () => {
         expect(pauseResult._tag).toBe('Left')
         expect(resumeResult._tag).toBe('Left')
         expect(pitchResult._tag).toBe('Left')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
@@ -422,7 +421,7 @@ describe('AudioService', () => {
 
         // Cleanup
         yield* service.stopSound(sourceId)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 })

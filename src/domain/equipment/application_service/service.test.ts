@@ -15,6 +15,7 @@ import {
   WeightSchema,
   type UnixTime,
 } from '../types/core'
+import { provideLayers } from '../../../testing/effect'
 
 const buildPiece = Effect.gen(function* () {
   const id = yield* Schema.decodeUnknown(EquipmentIdSchema)('piece_service')
@@ -44,18 +45,22 @@ const buildPiece = Effect.gen(function* () {
 
 describe('equipment/application_service/service', () => {
   it.effect('equips equipment via service layer', () =>
-    Effect.gen(function* () {
-      const service = yield* EquipmentServiceTag
-      const repo = yield* EquipmentRepositoryTag
-      const id = yield* Schema.decodeUnknown(EquipmentSetIdSchema)('set_service')
-      const owner = yield* Schema.decodeUnknown(EquipmentOwnerIdSchema)('player_service')
-      const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(0)
+    provideLayers(
+      Effect.gen(function* () {
+        const service = yield* EquipmentServiceTag
+        const repo = yield* EquipmentRepositoryTag
+        const id = yield* Schema.decodeUnknown(EquipmentSetIdSchema)('set_service')
+        const owner = yield* Schema.decodeUnknown(EquipmentOwnerIdSchema)('player_service')
+        const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(0)
       const weightLimit = yield* Schema.decodeUnknown(WeightSchema)(100)
       const set = emptyEquipmentSet(id, owner, timestamp, weightLimit)
       yield* repo.save(set)
       const piece = yield* buildPiece
       const updated = yield* service.equip(id, piece, (timestamp + 5) as UnixTime)
       expect(updated.slots[piece.slot as EquipmentSlotLiteral]?.id).toBe(piece.id)
-    }).pipe(Effect.provideLayer(InMemoryEquipmentRepository), Effect.provideLayer(EquipmentServiceLive))
+      }),
+      InMemoryEquipmentRepository,
+      EquipmentServiceLive
+    )
   )
 })

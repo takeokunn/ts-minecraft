@@ -24,24 +24,37 @@ describe('domain/scene/types', () => {
     })
   )
 
-  it.prop('Loading progress is branded within [0,1]', [fc.float({ min: 0, max: 1 })], ([value]) =>
-    Effect.gen(function* () {
-      const progress = yield* Schema.decode(SceneProgressSchema)(value)
-      expect(progress).toBeGreaterThanOrEqual(0)
-      expect(progress).toBeLessThanOrEqual(1)
-      return true
-    })
-  )
+  it('Loading progress is branded within [0,1]', () => {
+    fc.assert(
+      fc.property(fc.float({ min: 0, max: 1 }), (value) => {
+        const progress = Effect.runSync(Schema.decode(SceneProgressSchema)(value))
+        const loadingScene = Scenes.Loading({ target: Scenes.MainMenu(), progress })
+        const decoded = Effect.runSync(Schema.decode(SceneStateSchema)(loadingScene))
+        expect(decoded.progress).toBe(progress)
+      })
+    )
+    const invalidValues = [-0.01, 1.01]
+    for (const value of invalidValues) {
+      const exit = Effect.runSyncExit(Schema.decode(SceneProgressSchema)(value))
+      expect(exit._tag).toBe('Failure')
+    }
+  })
 
-  it.prop('TransitionEffect.Fade stores branded durations', [fc.float({ min: 0, max: 10_000 })], ([millis]) =>
-    Effect.gen(function* () {
-      const duration = yield* Schema.decode(TransitionDurationSchema)(millis)
-      const effect = TransitionEffect.Fade({ duration })
-      expect(effect._tag).toBe('Fade')
-      expect(effect.duration).toBe(duration)
-      return true
-    })
-  )
+  it('TransitionEffect.Fade stores branded durations', () => {
+    fc.assert(
+      fc.property(fc.float({ min: 0, max: 10 }), (durationValue) => {
+        const duration = Effect.runSync(Schema.decode(TransitionDurationSchema)(durationValue))
+        const fade = TransitionEffect.Fade({ duration })
+        const decodedDuration = Effect.runSync(Schema.decode(TransitionDurationSchema)(fade.duration))
+        expect(decodedDuration).toBe(duration)
+      })
+    )
+    const invalidDurations = [-0.5, -10]
+    for (const value of invalidDurations) {
+      const exit = Effect.runSyncExit(Schema.decode(TransitionDurationSchema)(value))
+      expect(exit._tag).toBe('Failure')
+    }
+  })
 
   it.effect('TransitionError.InvalidScene captures formatted reason', () =>
     Effect.gen(function* () {

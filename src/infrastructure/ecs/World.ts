@@ -6,7 +6,7 @@
  */
 
 import { Schema } from '@effect/schema'
-import { Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
 import type { EntityId } from './Entity'
 import { createEntityId } from './Entity'
 import type { System, SystemPriority } from './System'
@@ -213,35 +213,31 @@ export const WorldLive = Layer.effect(
     }
 
     const stateRef = yield* Ref.make(initialState)
-    let lastUpdateTime = Date.now()
+    const initialTime = yield* Clock.currentTimeMillis
+    const lastUpdateTimeRef = yield* Ref.make(initialTime)
 
     /**
      * エンティティIDを生成
      */
-    const generateEntityId = (): EntityId => {
-      const state = Effect.runSync(Ref.get(stateRef))
-      const id = createEntityId(state.entityIdCounter)
-      Effect.runSync(
-        Ref.update(stateRef, (s) => ({
-          ...s,
-          entityIdCounter: s.entityIdCounter + 1,
-        }))
-      )
-      return id
-    }
+    const generateEntityId = () =>
+      Ref.modify(stateRef, (state) => {
+        const id = createEntityId(state.entityIdCounter)
+        return [id, { ...state, entityIdCounter: state.entityIdCounter + 1 }]
+      })
 
     /**
      * 新しいエンティティを作成
      */
     const createEntity = (name?: string, tags: readonly string[] = []) =>
       Effect.gen(function* () {
-        const id = generateEntityId()
+        const id = yield* generateEntityId()
+        const createdAt = yield* Clock.currentTimeMillis
 
         const metadata: EntityMetadata = {
           id,
           name: name ?? undefined,
           tags: [...tags],
-          createdAt: Date.now(),
+          createdAt,
           active: true,
         }
 
@@ -287,13 +283,15 @@ export const WorldLive = Layer.effect(
           const newEntities = new Map(s.entities)
           newEntities.delete(id)
 
-          // すべてのコンポーネントストレージからエンティティを削除
-          const newComponents = new Map(s.components)
-          for (const [type, storage] of newComponents) {
-            const newData = new Map(storage.data)
-            newData.delete(id)
-            newComponents.set(type, { ...storage, data: newData })
-          }
+          const newComponents = Array.from(s.components.entries()).reduce(
+            (acc, [type, storage]) => {
+              const newData = new Map(storage.data)
+              newData.delete(id)
+              acc.set(type, { ...storage, data: newData })
+              return acc
+            },
+            new Map<string, ComponentStorage>()
+          )
 
           return {
             ...s,
@@ -330,29 +328,22 @@ export const WorldLive = Layer.effect(
         )
 
         yield* Ref.update(stateRef, (s) => {
-          const newComponents = new Map(s.components)
+          const storage = s.components.get(componentType)
+          const baseStorage: ComponentStorage = storage ?? { type: componentType, data: new Map() }
+          const updatedData = new Map(baseStorage.data)
+          updatedData.set(entityId, component)
 
-          // 既存のストレージを取得または新規作成
-          const existingStorage = newComponents.get(componentType)
-          const storage: ComponentStorage = existingStorage ?? {
-            type: componentType,
-            data: new Map(),
-          }
+          const updatedComponents = new Map(s.components)
+          updatedComponents.set(componentType, { ...baseStorage, data: updatedData })
 
-          const newData = new Map(storage.data)
-          newData.set(entityId, component)
-
-          newComponents.set(componentType, { ...storage, data: newData })
-
-          // コンポーネント総数を計算
-          let totalComponents = 0
-          for (const stor of newComponents.values()) {
-            totalComponents += stor.data.size
-          }
+          const totalComponents = Array.from(updatedComponents.values()).reduce(
+            (count, stor) => count + stor.data.size,
+            0
+          )
 
           return {
             ...s,
-            components: newComponents,
+            components: updatedComponents,
             stats: {
               ...s.stats,
               componentCount: totalComponents,
@@ -386,26 +377,20 @@ export const WorldLive = Layer.effect(
                 newData.delete(entityId)
 
                 const newComponents = new Map(state.components)
-                const components =
-                  newData.size === 0
-                    ? (() => {
-                        newComponents.delete(componentType)
-                        return newComponents
-                      })()
-                    : (() => {
-                        newComponents.set(componentType, { ...storage, data: newData })
-                        return newComponents
-                      })()
-
-                // コンポーネント総数を計算
-                let totalComponents = 0
-                for (const stor of components.values()) {
-                  totalComponents += stor.data.size
+                if (newData.size === 0) {
+                  newComponents.delete(componentType)
+                } else {
+                  newComponents.set(componentType, { ...storage, data: newData })
                 }
+
+                const totalComponents = Array.from(newComponents.values()).reduce(
+                  (count, stor) => count + stor.data.size,
+                  0
+                )
 
                 return {
                   ...state,
-                  components,
+                  components: newComponents,
                   stats: {
                     ...state.stats,
                     componentCount: totalComponents,
@@ -611,7 +596,7 @@ export const WorldLive = Layer.effect(
      */
     const update = (deltaTime: number) =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
 
         // Worldインスタンスを作成
         const world: World = {
@@ -638,10 +623,13 @@ export const WorldLive = Layer.effect(
         // すべてのシステムを実行
         yield* systemRegistry.update(world, deltaTime)
 
-        // 統計を更新
-        const frameTime = Date.now() - startTime
-        const fps = 1000 / (Date.now() - lastUpdateTime)
-        lastUpdateTime = Date.now()
+        const endTime = yield* Clock.currentTimeMillis
+        const frameTime = endTime - startTime
+        const previousUpdateTime = yield* Ref.get(lastUpdateTimeRef)
+        const elapsedSinceLast = Math.max(endTime - previousUpdateTime, 1)
+        const fps = 1000 / elapsedSinceLast
+
+        yield* Ref.set(lastUpdateTimeRef, endTime)
 
         yield* Ref.update(stateRef, (state) => ({
           ...state,
@@ -681,24 +669,23 @@ export const WorldLive = Layer.effect(
           Option.fromNullable(state.components.get(componentType)),
           Option.match({
             onNone: () => Effect.succeed(new Map<EntityId, T>()),
-            onSome: (storage) => {
-              // アクティブなエンティティのみをフィルタリング
-              const activeComponents = new Map<EntityId, T>()
-              for (const [id, component] of storage.data) {
-                const metadata = pipe(Option.fromNullable(state.entities.get(id)), Option.getOrNull)
-
-                pipe(
-                  Match.value(metadata),
-                  Match.when(
-                    (m) => m != null && m.active,
-                    () => activeComponents.set(id, component as T)
+            onSome: (storage) =>
+              Array.from(storage.data.entries()).reduce(
+                (effectAcc, [id, component]) =>
+                  effectAcc.pipe(
+                    Effect.map((acc) =>
+                      pipe(
+                        Option.fromNullable(state.entities.get(id)),
+                        Option.flatMap((metadata) => (metadata.active ? Option.some(metadata) : Option.none())),
+                        Option.match({
+                          onNone: () => acc,
+                          onSome: () => acc.set(id, component as T),
+                        })
+                      )
+                    )
                   ),
-                  Match.orElse(() => undefined)
-                )
-              }
-
-              return Effect.succeed(activeComponents)
-            },
+                Effect.succeed(new Map<EntityId, T>())
+              ),
           })
         )
       })

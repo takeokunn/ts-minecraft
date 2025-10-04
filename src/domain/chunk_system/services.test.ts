@@ -8,6 +8,7 @@ import { ChunkSystemConfigSchema, ChunkRequestSchema } from './types.js'
 import { Schema } from '@effect/schema'
 import { makeInitialState } from './model.js'
 import { ChunkCommand } from './commands.js'
+import { provideLayers } from '../../testing/effect'
 
 const config = Effect.runSync(
   Schema.decodeUnknown(ChunkSystemConfigSchema)({
@@ -34,9 +35,7 @@ describe('chunk_system/services', () => {
         const initialState = yield* makeInitialState(config)
         const repositoryLayer = memoryRepositoryLayer(initialState)
         const serviceLayer = chunkSystemLayer(config).pipe(Layer.provide(repositoryLayer))
-        const service = yield* Effect.service(ChunkSystemService).pipe(
-          Effect.provideLayer(serviceLayer)
-        )
+        const service = yield* provideLayers(Effect.service(ChunkSystemService), serviceLayer)
         const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
           id: randomUUID(),
           chunk: 'chunk-service',
@@ -61,9 +60,7 @@ describe('chunk_system/services', () => {
         const initialState = yield* makeInitialState(config)
         const repositoryLayer = memoryRepositoryLayer(initialState)
         const serviceLayer = chunkSystemLayer(config).pipe(Layer.provide(repositoryLayer))
-        const service = yield* Effect.service(ChunkSystemService).pipe(
-          Effect.provideLayer(serviceLayer)
-        )
+        const service = yield* provideLayers(Effect.service(ChunkSystemService), serviceLayer)
         const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
           id,
           chunk: 'chunk-roundtrip',

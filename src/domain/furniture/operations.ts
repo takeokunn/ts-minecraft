@@ -23,6 +23,12 @@ import {
   toValidationError,
 } from './types.js'
 
+import * as Match from 'effect/Match'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
+type BedAggregate = Extract<Furniture, { _tag: 'Bed' }>
+type BookAggregate = Extract<Furniture, { _tag: 'Book' }>
+type DraftState = Extract<BookAggregate['state'], { _tag: 'Draft' }>
+
 const generateId: Effect.Effect<Schema.Schema.Type<typeof FurnitureIdSchema>, FurnitureError> = Effect.gen(
   function* () {
     const millis = yield* Clock.currentTimeMillis
@@ -148,32 +154,53 @@ export const createBook = (input: CreateBookInput) =>
     } satisfies Extract<Furniture, { _tag: 'Book' }>
   })
 
+const ensureBookEditable = (
+  book: BookAggregate
+): Effect.Effect<DraftState, FurnitureError> =>
+  Match.tag(book.state, {
+    Draft: (draft) => Effect.succeed(draft),
+    Published: () => Effect.fail(FurnitureError.alreadyPublished(book.id)),
+  })
+
+const ensureNextPageIndex = (
+  book: BookAggregate,
+  page: AppendPageCommand['page']
+) =>
+  pipe(
+    Effect.succeed(page.index),
+    Effect.filterOrFail(
+      (index) => index === book.pages.length,
+      () => FurnitureError.validation([`page index must be ${book.pages.length}`])
+    )
+  )
+
+const appendEditor = (
+  state: DraftState,
+  author: PlayerId
+): DraftState => ({
+  _tag: 'Draft',
+  editedBy: pipe(state.editedBy, ReadonlyArray.append(author)),
+})
+
 export const appendPage = (command: AppendPageCommand) =>
   Effect.gen(function* () {
-    if (command.book.state._tag === 'Published') {
-      return yield* Effect.fail(FurnitureError.alreadyPublished(command.book.id))
-    }
+    const draftState = yield* ensureBookEditable(command.book)
+    yield* ensureNextPageIndex(command.book, command.page)
 
-    const nextIndex = command.book.pages.length
-    if (command.page.index !== nextIndex) {
-      return yield* Effect.fail(FurnitureError.validation([`page index must be ${nextIndex}`]))
-    }
-
-    const pages = [...command.book.pages, command.page]
-    const state = command.book.state._tag === 'Draft'
-      ? { _tag: 'Draft', editedBy: [...command.book.state.editedBy, command.author] }
-      : { _tag: 'Draft', editedBy: [command.author] }
+    const pages = pipe(command.book.pages, ReadonlyArray.append(command.page))
 
     return {
       ...command.book,
       pages,
-      state,
+      state: appendEditor(draftState, command.author),
     }
   })
 
-export const publishBook = (book: Extract<Furniture, { _tag: 'Book' }>, tick: number) =>
+export const publishBook = (book: BookAggregate, tick: number) =>
   Effect.gen(function* () {
-    const publishedAt = yield* decode(TickSchema)(tick)
+    const publishedAt = yield* Schema.decode(TickSchema)(tick).pipe(
+      Effect.mapError(toValidationError)
+    )
 
     return {
       ...book,

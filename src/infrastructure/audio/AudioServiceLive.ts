@@ -1,5 +1,5 @@
 import type { Vector3D } from '@domain/entities/types'
-import { Effect, HashMap, Layer, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
+import { Clock, Duration, Effect, HashMap, Layer, Match, Option, Predicate, Queue, Ref, Schedule, Stream, pipe } from 'effect'
 import { nanoid } from 'nanoid'
 import * as THREE from 'three'
 import { AudioService } from './AudioService'
@@ -39,7 +39,7 @@ const makeAudioService = Effect.gen(function* () {
       const AudioContext = window.AudioContext || window.webkitAudioContext
       return new AudioContext()
     },
-    catch: () => new AudioContextError({ message: 'Failed to create audio context' }),
+    catch: () => AudioContextError({ message: 'Failed to create audio context' }),
   })
 
   const listener = yield* Effect.sync(() => new THREE.AudioListener())
@@ -51,17 +51,19 @@ const makeAudioService = Effect.gen(function* () {
 
   // Volume settings per category with defaults
   const volumeSettings = yield* Ref.make<HashMap.HashMap<SoundCategory, Volume>>(
-    HashMap.fromIterable([
-      ['master' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-      ['music' as SoundCategory, AudioHelpers.createVolume(0.7)] as const,
-      ['blocks' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-      ['hostile' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-      ['neutral' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-      ['players' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-      ['ambient' as SoundCategory, AudioHelpers.createVolume(0.5)] as const,
-      ['weather' as SoundCategory, AudioHelpers.createVolume(0.8)] as const,
-      ['records' as SoundCategory, AudioHelpers.createVolume(1.0)] as const,
-    ])
+    HashMap.fromIterable(
+      [
+        ['master', AudioHelpers.createVolume(1.0)],
+        ['music', AudioHelpers.createVolume(0.7)],
+        ['blocks', AudioHelpers.createVolume(1.0)],
+        ['hostile', AudioHelpers.createVolume(1.0)],
+        ['neutral', AudioHelpers.createVolume(1.0)],
+        ['players', AudioHelpers.createVolume(1.0)],
+        ['ambient', AudioHelpers.createVolume(0.5)],
+        ['weather', AudioHelpers.createVolume(0.8)],
+        ['records', AudioHelpers.createVolume(1.0)],
+      ] satisfies ReadonlyArray<readonly [SoundCategory, Volume]>
+    )
   )
 
   // Event queue
@@ -100,7 +102,7 @@ const makeAudioService = Effect.gen(function* () {
       const arrayBuffer = yield* Effect.tryPromise({
         try: () => fetch(url).then((response) => response.arrayBuffer()),
         catch: (error) =>
-          new AudioLoadError({
+          AudioLoadError({
             soundId,
             message: `Failed to fetch sound: ${error}`,
             cause: error,
@@ -110,7 +112,7 @@ const makeAudioService = Effect.gen(function* () {
       const audioBuffer = yield* Effect.tryPromise({
         try: () => audioContext.decodeAudioData(arrayBuffer),
         catch: (error) =>
-          new AudioLoadError({
+          AudioLoadError({
             soundId,
             message: `Failed to decode audio: ${error}`,
             cause: error,
@@ -151,33 +153,44 @@ const makeAudioService = Effect.gen(function* () {
 
       // Set volume
       const volumes = yield* Ref.get(volumeSettings)
-      const baseVolume = options?.volume || AudioHelpers.createVolume(1.0)
+      const baseVolume = pipe(
+        Option.fromNullable(options?.volume),
+        Option.getOrElse(() => AudioHelpers.createVolume(1.0))
+      )
       const finalVolume = calculateFinalVolume(baseVolume, 'blocks', volumes)
       positionalAudio.setVolume(finalVolume)
 
       // Set pitch
-      const pitch = options?.pitch || AudioHelpers.createPitch(1.0)
+      const pitch = pipe(
+        Option.fromNullable(options?.pitch),
+        Option.getOrElse(() => AudioHelpers.createPitch(1.0))
+      )
       positionalAudio.setPlaybackRate(Number(pitch))
 
       // Set loop
-      positionalAudio.setLoop(options?.loop || false)
+      const shouldLoop = pipe(
+        Option.fromNullable(options),
+        Option.flatMap((opts) => Option.fromNullable(opts.loop)),
+        Option.getOrElse(() => false)
+      )
+      positionalAudio.setLoop(shouldLoop)
 
       // Play
       positionalAudio.play()
 
       // Create source state
       const sourceId = generateSourceId()
+      const startTime = yield* Clock.currentTimeMillis
       const sourceState: AudioSourceState = {
         id: sourceId,
         soundId: sound,
-        startTime: Date.now(),
+        startTime,
         is3D: true,
         position,
         baseVolume,
         category: 'blocks',
       }
 
-      // Register source
       const activeSource: ActiveSource = {
         audio: positionalAudio,
         sourceState,
@@ -186,46 +199,59 @@ const makeAudioService = Effect.gen(function* () {
 
       yield* Ref.update(activeSources, HashMap.set(sourceId, activeSource))
 
-      // Auto-cleanup on end
-      if (!options?.loop) {
-        positionalAudio.onEnded = () => {
-          Effect.runSync(
-            pipe(
-              Ref.update(activeSources, HashMap.remove(sourceId)),
-              Effect.zipRight(
-                Queue.offer(eventQueue, {
-                  _tag: 'SoundStopped' as const,
-                  sourceId,
-                  reason: 'finished' as StopReason,
-                })
-              )
-            )
-          )
-        }
-      }
+      const finishedEvent = {
+        _tag: 'SoundStopped',
+        sourceId,
+        reason: 'finished',
+      } satisfies AudioEvent
 
-      // Emit event
-      yield* Queue.offer(eventQueue, {
-        _tag: 'SoundPlayed' as const,
+      yield* pipe(
+        shouldLoop,
+        Match.value,
+        Match.when(false, () =>
+          Effect.sync(() => {
+            positionalAudio.onEnded = () => {
+              Effect.runSync(
+                pipe(
+                  Ref.update(activeSources, HashMap.remove(sourceId)),
+                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                )
+              )
+            }
+          })
+        ),
+        Match.when(true, () => Effect.unit),
+        Match.exhaustive
+      )
+
+      const timestamp = yield* Clock.currentTimeMillis
+      const playedEvent = {
+        _tag: 'SoundPlayed',
         source: {
           soundId: sound,
           position,
           volume: baseVolume,
           pitch,
-          referenceDistance: options?.referenceDistance || AudioHelpers.createAudioDistance(10),
-          rolloffFactor: options?.rolloffFactor || 1,
+          referenceDistance: options?.referenceDistance ?? AudioHelpers.createAudioDistance(10),
+          rolloffFactor: options?.rolloffFactor ?? 1,
         },
-        timestamp: Date.now(),
-      })
+        timestamp,
+      } satisfies AudioEvent
+
+      yield* Queue.offer(eventQueue, playedEvent)
 
       return sourceId
     }).pipe(
-      Effect.mapError((error): AudioError => {
-        if (error._tag === 'AudioLoadError' || error._tag === 'AudioContextError') {
-          return new AudioError({ message: error.message })
-        }
-        return new AudioError({ message: String(error) })
-      })
+      Effect.mapError((error): AudioError =>
+        pipe(
+          Match.value(error),
+          Match.tags({
+            AudioLoadError: (err) => AudioError({ message: err.message }),
+            AudioContextError: (err) => AudioError({ message: err.message }),
+          }),
+          Match.orElse((err) => AudioError({ message: String(err) }))
+        )
+      )
     )
 
   // Play sound in 2D (non-spatial)
@@ -256,17 +282,23 @@ const makeAudioService = Effect.gen(function* () {
       audio.setPlaybackRate(Number(pitch))
 
       // Set loop
-      audio.setLoop(options?.loop || false)
+      const shouldLoop = pipe(
+        Option.fromNullable(options),
+        Option.flatMap((opts) => Option.fromNullable(opts.loop)),
+        Option.getOrElse(() => false)
+      )
+      audio.setLoop(shouldLoop)
 
       // Play
       audio.play()
 
       // Create source state
       const sourceId = generateSourceId()
+      const startTime = yield* Clock.currentTimeMillis
       const sourceState: AudioSourceState = {
         id: sourceId,
         soundId: sound,
-        startTime: Date.now(),
+        startTime,
         is3D: false,
         baseVolume,
         category: 'music',
@@ -282,31 +314,43 @@ const makeAudioService = Effect.gen(function* () {
       yield* Ref.update(activeSources, HashMap.set(sourceId, activeSource))
 
       // Auto-cleanup on end
-      if (!options?.loop) {
-        audio.onEnded = () => {
-          Effect.runSync(
-            pipe(
-              Ref.update(activeSources, HashMap.remove(sourceId)),
-              Effect.zipRight(
-                Queue.offer(eventQueue, {
-                  _tag: 'SoundStopped' as const,
-                  sourceId,
-                  reason: 'finished' as StopReason,
-                })
+      const finishedEvent = {
+        _tag: 'SoundStopped',
+        sourceId,
+        reason: 'finished',
+      } satisfies AudioEvent
+
+      yield* pipe(
+        shouldLoop,
+        Match.value,
+        Match.when(false, () =>
+          Effect.sync(() => {
+            audio.onEnded = () => {
+              Effect.runSync(
+                pipe(
+                  Ref.update(activeSources, HashMap.remove(sourceId)),
+                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                )
               )
-            )
-          )
-        }
-      }
+            }
+          })
+        ),
+        Match.when(true, () => Effect.unit),
+        Match.exhaustive
+      )
 
       return sourceId
     }).pipe(
-      Effect.mapError((error): AudioError => {
-        if (error._tag === 'AudioLoadError' || error._tag === 'AudioContextError') {
-          return new AudioError({ message: error.message })
-        }
-        return new AudioError({ message: String(error) })
-      })
+      Effect.mapError((error): AudioError =>
+        pipe(
+          Match.value(error),
+          Match.tags({
+            AudioLoadError: (err) => AudioError({ message: err.message }),
+            AudioContextError: (err) => AudioError({ message: err.message }),
+          }),
+          Match.orElse((err) => AudioError({ message: String(err) }))
+        )
+      )
     )
 
   // Stop a sound
@@ -320,7 +364,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -329,11 +373,12 @@ const makeAudioService = Effect.gen(function* () {
             Effect.gen(function* () {
               activeSource.audio.stop()
               yield* Ref.update(activeSources, HashMap.remove(sourceId))
-              yield* Queue.offer(eventQueue, {
-                _tag: 'SoundStopped' as const,
+              const stoppedEvent = {
+                _tag: 'SoundStopped',
                 sourceId,
-                reason: 'manual' as StopReason,
-              })
+                reason: 'manual',
+              } satisfies AudioEvent
+              yield* Queue.offer(eventQueue, stoppedEvent)
             }),
         })
       )
@@ -359,14 +404,22 @@ const makeAudioService = Effect.gen(function* () {
       listener.position.set(position.x, position.y, position.z)
 
       const quaternion = new THREE.Quaternion(orientation.x, orientation.y, orientation.z, orientation.w)
-      // Three.js rotation method
-      ;(listener as any).setRotationFromQuaternion(quaternion)
+      yield* pipe(
+        Option.fromNullable(Reflect.get(listener, 'setRotationFromQuaternion')),
+        Option.filter(Predicate.isFunction),
+        Option.match({
+          onNone: () => Effect.unit,
+          onSome: (setter) => Effect.sync(() => setter.call(listener, quaternion)),
+        })
+      )
 
-      yield* Queue.offer(eventQueue, {
-        _tag: 'ListenerMoved' as const,
+      const movedEvent = {
+        _tag: 'ListenerMoved',
         position,
         orientation,
-      })
+      } satisfies AudioEvent
+
+      yield* Queue.offer(eventQueue, movedEvent)
     })
 
   // Set volume for a category
@@ -385,11 +438,13 @@ const makeAudioService = Effect.gen(function* () {
         })
       )
 
-      yield* Queue.offer(eventQueue, {
-        _tag: 'VolumeChanged' as const,
+      const volumeChangedEvent = {
+        _tag: 'VolumeChanged',
         category,
         newVolume: volume,
-      })
+      } satisfies AudioEvent
+
+      yield* Queue.offer(eventQueue, volumeChangedEvent)
     })
 
   // Get volume for a category
@@ -419,7 +474,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -436,7 +491,7 @@ const makeAudioService = Effect.gen(function* () {
                   const nextVolume = Math.min(currentVolume + volumeStep, Number(targetVolume))
                   activeSource.audio.setVolume(nextVolume)
                 }),
-                Schedule.recurs(steps).pipe(Schedule.delayed(() => '50 millis'))
+                Schedule.recurs(steps).pipe(Schedule.delayed(() => Duration.millis(50)))
               )
             }),
         })
@@ -454,7 +509,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -471,7 +526,7 @@ const makeAudioService = Effect.gen(function* () {
                   const nextVolume = Math.max(0, currentVolume - volumeStep)
                   activeSource.audio.setVolume(nextVolume)
                 }),
-                Schedule.recurs(steps).pipe(Schedule.delayed(() => '50 millis'))
+                Schedule.recurs(steps).pipe(Schedule.delayed(() => Duration.millis(50)))
               )
 
               yield* stopSound(sourceId)
@@ -498,8 +553,14 @@ const makeAudioService = Effect.gen(function* () {
   const setDopplerFactor = (factor: number) =>
     Effect.gen(function* () {
       yield* Ref.set(dopplerFactor, factor)
-      // Three.js doppler method
-      ;(listener as any).setDopplerFactor(factor)
+      yield* pipe(
+        Option.fromNullable(Reflect.get(listener, 'setDopplerFactor')),
+        Option.filter(Predicate.isFunction),
+        Option.match({
+          onNone: () => Effect.unit,
+          onSome: (setter) => Effect.sync(() => setter.call(listener, factor)),
+        })
+      )
     })
 
   // Pause sound
@@ -513,7 +574,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -538,7 +599,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -563,7 +624,7 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
@@ -587,20 +648,26 @@ const makeAudioService = Effect.gen(function* () {
         Option.match({
           onNone: () =>
             Effect.fail(
-              new SourceNotFoundError({
+              SourceNotFoundError({
                 sourceId,
                 message: `Source ${sourceId} not found`,
               })
             ),
           onSome: (activeSource) =>
-            Effect.gen(function* () {
-              if (activeSource.audio instanceof THREE.PositionalAudio) {
-                activeSource.audio.position.set(position.x, position.y, position.z)
-                // Update position in source state
-                const newState = { ...activeSource.sourceState, position }
-                activeSource.sourceState = newState
-              }
-            }),
+            pipe(
+              Option.fromPredicate(
+                (audio: THREE.PositionalAudio | THREE.Audio): audio is THREE.PositionalAudio =>
+                  audio instanceof THREE.PositionalAudio
+              )(activeSource.audio),
+              Option.match({
+                onNone: () => Effect.unit,
+                onSome: (positionalAudio) =>
+                  Effect.sync(() => {
+                    positionalAudio.position.set(position.x, position.y, position.z)
+                    activeSource.sourceState = { ...activeSource.sourceState, position }
+                  }),
+              })
+            ),
         })
       )
     })

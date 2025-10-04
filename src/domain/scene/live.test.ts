@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
-import * as fc from 'effect/FastCheck'
-import { Duration, Effect, Layer, Option, Ref, Schema } from 'effect'
-import { RendererServiceLive } from '../../infrastructure/rendering.disabled/RendererServiceLive'
+import { Context, Duration, Effect, Fiber, Layer, Option, Ref, Schema } from 'effect'
+import { RendererService } from '../../infrastructure/rendering.disabled/RendererService'
 import { SceneService } from './service'
 import {
   ActiveScene,
@@ -20,6 +19,7 @@ import {
   SaveManager,
   WorldManager,
 } from './live'
+import { EventBus } from '../../infrastructure/events/EventBus'
 
 const makeSaveManagerLayer = (store: Ref.Ref<Option.Option<SceneSnapshot>>) =>
   Layer.succeed(SaveManager, {
@@ -54,6 +54,17 @@ const defaultPlayerState = Schema.decodeSync(PlayerStateSchema)({
   hunger: 100,
 })
 
+const testRendererLayer = Layer.succeed(RendererService, {
+  initialize: () => Effect.void,
+  render: () => Effect.void,
+  resize: () => Effect.void,
+  dispose: () => Effect.void,
+  getRenderer: () => Effect.succeed(null),
+  isInitialized: () => Effect.succeed(true),
+  setClearColor: () => Effect.void,
+  setPixelRatio: () => Effect.void,
+})
+
 const makeGameScene = (id: string): ActiveScene =>
   Scenes.GameWorld({
     worldId: Schema.decodeSync(WorldIdSchema)(id),
@@ -64,85 +75,104 @@ const buildLayer = (
   saveRef: Ref.Ref<Option.Option<SceneSnapshot>>,
   worldLayer: Layer.Layer<WorldManager>
 ) =>
-  Layer.mergeAll(
-    SceneEventBusLayer,
-    RendererServiceLive,
-    worldLayer,
-    makeSaveManagerLayer(saveRef),
-    SceneServiceBaseLayer
+  SceneServiceBaseLayer.pipe(
+    Layer.provide(SceneEventBusLayer),
+    Layer.provide(testRendererLayer),
+    Layer.provide(worldLayer),
+    Layer.provide(makeSaveManagerLayer(saveRef))
+  )
+
+const runWithSceneService = <A>(
+  store: Ref.Ref<Option.Option<SceneSnapshot>>,
+  worldLayer: Layer.Layer<WorldManager>,
+  use: (service: SceneService) => Effect.Effect<A>
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const layer = buildLayer(store, worldLayer)
+      const context = yield* Layer.build(layer)
+      const service = Context.unsafeGet(context, SceneService)
+      return yield* use(service)
+    })
   )
 
 describe('domain/scene/live', () => {
   it.effect('transitionTo updates current scene and returns new state', () =>
     Effect.gen(function* () {
-      const saved = yield* Ref.make<Option.Option<SceneSnapshot>>(Option.none())
-      const layer = buildLayer(saved, SceneWorldManagerLayer)
+      const store = Ref.unsafeMake<Option.Option<SceneSnapshot>>(Option.none())
+      const target = makeGameScene('world:alpha')
 
-      yield* Effect.gen(function* () {
-        const service = yield* SceneService
-        const gameScene = makeGameScene('world:transition')
-        const transitioned = yield* service.transitionTo(gameScene, TransitionEffect.Instant({}))
-        expect(transitioned).toStrictEqual(gameScene)
-        const current = yield* service.current()
-        expect(current).toStrictEqual(gameScene)
-      }).pipe(Layer.provide(layer))
+      yield* runWithSceneService(store, makeWorldManagerLayer(), (service) =>
+        Effect.gen(function* () {
+          const transitioned = yield* service.transitionTo(target)
+          expect(transitioned).toStrictEqual(target)
+          const current = yield* service.current()
+          expect(current).toStrictEqual(target)
+        })
+      )
     })
   )
 
   it.effect('concurrent transitions fail with TransitionInProgress', () =>
     Effect.gen(function* () {
-      const saved = yield* Ref.make<Option.Option<SceneSnapshot>>(Option.none())
-      const layer = buildLayer(saved, makeWorldManagerLayer(Duration.millis(50)))
+      const store = Ref.unsafeMake<Option.Option<SceneSnapshot>>(Option.none())
+      const slowWorldLayer = makeWorldManagerLayer(Duration.millis(50))
+      const primary = makeGameScene('world:primary')
+      const secondary = makeGameScene('world:secondary')
 
-      yield* Effect.gen(function* () {
-        const service = yield* SceneService
-        const firstScene = makeGameScene('world:first')
-        const secondScene = makeGameScene('world:second')
-
-        const fiber = yield* service.transitionTo(firstScene).pipe(Effect.fork)
-        const result = yield* service.transitionTo(secondScene).pipe(Effect.either)
-        expect(result._tag).toBe('Left')
-        yield* fiber
-      }).pipe(Layer.provide(layer))
+      yield* runWithSceneService(store, slowWorldLayer, (service) =>
+        Effect.gen(function* () {
+          const firstTransition = yield* Effect.fork(service.transitionTo(primary))
+          yield* Effect.sleep(Duration.millis(5))
+          const secondExit = yield* service.transitionTo(secondary).pipe(Effect.exit)
+          const firstResult = yield* Fiber.join(firstTransition)
+          expect(firstResult._tag).toBe('Success')
+          expect(secondExit._tag).toBe('Failure')
+          if (secondExit._tag === 'Failure') {
+            expect(secondExit.error._tag).toBe('TransitionInProgress')
+          }
+          const current = yield* service.current()
+          expect(current).toStrictEqual(primary)
+        })
+      )
     })
   )
 
   it.effect('saveSnapshot stores snapshot and restoreFrom replays it', () =>
     Effect.gen(function* () {
-      const saved = yield* Ref.make<Option.Option<SceneSnapshot>>(Option.none())
-      const layer = buildLayer(saved, SceneWorldManagerLayer)
+      const store = Ref.unsafeMake<Option.Option<SceneSnapshot>>(Option.none())
+      const target = makeGameScene('world:saved')
+      const saveId = Schema.decodeSync(SaveIdSchema)('save:test')
 
-      yield* Effect.gen(function* () {
-        const service = yield* SceneService
-        const gameScene = makeGameScene('world:snapshot')
-        const saveId = Schema.decodeSync(SaveIdSchema)('save:test')
-
-        yield* service.transitionTo(gameScene)
-        yield* service.saveSnapshot()
-
-        const stored = yield* Ref.get(saved)
-        expect(Option.isSome(stored)).toBe(true)
-
-        const restored = yield* service.restoreFrom(saveId)
-        expect(restored).toStrictEqual(gameScene)
-      }).pipe(Layer.provide(layer))
+      yield* runWithSceneService(store, makeWorldManagerLayer(), (service) =>
+        Effect.gen(function* () {
+          yield* service.transitionTo(target)
+          yield* service.saveSnapshot()
+          const saved = yield* Ref.get(store)
+          expect(Option.isSome(saved)).toBe(true)
+          yield* service.transitionTo(Scenes.MainMenu())
+          const restored = yield* service.restoreFrom(saveId)
+          expect(restored).toStrictEqual(target)
+          const current = yield* service.current()
+          expect(current).toStrictEqual(target)
+        })
+      )
     })
   )
 
-  it.prop('preload completes for known scenes', [fc.constantFrom('MainMenu', 'GameWorld')], ([kind]) =>
+  it.effect('preload completes for known scenes', () =>
     Effect.gen(function* () {
-      const saved = yield* Ref.make<Option.Option<SceneSnapshot>>(Option.none())
-      const layer = buildLayer(saved, SceneWorldManagerLayer)
+      const store = Ref.unsafeMake<Option.Option<SceneSnapshot>>(Option.none())
+      const mainMenu = Scenes.MainMenu()
+      const gameWorld = makeGameScene('world:preload')
 
-      const scene: ActiveScene = kind === 'MainMenu'
-        ? Scenes.MainMenu()
-        : makeGameScene('world:preload')
-
-      yield* Effect.gen(function* () {
-        const service = yield* SceneService
-        yield* service.preload(scene)
-        return true
-      }).pipe(Layer.provide(layer))
+      yield* runWithSceneService(store, makeWorldManagerLayer(), (service) =>
+        Effect.gen(function* () {
+          yield* service.preload(mainMenu)
+          yield* service.preload(gameWorld)
+          yield* service.preload(Scenes.Settings())
+        })
+      )
     })
   )
 })

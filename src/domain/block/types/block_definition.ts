@@ -2,10 +2,11 @@ import { pipe } from 'effect/Function'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Match from 'effect/Match'
-import * as Schema from '@effect/schema/Schema'
-import { ParseResult } from '@effect/schema/ParseResult'
+import * as Schema from 'effect/Schema'
+import type { ParseError } from 'effect/ParseResult'
 import type { BlockIdentity, BlockIdentityError } from '../value_object/block_identity'
 import { assembleIdentity } from '../value_object/block_identity'
+import type { BlockProperties } from './block_properties'
 import { BlockPropertiesError, makeBlockProperties } from './block_properties'
 
 // =============================================================================
@@ -46,8 +47,8 @@ const InteractiveSchema = Schema.Struct({
 export type BlockDefinitionError = Data.TaggedEnum<{
   IdentityError: { readonly cause: BlockIdentityError }
   PropertyError: { readonly cause: BlockPropertiesError }
-  LiquidError: { readonly issues: ParseResult.ParseError }
-  InteractiveError: { readonly issues: ParseResult.ParseError }
+  LiquidError: { readonly issues: ParseError }
+  InteractiveError: { readonly issues: ParseError }
 }>
 
 export const BlockDefinitionError = Data.taggedEnum<BlockDefinitionError>()
@@ -126,7 +127,7 @@ export const makeLiquidBlock = (
     )
 
     const liquid = yield* pipe(
-      Schema.decodeEffect(LiquidSchema)({
+      Schema.decode(LiquidSchema)({
         viscosity: input.viscosity,
         flowRange: input.flowRange,
       }),
@@ -169,19 +170,23 @@ export const makeInteractiveBlock = (
     )
 
     const interactive = yield* pipe(
-      Schema.decodeEffect(InteractiveSchema)({
+      Schema.decode(InteractiveSchema)({
         interactionId: input.interactionId,
         inventorySize: input.inventorySize,
       }),
       Effect.mapError((issues) => BlockDefinitionError.InteractiveError({ issues }))
     )
 
-    return BlockDefinition.Interactive({
+    const interactivePayload = {
       identity,
       properties,
       interactionId: interactive.interactionId,
-      inventorySize: interactive.inventorySize,
-    })
+      ...(interactive.inventorySize !== undefined
+        ? { inventorySize: interactive.inventorySize }
+        : {}),
+    } as const
+
+    return BlockDefinition.Interactive(interactivePayload)
   })
 
 export const makeBlockDefinition = (

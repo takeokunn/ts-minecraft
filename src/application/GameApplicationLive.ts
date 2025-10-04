@@ -1,63 +1,51 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Schema } from '@effect/schema'
+import { Clock, Effect, Layer, Match, Option, Ref, pipe } from 'effect'
 import { GameApplication } from './GameApplication'
-import type {
+import {
   ApplicationLifecycleState,
+  DEFAULT_GAME_APPLICATION_CONFIG,
   GameApplicationConfig,
+  GameApplicationConfigInput,
   GameApplicationState,
+  SystemHealthCheck,
+  CpuPercentage,
+  FramesPerSecond,
+  FrameCount,
+  MemoryBytes,
+  Milliseconds,
+  ResourcePercentage,
+  SlotCount,
+  SystemStatus,
+  SystemStatusValues,
+  Timestamp,
+  HealthStatusValues,
 } from './types'
-import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
-import type { SystemHealthCheck } from './types'
+import {
+  ConfigurationValidationError,
+  GameApplicationInitError,
+  GameApplicationRuntimeError,
+  GameApplicationStateError,
+  InvalidStateTransitionError,
+  JsonValue,
+  createErrorContext,
+} from './errors'
 
-const createInitialSystems = (config: GameApplicationConfig): GameApplicationState['systems'] => ({
-  gameLoop: {
-    status: 'idle',
-    currentFps: 0,
-    targetFps: config.rendering.targetFps,
-    frameCount: 0,
-    totalTime: 0,
-  },
-  renderer: {
-    status: 'idle',
-    memoryUsage: { geometries: 0, textures: 0, total: 0 },
-    renderStats: { drawCalls: 0, triangles: 0, frameTime: 0 },
-  },
-  scene: {
-    status: 'idle',
-    currentScene: undefined,
-    sceneStack: [],
-    isTransitioning: false,
-    transitionProgress: 0,
-  },
-  input: {
-    status: 'idle',
-    connectedDevices: { keyboard: false, mouse: false, gamepad: 0 },
-    activeInputs: 0,
-  },
-  ecs: {
-    status: 'idle',
-    entityCount: 0,
-    componentCount: 0,
-    systemCount: 0,
-    activeQueries: 0,
-  },
-})
+const ensureConfig = Schema.decodeSync(GameApplicationConfig)
+const encodeConfig = Schema.encodeSync(GameApplicationConfig)
+const ensureState = Schema.decodeSync(GameApplicationState)
+const toFramesPerSecond = Schema.decodeSync(FramesPerSecond)
+const toFrameCount = Schema.decodeSync(FrameCount)
+const toMilliseconds = Schema.decodeSync(Milliseconds)
+const toMemoryBytes = Schema.decodeSync(MemoryBytes)
+const toCpuPercentage = Schema.decodeSync(CpuPercentage)
+const toResourcePercentage = Schema.decodeSync(ResourcePercentage)
+const toSlotCount = Schema.decodeSync(SlotCount)
+const toTimestamp = Schema.decodeSync(Timestamp)
+const toJsonValue = Schema.decodeSync(JsonValue)
 
-const createInitialState = (config: GameApplicationConfig): GameApplicationState => ({
-  lifecycle: 'Uninitialized',
-  startTime: undefined,
-  uptime: 0,
-  systems: createInitialSystems(config),
-  performance: {
-    overallFps: 0,
-    memoryUsage: 0,
-    cpuUsage: 0,
-    isHealthy: true,
-  },
-  config,
-  lastError: undefined,
-})
+const noTransitions: ReadonlyArray<ApplicationLifecycleState> = []
 
-const allowedTransitions: Readonly<Record<ApplicationLifecycleState, readonly ApplicationLifecycleState[]>> = {
+const allowedTransitions: Record<ApplicationLifecycleState, ReadonlyArray<ApplicationLifecycleState>> = {
   Uninitialized: ['Initializing'],
   Initializing: ['Initialized', 'Error'],
   Initialized: ['Starting', 'Error'],
@@ -71,147 +59,229 @@ const allowedTransitions: Readonly<Record<ApplicationLifecycleState, readonly Ap
   Error: ['Initializing', 'Stopping'],
 }
 
-const transitionAllowed = (
-  current: ApplicationLifecycleState,
-  target: ApplicationLifecycleState
-) => allowedTransitions[current]?.includes(target) ?? false
+const lifecycleToSystemStatus = (lifecycle: ApplicationLifecycleState): SystemStatus =>
+  Match.value(lifecycle).pipe(
+    Match.when('Running', () => SystemStatusValues.Running),
+    Match.when('Paused', () => SystemStatusValues.Paused),
+    Match.when('Pausing', () => SystemStatusValues.Paused),
+    Match.when('Initializing', () => SystemStatusValues.Initializing),
+    Match.when('Starting', () => SystemStatusValues.Initializing),
+    Match.when('Resuming', () => SystemStatusValues.Initializing),
+    Match.when('Error', () => SystemStatusValues.Error),
+    Match.orElse(() => SystemStatusValues.Idle)
+  )
 
-const syncState = (
-  state: GameApplicationState,
-  updates: Partial<GameApplicationState>
-): GameApplicationState => ({ ...state, ...updates, systems: { ...state.systems, ...(updates.systems ?? {}) } })
+const healthFromStatus = (status: SystemStatus) =>
+  Match.value(status).pipe(
+    Match.when(SystemStatusValues.Error, () => HealthStatusValues.Unhealthy),
+    Match.orElse(() => HealthStatusValues.Healthy)
+  )
 
-const withLifecycle = (state: GameApplicationState, lifecycle: ApplicationLifecycleState): GameApplicationState =>
-  syncState(state, { lifecycle })
-
-const lifecycleToSystemStatus = (lifecycle: ApplicationLifecycleState): 'idle' | 'initializing' | 'running' | 'paused' | 'error' => {
-  switch (lifecycle) {
-    case 'Running':
-      return 'running'
-    case 'Paused':
-    case 'Pausing':
-      return 'paused'
-    case 'Initializing':
-    case 'Starting':
-    case 'Resuming':
-      return 'initializing'
-    case 'Error':
-      return 'error'
-    case 'Stopping':
-    case 'Stopped':
-    case 'Uninitialized':
-    default:
-      return 'idle'
-  }
-}
-
-const markSystemsStatus = (
-  systems: GameApplicationState['systems'],
-  lifecycle: ApplicationLifecycleState
-): GameApplicationState['systems'] => {
+const mapSystemStatus = (state: GameApplicationState, lifecycle: ApplicationLifecycleState): GameApplicationState['systems'] => {
   const status = lifecycleToSystemStatus(lifecycle)
   return {
-    gameLoop: { ...systems.gameLoop, status },
-    renderer: { ...systems.renderer, status },
-    scene: { ...systems.scene, status },
-    input: { ...systems.input, status },
-    ecs: { ...systems.ecs, status },
+    gameLoop: { ...state.systems.gameLoop, status },
+    renderer: { ...state.systems.renderer, status },
+    scene: { ...state.systems.scene, status },
+    input: { ...state.systems.input, status },
+    ecs: { ...state.systems.ecs, status },
   }
 }
 
 const computeHealth = (state: GameApplicationState): SystemHealthCheck => ({
-  gameLoop: { status: state.systems.gameLoop.status === 'error' ? 'unhealthy' : 'healthy', fps: state.systems.gameLoop.currentFps },
-  renderer: { status: state.systems.renderer.status === 'error' ? 'unhealthy' : 'healthy', memory: state.performance.memoryUsage },
-  scene: { status: state.systems.scene.status === 'error' ? 'unhealthy' : 'healthy', sceneCount: state.systems.scene.sceneStack.length },
-  input: { status: state.systems.input.status === 'error' ? 'unhealthy' : 'healthy' },
-  ecs: { status: state.systems.ecs.status === 'error' ? 'unhealthy' : 'healthy', entityCount: state.systems.ecs.entityCount },
+  gameLoop: {
+    status: healthFromStatus(state.systems.gameLoop.status),
+    fps: state.systems.gameLoop.currentFps,
+    message: undefined,
+  },
+  renderer: {
+    status: healthFromStatus(state.systems.renderer.status),
+    memory: state.performance.memoryUsage,
+    message: undefined,
+  },
+  scene: {
+    status: healthFromStatus(state.systems.scene.status),
+    sceneCount: state.systems.scene.sceneStack.length,
+    message: undefined,
+  },
+  input: {
+    status: healthFromStatus(state.systems.input.status),
+    message: undefined,
+  },
+  ecs: {
+    status: healthFromStatus(state.systems.ecs.status),
+    entityCount: state.systems.ecs.entityCount,
+    message: undefined,
+  },
 })
 
-const makeGameApplicationLive = Effect.gen(function* () {
-  const stateRef = yield* Ref.make(createInitialState(DEFAULT_GAME_APPLICATION_CONFIG))
-
-  const updateState = (updater: (state: GameApplicationState) => GameApplicationState) =>
-    Ref.update(stateRef, updater)
-
-const ensureTransition = (
-  target: ApplicationLifecycleState
-) =>
-  Effect.gen(function* () {
-    const current = yield* Ref.get(stateRef).pipe(Effect.map((state) => state.lifecycle))
-    if (!transitionAllowed(current, target)) {
-      return
-    }
-    yield* updateState((prev) => withLifecycle(prev, target))
+const createInitialState = (config: GameApplicationConfig): GameApplicationState =>
+  ensureState({
+    lifecycle: 'Uninitialized',
+    startTime: undefined,
+    uptime: toMilliseconds(0),
+    systems: {
+      gameLoop: {
+        status: 'idle',
+        currentFps: toFramesPerSecond(0),
+        targetFps: config.rendering.targetFps,
+        frameCount: toFrameCount(0),
+        totalTime: toMilliseconds(0),
+      },
+      renderer: {
+        status: 'idle',
+        memoryUsage: {
+          geometries: toMemoryBytes(0),
+          textures: toMemoryBytes(0),
+          total: toMemoryBytes(0),
+        },
+        renderStats: {
+          drawCalls: 0,
+          triangles: 0,
+          frameTime: toMilliseconds(0),
+        },
+      },
+      scene: {
+        status: 'idle',
+        currentScene: undefined,
+        sceneStack: [],
+        isTransitioning: false,
+        transitionProgress: toResourcePercentage(0),
+      },
+      input: {
+        status: 'idle',
+        connectedDevices: {
+          keyboard: false,
+          mouse: false,
+          gamepad: 0,
+        },
+        activeInputs: toSlotCount(0),
+      },
+      ecs: {
+        status: 'idle',
+        entityCount: toSlotCount(0),
+        componentCount: toSlotCount(0),
+        systemCount: toSlotCount(0),
+        activeQueries: toSlotCount(0),
+      },
+    },
+    performance: {
+      overallFps: toFramesPerSecond(0),
+      memoryUsage: toMemoryBytes(0),
+      cpuUsage: toCpuPercentage(0),
+      isHealthy: true,
+    },
+    config,
+    lastError: undefined,
   })
 
-  const setLifecycle = (lifecycle: ApplicationLifecycleState) =>
-    updateState((prev) => ({ ...withLifecycle(prev, lifecycle), systems: markSystemsStatus(prev.systems, lifecycle) }))
+const mergeConfig = (
+  base: GameApplicationConfig,
+  patch: Partial<GameApplicationConfigInput> | undefined
+): Effect.Effect<GameApplicationConfig, ConfigurationValidationError> => {
+  const candidateInput = encodeConfig(base)
+  const candidate = {
+    rendering: { ...candidateInput.rendering, ...(patch?.rendering ?? {}) },
+    gameLoop: { ...candidateInput.gameLoop, ...(patch?.gameLoop ?? {}) },
+    input: { ...candidateInput.input, ...(patch?.input ?? {}) },
+    performance: { ...candidateInput.performance, ...(patch?.performance ?? {}) },
+    debug: { ...candidateInput.debug, ...(patch?.debug ?? {}) },
+  }
 
-  const initialize = (config?: Partial<GameApplicationConfig>) =>
-    Effect.gen(function* () {
-      const mergedConfig: GameApplicationConfig = { ...DEFAULT_GAME_APPLICATION_CONFIG, ...(config ?? {}) }
-      yield* ensureTransition('Initializing')
-      yield* updateState(() => ({ ...createInitialState(mergedConfig), lifecycle: 'Initializing' }))
-      yield* setLifecycle('Initialized')
+  return Effect.try({
+    try: () => ensureConfig(candidate),
+    catch: (cause) => cause,
+  }).pipe(
+    Effect.catchAll((cause) =>
+      Effect.gen(function* () {
+        const context = yield* createErrorContext({
+          system: 'GameApplication',
+          operation: 'mergeConfig',
+          details: [
+            { key: 'reason', value: toJsonValue(typeof cause === 'string' ? cause : cause instanceof Error ? cause.message : 'invalid configuration') },
+          ],
+        })
+        const error = ConfigurationValidationError.make({
+          context,
+          field: 'config',
+          value: toJsonValue(candidate),
+          constraint: typeof cause === 'string' ? cause : cause instanceof Error ? cause.message : 'Configuration validation failed',
+        })
+        yield* Effect.fail(error)
+      })
+    )
+  )
+}
+
+const currentTimestamp = Clock.currentTimeMillis.pipe(Effect.map(toTimestamp))
+
+const guardTransition = (
+  current: ApplicationLifecycleState,
+  target: ApplicationLifecycleState
+): Effect.Effect<void, InvalidStateTransitionError> =>
+  Effect.sync(() => allowedTransitions[current] ?? noTransitions).pipe(
+    Effect.flatMap((valid) =>
+      Effect.filterOrElse(
+        (transitions: ReadonlyArray<ApplicationLifecycleState>) =>
+          transitions.some((state) => state === target),
+        () => invalidTransition(current, target, valid)
+      )(Effect.succeed(valid)).pipe(Effect.asVoid)
+    )
+  )
+
+const invalidTransition = (
+  current: ApplicationLifecycleState,
+  target: ApplicationLifecycleState,
+  validTransitions: ReadonlyArray<ApplicationLifecycleState>
+): Effect.Effect<never, InvalidStateTransitionError> =>
+  Effect.gen(function* () {
+    const context = yield* createErrorContext({
+      system: 'GameApplication',
+      operation: 'guardTransition',
+      details: [
+        { key: 'current', value: toJsonValue(current) },
+        { key: 'target', value: toJsonValue(target) },
+      ],
     })
-
-  const start = () =>
-    Effect.gen(function* () {
-      yield* ensureTransition('Starting')
-      const startTime = Date.now()
-      yield* updateState((prev) => ({
-        ...prev,
-        lifecycle: 'Starting',
-        startTime,
-        uptime: 0,
-        systems: markSystemsStatus(prev.systems, 'Starting'),
-      }))
-      yield* setLifecycle('Running')
+    const error = InvalidStateTransitionError.make({
+      context,
+      currentState: current,
+      attemptedState: target,
+      validTransitions: [...validTransitions],
     })
+    yield* Effect.fail(error)
+  })
 
-  const pause = () =>
-    Effect.gen(function* () {
-      yield* ensureTransition('Pausing')
-      yield* setLifecycle('Paused')
-    })
+const syncLifecycle = (
+  state: GameApplicationState,
+  lifecycle: ApplicationLifecycleState
+): GameApplicationState => ({
+  ...state,
+  lifecycle,
+  systems: mapSystemStatus(state, lifecycle),
+})
 
-  const resume = () =>
-    Effect.gen(function* () {
-      yield* ensureTransition('Resuming')
-      yield* setLifecycle('Running')
-    })
-
-  const stop = () =>
-    Effect.gen(function* () {
-      yield* ensureTransition('Stopping')
-      yield* updateState((prev) => ({
-        ...prev,
-        lifecycle: 'Stopped',
-        systems: markSystemsStatus(prev.systems, 'Stopped'),
-      }))
-    })
-
-  const getState = () => Ref.get(stateRef)
-
-  const getLifecycleState = () =>
-    Ref.get(stateRef).pipe(Effect.map((state) => state.lifecycle))
-
-  const tick = (deltaTime: number = 16) =>
-    Ref.update(stateRef, (prev) => {
-      if (prev.lifecycle !== 'Running') {
-        return prev
-      }
-      const nextFrameCount = prev.systems.gameLoop.frameCount + 1
-      const nextTotalTime = prev.systems.gameLoop.totalTime + deltaTime
+const tickState = (
+  state: GameApplicationState,
+  delta: Milliseconds
+): GameApplicationState =>
+  Match.value(state.lifecycle).pipe(
+    Match.when('Running', () => {
+      const nextFrameCount = toFrameCount(state.systems.gameLoop.frameCount + 1)
+      const nextTotalTime = toMilliseconds(state.systems.gameLoop.totalTime + delta)
       const totalSeconds = nextTotalTime / 1000
-      const overallFps = totalSeconds > 0 ? nextFrameCount / totalSeconds : 0
+      const overallFps = Match.value(totalSeconds > 0).pipe(
+        Match.when(true, () => toFramesPerSecond(nextFrameCount / totalSeconds)),
+        Match.orElse(() => toFramesPerSecond(0))
+      )
+
       return {
-        ...prev,
-        uptime: prev.uptime + deltaTime,
+        ...state,
+        uptime: toMilliseconds(state.uptime + delta),
         systems: {
-          ...prev.systems,
+          ...state.systems,
           gameLoop: {
-            ...prev.systems.gameLoop,
+            ...state.systems.gameLoop,
             status: 'running',
             frameCount: nextFrameCount,
             totalTime: nextTotalTime,
@@ -219,38 +289,98 @@ const ensureTransition = (
           },
         },
         performance: {
-          ...prev.performance,
+          ...state.performance,
           overallFps,
         },
       }
-    })
+    }),
+    Match.orElse(() => state)
+  )
 
-  const updateConfig = (config: Partial<GameApplicationConfig>) =>
-    Ref.update(stateRef, (prev) => ({
-      ...prev,
-      config: { ...prev.config, ...config },
-    }))
+const makeLifecycleUpdater = (
+  stateRef: Ref.Ref<GameApplicationState>,
+  target: ApplicationLifecycleState
+) =>
+  Ref.update(stateRef, (current) => syncLifecycle(current, target))
 
-  const healthCheck = () =>
-    Ref.get(stateRef).pipe(Effect.map(computeHealth))
+const makeService = (
+  stateRef: Ref.Ref<GameApplicationState>
+): GameApplication => ({
+  initialize: (config): Effect.Effect<void, GameApplicationInitError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      yield* guardTransition(current.lifecycle, 'Initializing')
+      const mergedConfig = yield* mergeConfig(current.config, config)
+      const initializingState = syncLifecycle(createInitialState(mergedConfig), 'Initializing')
+      yield* Ref.set(stateRef, initializingState)
+      yield* makeLifecycleUpdater(stateRef, 'Initialized')
+    }),
 
-  const reset = () => Ref.set(stateRef, createInitialState(DEFAULT_GAME_APPLICATION_CONFIG))
+  start: (): Effect.Effect<void, GameApplicationRuntimeError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      yield* guardTransition(current.lifecycle, 'Starting')
+      const startTime = yield* currentTimestamp
+      yield* Ref.update(stateRef, (previous) =>
+        syncLifecycle(
+          {
+            ...previous,
+            startTime,
+            uptime: toMilliseconds(0),
+            systems: mapSystemStatus(previous, 'Starting'),
+          },
+          'Running'
+        )
+      )
+    }),
 
-  const service = {
-    initialize,
-    start,
-    pause,
-    resume,
-    stop,
-    getState,
-    getLifecycleState,
-    tick,
-    updateConfig,
-    healthCheck,
-    reset,
-  }
+  pause: (): Effect.Effect<void, GameApplicationStateError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      yield* guardTransition(current.lifecycle, 'Pausing')
+      yield* makeLifecycleUpdater(stateRef, 'Paused')
+    }),
 
-  return GameApplication.of(service)
+  resume: (): Effect.Effect<void, GameApplicationStateError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      yield* guardTransition(current.lifecycle, 'Resuming')
+      yield* makeLifecycleUpdater(stateRef, 'Running')
+    }),
+
+  stop: (): Effect.Effect<void, GameApplicationRuntimeError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      yield* guardTransition(current.lifecycle, 'Stopping')
+      yield* makeLifecycleUpdater(stateRef, 'Stopped')
+    }),
+
+  getState: () => Ref.get(stateRef),
+
+  getLifecycleState: () => Ref.get(stateRef).pipe(Effect.map((state) => state.lifecycle)),
+
+  tick: (delta = toMilliseconds(16)): Effect.Effect<void, GameApplicationRuntimeError, never> =>
+    Ref.update(stateRef, (previous) => tickState(previous, delta)),
+
+  updateConfig: (config): Effect.Effect<void, GameApplicationStateError, never> =>
+    Effect.gen(function* () {
+      const current = yield* Ref.get(stateRef)
+      const merged = yield* mergeConfig(current.config, config)
+      yield* Ref.update(stateRef, (prev) => ({
+        ...prev,
+        config: merged,
+      }))
+    }),
+
+  healthCheck: () => Ref.get(stateRef).pipe(Effect.map(computeHealth)),
+
+  reset: (): Effect.Effect<void, GameApplicationRuntimeError, never> =>
+    Ref.update(stateRef, () => createInitialState(DEFAULT_GAME_APPLICATION_CONFIG)),
+})
+
+const makeGameApplicationLive = Effect.gen(function* () {
+  const stateRef = yield* Ref.make(createInitialState(DEFAULT_GAME_APPLICATION_CONFIG))
+  return GameApplication.of(makeService(stateRef))
 })
 
 export const GameApplicationLive = Layer.effect(GameApplication, makeGameApplicationLive)

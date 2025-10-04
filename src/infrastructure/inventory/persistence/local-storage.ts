@@ -1,314 +1,286 @@
 /**
- * LocalStorage-based inventory persistence service
+ * LocalStorage ベースの Inventory 永続化サービス
  *
- * LocalStorageを使用したInventoryデータの永続化を提供
- * Zustand persistとの統合も含む
+ * - 制御構文: Effect.Match / combinator のみ
+ * - 副作用: Effect.gen で遅延評価
+ * - 型安全: Brand + Schema decode により `as` 排除
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
+import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/InventoryTypes'
+import type { StorageError } from '../storage-service'
+import {
+  InventoryStorageService,
+  Milliseconds,
+  MillisecondsSchema,
+  StorageBackendSchema,
+  StorageConfig,
+  StorageInfo,
+  makeBackupKey,
+  makeStorageKey,
+  toCorrupted,
+  toLoadFailed,
+  toNotAvailable,
+  toSaveFailed,
+} from '../storage-service'
+import { InventoryStateSchema, InventorySchema, PlayerIdSchema } from '../../../domain/inventory/InventoryTypes'
 
-// Import domain types (interfaces only)
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/types'
-import { validateInventoryState } from '../../../domain/inventory/types'
-import { InventoryStorageService as InventoryStorageServiceTag, StorageError } from '../storage-service'
+const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
 
-// LocalStorage implementation
-export const LocalStorageInventoryService = Layer.effect(
-  InventoryStorageServiceTag,
+const inventoryPrefix = 'minecraft:inventory:'
+const backupPrefix = 'minecraft:inventory:backup:'
+const statePrefix = 'minecraft:inventory:state:'
+
+const availabilityProbe = Effect.try({
+  try: () => {
+    const probeKey = `${inventoryPrefix}__probe__`
+    localStorage.setItem(probeKey, 'probe')
+    localStorage.removeItem(probeKey)
+    return true
+  },
+  catch: (cause) => toNotAvailable(backend, 'LocalStorage is not accessible', cause),
+})
+
+const requireAvailability = availabilityProbe.pipe(
+  Effect.flatMap((available) =>
+    pipe(
+      Match.value(available),
+      Match.when(false, () => Effect.fail(toNotAvailable(backend, 'LocalStorage unavailable'))),
+      Match.when(true, () => Effect.void),
+      Match.exhaustive
+    )
+  )
+)
+
+const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
+
+const decodeJson = <A>(value: string, schema: Schema.Schema<A>, context: string) =>
+  Effect.try({
+    try: () => JSON.parse(value),
+    catch: (cause) => toCorrupted(backend, `${context}: JSON decode failed`, cause),
+  }).pipe(
+    Effect.flatMap(Schema.decodeUnknown(schema)),
+    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+  )
+
+const encodeJson = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
+  Schema.encode(schema)(value).pipe(
+    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error)),
+    Effect.flatMap((encoded) =>
+      Effect.try({
+        try: () => JSON.stringify(encoded),
+        catch: (cause) => toSaveFailed(backend, `${context}: JSON encode failed`, 'Failed to serialise value', cause),
+      })
+    )
+  )
+
+const readItem = <A>(key: string, schema: Schema.Schema<A>, context: string) =>
+  Effect.try({
+    try: () => localStorage.getItem(key),
+    catch: (cause) => toLoadFailed(backend, context, 'Failed to read LocalStorage item', cause),
+  }).pipe(
+    Effect.flatMap((raw) =>
+      pipe(
+        Option.fromNullable(raw),
+        Option.match({
+          onNone: () => Effect.succeed(Option.none<A>()),
+          onSome: (value) =>
+            decodeJson(value, schema, context).pipe(Effect.map((decoded) => Option.some(decoded))),
+        })
+      )
+    )
+  )
+
+const writeItem = <A>(key: string, value: A, schema: Schema.Schema<A>, context: string) =>
+  encodeJson(value, schema, context).pipe(
+    Effect.flatMap((serialized) =>
+      Effect.try({
+        try: () => localStorage.setItem(key, serialized),
+        catch: (cause) => toSaveFailed(backend, context, 'Failed to write LocalStorage item', cause),
+      })
+    )
+  )
+
+const removeItems = (keys: ReadonlyArray<string>, context: string) =>
+  Effect.forEach(keys, (key) =>
+    Effect.try({
+      try: () => localStorage.removeItem(key),
+      catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
+    })
+  , { concurrency: 'unbounded' }).pipe(Effect.asVoid)
+
+const decodePlayerIdFromKey = (key: string): Effect.Effect<PlayerId, StorageError> =>
+  pipe(
+    key.startsWith(inventoryPrefix),
+    Match.value,
+    Match.when(false, () => Effect.fail(toCorrupted(backend, `Unexpected key format: ${key}`))),
+    Match.when(true, () =>
+      pipe(
+        key.slice(inventoryPrefix.length),
+        Schema.decodeUnknown(PlayerIdSchema),
+        Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+      )
+    ),
+    Match.exhaustive
+  )
+
+const gatherKeys = (prefix: string): Effect.Effect<ReadonlyArray<string>, StorageError> =>
   Effect.gen(function* () {
-    const STORAGE_PREFIX = 'minecraft:inventory:'
-    const BACKUP_PREFIX = 'minecraft:inventory:backup:'
-    const STATE_PREFIX = 'minecraft:inventory:state:'
+    yield* requireAvailability
+    const length = localStorage.length
+    const indices = Array.from({ length }, (_, index) => index)
+    const rawKeys = yield* Effect.forEach(indices, (index) =>
+      Effect.try({
+        try: () => localStorage.key(index),
+        catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
+      })
+    , { concurrency: 'unbounded' })
 
-    const generateStorageKey = (playerId: PlayerId): string => `${STORAGE_PREFIX}${playerId}`
+    return rawKeys.filter((maybeKey): maybeKey is string => typeof maybeKey === 'string' && maybeKey.startsWith(prefix))
+  })
 
-    const generateBackupKey = (playerId: PlayerId, backupId: string): string =>
-      `${BACKUP_PREFIX}${playerId}:${backupId}`
+const snapshotPayload = (
+  inventory: Inventory,
+  key: string,
+  context: string
+): Effect.Effect<Inventory, StorageError> =>
+  writeItem(key, inventory, InventorySchema, context).pipe(Effect.as(inventory))
 
-    const generateStateKey = (playerId: PlayerId): string => `${STATE_PREFIX}${playerId}`
+const randomNonce = Effect.gen(function* () {
+  const value = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+  return value.toString(36).padStart(9, '0')
+})
 
-    const isLocalStorageAvailable = (): boolean => {
-      try {
-        const test = '__localStorage_test__'
-        localStorage.setItem(test, 'test')
-        localStorage.removeItem(test)
-        return true
-      } catch {
-        return false
-      }
+export const LocalStorageInventoryService = Layer.effect(
+  InventoryStorageService,
+  Effect.gen(function* () {
+    const config: StorageConfig = {
+      backend,
+      autoSave: true,
+      saveInterval: 5_000,
+      backupSlots: 3,
+      compression: false,
     }
 
-    return InventoryStorageServiceTag.of({
+    const base = {
+      backend,
+      config,
       saveInventory: (playerId: PlayerId, inventory: Inventory) =>
         Effect.gen(function* () {
-          yield* pipe(
-            Match.value(isLocalStorageAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.try({
-                try: () => {
-                  const key = generateStorageKey(playerId)
-                  const data = JSON.stringify(inventory)
-                  localStorage.setItem(key, data)
-                },
-                catch: (error) => new StorageError('SAVE_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          const storageKey = yield* makeStorageKey(playerId)
+          return yield* snapshotPayload(inventory, storageKey, 'inventory')
         }),
 
       loadInventory: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          return yield* pipe(
-            Match.value(isLocalStorageAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.try({
-                try: () => {
-                  const key = generateStorageKey(playerId)
-                  const data = localStorage.getItem(key)
-
-                  return pipe(
-                    Option.fromNullable(data),
-                    Option.map((jsonData) => JSON.parse(jsonData) as Inventory)
-                  )
-                },
-                catch: (error) => new StorageError('LOAD_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          const storageKey = yield* makeStorageKey(playerId)
+          return yield* readItem(storageKey, InventorySchema, 'inventory')
         }),
 
       saveInventoryState: (state: InventoryState) =>
         Effect.gen(function* () {
-          // Validate state before saving
-          yield* pipe(
-            validateInventoryState(state),
-            Effect.mapError((error) => new StorageError('SAVE_FAILED', { reason: 'Invalid state', error }))
-          )
-
-          yield* pipe(
-            Match.value(isLocalStorageAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.try({
-                try: () => {
-                  const key = generateStateKey(state.inventory.playerId)
-                  const data = JSON.stringify(state)
-                  localStorage.setItem(key, data)
-                },
-                catch: (error) => new StorageError('SAVE_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          const key = `${statePrefix}${state.inventory.playerId}`
+          return yield* writeItem(key, state, InventoryStateSchema, 'inventory-state')
         }),
 
       loadInventoryState: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          return yield* pipe(
-            Match.value(isLocalStorageAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.try({
-                try: () => {
-                  const key = generateStateKey(playerId)
-                  const data = localStorage.getItem(key)
-
-                  return pipe(
-                    Option.fromNullable(data),
-                    Option.map((jsonData) => JSON.parse(jsonData) as InventoryState)
-                  )
-                },
-                catch: (error) => new StorageError('LOAD_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          const key = `${statePrefix}${playerId}`
+          return yield* readItem(key, InventoryStateSchema, 'inventory-state')
         }),
 
       deleteInventory: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          yield* Effect.try({
-            try: () => {
-              const inventoryKey = generateStorageKey(playerId)
-              const stateKey = generateStateKey(playerId)
-              localStorage.removeItem(inventoryKey)
-              localStorage.removeItem(stateKey)
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
+          yield* requireAvailability
+          const inventoryKey = yield* makeStorageKey(playerId)
+          const stateKey = `${statePrefix}${playerId}`
+          return yield* removeItems([inventoryKey, stateKey], 'delete-inventory')
         }),
 
       listStoredInventories: () =>
         Effect.gen(function* () {
-          return yield* Effect.try({
-            try: () => {
-              const playerIds: PlayerId[] = []
-
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i)
-
-                pipe(
-                  Option.fromNullable(key),
-                  Option.filter((k) => k.startsWith(STORAGE_PREFIX)),
-                  Option.map((k) => k.replace(STORAGE_PREFIX, '') as PlayerId),
-                  Option.match({
-                    onNone: () => {},
-                    onSome: (playerId) => playerIds.push(playerId),
-                  })
-                )
-              }
-
-              return playerIds
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
+          const keys = yield* gatherKeys(inventoryPrefix)
+          const decoded = yield* Effect.forEach(keys, decodePlayerIdFromKey, { concurrency: 'unbounded' })
+          return decoded
         }),
 
       createBackup: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          const inventoryOption = yield* Effect.try({
-            try: () => {
-              const key = generateStorageKey(playerId)
-              const data = localStorage.getItem(key)
-
-              return pipe(
-                Option.fromNullable(data),
-                Option.map((jsonData) => JSON.parse(jsonData) as Inventory)
-              )
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
-
-          const inventory = yield* pipe(
-            inventoryOption,
-            Option.match({
-              onNone: () => Effect.fail(new StorageError('LOAD_FAILED', { reason: 'Inventory not found' })),
-              onSome: (inv) => Effect.succeed(inv),
-            })
-          )
-
-          const backupId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-          const backupKey = generateBackupKey(playerId, backupId)
-
-          yield* Effect.try({
-            try: () => {
-              const backupData = {
-                timestamp: Date.now(),
-                inventory,
-                version: '1.0.0',
-              }
-              localStorage.setItem(backupKey, JSON.stringify(backupData))
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
-
-          return backupId
-        }),
-
-      restoreBackup: (playerId: PlayerId, backupId: string) =>
-        Effect.gen(function* () {
-          const backupKey = generateBackupKey(playerId, backupId)
-
-          const backupData = yield* Effect.try({
-            try: () => {
-              const data = localStorage.getItem(backupKey)
-              return pipe(
-                Option.fromNullable(data),
-                Option.match({
-                  onNone: () => null,
-                  onSome: (jsonData) => JSON.parse(jsonData),
-                })
-              )
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
+          yield* requireAvailability
+          const inventoryOption = yield* base.loadInventory(playerId)
 
           return yield* pipe(
-            Option.fromNullable(backupData),
+            inventoryOption,
             Option.match({
-              onNone: () => Effect.fail(new StorageError('LOAD_FAILED', { reason: 'Backup not found' })),
-              onSome: (data) => Effect.succeed(data.inventory as Inventory),
+              onNone: () => Effect.fail(toLoadFailed(backend, 'backup', 'Inventory not found for backup')),
+              onSome: (inventory) =>
+                Effect.gen(function* () {
+                  const millisValue = yield* Clock.currentTimeMillis.pipe(
+                    Effect.mapError((cause) => toLoadFailed(backend, 'backup-clock', 'Failed to obtain timestamp', cause))
+                  )
+                  const millis = yield* Schema.decodeUnknown(MillisecondsSchema)(millisValue).pipe(
+                    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+                  )
+                  const nonce = yield* randomNonce
+                  const backupKey = yield* makeBackupKey(playerId, millis, nonce)
+                  yield* snapshotPayload(inventory, backupKey, 'backup')
+                  return { key: backupKey, createdAt: millis, payload: inventory }
+                }),
+            })
+          )
+        }),
+
+      restoreBackup: (playerId: PlayerId, snapshot) =>
+        Effect.gen(function* () {
+          yield* requireAvailability
+          const raw = yield* readItem(snapshot.key, InventorySchema, 'backup-read')
+          return yield* pipe(
+            raw,
+            Option.match({
+              onNone: () => Effect.fail(toLoadFailed(backend, 'backup-read', 'Backup payload missing')),
+              onSome: (inventory) => base.saveInventory(playerId, inventory).pipe(Effect.as(inventory)),
             })
           )
         }),
 
       clearAllData: () =>
         Effect.gen(function* () {
-          yield* Effect.try({
-            try: () => {
-              const keysToRemove: string[] = []
-
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i)
-
-                pipe(
-                  Option.fromNullable(key),
-                  Option.filter(
-                    (k) => k.startsWith(STORAGE_PREFIX) || k.startsWith(BACKUP_PREFIX) || k.startsWith(STATE_PREFIX)
-                  ),
-                  Option.match({
-                    onNone: () => {},
-                    onSome: (k) => keysToRemove.push(k),
-                  })
-                )
-              }
-
-              keysToRemove.forEach((key) => localStorage.removeItem(key))
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
+          yield* requireAvailability
+          const keys = yield* gatherKeys(inventoryPrefix)
+          const stateKeys = yield* gatherKeys(statePrefix)
+          const backupKeys = yield* gatherKeys(backupPrefix)
+          return yield* removeItems([...keys, ...stateKeys, ...backupKeys], 'clear-all')
         }),
 
       getStorageInfo: () =>
         Effect.gen(function* () {
-          return yield* Effect.try({
-            try: () => {
-              let totalSize = 0
-              let itemCount = 0
-
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i)
-
-                pipe(
-                  Option.fromNullable(key),
-                  Option.filter(
-                    (k) => k.startsWith(STORAGE_PREFIX) || k.startsWith(BACKUP_PREFIX) || k.startsWith(STATE_PREFIX)
-                  ),
-                  Option.match({
-                    onNone: () => {},
-                    onSome: (k) => {
-                      const value = localStorage.getItem(k)
-                      pipe(
-                        Option.fromNullable(value),
-                        Option.match({
-                          onNone: () => {},
-                          onSome: (v) => {
-                            totalSize += new Blob([v]).size
-                            itemCount++
-                          },
-                        })
-                      )
-                    },
-                  })
+          yield* requireAvailability
+          const keys = yield* gatherKeys(inventoryPrefix)
+          const bytes = yield* Effect.forEach(keys, (key) =>
+            Effect.try({
+              try: () => {
+                const value = localStorage.getItem(key)
+                return Option.fromNullable(value).pipe(
+                  Option.map((v) => new Blob([v]).size),
+                  Option.getOrElse(() => 0)
                 )
-              }
+              },
+              catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
+            })
+          , { concurrency: 'unbounded' })
 
-              // Rough estimate of available space (localStorage typically 5-10MB)
-              const availableSpace = Math.max(0, 5 * 1024 * 1024 - totalSize)
-
-              return {
-                totalSize,
-                availableSpace,
-                itemCount,
-              }
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
+          const totalSize = bytes.reduce((acc, current) => acc + current, 0)
+          const availableSpace = Number.POSITIVE_INFINITY
+          return { totalSize, availableSpace, itemCount: keys.length } satisfies StorageInfo
         }),
-    })
+    }
+
+    return InventoryStorageService.of(base)
   })
 )

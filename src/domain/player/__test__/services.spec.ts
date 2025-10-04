@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as fc from 'fast-check'
 import { Effect, Layer } from 'effect'
+import { provideLayers } from '../../testing/effect'
 import { PlayerDomainService, PlayerDomainServiceLive } from '../services'
 import { PlayerClockLive } from '../time'
 import { PlayerRepositoryLive } from '../repository'
@@ -9,7 +10,7 @@ import { creationInputArb, vitalsArb } from './generators'
 const liveLayer = Layer.mergeAll(PlayerRepositoryLive, PlayerClockLive, PlayerDomainServiceLive)
 
 const runWithService = <A>(effect: Effect.Effect<A>) =>
-  Effect.runPromise(Effect.scoped(Effect.provideLayer(effect, liveLayer)))
+  Effect.runPromise(provideLayers(effect, liveLayer))
 
 describe('PlayerDomainService', () => {
   it('spawnでプレイヤーを生成できる', async () => {

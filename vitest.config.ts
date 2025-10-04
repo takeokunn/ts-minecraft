@@ -5,9 +5,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    testTimeout: 30000,
-    hookTimeout: 20000,
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    deps: {
+      inline: ['fast-check']
+    },
     include: [
+      'src/application/**/*.test.ts',
+      'src/application/**/__test__/**/*.spec.ts',
       'src/domain/camera/__test__/*.spec.ts',
       'src/domain/input/__test__/*.spec.ts',
       'src/domain/interaction/__test__/**/*.spec.ts',
@@ -34,6 +39,11 @@ export default defineConfig({
       'src/domain/world/__test__/**/*.spec.ts',
       'src/domain/world/**/*.test.ts',
       'src/domain/scene/**/*.test.ts',
+      'src/infrastructure/**/__test__/**/*.spec.ts',
+      'src/bootstrap/**/__test__/**/*.spec.ts',
+      'src/bootstrap/**/*.test.ts',
+      'src/presentation/**/*.test.ts',
+      'src/presentation/**/*.spec.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/docs/**'],
     coverage: {
@@ -54,7 +64,7 @@ export default defineConfig({
           statements: 100
         }
       },
-      include: ['src/domain/chunk/**/*.ts'],
+      include: ['src/domain/chunk/**/*.ts', 'src/presentation/**/*.ts'],
       exclude: [
         'src/domain/chunk/**/*.spec.ts',
         'src/domain/chunk/**/__test__/**',

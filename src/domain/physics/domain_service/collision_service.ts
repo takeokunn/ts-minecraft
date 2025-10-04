@@ -16,7 +16,9 @@ export interface CollisionService {
   readonly detect: (query: CollisionQuery) => Effect.Effect<CollisionResult, PhysicsError>
 }
 
-export const CollisionService = Context.Tag<CollisionService>('@minecraft/physics/CollisionService')
+export const CollisionService = Context.GenericTag<CollisionService>(
+  '@minecraft/physics/CollisionService'
+)
 
 export const CollisionServiceLive = Layer.succeed(CollisionService, {
   detect: (query) =>

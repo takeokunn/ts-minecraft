@@ -6,28 +6,24 @@
  */
 
 import { Schema } from '@effect/schema'
-import { Context, Effect, Match, pipe, Predicate } from 'effect'
+import { Clock, Context, Data, Duration, Effect, Match, Option, pipe } from 'effect'
 import type { World } from './World'
 
 /**
  * システムエラー - ECSシステム実行時のエラー
  */
-export interface SystemError {
-  readonly _tag: 'SystemError'
+export const SystemError = Data.tagged<{
   readonly systemName: string
   readonly message: string
-  readonly cause?: unknown
-}
+  readonly cause: Option.Option<unknown>
+}>('SystemError')
 
-export const SystemError = (systemName: string, message: string, cause?: unknown): SystemError => ({
-  _tag: 'SystemError',
-  systemName,
-  message,
-  ...(cause !== undefined && { cause }),
-})
+export type SystemError = ReturnType<typeof SystemError>
 
-export const isSystemError: Predicate.Refinement<unknown, SystemError> = (error): error is SystemError =>
-  Predicate.isRecord(error) && '_tag' in error && error['_tag'] === 'SystemError'
+export const makeSystemError = (systemName: string, message: string, cause?: unknown): SystemError =>
+  SystemError({ systemName, message, cause: Option.fromNullable(cause) })
+
+export const isSystemError = (error: unknown): error is SystemError => Data.isTagged(error, 'SystemError')
 
 /**
  * システムの優先度レベル
@@ -110,7 +106,13 @@ export const runSystems = (
     (system) =>
       system.update(world, deltaTime).pipe(
         Effect.mapError((error) =>
-          isSystemError(error) ? error : SystemError(system.name, 'Unknown error in system execution', error)
+          SystemError.is(error)
+            ? error
+            : SystemError({
+                systemName: system.name,
+                message: 'Unknown error in system execution',
+                cause: Option.some(error),
+              })
         ),
         Effect.catchTag('SystemError', (error) =>
           Effect.logError(`System ${error.systemName} failed: ${error.message}`).pipe(
@@ -130,15 +132,19 @@ export const runSystemWithMetrics = (
   deltaTime: number
 ): Effect.Effect<{ readonly duration: number }, SystemError> =>
   Effect.gen(function* () {
-    const startTime = Date.now()
+    const startTime = yield* Clock.currentTimeMillis
     yield* system.update(world, deltaTime)
-    const duration = Date.now() - startTime
+    const endTime = yield* Clock.currentTimeMillis
+    const duration = endTime - startTime
 
     // パフォーマンス警告（16ms = 60FPS基準）
     yield* pipe(
       duration > 16,
       Match.value,
-      Match.when(true, () => Effect.logWarning(`System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`)),
+      Match.when(
+        true,
+        () => Effect.logWarning(`System ${system.name} took ${duration}ms (target: <16ms for 60FPS)`)
+      ),
       Match.when(false, () => Effect.void),
       Match.exhaustive
     )

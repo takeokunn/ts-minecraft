@@ -7,6 +7,7 @@
  */
 
 import { Effect, Option, ReadonlyArray, Ref, Layer } from 'effect'
+import { WorldClock } from '../../time'
 import type {
   WorldId,
 } from '../../types'
@@ -62,37 +63,56 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       missCount: 0,
       evictionCount: 0,
     })
+    const versionSequence = yield* Ref.make(0)
 
     // === Utility Functions ===
 
-    const getCurrentTimestamp = (): number => Date.now()
+    const ttlMilliseconds = config.cache.ttlSeconds * 1000
 
-    const isCacheExpired = (timestamp: number): boolean =>
-      getCurrentTimestamp() - timestamp > config.cache.ttlSeconds * 1000
+    const currentMillis = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentMillis)
+    const currentDate = Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentDate)
 
-    const updateChecksum = (metadata: WorldMetadata): WorldMetadata => ({
-      ...metadata,
-      checksum: calculateMetadataChecksum(metadata),
-      lastModified: new Date(),
-    })
+    const isCacheExpired = (now: number, timestamp: number): boolean =>
+      now - timestamp > ttlMilliseconds
+
+    const updateChecksum = (metadata: WorldMetadata): Effect.Effect<WorldMetadata> =>
+      Effect.map(currentDate, (now) => ({
+        ...metadata,
+        checksum: calculateMetadataChecksum(metadata),
+        lastModified: now,
+      }))
+
+    const checksumFromString = (input: string): string => {
+      let hash = 0
+      for (let index = 0; index < input.length; index += 1) {
+        const char = input.charCodeAt(index)
+        hash = (hash << 5) - hash + char
+        hash |= 0
+      }
+      return hash.toString(16)
+    }
 
     const createMetadataVersion = (
       worldId: WorldId,
       changes: ReadonlyArray<MetadataChange>,
       description?: string
-    ): MetadataVersion => {
-      const version = generateVersionString()
-      const changesSerialized = JSON.stringify(changes)
+    ): Effect.Effect<MetadataVersion> =>
+      Effect.gen(function* () {
+        const millis = yield* currentMillis
+        const sequence = yield* Ref.modify(versionSequence, (current) => [current, current + 1])
+        const version = generateVersionString(millis, sequence)
+        const timestamp = yield* currentDate
+        const changesSerialized = JSON.stringify(changes)
 
-      return {
-        version,
-        timestamp: new Date(),
-        changes,
-        checksum: calculateMetadataChecksum({ changes } as any), // Simplified checksum
-        size: new TextEncoder().encode(changesSerialized).length,
-        parentVersion: undefined, // Could be enhanced to track parent versions
-      }
-    }
+        return {
+          version,
+          timestamp,
+          changes,
+          checksum: checksumFromString(changesSerialized),
+          size: new TextEncoder().encode(changesSerialized).length,
+          parentVersion: undefined,
+        }
+      })
 
     const simulateCompression = (
       data: unknown,
@@ -133,7 +153,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       saveMetadata: (metadata: WorldMetadata) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(metadataStore)
-          const updatedMetadata = updateChecksum(metadata)
+          const updatedMetadata = yield* updateChecksum(metadata)
           const updated = new Map(store)
           updated.set(metadata.id, updatedMetadata)
           yield* Ref.set(metadataStore, updated)
@@ -142,21 +162,23 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           if (config.cache.enabled) {
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(metadata.id, {
               metadata: updatedMetadata,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
 
           // Create version if versioning is enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: store.has(metadata.id) ? 'update' : 'create',
               path: 'metadata',
               oldValue: store.get(metadata.id),
               newValue: updatedMetadata,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Automatic versioning on save',
             }]
 
@@ -171,9 +193,12 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             const cache = yield* Ref.get(metadataCache)
             const cached = cache.get(worldId)
 
-            if (cached && !isCacheExpired(cached.timestamp)) {
-              yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
-              return Option.some(cached.metadata)
+            if (cached) {
+              const now = yield* currentMillis
+              if (!isCacheExpired(now, cached.timestamp)) {
+                yield* Ref.update(cacheStats, stats => ({ ...stats, hitCount: stats.hitCount + 1 }))
+                return Option.some(cached.metadata)
+              }
             }
           }
 
@@ -187,9 +212,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             // Update cache
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               metadata,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
@@ -216,7 +242,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           }
 
           const oldMetadata = store.get(metadata.id)!
-          const updatedMetadata = updateChecksum(metadata)
+          const updatedMetadata = yield* updateChecksum(metadata)
           const updated = new Map(store)
           updated.set(metadata.id, updatedMetadata)
           yield* Ref.set(metadataStore, updated)
@@ -225,21 +251,23 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           if (config.cache.enabled) {
             const cache = yield* Ref.get(metadataCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(metadata.id, {
               metadata: updatedMetadata,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(metadataCache, updatedCache)
           }
 
           // Create version if enabled
           if (config.versioning.enabled && config.versioning.automaticVersioning) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: 'update',
               path: 'metadata',
               oldValue: oldMetadata,
               newValue: updatedMetadata,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Automatic versioning on update',
             }]
 
@@ -285,12 +313,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           // Create deletion version
           if (config.versioning.enabled) {
+            const timestamp = yield* currentDate
             const changes: MetadataChange[] = [{
               type: 'delete',
               path: 'metadata',
               oldValue: oldMetadata,
               newValue: undefined,
-              timestamp: new Date(),
+              timestamp,
               reason: 'Metadata deletion',
             }]
 
@@ -433,7 +462,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             ))
           }
 
-          const updatedMetadata = updateChecksum({
+          const updatedMetadata = yield* updateChecksum({
             ...metadata,
             settings: { ...metadata.settings, ...settings },
           })
@@ -446,9 +475,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           if (config.cache.enabled && config.cache.enableSettingsCache) {
             const cache = yield* Ref.get(settingsCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               settings: updatedMetadata.settings,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(settingsCache, updatedCache)
           }
@@ -461,8 +491,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             const cache = yield* Ref.get(settingsCache)
             const cached = cache.get(worldId)
 
-            if (cached && !isCacheExpired(cached.timestamp)) {
-              return Option.some(cached.settings)
+            if (cached) {
+              const now = yield* currentMillis
+              if (!isCacheExpired(now, cached.timestamp)) {
+                return Option.some(cached.settings)
+              }
             }
           }
 
@@ -474,9 +507,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             // Update cache
             const cache = yield* Ref.get(settingsCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               settings: metadata.settings,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(settingsCache, updatedCache)
           }
@@ -526,9 +560,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             ))
           }
 
-          const updatedMetadata = updateChecksum({
+          const lastUpdated = yield* currentDate
+          const updatedMetadata = yield* updateChecksum({
             ...metadata,
-            statistics: { ...metadata.statistics, ...statistics, lastUpdated: new Date() },
+            statistics: { ...metadata.statistics, ...statistics, lastUpdated },
           })
 
           const updated = new Map(store)
@@ -539,9 +574,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           if (config.cache.enabled && config.cache.enableStatisticsCache) {
             const cache = yield* Ref.get(statisticsCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               statistics: updatedMetadata.statistics,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(statisticsCache, updatedCache)
           }
@@ -554,8 +590,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             const cache = yield* Ref.get(statisticsCache)
             const cached = cache.get(worldId)
 
-            if (cached && !isCacheExpired(cached.timestamp)) {
-              return Option.some(cached.statistics)
+            if (cached) {
+              const now = yield* currentMillis
+              if (!isCacheExpired(now, cached.timestamp)) {
+                return Option.some(cached.statistics)
+              }
             }
           }
 
@@ -567,9 +606,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             // Update cache
             const cache = yield* Ref.get(statisticsCache)
             const updatedCache = new Map(cache)
+            const timestamp = yield* currentMillis
             updatedCache.set(worldId, {
               statistics: metadata.statistics,
-              timestamp: getCurrentTimestamp(),
+              timestamp,
             })
             yield* Ref.set(statisticsCache, updatedCache)
           }
@@ -634,7 +674,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             ))
           }
 
-          const version = createMetadataVersion(worldId, changes, description)
+          const version = yield* createMetadataVersion(worldId, changes, description)
 
           const versionMap = yield* Ref.get(versionStore)
           const worldVersions = versionMap.get(worldId) || new Map()
@@ -720,12 +760,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           // Apply changes in reverse (simplified implementation)
           const changes = versionData.value.changes
+          const timestamp = yield* currentDate
           const restorationChanges: MetadataChange[] = changes.map(change => ({
             ...change,
             type: change.type === 'create' ? 'delete' : change.type === 'delete' ? 'create' : 'update',
             oldValue: change.newValue,
             newValue: change.oldValue,
-            timestamp: new Date(),
+            timestamp,
             reason: `Restore to version ${version}`,
           }))
 
@@ -769,7 +810,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           }
 
           if (retentionPolicy.maxAgeDays) {
-            const cutoffDate = new Date(Date.now() - retentionPolicy.maxAgeDays * 24 * 60 * 60 * 1000)
+            const now = yield* currentMillis
+            const cutoffMillis = now - retentionPolicy.maxAgeDays * 24 * 60 * 60 * 1000
+            const cutoffDate = new Date(cutoffMillis)
             const oldVersions = versions.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
             versionsToDelete = [...new Set([...versionsToDelete, ...oldVersions])]
           }
@@ -855,16 +898,18 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             ))
           }
 
-          const backupId = `backup_${worldId}_${Date.now()}`
+          const millis = yield* currentMillis
+          const backupId = `backup_${worldId}_${millis}`
+          const timestamp = yield* currentDate
+          const size = estimateMetadataSize(metadata.value)
+          const compressedSize = config.backup.compressionEnabled ? Math.floor(size * 0.3) : size
           const backupInfo: BackupInfo = {
             backupId,
             worldId,
-            timestamp: new Date(),
+            timestamp,
             type,
-            size: estimateMetadataSize(metadata.value),
-            compressedSize: config.backup.compressionEnabled
-              ? Math.floor(estimateMetadataSize(metadata.value) * 0.3)
-              : estimateMetadataSize(metadata.value),
+            size,
+            compressedSize,
             checksum: calculateMetadataChecksum(metadata.value),
             isEncrypted: config.backup.encryptionEnabled,
             description,
@@ -912,12 +957,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           }
 
           // Mock restoration - in real implementation would restore actual data
+          const timestamp = yield* currentDate
           const changes: MetadataChange[] = [{
             type: 'update',
             path: 'metadata',
             oldValue: undefined,
             newValue: backup,
-            timestamp: new Date(),
+            timestamp,
             reason: `Restore from backup ${backupId}`,
           }]
 
@@ -986,11 +1032,15 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         }),
 
       getIndexStatistics: () =>
-        Effect.succeed({
-          totalIndexes: 5,
-          totalSize: 800 * 1024,
-          fragmentationRatio: 0.15,
-          lastOptimized: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+        Effect.gen(function* () {
+          const now = yield* currentMillis
+          const lastOptimizedMillis = now - 24 * 60 * 60 * 1000
+          return {
+            totalIndexes: 5,
+            totalSize: 800 * 1024,
+            fragmentationRatio: 0.15,
+            lastOptimized: new Date(lastOptimizedMillis),
+          }
         }),
 
       // === Cache Management ===
@@ -1001,9 +1051,10 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           const cache = yield* Ref.get(metadataCache)
           const updated = new Map(cache)
+          const timestamp = yield* currentMillis
           updated.set(worldId, {
             metadata,
-            timestamp: getCurrentTimestamp(),
+            timestamp,
           })
           yield* Ref.set(metadataCache, updated)
         }),
@@ -1193,13 +1244,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const metadataList = Array.from(store.values())
 
           if (metadataList.length === 0) {
+            const now = yield* currentDate
             return {
               totalWorlds: 0,
               totalSize: 0,
               averageWorldSize: 0,
               compressionRatio: 1.0,
-              oldestWorld: new Date(),
-              newestWorld: new Date(),
+              oldestWorld: now,
+              newestWorld: now,
               mostActiveWorld: '' as WorldId,
             }
           }

@@ -656,10 +656,10 @@ export const calculateMetadataChecksum = (metadata: WorldMetadata): string => {
 /**
  * バージョン文字列生成
  */
-export const generateVersionString = (): string => {
-  const timestamp = Date.now()
-  const random = Math.floor(Math.random() * 1000)
-  return `v${timestamp}-${random}`
+export const generateVersionString = (timestamp: number, sequence: number): string => {
+  const timePart = timestamp.toString(36)
+  const sequencePart = sequence.toString(36)
+  return `v${timePart}-${sequencePart}`
 }
 
 /**

@@ -10,7 +10,8 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
-import { createSystem, SystemError } from '../System'
+import * as Option from 'effect/Option'
+import { createSystem, makeSystemError } from '../System'
 import {
   isSystemRegistryError,
   SystemRegistryError,
@@ -134,20 +135,14 @@ describe('SystemRegistry ECS Architecture', () => {
           Match.exhaustive
         )
 
-        yield* pipe(
-          !isSystemRegistryError(failures[0]),
-          Match.value,
-          Match.when(true, () => Effect.fail(new Error('Expected SystemRegistryError'))),
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.exhaustive
-        )
+        if (!isSystemRegistryError(failures[0])) {
+          yield* Effect.fail(new Error('Expected SystemRegistryError'))
+        }
 
-        yield* pipe(
-          (failures[0] as SystemRegistryError).systemName !== 'NonExistentSystem',
-          Match.value,
-          Match.when(true, () => Effect.fail(new Error('Expected NonExistentSystem in error'))),
-          Match.when(false, () => Effect.succeed(undefined)),
-          Match.exhaustive
+        const error = failures[0] as SystemRegistryError
+        yield* Effect.sync(() =>
+          expect(Option.getOrElse(error.systemName, () => ''))
+            .toBe('NonExistentSystem')
         )
       }).pipe(Effect.provide(TestLayer))
     )
@@ -292,7 +287,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         const failingSystem = createSystem('FailingSystem', () =>
-          Effect.fail(SystemError('FailingSystem', 'Test error'))
+          Effect.fail(makeSystemError('FailingSystem', 'Test error'))
         )
 
         yield* registry.register(failingSystem)
@@ -384,7 +379,7 @@ describe('SystemRegistry ECS Architecture', () => {
             yield* pipe(
               failCount % 2 === 1,
               Match.value,
-              Match.when(true, () => Effect.fail(SystemError('UnreliableSystem', `Failure ${failCount}`))),
+              Match.when(true, () => Effect.fail(makeSystemError('UnreliableSystem', `Failure ${failCount}`))),
               Match.when(false, () => Effect.succeed(undefined)),
               Match.exhaustive
             )
@@ -409,7 +404,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         const systemWithGenericError = createSystem('GenericErrorSystem', () =>
-          Effect.fail('Generic string error' as unknown as SystemError)
+          Effect.fail(makeSystemError('GenericErrorSystem', 'Generic string error'))
         )
 
         yield* registry.register(systemWithGenericError)

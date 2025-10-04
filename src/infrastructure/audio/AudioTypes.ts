@@ -1,5 +1,6 @@
 import { Schema } from '@effect/schema'
-import { pipe } from 'effect'
+import { Data, pipe } from 'effect'
+import { Vector3Schema } from '@domain/entities/types'
 // Using string types for PlayerId and BlockTypeId to avoid circular dependencies
 
 // Audio Branded Types
@@ -96,8 +97,8 @@ export type SoundDefinition = Schema.Schema.Type<typeof SoundDefinition>
 // 3D Audio Source
 export const AudioSource3D = Schema.Struct({
   soundId: SoundId,
-  position: Schema.Any, // Will be Vector3D from spatial-brands
-  velocity: Schema.optional(Schema.Any), // Will be Vector3D
+  position: Vector3Schema,
+  velocity: Schema.optional(Vector3Schema),
   volume: Volume,
   pitch: Pitch,
   referenceDistance: AudioDistance,
@@ -130,7 +131,7 @@ const VolumeChangedEvent = Schema.Struct({
 
 const ListenerMovedEvent = Schema.Struct({
   _tag: Schema.Literal('ListenerMoved'),
-  position: Schema.Any, // Vector3D
+  position: Vector3Schema,
   orientation: Quaternion,
 })
 
@@ -214,36 +215,51 @@ export const AudioSourceState = Schema.Struct({
   soundId: SoundId,
   startTime: Schema.Number,
   is3D: Schema.Boolean,
-  position: Schema.optional(Schema.Any), // Vector3D
+  position: Schema.optional(Vector3Schema),
   baseVolume: Volume,
   category: SoundCategory,
 })
 export type AudioSourceState = Schema.Schema.Type<typeof AudioSourceState>
 
 // Audio Errors
-export class AudioError extends Schema.TaggedError<AudioError>()('AudioError', {
-  message: Schema.String,
-}) {}
+export const AudioError = Data.tagged<{
+  readonly _tag: 'AudioError'
+  readonly message: string
+}>('AudioError')
 
-export class SoundNotFoundError extends Schema.TaggedError<SoundNotFoundError>()('SoundNotFoundError', {
-  soundId: SoundId,
-  message: Schema.String,
-}) {}
+export type AudioError = ReturnType<typeof AudioError>
 
-export class SourceNotFoundError extends Schema.TaggedError<SourceNotFoundError>()('SourceNotFoundError', {
-  sourceId: SourceId,
-  message: Schema.String,
-}) {}
+export const SoundNotFoundError = Data.tagged<{
+  readonly _tag: 'SoundNotFoundError'
+  readonly soundId: SoundId
+  readonly message: string
+}>('SoundNotFoundError')
 
-export class AudioLoadError extends Schema.TaggedError<AudioLoadError>()('AudioLoadError', {
-  soundId: SoundId,
-  message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
-}) {}
+export type SoundNotFoundError = ReturnType<typeof SoundNotFoundError>
 
-export class AudioContextError extends Schema.TaggedError<AudioContextError>()('AudioContextError', {
-  message: Schema.String,
-}) {}
+export const SourceNotFoundError = Data.tagged<{
+  readonly _tag: 'SourceNotFoundError'
+  readonly sourceId: SourceId
+  readonly message: string
+}>('SourceNotFoundError')
+
+export type SourceNotFoundError = ReturnType<typeof SourceNotFoundError>
+
+export const AudioLoadError = Data.tagged<{
+  readonly _tag: 'AudioLoadError'
+  readonly soundId: SoundId
+  readonly message: string
+  readonly cause?: unknown
+}>('AudioLoadError')
+
+export type AudioLoadError = ReturnType<typeof AudioLoadError>
+
+export const AudioContextError = Data.tagged<{
+  readonly _tag: 'AudioContextError'
+  readonly message: string
+}>('AudioContextError')
+
+export type AudioContextError = ReturnType<typeof AudioContextError>
 
 // Helper functions for creating audio types
 export const AudioHelpers = {

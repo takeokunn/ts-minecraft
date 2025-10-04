@@ -1,1 +1,5 @@
-export { PhysicsWorldRepository, PhysicsWorldRepositoryLive } from './physics_world_repository'
+export {
+  PhysicsWorldRepository,
+  PhysicsWorldRepositoryLive,
+  type PhysicsWorldRepository,
+} from './physics_world_repository'

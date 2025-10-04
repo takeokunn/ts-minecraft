@@ -2,8 +2,7 @@ import { pipe } from 'effect/Function'
 import * as Array from 'effect/Array'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
-import * as Schema from '@effect/schema/Schema'
-import { ParseResult } from '@effect/schema/ParseResult'
+import * as Schema from 'effect/Schema'
 import type { ParseError } from 'effect/ParseResult'
 import type { BlockTag } from '../value_object/block_identity'
 
@@ -149,19 +148,19 @@ const defaultDropInput: Schema.Schema.Encoded<typeof ItemDropSchema> = {
 const decode = <A, I>(
   schema: Schema.Schema<A, I>,
   input: I,
-  onError: (issues: ParseResult.ParseError) => BlockPropertiesError
+  onError: (issues: ParseError) => BlockPropertiesError
 ) =>
   pipe(
-    Schema.decodeEffect(schema)(input),
+    Schema.decode(schema)(input),
     Effect.mapError(onError)
   )
 
 export type BlockPropertiesError = Data.TaggedEnum<{
-  InvalidPhysics: { readonly issues: ParseResult.ParseError }
-  InvalidSound: { readonly issues: ParseResult.ParseError }
-  InvalidDrops: { readonly issues: ParseResult.ParseError }
-  InvalidTool: { readonly issues: ParseResult.ParseError }
-  InvalidProperties: { readonly issues: ParseResult.ParseError }
+  InvalidPhysics: { readonly issues: ParseError }
+  InvalidSound: { readonly issues: ParseError }
+  InvalidDrops: { readonly issues: ParseError }
+  InvalidTool: { readonly issues: ParseError }
+  InvalidProperties: { readonly issues: ParseError }
 }>
 
 export const BlockPropertiesError = Data.taggedEnum<BlockPropertiesError>()
@@ -217,7 +216,7 @@ export const makeTool = (
 ): Effect.Effect<ToolType, BlockPropertiesError> =>
   decode(
     ToolTypeSchema,
-    tool ?? ToolType.None({}),
+    tool ?? ToolType.None(),
     (issues) => BlockPropertiesError.InvalidTool({ issues })
   )
 

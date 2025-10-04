@@ -226,25 +226,21 @@ export const createComponentStorage = <T>() => {
 
   // バッチ取得（高速）
   const getAll = (): Effect.Effect<ReadonlyArray<[EntityId, T]>, never> =>
-    Effect.sync(() => {
-      const result: [EntityId, T][] = []
-      for (let i = 0; i < array.size; i++) {
-        const entity = array.indexToEntity[i]
-        const data = array.data[i]
+    Effect.sync(() =>
+      Array.from({ length: array.size }, (_, index) => index).reduce<[EntityId, T][]>
+        ((acc, index) => {
+          const maybePair = pipe(
+            Option.fromNullable(array.indexToEntity[index]),
+            Option.flatMap((entity) =>
+              Option.fromNullable(array.data[index]).pipe(Option.map((component) => ({ entity, component })))
+            )
+          )
 
-        pipe(
-          Option.fromNullable(entity),
-          Option.flatMap((e) => Option.fromNullable(data).pipe(Option.map((d) => ({ entity: e, data: d })))),
-          Option.match({
-            onNone: () => {},
-            onSome: ({ entity, data }) => {
-              result.push([entity, data])
-            },
-          })
-        )
-      }
-      return result
-    })
+          return maybePair._tag === 'Some'
+            ? acc.concat([[maybePair.value.entity, maybePair.value.component]])
+            : acc
+        }, [])
+    )
 
   // データ配列への直接アクセス（最高速だが注意が必要）
   const getRawData = (): Effect.Effect<

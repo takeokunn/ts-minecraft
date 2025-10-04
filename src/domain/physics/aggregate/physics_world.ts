@@ -39,7 +39,10 @@ const defaultState = decodeConstant(PhysicsWorldStateSchema)({
 })
 
 const generateId = (prefix: string): Effect.Effect<PhysicsWorldId, PhysicsError> =>
-  Effect.flatMap(now(), (millis) => decodeWith(PhysicsWorldIdSchema)(`${prefix}-${millis}`))
+  Effect.flatMap(now(), (millis) => {
+    const suffix = String(millis).padStart(8, '0')
+    return decodeWith(PhysicsWorldIdSchema)(`${prefix}-${suffix}`)
+  })
 
 const now = (): Effect.Effect<EpochMillis, PhysicsError> =>
   Effect.flatMap(Clock.currentTimeMillis, (millis) => decodeWith(EpochMillisSchema)(millis))

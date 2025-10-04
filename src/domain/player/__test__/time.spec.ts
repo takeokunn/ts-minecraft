@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { provideLayers } from '../../testing/effect'
 import { PlayerClock, PlayerClockLive } from '../time'
 
 const runWithClock = <A>(effect: Effect.Effect<A>) =>
-  Effect.runPromise(Effect.provideLayer(effect, PlayerClockLive))
+  Effect.runPromise(provideLayers(effect, PlayerClockLive))
 
 describe('PlayerClock', () => {
   it('現在時刻が単調に増加する', async () => {

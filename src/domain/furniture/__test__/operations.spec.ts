@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import * as Effect from 'effect/Effect'
-import * as Option from 'effect/Option'
-import * as Schema from '@effect/schema/Schema'
-import * as Either from 'effect/Either'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Option, Schema, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/ReadonlyArray'
+import * as fc from 'fast-check'
 import {
+  AppendPageCommand,
   CreateBedInput,
+  CreateBedInputSchema,
   CreateBookInput,
   CreateSignInput,
   FurnitureError,
@@ -21,172 +22,230 @@ import {
   updateSignText,
 } from '../operations.js'
 
-const run = <A>(effect: Effect.Effect<A, any>) => Effect.runPromise(effect)
+const effectProperty = <T>(
+  arbitrary: fc.Arbitrary<T>,
+  predicate: (value: T) => Effect.Effect<void>
+): fc.AsyncProperty<[T]> =>
+  fc.asyncProperty(arbitrary, async (value) => {
+    await Effect.runPromise(predicate(value))
+  })
+
+const playerIdArbitrary = fc.hexaString({ minLength: 8, maxLength: 8 }).map((suffix) =>
+  `player_${suffix.toLowerCase()}`
+)
+
+const coordinatesArbitrary = fc.record({
+  x: fc.integer({ min: -512, max: 512 }),
+  y: fc.integer({ min: 0, max: 256 }),
+  z: fc.integer({ min: -512, max: 512 }),
+})
+
+const createBedInputArbitrary: fc.Arbitrary<CreateBedInput> = fc
+  .record({
+    color: fc.constantFrom('red', 'blue', 'green', 'purple', 'white'),
+    orientation: fc.constantFrom('north', 'south', 'east', 'west'),
+    coordinates: coordinatesArbitrary,
+    requestedBy: playerIdArbitrary,
+    durability: fc.option(fc.integer({ min: 0, max: 100 }), { nil: undefined }),
+  })
+  .map((candidate) => Schema.decodeUnknownSync(CreateBedInputSchema)(candidate))
+
+const bookPageContentArbitrary = fc.string({ minLength: 1, maxLength: 200 })
+
+const bookPagesArbitrary = fc
+  .array(bookPageContentArbitrary, { minLength: 1, maxLength: 10 })
+  .map((contents) => contents.map((content, index) => ({ index, content })))
+
+const createBookInputArbitrary: fc.Arbitrary<CreateBookInput> = fc.record({
+  title: fc.string({ minLength: 1, maxLength: 32 }),
+  category: fc.constantFrom('lore', 'instruction', 'enchantment', 'journal'),
+  createdBy: playerIdArbitrary,
+  pages: bookPagesArbitrary,
+})
 
 describe('furniture/operations', () => {
-  it('createBed produces default durability and empty occupant', async () => {
-    const bed = await run(
-      createBed({
+  it.effect('createBed produces default durability and empty occupant', () =>
+    Effect.gen(function* () {
+      const bed = yield* createBed({
         color: 'red',
         orientation: 'north',
         coordinates: { x: 1, y: 64, z: 1 },
         requestedBy: 'player_abcd1234',
-      } satisfies CreateBedInput)
-    )
+      })
 
-    expect(bed.id.startsWith('furn_')).toBe(true)
-    expect(bed.durability).toBe(100)
-    expect(Option.isNone(bed.occupant)).toBe(true)
-    expect(typeof bed.placedAt).toBe('number')
-  })
+      expect(bed.id).toMatch(/^furn_[a-z0-9]{12}$/)
+      expect(bed.durability).toBe(100)
+      expect(Option.isNone(bed.occupant)).toBe(true)
+      expect(typeof bed.placedAt).toBe('number')
+    })
+  )
 
-  it('beginSleep succeeds for valid environment', async () => {
-    const bed = await run(
-      createBed({
+  it.effect('beginSleep succeeds for valid environment', () =>
+    Effect.gen(function* () {
+      const bed = yield* createBed({
         color: 'blue',
         orientation: 'south',
         coordinates: { x: 0, y: 70, z: 0 },
         requestedBy: 'player_abcd1234',
       })
-    )
 
-    const environment = {
-      lightLevel: 5,
-      noiseLevel: 10,
-      monstersNearby: false,
-      isNightTime: true,
-      weather: 'clear',
-    }
+      const currentTick = yield* Schema.decode(TickSchema)(250)
 
-    const currentTick = await run(Schema.decode(TickSchema)(250))
-
-    const updated = await run(
-      beginSleep({
+      const updated = yield* beginSleep({
         bed,
         playerId: 'player_abcd1234',
-        environment,
+        environment: {
+          lightLevel: 5,
+          noiseLevel: 10,
+          monstersNearby: false,
+          isNightTime: true,
+          weather: 'clear',
+        },
         currentTick,
       })
-    )
 
-    expect(Option.isSome(updated.occupant)).toBe(true)
-    expect(updated.lastSleptAt).toStrictEqual(Option.some(currentTick))
-  })
+      expect(Option.isSome(updated.occupant)).toBe(true)
+      expect(updated.lastSleptAt).toStrictEqual(Option.some(currentTick))
+    })
+  )
 
-  it('beginSleep fails when monsters are nearby', async () => {
-    const bed = await run(
-      createBed({
+  it.effect('beginSleep fails when monsters are nearby', () =>
+    Effect.gen(function* () {
+      const bed = yield* createBed({
         color: 'green',
         orientation: 'west',
         coordinates: { x: -2, y: 66, z: 4 },
         requestedBy: 'player_abcd1234',
       })
-    )
 
-    const environment = {
-      lightLevel: 5,
-      noiseLevel: 10,
-      monstersNearby: true,
-      isNightTime: true,
-      weather: 'clear',
-    }
+      const currentTick = yield* Schema.decode(TickSchema)(200)
 
-    const currentTick = await run(Schema.decode(TickSchema)(200))
+      const error = yield* beginSleep({
+        bed,
+        playerId: 'player_abcd1234',
+        environment: {
+          lightLevel: 5,
+          noiseLevel: 10,
+          monstersNearby: true,
+          isNightTime: true,
+          weather: 'clear',
+        },
+        currentTick,
+      }).pipe(Effect.flip)
 
-    const result = await run(
-      Effect.either(
-        beginSleep({
-          bed,
-          playerId: 'player_abcd1234',
-          environment,
-          currentTick,
-        })
-      )
-    )
+      expect(error).toStrictEqual(FurnitureError.invalidEnvironment(bed.id))
+    })
+  )
 
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left).toStrictEqual(FurnitureError.invalidEnvironment(bed.id))
-    }
-  })
-
-  it('finishSleep clears occupant', async () => {
-    const bed = await run(
-      createBed({
+  it.effect('finishSleep clears occupant', () =>
+    Effect.gen(function* () {
+      const bed = yield* createBed({
         color: 'purple',
         orientation: 'east',
         coordinates: { x: 3, y: 65, z: 3 },
         requestedBy: 'player_abcd1234',
       })
-    )
 
-    const environment = {
-      lightLevel: 5,
-      noiseLevel: 10,
-      monstersNearby: false,
-      isNightTime: true,
-      weather: 'clear',
-    }
+      const currentTick = yield* Schema.decode(TickSchema)(120)
+      const sleeping = yield* beginSleep({
+        bed,
+        playerId: 'player_abcd1234',
+        environment: {
+          lightLevel: 5,
+          noiseLevel: 10,
+          monstersNearby: false,
+          isNightTime: true,
+          weather: 'clear',
+        },
+        currentTick,
+      })
+      const rested = yield* finishSleep(sleeping)
 
-    const currentTick = await run(Schema.decode(TickSchema)(120))
-    const sleeping = await run(beginSleep({ bed, playerId: 'player_abcd1234', environment, currentTick }))
-    const rested = await run(finishSleep(sleeping))
+      expect(Option.isNone(rested.occupant)).toBe(true)
+    })
+  )
 
-    expect(Option.isNone(rested.occupant)).toBe(true)
-  })
-
-  it('appendPage rejects published book', async () => {
-    const book = await run(
-      createBook({
+  it.effect('appendPage rejects published book', () =>
+    Effect.gen(function* () {
+      const book = yield* createBook({
         title: 'Guide',
         category: 'journal',
         createdBy: 'player_abcd1234',
         pages: [{ index: 0, content: 'Start' }],
-      } satisfies CreateBookInput)
-    )
+      })
 
-    const published = await run(publishBook(book, 10))
+      const published = yield* publishBook(book, 10)
 
-    const result = await run(
-      Effect.either(
-        appendPage({ book: published, author: 'player_abcd1234', page: { index: 1, content: 'More' } })
-      )
-    )
+      const error = yield* appendPage({
+        book: published,
+        author: 'player_abcd1234',
+        page: { index: 1, content: 'More' },
+      }).pipe(Effect.flip)
 
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left).toStrictEqual(FurnitureError.alreadyPublished(book.id))
-    }
-  })
+      expect(error).toStrictEqual(FurnitureError.alreadyPublished(book.id))
+    })
+  )
 
-  it('updateSignText enforces editor ownership', async () => {
-    const sign = await run(
-      createSign({
+  it.effect('updateSignText enforces editor ownership', () =>
+    Effect.gen(function* () {
+      const sign = yield* createSign({
         style: 'oak',
         text: { lines: ['Hello'], alignment: 'left' },
         placedBy: 'player_owner01',
         location: { x: 5, y: 70, z: 5 },
       } satisfies CreateSignInput)
-    )
 
-    const tick = await run(Schema.decode(TickSchema)(400))
+      const tick = yield* Schema.decode(TickSchema)(400)
 
-    const result = await run(
-      Effect.either(
-        updateSignText({
-          sign,
-          editor: 'player_other02',
-          text: { lines: ['Intruder'], alignment: 'center' },
-          currentTick: tick,
+      const error = yield* updateSignText({
+        sign,
+        editor: 'player_other02',
+        text: { lines: ['Intruder'], alignment: 'center' },
+        currentTick: tick,
+      }).pipe(Effect.flip)
+
+      expect(error).toStrictEqual(FurnitureError.permissionDenied(sign.id, 'editor mismatch'))
+    })
+  )
+
+  it('createBed property: durability is within bounds and occupant absent', async () => {
+    await fc.assert(
+      effectProperty(createBedInputArbitrary, (input) =>
+        Effect.gen(function* () {
+          const bed = yield* createBed(input)
+          expect(bed.durability).toBeGreaterThanOrEqual(0)
+          expect(bed.durability).toBeLessThanOrEqual(100)
+          expect(Option.isNone(bed.occupant)).toBe(true)
+          expect(bed.id).toMatch(/^furn_[a-z0-9]{12}$/)
         })
-      )
+      ),
+      { numRuns: 100 }
     )
+  })
 
-    expect(Either.isLeft(result)).toBe(true)
-    if (Either.isLeft(result)) {
-      expect(result.left).toStrictEqual(
-        FurnitureError.permissionDenied(sign.id, 'editor mismatch')
-      )
-    }
+  it('appendPage property: page count increases and command index is respected', async () => {
+    await fc.assert(
+      effectProperty(
+        fc.record({
+          input: createBookInputArbitrary,
+          newPageContent: fc.string({ minLength: 1, maxLength: 200 }),
+        }),
+        ({ input, newPageContent }) =>
+          Effect.gen(function* () {
+            const book = yield* createBook(input)
+            const command: AppendPageCommand = {
+              book,
+              author: input.createdBy,
+              page: { index: book.pages.length, content: newPageContent },
+            }
+            const updated = yield* appendPage(command)
+
+            expect(updated.pages.length).toBe(book.pages.length + 1)
+            expect(pipe(updated.pages, ReadonlyArray.last)).toStrictEqual(Option.some(command.page))
+            expect(pipe(updated.state.editedBy, ReadonlyArray.last)).toStrictEqual(Option.some(command.author))
+          })
+      ),
+      { numRuns: 100 }
+    )
   })
 })

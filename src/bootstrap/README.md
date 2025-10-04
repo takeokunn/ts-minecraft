@@ -2,53 +2,33 @@
 
 ## 概要
 
-Bootstrap層は、アプリケーション全体の起動と統合を管理する層です。
-DDD（Domain-Driven Design）の4層アーキテクチャの上位に位置し、全レイヤーの統合と初期化を担当します。
+Bootstrap層は、アプリケーション全体の初期化と依存関係グラフの生成を担う境界づけられたコンテキストです。DDDの観点では、`domain`, `application`, `infrastructure` の3ファイル構成で役割を分離し、Effect-TSを基盤とした純粋なモデルと副作用制御を明確に切り分けています。
 
-## 役割
-
-- **アプリケーション起動**: アプリケーションの初期化とライフサイクル管理
-- **レイヤー統合**: Domain, Application, Infrastructure, Presentation層の統合
-- **依存性注入**: Effect-TSのLayerパターンによる依存性の組み立て
-- **設定管理**: アプリケーション全体の設定とスキーマ定義
-
-## ディレクトリ構造
+## ファイル構成
 
 ```
 bootstrap/
-├── config/      # 設定管理
-├── errors/      # アプリケーションレベルエラー
-├── layers/      # レイヤー統合
-├── schemas/     # スキーマ定義
-└── services/    # 起動サービス
+├── domain.ts          # 値オブジェクト・スキーマ・エラーモデル
+├── application.ts     # サービスインターフェースと純粋なユースケース関数
+├── infrastructure.ts  # Effect-TS Layerによる実装と依存解決
+└── index.ts           # バレルエクスポートのみ
 ```
 
-## アーキテクチャ位置づけ
+## 責務
 
-```
-┌─────────────────────┐
-│   Bootstrap Layer   │  ← このレイヤー
-├─────────────────────┤
-│  Presentation Layer │
-├─────────────────────┤
-│  Application Layer  │
-├─────────────────────┤
-│ Infrastructure Layer│
-├─────────────────────┤
-│    Domain Layer     │
-└─────────────────────┘
-```
+- **domain.ts**
+  - ブートストラップ設定のブランド付き値オブジェクト
+  - ライフサイクル状態とスナップショット表現
+  - AppErrorのADTとフォーマッタ
+- **application.ts**
+  - `ConfigService` / `AppService` のポート定義
+  - ライフサイクル投影ロジック（`Either`ベースのユースケース）
+  - スナップショットの構成ユーティリティ
+- **infrastructure.ts**
+  - Config ProviderとLayerを組み合わせた実装
+  - Effect-TSの`Ref.Synchronized`による状態管理
+  - MainLayer / TestLayerの合成
 
-## 主要コンポーネント
+## テスト指針
 
-### MainLayer
-
-全レイヤーを統合し、アプリケーション全体の依存関係グラフを構築します。
-
-### AppService
-
-アプリケーションの初期化とライフサイクル管理を提供します。
-
-### Config
-
-アプリケーション全体の設定スキーマと検証を提供します。
+各実装ファイルに対して1対1で`*.test.ts`を配置し、ユニットテストとEffect-TS版fast-checkによるPBTを組み合わせてカバレッジ100%を維持します。

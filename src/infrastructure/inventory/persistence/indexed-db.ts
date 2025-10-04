@@ -1,255 +1,294 @@
 /**
- * IndexedDB-based inventory persistence service
+ * IndexedDB ベースの Inventory 永続化サービス
  *
- * idb-keyvalを使用したInventoryデータの高性能永続化
- * 大量データや複雑なクエリに対応
+ * idb-keyval を Effect-TS ラッパーで包み、宣言的な API を提供する。
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Schema } from '@effect/schema'
+import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
 import type { UseStore } from 'idb-keyval'
-import { clear, createStore, del, get, keys, set, values } from 'idb-keyval'
+import { clear, createStore, del, get, keys, set } from 'idb-keyval'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/InventoryTypes'
+import type { StorageError } from '../storage-service'
+import {
+  InventoryStorageService,
+  Milliseconds,
+  MillisecondsSchema,
+  StorageBackendSchema,
+  StorageConfig,
+  StorageInfo,
+  StorageKey,
+  StorageKeySchema,
+  makeBackupKey,
+  makeStorageKey,
+  toCorrupted,
+  toLoadFailed,
+  toNotAvailable,
+  toSaveFailed,
+} from '../storage-service'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory/InventoryTypes'
 
-// Import domain types (interfaces only)
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/types'
-import { InventoryStorageService as InventoryStorageServiceTag, StorageError } from '../storage-service'
+const backend = Schema.decodeUnknownSync(StorageBackendSchema)('indexedDB')
 
-// IndexedDB-specific configuration
-export interface IndexedDBConfig {
-  readonly databaseName: string
-  readonly storeName: string
-  readonly version: number
-}
+const inventoryStore = createStore('minecraft-inventory-db', 'inventories')
+const stateStore = createStore('minecraft-inventory-db', 'states')
+const backupStore = createStore('minecraft-inventory-db', 'backups')
 
-// Default IndexedDB configuration
-export const defaultIndexedDBConfig: IndexedDBConfig = {
-  databaseName: 'minecraft-inventory-db',
-  storeName: 'inventories',
-  version: 1,
-}
+const requireAvailability = Effect.sync(() => typeof indexedDB !== 'undefined').pipe(
+  Effect.flatMap((available) =>
+    pipe(
+      Match.value(available),
+      Match.when(false, () => Effect.fail(toNotAvailable(backend, 'IndexedDB is not available'))),
+      Match.when(true, () => Effect.void),
+      Match.exhaustive
+    )
+  )
+)
 
-// IndexedDB service implementation using idb-keyval
-export const IndexedDBInventoryService = Layer.effect(
-  InventoryStorageServiceTag,
+const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
+
+const tryPromise = <A>(tag: 'load' | 'save' | 'delete' | 'clear', context: string, thunk: () => Promise<A>) =>
+  Effect.tryPromise({
+    try: thunk,
+    catch: (cause) =>
+      pipe(
+        tag,
+        Match.value,
+        Match.when('load', () => toLoadFailed(backend, context, 'IndexedDB read failure', cause)),
+        Match.when('save', () => toSaveFailed(backend, context, 'IndexedDB write failure', cause)),
+        Match.when('delete', () => toSaveFailed(backend, context, 'IndexedDB delete failure', cause)),
+        Match.when('clear', () => toSaveFailed(backend, context, 'IndexedDB clear failure', cause)),
+        Match.exhaustive
+      ),
+  })
+
+const decodeFromStore = <A>(value: unknown, schema: Schema.Schema<A>, context: string) =>
+  pipe(
+    Schema.decodeUnknown(schema)(value),
+    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error))
+  )
+
+const encodeToStore = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
+  pipe(
+    Schema.encode(schema)(value),
+    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error))
+  )
+
+const randomNonce = Effect.gen(function* () {
+  const value = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+  return value.toString(36).padStart(9, '0')
+})
+
+const readInventory = (playerId: PlayerId) =>
   Effect.gen(function* () {
-    // Create custom store for inventory data
-    const inventoryStore: UseStore = createStore(defaultIndexedDBConfig.databaseName, defaultIndexedDBConfig.storeName)
+    const storageKey = yield* makeStorageKey(playerId)
+    const raw = yield* tryPromise('load', 'inventory', () => get(storageKey, inventoryStore))
+    return yield* pipe(
+      Option.fromNullable(raw),
+      Option.match({
+        onNone: () => Effect.succeed(Option.none<Inventory>()),
+        onSome: (value) =>
+          decodeFromStore(value, InventorySchema, 'inventory-decode').pipe(Effect.map(Option.some)),
+      })
+    )
+  })
 
-    // Key generators
-    const generateInventoryKey = (playerId: PlayerId): string => `inventory:${playerId}`
-    const generateStateKey = (playerId: PlayerId): string => `state:${playerId}`
-    const generateBackupKey = (playerId: PlayerId, backupId: string): string => `backup:${playerId}:${backupId}`
+const writeInventory = (playerId: PlayerId, inventory: Inventory) =>
+  Effect.gen(function* () {
+    const storageKey = yield* makeStorageKey(playerId)
+    const encoded = yield* encodeToStore(inventory, InventorySchema, 'inventory-encode')
+    yield* tryPromise('save', 'inventory', () => set(storageKey, encoded, inventoryStore))
+    return inventory
+  })
 
-    // Test IndexedDB availability
-    const isIndexedDBAvailable = (): boolean => {
-      try {
-        return typeof indexedDB !== 'undefined'
-      } catch {
-        return false
-      }
+const readState = (playerId: PlayerId) =>
+  Effect.gen(function* () {
+    const key = yield* encodeToStore(playerId, PlayerIdSchema, 'state-key')
+    const raw = yield* tryPromise('load', 'inventory-state', () => get(key, stateStore))
+    return yield* pipe(
+      Option.fromNullable(raw),
+      Option.match({
+        onNone: () => Effect.succeed(Option.none<InventoryState>()),
+        onSome: (value) =>
+          decodeFromStore(value, InventoryStateSchema, 'inventory-state-decode').pipe(Effect.map(Option.some)),
+      })
+    )
+  })
+
+const writeState = (state: InventoryState) =>
+  Effect.gen(function* () {
+    const key = yield* encodeToStore(state.inventory.playerId, PlayerIdSchema, 'state-key')
+    const encoded = yield* encodeToStore(state, InventoryStateSchema, 'inventory-state-encode')
+    yield* tryPromise('save', 'inventory-state', () => set(key, encoded, stateStore))
+  })
+
+const deleteState = (playerId: PlayerId) =>
+  Effect.gen(function* () {
+    const key = yield* encodeToStore(playerId, PlayerIdSchema, 'state-key')
+    yield* tryPromise('delete', 'inventory-state', () => del(key, stateStore))
+  })
+
+const deleteInventoryRecord = (playerId: PlayerId) =>
+  Effect.gen(function* () {
+    const storageKey = yield* makeStorageKey(playerId)
+    yield* tryPromise('delete', 'inventory', () => del(storageKey, inventoryStore))
+  })
+
+const gatherPlayerIds = () =>
+  tryPromise('load', 'list-keys', () => keys(inventoryStore)).pipe(
+    Effect.flatMap((rawKeys) =>
+      Effect.forEach(rawKeys, (key) =>
+        Effect.gen(function* () {
+          const storageKey = yield* Schema.decodeUnknown(StorageKeySchema)(key).pipe(
+            Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+          )
+          return yield* decodePlayerIdFromStorageKey(storageKey)
+        })
+      , { concurrency: 'unbounded' })
+    )
+  )
+
+const decodePlayerIdFromStorageKey = (storageKey: StorageKey): Effect.Effect<PlayerId, StorageError> =>
+  pipe(
+    Match.value(storageKey.startsWith('minecraft:inventory:')),
+    Match.when(false, () => Effect.fail(toCorrupted(backend, `Invalid storage key: ${storageKey}`))),
+    Match.when(true, () =>
+      pipe(
+        storageKey.slice('minecraft:inventory:'.length),
+        Schema.decodeUnknown(PlayerIdSchema),
+        Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+      )
+    ),
+    Match.exhaustive
+  )
+
+const decodeBackupPayload = (value: unknown) =>
+  decodeFromStore(value, InventorySchema, 'backup-decode')
+
+const encodeBackupPayload = (inventory: Inventory) =>
+  encodeToStore(inventory, InventorySchema, 'backup-encode')
+
+export const IndexedDBInventoryService = Layer.effect(
+  InventoryStorageService,
+  Effect.gen(function* () {
+    const config: StorageConfig = {
+      backend,
+      autoSave: true,
+      backupSlots: 3,
+      saveInterval: 5_000,
+      compression: false,
     }
 
-    return InventoryStorageServiceTag.of({
+    const service = {
+      backend,
+      config,
       saveInventory: (playerId: PlayerId, inventory: Inventory) =>
         Effect.gen(function* () {
-          yield* pipe(
-            Match.value(isIndexedDBAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.tryPromise({
-                try: async (): Promise<void> => {
-                  const key = generateInventoryKey(playerId)
-                  await set(key, inventory, inventoryStore)
-                },
-                catch: (error) => new StorageError('SAVE_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          yield* writeInventory(playerId, inventory)
         }),
 
       loadInventory: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          return yield* pipe(
-            Match.value(isIndexedDBAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.tryPromise({
-                try: async () => {
-                  const key = generateInventoryKey(playerId)
-                  const inventory = await get<Inventory>(key, inventoryStore)
-                  return Option.fromNullable(inventory)
-                },
-                catch: (error) => new StorageError('LOAD_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          return yield* readInventory(playerId)
         }),
 
       saveInventoryState: (state: InventoryState) =>
         Effect.gen(function* () {
-          yield* pipe(
-            Match.value(isIndexedDBAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.tryPromise({
-                try: async () => {
-                  const key = generateStateKey(state.inventory.playerId)
-                  await set(key, state, inventoryStore)
-                },
-                catch: (error) => new StorageError('SAVE_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          yield* writeState(state)
         }),
 
       loadInventoryState: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          return yield* pipe(
-            Match.value(isIndexedDBAvailable()),
-            Match.when(false, () => Effect.fail(new StorageError('STORAGE_NOT_AVAILABLE'))),
-            Match.when(true, () =>
-              Effect.tryPromise({
-                try: async () => {
-                  const key = generateStateKey(playerId)
-                  const state = await get<InventoryState>(key, inventoryStore)
-                  return Option.fromNullable(state)
-                },
-                catch: (error) => new StorageError('LOAD_FAILED', error),
-              })
-            ),
-            Match.exhaustive
-          )
+          yield* requireAvailability
+          return yield* readState(playerId)
         }),
 
       deleteInventory: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          yield* Effect.tryPromise({
-            try: async () => {
-              const inventoryKey = generateInventoryKey(playerId)
-              const stateKey = generateStateKey(playerId)
-
-              await Promise.all([del(inventoryKey, inventoryStore), del(stateKey, inventoryStore)])
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
+          yield* requireAvailability
+          yield* deleteInventoryRecord(playerId)
+          yield* deleteState(playerId)
         }),
 
       listStoredInventories: () =>
         Effect.gen(function* () {
-          return yield* Effect.tryPromise({
-            try: async () => {
-              const allKeys = await keys(inventoryStore)
-              const inventoryKeys = allKeys
-                .filter((key: IDBValidKey): key is string => typeof key === 'string' && key.startsWith('inventory:'))
-                .map((key: string) => key.replace('inventory:', '') as PlayerId)
-
-              return inventoryKeys
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
+          yield* requireAvailability
+          return yield* gatherPlayerIds()
         }),
 
       createBackup: (playerId: PlayerId) =>
         Effect.gen(function* () {
-          const inventoryOption = yield* Effect.tryPromise({
-            try: async () => {
-              const key = generateInventoryKey(playerId)
-              const inventory = await get<Inventory>(key, inventoryStore)
-              return Option.fromNullable(inventory)
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
-
-          const inventory = yield* pipe(
+          yield* requireAvailability
+          const inventoryOption = yield* readInventory(playerId)
+          return yield* pipe(
             inventoryOption,
             Option.match({
-              onNone: () => Effect.fail(new StorageError('LOAD_FAILED', { reason: 'Inventory not found' })),
-              onSome: (inv) => Effect.succeed(inv),
+              onNone: () => Effect.fail(toLoadFailed(backend, 'backup', 'Inventory not found for backup')),
+              onSome: (inventory) =>
+                Effect.gen(function* () {
+                  const timestampValue = yield* Clock.currentTimeMillis
+                  const timestamp = yield* Schema.decodeUnknown(MillisecondsSchema)(timestampValue).pipe(
+                    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
+                  )
+                  const nonce = yield* randomNonce
+                  const key = yield* makeBackupKey(playerId, timestamp, nonce)
+                  const encoded = yield* encodeBackupPayload(inventory)
+                  yield* tryPromise('save', 'backup', () => set(key, encoded, backupStore))
+                  return { key, createdAt: timestamp, payload: inventory }
+                }),
             })
           )
-
-          const backupId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-          const backupKey = generateBackupKey(playerId, backupId)
-
-          yield* Effect.tryPromise({
-            try: async () => {
-              const backupData = {
-                timestamp: Date.now(),
-                inventory,
-                version: '1.0.0',
-              }
-              await set(backupKey, backupData, inventoryStore)
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
-
-          return backupId
         }),
 
-      restoreBackup: (playerId: PlayerId, backupId: string) =>
+      restoreBackup: (playerId: PlayerId, snapshot) =>
         Effect.gen(function* () {
-          const backupKey = generateBackupKey(playerId, backupId)
-
-          const backupData = yield* Effect.tryPromise({
-            try: async () => {
-              const data = await get(backupKey, inventoryStore)
-              return Option.fromNullable(data as any)
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
-
+          yield* requireAvailability
+          const raw = yield* tryPromise('load', 'backup-read', () => get(snapshot.key, backupStore))
           return yield* pipe(
-            backupData,
+            Option.fromNullable(raw),
             Option.match({
-              onNone: () => Effect.fail(new StorageError('LOAD_FAILED', { reason: 'Backup not found' })),
-              onSome: (data: any) => Effect.succeed(data.inventory as Inventory),
+              onNone: () => Effect.fail(toLoadFailed(backend, 'backup-read', 'Backup payload missing')),
+              onSome: (value) =>
+                decodeBackupPayload(value).pipe(
+                  Effect.flatMap((inventory) => writeInventory(playerId, inventory).pipe(Effect.as(inventory)))
+                ),
             })
           )
         }),
 
       clearAllData: () =>
         Effect.gen(function* () {
-          yield* Effect.tryPromise({
-            try: async () => {
-              await clear(inventoryStore)
-            },
-            catch: (error) => new StorageError('SAVE_FAILED', error),
-          })
+          yield* requireAvailability
+          yield* tryPromise('clear', 'inventory', () => clear(inventoryStore))
+          yield* tryPromise('clear', 'inventory-state', () => clear(stateStore))
+          yield* tryPromise('clear', 'backup', () => clear(backupStore))
         }),
 
       getStorageInfo: () =>
         Effect.gen(function* () {
-          return yield* Effect.tryPromise({
-            try: async () => {
-              // Get all values to calculate size
-              const allValues = await values(inventoryStore)
-              const allKeys = await keys(inventoryStore)
-
-              // Calculate total size (rough estimate)
-              let totalSize = 0
-              allValues.forEach((value) => {
-                try {
-                  totalSize += new Blob([JSON.stringify(value)]).size
-                } catch {
-                  // Fallback for non-serializable values
-                  totalSize += 1000 // rough estimate
-                }
-              })
-
-              return {
-                totalSize,
-                availableSpace: 100 * 1024 * 1024, // IndexedDB typically has much more space
-                itemCount: allKeys.length,
-              }
-            },
-            catch: (error) => new StorageError('LOAD_FAILED', error),
-          })
+          yield* requireAvailability
+          const allKeys = yield* tryPromise('load', 'inventory-keys', () => keys(inventoryStore))
+          const encoded = yield* Effect.forEach(allKeys, (key) =>
+            tryPromise('load', 'inventory', () => get(key, inventoryStore))
+          , { concurrency: 'unbounded' })
+          const sizes = encoded.map((value) =>
+            pipe(
+              Option.fromNullable(value),
+              Option.map((payload) => new Blob([JSON.stringify(payload)]).size),
+              Option.getOrElse(() => 0)
+            )
+          )
+          const totalSize = sizes.reduce((acc, size) => acc + size, 0)
+          return { totalSize, availableSpace: Number.POSITIVE_INFINITY, itemCount: allKeys.length } satisfies StorageInfo
         }),
-    })
+    }
+
+    return InventoryStorageService.of(service)
   })
 )
 
-// Simple export that just uses IndexedDB service for now
 export const HybridInventoryStorageService = IndexedDBInventoryService

@@ -3,6 +3,8 @@ import type { BlockId, BlockTag } from '../value_object/block_identity'
 import type { BlockDefinition } from '../types/block_definition'
 import { BlockRepositoryError } from './types/repository_error'
 
+export { BlockRepositoryError } from './types/repository_error'
+
 export interface BlockRepository {
   readonly insert: (
     definition: BlockDefinition
@@ -29,7 +31,7 @@ export interface BlockRepository {
 
 export const BlockRepository = Context.GenericTag<BlockRepository>('BlockRepository')
 
-const makeInMemory = Effect.sync(() => {
+export const makeInMemory = Effect.sync(() => {
   const storage = new Map<BlockId, BlockDefinition>()
 
   const insert: BlockRepository['insert'] = (definition) =>
