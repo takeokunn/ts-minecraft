@@ -1,18 +1,30 @@
 import { Context, Effect } from 'effect'
-import { LoadError, PreloadError, SaveError, SaveId, SceneType, TransitionEffect, TransitionError } from './types'
+import {
+  ActiveScene,
+  LoadError,
+  PreloadError,
+  SaveError,
+  SaveId,
+  SceneState,
+  TransitionEffect,
+  TransitionError,
+} from './types'
 
 export interface SceneService {
-  readonly transitionTo: (scene: SceneType, effect?: TransitionEffect) => Effect.Effect<void, TransitionError>
+  readonly transitionTo: (
+    scene: ActiveScene,
+    effect?: TransitionEffect
+  ) => Effect.Effect<SceneState, TransitionError>
 
-  readonly getCurrentScene: () => Effect.Effect<SceneType, never>
+  readonly current: () => Effect.Effect<SceneState>
 
-  readonly saveState: () => Effect.Effect<void, SaveError>
+  readonly saveSnapshot: () => Effect.Effect<void, SaveError>
 
-  readonly loadState: (saveId: SaveId) => Effect.Effect<void, LoadError>
+  readonly restoreFrom: (saveId: SaveId) => Effect.Effect<SceneState, LoadError>
 
-  readonly handleError: (error: unknown) => Effect.Effect<void, never>
+  readonly registerFailure: (error: Error) => Effect.Effect<SceneState>
 
-  readonly preloadScene: (scene: SceneType) => Effect.Effect<void, PreloadError>
+  readonly preload: (scene: ActiveScene) => Effect.Effect<void, PreloadError>
 }
 
 export const SceneService = Context.GenericTag<SceneService>('@minecraft/domain/SceneService')

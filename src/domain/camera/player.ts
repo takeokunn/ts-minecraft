@@ -1,8 +1,7 @@
-import type { PlayerId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId, Vector3D } from '@domain/entities/types'
 import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import * as THREE from 'three'
-import { Player } from '../entities/Player'
+import { Player } from '../entities'
 
 /**
  * Player Camera Service
@@ -442,20 +441,16 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
     })
 
   // イージング関数の適用
-  const applyEasing = (t: number, easing: CameraAnimation['easing']): number => {
-    switch (easing) {
-      case 'linear':
-        return t
-      case 'easeIn':
-        return t * t
-      case 'easeOut':
-        return 1 - (1 - t) * (1 - t)
-      case 'easeInOut':
-        return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)
-      default:
-        return t
-    }
-  }
+  const applyEasing = (t: number, easing: CameraAnimation['easing']): number =>
+    pipe(
+      easing,
+      Match.value,
+      Match.when('linear', () => t),
+      Match.when('easeIn', () => t * t),
+      Match.when('easeOut', () => 1 - (1 - t) * (1 - t)),
+      Match.when('easeInOut', () => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t))),
+      Match.orElse(() => t) // デフォルトケース
+    )
 
   // その他のメソッド実装（簡略化）
   const setCameraPosition = (playerId: PlayerId, position: Vector3D, rotation?: { yaw: number; pitch: number }) =>

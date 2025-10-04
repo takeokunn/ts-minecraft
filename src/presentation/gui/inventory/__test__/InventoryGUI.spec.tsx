@@ -5,7 +5,7 @@
  * Using vitest and @testing-library/react
  */
 
-import type { Inventory, ItemStack, PlayerId } from '@domain/inventory/InventoryTypes.js'
+import type { Inventory, ItemStack, PlayerId } from '@domain/inventory/types.js'
 import { fireEvent, render } from '@testing-library/react'
 import { Effect, Option } from 'effect'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

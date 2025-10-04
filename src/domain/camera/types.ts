@@ -1,13 +1,54 @@
+// ========================================
+// DEPRECATED: このファイルは types/ ディレクトリに移行されました
+// 後方互換性のために一時的に保持していますが、新しいコードでは types/index.js を使用してください
+// ========================================
+
 import { Schema } from '@effect/schema'
 
-/**
- * カメラモード
- */
-export const CameraMode = Schema.Literal('first-person', 'third-person')
-export type CameraMode = Schema.Schema.Type<typeof CameraMode>
+// 新しい types/ ディレクトリからの再エクスポート
+export type {
+  CameraDistance,
+  CameraDomainError,
+  CameraError,
+  CameraEvent,
+  CameraRotation,
+  CameraSettings,
+  FOV,
+  CameraMode as NewCameraMode,
+  Position3D,
+  Sensitivity,
+} from './types/index.js'
+
+export {
+  CAMERA_DEFAULTS,
+  CAMERA_LIMITS,
+  CAMERA_MODES,
+  CameraDistanceSchema,
+  CameraRotationSchema,
+  CameraSettingsSchema,
+  createCameraError,
+  createCameraEvent,
+  FOVSchema,
+  isCameraMode,
+  isValidFOV,
+  isValidSensitivity,
+  CameraModeSchema as NewCameraModeSchema,
+  Position3DSchema,
+  SensitivitySchema,
+  VALID_CAMERA_MODES,
+} from './types/index.js'
+
+// ========================================
+// 既存のレガシー型定義（後方互換性のため）
+// ========================================
 
 /**
- * カメラ設定
+ * @deprecated types/constants.js の CameraModeSchema を使用してください
+ */
+export const CameraMode = Schema.Literal('first-person', 'third-person')
+
+/**
+ * カメラ設定（拡張版）
  */
 export const CameraConfig = Schema.Struct({
   mode: CameraMode,
@@ -23,7 +64,7 @@ export const CameraConfig = Schema.Struct({
 export type CameraConfig = Schema.Schema.Type<typeof CameraConfig>
 
 /**
- * カメラ状態
+ * カメラ状態（拡張版）
  */
 export const CameraState = Schema.Struct({
   position: Schema.Struct({
@@ -44,7 +85,7 @@ export const CameraState = Schema.Struct({
 export type CameraState = Schema.Schema.Type<typeof CameraState>
 
 /**
- * カメラエラーの詳細なカテゴリ分け
+ * @deprecated types/errors.js の新しいエラー型を使用してください
  */
 export const CameraErrorReason = Schema.Literal(
   'INITIALIZATION_FAILED',
@@ -57,9 +98,9 @@ export const CameraErrorReason = Schema.Literal(
 export type CameraErrorReason = Schema.Schema.Type<typeof CameraErrorReason>
 
 /**
- * カメラエラー - Schema.TaggedError パターン
+ * @deprecated types/errors.js の新しいエラークラスを使用してください
  */
-export interface CameraError {
+export interface LegacyCameraError {
   readonly _tag: 'CameraError'
   readonly message: string
   readonly reason: CameraErrorReason
@@ -67,12 +108,12 @@ export interface CameraError {
   readonly context?: Record<string, unknown>
 }
 
-export const CameraError = (
+export const LegacyCameraError = (
   message: string,
   reason: CameraErrorReason,
   cause?: unknown,
   context?: Record<string, unknown>
-): CameraError => ({
+): LegacyCameraError => ({
   _tag: 'CameraError',
   message,
   reason,
@@ -81,7 +122,7 @@ export const CameraError = (
 })
 
 /**
- * Vector3 位置情報のスキーマ
+ * @deprecated types/events.js の Position3DSchema を使用してください
  */
 export const Vector3Schema = Schema.Struct({
   x: Schema.Number,
@@ -91,7 +132,7 @@ export const Vector3Schema = Schema.Struct({
 export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 
 /**
- * カメラパラメータのスキーマ定義
+ * カメラパラメータのスキーマ定義（拡張版）
  */
 export const CameraParameterSchemas = {
   fov: Schema.Number.pipe(Schema.between(30, 120)),

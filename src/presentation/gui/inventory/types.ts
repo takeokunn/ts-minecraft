@@ -5,7 +5,7 @@
  * Follows strict functional programming patterns with branded types
  */
 
-import type { Inventory, ItemStack, PlayerId } from '@domain/inventory/InventoryTypes'
+import type { Inventory, ItemStack, PlayerId } from '@domain/inventory/types'
 import { Brand, Effect, Option, Schema } from 'effect'
 
 // =========================================

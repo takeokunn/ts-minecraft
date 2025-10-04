@@ -1,0 +1,193 @@
+import type { CraftingRecipe } from '@domain/crafting/types'
+import React, { useCallback, useMemo, useState } from 'react'
+import type { CraftingGUIEvent, RecipeFilterConfig } from '../CraftingGUITypes'
+
+interface RecipeBookProps {
+  recipes: readonly CraftingRecipe[]
+  selectedRecipe?: string
+  filterConfig: RecipeFilterConfig
+  displayMode?: 'grid' | 'list' | 'compact'
+  onRecipeSelect?: (event: CraftingGUIEvent) => void
+  onSearch?: (event: CraftingGUIEvent) => void
+  onCategoryChange?: (event: CraftingGUIEvent) => void
+  onQuickCraft?: (recipeId: string, quantity: number) => void
+  className?: string
+}
+
+export const RecipeBook: React.FC<RecipeBookProps> = ({
+  recipes,
+  selectedRecipe,
+  filterConfig,
+  displayMode: propDisplayMode,
+  onRecipeSelect,
+  onSearch,
+  onCategoryChange,
+}) => {
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list' | 'compact'>(propDisplayMode || 'grid')
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [recentRecipes, setRecentRecipes] = useState<CraftingRecipe[]>([])
+  const [showFavorites, setShowFavorites] = useState(false)
+
+  const handleRecipeSelect = useCallback(
+    (event: CraftingGUIEvent) => {
+      if (event._tag === 'RecipeSelected') {
+        // Find and add to recent recipes
+        const recipe = recipes.find((r) => r.id === event.recipeId)
+        if (recipe) {
+          setRecentRecipes((prev) => {
+            const filtered = prev.filter((r) => r.id !== recipe.id)
+            return [recipe, ...filtered].slice(0, 10) // Keep last 10
+          })
+        }
+      }
+      onRecipeSelect?.(event)
+    },
+    [onRecipeSelect, recipes]
+  )
+
+  const handleQuickCraft = useCallback((recipeId: string) => {
+    // Implement quick craft functionality
+    console.log('Quick craft:', recipeId)
+  }, [])
+
+  const toggleFavorite = useCallback((recipeId: string) => {
+    setFavorites((prev) => {
+      const newFavorites = new Set(prev)
+      if (newFavorites.has(recipeId)) {
+        newFavorites.delete(recipeId)
+      } else {
+        newFavorites.add(recipeId)
+      }
+      return newFavorites
+    })
+  }, [])
+
+  // Filter recipes based on search/filter criteria
+  const filteredRecipes = useMemo(() => {
+    return recipes.filter((recipe) => {
+      // Show favorites filter
+      if (showFavorites && !favorites.has(recipe.id)) {
+        return false
+      }
+
+      // Apply category filter - categories配列をチェック
+      if (filterConfig.categories.length > 0 && !filterConfig.categories.includes(recipe.category._tag)) {
+        return false
+      }
+
+      // Apply search filter - searchQueryプロパティを使用
+      if (filterConfig.searchQuery && filterConfig.searchQuery.trim()) {
+        const searchLower = filterConfig.searchQuery.toLowerCase()
+        // CraftingRecipe型の実際のプロパティを使用（idとresult.itemIdなど）
+        return (
+          recipe.id.toLowerCase().includes(searchLower) ||
+          (recipe.result && recipe.result.itemId.toLowerCase().includes(searchLower))
+        )
+      }
+
+      return true
+    })
+  }, [recipes, filterConfig, showFavorites, favorites])
+
+  // Sort recipes based on criteria
+  const sortedRecipes = useMemo(() => {
+    return [...filteredRecipes].sort((a, b) => {
+      if (filterConfig.sortBy === 'name') {
+        // idをname代わりに使用
+        return a.id.localeCompare(b.id)
+      } else if (filterConfig.sortBy === 'category') {
+        return a.category._tag.localeCompare(b.category._tag)
+      } else if (filterConfig.sortBy === 'recently-used') {
+        const aIndex = recentRecipes.findIndex((r) => r.id === a.id)
+        const bIndex = recentRecipes.findIndex((r) => r.id === b.id)
+        if (aIndex === -1 && bIndex === -1) return 0
+        if (aIndex === -1) return 1
+        if (bIndex === -1) return -1
+        return aIndex - bIndex
+      }
+      return 0
+    })
+  }, [filteredRecipes, filterConfig.sortBy, recentRecipes])
+
+  return (
+    <div className="recipe-book">
+      <div className="recipe-book-header">
+        <h3>Recipe Book</h3>
+        <div className="recipe-book-controls">
+          <button
+            className={`display-mode-button ${displayMode === 'grid' ? 'active' : ''}`}
+            onClick={() => setDisplayMode('grid')}
+          >
+            Grid
+          </button>
+          <button
+            className={`display-mode-button ${displayMode === 'list' ? 'active' : ''}`}
+            onClick={() => setDisplayMode('list')}
+          >
+            List
+          </button>
+          <button
+            className={`display-mode-button ${displayMode === 'compact' ? 'active' : ''}`}
+            onClick={() => setDisplayMode('compact')}
+          >
+            Compact
+          </button>
+          <button
+            className={`favorites-button ${showFavorites ? 'active' : ''}`}
+            onClick={() => setShowFavorites(!showFavorites)}
+          >
+            ★
+          </button>
+        </div>
+      </div>
+
+      <div className={`recipe-list ${displayMode}`}>
+        {sortedRecipes.map((recipe) => (
+          <div
+            key={recipe.id}
+            className={`recipe-item ${selectedRecipe === recipe.id ? 'selected' : ''}`}
+            onClick={() =>
+              handleRecipeSelect({
+                _tag: 'RecipeSelected',
+                recipeId: recipe.id,
+              })
+            }
+          >
+            <div className="recipe-header">
+              <span className="recipe-title">{recipe.id}</span>
+              <button
+                className={`favorite-toggle ${favorites.has(recipe.id) ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleFavorite(recipe.id)
+                }}
+              >
+                ★
+              </button>
+            </div>
+            <div className="recipe-result">
+              <span className="result-item">
+                {recipe.result.itemId} x{recipe.result.count}
+              </span>
+            </div>
+            <div className="recipe-category">
+              <span className="category">{recipe.category._tag}</span>
+            </div>
+            {displayMode !== 'compact' && (
+              <div className="recipe-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleQuickCraft(recipe.id)
+                  }}
+                >
+                  Quick Craft
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

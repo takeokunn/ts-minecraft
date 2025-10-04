@@ -1,4 +1,4 @@
-import { CameraConfig } from './types'
+import type { CameraConfig } from './types'
 
 /**
  * デフォルトのカメラ設定 - Schema検証済み

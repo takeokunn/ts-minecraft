@@ -1,0 +1,915 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as GridPosVo from '../../value_object/grid_position'
+import {
+  assertConcurrencyInvariant,
+  assertGridPositionInvariants,
+  assertPropertyHolds,
+  assertValueObjectValidation,
+  matchGridPositionCategory,
+} from '../crafting-test-helpers'
+
+// ===================================
+// GridPosition Value Object Tests
+// 3x3グリッド座標の型安全性と位置計算
+// ===================================
+
+describe('GridPosition Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct grid position values', () =>
+      Effect.gen(function* () {
+        const validPositions = [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+          { x: 2, y: 2 },
+          { x: 0, y: 2 },
+          { x: 2, y: 0 },
+        ]
+
+        for (const position of validPositions) {
+          const result = Schema.decodeEither(GridPosVo.GridPositionSchema)(position)
+
+          yield* assertValueObjectValidation(() => result, position as GridPosVo.GridPosition)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toEqual(position)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid grid position values', () =>
+      Effect.gen(function* () {
+        const invalidPositions = [
+          { x: -1, y: 0 },
+          { x: 0, y: -1 },
+          { x: 3, y: 0 },
+          { x: 0, y: 3 },
+          { x: -1, y: -1 },
+          { x: 3, y: 3 },
+          { x: 5, y: 5 },
+        ]
+
+        for (const position of invalidPositions) {
+          const result = Schema.decodeEither(GridPosVo.GridPositionSchema)(position)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toMatch(/Expected.*between 0 and 2/)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-integer coordinate values', () =>
+      Effect.gen(function* () {
+        const nonIntegerPositions = [
+          { x: 0.5, y: 1 },
+          { x: 1, y: 1.5 },
+          { x: 2.1, y: 0 },
+          { x: 0, y: -0.1 },
+          { x: 1.9, y: 2.9 },
+        ]
+
+        for (const position of nonIntegerPositions) {
+          const result = Schema.decodeEither(GridPosVo.GridPositionSchema)(position)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected integer')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid object structures', () =>
+      Effect.gen(function* () {
+        const invalidStructures = [
+          { x: 1 }, // y missing
+          { y: 1 }, // x missing
+          { x: 1, y: 1, z: 1 }, // extra property
+          { X: 1, Y: 1 }, // wrong property names
+          null,
+          undefined,
+          'position',
+          [1, 1],
+          1,
+        ]
+
+        for (const structure of invalidStructures) {
+          const result = Schema.decodeEither(GridPosVo.GridPositionSchema)(structure)
+
+          expect(Either.isLeft(result)).toBe(true)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded position values correctly', () =>
+      Effect.gen(function* () {
+        const validPosition = { x: 1, y: 2 }
+        const result = Schema.decodeEither(GridPosVo.GridPositionSchema)(validPosition)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedPosition = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedPosition).toBe('object')
+          expect(brandedPosition.x).toBe(1)
+          expect(brandedPosition.y).toBe(2)
+
+          // 型安全性プロパティ検証
+          yield* assertGridPositionInvariants(brandedPosition)
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular objects', () =>
+      Effect.gen(function* () {
+        const regularObject = { x: 0, y: 1 }
+        const brandedResult = Schema.decodeEither(GridPosVo.GridPositionSchema)(regularObject)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedPosition = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedPosition).toEqual(regularObject)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(
+            brandedPosition,
+            (pos) => pos.x === regularObject.x && pos.y === regularObject.y,
+            'Brand type runtime equivalence'
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Predefined Constants Tests
+  // ===================================
+
+  describe('Predefined Constants', () => {
+    it.effect('should provide valid predefined position constants', () =>
+      Effect.gen(function* () {
+        const constants = [
+          { name: 'TOP_LEFT', value: GridPosVo.TOP_LEFT, expected: { x: 0, y: 0 } },
+          { name: 'TOP_CENTER', value: GridPosVo.TOP_CENTER, expected: { x: 1, y: 0 } },
+          { name: 'TOP_RIGHT', value: GridPosVo.TOP_RIGHT, expected: { x: 2, y: 0 } },
+          { name: 'MIDDLE_LEFT', value: GridPosVo.MIDDLE_LEFT, expected: { x: 0, y: 1 } },
+          { name: 'MIDDLE_CENTER', value: GridPosVo.MIDDLE_CENTER, expected: { x: 1, y: 1 } },
+          { name: 'MIDDLE_RIGHT', value: GridPosVo.MIDDLE_RIGHT, expected: { x: 2, y: 1 } },
+          { name: 'BOTTOM_LEFT', value: GridPosVo.BOTTOM_LEFT, expected: { x: 0, y: 2 } },
+          { name: 'BOTTOM_CENTER', value: GridPosVo.BOTTOM_CENTER, expected: { x: 1, y: 2 } },
+          { name: 'BOTTOM_RIGHT', value: GridPosVo.BOTTOM_RIGHT, expected: { x: 2, y: 2 } },
+        ]
+
+        for (const constant of constants) {
+          expect(constant.value).toEqual(constant.expected)
+
+          yield* assertGridPositionInvariants(constant.value)
+          yield* assertPropertyHolds(
+            constant.value,
+            (pos) => pos.x >= 0 && pos.x <= 2 && pos.y >= 0 && pos.y <= 2,
+            `Predefined constant validity: ${constant.name}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain grid layout consistency', () =>
+      Effect.gen(function* () {
+        // グリッドレイアウトの確認
+        const grid = [
+          [GridPosVo.TOP_LEFT, GridPosVo.TOP_CENTER, GridPosVo.TOP_RIGHT],
+          [GridPosVo.MIDDLE_LEFT, GridPosVo.MIDDLE_CENTER, GridPosVo.MIDDLE_RIGHT],
+          [GridPosVo.BOTTOM_LEFT, GridPosVo.BOTTOM_CENTER, GridPosVo.BOTTOM_RIGHT],
+        ]
+
+        for (let y = 0; y < 3; y++) {
+          for (let x = 0; x < 3; x++) {
+            const position = grid[y][x]
+            expect(position.x).toBe(x)
+            expect(position.y).toBe(y)
+          }
+        }
+
+        yield* assertPropertyHolds(
+          grid,
+          (gridArray) => gridArray.every((row, y) => row.every((pos, x) => pos.x === x && pos.y === y)),
+          'Grid layout consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Value Object Operations Tests
+  // ===================================
+
+  describe('Value Object Operations', () => {
+    it.effect('should handle creation and validation correctly', () =>
+      Effect.gen(function* () {
+        const validCoords = { x: 2, y: 1 }
+        const position = yield* GridPosVo.create(validCoords.x, validCoords.y)
+
+        expect(position.x).toBe(validCoords.x)
+        expect(position.y).toBe(validCoords.y)
+        expect(GridPosVo.isValid(validCoords.x, validCoords.y)).toBe(true)
+
+        yield* assertPropertyHolds(
+          position,
+          (pos) => pos.x === validCoords.x && pos.y === validCoords.y,
+          'Creation and validation consistency'
+        )
+      })
+    )
+
+    it.effect('should handle equality comparison correctly', () =>
+      Effect.gen(function* () {
+        const pos1 = yield* GridPosVo.create(1, 2)
+        const pos2 = yield* GridPosVo.create(1, 2)
+        const pos3 = yield* GridPosVo.create(2, 1)
+
+        // 同じ座標の比較
+        expect(GridPosVo.equals(pos1, pos2)).toBe(true)
+
+        // 異なる座標の比較
+        expect(GridPosVo.equals(pos1, pos3)).toBe(false)
+
+        yield* assertPropertyHolds(
+          { pos1, pos2, pos3 },
+          ({ pos1, pos2, pos3 }) => GridPosVo.equals(pos1, pos2) && !GridPosVo.equals(pos1, pos3),
+          'Equality comparison consistency'
+        )
+      })
+    )
+
+    it.effect('should handle index conversion correctly', () =>
+      Effect.gen(function* () {
+        const indexTests = [
+          { position: { x: 0, y: 0 }, expectedIndex: 0 },
+          { position: { x: 1, y: 0 }, expectedIndex: 1 },
+          { position: { x: 2, y: 0 }, expectedIndex: 2 },
+          { position: { x: 0, y: 1 }, expectedIndex: 3 },
+          { position: { x: 1, y: 1 }, expectedIndex: 4 },
+          { position: { x: 2, y: 1 }, expectedIndex: 5 },
+          { position: { x: 0, y: 2 }, expectedIndex: 6 },
+          { position: { x: 1, y: 2 }, expectedIndex: 7 },
+          { position: { x: 2, y: 2 }, expectedIndex: 8 },
+        ]
+
+        for (const test of indexTests) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const index = GridPosVo.toIndex(position)
+          const backToPosition = yield* GridPosVo.fromIndex(index)
+
+          expect(index).toBe(test.expectedIndex)
+          expect(GridPosVo.equals(position, backToPosition)).toBe(true)
+
+          yield* assertPropertyHolds(
+            { position, index, backToPosition },
+            ({ position, backToPosition }) => GridPosVo.equals(position, backToPosition),
+            `Index conversion consistency: (${test.position.x}, ${test.position.y}) <-> ${test.expectedIndex}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle string conversion correctly', () =>
+      Effect.gen(function* () {
+        const stringTests = [
+          { position: { x: 0, y: 0 }, expected: '(0,0)' },
+          { position: { x: 1, y: 2 }, expected: '(1,2)' },
+          { position: { x: 2, y: 1 }, expected: '(2,1)' },
+        ]
+
+        for (const test of stringTests) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const stringValue = GridPosVo.toString(position)
+
+          expect(stringValue).toBe(test.expected)
+
+          yield* assertPropertyHolds(
+            { position, stringValue, expected: test.expected },
+            ({ stringValue, expected }) => stringValue === expected,
+            `String conversion: (${test.position.x}, ${test.position.y}) -> ${test.expected}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Spatial Operations Tests
+  // ===================================
+
+  describe('Spatial Operations', () => {
+    it.effect('should calculate distance correctly', () =>
+      Effect.gen(function* () {
+        const distanceTests = [
+          { from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, expected: 0 },
+          { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, expected: 1 },
+          { from: { x: 0, y: 0 }, to: { x: 0, y: 1 }, expected: 1 },
+          { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, expected: Math.sqrt(2) },
+          { from: { x: 0, y: 0 }, to: { x: 2, y: 0 }, expected: 2 },
+          { from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, expected: Math.sqrt(8) },
+        ]
+
+        for (const test of distanceTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+          const toPos = yield* GridPosVo.create(test.to.x, test.to.y)
+
+          const distance = GridPosVo.distance(fromPos, toPos)
+          expect(distance).toBeCloseTo(test.expected, 6)
+
+          yield* assertPropertyHolds(
+            { distance, expected: test.expected },
+            ({ distance, expected }) => Math.abs(distance - expected) < 0.000001,
+            `Distance calculation: (${test.from.x},${test.from.y}) to (${test.to.x},${test.to.y})`
+          )
+        }
+      })
+    )
+
+    it.effect('should calculate Manhattan distance correctly', () =>
+      Effect.gen(function* () {
+        const manhattanTests = [
+          { from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, expected: 0 },
+          { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, expected: 1 },
+          { from: { x: 0, y: 0 }, to: { x: 0, y: 1 }, expected: 1 },
+          { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, expected: 2 },
+          { from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, expected: 4 },
+          { from: { x: 2, y: 0 }, to: { x: 0, y: 2 }, expected: 4 },
+        ]
+
+        for (const test of manhattanTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+          const toPos = yield* GridPosVo.create(test.to.x, test.to.y)
+
+          const manhattanDistance = GridPosVo.manhattanDistance(fromPos, toPos)
+          expect(manhattanDistance).toBe(test.expected)
+
+          yield* assertPropertyHolds(
+            { manhattanDistance, expected: test.expected },
+            ({ manhattanDistance, expected }) => manhattanDistance === expected,
+            `Manhattan distance: (${test.from.x},${test.from.y}) to (${test.to.x},${test.to.y})`
+          )
+        }
+      })
+    )
+
+    it.effect('should identify adjacent positions correctly', () =>
+      Effect.gen(function* () {
+        const adjacencyTests = [
+          { pos1: { x: 1, y: 1 }, pos2: { x: 1, y: 0 }, expected: true }, // 上
+          { pos1: { x: 1, y: 1 }, pos2: { x: 1, y: 2 }, expected: true }, // 下
+          { pos1: { x: 1, y: 1 }, pos2: { x: 0, y: 1 }, expected: true }, // 左
+          { pos1: { x: 1, y: 1 }, pos2: { x: 2, y: 1 }, expected: true }, // 右
+          { pos1: { x: 1, y: 1 }, pos2: { x: 0, y: 0 }, expected: false }, // 斜め
+          { pos1: { x: 1, y: 1 }, pos2: { x: 2, y: 2 }, expected: false }, // 斜め
+          { pos1: { x: 1, y: 1 }, pos2: { x: 1, y: 1 }, expected: false }, // 同じ位置
+        ]
+
+        for (const test of adjacencyTests) {
+          const pos1 = yield* GridPosVo.create(test.pos1.x, test.pos1.y)
+          const pos2 = yield* GridPosVo.create(test.pos2.x, test.pos2.y)
+
+          const isAdjacent = GridPosVo.isAdjacent(pos1, pos2)
+          expect(isAdjacent).toBe(test.expected)
+
+          yield* assertPropertyHolds(
+            { isAdjacent, expected: test.expected },
+            ({ isAdjacent, expected }) => isAdjacent === expected,
+            `Adjacency: (${test.pos1.x},${test.pos1.y}) and (${test.pos2.x},${test.pos2.y})`
+          )
+        }
+      })
+    )
+
+    it.effect('should get neighbors correctly', () =>
+      Effect.gen(function* () {
+        const neighborTests = [
+          {
+            position: { x: 1, y: 1 }, // 中央
+            expectedNeighbors: [
+              { x: 1, y: 0 }, // 上
+              { x: 1, y: 2 }, // 下
+              { x: 0, y: 1 }, // 左
+              { x: 2, y: 1 }, // 右
+            ],
+          },
+          {
+            position: { x: 0, y: 0 }, // 左上角
+            expectedNeighbors: [
+              { x: 0, y: 1 }, // 下
+              { x: 1, y: 0 }, // 右
+            ],
+          },
+          {
+            position: { x: 2, y: 2 }, // 右下角
+            expectedNeighbors: [
+              { x: 2, y: 1 }, // 上
+              { x: 1, y: 2 }, // 左
+            ],
+          },
+        ]
+
+        for (const test of neighborTests) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const neighbors = GridPosVo.getNeighbors(position)
+
+          expect(neighbors.length).toBe(test.expectedNeighbors.length)
+
+          // 期待する隣接位置がすべて含まれていることを確認
+          for (const expectedNeighbor of test.expectedNeighbors) {
+            const found = neighbors.some(
+              (neighbor) => neighbor.x === expectedNeighbor.x && neighbor.y === expectedNeighbor.y
+            )
+            expect(found).toBe(true)
+          }
+
+          yield* assertPropertyHolds(
+            { neighbors, expectedCount: test.expectedNeighbors.length },
+            ({ neighbors, expectedCount }) => neighbors.length === expectedCount,
+            `Neighbors for position (${test.position.x}, ${test.position.y})`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Movement Operations Tests
+  // ===================================
+
+  describe('Movement Operations', () => {
+    it.effect('should handle directional movement correctly', () =>
+      Effect.gen(function* () {
+        const movementTests = [
+          { from: { x: 1, y: 1 }, direction: 'up', to: { x: 1, y: 0 } },
+          { from: { x: 1, y: 1 }, direction: 'down', to: { x: 1, y: 2 } },
+          { from: { x: 1, y: 1 }, direction: 'left', to: { x: 0, y: 1 } },
+          { from: { x: 1, y: 1 }, direction: 'right', to: { x: 2, y: 1 } },
+        ]
+
+        for (const test of movementTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+
+          const moveResult = yield* Effect.either(GridPosVo.move(fromPos, test.direction as any))
+
+          expect(Either.isRight(moveResult)).toBe(true)
+          if (Either.isRight(moveResult)) {
+            const toPos = moveResult.right
+            expect(toPos.x).toBe(test.to.x)
+            expect(toPos.y).toBe(test.to.y)
+          }
+
+          yield* assertPropertyHolds(
+            moveResult,
+            (result) => Either.isRight(result),
+            `Movement from (${test.from.x},${test.from.y}) ${test.direction}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle boundary movement correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { from: { x: 0, y: 0 }, direction: 'up', shouldFail: true },
+          { from: { x: 0, y: 0 }, direction: 'left', shouldFail: true },
+          { from: { x: 2, y: 2 }, direction: 'down', shouldFail: true },
+          { from: { x: 2, y: 2 }, direction: 'right', shouldFail: true },
+          { from: { x: 1, y: 0 }, direction: 'up', shouldFail: true },
+          { from: { x: 0, y: 1 }, direction: 'left', shouldFail: true },
+        ]
+
+        for (const test of boundaryTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+
+          const moveResult = yield* Effect.either(GridPosVo.move(fromPos, test.direction as any))
+
+          expect(Either.isLeft(moveResult)).toBe(test.shouldFail)
+
+          yield* assertPropertyHolds(
+            moveResult,
+            (result) => (test.shouldFail ? Either.isLeft(result) : Either.isRight(result)),
+            `Boundary movement from (${test.from.x},${test.from.y}) ${test.direction}`
+          )
+        }
+      })
+    )
+
+    it.effect('should calculate relative positions correctly', () =>
+      Effect.gen(function* () {
+        const relativeTests = [
+          { from: { x: 1, y: 1 }, dx: 0, dy: -1, to: { x: 1, y: 0 } },
+          { from: { x: 1, y: 1 }, dx: 1, dy: 0, to: { x: 2, y: 1 } },
+          { from: { x: 1, y: 1 }, dx: -1, dy: 1, to: { x: 0, y: 2 } },
+          { from: { x: 0, y: 0 }, dx: 2, dy: 2, to: { x: 2, y: 2 } },
+        ]
+
+        for (const test of relativeTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+
+          const relativeResult = yield* Effect.either(GridPosVo.relative(fromPos, test.dx, test.dy))
+
+          expect(Either.isRight(relativeResult)).toBe(true)
+          if (Either.isRight(relativeResult)) {
+            const toPos = relativeResult.right
+            expect(toPos.x).toBe(test.to.x)
+            expect(toPos.y).toBe(test.to.y)
+          }
+
+          yield* assertPropertyHolds(
+            relativeResult,
+            (result) => Either.isRight(result),
+            `Relative movement from (${test.from.x},${test.from.y}) by (${test.dx},${test.dy})`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle out-of-bounds relative positions', () =>
+      Effect.gen(function* () {
+        const outOfBoundsTests = [
+          { from: { x: 1, y: 1 }, dx: 5, dy: 0 }, // 右に大きく移動
+          { from: { x: 1, y: 1 }, dx: 0, dy: -5 }, // 上に大きく移動
+          { from: { x: 1, y: 1 }, dx: -5, dy: 0 }, // 左に大きく移動
+          { from: { x: 0, y: 0 }, dx: -1, dy: 0 }, // 境界を超える
+        ]
+
+        for (const test of outOfBoundsTests) {
+          const fromPos = yield* GridPosVo.create(test.from.x, test.from.y)
+
+          const relativeResult = yield* Effect.either(GridPosVo.relative(fromPos, test.dx, test.dy))
+
+          expect(Either.isLeft(relativeResult)).toBe(true)
+
+          yield* assertPropertyHolds(
+            relativeResult,
+            (result) => Either.isLeft(result),
+            `Out-of-bounds relative movement from (${test.from.x},${test.from.y}) by (${test.dx},${test.dy})`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match position categories correctly', () =>
+      Effect.gen(function* () {
+        const testCases = [
+          { position: { x: 1, y: 1 }, expected: 'center' },
+          { position: { x: 0, y: 1 }, expected: 'edge' },
+          { position: { x: 2, y: 1 }, expected: 'edge' },
+          { position: { x: 1, y: 0 }, expected: 'edge' },
+          { position: { x: 1, y: 2 }, expected: 'edge' },
+          { position: { x: 0, y: 0 }, expected: 'corner' },
+          { position: { x: 2, y: 2 }, expected: 'corner' },
+        ]
+
+        for (const test of testCases) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const result = matchGridPositionCategory(position)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle crafting pattern analysis', () =>
+      Effect.gen(function* () {
+        const patternAnalyzer = (position: GridPosVo.GridPosition) =>
+          pipe(
+            position,
+            Match.value,
+            Match.when(
+              (pos) => pos.x === 1 && pos.y === 1,
+              () => 'central_ingredient'
+            ),
+            Match.when(
+              (pos) => (pos.x === 1 && pos.y !== 1) || (pos.x !== 1 && pos.y === 1),
+              () => 'cross_pattern'
+            ),
+            Match.when(
+              (pos) => (pos.x === 0 || pos.x === 2) && (pos.y === 0 || pos.y === 2),
+              () => 'corner_pattern'
+            ),
+            Match.orElse(() => 'side_pattern')
+          )
+
+        const testCases = [
+          { position: { x: 1, y: 1 }, expected: 'central_ingredient' },
+          { position: { x: 1, y: 0 }, expected: 'cross_pattern' },
+          { position: { x: 0, y: 1 }, expected: 'cross_pattern' },
+          { position: { x: 0, y: 0 }, expected: 'corner_pattern' },
+          { position: { x: 2, y: 2 }, expected: 'corner_pattern' },
+          { position: { x: 0, y: 2 }, expected: 'side_pattern' },
+        ]
+
+        for (const test of testCases) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const result = patternAnalyzer(position)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain distance symmetry', () =>
+      Effect.gen(function* () {
+        // 距離の対称性: distance(A, B) = distance(B, A)
+        const positions = [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+          { x: 0, y: 1 },
+          { x: 1, y: 1 },
+          { x: 2, y: 1 },
+          { x: 0, y: 2 },
+          { x: 1, y: 2 },
+          { x: 2, y: 2 },
+        ]
+
+        for (let i = 0; i < positions.length; i++) {
+          for (let j = i + 1; j < positions.length; j++) {
+            const pos1 = yield* GridPosVo.create(positions[i].x, positions[i].y)
+            const pos2 = yield* GridPosVo.create(positions[j].x, positions[j].y)
+
+            const dist1to2 = GridPosVo.distance(pos1, pos2)
+            const dist2to1 = GridPosVo.distance(pos2, pos1)
+
+            yield* assertPropertyHolds(
+              { dist1to2, dist2to1 },
+              ({ dist1to2, dist2to1 }) => Math.abs(dist1to2 - dist2to1) < 0.000001,
+              `Distance symmetry: (${positions[i].x},${positions[i].y}) <-> (${positions[j].x},${positions[j].y})`
+            )
+          }
+        }
+      })
+    )
+
+    it.effect('should maintain index conversion consistency', () =>
+      Effect.gen(function* () {
+        // インデックス変換の一貫性
+        for (let index = 0; index < 9; index++) {
+          const position = yield* GridPosVo.fromIndex(index)
+          const backToIndex = GridPosVo.toIndex(position)
+
+          yield* assertPropertyHolds(
+            { originalIndex: index, convertedIndex: backToIndex },
+            ({ originalIndex, convertedIndex }) => originalIndex === convertedIndex,
+            `Index conversion consistency: index ${index}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain movement inverse operations', () =>
+      Effect.gen(function* () {
+        // 移動の逆操作
+        const centerPos = yield* GridPosVo.create(1, 1)
+        const movements = [
+          { direction: 'up', inverse: 'down' },
+          { direction: 'down', inverse: 'up' },
+          { direction: 'left', inverse: 'right' },
+          { direction: 'right', inverse: 'left' },
+        ]
+
+        for (const movement of movements) {
+          const movedPos = yield* GridPosVo.move(centerPos, movement.direction as any)
+          const backPos = yield* GridPosVo.move(movedPos, movement.inverse as any)
+
+          yield* assertPropertyHolds(
+            { original: centerPos, moved: movedPos, back: backPos },
+            ({ original, back }) => GridPosVo.equals(original, back),
+            `Movement inverse: ${movement.direction} -> ${movement.inverse}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent position calculations correctly', () =>
+      Effect.gen(function* () {
+        const allPositions = []
+        for (let y = 0; y < 3; y++) {
+          for (let x = 0; x < 3; x++) {
+            allPositions.push({ x, y })
+          }
+        }
+
+        const concurrentCalculations = allPositions.map(({ x, y }) =>
+          Effect.sync(() => {
+            const position = Effect.runSync(GridPosVo.create(x, y))
+            return {
+              position,
+              index: GridPosVo.toIndex(position),
+              string: GridPosVo.toString(position),
+              neighbors: GridPosVo.getNeighbors(position),
+              category: matchGridPositionCategory(position),
+            }
+          })
+        )
+
+        // 並行実行不変条件: 計算結果が一貫している
+        yield* assertConcurrencyInvariant(
+          concurrentCalculations,
+          (results) =>
+            results.every((result, index) => {
+              const expectedPos = allPositions[index]
+              return (
+                result.position.x === expectedPos.x &&
+                result.position.y === expectedPos.y &&
+                result.index === expectedPos.y * 3 + expectedPos.x &&
+                result.string === `(${expectedPos.x},${expectedPos.y})`
+              )
+            }),
+          'Concurrent position calculation consistency'
+        )
+      })
+    )
+
+    it.effect('should maintain thread safety for spatial operations', () =>
+      Effect.gen(function* () {
+        const basePosition = yield* GridPosVo.create(1, 1)
+
+        const concurrentSpatialOps = Array.from({ length: 9 }, (_, i) =>
+          Effect.sync(() => {
+            const x = i % 3
+            const y = Math.floor(i / 3)
+            const targetPos = Effect.runSync(GridPosVo.create(x, y))
+
+            return {
+              target: targetPos,
+              distance: GridPosVo.distance(basePosition, targetPos),
+              manhattanDistance: GridPosVo.manhattanDistance(basePosition, targetPos),
+              isAdjacent: GridPosVo.isAdjacent(basePosition, targetPos),
+              equals: GridPosVo.equals(basePosition, targetPos),
+            }
+          })
+        )
+
+        const results = yield* Effect.all(concurrentSpatialOps, { concurrency: 'unbounded' })
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) =>
+            resultArray.every(
+              (result) =>
+                result.distance >= 0 &&
+                result.manhattanDistance >= 0 &&
+                typeof result.isAdjacent === 'boolean' &&
+                typeof result.equals === 'boolean'
+            ),
+          'Concurrent spatial operation validity'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary coordinates correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { x: 0, y: 0, valid: true, description: 'top-left corner' },
+          { x: 2, y: 2, valid: true, description: 'bottom-right corner' },
+          { x: -1, y: 0, valid: false, description: 'left of grid' },
+          { x: 3, y: 0, valid: false, description: 'right of grid' },
+          { x: 0, y: -1, valid: false, description: 'above grid' },
+          { x: 0, y: 3, valid: false, description: 'below grid' },
+        ]
+
+        for (const test of boundaryTests) {
+          const result = yield* Effect.either(GridPosVo.create(test.x, test.y))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          { x: -1, y: 0, expectedError: 'InvalidGridPositionError' },
+          { x: 3, y: 1, expectedError: 'InvalidGridPositionError' },
+          { x: 0, y: -1, expectedError: 'InvalidGridPositionError' },
+          { x: 1, y: 3, expectedError: 'InvalidGridPositionError' },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(GridPosVo.create(test.x, test.y))
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.constructor.name).toBe(test.expectedError)
+          }
+        }
+      })
+    )
+
+    it.effect('should handle movement edge cases', () =>
+      Effect.gen(function* () {
+        const movementEdgeCases = [
+          { position: { x: 0, y: 0 }, direction: 'up', shouldFail: true },
+          { position: { x: 0, y: 0 }, direction: 'left', shouldFail: true },
+          { position: { x: 2, y: 2 }, direction: 'down', shouldFail: true },
+          { position: { x: 2, y: 2 }, direction: 'right', shouldFail: true },
+        ]
+
+        for (const test of movementEdgeCases) {
+          const position = yield* GridPosVo.create(test.position.x, test.position.y)
+          const moveResult = yield* Effect.either(GridPosVo.move(position, test.direction as any))
+
+          expect(Either.isLeft(moveResult)).toBe(test.shouldFail)
+          if (Either.isLeft(moveResult)) {
+            const error = moveResult.left
+            expect(error.constructor.name).toBe('GridPositionOutOfBoundsError')
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume position operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 50 // 50ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const x = i % 3
+            const y = Math.floor(i / 3) % 3
+            const position = Effect.runSync(GridPosVo.create(x, y))
+
+            return {
+              position,
+              index: GridPosVo.toIndex(position),
+              string: GridPosVo.toString(position),
+              neighbors: GridPosVo.getNeighbors(position),
+              isValid: GridPosVo.isValid(x, y),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

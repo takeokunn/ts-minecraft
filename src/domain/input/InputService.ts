@@ -1,14 +1,18 @@
 import { Context, Effect } from 'effect'
-import type { InputHandler } from './types'
-import { InputHandlerRegistrationError, InputSystemError, MouseDelta } from './types'
+import type { InputDomainError } from './errors'
+import type { InputEvent, KeyCode, MouseButton, MouseDelta } from './model'
+import type { InputSnapshot } from './state'
 
-// 入力サービスインターフェース
+export type InputEventHandler = (event: InputEvent, snapshot: InputSnapshot) => Effect.Effect<void, never>
+
 export interface InputService {
-  readonly isKeyPressed: (key: string) => Effect.Effect<boolean, InputSystemError>
-  readonly isMousePressed: (button: number) => Effect.Effect<boolean, InputSystemError>
-  readonly getMouseDelta: () => Effect.Effect<MouseDelta, InputSystemError>
-  readonly registerHandler: (handler: InputHandler) => Effect.Effect<void, InputHandlerRegistrationError>
+  readonly ingest: (event: InputEvent) => Effect.Effect<void, InputDomainError>
+  readonly currentSnapshot: () => Effect.Effect<InputSnapshot>
+  readonly isKeyPressed: (key: KeyCode) => Effect.Effect<boolean>
+  readonly isMousePressed: (button: MouseButton) => Effect.Effect<boolean>
+  readonly latestMouseDelta: () => Effect.Effect<MouseDelta>
+  readonly bindAction: (handler: InputEventHandler) => Effect.Effect<void>
 }
 
-// InputServiceのコンテキストタグ
-export const InputService = Context.GenericTag<InputService>('@minecraft/domain/InputService')
+export const InputService = Context.GenericTag<InputService>('@domain/input/InputService')
+

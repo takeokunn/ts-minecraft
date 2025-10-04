@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
 import * as THREE from 'three'
-import { CameraError, CameraConfig, CameraState } from './types'
+import type { CameraError, CameraConfig, CameraState } from './types'
 
 /**
  * CameraService - カメラ管理サービス

@@ -1,182 +1,274 @@
-import * as S from '@effect/schema/Schema'
+import { Schema } from 'effect'
+import { Data, Option } from 'effect'
 
-// Branded Types
-export const SceneId = S.String.pipe(S.brand('SceneId'))
-export type SceneId = S.Schema.Type<typeof SceneId>
+// ===== Brand 定義 =====
 
-export const TransitionDuration = S.Number.pipe(S.positive(), S.brand('TransitionDuration'))
-export type TransitionDuration = S.Schema.Type<typeof TransitionDuration>
+export const SceneIdSchema = Schema.String.pipe(Schema.brand('SceneId'))
+export type SceneId = Schema.Schema.Type<typeof SceneIdSchema>
 
-export const WorldId = S.String.pipe(S.brand('WorldId'))
-export type WorldId = S.Schema.Type<typeof WorldId>
+export const TransitionDurationSchema = Schema.Number.pipe(
+  Schema.greaterThanOrEqualTo(0),
+  Schema.brand('TransitionDuration')
+)
+export type TransitionDuration = Schema.Schema.Type<typeof TransitionDurationSchema>
 
-export const SaveId = S.String.pipe(S.brand('SaveId'))
-export type SaveId = S.Schema.Type<typeof SaveId>
+export const WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))
+export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
-// Menu Options
-export const MenuOption = S.Literal('NewGame', 'LoadGame', 'Settings', 'Exit')
-export type MenuOption = S.Schema.Type<typeof MenuOption>
+export const SaveIdSchema = Schema.String.pipe(Schema.brand('SaveId'))
+export type SaveId = Schema.Schema.Type<typeof SaveIdSchema>
 
-// Direction for transitions
-export const Direction = S.Literal('Up', 'Down', 'Left', 'Right')
-export type Direction = S.Schema.Type<typeof Direction>
+export const SceneTimestampSchema = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand('SceneTimestamp')
+)
+export type SceneTimestamp = Schema.Schema.Type<typeof SceneTimestampSchema>
 
-// Player State (simplified for now, can be expanded)
-export const PlayerState = S.Struct({
-  position: S.Struct({
-    x: S.Number,
-    y: S.Number,
-    z: S.Number,
+export const SceneProgressSchema = Schema.Number.pipe(
+  Schema.greaterThanOrEqualTo(0),
+  Schema.lessThanOrEqualTo(1),
+  Schema.brand('SceneProgress')
+)
+export type SceneProgress = Schema.Schema.Type<typeof SceneProgressSchema>
+
+export const ResourceSizeSchema = Schema.Number.pipe(
+  Schema.nonNegative(),
+  Schema.brand('ResourceSize')
+)
+export type ResourceSize = Schema.Schema.Type<typeof ResourceSizeSchema>
+
+// ===== 値オブジェクト =====
+
+export const MenuOption = Schema.Literal('NewGame', 'LoadGame', 'Settings', 'Exit')
+export type MenuOption = Schema.Schema.Type<typeof MenuOption>
+
+export const Direction = Schema.Literal('Up', 'Down', 'Left', 'Right')
+export type Direction = Schema.Schema.Type<typeof Direction>
+
+export const PlayerStateSchema = Schema.Struct({
+  position: Schema.Struct({
+    x: Schema.Number,
+    y: Schema.Number,
+    z: Schema.Number,
   }),
-  health: S.Number.pipe(S.between(0, 100)),
-  hunger: S.Number.pipe(S.between(0, 100)),
+  health: Schema.Number.pipe(Schema.between(0, 100)),
+  hunger: Schema.Number.pipe(Schema.between(0, 100)),
 })
-export type PlayerState = S.Schema.Type<typeof PlayerState>
+export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 
-// Error Info
-export const ErrorInfo = S.Struct({
-  message: S.String,
-  stack: S.optional(S.String),
-  timestamp: S.Number,
+export const ErrorInfoSchema = Schema.Struct({
+  message: Schema.String,
+  stack: Schema.Option(Schema.String),
+  timestamp: SceneTimestampSchema,
 })
-export type ErrorInfo = S.Schema.Type<typeof ErrorInfo>
+export type ErrorInfo = Schema.Schema.Type<typeof ErrorInfoSchema>
 
-// Scene Types - Enhanced with tagged unions
-export const SceneType: S.Schema<any, any, never> = S.Union(
-  S.Struct({
-    _tag: S.Literal('MainMenu'),
-    selectedOption: S.optional(MenuOption),
-  }),
-  S.Struct({
-    _tag: S.Literal('GameWorld'),
-    worldId: WorldId,
-    playerState: PlayerState,
-  }),
-  S.Struct({
-    _tag: S.Literal('Loading'),
-    targetScene: S.suspend(() => SceneType),
-    progress: S.Number.pipe(S.between(0, 1)),
-  }),
-  S.Struct({
-    _tag: S.Literal('Settings'),
-    previousScene: S.suspend(() => SceneType),
-  }),
-  S.Struct({
-    _tag: S.Literal('Error'),
-    error: ErrorInfo,
-    recoverable: S.Boolean,
-  })
-)
-export type SceneType = S.Schema.Type<typeof SceneType>
+// ===== シーンADT =====
 
-// Scene Events
-export const SceneEvent = S.Union(
-  S.Struct({
-    _tag: S.Literal('TransitionStarted'),
-    from: SceneType,
-    to: SceneType,
-    duration: TransitionDuration,
-  }),
-  S.Struct({
-    _tag: S.Literal('TransitionCompleted'),
-    scene: SceneType,
-  }),
-  S.Struct({
-    _tag: S.Literal('LoadingProgress'),
-    progress: S.Number,
-    message: S.String,
-  }),
-  S.Struct({
-    _tag: S.Literal('StateSnapshot'),
-    scene: SceneType,
-    timestamp: S.Number,
-  })
-)
-export type SceneEvent = S.Schema.Type<typeof SceneEvent>
+export interface MainMenuScene {
+  readonly _tag: 'MainMenu'
+  readonly selectedOption: Option.Option<MenuOption>
+}
 
-// Transition Effects
-export const TransitionEffect = S.Union(
-  S.Struct({
-    _tag: S.Literal('Fade'),
-    duration: TransitionDuration,
-  }),
-  S.Struct({
-    _tag: S.Literal('Slide'),
-    direction: Direction,
-    duration: TransitionDuration,
-  }),
-  S.Struct({
-    _tag: S.Literal('Instant'),
-  })
-)
-export type TransitionEffect = S.Schema.Type<typeof TransitionEffect>
+export interface GameWorldScene {
+  readonly _tag: 'GameWorld'
+  readonly worldId: WorldId
+  readonly playerState: PlayerState
+}
 
-// Error Types
-export const TransitionError = S.Union(
-  S.Struct({
-    _tag: S.Literal('TransitionInProgressError'),
-    message: S.String,
-  }),
-  S.Struct({
-    _tag: S.Literal('InvalidSceneError'),
-    sceneType: S.String,
-    message: S.String,
-  }),
-  S.Struct({
-    _tag: S.Literal('SceneNotFoundError'),
-    sceneId: SceneId,
-    message: S.String,
-  })
-)
-export type TransitionError = S.Schema.Type<typeof TransitionError>
+export interface SettingsScene {
+  readonly _tag: 'Settings'
+  readonly returnTo: Option.Option<ActiveSceneKind>
+}
 
-export const SaveError = S.Union(
-  S.Struct({
-    _tag: S.Literal('SaveFailedError'),
-    message: S.String,
-    cause: S.optional(S.String),
-  }),
-  S.Struct({
-    _tag: S.Literal('InvalidSaveDataError'),
-    message: S.String,
-  })
-)
-export type SaveError = S.Schema.Type<typeof SaveError>
+export interface ErrorScene {
+  readonly _tag: 'Error'
+  readonly error: ErrorInfo
+  readonly recoverable: boolean
+}
 
-export const LoadError = S.Union(
-  S.Struct({
-    _tag: S.Literal('LoadFailedError'),
-    saveId: SaveId,
-    message: S.String,
-  }),
-  S.Struct({
-    _tag: S.Literal('SaveNotFoundError'),
-    saveId: SaveId,
-    message: S.String,
-  })
-)
-export type LoadError = S.Schema.Type<typeof LoadError>
+export type ActiveScene = MainMenuScene | GameWorldScene | SettingsScene | ErrorScene
+export type ActiveSceneKind = ActiveScene['_tag']
 
-export const PreloadError = S.Union(
-  S.Struct({
-    _tag: S.Literal('ResourceNotFoundError'),
-    resourcePath: S.String,
-    message: S.String,
-  }),
-  S.Struct({
-    _tag: S.Literal('PreloadFailedError'),
-    message: S.String,
-    resources: S.Array(S.String),
-  })
-)
-export type PreloadError = S.Schema.Type<typeof PreloadError>
+export interface LoadingScene {
+  readonly _tag: 'Loading'
+  readonly target: ActiveScene
+  readonly progress: SceneProgress
+}
 
-// Preloaded Resource
-export const PreloadedResource = S.Struct({
-  id: S.String,
-  type: S.Literal('texture', 'model', 'sound', 'data'),
-  data: S.Unknown,
-  size: S.Number,
-  loadedAt: S.Number,
+export type SceneState = ActiveScene | LoadingScene
+export type SceneKind = SceneState['_tag']
+
+const defaultSceneProgress = Schema.decodeUnknownSync(SceneProgressSchema)(0)
+
+export const MainMenuSceneSchema = Schema.Struct({
+  _tag: Schema.Literal('MainMenu'),
+  selectedOption: Schema.OptionFromSelf(MenuOption),
 })
-export type PreloadedResource = S.Schema.Type<typeof PreloadedResource>
+export const GameWorldSceneSchema = Schema.Struct({
+  _tag: Schema.Literal('GameWorld'),
+  worldId: WorldIdSchema,
+  playerState: PlayerStateSchema,
+})
+export const SettingsSceneSchema = Schema.Struct({
+  _tag: Schema.Literal('Settings'),
+  returnTo: Schema.OptionFromSelf(
+    Schema.Literal('MainMenu', 'GameWorld', 'Settings', 'Error')
+  ),
+})
+export const ErrorSceneSchema = Schema.Struct({
+  _tag: Schema.Literal('Error'),
+  error: ErrorInfoSchema,
+  recoverable: Schema.Boolean,
+})
+
+export const ActiveSceneSchema = Schema.Union(
+  MainMenuSceneSchema,
+  GameWorldSceneSchema,
+  SettingsSceneSchema,
+  ErrorSceneSchema
+)
+
+export const LoadingSceneSchema = Schema.Struct({
+  _tag: Schema.Literal('Loading'),
+  target: ActiveSceneSchema,
+  progress: SceneProgressSchema,
+})
+
+export const SceneStateSchema = Schema.Union(ActiveSceneSchema, LoadingSceneSchema)
+
+interface SceneStateConstructors {
+  readonly MainMenu: (
+    selectedOption?: Option.Option<MenuOption>
+  ) => MainMenuScene
+  readonly GameWorld: (params: {
+    readonly worldId: WorldId
+    readonly playerState: PlayerState
+  }) => GameWorldScene
+  readonly Settings: (
+    returnTo?: Option.Option<ActiveSceneKind>
+  ) => SettingsScene
+  readonly Error: (params: {
+    readonly error: ErrorInfo
+    readonly recoverable: boolean
+  }) => ErrorScene
+  readonly Loading: (params: {
+    readonly target: ActiveScene
+    readonly progress?: SceneProgress
+  }) => LoadingScene
+}
+
+export const SceneState: SceneStateConstructors = {
+  MainMenu: (selectedOption = Option.none()) => ({
+    _tag: 'MainMenu',
+    selectedOption,
+  }),
+  GameWorld: (params) => ({
+    _tag: 'GameWorld',
+    worldId: params.worldId,
+    playerState: params.playerState,
+  }),
+  Settings: (returnTo = Option.none()) => ({
+    _tag: 'Settings',
+    returnTo,
+  }),
+  Error: (params) => ({
+    _tag: 'Error',
+    error: params.error,
+    recoverable: params.recoverable,
+  }),
+  Loading: (params) => ({
+    _tag: 'Loading',
+    target: params.target,
+    progress: params.progress ?? defaultSceneProgress,
+  }),
+}
+
+// ===== トランジション効果 =====
+
+export type TransitionEffect = Data.TaggedEnum<{
+  Fade: { readonly duration: TransitionDuration }
+  Slide: { readonly direction: Direction; readonly duration: TransitionDuration }
+  Instant: {}
+}>
+
+export const TransitionEffect = Data.taggedEnum<TransitionEffect>()
+
+// ===== ドメインエラー =====
+
+export type TransitionError = Data.TaggedEnum<{
+  TransitionInProgress: {
+    readonly currentScene: Option.Option<SceneState>
+    readonly requested: SceneState
+  }
+  InvalidScene: { readonly requested: SceneState; readonly reason: string }
+}>
+
+export const TransitionError = Data.taggedEnum<TransitionError>()
+
+export type SaveError = Data.TaggedEnum<{
+  SaveFailed: { readonly message: string; readonly cause: Option.Option<ErrorInfo> }
+  InvalidSaveData: { readonly message: string }
+}>
+
+export const SaveError = Data.taggedEnum<SaveError>()
+
+export type LoadError = Data.TaggedEnum<{
+  LoadFailed: { readonly saveId: SaveId; readonly message: string }
+  SaveNotFound: { readonly saveId: SaveId; readonly message: string }
+}>
+
+export const LoadError = Data.taggedEnum<LoadError>()
+
+export type PreloadError = Data.TaggedEnum<{
+  ResourceNotFound: { readonly resourcePath: string; readonly message: string }
+  PreloadFailed: { readonly message: string; readonly resources: ReadonlyArray<string> }
+}>
+
+export const PreloadError = Data.taggedEnum<PreloadError>()
+
+// ===== プリロード済みリソース =====
+
+export const ResourceKind = Schema.Literal('texture', 'model', 'sound', 'data')
+export type ResourceKind = Schema.Schema.Type<typeof ResourceKind>
+
+export const ResourcePayloadSchema = Schema.OptionFromSelf(Schema.Uint8Array)
+export type ResourcePayload = Schema.Schema.Type<typeof ResourcePayloadSchema>
+
+export const PreloadedResourceSchema = Schema.Struct({
+  id: Schema.String,
+  type: ResourceKind,
+  data: ResourcePayloadSchema,
+  size: ResourceSizeSchema,
+  loadedAt: SceneTimestampSchema,
+})
+export type PreloadedResource = Schema.Schema.Type<typeof PreloadedResourceSchema>
+
+export const SceneEventSchema = Schema.Union(
+  Schema.Struct({
+    _tag: Schema.Literal('TransitionStarted'),
+    from: Schema.OptionFromSelf(SceneStateSchema),
+    to: SceneStateSchema,
+    duration: TransitionDurationSchema,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('TransitionCompleted'),
+    scene: SceneStateSchema,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('LoadingProgress'),
+    progress: SceneProgressSchema,
+    message: Schema.String,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal('StateSnapshot'),
+    scene: SceneStateSchema,
+    timestamp: SceneTimestampSchema,
+  })
+)
+export type SceneEvent = Schema.Schema.Type<typeof SceneEventSchema>
+
+// ===== デコーダ =====
+
+export const decodeSceneState = Schema.decodeUnknown(SceneStateSchema)
+export const encodeSceneState = Schema.encode(SceneStateSchema)

@@ -5,7 +5,7 @@
  * Plus offhand slot with type validation
  */
 
-import type { ItemStack } from '@domain/inventory/InventoryTypes.js'
+import type { ItemStack } from '@domain/inventory/types.js'
 import { Option } from 'effect'
 import { motion } from 'framer-motion'
 import React from 'react'

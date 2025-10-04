@@ -11,10 +11,10 @@ import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
-import { CameraService } from '../service'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
-import { CameraConfig } from '../types'
+import { CameraService } from '../service'
 import { ThirdPersonCameraLive } from '../third_person'
+import { CameraConfig } from '../types'
 
 // ================================================================================
 // Predicate Functions - Type Guards

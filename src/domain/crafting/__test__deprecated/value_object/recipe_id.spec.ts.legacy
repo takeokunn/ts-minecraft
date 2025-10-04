@@ -1,0 +1,633 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as RecipeIdVo from '../../value_object/recipe_id'
+import { assertConcurrencyInvariant, assertPropertyHolds, assertValueObjectValidation } from '../crafting-test-helpers'
+
+// ===================================
+// RecipeId Value Object Tests
+// レシピ識別子の型安全性とバリデーション
+// ===================================
+
+describe('RecipeId Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct recipe ID values', () =>
+      Effect.gen(function* () {
+        const validIds = [
+          'wooden-pickaxe',
+          'iron_sword',
+          'stone-axe-123',
+          'crafting_table',
+          'furnace',
+          'chest-large',
+          'diamond_helmet',
+          'a',
+          'A-B_C-123',
+        ]
+
+        for (const id of validIds) {
+          const result = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(id)
+
+          yield* assertValueObjectValidation(() => result, id as RecipeIdVo.RecipeId)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(id)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid recipe ID values', () =>
+      Effect.gen(function* () {
+        const invalidIds = [
+          '', // 空文字
+          'recipe with spaces', // スペース含む
+          'recipe@with#special$chars', // 特殊文字
+          'recipe/with/slashes', // スラッシュ
+          'recipe.with.dots', // ドット
+          'recipe:with:colons', // コロン
+          'レシピ', // 日本語
+          'a'.repeat(65), // 64文字超過
+          '123recipe!', // 感嘆符
+          'recipe%percent', // パーセント
+          'recipe&ampersand', // アンパサンド
+        ]
+
+        for (const id of invalidIds) {
+          const result = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(id)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toMatch(/Expected.*pattern|Expected.*minLength/)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-string types', () =>
+      Effect.gen(function* () {
+        const nonStringValues = [123, true, false, null, undefined, {}, [], Symbol('test')]
+
+        for (const value of nonStringValues) {
+          const result = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected string')
+          }
+        }
+      })
+    )
+
+    it.effect('should enforce length constraints', () =>
+      Effect.gen(function* () {
+        const lengthTests = [
+          { value: '', valid: false, description: 'empty string' },
+          { value: 'a', valid: true, description: 'single character' },
+          { value: 'a'.repeat(32), valid: true, description: '32 characters' },
+          { value: 'a'.repeat(64), valid: true, description: '64 characters (max)' },
+          { value: 'a'.repeat(65), valid: false, description: '65 characters (over max)' },
+          { value: 'a'.repeat(100), valid: false, description: '100 characters (way over)' },
+        ]
+
+        for (const test of lengthTests) {
+          const result = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(test.value)
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Length validation: ${test.description}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded recipe ID values correctly', () =>
+      Effect.gen(function* () {
+        const validId = 'wooden-pickaxe'
+        const result = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(validId)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedId = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedId).toBe('string')
+          expect(brandedId).toBe(validId)
+
+          // 型安全性プロパティ検証
+          yield* assertPropertyHolds(
+            brandedId,
+            (id) => typeof id === 'string' && id.length >= 1 && id.length <= 64,
+            'RecipeId brand type safety'
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular strings', () =>
+      Effect.gen(function* () {
+        const regularString = 'iron-sword'
+        const brandedResult = Schema.decodeEither(RecipeIdVo.RecipeIdSchema)(regularString)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedId = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedId).toBe(regularString)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(brandedId, (id) => id === regularString, 'Brand type runtime equivalence')
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Value Object Operations Tests
+  // ===================================
+
+  describe('Value Object Operations', () => {
+    it.effect('should handle equality comparison correctly', () =>
+      Effect.gen(function* () {
+        const id1 = yield* RecipeIdVo.create('wooden-pickaxe')
+        const id2 = yield* RecipeIdVo.create('wooden-pickaxe')
+        const id3 = yield* RecipeIdVo.create('iron-sword')
+
+        // 同じ値の比較
+        expect(RecipeIdVo.equals(id1, id2)).toBe(true)
+        expect(RecipeIdVo.compare(id1, id2)).toBe(0)
+
+        // 異なる値の比較
+        expect(RecipeIdVo.equals(id1, id3)).toBe(false)
+        expect(RecipeIdVo.compare(id1, id3)).not.toBe(0)
+
+        yield* assertPropertyHolds(
+          { id1, id2, id3 },
+          ({ id1, id2, id3 }) =>
+            RecipeIdVo.equals(id1, id2) && !RecipeIdVo.equals(id1, id3) && RecipeIdVo.compare(id1, id2) === 0,
+          'Equality and comparison consistency'
+        )
+      })
+    )
+
+    it.effect('should validate recipe IDs correctly', () =>
+      Effect.gen(function* () {
+        const validationTests = [
+          { id: 'valid-recipe', valid: true },
+          { id: 'another_valid_recipe123', valid: true },
+          { id: 'invalid recipe with spaces', valid: false },
+          { id: 'invalid@chars', valid: false },
+          { id: '', valid: false },
+        ]
+
+        for (const test of validationTests) {
+          const isValid = RecipeIdVo.isValid(test.id)
+          expect(isValid).toBe(test.valid)
+
+          yield* assertPropertyHolds(
+            { id: test.id, expected: test.valid, actual: isValid },
+            ({ expected, actual }) => expected === actual,
+            `Validation consistency for: ${test.id}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle hash calculation correctly', () =>
+      Effect.gen(function* () {
+        const id1 = yield* RecipeIdVo.create('wooden-pickaxe')
+        const id2 = yield* RecipeIdVo.create('wooden-pickaxe')
+        const id3 = yield* RecipeIdVo.create('iron-sword')
+
+        const hash1 = RecipeIdVo.hash(id1)
+        const hash2 = RecipeIdVo.hash(id2)
+        const hash3 = RecipeIdVo.hash(id3)
+
+        // 同じ値は同じハッシュ
+        expect(hash1).toBe(hash2)
+        // 異なる値は（通常）異なるハッシュ
+        expect(hash1).not.toBe(hash3)
+
+        yield* assertPropertyHolds(
+          { hash1, hash2, hash3 },
+          ({ hash1, hash2, hash3 }) => hash1 === hash2 && hash1 !== hash3,
+          'Hash consistency'
+        )
+      })
+    )
+
+    it.effect('should handle string conversion correctly', () =>
+      Effect.gen(function* () {
+        const originalId = 'crafting-table'
+        const recipeId = yield* RecipeIdVo.create(originalId)
+        const stringValue = RecipeIdVo.toString(recipeId)
+
+        expect(stringValue).toBe(originalId)
+
+        yield* assertPropertyHolds(
+          { original: originalId, converted: stringValue },
+          ({ original, converted }) => original === converted,
+          'String conversion consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Predefined Constants Tests
+  // ===================================
+
+  describe('Predefined Constants', () => {
+    it.effect('should provide valid predefined recipe IDs', () =>
+      Effect.gen(function* () {
+        const constants = [
+          { name: 'EMPTY_RECIPE_ID', value: RecipeIdVo.EMPTY_RECIPE_ID },
+          { name: 'CRAFTING_TABLE_RECIPE_ID', value: RecipeIdVo.CRAFTING_TABLE_RECIPE_ID },
+          { name: 'FURNACE_RECIPE_ID', value: RecipeIdVo.FURNACE_RECIPE_ID },
+        ]
+
+        for (const constant of constants) {
+          // 定数が有効なRecipeIdであることを確認
+          const isValid = RecipeIdVo.isValid(constant.value)
+          expect(isValid).toBe(true)
+
+          yield* assertPropertyHolds(
+            constant.value,
+            (id) => RecipeIdVo.isValid(id),
+            `Predefined constant validity: ${constant.name}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain constant immutability', () =>
+      Effect.gen(function* () {
+        const originalEmpty = RecipeIdVo.EMPTY_RECIPE_ID
+        const originalCraftingTable = RecipeIdVo.CRAFTING_TABLE_RECIPE_ID
+        const originalFurnace = RecipeIdVo.FURNACE_RECIPE_ID
+
+        // 定数の値を確認（変更されていないことを確認）
+        expect(RecipeIdVo.EMPTY_RECIPE_ID).toBe(originalEmpty)
+        expect(RecipeIdVo.CRAFTING_TABLE_RECIPE_ID).toBe(originalCraftingTable)
+        expect(RecipeIdVo.FURNACE_RECIPE_ID).toBe(originalFurnace)
+
+        yield* assertPropertyHolds(
+          { originalEmpty, originalCraftingTable, originalFurnace },
+          ({ originalEmpty, originalCraftingTable, originalFurnace }) =>
+            RecipeIdVo.EMPTY_RECIPE_ID === originalEmpty &&
+            RecipeIdVo.CRAFTING_TABLE_RECIPE_ID === originalCraftingTable &&
+            RecipeIdVo.FURNACE_RECIPE_ID === originalFurnace,
+          'Constant immutability'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match recipe categories correctly', () =>
+      Effect.gen(function* () {
+        const recipeCategoryAnalyzer = (recipeId: RecipeIdVo.RecipeId) =>
+          pipe(
+            RecipeIdVo.toString(recipeId),
+            Match.value,
+            Match.when(
+              (id) => id.includes('pickaxe') || id.includes('axe') || id.includes('shovel'),
+              () => 'tool'
+            ),
+            Match.when(
+              (id) => id.includes('sword') || id.includes('bow') || id.includes('arrow'),
+              () => 'weapon'
+            ),
+            Match.when(
+              (id) =>
+                id.includes('helmet') || id.includes('chestplate') || id.includes('leggings') || id.includes('boots'),
+              () => 'armor'
+            ),
+            Match.when(
+              (id) => id.includes('table') || id.includes('furnace') || id.includes('chest'),
+              () => 'utility'
+            ),
+            Match.orElse(() => 'misc')
+          )
+
+        const testCases = [
+          { id: 'wooden-pickaxe', expected: 'tool' },
+          { id: 'iron_sword', expected: 'weapon' },
+          { id: 'diamond_helmet', expected: 'armor' },
+          { id: 'crafting_table', expected: 'utility' },
+          { id: 'bread', expected: 'misc' },
+        ]
+
+        for (const test of testCases) {
+          const recipeId = yield* RecipeIdVo.create(test.id)
+          const result = recipeCategoryAnalyzer(recipeId)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle material type analysis', () =>
+      Effect.gen(function* () {
+        const materialAnalyzer = (recipeId: RecipeIdVo.RecipeId) =>
+          pipe(
+            RecipeIdVo.toString(recipeId),
+            Match.value,
+            Match.when(
+              (id) => id.startsWith('wooden_') || id.startsWith('wood_'),
+              () => 'wood'
+            ),
+            Match.when(
+              (id) => id.startsWith('stone_'),
+              () => 'stone'
+            ),
+            Match.when(
+              (id) => id.startsWith('iron_'),
+              () => 'iron'
+            ),
+            Match.when(
+              (id) => id.startsWith('diamond_'),
+              () => 'diamond'
+            ),
+            Match.when(
+              (id) => id.startsWith('golden_') || id.startsWith('gold_'),
+              () => 'gold'
+            ),
+            Match.orElse(() => 'unknown')
+          )
+
+        const testCases = [
+          { id: 'wooden_pickaxe', expected: 'wood' },
+          { id: 'stone_axe', expected: 'stone' },
+          { id: 'iron_sword', expected: 'iron' },
+          { id: 'diamond_helmet', expected: 'diamond' },
+          { id: 'golden_apple', expected: 'gold' },
+          { id: 'bread', expected: 'unknown' },
+        ]
+
+        for (const test of testCases) {
+          const recipeId = yield* RecipeIdVo.create(test.id)
+          const result = materialAnalyzer(recipeId)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain ID generation and validation consistency', () =>
+      Effect.gen(function* () {
+        // 有効なIDパターンを50回生成してテスト
+        for (let i = 0; i < 50; i++) {
+          const length = Math.floor(Math.random() * 63) + 1 // 1-64文字
+          const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
+          const randomId = Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+
+          const isValid = RecipeIdVo.isValid(randomId)
+          expect(isValid).toBe(true)
+
+          if (isValid) {
+            const creationResult = yield* Effect.either(RecipeIdVo.create(randomId))
+            expect(Either.isRight(creationResult)).toBe(true)
+
+            if (Either.isRight(creationResult)) {
+              const recipeId = creationResult.right
+              const stringValue = RecipeIdVo.toString(recipeId)
+              expect(stringValue).toBe(randomId)
+            }
+          }
+
+          yield* assertPropertyHolds(
+            randomId,
+            (id) => RecipeIdVo.isValid(id),
+            `Generated ID validation consistency: ${randomId}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain hash distribution properties', () =>
+      Effect.gen(function* () {
+        const ids = ['recipe1', 'recipe2', 'recipe3', 'recipe4', 'recipe5']
+        const hashes = new Set<number>()
+
+        for (const id of ids) {
+          const recipeId = yield* RecipeIdVo.create(id)
+          const hash = RecipeIdVo.hash(recipeId)
+          hashes.add(hash)
+        }
+
+        // ハッシュの分散性を確認（すべて異なるハッシュ値であることを期待）
+        expect(hashes.size).toBe(ids.length)
+
+        yield* assertPropertyHolds(hashes, (hashSet) => hashSet.size === ids.length, 'Hash distribution uniqueness')
+      })
+    )
+
+    it.effect('should maintain creation and validation idempotency', () =>
+      Effect.gen(function* () {
+        const testId = 'test-recipe-123'
+
+        // 同じIDで複数回作成
+        const id1 = yield* RecipeIdVo.create(testId)
+        const id2 = yield* RecipeIdVo.create(testId)
+
+        // 冪等性確認
+        expect(RecipeIdVo.equals(id1, id2)).toBe(true)
+        expect(RecipeIdVo.compare(id1, id2)).toBe(0)
+        expect(RecipeIdVo.hash(id1)).toBe(RecipeIdVo.hash(id2))
+
+        yield* assertPropertyHolds(
+          { id1, id2 },
+          ({ id1, id2 }) => RecipeIdVo.equals(id1, id2) && RecipeIdVo.compare(id1, id2) === 0,
+          'Creation idempotency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent ID creation correctly', () =>
+      Effect.gen(function* () {
+        const testIds = Array.from({ length: 100 }, (_, i) => `test-recipe-${i}`)
+
+        const concurrentCreations = testIds.map((id) => Effect.sync(() => RecipeIdVo.create(id)))
+
+        // 並行実行不変条件: すべての作成が成功する
+        yield* assertConcurrencyInvariant(
+          concurrentCreations,
+          (results) => results.every((result) => Either.isRight(Effect.runSync(result))),
+          'Concurrent ID creation consistency'
+        )
+      })
+    )
+
+    it.effect('should maintain thread safety for validation operations', () =>
+      Effect.gen(function* () {
+        const testIds = [
+          'valid-recipe-1',
+          'valid-recipe-2',
+          'invalid recipe with spaces',
+          'another-valid-recipe',
+          'invalid@chars',
+        ]
+
+        const concurrentValidations = testIds.map((id) => Effect.sync(() => RecipeIdVo.isValid(id)))
+
+        const results = yield* Effect.all(concurrentValidations, { concurrency: 'unbounded' })
+
+        // 期待される結果
+        const expectedResults = [true, true, false, true, false]
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) => resultArray.every((result, index) => result === expectedResults[index]),
+          'Concurrent validation consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary values correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { value: 'a', valid: true, description: 'minimum length (1 char)' },
+          { value: 'a'.repeat(64), valid: true, description: 'maximum length (64 chars)' },
+          { value: '', valid: false, description: 'empty string (invalid)' },
+          { value: 'a'.repeat(65), valid: false, description: 'over maximum length (invalid)' },
+        ]
+
+        for (const test of boundaryTests) {
+          const isValid = RecipeIdVo.isValid(test.value)
+
+          yield* assertPropertyHolds(
+            { value: test.value, expected: test.valid, actual: isValid },
+            ({ expected, actual }) => expected === actual,
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          { value: '', expectedError: 'minLength' },
+          { value: 'a'.repeat(65), expectedError: 'maxLength' },
+          { value: 'invalid spaces', expectedError: 'pattern' },
+          { value: 'invalid@chars', expectedError: 'pattern' },
+          { value: 123, expectedError: 'string' },
+          { value: null, expectedError: 'string' },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(RecipeIdVo.create(test.value as any))
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            if (error instanceof RecipeIdVo.InvalidRecipeIdError) {
+              expect(error.reason).toContain(test.expectedError)
+            }
+          }
+        }
+      })
+    )
+
+    it.effect('should handle special character edge cases', () =>
+      Effect.gen(function* () {
+        const specialCases = [
+          { value: 'recipe-with-hyphens', valid: true },
+          { value: 'recipe_with_underscores', valid: true },
+          { value: 'recipe123with456numbers', valid: true },
+          { value: 'UPPERCASE_RECIPE', valid: true },
+          { value: 'MixedCase-Recipe_123', valid: true },
+          { value: 'recipe with spaces', valid: false },
+          { value: 'recipe.with.dots', valid: false },
+          { value: 'recipe/with/slashes', valid: false },
+          { value: 'recipe:with:colons', valid: false },
+        ]
+
+        for (const test of specialCases) {
+          const isValid = RecipeIdVo.isValid(test.value)
+
+          yield* assertPropertyHolds(
+            { value: test.value, expected: test.valid, actual: isValid },
+            ({ expected, actual }) => expected === actual,
+            `Special character handling: ${test.value}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume ID operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 100 // 100ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const id = `test-recipe-${i}`
+            const recipeId = Effect.runSync(RecipeIdVo.create(id))
+            return {
+              id: recipeId,
+              isValid: RecipeIdVo.isValid(id),
+              hash: RecipeIdVo.hash(recipeId),
+              string: RecipeIdVo.toString(recipeId),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

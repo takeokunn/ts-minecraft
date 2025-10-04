@@ -1,79 +1,75 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect } from 'effect'
+import { Data, Effect, Ref, Schema } from 'effect'
+import {
+  ActiveScene,
+  ActiveSceneSchema,
+  SceneState,
+} from '../types'
 
-// シーンタイプの定義
-export const SceneType = Schema.Literal('MainMenu', 'Game', 'Loading', 'Pause', 'Settings')
-export type SceneType = Schema.Schema.Type<typeof SceneType>
+export type SceneControllerError = Data.TaggedEnum<{
+  InvalidMutation: { readonly reason: string }
+}>
 
-// シーンの基本構造
-export const SceneData = Schema.Struct({
-  id: Schema.String.pipe(Schema.nonEmptyString()),
-  type: SceneType,
-  isActive: Schema.Boolean,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-})
-export type SceneData = Schema.Schema.Type<typeof SceneData>
+export const SceneControllerError = Data.taggedEnum<SceneControllerError>()
 
-// シーン遷移データ
-export const SceneTransition = Schema.Struct({
-  from: Schema.optional(SceneType),
-  to: SceneType,
-  duration: Schema.optional(Schema.Number.pipe(Schema.positive())),
-  fadeType: Schema.optional(Schema.Literal('none', 'fade', 'slide', 'zoom')),
-})
-export type SceneTransition = Schema.Schema.Type<typeof SceneTransition>
-
-// シーンエラー定義
-export const SceneTransitionErrorSchema = Schema.Struct({
-  _tag: Schema.Literal('SceneTransitionError'),
-  message: Schema.String,
-  currentScene: Schema.optional(SceneType),
-  targetScene: SceneType,
-})
-
-export type SceneTransitionError = Schema.Schema.Type<typeof SceneTransitionErrorSchema>
-
-export const SceneTransitionError = (params: Omit<SceneTransitionError, '_tag'>): SceneTransitionError => ({
-  _tag: 'SceneTransitionError' as const,
-  ...params,
-})
-
-export const SceneInitializationErrorSchema = Schema.Struct({
-  _tag: Schema.Literal('SceneInitializationError'),
-  message: Schema.String,
-  sceneType: SceneType,
-})
-
-export type SceneInitializationError = Schema.Schema.Type<typeof SceneInitializationErrorSchema>
-
-export const SceneInitializationError = (params: Omit<SceneInitializationError, '_tag'>): SceneInitializationError => ({
-  _tag: 'SceneInitializationError' as const,
-  ...params,
-})
-
-export const SceneCleanupErrorSchema = Schema.Struct({
-  _tag: Schema.Literal('SceneCleanupError'),
-  message: Schema.String,
-  sceneType: SceneType,
-})
-
-export type SceneCleanupError = Schema.Schema.Type<typeof SceneCleanupErrorSchema>
-
-export const SceneCleanupError = (params: Omit<SceneCleanupError, '_tag'>): SceneCleanupError => ({
-  _tag: 'SceneCleanupError' as const,
-  ...params,
-})
-
-// シーンの基本インターフェース
-export interface Scene {
-  readonly data: SceneData
-  readonly initialize: () => Effect.Effect<void, SceneInitializationError>
-  readonly update: (deltaTime: number) => Effect.Effect<void>
-  readonly render: () => Effect.Effect<void>
-  readonly cleanup: () => Effect.Effect<void, SceneCleanupError>
-  readonly onEnter: () => Effect.Effect<void>
-  readonly onExit: () => Effect.Effect<void>
+export interface SceneController<A extends ActiveScene> {
+  readonly current: () => Effect.Effect<A>
+  readonly update: (
+    updater: (scene: A) => A
+  ) => Effect.Effect<A, SceneControllerError>
+  readonly replace: (scene: A) => Effect.Effect<A, SceneControllerError>
+  readonly reset: () => Effect.Effect<A>
 }
 
-// シーンサービスのコンテキスト
-export const Scene = Context.GenericTag<Scene>('@minecraft/domain/Scene')
+const decodeActive = Schema.decode(ActiveSceneSchema)
+
+const formatIssue = (issue: Schema.ParseError): string =>
+  Schema.formatIssueSync(issue)
+
+const validate = <A extends ActiveScene>(scene: A): Effect.Effect<A, SceneControllerError> =>
+  decodeActive(scene).pipe(
+    Effect.map(() => scene),
+    Effect.mapError((issue) =>
+      SceneControllerError.InvalidMutation({ reason: formatIssue(issue) })
+    )
+  )
+
+export const createSceneController = <A extends ActiveScene>(
+  initial: A
+): Effect.Effect<SceneController<A>> =>
+  Effect.gen(function* () {
+    const validatedInitial = yield* validate(initial)
+    const stateRef = yield* Ref.make(validatedInitial)
+    const initialRef = yield* Ref.make(validatedInitial)
+
+    const setState = (scene: A) =>
+      validate(scene).pipe(Effect.tap((value) => Ref.set(stateRef, value)))
+
+    return {
+      current: () => Ref.get(stateRef),
+      update: (updater) =>
+        Ref.get(stateRef).pipe(
+          Effect.map(updater),
+          Effect.flatMap(setState)
+        ),
+      replace: (scene) => setState(scene),
+      reset: () =>
+        Ref.get(initialRef).pipe(
+          Effect.tap((value) => Ref.set(stateRef, value))
+        ),
+    }
+  })
+
+export type SceneBlueprint<A extends ActiveScene> = {
+  readonly initial: A
+  readonly controller: Effect.Effect<SceneController<A>>
+}
+
+export const makeBlueprint = <A extends ActiveScene>(
+  initial: A
+): SceneBlueprint<A> => ({
+  initial,
+  controller: createSceneController(initial),
+})
+
+export const isActiveScene = (scene: SceneState): scene is ActiveScene =>
+  Schema.decodeEither(ActiveSceneSchema)(scene)._tag === 'Right'

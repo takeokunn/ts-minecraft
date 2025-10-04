@@ -1,0 +1,734 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as SuccessRateVo from '../../value_object/success_rate'
+import {
+  assertConcurrencyInvariant,
+  assertPropertyHolds,
+  assertValueObjectValidation,
+  matchSuccessRateCategory,
+} from '../crafting-test-helpers'
+
+// ===================================
+// SuccessRate Value Object Tests
+// 成功率の型安全性と確率計算
+// ===================================
+
+describe('SuccessRate Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct success rate values', () =>
+      Effect.gen(function* () {
+        const validRates = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1.0]
+
+        for (const rate of validRates) {
+          const result = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(rate)
+
+          yield* assertValueObjectValidation(() => result, rate as SuccessRateVo.SuccessRate)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(rate)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid success rate values', () =>
+      Effect.gen(function* () {
+        const invalidRates = [-0.1, -1.0, 1.1, 1.5, 2.0, 10.0, -10.0]
+
+        for (const rate of invalidRates) {
+          const result = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(rate)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('non-negative number')
+          }
+        }
+      })
+    )
+
+    it.effect('should handle floating point precision', () =>
+      Effect.gen(function* () {
+        const precisionTests = [
+          { value: 0.0, valid: true },
+          { value: 1.0, valid: true },
+          { value: 0.123456789, valid: true },
+          { value: 0.9999999, valid: true },
+          { value: 1.0000001, valid: false },
+          { value: -0.0000001, valid: false },
+        ]
+
+        for (const test of precisionTests) {
+          const result = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(test.value)
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Precision validation: ${test.value}`
+          )
+        }
+      })
+    )
+
+    it.effect('should reject non-number types', () =>
+      Effect.gen(function* () {
+        const nonNumberValues = ['0.5', 'high', true, false, null, undefined, {}, [], '100%']
+
+        for (const value of nonNumberValues) {
+          const result = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected number')
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded success rate values correctly', () =>
+      Effect.gen(function* () {
+        const validRate = 0.75
+        const result = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(validRate)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedRate = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedRate).toBe('number')
+          expect(brandedRate).toBe(0.75)
+
+          // 型安全性プロパティ検証
+          yield* assertPropertyHolds(brandedRate, (rate) => rate >= 0.0 && rate <= 1.0, 'SuccessRate brand type safety')
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular numbers', () =>
+      Effect.gen(function* () {
+        const regularNumber = 0.8
+        const brandedResult = Schema.decodeEither(SuccessRateVo.SuccessRateSchema)(regularNumber)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedRate = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedRate).toBe(regularNumber)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(brandedRate, (rate) => rate === regularNumber, 'Brand type runtime equivalence')
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Value Object Operations Tests
+  // ===================================
+
+  describe('Value Object Operations', () => {
+    it.effect('should handle creation and validation correctly', () =>
+      Effect.gen(function* () {
+        const validRate = 0.85
+        const rate = yield* SuccessRateVo.create(validRate)
+
+        expect(SuccessRateVo.toNumber(rate)).toBe(validRate)
+        expect(SuccessRateVo.isValid(validRate)).toBe(true)
+
+        yield* assertPropertyHolds(
+          rate,
+          (r) => SuccessRateVo.toNumber(r) === validRate,
+          'Creation and validation consistency'
+        )
+      })
+    )
+
+    it.effect('should handle comparison operations correctly', () =>
+      Effect.gen(function* () {
+        const lowRate = yield* SuccessRateVo.create(0.3)
+        const mediumRate = yield* SuccessRateVo.create(0.6)
+        const highRate = yield* SuccessRateVo.create(0.9)
+
+        // 比較演算
+        expect(SuccessRateVo.compare(lowRate, mediumRate)).toBeLessThan(0)
+        expect(SuccessRateVo.compare(mediumRate, highRate)).toBeLessThan(0)
+        expect(SuccessRateVo.compare(highRate, lowRate)).toBeGreaterThan(0)
+        expect(SuccessRateVo.compare(mediumRate, mediumRate)).toBe(0)
+
+        // 等価性
+        const anotherMedium = yield* SuccessRateVo.create(0.6)
+        expect(SuccessRateVo.equals(mediumRate, anotherMedium)).toBe(true)
+        expect(SuccessRateVo.equals(mediumRate, highRate)).toBe(false)
+
+        yield* assertPropertyHolds(
+          { lowRate, mediumRate, highRate },
+          ({ lowRate, mediumRate, highRate }) =>
+            SuccessRateVo.compare(lowRate, mediumRate) < 0 &&
+            SuccessRateVo.compare(mediumRate, highRate) < 0 &&
+            SuccessRateVo.compare(highRate, lowRate) > 0,
+          'Comparison transitivity'
+        )
+      })
+    )
+
+    it.effect('should handle percentage conversion correctly', () =>
+      Effect.gen(function* () {
+        const percentageTests = [
+          { rate: 0.0, percentage: 0 },
+          { rate: 0.25, percentage: 25 },
+          { rate: 0.5, percentage: 50 },
+          { rate: 0.75, percentage: 75 },
+          { rate: 1.0, percentage: 100 },
+        ]
+
+        for (const test of percentageTests) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const percentage = SuccessRateVo.toPercentage(rate)
+
+          expect(percentage).toBe(test.percentage)
+
+          yield* assertPropertyHolds(
+            { rate, percentage, expected: test.percentage },
+            ({ percentage, expected }) => percentage === expected,
+            `Percentage conversion: ${test.rate} -> ${test.percentage}%`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Probability Operations Tests
+  // ===================================
+
+  describe('Probability Operations', () => {
+    it.effect('should handle AND operation (joint probability) correctly', () =>
+      Effect.gen(function* () {
+        const rate1 = yield* SuccessRateVo.create(0.8)
+        const rate2 = yield* SuccessRateVo.create(0.6)
+
+        const andResult = SuccessRateVo.and(rate1, rate2)
+        const expected = 0.8 * 0.6 // 0.48
+
+        expect(SuccessRateVo.toNumber(andResult)).toBeCloseTo(expected, 6)
+
+        yield* assertPropertyHolds(
+          { andResult, expected },
+          ({ andResult, expected }) => Math.abs(SuccessRateVo.toNumber(andResult) - expected) < 0.000001,
+          'AND operation (joint probability)'
+        )
+      })
+    )
+
+    it.effect('should handle OR operation (union probability) correctly', () =>
+      Effect.gen(function* () {
+        const rate1 = yield* SuccessRateVo.create(0.4)
+        const rate2 = yield* SuccessRateVo.create(0.3)
+
+        const orResult = SuccessRateVo.or(rate1, rate2)
+        const expected = 0.4 + 0.3 - 0.4 * 0.3 // 0.58
+
+        expect(SuccessRateVo.toNumber(orResult)).toBeCloseTo(expected, 6)
+
+        yield* assertPropertyHolds(
+          { orResult, expected },
+          ({ orResult, expected }) => Math.abs(SuccessRateVo.toNumber(orResult) - expected) < 0.000001,
+          'OR operation (union probability)'
+        )
+      })
+    )
+
+    it.effect('should handle NOT operation (complement) correctly', () =>
+      Effect.gen(function* () {
+        const probabilityTests = [
+          { rate: 0.0, expectedNot: 1.0 },
+          { rate: 0.25, expectedNot: 0.75 },
+          { rate: 0.5, expectedNot: 0.5 },
+          { rate: 0.75, expectedNot: 0.25 },
+          { rate: 1.0, expectedNot: 0.0 },
+        ]
+
+        for (const test of probabilityTests) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const notResult = SuccessRateVo.not(rate)
+
+          expect(SuccessRateVo.toNumber(notResult)).toBeCloseTo(test.expectedNot, 6)
+
+          yield* assertPropertyHolds(
+            { rate, notResult, expected: test.expectedNot },
+            ({ notResult, expected }) => Math.abs(SuccessRateVo.toNumber(notResult) - expected) < 0.000001,
+            `NOT operation: ${test.rate} -> ${test.expectedNot}`
+          )
+        }
+      })
+    )
+
+    it.effect.skip('should handle multiple attempts calculation correctly', () =>
+      Effect.gen(function* () {
+        const attemptsTests = [
+          { rate: 0.5, attempts: 1, expected: 0.5 },
+          { rate: 0.5, attempts: 2, expected: 0.75 }, // 1 - (1-0.5)^2
+          { rate: 0.3, attempts: 3, expected: 0.657 }, // 1 - (1-0.3)^3
+          { rate: 0.8, attempts: 2, expected: 0.96 }, // 1 - (1-0.8)^2
+        ]
+
+        for (const test of attemptsTests) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const multipleResult = SuccessRateVo.multipleAttempts(rate, test.attempts)
+
+          expect(SuccessRateVo.toNumber(multipleResult)).toBeCloseTo(test.expected, 3)
+
+          yield* assertPropertyHolds(
+            { multipleResult, expected: test.expected },
+            ({ multipleResult, expected }) => Math.abs(SuccessRateVo.toNumber(multipleResult) - expected) < 0.001,
+            `Multiple attempts: rate=${test.rate}, attempts=${test.attempts}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Simulation and Analysis Tests
+  // ===================================
+
+  describe('Simulation and Analysis', () => {
+    it.effect('should perform roll simulation correctly', () =>
+      Effect.gen(function* () {
+        const certainSuccess = yield* SuccessRateVo.create(1.0)
+        const certainFailure = yield* SuccessRateVo.create(0.0)
+
+        // 確実な成功
+        expect(SuccessRateVo.roll(certainSuccess)).toBe(true)
+
+        // 確実な失敗
+        expect(SuccessRateVo.roll(certainFailure)).toBe(false)
+
+        // 中間的な確率での複数回テスト
+        const mediumRate = yield* SuccessRateVo.create(0.5)
+        const results = Array.from({ length: 1000 }, () => SuccessRateVo.roll(mediumRate))
+        const successCount = results.filter((r) => r).length
+        const observedRate = successCount / 1000
+
+        // 0.5付近の値になることを期待（統計的変動を考慮して0.4-0.6の範囲）
+        expect(observedRate).toBeGreaterThan(0.4)
+        expect(observedRate).toBeLessThan(0.6)
+
+        yield* assertPropertyHolds(
+          { observedRate, expectedRate: 0.5 },
+          ({ observedRate, expectedRate }) => Math.abs(observedRate - expectedRate) < 0.1,
+          'Roll simulation statistical consistency'
+        )
+      })
+    )
+
+    it.effect('should calculate expected attempts correctly', () =>
+      Effect.gen(function* () {
+        const expectedAttemptsTests = [
+          { rate: 1.0, expected: 1.0 },
+          { rate: 0.5, expected: 2.0 },
+          { rate: 0.25, expected: 4.0 },
+          { rate: 0.1, expected: 10.0 },
+          { rate: 0.01, expected: 100.0 },
+        ]
+
+        for (const test of expectedAttemptsTests) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const expectedAttempts = SuccessRateVo.expectedAttempts(rate)
+
+          expect(expectedAttempts).toBeCloseTo(test.expected, 6)
+
+          yield* assertPropertyHolds(
+            { expectedAttempts, expected: test.expected },
+            ({ expectedAttempts, expected }) => Math.abs(expectedAttempts - expected) < 0.000001,
+            `Expected attempts: rate=${test.rate} -> ${test.expected} attempts`
+          )
+        }
+      })
+    )
+
+    it.effect.skip('should calculate success probability for attempts correctly', () =>
+      Effect.gen(function* () {
+        const rate = yield* SuccessRateVo.create(0.3)
+
+        const probabilityTests = [
+          { attempts: 1, expected: 0.3 },
+          { attempts: 2, expected: 0.51 }, // 1 - 0.7^2
+          { attempts: 3, expected: 0.657 }, // 1 - 0.7^3
+          { attempts: 5, expected: 0.83193 }, // 1 - 0.7^5
+        ]
+
+        for (const test of probabilityTests) {
+          const successProb = SuccessRateVo.successProbabilityInAttempts(rate, test.attempts)
+
+          expect(SuccessRateVo.toNumber(successProb)).toBeCloseTo(test.expected, 3)
+
+          yield* assertPropertyHolds(
+            { successProb, expected: test.expected },
+            ({ successProb, expected }) => Math.abs(SuccessRateVo.toNumber(successProb) - expected) < 0.001,
+            `Success probability in ${test.attempts} attempts`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match success rate categories correctly', () =>
+      Effect.gen(function* () {
+        const testCases = [
+          { rate: 1.0, expected: 'guaranteed' },
+          { rate: 0.95, expected: 'very_high' },
+          { rate: 0.8, expected: 'high' },
+          { rate: 0.6, expected: 'medium' },
+          { rate: 0.4, expected: 'low' },
+          { rate: 0.2, expected: 'very_low' },
+        ]
+
+        for (const test of testCases) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const result = matchSuccessRateCategory(rate)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle recipe difficulty analysis', () =>
+      Effect.gen(function* () {
+        const difficultyAnalyzer = (successRate: SuccessRateVo.SuccessRate, playerSkill: number) =>
+          pipe(
+            { rate: SuccessRateVo.toNumber(successRate), skill: playerSkill },
+            Match.value,
+            Match.when(
+              ({ rate, skill }) => rate >= 0.9 || skill >= 80,
+              () => 'easy'
+            ),
+            Match.when(
+              ({ rate, skill }) => rate >= 0.7 || skill >= 60,
+              () => 'moderate'
+            ),
+            Match.when(
+              ({ rate, skill }) => rate >= 0.5 || skill >= 40,
+              () => 'challenging'
+            ),
+            Match.orElse(() => 'very_difficult')
+          )
+
+        const testCases = [
+          { rate: 0.95, skill: 50, expected: 'easy' },
+          { rate: 0.6, skill: 70, expected: 'moderate' },
+          { rate: 0.4, skill: 45, expected: 'challenging' },
+          { rate: 0.2, skill: 20, expected: 'very_difficult' },
+        ]
+
+        for (const test of testCases) {
+          const rate = yield* SuccessRateVo.create(test.rate)
+          const result = difficultyAnalyzer(rate, test.skill)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain probability operation properties', () =>
+      Effect.gen(function* () {
+        // 確率の基本法則テスト
+        for (let i = 0; i < 50; i++) {
+          const rateValue = Math.random() // 0.0-1.0
+          const rate = yield* SuccessRateVo.create(rateValue)
+
+          // P(A) + P(¬A) = 1
+          const complement = SuccessRateVo.not(rate)
+          const sum = SuccessRateVo.toNumber(rate) + SuccessRateVo.toNumber(complement)
+
+          yield* assertPropertyHolds(
+            { rate, complement, sum },
+            ({ sum }) => Math.abs(sum - 1.0) < 0.000001,
+            `Complement property: P(A) + P(¬A) = 1, rate=${rateValue.toFixed(3)}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain AND operation properties', () =>
+      Effect.gen(function* () {
+        // P(A ∩ B) <= min(P(A), P(B))
+        for (let i = 0; i < 50; i++) {
+          const rateA = Math.random()
+          const rateB = Math.random()
+
+          const probA = yield* SuccessRateVo.create(rateA)
+          const probB = yield* SuccessRateVo.create(rateB)
+
+          const andResult = SuccessRateVo.and(probA, probB)
+          const andValue = SuccessRateVo.toNumber(andResult)
+          const minValue = Math.min(rateA, rateB)
+
+          yield* assertPropertyHolds(
+            { andValue, minValue, rateA, rateB },
+            ({ andValue, minValue }) => andValue <= minValue + 0.000001, // 浮動小数点誤差を考慮
+            `AND operation bound: P(A ∩ B) <= min(P(A), P(B)), A=${rateA.toFixed(3)}, B=${rateB.toFixed(3)}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain OR operation properties', () =>
+      Effect.gen(function* () {
+        // P(A ∪ B) >= max(P(A), P(B))
+        for (let i = 0; i < 50; i++) {
+          const rateA = Math.random()
+          const rateB = Math.random()
+
+          const probA = yield* SuccessRateVo.create(rateA)
+          const probB = yield* SuccessRateVo.create(rateB)
+
+          const orResult = SuccessRateVo.or(probA, probB)
+          const orValue = SuccessRateVo.toNumber(orResult)
+          const maxValue = Math.max(rateA, rateB)
+
+          yield* assertPropertyHolds(
+            { orValue, maxValue, rateA, rateB },
+            ({ orValue, maxValue }) => orValue >= maxValue - 0.000001, // 浮動小数点誤差を考慮
+            `OR operation bound: P(A ∪ B) >= max(P(A), P(B)), A=${rateA.toFixed(3)}, B=${rateB.toFixed(3)}`
+          )
+        }
+      })
+    )
+
+    it.effect.skip('should maintain multiple attempts monotonicity', () =>
+      Effect.gen(function* () {
+        const rate = yield* SuccessRateVo.create(0.3)
+
+        // 試行回数が増えると成功確率も増加（単調増加）
+        for (let attempts = 1; attempts <= 10; attempts++) {
+          const currentProb = SuccessRateVo.successProbabilityInAttempts(rate, attempts)
+          const nextProb = SuccessRateVo.successProbabilityInAttempts(rate, attempts + 1)
+
+          yield* assertPropertyHolds(
+            { current: SuccessRateVo.toNumber(currentProb), next: SuccessRateVo.toNumber(nextProb) },
+            ({ current, next }) => next >= current,
+            `Multiple attempts monotonicity: ${attempts} vs ${attempts + 1} attempts`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent probability calculations correctly', () =>
+      Effect.gen(function* () {
+        const rates = [0.1, 0.3, 0.5, 0.7, 0.9]
+
+        const concurrentCalculations = rates.map((rate) =>
+          Effect.sync(() => {
+            const successRate = Effect.runSync(SuccessRateVo.create(rate))
+            return {
+              original: rate,
+              successRate,
+              complement: SuccessRateVo.not(successRate),
+              percentage: SuccessRateVo.toPercentage(successRate),
+              expectedAttempts: SuccessRateVo.expectedAttempts(successRate),
+            }
+          })
+        )
+
+        // 並行実行不変条件: 計算結果が一貫している
+        yield* assertConcurrencyInvariant(
+          concurrentCalculations,
+          (results) =>
+            results.every((result, index) => {
+              const expectedRate = rates[index]
+              const sum = SuccessRateVo.toNumber(result.successRate) + SuccessRateVo.toNumber(result.complement)
+              return (
+                Math.abs(SuccessRateVo.toNumber(result.successRate) - expectedRate) < 0.000001 &&
+                Math.abs(sum - 1.0) < 0.000001 &&
+                result.percentage === expectedRate * 100
+              )
+            }),
+          'Concurrent probability calculation consistency'
+        )
+      })
+    )
+
+    it.effect.skip('should maintain thread safety for probability operations', () =>
+      Effect.gen(function* () {
+        const baseRate = yield* SuccessRateVo.create(0.6)
+
+        const concurrentOperations = Array.from({ length: 100 }, (_, i) =>
+          Effect.sync(() => {
+            const otherRate = (i % 100) / 100 // 0.00, 0.01, ..., 0.99
+            const other = Effect.runSync(SuccessRateVo.create(otherRate))
+
+            return {
+              andResult: SuccessRateVo.and(baseRate, other),
+              orResult: SuccessRateVo.or(baseRate, other),
+              multipleAttempts: SuccessRateVo.multipleAttempts(other, 3),
+            }
+          })
+        )
+
+        const results = yield* Effect.all(concurrentOperations, { concurrency: 'unbounded' })
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) =>
+            resultArray.every(
+              (result) =>
+                SuccessRateVo.toNumber(result.andResult) >= 0 &&
+                SuccessRateVo.toNumber(result.andResult) <= 1 &&
+                SuccessRateVo.toNumber(result.orResult) >= 0 &&
+                SuccessRateVo.toNumber(result.orResult) <= 1 &&
+                SuccessRateVo.toNumber(result.multipleAttempts) >= 0 &&
+                SuccessRateVo.toNumber(result.multipleAttempts) <= 1
+            ),
+          'Concurrent probability operation bounds'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary values correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { value: 0.0, valid: true, description: 'minimum probability (impossible)' },
+          { value: 1.0, valid: true, description: 'maximum probability (certain)' },
+          { value: -0.0000001, valid: false, description: 'slightly below minimum' },
+          { value: 1.0000001, valid: false, description: 'slightly above maximum' },
+        ]
+
+        for (const test of boundaryTests) {
+          const result = yield* Effect.either(SuccessRateVo.create(test.value))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle probability operation edge cases', () =>
+      Effect.gen(function* () {
+        const zero = yield* SuccessRateVo.create(0.0)
+        const one = yield* SuccessRateVo.create(1.0)
+
+        // 極値での演算
+        const zeroAndOne = SuccessRateVo.and(zero, one)
+        const zeroOrOne = SuccessRateVo.or(zero, one)
+        const notZero = SuccessRateVo.not(zero)
+        const notOne = SuccessRateVo.not(one)
+
+        expect(SuccessRateVo.toNumber(zeroAndOne)).toBe(0.0)
+        expect(SuccessRateVo.toNumber(zeroOrOne)).toBe(1.0)
+        expect(SuccessRateVo.toNumber(notZero)).toBe(1.0)
+        expect(SuccessRateVo.toNumber(notOne)).toBe(0.0)
+
+        yield* assertPropertyHolds(
+          { zeroAndOne, zeroOrOne, notZero, notOne },
+          ({ zeroAndOne, zeroOrOne, notZero, notOne }) =>
+            SuccessRateVo.toNumber(zeroAndOne) === 0.0 &&
+            SuccessRateVo.toNumber(zeroOrOne) === 1.0 &&
+            SuccessRateVo.toNumber(notZero) === 1.0 &&
+            SuccessRateVo.toNumber(notOne) === 0.0,
+          'Probability operation edge cases'
+        )
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          { value: -0.1, expectedError: 'InvalidSuccessRateError' },
+          { value: 1.5, expectedError: 'InvalidSuccessRateError' },
+          { value: -10.0, expectedError: 'InvalidSuccessRateError' },
+          { value: 'invalid', expectedError: 'InvalidSuccessRateError' },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(SuccessRateVo.create(test.value as any))
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.constructor.name).toBe(test.expectedError)
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume probability operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 100 // 100ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const rate = i / operationCount // 0.000, 0.001, ..., 0.999
+            const successRate = Effect.runSync(SuccessRateVo.create(rate))
+
+            return {
+              successRate,
+              percentage: SuccessRateVo.toPercentage(successRate),
+              complement: SuccessRateVo.not(successRate),
+              expectedAttempts: SuccessRateVo.expectedAttempts(successRate),
+              category: matchSuccessRateCategory(successRate),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

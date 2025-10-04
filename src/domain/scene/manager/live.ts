@@ -1,302 +1,191 @@
-import { Effect, Either, Layer, Match, Option, Ref, pipe } from 'effect'
-import { Scene, SceneTransition, SceneTransitionError, SceneType } from '../scenes/base'
-import { SceneManager, SceneManagerState, processSceneType } from './service'
+import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
+import { SceneService } from '../service'
+import {
+  ActiveScene,
+  PreloadError,
+  SceneState,
+  SceneState as Scenes,
+  TransitionEffect,
+  TransitionError as TransitionErrorADT,
+} from '../types'
+import { SceneManager, SceneManagerState, SceneManagerStateSchema, sceneManagerState } from './service'
 
-/**
- * 遷移中かチェックするヘルパー
- */
-const ensureNotTransitioning = (
-  state: SceneManagerState,
-  targetScene: SceneType
-): Effect.Effect<void, SceneTransitionError> =>
-  pipe(
-    state.isTransitioning,
-    Match.value,
-    Match.when(true, () =>
-      Effect.fail(
-        SceneTransitionError({
-          message: 'Scene transition already in progress',
-          currentScene: state.currentScene?.type,
-          targetScene,
-        })
-      )
-    ),
-    Match.orElse(() => Effect.succeed(undefined))
+const toActiveScene = (scene: SceneState) =>
+  Match.value(scene).pipe(
+    Match.tag('Loading', () => Option.none<ActiveScene>()),
+    Match.tag('MainMenu', (value) => Option.some<ActiveScene>(value)),
+    Match.tag('GameWorld', (value) => Option.some<ActiveScene>(value)),
+    Match.tag('Settings', (value) => Option.some<ActiveScene>(value)),
+    Match.tag('Error', (value) => Option.some<ActiveScene>(value)),
+    Match.exhaustive
   )
 
-/**
- * スタックが空でないことを確認
- */
-const ensureStackNotEmpty = (state: SceneManagerState): Effect.Effect<SceneType, SceneTransitionError> =>
-  pipe(
-    state.sceneStack.length,
-    Match.value,
-    Match.when(0, () =>
+const ensureTransitionable = (
+  requested: ActiveScene
+): ((state: SceneManagerState) => Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT>) =>
+  (state) =>
+    Match.value(state.isTransitioning).pipe(
+      Match.when(true, () =>
+        Effect.fail(
+          TransitionErrorADT.TransitionInProgress({
+            currentScene: Option.some(state.current),
+            requested,
+          })
+        )
+      ),
+      Match.orElse(() =>
+        Effect.succeed<readonly [SceneManagerState, ActiveScene]>([
+          {
+            ...state,
+            isTransitioning: true,
+          },
+          requested,
+        ])
+      )
+    )
+
+const ensurePopTarget = (
+  state: SceneManagerState
+): Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT> =>
+  Match.value(state.isTransitioning).pipe(
+    Match.when(true, () =>
       Effect.fail(
-        SceneTransitionError({
-          message: 'No scene in stack to pop',
-          currentScene: state.currentScene?.type,
-          targetScene: 'MainMenu',
+        TransitionErrorADT.TransitionInProgress({
+          currentScene: Option.some(state.current),
+          requested: state.current,
         })
       )
     ),
-    Match.orElse(() => {
-      const previousScene = state.sceneStack[state.sceneStack.length - 1]
-      return pipe(
-        Option.fromNullable(previousScene),
+    Match.orElse(() =>
+      pipe(
+        state.stack.at(-1),
+        Option.fromNullable,
         Option.match({
           onNone: () =>
             Effect.fail(
-              SceneTransitionError({
-                message: 'Previous scene is undefined',
-                currentScene: state.currentScene?.type,
-                targetScene: 'MainMenu',
+              TransitionErrorADT.InvalidScene({
+                requested: state.current,
+                reason: 'シーンスタックが空です',
               })
             ),
-          onSome: (scene) => Effect.succeed(scene.type),
+          onSome: (target) =>
+            Effect.succeed<readonly [SceneManagerState, ActiveScene]>([
+              {
+                ...state,
+                isTransitioning: true,
+              },
+              target,
+            ]),
         })
       )
-    })
+    )
   )
 
-// SceneManagerLive実装
+const withTransition = <A>(
+  ref: Ref.Ref<SceneManagerState>,
+  resolver: (state: SceneManagerState) => Effect.Effect<readonly [SceneManagerState, ActiveScene], TransitionErrorADT>,
+  use: (state: SceneManagerState, target: ActiveScene) => Effect.Effect<A, TransitionErrorADT>
+) =>
+  Effect.acquireUseRelease(
+    Effect.gen(function* () {
+      const current = yield* Ref.get(ref)
+      const [updated, target] = yield* resolver(current)
+      yield* Ref.set(ref, updated)
+      return { state: updated, target }
+    }),
+    () => Ref.update(ref, (state) => ({ ...state, isTransitioning: false })),
+    ({ state, target }) => use(state, target)
+  )
+
+const appendHistory = (state: SceneManagerState, next: SceneState): SceneManagerState => ({
+  ...state,
+  current: next,
+  history: [...state.history, next],
+})
+
+const pushStack = (stack: ReadonlyArray<ActiveScene>, previous: Option.Option<ActiveScene>) =>
+  Option.match(previous, {
+    onNone: () => stack,
+    onSome: (scene) => [...stack, scene],
+  })
+
+const dropLast = (stack: ReadonlyArray<ActiveScene>) =>
+  stack.slice(0, Math.max(0, stack.length - 1))
+
 export const SceneManagerLive = Layer.effect(
   SceneManager,
   Effect.gen(function* () {
-    // 状態管理用のRef
-    const stateRef = yield* Ref.make<SceneManagerState>({
-      currentScene: undefined,
-      sceneStack: [],
-      isTransitioning: false,
-      transitionProgress: 0,
-    })
+    const sceneService = yield* SceneService
+    const initialScene = yield* sceneService.current()
+    const decoded = Schema.decodeEither(SceneManagerStateSchema)(sceneManagerState.make({ current: initialScene }))
+    const initialState = yield* Effect.fromEither(decoded)
 
-    // アクティブなシーンインスタンス管理
-    const activeSceneRef = yield* Ref.make<Scene | undefined>(undefined)
+    const stateRef = yield* Ref.make(initialState)
 
-    // シーンファクトリー: Match.valueを使った型安全なシーン生成
-    const createScene = (sceneType: SceneType): Effect.Effect<Scene, SceneTransitionError> =>
-      Effect.gen(function* () {
-        const sceneFactory: Effect.Effect<Scene, SceneTransitionError> = processSceneType(sceneType, {
-          MainMenu: () =>
-            Effect.gen(function* () {
-              const { MainMenuScene } = yield* Effect.promise(() => import('../scenes/main_menu'))
-              return yield* Scene.pipe(Effect.provide(MainMenuScene))
-            }),
-          Game: () =>
-            Effect.gen(function* () {
-              const { GameScene } = yield* Effect.promise(() => import('../scenes/game'))
-              return yield* Scene.pipe(Effect.provide(GameScene))
-            }),
-          Loading: () =>
-            Effect.gen(function* () {
-              const { LoadingScene } = yield* Effect.promise(() => import('../scenes/loading'))
-              return yield* Scene.pipe(Effect.provide(LoadingScene))
-            }),
-          Pause: (): Effect.Effect<Scene, SceneTransitionError> =>
-            Effect.fail(
-              SceneTransitionError({
-                message: 'Pause scene not implemented yet',
-                targetScene: sceneType,
-              })
-            ),
-          Settings: (): Effect.Effect<Scene, SceneTransitionError> =>
-            Effect.fail(
-              SceneTransitionError({
-                message: 'Settings scene not implemented yet',
-                targetScene: sceneType,
-              })
-            ),
+    const transition = (
+      scene: ActiveScene,
+      effect?: TransitionEffect
+    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+      withTransition(stateRef, ensureTransitionable(scene), (_, target) =>
+        sceneService.transitionTo(target, effect).pipe(
+          Effect.tap((next) =>
+            Ref.update(stateRef, (state) => appendHistory({ ...state, isTransitioning: true }, next))
+          )
+        )
+      )
+
+    const push = (
+      scene: ActiveScene,
+      effect?: TransitionEffect
+    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+      withTransition(stateRef, ensureTransitionable(scene), (lockedState, target) =>
+        Effect.gen(function* () {
+          const active = toActiveScene(lockedState.current)
+          const nextScene = yield* sceneService.transitionTo(target, effect)
+          yield* Ref.update(stateRef, (state) => ({
+            ...appendHistory(state, nextScene),
+            stack: pushStack(state.stack, active),
+          }))
+          return nextScene
         })
+      )
 
-        return yield* sceneFactory
-      })
-
-    // シーンクリーンアップ処理
-    const cleanupCurrentScene = (): Effect.Effect<void> =>
-      Effect.gen(function* () {
-        const currentActiveScene = yield* Ref.get(activeSceneRef)
-
-        yield* pipe(
-          Option.fromNullable(currentActiveScene),
-          Option.match({
-            onNone: () => Effect.succeed(undefined),
-            onSome: (scene) =>
-              Effect.gen(function* () {
-                yield* Effect.logInfo('現在のシーンをクリーンアップ中...')
-                yield* scene.onExit()
-                yield* Effect.catchAll(scene.cleanup(), (error) =>
-                  Effect.logError(`シーンクリーンアップエラー: ${error}`)
-                )
-                yield* Ref.set(activeSceneRef, undefined)
-              }),
-          })
+    const pop = (
+      effect?: TransitionEffect
+    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+      withTransition(stateRef, ensurePopTarget, (_, target) =>
+        sceneService.transitionTo(target, effect).pipe(
+          Effect.tap((next) =>
+            Ref.update(stateRef, (state) => ({
+              ...appendHistory(state, next),
+              stack: dropLast(state.stack),
+            }))
+          )
         )
-      })
+      )
 
-    // シーン遷移処理
-    const performTransition = (
-      targetScene: Scene,
-      transition: SceneTransition
-    ): Effect.Effect<void, SceneTransitionError> =>
-      Effect.gen(function* () {
-        // 遷移開始
-        yield* Ref.update(stateRef, (s) => ({ ...s, isTransitioning: true, transitionProgress: 0 }))
-
-        // 現在のシーンの終了処理
-        yield* cleanupCurrentScene()
-
-        // 新しいシーンの初期化
-        yield* Effect.logInfo(`シーン遷移: ${transition.from || 'none'} → ${transition.to}`)
-
-        const initializeResult = yield* Effect.either(
-          Effect.gen(function* () {
-            yield* targetScene.initialize()
-            yield* targetScene.onEnter()
-          })
+    const reset = (
+      scene: ActiveScene = Scenes.MainMenu()
+    ): Effect.Effect<SceneState, TransitionErrorADT> =>
+      withTransition(stateRef, ensureTransitionable(scene), () =>
+        sceneService.transitionTo(scene, TransitionEffect.Instant({})).pipe(
+          Effect.tap((next) =>
+            Ref.set(stateRef, sceneManagerState.make({ current: next }))
+          )
         )
+      )
 
-        yield* pipe(
-          initializeResult,
-          Either.match({
-            onLeft: (error) =>
-              Effect.gen(function* () {
-                // エラー時の復旧処理
-                yield* Ref.update(stateRef, (s) => ({ ...s, isTransitioning: false, transitionProgress: 0 }))
-                yield* Effect.logError(`シーン遷移エラー: ${error}`)
-
-                const state = yield* Ref.get(stateRef)
-                return yield* Effect.fail(
-                  SceneTransitionError({
-                    message: `Failed to transition to ${transition.to}: ${error.message || JSON.stringify(error)}`,
-                    currentScene: state.currentScene?.type,
-                    targetScene: transition.to,
-                  })
-                )
-              }),
-            onRight: () =>
-              Effect.gen(function* () {
-                // 状態更新
-                yield* Ref.update(stateRef, (s) => ({
-                  ...s,
-                  currentScene: targetScene.data,
-                  isTransitioning: false,
-                  transitionProgress: 1,
-                }))
-
-                yield* Ref.set(activeSceneRef, targetScene)
-                yield* Effect.logInfo(`シーン遷移完了: ${transition.to}`)
-              }),
-          })
-        )
-      })
+    const preload = (scene: ActiveScene): Effect.Effect<void, PreloadError> => sceneService.preload(scene)
 
     return SceneManager.of({
-      getCurrentScene: () =>
-        Effect.gen(function* () {
-          const state = yield* Ref.get(stateRef)
-          return state.currentScene
-        }),
-
-      getState: () => Ref.get(stateRef),
-
-      transitionTo: (sceneType, transition) =>
-        Effect.gen(function* () {
-          const currentState = yield* Ref.get(stateRef)
-
-          yield* ensureNotTransitioning(currentState, sceneType)
-
-          const transitionData: SceneTransition = {
-            from: currentState.currentScene?.type,
-            to: sceneType,
-            duration: transition?.duration ?? 500,
-            fadeType: transition?.fadeType ?? 'fade',
-          }
-
-          const newScene = yield* createScene(sceneType)
-          yield* performTransition(newScene, transitionData)
-        }),
-
-      pushScene: (sceneType) =>
-        Effect.gen(function* () {
-          const currentState = yield* Ref.get(stateRef)
-
-          yield* ensureNotTransitioning(currentState, sceneType)
-
-          // 現在のシーンをスタックにプッシュ
-          yield* pipe(
-            Option.fromNullable(currentState.currentScene),
-            Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: () =>
-                Ref.update(stateRef, (s) => ({
-                  ...s,
-                  sceneStack: [...s.sceneStack, s.currentScene!],
-                })),
-            })
-          )
-
-          // 新しいシーンに遷移
-          const newScene = yield* createScene(sceneType)
-          yield* performTransition(newScene, { from: currentState.currentScene?.type, to: sceneType })
-        }),
-
-      popScene: () =>
-        Effect.gen(function* () {
-          const currentState = yield* Ref.get(stateRef)
-          const previousSceneType = yield* ensureStackNotEmpty(currentState)
-
-          // スタックから削除
-          yield* Ref.update(stateRef, (s) => ({
-            ...s,
-            sceneStack: s.sceneStack.slice(0, -1),
-          }))
-
-          // 前のシーンに遷移
-          const newScene = yield* createScene(previousSceneType)
-          yield* performTransition(newScene, {
-            from: currentState.currentScene?.type,
-            to: previousSceneType,
-          })
-        }),
-
-      createScene,
-
-      update: (deltaTime) =>
-        Effect.gen(function* () {
-          const activeScene = yield* Ref.get(activeSceneRef)
-          yield* pipe(
-            Option.fromNullable(activeScene),
-            Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: (scene) => scene.update(deltaTime),
-            })
-          )
-        }),
-
-      render: () =>
-        Effect.gen(function* () {
-          const activeScene = yield* Ref.get(activeSceneRef)
-          yield* pipe(
-            Option.fromNullable(activeScene),
-            Option.match({
-              onNone: () => Effect.succeed(undefined),
-              onSome: (scene) => scene.render(),
-            })
-          )
-        }),
-
-      cleanup: () =>
-        Effect.gen(function* () {
-          yield* cleanupCurrentScene()
-          yield* Ref.set(stateRef, {
-            currentScene: undefined,
-            sceneStack: [],
-            isTransitioning: false,
-            transitionProgress: 0,
-          })
-          yield* Effect.logInfo('SceneManager cleanup completed')
-        }),
+      current: () => Ref.get(stateRef).pipe(Effect.map((state) => state.current)),
+      state: () => Ref.get(stateRef),
+      transitionTo: transition,
+      push,
+      pop,
+      preload,
+      reset,
+      history: () => Ref.get(stateRef).pipe(Effect.map((state) => state.history)),
     })
   })
 )

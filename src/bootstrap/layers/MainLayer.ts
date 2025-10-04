@@ -3,10 +3,11 @@ import { Layer } from 'effect'
 import { AppServiceLive } from '../services/AppService'
 
 // 依存サービスのLive実装
-import { GameLoopServiceLive } from '@domain/game-loop/services/GameLoopServiceLive'
+import { GameLoopServiceLive } from '@domain/game_loop/legacy'
 import { InputServiceLive } from '@domain/input/InputServiceLive'
-import { SceneManagerLive } from '@domain/scene/SceneManagerLive'
-import { ThreeRendererLive } from '@infrastructure/rendering/ThreeRendererLive'
+import { InteractionDomainLive } from '@domain/interaction'
+import { SceneManagerLive } from '@domain/scene/manager/live'
+import { ThreeRendererLive } from '@infrastructure/rendering.disabled/ThreeRendererLive'
 
 /**
  * MainLayer - アプリケーション全体の統合レイヤー
@@ -23,11 +24,17 @@ import { ThreeRendererLive } from '@infrastructure/rendering/ThreeRendererLive'
  * 本番環境用のメインレイヤー
  *
  * 依存関係の順序:
- * 1. 基盤サービス（GameLoop, Scene, Renderer, Input）
+ * 1. 基盤サービス（GameLoop, Scene, Renderer, Input, Interaction）
  * 2. アプリケーション統合サービス（GameApplication）
  * 3. 既存のAppService
  */
-const BaseServicesLayer = Layer.mergeAll(GameLoopServiceLive, SceneManagerLive, ThreeRendererLive, InputServiceLive)
+const BaseServicesLayer = Layer.mergeAll(
+  GameLoopServiceLive,
+  SceneManagerLive,
+  ThreeRendererLive,
+  InputServiceLive,
+  InteractionDomainLive
+)
 
 const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 

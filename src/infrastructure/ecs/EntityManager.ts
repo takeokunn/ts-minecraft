@@ -1,4 +1,4 @@
-import { ComponentTypeName } from '@domain/core/types/brands'
+import type { ComponentTypeName } from '@domain/entities/types'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer, Match, Option, pipe, Predicate, Stream } from 'effect'
 import {

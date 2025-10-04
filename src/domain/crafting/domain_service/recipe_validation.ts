@@ -1,0 +1,25 @@
+import { Context, Effect, Layer } from 'effect'
+import { CraftingRecipe } from '../types'
+import {
+  RecipeValidationReport,
+  validateRecipe,
+  validateRecipeStructure,
+} from '../aggregate/recipe'
+import { InvalidRecipeError } from '../types'
+
+export interface RecipeValidationService {
+  readonly validate: (recipe: CraftingRecipe) => Effect.Effect<RecipeValidationReport, never>
+  readonly ensureValid: (recipe: CraftingRecipe) => Effect.Effect<void, InvalidRecipeError>
+}
+
+export const RecipeValidationService = Context.GenericTag<RecipeValidationService>(
+  '@minecraft/domain/crafting/RecipeValidationService'
+)
+
+export const RecipeValidationServiceLive = Layer.effect(
+  RecipeValidationService,
+  Effect.succeed({
+    validate: (recipe: CraftingRecipe) => validateRecipe(recipe),
+    ensureValid: (recipe: CraftingRecipe) => validateRecipeStructure(recipe),
+  })
+)

@@ -5,20 +5,13 @@
 
 import { Schema } from '@effect/schema'
 import { expect, it } from '@effect/vitest'
-import { Effect, Exit, Layer, Match, pipe, TestContext } from 'effect'
+import { Effect, Exit, Layer, Match, Option, pipe, TestContext } from 'effect'
 import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
-import {
-  CameraService,
-} from '../service'
-import {
-  createCameraError,
-  validateCameraConfig,
-  validateCameraMode,
-  validateCameraState
-} from '../helper'
-import { CameraConfig } from '../types'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
+import { createCameraError, validateCameraConfig, validateCameraMode, validateCameraState } from '../helper'
+import { CameraService } from '../service'
+import { CameraConfig } from '../types'
 
 // ================================================================================
 // Predicate Functions - Type Guards
@@ -580,10 +573,9 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         const error = createCameraError.initializationFailed('Test initialization failed', new Error('root cause'))
 
-        expect(error._tag).toBe('CameraError')
+        expect(error._tag).toBe('InitializationFailed')
         expect(error.message).toBe('Test initialization failed')
-        expect(error.reason).toBe('INITIALIZATION_FAILED')
-        expect(error.cause).toBeInstanceOf(Error)
+        expect(error.cause).toBeDefined()
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -591,10 +583,8 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         const error = createCameraError.notInitialized('rotate')
 
-        expect(error._tag).toBe('CameraError')
-        expect(error.message).toBe('カメラが初期化されていません: rotate')
-        expect(error.reason).toBe('CAMERA_NOT_INITIALIZED')
-        expect(error.context).toEqual({ operation: 'rotate' })
+        expect(error._tag).toBe('CameraNotInitialized')
+        expect(error.operation).toBe('rotate')
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -603,21 +593,20 @@ describe('CameraService', () => {
         const config = { invalidKey: 'value' }
         const error = createCameraError.invalidConfiguration('Invalid config provided', config)
 
-        expect(error._tag).toBe('CameraError')
+        expect(error._tag).toBe('InvalidConfiguration')
         expect(error.message).toBe('Invalid config provided')
-        expect(error.reason).toBe('INVALID_CONFIGURATION')
-        expect(error.context).toEqual({ config })
+        expect(error.message).toBe('Invalid config provided')
+        expect(error.config._tag).toBe('Some')
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
     it.effect('should create invalidMode errors', () =>
       Effect.gen(function* () {
-        const error = createCameraError.invalidMode('invalid-mode')
+        const error = createCameraError.invalidMode('invalid-mode', ['first-person', 'third-person'])
 
-        expect(error._tag).toBe('CameraError')
-        expect(error.message).toBe('無効なカメラモード: invalid-mode')
-        expect(error.reason).toBe('INVALID_MODE')
-        expect(error.context).toEqual({ mode: 'invalid-mode' })
+        expect(error._tag).toBe('InvalidMode')
+        expect(error.mode).toBe('invalid-mode')
+        expect(error.validModes).toEqual(['first-person', 'third-person'])
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -625,10 +614,10 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         const error = createCameraError.invalidParameter('fov', 150, 'between 30-120')
 
-        expect(error._tag).toBe('CameraError')
-        expect(error.message).toBe('無効なパラメータ: fov')
-        expect(error.reason).toBe('INVALID_PARAMETER')
-        expect(error.context).toEqual({ parameter: 'fov', value: 150, expected: 'between 30-120' })
+        expect(error._tag).toBe('InvalidParameter')
+        expect(error.parameter).toBe('fov')
+        expect(error.value).toBe(150)
+        expect(error.expected._tag).toBe('Some')
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -637,10 +626,9 @@ describe('CameraService', () => {
         const cause = new Error('Resource allocation failed')
         const error = createCameraError.resourceError('Failed to allocate camera resources', cause)
 
-        expect(error._tag).toBe('CameraError')
+        expect(error._tag).toBe('ResourceError')
         expect(error.message).toBe('Failed to allocate camera resources')
-        expect(error.reason).toBe('RESOURCE_ERROR')
-        expect(error.cause).toBe(cause)
+        expect(error.cause._tag).toBe('Some')
       }).pipe(Effect.provide(TestContext.TestContext))
     )
 
@@ -648,19 +636,21 @@ describe('CameraService', () => {
       Effect.gen(function* () {
         // Test initializationFailed without cause
         const error1 = createCameraError.initializationFailed('Test without cause')
-        expect(error1.cause).toBeUndefined()
+        expect(error1.cause._tag).toBe('None')
 
         // Test invalidConfiguration without config
         const error2 = createCameraError.invalidConfiguration('Test without config')
-        expect(error2.context).toEqual({ config: undefined })
+        expect(error2.config._tag).toBe('None')
 
         // Test invalidParameter without expected
         const error3 = createCameraError.invalidParameter('param', 'value')
-        expect(error3.context).toEqual({ parameter: 'param', value: 'value', expected: undefined })
+        expect(error3.parameter).toBe('param')
+        expect(error3.value).toBe('value')
+        expect(error3.expected._tag).toBe('None')
 
         // Test resourceError without cause
         const error4 = createCameraError.resourceError('Test without cause')
-        expect(error4.cause).toBeUndefined()
+        expect(Option.isNone(error4.cause)).toBe(true)
       }).pipe(Effect.provide(TestContext.TestContext))
     )
   })

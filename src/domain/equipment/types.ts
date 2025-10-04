@@ -1,17 +1,57 @@
-import { Schema } from '@effect/schema'
-import { ItemStack } from '@domain/inventory'
-
-// 装備スロット定義
-export const EquipmentSlot = Schema.Literal('helmet', 'chestplate', 'leggings', 'boots', 'mainHand', 'offHand')
-export type EquipmentSlot = Schema.Schema.Type<typeof EquipmentSlot>
-
-// 装備スキーマ
-export const EquipmentSchema = Schema.Struct({
-  helmet: Schema.Union(ItemStack, Schema.Null),
-  chestplate: Schema.Union(ItemStack, Schema.Null),
-  leggings: Schema.Union(ItemStack, Schema.Null),
-  boots: Schema.Union(ItemStack, Schema.Null),
-  mainHand: Schema.Union(ItemStack, Schema.Null),
-  offHand: Schema.Union(ItemStack, Schema.Null),
-})
-export type Equipment = Schema.Schema.Type<typeof EquipmentSchema>
+export * from './types/core'
+export {
+  EquipmentSlotSchema,
+  type EquipmentSlot,
+  type EquipmentSlotLiteral,
+  allSlots,
+  equipmentSlotLiterals,
+  ensureSlotAllowed,
+  getSlotCategory,
+} from './value_object/slot'
+export {
+  EquipmentStatsSchema,
+  EquipmentTierSchema,
+  type EquipmentStats,
+  type EquipmentTier,
+  mergeStats,
+  applyTierWeight,
+  ensureWeightWithinLimit,
+  parseWeight,
+} from './value_object/item_attributes'
+export {
+  EquipmentPieceSchema,
+  type EquipmentPiece,
+  EquipmentTagSchema,
+  type EquipmentTag,
+  createEquipmentPiece,
+  assignBonusStats,
+  promoteTier,
+  ensureFitsSlot,
+  withUpdatedTimestamp,
+} from './aggregate/equipment_piece'
+export {
+  EquipmentSetSchema,
+  type EquipmentSet,
+  type Slots,
+  createEquipmentSet,
+  equipPiece,
+  unequipSlot,
+  updatePieces,
+  emptyEquipmentSet,
+  carriedWeightPercentage,
+  findPiece,
+} from './aggregate/equipment_set'
+export {
+  analyseEquipmentSet,
+  type EquipmentAnalysisSummary,
+} from './domain_service/analysis'
+export {
+  EquipmentRepositoryTag,
+  InMemoryEquipmentRepository,
+  type EquipmentRepository,
+} from './repository/memory'
+export {
+  EquipmentServiceTag,
+  EquipmentServiceLive,
+  type EquipmentService,
+} from './application_service/service'

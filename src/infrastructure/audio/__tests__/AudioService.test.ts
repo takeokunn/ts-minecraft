@@ -1,5 +1,5 @@
-import type { Vector3D } from '@domain/core/types/spatial'
-import { SpatialBrands } from '@domain/core/types/spatial'
+import type { Vector3D } from '@domain/entities/types'
+import { BrandedTypes } from '@domain/entities/types'
 import { Effect } from 'effect'
 import { describe, expect, it, vi } from 'vitest'
 import { AudioService } from '../AudioService'
@@ -69,7 +69,7 @@ global.fetch = vi.fn().mockImplementation(() =>
 )
 
 // Test data constants
-const testPosition = SpatialBrands.createVector3D(10, 20, 30)
+const testPosition = BrandedTypes.createVector3D(10, 20, 30)
 const testVolume = AudioHelpers.createVolume(0.8)
 const testPitch = AudioHelpers.createPitch(1.2)
 const testSoundId = AudioHelpers.createSoundId('test.sound')
@@ -77,7 +77,7 @@ const testSoundCategory: SoundCategory = 'music'
 
 // Helper functions to generate test data
 const generatePosition3D = (): Vector3D => {
-  return SpatialBrands.createVector3D(Math.random() * 100, Math.random() * 100, Math.random() * 100)
+  return BrandedTypes.createVector3D(Math.random() * 100, Math.random() * 100, Math.random() * 100)
 }
 const generateVolume = (): Volume => {
   return AudioHelpers.createVolume(Math.random())
@@ -128,11 +128,11 @@ describe('AudioService', () => {
           })
 
           // Move listener near
-          const nearPosition = SpatialBrands.createVector3D(sourcePosition.x + 5, sourcePosition.y, sourcePosition.z)
+          const nearPosition = BrandedTypes.createVector3D(sourcePosition.x + 5, sourcePosition.y, sourcePosition.z)
           yield* service.updateListener(nearPosition, AudioHelpers.identityQuaternion())
 
           // Move listener far
-          const farPosition = SpatialBrands.createVector3D(sourcePosition.x + 50, sourcePosition.y, sourcePosition.z)
+          const farPosition = BrandedTypes.createVector3D(sourcePosition.x + 50, sourcePosition.y, sourcePosition.z)
           yield* service.updateListener(farPosition, AudioHelpers.identityQuaternion())
 
           // Cleanup
@@ -181,7 +181,7 @@ describe('AudioService', () => {
         })
         const blockId = yield* service.playSound3D(
           AudioHelpers.createSoundId('block.stone.break'),
-          SpatialBrands.createVector3D(10, 64, 10)
+          BrandedTypes.createVector3D(10, 64, 10)
         )
 
         // Change master volume
@@ -211,7 +211,7 @@ describe('AudioService', () => {
         for (let i = 0; i < 50; i++) {
           const sourceId = yield* service.playSound3D(
             AudioHelpers.createSoundId(`test.sound.${i}`),
-            SpatialBrands.createVector3D(i, 0, 0),
+            BrandedTypes.createVector3D(i, 0, 0),
             { priority: i % 10 }
           )
           sourceIds.push(sourceId)

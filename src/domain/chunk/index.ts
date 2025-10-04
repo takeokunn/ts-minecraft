@@ -1,88 +1,109 @@
-// チャンク座標関連
-export {
-  ChunkPositionSchema,
-  blockToChunkCoords,
-  chunkIdToPosition,
-  chunkPositionDistance,
-  chunkPositionEquals,
-  chunkPositionToId,
-  chunkToBlockCoords,
-  type ChunkPosition,
-} from './ChunkPosition'
+/**
+ * Chunk Domain - データ構造管理特化
+ *
+ * Pure chunk機能のみを提供するDDDアーキテクチャ
+ * chunk_loader、chunk_manager、view_distance機能は除外
+ */
 
-// チャンクデータ関連
+// 集約（Aggregates） - メイン機能
 export {
-  CHUNK_HEIGHT,
-  CHUNK_MAX_Y,
-  CHUNK_MIN_Y,
-  CHUNK_SIZE,
-  CHUNK_VOLUME,
-  ChunkMetadataSchema,
-  createChunkData,
-  getBlock,
-  getBlockCoords,
-  getBlockIndex,
-  getHeight,
-  getMemoryUsage,
-  isEmpty,
-  resetChunkData,
-  setBlock,
-  updateHeightMap,
+  // Chunk Aggregate
+  type ChunkId,
+  type BlockId,
+  type WorldCoordinate,
+  type ChunkAggregate,
   type ChunkData,
-  type ChunkMetadata,
-} from './ChunkData'
+  ChunkId,
+  BlockId,
+  WorldCoordinate,
+  ChunkDataSchema,
+  ChunkBoundsError,
+  ChunkSerializationError,
+  createChunkAggregate,
+  createEmptyChunkAggregate,
 
-// チャンクインターフェース関連
-export { ChunkBoundsError, ChunkSerializationError, createChunk, createEmptyChunk, type Chunk } from './Chunk'
+  // ChunkData Aggregate
+  type ChunkDataId,
+  type ChunkDataAggregate,
+  ChunkDataId,
+  ChunkDataValidationError,
+  ChunkDataCorruptionError,
+  createChunkDataAggregate,
+  createEmptyChunkDataAggregate,
+} from './aggregate'
 
-// チャンクマネージャー関連
+// 値オブジェクト（Value Objects） - 各ドメインコンセプト
 export {
-  ChunkManager,
-  ChunkManagerLive,
-  chunkDistance,
-  chunkPositionToKey,
-  createChunkManager,
-  createLRUCache,
-  defaultChunkManagerConfig,
-  generateLoadOrder,
-  lruGet,
-  lruPut,
+  // チャンク座標
+  type ChunkPosition,
+  type ChunkX,
+  type ChunkZ,
+  type ChunkDistance,
+  type ChunkHash,
+  ChunkPositionSchema,
+  ChunkX,
+  ChunkZ,
+  ChunkDistance,
+  ChunkHash,
+  createChunkPosition,
+  createChunkPositionSync,
   worldToChunkPosition,
-  type ChunkManagerConfig,
-  type ChunkManagerState,
-  type LRUCacheState,
-} from './ChunkManager'
+  chunkToWorldPosition,
+  calculateChunkDistance,
+  getChunkHash,
+  parseChunkHash,
+  // チャンクメタデータ
+  type ChunkMetadata,
+  type BiomeType,
+  type LightLevel,
+  type Timestamp,
+  type HeightValue,
+  ChunkMetadataSchema,
+  BiomeType,
+  LightLevel,
+  Timestamp,
+  HeightValue,
+  ChunkMetadataError,
+  // ブロックデータ
+  type BlockData,
+  type BlockInfo,
+  type BlockLightLevel,
+  type BlockMetadata,
+  BlockDataError,
+  BlockDataCorruptionError,
+} from './value_object'
 
-// チャンクローダー関連
+// 型定義（Types） - 定数・エラー・イベント
 export {
-  ChunkLoader,
-  ChunkLoaderLive,
-  calculatePriorityScore,
-  chunkLoadRequestToKey,
-  createChunkLoadRequest,
-  createChunkLoader,
-  defaultChunkLoaderConfig,
-  isLoadExpired,
-  sortRequestsByPriority,
-  type ChunkLoadPriority,
-  type ChunkLoadRequest,
-  type ChunkLoadState,
-  type ChunkLoaderConfig,
-} from './ChunkLoader'
+  // 定数
+  CHUNK_SIZE,
+  CHUNK_HEIGHT,
+  CHUNK_MIN_Y,
+  CHUNK_MAX_Y,
+  CHUNK_VOLUME,
+  // エラー
+  ChunkPositionError,
+  ChunkIdError,
+  // イベント
+  ChunkCreatedEvent,
+  ChunkLoadedEvent,
+  ChunkUnloadedEvent,
+  ChunkModifiedEvent,
+  BlockChangedEvent,
+  ChunkSavedEvent,
+  ChunkCorruptedEvent,
+  // インターフェース
+  type ChunkDataProvider,
+} from './types'
 
-// 描画距離管理関連
-export {
-  ViewDistance,
-  ViewDistanceLive,
-  analyzePerformanceTrend,
-  calculateAverageMetrics,
-  calculateChunkPriority,
-  calculateOptimalViewDistance,
-  createViewDistance,
-  defaultViewDistanceConfig,
-  getVisibleChunkPositions,
-  type PerformanceMetrics,
-  type ViewDistanceAdjustmentReason,
-  type ViewDistanceConfig,
-  type ViewDistanceEvent,
-} from './ViewDistance'
+// ドメインサービス（Domain Services）
+// export * from './domain_service'
+
+// アプリケーションサービス（Application Services）
+// export * from './application_service'
+
+// リポジトリ（Repositories）
+// export * from './repository'
+
+// ファクトリ（Factories）
+// export * from './factory'

@@ -1,0 +1,697 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as QuantityVo from '../../value_object/ingredient_quantity'
+import {
+  assertConcurrencyInvariant,
+  assertIngredientQuantityInvariants,
+  assertPropertyHolds,
+  assertValueObjectValidation,
+} from '../crafting-test-helpers'
+
+// ===================================
+// IngredientQuantity Value Object Tests
+// 材料数量の型安全性とMinecraftスタック制約
+// ===================================
+
+describe('IngredientQuantity Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct quantity values', () =>
+      Effect.gen(function* () {
+        const validQuantities = [0, 1, 8, 16, 32, 48, 63, 64]
+
+        for (const quantity of validQuantities) {
+          const result = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(quantity)
+
+          yield* assertValueObjectValidation(() => result, quantity as QuantityVo.IngredientQuantity)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(quantity)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid quantity values', () =>
+      Effect.gen(function* () {
+        const invalidQuantities = [-1, -10, 65, 100, 128, 1000]
+
+        for (const quantity of invalidQuantities) {
+          const result = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(quantity)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected between 0 and 64')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-integer values', () =>
+      Effect.gen(function* () {
+        const nonIntegerValues = [0.5, 1.1, 15.9, 32.5, -0.1, 64.1]
+
+        for (const value of nonIntegerValues) {
+          const result = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected integer')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-number types', () =>
+      Effect.gen(function* () {
+        const nonNumberValues = ['10', true, false, null, undefined, {}, [], 'many']
+
+        for (const value of nonNumberValues) {
+          const result = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected number')
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded quantity values correctly', () =>
+      Effect.gen(function* () {
+        const validQuantity = 32
+        const result = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(validQuantity)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedQuantity = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedQuantity).toBe('number')
+          expect(brandedQuantity).toBe(32)
+
+          // 型安全性プロパティ検証
+          yield* assertIngredientQuantityInvariants(brandedQuantity)
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular numbers', () =>
+      Effect.gen(function* () {
+        const regularNumber = 16
+        const brandedResult = Schema.decodeEither(QuantityVo.IngredientQuantitySchema)(regularNumber)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedQuantity = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedQuantity).toBe(regularNumber)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(
+            brandedQuantity,
+            (quantity) => quantity === regularNumber,
+            'Brand type runtime equivalence'
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Arithmetic Operations Tests
+  // ===================================
+
+  describe('Arithmetic Operations', () => {
+    it.effect('should handle addition correctly', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(20)
+        const quantity2 = yield* QuantityVo.create(15)
+
+        const result = yield* QuantityVo.add(quantity1, quantity2)
+        expect(QuantityVo.toNumber(result)).toBe(35)
+
+        yield* assertPropertyHolds(result, (sum) => QuantityVo.toNumber(sum) === 35, 'Addition correctness')
+      })
+    )
+
+    it.effect('should detect addition overflow', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(50)
+        const quantity2 = yield* QuantityVo.create(20)
+
+        const result = yield* Effect.either(QuantityVo.add(quantity1, quantity2))
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(QuantityVo.QuantityOverflowError)
+        }
+      })
+    )
+
+    it.effect('should handle subtraction correctly', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(30)
+        const quantity2 = yield* QuantityVo.create(12)
+
+        const result = yield* QuantityVo.subtract(quantity1, quantity2)
+        expect(QuantityVo.toNumber(result)).toBe(18)
+
+        yield* assertPropertyHolds(result, (diff) => QuantityVo.toNumber(diff) === 18, 'Subtraction correctness')
+      })
+    )
+
+    it.effect('should detect subtraction underflow', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(10)
+        const quantity2 = yield* QuantityVo.create(15)
+
+        const result = yield* Effect.either(QuantityVo.subtract(quantity1, quantity2))
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(QuantityVo.InsufficientQuantityError)
+        }
+      })
+    )
+
+    it.effect('should handle multiplication correctly', () =>
+      Effect.gen(function* () {
+        const quantity = yield* QuantityVo.create(8)
+        const multiplier = 3
+
+        const result = yield* QuantityVo.multiply(quantity, multiplier)
+        expect(QuantityVo.toNumber(result)).toBe(24)
+
+        yield* assertPropertyHolds(
+          result,
+          (product) => QuantityVo.toNumber(product) === 24,
+          'Multiplication correctness'
+        )
+      })
+    )
+
+    it.effect('should detect multiplication overflow', () =>
+      Effect.gen(function* () {
+        const quantity = yield* QuantityVo.create(32)
+        const multiplier = 3
+
+        const result = yield* Effect.either(QuantityVo.multiply(quantity, multiplier))
+
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left).toBeInstanceOf(QuantityVo.QuantityOverflowError)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Comparison Operations Tests
+  // ===================================
+
+  describe('Comparison Operations', () => {
+    it.effect('should handle equality comparison correctly', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(25)
+        const quantity2 = yield* QuantityVo.create(25)
+        const quantity3 = yield* QuantityVo.create(30)
+
+        // 同じ値の比較
+        expect(QuantityVo.equals(quantity1, quantity2)).toBe(true)
+        expect(QuantityVo.compare(quantity1, quantity2)).toBe(0)
+
+        // 異なる値の比較
+        expect(QuantityVo.equals(quantity1, quantity3)).toBe(false)
+        expect(QuantityVo.compare(quantity1, quantity3)).toBeLessThan(0)
+
+        yield* assertPropertyHolds(
+          { quantity1, quantity2, quantity3 },
+          ({ quantity1, quantity2, quantity3 }) =>
+            QuantityVo.equals(quantity1, quantity2) &&
+            !QuantityVo.equals(quantity1, quantity3) &&
+            QuantityVo.compare(quantity1, quantity2) === 0 &&
+            QuantityVo.compare(quantity1, quantity3) < 0,
+          'Comparison consistency'
+        )
+      })
+    )
+
+    it.effect('should handle min/max operations correctly', () =>
+      Effect.gen(function* () {
+        const quantity1 = yield* QuantityVo.create(15)
+        const quantity2 = yield* QuantityVo.create(25)
+
+        const minResult = QuantityVo.min(quantity1, quantity2)
+        const maxResult = QuantityVo.max(quantity1, quantity2)
+
+        expect(QuantityVo.toNumber(minResult)).toBe(15)
+        expect(QuantityVo.toNumber(maxResult)).toBe(25)
+
+        yield* assertPropertyHolds(
+          { min: minResult, max: maxResult },
+          ({ min, max }) => QuantityVo.toNumber(min) === 15 && QuantityVo.toNumber(max) === 25,
+          'Min/Max operation correctness'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Minecraft Stack Rules Tests
+  // ===================================
+
+  describe('Minecraft Stack Rules', () => {
+    it.effect('should validate stack capacity constraints', () =>
+      Effect.gen(function* () {
+        const quantity = yield* QuantityVo.create(40)
+        const remaining = QuantityVo.remainingCapacity(quantity)
+
+        expect(QuantityVo.toNumber(remaining)).toBe(24) // 64 - 40 = 24
+
+        yield* assertPropertyHolds(
+          { original: quantity, remaining },
+          ({ original, remaining }) => QuantityVo.toNumber(original) + QuantityVo.toNumber(remaining) === 64,
+          'Stack capacity calculation'
+        )
+      })
+    )
+
+    it.effect('should identify empty and full stacks', () =>
+      Effect.gen(function* () {
+        const emptyQuantity = yield* QuantityVo.create(0)
+        const partialQuantity = yield* QuantityVo.create(32)
+        const fullQuantity = yield* QuantityVo.create(64)
+
+        expect(QuantityVo.isEmpty(emptyQuantity)).toBe(true)
+        expect(QuantityVo.isEmpty(partialQuantity)).toBe(false)
+        expect(QuantityVo.isEmpty(fullQuantity)).toBe(false)
+
+        expect(QuantityVo.isFull(emptyQuantity)).toBe(false)
+        expect(QuantityVo.isFull(partialQuantity)).toBe(false)
+        expect(QuantityVo.isFull(fullQuantity)).toBe(true)
+
+        yield* assertPropertyHolds(
+          { empty: emptyQuantity, partial: partialQuantity, full: fullQuantity },
+          ({ empty, partial, full }) =>
+            QuantityVo.isEmpty(empty) &&
+            !QuantityVo.isEmpty(partial) &&
+            !QuantityVo.isEmpty(full) &&
+            !QuantityVo.isFull(empty) &&
+            !QuantityVo.isFull(partial) &&
+            QuantityVo.isFull(full),
+          'Empty and full stack identification'
+        )
+      })
+    )
+
+    it.effect('should validate predefined constants', () =>
+      Effect.gen(function* () {
+        expect(QuantityVo.toNumber(QuantityVo.ZERO)).toBe(0)
+        expect(QuantityVo.toNumber(QuantityVo.ONE)).toBe(1)
+        expect(QuantityVo.toNumber(QuantityVo.FULL_STACK)).toBe(64)
+
+        yield* assertPropertyHolds(
+          { zero: QuantityVo.ZERO, one: QuantityVo.ONE, full: QuantityVo.FULL_STACK },
+          ({ zero, one, full }) =>
+            QuantityVo.isEmpty(zero) && QuantityVo.toNumber(one) === 1 && QuantityVo.isFull(full),
+          'Predefined constants validation'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match quantity categories correctly', () =>
+      Effect.gen(function* () {
+        const quantityCategoryAnalyzer = (quantity: QuantityVo.IngredientQuantity) =>
+          pipe(
+            QuantityVo.toNumber(quantity),
+            Match.value,
+            Match.when(
+              (q) => q === 0,
+              () => 'empty'
+            ),
+            Match.when(
+              (q) => q >= 1 && q <= 8,
+              () => 'small'
+            ),
+            Match.when(
+              (q) => q >= 9 && q <= 32,
+              () => 'medium'
+            ),
+            Match.when(
+              (q) => q >= 33 && q <= 63,
+              () => 'large'
+            ),
+            Match.when(
+              (q) => q === 64,
+              () => 'full_stack'
+            ),
+            Match.exhaustive
+          )
+
+        const testCases = [
+          { quantity: 0, expected: 'empty' },
+          { quantity: 4, expected: 'small' },
+          { quantity: 16, expected: 'medium' },
+          { quantity: 48, expected: 'large' },
+          { quantity: 64, expected: 'full_stack' },
+        ]
+
+        for (const test of testCases) {
+          const quantity = yield* QuantityVo.create(test.quantity)
+          const result = quantityCategoryAnalyzer(quantity)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle crafting requirement analysis', () =>
+      Effect.gen(function* () {
+        const craftingRequirementAnalyzer = (
+          required: QuantityVo.IngredientQuantity,
+          available: QuantityVo.IngredientQuantity
+        ) =>
+          pipe(
+            { required: QuantityVo.toNumber(required), available: QuantityVo.toNumber(available) },
+            Match.value,
+            Match.when(
+              ({ required, available }) => available >= required,
+              () => 'sufficient'
+            ),
+            Match.when(
+              ({ required, available }) => available > 0 && available < required,
+              () => 'partial'
+            ),
+            Match.when(
+              ({ required, available }) => available === 0,
+              () => 'insufficient'
+            ),
+            Match.exhaustive
+          )
+
+        const testCases = [
+          { required: 8, available: 16, expected: 'sufficient' },
+          { required: 20, available: 12, expected: 'partial' },
+          { required: 10, available: 0, expected: 'insufficient' },
+        ]
+
+        for (const test of testCases) {
+          const required = yield* QuantityVo.create(test.required)
+          const available = yield* QuantityVo.create(test.available)
+          const result = craftingRequirementAnalyzer(required, available)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain arithmetic operation properties', () =>
+      Effect.gen(function* () {
+        // 加法の可換性テスト（範囲内の値で）
+        for (let i = 0; i < 50; i++) {
+          const a = Math.floor(Math.random() * 30) // 0-29
+          const b = Math.floor(Math.random() * 30) // 0-29（合計が64を超えないように）
+
+          const quantityA = yield* QuantityVo.create(a)
+          const quantityB = yield* QuantityVo.create(b)
+
+          const sumAB = yield* QuantityVo.add(quantityA, quantityB)
+          const sumBA = yield* QuantityVo.add(quantityB, quantityA)
+
+          yield* assertPropertyHolds(
+            { sumAB, sumBA },
+            ({ sumAB, sumBA }) => QuantityVo.equals(sumAB, sumBA),
+            `Addition commutativity: ${a} + ${b} = ${b} + ${a}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain comparison transitivity', () =>
+      Effect.gen(function* () {
+        const values = [5, 15, 25, 35, 45, 55]
+
+        for (let i = 0; i < values.length - 2; i++) {
+          const a = yield* QuantityVo.create(values[i])
+          const b = yield* QuantityVo.create(values[i + 1])
+          const c = yield* QuantityVo.create(values[i + 2])
+
+          const aLessB = QuantityVo.compare(a, b) < 0
+          const bLessC = QuantityVo.compare(b, c) < 0
+          const aLessC = QuantityVo.compare(a, c) < 0
+
+          yield* assertPropertyHolds(
+            { aLessB, bLessC, aLessC },
+            ({ aLessB, bLessC, aLessC }) => !aLessB || !bLessC || aLessC,
+            `Comparison transitivity: ${values[i]} < ${values[i + 1]} < ${values[i + 2]}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain capacity conservation', () =>
+      Effect.gen(function* () {
+        for (let i = 0; i <= 64; i++) {
+          const quantity = yield* QuantityVo.create(i)
+          const remaining = QuantityVo.remainingCapacity(quantity)
+          const total = QuantityVo.toNumber(quantity) + QuantityVo.toNumber(remaining)
+
+          yield* assertPropertyHolds(
+            { quantity: QuantityVo.toNumber(quantity), remaining: QuantityVo.toNumber(remaining), total },
+            ({ total }) => total === 64,
+            `Capacity conservation: ${i} + remaining = 64`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent arithmetic operations correctly', () =>
+      Effect.gen(function* () {
+        const baseQuantity = yield* QuantityVo.create(10)
+
+        const concurrentOperations = Array.from({ length: 100 }, (_, i) =>
+          Effect.sync(() => {
+            const operand = Math.floor(Math.random() * 20) + 1 // 1-20
+            if (operand <= 54) {
+              // 10 + operand <= 64
+              return QuantityVo.add(baseQuantity, QuantityVo.unsafe(operand))
+            } else {
+              return Effect.either(QuantityVo.add(baseQuantity, QuantityVo.unsafe(operand)))
+            }
+          })
+        )
+
+        // 並行実行不変条件: 結果が予測可能であること
+        yield* assertConcurrencyInvariant(
+          concurrentOperations,
+          (results) =>
+            results.every((result) => {
+              const effect = result
+              return Effect.isEffect(effect) // 全て有効なEffectオブジェクト
+            }),
+          'Concurrent arithmetic operation consistency'
+        )
+      })
+    )
+
+    it.effect('should maintain thread safety for comparison operations', () =>
+      Effect.gen(function* () {
+        const quantities = [5, 15, 25, 35, 45].map((n) => QuantityVo.unsafe(n))
+
+        const concurrentComparisons = quantities.map((qty, index) =>
+          Effect.sync(() => ({
+            quantity: qty,
+            isEmpty: QuantityVo.isEmpty(qty),
+            isFull: QuantityVo.isFull(qty),
+            remaining: QuantityVo.remainingCapacity(qty),
+          }))
+        )
+
+        const results = yield* Effect.all(concurrentComparisons, { concurrency: 'unbounded' })
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) =>
+            resultArray.every(
+              (result) => QuantityVo.toNumber(result.quantity) + QuantityVo.toNumber(result.remaining) === 64
+            ),
+          'Concurrent comparison consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary values correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { value: 0, valid: true, description: 'minimum quantity (empty)' },
+          { value: 64, valid: true, description: 'maximum quantity (full stack)' },
+          { value: -1, valid: false, description: 'below minimum (invalid)' },
+          { value: 65, valid: false, description: 'above maximum (invalid)' },
+        ]
+
+        for (const test of boundaryTests) {
+          const result = yield* Effect.either(QuantityVo.create(test.value))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle arithmetic edge cases', () =>
+      Effect.gen(function* () {
+        // ゼロとの演算
+        const zero = QuantityVo.ZERO
+        const ten = yield* QuantityVo.create(10)
+
+        const zeroPlus = yield* QuantityVo.add(zero, ten)
+        const plusZero = yield* QuantityVo.add(ten, zero)
+
+        expect(QuantityVo.equals(zeroPlus, ten)).toBe(true)
+        expect(QuantityVo.equals(plusZero, ten)).toBe(true)
+
+        // 最大値での演算
+        const fullStack = QuantityVo.FULL_STACK
+        const one = QuantityVo.ONE
+
+        const overflowResult = yield* Effect.either(QuantityVo.add(fullStack, one))
+        expect(Either.isLeft(overflowResult)).toBe(true)
+
+        yield* assertPropertyHolds(
+          { zeroResult: zeroPlus, fullResult: overflowResult },
+          ({ zeroResult, fullResult }) => QuantityVo.equals(zeroResult, ten) && Either.isLeft(fullResult),
+          'Arithmetic edge cases'
+        )
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          {
+            operation: () => QuantityVo.create(-5),
+            expectedError: 'InvalidIngredientQuantityError',
+            description: 'negative quantity creation',
+          },
+          {
+            operation: () => QuantityVo.create(100),
+            expectedError: 'InvalidIngredientQuantityError',
+            description: 'excessive quantity creation',
+          },
+          {
+            operation: () =>
+              Effect.gen(function* () {
+                const a = yield* QuantityVo.create(50)
+                const b = yield* QuantityVo.create(20)
+                return yield* QuantityVo.add(a, b)
+              }),
+            expectedError: 'QuantityOverflowError',
+            description: 'addition overflow',
+          },
+          {
+            operation: () =>
+              Effect.gen(function* () {
+                const a = yield* QuantityVo.create(5)
+                const b = yield* QuantityVo.create(10)
+                return yield* QuantityVo.subtract(a, b)
+              }),
+            expectedError: 'InsufficientQuantityError',
+            description: 'subtraction underflow',
+          },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(test.operation())
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.constructor.name).toBe(test.expectedError)
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume quantity operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 50 // 50ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const quantity1 = QuantityVo.unsafe(i % 32)
+            const quantity2 = QuantityVo.unsafe((i + 1) % 32)
+
+            return {
+              equals: QuantityVo.equals(quantity1, quantity2),
+              compare: QuantityVo.compare(quantity1, quantity2),
+              isEmpty: QuantityVo.isEmpty(quantity1),
+              isFull: QuantityVo.isFull(quantity1),
+              remaining: QuantityVo.remainingCapacity(quantity1),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

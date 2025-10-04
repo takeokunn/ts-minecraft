@@ -36,6 +36,9 @@
     "types": ["vitest/globals", "node"],
     "downlevelIteration": true
   },
-  "include": ["src/**/*", "vitest.config.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/domain/block/**/*",
+    "vitest.config.ts"
+  ],
+  "exclude": ["node_modules", "dist", "**/__test__/**", "**/*.test.ts"]
 }

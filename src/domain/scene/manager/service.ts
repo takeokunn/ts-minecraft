@@ -1,57 +1,64 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect, Match, pipe } from 'effect'
-import { Scene, SceneData, SceneTransition, SceneTransitionError, SceneType } from '../scenes/base'
+import { Context, Effect, Either, Option, Schema } from 'effect'
+import {
+  ActiveScene,
+  ActiveSceneSchema,
+  PreloadError,
+  SceneState,
+  SceneStateSchema,
+  TransitionEffect,
+  TransitionError,
+} from '../types'
 
-// シーンスタック管理用のスキーマ
-export const SceneStack = Schema.Array(SceneData)
-export type SceneStack = Schema.Schema.Type<typeof SceneStack>
-
-// シーンマネージャーの状態
-export const SceneManagerState = Schema.Struct({
-  currentScene: Schema.optional(SceneData),
-  sceneStack: SceneStack,
+export const SceneManagerStateSchema = Schema.Struct({
+  current: SceneStateSchema,
+  stack: Schema.Array(ActiveSceneSchema),
   isTransitioning: Schema.Boolean,
-  transitionProgress: Schema.Number.pipe(Schema.between(0, 1)),
+  history: Schema.Array(SceneStateSchema),
 })
-export type SceneManagerState = Schema.Schema.Type<typeof SceneManagerState>
 
-// シーンマネージャーサービスインターフェース
+export type SceneManagerState = Schema.Schema.Type<typeof SceneManagerStateSchema>
+
 export interface SceneManager {
-  readonly getCurrentScene: () => Effect.Effect<SceneData | undefined>
-  readonly getState: () => Effect.Effect<SceneManagerState>
+  readonly current: () => Effect.Effect<SceneState>
+  readonly state: () => Effect.Effect<SceneManagerState>
   readonly transitionTo: (
-    sceneType: SceneType,
-    transition?: SceneTransition
-  ) => Effect.Effect<void, SceneTransitionError>
-  readonly pushScene: (sceneType: SceneType) => Effect.Effect<void, SceneTransitionError>
-  readonly popScene: () => Effect.Effect<void, SceneTransitionError>
-  readonly createScene: (sceneType: SceneType) => Effect.Effect<Scene, SceneTransitionError>
-  readonly update: (deltaTime: number) => Effect.Effect<void>
-  readonly render: () => Effect.Effect<void>
-  readonly cleanup: () => Effect.Effect<void>
+    scene: ActiveScene,
+    effect?: TransitionEffect
+  ) => Effect.Effect<SceneState, TransitionError>
+  readonly push: (
+    scene: ActiveScene,
+    effect?: TransitionEffect
+  ) => Effect.Effect<SceneState, TransitionError>
+  readonly pop: (
+    effect?: TransitionEffect
+  ) => Effect.Effect<SceneState, TransitionError>
+  readonly preload: (scene: ActiveScene) => Effect.Effect<void, PreloadError>
+  readonly reset: (
+    scene?: ActiveScene
+  ) => Effect.Effect<SceneState, TransitionError>
+  readonly history: () => Effect.Effect<ReadonlyArray<SceneState>>
 }
 
-// SceneManagerサービスのコンテキスト
 export const SceneManager = Context.GenericTag<SceneManager>('@minecraft/domain/SceneManager')
 
-// Match.valueを使った型安全なシーン処理
-export const processSceneType = <A>(
-  sceneType: SceneType,
-  handlers: {
-    readonly MainMenu: () => A
-    readonly Game: () => A
-    readonly Loading: () => A
-    readonly Pause: () => A
-    readonly Settings: () => A
-  }
-) =>
-  pipe(
-    sceneType,
-    Match.value,
-    Match.when('MainMenu', handlers.MainMenu),
-    Match.when('Game', handlers.Game),
-    Match.when('Loading', handlers.Loading),
-    Match.when('Pause', handlers.Pause),
-    Match.when('Settings', handlers.Settings),
-    Match.exhaustive
-  )
+export const sceneManagerState = {
+  make: (params: {
+    readonly current: SceneState
+    readonly stack?: ReadonlyArray<ActiveScene>
+    readonly isTransitioning?: boolean
+    readonly history?: ReadonlyArray<SceneState>
+  }): SceneManagerState => ({
+    current: params.current,
+    stack: params.stack ?? [],
+    isTransitioning: params.isTransitioning ?? false,
+    history: params.history ?? [params.current],
+  }),
+
+  toOptionActive: (scene: SceneState): Option.Option<ActiveScene> => {
+    const decoded = Schema.decodeEither(ActiveSceneSchema)(scene)
+    return Either.match(decoded, {
+      onLeft: () => Option.none<ActiveScene>(),
+      onRight: (active) => Option.some(active),
+    })
+  },
+}

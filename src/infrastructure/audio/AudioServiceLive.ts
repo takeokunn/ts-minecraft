@@ -1,4 +1,4 @@
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { Vector3D } from '@domain/entities/types'
 import { Effect, HashMap, Layer, Option, Queue, Ref, Schedule, Stream, pipe } from 'effect'
 import { nanoid } from 'nanoid'
 import * as THREE from 'three'

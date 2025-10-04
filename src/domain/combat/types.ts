@@ -1,249 +1,386 @@
-import { EntityIdSchema, ItemId as ItemIdSchema } from '@domain/core/types/brands'
-import { Vector3Schema } from '@domain/core/types/spatial'
-import { Schema } from '@effect/schema'
+import { Brand, Effect, Either } from 'effect'
+import { Clock } from 'effect/Clock'
+import { pipe } from 'effect/Function'
 
-// ================================
-// Branded Types
-// ================================
+// ============================================================
+// Error Types
+// ============================================================
 
-export const AttackDamage = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand('AttackDamage'),
-  Schema.annotations({
-    title: 'AttackDamage',
-    description: 'Damage value for attacks',
-  })
-)
-export type AttackDamage = Schema.Schema.Type<typeof AttackDamage>
+export type StatField =
+  | 'health'
+  | 'damage'
+  | 'defense'
+  | 'criticalChance'
+  | 'cooldown'
+  | 'range'
+  | 'timestamp'
 
-export const DefenseValue = Schema.Number.pipe(
-  Schema.between(0, 20),
-  Schema.brand('DefenseValue'),
-  Schema.annotations({
-    title: 'DefenseValue',
-    description: 'Defense value for armor',
-  })
-)
-export type DefenseValue = Schema.Schema.Type<typeof DefenseValue>
+export interface InvalidIdentifierError {
+  readonly kind: 'InvalidIdentifier'
+  readonly entity: 'combatantId' | 'sessionId'
+  readonly value: string
+  readonly reason: string
+}
 
-export const KnockbackForce = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand('KnockbackForce'),
-  Schema.annotations({
-    title: 'KnockbackForce',
-    description: 'Force applied for knockback',
-  })
-)
-export type KnockbackForce = Schema.Schema.Type<typeof KnockbackForce>
+export interface InvalidStatError {
+  readonly kind: 'InvalidStat'
+  readonly stat: StatField
+  readonly value: number
+  readonly constraint: string
+}
 
-export const AttackCooldown = Schema.Number.pipe(
-  Schema.between(0, 1000),
-  Schema.brand('AttackCooldown'),
-  Schema.annotations({
-    title: 'AttackCooldown',
-    description: 'Attack cooldown in milliseconds',
-  })
-)
-export type AttackCooldown = Schema.Schema.Type<typeof AttackCooldown>
+export interface InvalidAttackError {
+  readonly kind: 'InvalidAttack'
+  readonly details: string
+}
 
-export const Durability = Schema.Number.pipe(
-  Schema.between(0, 1000),
-  Schema.brand('Durability'),
-  Schema.annotations({
-    title: 'Durability',
-    description: 'Item durability value',
-  })
-)
-export type Durability = Schema.Schema.Type<typeof Durability>
+export interface CooldownViolationError {
+  readonly kind: 'CooldownViolation'
+  readonly combatant: CombatantId
+  readonly attack: AttackLabel
+  readonly remaining: Cooldown
+}
 
-// ================================
-// Enchantment Types
-// ================================
+export interface CombatantNotFoundError {
+  readonly kind: 'CombatantNotFound'
+  readonly combatant: CombatantId
+}
 
-export const EnchantmentType = Schema.Literal(
-  'sharpness',
-  'knockback',
-  'fire_aspect',
-  'looting',
-  'protection',
-  'blast_protection',
-  'projectile_protection',
-  'thorns'
-)
-export type EnchantmentType = Schema.Schema.Type<typeof EnchantmentType>
+export interface SessionNotFoundError {
+  readonly kind: 'SessionNotFound'
+  readonly session: SessionId
+}
 
-// ================================
-// Armor Slot
-// ================================
+export interface DuplicateCombatantError {
+  readonly kind: 'DuplicateCombatant'
+  readonly session: SessionId
+  readonly combatant: CombatantId
+}
 
-export const ArmorSlot = Schema.Literal('helmet', 'chestplate', 'leggings', 'boots')
-export type ArmorSlot = Schema.Schema.Type<typeof ArmorSlot>
+export type CombatDomainError =
+  | InvalidIdentifierError
+  | InvalidStatError
+  | InvalidAttackError
+  | CooldownViolationError
+  | CombatantNotFoundError
+  | SessionNotFoundError
+  | DuplicateCombatantError
 
-// ================================
-// Weapon Definition
-// ================================
+export const CombatError = {
+  invalidIdentifier: (
+    entity: InvalidIdentifierError['entity'],
+    value: string,
+    reason: string
+  ): InvalidIdentifierError => ({
+    kind: 'InvalidIdentifier',
+    entity,
+    value,
+    reason,
+  }),
 
-export const Weapon = Schema.Struct({
-  itemId: ItemIdSchema,
-  baseDamage: AttackDamage,
-  attackSpeed: Schema.Number.pipe(Schema.positive()),
-  knockback: KnockbackForce,
-  enchantments: Schema.Array(EnchantmentType),
-  durability: Durability,
+  invalidStat: (stat: StatField, value: number, constraint: string): InvalidStatError => ({
+    kind: 'InvalidStat',
+    stat,
+    value,
+    constraint,
+  }),
+
+  invalidAttack: (details: string): InvalidAttackError => ({
+    kind: 'InvalidAttack',
+    details,
+  }),
+
+  cooldownViolation: (
+    combatant: CombatantId,
+    attack: AttackLabel,
+    remaining: Cooldown
+  ): CooldownViolationError => ({
+    kind: 'CooldownViolation',
+    combatant,
+    attack,
+    remaining,
+  }),
+
+  combatantNotFound: (combatant: CombatantId): CombatantNotFoundError => ({
+    kind: 'CombatantNotFound',
+    combatant,
+  }),
+
+  sessionNotFound: (session: SessionId): SessionNotFoundError => ({
+    kind: 'SessionNotFound',
+    session,
+  }),
+
+  duplicateCombatant: (
+    session: SessionId,
+    combatant: CombatantId
+  ): DuplicateCombatantError => ({
+    kind: 'DuplicateCombatant',
+    session,
+    combatant,
+  }),
+} as const
+
+// ============================================================
+// Branded Primitive Types
+// ============================================================
+
+export type CombatantId = string & Brand.Brand<'CombatantId'>
+export type SessionId = string & Brand.Brand<'SessionId'>
+export type Health = number & Brand.Brand<'Health'>
+export type Damage = number & Brand.Brand<'Damage'>
+export type Defense = number & Brand.Brand<'Defense'>
+export type CriticalChance = number & Brand.Brand<'CriticalChance'>
+export type Cooldown = number & Brand.Brand<'Cooldown'>
+export type AttackRange = number & Brand.Brand<'AttackRange'>
+export type Timestamp = number & Brand.Brand<'Timestamp'>
+
+const CombatantIdBrand = Brand.nominal<CombatantId>()
+const SessionIdBrand = Brand.nominal<SessionId>()
+const HealthBrand = Brand.nominal<Health>()
+const DamageBrand = Brand.nominal<Damage>()
+const DefenseBrand = Brand.nominal<Defense>()
+const CriticalChanceBrand = Brand.nominal<CriticalChance>()
+const CooldownBrand = Brand.nominal<Cooldown>()
+const AttackRangeBrand = Brand.nominal<AttackRange>()
+const TimestampBrand = Brand.nominal<Timestamp>()
+
+const identifierPipeline = (
+  value: string,
+  entity: InvalidIdentifierError['entity']
+): Effect.Effect<string, CombatDomainError> =>
+  pipe(
+    value,
+    Either.right<string, CombatDomainError>,
+    Either.map((input) => input.trim()),
+    Either.filterOrElseWith(
+      (input) => input.length >= 3,
+      (input) => CombatError.invalidIdentifier(entity, input, 'length must be >= 3')
+    ),
+    Either.filterOrElseWith(
+      (input) => input.length <= 32,
+      (input) => CombatError.invalidIdentifier(entity, input, 'length must be <= 32')
+    ),
+    Either.filterOrElseWith(
+      (input) => /^[a-z0-9_-]+$/i.test(input),
+      (input) =>
+        CombatError.invalidIdentifier(
+          entity,
+          input,
+          'accepts only alphanumeric characters, underscore, or hyphen'
+        )
+    ),
+    Either.map((input) => input.toLowerCase()),
+    Effect.fromEither
+  )
+
+const createNumericFactory = <A>(options: {
+  readonly field: StatField
+  readonly min: number
+  readonly max: number
+  readonly brand: (value: number) => A
+}): ((value: number) => Effect.Effect<A, CombatDomainError>) => (value) => {
+  const validated = pipe(
+    value,
+    Either.right<number, CombatDomainError>,
+    Either.filterOrElseWith(
+      Number.isFinite,
+      (invalid) => CombatError.invalidStat(options.field, invalid, 'finite number required')
+    ),
+    Either.filterOrElseWith(
+      (numeric) => numeric >= options.min,
+      (invalid) =>
+        CombatError.invalidStat(
+          options.field,
+          invalid,
+          `value must be >= ${String(options.min)}`
+        )
+    ),
+    Either.filterOrElseWith(
+      (numeric) => numeric <= options.max,
+      (invalid) =>
+        CombatError.invalidStat(
+          options.field,
+          invalid,
+          `value must be <= ${String(options.max)}`
+        )
+    ),
+    Effect.fromEither
+  )
+  return validated.pipe(Effect.map(options.brand))
+}
+
+export const makeCombatantId = (value: string): Effect.Effect<CombatantId, CombatDomainError> =>
+  identifierPipeline(value, 'combatantId').pipe(Effect.map(CombatantIdBrand))
+
+export const makeSessionId = (value: string): Effect.Effect<SessionId, CombatDomainError> =>
+  identifierPipeline(value, 'sessionId').pipe(Effect.map(SessionIdBrand))
+
+export const makeHealth = createNumericFactory<Health>({
+  field: 'health',
+  min: 0,
+  max: 1000,
+  brand: HealthBrand,
 })
-export type Weapon = Schema.Schema.Type<typeof Weapon>
 
-// ================================
-// Armor Definition
-// ================================
-
-export const Armor = Schema.Struct({
-  slot: ArmorSlot,
-  defense: DefenseValue,
-  toughness: Schema.Number.pipe(Schema.between(0, 10)),
-  enchantments: Schema.Array(EnchantmentType),
-  durability: Durability,
+export const makeDamage = createNumericFactory<Damage>({
+  field: 'damage',
+  min: 0,
+  max: 5000,
+  brand: DamageBrand,
 })
-export type Armor = Schema.Schema.Type<typeof Armor>
 
-// ================================
-// Combat Events
-// ================================
-
-export const CombatEvent = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal('AttackInitiated'),
-    attackerId: EntityIdSchema,
-    targetId: EntityIdSchema,
-    weapon: Schema.optional(Weapon),
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('DamageDealt'),
-    attackerId: EntityIdSchema,
-    targetId: EntityIdSchema,
-    rawDamage: AttackDamage,
-    finalDamage: AttackDamage,
-    isCritical: Schema.Boolean,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Blocked'),
-    blockerId: EntityIdSchema,
-    attackerId: EntityIdSchema,
-    damageBlocked: AttackDamage,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('KnockbackApplied'),
-    targetId: EntityIdSchema,
-    force: Vector3Schema,
-    sourceId: EntityIdSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('EntityKilled'),
-    entityId: EntityIdSchema,
-    killerId: Schema.optional(EntityIdSchema),
-    timestamp: Schema.Number,
-  })
-)
-export type CombatEvent = Schema.Schema.Type<typeof CombatEvent>
-
-// ================================
-// Attack Types
-// ================================
-
-export const ProjectileType = Schema.Literal('arrow', 'trident', 'snowball', 'egg', 'fireball')
-export type ProjectileType = Schema.Schema.Type<typeof ProjectileType>
-
-export const SpellType = Schema.Literal('fireball', 'ice_shard', 'lightning', 'heal', 'shield')
-export type SpellType = Schema.Schema.Type<typeof SpellType>
-
-export const AttackType = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal('Melee'),
-    weapon: Schema.optional(Weapon),
-    chargeTime: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Ranged'),
-    projectileType: ProjectileType,
-    power: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Magic'),
-    spellType: SpellType,
-    manaCost: Schema.Number.pipe(Schema.positive()),
-  })
-)
-export type AttackType = Schema.Schema.Type<typeof AttackType>
-
-// ================================
-// Damage Source
-// ================================
-
-export const DamageSource = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal('Mob'),
-    mobId: EntityIdSchema,
-    weaponType: Schema.optional(AttackType),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Player'),
-    playerId: EntityIdSchema,
-    weaponType: Schema.optional(AttackType),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Projectile'),
-    projectileType: ProjectileType,
-    sourceId: EntityIdSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Environment'),
-    cause: Schema.Literal('fall', 'drowning', 'fire', 'lava', 'suffocation', 'void'),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('Magic'),
-    spellType: SpellType,
-    casterId: EntityIdSchema,
-  })
-)
-export type DamageSource = Schema.Schema.Type<typeof DamageSource>
-
-// ================================
-// Combat Result
-// ================================
-
-export const CombatResult = Schema.Struct({
-  damage: AttackDamage,
-  targetId: EntityIdSchema,
-  knockback: KnockbackForce,
-  isCritical: Schema.Boolean,
-  durabilityLoss: Schema.optional(Schema.Number),
+export const makeDefense = createNumericFactory<Defense>({
+  field: 'defense',
+  min: 0,
+  max: 2000,
+  brand: DefenseBrand,
 })
-export type CombatResult = Schema.Schema.Type<typeof CombatResult>
 
-// ================================
-// Combat Errors
-// ================================
+export const makeCriticalChance = createNumericFactory<CriticalChance>({
+  field: 'criticalChance',
+  min: 0,
+  max: 1,
+  brand: CriticalChanceBrand,
+})
 
-export class CombatError extends Schema.TaggedError<CombatError>()('CombatError', {
-  message: Schema.String,
-  code: Schema.Literal('ATTACK_ON_COOLDOWN', 'TARGET_NOT_FOUND', 'INVALID_ATTACK', 'WEAPON_BROKEN'),
-}) {}
+export const makeCooldown = createNumericFactory<Cooldown>({
+  field: 'cooldown',
+  min: 0,
+  max: 120000,
+  brand: CooldownBrand,
+})
 
-export class AttackOnCooldownError extends Schema.TaggedError<AttackOnCooldownError>()('AttackOnCooldownError', {
-  attackerId: EntityIdSchema,
-  remainingCooldown: Schema.Number,
-}) {}
+export const makeAttackRange = createNumericFactory<AttackRange>({
+  field: 'range',
+  min: 0,
+  max: 300,
+  brand: AttackRangeBrand,
+})
 
-export class TargetNotFoundError extends Schema.TaggedError<TargetNotFoundError>()('TargetNotFoundError', {
-  targetId: EntityIdSchema,
-}) {}
+export const makeTimestamp = createNumericFactory<Timestamp>({
+  field: 'timestamp',
+  min: 0,
+  max: Number.MAX_SAFE_INTEGER,
+  brand: TimestampBrand,
+})
 
-export class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError>()('EntityNotFoundError', {
-  entityId: EntityIdSchema,
-}) {}
+export const currentTimestamp: Effect.Effect<Timestamp, never> = Clock.currentTimeMillis.pipe(
+  Effect.map((millis) => TimestampBrand(millis))
+)
 
-export class KnockbackError extends Schema.TaggedError<KnockbackError>()('KnockbackError', {
-  message: Schema.String,
-  targetId: EntityIdSchema,
-}) {}
+// ============================================================
+// Attack and Event Algebraic Data Types
+// ============================================================
+
+export type AttackLabel = 'Melee' | 'Ranged' | 'Magic'
+
+export interface MeleeAttack {
+  readonly tag: 'Melee'
+  readonly baseDamage: Damage
+  readonly cooldown: Cooldown
+}
+
+export interface RangedAttack {
+  readonly tag: 'Ranged'
+  readonly baseDamage: Damage
+  readonly cooldown: Cooldown
+  readonly range: AttackRange
+}
+
+export interface MagicAttack {
+  readonly tag: 'Magic'
+  readonly baseDamage: Damage
+  readonly cooldown: Cooldown
+  readonly manaCost: Cooldown
+}
+
+export type AttackKind = MeleeAttack | RangedAttack | MagicAttack
+
+export const AttackKindFactory = {
+  melee: (baseDamage: Damage, cooldown: Cooldown): AttackKind => ({
+    tag: 'Melee',
+    baseDamage,
+    cooldown,
+  }),
+  ranged: (baseDamage: Damage, cooldown: Cooldown, range: AttackRange): AttackKind => ({
+    tag: 'Ranged',
+    baseDamage,
+    cooldown,
+    range,
+  }),
+  magic: (baseDamage: Damage, cooldown: Cooldown, manaCost: Cooldown): AttackKind => ({
+    tag: 'Magic',
+    baseDamage,
+    cooldown,
+    manaCost,
+  }),
+} as const
+
+export interface AttackResolvedEvent {
+  readonly kind: 'AttackResolved'
+  readonly attacker: CombatantId
+  readonly target: CombatantId
+  readonly attack: AttackLabel
+  readonly damage: Damage
+  readonly timestamp: Timestamp
+  readonly critical: boolean
+}
+
+export interface CombatantDefeatedEvent {
+  readonly kind: 'CombatantDefeated'
+  readonly combatant: CombatantId
+  readonly timestamp: Timestamp
+}
+
+export interface CooldownUpdatedEvent {
+  readonly kind: 'CooldownUpdated'
+  readonly combatant: CombatantId
+  readonly attack: AttackLabel
+  readonly remaining: Cooldown
+  readonly timestamp: Timestamp
+}
+
+export type CombatEvent =
+  | AttackResolvedEvent
+  | CombatantDefeatedEvent
+  | CooldownUpdatedEvent
+
+export const CombatEventFactory = {
+  attackResolved: (
+    attacker: CombatantId,
+    target: CombatantId,
+    attack: AttackLabel,
+    damage: Damage,
+    timestamp: Timestamp,
+    critical: boolean
+  ): AttackResolvedEvent => ({
+    kind: 'AttackResolved',
+    attacker,
+    target,
+    attack,
+    damage,
+    timestamp,
+    critical,
+  }),
+  combatantDefeated: (
+    combatant: CombatantId,
+    timestamp: Timestamp
+  ): CombatantDefeatedEvent => ({
+    kind: 'CombatantDefeated',
+    combatant,
+    timestamp,
+  }),
+  cooldownUpdated: (
+    combatant: CombatantId,
+    attack: AttackLabel,
+    remaining: Cooldown,
+    timestamp: Timestamp
+  ): CooldownUpdatedEvent => ({
+    kind: 'CooldownUpdated',
+    combatant,
+    attack,
+    remaining,
+    timestamp,
+  }),
+} as const

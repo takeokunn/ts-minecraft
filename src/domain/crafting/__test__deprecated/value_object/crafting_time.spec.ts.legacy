@@ -1,0 +1,812 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as TimeVo from '../../value_object/crafting_time'
+import { assertConcurrencyInvariant, assertPropertyHolds, assertValueObjectValidation } from '../crafting-test-helpers'
+
+// ===================================
+// CraftingTime Value Object Tests
+// 製作時間の型安全性と時間制約
+// ===================================
+
+describe('CraftingTime Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct time values', () =>
+      Effect.gen(function* () {
+        const validTimes = [10, 50, 100, 500, 1000, 2000, 5000, 30000, 60000, 300000]
+
+        for (const time of validTimes) {
+          const result = Schema.decodeEither(TimeVo.CraftingTimeSchema)(time)
+
+          yield* assertValueObjectValidation(() => result, time as TimeVo.CraftingTime)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(time)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid time values', () =>
+      Effect.gen(function* () {
+        const invalidTimes = [0, 5, 9, 300001, 500000, 1000000, -10, -100]
+
+        for (const time of invalidTimes) {
+          const result = Schema.decodeEither(TimeVo.CraftingTimeSchema)(time)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected between 10 and 300000')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-integer values', () =>
+      Effect.gen(function* () {
+        const nonIntegerValues = [10.5, 100.1, 999.9, 1000.001, -0.1, 300000.1]
+
+        for (const value of nonIntegerValues) {
+          const result = Schema.decodeEither(TimeVo.CraftingTimeSchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected integer')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-number types', () =>
+      Effect.gen(function* () {
+        const nonNumberValues = ['1000', 'fast', true, false, null, undefined, {}, [], 'slow']
+
+        for (const value of nonNumberValues) {
+          const result = Schema.decodeEither(TimeVo.CraftingTimeSchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected number')
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded time values correctly', () =>
+      Effect.gen(function* () {
+        const validTime = 2000
+        const result = Schema.decodeEither(TimeVo.CraftingTimeSchema)(validTime)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedTime = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedTime).toBe('number')
+          expect(brandedTime).toBe(2000)
+
+          // 型安全性プロパティ検証
+          yield* assertPropertyHolds(
+            brandedTime,
+            (time) => time >= 10 && time <= 300000 && Number.isInteger(time),
+            'CraftingTime brand type safety'
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular numbers', () =>
+      Effect.gen(function* () {
+        const regularNumber = 5000
+        const brandedResult = Schema.decodeEither(TimeVo.CraftingTimeSchema)(regularNumber)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedTime = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedTime).toBe(regularNumber)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(brandedTime, (time) => time === regularNumber, 'Brand type runtime equivalence')
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Predefined Constants Tests
+  // ===================================
+
+  describe('Predefined Constants', () => {
+    it.effect('should provide valid predefined time constants', () =>
+      Effect.gen(function* () {
+        const constants = [
+          { name: 'INSTANT', value: TimeVo.INSTANT, expected: 10 },
+          { name: 'FAST', value: TimeVo.FAST, expected: 500 },
+          { name: 'NORMAL', value: TimeVo.NORMAL, expected: 1000 },
+          { name: 'SLOW', value: TimeVo.SLOW, expected: 2000 },
+        ]
+
+        for (const constant of constants) {
+          expect(constant.value).toBe(constant.expected)
+
+          yield* assertPropertyHolds(
+            constant.value,
+            (time) => time >= 10 && time <= 300000,
+            `Predefined constant validity: ${constant.name}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain constant ordering', () =>
+      Effect.gen(function* () {
+        const times = [TimeVo.INSTANT, TimeVo.FAST, TimeVo.NORMAL, TimeVo.SLOW]
+
+        // 昇順になっていることを確認
+        for (let i = 0; i < times.length - 1; i++) {
+          expect(times[i]).toBeLessThan(times[i + 1])
+        }
+
+        yield* assertPropertyHolds(
+          times,
+          (timeArray) => timeArray.every((time, index) => index === 0 || time > timeArray[index - 1]),
+          'Constant ordering consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Value Object Operations Tests
+  // ===================================
+
+  describe('Value Object Operations', () => {
+    it.effect('should handle creation and validation correctly', () =>
+      Effect.gen(function* () {
+        const validTime = 1500
+        const time = yield* TimeVo.create(validTime)
+
+        expect(TimeVo.toMilliseconds(time)).toBe(validTime)
+        expect(TimeVo.isValid(validTime)).toBe(true)
+
+        yield* assertPropertyHolds(
+          time,
+          (t) => TimeVo.toMilliseconds(t) === validTime,
+          'Creation and validation consistency'
+        )
+      })
+    )
+
+    it.effect('should handle arithmetic operations correctly', () =>
+      Effect.gen(function* () {
+        const time1 = yield* TimeVo.create(1000)
+        const time2 = yield* TimeVo.create(500)
+
+        // 加算
+        const sum = yield* TimeVo.add(time1, time2)
+        expect(TimeVo.toMilliseconds(sum)).toBe(1500)
+
+        // 減算
+        const diff = yield* TimeVo.subtract(time1, time2)
+        expect(TimeVo.toMilliseconds(diff)).toBe(500)
+
+        // 乗算
+        const product = yield* TimeVo.multiply(time2, 3)
+        expect(TimeVo.toMilliseconds(product)).toBe(1500)
+
+        yield* assertPropertyHolds(
+          { sum, diff, product },
+          ({ sum, diff, product }) =>
+            TimeVo.toMilliseconds(sum) === 1500 &&
+            TimeVo.toMilliseconds(diff) === 500 &&
+            TimeVo.toMilliseconds(product) === 1500,
+          'Arithmetic operations correctness'
+        )
+      })
+    )
+
+    it.effect('should handle arithmetic overflow/underflow', () =>
+      Effect.gen(function* () {
+        const longTime = yield* TimeVo.create(200000)
+        const shortTime = yield* TimeVo.create(100)
+
+        // オーバーフロー
+        const overflowResult = yield* Effect.either(TimeVo.add(longTime, longTime))
+        expect(Either.isLeft(overflowResult)).toBe(true)
+
+        // アンダーフロー
+        const underflowResult = yield* Effect.either(TimeVo.subtract(shortTime, longTime))
+        expect(Either.isLeft(underflowResult)).toBe(true)
+
+        // 乗算オーバーフロー
+        const multiplyOverflowResult = yield* Effect.either(TimeVo.multiply(longTime, 2))
+        expect(Either.isLeft(multiplyOverflowResult)).toBe(true)
+
+        yield* assertPropertyHolds(
+          { overflowResult, underflowResult, multiplyOverflowResult },
+          ({ overflowResult, underflowResult, multiplyOverflowResult }) =>
+            Either.isLeft(overflowResult) && Either.isLeft(underflowResult) && Either.isLeft(multiplyOverflowResult),
+          'Arithmetic bounds checking'
+        )
+      })
+    )
+
+    it.effect('should handle comparison operations correctly', () =>
+      Effect.gen(function* () {
+        const shortTime = yield* TimeVo.create(500)
+        const mediumTime = yield* TimeVo.create(1000)
+        const longTime = yield* TimeVo.create(2000)
+
+        // 比較演算
+        expect(TimeVo.compare(shortTime, mediumTime)).toBeLessThan(0)
+        expect(TimeVo.compare(mediumTime, longTime)).toBeLessThan(0)
+        expect(TimeVo.compare(longTime, shortTime)).toBeGreaterThan(0)
+        expect(TimeVo.compare(mediumTime, mediumTime)).toBe(0)
+
+        // 等価性
+        const anotherMedium = yield* TimeVo.create(1000)
+        expect(TimeVo.equals(mediumTime, anotherMedium)).toBe(true)
+        expect(TimeVo.equals(mediumTime, longTime)).toBe(false)
+
+        yield* assertPropertyHolds(
+          { shortTime, mediumTime, longTime },
+          ({ shortTime, mediumTime, longTime }) =>
+            TimeVo.compare(shortTime, mediumTime) < 0 &&
+            TimeVo.compare(mediumTime, longTime) < 0 &&
+            TimeVo.compare(longTime, shortTime) > 0,
+          'Comparison transitivity'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Unit Conversion Tests
+  // ===================================
+
+  describe('Unit Conversion', () => {
+    it.effect('should convert between time units correctly', () =>
+      Effect.gen(function* () {
+        const conversionTests = [
+          { ms: 1000, seconds: 1, minutes: 1 / 60 },
+          { ms: 5000, seconds: 5, minutes: 5 / 60 },
+          { ms: 60000, seconds: 60, minutes: 1 },
+          { ms: 120000, seconds: 120, minutes: 2 },
+          { ms: 30000, seconds: 30, minutes: 0.5 },
+        ]
+
+        for (const test of conversionTests) {
+          const time = yield* TimeVo.create(test.ms)
+
+          expect(TimeVo.toMilliseconds(time)).toBe(test.ms)
+          expect(TimeVo.toSeconds(time)).toBeCloseTo(test.seconds, 6)
+          expect(TimeVo.toMinutes(time)).toBeCloseTo(test.minutes, 6)
+
+          yield* assertPropertyHolds(
+            { time, expectedMs: test.ms, expectedSec: test.seconds, expectedMin: test.minutes },
+            ({ time, expectedMs, expectedSec, expectedMin }) =>
+              TimeVo.toMilliseconds(time) === expectedMs &&
+              Math.abs(TimeVo.toSeconds(time) - expectedSec) < 0.000001 &&
+              Math.abs(TimeVo.toMinutes(time) - expectedMin) < 0.000001,
+            `Unit conversion for ${test.ms}ms`
+          )
+        }
+      })
+    )
+
+    it.effect('should create time from different units correctly', () =>
+      Effect.gen(function* () {
+        const fromSecondsTime = yield* TimeVo.fromSeconds(5)
+        const fromMinutesTime = yield* TimeVo.fromMinutes(2)
+
+        expect(TimeVo.toMilliseconds(fromSecondsTime)).toBe(5000)
+        expect(TimeVo.toMilliseconds(fromMinutesTime)).toBe(120000)
+
+        yield* assertPropertyHolds(
+          { fromSecondsTime, fromMinutesTime },
+          ({ fromSecondsTime, fromMinutesTime }) =>
+            TimeVo.toMilliseconds(fromSecondsTime) === 5000 && TimeVo.toMilliseconds(fromMinutesTime) === 120000,
+          'Creation from different units'
+        )
+      })
+    )
+
+    it.effect('should handle human-readable format correctly', () =>
+      Effect.gen(function* () {
+        const formatTests = [
+          { ms: 500, expected: '500ms' },
+          { ms: 1000, expected: '1.0s' },
+          { ms: 1500, expected: '1.5s' },
+          { ms: 60000, expected: '1.0m' },
+          { ms: 90000, expected: '1.5m' },
+          { ms: 125000, expected: '2.1m' },
+        ]
+
+        for (const test of formatTests) {
+          const time = yield* TimeVo.create(test.ms)
+          const formatted = TimeVo.toHumanReadable(time)
+
+          expect(formatted).toBe(test.expected)
+
+          yield* assertPropertyHolds(
+            { time, formatted, expected: test.expected },
+            ({ formatted, expected }) => formatted === expected,
+            `Human readable format for ${test.ms}ms`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Progress Calculation Tests
+  // ===================================
+
+  describe('Progress Calculation', () => {
+    it.effect('should calculate progress correctly', () =>
+      Effect.gen(function* () {
+        const totalTime = yield* TimeVo.create(10000)
+        const progressTests = [
+          { elapsed: 0, expected: 0.0 },
+          { elapsed: 2500, expected: 0.25 },
+          { elapsed: 5000, expected: 0.5 },
+          { elapsed: 7500, expected: 0.75 },
+          { elapsed: 10000, expected: 1.0 },
+        ]
+
+        for (const test of progressTests) {
+          const elapsedTime = yield* TimeVo.create(test.elapsed)
+          const progress = TimeVo.calculateProgress(elapsedTime, totalTime)
+
+          expect(progress).toBeCloseTo(test.expected, 6)
+
+          yield* assertPropertyHolds(
+            { progress, expected: test.expected },
+            ({ progress, expected }) => Math.abs(progress - expected) < 0.000001,
+            `Progress calculation: ${test.elapsed}/${TimeVo.toMilliseconds(totalTime)}`
+          )
+        }
+      })
+    )
+
+    it.effect('should calculate remaining time correctly', () =>
+      Effect.gen(function* () {
+        const totalTime = yield* TimeVo.create(8000)
+        const elapsedTime = yield* TimeVo.create(3000)
+
+        const remaining = TimeVo.calculateRemaining(elapsedTime, totalTime)
+        expect(TimeVo.toMilliseconds(remaining)).toBe(5000)
+
+        yield* assertPropertyHolds(
+          { totalTime, elapsedTime, remaining },
+          ({ totalTime, elapsedTime, remaining }) =>
+            TimeVo.toMilliseconds(elapsedTime) + TimeVo.toMilliseconds(remaining) === TimeVo.toMilliseconds(totalTime),
+          'Remaining time calculation'
+        )
+      })
+    )
+
+    it.effect('should handle progress edge cases', () =>
+      Effect.gen(function* () {
+        const totalTime = yield* TimeVo.create(5000)
+        const zeroTime = yield* TimeVo.create(10) // 最小値
+        const overTime = yield* TimeVo.create(6000)
+
+        const zeroProgress = TimeVo.calculateProgress(zeroTime, totalTime)
+        const overProgress = TimeVo.calculateProgress(overTime, totalTime)
+
+        expect(zeroProgress).toBeCloseTo(0.002, 3) // 10/5000
+        expect(overProgress).toBeCloseTo(1.2, 3) // 6000/5000
+
+        // 残り時間の境界ケース
+        const remainingZero = TimeVo.calculateRemaining(totalTime, totalTime)
+        const remainingNegative = yield* Effect.either(TimeVo.calculateRemaining(overTime, totalTime))
+
+        expect(TimeVo.toMilliseconds(remainingZero)).toBe(0)
+        expect(Either.isLeft(remainingNegative)).toBe(true)
+
+        yield* assertPropertyHolds(
+          { zeroProgress, overProgress, remainingZero },
+          ({ zeroProgress, overProgress, remainingZero }) =>
+            zeroProgress >= 0 && overProgress > 1 && TimeVo.toMilliseconds(remainingZero) === 0,
+          'Progress edge cases'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match time categories correctly', () =>
+      Effect.gen(function* () {
+        const timeCategoryAnalyzer = (time: TimeVo.CraftingTime) =>
+          pipe(
+            TimeVo.toMilliseconds(time),
+            Match.value,
+            Match.when(
+              (ms) => ms <= 100,
+              () => 'instant'
+            ),
+            Match.when(
+              (ms) => ms <= 1000,
+              () => 'fast'
+            ),
+            Match.when(
+              (ms) => ms <= 5000,
+              () => 'normal'
+            ),
+            Match.when(
+              (ms) => ms <= 30000,
+              () => 'slow'
+            ),
+            Match.when(
+              (ms) => ms > 30000,
+              () => 'very_slow'
+            ),
+            Match.exhaustive
+          )
+
+        const testCases = [
+          { time: 50, expected: 'instant' },
+          { time: 800, expected: 'fast' },
+          { time: 3000, expected: 'normal' },
+          { time: 15000, expected: 'slow' },
+          { time: 60000, expected: 'very_slow' },
+        ]
+
+        for (const test of testCases) {
+          const time = yield* TimeVo.create(test.time)
+          const result = timeCategoryAnalyzer(time)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle crafting urgency analysis', () =>
+      Effect.gen(function* () {
+        const urgencyAnalyzer = (craftingTime: TimeVo.CraftingTime, deadline: number) =>
+          pipe(
+            { craftingTime: TimeVo.toMilliseconds(craftingTime), deadline },
+            Match.value,
+            Match.when(
+              ({ craftingTime, deadline }) => craftingTime * 3 <= deadline,
+              () => 'plenty_of_time'
+            ),
+            Match.when(
+              ({ craftingTime, deadline }) => craftingTime * 1.5 <= deadline,
+              () => 'sufficient_time'
+            ),
+            Match.when(
+              ({ craftingTime, deadline }) => craftingTime <= deadline,
+              () => 'tight_schedule'
+            ),
+            Match.orElse(() => 'impossible')
+          )
+
+        const testCases = [
+          { craftingTime: 1000, deadline: 5000, expected: 'plenty_of_time' }, // 1000*3 <= 5000
+          { craftingTime: 2000, deadline: 3500, expected: 'sufficient_time' }, // 2000*1.5 <= 3500
+          { craftingTime: 3000, deadline: 3200, expected: 'tight_schedule' }, // 3000 <= 3200
+          { craftingTime: 5000, deadline: 3000, expected: 'impossible' }, // 5000 > 3000
+        ]
+
+        for (const test of testCases) {
+          const time = yield* TimeVo.create(test.craftingTime)
+          const result = urgencyAnalyzer(time, test.deadline)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain arithmetic properties', () =>
+      Effect.gen(function* () {
+        // 加法の可換性テスト（範囲内の値で）
+        for (let i = 0; i < 50; i++) {
+          const a = Math.floor(Math.random() * 100000) + 10 // 10-100009
+          const b = Math.floor(Math.random() * 100000) + 10 // 10-100009
+
+          // 合計が範囲内になるよう調整
+          const adjustedA = Math.min(a, 150000)
+          const adjustedB = Math.min(b, 150000 - adjustedA)
+
+          if (adjustedA + adjustedB <= 300000) {
+            const timeA = yield* TimeVo.create(adjustedA)
+            const timeB = yield* TimeVo.create(adjustedB)
+
+            const sumAB = yield* TimeVo.add(timeA, timeB)
+            const sumBA = yield* TimeVo.add(timeB, timeA)
+
+            yield* assertPropertyHolds(
+              { sumAB, sumBA },
+              ({ sumAB, sumBA }) => TimeVo.equals(sumAB, sumBA),
+              `Addition commutativity: ${adjustedA} + ${adjustedB} = ${adjustedB} + ${adjustedA}`
+            )
+          }
+        }
+      })
+    )
+
+    it.effect('should maintain unit conversion consistency', () =>
+      Effect.gen(function* () {
+        for (let i = 0; i < 100; i++) {
+          const ms = Math.floor(Math.random() * 299990) + 10 // 10-299999
+
+          const time = yield* TimeVo.create(ms)
+          const seconds = TimeVo.toSeconds(time)
+          const minutes = TimeVo.toMinutes(time)
+
+          yield* assertPropertyHolds(
+            { ms, seconds, minutes },
+            ({ ms, seconds, minutes }) => Math.abs(seconds * 1000 - ms) < 0.01 && Math.abs(minutes * 60000 - ms) < 0.01,
+            `Unit conversion consistency for ${ms}ms`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain progress calculation properties', () =>
+      Effect.gen(function* () {
+        for (let i = 0; i < 50; i++) {
+          const total = Math.floor(Math.random() * 50000) + 1000 // 1000-50999
+          const elapsed = Math.floor(Math.random() * total) // 0-total
+
+          const totalTime = yield* TimeVo.create(total)
+          const elapsedTime = yield* TimeVo.create(elapsed)
+
+          const progress = TimeVo.calculateProgress(elapsedTime, totalTime)
+
+          yield* assertPropertyHolds(
+            { total, elapsed, progress },
+            ({ total, elapsed, progress }) =>
+              progress >= 0 && progress <= 1 && Math.abs(progress - elapsed / total) < 0.000001,
+            `Progress calculation properties: ${elapsed}/${total}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent time calculations correctly', () =>
+      Effect.gen(function* () {
+        const times = [500, 1000, 2000, 5000, 10000]
+
+        const concurrentCalculations = times.map((ms) =>
+          Effect.sync(() => {
+            const time = Effect.runSync(TimeVo.create(ms))
+            return {
+              original: ms,
+              time,
+              seconds: TimeVo.toSeconds(time),
+              minutes: TimeVo.toMinutes(time),
+              humanReadable: TimeVo.toHumanReadable(time),
+            }
+          })
+        )
+
+        // 並行実行不変条件: 計算結果が一貫している
+        yield* assertConcurrencyInvariant(
+          concurrentCalculations,
+          (results) =>
+            results.every((result, index) => {
+              const expectedMs = times[index]
+              return (
+                TimeVo.toMilliseconds(result.time) === expectedMs &&
+                Math.abs(result.seconds * 1000 - expectedMs) < 0.01 &&
+                Math.abs(result.minutes * 60000 - expectedMs) < 0.01
+              )
+            }),
+          'Concurrent time calculation consistency'
+        )
+      })
+    )
+
+    it.effect('should maintain thread safety for arithmetic operations', () =>
+      Effect.gen(function* () {
+        const baseTime = yield* TimeVo.create(1000)
+
+        const concurrentArithmetic = Array.from({ length: 50 }, (_, i) =>
+          Effect.sync(() => {
+            const operand = i * 100 + 100 // 100, 200, 300, ..., 5000
+            if (operand <= 299000) {
+              // 1000 + operand <= 300000
+              const operandTime = Effect.runSync(TimeVo.create(operand))
+              return {
+                addition: Effect.runSync(TimeVo.add(baseTime, operandTime)),
+                subtraction: Effect.runSync(TimeVo.subtract(operandTime, baseTime)),
+                multiplication: Effect.runSync(TimeVo.multiply(baseTime, Math.floor(operand / 1000))),
+              }
+            } else {
+              return {
+                addition: Effect.either(TimeVo.add(baseTime, TimeVo.unsafe(operand))),
+                subtraction: Effect.either(TimeVo.subtract(TimeVo.unsafe(operand), baseTime)),
+                multiplication: Effect.either(TimeVo.multiply(baseTime, Math.floor(operand / 1000))),
+              }
+            }
+          })
+        )
+
+        const results = yield* Effect.all(concurrentArithmetic, { concurrency: 'unbounded' })
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) =>
+            resultArray.every(
+              (result) =>
+                (TimeVo.isCraftingTime(result.addition) || Effect.isEffect(result.addition)) &&
+                (TimeVo.isCraftingTime(result.subtraction) || Effect.isEffect(result.subtraction)) &&
+                (TimeVo.isCraftingTime(result.multiplication) || Effect.isEffect(result.multiplication))
+            ),
+          'Concurrent arithmetic operation safety'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary values correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { value: 10, valid: true, description: 'minimum time (instant)' },
+          { value: 300000, valid: true, description: 'maximum time (5 minutes)' },
+          { value: 9, valid: false, description: 'below minimum (invalid)' },
+          { value: 300001, valid: false, description: 'above maximum (invalid)' },
+        ]
+
+        for (const test of boundaryTests) {
+          const result = yield* Effect.either(TimeVo.create(test.value))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should handle arithmetic edge cases', () =>
+      Effect.gen(function* () {
+        // 最小値での演算
+        const minTime = yield* TimeVo.create(10)
+        const smallTime = yield* TimeVo.create(100)
+
+        // アンダーフロー
+        const underflowResult = yield* Effect.either(TimeVo.subtract(minTime, smallTime))
+        expect(Either.isLeft(underflowResult)).toBe(true)
+
+        // 最大値での演算
+        const maxTime = yield* TimeVo.create(300000)
+        const addResult = yield* Effect.either(TimeVo.add(maxTime, smallTime))
+        expect(Either.isLeft(addResult)).toBe(true)
+
+        yield* assertPropertyHolds(
+          { underflowResult, addResult },
+          ({ underflowResult, addResult }) => Either.isLeft(underflowResult) && Either.isLeft(addResult),
+          'Arithmetic boundary edge cases'
+        )
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          {
+            operation: () => TimeVo.create(5),
+            expectedError: 'InvalidCraftingTimeError',
+            description: 'too short time creation',
+          },
+          {
+            operation: () => TimeVo.create(400000),
+            expectedError: 'InvalidCraftingTimeError',
+            description: 'too long time creation',
+          },
+          {
+            operation: () =>
+              Effect.gen(function* () {
+                const time1 = yield* TimeVo.create(200000)
+                const time2 = yield* TimeVo.create(150000)
+                return yield* TimeVo.add(time1, time2)
+              }),
+            expectedError: 'CraftingTimeOverflowError',
+            description: 'addition overflow',
+          },
+          {
+            operation: () =>
+              Effect.gen(function* () {
+                const time1 = yield* TimeVo.create(100)
+                const time2 = yield* TimeVo.create(500)
+                return yield* TimeVo.subtract(time1, time2)
+              }),
+            expectedError: 'CraftingTimeUnderflowError',
+            description: 'subtraction underflow',
+          },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(test.operation())
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.constructor.name).toBe(test.expectedError)
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume time operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 100 // 100ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const ms = (i % 290000) + 10 // 10-290009
+            const time = Effect.runSync(TimeVo.create(ms))
+
+            return {
+              time,
+              seconds: TimeVo.toSeconds(time),
+              minutes: TimeVo.toMinutes(time),
+              humanReadable: TimeVo.toHumanReadable(time),
+              progress: TimeVo.calculateProgress(time, TimeVo.unsafe(300000)),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

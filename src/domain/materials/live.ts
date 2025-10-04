@@ -1,366 +1,239 @@
-import { Array, Duration, Effect, HashMap, Layer, Option, pipe } from 'effect'
-import type {
-  BlastResistance,
+import { Clock, Duration, Effect, Either, HashMap, Layer, Match, Option, pipe } from 'effect'
+import * as Array_ from 'effect/Array'
+import { burnTimeByItemId, getEfficiencyKey, toolEfficiencyByKey } from './catalog'
+import { ensureFortuneLevel, getToolHarvestLevel } from './helper'
+import { MaterialRepository, MaterialRepositoryLayer } from './repository'
+import type { MaterialService as MaterialServiceInterface } from './service'
+import { MaterialService as MaterialServiceTag } from './service'
+import {
   BlockId,
   BurnTime,
-  Hardness,
+  FortuneLevel,
   ItemId,
+  ItemStack,
   Material,
-  MaterialCategory,
-  MaterialId,
-  MiningSpeed,
+  MaterialError,
   Tool,
-  ToolType,
+  MaterialEvent as MaterialEventConstructor,
 } from './types'
-import { MaterialNotFoundError } from './types'
-import { MaterialService } from './service'
-import { getToolHarvestLevel, blockIdToItemId } from './helper'
 
-const makeMaterialService = Effect.gen(function* () {
-  // マテリアルデータベース
-  const materials = HashMap.make(
-    [
-      'stone' as BlockId,
-      {
-        id: 'stone' as MaterialId,
-        category: 'stone' as MaterialCategory,
-        hardness: 1.5 as Hardness,
-        blastResistance: 6 as BlastResistance,
-        isFlammable: false,
-        requiresTool: true,
-        preferredTool: 'pickaxe' as ToolType,
-        harvestLevel: 0,
-        drops: [{ itemId: 'cobblestone' as ItemId, amount: 1 }],
-        luminance: 0,
-      },
-    ],
-    [
-      'wood' as BlockId,
-      {
-        id: 'wood' as MaterialId,
-        category: 'wood' as MaterialCategory,
-        hardness: 2 as Hardness,
-        blastResistance: 3 as BlastResistance,
-        isFlammable: true,
-        burnTime: 300 as BurnTime,
-        requiresTool: false,
-        preferredTool: 'axe' as ToolType,
-        harvestLevel: 0,
-        drops: [{ itemId: 'wood' as ItemId, amount: 1 }],
-        luminance: 0,
-      },
-    ],
-    [
-      'diamond_ore' as BlockId,
-      {
-        id: 'diamond_ore' as MaterialId,
-        category: 'stone' as MaterialCategory,
-        hardness: 3 as Hardness,
-        blastResistance: 3 as BlastResistance,
-        isFlammable: false,
-        requiresTool: true,
-        preferredTool: 'pickaxe' as ToolType,
-        harvestLevel: 2, // Iron pickaxe required
-        drops: [{ itemId: 'diamond' as ItemId, amount: 1 }],
-        luminance: 0,
-      },
-    ],
-    [
-      'obsidian' as BlockId,
-      {
-        id: 'obsidian' as MaterialId,
-        category: 'stone' as MaterialCategory,
-        hardness: 50 as Hardness,
-        blastResistance: 1200 as BlastResistance,
-        isFlammable: false,
-        requiresTool: true,
-        preferredTool: 'pickaxe' as ToolType,
-        harvestLevel: 3, // Diamond pickaxe required
-        drops: [{ itemId: 'obsidian' as ItemId, amount: 1 }],
-        luminance: 0,
-      },
-    ],
-    [
-      'sand' as BlockId,
-      {
-        id: 'sand' as MaterialId,
-        category: 'sand' as MaterialCategory,
-        hardness: 0.5 as Hardness,
-        blastResistance: 0.5 as BlastResistance,
-        isFlammable: false,
-        requiresTool: false,
-        preferredTool: 'shovel' as ToolType,
-        harvestLevel: 0,
-        drops: [{ itemId: 'sand' as ItemId, amount: 1 }],
-        luminance: 0,
-      },
-    ],
-    [
-      'leaves' as BlockId,
-      {
-        id: 'leaves' as MaterialId,
-        category: 'leaves' as MaterialCategory,
-        hardness: 0.2 as Hardness,
-        blastResistance: 0.2 as BlastResistance,
-        isFlammable: true,
-        burnTime: 100 as BurnTime,
-        requiresTool: false,
-        preferredTool: 'shears' as ToolType,
-        harvestLevel: 0,
-        drops: [], // 通常は何もドロップしない
-        luminance: 0,
-      },
-    ]
-  )
-
-  // ツール効率マトリックス
-  const toolEfficiencyMatrix = HashMap.make(
-    [
-      'pickaxe:diamond:stone',
-      {
-        toolType: 'pickaxe',
-        toolMaterial: 'diamond',
-        targetMaterial: 'stone',
-        speedMultiplier: 8 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'pickaxe:iron:stone',
-      {
-        toolType: 'pickaxe',
-        toolMaterial: 'iron',
-        targetMaterial: 'stone',
-        speedMultiplier: 6 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'pickaxe:stone:stone',
-      {
-        toolType: 'pickaxe',
-        toolMaterial: 'stone',
-        targetMaterial: 'stone',
-        speedMultiplier: 4 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'pickaxe:wood:stone',
-      {
-        toolType: 'pickaxe',
-        toolMaterial: 'wood',
-        targetMaterial: 'stone',
-        speedMultiplier: 2 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'axe:diamond:wood',
-      {
-        toolType: 'axe',
-        toolMaterial: 'diamond',
-        targetMaterial: 'wood',
-        speedMultiplier: 8 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'axe:iron:wood',
-      {
-        toolType: 'axe',
-        toolMaterial: 'iron',
-        targetMaterial: 'wood',
-        speedMultiplier: 6 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'axe:stone:wood',
-      {
-        toolType: 'axe',
-        toolMaterial: 'stone',
-        targetMaterial: 'wood',
-        speedMultiplier: 4 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'axe:wood:wood',
-      {
-        toolType: 'axe',
-        toolMaterial: 'wood',
-        targetMaterial: 'wood',
-        speedMultiplier: 2 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'shovel:diamond:sand',
-      {
-        toolType: 'shovel',
-        toolMaterial: 'diamond',
-        targetMaterial: 'sand',
-        speedMultiplier: 8 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'shovel:iron:sand',
-      {
-        toolType: 'shovel',
-        toolMaterial: 'iron',
-        targetMaterial: 'sand',
-        speedMultiplier: 6 as MiningSpeed,
-        canHarvest: true,
-      },
-    ],
-    [
-      'shears:iron:leaves',
-      {
-        toolType: 'shears',
-        toolMaterial: 'iron',
-        targetMaterial: 'leaves',
-        speedMultiplier: 15 as MiningSpeed, // シアーズは非常に速い
-        canHarvest: true,
-      },
-    ]
-  )
-
-  const getMaterial = (blockId: BlockId) =>
-    Effect.gen(function* () {
-      const material = HashMap.get(materials, blockId)
-      if (Option.isNone(material)) {
-        return yield* Effect.fail(new MaterialNotFoundError({ blockId }))
-      }
-      return material.value
-    })
-
-  const calculateMiningTime = (material: Material, tool: Option.Option<Tool>) =>
-    Effect.gen(function* () {
-      const baseTime = material.hardness * 1.5 // 秒
-
-      // ツールなしの場合
-      if (Option.isNone(tool)) {
-        // 素手での採掘
-        const canMineByHand = !material.requiresTool
-        if (!canMineByHand) {
-          return Duration.infinity
-        }
-        return Duration.seconds(baseTime * 5)
-      }
-
-      const actualTool = tool.value
-
-      // ツール効率の取得
-      const efficiencyKey = `${actualTool.type}:${actualTool.material}:${material.category}`
-      const efficiency = HashMap.get(toolEfficiencyMatrix, efficiencyKey)
-
-      const speedMultiplier = pipe(
-        efficiency,
-        Option.map((e) => e.speedMultiplier),
-        Option.getOrElse(() => 1 as MiningSpeed)
-      )
-
-      // エンチャント効果の適用
-      const efficiencyEnchantLevel = pipe(
-        actualTool.enchantments,
-        Array.findFirst((e: any) => e.type === 'efficiency'),
-        Option.map((e: any) => e.level),
-        Option.getOrElse(() => 0)
-      )
-
-      const enchantmentBonus = 1 + efficiencyEnchantLevel * 0.3
-
-      const finalTime = baseTime / (speedMultiplier * enchantmentBonus)
-      return Duration.seconds(finalTime)
-    })
-
-  const getDrops = (material: Material, tool: Option.Option<Tool>, fortuneLevel: number) =>
-    Effect.gen(function* () {
-      // 適切なツールでない場合
-      const canHarvestResult = yield* canHarvest(material, tool)
-      if (!canHarvestResult) {
-        return []
-      }
-
-      // 基本ドロップ
-      const baseDrops = material.drops
-
-      // Silk Touch エンチャントの適用
-      const hasSilkTouch = pipe(
-        tool,
-        Option.flatMap((t) => Array.findFirst(t.enchantments, (e: any) => e.type === 'silk_touch')),
-        Option.isSome
-      )
-
-      if (hasSilkTouch) {
-        return [{ itemId: blockIdToItemId(material.id as unknown as BlockId), amount: 1 }]
-      }
-
-      // Fortune エンチャントの適用
-      if (fortuneLevel > 0 && material.category !== 'stone') {
-        return pipe(
-          baseDrops,
-          Array.map((stack: any) => {
-            const bonusChance = fortuneLevel * 0.33
-            const multiplier = Math.random() < bonusChance ? 2 : 1
-            return { itemId: stack.itemId, amount: stack.amount * multiplier }
-          })
-        )
-      }
-
-      return baseDrops
-    })
-
-  const canHarvest = (material: Material, tool: Option.Option<Tool>) =>
-    Effect.gen(function* () {
-      // ツールが必要ない場合
-      if (!material.requiresTool) {
-        return true
-      }
-
-      // ツールなしの場合
-      if (Option.isNone(tool)) {
-        return false
-      }
-
-      const actualTool = tool.value
-
-      // 適切なツールタイプか確認
-      if (material.preferredTool && actualTool.type !== material.preferredTool) {
-        return false
-      }
-
-      // ハーベストレベルの確認
-      const toolLevel = getToolHarvestLevel(actualTool.material)
-      return toolLevel >= material.harvestLevel
-    })
-
-  const getBurnTime = (itemId: ItemId) =>
-    Effect.gen(function* () {
-      // アイテムに対応するマテリアルを検索
-      const material = yield* Effect.succeed(
+const ensureToolPresence = (
+  material: Material,
+  maybeTool: Option.Option<Tool>
+): Either.Either<MaterialError, Option.Option<Tool>> =>
+  pipe(
+    maybeTool,
+    Option.match({
+      onNone: () =>
         pipe(
-          HashMap.values(materials),
-          Array.fromIterable,
-          Array.findFirst((m: Material) => m.drops.some((drop: any) => drop.itemId === itemId))
-        )
-      )
+          Match.value(material.tool.required),
+          Match.when(true, () => Either.left(MaterialError.ToolRequired({ blockId: material.blockId }))),
+          Match.orElse(() => Either.right(Option.none<Tool>()))
+        ),
+      onSome: (tool) => Either.right(Option.some(tool)),
+    })
+  )
 
-      return pipe(
-        material,
-        Option.flatMap((m: Material) => Option.fromNullable(m.burnTime))
+const ensureHarvestLevel = (material: Material, tool: Tool): Either.Either<MaterialError, Tool> => {
+  const level = getToolHarvestLevel(tool.material)
+  return pipe(
+    Match.value(level >= material.tool.minimumLevel),
+    Match.when(true, () => Either.right(tool)),
+    Match.orElse(() =>
+      Either.left(
+        MaterialError.HarvestLevelInsufficient({
+          blockId: material.blockId,
+          requiredLevel: material.tool.minimumLevel,
+          toolLevel: level,
+        })
       )
+    )
+  )
+}
+
+const ensureToolType = (material: Material, tool: Tool): Either.Either<MaterialError, Tool> =>
+  pipe(
+    material.tool.preferredTypes,
+    Array_.some((preferred) => preferred === tool.type),
+    Match.value,
+    Match.when(true, () => Either.right(tool)),
+    Match.orElse(() =>
+      Either.left(
+        MaterialError.ToolMismatch({
+          blockId: material.blockId,
+          expected: material.tool.preferredTypes,
+          actual: tool.type,
+        })
+      )
+    )
+  )
+
+const validateTool = (
+  material: Material,
+  maybeTool: Option.Option<Tool>
+): Either.Either<MaterialError, Option.Option<Tool>> =>
+  pipe(
+    ensureToolPresence(material, maybeTool),
+    Either.flatMap((present) =>
+      pipe(
+        present,
+        Option.match({
+          onNone: () => Either.right<Option.Option<Tool>>(Option.none()),
+          onSome: (tool) =>
+            pipe(
+              ensureHarvestLevel(material, tool),
+              Either.flatMap((validTool) => ensureToolType(material, validTool)),
+              Either.map((validTool) => Option.some(validTool))
+            )
+        })
+      )
+    )
+  )
+
+const computeToolEfficiency = (material: Material, tool: Option.Option<Tool>): number =>
+  pipe(
+    tool,
+    Option.match({
+      onNone: () => 1,
+      onSome: (provided) =>
+        pipe(
+          HashMap.get(toolEfficiencyByKey, getEfficiencyKey(provided.type, provided.material, material.category)),
+          Option.match({
+            onNone: () => 1,
+            onSome: (efficiency) => efficiency.speedMultiplier,
+          })
+        ),
+    })
+  )
+
+const computeEnchantmentMultiplier = (tool: Option.Option<Tool>): number =>
+  pipe(
+    tool,
+    Option.map((provided) => pipe(provided.enchantments, Array_.filter((enchantment) => enchantment.type === 'efficiency'), Array_.reduce(1, (accumulator, enchantment) => accumulator + enchantment.level * 0.3))),
+    Option.getOrElse(() => 1)
+  )
+
+const computeSpeed = (material: Material, tool: Option.Option<Tool>): number =>
+  computeToolEfficiency(material, tool) * computeEnchantmentMultiplier(tool)
+
+const miningDurationFor = (material: Material, tool: Option.Option<Tool>): Duration.Duration =>
+  pipe(
+    computeSpeed(material, tool),
+    (speed) =>
+      pipe(
+        Match.value(speed <= 0),
+        Match.when(true, () => Duration.infinity),
+        Match.orElse(() => Duration.millis((material.hardness * 1.5) / speed * 50))
+      )
+  )
+
+const hasSilkTouch = (tool: Option.Option<Tool>): boolean =>
+  pipe(
+    tool,
+    Option.exists((provided) => pipe(provided.enchantments, Array_.some((enchantment) => enchantment.type === 'silk_touch')))
+  )
+
+const silkTouchDrops = (material: Material): ReadonlyArray.ReadonlyArray<ItemStack> => [
+  { itemId: material.defaultItemId, amount: 1 },
+]
+
+const applyFortune = (
+  drops: ReadonlyArray.ReadonlyArray<ItemStack>,
+  fortune: FortuneLevel,
+  material: Material
+): ReadonlyArray.ReadonlyArray<ItemStack> =>
+  pipe(
+    Array_.some(material.tags, (tag) => tag === 'ore') && fortune > 0,
+    Match.value,
+    Match.when(true, () =>
+      pipe(drops, Array_.map((drop) => ({ itemId: drop.itemId, amount: Math.max(1, drop.amount * (fortune + 1)) })))
+    ),
+    Match.orElse(() => drops)
+  )
+
+const computeDrops = (
+  material: Material,
+  tool: Option.Option<Tool>,
+  fortune: FortuneLevel
+): ReadonlyArray.ReadonlyArray<ItemStack> =>
+  pipe(
+    hasSilkTouch(tool),
+    Match.value,
+    Match.when(true, () => silkTouchDrops(material)),
+    Match.orElse(() => applyFortune(material.drops, fortune, material))
+  )
+
+const burnTimeFor = (itemId: ItemId): Option.Option<BurnTime> => HashMap.get(burnTimeByItemId, itemId)
+
+const fromEither = <E, A>(either: Either.Either<E, A>): Effect.Effect<A, E> =>
+  pipe(
+    either,
+    Either.match({
+      onLeft: (error) => Effect.fail(error),
+      onRight: (value) => Effect.succeed(value),
+    })
+  )
+
+const makeService = Effect.gen(function* () {
+  const repository = yield* MaterialRepository
+
+  const getMaterial: MaterialServiceInterface['getMaterial'] = (blockId) => repository.getByBlockId(blockId)
+
+  const canHarvest: MaterialServiceInterface['canHarvest'] = (material, tool) =>
+    pipe(
+      validateTool(material, tool),
+      Either.match({
+        onLeft: () => false,
+        onRight: () => true,
+      }),
+      Effect.succeed
+    )
+
+  const miningTime: MaterialServiceInterface['miningTime'] = (material, tool) =>
+    pipe(
+      validateTool(material, tool),
+      Either.match({
+        onLeft: () => Duration.infinity,
+        onRight: (validated) => miningDurationFor(material, validated),
+      }),
+      Effect.succeed
+    )
+
+  const drops: MaterialServiceInterface['drops'] = (material, tool, fortuneInput) =>
+    Effect.gen(function* () {
+      const fortune = yield* fromEither(ensureFortuneLevel(fortuneInput))
+      const validatedTool = yield* fromEither(validateTool(material, tool))
+      return computeDrops(material, validatedTool, fortune)
     })
 
-  return MaterialService.of({
+  const burnTime: MaterialServiceInterface['burnTime'] = (itemId) => Effect.succeed(burnTimeFor(itemId))
+
+  const harvest: MaterialServiceInterface['harvest'] = (blockId, tool, fortuneInput) =>
+    Effect.gen(function* () {
+      const material = yield* getMaterial(blockId)
+      const fortune = yield* fromEither(ensureFortuneLevel(fortuneInput))
+      const validatedTool = yield* fromEither(validateTool(material, tool))
+      const harvestedDrops = computeDrops(material, validatedTool, fortune)
+      const timestamp = yield* Clock.currentTimeMillis
+      return MaterialEventConstructor.Harvested({
+        blockId: material.blockId,
+        drops: harvestedDrops,
+        timestampMillis: timestamp,
+      })
+    })
+
+  const service: MaterialServiceInterface = {
     getMaterial,
-    calculateMiningTime,
-    getDrops,
     canHarvest,
-    getBurnTime,
-  })
+    miningTime,
+    drops,
+    burnTime,
+    harvest,
+  }
+
+  return service
 })
 
-export const MaterialServiceLive = Layer.effect(MaterialService, makeMaterialService)
+export const MaterialServiceLayer = Layer.effect(MaterialServiceTag, makeService).pipe(
+  Layer.provide(MaterialRepositoryLayer)
+)

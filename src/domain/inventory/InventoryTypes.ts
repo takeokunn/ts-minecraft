@@ -1,120 +1,170 @@
-/**
- * InventoryTypes - Schema definitions for inventory management
- *
- * Provides type-safe schema definitions for items, stacks, and inventory
- * using Effect-TS Schema for runtime validation
- */
-
 import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
 
-// Brand types for type safety
-export type ItemId = string & Brand.Brand<'ItemId'>
-export const ItemId = Brand.nominal<ItemId>()
+export const PlayerIdSchema = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.brand('PlayerId')
+)
+export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+export const PlayerId = (value: string): PlayerId =>
+  Schema.decodeUnknownSync(PlayerIdSchema)(value)
 
-export type PlayerId = string & Brand.Brand<'PlayerId'>
-export const PlayerId = Brand.nominal<PlayerId>()
+export const ItemIdSchema = Schema.String.pipe(
+  Schema.pattern(/^[a-z0-9_:-]+$/i),
+  Schema.brand('ItemId')
+)
+export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+export const ItemId = (value: string): ItemId =>
+  Schema.decodeUnknownSync(ItemIdSchema)(value)
 
-// Item metadata schema (ReadonlyArray migration)
-export const ItemMetadata = Schema.Struct({
+export const ItemMetadataSchema = Schema.Struct({
+  durability: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
   enchantments: Schema.optional(
     Schema.Array(
       Schema.Struct({
         id: Schema.String,
-        level: Schema.Number.pipe(Schema.between(1, 5)),
+        level: Schema.Number.pipe(Schema.int(), Schema.positive()),
       })
     )
   ),
   customName: Schema.optional(Schema.String),
   lore: Schema.optional(Schema.Array(Schema.String)),
-  damage: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
-  durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1000))),
 })
-export type ItemMetadata = Schema.Schema.Type<typeof ItemMetadata>
+export type ItemMetadata = Schema.Schema.Type<typeof ItemMetadataSchema>
 
-// ItemStack schema
-export const ItemStack = Schema.Struct({
-  itemId: Schema.String.pipe(Schema.fromBrand(ItemId)),
-  count: Schema.Number.pipe(Schema.between(1, 64)),
-  metadata: Schema.optional(ItemMetadata),
-  durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
+export const ItemStackSchema = Schema.Struct({
+  itemId: ItemIdSchema,
+  count: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  metadata: Schema.optional(ItemMetadataSchema),
 })
-export type ItemStack = Schema.Schema.Type<typeof ItemStack>
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 
-// Inventory schema with 36 slots (ReadonlyArray migration)
-export const Inventory = Schema.Struct({
-  playerId: Schema.String.pipe(Schema.fromBrand(PlayerId)),
-  slots: Schema.Array(Schema.Union(Schema.Null, ItemStack)).pipe(Schema.minItems(36), Schema.maxItems(36)),
-  hotbar: Schema.Array(Schema.Number.pipe(Schema.between(0, 35))).pipe(Schema.minItems(9), Schema.maxItems(9)), // インデックス参照
+export interface ArmorSlots {
+  readonly helmet: ItemStack | null
+  readonly chestplate: ItemStack | null
+  readonly leggings: ItemStack | null
+  readonly boots: ItemStack | null
+}
+
+export interface InventoryMetadata {
+  readonly lastUpdated: number
+  readonly checksum: string
+}
+
+export interface Inventory {
+  readonly id: string
+  readonly playerId: PlayerId
+  readonly slots: ReadonlyArray<ItemStack | null>
+  readonly hotbar: ReadonlyArray<number>
+  readonly selectedSlot: number
+  readonly armor: ArmorSlots
+  readonly offhand: ItemStack | null
+  readonly version: number
+  readonly metadata: InventoryMetadata
+}
+
+export interface InventoryState {
+  readonly inventory: Inventory
+  readonly persistedAt: number
+}
+
+export const InventorySchema: Schema.Schema<Inventory> = Schema.Struct({
+  id: Schema.String,
+  playerId: PlayerIdSchema,
+  slots: Schema.Array(Schema.Union(ItemStackSchema, Schema.Null)).pipe(
+    Schema.minItems(36),
+    Schema.maxItems(36)
+  ),
+  hotbar: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.between(0, 35))).pipe(
+    Schema.minItems(9),
+    Schema.maxItems(9)
+  ),
+  selectedSlot: Schema.Number.pipe(Schema.int(), Schema.between(0, 8)),
   armor: Schema.Struct({
-    helmet: Schema.Union(Schema.Null, ItemStack),
-    chestplate: Schema.Union(Schema.Null, ItemStack),
-    leggings: Schema.Union(Schema.Null, ItemStack),
-    boots: Schema.Union(Schema.Null, ItemStack),
+    helmet: Schema.Union(ItemStackSchema, Schema.Null),
+    chestplate: Schema.Union(ItemStackSchema, Schema.Null),
+    leggings: Schema.Union(ItemStackSchema, Schema.Null),
+    boots: Schema.Union(ItemStackSchema, Schema.Null),
   }),
-  offhand: Schema.Union(Schema.Null, ItemStack),
-  selectedSlot: Schema.Number.pipe(Schema.between(0, 8)),
-})
-export type Inventory = Schema.Schema.Type<typeof Inventory>
-
-// Add item result (ReadonlyArray migration)
-export const AddItemResult = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal('success'),
-    remainingItems: Schema.Number,
-    affectedSlots: Schema.Array(Schema.Number),
+  offhand: Schema.Union(ItemStackSchema, Schema.Null),
+  version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  metadata: Schema.Struct({
+    lastUpdated: Schema.Number,
+    checksum: Schema.String,
   }),
-  Schema.Struct({
-    _tag: Schema.Literal('partial'),
-    addedItems: Schema.Number,
-    remainingItems: Schema.Number,
-    affectedSlots: Schema.Array(Schema.Number),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('full'),
-    message: Schema.String,
-  })
-)
-export type AddItemResult = Schema.Schema.Type<typeof AddItemResult>
-
-// Inventory state for persistence
-export const InventoryState = Schema.Struct({
-  inventory: Inventory,
-  lastModified: Schema.Number,
-  version: Schema.String,
-})
-export type InventoryState = Schema.Schema.Type<typeof InventoryState>
-
-// Error types
-export const InventoryErrorReason = Schema.Literal(
-  'INVENTORY_NOT_FOUND',
-  'INVALID_SLOT_INDEX',
-  'INVALID_ITEM_COUNT',
-  'SLOT_OCCUPIED',
-  'INSUFFICIENT_ITEMS',
-  'INVENTORY_FULL',
-  'INVALID_STACK_SIZE',
-  'ITEM_NOT_STACKABLE'
-)
-export type InventoryErrorReason = Schema.Schema.Type<typeof InventoryErrorReason>
-
-// Default inventory factory
-export const createEmptyInventory = (playerId: PlayerId): Inventory => ({
-  playerId,
-  slots: Array(36).fill(null),
-  hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-  armor: {
-    helmet: null,
-    chestplate: null,
-    leggings: null,
-    boots: null,
-  },
-  offhand: null,
-  selectedSlot: 0,
 })
 
-// Validation helpers
-export const validateItemStack = Schema.decodeUnknown(ItemStack)
-export const validateInventory = Schema.decodeUnknown(Inventory)
-export const validateAddItemResult = Schema.decodeUnknown(AddItemResult)
-export const validateInventoryState = Schema.decodeUnknown(InventoryState)
+export const InventoryStateSchema: Schema.Schema<InventoryState> = Schema.Struct({
+  inventory: InventorySchema,
+  persistedAt: Schema.Number,
+})
+
+const createEmptyArmor = (): ArmorSlots => ({
+  helmet: null,
+  chestplate: null,
+  leggings: null,
+  boots: null,
+})
+
+const DEFAULT_SLOT_COUNT = 36
+const DEFAULT_HOTBAR_SIZE = 9
+
+const serializeInventory = (inventory: Inventory) => ({
+  playerId: inventory.playerId,
+  slots: inventory.slots,
+  hotbar: inventory.hotbar,
+  selectedSlot: inventory.selectedSlot,
+  armor: inventory.armor,
+  offhand: inventory.offhand,
+  version: inventory.version,
+})
+
+export const computeChecksum = (inventory: Inventory): string => {
+  const json = JSON.stringify(serializeInventory(inventory))
+  let hash = 0
+  for (let i = 0; i < json.length; i += 1) {
+    hash = (hash * 31 + json.charCodeAt(i)) >>> 0
+  }
+  return hash.toString(16)
+}
+
+export const createEmptyInventory = (playerId: PlayerId): Inventory => {
+  const base: Inventory = {
+    id: `inventory-${playerId}`,
+    playerId,
+    slots: Array.from({ length: DEFAULT_SLOT_COUNT }, () => null as ItemStack | null),
+    hotbar: Array.from({ length: DEFAULT_HOTBAR_SIZE }, (_, index) => index),
+    selectedSlot: 0,
+    armor: createEmptyArmor(),
+    offhand: null,
+    version: 0,
+    metadata: {
+      lastUpdated: Date.now(),
+      checksum: '',
+    },
+  }
+
+  return {
+    ...base,
+    metadata: {
+      lastUpdated: base.metadata.lastUpdated,
+      checksum: computeChecksum(base),
+    },
+  }
+}
+
+export const touchInventory = (inventory: Inventory): Inventory => {
+  const updated: Inventory = {
+    ...inventory,
+    version: inventory.version + 1,
+  }
+
+  return {
+    ...updated,
+    metadata: {
+      lastUpdated: Date.now(),
+      checksum: computeChecksum(updated),
+    },
+  }
+}
+
+export const validateInventoryState = Schema.decodeUnknown(InventoryStateSchema)

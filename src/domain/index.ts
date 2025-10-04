@@ -21,45 +21,29 @@ export * from './player'
 // Block System Domain
 export * from './block'
 
-// Chunk System Domain - selective exports to avoid conflicts
-export {
-  CHUNK_HEIGHT,
-  CHUNK_MAX_Y,
-  CHUNK_MIN_Y,
-  // ChunkData exports
-  CHUNK_SIZE,
-  CHUNK_VOLUME,
-  // Chunk interface exports
-  ChunkBoundsError,
-  ChunkMetadataSchema,
-  // ChunkPosition exports
-  ChunkPositionSchema,
-  ChunkSerializationError,
-  blockToChunkCoords,
-  chunkIdToPosition,
-  chunkPositionDistance,
-  chunkPositionEquals,
-  chunkPositionToId,
-  chunkToBlockCoords,
-  createChunk,
-  createChunkData,
-  getBlockCoords,
-  getBlockIndex,
-  getHeight,
-  getMemoryUsage,
-  isEmpty,
-  resetChunkData,
-  // Note: getBlock is excluded to avoid conflict with block domain
-  setBlock,
-  updateHeightMap,
-  type Chunk,
-  type ChunkData,
-  type ChunkMetadata,
-  type ChunkPosition,
-} from './chunk'
+// Chunk System Domain - New DDD Structure
+export * from './chunk/aggregate'
+export * from './chunk/application_service'
+export * from './chunk/domain_service'
+export * from './chunk/factory'
+export * from './chunk/repository'
+export * from './chunk/types'
+export * from './chunk/value_object'
+
+// 後方互換性のための型エイリアス
+export type { ChunkDataAggregate as ChunkData, ChunkId, ChunkPosition } from './chunk'
+
+// Layer統合エクスポート
+export { ChunkApplicationServiceLive, ChunkDomainLive, ChunkDomainServiceLive } from './chunk'
 
 // World Generation Domain
 export * from './world'
 
 // Combat System Domain
 export * from './combat'
+
+// Agriculture System Domain - Temporarily disabled for chunk_loader integration
+// export * from './agriculture'
+
+// Chunk Loader Domain - New DDD Structure
+export * from './chunk_loader'

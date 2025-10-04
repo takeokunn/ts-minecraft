@@ -1,131 +1,181 @@
-/**
- * InventoryService - Main inventory management service interface
- *
- * Provides comprehensive inventory operations including item management,
- * slot operations, and inventory state persistence
- */
-
 import { Context, Effect } from 'effect'
-import { AddItemResult, Inventory, InventoryErrorReason, InventoryState, ItemStack, PlayerId } from './InventoryTypes'
+import type {
+  ArmorSlots,
+  Inventory,
+  InventoryState,
+  ItemId,
+  ItemStack,
+  PlayerId,
+} from './InventoryTypes'
+import type { ItemRegistryError } from './ItemRegistry'
 
-// Error definition
-export class InventoryError extends Error {
-  readonly _tag = 'InventoryError'
-  constructor(
-    readonly reason: InventoryErrorReason,
-    readonly playerId?: PlayerId,
-    readonly details?: unknown
-  ) {
-    super(`Inventory error: ${reason}`)
-  }
+export type AddItemResult =
+  | {
+      readonly _tag: 'success'
+      readonly addedItems: number
+      readonly remainingItems: number
+      readonly affectedSlots: ReadonlyArray<number>
+    }
+  | {
+      readonly _tag: 'partial'
+      readonly addedItems: number
+      readonly remainingItems: number
+      readonly affectedSlots: ReadonlyArray<number>
+    }
+  | {
+      readonly _tag: 'full'
+      readonly addedItems: number
+      readonly remainingItems: number
+      readonly affectedSlots: ReadonlyArray<number>
+    }
+
+export type InventoryServiceError =
+  | { readonly _tag: 'InvalidSlotIndex'; readonly slotIndex: number }
+  | { readonly _tag: 'InvalidHotbarIndex'; readonly hotbarIndex: number }
+  | { readonly _tag: 'SlotOccupied'; readonly slotIndex: number }
+  | { readonly _tag: 'DifferentItemKind'; readonly sourceSlot: number; readonly targetSlot: number }
+  | { readonly _tag: 'InsufficientQuantity'; readonly slotIndex: number; readonly requested: number; readonly available: number }
+  | { readonly _tag: 'SplitTargetMustBeCompatible'; readonly sourceSlot: number; readonly targetSlot: number }
+  | { readonly _tag: 'InventoryStateValidationFailed'; readonly reason: unknown }
+
+export const InventoryServiceError = {
+  invalidSlotIndex: (slotIndex: number): InventoryServiceError => ({ _tag: 'InvalidSlotIndex', slotIndex }),
+  invalidHotbarIndex: (hotbarIndex: number): InventoryServiceError => ({ _tag: 'InvalidHotbarIndex', hotbarIndex }),
+  slotOccupied: (slotIndex: number): InventoryServiceError => ({ _tag: 'SlotOccupied', slotIndex }),
+  differentItemKind: (sourceSlot: number, targetSlot: number): InventoryServiceError => ({
+    _tag: 'DifferentItemKind',
+    sourceSlot,
+    targetSlot,
+  }),
+  insufficientQuantity: (slotIndex: number, requested: number, available: number): InventoryServiceError => ({
+    _tag: 'InsufficientQuantity',
+    slotIndex,
+    requested,
+    available,
+  }),
+  splitTargetMustBeCompatible: (sourceSlot: number, targetSlot: number): InventoryServiceError => ({
+    _tag: 'SplitTargetMustBeCompatible',
+    sourceSlot,
+    targetSlot,
+  }),
+  inventoryStateValidationFailed: (reason: unknown): InventoryServiceError => ({
+    _tag: 'InventoryStateValidationFailed',
+    reason,
+  }),
+} as const
+
+export interface InventoryService {
+  readonly createInventory: (playerId: PlayerId) => Effect.Effect<Inventory>
+  readonly getInventory: (playerId: PlayerId) => Effect.Effect<Inventory>
+  readonly getInventoryState: (playerId: PlayerId) => Effect.Effect<InventoryState>
+  readonly loadInventoryState: (
+    state: InventoryState
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly addItem: (
+    playerId: PlayerId,
+    item: ItemStack
+  ) => Effect.Effect<AddItemResult, InventoryServiceError | ItemRegistryError>
+  readonly setSlotItem: (
+    playerId: PlayerId,
+    slotIndex: number,
+    item: ItemStack | null
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly getSlotItem: (
+    playerId: PlayerId,
+    slotIndex: number
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly removeItem: (
+    playerId: PlayerId,
+    slotIndex: number,
+    amount?: number
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly moveItem: (
+    playerId: PlayerId,
+    fromSlot: number,
+    toSlot: number,
+    amount?: number
+  ) => Effect.Effect<void, InventoryServiceError | ItemRegistryError>
+  readonly swapItems: (
+    playerId: PlayerId,
+    firstSlot: number,
+    secondSlot: number
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly splitStack: (
+    playerId: PlayerId,
+    sourceSlot: number,
+    targetSlot: number,
+    amount: number
+  ) => Effect.Effect<void, InventoryServiceError | ItemRegistryError>
+  readonly mergeStacks: (
+    playerId: PlayerId,
+    sourceSlot: number,
+    targetSlot: number
+  ) => Effect.Effect<void, InventoryServiceError | ItemRegistryError>
+  readonly setSelectedSlot: (
+    playerId: PlayerId,
+    hotbarIndex: number
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly getSelectedItem: (
+    playerId: PlayerId
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly getHotbarItem: (
+    playerId: PlayerId,
+    hotbarIndex: number
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly transferToHotbar: (
+    playerId: PlayerId,
+    slotIndex: number,
+    hotbarIndex: number
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly equipArmor: (
+    playerId: PlayerId,
+    slot: keyof ArmorSlots,
+    item: ItemStack | null
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly getArmor: (
+    playerId: PlayerId,
+    slot: keyof ArmorSlots
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly setOffhandItem: (
+    playerId: PlayerId,
+    item: ItemStack | null
+  ) => Effect.Effect<void, InventoryServiceError>
+  readonly getOffhandItem: (
+    playerId: PlayerId
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly getEmptySlotCount: (
+    playerId: PlayerId
+  ) => Effect.Effect<number, InventoryServiceError>
+  readonly getUsedSlotCount: (
+    playerId: PlayerId
+  ) => Effect.Effect<number, InventoryServiceError>
+  readonly findItemSlots: (
+    playerId: PlayerId,
+    itemId: ItemId | string
+  ) => Effect.Effect<ReadonlyArray<number>, InventoryServiceError>
+  readonly countItem: (
+    playerId: PlayerId,
+    itemId: ItemId | string
+  ) => Effect.Effect<number, InventoryServiceError>
+  readonly hasSpaceForItem: (
+    playerId: PlayerId,
+    item: ItemStack
+  ) => Effect.Effect<boolean, InventoryServiceError | ItemRegistryError>
+  readonly sortInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryServiceError>
+  readonly compactInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryServiceError>
+  readonly dropItem: (
+    playerId: PlayerId,
+    slotIndex: number,
+    amount?: number
+  ) => Effect.Effect<ItemStack | null, InventoryServiceError>
+  readonly dropAllItems: (
+    playerId: PlayerId
+  ) => Effect.Effect<ReadonlyArray<ItemStack>, InventoryServiceError>
+  readonly clearInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryServiceError>
 }
 
-// Service interface
-export class InventoryService extends Context.Tag('InventoryService')<
-  InventoryService,
-  {
-    readonly createInventory: (playerId: PlayerId) => Effect.Effect<Inventory, InventoryError>
+export const InventoryService = Context.GenericTag<InventoryService>(
+  '@minecraft/domain/inventory/InventoryService'
+)
 
-    readonly getInventory: (playerId: PlayerId) => Effect.Effect<Inventory, InventoryError>
-
-    readonly addItem: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<AddItemResult, InventoryError>
-
-    readonly removeItem: (
-      playerId: PlayerId,
-      slotIndex: number,
-      amount: number
-    ) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly moveItem: (
-      playerId: PlayerId,
-      fromSlot: number,
-      toSlot: number,
-      amount?: number
-    ) => Effect.Effect<void, InventoryError>
-
-    readonly swapItems: (playerId: PlayerId, slot1: number, slot2: number) => Effect.Effect<void, InventoryError>
-
-    readonly splitStack: (
-      playerId: PlayerId,
-      sourceSlot: number,
-      targetSlot: number,
-      amount: number
-    ) => Effect.Effect<void, InventoryError>
-
-    readonly mergeStacks: (
-      playerId: PlayerId,
-      sourceSlot: number,
-      targetSlot: number
-    ) => Effect.Effect<void, InventoryError>
-
-    readonly getSelectedItem: (playerId: PlayerId) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly setSelectedSlot: (playerId: PlayerId, slotIndex: number) => Effect.Effect<void, InventoryError>
-
-    readonly getSlotItem: (playerId: PlayerId, slotIndex: number) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly setSlotItem: (
-      playerId: PlayerId,
-      slotIndex: number,
-      itemStack: ItemStack | null
-    ) => Effect.Effect<void, InventoryError>
-
-    readonly clearSlot: (playerId: PlayerId, slotIndex: number) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly clearInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryError>
-
-    readonly equipArmor: (
-      playerId: PlayerId,
-      armorType: 'helmet' | 'chestplate' | 'leggings' | 'boots',
-      itemStack: ItemStack | null
-    ) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly getArmor: (
-      playerId: PlayerId,
-      armorType: 'helmet' | 'chestplate' | 'leggings' | 'boots'
-    ) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly setOffhandItem: (
-      playerId: PlayerId,
-      itemStack: ItemStack | null
-    ) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly getOffhandItem: (playerId: PlayerId) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly transferToHotbar: (
-      playerId: PlayerId,
-      sourceSlot: number,
-      hotbarIndex: number
-    ) => Effect.Effect<void, InventoryError>
-
-    readonly getHotbarItem: (playerId: PlayerId, hotbarIndex: number) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly dropItem: (
-      playerId: PlayerId,
-      slotIndex: number,
-      amount?: number
-    ) => Effect.Effect<ItemStack | null, InventoryError>
-
-    readonly dropAllItems: (playerId: PlayerId) => Effect.Effect<ItemStack[], InventoryError>
-
-    readonly getInventoryState: (playerId: PlayerId) => Effect.Effect<InventoryState, InventoryError>
-
-    readonly loadInventoryState: (state: InventoryState) => Effect.Effect<void, InventoryError>
-
-    readonly getEmptySlotCount: (playerId: PlayerId) => Effect.Effect<number, InventoryError>
-
-    readonly getUsedSlotCount: (playerId: PlayerId) => Effect.Effect<number, InventoryError>
-
-    readonly findItemSlots: (playerId: PlayerId, itemId: string) => Effect.Effect<number[], InventoryError>
-
-    readonly countItem: (playerId: PlayerId, itemId: string) => Effect.Effect<number, InventoryError>
-
-    readonly hasSpaceForItem: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<boolean, InventoryError>
-
-    readonly canAddItem: (playerId: PlayerId, itemStack: ItemStack) => Effect.Effect<boolean, InventoryError>
-
-    readonly sortInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryError>
-
-    readonly compactInventory: (playerId: PlayerId) => Effect.Effect<void, InventoryError>
-  }
->() {}
+export type InventoryServiceTag = typeof InventoryService

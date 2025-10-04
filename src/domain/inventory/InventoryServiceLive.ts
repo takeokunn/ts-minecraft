@@ -1,517 +1,702 @@
-/**
- * InventoryServiceLive - Implementation of the InventoryService interface
- *
- * Provides complete inventory management functionality using
- * SlotManager and StackProcessor for operations
- */
+import { Effect, Layer, Ref, pipe } from 'effect'
+import {
+  InventoryService,
+  InventoryServiceError,
+  type AddItemResult,
+} from './InventoryService'
+import {
+  Inventory,
+  InventoryState,
+  InventoryStateSchema,
+  ItemId,
+  ItemIdSchema,
+  ItemStack,
+  PlayerId,
+  computeChecksum,
+  createEmptyInventory,
+  touchInventory,
+} from './InventoryTypes'
+import { ItemRegistry, ItemRegistryError, type ItemDefinition } from './ItemRegistry'
+import { Schema } from '@effect/schema'
 
-import { Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
-import { InventoryError, InventoryService } from './InventoryService'
-import { Inventory, InventoryState, ItemStack, PlayerId, createEmptyInventory } from './InventoryTypes'
-import { ItemRegistry } from './ItemRegistry'
-import { SlotManager } from './SlotManager'
-import { StackProcessor } from './StackProcessor'
+const SLOT_COUNT = 36
+const HOTBAR_SIZE = 9
 
-interface InventoryStore {
-  inventories: HashMap.HashMap<PlayerId, Inventory>
+const normalizeItemId = (itemId: ItemId | string): ItemId =>
+  typeof itemId === 'string' ? Schema.decodeUnknownSync(ItemIdSchema)(itemId) : itemId
+
+const sameStack = (left: ItemStack, right: ItemStack): boolean =>
+  left.itemId === right.itemId &&
+  JSON.stringify(left.metadata ?? null) === JSON.stringify(right.metadata ?? null)
+
+const ensureSlotIndex = (slotIndex: number) =>
+  Effect.try({
+    try: () => {
+      if (Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < SLOT_COUNT) {
+        return slotIndex
+      }
+      throw new Error('invalid slot index')
+    },
+    catch: () => InventoryServiceError.invalidSlotIndex(slotIndex),
+  })
+
+const ensureHotbarIndex = (index: number) =>
+  Effect.try({
+    try: () => {
+      if (Number.isInteger(index) && index >= 0 && index < HOTBAR_SIZE) {
+        return index
+      }
+      throw new Error('invalid hotbar index')
+    },
+    catch: () => InventoryServiceError.invalidHotbarIndex(index),
+  })
+
+const cloneItem = (item: ItemStack): ItemStack => ({
+  itemId: item.itemId,
+  count: item.count,
+  metadata: item.metadata ? { ...item.metadata } : undefined,
+})
+
+const updateInventory = (
+  inventory: Inventory,
+  mutate: (draft: Inventory) => Inventory
+): Inventory => {
+  const mutated = mutate({
+    ...inventory,
+    slots: [...inventory.slots],
+    hotbar: [...inventory.hotbar],
+    armor: {
+      helmet: inventory.armor.helmet ? cloneItem(inventory.armor.helmet) : null,
+      chestplate: inventory.armor.chestplate ? cloneItem(inventory.armor.chestplate) : null,
+      leggings: inventory.armor.leggings ? cloneItem(inventory.armor.leggings) : null,
+      boots: inventory.armor.boots ? cloneItem(inventory.armor.boots) : null,
+    },
+    offhand: inventory.offhand ? cloneItem(inventory.offhand) : null,
+  })
+
+  return touchInventory(mutated)
 }
 
 export const InventoryServiceLive = Layer.effect(
   InventoryService,
   Effect.gen(function* () {
-    const registry = yield* ItemRegistry
+    const itemRegistry = yield* ItemRegistry
+    const stateRef = yield* Ref.make<Map<PlayerId, Inventory>>(new Map())
 
-    // Initialize store
-    let store: InventoryStore = {
-      inventories: HashMap.empty(),
+    const getOrCreateInventory = (playerId: PlayerId) =>
+      Ref.modify(stateRef, (state) => {
+        const existing = state.get(playerId)
+        if (existing) {
+          return [existing, state] as const
+        }
+        const created = createEmptyInventory(playerId)
+        const next = new Map(state)
+        next.set(playerId, created)
+        return [created, next] as const
+      })
+
+    const saveInventory = (inventory: Inventory) =>
+      Ref.update(stateRef, (state) => {
+        const next = new Map(state)
+        next.set(inventory.playerId, inventory)
+        return next
+      })
+
+    const withInventory = <R, E>(
+      playerId: PlayerId,
+      f: (inventory: Inventory) => Effect.Effect<R, E>
+    ): Effect.Effect<R, E> =>
+      Effect.flatMap(getOrCreateInventory(playerId), f)
+
+    const buildAddResult = (
+      original: Inventory,
+      slots: Array<ItemStack | null>,
+      definition: ItemDefinition,
+      item: ItemStack
+    ): { snapshot: Inventory; result: AddItemResult } => {
+      let remaining = item.count
+      let added = 0
+      const touched = new Set<number>()
+
+      const tryStack = (index: number) => {
+        const current = slots[index]
+        if (!current) return
+        if (!sameStack(current, item) || !definition.stackable) return
+        if (current.count >= definition.maxStackSize) return
+        const capacity = definition.maxStackSize - current.count
+        const toAdd = Math.min(capacity, remaining)
+        slots[index] = {
+          ...current,
+          count: current.count + toAdd,
+        }
+        remaining -= toAdd
+        added += toAdd
+        touched.add(index)
+      }
+
+      for (let index = 0; index < SLOT_COUNT && remaining > 0; index += 1) {
+        tryStack(index)
+      }
+
+      for (let index = 0; index < SLOT_COUNT && remaining > 0; index += 1) {
+        if (slots[index] === null) {
+          const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
+          slots[index] = {
+            itemId: item.itemId,
+            count: toPlace,
+            metadata: item.metadata ? { ...item.metadata } : undefined,
+          }
+          remaining -= toPlace
+          added += toPlace
+          touched.add(index)
+        }
+      }
+
+      const result: AddItemResult = added === 0
+        ? {
+            _tag: 'full',
+            addedItems: 0,
+            remainingItems: item.count,
+            affectedSlots: [],
+          }
+        : remaining > 0
+          ? {
+              _tag: 'partial',
+              addedItems: added,
+              remainingItems: remaining,
+              affectedSlots: Array.from(touched.values()).sort((a, b) => a - b),
+            }
+          : {
+              _tag: 'success',
+              addedItems: added,
+              remainingItems: 0,
+              affectedSlots: Array.from(touched.values()).sort((a, b) => a - b),
+            }
+
+      const snapshot = updateInventory(original, (draft) => ({
+        ...draft,
+        slots,
+      }))
+
+      return { snapshot, result }
     }
 
-    // Helper to get or create inventory
-    const getOrCreateInventory = (playerId: PlayerId): Effect.Effect<Inventory, InventoryError> =>
-      Effect.gen(function* () {
-        const existing = HashMap.get(store.inventories, playerId)
-
-        // Transform if statement to Option.match pattern
-        return yield* pipe(
-          existing,
-          Option.match({
-            onSome: (inventory) => Effect.succeed(inventory),
-            onNone: () =>
-              Effect.gen(function* () {
-                const newInventory = createEmptyInventory(playerId)
-                store = {
-                  ...store,
-                  inventories: HashMap.set(store.inventories, playerId, newInventory),
-                }
-                return newInventory
-              }),
-          })
-        )
-      })
-
-    // Helper to update inventory
-    const updateInventory = (playerId: PlayerId, inventory: Inventory): Effect.Effect<void> =>
-      Effect.sync(() => {
-        store = {
-          ...store,
-          inventories: HashMap.set(store.inventories, playerId, inventory),
-        }
-      })
-
-    return {
-      createInventory: (playerId: PlayerId) =>
+    const service: InventoryService = {
+      createInventory: (playerId) =>
         Effect.gen(function* () {
-          const newInventory = createEmptyInventory(playerId)
-          yield* updateInventory(playerId, newInventory)
-          return newInventory
+          const inventory = createEmptyInventory(playerId)
+          yield* saveInventory(inventory)
+          return inventory
         }),
 
-      getInventory: (playerId: PlayerId) => getOrCreateInventory(playerId),
+      getInventory: (playerId) => getOrCreateInventory(playerId),
 
-      addItem: (playerId: PlayerId, itemStack: ItemStack) =>
+      getInventoryState: (playerId) =>
+        withInventory(playerId, (inventory) =>
+          Effect.succeed<InventoryState>({
+            inventory,
+            persistedAt: Date.now(),
+          })
+        ),
+
+      loadInventoryState: (state) =>
+        pipe(
+          Schema.decodeUnknown(InventoryStateSchema)(state),
+          Effect.mapError((error) => InventoryServiceError.inventoryStateValidationFailed(error)),
+          Effect.tap(({ inventory }) => saveInventory({
+            ...inventory,
+            metadata: {
+              lastUpdated: Date.now(),
+              checksum: computeChecksum(inventory),
+            },
+          }))
+        ),
+
+      addItem: (playerId, item) =>
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
-          const { inventory: updatedInventory, result } = yield* StackProcessor.addItemToInventory(
-            inventory,
-            itemStack,
-            registry
-          )
-          yield* updateInventory(playerId, updatedInventory)
+          const definition = yield* itemRegistry.ensureDefinition(item.itemId)
+          const slots = [...inventory.slots]
+          const { snapshot, result } = buildAddResult(inventory, slots, definition, item)
+          if (result._tag !== 'full') {
+            yield* saveInventory(snapshot)
+          }
           return result
         }),
 
-      removeItem: (playerId: PlayerId, slotIndex: number, amount: number) =>
+      setSlotItem: (playerId, slotIndex, item) =>
         Effect.gen(function* () {
+          const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
-          const { inventory: updatedInventory, removed } = yield* StackProcessor.removeFromSlot(
-            inventory,
-            slotIndex,
-            amount
-          )
-          yield* updateInventory(playerId, updatedInventory)
-          return removed
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            nextSlots[index] = item ? cloneItem(item) : null
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
         }),
 
-      moveItem: (playerId: PlayerId, fromSlot: number, toSlot: number, amount?: number) =>
+      getSlotItem: (playerId, slotIndex) =>
         Effect.gen(function* () {
+          const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
-          const fromItem = yield* SlotManager.getSlotItem(inventory, fromSlot)
-
-          // Transform if statement to Option.match pattern
-          yield* pipe(
-            Option.fromNullable(fromItem),
-            Option.match({
-              onNone: () => Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId, { fromSlot })),
-              onSome: (item) =>
-                Effect.gen(function* () {
-                  const moveAmount = amount ?? item.count
-                  const updatedInventory = yield* StackProcessor.transferBetweenSlots(
-                    inventory,
-                    fromSlot,
-                    toSlot,
-                    moveAmount,
-                    registry
-                  )
-
-                  yield* updateInventory(playerId, updatedInventory)
-                }),
-            })
-          )
+          const item = inventory.slots[index]
+          return item ? cloneItem(item) : null
         }),
 
-      swapItems: (playerId: PlayerId, slot1: number, slot2: number) =>
+      removeItem: (playerId, slotIndex, amount) =>
         Effect.gen(function* () {
+          const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
-          const updatedInventory = yield* SlotManager.swapItems(inventory, slot1, slot2)
-          yield* updateInventory(playerId, updatedInventory)
+          const current = inventory.slots[index]
+          if (!current) {
+            return null
+          }
+          const quantity = amount ?? current.count
+          if (quantity > current.count) {
+            return yield* Effect.fail(
+              InventoryServiceError.insufficientQuantity({
+                slotIndex: index,
+                requested: quantity,
+                available: current.count,
+              })
+            )
+          }
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            if (quantity === current.count) {
+              nextSlots[index] = null
+            } else {
+              nextSlots[index] = {
+                ...current,
+                count: current.count - quantity,
+              }
+            }
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
+          return {
+            itemId: current.itemId,
+            count: quantity,
+            metadata: current.metadata ? { ...current.metadata } : undefined,
+          }
         }),
 
-      splitStack: (playerId: PlayerId, sourceSlot: number, targetSlot: number, amount: number) =>
+      moveItem: (playerId, fromSlot, toSlot, amount) =>
         Effect.gen(function* () {
+          const fromIndex = yield* ensureSlotIndex(fromSlot)
+          const toIndex = yield* ensureSlotIndex(toSlot)
           const inventory = yield* getOrCreateInventory(playerId)
-          const sourceItem = yield* SlotManager.getSlotItem(inventory, sourceSlot)
+          if (fromIndex === toIndex) {
+            return
+          }
+          const source = inventory.slots[fromIndex]
+          const destination = inventory.slots[toIndex]
+          if (!source) {
+            return yield* Effect.fail(
+              InventoryServiceError.insufficientQuantity({
+                slotIndex: fromIndex,
+                requested: amount ?? 0,
+                available: 0,
+              })
+            )
+          }
+          const definition = yield* itemRegistry.ensureDefinition(source.itemId)
+          const transferAmount = amount ?? source.count
+          if (transferAmount > source.count || transferAmount <= 0) {
+            return yield* Effect.fail(
+              InventoryServiceError.insufficientQuantity({
+                slotIndex: fromIndex,
+                requested: transferAmount,
+                available: source.count,
+              })
+            )
+          }
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            const remaining = source.count - transferAmount
+            const movedItem: ItemStack = {
+              itemId: source.itemId,
+              count: transferAmount,
+              metadata: source.metadata ? { ...source.metadata } : undefined,
+            }
 
-          // Transform first if statement to Option.match pattern
-          yield* pipe(
-            Option.fromNullable(sourceItem),
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  new InventoryError('INSUFFICIENT_ITEMS', playerId, {
+            if (destination && sameStack(destination, source) && definition.stackable) {
+              const total = destination.count + transferAmount
+              const toPlace = Math.min(definition.maxStackSize, total)
+              const remainder = total - toPlace
+              nextSlots[toIndex] = { ...destination, count: toPlace }
+              nextSlots[fromIndex] = remainder > 0
+                ? { ...source, count: remaining + remainder }
+                : remaining > 0
+                  ? { ...source, count: remaining }
+                  : null
+            } else if (destination === null) {
+              nextSlots[toIndex] = movedItem
+              nextSlots[fromIndex] = remaining > 0 ? { ...source, count: remaining } : null
+            } else {
+              nextSlots[toIndex] = movedItem
+              nextSlots[fromIndex] = destination
+            }
+
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
+        }),
+
+      swapItems: (playerId, slotA, slotB) =>
+        Effect.gen(function* () {
+          const first = yield* ensureSlotIndex(slotA)
+          const second = yield* ensureSlotIndex(slotB)
+          if (first === second) {
+            return
+          }
+          const inventory = yield* getOrCreateInventory(playerId)
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            const temp = nextSlots[first]
+            nextSlots[first] = nextSlots[second]
+            nextSlots[second] = temp
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
+        }),
+
+      splitStack: (playerId, sourceSlot, targetSlot, amount) =>
+        Effect.gen(function* () {
+          const sourceIndex = yield* ensureSlotIndex(sourceSlot)
+          const targetIndex = yield* ensureSlotIndex(targetSlot)
+          if (sourceIndex === targetIndex) {
+            return
+          }
+          const inventory = yield* getOrCreateInventory(playerId)
+          const sourceItem = inventory.slots[sourceIndex]
+          const targetItem = inventory.slots[targetIndex]
+          if (!sourceItem) {
+            return yield* Effect.fail(
+              InventoryServiceError.insufficientQuantity({
+                slotIndex: sourceIndex,
+                requested: amount,
+                available: 0,
+              })
+            )
+          }
+          if (amount <= 0 || amount > sourceItem.count) {
+            return yield* Effect.fail(
+              InventoryServiceError.insufficientQuantity({
+                slotIndex: sourceIndex,
+                requested: amount,
+                available: sourceItem.count,
+              })
+            )
+          }
+          if (targetItem && !sameStack(sourceItem, targetItem)) {
+            return yield* Effect.fail(
+              InventoryServiceError.splitTargetMustBeCompatible({
+                sourceSlot: sourceIndex,
+                targetSlot: targetIndex,
+              })
+            )
+          }
+          const definition = yield* itemRegistry.ensureDefinition(sourceItem.itemId)
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            const remaining = sourceItem.count - amount
+            const existingTargetCount = targetItem?.count ?? 0
+            const desiredTargetCount = existingTargetCount + amount
+            if (desiredTargetCount > definition.maxStackSize) {
+              throw InventoryServiceError.splitTargetMustBeCompatible({
+                sourceSlot: sourceIndex,
+                targetSlot: targetIndex,
+              })
+            }
+            nextSlots[sourceIndex] = remaining > 0 ? { ...sourceItem, count: remaining } : null
+            nextSlots[targetIndex] = {
+              itemId: sourceItem.itemId,
+              count: desiredTargetCount,
+              metadata: sourceItem.metadata ? { ...sourceItem.metadata } : undefined,
+            }
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
+        }).pipe(
+          Effect.catchAll((error) =>
+            Effect.fail(
+              typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'SplitTargetMustBeCompatible'
+                ? (error as InventoryServiceError)
+                : InventoryServiceError.splitTargetMustBeCompatible({
                     sourceSlot,
+                    targetSlot,
                   })
-                ),
-              onSome: (source) =>
-                Effect.gen(function* () {
-                  const targetItem = yield* SlotManager.getSlotItem(inventory, targetSlot)
-
-                  // Transform second if statement to Option.match pattern
-                  yield* pipe(
-                    Option.fromNullable(targetItem),
-                    Option.match({
-                      onNone: () =>
-                        Effect.gen(function* () {
-                          const splitResult = StackProcessor.splitStack(source, amount)
-
-                          // Transform third if statement to Option.match pattern
-                          yield* pipe(
-                            Option.fromNullable(splitResult.split),
-                            Option.match({
-                              onNone: () => Effect.fail(new InventoryError('INVALID_ITEM_COUNT', playerId, { amount })),
-                              onSome: (split) =>
-                                Effect.gen(function* () {
-                                  let updatedInventory = yield* SlotManager.setSlotItem(
-                                    inventory,
-                                    sourceSlot,
-                                    splitResult.original
-                                  )
-                                  updatedInventory = yield* SlotManager.setSlotItem(updatedInventory, targetSlot, split)
-
-                                  yield* updateInventory(playerId, updatedInventory)
-                                }),
-                            })
-                          )
-                        }),
-                      onSome: () => Effect.fail(new InventoryError('SLOT_OCCUPIED', playerId, { targetSlot })),
-                    })
-                  )
-                }),
-            })
-          )
-        }),
-
-      mergeStacks: (playerId: PlayerId, sourceSlot: number, targetSlot: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const sourceItem = yield* SlotManager.getSlotItem(inventory, sourceSlot)
-          const targetItem = yield* SlotManager.getSlotItem(inventory, targetSlot)
-
-          // Transform first if statement to Option validation pattern
-          const bothItems = pipe(
-            Option.fromNullable(sourceItem),
-            Option.flatMap((source) =>
-              pipe(
-                Option.fromNullable(targetItem),
-                Option.map((target) => ({ source, target }))
-              )
             )
           )
+        ),
 
-          yield* pipe(
-            bothItems,
-            Option.match({
-              onNone: () => Effect.fail(new InventoryError('INSUFFICIENT_ITEMS', playerId)),
-              onSome: ({ source, target }) =>
-                Effect.gen(function* () {
-                  const canStack = yield* registry.canStack(source, target)
+      mergeStacks: (playerId, sourceSlot, targetSlot) =>
+        Effect.gen(function* () {
+          const sourceIndex = yield* ensureSlotIndex(sourceSlot)
+          const targetIndex = yield* ensureSlotIndex(targetSlot)
+          if (sourceIndex === targetIndex) {
+            return
+          }
+          const inventory = yield* getOrCreateInventory(playerId)
+          const sourceItem = inventory.slots[sourceIndex]
+          const targetItem = inventory.slots[targetIndex]
+          if (!sourceItem || !targetItem) {
+            return
+          }
+          if (!sameStack(sourceItem, targetItem)) {
+            return yield* Effect.fail(
+              InventoryServiceError.differentItemKind({
+                sourceSlot: sourceIndex,
+                targetSlot: targetIndex,
+              })
+            )
+          }
+          const definition = yield* itemRegistry.ensureDefinition(sourceItem.itemId)
+          if (!definition.stackable) {
+            return
+          }
+          const total = sourceItem.count + targetItem.count
+          const toTarget = Math.min(definition.maxStackSize, total)
+          const remainder = total - toTarget
+          const updated = updateInventory(inventory, (draft) => {
+            const nextSlots = [...draft.slots]
+            nextSlots[targetIndex] = {
+              ...targetItem,
+              count: toTarget,
+            }
+            nextSlots[sourceIndex] = remainder > 0 ? { ...sourceItem, count: remainder } : null
+            return {
+              ...draft,
+              slots: nextSlots,
+            }
+          })
+          yield* saveInventory(updated)
+        }),
 
-                  // Transform second if statement to Match pattern
-                  yield* pipe(
-                    canStack,
-                    Match.value,
-                    Match.when(false, () => Effect.fail(new InventoryError('ITEM_NOT_STACKABLE', playerId))),
-                    Match.when(true, () =>
-                      Effect.gen(function* () {
-                        const maxStackSize = yield* registry.getMaxStackSize(source.itemId)
-                        const mergeResult = StackProcessor.mergeStacks(source, target, maxStackSize)
+      setSelectedSlot: (playerId, hotbarIndex) =>
+        Effect.gen(function* () {
+          const index = yield* ensureHotbarIndex(hotbarIndex)
+          const inventory = yield* getOrCreateInventory(playerId)
+          const updated = updateInventory(inventory, (draft) => ({
+            ...draft,
+            selectedSlot: index,
+          }))
+          yield* saveInventory(updated)
+        }),
 
-                        let updatedInventory = yield* SlotManager.setSlotItem(inventory, sourceSlot, mergeResult.source)
-                        updatedInventory = yield* SlotManager.setSlotItem(
-                          updatedInventory,
-                          targetSlot,
-                          mergeResult.target
-                        )
+      getSelectedItem: (playerId) =>
+        withInventory(playerId, (inventory) => {
+          const slotIndex = inventory.hotbar[inventory.selectedSlot]
+          const item = inventory.slots[slotIndex]
+          return Effect.succeed(item ? cloneItem(item) : null)
+        }),
 
-                        yield* updateInventory(playerId, updatedInventory)
-                      })
-                    ),
-                    Match.exhaustive
-                  )
-                }),
-            })
+      getHotbarItem: (playerId, hotbarIndex) =>
+        Effect.gen(function* () {
+          const index = yield* ensureHotbarIndex(hotbarIndex)
+          const inventory = yield* getOrCreateInventory(playerId)
+          const slotIndex = inventory.hotbar[index]
+          const item = inventory.slots[slotIndex]
+          return item ? cloneItem(item) : null
+        }),
+
+      transferToHotbar: (playerId, slotIndex, hotbarIndex) =>
+        Effect.gen(function* () {
+          const slot = yield* ensureSlotIndex(slotIndex)
+          const index = yield* ensureHotbarIndex(hotbarIndex)
+          const inventory = yield* getOrCreateInventory(playerId)
+          const updated = updateInventory(inventory, (draft) => {
+            const nextHotbar = [...draft.hotbar]
+            nextHotbar[index] = slot
+            return {
+              ...draft,
+              hotbar: nextHotbar,
+            }
+          })
+          yield* saveInventory(updated)
+        }),
+
+      equipArmor: (playerId, slot, item) =>
+        withInventory(playerId, (inventory) =>
+          Effect.gen(function* () {
+            const previous = inventory.armor[slot]
+            const updated = updateInventory(inventory, (draft) => ({
+              ...draft,
+              armor: {
+                ...draft.armor,
+                [slot]: item ? cloneItem(item) : null,
+              },
+            }))
+            yield* saveInventory(updated)
+            return previous ? cloneItem(previous) : null
+          })
+        ),
+
+      getArmor: (playerId, slot) =>
+        withInventory(playerId, (inventory) => Effect.succeed(inventory.armor[slot] ? cloneItem(inventory.armor[slot]!) : null)),
+
+      setOffhandItem: (playerId, item) =>
+        Effect.gen(function* () {
+          const inventory = yield* getOrCreateInventory(playerId)
+          const updated = updateInventory(inventory, (draft) => ({
+            ...draft,
+            offhand: item ? cloneItem(item) : null,
+          }))
+          yield* saveInventory(updated)
+        }),
+
+      getOffhandItem: (playerId) =>
+        withInventory(playerId, (inventory) => Effect.succeed(inventory.offhand ? cloneItem(inventory.offhand) : null)),
+
+      getEmptySlotCount: (playerId) =>
+        withInventory(playerId, (inventory) =>
+          Effect.succeed(inventory.slots.reduce((count, slot) => (slot === null ? count + 1 : count), 0))
+        ),
+
+      getUsedSlotCount: (playerId) =>
+        withInventory(playerId, (inventory) =>
+          Effect.succeed(inventory.slots.reduce((count, slot) => (slot !== null ? count + 1 : count), 0))
+        ),
+
+      findItemSlots: (playerId, itemIdInput) =>
+        withInventory(playerId, (inventory) => {
+          const itemId = normalizeItemId(itemIdInput)
+          const indices: number[] = []
+          for (let i = 0; i < inventory.slots.length; i += 1) {
+            const item = inventory.slots[i]
+            if (item && item.itemId === itemId) {
+              indices.push(i)
+            }
+          }
+          return Effect.succeed(indices)
+        }),
+
+      countItem: (playerId, itemIdInput) =>
+        withInventory(playerId, (inventory) => {
+          const itemId = normalizeItemId(itemIdInput)
+          const total = inventory.slots.reduce((amount, slot) => {
+            if (slot && slot.itemId === itemId) {
+              return amount + slot.count
+            }
+            return amount
+          }, 0)
+          return Effect.succeed(total)
+        }),
+
+      hasSpaceForItem: (playerId, item) =>
+        Effect.gen(function* () {
+          const inventory = yield* getOrCreateInventory(playerId)
+          const definition = yield* itemRegistry.ensureDefinition(item.itemId)
+          const existingSpace = inventory.slots.reduce((space, slot) => {
+            if (slot && sameStack(slot, item) && definition.stackable) {
+              const available = Math.max(0, definition.maxStackSize - slot.count)
+              return space + available
+            }
+            return space
+          }, 0)
+          if (existingSpace >= item.count) {
+            return true
+          }
+          return inventory.slots.some((slot) => slot === null)
+        }),
+
+      sortInventory: (playerId) =>
+        Effect.gen(function* () {
+          const inventory = yield* getOrCreateInventory(playerId)
+          const items = inventory.slots.filter((slot): slot is ItemStack => slot !== null)
+          const sorted = [...items].sort((a, b) =>
+            a.itemId === b.itemId ? b.count - a.count : a.itemId.localeCompare(b.itemId)
           )
+          const reordered: Array<ItemStack | null> = [
+            ...sorted.map(cloneItem),
+            ...Array.from({ length: SLOT_COUNT - sorted.length }, () => null as ItemStack | null),
+          ]
+          const updated = updateInventory(inventory, (draft) => ({
+            ...draft,
+            slots: reordered,
+          }))
+          yield* saveInventory(updated)
         }),
 
-      getSelectedItem: (playerId: PlayerId) =>
+      compactInventory: (playerId) =>
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
-          return SlotManager.getSelectedItem(inventory)
+          const items = inventory.slots.filter((slot): slot is ItemStack => slot !== null)
+          const compacted: Array<ItemStack | null> = [
+            ...items.map(cloneItem),
+            ...Array.from({ length: SLOT_COUNT - items.length }, () => null as ItemStack | null),
+          ]
+          const updated = updateInventory(inventory, (draft) => ({
+            ...draft,
+            slots: compacted,
+          }))
+          yield* saveInventory(updated)
         }),
 
-      setSelectedSlot: (playerId: PlayerId, slotIndex: number) =>
+      dropItem: (playerId, slotIndex, amount) =>
+        service.removeItem(playerId, slotIndex, amount),
+
+      dropAllItems: (playerId) =>
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
-          const updatedInventory = yield* SlotManager.setSelectedSlot(inventory, slotIndex)
-          yield* updateInventory(playerId, updatedInventory)
-        }),
-
-      getSlotItem: (playerId: PlayerId, slotIndex: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return yield* SlotManager.getSlotItem(inventory, slotIndex)
-        }),
-
-      setSlotItem: (playerId: PlayerId, slotIndex: number, itemStack: ItemStack | null) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const updatedInventory = yield* SlotManager.setSlotItem(inventory, slotIndex, itemStack)
-          yield* updateInventory(playerId, updatedInventory)
-        }),
-
-      clearSlot: (playerId: PlayerId, slotIndex: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const { inventory: updatedInventory, removed } = yield* SlotManager.clearSlot(inventory, slotIndex)
-          yield* updateInventory(playerId, updatedInventory)
-          return removed
-        }),
-
-      clearInventory: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const emptyInventory = createEmptyInventory(playerId)
-          yield* updateInventory(playerId, emptyInventory)
-        }),
-
-      equipArmor: (
-        playerId: PlayerId,
-        armorType: 'helmet' | 'chestplate' | 'leggings' | 'boots',
-        itemStack: ItemStack | null
-      ) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const previousArmor = inventory.armor[armorType]
-
-          const updatedInventory: Inventory = {
-            ...inventory,
+          const slotItems = inventory.slots.filter((slot): slot is ItemStack => slot !== null).map(cloneItem)
+          const armorItems = ['helmet', 'chestplate', 'leggings', 'boots'] as const
+          const equipped = armorItems
+            .map((slot) => inventory.armor[slot])
+            .filter((item): item is ItemStack => item !== null)
+            .map(cloneItem)
+          const offhand = inventory.offhand ? [cloneItem(inventory.offhand)] : []
+          const dropped = [...slotItems, ...equipped, ...offhand]
+          const cleared = updateInventory(inventory, (draft) => ({
+            ...draft,
+            slots: Array.from({ length: SLOT_COUNT }, () => null as ItemStack | null),
             armor: {
-              ...inventory.armor,
-              [armorType]: itemStack,
+              helmet: null,
+              chestplate: null,
+              leggings: null,
+              boots: null,
             },
-          }
-
-          yield* updateInventory(playerId, updatedInventory)
-          return previousArmor
+            offhand: null,
+          }))
+          yield* saveInventory(cleared)
+          return dropped
         }),
 
-      getArmor: (playerId: PlayerId, armorType: 'helmet' | 'chestplate' | 'leggings' | 'boots') =>
+      clearInventory: (playerId) =>
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
-          return inventory.armor[armorType]
-        }),
-
-      setOffhandItem: (playerId: PlayerId, itemStack: ItemStack | null) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const previousOffhand = inventory.offhand
-
-          const updatedInventory: Inventory = {
-            ...inventory,
-            offhand: itemStack,
-          }
-
-          yield* updateInventory(playerId, updatedInventory)
-          return previousOffhand
-        }),
-
-      getOffhandItem: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return inventory.offhand
-        }),
-
-      transferToHotbar: (playerId: PlayerId, sourceSlot: number, hotbarIndex: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const updatedInventory = yield* SlotManager.setHotbarReference(inventory, hotbarIndex, sourceSlot)
-          yield* updateInventory(playerId, updatedInventory)
-        }),
-
-      getHotbarItem: (playerId: PlayerId, hotbarIndex: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return yield* SlotManager.getHotbarItem(inventory, hotbarIndex)
-        }),
-
-      dropItem: (playerId: PlayerId, slotIndex: number, amount?: number) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const item = yield* SlotManager.getSlotItem(inventory, slotIndex)
-
-          // Transform if statement to Option.match pattern
-          return yield* pipe(
-            Option.fromNullable(item),
-            Option.match({
-              onNone: () => Effect.succeed(null),
-              onSome: (existingItem) =>
-                Effect.gen(function* () {
-                  const dropAmount = amount ?? existingItem.count
-                  const { inventory: updatedInventory, removed } = yield* StackProcessor.removeFromSlot(
-                    inventory,
-                    slotIndex,
-                    dropAmount
-                  )
-
-                  yield* updateInventory(playerId, updatedInventory)
-                  return removed
-                }),
-            })
-          )
-        }),
-
-      dropAllItems: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const droppedItems: ItemStack[] = []
-
-          // Transform for loop with if statement to functional approach
-          for (const item of inventory.slots) {
-            pipe(
-              Option.fromNullable(item),
-              Option.match({
-                onNone: () => {},
-                onSome: (existingItem) => {
-                  droppedItems.push(existingItem)
-                },
-              })
-            )
-          }
-
-          // Transform armor if statements to Option.match patterns
-          pipe(
-            Option.fromNullable(inventory.armor.helmet),
-            Option.match({
-              onNone: () => {},
-              onSome: (helmet) => droppedItems.push(helmet),
-            })
-          )
-
-          pipe(
-            Option.fromNullable(inventory.armor.chestplate),
-            Option.match({
-              onNone: () => {},
-              onSome: (chestplate) => droppedItems.push(chestplate),
-            })
-          )
-
-          pipe(
-            Option.fromNullable(inventory.armor.leggings),
-            Option.match({
-              onNone: () => {},
-              onSome: (leggings) => droppedItems.push(leggings),
-            })
-          )
-
-          pipe(
-            Option.fromNullable(inventory.armor.boots),
-            Option.match({
-              onNone: () => {},
-              onSome: (boots) => droppedItems.push(boots),
-            })
-          )
-
-          // Transform offhand if statement to Option.match pattern
-          pipe(
-            Option.fromNullable(inventory.offhand),
-            Option.match({
-              onNone: () => {},
-              onSome: (offhand) => droppedItems.push(offhand),
-            })
-          )
-
-          // Clear inventory
-          const emptyInventory = createEmptyInventory(playerId)
-          yield* updateInventory(playerId, emptyInventory)
-
-          return droppedItems
-        }),
-
-      getInventoryState: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const state: InventoryState = {
-            inventory,
-            lastModified: Date.now(),
-            version: '1.0.0',
-          }
-          return state
-        }),
-
-      loadInventoryState: (state: InventoryState) =>
-        Effect.gen(function* () {
-          yield* updateInventory(state.inventory.playerId, state.inventory)
-        }),
-
-      getEmptySlotCount: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return SlotManager.countEmptySlots(inventory)
-        }),
-
-      getUsedSlotCount: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return SlotManager.countUsedSlots(inventory)
-        }),
-
-      findItemSlots: (playerId: PlayerId, itemId: string) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return SlotManager.findItemSlots(inventory, itemId)
-        }),
-
-      countItem: (playerId: PlayerId, itemId: string) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          let count = 0
-
-          // Transform for loop with if statement to functional approach
-          for (const item of inventory.slots) {
-            pipe(
-              Option.fromNullable(item),
-              Option.match({
-                onNone: () => {},
-                onSome: (existingItem) => {
-                  pipe(
-                    existingItem.itemId === itemId,
-                    Match.value,
-                    Match.when(true, () => {
-                      count += existingItem.count
-                    }),
-                    Match.when(false, () => {}),
-                    Match.exhaustive
-                  )
-                },
-              })
-            )
-          }
-          return count
-        }),
-
-      hasSpaceForItem: (playerId: PlayerId, itemStack: ItemStack) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return yield* StackProcessor.hasSpaceForItem(inventory, itemStack, registry)
-        }),
-
-      canAddItem: (playerId: PlayerId, itemStack: ItemStack) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          return yield* StackProcessor.hasSpaceForItem(inventory, itemStack, registry)
-        }),
-
-      sortInventory: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const sortedInventory = SlotManager.sortInventory(inventory)
-          yield* updateInventory(playerId, sortedInventory)
-        }),
-
-      compactInventory: (playerId: PlayerId) =>
-        Effect.gen(function* () {
-          const inventory = yield* getOrCreateInventory(playerId)
-          const compactedInventory = SlotManager.compactInventory(inventory)
-          yield* updateInventory(playerId, compactedInventory)
+          const cleared = updateInventory(inventory, (draft) => ({
+            ...draft,
+            slots: Array.from({ length: SLOT_COUNT }, () => null as ItemStack | null),
+            armor: {
+              helmet: null,
+              chestplate: null,
+              leggings: null,
+              boots: null,
+            },
+            offhand: null,
+          }))
+          yield* saveInventory(cleared)
         }),
     }
+
+    return service
   })
 )

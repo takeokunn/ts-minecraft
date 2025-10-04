@@ -1,451 +1,149 @@
-/**
- * ItemRegistry - Central item definition and management
- *
- * Manages item definitions, stack sizes, and item properties
- * Integrates with block system for block items
- */
+import { Context, Effect, Layer, Option, pipe } from 'effect'
+import type { ItemId, ItemStack } from './InventoryTypes'
+import { ItemId as makeItemId } from './InventoryTypes'
 
-import { Context, Effect, HashMap, Layer, Match, Option, pipe } from 'effect'
-import { ItemId, ItemStack } from './InventoryTypes'
+export type ItemCategory =
+  | 'block'
+  | 'tool'
+  | 'weapon'
+  | 'armor'
+  | 'utility'
+  | 'consumable'
 
-// Item category types
-export type ItemCategory = 'block' | 'tool' | 'weapon' | 'armor' | 'food' | 'material' | 'special'
-
-// Item definition
 export interface ItemDefinition {
   readonly id: ItemId
-  readonly name: string
+  readonly displayName: string
   readonly category: ItemCategory
   readonly maxStackSize: number
-  readonly isStackable: boolean
-  readonly durability?: number
-  readonly toolType?: 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'sword'
-  readonly armorType?: 'helmet' | 'chestplate' | 'leggings' | 'boots'
-  readonly armorValue?: number
-  readonly damage?: number
-  readonly miningSpeed?: number
-  readonly foodValue?: number
-  readonly saturation?: number
+  readonly stackable: boolean
+  readonly tags: ReadonlyArray<string>
 }
 
-// Registry state
-interface RegistryState {
-  readonly items: HashMap.HashMap<ItemId, ItemDefinition>
+export interface ItemRegistryService {
+  readonly getDefinition: (itemId: ItemId) => Effect.Effect<Option.Option<ItemDefinition>>
+  readonly ensureDefinition: (itemId: ItemId) => Effect.Effect<ItemDefinition, ItemRegistryError>
+  readonly getDefinitionsByCategory: (
+    category: ItemCategory
+  ) => Effect.Effect<ReadonlyArray<ItemDefinition>>
+  readonly canStack: (left: ItemStack, right: ItemStack) => Effect.Effect<boolean>
+  readonly listAll: () => Effect.Effect<ReadonlyArray<ItemDefinition>>
 }
 
-// Item Registry Service
-export class ItemRegistry extends Context.Tag('ItemRegistry')<
-  ItemRegistry,
-  {
-    readonly getItem: (itemId: ItemId) => Effect.Effect<Option.Option<ItemDefinition>>
-    readonly registerItem: (definition: ItemDefinition) => Effect.Effect<void>
-    readonly getAllItems: () => Effect.Effect<ItemDefinition[]>
-    readonly canStack: (item1: ItemStack, item2: ItemStack) => Effect.Effect<boolean>
-    readonly getMaxStackSize: (itemId: ItemId) => Effect.Effect<number>
-    readonly isValidItem: (itemId: ItemId) => Effect.Effect<boolean>
-    readonly getItemsByCategory: (category: ItemCategory) => Effect.Effect<ItemDefinition[]>
-  }
->() {
-  static readonly Default = Layer.succeed(ItemRegistry, {
-    getItem: (itemId: ItemId) =>
-      Effect.sync(() => {
-        const state = getState()
-        return HashMap.get(state.items, itemId)
-      }),
+export type ItemRegistryError = { readonly _tag: 'ItemNotFound'; readonly itemId: ItemId }
 
-    registerItem: (definition: ItemDefinition) =>
-      Effect.sync(() => {
-        setState({
-          items: HashMap.set(getState().items, definition.id, definition),
+export const ItemRegistryError = {
+  itemNotFound: (itemId: ItemId): ItemRegistryError => ({ _tag: 'ItemNotFound', itemId }),
+} as const
+
+const createDefinition = (definition: Omit<ItemDefinition, 'id'> & { readonly id: string }): ItemDefinition => ({
+  ...definition,
+  id: makeItemId(definition.id),
+})
+
+const definitions: ReadonlyArray<ItemDefinition> = [
+  createDefinition({
+    id: 'minecraft:dirt',
+    displayName: 'Dirt',
+    category: 'block',
+    maxStackSize: 64,
+    stackable: true,
+    tags: ['ground', 'basic'],
+  }),
+  createDefinition({
+    id: 'minecraft:stone',
+    displayName: 'Stone',
+    category: 'block',
+    maxStackSize: 64,
+    stackable: true,
+    tags: ['rock'],
+  }),
+  createDefinition({
+    id: 'minecraft:grass_block',
+    displayName: 'Grass Block',
+    category: 'block',
+    maxStackSize: 64,
+    stackable: true,
+    tags: ['nature'],
+  }),
+  createDefinition({
+    id: 'minecraft:iron_sword',
+    displayName: 'Iron Sword',
+    category: 'weapon',
+    maxStackSize: 1,
+    stackable: false,
+    tags: ['sword', 'combat'],
+  }),
+  createDefinition({
+    id: 'minecraft:iron_helmet',
+    displayName: 'Iron Helmet',
+    category: 'armor',
+    maxStackSize: 1,
+    stackable: false,
+    tags: ['armor', 'helmet'],
+  }),
+  createDefinition({
+    id: 'minecraft:diamond_helmet',
+    displayName: 'Diamond Helmet',
+    category: 'armor',
+    maxStackSize: 1,
+    stackable: false,
+    tags: ['armor', 'helmet'],
+  }),
+  createDefinition({
+    id: 'minecraft:shield',
+    displayName: 'Shield',
+    category: 'utility',
+    maxStackSize: 1,
+    stackable: false,
+    tags: ['defense'],
+  }),
+]
+
+const definitionMap = new Map(definitions.map((definition) => [definition.id, definition] as const))
+
+const sameMetadata = (left: ItemStack, right: ItemStack) =>
+  JSON.stringify(left.metadata ?? null) === JSON.stringify(right.metadata ?? null)
+
+const createService = (): ItemRegistryService => ({
+  getDefinition: (itemId) => Effect.sync(() => Option.fromNullable(definitionMap.get(itemId))),
+
+  ensureDefinition: (itemId) =>
+    pipe(
+      Option.fromNullable(definitionMap.get(itemId)),
+      Option.match({
+        onSome: Effect.succeed,
+        onNone: () => Effect.fail(ItemRegistryError.itemNotFound(itemId)),
+      })
+    ),
+
+  getDefinitionsByCategory: (category) =>
+    Effect.sync(() => definitions.filter((definition) => definition.category === category)),
+
+  listAll: () => Effect.sync(() => definitions),
+
+  canStack: (left, right) =>
+    Effect.gen(function* () {
+      const definition = yield* pipe(
+        Option.fromNullable(definitionMap.get(left.itemId)),
+        Option.match({
+          onSome: Effect.succeed,
+          onNone: () => Effect.fail(ItemRegistryError.itemNotFound(left.itemId)),
         })
-      }),
+      )
 
-    getAllItems: () =>
-      Effect.sync(() => {
-        const state = getState()
-        return Array.from(HashMap.values(state.items))
-      }),
+      return definition.stackable && left.itemId === right.itemId && sameMetadata(left, right)
+    }),
+})
 
-    canStack: (item1: ItemStack, item2: ItemStack) =>
-      Effect.gen(function* () {
-        // 1. Check if item IDs are the same
-        const idsMatch = item1.itemId === item2.itemId
+const ItemRegistryTag = Context.GenericTag<ItemRegistryService>(
+  '@minecraft/domain/inventory/ItemRegistry'
+)
 
-        return yield* pipe(
-          Match.value(idsMatch),
-          Match.when(false, () => Effect.succeed(false)),
-          Match.when(true, () =>
-            Effect.gen(function* () {
-              // 2. Get item definition
-              const state = getState()
-              const definition = HashMap.get(state.items, item1.itemId)
+export const ItemRegistryLive = Layer.effect(ItemRegistryTag, Effect.sync(createService))
 
-              return yield* pipe(
-                definition,
-                Option.match({
-                  onNone: () => Effect.succeed(false),
-                  onSome: (def) =>
-                    pipe(
-                      Match.value(def.isStackable),
-                      Match.when(false, () => Effect.succeed(false)),
-                      Match.when(true, () =>
-                        Effect.gen(function* () {
-                          // Check metadata compatibility
-                          const meta1 = item1.metadata
-                          const meta2 = item2.metadata
-                          const hasMetadata = !!(meta1 || meta2)
+export const ItemRegistry = Object.assign(ItemRegistryTag, {
+  Live: ItemRegistryLive,
+  Default: ItemRegistryLive,
+})
 
-                          return yield* pipe(
-                            Match.value(hasMetadata),
-                            Match.when(true, () => Effect.succeed(JSON.stringify(meta1) === JSON.stringify(meta2))),
-                            Match.when(false, () => Effect.succeed(true)),
-                            Match.exhaustive
-                          )
-                        })
-                      ),
-                      Match.exhaustive
-                    ),
-                })
-              )
-            })
-          ),
-          Match.exhaustive
-        )
-      }),
-
-    getMaxStackSize: (itemId: ItemId) =>
-      Effect.sync(() => {
-        const state = getState()
-        const definition = HashMap.get(state.items, itemId)
-        return Option.isSome(definition) ? definition.value.maxStackSize : 64
-      }),
-
-    isValidItem: (itemId: ItemId) =>
-      Effect.sync(() => {
-        const state = getState()
-        return HashMap.has(state.items, itemId)
-      }),
-
-    getItemsByCategory: (category: ItemCategory) =>
-      Effect.sync(() => {
-        const state = getState()
-        return Array.from(HashMap.values(state.items)).filter((item) => item.category === category)
-      }),
-  })
-}
-
-// State management (module scope for simplicity)
-let registryState: RegistryState = {
-  items: HashMap.fromIterable([
-    // Block items
-    [
-      ItemId('minecraft:dirt'),
-      {
-        id: ItemId('minecraft:dirt'),
-        name: 'Dirt',
-        category: 'block',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:stone'),
-      {
-        id: ItemId('minecraft:stone'),
-        name: 'Stone',
-        category: 'block',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:grass_block'),
-      {
-        id: ItemId('minecraft:grass_block'),
-        name: 'Grass Block',
-        category: 'block',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:oak_log'),
-      {
-        id: ItemId('minecraft:oak_log'),
-        name: 'Oak Log',
-        category: 'block',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:oak_planks'),
-      {
-        id: ItemId('minecraft:oak_planks'),
-        name: 'Oak Planks',
-        category: 'block',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-
-    // Tools
-    [
-      ItemId('minecraft:wooden_pickaxe'),
-      {
-        id: ItemId('minecraft:wooden_pickaxe'),
-        name: 'Wooden Pickaxe',
-        category: 'tool',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 59,
-        toolType: 'pickaxe',
-        miningSpeed: 2,
-      },
-    ],
-    [
-      ItemId('minecraft:stone_pickaxe'),
-      {
-        id: ItemId('minecraft:stone_pickaxe'),
-        name: 'Stone Pickaxe',
-        category: 'tool',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 131,
-        toolType: 'pickaxe',
-        miningSpeed: 4,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_pickaxe'),
-      {
-        id: ItemId('minecraft:iron_pickaxe'),
-        name: 'Iron Pickaxe',
-        category: 'tool',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 250,
-        toolType: 'pickaxe',
-        miningSpeed: 6,
-      },
-    ],
-    [
-      ItemId('minecraft:diamond_pickaxe'),
-      {
-        id: ItemId('minecraft:diamond_pickaxe'),
-        name: 'Diamond Pickaxe',
-        category: 'tool',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 1561,
-        toolType: 'pickaxe',
-        miningSpeed: 8,
-      },
-    ],
-
-    // Weapons
-    [
-      ItemId('minecraft:wooden_sword'),
-      {
-        id: ItemId('minecraft:wooden_sword'),
-        name: 'Wooden Sword',
-        category: 'weapon',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 59,
-        toolType: 'sword',
-        damage: 4,
-      },
-    ],
-    [
-      ItemId('minecraft:stone_sword'),
-      {
-        id: ItemId('minecraft:stone_sword'),
-        name: 'Stone Sword',
-        category: 'weapon',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 131,
-        toolType: 'sword',
-        damage: 5,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_sword'),
-      {
-        id: ItemId('minecraft:iron_sword'),
-        name: 'Iron Sword',
-        category: 'weapon',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 250,
-        toolType: 'sword',
-        damage: 6,
-      },
-    ],
-    [
-      ItemId('minecraft:diamond_sword'),
-      {
-        id: ItemId('minecraft:diamond_sword'),
-        name: 'Diamond Sword',
-        category: 'weapon',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 1561,
-        toolType: 'sword',
-        damage: 7,
-      },
-    ],
-
-    // Armor
-    [
-      ItemId('minecraft:iron_helmet'),
-      {
-        id: ItemId('minecraft:iron_helmet'),
-        name: 'Iron Helmet',
-        category: 'armor',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 165,
-        armorType: 'helmet',
-        armorValue: 2,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_chestplate'),
-      {
-        id: ItemId('minecraft:iron_chestplate'),
-        name: 'Iron Chestplate',
-        category: 'armor',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 240,
-        armorType: 'chestplate',
-        armorValue: 6,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_leggings'),
-      {
-        id: ItemId('minecraft:iron_leggings'),
-        name: 'Iron Leggings',
-        category: 'armor',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 225,
-        armorType: 'leggings',
-        armorValue: 5,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_boots'),
-      {
-        id: ItemId('minecraft:iron_boots'),
-        name: 'Iron Boots',
-        category: 'armor',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 195,
-        armorType: 'boots',
-        armorValue: 2,
-      },
-    ],
-    [
-      ItemId('minecraft:diamond_helmet'),
-      {
-        id: ItemId('minecraft:diamond_helmet'),
-        name: 'Diamond Helmet',
-        category: 'armor',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 363,
-        armorType: 'helmet',
-        armorValue: 3,
-      },
-    ],
-
-    // Food
-    [
-      ItemId('minecraft:apple'),
-      {
-        id: ItemId('minecraft:apple'),
-        name: 'Apple',
-        category: 'food',
-        maxStackSize: 64,
-        isStackable: true,
-        foodValue: 4,
-        saturation: 2.4,
-      },
-    ],
-    [
-      ItemId('minecraft:bread'),
-      {
-        id: ItemId('minecraft:bread'),
-        name: 'Bread',
-        category: 'food',
-        maxStackSize: 64,
-        isStackable: true,
-        foodValue: 5,
-        saturation: 6,
-      },
-    ],
-
-    // Materials
-    [
-      ItemId('minecraft:stick'),
-      {
-        id: ItemId('minecraft:stick'),
-        name: 'Stick',
-        category: 'material',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:coal'),
-      {
-        id: ItemId('minecraft:coal'),
-        name: 'Coal',
-        category: 'material',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:iron_ingot'),
-      {
-        id: ItemId('minecraft:iron_ingot'),
-        name: 'Iron Ingot',
-        category: 'material',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:diamond'),
-      {
-        id: ItemId('minecraft:diamond'),
-        name: 'Diamond',
-        category: 'material',
-        maxStackSize: 64,
-        isStackable: true,
-      },
-    ],
-    [
-      ItemId('minecraft:shield'),
-      {
-        id: ItemId('minecraft:shield'),
-        name: 'Shield',
-        category: 'tool',
-        maxStackSize: 1,
-        isStackable: false,
-        durability: 336,
-      },
-    ],
-  ]),
-}
-
-const getState = () => registryState
-const setState = (newState: RegistryState) => {
-  registryState = newState
-}
+export type ItemRegistry = ItemRegistryService

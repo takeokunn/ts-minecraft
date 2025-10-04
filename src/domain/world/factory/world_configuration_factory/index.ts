@@ -1,0 +1,111 @@
+/**
+ * @fileoverview WorldConfigurationFactory - 統合エクスポート
+ */
+
+export {
+  // Main Factory Interface
+  type WorldConfigurationFactory,
+  WorldConfigurationFactoryTag,
+  WorldConfigurationFactoryLive,
+
+  // Configuration Types
+  type WorldConfiguration,
+  type CreateConfigurationParams,
+  WorldConfigurationSchema,
+
+  // Advanced Types
+  type ConfigurationPresetType,
+  type OptimizationMode,
+  type ValidationStrictness,
+  type ConfigurationComplexity,
+  type ConfigurationValidationIssue,
+  type ConfigurationValidationResult,
+  type ConfigurationComparisonResult,
+  type ConfigurationTemplate,
+
+  // Schemas
+  ConfigurationPresetTypeSchema,
+  OptimizationModeSchema,
+  ValidationStrictnessSchema,
+  ConfigurationComplexitySchema,
+  ConfigurationValidationIssueSchema,
+  ConfigurationValidationResultSchema,
+  ConfigurationComparisonResultSchema,
+  ConfigurationTemplateSchema,
+
+  // Error Types
+  ConfigurationFactoryError,
+  ConfigurationFactoryErrorSchema,
+
+  // Builder Pattern
+  type WorldConfigurationBuilder,
+  createWorldConfigurationBuilder,
+} from './factory.js'
+
+// ================================
+// Convenience Functions
+// ================================
+
+import { Effect } from "effect"
+import { createWorldConfigurationBuilder } from './factory.js'
+import type * as WorldConfiguration from './factory.js'
+import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness } from './factory.js'
+
+export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+  createWorldConfigurationBuilder()
+    .build()
+    .pipe(Effect.orDie)
+
+export const createOptimizedConfiguration = (
+  optimization: OptimizationMode
+): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+  Effect.gen(function* () {
+    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    return yield* factory.createOptimized(optimization)
+  }).pipe(Effect.orDie)
+
+export const createPresetConfiguration = (
+  preset: ConfigurationPresetType
+): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+  Effect.gen(function* () {
+    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    return yield* factory.createFromPreset(preset)
+  }).pipe(Effect.orDie)
+
+export const createValidatedConfiguration = (
+  preset: ConfigurationPresetType = 'default',
+  strictness: ValidationStrictness = 'standard'
+): Effect.Effect<{
+  config: WorldConfiguration.WorldConfiguration
+  validation: WorldConfiguration.ConfigurationValidationResult
+}, never> =>
+  Effect.gen(function* () {
+    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const config = yield* factory.createFromPreset(preset)
+    const validation = yield* factory.validate(config, strictness)
+    return { config, validation }
+  }).pipe(Effect.orDie)
+
+export const createBatchConfigurations = (
+  presets: readonly ConfigurationPresetType[]
+): Effect.Effect<readonly WorldConfiguration.WorldConfiguration[], never> =>
+  Effect.gen(function* () {
+    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const requests = presets.map(preset => ({ preset }))
+    return yield* factory.createBatch(requests)
+  }).pipe(Effect.orDie)
+
+export const createCustomConfiguration = (
+  basePreset: ConfigurationPresetType = 'default',
+  customParams: Record<string, unknown> = {}
+): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+  Effect.gen(function* () {
+    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    return yield* factory.create({
+      preset: basePreset,
+      customParameters: customParams,
+      validateCompatibility: true
+    })
+  }).pipe(Effect.orDie)
+
+export const WORLD_CONFIGURATION_FACTORY_VERSION = '1.0.0'

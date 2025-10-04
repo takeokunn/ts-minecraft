@@ -1,123 +1,106 @@
-import { Effect, Layer, Match, Ref, pipe } from 'effect'
-import { Scene, SceneCleanupError, SceneData, SceneInitializationError } from './base'
 
-// MainMenuScene実装
-export const MainMenuScene = Layer.effect(
-  Scene,
-  Effect.gen(function* () {
-    // シーンデータ
-    const sceneData: SceneData = {
-      id: 'main-menu-001',
-      type: 'MainMenu',
-      isActive: false,
-      metadata: {
-        title: 'TypeScript Minecraft Clone',
-        version: '1.0.0',
-        menuItems: ['新しいゲーム', '設定', '終了'],
-      },
-    }
+import { Effect, Match, Option, pipe } from 'effect'
+import { MenuOption, SceneState as Scenes } from '../types'
+import { SceneBlueprint, SceneController, SceneControllerError, createSceneController, makeBlueprint } from './base'
 
-    // 内部状態をRefで管理
-    const isInitializedRef = yield* Ref.make(false)
-    const selectedMenuItemRef = yield* Ref.make(0)
+const menuOptions: ReadonlyArray<MenuOption> = ['NewGame', 'LoadGame', 'Settings', 'Exit']
 
-    return Scene.of({
-      data: sceneData,
-
-      initialize: () =>
-        Effect.gen(function* () {
-          const isInitialized = yield* Ref.get(isInitializedRef)
-
-          yield* pipe(
-            isInitialized,
-            Match.value,
-            Match.when(true, () =>
-              Effect.fail(
-                SceneInitializationError({
-                  message: 'MainMenuScene is already initialized',
-                  sceneType: 'MainMenu',
-                })
-              )
-            ),
-            Match.when(false, () =>
-              Effect.gen(function* () {
-                yield* Effect.logInfo('MainMenuSceneを初期化中...')
-
-                // メニューUIの初期化
-                yield* Ref.set(selectedMenuItemRef, 0)
-                yield* Ref.set(isInitializedRef, true)
-
-                yield* Effect.logInfo('MainMenuScene初期化完了')
-              })
-            ),
-            Match.exhaustive
-          )
-        }),
-
-      update: (deltaTime) =>
-        Effect.gen(function* () {
-          const isInitialized = yield* Ref.get(isInitializedRef)
-
-          yield* pipe(
-            isInitialized,
-            Match.value,
-            Match.when(false, () => Effect.void),
-            Match.when(true, () => Effect.logDebug(`MainMenuScene update: deltaTime=${deltaTime}ms`)),
-            Match.exhaustive
-          )
-        }),
-
-      render: () =>
-        Effect.gen(function* () {
-          const isInitialized = yield* Ref.get(isInitializedRef)
-
-          yield* pipe(
-            isInitialized,
-            Match.value,
-            Match.when(false, () => Effect.void),
-            Match.when(true, () => Effect.logDebug('MainMenuSceneレンダリング中...')),
-            Match.exhaustive
-          )
-        }),
-
-      cleanup: () =>
-        Effect.gen(function* () {
-          const isInitialized = yield* Ref.get(isInitializedRef)
-
-          yield* pipe(
-            isInitialized,
-            Match.value,
-            Match.when(true, () =>
-              Effect.gen(function* () {
-                yield* Effect.logInfo('MainMenuSceneクリーンアップ中...')
-
-                yield* Ref.set(isInitializedRef, false)
-                yield* Ref.set(selectedMenuItemRef, 0)
-
-                yield* Effect.logInfo('MainMenuSceneクリーンアップ完了')
-              })
-            ),
-            Match.when(false, () =>
-              Effect.fail(
-                SceneCleanupError({
-                  message: 'MainMenuScene is not initialized, cannot cleanup',
-                  sceneType: 'MainMenu',
-                })
-              )
-            ),
-            Match.exhaustive
-          )
-        }),
-
-      onEnter: () =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('MainMenuSceneに入場しました')
-        }),
-
-      onExit: () =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('MainMenuSceneから退場しました')
-        }),
+const ensureOption = (option: MenuOption) =>
+  pipe(
+    menuOptions.find((candidate) => candidate === option),
+    Option.fromNullable,
+    Option.match({
+      onNone: () =>
+        Effect.fail(
+          SceneControllerError.InvalidMutation({
+            reason: `未登録のメニュー項目です: ${option}`,
+          })
+        ),
+      onSome: (value) => Effect.succeed(value),
     })
+  )
+
+const optionIndex = (option: MenuOption) =>
+  Match.value(menuOptions.findIndex((candidate) => candidate === option)).pipe(
+    Match.when((index) => index < 0, () => Option.none<number>()),
+    Match.orElse((index) => Option.some(index))
+  )
+
+const wrapIndex = (index: number) =>
+  ((index % menuOptions.length) + menuOptions.length) % menuOptions.length
+
+const ensureSelection = (selection: Option.Option<MenuOption>) =>
+  Option.match(selection, {
+    onNone: () =>
+      Effect.fail(
+        SceneControllerError.InvalidMutation({
+          reason: 'メニュー選択状態が存在しません',
+        })
+      ),
+    onSome: (value) => Effect.succeed(value),
   })
+
+export interface MainMenuController extends SceneController<ReturnType<typeof Scenes.MainMenu>> {
+  readonly selectOption: (option: MenuOption) => Effect.Effect<MenuOption, SceneControllerError>
+  readonly cycle: (direction: 'next' | 'previous') => Effect.Effect<MenuOption, SceneControllerError>
+  readonly clearSelection: () => Effect.Effect<void>
+}
+
+export const createMainMenuController = (): Effect.Effect<MainMenuController> =>
+  createSceneController(Scenes.MainMenu()).pipe(
+    Effect.map((controller) => {
+      const selectOption = (option: MenuOption) =>
+        ensureOption(option).pipe(
+          Effect.flatMap((verified) =>
+            controller.update((state) => ({
+              ...state,
+              selectedOption: Option.some(verified),
+            }))
+          ),
+          Effect.flatMap((state) => ensureSelection(state.selectedOption))
+        )
+
+      const cycle = (direction: 'next' | 'previous') =>
+        controller
+          .update((state) => {
+            const currentIndex = pipe(
+              state.selectedOption,
+              Option.flatMap(optionIndex),
+              Option.getOrElse(() => 0)
+            )
+
+            const delta = Match.value(direction).pipe(
+              Match.when('next', () => 1),
+              Match.when('previous', () => -1),
+              Match.exhaustive
+            )
+
+            const rotated = menuOptions[wrapIndex(currentIndex + delta)]
+
+            return {
+              ...state,
+              selectedOption: Option.some(rotated),
+            }
+          })
+          .pipe(Effect.flatMap((state) => ensureSelection(state.selectedOption)))
+
+      const clearSelection = () =>
+        controller
+          .update((state) => ({
+            ...state,
+            selectedOption: Option.none(),
+          }))
+          .pipe(Effect.asUnit)
+
+      return {
+        ...controller,
+        selectOption,
+        cycle,
+        clearSelection,
+      }
+    })
+  )
+
+export const MainMenuBlueprint: SceneBlueprint<ReturnType<typeof Scenes.MainMenu>> = makeBlueprint(
+  Scenes.MainMenu()
 )

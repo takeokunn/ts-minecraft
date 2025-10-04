@@ -1,0 +1,245 @@
+import { Data, Schema } from 'effect'
+
+/**
+ * Chunk Repository Domain - Error Types
+ *
+ * チャンクリポジトリドメインのエラー型定義
+ * DDDのRepository Patternにおけるエラーハンドリング統一
+ */
+
+// ===== Repository Base Error ===== //
+
+/**
+ * Repository 基底エラー型
+ */
+export type RepositoryError = Data.TaggedEnum<{
+  /** チャンクが見つからない */
+  ChunkNotFound: {
+    readonly chunkId: string
+    readonly message: string
+    readonly timestamp: number
+  }
+
+  /** 重複チャンクエラー */
+  DuplicateChunk: {
+    readonly chunkId: string
+    readonly message: string
+    readonly timestamp: number
+  }
+
+  /** ストレージエラー */
+  StorageError: {
+    readonly operation: string
+    readonly reason: string
+    readonly originalError: unknown
+    readonly timestamp: number
+  }
+
+  /** バリデーションエラー */
+  ValidationError: {
+    readonly field: string
+    readonly value: unknown
+    readonly constraint: string
+    readonly timestamp: number
+  }
+
+  /** データ整合性エラー */
+  DataIntegrityError: {
+    readonly expected: string
+    readonly actual: string
+    readonly checksum?: string
+    readonly timestamp: number
+  }
+
+  /** ネットワークエラー */
+  NetworkError: {
+    readonly url: string
+    readonly status: number
+    readonly message: string
+    readonly timestamp: number
+  }
+
+  /** タイムアウトエラー */
+  TimeoutError: {
+    readonly operation: string
+    readonly duration: number
+    readonly threshold: number
+    readonly timestamp: number
+  }
+
+  /** 権限エラー */
+  PermissionError: {
+    readonly operation: string
+    readonly resource: string
+    readonly requiredPermission: string
+    readonly timestamp: number
+  }
+
+  /** リソース制限エラー */
+  ResourceLimitError: {
+    readonly resource: string
+    readonly limit: number
+    readonly current: number
+    readonly timestamp: number
+  }
+}>
+
+export const RepositoryError = Data.taggedEnum<RepositoryError>()
+
+// ===== Error Factory Functions ===== //
+
+/**
+ * RepositoryError ファクトリ関数
+ */
+export const RepositoryErrors = {
+  chunkNotFound: (chunkId: string, message?: string): RepositoryError =>
+    RepositoryError.ChunkNotFound({
+      chunkId,
+      message: message ?? `Chunk not found: ${chunkId}`,
+      timestamp: Date.now()
+    }),
+
+  duplicateChunk: (chunkId: string, message?: string): RepositoryError =>
+    RepositoryError.DuplicateChunk({
+      chunkId,
+      message: message ?? `Duplicate chunk: ${chunkId}`,
+      timestamp: Date.now()
+    }),
+
+  storage: (operation: string, reason: string, originalError?: unknown): RepositoryError =>
+    RepositoryError.StorageError({
+      operation,
+      reason,
+      originalError: originalError ?? 'Unknown error',
+      timestamp: Date.now()
+    }),
+
+  validation: (field: string, value: unknown, constraint: string): RepositoryError =>
+    RepositoryError.ValidationError({
+      field,
+      value,
+      constraint,
+      timestamp: Date.now()
+    }),
+
+  dataIntegrity: (expected: string, actual: string, checksum?: string): RepositoryError =>
+    RepositoryError.DataIntegrityError({
+      expected,
+      actual,
+      checksum,
+      timestamp: Date.now()
+    }),
+
+  network: (url: string, status: number, message: string): RepositoryError =>
+    RepositoryError.NetworkError({
+      url,
+      status,
+      message,
+      timestamp: Date.now()
+    }),
+
+  timeout: (operation: string, duration: number, threshold: number): RepositoryError =>
+    RepositoryError.TimeoutError({
+      operation,
+      duration,
+      threshold,
+      timestamp: Date.now()
+    }),
+
+  permission: (operation: string, resource: string, requiredPermission: string): RepositoryError =>
+    RepositoryError.PermissionError({
+      operation,
+      resource,
+      requiredPermission,
+      timestamp: Date.now()
+    }),
+
+  resourceLimit: (resource: string, limit: number, current: number): RepositoryError =>
+    RepositoryError.ResourceLimitError({
+      resource,
+      limit,
+      current,
+      timestamp: Date.now()
+    })
+} as const
+
+// ===== Error Schema Definitions ===== //
+
+/**
+ * Schema定義による型安全なエラーハンドリング
+ */
+export const RepositoryErrorSchema = Schema.TaggedEnum(RepositoryError)
+
+// ===== Type Guards ===== //
+
+/**
+ * エラー型判定関数
+ */
+export const isChunkNotFoundError = (error: RepositoryError): error is RepositoryError & { _tag: 'ChunkNotFound' } =>
+  error._tag === 'ChunkNotFound'
+
+export const isDuplicateChunkError = (error: RepositoryError): error is RepositoryError & { _tag: 'DuplicateChunk' } =>
+  error._tag === 'DuplicateChunk'
+
+export const isStorageError = (error: RepositoryError): error is RepositoryError & { _tag: 'StorageError' } =>
+  error._tag === 'StorageError'
+
+export const isValidationError = (error: RepositoryError): error is RepositoryError & { _tag: 'ValidationError' } =>
+  error._tag === 'ValidationError'
+
+export const isDataIntegrityError = (error: RepositoryError): error is RepositoryError & { _tag: 'DataIntegrityError' } =>
+  error._tag === 'DataIntegrityError'
+
+export const isNetworkError = (error: RepositoryError): error is RepositoryError & { _tag: 'NetworkError' } =>
+  error._tag === 'NetworkError'
+
+export const isTimeoutError = (error: RepositoryError): error is RepositoryError & { _tag: 'TimeoutError' } =>
+  error._tag === 'TimeoutError'
+
+export const isPermissionError = (error: RepositoryError): error is RepositoryError & { _tag: 'PermissionError' } =>
+  error._tag === 'PermissionError'
+
+export const isResourceLimitError = (error: RepositoryError): error is RepositoryError & { _tag: 'ResourceLimitError' } =>
+  error._tag === 'ResourceLimitError'
+
+// ===== Error Recovery Utilities ===== //
+
+/**
+ * エラー回復ユーティリティ
+ */
+export const isRetryableError = (error: RepositoryError): boolean => {
+  switch (error._tag) {
+    case 'NetworkError':
+    case 'TimeoutError':
+    case 'StorageError':
+      return true
+    case 'ChunkNotFound':
+    case 'DuplicateChunk':
+    case 'ValidationError':
+    case 'DataIntegrityError':
+    case 'PermissionError':
+    case 'ResourceLimitError':
+      return false
+    default:
+      return false
+  }
+}
+
+export const isTransientError = (error: RepositoryError): boolean => {
+  switch (error._tag) {
+    case 'NetworkError':
+    case 'TimeoutError':
+      return true
+    default:
+      return false
+  }
+}
+
+export const getRetryDelay = (error: RepositoryError, attempt: number): number => {
+  if (!isRetryableError(error)) return 0
+
+  // Exponential backoff with jitter
+  const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
+  const jitter = Math.random() * 0.1 * baseDelay
+  return baseDelay + jitter
+}

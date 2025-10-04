@@ -1,344 +1,125 @@
-import { PlayerIdSchema } from '@domain/core/types/brands'
-import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
-import type { ItemStack } from '../inventory/InventoryTypes'
+import { Brand, Data, Either, Effect, Match, pipe } from 'effect'
 
-// ===================================
-// Branded Types
-// ===================================
+export type DomainRange = Readonly<{ readonly min: number; readonly max: number }>
 
-export type CropId = string & Brand.Brand<'CropId'>
-export const CropId = Brand.nominal<CropId>()
-export const CropIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('CropId'),
-  Schema.annotations({
-    title: 'CropId',
-    description: 'Unique identifier for a crop',
-  })
-)
-
-export type GrowthStage = number & Brand.Brand<'GrowthStage'>
-export const GrowthStage = Brand.nominal<GrowthStage>()
-export const GrowthStageSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 15),
-  Schema.brand('GrowthStage'),
-  Schema.annotations({
-    title: 'GrowthStage',
-    description: 'Current growth stage of a crop (0-15)',
-  })
-)
-
-export type LightLevel = number & Brand.Brand<'LightLevel'>
-export const LightLevel = Brand.nominal<LightLevel>()
-export const LightLevelSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 15),
-  Schema.brand('LightLevel'),
-  Schema.annotations({
-    title: 'LightLevel',
-    description: 'Light level at a position (0-15)',
-  })
-)
-
-export type Moisture = number & Brand.Brand<'Moisture'>
-export const Moisture = Brand.nominal<Moisture>()
-export const MoistureSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(0, 7),
-  Schema.brand('Moisture'),
-  Schema.annotations({
-    title: 'Moisture',
-    description: 'Moisture level of farmland (0-7)',
-  })
-)
-
-export type GrowthRate = number & Brand.Brand<'GrowthRate'>
-export const GrowthRate = Brand.nominal<GrowthRate>()
-export const GrowthRateSchema = Schema.Number.pipe(
-  Schema.positive(),
-  Schema.brand('GrowthRate'),
-  Schema.annotations({
-    title: 'GrowthRate',
-    description: 'Growth rate multiplier for crops',
-  })
-)
-
-export type WaterRadius = number & Brand.Brand<'WaterRadius'>
-export const WaterRadius = Brand.nominal<WaterRadius>()
-export const WaterRadiusSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.lessThanOrEqualTo(4),
-  Schema.brand('WaterRadius'),
-  Schema.annotations({
-    title: 'WaterRadius',
-    description: 'Required water proximity radius',
-  })
-)
-
-export type BreedingCooldown = number & Brand.Brand<'BreedingCooldown'>
-export const BreedingCooldown = Brand.nominal<BreedingCooldown>()
-export const BreedingCooldownSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('BreedingCooldown'),
-  Schema.annotations({
-    title: 'BreedingCooldown',
-    description: 'Breeding cooldown time in milliseconds',
-  })
-)
-
-// ===================================
-// Crop Types
-// ===================================
-
-export const CropTypeSchema = Schema.Literal(
-  'wheat',
-  'carrot',
-  'potato',
-  'beetroot',
-  'melon',
-  'pumpkin',
-  'cocoa',
-  'sugar_cane',
-  'bamboo',
-  'kelp',
-  'nether_wart',
-  'chorus_plant'
-)
-export type CropType = Schema.Schema.Type<typeof CropTypeSchema>
-
-// ===================================
-// Animal Types
-// ===================================
-
-export const AnimalTypeSchema = Schema.Literal(
-  'cow',
-  'pig',
-  'sheep',
-  'chicken',
-  'horse',
-  'rabbit',
-  'llama',
-  'cat',
-  'dog',
-  'parrot',
-  'bee',
-  'fox'
-)
-export type AnimalType = Schema.Schema.Type<typeof AnimalTypeSchema>
-
-// ===================================
-// Core Schemas
-// ===================================
-
-export const CropSchema = Schema.Struct({
-  id: CropIdSchema,
-  type: CropTypeSchema,
-  position: Schema.Struct({
-    x: Schema.Number.pipe(Schema.int()),
-    y: Schema.Number.pipe(Schema.int()),
-    z: Schema.Number.pipe(Schema.int()),
-  }),
-  growthStage: GrowthStageSchema,
-  plantedTime: Schema.Number,
-  moisture: MoistureSchema,
-  fertilized: Schema.Boolean,
-  lastUpdate: Schema.Number,
-}).pipe(
-  Schema.annotations({
-    title: 'Crop',
-    description: 'A crop growing in the world',
-  })
-)
-export type Crop = Schema.Schema.Type<typeof CropSchema>
-
-export const GrowthRequirementsSchema = Schema.Struct({
-  minLightLevel: LightLevelSchema,
-  maxLightLevel: Schema.optional(LightLevelSchema),
-  requiresWater: Schema.Boolean,
-  waterRadius: WaterRadiusSchema,
-  baseGrowthTime: Schema.Number.pipe(Schema.positive()), // milliseconds
-  stages: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  canGrowInDark: Schema.optional(Schema.Boolean),
-}).pipe(
-  Schema.annotations({
-    title: 'GrowthRequirements',
-    description: 'Requirements for crop growth',
-  })
-)
-export type GrowthRequirements = Schema.Schema.Type<typeof GrowthRequirementsSchema>
-
-export const GrowthConditionsSchema = Schema.Struct({
-  lightLevel: LightLevelSchema,
-  hasWater: Schema.Boolean,
-  isFertilized: Schema.Boolean,
-  temperature: Schema.optional(Schema.Number),
-  humidity: Schema.optional(Schema.Number),
-}).pipe(
-  Schema.annotations({
-    title: 'GrowthConditions',
-    description: 'Current growth conditions for a crop',
-  })
-)
-export type GrowthConditions = Schema.Schema.Type<typeof GrowthConditionsSchema>
-
-export const FarmAnimalSchema = Schema.Struct({
-  entityId: Schema.String,
-  type: AnimalTypeSchema,
-  health: Schema.Number.pipe(Schema.positive()),
-  age: Schema.Number.pipe(Schema.nonNegative()),
-  isBaby: Schema.Boolean,
-  lastFed: Schema.optional(Schema.Number),
-  breedingCooldown: BreedingCooldownSchema,
-  tamed: Schema.Boolean,
-  ownerId: Schema.optional(PlayerIdSchema),
-  loveModeTime: Schema.optional(Schema.Number),
-}).pipe(
-  Schema.annotations({
-    title: 'FarmAnimal',
-    description: 'A farm animal entity',
-  })
-)
-export type FarmAnimal = Schema.Schema.Type<typeof FarmAnimalSchema>
-
-// ===================================
-// Event Types
-// ===================================
-
-export const DestroyReasonSchema = Schema.Literal(
-  'player_break',
-  'natural_decay',
-  'trampled',
-  'explosion',
-  'fire',
-  'water_flow',
-  'mob_grief'
-)
-export type DestroyReason = Schema.Schema.Type<typeof DestroyReasonSchema>
-
-export const AgricultureEventSchema = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal('CropPlanted'),
-    cropId: CropIdSchema,
-    type: CropTypeSchema,
-    position: Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    }),
-    planterId: Schema.String,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('CropGrown'),
-    cropId: CropIdSchema,
-    fromStage: GrowthStageSchema,
-    toStage: GrowthStageSchema,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('CropHarvested'),
-    cropId: CropIdSchema,
-    drops: Schema.Array(Schema.Unknown), // ItemStack array
-    harvesterId: Schema.String,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('CropDestroyed'),
-    cropId: CropIdSchema,
-    reason: DestroyReasonSchema,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('CropFertilized'),
-    cropId: CropIdSchema,
-    fertilizerId: Schema.String,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('AnimalBred'),
-    parent1: Schema.String,
-    parent2: Schema.String,
-    offspring: Schema.String,
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('AnimalFed'),
-    animalId: Schema.String,
-    feederId: Schema.String,
-    food: Schema.Unknown, // ItemStack
-    timestamp: Schema.Number,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('AnimalTamed'),
-    animalId: Schema.String,
-    tamerId: Schema.String,
-    timestamp: Schema.Number,
-  })
-)
-export type AgricultureEvent = Schema.Schema.Type<typeof AgricultureEventSchema>
-
-// ===================================
-// Error Types
-// ===================================
-
-export const AgricultureErrorReasonSchema = Schema.Literal(
-  'INVALID_SOIL',
-  'CROP_ALREADY_EXISTS',
-  'CROP_NOT_FOUND',
-  'CROP_NOT_MATURE',
-  'INSUFFICIENT_LIGHT',
-  'NO_WATER_NEARBY',
-  'ANIMAL_NOT_FOUND',
-  'INCOMPATIBLE_ANIMALS',
-  'ANIMAL_TOO_YOUNG',
-  'BREEDING_COOLDOWN',
-  'INVALID_FOOD',
-  'NOT_TAMEABLE',
-  'ALREADY_TAMED'
-)
-export type AgricultureErrorReason = Schema.Schema.Type<typeof AgricultureErrorReasonSchema>
-
-export const AgricultureErrorSchema = Schema.Struct({
-  _tag: Schema.Literal('AgricultureError'),
-  reason: AgricultureErrorReasonSchema,
-  message: Schema.String,
-  position: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    })
-  ),
-  cropId: Schema.optional(CropIdSchema),
-  animalId: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
-}).pipe(
-  Schema.annotations({
-    title: 'AgricultureError',
-    description: 'Error in agriculture operations',
-  })
-)
-export type AgricultureError = Schema.Schema.Type<typeof AgricultureErrorSchema>
-
-// ===================================
-// Utility Types
-// ===================================
-
-export interface CropDrops {
-  readonly items: ReadonlyArray<ItemStack>
-  readonly experience: number
+export const DomainConstants: Readonly<{
+  readonly growthStage: DomainRange
+  readonly moistureLevel: DomainRange
+  readonly soilQuality: DomainRange
+  readonly breedingFactor: DomainRange
+}> = {
+  growthStage: { min: 0, max: 15 },
+  moistureLevel: { min: 0, max: 7 },
+  soilQuality: { min: 0, max: 100 },
+  breedingFactor: { min: 0, max: 1 }
 }
 
-export interface AnimalDrops {
-  readonly items: ReadonlyArray<ItemStack>
-  readonly experience: number
-}
+export type DomainError = Data.TaggedEnum<{
+  ValidationError: { readonly field: string; readonly message: string }
+  OutOfRange: { readonly field: string; readonly range: DomainRange; readonly actual: number }
+  SchemaViolation: { readonly field: string; readonly message: string }
+  InvariantViolation: { readonly description: string }
+}>
 
-export interface BreedingResult {
-  readonly babyId: string
-  readonly babyType: AnimalType
-  readonly parents: [string, string]
-}
+export const DomainError = Data.taggedEnum<DomainError>()
+
+export const { ValidationError, OutOfRange, SchemaViolation, InvariantViolation } = DomainError
+
+const identifierPattern = /^[A-Za-z0-9_-]+$/
+
+export type Identifier = string & Brand.Brand<'Identifier'>
+
+const IdentifierBrand = Brand.nominal<Identifier>()
+
+export const makeIdentifier = (value: string): Effect.Effect<Identifier, DomainError> =>
+  Effect.gen(function* () {
+    const trimmed = value.trim()
+
+    if (trimmed.length < 3) {
+      return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'length must be >= 3' }))
+    }
+
+    if (trimmed.length > 64) {
+      return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'length must be <= 64' }))
+    }
+
+    if (!identifierPattern.test(trimmed)) {
+      return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'allowed characters are [A-Za-z0-9_-]' }))
+    }
+
+    return IdentifierBrand(trimmed)
+  })
+
+export const makeIdentifierEither = (value: string): Either.Either<Identifier, DomainError> =>
+  Effect.runSync(Effect.either(makeIdentifier(value)))
+
+export const makeBoundedNumber = (params: { readonly field: string; readonly range: DomainRange; readonly value: number }): Effect.Effect<number, DomainError> =>
+  Effect.gen(function* () {
+    if (!Number.isFinite(params.value)) {
+      return yield* Effect.fail(ValidationError({ field: params.field, message: `${params.field} must be finite` }))
+    }
+
+    const clamped = params.value
+    if (clamped < params.range.min || clamped > params.range.max) {
+      return yield* Effect.fail(OutOfRange({ field: params.field, range: params.range, actual: clamped }))
+    }
+
+    return clamped
+  })
+
+export const makeBoundedNumberEither = (params: { readonly field: string; readonly range: DomainRange; readonly value: number }): Either.Either<number, DomainError> =>
+  Effect.runSync(Effect.either(makeBoundedNumber(params)))
+
+export type DomainInvariant<T> = Readonly<{
+  readonly description: string
+  readonly verify: (input: T) => Effect.Effect<T, DomainError>
+}>
+
+export const enforceInvariant = <T>(invariant: DomainInvariant<T>, value: T): Effect.Effect<T, DomainError> =>
+  invariant.verify(value)
+
+export const combineInvariants = <T>(invariants: ReadonlyArray<DomainInvariant<T>>): DomainInvariant<T> => ({
+  description: invariants.map((item) => item.description).join(' & '),
+  verify: (value) =>
+    pipe(
+      invariants,
+      Effect.forEach((invariant) => invariant.verify(value), { discard: true }),
+      Effect.map(() => value)
+    )
+})
+
+export const ensurePositive = (field: string): DomainInvariant<number> => ({
+  description: `${field} must be positive`,
+  verify: (value) =>
+    pipe(
+      Effect.succeed(value),
+      Effect.filterOrFail((candidate) => candidate > 0, () => ValidationError({ field, message: `${field} must be positive` }))
+    )
+})
+
+export const ensureWithinRange = (field: string, range: DomainRange): DomainInvariant<number> => ({
+  description: `${field} within range`,
+  verify: (value) =>
+    pipe(
+      Effect.succeed(value),
+      Effect.filterOrFail(
+        (candidate) => candidate >= range.min && candidate <= range.max,
+        (candidate) => OutOfRange({ field, range, actual: candidate })
+      )
+    )
+})
+
+export const matchDomainError = <A>(error: DomainError, on: {
+  readonly validation: (payload: DomainError['ValidationError']) => A
+  readonly outOfRange: (payload: DomainError['OutOfRange']) => A
+  readonly schema: (payload: DomainError['SchemaViolation']) => A
+  readonly invariant: (payload: DomainError['InvariantViolation']) => A
+}): A =>
+  pipe(
+    Match.value(error),
+    Match.when({ _tag: 'ValidationError' }, (value) => on.validation(value)),
+    Match.when({ _tag: 'OutOfRange' }, (value) => on.outOfRange(value)),
+    Match.when({ _tag: 'SchemaViolation' }, (value) => on.schema(value)),
+    Match.when({ _tag: 'InvariantViolation' }, (value) => on.invariant(value)),
+    Match.orElse(() => on.validation({ field: 'unknown', message: 'unknown domain error' }))
+  )

@@ -1,0 +1,676 @@
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Either, Match, Schema, pipe } from 'effect'
+import * as DifficultyVo from '../../value_object/crafting_difficulty'
+import {
+  assertConcurrencyInvariant,
+  assertPropertyHolds,
+  assertValueObjectValidation,
+  matchDifficultyCategory,
+} from '../crafting-test-helpers'
+
+// ===================================
+// CraftingDifficulty Value Object Tests
+// 難易度レベルの型安全性とゲームバランス制約
+// ===================================
+
+describe('CraftingDifficulty Value Object - Type Safety Tests', () => {
+  // ===================================
+  // Schema Validation Tests
+  // ===================================
+
+  describe('Schema Validation', () => {
+    it.effect('should validate correct difficulty values', () =>
+      Effect.gen(function* () {
+        const validDifficulties = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        for (const difficulty of validDifficulties) {
+          const result = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(difficulty)
+
+          yield* assertValueObjectValidation(() => result, difficulty as DifficultyVo.CraftingDifficulty)
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(difficulty)
+          }
+        }
+      })
+    )
+
+    it.effect('should reject invalid difficulty values', () =>
+      Effect.gen(function* () {
+        const invalidDifficulties = [0, -1, 11, 15, 20, 100, -10]
+
+        for (const difficulty of invalidDifficulties) {
+          const result = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(difficulty)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected between 1 and 10')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-integer values', () =>
+      Effect.gen(function* () {
+        const nonIntegerValues = [1.5, 2.7, 5.1, 9.9, -0.5, 10.1]
+
+        for (const value of nonIntegerValues) {
+          const result = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected integer')
+          }
+        }
+      })
+    )
+
+    it.effect('should reject non-number types', () =>
+      Effect.gen(function* () {
+        const nonNumberValues = ['5', 'easy', true, false, null, undefined, {}, [], 'hard']
+
+        for (const value of nonNumberValues) {
+          const result = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(value)
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.message).toContain('Expected number')
+          }
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Brand Type Safety Tests
+  // ===================================
+
+  describe('Brand Type Safety', () => {
+    it.effect('should create branded difficulty values correctly', () =>
+      Effect.gen(function* () {
+        const validDifficulty = 5
+        const result = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(validDifficulty)
+
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          const brandedDifficulty = result.right
+
+          // Brand型の基本検証
+          expect(typeof brandedDifficulty).toBe('number')
+          expect(brandedDifficulty).toBe(5)
+
+          // 型安全性プロパティ検証
+          yield* assertPropertyHolds(
+            brandedDifficulty,
+            (difficulty) => difficulty >= 1 && difficulty <= 10 && Number.isInteger(difficulty),
+            'CraftingDifficulty brand type safety'
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain type distinction from regular numbers', () =>
+      Effect.gen(function* () {
+        const regularNumber = 7
+        const brandedResult = Schema.decodeEither(DifficultyVo.CraftingDifficultySchema)(regularNumber)
+
+        expect(Either.isRight(brandedResult)).toBe(true)
+        if (Either.isRight(brandedResult)) {
+          const brandedDifficulty = brandedResult.right
+
+          // 実行時値は同じだが型システムレベルで区別される
+          expect(brandedDifficulty).toBe(regularNumber)
+
+          // Brand型の型安全性は保持される
+          yield* assertPropertyHolds(
+            brandedDifficulty,
+            (difficulty) => difficulty === regularNumber,
+            'Brand type runtime equivalence'
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Predefined Constants Tests
+  // ===================================
+
+  describe('Predefined Constants', () => {
+    it.effect('should provide valid predefined difficulty levels', () =>
+      Effect.gen(function* () {
+        const constants = [
+          { name: 'TRIVIAL', value: DifficultyVo.TRIVIAL, expected: 1 },
+          { name: 'EASY', value: DifficultyVo.EASY, expected: 3 },
+          { name: 'NORMAL', value: DifficultyVo.NORMAL, expected: 5 },
+          { name: 'HARD', value: DifficultyVo.HARD, expected: 7 },
+          { name: 'LEGENDARY', value: DifficultyVo.LEGENDARY, expected: 10 },
+        ]
+
+        for (const constant of constants) {
+          expect(constant.value).toBe(constant.expected)
+
+          yield* assertPropertyHolds(
+            constant.value,
+            (difficulty) => difficulty >= 1 && difficulty <= 10,
+            `Predefined constant validity: ${constant.name}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain constant ordering', () =>
+      Effect.gen(function* () {
+        const difficulties = [
+          DifficultyVo.TRIVIAL,
+          DifficultyVo.EASY,
+          DifficultyVo.NORMAL,
+          DifficultyVo.HARD,
+          DifficultyVo.LEGENDARY,
+        ]
+
+        // 昇順になっていることを確認
+        for (let i = 0; i < difficulties.length - 1; i++) {
+          expect(difficulties[i]).toBeLessThan(difficulties[i + 1])
+        }
+
+        yield* assertPropertyHolds(
+          difficulties,
+          (diffs) => diffs.every((diff, index) => index === 0 || diff > diffs[index - 1]),
+          'Constant ordering consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Value Object Operations Tests
+  // ===================================
+
+  describe('Value Object Operations', () => {
+    it.effect('should handle creation and validation correctly', () =>
+      Effect.gen(function* () {
+        const validDifficulty = 6
+        const difficulty = yield* DifficultyVo.create(validDifficulty)
+
+        expect(DifficultyVo.toNumber(difficulty)).toBe(validDifficulty)
+        expect(DifficultyVo.isValid(validDifficulty)).toBe(true)
+
+        yield* assertPropertyHolds(
+          difficulty,
+          (diff) => DifficultyVo.toNumber(diff) === validDifficulty,
+          'Creation and validation consistency'
+        )
+      })
+    )
+
+    it.effect('should handle comparison operations correctly', () =>
+      Effect.gen(function* () {
+        const easy = yield* DifficultyVo.create(3)
+        const normal = yield* DifficultyVo.create(5)
+        const hard = yield* DifficultyVo.create(7)
+
+        // 比較演算
+        expect(DifficultyVo.compare(easy, normal)).toBeLessThan(0)
+        expect(DifficultyVo.compare(normal, hard)).toBeLessThan(0)
+        expect(DifficultyVo.compare(hard, easy)).toBeGreaterThan(0)
+        expect(DifficultyVo.compare(normal, normal)).toBe(0)
+
+        // 等価性
+        const anotherNormal = yield* DifficultyVo.create(5)
+        expect(DifficultyVo.equals(normal, anotherNormal)).toBe(true)
+        expect(DifficultyVo.equals(normal, hard)).toBe(false)
+
+        yield* assertPropertyHolds(
+          { easy, normal, hard },
+          ({ easy, normal, hard }) =>
+            DifficultyVo.compare(easy, normal) < 0 &&
+            DifficultyVo.compare(normal, hard) < 0 &&
+            DifficultyVo.compare(hard, easy) > 0,
+          'Comparison transitivity'
+        )
+      })
+    )
+
+    it.effect('should handle string conversion correctly', () =>
+      Effect.gen(function* () {
+        const stringConversions = [
+          { string: 'trivial', expected: DifficultyVo.TRIVIAL },
+          { string: 'easy', expected: DifficultyVo.EASY },
+          { string: 'normal', expected: DifficultyVo.NORMAL },
+          { string: 'hard', expected: DifficultyVo.HARD },
+          { string: 'legendary', expected: DifficultyVo.LEGENDARY },
+        ]
+
+        for (const test of stringConversions) {
+          const result = yield* Effect.either(DifficultyVo.fromString(test.string))
+
+          expect(Either.isRight(result)).toBe(true)
+          if (Either.isRight(result)) {
+            expect(result.right).toBe(test.expected)
+          }
+        }
+
+        // 無効な文字列
+        const invalidResult = yield* Effect.either(DifficultyVo.fromString('impossible'))
+        expect(Either.isLeft(invalidResult)).toBe(true)
+      })
+    )
+  })
+
+  // ===================================
+  // Game Balance Effects Tests
+  // ===================================
+
+  describe('Game Balance Effects', () => {
+    it.effect('should calculate material multiplier correctly', () =>
+      Effect.gen(function* () {
+        const materialMultiplierTests = [
+          { difficulty: DifficultyVo.TRIVIAL, expectedMultiplier: 1.0 },
+          { difficulty: DifficultyVo.EASY, expectedMultiplier: 1.2 },
+          { difficulty: DifficultyVo.NORMAL, expectedMultiplier: 1.5 },
+          { difficulty: DifficultyVo.HARD, expectedMultiplier: 2.0 },
+          { difficulty: DifficultyVo.LEGENDARY, expectedMultiplier: 3.0 },
+        ]
+
+        for (const test of materialMultiplierTests) {
+          const multiplier = DifficultyVo.getMaterialMultiplier(test.difficulty)
+          expect(multiplier).toBeCloseTo(test.expectedMultiplier, 2)
+
+          yield* assertPropertyHolds(
+            { difficulty: test.difficulty, multiplier },
+            ({ multiplier }) => multiplier >= 1.0 && multiplier <= 3.0,
+            `Material multiplier range for difficulty ${DifficultyVo.toNumber(test.difficulty)}`
+          )
+        }
+      })
+    )
+
+    it.effect('should calculate success rate effect correctly', () =>
+      Effect.gen(function* () {
+        const successRateTests = [
+          { difficulty: DifficultyVo.TRIVIAL, expectedSuccessRate: 1.0 },
+          { difficulty: DifficultyVo.EASY, expectedSuccessRate: 0.95 },
+          { difficulty: DifficultyVo.NORMAL, expectedSuccessRate: 0.85 },
+          { difficulty: DifficultyVo.HARD, expectedSuccessRate: 0.7 },
+          { difficulty: DifficultyVo.LEGENDARY, expectedSuccessRate: 0.5 },
+        ]
+
+        for (const test of successRateTests) {
+          const successRate = DifficultyVo.getSuccessRateEffect(test.difficulty)
+          expect(successRate).toBeCloseTo(test.expectedSuccessRate, 2)
+
+          yield* assertPropertyHolds(
+            { difficulty: test.difficulty, successRate },
+            ({ successRate }) => successRate >= 0.5 && successRate <= 1.0,
+            `Success rate range for difficulty ${DifficultyVo.toNumber(test.difficulty)}`
+          )
+        }
+      })
+    )
+
+    it.effect('should calculate time multiplier correctly', () =>
+      Effect.gen(function* () {
+        const timeMultiplierTests = [
+          { difficulty: DifficultyVo.TRIVIAL, expectedMultiplier: 0.8 },
+          { difficulty: DifficultyVo.EASY, expectedMultiplier: 1.0 },
+          { difficulty: DifficultyVo.NORMAL, expectedMultiplier: 1.5 },
+          { difficulty: DifficultyVo.HARD, expectedMultiplier: 2.5 },
+          { difficulty: DifficultyVo.LEGENDARY, expectedMultiplier: 4.0 },
+        ]
+
+        for (const test of timeMultiplierTests) {
+          const multiplier = DifficultyVo.getTimeMultiplier(test.difficulty)
+          expect(multiplier).toBeCloseTo(test.expectedMultiplier, 2)
+
+          yield* assertPropertyHolds(
+            { difficulty: test.difficulty, multiplier },
+            ({ multiplier }) => multiplier >= 0.8 && multiplier <= 4.0,
+            `Time multiplier range for difficulty ${DifficultyVo.toNumber(test.difficulty)}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Pattern Matching Tests
+  // ===================================
+
+  describe('Pattern Matching Integration', () => {
+    it.effect('should match difficulty categories correctly', () =>
+      Effect.gen(function* () {
+        const testCases = [
+          { difficulty: DifficultyVo.TRIVIAL, expected: 'trivial' },
+          { difficulty: DifficultyVo.EASY, expected: 'easy' },
+          { difficulty: DifficultyVo.NORMAL, expected: 'normal' },
+          { difficulty: DifficultyVo.HARD, expected: 'hard' },
+          { difficulty: DifficultyVo.LEGENDARY, expected: 'legendary' },
+        ]
+
+        for (const test of testCases) {
+          const result = matchDifficultyCategory(test.difficulty)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+
+    it.effect('should handle recipe recommendation analysis', () =>
+      Effect.gen(function* () {
+        const recipeRecommendationAnalyzer = (playerLevel: number, recipeDifficulty: DifficultyVo.CraftingDifficulty) =>
+          pipe(
+            { playerLevel, difficulty: DifficultyVo.toNumber(recipeDifficulty) },
+            Match.value,
+            Match.when(
+              ({ playerLevel, difficulty }) => playerLevel >= difficulty * 10,
+              () => 'recommended'
+            ),
+            Match.when(
+              ({ playerLevel, difficulty }) => playerLevel >= difficulty * 5,
+              () => 'challenging'
+            ),
+            Match.when(
+              ({ playerLevel, difficulty }) => playerLevel >= difficulty,
+              () => 'difficult'
+            ),
+            Match.orElse(() => 'too_difficult')
+          )
+
+        const testCases = [
+          { playerLevel: 50, difficulty: DifficultyVo.NORMAL, expected: 'recommended' }, // 50 >= 5*10
+          { playerLevel: 25, difficulty: DifficultyVo.NORMAL, expected: 'challenging' }, // 25 >= 5*5
+          { playerLevel: 7, difficulty: DifficultyVo.NORMAL, expected: 'difficult' }, // 7 >= 5
+          { playerLevel: 3, difficulty: DifficultyVo.NORMAL, expected: 'too_difficult' }, // 3 < 5
+        ]
+
+        for (const test of testCases) {
+          const result = recipeRecommendationAnalyzer(test.playerLevel, test.difficulty)
+          expect(result).toBe(test.expected)
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Property-based Tests
+  // ===================================
+
+  describe('Property-based Tests', () => {
+    it.effect('should maintain difficulty scaling properties', () =>
+      Effect.gen(function* () {
+        const difficulties = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        for (let i = 0; i < difficulties.length - 1; i++) {
+          const lower = yield* DifficultyVo.create(difficulties[i])
+          const higher = yield* DifficultyVo.create(difficulties[i + 1])
+
+          // 難易度が上がると材料倍率も上がる（単調増加）
+          const lowerMaterialMult = DifficultyVo.getMaterialMultiplier(lower)
+          const higherMaterialMult = DifficultyVo.getMaterialMultiplier(higher)
+
+          // 難易度が上がると成功率は下がる（単調減少）
+          const lowerSuccessRate = DifficultyVo.getSuccessRateEffect(lower)
+          const higherSuccessRate = DifficultyVo.getSuccessRateEffect(higher)
+
+          // 難易度が上がると時間倍率も上がる（単調増加）
+          const lowerTimeMult = DifficultyVo.getTimeMultiplier(lower)
+          const higherTimeMult = DifficultyVo.getTimeMultiplier(higher)
+
+          yield* assertPropertyHolds(
+            {
+              lowerMaterialMult,
+              higherMaterialMult,
+              lowerSuccessRate,
+              higherSuccessRate,
+              lowerTimeMult,
+              higherTimeMult,
+            },
+            (props) =>
+              props.higherMaterialMult >= props.lowerMaterialMult &&
+              props.higherSuccessRate <= props.lowerSuccessRate &&
+              props.higherTimeMult >= props.lowerTimeMult,
+            `Difficulty scaling consistency: ${difficulties[i]} -> ${difficulties[i + 1]}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain effect value ranges', () =>
+      Effect.gen(function* () {
+        for (let level = 1; level <= 10; level++) {
+          const difficulty = yield* DifficultyVo.create(level)
+
+          const materialMult = DifficultyVo.getMaterialMultiplier(difficulty)
+          const successRate = DifficultyVo.getSuccessRateEffect(difficulty)
+          const timeMult = DifficultyVo.getTimeMultiplier(difficulty)
+
+          yield* assertPropertyHolds(
+            { materialMult, successRate, timeMult },
+            ({ materialMult, successRate, timeMult }) =>
+              materialMult >= 1.0 &&
+              materialMult <= 3.0 &&
+              successRate >= 0.5 &&
+              successRate <= 1.0 &&
+              timeMult >= 0.8 &&
+              timeMult <= 4.0,
+            `Effect value ranges for difficulty ${level}`
+          )
+        }
+      })
+    )
+
+    it.effect('should maintain creation and conversion consistency', () =>
+      Effect.gen(function* () {
+        for (let level = 1; level <= 10; level++) {
+          const difficulty = yield* DifficultyVo.create(level)
+          const numberValue = DifficultyVo.toNumber(difficulty)
+          const isValid = DifficultyVo.isValid(level)
+
+          yield* assertPropertyHolds(
+            { original: level, converted: numberValue, valid: isValid },
+            ({ original, converted, valid }) => original === converted && valid === true,
+            `Creation consistency for level ${level}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Concurrency Tests
+  // ===================================
+
+  describe('Concurrency Tests', () => {
+    it.effect('should handle concurrent difficulty calculations correctly', () =>
+      Effect.gen(function* () {
+        const difficulties = [1, 3, 5, 7, 10]
+
+        const concurrentCalculations = difficulties.map((level) =>
+          Effect.sync(() => {
+            const difficulty = Effect.runSync(DifficultyVo.create(level))
+            return {
+              difficulty,
+              materialMultiplier: DifficultyVo.getMaterialMultiplier(difficulty),
+              successRate: DifficultyVo.getSuccessRateEffect(difficulty),
+              timeMultiplier: DifficultyVo.getTimeMultiplier(difficulty),
+            }
+          })
+        )
+
+        // 並行実行不変条件: 計算結果が一貫している
+        yield* assertConcurrencyInvariant(
+          concurrentCalculations,
+          (results) =>
+            results.every((result, index) => {
+              const expectedLevel = difficulties[index]
+              return (
+                DifficultyVo.toNumber(result.difficulty) === expectedLevel &&
+                result.materialMultiplier >= 1.0 &&
+                result.successRate >= 0.5 &&
+                result.timeMultiplier >= 0.8
+              )
+            }),
+          'Concurrent difficulty calculation consistency'
+        )
+      })
+    )
+
+    it.effect('should maintain thread safety for comparison operations', () =>
+      Effect.gen(function* () {
+        const testPairs = [
+          [1, 3],
+          [3, 5],
+          [5, 7],
+          [7, 10],
+          [2, 4],
+          [4, 6],
+          [6, 8],
+          [8, 9],
+        ]
+
+        const concurrentComparisons = testPairs.map(([a, b]) =>
+          Effect.sync(() => {
+            const diffA = Effect.runSync(DifficultyVo.create(a))
+            const diffB = Effect.runSync(DifficultyVo.create(b))
+
+            return {
+              pair: [a, b],
+              compare: DifficultyVo.compare(diffA, diffB),
+              equals: DifficultyVo.equals(diffA, diffB),
+              aLowerThanB: DifficultyVo.compare(diffA, diffB) < 0,
+            }
+          })
+        )
+
+        const results = yield* Effect.all(concurrentComparisons, { concurrency: 'unbounded' })
+
+        yield* assertPropertyHolds(
+          results,
+          (resultArray) =>
+            resultArray.every((result) => {
+              const [a, b] = result.pair
+              return result.aLowerThanB === a < b && result.equals === (a === b)
+            }),
+          'Concurrent comparison consistency'
+        )
+      })
+    )
+  })
+
+  // ===================================
+  // Edge Cases and Error Handling
+  // ===================================
+
+  describe('Edge Cases', () => {
+    it.effect('should handle boundary values correctly', () =>
+      Effect.gen(function* () {
+        const boundaryTests = [
+          { value: 1, valid: true, description: 'minimum difficulty' },
+          { value: 10, valid: true, description: 'maximum difficulty' },
+          { value: 0, valid: false, description: 'below minimum (invalid)' },
+          { value: 11, valid: false, description: 'above maximum (invalid)' },
+        ]
+
+        for (const test of boundaryTests) {
+          const result = yield* Effect.either(DifficultyVo.create(test.value))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `Boundary validation: ${test.description}`
+          )
+        }
+      })
+    )
+
+    it.effect('should provide meaningful error messages', () =>
+      Effect.gen(function* () {
+        const errorTests = [
+          { value: 0, expectedError: 'InvalidCraftingDifficultyError' },
+          { value: 11, expectedError: 'InvalidCraftingDifficultyError' },
+          { value: -5, expectedError: 'InvalidCraftingDifficultyError' },
+          { value: 5.5, expectedError: 'InvalidCraftingDifficultyError' },
+        ]
+
+        for (const test of errorTests) {
+          const result = yield* Effect.either(DifficultyVo.create(test.value))
+
+          expect(Either.isLeft(result)).toBe(true)
+          if (Either.isLeft(result)) {
+            const error = result.left
+            expect(error.constructor.name).toBe(test.expectedError)
+          }
+        }
+      })
+    )
+
+    it.effect('should handle string conversion edge cases', () =>
+      Effect.gen(function* () {
+        const stringTests = [
+          { string: 'trivial', valid: true },
+          { string: 'EASY', valid: false }, // 大文字
+          { string: 'normal', valid: true },
+          { string: 'impossible', valid: false },
+          { string: '', valid: false },
+          { string: '5', valid: false }, // 数字文字列
+        ]
+
+        for (const test of stringTests) {
+          const result = yield* Effect.either(DifficultyVo.fromString(test.string))
+
+          yield* assertPropertyHolds(
+            result,
+            (r) => (test.valid ? Either.isRight(r) : Either.isLeft(r)),
+            `String conversion: ${test.string}`
+          )
+        }
+      })
+    )
+  })
+
+  // ===================================
+  // Performance Tests
+  // ===================================
+
+  describe('Performance Tests', () => {
+    it.effect('should handle high-volume difficulty operations efficiently', () =>
+      Effect.gen(function* () {
+        const operationCount = 1000
+        const maxExecutionTime = 50 // 50ms for 1000 operations
+
+        const bulkOperations = Array.from({ length: operationCount }, (_, i) =>
+          Effect.sync(() => {
+            const level = (i % 10) + 1 // 1-10
+            const difficulty = Effect.runSync(DifficultyVo.create(level))
+
+            return {
+              difficulty,
+              materialMultiplier: DifficultyVo.getMaterialMultiplier(difficulty),
+              successRate: DifficultyVo.getSuccessRateEffect(difficulty),
+              timeMultiplier: DifficultyVo.getTimeMultiplier(difficulty),
+              category: matchDifficultyCategory(difficulty),
+            }
+          })
+        )
+
+        const startTime = Date.now()
+        const results = yield* Effect.all(bulkOperations, { concurrency: 'unbounded' })
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
+
+        expect(executionTime).toBeLessThan(maxExecutionTime)
+        expect(results.length).toBe(operationCount)
+
+        yield* assertPropertyHolds(
+          { results, executionTime, maxTime: maxExecutionTime },
+          ({ results, executionTime, maxTime }) => results.length === operationCount && executionTime < maxTime,
+          'High-volume operation performance'
+        )
+      })
+    )
+  })
+})

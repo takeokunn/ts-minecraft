@@ -1,4 +1,4 @@
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { Vector3D } from '@domain/entities/types'
 import { Context, Effect, Stream } from 'effect'
 import type {
   AudioError,

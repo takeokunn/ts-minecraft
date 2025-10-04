@@ -55,3 +55,6 @@ export type {
 } from './errors'
 
 export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'
+
+// ===== インベントリアプリケーション層 =====
+export * from './inventory'
