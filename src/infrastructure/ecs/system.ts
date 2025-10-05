@@ -23,7 +23,8 @@ export type SystemError = ReturnType<typeof SystemError>
 export const makeSystemError = (systemName: string, message: string, cause?: unknown): SystemError =>
   SystemError({ systemName, message, cause: Option.fromNullable(cause) })
 
-export const isSystemError = (error: unknown): error is SystemError => Data.isTagged(error, 'SystemError')
+export const isSystemError = (error: unknown): error is SystemError =>
+  typeof error === 'object' && error !== null && (error as { readonly _tag?: string })._tag === 'SystemError'
 
 /**
  * システムの優先度レベル
@@ -104,22 +105,18 @@ export const runSystems = (
   Effect.forEach(
     systems,
     (system) =>
-      system.update(world, deltaTime).pipe(
-        Effect.mapError((error) =>
-          SystemError.is(error)
-            ? error
-            : SystemError({
-                systemName: system.name,
-                message: 'Unknown error in system execution',
-                cause: Option.some(error),
-              })
-        ),
-        Effect.catchTag('SystemError', (error) =>
-          Effect.logError(`System ${error.systemName} failed: ${error.message}`).pipe(
-            Effect.andThen(Effect.fail(error))
+      system
+        .update(world, deltaTime)
+        .pipe(
+          Effect.mapError((error) =>
+            isSystemError(error)
+              ? error
+              : makeSystemError(system.name, 'Unknown error in system execution', error)
+          ),
+          Effect.tapError((error) =>
+            Effect.logError(`System ${error.systemName} failed: ${error.message}`)
           )
-        )
-      ),
+        ),
     { concurrency: 1 }
   ).pipe(Effect.asVoid)
 

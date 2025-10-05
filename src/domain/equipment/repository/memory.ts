@@ -22,7 +22,7 @@ export interface EquipmentRepository {
   ) => Effect.Effect<EquipmentSet, NotFound>
 }
 
-export const EquipmentRepositoryTag = Context.Tag<EquipmentRepository>('@domain/equipment/EquipmentRepository')
+export const EquipmentRepositoryTag = Context.GenericTag<EquipmentRepository>('@domain/equipment/EquipmentRepository')
 
 export const InMemoryEquipmentRepository = Layer.scoped(
   EquipmentRepositoryTag,

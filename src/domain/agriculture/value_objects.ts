@@ -165,11 +165,11 @@ export const describeSoil = (quality: SoilQuality): SoilCondition =>
     Match.value(Number(quality)),
     Match.when(
       (value) => value < 20,
-      () => SoilCondition.Depleted({ severity: value / DomainConstants.soilQuality.max })
+      (value) => SoilCondition.Depleted({ severity: value / DomainConstants.soilQuality.max })
     ),
     Match.when(
       (value) => value < 50,
-      () => SoilCondition.Suboptimal({ severity: value / DomainConstants.soilQuality.max })
+      (value) => SoilCondition.Suboptimal({ severity: value / DomainConstants.soilQuality.max })
     ),
     Match.when(
       (value) => value < 80,
@@ -177,7 +177,7 @@ export const describeSoil = (quality: SoilQuality): SoilCondition =>
     ),
     Match.when(
       (value) => value < 95,
-      () => SoilCondition.Fertile({ bonus: value / DomainConstants.soilQuality.max })
+      (value) => SoilCondition.Fertile({ bonus: value / DomainConstants.soilQuality.max })
     ),
     Match.orElse(() => SoilCondition.Exceptional({ bonus: 1 }))
   )
@@ -243,11 +243,11 @@ export const evaluateBreedingOutcome = (stats: BreedingStats): BreedingOutcome =
     Match.value(breedingScore(stats)),
     Match.when(
       (score) => score >= 0.8,
-      () => BreedingOutcome.Elite({ score })
+      (score) => BreedingOutcome.Elite({ score })
     ),
     Match.when(
       (score) => score >= 0.5,
-      () => BreedingOutcome.Stable({ score })
+      (score) => BreedingOutcome.Stable({ score })
     ),
     Match.orElse(() => BreedingOutcome.Fragile({ score: breedingScore(stats) }))
   )

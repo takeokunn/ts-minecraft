@@ -25,7 +25,7 @@ import type { World } from '../world'
 // Test Layers - Layer-based DI Pattern
 // ================================================================================
 
-const TestLayer = Layer.mergeAll(TestContext.TestContext, TestClock.layer, SystemRegistryServiceLive)
+const TestLayer = Layer.mergeAll(TestContext.TestContext, TestClock.defaultTestClock, SystemRegistryServiceLive)
 
 // ================================================================================
 // SystemRegistry Tests - it.effect Pattern

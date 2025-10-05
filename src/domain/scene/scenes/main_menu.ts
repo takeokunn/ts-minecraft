@@ -11,7 +11,7 @@ import {
   SceneInitializationError,
   SceneLifecycleError,
   createSceneController,
-  createSceneRuntime,
+  makeSceneLayer,
   mapControllerFailure,
 } from './base'
 
@@ -32,15 +32,10 @@ const ensureOption = (option: MenuOption) =>
     })
   )
 
-const optionIndex = (option: MenuOption) =>
-  Match.value(menuOptions.findIndex((candidate) => candidate === option)).pipe(
-    Match.when(
-      (index) => index < 0,
-      () => Option.none<number>()
-    ),
-    Match.orElse((index) => Option.some(index)),
-    Match.exhaustive
-  )
+const optionIndex = (option: MenuOption) => {
+  const index = menuOptions.indexOf(option)
+  return index === -1 ? Option.none<number>() : Option.some(index)
+}
 
 const wrapIndex = (index: number) => ((index % menuOptions.length) + menuOptions.length) % menuOptions.length
 
@@ -179,7 +174,7 @@ const mainMenuDefinition: SceneDefinition<MainMenuState, MainMenuController> = {
     mapControllerFailure(context.controller.clearSelection(), handleCleanupFailure).pipe(Effect.asVoid),
 }
 
-export const MainMenuScene = createSceneRuntime(mainMenuDefinition)
+export const MainMenuScene = makeSceneLayer(mainMenuDefinition)
 
 export { MainMenuBlueprint }
 export const MainMenuDefinition = mainMenuDefinition

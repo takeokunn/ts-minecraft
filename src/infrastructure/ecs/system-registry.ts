@@ -28,7 +28,8 @@ export const makeSystemRegistryError = (message: string, systemName?: string, ca
     cause: Option.fromNullable(cause),
   })
 
-export const isSystemRegistryError = (error: unknown): error is SystemRegistryError => SystemRegistryError.is(error)
+export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
+  typeof error === 'object' && error !== null && (error as { readonly _tag?: string })._tag === 'SystemRegistryError'
 
 /**
  * 登録されたシステムのエントリ

@@ -14,9 +14,17 @@ import { fromNumbers } from '../../value_object/vector3'
 
 const propertyConfig: fc.Parameters = { numRuns: 64 }
 
+const identifierCharacters = [
+  ...'abcdefghijklmnopqrstuvwxyz',
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  ...'0123456789',
+  '-',
+  '_',
+]
+
 const identifier = fc
-  .string({ minLength: 1, maxLength: 16, charSet: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' })
-  .filter((value) => value.trim().length > 0)
+  .array(fc.constantFrom(...identifierCharacters), { minLength: 1, maxLength: 16 })
+  .map((chars) => chars.join(''))
 
 const finiteNumber = fc.float({ min: -1_000, max: 1_000, noDefaultInfinity: true, noNaN: true })
 

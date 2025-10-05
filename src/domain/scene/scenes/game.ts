@@ -11,7 +11,7 @@ import {
   SceneLifecycleError,
   SceneUpdateError,
   createSceneController,
-  createSceneRuntime,
+  makeSceneLayer,
   mapControllerFailure,
 } from './base'
 
@@ -182,7 +182,7 @@ const gameDefinition: SceneDefinition<GameState, GameSceneController> = {
   onCleanup: (context) => recoverPlayer(context),
 }
 
-export const GameScene = createSceneRuntime(gameDefinition)
+export const GameScene = makeSceneLayer(gameDefinition)
 
 export { GameSceneBlueprint }
 export const GameDefinition = gameDefinition

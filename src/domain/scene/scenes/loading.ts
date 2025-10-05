@@ -11,7 +11,7 @@ import {
   SceneLifecycleError,
   SceneUpdateError,
   createSceneController,
-  createSceneRuntime,
+  makeSceneLayer,
   mapControllerFailure,
 } from './base'
 
@@ -128,7 +128,7 @@ const loadingDefinition: SceneDefinition<LoadingState, LoadingSceneController> =
   onCleanup: (context) => resetProgress(context).pipe(Effect.asVoid),
 }
 
-export const LoadingScene = createSceneRuntime(loadingDefinition)
+export const LoadingScene = makeSceneLayer(loadingDefinition)
 
 export { LoadingSceneBlueprint }
 export const LoadingDefinition = loadingDefinition

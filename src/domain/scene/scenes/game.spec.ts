@@ -41,10 +41,12 @@ describe('domain/scene/scenes/game', () => {
             Effect.gen(function* () {
               const controller = yield* createGameSceneController()
               yield* Effect.reduce(deltas, 0, (_, delta) =>
-                Match.value(delta >= 0).pipe(
-                  Match.when(true, () => controller.heal(delta)),
-                  Match.orElse(() => controller.applyDamage(Math.abs(delta))),
-                  Match.exhaustive
+                Match.value(delta).pipe(
+                  Match.when(
+                    (value) => value >= 0,
+                    (value) => controller.heal(value)
+                  ),
+                  Match.orElse((value) => controller.applyDamage(Math.abs(value)))
                 ).pipe(Effect.asVoid)
               )
               const state = yield* controller.current()

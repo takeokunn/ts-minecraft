@@ -1,4 +1,4 @@
-import { Effect, Match, pipe, Schema } from 'effect'
+import { Effect, Match, Number as Number_, pipe, Schema } from 'effect'
 import { getMaxStackSize, isStackable } from './constraints'
 import { MaxStackSizeSchema, StackSizeSchema } from './schema'
 import {
@@ -54,16 +54,42 @@ export const addToStack = (
   maxSize: MaxStackSize
 ): Effect.Effect<StackOperationResult, StackSizeError> =>
   Effect.gen(function* () {
-    const newTotal = (current as number) + (addition as number)
+    const currentSize = current as number
+    const additionSize = addition as number
+    const maxSizeValue = maxSize as number
 
-    if (newTotal <= (maxSize as number)) {
+    if (Number_.isNaN(additionSize) || additionSize <= 0) {
+      return yield* Effect.fail(
+        StackSizeError.InvalidOperation({
+          operation: StackOperation.Add({ amount: addition }),
+          reason: '追加量が0以下です',
+        })
+      )
+    }
+
+    if (additionSize > maxSizeValue) {
+      return yield* Effect.fail(
+        StackSizeError.ExceedsLimit({
+          current,
+          addition,
+          limit: maxSize,
+        })
+      )
+    }
+
+    const newTotal = currentSize + additionSize
+
+    if (newTotal <= maxSizeValue) {
       const newSize = yield* createStackSize(newTotal)
       return StackOperationResult.Success({ newSize })
     }
 
-    const overflow = yield* createStackSize(newTotal - (maxSize as number))
+    const overflowAmount = newTotal - maxSizeValue
+    const overflow = yield* createStackSize(overflowAmount)
+    const capped = yield* createStackSize(maxSizeValue)
+
     return StackOperationResult.Overflow({
-      maxSize: maxSize as StackSize,
+      maxSize: capped,
       overflow,
     })
   })
@@ -79,6 +105,15 @@ export const removeFromStack = (
     const currentNum = current as number
     const removalNum = removal as number
 
+    if (removalNum <= 0) {
+      return yield* Effect.fail(
+        StackSizeError.InvalidOperation({
+          operation: StackOperation.Remove({ amount: removal }),
+          reason: '減算量が0以下です',
+        })
+      )
+    }
+
     if (removalNum > currentNum) {
       return StackOperationResult.Underflow({
         currentSize: current,
@@ -88,10 +123,7 @@ export const removeFromStack = (
 
     const newSize = currentNum - removalNum
     if (newSize === 0) {
-      // スタックが空になった場合
-      return StackOperationResult.Success({
-        newSize: 1 as StackSize, // 最小値は1なので、空の場合は特別な処理が必要
-      })
+      return StackOperationResult.Success({ newSize: yield* createStackSize(1) })
     }
 
     const validNewSize = yield* createStackSize(newSize)
@@ -107,7 +139,7 @@ export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<Split
       return yield* Effect.fail(
         StackSizeError.InvalidRatio({
           ratio,
-          expected: 'between 0 and 1',
+          expected: '0と1の間の小数',
         })
       )
     }
@@ -120,7 +152,7 @@ export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<Split
       return yield* Effect.fail(
         StackSizeError.InvalidRatio({
           ratio,
-          expected: 'ratio that results in both parts being at least 1',
+          expected: '両方の分割結果が1以上になる比率',
         })
       )
     }
@@ -140,11 +172,11 @@ export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<Split
  */
 export const splitIntoMultiple = (stack: StackSize, partCount: number): Effect.Effect<SplitResult, StackSizeError> =>
   Effect.gen(function* () {
-    if (partCount <= 0) {
+    if (!Number_.isSafeInteger(partCount) || partCount <= 0) {
       return yield* Effect.fail(
         StackSizeError.InvalidRatio({
           ratio: partCount,
-          expected: 'positive integer',
+          expected: '正の整数',
         })
       )
     }
@@ -154,7 +186,7 @@ export const splitIntoMultiple = (stack: StackSize, partCount: number): Effect.E
       return yield* Effect.fail(
         StackSizeError.InvalidRatio({
           ratio: partCount,
-          expected: `at most ${stackNum}`,
+          expected: `最大でも${stackNum}以下`,
         })
       )
     }
@@ -162,17 +194,9 @@ export const splitIntoMultiple = (stack: StackSize, partCount: number): Effect.E
     const baseSize = Math.floor(stackNum / partCount)
     const remainder = stackNum % partCount
 
-    const parts: StackSize[] = []
-
-    // 基本サイズの部分を作成
-    for (let i = 0; i < partCount - remainder; i++) {
-      parts.push(yield* createStackSize(baseSize))
-    }
-
-    // 余りを分配
-    for (let i = 0; i < remainder; i++) {
-      parts.push(yield* createStackSize(baseSize + 1))
-    }
+    const parts = yield* Effect.forEachWithIndex(Array.from({ length: partCount }), (index) =>
+      createStackSize(baseSize + (index >= partCount - remainder ? 1 : 0))
+    )
 
     return {
       original: stack,
@@ -199,41 +223,48 @@ export const mergeMultipleStacks = (
 ): Effect.Effect<readonly StackSize[], StackSizeError> =>
   Effect.gen(function* () {
     if (stacks.length === 0) {
-      return []
+      return [] as const
     }
 
-    const result: StackSize[] = []
-    let currentStack = stacks[0]
+    return yield* Effect.reduce(stacks.slice(1), {
+      merged: [] as StackSize[],
+      carry: stacks[0]!,
+    }, (acc, stack) =>
+      Effect.gen(function* () {
+        const mergeResult = yield* mergeStacks(acc.carry, stack, maxSize)
 
-    for (let i = 1; i < stacks.length; i++) {
-      const mergeResult = yield* mergeStacks(currentStack, stacks[i], maxSize)
-
-      yield* pipe(
-        mergeResult,
-        Match.value,
-        Match.tag('Success', (success) =>
-          Effect.gen(function* () {
-            if (success.overflow) {
-              result.push(success.newSize)
-              currentStack = success.overflow
-            } else {
-              currentStack = success.newSize
-            }
-          })
-        ),
-        Match.tag('Overflow', (overflow) =>
-          Effect.gen(function* () {
-            result.push(overflow.maxSize)
-            currentStack = overflow.overflow
-          })
-        ),
-        Match.orElse(() => Effect.unit),
-        Match.exhaustive
-      )
-    }
-
-    result.push(currentStack)
-    return result
+        return yield* pipe(
+          mergeResult,
+          Match.value,
+          Match.tag('Success', (success) =>
+            Effect.succeed({
+              merged: acc.merged,
+              carry: success.newSize,
+            })
+          ),
+          Match.tag('Overflow', (overflow) =>
+            Effect.succeed({
+              merged: [...acc.merged, overflow.maxSize],
+              carry: overflow.overflow,
+            })
+          ),
+          Match.tag('Underflow', () =>
+            Effect.fail(
+              StackSizeError.InvalidOperation({
+                operation: StackOperation.Merge({ otherStack: stack }),
+                reason: 'スタックのマージ中に不整合が発生しました',
+              })
+            )
+          ),
+          Match.tag('InvalidOperation', (invalid) =>
+            Effect.fail(StackSizeError.InvalidOperation(invalid))
+          ),
+          Match.exhaustive
+        )
+      })
+    ).pipe(
+      Effect.flatMap(({ merged, carry }) => Effect.succeed([...merged, carry] as const))
+    )
   })
 
 /**
@@ -291,19 +322,30 @@ export const executeStackOperation = (
     Match.tag('Add', (add) => addToStack(stack, add.amount, maxSize)),
     Match.tag('Remove', (remove) => removeFromStack(stack, remove.amount)),
     Match.tag('Split', (split) =>
-      Effect.gen(function* () {
-        const splitResult = yield* splitStack(stack, split.ratio)
-        return StackOperationResult.Success({
-          newSize: splitResult.parts[0],
-          overflow: splitResult.parts[1],
-        })
-      })
+      pipe(
+        splitStack(stack, split.ratio),
+        Effect.map((splitResult) =>
+          StackOperationResult.Success({
+            newSize: splitResult.parts[0],
+            overflow: splitResult.parts[1],
+          })
+        )
+      )
     ),
     Match.tag('Merge', (merge) => mergeStacks(stack, merge.otherStack, maxSize)),
     Match.tag('SetMax', (setMax) =>
       Effect.gen(function* () {
         const stackNum = stack as number
         const newMaxNum = setMax.newMax as number
+
+        if (newMaxNum <= 0) {
+          return yield* Effect.fail(
+            StackSizeError.InvalidOperation({
+              operation,
+              reason: '最大値は1以上である必要があります',
+            })
+          )
+        }
 
         if (stackNum <= newMaxNum) {
           return StackOperationResult.Success({ newSize: stack })
@@ -336,11 +378,22 @@ export const calculateStackStats = (
         averageStackSize: 0,
         maxPossibleStacks: 0,
         efficiency: 0,
-      }
+      } as const
     }
 
-    const totalStacks = stacks.length
-    const totalItems = stacks.reduce((sum, stack) => sum + (stack as number), 0)
+    const numbers = stacks.map((stack) => stack as number)
+
+    if (numbers.some((value) => value <= 0)) {
+      return yield* Effect.fail(
+        StackSizeError.InvalidOperation({
+          operation: StackOperation.Split({ ratio: 0.5 }),
+          reason: 'スタックサイズに0以下の値が含まれています',
+        })
+      )
+    }
+
+    const totalStacks = numbers.length
+    const totalItems = numbers.reduce((sum, value) => sum + value, 0)
     const averageStackSize = totalItems / totalStacks
     const maxPossibleStacks = Math.ceil(totalItems / (maxStackSize as number))
     const efficiency = maxPossibleStacks / totalStacks
@@ -351,7 +404,7 @@ export const calculateStackStats = (
       averageStackSize,
       maxPossibleStacks,
       efficiency,
-    }
+    } as const
   })
 
 /**
@@ -362,25 +415,24 @@ export const optimizeStacks = (
   maxStackSize: MaxStackSize
 ): Effect.Effect<readonly StackSize[], StackSizeError> =>
   Effect.gen(function* () {
-    const totalItems = stacks.reduce((sum, stack) => sum + (stack as number), 0)
+    if (stacks.length === 0) {
+      return [] as const
+    }
+
     const maxSizeNum = maxStackSize as number
 
-    const fullStacks = Math.floor(totalItems / maxSizeNum)
-    const remainderSize = totalItems % maxSizeNum
+    const totalItems = stacks.reduce((sum, stack) => sum + (stack as number), 0)
 
-    const result: StackSize[] = []
+    const fullStackCount = Math.floor(totalItems / maxSizeNum)
+    const remainder = totalItems % maxSizeNum
 
-    // フルサイズのスタックを作成
-    for (let i = 0; i < fullStacks; i++) {
-      result.push(yield* createStackSize(maxSizeNum))
-    }
+    const fullStacks = yield* Effect.forEach(Array.from({ length: fullStackCount }), () =>
+      createStackSize(maxSizeNum)
+    )
 
-    // 余りがあれば追加
-    if (remainderSize > 0) {
-      result.push(yield* createStackSize(remainderSize))
-    }
+    const remainderStacks = remainder > 0 ? [yield* createStackSize(remainder)] : ([] as StackSize[])
 
-    return result
+    return [...fullStacks, ...remainderStacks] as const
   })
 
 /**

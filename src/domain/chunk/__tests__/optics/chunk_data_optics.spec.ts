@@ -6,9 +6,10 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { ChunkDataMultiAccessOptics, ChunkDataOptics } from '../../aggregate/chunk/optics'
+import { ChunkDataMultiAccessOptics, ChunkDataOptics, ChunkDataOpticsHelpers } from '../../aggregate/chunk/optics'
 import type { ChunkData } from '../../aggregate/chunk_data/types'
 import type { ChunkTimestamp } from '../../types/core'
+import { HeightValue as makeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 
@@ -100,11 +101,26 @@ describe('ChunkDataOptics', () => {
   })
 
   describe('動的インデックスアクセス', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('指定インデックスのブロックにアクセスできる', () => {})
+    it('指定インデックスのブロックにアクセスできる', () => {
+      const chunk = createTestChunkData()
+      const index = 42
+      const updated = ChunkDataOptics.blockAt(index).replace(99)(chunk)
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('指定インデックスの高さマップ値にアクセスできる', () => {})
+      expect(ChunkDataOptics.blockAt(index).get(updated)).toBe(99)
+      expect(ChunkDataOptics.blockAt(index).get(chunk)).toBe(0)
+      expect(updated).not.toBe(chunk)
+    })
+
+    it('指定インデックスの高さマップ値にアクセスできる', () => {
+      const chunk = createTestChunkData()
+      const index = 12
+      const height = makeHeightValue(96)
+      const updated = ChunkDataOptics.heightMapAt(index).replace(height)(chunk)
+
+      expect(ChunkDataOptics.heightMapAt(index).get(updated)).toBe(height)
+      expect(ChunkDataOptics.heightMapAt(index).get(chunk)).toBe(makeHeightValue(64))
+      expect(updated).not.toBe(chunk)
+    })
 
     it('境界値でのアクセスが正常に動作する', () => {
       const chunk = createTestChunkData()
@@ -119,11 +135,23 @@ describe('ChunkDataOptics', () => {
   })
 
   describe('不変性の検証', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('プロパティ更新時に元のオブジェクトが変更されない', () => {})
+    it('プロパティ更新時に元のオブジェクトが変更されない', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOptics.blockAt(5).replace(7)(chunk)
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('ネストしたプロパティ更新時の不変性が保たれる', () => {})
+      expect(chunk.blocks[5]).toBe(0)
+      expect(updated.blocks[5]).toBe(7)
+      expect(updated).not.toBe(chunk)
+    })
+
+    it('ネストしたプロパティ更新時の不変性が保たれる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOptics.metadataBiome.replace('savanna')(chunk)
+
+      expect(chunk.metadata.biome).toBe('plains')
+      expect(updated.metadata.biome).toBe('savanna')
+      expect(updated.metadata).not.toBe(chunk.metadata)
+    })
   })
 
   describe('型安全性の検証', () => {
@@ -145,42 +173,94 @@ describe('ChunkDataOptics', () => {
 
 describe('ChunkDataOpticsHelpers', () => {
   describe('ブロック操作', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('ブロックIDを正確に設定できる', () => {})
+    it('ブロックIDを正確に設定できる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOpticsHelpers.setBlock(chunk, 8, 321)
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('ブロックIDを変換関数で更新できる', () => {})
+      expect(updated.blocks[8]).toBe(321)
+      expect(chunk.blocks[8]).toBe(0)
+      expect(updated).not.toBe(chunk)
+    })
+
+    it('ブロックIDを変換関数で更新できる', () => {
+      const chunk = createTestChunkData()
+      const seeded = ChunkDataOpticsHelpers.setBlock(chunk, 12, 10)
+      const updated = ChunkDataOpticsHelpers.modifyBlock(seeded, 12, (value) => value + 5)
+
+      expect(updated.blocks[12]).toBe(15)
+      expect(seeded.blocks[12]).toBe(10)
+    })
   })
 
   describe('高さマップ操作', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('高さマップ値を正確に設定できる', () => {})
+    it('高さマップ値を正確に設定できる', () => {
+      const chunk = createTestChunkData()
+      const height = makeHeightValue(120)
+      const updated = ChunkDataOpticsHelpers.setHeight(chunk, 5, height)
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('高さマップ値を変換関数で更新できる', () => {})
+      expect(ChunkDataOptics.heightMapAt(5).get(updated)).toBe(height)
+      expect(ChunkDataOptics.heightMapAt(5).get(chunk)).toBe(makeHeightValue(64))
+    })
+
+    it('高さマップ値を変換関数で更新できる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOpticsHelpers.modifyHeight(chunk, 7, (value) => makeHeightValue(Math.min(319, value + 10)))
+
+      expect(ChunkDataOptics.heightMapAt(7).get(updated)).toBe(makeHeightValue(74))
+      expect(ChunkDataOptics.heightMapAt(7).get(chunk)).toBe(makeHeightValue(64))
+    })
   })
 
   describe('メタデータ操作', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('メタデータを部分的に更新できる', () => {})
+    it('メタデータを部分的に更新できる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOpticsHelpers.updateMetadata(chunk, { biome: 'desert', lightLevel: 7 })
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('位置情報を正確に設定できる', () => {})
+      expect(updated.metadata.biome).toBe('desert')
+      expect(updated.metadata.lightLevel).toBe(7)
+      expect(chunk.metadata.biome).toBe('plains')
+    })
+
+    it('位置情報を正確に設定できる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOpticsHelpers.setPosition(chunk, { x: 4, z: -2 } as ChunkPosition)
+
+      expect(updated.position).toEqual({ x: 4, z: -2 })
+      expect(chunk.position).toEqual({ x: 0, z: 0 })
+    })
   })
 
   describe('ダーティフラグ操作', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('ダーティフラグを設定できる', () => {})
+    it('ダーティフラグを設定できる', () => {
+      const chunk = createTestChunkData()
+      const updated = ChunkDataOpticsHelpers.setDirty(chunk, true)
 
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('マーク操作が正確に動作する', () => {})
+      expect(updated.isDirty).toBe(true)
+      expect(chunk.isDirty).toBe(false)
+    })
+
+    it('マーク操作が正確に動作する', () => {
+      const chunk = createTestChunkData()
+      const dirty = ChunkDataOpticsHelpers.markDirty(chunk)
+      const clean = ChunkDataOpticsHelpers.markClean(dirty)
+
+      expect(dirty.isDirty).toBe(true)
+      expect(clean.isDirty).toBe(false)
+    })
   })
 })
 
 describe('ChunkDataMultiAccessOptics', () => {
   describe('範囲アクセス', () => {
-    // TODO: 落ちるテストのため一時的にskip
-    it.skip('指定範囲のブロック群にアクセスできる', () => {})
+    it('指定範囲のブロック群にアクセスできる', () => {
+      const chunk = createTestChunkData()
+      const lens = ChunkDataMultiAccessOptics.blocksRange(10, 15)
+      const values = [1, 2, 3, 4, 5]
+      const updated = lens.replace(values)(chunk)
+
+      expect(lens.get(updated)).toEqual(values)
+      expect(Array.from(chunk.blocks.slice(10, 15))).toEqual([0, 0, 0, 0, 0])
+    })
 
     it('3D領域のブロック群にアクセスできる', () => {
       const chunk = createTestChunkData()
@@ -248,6 +328,10 @@ describe('エラーハンドリング', () => {
     expect(() => ChunkDataOptics.blockAt(100000).get(chunk)).not.toThrow()
   })
 
-  // TODO: 落ちるテストのため一時的にskip
-  it.skip('無効なメタデータ更新が適切に処理される', () => {})
+  it('無効なメタデータ更新が適切に処理される', () => {
+    const chunk = createTestChunkData()
+    const updated = ChunkDataOpticsHelpers.updateMetadata(chunk, undefined)
+
+    expect(updated).toBe(chunk)
+  })
 })

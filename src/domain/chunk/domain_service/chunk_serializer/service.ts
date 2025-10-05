@@ -1,4 +1,6 @@
 import { Context, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
+import { Buffer } from 'node:buffer'
+import { brotliCompressSync, brotliDecompressSync, deflateSync, gunzipSync, gzipSync, inflateSync } from 'node:zlib'
 import { type ChunkData, ChunkBoundsError, ChunkDataSchema, ChunkSerializationError } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
@@ -112,40 +114,52 @@ const decodeBinary = (
   },
   ChunkSerializationError
 > =>
-  Effect.sync(() => {
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
-    let offset = 0
+  Effect.try({
+    try: () => {
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+      let offset = 0
 
-    const x = view.getInt32(offset, true)
-    offset += 4
+      const x = view.getInt32(offset, true)
+      offset += 4
     const z = view.getInt32(offset, true)
     offset += 4
 
     const metadataLength = view.getUint32(offset, true)
     offset += 4
 
-    const metadataBytes = data.slice(offset, offset + metadataLength)
-    offset += metadataLength
+      const metadataBytes = data.slice(offset, offset + metadataLength)
+      offset += metadataLength
 
-    const metadataJson = new TextDecoder().decode(metadataBytes)
-    const metadata = JSON.parse(metadataJson)
+      const metadataJson = new TextDecoder().decode(metadataBytes)
+      let metadata: unknown
+      try {
+        metadata = JSON.parse(metadataJson)
+      } catch (error) {
+        throw new Error(`Binary metadata parse error: ${String(error)}`)
+      }
 
     const isDirty = view.getUint8(offset) === 1
     offset += 1
 
-    const blocksBytes = data.slice(offset)
-    const blocksBuffer = blocksBytes.buffer.slice(
-      blocksBytes.byteOffset,
-      blocksBytes.byteOffset + blocksBytes.byteLength
-    )
-    const blocks = new Uint16Array(blocksBuffer)
+      const blocksBytes = data.slice(offset)
+      const blocksBuffer = blocksBytes.buffer.slice(
+        blocksBytes.byteOffset,
+        blocksBytes.byteOffset + blocksBytes.byteLength
+      )
+      const blocks = new Uint16Array(blocksBuffer)
 
-    return {
-      position: { x, z },
-      metadata,
-      isDirty,
-      blocks,
-    }
+      return {
+        position: { x, z },
+        metadata,
+        isDirty,
+        blocks,
+      }
+    },
+    catch: (error) =>
+      ChunkSerializationError({
+        message: `Binaryデータの解析に失敗しました: ${String(error)}`,
+        originalError: error,
+      }),
   })
 
 const maybeCompress = (
@@ -186,7 +200,7 @@ const decodeChunk = (payload: {
 }): Effect.Effect<ChunkData, ChunkDataValidationError | ChunkBoundsError> =>
   Effect.gen(function* () {
     const position = yield* pipe(
-      Schema.decodeEffect(ChunkPositionSchema)(payload.position),
+      Schema.decodeUnknown(ChunkPositionSchema)(payload.position),
       Effect.mapError((error) =>
         ChunkBoundsError({
           message: `チャンク位置の解析に失敗しました: ${String(error)}`,
@@ -200,7 +214,7 @@ const decodeChunk = (payload: {
     )
 
     const metadata = yield* pipe(
-      Schema.decodeEffect(ChunkMetadataSchema)(payload.metadata),
+      Schema.decodeUnknown(ChunkMetadataSchema)(payload.metadata),
       Effect.mapError((error) =>
         ChunkDataValidationError({
           message: `メタデータの解析に失敗しました: ${String(error)}`,
@@ -218,7 +232,7 @@ const decodeChunk = (payload: {
     }
 
     return yield* pipe(
-      Schema.decodeEffect(ChunkDataSchema)(chunk),
+      Schema.decodeUnknown(ChunkDataSchema)(chunk),
       Effect.mapError((error) =>
         ChunkDataValidationError({
           message: `チャンクデータの検証に失敗しました: ${String(error)}`,
@@ -228,6 +242,19 @@ const decodeChunk = (payload: {
       )
     )
   })
+
+const blocksEqual = (left: Uint16Array, right: Uint16Array): boolean =>
+  left.length === right.length && left.every((value, index) => value === right[index])
+
+const metadataEqual = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(left) === JSON.stringify(right)
+
+const chunkEquals = (left: ChunkData, right: ChunkData): boolean =>
+  left.position.x === right.position.x &&
+  left.position.z === right.position.z &&
+  left.isDirty === right.isDirty &&
+  metadataEqual(left.metadata, right.metadata) &&
+  blocksEqual(left.blocks, right.blocks)
 
 export const ChunkSerializationServiceLive = Layer.effect(
   ChunkSerializationService,
@@ -324,9 +351,36 @@ export const ChunkSerializationServiceLive = Layer.effect(
         pipe(
           algorithm,
           Match.value,
-          Match.when('gzip', () => Effect.succeed(data)),
-          Match.when('deflate', () => Effect.succeed(data)),
-          Match.when('brotli', () => Effect.succeed(data)),
+          Match.when('gzip', () =>
+            Effect.try({
+              try: () => Uint8Array.from(gzipSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `gzip圧縮に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
+          Match.when('deflate', () =>
+            Effect.try({
+              try: () => Uint8Array.from(deflateSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `deflate圧縮に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
+          Match.when('brotli', () =>
+            Effect.try({
+              try: () => Uint8Array.from(brotliCompressSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `brotli圧縮に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
           Match.orElse((unsupported) =>
             Effect.fail(
               ChunkSerializationError({
@@ -340,9 +394,36 @@ export const ChunkSerializationServiceLive = Layer.effect(
         pipe(
           algorithm,
           Match.value,
-          Match.when('gzip', () => Effect.succeed(data)),
-          Match.when('deflate', () => Effect.succeed(data)),
-          Match.when('brotli', () => Effect.succeed(data)),
+          Match.when('gzip', () =>
+            Effect.try({
+              try: () => Uint8Array.from(gunzipSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `gzip解凍に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
+          Match.when('deflate', () =>
+            Effect.try({
+              try: () => Uint8Array.from(inflateSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `deflate解凍に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
+          Match.when('brotli', () =>
+            Effect.try({
+              try: () => Uint8Array.from(brotliDecompressSync(Buffer.from(data))),
+              catch: (error) =>
+                ChunkSerializationError({
+                  message: `brotli解凍に失敗しました: ${String(error)}`,
+                  originalError: error,
+                }),
+            })
+          ),
           Match.orElse((unsupported) =>
             Effect.fail(
               ChunkSerializationError({
@@ -381,33 +462,15 @@ export const ChunkSerializationServiceLive = Layer.effect(
           service.deserialize(serialized, format),
           Effect.flatMap((deserialized) =>
             pipe(
-              deserialized.blocks.length === original.blocks.length && deserialized.isDirty === original.isDirty,
+              chunkEquals(deserialized, original),
               Match.value,
-              Match.when(true, () =>
-                Effect.all({
-                  serializedChecksum: service.calculateChecksum(serialized),
-                  originalChecksum: service.calculateChecksum(new Uint8Array(original.blocks.buffer.slice(0))),
-                })
-              ),
+              Match.when(true, () => Effect.succeed(true)),
               Match.orElse(() =>
                 Effect.fail(
                   ChunkSerializationError({
                     message: 'シリアライズ結果がオリジナルと一致しません',
+                    originalError: { deserialized, original },
                   })
-                )
-              ),
-              Effect.flatMap(({ serializedChecksum, originalChecksum }) =>
-                pipe(
-                  serializedChecksum === originalChecksum,
-                  Match.value,
-                  Match.when(true, () => Effect.succeed(true)),
-                  Match.orElse(() =>
-                    Effect.fail(
-                      ChunkSerializationError({
-                        message: 'チェックサムが一致しません',
-                      })
-                    )
-                  )
                 )
               )
             )

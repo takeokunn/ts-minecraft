@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Trigger, defaultBindings, makeBinding, resolveActions } from '../key-bindings'
-import { ActionId, InputTimestamp, KeyCode, type InputEvent } from '../model'
+import { ActionId, AxisId, AxisValue, InputTimestamp, KeyCode, type InputEvent } from '../model'
 
 describe('keyBindings', () => {
   it('matches configured key bindings', () => {
@@ -24,6 +24,40 @@ describe('keyBindings', () => {
     expect(result).toHaveLength(0)
   })
 
-  // TODO: 落ちるテストのため一時的にskip
-  it.skip('positive axis direction activates action when threshold satisfied', () => {})
+  it('axis bindings activate when thresholds are satisfied', () => {
+    const axis = AxisId(2)
+    const positive = makeBinding(ActionId('movePositive'), [
+      Trigger.Axis({ axis, direction: 'positive', threshold: AxisValue(0.5) }),
+    ])
+    const negative = makeBinding(ActionId('moveNegative'), [
+      Trigger.Axis({ axis, direction: 'negative', threshold: AxisValue(0.4) }),
+    ])
+    const registry = [positive, negative]
+
+    const positiveEvent: InputEvent = {
+      _tag: 'GamepadAxisChanged',
+      axis,
+      timestamp: InputTimestamp(10),
+      value: AxisValue(0.75),
+    }
+
+    const negativeEvent: InputEvent = {
+      _tag: 'GamepadAxisChanged',
+      axis,
+      timestamp: InputTimestamp(20),
+      value: AxisValue(-0.6),
+    }
+
+    expect(resolveActions(positiveEvent, registry)).toContainEqual(ActionId('movePositive'))
+    expect(resolveActions(negativeEvent, registry)).toContainEqual(ActionId('moveNegative'))
+
+    const belowThreshold: InputEvent = {
+      _tag: 'GamepadAxisChanged',
+      axis,
+      timestamp: InputTimestamp(30),
+      value: AxisValue(0.3),
+    }
+
+    expect(resolveActions(belowThreshold, registry)).toHaveLength(0)
+  })
 })

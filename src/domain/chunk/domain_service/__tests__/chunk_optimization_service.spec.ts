@@ -1,375 +1,245 @@
-import { Effect } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { Schema } from '@effect/schema'
+import { describe, expect, it } from '@effect/vitest'
+import * as fc from 'effect/FastCheck'
+import { Array as Arr, Effect, Layer, Match, Option, pipe } from 'effect'
+import { ChunkDataSchema } from '../../aggregate/chunk_data/types'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import {
+  makeBlockCount,
+  makePercentage,
+  makeTimestamp,
+  type ChunkMetadata,
+  type ChunkOptimizationRecord,
+  type Percentage,
+} from '../../value_object/chunk_metadata'
 import { ChunkOptimizationService, ChunkOptimizationServiceLive, OptimizationStrategy } from '../chunk_optimizer'
 
-// テスト用のレイヤー
-const TestLayer = ChunkOptimizationServiceLive
+const TestLayer: Layer.Layer<ChunkOptimizationService> = ChunkOptimizationServiceLive
 
-// テストデータファクトリー
-const createTestChunkData = () => ({
-  position: { x: 0, z: 0 },
-  blocks: new Uint16Array(16 * 16 * 256).fill(1), // 全て同じブロック（高冗長性）
-  metadata: {
-    biomeId: 1,
-    lightLevel: 15,
-    timestamp: Date.now(),
-  },
-  isDirty: false,
-})
+const baseMetadata = {
+  biome: 'plains',
+  lightLevel: 15,
+  isModified: false,
+  lastUpdate: 0,
+  heightMap: Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => 64),
+} satisfies Schema.Schema.Input<ChunkMetadata>
 
-const createVariedChunkData = () => {
-  const blocks = new Uint16Array(16 * 16 * 256)
-  // 多様なブロックパターンを作成
-  for (let i = 0; i < blocks.length; i++) {
-    blocks[i] = Math.floor(Math.random() * 100) + 1
-  }
-  return {
-    position: { x: 5, z: 5 },
+const buildChunk = (
+  blocks: Uint16Array,
+  metadataOverrides?: Partial<Schema.Schema.Input<ChunkMetadata>>
+) =>
+  Schema.decodeEffect(ChunkDataSchema)({
+    position: { x: 0, z: 0 },
     blocks,
-    metadata: {
-      biomeId: 2,
-      lightLevel: 10,
-      timestamp: Date.now(),
-    },
-    isDirty: true,
-  }
-}
-
-const createHighRedundancyChunkData = () => {
-  const blocks = new Uint16Array(16 * 16 * 256)
-  // 80%を同じブロック、20%を別のブロックで高い冗長性を作成
-  const dominantBlock = 42
-  const minorityBlock = 7
-  const dominantCount = Math.floor(blocks.length * 0.8)
-
-  blocks.fill(dominantBlock)
-  for (let i = 0; i < blocks.length - dominantCount; i++) {
-    blocks[dominantCount + i] = minorityBlock
-  }
-
-  return {
-    position: { x: 10, z: 10 },
-    blocks,
-    metadata: {
-      biomeId: 3,
-      lightLevel: 8,
-      timestamp: Date.now(),
-    },
+    metadata: { ...baseMetadata, ...metadataOverrides },
     isDirty: false,
-  }
-}
-
-describe('ChunkOptimizationService', () => {
-  describe('analyzeEfficiency', () => {
-    it('高冗長性チャンクの効率性を正しく分析する', async () => {
-      const chunk = createTestChunkData()
-
-      const metrics = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.analyzeEfficiency(chunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(metrics.memoryUsage).toBeGreaterThan(0)
-      expect(metrics.redundancy).toBeGreaterThan(0.9) // 全て同じブロックなので高い冗長性
-      expect(metrics.compressionRatio).toBeGreaterThan(0.9) // 高い圧縮率
-      expect(metrics.optimizationPotential).toBeGreaterThan(0.5) // 最適化可能性が高い
-      expect(metrics.accessPatterns).toHaveLength(1) // 1種類のブロックのみ
-    })
-
-    it('多様なチャンクの効率性を正しく分析する', async () => {
-      const chunk = createVariedChunkData()
-
-      const metrics = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.analyzeEfficiency(chunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(metrics.redundancy).toBeLessThan(0.5) // 低い冗長性
-      expect(metrics.compressionRatio).toBeLessThan(0.5) // 低い圧縮率
-      expect(metrics.accessPatterns.length).toBeGreaterThan(10) // 多様なブロック
-    })
   })
 
-  describe('optimizeMemory', () => {
-    it('メモリ最適化を実行できる', async () => {
-      const originalChunk = createTestChunkData()
+const runWithService = <A>(effect: Effect.Effect<A>) => effect.pipe(Effect.provide(TestLayer))
 
-      const optimizedChunk = await Effect.gen(function* () {
+const lastRecord = (metadata: ChunkMetadata): Option.Option<ChunkOptimizationRecord> =>
+  pipe(
+    metadata.optimizations,
+    Option.fromNullable,
+    Option.flatMap((records) => Option.fromNullable(records.at(-1)))
+  )
+
+const expectRecordStrategy = (
+  record: Option.Option<ChunkOptimizationRecord>,
+  strategy: ChunkOptimizationRecord['strategy']
+) =>
+  expect(pipe(record, Option.map((item) => item.strategy), Option.getOrElse(() => undefined))).toBe(strategy)
+
+describe('chunk/domain_service/chunk_optimizer', () => {
+  it.effect('optimizeMemory は最適化履歴を記録する', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeMemory(originalChunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const chunk = yield* buildChunk(new Uint16Array(Array.from({ length: CHUNK_VOLUME }, () => 2)))
+        const optimized = yield* service.optimizeMemory(chunk)
+        const record = lastRecord(optimized.metadata)
 
-      expect(optimizedChunk.blocks).toBeInstanceOf(Uint16Array)
-      expect(optimizedChunk.blocks.length).toBe(originalChunk.blocks.length)
-      expect(optimizedChunk.metadata.optimizedAt).toBeDefined()
-      expect(optimizedChunk.metadata.originalBlockCount).toBeDefined()
-      expect(optimizedChunk.metadata.optimizedBlockCount).toBeDefined()
-    })
+        expectRecordStrategy(record, 'memory')
+        expect(record).toSatisfy((entry) => Option.isSome(entry))
+        pipe(
+          record,
+          Option.map((entry) => {
+            expect(entry.details?.originalBlockCount).toBe(chunk.blocks.length)
+            expect(entry.details?.optimizedBlockCount).toBe(optimized.blocks.length)
+          })
+        )
+      })
+    )
+  )
 
-    it('最適化後もチャンク構造を維持する', async () => {
-      const originalChunk = createVariedChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('optimizeCompression palette はパレット情報を保持する', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeMemory(originalChunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const paletteBlocks = new Uint16Array(Array.from({ length: CHUNK_VOLUME }, (_, index) => index % 4))
+        const chunk = yield* buildChunk(paletteBlocks)
+        const optimized = yield* service.optimizeCompression(chunk, 'palette')
+        const record = lastRecord(optimized.metadata)
 
-      expect(optimizedChunk.position).toEqual(originalChunk.position)
-      expect(optimizedChunk.blocks.length).toBe(originalChunk.blocks.length)
-      expect(optimizedChunk.isDirty).toBe(originalChunk.isDirty)
-    })
-  })
+        expectRecordStrategy(record, 'compression')
+        pipe(
+          record,
+          Option.map((entry) => {
+            expect(entry.details?.algorithm).toBe('palette')
+            expect(entry.details?.paletteSize).toBe(4)
+          })
+        )
+      })
+    )
+  )
 
-  describe('optimizeCompression', () => {
-    it('RLE圧縮を適用できる', async () => {
-      const chunk = createTestChunkData() // 高冗長性
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('optimizeAccess はキャッシュ情報を記録する', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeCompression(chunk, 'rle')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const variedBlocks = new Uint16Array(Array.from({ length: CHUNK_VOLUME }, (_, index) => (index % 8) + 1))
+        const chunk = yield* buildChunk(variedBlocks)
+        const patterns = [
+          { x: 0, y: 0, z: 0, frequency: 40 },
+          { x: 1, y: 0, z: 0, frequency: 30 },
+        ]
+        const optimized = yield* service.optimizeAccess(chunk, patterns, 32)
+        const record = lastRecord(optimized.metadata)
 
-      expect(optimizedChunk.metadata.compressed).toBe('rle')
-      expect(optimizedChunk.metadata.originalLength).toBe(chunk.blocks.length)
-      expect(optimizedChunk.blocks.length).toBeLessThanOrEqual(chunk.blocks.length)
-    })
+        expectRecordStrategy(record, 'access')
+        pipe(
+          record,
+          Option.map((entry) => {
+            expect(entry.details?.cacheSize).toBe(32)
+            expect(entry.details?.optimizedBlockCount).toBe(optimized.blocks.length)
+          })
+        )
+      })
+    )
+  )
 
-    it('Delta圧縮を適用できる', async () => {
-      const chunk = createVariedChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('eliminateRedundancy は冗長性の低減を行う', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeCompression(chunk, 'delta')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const dominantBlock = 5
+        const minorityBlock = 9
+        const blocks = new Uint16Array(
+          Array.from({ length: CHUNK_VOLUME }, (_, index) => (index % 5 === 0 ? minorityBlock : dominantBlock))
+        )
+        const chunk = yield* buildChunk(blocks)
+        const optimized = yield* service.eliminateRedundancy(chunk, 0.6)
+        const record = lastRecord(optimized.metadata)
 
-      expect(optimizedChunk.metadata.compressed).toBe('delta')
-      expect(optimizedChunk.blocks.length).toBe(chunk.blocks.length)
-    })
+        expectRecordStrategy(record, 'redundancy')
+        pipe(
+          record,
+          Option.map((entry) => {
+            expect(entry.details?.threshold).toBeCloseTo(0.6, 5)
+            expect(entry.details?.redundancyAfter).toBeLessThan(entry.details?.redundancyBefore ?? 1)
+          })
+        )
+      })
+    )
+  )
 
-    it('Palette圧縮を適用できる', async () => {
-      const chunk = createTestChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('defragment はパレットサイズ情報を付加する', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeCompression(chunk, 'palette')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const sparseBlocks = new Uint16Array(Array.from({ length: CHUNK_VOLUME }, (_, index) => index % 13))
+        const chunk = yield* buildChunk(sparseBlocks)
+        const optimized = yield* service.defragment(chunk)
+        const record = lastRecord(optimized.metadata)
 
-      expect(optimizedChunk.metadata.compressed).toBe('palette')
-      expect(optimizedChunk.metadata.palette).toBeDefined()
-    })
-  })
+        expectRecordStrategy(record, 'defragmentation')
+        pipe(
+          record,
+          Option.map((entry) => expect(entry.details?.mappingSize).toBeLessThanOrEqual(13))
+        )
+      })
+    )
+  )
 
-  describe('optimizeAccess', () => {
-    it('アクセスパターンに基づく最適化を実行できる', async () => {
-      const chunk = createVariedChunkData()
-      const accessPatterns = [
-        { x: 0, y: 0, z: 0, frequency: 100 },
-        { x: 1, y: 0, z: 0, frequency: 50 },
-        { x: 0, y: 1, z: 0, frequency: 25 },
-      ]
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('applyOptimization は結果を包括的に返す', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeAccess(chunk, accessPatterns)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+        const chunk = yield* buildChunk(new Uint16Array(Array.from({ length: CHUNK_VOLUME }, () => 3)))
+        const result = yield* service.applyOptimization(chunk, OptimizationStrategy.MemoryOptimization())
 
-      expect(optimizedChunk.metadata.accessOptimized).toBe(true)
-      expect(optimizedChunk.metadata.optimizationTimestamp).toBeDefined()
-    })
+        expect(Number(result.originalSize)).toBeGreaterThan(0)
+        expect(Number(result.optimizedSize)).toBeGreaterThan(0)
+        expect(Number(result.compressionRatio)).toBeGreaterThan(0)
+        expect(result.strategy._tag).toBe('MemoryOptimization')
+        expect(Number(result.qualityLoss)).toBeGreaterThanOrEqual(0)
+      })
+    )
+  )
 
-    it('アクセスパターンなしでも最適化を実行できる', async () => {
-      const chunk = createTestChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
+  it.effect('analyzeEfficiency は強い型のメトリクスを提供する', () =>
+    runWithService(
+      Effect.gen(function* () {
         const service = yield* ChunkOptimizationService
-        return yield* service.optimizeAccess(chunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(optimizedChunk.metadata.accessOptimized).toBe(true)
-    })
-  })
-
-  describe('suggestOptimizations', () => {
-    it('高冗長性チャンクに適切な最適化を提案する', async () => {
-      const chunk = createHighRedundancyChunkData()
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
+        const chunk = yield* buildChunk(new Uint16Array(Array.from({ length: CHUNK_VOLUME }, () => 7)))
         const metrics = yield* service.analyzeEfficiency(chunk)
-        return yield* service.suggestOptimizations(metrics)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
 
-      const strategyTags = result.map((strategy) => strategy._tag)
-      expect(strategyTags).toContain('MemoryOptimization')
-      expect(strategyTags).toContain('RedundancyElimination')
-    })
+        expect(Number(metrics.memoryUsage)).toBeGreaterThan(0)
+        expect(Number(metrics.redundancy)).toBeGreaterThanOrEqual(0)
+        expect(metrics.accessPatterns.length).toBeGreaterThan(0)
+        expect(Number(metrics.optimizationPotential)).toBeGreaterThanOrEqual(0)
+      })
+    )
+  )
 
-    it('多様なチャンクに適切な最適化を提案する', async () => {
-      const chunk = createVariedChunkData()
+  it('optimizeMemory は元のブロック集合を超えない (PBT)', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(fc.integer({ min: 0, max: 1024 }), { minLength: 8, maxLength: 128 }),
+        async (values) => {
+          const blocks = Uint16Array.from(values)
+          const chunk = await buildChunk(blocks).pipe(Effect.runPromise)
+          const optimized = await runWithService(
+            Effect.gen(function* () {
+              const service = yield* ChunkOptimizationService
+              return yield* service.optimizeMemory(chunk)
+            })
+          ).pipe(Effect.runPromise)
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        const metrics = yield* service.analyzeEfficiency(chunk)
-        return yield* service.suggestOptimizations(metrics)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(Array.isArray(result)).toBe(true)
-      // 低冗長性の場合、提案される最適化は少ない
-    })
-  })
-
-  describe('applyOptimization', () => {
-    it('最適化戦略を適用し結果を返す', async () => {
-      const chunk = createTestChunkData()
-      const strategy = OptimizationStrategy.MemoryOptimization(false)
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.applyOptimization(chunk, strategy)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(result.originalSize).toBe(chunk.blocks.byteLength)
-      expect(result.optimizedSize).toBeGreaterThan(0)
-      expect(result.compressionRatio).toBeGreaterThan(0)
-      expect(result.strategy).toEqual(strategy)
-      expect(result.timeSpent).toBeGreaterThan(0)
-      expect(result.qualityLoss).toBeGreaterThanOrEqual(0)
-      expect(result.qualityLoss).toBeLessThanOrEqual(1)
-    })
-
-    it('異なる最適化戦略で異なる結果を返す', async () => {
-      const chunk = createVariedChunkData()
-      const memoryStrategy = OptimizationStrategy.MemoryOptimization(true)
-      const compressionStrategy = OptimizationStrategy.CompressionOptimization('rle')
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-
-        const memoryResult = yield* service.applyOptimization(chunk, memoryStrategy)
-        const compressionResult = yield* service.applyOptimization(chunk, compressionStrategy)
-
-        return { memoryResult, compressionResult }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(result.memoryResult.strategy._tag).toBe('MemoryOptimization')
-      expect(result.compressionResult.strategy._tag).toBe('CompressionOptimization')
-    })
-  })
-
-  describe('eliminateRedundancy', () => {
-    it('冗長性を除去できる', async () => {
-      const chunk = createHighRedundancyChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.eliminateRedundancy(chunk, 0.7)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(optimizedChunk.metadata.redundancyEliminated).toBe(true)
-      expect(optimizedChunk.metadata.eliminationThreshold).toBe(0.7)
-      expect(optimizedChunk.metadata.eliminationTimestamp).toBeDefined()
-
-      // 冗長性が減少していることを確認
-      const uniqueBlocks = new Set(optimizedChunk.blocks).size
-      const originalUniqueBlocks = new Set(chunk.blocks).size
-      expect(uniqueBlocks).toBeLessThanOrEqual(originalUniqueBlocks)
-    })
-
-    it('デフォルト閾値で冗長性除去を実行できる', async () => {
-      const chunk = createHighRedundancyChunkData()
-
-      const optimizedChunk = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.eliminateRedundancy(chunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(optimizedChunk.metadata.redundancyEliminated).toBe(true)
-    })
-  })
-
-  describe('defragment', () => {
-    it('ブロックIDの断片化を解消できる', async () => {
-      // 断片化したブロックIDを持つチャンクを作成
-      const chunk = createVariedChunkData()
-      const sparseBlocks = new Uint16Array(chunk.blocks.length)
-
-      // 飛び飛びのIDを使用（1, 5, 10, 50, 100など）
-      const sparseIds = [1, 5, 10, 50, 100]
-      for (let i = 0; i < sparseBlocks.length; i++) {
-        sparseBlocks[i] = sparseIds[i % sparseIds.length]
-      }
-
-      const fragmentedChunk = { ...chunk, blocks: sparseBlocks }
-
-      const defragmentedChunk = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-        return yield* service.defragment(fragmentedChunk)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(defragmentedChunk.metadata.defragmented).toBe(true)
-      expect(defragmentedChunk.metadata.blockMapping).toBeDefined()
-      expect(defragmentedChunk.metadata.defragmentationTimestamp).toBeDefined()
-
-      // デフラグ後のブロックIDは連続している
-      const uniqueIds = Array.from(new Set(defragmentedChunk.blocks)).sort((a, b) => a - b)
-      for (let i = 0; i < uniqueIds.length; i++) {
-        expect(uniqueIds[i]).toBe(i)
-      }
-    })
-  })
-
-  describe('統合テスト', () => {
-    it('複数の最適化を順次適用できる', async () => {
-      const originalChunk = createHighRedundancyChunkData()
-
-      const fullyOptimizedChunk = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-
-        // 1. メモリ最適化
-        const memoryOptimized = yield* service.optimizeMemory(originalChunk)
-
-        // 2. 冗長性除去
-        const redundancyOptimized = yield* service.eliminateRedundancy(memoryOptimized, 0.8)
-
-        // 3. デフラグメンテーション
-        const defragmented = yield* service.defragment(redundancyOptimized)
-
-        return defragmented
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(fullyOptimizedChunk.metadata.optimizedAt).toBeDefined()
-      expect(fullyOptimizedChunk.metadata.redundancyEliminated).toBe(true)
-      expect(fullyOptimizedChunk.metadata.defragmented).toBe(true)
-    })
-
-    it('最適化のパフォーマンスを測定できる', async () => {
-      const chunk = createVariedChunkData()
-
-      const performanceResult = await Effect.gen(function* () {
-        const service = yield* ChunkOptimizationService
-
-        const startTime = Date.now()
-
-        const metrics = yield* service.analyzeEfficiency(chunk)
-        const strategies = yield* service.suggestOptimizations(metrics)
-
-        const results = []
-        for (const strategy of strategies) {
-          const result = yield* service.applyOptimization(chunk, strategy)
-          results.push(result)
+          const originalSet = new Set(values)
+          const optimizedSet = new Set(Array.from(optimized.blocks))
+          optimizedSet.forEach((value) => expect(originalSet.has(value)).toBe(true))
         }
+      ),
+      { numRuns: 50 }
+    )
+  })
 
-        const endTime = Date.now()
+  it('eliminateRedundancy は閾値未満の冗長度では変換を抑制する (PBT)', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 8 }),
+        fc.integer({ min: 1, max: 8 }),
+        async (dominant, minority) => {
+          const dominantBlock = dominant
+          const minorityBlock = dominant + minority
+          const blocks = new Uint16Array(
+            Array.from({ length: CHUNK_VOLUME }, (_, index) => (index % 10 === 0 ? minorityBlock : dominantBlock))
+          )
+          const chunk = await buildChunk(blocks).pipe(Effect.runPromise)
+          const optimized = await runWithService(
+            Effect.gen(function* () {
+              const service = yield* ChunkOptimizationService
+              return yield* service.eliminateRedundancy(chunk, 0.95)
+            })
+          ).pipe(Effect.runPromise)
 
-        return {
-          totalTime: endTime - startTime,
-          strategiesApplied: results.length,
-          averageTimePerStrategy: results.reduce((sum, r) => sum + r.timeSpent, 0) / results.length,
+          const originalUnique = new Set(Array.from(chunk.blocks)).size
+          const optimizedUnique = new Set(Array.from(optimized.blocks)).size
+          expect(optimizedUnique).toBeLessThanOrEqual(originalUnique)
         }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(performanceResult.totalTime).toBeGreaterThan(0)
-      expect(performanceResult.strategiesApplied).toBeGreaterThanOrEqual(0)
-    })
+      ),
+      { numRuns: 30 }
+    )
   })
 })

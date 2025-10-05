@@ -62,13 +62,19 @@ const validIdentifierArbitrary = fc
   .array(fc.constantFrom(...identifierCharacters), { minLength: 3, maxLength: 64 })
   .map((array) => array.join(''))
 
-const invalidIdentifierArbitrary = fc.oneof(
-  fc.string({ maxLength: 2 }),
-  fc
-    .string({ minLength: 3, maxLength: 64 })
-    .filter((value) => /[^A-Za-z0-9_-]/.test(value)),
-  fc.string({ minLength: 3, maxLength: 64 }).map((value) => ` ${value} `)
-)
+const identifierPattern = /^[A-Za-z0-9_-]+$/
+
+const invalidIdentifierArbitrary = fc
+  .string({ minLength: 1, maxLength: 80 })
+  .filter((value) => {
+    const trimmed = value.trim()
+    return (
+      trimmed.length < 3 ||
+      trimmed.length > 64 ||
+      trimmed.length === 0 ||
+      !identifierPattern.test(trimmed)
+    )
+  })
 
 const domainRangeEntries = [
   ['growthStage', DomainConstants.growthStage] as const,
@@ -81,7 +87,7 @@ describe('domain/agriculture/types', () => {
   it('makeIdentifierは許可された文字列を受け入れる (PBT)', () =>
     fc.assert(
       fc.property(validIdentifierArbitrary, (value) => {
-        const result = Effect.runSyncEither(makeIdentifier(value))
+        const result = Effect.runSync(Effect.either(makeIdentifier(value)))
         pipe(
           result,
           Either.match({
@@ -97,7 +103,7 @@ describe('domain/agriculture/types', () => {
   it('makeIdentifierは無効な文字列を拒否する (PBT)', () =>
     fc.assert(
       fc.property(invalidIdentifierArbitrary, (value) => {
-        const result = Effect.runSyncEither(makeIdentifier(value))
+        const result = Effect.runSync(Effect.either(makeIdentifier(value)))
         pipe(
           result,
           Either.match({
@@ -118,9 +124,7 @@ describe('domain/agriculture/types', () => {
         (entry, ratio) => {
           const [field, range] = entry
           const value = range.min + (range.max - range.min) * ratio
-          const result = Effect.runSyncEither(
-            makeBoundedNumber({ field, range, value })
-          )
+          const result = Effect.runSync(Effect.either(makeBoundedNumber({ field, range, value })))
           pipe(
             result,
             Either.match({
@@ -219,7 +223,7 @@ describe('domain/agriculture/types', () => {
   )
 
   it('ensurePositiveは0以下を拒否する', () => {
-    const success = Effect.runSyncEither(ensurePositive('value').verify(1))
+    const success = Effect.runSync(Effect.either(ensurePositive('value').verify(1)))
     pipe(
       success,
       Either.match({
@@ -234,7 +238,9 @@ describe('domain/agriculture/types', () => {
 
   it('ensureWithinRangeは範囲外を拒否する', () => {
     const invariant = ensureWithinRange('growth', DomainConstants.growthStage)
-    const success = Effect.runSyncEither(invariant.verify(DomainConstants.growthStage.min))
+    const success = Effect.runSync(
+      Effect.either(invariant.verify(DomainConstants.growthStage.min))
+    )
     pipe(
       success,
       Either.match({

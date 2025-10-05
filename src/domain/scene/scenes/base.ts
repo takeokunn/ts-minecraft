@@ -1,5 +1,5 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Match, Ref, Schema } from 'effect'
+import { Context, Data, Effect, Layer, Match, Ref, Schema } from 'effect'
 import {
   ActiveScene,
   SceneId,
@@ -298,4 +298,23 @@ export const createSceneRuntime = <A extends SceneState, C extends SceneControll
 
     return runtime
   })
+
+export interface SceneFactory<A extends SceneState = SceneState> {
+  readonly create: () => Effect.Effect<SceneRuntime<A>>
+}
+
+export const SceneFactoryTag = Context.GenericTag<SceneFactory<any>>(
+  '@minecraft/domain/scene/scenes/SceneFactory'
+)
+
+export const makeSceneLayer = <A extends SceneState, C extends SceneController<A> = SceneController<A>>(
+  definition: SceneDefinition<A, C>
+): Layer.Layer<SceneFactory<A>> =>
+  Layer.succeed(SceneFactoryTag, SceneFactoryTag.of({ create: () => createSceneRuntime(definition) }))
+
+export const Scene = Effect.gen(function* () {
+  const factory = yield* SceneFactoryTag
+  return yield* factory.create()
+})
+
 export const buildSceneRuntime = createSceneRuntime

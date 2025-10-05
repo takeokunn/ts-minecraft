@@ -44,15 +44,13 @@ const cropInputArbitrary = fc.record({
 })
 
 const makeAggregate = (override?: Partial<fc.TypeOf<typeof cropInputArbitrary>>) =>
-  Effect.runSync(
-    makeCropAggregate({
-      id: override?.id ?? 'crop-1',
-      stage: override?.stage ?? DomainConstants.growthStage.min,
-      moisture: override?.moisture ?? DomainConstants.moistureLevel.min,
-      soil: override?.soil ?? DomainConstants.soilQuality.min,
-      stats: override?.stats ?? { fertility: 0.5, resilience: 0.5, harmony: 0.5 },
-    })
-  )
+  makeCropAggregate({
+    id: override?.id ?? 'crop-1',
+    stage: override?.stage ?? DomainConstants.growthStage.min,
+    moisture: override?.moisture ?? DomainConstants.moistureLevel.min,
+    soil: override?.soil ?? DomainConstants.soilQuality.min,
+    stats: override?.stats ?? { fertility: 0.5, resilience: 0.5, harmony: 0.5 },
+  })
 
 describe('domain/agriculture/aggregates', () => {
   it('makeCropAggregateは有効な入力で成功する (PBT)', () =>
@@ -111,11 +109,13 @@ describe('domain/agriculture/aggregates', () => {
 
   it.effect('hydrate/enrich/advance/breedは状態を更新し更新日時を前進させる', () =>
     Effect.gen(function* () {
-      const aggregate = makeAggregate()
+      const aggregate = yield* makeAggregate()
 
       const hydrated = yield* hydrateCrop({ crop: aggregate, delta: 2 })
       expect(Number(hydrated.moisture)).toBe(DomainConstants.moistureLevel.min + 2)
-      expect(hydrated.updatedAt.isoString).toBeDefined()
+      expect(DateTime.toEpochMillis(hydrated.updatedAt)).toBeGreaterThanOrEqual(
+        DateTime.toEpochMillis(aggregate.updatedAt)
+      )
 
       const fertilized = yield* enrichSoilForCrop({ crop: hydrated, delta: 5 })
       expect(Number(fertilized.soil)).toBe(DomainConstants.soilQuality.min + 5)
@@ -137,7 +137,7 @@ describe('domain/agriculture/aggregates', () => {
 
   it.effect('describeCropとsnapshotCropは要約を正しく生成する', () =>
     Effect.gen(function* () {
-      const aggregate = makeAggregate({
+      const aggregate = yield* makeAggregate({
         stage: 10,
         moisture: 5,
         soil: 80,
@@ -157,7 +157,7 @@ describe('domain/agriculture/aggregates', () => {
   )
 
   it('projectCropTrajectoryは成長の進行状況を分類する', () => {
-    const aggregate = makeAggregate({ stage: 5 })
+    const aggregate = Effect.runSync(makeAggregate({ stage: 5 }))
     const stable = Effect.runSync(projectCropTrajectory({ crop: aggregate, steps: 0 }))
     expect(stable._tag).toBe(CropProjection.Stable({ remainAt: aggregate.updatedAt })._tag)
 
@@ -178,40 +178,49 @@ describe('domain/agriculture/aggregates', () => {
     spy.mockRestore()
   })
 
-  it('describeAggregateSummaryはvalue objectsの記述と一致する', () => {
-    const stage = Effect.runSync(makeGrowthStage(8))
-    const moisture = Effect.runSync(makeMoistureLevel(4))
-    const soil = Effect.runSync(makeSoilQuality(70))
-    const stats = Effect.runSync(makeBreedingStats({ fertility: 0.7, resilience: 0.6, harmony: 0.65 }))
-    const aggregate = makeAggregate({ stage: Number(stage), moisture: Number(moisture), soil: Number(soil), stats })
+  it.effect('describeAggregateSummaryはvalue objectsの記述と一致する', () =>
+    Effect.gen(function* () {
+      const stage = yield* makeGrowthStage(8)
+      const moisture = yield* makeMoistureLevel(4)
+      const soil = yield* makeSoilQuality(70)
+      const stats = yield* makeBreedingStats({ fertility: 0.7, resilience: 0.6, harmony: 0.65 })
+      const aggregate = yield* makeAggregate({
+        stage: Number(stage),
+        moisture: Number(moisture),
+        soil: Number(soil),
+        stats,
+      })
 
-    const summary = describeAggregateSummary(aggregate)
-    expect(summary.stage).toStrictEqual(describeCrop(aggregate).growth)
-  })
+      const summary = describeAggregateSummary(aggregate)
+      expect(summary.stage).toStrictEqual(describeCrop(aggregate).growth)
+    })
+  )
 
-  it('validateCropAggregateは異なるタイムスタンプ形式に対応する', () => {
-    const aggregate = makeAggregate()
-    const validatedAggregate = Effect.runSync(validateCropAggregate(aggregate))
-    expect(DateTime.toEpochMillis(validatedAggregate.plantedAt)).toBe(
-      DateTime.toEpochMillis(aggregate.plantedAt)
-    )
-    const payload = {
-      id: aggregate.id,
-      stage: Number(aggregate.stage),
-      moisture: String(Number(aggregate.moisture)),
-      soil: Number(aggregate.soil),
-      stats: { ...aggregate.stats },
-      plantedAt: Date.now(),
-      updatedAt: new Date(),
-    }
+  it.effect('validateCropAggregateは異なるタイムスタンプ形式に対応する', () =>
+    Effect.gen(function* () {
+      const aggregate = yield* makeAggregate()
+      const validatedAggregate = yield* validateCropAggregate(aggregate)
+      expect(DateTime.toEpochMillis(validatedAggregate.plantedAt)).toBe(
+        DateTime.toEpochMillis(aggregate.plantedAt)
+      )
+      const payload = {
+        id: aggregate.id,
+        stage: Number(aggregate.stage),
+        moisture: String(Number(aggregate.moisture)),
+        soil: Number(aggregate.soil),
+        stats: { ...aggregate.stats },
+        plantedAt: Date.now(),
+        updatedAt: new Date(),
+      }
 
-    const validated = Effect.runSync(validateCropAggregate(payload))
-    expect(validated.id).toBe(aggregate.id)
+      const validated = yield* validateCropAggregate(payload)
+      expect(validated.id).toBe(aggregate.id)
 
-    const withIso = { ...payload, updatedAt: new Date().toISOString() }
-    const validatedIso = Effect.runSync(validateCropAggregate(withIso))
-    expect(validatedIso.updatedAt).toBeDefined()
-  })
+      const withIso = { ...payload, updatedAt: new Date().toISOString() }
+      const validatedIso = yield* validateCropAggregate(withIso)
+      expect(validatedIso.updatedAt).toBeDefined()
+    })
+  )
 
   it('validateCropAggregateEitherは不正な構造を検出する', () => {
     Effect.runSync(

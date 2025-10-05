@@ -3,6 +3,7 @@ import { type ChunkAggregate, ChunkBoundsError, type ChunkData, ChunkDataSchema 
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
 import { type ChunkMetadata, ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
 import type { ChunkPosition } from '../../value_object/chunk_position/types'
+import { CHUNK_MIN_Y } from '../../types/core'
 
 export interface ChunkValidationService {
   readonly validatePosition: (position: ChunkPosition) => Effect.Effect<ChunkPosition, ChunkBoundsError>
@@ -81,8 +82,8 @@ const ensureChunkCoordinate = (
     )
   )
 
-const decodeChunkData = Schema.decodeEffect(ChunkDataSchema)
-const decodeMetadata = Schema.decodeEffect(ChunkMetadataSchema)
+const decodeChunkData = (input: unknown) => Schema.decodeUnknown(ChunkDataSchema)(input)
+const decodeMetadata = (input: unknown) => Schema.decodeUnknown(ChunkMetadataSchema)(input)
 
 export const ChunkValidationServiceLive = Layer.effect(
   ChunkValidationService,

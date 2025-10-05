@@ -61,7 +61,7 @@ const makeStage = (value: number) => Effect.runSync(makeGrowthStage(value))
 const makeMoisture = (value: number) => Effect.runSync(makeMoistureLevel(value))
 const makeSoil = (value: number) => Effect.runSync(makeSoilQuality(value))
 
-const runEither = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSyncEither(effect)
+const runEither = <A, E>(effect: Effect.Effect<A, E>) => Effect.runSync(Effect.either(effect))
 
 const expectFailure = (effect: Effect.Effect<unknown, DomainError>) => {
   const exit = Effect.runSyncExit(effect)

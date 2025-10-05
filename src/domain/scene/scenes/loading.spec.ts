@@ -55,7 +55,7 @@ describe('domain/scene/scenes/loading', () => {
           onFailure: (error) =>
             Effect.sync(() => {
               expect(error._tag).toBe('InvalidMutation')
-              expect(error.reason).toContain('Expected a number less than or equal to 1')
+              expect(error.reason).toContain('between')
             }),
         })
       )

@@ -1,11 +1,29 @@
-import { Clock, Context, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Array as Arr, Clock, Context, Effect, Layer, Match, Number as Num, Option, Order, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import {
+  type BlockCount,
+  type BlockId,
+  type ChunkMetadata,
+  type ChunkMetadataError,
+  type ChunkOptimizationDetails,
+  type ChunkOptimizationRecord,
+  type OptimizationStrategyKind,
+  type Percentage,
+  type Timestamp,
+  createOptimizationDetails,
+  createOptimizationRecord,
+  makeBlockCount,
+  makeBlockId,
+  makePercentage,
+  makeTimestamp,
+  withOptimizationRecord,
+} from '../../value_object/chunk_metadata'
 
 export type OptimizationStrategy =
   | { readonly _tag: 'MemoryOptimization'; readonly aggressive: boolean }
-  | { readonly _tag: 'CompressionOptimization'; readonly algorithm: 'rle' | 'delta' | 'palette' }
+  | { readonly _tag: 'CompressionOptimization'; readonly algorithm: CompressionAlgorithm }
   | { readonly _tag: 'AccessOptimization'; readonly cacheSize: number }
   | { readonly _tag: 'RedundancyElimination'; readonly threshold: number }
 
@@ -14,7 +32,7 @@ export const OptimizationStrategy = {
     _tag: 'MemoryOptimization',
     aggressive,
   }),
-  CompressionOptimization: (algorithm: 'rle' | 'delta' | 'palette'): OptimizationStrategy => ({
+  CompressionOptimization: (algorithm: CompressionAlgorithm): OptimizationStrategy => ({
     _tag: 'CompressionOptimization',
     algorithm,
   }),
@@ -28,22 +46,27 @@ export const OptimizationStrategy = {
   }),
 }
 
+export interface OptimizationMetricFrequency {
+  readonly blockId: BlockId
+  readonly frequency: BlockCount
+}
+
 export interface OptimizationMetrics {
-  readonly memoryUsage: number
-  readonly compressionRatio: number
-  readonly accessPatterns: ReadonlyArray<{ readonly blockId: number; readonly frequency: number }>
-  readonly redundancy: number
-  readonly timestamp: number
-  readonly optimizationPotential: number
+  readonly memoryUsage: BlockCount
+  readonly compressionRatio: Percentage
+  readonly accessPatterns: ReadonlyArray<OptimizationMetricFrequency>
+  readonly redundancy: Percentage
+  readonly timestamp: Timestamp
+  readonly optimizationPotential: Percentage
 }
 
 export interface OptimizationResult {
-  readonly originalSize: number
-  readonly optimizedSize: number
-  readonly compressionRatio: number
+  readonly originalSize: BlockCount
+  readonly optimizedSize: BlockCount
+  readonly compressionRatio: Percentage
   readonly strategy: OptimizationStrategy
   readonly timeSpent: number
-  readonly qualityLoss: number
+  readonly qualityLoss: Percentage
   readonly chunk: ChunkData
 }
 
@@ -51,18 +74,16 @@ export interface ChunkOptimizationService {
   readonly optimizeMemory: (chunk: ChunkData) => Effect.Effect<ChunkData, ChunkDataValidationError>
   readonly optimizeCompression: (
     chunk: ChunkData,
-    algorithm?: 'rle' | 'delta' | 'palette'
+    algorithm?: CompressionAlgorithm
   ) => Effect.Effect<ChunkData, ChunkDataValidationError>
   readonly optimizeAccess: (
     chunk: ChunkData,
-    accessPatterns?: ReadonlyArray<{
-      readonly x: number
-      readonly y: number
-      readonly z: number
-      readonly frequency: number
-    }>
+    accessPatterns?: ReadonlyArray<AccessPattern>,
+    cacheSize?: number
   ) => Effect.Effect<ChunkData, ChunkDataValidationError>
-  readonly analyzeEfficiency: (chunk: ChunkData) => Effect.Effect<OptimizationMetrics, ChunkDataValidationError>
+  readonly analyzeEfficiency: (
+    chunk: ChunkData
+  ) => Effect.Effect<OptimizationMetrics, ChunkDataValidationError>
   readonly suggestOptimizations: (
     metrics: OptimizationMetrics
   ) => Effect.Effect<ReadonlyArray<OptimizationStrategy>, ChunkDataValidationError>
@@ -79,177 +100,375 @@ export interface ChunkOptimizationService {
 
 export const ChunkOptimizationService = Context.GenericTag<ChunkOptimizationService>('ChunkOptimizationService')
 
-const DEFAULT_REDUNDANCY_THRESHOLD = 0.8
+type CompressionAlgorithm = 'rle' | 'delta' | 'palette'
 
-const blocksPerLayer = CHUNK_SIZE * CHUNK_SIZE
-
-const toFrequencyMap = (blocks: Uint16Array): Map<number, number> =>
-  Array.from(blocks).reduce((acc, blockId) => {
-    acc.set(blockId, (acc.get(blockId) ?? 0) + 1)
-    return acc
-  }, new Map<number, number>())
-
-const sortedByFrequency = (frequencyMap: Map<number, number>): ReadonlyArray<[number, number]> =>
-  Array.from(frequencyMap.entries()).sort(([, a], [, b]) => b - a)
-
-const computeOptimizationMetadata = (chunk: ChunkData, optimizedBlocks: ReadonlyArray<number>) => ({
-  ...chunk,
-  blocks: Uint16Array.from(optimizedBlocks),
-  metadata: {
-    ...chunk.metadata,
-    isModified: true,
-  },
-  isDirty: true,
-})
-
-const memoryOptimization = (chunk: ChunkData): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const frequencyMap = toFrequencyMap(chunk.blocks)
-    const ordered = sortedByFrequency(frequencyMap)
-    const keepThreshold = Math.floor(ordered.length * 0.9)
-    const rankMap = new Map(ordered.map(([blockId], index) => [blockId, index]))
-    const replacementId = ordered.at(0)?.[0] ?? 0
-
-    const optimized = Array.from(chunk.blocks).map((blockId) => {
-      const frequency = frequencyMap.get(blockId) ?? 0
-      const rank = rankMap.get(blockId) ?? 0
-      const shouldReplace = rank >= keepThreshold && frequency < 10
-      return pipe(
-        shouldReplace,
-        Match.value,
-        Match.when(true, () => replacementId),
-        Match.orElse(() => blockId)
-      )
-    })
-
-    return computeOptimizationMetadata(chunk, optimized)
-  })
-
-const runLengthEncode = (blockArray: ReadonlyArray<number>): ReadonlyArray<number> => {
-  const initialState = {
-    encoded: [] as ReadonlyArray<{ readonly blockId: number; readonly count: number }>,
-    last: Option.none<{ readonly blockId: number; readonly count: number }>(),
-  }
-
-  const state = blockArray.reduce(
-    (current, blockId) =>
-      pipe(
-        current.last,
-        Option.flatMap((lastEntry) =>
-          pipe(
-            lastEntry.blockId === blockId && lastEntry.count < 65535,
-            Match.value,
-            Match.when(true, () =>
-              Option.some<{ readonly blockId: number; readonly count: number }>({
-                blockId,
-                count: lastEntry.count + 1,
-              })
-            ),
-            Match.orElse(() => Option.none<{ readonly blockId: number; readonly count: number }>())
-          )
-        ),
-        Option.match({
-          onSome: (updated) => ({
-            encoded: [...current.encoded.slice(0, -1), updated],
-            last: Option.some(updated),
-          }),
-          onNone: () => ({
-            encoded: [...current.encoded, { blockId, count: 1 }],
-            last: Option.some({ blockId, count: 1 }),
-          }),
-        })
-      ),
-    initialState
-  )
-
-  return state.encoded.flatMap(({ blockId, count }) => [blockId, count])
+type AccessPattern = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  readonly frequency: number
 }
 
-const applyRunLengthEncoding = (chunk: ChunkData): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const blockArray = Array.from(chunk.blocks)
-    const encoded = runLengthEncode(blockArray)
+const DEFAULT_REDUNDANCY_THRESHOLD = 0.8
+const MAX_RUN_LENGTH = 65535
+const blocksPerLayer = CHUNK_SIZE * CHUNK_SIZE
 
-    return pipe(
-      encoded.length < blockArray.length,
-      Match.value,
-      Match.when(true, () =>
-        computeOptimizationMetadata(chunk, encoded, {
-          compression: {
-            algorithm: 'rle',
-            originalLength: blockArray.length,
-            compressedLength: encoded.length,
-          },
+const frequencyOrder = pipe(
+  Num.Order,
+  Order.mapInput((entry: readonly [number, number]) => entry[1]),
+  Order.reverse
+)
+
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value))
+
+const toValidationError = (error: ChunkMetadataError): ChunkDataValidationError =>
+  ChunkDataValidationError({
+    message: error.message,
+    field: error.issues.at(0)?.field,
+    value: error.issues,
+  })
+
+const toBlockArray = (blocks: Uint16Array): ReadonlyArray<number> => Array.from(blocks)
+
+const toFrequencyMap = (blocks: ReadonlyArray<number>): Map<number, number> =>
+  blocks.reduce<Map<number, number>>((map, blockId) => {
+    map.set(blockId, (map.get(blockId) ?? 0) + 1)
+    return map
+  }, new Map<number, number>())
+
+const sortByFrequency = (frequencyMap: Map<number, number>): ReadonlyArray<readonly [number, number]> =>
+  Arr.sort(Array.from(frequencyMap.entries()), frequencyOrder)
+
+const toRankMap = (entries: ReadonlyArray<readonly [number, number]>): Map<number, number> =>
+  Array.from(entries.entries()).reduce<Map<number, number>>((map, [index, [blockId]]) => {
+    map.set(blockId, index)
+    return map
+  }, new Map<number, number>())
+
+const calculateRedundancy = (frequencyMap: Map<number, number>, totalBlocks: number): number =>
+  pipe(
+    totalBlocks,
+    (count) => count === 0,
+    Match.value,
+    Match.when(true, () => 0),
+    Match.orElse(() => 1 - frequencyMap.size / totalBlocks)
+  )
+
+const runLengthEncode = (blocks: ReadonlyArray<number>): ReadonlyArray<number> =>
+  blocks
+    .reduce<Array<{ readonly blockId: number; readonly count: number }>>((state, blockId) =>
+      pipe(
+        state.at(-1),
+        Option.fromNullable,
+        Option.match({
+          onNone: () => [...state, { blockId, count: 1 }],
+          onSome: (last) =>
+            pipe(
+              last.blockId === blockId && last.count < MAX_RUN_LENGTH,
+              Match.value,
+              Match.when(true, () => [
+                ...state.slice(0, Math.max(0, state.length - 1)),
+                { blockId, count: last.count + 1 },
+              ]),
+              Match.orElse(() => [...state, { blockId, count: 1 }])
+            ),
         })
       ),
-      Match.orElse(() => chunk)
-    )
-  })
-
-const applyDeltaCompression = (chunk: ChunkData): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const blockArray = Array.from(chunk.blocks)
-    const deltas = blockArray.reduce<ReadonlyArray<number>>(
-      (acc, blockId, index) => (index === 0 ? [...acc, blockId] : [...acc, blockId - blockArray[index - 1]!]),
       []
     )
+    .flatMap(({ blockId, count }) => [blockId, count])
 
-    return computeOptimizationMetadata(chunk, deltas)
+const deltaEncode = (blocks: ReadonlyArray<number>): ReadonlyArray<number> =>
+  blocks
+    .reduce<{
+      readonly encoded: ReadonlyArray<number>
+      readonly previous: Option.Option<number>
+    }>(
+      (state, blockId) =>
+        pipe(
+          state.previous,
+          Option.match({
+            onNone: () => ({ encoded: [...state.encoded, blockId], previous: Option.some(blockId) }),
+            onSome: (prev) => ({ encoded: [...state.encoded, blockId - prev], previous: Option.some(blockId) }),
+          })
+        ),
+      { encoded: [], previous: Option.none<number>() }
+    ).encoded
+
+const paletteEncode = (blocks: ReadonlyArray<number>): ReadonlyArray<number> => {
+  const palette = Array.from(new Set(blocks))
+  const paletteIndex = new Map(palette.map((blockId, index) => [blockId, index]))
+  return blocks.map((blockId) => paletteIndex.get(blockId) ?? 0)
+}
+
+const finalizeOptimization = (
+  chunk: ChunkData,
+  strategy: OptimizationStrategyKind,
+  optimizedBlocks: ReadonlyArray<number>,
+  detailsInput?: Parameters<typeof createOptimizationDetails>[0]
+): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const timestampValue = yield* Clock.currentTimeMillis
+    const timestamp = yield* makeTimestamp(timestampValue)
+
+    const details = yield* pipe(
+      Option.fromNullable(detailsInput),
+      Option.match({
+        onNone: () => Effect.succeed<ChunkOptimizationDetails | undefined>(undefined),
+        onSome: (input) => createOptimizationDetails(input),
+      })
+    )
+
+    const record = yield* createOptimizationRecord(strategy, timestamp, details)
+    const metadata = yield* withOptimizationRecord(chunk.metadata, record)
+
+    return {
+      ...chunk,
+      blocks: Uint16Array.from(optimizedBlocks),
+      metadata,
+      isDirty: true,
+    }
+  }).pipe(Effect.mapError(toValidationError))
+
+const memoryOptimization = (chunk: ChunkData): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const originalBlocks = toBlockArray(chunk.blocks)
+    const frequencyMap = toFrequencyMap(originalBlocks)
+    const ordered = sortByFrequency(frequencyMap)
+    const rankMap = toRankMap(ordered)
+    const keepThreshold = Math.floor(ordered.length * 0.9)
+    const replacement = ordered.at(0)?.[0] ?? 0
+
+    const optimizedBlocks = pipe(
+      originalBlocks,
+      Arr.map((blockId) =>
+        pipe(
+          Option.fromNullable(rankMap.get(blockId)),
+          Option.match({
+            onNone: () => blockId,
+            onSome: (rank) =>
+              pipe(
+                frequencyMap.get(blockId) ?? 0,
+                (frequency) => rank >= keepThreshold && frequency < 10,
+                Match.value,
+                Match.when(true, () => replacement),
+                Match.orElse(() => blockId)
+              ),
+          })
+        )
+      )
+    )
+
+    return yield* finalizeOptimization(chunk, 'memory', optimizedBlocks, {
+      originalBlockCount: chunk.blocks.length,
+      optimizedBlockCount: optimizedBlocks.length,
+      compressionRatio: optimizedBlocks.length / Math.max(1, chunk.blocks.length),
+    })
   })
 
-const applyPaletteCompression = (chunk: ChunkData): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const blockArray = Array.from(chunk.blocks)
-    const palette = Array.from(new Set(blockArray))
-    const paletteIndex = new Map(palette.map((blockId, index) => [blockId, index]))
-    const paletteEncoded = blockArray.map((blockId) => paletteIndex.get(blockId) ?? 0)
+const compressionOptimization = (
+  chunk: ChunkData,
+  algorithm: CompressionAlgorithm
+): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const originalBlocks = toBlockArray(chunk.blocks)
+    const optimizedBlocks = Match.value(algorithm).pipe(
+      Match.when('rle', () => runLengthEncode(originalBlocks)),
+      Match.when('delta', () => deltaEncode(originalBlocks)),
+      Match.when('palette', () => paletteEncode(originalBlocks)),
+      Match.exhaustive
+    )
 
-    return computeOptimizationMetadata(chunk, paletteEncoded)
+    const paletteSize = Match.value(algorithm).pipe(
+      Match.when('palette', () => new Set(originalBlocks).size),
+      Match.orElse(() => undefined)
+    )
+
+    return yield* finalizeOptimization(chunk, 'compression', optimizedBlocks, {
+      algorithm,
+      originalBlockCount: chunk.blocks.length,
+      optimizedBlockCount: optimizedBlocks.length,
+      compressionRatio: optimizedBlocks.length / Math.max(1, chunk.blocks.length),
+      paletteSize,
+    })
   })
 
 const accessOptimization = (
   chunk: ChunkData,
-  accessPatterns: ReadonlyArray<{
-    readonly x: number
-    readonly y: number
-    readonly z: number
-    readonly frequency: number
-  }>,
+  accessPatterns: ReadonlyArray<AccessPattern>,
   cacheSize?: number
-): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const frequencyMap = accessPatterns.reduce((acc, pattern) => {
+): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const frequencyMap = accessPatterns.reduce<Map<number, number>>((map, pattern) => {
       const index = pattern.y * blocksPerLayer + pattern.z * CHUNK_SIZE + pattern.x
-      if (index >= 0 && index < chunk.blocks.length) {
-        acc.set(index, pattern.frequency)
-      }
-      return acc
+      return pipe(
+        index,
+        Option.fromPredicate((value) => value >= 0 && value < chunk.blocks.length),
+        Option.match({
+          onNone: () => map,
+          onSome: (validIndex) => {
+            map.set(validIndex, (map.get(validIndex) ?? 0) + pattern.frequency)
+            return map
+          },
+        })
+      )
     }, new Map<number, number>())
 
-    const sortedIndices = Array.from({ length: chunk.blocks.length }, (_, index) => index).sort(
-      (a, b) => (frequencyMap.get(b) ?? 0) - (frequencyMap.get(a) ?? 0)
+    const accessOrder = pipe(
+      Num.Order,
+      Order.mapInput((index: number) => frequencyMap.get(index) ?? 0),
+      Order.reverse
     )
 
-    const optimized = sortedIndices.map((originIndex) => chunk.blocks[originIndex]!)
+    const sortedIndices = Arr.sort(
+      Array.from({ length: chunk.blocks.length }, (_, index) => index),
+      accessOrder
+    )
 
-    return computeOptimizationMetadata(chunk, optimized)
+    const optimizedBlocks = sortedIndices.map((originIndex) => chunk.blocks[originIndex] ?? 0)
+
+    const size = cacheSize ?? accessPatterns.length
+
+    return yield* finalizeOptimization(chunk, 'access', optimizedBlocks, {
+      cacheSize: size,
+      originalBlockCount: chunk.blocks.length,
+      optimizedBlockCount: optimizedBlocks.length,
+    })
   })
 
-const analyzeEfficiency = (chunk: ChunkData): Effect.Effect<OptimizationMetrics> =>
+const eliminateRedundancyInternal = (
+  chunk: ChunkData,
+  threshold: number
+): Effect.Effect<ChunkData, ChunkDataValidationError> =>
   Effect.gen(function* () {
-    const blockArray = Array.from(chunk.blocks)
-    const frequencyMap = toFrequencyMap(chunk.blocks)
-    const memoryUsage = chunk.blocks.byteLength + JSON.stringify(chunk.metadata).length
-    const maxFrequency = frequencyMap.size > 0 ? Math.max(...frequencyMap.values()) : 0
-    const compressionRatio = blockArray.length === 0 ? 0 : maxFrequency / blockArray.length
-    const redundancy = blockArray.length === 0 ? 0 : 1 - frequencyMap.size / blockArray.length
-    const accessPatterns = Array.from(frequencyMap.entries())
-      .map(([blockId, frequency]) => ({ blockId, frequency }))
-      .sort((a, b) => b.frequency - a.frequency)
-    const timestamp = yield* Clock.currentTimeMillis
-    const optimizationPotential = Math.min(
-      redundancy * 0.4 + (compressionRatio > 0.5 ? 0.3 : 0) + (frequencyMap.size < CHUNK_VOLUME * 0.1 ? 0.3 : 0),
-      1
+    const normalized = clamp01(threshold)
+    const originalBlocks = toBlockArray(chunk.blocks)
+    const frequencyMap = toFrequencyMap(originalBlocks)
+    const totalBlocks = originalBlocks.length
+
+    const dominantBlocks = pipe(
+      frequencyMap,
+      sortByFrequency,
+      Arr.filter(([, frequency]) => frequency / Math.max(1, totalBlocks) >= normalized)
+    )
+
+    const fallback = dominantBlocks.at(0)?.[0] ?? 0
+
+    const optimizedBlocks = pipe(
+      originalBlocks,
+      Arr.map((blockId) =>
+        pipe(
+          frequencyMap.get(blockId) ?? 0,
+          (frequency) => frequency / Math.max(1, totalBlocks) >= normalized,
+          Match.value,
+          Match.when(true, () => fallback),
+          Match.orElse(() => blockId)
+        )
+      )
+    )
+
+    const optimizedFrequency = toFrequencyMap(optimizedBlocks)
+
+    return yield* finalizeOptimization(chunk, 'redundancy', optimizedBlocks, {
+      originalBlockCount: chunk.blocks.length,
+      optimizedBlockCount: optimizedBlocks.length,
+      redundancyBefore: calculateRedundancy(frequencyMap, totalBlocks),
+      redundancyAfter: calculateRedundancy(optimizedFrequency, optimizedBlocks.length),
+      threshold: normalized,
+    })
+  })
+
+const defragmentInternal = (chunk: ChunkData): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const originalBlocks = toBlockArray(chunk.blocks)
+    const palette = Array.from(new Set(originalBlocks)).sort((a, b) => a - b)
+    const mapping = new Map(palette.map((blockId, index) => [blockId, index]))
+
+    const remapped = originalBlocks.map((blockId) => mapping.get(blockId) ?? 0)
+
+    return yield* finalizeOptimization(chunk, 'defragmentation', remapped, {
+      originalBlockCount: chunk.blocks.length,
+      optimizedBlockCount: remapped.length,
+      mappingSize: palette.length,
+    })
+  })
+
+const computeOptimizationResult = (
+  chunk: ChunkData,
+  strategy: OptimizationStrategy,
+  optimized: ChunkData,
+  timeSpent: number
+): Effect.Effect<OptimizationResult, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const originalSize = yield* makeBlockCount(chunk.blocks.byteLength)
+    const optimizedSize = yield* makeBlockCount(optimized.blocks.byteLength)
+    const compressionRatio = yield* makePercentage(
+      clamp01(optimizedSize / Math.max(1, originalSize))
+    )
+
+    const originalUnique = new Set(chunk.blocks).size
+    const optimizedUnique = new Set(optimized.blocks).size
+    const qualityLoss = yield* makePercentage(
+      clamp01(
+        pipe(
+          originalUnique,
+          Match.value,
+          Match.when(0, () => 0),
+          Match.orElse(() =>
+            (originalUnique - optimizedUnique) / Math.max(1, originalUnique)
+          )
+        )
+      )
+    )
+
+    return {
+      originalSize,
+      optimizedSize,
+      compressionRatio,
+      strategy,
+      timeSpent,
+      qualityLoss,
+      chunk: optimized,
+    }
+  }).pipe(Effect.mapError(toValidationError))
+
+const analyzeEfficiencyInternal = (
+  chunk: ChunkData
+): Effect.Effect<OptimizationMetrics, ChunkDataValidationError> =>
+  Effect.gen(function* () {
+    const blockArray = toBlockArray(chunk.blocks)
+    const frequencyMap = toFrequencyMap(blockArray)
+    const memoryUsage = yield* makeBlockCount(
+      chunk.blocks.byteLength + JSON.stringify(chunk.metadata).length
+    )
+
+    const maxFrequency = Array.from(frequencyMap.values()).reduce((acc, value) => Math.max(acc, value), 0)
+
+    const compressionRatio = yield* makePercentage(
+      blockArray.length === 0 ? 0 : clamp01(maxFrequency / blockArray.length)
+    )
+
+    const redundancy = yield* makePercentage(
+      calculateRedundancy(frequencyMap, blockArray.length)
+    )
+
+    const accessPatterns = yield* Effect.forEach(sortByFrequency(frequencyMap), ([blockId, frequency]) =>
+      Effect.gen(function* () {
+        const id = yield* makeBlockId(blockId)
+        const freq = yield* makeBlockCount(frequency)
+        return { blockId: id, frequency: freq }
+      }).pipe(Effect.mapError(toValidationError))
+    )
+
+    const timestampValue = yield* Clock.currentTimeMillis
+    const timestamp = yield* makeTimestamp(timestampValue)
+
+    const optimizationPotential = yield* makePercentage(
+      clamp01(
+        Number(redundancy) * 0.4 +
+          (Number(compressionRatio) > 0.5 ? 0.3 : 0) +
+          (frequencyMap.size < CHUNK_VOLUME * 0.1 ? 0.3 : 0)
+      )
     )
 
     return {
@@ -262,83 +481,47 @@ const analyzeEfficiency = (chunk: ChunkData): Effect.Effect<OptimizationMetrics>
     }
   })
 
-const suggestOptimizations = (metrics: OptimizationMetrics): Effect.Effect<ReadonlyArray<OptimizationStrategy>> =>
-  Effect.sync(() => {
-    const redundancySuggestions = pipe(
-      metrics.redundancy > 0.7,
-      Match.value,
-      Match.when(true, () => [
-        OptimizationStrategy.MemoryOptimization(true),
-        OptimizationStrategy.RedundancyElimination(0.8),
-      ]),
-      Match.orElse((): ReadonlyArray<OptimizationStrategy> => [])
-    )
+const suggestOptimizationsInternal = (
+  metrics: OptimizationMetrics
+): ReadonlyArray<OptimizationStrategy> => {
+  const suggestions: Array<OptimizationStrategy> = []
 
-    const compressionSuggestions = pipe(
-      metrics.compressionRatio > 0.6,
-      Match.value,
-      Match.when(true, () => [OptimizationStrategy.CompressionOptimization('rle')]),
-      Match.orElse((): ReadonlyArray<OptimizationStrategy> => [])
-    )
-
-    const accessSuggestions = pipe(
-      metrics.accessPatterns.at(0)?.frequency ?? 0,
-      (topFrequency) => topFrequency > CHUNK_VOLUME * 0.3,
-      Match.value,
-      Match.when(true, () => [OptimizationStrategy.AccessOptimization(64)]),
-      Match.orElse((): ReadonlyArray<OptimizationStrategy> => [])
-    )
-
-    const memorySuggestions = pipe(
-      metrics.memoryUsage > CHUNK_VOLUME * 2.5,
-      Match.value,
-      Match.when(true, () => [OptimizationStrategy.MemoryOptimization(false)]),
-      Match.orElse((): ReadonlyArray<OptimizationStrategy> => [])
-    )
-
-    return [...redundancySuggestions, ...compressionSuggestions, ...accessSuggestions, ...memorySuggestions]
-  })
-
-const eliminateRedundancy = (chunk: ChunkData, threshold: number): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const frequencyMap = toFrequencyMap(chunk.blocks)
-    const totalBlocks = chunk.blocks.length
-
-    const dominantBlocks = Array.from(frequencyMap.entries())
-      .filter(([, frequency]) => frequency / totalBlocks >= threshold)
-      .map(([blockId]) => blockId)
-
-    const fallback = dominantBlocks.at(0) ?? 0
-
-    const optimized = Array.from(chunk.blocks).map((blockId) =>
-      pipe(
-        frequencyMap.get(blockId) ?? 0,
-        (frequency) => frequency / totalBlocks >= threshold,
-        Match.value,
-        Match.when(true, () => fallback),
-        Match.orElse(() => blockId)
-      )
-    )
-
-    return computeOptimizationMetadata(chunk, optimized)
-  })
-
-const defragment = (chunk: ChunkData): Effect.Effect<ChunkData> =>
-  Effect.sync(() => {
-    const palette = Array.from(new Set(chunk.blocks)).sort((a, b) => a - b)
-    const mapping = new Map(palette.map((blockId, index) => [blockId, index]))
-    const remapped = Array.from(chunk.blocks).map((blockId) => mapping.get(blockId) ?? 0)
-
-    return computeOptimizationMetadata(chunk, remapped)
-  })
-
-const compressionOptimization = (chunk: ChunkData, algorithm: 'rle' | 'delta' | 'palette'): Effect.Effect<ChunkData> =>
-  Match.value(algorithm).pipe(
-    Match.when('rle', () => applyRunLengthEncoding(chunk)),
-    Match.when('delta', () => applyDeltaCompression(chunk)),
-    Match.when('palette', () => applyPaletteCompression(chunk)),
-    Match.exhaustive
+  pipe(
+    Number(metrics.redundancy) > 0.7,
+    Match.value,
+    Match.when(true, () => {
+      suggestions.push(OptimizationStrategy.MemoryOptimization(true))
+      suggestions.push(OptimizationStrategy.RedundancyElimination(0.8))
+    })
   )
+
+  pipe(
+    Number(metrics.compressionRatio) > 0.6,
+    Match.value,
+    Match.when(true, () => {
+      suggestions.push(OptimizationStrategy.CompressionOptimization('rle'))
+    })
+  )
+
+  pipe(
+    metrics.accessPatterns.at(0)?.frequency,
+    Option.fromNullable,
+    Option.map((frequency) => Number(frequency) > CHUNK_VOLUME * 0.3),
+    Option.filter((flag) => flag),
+    Option.match({
+      onSome: () => suggestions.push(OptimizationStrategy.AccessOptimization(64)),
+      onNone: () => undefined,
+    })
+  )
+
+  pipe(
+    Number(metrics.memoryUsage) > CHUNK_VOLUME * 2.5,
+    Match.value,
+    Match.when(true, () => suggestions.push(OptimizationStrategy.MemoryOptimization(false)))
+  )
+
+  return suggestions
+}
 
 export const ChunkOptimizationServiceLive = Layer.effect(
   ChunkOptimizationService,
@@ -348,48 +531,40 @@ export const ChunkOptimizationServiceLive = Layer.effect(
 
       optimizeCompression: (chunk, algorithm = 'rle') => compressionOptimization(chunk, algorithm),
 
-      optimizeAccess: (chunk, patterns = []) => accessOptimization(chunk, patterns, patterns.length),
+      optimizeAccess: (chunk, patterns = [], cacheSize) =>
+        accessOptimization(chunk, patterns, cacheSize ?? patterns.length),
 
-      analyzeEfficiency: (chunk) => analyzeEfficiency(chunk),
+      analyzeEfficiency: (chunk) => analyzeEfficiencyInternal(chunk),
 
-      suggestOptimizations: (metrics) => suggestOptimizations(metrics),
+      suggestOptimizations: (metrics) => Effect.succeed(suggestOptimizationsInternal(metrics)),
 
       applyOptimization: (chunk, strategy) =>
         Effect.gen(function* () {
-          const startTime = yield* Clock.currentTimeMillis
+          const start = yield* Clock.currentTimeMillis
 
-          const optimizedChunk = yield* Match.value(strategy).pipe(
+          const optimized = yield* Match.value(strategy).pipe(
             Match.when({ _tag: 'MemoryOptimization' }, () => memoryOptimization(chunk)),
             Match.when({ _tag: 'CompressionOptimization' }, ({ algorithm }) =>
               compressionOptimization(chunk, algorithm)
             ),
-            Match.when({ _tag: 'AccessOptimization' }, ({ cacheSize }) => accessOptimization(chunk, [], cacheSize)),
-            Match.when({ _tag: 'RedundancyElimination' }, ({ threshold }) => eliminateRedundancy(chunk, threshold)),
+            Match.when({ _tag: 'AccessOptimization' }, ({ cacheSize }) =>
+              accessOptimization(chunk, [], cacheSize)
+            ),
+            Match.when({ _tag: 'RedundancyElimination' }, ({ threshold }) =>
+              eliminateRedundancyInternal(chunk, threshold)
+            ),
             Match.exhaustive
           )
 
-          const optimizedSize = optimizedChunk.blocks.byteLength
-          const originalSize = chunk.blocks.byteLength
-          const qualityLoss = Math.max(
-            0,
-            (new Set(chunk.blocks).size - new Set(optimizedChunk.blocks).size) / Math.max(1, new Set(chunk.blocks).size)
-          )
-          const endTime = yield* Clock.currentTimeMillis
+          const end = yield* Clock.currentTimeMillis
 
-          return {
-            originalSize,
-            optimizedSize,
-            compressionRatio: optimizedSize / Math.max(1, originalSize),
-            strategy,
-            timeSpent: endTime - startTime,
-            qualityLoss,
-            chunk: optimizedChunk,
-          }
+          return yield* computeOptimizationResult(chunk, strategy, optimized, end - start)
         }),
 
-      eliminateRedundancy: (chunk, threshold = DEFAULT_REDUNDANCY_THRESHOLD) => eliminateRedundancy(chunk, threshold),
+      eliminateRedundancy: (chunk, threshold = DEFAULT_REDUNDANCY_THRESHOLD) =>
+        eliminateRedundancyInternal(chunk, threshold),
 
-      defragment: (chunk) => defragment(chunk),
+      defragment: (chunk) => defragmentInternal(chunk),
     }
 
     return service

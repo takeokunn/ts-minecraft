@@ -12,7 +12,7 @@ export {
   SlotState,
   SlotStateSchema,
   StackSizeSchemas,
-  addItem,
+  addItem as addItemToSlot,
   canAcceptItem,
   clearSlot,
   createSlot,

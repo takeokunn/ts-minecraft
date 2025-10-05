@@ -78,7 +78,7 @@ const detect = (params: {
       { axis: 'z', velocity: params.velocity.z },
     ] satisfies ReadonlyArray<{ readonly axis: keyof CollidedAxes; readonly velocity: number }>
 
-    const collidedAxes = pipe(axisEntries, (axes) =>
+    let collidedAxes = pipe(axisEntries, (axes) =>
       axes.reduce<CollidedAxes>(
         (state, entry) =>
           pipe(
@@ -106,6 +106,10 @@ const detect = (params: {
         { x: false, y: false, z: false }
       )
     )
+
+    if (collisionCount > 0 && !collidedAxes.x && !collidedAxes.y && !collidedAxes.z) {
+      collidedAxes = { x: true, y: true, z: true }
+    }
 
     const resolvedPosition = pipe(
       collisionCount,
